@@ -982,6 +982,12 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
 
+typedef struct {
+    Eterm *ptr;
+    Uint   sz;
+} copy_literals_t;
+
+extern copy_literals_t erts_clrange;
 
 /* beam_load.c */
 typedef struct {
@@ -1063,6 +1069,8 @@ typedef struct {
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
     Uint literal_size;
+    Eterm *range_ptr;
+    Uint  range_sz;
 } erts_shcopy_t;
 
 #define INITIALIZE_SHCOPY(info)                         \
@@ -1071,6 +1079,8 @@ do {                                                    \
     info.bitstore_start = info.bitstore_default;        \
     info.shtable_start = info.shtable_default;          \
     info.literal_size = 0;                              \
+    info.range_ptr = erts_clrange.ptr;                  \
+    info.range_sz  = erts_clrange.sz;                   \
 } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \

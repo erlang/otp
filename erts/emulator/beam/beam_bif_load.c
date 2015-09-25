@@ -1013,11 +1013,6 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 static void copy_literals_commit(void*);
 #endif
 
-typedef struct {
-    Eterm *ptr;
-    Uint   sz;
-} copy_literals_t;
-
 copy_literals_t erts_clrange = {NULL, 0};
 
 /* copy literals

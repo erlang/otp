@@ -1428,16 +1428,18 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 do_purge(Mod0) ->
     Mod = to_atom(Mod0),
     case erlang:check_old_code(Mod) of
-	false ->
-	    false;
-	true ->
-	    Res = check_proc_code(erlang:processes(), Mod, true),
-	    try
-		erlang:purge_module(Mod)
-	    catch
-		_:_ -> ignore
-	    end,
-	    Res
+        false ->
+            false;
+        true ->
+            true = erlang:copy_literals(Mod, true),
+            Res = check_proc_code(erlang:processes(), Mod, true),
+            true = erlang:copy_literals(Mod, false),
+            try
+                erlang:purge_module(Mod)
+            catch
+                _:_ -> ignore
+            end,
+            Res
     end.
 
 %% do_soft_purge(Module)
@@ -1451,10 +1453,13 @@ do_soft_purge(Mod0) ->
 	false ->
 	    true;
 	true ->
+            true = erlang:copy_literals(Mod, true),
 	    case check_proc_code(erlang:processes(), Mod, false) of
 		false ->
+                    true = erlang:copy_literals(Mod, false),
 		    false;
 		true ->
+                    true = erlang:copy_literals(Mod, false),
 		    try
 			erlang:purge_module(Mod)
 		    catch

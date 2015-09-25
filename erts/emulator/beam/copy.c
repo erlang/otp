@@ -276,41 +276,27 @@ do {									\
 #define BOXED_SHARED_UNPROCESSED ((Eterm) 2)
 #define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
 
+#define COUNT_OFF_HEAP (0)
 
-/*
- *  Is an object in the local heap of a process?
- */
-
-#define INHEAP_SIMPLE(p, ptr) (					\
-    (OLD_HEAP(p) && OLD_HEAP(p) <= ptr && ptr < OLD_HEND(p)) ||	\
-    (HEAP_START(p) <= ptr && ptr < HEAP_END(p))			\
-  )
-#define INHEAP(p, ptr) (					\
-    INHEAP_SIMPLE(p, ptr) ||					\
-    (force_local ? (force_local = 0, 1) : 0)			\
-  )
-#define COUNT_OFF_HEAP 0
-
-
+#define IN_LITERAL_PURGE_AREA(info, ptr)                 \
+    ((info)->range_ptr && (                              \
+        (info)->range_ptr <= (ptr) &&                    \
+        (ptr) < ((info)->range_ptr + (info)->range_sz)))
 /*
  *  Return the real size of an object and find sharing information
  *  This currently returns the same as erts_debug:size/1.
  *  It is argued whether the size of subterms in constant pools
  *  should be counted or not.
  */
+
 Uint size_shared(Eterm obj)
 {
     Eterm saved_obj = obj;
     Uint sum = 0;
     Eterm* ptr;
-    Process* myself;
 
     DECLARE_EQUEUE(s);
     DECLARE_BITSTORE(b);
-
-    myself = erts_get_current_process();
-    if (myself == NULL)
-	return size_object(obj);
 
     for (;;) {
 	switch (primary_tag(obj)) {
@@ -318,7 +304,7 @@ Uint size_shared(Eterm obj)
 	    Eterm head, tail;
 	    ptr = list_val(obj);
 	    /* we're not counting anything that's outside our heap */
-	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
+	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto pop_next;
 	    }
 	    head = CAR(ptr);
@@ -355,7 +341,7 @@ Uint size_shared(Eterm obj)
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
 	    /* we're not counting anything that's outside our heap */
-	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
+	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto pop_next;
 	    }
 	    hdr = *ptr;
@@ -482,7 +468,7 @@ cleanup:
 	case TAG_PRIMARY_LIST: {
 	    Eterm head, tail;
 	    ptr = list_val(obj);
-	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
+	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto cleanup_next;
 	    }
 	    head = CAR(ptr);
@@ -512,7 +498,7 @@ cleanup:
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
-	    if (!COUNT_OFF_HEAP && !INHEAP_SIMPLE(myself, ptr)) {
+	    if (!COUNT_OFF_HEAP && erts_is_literal(obj,ptr)) {
 		goto cleanup_next;
 	    }
 	    hdr = *ptr;
@@ -1052,8 +1038,9 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
     Uint e;
     unsigned sz;
     Eterm* ptr;
-    Process* myself;
-    int force_local = flags & ERTS_SHCOPY_FLG_TMPBUF;
+#ifdef DEBUG
+    Eterm mypid = erts_get_current_pid();
+#endif
 
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
@@ -1073,12 +1060,11 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
     flags |= disable_copy_shared;
 #endif
 
-    myself = erts_get_current_process();
-    if (myself == NULL || (flags & ERTS_SHCOPY_FLG_NONE))
+    if (flags & ERTS_SHCOPY_FLG_NONE)
 	return size_object(obj);
 
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_calculate %p\n", myself->common.id, obj));
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] message is %T\n", myself->common.id, obj));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_calculate %p\n", mypid, obj));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] message is %T\n", mypid, obj));
 
     /* step #1:
        -------------------------------------------------------
@@ -1102,9 +1088,10 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    Eterm head, tail;
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
-	    if (!INHEAP(myself, ptr)) {
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
-                info->literal_size += size_object(obj);
+	    if (erts_is_literal(obj,ptr)) {
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
+                if (IN_LITERAL_PURGE_AREA(info,ptr))
+                    info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
 	    head = CAR(ptr);
@@ -1115,7 +1102,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 		primary_tag(head) == TAG_PRIMARY_HEADER) {
 		if (tail != THE_NON_VALUE) {
 		    e = SHTABLE_NEXT(t);
-		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabling L %p\n", myself->common.id, ptr));
+		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabling L %p\n", mypid, ptr));
 		    SHTABLE_PUSH(t, head, tail, ptr);
 		    CAR(ptr) = (e << _TAG_PRIMARY_SIZE) | LIST_SHARED_UNPROCESSED;
 		    CDR(ptr) = THE_NON_VALUE;
@@ -1125,17 +1112,17 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    /* else make it visited now */
 	    switch (primary_tag(tail)) {
 	    case TAG_PRIMARY_LIST:
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/L %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/L %p\n", mypid, ptr));
 		CDR(ptr) = (tail - TAG_PRIMARY_LIST) | TAG_PRIMARY_HEADER;
 		break;
 	    case TAG_PRIMARY_IMMED1:
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/I %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/I %p\n", mypid, ptr));
 		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
 		CDR(ptr) = (tail - TAG_PRIMARY_IMMED1) | primary_tag(head);
 		break;
 	    case TAG_PRIMARY_BOXED:
 		BITSTORE_PUT(b, primary_tag(head));
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/B %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling L/B %p\n", mypid, ptr));
 		CAR(ptr) = (head - primary_tag(head)) | TAG_PRIMARY_HEADER;
 		CDR(ptr) = (tail - TAG_PRIMARY_BOXED) | TAG_PRIMARY_HEADER;
 		break;
@@ -1152,9 +1139,10 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
-	    if (!INHEAP(myself, ptr)) {
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", myself->common.id, ptr, obj));
-                info->literal_size += size_object(obj);
+	    if (erts_is_literal(obj,ptr)) {
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
+                if (IN_LITERAL_PURGE_AREA(info,ptr))
+                    info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
 	    hdr = *ptr;
@@ -1163,14 +1151,14 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 	    if (primary_tag(hdr) != TAG_PRIMARY_HEADER) {
 		if (primary_tag(hdr) == BOXED_VISITED) {
 		    e = SHTABLE_NEXT(t);
-		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabling B %p\n", myself->common.id, ptr));
+		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabling B %p\n", mypid, ptr));
 		    SHTABLE_PUSH(t, hdr, THE_NON_VALUE, ptr);
 		    *ptr = (e << _TAG_PRIMARY_SIZE) | BOXED_SHARED_UNPROCESSED;
 		}
 		goto pop_next;
 	    }
 	    /* else make it visited now */
-	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling B %p\n", myself->common.id, ptr));
+	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] mangling B %p\n", mypid, ptr));
 	    *ptr = (hdr - primary_tag(hdr)) + BOXED_VISITED;
 	    /* and count it */
 	    ASSERT(is_header(hdr));
@@ -1293,7 +1281,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
                 info->shtable_start = t.start;
                 info->shtable_alloc_type = t.alloc_type;
                 /* single point of return: the size of the object */
-                VERBOSE(DEBUG_SHCOPY, ("[pid=%T] size was: %u\n", myself->common.id, sum));
+                VERBOSE(DEBUG_SHCOPY, ("[pid=%T] size was: %u\n", mypid, sum));
                 return sum + info->literal_size;
 	    }
 	    obj = EQUEUE_GET(s);
@@ -1319,9 +1307,8 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     Eterm* resp;
     Eterm *hbot, *hend;
     unsigned remaining;
-    Process* myself;
-    int force_local = flags & ERTS_SHCOPY_FLG_TMPBUF;
 #ifdef DEBUG
+    Eterm mypid = erts_get_current_pid();
     Eterm saved_obj = obj;
 #endif
 
@@ -1343,11 +1330,10 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
     flags |= disable_copy_shared;
 #endif
 
-    myself = erts_get_current_process();
-    if (myself == NULL || (flags & ERTS_SHCOPY_FLG_NONE))
+    if (flags & ERTS_SHCOPY_FLG_NONE)
 	return copy_struct(obj, size, hpp, off_heap);
 
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_perform %p\n", myself->common.id, obj));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_perform %p\n", mypid, obj));
 
     /* step #2: was performed before this function was called
        -------------------------------------------------------
@@ -1376,10 +1362,14 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    Eterm head, tail;
 	    ptr = list_val(obj);
 	    /* off heap list pointers are copied verbatim */
-	    if (!INHEAP(myself, ptr)) {
-                Uint bsz;
-                *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
-                hbot -= bsz;
+	    if (erts_is_literal(obj,ptr)) {
+                if (!IN_LITERAL_PURGE_AREA(info,ptr)) {
+                    *resp = obj;
+                } else {
+                    Uint bsz = 0;
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                    hbot -= bsz;
+                }
 		goto cleanup_next;
 	    }
 	    head = CAR(ptr);
@@ -1399,23 +1389,23 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    head = SHTABLE_X(t, e);
 		    tail = SHTABLE_Y(t, e);
 		    ptr = &(SHTABLE_X(t, e));
-		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabled L %p is %p\n", myself->common.id, ptr, SHTABLE_REV(t, e)));
+		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabled L %p is %p\n", mypid, ptr, SHTABLE_REV(t, e)));
 		    SHTABLE_FWD_UPD(t, e, hp);
 		}
 	    }
 	    /* if not already clean, clean it up and copy it */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER) {
 		if (primary_tag(head) == TAG_PRIMARY_HEADER) {
-		    Eterm saved = BITSTORE_GET(b);
-		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/B %p\n", myself->common.id, ptr));
-		    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) + saved;
-		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED;
+                    Eterm saved = BITSTORE_GET(b);
+                    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/B %p\n", mypid, ptr));
+                    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) + saved;
+                    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED;
 		} else {
-		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/L %p\n", myself->common.id, ptr));
+		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/L %p\n", mypid, ptr));
 		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_LIST;
 		}
 	    } else if (primary_tag(head) == TAG_PRIMARY_HEADER) {
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/I %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/I %p\n", mypid, ptr));
 		CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) | primary_tag(tail);
 		CDR(ptr) = tail = (tail - primary_tag(tail)) | TAG_PRIMARY_IMMED1;
 	    } else {
@@ -1439,10 +1429,14 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
-	    if (!INHEAP(myself, ptr)) {
-                Uint bsz;
-                *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
-                hbot -= bsz;
+	    if (erts_is_literal(obj,ptr)) {
+                if (!IN_LITERAL_PURGE_AREA(info,ptr)) {
+                    *resp = obj;
+                } else {
+                    Uint bsz = 0;
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz);
+                    hbot -= bsz;
+                }
 		goto cleanup_next;
 	    }
 	    hdr = *ptr;
@@ -1463,13 +1457,13 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		*ptr = (hdr - primary_tag(hdr)) + BOXED_SHARED_PROCESSED;
 		hdr = SHTABLE_X(t, e);
 		ASSERT(primary_tag(hdr) == BOXED_VISITED);
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabled B %p is %p\n", myself->common.id, ptr, SHTABLE_REV(t, e)));
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling B %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] tabled B %p is %p\n", mypid, ptr, SHTABLE_REV(t, e)));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling B %p\n", mypid, ptr));
 		SHTABLE_X(t, e) = hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
 		SHTABLE_FWD_UPD(t, e, hp);
 		break;
 	    case BOXED_VISITED:
-		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling B %p\n", myself->common.id, ptr));
+		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling B %p\n", mypid, ptr));
 		*ptr = hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
 		break;
 	    }
@@ -1749,13 +1743,13 @@ all_clean:
 	VERBOSE(DEBUG_SHCOPY, ("[copy] restoring shared: %x\n", ptr));
 	/* entry was a list */
 	if (SHTABLE_Y(t, e) != THE_NON_VALUE) {
-	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] untabling L %p\n", myself->common.id, ptr));
+	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] untabling L %p\n", mypid, ptr));
 	    CAR(ptr) = SHTABLE_X(t, e);
 	    CDR(ptr) = SHTABLE_Y(t, e);
 	}
 	/* entry was boxed */
 	else {
-	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] untabling B %p\n", myself->common.id, ptr));
+	    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] untabling B %p\n", mypid, ptr));
 	    *ptr = SHTABLE_X(t, e);
 	    ASSERT(primary_tag(*ptr) == TAG_PRIMARY_HEADER);
 	}
@@ -1769,9 +1763,9 @@ all_clean:
     }
 #endif
 
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] original was %T\n", myself->common.id, saved_obj));
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy is %T\n", myself->common.id, result));
-    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", myself->common.id, result));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] original was %T\n", mypid, saved_obj));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy is %T\n", mypid, result));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] result is at %p\n", mypid, result));
 
     ASSERT(hbot == hp);
     ASSERT(size == ((hp - *hpp) + (hend - hbot)));
