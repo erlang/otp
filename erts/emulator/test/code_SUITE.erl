@@ -26,7 +26,8 @@
 	 t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
 	 make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
-	 false_dependency/1,coverage/1,fun_confusion/1]).
+	 false_dependency/1,coverage/1,fun_confusion/1,
+         t_copy_literals/1]).
 
 -define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
@@ -38,7 +39,7 @@ all() ->
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
-     coverage, fun_confusion].
+     coverage, fun_confusion, t_copy_literals].
 
 groups() -> 
     [].
@@ -753,6 +754,80 @@ compile_load(Mod, Src, Ver) ->
     {module,Mod} = code:load_binary(Mod, "fun_confusion.beam", Code1),
     ok.
 
+
+t_copy_literals(Config) when is_list(Config) ->
+    %% Compile the the literals module.
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "literals"),
+    {ok,literals,Code} = compile:file(File, [report,binary]),
+    {module,literals} = erlang:load_module(literals, Code),
+
+    N   = 30,
+    Me  = self(),
+    %% reload literals code every 567 ms
+    Rel = spawn_link(fun() -> reloader(literals,Code,567) end),
+    %% add new literal msgs to the loop every 789 ms
+    Sat = spawn_link(fun() -> saturate(Me,789) end),
+    %% run for 10s
+    _   = spawn_link(fun() -> receive after 10000 -> Me ! done end end),
+    ok  = chase_msg(N, Me),
+    %% cleanup
+    Rel ! done,
+    Sat ! done,
+    ok  = flush(),
+    ok.
+
+
+chase_msg(0, Pid) ->
+    chase_loop(Pid);
+chase_msg(N, Master) ->
+    Pid = spawn_link(fun() -> chase_msg(N - 1,Master) end),
+    chase_loop(Pid).
+
+chase_loop(Pid) ->
+    receive
+        done ->
+            Pid ! done,
+            ok;
+        {_From,Msg} ->
+            Pid ! {self(), Msg},
+            ok = traverse(Msg),
+            chase_loop(Pid)
+    end.
+
+saturate(Pid,Time) ->
+    Es = [msg1,msg2,msg3,msg4,msg5],
+    Msg = [literals:E()||E <- Es],
+    Pid ! {self(), Msg},
+    receive
+        done -> ok
+    after Time ->
+              saturate(Pid,Time)
+    end.
+
+traverse([]) -> ok;
+traverse([H|T]) ->
+    ok = traverse(H),
+    traverse(T);
+traverse(T) when is_tuple(T) -> ok;
+traverse(B) when is_binary(B) -> ok;
+traverse(I) when is_integer(I) -> ok;
+traverse(#{ 1 := V1, b := V2 }) ->
+    ok = traverse(V1),
+    ok = traverse(V2),
+    ok.
+
+
+reloader(Mod,Code,Time) ->
+    receive
+        done -> ok
+    after Time ->
+              code:purge(Mod),
+              {module,Mod} = erlang:load_module(Mod, Code),
+              reloader(Mod,Code,Time)
+    end.
+
+
 %% Utilities.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
@@ -774,5 +849,8 @@ bit_sized_binary(Bin0) ->
     BitSize = bit_size(Bin),
     BitSize = 8*size(Bin) + 1,
     Bin.
+
+flush() ->
+    receive _ -> flush() after 0 -> ok end.
 
 id(I) -> I.
