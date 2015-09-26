@@ -297,8 +297,8 @@ get_record_fields([], _RecDict, Acc) ->
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
-  TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
@@ -309,7 +309,7 @@ process_record_remote_types(CServer) ->
                     Site = {record, {Module, Name, Arity}},
                     [{FieldName, Field,
                       erl_types:t_from_form(Field,
-                                            TempExpTypes,
+                                            ExpTypes,
                                             Site,
                                             TempRecords1)}
                      || {FieldName, Field, _} <- Fields]
@@ -322,9 +322,8 @@ process_record_remote_types(CServer) ->
 	dict:map(RecordFun, Record)
     end,
   NewRecords = dict:map(ModuleFun, TempRecords1),
-  ok = check_record_fields(NewRecords, TempExpTypes),
-  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+  ok = check_record_fields(NewRecords, ExpTypes),
+  dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,

@@ -161,8 +161,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
-        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                       TmpCServer1),
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       ?timing(State#analysis_state.timing_server, "remote",
               begin
                 TmpCServer3 =
