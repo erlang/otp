@@ -302,23 +302,22 @@ process_record_remote_types(CServer) ->
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
-          fun(Key, Value) ->
-              case Key of
-                {record, Name} ->
-                  FieldFun =
-                    fun(Arity, Fields) ->
-                        Site = {record, {Module, Name, Arity}},
-                        [{FieldName, Field,
-                          erl_types:t_from_form(Field,
-                                                TempExpTypes,
-                                                Site,
-                                                TempRecords1)}
-                         || {FieldName, Field, _} <- Fields]
-                    end,
-                  {FileLine, Fields} = Value,
-                  {FileLine, orddict:map(FieldFun, Fields)};
-                _Other -> Value
-              end
+          fun
+            ({record, Name} = _Key, Value) ->
+              FieldFun =
+                fun(Arity, Fields) ->
+                    Site = {record, {Module, Name, Arity}},
+                    [{FieldName, Field,
+                      erl_types:t_from_form(Field,
+                                            TempExpTypes,
+                                            Site,
+                                            TempRecords1)}
+                     || {FieldName, Field, _} <- Fields]
+                end,
+              {FileLine, Fields} = Value,
+              {FileLine, orddict:map(FieldFun, Fields)};
+            (_Other, Value) ->
+              Value
           end,
 	dict:map(RecordFun, Record)
     end,
@@ -339,16 +338,15 @@ process_opaque_types(TempRecords, TempExpTypes) ->
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
-          fun(Key, Value) ->
-              case Key of
-                {opaque, Name, NArgs} ->
-                  {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
-                  Site = {type, {Module, Name, NArgs}},
-                  Type = erl_types:t_from_form(Form, TempExpTypes, Site,
-                                               TempRecords),
-                  {F, Type};
-                _Other -> Value
-              end
+          fun
+            ({opaque, Name, NArgs} = _Key, Value) ->
+              {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
+              Site = {type, {Module, Name, NArgs}},
+              Type = erl_types:t_from_form(Form, TempExpTypes, Site,
+                                           TempRecords),
+              {F, Type};
+            (_Other, Value) ->
+              Value
           end,
 	dict:map(RecordFun, Record)
     end,
@@ -362,25 +360,23 @@ check_record_fields(Records, TempExpTypes) ->
                                                       Site, Records)
                   end,
         ElemFun =
-          fun({Key, Value}) ->
-              case Key of
-                {record, Name} ->
-                  FieldFun =
-                    fun({Arity, Fields}) ->
-                        Site = {record, {Module, Name, Arity}},
-                        _ = [ok = CheckForm(Field, Site) ||
-                              {_, Field, _} <- Fields],
-                        ok
-                    end,
-                  {FileLine, Fields} = Value,
-                  Fun = fun() -> lists:foreach(FieldFun, Fields) end,
-                  msg_with_position(Fun, FileLine);
-                {_OpaqueOrType, Name, NArgs} ->
-                  Site = {type, {Module, Name, NArgs}},
-                  {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
-                  Fun = fun() -> ok = CheckForm(Form, Site) end,
-                  msg_with_position(Fun, FileLine)
-              end
+          fun
+            ({{record, Name} = _Key, Value}) ->
+              FieldFun =
+                fun({Arity, Fields}) ->
+                    Site = {record, {Module, Name, Arity}},
+                    _ = [ok = CheckForm(Field, Site) ||
+                          {_, Field, _} <- Fields],
+                    ok
+                end,
+              {FileLine, Fields} = Value,
+              Fun = fun() -> lists:foreach(FieldFun, Fields) end,
+              msg_with_position(Fun, FileLine);
+            ({{_OpaqueOrType, Name, NArgs} = _Key, Value}) ->
+              Site = {type, {Module, Name, NArgs}},
+              {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
+              Fun = fun() -> ok = CheckForm(Form, Site) end,
+              msg_with_position(Fun, FileLine)
           end,
         lists:foreach(ElemFun, dict:to_list(Element))
     end,
