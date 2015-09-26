@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,11 +137,14 @@ extract(#analysis{macros = Macros,
   NewCodeServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(CodeServer1),
+      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(CodeServer1),
+      case sets:size(NewExpTypes) of 0 -> ok end,
       OldRecords = dialyzer_plt:get_types(TrustPLT), % XXX change to the PLT?
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       CodeServer2 = dialyzer_codeserver:set_temp_records(MergedRecords, CodeServer1),
-      CodeServer3 = dialyzer_utils:process_record_remote_types(CodeServer2),
-      dialyzer_contracts:process_contract_remote_types(CodeServer3)
+      CodeServer3 = dialyzer_codeserver:finalize_exported_types(NewExpTypes, CodeServer2),
+      CodeServer4 = dialyzer_utils:process_record_remote_types(CodeServer3),
+      dialyzer_contracts:process_contract_remote_types(CodeServer4)
     catch
       throw:{error, ErrorMsg} ->
 	compile_error(ErrorMsg)
@@ -845,8 +848,7 @@ collect_info(Analysis) ->
       %% io:format("Merged Records ~p",[MergedRecords]),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
       TmpCServer2 =
-        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                       TmpCServer1),
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch

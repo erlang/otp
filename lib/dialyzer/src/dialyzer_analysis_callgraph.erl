@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -161,8 +161,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
-        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                       TmpCServer1),
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       ?timing(State#analysis_state.timing_server, "remote",
               begin
                 TmpCServer3 =
