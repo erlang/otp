@@ -45,6 +45,8 @@
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
 
+#define DIST_CTL_DEFAULT_SIZE 64
+
 /* Turn this on to get printouts of all distribution messages
  * which go on the line
  */
@@ -66,9 +68,13 @@ static void bw(byte *buf, ErlDrvSizeT sz)
 static void
 dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
 {
+    ErtsHeapFactory factory;
+    DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
+    Eterm* ctl = ctl_default;
     byte *extp = edep->extp;
     Eterm msg;
-    Sint size = erts_decode_dist_ext_size(edep);
+    Sint ctl_len;
+    Sint size = ctl_len = erts_decode_dist_ext_size(edep);
     if (size < 0) {
 	erts_fprintf(stderr,
 		     "DIST MSG DEBUG: erts_decode_dist_ext_size(%s) failed:\n",
@@ -76,10 +82,9 @@ dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
 	bw(buf, sz);
     }
     else {
-	Eterm *hp;
 	ErlHeapFragment *mbuf = new_message_buffer(size);
-	hp = mbuf->mem;
-	msg = erts_decode_dist_ext(&hp, &mbuf->off_heap, edep);
+	erts_factory_static_init(&factory, ctl, ctl_len, &mbuf->off_heap);
+	msg = erts_decode_dist_ext(&factory, edep);
 	if (is_value(msg))
 	    erts_fprintf(stderr, "    %s: %T\n", what, msg);
 	else {
@@ -1136,7 +1141,6 @@ int erts_net_message(Port *prt,
 		     byte *buf,
 		     ErlDrvSizeT len)
 {
-#define DIST_CTL_DEFAULT_SIZE 64
     ErtsDistExternal ede;
     byte *t;
     Sint ctl_len;
@@ -1790,8 +1794,8 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 
     #ifdef ERTS_DIST_MSG_DBG
 	    erts_fprintf(stderr, ">>%s CTL: %T\n", ctx->pass_through_size ? "P" : " ", ctx->ctl);
-	    if (is_value(msg))
-		erts_fprintf(stderr, "    MSG: %T\n", msg);
+        if (is_value(ctx->msg))
+            erts_fprintf(stderr, "    MSG: %T\n", ctx->msg);
     #endif
 
 	    ctx->data_size = ctx->pass_through_size;
