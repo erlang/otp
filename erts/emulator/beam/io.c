@@ -479,6 +479,11 @@ erts_port_free(Port *prt)
 
     erts_port_task_fini_sched(&prt->sched);
 
+    if (prt->async_open_port) {
+        erts_free(ERTS_ALC_T_PRTSD, prt->async_open_port);
+        prt->async_open_port = NULL;
+    }
+
 #ifdef ERTS_SMP
     ASSERT(prt->lock);
     if (state & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK)
