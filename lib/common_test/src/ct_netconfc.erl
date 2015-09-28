@@ -1366,11 +1366,18 @@ to_xml_doc(Simple) ->
 %%% Parse and handle received XML data
 handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
     log(Connection,recv,NewData),
-    Data = append_wo_initial_nl(Buff0,NewData),
-    case binary:split(Data,[?END_TAG],[]) of
+    {Start,AddSz} =
+	case byte_size(Buff0) of
+	    BSz when BSz<5 -> {0,BSz};
+	    BSz -> {BSz-5,5}
+	end,
+    Length = byte_size(NewData) + AddSz,
+    Data = <<Buff0/binary, NewData/binary>>,
+    case binary:split(Data,?END_TAG,[{scope,{Start,Length}}]) of
 	[_NoEndTagFound] ->
 	    {noreply, State0#state{buff=Data}};
-	[FirstMsg,Buff1] ->
+	[FirstMsg0,Buff1] ->
+	    FirstMsg = remove_initial_nl(FirstMsg0),
 	    SaxArgs = [{event_fun,fun sax_event/3}, {event_state,[]}],
 	    case xmerl_sax_parser:stream(FirstMsg, SaxArgs) of
 		{ok, Simple, _Thrash} ->
@@ -1392,11 +1399,10 @@ handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
 
 %% xml does not accept a leading nl and some netconf server add a nl after
 %% each ?END_TAG, ignore them
-append_wo_initial_nl(<<>>,NewData) -> NewData;
-append_wo_initial_nl(<<"\n", Data/binary>>, NewData) ->
-    append_wo_initial_nl(Data, NewData);
-append_wo_initial_nl(Data, NewData) ->
-    <<Data/binary, NewData/binary>>.
+remove_initial_nl(<<"\n", Data/binary>>) ->
+    remove_initial_nl(Data);
+remove_initial_nl(Data) ->
+    Data.
 
 handle_error(Reason, State) ->
     Pending1 = case State#state.pending of

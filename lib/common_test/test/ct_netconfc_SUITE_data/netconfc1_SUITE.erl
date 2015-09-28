@@ -36,7 +36,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,
 		  [{ct_netconfc,[{log_type,html}, %will be overwritten by config
 				 {hosts,[my_named_connection,netconf1]}]
 		   }]
@@ -72,6 +73,7 @@ all() ->
 	     invalid_opt,
 	     timeout_close_session,
 	     get,
+	     get_a_lot,
 	     timeout_get,
 	     get_xpath,
 	     get_config,
@@ -112,12 +114,9 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     ets:delete_all_objects(ns_tab),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
@@ -346,6 +345,19 @@ get(Config) ->
     {ok,Client} = open_success(DataDir),
     Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
     ?NS:expect_reply('get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+get_a_lot(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Descr = lists:append(lists:duplicate(1000,"Description of myserver! ")),
+    Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
+				       {description,[],[Descr]}]},
+    Data = lists:duplicate(100,Server),
+    ?NS:expect_reply('get',{fragmented,{data,Data}}),
     {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
