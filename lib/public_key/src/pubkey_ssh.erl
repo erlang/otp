@@ -24,6 +24,8 @@
 -export([decode/2, encode/2]).
 
 -define(UINT32(X), X:32/unsigned-big-integer).
+-define(STRING(X), ?UINT32((size(X))), (X)/binary).
+
 %% Max encoded line length is 72, but conformance examples use 68
 %% Comment from rfc 4716: "The following are some examples of public
 %% key files that are compliant (note that the examples all wrap
@@ -130,7 +132,13 @@ rfc4716_pubkey_decode(<<?UINT32(Len), Type:Len/binary,
     {erlint(SizeY, Y),
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
-		  g = erlint(SizeG, G)}}.
+		  g = erlint(SizeG, G)}};
+rfc4716_pubkey_decode(<<?UINT32(Len), Type:Len/binary,
+			?UINT32(SizeId), Id:SizeId/binary,
+			?UINT32(SizeQ), Q:SizeQ/binary>>) when Type == <<"ecdsa-sha2-nistp256">>;
+							       Type == <<"ecdsa-sha2-nistp384">>;
+							       Type == <<"ecdsa-sha2-nistp521">> ->
+    {#'ECPoint'{point = Q}, Id}.
 
 openssh_decode(Bin, FileType) ->
     Lines = binary:split(Bin, <<"\n">>, [global]),
@@ -186,12 +194,18 @@ do_openssh_decode(known_hosts = FileType, [Line | Lines], Acc) ->
 do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
     case split_n(2, Line, []) of
 	[KeyType, Base64Enc] when KeyType == <<"ssh-rsa">>;
-				  KeyType == <<"ssh-dss">> ->
+				  KeyType == <<"ssh-dss">>;
+				  KeyType == <<"ecdsa-sha2-nistp256">>;
+				  KeyType == <<"ecdsa-sha2-nistp384">>;
+				  KeyType == <<"ecdsa-sha2-nistp521">> ->
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
 				[]} | Acc]);
 	[KeyType, Base64Enc | Comment0] when KeyType == <<"ssh-rsa">>;
-					     KeyType == <<"ssh-dss">> ->
+					     KeyType == <<"ssh-dss">>;
+					     KeyType == <<"ecdsa-sha2-nistp256">>;
+					     KeyType == <<"ecdsa-sha2-nistp384">>;
+					     KeyType == <<"ecdsa-sha2-nistp521">> ->
 	    Comment = string:strip(string_decode(iolist_to_binary(Comment0)), right, $\n),
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
@@ -202,6 +216,7 @@ decode_comment([]) ->
     [];
 decode_comment(Comment) ->
     [{comment, string_decode(iolist_to_binary(Comment))}].
+
 
 openssh_pubkey_decode(<<"ssh-rsa">>, Base64Enc) ->
     <<?UINT32(StrLen), _:StrLen/binary,
@@ -222,8 +237,18 @@ openssh_pubkey_decode(<<"ssh-dss">>, Base64Enc) ->
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
 		  g = erlint(SizeG, G)}};
+
+openssh_pubkey_decode(<<"ecdsa-sha2-", Id/binary>>, Base64Enc) ->
+    %% rfc5656#section-3.1
+    <<?UINT32(StrLen), _:StrLen/binary,
+      ?UINT32(SizeId), Id:SizeId/binary,
+      ?UINT32(SizeQ), Q:SizeQ/binary>>
+	= base64:mime_decode(Base64Enc),
+    {#'ECPoint'{point = Q}, Id};
+
 openssh_pubkey_decode(KeyType, Base64Enc) ->
     {KeyType, base64:mime_decode(Base64Enc)}.
+
 
 erlint(MPIntSize, MPIntValue) ->
     Bits= MPIntSize * 8,
@@ -350,7 +375,9 @@ line_end(Comment) ->
 key_type(#'RSAPublicKey'{}) ->
     <<"ssh-rsa">>;
 key_type({_, #'Dss-Parms'{}}) ->
-    <<"ssh-dss">>.
+    <<"ssh-dss">>;
+key_type({#'ECPoint'{}, Id}) ->
+    <<"ecdsa-sha2-",Id/binary>>.
 
 comma_list_encode([Option], [])  ->
     Option;
@@ -380,7 +407,13 @@ ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
       PBin/binary,
       QBin/binary,
       GBin/binary,
-      YBin/binary>>.
+      YBin/binary>>;
+ssh2_pubkey_encode({#'ECPoint'{point = Q}, Id}) ->
+    TypeStr = <<"ecdsa-sha2-", Id/binary>>,
+    StrLen = size(TypeStr),
+    <<?UINT32(StrLen), TypeStr:StrLen/binary,
+      (string(Id))/binary,
+      (string(Q))/binary>>.
 
 is_key_field(<<"ssh-dss">>) ->
     true;
@@ -507,3 +540,9 @@ int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
     list_to_binary(Ds);
 int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
+
+
+string(X) when is_binary(X) ->
+    << ?STRING(X) >>;
+string(X) ->
+    << ?STRING(list_to_binary(X)) >>.
