@@ -679,6 +679,8 @@ asm_passes() ->
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
 	 {iff,dexcept,{listing,"except"}},
+	 {unless,no_bs_opt,{pass,beam_bs}},
+	 {iff,dbs,{listing,"bs"}},
 	 {unless,no_bopt,{pass,beam_bool}},
 	 {iff,dbool,{listing,"bool"}},
 	 {unless,no_topt,{pass,beam_type}},

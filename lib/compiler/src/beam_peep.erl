@@ -83,6 +83,16 @@ peep([{gc_bif,_,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests0),
     peep(Is, SeenTests, [I|Acc]);
+peep([{select,Op,R,F,Vls0}|Is], _, Acc) ->
+    case prune_redundant_values(Vls0, F) of
+	[] ->
+	    %% No values left. Must convert to plain jump.
+	    I = {jump,F},
+	    peep(Is, gb_sets:empty(), [I|Acc]);
+	[_|_]=Vls ->
+	    I = {select,Op,R,F,Vls},
+	    peep(Is, gb_sets:empty(), [I|Acc])
+    end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of
 	false ->
@@ -127,3 +137,9 @@ kill_seen_1([{_,Ops}=Test|T], Dst) ->
 	false -> [Test|kill_seen_1(T, Dst)]
     end;
 kill_seen_1([], _) -> [].
+
+prune_redundant_values([_Val,F|Vls], F) ->
+    prune_redundant_values(Vls, F);
+prune_redundant_values([Val,Lbl|Vls], F) ->
+    [Val,Lbl|prune_redundant_values(Vls, F)];
+prune_redundant_values([], _) -> [].

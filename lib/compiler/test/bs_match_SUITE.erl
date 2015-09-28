@@ -36,7 +36,7 @@
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
-	 match_string_opt/1]).
+	 match_string_opt/1,select_on_integer/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -62,7 +62,7 @@ groups() ->
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
        no_partition,calling_a_binary,binary_in_map,
-       match_string_opt]}].
+       match_string_opt,select_on_integer]}].
 
 
 init_per_suite(Config) ->
@@ -1225,6 +1225,20 @@ match_string_opt(Config) when is_list(Config) ->
 do_match_string_opt({<<1>>,{v,V}}=T) ->
     {x,V,T}.
 
+select_on_integer(Config) when is_list(Config) ->
+    42 = do_select_on_integer(<<42>>),
+    <<"abc">> = do_select_on_integer(<<128,"abc">>),
+
+    {'EXIT',_} = (catch do_select_on_integer(<<0:1>>)),
+    {'EXIT',_} = (catch do_select_on_integer(<<1:1>>)),
+    {'EXIT',_} = (catch do_select_on_integer(<<0:1,0:15>>)),
+    ok.
+
+%% The ASN.1 compiler frequently generates code like this.
+do_select_on_integer(<<0:1,I:7>>) ->
+    I;
+do_select_on_integer(<<1:1,_:7,Bin/binary>>) ->
+    Bin.
 
 check(F, R) ->
     R = F().
