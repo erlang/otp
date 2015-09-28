@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,27 +92,28 @@
 -type race_warn_tag() :: ?WARN_WHEREIS_REGISTER | ?WARN_WHEREIS_UNREGISTER
                       | ?WARN_ETS_LOOKUP_INSERT | ?WARN_MNESIA_DIRTY_READ_WRITE.
 
--record(beg_clause, {arg        :: var_to_map1(),
-                     pats       :: var_to_map1(),
-                     guard      :: cerl:cerl()}).
--record(end_clause, {arg        :: var_to_map1(),
-                     pats       :: var_to_map1(),
-                     guard      :: cerl:cerl()}).
+-record(beg_clause, {arg        :: var_to_map1() | 'undefined',
+                     pats       :: var_to_map1() | 'undefined',
+                     guard      :: cerl:cerl() | 'undefined'}).
+-record(end_clause, {arg        :: var_to_map1() | 'undefined',
+                     pats       :: var_to_map1() | 'undefined',
+                     guard      :: cerl:cerl() | 'undefined'}).
 -record(end_case,   {clauses    :: [#end_clause{}]}).
--record(curr_fun,   {status     :: 'in' | 'out',
-                     mfa        :: dialyzer_callgraph:mfa_or_funlbl(),
-                     label      :: label(),
-                     def_vars   :: [core_vars()],
-                     arg_types  :: [erl_types:erl_type()],
-                     call_vars  :: [core_vars()],
-                     var_map    :: dict:dict()}).
+-record(curr_fun,   {status     :: 'in' | 'out' | 'undefined',
+                     mfa        :: dialyzer_callgraph:mfa_or_funlbl()
+                                 | 'undefined',
+                     label      :: label() | 'undefined',
+                     def_vars   :: [core_vars()] | 'undefined',
+                     arg_types  :: [erl_types:erl_type()] | 'undefined',
+                     call_vars  :: [core_vars()] | 'undefined',
+                     var_map    :: dict:dict() | 'undefined'}).
 -record(dep_call,   {call_name  :: dep_calls(),
-                     args       :: args(),
+                     args       :: args() | 'undefined',
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()],
                      state      :: dialyzer_dataflow:state(),
                      file_line  :: file_line(),
-                     var_map    :: dict:dict()}).
+                     var_map    :: dict:dict() | 'undefined'}).
 -record(fun_call,   {caller     :: dialyzer_callgraph:mfa_or_funlbl(),
                      callee     :: dialyzer_callgraph:mfa_or_funlbl(),
                      arg_types  :: [erl_types:erl_type()],
@@ -121,7 +122,7 @@
                      arg        :: var_to_map1()}).
 -record(warn_call,  {call_name  :: warn_calls(),
                      args       :: args(),
-                     var_map    :: dict:dict()}).
+                     var_map    :: dict:dict() | 'undefined'}).
 
 -type case_tags()  :: 'beg_case' | #beg_clause{} | #end_clause{} | #end_case{}.
 -type code()       :: [#dep_call{} | #fun_call{} | #warn_call{} |
@@ -139,8 +140,9 @@
                      fun_mfa    :: dialyzer_callgraph:mfa_or_funlbl(),
                      fun_label  :: label()}).
 
--record(races, {curr_fun                :: dialyzer_callgraph:mfa_or_funlbl(),
-                curr_fun_label          :: label(),
+-record(races, {curr_fun                :: dialyzer_callgraph:mfa_or_funlbl()
+                                         | 'undefined',
+                curr_fun_label          :: label() | 'undefined',
                 curr_fun_args = 'empty' :: core_args(),
                 new_table = 'no_t'      :: table(),
                 race_list = []          :: code(),

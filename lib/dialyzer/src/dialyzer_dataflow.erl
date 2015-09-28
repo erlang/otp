@@ -99,19 +99,29 @@
 
 -define(BITS, 128).
 
--record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
-                codeserver           :: dialyzer_codeserver:codeserver(),
-		envs                 :: env_tab(),
-		fun_tab		     :: fun_tab(),
-                fun_homes            :: dict:dict(label(), mfa()),
-		plt		     :: dialyzer_plt:plt(),
-		opaques              :: [type()],
+%% Types with comment 'race' are due to dialyzer_races.erl.
+-record(state, {callgraph            :: dialyzer_callgraph:callgraph()
+                                      | 'undefined', % race
+                codeserver           :: dialyzer_codeserver:codeserver()
+                                      | 'undefined', % race
+		envs                 :: env_tab()
+                                      | 'undefined', % race
+		fun_tab		     :: fun_tab()
+                                      | 'undefined', % race
+                fun_homes            :: dict:dict(label(), mfa())
+                                      | 'undefined', % race
+		plt		     :: dialyzer_plt:plt()
+                                      | 'undefined', % race
+		opaques              :: [type()]
+                                      | 'undefined', % race
 		races = dialyzer_races:new() :: dialyzer_races:races(),
 		records = dict:new() :: types(),
-		tree_map	     :: dict:dict(label(), cerl:cerl()),
+		tree_map	     :: dict:dict(label(), cerl:cerl())
+                                      | 'undefined', % race
 		warning_mode = false :: boolean(),
 		warnings = []        :: [raw_warning()],
-		work                 :: {[_], [_], sets:set()},
+		work                 :: {[_], [_], sets:set()}
+                                      | 'undefined', % race
 		module               :: module(),
                 curr_fun             :: curr_fun()
                }).

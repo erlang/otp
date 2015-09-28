@@ -68,7 +68,7 @@
 -type type_var() :: erl_types:erl_type(). %% actually: {'c','var',_,_}
 
 -record(fun_var, {'fun' :: fun((_) -> erl_types:erl_type()), deps :: [dep()],
-		  origin :: integer()}).
+		  origin :: integer() | 'undefined'}).
 
 -type constr_op()    :: 'eq' | 'sub'.
 -type fvar_or_type() :: #fun_var{} | erl_types:erl_type().
@@ -83,9 +83,9 @@
 -record(constraint_list, {type :: 'conj' | 'disj',
 			  list :: [constr()],
 			  deps :: [dep()],
-                          masks :: [{dep(),[non_neg_integer()]}] |
-                                   {'d',dict:dict(dep(), [non_neg_integer()])},
-			  id   :: {'list', dep()}}).
+                          masks = [] :: [{dep(),[non_neg_integer()]}] |
+                                  {'d',dict:dict(dep(), [non_neg_integer()])},
+			  id   :: {'list', dep()} | 'undefined'}).
 
 -type constraint_list() :: #constraint_list{}.
 
@@ -104,7 +104,8 @@
 
 -type dict_or_ets() :: {'d', prop_types()} | {'e', ets:tid()}.
 
--record(state, {callgraph                    :: dialyzer_callgraph:callgraph(),
+-record(state, {callgraph                    :: dialyzer_callgraph:callgraph()
+                                              | 'undefined',
 		cs          = []                :: [constr()],
 		cmap        = {'d', dict:new()} :: dict_or_ets(),
 		fun_map     = []                :: typesig_funmap(),
@@ -116,7 +117,8 @@
                                                              cerl:c_fun()),
 		next_label  = 0                 :: label(),
 		self_rec                        :: 'false' | erl_types:erl_type(),
-		plt                             :: dialyzer_plt:plt(),
+		plt                             :: dialyzer_plt:plt()
+                                                 | 'undefined',
 		prop_types  = {'d', dict:new()} :: dict_or_ets(),
 		records     = dict:new()        :: types(),
 		scc         = []                :: [type_var()],
@@ -1746,7 +1748,10 @@ minimize_state(#state{
      fun_arities = FunArities,
      self_rec    = SelfRec,
      prop_types  = {e, ETSPropTypes},
-     solvers     = Solvers
+     solvers     = Solvers,
+     callgraph   = undefined,
+     plt         = undefined,
+     mfas        = []
     }.
 
 dispose_state(#state{cmap = {e, ETSCMap},
@@ -2884,8 +2889,7 @@ mk_constraint(Lhs, Op, Rhs) ->
   case t_is_any(Lhs) orelse constraint_opnd_is_any(Rhs) of
     false ->
       Deps = find_constraint_deps([Lhs, Rhs]),
-      C0 = mk_constraint_1(Lhs, Op, Rhs),
-      C = C0#constraint{deps = Deps},
+      C = mk_constraint_1(Lhs, Op, Rhs, Deps),
       case Deps =:= [] of
 	true ->
 	  %% This constraint is constant. Solve it immediately.
@@ -2903,8 +2907,7 @@ mk_constraint(Lhs, Op, Rhs) ->
   end.
 
 mk_constraint_any(Op) ->
-  C = mk_constraint_1(t_any(), Op, t_any()),
-  C#constraint{deps = []}.
+  mk_constraint_1(t_any(), Op, t_any(), []).
 
 %% the following function is used so that we do not call
 %% erl_types:t_is_any/1 with a term other than an erl_type()
@@ -2952,12 +2955,12 @@ find_constraint_deps([Type|Tail], Acc) ->
 find_constraint_deps([], Acc) ->
   lists:flatten(Acc).
 
-mk_constraint_1(Lhs, eq, Rhs) when Lhs < Rhs ->
-  #constraint{lhs = Lhs, op = eq, rhs = Rhs};
-mk_constraint_1(Lhs, eq, Rhs) ->
-  #constraint{lhs = Rhs, op = eq, rhs = Lhs};
-mk_constraint_1(Lhs, Op, Rhs) ->
-  #constraint{lhs = Lhs, op = Op, rhs = Rhs}.
+mk_constraint_1(Lhs, eq, Rhs, Deps) when Lhs < Rhs ->
+  #constraint{lhs = Lhs, op = eq, rhs = Rhs, deps = Deps};
+mk_constraint_1(Lhs, eq, Rhs, Deps) ->
+  #constraint{lhs = Rhs, op = eq, rhs = Lhs, deps = Deps};
+mk_constraint_1(Lhs, Op, Rhs, Deps) ->
+  #constraint{lhs = Lhs, op = Op, rhs = Rhs, deps = Deps}.
 
 mk_constraints([Lhs|LhsTail], Op, [Rhs|RhsTail]) ->
   [mk_constraint(Lhs, Op, Rhs) |

@@ -36,7 +36,7 @@
 -include_lib("kernel/include/file.hrl").  % needed for #file_info{}
 
 -record(cl_state,
-	{backend_pid                      :: pid(),
+	{backend_pid                      :: pid() | 'undefined',
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
          external_types  = []             :: [mfa()],

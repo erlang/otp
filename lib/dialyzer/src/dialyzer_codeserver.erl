@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,10 +81,10 @@
 
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: dict_ets(),
-                     exported_types      :: set_ets(), % set(mfa())
-		     records             :: dict_ets(),
-		     contracts           :: dict_ets(),
-		     callbacks           :: dict_ets(),
+                     exported_types      :: set_ets() | 'undefined', % set(mfa())
+		     records             :: dict_ets() | 'undefined',
+		     contracts           :: dict_ets() | 'undefined',
+		     callbacks           :: dict_ets() | 'undefined',
                      fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
