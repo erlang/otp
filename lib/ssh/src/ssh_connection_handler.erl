@@ -1266,9 +1266,9 @@ supported_host_keys(client, _, Options) ->
 				 proplists:get_value(preferred_algorithms,Options,[])
 				) of
 	    undefined -> 
-		ssh_auth:default_public_key_algorithms();
+		ssh_transport:default_algorithms(public_key);
 	    L ->
-		L -- (L--ssh_auth:default_public_key_algorithms())
+		L -- (L--ssh_transport:default_algorithms(public_key))
 	end
     of
 	[] ->
@@ -1280,20 +1280,16 @@ supported_host_keys(client, _, Options) ->
 	    {stop, {shutdown, Reason}}
     end;
 supported_host_keys(server, KeyCb, Options) ->
-    Algs=
     [atom_to_list(A) || A <- proplists:get_value(public_key, 
 						 proplists:get_value(preferred_algorithms,Options,[]),
-						 ssh_auth:default_public_key_algorithms()
+						 ssh_transport:default_algorithms(public_key)
 						),
 			available_host_key(KeyCb, A, Options)
-    ],
-    Algs.
-
+    ].
 
 %% Alg :: atom()
 available_host_key(KeyCb, Alg, Opts) ->
     element(1, catch KeyCb:host_key(Alg, Opts)) == ok.
-
 
 send_msg(Msg, #state{socket = Socket, transport_cb = Transport}) ->
     Transport:send(Socket, Msg).
