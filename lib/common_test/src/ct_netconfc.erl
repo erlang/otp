@@ -1768,9 +1768,14 @@ format_data(How,Data) ->
 do_format_data(raw,Data) ->
     io_lib:format("~n~ts~n",[hide_password(Data)]);
 do_format_data(pretty,Data) ->
-    io_lib:format("~n~ts~n",[indent(Data)]);
+    maybe_io_lib_format(indent(Data));
 do_format_data(html,Data) ->
-    io_lib:format("~n~ts~n",[html_format(Data)]).
+    maybe_io_lib_format(html_format(Data)).
+
+maybe_io_lib_format(<<>>) ->
+    [];
+maybe_io_lib_format(String) ->
+    io_lib:format("~n~ts~n",[String]).
 
 %%%-----------------------------------------------------------------
 %%% Hide password elements from XML data
@@ -1809,13 +1814,21 @@ indent1("<?"++Rest1,Indent1) ->
     Line++indent1(Rest2,Indent2);
 indent1("</"++Rest1,Indent1) ->
     %% Stop tag
-    {Line,Rest2,Indent2} = indent_line1(Rest1,Indent1,[$/,$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line1(Rest1,Indent1,[$/,$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1("<"++Rest1,Indent1) ->
     %% Start- or empty tag
     put(tag,get_tag(Rest1)),
-    {Line,Rest2,Indent2} = indent_line(Rest1,Indent1,[$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line(Rest1,Indent1,[$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1([H|T],Indent) ->
     [H|indent1(T,Indent)];
 indent1([],_Indent) ->
