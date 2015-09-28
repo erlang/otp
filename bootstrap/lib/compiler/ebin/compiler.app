@@ -19,12 +19,13 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "6.0"},
+  {vsn, "6.0.1"},
   {modules, [
 	     beam_a,
 	     beam_asm,
 	     beam_block,
 	     beam_bool,
+	     beam_bs,
 	     beam_bsm,
 	     beam_clean,
 	     beam_dead,
