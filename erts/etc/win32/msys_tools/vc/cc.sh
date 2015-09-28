@@ -242,7 +242,7 @@ for x in $SOURCES; do
     if [ $PREPROCESSING = true ]; then
 	output_flag="-E"
     else
-	output_flag="-c -Fo`cmd //C echo ${output_filename}`"
+	output_flag="-FS -c -Fo`cmd //C echo ${output_filename}`"
     fi
     params="$COMMON_CFLAGS $MD $DEBUG_FLAGS $OPTIMIZE_FLAGS \
 	    $CMD ${output_flag} $MPATH"
@@ -250,6 +250,8 @@ for x in $SOURCES; do
 	echo cc.sh "$SAVE" >>$CC_SH_DEBUG_LOG
 	echo cl.exe $params >>$CC_SH_DEBUG_LOG
     fi
+    # MSYS2 (currently) converts the paths wrong, avoid it
+    export MSYS2_ARG_CONV_EXCL=-FoC
     eval cl.exe $params >$MSG_FILE 2>$ERR_FILE
     RES=$?
     if test $PREPROCESSING = false; then
@@ -274,6 +276,7 @@ for x in $SOURCES; do
     fi
     rm -f $ERR_FILE $MSG_FILE
     if [ $RES != 0 ]; then
+	echo Failed: cl.exe $params
 	rm -rf $TMPOBJDIR
 	exit $RES
     fi
@@ -312,7 +315,10 @@ if [ $LINKING = true ]; then
 	    stdlib="-lLIBMTD";;
     esac
     # And finally call the next script to do the linking...
-    params="$out_spec $LINKCMD $stdlib" 
+    params="$out_spec $LINKCMD $stdlib"
+    if [ "X$CC_SH_DEBUG_LOG" != "X" ]; then
+	echo ld.sh $ACCUM_OBJECTS $params
+    fi
     eval ld.sh $ACCUM_OBJECTS $params
     RES=$?
 fi

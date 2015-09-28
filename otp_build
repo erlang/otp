@@ -1443,13 +1443,13 @@ case "$1" in
 		do_debuginfo_win32 "$2";;
 	env_win32)
 	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
-		    if [ -x /usr/bin/msysinfo ]; then
+		    if [ -x /usr/bin/msys-?.0.dll ]; then
 			echo_env_msys64
 		    else
 			echo_env_win64
 		    fi
 		else
-		    if [ -x /usr/bin/msysinfo ]; then
+		    if [ -x /usr/bin/msys-?.0.dll ]; then
 			echo_env_msys32
 		    else
 			echo_env_win32

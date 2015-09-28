@@ -29,6 +29,7 @@ WTOOLDIR0=`win2msys_path.sh "$TOOLDIR"`
 WTOOLDIR=`cmd //C echo $WTOOLDIR0`
 # Do primitive 'make'
 newer_exe=`find $TOOLDIR -newer $COFFIX.c -name coffix.exe -print`
+export MSYS2_ARG_CONV_EXCL="-FeC"
 if [ -z $newer_exe ]; then
     echo recompiling $COFFIX.exe
     cl.exe -Fe${WTOOLDIR}/coffix.exe ${WTOOLDIR}/coffix.c
