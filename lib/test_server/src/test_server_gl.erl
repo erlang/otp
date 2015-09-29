@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).
 
 -record(st, {tc_supervisor :: 'none'|pid(),    %Test case supervisor
-	     tc :: mfa(),		       %Current test case MFA
+	     tc :: mfa() | 'undefined',	       %Current test case MFA
 	     minor :: 'none'|pid(),	       %Minor fd
 	     minor_monitor,		       %Monitor ref for minor fd
 	     capture :: 'none'|pid(),	       %Capture output
