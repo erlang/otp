@@ -937,7 +937,7 @@ hidden_uses_2(Tree, Used) ->
 
 -record(env, {file		       :: file:filename(),
               module                   :: atom(),
-              current                  :: fa(),
+              current                  :: fa() | 'undefined',
               imports = dict:new()     :: dict:dict(atom(), atom()),
               context = normal	       :: context(),
               verbosity = 1	       :: 0 | 1 | 2,
@@ -949,10 +949,10 @@ hidden_uses_2(Tree, Used) ->
               new_guard_tests = true   :: boolean(),
 	      old_guard_tests = false  :: boolean()}).
 
--record(st, {varc              :: non_neg_integer(),
+-record(st, {varc              :: non_neg_integer() | 'undefined',
 	     used = sets:new() :: sets:set({atom(), arity()}),
 	     imported          :: sets:set({atom(), arity()}),
-	     vars              :: sets:set(atom()),
+	     vars              :: sets:set(atom()) | 'undefined',
 	     functions         :: sets:set({atom(), arity()}),
 	     new_forms = []    :: [erl_syntax:syntaxTree()],
 	     rename            :: dict:dict(mfa(), {atom(), atom()})}).
@@ -1064,13 +1064,13 @@ visit_clause(Tree, Env, St0) ->
 
 visit_infix_expr(Tree, #env{context = guard_test}, St0) ->
     %% Detect transition from guard test to guard expression.
-    visit_other(Tree, #env{context = guard_expr}, St0);
+    visit_other(Tree, #env{context = guard_expr, file = ""}, St0);
 visit_infix_expr(Tree, Env, St0) ->
     visit_other(Tree, Env, St0).
 
 visit_prefix_expr(Tree, #env{context = guard_test}, St0) ->
     %% Detect transition from guard test to guard expression.
-    visit_other(Tree, #env{context = guard_expr}, St0);
+    visit_other(Tree, #env{context = guard_expr, file = ""}, St0);
 visit_prefix_expr(Tree, Env, St0) ->
     visit_other(Tree, Env, St0).
 

@@ -1594,10 +1594,11 @@ alias_expansions_2(Modules, Table) ->
 	       preserved  :: boolean(),
 	       no_headers :: boolean(),
 	       notes      :: notes(),
-	       map        :: map_fun(),
+	       map        :: map_fun() | 'undefined',
 	       renaming   :: fun((atom()) -> map_fun()),
 	       expand     :: dict:dict({atom(), integer()},
-                                       {atom(), {atom(), integer()}}),
+                                       {atom(), {atom(), integer()}})
+                           | 'undefined',
 	       redirect	  :: dict:dict(atom(), atom())
 	      }).
 
