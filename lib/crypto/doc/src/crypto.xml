@@ -617,7 +617,7 @@
 	RAND_seed function from openssl. Only use this if the system
 	you are running on does not have enough "randomness" built in.
 	Normally this is when <seealso marker="#strong_rand_bytes/1">
-	stong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
+	strong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
       </desc>
     </func>
 
@@ -710,7 +710,7 @@
       </type>
       <desc>
         <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
-        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bits long. <c>IVec</c> is
         an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
         <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
         <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
