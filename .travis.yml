@@ -18,16 +18,23 @@ addons:
       - libpng3
       - default-jdk
       - g++
+      - xsltproc
 
 before_script:
   - set -e
   - export ERL_TOP=$PWD
   - export PATH=$ERL_TOP/bin:$PATH
   - export ERL_LIBS=''
+  - export MAKEFLAGS=-j6
   - kerl_deactivate
 
 script:
   - ./otp_build all -a
-
+  
 after_success:
-  - ./otp_build tests
+  - ./otp_build tests && make release_docs
+
+after_script:
+  - cd $ERL_TOP/release/tests/test_server && $ERL_TOP/bin/erl -s ts install -s ts smoke_test batch -s init stop
+  
+
