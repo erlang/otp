@@ -2143,10 +2143,10 @@ os_prompt% </pre>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
 &lt;&lt;4,5&gt;&gt;
-> <input>Bin3 = &lt;&lt;6,7:4,&gt;&gt;.</input>
-&lt;&lt;6&gt;&gt;
+> <input>Bin3 = &lt;&lt;6,7:4&gt;&gt;.</input>
+&lt;&lt;6,7:4&gt;&gt;
 > <input>list_to_bitstring([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
-&lt;&lt;1,2,3,1,2,3,4,5,4,6,7:46&gt;&gt;</pre>
+&lt;&lt;1,2,3,1,2,3,4,5,4,6,7:4&gt;&gt;</pre>
       </desc>
     </func>
     <func>
