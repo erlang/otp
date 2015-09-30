@@ -79,18 +79,20 @@ supported_algorithms(kex) ->
       [
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {ec_curve,secp256r1}, {hashs,sha256}]},
        {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {ec_curve,secp384r1}, {hashs,sha384}]},
+       {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
+       {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
+       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {ec_curve,secp521r1}, {hashs,sha512}]},
-       {'diffie-hellman-group14-sha1',          [{public_keys,dh}, {hashs,sha}]},
-       {'diffie-hellman-group-exchange-sha256', [{public_keys,dh}, {hashs,sha256}]},
-       {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh}, {hashs,sha}]},
-       {'diffie-hellman-group1-sha1',           [{public_keys,dh}, {hashs,sha}]}
+       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
     ssh_auth:default_public_key_algorithms();
 supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
-	[{'aes128-ctr', [{ciphers,aes_ctr}]},
+	[{'aes256-ctr', [{ciphers,{aes_ctr,256}}]},
+	 {'aes192-ctr', [{ciphers,{aes_ctr,192}}]},
+	 {'aes128-ctr', [{ciphers,{aes_ctr,128}}]},
 	 {'aes128-cbc', [{ciphers,aes_cbc128}]},
 	 {'3des-cbc',   [{ciphers,des3_cbc}]}
 	]
@@ -98,8 +100,8 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-512', [{hashs,sha512}]},
-	 {'hmac-sha2-256', [{hashs,sha256}]},
+	[{'hmac-sha2-256', [{hashs,sha256}]},
+	 {'hmac-sha2-512', [{hashs,sha512}]},
 	 {'hmac-sha1',     [{hashs,sha}]}
 	]
        ));
@@ -124,10 +126,25 @@ crypto_supported_curves() ->
     end.
 
 crypto_supported(Conditions, Supported) ->
-    lists:all( fun({Tag,CryptoName}) ->
-		       lists:member(CryptoName, proplists:get_value(Tag,Supported,[]))
+    lists:all( fun({Tag,CryptoName}) when is_atom(CryptoName) ->
+		       crypto_name_supported(Tag,CryptoName,Supported);
+		  ({Tag,{Name=aes_ctr,Len}}) when is_integer(Len) ->
+		       crypto_name_supported(Tag,Name,Supported) andalso
+			   ctr_len_supported(Name,Len)
 	       end, Conditions).
 
+crypto_name_supported(Tag, CryptoName, Supported) ->
+    lists:member(CryptoName, proplists:get_value(Tag,Supported,[])).
+
+ctr_len_supported(Name, Len) ->
+    try
+	crypto:stream_encrypt(crypto:stream_init(Name, <<0:Len>>, <<0:128>>), <<"">>)
+    of
+	{_,X} -> is_binary(X)
+    catch
+	_:_ -> false
+    end.
+	    
 
 same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 
@@ -899,52 +916,9 @@ verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
 verify(PlainText, Hash, Sig, Key) ->
     public_key:verify(PlainText, Hash, Sig, Key).
 
-%% public key algorithms
-%%
-%%   ssh-dss              REQUIRED     sign    Raw DSS Key
-%%   ssh-rsa              RECOMMENDED  sign    Raw RSA Key
-%%   x509v3-sign-rsa      OPTIONAL     sign    X.509 certificates (RSA key)
-%%   x509v3-sign-dss      OPTIONAL     sign    X.509 certificates (DSS key)
-%%   spki-sign-rsa        OPTIONAL     sign    SPKI certificates (RSA key)
-%%   spki-sign-dss        OPTIONAL     sign    SPKI certificates (DSS key)
-%%   pgp-sign-rsa         OPTIONAL     sign    OpenPGP certificates (RSA key)
-%%   pgp-sign-dss         OPTIONAL     sign    OpenPGP certificates (DSS key)
-%%
-
-%% key exchange
-%%
-%%     diffie-hellman-group1-sha1       REQUIRED
-%%     diffie-hellman-group14-sha1      REQUIRED
-%%
-%%
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% Encryption
-%%
-%% chiphers
-%%
-%%       3des-cbc         REQUIRED          
-%%       three-key 3DES in CBC mode
-%%       blowfish-cbc     OPTIONAL          Blowfish in CBC mode
-%%       twofish256-cbc   OPTIONAL          Twofish in CBC mode,
-%%                                          with 256-bit key
-%%       twofish-cbc      OPTIONAL          alias for "twofish256-cbc" (this
-%%                                          is being retained for
-%%                                          historical reasons)
-%%       twofish192-cbc   OPTIONAL          Twofish with 192-bit key
-%%       twofish128-cbc   OPTIONAL          Twofish with 128-bit key
-%%       aes256-cbc       OPTIONAL          AES in CBC mode,
-%%                                          with 256-bit key
-%%       aes192-cbc       OPTIONAL          AES with 192-bit key
-%%       aes128-cbc       RECOMMENDED       AES with 128-bit key
-%%       serpent256-cbc   OPTIONAL          Serpent in CBC mode, with
-%%                                          256-bit key
-%%       serpent192-cbc   OPTIONAL          Serpent with 192-bit key
-%%       serpent128-cbc   OPTIONAL          Serpent with 128-bit key
-%%       arcfour          OPTIONAL          the ARCFOUR stream cipher
-%%       idea-cbc         OPTIONAL          IDEA in CBC mode
-%%       cast128-cbc      OPTIONAL          CAST-128 in CBC mode
-%%       none             OPTIONAL          no encryption; NOT RECOMMENDED
 %%  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -975,15 +949,43 @@ encrypt_init(#ssh{encrypt = 'aes128-cbc', role = server} = Ssh) ->
 		 encrypt_block_size = 16,
                  encrypt_ctx = IV}};
 encrypt_init(#ssh{encrypt = 'aes128-ctr', role = client} = Ssh) ->
-	IV = hash(Ssh, "A", 128),
+    IV = hash(Ssh, "A", 128),
     <<K:16/binary>> = hash(Ssh, "C", 128),
     State = crypto:stream_init(aes_ctr, K, IV),
     {ok, Ssh#ssh{encrypt_keys = K,
 		 encrypt_block_size = 16,
                  encrypt_ctx = State}};
+encrypt_init(#ssh{encrypt = 'aes192-ctr', role = client} = Ssh) ->
+    IV = hash(Ssh, "A", 128),
+    <<K:24/binary>> = hash(Ssh, "C", 192),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}};
+encrypt_init(#ssh{encrypt = 'aes256-ctr', role = client} = Ssh) ->
+    IV = hash(Ssh, "A", 128),
+    <<K:32/binary>> = hash(Ssh, "C", 256),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}};
 encrypt_init(#ssh{encrypt = 'aes128-ctr', role = server} = Ssh) ->
-	IV = hash(Ssh, "B", 128),
+    IV = hash(Ssh, "B", 128),
     <<K:16/binary>> = hash(Ssh, "D", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}};
+encrypt_init(#ssh{encrypt = 'aes192-ctr', role = server} = Ssh) ->
+    IV = hash(Ssh, "B", 128),
+    <<K:24/binary>> = hash(Ssh, "D", 192),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{encrypt_keys = K,
+		 encrypt_block_size = 16,
+                 encrypt_ctx = State}};
+encrypt_init(#ssh{encrypt = 'aes256-ctr', role = server} = Ssh) ->
+    IV = hash(Ssh, "B", 128),
+    <<K:32/binary>> = hash(Ssh, "D", 256),
     State = crypto:stream_init(aes_ctr, K, IV),
     {ok, Ssh#ssh{encrypt_keys = K,
 		 encrypt_block_size = 16,
@@ -1011,6 +1013,14 @@ encrypt(#ssh{encrypt = 'aes128-cbc',
     IV = crypto:next_iv(aes_cbc, Enc),
     {Ssh#ssh{encrypt_ctx = IV}, Enc};
 encrypt(#ssh{encrypt = 'aes128-ctr',
+            encrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_encrypt(State0,Data),
+    {Ssh#ssh{encrypt_ctx = State}, Enc};
+encrypt(#ssh{encrypt = 'aes192-ctr',
+            encrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_encrypt(State0,Data),
+    {Ssh#ssh{encrypt_ctx = State}, Enc};
+encrypt(#ssh{encrypt = 'aes256-ctr',
             encrypt_ctx = State0} = Ssh, Data) ->
     {State, Enc} = crypto:stream_encrypt(State0,Data),
     {Ssh#ssh{encrypt_ctx = State}, Enc}.
@@ -1053,9 +1063,37 @@ decrypt_init(#ssh{decrypt = 'aes128-ctr', role = client} = Ssh) ->
     {ok, Ssh#ssh{decrypt_keys = K,
 		 decrypt_block_size = 16,
                  decrypt_ctx = State}};
+decrypt_init(#ssh{decrypt = 'aes192-ctr', role = client} = Ssh) ->
+	IV = hash(Ssh, "B", 128),
+    <<K:24/binary>> = hash(Ssh, "D", 192),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}};
+decrypt_init(#ssh{decrypt = 'aes256-ctr', role = client} = Ssh) ->
+	IV = hash(Ssh, "B", 128),
+    <<K:32/binary>> = hash(Ssh, "D", 256),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}};
 decrypt_init(#ssh{decrypt = 'aes128-ctr', role = server} = Ssh) ->
 	IV = hash(Ssh, "A", 128),
     <<K:16/binary>> = hash(Ssh, "C", 128),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}};
+decrypt_init(#ssh{decrypt = 'aes192-ctr', role = server} = Ssh) ->
+	IV = hash(Ssh, "A", 128),
+    <<K:24/binary>> = hash(Ssh, "C", 192),
+    State = crypto:stream_init(aes_ctr, K, IV),
+    {ok, Ssh#ssh{decrypt_keys = K,
+		 decrypt_block_size = 16,
+                 decrypt_ctx = State}};
+decrypt_init(#ssh{decrypt = 'aes256-ctr', role = server} = Ssh) ->
+	IV = hash(Ssh, "A", 128),
+    <<K:32/binary>> = hash(Ssh, "C", 256),
     State = crypto:stream_init(aes_ctr, K, IV),
     {ok, Ssh#ssh{decrypt_keys = K,
 		 decrypt_block_size = 16,
@@ -1082,6 +1120,14 @@ decrypt(#ssh{decrypt = 'aes128-cbc', decrypt_keys = Key,
     IV = crypto:next_iv(aes_cbc, Data),
     {Ssh#ssh{decrypt_ctx = IV}, Dec};
 decrypt(#ssh{decrypt = 'aes128-ctr',
+            decrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_decrypt(State0,Data),
+    {Ssh#ssh{decrypt_ctx = State}, Enc};
+decrypt(#ssh{decrypt = 'aes192-ctr',
+            decrypt_ctx = State0} = Ssh, Data) ->
+    {State, Enc} = crypto:stream_decrypt(State0,Data),
+    {Ssh#ssh{decrypt_ctx = State}, Enc};
+decrypt(#ssh{decrypt = 'aes256-ctr',
             decrypt_ctx = State0} = Ssh, Data) ->
     {State, Enc} = crypto:stream_decrypt(State0,Data),
     {Ssh#ssh{decrypt_ctx = State}, Enc}.
@@ -1168,17 +1214,8 @@ decompress(#ssh{decompress = 'zlib@openssh.com', decompress_ctx = Context, authe
     {Ssh, list_to_binary(Decompressed)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% MAC calculation
 %%
-%%     hmac-sha1    REQUIRED        HMAC-SHA1 (digest length = key
-%%                                  length = 20)
-%%     hmac-sha1-96 RECOMMENDED     first 96 bits of HMAC-SHA1 (digest
-%%                                  length = 12, key length = 20)
-%%     hmac-md5     OPTIONAL        HMAC-MD5 (digest length = key
-%%                                  length = 16)
-%%     hmac-md5-96  OPTIONAL        first 96 bits of HMAC-MD5 (digest
-%%                                  length = 12, key length = 16)
-%%     none         OPTIONAL        no MAC; NOT RECOMMENDED
+%% MAC calculation
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
