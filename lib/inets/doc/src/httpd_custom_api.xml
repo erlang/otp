@@ -33,6 +33,20 @@
     
   </description>  
   <funcs>
+     <func>
+      <name>response_default_headers() -> [Header] </name>
+      <fsummary>Provide default headers for the HTTP servers responses.</fsummary>
+      <type>
+        <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
+	<d>string:to_lower/1 will be performed on the HeaderName</d>
+      </type>
+      <desc>
+        <p>Provide default headers for the HTTP servers responses. Note that this
+	option may override built-in defaults. 
+	</p>
+      </desc>
+    </func>
+    
     <func>
       <name>response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
       <fsummary>Filter and possible alter HTTP response headers.</fsummary>
