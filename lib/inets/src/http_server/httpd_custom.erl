@@ -23,7 +23,13 @@
 -export([response_header/1, request_header/1]).
 -export([customize_headers/3]).
 
--include_lib("inets/src/inets_app/inets_internal.hrl").
+-include("../inets_app/inets_internal.hrl").
+
+-behaviour(httpd_custom_api).
+
+%%--------------------------------------------------------------------
+%% Behavior API -----------------------------------
+%%--------------------------------------------------------------------
 
 response_header(Header) -> 
     {true, httpify(Header)}.
