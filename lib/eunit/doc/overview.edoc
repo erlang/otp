@@ -885,7 +885,7 @@ the timeout is exceeded, the unfinished tests will be forced to
 terminate. Note that if a timeout is set around a fixture, it includes
 the time for setup and cleanup, and if the timeout is triggered, the
 entire fixture is abruptly terminated (without running the
-cleanup).</dd>
+cleanup). The default timeout for an individual test is 5 seconds.</dd>
 <dt>`{inorder, Tests}'</dt>
 <dd>Runs the specified tests in strict order. Also see `{inparallel,
 Tests}'. By default, tests are neither marked as `inorder' or
