@@ -316,7 +316,7 @@ lookup(Db, Key) ->
 
 
 make_name(Addr, Port, Profile) ->
-    httpd_util:make_name(?MODULE, Addr, Port, Profile).
+    httpd_util:make_name(?MODULE_STRING, Addr, Port, Profile).
 
 
 call(Name, Req) ->
