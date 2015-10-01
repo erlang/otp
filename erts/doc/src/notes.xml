@@ -172,6 +172,14 @@
           <p>
 	    Own Id: OTP-12942</p>
         </item>
+        <item>
+           <p>
+	    When tracing with <c>process_dump</c> option, the VM
+	    could abort if there was an ongoing binary match
+	    somewhere in the call stack of the traced process./</p>
+          <p>
+	    Own Id: OTP-12968</p>
+        </item>
       </list>
     </section>
 
