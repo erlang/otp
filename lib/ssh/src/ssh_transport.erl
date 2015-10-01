@@ -65,9 +65,7 @@ default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
-default_algorithms(compression) ->
-    %% Do not announce 'zlib@openssh.com' because there seem to be problems
-    supported_algorithms(compression, same(['zlib@openssh.com']));
+default_algorithms(kex) -> supported_algorithms(kex, []); %% Just to have a call...
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
@@ -106,8 +104,10 @@ supported_algorithms(mac) ->
 	]
        ));
 supported_algorithms(compression) ->
-    same(['none','zlib','zlib@openssh.com']).
-
+    same(['none',
+ 	  'zlib@openssh.com',
+	  'zlib'
+	 ]).
 
 supported_algorithms(Key, [{client2server,BL1},{server2client,BL2}]) ->
     [{client2server,As1},{server2client,As2}] = supported_algorithms(Key),

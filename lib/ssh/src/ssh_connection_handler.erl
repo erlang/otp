@@ -530,7 +530,7 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 		    Pid ! ssh_connected,
 		    connected_fun(User, Address, Method, Opts),
 		    {next_state, connected, 
-		     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+		     next_packet(State#state{auth_user = User, ssh_params = Ssh#ssh{authenticated = true}})};
 		{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 		    retry_fun(User, Address, Reason, Opts),
 		    send_msg(Reply, State),
@@ -622,7 +622,7 @@ userauth_keyboard_interactive(#ssh_msg_userauth_info_response{} = Msg,
 	    Pid ! ssh_connected,
 	    connected_fun(User, Address, "keyboard-interactive", Opts),
 	    {next_state, connected, 
-	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+	     next_packet(State#state{auth_user = User, ssh_params = Ssh#ssh{authenticated = true}})};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Address, Reason, Opts),
 	    send_msg(Reply, State),
