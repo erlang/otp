@@ -182,23 +182,29 @@ erlang_client_openssh_server_exec_compressed() ->
 
 erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
     CompressAlgs = [zlib, 'zlib@openssh.com',none],
-    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-							     {user_interaction, false},
-							     {preferred_algorithms,
-							      [{compression,CompressAlgs}]}]),
-    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId,
-				  "echo testing", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"testing\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
-	{unexpected_msg,{ssh_cm, ConnectionRef,
-			 {exit_status, ChannelId, 0}} = ExitStatus} ->
-	    ct:log("0: Collected data ~p", [ExitStatus]),
-	    ssh_test_lib:receive_exec_result(Data,  ConnectionRef, ChannelId);
-	Other ->
-	    ct:fail(Other)
+    case ssh_test_lib:ssh_supports(CompressAlgs, compression) of
+	{false,L} ->
+	    {skip, io_lib:format("~p compression is not supported",[L])};
+
+	true ->
+	    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+								     {user_interaction, false},
+								     {preferred_algorithms,
+								      [{compression,CompressAlgs}]}]),
+	    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+	    success = ssh_connection:exec(ConnectionRef, ChannelId,
+					  "echo testing", infinity),
+	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"testing\n">>}},
+	    case ssh_test_lib:receive_exec_result(Data) of
+		expected ->
+		    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
+		{unexpected_msg,{ssh_cm, ConnectionRef,
+				 {exit_status, ChannelId, 0}} = ExitStatus} ->
+		    ct:log("0: Collected data ~p", [ExitStatus]),
+		    ssh_test_lib:receive_exec_result(Data,  ConnectionRef, ChannelId);
+		Other ->
+		    ct:fail(Other)
+	    end
     end.
 
 %%--------------------------------------------------------------------
@@ -425,27 +431,32 @@ erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
-%%    CompressAlgs = [zlib, 'zlib@openssh.com'], % Does not work
-    CompressAlgs = [zlib],
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {preferred_algorithms,
-					      [{compression, CompressAlgs}]},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+    CompressAlgs = [zlib, 'zlib@openssh.com'], % Does not work
+%%    CompressAlgs = [zlib],
+    case ssh_test_lib:ssh_supports(CompressAlgs, compression) of
+	{false,L} ->
+	    {skip, io_lib:format("~p compression is not supported",[L])};
 
-    ct:sleep(500),
+	true ->
+	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						     {preferred_algorithms,
+						      [{compression, CompressAlgs}]},
+						     {failfun, fun ssh_test_lib:failfun/2}]),
 
-    Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o UserKnownHostsFile=" ++ KnownHosts ++ " -C "++ Host ++ " 1+1.",
-    SshPort = open_port({spawn, Cmd}, [binary]),
+	    ct:sleep(500),
 
-    receive
-        {SshPort,{data, <<"2\n">>}} ->
-	    ok
-    after ?TIMEOUT ->
-	    ct:fail("Did not receive answer")
+	    Cmd = "ssh -p " ++ integer_to_list(Port) ++
+		" -o UserKnownHostsFile=" ++ KnownHosts ++ " -C "++ Host ++ " 1+1.",
+	    SshPort = open_port({spawn, Cmd}, [binary]),
 
-    end,
-    ssh:stop_daemon(Pid).
+	    receive
+		{SshPort,{data, <<"2\n">>}} ->
+		    ok
+	    after ?TIMEOUT ->
+		    ct:fail("Did not receive answer")
+	    end,
+	    ssh:stop_daemon(Pid)
+    end.
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_setenv() ->
