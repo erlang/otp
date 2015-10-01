@@ -45,7 +45,7 @@
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes256-ctr, aes192-ctr, aes128-ctr, aes128-cb and 3des-cbc.</item>
       <item>Supported key exchange algorithms: ecdh-sha2-nistp256, ecdh-sha2-nistp384, ecdh-sha2-nistp521, diffie-hellman-group1-sha1, diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 and diffie-hellman-group-exchange-sha256.</item>
-      <item>Supported compression algorithms: none, zlib</item>
+      <item>Supported compression algorithms: none, zlib@openssh.com, zlib</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS support it.
       See section DESCRIPTION in the
       <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c>
