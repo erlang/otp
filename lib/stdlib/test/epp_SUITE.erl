@@ -27,7 +27,8 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1, encoding/1, extends/1, function_macro/1]).
+         otp_11728/1, encoding/1, extends/1,  function_macro/1,
+	 test_error/1, test_warning/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -67,7 +68,7 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding, extends, function_macro].
+     encoding, extends, function_macro, test_error, test_warning].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1055,7 +1056,65 @@ ifdef(Config) ->
            ],
     [] = run(Config, Ts).
 
+%% OTP-12847: Test the -error directive.
+test_error(Config) ->
+    Cs = [{error_c1,
+           <<"-error(\"string and macro: \" ?MODULE_STRING).\n"
+	     "-ifdef(NOT_DEFINED).\n"
+	     " -error(\"this one will be skipped\").\n"
+	     "-endif.\n">>,
+           {errors,[{1,epp,{error,"string and macro: epp_test"}}],[]}},
 
+	  {error_c2,
+	   <<"-ifdef(CONFIG_A).\n"
+	     " t() -> a.\n"
+	     "-else.\n"
+	     "-ifdef(CONFIG_B).\n"
+	     " t() -> b.\n"
+	     "-else.\n"
+	     "-error(\"Neither CONFIG_A nor CONFIG_B are available\").\n"
+	     "-endif.\n"
+	     "-endif.\n">>,
+	   {errors,[{7,epp,{error,"Neither CONFIG_A nor CONFIG_B are available"}}],[]}},
+
+	  {error_c3,
+	   <<"-error(a b c).\n">>,
+	   {errors,[{1,epp,{bad,error}}],[]}}
+
+	 ],
+
+    [] = compile(Config, Cs),
+    ok.
+
+%% OTP-12847: Test the -warning directive.
+test_warning(Config) ->
+    Cs = [{warn_c1,
+           <<"-warning({a,term,?MODULE}).\n"
+	     "-ifdef(NOT_DEFINED).\n"
+	     "-warning(\"this one will be skipped\").\n"
+	     "-endif.\n">>,
+           {warnings,[{1,epp,{warning,{a,term,epp_test}}}]}},
+
+	  {warn_c2,
+	   <<"-ifdef(CONFIG_A).\n"
+	     " t() -> a.\n"
+	     "-else.\n"
+	     "-ifdef(CONFIG_B).\n"
+	     " t() -> b.\n"
+	     "-else.\n"
+	     " t() -> c.\n"
+	     "-warning(\"Using fallback\").\n"
+	     "-endif.\n"
+	     "-endif.\n">>,
+	   {warnings,[{8,epp,{warning,"Using fallback"}}]}},
+
+	  {warn_c3,
+	   <<"-warning(a b c).\n">>,
+	   {errors,[{1,epp,{bad,warning}}],[]}}
+	 ],
+
+    [] = compile(Config, Cs),
+    ok.
 
 %% Advanced test on overloading macros.
 overload_mac(Config) when is_list(Config) ->
