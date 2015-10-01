@@ -873,7 +873,7 @@ typedef struct {
     int possibly_empty;
     Eterm* end;
     ErtsAlcType_t alloc_type;
-}ErtsEQueue;
+} ErtsEQueue;
 
 #define DEF_EQUEUE_SIZE (16)
 
@@ -918,15 +918,20 @@ do {							\
 
 #define EQUEUE_ISEMPTY(q) (q.back == q.front && q.possibly_empty)
 
-#define EQUEUE_GET(q) ({				\
-    UWord x;						\
-    q.possibly_empty = 1;				\
-    x = *(q.front);					\
-    if (++(q.front) == q.end) {				\
-        q.front = q.start;				\
-    }							\
-    x;							\
-})
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q) {
+    Eterm x;
+    q->possibly_empty = 1;
+    x = *(q->front);
+    if (++(q->front) == q->end) {
+        q->front = q->start;
+    }
+    return x;
+}
+#endif
+#define EQUEUE_GET(q) erts_equeue_get(&(q));
 
 /* binary.c */
 

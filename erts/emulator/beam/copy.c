@@ -258,18 +258,19 @@ do {									\
     }									\
 } while(0)
 
-#define BITSTORE_GET(s)	({						\
-    UWord result;							\
-    if (WSTK_CONCAT(s,_bitoffs) <= 0) {					\
-	WSTK_CONCAT(s,_buffer) = s.wstart[WSTK_CONCAT(s,_offset)];	\
-	WSTK_CONCAT(s,_offset)++;					\
-	WSTK_CONCAT(s,_bitoffs) = 8*sizeof(UWord);			\
-    }									\
-    WSTK_CONCAT(s,_bitoffs) -= 2;					\
-    result = WSTK_CONCAT(s,_buffer) & 3;				\
-    WSTK_CONCAT(s,_buffer) >>= 2;					\
-    result;								\
-})
+#define BITSTORE_FETCH(s,dst)                                           \
+do {                                                                    \
+    UWord result;                                                       \
+    if (WSTK_CONCAT(s,_bitoffs) <= 0) {                                 \
+        WSTK_CONCAT(s,_buffer) = s.wstart[WSTK_CONCAT(s,_offset)];      \
+        WSTK_CONCAT(s,_offset)++;                                       \
+        WSTK_CONCAT(s,_bitoffs) = 8*sizeof(UWord);                      \
+    }                                                                   \
+    WSTK_CONCAT(s,_bitoffs) -= 2;                                       \
+    result = WSTK_CONCAT(s,_buffer) & 3;                                \
+    WSTK_CONCAT(s,_buffer) >>= 2;                                       \
+    (dst) = result;                                                     \
+} while(0)
 
 #define BOXED_VISITED_MASK	 ((Eterm) 3)
 #define BOXED_VISITED		 ((Eterm) 1)
@@ -476,7 +477,8 @@ cleanup:
 	    /* if not already clean, clean it up */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER) {
 		if (primary_tag(head) == TAG_PRIMARY_HEADER) {
-		    Eterm saved = BITSTORE_GET(b);
+		    Eterm saved;
+                    BITSTORE_FETCH(b, saved);
 		    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) | saved;
 		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) | TAG_PRIMARY_BOXED;
 		} else {
@@ -1396,10 +1398,11 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    /* if not already clean, clean it up and copy it */
 	    if (primary_tag(tail) == TAG_PRIMARY_HEADER) {
 		if (primary_tag(head) == TAG_PRIMARY_HEADER) {
-                    Eterm saved = BITSTORE_GET(b);
-                    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/B %p\n", mypid, ptr));
-                    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) + saved;
-                    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED;
+		    Eterm saved;
+                    BITSTORE_FETCH(b, saved);
+		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/B %p\n", mypid, ptr));
+		    CAR(ptr) = head = (head - TAG_PRIMARY_HEADER) + saved;
+		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_BOXED;
 		} else {
 		    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] unmangling L/L %p\n", mypid, ptr));
 		    CDR(ptr) = tail = (tail - TAG_PRIMARY_HEADER) + TAG_PRIMARY_LIST;
