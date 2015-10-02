@@ -38,7 +38,7 @@
 %%% Exports for the compilation workers
 -export([get_next_label/2]).
 
--export_type([coordinator/0, mode/0, init_data/0, result/0]).
+-export_type([coordinator/0, mode/0, init_data/0, result/0, job/0]).
 
 %%--------------------------------------------------------------------
 
@@ -52,10 +52,12 @@
 -type scc()     :: [mfa_or_funlbl()].
 -type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings'.
 
--type compile_jobs()  :: [file:filename()].
--type typesig_jobs()  :: [scc()].
--type dataflow_jobs() :: [module()].
--type warnings_jobs() :: [module()].
+-type compile_job()  :: file:filename().
+-type typesig_job()  :: scc().
+-type dataflow_job() :: module().
+-type warnings_job() :: module().
+
+-type job() :: compile_job() | typesig_job() | dataflow_job() | warnings_job().
 
 -type compile_init_data()  :: dialyzer_analysis_callgraph:compile_init_data().
 -type typesig_init_data()  :: dialyzer_succ_typings:typesig_init_data().
@@ -73,7 +75,6 @@
 -type result() :: compile_result() | typesig_result() |
 		  dataflow_result() | warnings_result().
 
--type job() :: scc() | module() | file:filename().
 -type job_result() :: dialyzer_analysis_callgraph:one_file_result() |
 		      typesig_result() | dataflow_result() | warnings_result().
 
@@ -90,13 +91,13 @@
 
 %%--------------------------------------------------------------------
 
--spec parallel_job('compile', compile_jobs(), compile_init_data(), timing()) ->
+-spec parallel_job('compile', [compile_job()], compile_init_data(), timing()) ->
 		      {compile_result(), integer()};
-		  ('typesig', typesig_jobs(), typesig_init_data(), timing()) ->
+		  ('typesig', [typesig_job()], typesig_init_data(), timing()) ->
 		      typesig_result();
-		  ('dataflow', dataflow_jobs(), dataflow_init_data(),
+		  ('dataflow', [dataflow_job()], dataflow_init_data(),
 		   timing()) -> dataflow_result();
-		  ('warnings', warnings_jobs(), warnings_init_data(),
+		  ('warnings', [warnings_job()], warnings_init_data(),
 		   timing()) -> warnings_result().
 
 parallel_job(Mode, Jobs, InitData, Timing) ->
