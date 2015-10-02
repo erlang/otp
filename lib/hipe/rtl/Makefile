@@ -75,7 +75,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +inline +warn_unused_import +warn_exported_vars
+ERL_COMPILE_FLAGS += -Werror +inline +warn_unused_import +warn_exported_vars
 
 # ----------------------------------------------------
 # Targets

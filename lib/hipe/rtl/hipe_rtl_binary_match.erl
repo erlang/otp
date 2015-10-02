@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
@@ -181,17 +181,20 @@ gen_rtl({bs_get_binary, Size, Flags}, [Dst, NewMs], Args,
       [hipe_rtl:mk_goto(FalseLblName)];
     false ->
       Unsafe = unsafe(Flags),
-      case Args of
-	[Ms] ->
-	  SizeReg = hipe_rtl:mk_new_reg(),
-	  SizeCode = [hipe_rtl:mk_move(SizeReg, hipe_rtl:mk_imm(Size))];
-	[Ms, BitsVar] -> 
-	  {SizeCode, SizeReg} = make_size(Size, BitsVar, FalseLblName)
-      end,
-      InCode = get_binary(Dst, Ms, SizeReg, Unsafe,
+      {OldMs, SizeReg, SizeCode} =
+	case Args of
+	  [Ms] ->
+	    SzReg = hipe_rtl:mk_new_reg(),
+	    SzCode = [hipe_rtl:mk_move(SzReg, hipe_rtl:mk_imm(Size))],
+	    {Ms, SzReg, SzCode};
+	  [Ms, BitsVar] ->
+	    {SzCode, SzReg} = make_size(Size, BitsVar, FalseLblName),
+	    {Ms, SzReg, SzCode}
+	end,
+      InCode = get_binary(Dst, OldMs, SizeReg, Unsafe,
 			  TrueLblName, FalseLblName),
       [hipe_rtl:mk_gctest(?SUB_BIN_WORDSIZE)] ++ 
-	update_ms(NewMs, Ms) ++ SizeCode ++ InCode
+	update_ms(NewMs, OldMs) ++ SizeCode ++ InCode
   end;
 %% ----- bs_get_utf8 -----
 gen_rtl(bs_get_utf8, [Dst, NewMs], [Ms], TrueLblName, FalseLblName) ->
