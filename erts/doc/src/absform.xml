@@ -70,6 +70,10 @@
        Rep(D) = <c><![CDATA[[Rep(F_1), ..., Rep(F_k)]]]></c>.</item>
       <item>If F is an attribute <c><![CDATA[-module(Mod)]]></c>, then
        Rep(F) = <c><![CDATA[{attribute,LINE,module,Mod}]]></c>.</item>
+      <item>If F is an attribute <c><![CDATA[-behavior(Behavior)]]></c>, then
+       Rep(F) = <c><![CDATA[{attribute,LINE,behavior,Behavior}]]></c>.</item>
+      <item>If F is an attribute <c><![CDATA[-behaviour(Behaviour)]]></c>, then
+       Rep(F) = <c><![CDATA[{attribute,LINE,behaviour,Behaviour}]]></c>.</item>
       <item>If F is an attribute <c><![CDATA[-export([Fun_1/A_1, ..., Fun_k/A_k])]]></c>, then
        Rep(F) = <c><![CDATA[{attribute,LINE,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}]]></c>.</item>
       <item>If F is an attribute <c><![CDATA[-import(Mod,[Fun_1/A_1, ..., Fun_k/A_k])]]></c>, then
