@@ -232,7 +232,13 @@ restore(Config, Op)  ->
 
     Res21 = [{Tab2, N, N+1} || N <- lists:seq(1, 11)],
     Res31 = [[{Tab3, N, N+1}, {Tab3, N, N+44}] || N <- lists:seq(1, 10)],
-    
+    Check = fun() ->
+		    [disk_log:pid2name(X) ||
+			X <- processes(), Data <- [process_info(X, [current_function])],
+			Data =/= undefined,
+			element(1, element(2, lists:keyfind(current_function, 1, Data)))=:= disk_log]
+	    end,
+    Before = Check(),
     ?match({atomic, [Tab1]}, Restore(File1, [{Op, [Tab1]},
 					     {skip_tables, Tabs -- [Tab1]}])),    
     case Op of 
@@ -319,6 +325,8 @@ restore(Config, Op)  ->
     end,
     ?match(ok, file:delete(File1)),
     ?match(ok, file:delete(File2)),
+    ?match([], Check() -- Before),
+
     ?verify_mnesia(Nodes, []).
 
 
