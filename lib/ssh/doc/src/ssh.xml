@@ -243,7 +243,7 @@ kex is implicit but public_key is set explicitly.</p>
 	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),I=integer(),Max=integer()}}]]></c></tag>
 	  <item>
 	    <p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
-	    See RFC 4419 for the function of thoose.  The default value is <c>{512, 1024, 4096}</c>.
+	    See RFC 4419 for the function of thoose.  The default value is <c>{1024, 6144, 8192}</c>.
 	    </p>
 	  </item>
 
