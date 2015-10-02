@@ -1083,7 +1083,7 @@ wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
 
         {timeout, TRef, kill} ->
             ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
-            wait_dynamic_children(Child, Pids, Sz-1, undefined, EStack)
+            wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
     end.
 
 %%-----------------------------------------------------------------
