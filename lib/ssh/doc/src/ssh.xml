@@ -41,10 +41,10 @@
       <item>For application dependencies see <seealso marker="SSH_app"> ssh(6)</seealso> </item>
       <item>Supported SSH version is 2.0.</item>
       <item>Supported public key algorithms: ssh-rsa and ssh-dss.</item>
-      <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
+      <item>Supported MAC algorithms: hmac-sha2-512, hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes128-ctr, aes128-cb and 3des-cbc.</item>
-      <item>Supported key exchange algorithms: diffie-hellman-group1-sha1, diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 and diffie-hellman-group-exchange-sha256.</item>
-      <item>Supported compression algorithms: none, zlib, zlib@openssh.com,</item>
+      <item>Supported key exchange algorithms: ecdh-sha2-nistp256, ecdh-sha2-nistp384, ecdh-sha2-nistp521, diffie-hellman-group1-sha1, diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 and diffie-hellman-group-exchange-sha256.</item>
+      <item>Supported compression algorithms: none, zlib</item>
       <item>Supports unicode filenames if the emulator and the underlaying OS support it.
       See section DESCRIPTION in the
       <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c>
@@ -243,7 +243,7 @@ kex is implicit but public_key is set explicitly.</p>
 	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),I=integer(),Max=integer()}}]]></c></tag>
 	  <item>
 	    <p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
-	    See RFC 4419 for the function of thoose.  The default value is <c>{512, 1024, 4096}</c>.
+	    See RFC 4419 for the function of thoose.  The default value is <c>{1024, 6144, 8192}</c>.
 	    </p>
 	  </item>
 
