@@ -27,6 +27,7 @@
 #include <errno.h>
 #endif
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include "testcase_driver.h"
@@ -57,15 +58,52 @@ testcase_name(void)
     return "migration";
 }
 
-void
-testcase_cleanup(TestCaseState_t *tcs)
+/* Turns out random_r() is a nonstandard glibc extension.
+#define HAVE_RANDOM_R
+*/
+#ifdef HAVE_RANDOM_R
+
+typedef struct { struct random_data rnd; char rndbuf[32]; } MyRandState;
+
+static void myrand_init(MyRandState* mrs, unsigned int seed)
 {
-    enif_free(tcs->extra);
-    tcs->extra = NULL;
+    int res;
+    memset(&mrs->rnd, 0, sizeof(mrs->rnd));
+    res = initstate_r(seed, mrs->rndbuf, sizeof(mrs->rndbuf), &mrs->rnd);
+    FATAL_ASSERT(res == 0);
 }
 
-#define MAX_BLOCK_PER_THR 100
-#define MAX_ROUNDS 10
+static int myrand(MyRandState* mrs)
+{
+    int32_t x;
+    int res = random_r(&mrs->rnd, &x);
+    FATAL_ASSERT(res == 0);
+    return (int)x;
+}
+
+#else /* !HAVE_RANDOM_R */
+
+typedef unsigned int MyRandState;
+
+static void myrand_init(MyRandState* mrs, unsigned int seed)
+{
+    *mrs = seed;
+}
+
+static int myrand(MyRandState* mrs)
+{
+    /* Taken from rand(3) man page.
+     * Modified to return a full 31-bit value by using low half of *mrs as well.
+     */
+    *mrs = (*mrs) * 1103515245 + 12345;
+    return (int) (((*mrs >> 16) | (*mrs << 16)) & ~(1 << 31));
+}
+
+#endif /* !HAVE_RANDOM_R */
+
+#define MAX_BLOCK_PER_THR 200
+#define BLOCKS_PER_MBC 10
+#define MAX_ROUNDS 10000
 
 typedef struct MyBlock_ {
     struct MyBlock_* next;
@@ -74,15 +112,23 @@ typedef struct MyBlock_ {
 
 typedef struct {
     MyBlock* blockv[MAX_BLOCK_PER_THR];
+    MyRandState rand_state;
     enum { GROWING, SHRINKING, CLEANUP, DONE } phase;
-    int ix;
+    int nblocks;
+    int goal_nblocks;
     int round;
+    int nr_of_migrations;
+    int nr_of_carriers;
+    int max_blocks_in_mbc;
+    int block_size;
+    int max_nblocks;
 } MigrationState;
 
 typedef struct {
     ErlNifMutex* mtx;
     int nblocks;
     MyBlock* first;
+    MigrationState* employer;
 } MyCrrInfo;
 
 
@@ -99,6 +145,7 @@ static void my_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     mci->mtx = enif_mutex_create("alloc_SUITE.migration");
     mci->nblocks = 0;
     mci->first = NULL;
+    mci->employer = NULL;
 }
 
 static void my_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier)
@@ -131,17 +178,28 @@ static int migration_init(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_in
     return 0;
 }
 
-static void add_block(MyBlock* p)
+static void add_block(MyBlock* p, MigrationState* state)
 {
     MyCrrInfo* mci = (MyCrrInfo*)((char*)BLK_TO_MBC(UMEM2BLK_TEST(p)) + crr_info_offset);
 
     enif_mutex_lock(mci->mtx);
-    mci->nblocks++;
+    if (++mci->nblocks > state->max_blocks_in_mbc)
+	state->max_blocks_in_mbc = mci->nblocks;
     p->next = mci->first;
     p->prevp = &mci->first;
     mci->first = p;
     if (p->next)
 	p->next->prevp = &p->next;
+    if (mci->employer != state) {
+	if (!mci->employer) {
+	    FATAL_ASSERT(mci->nblocks == 1);
+	    state->nr_of_carriers++;
+	}
+	else {
+	    state->nr_of_migrations++;
+	}
+	mci->employer = state;
+    }
     enif_mutex_unlock(mci->mtx);
 }
 
@@ -157,6 +215,38 @@ static void remove_block(MyBlock* p)
     enif_mutex_unlock(mci->mtx);
 }
 
+static int rand_int(MigrationState* state, int low, int high)
+{
+    int x;
+    FATAL_ASSERT(high >= low);
+    x = myrand(&state->rand_state);
+    return low + (x % (high+1-low));
+}
+
+
+static void do_cleanup(TestCaseState_t *tcs, MigrationState* state)
+{
+    if (state->nblocks == 0) {
+	state->phase = DONE;
+	testcase_printf(tcs, "%d: Done %d rounds", tcs->thr_nr, state->round);
+	testcase_printf(tcs, "%d: Cleanup all blocks", tcs->thr_nr);
+	testcase_printf(tcs, "%d: Empty carriers detected = %d", tcs->thr_nr,
+			state->nr_of_carriers);
+	testcase_printf(tcs, "%d: Migrations detected     = %d", tcs->thr_nr,
+			state->nr_of_migrations);
+	testcase_printf(tcs, "%d: Max blocks in carrier   = %d", tcs->thr_nr,
+			state->max_blocks_in_mbc);
+    }
+    else {
+	state->nblocks--;
+	if (state->blockv[state->nblocks]) {
+	    remove_block(state->blockv[state->nblocks]);
+	    FREE_TEST(state->blockv[state->nblocks]);
+	}
+    }
+}
+
+
 void
 testcase_run(TestCaseState_t *tcs)
 {
@@ -169,61 +259,85 @@ testcase_run(TestCaseState_t *tcs)
 	tcs->extra = enif_alloc(sizeof(MigrationState));
 	state = (MigrationState*) tcs->extra;
 	memset(state->blockv, 0, sizeof(state->blockv));
+	myrand_init(&state->rand_state, tcs->thr_nr);
 	state->phase = GROWING;
-	state->ix = 0;
+	state->nblocks = 0;
 	state->round = 0;
+	state->nr_of_migrations = 0;
+	state->nr_of_carriers = 0;
+	state->max_blocks_in_mbc = 0;
+	state->block_size = GET_TEST_MBC_SIZE() / (BLOCKS_PER_MBC+1);
+	if (MAX_BLOCK_PER_THR * state->block_size < tcs->free_mem) {
+	    state->max_nblocks = MAX_BLOCK_PER_THR;
+	} else {
+	    state->max_nblocks = tcs->free_mem / state->block_size;
+	}
+	state->goal_nblocks = rand_int(state, 1, state->max_nblocks);
     }
 
     switch (state->phase) {
     case GROWING: {
 	MyBlock* p;
-	FATAL_ASSERT(!state->blockv[state->ix]);
-	p = ALLOC_TEST((1 << 18) / 5);
+	FATAL_ASSERT(!state->blockv[state->nblocks]);
+	p = ALLOC_TEST(rand_int(state, state->block_size/2, state->block_size));
 	FATAL_ASSERT(p);
-	add_block(p);
-	state->blockv[state->ix] = p;
-	do {
-	    if (++state->ix >= MAX_BLOCK_PER_THR) {
-		state->phase = SHRINKING;
-		state->ix = 0;
-		break;
-	    }
-	} while (state->blockv[state->ix] != NULL);
+	add_block(p, state);
+	state->blockv[state->nblocks] = p;
+	if (++state->nblocks >= state->goal_nblocks) {
+	    /*testcase_printf(tcs, "%d: Grown to %d blocks", tcs->thr_nr, state->nblocks);*/
+	    state->phase = SHRINKING;
+	    state->goal_nblocks = rand_int(state, 0, state->goal_nblocks-1);
+	}
+	else
+	    FATAL_ASSERT(!state->blockv[state->nblocks]);
 	break;
     }
-    case SHRINKING:
-	FATAL_ASSERT(state->blockv[state->ix]);
-	remove_block(state->blockv[state->ix]);
-	FREE_TEST(state->blockv[state->ix]);
-	state->blockv[state->ix] = NULL;
+    case SHRINKING: {
+	int ix = rand_int(state, 0, state->nblocks-1);
+	FATAL_ASSERT(state->blockv[ix]);
+	remove_block(state->blockv[ix]);
+	FREE_TEST(state->blockv[ix]);
+	state->blockv[ix] = state->blockv[--state->nblocks];
+	state->blockv[state->nblocks] = NULL;
 
-	state->ix += 1 + ((state->ix % 3) == 0);
-	if (state->ix >= MAX_BLOCK_PER_THR) {
+	if (state->nblocks <= state->goal_nblocks) {
+	    /*testcase_printf(tcs, "%d: Shrunk to %d blocks", tcs->thr_nr, state->nblocks);*/
 	    if (++state->round >= MAX_ROUNDS) {
 		state->phase = CLEANUP;
 	    } else {
 		state->phase = GROWING;
+		state->goal_nblocks = rand_int(state, state->goal_nblocks+1, state->max_nblocks);
 	    }
-	    state->ix = 0;
 	}
 	break;
-
+    }
     case CLEANUP:
-	if (state->blockv[state->ix]) {
-	    remove_block(state->blockv[state->ix]);
-	    FREE_TEST(state->blockv[state->ix]);
-	}
-	if (++state->ix >= MAX_BLOCK_PER_THR)
-	    state->phase = DONE;
+	do_cleanup(tcs, state);
 	break;
 
     default:
 	FATAL_ASSERT(!"Invalid phase");
     }
 
-    if (state->phase != DONE)
+    if (state->phase == DONE) {
+    }
+    else {
 	testcase_continue(tcs);
+    }
 }
+
+void
+testcase_cleanup(TestCaseState_t *tcs)
+{
+    MigrationState* state = (MigrationState*) tcs->extra;
+
+    while (state->phase != DONE)
+	do_cleanup(tcs, state);
+
+    enif_free(tcs->extra);
+    tcs->extra = NULL;
+}
+
 
 ERL_NIF_INIT(migration, testcase_nif_funcs, migration_init,
 	     NULL, NULL, NULL);

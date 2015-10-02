@@ -157,5 +157,6 @@ typedef void* erts_cond;
 #define ALLOC_TEST(S)		((void*)	ALC_TEST1(0xf14, (S)))
 #define FREE_TEST(P)		((void)		ALC_TEST1(0xf15, (P)))
 #define SET_TEST_MBC_USER_HEADER(SZ,CMBC,DMBC) ((int)ALC_TEST3(0xf16, (SZ), (CMBC), (DMBC)))
+#define GET_TEST_MBC_SIZE()     ((int)          ALC_TEST0(0xf17))
 
 #endif

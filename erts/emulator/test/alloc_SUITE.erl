@@ -65,7 +65,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog},{testcase, Case}|Config].
+    [{watchdog, Dog}, {testcase, Case}, {debug,false} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
@@ -113,7 +113,13 @@ cpool(suite) -> [];
 cpool(doc) ->   [];
 cpool(Cfg) -> ?line drv_case(Cfg).
 
-migration(Cfg) -> drv_case(Cfg, concurrent, "+MZe true").
+migration(Cfg) ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    drv_case(Cfg, concurrent, "+MZe true");
+	false ->
+	    {skipped, "No smp"}
+    end.
 
 erts_mmap(Config) when is_list(Config) ->
     case {?t:os_type(), is_halfword_vm()} of
@@ -207,6 +213,7 @@ run_drv_case(Config, Mode) ->
     File = filename:join(DataDir, CaseName),
     {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
     {module,CaseName} = erlang:load_module(CaseName,Bin),
+    print_stats(CaseName),
     ok = CaseName:init(File),
 
     SlaveState = slave_init(CaseName),
@@ -217,6 +224,9 @@ run_drv_case(Config, Mode) ->
 	concurrent ->
 	    Result = concurrent(CaseName)
     end,
+
+    wait_for_memory_deallocations(),
+    print_stats(CaseName),
 
     true = erlang:delete_module(CaseName),
     slave_end(SlaveState),
@@ -236,6 +246,41 @@ slave_init(_) -> [].
 slave_end(Apps) ->
     lists:foreach(fun (A) -> application:stop(A) end, Apps).
 
+wait_for_memory_deallocations() ->
+    try
+        erts_debug:set_internal_state(wait, deallocations)
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            wait_for_memory_deallocations()
+    end.
+
+print_stats(migration) ->
+    {Btot,Ctot} = lists:foldl(fun({instance,Inr,Istats}, {Bacc,Cacc}) ->
+				      {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
+				      Btup = lists:keyfind(blocks, 1, MBCS),
+				      Ctup = lists:keyfind(carriers, 1, MBCS),
+				      io:format("{instance,~p,~p,~p}\n", [Inr, Btup, Ctup]),
+				      {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup)};
+				 (_, Acc) -> Acc
+			      end,
+			      {{blocks,0,0,0},{carriers,0,0,0}},
+			      erlang:system_info({allocator,test_alloc})),
+
+    io:format("Number of blocks  : ~p\n", [Btot]),
+    io:format("Number of carriers: ~p\n", [Ctot]);
+
+print_stats(_) -> ok.
+
+tuple_add(T1, T2) ->
+    list_to_tuple(lists:zipwith(fun(E1,E2) when is_number(E1), is_number(E2) ->
+					 E1 + E2;
+				    (A,A) ->
+					 A
+				 end,
+				 tuple_to_list(T1), tuple_to_list(T2))).
+
+
 one_shot(CaseName) ->
     State = CaseName:start({1, 0, erlang:system_info(build_type)}),
     Result0 = CaseName:run(State),
@@ -250,8 +295,10 @@ many_shot(CaseName, I, Mem) ->
     Result1 = repeat_while(fun() ->
 				   Result0 = CaseName:run(State),
 				   handle_result(State, Result0)
-			   end),
+			   end,
+			   10*1000, I),
     CaseName:stop(State),
+    flush_log(),
     Result1.
 
 concurrent(CaseName) ->
@@ -272,11 +319,23 @@ concurrent(CaseName) ->
 		  PRs),
     ok.
 
-repeat_while(Fun) ->
-    %%io:format("~p calls fun\n", [self()]),
-    case Fun() of
-	continue -> repeat_while(Fun);
-	R -> R
+repeat_while(Fun, Timeout, I) ->
+    TRef = erlang:start_timer(Timeout, self(), timeout),
+    R = repeat_while_loop(Fun, TRef, I),
+    erlang:cancel_timer(TRef, [{async,true},{info,false}]),
+    R.
+
+repeat_while_loop(Fun, TRef, I) ->
+    receive
+	{timeout, TRef, timeout} ->
+	    io:format("~p: Timeout, enough is enough.",[I]),
+	    succeeded
+    after 0 ->
+	    %%io:format("~p calls fun\n", [self()]),
+	    case Fun() of
+		continue -> repeat_while_loop(Fun, TRef, I);
+		R -> R
+	    end
     end.
 
 flush_log() ->
@@ -308,6 +367,12 @@ handle_result(_State, Result0) ->
     end.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
+    case ?config(debug,Config) of
+	true -> {ok, node()};
+	_ -> start_node_1(Config, Opts)
+    end.
+
+start_node_1(Config, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
@@ -318,6 +383,7 @@ start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
 			++ integer_to_list(erlang:unique_integer([positive]))),
     ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
+stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->
     ?t:stop_node(Node).
 

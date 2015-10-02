@@ -3642,6 +3642,10 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    *(void**)a3 = orig_destroying_mbc;
 	    return offset;
 	}
+	case 0xf17: {
+	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
+	    return ts->allctr[0]->largest_mbc_size;
+	}
 	default:
 	    break;
 	}
