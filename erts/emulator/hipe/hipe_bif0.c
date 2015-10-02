@@ -574,15 +574,15 @@ static void print_mfa(Eterm mod, Eterm fun, unsigned int ari)
 static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 {
     Module *modp;
-    Uint *code_base;
+    BeamCodeHeader* code_hdr;
     int i, n;
 
     modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL || (code_base = modp->curr.code) == NULL)
+    if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL)
 	return NULL;
-    n = code_base[MI_NUM_FUNCTIONS];
+    n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	Uint *code_ptr = (Uint*)code_base[MI_FUNCTIONS+i];
+	Uint *code_ptr = (Uint*)code_hdr->functions[i];
 	ASSERT(code_ptr[0] == BeamOpCode(op_i_func_info_IaaI));
 	if (code_ptr[3] == name && code_ptr[4] == arity)
 	    return code_ptr+5;
