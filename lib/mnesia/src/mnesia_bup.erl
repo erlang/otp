@@ -269,7 +269,7 @@ convert_0_1(Schema) ->
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema2, [], Cs);
         false ->
-            List = mnesia_schema:get_initial_schema(disc_copies, [node()]),
+            List = mnesia_schema:get_initial_schema(disc_copies, [node()], []),
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema, [], Cs)
     end.
