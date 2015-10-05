@@ -97,7 +97,7 @@ groups() ->
      {https_reload, [], [{group, reload}]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
-     {custom, [],  [customize]},  
+     {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
@@ -1003,10 +1003,23 @@ customize(Config) when is_list(Config) ->
 					{no_header, "Server"},
 					{version, Version}]).
 
-response_header({"server", _}) ->
-    false;
-response_header(Header) ->
-    {true, Header}.
+add_default() ->
+    [{doc, "Test adding default header with custom callback"}].
+
+add_default(Config) when is_list(Config) -> 
+    Version = "HTTP/1.1",
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{header, "Content-Type", "text/html"},
+					{header, "Date", "Override-date"},
+					{header, "X-Frame-Options"},
+					{version, Version}]).
 
 %%-------------------------------------------------------------------------
 max_header() ->
@@ -1425,9 +1438,9 @@ server_config(http_limit, Config) ->
      %% Make sure option checking code is run
      {max_content_length, 100000002}]  ++ server_config(http, Config);
 server_config(http_custom, Config) ->
-    [{custom, ?MODULE}]  ++ server_config(http, Config);
+    [{customize, ?MODULE}]  ++ server_config(http, Config);
 server_config(https_custom, Config) ->
-    [{custom, ?MODULE}]  ++ server_config(https, Config);
+    [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
@@ -2030,3 +2043,14 @@ typestr(ip_comm) ->
     "tcp";
 typestr(_) ->
     "ssl".
+
+response_header({"server", _}) ->
+    false;
+response_header(Header) ->
+    {true, Header}.
+
+response_default_headers() ->
+    [%% Add new header
+     {"X-Frame-Options", "SAMEORIGIN"},
+     %% Override built-in default
+     {"Date", "Override-date"}].
