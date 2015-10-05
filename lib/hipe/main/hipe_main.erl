@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 %%=====================================================================
 
 %% @spec compile_icode(MFA::mfa(),
-%%                     LinearIcode::#icode{},
+%%                     LinearIcode::icode(),
 %%                     CompilerOptions::comp_options(),
 %%		       CompServers::#comp_servers()) ->
 %%          {native,Platform,{unprofiled,NativeCode}} | {rtl,RTLCode}
@@ -69,7 +69,7 @@
 %% generated). The compiler options must have already been expanded
 %% (cf. `<a href="hipe.html">hipe:expand_options</a>'). </p>
 
--spec compile_icode(mfa(), #icode{}, comp_options(), #comp_servers{}) ->
+-spec compile_icode(mfa(), icode(), comp_options(), #comp_servers{}) ->
 	 comp_icode_ret().
 
 compile_icode(MFA, LinearIcode, Options, Servers) ->
@@ -230,10 +230,12 @@ get_pp_module(icode_liveness) -> hipe_icode_liveness;
 get_pp_module(rtl_liveness) -> hipe_rtl_liveness.
   
 perform_io(no_fun, _) -> ok;
-perform_io(Fun,PPServer) when is_pid(PPServer) ->
-  PPServer ! {print,Fun};
-perform_io(Fun, undefined) ->
-  Fun().
+perform_io(Fun, PPServer) when is_pid(PPServer) ->
+  PPServer ! {print, Fun},
+  ok;
+perform_io(Fun, none) ->
+  Fun(),
+  ok.
 
 
 %%--------------------------------------------------------------------

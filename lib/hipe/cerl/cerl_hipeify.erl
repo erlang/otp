@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -623,12 +623,12 @@ ren__map(Key, Ren) ->
 %% ---------------------------------------------------------------------
 %% State
 
-%% pmatch = 'true' | 'false' | 'no_duplicates' | 'duplicate_all'
+-type pmatch() :: 'true' | 'false' | 'no_duplicates' | 'duplicate_all'.
 
--record(state, {module::atom(),
-		function::{atom(), 0..256},
-		pmatch=true,
-		revisit = false}).
+-record(state, {module          :: module(),
+		function        :: {atom(), arity()} | 'undefined',
+		pmatch = true   :: pmatch(),
+		revisit = false :: boolean()}).
 
 s__new(Module) ->
     #state{module = Module}.

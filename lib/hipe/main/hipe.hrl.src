@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -299,7 +299,8 @@
 %% Records defined in the hipe module used in other parts of the compiler
 %%----------------------------------------------------------------------------
 
--record(comp_servers, {pp_server :: pid(), range :: pid(), type :: pid()}).
+-type mpid() :: 'none' | pid().
+-record(comp_servers, {pp_server :: mpid(), range :: mpid(), type :: mpid()}).
 
 %%----------------------------------------------------------------------------
 %% Basic types of the 'hipe' application used in other parts of the system

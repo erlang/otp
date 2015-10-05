@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -314,7 +314,7 @@ node_create(Label, Pred, Succ) ->
 %% tree - the tree of nodes, with labels as keys and node records as values
 
 -record(nodes, {
-  domtree	                   :: hipe_dominators:domTree(),
+  domtree       = none             :: 'none' | hipe_dominators:domTree(),
   labels 	= none             :: 'none' | [icode_lbl()],
   postorder 	= none             :: 'none' | [icode_lbl()],            
   start_label	= none             :: 'none' | icode_lbl(),
@@ -390,7 +390,7 @@ update_del_red_test_set(Update) ->
 %%-----------------------------------------------------------------------------
 %% Main function called from the hipe_main module
 
--spec struct_reuse(#cfg{}) -> #cfg{}.
+-spec struct_reuse(cfg()) -> cfg().
 
 struct_reuse(CFG) ->
   %% debug_init_case_count(?SR_INSTR_TYPE),
