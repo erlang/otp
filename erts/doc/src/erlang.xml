@@ -1693,7 +1693,7 @@ true</pre>
 	<taglist>
 	  <tag><c>file</c></tag>
 	  <item>The second element of the tuple is a string (list of
-	      characters) representing the filename of the source file
+	      characters) representing the file name of the source file
 	      of the function.
 	  </item>
 	  <tag><c>line</c></tag>
@@ -1718,7 +1718,7 @@ true</pre>
           groups have a <em>group leader</em>. All I/O from the group
           is channeled to the group leader. When a new process is
           spawned, it gets the same group leader as the spawning
-          process. Initially, at system startup, <c>init</c> is both
+          process. Initially, at system start-up, <c>init</c> is both
           its own group leader and the group leader of all processes.</p>
       </desc>
     </func>
@@ -2429,7 +2429,7 @@ os_prompt% </pre>
         </note>
         <p>Loads and links a dynamic library containing native
         implemented functions (NIFs) for a module. <c><anno>Path</anno></c>
-        is a file path to the sharable object/dynamic library file minus
+        is a file path to the shareable object/dynamic library file minus
         the OS-dependent file extension (<c>.so</c> for Unix and
         <c>.dll</c> for Windows. For information on how to
         implement a NIF library, see
@@ -2804,7 +2804,7 @@ os_prompt% </pre>
           <tag><c>badarg</c></tag>
           <item>
 	    If <c><anno>Type</anno></c> is not one of the memory types
-            listed in the decription of
+            listed in the description of
 	    <seealso marker="#memory/0">erlang:memory/0</seealso>.
 	  </item>
           <tag><c>badarg</c></tag>
@@ -3012,7 +3012,7 @@ os_prompt% </pre>
 	</taglist>
 	<p>Making several calls to <c>monitor/2</c> for the same
 	<c><anno>Item</anno></c> and/or <c><anno>Type</anno></c> is not
-	an error; it results in as many independent monitorings.</p>
+	an error; it results in as many independent monitoring instances.</p>
 	<p>The monitor functionality is expected to be extended. That is,
 	other <c><anno>Type</anno></c>s and <c><anno>Item</anno></c>s
 	are expected to be supported in	a future release.</p>
@@ -3034,7 +3034,7 @@ os_prompt% </pre>
           is <c>false</c>, monitoring is turned off.</p>
         <p>Making several calls to <c>monitor_node(Node, true)</c> for
           the same <c><anno>Node</anno></c> is not an error; it results
-          in as many independent monitorings.</p>
+          in as many independent monitoring instances.</p>
         <p>If <c><anno>Node</anno></c> fails or does not exist, the message
           <c>{nodedown, Node}</c> is delivered to the process. If a
           process has made two calls to <c>monitor_node(Node, true)</c>
@@ -3256,8 +3256,8 @@ os_prompt% </pre>
           process.</p>
 	<p>The name of the executable as well as the arguments
 	given in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
-        subject to Unicode filename translation if the system is running
-	in Unicode filename mode. To avoid
+        subject to Unicode file name translation if the system is running
+	in Unicode file name mode. To avoid
 	translation or to force, for example UTF-8, supply the executable
 	and/or arguments as a binary in the correct
 	encoding. For details, see the module
@@ -3267,7 +3267,7 @@ os_prompt% </pre>
         User's Guide.</p>
 	<note><p>The characters in the name (if given as a list) can
 	only be higher than 255 if the Erlang Virtual Machine is started
-	in Unicode filename translation mode. Otherwise the name
+	in Unicode file name translation mode. Otherwise the name
 	of the executable is limited to the ISO-latin-1
 	character set.</p></note>
 	<p><c><anno>PortName</anno></c> can be any of the following:</p>
@@ -3280,7 +3280,7 @@ os_prompt% </pre>
               runs outside the Erlang work space unless an Erlang
               driver with the name <c><anno>Command</anno></c> is found.
               If found, that driver is started. A driver runs in the Erlang
-              workspace, which means that it is linked with the Erlang
+              work space, which means that it is linked with the Erlang
               runtime system.</p>
             <p>When starting external programs on Solaris, the system
               call <c>vfork</c> is used in preference to <c>fork</c>
@@ -3296,8 +3296,8 @@ os_prompt% </pre>
 	      token of the command is considered as the
 	      name of the executable (or driver). This (among other
 	      things) makes this option unsuitable for running
-	      programs having spaces in filenames or directory names.
-              If spaces in executable filenames are desired, use
+	      programs having spaces in file names or directory names.
+              If spaces in executable file names are desired, use
 	      <c>{spawn_executable, <anno>Command</anno>}</c> instead.</p>
           </item>
           <tag><c>{spawn_driver, <anno>Command</anno>}</c></tag>
@@ -3408,14 +3408,14 @@ os_prompt% </pre>
 	    other platforms, a similar behavior is mimicked.</p>
 	    <p>The arguments are not expanded by the shell before
 	      being supplied to the executable. Most notably this
-	      means that file wildcard expansion does not happen.
-              To expand wildcards for the arguments, use
+	      means that file wild card expansion does not happen.
+              To expand wild cards for the arguments, use
 	      <seealso marker="stdlib:filelib#wildcard/1">filelib:wildcard/1</seealso>.
 	      Notice that even if
 	      the program is a Unix shell script, meaning that the
-	      shell ultimately is invoked, wildcard expansion
+	      shell ultimately is invoked, wild card expansion
 	      does not happen, and the script is provided with the
-	      untouched arguments. On Windows, wildcard expansion
+	      untouched arguments. On Windows, wild card expansion
 	      is always up to the program itself, therefore this is
 	      not an issue issue.</p>
 	    <p>The executable name (also known as <c>argv[0]</c>)
@@ -4313,8 +4313,8 @@ os_prompt% </pre>
           <c>high</c> are selected for execution. As with priority
           <c>high</c>, processes on lower priorities can
           execute in parallel with processes on priority <c>max</c>.</p>
-        <p>Scheduling is pre-emptive. Regardless of priority, a process
-          is pre-empted when it has consumed more than a certain number
+        <p>Scheduling is preemptive. Regardless of priority, a process
+          is preempted when it has consumed more than a certain number
           of reductions since the last time it was selected for
           execution.</p>
         <note>
@@ -5120,7 +5120,7 @@ true</pre>
         <p>
 	  Starts a timer. When the timer expires, the message
           <c><anno>Msg</anno></c> is sent to the process
-	  identified by <c><anno>Dest</anno></c>. Appart from
+	  identified by <c><anno>Dest</anno></c>. Apart from
 	  the format of the timeout message,
 	  <c>erlang:send_after/4</c> works exactly as
 	  <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>.</p>
@@ -7067,21 +7067,21 @@ ok
 	    introduced in the future:</p>
 	    <taglist>
 	      <tag><c>{function, Function}</c></tag>
-	      <item><p><c>Function</c> is the name of the funcion
+	      <item><p><c>Function</c> is the name of the function
 	      used. This tuple always exist if OS monotonic time is
 	      available to the runtime system.</p></item>
 
 	      <tag><c>{clock_id, ClockId}</c></tag>
 	      <item><p>This tuple only exist if <c>Function</c>
 	      can be used with different clocks. <c>ClockId</c>
-	      corresponds to the clock identifer used when calling
+	      corresponds to the clock identifier used when calling
 	      <c>Function</c>.</p></item>
 
 	      <tag><c>{resolution, OsMonotonicTimeResolution}</c></tag>
 	      <item><p>Highest possible
 	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
 	      of current OS monotonic time source as parts per
-	      second. If no resolution information can be retreived
+	      second. If no resolution information can be retrieved
 	      from the OS, <c>OsMonotonicTimeResolution</c> is
 	      set to the resolution of the time unit of
 	      <c>Function</c>s return value. That is, the actual
@@ -7135,14 +7135,14 @@ ok
 	      <tag><c>{clock_id, ClockId}</c></tag>
 	      <item><p>This tuple only exist if <c>Function</c>
 	      can be used with different clocks. <c>ClockId</c>
-	      corresponds to the clock identifer used when calling
+	      corresponds to the clock identifier used when calling
 	      <c>Function</c>.</p></item>
 
 	      <tag><c>{resolution, OsSystemTimeResolution}</c></tag>
 	      <item><p>Highest possible
 	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
 	      of current OS system time source as parts per
-	      second. If no resolution information can be retreived
+	      second. If no resolution information can be retrieved
 	      from the OS, <c>OsSystemTimeResolution</c> is
 	      set to the resolution of the time unit of
 	      <c>Function</c>s return value. That is, the actual
@@ -7654,9 +7654,8 @@ ok
           <p>If a process is put into or removed from the run queue, a
              message, <c>{profile, Pid, State, Mfa, Ts}</c>, is sent to
 	     <c><anno>ProfilerPid</anno></c>. Running processes that
-             are reinserted
-             into the run queue after having been pre-emptively
-             scheduled out do not trigger this message.</p>
+             are reinserted into the run queue after having been
+	     preempted do not trigger this message.</p>
           </item>
           <tag><c>runnable_ports</c></tag>
           <item>
@@ -8341,7 +8340,7 @@ timestamp() ->
         </taglist>
         <p>To get information about a function, <c>PidOrFunc</c> is to
           be the three-element tuple <c>{Module, Function, Arity}</c> or
-          the atom <c>on_load</c>. No wildcards are allowed. Returns
+          the atom <c>on_load</c>. No wild cards are allowed. Returns
           <c>undefined</c> if the function does not exist, or
           <c>false</c> if the function is not traced.</p>
          <p>The following <c>Item</c>s are valid::</p>
@@ -8457,7 +8456,7 @@ timestamp() ->
           <c>{Module, Function, Arity}</c>, or the atom <c>on_load</c>
           (described in the following). It can be the module, function,
           and arity for a function (or a BIF in any module).
-          The atom <c>'_'</c> can be used as a wildcard in any of the
+          The atom <c>'_'</c> can be used as a wild card in any of the
 	  following ways:</p>
         <taglist>
           <tag><c>{Module,Function,'_'}</c></tag>
@@ -8475,7 +8474,7 @@ timestamp() ->
           </item>
         </taglist>
         <p>Other combinations, such as <c>{Module,'_',Arity}</c>, are
-          not allowed. Local functions match wildcards only if
+          not allowed. Local functions match wild cards only if
           option <c>local</c> is in <c><anno>FlagList</anno></c>.</p>
         <p>If argument <c><anno>MFA</anno></c> is the atom <c>on_load</c>,
           the match specification and flag list are used on all
@@ -8722,7 +8721,7 @@ timestamp() ->
 	  <tag>positive</tag>
 	  <item><p>Return only positive integers.</p>
 	  <p>Note that by passing the <c>positive</c> modifier
-	  you will get heap allocated integers (big-nums)
+	  you will get heap allocated integers (bignums)
 	  quicker.</p>
 	  </item>
 
@@ -8758,7 +8757,7 @@ timestamp() ->
 	are ignored.</p>
 
 	<note><p>Note that the set of integers returned by
-	<c>unique_integer/1</c> using diffrent sets of
+	<c>unique_integer/1</c> using different sets of
 	<c><anno>Modifier</anno></c>s <em>will overlap</em>.
 	For example, by calling	<c>unique_integer([monotonic])</c>,
 	and <c>unique_integer([positive, monotonic])</c>
