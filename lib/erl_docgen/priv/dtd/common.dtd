@@ -25,7 +25,7 @@
 <!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
                                erleval" >
 <!ENTITY % inline             "#PCDATA|c|em|term|cite|br|path|seealso|
-                               url|marker" >
+                               url|marker|anno" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
 <!ELEMENT pre                 (#PCDATA|seealso|url|input)* >
@@ -37,8 +37,9 @@
 <!ELEMENT note                (%block;|quote|br|marker)* >
 <!ELEMENT dont                (%block;|quote|br|marker)* >
 <!ELEMENT do                  (%block;|quote|br|marker)* >
-<!ELEMENT c                   (#PCDATA) >
+<!ELEMENT c                   (#PCDATA|anno)* >
 <!ELEMENT em                  (#PCDATA|c)* >
+<!ELEMENT anno                (#PCDATA) >
 
 <!-- XXX -->
 <!ELEMENT term                (termdef?) >
@@ -64,7 +65,7 @@
 
 <!ELEMENT list                (item+) >
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
-<!ELEMENT taglist             (tag,item)+ >
+<!ELEMENT taglist             (tag,item+)+ >
 <!ELEMENT tag                 (#PCDATA|c|em|seealso|url|marker)* >
 <!ELEMENT item                (%inline;|%block;)* >
 

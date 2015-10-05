@@ -33,9 +33,9 @@
 <!ELEMENT type                (v,d?)* >
 <!ATTLIST type                 variable CDATA #IMPLIED
                                name_i CDATA #IMPLIED>
-<!ELEMENT v                   (#PCDATA) >
+<!ELEMENT v                   (#PCDATA|seealso)* >
 <!ELEMENT d                   (#PCDATA|c|em)* >
-<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do|anno)* >
+<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do)* >
 <!ELEMENT authors             (aname,email)+ >
 <!ELEMENT aname               (#PCDATA) >
 <!ELEMENT email               (#PCDATA) >
@@ -43,5 +43,5 @@
                                warning|note|dont|do)*) >
 <!ELEMENT datatypes           (datatype)+ >
 <!ELEMENT datatype            (name+,desc?) >
-<!ELEMENT type_desc           (#PCDATA) >
+<!ELEMENT type_desc           (#PCDATA|anno)* >
 <!ATTLIST type_desc            variable CDATA #REQUIRED>
