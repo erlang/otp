@@ -61,6 +61,8 @@ extern BeamInstr* em_call_nif;
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
 
+typedef struct BeamCodeLineTab_ BeamCodeLineTab;
+
 /*
  * Header of code chunks which contains additional information
  * about the loaded module.
@@ -100,7 +102,7 @@ typedef struct beam_code_header {
     /*
      * Pointer to the line table (or NULL if none).
      */
-    Eterm* line_table;
+    BeamCodeLineTab* line_table;
 
     /*
      * Pointer to the module MD5 sum (16 bytes)
@@ -124,11 +126,15 @@ int erts_is_module_native(BeamCodeHeader* code);
 /*
  * Layout of the line table.
  */
-
-#define MI_LINE_FNAME_PTR 0
-#define MI_LINE_LOC_TAB 1
-#define MI_LINE_LOC_SIZE 2
-#define MI_LINE_FUNC_TAB 3
+struct BeamCodeLineTab_ {
+    Eterm* fname_ptr;
+    int loc_size;
+    union {
+        Uint16* p2;
+        Uint32* p4;
+    }loc_tab;
+    const BeamInstr** func_tab[1];
+};
 
 #define LINE_INVALID_LOCATION (0)
 

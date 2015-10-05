@@ -37,7 +37,7 @@ typedef struct {
 #define RANGE_END(R) ((BeamInstr*)erts_smp_atomic_read_nob(&(R)->end))
 
 static Range* find_range(BeamInstr* pc);
-static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
+static void lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 		       BeamCodeHeader*, int idx);
 
 /*
@@ -296,39 +296,34 @@ find_range(BeamInstr* pc)
 }
 
 static void
-lookup_loc(FunctionInfo* fi, BeamInstr* orig_pc, BeamCodeHeader* code_hdr, int idx)
+lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
+           BeamCodeHeader* code_hdr, int idx)
 {
-    Eterm* line = code_hdr->line_table;
-    Eterm* low;
-    Eterm* high;
-    Eterm* mid;
-    Eterm pc;
+    BeamCodeLineTab* lt = code_hdr->line_table;
+    const BeamInstr** low;
+    const BeamInstr** high;
+    const BeamInstr** mid;
 
-    if (line == 0) {
+    if (lt == NULL) {
 	return;
     }
 
-    pc = (Eterm) (BeamInstr) orig_pc;
-    fi->fname_ptr = (Eterm *) (BeamInstr) line[MI_LINE_FNAME_PTR];
-    low = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx];
-    high = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx+1];
+    fi->fname_ptr = lt->fname_ptr;
+    low = lt->func_tab[idx];
+    high = lt->func_tab[idx+1];
     while (high > low) {
 	mid = low + (high-low) / 2;
 	if (pc < mid[0]) {
 	    high = mid;
 	} else if (pc < mid[1]) {
 	    int file;
-	    int index = mid - (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB];
+	    int index = mid - lt->func_tab[0];
 
-	    if (line[MI_LINE_LOC_SIZE] == 2) {
-		Uint16* loc_table =
-		    (Uint16 *) (BeamInstr) line[MI_LINE_LOC_TAB];
-		fi->loc = loc_table[index];
+	    if (lt->loc_size == 2) {
+		fi->loc = lt->loc_tab.p2[index];
 	    } else {
-		Uint32* loc_table =
-		    (Uint32 *) (BeamInstr) line[MI_LINE_LOC_TAB];
-		ASSERT(line[MI_LINE_LOC_SIZE] == 4);
-		fi->loc = loc_table[index];
+		ASSERT(lt->loc_size == 4);
+		fi->loc = lt->loc_tab.p4[index];
 	    }
 	    if (fi->loc == LINE_INVALID_LOCATION) {
 		return;

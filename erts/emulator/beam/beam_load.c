@@ -4388,9 +4388,11 @@ freeze_code(LoaderState* stp)
     if (stp->line_instr == 0) {
 	line_size = 0;
     } else {
-	line_size = (MI_LINE_FUNC_TAB + (stp->num_functions + 1) +
-		     (stp->current_li+1) + stp->num_fnames) *
-	    sizeof(Eterm) + (stp->current_li+1) * stp->loc_size;
+	line_size = (offsetof(BeamCodeLineTab,func_tab)
+                     + (stp->num_functions + 1) * sizeof(BeamInstr**) /* func_tab */
+                     + (stp->current_li + 1) * sizeof(BeamInstr*)     /* line items */
+                     + stp->num_fnames * sizeof(Eterm)                /* fname table */
+                     + (stp->current_li + 1) * stp->loc_size);        /* loc_tab */
     }
     size = offsetof(BeamCodeHeader,functions) + (stp->ci * sizeof(BeamInstr)) +
 	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
@@ -4465,42 +4467,40 @@ freeze_code(LoaderState* stp)
 	code_hdr->line_table = NULL;
 	str_table = (byte *) (codev + stp->ci);
     } else {
-	Eterm* line_tab = (Eterm *) (codev+stp->ci);
-	Eterm* p;
-	int ftab_size = stp->num_functions;
-	int num_instrs = stp->current_li;
-	Eterm* first_line_item;
+	BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
+	const int ftab_size = stp->num_functions;
+        const int num_instrs = stp->current_li;
+        const BeamInstr** const line_items =
+            (const BeamInstr**) &line_tab->func_tab[ftab_size + 1];
 
 	code_hdr->line_table = line_tab;
-	p = line_tab + MI_LINE_FUNC_TAB;
 
-	first_line_item = (p + ftab_size + 1);
 	for (i = 0; i < ftab_size; i++) {
-	     *p++ = (Eterm) (BeamInstr) (first_line_item + stp->func_line[i]);
+            line_tab->func_tab[i] = line_items + stp->func_line[i];
 	}
-	*p++ = (Eterm) (BeamInstr) (first_line_item + num_instrs);
-	ASSERT(p == first_line_item);
+	line_tab->func_tab[i] = line_items + num_instrs;
+
 	for (i = 0; i < num_instrs; i++) {
-		*p++ = (Eterm) (BeamInstr) (codev + stp->line_instr[i].pos);
+            line_items[i] = codev + stp->line_instr[i].pos;
 	}
-	*p++ = (Eterm) (BeamInstr) (codev + stp->ci - 1);
+	line_items[i] = codev + stp->ci - 1;
 
-	line_tab[MI_LINE_FNAME_PTR] = (Eterm) (BeamInstr) p;
-	memcpy(p, stp->fname, stp->num_fnames*sizeof(Eterm));
-	p += stp->num_fnames;
+	line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
+	memcpy(line_tab->fname_ptr, stp->fname, stp->num_fnames*sizeof(Eterm));
 
-	line_tab[MI_LINE_LOC_TAB] = (Eterm) (BeamInstr) p;
-	line_tab[MI_LINE_LOC_SIZE] = stp->loc_size;
+	line_tab->loc_size = stp->loc_size;
 	if (stp->loc_size == 2) {
-	    Uint16* locp = (Uint16 *) p;
-	    for (i = 0; i < num_instrs; i++) {
+            Uint16* locp = (Uint16 *) &line_tab->fname_ptr[stp->num_fnames];
+            line_tab->loc_tab.p2 = locp;
+            for (i = 0; i < num_instrs; i++) {
 		*locp++ = (Uint16) stp->line_instr[i].loc;
-	    }
-	    *locp++ = LINE_INVALID_LOCATION;
+            }
+            *locp++ = LINE_INVALID_LOCATION;
             str_table = (byte *) locp;
 	} else {
-	    Uint32* locp = (Uint32 *) p;
-	    ASSERT(stp->loc_size == 4);
+	    Uint32* locp = (Uint32 *) &line_tab->fname_ptr[stp->num_fnames];
+            ASSERT(stp->loc_size == 4);
+            line_tab->loc_tab.p4 = locp;
 	    for (i = 0; i < num_instrs; i++) {
 		*locp++ = stp->line_instr[i].loc;
 	    }
