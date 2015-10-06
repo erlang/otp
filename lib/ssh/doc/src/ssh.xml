@@ -501,6 +501,15 @@ kex is implicit but public_key is set explicitly.</p>
 	    </p>
 	  </item>
 
+	  <tag><c><![CDATA[{max_channels, pos_integer()}]]></c></tag>
+	  <item>
+	    <p>The maximum number of channels with active remote subsystem that are accepted for
+	    each connection to this daemon</p>
+	    <p>By default, this option is not set. This means that the number is not limited.
+	    </p>
+	  </item>
+
+
 	  <tag><c><![CDATA[{parallel_login, boolean()}]]></c></tag>
 	  <item>
 	    <p>If set to false (the default value), only one login is handled at a time.
