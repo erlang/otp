@@ -33,7 +33,38 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.0.1</title>
+  <section><title>Inets 6.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid crash in mod_auth_server and mod_security_server
+	    due to using an atom instead of a string when creating a
+	    name.</p>
+          <p>
+	    Own Id: OTP-13022</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add function response_default_headers/0 to httpd
+	    customize API, to allow user to specify default values
+	    for HTTP response headers.</p>
+          <p>
+	    Own Id: OTP-13013</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

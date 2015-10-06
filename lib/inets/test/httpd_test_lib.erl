@@ -294,9 +294,9 @@ do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
 	{value, {LowerHeaderField, Value}} ->
 	    ok;
 	false ->
-	    ct:fail({wrong_header_field_value, LowerHeaderField, Header});
+	    ct:fail({wrong_header_field_value, LowerHeaderField, Header, Value});
 	_ ->
-	    ct:fail({wrong_header_field_value, LowerHeaderField, Header})
+	    ct:fail({wrong_header_field_value, LowerHeaderField, Header, Value})
     end,
     do_validate(Header, Rest, N, P);
 do_validate(Header,[{no_header, HeaderField}|Rest],N,P) ->
