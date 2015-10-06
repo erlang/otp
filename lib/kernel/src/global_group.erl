@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ init([]) ->
 	    {ok, #state{publish_type = PT, group_publish_type = PubTpGrp,
 			sync_state = synced, group_name = DefGroupName, 
 			no_contact = lists:sort(DefNodes), 
-			other_grps = DefOther}}
+			other_grps = DefOther, connect_all = Ca}}
     end.
 
 

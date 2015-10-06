@@ -867,7 +867,7 @@ mandatory_chunks() ->
 %%% can use it.
 %%% ====================================================================
 
--record(state, {crypto_key_f :: crypto_fun()}).
+-record(state, {crypto_key_f :: crypto_fun() | 'undefined'}).
 
 -define(CRYPTO_KEY_SERVER, beam_lib__crypto_key_server).
 

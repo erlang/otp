@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -459,17 +459,17 @@ init([]) ->
                  no_trace
          end,
 
+    Ca = case init:get_argument(connect_all) of
+             {ok, [["false"]]} ->
+                 false;
+             _ ->
+                 true
+         end,
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
-               the_registrar = start_the_registrar()},
-    S1 = trace_message(S, {init, node()}, []),
-
-    case init:get_argument(connect_all) of
-	{ok, [["false"]]} ->
-	    {ok, S1#state{connect_all = false}};
-	_ ->
-	    {ok, S1#state{connect_all = true}}
-    end.
+               the_registrar = start_the_registrar(),
+               connect_all = Ca},
+    {ok, trace_message(S, {init, node()}, [])}.
 
 %%-----------------------------------------------------------------
 %% Connection algorithm

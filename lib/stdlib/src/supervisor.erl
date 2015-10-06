@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,11 +107,11 @@
 -define(SET, sets:set).
 
 -record(state, {name,
-		strategy               :: strategy(),
+		strategy               :: strategy() | 'undefined',
 		children = []          :: [child_rec()],
-		dynamics               :: ?DICT(pid(), list()) | ?SET(pid()),
-		intensity              :: non_neg_integer(),
-		period                 :: pos_integer(),
+		dynamics               :: ?DICT(pid(), list()) | ?SET(pid()) | 'undefined',
+		intensity              :: non_neg_integer() | 'undefined',
+		period                 :: pos_integer() | 'undefined',
 		restarts = [],
 	        module,
 	        args}).
