@@ -287,14 +287,21 @@ create_header(ConfigDb, KeyValueTupleHeaders) ->
     Date        = httpd_util:rfc1123_date(), 
     ContentType = "text/html", 
     Server      = server(ConfigDb),
-    Headers0  = add_default_headers([{"date",         Date},
-				     {"content-type", ContentType}
-				     | if Server=="" -> [];
-					  true -> [{"server",       Server}]
-				       end
-				    ], 
-				    KeyValueTupleHeaders),
     CustomizeCB = httpd_util:lookup(ConfigDb, customize, httpd_custom),
+
+    CustomDefaults = httpd_custom:response_default_headers(CustomizeCB),
+    SystemDefaultes = ([{"date", Date},
+			{"content-type", ContentType}
+			| if Server=="" -> [];
+			     true -> [{"server", Server}]
+			  end
+		       ]),
+
+    %% System defaults not present in custom defaults will be added
+    %% to defaults    
+    Defaults = add_default_headers(SystemDefaultes, CustomDefaults),
+    
+    Headers0 = add_default_headers(Defaults, KeyValueTupleHeaders),
     lists:filtermap(fun(H) ->
 			    httpd_custom:customize_headers(CustomizeCB, response_header, H)
 		    end,
