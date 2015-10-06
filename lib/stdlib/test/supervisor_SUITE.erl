@@ -67,6 +67,7 @@
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children/1,
+	 count_restarting_children/1,
 	 do_not_save_start_parameters_for_temporary_children/1,
 	 do_not_save_child_specs_for_temporary_children/1,
 	 simple_one_for_one_scale_many_temporary_children/1,
@@ -90,7 +91,8 @@ all() ->
      {group, normal_termination},
      {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
-     count_children, do_not_save_start_parameters_for_temporary_children,
+     count_children, count_restarting_children,
+     do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
      simple_global_supervisor, hanging_restart_loop, hanging_restart_loop_simple,
@@ -1457,6 +1459,51 @@ count_children(Config) when is_list(Config) ->
 
     [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     [1,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% Test count_children when some children are restarting
+count_restarting_children(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_deadlock, start_child_noreg, []},
+	     permanent, brutal_kill, worker, []},
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 8, 10}, [Child]}}),
+
+    %% Ets table with state read by supervisor_deadlock.erl
+    ets:new(supervisor_deadlock,[set,named_table,public]),
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+
+    [1,0,0,0] = get_child_counts(SupPid),
+    {ok, Ch1_1} = supervisor:start_child(SupPid, []),
+    [1,1,0,1] = get_child_counts(SupPid),
+    {ok, Ch1_2} = supervisor:start_child(SupPid, []),
+    [1,2,0,2] = get_child_counts(SupPid),
+    {ok, Ch1_3} = supervisor:start_child(SupPid, []),
+    [1,3,0,3] = get_child_counts(SupPid),
+
+    supervisor_deadlock:restart_child(Ch1_1),
+    supervisor_deadlock:restart_child(Ch1_2),
+    supervisor_deadlock:restart_child(Ch1_3),
+    timer:sleep(400),
+    [1,3,0,3] = get_child_counts(SupPid),
+    [Ch2_1, Ch2_2, Ch2_3] = [C || {_,C,_,_} <- supervisor:which_children(SupPid)],
+
+    ets:insert(supervisor_deadlock,{fail_start,true}),
+    supervisor_deadlock:restart_child(Ch2_1),
+    supervisor_deadlock:restart_child(Ch2_2),
+    timer:sleep(2200), % allow restart to happen before proceeding
+    [1,1,0,3] = get_child_counts(SupPid),
+
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+    timer:sleep(2200), % allow restart to happen before proceeding
+    [1,3,0,3] = get_child_counts(SupPid),
+
+    ok = supervisor:terminate_child(SupPid, Ch2_3),
+    [1,2,0,2] = get_child_counts(SupPid),
+    [Ch3_1, Ch3_2] = [C || {_,C,_,_} <- supervisor:which_children(SupPid)],
+    ok = supervisor:terminate_child(SupPid, Ch3_1),
+    [1,1,0,1] = get_child_counts(SupPid),
+    ok = supervisor:terminate_child(SupPid, Ch3_2),
+    [1,0,0,0] = get_child_counts(SupPid).
 
 %%-------------------------------------------------------------------------
 %% Temporary children shall not be restarted so they should not save
