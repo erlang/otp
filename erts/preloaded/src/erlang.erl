@@ -2423,7 +2423,7 @@ tuple_to_list(_Tuple) ->
                                   MinBinVHeapSize :: pos_integer()};
          (modified_timing_level) -> integer() | undefined;
          (multi_scheduling) -> disabled | blocked | enabled;
-         (multi_scheduling_blockers) -> [PID :: pid()];
+         (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
