@@ -362,30 +362,36 @@ exec(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test that compression option works
 exec_compressed(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config), 
+    case ssh_test_lib:ssh_supports(zlib, compression) of
+	false ->
+	    {skip, "zlib compression is not supported"};
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					     {preferred_algorithms,[{compression, [zlib]}]},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
+	true ->
+	    process_flag(trap_exit, true),
+	    SystemDir = filename:join(?config(priv_dir, Config), system),
+	    UserDir = ?config(priv_dir, Config), 
+
+	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
+						     {preferred_algorithms,[{compression, [zlib]}]},
+						     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user_dir, UserDir},
-					  {user_interaction, false}]),
-    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId,
-				  "1+1.", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ok;
-	Other ->
-	    ct:fail(Other)
-    end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
-    ssh:stop_daemon(Pid).
+	    ConnectionRef =
+		ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						  {user_dir, UserDir},
+						  {user_interaction, false}]),
+	    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+	    success = ssh_connection:exec(ConnectionRef, ChannelId,
+					  "1+1.", infinity),
+	    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"2\n">>}},
+	    case ssh_test_lib:receive_exec_result(Data) of
+		expected ->
+		    ok;
+		Other ->
+		    ct:fail(Other)
+	    end,
+	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:stop_daemon(Pid)
+    end.
 
 %%--------------------------------------------------------------------
 %%% Idle timeout test
@@ -708,22 +714,28 @@ shell_unicode_string(Config) ->
 %%--------------------------------------------------------------------
 %%% Test basic connection with openssh_zlib
 openssh_zlib_basic_test(Config) ->
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    case ssh_test_lib:ssh_supports(['zlib@openssh.com',none], compression) of
+	{false,L} ->
+	    {skip, io_lib:format("~p compression is not supported",[L])};
 
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir},
-					     {preferred_algorithms,[{compression, ['zlib@openssh.com']}]},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user_dir, UserDir},
-					  {user_interaction, false},
-					  {preferred_algorithms,[{compression, ['zlib@openssh.com',
-										none]}]}
-					 ]),
-    ok = ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
+	true ->
+	    SystemDir = filename:join(?config(priv_dir, Config), system),
+	    UserDir = ?config(priv_dir, Config),
+
+	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						     {user_dir, UserDir},
+						     {preferred_algorithms,[{compression, ['zlib@openssh.com']}]},
+						     {failfun, fun ssh_test_lib:failfun/2}]),
+	    ConnectionRef =
+		ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						  {user_dir, UserDir},
+						  {user_interaction, false},
+						  {preferred_algorithms,[{compression, ['zlib@openssh.com',
+											none]}]}
+						 ]),
+	    ok = ssh:close(ConnectionRef),
+	    ssh:stop_daemon(Pid)
+    end.
 
 %%--------------------------------------------------------------------
 ssh_info_print(Config) ->

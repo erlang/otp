@@ -552,4 +552,24 @@ algo_intersection(_, _) ->
 
 to_atoms(L) -> lists:map(fun erlang:list_to_atom/1, L).
     
-    
+%%%----------------------------------------------------------------    
+ssh_supports(Alg, SshDefaultAlg_tag) ->
+    SupAlgs = 
+	case proplists:get_value(SshDefaultAlg_tag,
+				 ssh:default_algorithms()) of
+	    [{_K1,L1}, {_K2,L2}] ->
+		lists:usort(L1++L2);
+	    L ->
+		L
+	end,
+    if 
+	is_atom(Alg) ->
+	    lists:member(Alg, SupAlgs);
+	is_list(Alg) ->
+	    case Alg--SupAlgs of
+		[] ->
+		    true;
+		UnSup ->
+		    {false,UnSup}
+	    end
+    end.
