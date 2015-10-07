@@ -336,11 +336,12 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group1-sha1' ;
     {ok, SshPacket, 
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
 
-key_exchange_first_msg(Kex, Ssh0) when Kex == 'diffie-hellman-group-exchange-sha1' ;
-				       Kex == 'diffie-hellman-group-exchange-sha256' ->
-    Min = ?DEFAULT_DH_GROUP_MIN,
-    NBits = ?DEFAULT_DH_GROUP_NBITS,
-    Max = ?DEFAULT_DH_GROUP_MAX,
+key_exchange_first_msg(Kex, Ssh0=#ssh{opts=Opts}) when Kex == 'diffie-hellman-group-exchange-sha1' ;
+						       Kex == 'diffie-hellman-group-exchange-sha256' ->
+    {Min,NBits,Max} = 
+	proplists:get_value(dh_gex_limits, Opts, {?DEFAULT_DH_GROUP_MIN,
+						  ?DEFAULT_DH_GROUP_NBITS,
+						  ?DEFAULT_DH_GROUP_MAX}),
     {SshPacket, Ssh1} = 
 	ssh_packet(#ssh_msg_kex_dh_gex_request{min = Min, 
 					       n = NBits,
@@ -1387,7 +1388,7 @@ dh_gex_group(Min, N, Max, undefined) ->
     dh_gex_group(Min, N, Max, dh_gex_default_groups());
 dh_gex_group(Min, N, Max, Groups) ->
     %% First try to find an exact match. If not an exact match, select the largest possible.
-    {_,Group} =
+    {_Size,Group} =
 	lists:foldl(
 	  fun(_, {I,G}) when I==N ->
 		  %% If we have an exact match already: use that one
