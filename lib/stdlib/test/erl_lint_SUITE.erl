@@ -1296,12 +1296,16 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
     Ts = [{unsized_binary_in_bin_gen_pattern,
 	   <<"t({bc,binary,Bin}) ->
 		  << <<X,Tail/binary>> || <<X,Tail/binary>> <= Bin >>;
+	      t({bc,bytes,Bin}) ->
+		  << <<X,Tail/binary>> || <<X,Tail/bytes>> <= Bin >>;
 	      t({bc,bits,Bin}) ->
 		  << <<X,Tail/bits>> || <<X,Tail/bits>> <= Bin >>;
 	      t({bc,bitstring,Bin}) ->
 		  << <<X,Tail/bits>> || <<X,Tail/bitstring>> <= Bin >>;
 	      t({lc,binary,Bin}) ->
 		  [ {X,Tail} || <<X,Tail/binary>> <= Bin ];
+	      t({lc,bytes,Bin}) ->
+		  [ {X,Tail} || <<X,Tail/bytes>> <= Bin ];
 	      t({lc,bits,Bin}) ->
 		  [ {X,Tail} || <<X,Tail/bits>> <= Bin ];
 	      t({lc,bitstring,Bin}) ->
@@ -1313,7 +1317,9 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
 	     {6,erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {8,erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {10,erl_lint,unsized_binary_in_bin_gen_pattern},
-	     {12,erl_lint,unsized_binary_in_bin_gen_pattern}],
+	     {12,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {14,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {16,erl_lint,unsized_binary_in_bin_gen_pattern}],
 	     []}}],
     [] = run(Config, Ts),
     ok.
