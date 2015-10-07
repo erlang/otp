@@ -933,9 +933,15 @@ scan_include(_Toks, Inc, From, St) ->
 %%  normal search path, if not we assume that the first directory name
 %%  is a library name, find its true directory and try with that.
 
-find_lib_dir(NewName) ->
-    [Lib | Rest] = filename:split(NewName),
-    {code:lib_dir(list_to_atom(Lib)), Rest}.
+expand_lib_dir(Name) ->
+    try
+	[App|Path] = filename:split(Name),
+	LibDir = code:lib_dir(list_to_atom(App)),
+	{ok,fname_join([LibDir|Path])}
+    catch
+	_:_ ->
+	    error
+    end.
 
 scan_include_lib([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
                  Inc, From, St)
@@ -950,12 +956,11 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 	{ok,NewF,Pname} ->
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
 	{error,_E1} ->
-	    case catch find_lib_dir(NewName) of
-		{LibDir, Rest} when is_list(LibDir) ->
-		    LibName = fname_join([LibDir | Rest]),
-		    case file:open(LibName, [read]) of
+	    case expand_lib_dir(NewName) of
+		{ok,Header} ->
+		    case file:open(Header, [read]) of
 			{ok,NewF} ->
-			    wait_req_scan(enter_file2(NewF, LibName, From,
+			    wait_req_scan(enter_file2(NewF, Header, From,
                                                       St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
@@ -963,7 +968,7 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
-		_Error ->
+		error ->
 		    epp_reply(From, {error,{loc(Inc),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
