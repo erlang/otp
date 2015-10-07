@@ -27,6 +27,8 @@
 
 -module(erl_prettypr).
 
+-compile(export_all).
+
 -export([format/1, format/2, best/1, best/2, layout/1, layout/2,
 	 get_ctxt_precedence/1, set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1, set_ctxt_paperwidth/2,
@@ -1020,6 +1022,8 @@ split_string_1([], _N, _L, As) ->
 
 split_string_2([$^, X | Xs], N, L, As) ->
     split_string_1(Xs, N - 2, L - 2, [X, $^ | As]);
+split_string_2([$x, ${ | Xs], N, L, As) ->
+    split_string_3(Xs, N - 2, L - 2, [${, $x | As]);
 split_string_2([X1, X2, X3 | Xs], N, L, As) when
   X1 >= $0, X1 =< $7, X2 >= $0, X2 =< $7, X3 >= $0, X3 =< $7 ->
     split_string_1(Xs, N - 3, L - 3, [X3, X2, X1 | As]);
@@ -1028,6 +1032,15 @@ split_string_2([X1, X2 | Xs], N, L, As) when
     split_string_1(Xs, N - 2, L - 2, [X2, X1 | As]);
 split_string_2([X | Xs], N, L, As) ->
     split_string_1(Xs, N - 1, L - 1, [X | As]).
+
+split_string_3([$} | Xs], N, L, As) ->
+    split_string_1(Xs, N - 1, L - 1, [$} | As]);
+split_string_3([X | Xs], N, L, As) when
+  X >= $0, X =< $9; X >= $a, X =< $z; X >= $A, X =< $Z ->
+    split_string_3(Xs, N - 1, L -1, [X | As]);
+split_string_3([X | Xs], N, L, As) when
+  X >= $0, X =< $9 ->
+    split_string_1(Xs, N - 1, L -1, [X | As]).
 
 %% Note that there is nothing in `lay_clauses' that actually requires
 %% that the elements have type `clause'; it just sets up the proper
