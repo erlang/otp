@@ -97,7 +97,7 @@ info_fields() ->
       [{"Id",             id},
        {"Name",           name},
        {"Slot",           slot},
-       {"Owner",          owner},
+       {"Owner",          pid},
        {"Data Structure", data_type}
       ]},
      {"Settings",
