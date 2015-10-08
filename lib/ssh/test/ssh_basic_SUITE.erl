@@ -77,6 +77,9 @@ all() ->
      appup_test,
      {group, dsa_key},
      {group, rsa_key},
+     {group, ecdsa_sha2_nistp256_key},
+     {group, ecdsa_sha2_nistp384_key},
+     {group, ecdsa_sha2_nistp521_key},
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
@@ -89,6 +92,9 @@ all() ->
 groups() ->
     [{dsa_key, [], basic_tests()},
      {rsa_key, [], basic_tests()},
+     {ecdsa_sha2_nistp256_key, [], basic_tests()},
+     {ecdsa_sha2_nistp384_key, [], basic_tests()},
+     {ecdsa_sha2_nistp521_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
@@ -129,6 +135,39 @@ init_per_group(rsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
+init_per_group(ecdsa_sha2_nistp256_key, Config) ->
+    case lists:member('ecdsa-sha2-nistp256',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+	    DataDir = ?config(data_dir, Config),
+	    PrivDir = ?config(priv_dir, Config),
+	    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
+	    Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ecdsa_sha2_nistp384_key, Config) ->
+    case lists:member('ecdsa-sha2-nistp384',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+	    DataDir = ?config(data_dir, Config),
+	    PrivDir = ?config(priv_dir, Config),
+	    ssh_test_lib:setup_ecdsa("384", DataDir, PrivDir),
+	    Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ecdsa_sha2_nistp521_key, Config) ->
+    case lists:member('ecdsa-sha2-nistp521',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+	    DataDir = ?config(data_dir, Config),
+	    PrivDir = ?config(priv_dir, Config),
+	    ssh_test_lib:setup_ecdsa("521", DataDir, PrivDir),
+	    Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(rsa_pass_key, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),

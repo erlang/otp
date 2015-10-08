@@ -564,8 +564,10 @@ decode_kex_init(<<?UINT32(Len), Data:Len/binary, Rest/binary>>, Acc, N) ->
 decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
     Signature.
 
+
 decode_host_key(<<?UINT32(Len), Alg:Len/binary, Rest/binary>>) ->
     decode_host_key(Alg, Rest).
+
 
 decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/big-signed-integer-unit:8,
 				 ?UINT32(Len1), N:Len1/big-signed-integer-unit:8>>) ->
@@ -579,19 +581,43 @@ decode_host_key(<<"ssh-dss">>,
 		  ?UINT32(Len3), Y:Len3/big-signed-integer-unit:8>>) ->
     {Y, #'Dss-Parms'{p = P,
 		     q = Q,
-		     g = G}}.
+		     g = G}};
+
+decode_host_key(<<"ecdsa-sha2-",Id/binary>>,
+		<<?UINT32(Len0), Id:Len0/binary, %% Id = <<"nistp256">> for example
+		  ?UINT32(Len1), Blob:Len1/binary>>) ->
+    {#'ECPoint'{point=Blob}, Id}.
+
 
 encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);
 encode_host_key({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     ssh_bits:encode(["ssh-dss", P, Q, G, Y],
 		    [string, mpint, mpint, mpint, mpint]);
+encode_host_key({#'ECPoint'{point = Q}, Id}) ->
+    ssh_bits:encode([<<"ecdsa-sha2-",Id/binary>>,Id,Q], [binary,binary,binary]);
+
 encode_host_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
     ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);
 encode_host_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
     ssh_bits:encode(["ssh-dss", P, Q, G, Y],
-		    [string, mpint, mpint, mpint, mpint]).
+		    [string, mpint, mpint, mpint, mpint]);
+encode_host_key(#'ECPrivateKey'{parameters = Params, %{namedCurve,{1,2,840,10045,3,1,7}},
+				publicKey = Pub}) ->
+    Id = ecdsa_id(Params),
+    ssh_bits:encode(["ecdsa-sha2-"++Id, Id, Pub],
+                    [string, string, binary]).
+
+
 encode_sign(#'RSAPrivateKey'{}, Signature) ->
     ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
 encode_sign(#'DSAPrivateKey'{}, Signature) ->
-    ssh_bits:encode(["ssh-dss", Signature],[string, binary]).
+    ssh_bits:encode(["ssh-dss", Signature],[string, binary]);
+encode_sign(#'ECPrivateKey'{parameters = Params}, Signature) ->
+    Id = "ecdsa-sha2-" ++ ecdsa_id(Params),
+    ssh_bits:encode([Id, Signature],[string, binary]).
+
+
+ecdsa_id({namedCurve,?'secp256r1'}) -> "nistp256";
+ecdsa_id({namedCurve,?'secp384r1'}) -> "nistp384";
+ecdsa_id({namedCurve,?'secp521r1'}) -> "nistp521".

@@ -65,7 +65,8 @@ default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
-default_algorithms(kex) -> supported_algorithms(kex, []); %% Just to have a call...
+default_algorithms(kex) -> 
+    supported_algorithms(kex, []); %% Just to have a call to supported_algorithms/2
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
@@ -84,7 +85,14 @@ supported_algorithms(kex) ->
        {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
       ]);
 supported_algorithms(public_key) ->
-    ssh_auth:default_public_key_algorithms();
+    select_crypto_supported(
+      [{'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {ec_curve,secp256r1}]},
+       {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {ec_curve,secp384r1}]},
+       {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {ec_curve,secp521r1}]},
+       {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
+       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}
+      ]);
+ 
 supported_algorithms(cipher) ->
     same(
       select_crypto_supported(
@@ -640,33 +648,40 @@ get_host_key(SSH) ->
     #ssh{key_cb = Mod, opts = Opts, algorithms = ALG} = SSH,
 
     case Mod:host_key(ALG#alg.hkey, Opts) of
-	{ok, #'RSAPrivateKey'{} = Key} ->
-	    Key;
-	{ok, #'DSAPrivateKey'{} = Key} ->
-	    Key;
+	{ok, #'RSAPrivateKey'{} = Key} ->  Key;
+	{ok, #'DSAPrivateKey'{} = Key} ->  Key;
+	{ok, #'ECPrivateKey'{}  = Key} ->  Key;
 	Result ->
 	    exit({error, {Result, unsupported_key_type}})
     end.
 
-sign_host_key(_Ssh, #'RSAPrivateKey'{} = Private, H) ->
-    Hash = sha,
-    _Signature = sign(H, Hash, Private);
-sign_host_key(_Ssh, #'DSAPrivateKey'{} = Private, H) ->
-    Hash = sha,
-    _RawSignature = sign(H, Hash, Private).
+sign_host_key(_Ssh, PrivateKey, H) ->
+     sign(H, sign_host_key_sha(PrivateKey), PrivateKey).
+
+sign_host_key_sha(#'ECPrivateKey'{parameters = {namedCurve, ?'secp256r1'}}) -> sha256;
+sign_host_key_sha(#'ECPrivateKey'{parameters = {namedCurve, ?'secp384r1'}}) -> sha384;
+sign_host_key_sha(#'ECPrivateKey'{parameters = {namedCurve, ?'secp521r1'}}) -> sha512;
+sign_host_key_sha(#'RSAPrivateKey'{}) -> sha;
+sign_host_key_sha(#'DSAPrivateKey'{}) -> sha.
+
 
 verify_host_key(SSH, PublicKey, Digest, Signature) ->
-    case verify(Digest, sha, Signature, PublicKey) of
+    case verify(Digest, host_key_sha(PublicKey), Signature, PublicKey) of
 	false ->
 	    {error, bad_signature};
 	true ->
 	    known_host_key(SSH, PublicKey, public_algo(PublicKey))
     end.
 
-public_algo(#'RSAPublicKey'{}) ->
-    'ssh-rsa';
-public_algo({_, #'Dss-Parms'{}}) ->
-    'ssh-dss'.
+host_key_sha(#'RSAPublicKey'{}) ->   sha;
+host_key_sha({_, #'Dss-Parms'{}}) -> sha;
+host_key_sha({#'ECPoint'{},Id}) ->   sha(list_to_atom(binary_to_list(Id))).
+
+
+public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';
+public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
+public_algo({#'ECPoint'{},Id}) -> list_to_atom("ecdsa-sha2-" ++ binary_to_list(Id)).
+
 
 accepted_host(Ssh, PeerName, Opts) ->
     case proplists:get_value(silently_accept_hosts, Opts, false) of
@@ -906,6 +921,10 @@ sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
     DerSignature = public_key:sign(SigData, Hash, Key),
     #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
+sign(SigData, Hash, Key = #'ECPrivateKey'{}) ->
+    DerEncodedSign =  public_key:sign(SigData, Hash, Key),
+    #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
+    ssh_bits:encode([R,S], [mpint,mpint]);
 sign(SigData, Hash, Key) ->
     public_key:sign(SigData, Hash, Key).
 
@@ -913,6 +932,17 @@ verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
     Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
     public_key:verify(PlainText, Hash, Signature, Key);
+verify(PlainText, Hash, Sig, {ECPoint=#'ECPoint'{}, Param}) ->
+    C = case Param of
+	    <<"nistp256">> -> {namedCurve, ?'secp256r1'};
+	    <<"nistp384">> -> {namedCurve, ?'secp384r1'};
+	    <<"nistp521">> -> {namedCurve, ?'secp521r1'}
+	end,
+    <<?UINT32(Rlen),R:Rlen/big-signed-integer-unit:8,
+      ?UINT32(Slen),S:Slen/big-signed-integer-unit:8>> = Sig,
+    Sval = #'ECDSA-Sig-Value'{r=R, s=S},
+    DerEncodedSig = public_key:der_encode('ECDSA-Sig-Value',Sval),
+    public_key:verify(PlainText, Hash, DerEncodedSig, {ECPoint,C});
 verify(PlainText, Hash, Sig, Key) ->
     public_key:verify(PlainText, Hash, Sig, Key).
 

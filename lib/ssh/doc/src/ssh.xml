@@ -40,7 +40,7 @@
     <list type="bulleted">
       <item>For application dependencies see <seealso marker="SSH_app"> ssh(6)</seealso> </item>
       <item>Supported SSH version is 2.0.</item>
-      <item>Supported public key algorithms: ssh-rsa and ssh-dss.</item>
+      <item>Supported public key algorithms:ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, ssh-rsa and ssh-dss.</item>
       <item>Supported MAC algorithms: hmac-sha2-512, hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported MAC algorithms: hmac-sha2-256 and hmac-sha1.</item>
       <item>Supported encryption algorithms: aes256-ctr, aes192-ctr, aes128-ctr, aes128-cb and 3des-cbc.</item>
