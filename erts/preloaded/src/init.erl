@@ -169,8 +169,7 @@ boot(BootArgs) ->
     process_flag(trap_exit, true),
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     Start = map(fun prepare_run_args/1, Start0),
-    Flags0 = flags_to_atoms_again(Flags),
-    boot(Start,Flags0,Args).
+    boot(Start, Flags, Args).
 
 prepare_run_args({eval, [Expr]}) ->
     {eval,Expr};
@@ -201,16 +200,6 @@ map(_F, []) ->
     [];
 map(F, [X|Rest]) ->
     [F(X) | map(F, Rest)].
-
-flags_to_atoms_again([]) ->
-    [];
-flags_to_atoms_again([{F0,L0}|Rest]) ->
-    L = L0,
-    F = b2a(F0),
-    [{F,L}|flags_to_atoms_again(Rest)];
-flags_to_atoms_again([{F0}|Rest]) ->
-    F = b2a(F0),
-    [{F}|flags_to_atoms_again(Rest)].
 
 -spec code_path_choice() -> 'relaxed' | 'strict'.
 code_path_choice() ->
@@ -451,9 +440,9 @@ do_handle_msg(Msg,State) ->
 %%% -------------------------------------------------
 
 make_permanent(Boot,Config,Flags0,State) ->
-    case set_flag('-boot',Boot,Flags0) of
+    case set_flag(boot, Boot, Flags0) of
 	{ok,Flags1} ->
-	    case set_flag('-config',Config,Flags1) of
+	    case set_flag(config, Config, Flags1) of
 		{ok,Flags} ->
 		    {ok,State#state{flags = Flags}};
 		Error ->
@@ -716,10 +705,10 @@ add_to_kernel(Init,Pid) ->
     end.
 
 prim_load_flags(Flags) ->
-    PortPgm = get_flag('-loader',Flags,<<"efile">>),
-    Hosts = get_flag_list('-hosts', Flags, []),
-    Id = get_flag('-id',Flags,none),
-    Path = get_flag_list('-path',Flags,false),
+    PortPgm = get_flag(loader, Flags, <<"efile">>),
+    Hosts = get_flag_list(hosts, Flags, []),
+    Id = get_flag(id, Flags, none),
+    Path = get_flag_list(path, Flags, false),
     {PortPgm, Hosts, Id, Path}.
 
 %%% -------------------------------------------------
@@ -735,17 +724,17 @@ do_boot(Flags,Start) ->
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
     {Pgm0,Nodes,Id,Path} = prim_load_flags(Flags),
-    Root = b2s(get_flag('-root',Flags)),
+    Root = b2s(get_flag(root, Flags)),
     PathFls = path_flags(Flags),
     Pgm = b2s(Pgm0),
     _Pid = start_prim_loader(Init,b2a(Id),Pgm,bs2as(Nodes),
 			     bs2ss(Path),PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
-    LoadMode = b2a(get_flag('-mode',Flags,false)),
-    Deb = b2a(get_flag('-init_debug',Flags,false)),
+    LoadMode = b2a(get_flag(mode, Flags, false)),
+    Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
-    BootVars = get_flag_args('-boot_var',Flags),
+    BootVars = get_flag_args(boot_var, Flags),
     ParallelLoad = 
 	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
 
@@ -760,11 +749,11 @@ do_boot(Init,Flags,Start) ->
     start_em(Start).
 
 bootfile(Flags,Root) ->
-    b2s(get_flag('-boot',Flags,concat([Root,"/bin/start"]))).
+    b2s(get_flag(boot, Flags, concat([Root,"/bin/start"]))).
 
 path_flags(Flags) ->
-    Pa = append(reverse(get_flag_args('-pa',Flags))),
-    Pz = append(get_flag_args('-pz',Flags)),
+    Pa = append(reverse(get_flag_args(pa, Flags))),
+    Pz = append(get_flag_args(pz, Flags)),
     {bs2ss(Pa),bs2ss(Pz)}.
 
 get_boot(BootFile0,Root) ->
@@ -1102,7 +1091,7 @@ load_mod_code(Mod, BinCode, FullName) ->
 %% --------------------------------------------------------
 
 shutdown_timer(Flags) ->
-    case get_flag('-shutdown_time',Flags,infinity) of
+    case get_flag(shutdown_time, Flags, infinity) of
 	infinity ->
 	    self();
 	Time ->
@@ -1152,14 +1141,10 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
 	eval_arg ->
 	    {Expr,Rest} = get_args(Bs, []),
 	    parse_boot_args(Rest, [{eval, Expr}|Ss], Fs, As);
-	flag ->
+	{flag,A} ->
 	    {F,Rest} = get_args(Bs, []),
-	    Fl = case F of
-		     []   -> [B];
-		     FF   -> [B,FF]
-		 end,
-	    parse_boot_args(Rest, Ss,  
-			    [list_to_tuple(Fl)|Fs], As);
+	    Fl = {A,F},
+	    parse_boot_args(Rest, Ss, [Fl|Fs], As);
 	arg ->
 	    parse_boot_args(Bs, Ss, Fs, [B|As]);
 	end_args ->
@@ -1173,12 +1158,8 @@ check(<<"-s">>) -> start_arg;
 check(<<"-run">>) -> start_arg2;
 check(<<"-eval">>) -> eval_arg;
 check(<<"--">>) -> end_args;
-check(X) when is_binary(X) ->
-    case binary_to_list(X) of
-	[$-|_Rest] -> flag;
-	_Chars     -> arg			%Even empty atoms
-    end;
-check(_X) -> arg.				%This should never occur
+check(<<"-",Flag/binary>>) -> {flag,b2a(Flag)};
+check(_) -> arg.
 
 get_args([B|Bs], As) ->
     case check(B) of
@@ -1187,7 +1168,7 @@ get_args([B|Bs], As) ->
 	start_arg2 -> {reverse(As), [B|Bs]};
 	eval_arg -> {reverse(As), [B|Bs]};
 	end_args -> {reverse(As), Bs};
-	flag -> {reverse(As), [B|Bs]};
+	{flag,_} -> {reverse(As), [B|Bs]};
 	arg ->
 	    get_args(Bs, [B|As])
     end;
@@ -1209,12 +1190,12 @@ get_flag(F,Flags,Default) ->
 
 get_flag(F,Flags) ->
     case search(F,Flags) of
+	{value,{F,[]}} ->
+	    true;
 	{value,{F,[V]}} ->
 	    V;
 	{value,{F,V}} ->
 	    V;
-	{value,{F}} -> % Flag given!
-	    true;
 	_ ->
 	    exit(list_to_atom(concat(["no ",F," flag"])))
     end.
@@ -1246,21 +1227,15 @@ get_flag_list(F,Flags) ->
 %%
 get_flag_args(F,Flags) -> get_flag_args(F,Flags,[]).
 
-get_flag_args(F,[{F,V}|Flags],Acc) when is_list(V) ->
-    get_flag_args(F,Flags,[V|Acc]);
 get_flag_args(F,[{F,V}|Flags],Acc) ->
-    get_flag_args(F,Flags,[[V]|Acc]);
+    get_flag_args(F,Flags,[V|Acc]);
 get_flag_args(F,[_|Flags],Acc) ->
     get_flag_args(F,Flags,Acc);
 get_flag_args(_,[],Acc) ->
     reverse(Acc).
 
 get_arguments([{F,V}|Flags]) ->
-    [$-|Fl] = atom_to_list(F),
-    [{list_to_atom(Fl),to_strings(V)}|get_arguments(Flags)];
-get_arguments([{F}|Flags]) ->
-    [$-|Fl] = atom_to_list(F),
-    [{list_to_atom(Fl),[]}|get_arguments(Flags)];
+    [{F,to_strings(V)}|get_arguments(Flags)];
 get_arguments([]) ->
     [].
 
@@ -1268,25 +1243,20 @@ to_strings([H|T]) when is_atom(H) -> [atom_to_list(H)|to_strings(T)];
 to_strings([H|T]) when is_binary(H) -> [b2s(H)|to_strings(T)];
 to_strings([])    -> [].
 
-get_argument(Arg,Flags) ->
-    Args = get_arguments(Flags),
-    case get_argument1(Arg,Args) of
-	[] ->
-	    error;
-	Value ->
-	    {ok,Value}
+get_argument(Arg, Flags) ->
+    case get_argument1(Arg, Flags) of
+	[] -> error;
+	Value -> {ok,Value}
     end.
 
-get_argument1(Arg,[{Arg,V}|Args]) ->
-    [V|get_argument1(Arg,Args)];
-get_argument1(Arg,[_|Args]) ->
-    get_argument1(Arg,Args);
-get_argument1(_,[]) ->
+get_argument1(Arg, [{Arg,V}|Args]) ->
+    [to_strings(V)|get_argument1(Arg, Args)];
+get_argument1(Arg, [_|Args]) ->
+    get_argument1(Arg, Args);
+get_argument1(_, []) ->
     [].
 
 set_argument([{Flag,_}|Flags],Flag,Value) ->
-    [{Flag,[Value]}|Flags];
-set_argument([{Flag}|Flags],Flag,Value) ->
     [{Flag,[Value]}|Flags];
 set_argument([Item|Flags],Flag,Value) ->
     [Item|set_argument(Flags,Flag,Value)];
