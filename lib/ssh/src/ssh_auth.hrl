@@ -24,8 +24,6 @@
 
 -define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
--define(PREFERRED_PK_ALGS, ['ssh-rsa','ssh-dss']).
-
 -define(SSH_MSG_USERAUTH_REQUEST,  50).
 -define(SSH_MSG_USERAUTH_FAILURE,  51).
 -define(SSH_MSG_USERAUTH_SUCCESS,  52).
