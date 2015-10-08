@@ -57,7 +57,8 @@ while(<DATA>) {
 
 $" = ',';
 $\ = "\n";
-while( my ($Name, $r) = each(%Names)) {
+foreach my $Name (sort keys %Names) {
+    my $r = $Names{$Name};
     # Create substitutions for this Name
     my ($Record, @Fields) = @{ $r };
     my @FieldMatchValues;
@@ -110,7 +111,8 @@ while( my ($Name, $r) = each(%Names)) {
 for my $i ( 0 .. $#INDEX ) {
     my $line = $INDEX[$i];
     if ($line =~ s/^[*]//) {
-	while( my ($Name, $r) = each(%Names)) {
+	foreach my $Name (sort keys %Names) {
+	    my $r = $Names{$Name};
 	    my ($Record) = @{ $r };
 	    $_ = $line;
 	    s/Name\b/$Name/g;
