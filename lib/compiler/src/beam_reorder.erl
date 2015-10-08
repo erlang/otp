@@ -110,14 +110,19 @@ reorder_1([{test,_,{f,L},Ss}=I|Is0], D0,
 		    end
 	    end
     end;
-reorder_1([{allocate_zero,N,Live}|Is], D,
-	  [{get_tuple_element,_,_,{x,X}}=G|Acc])
-  when X+1 =:= Live ->
-    %% Move allocation instruction upwards past get_tuple_element
-    %% instructions to give more opportunities for moving
-    %% get_tuple_element instructions.
-    I = {allocate_zero,N,X},
-    reorder_1([I,G|Is], D, Acc);
+reorder_1([{allocate_zero,N,Live}=I0|Is], D,
+	  [{get_tuple_element,{x,Tup},_,{x,Dst}}=G|Acc]=Acc0) ->
+    case Tup < Dst andalso Dst+1 =:= Live of
+	true ->
+	    %% Move allocation instruction upwards past
+	    %% get_tuple_element instructions to create more
+	    %% opportunities for moving get_tuple_element
+	    %% instructions.
+	    I = {allocate_zero,N,Dst},
+	    reorder_1([I,G|Is], D, Acc);
+	false ->
+	    reorder_1(Is, D, [I0|Acc0])
+    end;
 reorder_1([I|Is], D, Acc) ->
     reorder_1(Is, D, [I|Acc]);
 reorder_1([], _, Acc) -> reverse(Acc).
