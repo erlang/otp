@@ -162,6 +162,21 @@ simple_exec(Config) ->
     ssh_test_lib:std_simple_exec(Host, Port, Config).
 
 %%--------------------------------------------------------------------
+%% Testing all default groups
+simple_exec_group14(Config) -> simple_exec_group(2048, Config).
+simple_exec_group15(Config) -> simple_exec_group(3072, Config).
+simple_exec_group16(Config) -> simple_exec_group(4096, Config).
+simple_exec_group17(Config) -> simple_exec_group(6144, Config).
+simple_exec_group18(Config) -> simple_exec_group(8192, Config).
+
+simple_exec_group(I, Config) ->
+    Min = I-100,
+    Max = I+100,
+    {Host,Port} = ?config(srvr_addr, Config),
+    ssh_test_lib:std_simple_exec(Host, Port, Config,
+				 [{dh_gex_limits,{Min,I,Max}}]).
+
+%%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
 sshc_simple_exec(Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -252,6 +267,16 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 	case supports(Tag, Alg, SshdAlgos) of
 	    true ->
 		[sshd_simple_exec];
+	    _ ->
+		[]
+	end ++
+	case {Tag,Alg} of
+	    {kex,'diffie-hellman-group-exchange-sha1'} ->
+		[simple_exec_group14,
+		 simple_exec_group15,
+		 simple_exec_group16,
+		 simple_exec_group17,
+		 simple_exec_group18];
 	    _ ->
 		[]
 	end.

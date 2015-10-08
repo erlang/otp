@@ -93,9 +93,12 @@ std_connect(Config, Host, Port, ExtraOpts) ->
 					  | ExtraOpts]).
 
 std_simple_sftp(Host, Port, Config) ->
+    std_simple_sftp(Host, Port, Config, []).
+
+std_simple_sftp(Host, Port, Config, Opts) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "test.data"),
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     {ok, ChannelRef} = ssh_sftp:start_channel(ConnectionRef),
     Data = crypto:rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
     ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
@@ -104,7 +107,10 @@ std_simple_sftp(Host, Port, Config) ->
     Data == ReadData.
 
 std_simple_exec(Host, Port, Config) ->
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, []),
+    std_simple_exec(Host, Port, Config, []).
+
+std_simple_exec(Host, Port, Config, Opts) ->
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
     Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
