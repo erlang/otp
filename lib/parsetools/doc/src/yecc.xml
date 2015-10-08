@@ -52,7 +52,7 @@
         <v>Grammarfile = filename()</v>
         <v>Options = Option | [Option]</v>
         <v>Option =&nbsp;-&nbsp;see below&nbsp;-</v>
-        <v>YeccRet = {ok, Parserfile}  | {ok, Parserfile, Warnings}  | error  | {error, Warnings, Errors}</v>
+        <v>YeccRet = {ok, Parserfile}  | {ok, Parserfile, Warnings}  | error  | {error, Errors, Warnings}</v>
         <v>Parserfile = filename()</v>
         <v>Warnings = Errors = [{filename(), [ErrorInfo]}]</v>
         <v>ErrorInfo  = {ErrorLine, module(), Reason}</v>
