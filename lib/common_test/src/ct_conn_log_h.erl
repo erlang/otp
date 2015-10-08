@@ -104,18 +104,26 @@ terminate(_,#state{logs=Logs}) ->
 %%%-----------------------------------------------------------------
 %%% Writing reports
 write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
-    {LogType,Fd} = get_log(Info,GL,State),
-    io:format(Fd,"~n~ts",[format_data(ConnMod,LogType,Data)]);
+    case get_log(Info,GL,State) of
+	{silent,_} ->
+	    ok;
+	{LogType,Fd} ->
+	    io:format(Fd,"~n~ts",[format_data(ConnMod,LogType,Data)])
+    end;
 
 write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
-    {LogType,Fd} = get_log(Info,GL,State),
-    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
-				format_title(LogType,Info),
-				format_data(ConnMod,LogType,Data)]).
+    case get_log(Info,GL,State) of
+	{silent,_} ->
+	    ok;
+	{LogType,Fd} ->
+	    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
+					format_title(LogType,Info),
+					format_data(ConnMod,LogType,Data)])
+    end.
 
 write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
     case get_log(Info,GL,State) of
-	{html,_} ->
+	{LogType,_} when LogType==html; LogType==silent ->
 	    %% The error will anyway be written in the html log by the
 	    %% sasl error handler, so don't write it again.
 	    ok;
