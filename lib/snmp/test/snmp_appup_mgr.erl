@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -140,7 +141,7 @@ handle_req(#agent{host = Host, port = Port}, Reqs) ->
     {ok, ReqId} = snmpm:ag(?USER_ID, Host, Port, Oids),
     p("issued get-request (~w) for: ~s", [ReqId, oid_descs(Descs)]),
     ReqTimer = erlang:send_after(?REQ_TIMEOUT, self(), {req_timeout, ReqId}),
-    {ReqId, erlang:now(), ReqTimer}.
+    {ReqId, erlang:monotonic_time(micro_seconds), ReqTimer}.
 
 oid_descs([]) ->
     [];
@@ -163,7 +164,7 @@ handle_req_timeout(#state{ids = IDs0} = State, ReqId) ->
 handle_snmp(#state{ids = IDs0} = S, {error, ReqId, Reason}) ->
     case lists:keysearch(ReqId, 1, IDs0) of
 	{value, {ReqId, T, Ref}} ->
-	    Diff = timer:now_diff(erlang:now(), T),
+	    Diff = erlang:monotonic_time(micro_seconds) - T,
 	    p("SNMP error regarding outstanding request after ~w microsec:"
 	      "~n   ReqId:  ~w"
 	      "~n   Reason: ~w", [Diff, ReqId, Reason]),
@@ -187,7 +188,7 @@ handle_snmp(State, {agent, Addr, Port, SnmpInfo}) ->
 handle_snmp(#state{ids = IDs0} = S, {pdu, Addr, Port, ReqId, SnmpResponse}) ->
     case lists:keysearch(ReqId, 1, IDs0) of
 	{value, {ReqId, T, Ref}} ->
-	    Diff = timer:now_diff(erlang:now(), T),
+	    Diff = erlang:monotonic_time(micro_seconds) - T,
 	    p("SNMP pdu regarding outstanding request after ~w microsec:"
 	      "~n   ReqId:        ~w"
 	      "~n   Addr:         ~w"

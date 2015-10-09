@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -378,10 +379,14 @@ dict(N) ->
 %% id's, failing with app_not_configured if it can't.
 load_dict(N) ->
     Mod = dict(N),
-    Forms = [{attribute, 1, module, Mod},
-             {attribute, 2, compile, [export_all]},
-             {function, 3, id, 0,
-              [{clause, 4, [], [], [{integer, 4, N}]}]}],
+    A1 = erl_anno:new(1),
+    A2 = erl_anno:new(2),
+    A3 = erl_anno:new(3),
+    A4 = erl_anno:new(4),
+    Forms = [{attribute, A1, module, Mod},
+             {attribute, A2, compile, [export_all]},
+             {function, A3, id, 0,
+              [{clause, A4, [], [], [{integer, A4, N}]}]}],
     {ok, Mod, Bin, []} = compile:forms(Forms, [return]),
     {module, Mod} = code:load_binary(Mod, Mod, Bin),
     N = Mod:id().

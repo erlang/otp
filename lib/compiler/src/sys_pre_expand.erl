@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -38,7 +39,6 @@
 -record(expand, {module=[],                     %Module name
                  exports=[],                    %Exports
                  imports=[],                    %Imports
-                 compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
                  optional_callbacks=[] :: [fa()],  %Optional callbacks
@@ -46,9 +46,7 @@
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
-                 fcount=0,                      %Local fun count
-                 bitdefault,
-                 bittypes
+                 fcount=0			%Local fun count
                 }).
 
 %% module(Forms, CompileOptions)
@@ -69,15 +67,12 @@ module(Fs0, Opts0) ->
 
     %% Build initial expand record.
     St0 = #expand{exports=PreExp,
-                  compile=Opts,
-                  defined=PreExp,
-                  bitdefault = erl_bits:system_bitdefault(),
-                  bittypes = erl_bits:system_bittypes()
+                  defined=PreExp
                  },
     %% Expand the functions.
     {Tfs,St1} = forms(Fs, define_functions(Fs, St0)),
     %% Get the correct list of exported functions.
-    Exports = case member(export_all, St1#expand.compile) of
+    Exports = case member(export_all, Opts) of
                   true -> gb_sets:to_list(St1#expand.defined);
                   false -> St1#expand.exports
               end,
@@ -85,7 +80,7 @@ module(Fs0, Opts0) ->
     {Ats,St3} = module_attrs(St1#expand{exports = Exports}),
     {Mfs,St4} = module_predef_funcs(St3),
     {St4#expand.module, St4#expand.exports, Ats ++ Tfs ++ Mfs,
-     St4#expand.compile}.
+     Opts}.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
@@ -121,7 +116,8 @@ is_fa_list(_) -> false.
 module_predef_funcs(St) ->
     {Mpf1,St1}=module_predef_func_beh_info(St),
     {Mpf2,St2}=module_predef_funcs_mod_info(St1),
-    {Mpf1++Mpf2,St2}.
+    Mpf = [erl_parse:new_anno(F) || F <- Mpf1++Mpf2],
+    {Mpf,St2}.
 
 module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
     {[], St};

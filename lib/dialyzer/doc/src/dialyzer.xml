@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2014</year>
+      <year>2006</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -70,7 +71,7 @@
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics]</code>
+                [--statistics] [--no_native_cache]</code>
     <p>Options:</p>
     <taglist>
       <tag><c><![CDATA[files_or_dirs]]></c> (for backwards compatibility also
@@ -198,6 +199,11 @@
          heuristically performs when dialyzing many files; this avoids the
          compilation time but it may result in (much) longer analysis
          time.</item>
+       <tag><c><![CDATA[--no_native_cache]]></c></tag>
+       <item>By default, Dialyzer caches the results of native compilation in the
+         <c>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</c> directory.
+         <c>XDG_CACHE_HOME</c> defaults to <c>$HOME/.cache</c>.
+         Use this option to disable caching.</item>
        <tag><c><![CDATA[--fullpath]]></c></tag>
        <item>Display the full path names of files for which warnings are emitted.</item>
        <tag><c><![CDATA[--gui]]></c></tag>
@@ -231,6 +237,8 @@
       <tag><c><![CDATA[-Wno_behaviours]]></c></tag>
       <item>Suppress warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
+      <tag><c><![CDATA[-Wno_missing_calls]]></c></tag>
+      <item>Suppress warnings about calls to missing functions.</item>
       <tag><c><![CDATA[-Wno_undefined_callbacks]]></c></tag>
       <item>Suppress warnings about behaviours that have no
         <c>-callback</c> attributes for their callbacks.</item>
@@ -246,9 +254,16 @@
       analysis that finds data races performs intra-procedural data flow analysis
       and can sometimes explode in time. Enable it at your own risk.
       </item>
-      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
+i      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
+      <tag><c><![CDATA[-Wunknown]]></c>***</tag>
+      <item>Let warnings about unknown functions and types affect the
+      exit status of the command line version. The default is to ignore
+      warnings about unknown functions and types when setting the exit
+      status. When using the Dialyzer from Erlang, warnings about unknown
+      functions and types are returned; the default is not to return
+      these warnings.</item>
     </taglist>
     <p>The following options are also available but their use is not
       recommended: (they are mostly for Dialyzer developers and internal
@@ -359,6 +374,7 @@ Option   :: {files,          [Filename :: string()]}
           | {include_dirs,   [DirName :: string()]}
           | {output_file,    FileName :: string()}
           | {output_plt,     FileName :: string()}
+          | {check_plt,      boolean()},
           | {analysis_type,  'succ_typings' |
                              'plt_add' |
                              'plt_build' |
@@ -382,7 +398,8 @@ WarnOpts :: no_return
           | race_conditions
           | overspecs
           | underspecs
-          | specdiffs</code>
+          | specdiffs
+          | unknown</code>
       </desc>
     </func>
     <func>
@@ -416,6 +433,7 @@ Tag :: 'warn_behaviour'
      | 'warn_return_only_exit'
      | 'warn_umatched_return'
      | 'warn_undefined_callbacks'
+     | 'warn_unknown'
 Id = {File :: string(), Line :: integer()}
 Msg = msg() -- Undefined</code>
       </desc>

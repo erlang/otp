@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -34,7 +35,7 @@
     <title>General information</title>
 
     <p>The two main interfaces for running tests with Common Test
-      are an executable program named ct_run and an
+      are an executable program named <c>ct_run</c> and an
       erlang module named <c>ct</c>. The ct_run program
       is compiled for the underlying operating system (e.g. Unix/Linux
       or Windows) during the build of the Erlang/OTP system, and is
@@ -43,67 +44,10 @@
       The <c>ct</c> interface functions can be called from the Erlang shell,
       or from any Erlang function, on any supported platform.</p>
 
-    <p>A legacy Bourne shell script - named run_test - exists,
-      which may be manually generated and installed. This script may be used
-      instead of the ct_run program mentioned above, e.g. if the user
-      wishes to modify or customize the Common Test start flags in a simpler
-      way than making changes to the ct_run C program.</p>
-
     <p>The Common Test application is installed with the Erlang/OTP
       system and no additional installation step is required to start using
-      Common Test by means of the ct_run executable program, and/or the interface
-      functions in the <c>ct</c> module. If you wish to use the legacy Bourne
-      shell script version run_test, however, this script needs to be
-      generated first, according to the instructions below.</p>
-
-    <note><p>Before reading on, please note that since Common Test version
-	1.5, the run_test shell script is no longer required for starting
-	tests with Common Test from the OS command line. The ct_run
-	program (descibed above) is the new recommended command line interface
-	for Common Test. The shell script exists mainly for legacy reasons and
-	may not be updated in future releases of Common Test. It may even be removed.
-    </p></note>
-
-    <p>Optional step to generate a shell script for starting Common Test:</p>
-    <p>To generate the run_test shell script, navigate to the
-      <c><![CDATA[common_test-<vsn>]]></c> directory, located among the other
-      OTP applications (under the OTP lib directory). Here execute the
-      <c>install.sh</c> script with argument <c>local</c>:</p>
-
-    <p><c>
-	$ ./install.sh local
-    </c></p>
-    
-    <p>This generates the executable run_test script in the
-      <c><![CDATA[common_test-<vsn>/priv/bin]]></c> directory. The script
-      will include absolute paths to the Common Test and Test Server
-      application directories, so it's possible to copy or move the script to
-      a different location on the file system, if desired, without having to
-      update it. It's of course possible to leave the script under the
-      <c>priv/bin</c> directory and update the PATH variable accordingly (or
-      create a link or alias to it).</p>
-
-    <p>If you, for any reason, have copied Common Test and Test Server
-      to a different location than the default OTP lib directory, you can
-      generate a run_test script with a different top level directory,
-      simply by specifying the directory, instead of <c>local</c>, when running
-      <c>install.sh</c>. Example:</p>
-
-    <p><c>
-	$ install.sh /usr/local/test_tools
-    </c></p>
-
-    <p>Note that the <c><![CDATA[common_test-<vsn>]]></c> and
-      <c><![CDATA[test_server-<vsn>]]></c> directories must be located under the
-      same top directory. Note also that the install script does not copy files
-      or update environment variables. It only generates the run_test
-      script.</p>
-    
-    <p>Whenever you install a new version of Erlang/OTP, the run_test
-      script needs to be regenerated, or updated manually with new directory names
-      (new version numbers), for it to "see" the latest Common Test and Test Server
-      versions.</p>
-
+      Common Test by means of the <c>ct_run</c> executable program, and/or
+      the interface functions in the <c>ct</c> module.</p>
     </section>
 </chapter>
 

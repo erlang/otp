@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -33,16 +34,18 @@
 	 listen/2, transport_accept/1, transport_accept/2,
 	 ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
-	 close/1, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
+	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
 	]).
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
 	 connection_info/1, versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1]).
+     renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
+	 connection_information/1, connection_information/2]).
 %% Misc
--export([random_bytes/1]).
+-export([random_bytes/1, handle_options/2]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
+-deprecated({connection_info, 1, next_major_release}).
 
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
@@ -96,7 +99,8 @@ stop() ->
 connect(Socket, SslOptions) when is_port(Socket) ->
     connect(Socket, SslOptions, infinity).
 
-connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
+connect(Socket, SslOptions0, Timeout) when is_port(Socket),
+					    (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = ssl_socket:emulated_options(),
@@ -122,7 +126,7 @@ connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 
-connect(Host, Port, Options, Timeout) ->
+connect(Host, Port, Options, Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     try handle_options(Options) of
 	{ok, Config} ->
 	    do_connect(Host,Port,Config,Timeout)
@@ -172,7 +176,7 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 				   #config{transport_info =  {Transport,_,_, _} =CbInfo,
 					   connection_cb = ConnectionCb,
 					   ssl = SslOpts,
-					   emulated = Tracker}}}, Timeout) ->   
+					   emulated = Tracker}}}, Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->   
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
 	    {ok, EmOpts} = ssl_socket:get_emulated_opts(Tracker),
@@ -205,15 +209,16 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 ssl_accept(ListenSocket) ->
     ssl_accept(ListenSocket, infinity).
 
-ssl_accept(#sslsocket{} = Socket, Timeout) ->
+ssl_accept(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
     
 ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
     ssl_accept(ListenSocket, SslOptions, infinity).
 
-ssl_accept(#sslsocket{} = Socket, [], Timeout) ->
+ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     ssl_accept(#sslsocket{} = Socket, Timeout);
-ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) ->
+ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when 
+      (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     try 
 	{ok, EmOpts, InheritedSslOpts} = ssl_socket:get_all_opts(Tracker),	
 	SslOpts = handle_options(SslOpts0, InheritedSslOpts),
@@ -221,7 +226,8 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) ->
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
+ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
+					     (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) -> 
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
     EmulatedOptions = ssl_socket:emulated_options(),
@@ -244,8 +250,24 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:close(Pid);
+    ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}) ->
+    Transport:close(ListenSocket).
+
+%%--------------------------------------------------------------------
+-spec  close(#sslsocket{}, integer() | {pid(), integer()}) -> term().
+%%
+%% Description: Close an ssl connection
+%%--------------------------------------------------------------------
+close(#sslsocket{pid = TLSPid}, 
+      {Pid, Timeout} = DownGrade) when is_pid(TLSPid), 
+				       is_pid(Pid), 
+				       (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
+    ssl_connection:close(TLSPid, {close, DownGrade});
+close(#sslsocket{pid = TLSPid}, Timeout) when is_pid(TLSPid), 
+					      (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
+    ssl_connection:close(TLSPid, {close, Timeout});
+close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_, _, _}}}}, _) ->
     Transport:close(ListenSocket).
 
 %%--------------------------------------------------------------------
@@ -266,7 +288,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport, _, _, _}
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid) ->
+recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
+						  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {Listen,
 		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
@@ -286,16 +309,42 @@ controlling_process(#sslsocket{pid = {Listen,
 				   is_pid(NewOwner) ->
     Transport:controlling_process(Listen, NewOwner).
 
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) -> ssl_connection:connection_information(Pid);
+connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> {error, enotconn}.
+
+
+%%--------------------------------------------------------------------
+-spec connection_information(#sslsocket{}, [atom]) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Return SSL information for the connection
+%%--------------------------------------------------------------------
+connection_information(#sslsocket{} = SSLSocket, Items) -> 
+    case connection_information(SSLSocket) of
+        {ok, I} ->
+            {ok, lists:filter(fun({K, _}) -> lists:foldl(fun(K1, Acc) when K1 =:= K -> Acc +  1; (_, Acc) -> Acc end, 0, Items) > 0 end, I)};
+        E ->
+            E
+    end.
+
 %%--------------------------------------------------------------------
 -spec connection_info(#sslsocket{}) -> 	{ok, {tls_record:tls_atom_version(), ssl_cipher:erl_cipher_suite()}} |
 					{error, reason()}.
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
-connection_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:info(Pid);
-connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
-    {error, enotconn}.
+connection_info(#sslsocket{} = SSLSocket) ->
+    case connection_information(SSLSocket) of
+        {ok, Result} ->
+            {ok, {proplists:get_value(protocol, Result), proplists:get_value(cipher_suite, Result)}};
+        Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
@@ -657,6 +706,7 @@ handle_options(Opts0) ->
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
 		    secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
+		    client_renegotiation = handle_option(client_renegotiation, Opts, true),
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
 		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
 		    erl_dist = handle_option(erl_dist, Opts, false),
@@ -671,6 +721,8 @@ handle_options(Opts0) ->
 			  handle_option(client_preferred_next_protocols, Opts, undefined)),
 		    log_alert = handle_option(log_alert, Opts, true),
 		    server_name_indication = handle_option(server_name_indication, Opts, undefined),
+		    sni_hosts = handle_option(sni_hosts, Opts, []),
+		    sni_fun = handle_option(sni_fun, Opts, undefined),
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, false),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
@@ -685,9 +737,9 @@ handle_options(Opts0) ->
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile,
 		  user_lookup_fun, psk_identity, srp_identity, ciphers,
-		  reuse_session, reuse_sessions, ssl_imp,
+		  reuse_session, reuse_sessions, ssl_imp, client_renegotiation,
 		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after,
-		  erl_dist, alpn_advertised_protocols,
+		  erl_dist, alpn_advertised_protocols, sni_hosts, sni_fun,
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
@@ -704,6 +756,18 @@ handle_options(Opts0) ->
 		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
+handle_option(sni_fun, Opts, Default) ->
+    OptFun = validate_option(sni_fun,
+                             proplists:get_value(sni_fun, Opts, Default)),
+    OptHosts = proplists:get_value(sni_hosts, Opts, undefined),
+    case {OptFun, OptHosts} of
+        {Default, _} ->
+            Default;
+        {_, undefined} ->
+            OptFun;
+        _ ->
+            throw({error, {conflict_options, [sni_fun, sni_hosts]}})
+    end;
 handle_option(OptionName, Opts, Default) ->
     validate_option(OptionName,
 		    proplists:get_value(OptionName, Opts, Default)).
@@ -760,6 +824,7 @@ validate_option(key, {KeyType, Value}) when is_binary(Value),
 					    KeyType == dsa; %% Backwards compatibility
 					    KeyType == 'RSAPrivateKey';
 					    KeyType == 'DSAPrivateKey';
+					    KeyType == 'ECPrivateKey';
 					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
 
@@ -814,6 +879,8 @@ validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
 
 validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
+    Value;
+validate_option(client_renegotiation, Value) when is_boolean(Value) ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
@@ -881,6 +948,20 @@ validate_option(server_name_indication, disable) ->
     disable;
 validate_option(server_name_indication, undefined) ->
     undefined;
+validate_option(sni_hosts, []) ->
+    [];
+validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail]) when is_list(Hostname) ->
+	RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
+	case RecursiveSNIOptions of
+		undefined ->
+			[{Hostname, validate_options(SSLOptions)} | validate_option(sni_hosts, Tail)];
+		_ ->
+			throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
+	end;
+validate_option(sni_fun, undefined) ->
+    undefined;
+validate_option(sni_fun, Fun) when is_function(Fun) ->
+    Fun;
 validate_option(honor_cipher_order, Value) when is_boolean(Value) ->
     Value;
 validate_option(padding_check, Value) when is_boolean(Value) ->
@@ -895,6 +976,12 @@ validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) an
     Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
+
+
+validate_options([]) ->
+	[];
+validate_options([{Opt, Value} | Tail]) ->
+	[{Opt, validate_option(Opt, Value)} | validate_options(Tail)].
 
 validate_npn_ordering(client) ->
     ok;
@@ -1164,6 +1251,8 @@ new_ssl_options([{renegotiate_at, Value} | Rest], #ssl_options{} = Opts, RecordC
     new_ssl_options(Rest, Opts#ssl_options{ renegotiate_at = validate_option(renegotiate_at, Value)}, RecordCB);
 new_ssl_options([{secure_renegotiate, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{secure_renegotiate = validate_option(secure_renegotiate, Value)}, RecordCB); 
+new_ssl_options([{client_renegotiation, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, Opts#ssl_options{client_renegotiation = validate_option(client_renegotiation, Value)}, RecordCB); 
 new_ssl_options([{hibernate_after, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{hibernate_after = validate_option(hibernate_after, Value)}, RecordCB);
 new_ssl_options([{alpn_advertised_protocols, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->

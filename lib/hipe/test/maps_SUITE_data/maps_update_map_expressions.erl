@@ -23,9 +23,9 @@ test() ->
 
     #{ "a" := b } = F(),
 
-    %% Error cases, FIXME: should be 'badmap'?
-    {'EXIT',{badarg,_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
-    {'EXIT',{badarg,_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    %% Error cases.
+    {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
+    {'EXIT',{{badmap,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
     ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.

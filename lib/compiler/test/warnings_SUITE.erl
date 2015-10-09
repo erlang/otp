@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -38,7 +39,8 @@
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
-	 comprehensions/1,maps/1,redundant_boolean_clauses/1,
+	 comprehensions/1,maps/1,maps_bin_opt_info/1,
+         redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -64,6 +66,7 @@ groups() ->
       [pattern,pattern2,pattern3,pattern4,guard,
        bad_arith,bool_cases,bad_apply,files,effect,
        bin_opt_info,bin_construction,comprehensions,maps,
+       maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
        underscore,no_warnings]}].
 
@@ -281,6 +284,7 @@ bad_arith(Config) when is_list(Config) ->
 	     {3,sys_core_fold,{eval_failure,badarith}},
 	     {9,sys_core_fold,nomatch_guard},
 	     {9,sys_core_fold,{eval_failure,badarith}},
+	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 	     {10,sys_core_fold,nomatch_guard},
 	     {10,sys_core_fold,{eval_failure,badarith}},
 	     {15,sys_core_fold,{eval_failure,badarith}}
@@ -369,7 +373,7 @@ files(Config) when is_list(Config) ->
 
 %% Test warnings for term construction and BIF calls in effect context.
 effect(Config) when is_list(Config) ->
-    Ts = [{lc,
+    Ts = [{effect,
 	   <<"
              t(X) ->
                case X of
@@ -475,6 +479,19 @@ effect(Config) when is_list(Config) ->
              m9(Bs) ->
                 [{B,ok} = {B,foo:bar(B)} || B <- Bs],
                 ok.
+
+             m10(ConfigTableSize) ->
+               case ConfigTableSize of
+                 apa ->
+                   CurrentConfig = {id(camel_phase3),id(sms)},
+                   case CurrentConfig of
+                     {apa, bepa} -> ok;
+		     _ -> ok
+	           end
+               end,
+               ok.
+
+             id(I) -> I.
              ">>,
 	   [],
 	   {warnings,[{5,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
@@ -583,7 +600,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{4,sys_core_fold,{eval_failure,badarg}}]}},
+	   {warnings,[{4,sys_core_fold,{eval_failure,badmap}}]}},
 	   {bad_map_src2,
            <<"
              t() ->
@@ -601,7 +618,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,bad_map}]}},
+	   {warnings,[{3,v3_core,badmap}]}},
 	   {ok_map_literal_key,
            <<"
              t() ->
@@ -617,6 +634,19 @@ maps(Config) when is_list(Config) ->
            [],
 	   []}],
     run(Config, Ts),
+    ok.
+
+maps_bin_opt_info(Config) when is_list(Config) ->
+    Ts = [{map_bsm,
+           <<"
+             t1(<<0:8,7:8,T/binary>>,#{val := I}=M) ->
+                 t1(T, M#{val := I+1});
+             t1(<<_:8>>,M) ->
+                 M.
+           ">>,
+           [bin_opt_info],
+           {warnings,[{2,beam_bsm,bin_opt}]}}],
+    [] = run(Config, Ts),
     ok.
 
 redundant_boolean_clauses(Config) when is_list(Config) ->
@@ -733,6 +763,20 @@ no_warnings(Config) when is_list(Config) ->
 	          false -> Var;
                   true -> []
                 end.
+
+              c() ->
+                R0 = {r,\"abc\",undefined,os:timestamp()}, %No warning.
+                case R0 of
+	          {r,V1,_V2,V3} -> {r,V1,\"def\",V3}
+                end.
+
+              d(In0, Bool) ->
+                {In1,Int} = case id(Bool) of
+                              false -> {In0,0}
+                            end,
+                [In1,Int].
+
+              id(I) -> I.
            ">>,
            [],
            []}],

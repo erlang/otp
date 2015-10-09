@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -337,7 +338,7 @@ static struct {
     } w;
 } raw_unique_monotonic_integer erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 #  define ERTS_UNIQUE_MONOTONIC_OFFSET ERTS_SINT64_MIN
 #else
 #  define ERTS_UNIQUE_MONOTONIC_OFFSET MIN_SMALL
@@ -367,7 +368,7 @@ get_unique_monotonic_integer_heap_size(Uint64 raw, int positive)
 	Sint64 value = ((Sint64) raw) + ERTS_UNIQUE_MONOTONIC_OFFSET;
 	if (IS_SSMALL(value))
 	    return 0;
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 	return ERTS_SINT64_HEAP_SIZE(value);
 #else
 	return ERTS_UINT64_HEAP_SIZE((Uint64) value);
@@ -392,7 +393,7 @@ make_unique_monotonic_integer_value(Eterm *hp, Uint hsz, Uint64 raw, int positiv
 	if (hsz == 0)
 	    res = make_small(value);
 	else {
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 	    res = erts_sint64_to_big(value, &hp);
 #else 
 	    res = erts_uint64_to_big((Uint64) value, &hp);

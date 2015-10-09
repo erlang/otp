@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,8 @@
 %% Test cases must be exported.
 -export([base64_encode/1, base64_decode/1, base64_otp_5635/1,
 	 base64_otp_6279/1, big/1, illegal/1, mime_decode/1,
-	 mime_decode_to_string/1, roundtrip/1]).
+	 mime_decode_to_string/1,
+	 roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1]).
 
 init_per_testcase(_, Config) ->
     Dog = test_server:timetrap(?t:minutes(4)),
@@ -49,10 +51,11 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [base64_encode, base64_decode, base64_otp_5635,
      base64_otp_6279, big, illegal, mime_decode, mime_decode_to_string,
-     roundtrip].
+     {group, roundtrip}].
 
 groups() -> 
-    [].
+    [{roundtrip, [parallel],
+      [roundtrip_1, roundtrip_2, roundtrip_3, roundtrip_4]}].
 
 init_per_suite(Config) ->
     Config.
@@ -241,21 +244,33 @@ mime_decode_to_string(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-roundtrip(Config) when is_list(Config) ->
-    Sizes = lists:seq(1, 255) ++ lists:seq(2400-5, 2440),
-    roundtrip_1(Sizes, []).
+roundtrip_1(Config) when is_list(Config) ->
+    do_roundtrip(1).
 
-roundtrip_1([NextSize|Sizes], Current) ->
+roundtrip_2(Config) when is_list(Config) ->
+    do_roundtrip(2).
+
+roundtrip_3(Config) when is_list(Config) ->
+    do_roundtrip(3).
+
+roundtrip_4(Config) when is_list(Config) ->
+    do_roundtrip(4).
+
+do_roundtrip(Offset) ->
+    Sizes = lists:seq(Offset, 255, 4) ++ lists:seq(2400-6+Offset, 2440, 4),
+    do_roundtrip_1(Sizes, []).
+
+do_roundtrip_1([NextSize|Sizes], Current) ->
     Len = length(Current),
     io:format("~p", [Len]),
-    do_roundtrip(Current),
+    do_roundtrip_2(Current),
     Next = random_byte_list(NextSize - Len, Current),
-    roundtrip_1(Sizes, Next);
-roundtrip_1([], Last) ->
+    do_roundtrip_1(Sizes, Next);
+do_roundtrip_1([], Last) ->
     io:format("~p", [length(Last)]),
-    do_roundtrip(Last).
+    do_roundtrip_2(Last).
 
-do_roundtrip(List) ->
+do_roundtrip_2(List) ->
     Bin = list_to_binary(List),
     Base64Bin = base64:encode(List),
     Base64Bin = base64:encode(Bin),

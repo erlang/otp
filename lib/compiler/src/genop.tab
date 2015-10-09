@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1998-2011. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -44,7 +45,7 @@ BEAM_FORMAT_NUMBER=0
 ##      Save the next instruction as the return address in the CP register.
 4: call/2
 
-## @spec call_last Arity Label Dellocate
+## @spec call_last Arity Label Deallocate
 ## @doc Deallocate and do a tail recursive call to the function at Label.
 ##      Do not update the CP register.
 ##      Before the call deallocate Deallocate words of stack.
@@ -136,7 +137,7 @@ BEAM_FORMAT_NUMBER=0
 # Sending & receiving.
 #
 ## @spec send
-## @doc  Send argument in x(0) as a message to the destination process in x(0).
+## @doc  Send argument in x(1) as a message to the destination process in x(0).
 ##       The message in x(1) ends up as the result of the send in x(0).
 20: send/0
 
@@ -163,12 +164,12 @@ BEAM_FORMAT_NUMBER=0
 25: wait/1
 
 ## @spec wait_timeout Lable Time
-## @doc  Sets up a timeout of Time milllisecons and saves the address of the
+## @doc  Sets up a timeout of Time milliseconds and saves the address of the
 ##       following instruction as the entry point if the timeout triggers.
 26: wait_timeout/2
 
 #
-# Arithmethic opcodes.
+# Arithmetic opcodes.
 #
 27: -m_plus/4
 28: -m_minus/4
@@ -315,7 +316,7 @@ BEAM_FORMAT_NUMBER=0
 66: get_tuple_element/3
 
 ## @spec set_tuple_element NewElement Tuple Position
-## @doc  Update the element at postition Position of the tuple Tuple
+## @doc  Update the element at position Position of the tuple Tuple
 ##       with the new element NewElement.
 67: set_tuple_element/3
 

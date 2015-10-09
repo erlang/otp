@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -163,7 +164,7 @@
 -record(history,
 	{
 	 history_id  = {0, 0}, % {DriverId, DriverLocalHistoryid}
-	 time_stamp  = now(),  % Time point during active transaction
+	 time_stamp  = erlang:system_time(),  % Time point during active transaction
 	 branch_id   = 0,      % Branch associated with teller
 	 teller_id   = 0,      % Teller invlolved in transaction
 	 account_id  = 0,      % Account updated by transaction
@@ -411,9 +412,8 @@ config(remote_frag2_test, ReplicaType) ->
 config(conflict_benchmark, ReplicaType) ->
     Remote = nodes(),
     Local = node(),
-    Nodes = [Local | Remote], 
-    [{seed, {1326,448637,337711}},
-     {db_nodes, Nodes},
+    Nodes = [Local | Remote],
+    [{db_nodes, Nodes},
      {driver_nodes, Nodes},
      {replica_nodes, Nodes},
      {n_drivers_per_node, 10},
@@ -757,7 +757,7 @@ reporter_init(Starter, RC) ->
 		     replica_type = Type
 		    },
     Drivers = start_drivers(RC, TC),
-    Now = now_to_micros(erlang:now()),
+    Now = erlang:monotonic_time(),
     State = #reporter_state{driver_pids = Drivers,
 			    run_config = RC,
 			    starter_pid = Starter,
@@ -895,7 +895,7 @@ add_time(Acc, New) ->
 -define(AVOID_DIV_ZERO(_What_), try (_What_) catch _:_ -> 0 end).
 
 show_report(State) ->
-    Now    = now_to_micros(erlang:now()),
+    Now    = erlang:timestamp(),
     Iters  = State#reporter_state.n_iters,
     Cfg    = State#reporter_state.run_config,
     Time   = State#reporter_state.curr,
@@ -923,14 +923,14 @@ show_report(State) ->
     case Cfg#run_config.send_bench_report of
 	true ->
 	    ct_event:notify(
-	      #event{name = benchmark_data, 
+	      #event{name = benchmark_data,
 		     data = [{suite,"mnesia_tpcb"},
 			     {value,Tps}]});
 	_ ->
 	    ok
     end,
 
-    State#reporter_state{prev_tps = Tps, prev_micros = Now}.	    
+    State#reporter_state{prev_tps = Tps, prev_micros = Now}.
 
 signed_diff(Iters, Curr, Prev) ->
     case Iters > 1 of
@@ -940,11 +940,6 @@ signed_diff(Iters, Curr, Prev) ->
     
 sign(N) when N > 0 -> {"+", N};
 sign(N) -> {"", N}.
-
-now_to_micros({Mega, Secs, Micros}) ->
-    DT = calendar:now_to_datetime({Mega, Secs, 0}),
-    S  = calendar:datetime_to_gregorian_seconds(DT),
-    (S * ?SECOND) + Micros.
     
 start_drivers(RC, TC) ->
     LastHistoryId = table_info(history, size),
@@ -997,13 +992,11 @@ alloc_local_branches([], Specs, OrphanBranches) ->
     {Specs, OrphanBranches}.
     
 driver_init(DS, AllBranches) ->
-    case (DS#driver_state.run_config)#run_config.seed of
-	undefined ->
-	    Seed = erlang:now();
-	Seed ->
-	    Seed
+    Seed = case (DS#driver_state.run_config)#run_config.seed of
+	       undefined -> rand:seed(exsplus);
+	       ExpSeed -> rand:seed(ExpSeed)
     end,
-    
+
     DS2 =
 	if
 	    DS#driver_state.n_local_branches =:= 0 ->
@@ -1057,14 +1050,7 @@ calc_trans(DS) ->
 %% Generate teller_id, account_id and delta
 %% Time the TPC-B transaction
 time_trans(DS) ->
-    OldSeed = get(random_seed), % Avoid interference with Mnesia
-    put(random_seed, DS#driver_state.seed),
-    Random    = random:uniform(),
-    NewSeed   = get(random_seed),
-    case OldSeed of
-	undefined -> erase(random_seed);
-	_         -> put(random_seed, OldSeed)
-    end,
+    {Random, NewSeed} = rand:uniform_s(DS#driver_state.seed),
 
     TC = DS#driver_state.tab_config,
     RC = DS#driver_state.run_config,

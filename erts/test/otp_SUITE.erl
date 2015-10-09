@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -300,8 +301,10 @@ call_to_now_0(Config) when is_list(Config) ->
 	    test_server,tools,webtool],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
-not_recommended_calls(Config, Apps, MFA) ->
+not_recommended_calls(Config, Apps0, MFA) ->
     Server = ?config(xref_server, Config),
+
+    Apps = [App || App <- Apps0, is_present_application(App, Server)],
 
     Fs = [MFA],
 
@@ -336,9 +339,26 @@ not_recommended_calls(Config, Apps, MFA) ->
     end,
     case CallsToMFA of
 	[] -> 
-            ok;
+            SkippedApps = ordsets:subtract(ordsets:from_list(Apps0),
+                                           ordsets:from_list(Apps)),
+            case SkippedApps of
+                [] ->
+                    ok;
+                _ ->
+                    AppStrings = [atom_to_list(A) || A <- SkippedApps],
+                    Mess = io_lib:format("Application(s) not present: ~s\n",
+                                         [string:join(AppStrings, ", ")]),
+                    {comment, Mess}
+            end;
 	_ ->
 	    ?t:fail({length(CallsToMFA),calls_to_size_1})
+    end.
+
+is_present_application(Name, Server) ->
+    Q = io_lib:format("~w : App", [Name]),
+    case xref:q(Server, lists:flatten(Q)) of
+        {ok,[Name]} -> true;
+        {error,_,_} -> false
     end.
 
 strong_components(Config) when is_list(Config) ->

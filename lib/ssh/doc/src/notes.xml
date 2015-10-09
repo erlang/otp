@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -28,6 +29,449 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Ssh 4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Send an understandable disconnect message when the key
+	    exchange phase can't find a common algorithm. There are
+	    also some test cases added.</p>
+          <p>
+	    Own Id: OTP-11531</p>
+        </item>
+        <item>
+          <p>
+	    The third parameter in <c>ssh_sftp:write_file</c> is now
+	    accepting iolists again. Unicode handling adjusted.</p>
+          <p>
+	    Own Id: OTP-12853 Aux Id: seq12891 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    First part of ssh test suite re-organization and
+	    extension.</p>
+          <p>
+	    Own Id: OTP-12230</p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithms 'ecdh-sha2-nistp256',
+	    'ecdh-sha2-nistp384' and 'ecdh-sha2-nistp521' are
+	    implemented. See RFC 5656.</p>
+          <p>
+	    This raises the security level considerably.</p>
+          <p>
+	    Own Id: OTP-12622 Aux Id: OTP-12671, OTP-12672 </p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithm 'diffie-hellman-group14-sha1'
+	    is implemented. See RFC 4253.</p>
+          <p>
+	    This raises the security level.</p>
+          <p>
+	    Own Id: OTP-12671 Aux Id: OTP-12672, OTP-12622 </p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithms
+	    'diffie-hellman-group-exchange-sha1' and
+	    'diffie-hellman-group-exchange-sha256' are implemented.
+	    See RFC 4419.</p>
+          <p>
+	    This raises the security level.</p>
+          <p>
+	    Own Id: OTP-12672 Aux Id: OTP-12671, OTP-12622 </p>
+        </item>
+        <item>
+          <p>
+	    Adding random length extra padding as recommended in RFC
+	    4253 section 6.</p>
+          <p>
+	    Own Id: OTP-12831</p>
+        </item>
+        <item>
+          <p>
+	    New test library for low-level protocol testing. There is
+	    also a test suite using it for some preliminary tests.
+	    The intention is to build on that for more testing of
+	    individual ssh messages. See
+	    <c>lib/ssh/test/ssh_trpt_test_lib.erl</c> and
+	    <c>ssh_protocol_SUITE.erl</c> in the same directory.</p>
+          <p>
+	    Own Id: OTP-12858</p>
+        </item>
+        <item>
+          <p>
+	    Increased default values for
+	    diffie-hellman-group-exchange-sha* to Min = 1024, N =
+	    6144, Max = 8192.</p>
+          <p>
+	    Added 6144 and 8192 bit default gex groups.</p>
+          <p>
+	    Own Id: OTP-12937</p>
+        </item>
+        <item>
+          <p>
+	    The mac algorithm 'hmac-sha2-512' is implemented. See RFC
+	    6668.</p>
+          <p>
+	    Own Id: OTP-12938</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ssh crashed if a message was sent on a channel with
+	    packet_size = 0.</p>
+          <p>
+	    A new option for ssh:daemon is also introduced:
+	    <c>minimal_remote_max_packet_size</c>. This option sets
+	    the least max packet size declaration that the daemon
+	    will accept from a client. The default value is 0 to
+	    maintain compatibility with OpenSSH and the rfc:s.</p>
+          <p>
+	    Own Id: OTP-12645 Aux Id: seq12816 </p>
+        </item>
+        <item>
+          <p>
+	    Included test of the 'e' and 'f' parameters in
+	    diffie-hellman key exchange as specified in rfc 4253
+	    section 8.</p>
+          <p>
+	    Own Id: OTP-12649</p>
+        </item>
+        <item>
+          <p>
+	    Fixes the bug that once the <c>rekey_limit</c> bytes (by
+	    default, 1GB) had been transmitted the connection was
+	    rekeyed every minute, not after the next transferred
+	    'rekey_limit' chunk.</p>
+          <p>
+	    Thanks to Simon Cornish for the report and the fix!</p>
+          <p>
+	    Own Id: OTP-12692</p>
+        </item>
+        <item>
+          <p>
+	    Fixes a bug that causes an SFTP connection to always fail
+	    when {timeout, Timeout} option is used with
+	    ssh_sftp:start_channel.</p>
+          <p>
+	    Thanks to Simon Cornish</p>
+          <p>
+	    Own Id: OTP-12708</p>
+        </item>
+        <item>
+          <p>
+	    Fix various ssh key exchange problems.</p>
+          <p>
+	    Thanks to Simon Cornish</p>
+          <p>
+	    Own Id: OTP-12760 Aux Id: <a
+	    href="https://github.com/erlang/otp/pull/715">pull req
+	    715</a> </p>
+        </item>
+        <item>
+          <p>
+	    The options <c>system_dir</c> and <c>user_dir</c> assumes
+	    that the value is a path to a directory which is
+	    readable. This is now checked early, so <c>ssh:daemon</c>
+	    and <c>ssh:connect</c> will fail with an error message
+	    immediately.</p>
+          <p>
+	    Own Id: OTP-12788</p>
+        </item>
+        <item>
+          <p>
+	    A daemon now checks that a client doesn't try to
+	    authorize with methods not in the option auth_methods.</p>
+          <p>
+	    Own Id: OTP-12790</p>
+        </item>
+        <item>
+          <p>
+	    Disconnectfun now should trigger on all disconnects.</p>
+          <p>
+	    Own Id: OTP-12811</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Better usage of binary matching in ssh_auth.erl and
+	    ssh_message.erl</p>
+          <p>
+	    Own Id: OTP-11697</p>
+        </item>
+        <item>
+          <p>
+	    A new option 'preferred_algorithms' is available for
+	    <c>ssh:daemon</c> and <c>ssh:connect</c>.</p>
+          <p>
+	    This option defines the algorithms presented to the peer
+	    in the algorithm negotiation phase of the ssh protocol. </p>
+          <p>
+	    The default list can be obtained from the new function
+	    <c>ssh:default_algorithms/0</c>.</p>
+          <p>
+	    *** INCOMPATIBILITY with removed undocumented options
+	    'role' and 'compression' ***</p>
+          <p>
+	    Own Id: OTP-12029</p>
+        </item>
+        <item>
+          <p>
+	    The internal group to user_drv protocol has been changed
+	    to be synchronous in order to guarantee that output sent
+	    to a process implementing the user_drv protocol is
+	    printed before replying. This protocol is used by the
+	    standard_output device and the ssh application when
+	    acting as a client. </p>
+          <p>
+	    This change changes the previous unlimited buffer when
+	    printing to standard_io and other devices that end up in
+	    user_drv to 1KB.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12240</p>
+        </item>
+        <item>
+          <p>
+	    If ssh_connection:subsystem/4 fails we do not want to
+	    crash but rather terminate gracefully.</p>
+          <p>
+	    Own Id: OTP-12648 Aux Id: seq12834 </p>
+        </item>
+        <item>
+          <p>
+	    New option <c>id_string</c> for <c>ssh:daemon</c> and
+	    <c>ssh:connect</c> for limiting banner grabbing attempts.</p>
+          <p>
+	    The possible values are: <c>{id_string,string()}</c> and
+	    <c>{id_string,random}</c>. The latter will make ssh
+	    generate a random nonsence id-string for each new
+	    connection.</p>
+          <p>
+	    Own Id: OTP-12659</p>
+        </item>
+        <item>
+          <p>
+	    To enable the ssh daemon to run in a virtualized
+	    environment, where there can be more that one server that
+	    has the same ip-address and port, we add a new option
+	    profile.</p>
+          <p>
+	    Own Id: OTP-12675</p>
+        </item>
+        <item>
+          <p>
+	    Upgrade test suite added.</p>
+          <p>
+	    Own Id: OTP-12676</p>
+        </item>
+        <item>
+          <p>
+	    A new option for handling the SSH_MSG_DEBUG message's
+	    printouts. A fun could be given in the options that will
+	    be called whenever the SSH_MSG_DEBUG message arrives.
+	    This enables the user to format the printout or just
+	    discard it.</p>
+          <p>
+	    Own Id: OTP-12738 Aux Id: seq12860 </p>
+        </item>
+        <item>
+          <p>
+	    Testcase improvements and corrections:</p>
+          <p>
+	    * Add testcases for the <c>disconnectfun</c> option on
+	    both server and client sides</p>
+          <p>
+	    * Timeout testcases adjusted for slow machines where they
+	    sometimes failed</p>
+          <p>
+	    Own Id: OTP-12786</p>
+        </item>
+        <item>
+          <p>
+	    The option <c>disconnectfun</c> can now be used both on
+	    the client and server side.</p>
+          <p>
+	    Own Id: OTP-12789</p>
+        </item>
+        <item>
+          <p>
+	    A new option unknown_msgfun/2 for ssh:connect and
+	    ssh:daemon for handling unknown messages. With the option
+	    it is possible to intercept before an INFO log message is
+	    generated.</p>
+          <p>
+	    One usage is to filter out messages that are not wanted
+	    in the error logger as info reports. An example of such a
+	    message is the 'etimedout' tcp error message that will be
+	    received if a connection has keep_alive and the peer is
+	    restarted.</p>
+          <p>
+	    Own Id: OTP-12813 Aux Id: seq12881 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 3.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully terminate if sockets is unexpectedly closed.</p>
+          <p>
+	    Own Id: OTP-12782</p>
+        </item>
+        <item>
+          <p>
+	    Made Codenomicon Defensics test suite pass: <list>
+	    <item>limit number of algorithms in kexinit
+	    message</item> <item>check 'e' and 'f' parameters in
+	    kexdh</item> <item>implement 'keyboard-interactive' user
+	    authentication on server side</item> <item> return plain
+	    text message to bad version exchange message</item>
+	    </list></p>
+          <p>
+	    Own Id: OTP-12784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A new option for handling the SSH_MSG_DEBUG message's
+	    printouts. A fun could be given in the options that will
+	    be called whenever the SSH_MSG_DEBUG message arrives.
+	    This enables the user to format the printout or just
+	    discard it.</p>
+          <p>
+	    Own Id: OTP-12738 Aux Id: seq12860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 3.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New option <c>id_string</c> for <c>ssh:daemon</c> and
+	    <c>ssh:connect</c> for limiting banner grabbing attempts.</p>
+          <p>
+	    The possible values are: <c>{id_string,string()}</c> and
+	    <c>{id_string,random}</c>. The latter will make ssh
+	    generate a random nonsence id-string for each new
+	    connection.</p>
+          <p>
+	    Own Id: OTP-12659</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ssh crashed if a message was sent on a channel with
+	    packet_size = 0.</p>
+          <p>
+	    A new option for ssh:daemon is also introduced:
+	    <c>minimal_remote_max_packet_size</c>. This option sets
+	    the least max packet size declaration that the daemon
+	    will accept from a client. The default value is 0 to
+	    maintain compatibility with OpenSSH and the rfc:s.</p>
+          <p>
+	    Own Id: OTP-12645 Aux Id: seq12816 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a channel is closed by the peer while using a function
+	    with call semantics in ssh_connection.erl return {error,
+	    closed}. Document that the functions can return {error,
+	    timeout | closed} and not only ssh_request_status()</p>
+          <p>
+	    Own Id: OTP-12004</p>
+        </item>
+        <item>
+          <p>
+	    Bug that causes ssh:connect to return
+	    <c>{error,int()}</c> instead of <c>{error,timeout}</c>
+	    when ssh handshake takes too long time.</p>
+          <p>
+	    Own Id: OTP-12369</p>
+        </item>
+        <item>
+          <p>
+	    Documentation corrections. (Thanks to Rabbe Fogelholm)</p>
+          <p>
+	    Own Id: OTP-12399</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Example of ssh_connection:exec added.</p>
+          <p>
+	    Own Id: OTP-12558</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Ssh 3.1</title>
 

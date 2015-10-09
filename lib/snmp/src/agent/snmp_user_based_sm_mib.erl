@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -439,8 +440,9 @@ usmUserSpinLock(print) ->
     
 usmUserSpinLock(new) ->
     snmp_generic:variable_func(new, {usmUserSpinLock, volatile}),
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     Val = random:uniform(2147483648) - 1,
     snmp_generic:variable_func(set, Val, {usmUserSpinLock, volatile});
 
@@ -1191,29 +1193,7 @@ extract_new_key(Hash, OldKey, KeyChange) ->
 -define(i8(Int), Int band 255).
 
 mk_random(Len) when Len =< 20 ->
-    %% Use of yield():
-    %% This will either schedule another process, or fail and invoke
-    %% the error_handler (in old versions).  In either case, it is
-    %% safe to assume that now, reductions and garbage_collection have
-    %% changed in a non-deterministically way.
-    {_,_,A} = erlang:now(),
-    catch erlang:yield(),
-    {_,_,B} = erlang:now(),
-    catch erlang:yield(),
-    {_,_,C} = erlang:now(),
-    {D,_}   = erlang:statistics(reductions),
-    {E,_}   = erlang:statistics(runtime),
-    {F,_}   = erlang:statistics(wall_clock),
-    {G,H,_} = erlang:statistics(garbage_collection),
-    catch erlang:yield(),
-    {_,_,C2} = erlang:now(),
-    {D2,_}   = erlang:statistics(reductions),
-    {_,H2,_} = erlang:statistics(garbage_collection),
-    %% X(N) means we can use N bits from variable X:
-    %% A(16) B(16) C(16) D(16) E(8) F(16) G(8) H(16)
-    Rnd20 = [?i16(A),?i16(B),?i16(C),?i16(D),?i8(E),?i16(F),
-	     ?i8(G),?i16(H),?i16(C2),?i16(D2),?i16(H2)],
-    lists:sublist(Rnd20, Len).
+    binary_to_list(crypto:strong_rand_bytes(Len)).
     
 split(0, Rest, FirstRev) ->
     {lists:reverse(FirstRev), Rest};

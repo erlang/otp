@@ -43,5 +43,5 @@
   {env, []},
   {mod, {cosProperty, []}},
   {runtime_dependencies, ["stdlib-2.0","orber-3.6.27","mnesia-4.12",
-			  "kernel-3.0","erts-6.0"]}
+			  "kernel-3.0","erts-7.0"]}
 ]}.

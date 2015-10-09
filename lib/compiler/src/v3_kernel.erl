@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -114,7 +115,7 @@ copy_anno(Kdst, Ksrc) ->
 	       ff,				%Current function
 	       vcount=0,			%Variable counter
 	       fcount=0,			%Fun counter
-	       ds=[],				%Defined variables
+               ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
 	       free=[],				%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
@@ -148,7 +149,7 @@ include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     try
-	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=sets:new()},
+	St1 = St0#kern{func=FA,ff=undefined,vcount=0,fcount=0,ds=cerl_sets:new()},
 	{#ifun{anno=Ab,vars=Kvs,body=B0},[],St2} = expr(Body, new_sub(), St1),
 	{B1,_,St3} = ubody(B0, return, St2),
 	%%B1 = B0, St3 = St2,				%Null second pass
@@ -715,15 +716,15 @@ force_variable(Ke, St0) ->
 %%  handling.
 
 pattern(#c_var{anno=A,name=V}, _Isub, Osub, St0) ->
-    case sets:is_element(V, St0#kern.ds) of
+    case cerl_sets:is_element(V, St0#kern.ds) of
 	true ->
 	    {New,St1} = new_var_name(St0),
 	    {#k_var{anno=A,name=New},
 	     set_vsub(V, New, Osub),
-	     St1#kern{ds=sets:add_element(New, St1#kern.ds)}};
+	     St1#kern{ds=cerl_sets:add_element(New, St1#kern.ds)}};
 	false ->
 	    {#k_var{anno=A,name=V},Osub,
-	     St0#kern{ds=sets:add_element(V, St0#kern.ds)}}
+	     St0#kern{ds=cerl_sets:add_element(V, St0#kern.ds)}}
     end;
 pattern(#c_literal{anno=A,val=Val}, _Isub, Osub, St) ->
     {#k_literal{anno=A,val=Val},Osub,St};
@@ -836,12 +837,23 @@ get_vsub(V, Vsub) ->
 set_vsub(V, S, Vsub) ->
     orddict:store(V, S, Vsub).
 
-subst_vsub(V, S, Vsub0) ->
-    %% Fold chained substitutions.
-    Vsub1 = orddict:map(fun (_, V1) when V1 =:= V -> S;
-			    (_, V1) -> V1
-			end, Vsub0),
-    orddict:store(V, S, Vsub1).
+subst_vsub(Key, New, [{K,Key}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,New}|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}|_]=Dict) when Key < K ->
+    %% Insert the new substitution here, and continue
+    %% look for chained substitutions.
+    [{Key,New}|subst_vsub_1(Key, New, Dict)];
+subst_vsub(Key, New, [{K,_}=E|Dict]) when Key > K ->
+    [E|subst_vsub(Key, New, Dict)];
+subst_vsub(Key, New, []) -> [{Key,New}].
+
+subst_vsub_1(V, S, [{K,V}|Dict]) ->
+    %% Fold chained substitution.
+    [{K,S}|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(V, S, [E|Dict]) ->
+    [E|subst_vsub_1(V, S, Dict)];
+subst_vsub_1(_, _, []) -> [].
 
 get_fsub(F, A, Fsub) ->
     case orddict:find({F,A}, Fsub) of
@@ -886,7 +898,7 @@ new_vars(0, St, Vs) -> {Vs,St}.
 make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
 add_var_def(V, St) ->
-    St#kern{ds=sets:add_element(V#k_var.name, St#kern.ds)}.
+    St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
 
 %%add_vars_def(Vs, St) ->
 %%    Ds = foldl(fun (#k_var{name=V}, Ds) -> add_element(V, Ds) end,

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2004-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -34,6 +35,7 @@
 		    export_text/1]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 
 
 '#xml-inheritance#'() -> [xmerl_sgml].
@@ -58,7 +60,7 @@
 %% the scope of a markup is not extended by mistake.)
 
 '#element#'(Tag, Data, Attrs, _Parents, _E) ->
-%    io:format("parents:\n~p\n",[_Parents]),
+%    ?dbg("parents:\n~p\n",[_Parents]),
     case convert_tag(Tag,Attrs) of
 	{false,NewTag,NewAttrs} ->
 	    markup(NewTag, NewAttrs, Data);
@@ -108,7 +110,7 @@ convert_aref([#xmlAttribute{name = href, value = V}|_Rest]) ->
 	    seealso
     end;
 convert_aref([#xmlAttribute{name = K}|Rest]) ->
-    io:format("Warning: ignoring attribute \'~p\' for tag \'a\'\n",[K]),
+    error_logger:warning_msg("ignoring attribute \'~p\' for tag \'a\'\n",[K]),
     convert_aref(Rest).
 convert_aref_attrs(url,Attrs) ->
     Attrs;
@@ -130,7 +132,7 @@ html_content([_H|T]) ->
 % convert_seealso_attrs([#xmlAttribute{name = href, value = V} = A|Rest]) ->
 %     [A#xmlAttribute{name=marker,value=normalize_web_ref(V)}|convert_seealso_attrs(Rest)];
 % convert_seealso_attrs([#xmlAttribute{name = K}|Rest]) ->
-%     io:format("Warning: ignoring attribute \'~p\' for tag \'a\'\n",[K]),
+%     error_logger:warning_msg("ignoring attribute \'~p\' for tag \'a\'\n",[K]),
 %     convert_seealso_attrs(Rest);
 % convert_seealso_attrs([]) ->
 %     [].

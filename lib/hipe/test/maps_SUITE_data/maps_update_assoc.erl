@@ -14,7 +14,7 @@ test() ->
 
     %% Errors cases.
     BadMap = id(badmap),
-    {'EXIT',{badarg,_}} = (catch BadMap#{nonexisting=>val}),
+    {'EXIT',{{badmap,badmap},_}} = (catch BadMap#{nonexisting=>val}),
 
     ok.
 

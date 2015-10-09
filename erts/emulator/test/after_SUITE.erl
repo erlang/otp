@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 t_after/1, receive_after/1, receive_after_big/1,
 	 receive_after_errors/1, receive_var_zero/1, receive_zero/1,
-	 multi_timeout/1, receive_after_32bit/1]).
+	 multi_timeout/1, receive_after_32bit/1,
+	 receive_after_blast/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -40,7 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [t_after, receive_after, receive_after_big,
      receive_after_errors, receive_var_zero, receive_zero,
-     multi_timeout, receive_after_32bit].
+     multi_timeout, receive_after_32bit, receive_after_blast].
 
 groups() -> 
     [].
@@ -70,30 +72,23 @@ end_per_testcase(_Func, Config) ->
 t_after(Config) when is_list(Config) ->
     ?line spawn(fun frequent_process/0),
     ?line Period = test_server:minutes(1),
-    ?line Before = erlang:now(),
+    ?line Before = erlang:monotonic_time(),
     receive
 	after Period ->
-		?line After = erlang:now(),
+		?line After = erlang:monotonic_time(),
 		?line report(Period, Before, After)
 	end.
 
-
 report(Period, Before, After) ->
-    ?line Elapsed = (element(1, After)*1000000000
-		     +element(2, After)*1000
-		     +element(3, After) div 1000) -
-	(element(1,Before)*1000000000
-	 + element(2,Before)*1000 + element(3,Before) div 1000),
-    ?line case Elapsed*100 / Period of
-	      Percent when Percent > 100.10 ->
-		  ?line test_server:fail({too_inaccurate, Percent});
-	      Percent when Percent < 100.0 ->
-		  ?line test_server:fail({too_early, Percent});
-	      Percent ->
-		  ?line Comment = io_lib:format("Elapsed/expected: ~.2f %",
-						[Percent]),
-		  {comment, lists:flatten(Comment)}
-	  end.
+    case erlang:convert_time_unit(After - Before, native, 100*1000) / Period of
+	Percent when Percent > 100.10 ->
+	    test_server:fail({too_inaccurate, Percent});
+	Percent when Percent < 100.0 ->
+	    test_server:fail({too_early, Percent});
+	Percent ->
+	    Comment = io_lib:format("Elapsed/expected: ~.2f %", [Percent]),
+	    {comment, lists:flatten(Comment)}
+    end.
 
 frequent_process() ->
     receive
@@ -251,4 +246,26 @@ recv_after_32bit(I, T) when I rem 2 =:= 0 ->
     receive after T -> exit(timeout) end;
 recv_after_32bit(_, _) ->
     receive after 16#ffffFFFF -> exit(timeout) end.
-		    
+
+blaster() ->
+    receive
+	{go, TimeoutTime} ->
+	    Tmo = TimeoutTime - erlang:monotonic_time(milli_seconds),
+	    receive after Tmo -> ok end
+    end.
+
+spawn_blasters(0) ->
+    [];
+spawn_blasters(N) ->
+    [spawn_monitor(fun () -> blaster() end)|spawn_blasters(N-1)].
+
+receive_after_blast(Config) when is_list(Config) ->
+    PMs = spawn_blasters(10000),
+    TimeoutTime = erlang:monotonic_time(milli_seconds) + 5000,
+    lists:foreach(fun ({P, _}) -> P ! {go, TimeoutTime} end, PMs),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {'DOWN', M, process, P, normal} ->
+				  ok
+			  end
+		  end, PMs).

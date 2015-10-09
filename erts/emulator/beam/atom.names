@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1996-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -68,6 +69,7 @@ atom aborted
 atom abs_path
 atom absoluteURI
 atom ac
+atom accessor
 atom active
 atom all
 atom all_but_first
@@ -94,17 +96,19 @@ atom args
 atom arg0
 atom arity
 atom asn1
+atom async
 atom asynchronous
 atom atom
 atom atom_used
 atom attributes
 atom await_port_send_result
 atom await_proc_exit
+atom await_result
 atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
-atom badarg badarith badarity badfile badmatch badsig badfun
+atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
 atom bag
 atom band
 atom big
@@ -262,6 +266,7 @@ atom get_seq_token
 atom get_tcw
 atom getenv
 atom gather_gc_info_result
+atom gather_io_bytes
 atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked
@@ -347,6 +352,7 @@ atom message
 atom message_binary
 atom message_queue_len
 atom messages
+atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
@@ -431,13 +437,6 @@ atom orelse
 atom os_pid
 atom os_type
 atom os_version
-atom ose_bg_proc
-atom ose_int_proc
-atom ose_phantom
-atom ose_pri_proc
-atom ose_process_prio
-atom ose_process_type
-atom ose_ti_proc
 atom out
 atom out_exited
 atom out_exiting

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -82,8 +83,6 @@
 	       ann_c_map/3]).
 
 -include("core_parse.hrl").
-
--define(REC_OFFSET, 100000000). % Also in erl_expand_records.
 
 %% Internal core expressions and help functions.
 %% N.B. annotations fields in place as normal Core expressions.
@@ -170,8 +169,10 @@ form({attribute,_,file,{File,_Line}}, {Fs,As,Ws,_}, _Opts) ->
 form({attribute,_,_,_}=F, {Fs,As,Ws,File}, _Opts) ->
     {Fs,[attribute(F)|As],Ws,File}.
 
-attribute({attribute,Line,Name,Val}) ->
-    {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
+attribute(Attribute) ->
+    Fun = fun(A) ->  [erl_anno:location(A)] end,
+    {attribute,Line,Name,Val} = erl_parse:map_anno(Fun, Attribute),
+    {#c_literal{val=Name, anno=Line}, #c_literal{val=Val, anno=Line}}.
 
 %% function_dump(module_info,_,_,_) -> ok;
 %% function_dump(Name,Arity,Format,Terms) ->
@@ -468,7 +469,8 @@ unforce_tree([#iset{var=#c_var{name=V},arg=Arg0}|Es], D0) ->
     unforce_tree(Es, D);
 unforce_tree([#icall{}=Call], D) ->
     unforce_tree_subst(Call, D);
-unforce_tree([Top], _) -> Top.
+unforce_tree([#c_var{name=V}], D) ->
+    gb_trees:get(V, D).
 
 unforce_tree_subst(#icall{module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},
@@ -538,19 +540,8 @@ expr({tuple,L,Es0}, St0) ->
     {annotate_tuple(A, Es1, St1),Eps,St1};
 expr({map,L,Es0}, St0) ->
     map_build_pairs(#c_literal{val=#{}}, Es0, full_anno(L, St0), St0);
-expr({map,L,M0,Es0}, St0) ->
-    try expr_map(M0,Es0,lineno_anno(L, St0),St0) of
-	{_,_,_}=Res -> Res
-    catch
-	throw:{bad_map,Warning} ->
-	    St = add_warning(L, Warning, St0),
-	    LineAnno = lineno_anno(L, St),
-	    As = [#c_literal{anno=LineAnno,val=badarg}],
-	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
-		    module=#c_literal{anno=LineAnno,val=erlang},
-		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St}
-    end;
+expr({map,L,M,Es}, St) ->
+    expr_map(M, Es, L, St);
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, full_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -740,7 +731,7 @@ make_bool_switch(L, E, V, T, F, #core{}) ->
     make_bool_switch_body(L, E, V, T, F).
 
 make_bool_switch_body(L, E, V, T, F) ->
-    NegL = neg_line(abs_line(L)),
+    NegL = no_compiler_warning(L),
     Error = {tuple,NegL,[{atom,NegL,badarg},V]},
     {'case',NegL,E,
      [{clause,NegL,[{atom,NegL,true}],[],[T]},
@@ -751,18 +742,21 @@ make_bool_switch_body(L, E, V, T, F) ->
 
 make_bool_switch_guard(_, E, _, {atom,_,true}, {atom,_,false}) -> E;
 make_bool_switch_guard(L, E, V, T, F) ->
-    NegL = neg_line(abs_line(L)),
+    NegL = no_compiler_warning(L),
     {'case',NegL,E,
      [{clause,NegL,[{atom,NegL,true}],[],[T]},
       {clause,NegL,[{atom,NegL,false}],[],[F]},
       {clause,NegL,[V],[],[V]}
      ]}.
 
-expr_map(M0, Es0, A, St0) ->
+expr_map(M0, Es0, L, St0) ->
     {M1,Eps0,St1} = safe(M0, St0),
+    Badmap = badmap_term(M1, St1),
+    A = lineno_anno(L, St1),
+    Fc = fail_clause([], [{eval_failure,badmap}|A], Badmap),
     case is_valid_map_src(M1) of
 	true ->
-	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, A, St1),
+	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
 	    M3 = case Es0 of
 		     [] -> M1;
 		     [_|_] -> M2
@@ -775,12 +769,22 @@ expr_map(M0, Es0, A, St0) ->
 			           name=#c_literal{anno=A,val=is_map},
 				   args=[M1]}],
 		     body=[M3]}],
-	    Fc = fail_clause([], [eval_failure|A], #c_literal{val=badarg}),
 	    Eps = Eps0 ++ Eps1,
 	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
 	false ->
-	    throw({bad_map,bad_map})
+	    %% Not a map source. The update will always fail.
+	    St2 = add_warning(L, badmap, St1),
+	    #iclause{body=[Fail]} = Fc,
+	    {Fail,Eps0,St2}
     end.
+
+badmap_term(_Map, #core{in_guard=true}) ->
+    %% The code generator cannot handle complex error reasons
+    %% in guards. But the exact error reason does not matter anyway
+    %% since it is not user-visible.
+    #c_literal{val=badmap};
+badmap_term(Map, #core{in_guard=false}) ->
+    #c_tuple{es=[#c_literal{val=badmap},Map]}.
 
 map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
@@ -867,10 +871,10 @@ constant_bin_1(Es) ->
 		 ({float,_,F}, B) -> {value,F,B};
 		 ({atom,_,undefined}, B) -> {value,undefined,B}
 	      end,
-    case catch eval_bits:expr_grp(Es, EmptyBindings, EvalFun) of
+    try eval_bits:expr_grp(Es, EmptyBindings, EvalFun) of
 	{value,Bin,EmptyBindings} ->
-	    Bin;
-	_ ->
+	    Bin
+    catch error:_ ->
 	    error
     end.
 
@@ -917,7 +921,7 @@ verify_suitable_fields([]) -> ok.
 %% (We don't need an exact result for this purpose.)
 
 count_bits(Int) -> 
-    count_bits_1(abs_line(Int), 64).
+    count_bits_1(abs(Int), 64).
 
 count_bits_1(0, Bits) -> Bits;
 count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
@@ -2309,22 +2313,15 @@ bitstr_vars(Segs, Vs) ->
  		  lit_vars(V, lit_vars(S, Vs0))
 	  end, Vs, Segs).
 
-record_anno(L, St) when L >= ?REC_OFFSET ->
-    case member(dialyzer, St#core.opts) of
-        true ->
-            [record | lineno_anno(L - ?REC_OFFSET, St)];
-        false ->
-            full_anno(L, St)
-    end;
-record_anno(L, St) when L < -?REC_OFFSET ->
-    case member(dialyzer, St#core.opts) of
-        true ->
-            [record | lineno_anno(L + ?REC_OFFSET, St)];
-        false ->
-            full_anno(L, St)
-    end;
 record_anno(L, St) ->
-    full_anno(L, St).
+    case
+        erl_anno:record(L) andalso member(dialyzer, St#core.opts)
+    of
+        true ->
+            [record | lineno_anno(L, St)];
+        false ->
+            full_anno(L, St)
+    end.
 
 full_anno(L, #core{wanted=false}=St) ->
     [result_not_wanted|lineno_anno(L, St)];
@@ -2332,13 +2329,10 @@ full_anno(L, #core{wanted=true}=St) ->
     lineno_anno(L, St).
 
 lineno_anno(L, St) ->
-    {line, Line} = erl_parse:get_attribute(L, line),
-    if
-	Line < 0 ->
-	    [-Line] ++ St#core.file ++ [compiler_generated];
-	true ->
-	    [Line] ++ St#core.file
-    end.
+    Line = erl_anno:line(L),
+    Generated = erl_anno:generated(L),
+    CompilerGenerated = [compiler_generated || Generated],
+    [Line] ++ St#core.file ++ CompilerGenerated.
 
 get_lineno_anno(Ce) ->
     case get_anno(Ce) of
@@ -2346,15 +2340,8 @@ get_lineno_anno(Ce) ->
 	A when is_list(A) -> A
     end.
 
-location(L) ->
-    {location,Location} = erl_parse:get_attribute(L, location),
-    Location.
-
-abs_line(L) ->
-    erl_parse:set_line(L, fun(Line) -> abs(Line) end).
-
-neg_line(L) ->
-    erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
+no_compiler_warning(Anno) ->
+    erl_anno:set_generated(true, Anno).
 
 %%
 %% The following three functions are used both with cerl:cerl() and with i()'s
@@ -2395,9 +2382,13 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
-format_error(bad_map) ->
+format_error(badmap) ->
     "map construction will fail because of a type mismatch".
 
-add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->
-    St#core{ws=[{File,[{location(Line),?MODULE,Term}]}|Ws]};
-add_warning(_, _, St) -> St.
+add_warning(Anno, Term, #core{ws=Ws,file=[{file,File}]}=St) ->
+    case erl_anno:generated(Anno) of
+        false ->
+            St#core{ws=[{File,[{erl_anno:location(Anno),?MODULE,Term}]}|Ws]};
+        true ->
+            St
+    end.

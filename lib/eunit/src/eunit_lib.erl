@@ -57,7 +57,7 @@ format_exception({Class,Term,Trace}, Depth)
   when is_atom(Class), is_list(Trace) ->
     case is_stacktrace(Trace) of
 	true ->
-	    io_lib:format("~s**~w:~s",
+	    io_lib:format("~ts**~w:~ts",
 			  [format_stacktrace(Trace), Class,
                            format_term(Term, Depth)]);
 	false ->
@@ -67,11 +67,11 @@ format_exception(Term, Depth) ->
     format_term(Term, Depth).
 
 format_term(Term, Depth) ->
-    io_lib:format("~P\n", [Term, Depth]).
+    io_lib:format("~tP\n", [Term, Depth]).
 
 format_exit_term(Term) ->
     {Reason, Trace} = analyze_exit_term(Term),
-    io_lib:format("~P~s", [Reason, 15, Trace]).
+    io_lib:format("~tP~ts", [Reason, 15, Trace]).
 
 analyze_exit_term({Reason, [_|_]=Trace}=Term) ->
     case is_stacktrace(Trace) of
@@ -102,7 +102,7 @@ format_stacktrace(Trace) ->
     format_stacktrace(Trace, "in function", "in call from").
 
 format_stacktrace([{M,F,A,L}|Fs], Pre, Pre1) when is_integer(A) ->
-    [io_lib:fwrite("~s ~w:~w/~w~s\n",
+    [io_lib:fwrite("~ts ~w:~w/~w~ts\n",
                    [Pre, M, F, A, format_stacktrace_location(L)])
      | format_stacktrace(Fs, Pre1, Pre1)];
 format_stacktrace([{M,F,As,L}|Fs], Pre, Pre1) when is_list(As) ->
@@ -110,15 +110,15 @@ format_stacktrace([{M,F,As,L}|Fs], Pre, Pre1) when is_list(As) ->
     C = case is_op(M,F,A) of
 	    true when A =:= 1 ->
 		[A1] = As,
-		io_lib:fwrite("~s ~s", [F,format_arg(A1)]);
+		io_lib:fwrite("~ts ~ts", [F,format_arg(A1)]);
 	    true when A =:= 2 ->
 		[A1, A2] = As,
-		io_lib:fwrite("~s ~s ~s",
+		io_lib:fwrite("~ts ~ts ~ts",
 			      [format_arg(A1),F,format_arg(A2)]);
 	    false ->
-		io_lib:fwrite("~w(~s)", [F,format_arglist(As)])
+		io_lib:fwrite("~w(~ts)", [F,format_arglist(As)])
 	end,
-    [io_lib:fwrite("~s ~w:~w/~w~s\n  called as ~s\n",
+    [io_lib:fwrite("~ts ~w:~w/~w~ts\n  called as ~ts\n",
 		   [Pre,M,F,A,format_stacktrace_location(L),C])
      | format_stacktrace(Fs,Pre1,Pre1)];
 format_stacktrace([{M,F,As}|Fs], Pre, Pre1) ->
@@ -130,18 +130,18 @@ format_stacktrace_location(Location) ->
     File = proplists:get_value(file, Location),
     Line = proplists:get_value(line, Location),
     if File =/= undefined, Line =/= undefined ->
-            io_lib:format(" (~s, line ~w)", [File, Line]);
+            io_lib:format(" (~ts, line ~w)", [File, Line]);
        true ->
             ""
     end.
 
 format_arg(A) ->
-    io_lib:format("~P",[A,15]).
+    io_lib:format("~tP",[A,15]).
 
 format_arglist([A]) ->
     format_arg(A);
 format_arglist([A|As]) ->
-    [io_lib:format("~P,",[A,15]) | format_arglist(As)];
+    [io_lib:format("~tP,",[A,15]) | format_arglist(As)];
 format_arglist([]) ->
     "".
 
@@ -155,41 +155,41 @@ is_op(_M, _F, _A) ->
     false.
 
 format_error({bad_test, Term}) ->
-    error_msg("bad test descriptor", "~P", [Term, 15]);
+    error_msg("bad test descriptor", "~tP", [Term, 15]);
 format_error({bad_generator, {{M,F,A}, Term}}) ->
     error_msg(io_lib:format("result from generator ~w:~w/~w is not a test",
                             [M,F,A]),
-              "~P", [Term, 15]);
+              "~tP", [Term, 15]);
 format_error({generator_failed, {{M,F,A}, Exception}}) ->
     error_msg(io_lib:format("test generator ~w:~w/~w failed",[M,F,A]),
-              "~s", [format_exception(Exception)]);
+              "~ts", [format_exception(Exception)]);
 format_error({no_such_function, {M,F,A}})
   when is_atom(M), is_atom(F), is_integer(A) ->
     error_msg(io_lib:format("no such function: ~w:~w/~w", [M,F,A]),
 	      "", []);
 format_error({module_not_found, M}) ->
-    error_msg("test module not found", "~p", [M]);
+    error_msg("test module not found", "~tp", [M]);
 format_error({application_not_found, A}) when is_atom(A) ->
     error_msg("application not found", "~w", [A]);
 format_error({file_read_error, {_R, Msg, F}}) ->
-    error_msg("error reading file", "~s: ~s", [Msg, F]);
+    error_msg("error reading file", "~ts: ~ts", [Msg, F]);
 format_error({setup_failed, Exception}) ->
-    error_msg("context setup failed", "~s",
+    error_msg("context setup failed", "~ts",
 	      [format_exception(Exception)]);
 format_error({cleanup_failed, Exception}) ->
-    error_msg("context cleanup failed", "~s",
+    error_msg("context cleanup failed", "~ts",
 	      [format_exception(Exception)]);
 format_error({{bad_instantiator, {{M,F,A}, Term}}, _DummyException}) ->
     error_msg(io_lib:format("result from instantiator ~w:~w/~w is not a test",
                             [M,F,A]),
-              "~P", [Term, 15]);
+              "~tP", [Term, 15]);
 format_error({instantiation_failed, Exception}) ->
-    error_msg("instantiation of subtests failed", "~s",
+    error_msg("instantiation of subtests failed", "~ts",
 	      [format_exception(Exception)]).
 
 error_msg(Title, Fmt, Args) ->
     Msg = io_lib:format("**"++Fmt, Args),    % gets indentation right
-    io_lib:fwrite("*** ~s ***\n~s\n\n", [Title, Msg]).
+    io_lib:fwrite("*** ~ts ***\n~ts\n\n", [Title, Msg]).
 
 -ifdef(TEST).
 format_exception_test_() ->

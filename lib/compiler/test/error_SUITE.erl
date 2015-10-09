@@ -3,19 +3,19 @@
 %%
 %% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 -module(error_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -235,10 +235,18 @@ transforms(Config) ->
              ">>,
     {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
 	run_test(Ts2, test_filename(Config), [], dont_write_beam),
+    Ts3 = <<"
+              -compile({parse_transform,",?MODULE_STRING,"}).
+             ">>,
+    {error,[{none,compile,{parse_transform,?MODULE,{undef,_}}}],[]} =
+        run_test(Ts3, test_filename(Config), [call_undef], dont_write_beam),
     ok.
 
-parse_transform(_, _) ->
-    error(too_bad).
+parse_transform(_, Opts) ->
+    case lists:member(call_undef, Opts) of
+        false -> error(too_bad);
+        true -> camembert:délicieux()
+    end.
 
 
 maps_warnings(Config) when is_list(Config) ->

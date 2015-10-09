@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
@@ -29,17 +30,19 @@
   closeButton/2,defaultPane/1,destroy/1,destroyOnClose/1,destroyOnClose/2,
   direction/2,dock/1,dockable/1,dockable/2,fixed/1,float/1,floatable/1,
   floatable/2,floatingPosition/2,floatingPosition/3,floatingSize/2,
-  floatingSize/3,gripper/1,gripper/2,gripperTop/1,gripperTop/2,hasBorder/1,
-  hasCaption/1,hasCloseButton/1,hasFlag/2,hasGripper/1,hasGripperTop/1,
-  hasMaximizeButton/1,hasMinimizeButton/1,hasPinButton/1,hide/1,isBottomDockable/1,
-  isDocked/1,isFixed/1,isFloatable/1,isFloating/1,isLeftDockable/1,isMovable/1,
-  isOk/1,isResizable/1,isRightDockable/1,isShown/1,isToolbar/1,isTopDockable/1,
-  layer/2,left/1,leftDockable/1,leftDockable/2,maxSize/2,maxSize/3,maximizeButton/1,
-  maximizeButton/2,minSize/2,minSize/3,minimizeButton/1,minimizeButton/2,
-  movable/1,movable/2,name/2,new/0,new/1,paneBorder/1,paneBorder/2,pinButton/1,
-  pinButton/2,position/2,resizable/1,resizable/2,right/1,rightDockable/1,
-  rightDockable/2,row/2,safeSet/2,setFlag/3,show/1,show/2,toolbarPane/1,
-  top/1,topDockable/1,topDockable/2,window/2]).
+  floatingSize/3,getDirection/1,getFloatingPosition/1,getFloatingSize/1,
+  getFrame/1,getLayer/1,getPosition/1,getRow/1,getWindow/1,gripper/1,
+  gripper/2,gripperTop/1,gripperTop/2,hasBorder/1,hasCaption/1,hasCloseButton/1,
+  hasFlag/2,hasGripper/1,hasGripperTop/1,hasMaximizeButton/1,hasMinimizeButton/1,
+  hasPinButton/1,hide/1,isBottomDockable/1,isDocked/1,isFixed/1,isFloatable/1,
+  isFloating/1,isLeftDockable/1,isMovable/1,isOk/1,isResizable/1,isRightDockable/1,
+  isShown/1,isToolbar/1,isTopDockable/1,layer/2,left/1,leftDockable/1,
+  leftDockable/2,maxSize/2,maxSize/3,maximizeButton/1,maximizeButton/2,
+  minSize/2,minSize/3,minimizeButton/1,minimizeButton/2,movable/1,movable/2,
+  name/2,new/0,new/1,paneBorder/1,paneBorder/2,pinButton/1,pinButton/2,
+  position/2,resizable/1,resizable/2,right/1,rightDockable/1,rightDockable/2,
+  row/2,safeSet/2,setFlag/3,show/1,show/2,toolbarPane/1,top/1,topDockable/1,
+  topDockable/2,window/2]).
 
 %% inherited exports
 -export([parent_class/1]).
@@ -886,6 +889,70 @@ window(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WT,ref=WRef}) ->
   ?CLASS(WT,wxWindow),
   wxe_util:call(?wxAuiPaneInfo_Window,
   <<ThisRef:32/?UI,WRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetwindow">external documentation</a>.
+-spec getWindow(This) -> wxWindow:wxWindow() when
+	This::wxAuiPaneInfo().
+getWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetWindow,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetframe">external documentation</a>.
+-spec getFrame(This) -> wxFrame:wxFrame() when
+	This::wxAuiPaneInfo().
+getFrame(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetFrame,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetdirection">external documentation</a>.
+-spec getDirection(This) -> integer() when
+	This::wxAuiPaneInfo().
+getDirection(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetDirection,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetlayer">external documentation</a>.
+-spec getLayer(This) -> integer() when
+	This::wxAuiPaneInfo().
+getLayer(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetLayer,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetrow">external documentation</a>.
+-spec getRow(This) -> integer() when
+	This::wxAuiPaneInfo().
+getRow(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetRow,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetposition">external documentation</a>.
+-spec getPosition(This) -> integer() when
+	This::wxAuiPaneInfo().
+getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetPosition,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetfloatingposition">external documentation</a>.
+-spec getFloatingPosition(This) -> {X::integer(), Y::integer()} when
+	This::wxAuiPaneInfo().
+getFloatingPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetFloatingPosition,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogetfloatingsize">external documentation</a>.
+-spec getFloatingSize(This) -> {W::integer(), H::integer()} when
+	This::wxAuiPaneInfo().
+getFloatingSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxAuiPaneInfo),
+  wxe_util:call(?wxAuiPaneInfo_GetFloatingSize,
+  <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxAuiPaneInfo()) -> ok.

@@ -17,7 +17,7 @@
     {bs_put_integer,{f,0},
                     {integer,8},
                     1,
-                    {field_flags,[aligned,unsigned,big]},
+                    {field_flags,[unsigned,big]},
                     {x,0}}.
     {move,{x,1},{y,0}}.
     {move,{x,2},{x,0}}.
@@ -34,7 +34,7 @@
     {bs_put_integer,{f,0},
                     {integer,16},
                     1,
-                    {field_flags,[aligned,unsigned,big]},
+                    {field_flags,[unsigned,big]},
                     {y,0}}.
     {move,{x,0},{y,0}}.
     {move,{x,1},{x,0}}.
@@ -55,12 +55,12 @@
     {bs_put_binary,{f,0},
                    {atom,all},
                    8,
-                   {field_flags,[aligned,unsigned,big]},
+                   {field_flags,[unsigned,big]},
                    {y,0}}.
     {bs_put_binary,{f,0},
                    {atom,all},
                    8,
-                   {field_flags,[aligned,unsigned,big]},
+                   {field_flags,[unsigned,big]},
                    {x,0}}.
     {move,{x,1},{x,0}}.
     {deallocate,2}.

@@ -3,19 +3,19 @@
 %%
 %% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 -module(test_server).
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
@@ -1313,12 +1313,30 @@ get_loc(Pid) ->
     Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
     case get(test_server_loc) of
 	[{Suite,Case}] ->
-	    %% location info unknown, check if {Suite,Case,Line}
-	    %% is available in stacktrace. and if so, use stacktrace
-	    %% instead of current test_server_loc
+	    %% Location info unknown, check if {Suite,Case,Line}
+	    %% is available in stacktrace and if so, use stacktrace
+	    %% instead of current test_server_loc.
+	    %% If location is the last expression in a test case
+	    %% function, the info is not available due to tail call
+	    %% elimination. We need to check if the test case has been
+	    %% called by ts_tc/3 and, if so, insert the test case info
+	    %% at that position.
 	    case [match || {S,C,_L} <- Stk, S == Suite, C == Case] of
-		[match|_] -> put(test_server_loc, Stk);
-		_         -> ok
+		[match|_] ->
+		    put(test_server_loc, Stk);
+		_ ->
+		    {PreTC,PostTC} =
+			lists:splitwith(fun({test_server,ts_tc,_}) ->
+						false;
+					   (_) ->
+						true
+					end, Stk),
+		    if PostTC == [] ->
+			    ok;
+		       true ->
+			    put(test_server_loc,
+				PreTC++[{Suite,Case,last_expr} | PostTC])
+		    end
 	    end;
 	_ ->
 	    put(test_server_loc, Stk)
@@ -1380,7 +1398,10 @@ lookup_config(Key,Config) ->
 	    undefined
     end.
 
-%% timer:tc/3
+%%
+%% IMPORTANT: get_loc/1 uses the name of this function when analysing
+%% stack traces. If the name changes, get_loc/1 must be updated!
+%%
 ts_tc(M, F, A) ->
     Before = erlang:monotonic_time(),
     Result = try
@@ -1822,7 +1843,7 @@ time_ms_check(Other) ->
 time_ms_apply(Func, TCPid, MultAndScale) ->
     {_,GL} = process_info(TCPid, group_leader),
     WhoAmI = self(),				% either TC or IO server
-    T0 = os:timestamp(),
+    T0 = erlang:monotonic_time(),
     UserTTSup = 
 	spawn(fun() -> 
 		      user_timetrap_supervisor(Func, WhoAmI, TCPid,
@@ -1855,7 +1876,8 @@ user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     receive
 	{UserTT,Result} ->
 	    demonitor(MonRef, [flush]),
-	    Elapsed = trunc(timer:now_diff(os:timestamp(), T0) / 1000),
+	    T1 = erlang:monotonic_time(),
+	    Elapsed = erlang:convert_time_unit(T1-T0, native, milli_seconds),
 	    try time_ms_check(Result) of
 		TimeVal ->
 		    %% this is the new timetrap value to set (return value
@@ -1923,7 +1945,7 @@ update_user_timetraps(TCPid, StartTime) ->
 			proplists:delete(TCPid, UserTTs)),
 		    proceed;
 		{OtherUserTTSup,OtherStartTime} ->
-		    case timer:now_diff(OtherStartTime, StartTime) of
+		    case OtherStartTime - StartTime of
 			Diff when Diff >= 0 ->
 			    ignore;
 			_ ->
@@ -2469,11 +2491,7 @@ appup_test(App) ->
 %% Checks wether the module is natively compiled or not.
 
 is_native(Mod) ->
-    case catch Mod:module_info(native_addresses) of
-	[_|_] -> true;
-	_Other -> false
-    end.
-
+    (catch Mod:module_info(native)) =:= true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% comment(String) -> ok

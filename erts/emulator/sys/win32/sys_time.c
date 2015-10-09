@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1997-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -27,6 +28,9 @@
 #include "assert.h"
 #include "erl_os_monotonic_time_extender.h"
 #include "erl_time.h"
+
+/* Need to look more closely at qpc before use... */
+#define ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME 1
 
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
@@ -362,10 +366,11 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    if (!internal_state.r.o.pQueryPerformanceCounter)
 		goto get_tick_count64;
 
-	    if (pf.QuadPart < (((LONGLONG) 1) << 32)) {
-		internal_state.r.o.pcf = (Uint32) pf.QuadPart;
-		sys_hrtime_func = sys_hrtime_qpc;
-	    }
+	    if (pf.QuadPart > (((LONGLONG) 1) << 32))
+		goto get_tick_count64;
+
+	    internal_state.r.o.pcf = (Uint32) pf.QuadPart;
+	    sys_hrtime_func = sys_hrtime_qpc;
 	    
 	    /*
 	     * We only use QueryPerformanceCounter() for
@@ -375,6 +380,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	     * order between values retrieved on different threads.
 	     */
 	    if (pf.QuadPart < (LONGLONG) 1000*1000*1000)
+		goto get_tick_count64;
+
+	    if (ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME)
 		goto get_tick_count64;
 
 	    init_resp->os_monotonic_time_info.func = "QueryPerformanceCounter";
@@ -391,6 +399,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     erts_sys_time_data__.r.o.os_times = os_times_func;
     init_resp->os_monotonic_time_unit = time_unit;
     init_resp->have_os_monotonic_time = 1;
+    init_resp->have_corrected_os_monotonic_time = 0;
     init_resp->sys_clock_resolution = 1;
 
     init_resp->os_system_time_info.func = "GetSystemTime";    

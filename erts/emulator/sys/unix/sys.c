@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -2526,7 +2527,7 @@ fd_async(void *async_data)
     SysIOVec      *iov0;
     SysIOVec      *iov;
     int            iovlen;
-    int            err;
+    int            err = 0;
     /* much of this code is stolen from efile_drv:invoke_writev */
     driver_pdl_lock(dd->blocking->pdl);
     iov0 = driver_peekq(dd->port_num, &iovlen);
@@ -2541,8 +2542,11 @@ fd_async(void *async_data)
         memcpy(iov,iov0,iovlen*sizeof(SysIOVec));
         driver_pdl_unlock(dd->blocking->pdl);
 
-        res = writev(dd->ofd, iov, iovlen);
-        err = errno;
+        do {
+            res = writev(dd->ofd, iov, iovlen);
+        } while (res < 0 && errno == EINTR);
+        if (res < 0)
+            err = errno;
 
         erts_free(ERTS_ALC_T_SYS_WRITE_BUF, iov);
     }
@@ -2581,7 +2585,12 @@ void fd_ready_async(ErlDrvData drv_data,
             return /* 0; */;
         }
     } else if (dd->blocking->res < 0) {
-        driver_failure_posix(port_num, dd->blocking->err);
+        if (dd->blocking->err == ERRNO_BLOCK) {
+            set_busy_port(port_num, 1);
+            /* still data left to write in queue */
+            driver_async(port_num, &dd->blocking->pkey, fd_async, dd, NULL);
+        } else
+            driver_failure_posix(port_num, dd->blocking->err);
         return; /* -1; */
     }
     return; /* 0; */

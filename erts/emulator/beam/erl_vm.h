@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -38,14 +39,6 @@
 #define CONTEXT_REDS 2000	/* Swap process out after this number */
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
-
-/* Scheduler stores data for temporary heaps if
-   !HEAP_ON_C_STACK. Macros (*TmpHeap*) in global.h selects if we put temporary
-   heap data on the C stack or if we use the buffers in the scheduler data. */
-#define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
-				        small heap for transient heap data */
-#define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
-#define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
 
 /*
  * The new arithmetic operations need some extra X registers in the register array.
@@ -116,12 +109,8 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-#if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xdeadbeef)
-#else
 # define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
-#endif
-#endif
+#endif /* egil: 32-bit ? */
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap
@@ -152,6 +141,7 @@
 typedef struct op_entry {
    char* name;			/* Name of instruction. */
    Uint32 mask[3];		/* Signature mask. */
+   unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */

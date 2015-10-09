@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1997-2014. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -173,7 +174,8 @@ MODULES =                 		\
         inets_appup_test  		\
         tftp_test_lib			\
         tftp_SUITE                      \
-	uri_SUITE
+	uri_SUITE                       \
+	inets_socketwrap_SUITE
 
 
 EBIN = .
@@ -202,7 +204,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 # 	inets_ftp_suite \
 # 	inets_tftp_suite
 
-INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
+INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
 HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
@@ -249,7 +251,7 @@ ERL_COMPILE_FLAGS += \
 # 1) INETS_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET)
+tests debug opt: $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

@@ -28,11 +28,11 @@ rec_api.erl:99: Record construction #r2{f1::10} violates the declared type of fi
 simple1_api.erl:113: The test simple1_api:d1() =:= simple1_api:d2() can never evaluate to 'true'
 simple1_api.erl:118: Guard test simple1_api:d2() =:= A::simple1_api:d1() can never succeed
 simple1_api.erl:142: Attempt to test for equality between a term of type simple1_adt:o2() and a term of opaque type simple1_adt:o1()
-simple1_api.erl:148: Guard test simple1_adt:o2() =:= A::simple1_adt:o1() contains an opaque term as 1st argument
+simple1_api.erl:148: Guard test simple1_adt:o2() =:= A::simple1_adt:o1() contains opaque terms as 1st and 2nd arguments
 simple1_api.erl:154: Attempt to test for inequality between a term of type simple1_adt:o2() and a term of opaque type simple1_adt:o1()
 simple1_api.erl:160: Attempt to test for inequality between a term of type simple1_adt:o2() and a term of opaque type simple1_adt:o1()
 simple1_api.erl:165: Attempt to test for equality between a term of type simple1_adt:c2() and a term of opaque type simple1_adt:c1()
-simple1_api.erl:181: Guard test A::simple1_adt:d1() =< B::simple1_adt:d2() contains an opaque term as 1st argument
+simple1_api.erl:181: Guard test A::simple1_adt:d1() =< B::simple1_adt:d2() contains opaque terms as 1st and 2nd arguments
 simple1_api.erl:185: Guard test 'a' =< B::simple1_adt:d2() contains an opaque term as 2nd argument
 simple1_api.erl:189: Guard test A::simple1_adt:d1() =< 'd' contains an opaque term as 1st argument
 simple1_api.erl:197: The type test is_integer(A::simple1_adt:d1()) breaks the opaqueness of the term A::simple1_adt:d1()
@@ -72,12 +72,12 @@ simple1_api.erl:499: The call 'foo':A(A::simple1_api:i()) requires that A is of 
 simple1_api.erl:503: The call 'foo':A(A::simple1_adt:i()) requires that A is of type atom() not simple1_adt:i()
 simple1_api.erl:507: The call A:'foo'(A::simple1_api:i()) requires that A is of type atom() | tuple() not simple1_api:i()
 simple1_api.erl:511: The call A:'foo'(A::simple1_adt:i()) requires that A is of type atom() | tuple() not simple1_adt:i()
-simple1_api.erl:519: Guard test A::simple1_adt:d2() == B::simple1_adt:d1() contains an opaque term as 1st argument
+simple1_api.erl:519: Guard test A::simple1_adt:d2() == B::simple1_adt:d1() contains opaque terms as 1st and 2nd arguments
 simple1_api.erl:534: Guard test A::simple1_adt:d1() >= 3 contains an opaque term as 1st argument
 simple1_api.erl:536: Guard test A::simple1_adt:d1() == 3 contains an opaque term as 1st argument
 simple1_api.erl:538: Guard test A::simple1_adt:d1() =:= 3 contains an opaque term as 1st argument
 simple1_api.erl:548: The call erlang:'<'(A::simple1_adt:d1(),3) contains an opaque term as 1st argument when terms of different types are expected in these positions
-simple1_api.erl:558: The call erlang:'=<'(A::simple1_adt:d1(),B::simple1_adt:d2()) contains an opaque term as 1st argument when terms of different types are expected in these positions
+simple1_api.erl:558: The call erlang:'=<'(A::simple1_adt:d1(),B::simple1_adt:d2()) contains opaque terms as 1st and 2nd arguments when terms of different types are expected in these positions
 simple1_api.erl:565: Guard test {digraph:graph(),3} > {digraph:graph(),atom() | ets:tid()} contains an opaque term as 2nd argument
 simple1_api.erl:91: Invalid type specification for function simple1_api:tup/0. The success typing is () -> {'a','b'}
 simple2_api.erl:100: The call lists:flatten(A::simple1_adt:tuple1()) contains an opaque term as 1st argument when a structured term of type [any()] is expected

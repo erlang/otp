@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1998-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -188,6 +189,9 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
     case BINARY_DEF:
 	erts_print(to, to_arg, "#Bin");
 	break;
+    case MATCHSTATE_DEF:
+        erts_print(to, to_arg, "#Matchstate");
+        break;
     default:
 	erts_print(to, to_arg, "unknown object %x", obj);
     }
@@ -627,29 +631,4 @@ void print_memory_info(Process *p)
     }
     erts_printf("+-----------------%s-%s-%s-%s-+\n",dashes,dashes,dashes,dashes);
 }
-#if !HEAP_ON_C_STACK && defined(DEBUG)
-Eterm *erts_debug_allocate_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-    int offset = sd->num_tmp_heap_used;
-
-    ASSERT(offset+size <= TMP_HEAP_SIZE);
-    return (sd->tmp_heap)+offset;
-}
-void erts_debug_use_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-
-    sd->num_tmp_heap_used += size;
-    ASSERT(sd->num_tmp_heap_used <= TMP_HEAP_SIZE);
-}
-void erts_debug_unuse_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-
-    sd->num_tmp_heap_used -= size;
-    ASSERT(sd->num_tmp_heap_used >= 0);
-}
 #endif
-#endif
-

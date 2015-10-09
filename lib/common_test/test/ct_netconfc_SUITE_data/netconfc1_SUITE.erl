@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -150,7 +151,7 @@ hello_from_server_first(Config) ->
     {ok,Client} = ct_netconfc:only_open(?DEFAULT_SSH_OPTS(DataDir)),
     ct:sleep(500),
     ?NS:expect(hello),
-    ?ok = ct_netconfc:hello(Client),
+    ?ok = ct_netconfc:hello(Client, [{capability, ["urn:com:ericsson:ebase:1.1.0"]}], infinity),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
@@ -488,13 +489,16 @@ action(Config) ->
     Data = [{myactionreturn,[{xmlns,"myns"}],["value"]}],
     %% test either to receive {data,Data} or {ok,Data},
     %% both need to be handled
-    {Reply,RetVal} = case element(3, now()) rem 2 of
-			 0 -> {{data,Data},{ok,Data}};
-			 1 -> {{ok,Data},ok}
-		     end,
-    ct:log("Client will receive {~w,Data}", [element(1,Reply)]),
-    ?NS:expect_reply(action,Reply),
-    RetVal = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+    ct:log("Client will receive {~w,~p}", [data,Data]),
+    ct:log("Expecting ~p", [{ok, Data}]),
+    ?NS:expect_reply(action,{data, Data}),
+    {ok, Data} = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+
+    ct:log("Client will receive {~w,~p}", [ok,Data]),
+    ct:log("Expecting ~p", [ok]),
+    ?NS:expect_reply(action,{ok, Data}),
+    ok = ct_netconfc:action(Client,{myaction,[{xmlns,"myns"}],[]}),
+
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1997-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -44,10 +45,10 @@
 #endif
 
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define DARWIN 1
+#define __DARWIN__ 1
 #endif
 
-#if defined(DARWIN) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
+#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
 #include <fcntl.h>
 #endif
 
@@ -475,11 +476,11 @@ efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 #ifdef NO_FSYNC
   undefined fsync /* XXX: Really? */
 #else
-#if defined(DARWIN) && defined(F_FULLFSYNC)
+#if defined(__DARWIN__) && defined(F_FULLFSYNC)
     return check_error(fcntl(fd, F_FULLFSYNC), errInfo);
 #else
     return check_error(fsync(fd), errInfo);
-#endif /* DARWIN */
+#endif /* __DARWIN__ */
 #endif /* NO_FSYNC */
 }
 
@@ -961,7 +962,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	  retval = len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
-#elif defined(DARWIN)
+#elif defined(__DARWIN__)
     int retval;
     off_t len;
     do {

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -93,7 +94,7 @@
     case diameter_codec:getopt(string_decode) of
         true ->
             binary_to_list(Bin);
-        _ ->
+        false ->
             Bin
     end;
 
@@ -565,18 +566,29 @@ msb(false) -> ?TIME_2036.
 
 scan_uri(Bin) ->
     RE = "^(aaas?)://"
-         "([-a-zA-Z0-9.]+)"
-         "(:([0-9]+))?"
+         "([-a-zA-Z0-9.]{1,255})"
+         "(:0{0,5}([0-9]{1,5}))?"
          "(;transport=(tcp|sctp|udp))?"
          "(;protocol=(diameter|radius|tacacs\\+))?$",
+    %% A port number is 16-bit, so an arbitrary number of digits is
+    %% just a vulnerability, but provide a little slack with leading
+    %% zeros in a port number just because the regexp was previously
+    %% [0-9]+ and it's not inconceivable that a value might be padded.
+    %% Don't fantasize about this padding being more than the number
+    %% of digits in the port number proper.
+    %%
+    %% Similarly, a FQDN can't be arbitrarily long: at most 255
+    %% octets.
     {match, [A, DN, PN, T, P]} = re:run(Bin,
                                         RE,
                                         [{capture, [1,2,4,6,8], binary}]),
     Type = to_atom(A),
     {PN0, T0} = defaults(diameter_codec:getopt(rfc), Type),
+    PortNr = to_int(PN, PN0),
+    0 = PortNr bsr 16,  %% assert
     #diameter_uri{type = Type,
-                  fqdn = from_bin(DN),
-                  port = to_int(PN, PN0),
+                  fqdn = 'OctetString'(decode, DN),
+                  port = PortNr,
                   transport = to_atom(T, T0),
                   protocol = to_atom(P, diameter)}.
 
@@ -587,14 +599,6 @@ defaults(6733, aaa) ->
     {3868, tcp};
 defaults(6733, aaas) ->
     {5658, tcp}.
-
-from_bin(B) ->
-    case diameter_codec:getopt(string_decode) of
-        true ->
-            binary_to_list(B);
-        false ->
-            B
-    end.
 
 to_int(<<>>, N) ->
     N;

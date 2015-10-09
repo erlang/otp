@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -75,8 +76,9 @@
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
-    {A,B,C} = erlang:now(),
-    random:seed(A,B,C),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     ets:insert(snmp_agent_table, {msg_id, random:uniform(2147483647)}),
     ets:insert(snmp_agent_table, {req_id, random:uniform(2147483647)}),
     init_counters(),
@@ -771,21 +773,7 @@ generate_v3_report_msg(MsgID, MsgSecurityModel, Data, LocalEngineID,
 			   ContextEngineID, ContextName, SecData}, 
 			  LocalEngineID, Log).
 
-%% req_id(#scopedPdu{data = #pdu{request_id = ReqId}}) ->
-%%     ?vtrace("Report ReqId: ~p",[ReqId]),
-%%     ReqId;
-%% req_id(_) ->
-%%     0. % RFC2572, 7.1.3.c.4
 
-    
-%% maybe_generate_discovery1_report_msg() ->
-%%     case (catch DiscoveryHandler:handle_discovery1(Ip, Udp, EngineId)) of
-%% 	{ok, Entry} when is_record(Entry, snmp_discovery_data1) ->
-%% 	    ok;
-%% 	ignore ->
-%% 	    ok;
-%% 	{error, Reason} ->
-	    
 %% Response to stage 1 discovery message (terminating, i.e. from the manager)
 generate_discovery1_report_msg(MsgID, MsgSecurityModel, 
 			       SecName, SecLevel, 

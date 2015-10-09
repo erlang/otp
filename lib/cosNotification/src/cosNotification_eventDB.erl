@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -71,9 +72,7 @@
 %%   that the first and last Key change place. {K1,K2}<->{K2,K1} and 
 %%   {K1,K2,K3}<->{K3,K2,K1}.
 %%----------------------------------------------------------------------
-
 -module(cosNotification_eventDB).
-
 
 %%--------------- INCLUDES -----------------------------------
 -include_lib("orber/include/corba.hrl").
@@ -221,15 +220,15 @@ gc_events(DBRef, _Priority) when ?is_TimeoutNotUsed(DBRef) ->
 gc_events(DBRef, _Priority) when ?is_StopTNotSupported(DBRef) ->
     ok;
 gc_events(DBRef, Priority) ->
-    {M,S,U} = now(),
+    TS = erlang:monotonic_time(),
+    {resolution, TR} = lists:keyfind(resolution, 1, erlang:system_info(os_monotonic_time_source)),
     case get(oe_GC_timestamp) of
-	Num when {M,S,U} > Num ->
-	    put(oe_GC_timestamp, {M,S+?get_GCTime(DBRef),U}),
+	Num when TS > Num ->
+	    put(oe_GC_timestamp, TS + ?get_GCTime(DBRef) * TR),
 	    spawn_link(?MODULE, gc_start, [DBRef, Priority]);
 	_->
 	    ok
     end.
-
 
 %%------------------------------------------------------------
 %% function : gc_start
@@ -266,13 +265,13 @@ gc_discard_DB({Key1, Key2, Key3}, DRef) ->
 %% Returns  : 
 %%------------------------------------------------------------
 create_FIFO_Key() ->
-    {M, S, U} = erlang:now(),
+    {M, S, U} = erlang:timestamp(), 
     -M*1000000000000 - S*1000000 - U.
 
 %%------------------------------------------------------------
 %% function : convert_FIFO_Key
 %% Arguments: 
-%% Returns  : A now tuple
+%% Returns  : A timestamp tuple
 %% Comment  : Used when we must reuse a timestamp, i.e., only
 %%            when we must reorder the DB.
 %%------------------------------------------------------------
@@ -322,7 +321,7 @@ extract_start_time(#'CosNotification_StructuredEvent'
 	     _ ->
 		 false
 	 end,
-    convert_time(ST, TRef, now());
+    convert_time(ST, TRef, erlang:timestamp());
 extract_start_time(_, _, _) ->
     false.
 
@@ -337,12 +336,12 @@ extract_start_time(_, _, _) ->
 %%             - undefined eq. value needed but no filter associated.
 %%            Now - used when we want to reuse old TimeStamp which
 %%                  must be done when changing QoS.
-%% Returns  : A modified return from now().
+%% Returns  : A modified return from erlang:timestamp().
 %%------------------------------------------------------------
 extract_deadline(_, _, _, _, false) ->
     false;
 extract_deadline(Event, DefaultT, StopTSupported, TRef, MappingVal) ->
-    extract_deadline(Event, DefaultT, StopTSupported, TRef, MappingVal, now()).
+    extract_deadline(Event, DefaultT, StopTSupported, TRef, MappingVal, erlang:timestamp()).
 
 extract_deadline(_, _, _, _, false, _) ->
     false;
@@ -403,14 +402,14 @@ get_time_diff(UTC, TRef) ->
     UB-LB.
 
 check_deadline(DL) when is_tuple(DL) ->
-    {M,S,U}  = now(),
+    {M,S,U}  = erlang:timestamp(),
     DL >= {-M,-S,-U};
 check_deadline(_DL) ->
     %% This case will cover if no timeout is set.
     false.
 
 check_start_time(ST) when is_tuple(ST) ->
-    {M,S,U}  = now(),
+    {M,S,U}  = erlang:timestamp(),
     ST >= {-M,-S,-U};
 check_start_time(_ST) ->
     %% This case will cover if no earliest delivery time is set.
@@ -1139,8 +1138,10 @@ create_db(QoS, GCTime, GCLimit, TimeRef) ->
 	?is_TimeoutNotUsed(DBRef), ?is_StopTNotSupported(DBRef) ->	
 	    ok;
 	true ->
-	    {M,S,U} = now(),
-	    put(oe_GC_timestamp, {M,S+GCTime,U})
+	    TS = erlang:monotonic_time(),
+	    {resolution, TR} = lists:keyfind(resolution, 1, 
+					     erlang:system_info(os_monotonic_time_source)),
+	    put(oe_GC_timestamp, TS+GCTime*TR)
     end,
     DBRef.
 

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2006-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -92,43 +93,33 @@
 #  if defined(ERTS_USE_POLL)
 #    undef ERTS_POLL_USE_POLL
 #    define ERTS_POLL_USE_POLL 1
-#  elif !defined(__WIN32__) && !defined(__OSE__)
+#  elif !defined(__WIN32__)
 #    undef ERTS_POLL_USE_SELECT
 #    define ERTS_POLL_USE_SELECT 1
 #  endif
 #endif
 
+#define ERTS_POLL_USE_TIMERFD 0
+
 typedef Uint32 ErtsPollEvents;
 #undef ERTS_POLL_EV_E2N
 
-#if defined(__WIN32__) || defined(__OSE__)	/* --- win32 or ose -------- */
+#if defined(__WIN32__)	/* --- win32  --------------------------------------- */
 
 #define ERTS_POLL_EV_IN   1
 #define ERTS_POLL_EV_OUT  2
 #define ERTS_POLL_EV_ERR  4
 #define ERTS_POLL_EV_NVAL 8
 
-#ifdef __OSE__
-
-typedef struct ErtsPollOseMsgList_ {
-  struct ErtsPollOseMsgList_ *next;
-  union SIGNAL *data;
-} ErtsPollOseMsgList;
-
-struct erts_sys_fd_type {
-    SIGSELECT signo;
-    ErlDrvOseEventId id;
-    ErtsPollOseMsgList *msgs;
-    ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig);
-    ethr_mutex mtx;
-    void *extra;
-};
-
-#endif
-
 #elif ERTS_POLL_USE_EPOLL	/* --- epoll ------------------------------- */
 
 #include <sys/epoll.h>
+
+#ifdef HAVE_SYS_TIMERFD_H
+#include <sys/timerfd.h>
+#undef ERTS_POLL_USE_TIMERFD
+#define ERTS_POLL_USE_TIMERFD 1
+#endif
 
 #define ERTS_POLL_EV_E2N(EV) \
   ((__uint32_t) (EV))
@@ -267,6 +258,6 @@ void		ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet,
 								ErtsPollEvents [],
 								int);
 
-int		ERTS_POLL_EXPORT(erts_poll_get_table_len)(int);
+int erts_poll_new_table_len(int old_len, int need_len);
 
 #endif /* #ifndef ERL_POLL_H__ */

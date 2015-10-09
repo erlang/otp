@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -379,16 +380,15 @@ eat_high(Low) ->
     process_flag(priority, high),
     receive after 1000 -> ok end,
     exit(Low, {you, are, dead}),
-    {_, Sec, _} = now(),
-    loop(Sec, Sec).
+    loop(erlang:monotonic_time() + erlang:convert_time_unit(5,seconds,native)).
 
 %% Busy loop for 5 seconds.
 
-loop(OrigSec, CurrentSec) when CurrentSec < OrigSec+5 ->
-    {_, NewSec, _} = now(),
-    loop(OrigSec, NewSec);
-loop(_, _) ->
-    ok.
+loop(StopTime) ->
+    case StopTime >= erlang:monotonic_time() of
+	true -> ok;
+	false -> loop(StopTime)
+    end.
 
 
 %% Tries to send two different exit messages to a process.
@@ -2450,16 +2450,13 @@ start_node(Config) ->
 
 start_node(Config, Args) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {A, B, C} = now(),
     Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
 			      ++ atom_to_list(?config(testcase, Config))
 			      ++ "-"
-			      ++ integer_to_list(A)
+			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
+			      ++ integer_to_list(erlang:unique_integer([positive]))),
     ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->

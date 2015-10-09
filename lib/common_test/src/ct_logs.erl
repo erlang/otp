@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1910,13 +1911,14 @@ sort_all_runs(Dirs) ->
 sort_ct_runs(Dirs) ->
     %% Directory naming: <Prefix>.NodeName.Date_Time[/...]
     %% Sort on Date_Time string: "YYYY-MM-DD_HH.MM.SS"
-    lists:sort(fun(Dir1,Dir2) ->
-		       [_Prefix,_Node1,DateHH1,MM1,SS1] =
-			   string:tokens(filename:dirname(Dir1),[$.]),
-		       [_Prefix,_Node2,DateHH2,MM2,SS2] =
-			   string:tokens(filename:dirname(Dir2),[$.]),
-		       {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
-	       end, Dirs).
+    lists:sort(
+      fun(Dir1,Dir2) ->
+	      [SS1,MM1,DateHH1 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir1),[$.])),
+	      [SS2,MM2,DateHH2 | _] =
+		  lists:reverse(string:tokens(filename:dirname(Dir2),[$.])),
+	      {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
+      end, Dirs).
 
 dir_diff_all_runs(Dirs, LogCache) ->
     case LogCache#log_cache.all_runs of
@@ -2053,6 +2055,13 @@ runentry(Dir, Totals={Node,Label,Logs,
 					     ?testname_width-3)),
 		lists:flatten(io_lib:format("~ts...",[Trunc]))
 	end,
+    TotMissingStr =
+	if NotBuilt > 0 ->
+		["<font color=\"red\">",
+		 integer_to_list(NotBuilt),"</font>"];
+	   true ->
+		integer_to_list(NotBuilt)
+	end,
     Total = TotSucc+TotFail+AllSkip,
     A = xhtml(["<td align=center><font size=\"-1\">",Node,
 	       "</font></td>\n",
@@ -2072,7 +2081,7 @@ runentry(Dir, Totals={Node,Label,Logs,
 	 "<td align=right>",TotFailStr,"</td>\n",
 	 "<td align=right>",integer_to_list(AllSkip),
 	 " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
-	 "<td align=right>",integer_to_list(NotBuilt),"</td>\n"],
+	 "<td align=right>",TotMissingStr,"</td>\n"],
     TotalsStr = A++B++C,
     
     XHTML = [xhtml("<tr>\n", ["<tr class=\"",odd_or_even(),"\">\n"]),

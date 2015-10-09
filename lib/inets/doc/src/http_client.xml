@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -33,103 +34,91 @@
   </header>
 
   <section>
-    <title>Introduction</title>
+    <title>Configuration</title>
 
-    <p>The HTTP client default profile will be started when the inets
+      <p>The HTTP client default profile is started when the <c>Inets</c>
     application is started and is then available to all processes on
-    that erlang node. Other profiles may also be started at
+    that Erlang node. Other profiles can also be started at
     application startup, or profiles can be started and stopped
-    dynamically in runtime. Each client profile will spawn a new
-    process to handle each request unless there is a possibility to use
-    a persistent connection with or without pipelining.
-    The client will add a <c>host</c> header and an empty
+    dynamically in runtime. Each client profile spawns a new
+    process to handle each request, unless a persistent connection 
+    can be used with or without pipelining.
+    The client adds a <c>host</c> header and an empty
     <c>te</c> header if there are no such headers present in the request.</p>
 
-    <p>The client supports ipv6 as long as the underlying mechanisms also do
+    <p>The client supports IPv6 as long as the underlying mechanisms also do
       so.</p>
-  </section>
 
-  <section>
-    <title>Configuration</title>
-    <p> What to put in the erlang node application configuration file
-      in order to start a profile at application startup.</p>
+    <p>The following is to be put in the Erlang node application configuration file
+      to start a profile at application startup:</p>
     <pre>
-      [{inets, [{services, [{httpc, PropertyList}]}]}]
-    </pre>
-    <p>For valid properties see 
+      [{inets, [{services, [{httpc, PropertyList}]}]}]</pre>
+    <p>For valid properties, see 
     <seealso marker="httpc">httpc(3)</seealso>. </p>
   </section>
 
   <section>
-    <title>Using the HTTP Client API</title>
+    <title>Getting Started</title>
+    <p>Start <c>Inets</c>:</p>
     <code type="erl">
  1 > inets:start().
-      ok
-    </code>
-    <p> The following calls uses the default client profile.
-      Use the proxy "www-proxy.mycompany.com:8000",
-      but not for requests to localhost. This will apply to all subsequent
-      requests</p>
+      ok</code>
+    <p>The following calls use the default client profile.
+      Use the proxy <c>"www-proxy.mycompany.com:8000"</c>,
+      except from requests to localhost. This applies to all the
+      following requests.</p>
+      <p>Example:</p>
     <code type="erl">
       2 > httpc:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
       ["localhost"]}}]).
-      ok
-    </code>
-    <p>An ordinary synchronous request. </p>
+      ok</code>
+    <p>The following is an ordinary synchronous request:</p>
     <code type="erl">
       3 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      httpc:request(get, {"http://www.erlang.org", []}, [], []).
-    </code>
-    <p>With all default values, as above, a get request can also be written
-      like this.</p>
+      httpc:request(get, {"http://www.erlang.org", []}, [], []).</code>
+    <p>With all the default values presented, a get request can also be written
+      as follows:</p>
     <code type="erl">
       4 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      httpc:request("http://www.erlang.org").
-    </code>
-    <p>An ordinary asynchronous request. The result will be sent
-      to the calling process in the form <c>{http, {ReqestId, Result}}</c></p>
+      httpc:request("http://www.erlang.org").</code>
+    <p>The following is an ordinary asynchronous request:</p>
     <code type="erl">
       5 > {ok, RequestId} =
-      httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
-    </code>
-    <p>In this case the calling process is the shell, so we receive the
-      result.</p>
+      httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).</code>
+      <p>The result is sent to the calling process as
+      <c>{http, {ReqestId, Result}}</c>.</p>
+    <p>In this case, the calling process is the shell, so the following
+      result is received:</p>
     <code type="erl">
       6 > receive {http, {RequestId, Result}} -> ok after 500 -> error end.
-      ok
-    </code>
-    <p>Send a request with a specified connection header. </p>
+      ok</code>
+    <p>This sends a request with a specified connection header:</p>
     <code type="erl">
       7 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
       httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
-      [], []).
-    </code>
+      [], []).</code>
 
-    <p>Start a HTTP client profile. </p>
+    <p>Start an HTTP client profile:</p>
    
     <code><![CDATA[
       8 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
       {ok, <0.45.0>}       
       ]]></code>
     
-    <p>The new profile has no proxy settings so the connection will
-      be refused</p>
+    <p>The new profile has no proxy settings, so the connection is refused:</p>
       <code type="erl">
       9 > httpc:request("http://www.erlang.org", foo). 
-      {error, econnrefused}
-    </code>
+      {error, econnrefused}</code>
 
-    <p>Stop a HTTP client profile. </p>
+    <p>Stop the HTTP client profile:</p>
     <code type="erl">
       10 > inets:stop(httpc, foo).
-      ok
-    </code>
+      ok</code>
     
-    <p>Alternatively:</p>
+    <p>Alternative way to stop the HTTP client profile:</p>
     <code type="erl">
       10 > inets:stop(httpc, Pid).
-      ok
-    </code>
+      ok</code>
     
   </section>
 </chapter>

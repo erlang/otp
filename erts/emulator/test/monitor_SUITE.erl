@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -665,110 +666,96 @@ list_cleanup(Config) when is_list(Config) ->
 mixer(doc) ->
     "Test mixing of internal and external monitors.";
 mixer(Config) when is_list(Config) ->
-    ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line NN = [j0,j1,j2,j3],
-%    ?line NN = [j0,j1],
-    ?line NL0 = [begin
-		    {ok, J} = test_server:start_node
-				(X, slave, [{args, "-pa " ++ PA}]), 
-		    J 
-		end  || X <- NN],
-    ?line NL1 = lists:duplicate(2,node()) ++ NL0,
-    ?line Perm = perm(NL1),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,[]}  = process_info(self(),monitors),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js],
-		    ?line wait_for_m([],[],200)
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line Rs = [begin
-				    {monitor_process,Ref} = 
-					ask_jeeves(P,{monitor_process,self()}),
-				    {P,Ref}
-				end
-				|| P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,[]}  = process_info(self(),monitors),
-		    ?line [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
-		    ?line wait_for_m([],[],200),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js]
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
-		    ?line [erlang:monitor(process,P) || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,M} = 
-			process_info(self(),monitors),
-		    ?line ML = lists:sort([P||{process,P} <- M]),
-		    ?line ML = JsL,
-		    ?line [begin
-			       tell_jeeves(P,{exit,flaff}),
-			       receive {'DOWN',_,process,P,_} -> ok end
-			   end || P <- Js],
-		    ?line wait_for_m([],[],200)
-	    end,
-	    Perm),
-    ?line lists:foreach(
-	    fun(NL) ->
-		    ?line Js = [ start_jeeves({[],M}) || M <- (NL ++ NL) ],
-		    ?line Rs = [begin
-				    {monitor_process,Ref} = 
-					ask_jeeves(P,{monitor_process,self()}),
-				    {P,Ref}
-				end
-				|| P <- Js],
-		    ?line R2s = [{P,erlang:monitor(process,P)} || P <- Js],
-		    ?line {monitored_by,MB} = 
-			process_info(self(),monitored_by),
-		    ?line MBL = lists:sort(MB),
-		    ?line JsL = lists:sort(Js),
-		    ?line MBL = JsL,
-		    ?line {monitors,M} = 
-			process_info(self(),monitors),
-		    ?line ML = lists:sort([P||{process,P} <- M]),
-		    ?line ML = JsL,
-		    ?line [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
-		    ?line wait_for_m(lists:sort(M),[],200),
-		    ?line [erlang:demonitor(Ref) || {_P,Ref} <- R2s],
-		    ?line wait_for_m([],[],200),
-		    ?line [tell_jeeves(P,{exit,flaff}) || P <- Js]
-	    end,
-	    Perm),
-    [test_server:stop_node(K) || K <- NL0 ],
+    PA = filename:dirname(code:which(?MODULE)),
+    NN = [j0,j1,j2],
+    NL0 = [begin
+               {ok, J} = test_server:start_node(X,slave,[{args, "-pa " ++ PA}]),
+               J
+           end  || X <- NN],
+    NL1 = lists:duplicate(2,node()) ++ NL0,
+    Perm = perm(NL1),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,[]}  = process_info(self(),monitors),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js],
+              wait_for_m([],[],200)
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              Rs = [begin
+                        {monitor_process,Ref} = ask_jeeves(P,{monitor_process,self()}),
+                        {P,Ref}
+                    end || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,[]}  = process_info(self(),monitors),
+              [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
+              wait_for_m([],[],200),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js]
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              [ask_jeeves(P,{monitor_process,self()}) || P <- Js],
+              [erlang:monitor(process,P) || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,M} = process_info(self(),monitors),
+              ML = lists:sort([P||{process,P} <- M]),
+              ML = JsL,
+              [begin
+                   tell_jeeves(P,{exit,flaff}),
+                   receive {'DOWN',_,process,P,_} -> ok end
+               end || P <- Js],
+              wait_for_m([],[],200)
+      end,
+      Perm),
+    lists:foreach(
+      fun(NL) ->
+              Js = [start_jeeves({[],M}) || M <- (NL ++ NL)],
+              Rs = [begin
+                        {monitor_process,Ref} = ask_jeeves(P,{monitor_process,self()}),
+                        {P,Ref}
+                    end || P <- Js],
+              R2s = [{P,erlang:monitor(process,P)} || P <- Js],
+              {monitored_by,MB} = process_info(self(),monitored_by),
+              MBL = lists:sort(MB),
+              JsL = lists:sort(Js),
+              MBL = JsL,
+              {monitors,M} = process_info(self(),monitors),
+              ML = lists:sort([P||{process,P} <- M]),
+              ML = JsL,
+              [ask_jeeves(P,{demonitor,Ref}) || {P,Ref} <- Rs],
+              wait_for_m(lists:sort(M),[],200),
+              [erlang:demonitor(Ref) || {_P,Ref} <- R2s],
+              wait_for_m([],[],200),
+              [tell_jeeves(P,{exit,flaff}) || P <- Js]
+      end,
+      Perm),
+    [test_server:stop_node(K) || K <- NL0],
     ok.
 
 named_down(doc) -> ["Test that DOWN message for a named monitor isn't"
 		    " delivered until name has been unregistered"];
 named_down(suite) -> [];
 named_down(Config) when is_list(Config) ->
-    ?line {A,B,C} = now(),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-named_down-"
-			      ++ integer_to_list(A)
-			      ++ "-" ++ integer_to_list(B)
-			      ++ "-" ++ integer_to_list(C)),
+			      ++ integer_to_list(erlang:system_time(seconds))
+			      ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     ?line Prio = process_flag(priority,high),
     %% Spawn a bunch of high prio cpu bound processes to prevent
     %% normal prio processes from terminating during the next

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -57,7 +58,7 @@ groups() ->
       [http_emulate_lower_versions
        |local_proxy_cases()]},
      {local_proxy_https,[],
-      local_proxy_cases()}].
+      local_proxy_cases() ++ local_proxy_https_cases()}].
 
 %% internal functions
 
@@ -76,10 +77,13 @@ local_proxy_cases() ->
      http_stream,
      http_not_modified_otp_6821].
 
+local_proxy_https_cases() ->
+    [https_connect_error].
+
 %%--------------------------------------------------------------------
 
 init_per_suite(Config0) ->
-    case init_apps([crypto,public_key], Config0) of
+    case init_apps(suite_apps(), Config0) of
 	Config when is_list(Config) ->
 	    make_cert_files(dsa, "server-", Config),
 	    Config;
@@ -94,7 +98,7 @@ end_per_suite(_Config) ->
 %% internal functions
 
 suite_apps() ->
-    [crypto,public_key].
+    [asn1,crypto,public_key].
     
 %%--------------------------------------------------------------------
 
@@ -429,6 +433,21 @@ header_value(Name, [{HeaderName,HeaderValue}|Headers]) ->
 	_ ->
 	    header_value(Name, Headers)
     end.
+
+%%--------------------------------------------------------------------
+https_connect_error(doc) ->
+    ["Error from CONNECT tunnel should be returned"];
+https_connect_error(Config) when is_list(Config) ->
+    {HttpServer,HttpPort} = ?config(http, Config),
+    Method = get,
+    %% using HTTPS scheme with HTTP port to trigger connection error
+    URL = "https://" ++ HttpServer ++ ":" ++
+        integer_to_list(HttpPort) ++ "/index.html",
+    Opts = [],
+    HttpOpts = [],
+    Request = {URL,[]},
+    {error,{failed_connect,[_,{tls,_,_}]}} =
+	httpc:request(Method, Request, HttpOpts, Opts).
 
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------

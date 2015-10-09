@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -1887,9 +1888,9 @@ ec(Config) when is_list(Config) ->
 
 ec_do() ->
     %% test for a name curve
-    {D2_pub, D2_priv} = crypto:generate_key(ecdh, sect113r2),
-    PrivECDH = [D2_priv, sect113r2],
-    PubECDH = [D2_pub, sect113r2],
+    {D2_pub, D2_priv} = crypto:generate_key(ecdh, secp112r2),
+    PrivECDH = [D2_priv, secp112r2],
+    PubECDH = [D2_pub, secp112r2],
     %%TODO: find a published test case for a EC key
 
     %% test for a full specified curve and public key,

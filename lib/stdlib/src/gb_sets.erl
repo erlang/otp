@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -137,6 +138,10 @@
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
+%% - iterator_from(X, S): returns an iterator that can be used for
+%%   traversing the elements of set S greater than or equal to X;
+%%   see `next'.
+%%
 %% - next(T): returns {X, T1} where X is the smallest element referred
 %%   to by the iterator T, and T1 is the new iterator to be used for
 %%   traversing the remaining elements, or the atom `none' if no
@@ -157,8 +162,8 @@
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
 	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
 	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1, next/1,
-	 filter/2, fold/3, is_set/1]).
+	 largest/1, take_smallest/1, take_largest/1, iterator/1,
+         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -199,29 +204,26 @@
 -export_type([set/0, set/1, iter/0, iter/1]).
 
 -type gb_set_node(Element) :: 'nil' | {Element, _, _}.
--type gb_set_node() :: gb_set_node(_).
 -opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
--opaque set() :: set(_).
+-type set() :: set(_).
 -opaque iter(Element) :: [gb_set_node(Element)].
--opaque iter() :: [gb_set_node()].
+-type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% gb_sets:set() in OTP 17 only.
-
 -spec empty() -> Set when
-      Set :: gb_sets:set().
+      Set :: set().
 
 empty() ->
     {0, nil}.
 
 -spec new() -> Set when
-      Set :: gb_sets:set().
+      Set :: set().
 
 new() -> empty().
 
 -spec is_empty(Set) -> boolean() when
-      Set :: gb_sets:set().
+      Set :: set().
 
 is_empty({0, nil}) ->
     true;
@@ -229,7 +231,7 @@ is_empty(_) ->
     false.
 
 -spec size(Set) -> non_neg_integer() when
-      Set :: gb_sets:set().
+      Set :: set().
 
 size({Size, _}) ->
     Size.
@@ -500,6 +502,22 @@ iterator({_, nil, _} = T, As) ->
 iterator({_, L, _} = T, As) ->
     iterator(L, [T | As]);
 iterator(nil, As) ->
+    As.
+
+-spec iterator_from(Element, Set) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element).
+
+iterator_from(S, {_, T}) ->
+    iterator_from(S, T, []).
+
+iterator_from(S, {K, _, T}, As) when K < S ->
+    iterator_from(S, T, As);
+iterator_from(_, {_, nil, _} = T, As) ->
+    [T | As];
+iterator_from(S, {_, L, _} = T, As) ->
+    iterator_from(S, L, [T | As]);
+iterator_from(_, nil, As) ->
     As.
 
 -spec next(Iter1) -> {Element, Iter2} | 'none' when

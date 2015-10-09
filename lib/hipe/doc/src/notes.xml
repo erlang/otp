@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,147 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to HiPE.</p>
+
+<section><title>Hipe 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c>. </p>
+          <p>
+	    Own Id: OTP-12948</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning <c>lists:keydelete/3</c> with
+	    union and opaque types. </p>
+          <p>
+	    Own Id: OTP-12949</p>
+        </item>
+        <item>
+          <p>
+	    A beam file compiled by hipe for an incompatible runtime
+	    system was sometimes not rejected by the loader, which
+	    could lead to vm crash. This fix will also allow the same
+	    hipe compiler to be used by both normal and debug-built
+	    vm.</p>
+          <p>
+	    Own Id: OTP-12962</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function <c>hipe:erts_checksum/0</c> which returns a
+	    value identifying the target runtime system for the
+	    compiler. Used by dialyzer for its beam cache directory.</p>
+          <p>
+	    Own Id: OTP-12963 Aux Id: OTP-12962, OTP-12964 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a minor bug in the handling of opaque types. </p>
+          <p>
+	    Own Id: OTP-12666</p>
+        </item>
+        <item>
+          <p>
+	    Fix hipe bug when matching a "writable" binary. The bug
+	    has been seen to sometimes cause a failed binary matching
+	    of a correct utf8 character, but other symptoms are also
+	    possible.</p>
+          <p>
+	    Own Id: OTP-12667</p>
+        </item>
+        <item>
+          <p>
+	    Optimizations and code cleanup in hipe code loader.</p>
+          <p>
+	    Own Id: OTP-12816</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved error handling when memory allocation for HiPE
+	    code fails.</p>
+          <p>
+	    Own Id: OTP-12448</p>
+        </item>
+        <item>
+          <p>
+	    Allow use of complete interface of cerl_pmatch module</p>
+          <p>
+	    Own Id: OTP-12794</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE for ARM when Erlang VM is compiled for Thumb
+	    execution mode. This was a problem on e.g. Ubuntu which
+	    configures its system GCC to generate Thumb by default.</p>
+          <p>
+	    Own Id: OTP-12405</p>
+        </item>
+        <item>
+          <p>
+	    Reduced lock contention of dynamic function lookups (like
+	    apply) from hipe compiled code.</p>
+          <p>
+	    Own Id: OTP-12557</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix two bugs in HiPE compiler regarding floating-points,
+	    both leading to crash during compilation. The
+	    target-specific code generators failed to handle integer
+	    to floating-point conversion instructions with constant
+	    operands. The middle-end could use an incorrect
+	    representation for copies between floating-point
+	    registers.</p>
+          <p>
+	    Own Id: OTP-12413</p>
+        </item>
+        <item>
+          <p>
+	    Improved error handling when memory allocation for HiPE
+	    code fails.</p>
+          <p>
+	    Own Id: OTP-12448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Hipe 3.11.2</title>
 

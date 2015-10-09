@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -72,7 +73,7 @@ config(priv_dir,_) ->
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(5)),
+    Dog=test_server:timetrap(test_server:minutes(5)),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
@@ -179,107 +180,112 @@ nosilent(Config) when is_list(Config) ->
 %%%
 
 basic_test() ->
-    ?line Pid = setup(),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(), 
-    ?line ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?NM,
-    ?line [1,1,1,0] = lambda_slave(fun() ->
-					   exported_wrap(1)
-				   end),
-    ?line ?NM, 
-    ?line erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
-    ?line [1,1,1,0] = lambda_slave(fun() ->
-					   exported_wrap(1)
-				   end),
-    ?line ?CTT(Pid,{?MODULE,_,_}) = receive_next(), %% The fun
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(), 
-    ?line ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
-    ?line shutdown(),
-    ?line ?NM,
+    Pid = setup(),
+    erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
+    erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?NM,
+    [1,1,1,0] = lambda_slave(fun() ->
+                                     exported_wrap(1)
+                             end),
+    ?NM,
+    erlang:trace_pattern({?MODULE,'_','_'},[],[meta]),
+    [1,1,1,0] = lambda_slave(fun() ->
+                                     exported_wrap(1)
+                             end),
+    ?CTT(Pid,{?MODULE,_,_}) = receive_next(), %% The fun
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
+    erlang:trace_pattern({?MODULE,'_','_'},false,[meta]),
+    shutdown(),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 return_test() ->
-    ?line Pid = setup(),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
+    Pid = setup(),
+    erlang:trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
 			 [meta]),
-    ?line erlang:trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
+    erlang:trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
 			 [meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(), 
-    ?line ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
-    ?line ?RFT(Pid,{erlang,phash2,2},0) = receive_next(),
-    ?line ?RFT(Pid,{?MODULE,local_tail,1},[1,0]) = receive_next(),
-    ?line ?RFT(Pid,{?MODULE,local2,1},[1,0]) = receive_next(),
-    ?line ?RFT(Pid,{?MODULE,local,1},[1,1,0]) = receive_next(),
-    ?line ?RFT(Pid,{?MODULE,exported,1},[1,1,1,0]) = receive_next(),
-    ?line ?RFT(Pid,{?MODULE,exported_wrap,1},[1,1,1,0]) = receive_next(),
-    ?line shutdown(),
-    ?line ?NM,
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,exported,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local2,[1]}) = receive_next(),
+    ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
+    ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
+    ?RFT(Pid,{erlang,phash2,2},0) = receive_next(),
+    ?RFT(Pid,{?MODULE,local_tail,1},[1,0]) = receive_next(),
+    ?RFT(Pid,{?MODULE,local2,1},[1,0]) = receive_next(),
+    ?RFT(Pid,{?MODULE,local,1},[1,1,0]) = receive_next(),
+    ?RFT(Pid,{?MODULE,exported,1},[1,1,1,0]) = receive_next(),
+    ?RFT(Pid,{?MODULE,exported_wrap,1},[1,1,1,0]) = receive_next(),
+    shutdown(),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 on_and_off_test() ->
-    ?line Pid = setup(),
-    ?line 1 = erlang:trace_pattern({?MODULE,local_tail,1},[],[meta]),
-    ?line LocalTail = fun() ->
-			      local_tail(1)
-		      end,
-    ?line [1,0] = lambda_slave(LocalTail),
-    ?line ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
-    ?line 0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
-    ?line [1,0] = lambda_slave(LocalTail),
-    ?line ?NM,
-    ?line 1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
-    ?line 1 = erlang:trace_pattern({erlang,phash2,2},[],[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
-    ?line ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
-    ?line shutdown(),
-    ?line erlang:trace_pattern({'_','_','_'},false,[meta]),
-    ?line N = erlang:trace_pattern({erlang,'_','_'},true,[meta]),
-    ?line case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
-	      N -> 
-		  ok;
-	      Else ->
-		  exit({number_mismatch, {expected, N}, {got, Else}})
-	  end,
-    ?line case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
-	      N -> 
-		  ok;
-	      Else2 ->
-		  exit({number_mismatch, {expected, N}, {got, Else2}})
-	  end,
-    ?line ?NM,
+    Pid = setup(),
+    1 = erlang:trace_pattern({?MODULE,local_tail,1},[],[meta]),
+    LocalTail = fun() ->
+                        local_tail(1)
+                end,
+    [1,0] = lambda_slave(LocalTail),
+    ?CTT(Pid,{?MODULE,local_tail,[1]}) = receive_next(),
+    0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
+    [1,0] = lambda_slave(LocalTail),
+    ?NM,
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    1 = erlang:trace_pattern({erlang,phash2,2},[],[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CTT(Pid,{?MODULE,exported_wrap,[1]}) = receive_next(),
+    ?CTT(Pid,{erlang,phash2,[1,1]}) = receive_next(),
+    shutdown(),
+    erlang:trace_pattern({'_','_','_'},false,[meta]),
+    N = erlang:trace_pattern({erlang,'_','_'},true,[meta]),
+    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+        N -> ok;
+        Else ->
+            exit({number_mismatch, {expected, N}, {got, Else}})
+    end,
+    case erlang:trace_pattern({erlang,'_','_'},false,[meta]) of
+        N -> ok;
+        Else2 ->
+            exit({number_mismatch, {expected, N}, {got, Else2}})
+    end,
+    %% ?NM,
+    %% Can't check for erlang:*/* stuff since common_test or test_server
+    %% will likely call list_to_binary in the logger. just drain any potential
+    %% message
+    ok = flush(),
     ok.
-    
+
+flush() ->
+    receive _ -> flush() after 0 -> ok end.
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 stack_grow_test() ->    
-    ?line Pid = setup(),
-    ?line 1 = erlang:trace_pattern({?MODULE,loop,4},
+    Pid = setup(),
+    1 = erlang:trace_pattern({?MODULE,loop,4},
 				   [{'_',[],[{return_trace}]}],[meta]),
-    ?line Num = 1 bsl 15,
-    ?line Surface =
+    Num = 1 bsl 15,
+    Surface =
 	fun (This, ?RFT(P,{?MODULE,loop,4},N), N) when P == Pid->
 		if N == Num ->
 			?NM,
@@ -288,7 +294,7 @@ stack_grow_test() ->
 			This(This, receive_next(), N+1)
 		end
 	end,
-    ?line Dive = 
+    Dive =
 	fun (This, ?CTT(P,{?MODULE,loop,[{hej,hopp},[a,b,c],4.5,N]}), N)
 	    when P == Pid->
 		if N == 0 ->
@@ -297,272 +303,263 @@ stack_grow_test() ->
 			This(This, receive_next(), N-1)
 		end
 	end,
-    ?line apply_slave(?MODULE,loop,[{hej,hopp},[a,b,c],4.5,Num]),
-%     ?line apply_slave_async(?MODULE,loop,[{hej,hopp},[a,b,c],4.5,Num]),
-%     ?line List = collect(test_server:seconds(5)),
-    ?line ok = Dive(Dive, receive_next(), Num),
-    ?line ?NM,
+    apply_slave(?MODULE,loop,[{hej,hopp},[a,b,c],4.5,Num]),
+%     apply_slave_async(?MODULE,loop,[{hej,hopp},[a,b,c],4.5,Num]),
+%     List = collect(test_server:seconds(5)),
+    ok = Dive(Dive, receive_next(), Num),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 info_test() ->
-    ?line setup(),
-    ?line Prog = [{['$1'],[{is_integer,'$1'}],[{message, false}]},
-		  {'_',[],[]}],
-    ?line Self = self(),
-    ?line GoOn = make_ref(),
-    
-    ?line Pid = 
+    setup(),
+    Prog = [{['$1'],[{is_integer,'$1'}],[{message, false}]}, {'_',[],[]}],
+    Self = self(),
+    GoOn = make_ref(),
+    Pid =
 	spawn_link(
 	  fun () ->
 		  erlang:trace_pattern({?MODULE,exported_wrap,1}, 
-				       Prog, [{meta, Self}]),
+                                       Prog, [{meta, Self}]),
 		  Self ! {self(), GoOn}
 	  end),
-    ?line receive {Pid, GoOn} -> ok end,
-    ?line {traced,false} = erlang:trace_info({?MODULE,exported_wrap,1}, traced),
-    ?line {match_spec, false} = 
+    receive {Pid, GoOn} -> ok end,
+    {traced,false} = erlang:trace_info({?MODULE,exported_wrap,1}, traced),
+    {match_spec, false} =
 	erlang:trace_info({?MODULE,exported_wrap,1}, match_spec),
-    ?line {meta, Self} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
-    ?line {meta_match_spec, MMS} = 
+    {meta, Self} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
+    {meta_match_spec, MMS} =
 	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
-    ?line case MMS of
-	      Prog ->
-		  ok;
-	      Wrong ->
-		  exit({bad_result, {erlang,trace_info,
-				     [{?MODULE,exported_wrap,1},
-				      meta_match_spec]},
-			{expected, Prog}, {got, Wrong}})
-	  end,
-    ?line erlang:garbage_collect(self()),
-    ?line receive
-	  after 1 ->
-		  ok
-	  end,
-    ?line io:format("~p~n",[MMS]),
-    ?line {meta_match_spec,MMS2} = 
+    case MMS of
+        Prog ->
+            ok;
+        Wrong ->
+            exit({bad_result, {erlang,trace_info,
+                               [{?MODULE,exported_wrap,1},
+                                meta_match_spec]},
+                  {expected, Prog}, {got, Wrong}})
+    end,
+    erlang:garbage_collect(self()),
+    receive
+    after 1 ->
+              ok
+    end,
+    io:format("~p~n",[MMS]),
+    {meta_match_spec,MMS2} =
 	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
-    ?line io:format("~p~n",[MMS2]),
-    ?line case MMS2 of
-	      Prog ->
-		  ok;
-	      Wrong2 ->
-		  exit({bad_result, {erlang,trace_info,
-				     [{?MODULE,exported_wrap,1},
-				      meta_match_spec]},
-			{expected, Prog}, {got, Wrong2}})
-	  end,
-    ?line {all, [_|_]=L} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
-    ?line {value, {meta, Self}} = 
-	lists:keysearch(meta, 1, L),
-    ?line {value, {meta_match_spec, MMS}} = 
-	lists:keysearch(meta_match_spec, 1, L),
-    
-    ?line erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [meta]),
-    ?line {meta_match_spec, []} = 
+    io:format("~p~n",[MMS2]),
+    case MMS2 of
+        Prog ->
+            ok;
+        Wrong2 ->
+            exit({bad_result, {erlang,trace_info,
+                               [{?MODULE,exported_wrap,1},
+                                meta_match_spec]},
+                  {expected, Prog}, {got, Wrong2}})
+    end,
+    {all, [_|_]=L} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
+    {value, {meta, Self}} = lists:keysearch(meta, 1, L),
+    {value, {meta_match_spec, MMS}} = lists:keysearch(meta_match_spec, 1, L),
+
+    erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [meta]),
+    {meta_match_spec, []} =
 	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
-    
-    ?line erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [meta]),
-    ?line {meta, false} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
-    ?line {meta_match_spec, false} = 
+
+    erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [meta]),
+    {meta, false} = erlang:trace_info({?MODULE,exported_wrap,1}, meta),
+    {meta_match_spec, false} =
 	erlang:trace_info({?MODULE,exported_wrap,1}, meta_match_spec),
-    ?line {all, false} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
-    
-    ?line shutdown(),
-    ?line ?NM,
+    {all, false} = erlang:trace_info({?MODULE,exported_wrap,1}, all),
+    shutdown(),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 tracer_test() ->
-    ?line Slave = setup(),
-    ?line Self = self(),
-    
-    ?line MatchSpec = [{'_',[],[{return_trace}]}],
-    ?line Tracer1 = spawn_link(fun () -> relay_n(3, Self) end),
-    ?line Setter = 
-	spawn_link(
-	  fun () ->
-		  erlang:trace_pattern({?MODULE,receiver,1},
-				       MatchSpec,
-				       [{meta,Tracer1}]),
-		  erlang:trace_pattern({erlang,phash2,2},
-				       MatchSpec,
-				       [{meta,Tracer1}]),
-		  Self ! {self(), done}
-	  end),
-    ?line receive {Setter, done} -> ok end,
-    ?line Ref = make_ref(),
-    ?line apply_slave_async(?MODULE, receiver, [Ref]),
-    ?line {Tracer1,?CTT(Slave,{?MODULE,receiver,[Ref]})} = receive_next(100),
-    ?line {Tracer1,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(100),
-    ?line {Tracer1,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(100),
+    Slave = setup(),
+    Self = self(),
+
+    MatchSpec = [{'_',[],[{return_trace}]}],
+    Tracer1 = spawn_link(fun () -> relay_n(3, Self) end),
+    Setter = spawn_link(
+               fun () ->
+                       erlang:trace_pattern({?MODULE,receiver,1},
+                                            MatchSpec,
+                                            [{meta,Tracer1}]),
+                       erlang:trace_pattern({erlang,phash2,2},
+                                            MatchSpec,
+                                            [{meta,Tracer1}]),
+                       Self ! {self(), done}
+               end),
+    receive {Setter, done} -> ok end,
+    Ref = make_ref(),
+    apply_slave_async(?MODULE, receiver, [Ref]),
+    {Tracer1,?CTT(Slave,{?MODULE,receiver,[Ref]})} = receive_next(100),
+    {Tracer1,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(100),
+    {Tracer1,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(100),
     %% Initiate a return_trace that will fail since the tracer just stopped
-    ?line Slave ! Ref,
-    ?line receive_no_next(100),
+    Slave ! Ref,
+    receive_no_next(100),
     %% The breakpoint has not been hit since the tracer stopped
-    ?line {meta,Tracer1} = 
+    {meta,Tracer1} =
 	erlang:trace_info({?MODULE,receiver,1}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta_match_spec, MatchSpec} =
 	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
-    ?line {meta,Tracer1} = 
+    {meta,Tracer1} =
 	erlang:trace_info({erlang,phash2,2}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta_match_spec, MatchSpec} =
 	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
     %% Initiate trace messages that will fail
-    ?line Ref2 = make_ref(),
-    ?line apply_slave_async(?MODULE, receiver, [Ref2]),
-    ?line Slave ! Ref2,
-    ?line receive_no_next(100),
-    ?line {meta,[]} = 
+    Ref2 = make_ref(),
+    apply_slave_async(?MODULE, receiver, [Ref2]),
+    Slave ! Ref2,
+    receive_no_next(100),
+    {meta,[]} =
 	erlang:trace_info({?MODULE,receiver,1}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta_match_spec, MatchSpec} = 
 	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
-    ?line {meta,[]} =
+    {meta,[]} =
 	erlang:trace_info({erlang,phash2,2}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta_match_spec, MatchSpec} =
 	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
     %% Change tracer
-    ?line Tracer2 = spawn_link(fun () -> relay_n(4, Self) end),
-    ?line erlang:trace_pattern({?MODULE,receiver,1}, 
-			       MatchSpec, 
-			       [{meta,Tracer2}]),
-    ?line erlang:trace_pattern({erlang,phash2,2},
-			       MatchSpec,
-			       [{meta,Tracer2}]),
-    ?line Ref3 = make_ref(),
-    ?line apply_slave_async(?MODULE, receiver, [Ref3]),
-    ?line {Tracer2,?CTT(Slave,{?MODULE,receiver,[Ref3]})} = receive_next(),
-    ?line {Tracer2,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(),
-    ?line {Tracer2,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
+    Tracer2 = spawn_link(fun () -> relay_n(4, Self) end),
+    erlang:trace_pattern({?MODULE,receiver,1},
+                         MatchSpec,
+                         [{meta,Tracer2}]),
+    erlang:trace_pattern({erlang,phash2,2},
+                         MatchSpec,
+                         [{meta,Tracer2}]),
+    Ref3 = make_ref(),
+    apply_slave_async(?MODULE, receiver, [Ref3]),
+    {Tracer2,?CTT(Slave,{?MODULE,receiver,[Ref3]})} = receive_next(),
+    {Tracer2,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(),
+    {Tracer2,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
     %% Change tracer between call trace and return trace
-    ?line Tracer3 = spawn_link(fun () -> relay_n(4, Self) end),
-    ?line erlang:trace_pattern({?MODULE,receiver,1}, 
-			       MatchSpec, 
-			       [{meta,Tracer3}]),
-    ?line erlang:trace_pattern({erlang,phash2,2},
-			       MatchSpec,
-			       [{meta,Tracer3}]),
-    ?line Slave ! Ref3, 
+    Tracer3 = spawn_link(fun () -> relay_n(4, Self) end),
+    erlang:trace_pattern({?MODULE,receiver,1},
+                         MatchSpec,
+                         [{meta,Tracer3}]),
+    erlang:trace_pattern({erlang,phash2,2},
+                         MatchSpec,
+                         [{meta,Tracer3}]),
+    Slave ! Ref3,
     %% The return trace should still come from Tracer2
-    ?line {Tracer2,?RFT(Slave,{?MODULE,receiver,1},Ref3)} = receive_next(),
-    ?line Ref4 = make_ref(),
+    {Tracer2,?RFT(Slave,{?MODULE,receiver,1},Ref3)} = receive_next(),
+    Ref4 = make_ref(),
     %% Now should Tracer3 be used
-    ?line apply_slave_async(?MODULE, receiver, [Ref4]),
-    ?line Slave ! Ref4,
-    ?line {Tracer3,?CTT(Slave,{?MODULE,receiver,[Ref4]})} = receive_next(),
-    ?line {Tracer3,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(),
-    ?line {Tracer3,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
-    ?line {Tracer3,?RFT(Slave,{?MODULE,receiver,1},Ref4)} = receive_next(),
+    apply_slave_async(?MODULE, receiver, [Ref4]),
+    Slave ! Ref4,
+    {Tracer3,?CTT(Slave,{?MODULE,receiver,[Ref4]})} = receive_next(),
+    {Tracer3,?CTT(Slave,{erlang,phash2,[1,1]})} = receive_next(),
+    {Tracer3,?RFT(Slave,{erlang,phash2,2},0)} = receive_next(),
+    {Tracer3,?RFT(Slave,{?MODULE,receiver,1},Ref4)} = receive_next(),
     %% The breakpoint has not been hit since the tracer stopped
-    ?line {meta,Tracer3} = 
-	erlang:trace_info({?MODULE,receiver,1}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta,Tracer3} = erlang:trace_info({?MODULE,receiver,1}, meta),
+    {meta_match_spec, MatchSpec} =
 	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
-    ?line {meta,Tracer3} = 
+    {meta,Tracer3} =
 	erlang:trace_info({erlang,phash2,2}, meta),
-    ?line {meta_match_spec, MatchSpec} = 
+    {meta_match_spec, MatchSpec} =
 	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
-    
-    ?line shutdown(),
-    ?line ?NM,
+    shutdown(),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 combo_test() ->
-    ?line Slave = setup(),
-    ?line Self = self(),
-    
-    ?line MatchSpec = [{'_',[],[{return_trace}]}],
-    ?line Flags = lists:sort([call, return_to]),
-    ?line LocalTracer = spawn_link(fun () -> relay_n(6, Self) end),
-    ?line MetaTracer = spawn_link(fun () -> relay_n(4, Self) end),
-    ?line 1 = erlang:trace_pattern({?MODULE,receiver,1}, 
-				   MatchSpec,
-				   [local,{meta,MetaTracer}]),
-    ?line 1 = erlang:trace_pattern({erlang,phash2,2}, 
-				   MatchSpec,
-				   [local,{meta,MetaTracer}]),
-    ?line 1 = erlang:trace(Slave, true, 
-			   [{tracer,LocalTracer} | Flags]),
+    Slave = setup(),
+    Self = self(),
+
+    MatchSpec = [{'_',[],[{return_trace}]}],
+    Flags = lists:sort([call, return_to]),
+    LocalTracer = spawn_link(fun () -> relay_n(6, Self) end),
+    MetaTracer = spawn_link(fun () -> relay_n(4, Self) end),
+    1 = erlang:trace_pattern({?MODULE,receiver,1},
+                             MatchSpec,
+                             [local,{meta,MetaTracer}]),
+    1 = erlang:trace_pattern({erlang,phash2,2},
+                             MatchSpec,
+                             [local,{meta,MetaTracer}]),
+    1 = erlang:trace(Slave, true,
+                     [{tracer,LocalTracer} | Flags]),
     %%
-    ?line {all, TraceInfo1} = 
+    {all, TraceInfo1} =
 	erlang:trace_info({?MODULE,receiver,1}, all),
-    ?line {meta,MetaTracer} = 
+    {meta,MetaTracer} =
 	erlang:trace_info({?MODULE,receiver,1}, meta),
-    ?line {value,{meta,MetaTracer}} = 
+    {value,{meta,MetaTracer}} =
 	lists:keysearch(meta, 1, TraceInfo1),
-    ?line {meta_match_spec,MatchSpec} = 
+    {meta_match_spec,MatchSpec} =
 	erlang:trace_info({?MODULE,receiver,1}, meta_match_spec),
-    ?line {value,{meta_match_spec,MatchSpec}} = 
+    {value,{meta_match_spec,MatchSpec}} =
 	lists:keysearch(meta_match_spec, 1, TraceInfo1),
-    ?line {traced,local} = 
+    {traced,local} =
 	erlang:trace_info({?MODULE,receiver,1}, traced),
-    ?line {value,{traced,local}} = 
+    {value,{traced,local}} =
 	lists:keysearch(traced, 1, TraceInfo1),
-    ?line {match_spec,MatchSpec} = 
+    {match_spec,MatchSpec} =
 	erlang:trace_info({?MODULE,receiver,1}, match_spec),
-    ?line {value,{match_spec,MatchSpec}} = 
+    {value,{match_spec,MatchSpec}} =
 	lists:keysearch(match_spec, 1, TraceInfo1),
     %%
-    ?line {all, TraceInfo2} = 
+    {all, TraceInfo2} =
 	erlang:trace_info({erlang,phash2,2}, all),
-    ?line {meta,MetaTracer} = 
+    {meta,MetaTracer} =
 	erlang:trace_info({erlang,phash2,2}, meta),
-    ?line {value,{meta,MetaTracer}} = 
+    {value,{meta,MetaTracer}} =
 	lists:keysearch(meta, 1, TraceInfo2),
-    ?line {meta_match_spec,MatchSpec} = 
+    {meta_match_spec,MatchSpec} =
 	erlang:trace_info({erlang,phash2,2}, meta_match_spec),
-    ?line {value,{meta_match_spec,MatchSpec}} = 
+    {value,{meta_match_spec,MatchSpec}} =
 	lists:keysearch(meta_match_spec, 1, TraceInfo2),
-    ?line {traced,local} = 
+    {traced,local} =
 	erlang:trace_info({erlang,phash2,2}, traced),
-    ?line {value,{traced,local}} = 
+    {value,{traced,local}} =
 	lists:keysearch(traced, 1, TraceInfo2),
-    ?line {match_spec,MatchSpec} = 
+    {match_spec,MatchSpec} =
 	erlang:trace_info({erlang,phash2,2}, match_spec),
-    ?line {value,{match_spec,MatchSpec}} = 
+    {value,{match_spec,MatchSpec}} =
 	lists:keysearch(match_spec, 1, TraceInfo2),
     %%
-    ?line {flags,Flags1} = erlang:trace_info(Slave, flags),
-    ?line Flags = lists:sort(Flags1),
-    ?line {tracer,LocalTracer} = erlang:trace_info(Slave, tracer),
+    {flags,Flags1} = erlang:trace_info(Slave, flags),
+    Flags = lists:sort(Flags1),
+    {tracer,LocalTracer} = erlang:trace_info(Slave, tracer),
     %%
-    ?line Ref = make_ref(),
-    ?line apply_slave_async(?MODULE, receiver, [Ref]),
-    ?line Slave ! Ref,
-    ?line ?CTT(Slave,{?MODULE,receiver,[Ref]}) = receive_next_bytag(MetaTracer),
-    ?line ?CTT(Slave,{erlang,phash2,[1,1]}) = receive_next_bytag(MetaTracer),
-    ?line ?RFT(Slave,{erlang,phash2,2},0) = receive_next_bytag(MetaTracer),
-    ?line ?RFT(Slave,{?MODULE,receiver,1},Ref) = receive_next_bytag(MetaTracer),
-    ?line ?CT(Slave,{?MODULE,receiver,[Ref]}) = receive_next_bytag(LocalTracer),
-    ?line ?CT(Slave,{erlang,phash2,[1,1]}) = receive_next_bytag(LocalTracer),
-    ?line case {receive_next_bytag(LocalTracer),
+    Ref = make_ref(),
+    apply_slave_async(?MODULE, receiver, [Ref]),
+    Slave ! Ref,
+    ?CTT(Slave,{?MODULE,receiver,[Ref]}) = receive_next_bytag(MetaTracer),
+    ?CTT(Slave,{erlang,phash2,[1,1]}) = receive_next_bytag(MetaTracer),
+    ?RFT(Slave,{erlang,phash2,2},0) = receive_next_bytag(MetaTracer),
+    ?RFT(Slave,{?MODULE,receiver,1},Ref) = receive_next_bytag(MetaTracer),
+    ?CT(Slave,{?MODULE,receiver,[Ref]}) = receive_next_bytag(LocalTracer),
+    ?CT(Slave,{erlang,phash2,[1,1]}) = receive_next_bytag(LocalTracer),
+    case {receive_next_bytag(LocalTracer),
 		receive_next_bytag(LocalTracer)} of
 	      {?RF(Slave,{erlang,phash2,2},0),
 	       ?RT(Slave,{?MODULE,receiver,1})} ->
-		  ?line ok;
+		  ok;
 	      {?RT(Slave,{?MODULE,receiver,1}),
 	       ?RF(Slave,{erlang,phash2,2},0)} ->
-		?line ok;
+		ok;
 	      Error1 -> ?t:fail({unexpected_message, Error1})
 	end,
-    ?line case {receive_next_bytag(LocalTracer),
+    case {receive_next_bytag(LocalTracer),
 		receive_next_bytag(LocalTracer)} of
 	      {?RF(Slave,{?MODULE,receiver,1},Ref),
 	       ?RT(Slave,{?MODULE,slave,1})} ->
-		  ?line ok;
+		  ok;
 	      {?RT(Slave,{?MODULE,slave,1}),
 	       ?RF(Slave,{?MODULE,receiver,1},Ref)} ->
-		  ?line ok;
+		  ok;
 	      Error2 -> ?t:fail({unexpected_message, Error2})
 	  end,
-    
-    ?line shutdown(),
-    ?line ?NM,
+    shutdown(),
+    ?NM,
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -570,38 +567,38 @@ combo_test() ->
 %% Setup silent local call tracing, and start it using meta trace.
 
 nosilent_test() ->
-    ?line Pid = setup(),
-    ?line Trigger = {?MODULE,id,1},
-    ?line TriggerMS = [{[start],[],[{silent,false}]},
-		       {[stop],[],[{silent,true},{return_trace}]}],
-    ?line 1 = erlang:trace(Pid, true, [call,silent,return_to]),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
-    ?line 1 = erlang:trace_pattern({?MODULE,local2,1},
-				   [{'_',[],[{return_trace}]}],
-				   [local]),
-    ?line 1 = erlang:trace_pattern({?MODULE,slave,1},false,[local]),
-    ?line 1 = erlang:trace_pattern(Trigger,false,[local]),
-    ?line 1 = erlang:trace_pattern(Trigger,TriggerMS,[meta]),
-    ?line [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?line receive_no_next(17),
-    ?line start = apply_slave(?MODULE, id, [start]),
-    ?line ?CTT(Pid,{?MODULE,id,[start]})		= receive_next(),
-    ?line [2,2,2,0] = apply_slave(?MODULE,exported_wrap,[2]),
-    ?line ?CT(Pid,{?MODULE,exported_wrap,[2]})		= receive_next(), 
-    ?line ?CT(Pid,{?MODULE,exported,[2]})		= receive_next(),
-    ?line ?CT(Pid,{?MODULE,local,[2]})			= receive_next(),
-    ?line ?CT(Pid,{?MODULE,local2,[2]})			= receive_next(),
-    ?line ?CT(Pid,{?MODULE,local_tail,[2]})		= receive_next(),
-    ?line ?RF(Pid,{?MODULE,local2,1}, [2,0])		= receive_next(),
-    ?line ?RT(Pid,{?MODULE,local,1})			= receive_next(),
-    ?line ?RT(Pid,{?MODULE,exported,1})			= receive_next(),
-    ?line ?RT(Pid,{?MODULE,slave,1})			= receive_next(),
-    ?line stop = apply_slave(?MODULE, id, [stop]),
-    ?line ?CTT(Pid,{?MODULE,id,[stop]})			= receive_next(),
-    ?line ?RFT(Pid,{?MODULE,id,1}, stop)		= receive_next(),
-    ?line [3,3,3,0] = apply_slave(?MODULE,exported_wrap,[3]),
-    ?line receive_no_next(17),
-    ?line shutdown(),
+    Pid = setup(),
+    Trigger = {?MODULE,id,1},
+    TriggerMS = [{[start],[],[{silent,false}]},
+                 {[stop],[],[{silent,true},{return_trace}]}],
+    1 = erlang:trace(Pid, true, [call,silent,return_to]),
+    erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
+    1 = erlang:trace_pattern({?MODULE,local2,1},
+                             [{'_',[],[{return_trace}]}],
+                             [local]),
+    1 = erlang:trace_pattern({?MODULE,slave,1},false,[local]),
+    1 = erlang:trace_pattern(Trigger,false,[local]),
+    1 = erlang:trace_pattern(Trigger,TriggerMS,[meta]),
+    [1,1,1,0] = apply_slave(?MODULE,exported_wrap,[1]),
+    receive_no_next(17),
+    start = apply_slave(?MODULE, id, [start]),
+    ?CTT(Pid,{?MODULE,id,[start]})       = receive_next(),
+    [2,2,2,0] = apply_slave(?MODULE,exported_wrap,[2]),
+    ?CT(Pid,{?MODULE,exported_wrap,[2]}) = receive_next(),
+    ?CT(Pid,{?MODULE,exported,[2]})      = receive_next(),
+    ?CT(Pid,{?MODULE,local,[2]})         = receive_next(),
+    ?CT(Pid,{?MODULE,local2,[2]})        = receive_next(),
+    ?CT(Pid,{?MODULE,local_tail,[2]})    = receive_next(),
+    ?RF(Pid,{?MODULE,local2,1}, [2,0])   = receive_next(),
+    ?RT(Pid,{?MODULE,local,1})           = receive_next(),
+    ?RT(Pid,{?MODULE,exported,1})        = receive_next(),
+    ?RT(Pid,{?MODULE,slave,1})           = receive_next(),
+    stop = apply_slave(?MODULE, id, [stop]),
+    ?CTT(Pid,{?MODULE,id,[stop]})        = receive_next(),
+    ?RFT(Pid,{?MODULE,id,1}, stop)       = receive_next(),
+    [3,3,3,0] = apply_slave(?MODULE,exported_wrap,[3]),
+    receive_no_next(17),
+    shutdown(),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -645,9 +642,9 @@ slave(Sync) ->
     Sync ! sync,
     receive
 	{From,apply, M, F, A} ->
-	    ?line ?dbgformat("Apply: ~p:~p/~p (~p)~n",[M,F,length(A),A]),
-	    ?line Res = apply(M,F,A),
-	    ?line ?dbgformat("done Apply: ~p:~p/~p (~p)~n",[M,F,length(A),A]),
+	    ?dbgformat("Apply: ~p:~p/~p (~p)~n",[M,F,length(A),A]),
+	    Res = apply(M,F,A),
+	    ?dbgformat("done Apply: ~p:~p/~p (~p)~n",[M,F,length(A),A]),
 	    From ! {apply, Res},
 	    erlang:trace_pattern({?MODULE,slave,1},false,[meta]),
 	    slave(From);

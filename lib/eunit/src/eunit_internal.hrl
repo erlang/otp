@@ -14,8 +14,8 @@
 -define(DEFAULT_MODULE_WRAPPER_NAME, eunit_wrapper_).
 
 -ifdef(DEBUG).
--define(debugmsg(S),io:fwrite("\n* ~s: ~s\n", [?MODULE,S])).
--define(debugmsg1(S,As),io:fwrite("\n* ~s: " ++ S ++ "\n", [?MODULE] ++ As)).
+-define(debugmsg(S),io:fwrite("\n* ~ts: ~ts\n", [?MODULE,S])).
+-define(debugmsg1(S,As),io:fwrite("\n* ~ts: " ++ S ++ "\n", [?MODULE] ++ As)).
 -else.
 -define(debugmsg(S),ok).
 -define(debugmsg1(S,As),ok).

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,15 +27,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--define(LONG_TIMEOUT, 600000).
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> 
-    [{ct_hooks,[ts_install_cth]}].
-
 all() -> 
     [
      {group, check_true},
@@ -61,8 +56,7 @@ basic_tests() ->
     [crl_verify_valid, crl_verify_revoked].
 
 
-init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
+init_per_suite(Config) ->
     case os:find_executable("openssl") of
 	false ->
 	    {skip, "Openssl not found"};
@@ -81,7 +75,7 @@ init_per_suite(Config0) ->
 				    true -> inet6;
 				    false -> inet
 				end,
-			    [{ipfamily,IPfamily}, {watchdog, Dog}, {openssl_version,OpenSSL_version} | Config0]
+			    [{ipfamily,IPfamily}, {openssl_version,OpenSSL_version} | Config]
 		    catch _:_ ->
 			    {skip, "Crypto did not start"}
 		    end
@@ -106,8 +100,8 @@ init_per_group(Group, Config0) ->
 	    DataDir = ?config(data_dir, Config0), 
 	    CertDir = filename:join(?config(priv_dir, Config0), Group),
 	    {CertOpts, Config} = init_certs(CertDir, Group, Config0),
-	    Result =  make_certs:all(DataDir, CertDir, CertOpts),
-	    [{make_cert_result, Result}, {cert_dir, CertDir}, {idp_crl, false} | Config]
+	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
+	    [{cert_dir, CertDir}, {idp_crl, false} | Config]
     end.
 
 end_per_group(_GroupName, Config) ->
@@ -133,8 +127,9 @@ init_per_testcase(Case, Config0) ->
 	    DataDir = ?config(data_dir, Config), 
 	    CertDir = filename:join(?config(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
-	    Result =  make_certs:all(DataDir, CertDir, CertOpts),
-	    [{make_cert_result, Result}, {cert_dir, CertDir} | Config];
+	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
+	    ct:timetrap({seconds, 6}),
+	    [{cert_dir, CertDir} | Config];
 	false ->
 	    end_per_testcase(Case, Config0),
 	    ssl:start(),

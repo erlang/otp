@@ -4,16 +4,17 @@ dnl %CopyrightBegin%
 dnl
 dnl Copyright Ericsson AB 2008-2013. All Rights Reserved.
 dnl
-dnl The contents of this file are subject to the Erlang Public License,
-dnl Version 1.1, (the "License"); you may not use this file except in
-dnl compliance with the License. You should have received a copy of the
-dnl Erlang Public License along with this software. If not, it can be
-dnl retrieved online at http://www.erlang.org/.
+dnl Licensed under the Apache License, Version 2.0 (the "License");
+dnl you may not use this file except in compliance with the License.
+dnl You may obtain a copy of the License at
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-dnl the License for the specific language governing rights and limitations
-dnl under the License.
+dnl     http://www.apache.org/licenses/LICENSE-2.0
+dnl
+dnl Unless required by applicable law or agreed to in writing, software
+dnl distributed under the License is distributed on an "AS IS" BASIS,
+dnl WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+dnl See the License for the specific language governing permissions and
+dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
@@ -441,19 +442,26 @@ else
     else
 	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
     fi
-    CWXWIN3=$CWXWIN_PROG/wxWidgets-?.*.*
-    CWXWIN4=$CWXWIN_PROG/wxMSW-?.*.*
-    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-?.*.* /opt/local/pgm/wxWidgets-?.*.*"
+
+    CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.* $CWXWIN_PROG/wxWidgets-2.*.*"
+    CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.* $CWXWIN_PROG/wxMSW-2.*.*"
+
+    DOC_OPT=/opt/local/pgm
+    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-2.*.* $DOC_OPT/wxMSW-2.*.*"
+    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-3.*.* $DOC_OPT/wxMSW-3.*.* $CWX_DOCUMENTED"
+
     case $ac_cv_sizeof_void_p in
     	 8)
-		CWX_DOCUMENTED="/opt/local64/pgm/wxMSW-?.*.* /opt/local64/pgm/wxWidgets-?.*.* $CWX_DOCUMENTED"
+		DOC_OPT64=/opt/local64/pgm
+		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-2.*.* $DOC_OPT64/wxMSW-2.*.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-3.*.* $DOC_OPT64/wxMSW-3.*.* $CWX_DOCUMENTED"
 		;;
          *)
 		true
 		;;
-    esac	
-			
-    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
+    esac
+
+    CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3 $CWXWIN4"
 
     for dir in $CWXPATH; do
         AC_MSG_NOTICE(Checking: [$dir])

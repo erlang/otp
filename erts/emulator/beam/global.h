@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -52,6 +53,7 @@ struct enif_environment_t /* ErlNifEnv */
     ErlHeapFragment* heap_frag;
     int fpe_was_unmasked;
     struct enif_tmp_obj_t* tmp_obj_list;
+    int exception_thrown; /* boolean */
 };
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*);
@@ -229,8 +231,22 @@ typedef struct {
     ERTS_INTERNAL_BINARY_FIELDS
     SWord orig_size;
     void (*destructor)(Binary *);
-    char magic_bin_data[1];
+    union {
+        struct {
+            ERTS_BINARY_STRUCT_ALIGNMENT
+            char data[1];
+        } aligned;
+        struct {
+            char data[1];
+        } unaligned;
+    } u;
 } ErtsMagicBinary;
+
+#ifdef ARCH_32
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
+#else
+#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
+#endif
 
 typedef union {
     Binary binary;
@@ -251,15 +267,30 @@ typedef union {
 #define ERTS_MAGIC_BIN_DESTRUCTOR(BP) \
   ((ErtsBinary *) (BP))->magic_binary.destructor
 #define ERTS_MAGIC_BIN_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.magic_bin_data)
-#define ERTS_MAGIC_BIN_DATA_SIZE(BP) \
-  ((BP)->orig_size - sizeof(void (*)(Binary *)))
+  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.aligned.data)
+#define ERTS_MAGIC_DATA_OFFSET \
+  (offsetof(ErtsMagicBinary,u.aligned.data) - offsetof(Binary,orig_bytes))
 #define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
-  (sizeof(void (*)(Binary *)) + (Sz))
+  (ERTS_MAGIC_DATA_OFFSET + (Sz))
 #define ERTS_MAGIC_BIN_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,magic_bin_data) + (Sz))
-#define ERTS_MAGIC_BIN_FROM_DATA(DATA) \
-  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,magic_bin_data)))
+  (offsetof(ErtsMagicBinary,u.aligned.data) + (Sz))
+
+/* On 32-bit arch these macro variants will save memory
+   by not forcing 8-byte alignment for the magic payload.
+*/
+#define ERTS_MAGIC_BIN_UNALIGNED_DATA(BP) \
+  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.unaligned.data)
+#define ERTS_MAGIC_UNALIGNED_DATA_OFFSET \
+  (offsetof(ErtsMagicBinary,u.unaligned.data) - offsetof(Binary,orig_bytes))
+#define ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(BP) \
+  ((BP)->orig_size - ERTS_MAGIC_UNALIGNED_DATA_OFFSET)
+#define ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(Sz) \
+  (ERTS_MAGIC_UNALIGNED_DATA_OFFSET + (Sz))
+#define ERTS_MAGIC_BIN_UNALIGNED_SIZE(Sz) \
+  (offsetof(ErtsMagicBinary,u.unaligned.data) + (Sz))
+#define ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(DATA) \
+  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,u.unaligned.data)))
+
 
 #define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
 #define ErlDrvBinary2Binary(D) ((Binary *) \
@@ -279,9 +310,6 @@ typedef union {
 typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
-#if HALFWORD_HEAP
-    void* dummy_ptr_padding__;
-#endif
     struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */
     byte *bytes;		/* Pointer to the actual data bytes. */
@@ -747,6 +775,15 @@ ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
 
+#define PSTACK_CHANGE_ALLOCATOR(s,t)					\
+do {									\
+    if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {				\
+	erl_exit(1, "Internal error - trying to change allocator "	\
+		 "type of active pstack\n");				\
+    }									\
+    s.alloc_type = (t);							\
+ } while (0)
+
 #define PSTACK_DESTROY(s)				\
 do {							\
     if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {		\
@@ -755,6 +792,8 @@ do {							\
 } while(0)
 
 #define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+
+#define PSTACK_COUNT(s) (((PSTACK_TYPE*)s.psp + 1) - (PSTACK_TYPE*)s.pstart)
 
 #define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
 
@@ -765,6 +804,45 @@ do {							\
      ((PSTACK_TYPE*) s.psp))
 
 #define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
+
+/*
+ * Do not free the stack after this, it may have pointers into what
+ * was saved in 'dst'.
+ */
+#define PSTACK_SAVE(s,dst)\
+do {\
+    if (s.pstart == (byte*)PSTK_DEF_STACK(s)) {\
+	UWord _pbytes = PSTACK_COUNT(s) * sizeof(PSTACK_TYPE);\
+	(dst)->pstart = erts_alloc(s.alloc_type,\
+				   sizeof(PSTK_DEF_STACK(s)));\
+	sys_memcpy((dst)->pstart, s.pstart, _pbytes);\
+	(dst)->psp = (dst)->pstart + _pbytes - sizeof(PSTACK_TYPE);\
+	(dst)->pend = (dst)->pstart + sizeof(PSTK_DEF_STACK(s));\
+	(dst)->alloc_type = s.alloc_type;\
+    } else\
+        *(dst) = s;\
+ } while (0)
+
+/*
+ * Use on empty stack, only the allocator can be changed before this.
+ * The src stack is reset to NULL.
+ */
+#define PSTACK_RESTORE(s, src)			        \
+do {						        \
+    ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));	\
+    s = *(src);  /* struct copy */		        \
+    (src)->pstart = NULL;			        \
+    ASSERT(s.psp >= (s.pstart - sizeof(PSTACK_TYPE)));  \
+    ASSERT(s.psp < s.pend);			        \
+} while (0)
+
+#define PSTACK_DESTROY_SAVED(pstack)\
+do {\
+    if ((pstack)->pstart) {\
+	erts_free((pstack)->alloc_type, (pstack)->pstart);\
+	(pstack)->pstart = NULL;\
+    }\
+} while(0)
 
 
 /* binary.c */
@@ -866,6 +944,9 @@ void print_process_info(int, void *, Process*);
 void info(int, void *);
 void loaded(int, void *);
 
+/* erl_arith.c */
+double erts_get_positive_zero_float(void);
+
 /* config.c */
 
 __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
@@ -873,31 +954,12 @@ __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
 /* copy.c */
-Eterm copy_object(Eterm, Process*);
-
-#if HALFWORD_HEAP
-Uint size_object_rel(Eterm, Eterm*);
-#  define size_object(A) size_object_rel(A,NULL)
-
-Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm* dst_base);
-#  define copy_struct(OBJ,SZ,HPP,OH) copy_struct_rel(OBJ,SZ,HPP,OH, NULL,NULL)
-
-Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
-#  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
-
-#else /* !HALFWORD_HEAP */
+Eterm copy_object_x(Eterm, Process*, Uint);
+#define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
 Uint size_object(Eterm);
-#  define size_object_rel(A,B) size_object(A)
-
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
-#  define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
-
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
-#  define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
-
-#endif
-
 
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 		      Eterm* refs, unsigned nrefs);
@@ -1051,6 +1113,9 @@ Sint erts_binary_set_loop_limit(Sint limit);
 /* external.c */
 void erts_init_external(void);
 
+/* erl_map.c */
+void erts_init_map(void);
+
 /* erl_unicode.c */
 void erts_init_unicode(void);
 Sint erts_unicode_set_loop_limit(Sint limit);
@@ -1093,7 +1158,7 @@ void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     char s[22];
 #else
     char s[12];
@@ -1305,8 +1370,7 @@ erts_alloc_message_heap_state(Uint size,
     state = erts_smp_atomic32_read_acqb(&receiver->state);
     if (statep)
 	*statep = state;
-    if (state & (ERTS_PSFLG_OFF_HEAP_MSGS
-		 | ERTS_PSFLG_EXITING
+    if (state & (ERTS_PSFLG_EXITING
 		 | ERTS_PSFLG_PENDING_EXIT))
 	goto allocate_in_mbuf;
 #endif
@@ -1327,8 +1391,7 @@ erts_alloc_message_heap_state(Uint size,
 	state = erts_smp_atomic32_read_nob(&receiver->state);
 	if (statep)
 	    *statep = state;
-	if ((state & (ERTS_PSFLG_OFF_HEAP_MSGS
-		      | ERTS_PSFLG_EXITING
+	if ((state & (ERTS_PSFLG_EXITING
 		      | ERTS_PSFLG_PENDING_EXIT))
 	    || (receiver->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
@@ -1381,69 +1444,16 @@ erts_alloc_message_heap(Uint size,
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#if !HEAP_ON_C_STACK
-#  if defined(DEBUG)
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_use_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_unuse_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_use_tmp_heap(Size,NULL); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_unuse_tmp_heap(Size,NULL); \
-       } while (0)
-#  else
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used -= (Size); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used -= (Size); \
-       } while (0)
-
-
-#  endif
-
-#else
-#  define DeclareTmpHeap(VariableName,Size,Process) \
+#define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
-#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+#define DeclareTypedTmpHeap(Type,VariableName,Process)	\
      Type VariableName[1]
-#  define DeclareTmpHeapNoproc(VariableName,Size) \
+#define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
-#  define UseTmpHeap(Size,Proc) /* Nothing */
-#  define UnUseTmpHeap(Size,Proc) /* Nothing */
-#  define UseTmpHeapNoproc(Size) /* Nothing */
-#  define UnUseTmpHeapNoproc(Size) /* Nothing */
-#endif /* HEAP_ON_C_STACK */
+#define UseTmpHeap(Size,Proc) /* Nothing */
+#define UnUseTmpHeap(Size,Proc) /* Nothing */
+#define UseTmpHeapNoproc(Size) /* Nothing */
+#define UnUseTmpHeapNoproc(Size) /* Nothing */
 
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);

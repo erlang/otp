@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -50,23 +51,26 @@ groups() ->
 			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_publickey_dsa,
 			  erlang_client_openssh_server_password,
+			  erlang_client_openssh_server_kexs,
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_exec,
 			  erlang_server_openssh_client_exec_compressed,
 			  erlang_server_openssh_client_pulic_key_dsa,
 			  erlang_server_openssh_client_cipher_suites,
-			  erlang_server_openssh_client_macs]}
+			  erlang_server_openssh_client_macs,
+			  erlang_server_openssh_client_kexs]}
     ].
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case catch crypto:start() of
 	ok ->
 	    case gen_tcp:connect("localhost", 22, []) of
 		{error,econnrefused} ->
 		    {skip,"No openssh deamon"};
 		_ ->
-		    Config
+		    ssh_test_lib:openssh_sanity_check(Config)
 	    end;
 	_Else ->
 	    {skip,"Could not start crypto!"}
@@ -81,6 +85,11 @@ init_per_group(erlang_server, Config) ->
     UserDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
     Config;
+init_per_group(erlang_client, Config) ->
+    CommonAlgs = ssh_test_lib:algo_intersection(
+		   ssh:default_algorithms(),
+		   ssh_test_lib:default_algorithms("localhost", 22)),
+    [{common_algs,CommonAlgs} | Config];
 init_per_group(_, Config) ->
     Config.
 
@@ -95,6 +104,12 @@ init_per_testcase(erlang_server_openssh_client_cipher_suites, Config) ->
     check_ssh_client_support(Config);
 
 init_per_testcase(erlang_server_openssh_client_macs, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_server_openssh_client_kexs, Config) ->
+    check_ssh_client_support(Config);
+
+init_per_testcase(erlang_client_openssh_server_kexs, Config) ->
     check_ssh_client_support(Config);
 
 init_per_testcase(_TestCase, Config) ->
@@ -138,7 +153,7 @@ erlang_client_openssh_server_exec(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}}
 	 = ExitStatus0} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus0]),
+	    ct:log("0: Collected data ~p", [ExitStatus0]),
 	    ssh_test_lib:receive_exec_result(Data0,
 					     ConnectionRef, ChannelId0);
 	Other0 ->
@@ -154,7 +169,7 @@ erlang_client_openssh_server_exec(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId1, 0}}
 	 = ExitStatus1} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus1]),
+	    ct:log("0: Collected data ~p", [ExitStatus1]),
 	    ssh_test_lib:receive_exec_result(Data1,
 					     ConnectionRef, ChannelId1);
 	Other1 ->
@@ -166,9 +181,11 @@ erlang_client_openssh_server_exec_compressed() ->
     [{doc, "Test that compression option works"}].
 
 erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
+    CompressAlgs = [zlib, 'zlib@openssh.com',none],
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false},
-							     {compression, zlib}]),
+							     {preferred_algorithms,
+							      [{compression,CompressAlgs}]}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
 				  "echo testing", infinity),
@@ -178,10 +195,60 @@ erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
 	{unexpected_msg,{ssh_cm, ConnectionRef,
 			 {exit_status, ChannelId, 0}} = ExitStatus} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus]),
+	    ct:log("0: Collected data ~p", [ExitStatus]),
 	    ssh_test_lib:receive_exec_result(Data,  ConnectionRef, ChannelId);
 	Other ->
 	    ct:fail(Other)
+    end.
+
+%%--------------------------------------------------------------------
+erlang_client_openssh_server_kexs() ->
+    [{doc, "Test that we can connect with different KEXs."}].
+
+erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
+    KexAlgos = try proplists:get_value(kex, ?config(common_algs,Config))
+	       catch _:_ -> []
+	       end,
+    comment(KexAlgos),
+    case KexAlgos of
+	[] -> {skip, "No common kex algorithms"};
+	_ ->
+	    Success =
+		lists:foldl(
+		  fun(Kex, Acc) ->
+			  ConnectionRef = 
+			      ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+								       {user_interaction, false},
+								       {preferred_algorithms,
+									[{kex,[Kex]}]}]),
+
+			  {ok, ChannelId} =
+			      ssh_connection:session_channel(ConnectionRef, infinity),
+			  success =
+			      ssh_connection:exec(ConnectionRef, ChannelId,
+						  "echo testing", infinity),
+
+			  ExpectedData = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"testing\n">>}},
+			  case ssh_test_lib:receive_exec_result(ExpectedData) of
+			      expected ->
+				  ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+				  Acc;
+			      {unexpected_msg,{ssh_cm, ConnectionRef,
+					       {exit_status, ChannelId, 0}} = ExitStatus} ->
+				  ct:log("0: Collected data ~p", [ExitStatus]),
+				  ssh_test_lib:receive_exec_result(ExpectedData,  ConnectionRef, ChannelId),
+				  Acc;
+			      Other ->
+				  ct:log("~p failed: ~p",[Kex,Other]),
+				  false
+			  end
+		  end, true, KexAlgos),
+	    case Success of
+		true ->
+		    ok;
+		false ->
+		    {fail, "Kex failed for one or more algos"}
+	    end
     end.
 
 %%--------------------------------------------------------------------
@@ -202,7 +269,7 @@ erlang_server_openssh_client_exec(Config) when is_list(Config) ->
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " 1+1.",
 
-    ct:pal("Cmd: ~p~n", [Cmd]),
+    ct:log("Cmd: ~p~n", [Cmd]),
 
     SshPort = open_port({spawn, Cmd}, [binary]),
 
@@ -227,45 +294,37 @@ erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
-
     ct:sleep(500),
 
-    Supports = crypto:supports(),
-    Ciphers = proplists:get_value(ciphers, Supports),
-    Tests = [
-        {"3des-cbc", lists:member(des3_cbc, Ciphers)},
-        {"aes128-cbc", lists:member(aes_cbc128, Ciphers)},
-        {"aes128-ctr", lists:member(aes_ctr, Ciphers)},
-        {"aes256-cbc", false}
-    ],
-    lists:foreach(fun({Cipher, Expect}) ->
-        Cmd = "ssh -p " ++ integer_to_list(Port) ++
-        " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
-        " -c " ++ Cipher ++ " 1+1.",
+    OpenSshCiphers = 
+	ssh_test_lib:to_atoms(
+	  string:tokens(os:cmd("ssh -Q cipher"), "\n")),
+    ErlCiphers =
+	proplists:get_value(client2server,
+			    proplists:get_value(cipher, ssh:default_algorithms())),
+    CommonCiphers =
+	ssh_test_lib:algo_intersection(ErlCiphers, OpenSshCiphers),
 
-        ct:pal("Cmd: ~p~n", [Cmd]),
+    comment(CommonCiphers),
 
-        SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+    lists:foreach(
+      fun(Cipher) ->
+	      Cmd = lists:concat(["ssh -p ",Port,
+				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
+				  " -c ",Cipher," 1+1."]),
+	      ct:log("Cmd: ~p~n", [Cmd]),
 
-        case Expect of
-            true ->
-                receive
-                    {SshPort,{data, <<"2\n">>}} ->
-                       ok
-                after ?TIMEOUT ->
-                    ct:fail("Did not receive answer")
-                end;
-            false ->
-                receive
-                    {SshPort,{data, <<"no matching cipher found", _/binary>>}} ->
-                        ok
-                after ?TIMEOUT ->
-                    ct:fail("Did not receive no matching cipher message")
-                end
-        end
-    end, Tests),
+	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
-     ssh:stop_daemon(Pid).
+	      receive
+		  {SshPort,{data, <<"2\n">>}} ->
+		      ok
+	      after ?TIMEOUT ->
+		      ct:fail("~p Did not receive answer",[Cipher])
+	      end
+      end, CommonCiphers),
+    
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_macs() ->
@@ -277,45 +336,85 @@ erlang_server_openssh_client_macs(Config) when is_list(Config) ->
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                         {failfun, fun ssh_test_lib:failfun/2}]),
+					     {failfun, fun ssh_test_lib:failfun/2}]),
 
 
     ct:sleep(500),
 
-    Supports = crypto:supports(),
-    Hashs = proplists:get_value(hashs, Supports),
-    MACs = [{"hmac-sha1", lists:member(sha, Hashs)},
-        {"hmac-sha2-256", lists:member(sha256, Hashs)},
-        {"hmac-md5-96", false},
-        {"hmac-ripemd160", false}],
-    lists:foreach(fun({MAC, Expect}) ->
-        Cmd = "ssh -p " ++ integer_to_list(Port) ++
-        " -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " " ++
-        " -o MACs=" ++ MAC ++ " 1+1.",
+    OpenSshMacs = 
+	ssh_test_lib:to_atoms(
+	  string:tokens(os:cmd("ssh -Q mac"), "\n")),
+    ErlMacs =
+	proplists:get_value(client2server,
+			    proplists:get_value(mac, ssh:default_algorithms())),
+    CommonMacs =
+	ssh_test_lib:algo_intersection(ErlMacs, OpenSshMacs),
 
-        ct:pal("Cmd: ~p~n", [Cmd]),
+    comment(CommonMacs),
 
-        SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+    lists:foreach(
+      fun(MAC) ->
+	      Cmd = lists:concat(["ssh -p ",Port,
+				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
+				  " -o MACs=",MAC," 1+1."]),
+	      ct:log("Cmd: ~p~n", [Cmd]),
 
-        case Expect of
-            true ->
-                receive
-                    {SshPort,{data, <<"2\n">>}} ->
-                       ok
-                after ?TIMEOUT ->
-                    ct:fail("Did not receive answer")
-                end;
-            false ->
-                receive
-                    {SshPort,{data, <<"no matching mac found", _/binary>>}} ->
-                        ok
-                after ?TIMEOUT ->
-                    ct:fail("Did not receive no matching mac message")
-                end
-        end
-    end, MACs),
+	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
-     ssh:stop_daemon(Pid).
+	      receive
+		  {SshPort,{data, <<"2\n">>}} ->
+		      ok
+	      after ?TIMEOUT ->
+		      ct:fail("~p Did not receive answer",[MAC])
+	      end
+      end, CommonMacs),
+
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+erlang_server_openssh_client_kexs() ->
+    [{doc, "Test that we can connect with different KEXs."}].
+
+erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {preferred_algorithms,
+					      [{kex,ssh_transport:supported_algorithms(kex)}]}
+					    ]),
+    ct:sleep(500),
+
+    OpenSshKexs = 
+	ssh_test_lib:to_atoms(
+	  string:tokens(os:cmd("ssh -Q kex"), "\n")),
+    ErlKexs =
+	proplists:get_value(kex, ssh:default_algorithms()),
+    CommonKexs =
+	ssh_test_lib:algo_intersection(ErlKexs, OpenSshKexs),
+
+    comment(CommonKexs),
+
+    lists:foreach(
+      fun(Kex) ->
+	      Cmd = lists:concat(["ssh -p ",Port,
+				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
+				  " -o KexAlgorithms=",Kex," 1+1."]),
+	      ct:log("Cmd: ~p~n", [Cmd]),
+
+	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
+
+	      receive
+		  {SshPort,{data, <<"2\n">>}} ->
+		      ok
+	      after ?TIMEOUT ->
+		      ct:log("~p Did not receive answer",[Kex])
+	      end
+      end, CommonKexs),
+    
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_exec_compressed() ->
@@ -326,8 +425,11 @@ erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
 
+%%    CompressAlgs = [zlib, 'zlib@openssh.com'], % Does not work
+    CompressAlgs = [zlib],
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {compression, zlib},
+					     {preferred_algorithms,
+					      [{compression, CompressAlgs}]},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     ct:sleep(500),
@@ -373,11 +475,11 @@ erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
 			 {data,0,1, UnxpectedData}}} ->
 	    %% Some os may return things as
 	    %% ENV_TEST: Undefined variable.\n"
-	    ct:pal("UnxpectedData: ~p", [UnxpectedData]),
+	    ct:log("UnxpectedData: ~p", [UnxpectedData]),
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId);
 	{unexpected_msg,{ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}}
 	 = ExitStatus} ->
-	    ct:pal("0: Collected data ~p", [ExitStatus]),
+	    ct:log("0: Collected data ~p", [ExitStatus]),
 	    ssh_test_lib:receive_exec_result(Data,
 					     ConnectionRef, ChannelId);
 	Other ->
@@ -480,7 +582,7 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 						 {user_interaction, false},
 						 {user_dir, UserDir}]),
     
-    ct:pal("Test of user foo that does not exist. "
+    ct:log("Test of user foo that does not exist. "
 		       "Error msg: ~p~n", [Reason0]),
 
     User = string:strip(os:cmd("whoami"), right, $\n),
@@ -494,10 +596,10 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
 			     {password, "foo"},
 			     {user_interaction, false},
 			     {user_dir, UserDir}]),
-	    ct:pal("Test of wrong Pasword.  "
+	    ct:log("Test of wrong Pasword.  "
 			       "Error msg: ~p~n", [Reason1]);
 	_ ->
-	    ct:pal("Whoami failed reason: ~n", [])
+	    ct:log("Whoami failed reason: ~n", [])
 	end.
 
 %%--------------------------------------------------------------------
@@ -525,19 +627,19 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 receive_hej() ->
     receive
 	<<"Hej", _binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	<<"Hej\n", _binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	<<"Hej\r\n", _/binary>> = Hej ->
-	    ct:pal("Expected result: ~p~n", [Hej]);
+	    ct:log("Expected result: ~p~n", [Hej]);
 	Info ->
 	    Lines = binary:split(Info, [<<"\r\n">>], [global]),
 	    case lists:member(<<"Hej">>, Lines) of
 		true ->
-		    ct:pal("Expected result found in lines: ~p~n", [Lines]),
+		    ct:log("Expected result found in lines: ~p~n", [Lines]),
 		    ok;
 		false ->
-		    ct:pal("Extra info: ~p~n", [Info]),
+		    ct:log("Extra info: ~p~n", [Info]),
 		    receive_hej()
 	    end
     end.
@@ -545,12 +647,13 @@ receive_hej() ->
 receive_logout() ->
     receive
 	<<"logout">> ->
+	    extra_logout(),
 	    receive
 		<<"Connection closed">> ->
 		    ok
 	    end;
 	Info ->
-	    ct:pal("Extra info when logging out: ~p~n", [Info]),
+	    ct:log("Extra info when logging out: ~p~n", [Info]),
 	    receive_logout()
 	end.
 
@@ -564,27 +667,26 @@ receive_normal_exit(Shell) ->
 	    ct:fail({unexpected_msg, Other})
     end.
 
-%%--------------------------------------------------------------------
+extra_logout() ->
+    receive 	
+	<<"logout">> ->
+	    ok
+    after 500 -> 
+	    ok
+    end.
+
 %%--------------------------------------------------------------------
 %% Check if we have a "newer" ssh client that supports these test cases
-%%--------------------------------------------------------------------
 check_ssh_client_support(Config) ->
-    Port = open_port({spawn, "ssh -Q cipher"}, [exit_status, stderr_to_stdout]),
-    case check_ssh_client_support2(Port) of
-	0 -> % exit status from command (0 == ok)
+    case ssh_test_lib:ssh_client_supports_Q() of
+	true ->
 	    ssh:start(),
 	    Config;
 	_ ->
 	    {skip, "test case not supported by ssh client"}
     end.
 
-check_ssh_client_support2(P) ->
-    receive
-	{P, {data, _A}} ->
-	    check_ssh_client_support2(P);
-	{P, {exit_status, E}} ->
-	    E
-    after 5000 ->
-	    ct:pal("Openssh command timed out ~n"),
-	    -1
-    end.
+comment(AtomList) ->
+    ct:comment(
+      string:join(lists:map(fun erlang:atom_to_list/1, AtomList),
+		", ")).

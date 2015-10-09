@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,9 +24,6 @@
 
 -module(diameter_stats).
 -behaviour(gen_server).
-
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
 
 -export([reg/2, reg/1,
          incr/3, incr/1,
@@ -60,7 +58,7 @@
 -define(SERVER, ?MODULE).
 
 %% Server state.
--record(state, {id = now()}).
+-record(state, {id = diameter_lib:now()}).
 
 -type counter() :: any().
 -type ref() :: any().
@@ -142,9 +140,14 @@ read(Refs, B) ->
     L.
 
 to_refdict(L) ->
-    lists:foldl(fun({{C,R}, N}, D) -> orddict:append(R, {C,N}, D) end,
-                orddict:new(),
-                L).
+    lists:foldl(fun append/2, orddict:new(), L).
+
+%% Order both references and counters in the returned list.
+append({{Ctr, Ref}, N}, Dict) ->
+    orddict:update(Ref,
+                   fun(D) -> orddict:store(Ctr, N, D) end,
+                   [{Ctr, N}],
+                   Dict).
 
 %% ---------------------------------------------------------------------------
 %% # sum(Refs)
@@ -220,7 +223,7 @@ uptime() ->
 %% ----------------------------------------------------------
 
 init([]) ->
-    ets:new(?TABLE, [named_table, ordered_set, public]),
+    ets:new(?TABLE, [named_table, set, public, {write_concurrency, true}]),
     {ok, #state{}}.
 
 %% ----------------------------------------------------------

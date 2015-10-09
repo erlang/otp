@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,8 +30,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [{group, 'tlsv1.2'},
@@ -73,10 +72,8 @@ init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config),
-				      ?config(priv_dir, Config))),
-	    ct:log("Make certs  ~p~n", [Result]),
+	    {ok, _} = make_certs:all(?config(data_dir, Config),
+				     ?config(priv_dir, Config)),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -104,6 +101,14 @@ init_per_group(GroupName, Config) ->
     end.
 
 end_per_group(_GroupName, Config) ->
+    Config.
+
+init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 10}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->     
     Config.
 
 %%--------------------------------------------------------------------
@@ -384,7 +389,7 @@ ssl_receive_and_assert_alpn(Socket, Protocol, Data) ->
 
 ssl_send(Socket, Data) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     ssl:send(Socket, Data).
 
 ssl_receive(Socket, Data) ->
@@ -392,7 +397,7 @@ ssl_receive(Socket, Data) ->
 
 ssl_receive(Socket, Data, Buffer) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
         ct:log("Received ~p~n",[MoreData]),
@@ -411,4 +416,4 @@ ssl_receive(Socket, Data, Buffer) ->
     end.
 
 connection_info_result(Socket) ->
-    ssl:connection_info(Socket).
+    ssl:connection_information(Socket).

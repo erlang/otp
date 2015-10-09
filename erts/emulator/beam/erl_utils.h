@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2012-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -156,35 +157,20 @@ void erts_init_utils_mem(void);
 erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
 
-#if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
-#  define eq(A,B) eq_rel(A,NULL,B,NULL)
-#else
 int eq(Eterm, Eterm);
-#  define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
-#endif
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
-#if HALFWORD_HEAP
-Sint erts_cmp_rel_opt(Eterm, Eterm*, Eterm, Eterm*, int);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp_rel_opt(A,A_BASE,B,B_BASE,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp_rel_opt(A,A_BASE,B,B_BASE,1)
-#define CMP(A,B)                         erts_cmp_rel_opt(A,NULL,B,NULL,0)
-#define CMP_TERM(A,B)                    erts_cmp_rel_opt(A,NULL,B,NULL,1)
-#else
-Sint cmp(Eterm, Eterm);
-Sint erts_cmp(Eterm, Eterm, int);
-#define cmp_rel(A,A_BASE,B,B_BASE)       erts_cmp(A,B,0)
-#define cmp_rel_term(A,A_BASE,B,B_BASE)  erts_cmp(A,B,1)
-#define CMP(A,B)                         erts_cmp(A,B,0)
-#define CMP_TERM(A,B)                    erts_cmp(A,B,1)
-#endif
+Sint erts_cmp(Eterm, Eterm, int, int);
+Sint cmp(Eterm a, Eterm b);
+#define CMP(A,B)                         erts_cmp(A,B,0,0)
+#define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
+#define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
 
 #define cmp_lt(a,b)          (CMP((a),(b)) <  0)
 #define cmp_le(a,b)          (CMP((a),(b)) <= 0)
-#define cmp_eq(a,b)          (CMP((a),(b)) == 0)
-#define cmp_ne(a,b)          (CMP((a),(b)) != 0)
+#define cmp_eq(a,b)          (CMP_EQ_ONLY((a),(b)) == 0)
+#define cmp_ne(a,b)          (CMP_EQ_ONLY((a),(b)) != 0)
 #define cmp_ge(a,b)          (CMP((a),(b)) >= 0)
 #define cmp_gt(a,b)          (CMP((a),(b)) >  0)
 

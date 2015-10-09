@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2010-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -40,8 +41,8 @@
 #include <unistd.h>
 #endif
 
-#define ERTS_TS_EV_ALLOC_DEFAULT_POOL_SIZE 4000
-#define ERTS_TS_EV_ALLOC_POOL_SIZE 25
+#define ERTS_TS_EV_ALLOC_DEFAULT_POOL_SIZE 2048
+#define ERTS_TS_EV_ALLOC_POOL_SIZE 32
 
 erts_cpu_info_t *ethr_cpu_info__;
 
@@ -206,18 +207,7 @@ ethr_init_common__(ethr_init_data *id)
 
     ethr_min_stack_size__ = ETHR_B2KW(ethr_min_stack_size__);
 
-#ifdef __OSE__
-    /* For supervisor processes, OSE adds a number of bytes to the requested stack. With this
-     * addition, the resulting size must not exceed the largest available stack size. The number
-     * of bytes that will be added  is configured in the monolith and can therefore not be
-     * specified here. We simply assume that it is less than 0x1000. The available stack sizes
-     * are configured in the .lmconf file and the largest one is usually 65536 bytes.
-     * Consequently, the requested stack size is limited to 0xF000.
-     */
-    ethr_max_stack_size__ = 0xF000;
-#else
     ethr_max_stack_size__ = 32*1024*1024;
-#endif
 #if SIZEOF_VOID_P == 8
     ethr_max_stack_size__ *= 2;
 #endif
@@ -663,10 +653,6 @@ ETHR_IMPL_NORETURN__ ethr_fatal_error__(const char *file,
 int ethr_assert_failed(const char *file, int line, const char *func, char *a)
 {
     fprintf(stderr, "%s:%d: %s(): Assertion failed: %s\n", file, line, func, a);
-#ifdef __OSE__
-    ramlog_printf("%d: %s:%d: %s(): Assertion failed: %s\n",
-		  current_process(),file, line, func, a);
-#endif
     ethr_abort__();
     return 0;
 }

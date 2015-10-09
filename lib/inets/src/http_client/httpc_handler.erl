@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2002-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -87,7 +88,7 @@
 %% block the httpc manager process in odd cases such as trying to call
 %% a server that does not exist. (See OTP-6735) The only API function
 %% sending messages to the handler process that can be called before
-%% init has compleated is cancel and that is not a problem! (Send and
+%% init has completed is cancel and that is not a problem! (Send and
 %% stream will not be called before the first request has been sent and
 %% the reply or part of it has arrived.)
 %%--------------------------------------------------------------------
@@ -392,7 +393,7 @@ handle_call(info, _, State) ->
 %% When the request in process has been canceled the handler process is
 %% stopped and the pipelined requests will be reissued or remaining
 %% requests will be sent on a new connection. This is is
-%% based on the assumption that it is proably cheaper to reissue the
+%% based on the assumption that it is probably cheaper to reissue the
 %% requests than to wait for a potentiall large response that we then
 %% only throw away. This of course is not always true maybe we could
 %% do something smarter here?! If the request canceled is not
@@ -420,6 +421,16 @@ handle_cast({cancel, RequestId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
+handle_cast({cancel, RequestId},
+            #state{profile_name = ProfileName,
+                   request      = undefined,
+                   canceled     = Canceled} = State) ->
+    ?hcrv("cancel", [{request_id, RequestId},
+                     {curr_req_id, undefined},
+                     {profile, ProfileName},
+                     {canceled,   Canceled}]),
+    {noreply, State};
+
 
 handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
@@ -1302,7 +1313,8 @@ handle_pipeline(#state{status       = pipeline,
 handle_keep_alive_queue(#state{status       = keep_alive,
 			       session      = Session,
 			       profile_name = ProfileName,
-			       options      = #options{keep_alive_timeout = TimeOut}} = State,
+			       options      = #options{keep_alive_timeout = TimeOut,
+						       proxy              = Proxy}} = State,
 			Data) ->
 
     ?hcrd("handle keep_alive", [{profile, ProfileName}, 
@@ -1323,14 +1335,15 @@ handle_keep_alive_queue(#state{status       = keep_alive,
 		      State#state{keep_alive = KeepAlive}, Data);
 		false ->
 		    ?hcrv("next request", [{request, NextRequest}]),
-		    #request{address = Address} = NextRequest,
+		    #request{address = Addr} = NextRequest,
+		    Address = handle_proxy(Addr, Proxy),
 		    case httpc_request:send(Address, Session, NextRequest) of
 			ok ->
 			    receive_response(NextRequest,
 					     Session, <<>>,
 					     State#state{keep_alive = KeepAlive});
 			{error, Reason} ->
-			    {stop, shutdown, {keepalive_failed, Reason}, State}
+			    {stop, {shutdown, {keepalive_failed, Reason}}, State}
 		    end
 	    end
     end.
@@ -1345,7 +1358,7 @@ handle_empty_queue(Session, ProfileName, TimeOut, State) ->
     %% closed by the server, the client may want to close it.
     NewState = activate_queue_timeout(TimeOut, State),
     update_session(ProfileName, Session, #session.queue_length, 0),
-    %% Note mfa will be initilized when a new request
+    %% Note mfa will be initialized when a new request
     %% arrives.
     {noreply,
      NewState#state{request     = undefined,
@@ -1388,6 +1401,8 @@ case_insensitive_header(Str) ->
 activate_once(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:setopts(SocketType, Socket, [{active, once}]).
 
+close_socket(#session{socket = {remote_close,_}}) ->
+    ok;
 close_socket(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:close(SocketType, Socket).
 
@@ -1802,13 +1817,13 @@ host_header(_, URI) ->
 tls_upgrade(#state{status = 
 		       {ssl_tunnel, 
 			#request{settings = 
-				     #http_options{ssl = {_, TLSOptions} = SocketType}} = Request},
+				     #http_options{ssl = {_, TLSOptions} = SocketType},
+				     address = Address} = Request},
 		   session = #session{socket = TCPSocket} = Session0,
 		   options = Options} = State) ->
 
     case ssl:connect(TCPSocket, TLSOptions) of
 	{ok, TLSSocket} ->
-	    Address = Request#request.address,
 	    ClientClose = httpc_request:is_client_closing(Request#request.headers),
 	    SessionType = httpc_manager:session_type(Options),
 	    Session = Session0#session{
@@ -1829,7 +1844,11 @@ tls_upgrade(#state{status =
 				   status = new
 				  },
 	    {noreply, activate_request_timeout(NewState)};
-	{error, _Reason} ->
+	{error, Reason} ->
+	    Error = httpc_response:error(Request, {failed_connect,
+						   [{to_address, Address},
+						    {tls, TLSOptions, Reason}]}),
+	    maybe_send_answer(Request, Error, State),
 	    {stop, normal, State#state{request = Request}}
     end.
 

@@ -9,16 +9,17 @@
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -811,45 +812,11 @@ Only valid for peer nodes. Note that slave nodes always
     </func>
   </funcs>
 
-  <section>
-    <title>TEST SUITE LINE NUMBERS</title>
-    <p>If a test case fails, the test server can report the exact line
-      number at which it failed. There are two ways of doing this,
-      either by using the <c>line</c> macro or by using the
-      <c>test_server_line</c> parse transform.
-      </p>
-    <p>The <c>line</c> macro is described under TEST SUITE SUPPORT
-      MACROS below. The <c>line</c> macro will only report the last line
-      executed when a test case failed.
-      </p>
-    <p>The <c>test_server_line</c> parse transform is activated by
-      including the headerfile <c>test_server_line.hrl</c> in the test
-      suite. When doing this, it is important that the
-      <c>test_server_line</c> module is in the code path of the erlang
-      node compiling the test suite. The parse transform will report a
-      history of a maximum of 10 lines when a test case
-      fails. Consecutive lines in the same function are not shown.
-      </p>
-    <p>The attribute <c>-no_lines(FuncList).</c> can be used in the
-      test suite to exclude specific functions from the parse
-      transform. This is necessary e.g. for functions that are executed
-      on old (i.e. &lt;R10B) OTP releases. <c>FuncList = [{Func,Arity}]</c>.
-      </p>
-    <p>If both the <c>line</c> macro and the parse transform is used in
-      the same module, the parse transform will overrule the macro.
-      </p>
-  </section>
 
   <section>
     <title>TEST SUITE SUPPORT MACROS</title>
     <p>There are some macros defined in the <c>test_server.hrl</c>
       that are quite useful for test suite programmers:
-      </p>
-    <p>The <em>line</em> macro, is quite
-      essential when writing test cases. It tells the test server
-      exactly what line of code that is being executed, so that it can
-      report this line back if the test case fails. Use this macro at
-      the beginning of every test case line of code.
       </p>
     <p>The <em>config</em> macro, is used to
       retrieve information from the <c>Config</c> variable sent to all
@@ -867,24 +834,20 @@ Only valid for peer nodes. Note that slave nodes always
       <item>Whatever added by conf test cases or
       <c>init_per_testcase/2</c></item>
     </list>
-    <p>Examples of the <c>line</c> and <c>config</c> macros can be
-      seen in the Examples chapter in the user's guide.
-      </p>
-    <p>If the <c>line_trace</c> macro is defined, you will get a
-      timestamp (<c>erlang:now()</c>) in your minor log for each
-      <c>line</c> macro in your suite. This way you can at any time see
-      which line is currently being executed, and when the line was
-      called.
-      </p>
-    <p>The <c>line_trace</c> macro can also be used together with the
-      <c>test_server_line</c> parse transform described above. A
-      timestamp will then be written for each line in the suite, except
-      for functions stated in the <c>-no_lines</c> attribute.
-      </p>
-    <p>The <c>line_trace</c> macro can e.g. be defined as a compile
-      option, like this:
-            <br></br>
-<c>erlc -W -Dline_trace my_SUITE.erl</c></p>
+    <p>Examples of the <c>config</c> macro can be seen in the Examples chapter
+      in the user's guide.</p>
+    <p>The <em>line</em> and <em>line_trace</em> macros are deprecated, see
+      below.</p>
+  </section>
+
+  <section>
+    <title>TEST SUITE LINE NUMBERS</title>
+    <p>In the past, ERTS did not produce line numbers when generating
+      stacktraces, test_server was thus unable to provide them when reporting
+      test failures. It had instead two different mecanisms to do it: either by
+      using the <c>line</c> macro or by using the <c>test_server_line</c> parse
+      transform. Both are deprecated and should not be used in new tests
+      anymore.</p>
   </section>
 </erlref>
 

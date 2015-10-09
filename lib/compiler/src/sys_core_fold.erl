@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -70,7 +71,8 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,all/2,any/2,
-		reverse/1,reverse/2,member/2,nth/2,flatten/1,unzip/1]).
+		reverse/1,reverse/2,member/2,nth/2,flatten/1,
+		unzip/1,keyfind/3]).
 
 -import(cerl, [ann_c_cons/3,ann_c_map/3,ann_c_tuple/2]).
 
@@ -91,10 +93,10 @@
 -endif.
 
 %% Variable value info.
--record(sub, {v=[],				%Variable substitutions
-	      s=[],				%Variables in scope
-	      t=[],				%Types
-	      in_guard=false}).			%In guard or not.
+-record(sub, {v=[],                                 %Variable substitutions
+              s=cerl_sets:new() :: cerl_sets:set(), %Variables in scope
+              t=#{} :: map(),                       %Types
+              in_guard=false}).                     %In guard or not.
 
 -type type_info() :: cerl:cerl() | 'bool' | 'integer'.
 -type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
@@ -1122,18 +1124,30 @@ let_substs(Vs0, As0, Sub0) ->
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
     Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
     {Vs2,As1,
-     foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
+    foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
 
 let_substs_1(Vs, #c_values{es=As}, Sub) ->
     let_subst_list(Vs, As, Sub);
 let_substs_1([V], A, Sub) -> let_subst_list([V], [A], Sub);
 let_substs_1(Vs, A, _) -> {Vs,A,[]}.
 
-let_subst_list([V|Vs0], [A|As0], Sub) ->
+let_subst_list([V|Vs0], [A0|As0], Sub) ->
     {Vs1,As1,Ss} = let_subst_list(Vs0, As0, Sub),
-    case is_subst(A) of
-	true -> {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
-	false -> {[V|Vs1],[A|As1],Ss}
+    case is_subst(A0) of
+	true ->
+	    A = case is_compiler_generated(V) andalso
+		    not is_compiler_generated(A0) of
+		    true ->
+			%% Propagate the 'compiler_generated' annotation
+			%% along with the value.
+			Ann = [compiler_generated|cerl:get_ann(A0)],
+			cerl:set_ann(A0, Ann);
+		    false ->
+			A0
+		end,
+	    {Vs1,As1,sub_subst_var(V, A, Sub) ++ Ss};
+	false ->
+	    {[V|Vs1],[A0|As1],Ss}
     end;
 let_subst_list([], [], _) -> {[],[],[]}.
 
@@ -1241,10 +1255,10 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=gb_trees:empty(),t=[]}.
+sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
-    Sub#sub{v=orddict:new(),t=[]}.
+    Sub#sub{v=orddict:new(),t=#{}}.
 
 sub_new_preserve_types(#sub{}=Sub) ->
     Sub#sub{v=orddict:new()}.
@@ -1261,16 +1275,16 @@ sub_set_var(#c_var{name=V}, Val, Sub) ->
 sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb1 = kill_types(V, Tdb0),
     Tdb = copy_type(V, Val, Tdb1),
-    Sub#sub{v=orddict:store(V, Val, S),s=gb_sets:add(V, Scope),t=Tdb}.
+    Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
 
 sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
     %% Profiling shows that for programs with many record operations,
     %% sub_del_var/2 is a bottleneck. Since the scope contains all
     %% variables that are live, we know that V cannot be present in S
     %% if it is not in the scope.
-    case gb_sets:is_member(V, Scope) of
+    case cerl_sets:is_element(V, Scope) of
 	false ->
-	    Sub#sub{s=gb_sets:insert(V, Scope)};
+	    Sub#sub{s=cerl_sets:add_element(V, Scope)};
 	true ->
 	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
     end.
@@ -1281,12 +1295,12 @@ sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
-			  gb_sets:add(V, S)
+			  cerl_sets:add_element(V, S)
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
 sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
-    S = [{-1,#c_var{name=Sv}} || Sv <- gb_sets:to_list(Scope)]++S0,
+    S = [{-1,#c_var{name=Sv}} || Sv <- cerl_sets:to_list(Scope)]++S0,
     Sub#sub{v=S}.
 
 sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
@@ -1294,7 +1308,7 @@ sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
     %% became the new bottleneck. Since the scope contains all
     %% live variables, a variable V can only be the target for
     %% a substitution if it is in the scope.
-    gb_sets:is_member(V, Scope) andalso v_is_value(V, S).
+    cerl_sets:is_element(V, Scope) andalso v_is_value(V, S).
 
 v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
 v_is_value(Var, [_|T]) -> v_is_value(Var, T);
@@ -1624,12 +1638,11 @@ eval_case(Case, _) -> Case.
 
 eval_case_warn(#c_primop{anno=Anno,
 			 name=#c_literal{val=match_fail},
-			 args=[#c_literal{val=Reason}]}=Core)
-  when is_atom(Reason) ->
-    case member(eval_failure, Anno) of
+			 args=[_]}=Core) ->
+    case keyfind(eval_failure, 1, Anno) of
 	false ->
 	    ok;
-	true ->
+	{eval_failure,Reason} ->
 	    %% Example: M = not_map, M#{k:=v}
 	    add_warning(Core, {eval_failure,Reason})
     end;
@@ -1760,8 +1773,9 @@ case_opt_compiler_generated(Core) ->
 %%  return Expr0 unchanged.
 %%
 case_expand_var(E, #sub{t=Tdb}) ->
-    case orddict:find(cerl:var_name(E), Tdb) of
-	{ok,T0} ->
+    Key = cerl:var_name(E),
+    case Tdb of
+        #{Key:=T0} ->
 	    case cerl:is_c_tuple(T0) of
 		false ->
 		    E;
@@ -1785,7 +1799,7 @@ case_expand_var(E, #sub{t=Tdb}) ->
 			    E
 		    end
 	    end;
-	error ->
+        _ ->
 	    E
     end.
 
@@ -1899,8 +1913,8 @@ case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
 	    %% Here we will need to actually build the data and bind
 	    %% it to the variable.
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
 	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    Bs = [{BindTo0,P},{P,Data}|Bs0],
 	    {Vars,Bs};
@@ -2147,7 +2161,7 @@ is_bool_expr_list([], _) -> true.
 %%  functions, or is_record/2).
 %%
 is_safe_bool_expr(Core, Sub) ->
-    is_safe_bool_expr_1(Core, Sub, gb_sets:empty()).
+    is_safe_bool_expr_1(Core, Sub, cerl_sets:new()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_record},
@@ -2193,7 +2207,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, Sub, BoolVars) ->
 	true ->
 	    case {is_safe_bool_expr_1(Arg, Sub, BoolVars),Vars} of
 		{true,[#c_var{name=V}]} ->
-		    is_safe_bool_expr_1(B, Sub, gb_sets:add(V, BoolVars));
+		    is_safe_bool_expr_1(B, Sub, cerl_sets:add_element(V, BoolVars));
 		{false,_} ->
 		    is_safe_bool_expr_1(B, Sub, BoolVars)
 	    end;
@@ -2202,7 +2216,7 @@ is_safe_bool_expr_1(#c_let{vars=Vars,arg=Arg,body=B}, Sub, BoolVars) ->
 is_safe_bool_expr_1(#c_literal{val=Val}, _Sub, _) ->
     is_boolean(Val);
 is_safe_bool_expr_1(#c_var{name=V}, _Sub, BoolVars) ->
-    gb_sets:is_element(V, BoolVars);
+    cerl_sets:is_element(V, BoolVars);
 is_safe_bool_expr_1(_, _, _) -> false.
 
 is_safe_bool_expr_list([C|Cs], Sub, BoolVars) ->
@@ -2236,7 +2250,7 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
     %%    in <InnerBody>
     %%
     Arg = body(Arg0, Sub0),
-    ScopeSub0 = sub_subst_scope(Sub0#sub{t=[]}),
+    ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
     {OuterVs,ScopeSub} = pattern_list(OuterVs0, ScopeSub0),
 
     OuterBody = body(OuterBody0, ScopeSub),
@@ -2275,15 +2289,15 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 	    CaVars0 = Ca0#c_clause.pats,
 	    G0 = Ca0#c_clause.guard,
 	    B0 = Ca0#c_clause.body,
-	    ScopeSub0 = sub_subst_scope(Sub0#sub{t=[]}),
+	    ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
 	    {CaVars,ScopeSub} = pattern_list(CaVars0, ScopeSub0),
 	    G = guard(G0, ScopeSub),
 
 	    B1 = body(B0, ScopeSub),
 
 	    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-	    Sub2 = Sub1#sub{s=gb_sets:union(ScopeSub#sub.s,
-					    Sub1#sub.s)},
+	    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
+                                              Sub1#sub.s)},
 	    Lbody = body(Lbody0, Sub2),
 	    B = Let#c_let{vars=Lvs,arg=core_lib:make_values(B2),body=Lbody},
 
@@ -2392,8 +2406,9 @@ delay_build_1(Core0, TypeSig) ->
     try delay_build_expr(Core0, TypeSig) of
 	Core ->
 	    {Type,Arity} = TypeSig,
-	    Vars = make_vars([], Arity),
-	    Data = cerl:ann_make_data([compiler_generated], Type, Vars),
+	    Ann = [compiler_generated],
+	    Vars = make_vars(Ann, Arity),
+	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    {yes,Vars,Core,Data}
     catch
 	throw:impossible ->
@@ -2480,7 +2495,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 		    Arg1;
 		false ->
 		    %% let <Var> = Arg in <OtherVar>  ==>  seq Arg OtherVar
-		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs0, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub))
 	    end;
@@ -2488,7 +2503,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %% No variables left.
 	    Body;
 	{Vs,Arg1,#c_literal{}} ->
-	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+	    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 	    E = case Ctxt of
 		    effect ->
 			%% Throw away the literal body.
@@ -2507,7 +2522,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    %%        seq Arg BodyWithoutVar
 	    case is_any_var_used(Vs, Body) of
 		false ->
-		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody, Ctxt),
+		    Arg = maybe_suppress_warnings(Arg1, Vs, PrevBody),
 		    expr(#c_seq{arg=Arg,body=Body}, Ctxt,
 			 sub_new_preserve_types(Sub));
 		true ->
@@ -2517,7 +2532,7 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 	    end
     end.
 
-%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody, Context) -> Arg'
+%% maybe_suppress_warnings(Arg, [#c_var{}], PreviousBody) -> Arg'
 %%  Try to suppress false warnings when a variable is not used.
 %%  For instance, we don't expect a warning for useless building in:
 %%
@@ -2528,21 +2543,43 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) ->
 %%  referenced in the original unoptimized code. If they were, we will
 %%  consider the warning false and suppress it.
 
-maybe_suppress_warnings(Arg, _, _, effect) ->
-    %% Don't suppress any warnings in effect context.
-    Arg;
-maybe_suppress_warnings(Arg, Vs, PrevBody, value) ->
-    case suppress_warning(Arg) of
+maybe_suppress_warnings(Arg, Vs, PrevBody) ->
+    case should_suppress_warning(Arg) of
 	true ->
 	    Arg;				%Already suppressed.
 	false ->
 	    case is_any_var_used(Vs, PrevBody) of
 		true ->
-		    cerl:set_ann(Arg, [compiler_generated]);
+		    suppress_warning([Arg]);
 		false ->
 		    Arg
 	    end
     end.
+
+%% Suppress warnings for a Core Erlang expression whose value will
+%% be ignored.
+suppress_warning([H|T]) ->
+    case cerl:is_literal(H) of
+	true ->
+	    suppress_warning(T);
+	false ->
+	    case cerl:is_data(H) of
+		true ->
+		    suppress_warning(cerl:data_es(H) ++ T);
+		false ->
+		    %% Some other thing, such as a function call.
+		    %% This cannot be the compiler's fault, so the
+		    %% warning should not be suppressed. We must
+		    %% be careful not to destroy tail-recursion.
+		    case T of
+			[] ->
+			    H;
+			[_|_] ->
+			    cerl:c_seq(H, suppress_warning(T))
+		    end
+	    end
+    end;
+suppress_warning([]) -> void().
 
 move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
                                       body=InnerArg0}=Outer,
@@ -2557,7 +2594,7 @@ move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
     %% let <OuterVars> = <OuterArg>
     %% in case <InnerArg> of <InnerClauses> end
     %%
-    ScopeSub0 = sub_subst_scope(Sub#sub{t=[]}),
+    ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
     {OuterVars,ScopeSub} = pattern_list(OuterVars0, ScopeSub0),
     InnerArg = body(InnerArg0, ScopeSub),
     Outer#c_let{vars=OuterVars,arg=OuterArg,
@@ -2586,7 +2623,7 @@ move_case_into_arg(#c_case{arg=#c_case{arg=OuterArg,
             %%     <OuterCb>
             %% end
             %%
-            ScopeSub0 = sub_subst_scope(Sub#sub{t=[]}),
+            ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
             {OuterPats,ScopeSub} = pattern_list(OuterPats0, ScopeSub0),
             OuterGuard = guard(OuterGuard0, ScopeSub),
             InnerArg = body(InnerArg0, ScopeSub),
@@ -2671,9 +2708,9 @@ is_any_var_used([], _) -> false.
 -spec get_type(cerl:cerl(), #sub{}) -> type_info() | 'none'.
 
 get_type(#c_var{name=V}, #sub{t=Tdb}) ->
-    case orddict:find(V, Tdb) of
-	{ok,Type} -> Type;
-	error -> none
+    case Tdb of
+        #{V:=Type} -> Type;
+        _ -> none
     end;
 get_type(C, _) ->
     case cerl:type(C) of
@@ -2756,12 +2793,18 @@ extract_type_1(Expr, Sub) ->
 	true -> bool
     end.
 
+returns_integer('band', [_,_]) -> true;
+returns_integer('bnot', [_]) -> true;
+returns_integer('bor', [_,_]) -> true;
+returns_integer('bxor', [_,_]) -> true;
 returns_integer(bit_size, [_]) -> true;
 returns_integer('bsl', [_,_]) -> true;
 returns_integer('bsr', [_,_]) -> true;
 returns_integer(byte_size, [_]) -> true;
+returns_integer('div', [_,_]) -> true;
 returns_integer(length, [_]) -> true;
 returns_integer('rem', [_,_]) -> true;
+returns_integer('round', [_]) -> true;
 returns_integer(size, [_]) -> true;
 returns_integer(tuple_size, [_]) -> true;
 returns_integer(trunc, [_]) -> true;
@@ -2788,35 +2831,38 @@ update_types_1(#c_var{name=V,anno=Anno}, Pat, Types) ->
 update_types_1(_, _, Types) -> Types.
 
 update_types_2(V, [#c_tuple{}=P], Types) ->
-    orddict:store(V, P, Types);
+    Types#{V=>P};
 update_types_2(V, [#c_literal{val=Bool}], Types) when is_boolean(Bool) ->
-    orddict:store(V, bool, Types);
+    Types#{V=>bool};
 update_types_2(V, [Type], Types) when is_atom(Type) ->
-    orddict:store(V, Type, Types);
+    Types#{V=>Type};
 update_types_2(_, _, Types) -> Types.
 
 %% kill_types(V, Tdb) -> Tdb'
 %%  Kill any entries that references the variable,
 %%  either in the key or in the value.
 
-kill_types(V, [{V,_}|Tdb]) ->
-    kill_types(V, Tdb);
-kill_types(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
+kill_types(V, Tdb) ->
+    maps:from_list(kill_types2(V,maps:to_list(Tdb))).
+
+kill_types2(V, [{V,_}|Tdb]) ->
+    kill_types2(V, Tdb);
+kill_types2(V, [{_,#c_tuple{}=Tuple}=Entry|Tdb]) ->
     case core_lib:is_var_used(V, Tuple) of
-	false -> [Entry|kill_types(V, Tdb)];
-	true -> kill_types(V, Tdb)
+	false -> [Entry|kill_types2(V, Tdb)];
+	true -> kill_types2(V, Tdb)
     end;
-kill_types(V, [{_,Atom}=Entry|Tdb]) when is_atom(Atom) ->
-    [Entry|kill_types(V, Tdb)];
-kill_types(_, []) -> [].
+kill_types2(V, [{_,Atom}=Entry|Tdb]) when is_atom(Atom) ->
+    [Entry|kill_types2(V, Tdb)];
+kill_types2(_, []) -> [].
 
 %% copy_type(DestVar, SrcVar, Tdb) -> Tdb'
 %%  If the SrcVar has a type, assign it to DestVar.
 %%
 copy_type(V, #c_var{name=Src}, Tdb) ->
-    case orddict:find(Src, Tdb) of
-	{ok,Type} -> orddict:store(V, Type, Tdb);
-	error -> Tdb
+    case Tdb of
+        #{Src:=Type} -> Tdb#{V=>Type};
+        _ -> Tdb
     end;
 copy_type(_, _, Tdb) -> Tdb.
 
@@ -3093,7 +3139,7 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    case suppress_warning(Core) of
+    case should_suppress_warning(Core) of
 	true ->
 	    ok;
 	false ->
@@ -3118,7 +3164,7 @@ get_file([{file,File}|_]) -> File;
 get_file([_|T]) -> get_file(T);
 get_file([]) -> "no_file". % should not happen
 
-suppress_warning(Core) ->
+should_suppress_warning(Core) ->
     is_compiler_generated(Core) orelse
 	is_result_unwanted(Core).
 
@@ -3220,12 +3266,12 @@ format_error(bin_var_used_in_guard) ->
 verify_scope(E, #sub{s=Scope}) ->
     Free0 = cerl_trees:free_variables(E),
     Free = [V || V <- Free0, not is_tuple(V)],	%Ignore function names.
-    case ordsets:is_subset(Free, gb_sets:to_list(Scope)) of
+    case ordsets:is_subset(Free, cerl_sets:to_list(Scope)) of
 	true -> true;
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [gb_sets:to_list(Scope)]),
+	    io:format("~p\n", [cerl_sets:to_list(Scope)]),
 	    false
     end.
 -endif.

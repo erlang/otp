@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -425,10 +426,6 @@
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/agent/snmpa_atl.hrl").
-
-%% -include_lib("snmp/include/SNMP-COMMUNITY-MIB.hrl").
-%% -include_lib("snmp/include/SNMP-VIEW-BASED-ACM-MIB.hrl").
-%% -include_lib("snmp/include/SNMP-USER-BASED-SM-MIB.hrl").
 
 
 -define(klas1, [1,3,6,1,2,1,7]).
@@ -1612,7 +1609,8 @@ app_dir(App) ->
 create_local_db_dir(Config) when is_list(Config) ->
     ?P(create_local_db_dir),
     DataDir = snmp_test_lib:lookup(data_dir, Config),
-    T = erlang:now(),
+    UName = erlang:unique_integer([positive]),
+    T = {UName, UName, UName},
     [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
     DbDir = filename:join([DataDir, As, Bs, Cs]),
     ok = del_dir(DbDir, 3),
@@ -2448,10 +2446,6 @@ mul_cases() ->
     ].
 
 
-%% multiple_reqs_3(_X) -> 
-%%     {req, [], {conf, init_mul, mul_cases_3(), finish_mul}}.
-
-
 mul_cases_2() -> 
     [
      mul_get_2, 
@@ -3200,19 +3194,18 @@ v1_get_next_p() ->
     %% 4.1.3:2
     gn([[tTooBig]]),
     io:format("We currently don't handle tooBig correct!!!\n"),
-%    ?line ?expect3(tooBig, 0, [{[tTooBig], 'NULL'}]),
+
     ?line ?expect3(tooBig, 0, any),
 
     %% 4.1.3:3
     gn([[tGenErr1]]),
-%    ?line expect(40, genErr, 1, [{[tGenErr1], 'NULL'}]),
+
     ?line ?expect3(genErr, 1, any),
     gn([[tGenErr2]]),
-%    ?line ?expect3(genErr, 1, [{[tGenErr2], 'NULL'}]),
+
     ?line ?expect3(genErr, 1, any),
     gn([[sysDescr], [tGenErr3]]),
-%    ?line ?expect3(genErr, 2, [{[sysDescr], 'NULL'},
-%				 {[tGenErr3], 'NULL'}]).
+
     ?line ?expect3(genErr, 2, any).
     
 v1_set_p() ->
@@ -3451,8 +3444,7 @@ v2_set_p() ->
 %% Req. OLD-SNMPEA-MIB
 table_test() ->
     io:format("Testing simple get, next and set on communityTable...~n"),
-%% {[147,214,36,45], "public", 2, readWrite}.
-%% {[147,214,36,45], "standard trap", 2, read}.
+
     Key1c3 = [intCommunityViewIndex,get(mip),is("public")],
     Key2c3 = [intCommunityViewIndex,get(mip),is("standard trap")],
     Key1c4 = [intCommunityAccess,get(mip),is("public")],
@@ -3620,8 +3612,6 @@ notify(Pid, What) ->
 
 %% Req: system group, OLD-SNMPEA-MIB, Klas1
 big_test() ->
-    %% put(sname, {?MODULE, big_test}),
-    %% put(verbosity, trace),
 
     ?DBG("big_test -> testing simple next/get/set @ master agent...",[]),
     simple_standard_test(),
@@ -5691,8 +5681,7 @@ loop_mib_1(suite) -> [];
 loop_mib_1(Config) when is_list(Config) ->
     ?P(loop_mib_1),
     ?LOG("loop_mib_1 -> initiate case",[]),
-    %% snmpa:verbosity(master_agent,debug),
-    %% snmpa:verbosity(mib_server,info),
+
     {_SaNode, _MgrNode, _MibDir} = init_case(Config),
     ?DBG("loop_mib_1 -> ~n"
 	   "\tSaNode:  ~p~n"
@@ -6643,7 +6632,6 @@ otp8395({init, Config}) when is_list(Config) ->
     %% 
 
     {ok, AgentNode}    = start_node(agent),
-    %% {ok, SubAgentNode} = start_node(sub_agent),
     {ok, ManagerNode}  = start_node(manager),
 
     %% -- 
@@ -6654,16 +6642,9 @@ otp8395({init, Config}) when is_list(Config) ->
     AgentMnesiaDir = join([AgentDbDir, "mnesia"]),
     mnesia_init(AgentNode, AgentMnesiaDir),
 
-    %% SubAgentDir = ?config(sub_agent_dir, Config),
-    %% SubAgentMnesiaDir = join([SubAgentDir, "mnesia"]),
-    %% mnesia_init(SubAgentNode, SubAgentMnesiaDir),
-
-    %% ok = mnesia_create_schema(AgentNode, [AgentNode, SubAgentNode]), 
-    %% ok = mnesia:create_schema([AgentNode, SubAgentNode]),
     mnesia_create_schema(AgentNode, [AgentNode]),
 
     mnesia_start(AgentNode),
-    %% mnesia_start(SubAgentNode),
 
     %% --
     %% Host & IP
@@ -6748,11 +6729,6 @@ otp8395({fin, Config}) when is_list(Config) ->
 
     ?DBG("otp8395(fin) -> stop agent node", []),
     stop_node(AgentNode),
-
-
-    %% SubAgentNode = ?config(sub_agent_node, Config),
-    %% stop_node(SubAgentNode),
-
 
     %% - 
     %% Stop the manager node
@@ -6970,20 +6946,6 @@ process_options(Defaults, _Opts) ->
     %% process_options(Defaults, Opts, []).
     Defaults.
 
-%% process_options([], _Opts, Acc) ->
-%%     lists:reverse(Acc);
-%% process_options([{Key, DefaultValue}|Defaults], Opts, Acc) ->
-%%     case lists:keysearch(Key, 1, Opts) of
-%% 	{value, {Key, Value}} when is_list->
-	    
-
-%% snmp_app_env_init(Node, Entity, Conf) ->
-%%     rpc:call(Node, snmp_app_env_init, [Entity, Conf]).
-
-%% snmp_app_env_init(Entity, Conf) ->
-%%     application:unload(snmp),
-%%     application:load(snmp),
-%%     application:set_env(snmp, Entity, Conf).
 
 start_stdalone_agent(Node, Config)  ->
     rpc:call(Node, ?MODULE, start_stdalone_agent, [Config]).
@@ -7063,9 +7025,6 @@ do_info(MaNode) ->
 			  tree_size_bytes, 
 			  db_memory]}], 
     verify_info(Info, Keys),
-    %% OldInfo = snmpa:old_info_format(Info),
-    %% ?DBG("info_test1 -> OldInfo: ~n~p", [OldInfo]),
-    %% verify_old_info(OldInfo),
     ok.
 
 verify_info([], []) ->
@@ -7107,21 +7066,6 @@ verify_subinfo(Info0, [Key|Keys]) ->
 	Info ->
 	    verify_subinfo(Info, Keys)
     end.
-
-%% verify_old_info(Info) ->
-%%     Keys = [vsns, subagents, loaded_mibs, 
-%% 	    tree_size_bytes, process_memory, db_memory],
-%%     verify_old_info(Keys, Info).
-
-%% verify_old_info([], _) ->
-%%     ok;
-%% verify_old_info([Key|Keys], Info) ->
-%%     case lists:keymember(Key, 1, Info) of
-%% 	true ->
-%% 	    verify_old_info(Keys, Info);
-%% 	false ->
-%% 	    ?FAIL({missing_old_info, Key})
-%%     end.
    
 %% Index String - string used in index
 is(S) -> [length(S) | S].
@@ -7184,8 +7128,6 @@ rewrite_usm_mgr(Dir, ShaKey, DesKey) ->
 reset_usm_mgr(Dir) ->
     snmp_agent_test_lib:reset_usm_mgr(Dir).
 
-%% update_community(Vsns, Dir) ->
-%%     snmp_agent_test_lib:update_community(Vsns, Dir).
 
 update_vacm(Vsn, Dir) ->
     snmp_agent_test_lib:update_vacm(Vsn, Dir).
@@ -7196,8 +7138,6 @@ write_community_conf(Dir, Conf) ->
 write_target_addr_conf(Dir, Conf) ->
     snmp_agent_test_lib:write_target_addr_conf(Dir, Conf).
 
-%% write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
-%%     snmp_agent_test_lib:write_target_addr_conf(Dir, ManagerIp, UDP, Vsns).
 
 rewrite_target_addr_conf(Dir, NewPort) ->
     snmp_agent_test_lib:rewrite_target_addr_conf(Dir, NewPort).
@@ -7217,10 +7157,6 @@ reset_target_params_conf(Dir) ->
 
 write_notify_conf(Dir) -> 
     snmp_agent_test_lib:write_notify_conf(Dir).
-
-%% write_view_conf(Dir) -> 
-%%     snmp_agent_test_lib:write_view_conf(Dir).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -7380,9 +7316,6 @@ lists_key1search(Key, List) when is_atom(Key) ->
 	    undefined
     end.
 
-
-%% regs() ->
-%%     lists:sort(registered()).
 
 %% ------
 

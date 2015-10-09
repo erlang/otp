@@ -104,8 +104,8 @@
   {applications, [stdlib, kernel, mnesia]},
   {env, []},
   {mod, {orber, []}},
-  {runtime_dependencies, ["stdlib-2.0","ssl-5.3.4","mnesia-4.12","kernel-3.0",
-			  "inets-5.10","erts-6.0"]}
+  {runtime_dependencies, ["stdlib-2.5","ssl-5.3.4","mnesia-4.12","kernel-3.0",
+			  "inets-5.10","erts-7.0"]}
 ]}.
 
 

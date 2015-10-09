@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -166,12 +167,7 @@ init_per_suite(Config) when is_list(Config) ->
 		     ok ->
 			 [{sasl,started}]
 		 end,
-    ok = case os:type() of
-	     {ose,_} ->
-		 ok;
-	     _ ->
-		 application:start(os_mon)
-	 end,
+    application:start(os_mon),
 
     case os:type() of
 	{win32, _} ->
@@ -197,12 +193,7 @@ end_per_suite(Config) when is_list(Config) ->
 	    ok
     end,
 
-    case os:type() of
-	{ose,_} ->
-	    ok;
-	_ ->
-	    application:stop(os_mon)
-    end,
+    application:stop(os_mon),
     case proplists:get_value(sasl, Config) of
 	started ->
 	    application:stop(sasl);
@@ -887,10 +878,7 @@ open1(Config) when is_list(Config) ->
     ?line io:format(Fd1,Str,[]),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line Str = io:get_line(Fd1,''),
-    ?line case io:get_line(Fd2,'') of
-	      Str -> Str;
-	      eof -> Str
-	  end,
+    ?line Str = io:get_line(Fd2,''),
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line ok = ?FILE_MODULE:truncate(Fd1),
@@ -2345,9 +2333,6 @@ e_rename(Config) when is_list(Config) ->
 	    %% At least Windows NT can 
 	    %% successfully move a file to
 	    %% another drive.
-	    ok;
-	{ose, _} ->
-	    %% disabled for now
 	    ok
     end,
     [] = flush(),
@@ -3914,7 +3899,7 @@ response_analysis(Module, Function, Arguments) ->
 		  receive {Parent, start, Ts} -> ok end,
 		  Stat = 
 		      iterate(response_stat(response_stat(init, Ts),
-					    erlang:now()), 
+					    micro_ts()),
 			      done,
 			      fun (S) ->
 				      erlang:yield(),
@@ -3922,12 +3907,12 @@ response_analysis(Module, Function, Arguments) ->
 					  {Parent, stop} ->
 					      done
 				      after 0 ->
-					      response_stat(S, erlang:now())
+					      response_stat(S, micro_ts())
 				      end
 			      end),
-		  Parent ! {self(), stopped, response_stat(Stat, erlang:now())}
+		  Parent ! {self(), stopped, response_stat(Stat, micro_ts())}
 	  end),
-    ?line Child ! {Parent, start, erlang:now()},
+    Child ! {Parent, start, micro_ts()},
     ?line Result = apply(Module, Function, Arguments),
     ?line Child ! {Parent, stop},
     ?line {N, Sum, _, M, Max} = receive {Child, stopped, X} -> X end,
@@ -3941,12 +3926,13 @@ response_analysis(Module, Function, Arguments) ->
 	    [Mean_ms, Max_ms, M, (N-1)])),
     ?line {Result, Comment}.
     
-
+micro_ts() ->
+    erlang:monotonic_time(micro_seconds).
 
 response_stat(init, Ts) ->
     {0, 0, Ts, 0, 0};
-response_stat({N, Sum, {A1, B1, C1}, M, Max}, {A2, B2, C2} = Ts) ->
-    D = C2-C1 + 1000000*((B2-B1) + 1000000*(A2-A1)),
+response_stat({N, Sum, Ts0, M, Max}, Ts) ->
+    D = Ts - Ts0,
     if D > Max ->
 	    {N+1, Sum+D, Ts, N, D};
        true ->

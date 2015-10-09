@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -32,6 +33,7 @@
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
+	 t_shutdown_async/1,
 	 t_fdopen/1, t_fdconnect/1, t_implicit_inet6/1]).
 
 -export([getsockfd/0,closesockfd/1]).
@@ -41,7 +43,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
      t_shutdown_write, t_shutdown_both, t_shutdown_error,
-     t_fdopen, t_fdconnect, t_implicit_inet6].
+     t_shutdown_async, t_fdopen, t_fdconnect, t_implicit_inet6].
 
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
@@ -155,7 +157,34 @@ t_shutdown_error(Config) when is_list(Config) ->
     ?line ok = gen_tcp:close(L),
     ?line {error, closed} = gen_tcp:shutdown(L, read_write),
     ok.
-    
+
+t_shutdown_async(Config) when is_list(Config) ->
+    ?line {OS, _} = os:type(),
+    ?line {ok, L} = gen_tcp:listen(0, [{sndbuf, 4096}]),
+    ?line {ok, Port} = inet:port(L),
+    ?line {ok, Client} = gen_tcp:connect(localhost, Port,
+					 [{recbuf, 4096},
+					  {active, false}]),
+    ?line {ok, S} = gen_tcp:accept(L),
+    ?line PayloadSize = 1024 * 1024,
+    ?line Payload = lists:duplicate(PayloadSize, $.),
+    ?line ok = gen_tcp:send(S, Payload),
+    ?line case erlang:port_info(S, queue_size) of
+	      {queue_size, N} when N > 0 -> ok;
+	      {queue_size, 0} when OS =:= win32 -> ok;
+	      {queue_size, 0} = T -> ?t:fail({unexpected, T})
+	  end,
+
+    ?line ok = gen_tcp:shutdown(S, write),
+    ?line {ok, Buf} = gen_tcp:recv(Client, PayloadSize),
+    ?line {error, closed} = gen_tcp:recv(Client, 0),
+    ?line case length(Buf) of
+	      PayloadSize -> ok;
+	      Sz -> ?t:fail({payload_size,
+			     {expected, PayloadSize},
+			     {received, Sz}})
+	  end.
+
 
 %%% gen_tcp:fdopen/2
 

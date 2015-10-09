@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd% 
  */
@@ -118,7 +119,11 @@ wxe_driver_start(ErlDrvPort port, char *buff)
       ErlDrvTermData term_port = driver_mk_port(port);
       set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
       data->driver_data = NULL;
-      data->bin = NULL; 
+      data->bin = (WXEBinRef*) driver_alloc(sizeof(WXEBinRef)*DEF_BINS);
+      data->bin[0].from = 0;
+      data->bin[1].from = 0;
+      data->bin[2].from = 0;
+      data->max_bins = DEF_BINS;
       data->port_handle = port;
       data->port = term_port;
       data->pdl = driver_pdl_create(port);
@@ -146,7 +151,12 @@ wxe_driver_stop(ErlDrvData handle)
    if(sd->port_handle != WXE_DRV_PORT_HANDLE) {
       // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
       meta_command(DELETE_PORT,sd);
-      free(handle);
+   } else {
+       // fprintf(stderr, "%s:%d: STOP \r\n", __FILE__,__LINE__);
+       stop_native_gui(wxe_master);
+       unload_native_gui();
+       free(wxe_master);
+       wxe_master = NULL;
    }
 }
 
@@ -154,10 +164,6 @@ static void
 wxe_driver_unload(void) 
 {
    // fprintf(stderr, "%s:%d: UNLOAD \r\n", __FILE__,__LINE__);
-   stop_native_gui(wxe_master);
-   unload_native_gui();
-   free(wxe_master);
-   wxe_master = NULL;
 }
 
 static ErlDrvSSizeT
@@ -207,26 +213,40 @@ static void
 standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
 {
    wxe_data* sd = (wxe_data *) drv_data;
-   WXEBinRef * binref;
+   WXEBinRef * binref = NULL;
    ErlDrvBinary* bin;
-   
+   int i, max;
+
+   for(i = 0; i < sd->max_bins; i++) {
+       if(sd->bin[i].from == 0) {
+	   binref = &sd->bin[i];
+	   break;
+       }
+   }
+
+   if(binref == NULL) { /* realloc */
+       max = sd->max_bins + DEF_BINS;
+       driver_realloc(sd->bin, sizeof(WXEBinRef)*max);
+       for(i=sd->max_bins; i < max; i++) {
+	   sd->bin[i].from = 0;
+       }
+       binref = &sd->bin[sd->max_bins];
+       sd->max_bins = max;
+   }
+
    if(ev->vsize == 2) {
-      binref = driver_alloc(sizeof(WXEBinRef));
       binref->base = ev->iov[1].iov_base;
       binref->size = ev->iov[1].iov_len;
       binref->from = driver_caller(sd->port_handle);
       bin = ev->binv[1];
       driver_binary_inc_refc(bin); /* Otherwise it could get deallocated */
       binref->bin = bin;
-      binref->next = sd->bin;
-      sd->bin = binref;      
-   } else { /* Empty binary (becomes NULL) */ 
-      binref = driver_alloc(sizeof(WXEBinRef));
+      sd->bin = binref;
+   } else { /* Empty binary (becomes NULL) */
       binref->base = NULL;
       binref->size = 0;
       binref->from = driver_caller(sd->port_handle);
       binref->bin = NULL;
-      binref->next = sd->bin;
       sd->bin = binref;
    }
 }

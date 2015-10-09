@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2014-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.2
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,8 @@
 	  config,
 	  server,
 	  client,
-	  soft
+	  soft,
+	  result_proxy
 	 }).
 
 all() -> 
@@ -38,22 +40,19 @@ all() ->
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
-    try {crypto:start(), erlang:system_info({wordsize, internal}) == erlang:system_info({wordsize, external})} of
-	{ok, true} ->
-	    case ct_release_test:init(Config0) of
-		{skip, Reason} ->
-		    {skip, Reason};
-		Config ->
-		    Result =
-			(catch make_certs:all(?config(data_dir, Config),
-					      ?config(priv_dir, Config))),
-		    ct:log("Make certs  ~p~n", [Result]),
-		    ssl_test_lib:cert_options(Config)
-	    end;
-	{ok, false} ->
-	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
+    try crypto:start() of
+        ok ->
+            case ct_release_test:init(Config0) of
+                {skip, Reason} ->
+                    {skip, Reason};
+                Config ->
+                    Result =
+                    {ok, _} = make_certs:all(?config(data_dir, Config),
+                                             ?config(priv_dir, Config)),
+                    ssl_test_lib:cert_options(Config)
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+              {skip, "Crypto did not start"}
     end.
 
 end_per_suite(Config) ->
@@ -61,8 +60,11 @@ end_per_suite(Config) ->
     crypto:stop().
 
 init_per_testcase(_TestCase, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({minutes, 1}),
     Config.
-end_per_testcase(_TestCase, Config) ->
+
+end_per_testcase(_TestCase, Config) ->     
     Config.
 
 major_upgrade(Config) when is_list(Config) ->
@@ -75,45 +77,58 @@ upgrade_init(CTData, #state{config = Config} = State) ->
     {ok, {_, _, Up, _Down}} = ct_release_test:get_appup(CTData, ssl),
     ct:pal("Up: ~p", [Up]),
     Soft = is_soft(Up), %% It is symmetrical, if upgrade is soft so is downgrade  
+    Pid = spawn(?MODULE, result_proxy_init, [[]]),
     case Soft of 
 	true ->
-	    {Server, Client} = soft_start_connection(Config),
+	    {Server, Client} = soft_start_connection(Config, Pid),
 	    State#state{server = Server, client = Client,
-			soft = Soft};
+			soft = Soft,
+			result_proxy = Pid};
 	false ->
-	    State#state{soft = Soft}
+	    State#state{soft = Soft, result_proxy = Pid}
     end.
 
-upgrade_upgraded(_, #state{soft = false, config = Config} = State) -> 
-    {Server, Client} = restart_start_connection(Config),
-    ssl_test_lib:check_result(Server, ok, Client, ok),
+upgrade_upgraded(_, #state{soft = false, config = Config, result_proxy = Pid} = State) ->
+    ct:pal("Restart upgrade ~n", []),
+    {Server, Client} = restart_start_connection(Config, Pid),
+    Result = check_result(Pid, Server, Client),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    ok = Result,
     State;
 
 upgrade_upgraded(_, #state{server = Server0, client = Client0,
-			   config = Config, soft = true} = State) -> 
+			   config = Config, soft = true,
+			   result_proxy = Pid} = State) ->
+    ct:pal("Soft upgrade: ~n", []),
     Server0 ! changed_version,
     Client0 ! changed_version,
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+    Result = check_result(Pid, Server0, Client0),
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client0),
-    {Server, Client} = soft_start_connection(Config),
+    ok = Result,
+    {Server, Client} = soft_start_connection(Config, Pid),
     State#state{server = Server, client = Client}.
 
-upgrade_downgraded(_, #state{soft = false, config = Config} = State) -> 
-    {Server, Client} = restart_start_connection(Config),
-    ssl_test_lib:check_result(Server, ok, Client, ok),
+upgrade_downgraded(_, #state{soft = false, config = Config, result_proxy = Pid} = State) ->
+    ct:pal("Restart downgrade: ~n", []),
+    {Server, Client} = restart_start_connection(Config, Pid),
+    Result = check_result(Pid, Server, Client),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    Pid ! stop,
+    ok = Result,
     State;
 
-upgrade_downgraded(_, #state{server = Server, client = Client, soft = true} = State) -> 
+upgrade_downgraded(_, #state{server = Server, client = Client, soft = true, result_proxy = Pid} = State) ->
+    ct:pal("Soft downgrade: ~n", []),
     Server ! changed_version,
     Client ! changed_version,
-    ssl_test_lib:check_result(Server, ok, Client, ok),
+    Result = check_result(Pid, Server, Client),
+    Pid ! stop,
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    ok = Result,
     State.
 
 use_connection(Socket) ->
@@ -123,36 +138,35 @@ use_connection(Socket) ->
 	    ssl_test_lib:send_recv_result_active(Socket)
     end.
 
-soft_start_connection(Config) ->
+soft_start_connection(Config, ResulProxy) ->
     ClientOpts = ?config(client_verification_opts, Config),
     ServerOpts = ?config(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
-					{mfa, {?MODULE, use_connection, []}},
-					{options, ServerOpts}]),
+    Server = start_server([{node, ServerNode}, {port, 0},
+			   {from, ResulProxy},
+			   {mfa, {?MODULE, use_connection, []}},
+			   {options, ServerOpts}]),
     
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, self()}, 
-					{mfa, {?MODULE, use_connection, []}},
-					{options, ClientOpts}]),
+    Port = inet_port(ResulProxy, Server),
+    Client = start_client([{node, ClientNode}, {port, Port},
+			   {host, Hostname},
+			   {from, ResulProxy},
+			   {mfa, {?MODULE, use_connection, []}},
+			   {options, ClientOpts}]),
     {Server, Client}.
 
-restart_start_connection(Config) ->
+restart_start_connection(Config, ResulProxy) ->
     ClientOpts = ?config(client_verification_opts, Config),
     ServerOpts = ?config(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
+    Server = start_server([{node, ServerNode}, {port, 0},
+					{from, ResulProxy},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ServerOpts}]),
-    
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+    Port = inet_port(ResulProxy, Server),
+    Client = start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-					{from, self()}, 
+					{from, ResulProxy},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
 					{options, ClientOpts}]),
     {Server, Client}.
@@ -162,3 +176,102 @@ is_soft([{restart_application, ssl}]) ->
 is_soft(_) ->	
     true.
 
+result_proxy_init(Args) ->
+    result_proxy_loop(Args).
+
+result_proxy_loop(Args) ->
+    receive
+	{Pid, {check_result, Server, Client}} ->
+	    Result = do_check_result(Server, ok, Client, ok),
+	    Pid ! {self(), Result},
+	    result_proxy_loop(Args);
+	{Pid, port, Server} ->
+	    Port = recv_port(Server),
+	    Pid ! Port,
+	    result_proxy_loop(Args);
+	{Pid, listen} ->
+	    recv_listen(),
+	    Pid ! ok,
+	    result_proxy_loop(Args);
+	{Pid, connected} ->
+	    Connected = recv_connected(),
+	     Pid ! Connected,
+	    result_proxy_loop(Args)
+    end.
+
+check_result(Pid, Server, Client) ->
+    Pid ! {self(), {check_result, Server, Client}},
+    receive
+	{Pid, Result} ->
+	    Result
+    end.
+
+do_check_result(Server, ServerMsg, Client, ClientMsg) ->
+    receive
+	{Server, ServerMsg} ->
+	    do_check_result(Client, ClientMsg);
+
+	{Client, ClientMsg} ->
+	    do_check_result(Server, ServerMsg);
+	Unexpected ->
+	    {{expected, {Client, ClientMsg}},
+	     {expected, {Server, ServerMsg}}, {got, Unexpected}}
+    end.
+
+do_check_result(Pid, Msg) ->
+    receive
+	{Pid, Msg} ->
+	    ok;
+	Unexpected ->
+	    {{expected, {Pid, Msg}},
+	     {got, Unexpected}}
+    end.
+
+inet_port(Pid, Server) ->
+    Pid ! {self(), port, Server},
+    receive
+	{port, Port} ->
+	    Port
+    end.
+
+recv_port(Server) ->
+    receive
+	{Server, {port, Port}} ->
+	    {port, Port}
+    end.
+
+recv_connected() ->
+    receive
+	{connected, _Socket} ->
+	    ok;
+	{connect_failed, Reason} ->
+	    {connect_failed, Reason}
+    end.
+
+
+start_server(Args) ->
+    Pid = proplists:get_value(from, Args),
+    Result = spawn_link(ssl_test_lib, run_server, [Args]),
+    Pid ! {self(), listen},
+    receive
+	ok ->
+	    ok
+    end,
+    Result.
+
+start_client(Args) ->
+    Pid = proplists:get_value(from, Args),
+    Result = spawn_link(ssl_test_lib, run_client_init, [lists:delete(return_socket, Args)]),
+    Pid  ! {self(), connected},
+    receive
+	ok ->
+	    Result;
+	Reason ->
+	    exit(Reason)
+    end.
+
+recv_listen()->
+    receive
+	{listen, up} ->
+	    ok
+    end.

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  *
@@ -177,10 +178,10 @@ typedef ErtsMonotonicTime ErtsSystemTime;
 /*
  * OS monotonic time and OS system time
  */
-
 #undef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
 
-#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) \
+    && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 #  if defined(__linux__)
 #    define ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ 1
 #  endif
@@ -191,13 +192,11 @@ ErtsSystemTime erts_os_system_time(void);
 #undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 #undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
 #undef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
-#undef ERTS_HAVE_CORRECTED_OS_MONOTONIC
 
 #if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
 #  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
 #  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
 #  if defined(__linux__)
-#    define ERTS_HAVE_CORRECTED_OS_MONOTONIC 1
 #    define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
 #  endif
 #elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
@@ -337,6 +336,8 @@ extern void sys_stop_cat(void);
 #  define isfinite finite
 #  define HAVE_ISFINITE
 #endif
+
+#define erts_isfinite isfinite
 
 #ifdef NO_FPE_SIGNALS
 

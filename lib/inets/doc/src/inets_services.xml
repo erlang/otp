@@ -8,20 +8,21 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
-    <title>Introduction</title>
+    <title>Inets</title>
     <prepared>Ingela Anderton Andin</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -33,45 +34,26 @@
   </header>
 
   <section>
-    <title>Purpose</title>
-    <p>Inets is a container for Internet clients and
-      servers. Currently, an <term id="HTTP"></term>client and server, a
-      TFPT client and server, and a FTP client has been incorporated
-      into Inets. The HTTP server and client is HTTP 1.1 compliant as
-      defined in <term id="RFC"></term>2616.</p>
-  </section>
-
-  <section>
-    <title>Prerequisites</title>
-    <p>It is assumed that the reader is familiar with the Erlang
-      programming language, concepts of OTP and has a basic
-      understanding of the HTTP, TFTP and FTP protocols.</p>
-  </section>
-
-  <section>
-    <title>The Service Concept</title>
-    <p>Each client and server in inets is viewed as service.  Services
-      may be configured to be started at application startup or
-      started dynamically in runtime. If you want to run inets as an
-      distributed application that should handle application failover
-      and takeover, services should be configured to be started at
-      application startup. When starting the inets application
-      the inets top supervisor will start a number of subsupervisors
-      and worker processes for handling the different services
-      provided. When starting services dynamically new children will
-      be added to the supervision tree, unless the service is started
-      with the stand alone option, in which case the service is linked
-      to the calling process and all OTP application features such as
-      soft upgrade are lost.</p>
-    <p>Services that should be configured for startup at application
-      startup time should be put into the erlang node configuration file
-      on the form: </p>
+    <title>Service Concept</title>
+    <p>Each client and server in <c>Inets</c> is viewed as a service.
+      Services can be configured to be started at application startup or
+      dynamically in runtime. To run <c>Inets</c> as a distributed 
+      application that handles application failover and takeover, 
+      configure the services to be started at application startup. 
+      When starting the <c>Inets</c> application, the <c>Inets</c> 
+      top supervisor starts a number of subsupervisors and worker 
+      processes for handling the provided services.
+      When starting services dynamically, new children are added to the 
+      supervision tree, unless the service is started with the standalone 
+      option. In this case the service is linked to the calling process 
+      and all OTP application features, such as soft upgrade, are lost.</p>
+    <p>Services to be configured for startup at application startup are to 
+      be put into the Erlang node configuration file
+      on the following form:</p>
     <pre>
-      [{inets, [{services, ListofConfiguredServices}]}].
-    </pre>
-    <p>For details of exactly what to put in the list of configured
-      services see the documentation for the services that should be
-      configured.</p>
+      [{inets, [{services, ListofConfiguredServices}]}].</pre>
+    <p>For details of what to put in the list of configured services, 
+    see the documentation for the services to be configured.</p>
   </section>
 </chapter>
 

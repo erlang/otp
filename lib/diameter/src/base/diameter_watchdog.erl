@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -65,7 +66,9 @@
          %% end PCB
          parent = self() :: pid(),              %% service process
          transport       :: pid() | undefined,  %% peer_fsm process
-         tref :: reference(),     %% reference for current watchdog timer
+         tref :: reference()      %% reference for current watchdog timer
+               | integer()        %% monotonic time
+               | undefined,
          dictionary :: module(),  %% common dictionary
          receive_data :: term(),
                  %% term passed into diameter_service with incoming message
@@ -93,7 +96,7 @@ start({_,_} = Type, T) ->
     Ack = make_ref(),
     {ok, Pid} = diameter_watchdog_sup:start_child({Ack, Type, self(), T}),
     try
-        {erlang:monitor(process, Pid), Pid}
+        {monitor(process, Pid), Pid}
     after
         send(Pid, Ack)
     end.
@@ -120,7 +123,7 @@ i({Ack, T, Pid, {RecvData,
                  #diameter_service{applications = Apps,
                                    capabilities = Caps}
                  = Svc}}) ->
-    erlang:monitor(process, Pid),
+    monitor(process, Pid),
     wait(Ack, Pid),
     {_, Seed} = diameter_lib:seed(),
     random:seed(Seed),
@@ -245,10 +248,15 @@ handle_info(T, #watchdog{} = State) ->
             event(T, State, S),  %%   before 'watchdog'
             {noreply, S};
         stop ->
-            ?LOG(stop, T),
+            ?LOG(stop, truncate(T)),
             event(T, State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
     end.
+
+truncate({'DOWN' = T, _, process, Pid, _}) ->
+    {T, Pid};
+truncate(T) ->
+    T.
 
 close({'DOWN', _, process, TPid, {shutdown, Reason}},
       #watchdog{transport = TPid,
@@ -446,11 +454,12 @@ transition({recv, TPid, Name, Pkt}, #watchdog{transport = TPid} = S) ->
 
 %% Current watchdog has timed out.
 transition({timeout, TRef, tw}, #watchdog{tref = TRef} = S) ->
-    set_watchdog(timeout(S));
+    set_watchdog(0, timeout(S));
 
-%% Timer was canceled after message was already sent.
-transition({timeout, _, tw}, #watchdog{}) ->
-    ok;
+%% Message has arrived since the timer was started: subtract time
+%% already elapsed from new timer.
+transition({timeout, _, tw}, #watchdog{tref = T0} = S) ->
+    set_watchdog(diameter_lib:micro_diff(T0) div 1000, S);
 
 %% State query.
 transition({state, Pid}, #watchdog{status = S}) ->
@@ -526,18 +535,27 @@ role() ->
 
 %% set_watchdog/1
 
-set_watchdog(#watchdog{tw = TwInit,
-                       tref = TRef}
-             = S) ->
-    cancel(TRef),
-    S#watchdog{tref = erlang:start_timer(tw(TwInit), self(), tw)};
-set_watchdog(stop = No) ->
-    No.
+%% Timer not yet set.
+set_watchdog(#watchdog{tref = undefined} = S) ->
+    set_watchdog(0, S);
 
-cancel(undefined) ->
-    ok;
-cancel(TRef) ->
-    erlang:cancel_timer(TRef).
+%% Timer already set: start at new one only at expiry.
+set_watchdog(#watchdog{} = S) ->
+    S#watchdog{tref = diameter_lib:now()}.
+
+%% set_watchdog/2
+
+set_watchdog(_, stop = No) ->
+    No;
+
+set_watchdog(Ms, #watchdog{tw = TwInit} = S) ->
+    S#watchdog{tref = erlang:start_timer(tw(TwInit, Ms), self(), tw)}.
+
+%% A callback could return anything, so ensure the result isn't
+%% negative. Don't prevent abuse, even though the smallest valid
+%% timeout is 4000.
+tw(TwInit, Ms) ->
+    max(tw(TwInit) - Ms, 0).
 
 tw(T)
   when is_integer(T), T >= 6000 ->
@@ -810,9 +828,6 @@ restart(S) ->  %% reconnect has won race with timeout
 %% state down rather then initial when receiving notification of an
 %% open connection.
 
-restart({T, Opts, Svc}, S) ->  %% put in old code
-    restart({T, Opts, Svc, []}, S);
-
 restart({{connect, _} = T, Opts, Svc, SvcOpts},
         #watchdog{parent = Pid,
                   restrict = {R,_},
@@ -827,7 +842,7 @@ restart({{connect, _} = T, Opts, Svc, SvcOpts},
 %% die. Note that a state machine never enters state REOPEN in this
 %% case.
 restart({{accept, _}, _, _, _}, #watchdog{restrict = {_, false}}) ->
-    stop;  %% 'DOWN' was in old code: 'close' was not sent
+    stop;
 
 %% Otherwise hang around until told to die, either by the service or
 %% by another watchdog.

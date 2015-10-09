@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2004-2015. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -192,28 +193,6 @@ typedef DWORD ethr_tsd_key;
 
 #define ETHR_YIELD() (Sleep(0), 0)
 
-#elif defined(ETHR_OSE_THREADS)
-
-#include "ose.h"
-#undef NIL
-
-#if defined(ETHR_HAVE_PTHREAD_H)
-#include <pthread.h>
-#endif
-
-typedef struct {
-  PROCESS id;
-  unsigned int tsd_key_index;
-  void *res;
-} ethr_tid;
-
-typedef OSPPDKEY ethr_tsd_key;
-
-#undef ETHR_HAVE_ETHR_SIG_FUNCS
-
-/* Out own RW mutexes are probably faster, but use OSEs mutexes */
-#define ETHR_USE_OWN_RWMTX_IMPL__
-
 #else /* No supported thread lib found */
 
 #ifdef ETHR_NO_SUPP_THR_LIB_NOT_FATAL
@@ -381,19 +360,7 @@ extern ethr_runtime_t ethr_runtime__;
 
 #include "ethr_atomics.h" /* The atomics API */
 
-#if defined (ETHR_OSE_THREADS)
-static ETHR_INLINE void
-ose_yield(void)
-{
-    if (get_ptype(current_process()) == OS_PRI_PROC) {
-        set_pri(get_pri(current_process()));
-    } else {
-        delay(1);
-    }
-}
-#endif
-
-#if defined(__GNUC__) && !defined(ETHR_OSE_THREADS)
+#if defined(__GNUC__)
 #  ifndef ETHR_SPIN_BODY
 #    if defined(__i386__) || defined(__x86_64__)
 #      define ETHR_SPIN_BODY __asm__ __volatile__("rep;nop" : : : "memory")
@@ -409,20 +376,9 @@ ose_yield(void)
 #  ifndef ETHR_SPIN_BODY
 #    define ETHR_SPIN_BODY do {YieldProcessor();ETHR_COMPILER_BARRIER;} while(0)
 #  endif
-#elif defined(ETHR_OSE_THREADS)
-#  ifndef ETHR_SPIN_BODY
-#    define ETHR_SPIN_BODY ose_yield()
-#  else
-#    error "OSE should use ose_yield()"
-#  endif
 #endif
 
-#ifndef ETHR_OSE_THREADS
 #define ETHR_YIELD_AFTER_BUSY_LOOPS 50
-#else
-#define ETHR_YIELD_AFTER_BUSY_LOOPS 0
-#endif
-
 
 #ifndef ETHR_SPIN_BODY
 #  define ETHR_SPIN_BODY ETHR_COMPILER_BARRIER
@@ -445,18 +401,13 @@ ose_yield(void)
 #    else
 #      define ETHR_YIELD() (pthread_yield(), 0)
 #    endif
-#  elif defined(ETHR_OSE_THREADS)
-#    define ETHR_YIELD() (ose_yield(), 0)
 #  else
 #    define ETHR_YIELD() (ethr_compiler_barrier(), 0)
 #  endif
 #endif
 
-#if defined(VALGRIND) || defined(ETHR_OSE_THREADS)
-/* mutex as fallback for spinlock for VALGRIND and OSE.
-   OSE cannot use spinlocks as processes working on the
-   same execution unit have a tendency to deadlock.
- */
+#if defined(VALGRIND)
+/* mutex as fallback for spinlock for VALGRIND. */
 #  undef ETHR_HAVE_NATIVE_SPINLOCKS
 #  undef ETHR_HAVE_NATIVE_RWSPINLOCKS
 #else
@@ -503,16 +454,9 @@ typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
     char *name;                         /* max 14 char long (default no-name) */
-#ifdef ETHR_OSE_THREADS
-    U32 coreNo;
-#endif
 } ethr_thr_opts;
 
-#if defined(ETHR_OSE_THREADS)
-#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL, 0}
-#else
 #define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL}
-#endif
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__
@@ -626,8 +570,6 @@ typedef struct ethr_ts_event_ ethr_ts_event; /* Needed by ethr_mutex.h */
 #  include "win/ethr_event.h"
 #elif defined(ETHR_PTHREADS)
 #  include "pthread/ethr_event.h"
-#elif defined(ETHR_OSE_THREADS)
-#  include "ose/ethr_event.h"
 #endif
 
 int ethr_set_main_thr_status(int, int);
@@ -696,37 +638,6 @@ static ETHR_INLINE ethr_ts_event *
 ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
 {
     ethr_ts_event *tsep = TlsGetValue(ethr_ts_event_key__);
-    if (!tsep) {
-	int res = ethr_get_tmp_ts_event__(&tsep);
-	if (res != 0)
-	    ETHR_FATAL_ERROR__(res);
-	ETHR_ASSERT(tsep);
-    }
-    return tsep;
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_leave_ts_event)(ethr_ts_event *tsep)
-{
-    if (tsep->iflgs & ETHR_TS_EV_TMP) {
-	int res = ethr_free_ts_event__(tsep);
-	if (res != 0)
-	    ETHR_FATAL_ERROR__(res);
-    }
-}
-
-#endif
-
-#elif  defined (ETHR_OSE_THREADS)
-
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHREAD_IMPL__)
-
-extern ethr_tsd_key ethr_ts_event_key__;
-
-static ETHR_INLINE ethr_ts_event *
-ETHR_INLINE_FUNC_NAME_(ethr_get_ts_event)(void)
-{
-    ethr_ts_event *tsep = *(ethr_ts_event**)ose_get_ppdata(ethr_ts_event_key__);
     if (!tsep) {
 	int res = ethr_get_tmp_ts_event__(&tsep);
 	if (res != 0)

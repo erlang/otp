@@ -12,7 +12,8 @@
 
 test() ->
   Funs = [fun test_aligned/0, fun test_unaligned/0,
-	  fun test_zero_tail/0, fun test_integer_matching/0],
+	  fun test_zero_tail/0, fun test_integer_matching/0,
+	  fun test_writable_bin/0],
   lists:foreach(fun (F) -> ok = F() end, Funs).
 
 %%-------------------------------------------------------------------
@@ -173,3 +174,14 @@ test_dynamic_integer_matching(N) ->
   <<12:N/integer, 0:S>> = <<12:N/integer, 0:S>>,
   <<12:N/integer-little, 0:S>> = <<12:N/integer-little, 0:S>>,
   ok.
+
+test_writable_bin() ->
+  test_writable_bin(<<>>, 0),
+  ok.
+
+test_writable_bin(Bin, 128) ->
+  Bin;
+test_writable_bin(Bin0, N) when N < 128 ->
+  Bin1 = <<Bin0/binary, N>>,
+  <<_/utf8, _/binary>> = Bin1,
+  test_writable_bin(Bin1, N+1).

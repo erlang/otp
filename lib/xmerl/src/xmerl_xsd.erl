@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -381,7 +382,7 @@ initiate_state2(S,[{target_namespace,_NS}|T]) ->
 %%    initiate_state2(S#xsd_state{targetNamespace=if_list_to_atom(NS)},T);
     initiate_state2(S,T); %% used in validation phase
 initiate_state2(S,[H|T]) ->
-    error_msg("Invalid option: ~p~n",[H]),
+    error_msg("~w: invalid option: ~p~n",[?MODULE, H]),
     initiate_state2(S,T).
 
 validation_options(S,[{target_namespace,NS}|T]) ->
@@ -5391,7 +5392,7 @@ search_attribute(_,{Name,_,_},SchemaAtts) ->
     end.
 
 error_msg(Format,Args) ->
-    io:format(Format,Args).
+    error_logger:error_msg(Format,Args).
 
 
 add_once(El,L) ->
@@ -5425,7 +5426,7 @@ add_key_once(Key,N,El,L) ->
 %%     "/"++filename:join(L).
 
 %% mk_xml_path(Parents,Type,Pos) ->
-%% %%    io:format("mk_xml_path: Parents = ~p~n",[Parents]),
+%% %%    ?dbg("mk_xml_path: Parents = ~p~n",[Parents]),
 %%     {filename:join([[io_lib:format("/~w(~w)",[X,Y])||{X,Y}<-Parents],Type]),Pos}.
 
 %% @spec format_error(Errors) -> Result

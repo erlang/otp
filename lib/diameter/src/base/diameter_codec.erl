@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -76,9 +77,10 @@ setopts(Opts)
   when is_list(Opts) ->
     lists:foreach(fun setopt/1, Opts).
 
-%% Decode stringish types to string()? The default true is for
-%% backwards compatibility.
-setopt({string_decode = K, false = B}) ->
+%% The default string_decode true is for backwards compatibility.
+setopt({K, false = B})
+  when K == string_decode;
+       K == strict_mbit ->
     setopt(K, B);
 
 %% Regard anything but the generated RFC 3588 dictionary as modern.
@@ -96,7 +98,8 @@ setopt(Key, Value) ->
 
 getopt(Key) ->
     case get({diameter, Key}) of
-        undefined when Key == string_decode ->
+        undefined when Key == string_decode;
+                       Key == strict_mbit ->
             true;
         undefined when Key == rfc ->
             6733;
@@ -590,6 +593,7 @@ split_head(<<Code:32, 0:1, M:1, P:1, _:5, Len:24, _/binary>>) ->
 %% Header is truncated.
 split_head(Bin) ->
     ?THROW({5014, #diameter_avp{data = Bin}}).
+%% Note that pack_avp/1 will pad this at encode if sent in a Failed-AVP.
 
 %% 3588:
 %%
@@ -619,7 +623,7 @@ split_head(Bin) ->
 %%       AVP header with zero up to the minimum AVP header length.
 %%
 %% The underlined clause must be in error since (1) a header less than
-%% the minimum value mean we don't know the identity of the AVP and
+%% the minimum value mean we might not know the identity of the AVP and
 %% (2) the last sentence covers this case.
 
 %% split_data/3
@@ -640,8 +644,12 @@ split_data(Bin, Len) ->
             %% payload if this is a request. Do this (in cases that we
             %% know the type) by inducing a decode failure and letting
             %% the dictionary's decode (in diameter_gen) deal with it.
-            %% Here we don't know type. If the type isn't known, then
-            %% the decode just strips the extra bit.
+            %%
+            %% Note that the extra bit can only occur in the trailing
+            %% AVP of a message or Grouped AVP, since a faulty AVP
+            %% Length is otherwise indistinguishable from a correct
+            %% one here, since we don't know the types of the AVPs
+            %% being extracted.
             {<<0:1, Bin/binary>>, <<>>}
     end.
 
@@ -651,16 +659,23 @@ split_data(Bin, Len) ->
 
 %% The normal case here is data as an #diameter_avp{} list or an
 %% iolist, which are the cases that generated codec modules use. The
-%% other case is as a convenience in the relay case in which the
+%% other cases are a convenience in the relay case in which the
 %% dictionary doesn't know about specific AVP's.
 
-%% Grouped AVP whose components need packing ...
-pack_avp([#diameter_avp{} = A | Avps]) ->
-    pack_avp(A#diameter_avp{data = Avps});
-pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
-    pack_avp(A#diameter_avp{data = encode_avps(Avps)});
+%% Decoded Grouped AVP with decoded components: ignore components
+%% since they're already encoded in the Grouped AVP.
+pack_avp([#diameter_avp{} = Grouped | _Components]) ->
+    pack_avp(Grouped);
 
-%% ... data as a type/value tuple ...
+%% Grouped AVP whose components need packing. It's intentional that
+%% this isn't equivalent to [Grouped | Components]: here the
+%% components need to be encoded before wrapping with the Grouped AVP,
+%% and the list is flat, nesting being accomplished in the data
+%% fields.
+pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components} = Grouped) ->
+    pack_avp(Grouped#diameter_avp{data = encode_avps(Components)});
+
+%% Data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
   when is_atom(Type) ->
     pack_avp(A#diameter_avp{data = diameter_types:Type(encode, Value)});
@@ -690,8 +705,8 @@ pack_avp(#diameter_avp{code = undefined, data = B})
     Len = size(<<H:5/binary, _:24, T/binary>> = <<B/binary, 0:Pad>>),
     <<H/binary, Len:24, T/binary>>;
 
-%% ... from a dictionary compiled against old code in diameter_gen ...
 %% ... when ignoring errors in Failed-AVP ...
+%% ... during a relay encode ...
 pack_avp(#diameter_avp{data = <<0:1, B/binary>>} = A) ->
     pack_avp(A#diameter_avp{data = B});
 

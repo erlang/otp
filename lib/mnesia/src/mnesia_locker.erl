@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -98,7 +99,7 @@ init(Parent) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	_VaLuE_ -> _VaLuE_
     end.
 
@@ -1001,13 +1002,11 @@ flush_remaining(Ns=[Node | Tail], SkipNode, Res) ->
 
 opt_lookup_in_client(lookup_in_client, Oid, Lock) ->
     {Tab, Key} = Oid,
-    case catch mnesia_lib:db_get(Tab, Key) of
-	{'EXIT', _} ->
+    try mnesia_lib:db_get(Tab, Key)
+    catch error:_ ->
 	    %% Table has been deleted from this node,
 	    %% restart the transaction.
-	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere};
-	Val ->
-	    Val
+	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere}
     end;
 opt_lookup_in_client(Val, _Oid, _Lock) ->
     Val.
@@ -1139,11 +1138,10 @@ send_requests([], _X) ->
 
 rec_requests([Node | Nodes], Oid, Store) ->
     Res = l_req_rec(Node, Store),
-    case catch rlock_get_reply(Node, Store, Oid, Res) of
-	{'EXIT', Reason} ->
-	    flush_remaining(Nodes, Node, Reason);
-	_ ->
-	    rec_requests(Nodes, Oid, Store)
+    try rlock_get_reply(Node, Store, Oid, Res) of
+	_ -> rec_requests(Nodes, Oid, Store)
+    catch _:Reason ->
+	    flush_remaining(Nodes, Node, Reason)
     end;
 rec_requests([], _Oid, _Store) ->
     ok.

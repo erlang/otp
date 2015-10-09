@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -39,22 +40,42 @@ class wxeMetaCommand : public wxEvent
     ErlDrvPDL        pdl;
 };
 
-class wxeCommand : public wxObject
+class wxeCommand
 {
  public:
-    wxeCommand(int fc,char * cbuf,int buflen, wxe_data *);
+    wxeCommand();
     virtual ~wxeCommand(); // Use Delete()
 
-    wxeCommand * Save() {ref_count++; return this; };
-    void Delete() {if(--ref_count < 1) delete this;};
+    wxeCommand * Save() { return this; };
+    void Delete();
 
     ErlDrvTermData   caller;
     ErlDrvTermData   port;
-    WXEBinRef *      bin[3];
+    WXEBinRef        bin[3];
     char *           buffer;
     int              len;
     int              op;
-    int              ref_count;
+    char             c_buf[64];  // 64b covers 90% of usage
+};
+
+class wxeFifo {
+ public:
+    wxeFifo(unsigned int size);
+    virtual ~wxeFifo();
+
+    void Add(int fc, char * cbuf,int buflen, wxe_data *);
+    void Append(wxeCommand *Other);
+
+    wxeCommand * Get();
+
+    void Realloc();
+
+    unsigned int m_max;
+    unsigned int m_first;
+    unsigned int m_n;
+    unsigned int m_orig_sz;
+    wxeCommand *m_q;
+    wxeCommand *m_old;
 };
 
 class intListElement {

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,7 +27,9 @@
 -module(ssh_acceptor_sup).
 -behaviour(supervisor).
 
--export([start_link/1, start_child/2, stop_child/3]).
+-include("ssh.hrl").
+
+-export([start_link/1, start_child/2, stop_child/4]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -45,14 +48,16 @@ start_child(AccSup, ServerOpts) ->
 	{error, already_present} ->
 	    Address = proplists:get_value(address, ServerOpts),
 	    Port = proplists:get_value(port, ServerOpts),
-	    stop_child(AccSup, Address, Port),
+	    Profile = proplists:get_value(profile,  
+					  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
 	    Reply
     end.
 
-stop_child(AccSup, Address, Port) ->
-    Name = id(Address, Port),
+stop_child(AccSup, Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     case supervisor:terminate_child(AccSup, Name) of
         ok ->
             supervisor:delete_child(AccSup, Name);
@@ -77,7 +82,8 @@ child_spec(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
     Port = proplists:get_value(port, ServerOpts),
     Timeout = proplists:get_value(timeout, ServerOpts, ?DEFAULT_TIMEOUT),
-    Name = id(Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = id(Address, Port, Profile),
     SocketOpts = proplists:get_value(socket_opts, ServerOpts),
     StartFunc = {ssh_acceptor, start_link, [Port, Address, 
 					    [{active, false},
@@ -89,6 +95,11 @@ child_spec(ServerOpts) ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-id(Address, Port) ->
-    {ssh_acceptor_sup, Address, Port}.
+id(Address, Port, Profile) ->
+    case is_list(Address) of
+	true ->
+	    {ssh_acceptor_sup, any, Port, Profile};
+	false ->
+	    {ssh_acceptor_sup, Address, Port, Profile}
+    end.
 

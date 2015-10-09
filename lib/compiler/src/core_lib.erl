@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2000-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,52 +21,16 @@
 
 -module(core_lib).
 
--deprecated({get_anno,1,next_major_release}).
--deprecated({set_anno,2,next_major_release}).
--deprecated({is_literal,1,next_major_release}).
--deprecated({is_literal_list,1,next_major_release}).
--deprecated({literal_value,1,next_major_release}).
-
--export([get_anno/1,set_anno/2]).
--export([is_literal/1,is_literal_list/1]).
--export([literal_value/1]).
 -export([make_values/1]).
 -export([is_var_used/2]).
 
 -include("core_parse.hrl").
 
-%%
-%% Generic get/set annotation that should be used only with cerl() structures.
-%%
--spec get_anno(cerl:cerl()) -> term().
-
-get_anno(C) -> cerl:get_ann(C).
-
--spec set_anno(cerl:cerl(), term()) -> cerl:cerl().
-
-set_anno(C, A) -> cerl:set_ann(C, A).
-
--spec is_literal(cerl:cerl()) -> boolean().
-
-is_literal(Cerl) ->
-    cerl:is_literal(cerl:fold_literal(Cerl)).
-
--spec is_literal_list([cerl:cerl()]) -> boolean().
-
-is_literal_list(Es) -> lists:all(fun is_literal/1, Es).
-
-%% Return the value of LitExpr.
--spec literal_value(cerl:c_literal() | cerl:c_binary() |
-		    cerl:c_map() | cerl:c_cons() | cerl:c_tuple()) -> term().
-
-literal_value(Cerl) ->
-    cerl:concrete(cerl:fold_literal(Cerl)).
-
 %% Make a suitable values structure, expr or values, depending on Expr.
 -spec make_values([cerl:cerl()] | cerl:cerl()) -> cerl:cerl().
 
 make_values([E]) -> E;
-make_values([H|_]=Es) -> #c_values{anno=get_anno(H),es=Es};
+make_values([H|_]=Es) -> #c_values{anno=cerl:get_ann(H),es=Es};
 make_values([]) -> #c_values{es=[]};
 make_values(E) -> E.
 

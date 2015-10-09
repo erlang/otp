@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2000-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -20,8 +21,6 @@ package com.ericsson.otp.erlang;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -97,7 +96,39 @@ public class OtpNode extends OtpLocalNode {
      *
      */
     public OtpNode(final String node) throws IOException {
-        this(node, defaultCookie, 0);
+        super(node);
+
+        init(0);
+    }
+
+    /**
+     * <p>
+     * Create a node using the default cookie. The default cookie is found by
+     * reading the first line of the .erlang.cookie file in the user's home
+     * directory. The home directory is obtained from the System property
+     * "user.home".
+     * </p>
+     *
+     * <p>
+     * If the file does not exist, an empty string is used. This method makes no
+     * attempt to create the file.
+     * </p>
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                if communication could not be initialized.
+     *
+     */
+    public OtpNode(final String node,
+            final OtpTransportFactory transportFactory) throws IOException {
+        super(node, transportFactory);
+
+        init(0);
     }
 
     /**
@@ -128,6 +159,28 @@ public class OtpNode extends OtpLocalNode {
      *            the authorization cookie that will be used by this node when
      *            it communicates with other nodes.
      *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                if communication could not be initialized.
+     *
+     */
+    public OtpNode(final String node, final String cookie,
+            final OtpTransportFactory transportFactory) throws IOException {
+        this(node, cookie, 0, transportFactory);
+    }
+
+    /**
+     * Create a node.
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param cookie
+     *            the authorization cookie that will be used by this node when
+     *            it communicates with other nodes.
+     *
      * @param port
      *            the port number you wish to use for incoming connections.
      *            Specifying 0 lets the system choose an available port.
@@ -139,6 +192,34 @@ public class OtpNode extends OtpLocalNode {
     public OtpNode(final String node, final String cookie, final int port)
             throws IOException {
         super(node, cookie);
+
+        init(port);
+    }
+
+    /**
+     * Create a node.
+     *
+     * @param node
+     *            the name of this node.
+     *
+     * @param cookie
+     *            the authorization cookie that will be used by this node when
+     *            it communicates with other nodes.
+     *
+     * @param port
+     *            the port number you wish to use for incoming connections.
+     *            Specifying 0 lets the system choose an available port.
+     *
+     * @param transportFactory
+     *            the transport factory to use when creating connections.
+     *
+     * @exception IOException
+     *                if communication could not be initialized.
+     *
+     */
+    public OtpNode(final String node, final String cookie, final int port,
+            final OtpTransportFactory transportFactory) throws IOException {
+        super(node, cookie, transportFactory);
 
         init(port);
     }
@@ -681,12 +762,12 @@ public class OtpNode extends OtpLocalNode {
      * this thread simply listens for incoming connections
      */
     public class Acceptor extends Thread {
-        private final ServerSocket sock;
+        private final OtpServerTransport sock;
         private final int acceptorPort;
         private volatile boolean done = false;
 
         Acceptor(final int port) throws IOException {
-            sock = new ServerSocket(port);
+            sock = createServerTransport(port);
             acceptorPort = sock.getLocalPort();
             OtpNode.this.port = acceptorPort;
 
@@ -720,7 +801,7 @@ public class OtpNode extends OtpLocalNode {
             localStatus(node, false, null);
         }
 
-        private void closeSock(final ServerSocket s) {
+        private void closeSock(final OtpServerTransport s) {
             try {
                 if (s != null) {
                     s.close();
@@ -729,7 +810,7 @@ public class OtpNode extends OtpLocalNode {
             }
         }
 
-        private void closeSock(final Socket s) {
+        private void closeSock(final OtpTransport s) {
             try {
                 if (s != null) {
                     s.close();
@@ -744,7 +825,7 @@ public class OtpNode extends OtpLocalNode {
 
         @Override
         public void run() {
-            Socket newsock = null;
+            OtpTransport newsock = null;
             OtpCookedConnection conn = null;
 
             localStatus(node, true, null);

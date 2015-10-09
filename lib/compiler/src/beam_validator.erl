@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2004-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -28,9 +29,7 @@
 
 -include("beam_disasm.hrl").
 
--import(lists, [reverse/1,foldl/3,foreach/2,member/2,dropwhile/2]).
-
--define(MAXREG, 1024).
+-import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
 %%-define(DEBUG, 1).
 -ifdef(DEBUG).
@@ -153,7 +152,6 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 hf=0,				%Available heap size for floats.
 	 fls=undefined,			%Floating point state.
 	 ct=[],				%List of hot catch/try labels
-	 bits=undefined,	        %Number of bits in bit syntax binary.
 	 setelem=false			%Previous instruction was setelement/3.
 	}).
 
@@ -411,37 +409,33 @@ valfun_1({'try',Dst,{f,Fail}}, Vst0) ->
     Vst = #vst{current=#st{ct=Fails}=St} = 
 	set_type_y({trytag,[Fail]}, Dst, Vst0),
     Vst#vst{current=St#st{ct=[[Fail]|Fails]}};
-valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({catch_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{catchtag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
 	    Xs = gb_trees_from_list([{0,term}]),
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St}=Vst0) ->
+valfun_1({try_end,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
 	    Vst = case Fail of
 		      [FailLabel] -> branch_state(FailLabel, Vst0);
 		      _ -> Vst0
 		  end,
-	    set_type_reg(initialized_ct, Reg, 
-			 Vst#vst{current=St#st{ct=Fails,fls=undefined}});
+	    St = St0#st{ct=Fails,fls=undefined},
+	    set_catch_end(Reg, Vst#vst{current=St});
 	Type ->
 	    error({bad_type,Type})
     end;
-valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}=St0}=Vst0) ->
+valfun_1({try_case,Reg}, #vst{current=#st{ct=[Fail|Fails]}}=Vst0) ->
     case get_special_y_type(Reg, Vst0) of
 	{trytag,Fail} ->
-	    Vst = #vst{current=St} = 
-		set_type_y(initialized_ct, Reg, 
-			   Vst0#vst{current=St0#st{ct=Fails}}),
-	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]), %XXX
-	    Vst#vst{current=St#st{x=Xs,fls=undefined}};
+	    Vst = #vst{current=St} = set_catch_end(Reg, Vst0),
+	    Xs = gb_trees_from_list([{0,{atom,[]}},{1,term},{2,term}]),
+	    Vst#vst{current=St#st{x=Xs,ct=Fails,fls=undefined}};
 	Type ->
 	    error({bad_type,Type})
     end;
@@ -667,7 +661,7 @@ valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
-    assert_strict_literal_termorder(List),
+    assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     Vst = branch_state(Lbl, Vst0),
@@ -700,8 +694,7 @@ valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -713,8 +706,7 @@ valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     verify_live(Live, Vst0),
@@ -722,43 +714,35 @@ valfun_4({bs_append,{f,Fail},Bits,Heap,Live,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bin, Vst0),
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = prune_x_regs(Live, Vst2),
-    Vst = bs_zero_bits(Vst3),
+    Vst = prune_x_regs(Live, Vst2),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_private_append,{f,Fail},Bits,_Unit,Bin,_Flags,Dst}, Vst0) ->
     assert_term(Bits, Vst0),
     assert_term(Bin, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = bs_zero_bits(Vst1),
+    Vst = branch_state(Fail, Vst0),
     set_type_reg(binary, Dst, Vst);
 valfun_4({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
     Vst;
-valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}=I, Vst0) ->
-    assert_term(Sz, Vst0),
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
+    assert_term(Sz, Vst),
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf8,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf16,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
-valfun_4({bs_put_utf32,{f,Fail},_,Src}=I, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = bs_align_check(I, Vst0),
+valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
+    assert_term(Src, Vst),
     branch_state(Fail, Vst);
 %% Map instructions.
 valfun_4({put_map_assoc,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
@@ -772,10 +756,20 @@ valfun_4(_, _) ->
 
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_type(map, Src, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
+    Vst1 = foldl(fun(D, Vsti) ->
+                         case is_reg_defined(D,Vsti) of
+                             true -> set_type_reg(term,D,Vsti);
+                             false -> Vsti
+                         end
+                 end, Vst0, extract_map_vals(List)),
+    Vst2 = branch_state(Fail, Vst1),
     Keys = extract_map_keys(List),
-    assert_strict_literal_termorder(Keys),
-    verify_get_map_pair(List,Vst0,Vst1).
+    assert_unique_map_keys(Keys),
+    verify_get_map_pair(List,Vst0,Vst2).
+
+extract_map_vals([_Key,Val|T]) ->
+    [Val|extract_map_vals(T)];
+extract_map_vals([]) -> [].
 
 extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
@@ -794,6 +788,8 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
+    Keys = extract_map_keys(List),
+    assert_unique_map_keys(Keys),
     set_type_reg(map, Dst, Vst).
 
 %%
@@ -982,9 +978,9 @@ get_fls(#vst{current=#st{fls=Fls}}) when is_atom(Fls) -> Fls.
 
 init_fregs() -> 0.
 
-set_freg({fr,Fr}, #vst{current=#st{f=Fregs0}=St}=Vst)
+set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst)
   when is_integer(Fr), 0 =< Fr ->
-    limit_check(Fr),
+    check_limit(Freg),
     Bit = 1 bsl Fr,
     if
 	Fregs0 band Bit =:= 0 ->
@@ -997,9 +993,10 @@ set_freg(Fr, _) -> error({bad_target,Fr}).
 assert_freg_set({fr,Fr}=Freg, #vst{current=#st{f=Fregs}})
   when is_integer(Fr), 0 =< Fr ->
     if
-	Fregs band (1 bsl Fr) =/= 0 ->
-	    limit_check(Fr);
-	true -> error({uninitialized_reg,Freg})
+	(Fregs bsr Fr) band 1 =:= 0 ->
+	    error({uninitialized_reg,Freg});
+	true ->
+	    ok
     end;
 assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
@@ -1007,28 +1004,22 @@ assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
 %% A single item list may be either a list or a register.
 %%
-%% A list with more than item must contain literals in
-%% ascending term order.
+%% A list with more than item must contain unique literals.
 %%
 %% An empty list is not allowed.
 
-assert_strict_literal_termorder([]) ->
+assert_unique_map_keys([]) ->
     %% There is no reason to use the get_map_elements and
     %% has_map_fields instructions with empty lists.
     error(empty_field_list);
-assert_strict_literal_termorder([_]) ->
+assert_unique_map_keys([_]) ->
     ok;
-assert_strict_literal_termorder([_,_|_]=Ls) ->
+assert_unique_map_keys([_,_|_]=Ls) ->
     Vs = [get_literal(L) || L <- Ls],
-    case check_strict_value_termorder(Vs) of
-	true ->  ok;
-	false -> error(not_strict_order)
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
+	true -> ok;
+	false -> error(keys_not_unique)
     end.
-
-check_strict_value_termorder([V1|[V2|_]=Vs]) ->
-    erts_internal:cmp_term(V1, V2) < 0 andalso
-	check_strict_value_termorder(Vs);
-check_strict_value_termorder([_]) -> true.
 
 %%%
 %%% New binary matching instructions.
@@ -1075,55 +1066,7 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	    end;
 	_ -> error({illegal_restore,SavePoint,range})
     end.
-    
 
-%%%
-%%% Validation of alignment in the bit syntax. (Currently, construction only.)
-%%%
-%%% We make sure that the aligned flag is only set when we can be sure of the
-%%% aligment.
-%%%
-
-bs_zero_bits(#vst{current=St}=Vst) ->
-    Vst#vst{current=St#st{bits=0}}.
-
-bs_align_check({bs_put_utf8,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf16,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({bs_put_utf32,_,Flags,_}, #vst{current=#st{}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    Vst;
-bs_align_check({_,_,Sz,U,Flags,_}, #vst{current=#st{bits=Bits}=St}=Vst) ->
-    bs_verify_flags(Flags, St),
-    bs_update_bits(Bits, Sz, U, St, Vst).
-
-bs_update_bits(undefined, _, _, _, Vst) -> Vst;
-bs_update_bits(Bits0, {integer,Sz}, U, St, Vst) ->
-    Bits = Bits0 + U*Sz,
-    Vst#vst{current=St#st{bits=Bits}};
-bs_update_bits(_, {atom,all}, _, _, Vst) ->
-    %% A binary will not change the alignment.
-    Vst;
-bs_update_bits(_, _, U, _, Vst) when U rem 8 =:= 0 ->
-    %% Units of 8, 16, and so on will not change the aligment.
-    Vst;
-bs_update_bits(_, _, _, St, Vst) ->
-    %% We can no longer be sure about aligment.
-    Vst#vst{current=St#st{bits=undefined}}.
-
-bs_verify_flags({field_flags,Fl}, #st{bits=Bits}) ->
-    case bs_is_aligned(Fl) of
-	false -> ok;
-	true when is_integer(Bits), Bits rem 8 =:= 0 -> ok;
-	true -> error({aligned_flag_set,{bits,Bits}})
-    end.
-
-bs_is_aligned(Fl) when is_integer(Fl) -> Fl band 1 =:= 1;
-bs_is_aligned(Fl) when is_list(Fl) -> member(aligned, Fl).
-    
 %%%
 %%% Keeping track of types.
 %%%
@@ -1132,41 +1075,43 @@ set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
 set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
 
-set_type_reg(Type, {x,X}, #vst{current=#st{x=Xs}=St}=Vst) 
+set_type_reg(Type, {x,X}=Reg, #vst{current=#st{x=Xs}=St}=Vst)
   when is_integer(X), 0 =< X ->
-    limit_check(X),
+    check_limit(Reg),
     Vst#vst{current=St#st{x=gb_trees:enter(X, Type, Xs)}};
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
 
-set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0,numy=NumY}=St}=Vst) 
+set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
-    limit_check(Y),
-    case {Y,NumY} of
-	{_,none} ->
-	    error({no_stack_frame,Reg});
-	{_,_} when Y > NumY ->
-	    error({y_reg_out_of_range,Reg,NumY});
-	{_,_} ->
-	    Ys = if  Type =:= initialized_ct ->
-			 gb_trees:enter(Y, initialized, Ys0);
-		     true ->
-			 case gb_trees:lookup(Y, Ys0) of
-			     none -> 
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,uinitialized} ->
-				 gb_trees:insert(Y, Type, Ys0);
-			     {value,{catchtag,_}=Tag} ->
-				 error(Tag);
-			     {value,{trytag,_}=Tag} ->
-				 error(Tag);
-			     {value,_} ->
-				 gb_trees:update(Y, Type, Ys0)
-			 end
-		 end,
-	    Vst#vst{current=St#st{y=Ys}}
-    end;
+    check_limit(Reg),
+    Ys = case gb_trees:lookup(Y, Ys0) of
+	     none ->
+		 error({invalid_store,Reg,Type});
+	     {value,{catchtag,_}=Tag} ->
+		 error(Tag);
+	     {value,{trytag,_}=Tag} ->
+		 error(Tag);
+	     {value,_} ->
+		 gb_trees:update(Y, Type, Ys0)
+	 end,
+    Vst#vst{current=St#st{y=Ys}};
 set_type_y(Type, Reg, #vst{}) -> error({invalid_store,Reg,Type}).
+
+set_catch_end({y,Y}, #vst{current=#st{y=Ys0}=St}=Vst) ->
+    Ys = gb_trees:update(Y, initialized, Ys0),
+    Vst#vst{current=St#st{y=Ys}}.
+
+
+is_reg_defined({x,_}=Reg, Vst) -> is_type_defined_x(Reg, Vst);
+is_reg_defined({y,_}=Reg, Vst) -> is_type_defined_y(Reg, Vst);
+is_reg_defined(V, #vst{}) -> error({not_a_register, V}).
+
+is_type_defined_x({x,X}, #vst{current=#st{x=Xs}}) ->
+    gb_trees:is_defined(X,Xs).
+
+is_type_defined_y({y,Y}, #vst{current=#st{y=Ys}}) ->
+    gb_trees:is_defined(Y,Ys).
 
 assert_term(Src, Vst) ->
     get_term_type(Src, Vst),
@@ -1366,13 +1311,13 @@ merge_states(L, St, Branched) when L =/= 0 ->
 	{value,OtherSt} -> merge_states_1(St, OtherSt)
     end.
 
-merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0}=St,
+merge_states_1(#st{x=Xs0,y=Ys0,numy=NumY0,h=H0,ct=Ct0},
 	       #st{x=Xs1,y=Ys1,numy=NumY1,h=H1,ct=Ct1}) ->
     NumY = merge_stk(NumY0, NumY1),
     Xs = merge_regs(Xs0, Xs1),
     Ys = merge_y_regs(Ys0, Ys1),
     Ct = merge_ct(Ct0, Ct1),
-    St#st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
+    #st{x=Xs,y=Ys,numy=NumY,h=min(H0, H1),ct=Ct}.
 
 merge_stk(S, S) -> S;
 merge_stk(_, _) -> undecided.
@@ -1402,20 +1347,24 @@ merge_regs_1([], [_|_]) -> [];
 merge_regs_1([_|_], []) -> [].
 
 merge_y_regs(Rs0, Rs1) ->
-    Rs = merge_y_regs_1(gb_trees:to_list(Rs0), gb_trees:to_list(Rs1)),
-    gb_trees_from_list(Rs).
+    case {gb_trees:size(Rs0),gb_trees:size(Rs1)} of
+	{Sz0,Sz1} when Sz0 < Sz1 ->
+	    merge_y_regs_1(Sz0-1, Rs1, Rs0);
+	{_,Sz1} ->
+	    merge_y_regs_1(Sz1-1, Rs0, Rs1)
+    end.
 
-merge_y_regs_1([Same|Rs1], [Same|Rs2]) ->
-    [Same|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|Rs1], [{R2,_}|_]=Rs2) when R1 < R2 ->
-    [{R1,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R1,_}|_]=Rs1, [{R2,_}|Rs2]) when R1 > R2 ->
-    [{R2,uninitialized}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([{R,Type1}|Rs1], [{R,Type2}|Rs2]) ->
-    [{R,merge_types(Type1, Type2)}|merge_y_regs_1(Rs1, Rs2)];
-merge_y_regs_1([], []) -> [];
-merge_y_regs_1([], [_|_]=Rs) -> Rs;
-merge_y_regs_1([_|_]=Rs, []) -> Rs.
+merge_y_regs_1(Y, S, Regs0) when Y >= 0 ->
+    Type0 = gb_trees:get(Y, Regs0),
+    case gb_trees:get(Y, S) of
+	Type0 ->
+	    merge_y_regs_1(Y-1, S, Regs0);
+	Type1 ->
+	    Type = merge_types(Type0, Type1),
+	    Regs = gb_trees:update(Y, Type, Regs0),
+	    merge_y_regs_1(Y-1, S, Regs)
+    end;
+merge_y_regs_1(_, _, Regs) -> Regs.
 
 %% merge_types(Type1, Type2) -> Type
 %%  Return the most specific type possible.
@@ -1634,8 +1583,6 @@ return_type_1(M, F, A, _) when is_atom(M), is_atom(F), is_integer(A), A >= 0 ->
 
 return_type_erl(exit, 1) -> exception;
 return_type_erl(throw, 1) -> exception;
-return_type_erl(fault, 1) -> exception;
-return_type_erl(fault, 2) -> exception;
 return_type_erl(error, 1) -> exception;
 return_type_erl(error, 2) -> exception;
 return_type_erl(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
@@ -1664,9 +1611,15 @@ return_type_math(pow, 2) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
-limit_check(Num) when is_integer(Num), Num >= ?MAXREG ->
-    error(limit);
-limit_check(_) -> ok.
+check_limit({x,X}) when is_integer(X), X < 1023 ->
+    %% Note: x(1023) is reserved for use by the BEAM loader.
+    ok;
+check_limit({y,Y}) when is_integer(Y), Y < 1024 ->
+    ok;
+check_limit({fr,Fr}) when is_integer(Fr), Fr < 1024 ->
+    ok;
+check_limit(_) ->
+    error(limit).
 
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.

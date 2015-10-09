@@ -7,8 +7,14 @@
 
 -include("header1.hrl").
 -include("header2.hrl").
+-include("header3.hrl").
 
 -define(MACRO1,value).
+
+%% This macro is used to select parser in erl2html2.
+%% If EPP_SWITCH is defined epp is used, else epp_dodger.
+epp_switch() ->
+    ?EPP_SWITCH.
 
 %%% Comment
 foo(x) ->

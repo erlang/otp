@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -536,29 +537,108 @@
       </desc>
     </func>
     <func>
+      <name name="cancel_timer" arity="2"/>
+      <fsummary>Cancel a timer</fsummary>
+      <desc>
+        <p>
+	  Cancels a timer that has been created by either
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer()</c></seealso>,
+	  or <seealso marker="#send_after/4"><c>erlang:send_after()</c></seealso>.
+	  <c><anno>TimerRef</anno></c> identifies the timer, and
+	  was returned by the BIF that created the timer.
+	</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{async, Async}</c></tag>
+          <item>
+	    <p>
+	      Asynchronous request for cancellation. <c>Async</c>
+	      defaults to <c>false</c> which will cause the
+	      cancellation to be performed synchronously. When
+	      <c>Async</c> is set to <c>true</c>, the cancel
+	      operation will be performed asynchronously. That is,
+	      <c>erlang:cancel_timer()</c> will send an asynchronous
+	      request for cancellation to the timer service that
+	      manages the timer, and then return <c>ok</c>.
+	  </p>
+	  </item>
+          <tag><c>{info, Info}</c></tag>
+          <item>
+	    <p>
+	      Request information about the <c><anno>Result</anno></c>
+	      of the cancellation. <c>Info</c> defaults to <c>true</c>
+	      which means that the <c><anno>Result</anno></c> will
+	      be given. When <c>Info</c> is set to <c>false</c>, no
+	      information about the result of the cancellation
+	      will be given. When the operation is performed</p>
+              <taglist>
+		<tag>synchronously</tag>
+		<item>
+		  <p>
+		    If <c>Info</c> is <c>true</c>, the <c>Result</c> will
+		    returned by <c>erlang:cancel_timer()</c>; otherwise,
+		    <c>ok</c> will be returned.
+		  </p>
+		</item>
+		<tag>asynchronously</tag>
+		<item>
+		  <p>
+		    If <c>Info</c> is <c>true</c>, a message on the form
+		    <c>{cancel_timer, <anno>TimerRef</anno>,
+		    <anno>Result</anno>}</c> will be sent to the
+		    caller of <c>erlang:cancel_timer()</c> when the
+		    cancellation operation has been performed; otherwise,
+		    no message will be sent.
+		  </p>
+		</item>
+            </taglist>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  When the <c><anno>Result</anno></c> equals <c>false</c>, a
+	  timer corresponding to <c><anno>TimerRef</anno></c> could not
+	  be found. This can be either because the timer had expired,
+	  already had been canceled, or because <c><anno>TimerRef</anno></c>
+	  never has corresponded to a timer. If the timer has expired,
+	  the timeout message has been sent, but it does not tell you
+	  whether or not it has arrived at its destination yet. When the
+	  <c><anno>Result</anno></c> is an integer, it represents the
+	  time in milli-seconds left until the timer will expire.
+	</p>
+	<note>
+	  <p>
+	    The timer service that manages the timer may be co-located
+	    with another scheduler than the scheduler that the calling
+	    process is executing on. If this is the case, communication
+	    with the timer service will take much longer time than if it
+	    is located locally. If the calling process is in critical
+	    path, and can do other things while waiting for the result
+	    of this operation, or is not interested in the result of
+	    the operation, you want to use the <c>{async, true}</c>
+	    option. If using the <c>{async, false}</c> option, the calling
+	    process will be blocked until the operation has been
+	    performed.
+	  </p>
+	</note>
+        <p>See also 
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
+          and
+          <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="cancel_timer" arity="1"/>
       <fsummary>Cancel a timer</fsummary>
       <desc>
-        <p>Cancels a timer, where <c><anno>TimerRef</anno></c> was returned by
-          either
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>
-          or
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>.
-          If the timer is there to be removed, the function returns
-          the time in milliseconds left until the timer would have expired,
-          otherwise <c>false</c> (which means that <c><anno>TimerRef</anno></c> was
-          never a timer, that it has already been cancelled, or that it
-          has already delivered its message).</p>
-        <p>See also 
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
-          and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
-        <p>Note: Cancelling a timer does not guarantee that the message
-          has not already been delivered to the message queue.</p>
+        <p>Cancels a timer. The same as calling
+	<seealso marker="#cancel_timer/2"><c>erlang:cancel_timer(TimerRef,
+	[])</c></seealso>.</p>
       </desc>
     </func>
-
     <func>
       <name name="check_old_code" arity="1"/>
       <fsummary>Check if a module has old code</fsummary>
@@ -974,7 +1054,7 @@
       <fsummary>Print a term on standard output</fsummary>
       <desc>
         <p>Prints a text representation of <c><anno>Term</anno></c> on the standard
-          output. On OSE the term is printed to the ramlog.</p>
+          output.</p>
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>
@@ -2063,10 +2143,10 @@ os_prompt% </pre>
 &lt;&lt;1,2,3&gt;&gt;
 > <input>Bin2 = &lt;&lt;4,5&gt;&gt;.</input>
 &lt;&lt;4,5&gt;&gt;
-> <input>Bin3 = &lt;&lt;6,7:4,&gt;&gt;.</input>
-&lt;&lt;6&gt;&gt;
+> <input>Bin3 = &lt;&lt;6,7:4&gt;&gt;.</input>
+&lt;&lt;6,7:4&gt;&gt;
 > <input>list_to_bitstring([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
-&lt;&lt;1,2,3,1,2,3,4,5,4,6,7:46&gt;&gt;</pre>
+&lt;&lt;1,2,3,1,2,3,4,5,4,6,7:4&gt;&gt;</pre>
       </desc>
     </func>
     <func>
@@ -4505,23 +4585,77 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="read_timer" arity="1"/>
-      <fsummary>Number of milliseconds remaining for a timer</fsummary>
+      <name name="read_timer" arity="2"/>
+      <fsummary>Read the state of a timer</fsummary>
       <desc>
-        <p><c><anno>TimerRef</anno></c> is a timer reference returned by
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>
-          or
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>.
-          If the timer is active, the function returns the time in
-          milliseconds left until the timer will expire, otherwise
-          <c>false</c> (which means that <c><anno>TimerRef</anno></c> was never a
-          timer, that it has been cancelled, or that it has already
-          delivered its message).</p>
+        <p>
+	  Read the state of a timer that has been created by either
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer()</c></seealso>,
+	  or <seealso marker="#send_after/4"><c>erlang:send_after()</c></seealso>.
+	  <c><anno>TimerRef</anno></c> identifies the timer, and
+	  was returned by the BIF that created the timer.
+	</p>
+	<p>Currently available <c><anno>Option</anno>s</c>:</p>
+        <taglist>
+          <tag><c>{async, Async}</c></tag>
+          <item>
+	    <p>
+	      Asynchronous request for state information. <c>Async</c>
+	      defaults to <c>false</c> which will cause the operation
+	      to be performed synchronously. In this case, the <c>Result</c>
+	      will be returned by <c>erlang:read_timer()</c>. When
+	      <c>Async</c> is set to <c>true</c>, <c>erlang:read_timer()</c>
+	      will send an asynchronous request for the state information
+	      to the timer service that manages the timer, and then return
+	      <c>ok</c>. A message on the format <c>{read_timer,
+	      <anno>TimerRef</anno>, <anno>Result</anno>}</c> will be
+	      sent to the caller of <c>erlang:read_timer()</c> when the
+	      operation has been processed.
+	    </p>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  When the <c><anno>Result</anno></c> equals <c>false</c>, a
+	  timer corresponding to <c><anno>TimerRef</anno></c> could not
+	  be found. This can be either because the timer had expired,
+	  had been canceled, or because <c><anno>TimerRef</anno></c>
+	  never has corresponded to a timer. If the timer has expired,
+	  the timeout message has been sent, but it does not tell you
+	  whether or not it has arrived at its destination yet. When the
+	  <c><anno>Result</anno></c> is an integer, it represents the
+	  time in milli-seconds left until the timer will expire.
+	</p>
+	<note>
+	  <p>
+	    The timer service that manages the timer may be co-located
+	    with another scheduler than the scheduler that the calling
+	    process is executing on. If this is the case, communication
+	    with the timer service will take much longer time than if it
+	    is located locally. If the calling process is in critical
+	    path, and can do other things while waiting for the result
+	    of this operation you want to use the <c>{async, true}</c>
+	    option. If using the <c>{async, false}</c> option, the calling
+	    process will be blocked until the operation has been
+	    performed.
+	  </p>
+	</note>
         <p>See also 
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
           and
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>.</p>
+          <seealso marker="#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="read_timer" arity="1"/>
+      <fsummary>Read the state of a timer</fsummary>
+      <desc>
+        <p>Read the state of a timer. The same as calling
+	<seealso marker="#read_timer/2"><c>erlang:read_timer(TimerRef,
+	[])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -4670,31 +4804,26 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="send_after" arity="3"/>
-      <type_desc variable="Time">0 &lt;= Time &lt;= 4294967295</type_desc>
+      <name name="send_after" arity="4"/>
       <fsummary>Start a timer</fsummary>
       <desc>
-        <p>Starts a timer which will send the message <c>Msg</c>
-          to <c><anno>Dest</anno></c> after <c><anno>Time</anno></c> milliseconds.</p>
-	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
-        <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
-          a registered process. The process referred to by the name is
-          looked up at the time of delivery. No error is given if
-          the name does not refer to a process.</p>
-
-        <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will be automatically
-          canceled if the process referred to by the <c>pid()</c> is not alive,
-          or when the process exits. This feature was introduced in
-          erts version 5.4.11. Note that timers will not be
-          automatically canceled when <c><anno>Dest</anno></c> is an <c>atom</c>.</p>
-        <p>See also
-          <seealso marker="#start_timer/3">erlang:start_timer/3</seealso>,
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>,
-          and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
-        <p>Failure: <c>badarg</c> if the arguments does not satisfy
-          the requirements specified above.</p>
+        <p>
+	  Starts a timer. When the timer expires, the message
+          <c><anno>Msg</anno></c> will be sent to the process
+	  identified by <c><anno>Dest</anno></c>. Appart from
+	  the format of the message sent to
+	  <c><anno>Dest</anno></c> when the timer expires
+	  <c>erlang:send_after/4</c> works exactly as
+	  <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="send_after" arity="3"/>
+      <fsummary>Start a timer</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#send_after/4"><c>erlang:send_after(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -5100,31 +5229,78 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="start_timer" arity="3"/>
-      <type_desc variable="Time">0 &lt;= Time &lt;= 4294967295</type_desc>
+      <name name="start_timer" arity="4"/>
       <fsummary>Start a timer</fsummary>
       <desc>
-        <p>Starts a timer which will send the message
-          <c>{timeout, <anno>TimerRef</anno>, <anno>Msg</anno>}</c> to <c><anno>Dest</anno></c>
-          after <c><anno>Time</anno></c> milliseconds.</p>
-	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
-        <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
-          a registered process. The process referred to by the name is
-          looked up at the time of delivery. No error is given if
-          the name does not refer to a process.</p>
-        <p>If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will be automatically
-          canceled if the process referred to by the <c>pid()</c> is not alive,
-          or when the process exits. This feature was introduced in
-          erts version 5.4.11. Note that timers will not be
-          automatically canceled when <c><anno>Dest</anno></c> is an <c>atom()</c>.</p>
+        <p>
+	  Starts a timer. When the timer expires, the message
+          <c>{timeout, <anno>TimerRef</anno>, <anno>Msg</anno>}</c>
+	  will be sent to the process identified by
+	  <c><anno>Dest</anno></c>.
+	</p>
+	<p>Currently available <c><anno>Option</anno></c>s:</p>
+        <taglist>
+          <tag><c>{abs, Abs}</c></tag>
+          <item>
+	    <p>
+	      Absolute <c><anno>Time</anno></c> value. <c>Abs</c>
+	      defaults to <c>false</c> which means that the
+	      <c><anno>Time</anno></c> value will be interpreted
+	      as a time in milli-seconds relative current
+	      <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	      monotonic time</seealso>. When <c>Abs</c> is set to
+	      <c>true</c>, the <c><anno>Time</anno></c> value will
+	      be interpreted as an absolute Erlang monotonic time of
+	      milli-seconds
+	      <seealso marker="#type_time_unit">time unit</seealso>.
+	    </p>
+	  </item>
+        </taglist>
+	<p>
+	  More <c><anno>Option</anno></c>s may be added in the future.
+	</p>
+	<p>
+	  The absolute point in time that the timer is set to expire on
+	  has to be in the interval
+	  <c>[</c><seealso marker="#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso><c>,
+	  </c><seealso marker="#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso><c>]</c>.
+	  Further, if a relative time is specified, the <c><anno>Time</anno></c> value
+	  is not allowed to be negative.
+	</p>
+	<p>
+	  If <c><anno>Dest</anno></c> is a <c>pid()</c>, it has to
+	  be a <c>pid()</c> of a process created on the current
+	  runtime system instance. This process may or may not
+	  have terminated. If <c><anno>Dest</anno></c> is an
+	  <c>atom()</c>, it will be interpreted as the name of a
+	  locally registered process. The process referred to by the
+	  name is looked up at the time of timer expiration. No error
+	  is given if the name does not refer to a process.
+	</p>
+        <p>
+	  If <c><anno>Dest</anno></c> is a <c>pid()</c>, the timer will
+	  be automatically canceled if the process referred to by the
+	  <c>pid()</c> is not alive, or when the process exits. This
+	  feature was introduced in erts version 5.4.11. Note that
+	  timers will not be automatically canceled when
+	  <c><anno>Dest</anno></c> is an <c>atom()</c>.
+	</p>
         <p>See also
-          <seealso marker="#send_after/3">erlang:send_after/3</seealso>,
-          <seealso marker="#cancel_timer/1">erlang:cancel_timer/1</seealso>,
+          <seealso marker="#send_after/4"><c>erlang:send_after/4</c></seealso>,
+          <seealso marker="#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>,
           and
-          <seealso marker="#read_timer/1">erlang:read_timer/1</seealso>.</p>
+          <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
         <p>Failure: <c>badarg</c> if the arguments does not satisfy
           the requirements specified above.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="start_timer" arity="3"/>
+      <fsummary>Start a timer</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#start_timer/4"><c>erlang:start_timer(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -6047,6 +6223,7 @@ ok
       <name name="system_info" arity="1" clause_i="64"/>
       <name name="system_info" arity="1" clause_i="65"/>
       <name name="system_info" arity="1" clause_i="66"/>
+      <name name="system_info" arity="1" clause_i="67"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -6115,6 +6292,15 @@ ok
             <p>Returns <c>true</c> if the emulator has been debug
 	       compiled; otherwise, <c>false</c>.
 	    </p>
+          </item>
+          <tag><marker id="system_info_delayed_node_table_gc"><c>delayed_node_table_gc</c></marker></tag>
+          <item>
+            <p>Returns the amount of time in seconds that garbage collection
+	    of an entry in a node table will be delayed. This limit can be set
+	    on startup by passing the
+	    <seealso marker="erts:erl#+zdntgc">+zdntgc</seealso> command line
+	    flag to <c>erl</c>. For more information see the documentation of the
+	    command line flag.</p>
           </item>
           <tag><marker id="system_info_dirty_cpu_schedulers"><c>dirty_cpu_schedulers</c></marker></tag>
           <item>
@@ -6236,6 +6422,14 @@ ok
             (i.e. <c>system_info(dynamic_trace)</c> returns
             <c>dtrace</c> or <c>systemtap</c>).</p>
           </item>
+	  <tag><marker id="system_info_end_time"/><c>end_time</c></tag>
+	  <item><p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
+	  time</seealso> in <c>native</c>
+	  <seealso marker="#type_time_unit">time unit</seealso> that
+	  can be represented internally in the current Erlang runtime system
+	  instance. The time between the
+	  <seealso marker="#system_info_start_time">start time</seealso> and
+	  the end time is at least a quarter of a millennium.</p></item>
           <tag><c>elib_malloc</c></tag>
           <item>
             <p>This option will be removed in a future release.
@@ -6680,7 +6874,9 @@ ok
 	  <item><p>The <seealso marker="#monotonic_time/0">Erlang monotonic
 	  time</seealso> in <c>native</c>
 	  <seealso marker="#type_time_unit">time unit</seealso> at the
-	  time when current Erlang runtime system instance started.</p></item>
+	  time when current Erlang runtime system instance started. See also
+	  <seealso marker="#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso>.
+	  </p></item>
           <tag><c>system_version</c></tag>
           <item>
             <p>Returns a string containing version number and

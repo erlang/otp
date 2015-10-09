@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -46,8 +47,8 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
       fun ({function,Name,Arity,Entry,Asm}) ->
 	      io:format(Stream, "\n\n{function, ~w, ~w, ~w}.\n",
 			[Name, Arity, Entry]),
-	      foreach(fun(Op) -> print_op(Stream, Op) end, Asm) end,
-      Code);
+	      io:put_chars(Stream, format_asm(Asm))
+      end, Code);
 module(Stream, {Mod,Exp,Inter}) ->
     %% Other kinds of intermediate formats.
     io:fwrite(Stream, "~w.~n~p.~n", [Mod,Exp]),
@@ -56,10 +57,11 @@ module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
 
-print_op(Stream, Label) when element(1, Label) == label ->
-    io:format(Stream, "  ~p.\n", [Label]);
-print_op(Stream, Op) ->
-    io:format(Stream, "    ~p.\n", [Op]).
+format_asm([{label,L}|Is]) ->
+    ["  {label,",integer_to_list(L),"}.\n"|format_asm(Is)];
+format_asm([I|Is]) ->
+    [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
+format_asm([]) -> [].
 
 function(File, {function,Name,Arity,Args,Body,Vdb,_Anno}) ->
     io:nl(File),

@@ -27,7 +27,7 @@ finalize(CompiledCode, Closures, Exports) ->
   DataRelocs = hipe_pack_constants:mk_data_relocs(RefsFromConsts, LabelMap),
   SSE = hipe_pack_constants:slim_sorted_exportmap(ExportMap, Closures, Exports),
   SlimRefs = hipe_pack_constants:slim_refs(AccRefs),
-  term_to_binary([{?VERSION_STRING(),?HIPE_SYSTEM_CRC},
+  term_to_binary([{?VERSION_STRING(),?HIPE_ERTS_CHECKSUM},
 		  ConstAlign, ConstSize,
 		  SC,  % ConstMap
 		  DataRelocs, % LabelMap

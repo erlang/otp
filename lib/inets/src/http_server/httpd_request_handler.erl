@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2, code_change/3, format_status/2]).
 
 -include("httpd.hrl").
 -include("http_internal.hrl").
@@ -121,13 +122,15 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     MaxURISize    = max_uri_size(ConfigDB), 
     NrOfRequest   = max_keep_alive_request(ConfigDB), 
     MaxContentLen = max_content_length(ConfigDB),
+    Customize = customize(ConfigDB),
 
     {_, Status} = httpd_manager:new_connection(Manager),
     
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
 				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
 				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen}
+				   {max_content_length, MaxContentLen},
+				   {customize, Customize}
 				  ]]}, 
 
     State = #state{mod                    = Mod, 
@@ -307,6 +310,18 @@ do_terminate(#state{mod = ModData} = State) ->
     cancel_request_timeout(State),
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}];  
+format_status(terminate, [_, State]) ->
+    Mod = (State#state.mod),
+    case Mod#mod.socket_type of
+	ip_comm ->
+	    [{data, [{"StateData", State}]}];  
+	{essl, _} ->
+	    %% Do not print ssl options in superviosr reports
+	    [{data, [{"StateData", 
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+    end.
 
 %%--------------------------------------------------------------------
 %% code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -550,11 +565,13 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
     MaxHeaderSize = max_header_size(ModData#mod.config_db), 
     MaxURISize    = max_uri_size(ModData#mod.config_db), 
     MaxContentLen = max_content_length(ModData#mod.config_db),
+    Customize = customize(ModData#mod.config_db),
 
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
 				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
 				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen}
+				   {max_content_length, MaxContentLen},
+				   {customize, Customize}
 				  ]]}, 
     TmpState = State#state{mod                    = NewModData,
 			   mfa                    = MFA,
@@ -640,3 +657,6 @@ max_keep_alive_request(ConfigDB) ->
 
 max_content_length(ConfigDB) ->    
     httpd_util:lookup(ConfigDB, max_content_length, ?HTTP_MAX_CONTENT_LENGTH).
+
+customize(ConfigDB) ->    
+    httpd_util:lookup(ConfigDB, customize, httpd_custom).

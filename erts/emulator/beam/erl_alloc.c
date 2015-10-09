@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2002-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -39,7 +40,7 @@
 #include "erl_instrument.h"
 #include "erl_mseg.h"
 #include "erl_monitors.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
@@ -122,10 +123,6 @@ typedef union {
 
 static ErtsAllocatorState_t std_alloc_state;
 static ErtsAllocatorState_t ll_alloc_state;
-#if HALFWORD_HEAP
-static ErtsAllocatorState_t std_low_alloc_state;
-static ErtsAllocatorState_t ll_low_alloc_state;
-#endif
 static ErtsAllocatorState_t sl_alloc_state;
 static ErtsAllocatorState_t temp_alloc_state;
 static ErtsAllocatorState_t eheap_alloc_state;
@@ -149,24 +146,10 @@ typedef struct {
 #define ERTS_ALC_INFO_A_MSEG_ALLOC (ERTS_ALC_A_MAX + 2)
 #define ERTS_ALC_INFO_A_MAX ERTS_ALC_INFO_A_MSEG_ALLOC
 
-#if !HALFWORD_HEAP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(aireq,
-				 ErtsAllocInfoReq,
-				 5,
-				 ERTS_ALC_T_AINFO_REQ)
-#else
-static ERTS_INLINE ErtsAllocInfoReq *
-aireq_alloc(void)
-{
-    return erts_alloc(ERTS_ALC_T_AINFO_REQ, sizeof(ErtsAllocInfoReq));
-}
-
-static ERTS_INLINE void
-aireq_free(ErtsAllocInfoReq *ptr)
-{
-    erts_free(ERTS_ALC_T_AINFO_REQ, ptr);
-}
-#endif
+                                 ErtsAllocInfoReq,
+                                 5,
+                                 ERTS_ALC_T_AINFO_REQ)
 
 ErtsAlcType_t erts_fix_core_allocator_ix;
 
@@ -228,10 +211,6 @@ typedef struct {
     struct au_init ets_alloc;
     struct au_init driver_alloc;
     struct au_init fix_alloc;
-#if HALFWORD_HEAP
-    struct au_init std_low_alloc;
-    struct au_init ll_low_alloc;
-#endif
 } erts_alc_hndl_args_init_t;
 
 #define ERTS_AU_INIT__ {0, 0, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
@@ -258,10 +237,6 @@ set_default_sl_alloc_opts(struct au_init *ip)
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_SHORT_LIVED;
     ip->init.util.rsbcst	= 80;
-#if HALFWORD_HEAP
-    ip->init.util.force         = 1;
-    ip->init.util.low_mem       = 1;
-#endif
     ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
@@ -327,10 +302,6 @@ set_default_temp_alloc_opts(struct au_init *ip)
     ip->init.util.ts 		= ERTS_ALC_MTA_TEMPORARY;
     ip->init.util.rsbcst	= 90;
     ip->init.util.rmbcmt	= 100;
-#if HALFWORD_HEAP
-    ip->init.util.force         = 1;
-    ip->init.util.low_mem       = 1;
-#endif
 }
 
 static void
@@ -349,10 +320,6 @@ set_default_eheap_alloc_opts(struct au_init *ip)
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_EHEAP;
     ip->init.util.rsbcst	= 50;
-#if HALFWORD_HEAP
-    ip->init.util.force         = 1;
-    ip->init.util.low_mem       = 1;
-#endif
     ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC;
 }
 
@@ -559,12 +526,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_PROC)]
 	= sizeof(Process);
-#if !HALFWORD_HEAP
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MONITOR_SH)]
 	= ERTS_MONITOR_SH_SIZE * sizeof(Uint);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NLINK_SH)]
 	= ERTS_LINK_SH_SIZE * sizeof(Uint);
-#endif
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_EV_D_STATE)]
 	= sizeof(ErtsDrvEventDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
@@ -575,6 +540,17 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
 	= sizeof(ErtsThrQElement_t);
 #endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_LL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_LL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_HL_PTIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_HL_PTIMER);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_BIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_BIF_TIMER);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
+	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
+#endif
+
 #ifdef HARD_DEBUG
     hdbg_init();
 #endif
@@ -733,24 +709,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_allctrs[ERTS_ALC_A_SYSTEM].free		= erts_sys_free;
     erts_allctrs_info[ERTS_ALC_A_SYSTEM].enabled	= 1;
 
-#if HALFWORD_HEAP
-    /* Init low memory variants by cloning */
-    init.std_low_alloc = init.std_alloc;
-    init.std_low_alloc.init.util.name_prefix	= "std_low_";
-    init.std_low_alloc.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
-    init.std_low_alloc.init.util.force = 1;
-    init.std_low_alloc.init.util.low_mem = 1;
-
-    init.ll_low_alloc = init.ll_alloc;
-    init.ll_low_alloc.init.util.name_prefix	= "ll_low_";
-    init.ll_low_alloc.init.util.alloc_no = ERTS_ALC_A_LONG_LIVED_LOW;
-    init.ll_low_alloc.init.util.force = 1;
-    init.ll_low_alloc.init.util.low_mem = 1;
-
-    set_au_allocator(ERTS_ALC_A_STANDARD_LOW, &init.std_low_alloc, ncpu);
-    set_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW, &init.ll_low_alloc, ncpu);
-#endif /* HALFWORD */
-
     set_au_allocator(ERTS_ALC_A_TEMPORARY, &init.temp_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_SHORT_LIVED, &init.sl_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_STANDARD, &init.std_alloc, ncpu);
@@ -793,14 +751,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     start_au_allocator(ERTS_ALC_A_LONG_LIVED,
 		       &init.ll_alloc,
 		       &ll_alloc_state);
-#if HALFWORD_HEAP
-    start_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW,
-		       &init.ll_low_alloc,
-		       &ll_low_alloc_state);
-    start_au_allocator(ERTS_ALC_A_STANDARD_LOW,
-		       &init.std_low_alloc,
-		       &std_low_alloc_state);
-#endif
     start_au_allocator(ERTS_ALC_A_EHEAP,
 		       &init.eheap_alloc,
 		       &eheap_alloc_state);
@@ -824,9 +774,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_mtrace_install_wrapper_functions();
     extra_block_size += erts_instr_init(init.instr.stat, init.instr.map);
 
-#if !HALFWORD_HEAP
     init_aireq_alloc();
-#endif
 
 #ifdef DEBUG
     extra_block_size += install_debug_functions();
@@ -1226,9 +1174,6 @@ get_acul_value(struct au_init *auip, char *param_end, char** argv, int* ip)
     if (sys_strcmp(value, "de") == 0) {
 	switch (auip->init.util.alloc_no) {
 	case ERTS_ALC_A_LONG_LIVED:
-#if HALFWORD_HEAP
-	case ERTS_ALC_A_LONG_LIVED_LOW:
-#endif
 	    return ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC;
 	case ERTS_ALC_A_EHEAP:
 	    return ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC;
@@ -1873,8 +1818,8 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	size = va_arg(argp, Uint);
 	va_end(argp);
 	erl_exit(1,
-		 "%s: Cannot %s %lu bytes of memory (of type \"%s\", thread %d).\n",
-		 allctr_str, op, size, t_str, ERTS_ALC_GET_THR_IX());
+		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
+		 allctr_str, op, size, t_str);
 	break;
     }
     case ERTS_ALC_E_NOALLCTR:
@@ -1945,48 +1890,6 @@ alcu_size(ErtsAlcType_t ai, ErtsAlcUFixInfo_t *fi, int fisz)
     return res;
 }
 
-#if HALFWORD_HEAP
-static ERTS_INLINE int
-alcu_is_low(ErtsAlcType_t ai)
-{
-    int is_low = 0;
-    ASSERT(erts_allctrs_info[ai].enabled);
-    ASSERT(erts_allctrs_info[ai].alloc_util);
-
-    if (!erts_allctrs_info[ai].thr_spec) {
-	Allctr_t *allctr = erts_allctrs_info[ai].extra;
-	is_low = allctr->mseg_opt.low_mem;
-    }
-    else {
-	ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[ai];
-	int i;
-# ifdef DEBUG
-	int found_one = 0;
-# endif
-
-	ASSERT(tspec->enabled);
-
-	for (i = tspec->size - 1; i >= 0; i--) {
-	    Allctr_t *allctr = tspec->allctr[i];
-	    if (allctr) {
-# ifdef DEBUG
-		if (!found_one) {
-		    is_low = allctr->mseg_opt.low_mem;
-		    found_one = 1;
-		}
-		else ASSERT(is_low == allctr->mseg_opt.low_mem);
-# else
-		is_low = allctr->mseg_opt.low_mem;
-		break;
-# endif
-	    }
-	}
-	ASSERT(found_one);
-    }
-    return is_low;
-}
-#endif /* HALFWORD */
-
 static ERTS_INLINE void
 add_fix_values(UWord *ap, UWord *up, ErtsAlcUFixInfo_t *fi, ErtsAlcType_t type)
 {
@@ -2016,9 +1919,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	int code;
 	int ets;
 	int maximum;
-#if HALFWORD_HEAP
-	int low;
-#endif
     } want = {0};
     struct {
 	UWord total;
@@ -2031,9 +1931,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	UWord code;
 	UWord ets;
 	UWord maximum;
-#if HALFWORD_HEAP
-	UWord low;
-#endif
     } size = {0};
     Eterm atoms[sizeof(size)/sizeof(UWord)];
     UWord *uintps[sizeof(size)/sizeof(UWord)];
@@ -2092,11 +1989,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    atoms[length] = am_maximum;
 	    uintps[length++] = &size.maximum;
 	}
-#if HALFWORD_HEAP
-	want.low = 1;
-	atoms[length] = am_low;
-	uintps[length++] = &size.low;
-#endif
     }
     else {
 	DeclareTmpHeapNoproc(tmp_heap,2);
@@ -2190,15 +2082,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		    return am_badarg;
 		}
 		break;
-#if HALFWORD_HEAP
-	    case am_low:
-		if (!want.low) {
-		    want.low = 1;
-		    atoms[length] = am_low;
-		    uintps[length++] = &size.low;
-		}
-		break;
-#endif
 	    default:
 		UnUseTmpHeapNoproc(2);
 		return am_badarg;
@@ -2276,11 +2159,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		if (save)
 		    *save = asz;
 		size.total += asz;
-#if HALFWORD_HEAP
-		if (alcu_is_low(ai)) {
-		    size.low += asz;
-		}
-#endif
 	    }
 	}
     }
@@ -2307,7 +2185,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_PROC);
-#if !HALFWORD_HEAP
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
@@ -2317,11 +2194,28 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_NLINK_SH);
-#endif
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_MSG_REF);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_LL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_HL_PTIMER);
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_BIF_TIMER);
+#ifdef ERTS_BTM_ACCESSOR_SUPPORT
+	add_fix_values(&size.processes,
+		       &size.processes_used,
+		       fi,
+		       ERTS_ALC_T_ABIF_TIMER);
+#endif
     }
 
     if (want.atom || want.atom_used) {
@@ -3180,17 +3074,13 @@ reply_alloc_info(void *vair)
 	HRelease(rp, hp_end, hp);	    
     }
 
-    erts_queue_message(rp, &rp_locks, bp, msg, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(rp, &rp_locks, bp, msg, NIL);
 
     if (air->req_sched == sched_id)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
     erts_smp_proc_unlock(rp, rp_locks);
-    erts_smp_proc_dec_refc(rp);
+    erts_proc_dec_refc(rp);
 
     if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0)
 	aireq_free(air);
@@ -3264,7 +3154,7 @@ erts_request_alloc_info(struct process *c_p,
     erts_smp_atomic32_init_nob(&air->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
-    erts_smp_proc_add_refc(c_p, (Sint32) erts_no_schedulers);
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
 #ifdef ERTS_SMP
     if (erts_no_schedulers > 1)

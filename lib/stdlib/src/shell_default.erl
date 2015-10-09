@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,7 +24,7 @@
 -module(shell_default).
 
 -export([help/0,lc/1,c/1,c/2,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,
-         memory/0,memory/1,
+         memory/0,memory/1,uptime/0,
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
 	 xm/1, bt/1, q/0,
@@ -92,6 +93,7 @@ pid(X,Y,Z) 	-> c:pid(X,Y,Z).
 pwd()           -> c:pwd().
 q()		-> c:q().
 regs()          -> c:regs().
+uptime()        -> c:uptime().
 xm(Mod)         -> c:xm(Mod).
 y(File)         -> c:y(File).
 y(File, Opts)   -> c:y(File, Opts).

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -119,13 +120,13 @@
          service      :: #diameter_service{},
          dpr = false  :: false
                        | true  %% DPR received, DPA sent
-                       | {uint32(), uint32()}  %% set in old code
                        | {boolean(), uint32(), uint32()},
                        %% hop by hop and end to end identifiers in
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
-         length_errors :: exit | handle | discard}).
+         length_errors :: exit | handle | discard,
+         incoming_maxlen :: integer() | infinity}).
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
 %% standard and the corresponding problem for incoming CEA's: we don't
@@ -154,8 +155,7 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {[diameter:service_opt()]
-                       | diameter:sequence(),  %% from old code
+-spec start(T, [Opt], {[diameter:service_opt()],
                        [node()],
                        module(),
                        #diameter_service{}})
@@ -194,15 +194,13 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({Ack, WPid, T, Opts, {{_,_} = Mask, Nodes, Dict0, Svc}}) -> %% from old code
-    i({Ack, WPid, T, Opts, {[{sequence, Mask}], Nodes, Dict0, Svc}});
-
 i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
     diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
+    Maxlen = proplists:get_value(incoming_maxlen, SvcOpts, 16#FFFFFF),
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
@@ -223,7 +221,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            dictionary = Dict0,
            mode = M,
            service = svc(Svc, Addrs),
-           length_errors = OnLengthErr}.
+           length_errors = OnLengthErr,
+           incoming_maxlen = Maxlen}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -316,7 +315,7 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, Reason),
             {stop, {shutdown, Reason}, State};
         stop ->
-            ?LOG(stop, T),
+            ?LOG(stop, truncate(T)),
             {stop, {shutdown, T}, State}
     catch
         exit: {diameter_codec, encode, T} = Reason ->
@@ -349,6 +348,11 @@ code_change(_, State, _) ->
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
 
+truncate({'DOWN' = T, _, process, Pid, _}) ->
+    {T, Pid};
+truncate(T) ->
+    T.
+
 putr(Key, Val) ->
     put({?MODULE, Key}, Val).
 
@@ -359,9 +363,6 @@ eraser(Key) ->
     erase({?MODULE, Key}).
 
 %% transition/2
-
-transition(T, #state{dpr = {Hid, Eid}} = S) -> %% DPR sent from old code
-    transition(T, S#state{dpr = {false, Hid, Eid}});
 
 %% Connection to peer.
 transition({diameter, {TPid, connected, Remote}},
@@ -560,6 +561,12 @@ recv(Bin, S) ->
     recv(#diameter_packet{bin = Bin}, S).
 
 %% recv1/3
+
+recv1(_,
+      #diameter_packet{header = H, bin = Bin},
+      #state{incoming_maxlen = M})
+  when M < size(Bin) ->
+    invalid(false, incoming_maxlen_exceeded, {size(Bin), H});
 
 %% Incoming request after outgoing DPR: discard. Don't discard DPR, so
 %% both ends don't do so when sending simultaneously.
@@ -1284,25 +1291,15 @@ dpa_timer(Tmo) ->
     erlang:send_after(Tmo, self(), dpa_timeout).
 
 dpa_timeout() ->
-    dpa_timeout(getr(?DPA_KEY)).
-
-dpa_timeout({_, Tmo}) ->
-    Tmo;
-dpa_timeout(undefined) ->  %% set in old code
-    ?DPA_TIMEOUT;
-dpa_timeout(Tmo) ->        %% ditto
+    {_, Tmo} = getr(?DPA_KEY),
     Tmo.
 
 dpr_timer() ->
     dpa_timer(dpr_timeout()).
 
 dpr_timeout() ->
-    dpr_timeout(getr(?DPA_KEY)).
-
-dpr_timeout({Tmo, _}) ->
-    Tmo;
-dpr_timeout(_) ->  %% set in old code
-    ?DPR_TIMEOUT.
+    {Tmo, _} = getr(?DPA_KEY),
+    Tmo.
 
 %% register_everywhere/1
 %%

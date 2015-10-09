@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -31,8 +32,8 @@
   <module>mod_alias</module>
   <modulesummary>URL aliasing.</modulesummary>
   <description>
-    <p>Erlang Webserver Server internal API for handling of things
-    such as interaction data exported by the mod_alias module.</p>
+    <p>Erlang web server internal API for handling of, for example,
+    interaction data exported by module <c>mod_alias</c>.</p>
 
     <marker id="default_index"></marker>
   </description>
@@ -40,7 +41,7 @@
   <funcs>
     <func>
       <name>default_index(ConfigDB, Path) -> NewPath</name>
-      <fsummary>Return a new path with the default resource or file appended.</fsummary>
+      <fsummary>Returns a new path with the default resource or file appended.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
         <v>Path = NewPath = string()</v>
@@ -49,14 +50,14 @@
         <marker id="default_index"></marker>
         <p>If <c>Path</c> is a directory, <c>default_index/2</c>, it starts
 	searching for resources or files that are specified in the config
-	directive DirectoryIndex.
+	directive <c>DirectoryIndex</c>.
 	If an appropriate resource or file is found, it is appended to
 	the end of <c>Path</c> and then returned. <c>Path</c> is
-	returned unaltered, if no appropriate
-	file is found, or if <c>Path</c> is not a directory.
+	returned unaltered if no appropriate
+	file is found or if <c>Path</c> is not a directory.
 	<c>config_db()</c> is the server config file in ETS table format
 	as described in
-	<seealso marker="http_server">Inets Users Guide.</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="path"></marker>
       </desc>
@@ -64,7 +65,7 @@
 
     <func>
       <name>path(PathData, ConfigDB, RequestURI) -> Path</name>
-      <fsummary>Return the actual file path to a URL.</fsummary>
+      <fsummary>Returns the file path to a URL.</fsummary>
       <type>
         <v>PathData = interaction_data()</v>
         <v>ConfigDB = config_db()</v>
@@ -72,15 +73,16 @@
       </type>
       <desc>
         <marker id="path"></marker>
-        <p><c>path/3</c> returns the actual file <c>Path</c> in the
-	<c>RequestURI</c> (See RFC 1945). If the interaction data
-	<c>{real_name,{Path,AfterPath}}</c> has been exported by
-	mod_alias;
+        <p><c>path/3</c> returns the file <c>Path</c> in the
+	<c>RequestURI</c> (see 
+	<url href="http://www.rfc-base.org/rfc-1945.html">RFC 1945</url>). 
+	If the interaction data <c>{real_name,{Path,AfterPath}}</c> 
+	has been exported by <c>mod_alias</c>,
 	<c>Path</c> is returned. If no interaction data has been
-	exported, ServerRoot is used to
+	exported, <c>ServerRoot</c> is used to
 	generate a file <c>Path</c>. <c>config_db()</c> and
 	<c>interaction_data()</c> are as defined in 
-	<seealso marker="http_server">Inets Users Guide</seealso>.</p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="real_name"></marker>
       </desc>
@@ -88,7 +90,7 @@
 
     <func>
       <name>real_name(ConfigDB, RequestURI, Aliases) -> Ret</name>
-      <fsummary>Expand a request uri using  Alias config directives.</fsummary>
+      <fsummary>Expands a request URI using <c>Aliases</c> config directives.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
         <v>RequestURI = string()</v>
@@ -100,18 +102,18 @@
         <marker id="real_name"></marker>
         <p><c>real_name/3</c> traverses <c>Aliases</c>, typically
 	extracted from <c>ConfigDB</c>, and matches each
-	<c>FakeName</c> with <c>RequestURI</c>. If a match is found 
+	<c>FakeName</c> with <c>RequestURI</c>. If a match is found, 
 	<c>FakeName</c> is replaced with <c>RealName</c> in the
-	match. The resulting path is split into two parts, that
-	is <c>ShortPath</c> and <c>AfterPath</c> as defined in 
-	<seealso marker="httpd_util#split_path">httpd_util:split_path/1</seealso>. 
-	<c>Path</c> is generated from <c>ShortPath</c>, that is
+	match. The resulting path is split into two parts,
+	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
+	<seealso marker="httpd_util#split_path-1">httpd_util:split_path/1</seealso>. 
+	<c>Path</c> is generated from <c>ShortPath</c>, that is,
 	the result from 
 	<seealso marker="#default_index">default_index/2</seealso> with
 	<c>ShortPath</c> as an argument.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
-	<seealso marker="http_server">Inets User Guide.</seealso>. </p>
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
 
 	<marker id="real_script_name"></marker>
       </desc>
@@ -119,7 +121,8 @@
 
     <func>
       <name>real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret</name>
-      <fsummary>Expand a request uri using ScriptAlias config directives.</fsummary>
+      <fsummary>Expands a request URI using <c>ScriptAliases</c> 
+      config directives.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
         <v>RequestURI = string()</v>
@@ -131,14 +134,16 @@
         <marker id="real_script_name"></marker>
         <p><c>real_script_name/3</c> traverses <c>ScriptAliases</c>,
 	typically extracted from <c>ConfigDB</c>, and matches each
-	<c>FakeName</c> with <c>RequestURI</c>. If a match is found
+	<c>FakeName</c> with <c>RequestURI</c>. If a match is found,
 	<c>FakeName</c> is replaced with <c>RealName</c> in the
-	match. If the resulting match is not an executable script
-	<c>not_a_script</c> is returned. If it is a script the
-	resulting script path is in two parts, that is
-	<c>ShortPath</c> and <c>AfterPath</c> as defined in <seealso marker="httpd_util#split_script_path">httpd_util:split_script_path/1</seealso>.
+	match. If the resulting match is not an executable script,
+	<c>not_a_script</c> is returned. If it is a script, the
+	resulting script path is in two parts,
+	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
+	<seealso marker="httpd_util#split_script_path-1">httpd_util:split_script_path/1</seealso>.
 	<c>config_db()</c> is the server config file in ETS table
-	format as described in <seealso marker="http_server">Inets Users Guide.</seealso>.</p>
+	format as described in 
+	<seealso marker="http_server">Inets User's Guide</seealso>.</p>
       </desc>
     </func>
   </funcs>

@@ -8,139 +8,145 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
-    <title>Using the SSL API</title>
+    <title>Using SSL API</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
     <file>using_ssl.xml</file>
   </header>
-
-  <section>
-    <title>General information</title>
-    <p>To see relevant version information for ssl you can
-    call ssl:versions/0</p>
+  <p>To see relevant version information for ssl, call
+  <seealso marker="ssl:ssl#versions-0"><c>ssl:versions/0</c></seealso>
+  .</p>
     
-    <p>To see all supported cipher suites 
-    call ssl:cipher_suites/0. Note that available cipher suites
-    for a connection will depend on your certificate. It is also
-    possible to specify a specific cipher suite(s) that you
-    want your connection to use. Default is to use the  strongest
-    available.</p>
-
-  </section>
+  <p>To see all supported cipher suites, call  <seealso marker="ssl:ssl#cipher_suites-1"><c>ssl:cipher_suites(all)</c> </seealso>. 
+  The available cipher suites for a connection depend on your certificate. 
+  Specific cipher suites that you want your connection to use can also be 
+  specified. Default is to use the strongest available.</p>
   
   <section>
-    <title>Setting up connections</title>
+    <title>Setting up Connections</title>
     
-    <p>Here follows some small example of how to set up client/server connections
-    using the erlang shell. The returned value of the sslsocket has been abbreviated with
-    <c>[...]</c> as it can be fairly large and is opaque.</p>
+    <p>This section shows a small example of how to set up client/server connections
+    using the Erlang shell. The returned value of the <c>sslsocket</c> is abbreviated
+    with <c>[...]</c> as it can be fairly large and is opaque.</p>
     
     <section>
-      <title>Minmal example</title>
+      <title>Minimal Example</title>
       
-      <note><p> The minimal setup is not the  most secure setup of ssl.</p>    
+      <note><p> The minimal setup is not the most secure setup of SSL.</p>    
       </note>
-      
-      <p> Start server side</p>
+
+      <p>To set up client/server connections:</p>
+
+      <p><em>Step 1:</em> Start the server side:</p>
       <code type="erl">1 server> ssl:start().
 ok</code>
       
-      <p>Create an ssl listen socket</p>
+      <p><em>Step 2:</em> Create an SSL listen socket:</p>
       <code type="erl">2 server> {ok, ListenSocket} =
 ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
       
-      <p>Do a transport accept on the ssl listen socket</p>
+      <p><em>Step 3:</em> Do a transport accept on the SSL listen socket:</p>
       <code type="erl">3 server> {ok, Socket} = ssl:transport_accept(ListenSocket).
 {ok,{sslsocket, [...]}}</code>
 
-      <p>Start client side</p>
+      <p><em>Step 4:</em> Start the client side:</p>
       <code type="erl">1 client> ssl:start().
 ok</code>
       
       <code type="erl">2 client> {ok, Socket} = ssl:connect("localhost", 9999,  [], infinity).
 {ok,{sslsocket, [...]}}</code>
       
-      <p>Do the ssl handshake</p>
+      <p><em>Step 5:</em> Do the SSL handshake:</p>
       <code type="erl">4 server> ok = ssl:ssl_accept(Socket).
 ok</code>
       
-      <p>Send a messag over ssl</p>
+      <p><em>Step 6:</em> Send a message over SSL:</p>
       <code type="erl">5 server> ssl:send(Socket, "foo").
 ok</code>
       
-      <p>Flush the shell message queue to see that we got the message
-      sent on the server side</p>
+      <p><em>Step 7:</em> Flush the shell message queue to see that the message
+      was sent on the server side:</p>
       <code type="erl">3 client> flush().
 Shell got {ssl,{sslsocket,[...]},"foo"}
 ok</code>
     </section>
     
     <section>
-      <title>Upgrade example</title>
+      <title>Upgrade Example</title>
       
-      <note><p> To upgrade a TCP/IP connection to an ssl connection the
-      client and server have to aggre to do so. Agreement
-      may be accompliced by using a protocol such the one used by HTTP
-      specified in RFC 2817.</p> </note>
+      <note><p>To upgrade a TCP/IP connection to an SSL connection, the
+      client and server must agree to do so. The agreement
+      can be accomplished by using a protocol, for example, the one used by HTTP
+      specified in RFC 2817.</p></note>
+
+      <p>To upgrade to an SSL connection:</p>
       
-      <p>Start server side</p>
+      <p><em>Step 1:</em> Start the server side:</p>
       <code type="erl">1 server> ssl:start().
 ok</code>
       
-      <p>Create a normal tcp listen socket</p>
+      <p><em>Step 2:</em> Create a normal TCP listen socket:</p>
       <code type="erl">2 server> {ok, ListenSocket} = gen_tcp:listen(9999, [{reuseaddr, true}]).
 {ok, #Port&lt;0.475&gt;}</code>
       
-      <p>Accept client connection</p>
+      <p><em>Step 3:</em> Accept client connection:</p>
       <code type="erl">3 server> {ok, Socket} = gen_tcp:accept(ListenSocket).
 {ok, #Port&lt;0.476&gt;}</code>
       
-      <p>Start client side</p>
+      <p><em>Step 4:</em> Start the client side:</p>
       <code type="erl">1 client> ssl:start().
 ok</code>
       
       <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
       
-      <p>Make sure active is set to false before trying
-      to upgrade a connection to an ssl connection, otherwhise
-      ssl handshake messages may be deliverd to the wrong process.</p>
+      <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c> before trying
+      to upgrade a connection to an SSL connection, otherwise
+      SSL handshake messages can be delivered to the wrong process:</p>
       <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
 ok</code>
       
-      <p>Do the ssl handshake.</p>
+      <p><em>Step 6:</em> Do the SSL handshake:</p>
       <code type="erl">5 server> {ok, SSLSocket} = ssl:ssl_accept(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
-      <p> Upgrade to an ssl connection. Note that the client and server
-      must agree upon the upgrade and the server must call
-      ssl:accept/2 before the client calls ssl:connect/3.</p>
+      <p><em>Step 7:</em> Upgrade to an SSL connection. The client and server
+      must agree upon the upgrade. The server must call
+      <c>ssl:accept/2</c> before the client calls <c>ssl:connect/3.</c></p>
       <code type="erl">3 client>{ok, SSLSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
 {certfile, "cert.pem"}, {keyfile, "key.pem"}], infinity).
 {ok,{sslsocket,[...]}}</code>
       
-      <p>Send a messag over ssl</p>
+      <p><em>Step 8:</em> Send a message over SSL:</p>
       <code type="erl">4 client> ssl:send(SSLSocket, "foo").
 ok</code>
       
-      <p>Set active true on the ssl socket</p>
+      <p><em>Step 9:</em> Set <c>active true</c> on the SSL socket:</p>
       <code type="erl">4 server> ssl:setopts(SSLSocket, [{active, true}]).
 ok</code>
       
-      <p>Flush the shell message queue to see that we got the message
-      sent on the client side</p>
+      <p><em>Step 10:</em> Flush the shell message queue to see that the message
+      was sent on the client side:</p>
       <code type="erl">5 server> flush().
 Shell got {ssl,{sslsocket,[...]},"foo"}
 ok</code>

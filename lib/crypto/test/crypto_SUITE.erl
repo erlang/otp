@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1999-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -117,10 +118,10 @@ init_per_suite(Config) ->
 		_ ->
 		    Config
 	    catch error:low_entropy ->
-		    %% Make sure we are on OSE, otherwise we want to crash
-		    {ose,_} = os:type(),
+                    %% We are testing on an OS with low entropy in its random
+                    %% seed. So we have to seed it with a binary to get started.
 
-		    %% This is NOT how you want to seed this, it is just here
+		    %% This is NOT how you want to do seeding, it is just here
 		    %% to make the tests pass. Check your OS manual for how you
 		    %% really want to seed.
 		    {H,M,L} = erlang:now(),
@@ -1884,8 +1885,9 @@ dss_params() ->
      18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669].
 
 ec_key_named() ->
-    {D2_pub, D2_priv} = crypto:generate_key(ecdh, sect113r2),
-    {[D2_priv, sect113r2], [D2_pub, sect113r2]}.  
+    Curve = secp112r2,
+    {D2_pub, D2_priv} = crypto:generate_key(ecdh, Curve),
+    {[D2_priv, Curve], [D2_pub, Curve]}.
 
 ec_msg() ->
     <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>.

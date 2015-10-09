@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -45,20 +46,10 @@
 	 del_transient/3,
 	 del_index_table/3]).
 
--import(mnesia_lib, [verbose/2]).
+-import(mnesia_lib, [val/1, verbose/2]).
 -include("mnesia.hrl").
 
 -record(index, {setorbag, pos_list}).
-
-val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} ->
-            case mnesia_lib:other_val(Var) of
-                error -> mnesia_lib:pr_other(Var, _ReASoN_);
-                Val -> Val
-            end;
-	_VaLuE_ -> _VaLuE_ 
-    end.
 
 %% read an object list throuh its index table
 %% we assume that table Tab has index on attribute number Pos
@@ -79,17 +70,24 @@ add_index(Index, Tab, Key, Obj, Old) ->
 add_index2([{Pos, Ixt} |Tail], bag, Tab, K, Obj, OldRecs) ->
     db_put(Ixt, {element(Pos, Obj), K}),
     add_index2(Tail, bag, Tab, K, Obj, OldRecs);
-add_index2([{Pos, Ixt} |Tail], Type, Tab, K, Obj, OldRecs) ->
+add_index2([{Pos, Ixt} |Tail], Type, Tab, K, Obj, OldRecs0) ->
     %% Remove old tuples in index if Tab is updated
-    case OldRecs of 
-	undefined -> 
-	    Old = mnesia_lib:db_get(Tab, K),
-	    del_ixes(Ixt, Old, Pos, K);
-	Old -> 
-	    del_ixes(Ixt, Old, Pos, K)
-    end,
-    db_put(Ixt, {element(Pos, Obj), K}),
-    add_index2(Tail, Type, Tab, K, Obj, OldRecs);
+    OldRecs1 = case OldRecs0 of
+		   undefined -> mnesia_lib:db_get(Tab, K);
+		   _ -> OldRecs0
+	       end,
+    IdxVal = element(Pos, Obj),
+    case [Old || Old <- OldRecs1, element(Pos, Old) =/= IdxVal] of
+	[] when OldRecs1 =:= [] ->  %% Write
+	    db_put(Ixt, {element(Pos, Obj), K}),
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0);
+	[] -> %% when OldRecs1 =/= [] Update without modifying index field
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0);
+	OldRecs -> %% Update
+	    db_put(Ixt, {element(Pos, Obj), K}),
+	    del_ixes(Ixt, OldRecs, Pos, K),
+	    add_index2(Tail, Type, Tab, K, Obj, OldRecs0)
+    end;
 add_index2([], _, _Tab, _K, _Obj, _) -> ok.
 
 delete_index(Index, Tab, K) ->

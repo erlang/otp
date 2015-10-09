@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -25,7 +26,233 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 5.3.8</title>
+  <section><title>SSL 7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DER encoded ECPrivateKey as valid input format for
+	    key option.</p>
+          <p>
+	    Own Id: OTP-12974</p>
+        </item>
+        <item>
+          <p>
+	    Correct return value of default session callback module</p>
+          <p>
+	    This error had the symptom that the client check for
+	    unique session would always fail, potentially making the
+	    client session table grow a lot and causing long setup
+	    times.</p>
+          <p>
+	    Own Id: OTP-12980</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to downgrade an SSL/TLS connection to a
+	    tcp connection, and give back the socket control to a
+	    user process.</p>
+          <p>
+	    This also adds the possibility to specify a timeout to
+	    the ssl:close function.</p>
+          <p>
+	    Own Id: OTP-11397</p>
+        </item>
+        <item>
+          <p>
+	    Add application setting to be able to change fatal alert
+	    shutdown timeout, also shorten the default timeout. The
+	    fatal alert timeout is the number of milliseconds between
+	    sending of a fatal alert and closing the connection.
+	    Waiting a little while improves the peers chances to
+	    properly receiving the alert so it may shutdown
+	    gracefully.</p>
+          <p>
+	    Own Id: OTP-12832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ignore signature_algorithm (TLS 1.2 extension) sent to
+	    TLS 1.0 or TLS 1.1 server</p>
+          <p>
+	    Own Id: OTP-12670</p>
+        </item>
+        <item>
+          <p>
+	    Improve error handling in TLS distribution module to
+	    avoid lingering sockets.</p>
+          <p>
+	    Own Id: OTP-12799 Aux Id: Tom Briden </p>
+        </item>
+        <item>
+          <p>
+	    Add option {client_renegotiation, boolean()} option to
+	    the server-side of the SSL application.</p>
+          <p>
+	    Own Id: OTP-12815</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully ignore proprietary hash_sign algorithms</p>
+          <p>
+	    Own Id: OTP-12829</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add new API functions to handle CRL-verification</p>
+          <p>
+	    Own Id: OTP-10362 Aux Id: kunagi-215 [126] </p>
+        </item>
+        <item>
+          <p>
+	    Remove default support for SSL-3.0, due to Poodle
+	    vunrability in protocol specification.</p>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vunrability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    Remove default support for RC4 cipher suites, as they are
+	    consider too weak.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12390</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS ALPN (Application-Layer Protocol
+	    Negotiation) extension.</p>
+          <p>
+	    Own Id: OTP-12580</p>
+        </item>
+        <item>
+          <p>
+	    Add SNI (Server Name Indication) support for the server
+	    side.</p>
+          <p>
+	    Own Id: OTP-12736</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Terminate gracefully when receving bad input to premaster
+	    secret calculation</p>
+          <p>
+	    Own Id: OTP-12783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Exclude self-signed trusted anchor certificates from
+	    certificate prospective certification path according to
+	    RFC 3280.</p>
+          <p>
+	    This will avoid some unnecessary certificate processing.</p>
+          <p>
+	    Own Id: OTP-12449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Separate client and server session cache internally.</p>
+          <p>
+	    Avoid session table growth when client starts many
+	    connections in such a manner that many connections are
+	    started before session reuse is possible. Only save a new
+	    session in client if there is no equivalent session
+	    already stored.</p>
+          <p>
+	    Own Id: OTP-11365</p>
+        </item>
+        <item>
+          <p>
+	    The PEM cache is now validated by a background process,
+	    instead of always keeping it if it is small enough and
+	    clearing it otherwise. That strategy required that small
+	    caches where cleared by API function if a file changes on
+	    disk.</p>
+          <p>
+	    However export the API function to clear the cache as it
+	    may still be useful.</p>
+          <p>
+	    Own Id: OTP-12391</p>
+        </item>
+        <item>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vulnerability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12420</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS_FALLBACK_SCSV used to prevent
+	    undesired TLS version downgrades. If used by a client
+	    that is vulnerable to the POODLE attack, and the server
+	    also supports TLS_FALLBACK_SCSV, the attack can be
+	    prevented.</p>
+          <p>
+	    Own Id: OTP-12458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

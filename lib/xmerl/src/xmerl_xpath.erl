@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -128,18 +129,18 @@ string(Str, Node, Parents, Doc, Options) ->
 	    [{H, P}|_] when is_atom(H), is_integer(P) ->
 		full_parents(Parents, Doc)
 	end,
-%io:format("string FullParents=~p~n",[FullParents]),
+%?dbg("string FullParents=~p~n",[FullParents]),
     ContextNode=#xmlNode{type = node_type(Node),
 			 node = Node,
 			 parents = FullParents},
-%io:format("string ContextNode=~p~n",[ContextNode]),
+%?dbg("string ContextNode=~p~n",[ContextNode]),
     WholeDoc = whole_document(Doc),
-%io:format("string WholeDoc=~p~n",[WholeDoc]),
+%?dbg("string WholeDoc=~p~n",[WholeDoc]),
     Context=(new_context(Options))#xmlContext{context_node = ContextNode,
 					      whole_document = WholeDoc},
-%io:format("string Context=~p~n",[Context]),
+%?dbg("string Context=~p~n",[Context]),
     #state{context = NewContext} = match(Str, #state{context = Context}),
-%io:format("string NewContext=~p~n",[NewContext]),
+%?dbg("string NewContext=~p~n",[NewContext]),
     case NewContext#xmlContext.nodeset of
 	ScalObj = #xmlObj{type=Scalar} 
 	when Scalar == boolean;	Scalar == number; Scalar == string ->
@@ -274,7 +275,7 @@ eval_pred(Predicate, S = #state{context = C =
     NewNodeSet = 
 	lists:filter(
 	  fun(Node) ->
-		  %io:format("current node: ~p~n", [write_node(Node)]),
+		  %?dbg("current node: ~p~n", [write_node(Node)]),
 		  ThisContext = C#xmlContext{context_node = Node},
 		  xmerl_xpath_pred:eval(Predicate, ThisContext)
 	  end, NodeSet),
@@ -461,7 +462,7 @@ match_descendant_or_self(Tok, N, Acc, Context) ->
 
 
 match_child(Tok, N, Acc, Context) ->
-    %io:format("match_child(~p)~n", [write_node(N)]),
+    %?dbg("match_child(~p)~n", [write_node(N)]),
     #xmlNode{parents = Ps, node = Node, type = Type} = N,
     case Type of
 	El when El == element; El == root_node ->
@@ -738,7 +739,7 @@ node_test({prefix_test, Prefix}, #xmlNode{node = N}, Context) ->
     end;
 node_test({name, {Tag, _Prefix, _Local}}, 
 	  #xmlNode{node = #xmlElement{name = Tag}}=_N, _Context) -> 
-    %io:format("node_test({tag, ~p}, ~p) -> true.~n", [Tag, write_node(_N)]),
+    %?dbg("node_test({tag, ~p}, ~p) -> true.~n", [Tag, write_node(_N)]),
     true;
 node_test({name, {Tag, Prefix, Local}}, 
 	  #xmlNode{node = #xmlElement{name = Name,
@@ -816,7 +817,7 @@ node_test({processing_instruction, Name1},
 	  #xmlNode{node = #xmlPI{name = Name2}}, _Context) ->
     Name1 == atom_to_list(Name2);
 node_test(_Other, _N, _Context) ->
-    %io:format("node_test(~p, ~p) -> false.~n", [_Other, write_node(_N)]),
+    %?dbg("node_test(~p, ~p) -> false.~n", [_Other, write_node(_N)]),
     false.
 
 

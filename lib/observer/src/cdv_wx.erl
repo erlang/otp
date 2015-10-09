@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(cdv_wx).
@@ -44,6 +45,7 @@
 -define(PORT_STR,  "Ports").
 -define(ETS_STR,   "ETS Tables").
 -define(TIMER_STR, "Timers").
+-define(SCHEDULER_STR, "Schedulers").
 -define(FUN_STR,   "Funs").
 -define(ATOM_STR,  "Atoms").
 -define(DIST_STR,  "Nodes").
@@ -66,6 +68,7 @@
 	 port_panel,
 	 ets_panel,
 	 timer_panel,
+	 sched_panel,
 	 fun_panel,
 	 atom_panel,
 	 dist_panel,
@@ -171,6 +174,9 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     %% Timer Panel
     TimerPanel = add_page(Notebook, ?TIMER_STR, cdv_virtual_list_wx,cdv_timer_cb),
 
+    %% Scheduler Panel
+    SchedPanel = add_page(Notebook, ?SCHEDULER_STR, cdv_virtual_list_wx, cdv_sched_cb),
+
     %% Fun Panel
     FunPanel = add_page(Notebook, ?FUN_STR, cdv_virtual_list_wx, cdv_fun_cb),
 
@@ -202,6 +208,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
 			port_panel = PortPanel,
 			ets_panel = EtsPanel,
 			timer_panel = TimerPanel,
+			sched_panel = SchedPanel,
 			fun_panel = FunPanel,
 			atom_panel = AtomPanel,
 			dist_panel = DistPanel,
@@ -335,7 +342,8 @@ check_page_title(Notebook) ->
 get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		      port_panel=Ports, ets_panel=Ets, timer_panel=Timers,
 		      fun_panel=Funs, atom_panel=Atoms, dist_panel=Dist,
-		      mod_panel=Mods, mem_panel=Mem, int_panel=Int
+		      mod_panel=Mods, mem_panel=Mem, int_panel=Int,
+		      sched_panel=Sched
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		?GEN_STR -> Gen;
@@ -343,6 +351,7 @@ get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		?PORT_STR -> Ports;
 		?ETS_STR -> Ets;
 		?TIMER_STR -> Timers;
+		?SCHEDULER_STR -> Sched;
 		?FUN_STR -> Funs;
 		?ATOM_STR -> Atoms;
 		?DIST_STR -> Dist;

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -84,7 +85,7 @@ borderline_test(Size, TempDir) ->
     io:format("Testing size ~p", [Size]),
 
     %% Create a file and archive it.
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     file:write_file(Name, random_byte_list(X0, Size)),
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
@@ -555,9 +556,10 @@ unzip_to_binary(doc) ->
 unzip_to_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
+    WorkDir = filename:join(PrivDir, "unzip_to_binary"),
+    _ = file:make_dir(WorkDir),
 
-    delete_all_in(PrivDir),
-    file:set_cwd(PrivDir),
+    ok = file:set_cwd(WorkDir),
     Long = filename:join(DataDir, "abc.zip"),
 
     %% Unzip a zip file into a binary
@@ -568,7 +570,7 @@ unzip_to_binary(Config) when is_list(Config) ->
                   end, FBList),
 
     %% Make sure no files created in cwd
-    {ok,[]} = file:list_dir(PrivDir),
+    {ok,[]} = file:list_dir(WorkDir),
 
     ok.
 
@@ -577,8 +579,10 @@ zip_to_binary(doc) ->
 zip_to_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
-    delete_all_in(PrivDir),
-    file:set_cwd(PrivDir),
+    WorkDir = filename:join(PrivDir, "zip_to_binary"),
+    _ = file:make_dir(WorkDir),
+
+    file:set_cwd(WorkDir),
     FileName = "abc.txt",
     ZipName = "t.zip",
     FilePath = filename:join(DataDir, FileName),
@@ -588,7 +592,7 @@ zip_to_binary(Config) when is_list(Config) ->
     {ok, {ZipName, ZipB}} = zip:zip(ZipName, [FileName], [memory]),
 
     %% Make sure no files created in cwd
-    {ok,[FileName]} = file:list_dir(PrivDir),
+    {ok,[FileName]} = file:list_dir(WorkDir),
 
     %% Zip to a file
     {ok, ZipName} = zip:zip(ZipName, [FileName]),
@@ -606,7 +610,7 @@ zip_to_binary(Config) when is_list(Config) ->
 aliases(doc) ->
     ["Test using the aliases, extract/2, table/2 and create/3"];
 aliases(Config) when is_list(Config) ->
-    {_, _, X0} = erlang:now(),
+    {_, _, X0} = erlang:timestamp(),
     Size = 100,
     B = list_to_binary(random_byte_list(X0, Size)),
     %% create
@@ -694,11 +698,6 @@ do_delete_files([Item|Rest], Cnt) ->
             DelCnt = 0
     end,
     do_delete_files(Rest, Cnt + DelCnt).
-
-delete_all_in(Dir) ->
-    {ok, Files} = file:list_dir(Dir),
-    delete_files(lists:map(fun(F) -> filename:join(Dir,F) end,
-                           Files)).
 
 compress_control(doc) ->
     ["Test control of which files that should be compressed"];

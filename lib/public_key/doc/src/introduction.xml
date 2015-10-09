@@ -5,20 +5,21 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2013</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -36,27 +37,28 @@
 
   <section>
     <title>Purpose</title>
-    <p> public_key deals with public key related file formats, digital
-    signatures and <url href="http://www.ietf.org/rfc/rfc5280.txt">
+    <p>The Public Key application deals with public-key related file 
+    formats, digital signatures, and <url href="http://www.ietf.org/rfc/rfc5280.txt">
     X-509 certificates</url>. It is a library application that
-    provides encode/decode, sign/verify, encrypt/decrypt and similar
-    functionality, it does not read or write files it expects or returns
+    provides encode/decode, sign/verify, encrypt/decrypt, and similar
+    functionality. It does not read or write files, it expects or returns
     file contents or partial file contents as binaries.
     </p>
   </section>
 
   <section>
     <title>Prerequisites</title>
-    <p>It is assumed that the reader has a basic understanding
-    of the concepts of using public keys and digital certificates.</p>
+    <p>It is assumed that the reader is familiar with the Erlang programming 
+    language and has a basic understanding of the concepts of using public-keys 
+    and digital certificates.</p>
   </section>
 
   <section>
-    <title>Performance tips</title>
-    <p>The public_key decode and encode functions will try to use the NIFs
-    which are in the ASN1 compilers runtime modules if they can be found.
-    So for the best  performance you want to have the ASN1 application in the
-    path of your system. </p>
+    <title>Performance Tips</title>
+    <p>The Public Key decode- and encode-functions try to use the NIFs
+    in the ASN.1 compilers runtime modules, if they can be found.
+    Thus, to have the ASN1 application in the
+    path of your system gives the best performance.</p>
   </section>
 
 </chapter>

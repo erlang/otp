@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -158,7 +159,7 @@ scan_erl_form(Epp) ->
         {'ok', AbsForm} | {'eof', Line} | {error, ErrorInfo} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
-      Line :: erl_scan:line(),
+      Line :: erl_anno:line(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 parse_erl_form(Epp) ->
@@ -220,7 +221,7 @@ format_error(E) -> file:format_error(E).
       IncludePath :: [DirectoryName :: file:name()],
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
       PredefMacros :: macros(),
-      Line :: erl_scan:line(),
+      Line :: erl_anno:line(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       OpenError :: file:posix() | badarg | system_limit.
 
@@ -235,7 +236,7 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'default_encoding', DefEncoding :: source_encoding()} |
 		  'extra'],
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
-      Line :: erl_scan:line(),
+      Line :: erl_anno:line(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       OpenError :: file:posix() | badarg | system_limit.
@@ -257,7 +258,7 @@ parse_file(Ifile, Options) ->
 -spec parse_file(Epp) -> [Form] when
       Epp :: epp_handle(),
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
-      Line :: erl_scan:line(),
+      Line :: erl_anno:line(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 parse_file(Epp) ->
@@ -280,7 +281,7 @@ parse_file(Epp) ->
 	{error,E} ->
 	    [{error,E}|parse_file(Epp)];
 	{eof,Location} ->
-	    [{eof,Location}]
+	    [{eof,erl_anno:new(Location)}]
     end.
 
 -spec default_encoding() -> source_encoding().
@@ -547,7 +548,8 @@ init_server(Pid, Name, Options, St0) ->
 			 path=Path, macs=Ms1,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
-            enter_file_reply(From, Name, AtLocation, AtLocation),
+            Anno = erl_anno:new(AtLocation),
+            enter_file_reply(From, Name, Anno, AtLocation, code),
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
@@ -559,15 +561,16 @@ init_server(Pid, Name, Options, St0) ->
 
 predef_macros(File) ->
      Machine = list_to_atom(erlang:system_info(machine)),
+     Anno = line1(),
      dict:from_list([
-	{{atom,'FILE'}, 	      {none,[{string,1,File}]}},
-	{{atom,'LINE'},		      {none,[{integer,1,1}]}},
+	{{atom,'FILE'}, 	      {none,[{string,Anno,File}]}},
+	{{atom,'LINE'},		      {none,[{integer,Anno,1}]}},
 	{{atom,'MODULE'},	      undefined},
 	{{atom,'MODULE_STRING'},      undefined},
 	{{atom,'BASE_MODULE'},	      undefined},
 	{{atom,'BASE_MODULE_STRING'}, undefined},
-	{{atom,'MACHINE'},	      {none,[{atom,1,Machine}]}},
-	{{atom,Machine},	      {none,[{atom,1,true}]}}
+	{{atom,'MACHINE'},	      {none,[{atom,Anno,Machine}]}},
+	{{atom,Machine},	      {none,[{atom,Anno,true}]}}
      ]).
 
 %% user_predef(PreDefMacros, Macros) ->
@@ -595,8 +598,9 @@ user_predef([M|Pdm], Ms) when is_atom(M) ->
 	{ok,_Def} -> %% Predefined macros
 	    {error,{redefine_predef,M}};
 	error ->
+            A = line1(),
 	    user_predef(Pdm,
-	                dict:store({atom,M}, [{none, {none,[{atom,1,true}]}}], Ms))
+	                dict:store({atom,M}, [{none, {none,[{atom,A,true}]}}], Ms))
     end;
 user_predef([Md|_Pdm], _Ms) -> {error,{bad,Md}};
 user_predef([], Ms) -> {ok,Ms}.
@@ -645,7 +649,7 @@ wait_req_skip(St, Sis) ->
 
 enter_file(_NewName, Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
-    epp_reply(From, {error,{abs_loc(Inc),epp,{depth,"include"}}}),
+    epp_reply(From, {error,{loc(Inc),epp,{depth,"include"}}}),
     wait_req_scan(St);
 enter_file(NewName, Inc, From, St) ->
     case file:path_open(St#epp.path, NewName, [read]) of
@@ -653,7 +657,7 @@ enter_file(NewName, Inc, From, St) ->
             Loc = start_loc(St#epp.location),
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
 	{error,_E} ->
-	    epp_reply(From, {error,{abs_loc(Inc),epp,{include,file,NewName}}}),
+	    epp_reply(From, {error,{loc(Inc),epp,{include,file,NewName}}}),
 	    wait_req_scan(St)
     end.
 
@@ -661,9 +665,9 @@ enter_file(NewName, Inc, From, St) ->
 %%  Set epp to use this file and "enter" it.
 
 enter_file2(NewF, Pname, From, St0, AtLocation) ->
-    Loc = start_loc(AtLocation),
-    enter_file_reply(From, Pname, Loc, AtLocation),
-    Ms = dict:store({atom,'FILE'}, {none,[{string,Loc,Pname}]}, St0#epp.macs),
+    Anno = erl_anno:new(AtLocation),
+    enter_file_reply(From, Pname, Anno, AtLocation, code),
+    Ms = dict:store({atom,'FILE'}, {none,[{string,Anno,Pname}]}, St0#epp.macs),
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
     %% relative to its current location (this is also how C does it); note
@@ -673,16 +677,20 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     Path = [filename:dirname(Pname) | tl(St0#epp.path)],
     DefEncoding = St0#epp.default_encoding,
     _ = set_encoding(NewF, DefEncoding),
-    #epp{file=NewF,location=Loc,name=Pname,name2=Pname,delta=0,
+    #epp{file=NewF,location=AtLocation,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms,
          default_encoding=DefEncoding}.
 
-enter_file_reply(From, Name, Location, AtLocation) ->
-    Attr = loc_attr(AtLocation),
-    Rep = {ok, [{'-',Attr},{atom,Attr,file},{'(',Attr},
-		{string,Attr,file_name(Name)},{',',Attr},
-		{integer,Attr,get_line(Location)},{')',Location},
-                {dot,Attr}]},
+enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
+    Anno0 = loc_anno(AtLocation),
+    Anno = case Where of
+               code -> Anno0;
+               generated -> erl_anno:set_generated(true, Anno0)
+           end,
+    Rep = {ok, [{'-',Anno},{atom,Anno,file},{'(',Anno},
+		{string,Anno,file_name(Name)},{',',Anno},
+		{integer,Anno,get_line(LocationAnno)},{')',LocationAnno},
+                {dot,Anno}]},
     epp_reply(From, Rep).
 
 %% Flatten filename to a string. Must be a valid filename.
@@ -710,18 +718,20 @@ leave_file(From, St) ->
                     #epp{location=OldLoc, delta=Delta, name=OldName,
                          name2=OldName2} = OldSt,
                     CurrLoc = add_line(OldLoc, Delta),
+                    Anno = erl_anno:new(CurrLoc),
 		    Ms = dict:store({atom,'FILE'},
-				    {none,[{string,CurrLoc,OldName2}]},
+				    {none,[{string,Anno,OldName2}]},
 				    St#epp.macs),
                     NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses},
-		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
+		    enter_file_reply(From, OldName, Anno, CurrLoc, code),
                     case OldName2 =:= OldName of
                         true ->
                             ok;
                         false ->
                             NFrom = wait_request(NextSt),
-                            enter_file_reply(NFrom, OldName2, OldLoc,
-                                             neg_line(CurrLoc))
+                            OldAnno = erl_anno:new(OldLoc),
+                            enter_file_reply(NFrom, OldName2, OldAnno,
+                                             CurrLoc, generated)
                         end,
                     wait_req_scan(NextSt);
 		[] ->
@@ -818,9 +828,9 @@ scan_extends(_Ts, _As, Ms) -> Ms.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',Lc}|Toks], _Def, From, St)
+scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',_}=Comma|Toks], _Def, From, St)
   when Type =:= atom; Type =:= var ->
-    case catch macro_expansion(Toks, Lc) of
+    case catch macro_expansion(Toks, Comma) of
         Expansion when is_list(Expansion) ->
             case dict:find({atom,M}, St#epp.macs) of
                 {ok, Defs} when is_list(Defs) ->
@@ -910,10 +920,12 @@ macro_ref([]) ->
     [];
 macro_ref([{'?', _}, {'?', _} | Rest]) ->
     macro_ref(Rest);
-macro_ref([{'?', _}, {atom, Lm, A} | Rest]) ->
+macro_ref([{'?', _}, {atom, _, A}=Atom | Rest]) ->
+    Lm = loc(Atom),
     Arity = count_args(Rest, Lm, A),
     [{{atom, A}, Arity} | macro_ref(Rest)];
-macro_ref([{'?', _}, {var, Lm, A} | Rest]) ->
+macro_ref([{'?', _}, {var, _, A}=Var | Rest]) ->
+    Lm = loc(Var),
     Arity = count_args(Rest, Lm, A),
     [{{atom, A}, Arity} | macro_ref(Rest)];
 macro_ref([_Token | Rest]) ->
@@ -940,7 +952,7 @@ scan_include([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
     NewName = expand_var(NewName0),
     enter_file(NewName, Inc, From, St);
 scan_include(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{abs_loc(Inc),epp,{bad,include}}}),
+    epp_reply(From, {error,{loc(Inc),epp,{bad,include}}}),
     wait_req_scan(St).
 
 %% scan_include_lib(Tokens, IncludeToken, From, EppState)
@@ -955,7 +967,7 @@ find_lib_dir(NewName) ->
 scan_include_lib([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
                  Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
-    epp_reply(From, {error,{abs_loc(Inc),epp,{depth,"include_lib"}}}),
+    epp_reply(From, {error,{loc(Inc),epp,{depth,"include_lib"}}}),
     wait_req_scan(St);
 scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                  Inc, From, St) ->
@@ -974,18 +986,18 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                                                       St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
-				      {error,{abs_loc(Inc),epp,
+				      {error,{loc(Inc),epp,
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
 		_Error ->
-		    epp_reply(From, {error,{abs_loc(Inc),epp,
+		    epp_reply(From, {error,{loc(Inc),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
 	    end
     end;
 scan_include_lib(_Toks, Inc, From, St) ->
-    epp_reply(From, {error,{abs_loc(Inc),epp,{bad,include_lib}}}),
+    epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),
     wait_req_scan(St).
 
 %% scan_ifdef(Tokens, IfdefToken, From, EppState)
@@ -1088,11 +1100,12 @@ scan_endif(_Toks, Endif, From, St) ->
 
 scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
            {dot,_Ld}], Tf, From, St) ->
-    enter_file_reply(From, Name, Ln, neg_line(abs_loc(Tf))),
-    Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
+    Anno = erl_anno:new(Ln),
+    enter_file_reply(From, Name, Anno, loc(Tf), generated),
+    Ms = dict:store({atom,'FILE'}, {none,[{string,line1(),Name}]}, St#epp.macs),
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
-    Delta = abs(get_line(element(2, Tf)))-Ln + St#epp.delta, 
+    Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
     wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
 scan_file(_Toks, Tf, From, St) ->
     epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
@@ -1153,7 +1166,7 @@ skip_else(_Else, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
 %% macro_pars(Tokens, ArgStack)
-%% macro_expansion(Tokens, Line)
+%% macro_expansion(Tokens, Anno)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
 macro_pars([{')',_Lp}, {',',Ld}|Ex], Args) ->
@@ -1165,11 +1178,12 @@ macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
     false = lists:member(Name, Args),
     macro_pars(Ts, [Name|Args]).
 
-macro_expansion([{')',_Lp},{dot,_Ld}], _L0) -> [];
-macro_expansion([{dot,Ld}], _L0) -> throw({error,Ld,missing_parenthesis});
-macro_expansion([T|Ts], _L0) ->
-    [T|macro_expansion(Ts, element(2, T))];
-macro_expansion([], L0) -> throw({error,L0,premature_end}).
+macro_expansion([{')',_Lp},{dot,_Ld}], _Anno0) -> [];
+macro_expansion([{dot,_}=Dot], _Anno0) ->
+    throw({error,loc(Dot),missing_parenthesis});
+macro_expansion([T|Ts], _Anno0) ->
+    [T|macro_expansion(Ts, T)];
+macro_expansion([], Anno0) -> throw({error,loc(Anno0),premature_end}).
 
 %% expand_macros(Tokens, Macros)
 %% expand_macro(Tokens, MacroToken, RestTokens)
@@ -1239,17 +1253,17 @@ expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], Ms) ->
     expand_macros(atom, MacT, M, Toks, Ms);
 %% Special macros
 expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], Ms) ->
-    {line,Line} = erl_scan:token_info(Tok, line),
+    Line = erl_scan:line(Tok),
     [{integer,Lm,Line}|expand_macros(Toks, Ms)];
 expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], Ms) ->
     expand_macros(atom, MacT, M, Toks, Ms);
 %% Illegal macros
 expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
-    T = case erl_scan:token_info(Token, text) of
-            {text,Text} ->
+    T = case erl_scan:text(Token) of
+            Text when is_list(Text) ->
                 Text;
             undefined ->
-                {symbol,Symbol} = erl_scan:token_info(Token, symbol),
+                Symbol = erl_scan:symbol(Token),
                 io_lib:write(Symbol)
         end,
     throw({error,loc(Token),{call,[$?|T]}});
@@ -1383,7 +1397,7 @@ expand_arg([], Ts, L, Rest, Bs) ->
 %%% stringify(Ts, L) returns a list of one token: a string which when
 %%% tokenized would yield the token list Ts.
 
-%% erl_scan:token_info(T, text) is not backward compatible with this.
+%% erl_scan:text(T) is not backward compatible with this.
 %% Note that escaped characters will be replaced by themselves.
 token_src({dot, _}) ->
     ".";
@@ -1456,36 +1470,29 @@ fname_join(Components) ->
     filename:join(Components).
 
 %% The line only. (Other tokens may have the column and text as well...)
-loc_attr(Line) when is_integer(Line) ->
-    Line;
-loc_attr({Line,_Column}) ->
-    Line.
+loc_anno(Line) when is_integer(Line) ->
+    erl_anno:new(Line);
+loc_anno({Line,_Column}) ->
+    erl_anno:new(Line).
 
 loc(Token) ->
-    {location,Location} = erl_scan:token_info(Token, location),
-    Location.
+    erl_scan:location(Token).
 
-abs_loc(Token) ->
-    loc(setelement(2, Token, abs_line(element(2, Token)))).
-
-neg_line(L) ->
-    erl_scan:set_attribute(line, L, fun(Line) -> -abs(Line) end).
-
-abs_line(L) ->
-    erl_scan:set_attribute(line, L, fun(Line) -> abs(Line) end).
-
-add_line(L, Offset) ->
-    erl_scan:set_attribute(line, L, fun(Line) -> Line+Offset end).
+add_line(Line, Offset) when is_integer(Line) ->
+    Line+Offset;
+add_line({Line, Column}, Offset) ->
+    {Line+Offset, Column}.
 
 start_loc(Line) when is_integer(Line) ->
     1;
 start_loc({_Line, _Column}) ->
-    {1,1}.
+    {1, 1}.
 
-get_line(Line) when is_integer(Line) ->
-    Line;
-get_line({Line,_Column}) ->
-    Line.
+line1() ->
+    erl_anno:new(1).
+
+get_line(Anno) ->
+    erl_anno:line(Anno).
 
 %% epp has always output -file attributes when entering and leaving
 %% included files (-include, -include_lib). Starting with R11B the
@@ -1525,14 +1532,15 @@ get_line({Line,_Column}) ->
 interpret_file_attribute(Forms) ->
     interpret_file_attr(Forms, 0, []).
 
-interpret_file_attr([{attribute,Loc,file,{File,Line}}=Form | Forms],
+interpret_file_attr([{attribute,Anno,file,{File,Line}}=Form | Forms],
                     Delta, Fs) ->
-    {line, L} = erl_scan:attributes_info(Loc, line),
+    L = get_line(Anno),
+    Generated = erl_anno:generated(Anno),
     if
-        L < 0 ->
+        Generated ->
             %% -file attribute
-            interpret_file_attr(Forms, (abs(L) + Delta) - Line, Fs);
-        true ->
+            interpret_file_attr(Forms, (L + Delta) - Line, Fs);
+        not Generated ->
             %% -include or -include_lib
             % true = L =:= Line,
             case Fs of
@@ -1543,11 +1551,11 @@ interpret_file_attr([{attribute,Loc,file,{File,Line}}=Form | Forms],
             end
     end;
 interpret_file_attr([Form0 | Forms], Delta, Fs) ->
-    F = fun(Attrs) ->
-                F2 = fun(L) -> abs(L) + Delta end,
-                erl_scan:set_attribute(line, Attrs, F2)
+    F = fun(Anno) ->
+                Line = erl_anno:line(Anno),
+                erl_anno:set_line(Line + Delta, Anno)
         end,
-    Form = erl_lint:modify_line(Form0, F),
+    Form = erl_parse:map_anno(F, Form0),
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].

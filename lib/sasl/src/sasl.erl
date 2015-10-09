@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -55,7 +56,9 @@ get_sasl_error_logger() ->
     case application:get_env(sasl, sasl_error_logger) of
 	{ok, false} -> undefined;
 	{ok, tty} -> tty;
-	{ok, {file, File}} when is_list(File) -> {file, File};
+	{ok, {file, File}} when is_list(File) -> {file, File, [write]};
+	{ok, {file, File, Modes}} when is_list(File), is_list(Modes) ->
+        {file, File, Modes};
 	{ok, Bad} -> exit({bad_config, {sasl, {sasl_error_logger, Bad}}});
 	_ -> undefined
     end.
@@ -125,9 +128,9 @@ delete_sasl_error_logger(Type) ->
     error_logger:delete_report_handler(mod(Type)).
 
 mod(tty) -> sasl_report_tty_h;
-mod({file, _File}) -> sasl_report_file_h.
+mod({file, _File, _Modes}) -> sasl_report_file_h.
 
-args({file, File}, Type) -> {File, type(Type)};
+args({file, File, Modes}, Type) -> {File, Modes, type(Type)};
 args(_, Type) -> type(Type).
 
 type(error) -> error;

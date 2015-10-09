@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -522,7 +523,6 @@ shutdown_pids(Heart,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
     kill_all_pids(Heart), % Even the shutdown timer.
-    cancel_all_bif_timeouts(),
     kill_all_ports(Heart),
     flush_timout(Timer).
 
@@ -580,30 +580,6 @@ resend([ExitMsg|Exits]) ->
     resend(Exits);
 resend(_) ->
     ok.
-
-
-cancel_all_bif_timeouts() ->
-    TSrvs = erts_internal:get_bif_timer_servers(),
-    Ref = make_ref(),
-    {BTR, _TSrv} = erts_internal:access_bif_timer(Ref), %% Cheat...
-    request_cancel_all_bif_timeouts(Ref, BTR, TSrvs),
-    wait_response_cancel_all_bif_timeouts(Ref, BTR, TSrvs),
-    ok.
-
-request_cancel_all_bif_timeouts(_Ref, _BTR, []) ->
-    ok;
-request_cancel_all_bif_timeouts(Ref, BTR, [TSrv|TSrvs]) ->
-    TSrv ! {cancel_all_timeouts, BTR, self(), {Ref, TSrv}},
-    request_cancel_all_bif_timeouts(Ref, BTR, TSrvs).
-
-wait_response_cancel_all_bif_timeouts(_Ref, _BTR, []) ->
-    ok;
-wait_response_cancel_all_bif_timeouts(Ref, BTR, [TSrv|TSrvs]) ->
-    receive
-	{canceled_all_timeouts, {Ref, TSrv}} ->
-	    wait_response_cancel_all_bif_timeouts(Ref, BTR, TSrvs)
-    end.
-
 
 %%
 %% Kill all existing pids in the system (except init and heart).

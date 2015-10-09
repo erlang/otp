@@ -9,16 +9,17 @@
 ;;
 ;; Copyright Ericsson AB 1996-2014. All Rights Reserved.
 ;;
-;; The contents of this file are subject to the Erlang Public License,
-;; Version 1.1, (the "License"); you may not use this file except in
-;; compliance with the License. You should have received a copy of the
-;; Erlang Public License along with this software. If not, it can be
-;; retrieved online at http://www.erlang.org/.
+;; Licensed under the Apache License, Version 2.0 (the "License");
+;; you may not use this file except in compliance with the License.
+;; You may obtain a copy of the License at
 ;;
-;; Software distributed under the License is distributed on an "AS IS"
-;; basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-;; the License for the specific language governing rights and limitations
-;; under the License.
+;;     http://www.apache.org/licenses/LICENSE-2.0
+;;
+;; Unless required by applicable law or agreed to in writing, software
+;; distributed under the License is distributed on an "AS IS" BASIS,
+;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;; See the License for the specific language governing permissions and
+;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
 ;;
@@ -880,10 +881,10 @@ resulting regexp is surrounded by \\_< and \\_>."
       "dt_restore_tag"
       "dt_spread_tag"
       "dunlink"
+      "convert_time_unit"
       "external_size"
       "finish_after_on_load"
       "finish_loading"
-      "flush_monitor_message"
       "format_cpu_topology"
       "fun_info"
       "fun_info_mfa"
@@ -913,6 +914,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "memory"
       "module_info"
       "monitor_node"
+      "monotonic_time"
       "nif_error"
       "phash"
       "phash2"
@@ -946,13 +948,17 @@ resulting regexp is surrounded by \\_< and \\_>."
       "system_info"
       "system_monitor"
       "system_profile"
+      "system_time"
       "trace"
       "trace_delivered"
       "trace_info"
       "trace_pattern"
+      "time_offset"
+      "timestamp"
       "universaltime"
       "universaltime_to_localtime"
       "universaltime_to_posixtime"
+      "unique_integer"
       "yield")
     "Erlang built-in functions (BIFs) that needs erlang: prefix"))
 
@@ -2444,7 +2450,10 @@ This is automagically called by the user level function `indent-region'."
       ;; Parse the Erlang code from the beginning of the clause to
       ;; the beginning of the region.
       (while (< (point) indent-point)
-	(setq state (erlang-partial-parse (point) indent-point state)))
+        (let ((pt (point)))
+          (setq state (erlang-partial-parse pt indent-point state))
+          (if (= pt (point))
+              (error "Illegal syntax"))))
       ;; Indent every line in the region
       (while continue
 	(goto-char indent-point)
@@ -2480,8 +2489,11 @@ This is automagically called by the user level function `indent-region'."
 	(if (>= from-end (- (point-max) indent-point))
 	    (setq continue nil)
 	  (while (< (point) indent-point)
-	    (setq state (erlang-partial-parse
-			 (point) indent-point state))))))))
+            (let ((pt (point)))
+              (setq state (erlang-partial-parse
+                           pt indent-point state))
+              (if (= pt (point))
+                  (error "Illegal syntax")))))))))
 
 
 (defun erlang-indent-current-buffer ()
@@ -2528,7 +2540,10 @@ Return nil if line starts inside string, t if in a comment."
 	  (goto-char parse-start)
 	(erlang-beginning-of-clause))
       (while (< (point) indent-point)
-	(setq state (erlang-partial-parse (point) indent-point state)))
+        (let ((pt (point)))
+          (setq state (erlang-partial-parse pt indent-point state))
+          (if (= pt (point))
+              (error "Illegal syntax"))))
       (erlang-calculate-stack-indent indent-point state))))
 
 (defun erlang-show-syntactic-information ()
@@ -2698,12 +2713,13 @@ Value is list (stack token-start token-type in-what)."
 	(erlang-push (list '|| token (current-column)) stack)
 	(forward-char 2))
 
-       ;; Bit-syntax open paren
-       ((looking-at "<<")
+       ;; Bit-syntax open. Note that map syntax allows "<<" to follow ":="
+       ;; or "=>" without intervening whitespace, so handle that case here
+       ((looking-at "\\(:=\\|=>\\)?<<")
 	(erlang-push (list '<< token (current-column)) stack)
-	(forward-char 2))
+	(forward-char (- (match-end 0) (match-beginning 0))))
        
-       ;; Bbit-syntax close paren
+       ;; Bit-syntax close
        ((looking-at ">>")
 	(while (memq (car (car stack)) '(|| ->))
 	  (erlang-pop stack))
@@ -4188,7 +4204,10 @@ This function is designed to be a member of a criteria list."
 	    ;; Do not return `stop' when inside a list comprehension
 	    ;; construction.  (The point must be after `||').
 	    (while (< (point) orig-point)
-	      (setq state (erlang-partial-parse (point) orig-point state)))
+              (let ((pt (point)))
+                (setq state (erlang-partial-parse pt orig-point state))
+                (if (= pt (point))
+                    (error "Illegal syntax"))))
 	    (if (and (car state) (eq (car (car (car state))) '||))
 		nil
 	      'stop)))

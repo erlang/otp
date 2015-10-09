@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.2
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,31 +42,25 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [session_cleanup,
      session_cache_process_list,
-     session_cache_process_mnesia].
+     session_cache_process_mnesia,
+     client_unique_session].
 
 groups() ->
     [].
 
 init_per_suite(Config0) ->
-    Dog = ct:timetrap(?LONG_TIMEOUT *2),
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
-	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config]
+	    %% make rsa certs using 
+	    {ok, _} = make_certs:all(?config(data_dir, Config0),
+				     ?config(priv_dir, Config0)),
+	    Config = ssl_test_lib:make_dsa_cert(Config0),
+	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -87,24 +82,20 @@ init_per_testcase(session_cache_process_mnesia, Config) ->
     mnesia:start(),
     init_customized_session_cache(mnesia, Config);
 
-init_per_testcase(session_cleanup, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_per_testcase(session_cleanup, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, 5),
     application:set_env(ssl, session_delay_cleanup_time, ?DELAY),
     ssl:start(),
-    [{watchdog, Dog} | Config];
+    ct:timetrap({seconds, 20}),
+    Config;
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-   [{watchdog, Dog} | Config].
+init_per_testcase(client_unique_session, Config) ->
+    ct:timetrap({seconds, 20}),
+    Config.
 
-init_customized_session_cache(Type, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
+init_customized_session_cache(Type, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_cb, ?MODULE),
@@ -114,7 +105,8 @@ init_customized_session_cache(Type, Config0) ->
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
     ets:insert(ssl_test, {type, Type}),
-    [{watchdog, Dog} | Config].
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
     application:unset_env(ssl, session_cb),
@@ -140,10 +132,40 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+client_unique_session() ->
+    [{doc, "Test session table does not grow when client "
+      "sets up many connections"}].
+client_unique_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    LastClient = clients_start(Server, 
+			    ClientNode, Hostname, Port, ClientOpts, 20),
+    receive 
+	{LastClient, {ok, _}} ->
+	    ok
+    end,
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ClientCache = element(2, State),
+    1 = ets:info(ClientCache, size),
+  
+    ssl_test_lib:close(Server, 500),
+    ssl_test_lib:close(LastClient).
+		
 session_cleanup() ->
     [{doc, "Test that sessions are cleand up eventually, so that the session table "
      "does not grow and grow ..."}].
-session_cleanup(Config)when is_list(Config) ->
+session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
@@ -157,9 +179,9 @@ session_cleanup(Config)when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     Client =
 	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
+				   {port, Port}, {host, Hostname},
 				   {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),
+				   {from, self()},  {options, ClientOpts}]),
     SessionInfo =
 	receive
 	    {Server, Info} ->
@@ -334,8 +356,8 @@ select_session(Cache, PartialKey) ->
 	mnesia ->
 	    Sel = fun() ->
 			  mnesia:select(Cache,
-					[{{Cache,{PartialKey,'$1'}, '$2'},
-					  [],['$$']}])
+					[{{Cache,{PartialKey,'_'}, '$1'},
+					  [],['$1']}])
 		  end,
 	    {atomic, Res} = mnesia:transaction(Sel),
 	    Res
@@ -363,8 +385,8 @@ session_loop(Sess) ->
 	    Pid ! {self(), Res},
 	    session_loop(Sess);
 	{Pid,select_session,PKey} ->
-	    Sel = fun({{PKey0, Id},Session}, Acc) when PKey == PKey0 ->
-			  [[Id, Session]|Acc];
+	    Sel = fun({{PKey0, _Id},Session}, Acc) when PKey == PKey0 ->
+			  [Session | Acc];
 		     (_,Acc) ->
 			  Acc
 		  end,
@@ -379,3 +401,23 @@ session_loop(Sess) ->
 
 session_cache_process(_Type,Config) when is_list(Config) ->
     ssl_basic_SUITE:reuse_session(Config).
+
+
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
+    %% Make sure session is registered
+    ct:sleep(?SLEEP * 2),
+    ssl_test_lib:start_client([{node, ClientNode},
+			       {port, Port}, {host, Hostname},
+			       {mfa, {?MODULE, connection_info_result, []}},
+			       {from, self()},  {options, ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
+    spawn_link(ssl_test_lib, start_client, 
+	       [[{node, ClientNode},
+		 {port, Port}, {host, Hostname},
+		 {mfa, {ssl_test_lib, no_result, []}},
+		 {from, self()},  {options, ClientOpts}]]),
+    Server ! listen,
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
+	
+connection_info_result(Socket) ->
+    ssl:connection_information(Socket, [protocol, cipher_suite]).

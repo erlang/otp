@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -347,11 +348,22 @@ do_recv(Sock, Bs) ->
     </func>
     <func>
       <name name="shutdown" arity="2"/>
-      <fsummary>Immediately close a socket</fsummary>
+      <fsummary>Asynchronously close a socket</fsummary>
       <desc>
-        <p>Immediately close a socket in one or two directions.</p>
+        <p>Close a socket in one or two directions.</p>
         <p><c><anno>How</anno> == write</c> means closing the socket for writing,
           reading from it is still possible.</p>
+        <p>If <c><anno>How</anno> == read</c>, or there is no outgoing
+          data buffered in the <c><anno>Socket</anno></c> port,
+          then the socket is shutdown immediately and any error encountered
+          is returned in <c><anno>Reason</anno></c>.</p>
+        <p>If there is data buffered in the socket port, then the attempt
+          to shutdown the socket is postponed until that data is written to the
+          kernel socket send buffer. Any errors encountered will result
+          in the socket being closed and <c>{error, closed}</c> being returned
+          on the next
+          <seealso marker="gen_tcp#recv/2">recv/2</seealso> or
+          <seealso marker="gen_tcp#send/2">send/2</seealso>.</p>
         <p>To be able to handle that the peer has done a shutdown on
           the write side, the <c>{exit_on_close, false}</c> option
           is useful.</p>

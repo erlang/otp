@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -68,6 +69,7 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
+    catch crypto:stop(),
     case (catch crypto:start()) of
 	ok ->
 	    DataDir = ?config(data_dir, Config),	    
@@ -150,7 +152,7 @@ init_per_testcase(TestCase, Config) ->
     {ok, <<?SSH_FXP_VERSION, ?UINT32(Version), _Ext/binary>>, _}
 	= reply(Cm, Channel),
 
-    ct:pal("Client: ~p Server ~p~n", [ProtocolVer, Version]),
+    ct:log("Client: ~p Server ~p~n", [ProtocolVer, Version]),
 
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
@@ -416,7 +418,7 @@ real_path(Config) when is_list(Config) ->
 	    RealPath = filename:absname(binary_to_list(Path)),
 	    AbsPrivDir = filename:absname(PrivDir),
 
-	    ct:pal("Path: ~p PrivDir: ~p~n", [RealPath, AbsPrivDir]),
+	    ct:log("Path: ~p PrivDir: ~p~n", [RealPath, AbsPrivDir]),
 
 	    true = RealPath == AbsPrivDir
     end.
@@ -445,7 +447,7 @@ links(Config) when is_list(Config) ->
 
 	    true = binary_to_list(Path) == FileName,
 
-	    ct:pal("Path: ~p~n", [binary_to_list(Path)])
+	    ct:log("Path: ~p~n", [binary_to_list(Path)])
     end.
 
 %%--------------------------------------------------------------------
@@ -546,10 +548,10 @@ set_attributes(Config) when is_list(Config) ->
 	    %% Can not test that NewPermissions = Permissions as
 	    %% on Unix platforms, other bits than those listed in the
 	    %% API may be set.
-	    ct:pal("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
+	    ct:log("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
 	    true = OrigPermissions =/= NewPermissions,
 
-	    ct:pal("Try to open the file"),
+	    ct:log("Try to open the file"),
 	    NewReqId = 2,
 	    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId), Handle/binary>>, _} =
 		open_file(FileName, Cm, Channel, NewReqId,
@@ -561,7 +563,7 @@ set_attributes(Config) when is_list(Config) ->
 
 	    NewReqId1 = 3,
 
-	    ct:pal("Set original permissions on the now open file"),
+	    ct:log("Set original permissions on the now open file"),
 
 	    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
 		   ?UINT32(?SSH_FX_OK), _/binary>>, _} =
@@ -784,7 +786,7 @@ read_dir(Handle, Cm, Channel, ReqId) ->
     case reply(Cm, Channel) of
 	{ok, <<?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(Count),
 	       ?UINT32(Len), Listing:Len/binary, _/binary>>, _} ->
-	    ct:pal("Count: ~p Listing: ~p~n",
+	    ct:log("Count: ~p Listing: ~p~n",
 			       [Count, binary_to_list(Listing)]),
 	    read_dir(Handle, Cm, Channel, ReqId);
 	{ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),

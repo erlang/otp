@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -58,12 +59,11 @@
       specific events. (<c>add_report_handler/1,2</c>). Also, there is
       a useful event handler in STDLIB for multi-file logging of events,
       see <c>log_mf_h(3)</c>.</p>
-    <p>Warning events were introduced in Erlang/OTP R9C. To retain
-      backwards compatibility, these are by default tagged as errors,
-      thus showing up as error reports in the logs. By using
-      the command line flag <c><![CDATA[+W <w | i>]]></c>, they can instead
-      be tagged as warnings or info. Tagging them as warnings may
-      require rewriting existing user defined event handlers.</p>
+    <p>Warning events were introduced in Erlang/OTP R9C and are enabled
+      by default as of 18.0. To retain backwards compatibility with existing
+      user defined event handlers, these may be tagged as errors or info
+      using the command line flag <c><![CDATA[+W <e | i | w>]]></c>, thus
+      showing up as error or info reports in the logs.</p>
   </description>
   <datatypes>
     <datatype>
@@ -132,24 +132,10 @@ ok</pre>
       <desc>
         <p>Returns the current mapping for warning events. Events sent
           using <c>warning_msg/1,2</c> or <c>warning_report/1,2</c>
-          are tagged as errors (default), warnings or info, depending
+          are tagged as errors, warnings (default) or info, depending
           on the value of the command line flag <c>+W</c>.</p>
         <pre>
 os$ <input>erl</input>
-Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
-
-Eshell V5.4.8  (abort with ^G)
-1> <input>error_logger:warning_map().</input>
-error
-2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [error]).</input>
-
-=ERROR REPORT==== 11-Aug-2005::15:31:23 ===
-Warnings tagged as: error
-ok
-3> 
-User switch command
- --> q
-os$ <input>erl +W w</input>
 Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
 
 Eshell V5.4.8  (abort with ^G)
@@ -159,6 +145,20 @@ warning
 
 =WARNING REPORT==== 11-Aug-2005::15:31:55 ===
 Warnings tagged as: warning
+ok
+3> 
+User switch command
+ --> q
+os$ <input>erl +W e</input>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1> <input>error_logger:warning_map().</input>
+error
+2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [error]).</input>
+
+=ERROR REPORT==== 11-Aug-2005::15:31:23 ===
+Warnings tagged as: error
 ok</pre>
       </desc>
     </func>

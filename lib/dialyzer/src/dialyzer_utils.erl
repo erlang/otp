@@ -4,16 +4,17 @@
 %%
 %% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -64,15 +65,15 @@ print_types(RecDict) ->
 print_types1([], _) ->
   ok;
 print_types1([{type, _Name, _NArgs} = Key|T], RecDict) ->
-  {ok, {{_Mod, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
   io:format("\n~w: ~w\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{opaque, _Name, _NArgs} = Key|T], RecDict) ->
-  {ok, {{_Mod, _Form, _Args}, Type}} = dict:find(Key, RecDict),
+  {ok, {{_Mod, _FileLine, _Form, _Args}, Type}} = dict:find(Key, RecDict),
   io:format("\n~w: ~w\n", [Key, Type]),
   print_types1(T, RecDict);
 print_types1([{record, _Name} = Key|T], RecDict) ->
-  {ok, [{_Arity, _Fields} = AF]} = dict:find(Key, RecDict),
+  {ok, {_FileLine, [{_Arity, _Fields} = AF]}} = dict:find(Key, RecDict),
   io:format("~w: ~w\n\n", [Key, AF]),
   print_types1(T, RecDict).
 -define(debug(D_), print_types(D_)).
@@ -203,52 +204,53 @@ get_record_and_type_info(AbstractCode) ->
 	{'ok', dict:dict()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode, Module, RecDict) ->
-  get_record_and_type_info(AbstractCode, Module, [], RecDict).
+  get_record_and_type_info(AbstractCode, Module, RecDict, "nofile").
 
-get_record_and_type_info([{attribute, _, record, {Name, Fields0}}|Left],
-			 Module, Records, RecDict) ->
+get_record_and_type_info([{attribute, A, record, {Name, Fields0}}|Left],
+			 Module, RecDict, File) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  NewRecDict = dict:store({record, Name}, [{Arity, Fields}], RecDict),
-  get_record_and_type_info(Left, Module, [{record, Name}|Records], NewRecDict);
-get_record_and_type_info([{attribute, _, type, {{record, Name}, Fields0, []}}
-			  |Left], Module, Records, RecDict) ->
+  FN = {File, erl_anno:line(A)},
+  NewRecDict = dict:store({record, Name}, {FN, [{Arity,Fields}]}, RecDict),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
+get_record_and_type_info([{attribute, A, type, {{record, Name}, Fields0, []}}
+			  |Left], Module, RecDict, File) ->
   %% This overrides the original record declaration.
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
-  NewRecDict = dict:store({record, Name}, [{Arity, Fields}], RecDict),
-  get_record_and_type_info(Left, Module, Records, NewRecDict);
-get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left],
-			 Module, Records, RecDict) when Attr =:= 'type';
-                                                        Attr =:= 'opaque' ->
-  try add_new_type(Attr, Name, TypeForm, [], Module, RecDict) of
+  FN = {File, erl_anno:line(A)},
+  NewRecDict = dict:store({record, Name}, {FN, [{Arity, Fields}]}, RecDict),
+  get_record_and_type_info(Left, Module, NewRecDict, File);
+get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm}}|Left],
+			 Module, RecDict, File)
+               when Attr =:= 'type'; Attr =:= 'opaque' ->
+  FN = {File, erl_anno:line(A)},
+  try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
-      get_record_and_type_info(Left, Module, Records, NewRecDict)
+      get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm, Args}}|Left],
-			 Module, Records, RecDict) when Attr =:= 'type';
-                                                        Attr =:= 'opaque' ->
-  try add_new_type(Attr, Name, TypeForm, Args, Module, RecDict) of
+get_record_and_type_info([{attribute, A, Attr, {Name, TypeForm, Args}}|Left],
+			 Module, RecDict, File)
+               when Attr =:= 'type'; Attr =:= 'opaque' ->
+  FN = {File, erl_anno:line(A)},
+  try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
-      get_record_and_type_info(Left, Module, Records, NewRecDict)
+      get_record_and_type_info(Left, Module, NewRecDict, File)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([_Other|Left], Module, Records, RecDict) ->
-  get_record_and_type_info(Left, Module, Records, RecDict);
-get_record_and_type_info([], _Module, Records, RecDict) ->
-  case
-    check_type_of_record_fields(lists:reverse(Records), RecDict)
-  of
-    ok ->
-      {ok, RecDict};
-    {error, Name, Error} ->
-      {error, flat_format("  Error while parsing #~w{}: ~s\n", [Name, Error])}
-  end.
+get_record_and_type_info([{attribute, _, file, {IncludeFile, _}}|Left],
+                         Module, RecDict, _File) ->
+  get_record_and_type_info(Left, Module, RecDict, IncludeFile);
+get_record_and_type_info([_Other|Left], Module, RecDict, File) ->
+  get_record_and_type_info(Left, Module, RecDict, File);
+get_record_and_type_info([], _Module, RecDict, _File) ->
+  {ok, RecDict}.
 
-add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
+add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, FN,
+             RecDict) ->
   Arity = length(ArgForms),
   case erl_types:type_is_defined(TypeOrOpaque, Name, Arity, RecDict) of
     true ->
@@ -258,7 +260,7 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
       try erl_types:t_var_names(ArgForms) of
         ArgNames ->
 	  dict:store({TypeOrOpaque, Name, Arity},
-                     {{Module, TypeForm, ArgNames},
+                     {{Module, FN, TypeForm, ArgNames},
                       erl_types:t_any()}, RecDict)
       catch
         _:_ ->
@@ -280,31 +282,15 @@ get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
     end,
   get_record_fields(Left, RecDict, [{Name, TypeForm}|Acc]);
 get_record_fields([{record_field, _Line, Name}|Left], RecDict, Acc) ->
-  NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
+  A = erl_anno:set_generated(true, erl_anno:new(1)),
+  NewAcc = [{erl_parse:normalise(Name), {var, A, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
-  NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
+  A = erl_anno:set_generated(true, erl_anno:new(1)),
+  NewAcc = [{erl_parse:normalise(Name), {var, A, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([], _RecDict, Acc) ->
   lists:reverse(Acc).
-
-%% Just check the local types. process_record_remote_types will add
-%% the types later.
-check_type_of_record_fields([], _RecDict) ->
-  ok;
-check_type_of_record_fields([RecKey|Recs], RecDict) ->
-  {ok, [{_Arity, Fields}]} = dict:find(RecKey, RecDict),
-  try
-    [erl_types:t_from_form_without_remote(FieldTypeForm, RecDict)
-     || {_FieldName, FieldTypeForm, _} <- Fields]
-  of
-    L when is_list(L) ->
-      check_type_of_record_fields(Recs, RecDict)
-  catch
-    throw:{error, Error} ->
-      {record, Name} = RecKey,
-      {error, Name, Error}
-  end.
 
 -spec process_record_remote_types(codeserver()) -> codeserver().
 
@@ -312,25 +298,53 @@ check_type_of_record_fields([RecKey|Recs], RecDict) ->
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
           fun(Key, Value) ->
               case Key of
-                {record, _Name} ->
+                {record, Name} ->
                   FieldFun =
-                    fun(_Arity, Fields) ->
-                        [{Name, Field,
+                    fun(Arity, Fields) ->
+                        Site = {record, {Module, Name, Arity}},
+                        [{FieldName, Field,
                           erl_types:t_from_form(Field,
                                                 TempExpTypes,
-                                                Module,
-                                                TempRecords)}
-                         || {Name, Field, _} <- Fields]
+                                                Site,
+                                                TempRecords1)}
+                         || {FieldName, Field, _} <- Fields]
                     end,
-                  orddict:map(FieldFun, Value);
-                {opaque, _, _} ->
-                  {{_Module, Form, _ArgNames}=F, _Type} = Value,
-                  Type = erl_types:t_from_form(Form, TempExpTypes, Module,
+                  {FileLine, Fields} = Value,
+                  {FileLine, orddict:map(FieldFun, Fields)};
+                _Other -> Value
+              end
+          end,
+	dict:map(RecordFun, Record)
+    end,
+  NewRecords = dict:map(ModuleFun, TempRecords1),
+  ok = check_record_fields(NewRecords, TempExpTypes),
+  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
+  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+
+%% erl_types:t_from_form() substitutes the declaration of opaque types
+%% for the expanded type in some cases. To make sure the initial type,
+%% any(), is not used, the expansion is done twice.
+%% XXX: Recursive opaque types are not handled well.
+process_opaque_types0(TempRecords0, TempExpTypes) ->
+  TempRecords1 = process_opaque_types(TempRecords0, TempExpTypes),
+  process_opaque_types(TempRecords1, TempExpTypes).
+
+process_opaque_types(TempRecords, TempExpTypes) ->
+  ModuleFun =
+    fun(Module, Record) ->
+        RecordFun =
+          fun(Key, Value) ->
+              case Key of
+                {opaque, Name, NArgs} ->
+                  {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
+                  Site = {type, {Module, Name, NArgs}},
+                  Type = erl_types:t_from_form(Form, TempExpTypes, Site,
                                                TempRecords),
                   {F, Type};
                 _Other -> Value
@@ -338,13 +352,48 @@ process_record_remote_types(CServer) ->
           end,
 	dict:map(RecordFun, Record)
     end,
-  try dict:map(ModuleFun, TempRecords) of
-    NewRecords ->
-      CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-      dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1)
+  dict:map(ModuleFun, TempRecords).
+
+check_record_fields(Records, TempExpTypes) ->
+  CheckFun =
+    fun({Module, Element}) ->
+        CheckForm = fun(Form, Site) ->
+                      erl_types:t_check_record_fields(Form, TempExpTypes,
+                                                      Site, Records)
+                  end,
+        ElemFun =
+          fun({Key, Value}) ->
+              case Key of
+                {record, Name} ->
+                  FieldFun =
+                    fun({Arity, Fields}) ->
+                        Site = {record, {Module, Name, Arity}},
+                        _ = [ok = CheckForm(Field, Site) ||
+                              {_, Field, _} <- Fields],
+                        ok
+                    end,
+                  {FileLine, Fields} = Value,
+                  Fun = fun() -> lists:foreach(FieldFun, Fields) end,
+                  msg_with_position(Fun, FileLine);
+                {_OpaqueOrType, Name, NArgs} ->
+                  Site = {type, {Module, Name, NArgs}},
+                  {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
+                  Fun = fun() -> ok = CheckForm(Form, Site) end,
+                  msg_with_position(Fun, FileLine)
+              end
+          end,
+        lists:foreach(ElemFun, dict:to_list(Element))
+    end,
+  lists:foreach(CheckFun, dict:to_list(Records)).
+
+msg_with_position(Fun, FileLine) ->
+  try Fun()
   catch
-    throw:{error, _RecName, _Error} = Error->
-      Error
+    throw:{error, Msg} ->
+      {File, Line} = FileLine,
+      BaseName = filename:basename(File),
+      NewMsg = io_lib:format("~s:~p: ~s", [BaseName, Line, Msg]),
+      throw({error, NewMsg})
   end.
 
 -spec merge_records(dict:dict(), dict:dict()) -> dict:dict().
@@ -385,10 +434,11 @@ get_optional_callbacks(Abs) ->
 %%  - Constraint is of the form {subtype, T1, T2} where T1 and T2
 %%    are erl_types:erl_type()
 
-get_spec_info([{attribute, Ln, Contract, {Id, TypeSpec}}|Left],
+get_spec_info([{attribute, Anno, Contract, {Id, TypeSpec}}|Left],
 	      SpecDict, CallbackDict, RecordsDict, ModName, OptCb, File)
   when ((Contract =:= 'spec') or (Contract =:= 'callback')),
        is_list(TypeSpec) ->
+  Ln = erl_anno:line(Anno),
   MFA = case Id of
 	  {_, _, _} = T -> T;
 	  {F, A} -> {ModName, F, A}
@@ -519,7 +569,7 @@ get_options1([], Warnings) ->
   Warnings.
 
 -type collected_attribute() ::
-        {Args :: term(), erl_scan:line(), file:filename()}.
+        {Args :: term(), erl_anno:line(), file:filename()}.
 
 collect_attribute(Abs, Tag) ->
   collect_attribute(Abs, Tag, "nofile").
@@ -643,7 +693,7 @@ get_options_with_tag(Tag, Abs) ->
 
 %% Check F/A, and collect (unchecked) warning tags with line and file.
 -spec check_fa_list([collected_attribute()], atom(), [fa()]) ->
-                       [{{atom(), erl_scan:line(), file:filename()},fa()}].
+                       [{{atom(), erl_anno:line(), file:filename()},fa()}].
 
 check_fa_list(AttrFile, Tag, Functions) ->
   FuncTab = gb_sets:from_list(Functions),

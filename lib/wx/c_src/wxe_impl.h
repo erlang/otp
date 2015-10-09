@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2008-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -46,7 +47,8 @@ typedef wxString wxeLocaleC;
 
 #define WXE_NOT_INITIATED 0
 #define WXE_INITIATED     1
-#define WXE_EXITED        2
+#define WXE_EXITING       2
+#define WXE_EXITED        3
 #define WXE_ERROR        -1
 
 void send_msg(const char *, const wxString *);   // For debugging and error msgs
@@ -55,13 +57,18 @@ class WxeApp : public wxApp
 {
 public:
    virtual bool OnInit();
+
+   virtual void OnAssertFailure(const wxChar *file, int line, const wxChar *func,
+				const wxChar *cond, const wxChar *msg);
+
 #ifdef  _MACOSX
   virtual void MacOpenFile(const wxString &filename);
 #endif
+
   void shutdown(wxeMetaCommand& event);
 
-  int dispatch(wxList *, int, int);
-  void dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process);
+  int dispatch(wxeFifo *, int, int);
+  void dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process);
 
   void wxe_dispatch(wxeCommand& event);
 
@@ -93,7 +100,7 @@ public:
 
   int recurse_level;
   wxList * delayed_cleanup;
-  wxList * delayed_delete;
+  wxeFifo * delayed_delete;
   // Temp container for callbacks
   char *cb_buff;
   int  cb_len;

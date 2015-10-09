@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -40,9 +41,10 @@
 	 socket_control/4, socket_control/5]).
 
 %% User Events 
--export([send/2, recv/3, close/1, shutdown/2,
-	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
-	 peer_certificate/1, renegotiation/1, negotiated_protocol/1, prf/5
+-export([send/2, recv/3, close/2, shutdown/2,
+	 new_user/2, get_opts/2, set_opts/2, session_info/1, 
+	 peer_certificate/1, renegotiation/1, negotiated_protocol/1, prf/5,
+	 connection_information/1
 	]).
 
 -export([handle_session/7]).
@@ -161,18 +163,27 @@ recv(Pid, Length, Timeout) ->
     sync_send_all_state_event(Pid, {recv, Length, Timeout}).
 
 %%--------------------------------------------------------------------
--spec close(pid()) -> ok | {error, reason()}.  
+-spec connection_information(pid()) -> {ok, list()} | {error, reason()}.
+%%
+%% Description: Get the SNI hostname
+%%--------------------------------------------------------------------
+connection_information(Pid) when is_pid(Pid) ->
+    sync_send_all_state_event(Pid, connection_information).
+
+%%--------------------------------------------------------------------
+-spec close(pid(), {close, Timeout::integer() | 
+				    {NewController::pid(), Timeout::integer()}}) -> 
+		   ok | {ok, port()} | {error, reason()}.  
 %%
 %% Description:  Close an ssl connection
 %%--------------------------------------------------------------------
-close(ConnectionPid) ->
-    case sync_send_all_state_event(ConnectionPid, close) of
+close(ConnectionPid, How) ->
+    case sync_send_all_state_event(ConnectionPid, How) of
 	{error, closed} ->
 	    ok;
 	Other ->
 	    Other
     end.
-
 %%--------------------------------------------------------------------
 -spec shutdown(pid(), atom()) -> ok | {error, reason()}.  
 %%
@@ -212,14 +223,6 @@ get_opts(ConnectionPid, OptTags) ->
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
-
-%%--------------------------------------------------------------------
--spec info(pid()) ->  {ok, {atom(), tuple()}} | {error, reason()}. 
-%%
-%% Description:  Returns ssl protocol and cipher used for the connection
-%%--------------------------------------------------------------------
-info(ConnectionPid) ->
-    sync_send_all_state_event(ConnectionPid, info). 
 
 %%--------------------------------------------------------------------
 -spec session_info(pid()) -> {ok, list()} | {error, reason()}. 
@@ -704,12 +707,12 @@ handle_sync_event({start, Timeout}, StartFrom, StateName,  #state{role = Role, s
 	    {stop, normal, {error, Error}, State0}
     end;	
 
-handle_sync_event(close, _, StateName, #state{protocol_cb = Connection} = State) ->
-    %% Run terminate before returning
-    %% so that the reuseaddr inet-option will work
-    %% as intended.
-    (catch Connection:terminate(user_close, StateName, State)),
-    {stop, normal, ok, State#state{terminated = true}};
+handle_sync_event({close, _} = Close, _, StateName, #state{protocol_cb = Connection} = State) ->
+    %% Run terminate before returning so that the reuseaddr
+    %% inet-option and possible downgrade will work as intended.
+    Result = Connection:terminate(Close, StateName, State),
+    {stop, normal, Result, State#state{terminated = true}};
+
 handle_sync_event({shutdown, How0}, _, StateName,
 		  #state{transport_cb = Transport,
 			 negotiated_version = Version,
@@ -829,13 +832,6 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 		error:Reason -> {error, Reason}
 	    end,
     {reply, Reply, StateName, State, get_timeout(State)};
-handle_sync_event(info, _, StateName, 
-		  #state{negotiated_version = Version,
-			 session = #session{cipher_suite = Suite}} = State) ->
-    
-    AtomVersion = tls_record:protocol_version(Version),
-    {reply, {ok, {AtomVersion, ssl:suite_definition(Suite)}},
-     StateName, State, get_timeout(State)};
 handle_sync_event(session_info, _, StateName, 
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
@@ -845,7 +841,10 @@ handle_sync_event(session_info, _, StateName,
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
-    {reply, {ok, Cert}, StateName, State, get_timeout(State)}.
+    {reply, {ok, Cert}, StateName, State, get_timeout(State)};
+handle_sync_event(connection_information, _, StateName, #state{sni_hostname = SNIHostname, session = #session{cipher_suite = CipherSuite}, negotiated_version = Version} = State) ->
+    {reply, {ok, [{protocol, tls_record:protocol_version(Version)}, {cipher_suite, ssl:suite_definition(CipherSuite)}, {sni_hostname, SNIHostname}]}, StateName, State, get_timeout(State)}.
+
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, transport_cb = Transport,
@@ -903,41 +902,46 @@ terminate(_, _, #state{terminated = true}) ->
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns.
     ok;
-terminate({shutdown, transport_closed}, StateName, #state{send_queue = SendQueue,
-							  renegotiation = Renegotiate} = State) ->
-    handle_unrecv_data(StateName, State),
+terminate({shutdown, transport_closed} = Reason, 
+	  _StateName, #state{send_queue = SendQueue, protocol_cb = Connection,
+			     socket = Socket, transport_cb = Transport,
+			     renegotiation = Renegotiate} = State) ->
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
-    notify_renegotiater(Renegotiate);
-
-terminate({shutdown, own_alert}, _StateName, #state{send_queue = SendQueue,
-				      renegotiation = Renegotiate} = State) ->
+    notify_renegotiater(Renegotiate),
+    Connection:close(Reason, Socket, Transport, undefined, undefined);
+terminate({shutdown, own_alert}, _StateName, #state{send_queue = SendQueue, protocol_cb = Connection,
+						    socket = Socket, transport_cb = Transport,
+						    renegotiation = Renegotiate} = State) ->
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
-    notify_renegotiater(Renegotiate);
+    notify_renegotiater(Renegotiate),
+    case application:get_env(ssl, alert_timeout) of
+	{ok, Timeout} when is_integer(Timeout) ->
+	    Connection:close({timeout, Timeout}, Socket, Transport, undefined, undefined);
+	_ ->
+	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
+    end;
 terminate(Reason, connection, #state{negotiated_version = Version,
 				     protocol_cb = Connection,
-				     connection_states = ConnectionStates, 
+				     connection_states = ConnectionStates0, 
+				     ssl_options = #ssl_options{padding_check = Check},
 				     transport_cb = Transport, socket = Socket, 
 				     send_queue = SendQueue, renegotiation = Renegotiate} = State) ->
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
-    BinAlert = terminate_alert(Reason, Version, ConnectionStates),
+    {BinAlert, ConnectionStates} = terminate_alert(Reason, Version, ConnectionStates0),
     Transport:send(Socket, BinAlert),
-    case Connection of
-	tls_connection ->
-	    tls_connection:workaround_transport_delivery_problems(Socket, Transport);
-	_ ->
-	    ok
-    end;
-terminate(_Reason, _StateName, #state{transport_cb = Transport,
+    Connection:close(Reason, Socket, Transport, ConnectionStates, Check);
+
+terminate(Reason, _StateName, #state{transport_cb = Transport, protocol_cb = Connection,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate} = State) ->
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
-    Transport:close(Socket).
+    Connection:close(Reason, Socket, Transport, undefined, undefined).
 
 format_status(normal, [_, State]) ->
     [{data, [{"StateData", State}]}];  
@@ -1760,30 +1764,17 @@ get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}}) ->
     HibernateAfter.
 
-terminate_alert(Reason, Version, ConnectionStates) when Reason == normal;
-							Reason == user_close ->
-    {BinAlert, _} = ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-				 Version, ConnectionStates),
-    BinAlert;
-terminate_alert({shutdown, _}, Version, ConnectionStates) ->
-    {BinAlert, _} = ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-				 Version, ConnectionStates),
-    BinAlert;
+terminate_alert(normal, Version, ConnectionStates)  ->
+    ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+		     Version, ConnectionStates);
+terminate_alert({Reason, _}, Version, ConnectionStates) when Reason == close;
+							     Reason == shutdown ->
+    ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+		     Version, ConnectionStates);
 
 terminate_alert(_, Version, ConnectionStates) ->
-    {BinAlert, _} = ssl_alert:encode(?ALERT_REC(?FATAL, ?INTERNAL_ERROR),
-				 Version, ConnectionStates),
-    BinAlert.
-
-handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport,
-				     protocol_cb = Connection} = State) ->
-    ssl_socket:setopts(Transport, Socket, [{active, false}]),
-    case Transport:recv(Socket, 0, 0) of
-	{error, closed} ->
-	    ok;
-	{ok, Data} ->
-	    Connection:handle_close_alert(Data, StateName, State)
-    end.
+    ssl_alert:encode(?ALERT_REC(?FATAL, ?INTERNAL_ERROR),
+		     Version, ConnectionStates).
 
 handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>, cacerts = []}}) ->
     %% No trusted certs specified

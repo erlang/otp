@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,15 +23,11 @@
 -include("httpd.hrl").
 -include("mod_auth.hrl").
 -include("httpd_internal.hrl").
--include("inets_internal.hrl").
-
 
 -define(VMODULE,"AUTH_PLAIN").
 
 %% Internal API
 -export([store_directory_data/3]).
-
-
 -export([get_user/2, 
 	 list_group_members/2, 
 	 add_user/2, 
@@ -42,17 +39,13 @@
 	 delete_group/2, 
 	 remove/1]).
 
-%%
-%% API
-%%
+%%====================================================================
+%% Internal application API
+%%====================================================================	     
 
-%%
 %% Storage format of users in the ets table:
 %% {UserName, Password, UserData}
-%%
-
 add_user(DirData, #httpd_user{username = User} = UStruct) ->
-    ?hdrt("add user", [{user, UStruct}]),
     PWDB = proplists:get_value(auth_user_file, DirData),
     Record = {User,
 	      UStruct#httpd_user.password, 
@@ -66,7 +59,6 @@ add_user(DirData, #httpd_user{username = User} = UStruct) ->
     end.
 
 get_user(DirData, User) ->
-    ?hdrt("get user", [{dir_data, DirData}, {user, User}]),
     PWDB = proplists:get_value(auth_user_file, DirData),
     case ets:lookup(PWDB, User) of
 	[{User, PassWd, Data}] ->
@@ -84,7 +76,6 @@ list_users(DirData) ->
 		     [], lists:flatten(Records))}.
 
 delete_user(DirData, UserName) ->
-    ?hdrt("delete user", [{dir_data, DirData}, {user, UserName}]),
     PWDB = proplists:get_value(auth_user_file, DirData),
     case ets:lookup(PWDB, UserName) of
 	[{UserName, _SomePassword, _SomeData}] ->
@@ -98,11 +89,8 @@ delete_user(DirData, UserName) ->
 	    {error, no_such_user}
     end.
 
-%%
 %% Storage of groups in the ets table:
 %% {Group, UserList} where UserList is a list of strings.
-%%
-  
 add_group_member(DirData, Group, UserName) ->
     GDB = proplists:get_value(auth_group_file, DirData),
     case ets:lookup(GDB, Group) of
@@ -163,17 +151,12 @@ delete_group(DirData, Group) ->
     end.
 
 store_directory_data(_Directory, DirData, Server_root) ->
-    ?hdrt("store directory data", 
-	  [{dir_data, DirData}, {server_root, Server_root}]),
     PWFile = absolute_file_name(auth_user_file, DirData, Server_root),
     GroupFile = absolute_file_name(auth_group_file, DirData, Server_root),
     case load_passwd(PWFile) of
 	{ok, PWDB} ->
-	    ?hdrt("password file loaded", [{file, PWFile}, {pwdb, PWDB}]),
 	    case load_group(GroupFile) of
 		{ok, GRDB} ->
-		    ?hdrt("group file loaded", 
-			  [{file, GroupFile}, {grdb, GRDB}]),
 		    %% Address and port is included in the file names...
 		    Addr = proplists:get_value(bind_address, DirData),
 		    Port = proplists:get_value(port, DirData),
@@ -191,52 +174,57 @@ store_directory_data(_Directory, DirData, Server_root) ->
 	    {error, Err2}
     end.
 
+%% Deletes ets tables used by this auth mod.
+remove(DirData) ->
+    PWDB = proplists:get_value(auth_user_file, DirData),
+    GDB = proplists:get_value(auth_group_file, DirData),
+    ets:delete(PWDB),
+    ets:delete(GDB).
 
-
-%% load_passwd
-
-load_passwd(AuthUserFile) ->
-    case file:open(AuthUserFile, [read]) of
-	{ok,Stream} ->
-	    parse_passwd(Stream, []);
-	{error, _} ->
-	    {error, ?NICE("Can't open " ++ AuthUserFile)}
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+%% Return the absolute path name of File_type. 
+absolute_file_name(File_type, DirData, Server_root) ->
+    Path = proplists:get_value(File_type, DirData),
+    case filename:pathtype(Path) of
+	relative ->
+	    case Server_root of
+		undefined ->
+		    {error,
+		     ?NICE(Path++
+			   " is an invalid file name because "
+			   "ServerRoot is not defined")};
+		_ ->
+		    filename:join(Server_root,Path)
+	    end;
+	_ ->
+	    Path
     end.
 
-parse_passwd(Stream, PasswdList) ->
-    Line =
-	case io:get_line(Stream, '') of
-	    eof ->
-		eof;
-	    String ->
-		httpd_conf:clean(String)
-	end,
-    parse_passwd(Stream, PasswdList, Line).
+store_group(Addr,Port,GroupList) ->
+    %% Not a named table so not importante to add Profile to name
+    Name = httpd_util:make_name("httpd_group",Addr,Port),
+    GroupDB = ets:new(Name, [set, public]),
+    store_group(GroupDB, GroupList).
 
-parse_passwd(Stream, PasswdList, eof) ->
-    file:close(Stream),
-    {ok, PasswdList};
-parse_passwd(Stream, PasswdList, "") ->
-    parse_passwd(Stream, PasswdList);
-parse_passwd(Stream, PasswdList, [$#|_]) ->
-    parse_passwd(Stream, PasswdList);
-parse_passwd(Stream, PasswdList, Line) ->      
-    case inets_regexp:split(Line,":") of
-	{ok, [User,Password]} ->
-	    parse_passwd(Stream, [{User,Password, []}|PasswdList]);
-	{ok,_} ->
-	    {error, ?NICE(Line)}
-    end.
+store_group(GroupDB,[]) ->
+    {ok, GroupDB};
+store_group(GroupDB, [User|Rest]) ->
+    ets:insert(GroupDB, User),
+    store_group(GroupDB, Rest).
 
-%% load_group
+store_passwd(Addr,Port,PasswdList) ->
+    %% Not a named table so not importante to add Profile to name
+    Name = httpd_util:make_name("httpd_passwd",Addr,Port),
+    PasswdDB = ets:new(Name, [set, public]),
+    store_passwd(PasswdDB, PasswdList).
 
-load_group(AuthGroupFile) ->
-    case file:open(AuthGroupFile, [read]) of
-	{ok, Stream} ->
-	    parse_group(Stream,[]);
-	{error, _} ->
-	    {error, ?NICE("Can't open " ++ AuthGroupFile)}
-    end.
+store_passwd(PasswdDB, []) ->
+    {ok, PasswdDB};
+store_passwd(PasswdDB, [User|Rest]) ->
+    ets:insert(PasswdDB, User),
+    store_passwd(PasswdDB, Rest).
 
 parse_group(Stream, GroupList) ->
     Line =
@@ -244,7 +232,7 @@ parse_group(Stream, GroupList) ->
 	    eof ->
 		eof;
 	    String ->
-		httpd_conf:clean(String)
+		httpd_conf:white_space_clean(String)
 	end,
     parse_group(Stream, GroupList, Line).
 
@@ -264,64 +252,43 @@ parse_group(Stream, GroupList, Line) ->
 	    {error, ?NICE(Line)}
     end.
 
-
-%% store_passwd
-
-store_passwd(Addr,Port,PasswdList) ->
-    Name = httpd_util:make_name("httpd_passwd",Addr,Port),
-    PasswdDB = ets:new(Name, [set, public]),
-    store_passwd(PasswdDB, PasswdList).
-
-store_passwd(PasswdDB, []) ->
-    {ok, PasswdDB};
-store_passwd(PasswdDB, [User|Rest]) ->
-    ets:insert(PasswdDB, User),
-    store_passwd(PasswdDB, Rest).
-
-%% store_group
-
-store_group(Addr,Port,GroupList) ->
-    Name = httpd_util:make_name("httpd_group",Addr,Port),
-    GroupDB = ets:new(Name, [set, public]),
-    store_group(GroupDB, GroupList).
-
-
-store_group(GroupDB,[]) ->
-    {ok, GroupDB};
-store_group(GroupDB, [User|Rest]) ->
-    ets:insert(GroupDB, User),
-    store_group(GroupDB, Rest).
-
-
-%% remove/1
-%%
-%% Deletes ets tables used by this auth mod.
-%%
-remove(DirData) ->
-    PWDB = proplists:get_value(auth_user_file, DirData),
-    GDB = proplists:get_value(auth_group_file, DirData),
-    ets:delete(PWDB),
-    ets:delete(GDB).
-
-
-
-%% absolute_file_name/2
-%%
-%% Return the absolute path name of File_type. 
-absolute_file_name(File_type, DirData, Server_root) ->
-    Path = proplists:get_value(File_type, DirData),
-    case filename:pathtype(Path) of
-	relative ->
-	    case Server_root of
-		undefined ->
-		    {error,
-		     ?NICE(Path++
-			   " is an invalid file name because "
-			   "ServerRoot is not defined")};
-		_ ->
-		    filename:join(Server_root,Path)
-	    end;
-	_ ->
-	    Path
+load_passwd(AuthUserFile) ->
+    case file:open(AuthUserFile, [read]) of
+	{ok,Stream} ->
+	    parse_passwd(Stream, []);
+	{error, _} ->
+	    {error, ?NICE("Can't open " ++ AuthUserFile)}
     end.
 
+parse_passwd(Stream, PasswdList) ->
+    Line =
+	case io:get_line(Stream, '') of
+	    eof ->
+		eof;
+	    String ->
+		httpd_conf:white_space_clean(String)
+	end,
+    parse_passwd(Stream, PasswdList, Line).
+
+parse_passwd(Stream, PasswdList, eof) ->
+    file:close(Stream),
+    {ok, PasswdList};
+parse_passwd(Stream, PasswdList, "") ->
+    parse_passwd(Stream, PasswdList);
+parse_passwd(Stream, PasswdList, [$#|_]) ->
+    parse_passwd(Stream, PasswdList);
+parse_passwd(Stream, PasswdList, Line) ->      
+    case inets_regexp:split(Line,":") of
+	{ok, [User,Password]} ->
+	    parse_passwd(Stream, [{User,Password, []}|PasswdList]);
+	{ok,_} ->
+	    {error, ?NICE(Line)}
+    end.
+
+load_group(AuthGroupFile) ->
+    case file:open(AuthGroupFile, [read]) of
+	{ok, Stream} ->
+	    parse_group(Stream,[]);
+	{error, _} ->
+	    {error, ?NICE("Can't open " ++ AuthGroupFile)}
+    end.

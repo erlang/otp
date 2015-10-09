@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2000-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -73,6 +74,7 @@ config(priv_dir,_) ->
 	 init_per_group/2,end_per_group/2,
 	 test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
+         test_hash_zero/1,
 	 end_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     Dog=test_server:timetrap(test_server:minutes(10)),
@@ -86,7 +88,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [test_basic, test_cmp, test_range, test_spread,
-     test_phash2, otp_5292, bit_level_binaries, otp_7127].
+     test_phash2, otp_5292, bit_level_binaries, otp_7127,
+     test_hash_zero
+    ].
 
 groups() -> 
     [].
@@ -160,6 +164,8 @@ otp_7127(doc) ->
 otp_7127(Config) when is_list(Config) ->
     otp_7127_test().
 
+test_hash_zero(Config) when is_list(Config) ->
+    hash_zero_test().
 -endif.
 
 
@@ -590,6 +596,26 @@ otp_7127_test() ->
     %% Used to return 2589127136.
     38990304 = erlang:phash2(<<"Scott9">>),
     ok.
+
+hash_zero_test() ->
+    Zs = [0.0, -0.0, 0/-1, 0.0/-1, 0/-(1 bsl 65),
+          binary_to_term(<<131,70,0,0,0,0,0,0,0,0>>),    %% +0.0
+          binary_to_term(<<131,70,128,0,0,0,0,0,0,0>>)], %% -0.0
+    ok = hash_zero_test(Zs,fun(T) -> erlang:phash2(T, 1 bsl 32) end),
+    ok = hash_zero_test(Zs,fun(T) -> erlang:phash(T, 1 bsl 32) end),
+    ok = hash_zero_test(Zs,fun(T) -> erlang:hash(T, (1 bsl 27) - 1) end),
+    ok.
+
+hash_zero_test([Z|Zs],F) ->
+    hash_zero_test(Zs,Z,F(Z),F).
+hash_zero_test([Z|Zs],Z0,V,F) ->
+    true = Z0 =:= Z, %% assert exact equal
+    Z0   = Z,        %% assert matching
+    V    = F(Z),     %% assert hash
+    hash_zero_test(Zs,Z0,V,F);
+hash_zero_test([],_,_,_) ->
+    ok.
+
 
 %%
 %% Reference implementation of integer hashing

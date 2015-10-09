@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2013-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -53,6 +54,8 @@ all() ->
      {group, https_basic},
      {group, http_limit},
      {group, https_limit},
+     {group, http_custom},
+     {group, https_custom},
      {group, http_basic_auth},
      {group, https_basic_auth},
      {group, http_auth_api},
@@ -66,7 +69,8 @@ all() ->
      {group, http_security}, 
      {group, https_security},
      {group, http_reload},
-     {group, https_reload}
+     {group, https_reload},
+     {group, http_mime_types} 
     ].
 
 groups() ->
@@ -75,6 +79,8 @@ groups() ->
      {https_basic, [], basic_groups()},
      {http_limit, [], [{group, limit}]},
      {https_limit, [], [{group, limit}]},
+     {http_custom, [], [{group,  custom}]},
+     {https_custom, [], [{group,  custom}]},
      {http_basic_auth, [], [{group, basic_auth}]},
      {https_basic_auth, [], [{group, basic_auth}]},
      {http_auth_api, [], [{group, auth_api}]},
@@ -89,7 +95,9 @@ groups() ->
      {https_security, [], [{group, security}]},
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
+     {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
@@ -127,7 +135,6 @@ http_get() ->
      get, 
      %%actions, Add configuration so that this test mod_action
      esi, 
-     ssi, 
      content_length, 
      bad_hex, 
      missing_CR,
@@ -177,6 +184,7 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(Group, Config0) when Group == https_basic;
 				    Group == https_limit;
+				    Group == https_custom;
 				    Group == https_basic_auth;
 				    Group == https_auth_api;
 				    Group == https_auth_api_dets;
@@ -187,12 +195,14 @@ init_per_group(Group, Config0) when Group == https_basic;
     init_ssl(Group, Config0);
 init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_limit;
+				      Group == http_custom;
 				      Group == http_basic_auth;
 				      Group == http_auth_api;
 				      Group == http_auth_api_dets;
 				      Group == http_auth_api_mnesia;
 				      Group == http_security;
-				      Group == http_reload
+				      Group == http_reload;
+                                      Group == http_mime_types
 				      ->
     ok = start_apps(Group),
     init_httpd(Group, [{type, ip_comm} | Config0]);
@@ -236,7 +246,8 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_auth_api_mnesia;
 				     Group == http_htaccess;
 				     Group == http_security;
-				     Group == http_reload
+				     Group == http_reload;
+                                     Group == http_mime_types
 				     ->
     inets:stop();
 end_per_group(Group, _Config) when  Group == https_basic;
@@ -552,22 +563,6 @@ ipv6(Config) when is_list(Config) ->
      end.
 
 %%-------------------------------------------------------------------------
-ssi() ->
-    [{doc, "HTTP GET server side include test"}].
-ssi(Config) when is_list(Config) -> 
-    Version = ?config(http_version, Config),
-    Host = ?config(host, Config),
-    Type = ?config(type, Config),
-    ok = httpd_test_lib:verify_request(?config(type, Config), Host, ?config(port, Config),  
-				       transport_opts(Type, Config),
-				       ?config(node, Config),
-				       http_request("GET /fsize.shtml ", Version, Host),
-				       [{statuscode, 200},
-					{header, "Content-Type", "text/html"},
-					{header, "Date"},
-					{header, "Server"},
-				       	{version, Version}]).
-%%-------------------------------------------------------------------------
 htaccess_1_1(Config) when is_list(Config) -> 
     htaccess([{http_version, "HTTP/1.1"} | Config]).
 
@@ -857,6 +852,24 @@ cgi_chunked_encoding_test(Config) when is_list(Config) ->
 					    ?config(node, Config),
 					    Requests).
 %%-------------------------------------------------------------------------
+alias_1_1() ->
+    [{doc, "Test mod_alias"}].
+
+alias_1_1(Config) when is_list(Config) ->
+    alias([{http_version, "HTTP/1.1"} | Config]).
+
+alias_1_0() ->
+    [{doc, "Test mod_alias"}].
+  
+alias_1_0(Config) when is_list(Config) ->
+    alias([{http_version, "HTTP/1.0"} | Config]).
+
+alias_0_9() ->
+    [{doc, "Test mod_alias"}].
+  
+alias_0_9(Config) when is_list(Config) ->
+    alias([{http_version, "HTTP/0.9"} | Config]).
+
 alias() ->
     [{doc, "Test mod_alias"}].
 
@@ -915,7 +928,6 @@ trace(Config) when is_list(Config) ->
     Cb = ?config(version_cb, Config),
     Cb:trace(?config(type, Config), ?config(port, Config), 
 	     ?config(host, Config), ?config(node, Config)).
-
 %%-------------------------------------------------------------------------
 light() ->
     ["Test light load"].
@@ -970,6 +982,43 @@ missing_CR(Config) ->
 				       ?config(port, Config), ?config(node, Config),
 				       http_request_missing_CR("GET /index.html ", Version, Host),
 				       [{statuscode, 200},
+					{version, Version}]).
+
+%%-------------------------------------------------------------------------
+customize() ->
+    [{doc, "Test filtering of headers with custom callback"}].
+
+customize(Config) when is_list(Config) -> 
+    Version = "HTTP/1.1",
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{header, "Content-Type", "text/html"},
+					{header, "Date"},
+					{no_header, "Server"},
+					{version, Version}]).
+
+add_default() ->
+    [{doc, "Test adding default header with custom callback"}].
+
+add_default(Config) when is_list(Config) -> 
+    Version = "HTTP/1.1",
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{header, "Content-Type", "text/html"},
+					{header, "Date", "Override-date"},
+					{header, "X-Frame-Options"},
 					{version, Version}]).
 
 %%-------------------------------------------------------------------------
@@ -1276,22 +1325,26 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     CgiDir =  filename:join(ServerRoot, "cgi-bin"),
     AuthDir =  filename:join(ServerRoot, "auth"),
     PicsDir =  filename:join(ServerRoot, "icons"),
+    ConfigDir =  filename:join(ServerRoot, "config"),
 
     ok = file:make_dir(ServerRoot),
     ok = file:make_dir(DocRoot),
     ok = file:make_dir(CgiDir),
     ok = file:make_dir(AuthDir),
     ok = file:make_dir(PicsDir),
+    ok = file:make_dir(ConfigDir),
 
     DocSrc = filename:join(DataDir, "server_root/htdocs"),    
     AuthSrc = filename:join(DataDir, "server_root/auth"),    
     CgiSrc =  filename:join(DataDir, "server_root/cgi-bin"),    
     PicsSrc =  filename:join(DataDir, "server_root/icons"),    
+    ConfigSrc = filename:join(DataDir, "server_root/config"),
     
     inets_test_lib:copy_dirs(DocSrc, DocRoot),
     inets_test_lib:copy_dirs(AuthSrc, AuthDir),
     inets_test_lib:copy_dirs(CgiSrc, CgiDir),
     inets_test_lib:copy_dirs(PicsSrc, PicsDir),
+    inets_test_lib:copy_dirs(ConfigSrc, ConfigDir),
         
     Cgi = case test_server:os_type() of
 	      {win32, _} ->
@@ -1312,24 +1365,27 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
     
 start_apps(Group) when  Group == https_basic;
 			Group == https_limit;
+			Group == https_custom;
 			Group == https_basic_auth;
 			Group == https_auth_api;
 			Group == https_auth_api_dets;
 			Group == https_auth_api_mnesia;
-			Group == http_htaccess;
-			Group == http_security;
-			Group == http_reload
+			Group == https_htaccess;
+			Group == https_security;
+			Group == https_reload
 			->
     inets_test_lib:start_apps([inets, asn1, crypto, public_key, ssl]);
 start_apps(Group) when  Group == http_basic;
 			Group == http_limit;
+			Group == http_custom;
 			Group == http_basic_auth;
 			Group == http_auth_api;
 			Group == http_auth_api_dets;
 			Group == http_auth_api_mnesia;			
-			Group == https_htaccess;
-			Group == https_security;
-			Group == https_reload->
+			Group == http_htaccess;
+			Group == http_security;
+			Group == http_reload;
+                        Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
 
 server_start(_, HttpdConfig) ->
@@ -1381,6 +1437,10 @@ server_config(http_limit, Config) ->
     [{max_clients, 1},
      %% Make sure option checking code is run
      {max_content_length, 100000002}]  ++ server_config(http, Config);
+server_config(http_custom, Config) ->
+    [{customize, ?MODULE}]  ++ server_config(http, Config);
+server_config(https_custom, Config) ->
+    [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
@@ -1417,6 +1477,11 @@ server_config(http_security, Config) ->
 server_config(https_security, Config) ->
     ServerRoot = ?config(server_root, Config),
     tl(auth_conf(ServerRoot)) ++ security_conf(ServerRoot) ++ server_config(https, Config);
+server_config(http_mime_types, Config0) ->
+    Config1 = basic_conf() ++  server_config(http, Config0),
+    ServerRoot = ?config(server_root, Config0),
+    MimeTypesFile = filename:join([ServerRoot,"config", "mime.types"]),
+    [{mime_types, MimeTypesFile} | proplists:delete(mime_types, Config1)];
 
 server_config(http, Config) ->
     ServerRoot = ?config(server_root, Config),
@@ -1978,3 +2043,14 @@ typestr(ip_comm) ->
     "tcp";
 typestr(_) ->
     "ssl".
+
+response_header({"server", _}) ->
+    false;
+response_header(Header) ->
+    {true, Header}.
+
+response_default_headers() ->
+    [%% Add new header
+     {"X-Frame-Options", "SAMEORIGIN"},
+     %% Override built-in default
+     {"Date", "Override-date"}].

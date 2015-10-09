@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -169,12 +170,11 @@ test_1(Config) when is_list(Config) ->
 	     [{['$1','$1'],[{is_atom, '$1'}],[kakalorum]}],
 	     [{call, {?MODULE, f2, [a, a]}}]),
 
-%    case tr0(fun() -> ?MODULE:f2(a, a) end,
-%	     {?MODULE, f2, 2},
-%	     [{['$1','$1'],[{is_atom, '$1'}],[{message, {process_dump}}]}]) of
-%	[{trace, _, call, {?MODULE, f2, [a, a]}, Bin}] ->
-%	    erlang:display(binary_to_list(Bin))
-%    end,
+    %% Verify that 'process_dump' can handle a matchstate on the stack.
+    tr(fun() -> fbinmatch(<<0>>, 0) end,
+       {?MODULE, f1, 1},
+       [{['_'],[],[{message, {process_dump}}]}],
+       [fun({trace, _, call, {?MODULE, f1, [0]}, _Bin}) -> true end]),
 
 % Error cases
     ?line errchk([{['$1','$1'],[{is_atom, '$1'}],[{banka, kanin}]}]),
@@ -998,14 +998,14 @@ tr(Fun, MFA, TraceFlags, Pat, PatFlags, Expected0) ->
 	       erlang:trace(P, true, TraceFlags),
 	       erlang:trace_pattern(MFA, Pat, PatFlags),
 	       lists:map(
-		 fun(X) -> 
-			 list_to_tuple([trace, P | tuple_to_list(X)])
+		 fun(X) when is_function(X,1) -> X;
+		    (X) -> list_to_tuple([trace, P | tuple_to_list(X)])
 		 end,
 		 Expected0)
        end).
 
 tr(RunFun, ControlFun) ->
-    P = spawn(?MODULE, runner, [self(), RunFun]),
+    P = spawn_link(?MODULE, runner, [self(), RunFun]),
     collect(P, ControlFun(P)).
 
 collect(P, TMs) ->
@@ -1024,18 +1024,33 @@ collect([]) ->
 collect([TM | TMs]) ->
     ?t:format(        "Expecting:      ~p~n", [TM]),
     receive
-	M ->
-	    case if element(1, M) == trace_ts ->
-			 list_to_tuple(lists:reverse(
-					 tl(lists:reverse(tuple_to_list(M)))));
-		    true -> M
-		 end of
-		TM ->
-		    ?t:format("Got:            ~p~n", [M]),
-		    collect(TMs);
-		_ ->
-		    ?t:format("Got unexpected: ~p~n", [M]),
-		    flush({got_unexpected,M})
+	M0 ->
+	    M = case element(1, M0) of
+		    trace_ts ->
+			list_to_tuple(lists:reverse(
+					tl(lists:reverse(tuple_to_list(M0)))));
+		    _ -> M0
+		end,
+	    case is_function(TM,1) of
+		true ->
+		    case (catch TM(M)) of
+			true ->
+			    ?t:format("Got:            ~p~n", [M]),
+			    collect(TMs);
+			_ ->
+			    ?t:format("Got unexpected: ~p~n", [M]),
+			    flush({got_unexpected,M})
+		    end;
+
+		false ->
+		    case M of
+			TM ->
+			    ?t:format("Got:            ~p~n", [M]),
+			    collect(TMs);
+			_ ->
+			    ?t:format("Got unexpected: ~p~n", [M]),
+			    flush({got_unexpected,M})
+		    end
 	    end
     end.
 
@@ -1114,6 +1129,10 @@ fn(X, Y) ->
     [X, Y].
 fn(X, Y, Z) ->
     [X, Y, Z].
+
+fbinmatch(<<Int, Rest/binary>>, Acc) ->
+    fbinmatch(Rest, [?MODULE:f1(Int) | Acc]);
+fbinmatch(<<>>, Acc) -> Acc.
 
 id(X) ->
     X.

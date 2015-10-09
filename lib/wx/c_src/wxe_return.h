@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2008-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd% 
  */
@@ -40,10 +41,7 @@ extern "C" {
 #include <wx/html/htmlcell.h>
 
 
-// #define send() send_term(__FILE__, __LINE__)
-
-// see http://docs.wxwidgets.org/stable/wx_wxarray.html
-WX_DECLARE_OBJARRAY(ErlDrvTermData, wxErlDrvTermDataArray);
+#define RT_BUFF_SZ 64
 
 class wxeReturn {
 
@@ -57,7 +55,6 @@ public:
 
     void add(ErlDrvTermData type, ErlDrvTermData data);
 
-    //  void addRef(const void *ptr, const char* className);
     void addRef(const unsigned int ref, const char* className);
     void addAtom(const char* atomName);
     
@@ -65,8 +62,8 @@ public:
     void addExt2Term(wxeErlTerm * term);
     void addExt2Term(wxETreeItemData * term);
 
-    void addNil() { rt.Add(ERL_DRV_NIL); };
-    
+    void addNil() { do_add(ERL_DRV_NIL); };
+
     void addUint(unsigned int n);
     
     void addInt(int n);
@@ -116,6 +113,10 @@ public:
 
     void add(const wxHtmlLinkInfo &val);
 
+    void do_add(ErlDrvTermData val);
+
+    void ensureFloatCount(size_t n);
+
     int  send();
     
     void reset();
@@ -127,15 +128,17 @@ private:
     inline void  addDate(wxDateTime dateTime);
 
     inline void  addTime(wxDateTime dateTime);
-    
-//    WxeApp*                 wxe_app;
+
     ErlDrvTermData          caller;
     ErlDrvTermData          port;
-//    wxeMemEnv               *memEnv;
-    wxErlDrvTermDataArray   rt;
     wxArrayDouble           temp_float;
     wxMBConvUTF32           utfConverter;
     bool                    isResult;
+
+    unsigned int            rt_max;
+    unsigned int            rt_n;
+    ErlDrvTermData          *rtb;
+    ErlDrvTermData          buff[RT_BUFF_SZ];
 };
 
 #endif	/* _WXE_RETURN_H */

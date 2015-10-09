@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -46,7 +47,7 @@
 
     <func>
       <name>decode(Module,Type,Bytes) -> {ok,Value}|{error,Reason}</name>
-      <fsummary>Decode from bytes into an ASN.1 value.</fsummary>
+      <fsummary>Decodes from Bytes into an ASN.1 value.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = Reason = term()</v>
@@ -61,7 +62,7 @@
 
     <func>
       <name>encode(Module,Type,Value)-> {ok,Bytes} | {error,Reason}</name>
-      <fsummary>Encode an ASN.1 value.</fsummary>
+      <fsummary>Encodes an ASN.1 value.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
         <v>Value = term()</v>
@@ -69,12 +70,12 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Encodes <c>Value</c> of <c>Type</c> defined in the ASN.1
+        <p>Encodes <c>Value</c> of <c>Type</c> defined in the <c>ASN.1</c>
         module <c>Module</c>. Returns a binary if successful. To get
-        as fast execution as possible the encode function only
-        performs rudimentary tests that the input <c>Value</c> is a
-        correct instance of <c>Type</c>. The length of strings is, for
-        example, not always checked. </p>
+        as fast execution as possible, the encode function performs
+        only the rudimentary test that input <c>Value</c> is a correct
+        instance of <c>Type</c>. For example, the length of strings is
+        not always checked.</p>
 	<p>Use <c>Module:encode(Type, Value)</c> instead of this function.</p>
       </desc>
     </func>
@@ -88,23 +89,23 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p><c>info/1</c> returns the version of the asn1 compiler that was
+        <p>Returns the version of the <c>ASN.1</c> compiler that was
           used to compile the module. It also returns the compiler options
-          that was used.</p>
+          that were used.</p>
 	<p>Use <c>Module:info()</c> instead of this function.</p>
       </desc>
     </func>
 
     <func>
       <name>utf8_binary_to_list(UTF8Binary) ->  {ok,UnicodeList} | {error,Reason}</name>
-      <fsummary>Transforms an utf8 encoded binary to a unicode list.</fsummary>
+      <fsummary>Transforms an UTF8 encoded binary to a unicode list.</fsummary>
       <type>
         <v>UTF8Binary = binary()</v>
         <v>UnicodeList = [integer()]</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p><c>utf8_binary_to_list/1</c> Transforms a UTF8 encoded binary
+        <p>Transforms a UTF8 encoded binary
           to a list of integers, where each integer represents one
           character as its unicode value. The function fails if the binary
           is not a properly encoded UTF8 string.</p>
@@ -114,14 +115,14 @@
 
     <func>
       <name>utf8_list_to_binary(UnicodeList) ->  {ok,UTF8Binary} | {error,Reason}</name>
-      <fsummary>Transforms an unicode list ot an utf8 binary.</fsummary>
+      <fsummary>Transforms an unicode list to a UTF8 binary.</fsummary>
       <type>
         <v>UnicodeList = [integer()]</v>
         <v>UTF8Binary = binary()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p><c>utf8_list_to_binary/1</c> Transforms a list of integers,
+        <p>Transforms a list of integers,
           where each integer represents one character as its unicode
           value, to a UTF8 encoded binary.</p>
 	<p>Use <seealso marker="stdlib:unicode#characters_to_binary-1">unicode:characters_to_binary/1</seealso> instead of this function.</p>

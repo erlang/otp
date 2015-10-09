@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -147,7 +148,8 @@
 	    S#xmerl_scanner.quiet ->
 		ok;
 	    true ->
-		ok=io:format("~p- fatal: ~p~n", [?LINE, Reason])
+		error_logger:error_msg("~p- fatal: ~p~n", [?LINE, Reason]),
+		ok
 	end,
 	fatal(Reason, S)).
 
@@ -255,7 +257,7 @@ file(F, Options) ->
     end.
 
 int_file(F, Options,_ExtCharset) ->
-     %%io:format("int_file F=~p~n",[F]),
+     %%?dbg("int_file F=~p~n",[F]),
     case file:read_file(F) of
 	{ok, Bin} ->
 	    int_string(binary_to_list(Bin), Options, filename:dirname(F),F);
@@ -264,7 +266,7 @@ int_file(F, Options,_ExtCharset) ->
     end.
 
 int_file_decl(F, Options,_ExtCharset) ->
-%     io:format("int_file_decl F=~p~n",[F]),
+%     ?dbg("int_file_decl F=~p~n",[F]),
     case file:read_file(F) of
 	{ok, Bin} ->
 	    int_string_decl(binary_to_list(Bin), Options, filename:dirname(F),F);
@@ -294,7 +296,7 @@ int_string(Str, Options,FileName) ->
 int_string(Str, Options, XMLBase, FileName) ->
     S0=initial_state0(Options,XMLBase),
     S = S0#xmerl_scanner{filename=FileName},
-    %%io:format("int_string1, calling xmerl_lib:detect_charset~n",[]),
+    %%?dbg("int_string1, calling xmerl_lib:detect_charset~n",[]),
 
     %% In case of no encoding attribute in document utf-8 is default, but
     %% another character set may be detected with help of Byte Order Marker or
@@ -559,20 +561,20 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 		Str0
 	end,
 %%     M1 = erlang:memory(),
-%%     io:format("Memory status before prolog: ~p~n",[M1]),
+%%     ?dbg("Memory status before prolog: ~p~n",[M1]),
     {Prolog, Pos, T1, S2} = scan_prolog(Str, S1, _StartPos = 1),
 %%     M2 = erlang:memory(),
-%%     io:format("Memory status after prolog: ~p~n",[M2]),
-    %%io:format("scan_document 2, prolog parsed~n",[]),
+%%     ?dbg("Memory status after prolog: ~p~n",[M2]),
+    %%?dbg("scan_document 2, prolog parsed~n",[]),
     T2 = scan_mandatory("<", T1, 1, S2, expected_element_start_tag),
 %%     M3 = erlang:memory(),
-%%     io:format("Memory status before element: ~p~n",[M3]),
+%%     ?dbg("Memory status before element: ~p~n",[M3]),
     {Res, T3, S3} = scan_element(T2,S2,Pos),
 %%     M4 = erlang:memory(),
-%%     io:format("Memory status after element: ~p~n",[M4]),
+%%     ?dbg("Memory status after element: ~p~n",[M4]),
     {Misc, _Pos1, Tail, S4}=scan_misc(T3, S3, Pos + 1),
 %%     M5 = erlang:memory(),
-%%     io:format("Memory status after misc: ~p~n",[M5]),
+%%     ?dbg("Memory status after misc: ~p~n",[M5]),
 
     S5 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
 					       line = S4#xmerl_scanner.line,
@@ -604,7 +606,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 		 case schemaLocations(Res, S5) of
 		     {ok, Schemas} ->
 			 cleanup(S5),
-			 %%io:format("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
+			 %%?dbg("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
 			 %%          [Schemas,Res,inherit_options(S5)]),
 			 XSDRes = xmerl_xsd:process_validate(Schemas, Res,
 							     inherit_options(S5)),
@@ -1373,7 +1375,7 @@ fetch_not_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch}) ->
     end.
 
 get_file(F,S) ->
-%     io:format("get_file F=~p~n",[F]),
+%     ?dbg("get_file F=~p~n",[F]),
     case file:read_file(F) of
 	{ok,Bin} ->
 	    binary_to_list(Bin);
@@ -4088,7 +4090,7 @@ schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) ->
     end.
 
 inherit_options(S) ->
-    %%io:format("xsdbase: ~p~n",[S#xmerl_scanner.xmlbase]),
+    %%?dbg("xsdbase: ~p~n",[S#xmerl_scanner.xmlbase]),
     [{xsdbase,S#xmerl_scanner.xmlbase}].
 
 handle_schema_result({XSDRes=#xmlElement{},_},S5) ->
@@ -4227,7 +4229,7 @@ string_to_char_set(_,Str) ->
 %%     NewTot =
 %%     case {lists:keysearch(total,1,Mem),OldTot*1.1} of
 %% 	{{_,{_,Tot}},Tot110} when Tot > Tot110 ->
-%% 	    io:format("From ~p to ~p, total memory: ~p (~p)~n",[OldLine,Line,Tot,OldTot]),
+%% 	    ?dbg("From ~p to ~p, total memory: ~p (~p)~n",[OldLine,Line,Tot,OldTot]),
 %% 	    Tot;
 %% 	{{_,{_,Tot}},_} ->
 %% 	    Tot

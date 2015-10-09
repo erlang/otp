@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -42,28 +43,28 @@
 %%%=========================================================================
 %%%  Internal application API
 %%%=========================================================================
-parse([Bin, MaxSizes]) ->
-    ?hdrt("parse", [{bin, Bin}, {max_sizes, MaxSizes}]),    
-    parse_method(Bin, [], 0, proplists:get_value(max_method, MaxSizes), MaxSizes, []);
+parse([Bin, Options]) ->
+    ?hdrt("parse", [{bin, Bin}, {max_sizes, Options}]),    
+    parse_method(Bin, [], 0, proplists:get_value(max_method, Options), Options, []);
 parse(Unknown) ->
     ?hdrt("parse", [{unknown, Unknown}]),
     exit({bad_args, Unknown}).
 
 %% Functions that may be returned during the decoding process
 %% if the input data is incompleate. 
-parse_method([Bin, Method, Current, Max, MaxSizes, Result]) ->
-    parse_method(Bin, Method, Current, Max, MaxSizes, Result).
+parse_method([Bin, Method, Current, Max, Options, Result]) ->
+    parse_method(Bin, Method, Current, Max, Options, Result).
 
-parse_uri([Bin, URI, Current, Max, MaxSizes, Result]) ->
-    parse_uri(Bin, URI, Current, Max, MaxSizes, Result).
+parse_uri([Bin, URI, Current, Max, Options, Result]) ->
+    parse_uri(Bin, URI, Current, Max, Options, Result).
 
-parse_version([Bin, Rest, Version, Current, Max, MaxSizes, Result]) ->
-    parse_version(<<Rest/binary, Bin/binary>>, Version, Current, Max, MaxSizes, 
+parse_version([Bin, Rest, Version, Current, Max, Options, Result]) ->
+    parse_version(<<Rest/binary, Bin/binary>>, Version, Current, Max, Options, 
 		  Result).
 
-parse_headers([Bin, Rest, Header, Headers, Current, Max, MaxSizes, Result]) ->
+parse_headers([Bin, Rest, Header, Headers, Current, Max, Options, Result]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, 
-		  Header, Headers, Current, Max, MaxSizes, Result).
+		  Header, Headers, Current, Max, Options, Result).
 
 whole_body([Bin, Body, Length])  ->
     whole_body(<<Body/binary, Bin/binary>>, Length).    
@@ -134,13 +135,13 @@ update_mod_data(ModData, Method, RequestURI, HTTPVersion, Headers)->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
-parse_method(<<>>, Method, Current, Max, MaxSizes, Result) ->
-    {?MODULE, parse_method, [Method, Current, Max, MaxSizes, Result]};
-parse_method(<<?SP, Rest/binary>>, Method, _Current, _Max, MaxSizes, Result) ->
-    parse_uri(Rest, [], 0,  proplists:get_value(max_uri, MaxSizes), MaxSizes,
+parse_method(<<>>, Method, Current, Max, Options, Result) ->
+    {?MODULE, parse_method, [Method, Current, Max, Options, Result]};
+parse_method(<<?SP, Rest/binary>>, Method, _Current, _Max, Options, Result) ->
+    parse_uri(Rest, [], 0,  proplists:get_value(max_uri, Options), Options,
 	      [string:strip(lists:reverse(Method)) | Result]);
-parse_method(<<Octet, Rest/binary>>, Method, Current, Max, MaxSizes, Result) when Current =< Max ->
-    parse_method(Rest, [Octet | Method], Current + 1, Max, MaxSizes, Result);
+parse_method(<<Octet, Rest/binary>>, Method, Current, Max, Options, Result) when Current =< Max ->
+    parse_method(Rest, [Octet | Method], Current + 1, Max, Options, Result);
 parse_method(_, _, _, Max, _, _) ->
     %% We do not know the version of the client as it comes after the
     %% method send the lowest version in the response so that the client
@@ -153,30 +154,30 @@ parse_uri(_, _, Current, MaxURI, _, _)
     %% uri send the lowest version in the response so that the client
     %% will be able to handle it.
     {error, {size_error, MaxURI, 414, "URI unreasonably long"},lowest_version()};
-parse_uri(<<>>, URI, Current, Max, MaxSizes, Result) ->
-    {?MODULE, parse_uri, [URI, Current, Max, MaxSizes, Result]};
-parse_uri(<<?SP, Rest/binary>>, URI, _, _, MaxSizes, Result) -> 
-    parse_version(Rest, [], 0, proplists:get_value(max_version, MaxSizes), MaxSizes, 
+parse_uri(<<>>, URI, Current, Max, Options, Result) ->
+    {?MODULE, parse_uri, [URI, Current, Max, Options, Result]};
+parse_uri(<<?SP, Rest/binary>>, URI, _, _, Options, Result) -> 
+    parse_version(Rest, [], 0, proplists:get_value(max_version, Options), Options, 
 		  [string:strip(lists:reverse(URI)) | Result]);
 %% Can happen if it is a simple HTTP/0.9 request e.i "GET /\r\n\r\n"
-parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, _, MaxSizes, Result) ->
-    parse_version(Data, [], 0, proplists:get_value(max_version, MaxSizes), MaxSizes, 
+parse_uri(<<?CR, _Rest/binary>> = Data, URI, _, _, Options, Result) ->
+    parse_version(Data, [], 0, proplists:get_value(max_version, Options), Options, 
 		  [string:strip(lists:reverse(URI)) | Result]);
-parse_uri(<<Octet, Rest/binary>>, URI, Current, Max, MaxSizes, Result) ->
-    parse_uri(Rest, [Octet | URI], Current + 1, Max, MaxSizes, Result).
+parse_uri(<<Octet, Rest/binary>>, URI, Current, Max, Options, Result) ->
+    parse_uri(Rest, [Octet | URI], Current + 1, Max, Options, Result).
 
-parse_version(<<>>, Version, Current, Max, MaxSizes, Result) ->
-    {?MODULE, parse_version, [<<>>, Version, Current, Max, MaxSizes, Result]};
-parse_version(<<?LF, Rest/binary>>, Version, Current, Max, MaxSizes, Result) ->
+parse_version(<<>>, Version, Current, Max, Options, Result) ->
+    {?MODULE, parse_version, [<<>>, Version, Current, Max, Options, Result]};
+parse_version(<<?LF, Rest/binary>>, Version, Current, Max, Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_version(<<?CR, ?LF, Rest/binary>>, Version, Current, Max, MaxSizes, Result);
-parse_version(<<?CR, ?LF, Rest/binary>>, Version, _, _,  MaxSizes, Result) ->
-    parse_headers(Rest, [], [], 0, proplists:get_value(max_header, MaxSizes), MaxSizes, 
+    parse_version(<<?CR, ?LF, Rest/binary>>, Version, Current, Max, Options, Result);
+parse_version(<<?CR, ?LF, Rest/binary>>, Version, _, _,  Options, Result) ->
+    parse_headers(Rest, [], [], 0, proplists:get_value(max_header, Options), Options, 
 		  [string:strip(lists:reverse(Version)) | Result]);
-parse_version(<<?CR>> = Data, Version, Current, Max, MaxSizes, Result) ->
-    {?MODULE, parse_version, [Data, Version, Current, Max, MaxSizes, Result]};
-parse_version(<<Octet, Rest/binary>>, Version, Current, Max, MaxSizes, Result)  when Current =< Max ->
-    parse_version(Rest, [Octet | Version], Current + 1, Max, MaxSizes, Result);
+parse_version(<<?CR>> = Data, Version, Current, Max, Options, Result) ->
+    {?MODULE, parse_version, [Data, Version, Current, Max, Options, Result]};
+parse_version(<<Octet, Rest/binary>>, Version, Current, Max, Options, Result)  when Current =< Max ->
+    parse_version(Rest, [Octet | Version], Current + 1, Max, Options, Result);
 parse_version(_, _, _, Max,_,_) ->
     {error, {size_error, Max, 413, "Version string unreasonably long"}, lowest_version()}.
 
@@ -185,34 +186,42 @@ parse_headers(_, _, _, Current, Max, _, Result)
     HttpVersion = lists:nth(3, lists:reverse(Result)),
     {error, {size_error, Max, 413, "Headers unreasonably long"}, HttpVersion};
 
-parse_headers(<<>>, Header, Headers, Current, Max, MaxSizes, Result) ->
+parse_headers(<<>>, Header, Headers, Current, Max, Options, Result) ->
     {?MODULE, parse_headers, [<<>>, Header, Headers, Current, Max, 
-			      MaxSizes, Result]};
-parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, MaxSizes, Result) ->
+			      Options, Result]};
+parse_headers(<<?CR,?LF,?LF,Body/binary>>, [], [], Current, Max, Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max,  
-		  MaxSizes, Result);
+		  Options, Result);
 
-parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  MaxSizes, Result) ->
+parse_headers(<<?LF,?LF,Body/binary>>, [], [], Current, Max,  Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], Current, Max, 
-		  MaxSizes, Result);
+		  Options, Result);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
     NewResult = list_to_tuple(lists:reverse([Body, {#http_request_h{}, []} |
 					     Result])),
     {ok, NewResult};
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
-	      MaxSizes, Result) ->
+	      Options, Result) ->
+    Customize = proplists:get_value(customize, Options),
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
-	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(Headers, #http_request_h{}), Headers} | Result]))};
+	    FinalHeaders = lists:filtermap(fun(H) ->
+						   httpd_custom:customize_headers(Customize, request_header, H)
+					   end,
+					   Headers),
+	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, #http_request_h{}), FinalHeaders} | Result]))};
 	NewHeader ->
-	    case check_header(NewHeader, MaxSizes) of 
+	    case check_header(NewHeader, Options) of 
 		ok ->
-		    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers([NewHeader | Headers], 
+		    FinalHeaders = lists:filtermap(fun(H) ->
+							   httpd_custom:customize_headers(Customize, request_header, H)
+						   end, [NewHeader | Headers]),
+		    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, 
 										  #http_request_h{}),  
-							     [NewHeader | Headers]} | Result]))};
+							     FinalHeaders} | Result]))};
 		
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
@@ -221,12 +230,12 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
     end;
 
 parse_headers(<<?CR,?LF,?CR>> = Data, Header, Headers, Current, Max, 
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
-			      MaxSizes, Result]};
-parse_headers(<<?LF>>, [], [], Current, Max, MaxSizes, Result) ->
+			      Options, Result]};
+parse_headers(<<?LF>>, [], [], Current, Max, Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF>>, [], [], Current, Max, MaxSizes, Result);
+    parse_headers(<<?CR,?LF>>, [], [], Current, Max, Options, Result);
 
 %% There where no headers, which is unlikely to happen.
 parse_headers(<<?CR,?LF>>, [], [], _, _, _, Result) ->
@@ -235,30 +244,30 @@ parse_headers(<<?CR,?LF>>, [], [], _, _, _, Result) ->
     {ok, NewResult};
 
 parse_headers(<<?LF>>, Header, Headers, Current, Max,  
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
-    parse_headers(<<?CR,?LF>>, Header, Headers, Current, Max, MaxSizes, Result);
+    parse_headers(<<?CR,?LF>>, Header, Headers, Current, Max, Options, Result);
 
 parse_headers(<<?CR,?LF>> = Data, Header, Headers, Current, Max, 
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
-			      MaxSizes, Result]};
+			      Options, Result]};
 parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
-		  MaxSizes, Result); 
+		  Options, Result); 
 parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
 	    parse_headers(Rest, [Octet], Headers, 
-			  0, Max, MaxSizes, Result);
+			  0, Max, Options, Result);
 	NewHeader ->
-	    case check_header(NewHeader, MaxSizes) of 
+	    case check_header(NewHeader, Options) of 
 		ok ->
 		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
-				  0, Max, MaxSizes, Result);
+				  0, Max, Options, Result);
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
 		    {error, Reason, HttpVersion}
@@ -266,19 +275,19 @@ parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
     end;
 	
 parse_headers(<<?CR>> = Data, Header, Headers, Current, Max,  
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     {?MODULE, parse_headers, [Data, Header, Headers, Current, Max, 
-			      MaxSizes, Result]};
+			      Options, Result]};
 parse_headers(<<?LF>>, Header, Headers, Current,  Max, 
-	      MaxSizes, Result) ->
+	      Options, Result) ->
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR, ?LF>>, Header, Headers, Current, Max,  
-		  MaxSizes, Result);
+		  Options, Result);
 
 parse_headers(<<Octet, Rest/binary>>, Header, Headers, Current,
-	      Max, MaxSizes, Result) ->
+	      Max, Options, Result) ->
     parse_headers(Rest, [Octet | Header], Headers, Current + 1, Max,
-		  MaxSizes, Result).
+		  Options, Result).
 
 whole_body(Body, Length) ->
     case size(Body) of
@@ -417,8 +426,12 @@ check_header({"content-length", Value}, Maxsizes) ->
     case length(Value) =< MaxLen of
 	true ->
 	    try 
-		_ = list_to_integer(Value),
-		ok
+		list_to_integer(Value)
+	    of
+		I when I>= 0 ->
+		    ok;
+		_ ->
+		    {error, {size_error, Max, 411, "negative content-length"}}
 	    catch _:_ ->
 		    {error, {size_error, Max, 411, "content-length not an integer"}}
 	    end;

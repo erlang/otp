@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2000-2009. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -295,6 +296,54 @@ public class OtpErlangList extends OtpErlangObject implements
             return false;
         }
         return getLastTail().equals(l.getLastTail());
+    }
+
+    @Override
+    public <T> boolean match(final OtpErlangObject term, final T bindings) {
+        if (!(term instanceof OtpErlangList)) {
+            return false;
+        }
+        final OtpErlangList that = (OtpErlangList) term;
+
+        final int thisArity = this.arity();
+        final int thatArity = that.arity();
+        final OtpErlangObject thisTail = this.getLastTail();
+        final OtpErlangObject thatTail = that.getLastTail();
+
+        if (thisTail == null) {
+            if (thisArity != thatArity || thatTail != null) {
+                return false;
+            }
+        } else {
+            if (thisArity > thatArity) {
+                return false;
+            }
+        }
+        for (int i = 0; i < thisArity; i++) {
+            if (!elementAt(i).match(that.elementAt(i), bindings)) {
+                return false;
+            }
+        }
+        if (thisTail == null) {
+            return true;
+        }
+        return thisTail.match(that.getNthTail(thisArity), bindings);
+    }
+
+    @Override
+    public <T> OtpErlangObject bind(final T binds) throws OtpErlangException {
+        final OtpErlangList list = (OtpErlangList) this.clone();
+
+        final int a = list.elems.length;
+        for (int i = 0; i < a; i++) {
+            list.elems[i] = list.elems[i].bind(binds);
+        }
+
+        if (list.lastTail != null) {
+            list.lastTail = list.lastTail.bind(binds);
+        }
+
+        return list;
     }
 
     public OtpErlangObject getLastTail() {

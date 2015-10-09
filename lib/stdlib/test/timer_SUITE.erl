@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,14 +26,11 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
-%% Test suite for timer module. This is a really nasty test it runs a
-%% lot of timeouts and then checks in the end if any of them was
-%% trigggered too early or if any late timeouts was much too
-%% late. What should be added is more testing of the interface
-%% functions I guess. But I don't have time for that now.
+%% Random test of the timer module. This is a really nasty test, as it
+%% runs a lot of timeouts and then checks in the end if any of them
+%% was triggered too early or if any late timeouts was much too late.
 %%
-%% Expect it to run for at least 5-10 minutes!
-
+%% Running time on average is about 90 seconds.
 
 %% The main test case in this module is "do_big_test", which
 %% orders a large number of timeouts and measures how
@@ -40,15 +38,8 @@
 %% also a number of other concurrent processes running "nrev" at the same
 %% time. The result is analyzed afterwards by trying to check if the
 %% measured values are reasonable. It is hard to determine what is
-%% reasonable on different machines therefore the test can sometimes
-%% fail, even though the timer module is ok. I have checked against
-%% previous versions of the timer module (which contained bugs) and it
-%% seems it fails every time when running the buggy timer modules.
-%% 
-%% The solution is to rewrite the test suite. Possible strategies for a
-%% rewrite: smarter math on the measuring data, test cases with varying
-%% amount of load. The test suite should also include tests that test the
-%% interface of the timer module.
+%% reasonable on different machines; therefore the test can sometimes
+%% fail, even though the timer module is ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -89,10 +80,7 @@ report_result(Error) -> ?line test_server:fail(Error).
 big_test(N) ->
     C = start_collect(),
     system_time(), system_time(), system_time(),
-    A1 = element(2, erlang:now()),
-    A2 = A1 * 3,
-    A3 = element(3, erlang:now()),
-    random:seed(A1, A2, A3),
+    random:seed(erlang:timestamp()),
     random:uniform(100),random:uniform(100),random:uniform(100),
 
     big_loop(C, N, []),
@@ -146,7 +134,7 @@ big_loop(C, N, Pids) ->
 	    %%Pids2=Pids1,
 
 	    %% wait a little while
-	    timer:sleep(random:uniform(200)*10),
+	    timer:sleep(random:uniform(200)*3),
 
 	    %% spawn zero, one or two nrev to get some load ;-/
 	    Pids3 = start_nrev(Pids2, random:uniform(100)),
@@ -166,14 +154,14 @@ start_nrev(Pids, _N) ->
     
 
 start_after_test(Pids, C, 1) ->
-    TO1 = random:uniform(100)*100,
+    TO1 = random:uniform(100)*47,
     [s_a_t(C, TO1)|Pids];
 start_after_test(Pids, C, 2) ->
-    TO1 = random:uniform(100)*100,
-    TO2 = TO1 div random:uniform(3) + 200,
+    TO1 = random:uniform(100)*47,
+    TO2 = TO1 div random:uniform(3) + 101,
     [s_a_t(C, TO1),s_a_t(C, TO2)|Pids];
 start_after_test(Pids, C, N) ->
-    TO1 = random:uniform(100)*100,
+    TO1 = random:uniform(100)*47,
     start_after_test([s_a_t(C, TO1)|Pids], C, N-1).
 
 s_a_t(C, TimeOut) ->
@@ -199,7 +187,7 @@ a_t(C, TimeOut) ->
 
 maybe_start_i_test(Pids, C, 1) ->
     %% ok do it
-    TOI = random:uniform(100)*100,
+    TOI = random:uniform(53)*49,
     CountI = random:uniform(10) + 3,                      % at least 4 times
     [spawn_link(timer_SUITE, i_t, [C, TOI, CountI])|Pids];
 maybe_start_i_test(Pids, _C, _) ->
@@ -374,9 +362,7 @@ res_combine({error,Es}, [{error,E}|T]) ->
 
 
 system_time() ->
-    %%element(1, statistics(wall_clock)).
-    {M,S,U} = erlang:now(),
-    1000000000 * M + 1000 * S + (U div 1000).
+    erlang:monotonic_time(milli_seconds).
 
 %% ------------------------------------------------------- %%
 

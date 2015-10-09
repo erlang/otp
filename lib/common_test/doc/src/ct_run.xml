@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -86,98 +87,99 @@
   <marker id="ct_run"></marker>
     <title>Run tests from command line</title>
     <pre>
-	ct_run [-dir TestDir1 TestDir2 .. TestDirN] |
-	[[-dir TestDir] -suite Suite1 Suite2 .. SuiteN
-	 [[-group Groups1 Groups2 .. GroupsN] [-case Case1 Case2 .. CaseN]]]
-	[-step [config | keep_inactive]]
-	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
-	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-	 ConfigString2 and .. CallbackModuleN ConfigStringN]
-	[-decrypt_key Key] | [-decrypt_file KeyFile]
-	[-label Label]
-	[-logdir LogDir]
-	[-logopts LogOpts]
-	[-verbosity GenVLevel | [Category1 VLevel1 and
-	 Category2 VLevel2 and .. CategoryN VLevelN]]
-	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
-	[-stylesheet CSSFile]
-	[-cover CoverCfgFile]
-	[-cover_stop Bool]
-	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
-        [-event_handler_init EvHandler1 InitArg1 and
-	 EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
-	[-include InclDir1 InclDir2 .. InclDirN]
-	[-no_auto_compile]
-	[-abort_if_missing_suites]
-	[-muliply_timetraps Multiplier]
-	[-scale_timetraps]
-	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-        [-repeat N] |
-        [-duration HHMMSS [-force_stop [skip_rest]]] |
-        [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
-	[-basic_html]
-    	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
-	 CTHModuleN CTHOptsN]
-	[-exit_status ignore_config]
+	ct_run -dir TestDir1 TestDir2 .. TestDirN |
+	  [-dir TestDir] -suite Suite1 Suite2 .. SuiteN
+	   [-group Groups1 Groups2 .. GroupsN] [-case Case1 Case2 .. CaseN]
+	 [-step [config | keep_inactive]]
+	 [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	 [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+	  ConfigString2 and .. CallbackModuleN ConfigStringN]
+	 [-decrypt_key Key] | [-decrypt_file KeyFile]
+	 [-label Label]
+	 [-logdir LogDir]
+	 [-logopts LogOpts]
+	 [-verbosity GenVLevel | [Category1 VLevel1 and
+	  Category2 VLevel2 and .. CategoryN VLevelN]]
+	 [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+	 [-stylesheet CSSFile]
+	 [-cover CoverCfgFile]
+	 [-cover_stop Bool]
+	 [-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
+         [-event_handler_init EvHandler1 InitArg1 and
+	  EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
+	 [-include InclDir1 InclDir2 .. InclDirN]
+	 [-no_auto_compile]
+	 [-abort_if_missing_suites]
+	 [-muliply_timetraps Multiplier]
+	 [-scale_timetraps]
+	 [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+         [-repeat N] |
+         [-duration HHMMSS [-force_stop [skip_rest]]] |
+         [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
+	 [-basic_html]
+    	 [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+	  CTHModuleN CTHOptsN]
+	 [-exit_status ignore_config]
+	 [-help]
     </pre>
   </section>
   <section>
     <title>Run tests using test specification</title>
     <pre>
 	ct_run -spec TestSpec1 TestSpec2 .. TestSpecN
-	[-join_specs]
-	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
-	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-         ConfigString2 and .. and CallbackModuleN ConfigStringN]
-	[-decrypt_key Key] | [-decrypt_file KeyFile]
-	[-label Label]
-	[-logdir LogDir]
-	[-logopts LogOpts]
-	[-verbosity GenVLevel | [Category1 VLevel1 and
-	 Category2 VLevel2 and .. CategoryN VLevelN]]
-	[-allow_user_terms]
-	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
-	[-stylesheet CSSFile]
-	[-cover CoverCfgFile]
-	[-cover_stop Bool]
-	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
-        [-event_handler_init EvHandler1 InitArg1 and
-	 EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
-	[-include InclDir1 InclDir2 .. InclDirN]
-	[-no_auto_compile]
-	[-abort_if_missing_suites]
-	[-muliply_timetraps Multiplier]
-	[-scale_timetraps]
-	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-        [-repeat N] |
-        [-duration HHMMSS [-force_stop [skip_rest]]] |
-        [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
-	[-basic_html]
-    	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
-	 CTHModuleN CTHOptsN]
-	[-exit_status ignore_config]
+	 [-join_specs]
+	 [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	 [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+          ConfigString2 and .. and CallbackModuleN ConfigStringN]
+	 [-decrypt_key Key] | [-decrypt_file KeyFile]
+	 [-label Label]
+	 [-logdir LogDir]
+	 [-logopts LogOpts]
+	 [-verbosity GenVLevel | [Category1 VLevel1 and
+	  Category2 VLevel2 and .. CategoryN VLevelN]]
+	 [-allow_user_terms]
+	 [-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+	 [-stylesheet CSSFile]
+	 [-cover CoverCfgFile]
+	 [-cover_stop Bool]
+	 [-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
+         [-event_handler_init EvHandler1 InitArg1 and
+	  EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
+	 [-include InclDir1 InclDir2 .. InclDirN]
+	 [-no_auto_compile]
+	 [-abort_if_missing_suites]
+	 [-muliply_timetraps Multiplier]
+	 [-scale_timetraps]
+	 [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+         [-repeat N] |
+         [-duration HHMMSS [-force_stop [skip_rest]]] |
+         [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
+	 [-basic_html]
+    	 [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+	  CTHModuleN CTHOptsN]
+	 [-exit_status ignore_config]
     </pre>
   </section>
   <section>
     <title>Run tests in web based GUI</title>
     <pre>
         ct_run -vts [-browser Browser]
-        [-dir TestDir1 TestDir2 .. TestDirN] |
-        [[dir TestDir] -suite Suite [[-group Group] [-case Case]]]
-	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
-	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-         ConfigString2 and .. and CallbackModuleN ConfigStringN]
-	[-logopts LogOpts]
-	[-verbosity GenVLevel | [Category1 VLevel1 and
-	 Category2 VLevel2 and .. CategoryN VLevelN]]
-	[-decrypt_key Key] | [-decrypt_file KeyFile]
-	[-include InclDir1 InclDir2 .. InclDirN]
-	[-no_auto_compile]
-	[-abort_if_missing_suites]
-	[-muliply_timetraps Multiplier]
-	[-scale_timetraps]
-	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-	[-basic_html]</pre>
+         [-dir TestDir1 TestDir2 .. TestDirN] |
+         [[dir TestDir] -suite Suite [[-group Group] [-case Case]]]
+	 [-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	 [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+          ConfigString2 and .. and CallbackModuleN ConfigStringN]
+	 [-logopts LogOpts]
+	 [-verbosity GenVLevel | [Category1 VLevel1 and
+	  Category2 VLevel2 and .. CategoryN VLevelN]]
+	 [-decrypt_key Key] | [-decrypt_file KeyFile]
+	 [-include InclDir1 InclDir2 .. InclDirN]
+	 [-no_auto_compile]
+	 [-abort_if_missing_suites]
+	 [-muliply_timetraps Multiplier]
+	 [-scale_timetraps]
+	 [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
+	 [-basic_html]</pre>
   </section>
   <section>
     <title>Refresh the HTML index files</title>
@@ -188,10 +190,10 @@
     <title>Run CT in interactive mode</title>
     <pre>
 	ct_run -shell
-	[-config ConfigFile1 ConfigFile2 ... ConfigFileN]
-	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-         ConfigString2 and .. and CallbackModuleN ConfigStringN]
-	[-decrypt_key Key] | [-decrypt_file KeyFile]</pre>
+	 [-config ConfigFile1 ConfigFile2 ... ConfigFileN]
+	 [-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+          ConfigString2 and .. and CallbackModuleN ConfigStringN]
+	 [-decrypt_key Key] | [-decrypt_file KeyFile]</pre>
   </section>
   <section>
     <title>Start a Common Test Master node</title>

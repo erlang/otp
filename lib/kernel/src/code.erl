@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -107,7 +108,7 @@ is_module_native(_) ->
 -spec make_stub_module(Module, Beam, Info) -> Module when
       Module :: module(),
       Beam :: binary(),
-      Info :: {list(), list()}.
+      Info :: {list(), list(), binary()}.
 
 make_stub_module(_, _, _) ->
     erlang:nif_error(undef).
@@ -339,7 +340,8 @@ do_start(Flags) ->
 			    ok
 		    end,
 		    %% Quietly load native code for all modules loaded so far
-		    catch load_native_code_for_all_loaded(),
+                    Architecture = erlang:system_info(hipe_architecture),
+		    load_native_code_for_all_loaded(Architecture),
 		    Ok2;
 		Other ->
 		    Other
@@ -550,18 +552,43 @@ has_ext(Ext, Extlen, File) ->
 	_ -> false
     end.
 
--spec load_native_code_for_all_loaded() -> ok.
-load_native_code_for_all_loaded() ->
-    Architecture = erlang:system_info(hipe_architecture),
-    ChunkName = hipe_unified_loader:chunk_name(Architecture),
-    lists:foreach(fun({Module, BeamFilename}) ->
-        case code:is_module_native(Module) of
-            false ->
-                case beam_lib:chunks(BeamFilename, [ChunkName]) of
-                    {ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
-                        load_native_partial(Module, Bin);
-                    {error, beam_lib, _} -> ok
-                end;
-            true -> ok
-        end
-    end, all_loaded()).
+%%%
+%%% Silently load native code for all modules loaded so far.
+%%%
+
+load_native_code_for_all_loaded(undefined) ->
+    ok;
+load_native_code_for_all_loaded(Architecture) ->
+    try hipe_unified_loader:chunk_name(Architecture) of
+	ChunkTag ->
+	    Loaded = all_loaded(),
+	    _ = spawn(fun() -> load_all_native(Loaded, ChunkTag) end),
+	    ok
+    catch
+	_:_ ->
+	    ok
+    end.
+
+load_all_native(Loaded, ChunkTag) ->
+    catch load_all_native_1(Loaded, ChunkTag).
+
+load_all_native_1([{_,preloaded}|T], ChunkTag) ->
+    load_all_native_1(T, ChunkTag);
+load_all_native_1([{Mod,BeamFilename}|T], ChunkTag) ->
+    case code:is_module_native(Mod) of
+	false ->
+	    %% prim_file is faster than file and the file server may
+	    %% not be started yet.
+	    {ok,Beam} = prim_file:read_file(BeamFilename),
+	    case code:get_chunk(Beam, ChunkTag) of
+		undefined ->
+		    ok;
+		NativeCode when is_binary(NativeCode) ->
+		    _ = load_native_partial(Mod, NativeCode),
+		    ok
+	    end;
+	true -> ok
+    end,
+    load_all_native_1(T, ChunkTag);
+load_all_native_1([], _) ->
+    ok.

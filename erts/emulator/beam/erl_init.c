@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1997-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -35,7 +36,7 @@
 #include "dist.h"
 #include "erl_mseg.h"
 #include "erl_threads.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_instrument.h"
 #include "erl_printf_term.h"
 #include "erl_misc_utils.h"
@@ -46,6 +47,8 @@
 #include "erl_async.h"
 #include "erl_ptab.h"
 #include "erl_bif_unique.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -88,11 +91,6 @@ const int etp_arch_bits = 32;
 #else
 # error "Not 64-bit, nor 32-bit arch"
 #endif
-#if HALFWORD_HEAP
-const int etp_halfword = 1;
-#else
-const int etp_halfword = 0;
-#endif
 #ifdef HIPE
 const int etp_hipe = 1;
 #else
@@ -118,6 +116,8 @@ const int etp_big_endian = 1;
 #else
 const int etp_big_endian = 0;
 #endif
+const Eterm etp_the_non_value = THE_NON_VALUE;
+
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
  * not by an initializer. Otherwise a new instance of the emulator will
@@ -137,7 +137,9 @@ static void erl_init(int ncpu,
 		     int port_tab_sz_ignore_files,
 		     int legacy_port_tab,
 		     int time_correction,
-		     ErtsTimeWarpMode time_warp_mode);
+		     ErtsTimeWarpMode time_warp_mode,
+		     int node_tab_delete_delay,
+		     ErtsDbSpinCount db_spin_count);
 
 static erts_atomic_t exiting;
 
@@ -310,7 +312,9 @@ erts_short_init(void)
 	     0,
 	     0,
 	     time_correction,
-	     time_warp_mode);
+	     time_warp_mode,
+	     ERTS_NODE_TAB_DELAY_GC_DEFAULT,
+	     ERTS_DB_SPNCNT_NORMAL);
     erts_initialized = 1;
 }
 
@@ -322,7 +326,9 @@ erl_init(int ncpu,
 	 int port_tab_sz_ignore_files,
 	 int legacy_port_tab,
 	 int time_correction,
-	 ErtsTimeWarpMode time_warp_mode)
+	 ErtsTimeWarpMode time_warp_mode,
+	 int node_tab_delete_delay,
+	 ErtsDbSpinCount db_spin_count)
 {
     init_benchmarking();
 
@@ -362,9 +368,8 @@ erl_init(int ncpu,
     erts_ptab_init(); /* Must be after init_emulator() */
     erts_init_binary(); /* Must be after init_emulator() */
     erts_bp_init();
-    init_db(); /* Must be after init_emulator */
-    erts_bif_timer_init();
-    erts_init_node_tables();
+    init_db(db_spin_count); /* Must be after init_emulator */
+    erts_init_node_tables(node_tab_delete_delay);
     init_dist();
     erl_drv_thr_init();
     erts_init_async();
@@ -376,6 +381,7 @@ erl_init(int ncpu,
     erts_init_bif_re();
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_init_external();
+    erts_init_map();
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG
@@ -622,10 +628,17 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-v             turn on chatty mode (GCs will be reported etc)\n");
 
-    erts_fprintf(stderr, "-W<i|w>        set error logger warnings mapping,\n");
+    erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
+    erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
+    erts_fprintf(stderr, "               valid values are infinity or intergers in the range [0-%d]\n",
+		 ERTS_NODE_TAB_DELAY_GC_MAX);
+#if 0
+    erts_fprintf(stderr, "-zebwt  val    set ets busy wait threshold, valid values are:\n");
+    erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long|extremely_long\n");
+#endif
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -1216,6 +1229,8 @@ erl_start(int argc, char **argv)
     int legacy_port_tab = 0;
     int time_correction;
     ErtsTimeWarpMode time_warp_mode;
+    int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
+    ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -1250,7 +1265,7 @@ erl_start(int argc, char **argv)
     verbose = DEBUG_DEFAULT;
 #endif
 
-    erts_error_logger_warnings = am_error;
+    erts_error_logger_warnings = am_warning;
 
     while (i < argc) {
 	if (argv[i][0] != '-') {
@@ -1955,11 +1970,6 @@ erl_start(int argc, char **argv)
 		goto time_correction_false;
 	    else if (sys_strcmp(argv[i]+2, "true") == 0)
 		goto time_correction_true;
-#ifdef ERTS_OPCODE_COUNTER_SUPPORT
-	    else if (argv[i][2] == 'i') { /* -ci: undcoumented option*/
-		count_instructions = 1;
-	    }
-#endif
 	    else if (argv[i][2] == '\0') {
 		if (i + 1 >= argc)
 		    goto time_correction_false;
@@ -1993,11 +2003,12 @@ erl_start(int argc, char **argv)
 	    case 'i':
 		erts_error_logger_warnings = am_info;
 		break;
+	    case 'e':
+		erts_error_logger_warnings = am_error;
+		break;
 	    case 'w':
 		erts_error_logger_warnings = am_warning;
 		break;
-	    case 'e': /* The default */
-		erts_error_logger_warnings = am_error;
 	    default:
 		erts_fprintf(stderr, "unrecognized warning_map option %s\n", arg);
 		erts_usage();
@@ -2006,9 +2017,9 @@ erl_start(int argc, char **argv)
 
 	case 'z': {
 	    char *sub_param = argv[i]+2;
-	    int new_limit;
 
 	    if (has_prefix("dbbl", sub_param)) {
+		int new_limit;
 		arg = get_arg(sub_param+4, argv[i+1], &i);
 		new_limit = atoi(arg);
 		if (new_limit < 1 || INT_MAX/1024 < new_limit) {
@@ -2016,6 +2027,46 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		} else {
 		    erts_dist_buf_busy_limit = new_limit*1024;
+		}
+	    }
+	    else if (has_prefix("dntgc", sub_param)) {
+		long secs;
+
+		arg = get_arg(sub_param+5, argv[i+1], &i);
+		if (sys_strcmp(arg, "infinity") == 0)
+		    secs = ERTS_NODE_TAB_DELAY_GC_INFINITY;
+		else {
+		    char *endptr;
+		    errno = 0;
+		    secs = strtol(arg, &endptr, 10);
+		    if (errno != 0 || *arg == '\0' || *endptr != '\0'
+			|| secs < 0 || ERTS_NODE_TAB_DELAY_GC_MAX < secs) {
+			erts_fprintf(stderr, "Invalid delayed node table gc: %s\n", arg);
+			erts_usage();
+		    }
+		}
+		node_tab_delete_delay = (int) secs;
+	    }
+	    else if (has_prefix("ebwt", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		if (sys_strcmp(arg, "none") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_NONE;
+		else if (sys_strcmp(arg, "very_short") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_VERY_LOW;
+		else if (sys_strcmp(arg, "short") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_LOW;
+		else if (sys_strcmp(arg, "medium") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_NORMAL;
+		else if (sys_strcmp(arg, "long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_HIGH;
+		else if (sys_strcmp(arg, "very_long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_VERY_HIGH;
+		else if (sys_strcmp(arg, "extremely_long") == 0)
+		    db_spin_count = ERTS_DB_SPNCNT_EXTREMELY_HIGH;
+		else {
+		    erts_fprintf(stderr,
+				 "Invalid ets busy wait threshold: %s\n", arg);
+		    erts_usage();
 		}
 	    } else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
@@ -2090,7 +2141,9 @@ erl_start(int argc, char **argv)
 	     port_tab_sz_ignore_files,
 	     legacy_port_tab,
 	     time_correction,
-	     time_warp_mode);
+	     time_warp_mode,
+	     node_tab_delete_delay,
+	     db_spin_count);
 
     load_preloaded();
     erts_end_staging_code_ix();
@@ -2098,11 +2151,8 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    {
-	Eterm init = erl_first_process_otp("otp_ring0", NULL, 0,
-					   boot_argc, boot_argv);
-	erts_bif_timer_start_servers(init);
-    }
+    (void) erl_first_process_otp("otp_ring0", NULL, 0,
+				 boot_argc, boot_argv);
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
@@ -2110,13 +2160,17 @@ erl_start(int argc, char **argv)
 
     erts_sys_main_thread(); /* May or may not return! */
 #else
-    erts_thr_set_main_status(1, 1);
+    {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	erts_thr_set_main_status(1, 1);
 #if ERTS_USE_ASYNC_READY_Q
-    erts_get_scheduler_data()->aux_work_data.async_ready.queue
-	= erts_get_async_ready_queue(1);
+	esdp->aux_work_data.async_ready.queue
+	    = erts_get_async_ready_queue(1);
 #endif
-    set_main_stack_size();
-    process_main();
+	set_main_stack_size();
+	erts_sched_init_time_sup(esdp);
+	process_main();
+    }
 #endif
 }
 

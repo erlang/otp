@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -92,7 +93,7 @@
 		    t_list/0,
 		    t_list/1,
 		    t_list_elements/2,
-		    t_list_termination/1,
+		    t_list_termination/2,
 		    t_mfa/0,
 		    t_module/0,
 		    t_nil/0,
@@ -513,14 +514,15 @@ type(erlang, 'bsl', 2, Xs, Opaques) ->
 type(erlang, 'bnot', 1, Xs, Opaques) ->
  strict(erlang, 'bnot', 1, Xs,
 	 fun ([X1]) ->
-	     case arith('bnot', X1, Opaques) of
+	     case arith_bnot(X1, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
 	 end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, abs, 1, Xs, Opaques) ->
-  strict(erlang, abs, 1, Xs, fun ([X]) -> X end, Opaques);
+  strict(erlang, abs, 1, Xs,
+         fun ([X1]) -> arith_abs(X1, Opaques) end, Opaques);
 %% This returns (-X)-1, so it often gives a negative result.
 %%  strict(erlang, 'bnot', 1, Xs, fun (_) -> t_integer() end, Opaques);
 type(erlang, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs); % alias
@@ -912,8 +914,7 @@ type(erlang, system_info, 1, Xs, Opaques) ->
 		     t_list(t_pid());
 		   ['os_type'] ->
 		     t_tuple([t_sup([t_atom('unix'),
-				     t_atom('win32'),
-				     t_atom('ose')]),
+				     t_atom('win32')]),
 			      t_atom()]);
 		   ['os_version'] ->
 		     t_sup(t_tuple([t_non_neg_fixnum(),
@@ -1113,8 +1114,8 @@ type(hipe_bifs, set_native_address, 3, Xs, Opaques) ->
 type(hipe_bifs, set_native_address_in_fe, 2, Xs, Opaques) ->
   strict(hipe_bifs, set_native_address_in_fe, 2, Xs,
 	 fun (_) -> t_atom('true') end, Opaques);
-type(hipe_bifs, system_crc, 1, Xs, Opaques) ->
-  strict(hipe_bifs, system_crc, 1, Xs, fun (_) -> t_crc32() end, Opaques);
+type(hipe_bifs, system_crc, 0, _, _Opaques) ->
+  t_crc32();
 type(hipe_bifs, term_to_word, 1, Xs, Opaques) ->
   strict(hipe_bifs, term_to_word, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques);
@@ -1335,8 +1336,8 @@ type(lists, foldr, 3, Xs, _Opaques) -> type(lists, foldl, 3, Xs);  % same
 type(lists, keydelete, 3, Xs, Opaques) ->
   strict(lists, keydelete, 3, Xs,
 	 fun ([_, _, L]) ->
-	     Term = t_list_termination(L),
-	     t_sup(Term, erl_types:lift_list_to_pos_empty(L))
+	     Term = t_list_termination(L, Opaques),
+	     t_sup(Term, erl_types:lift_list_to_pos_empty(L, Opaques))
 	 end, Opaques);
 type(lists, keyfind, 3, Xs, Opaques) ->
   strict(lists, keyfind, 3, Xs,
@@ -1926,7 +1927,7 @@ negwidth(X, N) ->
     false -> negwidth(X, N+1)
   end.
 
-arith('bnot', X1, Opaques) ->
+arith_bnot(X1, Opaques) ->
   case t_is_integer(X1, Opaques) of
     false -> error;
     true ->
@@ -1934,6 +1935,28 @@ arith('bnot', X1, Opaques) ->
       Max1 = number_max(X1, Opaques),
       {ok, t_from_range(infinity_add(infinity_inv(Max1), -1),
 			infinity_add(infinity_inv(Min1), -1))}
+  end.
+
+arith_abs(X1, Opaques) ->
+  case t_is_integer(X1, Opaques) of
+    false ->
+      case t_is_float(X1, Opaques) of
+        true -> t_float();
+        false -> t_number()
+      end;
+    true ->
+      Min1 = number_min(X1, Opaques),
+      Max1 = number_max(X1, Opaques),
+      {NewMin, NewMax} =
+        case infinity_geq(Min1, 0) of
+          true -> {Min1, Max1};
+          false ->
+            case infinity_geq(Max1, 0) of
+              true  -> {0, infinity_inv(Min1)};
+              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+            end
+        end,
+      t_from_range(NewMin, NewMax)
   end.
 
 arith_mult(Min1, Max1, Min2, Max2) ->
@@ -2490,8 +2513,8 @@ arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
 arg_types(hipe_bifs, set_native_address_in_fe, 2) ->
   [t_integer(), t_integer()];
-arg_types(hipe_bifs, system_crc, 1) ->
-  [t_crc32()];
+arg_types(hipe_bifs, system_crc, 0) ->
+  [];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
 arg_types(hipe_bifs, update_code_size, 3) ->

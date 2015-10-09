@@ -14,7 +14,7 @@
     {allocate,1,0}.
     {'catch',{y,0},{f,3}}.
     {move,{atom,apa},{x,0}}.
-    {call_ext,1,{extfunc,erlang,fault,1}}.
+    {call_ext,1,{extfunc,erlang,error,1}}.
   {label,3}.
     {catch_end,{y,0}}.
     {move,{x,1},{x,0}}.

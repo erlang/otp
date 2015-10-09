@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -61,27 +62,53 @@ write_report2(IO, Fd, Head, supervisor_report, Report) ->
     Context = sup_get(errorContext, Report),
     Reason = sup_get(reason, Report),
     Offender = sup_get(offender, Report),
-    FmtString = "     Supervisor: ~p~n     Context:    ~p~n     Reason:     "
-	"~80.18p~n     Offender:   ~80.18p~n~n",
-    write_report_action(IO, Fd, Head ++ FmtString,
-			[Name,Context,Reason,Offender]);
+    {FmtString,Args} = supervisor_format([Name,Context,Reason,Offender]),
+    write_report_action(IO, Fd, Head, FmtString, Args);
 write_report2(IO, Fd, Head, progress, Report) ->
     Format = format_key_val(Report),
-    write_report_action(IO, Fd, Head ++ "~s", [Format]);
+    write_report_action(IO, Fd, Head, "~s", [Format]);
 write_report2(IO, Fd, Head, crash_report, Report) ->
-    Format = proc_lib:format(Report),
-    write_report_action(IO, Fd, Head ++ "~s", [Format]).
+    Depth = get_depth(),
+    Format = proc_lib:format(Report, latin1, Depth),
+    write_report_action(IO, Fd, Head, "~s", [Format]).
 
-write_report_action(io, Fd, Format, Args) ->
-    io:format(Fd, Format, Args);
-write_report_action(io_lib, _Fd, Format, Args) ->
-    io_lib:format(Format, Args).
+supervisor_format(Args0) ->
+    case get_depth() of
+	unlimited ->
+	    {"     Supervisor: ~p~n"
+	     "     Context:    ~p~n"
+	     "     Reason:     ~80.18p~n"
+	     "     Offender:   ~80.18p~n~n",
+	     Args0};
+	Depth ->
+	    [A,B,C,D] = Args0,
+	    Args = [A,Depth,B,Depth,C,Depth,D,Depth],
+	    {"     Supervisor: ~P~n"
+	     "     Context:    ~P~n"
+	     "     Reason:     ~80.18P~n"
+	     "     Offender:   ~80.18P~n~n",
+	     Args}
+    end.
+
+write_report_action(IO, Fd, Head, Format, Args) ->
+    S = [Head|io_lib:format(Format, Args)],
+    case IO of
+	io -> io:put_chars(Fd, S);
+	io_lib -> S
+    end.
 
 format_key_val([{Tag,Data}|Rep]) ->
     io_lib:format("    ~16w: ~p~n",[Tag,Data]) ++ format_key_val(Rep);
 format_key_val(_) ->
     [].
 
+get_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.
 
 sup_get(Tag, Report) ->
     case lists:keysearch(Tag, 1, Report) of

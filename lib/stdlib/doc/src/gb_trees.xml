@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2014</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -64,9 +65,6 @@
     </datatype>
     <datatype>
       <name name="tree" n_vars="0"/>
-      <desc>
-        <p><c>tree()</c> is equivalent to <c>tree(term(), term())</c>.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="iter" n_vars="2"/>
@@ -74,9 +72,6 @@
     </datatype>
     <datatype>
       <name name="iter" n_vars="0"/>
-      <desc>
-        <p><c>iter()</c> is equivalent to <c>iter(term(), term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
   <funcs>
@@ -180,6 +175,17 @@
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
           memory at one time.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="iterator_from" arity="2"/>
+      <fsummary>Return an iterator for a tree starting from specified key</fsummary>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+            entries of <c><anno>Tree</anno></c>; see <c>next/1</c>.
+            The difference as compared to the iterator returned by
+            <c>iterator/1</c> is that the first key greater than
+            or equal to <c><anno>Key</anno></c> is returned.</p>
       </desc>
     </func>
     <func>

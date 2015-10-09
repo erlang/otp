@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(observer_wx).
@@ -43,6 +44,7 @@
 -define(LAST_NODES_MENU_ID,  2000).
 
 -define(TRACE_STR, "Trace Overview").
+-define(ALLOC_STR, "Memory Allocators").
 
 %% Records
 -record(state,
@@ -58,6 +60,7 @@
 	 trace_panel,
 	 app_panel,
 	 perf_panel,
+	 allc_panel,
 	 active_tab,
 	 node,
 	 nodes,
@@ -149,6 +152,10 @@ setup(#state{frame = Frame} = State) ->
     PerfPanel = observer_perf_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
 
+    %% Memory Allocator Viewer Panel
+    AllcPanel = observer_alloc_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, AllcPanel, ?ALLOC_STR, []),
+
     %% App Viewer Panel
     AppPanel = observer_app_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
@@ -184,6 +191,7 @@ setup(#state{frame = Frame} = State) ->
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
 			   perf_panel = PerfPanel,
+			   allc_panel = AllcPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -505,7 +513,7 @@ check_page_title(Notebook) ->
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf
+		      perf_panel=Perf, allc_panel=Alloc
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
@@ -513,13 +521,14 @@ get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;
 		"Load Charts" -> Perf;
-		"Applications" -> App
+		"Applications" -> App;
+		?ALLOC_STR -> Alloc
 	    end,
     wx_object:get_pid(Panel).
 
 pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf}) ->
+		      perf_panel=Perf, allc_panel=Alloc}) ->
     case Pid of
 	Pro -> "Processes";
 	Sys -> "System";
@@ -527,6 +536,7 @@ pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
 	Trace -> ?TRACE_STR;
 	Perf -> "Load Charts";
 	App -> "Applications";
+	Alloc -> ?ALLOC_STR;
 	_ -> "unknown"
     end.
 
@@ -617,8 +627,8 @@ default_menus(NodesMenuItems) ->
 	    %% automagicly, so just add them to a menu that always exist.
 	    %% But not to the help menu for some reason
 
-	    {Tag, Menus} = NodeMenu,
-	    [{Tag, Menus ++ [Quit,About]}, LogMenu, {"&Help", [Help]}]
+	    {Tag, Menus} = FileMenu,
+	    [{Tag, Menus ++ [Quit,About]}, NodeMenu, LogMenu, {"&Help", [Help]}]
     end.
 
 clean_menus(Menus, MenuBar) ->

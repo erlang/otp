@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2002-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -96,7 +97,7 @@ move_move_into_block([], Acc) -> reverse(Acc).
 %%%
 
 forward(Is, Lc) ->
-    forward(Is, gb_trees:empty(), Lc, []).
+    forward(Is, #{}, Lc, []).
 
 forward([{move,_,_}=Move|[{label,L}|_]=Is], D, Lc, Acc) ->
     %% move/2 followed by jump/1 is optimized by backward/3.
@@ -115,19 +116,20 @@ forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc,
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Block = case gb_trees:lookup({Lbl,Dst}, D) of
-		{value,Lit} -> {block,BlkIs}; %Safe to remove move instruction.
-		_ -> Blk		      %Must keep move instruction.
-	    end,
+    Key = {Lbl,Dst},
+    Block = case D of
+                #{Key := Lit} -> {block,BlkIs}; %Safe to remove move instruction.
+                _ -> Blk                        %Must keep move instruction.
+            end,
     forward([Block|Is], D, Lc, [LblI|Acc]);
 forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
     %% Assumption: The target labels in a select_val/3 instruction
     %% cannot be reached in any other way than through the select_val/3
     %% instruction (i.e. there can be no fallthrough to such label and
     %% it cannot be referenced by, for example, a jump/1 instruction).
-    Is = case gb_trees:lookup({Lbl,Dst}, D) of
-	     {value,Lit} -> Is1;     %Safe to remove move instruction.
-	     _ -> Is0		     %Keep move instruction.
+    Is = case maps:find({Lbl,Dst}, D) of
+	     {ok,Lit} -> Is1;     %Safe to remove move instruction.
+	     _ -> Is0		  %Keep move instruction.
 	 end,
     forward(Is, D, Lc, [LblI|Acc]);
 forward([{test,is_eq_exact,_,[Same,Same]}|Is], D, Lc, Acc) ->
@@ -156,11 +158,11 @@ forward([], _, Lc, Acc) -> {Acc,Lc}.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
-    D = case gb_trees:lookup(Key, D0) of
-	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,inconsistent} -> D0;		%Inconsistent.
-	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
-	end,
+    D = case D0 of
+            #{Key := inconsistent} -> D0;
+            #{Key := _} -> D0#{Key := inconsistent};
+            _ -> D0#{Key => Lit}
+        end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
 
@@ -237,11 +239,26 @@ backward([{test,is_eq_exact,Fail,[Dst,{integer,Arity}]}=I|
 backward([{label,Lbl}=L|Is], D, Acc) ->
     backward(Is, beam_utils:index_label(Lbl, Acc, D), [L|Acc]);
 backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
-    List = shortcut_select_list(List0, Reg, D, []),
+    List1 = shortcut_select_list(List0, Reg, D, []),
     Fail1 = shortcut_label(Fail0, D),
     Fail = shortcut_bs_test(Fail1, Is, D),
-    Sel = {select,select_val,Reg,{f,Fail},List},
-    backward(Is, D, [Sel|Acc]);
+    List = prune_redundant(List1, Fail),
+    case List of
+	[] ->
+	    Jump = {jump,{f,Fail}},
+	    backward([Jump|Is], D, Acc);
+	[V,F] ->
+	    Test = {test,is_eq_exact,{f,Fail},[Reg,V]},
+	    Jump = {jump,F},
+	    backward([Jump,Test|Is], D, Acc);
+	[{atom,B1},F,{atom,B2},F] when B1 =:= not B2 ->
+	    Test = {test,is_boolean,{f,Fail},[Reg]},
+	    Jump = {jump,F},
+	    backward([Jump,Test|Is], D, Acc);
+	[_|_] ->
+	    Sel = {select,select_val,Reg,{f,Fail},List},
+	    backward(Is, D, [Sel|Acc])
+    end;
 backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
     To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
@@ -254,6 +271,19 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
 	I -> backward(Is, D, I++Acc)
     catch
 	throw:not_possible -> backward(Is0, D, [J|Acc])
+    end;
+backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
+	 [{test,bs_match_string,F,[Ctxt,Bs]},
+	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    {f,To0} = F,
+    To = shortcut_bs_start_match(To0, R, D),
+    case beam_utils:is_killed(Ctxt, Acc0, D) of
+	true ->
+	    Eq = {test,is_eq_exact,{f,To},[R,{literal,Bs}]},
+	    backward(Is, D, [Eq|Acc0]);
+	false ->
+	    I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
+	    backward(Is, D, [I|Acc])
     end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
@@ -283,7 +313,28 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
 	    _ -> {test,Op,{f,To},Ops0}
 	end,
-    backward(Is, D, [I|Acc]);
+    case {I,Acc} of
+	{{test,is_atom,Fail,Ops0},[{test,is_boolean,Fail,Ops0}|_]} ->
+	    %% An is_atom test before an is_boolean test (with the
+	    %% same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,is_atom,Fail,[R]},
+	 [{test,is_eq_exact,Fail,[R,{atom,_}]}|_]} ->
+	    %% An is_atom test before a comparison with an atom (with
+	    %% the same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,is_integer,Fail,[R]},
+	 [{test,is_eq_exact,Fail,[R,{integer,_}]}|_]} ->
+	    %% An is_integer test before a comparison with an integer
+	    %% (with the same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,_,_,_},_} ->
+	    %% Still a test instruction. Done.
+	    backward(Is, D, [I|Acc]);
+	{_,_} ->
+	    %% Rewritten to a select_val. Rescan.
+	    backward([I|Is], D, Acc)
+    end;
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
@@ -335,6 +386,12 @@ shortcut_label(To0, D) ->
 
 shortcut_select_label(To, Reg, Lit, D) ->
     shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
+
+prune_redundant([_,{f,Fail}|T], Fail) ->
+    prune_redundant(T, Fail);
+prune_redundant([V,F|T], Fail) ->
+    [V,F|prune_redundant(T, Fail)];
+prune_redundant([], _) -> [].
 
 %% Replace a comparison operator with a test instruction and a jump.
 %% For example, if we have this code:
@@ -459,8 +516,8 @@ count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
 	_ -> count_bits_matched(Is, SavePoint, Bits)
     end;
-count_bits_matched([{test,bs_match_string,_,[_,Bits,_]}|Is], SavePoint, Bits0) ->
-    count_bits_matched(Is, SavePoint, Bits0+Bits);
+count_bits_matched([{test,bs_match_string,_,[_,Bs]}|Is], SavePoint, Bits) ->
+    count_bits_matched(Is, SavePoint, Bits+bit_size(Bs));
 count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
     count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,
 	 bt/1, q/0,
-	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0,
+	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
 -export([display_info/1]).
@@ -65,6 +66,7 @@ help() ->
 		   "q()        -- quit - shorthand for init:stop()\n"
 		   "regs()     -- information about registered processes\n"
 		   "nregs()    -- information about all registered processes\n"
+		   "uptime()   -- print node uptime\n"
 		   "xm(M)      -- cross reference check a module\n"
 		   "y(File)    -- generate a Yecc parser\n">>).
 
@@ -772,6 +774,26 @@ memory() -> erlang:memory().
                Size :: non_neg_integer().
 
 memory(TypeSpec) -> erlang:memory(TypeSpec).
+
+%%
+%% uptime/0
+%%
+
+-spec uptime() -> 'ok'.
+
+uptime() ->
+    io:format("~s~n", [uptime(get_uptime())]).
+
+uptime({D, {H, M, S}}) ->
+    lists:flatten(
+      [[ io_lib:format("~p days, ", [D]) || D > 0 ],
+       [ io_lib:format("~p hours, ", [H]) || D+H > 0 ],
+       [ io_lib:format("~p minutes and ", [M]) || D+H+M > 0 ],
+       io_lib:format("~p seconds", [S])]).
+
+get_uptime() ->
+    {UpTime, _} = erlang:statistics(wall_clock),
+    calendar:seconds_to_daystime(UpTime div 1000).
 
 %%
 %% Cross Reference Check

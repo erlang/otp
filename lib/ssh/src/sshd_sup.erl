@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,8 +27,10 @@
 
 -behaviour(supervisor).
 
+-include("ssh.hrl").
+
 -export([start_link/1, start_child/1, stop_child/1,
-	 stop_child/2, system_name/1]).
+	 stop_child/3, system_name/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -40,13 +43,14 @@ start_link(Servers) ->
 
 start_child(ServerOpts) ->
     Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    case ssh_system_sup:system_supervisor(Address, Port) of
+    Port = proplists:get_value(port, ServerOpts),    
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    case ssh_system_sup:system_supervisor(Address, Port, Profile) of
        undefined ->
 	    Spec =  child_spec(Address, Port, ServerOpts),    
 	    case supervisor:start_child(?MODULE, Spec) of
 		{error, already_present} ->
-		    Name = id(Address, Port),
+		    Name = id(Address, Port, Profile),
 		    supervisor:delete_child(?MODULE, Name),
 		    supervisor:start_child(?MODULE, Spec);
 		Reply ->
@@ -60,8 +64,8 @@ start_child(ServerOpts) ->
 stop_child(Name) ->
     supervisor:terminate_child(?MODULE, Name).
 
-stop_child(Address, Port) ->
-    Name = id(Address, Port),
+stop_child(Address, Port, Profile) ->
+    Name = id(Address, Port, Profile),
     stop_child(Name).
 
 system_name(SysSup) ->
@@ -87,7 +91,8 @@ init([Servers]) ->
 %%%  Internal functions
 %%%=========================================================================
 child_spec(Address, Port, ServerOpts) ->
-    Name = id(Address, Port),
+    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+    Name = id(Address, Port,Profile),
     StartFunc = {ssh_system_sup, start_link, [ServerOpts]},
     Restart = temporary, 
     Shutdown = infinity,
@@ -95,8 +100,13 @@ child_spec(Address, Port, ServerOpts) ->
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-id(Address, Port) ->
-    {server, ssh_system_sup, Address, Port}.
+id(Address, Port, Profile) ->
+    case is_list(Address) of	
+	true ->
+	    {server, ssh_system_sup, any, Port, Profile};
+	false ->
+	    {server, ssh_system_sup, Address, Port, Profile}
+    end.
 
 system_name([], _ ) ->
     undefined;

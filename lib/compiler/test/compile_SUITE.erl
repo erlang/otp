@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,9 @@
 	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
-	 sys_pre_attributes/1, dialyzer/1]).
+	 sys_pre_attributes/1, dialyzer/1,
+	 warnings/1
+	]).
 
 -export([init/3]).
 
@@ -47,7 +50,7 @@ all() ->
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm,
-     sys_pre_attributes, dialyzer].
+     sys_pre_attributes, dialyzer, warnings].
 
 groups() -> 
     [{bad_record_use, [],
@@ -102,6 +105,8 @@ file_1(Config) when is_list(Config) ->
     ?line compile_and_verify(Simple, Target, [debug_info]),
     ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
+    {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
+
     ?line ok = file:set_cwd(Cwd),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
@@ -124,7 +129,8 @@ file_1(Config) when is_list(Config) ->
 forms_2(Config) when is_list(Config) ->
     Src = "/foo/bar",
     AbsSrc = filename:absname(Src),
-    {ok,simple,Binary} = compile:forms([{attribute,1,module,simple}],
+    Anno = erl_anno:new(1),
+    {ok,simple,Binary} = compile:forms([{attribute,Anno,module,simple}],
 				       [binary,{source,Src}]),
     code:load_binary(simple, Src, Binary),
     Info = simple:module_info(compile),
@@ -324,6 +330,8 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dlife, ".life"),
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
+    do_listing(Simple, TargetDir, dexcept, ".except"),
+    do_listing(Simple, TargetDir, dbs, ".bs"),
     do_listing(Simple, TargetDir, dbool, ".bool"),
     do_listing(Simple, TargetDir, dtype, ".type"),
     do_listing(Simple, TargetDir, ddead, ".dead"),
@@ -890,6 +898,44 @@ dialyzer(Config) ->
     {ok,M} = c:c(M, Opts),
     [{a,b,c}] = M:M(),
     ok.
+
+
+%% Test that warnings contain filenames and line numbers.
+warnings(_Config) ->
+    TestDir = filename:dirname(code:which(?MODULE)),
+    Files = filelib:wildcard(filename:join(TestDir, "*.erl")),
+    test_lib:p_run(fun do_warnings/1, Files).
+
+do_warnings(F) ->
+    {ok,_,_,Ws} = compile:file(F, [binary,bin_opt_info,return]),
+    do_warnings_1(Ws, F).
+
+do_warnings_1([{"no_file",Ws}|_], F) ->
+    io:format("~s:\nMissing file for warnings: ~p\n",
+	      [F,Ws]),
+    error;
+do_warnings_1([{Name,Ws}|T], F) ->
+    case filename:extension(Name) of
+	".erl" ->
+	    do_warnings_2(Ws, T, F);
+	_ ->
+	    io:format("~s:\nNo .erl extension\n", [F]),
+	    error
+    end;
+do_warnings_1([], _) -> ok.
+
+do_warnings_2([{Int,_,_}=W|T], Next, F) ->
+    if
+	is_integer(Int) ->
+	    do_warnings_2(T, Next, F);
+	true ->
+	    io:format("~s:\nMissing line number: ~p\n",
+		      [F,W]),
+	    error
+    end;
+do_warnings_2([], Next, F) ->
+    do_warnings_1(Next, F).
+
 
 %%%
 %%% Utilities.

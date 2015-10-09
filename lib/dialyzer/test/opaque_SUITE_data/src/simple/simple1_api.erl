@@ -145,7 +145,7 @@ adt_t4() ->
     A = simple1_adt:n1(),
     B = simple1_adt:n2(),
     A = A, % OK
-    A = B. % opaque term
+    A = B. % opaque terms
 
 adt_t7() ->
     A = simple1_adt:n1(),
@@ -178,7 +178,7 @@ c2(A, B) ->
 c2() ->
     A = simple1_adt:d1(),
     B = simple1_adt:d2(),
-    if A =< B -> ok end. % opaque term
+    if A =< B -> ok end. % opaque terms
 
 c3() ->
     B = simple1_adt:d2(),
@@ -516,7 +516,7 @@ eq1() ->
     A = simple1_adt:d2(),
     B = simple1_adt:d1(),
     if
-        A == B -> % opaque term
+        A == B -> % opaque terms
             0;
         A == A ->
             1;
@@ -555,7 +555,7 @@ c6(A, B) ->
 c7(A, B) ->
     A = simple1_adt:d1(),
     B = simple1_adt:d2(),
-    A =< B. % opaque term
+    A =< B. % opaque terms
 
 c8() ->
     D = digraph:new(),

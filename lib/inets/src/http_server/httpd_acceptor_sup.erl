@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2001-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -26,6 +27,8 @@
 
 -behaviour(supervisor).
 
+-include("httpd_internal.hrl").
+
 %% API
 -export([start_link/1]).
 %%, start_acceptor/6, start_acceptor/7, stop_acceptor/2]).
@@ -36,8 +39,9 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link([Addr, Port| _] = Args) ->
-    SupName = make_name(Addr, Port),
+start_link([Addr, Port, Config| _] = Args) ->
+    Profile = proplists:get_value(profile, Config, ?DEFAULT_PROFILE),
+    SupName = make_name(Addr, Port, Profile),
     supervisor:start_link({local, SupName}, ?MODULE, [Args]).
 
 %%%=========================================================================
@@ -54,20 +58,23 @@ init([Args]) ->
 %%%  Internal functions
 %%%=========================================================================  
 child_spec([Address, Port, ConfigList, AcceptTimeout, ListenInfo]) ->
-    Name = id(Address, Port),
-    Manager = httpd_util:make_name("httpd", Address, Port),
+    Profile = proplists:get_value(profile, ConfigList, ?DEFAULT_PROFILE),
+    Name = id(Address, Port, Profile),
+    Manager = httpd_util:make_name("httpd", Address, Port, Profile),
     SockType = proplists:get_value(socket_type, ConfigList, ip_comm),
     IpFamily = proplists:get_value(ipfamily, ConfigList, inet),
     StartFunc = case ListenInfo of
 		    undefined ->
-			{httpd_acceptor, start_link, [Manager, SockType, Address, Port, IpFamily,
-						      httpd_util:make_name("httpd_conf", Address, Port), 
-						      AcceptTimeout]};
+			{httpd_acceptor, start_link, 
+			 [Manager, SockType, Address, Port, IpFamily,
+			  httpd_util:make_name("httpd_conf", Address, Port, Profile), 
+			  AcceptTimeout]};
 		    _ ->
-			{httpd_acceptor, start_link, [Manager, SockType, Address, Port, ListenInfo,
-						      IpFamily,
-						      httpd_util:make_name("httpd_conf", Address, Port), 
-						      AcceptTimeout]}
+			{httpd_acceptor, start_link, 
+			 [Manager, SockType, Address, Port, ListenInfo,
+			  IpFamily,
+			  httpd_util:make_name("httpd_conf", Address, Port, Profile), 
+			  AcceptTimeout]}
 		end,
     Restart = transient, 
     Shutdown = brutal_kill,
@@ -75,9 +82,9 @@ child_spec([Address, Port, ConfigList, AcceptTimeout, ListenInfo]) ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-id(Address, Port) ->
-    {httpd_acceptor_sup, Address, Port}.
+id(Address, Port, Profile) ->
+    {httpd_acceptor_sup, Address, Port, Profile}.
 
-make_name(Addr,Port) ->
-    httpd_util:make_name("httpd_acceptor_sup", Addr, Port).
+make_name(Addr, Port, Profile) ->
+    httpd_util:make_name("httpd_acceptor_sup", Addr, Port, Profile).
 

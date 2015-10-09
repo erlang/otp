@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2011-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,10 +27,12 @@
 %% Test cases must be exported.
 -export([app_test/1,
 	 appup_test/1,
-	 log_mf_h_env/1]).
+	 log_mf_h_env/1,
+	 log_file/1,
+	 utc_log/1]).
 
 all() -> 
-    [log_mf_h_env, app_test, appup_test].
+    [log_mf_h_env, log_file, app_test, appup_test, utc_log].
 
 groups() -> 
     [].
@@ -151,10 +154,9 @@ check_appup([],_,_) ->
 log_mf_h_env(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogDir = filename:join(PrivDir,sasl_SUITE_log_dir),
-    ok = file:make_dir(LogDir),
+    ok = filelib:ensure_dir(LogDir),
     application:stop(sasl),
-    SaslEnv = application:get_all_env(sasl),
-    lists:foreach(fun({E,_V}) -> application:unset_env(sasl,E) end, SaslEnv),
+    clear_env(sasl),
 
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     match_error(missing_config,application:start(sasl)),
@@ -178,6 +180,107 @@ log_mf_h_env(Config) ->
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     ok = application:start(sasl).
 
+log_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
+    File    = filename:join(LogDir, "file.log"),
+    ok      = filelib:ensure_dir(File),
+    application:stop(sasl),
+    clear_env(sasl),
+
+    _ = test_log_file(File, {file,File}),
+    _ = test_log_file(File, {file,File,[write]}),
+
+    ok = file:write_file(File, <<"=PROGRESS preserve me\n">>),
+    <<"=PROGRESS preserve me\n",_/binary>> =
+	test_log_file(File, {file,File,[append]}),
+
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+test_log_file(File, Arg) ->
+    ok = application:set_env(sasl, sasl_error_logger, Arg,
+			     [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    {ok,Bin} = file:read_file(File),
+    ok = file:delete(File),
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    io:format("~p:\n~p\n", [Arg,Lines]),
+
+    %% There must be at least four PROGRESS lines.
+    if
+	length(Lines) >= 4 -> ok;
+	true -> ?t:fail()
+    end,
+    Bin.
+
+%% Make a basic test of utc_log.
+utc_log(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    LogDir = filename:join(PrivDir, sasl_SUITE_log_dir),
+    Log = filename:join(LogDir, "utc.log"),
+    ok = filelib:ensure_dir(Log),
+
+    application:stop(sasl),
+    clear_env(sasl),
+
+    %% Test that the UTC marker gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to true.
+    ok = application:set_env(sasl, sasl_error_logger, {file,Log},
+			     [{persistent,true}]),
+    ok = application:set_env(sasl, utc_log, true, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, true),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to false.
+    ok = application:set_env(sasl, utc_log, false, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is unset.
+    ok = application:unset_env(sasl, utc_log, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Change back to the standard TTY error logger.
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+verify_utc_log(Log, UTC) ->
+    {ok,Bin} = file:read_file(Log),
+    ok = file:delete(Log),
+
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    Setting = application:get_env(sasl, utc_log),
+    io:format("utc_log ~p:\n~p\n", [Setting,Lines]),
+    Filtered = [L || L <- Lines,
+		     binary:match(L, <<" UTC ===">>) =:= nomatch],
+    %% Filtered now contains all lines WITHOUT any UTC markers.
+    case UTC of
+	false ->
+	    %% No UTC marker on the PROGRESS line.
+	    Filtered = Lines;
+	true ->
+	    %% Each PROGRESS line must have an UTC marker.
+	    [] = Filtered
+    end,
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% Internal
@@ -185,3 +288,7 @@ match_error(Expected,{error,{bad_return,{_,{'EXIT',{Expected,{sasl,_}}}}}}) ->
     ok;
 match_error(Expected,Actual) ->
     ?t:fail({unexpected_return,Expected,Actual}).
+
+clear_env(App) ->
+    [application:unset_env(App,Opt) || {Opt,_} <- application:get_all_env(App)],
+    ok.

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2013-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -236,7 +237,7 @@ encode(#ssh_msg_kex_dh_gex_request{
 	  max = Max
 	 }) ->
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REQUEST, Min, N, Max],
-		    [byte, uint32, uint32, uint32, uint32]);
+		    [byte, uint32, uint32, uint32]);
 encode(#ssh_msg_kex_dh_gex_request_old{n = N}) ->
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REQUEST_OLD, N],
 		    [byte, uint32]);
@@ -256,7 +257,15 @@ encode(#ssh_msg_kex_dh_gex_reply{
 	 }) ->
     EncKey = encode_host_key(Key),
     EncSign = encode_sign(Key, Signature),
-    ssh_bits:encode([?SSH_MSG_KEXDH_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
+    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
+
+encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
+    ssh_bits:encode([?SSH_MSG_KEX_ECDH_INIT, Q_c], [byte, mpint]);
+
+encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
+    EncKey = encode_host_key(Key),
+    EncSign = encode_sign(Key, Sign),
+    ssh_bits:encode([?SSH_MSG_KEX_ECDH_REPLY, EncKey, Q_s, EncSign], [byte, binary, mpint, binary]);
 
 encode(#ssh_msg_ignore{data = Data}) ->
     ssh_bits:encode([?SSH_MSG_IGNORE, Data], [byte, string]);
@@ -421,33 +430,69 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
 decode(<<?BYTE(?SSH_MSG_KEXINIT), Cookie:128, Data/binary>>) ->
     decode_kex_init(Data, [Cookie, ssh_msg_kexinit], 10);
 
-decode(<<?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/binary>>) ->
-    #ssh_msg_kexdh_init{e = erlint(Len, E)
+decode(<<"dh",?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+    #ssh_msg_kexdh_init{e = E
 		       };
+
+decode(<<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY), 
+	 ?UINT32(Len0), Key:Len0/binary,
+	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
+	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
+    #ssh_msg_kexdh_reply{
+       public_host_key = decode_host_key(Key),
+       f = F,
+       h_sig = decode_sign(Hashsign)
+      };
+
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST), ?UINT32(Min), ?UINT32(N), ?UINT32(Max)>>) ->
     #ssh_msg_kex_dh_gex_request{
        min = Min,
        n = N,
        max = Max
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
+
+decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
     #ssh_msg_kex_dh_gex_request_old{
        n = N
       };
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
+
+decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
 	 ?UINT32(Len0), Prime:Len0/big-signed-integer-unit:8,
 	 ?UINT32(Len1), Generator:Len1/big-signed-integer-unit:8>>) ->
     #ssh_msg_kex_dh_gex_group{
        p = Prime,
        g = Generator
       };
-decode(<<?BYTE(?SSH_MSG_KEXDH_REPLY), ?UINT32(Len0), Key:Len0/binary,
-	 ?UINT32(Len1), F:Len1/binary,
+
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+    #ssh_msg_kex_dh_gex_init{
+       e = E
+      };
+
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), 
+	 ?UINT32(Len0), Key:Len0/binary,
+	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
 	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
-    #ssh_msg_kexdh_reply{
+    #ssh_msg_kex_dh_gex_reply{
        public_host_key = decode_host_key(Key),
-       f = erlint(Len1, F),
+       f = F,
        h_sig = decode_sign(Hashsign)
+      };
+
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT),
+	 ?UINT32(Len0), Q_c:Len0/big-signed-integer-unit:8>>) ->
+    #ssh_msg_kex_ecdh_init{
+       q_c = Q_c
+      };
+
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
+	 ?UINT32(Len1), Key:Len1/binary,
+	 ?UINT32(Len2), Q_s:Len2/big-signed-integer-unit:8,
+	 ?UINT32(Len3), Sig:Len3/binary>>) ->
+    #ssh_msg_kex_ecdh_reply{
+       public_host_key = decode_host_key(Key),
+       q_s = Q_s,
+       h_sig = decode_sign(Sig)
       };
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?UINT32(Len0), Service:Len0/binary>>) ->
@@ -514,10 +559,7 @@ decode_kex_init(<<?UINT32(Len), Data:Len/binary, Rest/binary>>, Acc, N) ->
     Names = string:tokens(unicode:characters_to_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
 
-erlint(MPIntSize, MPIntValue) ->
-    Bits = MPIntSize * 8,
-    <<Integer:Bits/integer>> = MPIntValue,
-    Integer.
+
 
 decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
     Signature.
@@ -525,18 +567,19 @@ decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
 decode_host_key(<<?UINT32(Len), Alg:Len/binary, Rest/binary>>) ->
     decode_host_key(Alg, Rest).
 
-decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/binary,
-				 ?UINT32(Len1), N:Len1/binary>>) ->
-    #'RSAPublicKey'{publicExponent = erlint(Len0, E),
-		    modulus = erlint(Len1, N)};
+decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/big-signed-integer-unit:8,
+				 ?UINT32(Len1), N:Len1/big-signed-integer-unit:8>>) ->
+    #'RSAPublicKey'{publicExponent = E,
+		    modulus = N};
 
 decode_host_key(<<"ssh-dss">>,
-		<<?UINT32(Len0), P:Len0/binary,
-		  ?UINT32(Len1), Q:Len1/binary,
-		  ?UINT32(Len2), G:Len2/binary,
-		  ?UINT32(Len3), Y:Len3/binary>>) ->
-    {erlint(Len3, Y), #'Dss-Parms'{p = erlint(Len0, P), q = erlint(Len1, Q),
-				   g = erlint(Len2, G)}}.
+		<<?UINT32(Len0), P:Len0/big-signed-integer-unit:8,
+		  ?UINT32(Len1), Q:Len1/big-signed-integer-unit:8,
+		  ?UINT32(Len2), G:Len2/big-signed-integer-unit:8,
+		  ?UINT32(Len3), Y:Len3/big-signed-integer-unit:8>>) ->
+    {Y, #'Dss-Parms'{p = P,
+		     q = Q,
+		     g = G}}.
 
 encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
     ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);

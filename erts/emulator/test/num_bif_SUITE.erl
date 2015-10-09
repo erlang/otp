@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -428,7 +429,7 @@ t_string_to_integer(Config) when is_list(Config) ->
 				       list_to_binary(Value))),
 			  {'EXIT', {badarg, _}} = 
 			      (catch erlang:list_to_integer(Value))
-		  end,["1.0"," 1"," -1",""]),
+		  end,["1.0"," 1"," -1","","+"]),
     
     % Custom base error cases
     lists:foreach(fun({Value,Base}) ->
@@ -441,7 +442,11 @@ t_string_to_integer(Config) when is_list(Config) ->
 		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
 		       {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
 		       {"111z11111111",16}]),
-    
+
+    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624)
+    %% Would crash with segv
+    0 = list_to_integer(lists:duplicate(10000000,$0)),
+
     ok.
 
 test_sti(Num) ->

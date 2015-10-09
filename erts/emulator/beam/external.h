@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -148,6 +149,7 @@ typedef struct {
     byte *extp;
     int exttmp;
     Uint extsize;
+    Uint heap_size;
 } ErtsBinary2TermState;
 
 
@@ -185,18 +187,18 @@ void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
 			  DistEntry *, ErtsAtomCache *);
 Sint erts_decode_dist_ext_size(ErtsDistExternal *);
-Eterm erts_decode_dist_ext(Eterm **, ErlOffHeap *, ErtsDistExternal *);
+Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 
 Sint erts_decode_ext_size(byte*, Uint);
 Sint erts_decode_ext_size_ets(byte*, Uint);
-Eterm erts_decode_ext(Eterm **, ErlOffHeap *, byte**);
-Eterm erts_decode_ext_ets(Eterm **, ErlOffHeap *, byte*);
+Eterm erts_decode_ext(ErtsHeapFactory*, byte**);
+Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);
 void erts_binary2term_abort(ErtsBinary2TermState *);
-Eterm erts_binary2term_create(ErtsBinary2TermState *, Eterm **hpp, ErlOffHeap *);
+Eterm erts_binary2term_create(ErtsBinary2TermState *, ErtsHeapFactory*);
 int erts_debug_max_atom_out_cache_index(void);
 int erts_debug_atom_to_out_cache_index(Eterm);
 

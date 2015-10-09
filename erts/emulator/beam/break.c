@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,7 +37,7 @@
 #include "atom.h"
 #include "beam_load.h"
 #include "erl_instrument.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
@@ -108,7 +109,7 @@ process_killer(void)
 		case 'k': {
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
-		    erts_smp_proc_inc_refc(rp);
+		    erts_proc_inc_refc(rp);
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
@@ -131,7 +132,7 @@ process_killer(void)
 						     0);
 		    }
 		    erts_smp_proc_unlock(rp, rp_locks);
-		    erts_smp_proc_dec_refc(rp);
+		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
 		case 'r': return;
@@ -227,9 +228,9 @@ print_process_info(int to, void *to_arg, Process *p)
      * Display the initial function name
      */
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
-	       p->initial[INITIAL_MOD],
-	       p->initial[INITIAL_FUN],
-	       p->initial[INITIAL_ARI]);
+	       p->u.initial[INITIAL_MOD],
+	       p->u.initial[INITIAL_FUN],
+	       p->u.initial[INITIAL_ARI]);
     
     if (p->current != NULL) {
 	if (running) {
@@ -242,7 +243,6 @@ print_process_info(int to, void *to_arg, Process *p)
 		   p->current[1],
 		   p->current[2]);
     }
-    erts_print(to, to_arg, "Run queue: %d\n", erts_get_runq_proc(p)->ix);
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
     approx_started = (time_t) p->approx_started;
@@ -536,7 +536,9 @@ do_break(void)
 	    erts_printf("Erlang (%s) emulator version "
 		       ERLANG_VERSION "\n",
 		       EMULATOR);
+#if ERTS_SAVED_COMPILE_TIME
 	    erts_printf("Compiled on " ERLANG_COMPILE_DATE "\n");
+#endif
 	    return;
 	case 'd':
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
@@ -774,7 +776,9 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
     erts_fdprintf(fd, "System version: ");
     erts_print_system_version(fd, NULL, NULL);
+#if ERTS_SAVED_COMPILE_TIME
     erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+#endif
 
     erts_fdprintf(fd, "Taints: ");
     erts_print_nif_taints(fd, NULL);

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2005-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -127,8 +128,8 @@ daemon_start(Options) when is_list(Options) ->
 daemon_init(Config) when is_record(Config, config), 
                          is_pid(Config#config.parent_pid) ->
     process_flag(trap_exit, true),
-    UdpOptions = prepare_daemon_udp(Config),
-    case catch gen_udp:open(Config#config.udp_port, UdpOptions) of
+    {Port, UdpOptions} = prepare_daemon_udp(Config),
+    case catch gen_udp:open(Port, UdpOptions) of
         {ok, Socket} ->
             {ok, ActualPort} = inet:port(Socket),
             proc_lib:init_ack({ok, self()}),
@@ -156,7 +157,7 @@ prepare_daemon_udp(#config{udp_port = Port, udp_options = UdpOptions} = Config) 
     case lists:keymember(fd, 1, UdpOptions) of
         true ->
             %% Use explicit fd
-            UdpOptions;
+            {Port, UdpOptions};
         false ->
             %% Use fd from setuid_socket_wrap, such as -tftpd_69
             InitArg = list_to_atom("tftpd_" ++ integer_to_list(Port)),
@@ -164,7 +165,7 @@ prepare_daemon_udp(#config{udp_port = Port, udp_options = UdpOptions} = Config) 
                 {ok, [[FdStr]] = Badarg} when is_list(FdStr) ->
                     case catch list_to_integer(FdStr) of
                         Fd when is_integer(Fd) ->
-                            [{fd, Fd} | UdpOptions];
+                            {0, [{fd, Fd} | lists:keydelete(ip, 1, UdpOptions)]};
                         {'EXIT', _} ->
                             Text = lists:flatten(io_lib:format("Illegal prebound fd ~p: ~p", [InitArg, Badarg])),
                             print_debug_info(Config, daemon, open, ?ERROR(open, undef, Text, "")),
@@ -175,7 +176,7 @@ prepare_daemon_udp(#config{udp_port = Port, udp_options = UdpOptions} = Config) 
                     print_debug_info(Config, daemon, open, ?ERROR(open, undef, Text, "")),
                     exit({badarg, {prebound_fd, InitArg, Badarg}});
                 error ->
-                    UdpOptions
+                    {Port, UdpOptions}
             end
     end.
 

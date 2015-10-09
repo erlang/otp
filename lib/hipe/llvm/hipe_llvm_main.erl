@@ -465,7 +465,7 @@ remove_temp_folder(Dir, Options) ->
   end.
 
 unique_id(FunName, Arity) ->
-  integer_to_list(erlang:phash2({FunName, Arity, now()})).
+  integer_to_list(erlang:phash2({FunName, Arity, erlang:unique_integer()})).
 
 unique_folder(FunName, Arity, Options) ->
   DirName = "llvm_" ++ unique_id(FunName, Arity) ++ "/",

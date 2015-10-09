@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2009. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -31,6 +32,7 @@
 -import(xmerl_lib, [markup/3, empty_tag/2, export_text/1]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 
 
 '#xml-inheritance#'() -> [].
@@ -39,7 +41,7 @@
 %% The '#text#' function is called for every text segment.
 
 '#text#'(Text) ->
-%io:format("Text=~p~n",[Text]),
+%?dbg("Text=~p~n",[Text]),
     export_text(Text).
 
 
@@ -55,8 +57,8 @@
 %% The '#element#' function is the default handler for XML elements.
 
 '#element#'(Tag, [], Attrs, _Parents, _E) ->
-%io:format("Empty Tag=~p~n",[Tag]),
+%?dbg("Empty Tag=~p~n",[Tag]),
     empty_tag(Tag, Attrs);
 '#element#'(Tag, Data, Attrs, _Parents, _E) ->
-%io:format("Tag=~p~n",[Tag]),
+%?dbg("Tag=~p~n",[Tag]),
     markup(Tag, Attrs, Data).

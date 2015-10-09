@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -739,7 +740,8 @@ do_filter(Tab, Key, F, A, Ack) ->
 -record(filetab_options,
 	{
 	  object_count = false :: boolean(),
-	  md5sum       = false :: boolean()     
+	  md5sum       = false :: boolean(),
+	  sync         = false :: boolean()
 	 }).
 
 -spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
@@ -754,7 +756,7 @@ tab2file(Tab, File) ->
       Tab :: tab(),
       Filename :: file:name(),
       Options :: [Option],
-      Option :: {'extended_info', [ExtInfo]},
+      Option :: {'extended_info', [ExtInfo]} | {'sync', boolean()},
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
@@ -835,6 +837,15 @@ tab2file(Tab, File, Options) ->
 		List ->
 		    LogFun(NewState1,[['$end_of_table',List]])
 	    end,
+	    case FtOptions#filetab_options.sync of
+	        true ->
+		    case disk_log:sync(Name) of
+		        ok -> ok;
+			{error, Reason2} -> throw(Reason2)
+		    end;
+                false ->
+		    ok
+            end,
 	    disk_log:close(Name)
 	catch
 	    throw:TReason ->
@@ -887,23 +898,24 @@ md5terms(State, [H|T]) ->
     {FinState, [B|TL]}.
 
 parse_ft_options(Options) when is_list(Options) ->
-    {Opt,Rest} = case (catch lists:keytake(extended_info,1,Options)) of
-		     false -> 
-			 {[],Options};
-		     {value,{extended_info,L},R} when is_list(L) ->
-			 {L,R}
-		 end,
-    case Rest of
-	[] ->
-	    parse_ft_info_options(#filetab_options{}, Opt);
-	Other ->
-	    throw({unknown_option, Other})
-    end;
-parse_ft_options(Malformed) ->
+    {ok, parse_ft_options(Options, #filetab_options{}, false)}.
+
+parse_ft_options([], FtOpt, _) ->
+    FtOpt;
+parse_ft_options([{sync,true} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt#filetab_options{sync = true}, EI);
+parse_ft_options([{sync,false} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt, EI);
+parse_ft_options([{extended_info,L} | Rest], FtOpt0, false) ->
+    FtOpt1 = parse_ft_info_options(FtOpt0, L),
+    parse_ft_options(Rest, FtOpt1, true);
+parse_ft_options([Other | _], _, _) ->
+    throw({unknown_option, Other});
+parse_ft_options(Malformed, _, _) ->
     throw({malformed_option, Malformed}).
 
 parse_ft_info_options(FtOpt,[]) ->
-    {ok,FtOpt};
+    FtOpt;
 parse_ft_info_options(FtOpt,[object_count | T]) ->
     parse_ft_info_options(FtOpt#filetab_options{object_count = true}, T);
 parse_ft_info_options(FtOpt,[md5sum | T]) ->
@@ -1297,18 +1309,30 @@ create_tab(I, TabArg) ->
     {name, Name} = lists:keyfind(name, 1, I),
     {type, Type} = lists:keyfind(type, 1, I),
     {protection, P} = lists:keyfind(protection, 1, I),
-    {named_table, Val} = lists:keyfind(named_table, 1, I),
     {keypos, _Kp} = Keypos = lists:keyfind(keypos, 1, I),
     {size, Sz} = lists:keyfind(size, 1, I),
-    Comp = case lists:keyfind(compressed, 1, I) of
-	{compressed, true} -> [compressed];
-	{compressed, false} -> [];
-	false -> []
-    end,
+    L1 = [Type, P, Keypos],
+    L2 = case lists:keyfind(named_table, 1, I) of
+             {named_table, true} -> [named_table | L1];
+	     {named_table, false} -> L1
+	 end,
+    L3 = case lists:keyfind(compressed, 1, I) of
+	     {compressed, true} -> [compressed | L2];
+	     {compressed, false} -> L2;
+	     false -> L2
+	 end,
+    L4 = case lists:keyfind(write_concurrency, 1, I) of
+	     {write_concurrency, _}=Wcc -> [Wcc | L3];
+	     _ -> L3
+	 end,
+    L5 = case lists:keyfind(read_concurrency, 1, I) of
+	     {read_concurrency, _}=Rcc -> [Rcc | L4];
+	     false -> L4
+	 end,
     case TabArg of
         [] ->
 	    try
-		Tab = ets:new(Name, [Type, P, Keypos] ++ named_table(Val) ++ Comp),
+		Tab = ets:new(Name, L5),
 		{ok, Tab, Sz}
 	    catch _:_ ->
 		throw(cannot_create_table)
@@ -1317,8 +1341,6 @@ create_tab(I, TabArg) ->
             {ok, TabArg, Sz}
     end.
 
-named_table(true) -> [named_table];
-named_table(false) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% tabfile_info/1 reads the head information in an ets table dumped to

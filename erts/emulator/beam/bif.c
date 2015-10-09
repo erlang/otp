@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -44,6 +45,7 @@
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
 
+Export *erts_await_result;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_proc_exit_trap = NULL;
@@ -610,11 +612,7 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, bp, tup, NIL
-#ifdef USE_VM_PROBES
-		       , NIL
-#endif
-		       );
+    erts_queue_message(p, p_locksp, bp, tup, NIL);
 }
 
 static BIF_RETTYPE
@@ -833,26 +831,6 @@ BIF_RETTYPE monitor_2(BIF_ALIST_2)
     }
 
     return ret;
-}
-
-BIF_RETTYPE erts_internal_monitor_process_2(BIF_ALIST_2)
-{
-    if (is_not_internal_pid(BIF_ARG_1)) {
-	if (is_external_pid(BIF_ARG_1)
-	    && (external_pid_dist_entry(BIF_ARG_1)
-		== erts_this_dist_entry)) {
-	    BIF_RET(am_false);
-	}
-	goto badarg;
-    }
-
-    if (is_not_internal_ref(BIF_ARG_2))
-	goto badarg;
-
-    BIF_RET(local_pid_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, 1));
-
-badarg:
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 /**********************************************************************/
@@ -1937,7 +1915,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
     } else if (is_external_pid(to)) {
 	dep = external_pid_dist_entry(to);
 	if(dep == erts_this_dist_entry) {
-#if DEBUG
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp,
 			  "Discarding message %T from %T to %T in an old "
@@ -1948,7 +1925,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 			  external_pid_creation(to),
 			  erts_this_node->creation);
 	    erts_send_error_to_logger(p->group_leader, dsbufp);
-#endif
 	    return 0;
 	}
 	return remote_send(p, dep, to, to, msg, ctx);
@@ -1982,7 +1958,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
     } else if (is_external_port(to)
 	       && (external_port_dist_entry(to)
 		   == erts_this_dist_entry)) {
-#if DEBUG
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "Discarding message %T from %T to %T in an old "
@@ -1993,7 +1968,6 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 		      external_port_creation(to),
 		      erts_this_node->creation);
 	erts_send_error_to_logger(p->group_leader, dsbufp);
-#endif
 	return 0;
     } else if (is_internal_port(to)) {
 	int ret_val;
@@ -2930,7 +2904,7 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
      Uint ui = 0;
      int skip = 0;
      int neg = 0;
-     int n = 0;
+     Sint n = 0;
      int m;
      int lg2;
      Eterm res;
@@ -3010,7 +2984,9 @@ static int do_list_to_integer(Process *p, Eterm orig_list,
          else i = (Sint)ui;
 	 res = make_small(i);
      } else {
-	 lg2 =  (n+1)*230/69+1;
+	 /* Convert from log10 to log2 by multiplying with 1/log10(2)=3.3219
+	    which we round up to (3 + 1/3) */
+	 lg2 = (n+1)*3 + (n+1)/3 + 1;
 	 m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
 	 m  = BIG_NEED_SIZE(m);    /* number of words + thing */
 
@@ -4141,16 +4117,9 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
-#if HALFWORD_HEAP
-    hp = HAlloc(BIF_P, 3);
-    hp[0] = HEADER_EXPORT;
-    /* Yes, May be misaligned, but X86_64 will fix it... */
-    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#endif
     BIF_RET(make_export(hp));
 }
 
@@ -4655,7 +4624,7 @@ BIF_RETTYPE hash_2(BIF_ALIST_2)
     if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
 	BIF_ERROR(BIF_P, BADARG);
     }
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     if (range > ((1L << 27) - 1))
 	BIF_ERROR(BIF_P, BADARG);
 #endif
@@ -4727,7 +4696,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     BIF_RET(make_small(final_hash));
 #else
     if (IS_USMALL(0, final_hash)) {
@@ -4905,6 +4874,10 @@ void erts_init_bif(void)
 		     1
 #endif
 		     , &bif_return_trap);
+
+    erts_await_result = erts_export_put(am_erts_internal,
+					am_await_result,
+					1);
 
     erts_init_trap_export(&dsend_continue_trap_export,
 			  am_erts_internal, am_dsend_continue_trap, 1,

@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -128,8 +129,7 @@ empty_label_index() ->
 %%  Add an index for a label.
 
 index_label(Lbl, Is0, Acc) ->
-    Is = lists:dropwhile(fun({label,_}) -> true;
-			    (_) -> false end, Is0),
+    Is = drop_labels(Is0),
     gb_trees:enter(Lbl, Is, Acc).
 
 
@@ -344,14 +344,10 @@ check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
 		false ->
 		    check_liveness(R, Is, St);
 		true ->
-		    %% We must make sure we don't check beyond this instruction
-		    %% or we will fall through into random unrelated code and
-		    %% get stuck in a loop.
-		    %%
-		    %% We don't want to overwrite a 'catch', so consider this
-		    %% register in use.
-		    %% 
-		    {used,St}
+		    %% We must make sure we don't check beyond this
+		    %% instruction or we will fall through into random
+		    %% unrelated code and get stuck in a loop.
+		    {killed,St}
 	    end
     end;
 check_liveness(R, [{call_fun,Live}|Is], St) ->
@@ -472,6 +468,31 @@ check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
 check_liveness(R, [{line,_}|Is], St) ->
     check_liveness(R, Is, St);
+check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
+    {Ss,Ds} = split_even(L),
+    case member(R, [S|Ss]) of
+	true ->
+	    {used,St0};
+	false ->
+	    case check_liveness_at(R, Fail, St0) of
+		{killed,St}=Killed ->
+		    case member(R, Ds) of
+			true -> Killed;
+			false -> check_liveness(R, Is, St)
+		    end;
+		Other ->
+		    Other
+	    end
+    end;
+check_liveness(R, [{test_heap,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{zero,N,0,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
+    I = {block,[{set,[D1,D2],[S],get_list}]},
+    check_liveness(R, [I|Is], St);
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->
@@ -612,12 +633,14 @@ is_reg_used_at_1(R, Lbl, St0) ->
     end.
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
-    Is = lists:dropwhile(fun({label,_}) -> true;
-			    (_) -> false end, Is0),
+    Is = drop_labels(Is0),
     index_labels_1(Is0, [{Lbl,Is}|Acc]);
 index_labels_1([_|Is], Acc) ->
     index_labels_1(Is, Acc);
 index_labels_1([], Acc) -> gb_trees:from_orddict(sort(Acc)).
+
+drop_labels([{label,_}|Is]) -> drop_labels(Is);
+drop_labels(Is) -> Is.
 
 %% Help functions for combine_heap_needs.
 

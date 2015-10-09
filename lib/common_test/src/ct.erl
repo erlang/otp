@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2003-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -79,6 +80,7 @@
 %% Other interface functions
 -export([get_status/0, abort_current_testcase/1,
 	 get_event_mgr_ref/0,
+	 get_testspec_terms/0, get_testspec_terms/1,
 	 encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3]).
 
@@ -463,6 +465,50 @@ reload_config(Required)->
     ct_config:reload_config(Required).
 
 %%%-----------------------------------------------------------------
+%%% @spec get_testspec_terms() -> TestSpecTerms | undefined
+%%%      TestSpecTerms = [{Tag,Value}]
+%%%      Value = [term()]
+%%%
+%%% @doc Get a list of all test specification terms used to
+%%% configure and run this test.
+%%%
+get_testspec_terms() ->
+    case ct_util:get_testdata(testspec) of
+	undefined ->
+	    undefined;
+	CurrSpecRec ->
+	    ct_testspec:testspec_rec2list(CurrSpecRec)
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec get_testspec_terms(Tags) -> TestSpecTerms | undefined
+%%%      Tags = [Tag] | Tag
+%%%      Tag = atom()
+%%%      TestSpecTerms = [{Tag,Value}] | {Tag,Value}
+%%%      Value = [{Node,term()}] | [term()]
+%%%      Node = atom()
+%%%
+%%% @doc Read one or more terms from the test specification used
+%%% to configure and run this test. Tag is any valid test specification
+%%% tag, such as e.g. <c>label</c>, <c>config</c>, <c>logdir</c>.
+%%% User specific terms are also available to read if the
+%%% <c>allow_user_terms</c> option has been set. Note that all value tuples
+%%% returned, except user terms, will have the node name as first element.
+%%% Note also that in order to read test terms, use <c>Tag = tests</c>
+%%% (rather than <c>suites</c>, <c>groups</c> or <c>cases</c>). Value is
+%%% then the list of *all* tests on the form:
+%%% <c>[{Node,Dir,[{TestSpec,GroupsAndCases1},...]},...], where
+%%% GroupsAndCases = [{Group,[Case]}] | [Case]</c>.
+get_testspec_terms(Tags) ->
+    case ct_util:get_testdata(testspec) of
+	undefined ->
+	    undefined;
+	CurrSpecRec ->
+	    ct_testspec:testspec_rec2list(Tags, CurrSpecRec)
+    end.
+
+
+%%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
 %%% @equiv log(default,50,Format,[])
 log(Format) ->
@@ -684,7 +730,7 @@ capture_get([]) ->
     test_server:capture_get().
 
 %%%-----------------------------------------------------------------
-%%% @spec fail(Reason) -> void()
+%%% @spec fail(Reason) -> ok
 %%%      Reason = term()
 %%%
 %%% @doc Terminate a test case with the given error
@@ -702,7 +748,7 @@ fail(Reason) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec fail(Format, Args) -> void()
+%%% @spec fail(Format, Args) -> ok
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -728,7 +774,7 @@ fail(Format, Args) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec comment(Comment) -> void()
+%%% @spec comment(Comment) -> ok
 %%%      Comment = term()
 %%%
 %%% @doc Print the given <c>Comment</c> in the comment field in
@@ -751,7 +797,7 @@ comment(Comment) ->
     send_html_comment(lists:flatten(Formatted)).
 
 %%%-----------------------------------------------------------------
-%%% @spec comment(Format, Args) -> void()
+%%% @spec comment(Format, Args) -> ok
 %%%      Format = string()
 %%%      Args = list()
 %%%

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2002-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -44,7 +45,6 @@ typedef struct {
     int tspec;
     int tpref;
     int ramv;
-    int low_mem;   /* HALFWORD only */
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -89,7 +89,6 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
-    0,			/* (bool)   low_mem: HALFWORD only               */\
     512*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -124,7 +123,6 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
-    0,			/* (bool)   low_mem: HALFWORD only               */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\

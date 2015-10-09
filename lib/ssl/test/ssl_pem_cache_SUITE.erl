@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2015-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.2
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -44,11 +45,8 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl:start(),
 	    %% make rsa certs using oppenssl
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0))),
-	    ct:log("Make certs  ~p~n", [Result]),
-
+	    {ok, _} =  make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config1)
     catch _:_ ->
@@ -64,15 +62,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(pem_cleanup, Config) ->
-    ssl:stop(),
+init_per_testcase(pem_cleanup = Case, Config) ->
+    end_per_testcase(Case, Config) ,
     application:load(ssl),
     application:set_env(ssl, ssl_pem_cache_clean, ?CLEANUP_INTERVAL),
     ssl:start(),
+    ct:timetrap({minutes, 1}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
-    %%ssl:stop(),
+    ssl:stop(),
     Config.
 
 %%--------------------------------------------------------------------

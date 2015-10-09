@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -82,12 +83,22 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 #elif defined(ETHR_PTHREADS)
 /* --- Posix mutex/cond pipe/select implementation of events ---------------- */
 
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#  define __DARWIN__ 1
+#endif
+
+#ifdef __DARWIN__
+typedef struct ethr_event_fdsets___ ethr_event_fdsets__;
+#endif
 
 typedef struct {
     ethr_atomic32_t state;
     pthread_mutex_t mtx;
     pthread_cond_t cnd;
     int fd[2];
+#ifdef __DARWIN__
+    ethr_event_fdsets__ *fdsets;
+#endif
 } ethr_event;
 
 #define ETHR_EVENT_OFF_WAITER_SELECT__	((ethr_sint32_t) -2)
@@ -147,6 +158,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 #endif
 
 int ethr_event_init(ethr_event *e);
+int ethr_event_prepare_timed(ethr_event *e);
 int ethr_event_destroy(ethr_event *e);
 int ethr_event_wait(ethr_event *e);
 int ethr_event_swait(ethr_event *e, int spincount);

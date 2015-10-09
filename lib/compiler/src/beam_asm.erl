@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -132,10 +133,10 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
     LiteralChunk = case beam_dict:literal_table(Dict) of
 		       {0,[]} -> [];
 		       {NumLiterals,LitTab0} ->
-			   LitTab1 = iolist_to_binary(LitTab0),
-			   LitTab2 = <<NumLiterals:32,LitTab1/binary>>,
-			   LitTab = iolist_to_binary(zlib:compress(LitTab2)),
-			   chunk(<<"LitT">>, <<(byte_size(LitTab2)):32>>, LitTab)
+			   LitTab1 = [<<NumLiterals:32>>,LitTab0],
+			   LitTab = zlib:compress(LitTab1),
+			   chunk(<<"LitT">>, <<(iolist_size(LitTab1)):32>>,
+				 LitTab)
 		   end,
 
     %% Create the line chunk.
@@ -431,45 +432,35 @@ encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
 
 encode(Tag, N) when N < 0 ->
-    encode1(Tag, negative_to_bytes(N, []));
+    encode1(Tag, negative_to_bytes(N));
 encode(Tag, N) when N < 16 ->
     (N bsl 4) bor Tag;
 encode(Tag, N) when N < 16#800  ->
     [((N bsr 3) band 2#11100000) bor Tag bor 2#00001000, N band 16#ff];
 encode(Tag, N) ->
-    encode1(Tag, to_bytes(N, [])).
+    encode1(Tag, to_bytes(N)).
 
 encode1(Tag, Bytes) ->
-    case length(Bytes) of
+    case iolist_size(Bytes) of
 	Num when 2 =< Num, Num =< 8 ->
 	    [((Num-2) bsl 5) bor 2#00011000 bor Tag| Bytes];
 	Num when 8 < Num ->
 	    [2#11111000 bor Tag, encode(?tag_u, Num-9)| Bytes]
     end.
 
-
-to_bytes(N0, Acc) ->
-    Bits = 3*128,
-    case N0 bsr Bits of
-	0 ->
-	    to_bytes_1(N0, Acc);
-	N ->
-	    to_bytes(N, binary_to_list(<<N0:Bits>>) ++ Acc)
-    end.
-    
-to_bytes_1(0, [B|_]=Done) when B < 128 -> Done;
-to_bytes_1(N, Acc) -> to_bytes(N bsr 8, [N band 16#ff|Acc]).
-
-negative_to_bytes(N0, Acc) ->
-    Bits = 3*128,
-    case N0 bsr Bits of
-	-1 ->
-	    negative_to_bytes_1(N0, Acc);
-	N ->
-	    negative_to_bytes_1(N, binary_to_list(<<N0:Bits>>) ++ Acc)
+to_bytes(N) ->
+    Bin = binary:encode_unsigned(N),
+    case Bin of
+	<<0:1,_/bits>> -> Bin;
+	<<1:1,_/bits>> -> [0,Bin]
     end.
 
-negative_to_bytes_1(-1, [B1,_B2|_]=Done) when B1 > 127 ->
-    Done;
-negative_to_bytes_1(N, Acc) ->
-    negative_to_bytes_1(N bsr 8, [N band 16#ff|Acc]).
+negative_to_bytes(N) when N >= -16#8000 ->
+    <<N:16>>;
+negative_to_bytes(N) ->
+    Bytes = byte_size(binary:encode_unsigned(-N)),
+    Bin = <<N:Bytes/unit:8>>,
+    case Bin of
+	<<0:1,_/bits>> -> [16#ff,Bin];
+	<<1:1,_/bits>> -> Bin
+    end.

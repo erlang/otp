@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -53,7 +54,7 @@
 
 %% Receive a message.
 -define(RECV(Pat, Ret), receive Pat -> Ret end).
--define(RECV(Pat), ?RECV(Pat, diameter_util:timestamp())).
+-define(RECV(Pat), ?RECV(Pat, diameter_lib:now())).
 
 %% Sockets are opened on the loopback address.
 -define(ADDR, {127,0,0,1}).
@@ -64,7 +65,7 @@
                                       = #diameter_caps{host_ip_address
                                                        = Addrs}}).
 
-%% The term we register after open a listening port with gen_tcp.
+%% The term we register after open a listening port with gen_{tcp,sctp}.
 -define(TEST_LISTENER(Ref, PortNr),
         {?MODULE, listen, Ref, PortNr}).
 
@@ -85,7 +86,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {seconds, 15}}].
 
 all() ->
     [start,
@@ -401,12 +402,13 @@ gen_listen(tcp) ->
 %% gen_accept/2
 
 gen_accept(sctp, Sock) ->
-    Assoc = ?RECV(?SCTP(Sock, {_, #sctp_assoc_change{state = comm_up,
-                                                     outbound_streams = O,
-                                                     inbound_streams = I,
-                                                     assoc_id = A}}),
-                  {O, I, A}),
-    putr(assoc, Assoc),
+    #sctp_assoc_change{state = comm_up,
+                       outbound_streams = OS,
+                       inbound_streams = IS,
+                       assoc_id = Id}
+        = ?RECV(?SCTP(Sock, {_, #sctp_assoc_change{} = S}), S),
+
+    putr(assoc, {OS, IS, Id}),
     {ok, Sock};
 gen_accept(tcp, LSock) ->
     gen_tcp:accept(LSock).
@@ -415,8 +417,7 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    {_, _, Us} = diameter_util:timestamp(),
-    gen_sctp:send(Sock, Id, Us rem OS, Bin);
+    gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin);
 gen_send(tcp, Sock, Bin) ->
     gen_tcp:send(Sock, Bin).
 

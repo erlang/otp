@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -652,7 +653,13 @@ chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
 		{'EXIT', _} ->
 		    error({invalid_chunk, File, chunk_name_to_id(Id, File)});
 		Term ->
-		    {AtomTable, {Id, Term}}
+                    try
+                        {AtomTable, {Id, anno_from_term(Term)}}
+                    catch
+                        _:_ ->
+                            error({invalid_chunk, File,
+                                   chunk_name_to_id(Id, File)})
+                    end
 	    end
     end;
 chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
@@ -878,7 +885,22 @@ decrypt_abst(Type, Module, File, Id, AtomTable, Bin) ->
 decrypt_abst_1({Type,Key,IVec,_BlockSize}, Bin) ->
     ok = start_crypto(),
     NewBin = crypto:block_decrypt(Type, Key, IVec, Bin),
-    binary_to_term(NewBin).
+    Term = binary_to_term(NewBin),
+    anno_from_term(Term).
+
+anno_from_term({raw_abstract_v1, Forms}) ->
+    {raw_abstract_v1, anno_from_forms(Forms)};
+anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
+    try {Tag, anno_from_forms(Forms)}
+    catch
+        _:_ ->
+            {Tag, Forms}
+    end;
+anno_from_term(T) ->
+    T.
+
+anno_from_forms(Forms) ->
+    [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
     case crypto:start() of

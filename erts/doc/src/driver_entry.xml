@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -210,7 +211,7 @@ typedef struct erl_drv_entry {
           number &gt;= 0 or a pointer, or if the driver can't be started,
           one of three error codes should be returned:</p>
         <p>ERL_DRV_ERROR_GENERAL - general error, no error code</p>
-        <p>ERL_DRV_ERROR_ERRNO - error with error code in erl_errno</p>
+        <p>ERL_DRV_ERROR_ERRNO - error with error code in <c>errno</c></p>
         <p>ERL_DRV_ERROR_BADARG - error, badarg</p>
         <p>If an error code is returned, the port isn't started.</p>
       </item>
@@ -245,14 +246,10 @@ typedef struct erl_drv_entry {
           something that the <c>WaitForMultipleObjects</c> API
           function understands). (Some trickery in the emulator allows
           more than the built-in limit of 64 <c>Events</c> to be used.)</p>
-	  <p>On Enea OSE the <c>event</c> is one or more signals that can
-	  be retrieved using <seealso marker="ose:ose_erl_driver#erl_drv_ose_get_signal">erl_drv_ose_get_signal</seealso>.</p>
         <p>To use this with threads and asynchronous routines, create a
-          pipe on unix, an Event on Windows or a unique signal number on
-	  Enea OSE. When the routine
+          pipe on unix and an Event on Windows. When the routine
           completes, write to the pipe (use <c>SetEvent</c> on
-          Windows or send a message to the emulator process on Enea OSE),
-	  this will make the emulator call
+          Windows), this will make the emulator call
           <c>ready_input</c> or <c>ready_output</c>.</p>
           <p>Spurious events may happen. That is, calls to <c>ready_input</c>
           or <c>ready_output</c> even though no real events are signaled. In

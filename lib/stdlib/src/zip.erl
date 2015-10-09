@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2006-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,7 @@
 	 list_dir/1, list_dir/2, table/1, table/2,
 	 t/1, tt/1]).
 
-%% unzipping peicemeal
+%% unzipping piecemeal
 -export([openzip_open/1, openzip_open/2,
 	 openzip_get/1, openzip_get/2,
 	 openzip_t/1, openzip_tt/1,
@@ -1150,7 +1151,7 @@ server_loop(Parent, OpenZip) ->
 	    From ! {self(), OpenZip},
 	    server_loop(Parent, OpenZip);
         {'EXIT', Parent, Reason} ->
-            openzip_close(OpenZip),
+            _ = openzip_close(OpenZip),
             exit({parent_died, Reason});
 	_ ->
 	    {error, bad_msg}
@@ -1549,57 +1550,33 @@ unix_extra_field_and_var_from_bin(_) ->
 
 %% A pwrite-like function for iolists (used by memory-option)
 
-split_iolist(B, Pos) when is_binary(B) ->
-    split_binary(B, Pos);
-split_iolist(L, Pos) when is_list(L) ->
-    splitter([], L, Pos).
+pwrite_binary(B, Pos, Bin) when byte_size(B) =:= Pos ->
+    append_bins(Bin, B);
+pwrite_binary(B, Pos, Bin) ->
+    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
 
-splitter(Left, Right, 0) ->
-    {Left, Right};
-splitter(Left, [A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    {Leftx, Rightx} = split_iolist(A, RelPos),
-	    {[Left | Leftx], [Rightx, Right]};
-	_ ->
-	    splitter([Left | A], Right, RelPos - Sz)
-    end;
-splitter(Left, [A | Right], RelPos) when is_integer(A) ->
-    splitter([Left, A], Right, RelPos - 1);
-splitter(Left, Right, RelPos) when is_binary(Right) ->
-    splitter(Left, [Right], RelPos).
+append_bins([Bin|Bins], B) when is_binary(Bin) ->
+    append_bins(Bins, <<B/binary, Bin/binary>>);
+append_bins([List|Bins], B) when is_list(List) ->
+    append_bins(Bins, append_bins(List, B));
+append_bins(Bin, B) when is_binary(Bin) ->
+    <<B/binary, Bin/binary>>;
+append_bins([_|_]=List, B) ->
+    <<B/binary, (iolist_to_binary(List))/binary>>;
+append_bins([], B) ->
+    B.
 
-skip_iolist(B, Pos) when is_binary(B) ->
+pwrite_iolist(B, Pos, Bin) ->
+    {Left, Right} = split_binary(B, Pos),
+    Sz = erlang:iolist_size(Bin),
+    R = skip_bin(Right, Sz),
+    [Left, Bin | R].
+
+skip_bin(B, Pos) when is_binary(B) ->
     case B of
 	<<_:Pos/binary, Bin/binary>> -> Bin;
 	_ -> <<>>
-    end;
-skip_iolist(L, Pos) when is_list(L) ->
-    skipper(L, Pos).
-
-skipper(Right, 0) ->
-    Right;
-skipper([A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    Rightx = skip_iolist(A, RelPos),
-	    [Rightx, Right];
-	_ ->
-	    skip_iolist(Right, RelPos - Sz)
-    end;
-skipper([A | Right], RelPos) when is_integer(A) ->
-    skip_iolist(Right, RelPos - 1).
-
-pwrite_iolist(Iolist, Pos, Bin) ->
-    {Left, Right} = split_iolist(Iolist, Pos),
-    Sz = erlang:iolist_size(Bin),
-    R = skip_iolist(Right, Sz),
-    [Left, Bin | R].
-
-pwrite_binary(B, Pos, Bin) ->
-    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
+    end.
 
 
 %% ZIP header manipulations

@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -269,7 +270,10 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
 #ifdef ERTS_SMP
     ErtsProcLocks c_p_locks = c_p ? ERTS_PROC_LOCK_MAIN : 0;
 
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (c_p) ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+#endif
+
     reg_safe_read_lock(c_p, &c_p_locks);
     if (c_p && !c_p_locks)
         erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -380,8 +384,6 @@ erts_whereis_name(Process *c_p,
 			erts_smp_proc_unlock(rp->p, need_locks);
 		    *proc = NULL;
 		}
-		if (*proc && (flags & ERTS_P2P_FLG_SMP_INC_REFC))
-		    erts_smp_proc_inc_refc(rp->p);
 	    }
 #else
 	    if (rp->p
@@ -390,6 +392,8 @@ erts_whereis_name(Process *c_p,
 	    else
 		*proc = NULL;
 #endif
+	    if (*proc && (flags & ERTS_P2P_FLG_INC_REFC))
+		erts_proc_inc_refc(*proc);
 	}
     }
 

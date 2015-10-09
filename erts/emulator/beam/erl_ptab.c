@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2012-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -360,7 +361,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
 		     int size,
 		     UWord element_size,
 		     char *name,
-		     int legacy)
+		     int legacy,
+		     int atomic_refc)
 {
     size_t tab_sz, alloc_sz;
     Uint32 bits, cl, cli, ix, ix_per_cache_line, tab_cache_lines; 
@@ -414,6 +416,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
     ptab->r.o.invalid_element = invalid_element;
     ptab->r.o.invalid_data = erts_ptab_id2data(ptab, invalid_element->id);
     ptab->r.o.release_element = release_element;
+
+    ptab->r.o.atomic_refc = atomic_refc;
 
     if (legacy) {
 	ptab->r.o.free_id_data = NULL;
@@ -533,9 +537,10 @@ erts_ptab_new_element(ErtsPTab *ptab,
 
 	init_ptab_el(init_arg, (Eterm) data);
 
-#ifdef ERTS_SMP
-	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
-#endif
+	if (ptab->r.o.atomic_refc)
+	    erts_atomic_init_nob(&ptab_el->refc.atmc, 1);
+	else
+	    ptab_el->refc.sint = 1;
 
 	pix = erts_ptab_data2pix(ptab, (Eterm) data);
 
@@ -608,9 +613,10 @@ erts_ptab_new_element(ErtsPTab *ptab,
 
 	init_ptab_el(init_arg, data);
 
-#ifdef ERTS_SMP
-	erts_smp_atomic32_init_nob(&ptab_el->refc, 1);
-#endif
+	if (ptab->r.o.atomic_refc)
+	    erts_atomic_init_nob(&ptab_el->refc.atmc, 1);
+	else
+	    ptab_el->refc.sint = 1;
 
 	/* Move into slot reserved */
 #ifdef DEBUG

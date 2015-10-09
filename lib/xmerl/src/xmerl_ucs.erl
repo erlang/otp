@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -227,7 +228,7 @@ from_ucs4be(<<Ch:32/big-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs4be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs4be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs4be}.
 
 char_to_ucs4le(Ch) ->
@@ -247,7 +248,7 @@ from_ucs4le(<<Ch:32/little-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs4le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs4le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs4le}.
 
 
@@ -269,7 +270,7 @@ from_ucs2be(<<Ch:16/big-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs2be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs2be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs2be}.
 
 char_to_ucs2le(Ch) ->
@@ -287,7 +288,7 @@ from_ucs2le(<<Ch:16/little-signed-integer, Rest/binary>>,Acc,Tail) ->
 from_ucs2le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_ucs2le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_ucs2le}.
 
 
@@ -331,7 +332,7 @@ from_utf16be(<<Hi:16/big-unsigned-integer, Lo:16/big-unsigned-integer,
 from_utf16be(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_utf16be(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_utf16be}.
 
 char_to_utf16le(Ch) when is_integer(Ch), Ch >= 0 ->
@@ -363,7 +364,7 @@ from_utf16le(<<Hi:16/little-unsigned-integer, Lo:16/little-unsigned-integer,
 from_utf16le(<<>>,Acc,Tail) ->
     lists:reverse(Acc,Tail);
 from_utf16le(Bin,Acc,Tail) ->
-    io:format("ucs Error: Bin=~p~n     Acc=~p~n     Tail=~p~n",[Bin,Acc,Tail]),
+    ucs_error(Bin,Acc,Tail),
     {error,not_utf16le}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -571,3 +572,6 @@ test_charset(Fun,Input) ->
 	    false
     end.
 
+ucs_error(Bin,Acc,Tail) ->
+    error_logger:error_msg("~w: Bin=~p~n     Acc=~p~n     Tail=~p~n",
+                           [?MODULE,Bin,Acc,Tail]).

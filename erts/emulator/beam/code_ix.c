@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -130,7 +131,7 @@ int erts_try_seize_code_write_permission(Process* c_p)
 	ASSERT(code_writing_process != c_p);
 	qitem = erts_alloc(ERTS_ALC_T_CODE_IX_LOCK_Q, sizeof(*qitem));
 	qitem->p = c_p;
-	erts_smp_proc_inc_refc(c_p);
+	erts_proc_inc_refc(c_p);
 	qitem->next = code_write_queue;
 	code_write_queue = qitem;
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
@@ -151,7 +152,7 @@ void erts_release_code_write_permission(void)
 	}
 	erts_smp_proc_unlock(qitem->p, ERTS_PROC_LOCK_STATUS);
 	code_write_queue = qitem->next;
-	erts_smp_proc_dec_refc(qitem->p);
+	erts_proc_dec_refc(qitem->p);
 	erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
     code_writing_process = NULL;

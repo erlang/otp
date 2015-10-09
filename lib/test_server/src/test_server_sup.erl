@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1998-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -61,32 +62,36 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
     TruncTO = trunc(Timeout),
     receive
     after TruncTO ->
-	    case is_process_alive(Pid) of
-		true ->
-		    TimeToReport = if Timeout0 == ReportTVal -> TruncTO;
-				      true -> ReportTVal end,
-		    MFLs = test_server:get_loc(Pid),
-		    Mon = erlang:monitor(process, Pid),
-		    Trap = {timetrap_timeout,TimeToReport,MFLs},
-		    exit(Pid, Trap),
-		    receive
-			{'DOWN', Mon, process, Pid, _} ->
-			    ok
-		    after 10000 ->
-			    %% Pid is probably trapping exits, hit it harder...
-			    catch error_logger:warning_msg(
-				    "Testcase process ~w not "
-				    "responding to timetrap "
-				    "timeout:~n"
-				    "  ~p.~n"
-				    "Killing testcase...~n",
-				    [Pid, Trap]),
-			    exit(Pid, kill)
-		    end;
-		false ->
-		    ok
-	    end
+	    kill_the_process(Pid, Timeout0, TruncTO, ReportTVal)
     end.
+
+kill_the_process(Pid, Timeout0, TruncTO, ReportTVal) ->
+    case is_process_alive(Pid) of
+	true ->
+	    TimeToReport = if Timeout0 == ReportTVal -> TruncTO;
+			      true -> ReportTVal end,
+	    MFLs = test_server:get_loc(Pid),
+	    Mon = erlang:monitor(process, Pid),
+	    Trap = {timetrap_timeout,TimeToReport,MFLs},
+	    exit(Pid, Trap),
+	    receive
+		{'DOWN', Mon, process, Pid, _} ->
+		    ok
+	    after 10000 ->
+		    %% Pid is probably trapping exits, hit it harder...
+		    catch error_logger:warning_msg(
+			    "Testcase process ~w not "
+			    "responding to timetrap "
+			    "timeout:~n"
+			    "  ~p.~n"
+			    "Killing testcase...~n",
+			    [Pid, Trap]),
+		    exit(Pid, kill)
+	    end;
+	false ->
+	    ok
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timetrap_cancel(Handle) -> ok
@@ -806,10 +811,19 @@ format_loc1({Mod,Func,Line}) ->
     case {lists:member(no_src, get(test_server_logopts)),
 	  lists:reverse(ModStr)} of
 	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
-	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~w\">~w</a>}",
+	    Link = if is_integer(Line) ->
+			   integer_to_list(Line);
+		      Line == last_expr ->
+			   list_to_atom(atom_to_list(Func)++"-last_expr");
+		      is_atom(Line) ->
+			   atom_to_list(Line);
+		      true ->
+			   Line
+		   end,
+	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~s\">~w</a>}",
 			  [Mod,Func,
 			   test_server_ctrl:uri_encode(downcase(ModStr)),
-			   ?src_listing_ext,Line,Line]);
+			   ?src_listing_ext,Link,Line]);
 	_ ->
 	    io_lib:format("{~w,~w,~w}",[Mod,Func,Line])
     end.

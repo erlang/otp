@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,11 +30,11 @@
     <file>mod_esi.sgml</file>
   </header>
   <module>mod_esi</module>
-  <modulesummary>Erlang Server Interface </modulesummary>
+  <modulesummary>Erlang Server Interface</modulesummary>
   <description>
     <p>This module defines the Erlang Server Interface (ESI) API.
-    It is a more efficient way of writing erlang scripts
-    for your Inets web server than writing them as common CGI scripts.</p>
+    It is a more efficient way of writing Erlang scripts
+    for your <c>Inets</c> web server than writing them as common CGI scripts.</p>
 
     <marker id="deliver"></marker>
   </description>
@@ -41,7 +42,7 @@
   <funcs>
     <func>
       <name>deliver(SessionID, Data) -> ok | {error, Reason}</name>
-      <fsummary>Sends Data back to client.</fsummary>
+      <fsummary>Sends <c>Data</c> back to client.</fsummary>
       <type>
         <v>SessionID = term()</v>
         <v>Data = string() | io_list() | binary()</v>
@@ -52,16 +53,16 @@
 	<p>This function is <em>only</em> intended to be used from
 	functions called by the Erl Scheme interface to deliver
 	parts of the content to the user.</p>
-	<p>Sends data from a Erl Scheme script back to the client.</p>
+	<p>Sends data from an Erl Scheme script back to the client.</p>
 	
 	<note>
-	  <p>Note that if any HTTP-header fields should be added by the
-	  script they must be in the first call to deliver/2  and the
-	  data in the call must be a string. Calls after the headers
-	  are complete may contain binary data to reduce copying
-	  overhead.  Do not assume anything about the data type of 
-	  SessionID, the SessionID must be the value given as input to 
-	  the esi call back function that you implemented.</p>
+	  <p>If any HTTP header fields are added by the
+	  script, they must be in the first call to <c>deliver/2</c>, 
+	  and the data in the call must be a string. Calls after the headers
+	  are complete can contain binary data to reduce copying
+	  overhead. Do not assume anything about the data type of 
+	  <c>SessionID</c>. <c>SessionID</c> must be the value given 
+	  as input to the ESI callback function that you implemented.</p>
 	</note>
       </desc>
     </func>
@@ -73,54 +74,55 @@
   <funcs>
     <func>
       <name>Module:Function(SessionID, Env, Input)-> _ </name>
-      <fsummary>Creates a dynamic web page and returns it chunk by chunk to the server process by calling mod_esi:deliver/2.</fsummary>
+      <fsummary>Creates a dynamic web page and returns it chunk by chunk 
+      to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
       <type>
         <v>SessionID = term()</v>
-        <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
+        <v>Env = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
         <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name</v>
         <v>Input = string()</v>
       </type>
       <desc>
-        <p>The <c>Module</c> must be found in the code path and export
-          <c>Function</c> with an arity of three. An erlScriptAlias must
-          also be set up in the configuration file for the Web server.</p>
-        <p>If the HTTP request is a 'post' request and a body is sent
-          then content_length will be the length of the posted
-          data. If 'get' is used query_string will be the data after
-          <em>?</em> in the url.</p>
-        <p>ParsedHeader is the HTTP request as a key value tuple
-          list. The keys in parsed header will be the in lower case.</p>
-        <p>SessionID is a identifier
-          the server uses when <c>deliver/2</c> is called; do not
+        <p><c>Module</c> must be found in the code path and export
+          <c>Function</c> with an arity of three. An <c>erlScriptAlias</c> must
+          also be set up in the configuration file for the web server.</p>
+        <p>If the HTTP request is a 'post' request and a body is sent,
+          <c>content_length</c> is the length of the posted
+          data. If 'get' is used, <c>query_string</c> is the data after
+          <em>?</em> in the URL.</p>
+        <p><c>ParsedHeader</c> is the HTTP request as a key-value tuple
+          list. The keys in <c>ParsedHeader</c> are in lower case.</p>
+        <p><c>SessionID</c> is an identifier
+          the server uses when <c>deliver/2</c> is called. Do not
           assume anything about the datatype.</p>
-        <p>Use this callback function to dynamically generate dynamic web
-          content. When a part of the page is generated send the
-          data back to the client through <c>deliver/2</c>. Note
+        <p>Use this callback function to generate dynamic web
+          content dynamically. When a part of the page is generated, send the
+          data back to the client through <c>deliver/2</c>. Notice
           that the first chunk of data sent to the client must at
           least contain all HTTP header fields that the response
           will generate. If the first chunk does not contain the
-          <em>End of HTTP header</em>, that is <c>"\r\n\r\n",</c>
-          the server will
-          assume that no HTTP header fields will be generated.</p>
+          <em>end of HTTP header</em>, that is, <c>"\r\n\r\n",</c>
+          the server assumes that no HTTP header fields will be generated.</p>
       </desc>
     </func>
     <func>
       <name>Module:Function(Env, Input)-> Response </name>
-      <fsummary>Creates a dynamic web page and return it as a list. This functions is deprecated and only kept for backwards compatibility.</fsummary>
+      <fsummary>Creates a dynamic web page and returns it as a list. 
+      This function is deprecated and is only kept for backwards compatibility.</fsummary>
       <type>
-        <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
+        <v>Env = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
 		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.</v>
         <v>Input = string()</v>
         <v>Response = string()</v>
       </type>
       <desc>
-        <p>This callback format consumes a lot of memory since the
+        <p>This callback format consumes much memory, as the
           whole response must be generated before it is sent to the
-          user. This function is deprecated and only kept for backwards
+          user. This function is deprecated and is only kept for backwards
           compatibility.
-          For new development Module:Function/3 should be used.</p>
+          For new development, use <c>Module:Function/3</c>.</p>
       </desc>
     </func>
   </funcs>

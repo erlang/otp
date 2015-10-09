@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 2000-2013. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -21,6 +22,7 @@ package com.ericsson.otp.erlang;
 // import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -200,6 +202,16 @@ public class OtpOutputStream extends ByteArrayOutputStream {
         ensureCapacity(super.count + len);
         System.arraycopy(b, off, super.buf, super.count, len);
         super.count += len;
+    }
+
+    @Override
+    public synchronized void writeTo(OutputStream out) throws IOException {
+        super.writeTo(out);
+    }
+
+    public synchronized void writeToAndFlush(OutputStream out) throws IOException {
+        super.writeTo(out);
+        out.flush();
     }
 
     /**
@@ -887,7 +899,7 @@ public class OtpOutputStream extends ByteArrayOutputStream {
         if (oos.size() < 5) {
             // fast path for small terms
             try {
-                oos.writeTo(this);
+                oos.writeToAndFlush(this);
                 // if the term is written as a compressed term, the output
                 // stream is closed, so we do this here, too
                 close();

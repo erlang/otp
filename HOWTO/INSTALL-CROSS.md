@@ -520,29 +520,6 @@ When a variable has been set, no warning will be issued.
     `posix_memalign` implementation that accepts larger than page size
     alignment.
 
-*   `erl_xcomp_ose_ldflags_pass1` - Linker flags for the OSE module (pass 1)
-
-*   `erl_xcomp_ose_ldflags_pass2` - Linker flags for the OSE module (pass 2)
-
-*   `erl_xcomp_ose_OSEROOT` - OSE installation root directory
-
-*   `erl_xcomp_ose_STRIP` - Strip utility shipped with the OSE distribution
-
-*   `erl_xcomp_ose_LM_POST_LINK` - OSE postlink tool
-
-*   `erl_xcomp_ose_LM_SET_CONF` - Sets the configuration for an OSE load module
-
-*   `erl_xcomp_ose_LM_ELF_SIZE` - Prints the section size information for an
-	OSE load module
-
-*   `erl_xcomp_ose_LM_LCF` - OSE load module linker configuration file
-
-*   `erl_xcomp_ose_BEAM_LM_CONF` - Beam OSE load module configuration file
-
-*   `erl_xcomp_ose_EPMD_LM_CONF` - EPMD OSE load module configuration file
-
-*   `erl_xcomp_ose_RUN_ERL_LM_CONF` - run_erl_lm OSE load module configuration file
-
 Copyright and License
 ---------------------
 
@@ -550,16 +527,17 @@ Copyright and License
 
 Copyright Ericsson AB 2009-2014. All Rights Reserved.
 
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 %CopyrightEnd%
 

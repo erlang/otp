@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -456,32 +457,33 @@ called_throws(Config) when is_list(Config) ->
 
 call_benchmark(Config) when is_list(Config) ->
     Timetrap = ?t:timetrap(?t:seconds(120)),
-    ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Node} = ?t:start_node(rpc_SUITE_call_benchmark, slave, 
-				     [{args, "-pa " ++ PA}]),
+    PA = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = ?t:start_node(rpc_SUITE_call_benchmark, slave,
+			       [{args, "-pa " ++ PA}]),
     Iter = case erlang:system_info(modified_timing_level) of
 	       undefined -> 10000;
-	       _ -> 500				%Moified timing - spawn is slower
+	       _ -> 500		     %Modified timing - spawn is slower
 	   end,
-    ?line do_call_benchmark(Node, Iter),
+    Res = do_call_benchmark(Node, Iter),
+    ?t:stop_node(Node),
     ?t:timetrap_cancel(Timetrap),
-    ok.
+    Res.
 
 do_call_benchmark(Node, M) when is_integer(M), M > 0 ->
-    do_call_benchmark(Node, erlang:now(), 0, M).
+    {Micros,ok} = timer:tc(fun() ->
+				   do_call_benchmark(Node, 0, M)
+			   end),
+    Calls = 3*M,
+    S = io_lib:format("~p RPC calls/second", [Calls*1000000 div Micros]),
+    {comment,lists:flatten(S)}.
 
-do_call_benchmark(Node, {A,B,C}, M, M) ->
-    ?line {D,E,F} = erlang:now(),
-    ?line T = float(D-A)*1000000.0 + float(E-B) + float(F-C)*0.000001,
-    ?line Q = 3.0 * float(M) / T,
-    ?line ?t:stop_node(Node),
-    {comment, 
-     lists:flatten([float_to_list(Q)," RPC calls per second"])};
-do_call_benchmark(Node, Then, I, M) ->
-    ?line Node = rpc:call(Node, erlang, node, []),
-    ?line _ = rpc:call(Node, erlang, whereis, [rex]),
-    ?line 3 = rpc:call(Node, erlang, '+', [1,2]),
-    ?line do_call_benchmark(Node, Then, I+1, M).
+do_call_benchmark(_Node, M, M) ->
+    ok;
+do_call_benchmark(Node, I, M) ->
+    Node = rpc:call(Node, erlang, node, []),
+    _ = rpc:call(Node, erlang, whereis, [rex]),
+    3 = rpc:call(Node, erlang, '+', [1,2]),
+    do_call_benchmark(Node, I+1, M).
 
 async_call(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(120)),

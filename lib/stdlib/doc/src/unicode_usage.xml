@@ -9,16 +9,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -850,8 +851,9 @@ Eshell V5.10.1  (abort with ^G)
   expected to be in Unicode.</p>
   <p>If Unicode file names are enabled, the calls to 
   <seealso marker="kernel:os#getenv/0"><c>os:getenv/0</c></seealso>, 
-  <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and
-  <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso>
+  <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso>,
+  <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso> and
+  <seealso marker="kernel:os#unsetenv/1"><c>os:unsetenv/1</c></seealso>
   will handle Unicode strings. On Unix-like platforms, the built-in
   functions will translate environment variables in UTF-8 to/from
   Unicode strings, possibly with code points > 255. On Windows the

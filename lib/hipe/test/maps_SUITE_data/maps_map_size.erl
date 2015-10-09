@@ -17,9 +17,9 @@ test() ->
     false = map_is_size(M#{ "c" => 2}, 2),
 
     %% Error cases.
-    {'EXIT',{badarg,_}} = (catch map_size([])),
-    {'EXIT',{badarg,_}} = (catch map_size(<<1,2,3>>)),
-    {'EXIT',{badarg,_}} = (catch map_size(1)),
+    {'EXIT',{{badmap,[]},_}} = (catch map_size([])),
+    {'EXIT',{{badmap,<<1,2,3>>},_}} = (catch map_size(<<1,2,3>>)),
+    {'EXIT',{{badmap,1},_}} = (catch map_size(1)),
     ok.
 
 map_is_size(M,N) when map_size(M) =:= N -> true;

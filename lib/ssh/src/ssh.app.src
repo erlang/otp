@@ -24,7 +24,6 @@
 	     ssh_file,
 	     ssh_io,
 	     ssh_info,
-	     ssh_math,
 	     ssh_no_io,
              ssh_server_key_api,
 	     ssh_sftp,

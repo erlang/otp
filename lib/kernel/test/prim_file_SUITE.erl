@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2000-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -454,10 +455,7 @@ open1(Config) when is_list(Config) ->
     ?line ?PRIM_FILE:write(Fd1,Str),
     ?line {ok,0} = ?PRIM_FILE:position(Fd1,bof),
     ?line {ok, Str} = ?PRIM_FILE:read(Fd1,Length),
-    ?line case ?PRIM_FILE:read(Fd2,Length) of
-	      {ok,Str} -> Str;
-	      eof -> Str
-	  end,
+    ?line {ok, Str} = ?PRIM_FILE:read(Fd2,Length),
     ?line ok = ?PRIM_FILE:close(Fd2),
     ?line {ok,0} = ?PRIM_FILE:position(Fd1,bof),
     ?line ok = ?PRIM_FILE:truncate(Fd1),
@@ -1628,7 +1626,7 @@ e_rename(Config) when is_list(Config) ->
 	    %% successfully move a file to
 	    %% another drive.
 	    ok;
-	{unix, _ } ->
+	_ ->
 	    OtherFs = "/tmp",
 	    ?line NameOnOtherFs =
 	    filename:join(OtherFs, 
@@ -1652,10 +1650,7 @@ e_rename(Config) when is_list(Config) ->
 		Else ->
 		    Else
 	    end,
-	    Com;
-	{ose, _} ->
-	    %% disabled for now
-	    ok
+	    Com
     end,
     ?line test_server:timetrap_cancel(Dog),
     Comment.

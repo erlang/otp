@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -1486,20 +1487,8 @@ Eterm uint_to_big(Uint x, Eterm *y)
 
 Eterm uword_to_big(UWord x, Eterm *y)
 {
-#if HALFWORD_HEAP
-    Uint upper = x >> 32;
-    Uint lower = x & 0xFFFFFFFFUL;
-    if (upper == 0) {
-	*y = make_pos_bignum_header(1);
-    } else {
-	*y = make_pos_bignum_header(2);
-	BIG_DIGIT(y, 1) = upper;
-    }
-    BIG_DIGIT(y, 0) = lower;
-#else
     *y = make_pos_bignum_header(1);
     BIG_DIGIT(y, 0) = x;
-#endif
     return make_big(y);
 }
 
@@ -1524,7 +1513,7 @@ Eterm small_to_big(Sint x, Eterm *y)
 Eterm erts_uint64_to_big(Uint64 x, Eterm **hpp)
 {
     Eterm *hp = *hpp;
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
     if (x >= (((Uint64) 1) << 32)) {
 	*hp = make_pos_bignum_header(2);
 	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
@@ -1554,7 +1543,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	neg = 1;
 	ux = -(Uint64)x;
     }
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
     if (ux >= (((Uint64) 1) << 32)) {
 	if (neg)
 	    *hp = make_neg_bignum_header(2);
@@ -1587,7 +1576,7 @@ erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
 
     pot_digits = digits = 0;
     for (i = 0; i < len; i++) {
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 	Uint low_val = array[i] & ((Uint) 0xffffffff);
 	Uint high_val = (array[i] >> 32) & ((Uint) 0xffffffff);
 	BIG_DIGIT(headerp, pot_digits) = low_val;
@@ -1650,8 +1639,6 @@ big_to_double(Wterm x, double* resp)
 /*
  * Logic has been copied from erl_bif_guard.c and slightly
  * modified to use a static instead of dynamic heap
- *
- * HALFWORD: Return relative term with 'heap' as base.
  */
 Eterm
 double_to_big(double x, Eterm *heap, Uint hsz)
@@ -1682,7 +1669,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
     sz = BIG_NEED_SIZE(ds); /* number of words including arity */
 
     hp = heap;
-    res = make_big_rel(hp, heap);
+    res = make_big(hp);
     xp = (ErtsDigit*) (hp + 1);
 
     ASSERT(ds < hsz);
@@ -2616,6 +2603,9 @@ Eterm erts_chars_to_integer(Process *BIF_P, char *bytes,
 	bytes++;
 	size--;
     }
+
+    if (size == 0)
+	goto bytebuf_to_integer_1_error;
 
     if (size < SMALL_DIGITS && base <= 10) {
 	/* *

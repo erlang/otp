@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -1035,16 +1036,13 @@ get_names(N, T) when is_atom(T) ->
 get_names(0, _, Acc) ->
     Acc;
 get_names(N, T, Acc) ->
-    {A, B, C} = now(),
     get_names(N-1, T, [list_to_atom(atom_to_list(?MODULE)
 				    ++ "-"
 				    ++ atom_to_list(T)
 				    ++ "-"
-				    ++ integer_to_list(A)
+				    ++ integer_to_list(erlang:system_time(seconds))
 				    ++ "-"
-				    ++ integer_to_list(B)
-				    ++ "-"
-				    ++ integer_to_list(C)) | Acc]).
+				    ++ integer_to_list(erlang:unique_integer([positive]))) | Acc]).
 
 start_node(Name) ->
     ?line start_node(Name, "").

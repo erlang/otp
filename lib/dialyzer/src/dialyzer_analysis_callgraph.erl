@@ -2,18 +2,19 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -166,9 +167,12 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       TmpCServer2 =
         dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
                                                        TmpCServer1),
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       ?timing(State#analysis_state.timing_server, "remote",
-	      dialyzer_contracts:process_contract_remote_types(TmpCServer3))
+              begin
+                TmpCServer3 =
+                  dialyzer_utils:process_record_remote_types(TmpCServer2),
+                dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+              end)
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
@@ -586,7 +590,8 @@ send_codeserver_plt(Parent, CServer, Plt ) ->
 
 send_bad_calls(Parent, BadCalls, CodeServer) ->
   FormatedBadCalls = format_bad_calls(BadCalls, CodeServer, []),
-  send_warnings(Parent, FormatedBadCalls).
+  Warnings = filter_warnings(FormatedBadCalls, CodeServer),
+  send_warnings(Parent, Warnings).
 
 send_mod_deps(Parent, ModuleDeps) ->
   Parent ! {self(), mod_deps, ModuleDeps},

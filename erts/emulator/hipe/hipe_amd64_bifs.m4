@@ -4,16 +4,17 @@ changecom(`/*', `*/')dnl
  *
  * Copyright Ericsson AB 2004-2012. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -159,37 +160,36 @@ define(standard_bif_interface_4,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-    TEXT
-    .align  4
-    GLOBAL(ASYM($1))
+	TEXT
+	.align  4
+	GLOBAL(ASYM($1))
 ASYM($1):
-    /* set up the parameters */
-    movq    P, %rdi
-    NBIF_ARG(%rsi,4,0)
-    NBIF_ARG(%rdx,4,1)
-    NBIF_ARG(%rcx,4,2)
-    NBIF_ARG(%r8,4,3)
+	/* set up the parameters */
+	movq	P, %rdi
+	NBIF_ARG(%rsi,4,0)
+	NBIF_ARG(%rdx,4,1)
+	NBIF_ARG(%rcx,4,2)
+	NBIF_ARG(%r8,4,3)
 
-    /* make the call on the C stack */
-    SWITCH_ERLANG_TO_C
-    pushq   %r8
-    pushq   %rcx
-    pushq   %rdx
-    pushq   %rsi
-    movq    %rsp, %rsi  /* Eterm* BIF__ARGS */
-    sub $(8), %rsp  /* stack frame 16-byte alignment */
-    CALL_BIF($2)
-    add $(4*8 + 8), %rsp
-    TEST_GOT_MBUF
-    SWITCH_C_TO_ERLANG
+	/* make the call on the C stack */
+	SWITCH_ERLANG_TO_C
+	pushq	%r8
+	pushq	%rcx
+	pushq	%rdx
+	pushq	%rsi
+	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
+	CALL_BIF($2)
+	add	$(4*8), %rsp
+	TEST_GOT_MBUF
+	SWITCH_C_TO_ERLANG
 
-    /* throw exception if failure, otherwise return */
-    TEST_GOT_EXN
-    jz  nbif_4_simple_exception
-    NBIF_RET(4)
-    HANDLE_GOT_MBUF(4)
-    SET_SIZE(ASYM($1))
-    TYPE_FUNCTION(ASYM($1))
+	/* throw exception if failure, otherwise return */
+	TEST_GOT_EXN
+	jz	nbif_4_simple_exception
+	NBIF_RET(4)
+	HANDLE_GOT_MBUF(4)
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(standard_bif_interface_0,

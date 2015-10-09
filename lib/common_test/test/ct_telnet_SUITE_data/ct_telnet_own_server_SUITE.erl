@@ -40,6 +40,7 @@ all() ->
      expect,
      expect_repeat,
      expect_sequence,
+     expect_wait_until_prompt,
      expect_error_prompt,
      expect_error_timeout1,
      expect_error_timeout2,
@@ -81,6 +82,8 @@ end_per_group(_GroupName, Config) ->
 expect(_) ->
     {ok, Handle} = ct_telnet:open(telnet_server_conn1),
     ok = ct_telnet:send(Handle, "echo ayt"),
+    {ok,["ayt"]} = ct_telnet:expect(Handle, "ayt"),
+    ok = ct_telnet:send(Handle, "echo ayt"),
     {ok,["ayt"]} = ct_telnet:expect(Handle, ["ayt"]),
     ok = ct_telnet:close(Handle),
     ok.
@@ -101,6 +104,21 @@ expect_sequence(_) ->
 						   [["ab"],["cd"],["ef"]],
 						   [sequence]),
     ok = ct_telnet:close(Handle),
+    ok.
+
+%% Check that expect can wait for delayed prompt
+expect_wait_until_prompt(_) ->
+    {ok, Handle} = ct_telnet:open(telnet_server_conn1),
+    Timeouts = [{idle_timeout,5000},{total_timeout,7000}],
+
+    ok = ct_telnet:send(Handle, "echo_delayed_prompt 3000 xxx"),
+    {ok,["xxx"]} =
+	ct_telnet:expect(Handle, "xxx",
+			 [wait_for_prompt|Timeouts]),
+    ok = ct_telnet:send(Handle, "echo_delayed_prompt 3000 yyy zzz"),
+    {ok,[["yyy"],["zzz"]]} =
+	ct_telnet:expect(Handle, ["yyy","zzz"],
+			 [{wait_for_prompt,"> "}|Timeouts]),
     ok.
 
 %% Check that expect returns when a prompt is found, even if pattern

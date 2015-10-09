@@ -3,16 +3,17 @@
  *
  * Copyright Ericsson AB 1996-2014. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -279,6 +280,8 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock,
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     if (use_frequent_read_lock)
 	rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    if (erts_ets_rwmtx_spin_count >= 0)
+	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 #endif
 #ifdef ERTS_SMP
     erts_smp_rwmtx_init_opt_x(&tb->common.rwlock, &rwmtx_opt,
@@ -620,7 +623,7 @@ BIF_RETTYPE ets_safe_fixtable_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:safe_fixtable(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
     kind = (BIF_ARG_2 == am_true) ? LCK_READ : LCK_WRITE_REC; 
 
@@ -1247,7 +1250,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:rename(%T,%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_ARG_2, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
 
@@ -1563,7 +1566,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     erts_fprintf(stderr,
 		"ets:new(%T,%T)=%T; Process: %T, initial: %T:%T/%bpu\n",
 		 BIF_ARG_1, BIF_ARG_2, ret, BIF_P->common.id,
-		 BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		 BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 	erts_fprintf(stderr, "ets: new: meta_pid_to_tab common.memory_size = %ld\n",
 		     erts_smp_atomic_read_nob(&meta_pid_to_tab->common.memory_size));
 	erts_fprintf(stderr, "ets: new: meta_pid_to_fixed_tab common.memory_size = %ld\n",
@@ -1696,7 +1699,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     erts_fprintf(stderr,
 		"ets:delete(%T); Process: %T, initial: %T:%T/%bpu\n",
 		BIF_ARG_1, BIF_P->common.id,
-		BIF_P->initial[0], BIF_P->initial[1], BIF_P->initial[2]);
+		BIF_P->u.initial[0], BIF_P->u.initial[1], BIF_P->u.initial[2]);
 #endif
 
     CHECK_TABLES();
@@ -1771,15 +1774,9 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * (it looks like an continuation pointer), but that is will crash the
 	 * emulator if this BIF is call traced.
 	 */
-#if HALFWORD_HEAP
-	Eterm *hp = HAlloc(BIF_P, 3);
-	hp[0] = make_pos_bignum_header(2);
-	*((UWord *) (UWord) (hp+1)) = (UWord) tb;
-#else
 	Eterm *hp = HAlloc(BIF_P, 2);
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
-#endif
 	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
@@ -2837,7 +2834,7 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, NULL, 0,
+	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, 0,
 			    ERTS_PAM_COPY_RESULT, &dummy);
 	if (is_value(res)) {
 	    hp = HAlloc(BIF_P, 2);
@@ -2856,10 +2853,11 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 ** External interface (NOT BIF's)
 */
 
+int erts_ets_rwmtx_spin_count = -1;
 
 /* Init the db */
 
-void init_db(void)
+void init_db(ErtsDbSpinCount db_spin_count)
 {
     DbTable init_tb;
     int i;
@@ -2868,9 +2866,47 @@ void init_db(void)
     size_t size;
 
 #ifdef ERTS_SMP
+    int max_spin_count = (1 << 15) - 1; /* internal limit */
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+
+    switch (db_spin_count) {
+    case ERTS_DB_SPNCNT_NONE:
+	erts_ets_rwmtx_spin_count = 0;
+	break;
+    case ERTS_DB_SPNCNT_VERY_LOW:
+	erts_ets_rwmtx_spin_count = 100;
+	break;
+    case ERTS_DB_SPNCNT_LOW:
+	erts_ets_rwmtx_spin_count = 200;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 50;
+	if (erts_ets_rwmtx_spin_count > 1000)
+	    erts_ets_rwmtx_spin_count = 1000;
+	break;
+    case ERTS_DB_SPNCNT_HIGH:
+	erts_ets_rwmtx_spin_count = 2000;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 100;
+	if (erts_ets_rwmtx_spin_count > 15000)
+	    erts_ets_rwmtx_spin_count = 15000;
+	break;
+    case ERTS_DB_SPNCNT_VERY_HIGH:
+	erts_ets_rwmtx_spin_count = 15000;
+	erts_ets_rwmtx_spin_count += erts_no_schedulers * 500;
+	if (erts_ets_rwmtx_spin_count > max_spin_count)
+	    erts_ets_rwmtx_spin_count = max_spin_count;
+	break;
+    case ERTS_DB_SPNCNT_EXTREMELY_HIGH:
+	erts_ets_rwmtx_spin_count = max_spin_count;
+	break;
+    case ERTS_DB_SPNCNT_NORMAL:
+    default:
+	erts_ets_rwmtx_spin_count = -1;
+	break;
+    }
+
+    if (erts_ets_rwmtx_spin_count >= 0)
+	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
     meta_main_tab_locks =
 	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_DB_TABLES,
@@ -3610,11 +3646,8 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
     Eterm* ptr = big_val(cont);
     DbTable *tb = *((DbTable **) (UWord) (ptr + 1));
 
-#if HALFWORD_HEAP
-    ASSERT(*ptr == make_pos_bignum_header(2));
-#else
     ASSERT(*ptr == make_pos_bignum_header(1));
-#endif
+
     db_lock(tb, LCK_WRITE);
     trap = free_table_cont(p, tb, 0, 1);
     db_unlock(tb, LCK_WRITE);

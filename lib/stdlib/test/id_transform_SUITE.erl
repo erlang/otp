@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -55,47 +56,26 @@ end_per_group(_GroupName, Config) ->
 
 id_transform(doc) -> "Test erl_id_trans.";
 id_transform(Config) when is_list(Config) ->
-    ?line File=filename:join([code:lib_dir(stdlib),"examples",
-			      "erl_id_trans.erl"]),
-    ?line {ok,erl_id_trans,Bin}=compile:file(File,[binary]),
-    ?line {module,erl_id_trans}=code:load_binary(erl_id_trans,File,Bin),
-    ?line case test_server:purify_is_running() of
-	      false ->
-		  Dog = ct:timetrap(?t:hours(1)),
-		  ?line Res = run_in_test_suite(),
-		  ?t:timetrap_cancel(Dog),
-		  Res;
-	      true ->
-		  {skip,"Purify (too slow)"}
-	  end.
-
-run_in_test_suite() ->
-    LibDir = code:lib_dir(),
-    SuperDir = filename:dirname(filename:dirname(code:which(?MODULE))),
-    TestDirs = filelib:wildcard(filename:join([SuperDir,"*_test"])),
-    {All,Res} = case LibDir of
-		    "/clearcase/otp/erts/lib" ->
-			%% Only test_suites 'cause clearcase is too slow...
-			{false,run_list(TestDirs)};
-		    _ ->
-			{true,run_codepath_and(TestDirs)}
-		end,
-    Comment0 = case All of
-		   true -> [];
-		   false -> "Only testsuite directories traversed"
-	       end,
-    case Res of
-	{error,Reason} when Comment0 =/= [] ->
-	    {failed,Comment0++"; "++Reason};
-	{error,Reason} ->
-	    {failed,Reason};
-	ok ->
-	    {comment,Comment0}
+    File = filename:join([code:lib_dir(stdlib),"examples",
+			"erl_id_trans.erl"]),
+    {ok,erl_id_trans,Bin} = compile:file(File,[binary]),
+    {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
+    case test_server:purify_is_running() of
+	false ->
+	    Dog = ct:timetrap(?t:hours(1)),
+	    Res = run_in_test_suite(),
+	    ?t:timetrap_cancel(Dog),
+	    Res;
+	true ->
+	    {skip,"Valgrind (too slow)"}
     end.
 
-run_codepath_and(DirList) ->
+run_in_test_suite() ->
+    SuperDir = filename:dirname(filename:dirname(code:which(?MODULE))),
+    TestDirs = filelib:wildcard(filename:join([SuperDir,"*_test"])),
     AbsDirs = [filename:absname(X) || X <- code:get_path()],
-    run_list(ordsets:from_list([X || X <- AbsDirs] ++ DirList)).
+    Dirs = ordsets:from_list(AbsDirs ++ TestDirs),
+    run_list(Dirs).
 
 run_list(PathL) ->
     io:format("Where to search for beam files:\n~p\n", [PathL]),
@@ -122,7 +102,7 @@ run_list(PathL) ->
     end,
     case length(SevereFailures) of
 	0 -> ok;
-	Len -> {error,integer_to_list(Len)++" failures"}
+	Len -> {failed,integer_to_list(Len)++" failures"}
     end.
     
 

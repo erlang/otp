@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,14 +30,9 @@
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 
--define(TIMEOUT, 600000).
-
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
 all() ->
     [aes_decipher_good, aes_decipher_fail, padding_test].
 
@@ -61,10 +57,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ct:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+init_per_testcase(_TestCase, Config) ->
+    ct:timetrap({seconds, 5}),
+    Config.
 
 end_per_testcase(_TestCase, Config) ->
     Config.
@@ -108,7 +103,7 @@ padding_test(Config) when is_list(Config)  ->
 % Internal functions  --------------------------------------------------------
 %%--------------------------------------------------------------------
 decipher_check_good(HashSz, CipherState, Version) ->
-    {Content, NextIV, Mac} = content_nextiv_mac(Version),
+    {Content, _NextIV, Mac} = content_nextiv_mac(Version),
     {Content, Mac, _} = 
 	ssl_cipher:decipher(?AES_CBC, HashSz, CipherState, aes_fragment(Version), Version, true).
 

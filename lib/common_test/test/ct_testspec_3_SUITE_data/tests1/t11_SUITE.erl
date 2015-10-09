@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,8 +42,12 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+
+    TCName = ct:get_config(tcname),
+    CfgFiles = ct:get_config(file,undefined,[all]),
+
     %% verify that expected config file can be read
-    case {ct:get_config(tcname),ct:get_config(file,undefined,[all])} of
+    case {TCName,CfgFiles} of
 	{start_separate,[cfg11]} -> ok;
 	{start_join,[cfg11,cfg21]} -> ok;
 	{incl_separate1,[cfg11]} -> ok;
@@ -56,6 +61,28 @@ init_per_suite(Config) ->
 	_ -> ok
 
     end,
+
+    %% test the get_testspec_terms functionality
+    if CfgFiles /= undefined ->
+	    TSTerms = case ct:get_testspec_terms() of
+			  undefined -> exit('testspec should not be undefined');
+			  Result -> Result
+		      end,
+	    true = lists:keymember(config, 1, TSTerms),
+	    {config,TSCfgFiles} = ct:get_testspec_terms(config),
+	    [{config,TSCfgFiles},{tests,Tests}] = 
+		ct:get_testspec_terms([config,tests]),
+	    CfgNames = [list_to_atom(filename:basename(TSCfgFile)) ||
+			   {Node,TSCfgFile} <- TSCfgFiles, Node == node()],
+	    true = (length(CfgNames) == length(CfgFiles)),
+	    [true = lists:member(CfgName,CfgFiles) || CfgName <- CfgNames],
+	    true = lists:any(fun({{_Node,_Dir},Suites}) ->
+				     lists:keymember(?MODULE, 1, Suites)
+			     end, Tests);
+       true ->
+	    ok
+    end,
+
     Config.
 
 %%--------------------------------------------------------------------

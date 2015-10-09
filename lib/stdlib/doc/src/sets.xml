@@ -4,20 +4,21 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2014</year>
+      <year>2000</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -50,9 +51,6 @@
     </datatype>
     <datatype>
       <name name="set" n_vars="0"/>
-      <desc>
-        <p><c>set()</c> is equivalent to <c>set(term())</c>.</p>
-      </desc>
     </datatype>
   </datatypes>
   <funcs>
@@ -65,7 +63,7 @@
     </func>
     <func>
       <name name="is_set" arity="1"/>
-      <fsummary>Test for an <c>Set</c></fsummary>
+      <fsummary>Test for a <c>Set</c></fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Set</anno></c> is a set of
           elements, otherwise <c>false</c>.</p>
@@ -80,21 +78,22 @@
     </func>
     <func>
       <name name="to_list" arity="1"/>
-      <fsummary>Convert an <c>Set</c>into a list</fsummary>
+      <fsummary>Convert a <c>Set</c>into a list</fsummary>
       <desc>
-        <p>Returns the elements of <c><anno>Set</anno></c> as a list.</p>
+        <p>Returns the elements of <c><anno>Set</anno></c> as a list.
+          The order of the returned elements is undefined.</p>
       </desc>
     </func>
     <func>
       <name name="from_list" arity="1"/>
-      <fsummary>Convert a list into an <c>Set</c></fsummary>
+      <fsummary>Convert a list into a <c>Set</c></fsummary>
       <desc>
-        <p>Returns an set of the elements in <c><anno>List</anno></c>.</p>
+        <p>Returns a set of the elements in <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="is_element" arity="2"/>
-      <fsummary>Test for membership of an <c>Set</c></fsummary>
+      <fsummary>Test for membership of a <c>Set</c></fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
           <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
@@ -102,7 +101,7 @@
     </func>
     <func>
       <name name="add_element" arity="2"/>
-      <fsummary>Add an element to an <c>Set</c></fsummary>
+      <fsummary>Add an element to a <c>Set</c></fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
           <c><anno>Element</anno></c> inserted.</p>
@@ -110,7 +109,7 @@
     </func>
     <func>
       <name name="del_element" arity="2"/>
-      <fsummary>Remove an element from an <c>Set</c></fsummary>
+      <fsummary>Remove an element from a <c>Set</c></fsummary>
       <desc>
         <p>Returns <c><anno>Set1</anno></c>, but with <c><anno>Element</anno></c> removed.</p>
       </desc>
@@ -175,7 +174,8 @@
       <fsummary>Fold over set elements</fsummary>
       <desc>
         <p>Fold <c><anno>Function</anno></c> over every element in <c><anno>Set</anno></c>
-          returning the final value of the accumulator.</p>
+          returning the final value of the accumulator.
+          The evaluation order is undefined.</p>
       </desc>
     </func>
     <func>

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2006-2013. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -38,9 +39,10 @@
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_time.h"
 
-#ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-#else
+#ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 #  include "safe_hash.h"
 #  define DRV_EV_STATE_HTAB_SIZE 1024
 #endif
@@ -411,14 +413,16 @@ static void
 grow_drv_ev_state(int min_ix)
 {
     int i;
+    int old_len;
     int new_len;
 
-    new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
-    if (new_len > max_fds)
-	new_len = max_fds;
-
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
+    old_len = erts_smp_atomic_read_nob(&drv_ev_state_len);
+    if (min_ix >= old_len) {
+        new_len = erts_poll_new_table_len(old_len, min_ix + 1);
+        if (new_len > max_fds)
+            new_len = max_fds;
+
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}
@@ -428,7 +432,7 @@ grow_drv_ev_state(int min_ix)
 				       sizeof(ErtsDrvEventState)*new_len)
 			: erts_alloc(ERTS_ALC_T_DRV_EV_STATE,
 				     sizeof(ErtsDrvEventState)*new_len));
-	for (i = erts_smp_atomic_read_nob(&drv_ev_state_len); i < new_len; i++) {
+	for (i = old_len; i < new_len; i++) {
 	    drv_ev_state[i].fd = (ErtsSysFdType) i;
 	    drv_ev_state[i].driver.select = NULL;
 #if ERTS_CIO_HAVE_DRV_EVENT
@@ -1333,11 +1337,7 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
-#ifdef __OSE__
-		  "driver_select(%p, %d,%s%s%s%s | %d, %d) "
-#else
 		  "driver_select(%p, %d,%s%s%s%s, %d) "
-#endif
 		  "by ",
 		  ix,
 		  (int) GET_FD(fd),
@@ -1616,8 +1616,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
     /* Figure out timeout value */
     timeout_time = (do_wait
-		    ? erts_check_next_timeout_time(esdp->timer_wheel,
-						   ERTS_SEC_TO_MONOTONIC(10*60))
+		    ? erts_check_next_timeout_time(esdp)
 		    : ERTS_POLL_NO_TIMEOUT /* poll only */);
 
     /*
@@ -1858,25 +1857,6 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 
-#ifdef __OSE__
-static SafeHashValue drv_ev_state_hash(void *des)
-{
-    ErtsSysFdType fd = ((ErtsDrvEventState *) des)->fd;
-    /* We use hash on signo ^ id in order for steal to happen when the
-       same signo + fd is selected on by two different ports */
-    SafeHashValue val = (SafeHashValue)(fd->signo ^ fd->id);
-    return val ^ (val >> 8);
-}
-
-static int drv_ev_state_cmp(void *des1, void *des2)
-{
-    ErtsSysFdType fd1 = ((ErtsDrvEventState *) des1)->fd;
-    ErtsSysFdType fd2 = ((ErtsDrvEventState *) des2)->fd;
-    if (fd1->signo == fd2->signo && fd1->id == fd2->id)
-      return 0;
-    return 1;
-}
-#else /* !__OSE__ && !ERTS_SYS_CONTINOUS_FD_NUMBERS i.e. probably windows */
 static SafeHashValue drv_ev_state_hash(void *des)
 {
     SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
@@ -1888,7 +1868,6 @@ static int drv_ev_state_cmp(void *des1, void *des2)
     return ( ((ErtsDrvEventState *) des1)->fd == ((ErtsDrvEventState *) des2)->fd
 	    ? 0 : 1);
 }
-#endif
 
 static void *drv_ev_state_alloc(void *des_tmpl)
 {

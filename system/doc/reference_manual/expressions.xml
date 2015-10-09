@@ -8,16 +8,17 @@
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -567,10 +568,14 @@ Expr1 <input>op</input> Expr2</pre>
     <p>The arguments can be of different data types. The following
       order is defined:</p>
     <pre>
-number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list &lt; bit string</pre>
+number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
+    <p>Maps are ordered by size, two maps with the same size are compared by keys in
+        ascending term order and then by values in key order.
+        In maps key order integers types are considered less than floats types.
+    </p>
       <p>When comparing an integer to a float, the term with the lesser
       precision is converted into the type of the other term, unless the
       operator is one of <c>=:=</c> or <c>=/=</c>. A float is more precise than
@@ -590,7 +595,11 @@ true
 2> <input>1=:=1.0.</input>
 false
 3> <input>1 > a.</input>
-false</pre>
+false
+4> <input>#{c => 3} > #{a => 1, b => 2}.</input>
+false
+4> <input>#{a => 1, b => 2} == #{a => 1.0, b => 2.0}.</input>
+true</pre>
   </section>
 
   <section>

@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1998-2013. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -1482,8 +1483,11 @@ eep43(Config) when is_list(Config) ->
 	  "    #{ K1 := 1, K2 := 2, K3 := 3, {2,2} := 4} = Map "
 	  "end.",
 	  #{ 1 => 1, <<42:301>> => 2, {3,<<42:301>>} => 3, {2,2} => 4}),
-    error_check("[camembert]#{}.", {badarg,[camembert]}),
+    error_check("[camembert]#{}.", {badmap,[camembert]}),
+    error_check("[camembert]#{nonexisting:=v}.", {badmap,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
+    error_check("[]#{a=>error(bad)}.", bad),
+    error_check("(#{})#{nonexisting:=value}.", {badkey,nonexisting}),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

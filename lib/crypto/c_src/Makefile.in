@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1999-2012. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -126,12 +127,7 @@ ALL_STATIC_CFLAGS = $(DED_STATIC_CFLAGS) $(INCLUDES)
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB)
-else
-# Do not build dynamic files on OSE
-debug opt valgrind:
-endif
 
 static_lib: $(NIF_ARCHIVE)
 
@@ -202,13 +198,11 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
 	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
-ifneq ($(findstring ose,$(TARGET)),ose)
 	$(INSTALL_PROGRAM) $(CRYPTO_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
-endif
 endif
 
 release_docs_spec:

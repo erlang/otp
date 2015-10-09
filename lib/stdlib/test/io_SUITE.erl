@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1999-2014. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,10 +29,11 @@
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
-	 printable_range/1,
+	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1,
-         io_with_huge_message_queue/1, format_string/1]).
+         io_with_huge_message_queue/1, format_string/1,
+	 maps/1, coverage/1]).
 
 -export([pretty/2]).
 
@@ -69,10 +71,10 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range,
+     printable_range, bad_printable_range,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
-     format_string].
+     format_string, maps, coverage].
 
 groups() -> 
     [].
@@ -2061,8 +2063,6 @@ printable_range(Suite) when is_list(Suite) ->
 					 [{args, " +pclatin1 -pa " ++ Pa}]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
-    {error, _} = test_server:start_node(printable_range_unnicode, slave,
-					[{args, " +pcunnicode -pa " ++ Pa}]),
     PrettyOptions = [{column,1},
 		     {line_length,109},
 		     {depth,30},
@@ -2070,47 +2070,68 @@ printable_range(Suite) when is_list(Suite) ->
 		     {record_print_fun,
 		      fun(_,_) -> no end},
 		     {encoding,unicode}],
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib_pretty,print,
-					    [{hello, [1024,1025]},
-					     PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib_pretty,print,
-					   [{hello, [1024,1025]},
-					    PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib_pretty,print,
-					   [{hello, [1024,1025]},
-					    PrettyOptions]))),
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib_pretty,print,
-					    [{hello, <<1024/utf8,1025/utf8>>},
-					     PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib_pretty,print,
-					   [{hello, <<1024/utf8,1025/utf8>>},
-					    PrettyOptions]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib_pretty,print,
-					   [{hello, <<1024/utf8,1025/utf8>>},
-					    PrettyOptions]))),
+    PrintableControls = "\t\v\b\f\e\r\n",
+
+    1025 = print_max(UNode, [{hello, [1024,1025]},
+			     PrettyOptions]),
+    125 = print_max(LNode,  [{hello, [1024,1025]},
+			     PrettyOptions]),
+    125 = print_max(DNode,  [{hello, [1024,1025]},
+			     PrettyOptions]),
+    1025 = print_max(UNode, [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    125 = print_max(LNode,  [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    125 = print_max(DNode,  [{hello, <<1024/utf8,1025/utf8>>},
+			     PrettyOptions]),
+    $v = print_max(UNode, [PrintableControls,PrettyOptions]),
+    $v = print_max(LNode, [PrintableControls,PrettyOptions]),
+    $v = print_max(DNode, [PrintableControls,PrettyOptions]),
+    16#10FFFF = print_max(UNode,
+			  [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+			   PrettyOptions]),
+    $> = print_max(LNode,
+		   [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+		    PrettyOptions]),
+    $> = print_max(DNode,
+		   [<<16#10FFFF/utf8,"\t\v\b\f\e\r\n">>,
+		    PrettyOptions]),
     
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib,format,
-					    ["~tp",[{hello, [1024,1025]}]]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib,format,
-					   ["~tp",[{hello, [1024,1025]}]]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib,format,
-					   ["~tp",[{hello, [1024,1025]}]]))),
-    1025 = lists:max(lists:flatten(rpc:call(UNode,io_lib,format,
-					    ["~tp",
-					     [{hello, 
-					       <<1024/utf8,1025/utf8>>}]]))),
-    125 = lists:max(lists:flatten(rpc:call(LNode,io_lib,format,
-					   ["~tp",
-					    [{hello,
-					      <<1024/utf8,1025/utf8>>}]]))),
-    125 = lists:max(lists:flatten(rpc:call(DNode,io_lib,format,
-					   ["~tp",
-					    [{hello,
-					      <<1024/utf8,1025/utf8>>}]]))),
+    1025 = format_max(UNode, ["~tp", [{hello, [1024,1025]}]]),
+    125 = format_max(LNode,  ["~tp", [{hello, [1024,1025]}]]),
+    125 = format_max(DNode,  ["~tp", [{hello, [1024,1025]}]]),
+    1025 = format_max(UNode, ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+    125 = format_max(LNode,  ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+    125 = format_max(DNode,  ["~tp", [{hello, <<1024/utf8,1025/utf8>>}]]),
+
+    $\e = format_max(UNode, ["~ts", [PrintableControls]]),
+    $\e = format_max(LNode, ["~ts", [PrintableControls]]),
+    $\e = format_max(DNode, ["~ts", [PrintableControls]]),
+
     test_server:stop_node(UNode),
     test_server:stop_node(LNode),
     test_server:stop_node(DNode),
     ok.
+
+print_max(Node, Args) ->
+    rpc_call_max(Node, io_lib_pretty, print, Args).
+
+format_max(Node, Args) ->
+    rpc_call_max(Node, io_lib, format, Args).
+
+rpc_call_max(Node, M, F, Args) ->
+    lists:max(lists:flatten(rpc:call(Node, M, F, Args))).
+
+%% Make sure that a bad specification for a printable range is rejected.
+bad_printable_range(Config) when is_list(Config) ->
+    Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
+    case os:cmd(Cmd) of
+	"bad range of printable characters" ++ _ ->
+	    ok;
+	String ->
+	    io:format("~s\n", [String]),
+	    ?t:fail()
+    end.
 
 io_lib_print_binary_depth_one(doc) ->
     "Test binaries printed with a depth of one behave correctly";
@@ -2224,7 +2245,7 @@ compile_file(File, Text, Config) ->
     after ok %file:delete(Fname)
     end.
 
-io_lib_width_too_small(Config) ->
+io_lib_width_too_small(_Config) ->
     "**" = lists:flatten(io_lib:format("~2.3w", [3.14])),
     "**" = lists:flatten(io_lib:format("~2.5w", [3.14])),
     ok.
@@ -2270,8 +2291,113 @@ writes(N, F1) ->
     file:write(F1, "hello\n"),
     writes(N - 1, F1).
 
-format_string(Config) ->
+format_string(_Config) ->
     %% All but padding is tested by fmt/2.
     "xxxxxxsssx" = fmt("~10.4.xs", ["sss"]),
     "xxxxxxsssx" = fmt("~10.4.*s", [$x, "sss"]),
+    ok.
+
+maps(_Config) ->
+    %% Note that order in which a map is printed is arbitrary.  In
+    %% practice, small maps (non-HAMT) are printed in key order, but
+    %% the breakpoint for creating big maps (HAMT) is lower in the
+    %% debug-compiled run-time system than in the optimized run-time
+    %% system.
+    %%
+    %% Therefore, play it completely safe by not assuming any order
+    %% in a map with more than one element.
+
+    "#{}" = fmt("~w", [#{}]),
+    "#{a=>b}" = fmt("~w", [#{a=>b}]),
+    re_fmt(<<"#\\{(a=>b|c=>d),[.][.][.]=>[.][.][.]\\}">>,
+	     "~W", [#{a=>b,c=>d},2]),
+    re_fmt(<<"#\\{(a=>b|c=>d|e=>f),[.][.][.]=>[.][.][.],[.][.][.]\\}">>,
+	   "~W", [#{a=>b,c=>d,e=>f},2]),
+
+    "#{}" = fmt("~p", [#{}]),
+    "#{a => b}" = fmt("~p", [#{a=>b}]),
+    "#{...}" = fmt("~P", [#{a=>b},1]),
+    re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
+	   "~P", [#{a=>b,c=>d},2]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+	   "~P", [#{a=>b,c=>d,e=>f},2]),
+
+    List = [{I,I*I} || I <- lists:seq(1, 20)],
+    Map = maps:from_list(List),
+
+    "#{...}" = fmt("~P", [Map,1]),
+
+    %% Print a map and parse it back to a map.
+    S = fmt("~p\n", [Map]),
+    io:format("~p\n", [S]),
+    Map = parse_map(S),
+
+    %% Smoke test of a map as key.
+    MapAsKey = #{Map => "value"},
+    io:format("~s\n", [fmt("~p", [MapAsKey])]),
+    ok.
+
+re_fmt(Pattern, Format, Args) ->
+    S = list_to_binary(fmt(Format, Args)),
+    case re:run(S, Pattern, [{capture,none}]) of
+	nomatch ->
+	    io:format("Pattern: ~s", [Pattern]),
+	    io:format("Result:  ~s", [S]),
+	    ?t:fail();
+	match ->
+	    ok
+    end.
+
+%% Parse a map consisting of integer keys and values.
+parse_map(S0) ->
+    S1 = parse_expect(S0, "#{"),
+    {M,S2} = parse_map_1(S1),
+    S = parse_expect(S2, "}"),
+    S = "",
+    M.
+
+parse_map_1(S0) ->
+    {Key,S1} = parse_number(S0),
+    S2 = parse_expect(S1, "=>"),
+    {Val,S3} = parse_number(S2),
+    case S3 of
+	","++S4 ->
+	    S5 = parse_skip_ws(S4),
+	    {Map,S} = parse_map_1(S5),
+	    {Map#{Key=>Val},S};
+	S ->
+	    {#{Key=>Val},S}
+    end.
+
+parse_number(S) ->
+    parse_number(S, none).
+
+parse_number([C|S], Acc0) when $0 =< C, C =< $9 ->
+    Acc = case Acc0 of
+	      none -> 0;
+	      _ when is_integer(Acc0) -> Acc0
+	  end,
+    parse_number(S, Acc*10+C-$0);
+parse_number(S, Acc) ->
+    {Acc,parse_skip_ws(S)}.
+
+parse_expect([H|T1], [H|T2]) ->
+    parse_expect(T1, T2);
+parse_expect(S, []) ->
+    parse_skip_ws(S).
+
+parse_skip_ws([C|S]) when C =< $\s ->
+    parse_skip_ws(S);
+parse_skip_ws(S) ->
+    S.
+
+%% Cover the last uncovered lines for completeness.
+coverage(_Config) ->
+    S1 = io_lib_pretty:print({a,term}, fun(_, _) -> no end),
+    io:format("~s\n", [S1]),
+
+    %% The tuple of arity three will be ignored.
+    S2 = io_lib_pretty:print(lists:seq(1, 100), [{depth,1,1}]),
+    io:format("~s\n", [S2]),
+
     ok.

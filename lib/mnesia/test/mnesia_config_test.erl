@@ -3,16 +3,17 @@
 %%
 %% Copyright Ericsson AB 1997-2014. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -37,7 +38,6 @@
 	
 	 dump_log_update_in_place/1,
 	 event_module/1,
-	 ignore_fallback_at_startup/1,
 	 inconsistent_database/1,
 	 max_wait_for_decision/1,
 	 send_compressed/1,
@@ -104,7 +104,7 @@ all() ->
     [access_module, auto_repair, backup_module, debug, dir,
      dump_log_load_regulation, {group, dump_log_thresholds},
      dump_log_update_in_place,
-     event_module, ignore_fallback_at_startup,
+     event_module,
      inconsistent_database, max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
      unknown_config].
@@ -317,11 +317,17 @@ backup_module(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:start_mnesia(Nodes, [test_table, test_table2])),
 
     %% Now check newly started tables
-    ?match({atomic, [1,2]}, 
+    ?match({atomic, [1,2]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table)) end)),
-    ?match({atomic, [3,4]}, 
+    ?match({atomic, [3,4]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table2)) end)),
-    
+
+    %% Test some error cases
+    mnesia:set_debug_level(debug),
+    ?match({error, _}, mnesia:install_fallback("NonExisting.FILE")),
+    ?match({error, _}, mnesia:install_fallback(filename:join(mnesia_lib:dir(), "LATEST.LOG"))),
+
+    %% Cleanup
     file:delete(File),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config),
@@ -608,13 +614,6 @@ dump_log_load_regulation(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-ignore_fallback_at_startup(doc) ->
-    ["Start Mnesia without rollback of the database to the fallback. ",
-     "Once Mnesia has been (re)started the installed fallback should",
-     "be handled as a normal active fallback.",
-     "Install a customized event module which disables the termination",
-     "of Mnesia when mnesia_down occurrs with an active fallback."].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1207,7 +1206,7 @@ dynamic_ext(Config) when is_list(Config) ->
 	    end,
     [Check(Test) || Test <- [{tab1, ram_copies},{tab2, disc_copies},{tab3, disc_only_copies}]],
     
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, mnesia:dirty_write({tab0, 42, T})),
     ?match(ok, mnesia:dirty_write({tab1, 42, T})),
     ?match(ok, mnesia:dirty_write({tab2, 42, T})),
@@ -1285,7 +1284,7 @@ check_storage(Me, Orig, Other) ->
     
     mnesia_test_lib:kill_mnesia([Orig]),
     mnesia_test_lib:kill_mnesia(Other),
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, rpc:call(Me, mnesia, dirty_write, [{tab2, 42, T}])),
     ?match(stopped, rpc:call(Me, mnesia, stop, [])),
     ?match(ok, rpc:call(Me, mnesia, start, [])),   

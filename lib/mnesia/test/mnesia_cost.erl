@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -107,11 +108,11 @@ run(What, OtherInfo, Ops, F) ->
     run(t, What, OtherInfo, Ops, F).
 
 run(How, What, OtherInfo, Ops, F) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(),
     statistics(runtime),
     do_times(How, ?TIMES, F),
     {_, RunTime} = statistics(runtime),
-    T2 = erlang:now(),
+    T2 = erlang:monotonic_time(),
     RealTime = subtr(T1, T2),
     report(How, What, OtherInfo, Ops, RunTime, RealTime).
 
@@ -139,11 +140,7 @@ report(dirty, What, OtherInfo, Ops, RunTime, RealTime) ->
 
 
 subtr(Before, After) ->
-    E =(element(1,After)*1000000000000
-	+element(2,After)*1000000+element(3,After)) -
-        (element(1,Before)*1000000000000
-         +element(2,Before)*1000000+element(3,Before)),
-    E div 1000.
+    erlang:convert_time_unit(After-Before, native, milli_seconds).
 
 do_times(t, I, F) ->
     do_trans_times(I, F);

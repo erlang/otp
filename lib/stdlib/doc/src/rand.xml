@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2015</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>rand</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>rand.xml</file>
+  </header>
+  <module>rand</module>
+  <modulesummary>Pseudo random number generation</modulesummary>
+  <description>
+    <p>Random number generator.</p>
+
+    <p>The module contains several different algorithms and can be
+    extended with more in the future.  The current uniform
+    distribution algorithms uses the
+    <url href="http://xorshift.di.unimi.it">
+    scrambled Xorshift algorithms by Sebastiano Vigna</url> and the
+    normal distribution algorithm uses the
+    <url href="http://www.jstatsoft.org/v05/i08">
+      Ziggurat Method by Marsaglia and Tsang</url>.
+    </p>
+
+    <p>The implemented algorithms are:</p>
+    <taglist>
+      <tag><c>exsplus</c></tag> <item>Xorshift116+, 58 bits precision and period of 2^116-1.</item>
+      <tag><c>exs64</c></tag> <item>Xorshift64*, 64 bits precision and a period of 2^64-1.</item>
+      <tag><c>exs1024</c></tag> <item>Xorshift1024*, 64 bits precision and a period of 2^1024-1.</item>
+    </taglist>
+
+    <p>The current default algorithm is <c>exsplus</c>. The default
+    may change in future. If a specific algorithm is required make
+    sure to always use <seealso marker="#seed-1">seed/1</seealso>
+    to initialize the state.
+    </p>
+
+    <p>Every time a random number is requested, a state is used to
+    calculate it and a new state produced. The state can either be
+    implicit or it can be an explicit argument and return value.
+    </p>
+
+    <p>The functions with implicit state use the process dictionary
+    variable <c>rand_seed</c> to remember the current state.</p>
+
+    <p>If a process calls <seealso marker="#uniform-0">uniform/0</seealso> or
+    <seealso marker="#uniform-1">uniform/1</seealso> without
+    setting a seed first, <seealso marker="#seed-1">seed/1</seealso>
+    is called automatically with the default algorithm and creates a
+    non-constant seed.</p>
+
+    <p>The functions with explicit state never use the process
+    dictionary.</p>
+
+    <p>Examples:</p>
+    <pre>
+      %% Simple usage. Creates and seeds the default algorithm
+      %% with a non-constant seed if not already done.
+      R0 = rand:uniform(),
+      R1 = rand:uniform(),
+
+      %% Use a given algorithm.
+      _ = rand:seed(exs1024),
+      R2 = rand:uniform(),
+
+      %% Use a given algorithm with a constant seed.
+      _ = rand:seed(exs1024, {123, 123534, 345345}),
+      R3 = rand:uniform(),
+
+      %% Use the functional api with non-constant seed.
+      S0 = rand:seed_s(exsplus),
+      {R4, S1} = rand:uniform_s(S0),
+
+      %% Create a standard normal deviate.
+      {SND0, S2} = rand:normal_s(S1),
+    </pre>
+
+    <note><p>This random number generator is not cryptographically
+    strong. If a strong cryptographic random number generator is
+    needed, use one of functions in the
+    <seealso marker="crypto:crypto">crypto</seealso>
+    module, for example <c>crypto:rand_bytes/1</c>.</p></note>
+  </description>
+  <datatypes>
+    <datatype>
+      <name name="alg"/>
+    </datatype>
+
+    <datatype>
+      <name name="state"/>
+      <desc><p>Algorithm dependent state.</p></desc>
+    </datatype>
+
+    <datatype>
+      <name name="export_state"/>
+      <desc><p>Algorithm dependent state which can be printed or saved to file.</p></desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="seed" arity="1"/>
+      <fsummary>Seed random number generator</fsummary>
+      <desc>
+	<marker id="seed-1"/>
+	<p>Seeds random number generation with the given algorithm and time dependent
+	data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+	<p>Otherwise recreates the exported seed in the process
+	dictionary, and returns the state.
+	<em>See also:</em> <seealso marker="#export_seed-0">export_seed/0</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="seed_s" arity="1"/>
+      <fsummary>Seed random number generator</fsummary>
+      <desc>
+	<p>Seeds random number generation with the given algorithm and time dependent
+	data if <anno>AlgOrExpState</anno> is an algorithm.</p>
+	<p>Otherwise recreates the exported seed and returns the state.
+	<em>See also:</em> <seealso marker="#export_seed-0">export_seed/0</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="seed" arity="2"/>
+      <fsummary>Seed the random number generation</fsummary>
+      <desc>
+	<p>Seeds random number generation with the given algorithm and
+	integers in the process dictionary and returns
+	the state.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="seed_s" arity="2"/>
+      <fsummary>Seed the random number generation</fsummary>
+      <desc>
+	<p>Seeds random number generation with the given algorithm and
+	integers and returns the state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="export_seed" arity="0"/>
+      <fsummary>Export the random number generation state</fsummary>
+      <desc><marker id="export_seed-0"/>
+      <p>Returns the random number state in an external format.
+      To be used with <seealso marker="#seed-1">seed/1</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="export_seed_s" arity="1"/>
+      <fsummary>Export the random number generation state</fsummary>
+      <desc><marker id="export_seed_s-1"/>
+      <p>Returns the random number generator state in an external format.
+      To be used with <seealso marker="#seed-1">seed/1</seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="0"/>
+      <fsummary>Return a random float</fsummary>
+      <desc>
+	<marker id="uniform-0"/>
+        <p>Returns a random float uniformly distributed in the value
+        range <c>0.0 &lt; <anno>X</anno> &lt; 1.0 </c> and
+        updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="uniform_s" arity="1"/>
+      <fsummary>Return a random float</fsummary>
+      <desc>
+        <p>Given a state, <c>uniform_s/1</c> returns a random float
+        uniformly distributed in the value range <c>0.0 &lt;
+        <anno>X</anno> &lt; 1.0</c> and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniform" arity="1"/>
+      <fsummary>Return a random integer</fsummary>
+      <desc>
+	<marker id="uniform-1"/>
+        <p>Given an integer <c><anno>N</anno> >= 1</c>,
+        <c>uniform/1</c> returns a random integer uniformly
+        distributed in the value range
+	<c>1 &lt;= <anno>X</anno> &lt;= <anno>N</anno></c> and
+        updates the state in the process dictionary.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="uniform_s" arity="2"/>
+      <fsummary>Return a random integer</fsummary>
+      <desc>
+        <p>Given an integer <c><anno>N</anno> >= 1</c> and a state,
+        <c>uniform_s/2</c> returns a random integer uniformly
+        distributed in the value range <c>1 &lt;= <anno>X</anno> &lt;=
+        <anno>N</anno></c> and a new state.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normal" arity="0"/>
+      <fsummary>Return a standard normal distributed random float</fsummary>
+      <desc>
+        <p>Returns a standard normal deviate float (that is, the mean
+        is 0 and the standard deviation is 1) and updates the state in
+        the process dictionary.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="normal_s" arity="1"/>
+      <fsummary>Return a standard normal distributed random float</fsummary>
+      <desc>
+        <p>Given a state, <c>normal_s/1</c> returns a standard normal
+        deviate float (that is, the mean is 0 and the standard
+        deviation is 1) and a new state.</p>
+      </desc>
+    </func>
+
+  </funcs>
+</erlref>

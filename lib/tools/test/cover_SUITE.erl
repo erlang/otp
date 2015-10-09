@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,8 @@
 	 export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-	 otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1]).
+         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
+         analyse_no_beam/1, line_0/1]).
 
 -export([do_coverage/1]).
 
@@ -52,7 +54,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
-		   otp_8340,otp_8188,compile_beam_opts,eep37],
+                   otp_8340,otp_8188,compile_beam_opts,eep37,
+		   analyse_no_beam, line_0],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1686,6 +1689,63 @@ compile_beam_opts(Config) when is_list(Config) ->
     ok = file:delete("t.beam"),
     ok = file:set_cwd(Cwd),
     ok.
+
+analyse_no_beam(doc) ->
+    ["Don't crash if beam is not available"];
+analyse_no_beam(suite) -> [];
+analyse_no_beam(Config) when is_list(Config) ->
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(?config(data_dir, Config)),
+
+    code:purge(t),
+    code:delete(t),
+
+    {ok,_} = file:copy("compile_beam/t.erl", "t.erl"),
+    {ok,t} = compile:file(t, [debug_info]),
+    {module,t} = code:load_file(t),
+    {ok,t} = cover:compile_beam(t),
+    t:f(),
+    ok = cover:export("t.coverdata"),
+
+    code:purge(t),
+    code:delete(t),
+
+    %% this is just so that cover realises (without stopping)
+    %% that this module is not cover compiled any more
+    {error, {not_cover_compiled,t}} = cover:analyse(t),
+
+    %% source and beam not available any more
+    ok = file:delete("t.erl"),
+    ok = file:delete("t.beam"),
+
+    ok = cover:import("t.coverdata"),
+
+    {error,{no_source_code_found,t}} = cover:analyse_to_file(t),
+    {result,[],[{no_source_code_found,t}]} = cover:analyse_to_file([t]),
+
+    ok = file:delete("t.coverdata"),
+    ok = file:set_cwd(Cwd),
+    ok.
+
+%% When including eunit.hrl, a parse transform adds the function
+%% test/0 to line 0 in your module. A bug in OTP-18.0 caused
+%% cover:analyse_to_file/1 to fail to insert cover data in the output
+%% file in this situation. The test below tests that this bug is
+%% corrected.
+line_0(Config) ->
+    ok = file:set_cwd(filename:join(?config(data_dir, Config),
+				    "include_eunit_hrl")),
+    {ok, cover_inc_eunit} = compile:file(cover_inc_eunit,[debug_info]),
+    {ok, cover_inc_eunit} = cover:compile_beam(cover_inc_eunit),
+    {ok, CovOut} = cover:analyse_to_file(cover_inc_eunit),
+
+    {ok,Bin} = file:read_file(CovOut),
+    Match = <<"0..|      ok.\n">>,  % "0.." is missing when bug is there
+    S = byte_size(Bin)-byte_size(Match),
+    <<_:S/binary,Match/binary>> = Bin,
+    ok.
+
+
 
 %%--Auxiliary------------------------------------------------------------
 

@@ -85,7 +85,7 @@ ct2_adt() ->
 tcirc() ->
     A = circ1(),
     B = circ2(),
-    A =:= B. % can never evaluate to 'true' (but the types are not OK, or?)
+    A =:= B. % can never evaluate to 'true'
 
 -spec circ1() -> circ(integer()).
 
@@ -100,7 +100,7 @@ circ2() ->
 tcirc_adt() ->
     A = circ1_adt(),
     B = circ2_adt(),
-    A =:= B. % opaque attempt (one would expect them to be the same...)
+    A =:= B. % opaque attempt (number of parameters differs)
 
 circ1_adt() ->
     para2_adt:circ1().

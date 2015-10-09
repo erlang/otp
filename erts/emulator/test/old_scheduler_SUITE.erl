@@ -3,16 +3,17 @@
 %% 
 %% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -116,7 +117,7 @@ equal(Config) when is_list(Config) ->
 
     %% start controllers
     ?line Receiver = 
-	spawn(fun() -> receiver(now(), Time, Self, Normal, Low) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Normal, Low) end),
     ?line Starter =
 	spawn(fun() -> starter(Normal, Low, Receiver) end),
 
@@ -154,7 +155,7 @@ many_low(Config) when is_list(Config) ->
     Time = 30,
 
     ?line Receiver = 
-	spawn(fun() -> receiver(now(), Time, Self, Normal, Low) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Normal, Low) end),
     ?line Starter =
 	spawn(fun() -> starter(Normal, Low, Receiver) end),
     ?line {NRs,NAvg,LRs,LAvg,Ratio} = 
@@ -185,7 +186,7 @@ few_low(Config) when is_list(Config) ->
     Time = 30,
 
     ?line Receiver = 
-	spawn(fun() -> receiver(now(), Time, Self, Normal, Low) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Normal, Low) end),
     ?line Starter =
 	spawn(fun() -> starter(Normal, Low, Receiver) end),
     ?line {NRs,NAvg,LRs,LAvg,Ratio} = 
@@ -220,7 +221,7 @@ max(Config) when is_list(Config) ->
     Time = 30,
 
     ?line Receiver1 = 
-	spawn(fun() -> receiver(now(), Time, Self, Max, High) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Max, High) end),
     ?line Starter1 =
 	spawn(fun() -> starter(Max, High, Receiver1) end),
     ?line {M1Rs,M1Avg,HRs,HAvg,Ratio1} = 
@@ -238,7 +239,7 @@ max(Config) when is_list(Config) ->
     end,
 
     ?line Receiver2 = 
-	spawn(fun() -> receiver(now(), Time, Self, Max, Normal) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Max, Normal) end),
     ?line Starter2 =
 	spawn(fun() -> starter(Max, Normal, Receiver2) end),
     ?line {M2Rs,M2Avg,NRs,NAvg,Ratio2} = 
@@ -256,7 +257,7 @@ max(Config) when is_list(Config) ->
     end,
 
     ?line Receiver3 = 
-	spawn(fun() -> receiver(now(), Time, Self, Max, Low) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, Max, Low) end),
     ?line Starter3 =
 	spawn(fun() -> starter(Max, Low, Receiver3) end),
     ?line {M3Rs,M3Avg,LRs,LAvg,Ratio3} = 
@@ -290,7 +291,7 @@ high(Config) when is_list(Config) ->
     Time = 30,
 
     ?line Receiver1 = 
-	spawn(fun() -> receiver(now(), Time, Self, High, Normal) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, High, Normal) end),
     ?line Starter1 =
 	spawn(fun() -> starter(High, Normal, Receiver1) end),
     ?line {H1Rs,H1Avg,NRs,NAvg,Ratio1} = 
@@ -308,7 +309,7 @@ high(Config) when is_list(Config) ->
     end,
 
     ?line Receiver2 = 
-	spawn(fun() -> receiver(now(), Time, Self, High, Low) end),
+	spawn(fun() -> receiver(erlang:monotonic_time(), Time, Self, High, Low) end),
     ?line Starter2 =
 	spawn(fun() -> starter(High, Low, Receiver2) end),
     ?line {H2Rs,H2Avg,LRs,LAvg,Ratio2} = 
@@ -337,12 +338,13 @@ receiver(T0, TimeSec, Main, {P1,P1N}, {P2,P2N}) ->
 
 %% uncomment lines below to get life sign (debug)
 receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, 0) ->
-%    T = elapsed_ms(T0, now()),
+%    T = erlang:convert_time_unit(erlang:monotonic_time() - T0, native, milli_seconds),
 %    erlang:display({round(T/1000),P1Rs,P2Rs}),
     receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, 100000);
 
 receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, C) ->
-    Remain = Time - elapsed_ms(T0, now()),	% test time remaining
+    Remain = Time - erlang:convert_time_unit(erlang:monotonic_time() - T0,
+					     native, milli_seconds), % test time remaining
     Remain1 = if Remain < 0 ->
 		      0;
 		 true ->
@@ -409,6 +411,3 @@ flush_loop() ->
 	    ok
     end,
     flush_loop().
-
-elapsed_ms({_MS0,S0,MuS0},{_MS1,S1,MuS1}) ->
-    round(((S1-S0)*1000)+((MuS1-MuS0)/1000)). 

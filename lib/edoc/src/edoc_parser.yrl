@@ -338,7 +338,7 @@ build_def(S, P, As, T) ->
                                   args = lists:reverse(As)},
                    type = T};
         false ->
-            return_error(element(2, P), "variable expected after '('")
+            return_error(tok_line(P), "variable expected after '('")
     end.
 
 all_vars([#t_var{} | As]) ->
@@ -452,7 +452,7 @@ parse_throws(S, L) ->
 
 %% ---------------------------------------------------------------------
 
--spec throw_error(term(), erl_scan:line()) -> no_return().
+-spec throw_error(term(), erl_anno:line()) -> no_return().
 
 throw_error({parse_spec, E}, L) ->
     throw_error({"specification", E}, L);

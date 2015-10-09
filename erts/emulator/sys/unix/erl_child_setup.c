@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2002-2009. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -55,7 +56,7 @@ void sys_sigrelease(int sig)
 #endif /* !SIG_SIGSET */
 
 #if defined(__ANDROID__)
-int __system_properties_fd(void);
+static int system_properties_fd(void);
 #endif /* __ANDROID__ */
 
 #if defined(__ANDROID__)
@@ -104,14 +105,19 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(from);
 #elif defined(__ANDROID__)
-    for (i = from; i <= to; i++) {
-	if (i!=__system_properties_fd)
-	    (void) close(i);
+    if (from <= to) {
+	int spfd = system_properties_fd();
+	for (i = from; i <= to; i++) {
+	    if (i != spfd) {
+		(void) close(i);
+            }
+	}
     }
-#else
-    for (i = from; i <= to; i++)
+#else  /* !__ANDROID__ */
+    for (i = from; i <= to; i++) {
 	(void) close(i);
-#endif
+    }
+#endif /* HAVE_CLOSEFROM */
 
     if (!(argv[CS_ARGV_WD_IX][0] == '.' && argv[CS_ARGV_WD_IX][1] == '\0')
 	&& chdir(argv[CS_ARGV_WD_IX]) < 0)
@@ -143,9 +149,9 @@ main(int argc, char *argv[])
 }
 
 #if defined(__ANDROID__)
-int __system_properties_fd(void)
+static int system_properties_fd(void)
 {
-    int s, fd;
+    int fd;
     char *env;
 
     env = getenv("ANDROID_PROPERTY_WORKSPACE");
@@ -156,4 +162,3 @@ int __system_properties_fd(void)
     return fd;
 }
 #endif /* __ANDROID__ */
-

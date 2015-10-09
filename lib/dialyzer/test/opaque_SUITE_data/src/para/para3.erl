@@ -71,7 +71,7 @@ t2_adt() ->
 
 -type exp() :: para3_adt:exp1(para3_adt:exp2()).
 
--spec exp_adt() -> exp().
+-spec exp_adt() -> exp(). % invalid type spec
 
 exp_adt() ->
     3.

@@ -3,16 +3,17 @@
  * 
  * Copyright Ericsson AB 2014. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -56,7 +57,6 @@ typedef struct flatmap_s {
 
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
 #define hashmap_make_hash(Key)        make_internal_hash(Key)
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
@@ -91,7 +91,6 @@ Eterm  erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			      Uint *upsz, struct ErtsEStack_ *sp);
 
 int    erts_validate_and_sort_flatmap(flatmap_t* map);
-Uint   hashmap_over_estimated_heap_size(Uint n);
 void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node, int reverse);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);
@@ -104,23 +103,9 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
 Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
-const Eterm *
-#if HALFWORD_HEAP
-erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base);
-#  define erts_maps_get(A, B) erts_maps_get_rel(A, B, NULL)
-#else
-erts_maps_get(Eterm key, Eterm map);
-#  define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
-#endif
+const Eterm *erts_maps_get(Eterm key, Eterm map);
 
-const Eterm *
-#if HALFWORD_HEAP
-erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base);
-#  define erts_hashmap_get(Hx, K, M) erts_hashmap_get_rel(Hx, K, M, NULL)
-#else
-erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
-#  define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
-#endif
+const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 /* hamt nodes v2.0
  *
@@ -191,5 +176,18 @@ typedef struct hashmap_head_s {
 
 #define hashmap_index(hash)      (((Uint32)hash) & 0xf)
 
+/* hashmap heap size:
+   [one cons cell + one list term in parent node] per key
+   [one header + one boxed term in parent node] per inner node
+   [one header + one size word] for root node
+*/
+#define HASHMAP_HEAP_SIZE(KEYS,NODES) ((KEYS)*3 + (NODES)*2)
+#ifdef DEBUG
+#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (KEYS)
+#else
+#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (2*(KEYS)/5)
+#endif
+#define HASHMAP_ESTIMATED_HEAP_SIZE(KEYS) \
+        HASHMAP_HEAP_SIZE(KEYS,HASHMAP_ESTIMATED_NODE_COUNT(KEYS))
 
 #endif
