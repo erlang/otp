@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,8 @@
 -record(file_info, {peer_req, pid}).
 -record(sys_misc, {module, function, arguments}).
 -record(error, {where, code, text, filename}).
--record(prepared, {status :: prep_status(), result, block_no, next_data, prev_data}).
+-record(prepared, {status :: prep_status() | 'undefined',
+                   result, block_no, next_data, prev_data}).
 -record(transfer_res, {status, decoded_msg, prepared}).
 -define(ERROR(Where, Code, Text, Filename),
         #error{where = Where, code = Code, text = Text, filename = Filename}).

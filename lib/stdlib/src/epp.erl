@@ -49,7 +49,8 @@
 -define(DEFAULT_ENCODING, utf8).
 
 %% Epp state record.
--record(epp, {file :: file:io_device(),         %Current file
+-record(epp, {file :: file:io_device()
+                    | 'undefined',              %Current file
 	      location=1,         		%Current location
               delta=0 :: non_neg_integer(),     %Offset from Location (-file)
               name="" :: file:name(),           %Current file name

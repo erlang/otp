@@ -56,7 +56,11 @@
 	{
 	  name :: chars(),
 	  description :: chars(),
-	  result :: ok | {failed, tuple()} | {aborted, tuple()} | {skipped, term()},
+	  result :: ok
+                  | {failed, tuple()}
+                  | {aborted, tuple()}
+                  | {skipped, term()}
+                  | undefined,
 	  time :: integer(),
 	  output :: binary()
 	 }).
