@@ -683,6 +683,8 @@ reply(Cm, Channel, RBuf) ->
 	    closed;
 	{ssh_cm, Cm, Msg} ->
 	    ct:fail(Msg)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 
