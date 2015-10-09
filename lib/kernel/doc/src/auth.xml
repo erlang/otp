@@ -50,7 +50,7 @@
           be established in this case. Returns <c>no</c> if <c><anno>Node</anno></c>
           does not exist or communication is not authorized (it has
           another cookie than <c>auth</c> thinks it has).</p>
-        <p>Use <seealso marker="net_adm#ping/1">net_adm:ping(<anno>Node</anno>)</seealso>
+        <p>Use <seealso marker="net_adm#ping/1">net_adm:ping(<c><anno>Node</anno></c>)</seealso>
           instead.</p>
       </desc>
     </func>
@@ -71,7 +71,7 @@
       </type_desc>
       <desc>
         <p>Use
-          <seealso marker="erts:erlang#erlang:set_cookie/2">erlang:set_cookie(node(), <anno>Cookie</anno>)</seealso>
+          <seealso marker="erts:erlang#erlang:set_cookie/2">erlang:set_cookie(node(), <c><anno>Cookie</anno></c>)</seealso>
           instead.</p>
       </desc>
     </func>
@@ -94,8 +94,8 @@
         <p>Sets the magic cookie of <c><anno>Node</anno></c> to <c><anno>Cookie</anno></c>, and
           verifies the status of the authorization.
           Equivalent to calling
-          <seealso marker="erts:erlang#erlang:set_cookie/2">erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</seealso>, followed by
-          <seealso marker="#is_auth/1">auth:is_auth(<anno>Node</anno>)</seealso>.</p>
+          <seealso marker="erts:erlang#erlang:set_cookie/2">erlang:set_cookie(<c><anno>Node</anno></c>, <c><anno>Cookie</anno>)</c></seealso>, followed by
+          <seealso marker="#is_auth/1">auth:is_auth(<c><anno>Node</anno></c>)</seealso>.</p>
       </desc>
     </func>
   </funcs>

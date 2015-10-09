@@ -233,11 +233,11 @@
     <func>
       <name name="alog" arity="2"/>
       <name name="balog" arity="2"/>
+      <fsummary>Asynchronously log an item onto a disk log.</fsummary>
       <type variable="Log"/>
       <type variable="Term" name_i="1"/>
       <type variable="Bytes"/>
       <type name="notify_ret"/>
-      <fsummary>Asynchronously log an item onto a disk log.</fsummary>
       <desc>
         <p>The <c>alog/2</c> and <c>balog/2</c> functions asynchronously
           append an item to a disk log. The function <c>alog/2</c> is 
@@ -288,8 +288,8 @@
     <func>
       <name name="block" arity="1"/>
       <name name="block" arity="2"/>
-      <type name="block_error_rsn"/>
       <fsummary>Block a disk log.</fsummary>
+      <type name="block_error_rsn"/>
       <desc>
         <p>With a call to <c>block/1,2</c> a process can block a log.
           If the blocking process is not an owner of the log, a temporary
@@ -663,8 +663,8 @@
     <func>
       <name name="lclose" arity="1"/>
       <name name="lclose" arity="2"/>
-      <type name="lclose_error_rsn"/>
       <fsummary>Close a disk log on one node.</fsummary>
+      <type name="lclose_error_rsn"/>
       <desc>
         <p>The function <c>lclose/1</c> closes a local log or an
           individual distributed log on the current node.
@@ -744,6 +744,7 @@
     </func>
     <func>
       <name name="open" arity="1"/>
+      <fsummary>Open a disk log file.</fsummary>
       <type name="dlog_options"/>
       <type name="dlog_option"/>
       <type name="open_ret"/>
@@ -753,7 +754,6 @@
       <type name="open_error_rsn"/>
       <type name="dlog_optattr"/>
       <type name="dlog_size"/>
-      <fsummary>Open a disk log file.</fsummary>
       <desc>
         <p>The <c><anno>ArgL</anno></c> parameter is a list of options which have
           the following meanings:</p>
@@ -1043,8 +1043,8 @@ If
     </func>
     <func>
       <name name="sync" arity="1"/>
-      <type name="sync_error_rsn"/>
       <fsummary>Flush the contents of a disk log to the disk.</fsummary>
+      <type name="sync_error_rsn"/>
       <desc>
         <p>The <c>sync/1</c> function ensures that the contents of the 
           log are actually written to the disk. 
@@ -1086,8 +1086,8 @@ If
     </func>
     <func>
       <name name="unblock" arity="1"/>
-      <type name="unblock_error_rsn"/>
       <fsummary>Unblock a disk log.</fsummary>
+      <type name="unblock_error_rsn"/>
       <desc>
         <p>The <c>unblock/1</c> function unblocks a log. 
           A log can only be unblocked by the blocking process.

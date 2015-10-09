@@ -78,9 +78,10 @@ do_recv(Sock, Bs) ->
       <name name="listen_option"/>
     </datatype>
     <datatype>
-      <name><marker id="type-socket">socket()</marker></name>
+      <name>socket()</name>
       <desc>
-        <p>As returned by accept/1,2 and connect/3,4.</p>
+        <p><marker id="type-socket"/>
+	As returned by accept/1,2 and connect/3,4.</p>
         <marker id="connect"></marker>
       </desc>
     </datatype>
