@@ -848,7 +848,6 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
     if (OLD_HEAP(p) &&
 	    ((mature <= OLD_HEND(p) - OLD_HTOP(p)) &&
-	    ((BIN_VHEAP_MATURE(p) < ( BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p)))) &&
 	    ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
 	ErlMessage *msgp;
 	Uint size_after;
@@ -2373,7 +2372,6 @@ sweep_off_heap(Process *p, int fullsweep)
     }
     BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
     MSO(p).overhead     = bin_vheap;
-    BIN_VHEAP_MATURE(p) = bin_vheap;
 
     /*
      * If we got any shrink candidates, check them out.
