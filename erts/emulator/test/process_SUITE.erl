@@ -32,8 +32,9 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, spawn_with_binaries/1,
-	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
-	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
+	 t_exit_1_other/1, t_exit_1_kill/1, t_exit_2_other/1,
+         t_exit_2_other_normal/1, self_exit/1, normal_suicide_exit/1,
+         abnormal_suicide_exit/1, kill_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
 	 exit_and_timeout/1, exit_twice/1,
 	 t_process_info/1, process_info_other/1, process_info_other_msg/1,
@@ -69,7 +70,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [spawn_with_binaries, t_exit_1, {group, t_exit_2},
+    [spawn_with_binaries, {group, t_exit_1}, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
      t_process_info, process_info_other, process_info_other_msg,
      process_info_other_dist_msg, process_info_2_list,
@@ -84,9 +85,12 @@ all() ->
      {group, system_task}].
 
 groups() -> 
-    [{t_exit_2, [],
+    [{t_exit_1, [],
+      [t_exit_1_other, t_exit_1_kill]},
+     {t_exit_2, [],
       [t_exit_2_other, t_exit_2_other_normal, self_exit,
        normal_suicide_exit, abnormal_suicide_exit,
+       kill_suicide_exit,
        t_exit_2_catch, exit_and_timeout, exit_twice]},
      {processes_bif, [],
       [processes_large_tab, processes_default_tab,
@@ -154,21 +158,30 @@ binary_owner(Bin) when is_binary(Bin) ->
     ok.
 
 %% Tests exit/1 with a big message.
-t_exit_1(Config) when is_list(Config) ->
+t_exit_1_other(Config) when is_list(Config) ->
     start_spawner(),
     Dog = test_server:timetrap(test_server:seconds(20)),
     process_flag(trap_exit, true),
-    test_server:do_times(10, fun t_exit_1/0),
+    test_server:do_times(10, fun t_exit_1_other/0),
     test_server:timetrap_cancel(Dog),
     stop_spawner(),
     ok.
 
-t_exit_1() ->
+t_exit_1_other() ->
     Pid = fun_spawn(fun() -> exit(kb_128()) end),
     Garbage = kb_128(),
     receive
 	      {'EXIT', Pid, Garbage} -> ok
 	  end.
+
+%% Tests an uncatched exit(kill) is equivalent to exit(self(), kill)
+t_exit_1_kill(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> exit(kill) end),
+    receive
+        {'EXIT', Pid, killed} -> ok;
+        Other -> test_server:fail({bad_message, Other})
+    end.
 
 
 %% Tests exit/2 with a lot of data in the exit message.
@@ -250,6 +263,16 @@ abnormal_suicide_exit(Config) when is_list(Config) ->
 	      {'EXIT', Pid, Garbage} -> ok;
 	      Other -> test_server:fail({bad_message, Other})
 	  end.
+
+%% Tests exit(self(), kill) returns reason killed for a process
+%% that doesn't trap exits.
+kill_suicide_exit(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun() -> exit(self(), kill) end),
+    receive
+        {'EXIT', Pid, killed} -> ok;
+        Other -> test_server:fail({bad_message, Other})
+    end.
 
 %% Tests that exit(self(), die) cannot be catched.
 t_exit_2_catch(Config) when is_list(Config) ->

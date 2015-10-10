@@ -12397,13 +12397,14 @@ erts_continue_exit_process(Process *p)
     if (lnk) {
 	DeclareTmpHeap(tmp_heap,4,p);
 	Eterm exit_tuple;
+	Eterm rsn = reason == am_kill ? am_killed : reason;
 	Uint exit_tuple_sz;
 	Eterm* hp;
 
 	UseTmpHeap(4,p);
 	hp = &tmp_heap[0];
 
-	exit_tuple = TUPLE3(hp, am_EXIT, p->common.id, reason);
+	exit_tuple = TUPLE3(hp, am_EXIT, p->common.id, rsn);
 
 	exit_tuple_sz = size_object(exit_tuple);
 
