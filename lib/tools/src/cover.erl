@@ -2005,7 +2005,7 @@ munge_expr({lc,Line,Expr,Qs}, Vars) ->
     {{lc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({bc,Line,Expr,Qs}, Vars) ->
     {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]} = Expr,
-    Expr2 = {bin,BLine,[{bin_element,EL,?BLOCK1(Val),Sz,TSL}|Es]},
+    Expr2 = {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]},
     {MungedExpr,Vars2} = munge_expr(Expr2, Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Line,MungedExpr,MungedQs}, Vars3};
