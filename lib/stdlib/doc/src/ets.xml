@@ -916,7 +916,7 @@ ets:select(Table,MatchSpec),</code>
           </item>
           <item>
             <p><c>{keypos,<anno>Pos</anno>}</c>
-              Specfies which element in the stored tuples should be
+              Specifies which element in the stored tuples should be
               used as key. By default, it is the first element, i.e.
               <c><anno>Pos</anno>=1</c>. However, this is not always appropriate. In
               particular, we do not want the first element to be the
