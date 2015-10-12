@@ -1046,18 +1046,10 @@ start_it({eval,Bin}) ->
     {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
-    Ref = make_ref(),
-    case catch {Ref,case MFA of
-			[M]        -> M:start();
-			[M,F]      -> M:F();
-			[M,F|Args] -> M:F(Args)	% Args is a list
-		    end} of
-	{Ref,R} ->
-	    R;
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	Other ->
-	    throw(Other)
+    case MFA of
+	[M]        -> M:start();
+	[M,F]      -> M:F();
+	[M,F|Args] -> M:F(Args)	% Args is a list
     end.
 
 %%
