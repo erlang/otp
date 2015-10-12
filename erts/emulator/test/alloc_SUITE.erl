@@ -202,13 +202,14 @@ drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     end.
 
 run_drv_case(Config, Mode) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line CaseName = ?config(testcase,Config),
+    DataDir = ?config(data_dir,Config),
+    CaseName = ?config(testcase,Config),
     File = filename:join(DataDir, CaseName),
     {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
-    ?line {module,CaseName} = erlang:load_module(CaseName,Bin),
+    {module,CaseName} = erlang:load_module(CaseName,Bin),
     ok = CaseName:init(File),
 
+    SlaveState = slave_init(CaseName),
     case Mode of
 	one_shot ->
 	    Result = one_shot(CaseName);
@@ -217,11 +218,26 @@ run_drv_case(Config, Mode) ->
 	    Result = concurrent(CaseName)
     end,
 
-    ?line true = erlang:delete_module(CaseName),
-    ?line Result.
+    true = erlang:delete_module(CaseName),
+    slave_end(SlaveState),
+    Result.
+
+slave_init(migration) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    case application:start(os_mon) of
+	ok -> [os_mon|A0];
+	_ -> A0
+    end;
+slave_init(_) -> [].
+
+slave_end(Apps) ->
+    lists:foreach(fun (A) -> application:stop(A) end, Apps).
 
 one_shot(CaseName) ->
-    State = CaseName:start(1),
+    State = CaseName:start({1, 0, erlang:system_info(build_type)}),
     Result0 = CaseName:run(State),
     false = (Result0 =:= continue),
     Result1 = handle_result(State, Result0),
@@ -229,8 +245,8 @@ one_shot(CaseName) ->
     Result1.
 
 
-many_shot(CaseName, I) ->
-    State = CaseName:start(I),
+many_shot(CaseName, I, Mem) ->
+    State = CaseName:start({I, Mem, erlang:system_info(build_type)}),
     Result1 = repeat_while(fun() ->
 				   Result0 = CaseName:run(State),
 				   handle_result(State, Result0)
@@ -239,12 +255,15 @@ many_shot(CaseName, I) ->
     Result1.
 
 concurrent(CaseName) ->
+    NSched = erlang:system_info(schedulers),
+    Mem = (free_memory() * 3) div 4,
     PRs = lists:map(fun(I) -> spawn_opt(fun() ->
-						many_shot(CaseName, I)
+						many_shot(CaseName, I,
+							  Mem div NSched)
 					end,
 				       [monitor, {scheduler,I}])
 		    end,
-		    lists:seq(1, erlang:system_info(schedulers))),
+		    lists:seq(1, NSched)),
     lists:foreach(fun({Pid,Ref}) ->
 			  receive {'DOWN', Ref, process, Pid, Reason} ->
 				  Reason
@@ -307,4 +326,24 @@ is_halfword_vm() ->
 	  erlang:system_info({wordsize, external})} of
 	{4, 8} -> true;
 	{WS, WS} -> false
+    end.
+
+free_memory() ->
+    %% Free memory in MB.
+    try
+	SMD = memsup:get_system_memory_data(),
+	{value, {free_memory, Free}} = lists:keysearch(free_memory, 1, SMD),
+	TotFree = (Free +
+		   case lists:keysearch(cached_memory, 1, SMD) of
+		       {value, {cached_memory, Cached}} -> Cached;
+		       false -> 0
+		   end +
+		   case lists:keysearch(buffered_memory, 1, SMD) of
+		       {value, {buffered_memory, Buffed}} -> Buffed;
+		       false -> 0
+		   end),
+	TotFree div (1024*1024)
+    catch
+	error : undef ->
+	    ?t:fail({"os_mon not built"})
     end.

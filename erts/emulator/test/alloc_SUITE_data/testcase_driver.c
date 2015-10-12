@@ -23,6 +23,7 @@
 #include <stdarg.h>
 #include <setjmp.h>
 #include <string.h>
+#include <limits.h>
 
 #ifdef __WIN32__
 static void my_vsnprintf(char *outBuf, size_t size, const char *format, va_list ap)
@@ -54,7 +55,6 @@ static void my_snprintf(char *outBuf, size_t size, const char *format, ...)
 
 typedef struct {
     TestCaseState_t visible;
-    ErlNifEnv* curr_env;
     int result;
     jmp_buf* done_jmp_buf;
     char *comment;
@@ -86,17 +86,26 @@ int testcase_nif_init(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 ERL_NIF_TERM
 testcase_nif_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+{ /* (ThrNr, FreeMeg, BuildType) */
     ERL_NIF_TERM ret;
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *)
              enif_alloc_resource(testcase_rt, sizeof(InternalTestCaseState_t));
+    int free_megabyte;
+    const int max_megabyte = INT_MAX / (1024*1024);
+    const ERL_NIF_TERM* tpl;
+    int tpl_arity;
 
-    if (!itcs || !enif_get_int(env, argv[0], &itcs->visible.thr_nr)) {
+    if (!itcs
+        || !enif_get_tuple(env, argv[0], &tpl_arity, &tpl)
+        || tpl_arity != 3
+	|| !enif_get_int(env, tpl[0], &itcs->visible.thr_nr)
+	|| !enif_get_int(env, tpl[1], &free_megabyte)) {
 	enif_make_badarg(env);
     }
-
+    itcs->visible.free_mem = (free_megabyte < max_megabyte ?
+                              free_megabyte : max_megabyte) * (1024*1024);
     itcs->visible.testcase_name = testcase_name();
-
+    itcs->visible.build_type = tpl[2];
     itcs->visible.extra = NULL;
     itcs->result = TESTCASE_FAILED;
     itcs->comment = "";
@@ -126,7 +135,7 @@ testcase_nif_run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_get_resource(env, argv[0], testcase_rt, (void**)&itcs))
 	return enif_make_badarg(env);
 
-    itcs->curr_env = env;
+    itcs->visible.curr_env = env;
 
     /* For some unknown reason, first call to setjmp crashes on win64
      * when jmp_buf is allocated as part of the resource. But it works when
@@ -146,6 +155,11 @@ testcase_nif_run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     case TESTCASE_SUCCEEDED: result_atom = "succeeded"; break;
     case TESTCASE_SKIPPED: result_atom = "skipped"; break;
     case TESTCASE_FAILED: result_atom = "failed"; break;
+    default:
+        result_atom = "failed";
+        my_snprintf(itcs->comment_buf, sizeof(itcs->comment_buf),
+		    "Unexpected test result code %d.", itcs->result);
+        itcs->comment = itcs->comment_buf;
     }
 
     return enif_make_tuple2(env, enif_make_atom(env, result_atom),
@@ -176,7 +190,7 @@ testcase_printf(TestCaseState_t *tcs, char *frmt, ...)
     msg = enif_make_tuple2(msg_env, print_atom,
 		    enif_make_string(msg_env, itcs->comment_buf, ERL_NIF_LATIN1));
 
-    enif_send(itcs->curr_env, enif_self(itcs->curr_env, &pid),
+    enif_send(itcs->visible.curr_env, enif_self(itcs->visible.curr_env, &pid),
 	      msg_env, msg);
 
     enif_free_env(msg_env);

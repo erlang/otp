@@ -24,8 +24,11 @@
 #include <stdlib.h>
 
 typedef struct {
+    ErlNifEnv* curr_env;
     char *testcase_name;
     int thr_nr;
+    int free_mem; /* in bytes */
+    ERL_NIF_TERM build_type;  /* opt, debug, valgrind, ... */
     void *extra;
 } TestCaseState_t;
 

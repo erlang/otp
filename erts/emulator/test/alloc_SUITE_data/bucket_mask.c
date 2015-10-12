@@ -52,7 +52,7 @@ testcase_run(TestCaseState_t *tcs)
     typedef struct linked_block {
 	struct linked_block* next;
     }Linked;
-    Linked* link;
+    Linked* link = NULL;
     Linked* fence_list;
     Linked* pad_list;
     void* tmp;
