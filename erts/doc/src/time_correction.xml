@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -897,6 +897,6 @@ EventTag = {Time, UMI}</code>
     and using these wrappers instead of using the API directly,
     the problem is solved. These wrappers can, for example,
     be implemented as in
-    <url href="time_compat.erl"><c>$ERL_TOP/erts/example/time_compat.erl</c></url>.</p>
+    <url href="time_compat.erl">$ERL_TOP/erts/example/time_compat.erl</url>.</p>
   </section>
 </chapter>

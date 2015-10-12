@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2014</year>
+      <year>2007</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -96,8 +96,8 @@ $ <input>escript factorial 5</input>        </pre>
         <note><p>
           The encoding specified by the above mentioned comment
           applies to the script itself. The encoding of the
-          I/O-server, however, has to be set explicitly like this:
-<code>io:setopts([{encoding, unicode}])</code></p>
+          I/O-server, however, has to be set explicitly like this:</p>
+<code>io:setopts([{encoding, unicode}])</code>
           <p>The default encoding of the I/O-server for <c>standard_io</c>
           is <c>latin1</c>
           since the script runs in a non-interactive terminal

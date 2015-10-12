@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2013</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -549,10 +549,10 @@ If Result > 0, the packet only consists of [119, Result].
 -->
 
     </section>
-    <marker id="distribution_handshake"/>
       <section>
 	<title>Distribution Handshake</title>
 	  <p>
+            <marker id="distribution_handshake"/>
 	    This section describes the distribution handshake protocol
 	    introduced in the OTP-R6 release of Erlang/OTP. This
 	    description was previously located in
