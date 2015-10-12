@@ -1572,7 +1572,7 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{fixed=>Val}},WS);
 	"Type" ->
 	    Val = val(Fd),
-	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{data_type=>Val}},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{data_type=Val},WS);
 	"Protection" ->
 	    Val = val(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{protection=>Val}},WS);
