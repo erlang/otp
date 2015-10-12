@@ -290,7 +290,7 @@ call_to_deprecated(Config) when is_list(Config) ->
 call_to_size_1(Config) when is_list(Config) ->
     %% Applications that do not call erlang:size/1:
     Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
-	    runtime_tools,stdlib,tools,webtool],
+	    runtime_tools,stdlib,tools],
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
@@ -298,7 +298,7 @@ call_to_now_0(Config) when is_list(Config) ->
     Apps = [asn1,common_test,compiler,debugger,dialyzer,
 	    gs,kernel,mnesia,observer,parsetools,reltool,
 	    runtime_tools,sasl,stdlib,syntax_tools,
-	    test_server,tools,webtool],
+	    test_server,tools],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->

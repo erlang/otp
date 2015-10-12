@@ -20,9 +20,7 @@
 -module(cover).
 
 %%
-%% This module implements the Erlang coverage tool. The module named
-%% cover_web implements a user interface for the coverage tool to run
-%% under webtool.
+%% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
 %% The coverage tool consists of one process on each node involved in
