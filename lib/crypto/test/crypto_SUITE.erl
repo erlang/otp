@@ -29,7 +29,7 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app,
      appup,
      {group, md4},
@@ -62,7 +62,7 @@ all() ->
      {group, aes_ecb},
      {group, aes_ige256},
      {group, rc2_cbc},
-     {group, rc4}, 
+     {group, rc4},
      {group, aes_ctr},
      {group, aes_gcm},
      {group, chacha20_poly1305},
@@ -71,7 +71,7 @@ all() ->
      rand_uniform
     ].
 
-groups() -> 
+groups() ->
     [{md4, [], [hash]},
      {md5, [], [hash, hmac]},
      {ripemd160, [], [hash]},
@@ -80,7 +80,7 @@ groups() ->
      {sha256, [], [hash, hmac]},
      {sha384, [], [hash, hmac]},
      {sha512, [], [hash, hmac]},
-     {rsa, [], [sign_verify, 
+     {rsa, [], [sign_verify,
 		public_encrypt
 	       ]},
      {dss, [], [sign_verify]},
@@ -104,7 +104,7 @@ groups() ->
      {blowfish_ecb, [], [block]},
      {blowfish_cfb64, [], [block]},
      {blowfish_ofb64,[], [block]},
-     {rc4, [], [stream]}, 
+     {rc4, [], [stream]},
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
      {chacha20_poly1305, [], [aead]}
@@ -182,7 +182,7 @@ hash(Config) when is_list(Config) ->
     hash(Type, Msgs, Digests),
     hash(Type, lists:map(fun iolistify/1, Msgs), Digests),
     hash_increment(Type, Inc, IncrDigest).
-%%-------------------------------------------------------------------- 
+%%--------------------------------------------------------------------
 hmac() ->
      [{doc, "Test all different hmac functions"}].
 hmac(Config) when is_list(Config) ->
@@ -218,14 +218,14 @@ aead(Config) when is_list(Config) ->
 
     lists:foreach(fun aead_cipher/1, AEADs).
 
-%%-------------------------------------------------------------------- 
+%%--------------------------------------------------------------------
 sign_verify() ->
      [{doc, "Sign/verify digital signatures"}].
 sign_verify(Config) when is_list(Config) ->
     SignVerify = proplists:get_value(sign_verify, Config),
     lists:foreach(fun do_sign_verify/1, SignVerify).
 
-%%-------------------------------------------------------------------- 
+%%--------------------------------------------------------------------
 public_encrypt() ->
      [{doc, "Test public_encrypt/decrypt and private_encrypt/decrypt functions. "}].
 public_encrypt(Config) when is_list(Config) ->
@@ -289,7 +289,7 @@ hash_increment(Type, Increments, Digest) ->
 	Digest ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, "hash_init/update/final", [Type, Increments]}, {expected, Digest}, {got, Other}})  
+	    ct:fail({{crypto, "hash_init/update/final", [Type, Increments]}, {expected, Digest}, {got, Other}})
     end.
 
 hash_increment(State, []) ->
@@ -306,7 +306,7 @@ hmac(sha = Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expe
 	    ok;
 	Other ->
 	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
+    end,
     hmac(Type, Keys, Rest, Expects);
 
 hmac(Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected | Expects]) ->
@@ -315,7 +315,7 @@ hmac(Type, [Key | Keys], [ <<"Test With Truncation">> = Data| Rest], [Expected |
 	    ok;
 	Other ->
 	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
+    end,
     hmac(Type, Keys, Rest, Expects);
 
 hmac(Type, [Key | Keys], [Data| Rest], [Expected | Expects]) ->
@@ -324,7 +324,7 @@ hmac(Type, [Key | Keys], [Data| Rest], [Expected | Expects]) ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, hmac, [Type, Key, Data]}, {expected, Expected}, {got, Other}})
-    end,  
+    end,
     hmac(Type, Keys, Rest, Expects).
 
 hmac_increment(Type) ->
@@ -336,7 +336,7 @@ hmac_increment(Type) ->
 	Expected ->
 	    ok;
 	Other ->
-	    ct:fail({{crypto, "hmac_init/update/final", [Type, Increments]}, {expected, Expected}, {got, Other}})  
+	    ct:fail({{crypto, "hmac_init/update/final", [Type, Increments]}, {expected, Expected}, {got, Other}})
     end.
 
 hmac_increment(State, []) ->
@@ -367,7 +367,7 @@ block_cipher({Type, Key,  IV, PlainText}) ->
 
 block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
 							 Type == des3_cbc;
-							 Type == aes_cbc; 
+							 Type == aes_cbc;
 							 Type == des_cbf
 							 ->
      block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
@@ -450,7 +450,7 @@ do_sign_verify({Type, Hash, Public, Private, Msg}) ->
 	    negative_verify(Type, Hash, Msg, <<10,20>>, Public);
 	false ->
 	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}})
-    end. 
+    end.
 
 negative_verify(Type, Hash, Msg, Signature, Public) ->
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
@@ -467,7 +467,7 @@ do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
-    end. 
+    end.
 
 do_private_encrypt({_Type, _Public, _Private, _Msg, rsa_pkcs1_oaep_padding}) ->
     ok; %% Not supported by openssl
@@ -479,7 +479,7 @@ do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
 	Other ->
 	    ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, Other}})
     end.
-     
+
 do_generate_compute({srp = Type, UserPrivate, UserGenParams, UserComParams,
 		     HostPublic, HostPrivate, HostGenParams, HostComParam, SessionKey}) ->
     {UserPublic, UserPrivate} = crypto:generate_key(Type, UserGenParams, UserPrivate),
@@ -493,7 +493,7 @@ do_generate_compute({dh, P, G}) ->
     {HostPub, HostPriv} = crypto:generate_key(dh, [P, G]),
     SharedSecret = crypto:compute_key(dh, HostPub, UserPriv, [P, G]),
     SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]).
-    
+
 do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
     Secret = crypto:compute_key(Type, Pub, Priv, Curve),
      case Secret of
@@ -529,7 +529,7 @@ mkint(C) when $a =< C, C =< $f ->
     C - $a + 10.
 
 is_supported(Group) ->
-    lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])). 
+    lists:member(Group, lists:append([Algo ||  {_, Algo}  <- crypto:supports()])).
 
 block_iolistify(Blocks) ->
     lists:map(fun do_block_iolistify/1, Blocks).
@@ -570,7 +570,7 @@ iolistify(Msg) when is_binary(Msg) ->
 iolistify(Msg) ->
     iolistify(list_to_binary(Msg)).
 
-des_iolistify(Msg) ->    
+des_iolistify(Msg) ->
     des_iolist(erlang:byte_size(Msg) div 8, Msg, []).
 
 des_iolist(1, Msg, Acc) ->
@@ -589,9 +589,9 @@ mod_pow_aux_test(B, E, M, N) ->
 
 %% mod_exp in erlang (copied from jungerl's ssh_math.erl)
 ipow(A, B, M) when M > 0, B >= 0 ->
-    if A == 1 -> 
+    if A == 1 ->
  	    1;
-       true -> 
+       true ->
  	    ipow(A, B, M, 1)
     end.
 
@@ -681,7 +681,7 @@ group_config(sha = Type, Config) ->
     Hmac = rfc_2202_hmac_sha()  ++ [long_hmac(sha)],
     [{hash, {Type, Msgs, Digests}}, {hmac, {Type, Keys, Data, Hmac}} | Config];
 group_config(sha224 = Type, Config) ->
-    Msgs = [rfc_4634_test1(), rfc_4634_test2_1()], 
+    Msgs = [rfc_4634_test1(), rfc_4634_test2_1()],
     Digests = rfc_4634_sha224_digests(),
     Keys = rfc_4231_keys(),
     Data = rfc_4231_msgs(),
@@ -723,8 +723,8 @@ group_config(rsa = Type, Config) ->
     [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
-    Public = dss_params() ++ [dss_public()], 
-    Private = dss_params() ++ [dss_private()], 
+    Public = dss_params() ++ [dss_public()],
+    Private = dss_params() ++ [dss_private()],
     SignVerify = [{Type, sha, Public, Private, Msg}],
     [{sign_verify, SignVerify} | Config];
 
@@ -769,7 +769,7 @@ group_config(aes_cbc256, Config) ->
     [{block, Block} | Config];
 group_config(aes_ecb, Config) ->
     Block = aes_ecb(),
-    [{block, Block} | Config];    
+    [{block, Block} | Config];
 group_config(aes_ige256, Config) ->
     Block = aes_ige256(),
     [{block, Block} | Config];
@@ -811,7 +811,7 @@ sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS) ->
 	sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS).
 
 sign_verify_tests(Type, Hashs, Msg, Public, Private) ->
-    lists:foldl(fun(Hash, Acc) -> 
+    lists:foldl(fun(Hash, Acc) ->
 			case is_supported(Hash) of
 			    true ->
 				[{Type, Hash,  Public, Private, Msg}|Acc];
@@ -821,9 +821,9 @@ sign_verify_tests(Type, Hashs, Msg, Public, Private) ->
 		end, [], Hashs).
 
 rfc_1321_msgs() ->
-    [<<"">>, 
+    [<<"">>,
      <<"a">>,
-     <<"abc">>, 
+     <<"abc">>,
      <<"message digest">>,
      <<"abcdefghijklmnopqrstuvwxyz">>,
      <<"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789">>,
@@ -860,7 +860,7 @@ rfc_4634_test2() ->
     A2 =rfc_4634_test2_2a(),
     B2 = rfc_4634_test2_2b(),
     <<A2/binary, B2/binary>>.
- 
+
 rfc_4634_sha_digests()->
      [hexstr2bin("A9993E364706816ABA3E25717850C26C9CD0D89D"),
       hexstr2bin("84983E441C3BD26EBAAE4AA1F95129E5E54670F1")].
@@ -878,7 +878,7 @@ rfc_4634_sha384_digests() ->
     [hexstr2bin("CB00753F45A35E8BB5A03D699AC65007272C32AB0EDED1631A8B605A43FF5BED8086072BA1E7CC2358BAECA134C825A7"),
      hexstr2bin("09330C33F71147E83D192FC782CD1B4753111B173B3B05D22FA08086E3B0F712FCC7C71A557E2DB966C3E9FA91746039")
     ].
-rfc_4634_sha512_digests() -> 
+rfc_4634_sha512_digests() ->
     [hexstr2bin("DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA2"
 		"0A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD"
 		"454D4423643CE80E2A9AC94FA54CA49F"),
@@ -1033,7 +1033,7 @@ rfc_4231_keys() ->
      binary:copy(<<16#aa>>, 131),
      binary:copy(<<16#aa>>, 131)
     ].
-    
+
 rfc_4231_msgs() ->
     [<<"Hi There">>,
      <<"what do ya want for nothing?">>,
@@ -1045,7 +1045,7 @@ rfc_4231_msgs() ->
        "han block-size data. The key needs to be hashed before being use",
        "d by the HMAC algorithm.">>
     ].
-    
+
 rfc4231_hmac_sha224() ->
     [hexstr2bin("896fb1128abbdf196832107cd49df33f"
 		       "47b4b1169912ba4f53684b22"),
@@ -1122,20 +1122,20 @@ rfc4231_hmac_sha512() ->
 		"b6022cac3c4982b10d5eeb55c3e4de15"
 		"134676fb6de0446065c97440fa8c6a58")].
 des_cbc() ->
-    [{des_cbc, 
-     hexstr2bin("0123456789abcdef"), 
+    [{des_cbc,
+     hexstr2bin("0123456789abcdef"),
      hexstr2bin("1234567890abcdef"),
      <<"Now is the time for all ">> }].
-      
+
 des_cfb() ->
-    [{des_cfb, 
+    [{des_cfb,
      hexstr2bin("0123456789abcdef"),
      hexstr2bin("1234567890abcdef"),
      <<"Now is the">>}].
 
 des3_cbc() ->
     [{des3_cbc,
-     [hexstr2bin("0123456789abcdef"), 
+     [hexstr2bin("0123456789abcdef"),
       hexstr2bin("fedcba9876543210"),
       hexstr2bin("0f2d4b6987a5c3e1")],
      hexstr2bin("1234567890abcdef"),
@@ -1153,7 +1153,7 @@ des_ede3() ->
 
 des3_cbf() ->
     [{des3_cbf,
-     [hexstr2bin("0123456789abcdef"), 
+     [hexstr2bin("0123456789abcdef"),
       hexstr2bin("fedcba9876543210"),
       hexstr2bin("0f2d4b6987a5c3e1")],
      hexstr2bin("1234567890abcdef"),
@@ -1168,139 +1168,139 @@ rc2_cbc() ->
      }].
 aes_cbc128() ->
     [{aes_cbc128,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
      {aes_cbc128,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("7649ABAC8119B246CEE98E9B12E9197D"),
       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
      {aes_cbc128,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("5086CB9B507219EE95DB113A917678B2"),
       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
      {aes_cbc128,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("73BED6B8E3C1743B7116E69E22229516"),
       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
     ].
 
-aes_cbc256() -> 
+aes_cbc256() ->
     [{aes_cbc256,
-      hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
+      hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
       hexstr2bin("000102030405060708090A0B0C0D0E0F"),
       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
       {aes_cbc256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
        hexstr2bin("F58C4C04D6E5F1BA779EABFB5F7BFBD6"),
        hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
       {aes_cbc256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
        hexstr2bin("9CFC4E967EDB808D679F777BC6702C7D"),
        hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
       {aes_cbc256,
-       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
        hexstr2bin("39F23369A9D9BACFA530E26304231461"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
-aes_ecb() -> 
+aes_ecb() ->
     [
      {aes_ecb,
-      <<"YELLOW SUBMARINE">>, 
+      <<"YELLOW SUBMARINE">>,
       <<"YELLOW SUBMARINE">>},
      {aes_ecb,
-      <<"0000000000000000">>, 
+      <<"0000000000000000">>,
       <<"0000000000000000">>},
      {aes_ecb,
-      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"FFFFFFFFFFFFFFFF">>,
       <<"FFFFFFFFFFFFFFFF">>},
      {aes_ecb,
-      <<"3000000000000000">>, 
+      <<"3000000000000000">>,
       <<"1000000000000001">>},
      {aes_ecb,
-      <<"1111111111111111">>, 
+      <<"1111111111111111">>,
       <<"1111111111111111">>},
      {aes_ecb,
-      <<"0123456789ABCDEF">>, 
+      <<"0123456789ABCDEF">>,
       <<"1111111111111111">>},
      {aes_ecb,
-      <<"0000000000000000">>, 
+      <<"0000000000000000">>,
       <<"0000000000000000">>},
      {aes_ecb,
-      <<"FEDCBA9876543210">>, 
+      <<"FEDCBA9876543210">>,
       <<"0123456789ABCDEF">>},
      {aes_ecb,
-      <<"7CA110454A1A6E57">>, 
+      <<"7CA110454A1A6E57">>,
       <<"01A1D6D039776742">>},
      {aes_ecb,
-      <<"0131D9619DC1376E">>, 
+      <<"0131D9619DC1376E">>,
       <<"5CD54CA83DEF57DA">>},
      {aes_ecb,
-      <<"07A1133E4A0B2686">>, 
+      <<"07A1133E4A0B2686">>,
       <<"0248D43806F67172">>},
      {aes_ecb,
-      <<"3849674C2602319E">>, 
+      <<"3849674C2602319E">>,
       <<"51454B582DDF440A">>},
      {aes_ecb,
-      <<"04B915BA43FEB5B6">>, 
+      <<"04B915BA43FEB5B6">>,
       <<"42FD443059577FA2">>},
      {aes_ecb,
-      <<"0113B970FD34F2CE">>, 
+      <<"0113B970FD34F2CE">>,
       <<"059B5E0851CF143A">>},
      {aes_ecb,
-      <<"0170F175468FB5E6">>, 
+      <<"0170F175468FB5E6">>,
       <<"0756D8E0774761D2">>},
      {aes_ecb,
-      <<"43297FAD38E373FE">>, 
+      <<"43297FAD38E373FE">>,
       <<"762514B829BF486A">>},
      {aes_ecb,
-      <<"07A7137045DA2A16">>, 
+      <<"07A7137045DA2A16">>,
       <<"3BDD119049372802">>},
      {aes_ecb,
-      <<"04689104C2FD3B2F">>, 
+      <<"04689104C2FD3B2F">>,
       <<"26955F6835AF609A">>},
      {aes_ecb,
-      <<"37D06BB516CB7546">>, 
+      <<"37D06BB516CB7546">>,
       <<"164D5E404F275232">>},
      {aes_ecb,
-      <<"1F08260D1AC2465E">>, 
+      <<"1F08260D1AC2465E">>,
       <<"6B056E18759F5CCA">>},
      {aes_ecb,
-      <<"584023641ABA6176">>, 
+      <<"584023641ABA6176">>,
       <<"004BD6EF09176062">>},
      {aes_ecb,
-      <<"025816164629B007">>, 
+      <<"025816164629B007">>,
       <<"480D39006EE762F2">>},
      {aes_ecb,
-      <<"49793EBC79B3258F">>, 
+      <<"49793EBC79B3258F">>,
       <<"437540C8698F3CFA">>},
      {aes_ecb,
-      <<"018310DC409B26D6">>, 
+      <<"018310DC409B26D6">>,
       <<"1D9D5C5018F728C2">>},
      {aes_ecb,
-      <<"1C587F1C13924FEF">>, 
+      <<"1C587F1C13924FEF">>,
       <<"305532286D6F295A">>},
      {aes_ecb,
-      <<"0101010101010101">>, 
+      <<"0101010101010101">>,
       <<"0123456789ABCDEF">>},
      {aes_ecb,
-      <<"1F1F1F1F0E0E0E0E">>, 
+      <<"1F1F1F1F0E0E0E0E">>,
       <<"0123456789ABCDEF">>},
      {aes_ecb,
-      <<"E0FEE0FEF1FEF1FE">>, 
+      <<"E0FEE0FEF1FEF1FE">>,
       <<"0123456789ABCDEF">>},
      {aes_ecb,
-      <<"0000000000000000">>, 
+      <<"0000000000000000">>,
       <<"FFFFFFFFFFFFFFFF">>},
      {aes_ecb,
-      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"FFFFFFFFFFFFFFFF">>,
       <<"0000000000000000">>},
      {aes_ecb,
-      <<"0123456789ABCDEF">>, 
+      <<"0123456789ABCDEF">>,
       <<"0000000000000000">>},
      {aes_ecb,
-      <<"FEDCBA9876543210">>, 
+      <<"FEDCBA9876543210">>,
       <<"FFFFFFFFFFFFFFFF">>},
      %% AES ECB test vectors from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
      %% F.1.1 ECB-AES128.Encrypt, F.1.2 ECB-AES128.Decrypt
@@ -1339,21 +1339,21 @@ aes_ige256() ->
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
-aes_cfb8() -> 
+aes_cfb8() ->
     [{aes_cfb8,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
       {aes_cfb8,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("3B3FD92EB72DAD20333449F8E83CFB4A"),
        hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
       {aes_cfb8,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("C8A64537A0B3A93FCDE3CDAD9F1CE58B"),
        hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
       {aes_cfb8,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("26751F67A3CBB140B1808CF187A4F4DF"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
       {aes_cfb8,
@@ -1390,21 +1390,21 @@ aes_cfb8() ->
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
-aes_cfb128() -> 
+aes_cfb128() ->
     [{aes_cfb128,
-      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
       {aes_cfb128,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("3B3FD92EB72DAD20333449F8E83CFB4A"),
        hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
       {aes_cfb128,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("C8A64537A0B3A93FCDE3CDAD9F1CE58B"),
        hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
       {aes_cfb128,
-       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
        hexstr2bin("26751F67A3CBB140B1808CF187A4F4DF"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
       {aes_cfb128,
@@ -1443,7 +1443,7 @@ aes_cfb128() ->
 
 blowfish_cbc() ->
     [{blowfish_cbc,
-      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"), 
+      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"),
       hexstr2bin("FEDCBA9876543210"),
       hexstr2bin("37363534333231204E6F77206973207468652074696D6520666F722000000000")
      }].
@@ -1451,109 +1451,109 @@ blowfish_cbc() ->
 blowfish_ecb() ->
     [
      {blowfish_ecb,
-      hexstr2bin("0000000000000000"), 
+      hexstr2bin("0000000000000000"),
       hexstr2bin("0000000000000000")},
      {blowfish_ecb,
-      hexstr2bin("FFFFFFFFFFFFFFFF"), 
+      hexstr2bin("FFFFFFFFFFFFFFFF"),
       hexstr2bin("FFFFFFFFFFFFFFFF")},
      {blowfish_ecb,
-      hexstr2bin("3000000000000000"), 
+      hexstr2bin("3000000000000000"),
       hexstr2bin("1000000000000001")},
      {blowfish_ecb,
-      hexstr2bin("1111111111111111"), 
+      hexstr2bin("1111111111111111"),
       hexstr2bin("1111111111111111")},
      {blowfish_ecb,
-      hexstr2bin("0123456789ABCDEF"), 
+      hexstr2bin("0123456789ABCDEF"),
       hexstr2bin("1111111111111111")},
      {blowfish_ecb,
-      hexstr2bin("0000000000000000"), 
+      hexstr2bin("0000000000000000"),
       hexstr2bin("0000000000000000")},
      {blowfish_ecb,
-      hexstr2bin("FEDCBA9876543210"), 
+      hexstr2bin("FEDCBA9876543210"),
       hexstr2bin("0123456789ABCDEF")},
      {blowfish_ecb,
-      hexstr2bin("7CA110454A1A6E57"), 
+      hexstr2bin("7CA110454A1A6E57"),
       hexstr2bin("01A1D6D039776742")},
      {blowfish_ecb,
-      hexstr2bin("0131D9619DC1376E"), 
+      hexstr2bin("0131D9619DC1376E"),
       hexstr2bin("5CD54CA83DEF57DA")},
      {blowfish_ecb,
-      hexstr2bin("07A1133E4A0B2686"), 
+      hexstr2bin("07A1133E4A0B2686"),
       hexstr2bin("0248D43806F67172")},
      {blowfish_ecb,
-      hexstr2bin("3849674C2602319E"), 
+      hexstr2bin("3849674C2602319E"),
       hexstr2bin("51454B582DDF440A")},
      {blowfish_ecb,
-      hexstr2bin("04B915BA43FEB5B6"), 
+      hexstr2bin("04B915BA43FEB5B6"),
       hexstr2bin("42FD443059577FA2")},
      {blowfish_ecb,
-      hexstr2bin("0113B970FD34F2CE"), 
+      hexstr2bin("0113B970FD34F2CE"),
       hexstr2bin("059B5E0851CF143A")},
      {blowfish_ecb,
-      hexstr2bin("0170F175468FB5E6"), 
+      hexstr2bin("0170F175468FB5E6"),
       hexstr2bin("0756D8E0774761D2")},
      {blowfish_ecb,
-      hexstr2bin("43297FAD38E373FE"), 
+      hexstr2bin("43297FAD38E373FE"),
       hexstr2bin("762514B829BF486A")},
      {blowfish_ecb,
-      hexstr2bin("07A7137045DA2A16"), 
+      hexstr2bin("07A7137045DA2A16"),
       hexstr2bin("3BDD119049372802")},
      {blowfish_ecb,
-      hexstr2bin("04689104C2FD3B2F"), 
+      hexstr2bin("04689104C2FD3B2F"),
       hexstr2bin("26955F6835AF609A")},
      {blowfish_ecb,
-      hexstr2bin("37D06BB516CB7546"), 
+      hexstr2bin("37D06BB516CB7546"),
       hexstr2bin("164D5E404F275232")},
      {blowfish_ecb,
-      hexstr2bin("1F08260D1AC2465E"), 
+      hexstr2bin("1F08260D1AC2465E"),
       hexstr2bin("6B056E18759F5CCA")},
      {blowfish_ecb,
-      hexstr2bin("584023641ABA6176"), 
+      hexstr2bin("584023641ABA6176"),
       hexstr2bin("004BD6EF09176062")},
      {blowfish_ecb,
-      hexstr2bin("025816164629B007"), 
+      hexstr2bin("025816164629B007"),
       hexstr2bin("480D39006EE762F2")},
      {blowfish_ecb,
-      hexstr2bin("49793EBC79B3258F"), 
+      hexstr2bin("49793EBC79B3258F"),
       hexstr2bin("437540C8698F3CFA")},
      {blowfish_ecb,
-      hexstr2bin("018310DC409B26D6"), 
+      hexstr2bin("018310DC409B26D6"),
       hexstr2bin("1D9D5C5018F728C2")},
      {blowfish_ecb,
-      hexstr2bin("1C587F1C13924FEF"), 
+      hexstr2bin("1C587F1C13924FEF"),
       hexstr2bin("305532286D6F295A")},
      {blowfish_ecb,
-      hexstr2bin("0101010101010101"), 
+      hexstr2bin("0101010101010101"),
       hexstr2bin("0123456789ABCDEF")},
      {blowfish_ecb,
-      hexstr2bin("1F1F1F1F0E0E0E0E"), 
+      hexstr2bin("1F1F1F1F0E0E0E0E"),
       hexstr2bin("0123456789ABCDEF")},
      {blowfish_ecb,
-      hexstr2bin("E0FEE0FEF1FEF1FE"), 
+      hexstr2bin("E0FEE0FEF1FEF1FE"),
       hexstr2bin("0123456789ABCDEF")},
      {blowfish_ecb,
-      hexstr2bin("0000000000000000"), 
+      hexstr2bin("0000000000000000"),
       hexstr2bin("FFFFFFFFFFFFFFFF")},
      {blowfish_ecb,
-      hexstr2bin("FFFFFFFFFFFFFFFF"), 
+      hexstr2bin("FFFFFFFFFFFFFFFF"),
       hexstr2bin("0000000000000000")},
      {blowfish_ecb,
-      hexstr2bin("0123456789ABCDEF"), 
+      hexstr2bin("0123456789ABCDEF"),
       hexstr2bin("0000000000000000")},
      {blowfish_ecb,
-      hexstr2bin("FEDCBA9876543210"), 
+      hexstr2bin("FEDCBA9876543210"),
       hexstr2bin("FFFFFFFFFFFFFFFF")}
     ].
 
 blowfish_cfb64() ->
     [{blowfish_cfb64,
-      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"), 
+      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"),
       hexstr2bin("FEDCBA9876543210"),
       hexstr2bin("37363534333231204E6F77206973207468652074696D6520666F722000")
      }].
 blowfish_ofb64() ->
     [{blowfish_ofb64,
-      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"), 
+      hexstr2bin("0123456789ABCDEFF0E1D2C3B4A59687"),
       hexstr2bin("FEDCBA9876543210"),
       hexstr2bin("37363534333231204E6F77206973207468652074696D6520666F722000")
      }].
@@ -1566,45 +1566,45 @@ rc4() ->
 
 aes_ctr() ->
     [  %% F.5.3  CTR-AES192.Encrypt
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
+       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
 	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
+       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"),
 	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
+       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"),
 	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef") },
-       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
+       {aes_ctr, hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"),
 	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
-       
+
        %% F.5.3  CTR-AES192.Encrypt
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
+       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
 	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
+       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"),
 	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
+       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"),
 	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
+       {aes_ctr, hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"),
 	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
-       
+
        %% F.5.5  CTR-AES256.Encrypt
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 
+       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
 	hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"), 
+       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff00"),
 	hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"), 
+       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff01"),
 	hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
-       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"), 
-	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"), 
+       {aes_ctr, hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdff02"),
 	hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
 
        {aes_ctr,  hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
@@ -1894,14 +1894,14 @@ dss_plain() ->
 dss_public() ->
     25854665488880835237281628794585130313500176551981812527054397586638455298000483144002221850980183404910190346416063318160497344811383498859129095184158800144312512447497510551471331451396405348497845813002058423110442376886564659959543650802132345311573634832461635601376738282831340827591903548964194832978.
 dss_private() ->
-    441502407453038284293378221372000880210588566361.  
+    441502407453038284293378221372000880210588566361.
 dss_params() ->
     [109799869232806890760655301608454668257695818999841877165019612946154359052535682480084145133201304812979481136659521529774182959764860329095546511521488413513097576425638476458000255392402120367876345280670101492199681798674053929238558140260669578407351853803102625390950534052428162468100618240968893110797,
      1349199015905534965792122312016505075413456283393,
      18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669].
 
 ec_key_named() ->
-    Curve = secp112r2,
+    Curve = hd(crypto:ec_curves()),
     {D2_pub, D2_priv} = crypto:generate_key(ecdh, Curve),
     {[D2_priv, Curve], [D2_pub, Curve]}.
 
@@ -1948,8 +1948,8 @@ srp3() ->
 			    "9176A9192615DC0277AE7C12F1F6A7F6563FCA11675D809AF578BDE5"
 			    "2B51E05D440B63099A017A0B45044801"),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
-    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime), 
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime),
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
     srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
 
 srp6() ->
@@ -1990,7 +1990,7 @@ srp6() ->
 				 "72E992AAD89095A84B6A5FADA152369AB1E350A03693BEF044DF3EDF"
 				 "0C34741F4696C30E9F675D09F58ACBEB"),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime),
     ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
     srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
 
@@ -2016,7 +2016,7 @@ srp6a_smaller_prime() ->
 
     SessionKey = hexstr2bin("65581B2302580BD26F522A5A421CF969B9CCBCE4051196B034A2A9D22065D848"),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime),
     ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
     srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
 
@@ -2051,107 +2051,113 @@ srp6a() ->
 			      "6C6DA04453728610D0C6DDB58B318885D7D82C7F8DEB75CE7BD4FBAA"
 			      "37089E6F9C6059F388838E7A00030B331EB76840910440B1B27AAEAE"
 			      "EB4012B7D7665238A8E3FB004B117B58"),
-    
+
     SessionKey = hexstr2bin("B0DC82BABCF30674AE450C0287745E7990A3381F63B387AAF271A10D"
 			    "233861E359B48220F7C4693C9AE12B0A6F67809F0876E2D013800D6C"
 			    "41BB59B6D5979B5C00A172B4A2A5903A0BDCAF8A709585EB2AFAFA8F"
 			    "3499B200210DCC1F10EB33943CD67FC88A2F39A4BE5BEC4EC0A3212D"
 			    "C346D7E474B29EDE8A469FFECA686E5A"),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
-    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime), 
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime),
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
     srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
 
 srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey)->
-    {srp, ClientPrivate, 
-     {user, [Generator, Prime, Version]}, {user, [UserPassHash, Prime, Generator, Version, Scrambler]}, 
+    {srp, ClientPrivate,
+     {user, [Generator, Prime, Version]}, {user, [UserPassHash, Prime, Generator, Version, Scrambler]},
      ServerPublic, ServerPrivate, {host, [Verifier, Generator, Prime, Version]},
      {host, [Verifier, Prime, Version, Scrambler]},
      SessionKey}.
 ecdh() ->
     %% http://csrc.nist.gov/groups/STM/cavp/
-    [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
-            hexstr2bin("f17d3fea367b74d340851ca4270dcb24c271f445bed9d527"),
-            secp192r1,
-            hexstr2bin("803d8ab2e5b6e6fca715737c3a82f7ce3c783124f6d51cd0")},
-     {ecdh, hexstr2point("deb5712fa027ac8d2f22c455ccb73a91e17b6512b5e030e7", "7e2690a02cc9b28708431a29fb54b87b1f0c14e011ac2125"),
-            hexstr2bin("56e853349d96fe4c442448dacb7cf92bb7a95dcf574a9bd5"),
-            secp192r1,
-            hexstr2bin("c208847568b98835d7312cef1f97f7aa298283152313c29d")},
-     {ecdh, hexstr2point("af33cd0629bc7e996320a3f40368f74de8704fa37b8fab69abaae280", "882092ccbba7930f419a8a4f9bb16978bbc3838729992559a6f2e2d7"),
-            hexstr2bin("8346a60fc6f293ca5a0d2af68ba71d1dd389e5e40837942df3e43cbd"),
-            secp224r1,
-            hexstr2bin("7d96f9a3bd3c05cf5cc37feb8b9d5209d5c2597464dec3e9983743e8")},
-     {ecdh, hexstr2point("13bfcd4f8e9442393cab8fb46b9f0566c226b22b37076976f0617a46", "eeb2427529b288c63c2f8963c1e473df2fca6caa90d52e2f8db56dd4"),
-            hexstr2bin("043cb216f4b72cdf7629d63720a54aee0c99eb32d74477dac0c2f73d"),
-            secp224r1,
-            hexstr2bin("ee93ce06b89ff72009e858c68eb708e7bc79ee0300f73bed69bbca09")},
-     {ecdh, hexstr2point("700c48f77f56584c5cc632ca65640db91b6bacce3a4df6b42ce7cc838833d287", "db71e509e3fd9b060ddb20ba5c51dcc5948d46fbf640dfe0441782cab85fa4ac"),
-            hexstr2bin("7d7dc5f71eb29ddaf80d6214632eeae03d9058af1fb6d22ed80badb62bc1a534"),
-            secp256r1,
-            hexstr2bin("46fc62106420ff012e54a434fbdd2d25ccc5852060561e68040dd7778997bd7b")},
-     {ecdh, hexstr2point("809f04289c64348c01515eb03d5ce7ac1a8cb9498f5caa50197e58d43a86a7ae", "b29d84e811197f25eba8f5194092cb6ff440e26d4421011372461f579271cda3"),
-            hexstr2bin("38f65d6dce47676044d58ce5139582d568f64bb16098d179dbab07741dd5caf5"),
-            secp256r1,
-            hexstr2bin("057d636096cb80b67a8c038c890e887d1adfa4195e9b3ce241c8a778c59cda67")},
-     {ecdh, hexstr2point("a7c76b970c3b5fe8b05d2838ae04ab47697b9eaf52e764592efda27fe7513272734466b400091adbf2d68c58e0c50066", "ac68f19f2e1cb879aed43a9969b91a0839c4c38a49749b661efedf243451915ed0905a32b060992b468c64766fc8437a"),
-            hexstr2bin("3cc3122a68f0d95027ad38c067916ba0eb8c38894d22e1b15618b6818a661774ad463b205da88cf699ab4d43c9cf98a1"),
-            secp384r1,
-            hexstr2bin("5f9d29dc5e31a163060356213669c8ce132e22f57c9a04f40ba7fcead493b457e5621e766c40a2e3d4d6a04b25e533f1")},
-     {ecdh, hexstr2point("30f43fcf2b6b00de53f624f1543090681839717d53c7c955d1d69efaf0349b7363acb447240101cbb3af6641ce4b88e0", "25e46c0c54f0162a77efcc27b6ea792002ae2ba82714299c860857a68153ab62e525ec0530d81b5aa15897981e858757"),
-            hexstr2bin("92860c21bde06165f8e900c687f8ef0a05d14f290b3f07d8b3a8cc6404366e5d5119cd6d03fb12dc58e89f13df9cd783"),
-            secp384r1,
-            hexstr2bin("a23742a2c267d7425fda94b93f93bbcc24791ac51cd8fd501a238d40812f4cbfc59aac9520d758cf789c76300c69d2ff")},
-     {ecdh, hexstr2point("00685a48e86c79f0f0875f7bc18d25eb5fc8c0b07e5da4f4370f3a9490340854334b1e1b87fa395464c60626124a4e70d0f785601d37c09870ebf176666877a2046d", "01ba52c56fc8776d9e8f5db4f0cc27636d0b741bbe05400697942e80b739884a83bde99e0f6716939e632bc8986fa18dccd443a348b6c3e522497955a4f3c302f676"),
-            hexstr2bin("017eecc07ab4b329068fba65e56a1f8890aa935e57134ae0ffcce802735151f4eac6564f6ee9974c5e6887a1fefee5743ae2241bfeb95d5ce31ddcb6f9edb4d6fc47"),
-            secp521r1,
-            hexstr2bin("005fc70477c3e63bc3954bd0df3ea0d1f41ee21746ed95fc5e1fdf90930d5e136672d72cc770742d1711c3c3a4c334a0ad9759436a4d3c5bf6e74b9578fac148c831")},
-     {ecdh, hexstr2point("01df277c152108349bc34d539ee0cf06b24f5d3500677b4445453ccc21409453aafb8a72a0be9ebe54d12270aa51b3ab7f316aa5e74a951c5e53f74cd95fc29aee7a", "013d52f33a9f3c14384d1587fa8abe7aed74bc33749ad9c570b471776422c7d4505d9b0a96b3bfac041e4c6a6990ae7f700e5b4a6640229112deafa0cd8bb0d089b0"),
-            hexstr2bin("00816f19c1fb10ef94d4a1d81c156ec3d1de08b66761f03f06ee4bb9dcebbbfe1eaa1ed49a6a990838d8ed318c14d74cc872f95d05d07ad50f621ceb620cd905cfb8"),
-            secp521r1,
-            hexstr2bin("000b3920ac830ade812c8f96805da2236e002acbbf13596a9ab254d44d0e91b6255ebf1229f366fb5a05c5884ef46032c26d42189273ca4efa4c3db6bd12a6853759")},
+    Curves = crypto:ec_curves(),
+    TestCases =
+        [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
+          hexstr2bin("f17d3fea367b74d340851ca4270dcb24c271f445bed9d527"),
+          secp192r1,
+          hexstr2bin("803d8ab2e5b6e6fca715737c3a82f7ce3c783124f6d51cd0")},
+         {ecdh, hexstr2point("deb5712fa027ac8d2f22c455ccb73a91e17b6512b5e030e7", "7e2690a02cc9b28708431a29fb54b87b1f0c14e011ac2125"),
+          hexstr2bin("56e853349d96fe4c442448dacb7cf92bb7a95dcf574a9bd5"),
+          secp192r1,
+          hexstr2bin("c208847568b98835d7312cef1f97f7aa298283152313c29d")},
+         {ecdh, hexstr2point("af33cd0629bc7e996320a3f40368f74de8704fa37b8fab69abaae280", "882092ccbba7930f419a8a4f9bb16978bbc3838729992559a6f2e2d7"),
+          hexstr2bin("8346a60fc6f293ca5a0d2af68ba71d1dd389e5e40837942df3e43cbd"),
+          secp224r1,
+          hexstr2bin("7d96f9a3bd3c05cf5cc37feb8b9d5209d5c2597464dec3e9983743e8")},
+         {ecdh, hexstr2point("13bfcd4f8e9442393cab8fb46b9f0566c226b22b37076976f0617a46", "eeb2427529b288c63c2f8963c1e473df2fca6caa90d52e2f8db56dd4"),
+          hexstr2bin("043cb216f4b72cdf7629d63720a54aee0c99eb32d74477dac0c2f73d"),
+          secp224r1,
+          hexstr2bin("ee93ce06b89ff72009e858c68eb708e7bc79ee0300f73bed69bbca09")},
+         {ecdh, hexstr2point("700c48f77f56584c5cc632ca65640db91b6bacce3a4df6b42ce7cc838833d287", "db71e509e3fd9b060ddb20ba5c51dcc5948d46fbf640dfe0441782cab85fa4ac"),
+          hexstr2bin("7d7dc5f71eb29ddaf80d6214632eeae03d9058af1fb6d22ed80badb62bc1a534"),
+          secp256r1,
+          hexstr2bin("46fc62106420ff012e54a434fbdd2d25ccc5852060561e68040dd7778997bd7b")},
+         {ecdh, hexstr2point("809f04289c64348c01515eb03d5ce7ac1a8cb9498f5caa50197e58d43a86a7ae", "b29d84e811197f25eba8f5194092cb6ff440e26d4421011372461f579271cda3"),
+          hexstr2bin("38f65d6dce47676044d58ce5139582d568f64bb16098d179dbab07741dd5caf5"),
+          secp256r1,
+          hexstr2bin("057d636096cb80b67a8c038c890e887d1adfa4195e9b3ce241c8a778c59cda67")},
+         {ecdh, hexstr2point("a7c76b970c3b5fe8b05d2838ae04ab47697b9eaf52e764592efda27fe7513272734466b400091adbf2d68c58e0c50066", "ac68f19f2e1cb879aed43a9969b91a0839c4c38a49749b661efedf243451915ed0905a32b060992b468c64766fc8437a"),
+          hexstr2bin("3cc3122a68f0d95027ad38c067916ba0eb8c38894d22e1b15618b6818a661774ad463b205da88cf699ab4d43c9cf98a1"),
+          secp384r1,
+          hexstr2bin("5f9d29dc5e31a163060356213669c8ce132e22f57c9a04f40ba7fcead493b457e5621e766c40a2e3d4d6a04b25e533f1")},
+         {ecdh, hexstr2point("30f43fcf2b6b00de53f624f1543090681839717d53c7c955d1d69efaf0349b7363acb447240101cbb3af6641ce4b88e0", "25e46c0c54f0162a77efcc27b6ea792002ae2ba82714299c860857a68153ab62e525ec0530d81b5aa15897981e858757"),
+          hexstr2bin("92860c21bde06165f8e900c687f8ef0a05d14f290b3f07d8b3a8cc6404366e5d5119cd6d03fb12dc58e89f13df9cd783"),
+          secp384r1,
+          hexstr2bin("a23742a2c267d7425fda94b93f93bbcc24791ac51cd8fd501a238d40812f4cbfc59aac9520d758cf789c76300c69d2ff")},
+         {ecdh, hexstr2point("00685a48e86c79f0f0875f7bc18d25eb5fc8c0b07e5da4f4370f3a9490340854334b1e1b87fa395464c60626124a4e70d0f785601d37c09870ebf176666877a2046d", "01ba52c56fc8776d9e8f5db4f0cc27636d0b741bbe05400697942e80b739884a83bde99e0f6716939e632bc8986fa18dccd443a348b6c3e522497955a4f3c302f676"),
+          hexstr2bin("017eecc07ab4b329068fba65e56a1f8890aa935e57134ae0ffcce802735151f4eac6564f6ee9974c5e6887a1fefee5743ae2241bfeb95d5ce31ddcb6f9edb4d6fc47"),
+          secp521r1,
+          hexstr2bin("005fc70477c3e63bc3954bd0df3ea0d1f41ee21746ed95fc5e1fdf90930d5e136672d72cc770742d1711c3c3a4c334a0ad9759436a4d3c5bf6e74b9578fac148c831")},
+         {ecdh, hexstr2point("01df277c152108349bc34d539ee0cf06b24f5d3500677b4445453ccc21409453aafb8a72a0be9ebe54d12270aa51b3ab7f316aa5e74a951c5e53f74cd95fc29aee7a", "013d52f33a9f3c14384d1587fa8abe7aed74bc33749ad9c570b471776422c7d4505d9b0a96b3bfac041e4c6a6990ae7f700e5b4a6640229112deafa0cd8bb0d089b0"),
+          hexstr2bin("00816f19c1fb10ef94d4a1d81c156ec3d1de08b66761f03f06ee4bb9dcebbbfe1eaa1ed49a6a990838d8ed318c14d74cc872f95d05d07ad50f621ceb620cd905cfb8"),
+          secp521r1,
+          hexstr2bin("000b3920ac830ade812c8f96805da2236e002acbbf13596a9ab254d44d0e91b6255ebf1229f366fb5a05c5884ef46032c26d42189273ca4efa4c3db6bd12a6853759")},
 
-     %% RFC-6954, Appendix A
-     {ecdh, hexstr2point("A9C21A569759DA95E0387041184261440327AFE33141CA04B82DC92E",
-			 "98A0F75FBBF61D8E58AE5511B2BCDBE8E549B31E37069A2825F590C1"),
-            hexstr2bin("6060552303899E2140715816C45B57D9B42204FB6A5BF5BEAC10DB00"),
-            brainpoolP224r1,
-            hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
-     {ecdh, hexstr2point("034A56C550FF88056144E6DD56070F54B0135976B5BF77827313F36B",
-			 "75165AD99347DC86CAAB1CBB579E198EAF88DC35F927B358AA683681"),
-            hexstr2bin("39F155483CEE191FBECFE9C81D8AB1A03CDA6790E7184ACE44BCA161"),
-            brainpoolP224r1,
-            hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
-     {ecdh, hexstr2point("44106E913F92BC02A1705D9953A8414DB95E1AAA49E81D9E85F929A8E3100BE5",
-			 "8AB4846F11CACCB73CE49CBDD120F5A900A69FD32C272223F789EF10EB089BDC"),
-            hexstr2bin("55E40BC41E37E3E2AD25C3C6654511FFA8474A91A0032087593852D3E7D76BD3"),
-            brainpoolP256r1,
-            hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
-     {ecdh, hexstr2point("8D2D688C6CF93E1160AD04CC4429117DC2C41825E1E9FCA0ADDD34E6F1B39F7B",
-			 "990C57520812BE512641E47034832106BC7D3E8DD0E4C7F1136D7006547CEC6A"),
-            hexstr2bin("81DB1EE100150FF2EA338D708271BE38300CB54241D79950F77B063039804F1D"),
-            brainpoolP256r1,
-            hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
-     {ecdh, hexstr2point("68B665DD91C195800650CDD363C625F4E742E8134667B767B1B476793588F885AB698C852D4A6E77A252D6380FCAF068",
-			 "55BC91A39C9EC01DEE36017B7D673A931236D2F1F5C83942D049E3FA20607493E0D038FF2FD30C2AB67D15C85F7FAA59"),
-            hexstr2bin("032640BC6003C59260F7250C3DB58CE647F98E1260ACCE4ACDA3DD869F74E01F8BA5E0324309DB6A9831497ABAC96670"),
-            brainpoolP384r1,
-            hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
-     {ecdh, hexstr2point("4D44326F269A597A5B58BBA565DA5556ED7FD9A8A9EB76C25F46DB69D19DC8CE6AD18E404B15738B2086DF37E71D1EB4",
-			 "62D692136DE56CBE93BF5FA3188EF58BC8A3A0EC6C1E151A21038A42E9185329B5B275903D192F8D4E1F32FE9CC78C48"),
-            hexstr2bin("1E20F5E048A5886F1F157C74E91BDE2B98C8B52D58E5003D57053FC4B0BD65D6F15EB5D1EE1610DF870795143627D042"),
-            brainpoolP384r1,
-            hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
-     {ecdh, hexstr2point("0A420517E406AAC0ACDCE90FCD71487718D3B953EFD7FBEC5F7F27E28C6149999397E91E029E06457DB2D3E640668B392C2A7E737A7F0BF04436D11640FD09FD",
-			 "72E6882E8DB28AAD36237CD25D580DB23783961C8DC52DFA2EC138AD472A0FCEF3887CF62B623B2A87DE5C588301EA3E5FC269B373B60724F5E82A6AD147FDE7"),
-            hexstr2bin("230E18E1BCC88A362FA54E4EA3902009292F7F8033624FD471B5D8ACE49D12CFABBC19963DAB8E2F1EBA00BFFB29E4D72D13F2224562F405CB80503666B25429"),
-            brainpoolP512r1,
-            hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")},
-     {ecdh, hexstr2point("9D45F66DE5D67E2E6DB6E93A59CE0BB48106097FF78A081DE781CDB31FCE8CCBAAEA8DD4320C4119F1E9CD437A2EAB3731FA9668AB268D871DEDA55A5473199F",
-			 "2FDC313095BCDD5FB3A91636F07A959C8E86B5636A1E930E8396049CB481961D365CC11453A06C719835475B12CB52FC3C383BCE35E27EF194512B71876285FA"),
-            hexstr2bin("16302FF0DBBB5A8D733DAB7141C1B45ACBC8715939677F6A56850A38BD87BD59B09E80279609FF333EB9D4C061231FB26F92EEB04982A5F1D1764CAD57665422"),
-            brainpoolP512r1,
-            hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")}].
+         %% RFC-6954, Appendix A
+         {ecdh, hexstr2point("A9C21A569759DA95E0387041184261440327AFE33141CA04B82DC92E",
+                             "98A0F75FBBF61D8E58AE5511B2BCDBE8E549B31E37069A2825F590C1"),
+          hexstr2bin("6060552303899E2140715816C45B57D9B42204FB6A5BF5BEAC10DB00"),
+          brainpoolP224r1,
+          hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
+         {ecdh, hexstr2point("034A56C550FF88056144E6DD56070F54B0135976B5BF77827313F36B",
+                             "75165AD99347DC86CAAB1CBB579E198EAF88DC35F927B358AA683681"),
+          hexstr2bin("39F155483CEE191FBECFE9C81D8AB1A03CDA6790E7184ACE44BCA161"),
+          brainpoolP224r1,
+          hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
+         {ecdh, hexstr2point("44106E913F92BC02A1705D9953A8414DB95E1AAA49E81D9E85F929A8E3100BE5",
+                             "8AB4846F11CACCB73CE49CBDD120F5A900A69FD32C272223F789EF10EB089BDC"),
+          hexstr2bin("55E40BC41E37E3E2AD25C3C6654511FFA8474A91A0032087593852D3E7D76BD3"),
+          brainpoolP256r1,
+          hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
+         {ecdh, hexstr2point("8D2D688C6CF93E1160AD04CC4429117DC2C41825E1E9FCA0ADDD34E6F1B39F7B",
+                             "990C57520812BE512641E47034832106BC7D3E8DD0E4C7F1136D7006547CEC6A"),
+          hexstr2bin("81DB1EE100150FF2EA338D708271BE38300CB54241D79950F77B063039804F1D"),
+          brainpoolP256r1,
+          hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
+         {ecdh, hexstr2point("68B665DD91C195800650CDD363C625F4E742E8134667B767B1B476793588F885AB698C852D4A6E77A252D6380FCAF068",
+                             "55BC91A39C9EC01DEE36017B7D673A931236D2F1F5C83942D049E3FA20607493E0D038FF2FD30C2AB67D15C85F7FAA59"),
+          hexstr2bin("032640BC6003C59260F7250C3DB58CE647F98E1260ACCE4ACDA3DD869F74E01F8BA5E0324309DB6A9831497ABAC96670"),
+          brainpoolP384r1,
+          hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
+         {ecdh, hexstr2point("4D44326F269A597A5B58BBA565DA5556ED7FD9A8A9EB76C25F46DB69D19DC8CE6AD18E404B15738B2086DF37E71D1EB4",
+                             "62D692136DE56CBE93BF5FA3188EF58BC8A3A0EC6C1E151A21038A42E9185329B5B275903D192F8D4E1F32FE9CC78C48"),
+          hexstr2bin("1E20F5E048A5886F1F157C74E91BDE2B98C8B52D58E5003D57053FC4B0BD65D6F15EB5D1EE1610DF870795143627D042"),
+          brainpoolP384r1,
+          hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
+         {ecdh, hexstr2point("0A420517E406AAC0ACDCE90FCD71487718D3B953EFD7FBEC5F7F27E28C6149999397E91E029E06457DB2D3E640668B392C2A7E737A7F0BF04436D11640FD09FD",
+                             "72E6882E8DB28AAD36237CD25D580DB23783961C8DC52DFA2EC138AD472A0FCEF3887CF62B623B2A87DE5C588301EA3E5FC269B373B60724F5E82A6AD147FDE7"),
+          hexstr2bin("230E18E1BCC88A362FA54E4EA3902009292F7F8033624FD471B5D8ACE49D12CFABBC19963DAB8E2F1EBA00BFFB29E4D72D13F2224562F405CB80503666B25429"),
+          brainpoolP512r1,
+          hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")},
+         {ecdh, hexstr2point("9D45F66DE5D67E2E6DB6E93A59CE0BB48106097FF78A081DE781CDB31FCE8CCBAAEA8DD4320C4119F1E9CD437A2EAB3731FA9668AB268D871DEDA55A5473199F",
+                             "2FDC313095BCDD5FB3A91636F07A959C8E86B5636A1E930E8396049CB481961D365CC11453A06C719835475B12CB52FC3C383BCE35E27EF194512B71876285FA"),
+          hexstr2bin("16302FF0DBBB5A8D733DAB7141C1B45ACBC8715939677F6A56850A38BD87BD59B09E80279609FF333EB9D4C061231FB26F92EEB04982A5F1D1764CAD57665422"),
+          brainpoolP512r1,
+          hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")}],
+    lists:filter(fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
+                         lists:member(Curve, Curves)
+                 end,
+                 TestCases).
 
 dh() ->
     {dh, 0087761979513264537414556992123116644042638206717762626089877284926656954974893442000747478454809111207351620687968672207938731607963470779396984752680274820156266685080223616226905101126463253150237669547023934604953898814222890239130021414026118792251620881355456432549881723310342870016961804255746630219, 2}.
@@ -2178,18 +2184,24 @@ ecc() ->
 %% information about the curves see
 %%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
 %%
-    [{ecdh,secp192r1,1,
-      hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
-		   "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
-     {ecdh,secp192r1,2,
-      hexstr2point("DAFEBF5828783F2AD35534631588A3F629A70FB16982A888",
-		   "DD6BDA0D993DA0FA46B27BBC141B868F59331AFA5C7E93AB")},
-     {ecdh,secp192r1,3,
-      hexstr2point("76E32A2557599E6EDCD283201FB2B9AADFD0D359CBB263DA",
-		   "782C37E372BA4520AA62E0FED121D49EF3B543660CFD05FD")},
-     {ecdh,secp192r1,4,
-      hexstr2point("35433907297CC378B0015703374729D7A4FE46647084E4BA",
-		   "A2649984F2135C301EA3ACB0776CD4F125389B311DB3BE32")}].
+    Curves = crypto:ec_curves(),
+    TestCases =
+        [{ecdh,secp192r1,1,
+          hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
+                       "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
+         {ecdh,secp192r1,2,
+          hexstr2point("DAFEBF5828783F2AD35534631588A3F629A70FB16982A888",
+                       "DD6BDA0D993DA0FA46B27BBC141B868F59331AFA5C7E93AB")},
+         {ecdh,secp192r1,3,
+          hexstr2point("76E32A2557599E6EDCD283201FB2B9AADFD0D359CBB263DA",
+                       "782C37E372BA4520AA62E0FED121D49EF3B543660CFD05FD")},
+         {ecdh,secp192r1,4,
+          hexstr2point("35433907297CC378B0015703374729D7A4FE46647084E4BA",
+                       "A2649984F2135C301EA3ACB0776CD4F125389B311DB3BE32")}],
+    lists:filter(fun ({_Type, Curve, _Priv, _Pub}) ->
+                         lists:member(Curve, Curves)
+                 end,
+                 TestCases).
 
 no_padding() ->
     Public = [_, Mod] = rsa_public(),
