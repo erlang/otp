@@ -6752,6 +6752,15 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     Export e;
     Export* ep;
 
+    if (Mod == am_erlang && Name == am_apply && arity == 3) {
+	/*
+	 * Special case. apply/3 is built-in (implemented in C),
+	 * but implemented in a different way than all other
+	 * BIFs.
+	 */
+	return 1;
+    }
+
     e.code[0] = Mod;
     e.code[1] = Name;
     e.code[2] = arity;
