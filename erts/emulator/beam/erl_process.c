@@ -10834,7 +10834,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->bin_vheap_sz     = p->min_vheap_size;
     p->bin_old_vheap_sz = p->min_vheap_size;
     p->bin_old_vheap    = 0;
-    p->bin_vheap_mature = 0;
 
     p->sys_task_qs = NULL;
 
@@ -11054,7 +11053,6 @@ void erts_init_empty_process(Process *p)
     p->bin_old_vheap_sz = BIN_VH_MIN_SIZE;
     p->bin_old_vheap = 0;
     p->sys_task_qs = NULL;
-    p->bin_vheap_mature = 0;
     ERTS_PTMR_INIT(p);
     p->next = NULL;
     p->off_heap.first = NULL;
