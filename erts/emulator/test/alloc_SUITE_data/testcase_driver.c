@@ -25,14 +25,25 @@
 #include <string.h>
 
 #ifdef __WIN32__
-#undef HAVE_VSNPRINTF
-#define HAVE_VSNPRINTF 1
-#define vsnprintf _vsnprintf
+static void my_vsnprintf(char *outBuf, size_t size, const char *format, va_list ap)
+{
+    _vsnprintf(outBuf, size, format, ap);
+    outBuf[size-1] = 0;  /* be sure string is terminated */
+}
+#elif defined(HAVE_VSNPRINTF)
+#  define my_vsnprintf(B,S,F,A) (void)vsnprintf(B,S,F,A)
+#else
+#  warning Using unsafe 'vsprintf' without buffer overflow protection
+#  define my_vsnprintf(B,S,F,A) (void)vsprintf(B,F,A)
 #endif
 
-#ifndef HAVE_VSNPRINTF
-#define HAVE_VSNPRINTF 0
-#endif
+static void my_snprintf(char *outBuf, size_t size, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    my_vsnprintf(outBuf, size, format, ap);
+    va_end(ap);
+}
 
 #define COMMENT_BUF_SZ 4096
 
@@ -159,11 +170,7 @@ testcase_printf(TestCaseState_t *tcs, char *frmt, ...)
     ERL_NIF_TERM msg;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     msg = enif_make_tuple2(msg_env, print_atom,
@@ -181,11 +188,7 @@ void testcase_succeeded(TestCaseState_t *tcs, char *frmt, ...)
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_SUCCEEDED;
@@ -199,11 +202,7 @@ void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_SKIPPED;
@@ -226,11 +225,7 @@ void testcase_failed(TestCaseState_t *tcs, char *frmt, ...)
     size_t bufsz = sizeof(buf);
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_FAILED;
