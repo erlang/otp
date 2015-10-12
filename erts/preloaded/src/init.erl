@@ -724,7 +724,7 @@ do_boot(Flags,Start) ->
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
     {Pgm0,Nodes,Id,Path} = prim_load_flags(Flags),
-    Root = b2s(get_flag(root, Flags)),
+    Root = get_root(Flags),
     PathFls = path_flags(Flags),
     Pgm = b2s(Pgm0),
     _Pid = start_prim_loader(Init,b2a(Id),Pgm,bs2as(Nodes),
@@ -747,6 +747,14 @@ do_boot(Init,Flags,Start) ->
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
     start_em(Start).
+
+get_root(Flags) ->
+    case get_argument(root, Flags) of
+	{ok,[[Root]]} ->
+	    Root;
+	_ ->
+	    exit(no_or_multiple_root_variables)
+    end.
 
 bootfile(Flags,Root) ->
     b2s(get_flag(boot, Flags, concat([Root,"/bin/start"]))).
@@ -1180,44 +1188,28 @@ get_args([], As) -> {reverse(As),[]}.
 %%         atom() if a single arg was given.
 %%         list(atom()) if several args were given.
 %%
-get_flag(F,Flags,Default) ->
-    case catch get_flag(F,Flags) of
-	{'EXIT',_} ->
-	    Default;
-	Value ->
-	    Value
-    end.
-
-get_flag(F,Flags) ->
-    case search(F,Flags) of
-	{value,{F,[]}} ->
+get_flag(F, Flags, Default) ->
+    case lists:keyfind(F, 1, Flags) of
+	{F,[]} ->
 	    true;
-	{value,{F,[V]}} ->
+	{F,[V]} ->
 	    V;
-	{value,{F,V}} ->
+	{F,V} ->
 	    V;
 	_ ->
-	    exit(list_to_atom(concat(["no ",F," flag"])))
+	    Default
     end.
 
 %%
 %% Internal get_flag function, with default value.
 %% Return: list(atom()) 
 %%
-get_flag_list(F,Flags,Default) ->
-    case catch get_flag_list(F,Flags) of
-	{'EXIT',_} ->
-	    Default;
-	Value ->
-	    Value
-    end.
-
-get_flag_list(F,Flags) ->
-    case search(F,Flags) of
-	{value,{F,V}} ->
+get_flag_list(F, Flags, Default) ->
+    case lists:keyfind(F, 1, Flags) of
+	{F,[_|_]=V} ->
 	    V;
 	_ ->
-	    exit(list_to_atom(concat(["no ",F," flag"])))
+	    Default
     end.
 
 %%
@@ -1290,13 +1282,6 @@ reverse([A, B]) ->
 reverse([A, B | L]) ->
     lists:reverse(L, [B, A]). % BIF
 			
-search(Key, [H|_T]) when is_tuple(H), element(1, H) =:= Key ->
-    {value, H};
-search(Key, [_|T]) ->
-    search(Key, T);
-search(_Key, []) ->
-    false.
-
 -spec objfile_extension() -> nonempty_string().
 objfile_extension() ->
     ".beam".
