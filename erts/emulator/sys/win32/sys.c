@@ -1526,8 +1526,8 @@ create_child_process
 	 * Parse out the program name from the command line (it can be quoted and
 	 * contain spaces).
 	 */
-	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, 2048*sizeof(wchar_t));
 	cmdlength = parse_command(origcmd);
+	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (MAX_PATH+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
 	thecommand = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (cmdlength+1)*sizeof(wchar_t));
 	wcsncpy(thecommand, origcmd, cmdlength);
 	thecommand[cmdlength] = L'\0';
