@@ -181,10 +181,10 @@
     <func>
       <name name="tokens" arity="3"/>
       <name name="tokens" arity="4"/>
+      <fsummary>Re-entrant scanner</fsummary>
       <type name="char_spec"/>
       <type name="return_cont"/>
       <type_desc name="return_cont">An opaque continuation</type_desc>
-      <fsummary>Re-entrant scanner</fsummary>
       <desc>
         <p>This is the re-entrant scanner which scans characters until
           a <em>dot</em> ('.' followed by a white space) or
@@ -324,9 +324,9 @@
     <func>
       <name name="token_info" arity="2" clause_i="1"/>
       <name name="token_info" arity="2" clause_i="2"/>
+      <fsummary>Return information about a token</fsummary>
       <type name="token_item"/>
       <type name="attribute_item"/>
-      <fsummary>Return information about a token</fsummary>
       <desc>
         <p>Returns a list containing information about the token
           <c><anno>Token</anno></c>. If one single
@@ -345,28 +345,28 @@
 	<p>The following <c><anno>TokenInfoTuple</anno></c>s with corresponding
 	   <c><anno>TokenItem</anno></c>s are valid:</p>
         <taglist>
-          <tag><c>{category, <seealso marker="#type-category">
-            category()</seealso>}</c></tag>
+          <tag><c>{category, </c><seealso marker="#type-category">
+            category()</seealso><c>}</c></tag>
           <item><p>The category of the token.</p>
           </item>
-          <tag><c>{column, <seealso marker="#type-column">
-            column()</seealso>}</c></tag>
+          <tag><c>{column, </c><seealso marker="#type-column">
+            column()</seealso><c>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
-          <tag><c>{line, <seealso marker="#type-line">
-            line()</seealso>}</c></tag>
+          <tag><c>{line, </c><seealso marker="#type-line">
+            line()</seealso><c>}</c></tag>
           <item><p>The line where the token begins.</p>
           </item>
-          <tag><c>{location, <seealso marker="#type-location">
-            location()</seealso>}</c></tag>
+          <tag><c>{location, </c><seealso marker="#type-location">
+            location()</seealso><c>}</c></tag>
           <item><p>The line and column where the token begins, or
             just the line if the column unknown.</p>
           </item>
-          <tag><c>{symbol, <seealso marker="#type-symbol">
-            symbol()</seealso>}</c></tag>
+          <tag><c>{symbol, </c><seealso marker="#type-symbol">
+            symbol()</seealso><c>}</c></tag>
           <item><p>The token's symbol.</p>
           </item>
           <tag><c>{text, string()}</c></tag>
@@ -416,19 +416,19 @@
 	<p>The following <c><anno>AttributeInfoTuple</anno></c>s with
           corresponding <c><anno>AttributeItem</anno></c>s are valid:</p>
         <taglist>
-          <tag><c>{column, <seealso marker="#type-column">
-            column()</seealso>}</c></tag>
+          <tag><c>{column, </c><seealso marker="#type-column">
+            column()</seealso><c>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
-          <tag><c>{line, <seealso marker="#type-line">
-            line()</seealso>}</c></tag>
+          <tag><c>{line, </c><seealso marker="#type-line">
+            line()</seealso><c>}</c></tag>
           <item><p>The line where the token begins.</p>
           </item>
-          <tag><c>{location, <seealso marker="#type-location">
-            location()</seealso>}</c></tag>
+          <tag><c>{location, </c><seealso marker="#type-location">
+            location()</seealso><c>}</c></tag>
           <item><p>The line and column where the token begins, or
             just the line if the column unknown.</p>
           </item>

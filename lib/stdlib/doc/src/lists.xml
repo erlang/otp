@@ -283,8 +283,8 @@ flatmap(Fun, List1) ->
     </func>
     <func>
       <name name="keyfind" arity="3"/>
-      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Search for an element in a list of tuples</fsummary>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Searches the list of tuples <c><anno>TupleList</anno></c> for a
           tuple whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.
@@ -311,8 +311,8 @@ flatmap(Fun, List1) ->
     </func>
     <func>
       <name name="keymember" arity="3"/>
-      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Test for membership of a list of tuples</fsummary>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns <c>true</c> if there is a tuple in <c><anno>TupleList</anno></c>
           whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>, otherwise
@@ -346,8 +346,8 @@ flatmap(Fun, List1) ->
     </func>
     <func>
       <name name="keysearch" arity="3"/>
-      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Search for an element in a list of tuples</fsummary>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Searches the list of tuples <c><anno>TupleList</anno></c> for a
           tuple whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.

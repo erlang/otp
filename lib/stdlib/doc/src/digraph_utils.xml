@@ -122,8 +122,9 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-digraph">digraph()</marker></name>
-      <desc><p>A digraph as returned by <c>digraph:new/0,1</c>.</p></desc>
+      <name>digraph()</name>
+      <desc><p><marker id="type-digraph"/>
+        A digraph as returned by <c>digraph:new/0,1</c>.</p></desc>
     </datatype>
   </datatypes>
   <funcs>

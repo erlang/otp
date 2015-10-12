@@ -205,8 +205,8 @@ This option makes it possible to include comments inside complicated patterns. N
     </func> 
     <func>
       <name name="run" arity="3"/>
-      <type_desc variable="CompileOpt">See <seealso marker="#compile_options">compile/2</seealso> above.</type_desc>
       <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
+      <type_desc variable="CompileOpt">See <seealso marker="#compile_options">compile/2</seealso> above.</type_desc>
       <desc>
 
       <p>Executes a regexp matching, returning <c>match/{match,
@@ -881,11 +881,11 @@ nomatch
       </desc>
     </func>     
     </funcs>
-    
-  <marker id="regexp_syntax"></marker>
+  
   <section>
     <title>PERL LIKE REGULAR EXPRESSIONS SYNTAX</title>
-    <p>The following sections contain reference material for the
+    <p><marker id="regexp_syntax"></marker>
+    The following sections contain reference material for the
     regular expressions used by this module. The regular expression
     reference is based on the PCRE documentation, with changes in
     cases where the re module behaves differently to the PCRE library.</p>
@@ -2070,7 +2070,7 @@ supported, and an error is given if they are encountered.</p>
 
 <p>By default, in UTF modes, characters with values greater than 255 do not match
 any of the POSIX character classes. However, if the PCRE_UCP option is passed
-to <b>pcre_compile()</b>, some of the classes are changed so that Unicode
+to <em>pcre_compile()</em>, some of the classes are changed so that Unicode
 character properties are used. This is achieved by replacing the POSIX classes
 by other sequences, as follows:</p>
 
@@ -2078,10 +2078,10 @@ by other sequences, as follows:</p>
   <tag>[:alnum:]</tag>  <item>becomes  <em>\p{Xan}</em></item>
   <tag>[:alpha:]</tag>  <item>becomes  <em>\p{L}</em></item>
   <tag>[:blank:]</tag>  <item>becomes  <em>\h</em></item>
-  <tag>[:digit:</tag>]  <item>becomes  <em>\p{Nd}</em></item>
+  <tag>[:digit:]</tag>  <item>becomes  <em>\p{Nd}</em></item>
   <tag>[:lower:]</tag>  <item>becomes  <em>\p{Ll}</em></item>
   <tag>[:space:]</tag>  <item>becomes  <em>\p{Xps}</em></item>
-  <tag>[:upper:</tag>]  <item>becomes  <em>\p{Lu}</em></item>
+  <tag>[:upper:]</tag>  <item>becomes  <em>\p{Lu}</em></item>
   <tag>[:word:]</tag>   <item>becomes  <em>\p{Xwd}</em></item>
 </taglist>
 
@@ -3059,7 +3059,7 @@ default newline convention is in force:</p>
 
 <quote><p>  abc #comment \n still comment</p></quote>
 
-<p>On encountering the # character, <b>pcre_compile()</b> skips along, looking for
+<p>On encountering the # character, <em>pcre_compile()</em> skips along, looking for
 a newline in the pattern. The sequence \n is still literal at this stage, so
 it does not terminate the comment. Only an actual character with the code value
 0x0a (the default newline) does so.</p>

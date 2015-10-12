@@ -130,11 +130,11 @@
     <func>
       <name name="date_to_gregorian_days" arity="1"/>
       <name name="date_to_gregorian_days" arity="3"/>
+      <fsummary>Compute the number of days from year 0 up to the given date</fsummary>
       <type variable="Date" name_i="1"/>
       <type variable="Year"/>
       <type variable="Month"/>
       <type variable="Day"/>
-      <fsummary>Compute the number of days from year 0 up to the given date</fsummary>
       <desc>
         <p>This function computes the number of gregorian days starting
           with year 0 and ending at the given date.</p>
@@ -347,11 +347,11 @@
     <func>
       <name name="valid_date" arity="1"/>
       <name name="valid_date" arity="3"/>
+      <fsummary>Check if a date is valid</fsummary>
       <type variable="Date" name_i="1"/>
       <type variable="Year"/>
       <type variable="Month"/>
       <type variable="Day"/>
-      <fsummary>Check if a date is valid</fsummary>
       <desc>
         <p>This function checks if a date is a valid.</p>
       </desc>

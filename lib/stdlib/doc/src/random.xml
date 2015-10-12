@@ -76,9 +76,15 @@
           dictionary, and returns the old state.</p>
         <p>One easy way of obtaining a unique value to seed with is to:</p>
         <code type="none">
-          random:seed(<seealso marker="erts:erlang#phash2/1">erlang:phash2</seealso>([<seealso marker="erts:erlang#node/0">node()</seealso>]),
-	              <seealso marker="erts:erlang#monotonic_time/0">erlang:monotonic_time()</seealso>,
-		      <seealso marker="erts:erlang#unique_integer/0">erlang:unique_integer()</seealso>)</code>
+random:seed(erlang:phash2([node()]),
+            erlang:monotonic_time(),
+            erlang:unique_integer())</code>
+        <p>See <seealso marker="erts:erlang#phash2/1">
+          erlang:phash2/1</seealso>, <seealso marker="erts:erlang#node/0">
+          node/0</seealso>, <seealso marker="erts:erlang#monotonic_time/0">
+          erlang:monotonic_time/0</seealso>, and
+          <seealso marker="erts:erlang#unique_integer/0">
+          erlang:unique_integer/0</seealso>) for details.</p>
       </desc>
     </func>
     <func>

@@ -164,7 +164,7 @@ the default value cannot be confused with the values of set entries.</p>
 </fsummary>
 
 <desc><marker id="from_list-1"/>
-<p>Equivalent to <seealso marker="#from_list-2">from_list(<anno>List</anno>, undefined)</seealso>.</p>
+<p>Equivalent to <seealso marker="#from_list-2">from_list(<c><anno>List</anno></c>, undefined)</seealso>.</p>
 </desc></func>
 <func>
 <name name="from_list" arity="2"/>
@@ -184,7 +184,7 @@ the default value cannot be confused with the values of set entries.</p>
 </fsummary>
 
 <desc><marker id="from_orddict-1"/>
-<p>Equivalent to <seealso marker="#from_orddict-2">from_orddict(<anno>Orddict</anno>, undefined)</seealso>.</p>
+<p>Equivalent to <seealso marker="#from_orddict-2">from_orddict(<c><anno>Orddict</anno></c>, undefined)</seealso>.</p>
 </desc></func>
 <func>
 <name name="from_orddict" arity="2"/>
