@@ -935,14 +935,27 @@ encode_ip(Addr) when is_list(Addr) ->
 	    end
     end.
 
-start_channel(Cb, Id, Args, SubSysSup) ->
-    start_channel(Cb, Id, Args, SubSysSup, undefined).
+start_channel(Cb, Id, Args, SubSysSup, Opts) ->
+    start_channel(Cb, Id, Args, SubSysSup, undefined, Opts).
 
-start_channel(Cb, Id, Args, SubSysSup, Exec) ->
+start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
     ChildSpec = child_spec(Cb, Id, Args, Exec),
     ChannelSup = ssh_subsystem_sup:channel_supervisor(SubSysSup),
+    assert_limit_num_channels_not_exceeded(ChannelSup, Opts),
     ssh_channel_sup:start_child(ChannelSup, ChildSpec).
     
+assert_limit_num_channels_not_exceeded(ChannelSup, Opts) ->
+    MaxNumChannels = proplists:get_value(max_channels, Opts, infinity),
+    NumChannels = length([x || {_,_,worker,[ssh_channel]} <- 
+				   supervisor:which_children(ChannelSup)]),
+    if 
+	%% Note that NumChannels is BEFORE starting a new one
+	NumChannels < MaxNumChannels ->
+	    ok;
+	true ->
+	    throw(max_num_channels_exceeded)
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -998,9 +1011,11 @@ child_spec(Callback, Id, Args, Exec) ->
 
 start_cli(#connection{cli_spec = no_cli}, _) ->
     {error, cli_disabled};
-start_cli(#connection{cli_spec = {CbModule, Args}, exec = Exec,
+start_cli(#connection{options = Options,
+		      cli_spec = {CbModule, Args},
+		      exec = Exec,
 		      sub_system_supervisor = SubSysSup}, ChannelId) ->
-    start_channel(CbModule, ChannelId, Args, SubSysSup, Exec).
+    start_channel(CbModule, ChannelId, Args, SubSysSup, Exec, Options).
 
 start_subsytem(BinName, #connection{options = Options,
 				    sub_system_supervisor = SubSysSup},
@@ -1008,7 +1023,7 @@ start_subsytem(BinName, #connection{options = Options,
     Name = binary_to_list(BinName),
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
-	    start_channel(Callback, ChannelId, Opts, SubSysSup);
+	    start_channel(Callback, ChannelId, Opts, SubSysSup, Options);
 	{Other, _} when Other =/= none ->
 	    {error, legacy_option_not_supported}
     end.

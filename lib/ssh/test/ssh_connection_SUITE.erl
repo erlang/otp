@@ -48,7 +48,8 @@ all() ->
      gracefull_invalid_long_start,
      gracefull_invalid_long_start_no_nl,
      stop_listener,
-     start_subsystem_on_closed_channel
+     start_subsystem_on_closed_channel,
+     max_channels_option
     ].
 groups() ->
     [{openssh, [], payload() ++ ptty()}].
@@ -601,6 +602,78 @@ start_subsystem_on_closed_channel(Config) ->
     ok = ssh_connection:close(ConnectionRef, ChannelId),
 
     {error, closed} = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity),
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_channels_option() ->
+    [{doc, "Test max_channels option"}].
+
+max_channels_option(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {max_channels, 3},
+					     {subsystems, [{"echo_n", {ssh_echo_server, [4000000]}}]}
+					    ]),
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, true},
+						      {user_dir, UserDir}]),
+
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId2} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId3} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId4} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId5} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, _ChannelId6} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    %%%---- shell
+    ok = ssh_connection:shell(ConnectionRef,ChannelId0),
+    receive
+	{ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"Eshell",_/binary>>}} ->
+	    ok
+    after 5000 ->
+	    ct:fail("CLI Timeout")
+    end,
+
+    %%%---- subsystem "echo_n"
+    success = ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
+
+    %%%---- exec #1
+    success = ssh_connection:exec(ConnectionRef, ChannelId2, "testing1.\n", infinity),
+    receive
+	{ssh_cm, ConnectionRef, {data, ChannelId2, 0, <<"testing1",_/binary>>}} ->
+	    ok
+    after 5000 ->
+	    ct:fail("Exec #1 Timeout")
+    end,
+
+    %%%---- ptty
+    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId3, []),
+
+    %%%---- exec #2
+    failure = ssh_connection:exec(ConnectionRef, ChannelId4, "testing2.\n", infinity),
+
+    %%%---- close the shell
+    ok = ssh_connection:send(ConnectionRef, ChannelId0, "exit().\n", 5000),
+    
+    %%%---- exec #3
+    success = ssh_connection:exec(ConnectionRef, ChannelId5, "testing3.\n", infinity),
+    receive
+	{ssh_cm, ConnectionRef, {data, ChannelId5, 0, <<"testing3",_/binary>>}} ->
+	    ok
+    after 5000 ->
+	    ct:fail("Exec #3 Timeout")
+    end,
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
