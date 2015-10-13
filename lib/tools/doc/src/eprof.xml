@@ -131,13 +131,13 @@
       <name>analyze() -> ok</name>
       <name>analyze(Type) -> ok</name>
       <name>analyze(Type,Options) -> ok</name>
+      <fsummary>Display profiling results per process.</fsummary>
       <type>
         <v>Type = procs | total</v>
 	<v>Options = [{filter, Filter} | {sort, Sort}</v>
 	<v>Filter = [{calls, integer()} | {time, float()}]</v>
 	<v>Sort = time | calls | mfa</v>
       </type>
-      <fsummary>Display profiling results per process.</fsummary>
       <desc>
         <p>Call this function when profiling has been stopped to display
           the results per process, that is:</p>
