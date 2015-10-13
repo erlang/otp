@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ start(Host, Node) ->
 %%% executed after startup of the node. Note that all used modules should be
 %%% present in the code path on the <code>Host</code>.</p>
 %%%
-%%% <p>The timeouts are applied as follows:
+%%% <p>The timeouts are applied as follows:</p>
 %%% <list>
 %%%  <item>
 %%%   <code>BootTimeout</code> - time to start the Erlang node, in seconds.
@@ -154,7 +154,7 @@ start(Host, Node) ->
 %%%    If this timeout occurs, the result
 %%%    <code>{error, startup_timeout, NodeName}</code> is returned.
 %%%  </item>
-%%% </list></p>
+%%% </list>
 %%%
 %%% <p>Option <code>monitor_master</code> specifies, if the slave node should be
 %%% stopped in case of master node stop. Defaults to false.</p>
@@ -170,7 +170,7 @@ start(Host, Node) ->
 %%% <p>Option <code>env</code> specifies a list of environment variables
 %%% that will extended the environment.</p>
 %%%
-%%% <p>Special return values are:
+%%% <p>Special return values are:</p>
 %%% <list>
 %%%  <item><code>{error, already_started, NodeName}</code> - if the node with
 %%%   the given name is already started on a given host;</item>
@@ -179,7 +179,7 @@ start(Host, Node) ->
 %%%  <item><code>{error, not_alive, NodeName}</code> - if node on which the
 %%%   <code>ct_slave:start/3</code> is called, is not alive. Note that
 %%%   <code>NodeName</code> is the name of current node in this case.</item>
-%%% </list></p>
+%%% </list>
 %%%
 start(Host, Node, Opts) ->
     ENode = enodename(Host, Node),

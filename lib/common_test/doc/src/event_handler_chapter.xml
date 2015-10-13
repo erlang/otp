@@ -194,8 +194,9 @@
 	  the current test case log file.
 	</p></item>
 
-      <marker id="tc_done"/>
-      <item><c>#event{name = tc_done, data = {Suite,FuncOrGroup,Result}}</c>
+      <item>
+        <marker id="tc_done"/>
+        <c>#event{name = tc_done, data = {Suite,FuncOrGroup,Result}}</c>
         <p><c>Suite = atom()</c>, name of the suite.</p>
         <p><c>FuncOrGroup = Func | {Conf,GroupName,GroupProperties}</c></p>
         <p><c>Func = atom()</c>, name of test case or configuration function.</p>

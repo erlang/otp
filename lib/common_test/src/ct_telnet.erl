@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -327,16 +327,16 @@ cmd(Connection,Cmd) ->
 %%%      Reason = term()
 %%% @doc Send a command via telnet and wait for prompt.
 %%%
-%%% This function will by default add a newline to the end of the
+%%% <p>This function will by default add a newline to the end of the
 %%% given command. If this is not desired, the option
 %%% `{newline,false}' can be used. This is necessary, for example,
 %%% when sending telnet command sequences (prefixed with the
-%%% Interprete As Command, IAC, character).
+%%% Interprete As Command, IAC, character).</p>
 %%%
-%%% The option `timeout' specifies how long the client shall wait for
+%%% <p>The option `timeout' specifies how long the client shall wait for
 %%% prompt. If the time expires, the function returns
 %%% `{error,timeout}'. See the module description for information
-%%% about the default value for the command timeout.
+%%% about the default value for the command timeout.</p>
 cmd(Connection,Cmd,Opts) when is_list(Opts) ->
     case check_cmd_opts(Opts) of
 	ok ->
@@ -378,7 +378,7 @@ cmdf(Connection,CmdFormat,Args) ->
 %%% @doc Send a telnet command and wait for prompt 
 %%%      (uses a format string and list of arguments to build the command).
 %%%
-%%% See {@link cmd/3} further description.
+%%% <p>See {@link cmd/3} further description.</p>
 cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     cmd(Connection,Cmd,Opts).
