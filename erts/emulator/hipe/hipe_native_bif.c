@@ -93,9 +93,6 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm timeout_value = BIF_ARG_1;
-#if !defined(ARCH_64)
-    Uint time_val;
-#endif
     /* XXX: This should be converted to follow BEAM conventions,
      * but that requires some compiler changes.
      *
