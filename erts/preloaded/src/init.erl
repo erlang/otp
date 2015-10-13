@@ -75,6 +75,20 @@
 		subscribed = []}).
 -type state() :: #state{}.
 
+%% Data for eval_script/2.
+-record(es,
+	{init,
+	 debug,
+	 path,
+	 pa,
+	 pz,
+	 path_choice,
+	 prim_load,
+	 load_mode,
+	 par_load,
+	 vars
+	}).
+
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
 
 debug(false, _) -> ok;
@@ -725,7 +739,7 @@ do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
     {Pgm0,Nodes,Id,Path} = prim_load_flags(Flags),
     Root = get_root(Flags),
-    PathFls = path_flags(Flags),
+    {Pa,Pz} = PathFls = path_flags(Flags),
     Pgm = b2s(Pgm0),
     _Pid = start_prim_loader(Init,b2a(Id),Pgm,bs2as(Nodes),
 			     bs2ss(Path),PathFls),
@@ -735,12 +749,15 @@ do_boot(Init,Flags,Start) ->
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
-    ParallelLoad = 
-	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
+    ParLoad = Pgm =:= "efile" andalso
+	erlang:system_info(thread_pool_size) > 0,
 
     PathChoice = code_path_choice(),
-    eval_script(BootList,Init,PathFls,BootVars,Path,
-		{true,LoadMode,ParallelLoad},Deb,PathChoice),
+    Es = #es{init=Init,debug=Deb,path=Path,pa=Pa,pz=Pz,
+	     path_choice=PathChoice,
+	     prim_load=true,load_mode=LoadMode,par_load=ParLoad,
+	     vars=BootVars},
+    eval_script(BootList, Es),
 
     %% To help identifying Purify windows that pop up,
     %% print the node name into the Purify log.
@@ -818,48 +835,53 @@ get_boot(BootFile) ->
 %% boot process hangs (we want to ensure syncronicity).
 %%
 
-eval_script([{progress,Info}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{progress,Info}),
+eval_script([{progress,Info}=Progress|T], #es{debug=Deb}=Es) ->
+    debug(Deb, Progress),
     init ! {self(),progress,Info},
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{preLoaded,_}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{path,Path}|CfgL],Init,{Pa,Pz},Vars,false,Ph,Deb,PathChoice) ->
+    eval_script(T, Es);
+eval_script([{preLoaded,_}|T], #es{}=Es) ->
+    eval_script(T, Es);
+eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
+				 path_choice=PathChoice,
+				 vars=Vars}=Es) ->
     RealPath0 = make_path(Pa, Pz, Path, Vars),
     RealPath = patch_path(RealPath0, PathChoice),
     erl_prim_loader:set_path(RealPath),
-    eval_script(CfgL,Init,{Pa,Pz},Vars,false,Ph,Deb,PathChoice);
-eval_script([{path,_}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
+    eval_script(T, Es);
+eval_script([{path,_}|T], #es{}=Es) ->
     %% Ignore, use the command line -path flag.
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{kernel_load_completed}|CfgL],Init,PathFs,Vars,P,{_,embedded,Par},Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,{true,embedded,Par},Deb,PathChoice);
-eval_script([{kernel_load_completed}|CfgL],Init,PathFs,Vars,P,{_,E,Par},Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice);
-eval_script([{primLoad,Mods}|CfgL],Init,PathFs,Vars,P,{true,E,Par},Deb,PathChoice)
+    eval_script(T, Es);
+eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
+    Es = case Mode of
+	     embedded -> Es0;
+	     _ -> Es0#es{prim_load=false}
+	 end,
+    eval_script(T, Es);
+eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad,
+				     par_load=Par}=Es)
   when is_list(Mods) ->
-    if 
-	Par =:= true ->
-	    par_load_modules(Mods,Init);
-	true ->
-	    load_modules(Mods)
+    case {PrimLoad,Par} of
+	{true,true} ->
+	    par_load_modules(Mods, Init);
+	{true,false} ->
+	    load_modules(Mods);
+	{false,_} ->
+	    %% Do not load now, code_server does that dynamically!
+	    ok
     end,
-    eval_script(CfgL,Init,PathFs,Vars,P,{true,E,Par},Deb,PathChoice);
-eval_script([{primLoad,_Mods}|CfgL],Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice) ->
-    %% Do not load now, code_server does that dynamically!
-    eval_script(CfgL,Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice);
-eval_script([{kernelProcess,Server,{Mod,Fun,Args}}|CfgL],Init,
-	    PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{start,Server}),
-    start_in_kernel(Server,Mod,Fun,Args,Init),
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{apply,{Mod,Fun,Args}}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{apply,{Mod,Fun,Args}}),
-    apply(Mod,Fun,Args),
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([],_,_,_,_,_,_,_) ->
+    eval_script(T, Es);
+eval_script([{kernelProcess,Server,{Mod,Fun,Args}}|T],
+	    #es{init=Init,debug=Deb}=Es) ->
+    debug(Deb, {start,Server}),
+    start_in_kernel(Server, Mod, Fun, Args, Init),
+    eval_script(T, Es);
+eval_script([{apply,{Mod,Fun,Args}}=Apply|T], #es{debug=Deb}=Es) ->
+    debug(Deb, Apply),
+    apply(Mod, Fun, Args),
+    eval_script(T, Es);
+eval_script([], #es{}) ->
     ok;
-eval_script(What,_,_,_,_,_,_,_) ->
+eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
 load_modules([Mod|Mods]) ->
