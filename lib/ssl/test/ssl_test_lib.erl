@@ -818,7 +818,17 @@ rsa_suites(CounterPart) ->
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+                 common_ciphers(CounterPart)).
+
+common_ciphers(crypto) ->
+    ssl:cipher_suites();
+common_ciphers(openssl) ->
+    OpenSslSuites =
+        string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
+    [ssl:suite_definition(S)
+     || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
+        lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
+    ].
 
 rsa_non_signed_suites() ->
     lists:filter(fun({rsa, _, _}) ->
