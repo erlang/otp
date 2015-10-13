@@ -25,8 +25,7 @@
     </legalnotice>
 
     <title>ttb</title>
-    <prepared>Siri hansen</prepared>
-    <prepared>Bartlomiej Puzon</prepared>
+    <prepared>Siri hansen, Bartlomiej Puzon</prepared>
     <responsible></responsible>
     <docno>1</docno>
     <approved></approved>
@@ -60,17 +59,16 @@
         <p>This function is a shortcut allowing to start a trace with one command. Each
           tuple in <c>Patterns</c> is converted to list which is in turn passed to
           <c>ttb:tpl</c>.
-          The call:<code type="none">
+          The call:</p><code type="none">
 ttb:start_trace([Node, OtherNode],
 [{mod, foo, []}, {mod, bar, 2}],
 {all, call},
 [{file, File}, {handler,{fun myhandler/4, S}}])</code>
-          is equivalent to <code type="none">
+          <p>is equivalent to</p> <code type="none">
 ttb:start_trace([Node, OtherNode], [{file, File}, {handler,{fun myhandler/4, S}}]),
 ttb:tpl(mod, foo, []),
 ttb:tpl(mod, bar, 2, []),
 ttb:p(all, call)</code>
-        </p>
       </desc>
     </func>
     <func>
@@ -193,7 +191,7 @@ ttb:p(all, call)</code>
           (i.e. on diskless nodes), a custom module to handle autostart
           information storage and retrieval can be provided by specifying
           <c>ttb_autostart_module</c> environment variable for the <c>runtime_tools</c>
-          application. The module has to respond to the following API:
+          application. The module has to respond to the following API:</p>
           <taglist>
             <tag><c>write_config(Data) -> ok</c></tag>
             <item>Store the provided data for further retrieval. It is
@@ -207,7 +205,6 @@ ttb:p(all, call)</code>
               must return <c>{error, Error}</c>.
             </item>
           </taglist>
-        </p>
         <p>The <c>resume</c> option implies the default <c>FetchTimeout</c>, which is
           10 seconds</p>
       </desc>
@@ -272,17 +269,19 @@ ttb:p(all, call)</code>
           <item>Clear trace pattern on global function calls</item>
         </taglist>
         <p>With <c>tp</c> and <c>tpl</c> one of match specification shortcuts
-          may be used (example: <c>ttb:tp(foo_module, caller)</c>). The shortcuts are:
+          may be used (example: <c>ttb:tp(foo_module, caller)</c>). The shortcuts are:</p>
           <taglist>
+	    <tag/>
             <item><c>return</c> - for <c>[{'_',[],[{return_trace}]}]</c>
               (report the return value)</item>
+	    <tag/>
             <item><c>caller</c> - for <c>[{'_',[],[{message,{caller}}]}]</c>
               (report the calling function)</item>
+	    <tag/>
             <item><c>{codestr, Str}</c> - for <c>dbg:fun2ms/1</c> arguments
               passed as strings (example: <c>"fun(_) -> return_trace() end"</c>)
             </item>
           </taglist>
-        </p>
       </desc>
     </func>
     <func>
