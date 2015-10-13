@@ -33,7 +33,7 @@
 -define(MAX_NUM_ALGORITHMS, 200).
 
 -define(DEFAULT_DH_GROUP_MIN,   1024).
--define(DEFAULT_DH_GROUP_NBITS, 6144).
+-define(DEFAULT_DH_GROUP_NBITS, 2048).
 -define(DEFAULT_DH_GROUP_MAX,   8192).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

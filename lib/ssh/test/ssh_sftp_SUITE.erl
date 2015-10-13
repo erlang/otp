@@ -526,6 +526,8 @@ async_read(Config) when is_list(Config) ->
 	    ok;
 	Msg ->
 	    ct:fail(Msg)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 %%--------------------------------------------------------------------
 async_write() ->
@@ -593,6 +595,8 @@ pos_read(Config) when is_list(Config) ->
 	    ok;
 	Msg ->
 	    ct:fail(Msg)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
 
     NewData1  = "hopp",
@@ -618,6 +622,8 @@ pos_write(Config) when is_list(Config) ->
 	    ok;
 	Msg ->
 	    ct:fail(Msg)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
 
     ok = ssh_sftp:pwrite(Sftp, Handle, eof, list_to_binary("!")),

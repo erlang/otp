@@ -473,6 +473,8 @@ shell(Config) when is_list(Config) ->
 	ErlShellStart ->
 	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
 	    do_shell(IO, Shell)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
     
 %%--------------------------------------------------------------------
@@ -501,11 +503,15 @@ cli(Config) when is_list(Config) ->
 	{ssh_cm, ConnectionRef,
 	 {data,0,0, <<"\r\nYou are accessing a dummy, type \"q\" to exit\r\n\n">>}} ->
 	    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"q">>)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     
     receive 
      	{ssh_cm, ConnectionRef,{closed, ChannelId}} ->
      	    ok
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 %%--------------------------------------------------------------------
@@ -644,7 +650,7 @@ peername_sockname(Config) when is_list(Config) ->
 	    host_equal(HostSockSrv, Host),
 	    PortSockSrv = Port
     after 10000 ->
-	    throw(timeout)
+	    ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 host_equal(H1, H2) ->
@@ -678,7 +684,7 @@ close(Config) when is_list(Config) ->
 	{ssh_cm, Client,{closed, ChannelId}} ->  
 	    ok
     after 5000 ->
-	    ct:fail(timeout)
+	    ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 %%--------------------------------------------------------------------
@@ -876,22 +882,32 @@ do_shell(IO, Shell) ->
      receive
 	Echo0 ->
 	     ct:log("Echo: ~p ~n", [Echo0])
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     receive
 	?NEWLINE ->
 	    ok
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     receive
 	Result0 = <<"2">> ->
 	    ct:log("Result: ~p~n", [Result0])
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     receive
 	?NEWLINE ->
 	    ok
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     receive
 	ErlPrompt1 ->
 	    ct:log("Erlang prompt: ~p~n", [ErlPrompt1])
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     exit(Shell, kill).
     %%Does not seem to work in the testserver!
