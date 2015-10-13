@@ -426,6 +426,10 @@ main(int argc, char *argv[])
             while (write(pipes[1], &proto, sizeof(proto)) < 0 && errno == EINTR)
                 ; /* remove gcc warning */
 
+            proto.action = ErtsSysForkerProtoAction_StartAck;
+            while (write(uds_fd, &proto, sizeof(proto)) < 0 && errno == EINTR)
+                ; /* remove gcc warning */
+
             sys_sigrelease(SIGCHLD);
             close(pipes[0]);
             close(pipes[1]);
