@@ -500,16 +500,15 @@ decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
 			 , "ssh-dss") ->
     {ok, {Y, #'Dss-Parms'{p = P, q = Q, g = G}}};
 decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), Id:Len1/binary, %% Id = <<"nistp256">> for example
+		       ?UINT32(Len1), IdB:Len1/binary, %% Id = <<"nistp256">> for example
 		       ?UINT32(Len2), Blob:Len2/binary>>,
-		     Curve) -> 
-    Id = 
-	case Curve of
-	    "ecdsa-sha2-nistp256" -> <<"nistp256">>;
-	    "ecdsa-sha2-nistp384" -> <<"nistp384">>;
-	    "ecdsa-sha2-nistp521" -> <<"nistp521">>
-	end,
-    {ok, {#'ECPoint'{point=Blob}, Id}};
+		     "ecdsa-sha2-" ++ IdS) -> 
+    case binary_to_list(IdB) of
+	IdS ->
+	    {ok, {#'ECPoint'{point=Blob}, {namedCurve,public_key:ssh_curvename2oid(IdB)}} };
+	_ ->
+	    {error, bad_format}
+    end;
 decode_public_key_v2(_, _) ->
     {error, bad_format}.
 

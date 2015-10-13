@@ -21,7 +21,8 @@
 
 -include("public_key.hrl").
 
--export([decode/2, encode/2]).
+-export([decode/2, encode/2
+	]).
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(STRING(X), ?UINT32((size(X))), (X)/binary).
@@ -32,6 +33,7 @@
 %% before 72 bytes to meet IETF document requirements; however, they
 %% are still compliant.)" So we choose to use 68 also.
 -define(ENCODED_LINE_LENGTH, 68).
+
 
 %%====================================================================
 %% Internal application API
@@ -133,12 +135,11 @@ rfc4716_pubkey_decode(<<?UINT32(Len), Type:Len/binary,
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
 		  g = erlint(SizeG, G)}};
-rfc4716_pubkey_decode(<<?UINT32(Len), Type:Len/binary,
+rfc4716_pubkey_decode(<<?UINT32(Len), ECDSA_SHA2_etc:Len/binary,
 			?UINT32(SizeId), Id:SizeId/binary,
-			?UINT32(SizeQ), Q:SizeQ/binary>>) when Type == <<"ecdsa-sha2-nistp256">>;
-							       Type == <<"ecdsa-sha2-nistp384">>;
-							       Type == <<"ecdsa-sha2-nistp521">> ->
-    {#'ECPoint'{point = Q}, Id}.
+			?UINT32(SizeQ), Q:SizeQ/binary>>) ->
+    <<"ecdsa-sha2-", Id/binary>> = ECDSA_SHA2_etc,
+    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}}.
 
 openssh_decode(Bin, FileType) ->
     Lines = binary:split(Bin, <<"\n">>, [global]),
@@ -192,25 +193,27 @@ do_openssh_decode(known_hosts = FileType, [Line | Lines], Acc) ->
     end;
 
 do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
-    case split_n(2, Line, []) of
-	[KeyType, Base64Enc] when KeyType == <<"ssh-rsa">>;
-				  KeyType == <<"ssh-dss">>;
-				  KeyType == <<"ecdsa-sha2-nistp256">>;
-				  KeyType == <<"ecdsa-sha2-nistp384">>;
-				  KeyType == <<"ecdsa-sha2-nistp521">> ->
+    [KeyType, Base64Enc | Comment0] = split_n(2, Line, []),
+    KnownKeyType = 
+	case KeyType of
+	    <<"ssh-rsa">> -> true;
+	    <<"ssh-dss">> -> true;
+	    <<"ecdsa-sha2-",Curve/binary>> -> is_ssh_curvename(Curve);
+	    _ -> false
+	end,
+
+    case Comment0 of
+	[] when KnownKeyType==true ->
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
 				[]} | Acc]);
-	[KeyType, Base64Enc | Comment0] when KeyType == <<"ssh-rsa">>;
-					     KeyType == <<"ssh-dss">>;
-					     KeyType == <<"ecdsa-sha2-nistp256">>;
-					     KeyType == <<"ecdsa-sha2-nistp384">>;
-					     KeyType == <<"ecdsa-sha2-nistp521">> ->
+	_ when KnownKeyType==true ->
 	    Comment = string:strip(string_decode(iolist_to_binary(Comment0)), right, $\n),
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
 				[{comment, Comment}]} | Acc])
     end.
+
 
 decode_comment([]) ->
     [];
@@ -244,7 +247,7 @@ openssh_pubkey_decode(<<"ecdsa-sha2-", Id/binary>>, Base64Enc) ->
       ?UINT32(SizeId), Id:SizeId/binary,
       ?UINT32(SizeQ), Q:SizeQ/binary>>
 	= base64:mime_decode(Base64Enc),
-    {#'ECPoint'{point = Q}, Id};
+    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}};
 
 openssh_pubkey_decode(KeyType, Base64Enc) ->
     {KeyType, base64:mime_decode(Base64Enc)}.
@@ -372,12 +375,9 @@ line_end("") ->
 line_end(Comment) ->
     [" ", Comment, "\n"].
 
-key_type(#'RSAPublicKey'{}) ->
-    <<"ssh-rsa">>;
-key_type({_, #'Dss-Parms'{}}) ->
-    <<"ssh-dss">>;
-key_type({#'ECPoint'{}, Id}) ->
-    <<"ecdsa-sha2-",Id/binary>>.
+key_type(#'RSAPublicKey'{})   -> <<"ssh-rsa">>;
+key_type({_, #'Dss-Parms'{}}) -> <<"ssh-dss">>;
+key_type({#'ECPoint'{}, {namedCurve,Curve}}) -> <<"ecdsa-sha2-", (public_key:oid2ssh_curvename(Curve))/binary>>.
 
 comma_list_encode([Option], [])  ->
     Option;
@@ -408,25 +408,18 @@ ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
       QBin/binary,
       GBin/binary,
       YBin/binary>>;
-ssh2_pubkey_encode({#'ECPoint'{point = Q}, Id}) ->
-    TypeStr = <<"ecdsa-sha2-", Id/binary>>,
+ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
+    TypeStr = key_type(Key),
     StrLen = size(TypeStr),
+    IdB = public_key:oid2ssh_curvename(OID),
     <<?UINT32(StrLen), TypeStr:StrLen/binary,
-      (string(Id))/binary,
+      (string(IdB))/binary,
       (string(Q))/binary>>.
 
-is_key_field(<<"ssh-dss">>) ->
-    true;
-is_key_field(<<"ssh-rsa">>) ->
-    true;
-is_key_field(<<"ecdsa-sha2-nistp256">>) ->
-    true;
-is_key_field(<<"ecdsa-sha2-nistp384">>) ->
-    true;
-is_key_field(<<"ecdsa-sha2-nistp521">>) ->
-    true;
-is_key_field(_) ->
-    false.
+is_key_field(<<"ssh-dss">>) ->  true;
+is_key_field(<<"ssh-rsa">>) ->  true;
+is_key_field(<<"ecdsa-sha2-",Id/binary>>) -> is_ssh_curvename(Id);
+is_key_field(_) -> false.
 
 is_bits_field(Part) ->
     try list_to_integer(binary_to_list(Part)) of
@@ -546,3 +539,8 @@ string(X) when is_binary(X) ->
     << ?STRING(X) >>;
 string(X) ->
     << ?STRING(list_to_binary(X)) >>.
+
+is_ssh_curvename(Id) -> try public_key:ssh_curvename2oid(Id) of _ -> true
+			catch _:_  -> false
+			end.
+

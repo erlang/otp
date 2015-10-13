@@ -1348,6 +1348,7 @@ event(Event, StateName, State) ->
 	throw:{ErrorToDisplay, #ssh_msg_disconnect{} = DisconnectMsg}  ->
 	    handle_disconnect(DisconnectMsg, State, ErrorToDisplay);
 	_C:_Error ->
+ct:pal("*** FAIL ~p:~p(~p,...~n -> ~p:~p ",[?MODULE,StateName,Event,_C,_Error]),
 	    handle_disconnect(#ssh_msg_disconnect{code = error_code(StateName),
 						  description = "Invalid state",
 						  language = "en"}, State)

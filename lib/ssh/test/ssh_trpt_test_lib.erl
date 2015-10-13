@@ -743,7 +743,7 @@ print_traces(S) ->
 		      [case Len-length(Acc)-1 of
 			   0 ->
 			       io_lib:format(Fmt,Args);
-			   N ->
+			   _N ->
 			       io_lib:format(lists:concat(['~p --------~n',Fmt]),
 					     [Len-length(Acc)-1|Args])
 		       end | Acc]

@@ -228,7 +228,7 @@ encode(#ssh_msg_kexdh_reply{
 	  h_sig = Signature
 	 }) ->
     EncKey = encode_host_key(Key),
-    EncSign = encode_sign(Key, Signature),
+    EncSign = encode_signature(Key, Signature),
     ssh_bits:encode([?SSH_MSG_KEXDH_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
 
 encode(#ssh_msg_kex_dh_gex_request{
@@ -256,7 +256,7 @@ encode(#ssh_msg_kex_dh_gex_reply{
 	  h_sig = Signature
 	 }) ->
     EncKey = encode_host_key(Key),
-    EncSign = encode_sign(Key, Signature),
+    EncSign = encode_signature(Key, Signature),
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
 
 encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
@@ -264,7 +264,7 @@ encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
 
 encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
     EncKey = encode_host_key(Key),
-    EncSign = encode_sign(Key, Sign),
+    EncSign = encode_signature(Key, Sign),
     ssh_bits:encode([?SSH_MSG_KEX_ECDH_REPLY, EncKey, Q_s, EncSign], [byte, binary, mpint, binary]);
 
 encode(#ssh_msg_ignore{data = Data}) ->
@@ -280,8 +280,7 @@ encode(#ssh_msg_debug{always_display = Bool,
 
 
 %% Connection Messages
-decode(<<?BYTE(?SSH_MSG_GLOBAL_REQUEST), ?UINT32(Len), Name:Len/binary,
-	 ?BYTE(Bool), Data/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_GLOBAL_REQUEST), ?DEC_BIN(Name,__0), ?BYTE(Bool), Data/binary>>) ->
     #ssh_msg_global_request{
        name = Name,
        want_reply = erl_boolean(Bool),
@@ -292,8 +291,7 @@ decode(<<?BYTE(?SSH_MSG_REQUEST_SUCCESS), Data/binary>>) ->
 decode(<<?BYTE(?SSH_MSG_REQUEST_FAILURE)>>) ->
     #ssh_msg_request_failure{};
 decode(<<?BYTE(?SSH_MSG_CHANNEL_OPEN),
-	 ?UINT32(Len), Type:Len/binary,
-	 ?UINT32(Sender), ?UINT32(Window), ?UINT32(Max),
+	 ?DEC_BIN(Type,__0), ?UINT32(Sender), ?UINT32(Window), ?UINT32(Max),
 	 Data/binary>>) ->
     #ssh_msg_channel_open{
        channel_type = binary_to_list(Type),
@@ -313,7 +311,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_OPEN_CONFIRMATION), ?UINT32(Recipient), ?UINT32(
        data = Data
       };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_OPEN_FAILURE),  ?UINT32(Recipient), ?UINT32(Reason),
-	 ?UINT32(Len0), Desc:Len0/binary,  ?UINT32(Len1), Lang:Len1/binary >>) ->
+	 ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1) >> ) ->
     #ssh_msg_channel_open_failure{
        recipient_channel = Recipient,
        reason = Reason,
@@ -326,13 +324,13 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_WINDOW_ADJUST), ?UINT32(Recipient), ?UINT32(Byte
        bytes_to_add = Bytes
     };
 
-decode(<<?BYTE(?SSH_MSG_CHANNEL_DATA), ?UINT32(Recipient), ?UINT32(Len), Data:Len/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_CHANNEL_DATA), ?UINT32(Recipient), ?DEC_BIN(Data,__0)>>) ->
     #ssh_msg_channel_data{
        recipient_channel = Recipient,
        data = Data
     };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?UINT32(Recipient), 
-	 ?UINT32(DataType), ?UINT32(Len), Data:Len/binary>>) ->
+	 ?UINT32(DataType), ?DEC_BIN(Data,__0)>>) ->
     #ssh_msg_channel_extended_data{
        recipient_channel = Recipient,
        data_type_code = DataType,
@@ -347,8 +345,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_CLOSE),  ?UINT32(Recipient)>>) ->
        recipient_channel = Recipient
       };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
-	 ?UINT32(Len), RequestType:Len/binary,
-	 ?BYTE(Bool), Data/binary>>) ->
+	 ?DEC_BIN(RequestType,__0), ?BYTE(Bool), Data/binary>>) ->
     #ssh_msg_channel_request{
        recipient_channel = Recipient,
        request_type = unicode:characters_to_list(RequestType),
@@ -366,9 +363,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_FAILURE),  ?UINT32(Recipient)>>) ->
 
 %%% Auth Messages
 decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
-	 ?UINT32(Len0), User:Len0/binary,
-	 ?UINT32(Len1), Service:Len1/binary,
-	 ?UINT32(Len2), Method:Len2/binary,
+	 ?DEC_BIN(User,__0), ?DEC_BIN(Service,__1), ?DEC_BIN(Method,__2),
 	 Data/binary>>) ->
     #ssh_msg_userauth_request{
        user = unicode:characters_to_list(User),
@@ -378,7 +373,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
       };
 
 decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
-	 ?UINT32(Len0), Auths:Len0/binary,
+	 ?DEC_BIN(Auths,__0),
 	 ?BYTE(Bool)>>) ->
     #ssh_msg_userauth_failure {
        authentications = unicode:characters_to_list(Auths),
@@ -388,16 +383,14 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
 decode(<<?BYTE(?SSH_MSG_USERAUTH_SUCCESS)>>) ->
     #ssh_msg_userauth_success{};
 
-decode(<<?BYTE(?SSH_MSG_USERAUTH_BANNER),
-	       ?UINT32(Len0), Banner:Len0/binary,
-	       ?UINT32(Len1), Lang:Len1/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_USERAUTH_BANNER), ?DEC_BIN(Banner,__0), ?DEC_BIN(Lang,__1) >>) ->
     #ssh_msg_userauth_banner{
        message = Banner,
        language = Lang
       };
 
-decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST), ?UINT32(Len0), Name:Len0/binary,
-	 ?UINT32(Len1), Inst:Len1/binary, ?UINT32(Len2), Lang:Len2/binary,
+decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST),
+	 ?DEC_BIN(Name,__0), ?DEC_BIN(Inst,__1), ?DEC_BIN(Lang,__2),
 	 ?UINT32(NumPromtps), Data/binary>>) ->
     #ssh_msg_userauth_info_request{
        name = Name,
@@ -407,15 +400,14 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_REQUEST), ?UINT32(Len0), Name:Len0/binary,
        data = Data};
 
 %%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
-decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?UINT32(Len0), Prompt:Len0/binary,
-	 ?UINT32(Len1), Lang:Len1/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?DEC_BIN(Prompt,__0), ?DEC_BIN(Lang,__1) >>) ->
     #ssh_msg_userauth_passwd_changereq{
        prompt = Prompt,
        languge = Lang
       };
 
 %%% Unhandled message, also masked by same 1:st byte value as ?SSH_MSG_USERAUTH_INFO_REQUEST:
-decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?UINT32(Len), Alg:Len/binary, KeyBlob/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_USERAUTH_PK_OK), ?DEC_BIN(Alg,__0), KeyBlob/binary>>) ->
     #ssh_msg_userauth_pk_ok{
        algorithm_name = Alg,
        key_blob = KeyBlob
@@ -430,18 +422,15 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?UINT32(Num), Data/binary>>) ->
 decode(<<?BYTE(?SSH_MSG_KEXINIT), Cookie:128, Data/binary>>) ->
     decode_kex_init(Data, [Cookie, ssh_msg_kexinit], 10);
 
-decode(<<"dh",?BYTE(?SSH_MSG_KEXDH_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+decode(<<"dh",?BYTE(?SSH_MSG_KEXDH_INIT), ?DEC_MPINT(E,__0)>>) ->
     #ssh_msg_kexdh_init{e = E
 		       };
 
-decode(<<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY), 
-	 ?UINT32(Len0), Key:Len0/binary,
-	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
-	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
+decode(<<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY), ?DEC_BIN(Key,__0), ?DEC_MPINT(F,__1), ?DEC_BIN(Hashsign,__2)>>) ->
     #ssh_msg_kexdh_reply{
        public_host_key = decode_host_key(Key),
        f = F,
-       h_sig = decode_sign(Hashsign)
+       h_sig = decode_signature(Hashsign)
       };
 
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST), ?UINT32(Min), ?UINT32(N), ?UINT32(Max)>>) ->
@@ -456,57 +445,48 @@ decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?UINT32(N)>>) ->
        n = N
       };
 
-decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP),  
-	 ?UINT32(Len0), Prime:Len0/big-signed-integer-unit:8,
-	 ?UINT32(Len1), Generator:Len1/big-signed-integer-unit:8>>) ->
+decode(<<"dh_gex",?BYTE(?SSH_MSG_KEX_DH_GEX_GROUP), ?DEC_MPINT(Prime,__0), ?DEC_MPINT(Generator,__1) >>) ->
     #ssh_msg_kex_dh_gex_group{
        p = Prime,
        g = Generator
       };
 
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_INIT), ?UINT32(Len), E:Len/big-signed-integer-unit:8>>) ->
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_INIT), ?DEC_MPINT(E,__0)>>) ->
     #ssh_msg_kex_dh_gex_init{
        e = E
       };
 
-decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), 
-	 ?UINT32(Len0), Key:Len0/binary,
-	 ?UINT32(Len1), F:Len1/big-signed-integer-unit:8,
-	 ?UINT32(Len2), Hashsign:Len2/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), ?DEC_BIN(Key,__0), ?DEC_MPINT(F,__1), ?DEC_BIN(Hashsign,__2)>>) ->
     #ssh_msg_kex_dh_gex_reply{
        public_host_key = decode_host_key(Key),
        f = F,
-       h_sig = decode_sign(Hashsign)
+       h_sig = decode_signature(Hashsign)
       };
 
-decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT),
-	 ?UINT32(Len0), Q_c:Len0/big-signed-integer-unit:8>>) ->
+decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT), ?DEC_MPINT(Q_c,__0)>>) ->
     #ssh_msg_kex_ecdh_init{
        q_c = Q_c
       };
 
 decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
-	 ?UINT32(Len1), Key:Len1/binary,
-	 ?UINT32(Len2), Q_s:Len2/big-signed-integer-unit:8,
-	 ?UINT32(Len3), Sig:Len3/binary>>) ->
+	 ?DEC_BIN(Key,__1), ?DEC_MPINT(Q_s,__2), ?DEC_BIN(Sig,__3)>>) ->
     #ssh_msg_kex_ecdh_reply{
        public_host_key = decode_host_key(Key),
        q_s = Q_s,
-       h_sig = decode_sign(Sig)
+       h_sig = decode_signature(Sig)
       };
 
-decode(<<?SSH_MSG_SERVICE_REQUEST, ?UINT32(Len0), Service:Len0/binary>>) ->
+decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{
        name = unicode:characters_to_list(Service)
       };
 
-decode(<<?SSH_MSG_SERVICE_ACCEPT, ?UINT32(Len0), Service:Len0/binary>>) ->
+decode(<<?SSH_MSG_SERVICE_ACCEPT, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_accept{
        name = unicode:characters_to_list(Service)
       };
 
-decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
-       ?UINT32(Len0), Desc:Len0/binary, ?UINT32(Len1), Lang:Len1/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1)>>) ->
     #ssh_msg_disconnect{
        code = Code,
        description = unicode:characters_to_list(Desc),
@@ -514,8 +494,7 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
       };
 
 %% Accept bad disconnects from ancient openssh clients that doesn't send language tag.  Use english as a work-around.
-decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
-       ?UINT32(Len0), Desc:Len0/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0)>>) ->
     #ssh_msg_disconnect{
        code = Code,
        description = unicode:characters_to_list(Desc),
@@ -525,21 +504,25 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code),
 decode(<<?SSH_MSG_NEWKEYS>>) ->
     #ssh_msg_newkeys{};
 
-decode(<<?BYTE(?SSH_MSG_IGNORE), ?UINT32(Len), Data:Len/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_IGNORE), ?DEC_BIN(Data,__0)>>) ->
     #ssh_msg_ignore{data = Data};
 
 decode(<<?BYTE(?SSH_MSG_UNIMPLEMENTED), ?UINT32(Seq)>>) ->
     #ssh_msg_unimplemented{sequence = Seq};
 
-decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?UINT32(Len0), Msg:Len0/binary,
-	 ?UINT32(Len1), Lang:Len1/binary>>) ->
+decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?DEC_BIN(Msg,__0), ?DEC_BIN(Lang,__1)>>) ->
     #ssh_msg_debug{always_display = erl_boolean(Bool),
 		   message = Msg,
 		   language = Lang}.
 
+%%%================================================================
+%%%
+%%% Helper functions
+%%%
+
 decode_keyboard_interactive_prompts(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_keyboard_interactive_prompts(<<?UINT32(Len), Prompt:Len/binary, ?BYTE(Bool), Bin/binary>>,
+decode_keyboard_interactive_prompts(<<?DEC_BIN(Prompt,__0), ?BYTE(Bool), Bin/binary>>,
 				    Acc) ->
     decode_keyboard_interactive_prompts(Bin, [{Prompt, erl_boolean(Bool)} | Acc]).
 
@@ -555,38 +538,34 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     %% See rfc 4253 7.1
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
-decode_kex_init(<<?UINT32(Len), Data:Len/binary, Rest/binary>>, Acc, N) ->
+decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
     Names = string:tokens(unicode:characters_to_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
 
 
+%%%================================================================
+%%%
+%%% Host key decode/encode
+%%%
 
-decode_sign(<<?UINT32(Len), _Alg:Len/binary, ?UINT32(_), Signature/binary>>) ->
-    Signature.
+decode_host_key(<<?DEC_BIN(Alg,__0), Rest/binary>>) -> decode_host_key(Alg, Rest).
 
 
-decode_host_key(<<?UINT32(Len), Alg:Len/binary, Rest/binary>>) ->
-    decode_host_key(Alg, Rest).
-
-
-decode_host_key(<<"ssh-rsa">>, <<?UINT32(Len0), E:Len0/big-signed-integer-unit:8,
-				 ?UINT32(Len1), N:Len1/big-signed-integer-unit:8>>) ->
+decode_host_key(<<"ssh-rsa">>, <<?DEC_MPINT(E,__0), ?DEC_MPINT(N,__1)>>) ->
     #'RSAPublicKey'{publicExponent = E,
 		    modulus = N};
-
 decode_host_key(<<"ssh-dss">>,
-		<<?UINT32(Len0), P:Len0/big-signed-integer-unit:8,
-		  ?UINT32(Len1), Q:Len1/big-signed-integer-unit:8,
-		  ?UINT32(Len2), G:Len2/big-signed-integer-unit:8,
-		  ?UINT32(Len3), Y:Len3/big-signed-integer-unit:8>>) ->
+		<<?DEC_MPINT(P,__0),
+		  ?DEC_MPINT(Q,__1),
+		  ?DEC_MPINT(G,__2),
+		  ?DEC_MPINT(Y,__3)>>) ->
     {Y, #'Dss-Parms'{p = P,
 		     q = Q,
 		     g = G}};
-
 decode_host_key(<<"ecdsa-sha2-",Id/binary>>,
-		<<?UINT32(Len0), Id:Len0/binary, %% Id = <<"nistp256">> for example
-		  ?UINT32(Len1), Blob:Len1/binary>>) ->
-    {#'ECPoint'{point=Blob}, Id}.
+		<<?DEC_BIN(Id,__0), %% Id = <<"nistp256">> for example
+		  ?DEC_BIN(Blob,__1)>>) ->
+    {#'ECPoint'{point=Blob}, {namedCurve,public_key:ssh_curvename2oid(Id)}}.
 
 
 encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
@@ -594,30 +573,25 @@ encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
 encode_host_key({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     ssh_bits:encode(["ssh-dss", P, Q, G, Y],
 		    [string, mpint, mpint, mpint, mpint]);
-encode_host_key({#'ECPoint'{point = Q}, Id}) ->
-    ssh_bits:encode([<<"ecdsa-sha2-",Id/binary>>,Id,Q], [binary,binary,binary]);
-
-encode_host_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
-    ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);
-encode_host_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
-    ssh_bits:encode(["ssh-dss", P, Q, G, Y],
-		    [string, mpint, mpint, mpint, mpint]);
-encode_host_key(#'ECPrivateKey'{parameters = Params, %{namedCurve,{1,2,840,10045,3,1,7}},
-				publicKey = Pub}) ->
-    Id = ecdsa_id(Params),
-    ssh_bits:encode(["ecdsa-sha2-"++Id, Id, Pub],
-                    [string, string, binary]).
+encode_host_key({#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
+    CurveName = public_key:oid2ssh_curvename(OID),
+    ssh_bits:encode([<<"ecdsa-sha2-",CurveName/binary>>,CurveName,Q], [binary,binary,binary]).
 
 
-encode_sign(#'RSAPrivateKey'{}, Signature) ->
+%%%================================================================
+%%%
+%%% Signature decode/encode
+%%%
+
+decode_signature(<<?DEC_BIN(_Alg,__0), ?UINT32(_), Signature/binary>>) ->
+    Signature.
+
+
+encode_signature(#'RSAPublicKey'{}, Signature) ->
     ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
-encode_sign(#'DSAPrivateKey'{}, Signature) ->
+encode_signature({_, #'Dss-Parms'{}}, Signature) ->
     ssh_bits:encode(["ssh-dss", Signature],[string, binary]);
-encode_sign(#'ECPrivateKey'{parameters = Params}, Signature) ->
-    Id = "ecdsa-sha2-" ++ ecdsa_id(Params),
-    ssh_bits:encode([Id, Signature],[string, binary]).
+encode_signature({#'ECPoint'{}, {namedCurve,OID}}, Signature) ->
+    CurveName = public_key:oid2ssh_curvename(OID),
+    ssh_bits:encode([<<"ecdsa-sha2-",CurveName/binary>>, Signature], [binary,binary]).
 
-
-ecdsa_id({namedCurve,?'secp256r1'}) -> "nistp256";
-ecdsa_id({namedCurve,?'secp384r1'}) -> "nistp384";
-ecdsa_id({namedCurve,?'secp521r1'}) -> "nistp521".

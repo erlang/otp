@@ -403,18 +403,13 @@ setup_rsa_auth_keys(Dir, UserDir) ->
     PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
     setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
 
-setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
+setup_ecdsa_auth_keys(_Size, Dir, UserDir) ->
     {ok, Pem} = file:read_file(filename:join(Dir, "id_ecdsa")),
     ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
     #'ECPrivateKey'{publicKey = Q,
-		    parameters = {namedCurve,Id0}} = ECDSA,
+		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
     PKey = #'ECPoint'{point = Q},
-    Id = case pubkey_cert_records:namedCurves(Id0) of
-	     secp256r1 when Size=="256" -> <<"nistp256">>;
-	     secp384r1 when Size=="384" -> <<"nistp384">>;
-	     secp521r1 when Size=="521" -> <<"nistp521">>
-	 end,
-    setup_auth_keys([{ {PKey,Id}, [{comment, "Test"}]}], UserDir).
+    setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),

@@ -47,6 +47,7 @@
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
 	 ssh_decode/2, ssh_encode/2,
+	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
 	 pkix_dist_points/1,
@@ -740,6 +741,21 @@ ssh_encode(Entries, Type) when is_list(Entries),
 			       Type == auth_keys;
 			       Type == known_hosts ->
     pubkey_ssh:encode(Entries, Type).
+
+%%--------------------------------------------------------------------
+%% Description: Converts from the ssh name of elliptic curves to
+%% the OIDs.
+%%--------------------------------------------------------------------
+ssh_curvename2oid(<<"nistp256">>) ->  ?'secp256r1';
+ssh_curvename2oid(<<"nistp384">>) ->  ?'secp384r1';
+ssh_curvename2oid(<<"nistp521">>) ->  ?'secp521r1'.
+
+%%--------------------------------------------------------------------
+%% Description: Converts from elliptic curve OIDs to the ssh name.
+%%--------------------------------------------------------------------
+oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
+oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
+oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
