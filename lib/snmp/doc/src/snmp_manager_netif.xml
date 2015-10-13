@@ -75,8 +75,7 @@
     <p>In this section a <c>Domain</c> field is the transport domain i.e
     one of <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
     and an <c>Addr</c> field is an
-    <c>{<seealso marker="kernel:inet#type-ip_address">IpAddr</seealso>,
-    IpPort}</c> tuple.</p>
+    <c>{</c><seealso marker="kernel:inet#type-ip_address"><c>IpAddr</c></seealso><c>,IpPort}</c> tuple.</p>
 
     <p>Net if must send the following message when it receives an
       SNMP PDU from the network that is aimed for the MasterAgent:

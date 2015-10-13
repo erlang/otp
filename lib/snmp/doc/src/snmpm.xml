@@ -1241,12 +1241,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Converts an Audit Trail Log to a readable text file. 
 	<c>OutFile</c> defaults to "./snmpm_log.txt". 
 	<c>LogName</c> defaults to "snmpm_log". 
-	<c>LogFile</c> defaults to "snmpm.log". 
+	<c>LogFile</c> defaults to "snmpm.log".</p>
 	<p>The <c>Block</c> argument indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
 	for more info.</p>
 
         <marker id="log_to_io"></marker>
@@ -1280,12 +1280,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. 
 	<c>LogName</c> defaults to "snmpm_log". 
-	<c>LogFile</c> defaults to "snmpm.log". 
+	<c>LogFile</c> defaults to "snmpm.log".</p>
 	<p>The <c>Block</c> argument indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>
