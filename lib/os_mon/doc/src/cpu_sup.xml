@@ -63,7 +63,7 @@
       measure.</p>
     <p>A server which receives just enough requests to never become
       idle will score a CPU utilization of 100%. If the server receives
-      50% more requests, it will still scores 100%. When the system load
+      50% more requests, it will still score 100%. When the system load
       is calculated with the percentage formula shown previously,
       the load will increase from 80% to 87%.</p>
     <p>The <c>avg1/0</c>, <c>avg5/0</c>, and <c>avg15/0</c> functions
