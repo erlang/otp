@@ -117,9 +117,9 @@ channel_info(ConnectionRef, ChannelId, Options) ->
     ssh_connection_handler:channel_info(ConnectionRef, ChannelId, Options).
 
 %%--------------------------------------------------------------------
--spec daemon(integer()) -> {ok, pid()}.
--spec daemon(integer(), proplists:proplist()) -> {ok, pid()}.
--spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()}.
+-spec daemon(integer()) -> {ok, pid()} | {error, term()}.
+-spec daemon(integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
+-spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 
 %% Description: Starts a server listening for SSH connections 
 %% on the given port.

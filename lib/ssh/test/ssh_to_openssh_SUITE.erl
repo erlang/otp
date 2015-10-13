@@ -653,6 +653,8 @@ receive_hej() ->
 		    ct:log("Extra info: ~p~n", [Info]),
 		    receive_hej()
 	    end
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 receive_logout() ->
@@ -662,11 +664,15 @@ receive_logout() ->
 	    receive
 		<<"Connection closed">> ->
 		    ok
+	    after 
+		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
 	    end;
 	Info ->
 	    ct:log("Extra info when logging out: ~p~n", [Info]),
 	    receive_logout()
-	end.
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
 
 receive_normal_exit(Shell) ->
     receive
@@ -676,6 +682,8 @@ receive_normal_exit(Shell) ->
 	    receive_normal_exit(Shell);
 	Other ->
 	    ct:fail({unexpected_msg, Other})
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 extra_logout() ->

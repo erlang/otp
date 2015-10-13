@@ -327,6 +327,8 @@ no_common_alg_client_disconnects(Config) ->
 	X -> 
 	    ct:log("¤¤¤¤¤"),
 	    ct:fail(X)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 %%%--------------------------------------------------------------------

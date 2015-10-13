@@ -163,7 +163,9 @@ loop_io_server(TestCase, Buff0) ->
 	 {'EXIT',_, _} ->
 	     erlang:display('ssh_test_lib:loop_io_server/2 EXIT'),
 	     ok
-     end.
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
 
 io_request({put_chars, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, Chars),
@@ -212,6 +214,8 @@ receive_exec_result(Msg) ->
 	Other ->
 	    ct:log("Other ~p", [Other]),
 	    {unexpected_msg, Other}
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 

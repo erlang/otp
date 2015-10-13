@@ -656,6 +656,8 @@ ssh_connect_arg4_timeout(_Config) ->
     %% Get listening port
     Port = receive
 	       {port,Server,ServerPort} -> ServerPort
+	   after 
+	       10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
 	   end,
 
     %% try to connect with a timeout, but "supervise" it
@@ -861,6 +863,8 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
 	    ct:sleep(round(Factor * NegTimeOut)),
     
 	    one_shell_op(IO, NegTimeOut)
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
     exit(Shell, kill).
 
@@ -869,13 +873,13 @@ one_shell_op(IO, TimeOut) ->
     ct:log("One shell op: Waiting for prompter"),
     receive
 	ErlPrompt0 -> ct:log("Erlang prompt: ~p~n", [ErlPrompt0])
-	after TimeOut -> ct:fail("Timeout waiting for promter")
+    after TimeOut -> ct:fail("Timeout waiting for promter")
     end,
 
     IO ! {input, self(), "2*3*7.\r\n"},
     receive
 	Echo0 -> ct:log("Echo: ~p ~n", [Echo0])
-	after TimeOut -> ct:fail("Timeout waiting for echo")
+    after TimeOut -> ct:fail("Timeout waiting for echo")
     end,
 
     receive
@@ -888,7 +892,7 @@ one_shell_op(IO, TimeOut) ->
 
     receive
 	Result0 -> ct:log("Result: ~p~n", [Result0])
-	after TimeOut ->  ct:fail("Timeout waiting for result")
+    after TimeOut ->  ct:fail("Timeout waiting for result")
     end.
 
 %%--------------------------------------------------------------------
@@ -1016,9 +1020,13 @@ fake_daemon(_Config) ->
 			   {ok,S} = Rsa,
 			   receive
 			       {tcp, S, Id} -> Parent ! {id,self(),Id}
+			   after 
+			       10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
 			   end
 		   end),
     %% Get listening host and port
     receive
 	{sockname,Server,ServerHost,ServerPort} -> {Server, ServerHost, ServerPort}
+    after 
+	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.

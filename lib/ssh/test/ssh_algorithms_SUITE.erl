@@ -23,6 +23,7 @@
 -module(ssh_algorithms_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -72,11 +73,19 @@ init_per_suite(Config) ->
 	   "OS ssh:~n=======~n~p~n~n~n"
 	   "Erl ssh:~n========~n~p~n~n~n"
 	   "Installed ssh client:~n=====================~n~p~n~n~n"
-	   "Installed ssh server:~n=====================~n~p~n~n~n",
-	   [os:cmd("ssh -V"),
+	   "Installed ssh server:~n=====================~n~p~n~n~n"
+	   "Misc values:~n============~n"
+	   " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
+	   " -- dh_default_groups: ~p~n"
+	   " -- Max num algorithms: ~p~n"
+	  ,[os:cmd("ssh -V"),
 	    ssh:default_algorithms(),
 	    ssh_test_lib:default_algorithms(sshc),
-	    ssh_test_lib:default_algorithms(sshd)]),
+	    ssh_test_lib:default_algorithms(sshd),
+	    {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
+	    [KeyLen || {KeyLen,_} <- ?dh_default_groups],
+	    ?MAX_NUM_ALGORITHMS
+	    ]),
     ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
     catch crypto:stop(),
     case catch crypto:start() of
@@ -271,7 +280,8 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 		[]
 	end ++
 	case {Tag,Alg} of
-	    {kex,'diffie-hellman-group-exchange-sha1'} ->
+	    {kex,_} when Alg == 'diffie-hellman-group-exchange-sha1' ;
+			 Alg == 'diffie-hellman-group-exchange-sha256' ->
 		[simple_exec_group14,
 		 simple_exec_group15,
 		 simple_exec_group16,
