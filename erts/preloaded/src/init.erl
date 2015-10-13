@@ -734,12 +734,12 @@ do_boot(Init,Flags,Start) ->
     LoadMode = b2a(get_flag(mode, Flags, false)),
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
-    BootVars = get_flag_args(boot_var, Flags),
+    BootVars = get_boot_vars(Root, Flags),
     ParallelLoad = 
 	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
 
     PathChoice = code_path_choice(),
-    eval_script(BootList,Init,PathFls,{Root,BootVars},Path,
+    eval_script(BootList,Init,PathFls,BootVars,Path,
 		{true,LoadMode,ParallelLoad},Deb,PathChoice),
 
     %% To help identifying Purify windows that pop up,
@@ -755,6 +755,20 @@ get_root(Flags) ->
 	_ ->
 	    exit(no_or_multiple_root_variables)
     end.
+
+get_boot_vars(Root, Flags) ->
+    BootVars = get_boot_vars_1(#{}, Flags),
+    RootKey = <<"ROOT">>,
+    BootVars#{RootKey=>Root}.
+
+get_boot_vars_1(Vars, [{boot_var,[Key,Value]}|T]) ->
+    get_boot_vars_1(Vars#{Key=>Value}, T);
+get_boot_vars_1(_, [{boot_var,_}|_]) ->
+    exit(invalid_boot_var_argument);
+get_boot_vars_1(Vars, [_|T]) ->
+    get_boot_vars_1(Vars, T);
+get_boot_vars_1(Vars, []) ->
+    Vars.
 
 bootfile(Flags,Root) ->
     b2s(get_flag(boot, Flags, concat([Root,"/bin/start"]))).
@@ -905,33 +919,24 @@ fix_path([Path|Ps], Vars) ->
 fix_path(_, _) ->
     [].
 
-add_var("$ROOT/" ++ Path, {Root,_}) ->
-    concat([Root, "/", Path]);
-add_var([$$|Path0], {_,VarList}) ->
-    {Var,Path} = extract_var(Path0,[]),
-    Value = b2s(get_var_value(list_to_binary(Var),VarList)),
-    concat([Value, "/", Path]);
-add_var(Path, _)   ->
+add_var("$"++Path0, Vars) ->
+    {Var,Path} = extract_var(Path0, []),
+    Key = list_to_binary(Var),
+    case Vars of
+	#{Key:=Value0} ->
+	    Value = b2s(Value0),
+	    Value ++ "/" ++ Path;
+	_ ->
+	    Error0 = "cannot expand $" ++ Var ++ " in bootfile",
+	    Error = list_to_atom(Error0),
+	    exit(Error)
+    end;
+add_var(Path, _) ->
     Path.
 
 extract_var([$/|Path],Var) -> {reverse(Var),Path};
 extract_var([H|T],Var)     -> extract_var(T,[H|Var]);
 extract_var([],Var)        -> {reverse(Var),[]}.
-
-%% get_var_value(Var, [Vars]) where Vars == [atom()]
-get_var_value(Var,[Vars|VarList]) ->
-    case get_var_val(Var,Vars) of
-	{ok, Value} ->
-	    Value;
-	_ ->
-	    get_var_value(Var,VarList)
-    end;
-get_var_value(Var,[]) ->
-    exit(list_to_atom(concat(["cannot expand \$", Var, " in bootfile"]))).
-
-get_var_val(Var,[Var,Value|_]) -> {ok, Value};
-get_var_val(Var,[_,_|Vars])    -> get_var_val(Var,Vars);
-get_var_val(_,_)               -> false.
 
 patch_path(Dirs, strict) ->
     Dirs;
