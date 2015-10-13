@@ -45,6 +45,7 @@ typedef unsigned long long ErtsSysPortId;
 typedef struct ErtsSysForkerProto_ {
     enum {
         ErtsSysForkerProtoAction_Start,
+        ErtsSysForkerProtoAction_StartAck,
         ErtsSysForkerProtoAction_Go,
         ErtsSysForkerProtoAction_SigChld,
         ErtsSysForkerProtoAction_Ack
