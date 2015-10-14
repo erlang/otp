@@ -25,6 +25,14 @@
 
 #include "sys.h"
 
+#ifdef __FreeBSD__
+/* The freebsd sendmsg man page explicitly states that
+   you should not close fds before they are known
+   to have reached the other side, so this Ack protects
+   against that. */
+#define FORKER_PROTO_START_ACK 1
+#endif
+
 #define FORKER_ARGV_NO_OF_ARGS  3
 #define FORKER_ARGV_PROGNAME_IX	0    /* Program name                          */
 #define FORKER_ARGV_MAX_FILES	1    /* max_files                             */
