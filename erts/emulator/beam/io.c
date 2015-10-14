@@ -2408,6 +2408,11 @@ erts_port_exit(Process *c_p,
 		      | ERTS_PORT_SIG_FLG_BROKEN_LINK
 		      | ERTS_PORT_SIG_FLG_FORCE_SCHED)) == 0);
 
+#ifndef __WIN32__
+    if (prt->drv_ptr == &forker_driver)
+        return ERTS_PORT_OP_DROPPED;
+#endif
+
     if (!(flags & ERTS_PORT_SIG_FLG_FORCE_SCHED)) {
 	ErtsTryImmDrvCallState try_call_state
 	    = ERTS_INIT_TRY_IMM_DRV_CALL_STATE(c_p,
