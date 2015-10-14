@@ -907,7 +907,6 @@ the test set is finished, regardless of the outcome (success, failures,
 timeouts, etc.).
 
 To make the descriptions simpler, we first list some definitions:
-<center>
 <table border="0" cellspacing="4">
 <tr>
 <td>`Setup'</td><td>`() -> (R::any())'</td>
@@ -928,7 +927,6 @@ To make the descriptions simpler, we first list some definitions:
 <td>`Where'</td><td>`local | spawn | {spawn, Node::atom()}'</td>
 </tr>
 </table>
-</center>
 (these are explained in more detail further below.)
 
 The following representations specify fixture handling for test sets:
