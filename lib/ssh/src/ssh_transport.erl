@@ -44,6 +44,7 @@
 	 handle_kexdh_reply/2, 
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
+	 extract_public_key/1,
 	 unpack/3, decompress/2, ssh_packet/2, pack/2, msg_data/1,
 	 sign/3, verify/4]).
 
@@ -1344,38 +1345,42 @@ hash(K, H, Ki, N, HASH) ->
     hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HASH).
 
 kex_h(SSH, Key, E, F, K) ->
+    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
 			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 ssh_message:encode_host_key(Key), E,F,K],
+			 KeyBin, E,F,K],
 			[string,string,binary,binary,binary,
 			 mpint,mpint,mpint]),
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
 %%  crypto:hash(sha,L).
 
 kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
+    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
 			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 ssh_message:encode_host_key(Key), Q_c, Q_s, K],
+			 KeyBin, Q_c, Q_s, K],
 			[string,string,binary,binary,binary,
 			 mpint,mpint,mpint]),
     crypto:hash(sha(Curve), L).
 
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
     L = if Min==-1; Max==-1 ->
+		KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
 		Ts = [string,string,binary,binary,binary,
 		      uint32,
 		      mpint,mpint,mpint,mpint,mpint],
 		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
 				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 ssh_message:encode_host_key(Key), NBits, Prime, Gen, E,F,K],
+				 KeyBin, NBits, Prime, Gen, E,F,K],
 				Ts);
 	   true ->
+		KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
 		Ts = [string,string,binary,binary,binary,
 		      uint32,uint32,uint32,
 		      mpint,mpint,mpint,mpint,mpint],
 		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
 				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 ssh_message:encode_host_key(Key), Min, NBits, Max,
+				 KeyBin, Min, NBits, Max,
 				 Prime, Gen, E,F,K], Ts)
 	end,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).

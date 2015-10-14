@@ -54,6 +54,8 @@ decode(Bin, public_key)->
     end;
 decode(Bin, rfc4716_public_key) ->
     rfc4716_decode(Bin);
+decode(Bin, ssh2_pubkey) ->
+    ssh2_pubkey_decode(Bin);
 decode(Bin, Type) ->
     openssh_decode(Bin, Type).
 
@@ -63,6 +65,8 @@ decode(Bin, Type) ->
 %%
 %% Description: Encodes a list of ssh file entries.
 %%--------------------------------------------------------------------
+encode(Bin, ssh2_pubkey) ->
+    ssh2_pubkey_encode(Bin);
 encode(Entries, Type) ->
     iolist_to_binary(lists:map(fun({Key, Attributes}) ->
 					      do_encode(Type, Key, Attributes)
@@ -221,36 +225,13 @@ decode_comment(Comment) ->
     [{comment, string_decode(iolist_to_binary(Comment))}].
 
 
-openssh_pubkey_decode(<<"ssh-rsa">>, Base64Enc) ->
-    <<?UINT32(StrLen), _:StrLen/binary,
-      ?UINT32(SizeE), E:SizeE/binary,
-      ?UINT32(SizeN), N:SizeN/binary>>
-	= base64:mime_decode(Base64Enc),
-    #'RSAPublicKey'{modulus = erlint(SizeN, N),
-		    publicExponent = erlint(SizeE, E)};
-
-openssh_pubkey_decode(<<"ssh-dss">>, Base64Enc) ->
-    <<?UINT32(StrLen), _:StrLen/binary,
-      ?UINT32(SizeP), P:SizeP/binary,
-      ?UINT32(SizeQ), Q:SizeQ/binary,
-      ?UINT32(SizeG), G:SizeG/binary,
-      ?UINT32(SizeY), Y:SizeY/binary>>
-	= base64:mime_decode(Base64Enc),
-    {erlint(SizeY, Y),
-     #'Dss-Parms'{p = erlint(SizeP, P),
-		  q = erlint(SizeQ, Q),
-		  g = erlint(SizeG, G)}};
-
-openssh_pubkey_decode(<<"ecdsa-sha2-", Id/binary>>, Base64Enc) ->
-    %% rfc5656#section-3.1
-    <<?UINT32(StrLen), _:StrLen/binary,
-      ?UINT32(SizeId), Id:SizeId/binary,
-      ?UINT32(SizeQ), Q:SizeQ/binary>>
-	= base64:mime_decode(Base64Enc),
-    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}};
-
-openssh_pubkey_decode(KeyType, Base64Enc) ->
-    {KeyType, base64:mime_decode(Base64Enc)}.
+openssh_pubkey_decode(Type,  Base64Enc) ->
+    try
+	ssh2_pubkey_decode(Type,  base64:mime_decode(Base64Enc))
+    catch
+	_:_ ->
+	    {Type, base64:mime_decode(Base64Enc)}
+    end.
 
 
 erlint(MPIntSize, MPIntValue) ->
@@ -415,6 +396,36 @@ ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
     <<?UINT32(StrLen), TypeStr:StrLen/binary,
       (string(IdB))/binary,
       (string(Q))/binary>>.
+
+
+ssh2_pubkey_decode(Bin = <<?UINT32(Len), Type:Len/binary, _/binary>>) ->
+    ssh2_pubkey_decode(Type, Bin).
+
+ssh2_pubkey_decode(<<"ssh-rsa">>,
+		   <<?UINT32(Len),   _:Len/binary,
+		     ?UINT32(SizeE), E:SizeE/binary,
+		     ?UINT32(SizeN), N:SizeN/binary>>) ->
+    #'RSAPublicKey'{modulus = erlint(SizeN, N),
+		    publicExponent = erlint(SizeE, E)};
+
+ssh2_pubkey_decode(<<"ssh-dss">>,
+		   <<?UINT32(Len),   _:Len/binary,
+		     ?UINT32(SizeP), P:SizeP/binary,
+		     ?UINT32(SizeQ), Q:SizeQ/binary,
+		     ?UINT32(SizeG), G:SizeG/binary,
+		     ?UINT32(SizeY), Y:SizeY/binary>>) ->
+    {erlint(SizeY, Y),
+     #'Dss-Parms'{p = erlint(SizeP, P),
+		  q = erlint(SizeQ, Q),
+		  g = erlint(SizeG, G)}};
+ssh2_pubkey_decode(<<"ecdsa-sha2-",Id/binary>>,
+		   <<?UINT32(Len), ECDSA_SHA2_etc:Len/binary,
+		     ?UINT32(SizeId), Id:SizeId/binary,
+		     ?UINT32(SizeQ), Q:SizeQ/binary>>) ->
+    <<"ecdsa-sha2-", Id/binary>> = ECDSA_SHA2_etc,
+    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}}.
+
+
 
 is_key_field(<<"ssh-dss">>) ->  true;
 is_key_field(<<"ssh-rsa">>) ->  true;

@@ -725,7 +725,8 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 			      Type == rfc4716_public_key;
 			      Type == openssh_public_key;
 			      Type == auth_keys;
-			      Type == known_hosts ->
+			      Type == known_hosts;
+			      Type == ssh2_pubkey ->
     pubkey_ssh:decode(SshBin, Type).
 
 %%--------------------------------------------------------------------
@@ -739,7 +740,8 @@ ssh_encode(Entries, Type) when is_list(Entries),
 			       Type == rfc4716_public_key;
 			       Type == openssh_public_key;
 			       Type == auth_keys;
-			       Type == known_hosts ->
+			       Type == known_hosts;
+			       Type == ssh2_pubkey ->
     pubkey_ssh:encode(Entries, Type).
 
 %%--------------------------------------------------------------------

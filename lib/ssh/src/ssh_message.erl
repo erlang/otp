@@ -30,7 +30,7 @@
 -include("ssh_auth.hrl").
 -include("ssh_transport.hrl").
 
--export([encode/1, decode/1, encode_host_key/1, decode_keyboard_interactive_prompts/2]).
+-export([encode/1, decode/1, decode_keyboard_interactive_prompts/2]).
 
 encode(#ssh_msg_global_request{
 	  name = Name,
@@ -227,7 +227,7 @@ encode(#ssh_msg_kexdh_reply{
 	  f = F,
 	  h_sig = Signature
 	 }) ->
-    EncKey = encode_host_key(Key),
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Signature),
     ssh_bits:encode([?SSH_MSG_KEXDH_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
 
@@ -255,7 +255,7 @@ encode(#ssh_msg_kex_dh_gex_reply{
 	  f = F,
 	  h_sig = Signature
 	 }) ->
-    EncKey = encode_host_key(Key),
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Signature),
     ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
 
@@ -263,7 +263,7 @@ encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
     ssh_bits:encode([?SSH_MSG_KEX_ECDH_INIT, Q_c], [byte, mpint]);
 
 encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
-    EncKey = encode_host_key(Key),
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Sign),
     ssh_bits:encode([?SSH_MSG_KEX_ECDH_REPLY, EncKey, Q_s, EncSign], [byte, binary, mpint, binary]);
 
@@ -428,7 +428,7 @@ decode(<<"dh",?BYTE(?SSH_MSG_KEXDH_INIT), ?DEC_MPINT(E,__0)>>) ->
 
 decode(<<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY), ?DEC_BIN(Key,__0), ?DEC_MPINT(F,__1), ?DEC_BIN(Hashsign,__2)>>) ->
     #ssh_msg_kexdh_reply{
-       public_host_key = decode_host_key(Key),
+       public_host_key = public_key:ssh_decode(Key, ssh2_pubkey),
        f = F,
        h_sig = decode_signature(Hashsign)
       };
@@ -458,7 +458,7 @@ decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_INIT), ?DEC_MPINT(E,__0)>>) ->
 
 decode(<<?BYTE(?SSH_MSG_KEX_DH_GEX_REPLY), ?DEC_BIN(Key,__0), ?DEC_MPINT(F,__1), ?DEC_BIN(Hashsign,__2)>>) ->
     #ssh_msg_kex_dh_gex_reply{
-       public_host_key = decode_host_key(Key),
+       public_host_key = public_key:ssh_decode(Key, ssh2_pubkey),
        f = F,
        h_sig = decode_signature(Hashsign)
       };
@@ -471,7 +471,7 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_INIT), ?DEC_MPINT(Q_c,__0)>>) ->
 decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
 	 ?DEC_BIN(Key,__1), ?DEC_MPINT(Q_s,__2), ?DEC_BIN(Sig,__3)>>) ->
     #ssh_msg_kex_ecdh_reply{
-       public_host_key = decode_host_key(Key),
+       public_host_key = public_key:ssh_decode(Key, ssh2_pubkey),
        q_s = Q_s,
        h_sig = decode_signature(Sig)
       };
@@ -541,41 +541,6 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
 decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
     Names = string:tokens(unicode:characters_to_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
-
-
-%%%================================================================
-%%%
-%%% Host key decode/encode
-%%%
-
-decode_host_key(<<?DEC_BIN(Alg,__0), Rest/binary>>) -> decode_host_key(Alg, Rest).
-
-
-decode_host_key(<<"ssh-rsa">>, <<?DEC_MPINT(E,__0), ?DEC_MPINT(N,__1)>>) ->
-    #'RSAPublicKey'{publicExponent = E,
-		    modulus = N};
-decode_host_key(<<"ssh-dss">>,
-		<<?DEC_MPINT(P,__0),
-		  ?DEC_MPINT(Q,__1),
-		  ?DEC_MPINT(G,__2),
-		  ?DEC_MPINT(Y,__3)>>) ->
-    {Y, #'Dss-Parms'{p = P,
-		     q = Q,
-		     g = G}};
-decode_host_key(<<"ecdsa-sha2-",Id/binary>>,
-		<<?DEC_BIN(Id,__0), %% Id = <<"nistp256">> for example
-		  ?DEC_BIN(Blob,__1)>>) ->
-    {#'ECPoint'{point=Blob}, {namedCurve,public_key:ssh_curvename2oid(Id)}}.
-
-
-encode_host_key(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
-    ssh_bits:encode(["ssh-rsa", E, N], [string, mpint, mpint]);
-encode_host_key({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
-    ssh_bits:encode(["ssh-dss", P, Q, G, Y],
-		    [string, mpint, mpint, mpint, mpint]);
-encode_host_key({#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
-    CurveName = public_key:oid2ssh_curvename(OID),
-    ssh_bits:encode([<<"ecdsa-sha2-",CurveName/binary>>,CurveName,Q], [binary,binary,binary]).
 
 
 %%%================================================================
