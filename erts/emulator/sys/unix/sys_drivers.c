@@ -1762,17 +1762,13 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
 
     ASSERT(res == sizeof(*proto));
 
+#ifdef FORKER_PROTO_START_ACK
     if (proto->action == ErtsSysForkerProtoAction_StartAck) {
         /* Ideally we would like to not have to ack each Start
            command being sent over the uds, but it would seem
            that some operating systems (only observed on FreeBSD)
            throw away data on the uds when the socket becomes full,
            so we have to.
-
-           Also the freebsd manual explicitly states that
-           you should not close fds before they are known
-           to have reached the other side, so this Ack protects
-           against that as well.
         */
         ErlDrvPort port_num = (ErlDrvPort)e;
         int vlen;
@@ -1788,7 +1784,9 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
 
         if (driver_sizeq(port_num) > 0)
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
-    } else {
+    } else
+#endif
+    {
         ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
 
         /* ideally this would be a port_command call, but as command is
@@ -1805,16 +1803,27 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
 {
     ErlDrvPort port_num = (ErlDrvPort)e;
 
-    int vlen;
-    SysIOVec *iov = driver_peekq(port_num, &vlen);
-    ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
-    ASSERT(iov[0].iov_len >= (sizeof(*proto)));
-    if (sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
-                      proto->u.start.fds, 3, 0) < 0) {
-        if (errno == ERRNO_BLOCK)
-            return;
-        erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup uds: %d", errno);
+#ifndef FORKER_PROTO_START_ACK
+    while (driver_sizeq(port_num) > 0) {
+#endif
+        int vlen;
+        SysIOVec *iov = driver_peekq(port_num, &vlen);
+        ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
+        ASSERT(iov[0].iov_len >= (sizeof(*proto)));
+        if (sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
+                          proto->u.start.fds, 3, 0) < 0) {
+            if (errno == ERRNO_BLOCK)
+                return;
+            erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+        }
+#ifndef FORKER_PROTO_START_ACK
+        close(proto->u.start.fds[0]);
+        close(proto->u.start.fds[1]);
+        if (proto->u.start.fds[1] != proto->u.start.fds[2])
+            close(proto->u.start.fds[2]);
+        driver_deq(port_num, sizeof(*proto));
     }
+#endif
 
     driver_select(port_num, forker_fd, ERL_DRV_WRITE, 0);
 }
@@ -1839,6 +1848,15 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
         }
         erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
     }
+
+#ifndef FORKER_PROTO_START_ACK
+    ASSERT(res == sizeof(*proto));
+    close(proto->u.start.fds[0]);
+    close(proto->u.start.fds[1]);
+    if (proto->u.start.fds[1] != proto->u.start.fds[2])
+        close(proto->u.start.fds[2]);
+    driver_deq(port_num, sizeof(*proto));
+#endif
 
     return 0;
 }
