@@ -2698,28 +2698,37 @@ BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
 }
 
 /*
- * erts_internal:map_type/1
+ * erts_internal:term_type/1
  *
  * Used in erts_debug:size/1
  */
 
-BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
-    DECL_AM(hashmap);
-    DECL_AM(hashmap_node);
-    DECL_AM(flatmap);
+BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
     if (is_map(BIF_ARG_1)) {
         Eterm hdr = *(boxed_val(BIF_ARG_1));
         ASSERT(is_header(hdr));
         switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
             case HAMT_SUBTAG_HEAD_FLATMAP:
-                BIF_RET(AM_flatmap);
+                BIF_RET(ERTS_MAKE_AM("flatmap"));
             case HAMT_SUBTAG_HEAD_ARRAY:
             case HAMT_SUBTAG_HEAD_BITMAP:
-                BIF_RET(AM_hashmap);
+                BIF_RET(ERTS_MAKE_AM("hashmap"));
             case HAMT_SUBTAG_NODE_BITMAP:
-                BIF_RET(AM_hashmap_node);
+                BIF_RET(ERTS_MAKE_AM("hashmap_node"));
             default:
                 erl_exit(1, "bad header");
+        }
+    } else if (is_immed(BIF_ARG_1)) {
+        if (is_small(BIF_ARG_1)) {
+            BIF_RET(ERTS_MAKE_AM("small"));
+        } else if (is_ifloat(BIF_ARG_1)) {
+            BIF_RET(ERTS_MAKE_AM("ifloat"));
+        }
+    } else if (is_boxed(BIF_ARG_1)) {
+        if (is_big(BIF_ARG_1)) {
+            BIF_RET(ERTS_MAKE_AM("big"));
+        } else if (is_hfloat(BIF_ARG_1)) {
+            BIF_RET(ERTS_MAKE_AM("hfloat"));
         }
     }
     BIF_P->fvalue = BIF_ARG_1;

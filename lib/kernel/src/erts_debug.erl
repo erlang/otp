@@ -243,7 +243,7 @@ map_size(Map,Seen0,Sum0) ->
     %% is not allowed to leak anywhere. They are only allowed in
     %% containers (cons cells and tuples, not maps), in gc and
     %% in erts_debug:same/2
-    case erts_internal:map_type(Map) of
+    case erts_internal:term_type(Map) of
         flatmap ->
             Kt = erts_internal:map_to_tuple_keys(Map),
             Vs = maps:values(Map),
