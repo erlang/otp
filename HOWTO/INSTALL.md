@@ -508,7 +508,7 @@ If you have Xcode 4.3, or later, you will also need to download
 If you want to build the `wx` application, you will need to get wxWidgets-3.0
 (`wxWidgets-3.0.0.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>) or get it from github with bug fixes:
 
-    $ git clone --branch WX_3_0_branch git@github.com:wxWidgets/wxWidgets.git
+    $ git clone --branch WX_3_0_BRANCH git@github.com:wxWidgets/wxWidgets.git
 
 Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as
 mature as the old releases and the OS X port still lags behind the other ports.
