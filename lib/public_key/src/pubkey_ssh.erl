@@ -41,7 +41,9 @@
 
 %%--------------------------------------------------------------------
 -spec decode(binary(), public_key | public_key:ssh_file()) -> 
-		    [{public_key:public_key(), Attributes::list()}].
+		    [{public_key:public_key(), Attributes::list()}]
+	  ; (binary(), ssh2_pubkey) ->  public_key:public_key()
+	  .
 %%
 %% Description: Decodes a ssh file-binary.
 %%--------------------------------------------------------------------
@@ -61,7 +63,9 @@ decode(Bin, Type) ->
 
 %%--------------------------------------------------------------------
 -spec encode([{public_key:public_key(), Attributes::list()}], public_key:ssh_file()) ->
-		    binary().
+		    binary()
+	  ; (public_key:public_key(), ssh2_pubkey) -> binary()
+	  .
 %%
 %% Description: Encodes a list of ssh file entries.
 %%--------------------------------------------------------------------

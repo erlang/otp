@@ -66,8 +66,8 @@ default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
-default_algorithms(kex) -> 
-    supported_algorithms(kex, []); %% Just to have a call to supported_algorithms/2
+%% default_algorithms(kex) -> % Example of how to disable an algorithm
+%%     supported_algorithms(kex, ['ecdh-sha2-nistp521']);
 default_algorithms(Alg) ->
     supported_algorithms(Alg).
 
@@ -118,11 +118,11 @@ supported_algorithms(compression) ->
 	  'zlib'
 	 ]).
 
-supported_algorithms(Key, [{client2server,BL1},{server2client,BL2}]) ->
-    [{client2server,As1},{server2client,As2}] = supported_algorithms(Key),
-    [{client2server,As1--BL1},{server2client,As2--BL2}];
-supported_algorithms(Key, BlackList) ->
-    supported_algorithms(Key) -- BlackList.
+%% Dialyzer complains when not called...supported_algorithms(Key, [{client2server,BL1},{server2client,BL2}]) ->
+%% Dialyzer complains when not called...    [{client2server,As1},{server2client,As2}] = supported_algorithms(Key),
+%% Dialyzer complains when not called...    [{client2server,As1--BL1},{server2client,As2--BL2}];
+%% Dialyzer complains when not called...supported_algorithms(Key, BlackList) ->
+%% Dialyzer complains when not called...    supported_algorithms(Key) -- BlackList.
 
 select_crypto_supported(L) ->    
     Sup = [{ec_curve,crypto_supported_curves()} | crypto:supports()],
@@ -329,9 +329,7 @@ verify_algorithm(#alg{encrypt = undefined}) -> false;
 verify_algorithm(#alg{decrypt = undefined}) -> false;
 verify_algorithm(#alg{compress = undefined}) -> false;
 verify_algorithm(#alg{decompress = undefined}) -> false;
-
-verify_algorithm(#alg{kex = Kex}) -> lists:member(Kex, supported_algorithms(kex));
-verify_algorithm(_) -> false.
+verify_algorithm(#alg{kex = Kex}) -> lists:member(Kex, supported_algorithms(kex)).
 
 %%%----------------------------------------------------------------
 %%%
