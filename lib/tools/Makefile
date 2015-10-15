@@ -24,7 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 # ----------------------------------------------------
 
-SUB_DIRECTORIES = c_src src doc/src examples priv emacs
+SUB_DIRECTORIES = c_src src doc/src examples emacs
 
 include vsn.mk
 VSN = $(TOOLS_VSN)
