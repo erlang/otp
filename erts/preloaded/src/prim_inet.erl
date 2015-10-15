@@ -232,7 +232,7 @@ bindx(S, AddFlag, Addrs) ->
 %% if timeout is given:
 %%       timeout < 0  -> infinity
 %%                 0  -> immediate connect (mostly works for loopback)
-%%               > 0  -> wait for timout ms if not connected then 
+%%               > 0  -> wait for timeout ms if not connected then 
 %%                       return {error, timeout} 
 %%
 %% ASYNC_CONNECT(insock(), IP, Port, Timeout) -> {ok, S, Ref} | {error, Reason}
@@ -273,7 +273,7 @@ async_connect(S, IP, Port, Time) ->
 %% if timeout is given:
 %%       timeout < 0  -> infinity
 %%                 0  -> immediate accept (poll)
-%%               > 0  -> wait for timout ms for accept if no accept then 
+%%               > 0  -> wait for timeout ms for accept if no accept then 
 %%                       return {error, timeout}
 %%
 %% ASYNC_ACCEPT(insock(), Timeout)
