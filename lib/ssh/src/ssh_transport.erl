@@ -625,7 +625,61 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
     end.
 
 
-ecdh_validate_public_key(_, _) -> true.		% FIXME: Far too many false positives :)
+%%%----------------------------------------------------------------
+%%%
+%%% Standards for Efficient Cryptography Group, "Elliptic Curve Cryptography", SEC 1
+%%% Section 3.2.2.1
+%%%
+
+ecdh_validate_public_key(Key, Curve) ->
+    case key_size(Curve) of
+	undefined ->
+	    false;
+
+	Sz ->
+	    case dec_key(Key, Sz) of
+		{ok,Q} ->
+		    case crypto:ec_curve(Curve) of
+			{{prime_field,P}, {A, B, _Seed},
+			 _P0Bin, _OrderBin, _CoFactorBin} ->
+			    on_curve(Q, bin2int(A), bin2int(B), bin2int(P))
+		    end;
+
+		{error,compressed_not_implemented} -> % Be a bit generous...
+		    true;
+
+		_Error -> 
+		    false
+	    end
+    end.
+
+
+on_curve({X,Y}, A, B, P) when 0 =< X,X =< (P-1),
+			      0 =< Y,Y =< (P-1) ->
+    %% Section 3.2.2.1, point 2
+    (Y*Y) rem P == (X*X*X + A*X + B) rem P;
+on_curve(_, _, _, _) ->
+    false.
+
+
+bin2int(B) ->
+    Sz = erlang:bit_size(B),
+    <<I:Sz/big-unsigned-integer>> = B,
+    I.
+
+key_size(secp256r1) -> 256;
+key_size(secp384r1) -> 384;
+key_size(secp521r1) -> 528; % Round 521 up to closest 8-bits.
+key_size(_) -> undefined.
+
+
+dec_key(Key, NBits) ->
+    Size = 8 + 2*NBits,
+    case <<Key:Size>> of
+	<<4:8, X:NBits, Y:NBits>> -> {ok,{X,Y}};
+	<<4:8, _/binary>> -> {error,bad_format};
+	_ -> {error,compressed_not_implemented}
+    end.
 
 %%%----------------------------------------------------------------
 handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
