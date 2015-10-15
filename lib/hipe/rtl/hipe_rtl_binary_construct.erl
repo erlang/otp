@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1192,7 +1192,10 @@ copy_little_word(Base, Offset, NewOffset, Word) ->
    hipe_rtl:mk_store(Base, TmpOffset, Word, byte),
    hipe_rtl:mk_alu(NewOffset, Offset, 'add', hipe_rtl:mk_imm(32))].
 
-copy_offset_int_big(Base, Offset, NewOffset, Size, Tmp1) when is_integer(Size) ->
+copy_offset_int_big(_Base, Offset, NewOffset, 0, _Tmp1) ->
+  [hipe_rtl:mk_move(NewOffset, Offset)];
+copy_offset_int_big(Base, Offset, NewOffset, Size, Tmp1)
+  when is_integer(Size), Size > 0 ->
   Tmp2 = hipe_rtl:mk_new_reg(),
   Tmp3 = hipe_rtl:mk_new_reg(),
   Tmp4 = hipe_rtl:mk_new_reg(),
@@ -1203,7 +1206,7 @@ copy_offset_int_big(Base, Offset, NewOffset, Size, Tmp1) when is_integer(Size) -
   Tmp9 = hipe_rtl:mk_new_reg(),
   OldByte = hipe_rtl:mk_new_reg(),
   TmpOffset = hipe_rtl:mk_new_reg(),
-  BranchLbl =  hipe_rtl:mk_new_label(),
+  BranchLbl = hipe_rtl:mk_new_label(),
   BodyLbl = hipe_rtl:mk_new_label(),
   EndLbl = hipe_rtl:mk_new_label(),
   NextLbl = hipe_rtl:mk_new_label(),

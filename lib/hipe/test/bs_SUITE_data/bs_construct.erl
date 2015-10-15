@@ -13,6 +13,7 @@ test() ->
   ok = bs5(),
   16#10000008 = bit_size(large_bin(1, 2, 3, 4)),
   ok = bad_ones(),
+  ok = zero_width(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -126,3 +127,18 @@ bad_ones() ->
   Bin123 = <<1,2,3>>,
   ?FAIL(<<Bin123/float>>),
   ok.
+
+%%--------------------------------------------------------------------
+%% Taken from the emulator bs_construct_SUITE - seg faulted till 18.1
+
+zero_width() ->
+  Z = id(0),
+  Small = id(42),
+  Big = id(1 bsl 128),  % puts stuff on the heap
+  <<>> = <<Small:Z>>,
+  <<>> = <<Small:0>>,
+  <<>> = <<Big:Z>>,
+  <<>> = <<Big:0>>,
+  ok.
+
+id(X) -> X.
