@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add a 1024 group to the list of key group-exchange groups</p>
+          <p>
+	    Own Id: OTP-13046</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.1.1</title>
 
     <section><title>Improvements and New Features</title>
