@@ -1186,6 +1186,12 @@
     </fo:inline>
   </xsl:template>
 
+  <xsl:template match="i">
+    <fo:inline font-weight="italic">
+      <xsl:apply-templates/>
+    </fo:inline>
+  </xsl:template>
+
   <xsl:template match="br">
     <fo:block/>
   </xsl:template>
