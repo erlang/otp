@@ -343,7 +343,7 @@ static void run_daemon(EpmdVars *g)
     for (fd = 0; fd < g->max_conn ; fd++) /* close all files ... */
         close(fd);
     /* Syslog on linux will try to write to whatever if we dont
-       inform it of that the log is closed. */
+       inform it that the log is closed. */
     closelog();
 
     /* These shouldn't be needed but for safety... */
