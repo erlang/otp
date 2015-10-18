@@ -32,7 +32,7 @@
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
 	 port_please/3, names/0, names/1,
-	 register_node/2, open/0, open/1, open/2]).
+	 register_node/2, register_node/3, open/0, open/1, open/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -102,7 +102,9 @@ names(EpmdAddr) ->
 
 
 register_node(Name, PortNo) ->
-    gen_server:call(erl_epmd, {register, Name, PortNo}, infinity).
+    register_node(Name, PortNo, inet).
+register_node(Name, PortNo, Family) ->
+    gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server
@@ -120,10 +122,10 @@ init(_) ->
 -spec handle_call(calls(), term(), state()) ->
         {'reply', term(), state()} | {'stop', 'shutdown', 'ok', state()}.
 
-handle_call({register, Name, PortNo}, _From, State) ->
+handle_call({register, Name, PortNo, Family}, _From, State) ->
     case State#state.socket of
 	P when P < 0 ->
-	    case do_register_node(Name, PortNo) of
+	    case do_register_node(Name, PortNo, Family) of
 		{alive, Socket, Creation} ->
 		    S = State#state{socket = Socket,
 				    port_no = PortNo,
@@ -206,8 +208,12 @@ open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
 close(Socket) ->
     gen_tcp:close(Socket).
 
-do_register_node(NodeName, TcpPort) ->
-    case open() of
+do_register_node(NodeName, TcpPort, Family) ->
+    Localhost = case Family of
+        inet -> open({127,0,0,1});
+        inet6 -> open({0,0,0,0,0,0,0,1})
+    end,
+    case Localhost of
 	{ok, Socket} ->
 	    Name = to_string(NodeName),
 	    Extra = "",
