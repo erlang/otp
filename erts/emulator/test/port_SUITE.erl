@@ -719,7 +719,16 @@ close_ports([]) ->
     ok.
 
 open_ports(Name, Settings) ->
-    test_server:sleep(5),
+    case os:type() of
+        {unix, freebsd} ->
+            %% FreeBsd has issues with sendmsg/recvmsg in fork
+            %% implementation and we therefor have to spawn
+            %% slower to make sure that we always hit the same
+            %% make roof.
+            test_server:sleep(10);
+        _ ->
+            test_server:sleep(5)
+    end,
     case catch open_port(Name, Settings) of
 	P when is_port(P) ->
 	    [P| open_ports(Name, Settings)];
