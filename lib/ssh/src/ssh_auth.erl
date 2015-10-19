@@ -44,15 +44,15 @@ publickey_msg([Alg, #ssh{user = User,
     Hash = sha, %% Maybe option?!
     KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
     case KeyCb:user_key(Alg, Opts) of
-	{ok, Key} ->
-	    StrAlgo = algorithm_string(Alg),
-            case encode_public_key(StrAlgo, Key) of
+	{ok, PrivKey} ->
+	    StrAlgo = atom_to_list(Alg),
+            case encode_public_key(StrAlgo, ssh_transport:extract_public_key(PrivKey)) of
 		not_ok ->
 		    not_ok;
 		PubKeyBlob ->
 		    SigData = build_sig_data(SessionId, 
 					     User, Service, PubKeyBlob, StrAlgo),
-		    Sig = ssh_transport:sign(SigData, Hash, Key),
+		    Sig = ssh_transport:sign(SigData, Hash, PrivKey),
 		    SigBlob = list_to_binary([?string(StrAlgo), ?binary(Sig)]),
 		    ssh_transport:ssh_packet(
 		      #ssh_msg_userauth_request{user = User,
@@ -430,12 +430,6 @@ build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
 	   ?binary(KeyBlob)],
     list_to_binary(Sig).
 
-algorithm_string('ssh-rsa') -> "ssh-rsa";
-algorithm_string('ssh-dss') -> "ssh-dss";
-algorithm_string('ecdsa-sha2-nistp256') -> "ecdsa-sha2-nistp256";
-algorithm_string('ecdsa-sha2-nistp384') -> "ecdsa-sha2-nistp384";
-algorithm_string('ecdsa-sha2-nistp521') -> "ecdsa-sha2-nistp521".
-
 
 
 decode_keyboard_interactive_prompts(_NumPrompts, Data) ->
@@ -487,47 +481,18 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
 				       language = "en"}})
     end.
 
-decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), E:Len1/big-signed-integer-unit:8,
-		       ?UINT32(Len2), N:Len2/big-signed-integer-unit:8>>
-			 ,"ssh-rsa") ->
-    {ok, #'RSAPublicKey'{publicExponent = E, modulus = N}};
-decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), P:Len1/big-signed-integer-unit:8,
-		       ?UINT32(Len2), Q:Len2/big-signed-integer-unit:8,
-		       ?UINT32(Len3), G:Len3/big-signed-integer-unit:8,
-		       ?UINT32(Len4), Y:Len4/big-signed-integer-unit:8>>
-			 , "ssh-dss") ->
-    {ok, {Y, #'Dss-Parms'{p = P, q = Q, g = G}}};
-decode_public_key_v2(<<?UINT32(Len0), _:Len0/binary,
-		       ?UINT32(Len1), Id:Len1/binary, %% Id = <<"nistp256">> for example
-		       ?UINT32(Len2), Blob:Len2/binary>>,
-		     Curve) -> 
-    Id = 
-	case Curve of
-	    "ecdsa-sha2-nistp256" -> <<"nistp256">>;
-	    "ecdsa-sha2-nistp384" -> <<"nistp384">>;
-	    "ecdsa-sha2-nistp521" -> <<"nistp521">>
-	end,
-    {ok, {#'ECPoint'{point=Blob}, Id}};
-decode_public_key_v2(_, _) ->
-    {error, bad_format}.
-
-encode_public_key("ssh-rsa", #'RSAPrivateKey'{publicExponent = E, modulus = N}) ->
-    ssh_bits:encode(["ssh-rsa",E,N], [string,mpint,mpint]);
-encode_public_key("ssh-dss", #'DSAPrivateKey'{p = P, q = Q, g = G, y = Y}) ->
-    ssh_bits:encode(["ssh-dss",P,Q,G,Y], [string,mpint,mpint,mpint,mpint]);
-encode_public_key("ecdsa-sha2-"++Curve, #'ECPrivateKey'{parameters = Params,
-							publicKey = Pub}) ->
-    Id = ecdsa_id(Params),
-    if
-	Id =/= Curve ->
-	    not_ok;
-	true ->
-	    ssh_bits:encode(["ecdsa-sha2-"++Id, Id, Pub],
-			    [string, string, binary])
+decode_public_key_v2(Bin, _Type) ->
+    try 
+	public_key:ssh_decode(Bin, ssh2_pubkey)
+    of
+	Key -> {ok, Key}
+    catch
+	_:_ -> {error, bad_format}
     end.
 
-ecdsa_id({namedCurve,?'secp256r1'}) -> "nistp256";
-ecdsa_id({namedCurve,?'secp384r1'}) -> "nistp384";
-ecdsa_id({namedCurve,?'secp521r1'}) -> "nistp521".
+encode_public_key(_Alg, Key) ->
+    try
+	public_key:ssh_encode(Key, ssh2_pubkey)
+    catch
+	_:_ -> not_ok
+    end.
