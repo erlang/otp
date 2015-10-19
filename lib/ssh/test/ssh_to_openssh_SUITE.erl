@@ -88,7 +88,7 @@ init_per_group(erlang_server, Config) ->
 init_per_group(erlang_client, Config) ->
     CommonAlgs = ssh_test_lib:algo_intersection(
 		   ssh:default_algorithms(),
-		   ssh_test_lib:default_algorithms("localhost", 22)),
+		   ssh_test_lib:default_algorithms(sshd)),
     [{common_algs,CommonAlgs} | Config];
 init_per_group(_, Config) ->
     Config.

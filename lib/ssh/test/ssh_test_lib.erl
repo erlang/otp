@@ -478,7 +478,63 @@ check_ssh_client_support2(P) ->
 	    -1
     end.
 
-default_algorithms(Host, Port) ->
+%%%--------------------------------------------------------------------
+%%% Probe a server or a client about algorithm support
+
+default_algorithms(sshd) ->
+    default_algorithms(sshd, "localhost", 22);
+
+default_algorithms(sshc) ->
+    default_algorithms(sshc, []).
+
+default_algorithms(sshd, Host, Port) ->
+    try run_fake_ssh(
+	  ssh_trpt_test_lib:exec(
+	    [{connect,Host,Port, [{silently_accept_hosts, true},
+				  {user_interaction, false}]}]))
+    catch
+	_C:_E ->
+	    ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+	    []
+    end.
+
+default_algorithms(sshc, DaemonOptions) ->
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Srvr =
+	spawn_link(
+	  fun() ->
+		  Parent ! 
+		      {result, self(),
+		       try
+			   {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+			   Parent ! {hostport,self(),ssh_trpt_test_lib:server_host_port(InitialState)},
+			   run_fake_ssh(
+			     ssh_trpt_test_lib:exec([{accept, DaemonOptions}],
+						    InitialState))
+		       catch
+			   _C:_E ->
+			       ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+			       []
+		       end}
+	  end),
+   
+    receive
+	{hostport,Srvr,{_Host,Port}} ->
+	    spawn(fun()-> os:cmd(lists:concat(["ssh -o \"StrictHostKeyChecking no\" -p ",Port," localhost"])) end)
+    after ?TIMEOUT ->
+	    ct:fail("No server respons 1")
+    end,
+
+    receive
+	{result,Srvr,L} ->
+	    L
+    after ?TIMEOUT ->
+	    ct:fail("No server respons 2")
+    end.
+
+
+run_fake_ssh({ok,InitialState}) ->
     KexInitPattern =
 	#ssh_msg_kexinit{
 	   kex_algorithms = '$kex_algorithms',
@@ -491,61 +547,35 @@ default_algorithms(Host, Port) ->
 	   compression_algorithms_server_to_client = '$compression_algorithms_server_to_client',
 	   _ = '_'
 	  },
+    {ok,E} = ssh_trpt_test_lib:exec([{set_options,[silent]},
+				     {send, hello},
+				     receive_hello,
+				     {send, ssh_msg_kexinit},
+				     {match, KexInitPattern, receive_msg},
+				     close_socket
+				    ],
+				    InitialState),
+     [Kex, PubKey, EncC2S, EncS2C, MacC2S, MacS2C, CompC2S, CompS2C] =
+	ssh_trpt_test_lib:instantiate(['$kex_algorithms',
+				       '$server_host_key_algorithms',
+				       '$encryption_algorithms_client_to_server',
+				       '$encryption_algorithms_server_to_client',
+				       '$mac_algorithms_client_to_server',
+				       '$mac_algorithms_server_to_client',
+				       '$compression_algorithms_client_to_server',
+				       '$compression_algorithms_server_to_client'
+				      ], E),
+    [{kex, to_atoms(Kex)},
+     {public_key, to_atoms(PubKey)},
+     {cipher, [{client2server, to_atoms(EncC2S)},
+	       {server2client, to_atoms(EncS2C)}]},
+     {mac, [{client2server, to_atoms(MacC2S)},
+	    {server2client, to_atoms(MacS2C)}]},
+     {compression, [{client2server, to_atoms(CompC2S)},
+		    {server2client, to_atoms(CompS2C)}]}].
+    
 
-    try ssh_trpt_test_lib:exec(
-	   [{connect,Host,Port, [{silently_accept_hosts, true},
-				 {user_interaction, false}]},
-	    {send,hello},
-	    receive_hello, 
-	    {send, ssh_msg_kexinit},
-	    {match, KexInitPattern, receive_msg},
-	    close_socket])
-    of
-	{ok,E} ->
-	    [Kex, PubKey, EncC2S, EncS2C, MacC2S, MacS2C, CompC2S, CompS2C] =
-		ssh_trpt_test_lib:instantiate(['$kex_algorithms',
-					       '$server_host_key_algorithms',
-					       '$encryption_algorithms_client_to_server',
-					       '$encryption_algorithms_server_to_client',
-					       '$mac_algorithms_client_to_server',
-					       '$mac_algorithms_server_to_client',
-					       '$compression_algorithms_client_to_server',
-					       '$compression_algorithms_server_to_client'
-					      ], E),
-	    [{kex, to_atoms(Kex)},
-	     {public_key, to_atoms(PubKey)},
-	     {cipher, [{client2server, to_atoms(EncC2S)},
-		       {server2client, to_atoms(EncS2C)}]},
-	     {mac, [{client2server, to_atoms(MacC2S)},
-		    {server2client, to_atoms(MacS2C)}]},
-	     {compression, [{client2server, to_atoms(CompC2S)},
-			    {server2client, to_atoms(CompS2C)}]}];
-	_ ->
-	    []
-    catch
-	_:_ ->
-	    []
-    end.
-
-
-default_algorithms(sshd) ->
-    default_algorithms("localhost", 22);
-default_algorithms(sshc) ->
-    case os:find_executable("ssh") of
-	false -> 
-	    [];
-	_ ->
-	    Cipher = sshc(cipher),
-	    Mac = sshc(mac),
-	    [{kex, sshc(kex)},
-	     {public_key, sshc(key)},
-	     {cipher, [{client2server, Cipher},
-		       {server2client, Cipher}]},
-	     {mac, [{client2server, Mac},
-		    {server2client, Mac}]}
-	    ]
-    end.
-
+%%--------------------------------------------------------------------
 sshc(Tag) -> 
     to_atoms(
       string:tokens(os:cmd(lists:concat(["ssh -Q ",Tag])), "\n")
