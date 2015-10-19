@@ -47,6 +47,7 @@
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
 	 ssh_decode/2, ssh_encode/2,
+	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
 	 pkix_dist_points/1,
@@ -711,7 +712,9 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 
 
 %%--------------------------------------------------------------------
--spec ssh_decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}].
+-spec ssh_decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}]
+	      ; (binary(), ssh2_pubkey) ->  public_key()
+	      .
 %%
 %% Description: Decodes a ssh file-binary. In the case of know_hosts
 %% or auth_keys the binary may include one or more lines of the
@@ -724,12 +727,15 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 			      Type == rfc4716_public_key;
 			      Type == openssh_public_key;
 			      Type == auth_keys;
-			      Type == known_hosts ->
+			      Type == known_hosts;
+			      Type == ssh2_pubkey ->
     pubkey_ssh:decode(SshBin, Type).
 
 %%--------------------------------------------------------------------
--spec ssh_encode([{public_key(), Attributes::list()}], ssh_file()) ->
-			binary().
+-spec ssh_encode([{public_key(), Attributes::list()}], ssh_file()) -> binary()
+	      ; (public_key(), ssh2_pubkey) -> binary()
+	      .
+%%
 %% Description: Encodes a list of ssh file entries (public keys and
 %% attributes) to a binary. Possible attributes depends on the file
 %% type.
@@ -738,8 +744,28 @@ ssh_encode(Entries, Type) when is_list(Entries),
 			       Type == rfc4716_public_key;
 			       Type == openssh_public_key;
 			       Type == auth_keys;
-			       Type == known_hosts ->
+			       Type == known_hosts;
+			       Type == ssh2_pubkey ->
     pubkey_ssh:encode(Entries, Type).
+
+%%--------------------------------------------------------------------
+-spec ssh_curvename2oid(binary()) -> oid().
+
+%% Description: Converts from the ssh name of elliptic curves to
+%% the OIDs.
+%%--------------------------------------------------------------------
+ssh_curvename2oid(<<"nistp256">>) ->  ?'secp256r1';
+ssh_curvename2oid(<<"nistp384">>) ->  ?'secp384r1';
+ssh_curvename2oid(<<"nistp521">>) ->  ?'secp521r1'.
+
+%%--------------------------------------------------------------------
+-spec oid2ssh_curvename(oid()) -> binary().
+
+%% Description: Converts from elliptic curve OIDs to the ssh name.
+%%--------------------------------------------------------------------
+oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
+oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
+oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

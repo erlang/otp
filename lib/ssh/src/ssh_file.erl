@@ -276,12 +276,13 @@ key_match(#'RSAPublicKey'{}, 'ssh-rsa') ->
     true;
 key_match({_, #'Dss-Parms'{}}, 'ssh-dss') ->
     true;
-key_match({#'ECPoint'{},<<"nistp256">>}, 'ecdsa-sha2-nistp256') ->
-    true;
-key_match({#'ECPoint'{},<<"nistp384">>}, 'ecdsa-sha2-nistp384') ->
-    true;
-key_match({#'ECPoint'{},<<"nistp521">>}, 'ecdsa-sha2-nistp521') ->
-    true;
+key_match({#'ECPoint'{},{namedCurve,Curve}}, Alg) ->
+    case atom_to_list(Alg) of
+	"ecdsa-sha2-"++IdS ->
+	    Curve == public_key:ssh_curvename2oid(list_to_binary(IdS));
+	_ ->
+	    false
+    end;
 key_match(_, _) ->
     false.
 
