@@ -391,8 +391,9 @@ handle_option([{negotiation_timeout, _} = Opt|Rest], SocketOptions, SshOptions) 
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{parallel_login, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
+%% (Is handled by proplists:unfold above:)
+%% handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
+%%     handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
 handle_option([{minimal_remote_max_packet_size, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{id_string, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
