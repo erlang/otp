@@ -58,7 +58,7 @@ groups() ->
 	],
 
     AlgoTcSet =
-	[{Alg, [], specific_test_cases(Tag,Alg,SshcAlgos,SshdAlgos)}
+	[{Alg, [parallel], specific_test_cases(Tag,Alg,SshcAlgos,SshdAlgos)}
 	 || {Tag,Algs} <- ErlAlgos ++ DoubleAlgos,
 	    Alg <- Algs],
 
@@ -110,7 +110,8 @@ init_per_group(Group, Config) ->
 	    Config;
 	false ->
 	    %% An algorithm group
-	    [[{name,Tag}]|_] = ?config(tc_group_path, Config),
+	    Tag = proplists:get_value(name,
+				      hd(?config(tc_group_path, Config))),
 	    Alg = Group,
 	    PA =
 		case split(Alg) of

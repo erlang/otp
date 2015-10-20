@@ -73,7 +73,10 @@ exec(Op, S0=#s{}) ->
 	  op(Op, S1))
     of
 	S = #s{} ->
-	    print_traces(S),
+	    case proplists:get_value(silent,S#s.opts) of
+		true -> ok;
+		_ -> print_traces(S)
+	    end,
 	    {ok,S}
     catch
 	{fail,Reason,Se} ->
