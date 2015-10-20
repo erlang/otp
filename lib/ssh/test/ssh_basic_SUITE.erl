@@ -123,8 +123,6 @@ end_per_suite(_Config) ->
     ssh:stop(),
     crypto:stop().
 %%--------------------------------------------------------------------
-init_per_group(hardening_tests, Config) ->
-    init_per_group(dsa_key, Config);
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -229,8 +227,6 @@ init_per_group(dir_options, Config) ->
 init_per_group(_, Config) ->
     Config.
 
-end_per_group(hardening_tests, Config) ->
-    end_per_group(dsa_key, Config);
 end_per_group(dsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
