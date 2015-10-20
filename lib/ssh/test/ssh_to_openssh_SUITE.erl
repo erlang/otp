@@ -45,7 +45,6 @@ all() ->
 
 groups() -> 
     [{erlang_client, [], [erlang_shell_client_openssh_server,
-			  erlang_client_openssh_server_exec,
 			  erlang_client_openssh_server_exec_compressed,
 			  erlang_client_openssh_server_setenv,
 			  erlang_client_openssh_server_publickey_rsa,
@@ -54,12 +53,7 @@ groups() ->
 			  erlang_client_openssh_server_kexs,
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
-     {erlang_server, [], [erlang_server_openssh_client_exec,
-			  erlang_server_openssh_client_exec_compressed,
-			  erlang_server_openssh_client_pulic_key_dsa,
-			  erlang_server_openssh_client_cipher_suites,
-			  erlang_server_openssh_client_macs,
-			  erlang_server_openssh_client_kexs]}
+     {erlang_server, [], [erlang_server_openssh_client_pulic_key_dsa]}
     ].
 
 init_per_suite(Config) ->
@@ -88,7 +82,7 @@ init_per_group(erlang_server, Config) ->
 init_per_group(erlang_client, Config) ->
     CommonAlgs = ssh_test_lib:algo_intersection(
 		   ssh:default_algorithms(),
-		   ssh_test_lib:default_algorithms("localhost", 22)),
+		   ssh_test_lib:default_algorithms(sshd)),
     [{common_algs,CommonAlgs} | Config];
 init_per_group(_, Config) ->
     Config.
@@ -99,18 +93,6 @@ end_per_group(erlang_server, Config) ->
     Config;
 end_per_group(_, Config) ->
     Config.
-
-init_per_testcase(erlang_server_openssh_client_cipher_suites, Config) ->
-    check_ssh_client_support(Config);
-
-init_per_testcase(erlang_server_openssh_client_macs, Config) ->
-    check_ssh_client_support(Config);
-
-init_per_testcase(erlang_server_openssh_client_kexs, Config) ->
-    check_ssh_client_support(Config);
-
-init_per_testcase(erlang_client_openssh_server_kexs, Config) ->
-    check_ssh_client_support(Config);
 
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
@@ -255,207 +237,6 @@ erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
 		false ->
 		    {fail, "Kex failed for one or more algos"}
 	    end
-    end.
-
-%%--------------------------------------------------------------------
-erlang_server_openssh_client_exec() ->
-    [{doc, "Test that exec command works."}].
-
-erlang_server_openssh_client_exec(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    
-
-    ct:sleep(500),
-
-    Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " 1+1.",
-
-    ct:log("Cmd: ~p~n", [Cmd]),
-
-    SshPort = open_port({spawn, Cmd}, [binary]),
-
-    receive
-        {SshPort,{data, <<"2\n">>}} ->
-	    ok
-    after ?TIMEOUT ->
-	    ct:fail("Did not receive answer")
-
-    end,
-     ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-erlang_server_openssh_client_cipher_suites() ->
-    [{doc, "Test that we can connect with different cipher suites."}].
-
-erlang_server_openssh_client_cipher_suites(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-
-    ct:sleep(500),
-
-    OpenSshCiphers = 
-	ssh_test_lib:to_atoms(
-	  string:tokens(os:cmd("ssh -Q cipher"), "\n")),
-    ErlCiphers =
-	proplists:get_value(client2server,
-			    proplists:get_value(cipher, ssh:default_algorithms())),
-    CommonCiphers =
-	ssh_test_lib:algo_intersection(ErlCiphers, OpenSshCiphers),
-
-    comment(CommonCiphers),
-
-    lists:foreach(
-      fun(Cipher) ->
-	      Cmd = lists:concat(["ssh -p ",Port,
-				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
-				  " -c ",Cipher," 1+1."]),
-	      ct:log("Cmd: ~p~n", [Cmd]),
-
-	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
-
-	      receive
-		  {SshPort,{data, <<"2\n">>}} ->
-		      ok
-	      after ?TIMEOUT ->
-		      ct:fail("~p Did not receive answer",[Cipher])
-	      end
-      end, CommonCiphers),
-    
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-erlang_server_openssh_client_macs() ->
-    [{doc, "Test that we can connect with different MACs."}].
-
-erlang_server_openssh_client_macs(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-
-
-    ct:sleep(500),
-
-    OpenSshMacs = 
-	ssh_test_lib:to_atoms(
-	  string:tokens(os:cmd("ssh -Q mac"), "\n")),
-    ErlMacs =
-	proplists:get_value(client2server,
-			    proplists:get_value(mac, ssh:default_algorithms())),
-    CommonMacs =
-	ssh_test_lib:algo_intersection(ErlMacs, OpenSshMacs),
-
-    comment(CommonMacs),
-
-    lists:foreach(
-      fun(MAC) ->
-	      Cmd = lists:concat(["ssh -p ",Port,
-				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
-				  " -o MACs=",MAC," 1+1."]),
-	      ct:log("Cmd: ~p~n", [Cmd]),
-
-	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
-
-	      receive
-		  {SshPort,{data, <<"2\n">>}} ->
-		      ok
-	      after ?TIMEOUT ->
-		      ct:fail("~p Did not receive answer",[MAC])
-	      end
-      end, CommonMacs),
-
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-erlang_server_openssh_client_kexs() ->
-    [{doc, "Test that we can connect with different KEXs."}].
-
-erlang_server_openssh_client_kexs(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {failfun, fun ssh_test_lib:failfun/2},
-					     {preferred_algorithms,
-					      [{kex,ssh_transport:default_algorithms(kex)}]}
-					    ]),
-    ct:sleep(500),
-
-    OpenSshKexs = 
-	ssh_test_lib:to_atoms(
-	  string:tokens(os:cmd("ssh -Q kex"), "\n")),
-    ErlKexs =
-	proplists:get_value(kex, ssh:default_algorithms()),
-    CommonKexs =
-	ssh_test_lib:algo_intersection(ErlKexs, OpenSshKexs),
-
-    comment(CommonKexs),
-
-    lists:foreach(
-      fun(Kex) ->
-	      Cmd = lists:concat(["ssh -p ",Port,
-				  " -o UserKnownHostsFile=",KnownHosts," ",Host," ",
-				  " -o KexAlgorithms=",Kex," 1+1."]),
-	      ct:log("Cmd: ~p~n", [Cmd]),
-
-	      SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
-
-	      receive
-		  {SshPort,{data, <<"2\n">>}} ->
-		      ok
-	      after ?TIMEOUT ->
-		      ct:log("~p Did not receive answer",[Kex])
-	      end
-      end, CommonKexs),
-    
-    ssh:stop_daemon(Pid).
-
-%%--------------------------------------------------------------------
-erlang_server_openssh_client_exec_compressed() ->
-    [{doc, "Test that exec command works."}].
-
-erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
-
-    CompressAlgs = [zlib, 'zlib@openssh.com'], % Does not work
-%%    CompressAlgs = [zlib],
-    case ssh_test_lib:ssh_supports(CompressAlgs, compression) of
-	{false,L} ->
-	    {skip, io_lib:format("~p compression is not supported",[L])};
-
-	true ->
-	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-						     {preferred_algorithms,
-						      [{compression, CompressAlgs}]},
-						     {failfun, fun ssh_test_lib:failfun/2}]),
-
-	    ct:sleep(500),
-
-	    Cmd = "ssh -p " ++ integer_to_list(Port) ++
-		" -o UserKnownHostsFile=" ++ KnownHosts ++ " -C "++ Host ++ " 1+1.",
-	    SshPort = open_port({spawn, Cmd}, [binary]),
-
-	    receive
-		{SshPort,{data, <<"2\n">>}} ->
-		    ok
-	    after ?TIMEOUT ->
-		    ct:fail("Did not receive answer")
-	    end,
-	    ssh:stop_daemon(Pid)
     end.
 
 %%--------------------------------------------------------------------

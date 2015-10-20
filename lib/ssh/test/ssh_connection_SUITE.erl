@@ -700,6 +700,16 @@ max_channels_option(Config) when is_list(Config) ->
     %%%---- close the shell
     ok = ssh_connection:send(ConnectionRef, ChannelId0, "exit().\n", 5000),
     
+    %%%---- wait for the subsystem to terminate
+    receive
+	{ssh_cm,ConnectionRef,{closed,ChannelId0}} -> ok
+    after 5000 ->
+	    ct:log("Timeout waiting for '{ssh_cm,~p,{closed,~p}}'~n"
+		   "Message queue:~n~p",
+		   [ConnectionRef,ChannelId0,erlang:process_info(self(),messages)]),
+	    ct:fail("exit Timeout",[])
+    end,
+
     %%%---- exec #3
     success = ssh_connection:exec(ConnectionRef, ChannelId5, "testing3.\n", infinity),
     receive
