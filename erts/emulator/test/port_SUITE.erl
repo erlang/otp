@@ -1304,13 +1304,15 @@ otp_4389(Config)  when is_list(Config) ->
 							    {P,{exit_status,_}} ->
 								TCR ! {self(),ok};
 							    {'EXIT',_,{R2,_}} when R2 == emfile;
-										   R2 == eagain ->
+										   R2 == eagain;
+                                                                                   R2 == enomem ->
 								TCR ! {self(),ok};
 							    Err2 ->
 								TCR ! {self(),{msg,Err2}}
 							end;
 						    {'EXIT',{R1,_}} when R1 == emfile;
-									 R1 == eagain ->
+									 R1 == eagain;
+                                                                         R1 == enomem ->
 							TCR ! {self(),ok};
 						    Err1 ->
 							TCR ! {self(), {open_port,Err1}}
@@ -1916,10 +1918,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 					      {Prt,
 					       erlang:system_info(scheduler_id)};
 					  {'EXIT', {Err, _}} when Err == eagain;
-								  Err == emfile ->
+								  Err == emfile;
+                                                                  Err == enomem ->
 					      noop;
 					  {'EXIT', Err} when Err == eagain;
-							     Err == emfile ->
+							     Err == emfile;
+                                                             Err == enomem ->
 					      noop;
 					  Error ->
 					      ?t:fail(Error)
