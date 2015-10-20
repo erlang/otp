@@ -61,6 +61,7 @@ wxeFifo::wxeFifo(unsigned int sz)
   m_max = sz;
   m_n = 0;
   m_first = 0;
+  cb_start = 0;
   m_old = NULL;
   for(unsigned int i = 0; i < sz; i++) {
     m_q[i].buffer = NULL;
@@ -76,14 +77,29 @@ wxeFifo::~wxeFifo() {
 wxeCommand * wxeFifo::Get()
 {
   unsigned int pos;
-  if(m_n > 0) {
+  do {
+    if(m_n <= 0)
+      return NULL;
+
     pos = m_first++;
     m_n--;
     m_first %= m_max;
-    return &m_q[pos];
-  }
-  return NULL;
+  } while(m_q[pos].op == -1);
+  return &m_q[pos];
 }
+
+wxeCommand * wxeFifo::Peek(unsigned int *i)
+{
+  unsigned int pos;
+  do {
+    if(*i >= m_n || m_n <= 0)
+      return NULL;
+    pos = (m_first+*i) % m_max;
+    (*i)++;
+  } while(m_q[pos].op == -1);
+  return &m_q[pos];
+}
+
 
 void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
 {
@@ -140,10 +156,12 @@ void wxeFifo::Append(wxeCommand *orig)
 
   pos = (m_first + m_n) % m_max;
   m_n++;
+
   curr = &m_q[pos];
+  curr->op = orig->op;
+  if(curr->op == -1) return;
   curr->caller = orig->caller;
   curr->port   = orig->port;
-  curr->op = orig->op;
   curr->len = orig->len;
   curr->bin[0] = orig->bin[0];
   curr->bin[1] = orig->bin[1];
@@ -171,23 +189,45 @@ void wxeFifo::Realloc()
   wxeCommand * old = m_q;
   wxeCommand * queue = (wxeCommand *)driver_alloc(new_sz*sizeof(wxeCommand));
 
+  // fprintf(stderr, "\r\nrealloc qsz %d\r\n", new_sz);fflush(stderr);
+
   m_max=new_sz;
   m_first = 0;
   m_n=0;
   m_q = queue;
 
   for(i=0; i < n; i++) {
-    unsigned int pos = i+first;
-    if(old[pos%max].op >= 0) {
-      Append(&old[pos%max]);
-    }
+    unsigned int pos = (i+first)%max;
+    if(old[pos].op >= 0)
+      Append(&old[pos]);
   }
+
   for(i = m_n; i < new_sz; i++) { // Reset the rest
     m_q[i].buffer = NULL;
     m_q[i].op = -1;
   }
   // Can not free old queue here it can be used in the wx thread
   m_old = old;
+}
+
+// Strip end of queue if ops are already taken care of, avoids reallocs
+void wxeFifo::Strip()
+{
+  while((m_n > 0) && (m_q[(m_first + m_n - 1)%m_max].op == -1)) {
+    m_n--;
+  }
+}
+
+unsigned int wxeFifo::Cleanup(unsigned int def)
+{
+  if(m_old) {
+    driver_free(m_old);
+    m_old = NULL;
+    // Realloced we need to start from the beginning
+    return 0;
+  } else {
+    return def;
+  }
 }
 
 /* ****************************************************************************
