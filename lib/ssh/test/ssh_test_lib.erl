@@ -459,6 +459,14 @@ openssh_sanity_check(Config) ->
 	    {skip, Str}
     end.
 
+openssh_supports(ClientOrServer, Tag, Alg) when ClientOrServer == sshc ;
+						ClientOrServer == sshd ->
+    SSH_algos = ssh_test_lib:default_algorithms(ClientOrServer),
+    L = proplists:get_value(Tag, SSH_algos, []),
+    lists:member(Alg, L) orelse 
+	lists:member(Alg, proplists:get_value(client2server, L, [])) orelse
+	lists:member(Alg, proplists:get_value(server2client, L, [])).
+
 %%--------------------------------------------------------------------
 %% Check if we have a "newer" ssh client that supports these test cases
 

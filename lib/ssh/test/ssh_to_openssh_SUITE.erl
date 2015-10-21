@@ -94,6 +94,21 @@ end_per_group(erlang_server, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+
+init_per_testcase(erlang_server_openssh_client_pulic_key_dsa, Config) ->
+    case ssh_test_lib:openssh_supports(sshc, public_key, 'ssh-dss') of
+	true ->
+	    init_per_testcase('__default__',Config);
+	false ->
+	    {skip,"openssh client does not support DSA"}
+    end;
+init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
+    case ssh_test_lib:openssh_supports(sshd, public_key, 'ssh-dss') of
+	true ->
+	    init_per_testcase('__default__',Config);
+	false ->
+	    {skip,"openssh client does not support DSA"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
