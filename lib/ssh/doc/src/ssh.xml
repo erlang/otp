@@ -467,6 +467,8 @@ kex is implicit but public_key is set explicitly.</p>
 	    <p>Sets the groups that the server may choose among when diffie-hellman-group-exchange is negotiated.
 	    See RFC 4419 for details.
 	    </p>
+	    <p>The default list is fetched from the public_key application.
+	    </p>
 	    <p>If the parameter is <c>{file,filename()}</c>, the file must exist and have one or more three-tuples terminated by a dot. The interpretation is as if the tuples had been given directly in the option.  The file is read when the daemon starts.
 	    </p>
 	  </item>

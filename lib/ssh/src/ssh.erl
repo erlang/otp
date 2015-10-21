@@ -33,7 +33,8 @@
 	 default_algorithms/0,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
-	 shell/1, shell/2, shell/3]).
+	 shell/1, shell/2, shell/3
+	]).
 
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
@@ -423,7 +424,11 @@ handle_ssh_option({preferred_algorithms,[_|_]} = Opt) ->
 handle_ssh_option({dh_gex_groups,L=[{I1,I2,I3}|_]}) when is_integer(I1), I1>0, 
 							 is_integer(I2), I2>0,
 							 is_integer(I3), I3>0 ->
-    {dh_gex_groups, lists:map(fun({N,G,P}) -> {N,{G,P}} end, L)};
+    {dh_gex_groups, public_key:moduli_collect_per_size(
+		      lists:map(fun({N,G,P}) when is_integer(N),N>0,
+						  is_integer(G),G>0,
+						  is_integer(P),P>0 -> {N,{G,P}} end, L)
+		     )};
 handle_ssh_option({dh_gex_groups,{file,File=[C|_]}}=Opt) when is_integer(C), C>0 ->
     %% A string, (file name)
     case file:consult(File) of

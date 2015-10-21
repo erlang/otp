@@ -83,7 +83,7 @@ init_per_suite(Config) ->
 	    ssh_test_lib:default_algorithms(sshc),
 	    ssh_test_lib:default_algorithms(sshd),
 	    {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
-	    [KeyLen || {KeyLen,_} <- ?dh_default_groups],
+	    public_key:dh_gex_group_sizes(),
 	    ?MAX_NUM_ALGORITHMS
 	    ]),
     ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
@@ -172,19 +172,50 @@ simple_exec(Config) ->
     ssh_test_lib:std_simple_exec(Host, Port, Config).
 
 %%--------------------------------------------------------------------
-%% Testing all default groups
-simple_exec_group14(Config) -> simple_exec_group(2048, Config).
-simple_exec_group15(Config) -> simple_exec_group(3072, Config).
-simple_exec_group16(Config) -> simple_exec_group(4096, Config).
-simple_exec_group17(Config) -> simple_exec_group(6144, Config).
-simple_exec_group18(Config) -> simple_exec_group(8192, Config).
+%% Testing if no group matches
+simple_exec_groups_no_match_too_small(Config) ->
+    try simple_exec_group({400,500,600}, Config)
+    of
+	_ -> ct:fail("Exec though no group available")
+    catch
+	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} ->
+	    ok
+    end.
 
-simple_exec_group(I, Config) ->
-    Min = I-100,
-    Max = I+100,
-    {Host,Port} = ?config(srvr_addr, Config),
-    ssh_test_lib:std_simple_exec(Host, Port, Config,
-				 [{dh_gex_limits,{Min,I,Max}}]).
+simple_exec_groups_no_match_too_large(Config) ->
+    try simple_exec_group({9200,9500,9700}, Config)
+    of
+	_ -> ct:fail("Exec though no group available")
+    catch
+	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} ->
+	    ok
+    end.
+
+%%--------------------------------------------------------------------
+%% Testing all default groups
+simple_exec_groups(Config) ->
+    Sizes = interpolate( public_key:dh_gex_group_sizes() ),
+    lists:foreach(
+      fun(Sz) ->
+	      ct:log("Try size ~p",[Sz]),
+	      ct:comment(Sz),
+	      case simple_exec_group(Sz, Config) of
+		  expected -> ct:log("Size ~p ok",[Sz]);
+		  _ -> ct:log("Size ~p not ok",[Sz])
+	      end
+      end, Sizes),
+    ct:comment("~p",[lists:map(fun({_,I,_}) -> I;
+				  (I) -> I
+			       end,Sizes)]).
+
+
+interpolate([I1,I2|Is]) ->
+    OneThird = (I2-I1) div 3,
+    [I1,
+     {I1, I1 + OneThird, I2},
+     {I1, I1 + 2*OneThird, I2} | interpolate([I2|Is])];
+interpolate(Is) ->
+    Is.
 
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
@@ -283,11 +314,10 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 	case {Tag,Alg} of
 	    {kex,_} when Alg == 'diffie-hellman-group-exchange-sha1' ;
 			 Alg == 'diffie-hellman-group-exchange-sha256' ->
-		[simple_exec_group14,
-		 simple_exec_group15,
-		 simple_exec_group16,
-		 simple_exec_group17,
-		 simple_exec_group18];
+		[simple_exec_groups,
+		 simple_exec_groups_no_match_too_large,
+		 simple_exec_groups_no_match_too_small
+		];
 	    _ ->
 		[]
 	end.
@@ -330,4 +360,12 @@ setup_pubkey(Config) ->
     UserDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
     Config.
+
+
+simple_exec_group(I, Config) when is_integer(I) ->
+    simple_exec_group({I,I,I}, Config);
+simple_exec_group({Min,I,Max}, Config) ->
+    {Host,Port} = ?config(srvr_addr, Config),
+    ssh_test_lib:std_simple_exec(Host, Port, Config,
+				 [{dh_gex_limits,{Min,I,Max}}]).
 

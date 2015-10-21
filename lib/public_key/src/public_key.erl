@@ -35,6 +35,8 @@
 	 decrypt_private/2, decrypt_private/3, 
 	 encrypt_public/2, encrypt_public/3, 
 	 decrypt_public/2, decrypt_public/3,
+	 dh_gex_group/4,
+	 dh_gex_group_sizes/0,
 	 sign/3, verify/4,
 	 generate_key/1,
 	 compute_key/2, compute_key/3,
@@ -371,6 +373,13 @@ encrypt_private(PlainText,
        is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
     crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Padding).
+
+%%--------------------------------------------------------------------
+dh_gex_group_sizes() ->
+    pubkey_ssh:dh_gex_group_sizes().
+
+dh_gex_group(Min, N, Max, Groups) ->
+    pubkey_ssh:dh_gex_group(Min, N, Max, Groups).
 
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |

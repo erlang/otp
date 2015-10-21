@@ -66,8 +66,6 @@ groups() ->
       
      {kex, [], [no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
-		gex_client_init_default_noexact,
-		gex_client_init_default_exact,
 		gex_client_init_option_groups,
 		gex_client_init_option_groups_file
 		]},
@@ -91,9 +89,7 @@ end_per_suite(Config) ->
 init_per_testcase(no_common_alg_server_disconnects, Config) ->
     start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']}]}]);
 
-init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
-				   TC == gex_client_init_default_exact ;
-				   TC == gex_client_init_option_groups ;
+init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_file ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
@@ -113,9 +109,7 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(no_common_alg_server_disconnects, Config) ->
     stop_std_daemon(Config);
-end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
-				  TC == gex_client_init_default_exact ;
-				  TC == gex_client_init_option_groups ;
+end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_file ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
@@ -332,28 +326,16 @@ no_common_alg_client_disconnects(Config) ->
     end.
 
 %%%--------------------------------------------------------------------
-gex_client_init_default_noexact(Config) ->
-    do_gex_client_init(Config, {2000, 3000, 4000},
-		       %% Warning, app knowledege:
-		       ?dh_group15).
-
-
-gex_client_init_default_exact(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000},
-		       %% Warning, app knowledege:
-		       ?dh_group14).
-
-
 gex_client_init_option_groups(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000}, 
-		       {'n/a',{3,41}}).
+		       {3,41}).
 
 
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
-		       {'n/a',{5,61}}).
+		       {5,61}).
 
-do_gex_client_init(Config, {Min,N,Max}, {_,{G,P}}) ->
+do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
     {ok,_} =
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},

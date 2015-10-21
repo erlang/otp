@@ -446,14 +446,23 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min,
 						      max = Max}, 
 			  Ssh0=#ssh{opts=Opts}) when Min=<NBits, NBits=<Max ->
     %% server
-    {G, P} = dh_gex_group(Min, NBits, Max, proplists:get_value(dh_gex_groups,Opts)),
-    {Public, Private} = generate_key(dh, [P,G]),
-    {SshPacket, Ssh} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
-    {ok, SshPacket, 
-     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
-	     keyex_info = {Min, Max, NBits}
-	    }};
+    case public_key:dh_gex_group(Min, NBits, Max,
+			     proplists:get_value(dh_gex_groups,Opts)) of
+	{ok, {_Sz, {G,P}}} ->
+	    {Public, Private} = generate_key(dh, [P,G]),
+	    {SshPacket, Ssh} = 
+		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
+	    {ok, SshPacket, 
+	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
+		     keyex_info = {Min, Max, NBits}
+		    }};
+	{error,_} ->
+	    throw(#ssh_msg_disconnect{
+		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+		     description = "No possible diffie-hellman-group-exchange group found", 
+		     language = ""})
+    end;
+
 handle_kex_dh_gex_request(_, _) ->
   throw({{error,bad_ssh_msg_kex_dh_gex_request},
 	 #ssh_msg_disconnect{
@@ -1482,44 +1491,10 @@ peer_name({Host, _}) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dh_group('diffie-hellman-group1-sha1') ->  element(2, ?dh_group1);
-dh_group('diffie-hellman-group14-sha1') -> element(2, ?dh_group14).
+dh_group('diffie-hellman-group1-sha1') ->  ?dh_group1;
+dh_group('diffie-hellman-group14-sha1') -> ?dh_group14.
 
-dh_gex_default_groups() -> ?dh_default_groups.
-
-
-dh_gex_group(Min, N, Max, undefined) ->
-    dh_gex_group(Min, N, Max, dh_gex_default_groups());
-dh_gex_group(Min, N, Max, Groups) ->
-    %% First try to find an exact match. If not an exact match, select the largest possible.
-    {_Size,Group} =
-	lists:foldl(
-	  fun(_, {I,G}) when I==N ->
-		  %% If we have an exact match already: use that one
-		  {I,G};
-	     ({I,G}, _) when I==N ->
-		  %% If we now found an exact match: use that very one
-		  {I,G};
-	     ({I,G}, {Imax,_Gmax}) when Min=<I,I=<Max, % a) {I,G} fullfills the requirements
-				        I>Imax ->      % b) {I,G} is larger than current max
-		  %% A group within the limits and better than the one we have
-		  {I,G};
-	     (_, IGmax) ->
-		  %% Keep the one we have
-		  IGmax
-	  end, {-1,undefined}, Groups),
-
-    case Group of
-	undefined ->
-	    throw(#ssh_msg_disconnect{
-		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		     description = "No possible diffie-hellman-group-exchange group found", 
-		     language = ""});
-	_ ->
-	    Group
-    end.
-
-
+%%%----------------------------------------------------------------
 generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.

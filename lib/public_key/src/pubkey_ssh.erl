@@ -20,8 +20,12 @@
 -module(pubkey_ssh).
 
 -include("public_key.hrl").
+-include("pubkey_moduli.hrl").
 
--export([decode/2, encode/2
+
+-export([decode/2, encode/2,
+	 dh_gex_group/4, 
+	 dh_gex_group_sizes/0
 	]).
 
 -define(UINT32(X), X:32/unsigned-big-integer).
@@ -75,6 +79,50 @@ encode(Entries, Type) ->
     iolist_to_binary(lists:map(fun({Key, Attributes}) ->
 					      do_encode(Type, Key, Attributes)
 				      end, Entries)).
+
+%%--------------------------------------------------------------------
+-spec dh_gex_group(integer(), integer(), integer(), 
+		   undefined | [{integer(),[{integer(),integer()}]}]) ->
+			  {ok,{integer(),{integer(),integer()}}} | {error,any()} .
+%%
+%% Description: Returns Generator and Modulus given MinSize, WantedSize
+%%              and MaxSize
+%%--------------------------------------------------------------------
+dh_gex_group(Min, N, Max, undefined) ->
+    dh_gex_group(Min, N, Max, ?dh_default_groups);
+dh_gex_group(Min, N, Max, Groups) ->
+    case select_by_keylen(Min-10, N, Max+10, Groups) of
+	{ok,{Sz,GPs}} ->
+	    {ok, {Sz,lists:nth(crypto:rand_uniform(1, 1+length(GPs)), GPs)}};
+	Other ->
+	    Other
+    end.
+
+dh_gex_group_sizes()->
+    [KeyLen || {KeyLen,_} <- ?dh_default_groups].
+
+%% Select the one with K closest to N but within the interval [Min,Max]
+    
+select_by_keylen(Min, N, Max, [{K,_Gs}|Groups]) when K < Min ->
+    select_by_keylen(Min, N, Max, Groups);
+select_by_keylen(Min, N, Max, [{K,Gs}|Groups]) when K =< Max ->
+    {ok, select_by_keylen(Min, N, Max, Groups, {K,Gs})};
+select_by_keylen(_Min, _N, _Max, _) ->
+    {error,no_group_found}.
+
+select_by_keylen(_Min, _N, Max, [{K,_Gs}|_Groups], GPprev) when K > Max ->
+    GPprev;
+select_by_keylen(Min, N, Max, [{K,Gs}|Groups], {Kprev,GsPrev}) ->
+    if
+	N == K -> {K,Gs};
+	N > K -> select_by_keylen(Min, N, Max, Groups, {K,Gs});
+	N < K, (K-N) < (N-Kprev) -> {K,Gs};
+	N < K -> {Kprev,GsPrev}
+    end;
+select_by_keylen(_Min, _N, _Max, [],GPprev) ->
+    %% is between Min and Max
+    GPprev.
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
