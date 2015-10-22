@@ -120,6 +120,9 @@
 	 normalize_list/1,
 	 compact_list/1,
 
+         annotated_type/2,
+         annotated_type_name/1,
+         annotated_type_body/1,
 	 application/2,
 	 application/3,
 	 application_arguments/1,
@@ -150,6 +153,9 @@
 	 binary_generator/2,
 	 binary_generator_body/1,
 	 binary_generator_pattern/1,
+         bitstring_type/2,
+         bitstring_type_m/1,
+         bitstring_type_n/1,
 	 block_expr/1,
 	 block_expr_body/1,
 	 case_expr/2,
@@ -175,6 +181,12 @@
 	 cond_expr_clauses/1,
 	 conjunction/1,
 	 conjunction_body/1,
+         constrained_function_type/2,
+         constrained_function_type_body/1,
+         constrained_function_type_argument/1,
+         constraint/2,
+         constraint_argument/1,
+         constraint_body/1,
 	 disjunction/1,
 	 disjunction_body/1,
 	 eof_marker/0,
@@ -188,10 +200,15 @@
 	 fun_expr/1,
 	 fun_expr_arity/1,
 	 fun_expr_clauses/1,
+         fun_type/0,
 	 function/2,
 	 function_arity/1,
 	 function_clauses/1,
 	 function_name/1,
+         function_type/1,
+         function_type/2,
+         function_type_arguments/1,
+         function_type_return/1,
 	 generator/2,
 	 generator_body/1,
 	 generator_pattern/1,
@@ -209,6 +226,9 @@
 	 is_integer/2,
 	 integer_value/1,
 	 integer_literal/1,
+         integer_range_type/2,
+         integer_range_type_low/1,
+         integer_range_type_high/1,
 	 list/1,
 	 list/2,
 	 list_comp/2,
@@ -230,6 +250,12 @@
          map_field_exact/2,
          map_field_exact_name/1,
          map_field_exact_value/1,
+         map_type/0,
+         map_type/1,
+         map_type_fields/1,
+         map_type_pair/2,
+         map_type_pair_key/1,
+         map_type_pair_value/1,
 	 match_expr/2,
 	 match_expr_body/1,
 	 match_expr_pattern/1,
@@ -270,6 +296,12 @@
 	 record_index_expr/2,
 	 record_index_expr_field/1,
 	 record_index_expr_type/1,
+         record_type/2,
+         record_type_name/1,
+         record_type_fields/1,
+         record_type_field/2,
+         record_type_field_name/1,
+         record_type_field_type/1,
 	 size_qualifier/2,
 	 size_qualifier_argument/1,
 	 size_qualifier_body/1,
@@ -288,6 +320,18 @@
 	 try_expr_clauses/1,
 	 try_expr_handlers/1,
 	 try_expr_after/1,
+         tuple_type/0,
+         tuple_type/1,
+         tuple_type_elements/1,
+         type_application/2,
+         type_application/3,
+         type_application_name/1,
+         type_application_arguments/1,
+         type_union/1,
+         type_union_types/1,
+	 typed_record_field/2,
+	 typed_record_field_body/1,
+         typed_record_field_type/1,
 	 class_qualifier/2,
 	 class_qualifier_argument/1,
 	 class_qualifier_body/1,
@@ -295,6 +339,9 @@
 	 tuple_elements/1,
 	 tuple_size/1,
 	 underscore/0,
+         user_type_application/2,
+         user_type_application_name/1,
+         user_type_application_arguments/1,
 	 variable/1,
 	 variable_name/1,
 	 variable_literal/1,
@@ -412,23 +459,28 @@
 %% <center><table border="1">
 %%  <tr>
 %%   <td>application</td>
+%%   <td>annotated_type</td>
 %%   <td>arity_qualifier</td>
 %%   <td>atom</td>
-%%   <td>attribute</td>
 %%  </tr><tr>
+%%   <td>attribute</td>
 %%   <td>binary</td>
 %%   <td>binary_field</td>
+%%   <td>bitstring_type</td>
+%%  </tr><tr>
 %%   <td>block_expr</td>
 %%   <td>case_expr</td>
-%%  </tr><tr>
 %%   <td>catch_expr</td>
 %%   <td>char</td>
+%%  </tr><tr>
 %%   <td>class_qualifier</td>
 %%   <td>clause</td>
-%%  </tr><tr>
 %%   <td>comment</td>
 %%   <td>cond_expr</td>
+%%  </tr><tr>
 %%   <td>conjunction</td>
+%%   <td>constrained_function_type</td>
+%%   <td>constraint</td>
 %%   <td>disjunction</td>
 %%  </tr><tr>
 %%   <td>eof_marker</td>
@@ -437,43 +489,57 @@
 %%   <td>form_list</td>
 %%  </tr><tr>
 %%   <td>fun_expr</td>
+%%   <td>fun_type</td>
 %%   <td>function</td>
+%%   <td>function_type</td>
+%%  </tr><tr>
 %%   <td>generator</td>
 %%   <td>if_expr</td>
-%%  </tr><tr>
 %%   <td>implicit_fun</td>
 %%   <td>infix_expr</td>
-%%   <td>integer</td>
-%%   <td>list</td>
 %%  </tr><tr>
+%%   <td>integer</td>
+%%   <td>integer_range_type</td>
+%%   <td>list</td>
 %%   <td>list_comp</td>
+%%  </tr><tr>
 %%   <td>macro</td>
 %%   <td>map_expr</td>
 %%   <td>map_field_assoc</td>
-%%  </tr><tr>
 %%   <td>map_field_exact</td>
+%%  </tr><tr>
+%%   <td>map_type</td>
+%%   <td>map_type_pair</td>
 %%   <td>match_expr</td>
 %%   <td>module_qualifier</td>
-%%   <td>named_fun_expr</td>
 %%  </tr><tr>
+%%   <td>named_fun_expr</td>
 %%   <td>nil</td>
 %%   <td>operator</td>
 %%   <td>parentheses</td>
-%%   <td>prefix_expr</td>
 %%  </tr><tr>
+%%   <td>prefix_expr</td>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
 %%   <td>record_expr</td>
-%%   <td>record_field</td>
 %%  </tr><tr>
+%%   <td>record_field</td>
 %%   <td>record_index_expr</td>
+%%   <td>record_type</td>
+%%   <td>record_type_field</td>
+%%  </tr><tr>
 %%   <td>size_qualifier</td>
 %%   <td>string</td>
 %%   <td>text</td>
-%%  </tr><tr>
 %%   <td>try_expr</td>
+%%  </tr><tr>
 %%   <td>tuple</td>
+%%   <td>tuple_type</td>
+%%   <td>typed_record_field</td>
+%%   <td>type_application</td>
+%%   <td>type_union</td>
 %%   <td>underscore</td>
+%%   <td>user_type_application</td>
 %%   <td>variable</td>
 %%  </tr><tr>
 %%   <td>warning_marker</td>
@@ -487,12 +553,14 @@
 %% always have the same name as the node type itself.
 %%
 %% @see tree/2
+%% @see annotated_type/2
 %% @see application/3
 %% @see arity_qualifier/2
 %% @see atom/1
 %% @see attribute/2
 %% @see binary/1
 %% @see binary_field/2
+%% @see bitstring_type/2
 %% @see block_expr/1
 %% @see case_expr/2
 %% @see catch_expr/1
@@ -502,24 +570,33 @@
 %% @see comment/2
 %% @see cond_expr/1
 %% @see conjunction/1
+%% @see constrained_function_type/2
+%% @see constraint/2
 %% @see disjunction/1
 %% @see eof_marker/0
 %% @see error_marker/1
 %% @see float/1
 %% @see form_list/1
 %% @see fun_expr/1
+%% @see fun_type/0
 %% @see function/2
+%% @see function_type/1
+%% @see function_type/2
 %% @see generator/2
 %% @see if_expr/1
 %% @see implicit_fun/2
 %% @see infix_expr/3
 %% @see integer/1
+%% @see integer_range_type/2
 %% @see list/2
 %% @see list_comp/2
 %% @see macro/2
 %% @see map_expr/2
 %% @see map_field_assoc/2
 %% @see map_field_exact/2
+%% @see map_type/0
+%% @see map_type/1
+%% @see map_type_pair/2
 %% @see match_expr/2
 %% @see module_qualifier/2
 %% @see named_fun_expr/2
@@ -532,12 +609,20 @@
 %% @see record_expr/2
 %% @see record_field/2
 %% @see record_index_expr/2
+%% @see record_type/2
+%% @see record_type_field/2
 %% @see size_qualifier/2
 %% @see string/1
 %% @see text/1
 %% @see try_expr/3
 %% @see tuple/1
+%% @see tuple_type/0
+%% @see tuple_type/1
+%% @see typed_record_field/2
+%% @see type_application/2
+%% @see type_union/1
 %% @see underscore/0
+%% @see user_type_application/2
 %% @see variable/1
 %% @see warning_marker/1
 
@@ -602,6 +687,24 @@ type(Node) ->
 	{remote, _, _, _} -> module_qualifier;
 	{'try', _, _, _, _, _} -> try_expr;
 	{tuple, _, _} -> tuple;
+
+        %% Type types
+        {ann_type, _, _} -> annotated_type;
+        {remote_type, _, _} -> type_application;
+        {type, _, binary, [_, _]} -> bitstring_type;
+        {type, _, bounded_fun, [_, _]} -> constrained_function_type;
+        {type, _, constraint, [_, _]} -> constraint;
+        {type, _, 'fun', []} -> fun_type;
+        {type, _, 'fun', [_, _]} -> function_type;
+        {type, _, map, _} -> map_type;
+        {type, _, map_field_assoc, _} -> map_type_pair;
+        {type, _, record, _} -> record_type;
+        {type, _, field_type, _} -> record_type_field;
+        {type, _, range, _} -> integer_range_type;
+        {type, _, tuple, _} -> tuple_type;
+        {type, _, union, _} -> type_union;
+        {type, _, _, _} -> type_application;
+        {user_type, _, _, _} -> user_type_application;
 	_ ->
 	    erlang:error({badarg, Node})
     end.
@@ -621,6 +724,7 @@ type(Node) ->
 %%   <td>`error_marker'</td>
 %%  </tr><tr>
 %%   <td>`float'</td>
+%%   <td>`fun_type'</td>
 %%   <td>`integer'</td>
 %%   <td>`nil'</td>
 %%   <td>`operator'</td>
@@ -633,7 +737,13 @@ type(Node) ->
 %%  </tr>
 %% </table></center>
 %%
+%% A node of type `map_expr' is a leaf node if and only if it has no
+%% argument and no fields.
+%% A node of type `map_type' is a leaf node if and only if it has no
+%% fields (`any_size').
 %% A node of type `tuple' is a leaf node if and only if its arity is zero.
+%% A node of type `tuple_type' is a leaf node if and only if it has no
+%% elements (`any_size').
 %%
 %% Note: not all literals are leaf nodes, and vice versa. E.g.,
 %% tuples with nonzero arity and nonempty lists may be literals, but are
@@ -653,6 +763,7 @@ is_leaf(Node) ->
 	eof_marker -> true;
 	error_marker -> true;
 	float -> true;
+        fun_type -> true;
 	integer -> true;
 	nil -> true;
 	operator -> true;	% nonstandard type
@@ -661,7 +772,9 @@ is_leaf(Node) ->
 	map_expr ->
 	    map_expr_fields(Node) =:= [] andalso
 	    map_expr_argument(Node) =:= none;
+        map_type -> map_type_fields(Node) =:= any_size;
 	tuple -> tuple_elements(Node) =:= [];
+        tuple_type -> tuple_type_elements(Node) =:= any_size;
 	underscore -> true;
 	variable -> true;
 	warning_marker -> true;
@@ -3114,6 +3227,39 @@ attribute(Name) ->
 %%	`Imports' is `{Module, [{A1, N1}, ..., {Ak, Nk}]}', or
 %%	`-import(A1.....An).', if `Imports' is `[A1, ..., An]'.
 %%
+%% {attribute, Pos, export_type, ExportedTypes}
+%%
+%%	ExportedTypes = [{atom(), integer()}]
+%%
+%%	Representing `-export_type([N1/A1, ..., Nk/Ak]).',
+%%      if `ExportedTypes' is `[{N1, A1}, ..., {Nk, Ak}]'.
+%%
+%% {attribute, Pos, optional_callbacks, OptionalCallbacks}
+%%
+%%	OptionalCallbacks = [{atom(), integer()}]
+%%
+%%	Representing `-optional_callbacks([A1/N1, ..., Ak/Nk]).',
+%%      if `OptionalCallbacks' is `[{A1, N1}, ..., {Ak, Nk}]'.
+%%
+%% {attribute, Pos, SpecTag, {FuncSpec, FuncType}}
+%%
+%%      SpecTag = spec | callback
+%%	FuncSpec = {module(), atom(), arity()} | {atom(), arity()}
+%%      FuncType = a (possibly constrained) function type
+%%
+%%	Representing `-SpecTag M:F/A Ft1; ...; Ftk.' or
+%%      `-SpecTag F/A Ft1; ...; Ftk.', if `FuncTypes' is
+%%      `[Ft1, ..., Ftk]'.
+%%
+%% {attribute, Pos, TypeTag, {Name, Type, Parameters}}
+%%
+%%      TypeTag = type | opaque
+%%      Type = a type
+%%      Parameters = [Variable]
+%%
+%%	Representing `-TypeTag Name(V1, ..., Vk) :: Type .'
+%%      if `Parameters' is `[V1, ..., Vk]'.
+%%
 %% {attribute, Pos, file, Position}
 %%
 %%	Position = {filename(), integer()}
@@ -3125,13 +3271,19 @@ attribute(Name) ->
 %%
 %%	Info = {Name, [Entries]}
 %%	Name = atom()
-%%	Entries = {record_field, Pos, atom()}
-%%		| {record_field, Pos, atom(), erl_parse()}
 %%
-%%	Representing `-record(Name, {<F1>, ..., <Fn>}).', if `Info' is
+%%	Entries = UntypedEntries
+%%              | {typed_record_field, UntypedEntries, Type}
+%%      UntypedEntries = {record_field, Pos, atom()}
+%%                     | {record_field, Pos, atom(), erl_parse()}
+%%
+%%      Representing `-record(Name, {<F1>, ..., <Fn>}).', if `Info' is
 %%	`{Name, [D1, ..., D1]}', where each `Fi' is either `Ai = <Ei>',
 %%	if the corresponding `Di' is `{record_field, Pos, Ai, Ei}', or
-%%	otherwise simply `Ai', if `Di' is `{record_field, Pos, Ai}'.
+%%	otherwise simply `Ai', if `Di' is `{record_field, Pos, Ai}', or
+%%      `Ai = <Ei> :: <Ti>', if `Di' is `{typed_record_field,
+%%      {record_field, Pos, Ai, Ei}, Ti}', or `Ai :: <Ti>', if `Di' is
+%%      `{typed_record_field, {record_field, Pos, Ai}, Ti}'.
 %%
 %% {attribute, L, Name, Term}
 %%
@@ -3309,11 +3461,6 @@ attribute_arguments(Node) ->
 		    [set_pos(
 		       list(unfold_function_names(Data, Pos)),
 		       Pos)];
-		optional_callbacks ->
-                    D = try list(unfold_function_names(Data, Pos))
-                        catch _:_ -> abstract(Data)
-                        end,
-		    [set_pos(D, Pos)];
 		import ->
 		    {Module, Imports} = Data,
 		    [set_pos(atom(Module), Pos),
@@ -4183,7 +4330,8 @@ record_field(Name) ->
 %% type(Node) = record_field
 %% data(Node) = #record_field{name :: Name, value :: Value}
 %%
-%%	Name = Value = syntaxTree()
+%%	Name = syntaxTree()
+%%	Value = none | syntaxTree()
 
 -spec record_field(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
@@ -4568,7 +4716,7 @@ application(Module, Name, Arguments) ->
 %%
 %% `erl_parse' representation:
 %%
-%% {call, Pos, Fun, Args}
+%% {call, Pos, Operator, Args}
 %%
 %%	Operator = erl_parse()
 %%	Arguments = [erl_parse()]
@@ -4622,6 +4770,1045 @@ application_arguments(Node) ->
 	Node1 ->
 	    (data(Node1))#application.arguments
     end.
+
+%% =====================================================================
+%% @doc Creates an abstract annotated type expression. The result
+%% represents "<code><em>Name</em> :: <em>Type</em></code>".
+%%
+%% @see annotated_type_name/1
+%% @see annotated_type_body/1
+
+-record(annotated_type, {name :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = annotated_type
+%% data(Node) = #annotated_type{name :: Name,
+%%                              body :: Type}
+%%
+%%      Name = syntaxTree()
+%%      Type = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {ann_type, Pos, [Name, Type]}
+%%
+%%      Name = erl_parse()
+%%      Type = erl_parse()
+
+-spec annotated_type(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+annotated_type(Name, Type) ->
+    tree(annotated_type, #annotated_type{name = Name, body = Type}).
+
+revert_annotated_type(Node) ->
+    Pos = get_pos(Node),
+    Name = annotated_type_name(Node),
+    Type = annotated_type_body(Node),
+    {ann_type, Pos, [Name, Type]}.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of an `annotated_type' node.
+%%
+%% @see annotated_type/2
+
+-spec annotated_type_name(syntaxTree()) -> syntaxTree().
+
+annotated_type_name(Node) ->
+    case unwrap(Node) of
+        {ann_type, _, [Name, _]} ->
+            Name;
+        Node1 ->
+            (data(Node1))#annotated_type.name
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the type subtrees of an `annotated_type' node.
+%%
+%% @see annotated_type/2
+
+-spec annotated_type_body(syntaxTree()) -> syntaxTree().
+
+annotated_type_body(Node) ->
+    case unwrap(Node) of
+        {ann_type, _, [_, Type]} ->
+            Type;
+        Node1 ->
+            (data(Node1))#annotated_type.body
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract fun of any type. The result represents
+%% "<code>fun()</code>".
+
+%% type(Node) = fun_type
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, 'fun', []}
+
+-spec fun_type() -> syntaxTree().
+
+fun_type() ->
+    tree(fun_type).
+
+revert_fun_type(Node) ->
+    Pos = get_pos(Node),
+    {type, Pos, 'fun', []}.
+
+
+%% =====================================================================
+%% @doc Creates an abstract type application expression. If
+%% `Module' is `none', this is call is equivalent
+%% to `type_application(TypeName, Arguments)', otherwise it is
+%% equivalent to `type_application(module_qualifier(Module, TypeName),
+%% Arguments)'.
+%%
+%% (This is a utility function.)
+%%
+%% @see type_application/2
+%% @see module_qualifier/2
+
+-spec type_application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
+        syntaxTree().
+
+type_application(none, TypeName, Arguments) ->
+    type_application(TypeName, Arguments);
+type_application(Module, TypeName, Arguments) ->
+    type_application(module_qualifier(Module, TypeName), Arguments).
+
+
+%% =====================================================================
+%% @doc Creates an abstract type application expression. If `Arguments' is
+%% `[T1, ..., Tn]', the result represents
+%% "<code><em>TypeName</em>(<em>T1</em>, ...<em>Tn</em>)</code>".
+%%
+%% @see user_type_application/2
+%% @see type_application/3
+%% @see type_application_name/1
+%% @see type_application_arguments/1
+
+-record(type_application, {type_name :: syntaxTree(),
+                           arguments :: [syntaxTree()]}).
+
+%% type(Node) = type_application
+%% data(Node) = #type_application{type_name :: TypeName,
+%%                                arguments :: Arguments}
+%%
+%%      TypeName = syntaxTree()
+%%      Arguments = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {remote, Pos, [Module, Name, Arguments]} |
+%% {type, Pos, Name, Arguments}
+%%
+%%      Module = erl_parse()
+%%      Name = atom()
+%%      Arguments = [erl_parse()]
+
+-spec type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+type_application(TypeName, Arguments) ->
+    tree(type_application,
+         #type_application{type_name = TypeName, arguments = Arguments}).
+
+revert_type_application(Node) ->
+    Pos = get_pos(Node),
+    TypeName = type_application_name(Node),
+    Arguments = type_application_arguments(Node),
+    case type(TypeName) of
+        module_qualifier ->
+            Module = module_qualifier_argument(TypeName),
+            Name = module_qualifier_body(TypeName),
+            {remote_type, Pos, [Module, Name, Arguments]};
+        atom ->
+            {type, Pos, atom_value(TypeName), Arguments}
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the type name subtree of a `type_application' node.
+%%
+%% @see type_application/2
+
+-spec type_application_name(syntaxTree()) -> syntaxTree().
+
+type_application_name(Node) ->
+    case unwrap(Node) of
+        {remote_type, _, [Module, Name, _]} ->
+            module_qualifier(Module, Name);
+        {type, Pos, Name, _} ->
+            set_pos(atom(Name), Pos);
+        Node1 ->
+            (data(Node1))#type_application.type_name
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the arguments subtrees of a `type_application' node.
+%%
+%% @see type_application/2
+
+-spec type_application_arguments(syntaxTree()) -> [syntaxTree()].
+
+type_application_arguments(Node) ->
+    case unwrap(Node) of
+        {remote_type, _, [_, _, Arguments]} ->
+            Arguments;
+        {type, _, _, Arguments} ->
+            Arguments;
+        Node1 ->
+            (data(Node1))#type_application.arguments
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract bitstring type. The result represents
+%% "<code><em>&lt;&lt;_:M, _:_*N&gt;&gt;</em></code>".
+%%
+%% @see bitstring_type_m/1
+%% @see bitstring_type_n/1
+
+-record(bitstring_type, {m :: syntaxTree(), n :: syntaxTree()}).
+
+%% type(Node) = bitstring_type
+%% data(Node) = #bitstring_type{m :: M, n :: N}
+%%
+%%      M = syntaxTree()
+%%      N = syntaxTree()
+%%
+
+-spec bitstring_type(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+bitstring_type(M, N) ->
+    tree(bitstring_type, #bitstring_type{m = M, n =N}).
+
+revert_bitstring_type(Node) ->
+    Pos = get_pos(Node),
+    M = bitstring_type_m(Node),
+    N = bitstring_type_n(Node),
+    {type, Pos, binary, [M, N]}.
+
+%% =====================================================================
+%% @doc Returns the number of start bits, `M',  of a `bitstring_type' node.
+%%
+%% @see bitstring_type/2
+
+-spec bitstring_type_m(syntaxTree()) -> syntaxTree().
+
+bitstring_type_m(Node) ->
+    case unwrap(Node) of
+        {type, _, binary, [M, _]} ->
+            M;
+        Node1 ->
+            (data(Node1))#bitstring_type.m
+    end.
+
+%% =====================================================================
+%% @doc Returns the segment size, `N', of a `bitstring_type' node.
+%%
+%% @see bitstring_type/2
+
+-spec bitstring_type_n(syntaxTree()) -> syntaxTree().
+
+bitstring_type_n(Node) ->
+    case unwrap(Node) of
+        {type, _, binary, [_, N]} ->
+            N;
+        Node1 ->
+            (data(Node1))#bitstring_type.n
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract constrained function type.
+%% If `FunctionConstraint' is `[C1, ..., Cn]', the result represents
+%% "<code><em>FunctionType</em> when <em>C1</em>, ...<em>Cn</em></code>".
+%%
+%% @see constrained_function_type_body/1
+%% @see constrained_function_type_argument/1
+
+-record(constrained_function_type, {body :: syntaxTree(),
+                                    argument :: syntaxTree()}).
+
+%% type(Node) = constrained_function_type
+%% data(Node) = #constrained_function_type{body :: FunctionType,
+%%                                         argument :: FunctionConstraint}
+%%
+%%      FunctionType = syntaxTree()
+%%      FunctionConstraint = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, bounded_fun, [FunctionType, FunctionConstraint]}
+%%
+%%      FunctionType = erl_parse()
+%%      FunctionConstraint = [erl_parse()]
+
+-spec constrained_function_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+constrained_function_type(FunctionType, FunctionConstraint) ->
+    Conj = conjunction(FunctionConstraint),
+    tree(constrained_function_type,
+         #constrained_function_type{body = FunctionType,
+                                    argument = Conj}).
+
+revert_constrained_function_type(Node) ->
+    Pos = get_pos(Node),
+    FunctionType = constrained_function_type_body(Node),
+    FunctionConstraint =
+        conjunction_body(constrained_function_type_argument(Node)),
+    {type, Pos, bounded_fun, [FunctionType, FunctionConstraint]}.
+
+
+%% =====================================================================
+%% @doc Returns the function type subtree of a
+%% `constrained_function_type' node.
+%%
+%% @see constrained_function_type/2
+
+-spec constrained_function_type_body(syntaxTree()) -> syntaxTree().
+
+constrained_function_type_body(Node) ->
+    case unwrap(Node) of
+        {type, _, bounded_fun, [FunctionType, _]} ->
+            FunctionType;
+        Node1 ->
+            (data(Node1))#constrained_function_type.body
+    end.
+
+%% =====================================================================
+%% @doc Returns the function constraint subtree of a
+%% `constrained_function_type' node.
+%%
+%% @see constrained_function_type/2
+
+-spec constrained_function_type_argument(syntaxTree()) -> syntaxTree().
+
+constrained_function_type_argument(Node) ->
+    case unwrap(Node) of
+        {type, _, bounded_fun, [_, FunctionConstraint]} ->
+            conjunction(FunctionConstraint);
+        Node1 ->
+            (data(Node1))#constrained_function_type.argument
+    end.
+
+
+%% =====================================================================
+%% @equiv function_type(any_arity, Type)
+
+function_type(Type) ->
+    function_type(any_arity, Type).
+
+%% =====================================================================
+%% @doc Creates an abstract function type. If `Arguments' is
+%% `[T1, ..., Tn]', then if it occurs within a function
+%% specification, the result represents
+%% "<code>(<em>T1</em>, ...<em>Tn</em>) -> <em>Return</em></code>"; otherwise
+%% it represents
+%% "<code>fun((<em>T1</em>, ...<em>Tn</em>) -> <em>Return</em>)</code>".
+%% If `Arguments' is `any_arity', it represents
+%% "<code>fun((...) -> <em>Return</em>)</code>".
+%%
+%% Note that the `erl_parse' representation is identical for
+%% "<code><em>FunctionType</em></code>" and
+%% "<code>fun(<em>FunctionType</em>)</code>".
+%%
+%% @see function_type_arguments/1
+%% @see function_type_return/1
+
+-record(function_type, {arguments :: any_arity | [syntaxTree()],
+                        return :: syntaxTree()}).
+
+%% type(Node) = function_type
+%% data(Node) = #function_type{arguments :: any | Arguments,
+%%                             return :: Type}
+%%
+%%      Arguments = [syntaxTree()]
+%%      Type = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, 'fun', [{type, Pos, product, Arguments}, Type]}
+%% {type, Pos, 'fun', [{type, Pos, any}, Type]}
+%%
+%%      Arguments = [erl_parse()]
+%%      Type = erl_parse()
+
+-spec function_type('any_arity' | syntaxTree(), syntaxTree()) -> syntaxTree().
+
+function_type(Arguments, Return) ->
+    tree(function_type,
+         #function_type{arguments = Arguments, return = Return}).
+
+revert_function_type(Node) ->
+    Pos = get_pos(Node),
+    Type = function_type_return(Node),
+    case function_type_arguments(Node) of
+        any_arity ->
+            {type, Pos, 'fun', [{type, Pos, any}, Type]};
+        Arguments ->
+            {type, Pos, 'fun', [{type, Pos, product, Arguments}, Type]}
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the argument types subtrees of a `function_type' node.
+%% If `Node' represents "<code>fun((...) -> <em>Return</em>)</code>",
+%% `any_arity' is returned; otherwise, if `Node' represents
+%% "<code>(<em>T1</em>, ...<em>Tn</em>) -> <em>Return</em></code>" or
+%% "<code>fun((<em>T1</em>, ...<em>Tn</em>) -> <em>Return</em>)</code>",
+%% `[T1, ..., Tn]' is returned.
+
+%%
+%% @see function_type/1
+%% @see function_type/2
+
+-spec function_type_arguments(syntaxTree()) -> any_arity | syntaxTree().
+
+function_type_arguments(Node) ->
+    case unwrap(Node) of
+        {type, _, 'fun', [{type, _, any}, _]} ->
+            any_arity;
+        {type, _, 'fun', [{type, _, product, Arguments}, _]} ->
+            Arguments;
+        Node1 ->
+            (data(Node1))#function_type.arguments
+    end.
+
+%% =====================================================================
+%% @doc Returns the return type subtrees of a `function_type' node.
+%%
+%% @see function_type/1
+%% @see function_type/2
+
+-spec function_type_return(syntaxTree()) -> syntaxTree().
+
+function_type_return(Node) ->
+    case unwrap(Node) of
+        {type, _, 'fun', [_, Type]} ->
+            Type;
+        Node1 ->
+            (data(Node1))#function_type.return
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract (subtype) constraint. The result represents
+%% "<code><em>Name</em> :: <em>Type</em></code>".
+%%
+%% @see constraint_argument/1
+%% @see constraint_body/1
+
+-record(constraint, {name :: syntaxTree(),
+                     type :: syntaxTree()}).
+
+%% type(Node) = constraint
+%% data(Node) = #constraint{name :: Name,
+%%                          type :: Type}
+%%
+%%      Name = syntaxTree()
+%%      Type = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, constraint, [{atom, Pos, is_subtype}, Name, Type]}
+%%
+%%      Name = erl_parse()
+%%      Type = erl_parse()
+
+-spec constraint(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+constraint(Name, Type) ->
+    tree(constraint,
+         #constraint{name = Name, type = Type}).
+
+revert_constraint(Node) ->
+    Pos = get_pos(Node),
+    Name = constraint_argument(Node),
+    Type = constraint_body(Node),
+    {type, Pos, constraint, [Name, Type]}.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of a `constraint' node.
+%%
+%% @see constraint/2
+
+-spec constraint_argument(syntaxTree()) -> syntaxTree().
+
+constraint_argument(Node) ->
+    case unwrap(Node) of
+        {type, _, constraint, [Name, _]} ->
+            Name;
+        Node1 ->
+            (data(Node1))#constraint.name
+    end.
+
+%% =====================================================================
+%% @doc Returns the type subtree of a `constraint' node.
+%%
+%% @see constraint/2
+
+-spec constraint_body(syntaxTree()) -> syntaxTree().
+
+constraint_body(Node) ->
+    case unwrap(Node) of
+        {type, _, constraint, [_, Type]} ->
+            Type;
+        Node1 ->
+            (data(Node1))#constraint.type
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract type map assoc field. The result represents
+%% "<code><em>KeyType</em> => <em>ValueType</em></code>".
+%%
+%% @see map_type_pair_key/1
+%% @see map_type_pair_value/1
+
+-record(map_type_pair, {key :: syntaxTree(),
+                        value :: syntaxTree()}).
+
+%% type(Node) = map_type_pair
+%% data(Node) = #map_type_pair{key :: KeyType,
+%%                             value :: ValueType}
+%%
+%%      KeyType = syntaxTree()
+%%      ValueType = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, map_field_assoc, [KeyType, ValueType]}
+%%
+%%      KeyType = erl_parse()
+%%      ValueType = erl_parse()
+
+-spec map_type_pair(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+map_type_pair(KeyType, ValueType) ->
+    tree(map_type_pair,
+         #map_type_pair{key = KeyType, value = ValueType}).
+
+revert_map_type_pair(Node) ->
+    Pos = get_pos(Node),
+    KeyType = map_type_pair_key(Node),
+    ValueType = map_type_pair_value(Node),
+    {type, Pos, map_field_assoc, [KeyType, ValueType]}.
+
+%% =====================================================================
+%% @doc Returns the key type subtrees of a `map_type_pair' node.
+%%
+%% @see map_type_pair/2
+
+-spec map_type_pair_key(syntaxTree()) -> syntaxTree().
+
+map_type_pair_key(Node) ->
+    case unwrap(Node) of
+        {type, _, map_field_assoc, [KeyType, _]} ->
+            KeyType;
+        Node1 ->
+            (data(Node1))#map_type_pair.key
+    end.
+
+%% =====================================================================
+%% @doc Returns the value type subtrees of a `map_type_pair' node.
+%%
+%% @see map_type_pair/2
+
+-spec map_type_pair_value(syntaxTree()) -> syntaxTree().
+
+map_type_pair_value(Node) ->
+    case unwrap(Node) of
+        {type, _, map_field_assoc, [_, ValueType]} ->
+            ValueType;
+        Node1 ->
+            (data(Node1))#map_type_pair.value
+    end.
+
+
+%% =====================================================================
+%% @equiv map_type(any_size)
+
+map_type() ->
+    map_type(any_size).
+
+%% =====================================================================
+%% @doc Creates an abstract type map. If `Fields' is
+%% `[F1, ..., Fn]', the result represents
+%% "<code>#{<em>F1</em>, ..., <em>Fn</em>}</code>";
+%% otherwise, if `Fields' is `any_size', it represents
+%% "<code>map()</code>".
+%%
+%% @see map_type_fields/1
+
+%% type(Node) = map_type
+%% data(Node) = Fields
+%%
+%%      Fields = any_size | [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, map, [Field]}
+%% {type, Pos, map, any}
+%%
+%%      Field = erl_parse()
+
+-spec map_type('any_size' | [syntaxTree()]) -> syntaxTree().
+
+map_type(Fields) ->
+    tree(map_type, Fields).
+
+revert_map_type(Node) ->
+    Pos = get_pos(Node),
+    {type, Pos, map, map_type_fields(Node)}.
+
+
+%% =====================================================================
+%% @doc Returns the list of field subtrees of a `map_type' node.
+%% If `Node' represents "<code>map()</code>", `any_size' is returned;
+%% otherwise, if `Node' represents
+%% "<code>#{<em>F1</em>, ..., <em>Fn</em>}</code>",
+%% `[F1, ..., Fn]' is returned.
+%%
+%% @see map_type/0
+%% @see map_type/1
+
+-spec map_type_fields(syntaxTree()) -> 'any_size' | [syntaxTree()].
+
+map_type_fields(Node) ->
+    case unwrap(Node) of
+        {type, _, map, Fields} when is_list(Fields) ->
+            Fields;
+        {type, _, map, any} ->
+            any_size;
+        Node1 ->
+            data(Node1)
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract range type. The result represents
+%% "<code><em>Low</em> .. <em>High</em></code>".
+%%
+%% @see integer_range_type_low/1
+%% @see integer_range_type_high/1
+
+-record(integer_range_type, {low :: syntaxTree(),
+                             high :: syntaxTree()}).
+
+%% type(Node) = integer_range_type
+%% data(Node) = #integer_range_type{low :: Low, high :: High}
+%%
+%%      Low = syntaxTree()
+%%      High = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, range, [Low, High]}
+%%
+%%      Low = erl_parse()
+%%      High = erl_parse()
+
+-spec integer_range_type(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+integer_range_type(Low, High) ->
+    tree(integer_range_type, #integer_range_type{low = Low, high = High}).
+
+revert_integer_range_type(Node) ->
+    Pos = get_pos(Node),
+    Low = integer_range_type_low(Node),
+    High = integer_range_type_high(Node),
+    {type, Pos, range, [Low, High]}.
+
+
+%% =====================================================================
+%% @doc Returns the low limit of an `integer_range_type' node.
+%%
+%% @see integer_range_type/2
+
+-spec integer_range_type_low(syntaxTree()) -> syntaxTree().
+
+integer_range_type_low(Node) ->
+    case unwrap(Node) of
+        {type, _, range, [Low, _]} ->
+            Low;
+        Node1 ->
+            (data(Node1))#integer_range_type.low
+    end.
+
+%% =====================================================================
+%% @doc Returns the high limit of an `integer_range_type' node.
+%%
+%% @see integer_range_type/2
+
+-spec integer_range_type_high(syntaxTree()) -> syntaxTree().
+
+integer_range_type_high(Node) ->
+    case unwrap(Node) of
+        {type, _, range, [_, High]} ->
+            High;
+        Node1 ->
+            (data(Node1))#integer_range_type.high
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract record type. If `Fields' is
+%% `[F1, ..., Fn]', the result represents
+%% "<code>#<em>Name</em>{<em>F1</em>, ..., <em>Fn</em>}</code>".
+%%
+%% @see record_type_name/1
+%% @see record_type_fields/1
+
+-record(record_type, {name :: syntaxTree(),
+                      fields :: [syntaxTree()]}).
+
+%% type(Node) = record_type
+%% data(Node) = #record_type{name = Name, fields = Fields}
+%%
+%%      Name = syntaxTree()
+%%      Fields = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, record, [Name|Fields]}
+%%
+%%      Name = erl_parse()
+%%      Fields = [erl_parse()]
+
+-spec record_type(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+record_type(Name, Fields) ->
+    tree(record_type, #record_type{name = Name, fields = Fields}).
+
+revert_record_type(Node) ->
+    Pos = get_pos(Node),
+    Name = record_type_name(Node),
+    Fields = record_type_fields(Node),
+    {type, Pos, record, [Name | Fields]}.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of a `record_type' node.
+%%
+%% @see record_type/2
+
+-spec record_type_name(syntaxTree()) -> syntaxTree().
+
+record_type_name(Node) ->
+    case unwrap(Node) of
+        {type, _, record, [Name|_]} ->
+            Name;
+        Node1 ->
+            (data(Node1))#record_type.name
+    end.
+
+%% =====================================================================
+%% @doc Returns the fields subtree of a `record_type' node.
+%%
+%% @see record_type/2
+
+-spec record_type_fields(syntaxTree()) -> [syntaxTree()].
+
+record_type_fields(Node) ->
+    case unwrap(Node) of
+        {type, _, record, [_|Fields]} ->
+            Fields;
+        Node1 ->
+            (data(Node1))#record_type.fields
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract record type field. The result represents
+%% "<code><em>Name</em> :: <em>Type</em></code>".
+%%
+%% @see record_type_field_name/1
+%% @see record_type_field_type/1
+
+-record(record_type_field, {name :: syntaxTree(),
+                            type :: syntaxTree()}).
+
+%% type(Node) = record_type_field
+%% data(Node) = #record_type_field{name = Name, type = Type}
+%%
+%%      Name = syntaxTree()
+%%      Type = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, field_type, [Name, Type]}
+%%
+%%      Name = erl_parse()
+%%      Type = erl_parse()
+
+-spec record_type_field(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+record_type_field(Name, Type) ->
+    tree(record_type_field, #record_type_field{name = Name, type = Type}).
+
+revert_record_type_field(Node) ->
+    Pos = get_pos(Node),
+    Name = record_type_field_name(Node),
+    Type = record_type_field_type(Node),
+    {type, Pos, field_type, [Name, Type]}.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of a `record_type_field' node.
+%%
+%% @see record_type_field/2
+
+-spec record_type_field_name(syntaxTree()) -> syntaxTree().
+
+record_type_field_name(Node) ->
+    case unwrap(Node) of
+        {type, _, field_type, [Name, _]} ->
+            Name;
+        Node1 ->
+            (data(Node1))#record_type_field.name
+    end.
+
+%% =====================================================================
+%% @doc Returns the type subtree of a `record_type_field' node.
+%%
+%% @see record_type_field/2
+
+-spec record_type_field_type(syntaxTree()) -> syntaxTree().
+
+record_type_field_type(Node) ->
+    case unwrap(Node) of
+        {type, _, field_type, [_, Type]} ->
+            Type;
+        Node1 ->
+            (data(Node1))#record_type_field.type
+    end.
+
+
+%% =====================================================================
+%% @equiv tuple_type(any_size)
+
+tuple_type() ->
+    tuple_type(any_size).
+
+%% =====================================================================
+%% @doc Creates an abstract type tuple. If `Elements' is
+%% `[T1, ..., Tn]', the result represents
+%% "<code>{<em>T1</em>, ..., <em>Tn</em>}</code>";
+%% otherwise, if `Elements' is `any_size', it represents
+%% "<code>tuple()</code>".
+%%
+%% @see tuple_type_elements/1
+
+%% type(Node) = tuple_type
+%% data(Node) = Elements
+%%
+%%      Elements = any_size | [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, tuple, [Element]}
+%% {type, Pos, tuple, any}
+%%
+%%      Element = erl_parse()
+
+-spec tuple_type(any_size | [syntaxTree()]) -> syntaxTree().
+
+tuple_type(Elements) ->
+    tree(tuple_type, Elements).
+
+revert_tuple_type(Node) ->
+    Pos = get_pos(Node),
+    {type, Pos, tuple, tuple_type_elements(Node)}.
+
+
+%% =====================================================================
+%% @doc Returns the list of type element subtrees of a `tuple_type' node.
+%% If `Node' represents "<code>tuple()</code>", `any_size' is returned;
+%% otherwise, if `Node' represents
+%% "<code>{<em>T1</em>, ..., <em>Tn</em>}</code>",
+%% `[T1, ..., Tn]' is returned.
+%%
+%% @see tuple_type/0
+%% @see tuple_type/1
+
+-spec tuple_type_elements(syntaxTree()) -> 'any_size' | [syntaxTree()].
+
+tuple_type_elements(Node) ->
+    case unwrap(Node) of
+        {type, _, tuple, Elements} when is_list(Elements) ->
+            Elements;
+        {type, _, tuple, any} ->
+            any_size;
+        Node1 ->
+            data(Node1)
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract type union. If `Types' is
+%% `[T1, ..., Tn]', the result represents
+%% "<code><em>T1</em> | ... | <em>Tn</em></code>".
+%%
+%% @see type_union_types/1
+
+%% type(Node) = type_union
+%% data(Node) = Types
+%%
+%%      Types = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {type, Pos, union, Elements}
+%%
+%%      Elements = [erl_parse()]
+
+-spec type_union([syntaxTree()]) -> syntaxTree().
+
+type_union(Types) ->
+    tree(type_union, Types).
+
+revert_type_union(Node) ->
+    Pos = get_pos(Node),
+    {type, Pos, union, type_union_types(Node)}.
+
+
+%% =====================================================================
+%% @doc Returns the list of type subtrees of a `type_union' node.
+%%
+%% @see type_union/1
+
+-spec type_union_types(syntaxTree()) -> [syntaxTree()].
+
+type_union_types(Node) ->
+    case unwrap(Node) of
+        {type, _, union, Types} when is_list(Types) ->
+            Types;
+        Node1 ->
+            data(Node1)
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract user type. If `Arguments' is
+%% `[T1, ..., Tn]', the result represents
+%% "<code><em>TypeName</em>(<em>T1</em>, ...<em>Tn</em>)</code>".
+%%
+%% @see type_application/2
+%% @see user_type_application_name/1
+%% @see user_type_application_arguments/1
+
+-record(user_type_application, {type_name :: syntaxTree(),
+                                arguments :: [syntaxTree()]}).
+
+%% type(Node) = user_type_application
+%% data(Node) = #user_type_application{type_name :: TypeName,
+%%                                     arguments :: Arguments}
+%%
+%%      TypeName = syntaxTree()
+%%      Arguments = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {user_type, Pos, Name, Arguments}
+%%
+%%      Name = erl_parse()
+%%      Arguments = [Type]
+%%      Type = erl_parse()
+
+-spec user_type_application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+user_type_application(TypeName, Arguments) ->
+    tree(user_type_application,
+         #user_type_application{type_name = TypeName, arguments = Arguments}).
+
+revert_user_type_application(Node) ->
+    Pos = get_pos(Node),
+    TypeName = user_type_application_name(Node),
+    Arguments = user_type_application_arguments(Node),
+    {user_type, Pos, atom_value(TypeName), Arguments}.
+
+
+%% =====================================================================
+%% @doc Returns the type name subtree of a `user_type_application' node.
+%%
+%% @see user_type_application/2
+
+-spec user_type_application_name(syntaxTree()) -> syntaxTree().
+
+user_type_application_name(Node) ->
+    case unwrap(Node) of
+        {user_type, Pos, Name, _} ->
+            set_pos(atom(Name), Pos);
+        Node1 ->
+            (data(Node1))#user_type_application.type_name
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the arguments subtrees of a `user_type_application' node.
+%%
+%% @see user_type_application/2
+
+-spec user_type_application_arguments(syntaxTree()) -> [syntaxTree()].
+
+user_type_application_arguments(Node) ->
+    case unwrap(Node) of
+        {user_type, _, _, Arguments} ->
+            Arguments;
+        Node1 ->
+            (data(Node1))#user_type_application.arguments
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract typed record field specification. The
+%% result represents "<code><em>Field</em> :: <em>Type</em></code>".
+%%
+%% @see typed_record_field_body/1
+%% @see typed_record_field_type/1
+
+-record(typed_record_field, {body :: syntaxTree(),
+                             type :: syntaxTree()}).
+
+%% type(Node) = typed_record_field
+%% data(Node) = #typed_record_field{body :: Field
+%%                                  type = Type}
+%%
+%%      Field = syntaxTree()
+%%      Type = syntaxTree()
+
+-spec typed_record_field(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+typed_record_field(Field, Type) ->
+    tree(typed_record_field,
+         #typed_record_field{body = Field, type = Type}).
+
+
+%% =====================================================================
+%% @doc Returns the field subtree of a `typed_record_field' node.
+%%
+%% @see typed_record_field/2
+
+-spec typed_record_field_body(syntaxTree()) -> syntaxTree().
+
+typed_record_field_body(Node) ->
+    (data(Node))#typed_record_field.body.
+
+
+%% =====================================================================
+%% @doc Returns the type subtree of a `typed_record_field' node.
+%%
+%% @see typed_record_field/2
+
+-spec typed_record_field_type(syntaxTree()) -> syntaxTree().
+
+typed_record_field_type(Node) ->
+    (data(Node))#typed_record_field.type.
 
 
 %% =====================================================================
@@ -6168,6 +7355,8 @@ revert(Node) ->
 
 revert_root(Node) ->
     case type(Node) of
+        annotated_type ->
+            revert_annotated_type(Node);
 	application ->
 	    revert_application(Node);
 	atom ->
@@ -6182,6 +7371,8 @@ revert_root(Node) ->
 	    revert_binary_field(Node);
         binary_generator ->
 	    revert_binary_generator(Node);
+        bitstring_type ->
+            revert_bitstring_type(Node);
 	block_expr ->
 	    revert_block_expr(Node);
 	case_expr ->
@@ -6194,6 +7385,10 @@ revert_root(Node) ->
 	    revert_clause(Node);
 	cond_expr ->
 	    revert_cond_expr(Node);
+        constrained_function_type ->
+            revert_constrained_function_type(Node);
+        constraint ->
+            revert_constraint(Node);
 	eof_marker ->
 	    revert_eof_marker(Node);
 	error_marker ->
@@ -6202,8 +7397,12 @@ revert_root(Node) ->
 	    revert_float(Node);
 	fun_expr ->
 	    revert_fun_expr(Node);
+        fun_type ->
+            revert_fun_type(Node);
 	function ->
 	    revert_function(Node);
+        function_type ->
+            revert_function_type(Node);
 	generator ->
 	    revert_generator(Node);
 	if_expr ->
@@ -6214,6 +7413,8 @@ revert_root(Node) ->
 	    revert_infix_expr(Node);
 	integer ->
 	    revert_integer(Node);
+        integer_range_type ->
+            revert_integer_range_type(Node);
 	list ->
 	    revert_list(Node);
 	list_comp ->
@@ -6224,6 +7425,10 @@ revert_root(Node) ->
             revert_map_field_assoc(Node);
         map_field_exact ->
             revert_map_field_exact(Node);
+        map_type ->
+            revert_map_type(Node);
+        map_type_pair ->
+            revert_map_type_pair(Node);
 	match_expr ->
 	    revert_match_expr(Node);
 	module_qualifier ->
@@ -6244,14 +7449,26 @@ revert_root(Node) ->
 	    revert_record_expr(Node);
 	record_index_expr ->
 	    revert_record_index_expr(Node);
+        record_type ->
+            revert_record_type(Node);
+        record_type_field ->
+            revert_record_type_field(Node);
+        type_application ->
+            revert_type_application(Node);
+        type_union ->
+            revert_type_union(Node);
 	string ->
 	    revert_string(Node);
 	try_expr ->
 	    revert_try_expr(Node);
 	tuple ->
 	    revert_tuple(Node);
+        tuple_type ->
+            revert_tuple_type(Node);
 	underscore ->
 	    revert_underscore(Node);
+        user_type_application ->
+            revert_user_type_application(Node);
 	variable ->
 	    revert_variable(Node);
 	warning_marker ->
@@ -6379,6 +7596,9 @@ subtrees(T) ->
 	    [];
 	false ->
 	    case type(T) of
+                annotated_type ->
+                    [[annotated_type_name(T)],
+                     [annotated_type_body(T)]];
 		application ->
 		    [[application_operator(T)],
 		     application_arguments(T)];
@@ -6407,6 +7627,9 @@ subtrees(T) ->
 	        binary_generator ->
 		    [[binary_generator_pattern(T)], 
                      [binary_generator_body(T)]];
+                bitstring_type ->
+                    [[bitstring_type_m(T)],
+                     [bitstring_type_n(T)]];
 		block_expr ->
 		    [block_expr_body(T)];
 		case_expr ->
@@ -6429,14 +7652,30 @@ subtrees(T) ->
 		    [cond_expr_clauses(T)];
 		conjunction ->
 		    [conjunction_body(T)];
+                constrained_function_type ->
+                    C = constrained_function_type_argument(T),
+                    [[constrained_function_type_body(T)],
+                     conjunction_body(C)];
+                constraint ->
+                    [[constraint_argument(T)],
+                     constraint_body(T)];
 		disjunction ->
 		    [disjunction_body(T)];
 		form_list ->
 		    [form_list_elements(T)];
 		fun_expr ->
 		    [fun_expr_clauses(T)];
+                fun_type ->
+                    [];
 		function ->
 		    [[function_name(T)], function_clauses(T)];
+                function_type ->
+                    case function_type_arguments(T) of
+                        any_arity ->
+                            [[function_type_return(T)]];
+                        As ->
+                            [As,[function_type_return(T)]]
+                    end;
 		generator ->
 		    [[generator_pattern(T)], [generator_body(T)]];
 		if_expr ->
@@ -6447,6 +7686,9 @@ subtrees(T) ->
 		    [[infix_expr_left(T)],
 		     [infix_expr_operator(T)],
 		     [infix_expr_right(T)]];
+                integer_range_type ->
+                    [[integer_range_type_low(T)],
+                     [integer_range_type_high(T)]];
 		list ->
 		    case list_suffix(T) of
 			none ->
@@ -6476,6 +7718,11 @@ subtrees(T) ->
                 map_field_exact ->
                     [[map_field_exact_name(T)],
                      [map_field_exact_value(T)]];
+                map_type ->
+                    [map_type_fields(T)];
+                map_type_pair ->
+                    [[map_type_pair_key(T)],
+                     [map_type_pair_value(T)]];
 		match_expr ->
 		    [[match_expr_pattern(T)],
 		     [match_expr_body(T)]];
@@ -6523,6 +7770,12 @@ subtrees(T) ->
 		record_index_expr ->
 		    [[record_index_expr_type(T)],
 		     [record_index_expr_field(T)]];
+                record_type ->
+                    [[record_type_name(T)],
+                     record_type_fields(T)];
+                record_type_field ->
+                    [[record_type_field_name(T)],
+                     [record_type_field_type(T)]];
 		size_qualifier ->
 		    [[size_qualifier_body(T)],
 		     [size_qualifier_argument(T)]];
@@ -6532,7 +7785,20 @@ subtrees(T) ->
 		     try_expr_handlers(T),
 		     try_expr_after(T)];
 		tuple ->
-		    [tuple_elements(T)]
+		    [tuple_elements(T)];
+                tuple_type ->
+                    [tuple_type_elements(T)];
+                type_application ->
+                    [[type_application_name(T)],
+                     type_application_arguments(T)];
+                type_union ->
+                    [type_union_types(T)];
+		typed_record_field ->
+                    [[typed_record_field_body(T)],
+                     [typed_record_field_type(T)]];
+                user_type_application ->
+                    [[user_type_application_name(T)],
+                     user_type_application_arguments(T)]
 	    end
     end.
 
@@ -6576,6 +7842,7 @@ update_tree(Node, Groups) ->
 
 -spec make_tree(atom(), [[syntaxTree()]]) -> syntaxTree().
 
+make_tree(annotated_type, [[N], [T]]) -> annotated_type(N, T);
 make_tree(application, [[F], A]) -> application(F, A);
 make_tree(arity_qualifier, [[N], [A]]) -> arity_qualifier(N, A);
 make_tree(attribute, [[N]]) -> attribute(N);
@@ -6585,6 +7852,7 @@ make_tree(binary_comp, [[T], B]) -> binary_comp(T, B);
 make_tree(binary_field, [[B]]) -> binary_field(B);
 make_tree(binary_field, [[B], Ts]) -> binary_field(B, Ts);
 make_tree(binary_generator, [[P], [E]]) -> binary_generator(P, E);
+make_tree(bitstring_type, [[M], [N]]) -> bitstring_type(M, N);
 make_tree(block_expr, [B]) -> block_expr(B);
 make_tree(case_expr, [[A], C]) -> case_expr(A, C);
 make_tree(catch_expr, [[B]]) -> catch_expr(B);
@@ -6593,14 +7861,20 @@ make_tree(clause, [P, B]) -> clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> clause(P, G, B);
 make_tree(cond_expr, [C]) -> cond_expr(C);
 make_tree(conjunction, [E]) -> conjunction(E);
+make_tree(constrained_function_type, [[F],C]) ->
+    constrained_function_type(F, C);
+make_tree(constraint, [[N], Ts]) -> constraint(N, Ts);
 make_tree(disjunction, [E]) -> disjunction(E);
 make_tree(form_list, [E]) -> form_list(E);
 make_tree(fun_expr, [C]) -> fun_expr(C);
 make_tree(function, [[N], C]) -> function(N, C);
+make_tree(function_type, [[T]]) -> function_type(T);
+make_tree(function_type, [A,[T]]) -> function_type(A, T);
 make_tree(generator, [[P], [E]]) -> generator(P, E);
 make_tree(if_expr, [C]) -> if_expr(C);
 make_tree(implicit_fun, [[N]]) -> implicit_fun(N);
 make_tree(infix_expr, [[L], [F], [R]]) -> infix_expr(L, F, R);
+make_tree(integer_range_type, [[L],[H]]) -> integer_range_type(L, H);
 make_tree(list, [P]) -> list(P);
 make_tree(list, [P, [S]]) -> list(P, S);
 make_tree(list_comp, [[T], B]) -> list_comp(T, B);
@@ -6610,6 +7884,8 @@ make_tree(map_expr, [Fs]) -> map_expr(Fs);
 make_tree(map_expr, [[E], Fs]) -> map_expr(E, Fs);
 make_tree(map_field_assoc, [[K], [V]]) -> map_field_assoc(K, V);
 make_tree(map_field_exact, [[K], [V]]) -> map_field_exact(K, V);
+make_tree(map_type, [Fs]) -> map_type(Fs);
+make_tree(map_type_pair, [[K],[V]]) -> map_type_pair(K, V);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
@@ -6625,9 +7901,16 @@ make_tree(record_field, [[N]]) -> record_field(N);
 make_tree(record_field, [[N], [E]]) -> record_field(N, E);
 make_tree(record_index_expr, [[T], [F]]) ->
     record_index_expr(T, F);
+make_tree(record_type, [[N],Fs]) -> record_type(N, Fs);
+make_tree(record_type_field, [[N],[T]]) -> record_type_field(N, T);
 make_tree(size_qualifier, [[N], [A]]) -> size_qualifier(N, A);
 make_tree(try_expr, [B, C, H, A]) -> try_expr(B, C, H, A);
-make_tree(tuple, [E]) -> tuple(E).
+make_tree(tuple, [E]) -> tuple(E);
+make_tree(tuple_type, [Es]) -> tuple_type(Es);
+make_tree(type_application, [[N], Ts]) -> type_application(N, Ts);
+make_tree(type_union, [Es]) -> type_union(Es);
+make_tree(typed_record_field, [[F],[T]]) -> typed_record_field(F, T);
+make_tree(user_type_application, [[N], Ts]) -> user_type_application(N, Ts).
 
 
 %% =====================================================================
@@ -6954,6 +8237,7 @@ fold_variable_names(Vs) ->
 unfold_variable_names(Vs, Pos) ->
     [set_pos(variable(V), Pos) || V <- Vs].
 
+
 %% Support functions for transforming lists of record field definitions.
 %%
 %% There is no unique representation for field definitions in the
@@ -6968,6 +8252,16 @@ fold_record_fields(Fs) ->
     [fold_record_field(F) || F <- Fs].
 
 fold_record_field(F) ->
+    case type(F) of
+        typed_record_field ->
+            Field = fold_record_field_1(typed_record_field_body(F)),
+            Type = typed_record_field_type(F),
+            {typed_record_field, Field, Type};
+        record_field ->
+            fold_record_field_1(F)
+    end.
+
+fold_record_field_1(F) ->
     Pos = get_pos(F),
     Name = record_field_name(F),
     case record_field_value(F) of
@@ -6980,10 +8274,11 @@ fold_record_field(F) ->
 unfold_record_fields(Fs) ->
     [unfold_record_field(F) || F <- Fs].
 
-unfold_record_field({typed_record_field, Field, _Type}) ->
-  unfold_record_field_1(Field);
+unfold_record_field({typed_record_field, Field, Type}) ->
+    F = unfold_record_field_1(Field),
+    set_pos(typed_record_field(F, Type), get_pos(F));
 unfold_record_field(Field) ->
-  unfold_record_field_1(Field).
+    unfold_record_field_1(Field).
 
 unfold_record_field_1({record_field, Pos, Name}) ->
     set_pos(record_field(Name), Pos);
@@ -7009,6 +8304,5 @@ unfold_binary_field_type({Type, Size}, Pos) ->
     set_pos(size_qualifier(atom(Type), integer(Size)), Pos);
 unfold_binary_field_type(Type, Pos) ->
     set_pos(atom(Type), Pos).
-
 
 %% =====================================================================
