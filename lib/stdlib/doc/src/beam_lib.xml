@@ -224,6 +224,13 @@
 
   <funcs>
     <func>
+      <name name="all_chunks" arity="1"/>
+      <fsummary>Read all chunks from a BEAM file or binary</fsummary>
+      <desc>
+        <p>Reads chunk data for all chunks.</p>
+      </desc>
+    </func>
+    <func>
       <name name="chunks" arity="2"/>
       <fsummary>Read selected chunks from a BEAM file or binary</fsummary>
       <desc>
@@ -248,6 +255,13 @@
           Note, however, that if the <c>"Atom"</c> chunk if missing, that is
           considered a fatal error and the return value will be an <c>error</c>
           tuple.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="build_module" arity="1"/>
+      <fsummary>Creates a BEAM module from a list of chunks</fsummary>
+      <desc>
+        <p>Builds a BEAM module (as a binary) from a list of chunks.</p>
       </desc>
     </func>
     <func>
