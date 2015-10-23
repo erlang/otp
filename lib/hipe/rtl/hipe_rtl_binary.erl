@@ -62,7 +62,7 @@ type_of_operation({bs_init,_,_}) -> construct;
 type_of_operation({bs_init_bits,_}) -> construct;
 type_of_operation({bs_init_bits,_,_}) -> construct;
 type_of_operation({bs_put_binary,_,_}) -> construct;
-type_of_operation({bs_put_binary_all,_}) -> construct;  
+type_of_operation({bs_put_binary_all,_,_}) -> construct;
 type_of_operation({bs_put_float,_,_,_}) -> construct;
 type_of_operation({bs_put_integer,_,_,_}) -> construct;
 type_of_operation({bs_put_string,_,_}) -> construct;  

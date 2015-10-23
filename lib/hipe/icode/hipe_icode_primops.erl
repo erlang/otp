@@ -116,7 +116,7 @@ is_safe({hipe_bs_primop, {bs_init, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_init_bits, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_init_bits, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_binary, _, _}}) -> false;
-is_safe({hipe_bs_primop, {bs_put_binary_all, _}}) -> false;  
+is_safe({hipe_bs_primop, {bs_put_binary_all, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_float, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_integer, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_string, _, _}}) -> false;  
@@ -219,7 +219,7 @@ fails({hipe_bs_primop, {bs_init, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_init_bits, _}}) -> true;
 fails({hipe_bs_primop, {bs_init_bits, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_binary, _, _}}) -> true;
-fails({hipe_bs_primop, {bs_put_binary_all, _}}) -> true;  
+fails({hipe_bs_primop, {bs_put_binary_all, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_float, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_integer, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_string, _, _}}) -> true;  
@@ -265,8 +265,8 @@ pp(Dev, Op) ->
       io:format(Dev, "gc_test<~w>", [N]);
     {hipe_bs_primop, BsOp}  ->
       case BsOp of
-	{bs_put_binary_all, Flags} -> 
-	  io:format(Dev, "bs_put_binary_all<~w>", [Flags]);
+	{bs_put_binary_all, Unit, Flags} ->
+	  io:format(Dev, "bs_put_binary_all<~w, ~w>", [Unit,Flags]);
 	{bs_put_binary, Size} ->
 	  io:format(Dev, "bs_put_binary<~w>", [Size]);
 	{bs_put_binary, Flags, Size} ->
@@ -628,8 +628,9 @@ type(Primop, Args) ->
 	[_SrcType, _BitsType, _Base, Type] ->
 	  erl_types:t_bitstr_concat(Type, erl_types:t_bitstr(Size, 0))
       end;
-    {hipe_bs_primop, {bs_put_binary_all, _Flags}} ->
-      [SrcType, _Base, Type] = Args,
+    {hipe_bs_primop, {bs_put_binary_all, Unit, _Flags}} ->
+      [SrcType0, _Base, Type] = Args,
+      SrcType = erl_types:t_inf(erl_types:t_bitstr(Unit, 0), SrcType0),
       erl_types:t_bitstr_concat(SrcType,Type);
     {hipe_bs_primop, {bs_put_string, _, Size}} ->
       [_Base, Type] = Args,

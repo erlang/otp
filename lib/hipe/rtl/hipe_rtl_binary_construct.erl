@@ -94,10 +94,11 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 	    var_init_bits(Size, Dst0, Base, Offset, TrueLblName, 
 			  SystemLimitLblName, FalseLblName);
 	  
-	  {bs_put_binary_all, _Flags} ->
+	  {bs_put_binary_all, Unit, _Flags} ->
 	    [Src, Base, Offset] = Args,
 	    [NewOffset] = get_real(Dst),
-	    put_binary_all(NewOffset, Src, Base, Offset, TrueLblName, FalseLblName);
+	    put_binary_all(NewOffset, Src, Base, Offset, Unit,
+			   TrueLblName, FalseLblName);
 	   
 	  {bs_put_binary, Size, _Flags} ->
 	    case is_illegal_const(Size) of
@@ -368,11 +369,9 @@ not_writable_code(Bin, SizeReg, Dst, Base, Offset, Unit,
 		  TrueLblName, FalseLblName) ->
   [SrcBase] = create_unsafe_regs(1),
   [SrcOffset, SrcSize, TotSize, TotBytes, UsedBytes] = create_regs(5),
-  [DivLbl,IncLbl,AllLbl] = Lbls = create_lbls(3),
-  [DivLblName,IncLblName,AllLblName] = get_label_names(Lbls),
+  [IncLbl,AllLbl] = Lbls = create_lbls(2),
+  [IncLblName,AllLblName] = get_label_names(Lbls),
   [get_base_offset_size(Bin, SrcBase, SrcOffset, SrcSize, FalseLblName),
-   is_divisible(SrcSize, Unit, DivLblName, FalseLblName),
-   DivLbl,
    hipe_rtl:mk_alu(TotSize, SrcSize, add, SizeReg),
    hipe_rtl:mk_alu(TotBytes, TotSize, add, ?LOW_BITS),
    hipe_rtl:mk_alu(TotBytes, TotBytes, srl, ?BYTE_SHIFT),
@@ -383,7 +382,7 @@ not_writable_code(Bin, SizeReg, Dst, Base, Offset, Unit,
    hipe_rtl:mk_move(UsedBytes, hipe_rtl:mk_imm(256)),
    AllLbl,
    allocate_writable(Dst, Base, UsedBytes, TotBytes, TotSize),
-   put_binary_all(Offset, Bin, Base, hipe_rtl:mk_imm(0), 
+   put_binary_all(Offset, Bin, Base, hipe_rtl:mk_imm(0), Unit,
 		  TrueLblName, FalseLblName)].
   
 allocate_writable(Dst, Base, UsedBytes, TotBytes, TotSize) ->
@@ -748,13 +747,16 @@ var_init_bits(Size, Dst, Base, Offset, TrueLblName, SystemLimitLblName, FalseLbl
    hipe_rtl:mk_move(Dst, TmpDst),
    hipe_rtl:mk_goto(TrueLblName)].
 
-put_binary_all(NewOffset, Src, Base, Offset, TLName, FLName) -> 
+put_binary_all(NewOffset, Src, Base, Offset, Unit, TLName, FLName) ->
   [SrcBase,SrcOffset,NumBits] = create_regs(3),
+  [ContLbl] = create_lbls(1),
   CCode = binary_c_code(NewOffset, Src, Base, Offset, NumBits, TLName),
   AlignedCode = copy_aligned_bytes(SrcBase, SrcOffset, NumBits, Base, Offset, 
 				   NewOffset, TLName),
-  get_base_offset_size(Src, SrcBase, SrcOffset, NumBits,FLName) ++
-    test_alignment(SrcOffset, NumBits, Offset, AlignedCode, CCode).
+  [get_base_offset_size(Src, SrcBase, SrcOffset, NumBits,FLName),
+   is_divisible(NumBits, Unit, hipe_rtl:label_name(ContLbl), FLName),
+   ContLbl
+   |test_alignment(SrcOffset, NumBits, Offset, AlignedCode, CCode)].
 
 test_alignment(SrcOffset, NumBits, Offset, AlignedCode, CCode) ->
   [Tmp] = create_regs(1),  

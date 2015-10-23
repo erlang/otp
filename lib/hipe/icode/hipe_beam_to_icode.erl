@@ -1306,7 +1306,7 @@ trans_bin([{bs_put_binary,{f,Lbl},Size,Unit,{field_flags,Flags},Source}|
   {Name, Args, Env2} =
     case Size of
       {atom,all} -> %% put all bits
-	{{bs_put_binary_all, Flags}, [Src,Base,Offset], Env};
+	{{bs_put_binary_all, Unit, Flags}, [Src,Base,Offset], Env};
       {integer,NoBits} when is_integer(NoBits), NoBits >= 0 ->
 	%% Create a N*Unit bits subbinary
 	{{bs_put_binary, NoBits*Unit, Flags}, [Src,Base,Offset], Env};
