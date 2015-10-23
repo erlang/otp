@@ -313,15 +313,16 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 	     hipe_rtl:mk_move(DstVar, Bin),
 	     hipe_rtl:mk_goto(TrueLblName)]; 
 
-	  {bs_append, _U, _F, _B, _Bla} -> 
+	  {bs_append, _U, _F, Unit, _Bla} ->
 	    [Size, Bin] = Args, 
 	    [DstVar, Base, Offset] = Dst, 
 	    [ProcBin] = create_vars(1),
 	    [Flags, SizeReg, IsWritable, EndSubSize, EndSubBitSize] = 
 	      create_regs(5),
-	    [ContLbl,ContLbl2,ContLbl3,WritableLbl,NotWritableLbl] = Lbls =
-	      create_lbls(5),
-	    [ContLblName, ContLbl2Name, ContLbl3Name, Writable, NotWritable] =
+	    [ContLbl,ContLbl2,ContLbl3,ContLbl4,WritableLbl,NotWritableLbl] =
+	      Lbls = create_lbls(6),
+	    [ContLblName, ContLbl2Name, ContLbl3Name, ContLbl4Name,
+	     Writable, NotWritable] =
 	      [hipe_rtl:label_name(Lbl) || Lbl <- Lbls],
 	    Zero = hipe_rtl:mk_imm(0),
 	    SubIsWritable = {sub_binary, is_writable},
@@ -339,17 +340,19 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 	     get_field_from_term({proc_bin, flags}, ProcBin, Flags),
 	     hipe_rtl:mk_alub(Flags, Flags, 'and',
 			      hipe_rtl:mk_imm(?PB_IS_WRITABLE), 
-			      eq, NotWritable, Writable, 0.01),
+			      eq, NotWritable, ContLbl4Name, 0.01),
+	     ContLbl4,
+	     calculate_sizes(Bin, SizeReg, Offset, EndSubSize, EndSubBitSize),
+	     is_divisible(Offset, Unit, Writable, FalseLblName),
 	     WritableLbl,
 	     set_field_from_term(SubIsWritable, Bin, Zero),
 	     realloc_binary(SizeReg, ProcBin, Base),
-	     calculate_sizes(Bin, SizeReg, Offset, EndSubSize, EndSubBitSize),
 	     hipe_tagscheme:mk_sub_binary(DstVar, EndSubSize, Zero,
 					  EndSubBitSize, Zero,
 					  hipe_rtl:mk_imm(1), ProcBin),
 	     hipe_rtl:mk_goto(TrueLblName),
 	     NotWritableLbl,
-	     not_writable_code(Bin, SizeReg, DstVar, Base, Offset, 
+	     not_writable_code(Bin, SizeReg, DstVar, Base, Offset, Unit,
 			       TrueLblName, FalseLblName)]
 	end,
       {Code, ConstTab}
@@ -361,13 +364,15 @@ gen_rtl(BsOP, Dst, Args, TrueLblName, FalseLblName, SystemLimitLblName, ConstTab
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-not_writable_code(Bin, SizeReg, Dst, Base, Offset, 
+not_writable_code(Bin, SizeReg, Dst, Base, Offset, Unit,
 		  TrueLblName, FalseLblName) ->
   [SrcBase] = create_unsafe_regs(1),
   [SrcOffset, SrcSize, TotSize, TotBytes, UsedBytes] = create_regs(5),
-  [IncLbl,AllLbl] = Lbls = create_lbls(2),
-  [IncLblName,AllLblName] = get_label_names(Lbls),
+  [DivLbl,IncLbl,AllLbl] = Lbls = create_lbls(3),
+  [DivLblName,IncLblName,AllLblName] = get_label_names(Lbls),
   [get_base_offset_size(Bin, SrcBase, SrcOffset, SrcSize, FalseLblName),
+   is_divisible(SrcSize, Unit, DivLblName, FalseLblName),
+   DivLbl,
    hipe_rtl:mk_alu(TotSize, SrcSize, add, SizeReg),
    hipe_rtl:mk_alu(TotBytes, TotSize, add, ?LOW_BITS),
    hipe_rtl:mk_alu(TotBytes, TotBytes, srl, ?BYTE_SHIFT),
@@ -1376,4 +1381,18 @@ first_part(Var, Register, FalseLblName) ->
   SuccessLbl2,
   hipe_tagscheme:untag_fixnum(Register, Var)].
 
-
+is_divisible(_Dividend, 1, SuccLbl, _FailLbl) ->
+  [hipe_rtl:mk_goto(SuccLbl)];
+is_divisible(Dividend, Divisor, SuccLbl, FailLbl) ->
+  Log2 = floorlog2(Divisor),
+  case Divisor =:= 1 bsl Log2 of
+    true -> %% Divisor is a power of 2
+      %% Test that the Log2-1 lowest bits are clear
+      Mask = hipe_rtl:mk_imm(Divisor - 1),
+      [Tmp] = create_regs(1),
+      [hipe_rtl:mk_alub(Tmp, Dividend, 'and', Mask, eq, SuccLbl, FailLbl, 0.99)];
+    false ->
+      %% We need division, fall back to a primop
+      [hipe_rtl:mk_call([], is_divisible, [Dividend, hipe_rtl:mk_imm(Divisor)],
+			SuccLbl, FailLbl, not_remote)]
+  end.

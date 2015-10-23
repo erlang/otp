@@ -504,6 +504,18 @@ int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
     return 1;
 }
 
+BIF_RETTYPE hipe_is_divisible(BIF_ALIST_2)
+{
+    /* Arguments are Eterm-sized unsigned integers */
+    Uint dividend = BIF_ARG_1;
+    Uint divisor = BIF_ARG_2;
+    if (dividend % divisor) {
+	BIF_ERROR(BIF_P, BADARG);
+    } else {
+	return NIL;
+    }
+}
+
 /* This is like the loop_rec_fr BEAM instruction
  */
 Eterm hipe_check_get_msg(Process *c_p)
