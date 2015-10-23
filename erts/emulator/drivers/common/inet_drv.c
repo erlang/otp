@@ -749,6 +749,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_MSGQ_LOWTRMRK     37  /* set local msgq low watermark */
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
 #define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
+#define INET_LOPT_LINE_DELIM        40  /* Line delimiting char */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1018,6 +1019,7 @@ typedef struct {
 #else
     Uint32        send_oct[2];  /* number of octets sent, 64 bits */
 #endif
+    char          delimiter;    /* Line delimiting character (def: '\n')  */
     unsigned long send_cnt;     /* number of packets sent */
     unsigned long send_max;     /* maximum packet send */
     double send_avg;            /* average packet size sent */
@@ -5962,6 +5964,12 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    }
 	    continue;
 
+	case INET_LOPT_LINE_DELIM:
+	    DEBUGF(("inet_set_opts(%ld): s=%d, LINE_DELIM=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    desc->delimiter = (char)ival;
+	    continue;
+
 	case INET_OPT_REUSEADDR: 
 #ifdef __WIN32__
 	    continue;  /* Bjorn says */
@@ -8057,6 +8065,7 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->deliver = INET_DELIVER_TERM; /* standard term format */
     desc->active  = INET_PASSIVE;      /* start passive */
     desc->active_count = 0;
+    desc->delimiter    = '\n';         /* line delimiting char */
     desc->oph = NULL;
     desc->opt = NULL;
 
@@ -9511,7 +9520,7 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
 
     tlen = packet_get_length(desc->inet.htype, ptr, n, 
                              desc->inet.psize, desc->i_bufsz,
-                             &desc->http_state);
+                             desc->inet.delimiter, &desc->http_state);
 
     DEBUGF(("tcp_remain(%ld): s=%d, n=%d, nfill=%d nsz=%d, tlen %d\r\n",
 	    (long)desc->inet.port, desc->inet.s, n, nfill, nsz, tlen));
