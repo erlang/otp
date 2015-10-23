@@ -48,7 +48,7 @@ all() ->
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
-     {t_recv, [], [t_recv_timeout, t_recv_eof]}].
+     {t_recv, [], [t_recv_timeout, t_recv_eof, t_recv_delim]}].
 
 
 
