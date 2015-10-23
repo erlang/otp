@@ -1330,7 +1330,19 @@ number2list(X, Acc) ->
   number2list(X-(1 bsl F), [F|Acc]).
 
 floorlog2(X) ->
-  round(math:log(X)/math:log(2)-0.5). 
+  %% Double-precision floats do not have enough precision to make floorlog2
+  %% exact for integers larger than 2^47.
+  Approx = round(math:log(X)/math:log(2)-0.5),
+  floorlog2_refine(X, Approx).
+
+floorlog2_refine(X, Approx) ->
+  if (1 bsl Approx) > X ->
+      floorlog2_refine(X, Approx - 1);
+     (1 bsl (Approx+1)) > X ->
+      Approx;
+     true ->
+      floorlog2_refine(X, Approx + 1)
+  end.
 
 set_high(X) ->
   set_high(X, 0).
