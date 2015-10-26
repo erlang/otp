@@ -1329,7 +1329,8 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     ErlSubBin* rest;
     Eterm res;
     Eterm options;
-    int code;
+    int   code;
+    char  delimiter = '\n';
 
     if (!is_binary(BIF_ARG_2) || 
         (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
@@ -1370,6 +1371,11 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
                 case am_line_length:
                     trunc_len = val;
                     goto next_option;
+                case am_line_delimiter:
+                    if (type == TCP_PB_LINE_LF && val >= 0 && val <= 255) {
+                        delimiter = (char)val;
+                        goto next_option;
+                    }
                 }
             }
         }
@@ -1390,7 +1396,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         pca.aligned_ptr = bin_ptr;
     }
     packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, pca.bin_sz,
-                                  max_plen, trunc_len, &http_state);
+                                  max_plen, trunc_len, delimiter, &http_state);
     if (!(packet_sz > 0 && packet_sz <= pca.bin_sz)) {
         if (packet_sz < 0) {
 	    goto error;
