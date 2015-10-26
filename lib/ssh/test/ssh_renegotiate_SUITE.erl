@@ -89,9 +89,10 @@ rekey_limit(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey.data"),
 
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[]),
+    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, 4500}]),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, 6000},
+								  {max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = get_kex_init(ConnectionRef),
@@ -132,13 +133,13 @@ renegotiate1(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate1.data"),
 
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[]),
+    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
 
     RPort = ssh_test_lib:inet_port(),
     {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
 
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, []),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = get_kex_init(ConnectionRef),
@@ -170,12 +171,12 @@ renegotiate2(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate2.data"),
 
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[]),
+    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
 
     RPort = ssh_test_lib:inet_port(),
     {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
 
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, []),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
 
     Kex1 = get_kex_init(ConnectionRef),
