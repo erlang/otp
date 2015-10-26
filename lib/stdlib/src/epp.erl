@@ -755,7 +755,7 @@ scan_toks([{'-',_Lh},{atom,_Le,elif}=Elif|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,_Le,endif}=Endif|Toks], From, St) ->
     scan_endif(Toks, Endif, From, St);
 scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
-    case catch expand_macros(Toks0, {St#epp.macs, St#epp.uses}) of
+    case catch expand_macros(Toks0, St) of
 	Toks1 when is_list(Toks1) ->
             scan_file(Toks1, FileToken, From, St);
 	{error,ErrL,What} ->
@@ -763,7 +763,7 @@ scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
 	    wait_req_scan(St)
     end;
 scan_toks(Toks0, From, St) ->
-    case catch expand_macros(Toks0, {St#epp.macs, St#epp.uses}) of
+    case catch expand_macros(Toks0, St) of
 	Toks1 when is_list(Toks1) ->
 	    epp_reply(From, {ok,Toks1}),
 	    wait_req_scan(St#epp{macs=scan_module(Toks1, St#epp.macs)});
@@ -1145,24 +1145,24 @@ macro_expansion([T|Ts], _Anno0) ->
     [T|macro_expansion(Ts, T)];
 macro_expansion([], Anno0) -> throw({error,loc(Anno0),premature_end}).
 
-%% expand_macros(Tokens, Macros)
+%% expand_macros(Tokens, St)
 %% expand_macro(Tokens, MacroToken, RestTokens)
 %%  Expand the macros in a list of tokens, making sure that an expansion
 %%  gets the same location as the macro call.
 
-expand_macros(MacT, M, Toks, Ms0) ->
-    {Ms,U} = Ms0,
+expand_macros(MacT, M, Toks, St) ->
+    #epp{macs=Ms,uses=U} = St,
     Lm = loc(MacT),
     Tinfo = element(2, MacT),
     case expand_macro1(Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
 	    check_uses([{M,none}], [], U, Lm),
-	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), Ms0),
-	    expand_macros(Toks1++Toks, Ms0);
+	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), St),
+	    expand_macros(Toks1++Toks, St);
 	{ok,{As,Exp}} ->
 	    check_uses([{M,length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, #{}),
-	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), Ms0)
+	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), St)
     end.
 
 expand_macro1(Lm, M, Toks, Ms) ->
@@ -1211,16 +1211,16 @@ get_macro_uses({M,Arity}, U) ->
 
 %% Macro expansion
 %% Note: io:scan_erl_form() does not return comments or white spaces.
-expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(MacT, M, Toks, Ms);
+expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], St) ->
+    expand_macros(MacT, M, Toks, St);
 %% Special macros
-expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], Ms) ->
+expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], St) ->
     Line = erl_scan:line(Tok),
-    [{integer,Lm,Line}|expand_macros(Toks, Ms)];
-expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(MacT, M, Toks, Ms);
+    [{integer,Lm,Line}|expand_macros(Toks, St)];
+expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], St) ->
+    expand_macros(MacT, M, Toks, St);
 %% Illegal macros
-expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
+expand_macros([{'?',_Lq},Token|_Toks], _St) ->
     T = case erl_scan:text(Token) of
             Text when is_list(Text) ->
                 Text;
@@ -1229,9 +1229,9 @@ expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
                 io_lib:write(Symbol)
         end,
     throw({error,loc(Token),{call,[$?|T]}});
-expand_macros([T|Ts], Ms) ->
-    [T|expand_macros(Ts, Ms)];
-expand_macros([], _Ms) -> [].
+expand_macros([T|Ts], St) ->
+    [T|expand_macros(Ts, St)];
+expand_macros([], _St) -> [].
 
 %% bind_args(Tokens, MacroLocation, MacroName, ArgumentVars, Bindings)
 %%  Collect the arguments to a macro call.
