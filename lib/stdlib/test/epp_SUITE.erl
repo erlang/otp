@@ -27,7 +27,7 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1, encoding/1, extends/1]).
+         otp_11728/1, encoding/1, extends/1, function_macro/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding, extends].
+     encoding, extends, function_macro].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -843,8 +843,9 @@ otp_8130(Config) when is_list(Config) ->
                                "t() -> ?a.\n"),
     ?line {ok,Epp} = epp:open(File, []),
     PreDefMacs = macs(Epp),
-    ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
-     'MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
+    ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE',
+     'FUNCTION_ARITY','FUNCTION_NAME',
+     'LINE','MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
     ?line {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
@@ -1489,6 +1490,88 @@ extends(Config) ->
 	   {some_other_module,"some_other_module"}}],
 
     [] = run(Config, Ts),
+    ok.
+
+function_macro(Config) ->
+    Cs = [{f_c1,
+	   <<"-define(FUNCTION_NAME, a).\n"
+	     "-define(FUNCTION_ARITY, a).\n"
+	     "-define(FS,\n"
+	     " atom_to_list(?FUNCTION_NAME) ++ \"/\" ++\n"
+	     " integer_to_list(?FUNCTION_ARITY)).\n"
+	     "-attr({f,?FUNCTION_NAME}).\n"
+	     "-attr2(?FS).\n"
+	     "-file(?FUNCTION_ARITY, 1).\n"
+	     "f1() ?FUNCTION_NAME/?FUNCTION_ARITY.\n"
+	     "f2(?FUNCTION_NAME.\n">>,
+	   {errors,[{1,epp,{redefine_predef,'FUNCTION_NAME'}},
+		    {2,epp,{redefine_predef,'FUNCTION_ARITY'}},
+		    {6,epp,{illegal_function,'FUNCTION_NAME'}},
+		    {7,epp,{illegal_function,'FUNCTION_NAME'}},
+		    {8,epp,{illegal_function,'FUNCTION_ARITY'}},
+		    {9,erl_parse,["syntax error before: ","f1"]},
+		    {10,erl_parse,["syntax error before: ","'.'"]}],
+	    []}},
+
+	  {f_c2,
+	   <<"a({a) -> ?FUNCTION_NAME.\n"
+	     "b(}{) -> ?FUNCTION_ARITY.\n"
+	     "c(?FUNCTION_NAME, ?not_defined) -> ok.\n">>,
+	   {errors,[{1,erl_parse,["syntax error before: ","')'"]},
+		    {2,erl_parse,["syntax error before: ","'}'"]},
+		    {3,epp,{undefined,not_defined,none}}],
+	    []}},
+
+	  {f_c3,
+	   <<"?FUNCTION_NAME() -> ok.\n"
+	     "?FUNCTION_ARITY() -> ok.\n">>,
+	   {errors,[{1,epp,{illegal_function_usage,'FUNCTION_NAME'}},
+		    {2,epp,{illegal_function_usage,'FUNCTION_ARITY'}}],
+	    []}}
+	 ],
+
+    [] = compile(Config, Cs),
+
+    Ts = [{f_1,
+	   <<"t() -> {a,0} = a(), {b,1} = b(1), {c,2} = c(1, 2),\n"
+	     "  {d,1} = d({d,1}), {foo,1} = foo(foo), ok.\n"
+	     "a() -> {?FUNCTION_NAME,?FUNCTION_ARITY}.\n"
+	     "b(_) -> {?FUNCTION_NAME,?FUNCTION_ARITY}.\n"
+	     "c(_, (_)) -> {?FUNCTION_NAME,?FUNCTION_ARITY}.\n"
+	     "d({?FUNCTION_NAME,?FUNCTION_ARITY}=F) -> F.\n"
+	     "-define(FOO, foo).\n"
+	     "?FOO(?FOO) -> {?FUNCTION_NAME,?FUNCTION_ARITY}.\n">>,
+	   ok},
+
+	  {f_2,
+	   <<"t() ->\n"
+             "  A = {a,[<<0:24>>,#{a=>1,b=>2}]},\n"
+	     "  1 = a(A),\n"
+	     "  ok.\n"
+	     "a({a,[<<_,_,_>>,#{a:=1,b:=2}]}) -> ?FUNCTION_ARITY.\n">>,
+	   ok},
+
+	  {f_3,
+	   <<"-define(FS,\n"
+	     " atom_to_list(?FUNCTION_NAME) ++ \"/\" ++\n"
+	     " integer_to_list(?FUNCTION_ARITY)).\n"
+	     "t() ->\n"
+	     "  {t,0} = {?FUNCTION_NAME,?FUNCTION_ARITY},\n"
+	     "  \"t/0\" = ?FS,\n"
+	     "  ok.\n">>,
+	   ok},
+
+	  {f_4,
+	   <<"-define(__, _, _).\n"
+	     "-define(FF, ?FUNCTION_NAME, ?FUNCTION_ARITY).\n"
+	     "a(?__) -> 2 = ?FUNCTION_ARITY.\n"
+	     "b(?FUNCTION_ARITY, ?__) -> ok.\n"
+	     "c(?FF) -> ok.\n"
+	     "t() -> a(1, 2), b(3, 1, 2), c(c, 2), ok.\n">>,
+	   ok}
+	 ],
+    [] = run(Config, Ts),
+
     ok.
 
 
