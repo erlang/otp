@@ -874,10 +874,10 @@
           </item>
           <tag><c>line</c></tag>
           <item>
-            <p>A packet is a line terminated with newline. The
-              newline character is included in the returned packet
-              unless the line was truncated according to option
-              <c>line_length</c>.</p> 
+            <p>A packet is a line terminated by a delimiter byte,
+            default is the latin1 newline character. The delimiter
+            byte is included in the returned packet unless the line
+            was truncated according to option <c>line_length</c>.</p>
           </item>
           <tag><c>asn1 | cdr | sunrm | fcgi | tpkt</c></tag>
           <item>
@@ -932,6 +932,10 @@
                 packet types as an alias for option <c>packet_size</c>
                 if <c>packet_size</c> itself is not set. This use is
                 only intended for backward compatibility.</p>
+              </item>
+              <tag><c>{line_delimiter, 0 =&lt; byte() =&lt; 255}</c></tag>
+              <item><p>For packet type <c>line</c>, sets the delimiting byte.
+                Default is the latin1 character <c>$\n</c>.</p>
               </item>
             </taglist>
         <p>Examples:</p>
