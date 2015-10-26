@@ -67,6 +67,7 @@ groups() ->
      {kex, [], [no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
 		gex_client_init_option_groups,
+		gex_server_gex_limit,
 		gex_client_init_option_groups_moduli_file,
 		gex_client_init_option_groups_file
 		]},
@@ -92,7 +93,8 @@ init_per_testcase(no_common_alg_server_disconnects, Config) ->
 
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
-				   TC == gex_client_init_option_groups_file ->
+				   TC == gex_client_init_option_groups_file ;
+				   TC == gex_server_gex_limit ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
 		   [{dh_gex_groups, [{2345, 3, 41}]}];
@@ -104,6 +106,12 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		   DataDir = ?config(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test.moduli"),
 		   [{dh_gex_groups, {ssh_moduli_file,F}}];
+	       gex_server_gex_limit ->
+		    [{dh_gex_groups, [{ 500, 3, 18},
+				      {1000, 7, 91},
+				      {3000, 5, 61}]},
+		     {dh_gex_limits,{500,1500}}
+		    ];
 	       _ ->
 		   []
 	   end,
@@ -117,7 +125,8 @@ end_per_testcase(no_common_alg_server_disconnects, Config) ->
     stop_std_daemon(Config);
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
-				  TC == gex_client_init_option_groups_file ->
+				  TC == gex_client_init_option_groups_file ;
+				  TC == gex_server_gex_limit ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -337,7 +346,6 @@ gex_client_init_option_groups(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000}, 
 		       {3,41}).
 
-
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
 		       {5,61}).
@@ -345,6 +353,11 @@ gex_client_init_option_groups_file(Config) ->
 gex_client_init_option_groups_moduli_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
 		       {5,16#B7}).
+
+gex_server_gex_limit(Config) ->
+    do_gex_client_init(Config, {1000, 3000, 4000},
+		       {7,91}).
+
 
 do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
     {ok,_} =

@@ -441,13 +441,14 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 %%%
 %%% diffie-hellman-group-exchange-sha1
 %%% 
-handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min,
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 						      n   = NBits,
-						      max = Max}, 
-			  Ssh0=#ssh{opts=Opts}) when Min=<NBits, NBits=<Max ->
+						      max = Max0}, 
+			  Ssh0=#ssh{opts=Opts}) when Min0=<NBits, NBits=<Max0 ->
     %% server
+    {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
     case public_key:dh_gex_group(Min, NBits, Max,
-			     proplists:get_value(dh_gex_groups,Opts)) of
+				 proplists:get_value(dh_gex_groups,Opts)) of
 	{ok, {_Sz, {G,P}}} ->
 	    {Public, Private} = generate_key(dh, [P,G]),
 	    {SshPacket, Ssh} = 
@@ -470,6 +471,26 @@ handle_kex_dh_gex_request(_, _) ->
 	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request",
 	    language = ""}
 	}).
+
+
+adjust_gex_min_max(Min0, Max0, Opts) ->
+    case proplists:get_value(dh_gex_limits, Opts) of
+	undefined ->
+	    {Min0, Max0};
+	{Min1, Max1} ->
+	    Min2 = max(Min0, Min1),
+	    Max2 = min(Max0, Max1),
+	    if
+		Min2 =< Max2 ->
+		    {Min2, Max2};
+		Max2 < Min2 ->
+		    throw(#ssh_msg_disconnect{
+			     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			     description = "No possible diffie-hellman-group-exchange group possible", 
+			     language = ""})
+	    end
+    end.
+		    
 
 handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
     %% client

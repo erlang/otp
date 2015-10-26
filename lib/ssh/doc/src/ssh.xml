@@ -475,6 +475,17 @@ kex is implicit but public_key is set explicitly.</p>
 	    </p>
 	  </item>
 
+	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),Max=integer()}}]]></c></tag>
+	  <item>
+	    <p>Limits what a client can ask for in diffie-hellman-group-exchange. The effective value will be
+	    <c>MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)</c>.
+	    </p>
+	    <p>If <c>MaxUsed &lt; MinUses</c> in a key exchange, it will fail with a disconnect.
+	    </p>
+	    <p>See RFC 4419 for the function of the max an min values.
+	    </p>
+	  </item>
+
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called

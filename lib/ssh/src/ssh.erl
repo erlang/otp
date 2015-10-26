@@ -474,9 +474,14 @@ handle_ssh_option({dh_gex_groups,{Tag,File=[C|_]}}=Opt) when is_integer(C), C>0,
     end;	    
     
 
+handle_ssh_option({dh_gex_limits,{Min,Max}} = Opt) when is_integer(Min), Min>0, 
+							is_integer(Max), Max>=Min ->
+    %% Server
+    Opt;
 handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
 							  is_integer(I),   I>=Min,
 							  is_integer(Max), Max>=I ->
+    %% Client
     Opt;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
