@@ -671,7 +671,7 @@ stats() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
-     header, active, packet, packet_size, buffer, mode, deliver,
+     header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
      show_econnreset].
@@ -721,6 +721,8 @@ con_opt([Opt | Opts], #connect_opts{} = R, As) ->
         {active,N} when is_integer(N), N < 32768, N >= -32768 ->
             NOpts = lists:keydelete(active, 1, R#connect_opts.opts),
             con_opt(Opts, R#connect_opts { opts = [{active,N}|NOpts] }, As);
+	{line_delimiter,C} when is_integer(C), C >= 0, C =< 255 ->
+	    con_add(line_delimiter, C, R, Opts, As);
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;

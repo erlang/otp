@@ -933,6 +933,10 @@
                 if <c>packet_size</c> itself is not set. This use is
                 only intended for backward compatibility.</p>
               </item>
+              <tag><c>{line_delimiter, 0 &le; char() &le; 255}</c></tag>
+              <item><p>For packet type <c>line</c>, sets delimiting character.
+                Default <c>$\n</c>.</p>
+              </item>
             </taglist>
         <p>Examples:</p>
         <pre>

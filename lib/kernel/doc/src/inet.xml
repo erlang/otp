@@ -981,6 +981,11 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
 	    indicated length are accepted and not considered invalid due
 	    to internal buffer limitations.</p>
           </item>
+          <tag><c>{line_delimiter, Char}</c>(TCP/IP sockets)</tag>
+          <item>
+            <p>Sets the line delimiting character for line oriented protocols
+              (<c>line</c>). Default value is <c>$\n</c>.</p>
+          </item>
 
 		  <tag><c>{priority, Priority}</c></tag>
           <item> <p>Set the protocol-defined priority for all packets to be sent

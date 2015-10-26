@@ -256,6 +256,7 @@ int packet_get_length(enum PacketParseType htype,
                       const char* ptr, unsigned n, /* Bytes read so far */
                       unsigned max_plen,     /* Max packet length, 0=no limit */
                       unsigned trunc_len,    /* Truncate (lines) if longer, 0=no limit */
+                      char     delimiter,    /* Line delimiting character */
                       int*     statep)       /* Protocol specific state */
 {
     unsigned hlen, plen;
@@ -299,9 +300,9 @@ int packet_get_length(enum PacketParseType htype,
         goto remain;
 
     case TCP_PB_LINE_LF: {
-        /* TCP_PB_LINE_LF:  [Data ... \n]  */
+        /* TCP_PB_LINE_LF:  [Data ... Delimiter]  */
         const char* ptr2;
-        if ((ptr2 = memchr(ptr, '\n', n)) == NULL) {
+        if ((ptr2 = memchr(ptr, delimiter, n)) == NULL) {
             if (n > max_plen && max_plen != 0) { /* packet full */
                 DEBUGF((" => packet full (no NL)=%d\r\n", n));
                 goto error;

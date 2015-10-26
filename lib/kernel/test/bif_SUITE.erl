@@ -33,6 +33,7 @@
 	 spawn_failures/1,
 
 	 run_fun/1,
+     decode_packet_delim/1,
 	 wilderness/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -516,6 +517,15 @@ fetch_proc_vals(Pid) ->
     {value,{heap_size,HS}} = lists:keysearch(heap_size, 1, PI),
     ?line {Ls, P, FA, HS}.
      
+decode_packet_delim(doc) ->
+    ["Test erlang:packet_delim/3 with {line_delimiter,0} option"];
+decode_packet_delim(suite) ->
+    [];
+decode_packet_delim(Config) when is_list(Config) ->
+    {ok,<<"abc",0>>,<<"efg",0>>} =
+        erlang:decode_packet(line, <<"abc",0,"efg",0>>, [{line_delimiter, 0}]),
+    {more, undefined} = erlang:decode_packet(line, <<"abc",0,"efg",0>>, []).
+
 % This testcase should probably be moved somewhere else
 wilderness(doc) ->
     ["Test that memory allocation command line options affecting the"
