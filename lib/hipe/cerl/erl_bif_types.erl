@@ -768,6 +768,18 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   strict(erlang, map_size, 1, Xs, fun (_) -> t_non_neg_integer() end, Opaques);
+type(erlang, make_fun, 3, Xs, Opaques) ->
+  strict(erlang, make_fun, 3, Xs,
+         fun ([_, _, Arity]) ->
+             case t_number_vals(Arity, Opaques) of
+               [N] ->
+                 case is_integer(N) andalso 0 =< N andalso N =< 255 of
+                   true -> t_fun(N, t_any());
+                   false -> t_none()
+                 end;
+               _Other -> t_fun()
+             end
+         end, Opaques);
 type(erlang, make_tuple, 2, Xs, Opaques) ->
   strict(erlang, make_tuple, 2, Xs,
 	 fun ([Int, _]) ->
@@ -2361,6 +2373,8 @@ arg_types(erlang, length, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
+arg_types(erlang, make_fun, 3) ->
+  [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->
   [t_non_neg_fixnum(), t_any()];  % the value 0 is OK as first argument
 arg_types(erlang, make_tuple, 3) ->
