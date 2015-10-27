@@ -79,9 +79,14 @@ if [ "X$RC_SH_DEBUG_LOG" != "X" ]; then
     echo rc.sh "$SAVE" >>$RC_SH_DEBUG_LOG
     echo rc.exe $CMD >>$RC_SH_DEBUG_LOG
 fi
+# MSYS2 (currently) converts the paths wrong, avoid it
+export MSYS2_ARG_CONV_EXCL=-Fo
 eval $RCC "$CMD"  >/tmp/rc.exe.${p}.1 2>/tmp/rc.exe.${p}.2
 RES=$?
-tail +2 /tmp/rc.exe.${p}.2 >&2
+if [ $RES != 0 ]; then
+    echo Failed: $RCC "$CMD" 
+fi
+tail -n +2 /tmp/rc.exe.${p}.2 >&2
 cat /tmp/rc.exe.${p}.1
 rm -f /tmp/rc.exe.${p}.2 /tmp/rc.exe.${p}.1
 exit $RES
