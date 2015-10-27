@@ -1147,6 +1147,7 @@ enc_opt(packet_size)     -> ?INET_LOPT_PACKET_SIZE;
 enc_opt(read_packets)    -> ?INET_LOPT_READ_PACKETS;
 enc_opt(netns)           -> ?INET_LOPT_NETNS;
 enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
+enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1205,6 +1206,7 @@ dec_opt(?INET_LOPT_PACKET_SIZE)      -> packet_size;
 dec_opt(?INET_LOPT_READ_PACKETS)     -> read_packets;
 dec_opt(?INET_LOPT_NETNS)           -> netns;
 dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
+dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1287,6 +1289,7 @@ type_opt_1(packet) ->
 	   {httph_bin,?TCP_PB_HTTPH_BIN},
 	   {ssl, ?TCP_PB_SSL_TLS}, % obsolete
 	   {ssl_tls, ?TCP_PB_SSL_TLS}]};
+type_opt_1(line_delimiter)  -> int;
 type_opt_1(mode) ->
     {enum,[{list, ?INET_MODE_LIST},
 	   {binary, ?INET_MODE_BINARY}]};
