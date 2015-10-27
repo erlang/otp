@@ -49,11 +49,13 @@
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates,
 	     #ssl_options{versions = Versions,
+			  record_layer_version = OptsRecordVersion,
 			  ciphers = UserSuites,
 			  fallback = Fallback
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
+    RecordLayerVersion = record_layer_version(Version, OptsRecordVersion),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version), 
@@ -70,6 +72,7 @@ client_hello(Host, Port, ConnectionStates,
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),    
     #client_hello{session_id = Id,
 		  client_version = Version,
+		  record_layer_version = RecordLayerVersion,
 		  cipher_suites = CipherSuites,
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
@@ -269,3 +272,7 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 
+record_layer_version(HighestVersion, undefined) ->
+    HighestVersion;
+record_layer_version(_, OptsVersion) ->
+    OptsVersion.

@@ -680,8 +680,17 @@ handle_options(Opts0) ->
 		       [RecordCb:protocol_version(Vsn) || Vsn <- Vsns]
 	       end,
 
+    RecordLayerVersion = case proplists:get_value(record_layer_version, Opts, undefined) of
+	    undefined ->
+		undefined;
+	    Vsn ->
+		Version = tls_record:protocol_version(Vsn),
+		validate_record_layer_version(Version, Versions, Vsn)
+    end,
+
     SSLOptions = #ssl_options{
 		    versions   = Versions,
+		    record_layer_version = RecordLayerVersion,
 		    verify     = validate_option(verify, Verify),
 		    verify_fun = VerifyFun,
 		    partial_chain = PartialChainHanlder,
@@ -732,7 +741,7 @@ handle_options(Opts0) ->
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
-    SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
+    SslOptions = [protocol, versions, record_layer_version, verify, verify_fun, partial_chain,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile,
@@ -1009,6 +1018,16 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
     validate_versions(Rest, Versions);
 validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
+
+validate_record_layer_version(undefined, _, _) ->
+    undefined;
+validate_record_layer_version(Version, Versions, Value) ->
+    case lists:member(Version, Versions) of
+	true ->
+	    Version;
+	false ->
+	    throw({error, {options, {record_layer_version, Value}}})
+    end.
 
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->

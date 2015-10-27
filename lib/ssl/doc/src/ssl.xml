@@ -538,6 +538,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
+      <tag>record_layer_version</tag>
+      <item>
+        <p>This option can be used for backwards compatibility with older
+        servers as it is specified in section 1 of Appendix E in RFC 5246.</p>
+        <p>It provides a way to specify record layer version number different
+        from the highest protocol version which is used by default.</p>
+      </item>
       
     </taglist>
    </section>

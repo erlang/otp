@@ -30,6 +30,7 @@
 
 -record(client_hello, {
 	  client_version,
+	  record_layer_version,
 	  random,             
 	  session_id,          % opaque SessionID<0..32>
 	  cipher_suites,       % cipher_suites<2..2^16-1>
