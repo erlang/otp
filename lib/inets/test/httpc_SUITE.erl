@@ -105,6 +105,7 @@ only_simulated() ->
      internal_server_error,
      invalid_http,
      headers_dummy,
+     headers_with_obs_fold,
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
@@ -890,6 +891,13 @@ headers_dummy(Config) when is_list(Config) ->
 		      ], "text/plain", FooBar},
 		     [], []).
 
+
+%%-------------------------------------------------------------------------
+
+headers_with_obs_fold(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
+    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [], []),
+    "a b c" = proplists:get_value("folded", Headers).
 
 %%-------------------------------------------------------------------------
 
@@ -1712,6 +1720,14 @@ handle_uri(_,"/dummy_headers.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("<HTML><BODY>fo")),
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
+
+handle_uri(_,"/obs_folded_headers.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n"
+    "Content-Length:5\r\n"
+    "Folded: a\r\n"
+    " b\r\n"
+    "\tc\r\n\r\n"
+    "Hello";
 
 handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
