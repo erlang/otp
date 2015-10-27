@@ -21,7 +21,7 @@ int main() {
     
     if (strncmp(ERL_ATOM_PTR(fnp), "foo", 3) == 0) {
       res = foo(ERL_INT_VALUE(argp));
-    } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 17) == 0) {
+    } else if (strncmp(ERL_ATOM_PTR(fnp), "bar", 3) == 0) {
       res = bar(ERL_INT_VALUE(argp));
     }
 
