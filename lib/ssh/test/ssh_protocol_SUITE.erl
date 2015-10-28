@@ -46,7 +46,8 @@ suite() ->
 
 all() -> 
     [{group,tool_tests},
-     {group,kex}
+     {group,kex},
+     {group,service_requests}
     ].
 
 groups() ->
@@ -61,7 +62,13 @@ groups() ->
 		gex_client_init_default_exact,
 		gex_client_init_option_groups,
 		gex_client_init_option_groups_file
-		]}
+		]},
+     {service_requests, [], [bad_service_name,
+			     bad_long_service_name,
+			     bad_very_long_service_name,
+			     empty_service_name,
+			     bad_service_name_then_correct
+			    ]}
     ].
 
 
@@ -114,25 +121,10 @@ end_per_testcase(_TestCase, Config) ->
 %%% Connect to an erlang server and check that the testlib acts as a client.
 lib_works_as_client(Config) ->
     %% Connect and negotiate keys
-    {ok,InitialState} =
-	ssh_trpt_test_lib:exec(
-	  [{set_options, [print_ops, print_seqnums, print_messages]},
-	   {connect,
-	    server_host(Config),server_port(Config),
-	    [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]},
-	     {silently_accept_hosts, true},
-	     {user_dir, user_dir(Config)},
-	     {user_interaction, false}]},
-	   receive_hello,
-	   {send, hello},
-	   {send, ssh_msg_kexinit},
-	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-	   {send, ssh_msg_kexdh_init},
-	   {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-	   {send, #ssh_msg_newkeys{}},
-	   {match, #ssh_msg_newkeys{_='_'}, receive_msg}
-	  ]
-	 ),
+    {ok,InitialState} = ssh_trpt_test_lib:exec(
+			  [{set_options, [print_ops, print_seqnums, print_messages]}]
+			 ),
+    {ok,AfterKexState} = connect_and_kex(Config, InitialState),
 
     %% Do the authentcation
     {User,Pwd} = server_user_password(Config),
@@ -147,7 +139,7 @@ lib_works_as_client(Config) ->
 						     ?STRING(unicode:characters_to_binary(Pwd))>>
 					   }},
 	   {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
-	  ], InitialState),
+	  ], AfterKexState),
 
     %% Disconnect
     {ok,_} =
@@ -375,6 +367,48 @@ do_gex_client_init(Config, {Min,N,Max}, {_,{G,P}}) ->
 	  ]
 	 ).
 
+
+%%%--------------------------------------------------------------------
+bad_service_name(Config) -> 
+    bad_service_name(Config, "kfglkjf").
+    
+bad_long_service_name(Config) -> 
+    bad_service_name(Config, 
+		     lists:duplicate(?SSH_MAX_PACKET_SIZE div 2, $a)).
+
+bad_very_long_service_name(Config) -> 
+    bad_service_name(Config,
+		     lists:duplicate(4*?SSH_MAX_PACKET_SIZE, $a)).
+
+empty_service_name(Config) ->
+    bad_service_name(Config, "").
+    
+bad_service_name_then_correct(Config) ->
+    {ok,InitialState} = connect_and_kex(Config),
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {send, #ssh_msg_service_request{name = "kdjglkfdjgkldfjglkdfjglkfdjglkj"}},
+	   {send, #ssh_msg_service_request{name = "ssh-connection"}},
+	   {match, {'or',[#ssh_msg_disconnect{_='_'},
+			  tcp_closed
+			 ]},
+		    receive_msg}
+	   ], InitialState).
+
+
+bad_service_name(Config, Name) ->
+    {ok,InitialState} = connect_and_kex(Config),
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {send, #ssh_msg_service_request{name = Name}},
+	   {match, {'or',[#ssh_msg_disconnect{_='_'},
+			  tcp_closed
+			 ]},
+		    receive_msg}
+	  ], InitialState).
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -482,3 +516,24 @@ std_connect(Host, Port, Config, Opts) ->
 		30000).
     
 %%%----------------------------------------------------------------	
+connect_and_kex(Config) ->
+    connect_and_kex(Config, ssh_trpt_test_lib:exec([]) ).
+
+connect_and_kex(Config, InitialState) ->
+    ssh_trpt_test_lib:exec(
+      [{connect,
+	server_host(Config),server_port(Config),
+	[{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]},
+	 {silently_accept_hosts, true},
+	 {user_dir, user_dir(Config)},
+	 {user_interaction, false}]},
+       receive_hello,
+       {send, hello},
+       {send, ssh_msg_kexinit},
+       {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+       {send, ssh_msg_kexdh_init},
+       {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+       {send, #ssh_msg_newkeys{}},
+       {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+      ],
+      InitialState).
