@@ -149,6 +149,7 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
     case gen_tcp:accept(Listen) of
 	{ok, Socket} ->
 	    Opts = get_ssl_options(server),
+	    wait_for_code_server(),
 	    case ssl:ssl_accept(Socket, Opts) of
 		{ok, SslSocket} ->
 		    PairHandler =
@@ -164,6 +165,35 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
 	    exit(Error)
     end,
     accept_loop(Proxy, Type, Listen, Extra).
+
+wait_for_code_server() ->
+    %% This is an ugly hack.  Upgrading a socket to TLS requires the
+    %% crypto module to be loaded.  Loading the crypto module triggers
+    %% its on_load function, which calls code:priv_dir/1 to find the
+    %% directory where its NIF library is.  However, distribution is
+    %% started earlier than the code server, so the code server is not
+    %% necessarily started yet, and code:priv_dir/1 might fail because
+    %% of that, if we receive an incoming connection on the
+    %% distribution port early enough.
+    %%
+    %% If the on_load function of a module fails, the module is
+    %% unloaded, and the function call that triggered loading it fails
+    %% with 'undef', which is rather confusing.
+    %%
+    %% Thus, the ssl_tls_dist_proxy process will terminate, and be
+    %% restarted by ssl_dist_sup.  However, it won't have any memory
+    %% of being asked by net_kernel to listen for incoming
+    %% connections.  Hence, the node will believe that it's open for
+    %% distribution, but it actually isn't.
+    %%
+    %% So let's avoid that by waiting for the code server to start.
+    case whereis(code_server) of
+	undefined ->
+	    timer:sleep(10),
+	    wait_for_code_server();
+	Pid when is_pid(Pid) ->
+	    ok
+    end.
 
 try_connect(Port) ->
     case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}]) of
