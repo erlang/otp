@@ -150,6 +150,7 @@ INETS_ROOT = ../../inets
 MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
+	make_certs                      \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE  		\
 	http_format_SUITE 		\
@@ -158,6 +159,7 @@ MODULES =                 		\
 	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
 	httpd_bench_SUITE               \
+	http_test_lib    		\
 	old_httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\

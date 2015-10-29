@@ -23,7 +23,8 @@
 -include("inets_test_lib.hrl").
 
 %% Poll functions
--export([verify_request/6, verify_request/7, verify_request/8, is_expect/1]).
+-export([verify_request/6, verify_request/7, verify_request/8, is_expect/1,
+	 verify_request_N/9]).
 
 -record(state, {request,        % string()
 		socket,         % socket()
@@ -109,9 +110,9 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 		    {error, Reason};
 		NewState ->
 		    ValidateResult = 
-			validate(RequestStr, NewState, Options, Node, Port),
+		   	validate(RequestStr, NewState, Options, Node, Port),
 		    inets_test_lib:close(SocketType, Socket),
-		    ValidateResult
+		    ValidateResult 
 	    end;
 
 	ConnectError ->
@@ -124,6 +125,46 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 		      {error,      E}, 
 		      {stacktrace, erlang:get_stacktrace()}, 
 		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
+    end.
+
+verify_request_N(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut, N) ->
+    State = #state{},
+     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
+	{ok, Socket} ->
+	     request_N(SocketType, Socket, RequestStr, Options, TimeOut, Node, Port, State, N); 
+	ConnectError ->
+	    ct:fail({connect_error, ConnectError, 
+		     [SocketType, Host, Port, TranspOpts]})
+    catch
+	T:E ->
+	    ct:fail({connect_failure, 
+		     [{type,       T}, 
+		      {error,      E}, 
+		      {stacktrace, erlang:get_stacktrace()}, 
+		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
+    end.
+
+request_N(SocketType, Socket, RequestStr, Options, TimeOut, Node, Port, State, 0) ->
+    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
+    case request(State#state{request = RequestStr, 
+			     socket  = Socket}, TimeOut) of
+	{error, Reason} ->
+	    {error, Reason};	
+	NewState ->
+	    ValidateResult = 
+		validate(RequestStr, NewState, Options, Node, Port),
+	    inets_test_lib:close(SocketType, Socket),
+	    ValidateResult
+    end;
+request_N(SocketType, Socket, RequestStr, Options, TimeOut, Node, Port, State, N) ->
+    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
+    case request(State#state{request = RequestStr, 
+			     socket  = Socket}, TimeOut) of
+	{error, Reason} ->
+	    {error, Reason};
+	_NewState ->
+	    request_N(SocketType, Socket, RequestStr, Options, TimeOut, Node, Port, 
+		      #state{}, N-1)
     end.
 
 request(#state{mfa = {Module, Function, Args}, 
@@ -160,12 +201,34 @@ request(#state{mfa = {Module, Function, Args},
 	{ssl_closed, Socket} ->
 	    exit({test_failed, connection_closed});
 	{ssl_error, Socket, Reason} ->
-	    ct:fail({ssl_error, Reason})
+	    ct:fail({ssl_error, Reason});
+	{Socket, {data, Data}} when is_port(Socket) ->
+	    case Module:Function([list_to_binary(Data) | Args]) of
+		{ok, Parsed} ->
+		    port_handle_http_msg(Parsed, State); 
+		{_, whole_body, _} when HeadRequest =:= "HEAD" ->
+		    State#state{body = <<>>}; 
+		NewMFA ->
+		    request(State#state{mfa = NewMFA}, TimeOut)
+	    end;
+	{Socket, closed}  when Function =:= whole_body -> 
+	    State#state{body = hd(Args)};
+	{Socket, closed} ->
+	    exit({test_failed, connection_closed})
     after TimeOut ->
 	    ct:pal("~p ~w[~w]request -> timeout"
-		   "~n", [self(), ?MODULE, ?LINE]),
+		   "~p~n", [self(), ?MODULE, ?LINE, Args]),
 	    ct:fail(connection_timed_out)    
     end.
+
+
+port_handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body}, State) ->
+    State#state{status_line = {Version, 
+			       StatusCode,
+			       ReasonPharse},
+		headers = Headers,
+		body = Body}.
+
 
 handle_http_msg({Version, StatusCode, ReasonPharse, Headers, Body}, 
 		State = #state{request = RequestStr}) ->
