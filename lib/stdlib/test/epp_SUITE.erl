@@ -826,14 +826,14 @@ otp_8130(Config) when is_list(Config) ->
                                "-define(a, 3.14).\n"
                                "t() -> ?a.\n"),
     ?line {ok,Epp} = epp:open(File, []),
-    ?line ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
-           'MACHINE','MODULE','MODULE_STRING'] = macs(Epp),
+    PreDefMacs = macs(Epp),
+    ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
+     'MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
     ?line {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
     ?line {eof,_} = epp:scan_erl_form(Epp),
-    ?line ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
-           'MACHINE','MODULE','MODULE_STRING',a] = macs(Epp),
+    [a] = macs(Epp) -- PreDefMacs,
     ?line epp:close(Epp),
 
     %% escript
