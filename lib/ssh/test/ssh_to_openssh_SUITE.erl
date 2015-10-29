@@ -53,7 +53,7 @@ groups() ->
 			  erlang_client_openssh_server_kexs,
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
-     {erlang_server, [], [erlang_server_openssh_client_pulic_key_dsa]}
+     {erlang_server, [], [erlang_server_openssh_client_public_key_dsa]}
     ].
 
 init_per_suite(Config) ->
@@ -95,7 +95,7 @@ end_per_group(_, Config) ->
     Config.
 
 
-init_per_testcase(erlang_server_openssh_client_pulic_key_dsa, Config) ->
+init_per_testcase(erlang_server_openssh_client_public_key_dsa, Config) ->
     case ssh_test_lib:openssh_supports(sshc, public_key, 'ssh-dss') of
 	true ->
 	    init_per_testcase('__default__',Config);
@@ -350,9 +350,9 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 	    {skip, "no ~/.ssh/id_dsa"}  
     end.
 %%--------------------------------------------------------------------
-erlang_server_openssh_client_pulic_key_dsa() ->
+erlang_server_openssh_client_public_key_dsa() ->
     [{doc, "Validate using dsa publickey."}].
-erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
+erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
