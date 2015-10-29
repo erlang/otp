@@ -462,7 +462,9 @@ handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({user_passwords, Value} = Opt) when is_list(Value)->
     Opt;
-handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value) ->
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,2) ->
+    Opt;
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
     Opt;

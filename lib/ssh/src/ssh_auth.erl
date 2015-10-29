@@ -174,15 +174,15 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			#ssh{opts = Opts,
 			     userauth_supported_methods = Methods} = Ssh) ->
     Password = unicode:characters_to_list(BinPwd),
-    case check_password(User, Password, Opts) of
-	true ->
+    case check_password(User, Password, Opts, Ssh) of
+	{true,Ssh1} ->
 	    {authorized, User,
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
-	false  ->
+	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh1)};
+	{false,Ssh1}  ->
 	    {not_authorized, {User, {error,"Bad user or password"}}, 
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 		     authentications = Methods,
-		     partial_success = false}, Ssh)}
+		     partial_success = false}, Ssh1)}
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -335,16 +335,16 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 				   kb_tries_left = KbTriesLeft,
 				   user = User,
 				   userauth_supported_methods = Methods} = Ssh) ->
-    case check_password(User, unicode:characters_to_list(Password), Opts) of
-	true ->
+    case check_password(User, unicode:characters_to_list(Password), Opts, Ssh) of
+	{true,Ssh1} ->
 	    {authorized, User,
-	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh)};
-	false ->
+	     ssh_transport:ssh_packet(#ssh_msg_userauth_success{}, Ssh1)};
+	{false,Ssh1} ->
 	    {not_authorized, {User, {error,"Bad user or password"}}, 
 	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 					 authentications = Methods,
 					 partial_success = false}, 
-				      Ssh#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}
+				      Ssh1#ssh{kb_tries_left = max(KbTriesLeft-1, 0)}
 				     )}
     end;
 
@@ -387,13 +387,34 @@ user_name(Opts) ->
 	    {ok, User}
     end.
 
-check_password(User, Password, Opts) ->
+check_password(User, Password, Opts, Ssh) ->
     case proplists:get_value(pwdfun, Opts) of
 	undefined ->
 	    Static = get_password_option(Opts, User),
-	    Password == Static;
-	Cheker ->
-	    Cheker(User, Password)
+	    {Password == Static, Ssh};
+
+	Checker when is_function(Checker,2) ->
+	    {Checker(User, Password), Ssh};
+
+	Checker when is_function(Checker,4) ->
+	    #ssh{pwdfun_user_state = PrivateState,
+		 peer = {_,PeerAddr={_,_}}
+		} = Ssh,
+	    case Checker(User, Password, PeerAddr, PrivateState) of
+		true ->
+		    {true,Ssh};
+		false ->
+		    {false,Ssh};
+		{true,NewState} ->
+		    {true, Ssh#ssh{pwdfun_user_state=NewState}};
+		{false,NewState} ->
+		    {false, Ssh#ssh{pwdfun_user_state=NewState}};
+		disconnect ->
+		    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+					      description = 
+						  "Unable to connect using the available authentication methods",
+					      language = ""})
+	    end
     end.
 
 get_password_option(Opts, User) ->
