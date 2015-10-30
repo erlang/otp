@@ -1243,6 +1243,9 @@ public class OtpInputStream extends ByteArrayInputStream {
         case OtpExternal.funTag:
             return new OtpErlangFun(this);
 
+	case OtpExternal.externalFunTag:
+	    return new OtpErlangExternalFun(this);
+
         default:
             throw new OtpErlangDecodeException("Uknown data type: " + tag);
         }
