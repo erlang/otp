@@ -308,6 +308,17 @@ make_crypto_key(des3_cbc=Type, String) ->
     <<K3:8/binary,IVec:8/binary>> = erlang:md5([First|reverse(String)]),
     {Type,[K1,K2,K3],IVec,8}.
 
+-spec build_module(Chunks) -> {'ok', Binary} when
+      Chunks :: [{chunkid(), dataB()}],
+      Binary :: binary().
+
+build_module(Chunks0) ->
+    Chunks = list_to_binary(build_chunks(Chunks0)),
+    Size = byte_size(Chunks),
+    0 = Size rem 4, % Assertion: correct padding?
+    {ok, <<"FOR1", (Size+4):32, "BEAM", Chunks/binary>>}.
+
+
 %%
 %%  Local functions
 %%
@@ -418,12 +429,6 @@ strip_file(File) ->
 		    file_error(FileName, Error)
 	    end
     end.
-
-build_module(Chunks0) ->
-    Chunks = list_to_binary(build_chunks(Chunks0)),
-    Size = byte_size(Chunks),
-    0 = Size rem 4, % Assertion: correct padding?
-    {ok, <<"FOR1", (Size+4):32, "BEAM", Chunks/binary>>}.
 
 build_chunks([{Id, Data} | Chunks]) ->
     BId = list_to_binary(Id),
