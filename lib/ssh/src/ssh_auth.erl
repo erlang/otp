@@ -364,6 +364,11 @@ method_preference(Algs) ->
 		       [{"publickey", ?MODULE, publickey_msg, [A]} | Acc]
 	       end, 
 	       [{"password", ?MODULE, password_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
+		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
 		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
 	       ],
 	       Algs).
@@ -472,14 +477,14 @@ keyboard_interact_get_responses(false, undefined, undefined, _, _, _, [Prompt|_]
     ssh_no_io:read_line(Prompt, Opts); %% Throws error as keyboard interaction is not allowed
 keyboard_interact_get_responses(true, undefined, _,IoCb, Name, Instr, PromptInfos, Opts, _) ->
     keyboard_interact(IoCb, Name, Instr, PromptInfos, Opts);
-keyboard_interact_get_responses(true, Fun, _, Name, Instr, PromptInfos, _, _, NumPrompts) ->
+keyboard_interact_get_responses(true, Fun, _Pwd, _IoCb, Name, Instr, PromptInfos, _Opts, NumPrompts) ->
     keyboard_interact_fun(Fun, Name, Instr, PromptInfos, NumPrompts).
 
 keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
-    if Name /= "" -> IoCb:format("~s", [Name]);
+    if Name /= "" -> IoCb:format("~s~n", [Name]);
        true       -> ok
     end,
-    if Instr /= "" -> IoCb:format("~s", [Instr]);
+    if Instr /= "" -> IoCb:format("~s~n", [Instr]);
        true        -> ok
     end,
     lists:map(fun({Prompt, true})  -> IoCb:read_line(Prompt, Opts);
