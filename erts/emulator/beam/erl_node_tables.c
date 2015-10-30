@@ -1472,12 +1472,6 @@ setup_reference_table(void)
 		insert_links(ERTS_P_LINKS(proc), proc->common.id);
 	    if (ERTS_P_MONITORS(proc))
 		insert_monitors(ERTS_P_MONITORS(proc), proc->common.id);
-	    /* Insert controller */
-	    {
-		DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(proc);
-		if (dep)
-		    insert_dist_entry(dep, CTRL_REF, proc->common.id, 0);
-	    }
 	}
     }
     

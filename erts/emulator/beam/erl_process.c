@@ -625,11 +625,6 @@ erts_pre_init_process(void)
      erts_psd_required_locks[ERTS_PSD_SCHED_ID].set_locks
 	 = ERTS_PSD_SCHED_ID_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].get_locks
-	 = ERTS_PSD_DIST_ENTRY_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].set_locks
-	 = ERTS_PSD_DIST_ENTRY_SET_LOCKS;
-
      erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].get_locks
 	 = ERTS_PSD_CALL_TIME_BP_GET_LOCKS;
      erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
@@ -12373,9 +12368,7 @@ erts_continue_exit_process(Process *p)
 	    erts_proc_dec_refc(p);
     }
     
-    dep = ((p->flags & F_DISTRIBUTION)
-	   ? ERTS_PROC_SET_DIST_ENTRY(p, ERTS_PROC_LOCKS_ALL, NULL)
-	   : NULL);
+    dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, ERTS_PROC_LOCKS_ALL, NULL);
     pbt = ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCKS_ALL, NULL);
     nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, ERTS_PROC_LOCKS_ALL, NULL);
@@ -12387,8 +12380,6 @@ erts_continue_exit_process(Process *p)
 
     if (dep) {
 	erts_do_net_exits(dep, reason);
-	if(dep)
-	    erts_deref_dist_entry(dep);
     }
 
     /*
