@@ -826,14 +826,14 @@ otp_8130(Config) when is_list(Config) ->
                                "-define(a, 3.14).\n"
                                "t() -> ?a.\n"),
     ?line {ok,Epp} = epp:open(File, []),
-    ?line ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
-           'MACHINE','MODULE','MODULE_STRING'] = macs(Epp),
+    PreDefMacs = macs(Epp),
+    ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
+     'MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
     ?line {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     ?line {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
     ?line {eof,_} = epp:scan_erl_form(Epp),
-    ?line ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
-           'MACHINE','MODULE','MODULE_STRING',a] = macs(Epp),
+    [a] = macs(Epp) -- PreDefMacs,
     ?line epp:close(Epp),
 
     %% escript
@@ -1528,8 +1528,11 @@ compile_test(Config, Test0) ->
 
 warnings(File, Ws) ->
     case lists:append([W || {F, W} <- Ws, F =:= File]) of
-        [] -> [];
-        L -> {warnings, L}
+        [] ->
+	    [];
+        L ->
+	    call_format_error(L),
+	    {warnings, L}
     end.
 
 compile_file(File, Opts) ->
@@ -1540,11 +1543,19 @@ compile_file(File, Opts) ->
     end.
 
 errs([{File,Es}|L], File) ->
+    call_format_error(Es),
     Es ++ errs(L, File);
 errs([_|L], File) ->
     errs(L, File);
 errs([], _File) ->
     [].
+
+%% Smoke test and coverage of format_error/1.
+call_format_error([{_,M,E}|T]) ->
+    _ = M:format_error(E),
+    call_format_error(T);
+call_format_error([]) ->
+    ok.
 
 epp_parse_file(File, Opts) ->
     case epp:parse_file(File, Opts) of
