@@ -1088,7 +1088,7 @@ handle_info(UnexpectedMessage, StateName, #state{opts = Opts,
 terminate(normal, _, #state{transport_cb = Transport,
 			    connection_state = Connection,
 			    socket = Socket}) ->
-    terminate_subsytem(Connection),
+    terminate_subsystem(Connection),
     (catch Transport:close(Socket)),
     ok;
 
@@ -1117,7 +1117,7 @@ terminate({shutdown, _}, StateName, State) ->
 
 terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
 				   connection_state = Connection} = State) ->
-    terminate_subsytem(Connection),
+    terminate_subsystem(Connection),
     log_error(Reason),
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
@@ -1128,10 +1128,10 @@ terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
     terminate(normal, StateName, State#state{ssh_params = Ssh}).
 
 
-terminate_subsytem(#connection{system_supervisor = SysSup,
+terminate_subsystem(#connection{system_supervisor = SysSup,
 			       sub_system_supervisor = SubSysSup}) when is_pid(SubSysSup) ->
     ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-terminate_subsytem(_) ->
+terminate_subsystem(_) ->
     ok.
 
 format_status(normal, [_, State]) ->
