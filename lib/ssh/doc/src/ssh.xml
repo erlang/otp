@@ -471,12 +471,43 @@ kex is implicit but public_key is set explicitly.</p>
 	    </p>
 	  </item>
 
-	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string(), PeerAddress::{ip_adress(),port_number()}, State::any()) -> boolean()}]]></c></tag>
+	  <item>
+	    <p>Provides a function for password validation. This could used for calling an external system or if
+	    passwords should be stored as a hash. The fun returns:
+	      <list type="bulleted">
+		<item><c>true</c> if the user and password is valid and</item>
+		<item><c>false</c> otherwise.</item> 
+	      </list>
+	    </p>
+	    <p>This fun can also be used to make delays in authentication tries for example by calling
+	      <seealso marker="stdlib:timer#sleep/1">timer:sleep/1</seealso>. To facilitate counting of failed tries
+	      the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
+	      is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.  
+	      The pwdfun can return - in addition to the values above - a new state
+	      as:
+	      <list type="bulleted">
+		<item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
+		<item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	      </list>
+	    </p>
+	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
+	    can be used for this. In addition to the responses above, the following return value is introduced:
+	    <list type="bulleted">
+	      <item><c>disconnect</c> if the connection should be closed immediately after sending a SSH_MSG_DISCONNECT
+	      message.</item>
+	    </list>
+	    </p>
+	  </item>
+
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called
 	      with user and password as strings, and returns
 	      <c><![CDATA[true]]></c> if the password is valid and
 	      <c><![CDATA[false]]></c> otherwise.</p>
+	      <p>This option (<c>{pwdfun,fun/2}</c>) is the same as a subset of the previous 
+	      (<c>{pwdfun,fun/4}</c>). It is kept for compatibility.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{negotiation_timeout, integer()}]]></c></tag>
