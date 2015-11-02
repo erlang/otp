@@ -386,7 +386,14 @@ send(S0, Line) when is_binary(Line) ->
 	    fun(X) when X==true;X==detail -> {"Send line~n~p~n",[Line]} end),
     send_bytes(Line, S#s{return_value = Line});
 
-%%% Msg = #ssh_msg_*{}
+send(S0, {special,Msg,PacketFun}) when is_tuple(Msg),
+				       is_function(PacketFun,2) ->
+    S = opt(print_messages, S0,
+	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
+    {Packet, C} = PacketFun(Msg, S#s.ssh),
+    send_bytes(Packet, S#s{ssh = C, %%inc_send_seq_num(C),
+			   return_value = Msg});
+
 send(S0, Msg) when is_tuple(Msg) ->
     S = opt(print_messages, S0,
 	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),

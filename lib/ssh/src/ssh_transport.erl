@@ -45,7 +45,7 @@
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
 	 extract_public_key/1,
-	 unpack/3, decompress/2, ssh_packet/2, pack/2, msg_data/1,
+	 unpack/3, decompress/2, ssh_packet/2, pack/2, pack/3, msg_data/1,
 	 sign/3, verify/4]).
 
 %%%----------------------------------------------------------------------------
@@ -929,11 +929,18 @@ ssh_packet(Msg, Ssh) ->
     BinMsg = ssh_message:encode(Msg),
     pack(BinMsg, Ssh).
 
+pack(Data, Ssh=#ssh{}) ->
+    pack(Data, Ssh, 0).
+
+%%% Note: pack/3 is only to be called from tests that wants
+%%% to deliberetly send packets with wrong PacketLength!
+%%% Use pack/2 for all other purposes!
 pack(Data0, #ssh{encrypt_block_size = BlockSize, 
 		 send_sequence = SeqNum, send_mac = MacAlg,
 		 send_mac_key = MacKey,
 		 random_length_padding = RandomLengthPadding} 
-     = Ssh0) when is_binary(Data0) ->
+     = Ssh0,
+     PacketLenDeviationForTests) when is_binary(Data0) ->
     {Ssh1, Data} = compress(Ssh0, Data0),
     PL = (BlockSize - ((4 + 1 + size(Data)) rem BlockSize)) rem BlockSize,
     MinPaddingLen = if PL <  4 -> PL + BlockSize;
@@ -946,7 +953,7 @@ pack(Data0, #ssh{encrypt_block_size = BlockSize,
 		      end,
     PaddingLen = MinPaddingLen + ExtraPaddingLen,
     Padding = ssh_bits:random(PaddingLen),
-    PacketLen = 1 + PaddingLen + size(Data),
+    PacketLen = 1 + PaddingLen + size(Data) + PacketLenDeviationForTests,
     PacketData = <<?UINT32(PacketLen),?BYTE(PaddingLen), 
 		  Data/binary, Padding/binary>>,
     {Ssh2, EncPacket} = encrypt(Ssh1, PacketData),
