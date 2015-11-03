@@ -133,7 +133,7 @@
       <c>latin1</c>, or have characters encoded as one of the
       UTF-encodings, which is given as the <c><anno>InEncoding</anno></c>
       parameter. Only when the <c><anno>InEncoding</anno></c> is one of the UTF
-      encodings, integers in the list are allowed to be grater than
+      encodings, integers in the list are allowed to be greater than
       255.</p>
       
       <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, the <c><anno>Data</anno></c> parameter
