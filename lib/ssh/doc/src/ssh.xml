@@ -477,13 +477,14 @@ kex is implicit but public_key is set explicitly.</p>
 
 	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),Max=integer()}}]]></c></tag>
 	  <item>
-	    <p>Limits what a client can ask for in diffie-hellman-group-exchange. The effective value will be
+	    <p>Limits the key Sizes what a client can ask for in diffie-hellman-group-exchange.
+	    The effective value will be
 	    <c>MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)</c>.
+	    The default value is <c>{0,infinity}</c>.
 	    </p>
-	    <p>If <c>MaxUsed &lt; MinUses</c> in a key exchange, it will fail with a disconnect.
+	    <p>If <c>MaxUsed &lt; MinUsed</c> in a key exchange, it will fail with a disconnect.
 	    </p>
-	    <p>See RFC 4419 for the function of the max an min values.
-	    </p>
+	    <p>See RFC 4419 for the function of the Max an Min values.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
