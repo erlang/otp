@@ -677,17 +677,32 @@ res_hostent_by_domain(Domain, Type, Rec) ->
     res_hostent_by_domain(stripdot(Domain), [], Type, RRs).
 
 res_hostent_by_domain(Domain, Aliases, Type, RRs) ->
+    LcRRs = [lower_rr(RR) || RR <- RRs],
+    LcDomain = tolower(Domain),
+    LcAliases = [tolower(Alias) || Alias <- Aliases],
+    case res_hostent_by_lower_domain(LcDomain, LcAliases, Type, LcRRs) of
+	{ok, #hostent{} = HostEnt} ->
+	    {ok, HostEnt#hostent{h_name = Domain, h_aliases = Aliases}};
+	{error, Error} ->
+	    {error, Error}
+    end.
+
+lower_rr(#dns_rr{domain = Domain} = RR) ->
+    RR#dns_rr{domain = tolower(Domain)}.
+
+res_hostent_by_lower_domain(Domain, Aliases, Type, RRs) ->
     case res_lookup_type(Domain, Type, RRs) of
 	[] ->
 	    case res_lookup_type(Domain, ?S_CNAME, RRs) of
 		[] ->  
 		    {error, nxdomain};
 		[CName | _] ->
-		    case lists:member(CName, [Domain | Aliases]) of
+		    LCName = tolower(CName),
+		    case lists:member(LCName, [Domain | Aliases]) of
 			true -> 
 			    {error, nxdomain};
 			false ->
-			    res_hostent_by_domain(CName, [Domain | Aliases],
+			    res_hostent_by_domain(LCName, [Domain | Aliases],
 						  Type, RRs)
 		    end
 	    end;
