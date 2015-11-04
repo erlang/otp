@@ -47,7 +47,9 @@ suite() ->
 all() -> 
     [{group,tool_tests},
      {group,kex},
-     {group,service_requests}
+     {group,service_requests},
+     {group,packet_size_error},
+     {group,field_size_error}
     ].
 
 groups() ->
@@ -56,6 +58,12 @@ groups() ->
 		       lib_match,
 		       lib_no_match
 		      ]},
+     {packet_size_error, [], [packet_length_too_large,
+			      packet_length_too_short]},
+      
+     {field_size_error, [], [service_name_length_too_large,
+			     service_name_length_too_short]},
+      
      {kex, [], [no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
 		gex_client_init_default_noexact,
@@ -409,6 +417,64 @@ bad_service_name(Config, Name) ->
 		    receive_msg}
 	  ], InitialState).
 
+%%%--------------------------------------------------------------------
+packet_length_too_large(Config) -> bad_packet_length(Config, +4).
+
+packet_length_too_short(Config) -> bad_packet_length(Config, -4).
+    
+bad_packet_length(Config, LengthExcess) ->
+    PacketFun = 
+	fun(Msg, Ssh) ->
+		BinMsg = ssh_message:encode(Msg),
+		ssh_transport:pack(BinMsg, Ssh, LengthExcess)
+	end,
+    {ok,InitialState} = connect_and_kex(Config),
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {send, {special,
+		   #ssh_msg_service_request{name="ssh-userauth"},
+		   PacketFun}},
+	   %% Prohibit remote decoder starvation:	   
+	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
+	   {match, {'or',[#ssh_msg_disconnect{_='_'},
+			  tcp_closed
+			 ]},
+		    receive_msg}
+	  ], InitialState).
+
+%%%--------------------------------------------------------------------
+service_name_length_too_large(Config) -> bad_service_name_length(Config, +4).
+
+service_name_length_too_short(Config) -> bad_service_name_length(Config, -4).
+
+
+bad_service_name_length(Config, LengthExcess) ->
+    PacketFun = 
+	fun(#ssh_msg_service_request{name=Service}, Ssh) ->
+		BinName = list_to_binary(Service),
+		BinMsg = 
+		    <<?BYTE(?SSH_MSG_SERVICE_REQUEST),
+		      %% A bad string encoding of Service:
+		      ?UINT32(size(BinName)+LengthExcess), BinName/binary
+		    >>,
+		ssh_transport:pack(BinMsg, Ssh)
+	end,
+    {ok,InitialState} = connect_and_kex(Config),
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {send, {special,
+		   #ssh_msg_service_request{name="ssh-userauth"}, 
+		   PacketFun} },
+	   %% Prohibit remote decoder starvation:	   
+	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
+	   {match, {'or',[#ssh_msg_disconnect{_='_'},
+			  tcp_closed
+			 ]},
+	    receive_msg}
+	  ], InitialState).
+    
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
