@@ -132,8 +132,8 @@
     <func>
       <name name="get_chars" arity="2"/>
       <name name="get_chars" arity="3"/>
-      <type name="server_no_data"/>
       <fsummary>Read a specified number of characters</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads <c><anno>Count</anno></c> characters from standard input
           (<c><anno>IoDevice</anno></c>), prompting it with <c><anno>Prompt</anno></c>. It
@@ -162,8 +162,8 @@
     <func>
       <name name="get_line" arity="1"/>
       <name name="get_line" arity="2"/>
-      <type name="server_no_data"/>
       <fsummary>Read a line</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads a line from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. It returns:</p>
@@ -300,8 +300,8 @@
     <func>
       <name name="read" arity="1"/>
       <name name="read" arity="2"/>
-      <type name="server_no_data"/>
       <fsummary>Read a term</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads a term <c><anno>Term</anno></c> from the standard input
           (<c><anno>IoDevice</anno></c>), prompting it with <c><anno>Prompt</anno></c>. It
@@ -330,8 +330,8 @@
     <func>
       <name name="read" arity="3"/>
       <name name="read" arity="4"/>
-      <type name="server_no_data"/>
       <fsummary>Read a term</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads a term <c><anno>Term</anno></c> from <c><anno>IoDevice</anno></c>, prompting it
           with <c><anno>Prompt</anno></c>. Reading starts at location
@@ -698,8 +698,8 @@ ok
     <func>
       <name name="fread" arity="2"/>
       <name name="fread" arity="3"/>
-      <type name="server_no_data"/>
       <fsummary>Read formatted input</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads characters from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. Interprets the characters in
@@ -870,8 +870,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
       <name name="scan_erl_exprs" arity="2"/>
       <name name="scan_erl_exprs" arity="3"/>
       <name name="scan_erl_exprs" arity="4"/>
-      <type name="server_no_data"/>
       <fsummary>Read and tokenize Erlang expressions</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads data from the standard input (<c>IoDevice</c>),
           prompting it with <c>Prompt</c>. Reading starts at location
@@ -919,8 +919,8 @@ enter><input>1.0er.</input>
       <name name="scan_erl_form" arity="2"/>
       <name name="scan_erl_form" arity="3"/>
       <name name="scan_erl_form" arity="4"/>
-      <type name="server_no_data"/>
       <fsummary>Read and tokenize an Erlang form</fsummary>
+      <type name="server_no_data"/>
       <desc>
         <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. Starts reading
@@ -939,9 +939,9 @@ enter><input>1.0er.</input>
       <name name="parse_erl_exprs" arity="2"/>
       <name name="parse_erl_exprs" arity="3"/>
       <name name="parse_erl_exprs" arity="4"/>
+      <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
       <type name="parse_ret"/>
       <type name="server_no_data"/>
-      <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
       <desc>
         <p>Reads data from the standard input
           (<c><anno>IoDevice</anno></c>), prompting it with
@@ -990,9 +990,9 @@ enter><input>abc("hey".</input>
       <name name="parse_erl_form" arity="2"/>
       <name name="parse_erl_form" arity="3"/>
       <name name="parse_erl_form" arity="4"/>
+      <fsummary>Read, tokenize and parse an Erlang form</fsummary>
       <type name="parse_form_ret"/>
       <type name="server_no_data"/>
-      <fsummary>Read, tokenize and parse an Erlang form</fsummary>
       <desc>
         <p>Reads data from the standard input (<c><anno>IoDevice</anno></c>),
           prompting it with <c><anno>Prompt</anno></c>. Starts reading at

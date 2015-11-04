@@ -44,7 +44,7 @@
     <p>This module implements an abstract type that is used by the
       Erlang Compiler and its helper modules for holding data such as
       column, line number, and text. The data type is a collection of
-      <marker id="annotations"><em>annotations</em></marker> as
+      <marker id="annotations"/><em>annotations</em> as
       described in the following.</p>
     <p>The Erlang Token Scanner returns tokens with a subset of
       the following annotations, depending on the options:</p>
@@ -102,8 +102,8 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-anno">anno()</marker></name>
-      <desc><p>A collection of annotations.</p>
+      <name>anno()</name>
+      <desc><p><marker id="type-anno"/>A collection of annotations.</p>
       </desc>
     </datatype>
     <datatype>
@@ -133,8 +133,8 @@
   <funcs>
     <func>
       <name name="column" arity="1"/>
-      <type name="column"></type>
       <fsummary>Return the column</fsummary>
+      <type name="column"></type>
       <desc>
         <p>Returns the column of the annotations <anno>Anno</anno>.
         </p>
@@ -142,8 +142,8 @@
     </func>
     <func>
       <name name="end_location" arity="1"/>
-      <type name="location"></type>
       <fsummary>Return the end location of the text</fsummary>
+      <type name="location"></type>
       <desc>
         <p>Returns the end location of the text of the
           annotations <anno>Anno</anno>. If there is no text,
@@ -153,8 +153,8 @@
     </func>
     <func>
       <name name="file" arity="1"/>
-      <type name="filename"></type>
       <fsummary>Return the filename</fsummary>
+      <type name="filename"></type>
       <desc>
         <p>Returns the filename of the annotations <anno>Anno</anno>.
           If there is no filename, <c>undefined</c> is returned.
@@ -180,8 +180,8 @@
     </func>
     <func>
       <name name="generated" arity="1"/>
-      <type name="generated"></type>
       <fsummary>Return the generated Boolean</fsummary>
+      <type name="generated"></type>
       <desc>
         <p>Returns <c>true</c> if the annotations <anno>Anno</anno>
           has been marked as generated. The default is to return
@@ -199,8 +199,8 @@
     </func>
     <func>
       <name name="line" arity="1"/>
-      <type name="line"></type>
       <fsummary>Return the line</fsummary>
+      <type name="line"></type>
       <desc>
         <p>Returns the line of the annotations <anno>Anno</anno>.
         </p>
@@ -208,8 +208,8 @@
     </func>
     <func>
       <name name="location" arity="1"/>
-      <type name="location"></type>
       <fsummary>Return the location</fsummary>
+      <type name="location"></type>
       <desc>
         <p>Returns the location of the annotations <anno>Anno</anno>.
         </p>
@@ -217,16 +217,16 @@
     </func>
     <func>
       <name name="new" arity="1"/>
-      <type name="location"></type>
       <fsummary>Create a new collection of annotations</fsummary>
+      <type name="location"></type>
       <desc>
         <p>Creates a new collection of annotations given a location.</p>
       </desc>
     </func>
     <func>
       <name name="set_file" arity="2"/>
-      <type name="filename"></type>
       <fsummary>Modify the filename</fsummary>
+      <type name="filename"></type>
       <desc>
         <p>Modifies the filename of the annotations <anno>Anno</anno>.
         </p>
@@ -234,8 +234,8 @@
     </func>
     <func>
       <name name="set_generated" arity="2"/>
-      <type name="generated"></type>
       <fsummary>Modify the generated marker</fsummary>
+      <type name="generated"></type>
       <desc>
         <p>Modifies the generated marker of the annotations
           <anno>Anno</anno>.
@@ -244,8 +244,8 @@
     </func>
     <func>
       <name name="set_line" arity="2"/>
-      <type name="line"></type>
       <fsummary>Modify the line</fsummary>
+      <type name="line"></type>
       <desc>
         <p>Modifies the line of the annotations <anno>Anno</anno>.
         </p>
@@ -253,8 +253,8 @@
     </func>
     <func>
       <name name="set_location" arity="2"/>
-      <type name="location"></type>
       <fsummary>Modify the location</fsummary>
+      <type name="location"></type>
       <desc>
         <p>Modifies the location of the annotations <anno>Anno</anno>.
         </p>
@@ -262,8 +262,8 @@
     </func>
     <func>
       <name name="set_record" arity="2"/>
-      <type name="record"></type>
       <fsummary>Modify the record marker</fsummary>
+      <type name="record"></type>
       <desc>
         <p>Modifies the record marker of the annotations <anno>Anno</anno>.
         </p>
@@ -271,8 +271,8 @@
     </func>
     <func>
       <name name="set_text" arity="2"/>
-      <type name="text"></type>
       <fsummary>Modify the text</fsummary>
+      <type name="text"></type>
       <desc>
         <p>Modifies the text of the annotations <anno>Anno</anno>.
         </p>
@@ -280,8 +280,8 @@
     </func>
     <func>
       <name name="text" arity="1"/>
-      <type name="text"></type>
       <fsummary>Return the text</fsummary>
+      <type name="text"></type>
       <desc>
         <p>Returns the text of the annotations <anno>Anno</anno>.
         If there is no text, <c>undefined</c> is returned.

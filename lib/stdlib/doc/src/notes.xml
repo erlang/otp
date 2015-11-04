@@ -154,8 +154,9 @@
 	    Correct <c>maps</c> module error exceptions </p>
           <p>
 	    Bad input to maps module function will now yield the
-	    following exceptions: <list> <item>{badmap,NotMap}
-	    or,</item> <item>badarg</item> </list></p>
+	    following exceptions:</p>
+          <list> <item>{badmap, NotMap}, or </item> <item>badarg.</item>
+          </list>
           <p>
 	    Own Id: OTP-12657</p>
         </item>
@@ -253,12 +254,11 @@
           <p>
 	    <c>proc_lib:stop/1,3</c> is used by the following
 	    functions:</p>
-          <p>
 	    <list> <item><c>gen_server:stop/1,3</c> (new)</item>
 	    <item><c>gen_fsm:stop/1,3</c> (new)</item>
 	    <item><c>gen_event:stop/1,3</c> (modified to be
 	    synchronous)</item> <item><c>wx_object:stop/1,3</c>
-	    (new)</item> </list></p>
+	    (new)</item> </list>
           <p>
 	    Own Id: OTP-11173 Aux Id: seq12353 </p>
         </item>
@@ -865,8 +865,7 @@
 	    also implemented by the generic behaviours
 	    <c>gen_server</c>, <c>gen_event</c> and <c>gen_fsm</c>.</p>
           <p>
-	    The potential incompatibility refers to</p>
-          <p>
+	    The potential incompatibility refers to:</p>
 	    <list> <item>The previous behaviour of intercepting the
 	    system message and passing a tuple of size 2 as the last
 	    argument to <c>sys:handle_system_msg/6</c> is no longer
@@ -874,7 +873,7 @@
 	    <c>StateFun</c> in <c>sys:replace_state/2,3</c> fails is
 	    changed from being totally silent to possibly (if the
 	    callback module does not catch) throw an exception in the
-	    client process.</item> </list></p>
+	    client process.</item> </list>
           <p>
 	    (Thanks to James Fish and Steve Vinoski)</p>
           <p>
@@ -1036,22 +1035,28 @@
           <p>
 	    EEP43: New data type - Maps</p>
           <p>
-	    With Maps you may for instance: <taglist> <item><c>M0 =
-	    #{ a =&gt; 1, b =&gt; 2}, % create
-	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
-	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
-	    "hello"}, % add new associations</c></item> <item><c>#{
-	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
-	    values</c></item> </taglist></p>
+	    With Maps you may for instance:</p>
+          <taglist>
+            <tag/> <item><c>M0 = #{ a =&gt; 1, b =&gt; 2}, % create
+	      associations</c></item>
+            <tag/><item><c>M1 = M0#{ a := 10 }, % update values</c></item>
+            <tag/><item><c>M2 = M1#{ "hi" =&gt;
+	      "hello"}, % add new associations</c></item>
+            <tag/><item><c>#{ "hi" := V1, a := V2, b := V3} = M2.
+               % match keys with values</c></item>
+          </taglist>
         <p>
 	    For information on how to use Maps please see Map Expressions in the
 		<seealso marker="doc/reference_manual:expressions#map_expressions">
 			Reference Manual</seealso>.</p>
           <p>
 	    The current implementation is without the following
-	    features: <taglist> <item>No variable keys</item>
-	    <item>No single value access</item> <item>No map
-	    comprehensions</item> </taglist></p>
+	    features:</p>
+          <taglist>
+            <tag/><item>No variable keys</item>
+	    <tag/><item>No single value access</item>
+            <tag/><item>No map comprehensions</item>
+          </taglist>
           <p>
 	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
           <p>
@@ -1802,13 +1807,15 @@
 	    supervisor or for the problematic child.</p>
           <p>
 	    This introduces some incompatibilities in stdlib due to
-	    new return values from supervisor: <list>
+	    new return values from supervisor:</p>
+          <list>
 	    <item>restart_child/2 can now return
 	    {error,restarting}</item> <item>delete_child/2 can now
 	    return {error,restarting}</item> <item>which_children/1
 	    returns a list of {Id,Child,Type,Mods}, where Child, in
 	    addition to the old pid() or 'undefined', now also can be
-	    'restarting'.</item> </list></p>
+	    'restarting'.</item>
+          </list>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -1824,10 +1831,10 @@
 	    Own Id: OTP-9782 Aux Id: seq11964 </p>
         </item>
         <item>
-	    <p> Use universal time as base in error logger
+	    <p> Use universal time as base in error logger</p>
           <p>
 	    Previous conversion used the deprecated
-	    calendar:local_time_to_universal_time/1 </p></p>
+	    calendar:local_time_to_universal_time/1 </p>
           <p>
 	    Own Id: OTP-9854</p>
         </item>
@@ -2584,10 +2591,10 @@
 	    Own Id: OTP-8989 Aux Id: seq11741 </p>
         </item>
         <item>
-	    <p>Fix exception generation in the io module
+	    <p>Fix exception generation in the io module</p>
           <p>
 	    Some functions did not generate correct badarg exception
-	    on a badarg exception.</p></p>
+	    on a badarg exception.</p>
           <p>
 	    Own Id: OTP-9045</p>
         </item>

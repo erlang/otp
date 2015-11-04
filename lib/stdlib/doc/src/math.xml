@@ -72,9 +72,9 @@
       <name name="log10" arity="1"/>
       <name name="pow" arity="2"/>
       <name name="sqrt" arity="1"/>
+      <fsummary>Diverse math functions</fsummary>
       <type variable="X" name_i="7"/>
       <type variable="Y" name_i="7"/>
-      <fsummary>Diverse math functions</fsummary>
       <desc>
         <p>A collection of math functions which return floats. Arguments
           are numbers. </p>

@@ -805,7 +805,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
             module state data.</p>
         </note>
         <p>This function is called by a gen_fsm process when:</p>
-        <list typed="bulleted">
+        <list type="bulleted">
           <item>One
             of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
             is invoked to get the gen_fsm status. <c>Opt</c> is set to

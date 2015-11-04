@@ -121,12 +121,12 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
     <func>
       <name>lc(Files) -> ok</name>
+      <fsummary>Compile a list of files</fsummary>
       <type>
         <v>Files = [File]</v>
         <v>File = <seealso marker="file#type-filename">file:filename()
           </seealso></v>
       </type>
-      <fsummary>Compile a list of files</fsummary>
       <desc>
         <p>Compiles a list of files by calling <c>compile:file(File, [report_errors, report_warnings])</c> for each <c>File</c>
           in <c>Files</c>.</p>

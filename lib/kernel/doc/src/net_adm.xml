@@ -89,8 +89,8 @@
     <func>
       <name name="world" arity="0"/>
       <name name="world" arity="1"/>
-      <type name="verbosity"/>
       <fsummary>Lookup and connect to all nodes at all hosts in <c>.hosts.erlang</c></fsummary>
+      <type name="verbosity"/>
       <desc>
         <p>This function calls <c>names(Host)</c> for all hosts which
           are specified in the Erlang host file <c>.hosts.erlang</c>,
@@ -110,8 +110,8 @@
     <func>
       <name name="world_list" arity="1"/>
       <name name="world_list" arity="2"/>
-      <type name="verbosity"/>
       <fsummary>Lookup and connect to all nodes at specified hosts</fsummary>
+      <type name="verbosity"/>
       <desc>
         <p>As <c>world/0,1</c>, but the hosts are given as argument
           instead of being read from <c>.hosts.erlang</c>.</p>

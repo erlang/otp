@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -126,7 +126,7 @@
   <section>
     <title>DATA TYPES</title>
     <taglist>
-    <tag><b>ErlDrvEntry</b></tag>
+    <tag><em>ErlDrvEntry</em></tag>
     <item>
     <p/>
     <code type="none">
@@ -235,6 +235,7 @@ typedef struct erl_drv_entry {
       </item>
 
       <tag><marker id="ready_input"/>void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event)</tag>
+      <item/>
       <tag><marker id="ready_output"/>void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event)</tag>
       <item>
         <p>This is called when a driver event (given in the

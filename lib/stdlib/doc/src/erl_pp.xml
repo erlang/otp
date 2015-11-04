@@ -48,8 +48,8 @@
     <datatype>
       <name name="hook_function"/>
       <desc>
-        <p>The optional argument <marker id="hook_function">
-          <c>HookFunction</c></marker>, shown in the functions described below,
+        <p>The optional argument <marker id="hook_function"/>
+          <c>HookFunction</c>, shown in the functions described below,
           defines a function which is called when an unknown form occurs where there
           should be a valid expression.</p>
 

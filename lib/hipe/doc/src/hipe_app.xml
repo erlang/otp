@@ -37,15 +37,14 @@
   <description>
     <p>
       The normal way to native-compile an Erlang module using HiPE is to include the atom native 
-      in the Erlang compiler options, as in:
-      <code>
-      1> <input>c(my_module, [native]).</input></code>
-      Options to the HiPE compiler are then passed as follows:
-      <code>
-      1> <input>c(my_module, [native,{hipe,Options}]).</input></code>
-      For on-line help in the Erlang shell, call <c>hipe:help()</c>. 
-      Details on HiPE compiler options are given by <c>hipe:help_options()</c>.
-    </p>
+      in the Erlang compiler options, as in:</p>
+      <pre>
+      1> <input>c(my_module, [native]).</input></pre>
+      <p>Options to the HiPE compiler are then passed as follows:</p>
+      <pre>
+      1> <input>c(my_module, [native,{hipe,Options}]).</input></pre>
+      <p>For on-line help in the Erlang shell, call <c>hipe:help()</c>. 
+      Details on HiPE compiler options are given by <c>hipe:help_options()</c>.</p>
   </description>  
   <section>
     <title>SEE ALSO</title>
