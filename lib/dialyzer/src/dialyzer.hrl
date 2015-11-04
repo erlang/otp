@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%%
-%%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
@@ -123,10 +123,12 @@
 %% Record declarations used by various files
 %%--------------------------------------------------------------------
 
--record(analysis, {analysis_pid			   :: pid(),
+-type doc_plt() :: 'undefined' | dialyzer_plt:plt().
+
+-record(analysis, {analysis_pid			   :: pid() | 'undefined',
 		   type		  = succ_typings   :: anal_type(),
 		   defines	  = []		   :: [dial_define()],
-		   doc_plt                         :: dialyzer_plt:plt(),
+		   doc_plt                         :: doc_plt(),
 		   files          = []		   :: [file:filename()],
 		   include_dirs	  = []		   :: [file:filename()],
 		   start_from     = byte_code	   :: start_from(),
@@ -135,7 +137,7 @@
 		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
 		   timing         = false          :: boolean() | 'debug',
-		   timing_server             :: dialyzer_timing:timing_server(),
+		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
                    solvers                         :: [solver()]}).
 

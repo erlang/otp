@@ -100,7 +100,7 @@ Sint erts_re_set_loop_limit(Sint limit)
 
 static int term_to_int(Eterm term, int *sp)
 {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
     if (is_small(term)) {
 	Uint x = signed_val(term);
@@ -151,7 +151,7 @@ static int term_to_int(Eterm term, int *sp)
 
 static Eterm make_signed_integer(int x, Process *p)
 {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     return make_small(x);
 #else
     Eterm* hp;

@@ -174,8 +174,8 @@
     </func>
     <func>
       <name name="abstract" arity="2"/>
-      <type name="encoding_func"/>
       <fsummary>Convert an Erlang term into an abstract form</fsummary>
+      <type name="encoding_func"/>
       <desc>
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
           abstract form of type <c><anno>AbsTerm</anno></c>.</p>

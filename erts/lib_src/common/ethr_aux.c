@@ -207,18 +207,7 @@ ethr_init_common__(ethr_init_data *id)
 
     ethr_min_stack_size__ = ETHR_B2KW(ethr_min_stack_size__);
 
-#ifdef __OSE__
-    /* For supervisor processes, OSE adds a number of bytes to the requested stack. With this
-     * addition, the resulting size must not exceed the largest available stack size. The number
-     * of bytes that will be added  is configured in the monolith and can therefore not be
-     * specified here. We simply assume that it is less than 0x1000. The available stack sizes
-     * are configured in the .lmconf file and the largest one is usually 65536 bytes.
-     * Consequently, the requested stack size is limited to 0xF000.
-     */
-    ethr_max_stack_size__ = 0xF000;
-#else
     ethr_max_stack_size__ = 32*1024*1024;
-#endif
 #if SIZEOF_VOID_P == 8
     ethr_max_stack_size__ *= 2;
 #endif
@@ -664,10 +653,6 @@ ETHR_IMPL_NORETURN__ ethr_fatal_error__(const char *file,
 int ethr_assert_failed(const char *file, int line, const char *func, char *a)
 {
     fprintf(stderr, "%s:%d: %s(): Assertion failed: %s\n", file, line, func, a);
-#ifdef __OSE__
-    ramlog_printf("%d: %s:%d: %s(): Assertion failed: %s\n",
-		  current_process(),file, line, func, a);
-#endif
     ethr_abort__();
     return 0;
 }

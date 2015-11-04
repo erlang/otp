@@ -398,8 +398,9 @@ fun(S) -> sofs:partition(1, S) end
     </datatype>
     <datatype>
       <!-- Parameterized opaque types are NYI: -->
-      <name><marker id="type-tuple_of">tuple_of(T)</marker></name>
-      <desc><p>A tuple where the elements are of type <c>T</c>.</p></desc>
+      <name>tuple_of(T)</name>
+      <desc><p><marker id="type-tuple_of"/>
+        A tuple where the elements are of type <c>T</c>.</p></desc>
     </datatype>
   </datatypes>
   <funcs>

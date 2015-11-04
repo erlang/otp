@@ -44,7 +44,7 @@
              dialyzer_timing,
              dialyzer_worker]},
   {registered, []},
-  {applications, [compiler, gs, hipe, kernel, stdlib, wx]},
+  {applications, [compiler, hipe, kernel, stdlib, wx]},
   {env, []},
   {runtime_dependencies, ["wx-1.2","syntax_tools-1.6.14","stdlib-2.5",
 			  "kernel-3.0","hipe-3.13","erts-7.0",

@@ -716,7 +716,7 @@ gen_event:stop             ----->  Module:terminate/2
             the purposes described below.</p>
         </note>
         <p>This function is called by a gen_event process when:</p>
-        <list typed="bulleted">
+        <list type="bulleted">
           <item>One
             of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
             is invoked to get the gen_event status. <c>Opt</c> is set
@@ -740,7 +740,7 @@ gen_event:stop             ----->  Module:terminate/2
           customises the details of the current state of the event
           handler. Any term is allowed for <c>Status</c>. The
           gen_event module uses <c>Status</c> as follows:</p>
-        <list typed="bulleted">
+        <list type="bulleted">
           <item>When <c>sys:get_status/1,2</c> is called, gen_event
             ensures that its return value contains <c>Status</c> in
             place of the event handler's actual state term.</item>

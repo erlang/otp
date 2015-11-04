@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2014</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -223,7 +223,7 @@
        asynchronous function calls, using a thread pool provided by
        Erlang. There is also a select call, that can be used for
        asynchronous drivers.</item>
-      <tag><marker id="multi_threading">Multi-threading</marker></tag>
+      <tag><marker id="multi_threading"/>Multi-threading</tag>
       <item>
       <p>A POSIX thread like API for multi-threading is provided. The
          Erlang driver thread API only provide a subset of the functionality
@@ -297,7 +297,7 @@
       <item><p>A driver can add and later remove drivers.</p></item>
       <tag>Monitoring processes</tag>
       <item><p>A driver can monitor a process that does not own a port.</p></item>
-      <tag><marker id="version_management">Version management</marker></tag>
+      <tag><marker id="version_management"/>Version management</tag>
       <item>
         <p>Version management is enabled for drivers that have set the
           <seealso marker="driver_entry#extended_marker">extended_marker</seealso>
@@ -384,12 +384,12 @@
       <item>
 	<p>
 	  Rewrite driver callback
-	  <c><seealso marker="driver_entry#control">control</seealso></c>
+	  <seealso marker="driver_entry#control"><c>control</c></seealso>
 	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.
 	</p>
 	<p>
 	  Rewrite driver callback
-	  <c><seealso marker="driver_entry#call">call</seealso></c>
+	  <seealso marker="driver_entry#call"><c>call</c></seealso>
 	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.
 	</p>
 	<note>
@@ -407,19 +407,19 @@
       <item>
 	<p>
 	  Driver callback
-	  <c><seealso marker="driver_entry#output">output</seealso></c>
+	  <seealso marker="driver_entry#output"><c>output</c></seealso>
 	  now gets <c>ErlDrvSizeT</c> as 3rd argument instead
 	  of previously <c>int</c>.
 	</p>
 	<p>
 	  Driver callback
-	  <c><seealso marker="driver_entry#control">control</seealso></c>
+	  <seealso marker="driver_entry#control"><c>control</c></seealso>
 	  now gets <c>ErlDrvSizeT</c> as 4th and 6th arguments instead
 	  of previously <c>int</c>.
 	</p>
 	<p>
 	  Driver callback
-	  <c><seealso marker="driver_entry#call">call</seealso></c>
+	  <seealso marker="driver_entry#call"><c>call</c></seealso>
 	  now gets <c>ErlDrvSizeT</c> as 4th and 6th arguments instead
 	  of previously <c>int</c>.
 	</p>
@@ -1044,9 +1044,7 @@ typedef struct ErlIOVec {
           <c>select</c>/<c>poll</c> can use).
           On windows, the Win32 API function <c>WaitForMultipleObjects</c>
           is used. This places other restrictions on the event object.
-          Refer to the Win32 SDK documentation.
-	  On Enea OSE, the receive function is used. See the <seealso
-	  marker="ose:ose_erl_driver"></seealso> for more details.</p>
+          Refer to the Win32 SDK documentation.</p>
         <p>The <c>on</c> parameter should be <c>1</c> for setting events
           and <c>0</c> for clearing them.</p>
         <p>The <c>mode</c> argument is a bitwise-or combination of
@@ -1058,7 +1056,7 @@ typedef struct ErlIOVec {
           <seealso marker="driver_entry#ready_output">ready_output</seealso>.
           </p>
     <note>
-      <p>Some OS (Windows and Enea OSE) do not differentiate between read and write events.
+      <p>Some OS (Windows) do not differentiate between read and write events.
          The call-back for a fired event then only depends on the value of <c>mode</c>.</p>
     </note>
         <p><c>ERL_DRV_USE</c> specifies if we are using the event object or if we want to close it.

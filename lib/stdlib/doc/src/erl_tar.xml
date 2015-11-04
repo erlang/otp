@@ -442,7 +442,7 @@
 	structure like a file descriptor, a sftp channel id or such.  The different <c>Fun</c>
 	clauses operates on that very term.
 	</p>
-	<p>The fun clauses parameter lists are:
+	<p>The fun clauses parameter lists are:</p>
 	<taglist>
 	  <tag><c>(write, {UserPrivate,DataToWrite})</c></tag>
 	  <item>Write the term <c>DataToWrite</c> using <c>UserPrivate</c></item>
@@ -457,7 +457,6 @@
 	  <tag><c></c></tag>
 	  <item></item>
 	</taglist>
-	</p>
 	<p>A complete <c>Fun</c> parameter for reading and writing on files using the
 	<seealso marker="kernel:file">file module</seealso> could be:
 	</p>

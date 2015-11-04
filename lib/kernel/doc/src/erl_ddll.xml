@@ -388,14 +388,14 @@
           remove a monitor.</p>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em><anno>Tag</anno></em></tag>
+          <tag><em><c><anno>Tag</anno></c></em></tag>
           <item>
             <p>The monitor tag is always <c>driver</c> as this function
               can only be used to create driver monitors. In the future,
               driver monitors will be integrated with process monitors,
               why this parameter has to be given for consistence.</p>
           </item>
-          <tag><em><anno>Item</anno></em></tag>
+          <tag><em><c><anno>Item</anno></c></em></tag>
           <item>
             <p>The <c><anno>Item</anno></c> parameter specifies which driver one
               wants to monitor (the name of the driver) as well as
@@ -642,7 +642,7 @@
         </note>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em><anno>Path</anno></em></tag>
+          <tag><em><c><anno>Path</anno></c></em></tag>
           <item>
             <p>The filesystem path to the directory where the driver
               object file is situated. The filename of the object file
@@ -665,7 +665,7 @@
               to have <em>only one loader</em> of a driver one wants to
               upgrade in a running system!  </p>
           </item>
-          <tag><em><anno>Name</anno></em></tag>
+          <tag><em><c><anno>Name</anno></c></em></tag>
           <item>
             <p>The name parameter is the name of the driver to be used
               in subsequent calls to <seealso marker="erts:erlang#open_port/2">open_port</seealso>. The
@@ -678,14 +678,14 @@
               with this <c><anno>Name</anno></c> parameter, much as a beam-file's
               module name much correspond to its filename.</p>
           </item>
-          <tag><em><anno>OptionList</anno></em></tag>
+          <tag><em><c><anno>OptionList</anno></c></em></tag>
           <item>
             <p>A number of options can be specified to control the
               loading operation. The options are given as a list of
               two-tuples, the tuples having the following values and
               meanings:</p>
             <taglist>
-              <tag><em>{driver_options, <anno>DriverOptionList</anno>}</em></tag>
+              <tag><em>{driver_options, <c><anno>DriverOptionList</anno></c>}</em></tag>
               <item>
                 <p>This option is to provide options that will change
                   its general behavior and will "stick" to the driver
@@ -701,7 +701,7 @@
                   when the last <seealso marker="#users">user</seealso> calls <seealso marker="#try_unload/2">try_unload/2</seealso>, or
                   the last process having loaded the driver exits.</p>
               </item>
-              <tag><em>{monitor, <anno>MonitorOption</anno>}</em></tag>
+              <tag><em>{monitor, <c><anno>MonitorOption</anno></c>}</em></tag>
               <item>
                 <p>A <c><anno>MonitorOption</anno></c> tells <c>try_load/3</c> to
                   trigger a driver monitor under certain
@@ -732,7 +732,7 @@
                   <c>{monitor, pending_driver}</c> in production
                   code (see the monitor discussion above). </p>
               </item>
-              <tag><em>{reload,<anno>ReloadOption</anno>}</em></tag>
+              <tag><em>{reload, <c><anno>ReloadOption</anno></c>}</em></tag>
               <item>
                 <p>This option is used when one wants to
                   <em>reload</em> a driver from disk, most often in a
@@ -910,13 +910,13 @@
         </taglist>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em><anno>Name</anno></em></tag>
+          <tag><em><c><anno>Name</anno></c></em></tag>
           <item>
             <p>The name parameter is the name of the driver to be
               unloaded. The name can be specified either as an
               <c>iolist()</c> or as an <c>atom()</c>. </p>
           </item>
-          <tag><em><anno>OptionList</anno></em></tag>
+          <tag><em><c><anno>OptionList</anno></c></em></tag>
           <item>
             <p>The <c><anno>OptionList</anno></c> argument can be used to specify
               certain behavior regarding ports as well as triggering
@@ -934,7 +934,7 @@
                   unloads, one should use the driver option
                   <c>kill_ports</c> when loading the driver instead.</p>
               </item>
-              <tag><em>{monitor, <anno>MonitorOption</anno>}</em></tag>
+              <tag><em>{monitor, <c><anno>MonitorOption</anno></c>}</em></tag>
               <item>
                 <p>This option creates a driver monitor if the condition
                   given in <c><anno>MonitorOption</anno></c> is true. The valid

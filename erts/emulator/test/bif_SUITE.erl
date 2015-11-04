@@ -32,7 +32,8 @@
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
-	 atom_to_binary/1,min_max/1, erlang_halt/1]).
+	 atom_to_binary/1,min_max/1, erlang_halt/1,
+	 is_builtin/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -42,7 +43,7 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
-     min_max, erlang_halt].
+     min_max, erlang_halt, is_builtin].
 
 groups() -> 
     [].
@@ -715,6 +716,22 @@ wait_until_stable_size(File,PrevSz) ->
         {ok,#file_info{size = NewSz }} ->
             wait_until_stable_size(File,NewSz)
     end.
+
+is_builtin(_Config) ->
+    Exp0 = [{M,F,A} || {M,_} <- code:all_loaded(),
+		       {F,A} <- M:module_info(exports)],
+    Exp = ordsets:from_list(Exp0),
+
+    %% erlang:apply/3 is considered to be built-in, but is not
+    %% implemented as other BIFs.
+
+    Builtins0 = [{erlang,apply,3}|erlang:system_info(snifs)],
+    Builtins = ordsets:from_list(Builtins0),
+    NotBuiltin = ordsets:subtract(Exp, Builtins),
+    _ = [true = erlang:is_builtin(M, F, A) || {M,F,A} <- Builtins],
+    _ = [false = erlang:is_builtin(M, F, A) || {M,F,A} <- NotBuiltin],
+
+    ok.
 
 
 %% Helpers

@@ -31,10 +31,11 @@
 -type coordinator() :: dialyzer_coordinator:coordinator().
 -type init_data()   :: dialyzer_coordinator:init_data().
 -type result()      :: dialyzer_coordinator:result().
+-type job()         :: dialyzer_coordinator:job().
 
 -record(state, {
 	  mode             :: mode(),
-	  job              :: mfa_or_funlbl() | file:filename(),
+	  job              :: job(),
 	  coordinator      :: coordinator(),
 	  init_data        :: init_data(),
 	  depends_on  = [] :: list()
@@ -52,7 +53,7 @@
 
 %%--------------------------------------------------------------------
 
--spec launch(mode(), [mfa_or_funlbl()], init_data(), coordinator()) -> worker().
+-spec launch(mode(), job(), init_data(), coordinator()) -> worker().
 
 launch(Mode, Job, InitData, Coordinator) ->
   State = #state{mode        = Mode,
@@ -174,7 +175,7 @@ collect_warnings(#state{job = Job, init_data = InitData}) ->
 
 -type extra() :: label() | 'unused'.
 
--spec sequential(mode(), [mfa_or_funlbl()], init_data(), extra()) -> result().
+-spec sequential(mode(), job(), init_data(), extra()) -> result().
 
 sequential('compile', Job, InitData, Extra) ->
   case dialyzer_analysis_callgraph:start_compilation(Job, InitData) of

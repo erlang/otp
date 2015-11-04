@@ -86,10 +86,6 @@
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
 #endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
 #include "erl_int_sizes_config.h"
 
 #ifdef __cplusplus
@@ -109,16 +105,11 @@ typedef long long ErlNifSInt64;
 #error No 64-bit integer type
 #endif
 
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define ERL_NIF_VM_VARIANT "beam.halfword" 
-typedef unsigned int ERL_NIF_TERM;
-#else
-#  define ERL_NIF_VM_VARIANT "beam.vanilla" 
-#  if SIZEOF_LONG == SIZEOF_VOID_P
+#define ERL_NIF_VM_VARIANT "beam.vanilla" 
+#if SIZEOF_LONG == SIZEOF_VOID_P
 typedef unsigned long ERL_NIF_TERM;
-#  elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
+#elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
 typedef unsigned long long ERL_NIF_TERM;
-#  endif
 #endif
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;

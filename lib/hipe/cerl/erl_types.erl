@@ -3974,18 +3974,17 @@ record_to_string(Tag, [_|Fields], FieldNames, RecDict) ->
   FieldStrings = record_fields_to_string(Fields, FieldNames, RecDict, []),
   "#" ++ atom_to_string(Tag) ++ "{" ++ string:join(FieldStrings, ",") ++ "}".
 
-record_fields_to_string([F|Fs], [{FName, _Abstr, _DefType}|FDefs],
+record_fields_to_string([F|Fs], [{FName, _Abstr, DefType}|FDefs],
                         RecDict, Acc) ->
   NewAcc =
-    case t_is_equal(F, t_any()) orelse t_is_any_atom('undefined', F) of
+    case
+      t_is_equal(F, t_any()) orelse
+      (t_is_any_atom('undefined', F) andalso
+       not t_is_none(t_inf(F, DefType)))
+    of
       true -> Acc;
       false ->
 	StrFV = atom_to_string(FName) ++ "::" ++ t_to_string(F, RecDict),
-	%% ActualDefType = t_subtract(DefType, t_atom('undefined')),
-	%% Str = case t_is_any(ActualDefType) of
-	%% 	  true -> StrFV;
-	%% 	  false -> StrFV ++ "::" ++ t_to_string(ActualDefType, RecDict)
-	%%	end,
 	[StrFV|Acc]
     end,
   record_fields_to_string(Fs, FDefs, RecDict, NewAcc);

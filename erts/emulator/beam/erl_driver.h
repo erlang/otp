@@ -57,10 +57,6 @@
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
 #endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
 #include "erl_int_sizes_config.h"
 #if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
 #  error SIZEOF_CHAR mismatch
@@ -76,11 +72,6 @@
 #endif
 #if defined(SIZEOF_LONG_LONG_SAVED__) && SIZEOF_LONG_LONG_SAVED__ != SIZEOF_LONG_LONG
 #  error SIZEOF_LONG_LONG mismatch
-#endif
-
-/* This is OK to override by the NIF/driver implementor */
-#if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
-#define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
 #endif
 
 #include "erl_drv_nif.h"
@@ -698,16 +689,6 @@ EXTERN char *driver_dl_error(void);
 /* environment */
 EXTERN int erl_drv_putenv(char *key, char *value);
 EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
-
-#ifdef __OSE__
-typedef ErlDrvUInt ErlDrvOseEventId;
-EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
-EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig, ErlDrvOseEventId handle,
-					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra);
-EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
-EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
-                  ErlDrvOseEventId *handle, void **extra);
-#endif
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 

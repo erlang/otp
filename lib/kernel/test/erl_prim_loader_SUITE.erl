@@ -260,46 +260,41 @@ multiple_slaves(doc) ->
     ["Start nodes in parallell, all using the 'inet' loading method, ",
      "verify that the boot server manages"];
 multiple_slaves(Config) when is_list(Config) ->
-    case os:type() of
-	{ose,_} ->
-	    {comment, "OSE: multiple nodes not supported"};
-	_ ->
-	    ?line Name = erl_prim_test_multiple_slaves,
-	    ?line Host = host(),
-	    ?line Cookie = atom_to_list(erlang:get_cookie()),
-	    ?line IpStr = ip_str(Host),
-	    ?line LFlag = get_loader_flag(os:type()),
-	    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
-		" -setcookie " ++ Cookie,
+    ?line Name = erl_prim_test_multiple_slaves,
+    ?line Host = host(),
+    ?line Cookie = atom_to_list(erlang:get_cookie()),
+    ?line IpStr = ip_str(Host),
+    ?line LFlag = get_loader_flag(os:type()),
+    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
+        " -setcookie " ++ Cookie,
 
-	    NoOfNodes = 10,			% no of slave nodes to be started
+    NoOfNodes = 10,			% no of slave nodes to be started
 
-	    NamesAndNodes = 
-		lists:map(fun(N) ->
-				  NameN = atom_to_list(Name) ++ 
-				          integer_to_list(N),
-				  NodeN = NameN ++ "@" ++ Host,
-				  {list_to_atom(NameN),list_to_atom(NodeN)}
-			  end, lists:seq(1, NoOfNodes)),
+    NamesAndNodes = 
+        lists:map(fun(N) ->
+                          NameN = atom_to_list(Name) ++ 
+                              integer_to_list(N),
+                          NodeN = NameN ++ "@" ++ Host,
+                          {list_to_atom(NameN),list_to_atom(NodeN)}
+                  end, lists:seq(1, NoOfNodes)),
 
-	    ?line Nodes = start_multiple_nodes(NamesAndNodes, Args, []),
+    ?line Nodes = start_multiple_nodes(NamesAndNodes, Args, []),
 
-	    %% "queue up" the nodes to wait for the boot server to respond
-	    %% (note: test_server supervises each node start by accept()
-	    %% on a socket, the timeout value for the accept has to be quite 
-	    %% long for this test to work).
-	    ?line test_server:sleep(test_server:seconds(5)),
-	    %% start the code loading circus!
-	    ?line {ok,BootPid} = erl_boot_server:start_link([Host]),
-	    %% give the nodes a chance to boot up before attempting to stop them
-	    ?line test_server:sleep(test_server:seconds(10)),
+    %% "queue up" the nodes to wait for the boot server to respond
+    %% (note: test_server supervises each node start by accept()
+    %% on a socket, the timeout value for the accept has to be quite 
+    %% long for this test to work).
+    ?line test_server:sleep(test_server:seconds(5)),
+    %% start the code loading circus!
+    ?line {ok,BootPid} = erl_boot_server:start_link([Host]),
+    %% give the nodes a chance to boot up before attempting to stop them
+    ?line test_server:sleep(test_server:seconds(10)),
 
-	    ?line wait_and_shutdown(lists:reverse(Nodes), 30),
+    ?line wait_and_shutdown(lists:reverse(Nodes), 30),
 
-	    ?line unlink(BootPid),
-	    ?line exit(BootPid, kill),
-	    ok
-    end.
+    ?line unlink(BootPid),
+    ?line exit(BootPid, kill),
+    ok.
 
 start_multiple_nodes([{Name,Node} | NNs], Args, Started) ->
     ?line {ok,Node} = start_node(Name, Args, [{wait, false}]),

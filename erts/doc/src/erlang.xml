@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -63,10 +63,10 @@
       <desc><p>See <seealso marker="#timestamp/0">erlang:timestamp/0</seealso>.</p>
       </desc>
     </datatype>
-    <marker id="type_time_unit"/>
     <datatype>
       <name name="time_unit"></name>
-      <desc><p>Supported time unit representations:</p>
+      <desc><p><marker id="type_time_unit"/>
+        Supported time unit representations:</p>
         <taglist>
 	  <tag><c>PartsPerSecond :: integer() >= 1</c></tag>
 	  <item><p>Time unit expressed in parts per second. That is,
@@ -439,7 +439,7 @@
     <func>
       <name name="binary_to_list" arity="3"/>
       <fsummary>Converts part of a binary to a list.</fsummary>
-      <type_desc variable="Start">1..byte_size(<anno>Binary</anno>)</type_desc>
+      <type_desc variable="Start">1..byte_size(<c><anno>Binary</anno></c>)</type_desc>
       <desc>
         <p>As <c>binary_to_list/1</c>, but returns a list of integers
           corresponding to the bytes from position <c><anno>Start</anno></c> to
@@ -997,7 +997,7 @@
           the call, though. It is therefore usually advisable
           to remove such a <c>'DOWN'</c> message from the message queue
           after monitoring has been stopped.
-          <seealso marker="#demonitor/2">demonitor(<anno>MonitorRef</anno>, [flush])</seealso>
+          <seealso marker="#demonitor/2"><c>demonitor(<anno>MonitorRef</anno>, [flush])</c></seealso>
           can be used instead of
           <c>demonitor(<anno>MonitorRef</anno>)</c> if this cleanup is wanted.</p>
         <note>
@@ -1026,7 +1026,7 @@
         <p>The returned value is <c>true</c> unless <c>info</c> is part
           of <c><anno>OptionList</anno></c>.</p>
         <p><c>demonitor(<anno>MonitorRef</anno>, [])</c> is equivalent to
-          <seealso marker="#demonitor/1">demonitor(<anno>MonitorRef</anno>)</seealso>.</p>
+          <seealso marker="#demonitor/1"><c>demonitor(<anno>MonitorRef</anno>)</c></seealso>.</p>
         <p>The available <c><anno>Option</anno></c>s are as follows:</p>
         <taglist>
           <tag><c>flush</c></tag>
@@ -1105,7 +1105,7 @@
       <fsummary>Prints a term on standard output.</fsummary>
       <desc>
         <p>Prints a text representation of <c><anno>Term</anno></c> on the
-          standard output. On OSE, the term is printed to the ramlog.</p>
+          standard output.</p>
         <warning>
           <p>This BIF is intended for debugging only.</p>
         </warning>
@@ -1114,8 +1114,8 @@
 
     <func>
       <name name="element" arity="2"/>
-      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Returns the Nth element of a tuple.</fsummary>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <desc>
         <p>Returns the <c><anno>N</anno></c>th element (numbering from 1) of
           <c><anno>Tuple</anno></c>, for example:</p>
@@ -2855,10 +2855,10 @@ os_prompt% </pre>
     <func>
       <name name="monitor" arity="2" clause_i="1"/>
       <name name="monitor" arity="2" clause_i="2"/>
+      <fsummary>Starts monitoring.</fsummary>
       <type name="registered_name"/>
       <type name="registered_process_identifier"/>
       <type name="monitor_process_identifier"/>
-      <fsummary>Starts monitoring.</fsummary>
       <desc>
 	<p>Send a monitor request of type <c><anno>Type</anno></c> to the
 	entity identified by <c><anno>Item</anno></c>. The caller of
@@ -3581,8 +3581,8 @@ os_prompt% </pre>
 
     <func>
       <name name="phash" arity="2"/>
-      <type_desc variable="Range">Range = 1..2^32, Hash = 1..Range</type_desc>
       <fsummary>Portable hash function.</fsummary>
+      <type_desc variable="Range">Range = 1..2^32, Hash = 1..Range</type_desc>
       <desc>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
@@ -3600,9 +3600,9 @@ os_prompt% </pre>
     <func>
       <name name="phash2" arity="1"/>
       <name name="phash2" arity="2"/>
+      <fsummary>Portable hash function.</fsummary>
       <type_desc variable="Range">1..2^32</type_desc>
       <type_desc variable="Hash">0..Range-1</type_desc>
-      <fsummary>Portable hash function.</fsummary>
       <desc>
         <p>Portable hash function that gives the same hash for
           the same Erlang term regardless of machine architecture and
@@ -5240,8 +5240,8 @@ true</pre>
 
     <func>
       <name name="setelement" arity="3"/>
-      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno></type_desc>
       <fsummary>Sets the Nth element of a tuple.</fsummary>
+      <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno></type_desc>
       <desc>
         <p>Returns a tuple that is a copy of argument
           <c><anno>Tuple1</anno></c>
@@ -5582,8 +5582,8 @@ true</pre>
 
     <func>
       <name name="split_binary" arity="2"/>
-      <type_desc variable="Pos">0..byte_size(Bin)</type_desc>
       <fsummary>Splits a binary into two.</fsummary>
+      <type_desc variable="Pos">0..byte_size(Bin)</type_desc>
       <desc>
         <p>Returns a tuple containing the binaries that are the result
           of splitting <c><anno>Bin</anno></c> into two parts at
@@ -6475,7 +6475,7 @@ ok
 	    <p>Returns various size information for the specified
 	    allocator. The information returned is a subset of the
 	    information returned by
-	    <seealso marker="#system_info_allocator_tuple">erlang:system_info({allocator, <anno>Alloc</anno>})</seealso>.
+	    <seealso marker="#system_info_allocator_tuple"><c>erlang:system_info({allocator, <anno>Alloc</anno>})</c></seealso>.
 	    </p>
           </item>
         </taglist>
@@ -6855,7 +6855,7 @@ ok
 	      The return value will always be <c>false</c>, as the
 	      <c>elib_malloc</c> allocator has been removed.</p>
           </item>
-          <tag><marker id="system_info_eager_check_io"><c>eager_check_io</c></marker></tag>
+          <tag><marker id="system_info_eager_check_io"/><c>eager_check_io</c></tag>
           <item>
             <p>
 	      Returns the value of the <c>erl</c> command line flag
@@ -7058,7 +7058,7 @@ ok
 	    of versions in <seealso marker="doc/system_principles:versions">
 	    System principles</seealso> in System Documentation.</p>
           </item>
-          <tag><marker id="system_info_os_monotonic_time_source"><c>os_monotonic_time_source</c></marker></tag>
+          <tag><marker id="system_info_os_monotonic_time_source"/><c>os_monotonic_time_source</c></tag>
           <item>
             <p>Returns a list containing information about the source of
 	    <seealso marker="erts:time_correction#OS_Monotonic_Time">OS
@@ -7121,7 +7121,7 @@ ok
 	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
 	    </taglist>
           </item>
-          <tag><marker id="system_info_os_system_time_source"><c>os_system_time_source</c></marker></tag>
+          <tag><marker id="system_info_os_system_time_source"/><c>os_system_time_source</c></tag>
           <item>
             <p>Returns a list containing information about the source of
 	    <seealso marker="erts:time_correction#OS_System_Time">OS
@@ -7298,7 +7298,6 @@ ok
 	    <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>
 	    and
 	    <seealso marker="#system_flag_schedulers_online">erlang:system_flag(schedulers_online, SchedulersOnline)</seealso>.</p>
-            <name name="system_info" arity="1" clause_i="49"/>
           </item>
           <tag><c>smp_support</c></tag>
           <item>
@@ -7486,7 +7485,7 @@ ok
           system performance monitoring settings are cleared.</p>
         <p>Calling the function with <c>{<anno>MonitorPid</anno>,
           <anno>Options</anno>}</c> as argument is the same as calling
-          <seealso marker="#system_monitor/2">erlang:system_monitor(<anno>MonitorPid</anno>, <anno>Options</anno>)</seealso>.</p>
+          <seealso marker="#system_monitor/2"><c>erlang:system_monitor(<anno>MonitorPid</anno>, <anno>Options</anno>)</c></seealso>.</p>
         <p>Returns the previous system monitor settings just like
           <seealso marker="#system_monitor/0">erlang:system_monitor/0</seealso>.</p>
       </desc>
@@ -7857,8 +7856,8 @@ ok
     </func>
     <func>
       <name name="timestamp" arity="0"/>
-      <type name="timestamp"/>
       <fsummary>Current Erlang System time</fsummary>
+      <type name="timestamp"/>
       <desc>
 	<p>Returns current
 	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>

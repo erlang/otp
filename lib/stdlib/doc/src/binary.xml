@@ -299,8 +299,8 @@
     </func>
     <func>
       <name name="match" arity="3"/>
-      <type name="part"/>
       <fsummary>Searches for the first match of a pattern in a binary</fsummary>
+      <type name="part"/>
       <desc>
 
       <p>Searches for the first occurrence of <c><anno>Pattern</anno></c> in <c><anno>Subject</anno></c> and
@@ -353,8 +353,8 @@
     </func>
     <func>
       <name name="matches" arity="3"/>
-      <type name="part"/>
       <fsummary>Searches for all matches of a pattern in a binary</fsummary>
+      <type name="part"/>
       <desc>
 
       <p>Works like <c>match/2</c>, but the <c><anno>Subject</anno></c> is searched until

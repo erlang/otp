@@ -774,7 +774,7 @@ define etp-pid-1
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & 0xF) == 0x3
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
       	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
       else
@@ -834,7 +834,7 @@ define etp-port-1
 #
   set $etp_port_1 = (Eterm)($arg0)
   if ($etp_port_1 & 0xF) == 0x7
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
       	set $etp_port_data = (unsigned) ((((Uint64) $etp_port_1) >> 36) & 0x0fffffff)
       else
@@ -1577,7 +1577,7 @@ define etp-term-dump-pid
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & 0xF) == 0x3
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
         set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
       else
@@ -1622,7 +1622,7 @@ end
 define etp-pid2pix-1
 # Args: Eterm
 #
-   if (etp_arch_bits == 64 && etp_halfword == 0)
+   if (etp_arch_bits == 64)
       if (etp_big_endian)
       	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
       else
@@ -1965,7 +1965,7 @@ end
 define etp-port-id2pix-1
 # Args: Eterm
 #
-   if (etp_arch_bits == 64 && etp_halfword == 0)
+   if (etp_arch_bits == 64)
       if (etp_big_endian)
       	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
       elser
@@ -2493,12 +2493,6 @@ define etp-system-info
     printf "Little\n"
   end
   printf "Word size: %d-bit\n", etp_arch_bits
-  printf "Halfword: "
-  if (etp_halfword)
-    printf "yes\n"
-  else
-    printf "no\n"
-  end
   printf "HiPE support: "
   if (etp_hipe)
     printf "yes\n"

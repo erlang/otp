@@ -913,7 +913,7 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
+	    if (in_area(val, mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -933,7 +933,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(EXPAND_POINTER(val), mod_start, mod_size)) {
+	    if (in_area(val, mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -943,7 +943,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
                 if (header_is_bin_matchstate(val)) {
                     ErlBinMatchState *ms = (ErlBinMatchState*) p;
                     ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (in_area(EXPAND_POINTER(mb->orig), mod_start, mod_size)) {
+                    if (in_area(mb->orig, mod_start, mod_size)) {
                         return 1;
                     }
                 }

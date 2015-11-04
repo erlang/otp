@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2014</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -150,10 +150,10 @@
     </note>
   </section>
 
-  <marker id="distribution_header"/>
   <section>  
     <title>Distribution header</title>
     <p>
+      <marker id="distribution_header"/>
       As of erts version 5.7.2 the old atom cache protocol was
       dropped and a new one was introduced. This atom cache protocol
       introduced the distribution header. Nodes with erts versions

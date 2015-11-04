@@ -191,7 +191,7 @@ RTDeps       [ApplicationVersion] []
           start phases must be a subset of the set of phases defined
           for the primary application. Refer to <em>OTP Design Principles</em> for more information.</p>
       </item>
-      <tag><marker id="runtime_dependencies"><c>runtime_dependencies</c></marker></tag>
+      <tag><marker id="runtime_dependencies"></marker><c>runtime_dependencies</c></tag>
       <item><p>A list of application versions that the application
       depends on. An example of such an application version is
       <c>"kernel-3.0"</c>. Application versions specified as runtime

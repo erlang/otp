@@ -238,8 +238,8 @@
           <p>These functions are intended only to help with debugging. They are provided for
             convenience, allowing developers to avoid having to create their own state extraction
             functions and also avoid having to interactively extract state from the return values of
-            <c><seealso marker="#get_status-1">get_status/1</seealso></c> or
-            <c><seealso marker="#get_status-2">get_status/2</seealso></c> while debugging.</p>
+            <seealso marker="#get_status-1"><c>get_status/1</c></seealso> or
+            <seealso marker="#get_status-2"><c>get_status/2</c></seealso> while debugging.</p>
         </note>
         <p>The value of <c><anno>State</anno></c> varies for different types of
           processes. For a <c>gen_server</c> process, the returned <c><anno>State</anno></c>

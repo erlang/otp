@@ -35,6 +35,6 @@ mnesia_schema.erl:1258: Guard test FromS::'disc_copies' | 'disc_only_copies' | '
 mnesia_schema.erl:1639: The pattern {'false', 'mandatory'} can never match the type {'false','optional'}
 mnesia_schema.erl:2434: The variable Reason can never match since previous clauses completely covered the type {'error',_} | {'ok',_}
 mnesia_schema.erl:451: Guard test UseDirAnyway::'false' == 'true' can never succeed
-mnesia_text.erl:180: The variable T can never match since previous clauses completely covered the type {'error',{integer(),atom() | tuple(),_}} | {'ok',_}
+mnesia_text.erl:180: The variable T can never match since previous clauses completely covered the type {'error',{non_neg_integer(),atom() | tuple(),_}} | {'ok',_}
 mnesia_tm.erl:1522: Function commit_participant/5 has no local return
 mnesia_tm.erl:2169: Function system_terminate/4 has no local return

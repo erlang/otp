@@ -1877,10 +1877,7 @@ mseg_alloc_cached_segments() ->
     mseg_alloc_cached_segments(mseg_inst_info(0)).
 
 mseg_alloc_cached_segments(MsegAllocInfo) ->
-    MemName = case is_halfword_vm() of
-	true -> "high memory";
-	false -> "all memory"
-    end,
+    MemName = "all memory",
     ?line [{memkind,DrvMem}]
 	= lists:filter(fun(E) -> case E of
 				    {memkind, [{name, MemName} | _]} -> true;
@@ -1898,13 +1895,6 @@ mseg_inst_info(I) ->
 			  2,
 			  erlang:system_info({allocator,mseg_alloc})),
     Value.
-
-is_halfword_vm() ->
-    case {erlang:system_info({wordsize, internal}),
-	  erlang:system_info({wordsize, external})} of
-	{4, 8} -> true;
-	{WS, WS} -> false
-    end.
 
 driver_alloc_sbct() ->
     {_, _, _, As} = erlang:system_info(allocator),

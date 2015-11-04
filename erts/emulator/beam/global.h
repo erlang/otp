@@ -310,9 +310,6 @@ typedef union {
 typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
-#if HALFWORD_HEAP
-    void* dummy_ptr_padding__;
-#endif
     struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */
     byte *bytes;		/* Pointer to the actual data bytes. */
@@ -957,31 +954,12 @@ __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
 /* copy.c */
-Eterm copy_object(Eterm, Process*);
-
-#if HALFWORD_HEAP
-Uint size_object_rel(Eterm, Eterm*);
-#  define size_object(A) size_object_rel(A,NULL)
-
-Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm* dst_base);
-#  define copy_struct(OBJ,SZ,HPP,OH) copy_struct_rel(OBJ,SZ,HPP,OH, NULL,NULL)
-
-Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
-#  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
-
-#else /* !HALFWORD_HEAP */
+Eterm copy_object_x(Eterm, Process*, Uint);
+#define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
 Uint size_object(Eterm);
-#  define size_object_rel(A,B) size_object(A)
-
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
-#  define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
-
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
-#  define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
-
-#endif
-
 
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 		      Eterm* refs, unsigned nrefs);
@@ -1180,7 +1158,7 @@ void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     char s[22];
 #else
     char s[12];
@@ -1466,69 +1444,16 @@ erts_alloc_message_heap(Uint size,
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#if !HEAP_ON_C_STACK
-#  if defined(DEBUG)
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_use_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_unuse_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_use_tmp_heap(Size,NULL); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_unuse_tmp_heap(Size,NULL); \
-       } while (0)
-#  else
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used -= (Size); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used -= (Size); \
-       } while (0)
-
-
-#  endif
-
-#else
-#  define DeclareTmpHeap(VariableName,Size,Process) \
+#define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
-#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+#define DeclareTypedTmpHeap(Type,VariableName,Process)	\
      Type VariableName[1]
-#  define DeclareTmpHeapNoproc(VariableName,Size) \
+#define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
-#  define UseTmpHeap(Size,Proc) /* Nothing */
-#  define UnUseTmpHeap(Size,Proc) /* Nothing */
-#  define UseTmpHeapNoproc(Size) /* Nothing */
-#  define UnUseTmpHeapNoproc(Size) /* Nothing */
-#endif /* HEAP_ON_C_STACK */
+#define UseTmpHeap(Size,Proc) /* Nothing */
+#define UnUseTmpHeap(Size,Proc) /* Nothing */
+#define UseTmpHeapNoproc(Size) /* Nothing */
+#define UnUseTmpHeapNoproc(Size) /* Nothing */
 
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);

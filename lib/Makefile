@@ -35,8 +35,8 @@ ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
 	          ic mnesia crypto orber os_mon syntax_tools \
 	          public_key ssl observer odbc diameter \
 	          cosTransactions cosEvent cosTime cosNotification \
-	          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-		  eunit ssh typer percept eldap dialyzer hipe ose
+	          cosProperty cosFileTransfer cosEventDomain et megaco \
+		  eunit ssh typer percept eldap dialyzer hipe
 
 ifdef BUILD_ALL
   ERLANG_APPLICATIONS += $(ALL_ERLANG_APPLICATIONS)

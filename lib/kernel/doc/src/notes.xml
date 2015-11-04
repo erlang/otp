@@ -449,8 +449,7 @@
 	    Erlang/OTP has been ported to the realtime operating
 	    system OSE. The port supports both smp and non-smp
 	    emulator. For details around the port and how to started
-	    see the User's Guide in the <seealso
-	    marker="ose:ose_intro">ose</seealso> application. </p>
+	    see the User's Guide in the ose application. </p>
           <p>
 	    Note that not all parts of Erlang/OTP has been ported. </p>
           <p>
@@ -1218,7 +1217,7 @@
         </item>
         <item>
 	    <p> Fix returned error from gen_tcp:accept/1,2 when
-	    running out of ports
+	    running out of ports.</p>
           <p>
 	    The {error, enfile} return value is badly misleading and
 	    confusing for this case, since the Posix ENFILE errno
@@ -1227,7 +1226,7 @@
 	    {error, system_limit}, which is consistent with e.g.
 	    various file(3) functions. inet:format_error/1 has also
 	    been updated to support system_limit in the same manner
-	    as file:format_error/1. (Thanks to Per Hedeland)</p></p>
+	    as file:format_error/1. (Thanks to Per Hedeland)</p>
           <p>
 	    Own Id: OTP-9990</p>
         </item>
@@ -1422,7 +1421,6 @@
 	    Own Id: OTP-9764</p>
         </item>
         <item>
-          <p>
 	    <list> <item><p>Correct callback spec in application
 	    module</p></item> <item><p>Refine warning about callback
 	    specs with extra ranges</p></item> <item><p>Cleanup
@@ -1433,7 +1431,7 @@
 	    analysis</p></item> <item><p>Fix crash in
 	    Dialyzer</p></item> <item><p>Variable substitution was
 	    not generalizing any unknown variables.</p></item>
-	    </list></p>
+	    </list>
           <p>
 	    Own Id: OTP-9776</p>
         </item>

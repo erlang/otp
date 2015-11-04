@@ -365,7 +365,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 
     while (x != OUR_NIL) {
 	if (is_CP(x)) {
-	    next = (Eterm *) EXPAND_POINTER(x);
+	    next = (Eterm *) x;
 	} else if (is_list(x)) {
 	    ptr = list_val(x);
 	    if (ptr[0] != OUR_NIL) {
@@ -378,7 +378,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    ptr[1] = make_small(0);
 		}
 		x = ptr[0];
-		ptr[0] = (Eterm) COMPRESS_POINTER(next);
+		ptr[0] = (Eterm) next;
 		next = ptr + 1;
 		continue;
 	    }
@@ -408,7 +408,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 			ptr[0] = OUR_NIL;
 		    } else {
 			x = ptr[arity];
-			ptr[0] = (Eterm) COMPRESS_POINTER(next);
+			ptr[0] = (Eterm) next;
 			next = ptr + arity - 1;
 			continue;
 		    }

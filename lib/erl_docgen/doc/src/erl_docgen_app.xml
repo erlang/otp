@@ -32,7 +32,7 @@
   
     <description>
       <p>
-	The application consists of the following parts
+	The application consists of the following parts:</p>
 	<taglist>
 	  <tag>XSL</tag>
 	  <item>
@@ -59,7 +59,6 @@
 	    </p>
 	  </item>
 	</taglist>
-      </p>
     </description>
 
 </appref>

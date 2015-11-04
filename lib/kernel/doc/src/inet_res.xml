@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2013</year>
+      <year>2009</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -77,8 +77,11 @@
       query is tried for the <c>alt_nameservers</c>.</p>
   </section>
 
+  <section>
+    <title>Resolver Types</title>
+    <p>The following data types concern the resolver:</p>
+  </section>
   <datatypes>
-    <p>Resolver types:</p>
     <datatype>
       <name name="res_option"/>
     </datatype>
@@ -88,8 +91,13 @@
     <datatype>
       <name name="res_error"/>
     </datatype>
-
-    <p><marker id="dns_types"/>DNS types:</p>
+  </datatypes>
+  <section>
+    <title>DNS Types</title>
+    <p><marker id="dns_types"/>
+      The following data types concern the DNS client:</p>
+  </section>
+  <datatypes>
     <datatype>
       <name name="dns_name"/>
       <desc><p>A string with no adjacent dots.</p></desc>
@@ -106,7 +114,7 @@
         <p>This is the start of a hiearchy of opaque data structures
           that can be examined with access functions in inet_dns that
           return lists of {Field,Value} tuples. The arity 2 functions
-          just return the value for a given field.
+          just return the value for a given field.</p>
 <pre>
 dns_msg() = DnsMsg
     inet_dns:msg(DnsMsg) ->
@@ -154,18 +162,19 @@ dns_rr() = DnsRr
                      | {version, integer()}
                      | {z, integer()}
                      | {data, dns_data()} ]
-    inet_dns:rr(DnsRr, Field) -> Value
+    inet_dns:rr(DnsRr, Field) -> Value</pre>
 
-There is an info function for the types above:
+<p>There is an info function for the types above:</p>
 
+<pre>
 inet_dns:record_type(dns_msg()) -> msg;
 inet_dns:record_type(dns_header()) -> header;
 inet_dns:record_type(dns_query()) -> dns_query;
 inet_dns:record_type(dns_rr()) -> rr;
-inet_dns:record_type(_) -> undefined.
+inet_dns:record_type(_) -> undefined.</pre>
 
-So; inet_dns:(inet_dns:record_type(X))(X) will convert
-any of these data structures into a {Field,Value} list.</pre></p>
+<p>So; inet_dns:(inet_dns:record_type(X))(X) will convert
+any of these data structures into a {Field,Value} list.</p>
       </desc>
     </datatype>
     <datatype>
@@ -272,7 +281,7 @@ any of these data structures into a {Field,Value} list.</pre></p>
         <p>Resolve a DNS record of the given type and class for the given name.
           The returned <c>dns_msg()</c> can be examined using
           access functions in <c>inet_db</c> as described 
-          in <seealso marker="#dns_types">DNS types</seealso>.
+          in <seealso marker="#dns_types">DNS Types</seealso>.
         </p><p>
           If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain name
           to query for is generated as the standard reverse

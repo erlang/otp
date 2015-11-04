@@ -73,9 +73,6 @@ static char otp_version[] = ERLANG_OTP_VERSION;
 static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     "%s"
 				     " [erts-" ERLANG_VERSION "]"
-#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
-				     " [no-c-stack-objects]"
-#endif
 #ifndef OTP_RELEASE
 #ifdef ERLANG_GIT_VERSION
 				     " [source-" ERLANG_GIT_VERSION "]"
@@ -84,11 +81,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #endif	
 #ifdef ARCH_64
-#if HALFWORD_HEAP
-				     " [64-bit halfword]"
-#else
 				     " [64-bit]"
-#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"
@@ -671,18 +664,12 @@ static Eterm pi_1_keys[] = {
 #define ERTS_PI_1_NO_OF_KEYS (sizeof(pi_1_keys)/sizeof(Eterm))
 
 static Eterm pi_1_keys_list;
-#if HEAP_ON_C_STACK
 static Eterm pi_1_keys_list_heap[2*ERTS_PI_1_NO_OF_KEYS];
-#endif
 
 static void
 process_info_init(void)
 {
-#if HEAP_ON_C_STACK
     Eterm *hp = &pi_1_keys_list_heap[0];
-#else
-    Eterm *hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM,sizeof(Eterm)*2*ERTS_PI_1_NO_OF_KEYS);
-#endif
     int i;
 
     pi_1_keys_list = NIL;
