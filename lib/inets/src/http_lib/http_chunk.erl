@@ -143,20 +143,22 @@ decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList,
 	    {MaxBodySize, Body, 
 	     AccLength,
 	     MaxHeaderSize}) ->
-    ChunkSize =  http_util:hexlist_to_integer(lists:reverse(HexList)),
-     case ChunkSize of
+    try http_util:hexlist_to_integer(lists:reverse(HexList)) of
 	0 -> % Last chunk, there was no data
 	    ignore_extensions(Data, {?MODULE, decode_trailer, 
 				      [<<>>, [],[], MaxHeaderSize,
 				       Body,
 				       integer_to_list(AccLength)]});  
-	_ ->
+	ChunkSize ->
 	    %% Note decode_data may call decode_size again if there
 	    %% is more than one chunk, hence here is where the last parameter
 	    %% to this function comes in.
 	    decode_data(ChunkSize, ChunkRest, {MaxBodySize, Body, 
 					       ChunkSize + AccLength , 
 					       MaxHeaderSize})
+    catch
+	_:_ ->
+	    throw({error, {chunk_size, HexList}})
     end;
 decode_size(<<";", Rest/binary>>, HexList, Info) ->
     %% Note ignore_extensions will call decode_size/1 again when

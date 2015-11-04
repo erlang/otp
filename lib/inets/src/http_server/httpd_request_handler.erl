@@ -443,7 +443,7 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 	    MaxHeaderSize, MaxBodySize) ->
     case Headers#http_request_h.'transfer-encoding' of
 	"chunked" ->
-	    case http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
+	    try http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
 		{Module, Function, Args} ->
 		    http_transport:setopts(ModData#mod.socket_type, 
 					   ModData#mod.socket, 
@@ -455,6 +455,14 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 			http_chunk:handle_headers(Headers, ChunkedHeaders),
 		    handle_response(State#state{headers = NewHeaders,
 						body = NewBody})
+	    catch 
+		throw:Error ->
+		    httpd_response:send_status(ModData, 400, 
+					       "Bad input"),
+		    Reason = io_lib:format("Chunk decoding failed: ~p~n", 
+					   [Error]),
+		    error_log(Reason, ModData),
+		    {stop, normal, State#state{response_sent = true}}  
 	    end;
 	Encoding when is_list(Encoding) ->
 	    httpd_response:send_status(ModData, 501, 
