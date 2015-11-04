@@ -229,9 +229,10 @@ sign_verify(Config) when is_list(Config) ->
 public_encrypt() ->
      [{doc, "Test public_encrypt/decrypt and private_encrypt/decrypt functions. "}].
 public_encrypt(Config) when is_list(Config) ->
-    Params = proplists:get_value(pub_priv_encrypt, Config),
-    lists:foreach(fun do_public_encrypt/1, Params),
-    lists:foreach(fun do_private_encrypt/1, Params).
+    PrivPubParams = proplists:get_value(priv_pub_encrypt, Config),
+    PubPrivParams = proplists:get_value(pub_priv_encrypt, Config),
+    lists:foreach(fun do_public_encrypt/1, PubPrivParams),
+    lists:foreach(fun do_private_encrypt/1, PrivPubParams).
 
 %%--------------------------------------------------------------------
 generate_compute() ->
@@ -450,7 +451,15 @@ do_sign_verify({Type, Hash, Public, Private, Msg}) ->
 	    negative_verify(Type, Hash, Msg, <<10,20>>, Public);
 	false ->
 	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public]}})
-    end. 
+    end;
+do_sign_verify({Type, Hash, Public, Private, Msg, Options}) ->
+    Signature = crypto:sign(Type, Hash, Msg, Private, Options),
+    case crypto:verify(Type, Hash, Msg, Signature, Public, Options) of
+	true ->
+	    negative_verify(Type, Hash, Msg, <<10,20>>, Public, Options);
+	false ->
+	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public, Options]}})
+    end.
 
 negative_verify(Type, Hash, Msg, Signature, Public) ->
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
@@ -460,26 +469,58 @@ negative_verify(Type, Hash, Msg, Signature, Public) ->
 	    ok
     end.
 
-do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
-    PublicEcn = (catch crypto:public_encrypt(Type, Msg, Public, Padding)),
-    case crypto:private_decrypt(Type, PublicEcn, Private, Padding) of
-	Msg ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
-    end. 
-
-do_private_encrypt({_Type, _Public, _Private, _Msg, rsa_pkcs1_oaep_padding}) ->
-    ok; %% Not supported by openssl
-do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
-    PrivEcn = (catch crypto:private_encrypt(Type, Msg, Private, Padding)),
-    case crypto:public_decrypt(rsa, PrivEcn, Public, Padding) of
-	Msg ->
-	    ok;
-	Other ->
-	    ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, Other}})
+negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
+    case crypto:verify(Type, Hash, Msg, Signature, Public, Options) of
+	true ->
+	    ct:fail({{crypto, verify, [Type, Hash, Msg, Signature, Public, Options]}, should_fail});
+	false ->
+	    ok
     end.
-     
+
+do_public_encrypt({Type, Public, Private, Msg, Options}) ->
+    case catch crypto:public_encrypt(Type, Msg, Public, Options) of
+	PublicEcn when is_binary(PublicEcn) ->
+	    case proplists:get_value(rsa_padding, Options) of
+		rsa_sslv23_padding ->
+		    ok;
+		_ ->
+		    case catch crypto:private_decrypt(Type, PublicEcn, Private, Options) of
+			Msg ->
+			    ok;
+			{'EXIT', {notsup, _}} ->
+			    ok;
+			Other ->
+			    ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Options]}, {expected, Msg}, {got, Other}})
+		    end
+	    end;
+	{'EXIT', {notsup, _}} ->
+	    ok;
+	Other ->
+	    ct:fail({{crypto, public_encrypt, [Type, Msg, Public, Options]}, {expected, binary}, {got, Other}})
+    end.
+
+do_private_encrypt({Type, Public, Private, Msg, Options}) ->
+    case catch crypto:private_encrypt(Type, Msg, Private, Options) of
+	PrivEcn when is_binary(PrivEcn) ->
+	    case proplists:get_value(rsa_padding, Options) of
+		rsa_sslv23_padding ->
+		    ok;
+		_ ->
+		    case catch crypto:public_decrypt(Type, PrivEcn, Public, Options) of
+			Msg ->
+			    ok;
+			{'EXIT', {notsup, _}} ->
+			    ok;
+			Other ->
+			    ct:fail({{crypto, public_decrypt, [Type, Type, PrivEcn, Public, Options]}, {expected, Msg}, {got, Other}})
+		    end
+	    end;
+	{'EXIT', {notsup, _}} ->
+	    ok;
+	Other ->
+	    ct:fail({{crypto, private_encrypt, [Type, Msg, Private, Options]}, {expected, binary}, {got, Other}})
+    end.
+
 do_generate_compute({srp = Type, UserPrivate, UserGenParams, UserComParams,
 		     HostPublic, HostPrivate, HostGenParams, HostComParam, SessionKey}) ->
     {UserPublic, UserPrivate} = crypto:generate_key(Type, UserGenParams, UserPrivate),
@@ -716,11 +757,19 @@ group_config(rsa = Type, Config) ->
     PrivateS = rsa_private_stronger(),
     SignVerify = sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS),
     MsgPubEnc = <<"7896345786348 Asldi">>,
-    PubPrivEnc = [{rsa, Public, Private, MsgPubEnc, rsa_pkcs1_padding},
-		  rsa_oaep(),
+    PrivPubEnc = [{rsa, Public, Private, MsgPubEnc, [{rsa_padding, rsa_pkcs1_padding}]},
+		  {rsa, Public, Private, MsgPubEnc, [{rsa_padding, rsa_sslv23_padding}]},
+		  {rsa, Public, Private, MsgPubEnc, [{rsa_padding, rsa_x931_padding}]},
 		  no_padding()
 		 ],
-    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
+    PubPrivEnc = [{rsa, Public, Private, MsgPubEnc, [{rsa_padding, rsa_pkcs1_padding}]},
+		  rsa_oaep(),
+		  rsa_oaep_label(),
+		  rsa_oaep256(),
+		  no_padding()
+		 ],
+    [{sign_verify, SignVerify}, {priv_pub_encrypt, PrivPubEnc},
+     {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
     Public = dss_params() ++ [dss_public()], 
@@ -807,18 +856,38 @@ group_config(_, Config) ->
     Config.
 
 sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS) ->
-    sign_verify_tests(Type, [md5, sha, sha224, sha256], Msg, Public, Private) ++
-	sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS).
+    gen_sign_verify_tests(Type, [md5, ripemd160, sha, sha224, sha256], Msg, Public, Private,
+			  [undefined,
+			   [{rsa_padding, rsa_pkcs1_pss_padding}],
+			   [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
+			   [{rsa_padding, rsa_x931_padding}]
+			  ]) ++
+	gen_sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS,
+			      [undefined,
+			       [{rsa_padding, rsa_pkcs1_pss_padding}],
+			       [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
+			       [{rsa_padding, rsa_x931_padding}]
+			      ]).
 
-sign_verify_tests(Type, Hashs, Msg, Public, Private) ->
-    lists:foldl(fun(Hash, Acc) -> 
-			case is_supported(Hash) of
-			    true ->
-				[{Type, Hash,  Public, Private, Msg}|Acc];
-			    false ->
-			      Acc
-			end
-		end, [], Hashs).
+gen_sign_verify_tests(Type, Hashs, Msg, Public, Private, Opts) ->
+    lists:foldr(fun(Hash, Acc0) ->
+	case is_supported(Hash) of
+	    true ->
+		lists:foldr(fun
+		    (undefined, Acc1) ->
+			[{Type, Hash, Public, Private, Msg} | Acc1];
+		    ([{rsa_padding, rsa_x931_padding} | _], Acc1)
+			    when Hash =:= md5
+			    orelse Hash =:= ripemd160
+			    orelse Hash =:= sha224 ->
+			Acc1;
+		    (Opt, Acc1) ->
+			[{Type, Hash, Public, Private, Msg, Opt} | Acc1]
+		end, Acc0, Opts);
+	    false ->
+		Acc0
+	end
+    end, [], Hashs).
 
 rfc_1321_msgs() ->
     [<<"">>, 
@@ -2152,7 +2221,32 @@ rsa_oaep() ->
 			 hexstr2bin("4f456c502493bdc0ed2ab756a3a6ed4d67352a697d4216e93212b127a63d5411ce6fa98d5dbefd73263e3728142743818166ed7dd63687dd2a8ca1d2f4fbd8e1")],
     %%Msg = hexstr2bin("6628194e12073db03ba94cda9ef9532397d50dba79b987004afefe34"),
     Msg =  hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
-    {rsa, Public, Private, Msg, rsa_pkcs1_oaep_padding}.
+    {rsa, Public, Private, Msg, [{rsa_padding, rsa_pkcs1_oaep_padding}]}.
+
+rsa_oaep_label() ->
+    Public = [hexstr2bin("010001"),
+	      hexstr2bin("a8b3b284af8eb50b387034a860f146c4919f318763cd6c5598c8ae4811a1e0abc4c7e0b082d693a5e7fced675cf4668512772c0cbc64a742c6c630f533c8cc72f62ae833c40bf25842e984bb78bdbf97c0107d55bdb662f5c4e0fab9845cb5148ef7392dd3aaff93ae1e6b667bb3d4247616d4f5ba10d4cfd226de88d39f16fb")],
+    Private = Public ++ [hexstr2bin("53339cfdb79fc8466a655c7316aca85c55fd8f6dd898fdaf119517ef4f52e8fd8e258df93fee180fa0e4ab29693cd83b152a553d4ac4d1812b8b9fa5af0e7f55fe7304df41570926f3311f15c4d65a732c483116ee3d3d2d0af3549ad9bf7cbfb78ad884f84d5beb04724dc7369b31def37d0cf539e9cfcdd3de653729ead5d1"),
+			 hexstr2bin("d32737e7267ffe1341b2d5c0d150a81b586fb3132bed2f8d5262864a9cb9f30af38be448598d413a172efb802c21acf1c11c520c2f26a471dcad212eac7ca39d"),
+			 hexstr2bin("cc8853d1d54da630fac004f471f281c7b8982d8224a490edbeb33d3e3d5cc93c4765703d1dd791642f1f116a0dd852be2419b2af72bfe9a030e860b0288b5d77"),
+			 hexstr2bin("0e12bf1718e9cef5599ba1c3882fe8046a90874eefce8f2ccc20e4f2741fb0a33a3848aec9c9305fbecbd2d76819967d4671acc6431e4037968db37878e695c1"),
+			 hexstr2bin("95297b0f95a2fa67d00707d609dfd4fc05c89dafc2ef6d6ea55bec771ea333734d9251e79082ecda866efef13c459e1a631386b7e354c899f5f112ca85d71583"),
+			 hexstr2bin("4f456c502493bdc0ed2ab756a3a6ed4d67352a697d4216e93212b127a63d5411ce6fa98d5dbefd73263e3728142743818166ed7dd63687dd2a8ca1d2f4fbd8e1")],
+    Msg = hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
+    Lbl = hexstr2bin("1332a67ca7088f75c9b8fb5e3d072882"),
+    {rsa, Public, Private, Msg, [{rsa_padding, rsa_pkcs1_oaep_padding}, {rsa_oaep_label, Lbl}]}.
+
+rsa_oaep256() ->
+    Public = [hexstr2bin("010001"),
+	      hexstr2bin("a8b3b284af8eb50b387034a860f146c4919f318763cd6c5598c8ae4811a1e0abc4c7e0b082d693a5e7fced675cf4668512772c0cbc64a742c6c630f533c8cc72f62ae833c40bf25842e984bb78bdbf97c0107d55bdb662f5c4e0fab9845cb5148ef7392dd3aaff93ae1e6b667bb3d4247616d4f5ba10d4cfd226de88d39f16fb")],
+    Private = Public ++ [hexstr2bin("53339cfdb79fc8466a655c7316aca85c55fd8f6dd898fdaf119517ef4f52e8fd8e258df93fee180fa0e4ab29693cd83b152a553d4ac4d1812b8b9fa5af0e7f55fe7304df41570926f3311f15c4d65a732c483116ee3d3d2d0af3549ad9bf7cbfb78ad884f84d5beb04724dc7369b31def37d0cf539e9cfcdd3de653729ead5d1"),
+			 hexstr2bin("d32737e7267ffe1341b2d5c0d150a81b586fb3132bed2f8d5262864a9cb9f30af38be448598d413a172efb802c21acf1c11c520c2f26a471dcad212eac7ca39d"),
+			 hexstr2bin("cc8853d1d54da630fac004f471f281c7b8982d8224a490edbeb33d3e3d5cc93c4765703d1dd791642f1f116a0dd852be2419b2af72bfe9a030e860b0288b5d77"),
+			 hexstr2bin("0e12bf1718e9cef5599ba1c3882fe8046a90874eefce8f2ccc20e4f2741fb0a33a3848aec9c9305fbecbd2d76819967d4671acc6431e4037968db37878e695c1"),
+			 hexstr2bin("95297b0f95a2fa67d00707d609dfd4fc05c89dafc2ef6d6ea55bec771ea333734d9251e79082ecda866efef13c459e1a631386b7e354c899f5f112ca85d71583"),
+			 hexstr2bin("4f456c502493bdc0ed2ab756a3a6ed4d67352a697d4216e93212b127a63d5411ce6fa98d5dbefd73263e3728142743818166ed7dd63687dd2a8ca1d2f4fbd8e1")],
+    Msg = hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
+    {rsa, Public, Private, Msg, [{rsa_padding, rsa_pkcs1_oaep_padding}, {rsa_oaep_md, sha256}]}.
 
 ecc() ->
 %%               http://point-at-infinity.org/ecc/nisttv
@@ -2180,7 +2274,7 @@ no_padding() ->
     Private = rsa_private(),
     MsgLen = erlang:byte_size(int_to_bin(Mod)),
     Msg = list_to_binary(lists:duplicate(MsgLen, $X)),
-    {rsa, Public, Private, Msg, rsa_no_padding}.
+    {rsa, Public, Private, Msg, [{rsa_padding, rsa_no_padding}]}.
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).

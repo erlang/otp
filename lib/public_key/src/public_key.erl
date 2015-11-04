@@ -35,7 +35,7 @@
 	 decrypt_private/2, decrypt_private/3, 
 	 encrypt_public/2, encrypt_public/3, 
 	 decrypt_public/2, decrypt_public/3,
-	 sign/3, verify/4,
+	 sign/3, sign/4, verify/4, verify/5,
 	 generate_key/1,
 	 compute_key/2, compute_key/3,
 	 pkix_sign/2, pkix_verify/2,	 
@@ -82,12 +82,22 @@
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
 -type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
 				auth_keys.
--type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
-			      | 'rsa_no_padding'.
--type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
--type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
--type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
--type ecdsa_digest_type()       :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_crypt_padding()    ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
+			       | 'rsa_sslv23_padding' | 'rsa_x931_padding'.
+-type rsa_crypt_option()     ::  {'rsa_mgf1_md', rsa_digest_type()}
+			       | {'rsa_oaep_label', binary()}
+			       | {'rsa_oaep_md', rsa_digest_type()}
+			       | {'rsa_padding', rsa_crypt_padding()}.
+-type public_crypt_options() :: [rsa_crypt_option()].
+-type rsa_digest_type()      :: 'md5' | 'none' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type dss_digest_type()      :: 'none' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'. %% None is for backwards compatibility
+-type ecdsa_digest_type()    :: 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_sign_padding()     ::  'rsa_no_padding' | 'rsa_pkcs1_padding' | 'rsa_pkcs1_pss_padding'
+			       | 'rsa_x931_padding'.
+-type rsa_sign_option()      ::  {'rsa_mgf1_md', rsa_digest_type()}
+			       | {'rsa_padding', rsa_sign_padding()}
+			       | {'rsa_pss_saltlen', integer()}.
+-type public_sign_options()  :: [rsa_sign_option()].
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
@@ -303,8 +313,7 @@ decrypt_private(CipherText,
 		Options)
   when is_binary(CipherText),
        is_list(Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:private_decrypt(rsa, CipherText, format_rsa_private_key(Key), Padding).
+    crypto:private_decrypt(rsa, CipherText, format_rsa_private_key(Key), Options).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -369,8 +378,7 @@ encrypt_private(PlainText,
   when is_binary(PlainText),
        is_integer(N), is_integer(E), is_integer(D),
        is_list(Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Padding).
+    crypto:private_encrypt(rsa, PlainText, format_rsa_private_key(Key), Options).
 
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |
@@ -434,35 +442,53 @@ pkix_sign_types(?'ecdsa-with-SHA512') ->
     {sha512, ecdsa}.
 
 %%--------------------------------------------------------------------
--spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+-spec sign(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
 	   rsa_private_key() |
 	   dsa_private_key() | ec_private_key()) -> Signature :: binary().
+-spec sign(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	   rsa_private_key() |
+	   dsa_private_key() | ec_private_key(), public_sign_options()) -> Signature :: binary().
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
-sign(DigestOrPlainText, DigestType, Key = #'RSAPrivateKey'{}) ->
-    crypto:sign(rsa, DigestType, DigestOrPlainText, format_rsa_private_key(Key));
-
-sign(DigestOrPlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
-    crypto:sign(dss, sha, DigestOrPlainText, [P, Q, G, X]);
-
-sign(DigestOrPlainText, DigestType, #'ECPrivateKey'{privateKey = PrivKey,
-						    parameters = Param}) ->
-    ECCurve = ec_curve_spec(Param),
-    crypto:sign(ecdsa, DigestType, DigestOrPlainText, [PrivKey, ECCurve]);
+sign(DigestOrPlainText, DigestType, Key) ->
+    sign(DigestOrPlainText, DigestType, Key, []).
 
 %% Backwards compatible
-sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
-    sign({digest,Digest}, sha, Key).
+sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
+    sign({digest, Digest}, sha, Key, Options);
+sign(DigestOrPlainText, DigestType, Key, Options) ->
+    case format_sign_key(Key) of
+	badarg ->
+	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
+	{Algorithm, CryptoKey} ->
+	    crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
+    end.
 
 %%--------------------------------------------------------------------
 -spec verify(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
 	     Signature :: binary(), rsa_public_key()
 	     | dsa_public_key() | ec_public_key()) -> boolean().
+-spec verify(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type() | ecdsa_digest_type(),
+	     Signature :: binary(), rsa_public_key()
+	     | dsa_public_key() | ec_public_key(), public_sign_options()) -> boolean().
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify(DigestOrPlainText, DigestType, Signature, Key) when is_binary(Signature) ->
-    do_verify(DigestOrPlainText, DigestType, Signature, Key);
-verify(_,_,_,_) -> 
+verify(DigestOrPlainText, DigestType, Signature, Key) ->
+    verify(DigestOrPlainText, DigestType, Signature, Key, []).
+
+%% Backwards compatible
+verify(Digest, none, Signature, Key = {_, #'Dss-Parms'{}}, Options) when is_binary(Digest) ->
+    verify({digest, Digest}, sha, Signature, Key, Options);
+verify(Digest, none, Signature, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
+    verify({digest, Digest}, sha, Signature, Key, Options);
+verify(DigestOrPlainText, DigestType, Signature, Key, Options) when is_binary(Signature) ->
+    case format_verify_key(Key) of
+	badarg ->
+	    erlang:error(badarg, [DigestOrPlainText, DigestType, Signature, Key, Options]);
+	{Algorithm, CryptoKey} ->
+	    crypto:verify(Algorithm, DigestType, DigestOrPlainText, Signature, CryptoKey, Options)
+    end;
+verify(_,_,_,_,_) -> 
     %% If Signature is a bitstring and not a binary we know already at this
     %% point that the signature is invalid.
     false.
@@ -770,22 +796,33 @@ oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-do_verify(DigestOrPlainText, DigestType, Signature,
-       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
-    crypto:verify(rsa, DigestType, DigestOrPlainText, Signature,
-		  [Exp, Mod]);
 
-do_verify(DigestOrPlaintext, DigestType, Signature, {#'ECPoint'{point = Point}, Param}) ->
-    ECCurve = ec_curve_spec(Param),
-    crypto:verify(ecdsa, DigestType, DigestOrPlaintext, Signature, [Point, ECCurve]);
+format_sign_key(Key = #'RSAPrivateKey'{}) ->
+    {rsa, format_rsa_private_key(Key)};
+format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
+    {dss, [P, Q, G, X]};
+format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = Param}) ->
+    {ecdsa, [PrivKey, ec_curve_spec(Param)]};
+format_sign_key(_) ->
+    badarg.
 
-%% Backwards compatibility
-do_verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
-    verify({digest,Digest}, sha, Signature, Key);
-
-do_verify(DigestOrPlainText, sha = DigestType, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
-  when is_integer(Key), is_binary(Signature) ->
-    crypto:verify(dss, DigestType, DigestOrPlainText, Signature, [P, Q, G, Key]).
+format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
+    {rsa, [Exp, Mod]};
+format_verify_key({#'ECPoint'{point = Point}, Param}) ->
+    {ecdsa, [Point, ec_curve_spec(Param)]};
+format_verify_key({Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
+    {dss, [P, Q, G, Key]};
+%% Convert private keys to public keys
+format_verify_key(#'RSAPrivateKey'{modulus = Mod, publicExponent = Exp}) ->
+    format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp});
+format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = {_, Point}}) ->
+    format_verify_key({#'ECPoint'{point = Point}, Param});
+format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = Point}) ->
+    format_verify_key({#'ECPoint'{point = Point}, Param});
+format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
+    format_verify_key({Y, #'Dss-Parms'{p=P, q=Q, g=G}});
+format_verify_key(_) ->
+    badarg.
 
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
     Der = der_encode(Asn1Type, Entity),
@@ -797,12 +834,10 @@ do_pem_entry_decode({Asn1Type,_, _} = PemEntry, Password) ->
     der_decode(Asn1Type, Der).
 
 encrypt_public(PlainText, N, E, Options)->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:public_encrypt(rsa, PlainText, [E,N], Padding).
+    crypto:public_encrypt(rsa, PlainText, [E, N], Options).
 
 decrypt_public(CipherText, N,E, Options) ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:public_decrypt(rsa, CipherText,[E, N], Padding).
+    crypto:public_decrypt(rsa, CipherText, [E, N], Options).
 
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,
