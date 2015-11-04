@@ -117,10 +117,9 @@ atom bif_timer_server
 atom binary
 atom binary_bin_to_list_trap
 atom binary_copy_trap
+atom binary_find_trap
 atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
-atom binary_match_trap
-atom binary_matches_trap
 atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
@@ -578,6 +577,8 @@ atom trace trace_ts traced
 atom trace_control_word
 atom tracer
 atom trap_exit
+atom trim
+atom trim_all
 atom try_clause
 atom true
 atom tuple
