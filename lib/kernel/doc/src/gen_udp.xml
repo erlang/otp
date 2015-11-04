@@ -43,9 +43,9 @@
       <name name="option_name"/>
     </datatype>
     <datatype>
-      <name><marker id="type-socket">socket()</marker></name>
+      <name>socket()</name>
       <desc>
-        <p>As returned by open/1,2.</p>
+        <p><marker id="type-socket"/>As returned by open/1,2.</p>
       </desc>
     </datatype>
   </datatypes>

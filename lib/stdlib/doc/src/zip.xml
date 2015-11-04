@@ -126,7 +126,7 @@
     </datatype>
     <datatype>
       <name name="filename"/>
-      <p>The name of a zip file.</p>
+      <desc><p>The name of a zip file.</p></desc>
     </datatype>
     <datatype><name name="extension"/></datatype>
     <datatype><name name="extension_spec"/></datatype>

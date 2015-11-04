@@ -39,7 +39,7 @@
       by <c>compile</c> to preprocess macros and include files before
       the actual parsing takes place.</p>
     <p>The Erlang source file <marker
-      id="encoding"><em>encoding</em></marker> is selected by a
+      id="encoding"/><em>encoding</em> is selected by a
       comment in one of the first two lines of the source file. The
       first string that matches the regular expression
       <c>coding\s*[:=]\s*([-a-zA-Z0-9])+</c> selects the encoding. If

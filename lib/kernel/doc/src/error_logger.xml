@@ -299,12 +299,12 @@ ok</pre>
       <name name="logfile" arity="1" clause_i="1"/>
       <name name="logfile" arity="1" clause_i="2"/>
       <name name="logfile" arity="1" clause_i="3"/>
+      <fsummary>Enable or disable error printouts to a file</fsummary>
       <type variable="Filename"/>
       <type variable="OpenReason" name_i="1"/>
       <type variable="CloseReason" name_i="2"/>
       <type variable="FilenameReason" name_i="3"/>
       <type name="open_error"/>
-      <fsummary>Enable or disable error printouts to a file</fsummary>
       <desc>
         <p>Enables or disables printout of standard events to a file.</p>
         <p>This is done by adding or deleting the standard event handler

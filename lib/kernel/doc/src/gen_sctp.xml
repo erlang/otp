@@ -77,9 +77,10 @@
 
   <datatypes>
     <datatype>
-      <name><marker id="type-assoc_id">assoc_id()</marker></name>
+      <name>assoc_id()</name>
       <desc>
-        <p>An opaque term returned in for example #sctp_paddr_change{}
+        <p><marker id="type-assoc_id"/>
+	  An opaque term returned in for example #sctp_paddr_change{}
           that identifies an association for an SCTP socket. The term
           is opaque except for the special value <c>0</c> that has a
           meaning such as "the whole endpoint" or "all future associations".
@@ -98,9 +99,10 @@
       <desc><marker id="type-sctp_socket"></marker></desc>
     </datatype>
     <datatype>
-      <name><marker id="type-sctp_socket">sctp_socket()</marker></name>
+      <name>sctp_socket()</name>
       <desc>
-        <p>Socket identifier returned from <c>open/*</c>.</p>
+        <p><marker id="type-sctp_socket"/>
+	 Socket identifier returned from <c>open/*</c>.</p>
         <marker id="exports"></marker>
       </desc>
     </datatype>
@@ -146,7 +148,7 @@
           <c><anno>Addr</anno></c> and <c><anno>Port</anno></c>. The <c><anno>Timeout</anno></c>,
           is expressed in milliseconds. A socket can be associated with multiple peers.</p>
 
-        <p><b>WARNING:</b>Using a value of <c><anno>Timeout</anno></c> less than
+        <p><em>WARNING:</em>Using a value of <c><anno>Timeout</anno></c> less than
         the maximum time taken by the OS to establish an association (around 4.5 minutes
         if the default values from RFC 4960 are used) can result in
         inconsistent or incorrect return values. This is especially
@@ -170,7 +172,7 @@
         <p>The number of outbound and inbound streams can be set by
           giving an <c>sctp_initmsg</c> option to <c>connect</c>
           as in:</p>
-<pre>  connect(<anno>Socket</anno>, Ip, <anno>Port</anno>,
+<pre>  connect(Socket, Ip, Port>,
         [{sctp_initmsg,#sctp_initmsg{num_ostreams=OutStreams,
                                      max_instreams=MaxInStreams}}])        </pre>
         <p>All options <c><anno>Opt</anno></c> are set on the socket before the

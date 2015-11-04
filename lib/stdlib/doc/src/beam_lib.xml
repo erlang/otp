@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2013</year>
+      <year>2000</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -71,6 +71,7 @@
       using <seealso marker="#strip/1">strip/1</seealso>,
       <seealso marker="#strip_files/1">strip_files/1</seealso> and/or
       <seealso marker="#strip_release/1">strip_release/1</seealso>.</p>
+  </section>
     <section>
       <title>Reconstructing source code</title>
       <p>Here is an example of how to reconstruct source code from
@@ -152,7 +153,6 @@
           keys.</p>
       </note>
     </section>
-  </section>
 
   <datatypes>
     <datatype>

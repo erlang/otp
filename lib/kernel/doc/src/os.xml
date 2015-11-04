@@ -171,8 +171,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
     <func>
       <name name="timestamp" arity="0"/>
-      <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
       <fsummary>Current OS system time on the erlang:timestamp/0 format</fsummary>
+      <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
       <desc>
       <p>Returns current
 	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
@@ -205,7 +205,7 @@ format_utc_timestamp() ->
 29 Apr 2009  9:55:30.051711
 </pre>
        <p>OS system time can also be retreived by
-	<c><seealso marker="#system_time/0"><c>os:system_time/0</c></seealso></c>,
+	<seealso marker="#system_time/0"><c>os:system_time/0</c></seealso>,
 	and <seealso marker="#system_time/1"><c>os:system_time/1</c></seealso>.</p>
       </desc>
     </func>

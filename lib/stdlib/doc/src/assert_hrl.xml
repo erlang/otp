@@ -77,9 +77,6 @@ erlc -DNOASSERT=true *.erl</code>
   </description>
 
   <section>
-  </section>
-
-  <section>
     <title>Macros</title>
     <taglist>
       <tag><c>assert(BoolExpr)</c></tag>
@@ -94,12 +91,12 @@ erlc -DNOASSERT=true *.erl</code>
 
       <tag><c>assertMatch(GuardedPattern, Expr)</c></tag>
       <item><p>Tests that <c>Expr</c> completes normally yielding a value
-      that matches <c>GuardedPattern</c>. For example:
+      that matches <c>GuardedPattern</c>. For example:</p>
         <code type="none">
-    ?assertMatch({bork, _}, f())</code></p>
-      <p>Note that a guard <c>when ...</c> can be included:
+    ?assertMatch({bork, _}, f())</code>
+      <p>Note that a guard <c>when ...</c> can be included:</p>
         <code type="none">
-    ?assertMatch({bork, X} when X > 0, f())</code></p>
+    ?assertMatch({bork, X} when X > 0, f())</code>
       </item>
 
       <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>

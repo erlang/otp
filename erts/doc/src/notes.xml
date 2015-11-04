@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -708,19 +708,20 @@
         </item>
         <item>
           <p>
-	    Use persistent hashmaps for large Maps <p>Maps will use a
+	    Use persistent hashmaps for large Maps</p>
+          <p>Maps will use a
 	    persistent hashmap implementation when the number of
 	    pairs in a Map becomes sufficiently large. The change
 	    will occur when a Map reaches 33 pairs in size but this
-	    limit might change in the future.</p></p>
-	    <p>The most significant impact for the user by this
+	    limit might change in the future.</p>
+          <p>The most significant impact for the user by this
 	    change is speed, and to a lesser degree memory
 	    consumption and introspection of Maps. Memory consumption
 	    size is probalistic but lesser than <c>gb_trees</c> or
 	    <c>dict</c> for instance. Any other impacts will be
 	    transparent for the user except for the following
 	    changes.</p>
-	    <p>Semantics of Maps have changed in two incompatible
+          <p>Semantics of Maps have changed in two incompatible
 	    ways compared to the experimental implementation in OTP
 	    17:</p> <list> <item>Hashing of maps is done different by
 	    <c>erlang:phash2/1,2</c>, <c>erlang:phash/1</c> and
@@ -1368,7 +1369,7 @@
           <p>
 	    Improved support for atomic memory operations provided by
 	    the <url
-	    href="https://github.com/ivmai/libatomic_ops/"><c>libatomic_ops</c></url>
+	    href="https://github.com/ivmai/libatomic_ops/">libatomic_ops</url>
 	    library. Most importantly support for use of native
 	    double word atomics when implemented by
 	    <c>libatomic_ops</c> (for example, implemented for ARM).</p>
@@ -2335,22 +2336,28 @@
           <p>
 	    EEP43: New data type - Maps</p>
           <p>
-	    With Maps you may for instance: <taglist> <item><c>M0 =
-	    #{ a =&gt; 1, b =&gt; 2}, % create
-	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
-	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
-	    "hello"}, % add new associations</c></item> <item><c>#{
-	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
-	    values</c></item> </taglist></p>
+	    With Maps you may for instance:</p>
+          <taglist>
+            <tag/> <item><c>M0 = #{ a =&gt; 1, b =&gt; 2}, % create
+	      associations</c></item>
+            <tag/><item><c>M1 = M0#{ a := 10 }, % update values</c></item>
+            <tag/><item><c>M2 = M1#{ "hi" =&gt;
+	      "hello"}, % add new associations</c></item>
+            <tag/><item><c>#{ "hi" := V1, a := V2, b := V3} = M2.
+               % match keys with values</c></item>
+          </taglist>
           <p>
 	    For information on how to use Maps please see Map Expressions in the
 		<seealso marker="doc/reference_manual:expressions#map_expressions">
 			Reference Manual</seealso>.</p>
           <p>
 	    The current implementation is without the following
-	    features: <taglist> <item>No variable keys</item>
-	    <item>No single value access</item> <item>No map
-	    comprehensions</item> </taglist></p>
+	    features:</p>
+          <taglist>
+            <tag/><item>No variable keys</item>
+	    <tag/><item>No single value access</item>
+            <tag/><item>No map comprehensions</item>
+          </taglist>
           <p>
 	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
           <p>
@@ -4510,8 +4517,7 @@
           <p>
 	    Fix erl_prim_loader errors in handling of primary
 	    archive. The following errors have been corrected:</p>
-          <p>
-	    <list> <item> If primary archive was named "xxx", then a
+          <list> <item> If primary archive was named "xxx", then a
 	    file in the same directory named "xxxyyy" would be
 	    interpreted as a file named "yyy" inside the archive.
 	    </item> <item> erl_prim_loader did not correctly create
@@ -4526,7 +4532,8 @@
 	    erl_prim_loader:list_dir/1 would sometimes return an
 	    empty string inside the file list. This was a virtual
 	    element representing the top directory of the archive.
-	    This has been removed. </item> </list></p>
+	    This has been removed. </item>
+          </list>
           <p>
 	    Thanks to Tuncer Ayaz and Shunichi Shinohara for
 	    reporting and co-authoring corrections.</p>
@@ -6969,12 +6976,12 @@
 	    Own Id: OTP-8726 Aux Id: seq11617 </p>
         </item>
         <item>
-	    <p>Fix libm linking with --as-needed flag
+	    <p>Fix libm linking with --as-needed flag</p>
           <p>
 	    When building with "--as-needed" linker flags on Linux
 	    the build will fail. This has now been fixed.</p>
           <p>
-	    (Thanks to Christian Faulhammer)</p></p>
+	    (Thanks to Christian Faulhammer)</p>
           <p>
 	    Own Id: OTP-8728</p>
         </item>

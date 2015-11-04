@@ -353,7 +353,7 @@
       <desc>
         <p>Dynamically adds a child specification to the supervisor
           <c><anno>SupRef</anno></c> which starts the corresponding child process.</p>
-        <p><marker id="SupRef"><c><anno>SupRef</anno></c></marker> can be:</p>
+        <p><marker id="SupRef"/><c><anno>SupRef</anno></c> can be:</p>
         <list type="bulleted">
           <item>the pid,</item>
           <item><c>Name</c>, if the supervisor is locally registered,</item>

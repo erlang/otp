@@ -152,10 +152,10 @@
     <func>
       <name name="tokens" arity="3"/>
       <name name="tokens" arity="4"/>
+      <fsummary>Re-entrant scanner</fsummary>
       <type name="char_spec"/>
       <type name="return_cont"/>
       <type_desc name="return_cont">An opaque continuation</type_desc>
-      <fsummary>Re-entrant scanner</fsummary>
       <desc>
         <p>This is the re-entrant scanner which scans characters until
           a <em>dot</em> ('.' followed by a white space) or

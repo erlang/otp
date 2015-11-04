@@ -316,20 +316,20 @@
               bytes.</p>
           </item>
           <item>
-            <p><c>{filename, <seealso marker="file#type-name">file:name()</seealso>}</c>,
+            <p><c>{filename, </c><seealso marker="file#type-name">file:name()</seealso><c>}</c>,
               the name of the file where objects are stored.</p>
           </item>
           <item>
-            <p><c>{keypos, <seealso marker="#type-keypos">keypos()</seealso>}
-              </c>, the position of the key.</p>
+            <p><c>{keypos, </c><seealso marker="#type-keypos">keypos()</seealso>
+              <c>}</c>, the position of the key.</p>
           </item>
           <item>
             <p><c>{size, integer() >= 0}</c>, the number of objects stored
               in the table.</p>
           </item>
           <item>
-            <p><c>{type, <seealso marker="#type-type">type()</seealso>}</c>,
-            the type of the table.</p>
+            <p><c>{type, </c><seealso marker="#type-type">type()</seealso>
+            <c>}</c>, the type of the table.</p>
           </item>
         </list>
       </desc>
@@ -345,12 +345,12 @@
           allowed:</p>
         <list type="bulleted">
           <item>
-            <p><c>{access, <seealso marker="#type-access">access()</seealso>}
-            </c>, the access mode.</p>
+            <p><c>{access, </c><seealso marker="#type-access">access()</seealso>
+            <c>}</c>, the access mode.</p>
           </item>
           <item>
-            <p><c>{auto_save, <seealso marker="#type-auto_save">
-              auto_save()</seealso>}</c>, the auto save interval.</p>
+            <p><c>{auto_save, </c><seealso marker="#type-auto_save">
+              auto_save()</seealso><c>}</c>, the auto save interval.</p>
           </item>
           <item>
             <p><c>{bchunk_format, binary()}</c>, an opaque binary
@@ -730,16 +730,16 @@ ok
           tuples where the following values are allowed:</p>
         <list type="bulleted">
           <item>
-            <p><c>{access, <seealso marker="#type-access">
-              access()</seealso>}</c>. It is possible to open
+            <p><c>{access, </c><seealso marker="#type-access">
+              access()</seealso><c>}</c>. It is possible to open
               existing tables in read-only mode. A table which is opened
               in read-only mode is not subjected to the automatic file
               reparation algorithm if it is later opened after a crash.
               The default value is <c>read_write</c>.</p>
           </item>
           <item>
-            <p><c>{auto_save, <seealso marker="#type-auto_save">
-              auto_save()</seealso>}</c>, the auto save
+            <p><c>{auto_save, </c><seealso marker="#type-auto_save">
+              auto_save()</seealso><c>}</c>, the auto save
               interval. If the interval is an integer <c>Time</c>, the
               table is flushed to disk whenever it is not accessed for
               <c>Time</c> milliseconds. A table that has been flushed
@@ -749,18 +749,18 @@ ok
               is 180000 (3 minutes).</p>
           </item>
           <item>
-            <p><c>{estimated_no_objects, <seealso marker="#type-no_slots">
-              no_slots()</seealso>}</c>. Equivalent to the
+            <p><c>{estimated_no_objects, </c><seealso marker="#type-no_slots">
+              no_slots()</seealso><c>}</c>. Equivalent to the
               <c>min_no_slots</c> option.</p>
           </item>
           <item>
-            <p><c>{file, <seealso marker="file#type-name">
-              file:name()</seealso>}</c>, the name of the file to be
+            <p><c>{file, </c><seealso marker="file#type-name">
+              file:name()</seealso><c>}</c>, the name of the file to be
               opened. The default value is the name of the table.</p>
           </item>
           <item>
-            <p><c>{max_no_slots, <seealso marker="#type-no_slots">
-              no_slots()</seealso>}</c>, the maximum number
+            <p><c>{max_no_slots, </c><seealso marker="#type-no_slots">
+              no_slots()</seealso><c>}</c>, the maximum number
               of slots that will be used. The default value as well as
               the maximal value is 32 M. Note that a higher value may
               increase the fragmentation of the table, and conversely,
@@ -769,16 +769,16 @@ ok
               9 tables.</p>
           </item>
           <item>
-            <p><c>{min_no_slots, <seealso marker="#type-no_slots">
-              no_slots()</seealso>}</c>. Application
+            <p><c>{min_no_slots, </c><seealso marker="#type-no_slots">
+              no_slots()</seealso><c>}</c>. Application
               performance can be enhanced with this flag by specifying,
               when the table is created, the estimated number of
               different keys that will be stored in the table. The
               default value as well as the minimum value is 256.</p>
           </item>
           <item>
-            <p><c>{keypos, <seealso marker="#type-keypos">
-              keypos()</seealso>}</c>, the position of the
+            <p><c>{keypos, </c><seealso marker="#type-keypos">
+              keypos()</seealso><c>}</c>, the position of the
               element of each object to be used as key. The default
               value is 1. The ability to explicitly state the key
               position is most convenient when we want to store Erlang
@@ -815,12 +815,12 @@ ok
               already open.</p>
           </item>
           <item>
-            <p><c>{type, <seealso marker="#type-type">type()</seealso>}</c>,
+            <p><c>{type, </c><seealso marker="#type-type">type()</seealso><c>}</c>,
               the type of the table. The default value is <c>set</c>.</p>
           </item>
           <item>
-            <p><c>{version, <seealso marker="#type-version">
-              version()</seealso>}</c>, the version of the format
+            <p><c>{version, </c><seealso marker="#type-version">
+              version()</seealso><c>}</c>, the version of the format
               used for the table. The default value is <c>9</c>. Tables
               on the format used before OTP R8 can be created by giving
               the value <c>8</c>. A version 8 table can be converted to
@@ -1036,8 +1036,8 @@ ok
               specification that matches all objects.</p>
           </item>
           <item>
-            <p><c>{select, <seealso marker="#type-match_spec">
-              match_spec()}</seealso></c>. As for <c>select</c>
+            <p><c>{select, </c><seealso marker="#type-match_spec">
+              match_spec()</seealso><c>}</c>. As for <c>select</c>
               the table is traversed by calling <c>dets:select/3</c>
               and <c>dets:select/1</c>. The difference is that the
               match specification is explicitly given. This is how to

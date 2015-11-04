@@ -132,9 +132,10 @@
       <name name="access"/>
     </datatype>
     <datatype>
-      <name><marker id="type-continuation">continuation()</marker></name>
+      <name>continuation()</name>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#select/1">
+        <p><marker id="type-continuation"/>
+          Opaque continuation used by <seealso marker="#select/1">
           <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
           <c>select_reverse/1,3</c></seealso>, <seealso
           marker="#match/1">
@@ -448,13 +449,13 @@ Error: fun containing local Erlang function calls
           <item><c>{owner, pid()}</c>          <br></br>
 
            The pid of the owner of the table.</item>
-          <item><c>{protection, <seealso marker="#type-access">access()</seealso>}</c>          <br></br>
+          <item><c>{protection, </c><seealso marker="#type-access">access()</seealso><c>}</c>          <br></br>
 
            The table access rights.</item>
           <item><c>{size, integer() >= 0</c>          <br></br>
 
            The number of objects inserted in the table.</item>
-          <item><c>{type, <seealso marker="#type-type">type()</seealso>}</c>          <br></br>
+          <item><c>{type, </c><seealso marker="#type-type">type()</seealso><c>}</c>          <br></br>
 
            The table type.</item>
           <item><c>{read_concurrency, boolean()}</c>          <br></br>
@@ -1626,6 +1627,7 @@ true</pre>
       <name name="update_counter" arity="4" clause_i="2"/>
       <name name="update_counter" arity="3" clause_i="3"/>
       <name name="update_counter" arity="4" clause_i="3"/>
+      <fsummary>Update a counter object in an ETS table.</fsummary>
       <type variable="Tab"/>
       <type variable="Key"/>
       <type variable="UpdateOp" name_i="1"/>
@@ -1633,7 +1635,6 @@ true</pre>
       <type variable="Threshold" name_i="1"/>
       <type variable="SetValue" name_i="1"/>
       <type variable="Default"/>
-      <fsummary>Update a counter object in an ETS table.</fsummary>
       <desc>
         <p>This function provides an efficient way to update one or more 
           counters, without the hassle of having to look up an object, update 
@@ -1700,11 +1701,11 @@ true</pre>
     <func>
       <name name="update_element" arity="3" clause_i="1"/>
       <name name="update_element" arity="3" clause_i="2"/>
+      <fsummary>Updates the <c>Pos</c>:th element of the object with a given key in an ETS table.</fsummary>
       <type variable="Tab"/>
       <type variable="Key"/>
       <type variable="Value"/>
       <type variable="Pos"/>
-      <fsummary>Updates the <c>Pos</c>:th element of the object with a given key in an ETS table.</fsummary>
       <desc>
         <p>This function provides an efficient way to update one or more 
           elements within an object, without the hassle of having to look up, 
