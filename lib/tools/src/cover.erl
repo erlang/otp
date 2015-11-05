@@ -90,7 +90,7 @@
 	 stop/0, stop/1]).
 -export([remote_start/1,get_main_node/0]).
 %-export([bump/5]).
--export([transform/4]). % for test purposes
+-export([transform/5]). % for test purposes
 
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
@@ -1381,34 +1381,39 @@ do_compile_beam(Module,Beam,UserOptions) ->
 	encrypted_abstract_code=E ->
 	    {error,E};
 	{Vsn,Code} ->
-            Forms0 = epp:interpret_file_attribute(Code),
-	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
+        case find_main_filename(Code) of
+            {error, Reason} ->
+                {error, Reason};
+            MainFile ->      
+                Forms0 = epp:interpret_file_attribute(Code),
+        	    {Forms,Vars} = transform(Vsn, Forms0, MainFile, Module, Beam),
 
-	    %% We need to recover the source from the compilation
-	    %% info otherwise the newly compiled module will have
-	    %% source pointing to the current directory
-	    SourceInfo = get_source_info(Module, Beam),
+        	    %% We need to recover the source from the compilation
+        	    %% info otherwise the newly compiled module will have
+        	    %% source pointing to the current directory
+        	    SourceInfo = get_source_info(Module, Beam),
 
-	    %% Compile and load the result
-	    %% It's necessary to check the result of loading since it may
-	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
-	    case code:load_binary(Module, ?TAG, Binary) of
-		{module, Module} ->
-		    
-		    %% Store info about all function clauses in database
-		    InitInfo = reverse(Vars#vars.init_info),
-		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
-		    
-		    %% Store binary code so it can be loaded on remote nodes
-		    ets:insert(?BINARY_TABLE, {Module, Binary}),
+        	    %% Compile and load the result
+        	    %% It's necessary to check the result of loading since it may
+        	    %% fail, for example if Module resides in a sticky directory
+        	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
+        	    case code:load_binary(Module, ?TAG, Binary) of
+        		{module, Module} ->
 
-		    {ok, Module};
-		
-		_Error ->
-		    do_clear(Module),
-		    error
-	    end
+        		    %% Store info about all function clauses in database
+        		    InitInfo = reverse(Vars#vars.init_info),
+        		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
+
+        		    %% Store binary code so it can be loaded on remote nodes
+        		    ets:insert(?BINARY_TABLE, {Module, Binary}),
+
+        		    {ok, Module};
+
+        		_Error ->
+        		    do_clear(Module),
+        		    error
+        	    end
+        end
     end.
 
 get_abstract_code(Module, Beam) ->
@@ -1431,9 +1436,8 @@ get_source_info(Module, Beam) ->
 		[]
     end.
 
-transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
+transform(Vsn, Code, MainFile, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
     Vars0 = #vars{module=Module, vsn=Vsn},
-    MainFile=find_main_filename(Code),
     {ok, MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     
     %% Add module and export information to the munged forms
@@ -1450,8 +1454,7 @@ transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
     Forms = [{attribute,1,module,Module},
 	     {attribute,2,export,Exports2}]++ MungedForms,
     {Forms,Vars};
-transform(Vsn=raw_abstract_v1, Code, Module, _Beam) ->
-    MainFile=find_main_filename(Code),
+transform(Vsn=raw_abstract_v1, Code, MainFile, Module, _Beam) ->
     Vars0 = #vars{module=Module, vsn=Vsn},
     {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     {MungedForms,Vars}.
@@ -1461,7 +1464,9 @@ transform(Vsn=raw_abstract_v1, Code, Module, _Beam) ->
 find_main_filename([{attribute,_,file,{MainFile,_}}|_]) ->
     MainFile;
 find_main_filename([_|Rest]) ->
-    find_main_filename(Rest).
+    find_main_filename(Rest);
+find_main_filename([]) ->
+    {error, no_main_file}.
 
 transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
     Form = expand(Form0),
