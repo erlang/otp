@@ -2612,6 +2612,19 @@ get_module_info(Forms) ->
 fold_record_fields(Rs) ->
     [{N, [fold_record_field(F) || F <- Fs]} || {N, Fs} <- Rs].
 
+fold_record_field({_Name, {none, _Type}} = None) ->
+    None;
+fold_record_field({Name, {F, Type}}) ->
+    case erl_syntax:is_literal(F) of
+	true ->
+	    {Name, {value, erl_syntax:concrete(F)}, Type};
+	false ->
+	    %% The default value for the field is not a constant, so we
+	    %% represent it by a hash value instead. (We don't want to
+	    %% do this in the general case.)
+	    {Name, {hash, erlang:phash(F, 16#ffffff)}, Type}
+    end;
+%% The following two clauses handle code before Erlang/OTP 19.0.
 fold_record_field({_Name, none} = None) ->
     None;
 fold_record_field({Name, F}) ->
