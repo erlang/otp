@@ -478,12 +478,12 @@ kex is implicit but public_key is set explicitly.</p>
 	      </item>
 	      <tag><c>{ssh_moduli_file,filename()}</c></tag>
 	      <item>The file must be in
-	      <seealso marker="public_key:public_key#public_key/4">ssh-keygen moduli file format</seealso>.
+	      <seealso marker="public_key:public_key#dh_gex_group/4">ssh-keygen moduli file format</seealso>.
 	      The file is read when the daemon starts.
 	      </item>
 	    </taglist>
 	    <p>The default list is fetched from the 
-	      <seealso marker="public_key:public_key#public_key/4">public_key</seealso> application.
+	      <seealso marker="public_key:public_key#dh_gex_group/4">public_key</seealso> application.
 	    </p>
 	  </item>
 
