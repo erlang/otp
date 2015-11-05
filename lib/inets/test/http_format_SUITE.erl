@@ -38,7 +38,7 @@ groups() ->
       [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
        chunk_decode_otp_6264,
        chunk_decode_empty_chunk_otp_6511,
-       chunk_decode_trailer]}].
+       chunk_decode_trailer, chunk_max_headersize, chunk_max_bodysize, chunk_not_hex]}].
 
 init_per_suite(Config) ->
     Config.
@@ -91,9 +91,7 @@ chunk_decode(Config) when is_list(Config) ->
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
 
     {_, Body} = parse(Module, Function, Args, tl(NewChunkedBody)),
-    "1234567890HEJ!" = binary_to_list(Body),
-
-    ok.
+    "1234567890HEJ!" = binary_to_list(Body).
 
 %%-------------------------------------------------------------------------
 chunk_extensions_otp_6005() ->
@@ -226,9 +224,64 @@ chunk_encode(Config) when is_list(Config) ->
     <<54, ?CR, ?LF, 102,111,111,98,97,114, ?CR, ?LF>> = 
 	http_chunk:encode(list_to_binary("foobar")),
     ["6", ?CR, ?LF,"foobar", ?CR, ?LF] = http_chunk:encode("foobar"),
-    <<$0, ?CR, ?LF, ?CR, ?LF >> = http_chunk:encode_last(),
-    ok.
-
+    <<$0, ?CR, ?LF, ?CR, ?LF >> = http_chunk:encode_last().
+%%-------------------------------------------------------------------------
+chunk_max_headersize() ->
+    [{doc, "Test max header limit"}].
+chunk_max_headersize(Config) when is_list(Config) ->
+    ChunkedBody = "1a; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    
+    {ok, {_, _}} = 
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
+    
+    %% Too long in length header
+    {error,{header_too_long, {max, 1}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 1)),
+    
+    %% Too long in extension field
+    {error,{header_too_long, {max, 10}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 10)),
+    
+    %% Too long in trailer
+    {error,{header_too_long, {max, 30}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 30)).
+%%-------------------------------------------------------------------------
+chunk_not_hex() ->
+    [{doc, "Test bad chunked length header"}].
+chunk_not_hex(Config) when is_list(Config) ->
+     ChunkedBody = "åäö; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+     {error,{chunk_size, "åäö"}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE)).
+%%-------------------------------------------------------------------------
+chunk_max_bodysize() ->
+    [{doc, "Test max body limit"}].
+chunk_max_bodysize(Config) when is_list(Config) ->
+     ChunkedBody = "1a; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    {ok, {_, _}} = 
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
+    
+    %% Too long body
+    {error,{body_too_big, {max, 10}}} = 
+	 (catch http_chunk:decode(list_to_binary(ChunkedBody),
+				  10, ?HTTP_MAX_HEADER_SIZE)).
 
 %%-------------------------------------------------------------------------
 http_response() ->
