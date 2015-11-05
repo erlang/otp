@@ -329,6 +329,10 @@ handle_option([{dsa_pass_phrase, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{rsa_pass_phrase, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dsa_priv_key, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{rsa_priv_key, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{password, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
@@ -457,6 +461,10 @@ handle_ssh_option({user, Value} = Opt) when is_list(Value) ->
 handle_ssh_option({dsa_pass_phrase, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({rsa_pass_phrase, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({dsa_priv_key, Value} = Opt) when is_binary(Value) ->
+    Opt;
+handle_ssh_option({rsa_priv_key, Value} = Opt) when is_binary(Value) ->
     Opt;
 handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
     Opt;

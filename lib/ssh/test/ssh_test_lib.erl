@@ -320,6 +320,12 @@ ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file
     setup_ecdsa_known_host(Size, System, UserDir),
     setup_ecdsa_auth_keys(Size, UserDir, UserDir).
 
+get_rsa_priv_key(DataDir) ->
+    file:read_file(filename:join(DataDir, "id_rsa")).
+
+get_dsa_priv_key(DataDir) ->
+    file:read_file(filename:join(DataDir, "id_dsa")).
+
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
     file:delete(filename:join(UserDir,"id_dsa")),
