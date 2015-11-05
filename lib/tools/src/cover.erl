@@ -90,7 +90,7 @@
 	 stop/0, stop/1]).
 -export([remote_start/1,get_main_node/0]).
 %-export([bump/5]).
--export([transform/5]). % for test purposes
+-export([transform/4]). % for test purposes
 
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
@@ -1435,6 +1435,10 @@ get_source_info(Module, Beam) ->
 	_ ->
 		[]
     end.
+
+transform(Vsn, Code, Module, Beam) ->
+    MainFile = find_main_filename(Code),
+    transform(Vsn, Code, MainFile, Module, Beam).
 
 transform(Vsn, Code, MainFile, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
     Vars0 = #vars{module=Module, vsn=Vsn},

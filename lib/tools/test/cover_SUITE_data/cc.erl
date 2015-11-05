@@ -51,7 +51,7 @@ cvr(Module, P) ->
 		    undefined, undefined, undefined, undefined, undefined,
 		    undefined,
 		    false},
-	    {ok, TForms, _Vars2} = cover:transform(Forms, [], Vars),
+	    {ok, TForms, _Vars2} = cover:transform(Vsn, Forms, [], Vars),
 	    File = atom_to_list(Module)++".cvr",
 	    apply(?MODULE, P, [File, TForms]);
 	Error ->
