@@ -643,3 +643,10 @@ bif erts_debug:map_info/1
 #
 
 bif erlang:hash/2
+
+#
+# New in ?.
+#
+
+bif binary:split/2
+bif binary:split/3
