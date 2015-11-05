@@ -88,7 +88,7 @@ debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(HRL_FILES)
 
 $(EBIN)/pubkey_ssh.$(EMULATOR): pubkey_moduli.hrl
 
-pubkey_moduli.hrl: ../priv/ssh_moduli
+pubkey_moduli.hrl: ../priv/moduli
 	escript ../priv/convert.escript $< $@
 
 clean:

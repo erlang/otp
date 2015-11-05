@@ -316,17 +316,17 @@
       <p>Selects a group for Diffie-Hellman key exchange with the key size in the range <c>MinSize...MaxSize</c>
       and as close to <c>SuggestedSize</c> as possible. If <c>Groups == undefined</c> a default set will be
       used, otherwise the group is selected from <c>Groups</c>.</p>
-      <p>First is a size as close as possible to <c>SuggestedSize</c> selected. Then is one group with that key size
-      randomly selected from the list. If no size within the limits of <c>MinSize</c> and <c>MaxSize</c> is
-      available, <c>{error,no_group_found}</c> is returned.</p>
-      <p>The default list is in <c>lib/public_key/priv/ssh_moduli</c>. The format is as produced by the openssh tool
-      <c>ssh-keygen -G</c> followed by <c>ssh-keygen -T</c>. When that list is changed, <c>make</c> should be run in
-      <c>lib/public_key</c> to make it available for <c>dh_gex_group/4</c>.</p>
-	    <note>
-	      <p>If you change the default ssh_moduli file, be sure to run <c>ssh-keygen -T</c> as described
-	      in the ssh-keygen manual. Failure to do so correctly will compromise the security of applications
-	      relying on this function.</p>
-	    </note>
+      <p>First a size, as close as possible to SuggestedSize, is selected. Then one group with that key size
+      is randomly selected from the specified set of groups. If no size within the limits of <c>MinSize</c>
+      and <c>MaxSize</c> is available, <c>{error,no_group_found}</c> is returned.</p>
+      <p>The default set of groups is listed in <c>lib/public_key/priv/moduli</c>. This file may be regenerated like this:</p>
+      <pre>
+	$> cd $ERL_TOP/lib/public_key/priv/
+	$> generate
+         ---- wait until all background jobs has finished. It may take several days !
+	$> cat moduli-* > moduli
+	$> cd ..; make 
+      </pre>
     </desc>
   </func>
 
