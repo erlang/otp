@@ -253,6 +253,8 @@ lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,a0(),pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,a0(),pname(From)},falist(Falist)]);
+lattribute(export_type, Talist, _Opts, _State) ->
+    call({var,a0(),"-export_type"}, [falist(Talist)], 0, options(none));
 lattribute(optional_callbacks, Falist, Opts, _State) ->
     ArgL = try falist(Falist)
            catch _:_ -> abstract(Falist, Opts)
@@ -321,7 +323,6 @@ ltype({type,_,'fun',[{type,_,any},_]}=FunType, _) ->
 ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
 ltype({type,Line,T,Ts}, _) ->
-    %% Compatibility. Before 18.0.
     simple_type({atom,Line,T}, Ts);
 ltype({user_type,Line,T,Ts}, _) ->
     simple_type({atom,Line,T}, Ts);
@@ -399,6 +400,9 @@ guard_type(Before, Gs) ->
     Gl = {list,[{step,'when',expr_list(Gs, [$,], fun constraint/2, Opts)}]},
     {list,[{step,Before,Gl}]}.
 
+constraint({type,_Line,constraint,[{atom,_,is_subtype},[{var,_,_}=V,Type]]},
+           _Opts) ->
+    typed(lexpr(V, options(none)), Type);
 constraint({type,_Line,constraint,[Tag,As]}, _Opts) ->
     simple_type(Tag, As).
 
