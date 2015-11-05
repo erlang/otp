@@ -297,6 +297,7 @@ ms() ->
 
      %% Keep these last in the list, so
      %% mnesia_sup kills these last
+     mnesia_ext_sup,
      mnesia_monitor,
      mnesia_event
     ].

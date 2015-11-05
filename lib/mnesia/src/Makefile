@@ -43,6 +43,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/mnesia-$(VSN)
 # ----------------------------------------------------
 MODULES= \
 	mnesia \
+	mnesia_backend_type \
 	mnesia_backup \
 	mnesia_bup \
 	mnesia_checkpoint \
@@ -50,6 +51,7 @@ MODULES= \
 	mnesia_controller \
 	mnesia_dumper\
 	mnesia_event \
+	mnesia_ext_sup \
 	mnesia_frag \
 	mnesia_frag_hash \
 	mnesia_frag_old_hash \
