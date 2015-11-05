@@ -104,7 +104,7 @@
     strong. If a strong cryptographic random number generator is
     needed, use one of functions in the
     <seealso marker="crypto:crypto">crypto</seealso>
-    module, for example <c>crypto:rand_bytes/1</c>.</p></note>
+    module, for example <c>crypto:strong_rand_bytes/1</c>.</p></note>
   </description>
   <datatypes>
     <datatype>
