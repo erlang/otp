@@ -34,6 +34,11 @@
 	 delete_backend_type/1,
 	 do_delete_backend_type/1,
 	 backend_types/0,
+	 add_index_plugin/3,
+	 do_add_index_plugin/3,
+	 delete_index_plugin/1,
+	 do_delete_index_plugin/1,
+	 index_plugins/0,
          add_snmp/2,
          add_table_copy/3,
          add_table_index/2,
@@ -223,7 +228,13 @@ do_set_schema(Tab, Cs) ->
     RecName =  Cs#cstruct.record_name,
     set({Tab, record_name}, RecName),
     set({Tab, wild_pattern}, wild(RecName, Arity)),
-    set({Tab, index}, Cs#cstruct.index),
+    set({Tab, index}, [P || {P,_} <- Cs#cstruct.index]),
+    case Cs#cstruct.index of
+        [] ->
+            set({Tab, index_info}, mnesia_index:index_info(Type, []));
+        _ ->
+            ignore
+    end,
     %% create actual index tabs later
     set({Tab, cookie}, Cs#cstruct.cookie),
     set({Tab, version}, Cs#cstruct.version),
@@ -597,6 +608,11 @@ initial_schema_properties_([{backend_types, Types}|Props]) ->
 			  verify_backend_type(Name, Module)
 		  end, Types),
     [{mnesia_backend_types, Types}|initial_schema_properties_(Props)];
+initial_schema_properties_([{index_plugins, Plugins}|Props]) ->
+    lists:foreach(fun({Name, Module, Function}) ->
+			  verify_index_plugin(Name, Module, Function)
+		  end, Plugins),
+    [{mnesia_index_plugins, Plugins}|initial_schema_properties_(Props)];
 initial_schema_properties_([P|_Props]) ->
     mnesia:abort({bad_schema_property, P});
 initial_schema_properties_([]) ->
@@ -749,8 +765,20 @@ cs2list({8,Minor}, Cs) when Minor =:= 2; Minor =:= 1 ->
 	    record_name,attributes,
 	    user_properties,frag_properties,storage_properties,
 	    cookie,version],
-    rec2list(Tags, Orig, 2, Cs).
+    CsList = rec2list(Tags, Orig, 2, Cs),
+    case proplists:get_value(index, CsList, []) of
+	[] -> CsList;
+	NewFormat ->
+	    OldFormat = [Pos || {Pos, _Pref} <- NewFormat],
+	    lists:keyreplace(index, 1, CsList, {index, OldFormat})
+    end.
 
+rec2list([index | Tags], [index|Orig], Pos, Rec) ->
+    Val = element(Pos, Rec),
+    [{index, lists:map(
+	       fun({_, _Type}=P) -> P;
+		  (P) when is_integer(P); is_atom(P) -> {P, ordered}
+	       end, Val)} | rec2list(Tags, Orig, Pos + 1, Rec)];
 rec2list([external_copies | Tags], Orig0, Pos, Rec) ->
     Orig = case Orig0 of
 	       [external_copies|Rest] -> Rest;
@@ -811,8 +839,6 @@ list2cs(List, ExtTypes) when is_list(List) ->
     Ix = pick(Name, index, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(Ix),
 	   {bad_type, Name, {index, [Ix]}}),
-    Ix2 = [attr_to_pos(I, Attrs) || I <- Ix],
-
     Frag = pick(Name, frag_properties, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(Frag),
 	   {badarg, Name, {frag_properties, Frag}}),
@@ -876,6 +902,7 @@ list2cs(List, ExtTypes) when is_list(List) ->
     case Ix of
 	[] -> Cs0;
 	[_|_] ->
+	    Ix2 = expand_index_attrs(Cs0),
 	    Cs0#cstruct{index = Ix2}
     end;
 list2cs(Other, _ExtTypes) ->
@@ -920,6 +947,9 @@ expand_storage_type(S) ->
 
 get_ext_types() ->
     get_schema_user_property(mnesia_backend_types).
+
+get_index_plugins() ->
+    get_schema_user_property(mnesia_index_plugins).
 
 get_schema_user_property(Key) ->
     Tab = schema,
@@ -970,6 +1000,7 @@ attr_tab_to_pos(Tab, Attr) ->
     attr_to_pos(Attr, val({Tab, attributes})).
 
 %% Convert attribute name to integer if neccessary
+attr_to_pos({_} = P, _) -> P;
 attr_to_pos(Pos, _Attrs) when is_integer(Pos) ->
     Pos;
 attr_to_pos(Attr, Attrs) when is_atom(Attr) ->
@@ -1019,11 +1050,44 @@ has_duplicates([]) ->
     false.
 
 %% This is the only place where we check the validity of data
+
 verify_cstruct(#cstruct{} = Cs) ->
     assert_correct_cstruct(Cs),
-    Cs1 = verify_external_copies(Cs),
+    Cs1 = verify_external_copies(
+	    Cs#cstruct{index = expand_index_attrs(Cs)}),
     assert_correct_cstruct(Cs1),
     Cs1.
+
+expand_index_attrs(#cstruct{index = Ix, attributes = Attrs,
+			    name = Tab} = Cs) ->
+    Prefered = prefered_index_types(Cs),
+    expand_index_attrs(Ix, Tab, Attrs, Prefered).
+
+expand_index_attrs(Ix, Tab, Attrs, Prefered) ->
+    lists:map(fun(P) when is_integer(P); is_atom(P) ->
+		      {attr_to_pos(P, Attrs), Prefered};
+		 ({A} = P) when is_atom(A) ->
+		      {P, Prefered};
+		 ({P, Type}) ->
+		      {attr_to_pos(P, Attrs), Type};
+		 (_Other) ->
+		      mnesia:abort({bad_type, Tab, {index, Ix}})
+	      end, Ix).
+
+prefered_index_types(#cstruct{external_copies = Ext}) ->
+    ExtTypes = [mnesia_lib:semantics(S, index_types) ||
+		   {S,Ns} <- Ext, Ns =/= []],
+    case intersect_types(ExtTypes) of
+	[] -> ordered;
+	[Pref|_] -> Pref
+    end.
+
+intersect_types([]) ->
+    [];
+intersect_types([S1, S2|Rest]) ->
+    intersect_types([S1 -- (S1 -- S2)|Rest]);
+intersect_types([S]) ->
+    S.
 
 verify_external_copies(#cstruct{external_copies = []} = Cs) ->
     Cs;
@@ -1112,22 +1176,30 @@ assert_correct_cstruct(Cs) when is_record(Cs, cstruct) ->
                 Attrs),
 
     Index = Cs#cstruct.index,
+
     verify({alt, [nil, list]}, mnesia_lib:etype(Index),
 	   {bad_type, Tab, {index, Index}}),
+    IxPlugins = get_index_plugins(),
 
+    AllowIndexOnKey = check_if_allow_index_on_key(),
     IxFun =
-        fun(Pos) ->
-                verify(true, fun() ->
-                                     if
-					 is_integer(Pos),
-                                         Pos > 2,
-                                         Pos =< Arity ->
-                                             true;
-                                         true -> false
-                                     end
-                             end,
-                       {bad_type, Tab, {index, [Pos]}})
-        end,
+	fun(Pos) ->
+		verify(
+		  true, fun() ->
+				I = index_pos(Pos),
+				case Pos of
+				    {_, T} ->
+					(T==bag orelse T==ordered)
+					    andalso good_ix_pos(
+						      I, AllowIndexOnKey,
+						      Arity, IxPlugins);
+				    _ ->
+					good_ix_pos(Pos, AllowIndexOnKey,
+						    Arity, IxPlugins)
+				end
+			end,
+		  {bad_type, Tab, {index, [Pos]}})
+	end,
     lists:foreach(IxFun, Index),
 
     LC = Cs#cstruct.local_content,
@@ -1171,6 +1243,24 @@ assert_correct_cstruct(Cs) when is_record(Cs, cstruct) ->
             ok;
         Version ->
             mnesia:abort({bad_type, Tab, {version, Version}})
+    end.
+
+good_ix_pos({_} = P, _, _, Plugins) ->
+    lists:keymember(P, 1, Plugins);
+good_ix_pos(I, true, Arity, _) when is_integer(I) ->
+    I >= 0 andalso I =< Arity;
+good_ix_pos(I, false, Arity, _) when is_integer(I) ->
+    I > 2 andalso I =< Arity;
+good_ix_pos(_, _, _, _) ->
+    false.
+
+
+check_if_allow_index_on_key() ->
+    case mnesia_monitor:get_env(allow_index_on_key) of
+	true ->
+	    true;
+	_ ->
+	    false
     end.
 
 verify_nodes(Cs) ->
@@ -1392,6 +1482,71 @@ legal_backend_name(Name) ->
 backend_types() ->
     [ram_copies, disc_copies, disc_only_copies |
      [T || {T,_} <- get_ext_types()]].
+
+add_index_plugin(Name, Module, Function) ->
+    schema_transaction(
+      fun() -> do_add_index_plugin(Name, Module, Function) end).
+
+do_add_index_plugin(Name, Module, Function) ->
+    verify_index_plugin(Name, Module, Function),
+    Plugins = case do_read_table_property(schema, mnesia_index_plugins) of
+		  undefined ->
+		      [];
+		  {_, Ps} ->
+		      case lists:keymember(Name, 1, Ps) of
+			  true ->
+			      mnesia:abort({index_plugin_already_exists, Name});
+			  false ->
+			      Ps
+		      end
+	      end,
+    do_write_table_property(schema, {mnesia_index_plugins,
+				     [{Name, Module, Function}|Plugins]}).
+
+delete_index_plugin(P) ->
+    schema_transaction(
+      fun() -> do_delete_index_plugin(P) end).
+
+do_delete_index_plugin({A} = P) when is_atom(A) ->
+    Plugins = get_index_plugins(),
+    case lists:keyfind(P, 1, Plugins) of
+	false ->
+	    mnesia:abort({no_exists, {index_plugin, P}});
+	_Found ->
+	    case ets:select(mnesia_gvar,
+			    [{ {{'$1',{index,{P,'_'}}},'_'},[],['$1']},
+			     { {{'$1',{index,P}},'_'},[],['$1']}], 1) of
+		{[_], _} ->
+		    mnesia:abort({plugin_in_use, P});
+		'$end_of_table' ->
+		    do_write_table_property(
+		      schema, {mnesia_index_plugins,
+			       lists:keydelete(P, 1, Plugins)})
+	    end
+    end.
+
+verify_index_plugin({A} = Name, Module, Function)
+  when is_atom(A), is_atom(Module), is_atom(Function) ->
+    case code:ensure_loaded(Module) of
+	{error, nofile} ->
+	    mnesia:abort({bad_type, {index_plugin,Name,Module,Function}});
+	{module,_} ->
+	    %% Index plugins are called as Module:Function(Tab, Pos, Obj)
+	    case erlang:function_exported(Module, Function, 3) of
+		true ->
+		    ok;
+		false ->
+		    mnesia:abort(
+		      {bad_type, {index_plugin,Name,Module,Function}})
+	    end
+    end;
+verify_index_plugin(Name, Module, Function) ->
+    mnesia:abort({bad_type, {index_plugin,Name,Module,Function}}).
+
+
+%% Used e.g. by mnesia:system_info(backend_types).
+index_plugins() ->
+    get_index_plugins().
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Here's the real interface function to create a table
@@ -1804,11 +1959,12 @@ make_add_table_index(Tab, Pos) ->
     Cs = incr_version(val({Tab, cstruct})),
     ensure_active(Cs),
     Ix = Cs#cstruct.index,
-    verify(false, lists:member(Pos, Ix), {already_exists, Tab, Pos}),
+    verify(false, lists:keymember(index_pos(Pos), 1, Ix),
+	   {already_exists, Tab, Pos}),
     Ix2 = lists:sort([Pos | Ix]),
-    Cs2 = Cs#cstruct{index = Ix2},
-    verify_cstruct(Cs2),
-    [{op, add_index, Pos, vsn_cs2list(Cs2)}].
+    Cs2 = verify_cstruct(Cs#cstruct{index = Ix2}),
+    NewPosInfo = lists:keyfind(Pos, 1, Cs2#cstruct.index),
+    [{op, add_index, NewPosInfo, vsn_cs2list(Cs2)}].
 
 del_table_index(Tab, Pos) ->
     schema_transaction(fun() -> do_del_table_index(Tab, Pos) end).
@@ -1902,14 +2058,14 @@ make_transform(Tab, Fun, NewAttrs, NewRecName) ->
                                record_name = NewRecName}),
 	    [{op, transform, Fun, vsn_cs2list(Cs2)}];
 	PosList ->
-	    DelIdx = fun({Pos,_,_}, Ncs) ->
+	    DelIdx = fun({Pos,_}, Ncs) ->
 			     Ix = Ncs#cstruct.index,
 			     Ix2 = lists:keydelete(Pos, 1, Ix),
 			     Ncs1 = Ncs#cstruct{index = Ix2},
 			     Op = {op, del_index, Pos, vsn_cs2list(Ncs1)},
 			     {Op, Ncs1}
 		     end,
-	    AddIdx = fun({_,_,_} = Pos, Ncs) ->
+	    AddIdx = fun({_,_} = Pos, Ncs) ->
 			     Ix = Ncs#cstruct.index,
 			     Ix2 = lists:sort([Pos | Ix]),
 			     Ncs1 = Ncs#cstruct{index = Ix2},
@@ -1923,6 +2079,11 @@ make_transform(Tab, Fun, NewAttrs, NewRecName) ->
 	    lists:flatten([DelOps, {op, transform, Fun, vsn_cs2list(Cs2)},
 			   AddOps])
     end.
+
+index_pos({Pos,_}) -> Pos;
+index_pos(Pos) when is_integer(Pos) -> Pos;
+index_pos({P} = Pos) when is_atom(P) -> Pos.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

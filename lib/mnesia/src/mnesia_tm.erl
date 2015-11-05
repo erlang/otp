@@ -1796,12 +1796,12 @@ do_update(_Tid, _Storage, [], Res) ->
     Res.
 
 do_update_op(Tid, Storage, {{Tab, K}, Obj, write}) ->
-    commit_write(?catch_val({Tab, commit_work}), Tid,
+    commit_write(?catch_val({Tab, commit_work}), Tid, Storage,
 		 Tab, K, Obj, undefined),
     mnesia_lib:db_put(Storage, Tab, Obj);
 
 do_update_op(Tid, Storage, {{Tab, K}, Val, delete}) ->
-    commit_delete(?catch_val({Tab, commit_work}), Tid, Tab, K, Val, undefined),
+    commit_delete(?catch_val({Tab, commit_work}), Tid, Storage, Tab, K, Val, undefined),
     mnesia_lib:db_erase(Storage, Tab, K);
 
 do_update_op(Tid, Storage, {{Tab, K}, {RecName, Incr}, update_counter}) ->
@@ -1819,83 +1819,81 @@ do_update_op(Tid, Storage, {{Tab, K}, {RecName, Incr}, update_counter}) ->
 		mnesia_lib:db_put(Storage, Tab, Zero),
 		{Zero, []}
         end,
-    commit_update(?catch_val({Tab, commit_work}), Tid, Tab,
+    commit_update(?catch_val({Tab, commit_work}), Tid, Storage, Tab,
 		  K, NewObj, OldObjs),
     element(3, NewObj);
 
 do_update_op(Tid, Storage, {{Tab, Key}, Obj, delete_object}) ->
     commit_del_object(?catch_val({Tab, commit_work}),
-		      Tid, Tab, Key, Obj, undefined),
+		      Tid, Storage, Tab, Key, Obj),
     mnesia_lib:db_match_erase(Storage, Tab, Obj);
 
 do_update_op(Tid, Storage, {{Tab, Key}, Obj, clear_table}) ->
-    commit_clear(?catch_val({Tab, commit_work}), Tid, Tab, Key, Obj),
+    commit_clear(?catch_val({Tab, commit_work}), Tid, Storage, Tab, Key, Obj),
     mnesia_lib:db_match_erase(Storage, Tab, Obj).
 
-commit_write([], _, _, _, _, _) -> ok;
-commit_write([{checkpoints, CpList}|R], Tid, Tab, K, Obj, Old) ->
+commit_write([], _, _, _, _, _, _) -> ok;
+commit_write([{checkpoints, CpList}|R], Tid, Storage, Tab, K, Obj, Old) ->
     mnesia_checkpoint:tm_retain(Tid, Tab, K, write, CpList),
-    commit_write(R, Tid, Tab, K, Obj, Old);
-commit_write([H|R], Tid, Tab, K, Obj, Old)
+    commit_write(R, Tid, Storage, Tab, K, Obj, Old);
+commit_write([H|R], Tid, Storage, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, write, Old),
-    commit_write(R, Tid, Tab, K, Obj, Old);
-commit_write([H|R], Tid, Tab, K, Obj, Old)
+    commit_write(R, Tid, Storage, Tab, K, Obj, Old);
+commit_write([H|R], Tid, Storage, Tab, K, Obj, Old)
   when element(1, H) == index ->
-    mnesia_index:add_index(H, Tab, K, Obj, Old),
-    commit_write(R, Tid, Tab, K, Obj, Old).
+    mnesia_index:add_index(H, Storage, Tab, K, Obj, Old),
+    commit_write(R, Tid, Storage, Tab, K, Obj, Old).
 
-commit_update([], _, _, _, _, _) -> ok;
-commit_update([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
+commit_update([], _, _, _, _, _, _) -> ok;
+commit_update([{checkpoints, CpList}|R], Tid, Storage, Tab, K, Obj, _) ->
     Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, write, CpList),
-    commit_update(R, Tid, Tab, K, Obj, Old);
-commit_update([H|R], Tid, Tab, K, Obj, Old)
+    commit_update(R, Tid, Storage, Tab, K, Obj, Old);
+commit_update([H|R], Tid, Storage, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, write, Old),
-    commit_update(R, Tid, Tab, K, Obj, Old);
-commit_update([H|R], Tid, Tab, K, Obj, Old)
+    commit_update(R, Tid, Storage, Tab, K, Obj, Old);
+commit_update([H|R], Tid,Storage,  Tab, K, Obj, Old)
   when element(1, H) == index ->
-    mnesia_index:add_index(H, Tab, K, Obj, Old),
-    commit_update(R, Tid, Tab, K, Obj, Old).
+    mnesia_index:add_index(H, Storage, Tab, K, Obj, Old),
+    commit_update(R, Tid, Storage, Tab, K, Obj, Old).
 
-commit_delete([], _, _, _, _, _) ->  ok;
-commit_delete([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
+commit_delete([], _, _, _, _, _, _) ->  ok;
+commit_delete([{checkpoints, CpList}|R], Tid, Storage, Tab, K, Obj, _) ->
     Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, delete, CpList),
-    commit_delete(R, Tid, Tab, K, Obj, Old);
-commit_delete([H|R], Tid, Tab, K, Obj, Old)
+    commit_delete(R, Tid, Storage, Tab, K, Obj, Old);
+commit_delete([H|R], Tid, Storage, Tab, K, Obj, Old)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, delete, Old),
-    commit_delete(R, Tid, Tab, K, Obj, Old);
-commit_delete([H|R], Tid, Tab, K, Obj, Old)
+    commit_delete(R, Tid, Storage, Tab, K, Obj, Old);
+commit_delete([H|R], Tid, Storage, Tab, K, Obj, Old)
   when element(1, H) == index ->
-    mnesia_index:delete_index(H, Tab, K),
-    commit_delete(R, Tid, Tab, K, Obj, Old).
+    mnesia_index:delete_index(H, Storage, Tab, K),
+    commit_delete(R, Tid, Storage, Tab, K, Obj, Old).
 
 commit_del_object([], _, _, _, _, _) -> ok;
-commit_del_object([{checkpoints, CpList}|R], Tid, Tab, K, Obj, _) ->
-    Old = mnesia_checkpoint:tm_retain(Tid, Tab, K, delete_object, CpList),
-    commit_del_object(R, Tid, Tab, K, Obj, Old);
-commit_del_object([H|R], Tid, Tab, K, Obj, Old)
-  when element(1, H) == subscribers ->
-    mnesia_subscr:report_table_event(H, Tab, Tid, Obj, delete_object, Old),
-    commit_del_object(R, Tid, Tab, K, Obj, Old);
-commit_del_object([H|R], Tid, Tab, K, Obj, Old)
-  when element(1, H) == index ->
-    mnesia_index:del_object_index(H, Tab, K, Obj, Old),
-    commit_del_object(R, Tid, Tab, K, Obj, Old).
+commit_del_object([{checkpoints, CpList}|R], Tid, Storage, Tab, K, Obj) ->
+    mnesia_checkpoint:tm_retain(Tid, Tab, K, delete_object, CpList),
+    commit_del_object(R, Tid, Storage, Tab, K, Obj);
+commit_del_object([H|R], Tid, Storage, Tab, K, Obj) when element(1, H) == subscribers ->
+    mnesia_subscr:report_table_event(H, Tab, Tid, Obj, delete_object),
+    commit_del_object(R, Tid, Storage, Tab, K, Obj);
+commit_del_object([H|R], Tid, Storage, Tab, K, Obj) when element(1, H) == index ->
+    mnesia_index:del_object_index(H, Storage, Tab, K, Obj),
+    commit_del_object(R, Tid, Storage, Tab, K, Obj).
 
-commit_clear([], _, _, _, _) ->  ok;
-commit_clear([{checkpoints, CpList}|R], Tid, Tab, K, Obj) ->
+commit_clear([], _, _, _, _, _) ->  ok;
+commit_clear([{checkpoints, CpList}|R], Tid, Storage, Tab, K, Obj) ->
     mnesia_checkpoint:tm_retain(Tid, Tab, K, clear_table, CpList),
-    commit_clear(R, Tid, Tab, K, Obj);
-commit_clear([H|R], Tid, Tab, K, Obj)
+    commit_clear(R, Tid, Storage, Tab, K, Obj);
+commit_clear([H|R], Tid, Storage, Tab, K, Obj)
   when element(1, H) == subscribers ->
     mnesia_subscr:report_table_event(H, Tab, Tid, Obj, clear_table, undefined),
-    commit_clear(R, Tid, Tab, K, Obj);
-commit_clear([H|R], Tid, Tab, K, Obj)
+    commit_clear(R, Tid, Storage, Tab, K, Obj);
+commit_clear([H|R], Tid, Storage, Tab, K, Obj)
   when element(1, H) == index ->
     mnesia_index:clear_index(H, Tab, K, Obj),
-    commit_clear(R, Tid, Tab, K, Obj).
+    commit_clear(R, Tid, Storage, Tab, K, Obj).
 
 do_snmp(_, []) ->   ok;
 do_snmp(Tid, [Head | Tail]) ->
