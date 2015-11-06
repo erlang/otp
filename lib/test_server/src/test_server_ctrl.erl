@@ -3711,8 +3711,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		RunDir = filename:dirname(MinorName),
 		Ext =
 		    if Num == 0 ->
-			    Nr = erlang:unique_integer([positive]),
-			    lists:flatten(io_lib:format(".~w", [Nr]));
+			    Int = erlang:unique_integer([positive,monotonic]),
+			    lists:flatten(io_lib:format(".cfg.~w", [Int]));
 		       true ->
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,
