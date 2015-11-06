@@ -138,6 +138,7 @@
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,
+	  pwdfun_user_state,
 	  authenticated = false
 	 }).
 

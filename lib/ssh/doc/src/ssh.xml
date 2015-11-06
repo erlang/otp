@@ -61,6 +61,29 @@
   </section>
   
   <section>
+    <title>OPTIONS</title>
+    <p>The exact behaviour of some functions can be adjusted with the use of options which are documented together
+    with the functions. Generally could each option be used at most one time in each function call. If given two or more
+    times, the effect is not predictable unless explicitly documented.</p>
+    <p>The options are of different kinds:</p>
+    <taglist>
+      <tag>Limits</tag>
+      <item><p>which alters limits in the system, for example number of simultaneous login attempts.</p></item>
+
+      <tag>Timeouts</tag>
+      <item><p>which give some defined behaviour if too long time elapses before a given event or action,
+      for example time to wait for an answer.</p></item>
+
+      <tag>Callbacks</tag>
+      <item><p>which gives the caller of the function the possibility to execute own code on some events,
+      for example calling an own logging function or to perform an own login function</p></item>
+
+      <tag>Behaviour</tag>
+      <item><p>which changes the systems behaviour.</p></item>
+    </taglist>
+  </section>
+
+  <section>
     <title>DATA TYPES</title>
     <p>Type definitions that are used more than once in
     this module, or abstractions to indicate the intended use of the data
@@ -501,12 +524,43 @@ kex is implicit but public_key is set explicitly.</p>
 	    <p>See RFC 4419 for the function of the Max and Min values.</p>
 	  </item>
 
-	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string(), PeerAddress::{ip_adress(),port_number()}, State::any()) -> boolean() | disconnect | {boolean(),any()} }]]></c></tag>
+	  <item>
+	    <p>Provides a function for password validation. This could used for calling an external system or if
+	    passwords should be stored as a hash. The fun returns:
+	      <list type="bulleted">
+		<item><c>true</c> if the user and password is valid and</item>
+		<item><c>false</c> otherwise.</item> 
+	      </list>
+	    </p>
+	    <p>This fun can also be used to make delays in authentication tries for example by calling
+	      <seealso marker="stdlib:timer#sleep/1">timer:sleep/1</seealso>. To facilitate counting of failed tries
+	      the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
+	      is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.  
+	      The pwdfun can return - in addition to the values above - a new state
+	      as:
+	      <list type="bulleted">
+		<item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
+		<item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	      </list>
+	    </p>
+	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
+	    can be used for this. In addition to the responses above, the following return value is introduced:
+	    <list type="bulleted">
+	      <item><c>disconnect</c> if the connection should be closed immediately after sending a SSH_MSG_DISCONNECT
+	      message.</item>
+	    </list>
+	    </p>
+	  </item>
+
+	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string()) -> boolean()}]]></c></tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called
 	      with user and password as strings, and returns
 	      <c><![CDATA[true]]></c> if the password is valid and
 	      <c><![CDATA[false]]></c> otherwise.</p>
+	      <p>This option (<c>{pwdfun,fun/2}</c>) is the same as a subset of the previous 
+	      (<c>{pwdfun,fun/4}</c>). It is kept for compatibility.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{negotiation_timeout, integer()}]]></c></tag>
