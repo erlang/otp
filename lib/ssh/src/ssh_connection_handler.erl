@@ -627,14 +627,24 @@ userauth_keyboard_interactive(#ssh_msg_userauth_info_response{} = Msg,
 	    retry_fun(User, Address, Reason, Opts),
 	    send_msg(Reply, State),
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
-    end.
-			
+    end;
+userauth_keyboard_interactive(Msg = #ssh_msg_userauth_failure{},
+			      #state{ssh_params = Ssh0 =
+					 #ssh{role = client,
+					      userauth_preference = Prefs0}} 
+			      = State) ->
+    Prefs = [{Method,M,F,A} || {Method,M,F,A} <- Prefs0,
+			       Method =/= "keyboard-interactive"],
+    userauth(Msg, State#state{ssh_params = Ssh0#ssh{userauth_preference=Prefs}}).
 
 
-userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{}, State) ->
+
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
     userauth(Msg, State);
 
-userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{}, State) ->
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
     userauth(Msg, State).
 
 %%--------------------------------------------------------------------

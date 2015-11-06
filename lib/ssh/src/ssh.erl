@@ -338,6 +338,8 @@ handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{keyboard_interact_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility
 handle_option([{allow_user_interaction, Value}  | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option({user_interaction, Value}) | SshOptions]);
@@ -503,9 +505,13 @@ handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({user_passwords, Value} = Opt) when is_list(Value)->
     Opt;
-handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value) ->
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,2) ->
+    Opt;
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
+    Opt;
+handle_ssh_option({keyboard_interact_fun, Value} = Opt) when is_function(Value,3) ->
     Opt;
 handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
     Opt;
