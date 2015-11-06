@@ -462,13 +462,43 @@ kex is implicit but public_key is set explicitly.</p>
 	</warning>
 	  </item>
 
-	  <tag><c><![CDATA[{dh_gex_groups, [{Size=integer(),G=integer(),P=integer()}] | {file,filename()} }]]></c></tag>
+	  <tag><c><![CDATA[{dh_gex_groups, [{Size=integer(),G=integer(),P=integer()}] | {file,filename()} {ssh_moduli_file,filename()} }]]></c></tag>
 	  <item>
-	    <p>Sets the groups that the server may choose among when diffie-hellman-group-exchange is negotiated.
-	    See RFC 4419 for details.
+	    <p>Defines the groups the server may choose among when diffie-hellman-group-exchange is negotiated.
+	    See RFC 4419 for details. The three variants of this option are:
 	    </p>
-	    <p>If the parameter is <c>{file,filename()}</c>, the file must exist and have one or more three-tuples terminated by a dot. The interpretation is as if the tuples had been given directly in the option.  The file is read when the daemon starts.
+	    <taglist>
+	      <tag><c>{Size=integer(),G=integer(),P=integer()}</c></tag>
+	      <item>The groups are given explicitly in this list. There may be several elements with the same <c>Size</c>.
+	      In such a case, the server will choose one randomly in the negotiated Size.
+	      </item>
+	      <tag><c>{file,filename()}</c></tag>
+	      <item>The file must have one or more three-tuples <c>{Size=integer(),G=integer(),P=integer()}</c> 
+	      terminated by a dot. The file is read when the daemon starts.
+	      </item>
+	      <tag><c>{ssh_moduli_file,filename()}</c></tag>
+	      <item>The file must be in
+	      <seealso marker="public_key:public_key#dh_gex_group/4">ssh-keygen moduli file format</seealso>.
+	      The file is read when the daemon starts.
+	      </item>
+	    </taglist>
+	    <p>The default list is fetched from the 
+	      <seealso marker="public_key:public_key#dh_gex_group/4">public_key</seealso> application.
 	    </p>
+	  </item>
+
+	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),Max=integer()}}]]></c></tag>
+	  <item>
+	    <p>Limits what a client can ask for in diffie-hellman-group-exchange.
+	    The limits will be
+	    <c>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</c> where <c>MaxClient</c> and 
+	    <c>MinClient</c> are the values proposed by a connecting client.
+	    </p>
+	    <p>The default value is <c>{0,infinity}</c>.
+	    </p>
+	    <p>If <c>MaxUsed &lt; MinUsed</c> in a key exchange, it will fail with a disconnect.
+	    </p>
+	    <p>See RFC 4419 for the function of the Max and Min values.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), password::string()) -> boolean()}]]></c></tag>
