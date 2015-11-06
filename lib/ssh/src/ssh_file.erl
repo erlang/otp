@@ -336,8 +336,18 @@ is_auth_key(Key, Key) ->
 is_auth_key(_,_) -> 
     false.
 
-default_user_dir()->
-    {ok,[[Home|_]]} = init:get_argument(home),
+
+default_user_dir() ->
+    try
+	default_user_dir(os:getenv("HOME"))
+    catch
+	_:_ ->
+	    default_user_dir(init:get_argument(home))
+    end.
+
+default_user_dir({ok,[[Home|_]]}) ->
+    default_user_dir(Home);
+default_user_dir(Home) when is_list(Home) ->
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
     {ok,Info} = file:read_file_info(UserDir),
