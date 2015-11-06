@@ -66,9 +66,9 @@ groups() ->
       
      {kex, [], [no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
-		gex_client_init_default_noexact,
-		gex_client_init_default_exact,
 		gex_client_init_option_groups,
+		gex_server_gex_limit,
+		gex_client_init_option_groups_moduli_file,
 		gex_client_init_option_groups_file
 		]},
      {service_requests, [], [bad_service_name,
@@ -91,10 +91,10 @@ end_per_suite(Config) ->
 init_per_testcase(no_common_alg_server_disconnects, Config) ->
     start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']}]}]);
 
-init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
-				   TC == gex_client_init_default_exact ;
-				   TC == gex_client_init_option_groups ;
-				   TC == gex_client_init_option_groups_file ->
+init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
+				   TC == gex_client_init_option_groups_moduli_file ;
+				   TC == gex_client_init_option_groups_file ;
+				   TC == gex_server_gex_limit ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
 		   [{dh_gex_groups, [{2345, 3, 41}]}];
@@ -102,6 +102,16 @@ init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 		   DataDir = ?config(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test"),
 		   [{dh_gex_groups, {file,F}}];
+	       gex_client_init_option_groups_moduli_file ->
+		   DataDir = ?config(data_dir, Config),
+		   F = filename:join(DataDir, "dh_group_test.moduli"),
+		   [{dh_gex_groups, {ssh_moduli_file,F}}];
+	       gex_server_gex_limit ->
+		    [{dh_gex_groups, [{ 500, 3, 18},
+				      {1000, 7, 91},
+				      {3000, 5, 61}]},
+		     {dh_gex_limits,{500,1500}}
+		    ];
 	       _ ->
 		   []
 	   end,
@@ -113,10 +123,10 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(no_common_alg_server_disconnects, Config) ->
     stop_std_daemon(Config);
-end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
-				  TC == gex_client_init_default_exact ;
-				  TC == gex_client_init_option_groups ;
-				  TC == gex_client_init_option_groups_file ->
+end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
+				  TC == gex_client_init_option_groups_moduli_file ;
+				  TC == gex_client_init_option_groups_file ;
+				  TC == gex_server_gex_limit ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -332,28 +342,24 @@ no_common_alg_client_disconnects(Config) ->
     end.
 
 %%%--------------------------------------------------------------------
-gex_client_init_default_noexact(Config) ->
-    do_gex_client_init(Config, {2000, 3000, 4000},
-		       %% Warning, app knowledege:
-		       ?dh_group15).
-
-
-gex_client_init_default_exact(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000},
-		       %% Warning, app knowledege:
-		       ?dh_group14).
-
-
 gex_client_init_option_groups(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000}, 
-		       {'n/a',{3,41}}).
-
+		       {3,41}).
 
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
-		       {'n/a',{5,61}}).
+		       {5,61}).
 
-do_gex_client_init(Config, {Min,N,Max}, {_,{G,P}}) ->
+gex_client_init_option_groups_moduli_file(Config) ->
+    do_gex_client_init(Config, {2000, 2048, 4000},
+		       {5,16#B7}).
+
+gex_server_gex_limit(Config) ->
+    do_gex_client_init(Config, {1000, 3000, 4000},
+		       {7,91}).
+
+
+do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
     {ok,_} =
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},

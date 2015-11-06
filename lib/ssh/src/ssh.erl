@@ -33,7 +33,8 @@
 	 default_algorithms/0,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
-	 shell/1, shell/2, shell/3]).
+	 shell/1, shell/2, shell/3
+	]).
 
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
@@ -420,27 +421,67 @@ handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({preferred_algorithms,[_|_]} = Opt) -> 
     handle_pref_algs(Opt);
-handle_ssh_option({dh_gex_groups,L=[{I1,I2,I3}|_]}) when is_integer(I1), I1>0, 
-							 is_integer(I2), I2>0,
-							 is_integer(I3), I3>0 ->
-    {dh_gex_groups, lists:map(fun({N,G,P}) -> {N,{G,P}} end, L)};
-handle_ssh_option({dh_gex_groups,{file,File=[C|_]}}=Opt) when is_integer(C), C>0 ->
-    %% A string, (file name)
-    case file:consult(File) of
-	{ok, List} ->
-	    try handle_ssh_option({dh_gex_groups,List}) of
-		{dh_gex_groups,_} = NewOpt ->
-		    NewOpt
-	    catch
-		_:_ ->
-		    throw({error, {{eoptions, Opt}, "Bad format in file"}})
-	    end;
-	Error ->
-	    throw({error, {{eoptions, Opt},{"Error reading file",Error}}})
-    end;
+
+handle_ssh_option({dh_gex_groups,L0}) when is_list(L0) ->
+    {dh_gex_groups,
+     collect_per_size(
+       lists:foldl(
+	 fun({N,G,P}, Acc) when is_integer(N),N>0,
+				is_integer(G),G>0,
+				is_integer(P),P>0 -> 
+		 [{N,{G,P}} | Acc];
+	    ({N,{G,P}}, Acc) when is_integer(N),N>0,
+				  is_integer(G),G>0,
+				  is_integer(P),P>0 ->
+		 [{N,{G,P}} | Acc];
+	    ({N,GPs}, Acc) when is_list(GPs) ->
+		 lists:foldr(fun({Gi,Pi}, Acci) when is_integer(Gi),Gi>0,
+						     is_integer(Pi),Pi>0 -> 
+				     [{N,{Gi,Pi}} | Acci]
+			     end, Acc, GPs)
+	 end, [], L0))};
+
+handle_ssh_option({dh_gex_groups,{Tag,File=[C|_]}}=Opt) when is_integer(C), C>0,
+							      Tag == file ;
+							      Tag == ssh_moduli_file ->
+    {ok,GroupDefs} =
+	case Tag of
+	    file -> 
+		file:consult(File);
+	    ssh_moduli_file ->
+		case file:open(File,[read]) of
+		    {ok,D} ->
+			try
+			    {ok,Moduli} = read_moduli_file(D, 1, []),
+			    file:close(D),
+			    {ok, Moduli}
+			catch
+			    _:_ ->
+				throw({error, {{eoptions, Opt}, "Bad format in file "++File}})
+			end;
+		    {error,enoent} ->
+			throw({error, {{eoptions, Opt}, "File not found:"++File}});
+		    {error,Error} ->
+			throw({error, {{eoptions, Opt}, io_lib:format("Error reading file ~s: ~p",[File,Error])}})
+		end
+	end,
+
+    try
+	handle_ssh_option({dh_gex_groups,GroupDefs})
+    catch
+	_:_ ->
+	    throw({error, {{eoptions, Opt}, "Bad format in file: "++File}})
+    end;	    
+    
+
+handle_ssh_option({dh_gex_limits,{Min,Max}} = Opt) when is_integer(Min), Min>0, 
+							is_integer(Max), Max>=Min ->
+    %% Server
+    Opt;
 handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
 							  is_integer(I),   I>=Min,
 							  is_integer(Max), Max>=I ->
+    %% Client
     Opt;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
@@ -660,3 +701,33 @@ directory_exist_readable(Dir) ->
 		
 		    
 
+collect_per_size(L) ->
+    lists:foldr(
+      fun({Sz,GP}, [{Sz,GPs}|Acc]) -> [{Sz,[GP|GPs]}|Acc];
+	 ({Sz,GP}, Acc) -> [{Sz,[GP]}|Acc]
+      end, [], lists:sort(L)).
+
+read_moduli_file(D, I, Acc) ->
+    case io:get_line(D,"") of
+	{error,Error} ->
+	    {error,Error};
+	eof ->
+	    {ok, Acc};
+	"#" ++ _ -> read_moduli_file(D, I+1, Acc);
+	<<"#",_/binary>> ->  read_moduli_file(D, I+1, Acc);
+	Data ->
+	    Line = if is_binary(Data) -> binary_to_list(Data);
+		      is_list(Data) -> Data
+		   end,
+	    try
+		[_Time,_Type,_Tests,_Tries,Size,G,P] = string:tokens(Line," \r\n"),
+		M = {list_to_integer(Size),
+		     {list_to_integer(G), list_to_integer(P,16)}
+		    },
+		read_moduli_file(D, I+1, [M|Acc])
+	    catch
+		_:_ ->
+		    read_moduli_file(D, I+1, Acc)
+	    end
+    end.
+			   

@@ -50,7 +50,7 @@ MODULES = \
 
 HRL_FILES = $(INCLUDE)/public_key.hrl 
 
-INTERNAL_HRL_FILES = 
+INTERNAL_HRL_FILES = pubkey_moduli.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -85,6 +85,11 @@ ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) \
 # ----------------------------------------------------
 
 debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(HRL_FILES)
+
+$(EBIN)/pubkey_ssh.$(EMULATOR): pubkey_moduli.hrl
+
+pubkey_moduli.hrl: ../priv/moduli
+	escript ../priv/convert.escript $< $@
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) 

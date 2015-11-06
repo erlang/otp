@@ -299,6 +299,37 @@
   </desc> 
   </func>
 
+  <func>
+    <name>dh_gex_group(MinSize, SuggestedSize, MaxSize, Groups) -> {ok, {Size,Group}} | {error,Error}</name>
+    <fsummary>Selects a group for Diffie-Hellman key exchange</fsummary>
+    <type>
+      <v>MinSize = positive_integer()</v>
+      <v>SuggestedSize = positive_integer()</v>
+      <v>MaxSize = positive_integer()</v>
+      <v>Groups = undefined | [{Size,[{G,P}]}]</v>
+      <v>Size = positive_integer()</v>
+      <v>Group = {G,P}</v>
+      <v>G = positive_integer()</v>
+      <v>P = positive_integer()</v>
+    </type>
+    <desc>
+      <p>Selects a group for Diffie-Hellman key exchange with the key size in the range <c>MinSize...MaxSize</c>
+      and as close to <c>SuggestedSize</c> as possible. If <c>Groups == undefined</c> a default set will be
+      used, otherwise the group is selected from <c>Groups</c>.</p>
+      <p>First a size, as close as possible to SuggestedSize, is selected. Then one group with that key size
+      is randomly selected from the specified set of groups. If no size within the limits of <c>MinSize</c>
+      and <c>MaxSize</c> is available, <c>{error,no_group_found}</c> is returned.</p>
+      <p>The default set of groups is listed in <c>lib/public_key/priv/moduli</c>. This file may be regenerated like this:</p>
+      <pre>
+	$> cd $ERL_TOP/lib/public_key/priv/
+	$> generate
+         ---- wait until all background jobs has finished. It may take several days !
+	$> cat moduli-* > moduli
+	$> cd ..; make 
+      </pre>
+    </desc>
+  </func>
+
     <func>
     <name>encrypt_private(PlainText, Key) -> binary()</name>
     <fsummary>Public-key encryption using the private key.</fsummary>

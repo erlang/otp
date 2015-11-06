@@ -441,19 +441,29 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 %%%
 %%% diffie-hellman-group-exchange-sha1
 %%% 
-handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min,
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 						      n   = NBits,
-						      max = Max}, 
-			  Ssh0=#ssh{opts=Opts}) when Min=<NBits, NBits=<Max ->
+						      max = Max0}, 
+			  Ssh0=#ssh{opts=Opts}) when Min0=<NBits, NBits=<Max0 ->
     %% server
-    {G, P} = dh_gex_group(Min, NBits, Max, proplists:get_value(dh_gex_groups,Opts)),
-    {Public, Private} = generate_key(dh, [P,G]),
-    {SshPacket, Ssh} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
-    {ok, SshPacket, 
-     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
-	     keyex_info = {Min, Max, NBits}
-	    }};
+    {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
+    case public_key:dh_gex_group(Min, NBits, Max,
+				 proplists:get_value(dh_gex_groups,Opts)) of
+	{ok, {_Sz, {G,P}}} ->
+	    {Public, Private} = generate_key(dh, [P,G]),
+	    {SshPacket, Ssh} = 
+		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
+	    {ok, SshPacket, 
+	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
+		     keyex_info = {Min, Max, NBits}
+		    }};
+	{error,_} ->
+	    throw(#ssh_msg_disconnect{
+		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+		     description = "No possible diffie-hellman-group-exchange group found", 
+		     language = ""})
+    end;
+
 handle_kex_dh_gex_request(_, _) ->
   throw({{error,bad_ssh_msg_kex_dh_gex_request},
 	 #ssh_msg_disconnect{
@@ -461,6 +471,26 @@ handle_kex_dh_gex_request(_, _) ->
 	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request",
 	    language = ""}
 	}).
+
+
+adjust_gex_min_max(Min0, Max0, Opts) ->
+    case proplists:get_value(dh_gex_limits, Opts) of
+	undefined ->
+	    {Min0, Max0};
+	{Min1, Max1} ->
+	    Min2 = max(Min0, Min1),
+	    Max2 = min(Max0, Max1),
+	    if
+		Min2 =< Max2 ->
+		    {Min2, Max2};
+		Max2 < Min2 ->
+		    throw(#ssh_msg_disconnect{
+			     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			     description = "No possible diffie-hellman-group-exchange group possible", 
+			     language = ""})
+	    end
+    end.
+		    
 
 handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
     %% client
@@ -1482,44 +1512,10 @@ peer_name({Host, _}) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dh_group('diffie-hellman-group1-sha1') ->  element(2, ?dh_group1);
-dh_group('diffie-hellman-group14-sha1') -> element(2, ?dh_group14).
+dh_group('diffie-hellman-group1-sha1') ->  ?dh_group1;
+dh_group('diffie-hellman-group14-sha1') -> ?dh_group14.
 
-dh_gex_default_groups() -> ?dh_default_groups.
-
-
-dh_gex_group(Min, N, Max, undefined) ->
-    dh_gex_group(Min, N, Max, dh_gex_default_groups());
-dh_gex_group(Min, N, Max, Groups) ->
-    %% First try to find an exact match. If not an exact match, select the largest possible.
-    {_Size,Group} =
-	lists:foldl(
-	  fun(_, {I,G}) when I==N ->
-		  %% If we have an exact match already: use that one
-		  {I,G};
-	     ({I,G}, _) when I==N ->
-		  %% If we now found an exact match: use that very one
-		  {I,G};
-	     ({I,G}, {Imax,_Gmax}) when Min=<I,I=<Max, % a) {I,G} fullfills the requirements
-				        I>Imax ->      % b) {I,G} is larger than current max
-		  %% A group within the limits and better than the one we have
-		  {I,G};
-	     (_, IGmax) ->
-		  %% Keep the one we have
-		  IGmax
-	  end, {-1,undefined}, Groups),
-
-    case Group of
-	undefined ->
-	    throw(#ssh_msg_disconnect{
-		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		     description = "No possible diffie-hellman-group-exchange group found", 
-		     language = ""});
-	_ ->
-	    Group
-    end.
-
-
+%%%----------------------------------------------------------------
 generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
