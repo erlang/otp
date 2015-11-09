@@ -1001,15 +1001,15 @@
           can be used instead of
           <c>demonitor(<anno>MonitorRef</anno>)</c> if this cleanup is wanted.</p>
         <note>
-          <p>Before OTP R11B (<c>ERTS</c> 5.5), <c>demonitor/1</c>
-            behaved asynchronous, that is, the monitor was active
-            until the "demonitor signal" reached the monitored entity.
-            This had an undesirable effect, as you could never know when
-            you were guaranteed <em>not</em> to receive a <c>DOWN</c>
-            message because of the monitor.</p>
-          <p>The current behavior can be viewed as two combined operations:
-            asynchronously send a "demonitor signal" to the monitored
-            entity and ignore any future results of the monitor.</p>
+          <p>Prior to OTP release R11B (ERTS version 5.5) <c>demonitor/1</c>
+            behaved completely asynchronously, i.e., the monitor was active
+            until the "demonitor signal" reached the monitored entity. This
+            had one undesirable effect. You could never know when
+            you were guaranteed <em>not</em> to receive a <c>DOWN</c> message
+            due to the monitor.</p>
+          <p>Current behavior can be viewed as two combined operations:
+            asynchronously send a "demonitor signal" to the monitored entity
+            and ignore any future results of the monitor. </p>
         </note>
         <p>Failure: It is an error if <c><anno>MonitorRef</anno></c> refers to a
           monitoring started by another process. Not all such cases are
@@ -7877,9 +7877,9 @@ timestamp() ->
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,
     {MegaSecs, Secs, MicroSecs}.</code>
-        <p>The BIF uses a native implementation which does
-	not build garbage on the heap and with slightly better
-	performance.</p>
+    <p>It, however, uses a native implementation which does
+    not build garbage on the heap and with slightly better
+    performance.</p>
 
 	<note><p>This time is <em>not</em> a monotonically increasing time
 	in the general case. For more information, see the documentation of
@@ -8812,8 +8812,8 @@ timestamp() ->
             true
     end</code>
         <note>
-          <p>Before OTP R11B (<c>ERTS</c> 5.5) <c>unlink/1</c>
-            behaved asynchronous, that is, the link was active
+          <p>Prior to OTP release R11B (ERTS version 5.5) <c>unlink/1</c>
+            behaved completely asynchronously, i.e., the link was active
             until the "unlink signal" reached the linked entity. This
             had an undesirable effect, as you could never know when
             you were guaranteed <em>not</em> to be effected by the link.</p>
