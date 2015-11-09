@@ -731,8 +731,8 @@ label(T, N, Env) ->
 	    {ann_c_map(As, M, Ts), N3};
 	map_pair ->
 	    {Op,  N1} = label(map_pair_op(T), N, Env),
-	    {Val, N2} = label(map_pair_key(T), N1, Env),
-	    {Key, N3} = label(map_pair_val(T), N2, Env),
+	    {Key, N2} = label(map_pair_key(T), N1, Env),
+	    {Val, N3} = label(map_pair_val(T), N2, Env),
 	    {As,  N4} = label_ann(T, N3),
 	    {ann_c_map_pair(As,Op,Key,Val), N4};
  	'let' ->
