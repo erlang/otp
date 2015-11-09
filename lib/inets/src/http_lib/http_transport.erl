@@ -499,16 +499,4 @@ negotiate({essl, _}, Socket, Timeout) ->
     negotiate_ssl(Socket, Timeout).
 
 negotiate_ssl(Socket, Timeout) ->
-    case ssl:ssl_accept(Socket, Timeout) of
-	ok ->
-	    ok;
-	{error, Reason} ->
-	    %% Look for "valid" error reasons
-	    ValidReasons = [timeout, econnreset, esslaccept, esslerrssl], 
-	    case lists:member(Reason, ValidReasons) of
-		true ->
-		    {error, normal};
-		false ->
-		    {error, Reason}
-           end
-    end.
+    ssl:ssl_accept(Socket, Timeout). 
