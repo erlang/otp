@@ -40,12 +40,6 @@
 -include_lib("inets/src/inets_app/inets_internal.hrl").
 -include("http_internal.hrl").
 
--define(SERVICE, httpl).
--define(hlri(Label, Content), ?report_important(Label, ?SERVICE, Content)).
--define(hlrv(Label, Content), ?report_verbose(Label,   ?SERVICE, Content)).
--define(hlrd(Label, Content), ?report_debug(Label,     ?SERVICE, Content)).
--define(hlrt(Label, Content), ?report_trace(Label,     ?SERVICE, Content)).
-
 
 %%%=========================================================================
 %%%  Internal application API
@@ -107,8 +101,6 @@ connect(SocketType, Address, Opts) ->
 connect(ip_comm = _SocketType, {Host, Port}, Opts0, Timeout) 
   when is_list(Opts0) ->
     Opts = [binary, {packet, 0}, {active, false}, {reuseaddr, true} | Opts0],
-    ?hlrt("connect using gen_tcp", 
-	  [{host, Host}, {port, Port}, {opts, Opts}, {timeout, Timeout}]),
     try gen_tcp:connect(Host, Port, Opts, Timeout) of
 	{ok, _} = OK ->
 	    OK;
@@ -127,11 +119,6 @@ connect({ssl, SslConfig}, Address, Opts, Timeout) ->
 
 connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) -> 
     Opts = [binary, {active, false}, {ssl_imp, new} | Opts0] ++ SslConfig,
-    ?hlrt("connect using essl", 
-	  [{host,       Host}, 
-	   {port,       Port}, 
-	   {ssl_config, SslConfig}, 
-	   {timeout,    Timeout}]),
     case (catch ssl:connect(Host, Port, Opts, Timeout)) of
 	{'EXIT', Reason} ->
 	    {error, {eoptions, Reason}};
@@ -156,29 +143,23 @@ connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) ->
 %% reason for this to enable a HTTP-server not running as root to use
 %% port 80.
 %%-------------------------------------------------------------------------
-listen(ip_comm = _SocketType, Addr, Port, Fd, IpFamily) ->
-    listen_ip_comm(Addr, Port, Fd, IpFamily);
-  
+listen(ip_comm, Addr, Port, Fd, IpFamily) ->
+    listen_ip_comm(Addr, Port, [], Fd, IpFamily);
+
+listen({ip_comm, SockOpts}, Addr, Port, Fd, IpFamily) ->
+    listen_ip_comm(Addr, Port, SockOpts, Fd, IpFamily);
+
 listen({essl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
     listen_ssl(Addr, Port, Fd, SSLConfig, IpFamily, []).
 
-listen(ip_comm = _SocketType, Addr, Port, IpFamily) ->
-    listen_ip_comm(Addr, Port, undefined, IpFamily);
+listen(ip_comm, Addr, Port, IpFamily) ->
+    listen_ip_comm(Addr, Port, [], undefined, IpFamily);
 
 %% Wrapper for backaward compatibillity
 listen({ssl, SSLConfig}, Addr, Port, IpFamily) ->
-    ?hlrt("listen (wrapper)", 
-	  [{addr,       Addr}, 
-	   {port,       Port}, 
-	   {ssl_config, SSLConfig}]),
     listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port, IpFamily);
 
-
 listen({essl, SSLConfig}, Addr, Port, IpFamily) ->
-    ?hlrt("listen (essl)", 
-	  [{addr,       Addr}, 
-	   {port,       Port}, 
-	   {ssl_config, SSLConfig}]),
     {SSLConfig2, ExtraOpts} = case proplists:get_value(log_alert, SSLConfig, undefined) of
 		    undefined ->
 			{SSLConfig, []};
@@ -325,7 +306,6 @@ controlling_process({essl, _}, Socket, NewOwner) ->
 %% gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 setopts(ip_comm, Socket, Options) ->
-    ?hlrt("ip_comm setopts", [{socket, Socket}, {options, Options}]),
     inet:setopts(Socket, Options);
 
 %% Wrapper for backaward compatibillity
@@ -351,7 +331,6 @@ getopts(SocketType, Socket) ->
     getopts(SocketType, Socket, Opts).
 
 getopts(ip_comm, Socket, Options) ->
-    ?hlrt("ip_comm getopts", [{socket, Socket}, {options, Options}]),
     case inet:getopts(Socket, Options) of
 	{ok, SocketOpts} ->
 	    SocketOpts;
@@ -364,7 +343,6 @@ getopts({ssl, SSLConfig}, Socket, Options) ->
     getopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
 
 getopts({essl, _}, Socket, Options) ->
-    ?hlrt("essl getopts", [{socket, Socket}, {options, Options}]),
     getopts_ssl(Socket, Options).
 
 getopts_ssl(Socket, Options) ->
@@ -384,7 +362,6 @@ getopts_ssl(Socket, Options) ->
 %% Description: Gets the socket stats values for the socket
 %%-------------------------------------------------------------------------
 getstat(ip_comm = _SocketType, Socket) ->
-    ?hlrt("ip_comm getstat", [{socket, Socket}]),
     case inet:getstat(Socket) of
 	{ok, Stats} ->
 	    Stats;
@@ -555,22 +532,17 @@ sock_opts(Opts) ->
 
 %% -- negotiate --
 negotiate(ip_comm,_,_) ->
-    ?hlrt("negotiate(ip_comm)", []),
     ok;
 negotiate({ssl, SSLConfig}, Socket, Timeout) ->
-    ?hlrt("negotiate(ssl)", []),
     negotiate({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Timeout);
 negotiate({essl, _}, Socket, Timeout) ->
-    ?hlrt("negotiate(essl)", []),
     negotiate_ssl(Socket, Timeout).
 
 negotiate_ssl(Socket, Timeout) ->
-    ?hlrt("negotiate_ssl", [{socket, Socket}, {timeout, Timeout}]),
     case ssl:ssl_accept(Socket, Timeout) of
 	ok ->
 	    ok;
 	{error, Reason} ->
-	    ?hlrd("negotiate_ssl - accept failed", [{reason, Reason}]),
 	    %% Look for "valid" error reasons
 	    ValidReasons = [timeout, econnreset, esslaccept, esslerrssl], 
 	    case lists:member(Reason, ValidReasons) of
