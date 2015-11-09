@@ -35,21 +35,20 @@
 
 -record(expand, {module=[],                     %Module name
                  exports=[],                    %Exports
-                 imports=[],                    %Imports
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
                  optional_callbacks=[] :: [fa()],  %Optional callbacks
-                 defined,			%Defined functions (gb_set)
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
-                 fcount=0			%Local fun count
+                 fcount=0,			%Local fun count
+		 ctype				%Call type map
                 }).
 
 %% module(Forms, CompileOptions)
 %%      {ModuleName,Exports,TransformedForms,CompileOptions'}
-%%  Expand the forms in one module. N.B.: the lists of predefined
-%%  exports and imports are really ordsets!
+%%  Expand the forms in one module.
+%%
 %%  CompileOptions is augmented with options from -compile attributes.
 
 module(Fs0, Opts0) ->
@@ -62,19 +61,28 @@ module(Fs0, Opts0) ->
     %% Set pre-defined exported functions.
     PreExp = [{module_info,0},{module_info,1}],
 
+    %% Build the set of defined functions and the initial call
+    %% type map.
+    Defined = defined_functions(Fs, PreExp),
+    Ctype = maps:from_list([{K,local} || K <- Defined]),
+
     %% Build initial expand record.
     St0 = #expand{exports=PreExp,
-                  defined=PreExp
+		  ctype=Ctype
                  },
+
     %% Expand the functions.
-    {Tfs,St1} = forms(Fs, define_functions(Fs, St0)),
+    {Tfs,St1} = forms(Fs, St0),
+
     %% Get the correct list of exported functions.
     Exports = case member(export_all, Opts) of
-                  true -> gb_sets:to_list(St1#expand.defined);
+                  true -> Defined;
                   false -> St1#expand.exports
               end,
+    St2 = St1#expand{exports=Exports,ctype=undefined},
+
     %% Generate all functions from stored info.
-    {Ats,St3} = module_attrs(St1#expand{exports = Exports}),
+    {Ats,St3} = module_attrs(St2),
     {Mfs,St4} = module_predef_funcs(St3),
     {St4#expand.module, St4#expand.exports, Ats ++ Tfs ++ Mfs,
      Opts}.
@@ -82,14 +90,14 @@ module(Fs0, Opts0) ->
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
     
-%% define_function(Form, State) -> State.
+%% defined_function(Forms, Predef) -> Functions.
 %%  Add function to defined if form is a function.
 
-define_functions(Forms, #expand{defined=Predef}=St) ->
+defined_functions(Forms, Predef) ->
     Fs = foldl(fun({function,_,N,A,_Cs}, Acc) -> [{N,A}|Acc];
                   (_, Acc) -> Acc
                end, Predef, Forms),
-    St#expand{defined=gb_sets:from_list(Fs)}.
+    ordsets:from_list(Fs).
 
 module_attrs(#expand{attributes=Attributes}=St) ->
     Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
@@ -110,23 +118,21 @@ is_fa_list([{FuncName, Arity}|L])
 is_fa_list([]) -> true;
 is_fa_list(_) -> false.
 
-module_predef_funcs(St) ->
-    {Mpf1,St1}=module_predef_func_beh_info(St),
-    {Mpf2,St2}=module_predef_funcs_mod_info(St1),
+module_predef_funcs(St0) ->
+    {Mpf1,St1} = module_predef_func_beh_info(St0),
+    Mpf2 = module_predef_funcs_mod_info(St1),
     Mpf = [erl_parse:new_anno(F) || F <- Mpf1++Mpf2],
-    {Mpf,St2}.
+    {Mpf,St1}.
 
 module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
     {[], St};
 module_predef_func_beh_info(#expand{callbacks=Callbacks,
                                     optional_callbacks=OptionalCallbacks,
-                                    defined=Defined,
 				    exports=Exports}=St) ->
-    PreDef=[{behaviour_info,1}],
-    PreExp=PreDef,
+    PreDef0 = [{behaviour_info,1}],
+    PreDef = ordsets:from_list(PreDef0),
     {[gen_beh_info(Callbacks, OptionalCallbacks)],
-     St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef), Defined),
-	       exports=ordsets:union(ordsets:from_list(PreExp), Exports)}}.
+     St#expand{exports=ordsets:union(PreDef, Exports)}}.
 
 gen_beh_info(Callbacks, OptionalCallbacks) ->
     List = make_list(Callbacks),
@@ -153,21 +159,16 @@ make_optional_list([{Name,Arity}|Rest]) ->
        {integer,0,Arity}]},
      make_optional_list(Rest)}.
 
-module_predef_funcs_mod_info(St) ->
-    PreDef = [{module_info,0},{module_info,1}],
-    PreExp = PreDef,
-    {[{function,0,module_info,0,
-       [{clause,0,[],[],
+module_predef_funcs_mod_info(#expand{module=Mod}) ->
+    ModAtom = {atom,0,Mod},
+    [{function,0,module_info,0,
+      [{clause,0,[],[],
         [{call,0,{remote,0,{atom,0,erlang},{atom,0,get_module_info}},
-          [{atom,0,St#expand.module}]}]}]},
-      {function,0,module_info,1,
-       [{clause,0,[{var,0,'X'}],[],
+          [ModAtom]}]}]},
+     {function,0,module_info,1,
+      [{clause,0,[{var,0,'X'}],[],
         [{call,0,{remote,0,{atom,0,erlang},{atom,0,get_module_info}},
-          [{atom,0,St#expand.module},{var,0,'X'}]}]}]}],
-     St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef),
-				     St#expand.defined),
-               exports=ordsets:union(ordsets:from_list(PreExp),
-				     St#expand.exports)}}.
+          [ModAtom,{var,0,'X'}]}]}]}].
 
 %% forms(Forms, State) ->
 %%      {TransformedForms,State'}
@@ -403,21 +404,15 @@ expr({named_fun,Line,Name,Cs}, St) ->
 expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case defined(N,Ar,St1) of
-	true ->
+    Key = {N,Ar},
+    case St1#expand.ctype of
+	#{Key:=local} ->
 	    {{call,Line,Atom,As},St1};
+	#{Key:={imported,Mod}} ->
+	    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
 	_ ->
-	    case imported(N, Ar, St1) of
-		{yes,Mod} ->
-		    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
-		no ->
-		    case erl_internal:bif(N, Ar) of
-			true ->
-			    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
-			false -> %% This should have been handled by erl_lint
-			    {{call,Line,Atom,As},St1}
-		    end
-	    end
+	    true = erl_internal:bif(N, Ar),
+	    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1}
     end;
 expr({call,Line,{remote,Lr,M0,F},As0}, St0) ->
     {[M1,F1|As1],St1} = expr_list([M0,F|As0], St0),
@@ -613,25 +608,11 @@ string_to_conses(Line, Cs, Tail) ->
 
 %% import(Line, Imports, State) ->
 %%      State'
-%% imported(Name, Arity, State) ->
-%%      {yes,Module} | no
-%%  Handle import declarations and test for imported functions. No need to
-%%  check when building imports as code is correct.
+%%  Handle import declarations.
 
-import({Mod,Fs}, St) ->
+import({Mod,Fs}, #expand{ctype=Ctype0}=St) ->
     true = is_atom(Mod),
-    Mfs = ordsets:from_list(Fs),
-    St#expand{imports=add_imports(Mod, Mfs, St#expand.imports)}.
-
-add_imports(Mod, [F|Fs], Is) ->
-    add_imports(Mod, Fs, orddict:store(F, Mod, Is));
-add_imports(_, [], Is) -> Is.
-
-imported(F, A, St) ->
-    case orddict:find({F,A}, St#expand.imports) of
-        {ok,Mod} -> {yes,Mod};
-        error -> no
-    end.
-
-defined(F, A, St) ->
-    gb_sets:is_element({F,A}, St#expand.defined).
+    Ctype = foldl(fun(F, A) ->
+			  A#{F=>{imported,Mod}}
+		  end, Ctype0, Fs),
+    St#expand{ctype=Ctype}.
