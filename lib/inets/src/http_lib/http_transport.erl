@@ -53,7 +53,8 @@
 %%-------------------------------------------------------------------------
 start(ip_comm) ->
     do_start_ip_comm();
-
+start({ip_comm, _}) ->
+    do_start_ip_comm();
 %% This is just for backward compatibillity
 start({ssl, _}) ->
     do_start_ssl();
@@ -97,10 +98,8 @@ do_start_ssl() ->
 
 connect(SocketType, Address, Opts) ->
     connect(SocketType, Address, Opts, infinity).
-
-connect(ip_comm = _SocketType, {Host, Port}, Opts0, Timeout) 
-  when is_list(Opts0) ->
-    Opts = [binary, {packet, 0}, {active, false}, {reuseaddr, true} | Opts0],
+connect(ip_comm, {Host, Port}, Opts0, Timeout) ->
+    Opts = [binary, {packet, 0}, {active, false}, {reuseaddr, true} | Opts0 ],
     try gen_tcp:connect(Host, Port, Opts, Timeout) of
 	{ok, _} = OK ->
 	    OK;
@@ -168,83 +167,30 @@ listen({essl, SSLConfig}, Addr, Port, IpFamily) ->
 		end,
     listen_ssl(Addr, Port, undefined, SSLConfig2, IpFamily, ExtraOpts).
 
-listen_ip_comm(Addr, Port, Fd, IpFamily) ->
-    case (catch do_listen_ip_comm(Addr, Port, Fd, IpFamily)) of
+listen_ip_comm(Addr, Port, SockOpts, Fd, IpFamily) ->
+    case (catch do_listen_ip_comm(Addr, Port, SockOpts, Fd, IpFamily)) of
 	{'EXIT', Reason} ->
 	    {error, {exit, Reason}};
 	Else ->
 	    Else
     end.
 
-do_listen_ip_comm(Addr, Port, Fd, IpFamily) ->
-    {NewPort, Opts} = get_socket_info(Addr, Port, Fd),
-    case IpFamily of
-	inet6fb4 -> 
-	    Opts2 = [inet6 | Opts], 
-	    ?hlrt("try ipv6 listen", [{port, NewPort}, {opts, Opts2}]),
-	    case (catch gen_tcp:listen(NewPort, Opts2)) of
-		{error, Reason} when ((Reason =:= nxdomain) orelse 
-				      (Reason =:= eafnosupport)) ->
-		    Opts3 = [inet | Opts], 
-		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
-			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
-		    gen_tcp:listen(NewPort, Opts3);
-
-		%% This is when a given hostname has resolved to a 
-		%% IPv4-address. The inet6-option together with a 
-		%% {ip, IPv4} option results in badarg
-		{'EXIT', Reason} -> 
-		    Opts3 = [inet | Opts], 
-		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
-			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
-		    gen_tcp:listen(NewPort, Opts3); 
-
-		Other ->
-		    ?hlrt("ipv6 listen done", [{other, Other}]),
-		    Other
-	    end;
-	_ ->
-	    Opts2 = [IpFamily | Opts],
-	    ?hlrt("listen", [{port, NewPort}, {opts, Opts2}]),
-	    gen_tcp:listen(NewPort, Opts2)
-    end.
+do_listen_ip_comm(Addr, Port, SockOpts, Fd, IpFamily) ->
+    Backlog = proplists:get_value(backlog, SockOpts, 128),
+    {NewPort, Opts} = get_socket_info(Addr, Port, Fd,
+				      [{backlog, Backlog}, {reuseaddr, true} | SockOpts]),
+    Opts2 = [IpFamily | Opts],
+    gen_tcp:listen(NewPort, Opts2).
 
 listen_ssl(Addr, Port, Fd, Opts0, IpFamily, ExtraOpts) ->
-    {NewPort, SockOpt} = get_socket_info(Addr, Port, Fd),
+    Backlog = proplists:get_value(backlog, Opts0, 128),
+    {NewPort, SockOpt} = get_socket_info(Addr, Port, Fd, 
+					 [{backlog, Backlog}, {reuseaddr, true}]),
     Opts = SockOpt ++ Opts0,
-    case IpFamily of
-	inet6fb4 -> 
-	    Opts2 = [inet6 | Opts] ++ ExtraOpts, 
-	    ?hlrt("try ipv6 listen", [{opts, Opts2}]),
-	    case (catch ssl:listen(Port, Opts2)) of
-		{error, Reason} when ((Reason =:= nxdomain) orelse 
-				      (Reason =:= eafnosupport)) ->
-		    Opts3 = [inet | Opts] ++ ExtraOpts, 
-		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
-			  [{reason, Reason}, {opts, Opts3}]),
-		    ssl:listen(NewPort, Opts3);
-		
-		{'EXIT', Reason} -> 
-		    Opts3 = [inet | Opts] ++ ExtraOpts, 
-		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
-			  [{reason, Reason}, {opts, Opts3}]),
-		    ssl:listen(NewPort, Opts3); 
-		
-		Other ->
-		    ?hlrt("ipv6 listen done", [{other, Other}]),
-		    Other
-	    end;
-	
-	_ ->
-	    Opts2 = [IpFamily | Opts],
-	    ?hlrt("listen", [{opts, Opts2}]),
-	    ssl:listen(NewPort, Opts2 ++ ExtraOpts)
-    end.
+    Opts2 = [IpFamily | Opts],
+    ssl:listen(NewPort, Opts2 ++ ExtraOpts).
 
-
-
-get_socket_info(Addr, Port, Fd) ->
-    BaseOpts        = [{backlog, 128}, {reuseaddr, true}], 
+get_socket_info(Addr, Port, Fd, BaseOpts) ->
     %% The presence of a file descriptor takes precedence
     case Fd of
 	undefined ->
@@ -269,6 +215,8 @@ accept(SocketType, ListenSocket) ->
 
 accept(ip_comm, ListenSocket, Timeout) ->
     gen_tcp:accept(ListenSocket, Timeout);
+accept({ip_comm, _}, ListenSocket, Timeout) ->
+    gen_tcp:accept(ListenSocket, Timeout);
 
 %% Wrapper for backaward compatibillity
 accept({ssl, SSLConfig}, ListenSocket, Timeout) ->
@@ -287,6 +235,8 @@ accept({essl, _SSLConfig}, ListenSocket, Timeout) ->
 %% Description: Assigns a new controlling process to Socket. 
 %%-------------------------------------------------------------------------
 controlling_process(ip_comm, Socket, NewOwner) ->
+    gen_tcp:controlling_process(Socket, NewOwner);
+controlling_process({ip_comm, _}, Socket, NewOwner) ->
     gen_tcp:controlling_process(Socket, NewOwner);
 
 %% Wrapper for backaward compatibillity
@@ -307,16 +257,15 @@ controlling_process({essl, _}, Socket, NewOwner) ->
 %%-------------------------------------------------------------------------
 setopts(ip_comm, Socket, Options) ->
     inet:setopts(Socket, Options);
+setopts({ip_comm, _}, Socket, Options) ->
+    inet:setopts(Socket, Options);
 
 %% Wrapper for backaward compatibillity
 setopts({ssl, SSLConfig}, Socket, Options) ->
     setopts({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Options);
 
 setopts({essl, _}, Socket, Options) ->
-    ?hlrt("[e]ssl setopts", [{socket, Socket}, {options, Options}]),
-    Reason = (catch ssl:setopts(Socket, Options)),
-    ?hlrt("[e]ssl setopts result", [{reason, Reason}]),
-    Reason.
+    (catch ssl:setopts(Socket, Options)).
 
 
 %%-------------------------------------------------------------------------
@@ -329,6 +278,9 @@ setopts({essl, _}, Socket, Options) ->
 getopts(SocketType, Socket) ->
     Opts = [packet, packet_size, recbuf, sndbuf, priority, tos, send_timeout], 
     getopts(SocketType, Socket, Opts).
+
+getopts({ip_comm, _}, Socket, Options) ->
+    getopts(ip_comm, Socket, Options);
 
 getopts(ip_comm, Socket, Options) ->
     case inet:getopts(Socket, Options) of
@@ -386,6 +338,8 @@ getstat({essl, _} = _SocketType, _Socket) ->
 %%-------------------------------------------------------------------------
 send(ip_comm, Socket, Message) ->
     gen_tcp:send(Socket, Message);
+send({ip_comm, _}, Socket, Message) ->
+    gen_tcp:send(Socket, Message);
 
 %% Wrapper for backaward compatibillity
 send({ssl, SSLConfig}, Socket, Message) ->
@@ -393,7 +347,6 @@ send({ssl, SSLConfig}, Socket, Message) ->
 
 send({essl, _}, Socket, Message) ->
     ssl:send(Socket, Message).
-
 
 %%-------------------------------------------------------------------------
 %% close(SocketType, Socket) -> ok | {error, Reason}
@@ -403,6 +356,8 @@ send({essl, _}, Socket, Message) ->
 %% Description: Closes a socket, using either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 close(ip_comm, Socket) ->
+    gen_tcp:close(Socket);
+close({ip_comm, []}, Socket) ->
     gen_tcp:close(Socket);
 
 %% Wrapper for backaward compatibillity
@@ -424,6 +379,8 @@ close({essl, _}, Socket) ->
 %% connection, usning either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 peername(ip_comm, Socket) ->
+    do_peername(inet:peername(Socket));
+peername({ip_comm, _}, Socket) ->
     do_peername(inet:peername(Socket));
 
 %% Wrapper for backaward compatibillity
@@ -457,7 +414,8 @@ do_peername({error, _}) ->
 %%-------------------------------------------------------------------------
 sockname(ip_comm, Socket) ->
     do_sockname(inet:sockname(Socket));
-
+sockname({ip_comm, _}, Socket) ->
+    do_sockname(inet:sockname(Socket));
 %% Wrapper for backaward compatibillity
 sockname({ssl, SSLConfig}, Socket) ->
     sockname({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
@@ -532,6 +490,8 @@ sock_opts(Opts) ->
 
 %% -- negotiate --
 negotiate(ip_comm,_,_) ->
+    ok;
+negotiate({ip_comm, _},_,_) ->
     ok;
 negotiate({ssl, SSLConfig}, Socket, Timeout) ->
     negotiate({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket, Timeout);

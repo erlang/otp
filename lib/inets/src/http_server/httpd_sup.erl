@@ -241,7 +241,7 @@ listen(Address, Port, Config)  ->
 	    case http_transport:start(SocketType) of
 		ok ->
 		    {ok, Fd} = get_fd(Port),
-		    IpFamily =  proplists:get_value(ipfamily, Config, inet6fb4),
+		    IpFamily =  proplists:get_value(ipfamily, Config, inet),
 		    case http_transport:listen(SocketType, Address, Port, Fd, IpFamily) of
 			{ok, ListenSocket} ->
 			    NewConfig = proplists:delete(port, Config),
@@ -285,6 +285,8 @@ socket_type(Config) ->
     socket_type(SocketType, Config).
 
 socket_type(ip_comm = SocketType, _) ->
+    SocketType;
+socket_type({ip_comm, _} = SocketType, _) ->
     SocketType;
 socket_type({essl, _} = SocketType, _) ->
     SocketType;

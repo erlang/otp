@@ -42,17 +42,7 @@ ip_address({_,_,_,_,_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
 ip_address(Host, IpFamily) 
   when ((IpFamily =:= inet) orelse (IpFamily =:= inet6)) ->
-    inet:getaddr(Host, IpFamily);
-ip_address(Host, inet6fb4 = _IpFamily) ->
-    Inet = case gen_tcp:listen(0, [inet6]) of
-	       {ok, Dummyport} ->
-		   gen_tcp:close(Dummyport),
-		   inet6;
-	       _ ->
-		   inet
-	   end,
-    inet:getaddr(Host, Inet).
-
+    inet:getaddr(Host, IpFamily).
 
 %% lookup
 
