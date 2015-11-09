@@ -193,6 +193,11 @@ setup_proxy(Ip, Port, Parent) ->
 		Err ->
 		    Parent ! {self(), Err}
 	    end;
+	{error, {options, _}} = Err ->
+	    %% Bad options: that's probably our fault.  Let's log that.
+	    error_logger:error_msg("Cannot open TLS distribution connection: ~s~n",
+				   [ssl:format_error(Err)]),
+	    Parent ! {self(), Err};
 	Err ->
 	    Parent ! {self(), Err}
     end.
