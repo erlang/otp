@@ -230,7 +230,7 @@
      <c>-code_path_choice Choice</c>. If the flag is set to <c>relaxed</c>,
      the code server will instead choose a suitable directory
      depending on the actual file structure. If there exists a regular
-     application ebin directory,situation it will be chosen. But if it does
+     application ebin directory, it will be chosen. But if it does
      not exist, the ebin directory in the archive is chosen if it
      exists. If neither of them exists the original directory will be
      chosen.</p>
@@ -282,9 +282,9 @@
 
     <p>From the R12B release, functions in this module will generally fail with an
     exception if they are passed an incorrect type (for instance, an integer or a tuple
-    where an atom was expected). An error tuple will be returned if type of argument
+    where an atom was expected). An error tuple will be returned if the type of the argument
     was correct, but there was some other error (for instance, a non-existing directory
-    given to <c>set_path/1</c>.</p>
+    was given to <c>set_path/1</c>).</p>
   </section>
 
   <datatypes>
