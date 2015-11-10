@@ -532,7 +532,6 @@ pattern_element({bin_element,Line,Expr0,Size0,Type0}, {Es,St0}) ->
     {[{bin_element,Line,Expr,Size,Type}|Es],St2}.
 
 pat_bit_size(default, St) -> {default,St};
-pat_bit_size({atom,_La,all}=All, St) -> {All,St};
 pat_bit_size({var,_Lv,_V}=Var, St) -> {Var,St};
 pat_bit_size(Size, St) ->
     Line = element(2, Size),
