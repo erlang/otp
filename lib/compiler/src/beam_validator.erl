@@ -172,7 +172,7 @@ validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
 
 validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
     Offset = 1 + length(Ls1) + 1 + length(Ls2),
-    EntryOK = (Entry =:= undefined) orelse lists:member(Entry, Ls2),
+    EntryOK = lists:member(Entry, Ls2),
     if
 	EntryOK ->
 	    St = init_state(Arity),
