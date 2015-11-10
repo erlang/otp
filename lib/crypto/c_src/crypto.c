@@ -92,6 +92,7 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000100fL
 # define HAVE_GCM
+# define HAVE_EVP_AES_CTR
 #endif
 
 #if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
@@ -1677,6 +1678,75 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 */
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* ({Key, IVec, ECount, Num}, Data) */    
+#if defined(HAVE_EVP_AES_CTR)
+    EVP_CIPHER_CTX *ctx;
+    const EVP_CIPHER *cipher = NULL;
+    ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
+    unsigned int num;
+    ERL_NIF_TERM ret, num2_term, cipher_term, ivec2_term, ecount2_term, new_state_term;
+    int state_arity;
+    const ERL_NIF_TERM *state_term;
+    unsigned char * ivec2_buf;
+    unsigned char * ecount2_buf;
+    unsigned char * cipher_buf;
+    int len;
+
+    if (!enif_get_tuple(env, argv[0], &state_arity, &state_term)
+        || state_arity != 4
+        || !enif_inspect_iolist_as_binary(env, state_term[0], &key_bin)
+        || (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
+        || !enif_inspect_binary(env, state_term[1], &ivec_bin) || ivec_bin.size != 16
+        || !enif_inspect_binary(env, state_term[2], &ecount_bin) || ecount_bin.size != AES_BLOCK_SIZE
+        || !enif_get_uint(env, state_term[3], &num)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &text_bin)) {
+        return enif_make_badarg(env);
+    }
+
+    cipher_buf = enif_make_new_binary(env, text_bin.size, &cipher_term);
+    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term); 
+    ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term);
+
+    if (key_bin.size == 16)
+        cipher = EVP_aes_128_ctr();
+    else if (key_bin.size == 24)
+        cipher = EVP_aes_192_ctr();
+    else if (key_bin.size == 32)
+        cipher = EVP_aes_256_ctr();
+
+    if (!(ctx = EVP_CIPHER_CTX_new()))
+        return enif_make_badarg(env);
+    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, key_bin.data, ivec_bin.data) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+    memcpy(ctx->buf, ecount_bin.data, ecount_bin.size);
+    ctx->num = num;
+
+    if (EVP_EncryptUpdate(ctx, cipher_buf, &len, text_bin.data, text_bin.size) != 1)
+        goto out_err;
+    if (EVP_EncryptFinal_ex(ctx, cipher_buf+len, &len) != 1)
+        goto out_err;
+
+    memcpy(ecount2_buf, ctx->buf, ecount_bin.size);
+    memcpy(ivec2_buf, ctx->iv, ivec_bin.size);
+    num = ctx->num;
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    num2_term = enif_make_uint(env, num);
+    new_state_term = enif_make_tuple4(env, state_term[0], ivec2_term, ecount2_term, num2_term);
+    ret = enif_make_tuple2(env, new_state_term, cipher_term);
+    CONSUME_REDS(env,text_bin);
+    return ret;
+
+out_err:
+    EVP_CIPHER_CTX_free(ctx);
+    return enif_make_badarg(env);
+
+#else
     ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
     AES_KEY aes_key;
     unsigned int num;
@@ -1713,6 +1783,8 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     ret = enif_make_tuple2(env, new_state_term, cipher_term);
     CONSUME_REDS(env,text_bin);
     return ret;
+
+#endif
 }
 
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
