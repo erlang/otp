@@ -41,11 +41,14 @@
 
    <section>
     <title>DEPENDENCIES</title>
-    <p>The <c>ssh</c> application uses the applications <c>public_key</c> and
-    <c>crypto</c> to handle public keys and encryption. Hence, these
+    <p>The <c>ssh</c> application uses the applications
+    <seealso marker="public_key:public_key">public_key</seealso> and
+    <seealso marker="crypto:crypto">crypto</seealso> 
+    to handle public keys and encryption. Hence, these
     applications must be loaded for the <c>ssh</c> application to work. In
     an embedded environment this means that they must be started with
-    <c>application:start/[1,2]</c> before the <c>ssh</c> application is started.
+    <seealso marker="kernel:application#start/1">application:start/1,2</seealso> before the
+    <c>ssh</c> application is started.
     </p>
   </section>
 
