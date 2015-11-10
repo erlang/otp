@@ -552,8 +552,7 @@ coerce_to_float({integer,L,I}=E, [float|_]) ->
     try
         {float,L,float(I)}
     catch
-        error:badarg -> E;
-        error:badarith -> E
+        error:badarg -> E
     end;
 coerce_to_float(E, _) -> E.
     

@@ -116,9 +116,16 @@ fun_shadow_4(L) ->
 
 int_float(Config) when is_list(Config) ->
     %% OTP-5323
-    ?line <<103133.0:64/float>> = <<103133:64/float>>,
-    ?line <<103133:64/float>> = <<103133:64/float>>,
-    ok.
+    <<103133.0:64/float>> = <<103133:64/float>>,
+    <<103133:64/float>> = <<103133:64/float>>,
+
+    %% Coverage of error cases in sys_pre_expand:coerce_to_float/2.
+    case id(default) of
+	<<(1 bsl 1024):64/float>> ->
+	    ?t:fail();
+	default ->
+	    ok
+    end.
 
 %% Stolen from erl_eval_SUITE and modified.
 %% OTP-5269. Bugs in the bit syntax.
