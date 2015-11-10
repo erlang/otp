@@ -4231,6 +4231,7 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 	  goto bad;
       
       enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      ASSERT(enp != erts_this_node);
 
       etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_pid_header(1);
