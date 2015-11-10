@@ -230,8 +230,6 @@ head(As, St) -> pattern_list(As, St).
 %%      {TransformedPattern,State'}
 %%
 
-pattern({var,_,'_'}=Var, St) ->                 %Ignore anonymous variable.
-    {Var,St};
 pattern({var,_,_}=Var, St) ->
     {Var,St};
 pattern({char,_,_}=Char, St) ->
@@ -384,19 +382,19 @@ expr({block,Line,Es0}, St0) ->
     {Es,St1} = exprs(Es0, St0),
     {{block,Line,Es},St1};
 expr({'if',Line,Cs0}, St0) ->
-    {Cs,St1} = icr_clauses(Cs0, St0),
+    {Cs,St1} = clauses(Cs0, St0),
     {{'if',Line,Cs},St1};
 expr({'case',Line,E0,Cs0}, St0) ->
     {E,St1} = expr(E0, St0),
-    {Cs,St2} = icr_clauses(Cs0, St1),
+    {Cs,St2} = clauses(Cs0, St1),
     {{'case',Line,E,Cs},St2};
 expr({'receive',Line,Cs0}, St0) ->
-    {Cs,St1} = icr_clauses(Cs0, St0),
+    {Cs,St1} = clauses(Cs0, St0),
     {{'receive',Line,Cs},St1};
 expr({'receive',Line,Cs0,To0,ToEs0}, St0) ->
     {To,St1} = expr(To0, St0),
     {ToEs,St2} = exprs(ToEs0, St1),
-    {Cs,St3} = icr_clauses(Cs0, St2),
+    {Cs,St3} = clauses(Cs0, St2),
     {{'receive',Line,Cs,To,ToEs},St3};
 expr({'fun',Line,Body}, St) ->
     fun_tq(Line, Body, St);
@@ -429,12 +427,11 @@ expr({call,Line,F,As0}, St0) ->
     {{call,Line,Fun1,As1},St1};
 expr({'try',Line,Es0,Scs0,Ccs0,As0}, St0) ->
     {Es1,St1} = exprs(Es0, St0),
-    {Scs1,St2} = icr_clauses(Scs0, St1),
-    {Ccs1,St3} = icr_clauses(Ccs0, St2),
+    {Scs1,St2} = clauses(Scs0, St1),
+    {Ccs1,St3} = clauses(Ccs0, St2),
     {As1,St4} = exprs(As0, St3),
     {{'try',Line,Es1,Scs1,Ccs1,As1},St4};
 expr({'catch',Line,E0}, St0) ->
-    %% Catch exports no new variables.
     {E,St1} = expr(E0, St0),
     {{'catch',Line,E},St1};
 expr({match,Line,P0,E0}, St0) ->
@@ -455,21 +452,6 @@ expr_list([E0|Es0], St0) ->
     {[E|Es],St2};
 expr_list([], St) -> {[],St}.
 
-%% icr_clauses([Clause], State) -> {[TransformedClause],State'}
-%%  Be very careful here to return the variables that are really used
-%%  and really new.
-
-icr_clauses([], St) -> {[],St};
-icr_clauses(Clauses, St) -> icr_clauses2(Clauses, St).
-
-icr_clauses2([{clause,Line,H0,G0,B0}|Cs0], St0) ->
-    {H,St1} = head(H0, St0),
-    {G,St2} = guard(G0, St1),
-    {B,St3} = exprs(B0, St2),
-    {Cs,St4} = icr_clauses2(Cs0, St3),
-    {[{clause,Line,H,G,B}|Cs],St4};
-icr_clauses2([], St) -> {[],St}.
-
 %% lc_tq(Line, Qualifiers, State) ->
 %%      {[TransQual],State'}
 
@@ -485,16 +467,9 @@ lc_tq(Line, [{b_generate,Lg,P0,G0}|Qs0], St0) ->
     {Qs1,St3} = lc_tq(Line, Qs0, St2),
     {[{b_generate,Lg,P1,G1}|Qs1],St3};
 lc_tq(Line, [F0 | Qs0], St0) ->
-    case erl_lint:is_guard_test(F0) of
-        true ->
-            {F1,St1} = guard_test(F0, St0),
-            {Qs1,St2} = lc_tq(Line, Qs0, St1),
-            {[F1|Qs1],St2};
-        false ->
-            {F1,St1} = expr(F0, St0),
-            {Qs1,St2} = lc_tq(Line, Qs0, St1),
-            {[F1 | Qs1],St2}
-    end;
+    {F1,St1} = expr(F0, St0),
+    {Qs1,St2} = lc_tq(Line, Qs0, St1),
+    {[F1|Qs1],St2};
 lc_tq(_Line, [], St0) ->
     {[],St0}.
 
@@ -526,7 +501,7 @@ fun_tq(L, {function,M,F,A}, St) when is_atom(M), is_atom(F), is_integer(A) ->
 fun_tq(Lf, {function,_,_,_}=ExtFun, St) ->
     {{'fun',Lf,ExtFun},St};
 fun_tq(Lf, {clauses,Cs0}, St0) ->
-    {Cs1,St1} = fun_clauses(Cs0, St0),
+    {Cs1,St1} = clauses(Cs0, St0),
     {Fname,St2} = new_fun_name(St1),
     %% Set dummy values for Index and Uniq -- the real values will
     %% be assigned by beam_asm.
@@ -534,17 +509,9 @@ fun_tq(Lf, {clauses,Cs0}, St0) ->
     {{'fun',Lf,{clauses,Cs1},{Index,Uniq,Fname}},St2}.
 
 fun_tq(Line, Cs0, St0, Name) ->
-    {Cs1,St1} = fun_clauses(Cs0, St0),
+    {Cs1,St1} = clauses(Cs0, St0),
     {Fname,St2} = new_fun_name(St1, Name),
     {{named_fun,Line,Name,Cs1,{0,0,Fname}},St2}.
-
-fun_clauses([{clause,L,H0,G0,B0}|Cs0], St0) ->
-    {H,St1} = head(H0, St0),
-    {G,St2} = guard(G0, St1),
-    {B,St3} = exprs(B0, St2),
-    {Cs,St4} = fun_clauses(Cs0, St3),
-    {[{clause,L,H,G,B}|Cs],St4};
-fun_clauses([], St) -> {[],St}.
 
 %% new_fun_name(State) -> {FunName,State}.
 
