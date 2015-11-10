@@ -151,6 +151,8 @@
 	 unset/1,
 	 %% update_counter/2,
 	 val/1,
+	 validate_key/2,
+	 validate_record/2,
 	 vcore/0,
 	 vcore/1,
 	 verbose/2,
@@ -343,6 +345,33 @@ search_key(Key, [{Val, List} | Tail]) ->
     end;
 search_key(_Key, []) ->
     unknown.
+
+validate_key(Tab, Key) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type} ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod} ->
+	    %% external type
+	    Mod:validate_key(Alias, Tab, RecName, Arity, Type, Key);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab})
+    end.
+
+
+validate_record(Tab, Obj) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    %% external type
+	    Mod:validate_record(Alias, Tab, RecName, Arity, Type, Obj);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab});
+	_ ->
+	    mnesia:abort({bad_type, Obj})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ops, we've got some global variables here :-)

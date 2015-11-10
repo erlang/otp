@@ -557,22 +557,16 @@ write(_Tid, _Ts, Tab, Val, LockKind) ->
     abort({bad_type, Tab, Val, LockKind}).
 
 write_to_store(Tab, Store, Oid, Val) ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, Arity, Type}
-	  when tuple_size(Val) == Arity, RecName == element(1, Val) ->
-	    case Type of
-		bag ->
-		    ?ets_insert(Store, {Oid, Val, write});
-		_  ->
-		    ?ets_delete(Store, Oid),
-		    ?ets_insert(Store, {Oid, Val, write})
-	    end,
-	    ok;
-	{'EXIT', _} ->
-	    abort({no_exists, Tab});
-	_ ->
-	    abort({bad_type, Val})
-    end.
+    {_, _, Type} = mnesia_lib:validate_record(Tab, Val),
+    Oid = {Tab, element(2, Val)},
+    case Type of
+	bag ->
+	    ?ets_insert(Store, {Oid, Val, write});
+	_  ->
+	    ?ets_delete(Store, Oid),
+	    ?ets_insert(Store, {Oid, Val, write})
+    end,
+    ok.
 
 delete({Tab, Key}) ->
     delete(Tab, Key, write);
@@ -1549,16 +1543,9 @@ dirty_write(Tab, Val) ->
 
 do_dirty_write(SyncMode, Tab, Val)
   when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, Arity, _Type}
-	when tuple_size(Val) == Arity, RecName == element(1, Val) ->
-	    Oid = {Tab, element(2, Val)},
-	    mnesia_tm:dirty(SyncMode, {Oid, Val, write});
-	{'EXIT', _} ->
-	    abort({no_exists, Tab});
-	_ ->
-	    abort({bad_type, Val})
-    end;
+    {_, _, _} = mnesia_lib:validate_record(Tab, Val),
+    Oid = {Tab, element(2, Val)},
+    mnesia_tm:dirty(SyncMode, {Oid, Val, write});
 do_dirty_write(_SyncMode, Tab, Val) ->
     abort({bad_type, Tab, Val}).
 
@@ -1610,8 +1597,8 @@ dirty_update_counter(Tab, Key, Incr) ->
 
 do_dirty_update_counter(SyncMode, Tab, Key, Incr)
   when is_atom(Tab), Tab /= schema, is_integer(Incr) ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, 3, set} ->
+    case mnesia_lib:validate_key(Tab, Key) of
+	{RecName, 3, Type} when Type == set; Type == ordered_set ->
 	    Oid = {Tab, Key},
 	    mnesia_tm:dirty(SyncMode, {Oid, {RecName, Incr}, update_counter});
 	_ ->
