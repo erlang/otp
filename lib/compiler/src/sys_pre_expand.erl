@@ -29,7 +29,6 @@
 %% Main entry point.
 -export([module/2]).
 
--import(ordsets, [from_list/1,union/2]).
 -import(lists,   [member/2,foldl/3,foldr/3]).
 
 -type fa() :: {atom(), arity()}.
@@ -127,7 +126,7 @@ module_predef_func_beh_info(#expand{callbacks=Callbacks,
     PreExp=PreDef,
     {[gen_beh_info(Callbacks, OptionalCallbacks)],
      St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef), Defined),
-	       exports=union(from_list(PreExp), Exports)}}.
+	       exports=ordsets:union(ordsets:from_list(PreExp), Exports)}}.
 
 gen_beh_info(Callbacks, OptionalCallbacks) ->
     List = make_list(Callbacks),
@@ -167,7 +166,8 @@ module_predef_funcs_mod_info(St) ->
           [{atom,0,St#expand.module},{var,0,'X'}]}]}]}],
      St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef),
 				     St#expand.defined),
-               exports=union(from_list(PreExp), St#expand.exports)}}.
+               exports=ordsets:union(ordsets:from_list(PreExp),
+				     St#expand.exports)}}.
 
 %% forms(Forms, State) ->
 %%      {TransformedForms,State'}
@@ -194,7 +194,8 @@ attribute(module, Module, _L, St) ->
     true = is_atom(Module),
     St#expand{module=Module};
 attribute(export, Es, _L, St) ->
-    St#expand{exports=union(from_list(Es), St#expand.exports)};
+    St#expand{exports=ordsets:union(ordsets:from_list(Es),
+				    St#expand.exports)};
 attribute(import, Is, _L, St) ->
     import(Is, St);
 attribute(compile, _C, _L, St) ->
@@ -652,7 +653,7 @@ string_to_conses(Line, Cs, Tail) ->
 
 import({Mod,Fs}, St) ->
     true = is_atom(Mod),
-    Mfs = from_list(Fs),
+    Mfs = ordsets:from_list(Fs),
     St#expand{imports=add_imports(Mod, Mfs, St#expand.imports)}.
 
 add_imports(Mod, [F|Fs], Is) ->
