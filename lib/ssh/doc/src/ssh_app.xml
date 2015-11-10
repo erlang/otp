@@ -62,10 +62,13 @@
       <item><c>authorized_keys2</c></item>
       <item><c>id_dsa</c></item>
       <item><c>id_rsa</c></item>
+      <item><c>id_ecdsa</c></item>
       <item><c>ssh_host_dsa_key</c></item>
       <item><c>ssh_host_rsa_key</c></item>
+      <item><c>ssh_host_ecdsa_key</c></item>
     </list>
       <p>By default, <c>ssh</c> looks for <c>id_dsa</c>, <c>id_rsa</c>,
+      <c>id_ecdsa_key</c>,
       <c>known_hosts</c>, and <c>authorized_keys</c> in ~/.ssh,
       and for the host key files in <c>/etc/ssh</c>. These locations can be changed
       by the options <c>user_dir</c> and <c>system_dir</c>.
@@ -79,7 +82,7 @@
   </section>
   <section>
     <title>Public Keys</title>
-    <p><c>id_dsa</c> and <c>id_rsa</c> are the users private key files.
+    <p><c>id_dsa</c>, <c>id_rsa</c> and <c>id_ecdsa</c> are the users private key files.
 	Notice that the public key is part of the private key so the <c>ssh</c>
 	application does not use the <c>id_&lt;*>.pub</c> files. These are
 	for the user's convenience when it is needed to convey the user's
@@ -104,8 +107,8 @@
  <section>
     <title>Host Keys</title>
     <p>RSA and DSA host keys are supported and are
-       expected to be found in files named <c>ssh_host_rsa_key</c> and
-       <c>ssh_host_dsa_key</c>.
+       expected to be found in files named <c>ssh_host_rsa_key</c>,
+       <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
        </p>
   </section>
   <section>
