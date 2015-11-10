@@ -28,6 +28,7 @@
          fallback_exists/0,
          tm_fallback_start/1,
          create_schema/1,
+	 create_schema/2,
          install_fallback/1,
          install_fallback/2,
          uninstall_fallback/0,
@@ -262,7 +263,7 @@ convert_0_1(Schema) ->
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema2, [], Cs);
         false ->
-            List = mnesia_schema:get_initial_schema(disc_copies, [node()]),
+            List = mnesia_schema:get_initial_schema(disc_copies, [node()], []),
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema, [], Cs)
     end.
@@ -310,16 +311,19 @@ schema2bup({schema, Tab, TableDef}) ->
 %% Create schema on the given nodes
 %% Requires that old schemas has been deleted
 %% Returns ok | {error, Reason}
-create_schema([]) ->
-    create_schema([node()]);
-create_schema(Ns) when is_list(Ns) ->
+create_schema(Nodes) ->
+    create_schema(Nodes, []).
+
+create_schema([], Props) ->
+    create_schema([node()], Props);
+create_schema(Ns, Props) when is_list(Ns), is_list(Props) ->
     case is_set(Ns) of
         true ->
-            create_schema(Ns, mnesia_schema:ensure_no_schema(Ns));
+            create_schema(Ns, mnesia_schema:ensure_no_schema(Ns), Props);
         false ->
             {error, {combine_error, Ns}}
     end;
-create_schema(Ns) ->
+create_schema(Ns, _Props) ->
     {error, {badarg, Ns}}.
 
 is_set(List) when is_list(List) ->
@@ -327,7 +331,7 @@ is_set(List) when is_list(List) ->
 is_set(_) ->
     false.
 
-create_schema(Ns, ok) ->
+create_schema(Ns, ok, Props) ->
     %% Ensure that we access the intended Mnesia
     %% directory. This function may not be called
     %% during startup since it will cause the
@@ -346,7 +350,7 @@ create_schema(Ns, ok) ->
                             Str = mk_str(),
                             File = mnesia_lib:dir(Str),
                             file:delete(File),
-                            try make_initial_backup(Ns, File, Mod) of
+                            try make_initial_backup(Ns, File, Mod, Props) of
                                 {ok, _Res} ->
                                     case do_install_fallback(File, Mod) of
                                         ok ->
@@ -363,9 +367,9 @@ create_schema(Ns, ok) ->
         {error, Reason} ->
             {error, Reason}
     end;
-create_schema(_Ns, {error, Reason}) ->
+create_schema(_Ns, {error, Reason}, _) ->
     {error, Reason};
-create_schema(_Ns, Reason) ->
+create_schema(_Ns, Reason, _) ->
     {error, Reason}.
 
 mk_str() ->
@@ -373,7 +377,10 @@ mk_str() ->
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->
-    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
+    make_initial_backup(Ns, Opaque, Mod, []).
+
+make_initial_backup(Ns, Opaque, Mod, Props) ->
+    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns, Props),
     Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
     Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),

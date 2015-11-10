@@ -29,6 +29,11 @@
 -module(mnesia_schema).
 
 -export([
+         add_backend_type/2,
+	 do_add_backend_type/2,
+	 delete_backend_type/1,
+	 do_delete_backend_type/1,
+	 backend_types/0,
          add_snmp/2,
          add_table_copy/3,
          add_table_index/2,
@@ -55,11 +60,12 @@
          dump_tables/1,
          ensure_no_schema/1,
 	 get_create_list/1,
-         get_initial_schema/2,
+         get_initial_schema/3,
 	 get_table_properties/1,
          info/0,
          info/1,
          init/1,
+	 init_backends/0,
          insert_cstruct/3,
 	 is_remote_member/1,
          list2cs/1,
@@ -143,7 +149,24 @@ init(IgnoreFallback) ->
     set({schema, where_to_read}, node()),
     set({schema, load_node}, node()),
     set({schema, load_reason}, initial),
-    mnesia_controller:add_active_replica(schema, node()).
+    mnesia_controller:add_active_replica(schema, node()),
+    init_backends().
+
+
+init_backends() ->
+    Backends = lists:foldl(fun({Alias, Mod}, Acc) ->
+				   orddict:append(Mod, Alias, Acc)
+			   end, orddict:new(), get_ext_types()),
+    [init_backend(Mod, Aliases) || {Mod, Aliases} <- Backends],
+    ok.
+
+init_backend(Mod, [_|_] = Aliases) ->
+    case Mod:init_backend() of
+	ok ->
+	    Mod:add_aliases(Aliases);
+	Error ->
+	    mnesia:abort({backend_init_error, Error})
+    end.
 
 exit_on_error({error, Reason}) ->
     exit(Reason);
@@ -525,15 +548,44 @@ do_read_disc_schema(Fname, Keep) ->
     Res.
 
 get_initial_schema(SchemaStorage, Nodes) ->
+    get_initial_schema(SchemaStorage, Nodes, []).
+
+get_initial_schema(SchemaStorage, Nodes, Properties) ->	%
+    UserProps = initial_schema_properties(Properties),
     Cs = #cstruct{name = schema,
 		  record_name = schema,
-		  attributes = [table, cstruct]},
+		  attributes = [table, cstruct],
+		  user_properties = UserProps},
     Cs2 =
 	case SchemaStorage of
         ram_copies -> Cs#cstruct{ram_copies = Nodes};
         disc_copies -> Cs#cstruct{disc_copies = Nodes}
     end,
     cs2list(Cs2).
+
+initial_schema_properties(Props0) ->
+    DefaultProps = remove_duplicates(mnesia_monitor:get_env(schema)),
+    Props = lists:foldl(
+	      fun({K,V}, Acc) ->
+		      lists:keystore(K, 1, Acc, {K,V})
+	      end, DefaultProps, remove_duplicates(Props0)),
+    initial_schema_properties_(Props).
+
+initial_schema_properties_([{backend_types, Types}|Props]) ->
+    lists:foreach(fun({Name, Module}) ->
+			  verify_backend_type(Name, Module)
+		  end, Types),
+    [{mnesia_backend_types, Types}|initial_schema_properties_(Props)];
+initial_schema_properties_([P|_Props]) ->
+    mnesia:abort({bad_schema_property, P});
+initial_schema_properties_([]) ->
+    [].
+
+remove_duplicates([{K,_} = H|T]) ->
+    [H | remove_duplicates([X || {K1,_} = X <- T,
+				 K1 =/= K])];
+remove_duplicates([]) ->
+    [].
 
 read_cstructs_from_disc() ->
     %% Assumptions:
@@ -781,6 +833,25 @@ pick(Tab, Key, List, Default) ->
             Value;
 	{value, BadArg} ->
 	    mnesia:abort({bad_type, Tab, BadArg})
+    end.
+
+get_ext_types() ->
+    get_schema_user_property(mnesia_backend_types).
+
+get_schema_user_property(Key) ->
+    Tab = schema,
+    %% Must work reliably both within transactions and outside of transactions
+    Res = case get(mnesia_activity_state) of
+	      undefined ->
+		  dirty_read_table_property(Tab, Key);
+	      _ ->
+		  do_read_table_property(Tab, Key)
+	  end,
+    case Res of
+	undefined ->
+	    [];
+	{_, Types} ->
+	    Types
     end.
 
 %% Convert attribute name to integer if neccessary
@@ -1038,6 +1109,103 @@ check_active([{badrpc, Reason} | _Replies], Expl, Tab) ->
     mnesia:abort({not_active, Expl, Tab, Reason});
 check_active([], _Expl, _Tab) ->
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Function for definining an external backend type
+
+add_backend_type(Name, Module) ->
+    case schema_transaction(fun() -> do_add_backend_type(Name, Module) end) of
+	{atomic, NeedsInit} ->
+	    case NeedsInit of
+		true ->
+		    Module:init_backend();
+		false ->
+		    ignore
+	    end,
+	    Module:add_aliases([Name]),
+	    {atomic, ok};
+	Other ->
+	    Other
+    end.
+
+do_add_backend_type(Name, Module) ->
+    verify_backend_type(Name, Module),
+    Types = case do_read_table_property(schema, mnesia_backend_types) of
+		undefined ->
+		    [];
+		{_, Ts} ->
+		    case lists:keymember(Name, 1, Ts) of
+			true ->
+			    mnesia:abort({backend_type_already_exists, Name});
+			false ->
+			    Ts
+		    end
+	    end,
+    ModuleRegistered = lists:keymember(Module, 2, Types),
+    do_write_table_property(schema, {mnesia_backend_types,
+				     [{Name, Module}|Types]}),
+    ModuleRegistered.
+
+delete_backend_type(Name) ->
+    schema_transaction(fun() -> do_delete_backend_type(Name) end).
+
+do_delete_backend_type(Name) ->
+    case do_read_table_property(schema, mnesia_backend_types) of
+	undefined ->
+	    [];
+	{_, Ts} ->
+	    case lists:keyfind(Name, 1, Ts) of
+		{_, Mod} ->
+		    case using_backend_type(Name, Mod) of
+			[_|_] = Tabs ->
+			    mnesia:abort({backend_in_use, {Name, Tabs}});
+			[] ->
+			    do_write_table_property(
+			      schema, {mnesia_backend_types,
+				       lists:keydelete(Name, 1, Ts)})
+		    end;
+		false ->
+		    mnesia:abort({no_such_backend, Name})
+	    end
+    end.
+
+using_backend_type(Name, Mod) ->
+    Ext = ets:select(mnesia_gvar,
+		     [{ {{'$1',external_copies},'$2'}, [], [{{'$1','$2'}}] }]),
+    Entry = {Name, Mod},
+    [T || {T,C} <- Ext,
+	  lists:keymember(Entry, 1, C)].
+
+verify_backend_type(Name, Module) ->
+    case legal_backend_name(Name) of
+	false ->
+	    mnesia:abort({bad_type, {backend_type,Name,Module}});
+	true ->
+	    ok
+    end,
+    ExpectedExports = mnesia_backend_type:behaviour_info(callbacks),
+    Exports = try Module:module_info(exports)
+              catch
+                  error:_ ->
+                      mnesia:abort({undef_backend, Module})
+              end,
+    case ExpectedExports -- Exports of
+        [] ->
+	    ok;
+        _Other ->
+	    io:fwrite(user, "Missing backend_type exports: ~p~n", [_Other]),
+            mnesia:abort({bad_type, {backend_type,Name,Module}})
+    end.
+
+legal_backend_name(Name) ->
+    is_atom(Name) andalso
+                    (not lists:member(Name, record_info(fields, cstruct))).
+
+%% Used e.g. by mnesia:system_info(backend_types).
+backend_types() ->
+    [ram_copies, disc_copies, disc_only_copies |
+     [T || {T,_} <- get_ext_types()]].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Here's the real interface function to create a table
@@ -1711,22 +1879,38 @@ do_read_table_property(Tab, Key) ->
     {_, _, Ts} = TidTs,
     Store = Ts#tidstore.store,
     Props = ets:foldl(
-	      fun({op, create_table, [{name, T}|Opts]}, _Acc)
-		 when T==Tab ->
+	      fun({op, announce_im_running,_,Opts,_,_}, _Acc) when Tab==schema ->
+		      find_props(Opts);
+		 ({op, create_table, [{name, T}|Opts]}, _Acc)
+		    when T==Tab ->
 		      find_props(Opts);
 		 ({op, Op, [{name,T}|Opts], _Prop}, _Acc)
-		 when T==Tab, Op==write_property; Op==delete_property ->
+		 when T==Tab, Op==write_property;
+		      T==Tab, Op==delete_property ->
 		      find_props(Opts);
 		 ({op, delete_table, [{name,T}|_]}, _Acc)
 		 when T==Tab ->
 		      [];
 		 (_Other, Acc) ->
 		      Acc
-	      end, [], Store),
-    case lists:keysearch(Key, 1, Props) of
-	{value, Property} ->
-	    Property;
-	false ->
+	      end, undefined, Store),
+    case Props of
+        undefined ->
+            get_tid_ts_and_lock(Tab, read),
+	    dirty_read_table_property(Tab, Key);
+        _ when is_list(Props) ->
+            case lists:keyfind(Key, 1, Props) of
+		false ->
+		    undefined;
+		Other ->
+		    Other
+            end
+    end.
+
+dirty_read_table_property(Tab, Key) ->
+    try ets:lookup_element(mnesia_gvar, {Tab,user_property,Key}, 2)
+    catch
+	error:_ ->
 	    undefined
     end.
 
