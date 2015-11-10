@@ -593,10 +593,11 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 		     Ssh0 = #ssh{algorithms = #alg{kex=Kex}}) ->
     %% at server
     Curve = ecdh_curve(Kex),
-    case ecdh_validate_public_key(PeerPublic, Curve) of
-	true ->
-            {MyPublic, MyPrivate} = generate_key(ecdh, Curve),
-	    K = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
+    {MyPublic, MyPrivate} = generate_key(ecdh, Curve),
+    try
+	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
+    of
+	K ->
 	    MyPrivHostKey = get_host_key(Ssh0),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
 	    H = kex_h(Ssh0, Curve, MyPubHostKey, PeerPublic, MyPublic, K),
@@ -609,9 +610,9 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
     	    {ok, SshPacket, Ssh1#ssh{keyex_key = {{MyPublic,MyPrivate},Curve},
 				     shared_secret = K,
 				     exchanged_hash = H,
-				     session_id = sid(Ssh1, H)}};
-
-	false ->
+				     session_id = sid(Ssh1, H)}}
+    catch
+	_:_ ->
 	    throw({{error,invalid_peer_public_key},
 		   #ssh_msg_disconnect{
 		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -626,9 +627,10 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 		      #ssh{keyex_key = {{MyPublic,MyPrivate}, Curve}} = Ssh0
 		     ) ->
     %% at client
-    case ecdh_validate_public_key(PeerPublic, Curve) of
-	true ->
-	    K = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
+    try
+	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
+    of
+	K ->
 	    H = kex_h(Ssh0, Curve, PeerPubHostKey, MyPublic, PeerPublic, K), 
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
@@ -643,9 +645,9 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 			      description = "Key exchange failed",
 			      language = ""}
 			  })
-	    end;
-
-	false ->
+	    end
+    catch
+	_:_ ->
 	    throw({{error,invalid_peer_public_key},
 		   #ssh_msg_disconnect{
 		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -654,62 +656,6 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 		  })
     end.
 
-
-%%%----------------------------------------------------------------
-%%%
-%%% Standards for Efficient Cryptography Group, "Elliptic Curve Cryptography", SEC 1
-%%% Section 3.2.2.1
-%%%
-
-ecdh_validate_public_key(Key, Curve) ->
-    case key_size(Curve) of
-	undefined ->
-	    false;
-
-	Sz ->
-	    case dec_key(Key, Sz) of
-		{ok,Q} ->
-		    case crypto:ec_curve(Curve) of
-			{{prime_field,P}, {A, B, _Seed},
-			 _P0Bin, _OrderBin, _CoFactorBin} ->
-			    on_curve(Q, bin2int(A), bin2int(B), bin2int(P))
-		    end;
-
-		{error,compressed_not_implemented} -> % Be a bit generous...
-		    true;
-
-		_Error -> 
-		    false
-	    end
-    end.
-
-
-on_curve({X,Y}, A, B, P) when 0 =< X,X =< (P-1),
-			      0 =< Y,Y =< (P-1) ->
-    %% Section 3.2.2.1, point 2
-    (Y*Y) rem P == (X*X*X + A*X + B) rem P;
-on_curve(_, _, _, _) ->
-    false.
-
-
-bin2int(B) ->
-    Sz = erlang:bit_size(B),
-    <<I:Sz/big-unsigned-integer>> = B,
-    I.
-
-key_size(secp256r1) -> 256;
-key_size(secp384r1) -> 384;
-key_size(secp521r1) -> 528; % Round 521 up to closest 8-bits.
-key_size(_) -> undefined.
-
-
-dec_key(Key, NBits) ->
-    Size = 8 + 2*NBits,
-    case <<Key:Size>> of
-	<<4:8, X:NBits, Y:NBits>> -> {ok,{X,Y}};
-	<<4:8, _/binary>> -> {error,bad_format};
-	_ -> {error,compressed_not_implemented}
-    end.
 
 %%%----------------------------------------------------------------
 handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
