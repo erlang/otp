@@ -49,39 +49,27 @@
 %% start(SocketType) -> ok | {error, Reason}
 %%      SocketType = ip_comm | {ssl, _}  
 %%                                   
-%% Description: Makes sure inet_db or ssl is started. 
+%% Description: Makes sure ssl is started. 
 %%-------------------------------------------------------------------------
 start(ip_comm) ->
-    do_start_ip_comm();
+    ok;
 start({ip_comm, _}) ->
-    do_start_ip_comm();
-%% This is just for backward compatibillity
+    ok;
 start({ssl, _}) ->
     do_start_ssl();
 start({essl, _}) ->
     do_start_ssl().
 
-
-do_start_ip_comm() ->
-    case inet_db:start() of
-	{ok, _} ->
-	    ok;
-	{error, {already_started, _}} ->
-	    ok;
-	Error ->
-	    Error
-    end.
-
 do_start_ssl() ->
-    case ssl:start() of
-	ok ->
-	    ok;
-	{error, {already_started,_}} ->
-	    ok;
-	Error ->
-	    Error
+    try lists:foreach(fun(App) -> 
+			      ok = application:ensure_started(App)
+		      end,
+		      [crypto, asn1, public_key, ssl])
+    catch
+	_:Reason ->
+	    {error, Reason}
     end.
-
+	 
 
 %%-------------------------------------------------------------------------
 %% connect(SocketType, Address, Options, Timeout) ->
