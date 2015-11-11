@@ -43,7 +43,7 @@ atom false true
 atom Underscore='_'
 atom Noname='nonode@nohost'
 atom EOT='$end_of_table'
-atom Cookie=''
+atom Empty=''
 
 #
 # Used in the Beam emulator loop. (Smaller literals usually means tighter code.)
