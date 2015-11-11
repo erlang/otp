@@ -3839,11 +3839,9 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 
 BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
-    int reds;
-
     FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
-    reds = erts_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET2(am_true, reds);
+    erts_garbage_collect(BIF_P, 0, NULL, 0);
+    BIF_RET(am_true);
 }
 
 /**********************************************************************/

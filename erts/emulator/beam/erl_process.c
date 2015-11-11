@@ -9774,7 +9774,7 @@ Process *schedule(Process *p, int calls)
 
 	if (ERTS_IS_GC_DESIRED(p)) {
 	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & F_DISABLE_GC)) {
-		reds -= erts_garbage_collect(p, 0, p->arg_reg, p->arity);
+		reds -= erts_garbage_collect_nobump(p, 0, p->arg_reg, p->arity);
 		if (reds <= 0) {
 		    p->fcalls = reds;
 		    goto sched_out_proc;
@@ -10057,10 +10057,10 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    else {
 		if (!garbage_collected) {
 		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
-		    reds += erts_garbage_collect(c_p,
-						 0,
-						 c_p->arg_reg,
-						 c_p->arity);
+		    reds += erts_garbage_collect_nobump(c_p,
+							0,
+							c_p->arg_reg,
+							c_p->arity);
 		    garbage_collected = 1;
 		}
 		st_res = am_true;

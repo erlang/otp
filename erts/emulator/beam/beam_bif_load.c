@@ -935,7 +935,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 	if (need_gc & ERTS_ORDINARY_GC__) {
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
-	    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+	    *redsp += erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity);
 	    done_gc |= ERTS_ORDINARY_GC__;
 	}
 	if (need_gc & ERTS_LITERAL_GC__) {
