@@ -2619,7 +2619,7 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
     Uint got = 0;
     Sint slot_ix, rest_size;
     Eterm continuation, match_list, match_res, mpb, rest;
-    Eterm *hp;
+    Eterm *hp, *match_tail, *rest_tail;
     struct mp_info mpi;
     erts_smp_rwmtx_t* lck;
     RootDbTerm *rp1, *rp2;
@@ -2630,11 +2630,9 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
         *ret = NIL;
         goto exit;
     }
-
     /* errcode == DB_ERROR_NONE; */
     if (!mpi.something_can_match)
         goto end_of_table;
-
     if (mpi.key_given) {
         /* We have at least one */
         slot_ix = mpi.lists[current_list_pos].ix;
@@ -2658,7 +2656,8 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
                 goto end_of_table;
         }
     }
-    match_list = NIL;
+    match_list = rest = NIL;
+    rest_tail = NULL;
     rp2 = ROOT_PTR(rp1);
     if (HAS_TAIL(rp1))
         tp = TRUNK_PTR(rp2->dt.tail.trunk);
@@ -2670,7 +2669,9 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
                     match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
                                                 &tp->dbterm, &hp, 2);
                     if (is_value(match_res)) {
-                        match_list = CONS(hp, match_res, match_list);
+                        rest = CONS(hp, match_res, rest);
+                        if (rest_tail == NULL)
+                            rest_tail = &CDR(list_val(rest));
                         ++got;
                     }
                     --num_left;
@@ -2681,53 +2682,67 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
                     match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
                                                 &rp2->dt.dbterm, &hp, 2);
                     if (is_value(match_res)) {
-                        match_list = CONS(hp, match_res, match_list);
+                        rest = CONS(hp, match_res, rest);
+                        if (rest_tail == NULL)
+                            rest_tail = &CDR(list_val(rest));
                         ++got;
                     }
                     --num_left;
                 }
                 NEXT_DBTERM_1(rp1, rp2, tp);
             }
-        } else if (mpi.key_given) {
-            /* Key is bound */
-            RUNLOCK_HASH(lck);
-            if (current_list_pos == mpi.num_lists) {
-                /* EOT */
-                slot_ix = -1;
-                break;
-            }
-            slot_ix = mpi.lists[current_list_pos].ix;
-            lck = RLOCK_HASH(tb, slot_ix);
-            rp1 = *(mpi.lists[current_list_pos].bucket);
-            ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
-            rp2 = ROOT_PTR(rp1);
-            if (HAS_TAIL(rp1))
-                tp = TRUNK_PTR(rp2->dt.tail.trunk);
-            ++current_list_pos;
         } else {
-            /* Key is variable */
-            slot_ix = next_slot(tb, slot_ix, &lck);
-            if (slot_ix == 0) {
-                slot_ix = -1;
-                break;
+            if (rest != NIL) {
+                if (match_list == NIL) {
+                    match_list = rest;
+                } else {
+                    *match_tail = rest;
+                }
+                match_tail = rest_tail;
+                rest = NIL;
+                rest_tail = NULL;
             }
-            if (chunk_size && (got >= chunk_size)) {
+            if (mpi.key_given) {
+                /* Key is bound */
                 RUNLOCK_HASH(lck);
-                break;
+                if (current_list_pos == mpi.num_lists) {
+                    /* EOT */
+                    slot_ix = -1;
+                    break;
+                }
+                slot_ix = mpi.lists[current_list_pos].ix;
+                lck = RLOCK_HASH(tb, slot_ix);
+                rp1 = *(mpi.lists[current_list_pos].bucket);
+                ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb, slot_ix));
+                rp2 = ROOT_PTR(rp1);
+                if (HAS_TAIL(rp1))
+                    tp = TRUNK_PTR(rp2->dt.tail.trunk);
+                ++current_list_pos;
+            } else {
+                /* Key is variable */
+                slot_ix = next_slot(tb, slot_ix, &lck);
+                if (slot_ix == 0) {
+                    slot_ix = -1;
+                    break;
+                }
+                if (chunk_size && (got >= chunk_size)) {
+                    RUNLOCK_HASH(lck);
+                    break;
+                }
+                if ((num_left <= 0) || MBUF(p)) {
+                    /*
+                     * We have either reached our limit, or just created
+                     * some heap fragments. Since many heap fragments
+                     * will make the GC slower, trap and GC now.
+                     */
+                    RUNLOCK_HASH(lck);
+                    goto trap;
+                }
+                rp1 = BUCKET(tb, slot_ix);
+                rp2 = ROOT_PTR(rp1);
+                if (HAS_TAIL(rp1))
+                    tp = TRUNK_PTR(rp2->dt.tail.trunk);
             }
-            if ((num_left <= 0) || MBUF(p)) {
-                /*
-                 * We have either reached our limit, or just created
-                 * some heap fragments. Since many heap fragments
-                 * will make the GC slower, trap and GC now.
-                 */
-                RUNLOCK_HASH(lck);
-                goto trap;
-            }
-            rp1 = BUCKET(tb, slot_ix);
-            rp2 = ROOT_PTR(rp1);
-            if (HAS_TAIL(rp1))
-                tp = TRUNK_PTR(rp2->dt.tail.trunk);
         }
     }
     BUMP_REDS(p, 1000 - num_left);
@@ -2735,20 +2750,17 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
         *ret = match_list;
         goto exit;
     }
-    rest_size = 0;
-    rest = NIL;
     if (got > chunk_size) {
         /* Split list in return value and 'rest' */
-        Eterm tmp = match_list;
-        rest = match_list;
-        while (--got > chunk_size) {
-            tmp = CDR(list_val(tmp));
-            ++rest_size;
-        }
-        ++rest_size;
-        match_list = CDR(list_val(tmp));
+        match_res = match_list;
+        rest_size = got - chunk_size;
+        for (got = 1; got < chunk_size; ++got)
+            match_res = CDR(list_val(match_res));
+        rest = CDR(list_val(match_res));
         /* Destructive, the list has never been in 'user space' */
-        CDR(list_val(tmp)) = NIL;
+        CDR(list_val(match_res)) = NIL;
+    } else {
+        rest_size = 0;
     }
     if ((rest != NIL) || (slot_ix >= 0)) {
         /* Need more calls */
@@ -3058,7 +3070,7 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
     Sint chunk_size, got, rest_size, slot_ix;
     Binary *mp;
     Eterm match_list, match_res, rest;
-    Eterm *hp, *tptr;
+    Eterm *hp, *match_tail, *rest_tail, *tptr;
     RootDbTerm *rp1, *rp2;
     TrunkDbTerm *tp = NULL;
     erts_smp_rwmtx_t *lck;
@@ -3084,7 +3096,9 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
         return DB_ERROR_BADPARAM;
     all_objects = mp->flags & BIN_FLAG_ALL_OBJECTS;
     match_list = tptr[5];
-    got = signed_val(tptr[6]);
+    match_tail = NULL;
+    rest = NIL;
+    rest_size = got = signed_val(tptr[6]);
     if (got < 0)
         return DB_ERROR_BADPARAM;
     slot_ix = signed_val(tptr[2]);
@@ -3105,6 +3119,18 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
             goto done;
         }
     }
+    if (match_list != NIL) {
+        hp = HAlloc(p, rest_size * 2);
+        match_tail = &match_list;
+        while (--rest_size >= 0) {
+            *match_tail = CONS(hp, CAR(list_val(*match_tail)),
+                               CDR(list_val(*match_tail)));
+            match_tail = &CDR(list_val(*match_tail));
+            hp += 2;
+        }
+        ASSERT(*match_tail == NIL);
+    }
+    rest_tail = NULL;
     rp2 =ROOT_PTR(rp1);
     if (HAS_TAIL(rp1))
         tp = TRUNK_PTR(rp2->dt.tail.trunk);
@@ -3117,7 +3143,9 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
                                                 mp, all_objects,
                                                 &tp->dbterm, &hp, 2);
                     if (is_value(match_res)) {
-                        match_list = CONS(hp, match_res, match_list);
+                        rest = CONS(hp, match_res, rest);
+                        if (rest_tail == NULL)
+                            rest_tail = &CDR(list_val(rest));
                         ++got;
                     }
                     --num_left;
@@ -3129,7 +3157,9 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
                                                 mp, all_objects,
                                                 &rp2->dt.dbterm, &hp, 2);
                     if (is_value(match_res)) {
-                        match_list = CONS(hp, match_res, match_list);
+                        rest = CONS(hp, match_res, rest);
+                        if (rest_tail == NULL)
+                            rest_tail = &CDR(list_val(rest));
                         ++got;
                     }
                     --num_left;
@@ -3137,6 +3167,16 @@ db_select_continue_nhash(Process *p, DbTable *tbl,
                 NEXT_DBTERM_1(rp1, rp2, tp);
             }
         } else {
+            if (rest != NIL) {
+                if (match_list == NIL) {
+                    match_list = rest;
+                } else {
+                    *match_tail = rest;
+                }
+                match_tail = rest_tail;
+                rest = NIL;
+                rest_tail = NULL;
+            }
             slot_ix = next_slot(tb, slot_ix, &lck);
             if (slot_ix == 0) {
                 /* EOT */
@@ -3169,20 +3209,35 @@ done:
         *ret = match_list;
         return DB_ERROR_NONE;
     }
-    rest_size = 0;
-    rest = NIL;
     if (got > chunk_size) {
-        /*
-         * Cannot write destructively here,
-         * the list may have been in user space
-         */
-        hp = HAlloc(p, (got - chunk_size) * 2);
-        while (got-- > chunk_size) {
-            rest = CONS(hp, CAR(list_val(match_list)), rest);
-            hp += 2;
-            match_list = CDR(list_val(match_list));
-            ++rest_size;
+        rest_size = got - chunk_size;
+        if (match_tail == NULL) {
+            /*
+             * Cannot write destructively into match_list,
+             * the list may have been in user space.
+             */
+            hp = HAlloc(p, chunk_size * 2);
+            match_tail = &match_list;
+            for (got = 0; got < chunk_size; ++got, hp += 2) {
+                *match_tail = CONS(hp, CAR(list_val(*match_tail)),
+                                   CDR(list_val(*match_tail)));
+                match_tail = &CDR(list_val(*match_tail));
+            }
+            rest = *match_tail;
+            *match_tail = NIL;
+        } else {
+            /*
+             * match_list is a copy, can write destructively.
+             */
+            match_res = match_list;
+            for (got = 1; got < chunk_size; ++got)
+                match_res = CDR(list_val(match_res));
+            rest = CDR(list_val(match_res));
+            /* Destructive, the list has never been in 'user space' */
+            CDR(list_val(match_res)) = NIL;
         }
+    } else {
+        rest_size = 0;
     }
     if ((rest != NIL) || (slot_ix >= 0)) {
         hp = HAlloc(p, 3 + 7);
