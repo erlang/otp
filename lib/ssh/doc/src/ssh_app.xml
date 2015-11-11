@@ -52,7 +52,7 @@
     </p>
   </section>
 
-  <section>
+   <section>
     <title>CONFIGURATION</title>
 
     <p>The <c>ssh</c> application does not have an application-
@@ -117,6 +117,86 @@
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
     <p>The <c>ssh</c> application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors or print information about special events.</p>
+  </section>
+
+  <section>
+    <marker id="supported"/>
+    <title>SUPPORTED</title>
+    <p>The supported SSH version is 2.0.</p>
+
+    <title>Algorithms</title>
+    <p>The actual set of algorithms may vary depending on which OpenSSL crypto library that is installed on the machine.
+    For the list on a particular installation, use the command
+    <seealso marker="ssh:ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>. 
+    The user may override the default algorithm configuration both on the server side and the client side.
+    See the option <c>preferred_algorithms</c> in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
+    <seealso marker="ssh:ssh#connect/3">ssh:connect/3,4</seealso> functions.
+    </p>
+
+    <p>Supported algorithms are:</p>
+
+    <taglist>
+      <tag>Public key algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>ecdsa-sha2-nistp256</item>
+	  <item>ecdsa-sha2-nistp384</item>
+	  <item>ecdsa-sha2-nistp521</item>
+	  <item>ssh-rsa</item>
+	  <item>ssh-dss</item>
+	</list>
+      </item>
+
+      <tag>MAC algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>hmac-sha2-256</item>
+	  <item>hmac-sha2-512</item>
+	  <item>hmac-sha1</item>
+	</list>
+      </item>
+
+      <tag>Encryption algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>aes128-ctr</item>
+	  <item>aes192-ctr</item>
+	  <item>aes256-ctr</item>
+	  <item>aes128-cbc</item>
+	  <item>3des-cbc</item>
+	</list>
+      </item>
+
+      <tag>Key exchange algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>ecdh-sha2-nistp256</item>
+	  <item>ecdh-sha2-nistp384</item>
+	  <item>ecdh-sha2-nistp521</item>
+	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>diffie-hellman-group-exchange-sha256</item>
+	  <item>diffie-hellman-group14-sha1</item>
+	  <item>diffie-hellman-group1-sha1</item>
+	</list>
+      </item>
+
+      <tag>Compression algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>none</item>
+	  <item>zlib@openssh.com</item>
+	  <item>zlib</item>
+	</list>
+      </item>
+    </taglist>
+
+    <title>Unicode support</title>
+    <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
+      <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c> for information about this subject.
+    </p>
+    <p>The shell and the cli support unicode.
+    </p>
+    
   </section>
 
   <section>

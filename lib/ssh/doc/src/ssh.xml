@@ -32,34 +32,10 @@
   <modulesummary>Main API of the ssh application</modulesummary>
   <description>
     <p>Interface module for the <c>ssh</c> application.</p>
+    <p>See <seealso marker="ssh:SSH_app#supported">ssh(6)</seealso> for details of supported version,
+    algorithms and unicode support.</p>
   </description>
 
-   <section>
-    <title>SSH</title>
-    <marker id="supported"/>
-    <list type="bulleted">
-      <item>For application dependencies see <seealso marker="SSH_app"> ssh(6)</seealso> </item>
-      <item>Supported SSH version is 2.0.</item>
-      <item>Supported public key algorithms: ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, ssh-rsa and ssh-dss.</item>
-      <item>Supported MAC algorithms: hmac-sha2-256, hmac-sha2-512 and hmac-sha1.</item>
-      <item>Supported encryption algorithms: aes256-ctr, aes192-ctr, aes128-ctr, aes128-cb and 3des-cbc.</item>
-      <item>Supported key exchange algorithms: ecdh-sha2-nistp256, ecdh-sha2-nistp384, ecdh-sha2-nistp521, diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1, diffie-hellman-group-exchange-sha256 and diffie-hellman-group1-sha1</item>
-      <item>Supported compression algorithms: none, zlib@openssh.com and zlib</item>
-      <item>Supports unicode filenames if the emulator and the underlaying OS support it.
-      See section DESCRIPTION in the
-      <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c>
-      for information about this subject.</item>
-      <item>Supports unicode in shell and CLI.</item>
-    </list>
-    <p>The actual set of algorithms can vary depending on which OpenSSL crypto library that is installed on the machine.
-    For the list on a particular installation, use the command <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>. 
-    The user may override the default algorithm configuration both on the server side and the client side.
-    See the option preferred_algorithms in the <seealso marker="#daemon/1">daemon</seealso> and
-    <seealso marker="#connect/3">connect</seealso> functions.
-</p>
-    
-  </section>
-  
   <section>
     <title>OPTIONS</title>
     <p>The exact behaviour of some functions can be adjusted with the use of options which are documented together
