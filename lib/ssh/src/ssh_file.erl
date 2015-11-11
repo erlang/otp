@@ -86,9 +86,15 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
     end.
 
 user_key(Algorithm, Opts) ->
-    File = file_name(user, identity_key_filename(Algorithm), Opts),
-    Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
-    decode(File, Password).
+    case proplists:get_value(identity_priv_key(Algorithm), Opts) of
+        undefined ->
+            File = file_name(user, identity_key_filename(Algorithm), Opts),
+            Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
+            decode(File, Password);
+        PrivKey ->
+            Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
+            decode_key(PrivKey, Password)
+    end.
 
 
 %% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -102,12 +108,21 @@ file_base_name(_                    ) -> "ssh_host_key".
 
 decode(File, Password) ->
     try {ok, decode_ssh_file(read_ssh_file(File), Password)}
-    catch 
+    catch
 	throw:Reason ->
 	    {error, Reason};
 	error:Reason ->
 	    {error, Reason}
-    end.      
+    end.
+
+decode_key(Key, Password) ->
+    try {ok, decode_ssh_file(Key, Password)}
+    catch
+	throw:Reason ->
+	    {error, Reason};
+	error:Reason ->
+	    {error, Reason}
+    end.
 
 read_ssh_file(File) ->
     {ok, Bin} = file:read_file(File),
@@ -237,7 +252,11 @@ identity_pass_phrase("ssh-rsa"       ) -> rsa_pass_phrase;
 identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
 identity_pass_phrase(P) when is_atom(P) -> 
     identity_pass_phrase(atom_to_list(P)).
-    
+
+identity_priv_key('ssh-dss') -> dsa_priv_key;
+identity_priv_key('ssh-rsa') -> rsa_priv_key;
+identity_priv_key(_) -> undefined.
+
 lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->

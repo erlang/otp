@@ -48,7 +48,8 @@
 	 openssh_zlib_basic_test/1,  
 	 packet_size_zero/1, 
 	 pass_phrase/1,
-	 peername_sockname/1, 
+	 peername_sockname/1,
+	 priv_key_override/1,
 	 send/1,
 	 shell/1,
 	 shell_no_unicode/1,
@@ -72,11 +73,12 @@
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,
      appup_test,
      {group, dsa_key},
      {group, rsa_key},
+     {group, priv_key_override},
      {group, ecdsa_sha2_nistp256_key},
      {group, ecdsa_sha2_nistp384_key},
      {group, ecdsa_sha2_nistp521_key},
@@ -95,6 +97,9 @@ groups() ->
      {ecdsa_sha2_nistp256_key, [], basic_tests()},
      {ecdsa_sha2_nistp384_key, [], basic_tests()},
      {ecdsa_sha2_nistp521_key, [], basic_tests()},
+     {rsa_priv_key, [], [priv_key_override]},
+     {dsa_priv_key, [], [priv_key_override]},
+     {priv_key_override, [], [{group, dsa_priv_key}, {group, rsa_priv_key}]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
@@ -133,6 +138,18 @@ init_per_group(rsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
+init_per_group(dsa_priv_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    {ok, PrivKey} = ssh_test_lib:get_dsa_priv_key(DataDir),
+    [{priv_key, {dsa_priv_key, PrivKey}} | Config];
+init_per_group(rsa_priv_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    {ok, PrivKey} = ssh_test_lib:get_rsa_priv_key(DataDir),
+    [{priv_key, {rsa_priv_key, PrivKey}} | Config];
 init_per_group(ecdsa_sha2_nistp256_key, Config) ->
     case lists:member('ecdsa-sha2-nistp256',
 		      ssh_transport:default_algorithms(public_key)) of
@@ -232,6 +249,14 @@ end_per_group(dsa_key, Config) ->
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(rsa_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_rsa(PrivDir),
+    Config;
+end_per_group(dsa_priv_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    Config;
+end_per_group(rsa_priv_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
@@ -567,6 +592,29 @@ pass_phrase(Config) when is_list(Config) ->
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  PhraseArg,
 					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that we can use override private key
+priv_key_override(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    NoPubKeyDir = filename:join(UserDir, nopubkey),
+    file:make_dir(NoPubKeyDir),
+
+    PrivKey = ?config(priv_key, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [PrivKey,
+					  {silently_accept_hosts, true},
+					  {user_dir, NoPubKeyDir},
 					  {user_interaction, false}]),
     {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh:stop_daemon(Pid).
