@@ -8227,7 +8227,7 @@ timestamp() ->
               <tag><c>bin_old_vheap_size</c></tag>
               <item>The total size of unique off-heap binaries referenced
                 from the process old heap.</item>
-              <tag><c>bin_vheap_block_size</c></tag>
+              <tag><c>bin_old_vheap_block_size</c></tag>
 	      <item>The total size of binaries allowed in the virtual
 	        old heap in the process before doing a garbage collection.</item>
             </taglist>
