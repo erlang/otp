@@ -24,7 +24,7 @@
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
 -export([empty/1,badinsert/1]).
--export([time_lookup/1,badlookup/1,lookup_order/1]).
+-export([time_lookup/1,badlookup/1,lookup_order/1,cont_order/1]).
 -export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
@@ -92,7 +92,7 @@
 	 evil_update_counter_do/1, fixtable_next_do/1, heir_do/1, give_away_do/1, setopts_do/1,
 	 rename_do/1, rename_unnamed_do/1, interface_equality_do/1, ordered_match_do/1,
 	 ordered_do/1, privacy_do/1, empty_do/1, badinsert_do/1, time_lookup_do/1,
-	 lookup_order_do/1, lookup_element_mult_do/1, delete_tab_do/1, delete_elem_do/1,
+	 lookup_order_do/1, cont_order_do/1, lookup_element_mult_do/1, delete_tab_do/1, delete_elem_do/1,
 	 match_delete_do/1, match_delete3_do/1, firstnext_do/1,
 	 slot_do/1, match1_do/1, match2_do/1, match_object_do/1, match_object2_do/1,
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
@@ -164,7 +164,8 @@ groups() ->
       [default, setbag, badnew, verybadnew, named, keypos2,
        privacy]},
      {insert, [], [empty, badinsert]},
-     {lookup, [], [time_lookup, badlookup, lookup_order]},
+     {lookup, [],
+      [time_lookup, badlookup, lookup_order, cont_order]},
      {lookup_element, [], [lookup_element_mult]},
      {delete, [],
       [delete_elem, delete_tab, delete_large_tab,
@@ -3040,6 +3041,65 @@ check_check(S={T,List,Key}) ->
     Items = ets:info(T,size),
     Items = length(List),
     S.
+
+
+cont_order(doc) -> ["Test that continued lookup returns objects in order of insertion for bag and dbag."];
+cont_order(suite) -> [];
+cont_order(Config) when is_list(Config) ->
+    EtsMem = etsmem(),
+    repeat_for_opts(cont_order_do, [read_concurrency,[bag,duplicate_bag]]),
+    ?line verify_etsmem(EtsMem),
+    ok.
+
+cont_order_do(Opts) ->
+    cont_order_2(Opts, false),
+    cont_order_2(Opts, true).
+
+cont_order_2(Opts, Fixed) ->
+    io:format("Opts=~p Fixed=~p\n", [Opts, Fixed]),
+    LengthList = [3, 7, 11, 23, 31, 39, 71, 100],
+    T = ets_new(foo_cont, Opts),
+    lists:foldl(fun(L, I) ->
+                        lists:foreach(fun(II) ->
+                                              ets:insert(T, {I, II})
+                                      end,
+                                      lists:seq(1, L)),
+                        I+1
+                end,
+                1,
+                LengthList),
+    ets:safe_fixtable(T, Fixed),
+    io:format("Key=1, "),
+    cont_order_3(T, {1, '_'}, [1, 2, 3, 5]),
+    io:format("Key=5, "),
+    cont_order_3(T, {5, '_'}, [1, 2, 3, 5, 7, 10, 20, 30, 50]),
+    io:format("All keys, "),
+    cont_order_3(T, '_', [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 200, 300]),
+    true = ets:delete(T).
+
+cont_order_3(T, P, SL) ->
+    lists:foreach(fun(S) ->
+                          io:format("Step=~p\n", [S]),
+			  ?line {ML, C} = ets:select(T, [{P, [], ['$_']}], S),
+			  check_cont(ML, C, 0, 1)
+		  end,
+		  SL).
+
+check_cont([{I, II}|ML], C, I, II) ->
+    check_cont(ML, C, I, II+1);
+check_cont([{I, 1}|ML], C, _, _) ->
+    check_cont(ML, C, I, 2);
+check_cont([], C, I, II) ->
+    case ets:select(C) of
+        {ML, NC} ->
+            check_cont(ML, NC, I, II);
+        '$end_of_table' ->
+            ok
+    end;
+check_cont([A|_], _, I, II) ->
+    ct:fail("Unexpected element: expected = ~p, actual = ~p",
+            [{I, II}, A]).
+
 
 fill_tab(Tab,Val) ->
     ets:insert(Tab,{key,Val}),
