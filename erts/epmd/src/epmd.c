@@ -29,7 +29,7 @@
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
 #endif
-
+#include <time.h>
 /* forward declarations */
 
 static void usage(EpmdVars *);
