@@ -51,7 +51,7 @@
 
 #define MAX_STRING_LEN 0xffff
 
-#define is_valid_creation(Cre) ((unsigned)(Cre) < MAX_CREATION || (Cre) == INTERNAL_CREATION)
+#define is_valid_creation(Cre) ((unsigned)(Cre) < MAX_CREATION)
 
 #undef ERTS_DEBUG_USE_DIST_SEP
 #ifdef DEBUG
@@ -2152,12 +2152,12 @@ static byte*
 enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
 {
     Uint on, os;
+    Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS))
+		      ? am_Empty : pid_node_name(pid));
 
     *ep++ = PID_EXT;
     /* insert  atom here containing host and sysname  */
-    ep = enc_atom(acmp, pid_node_name(pid), ep, dflags);
-
-    /* two bytes for each number and serial */
+    ep = enc_atom(acmp, sysname, ep, dflags);
 
     on = pid_number(pid);
     os = pid_serial(pid);
@@ -2166,8 +2166,7 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     ep += 4;
     put_int32(os, ep);
     ep += 4;
-    *ep++ = (is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS)) ?
-	INTERNAL_CREATION : pid_creation(pid);
+    *ep++ = pid_creation(pid);
     return ep;
 }
 
@@ -2249,14 +2248,13 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 
 static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint creation)
 {
-    switch (creation) {
-    case INTERNAL_CREATION:
+    if (sysname == am_Empty)  /* && DFLAG_INTERNAL_TAGS */
 	return erts_this_node;
-    case ORIG_CREATION:
-	if (sysname == erts_this_node->sysname) {
-	    creation = erts_this_node->creation;
-	}
-    }
+
+    if (sysname == erts_this_node->sysname
+	&& (creation == erts_this_node->creation || creation == ORIG_CREATION))
+	return erts_this_node;
+
     return erts_find_or_insert_node(sysname,creation);
 }
 
@@ -2528,6 +2526,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case REF_DEF:
 	case EXTERNAL_REF_DEF: {
 	    Uint32 *ref_num;
+	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj))
+			     ? am_Empty : ref_node_name(obj));
 
 	    ASSERT(dflags & DFLAG_EXTENDED_REFERENCES);
 
@@ -2535,9 +2535,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    i = ref_no_of_numbers(obj);
 	    put_int16(i, ep);
 	    ep += 2;
-	    ep = enc_atom(acmp,ref_node_name(obj),ep,dflags);
-	    *ep++ = ((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj)) ?
-		INTERNAL_CREATION : ref_creation(obj);
+	    ep = enc_atom(acmp, sysname, ep, dflags);
+	    *ep++ = ref_creation(obj);
 	    ref_num = ref_numbers(obj);
 	    for (j = 0; j < i; j++) {
 		put_int32(ref_num[j], ep);
@@ -2546,17 +2545,17 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    break;
 	}
 	case PORT_DEF:
-	case EXTERNAL_PORT_DEF:
-
+	case EXTERNAL_PORT_DEF: {
+	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj))
+			     ? am_Empty : port_node_name(obj));
 	    *ep++ = PORT_EXT;
-	    ep = enc_atom(acmp,port_node_name(obj),ep,dflags);
+	    ep = enc_atom(acmp, sysname, ep, dflags);
 	    j = port_number(obj);
 	    put_int32(j, ep);
 	    ep += 4;
-	    *ep++ = ((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj)) ?
-		INTERNAL_CREATION : port_creation(obj);
+	    *ep++ = port_creation(obj);
 	    break;
-
+	}
 	case LIST_DEF:
 	    {
 		int is_str;
