@@ -1245,7 +1245,9 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 	 * the middle of tree destruction).
 	 */
 	if (!ERTS_PROC_IS_EXITING(proc)) {
-	    erts_queue_message(proc, &proc_locks, tmr->btm.bp,
+	    ErtsMessage *mp = erts_alloc_message(0, NULL);
+	    mp->data.heap_frag = tmr->btm.bp;
+	    erts_queue_message(proc, &proc_locks, mp,
 			       tmr->btm.message, NIL);
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCKS_MSG_SEND);
 	    queued_message = 1;
@@ -1926,36 +1928,31 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 
     if (proc) {
 	Uint hsz;
-	ErlOffHeap *ohp;
-	ErlHeapFragment* bp;
+	ErtsMessage *mp;
 	Eterm *hp, msg, ref, result;
+	ErlOffHeap *ohp;
+	Uint32 *refn;
 #ifdef ERTS_HLT_DEBUG
 	Eterm *hp_end;
 #endif
 
-	hsz = 3; /* 2-tuple */
-	if (!async)
-	    hsz += REF_THING_SIZE;
-	else {
-	    if (is_non_value(tref) || proc != c_p)
-		hsz += REF_THING_SIZE;
-	    hsz += 1; /* upgrade to 3-tuple */
+	hsz = REF_THING_SIZE;
+	if (async) {
+	    refn = trefn; /* timer ref */
+	    hsz += 4; /* 3-tuple */
 	}
+	else {
+	    refn = rrefn; /* request ref */
+	    hsz += 3; /* 2-tuple */
+	}
+
+	ERTS_HLT_ASSERT(refn);
+
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
-	if (proc == c_p) {
-	    bp = NULL;
-	    ohp = NULL;
-	    hp = HAlloc(c_p, hsz);
-	}
-	else {
-	    hp = erts_alloc_message_heap(hsz,
-					 &bp,
-					 &ohp,
-					 proc,
-					 &proc_locks);
-	}
+	mp = erts_alloc_message_heap(proc, &proc_locks,
+				     hsz, &hp, &ohp);
 
 #ifdef ERTS_HLT_DEBUG
 	hp_end = hp + hsz;
@@ -1968,35 +1965,22 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 	else
 	    result = erts_sint64_to_big(time_left, &hp);
 
-	if (!async) {
-	    write_ref_thing(hp,
-			    rrefn[0],
-			    rrefn[1],
-			    rrefn[2]);
-	    ref = make_internal_ref(hp);
-	    hp += REF_THING_SIZE;
-	    msg = TUPLE2(hp, ref, result);
+	write_ref_thing(hp,
+			refn[0],
+			refn[1],
+			refn[2]);
+	ref = make_internal_ref(hp);
+	hp += REF_THING_SIZE;
 
-	    ERTS_HLT_ASSERT(hp + 3 == hp_end);
-	}
-	else {
-	    Eterm tag = cancel ? am_cancel_timer : am_read_timer;
-	    if (is_value(tref) && proc == c_p)
-		ref = tref;
-	    else {
-		write_ref_thing(hp,
-				trefn[0],
-				trefn[1],
-				trefn[2]);
-		ref = make_internal_ref(hp);
-		hp += REF_THING_SIZE;
-	    }
-	    msg = TUPLE3(hp, tag, ref, result);
+	msg = (async
+	       ? TUPLE3(hp, (cancel
+			     ? am_cancel_timer
+			     : am_read_timer), ref, result)
+	       : TUPLE2(hp, ref, result));
 
-	    ERTS_HLT_ASSERT(hp + 4 == hp_end);
+	ERTS_HLT_ASSERT(hp + (async ? 4 : 3) == hp_end);
 
-	}
-	erts_queue_message(proc, &proc_locks, bp, msg, NIL);
+	erts_queue_message(proc, &proc_locks, mp, msg, NIL);
 
 	if (c_p)
 	    proc_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -2093,16 +2077,19 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 	}
     }
     else {
+	ErtsMessage *mp;
 	Eterm tag, res, msg;
 	Uint hsz;
 	Eterm *hp;
 	ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
+	ErlOffHeap *ohp;
 
 	hsz = 4;
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
-	hp = HAlloc(c_p, hsz);
+	mp = erts_alloc_message_heap(c_p, &proc_locks,
+				     hsz, &hp, &ohp);
 	if (cancel)
 	    tag = am_cancel_timer;
 	else
@@ -2117,7 +2104,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 
 	msg = TUPLE3(hp, tag, tref, res);
 
-	erts_queue_message(c_p, &proc_locks, NULL, msg, NIL);
+	erts_queue_message(c_p, &proc_locks, mp, msg, NIL);
 
 	proc_locks &= ~ERTS_PROC_LOCK_MAIN;
 	if (proc_locks)

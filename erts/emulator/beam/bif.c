@@ -72,7 +72,7 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
     ErlSpawnOpts so;
     Eterm pid;
 
-    so.flags = 0;
+    so.flags = erts_default_spo_flags;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -589,7 +589,7 @@ erts_queue_monitor_message(Process *p,
     Eterm reason_copy, ref_copy, item_copy;
     Uint reason_size, ref_size, item_size, heap_size;
     ErlOffHeap *ohp;
-    ErlHeapFragment *bp;
+    ErtsMessage *msgp;
 
     reason_size = IS_CONST(reason) ? 0 : size_object(reason);
     item_size   = IS_CONST(item) ? 0 : size_object(item);
@@ -597,11 +597,8 @@ erts_queue_monitor_message(Process *p,
 
     heap_size = 6+reason_size+ref_size+item_size;
 
-    hp = erts_alloc_message_heap(heap_size,
-				 &bp,
-				 &ohp,
-				 p,
-				 p_locksp);
+    msgp = erts_alloc_message_heap(p, p_locksp, heap_size,
+				   &hp, &ohp);
 
     reason_copy = (IS_CONST(reason)
 		   ? reason
@@ -612,7 +609,7 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, bp, tup, NIL);
+    erts_queue_message(p, p_locksp, msgp, tup, NIL);
 }
 
 static BIF_RETTYPE
@@ -841,7 +838,7 @@ BIF_RETTYPE spawn_link_3(BIF_ALIST_3)
     ErlSpawnOpts so;
     Eterm pid;
 
-    so.flags = SPO_LINK;
+    so.flags = erts_default_spo_flags|SPO_LINK;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -878,7 +875,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     /*
      * Store default values for options.
      */
-    so.flags          = SPO_USE_ARGS;
+    so.flags          = erts_default_spo_flags|SPO_USE_ARGS;
     so.min_heap_size  = H_MIN_SIZE;
     so.min_vheap_size = BIN_VH_MIN_SIZE;
     so.priority       = PRIORITY_NORMAL;
@@ -911,6 +908,13 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    so.priority = PRIORITY_NORMAL;
 		else if (val == am_low)
 		    so.priority = PRIORITY_LOW;
+		else
+		    goto error;
+	    } else if (arg == am_off_heap_message_queue) {
+		if (val == am_true)
+		    so.flags |= SPO_OFF_HEAP_MSGQ;
+		else if (val == am_false)
+		    so.flags &= ~SPO_OFF_HEAP_MSGQ;
 		else
 		    goto error;
 	    } else if (arg == am_min_heap_size && is_small(val)) {
@@ -1691,6 +1695,17 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        }
        BIF_RET(old_value);
    }
+   else if (BIF_ARG_1 == am_off_heap_message_queue) {
+       int enable;
+       if (BIF_ARG_2 == am_true)
+	   enable = 1;
+       else if (BIF_ARG_2 == am_false)
+	   enable = 0;
+       else
+	   goto error;
+       old_value = erts_change_off_heap_message_queue_state(BIF_P, enable);
+       BIF_RET(old_value);
+   }
    else if (BIF_ARG_1 == am_sensitive) {
        Uint is_sensitive;
        if (BIF_ARG_2 == am_true) {
@@ -1931,7 +1946,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
     } else if (is_atom(to)) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
-	rp = erts_proc_lookup(id);
+	rp = erts_proc_lookup_raw(id);
 	if (rp) {
 	    if (IS_TRACED(p))
 		trace_send(p, to, msg);
@@ -4479,7 +4494,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
     } else if (BIF_ARG_1 == make_small(1)) {
 	int i, max;
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_smp_thr_progress_block();
 

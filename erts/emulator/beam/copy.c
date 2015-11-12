@@ -35,7 +35,7 @@
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
 
-static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*);
+static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*, int);
 
 /*
  *  Copy object "obj" to process p.
@@ -279,7 +279,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    break;
 	case TAG_PRIMARY_LIST:
 	    objp = list_val(obj);
-	    if (in_area(objp,hstart,hsize)) {
+	    if (ErtsInArea(objp,hstart,hsize)) {
 		hp++;
 		break;
 	    }
@@ -318,7 +318,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    }
 	    
 	case TAG_PRIMARY_BOXED:
-	    if (in_area(boxed_val(obj),hstart,hsize)) {
+	    if (ErtsInArea(boxed_val(obj),hstart,hsize)) {
 		hp++;
 		break;
 	    }
@@ -621,17 +621,24 @@ Eterm copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
  * move markers.
  * Typically used to copy a multi-fragmented message (from NIF).
  */
-void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
-		      Eterm* refs, unsigned nrefs)
+void erts_move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
+			   Eterm* refs, unsigned nrefs, int literals)
 {
     ErlHeapFragment* bp;
     Eterm* hp_start = *hpp;
     Eterm* hp_end;
     Eterm* hp;
     unsigned i;
+    Eterm literal_tag;
+
+#ifdef TAG_LITERAL_PTR
+    literal_tag = (Eterm) literals ? TAG_LITERAL_PTR : 0;
+#else
+    literal_tag = (Eterm) 0;
+#endif
 
     for (bp=first; bp!=NULL; bp=bp->next) {
-	move_one_frag(hpp, bp, off_heap);
+	move_one_frag(hpp, bp, off_heap, literals);
     }
     hp_end = *hpp;
     for (hp=hp_start; hp<hp_end; ++hp) {
@@ -644,6 +651,9 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	    val = *ptr;
 	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
+#ifdef TAG_LITERAL_PTR
+		val |= literal_tag;
+#endif
 		*hp = val;
 	    }
 	    break;
@@ -651,7 +661,11 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	    ptr = list_val(gval);
 	    val = *ptr;
 	    if (IS_MOVED_CONS(val)) {
-		*hp = ptr[1];
+		val = ptr[1];
+#ifdef TAG_LITERAL_PTR
+		val |= literal_tag;
+#endif
+		*hp = val;
 	    }
 	    break;
 	case TAG_PRIMARY_HEADER:
@@ -662,12 +676,12 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 	}
     }
     for (i=0; i<nrefs; ++i) {
-	refs[i] = follow_moved(refs[i]);
+	refs[i] = follow_moved(refs[i], literal_tag);
     }
 }
 
 static void
-move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap)
+move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int literals)
 {
     Eterm* ptr = frag->mem;
     Eterm* end = ptr + frag->used_size;
@@ -704,4 +718,3 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap)
     OH_OVERHEAD(off_heap, frag->off_heap.overhead);
     frag->off_heap.first = NULL;
 }
-

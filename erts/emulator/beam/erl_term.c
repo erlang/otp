@@ -28,6 +28,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+void
+erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
+{
+#ifdef TAG_LITERAL_PTR
+    Eterm *hp_end, *hp;
+    
+    hp_end = hp_start + hsz;
+    hp = hp_start;
+
+    while (hp < hp_end) {
+	switch (primary_tag(*hp)) {
+	case TAG_PRIMARY_BOXED:
+	case TAG_PRIMARY_LIST:
+	    *hp |= TAG_LITERAL_PTR;
+	    break;
+	case TAG_PRIMARY_HEADER:
+	    if (header_is_thing(*hp)) {
+		hp += thing_arityval(*hp);
+	    }
+	    break;
+	default:
+	    break;
+	}
+	
+	hp++;
+    }
+    if (is_boxed(*term) || is_list(*term))
+	*term |= TAG_LITERAL_PTR;
+#endif
+}
+
 __decl_noreturn static void __noreturn
 et_abort(const char *expr, const char *file, unsigned line)
 {

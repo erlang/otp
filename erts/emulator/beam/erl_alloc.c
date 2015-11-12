@@ -582,7 +582,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
 	= sizeof(ErtsDrvSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MSG_REF)]
-	= sizeof(ErlMessage);
+	= sizeof(ErtsMessageRef);
 #ifdef ERTS_SMP
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
 	= sizeof(ErtsThrQElement_t);
@@ -2916,12 +2916,12 @@ reply_alloc_info(void *vair)
     int global_instances = air->req_sched == sched_id;
     ErtsProcLocks rp_locks;
     Process *rp = air->proc;
-    Eterm ref_copy = NIL, ai_list, msg;
-    Eterm *hp = NULL, *hp_end = NULL, *hp_start = NULL;
+    Eterm ref_copy = NIL, ai_list, msg = NIL;
+    Eterm *hp = NULL, *hp_start = NULL, *hp_end = NULL;
     Eterm **hpp;
     Uint sz, *szp;
     ErlOffHeap *ohp = NULL;
-    ErlHeapFragment *bp = NULL;
+    ErtsMessage *mp = NULL;
     struct erts_mmap_info_struct emis;
     int i;
     Eterm (*info_func)(Allctr_t *,
@@ -3123,20 +3123,17 @@ reply_alloc_info(void *vair)
 	if (hpp)
 	    break;
 
-	hp = erts_alloc_message_heap(sz, &bp, &ohp, rp, &rp_locks);
+	mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
 	hp_start = hp;
 	hp_end = hp + sz;
 	szp = NULL;
 	hpp = &hp;
     }
-    if (bp)
-	bp = erts_resize_message_buffer(bp, hp - hp_start, &msg, 1);
-    else {
-	ASSERT(hp);
-	HRelease(rp, hp_end, hp);	    
-    }
 
-    erts_queue_message(rp, &rp_locks, bp, msg, NIL);
+    if (hp != hp_end)
+	erts_shrink_message_heap(&mp, rp, hp_start, hp, hp_end, &msg, 1);
+
+    erts_queue_message(rp, &rp_locks, mp, msg, NIL);
 
     if (air->req_sched == sched_id)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;

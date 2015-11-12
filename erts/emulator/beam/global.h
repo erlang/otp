@@ -961,8 +961,8 @@ Uint size_object(Eterm);
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
-void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
-		      Eterm* refs, unsigned nrefs);
+void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
+			   Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
 extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
@@ -1274,6 +1274,27 @@ int erts_print_system_version(int to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 
+ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr)
+{
+    ASSERT(is_boxed(tptr) || is_list(tptr));
+    ASSERT(ptr == ptr_val(tptr));
+
+#if defined(ERTS_HAVE_IS_IN_LITERAL_RANGE)
+    return erts_is_in_literal_range(ptr);
+#elif defined(TAG_LITERAL_PTR)
+    return is_literal_ptr(tptr);
+#else
+#  error Not able to detect literals...
+#endif
+
+}
+
+#endif
+
 /*
 ** Call_trace uses this API for the parameter matching functions
 */
@@ -1325,124 +1346,6 @@ extern erts_driver_t spawn_driver;
 extern erts_driver_t fd_driver;
 
 int erts_beam_jump_table(void);
-
-/* Should maybe be placed in erl_message.h, but then we get an include mess. */
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap_state(Uint size,
-			      ErlHeapFragment **bpp,
-			      ErlOffHeap **ohpp,
-			      Process *receiver,
-			      ErtsProcLocks *receiver_locks,
-			      erts_aint32_t *statep);
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap(Uint size,
-			ErlHeapFragment **bpp,
-			ErlOffHeap **ohpp,
-			Process *receiver,
-			ErtsProcLocks *receiver_locks);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-/*
- * NOTE: erts_alloc_message_heap() releases msg q and status
- *       lock on receiver without ensuring that other locks are
- *       held. User is responsible to ensure that the receiver
- *       pointer cannot become invalid until after message has
- *       been passed. This is normal done either by increasing
- *       reference count on process (preferred) or by holding
- *       main or link lock over the whole message passing
- *       operation.
- */
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap_state(Uint size,
-			      ErlHeapFragment **bpp,
-			      ErlOffHeap **ohpp,
-			      Process *receiver,
-			      ErtsProcLocks *receiver_locks,
-			      erts_aint32_t *statep)
-{
-    Eterm *hp;
-    erts_aint32_t state;
-#ifdef ERTS_SMP
-    int locked_main = 0;
-    state = erts_smp_atomic32_read_acqb(&receiver->state);
-    if (statep)
-	*statep = state;
-    if (state & (ERTS_PSFLG_EXITING
-		 | ERTS_PSFLG_PENDING_EXIT))
-	goto allocate_in_mbuf;
-#endif
-
-    if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT, "HUGE size (%beu)\n", size);
-
-    if (
-#if defined(ERTS_SMP)
-	*receiver_locks & ERTS_PROC_LOCK_MAIN
-#else
-	1
-#endif
-	) {
-#ifdef ERTS_SMP
-    try_allocate_on_heap:
-#endif
-	state = erts_smp_atomic32_read_nob(&receiver->state);
-	if (statep)
-	    *statep = state;
-	if ((state & (ERTS_PSFLG_EXITING
-		      | ERTS_PSFLG_PENDING_EXIT))
-	    || (receiver->flags & F_DISABLE_GC)
-	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
-	    /*
-	     * The heap is either potentially in an inconsistent
-	     * state, or not large enough.
-	     */
-#ifdef ERTS_SMP
-	    if (locked_main) {
-		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;
-		erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MAIN);
-	    }
-#endif
-	    goto allocate_in_mbuf;
-	}
-	hp = HEAP_TOP(receiver);
-	HEAP_TOP(receiver) = hp + size;
-	*bpp = NULL;
-	*ohpp = &MSO(receiver);
-    }
-#ifdef ERTS_SMP
-    else if (erts_smp_proc_trylock(receiver, ERTS_PROC_LOCK_MAIN) == 0) {
-	locked_main = 1;
-	*receiver_locks |= ERTS_PROC_LOCK_MAIN;
-	goto try_allocate_on_heap;
-    }
-#endif
-    else {
-	ErlHeapFragment *bp;
-    allocate_in_mbuf:
-	bp = new_message_buffer(size);
-	hp = bp->mem;
-	*bpp = bp;
-	*ohpp = &bp->off_heap;
-    }
-
-    return hp;
-}
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap(Uint size,
-			ErlHeapFragment **bpp,
-			ErlOffHeap **ohpp,
-			Process *receiver,
-			ErtsProcLocks *receiver_locks)
-{
-    return erts_alloc_message_heap_state(size, bpp, ohpp, receiver,
-					 receiver_locks, NULL);
-}
-
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
@@ -1501,6 +1404,7 @@ dtrace_fun_decode(Process *process,
     erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
                   module, function, arity);
 }
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* !__GLOBAL_H__ */

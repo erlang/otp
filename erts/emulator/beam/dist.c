@@ -378,10 +378,11 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
     ASSERT(lnk->type == LINK_NODE);
     if (is_internal_pid(lnk->pid)) {
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
-	rp = erts_pid2proc(NULL, 0, lnk->pid, rp_locks);
-	if (!rp) {
+	ErlOffHeap *ohp;
+	rp = erts_proc_lookup(lnk->pid);
+	if (!rp)
 	    goto done;
-	}
+	erts_smp_proc_lock(rp, rp_locks);
 	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
 	if (rlnk != NULL) {
 	    ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
@@ -389,12 +390,14 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	}
 	n = ERTS_LINK_REFC(lnk);
 	for (i = 0; i < n; ++i) {
-	    ErlHeapFragment* bp;
-	    ErlOffHeap *ohp;
 	    Eterm tup;
-	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
+	    Eterm *hp;
+	    ErtsMessage *msgp;
+
+	    msgp = erts_alloc_message_heap(rp, &rp_locks,
+					   3, &hp, &ohp);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, bp, tup, NIL);
+	    erts_queue_message(rp, &rp_locks, msgp, tup, NIL);
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -1462,7 +1465,7 @@ int erts_net_message(Port *prt,
 		ErlOffHeap *ohp;
 		ASSERT(xsize);
 		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+		ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
 		hp = heap_frag->mem;
 		ohp = &heap_frag->off_heap;
 		token = tuple[5];
@@ -1511,7 +1514,7 @@ int erts_net_message(Port *prt,
 		ErlOffHeap *ohp;
 		ASSERT(xsize);
 		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+		ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
 		hp = heap_frag->mem;
 		ohp = &heap_frag->off_heap;
 		token = tuple[4];
@@ -3271,11 +3274,16 @@ send_nodes_mon_msg(Process *rp,
 		   Uint sz)
 {
     Eterm msg;
-    ErlHeapFragment* bp;
+    Eterm *hp;
+    ErtsMessage *mp;
     ErlOffHeap *ohp;
-    Eterm *hp = erts_alloc_message_heap(sz, &bp, &ohp, rp, rp_locksp);
 #ifdef DEBUG
-    Eterm *hend = hp + sz;
+    Eterm *hend;
+#endif
+
+    mp = erts_alloc_message_heap(rp, rp_locksp, sz, &hp, &ohp);
+#ifdef DEBUG
+    hend = hp + sz;
 #endif
 
     if (!nmp->opts) {
@@ -3321,7 +3329,7 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
+    erts_queue_message(rp, rp_locksp, mp, msg, NIL);
 }
 
 static void

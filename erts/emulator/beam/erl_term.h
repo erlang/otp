@@ -21,6 +21,8 @@
 #ifndef __ERL_TERM_H
 #define __ERL_TERM_H
 
+#include "erl_mmap.h"
+
 typedef UWord Wterm;  /* Full word terms */
 
 struct erl_node_; /* Declared in erl_node_tables.h */
@@ -47,6 +49,24 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _ET_DECLARE_CHECKED(TF,F,TX)
 #define _ET_APPLY(F,X)	_unchecked_##F(X)
 #endif
+
+#if defined(ARCH_64)
+#  define TAG_PTR_MASK__	0x7
+#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#    ifdef HIPE
+#      error Hipe on 64-bit needs a real mmap as it does not support the literal tag
+#    endif
+#    define TAG_LITERAL_PTR	0x4
+#  else
+#    undef TAG_LITERAL_PTR
+#  endif
+#elif defined(ARCH_32)
+#  define TAG_PTR_MASK__	0x3
+#  undef TAG_LITERAL_PTR
+#else
+#  error Not supported arch
+#endif
+
 
 #define _TAG_PRIMARY_SIZE	2
 #define _TAG_PRIMARY_MASK	0x3
@@ -165,10 +185,11 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 /* boxed object access methods */
 
-#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+#define _is_taggable_pointer(x)	 (((Uint)(x) & TAG_PTR_MASK__) == 0)
+
 #define  _boxed_precond(x)       (is_boxed(x))
 
-#define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
+#define _is_aligned(x)		(((Uint)(x) & TAG_PTR_MASK__) == 0)
 #define _unchecked_make_boxed(x) ((Uint)(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
@@ -180,7 +201,11 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_boxed_val(x) _unchecked_ptr_val(x)
+#else
 #define _unchecked_boxed_val(x) ((Eterm*) ((x) - TAG_PRIMARY_BOXED))
+#endif
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
@@ -198,7 +223,11 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_not_list(x)		(!is_list((x)))
 #endif
 #define _list_precond(x)        (is_list(x))
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_list_val(x) _unchecked_ptr_val(x)
+#else
 #define _unchecked_list_val(x) ((Eterm*) ((x) - TAG_PRIMARY_LIST))
+#endif
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -209,12 +238,19 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
+
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_is_not_literal_ptr(x) (!((x) & TAG_LITERAL_PTR))
+#define is_not_literal_ptr(x) _unchecked_is_not_literal_ptr((x)) /*XXX*/
+#define is_literal_ptr(x) (!is_not_literal_ptr((x))) /*XXX*/
+#endif
+
 
 /* fixnum ("small") access methods */
 #if defined(ARCH_64)
@@ -1113,6 +1149,8 @@ extern unsigned tag_val_def(Wterm);
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
 
 #define is_same(A,B) ((A)==(B))
+
+void erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz);
 
 #endif	/* __ERL_TERM_H */
 

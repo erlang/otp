@@ -252,7 +252,7 @@ print_process_info(int to, void *to_arg, Process *p)
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_print(to, to_arg, "Message queue: [");
 	for (mp = p->msg.first; mp; mp = mp->next)
 	    erts_print(to, to_arg, mp->next ? "%T," : "%T", ERL_MESSAGE_TERM(mp));
@@ -323,7 +323,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
-    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
+    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);

@@ -902,7 +902,7 @@ static ErlHeapFragment* new_literal_fragment(Uint size)
     ErlHeapFragment* bp;
     bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_PREPARED_CODE,
 					    ERTS_HEAP_FRAG_SIZE(size));
-    ERTS_INIT_HEAP_FRAG(bp, size);
+    ERTS_INIT_HEAP_FRAG(bp, size, size);
     return bp;
 }
 
@@ -1528,8 +1528,8 @@ read_literal_table(LoaderState* stp)
 	}
 
         if (heap_size > 0) {
-            erts_factory_message_init(&factory, NULL, NULL,
-                                      new_literal_fragment(heap_size));
+            erts_factory_heap_frag_init(&factory,
+					new_literal_fragment(heap_size));
 	    factory.alloc_type = ERTS_ALC_T_PREPARED_CODE;
             val = erts_decode_ext(&factory, &p);
 
@@ -4439,12 +4439,13 @@ freeze_code(LoaderState* stp)
 	code_hdr->literals_start = ptr;
 	code_hdr->literals_end = ptr + stp->total_literal_size;
 	for (i = 0; i < stp->num_literals; i++) {
-            if (stp->literals[i].heap_frags) {
-                move_multi_frags(&ptr, &code_off_heap, stp->literals[i].heap_frags,
-                                 &stp->literals[i].term, 1);
-                ASSERT(erts_is_literal(ptr_val(stp->literals[i].term)));
+            if (is_not_immed(stp->literals[i].term)) {
+                erts_move_multi_frags(&ptr, &code_off_heap,
+				      stp->literals[i].heap_frags,
+				      &stp->literals[i].term, 1, 1);
+                ASSERT(erts_is_literal(stp->literals[i].term,
+				       ptr_val(stp->literals[i].term)));
             }
-            else ASSERT(is_immed(stp->literals[i].term));
 	}
 	code_hdr->literals_off_heap = code_off_heap.first;
 	lp = stp->literal_patches;

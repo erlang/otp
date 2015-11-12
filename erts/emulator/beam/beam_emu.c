@@ -1654,10 +1654,6 @@ void process_main(void)
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
-     if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
-	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
-	 E = c_p->stop;
-     }
      HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
      if (is_value(result)) {
@@ -1745,8 +1741,7 @@ void process_main(void)
 		 SWAPIN;
 	     }
 	     /* only x(2) is included in the rootset here */
-	     if (E - HTOP < 3 || c_p->mbuf) {	/* Force GC in case add_stacktrace()
-						 * created heap fragments */
+	     if (E - HTOP < 3) {
 		 SWAPOUT;
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 FCALLS -= erts_garbage_collect(c_p, 3, reg+2, 1);
@@ -1833,10 +1828,17 @@ void process_main(void)
  OpCase(i_loop_rec_f):
  {
      BeamInstr *next;
-     ErlMessage* msgp;
+     ErtsMessage* msgp;
+
+     /*
+      * We need to disable GC while matching messages
+      * in the queue. This since messages with data outside
+      * the heap will be corrupted by a GC.
+      */
+     ASSERT(!(c_p->flags & F_DISABLE_GC));
+     c_p->flags |= F_DISABLE_GC;
 
  loop_rec__:
-
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      msgp = PEEK_MESSAGE(c_p);
@@ -1848,6 +1850,7 @@ void process_main(void)
 	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     SWAPOUT;
+	     c_p->flags &= ~F_DISABLE_GC;
 	     goto do_schedule; /* Will be rescheduled for exit */
 	 }
 	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
@@ -1857,30 +1860,27 @@ void process_main(void)
 	 else
 #endif
 	 {
+	     c_p->flags &= ~F_DISABLE_GC;
 	     SET_I((BeamInstr *) Arg(0));
 	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
 	 }
      }
-     ErtsMoveMsgAttachmentIntoProc(msgp, c_p, E, HTOP, FCALLS,
-				   {
-				       SWAPOUT;
-				       PROCESS_MAIN_CHK_LOCKS(c_p);
-				   },
-				   {
-				       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-				       PROCESS_MAIN_CHK_LOCKS(c_p);
-				       SWAPIN;
-				   });
      if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
-	 /*
-	  * A corrupt distribution message that we weren't able to decode;
-	  * remove it...
-	  */
-	 ASSERT(!msgp->data.attached);
-         /* TODO: Add DTrace probe for this bad message situation? */
-	 UNLINK_MESSAGE(c_p, msgp);
-	 free_message(msgp);
-	 goto loop_rec__;
+	 SWAPOUT; /* erts_decode_dist_message() may write to heap... */
+	 if (!erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
+	     /*
+	      * A corrupt distribution message that we weren't able to decode;
+	      * remove it...
+	      */
+	     /* No swapin should be needed */
+	     ASSERT(HTOP == c_p->htop && E == c_p->stop);
+	     /* TODO: Add DTrace probe for this bad message situation? */
+	     UNLINK_MESSAGE(c_p, msgp);
+	     msgp->next = NULL;
+	     erts_cleanup_messages(msgp);
+	     goto loop_rec__;
+	 }
+	 SWAPIN;
      }
      PreFetch(1, next);
      r(0) = ERL_MESSAGE_TERM(msgp);
@@ -1892,8 +1892,7 @@ void process_main(void)
   */
  OpCase(remove_message): {
      BeamInstr *next;
-     ErlMessage* msgp;
-
+     ErtsMessage* msgp;
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      PreFetch(0, next);
@@ -1988,11 +1987,21 @@ void process_main(void)
      UNLINK_MESSAGE(c_p, msgp);
      JOIN_MESSAGE(c_p);
      CANCEL_TIMER(c_p);
-     free_message(msgp);
+
+     erts_save_message_in_proc(c_p, msgp);
+     c_p->flags &= ~F_DISABLE_GC;
+
+     if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
+	 /*
+	  * We want to GC soon but we leave a few
+	  * reductions giving the message some time
+	  * to turn into garbage.
+	  */
+	 ERTS_VBUMP_LEAVE_REDS_INTERNAL(c_p, 5, FCALLS);
+     }
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
-
      NextPF(0, next);
  }
 
@@ -2001,9 +2010,22 @@ void process_main(void)
      * message didn't match), then jump to the loop_rec instruction.
      */
  OpCase(loop_rec_end_f): {
+
+     ASSERT(c_p->flags & F_DISABLE_GC);
+
      SET_I((BeamInstr *) Arg(0));
      SAVE_MESSAGE(c_p);
-     goto loop_rec__;
+     if (FCALLS > 0 || FCALLS > neg_o_reds) {
+	 FCALLS--;
+	 goto loop_rec__;
+     }
+
+     c_p->flags &= ~F_DISABLE_GC;
+     c_p->i = I;
+     SWAPOUT;
+     c_p->arity = 0;
+     c_p->current = NULL;
+     goto do_schedule;
  }
     /*
      * Prepare to wait for a message or a timeout, whichever occurs first.
@@ -2733,6 +2755,7 @@ do {						\
 	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 	Eterm result;
 	BeamInstr *next;
+	ErlHeapFragment *live_hf_end;
 
 	PRE_BIF_SWAPOUT(c_p);
 	c_p->fcalls = FCALLS - 1;
@@ -2742,17 +2765,18 @@ do {						\
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+	live_hf_end = c_p->mbuf;
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	PROCESS_MAIN_CHK_LOCKS(c_p);
-	if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
+	if (ERTS_IS_GC_DESIRED(c_p)) {
 	    Uint arity = ((Export *)Arg(0))->code[2];
-	    result = erts_gc_after_bif_call(c_p, result, reg, arity);
+	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
 	    E = c_p->stop;
 	}
+	PROCESS_MAIN_CHK_LOCKS(c_p);
 	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
@@ -2963,6 +2987,9 @@ do {						\
 		     }
 		 }
 		 Op1 = small_to_big(ires, tmp_big);
+#ifdef TAG_LITERAL_PTR
+		 Op1 |= TAG_LITERAL_PTR;
+#endif
 
 	     big_shift:
 		 if (i > 0) {	/* Left shift. */
@@ -3411,9 +3438,6 @@ do {						\
 	 goto do_schedule;
      } else {
 	 ASSERT(!is_value(r(0)));
-	 if (c_p->mbuf) {
-	     erts_garbage_collect(c_p, 0, reg+1, 3);
-	 }
 	 SWAPIN;
 	 Goto(*I);
      }
@@ -3437,6 +3461,7 @@ do {						\
 	     * I[3]: Function pointer to dirty NIF
 	     */
 	    BifFunction vbf;
+	    ErlHeapFragment *live_hf_end;
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
@@ -3452,6 +3477,7 @@ do {						\
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
+		live_hf_end = c_p->mbuf;
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
@@ -3494,6 +3520,7 @@ do {						\
 	    {
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+		live_hf_end = c_p->mbuf;
 		nif_bif_result = (*bf)(c_p, reg, I);
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 		       is_non_value(nif_bif_result));
@@ -3506,9 +3533,17 @@ do {						\
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
-	    if (c_p->mbuf) {
-		nif_bif_result = erts_gc_after_bif_call(c_p, nif_bif_result,
-						  reg, bif_nif_arity);
+	    /*
+	     * We want to test with ERTS_IS_GC_DESIRED(c_p) in order
+	     * to trigger gc due to binaries based on same conditions
+	     * regardless of how the bif is called. This change will
+	     * however be introduced in a separate commit in order to
+	     * easier identify why the characteristics changed.
+	     */
+	    if (c_p->stop - c_p->htop < c_p->mbuf_sz) {
+		nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
+							    nif_bif_result,
+							    reg, bif_nif_arity);
 	    }
 	    SWAPIN;  /* There might have been a garbage collection. */
 	    FCALLS = c_p->fcalls;
@@ -6337,13 +6372,6 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
         erts_factory_proc_init(&factory, p);
         res = erts_hashmap_from_array(&factory, thp, n/2, 0);
         erts_factory_close(&factory);
-        if (p->mbuf) {
-            Uint live = Arg(2);
-            reg[live] = res;
-            erts_garbage_collect(p, 0, reg, live+1);
-            res       = reg[live];
-            E = p->stop;
-        }
         return res;
     }
 
@@ -6409,13 +6437,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 	    hx = hashmap_make_hash(new_key);
 
 	    res = erts_hashmap_insert(p, hx, new_key, val, res,  0);
-	    if (p->mbuf) {
-		Uint live = Arg(3);
-		reg[live] = res;
-		erts_garbage_collect(p, 0, reg, live+1);
-		res       = reg[live];
-		E = p->stop;
-	    }
 
 	    new_p += 2;
 	}
@@ -6575,12 +6596,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
 	res = erts_hashmap_from_ks_and_vs(p,flatmap_get_keys(mp),flatmap_get_values(mp),n);
-	if (p->mbuf) {
-	    Uint live = Arg(3);
-	    reg[live] = res;
-	    erts_garbage_collect(p, 0, reg, live+1);
-	    res       = reg[live];
-	}
     }
     return res;
 }
@@ -6634,14 +6649,6 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 		p->fvalue = new_key;
 		p->freason = BADKEY;
 		return res;
-	    }
-
-	    if (p->mbuf) {
-		Uint live = Arg(3);
-		reg[live] = res;
-		erts_garbage_collect(p, 0, reg, live+1);
-		res       = reg[live];
-		E = p->stop;
 	    }
 
 	    new_p += 2;

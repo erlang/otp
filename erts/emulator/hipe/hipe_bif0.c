@@ -497,6 +497,8 @@ static void *const_term_alloc(void *tmpl)
     hp = &p->mem[0];
     p->val = copy_struct(obj, size, &hp, &const_term_table_off_heap);
 
+    erts_set_literal_tag(&p->val, &p->mem[0], size);
+
     return &p->bucket;
 }
 

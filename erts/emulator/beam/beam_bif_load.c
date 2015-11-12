@@ -723,29 +723,50 @@ set_default_trace_pattern(Eterm module)
     }
 }
 
+static ERTS_INLINE int
+check_mod_funs(Process *p, ErlOffHeap *off_heap, char *area, size_t area_size)
+{
+    struct erl_off_heap_header* oh;
+    for (oh = off_heap->first; oh; oh = oh->next) {
+	if (thing_subtag(oh->thing_word) == FUN_SUBTAG) {
+	    ErlFunThing* funp = (ErlFunThing*) oh;
+	    if (ErtsInArea(funp->fe->address, area, area_size))
+		return !0;
+	}
+    }
+    return 0;
+}
+
+
 static Eterm
 check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 {
     BeamInstr* start;
     char* literals;
     Uint lit_bsize;
-    BeamInstr* end;
+    char* mod_start;
+    Uint mod_size;
     Eterm* sp;
-    struct erl_off_heap_header* oh;
     int done_gc = 0;
+    int need_gc = 0;
+    ErtsMessage *msgp;
+    ErlHeapFragment *hfrag;
 
-#define INSIDE(a) (start <= (a) && (a) < end)
+#define ERTS_ORDINARY_GC__ (1 << 0)
+#define ERTS_LITERAL_GC__  (1 << 1)
 
     /*
      * Pick up limits for the module.
      */
     start = (BeamInstr*) modp->old.code_hdr;
-    end = (BeamInstr *)((char *)start + modp->old.code_length);
+    mod_start = (char *) start;
+    mod_size = modp->old.code_length;
 
     /*
      * Check if current instruction or continuation pointer points into module.
      */
-    if (INSIDE(rp->i) || INSIDE(rp->cp)) {
+    if (ErtsInArea(rp->i, mod_start, mod_size)
+	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
 	return am_true;
     }
 
@@ -753,7 +774,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
      * Check all continuation pointers stored on the stack.
      */
     for (sp = rp->stop; sp < STACK_START(rp); sp++) {
-	if (is_CP(*sp) && INSIDE(cp_val(*sp))) {
+	if (is_CP(*sp) && ErtsInArea(cp_val(*sp), mod_start, mod_size)) {
 	    return am_true;
 	}
     }
@@ -767,15 +788,15 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	struct StackTrace *s;
 	ASSERT(is_list(rp->ftrace));
 	s = (struct StackTrace *) big_val(CDR(list_val(rp->ftrace)));
-	if ((s->pc && INSIDE(s->pc)) ||
-	    (s->current && INSIDE(s->current))) {
+	if ((s->pc && ErtsInArea(s->pc, mod_start, mod_size)) ||
+	    (s->current && ErtsInArea(s->current, mod_start, mod_size))) {
 	    rp->freason = EXC_NULL;
 	    rp->fvalue = NIL;
 	    rp->ftrace = NIL;
 	} else {
 	    int i;
 	    for (i = 0;  i < s->depth;  i++) {
-		if (INSIDE(s->trace[i])) {
+		if (ErtsInArea(s->trace[i], mod_start, mod_size)) {
 		    rp->freason = EXC_NULL;
 		    rp->fvalue = NIL;
 		    rp->ftrace = NIL;
@@ -796,108 +817,141 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
     }
 
     /*
-     * See if there are funs that refer to the old version of the module.
+     * Message queue can contains funs, but (at least currently) no
+     * constants. If we got references to this module from the message
+     * queue, a GC cannot remove these...
      */
 
- rescan:
-    for (oh = MSO(rp).first; oh; oh = oh->next) {
-	if (thing_subtag(oh->thing_word) == FUN_SUBTAG) {
-	    ErlFunThing* funp = (ErlFunThing*) oh;
+    erts_smp_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
+    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
-	    if (INSIDE((BeamInstr *) funp->fe->address)) {
-		if (done_gc) {
-		    return am_true;
-		} else {
-		    if (!allow_gc)
-			return am_aborted;
-		    /*
-		    * Try to get rid of this fun by garbage collecting.
-		    * Clear both fvalue and ftrace to make sure they
-		    * don't hold any funs.
-		    */
-		    rp->freason = EXC_NULL;
-		    rp->fvalue = NIL;
-		    rp->ftrace = NIL;
-		    done_gc = 1;
-		    FLAGS(rp) |= F_NEED_FULLSWEEP;
-		    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-		    goto rescan;
-		}
-	    }
+    for (msgp = rp->msg.first; msgp; msgp = msgp->next) {
+	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+	    hfrag = &msgp->hfrag;
+	else if (is_value(ERL_MESSAGE_TERM(msgp)) && msgp->data.heap_frag)
+	    hfrag = msgp->data.heap_frag;
+	else
+	    continue;
+	for (; hfrag; hfrag = hfrag->next) {
+	    if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
+		return am_true;
+	    /* Should not contain any constants... */
+	    ASSERT(!any_heap_ref_ptrs(&hfrag->mem[0],
+				      &hfrag->mem[hfrag->used_size],
+				      mod_start,
+				      mod_size));
 	}
     }
 
-    /*
-     * See if there are constants inside the module referenced by the process.
-     */
-    done_gc = 0;
     literals = (char*) modp->old.code_hdr->literals_start;
     lit_bsize = (char*) modp->old.code_hdr->literals_end - literals;
-    for (;;) {
-	ErlMessage* mp;
 
+    while (1) {
+
+	/* Check heap, stack etc... */
+	if (check_mod_funs(rp, &rp->off_heap, mod_start, mod_size))
+	    goto try_gc;
 	if (any_heap_ref_ptrs(&rp->fvalue, &rp->fvalue+1, literals, lit_bsize)) {
 	    rp->freason = EXC_NULL;
 	    rp->fvalue = NIL;
 	    rp->ftrace = NIL;
 	}
-	if (any_heap_ref_ptrs(rp->stop, rp->hend, literals, lit_bsize)) {
-	    goto need_gc;
-	}
-	if (any_heap_refs(rp->heap, rp->htop, literals, lit_bsize)) {
-	    goto need_gc;
-	}
+	if (any_heap_ref_ptrs(rp->stop, rp->hend, literals, lit_bsize))
+	    goto try_literal_gc;
+	if (any_heap_refs(rp->heap, rp->htop, literals, lit_bsize))
+	    goto try_literal_gc;
+	if (any_heap_refs(rp->old_heap, rp->old_htop, literals, lit_bsize))
+	    goto try_literal_gc;
 
-	if (any_heap_refs(rp->old_heap, rp->old_htop, literals, lit_bsize)) {
-	    goto need_gc;
-	}
-
-	if (rp->dictionary != NULL) {
+	/* Check dictionary */
+	if (rp->dictionary) {
 	    Eterm* start = rp->dictionary->data;
 	    Eterm* end = start + rp->dictionary->used;
 
-	    if (any_heap_ref_ptrs(start, end, literals, lit_bsize)) {
-		goto need_gc;
+	    if (any_heap_ref_ptrs(start, end, literals, lit_bsize))
+		goto try_literal_gc;
+	}
+
+	/* Check heap fragments */
+	for (hfrag = rp->mbuf; hfrag; hfrag = hfrag->next) {
+	    Eterm *hp, *hp_end;
+	    /* Off heap lists should already have been moved into process */
+	    ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
+
+	    hp = &hfrag->mem[0];
+	    hp_end = &hfrag->mem[hfrag->used_size];
+	    if (any_heap_ref_ptrs(hp, hp_end, mod_start, lit_bsize))
+		goto try_literal_gc;
+	}
+
+#ifdef DEBUG
+	/*
+	 * Message buffer fragments should not have any references
+	 * to constants, and off heap lists should already have
+	 * been moved into process off heap structure.
+	 */
+	for (msgp = rp->msg_frag; msgp; msgp = msgp->next) {
+	    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+		hfrag = &msgp->hfrag;
+	    else
+		hfrag = msgp->data.heap_frag;
+	    for (; hfrag; hfrag = hfrag->next) {
+		Eterm *hp, *hp_end;
+		ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
+
+		hp = &hfrag->mem[0];
+		hp_end = &hfrag->mem[hfrag->used_size];
+		ASSERT(!any_heap_ref_ptrs(hp, hp_end, mod_start, lit_bsize));
 	    }
 	}
 
-	for (mp = rp->msg.first; mp != NULL; mp = mp->next) {
-	    if (any_heap_ref_ptrs(mp->m, mp->m+2, literals, lit_bsize)) {
-		goto need_gc;
-	    }
-	}
-	break;
+#endif
 
-    need_gc:
-	if (done_gc) {
+	return am_false;
+
+    try_literal_gc:
+	need_gc |= ERTS_LITERAL_GC__;
+
+    try_gc:
+	need_gc |= ERTS_ORDINARY_GC__;
+
+	if ((done_gc & need_gc) == need_gc)
 	    return am_true;
-	} else {
-	    struct erl_off_heap_header* oh;
 
-	    if (!allow_gc)
-		return am_aborted;
+	if (!allow_gc)
+	    return am_aborted;
 
-	    /*
-	     * Try to get rid of constants by by garbage collecting.
-	     * Clear both fvalue and ftrace.
-	     */
-	    rp->freason = EXC_NULL;
-	    rp->fvalue = NIL;
-	    rp->ftrace = NIL;
-	    done_gc = 1;
+	need_gc &= ~done_gc;
+
+	/*
+	 * Try to get rid of constants by by garbage collecting.
+	 * Clear both fvalue and ftrace.
+	 */
+
+	rp->freason = EXC_NULL;
+	rp->fvalue = NIL;
+	rp->ftrace = NIL;
+
+	if (need_gc & ERTS_ORDINARY_GC__) {
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
 	    *redsp += erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
+	    done_gc |= ERTS_ORDINARY_GC__;
+	}
+	if (need_gc & ERTS_LITERAL_GC__) {
+	    struct erl_off_heap_header* oh;
 	    oh = modp->old.code_hdr->literals_off_heap;
 	    *redsp += lit_bsize / 64; /* Need, better value... */
 	    erts_garbage_collect_literals(rp, (Eterm*)literals, lit_bsize, oh);
+	    done_gc |= ERTS_LITERAL_GC__;
 	}
+	need_gc = 0;
     }
-    return am_false;
-#undef INSIDE
-}
 
-#define in_area(ptr,start,nbytes) \
-    ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
+#undef ERTS_ORDINARY_GC__
+#undef ERTS_LITERAL_GC__
+
+}
 
 static int
 any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
@@ -910,7 +964,7 @@ any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(val, mod_start, mod_size)) {
+	    if (ErtsInArea(val, mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -930,7 +984,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    if (in_area(val, mod_start, mod_size)) {
+	    if (ErtsInArea(val, mod_start, mod_size)) {
 		return 1;
 	    }
 	    break;
@@ -940,7 +994,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
                 if (header_is_bin_matchstate(val)) {
                     ErlBinMatchState *ms = (ErlBinMatchState*) p;
                     ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (in_area(mb->orig, mod_start, mod_size)) {
+                    if (ErtsInArea(mb->orig, mod_start, mod_size)) {
                         return 1;
                     }
                 }
@@ -952,8 +1006,6 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
     }
     return 0;
 }
-
-#undef in_area
 
 BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 {

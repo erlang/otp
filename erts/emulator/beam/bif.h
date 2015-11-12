@@ -54,21 +54,23 @@ extern Export *erts_convert_time_unit_trap;
 	(p)->fcalls = -CONTEXT_REDS;		\
 } while(0)
 
-
-#define ERTS_VBUMP_ALL_REDS(p)						\
+#define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\
 do {									\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
-	if ((p)->fcalls > 0)						\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (p)->fcalls;	\
-	(p)->fcalls = 0;						\
+	if ((fcalls) > 0)						\
+	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (fcalls);	\
+	(fcalls) = 0;							\
     }									\
     else {								\
-	if ((p)->fcalls > -CONTEXT_REDS)				\
+	if ((fcalls) > -CONTEXT_REDS)					\
 	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds			\
-		+= ((p)->fcalls - (-CONTEXT_REDS));			\
-	(p)->fcalls = -CONTEXT_REDS;					\
+		+= ((fcalls) - (-CONTEXT_REDS));			\
+	(fcalls) = -CONTEXT_REDS;					\
     }									\
 } while(0)
+
+#define ERTS_VBUMP_ALL_REDS(p) \
+    ERTS_VBUMP_ALL_REDS_INTERNAL((p), (p)->fcalls)
 
 #define BUMP_REDS(p, gc) do {			   \
      ASSERT(p);		 			   \
@@ -110,10 +112,34 @@ do {									\
     }									\
 } while(0)
 
-#define ERTS_BIF_REDS_LEFT(p)						\
+#define ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, FCalls)			\
+    do {								\
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
+	    int nreds__ = ((int)(Reds)) - CONTEXT_REDS;			\
+	    if ((FCalls) > nreds__) {					\
+		ERTS_PROC_GET_SCHDATA((P))->virtual_reds		\
+		    += (FCalls) - nreds__;				\
+		(FCalls) = nreds__;					\
+	    }								\
+	}								\
+	else {								\
+	    if ((FCalls) > (Reds)) {					\
+		ERTS_PROC_GET_SCHDATA((P))->virtual_reds		\
+		    += (FCalls) - (Reds);				\
+		(FCalls) = (Reds);					\
+	    }								\
+	}								\
+    } while (0)
+
+#define ERTS_VBUMP_LEAVE_REDS(P, Reds)					\
+    ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, (P)->fcalls)
+
+#define ERTS_REDS_LEFT(p, FCalls)					\
   (ERTS_PROC_GET_SAVED_CALLS_BUF((p))					\
-   ? ((p)->fcalls > -CONTEXT_REDS ? ((p)->fcalls - (-CONTEXT_REDS)) : 0)\
-   : ((p)->fcalls > 0 ? (p)->fcalls : 0))
+   ? ((FCalls) > -CONTEXT_REDS ? ((FCalls) - (-CONTEXT_REDS)) : 0)	\
+   : ((FCalls) > 0 ? (FCalls) : 0))
+
+#define ERTS_BIF_REDS_LEFT(p) ERTS_REDS_LEFT(p, p->fcalls)
 
 #define BIF_RET2(x, gc) do {			\
     BUMP_REDS(BIF_P, (gc));			\

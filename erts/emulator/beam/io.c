@@ -1410,7 +1410,7 @@ queue_port_sched_op_reply(Process *rp,
 
     erts_factory_trim_and_close(factory, &msg, 1);
 
-    erts_queue_message(rp, rp_locksp, factory->heap_frags, msg, NIL);
+    erts_queue_message(rp, rp_locksp, factory->message, msg, NIL);
 }
 
 static void
@@ -1418,12 +1418,9 @@ port_sched_op_reply(Eterm to, Uint32 *ref_num, Eterm msg)
 {
     Process *rp = erts_proc_lookup_raw(to);
     if (rp) {
-	ErlOffHeap *ohp;
-	ErlHeapFragment* bp;
         ErtsHeapFactory factory;
 	Eterm msg_copy;
 	Uint hsz, msg_sz;
-	Eterm *hp;
 	ErtsProcLocks rp_locks = 0;
 
 	hsz = ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE;
@@ -1434,18 +1431,13 @@ port_sched_op_reply(Eterm to, Uint32 *ref_num, Eterm msg)
 	    hsz += msg_sz;
 	}
 
-	hp = erts_alloc_message_heap(hsz,
-						&bp,
-						&ohp,
-						rp,
-						&rp_locks);
-        erts_factory_message_init(&factory, rp, hp, bp);
-	if (is_immed(msg))
-	    msg_copy = msg;
-	else {
-	    msg_copy = copy_struct(msg, msg_sz, &hp, ohp);
-            factory.hp = hp;
-        }
+	(void) erts_factory_message_create(&factory, rp,
+					   &rp_locks, hsz);
+	msg_copy = (is_immed(msg)
+		    ? msg
+		    : copy_struct(msg, msg_sz,
+				  &factory.hp,
+				  factory.off_heap));
 
 	queue_port_sched_op_reply(rp,
 				  &rp_locks,
@@ -3050,16 +3042,17 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 
     if (rp) {
 	Eterm tuple;
-	ErlHeapFragment *bp;
+	ErtsMessage *mp;
 	ErlOffHeap *ohp;
 	Eterm* hp;
 	Uint sz_res;
 
 	sz_res = size_object(res);
-	hp = erts_alloc_message_heap(sz_res + 3, &bp, &ohp, rp, &rp_locks);
+	mp = erts_alloc_message_heap(rp, &rp_locks,
+				     sz_res + 3, &hp, &ohp);
 	res = copy_struct(res, sz_res, &hp, ohp);
 	tuple = TUPLE2(hp, sender, res);
-	erts_queue_message(rp, &rp_locks, bp, tuple, NIL);
+	erts_queue_message(rp, &rp_locks, mp, tuple, NIL);
 
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -3087,7 +3080,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     Eterm tuple;
     Process* rp;
     Eterm* hp;
-    ErlHeapFragment *bp;
+    ErtsMessage *mp;
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
@@ -3113,7 +3106,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     if (!rp)
 	return;
 
-    hp = erts_alloc_message_heap(need, &bp, &ohp, rp, &rp_locks);
+    mp = erts_alloc_message_heap(rp, &rp_locks, need, &hp, &ohp);
 
     listp = NIL;
     if ((state & ERTS_PORT_SFLG_BINARY_IO) == 0) {
@@ -3155,7 +3148,7 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+    erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
@@ -3229,7 +3222,7 @@ deliver_vec_message(Port* prt,			/* Port */
     Eterm tuple;
     Process* rp;
     Eterm* hp;
-    ErlHeapFragment *bp;
+    ErtsMessage *mp;
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
     int scheduler = erts_get_scheduler_id() != 0;
@@ -3261,7 +3254,7 @@ deliver_vec_message(Port* prt,			/* Port */
 	need += (hlen+csize)*2;
     }
 
-    hp = erts_alloc_message_heap(need, &bp, &ohp, rp, &rp_locks);
+    mp = erts_alloc_message_heap(rp, &rp_locks, need, &hp, &ohp);
 
     listp = NIL;
     iov += vsize;
@@ -3322,7 +3315,7 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+    erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
     erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_proc_dec_refc(rp);
@@ -3813,7 +3806,6 @@ write_port_control_result(int control_flags,
 			  ErlDrvSizeT resp_size,
 			  char *pre_alloc_buf,
 			  Eterm **hpp,
-			  ErlHeapFragment *bp,
 			  ErlOffHeap *ohp)
 {
     Eterm res;
@@ -3887,9 +3879,6 @@ port_sig_control(Port *prt,
 
 	if (res == ERTS_PORT_OP_DONE) {
 	    Eterm msg;
-	    Eterm *hp;
-	    ErlHeapFragment *bp;
-	    ErlOffHeap *ohp;
             ErtsHeapFactory factory;
 	    Process *rp;
 	    ErtsProcLocks rp_locks = 0;
@@ -3909,22 +3898,15 @@ port_sig_control(Port *prt,
 	    hsz = rsz + ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE;
 
 
-	    hp = erts_alloc_message_heap(hsz,
-						    &bp,
-						    &ohp,
-						    rp,
-						    &rp_locks);
-            erts_factory_message_init(&factory, rp, hp, bp);
+	    (void) erts_factory_message_create(&factory, rp,
+					       &rp_locks, hsz);
 
 	    msg = write_port_control_result(control_flags,
 					    resp_bufp,
 					    resp_size,
 					    &resp_buf[0],
-					    &hp,
-					    bp,
-					    ohp);
-            factory.hp = hp;
-
+					    &factory.hp,
+					    factory.off_heap);
 	    queue_port_sched_op_reply(rp,
 				      &rp_locks,
                                       &factory,
@@ -4065,7 +4047,6 @@ erts_port_control(Process* c_p,
 						 resp_size,
 						 &resp_buf[0],
 						 &hp,
-						 NULL,
 						 &c_p->off_heap);
 	    BUMP_REDS(c_p, ERTS_PORT_REDS_CONTROL);
 	    return ERTS_PORT_OP_DONE;
@@ -4224,21 +4205,14 @@ port_sig_call(Port *prt,
 
 	    hsz = erts_decode_ext_size((byte *) resp_bufp, resp_size);
 	    if (hsz >= 0) {
-                ErlHeapFragment* bp;
-                ErlOffHeap* ohp;
                 ErtsHeapFactory factory;
 		byte *endp;
 
 		hsz += 3; /* ok tuple */
 		hsz += ERTS_QUEUE_PORT_SCHED_OP_REPLY_SIZE;
 
-                hp = erts_alloc_message_heap(hsz,
-                                             &bp,
-                                             &ohp,
-                                             rp,
-                                             &rp_locks);
+                (void) erts_factory_message_create(&factory, rp, &rp_locks, hsz);
 		endp = (byte *) resp_bufp;
-                erts_factory_message_init(&factory, rp, hp, bp);
 		msg = erts_decode_ext(&factory, &endp);
 		if (is_value(msg)) {
                     hp = erts_produce_heap(&factory,
@@ -4499,7 +4473,9 @@ port_sig_info(Port *prt,
 				    sigdp->u.info.item);
 	if (is_value(value)) {
             ErtsHeapFactory factory;
-            erts_factory_message_init(&factory, NULL, hp, bp);
+	    ErtsMessage *mp = erts_alloc_message(0, NULL);
+	    mp->data.heap_frag = bp;
+            erts_factory_selfcontained_message_init(&factory, mp, hp);
 	    queue_port_sched_op_reply(rp,
 				      &rp_locks,
                                       &factory,
@@ -4587,8 +4563,8 @@ reply_io_bytes(void *vreq)
 
     rp = erts_proc_lookup(req->pid);
     if (rp) {
-	ErlOffHeap *ohp = NULL;
-	ErlHeapFragment *bp = NULL;
+	ErlOffHeap *ohp;
+	ErtsMessage *mp;
 	ErtsProcLocks rp_locks;
 	Eterm ref, msg, ein, eout, *hp;
 	Uint64 in, out;
@@ -4610,7 +4586,7 @@ reply_io_bytes(void *vreq)
 	erts_bld_uint64(NULL, &hsz, in);
 	erts_bld_uint64(NULL, &hsz, out);
 
-	hp = erts_alloc_message_heap(hsz, &bp, &ohp, rp, &rp_locks);
+	mp = erts_alloc_message_heap(rp, &rp_locks, hsz, &hp, &ohp);
 
 	ref = make_internal_ref(hp);
 	write_ref_thing(hp, req->refn[0], req->refn[1], req->refn[2]);
@@ -4620,7 +4596,7 @@ reply_io_bytes(void *vreq)
 	eout = erts_bld_uint64(&hp, NULL, out);
 
 	msg = TUPLE4(hp, ref, make_small(sched_id), ein, eout);
-	erts_queue_message(rp, &rp_locks, bp, msg, NIL);
+	erts_queue_message(rp, &rp_locks, mp, msg, NIL);
 
 	if (req->sched_id == sched_id)
 	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -5065,11 +5041,11 @@ ErlDrvTermData driver_mk_term_nil(void)
 void driver_report_exit(ErlDrvPort ix, int status)
 {
    Eterm* hp;
+   ErlOffHeap *ohp;
    Eterm tuple;
    Process *rp;
    Eterm pid;
-   ErlHeapFragment *bp = NULL;
-   ErlOffHeap *ohp;
+   ErtsMessage *mp;
    ErtsProcLocks rp_locks = 0;
    int scheduler = erts_get_scheduler_id() != 0;
    Port* prt = erts_drvport2port(ix);
@@ -5089,13 +5065,13 @@ void driver_report_exit(ErlDrvPort ix, int status)
    if (!rp)
        return;
 
-   hp = erts_alloc_message_heap(3+3, &bp, &ohp, rp, &rp_locks);
+   mp = erts_alloc_message_heap(rp, &rp_locks, 3+3, &hp, &ohp);
 
    tuple = TUPLE2(hp, am_exit_status, make_small(status));
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+   erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
 
    erts_smp_proc_unlock(rp, rp_locks);
    if (!scheduler)
@@ -5205,7 +5181,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
     ErtsProcLocks rp_locks = 0;
     struct b2t_states__ b2t;
     int scheduler;
-    int is_heap_need_limited = 1;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_UNDEF(mess,NIL);
@@ -5374,9 +5349,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    need += hsz;
 	    ptr += 2;
 	    depth++;
-            if (size > MAP_SMALL_MAP_LIMIT*3) { /* may contain big map */
-                is_heap_need_limited = 0;
-            }
 	    break;
 	}
 	case ERL_DRV_MAP: { /* int */
@@ -5384,7 +5356,6 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	    if ((int) ptr[0] < 0) ERTS_DDT_FAIL;
             if (ptr[0] > MAP_SMALL_MAP_LIMIT) {
                 need += HASHMAP_ESTIMATED_HEAP_SIZE(ptr[0]);
-                is_heap_need_limited = 0;
             } else {
                 need += MAP_HEADER_FLATMAP_SZ + 1 + 2*ptr[0];
             }
@@ -5423,17 +5394,7 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	goto done;
     }
 
-    /* Try copy directly to destination heap if we know there are no big maps */
-    if (is_heap_need_limited) {
-        ErlOffHeap *ohp;
-        ErlHeapFragment* bp;
-        Eterm* hp = erts_alloc_message_heap(need, &bp, &ohp, rp, &rp_locks);
-        erts_factory_message_init(&factory, rp, hp, bp);
-    }
-    else {
-        erts_factory_message_init(&factory, NULL, NULL,
-                                  new_message_buffer(need));
-    }
+    (void) erts_factory_message_create(&factory, rp, &rp_locks, need);
 
     /*
      * Interpret the instructions and build the term.
@@ -5702,9 +5663,9 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 
     if (res > 0) {
 	mess = ESTACK_POP(stack);  /* get resulting value */
-	erts_factory_close(&factory);
+	erts_factory_trim_and_close(&factory, &mess, 1);
 	/* send message */
-	erts_queue_message(rp, &rp_locks, factory.heap_frags, mess, am_undefined);
+	erts_queue_message(rp, &rp_locks, factory.message, mess, am_undefined);
     }
     else {
 	if (b2t.ix > b2t.used)

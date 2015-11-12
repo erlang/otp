@@ -312,6 +312,8 @@ void erts_check_for_holes(Process* p)
     p->last_htop = HEAP_TOP(p);
 
     for (hf = MBUF(p); hf != 0; hf = hf->next) {
+	if (hf == p->heap_hfrag)
+	    continue;
 	if (hf == p->last_mbuf) {
 	    break;
 	}
@@ -402,7 +404,7 @@ void verify_process(Process *p)
         erl_exit(1,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 
-    ErlMessage* mp = p->msg.first;
+    ErtsMessage* mp = p->msg.first;
 
     VERBOSE(DEBUG_MEMORY,("Verify process: %T...\n",p->common.id));
 
@@ -531,7 +533,7 @@ static void print_process_memory(Process *p)
                 PTR_SIZE, "PCB", dashes, dashes, dashes, dashes);
 
     if (p->msg.first != NULL) {
-        ErlMessage* mp;
+        ErtsMessage* mp;
         erts_printf("  Message Queue:\n");
         mp = p->msg.first;
         while (mp != NULL) {
