@@ -291,7 +291,7 @@ mseg_create(ErtsMsegAllctr_t *ma, Uint flags, UWord *sizep)
     if (MSEG_FLG_IS_2POW(flags))
 	mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    seg = erts_mmap(mmap_flags, sizep);
+    seg = erts_mmap(&erts_dflt_mmapper, mmap_flags, sizep);
 
 #ifdef ERTS_PRINT_ERTS_MMAP
     erts_fprintf(stderr, "%p = erts_mmap(%s, {%bpu, %bpu});\n", seg,
@@ -311,7 +311,7 @@ mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, void *seg_p, UWord size) {
     if (MSEG_FLG_IS_2POW(flags))
 	 mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    erts_munmap(mmap_flags, seg_p, size);
+    erts_munmap(&erts_dflt_mmapper, mmap_flags, seg_p, size);
 #ifdef ERTS_PRINT_ERTS_MMAP
     erts_fprintf(stderr, "erts_munmap(%s, %p, %bpu);\n",
 		 (mmap_flags & ERTS_MMAPFLG_SUPERALIGNED) ? "sa" : "sua",
@@ -332,7 +332,7 @@ mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, UWord old_size, U
     if (MSEG_FLG_IS_2POW(flags))
 	mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    new_seg = erts_mremap(mmap_flags, old_seg, old_size, sizep);
+    new_seg = erts_mremap(&erts_dflt_mmapper, mmap_flags, old_seg, old_size, sizep);
 
 #ifdef ERTS_PRINT_ERTS_MMAP
     erts_fprintf(stderr, "%p = erts_mremap(%s, %p, %bpu, {%bpu, %bpu});\n",
@@ -997,7 +997,8 @@ info_options(ErtsMsegAllctr_t *ma,
 {
     Eterm res;
 
-    res = erts_mmap_info_options(prefix, print_to_p, print_to_arg, hpp, szp);
+    res = erts_mmap_info_options(&erts_dflt_mmapper,
+                                 prefix, print_to_p, print_to_arg, hpp, szp);
 
     if (print_to_p) {
 	int to = *print_to_p;
@@ -1401,7 +1402,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
-    erts_mmap_init(&init->mmap);
+    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap);
 
     if (!IS_2POW(GET_PAGE_SIZE))
 	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);

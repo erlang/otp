@@ -1045,6 +1045,9 @@ extern int erts_use_kernel_poll;
 #define put_int8(i, s) do {((unsigned char*)(s))[0] = (i) & 0xff;} while (0)
 
 
+#define ErtsInArea(PTR,START,NBYTES) \
+    ((UWord)((char*)(PTR) - (char*)(START)) < (NBYTES))
+
 /*
  * Use DEBUGF as you would use printf, but use double parentheses:
  *

@@ -51,23 +51,22 @@
 #endif
 
 /*
- * `mmap_state.sa.bot` and `mmap_state.sua.top` are read only after
+ * `mm->sa.bot` and `mm->sua.top` are read only after
  * initialization, but the other pointers are not; i.e., only
  * ERTS_MMAP_IN_SUPERCARRIER() is allowed without the mutex held.
  */
 #define ERTS_MMAP_IN_SUPERCARRIER(PTR)					\
-    (((UWord) (PTR)) - ((UWord) mmap_state.sa.bot)			\
-     < ((UWord) mmap_state.sua.top) - ((UWord) mmap_state.sa.bot))
+    (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
+     < ((UWord) mm->sua.top) - ((UWord) mm->sa.bot))
 #define ERTS_MMAP_IN_SUPERALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mmap_state.mtx)),	\
-     (((UWord) (PTR)) - ((UWord) mmap_state.sa.bot)			\
-      < ((UWord) mmap_state.sa.top) - ((UWord) mmap_state.sa.bot)))
+    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+     (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
+      < ((UWord) mm->sa.top) - ((UWord) mm->sa.bot)))
 #define ERTS_MMAP_IN_SUPERUNALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mmap_state.mtx)),	\
-     (((UWord) (PTR)) - ((UWord) mmap_state.sua.bot)			\
-      < ((UWord) mmap_state.sua.top) - ((UWord) mmap_state.sua.bot)))
+    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+     (((UWord) (PTR)) - ((UWord) mm->sua.bot)			\
+      < ((UWord) mm->sua.top) - ((UWord) mm->sua.bot)))
 
-int erts_have_erts_mmap;
 UWord erts_page_inv_mask;
 
 #if defined(DEBUG) || defined(ERTS_MMAP_DEBUG)
@@ -197,10 +196,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MMAP_OP_LCK(RES, IN_SZ, OUT_SZ)			\
     do {							\
-	erts_smp_mtx_lock(&mmap_state.mtx);			\
+	erts_smp_mtx_lock(&mm->mtx);			\
 	ERTS_MMAP_OP_START((IN_SZ));				\
 	ERTS_MMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mmap_state.mtx);			\
+	erts_smp_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MUNMAP_OP(PTR, SZ)					\
@@ -219,9 +218,9 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MUNMAP_OP_LCK(PTR, SZ)				\
     do {							\
-	erts_smp_mtx_lock(&mmap_state.mtx);			\
+	erts_smp_mtx_lock(&mm->mtx);			\
 	ERTS_MUNMAP_OP((PTR), (SZ));				\
-	erts_smp_mtx_unlock(&mmap_state.mtx);			\
+	erts_smp_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MREMAP_OP_START(OLD_PTR, OLD_SZ, IN_SZ)		\
@@ -247,10 +246,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MREMAP_OP_LCK(RES, OLD_PTR, OLD_SZ, IN_SZ, OUT_SZ)	\
     do {							\
-	erts_smp_mtx_lock(&mmap_state.mtx);			\
+	erts_smp_mtx_lock(&mm->mtx);			\
 	ERTS_MREMAP_OP_START((OLD_PTR), (OLD_SZ), (IN_SZ));	\
 	ERTS_MREMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mmap_state.mtx);			\
+	erts_smp_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MMAP_OP_ABORT()					\
@@ -294,7 +293,7 @@ typedef struct {
     Uint nseg;
 }ErtsFreeSegMap;
 
-static struct {
+struct ErtsMemMapper_ {
     int (*reserve_physical)(char *, UWord);
     void (*unreserve_physical)(char *, UWord);
     int supercarrier;
@@ -346,54 +345,62 @@ static struct {
 	    UWord used;
 	} os;
     } size;
-} mmap_state;
+};
+
+ErtsMemMapper erts_dflt_mmapper;
+
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+ErtsMemMapper erts_literal_mmapper;
+char* erts_literals_start;
+UWord erts_literals_size;
+#endif
 
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
     do {									\
-	mmap_state.size.supercarrier.used.total += (SZ);			\
-	mmap_state.size.supercarrier.used.sa += (SZ);				\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total		\
-			 <= mmap_state.size.supercarrier.total);		\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sa			\
-			 <= mmap_state.size.supercarrier.used.total);		\
+	mm->size.supercarrier.used.total += (SZ);			\
+	mm->size.supercarrier.used.sa += (SZ);				\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.total		\
+			 <= mm->size.supercarrier.total);		\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.sa			\
+			 <= mm->size.supercarrier.used.total);		\
     } while (0)
 #define ERTS_MMAP_SIZE_SC_SA_DEC(SZ) 						\
     do {									\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total >= (SZ));	\
-	mmap_state.size.supercarrier.used.total -= (SZ);			\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sa >= (SZ));		\
-	mmap_state.size.supercarrier.used.sa -= (SZ);				\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.total >= (SZ));	\
+	mm->size.supercarrier.used.total -= (SZ);			\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.sa >= (SZ));		\
+	mm->size.supercarrier.used.sa -= (SZ);				\
     } while (0)
 #define ERTS_MMAP_SIZE_SC_SUA_INC(SZ) 						\
     do {									\
-	mmap_state.size.supercarrier.used.total += (SZ);			\
-	mmap_state.size.supercarrier.used.sua += (SZ);				\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total		\
-			 <= mmap_state.size.supercarrier.total);		\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sua			\
-			 <= mmap_state.size.supercarrier.used.total);		\
+	mm->size.supercarrier.used.total += (SZ);			\
+	mm->size.supercarrier.used.sua += (SZ);				\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.total		\
+			 <= mm->size.supercarrier.total);		\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.sua			\
+			 <= mm->size.supercarrier.used.total);		\
     } while (0)
 #define ERTS_MMAP_SIZE_SC_SUA_DEC(SZ) 						\
     do {									\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.total >= (SZ));	\
-	mmap_state.size.supercarrier.used.total -= (SZ);			\
-	ERTS_MMAP_ASSERT(mmap_state.size.supercarrier.used.sua >= (SZ));	\
-	mmap_state.size.supercarrier.used.sua -= (SZ);				\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.total >= (SZ));	\
+	mm->size.supercarrier.used.total -= (SZ);			\
+	ERTS_MMAP_ASSERT(mm->size.supercarrier.used.sua >= (SZ));	\
+	mm->size.supercarrier.used.sua -= (SZ);				\
     } while (0)
 #define ERTS_MMAP_SIZE_OS_INC(SZ)						\
     do {									\
-	ERTS_MMAP_ASSERT(mmap_state.size.os.used + (SZ) >= (SZ));		\
-	mmap_state.size.os.used += (SZ);					\
+	ERTS_MMAP_ASSERT(mm->size.os.used + (SZ) >= (SZ));		\
+	mm->size.os.used += (SZ);					\
     } while (0)
 #define ERTS_MMAP_SIZE_OS_DEC(SZ) 						\
     do {									\
-	ERTS_MMAP_ASSERT(mmap_state.size.os.used >= (SZ));			\
-	mmap_state.size.os.used -= (SZ);					\
+	ERTS_MMAP_ASSERT(mm->size.os.used >= (SZ));			\
+	mm->size.os.used -= (SZ);					\
     } while (0)
 
 
 static void
-add_free_desc_area(char *start, char *end)
+add_free_desc_area(ErtsMemMapper* mm, char *start, char *end)
 {
     ERTS_MMAP_ASSERT(end == (void *) 0 || end > start);
     if (sizeof(ErtsFreeSegDesc) <= ((UWord) end) - ((UWord) start)) {
@@ -403,7 +410,7 @@ add_free_desc_area(char *start, char *end)
 
 	no = 1;
 	prev_desc = (ErtsFreeSegDesc *) start;
-	prev_desc->start = mmap_state.desc.free_list;
+	prev_desc->start = mm->desc.free_list;
 	desc = (ErtsFreeSegDesc *) (start + sizeof(ErtsFreeSegDesc));
 	desc_end = start + 2*sizeof(ErtsFreeSegDesc);
 
@@ -414,59 +421,59 @@ add_free_desc_area(char *start, char *end)
 	    desc_end += sizeof(ErtsFreeSegDesc);
 	    no++;
 	}
-	mmap_state.desc.free_list = (char *) prev_desc;
-	mmap_state.no.free_seg_descs += no;
+	mm->desc.free_list = (char *) prev_desc;
+	mm->no.free_seg_descs += no;
     }
 }
 
 static ErtsFreeSegDesc *
-add_unused_free_desc_area(void)
+add_unused_free_desc_area(ErtsMemMapper* mm)
 {
     char *ptr;
-    if (!mmap_state.desc.unused_start)
+    if (!mm->desc.unused_start)
 	return NULL;
 
-    ERTS_MMAP_ASSERT(mmap_state.desc.unused_end);
+    ERTS_MMAP_ASSERT(mm->desc.unused_end);
     ERTS_MMAP_ASSERT(ERTS_PAGEALIGNED_SIZE
-		     <= mmap_state.desc.unused_end - mmap_state.desc.unused_start);
+		     <= mm->desc.unused_end - mm->desc.unused_start);
 
-    ptr = mmap_state.desc.unused_start + ERTS_PAGEALIGNED_SIZE;
-    add_free_desc_area(mmap_state.desc.unused_start, ptr);
+    ptr = mm->desc.unused_start + ERTS_PAGEALIGNED_SIZE;
+    add_free_desc_area(mm, mm->desc.unused_start, ptr);
 
-    if ((mmap_state.desc.unused_end - ptr) >= ERTS_PAGEALIGNED_SIZE)
-	mmap_state.desc.unused_start = ptr;
+    if ((mm->desc.unused_end - ptr) >= ERTS_PAGEALIGNED_SIZE)
+	mm->desc.unused_start = ptr;
     else
-	mmap_state.desc.unused_end = mmap_state.desc.unused_start = NULL;
+	mm->desc.unused_end = mm->desc.unused_start = NULL;
 
-    ERTS_MMAP_ASSERT(mmap_state.desc.free_list);
-    return (ErtsFreeSegDesc *) mmap_state.desc.free_list;
+    ERTS_MMAP_ASSERT(mm->desc.free_list);
+    return (ErtsFreeSegDesc *) mm->desc.free_list;
 }
 
 static ERTS_INLINE ErtsFreeSegDesc *
-alloc_desc(void)
+alloc_desc(ErtsMemMapper* mm)
 {
     ErtsFreeSegDesc *res;
-    res = (ErtsFreeSegDesc *) mmap_state.desc.free_list;
+    res = (ErtsFreeSegDesc *) mm->desc.free_list;
     if (!res) {
-	res = add_unused_free_desc_area();
+	res = add_unused_free_desc_area(mm);
 	if (!res)
 	    return NULL;
     }
-    mmap_state.desc.free_list = res->start;
-    ASSERT(mmap_state.no.free_segs.curr < mmap_state.no.free_seg_descs);
-    mmap_state.no.free_segs.curr++;
-    if (mmap_state.no.free_segs.max < mmap_state.no.free_segs.curr)
-	mmap_state.no.free_segs.max = mmap_state.no.free_segs.curr;
+    mm->desc.free_list = res->start;
+    ASSERT(mm->no.free_segs.curr < mm->no.free_seg_descs);
+    mm->no.free_segs.curr++;
+    if (mm->no.free_segs.max < mm->no.free_segs.curr)
+	mm->no.free_segs.max = mm->no.free_segs.curr;
     return res;
 }
 
 static ERTS_INLINE void
-free_desc(ErtsFreeSegDesc *desc)
+free_desc(ErtsMemMapper* mm, ErtsFreeSegDesc *desc)
 {
-    desc->start = mmap_state.desc.free_list;
-    mmap_state.desc.free_list = (char *) desc;
-    ERTS_MMAP_ASSERT(mmap_state.no.free_segs.curr > 0);
-    mmap_state.no.free_segs.curr--;
+    desc->start = mm->desc.free_list;
+    mm->desc.free_list = (char *) desc;
+    ERTS_MMAP_ASSERT(mm->no.free_segs.curr > 0);
+    mm->no.free_segs.curr--;
 }
 
 static ERTS_INLINE ErtsFreeSegDesc* anode_to_desc(RBTNode* anode)
@@ -1233,7 +1240,7 @@ Eterm build_free_seg_list(Process* p, ErtsFreeSegMap* map)
 #    define ERTS_MMAP_FD		(-1)
 #  else
 #    define ERTS_MMAP_FLAGS		(MAP_PRIVATE)
-#    define ERTS_MMAP_FD		mmap_state.mmap_fd
+#    define ERTS_MMAP_FD		mm->mmap_fd
 #  endif
 #endif
 
@@ -1378,11 +1385,12 @@ static void unreserve_noop(char *ptr, UWord size)
 }
 
 static UWord
-alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
+alloc_desc_insert_free_seg(ErtsMemMapper* mm,
+                           ErtsFreeSegMap *map, char* start, char* end)
 {
     char *ptr;
     ErtsFreeSegMap *da_map;
-    ErtsFreeSegDesc *desc = alloc_desc();
+    ErtsFreeSegDesc *desc = alloc_desc(mm);
     if (desc) {
 	insert_free_seg(map, desc, start, end);
 	return 0;
@@ -1395,13 +1403,13 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
      */
 
 #if ERTS_HAVE_OS_MMAP
-    if (!mmap_state.no_os_mmap) {
-        ptr = os_mmap(mmap_state.desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
+    if (!mm->no_os_mmap) {
+        ptr = os_mmap(mm->desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
         if (ptr) {
-            mmap_state.desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
+            mm->desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
             ERTS_MMAP_SIZE_OS_INC(ERTS_PAGEALIGNED_SIZE);
-            add_free_desc_area(ptr, ptr+ERTS_PAGEALIGNED_SIZE);
-            desc = alloc_desc();
+            add_free_desc_area(mm, ptr, ptr+ERTS_PAGEALIGNED_SIZE);
+            desc = alloc_desc(mm);
             ERTS_MMAP_ASSERT(desc);
             insert_free_seg(map, desc, start, end);
             return 0;
@@ -1412,20 +1420,20 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
     /*
      * ...then try to find a good place in the supercarrier...
      */
-    da_map = &mmap_state.sua.map;
+    da_map = &mm->sua.map;
     desc = lookup_free_seg(da_map, ERTS_PAGEALIGNED_SIZE);
     if (desc) {
-	if (mmap_state.reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
+	if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
 	    ERTS_MMAP_SIZE_SC_SUA_INC(ERTS_PAGEALIGNED_SIZE);
 	else
 	    desc = NULL;
 	
     }
     else {
-	da_map = &mmap_state.sa.map;
+	da_map = &mm->sa.map;
 	desc = lookup_free_seg(da_map, ERTS_PAGEALIGNED_SIZE);
 	if (desc) {
-	    if (mmap_state.reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
+	    if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
 		ERTS_MMAP_SIZE_SC_SA_INC(ERTS_PAGEALIGNED_SIZE);
 	    else
 		desc = NULL;
@@ -1433,15 +1441,15 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
     }
     if (desc) {
 	char *da_end = desc->start + ERTS_PAGEALIGNED_SIZE;
-	add_free_desc_area(desc->start, da_end);
+	add_free_desc_area(mm, desc->start, da_end);
 	if (da_end != desc->end)
 	    resize_free_seg(da_map, desc, da_end, desc->end);
 	else {
 	    delete_free_seg(da_map, desc);
-	    free_desc(desc);
+	    free_desc(mm, desc);
 	}
 
-	desc = alloc_desc();
+	desc = alloc_desc(mm);
 	ERTS_MMAP_ASSERT(desc);
 	insert_free_seg(map, desc, start, end);
 	return 0;
@@ -1454,10 +1462,10 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
     ptr = start + ERTS_PAGEALIGNED_SIZE;
     ERTS_MMAP_ASSERT(ptr <= end);
 
-    add_free_desc_area(start, ptr);
+    add_free_desc_area(mm, start, ptr);
 
     if (ptr != end) {
-	desc = alloc_desc();
+	desc = alloc_desc(mm);
 	ERTS_MMAP_ASSERT(desc);
 	insert_free_seg(map, desc, ptr, end);
     }
@@ -1466,46 +1474,46 @@ alloc_desc_insert_free_seg(ErtsFreeSegMap *map, char* start, char* end)
 }
 
 void *
-erts_mmap(Uint32 flags, UWord *sizep)
+erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 {
     char *seg;
     UWord asize = ERTS_PAGEALIGNED_CEILING(*sizep);
 
     /* Map in premapped supercarrier */
-    if (mmap_state.supercarrier && !(ERTS_MMAPFLG_OS_ONLY & flags)) {
+    if (mm->supercarrier && !(ERTS_MMAPFLG_OS_ONLY & flags)) {
 	char *end;
 	ErtsFreeSegDesc *desc;
 	Uint32 superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
-	erts_smp_mtx_lock(&mmap_state.mtx);
+	erts_smp_mtx_lock(&mm->mtx);
 
 	ERTS_MMAP_OP_START(*sizep);
 
 	if (!superaligned) {
-	    desc = lookup_free_seg(&mmap_state.sua.map, asize);
+	    desc = lookup_free_seg(&mm->sua.map, asize);
 	    if (desc) {
 		seg = desc->start;
 		end = seg+asize;
-		if (!mmap_state.reserve_physical(seg, asize))
+		if (!mm->reserve_physical(seg, asize))
 		    goto supercarrier_reserve_failure;
 		if (desc->end == end) {
-		    delete_free_seg(&mmap_state.sua.map, desc);
-		    free_desc(desc);
+		    delete_free_seg(&mm->sua.map, desc);
+		    free_desc(mm, desc);
 		}
 		else {
 		    ERTS_MMAP_ASSERT(end < desc->end);
-		    resize_free_seg(&mmap_state.sua.map, desc, end, desc->end);
+		    resize_free_seg(&mm->sua.map, desc, end, desc->end);
 		}
 		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
 		goto supercarrier_success;
 	    }
 
-	    if (asize <= mmap_state.sua.bot - mmap_state.sa.top) {
-		if (!mmap_state.reserve_physical(mmap_state.sua.bot - asize,
+	    if (asize <= mm->sua.bot - mm->sa.top) {
+		if (!mm->reserve_physical(mm->sua.bot - asize,
 						 asize))
 		    goto supercarrier_reserve_failure;
-		mmap_state.sua.bot -= asize;
-		seg = mmap_state.sua.bot;
+		mm->sua.bot -= asize;
+		seg = mm->sua.bot;
 		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
 		goto supercarrier_success;
 	    }
@@ -1513,84 +1521,84 @@ erts_mmap(Uint32 flags, UWord *sizep)
 
 	asize = ERTS_SUPERALIGNED_CEILING(asize);
 
-	desc = lookup_free_seg(&mmap_state.sa.map, asize);
+	desc = lookup_free_seg(&mm->sa.map, asize);
 	if (desc) {
 	    char *start = seg = desc->start;
 	    seg = (char *) ERTS_SUPERALIGNED_CEILING(seg);
 	    end = seg+asize;
-	    if (!mmap_state.reserve_physical(start, (UWord) (end - start)))
+	    if (!mm->reserve_physical(start, (UWord) (end - start)))
 		goto supercarrier_reserve_failure;
 	    ERTS_MMAP_SIZE_SC_SA_INC(asize);
 	    if (desc->end == end) {
 		if (start != seg)
-		    resize_free_seg(&mmap_state.sa.map, desc, start, seg);
+		    resize_free_seg(&mm->sa.map, desc, start, seg);
 		else {
-		    delete_free_seg(&mmap_state.sa.map, desc);
-		    free_desc(desc);
+		    delete_free_seg(&mm->sa.map, desc);
+		    free_desc(mm, desc);
 		}
 	    }
 	    else {
 		ERTS_MMAP_ASSERT(end < desc->end);
-		resize_free_seg(&mmap_state.sa.map, desc, end, desc->end);
+		resize_free_seg(&mm->sa.map, desc, end, desc->end);
 		if (start != seg) {
 		    UWord ad_sz;
-		    ad_sz = alloc_desc_insert_free_seg(&mmap_state.sua.map,
+		    ad_sz = alloc_desc_insert_free_seg(mm, &mm->sua.map,
 						       start, seg);
 		    start += ad_sz;
 		    if (start != seg)
-			mmap_state.unreserve_physical(start, (UWord) (seg - start));
+			mm->unreserve_physical(start, (UWord) (seg - start));
 		}
 	    }
 	    goto supercarrier_success;
 	}
 
 	if (superaligned) {
-	    char *start = mmap_state.sa.top;
+	    char *start = mm->sa.top;
 	    seg = (char *) ERTS_SUPERALIGNED_CEILING(start);
 
-	    if (asize + (seg - start) <= mmap_state.sua.bot - start) {
+	    if (asize + (seg - start) <= mm->sua.bot - start) {
 		end = seg + asize;
-		if (!mmap_state.reserve_physical(start, (UWord) (end - start)))
+		if (!mm->reserve_physical(start, (UWord) (end - start)))
 		    goto supercarrier_reserve_failure;
-		mmap_state.sa.top = end;
+		mm->sa.top = end;
 		ERTS_MMAP_SIZE_SC_SA_INC(asize);
 		if (start != seg) {
 		    UWord ad_sz;
-		    ad_sz = alloc_desc_insert_free_seg(&mmap_state.sua.map,
+		    ad_sz = alloc_desc_insert_free_seg(mm, &mm->sua.map,
 						       start, seg);
 		    start += ad_sz;
 		    if (start != seg)
-			mmap_state.unreserve_physical(start, (UWord) (seg - start));
+			mm->unreserve_physical(start, (UWord) (seg - start));
 		}
 		goto supercarrier_success;
 	    }
 
-	    desc = lookup_free_seg(&mmap_state.sua.map, asize + ERTS_SUPERALIGNED_SIZE);
+	    desc = lookup_free_seg(&mm->sua.map, asize + ERTS_SUPERALIGNED_SIZE);
 	    if (desc) {
 		char *org_start = desc->start;
 		char *org_end = desc->end;
 
 		seg = (char *) ERTS_SUPERALIGNED_CEILING(org_start);
 		end = seg + asize;
-		if (!mmap_state.reserve_physical(seg, (UWord) (org_end - seg)))
+		if (!mm->reserve_physical(seg, (UWord) (org_end - seg)))
 		    goto supercarrier_reserve_failure;
 		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
 		if (org_start != seg) {
 		    ERTS_MMAP_ASSERT(org_start < seg);
-		    resize_free_seg(&mmap_state.sua.map, desc, org_start, seg);
+		    resize_free_seg(&mm->sua.map, desc, org_start, seg);
 		    desc = NULL;
 		}
 		if (end != org_end) {
 		    UWord ad_sz = 0;
 		    ERTS_MMAP_ASSERT(end < org_end);
 		    if (desc)
-			resize_free_seg(&mmap_state.sua.map, desc, end, org_end);
+			resize_free_seg(&mm->sua.map, desc, end, org_end);
 		    else
-			ad_sz = alloc_desc_insert_free_seg(&mmap_state.sua.map,
+			ad_sz = alloc_desc_insert_free_seg(mm, &mm->sua.map,
 							   end, org_end);
 		    end += ad_sz;
 		    if (end != org_end)
-			mmap_state.unreserve_physical(end,
+			mm->unreserve_physical(end,
 						      (UWord) (org_end - end));
 		}
 		goto supercarrier_success;
@@ -1598,12 +1606,12 @@ erts_mmap(Uint32 flags, UWord *sizep)
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mmap_state.mtx);
+	erts_smp_mtx_unlock(&mm->mtx);
     }
 
 #if ERTS_HAVE_OS_MMAP
     /* Map using OS primitives */
-    if (!(ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags) && !mmap_state.no_os_mmap) {
+    if (!(ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags) && !mm->no_os_mmap) {
 	if (!(ERTS_MMAPFLG_SUPERALIGNED & flags)) {
 	    seg = os_mmap(NULL, asize, 0);
 	    if (!seg)
@@ -1661,25 +1669,25 @@ supercarrier_success:
 #endif
 
     ERTS_MMAP_OP_END(seg, asize);
-    erts_smp_mtx_unlock(&mmap_state.mtx);
+    erts_smp_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return (void *) seg;
 
 supercarrier_reserve_failure:
-    erts_smp_mtx_unlock(&mmap_state.mtx);
+    erts_smp_mtx_unlock(&mm->mtx);
     *sizep = 0;
     return NULL;
 }
 
 void
-erts_munmap(Uint32 flags, void *ptr, UWord size)
+erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 {
     ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
     ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(size));
 
     if (!ERTS_MMAP_IN_SUPERCARRIER(ptr)) {
-	ERTS_MMAP_ASSERT(!mmap_state.no_os_mmap);
+	ERTS_MMAP_ASSERT(!mm->no_os_mmap);
 #if ERTS_HAVE_OS_MMAP
 	ERTS_MUNMAP_OP_LCK(ptr, size);
 	ERTS_MMAP_SIZE_OS_DEC(size);
@@ -1692,45 +1700,45 @@ erts_munmap(Uint32 flags, void *ptr, UWord size)
 	ErtsFreeSegDesc *prev, *next, *desc;
 	UWord ad_sz = 0;
 
-	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
+	ERTS_MMAP_ASSERT(mm->supercarrier);
 
 	start = (char *) ptr;
 	end = start + size;
 
-	erts_smp_mtx_lock(&mmap_state.mtx);
+	erts_smp_mtx_lock(&mm->mtx);
 
 	ERTS_MUNMAP_OP(ptr, size);
 
 	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
 
-	    map = &mmap_state.sa.map;
+	    map = &mm->sa.map;
 	    adjacent_free_seg(map, start, end, &prev, &next);
 
 	    ERTS_MMAP_SIZE_SC_SA_DEC(size);
-	    if (end == mmap_state.sa.top) {
+	    if (end == mm->sa.top) {
 		ERTS_MMAP_ASSERT(!next);
 		if (prev) {
 		    start = prev->start;
 		    delete_free_seg(map, prev);
-		    free_desc(prev);
+		    free_desc(mm, prev);
 		}
-		mmap_state.sa.top = start;
+		mm->sa.top = start;
 		goto supercarrier_success;
 	    }
 	}
 	else {
-	    map = &mmap_state.sua.map;
+	    map = &mm->sua.map;
 	    adjacent_free_seg(map, start, end, &prev, &next);
 
 	    ERTS_MMAP_SIZE_SC_SUA_DEC(size);
-	    if (start == mmap_state.sua.bot) {
+	    if (start == mm->sua.bot) {
 		ERTS_MMAP_ASSERT(!prev);
 		if (next) {
 		    end = next->end;
 		    delete_free_seg(map, next);
-		    free_desc(next);
+		    free_desc(mm, next);
 		}
-		mmap_state.sua.bot = end;
+		mm->sua.bot = end;
 		goto supercarrier_success;
 	    }
 	}
@@ -1742,7 +1750,7 @@ erts_munmap(Uint32 flags, void *ptr, UWord size)
 	    end = next->end;
 	    if (prev) {
 		delete_free_seg(map, next);
-		free_desc(next);
+		free_desc(mm, next);
 		goto save_prev;
 	    }
 	    desc = next;
@@ -1756,7 +1764,7 @@ erts_munmap(Uint32 flags, void *ptr, UWord size)
 	if (desc)
 	    resize_free_seg(map, desc, start, end);
 	else
-	    ad_sz = alloc_desc_insert_free_seg(map, start, end);
+	    ad_sz = alloc_desc_insert_free_seg(mm, map, start, end);
 	
     supercarrier_success: {
 	    UWord unres_sz;
@@ -1764,30 +1772,32 @@ erts_munmap(Uint32 flags, void *ptr, UWord size)
 	    ERTS_MMAP_ASSERT(size >= ad_sz);
 	    unres_sz = size - ad_sz;
 	    if (unres_sz)
-		mmap_state.unreserve_physical(((char *) ptr) + ad_sz, unres_sz);
+		mm->unreserve_physical(((char *) ptr) + ad_sz, unres_sz);
 
-            erts_smp_mtx_unlock(&mmap_state.mtx);
+            erts_smp_mtx_unlock(&mm->mtx);
 	}
     }
 }
 
 static void *
-remap_move(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+remap_move(ErtsMemMapper* mm,
+           Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 {
     UWord size = *sizep;
-    void *new_ptr = erts_mmap(flags, &size);
+    void *new_ptr = erts_mmap(mm, flags, &size);
     if (!new_ptr)
 	return NULL;
     *sizep = size;
     if (old_size < size)
 	size = old_size;
     sys_memcpy(new_ptr, ptr, (size_t) size);
-    erts_munmap(flags, ptr, old_size);
+    erts_munmap(mm, flags, ptr, old_size);
     return new_ptr;
 }
 
 void *
-erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+erts_mremap(ErtsMemMapper* mm,
+            Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 {
     void *new_ptr;
     Uint32 superaligned;
@@ -1799,11 +1809,11 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 
     if (!ERTS_MMAP_IN_SUPERCARRIER(ptr)) {
 
-	ERTS_MMAP_ASSERT(!mmap_state.no_os_mmap);
+	ERTS_MMAP_ASSERT(!mm->no_os_mmap);
 
-	if (!(ERTS_MMAPFLG_OS_ONLY & flags) && mmap_state.supercarrier) {
-	    new_ptr = remap_move(ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags, ptr,
-				 old_size, sizep);
+	if (!(ERTS_MMAPFLG_OS_ONLY & flags) && mm->supercarrier) {
+	    new_ptr = remap_move(mm, ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags,
+                                 ptr, old_size, sizep);
 	    if (new_ptr)
 		return new_ptr;
 	}
@@ -1850,7 +1860,7 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 #endif
 #if ERTS_HAVE_OS_MREMAP
 	if (superaligned)
-	    return remap_move(flags, new_ptr, old_size, sizep);
+	    return remap_move(mm, flags, new_ptr, old_size, sizep);
 	else {
 	    new_ptr = os_mremap(ptr, old_size, asize, 0);
 	    if (!new_ptr)
@@ -1872,10 +1882,10 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	ErtsFreeSegDesc *prev, *next;
 	UWord ad_sz = 0;
 
-	ERTS_MMAP_ASSERT(mmap_state.supercarrier);
+	ERTS_MMAP_ASSERT(mm->supercarrier);
 
 	if (ERTS_MMAPFLG_OS_ONLY & flags)
-	    return remap_move(flags, ptr, old_size, sizep);
+	    return remap_move(mm, flags, ptr, old_size, sizep);
 
 	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
@@ -1883,19 +1893,19 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 		 ? ERTS_SUPERALIGNED_CEILING(*sizep)
 		 : ERTS_PAGEALIGNED_CEILING(*sizep));
 
-	erts_smp_mtx_lock(&mmap_state.mtx);
+	erts_smp_mtx_lock(&mm->mtx);
 
 	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)
-	    ? (!superaligned && lookup_free_seg(&mmap_state.sua.map, asize))
-	    : (superaligned && lookup_free_seg(&mmap_state.sa.map, asize))) {
-	    erts_smp_mtx_unlock(&mmap_state.mtx);
+	    ? (!superaligned && lookup_free_seg(&mm->sua.map, asize))
+	    : (superaligned && lookup_free_seg(&mm->sa.map, asize))) {
+	    erts_smp_mtx_unlock(&mm->mtx);
 	    /*
 	     * Segment currently in wrong area (due to a previous memory
 	     * shortage), move it to the right area.
 	     * (remap_move() will succeed)
 	     */
-	    return remap_move(ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags, ptr,
-			      old_size, sizep);
+	    return remap_move(mm, ERTS_MMAPFLG_SUPERCARRIER_ONLY|flags,
+                              ptr, old_size, sizep);
 	}
 
 	ERTS_MREMAP_OP_START(ptr, old_size, *sizep);
@@ -1917,18 +1927,18 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	    UWord unres_sz;
 	    new_ptr = ptr;
 	    if (!ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)) {
-		map = &mmap_state.sua.map;
+		map = &mm->sua.map;
 		ERTS_MMAP_SIZE_SC_SUA_DEC(old_size - asize);
 	    }
 	    else {
-		if (end == mmap_state.sa.top) {
-		    mmap_state.sa.top = new_end;
-		    mmap_state.unreserve_physical(((char *) ptr) + asize,
+		if (end == mm->sa.top) {
+		    mm->sa.top = new_end;
+		    mm->unreserve_physical(((char *) ptr) + asize,
 						  old_size - asize);
 		    goto supercarrier_resize_success;
 		}
 		ERTS_MMAP_SIZE_SC_SA_DEC(old_size - asize);
-		map = &mmap_state.sa.map;
+		map = &mm->sa.map;
 	    }
 	    
 	    adjacent_free_seg(map, start, end, &prev, &next);
@@ -1936,11 +1946,11 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	    if (next)
 		resize_free_seg(map, next, new_end, next->end);
 	    else
-		ad_sz = alloc_desc_insert_free_seg(map, new_end, end);
+		ad_sz = alloc_desc_insert_free_seg(mm, map, new_end, end);
 	    ERTS_MMAP_ASSERT(old_size - asize >= ad_sz);
 	    unres_sz = old_size - asize - ad_sz;
 	    if (unres_sz)
-		mmap_state.unreserve_physical(((char *) ptr) + asize + ad_sz,
+		mm->unreserve_physical(((char *) ptr) + asize + ad_sz,
 					      unres_sz);
 	    goto supercarrier_resize_success;
 	}
@@ -1950,17 +1960,17 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(old_size));
 	    ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(asize));
 
-	    adjacent_free_seg(&mmap_state.sua.map, start, end, &prev, &next);
+	    adjacent_free_seg(&mm->sua.map, start, end, &prev, &next);
 
 	    if (next && new_end <= next->end) {
-		if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+		if (!mm->reserve_physical(((char *) ptr) + old_size,
 						 asize - old_size))
 		    goto supercarrier_reserve_failure;
 		if (new_end < next->end)
-		    resize_free_seg(&mmap_state.sua.map, next, new_end, next->end);
+		    resize_free_seg(&mm->sua.map, next, new_end, next->end);
 		else {
-		    delete_free_seg(&mmap_state.sua.map, next);
-		    free_desc(next);
+		    delete_free_seg(&mm->sua.map, next);
+		    free_desc(mm, next);
 		}
 		new_ptr = ptr;
 		ERTS_MMAP_SIZE_SC_SUA_INC(asize - old_size);
@@ -1969,28 +1979,28 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	}
 	else { /* Superaligned area */
 
-	    if (end == mmap_state.sa.top) {
-		if (new_end <= mmap_state.sua.bot) {
-		    if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+	    if (end == mm->sa.top) {
+		if (new_end <= mm->sua.bot) {
+		    if (!mm->reserve_physical(((char *) ptr) + old_size,
 						     asize - old_size))
 			goto supercarrier_reserve_failure;
-		    mmap_state.sa.top = new_end;
+		    mm->sa.top = new_end;
 		    new_ptr = ptr;
 		    ERTS_MMAP_SIZE_SC_SA_INC(asize - old_size);
 		    goto supercarrier_resize_success;
 		}
 	    }
 	    else {
-		adjacent_free_seg(&mmap_state.sa.map, start, end, &prev, &next);
+		adjacent_free_seg(&mm->sa.map, start, end, &prev, &next);
 		if (next && new_end <= next->end) {
-		    if (!mmap_state.reserve_physical(((char *) ptr) + old_size,
+		    if (!mm->reserve_physical(((char *) ptr) + old_size,
 						     asize - old_size))
 			goto supercarrier_reserve_failure;
 		    if (new_end < next->end)
-			resize_free_seg(&mmap_state.sa.map, next, new_end, next->end);
+			resize_free_seg(&mm->sa.map, next, new_end, next->end);
 		    else {
-			delete_free_seg(&mmap_state.sa.map, next);
-			free_desc(next);
+			delete_free_seg(&mm->sa.map, next);
+			free_desc(mm, next);
 		    }
 		    new_ptr = ptr;
 		    ERTS_MMAP_SIZE_SC_SA_INC(asize - old_size);
@@ -2000,12 +2010,12 @@ erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mmap_state.mtx);
+	erts_smp_mtx_unlock(&mm->mtx);
 
 	/* Failed to resize... */
     }
 
-    return remap_move(flags, ptr, old_size, sizep);
+    return remap_move(mm, flags, ptr, old_size, sizep);
 
 supercarrier_resize_success:
 
@@ -2022,24 +2032,23 @@ supercarrier_resize_success:
 #endif
 
     ERTS_MREMAP_OP_END(new_ptr, asize);
-    erts_smp_mtx_unlock(&mmap_state.mtx);
+    erts_smp_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return new_ptr;
 
 supercarrier_reserve_failure:
     ERTS_MREMAP_OP_END(NULL, old_size);
-    erts_smp_mtx_unlock(&mmap_state.mtx);
+    erts_smp_mtx_unlock(&mm->mtx);
     *sizep = old_size;
     return NULL;
     
 }
 
-int erts_mmap_in_supercarrier(void *ptr)
+int erts_mmap_in_supercarrier(ErtsMemMapper* mm, void *ptr)
 {
     return ERTS_MMAP_IN_SUPERCARRIER(ptr);
 }
-
 
 static struct {
     Eterm total;
@@ -2103,8 +2112,9 @@ static void hard_dbg_mseg_init(void);
 #endif
 
 void
-erts_mmap_init(ErtsMMapInit *init)
+erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
+    static int is_first_call = 1;
     int virtual_map = 0;
     char *start = NULL, *end = NULL;
     UWord pagesize;
@@ -2131,20 +2141,20 @@ erts_mmap_init(ErtsMMapInit *init)
 
     ERTS_MMAP_OP_RINGBUF_INIT();
 
-    erts_have_erts_mmap = 0;
-
-    mmap_state.supercarrier = 0;
-    mmap_state.reserve_physical = reserve_noop;
-    mmap_state.unreserve_physical = unreserve_noop;
+    mm->supercarrier = 0;
+    mm->reserve_physical = reserve_noop;
+    mm->unreserve_physical = unreserve_noop;
 
 #if HAVE_MMAP && !defined(MAP_ANON)
-    mmap_state.mmap_fd = open("/dev/zero", O_RDWR);
-    if (mmap_state.mmap_fd < 0)
+    mm->mmap_fd = open("/dev/zero", O_RDWR);
+    if (mm->mmap_fd < 0)
 	erl_exit(-1, "erts_mmap: Failed to open /dev/zero\n");
 #endif
 
-    erts_smp_mtx_init(&mmap_state.mtx, "erts_mmap");
-    erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+    erts_smp_mtx_init(&mm->mtx, "erts_mmap");
+    if (is_first_call) {
+        erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+    }
 
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
     if (init->virtual_range.start) {
@@ -2160,8 +2170,8 @@ erts_mmap_init(ErtsMMapInit *init)
 	sz = start - ptr;
 	if (sz)
 	    os_munmap(end, sz);
-	mmap_state.reserve_physical = os_reserve_physical;
-	mmap_state.unreserve_physical = os_unreserve_physical;
+	mm->reserve_physical = os_reserve_physical;
+	mm->unreserve_physical = os_unreserve_physical;
 	virtual_map = 1;
     }
     else
@@ -2179,8 +2189,8 @@ erts_mmap_init(ErtsMMapInit *init)
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
 	if (!init->scrpm) {
 	    start = os_mmap_virtual(NULL, sz);
-	    mmap_state.reserve_physical = os_reserve_physical;
-	    mmap_state.unreserve_physical = os_unreserve_physical;
+	    mm->reserve_physical = os_reserve_physical;
+	    mm->unreserve_physical = os_unreserve_physical;
 	    virtual_map = 1;
 	}
 	else
@@ -2206,34 +2216,32 @@ erts_mmap_init(ErtsMMapInit *init)
 	}
 #endif
     }
-    if (!mmap_state.no_os_mmap)
-	erts_have_erts_mmap |= ERTS_HAVE_ERTS_OS_MMAP;
 #endif
 
-    mmap_state.no.free_seg_descs = 0;
-    mmap_state.no.free_segs.curr = 0;
-    mmap_state.no.free_segs.max = 0;
+    mm->no.free_seg_descs = 0;
+    mm->no.free_segs.curr = 0;
+    mm->no.free_segs.max = 0;
 
-    mmap_state.size.supercarrier.total = 0;
-    mmap_state.size.supercarrier.used.total = 0;
-    mmap_state.size.supercarrier.used.sa = 0;
-    mmap_state.size.supercarrier.used.sua = 0;
-    mmap_state.size.os.used = 0;
+    mm->size.supercarrier.total = 0;
+    mm->size.supercarrier.used.total = 0;
+    mm->size.supercarrier.used.sa = 0;
+    mm->size.supercarrier.used.sua = 0;
+    mm->size.os.used = 0;
 
-    mmap_state.desc.new_area_hint = NULL;
+    mm->desc.new_area_hint = NULL;
 
     if (!start) {
-	mmap_state.sa.bot = NULL;
-	mmap_state.sua.top = NULL;
-	mmap_state.sa.bot = NULL;
-	mmap_state.sua.top = NULL;
-	mmap_state.no_os_mmap = 0;
-        mmap_state.supercarrier = 0;
+	mm->sa.bot = NULL;
+	mm->sua.top = NULL;
+	mm->sa.bot = NULL;
+	mm->sua.top = NULL;
+	mm->no_os_mmap = 0;
+        mm->supercarrier = 0;
     }
     else {
 	size_t desc_size;
 
-	mmap_state.no_os_mmap = init->sco;
+	mm->no_os_mmap = init->sco;
 
 	desc_size = init->scrfsd;
 	if (desc_size < 100)
@@ -2244,66 +2252,73 @@ erts_mmap_init(ErtsMMapInit *init)
 	     + ERTS_PAGEALIGNED_SIZE) > end - start)
 	    erl_exit(-1, "erts_mmap: No space for segments in super carrier\n");
 
-	mmap_state.sa.bot = start;
-	mmap_state.sa.bot += desc_size;
-	mmap_state.sa.bot = (char *) ERTS_SUPERALIGNED_CEILING(mmap_state.sa.bot);
-	mmap_state.sa.top = mmap_state.sa.bot;
-	mmap_state.sua.top = end;
-	mmap_state.sua.bot = mmap_state.sua.top;
+	mm->sa.bot = start;
+	mm->sa.bot += desc_size;
+	mm->sa.bot = (char *) ERTS_SUPERALIGNED_CEILING(mm->sa.bot);
+	mm->sa.top = mm->sa.bot;
+	mm->sua.top = end;
+	mm->sua.bot = mm->sua.top;
 
-	mmap_state.size.supercarrier.used.total += (UWord) (mmap_state.sa.bot - start);
+	mm->size.supercarrier.used.total += (UWord) (mm->sa.bot - start);
 
-	mmap_state.desc.free_list = NULL;
-        mmap_state.desc.reserved = 0;
+	mm->desc.free_list = NULL;
+        mm->desc.reserved = 0;
 
 	if (end == (void *) 0) {
 	    /*
 	     * Very unlikely, but we need a guarantee
-	     * that `mmap_state.sua.top` always will
+	     * that `mm->sua.top` always will
 	     * compare as larger than all segment pointers
 	     * into the super carrier...
 	     */
-	    mmap_state.sua.top -= ERTS_PAGEALIGNED_SIZE;
-	    mmap_state.size.supercarrier.used.total += ERTS_PAGEALIGNED_SIZE;
+	    mm->sua.top -= ERTS_PAGEALIGNED_SIZE;
+	    mm->size.supercarrier.used.total += ERTS_PAGEALIGNED_SIZE;
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-	    if (!virtual_map || os_reserve_physical(mmap_state.sua.top, ERTS_PAGEALIGNED_SIZE))
+	    if (!virtual_map || os_reserve_physical(mm->sua.top, ERTS_PAGEALIGNED_SIZE))
 #endif
-		add_free_desc_area(mmap_state.sua.top, end);
-            mmap_state.desc.reserved += (end - mmap_state.sua.top) / sizeof(ErtsFreeSegDesc);
+		add_free_desc_area(mm, mm->sua.top, end);
+            mm->desc.reserved += (end - mm->sua.top) / sizeof(ErtsFreeSegDesc);
 	}
 
-	mmap_state.size.supercarrier.total = (UWord) (mmap_state.sua.top - start);
+	mm->size.supercarrier.total = (UWord) (mm->sua.top - start);
 
 	/*
 	 * Area before (and after) super carrier
 	 * will be used for free segment descritors.
 	 */
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-	if (virtual_map && !os_reserve_physical(start, mmap_state.sa.bot - start))
+	if (virtual_map && !os_reserve_physical(start, mm->sa.bot - start))
 	    erl_exit(-1, "erts_mmap: Failed to reserve physical memory for descriptors\n");
 #endif
-	mmap_state.desc.unused_start = start;
-	mmap_state.desc.unused_end = mmap_state.sa.bot;
-        mmap_state.desc.reserved += ((mmap_state.desc.unused_end - start)
+	mm->desc.unused_start = start;
+	mm->desc.unused_end = mm->sa.bot;
+        mm->desc.reserved += ((mm->desc.unused_end - start)
                                      / sizeof(ErtsFreeSegDesc));
 
-	init_free_seg_map(&mmap_state.sa.map, SA_SZ_ADDR_ORDER);
-	init_free_seg_map(&mmap_state.sua.map, SZ_REVERSE_ADDR_ORDER);
+	init_free_seg_map(&mm->sa.map, SA_SZ_ADDR_ORDER);
+	init_free_seg_map(&mm->sua.map, SZ_REVERSE_ADDR_ORDER);
 
-	mmap_state.supercarrier = 1;
-	erts_have_erts_mmap |= ERTS_HAVE_ERTS_SUPERCARRIER_MMAP;
+	mm->supercarrier = 1;
 
-	mmap_state.desc.new_area_hint = end;
+	mm->desc.new_area_hint = end;
 
     }
 
 #if !ERTS_HAVE_OS_MMAP
-    mmap_state.no_os_mmap = 1;
+    mm->no_os_mmap = 1;
 #endif
 
 #ifdef HARD_DEBUG_MSEG
     hard_dbg_mseg_init();
 #endif
+
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+   if (mm == &erts_literal_mmapper) {
+       erts_literals_start = erts_literal_mmapper.sa.bot;
+       erts_literals_size  = erts_literal_mmapper.sua.top - erts_literals_start;
+    }
+#endif
+    is_first_call = 0;
 }
 
 
@@ -2313,7 +2328,8 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
     *lp = erts_bld_cons(hpp, szp, erts_bld_tuple(hpp, szp, 2, el1, el2), *lp);
 }
 
-Eterm erts_mmap_info(int *print_to_p,
+Eterm erts_mmap_info(ErtsMemMapper* mm,
+                     int *print_to_p,
                      void *print_to_arg,
                      Eterm** hpp, Uint* szp,
                      struct erts_mmap_info_struct* emis)
@@ -2328,29 +2344,29 @@ Eterm erts_mmap_info(int *print_to_p,
     Eterm res = THE_NON_VALUE;
 
     if (!hpp) {
-        erts_smp_mtx_lock(&mmap_state.mtx);
-        emis->sizes[0] = mmap_state.size.supercarrier.total;
-        emis->sizes[1] = mmap_state.sa.top  - mmap_state.sa.bot;
-        emis->sizes[2] = mmap_state.sua.top - mmap_state.sua.bot;
-        emis->sizes[3] = mmap_state.size.supercarrier.used.total;
-        emis->sizes[4] = mmap_state.size.supercarrier.used.sa;
-        emis->sizes[5] = mmap_state.size.supercarrier.used.sua;
+        erts_smp_mtx_lock(&mm->mtx);
+        emis->sizes[0] = mm->size.supercarrier.total;
+        emis->sizes[1] = mm->sa.top  - mm->sa.bot;
+        emis->sizes[2] = mm->sua.top - mm->sua.bot;
+        emis->sizes[3] = mm->size.supercarrier.used.total;
+        emis->sizes[4] = mm->size.supercarrier.used.sa;
+        emis->sizes[5] = mm->size.supercarrier.used.sua;
 
-        emis->segs[0] = mmap_state.no.free_segs.curr;
-        emis->segs[1] = mmap_state.no.free_segs.max;
-        emis->segs[2] = mmap_state.no.free_seg_descs;
-        emis->segs[3] = mmap_state.desc.reserved;
-        emis->segs[4] = mmap_state.sa.map.nseg;
-        emis->segs[5] = mmap_state.sua.map.nseg;
+        emis->segs[0] = mm->no.free_segs.curr;
+        emis->segs[1] = mm->no.free_segs.max;
+        emis->segs[2] = mm->no.free_seg_descs;
+        emis->segs[3] = mm->desc.reserved;
+        emis->segs[4] = mm->sa.map.nseg;
+        emis->segs[5] = mm->sua.map.nseg;
 
-        emis->os_used = mmap_state.size.os.used;
-        erts_smp_mtx_unlock(&mmap_state.mtx);
+        emis->os_used = mm->size.os.used;
+        erts_smp_mtx_unlock(&mm->mtx);
     }
 
     if (print_to_p) {
         int to = *print_to_p;
 	void *arg = print_to_arg;
-        if (mmap_state.supercarrier) {
+        if (mm->supercarrier) {
             const char* prefix = "supercarrier ";
             erts_print(to, arg, "%stotal size: %bpu\n", prefix, emis->sizes[0]);
             erts_print(to, arg, "%stotal sa size: %bpu\n", prefix, emis->sizes[1]);
@@ -2365,7 +2381,7 @@ Eterm erts_mmap_info(int *print_to_p,
             erts_print(to, arg, "%ssa free segs: %bpu\n", prefix, emis->segs[4]);
             erts_print(to, arg, "%ssua free segs: %bpu\n", prefix, emis->segs[5]);
         }
-        if (!mmap_state.no_os_mmap) {
+        if (!mm->no_os_mmap) {
             erts_print(to, arg, "os mmap size used: %bpu\n", emis->os_used);
         }
     }
@@ -2377,7 +2393,7 @@ Eterm erts_mmap_info(int *print_to_p,
         }
 
         lix = 0;
-        if (mmap_state.supercarrier) {
+        if (mm->supercarrier) {
             group[0] = erts_bld_atom_uword_2tup_list(hpp, szp,
                                                      sizeof(size_tags)/sizeof(Eterm),
                                                      size_tags, emis->sizes);
@@ -2389,7 +2405,7 @@ Eterm erts_mmap_info(int *print_to_p,
             lix++;
         }
 
-        if (!mmap_state.no_os_mmap) {
+        if (!mm->no_os_mmap) {
             group[0] = erts_bld_atom_uword_2tup_list(hpp, szp,
                                                       1, &am.used, &emis->os_used);
             list[lix] = erts_bld_2tup_list(hpp, szp, 1, group_tags, group);
@@ -2401,25 +2417,26 @@ Eterm erts_mmap_info(int *print_to_p,
     return res;
 }
 
-Eterm erts_mmap_info_options(char *prefix,
+Eterm erts_mmap_info_options(ErtsMemMapper* mm,
+                             char *prefix,
                              int *print_to_p,
                              void *print_to_arg,
                              Uint **hpp,
                              Uint *szp)
 {
-    const UWord scs = mmap_state.sua.top - mmap_state.sa.bot;
-    const Eterm sco = mmap_state.no_os_mmap ? am_true : am_false;
-    const Eterm scrpm = (mmap_state.reserve_physical == reserve_noop) ? am_true : am_false;
+    const UWord scs = mm->sua.top - mm->sa.bot;
+    const Eterm sco = mm->no_os_mmap ? am_true : am_false;
+    const Eterm scrpm = (mm->reserve_physical == reserve_noop) ? am_true : am_false;
     Eterm res = THE_NON_VALUE;
 
     if (print_to_p) {
         int to = *print_to_p;
 	void *arg = print_to_arg;
         erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
-        if (mmap_state.supercarrier) {
+        if (mm->supercarrier) {
             erts_print(to, arg, "%ssco: %T\n", prefix, sco);
             erts_print(to, arg, "%sscrpm: %T\n", prefix, scrpm);
-            erts_print(to, arg, "%sscrfsd: %beu\n", prefix, mmap_state.desc.reserved);
+            erts_print(to, arg, "%sscrfsd: %beu\n", prefix, mm->desc.reserved);
         }
     }
 
@@ -2429,9 +2446,9 @@ Eterm erts_mmap_info_options(char *prefix,
         }
 
         res = NIL;
-        if (mmap_state.supercarrier) {
+        if (mm->supercarrier) {
             add_2tup(hpp, szp, &res, am.scrfsd,
-                     erts_bld_uint(hpp,szp, mmap_state.desc.reserved));
+                     erts_bld_uint(hpp,szp, mm->desc.reserved));
             add_2tup(hpp, szp, &res, am.scrpm, scrpm);
             add_2tup(hpp, szp, &res, am.sco, sco);
         }
@@ -2441,9 +2458,9 @@ Eterm erts_mmap_info_options(char *prefix,
 }
 
 
-Eterm erts_mmap_debug_info(Process* p)
+Eterm erts_mmap_debug_info(ErtsMemMapper* mm, Process* p)
 {
-    if (mmap_state.supercarrier) {
+    if (mm->supercarrier) {
         ERTS_DECL_AM(sabot);
         ERTS_DECL_AM(satop);
         ERTS_DECL_AM(suabot);
@@ -2454,14 +2471,14 @@ Eterm erts_mmap_debug_info(Process* p)
         Eterm *hp, *hp_end;
         Uint may_need;
 
-        erts_smp_mtx_lock(&mmap_state.mtx);
-        values[0] = (UWord)mmap_state.sa.bot;
-        values[1] = (UWord)mmap_state.sa.top;
-        values[2] = (UWord)mmap_state.sua.bot;
-        values[3] = (UWord)mmap_state.sua.top;
-        sa_list = build_free_seg_list(p, &mmap_state.sa.map);
-        sua_list = build_free_seg_list(p, &mmap_state.sua.map);
-        erts_smp_mtx_unlock(&mmap_state.mtx);
+        erts_smp_mtx_lock(&mm->mtx);
+        values[0] = (UWord)mm->sa.bot;
+        values[1] = (UWord)mm->sa.top;
+        values[2] = (UWord)mm->sua.bot;
+        values[3] = (UWord)mm->sua.top;
+        sa_list = build_free_seg_list(p, &mm->sa.map);
+        sua_list = build_free_seg_list(p, &mm->sua.map);
+        erts_smp_mtx_unlock(&mm->mtx);
 
         may_need = 4*(2+3+2) + 2*(2+3);
         hp = HAlloc(p, may_need);

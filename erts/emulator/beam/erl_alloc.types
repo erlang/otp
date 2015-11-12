@@ -86,6 +86,7 @@ allocator	LONG_LIVED	true		ll_alloc
 allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
+allocator	LITERAL 	true		literal_alloc
 
 +else # Non smp build
 
@@ -96,6 +97,7 @@ allocator	LONG_LIVED	false		ll_alloc
 allocator	EHEAP		false		eheap_alloc
 allocator	ETS		false		ets_alloc
 allocator	FIXED_SIZE	false		fix_alloc
+allocator	LITERAL 	false		literal_alloc
 
 +endif
 
@@ -343,6 +345,7 @@ type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
 type	CODE		LONG_LIVED	CODE		code
+type	LITERAL		LITERAL 	CODE		literal
 type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data

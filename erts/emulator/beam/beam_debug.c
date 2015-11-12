@@ -208,7 +208,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm bin;
     Eterm mfa;
     BeamInstr* funcinfo = NULL;	/* Initialized to eliminate warning. */
-    BeamInstr* code_base;
+    BeamCodeHeader* code_hdr;
     BeamInstr* code_ptr = NULL;	/* Initialized to eliminate warning. */
     BeamInstr instr;
     BeamInstr uaddr;
@@ -258,12 +258,12 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     */
 	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
 	    funcinfo = code_ptr+2;
-	} else if (modp == NULL || (code_base = modp->curr.code) == NULL) {
+	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
-	    n = code_base[MI_NUM_FUNCTIONS];
+	    n = code_hdr->num_functions;
 	    for (i = 0; i < n; i++) {
-		code_ptr = (BeamInstr *) code_base[MI_FUNCTIONS+i];
+		code_ptr = code_hdr->functions[i];
 		if (code_ptr[3] == name && code_ptr[4] == arity) {
 		    funcinfo = code_ptr+2;
 		    break;

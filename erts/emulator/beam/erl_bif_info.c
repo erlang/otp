@@ -3441,7 +3441,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(res);
 	}
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
-            BIF_RET(erts_mmap_debug_info(BIF_P));
+            BIF_RET(erts_mmap_debug_info(&erts_dflt_mmapper, BIF_P));
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
@@ -4321,7 +4321,7 @@ static void os_info_init(void)
     os_flavor(buf, 1024);
     flav = erts_atom_put((byte *) buf, strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM, (3+4)*sizeof(Eterm));
+    hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);
     hp += 3;
     os_version(&major, &minor, &build);

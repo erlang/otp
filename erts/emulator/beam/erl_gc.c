@@ -645,10 +645,10 @@ erts_garbage_collect_hibernate(Process* p)
 
 void
 erts_garbage_collect_literals(Process* p, Eterm* literals,
-			      Uint lit_size,
+			      Uint byte_lit_size,
 			      struct erl_off_heap_header* oh)
 {
-    Uint byte_lit_size = sizeof(Eterm)*lit_size;
+    Uint lit_size = byte_lit_size / sizeof(Eterm);
     Uint old_heap_size;
     Eterm* temp_lit;
     Sint offs;

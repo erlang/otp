@@ -152,8 +152,8 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     num_modules = 0;
     for (current = 0; current < max_modules; current++) {
 	modp = module_code(current, code_ix);
-	if (modp->curr.code) {
-	    max_funcs += modp->curr.code[MI_NUM_FUNCTIONS];
+	if (modp->curr.code_hdr) {
+	    max_funcs += modp->curr.code_hdr->num_functions;
 	    module[num_modules++] = modp;
 	}
     }
@@ -161,9 +161,9 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     f->matching = (BpFunction *) Alloc(max_funcs*sizeof(BpFunction));
     i = 0;
     for (current = 0; current < num_modules; current++) {
-	BeamInstr** code_base = (BeamInstr **) module[current]->curr.code;
+	BeamCodeHeader* code_hdr = module[current]->curr.code_hdr;
 	BeamInstr* code;
-	Uint num_functions = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
+	Uint num_functions = (Uint)(UWord) code_hdr->num_functions;
 	Uint fi;
 
 	if (specified > 0) {
@@ -177,7 +177,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 	    BeamInstr* pc;
 	    int wi;
 
-	    code = code_base[MI_FUNCTIONS+fi];
+	    code = code_hdr->functions[fi];
 	    ASSERT(code[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	    pc = code+5;
 	    if (erts_is_native_break(pc)) {
@@ -547,21 +547,21 @@ erts_clear_all_breaks(BpFunctions* f)
 
 int 
 erts_clear_module_break(Module *modp) {
-    BeamInstr** code_base;
+    BeamCodeHeader* code_hdr;
     Uint n;
     Uint i;
 
     ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(modp);
-    code_base = (BeamInstr **) modp->curr.code;
-    if (code_base == NULL) {
+    code_hdr = modp->curr.code_hdr;
+    if (!code_hdr) {
 	return 0;
     }
-    n = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
+    n = (Uint)(UWord) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	BeamInstr* pc;
 
-	pc = code_base[MI_FUNCTIONS+i] + 5;
+	pc = code_hdr->functions[i] + 5;
 	if (erts_is_native_break(pc)) {
 	    continue;
 	}
@@ -573,7 +573,7 @@ erts_clear_module_break(Module *modp) {
     for (i = 0; i < n; ++i) {
 	BeamInstr* pc;
 
-	pc = code_base[MI_FUNCTIONS+i] + 5;
+	pc = code_hdr->functions[i] + 5;
 	if (erts_is_native_break(pc)) {
 	    continue;
 	}
@@ -1204,17 +1204,17 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
 BeamInstr *
 erts_find_local_func(Eterm mfa[3]) {
     Module *modp;
-    BeamInstr** code_base;
+    BeamCodeHeader* code_hdr;
     BeamInstr* code_ptr;
     Uint i,n;
 
     if ((modp = erts_get_module(mfa[0], erts_active_code_ix())) == NULL)
 	return NULL;
-    if ((code_base = (BeamInstr **) modp->curr.code) == NULL)
+    if ((code_hdr = modp->curr.code_hdr) == NULL)
 	return NULL;
-    n = (BeamInstr) code_base[MI_NUM_FUNCTIONS];
+    n = (BeamInstr) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	code_ptr = code_base[MI_FUNCTIONS+i];
+	code_ptr = code_hdr->functions[i];
 	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IaaI)) == code_ptr[0]);
 	ASSERT(mfa[0] == ((Eterm) code_ptr[2]) ||
 	       is_nil((Eterm) code_ptr[2]));

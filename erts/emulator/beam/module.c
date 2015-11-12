@@ -74,8 +74,8 @@ static Module* module_alloc(Module* tmpl)
     erts_smp_atomic_add_nob(&tot_module_bytes, sizeof(Module));
 
     obj->module = tmpl->module;
-    obj->curr.code = 0;
-    obj->old.code = 0;
+    obj->curr.code_hdr = 0;
+    obj->old.code_hdr = 0;
     obj->curr.code_length = 0;
     obj->old.code_length = 0;
     obj->slot.index = -1;

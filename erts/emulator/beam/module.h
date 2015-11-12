@@ -26,7 +26,7 @@
 #endif
 
 struct erl_module_instance {
-    BeamInstr* code;
+    BeamCodeHeader* code_hdr;
     int code_length;		/* Length of loaded code in bytes. */
     unsigned catches;
     struct erl_module_nif* nif;

@@ -42,16 +42,6 @@
 
 #if ERTS_HAVE_MSEG_SUPER_ALIGNED
 #  define MSEG_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
-#else
-/* If we don't use super aligned multiblock carriers
- * we will mmap with page size alignment (and thus use corresponding
- * align bits).
- *
- * Current implementation needs this to be a constant and
- * only uses this for user dev testing so setting page size
- * to 4096 (12 bits) is fine.
- */
-#  define MSEG_ALIGN_BITS       (12)
 #endif
 
 #if HAVE_ERTS_MSEG
@@ -69,7 +59,8 @@ typedef struct {
     Uint rmcbf;
     Uint mcs;
     Uint nos;
-    ErtsMMapInit mmap;
+    ErtsMMapInit dflt_mmap;
+    ErtsMMapInit literal_mmap;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
@@ -78,7 +69,8 @@ typedef struct {
     20,			/* rmcbf: Relative max cache bad fit	*/	\
     10,			/* mcs:   Max cache size		*/	\
     1000,		/* cci:   Cache check interval		*/	\
-    ERTS_MMAP_INIT_DEFAULT_INITER					\
+    ERTS_MMAP_INIT_DEFAULT_INITER,					\
+    ERTS_MMAP_INIT_LITERAL_INITER                                       \
 }
 
 typedef struct {
