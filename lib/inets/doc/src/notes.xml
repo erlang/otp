@@ -33,7 +33,40 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.0.2</title>
+  <section><title>Inets 6.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved error handling and gracfully termination when an
+	    invalid chunked length header is encountered.</p>
+          <p>
+	    Own Id: OTP-13061</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to set socket options, such as nodelay,
+	    for httpd. Also phase out legacy option value inet6bf4
+	    for the ipfamily option. This value will be translated to
+	    the value inet.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13062</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
