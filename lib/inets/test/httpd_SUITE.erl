@@ -1434,9 +1434,11 @@ server_config(http_reload, Config) ->
 server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
-    [{max_clients, 1},
-     %% Make sure option checking code is run
-     {max_content_length, 100000002}]  ++ server_config(http, Config);
+    Conf = [{max_clients, 1},
+	    %% Make sure option checking code is run
+	    {max_content_length, 100000002}]  ++ server_config(http, Config),
+    ct:pal("Received message ~p~n", [Conf]),
+    Conf;
 server_config(http_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(http, Config);
 server_config(https_custom, Config) ->
@@ -1486,6 +1488,7 @@ server_config(http_mime_types, Config0) ->
 server_config(http, Config) ->
     ServerRoot = ?config(server_root, Config),
     [{port, 0},
+     {socket_type, {ip_comm, [{nodelay, true}]}},
      {server_name,"httpd_test"},
      {server_root, ServerRoot},
      {document_root, ?config(doc_root, Config)},
@@ -1507,13 +1510,14 @@ server_config(http, Config) ->
 server_config(https, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [{socket_type, {essl,
-		  [{cacertfile, 
-		    filename:join(PrivDir, "public_key_cacert.pem")},
-		   {certfile, 
-		    filename:join(PrivDir, "public_key_cert.pem")},
-		   {keyfile,
-		    filename:join(PrivDir, "public_key_cert_key.pem")}
-		  ]}}] ++ server_config(http, Config).
+		    [{nodelay, true},
+		     {cacertfile, 
+		      filename:join(PrivDir, "public_key_cacert.pem")},
+		     {certfile, 
+		      filename:join(PrivDir, "public_key_cert.pem")},
+		     {keyfile,
+		      filename:join(PrivDir, "public_key_cert_key.pem")}
+		    ]}}] ++ proplists:delete(socket_type, server_config(http, Config)).
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),

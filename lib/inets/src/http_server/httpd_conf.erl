@@ -156,7 +156,7 @@ load("BindAddress " ++ Address0, []) ->
 		case string:tokens(Address0, [$|]) of
 		    [Address1] ->
 			?hdrv("load BindAddress", [{address1, Address1}]),
-			{clean_address(Address1), inet6fb4};
+			{clean_address(Address1), inet};
 		    [Address1, IpFamilyStr] ->
 			?hdrv("load BindAddress", 
 			      [{address1, Address1}, 
@@ -353,14 +353,21 @@ clean_address(Addr) ->
 
 
 make_ipfamily(IpFamilyStr) ->
-    IpFamily = list_to_atom(IpFamilyStr),
-    case lists:member(IpFamily, [inet, inet6, inet6fb4]) of
-	true ->
-	    IpFamily;
-	false ->
-	    throw({error, {bad_ipfamily, IpFamilyStr}})
-    end.
-
+    validate_ipfamily(list_to_atom(IpFamilyStr)).
+    
+validate_ipfamily(inet) ->
+    inet;
+validate_ipfamily(inet6) ->
+    inet6;
+%% Backwards compatibility wrapper, 
+%% fallback to the default, IPV4,
+%% as it will most proably work.
+%% IPv6 standard moved away from 
+%% beeing able to fallback to ipv4
+validate_ipfamily(inet6fb4) ->
+    inet;
+validate_ipfamily(IpFamilyStr) ->
+    throw({error, {bad_ipfamily, IpFamilyStr}}).
 
 %%
 %% load_mime_types/1 -> {ok, MimeTypes} | {error, Reason}
@@ -393,20 +400,16 @@ validate_properties2(Properties) ->
 	undefined ->
 	    case proplists:get_value(sock_type, Properties, ip_comm) of
 		ip_comm ->
-		    case proplists:get_value(ipfamily, Properties) of
-			undefined ->
-			    [{bind_address, any}, 
-			     {ipfamily, inet6fb4} | Properties];
-			_ ->
-			    [{bind_address, any} | Properties]
-		    end;
+		   add_inet_defaults(Properties);
+		{ip_comm, _} ->
+		    add_inet_defaults(Properties);
 		_ ->
 		    [{bind_address, any} | Properties]
 	    end;
 	any ->
 	    Properties;
 	Address0 ->
-	    IpFamily = proplists:get_value(ipfamily, Properties, inet6fb4),
+	    IpFamily = proplists:get_value(ipfamily, Properties, inet),
 	    case httpd_util:ip_address(Address0, IpFamily) of
 		{ok, Address} ->
 		    Properties1 = proplists:delete(bind_address, Properties),
@@ -418,6 +421,16 @@ validate_properties2(Properties) ->
 		    throw(Error)
 	    end
     end.
+
+add_inet_defaults(Properties) ->
+    case proplists:get_value(ipfamily, Properties) of
+	undefined ->
+	    [{bind_address, any}, 
+	     {ipfamily, inet} | Properties];
+	_ ->
+	    [{bind_address, any} | Properties]
+    end.
+
 check_minimum_bytes_per_second(Properties) ->
     case proplists:get_value(minimum_bytes_per_second, Properties, false) of
 	false ->
@@ -487,12 +500,11 @@ validate_config_params([{server_tokens, Value} | _]) ->
 validate_config_params([{socket_type, ip_comm} | Rest]) ->
     validate_config_params(Rest);
 
-validate_config_params([{socket_type, Value} | Rest]) 
-  when Value == ssl; Value == essl ->
-    validate_config_params(Rest);
-
-validate_config_params([{socket_type, {Value, _}} | Rest])
-  when Value == essl orelse Value == ssl ->
+validate_config_params([{socket_type, {Value, Opts}} | Rest]) when Value == ip_comm; 
+								   Value == ssl; 
+								   Value == essl ->
+    %% Make sure not to set socket values used internaly
+    validate_config_params(Opts), 
     validate_config_params(Rest);
 
 validate_config_params([{socket_type, Value} | _]) ->
@@ -622,21 +634,32 @@ validate_config_params([{disable_chunked_transfer_encoding_send, Value} |
 validate_config_params([{disable_chunked_transfer_encoding_send, Value} |
 			_ ]) ->
     throw({disable_chunked_transfer_encoding_send, Value});
+validate_config_params([{Name, _} = Opt | _]) when Name == packet;
+						   Name == mode;
+						   Name == active;
+						   Name == reuseaddr ->
+    throw({internaly_handled_opt_can_not_be_set, Opt});
 validate_config_params([_| Rest]) ->
     validate_config_params(Rest).
 
-%% It is actually pointless to check bind_address in this way since
-%% we need ipfamily to do it properly...
 is_bind_address(any) ->
     true;
 is_bind_address(Value) ->
-    case httpd_util:ip_address(Value, inet6fb4) of
+    case is_bind_address(Value, inet) of
+	false ->
+	    is_bind_address(Value, inet6);
+	True ->
+	    True
+    end.
+
+is_bind_address(Value, IpFamily) ->
+    case httpd_util:ip_address(Value, IpFamily) of
 	{ok, _} ->
 	    true;
 	_ ->
 	    false
     end.
-
+ 
 store(ConfigList0) -> 
     ?hdrd("store", []),
     try validate_config_params(ConfigList0) of
@@ -776,28 +799,6 @@ remove(ConfigDB) ->
     ets:delete(ConfigDB),
     ok.
 
-%% config(ConfigDB) ->
-%%     case httpd_util:lookup(ConfigDB, socket_type, ip_comm) of
-%% 	ssl ->
-%% 	    case ssl_certificate_file(ConfigDB) of
-%% 		undefined ->
-%% 		    {error,
-%% 		     "Directive SSLCertificateFile "
-%% 		     "not found in the config file"};
-%% 		SSLCertificateFile ->
-%% 		    {ssl,
-%% 		     SSLCertificateFile++
-%% 		     ssl_certificate_key_file(ConfigDB)++
-%% 		     ssl_verify_client(ConfigDB)++
-%% 		     ssl_ciphers(ConfigDB)++
-%% 		     ssl_password(ConfigDB)++
-%% 		     ssl_verify_depth(ConfigDB)++
-%% 		     ssl_ca_certificate_file(ConfigDB)}
-%% 	    end;
-%% 	ip_comm ->
-%% 	    ip_comm
-%%     end.
-
 
 get_config(Address, Port, Profile) ->    
     Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
@@ -836,6 +837,8 @@ lookup_socket_type(ConfigDB) ->
     case httpd_util:lookup(ConfigDB, socket_type, ip_comm) of
 	ip_comm ->
 	    ip_comm;
+	{ip_comm, _} = Type ->
+	    Type;
 	{Tag, Conf} ->
 	    {Tag, Conf};
 	SSL when (SSL =:= ssl) orelse (SSL =:= essl) ->
