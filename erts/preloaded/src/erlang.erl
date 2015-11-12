@@ -2027,8 +2027,14 @@ nodes(_Arg) ->
            | eof
 	   | {parallelism, Boolean :: boolean()}
 	   | hide.
-open_port(_PortName,_PortSettings) ->
-    erlang:nif_error(undefined).
+open_port(PortName, PortSettings) ->
+    case case erts_internal:open_port(PortName, PortSettings) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	Port when erlang:is_port(Port) -> Port;
+	Error -> erlang:error(Error, [PortName, PortSettings])
+    end.
 
 -type priority_level() ::
       low | normal | high | max.

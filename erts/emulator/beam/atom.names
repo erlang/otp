@@ -209,6 +209,7 @@ atom dsend_continue_trap
 atom dunlink
 atom duplicate_bag
 atom dupnames
+atom einval
 atom elib_malloc
 atom emulator
 atom enable_trace

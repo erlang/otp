@@ -1322,6 +1322,7 @@ extern void erts_match_prog_foreach_offheap(Binary *b,
 
 extern erts_driver_t vanilla_driver;
 extern erts_driver_t spawn_driver;
+extern erts_driver_t forker_driver;
 extern erts_driver_t fd_driver;
 
 int erts_beam_jump_table(void);

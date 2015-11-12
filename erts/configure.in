@@ -106,7 +106,6 @@ AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_heade
 dnl ----------------------------------------------------------------------
 dnl Optional features.
 dnl ----------------------------------------------------------------------
-enable_child_waiter_thread=no
 ENABLE_ALLOC_TYPE_VARS=
 AC_SUBST(ENABLE_ALLOC_TYPE_VARS)
 
@@ -1291,11 +1290,7 @@ else
 	    AC_MSG_RESULT(no)
 	fi
 
-	disable_child_waiter_thread=no
 	case $host_os in
-	    solaris*)
-		enable_child_waiter_thread=yes
-		;;
 	    linux*)
 		AC_MSG_CHECKING([whether dlopen() needs to be called before first call to dlerror()])
 		if test "x$ETHR_THR_LIB_BASE_TYPE" != "xposix_nptl"; then
@@ -1305,16 +1300,6 @@ else
 		else
 			AC_MSG_RESULT(no)
 		fi
-		if test "x$ETHR_THR_LIB_BASE_TYPE" != "xposix_nptl"; then
-		    # Child waiter thread cannot be enabled
-		    disable_child_waiter_thread=yes
-		    enable_child_waiter_thread=no
-		fi
-		;;
-	    win32)
-		# Child waiter thread cannot be enabled
-		disable_child_waiter_thread=yes
-		enable_child_waiter_thread=no
 		;;
 	    *)
 		;;
@@ -1334,24 +1319,6 @@ else
 	    esac
 	done
 	EMU_THR_DEFS=$new_emu_thr_defs
-
-	AC_MSG_CHECKING(whether the child waiter thread should be enabled)
-	if test $enable_child_waiter_thread = yes; then
-	    AC_DEFINE(ENABLE_CHILD_WAITER_THREAD,[1],
-		[Define if you want to enable child waiter thread])
-	    AC_MSG_RESULT(yes)
-	else
-	    case $ERTS_BUILD_SMP_EMU-$disable_child_waiter_thread in
-		yes-no)
-		    AC_MSG_RESULT([yes on SMP build, but not on non-SMP build]);;
-		*-yes)
-	    	    AC_DEFINE(DISABLE_CHILD_WAITER_THREAD,[1],
-			[Define if you want to disable child waiter thread])
-		    AC_MSG_RESULT(no);;
-		*)
-		    AC_MSG_RESULT(no);;
-	    esac
-	fi
 fi
 
 AC_SUBST(EMU_THR_LIB_NAME)
@@ -1483,18 +1450,26 @@ dnl
 #	   if -lsocket doesn't work by itself.
 #--------------------------------------------------------------------
 
+tk_oldLibs=$LIBS
 erl_checkBoth=0
+SOCKET_LIBS=""
 AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
 if test "$erl_checkSocket" = 1; then
-    AC_CHECK_LIB(socket, main, LIBS="$LIBS -lsocket", erl_checkBoth=1)
+    AC_CHECK_LIB(socket, main, SOCKET_LIBS="-lsocket", erl_checkBoth=1)
 fi
+
 if test "$erl_checkBoth" = 1; then
-    tk_oldLibs=$LIBS
     LIBS="$LIBS -lsocket -lnsl"
-    AC_CHECK_FUNC(accept, erl_checkNsl=0, [LIBS=$tk_oldLibs])
+    AC_CHECK_FUNC(accept, SOCKET_LIBS="-lsocket -lnsl")
 fi
-AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
+
+LIBS="$tk_oldLibs $SOCKET_LIBS"
+AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [SOCKET_LIBS="$SOCKET_LIBS -lnsl"]))
 AC_CHECK_FUNC(gethostbyname_r,have_gethostbyname_r=yes)
+
+LIBS="$tk_oldLibs $SOCKET_LIBS"
+
+AC_SUBST(SOCKET_LIBS)
 
 dnl
 dnl These gethostbyname thingies use old style AC_DEFINE for BC with ancient 

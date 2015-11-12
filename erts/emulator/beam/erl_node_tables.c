@@ -793,10 +793,14 @@ void erts_init_node_tables(int dd_sec)
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    f.hash  = (H_FUN)			dist_table_hash;
-    f.cmp   = (HCMP_FUN)		dist_table_cmp;
-    f.alloc = (HALLOC_FUN)		dist_table_alloc;
-    f.free  = (HFREE_FUN)		dist_table_free;
+    f.hash       = (H_FUN)		dist_table_hash;
+    f.cmp        = (HCMP_FUN)		dist_table_cmp;
+    f.alloc      = (HALLOC_FUN)		dist_table_alloc;
+    f.free       = (HFREE_FUN)		dist_table_free;
+    f.meta_alloc = (HMALLOC_FUN) 	erts_alloc;
+    f.meta_free  = (HMFREE_FUN) 	erts_free;
+    f.meta_print = (HMPRINT_FUN) 	erts_print;
+
 
     erts_this_dist_entry = erts_alloc(ERTS_ALC_T_DIST_ENTRY, sizeof(DistEntry));
     dist_entries = 1;

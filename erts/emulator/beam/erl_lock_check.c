@@ -113,9 +113,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"environ",				NULL			},
 #endif
     {	"efile_drv",				"address"		},
-#if defined(ENABLE_CHILD_WAITER_THREAD) || defined(ERTS_SMP)
-    {	"child_status",				NULL			},
-#endif
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
