@@ -121,9 +121,10 @@
 
   <section>
     <marker id="supported"/>
-    <title>SUPPORTED</title>
+    <title>SUPPORTED SPECIFICATIONS AND STANDARDS</title>
     <p>The supported SSH version is 2.0.</p>
-
+  </section>
+  <section>
     <title>Algorithms</title>
     <p>The actual set of algorithms may vary depending on which OpenSSL crypto library that is installed on the machine.
     For the list on a particular installation, use the command
@@ -189,49 +190,89 @@
 	</list>
       </item>
     </taglist>
-
+  </section>
+  <section>
     <title>Unicode support</title>
     <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
       <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c> for information about this subject.
     </p>
-    <p>The shell and the cli support unicode.
+    <p>The shell and the cli both support unicode.
     </p>
-    
+  </section>
+
+  <section>
+    <title>Rfcs</title>
+    <p>The following rfc:s are supported:</p>
+    <list type="bulleted">
+      <item><url href="https://tools.ietf.org/html/rfc4251">RFC 4251</url>, The Secure Shell (SSH) Protocol Architecture.
+      <p>Except
+      <list type="bulleted">
+	<item>9.4.6 Host-Based Authentication</item>
+	<item>9.5.2 Proxy Forwarding</item>
+	<item>9.5.3 X11 Forwarding</item>
+      </list>
+      </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4252">RFC 4252</url>, The Secure Shell (SSH) Authentication Protocol.
+      <p>Except
+      <list type="bulleted">
+	<item>9. Host-Based Authentication: "hostbased"</item>
+      </list>
+      </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
+       <p></p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
+      <p>Except
+      <list type="bulleted">
+	<item>6.3. X11 Forwarding</item>
+	<item>7. TCP/IP Port Forwarding</item>
+      </list>
+      </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4256">RFC 4256</url>, Generic Message Exchange Authentication for
+      the Secure Shell Protocol (SSH).
+      <p>Except
+      <list type="bulleted">
+	<item><c>num-prompts > 1</c></item>
+	<item>password changing</item>
+	<item>other identification methods than userid-password</item>
+	</list>
+      </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>, Diffie-Hellman Group Exchange for
+      the Secure Shell (SSH) Transport Layer Protocol.
+       <p></p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc4716">RFC 4716</url>, The Secure Shell (SSH) Public Key File Format.
+      <p></p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc5656">RFC 5656</url>, Elliptic Curve Algorithm Integration in 
+      the Secure Shell Transport Layer.
+      <p>Except
+      <list type="bulleted">
+	<item>5.   ECMQV Key Exchange</item>
+	<item>6.4. ECMQV Key Exchange and Verification Method Name</item>
+	<item>7.2. ECMQV Message Numbers</item>
+	<item>10.2. Recommended Curves</item>
+      </list>
+      </p>
+      </item>
+    </list>
+
   </section>
 
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="kernel:application">application(3)</seealso></p>
-    <p>The following rfc:s are supported:</p>
-    <list type="bulleted">
-      <item><url href="https://tools.ietf.org/html/rfc4251">RFC 4251</url>, The Secure Shell (SSH) Protocol Architecture.
-      (Except 9.4.6, 9.5.2, 9.5.3)
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4252">RFC 4252</url>, The Secure Shell (SSH) Authentication Protocol.
-      (Except 9. Host-Based Authentication: "hostbased")
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
-      (Except 6.3. X11 Forwarding, 7. TCP/IP Port Forwarding)
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4256">RFC 4256</url>, Generic Message Exchange Authentication for
-      the Secure Shell Protocol (SSH).
-      (Except <c>num-prompts > 1</c>, password changing, other identification methods than userid-password)
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>, Diffie-Hellman Group Exchange for
-      the Secure Shell (SSH) Transport Layer Protocol.
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc4716">RFC 4716</url>, The Secure Shell (SSH) Public Key File Format.
-      </item>
-      <item><url href="https://tools.ietf.org/html/rfc5656">RFC 5656</url>, Elliptic Curve Algorithm Integration in 
-      the Secure Shell Transport Layer.
-      (Except 5.  ECMQV Key Exchange, 6.4. ECMQV Key Exchange and Verification Method Name,
-      7.2. ECMQV Message Numbers, 10.2. Recommended Curves)
-      </item>
-
-      
-    </list>
   </section>
 
 </appref>
