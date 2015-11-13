@@ -3533,14 +3533,7 @@ do {						\
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
-	    /*
-	     * We want to test with ERTS_IS_GC_DESIRED(c_p) in order
-	     * to trigger gc due to binaries based on same conditions
-	     * regardless of how the bif is called. This change will
-	     * however be introduced in a separate commit in order to
-	     * easier identify why the characteristics changed.
-	     */
-	    if (c_p->stop - c_p->htop < c_p->mbuf_sz) {
+	    if (ERTS_IS_GC_DESIRED(c_p)) {
 		nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
 							    nif_bif_result,
 							    reg, bif_nif_arity);
