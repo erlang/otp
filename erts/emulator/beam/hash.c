@@ -280,56 +280,6 @@ void* hash_put(Hash* h, void* tmpl)
     return (void*) b;
 }
 
-static void
-hash_insert_entry(Hash* h, HashBucket* entry)
-{
-    HashValue hval = entry->hvalue;
-    int ix = hval % h->size;
-    HashBucket* b = h->bucket[ix];
-
-    while (b != (HashBucket*) 0) {
-	if ((b->hvalue == hval) && (h->fun.cmp((void*)entry, (void*)b) == 0)) {
-	    abort();		/* Should not happen */
-	}
-	b = b->next;
-    }
-
-    if (h->bucket[ix] == NULL)
-	h->used++;
-
-    entry->next = h->bucket[ix];
-    h->bucket[ix] = entry;
-
-    if (h->used > h->size80percent)  /* rehash at 80% */
-	rehash(h, 1);
-}
-
-
-/*
- * Move all entries in src into dst; empty src.
- * Entries in src must not exist in dst.
- */
-void
-erts_hash_merge(Hash* src, Hash* dst)
-{
-    int limit = src->size;
-    HashBucket** bucket = src->bucket;
-    int i;
-
-    src->used = 0;
-    for (i = 0; i < limit; i++) {
-	HashBucket* b = bucket[i];
-	HashBucket* next;
-
-	bucket[i] = NULL;
-	while (b) {
-	    next = b->next;
-	    hash_insert_entry(dst, b);
-	    b = next;
-	}
-    }
-}
-
 /*
 ** Erase hash entry return template if erased
 ** return 0 if not erased

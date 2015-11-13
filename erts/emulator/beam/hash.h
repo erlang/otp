@@ -93,6 +93,4 @@ void* hash_erase(Hash*, void*);
 void* hash_remove(Hash*, void*);
 void  hash_foreach(Hash*, void (*func)(void *, void *), void *);
 
-void erts_hash_merge(Hash* src, Hash* dst);
-
 #endif
