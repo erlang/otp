@@ -271,4 +271,27 @@ Eshell V5.0  (abort with ^G)
     <p>The <c>init:get_arguments()</c> call verifies that the correct
       arguments are supplied to the emulator.</p>
   </section>
+
+  <section>
+    <title>Using SSL distribution over IPv6</title>
+    <p>It is possible to use SSL distribution over IPv6 instead of
+    IPv4. To do this, pass the option <c>-proto_dist inet6_tls</c>
+    instead of <c>-proto_dist inet_tls</c> when starting Erlang,
+    either on the command line or in the <c>ERL_FLAGS</c> environment
+    variable.</p>
+
+    <p>An example command line with this option would look like this:</p>
+    <code type="none">
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet6_tls
+  -ssl_dist_opt server_certfile "/home/me/ssl/erlserver.pem"
+  -ssl_dist_opt server_secure_renegotiate true client_secure_renegotiate true
+  -sname ssl_test
+Erlang (BEAM) emulator version 5.0 [source]
+
+Eshell V5.0  (abort with ^G)
+(ssl_test@myhost)1>     </code>
+
+    <p>A node started in this way will only be able to communicate with
+    other nodes using SSL distribution over IPv6.</p>
+  </section>
 </chapter>

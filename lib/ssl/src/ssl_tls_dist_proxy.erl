@@ -20,7 +20,7 @@
 -module(ssl_tls_dist_proxy).
 
 
--export([listen/1, accept/1, connect/2, get_tcp_address/1]).
+-export([listen/2, accept/2, connect/3, get_tcp_address/1]).
 -export([init/1, start_link/0, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3, ssl_options/2]).
 
@@ -39,14 +39,14 @@
 %% Internal application API
 %%====================================================================
 
-listen(Name) ->
-    gen_server:call(?MODULE, {listen, Name}, infinity). 
+listen(Driver, Name) ->
+    gen_server:call(?MODULE, {listen, Driver, Name}, infinity).
 
-accept(Listen) ->
-    gen_server:call(?MODULE, {accept, Listen}, infinity).
+accept(Driver, Listen) ->
+    gen_server:call(?MODULE, {accept, Driver, Listen}, infinity).
 
-connect(Ip, Port) ->
-    gen_server:call(?MODULE, {connect, Ip, Port}, infinity).
+connect(Driver, Ip, Port) ->
+    gen_server:call(?MODULE, {connect, Driver, Ip, Port}, infinity).
 
 
 do_listen(Options) ->
@@ -108,10 +108,11 @@ init([]) ->
     process_flag(priority, max),
     {ok, #state{}}.
 
-handle_call({listen, Name}, _From, State) ->
+handle_call({listen, Driver, Name}, _From, State) ->
     case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}, {ip, loopback}]) of
 	{ok, Socket} ->
-	    {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}, {reuseaddr, true}]),
+	    {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}, {reuseaddr, true},
+                                     Driver:family()]),
 	    {ok, TcpAddress} = get_tcp_address(Socket),
 	    {ok, WorldTcpAddress} = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
@@ -126,15 +127,15 @@ handle_call({listen, Name}, _From, State) ->
 	    {reply, Error, State}
     end;
 
-handle_call({accept, Listen}, {From, _}, State = #state{listen={_, World}}) ->
+handle_call({accept, _Driver, Listen}, {From, _}, State = #state{listen={_, World}}) ->
     Self = self(),
     ErtsPid = spawn_link(fun() -> accept_loop(Self, erts, Listen, From) end),
     WorldPid = spawn_link(fun() -> accept_loop(Self, world, World, Listen) end),
     {reply, ErtsPid, State#state{accept_loop={ErtsPid, WorldPid}}};
 
-handle_call({connect, Ip, Port}, {From, _}, State) ->
+handle_call({connect, Driver, Ip, Port}, {From, _}, State) ->
     Me = self(),
-    Pid = spawn_link(fun() -> setup_proxy(Ip, Port, Me) end),
+    Pid = spawn_link(fun() -> setup_proxy(Driver, Ip, Port, Me) end),
     receive 
 	{Pid, go_ahead, LPort} -> 
 	    Res = {ok, Socket} = try_connect(LPort),
@@ -263,10 +264,11 @@ try_connect(Port) ->
 	    try_connect(Port)
     end.
 
-setup_proxy(Ip, Port, Parent) ->
+setup_proxy(Driver, Ip, Port, Parent) ->
     process_flag(trap_exit, true),
     Opts = connect_options(get_ssl_options(client)),
-    case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay()] ++ Opts) of
+    case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay(),
+                                Driver:family()] ++ Opts) of
 	{ok, World} ->
 	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, loopback}, binary, {packet,?PPRE}]),
 	    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
