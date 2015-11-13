@@ -72,10 +72,11 @@ typedef struct hash
     ErtsAlcType_t type;
     char* name;          /* Table name (static string, for debugging) */
     int size;		 /* Number of slots */
-    int size20percent;   /* 20 percent of number of slots */
-    int size80percent;   /* 80 percent of number of slots */
-    int ix;              /* Size index in size table */
-    int used;		 /* Number of slots used */
+    int shrink_threshold;
+    int grow_threshold;
+    int size_ix;         /* Size index in size table */
+    int min_size_ix;     /* Never shrink table smaller than this */
+    int nobjs;		 /* Number of objects in table */
     HashBucket** bucket; /* Vector of bucket pointers (objects) */
 } Hash;
 
