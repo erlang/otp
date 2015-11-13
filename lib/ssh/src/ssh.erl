@@ -369,8 +369,12 @@ handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{key_cb, {Module, Options}} | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({key_cb, Module}),
+                                        handle_ssh_priv_option({key_cb_private, Options}) |
+                                        SshOptions]);
+handle_option([{key_cb, Module} | Rest], SocketOptions, SshOptions) ->
+    handle_option([{key_cb, {Module, []}} | Rest], SocketOptions, SshOptions);
 handle_option([{keyboard_interact_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility
@@ -544,6 +548,9 @@ handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
     Opt;
+handle_ssh_option({key_cb, {CallbackMod, CallbackOptions}} = Opt) when is_atom(CallbackMod),
+                                                                      is_list(CallbackOptions) ->
+    Opt;
 handle_ssh_option({keyboard_interact_fun, Value} = Opt) when is_function(Value,3) ->
     Opt;
 handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
@@ -609,6 +616,9 @@ handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
+
+handle_ssh_priv_option({key_cb_private, Value} = Opt) when is_list(Value) ->
+    Opt.
 
 handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "SSH has built in flow control, "

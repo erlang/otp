@@ -85,6 +85,15 @@
       <item><p><c>atom()</c> - Name of the Erlang module
       implementing the subsystem using the <c>ssh_channel</c> behavior, see
       <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
+      <tag><c>key_cb() =</c></tag>
+      <item>
+        <p><c>atom() | {atom(), list()}</c></p>
+        <p><c>atom()</c> - Name of the erlang module implementing the behaviours
+        <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> or
+        <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> as the
+        case maybe.</p>
+        <p><c>list()</c> - List of options that can be passed to the callback module.</p>
+      </item>
       <tag><c>channel_init_args() =</c></tag>
       <item><p><c>list()</c></p></item>
 
@@ -272,11 +281,13 @@ kex is implicit but public_key is set explicitly.</p>
 	    password, if the password authentication method is
 	    attempted.</p>
           </item>
-	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
+	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
-	    <p>Module implementing the behaviour
-	    <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso>.
-	    Can be used to customize the handling of public keys.
+	    <p>Module implementing the behaviour <seealso
+	    marker="ssh_client_key_api">ssh_client_key_api</seealso>. Can be used to
+	    customize the handling of public keys. If callback options are provided
+	    along with the module name, they are made available to the callback
+	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
 	  <tag><c><![CDATA[{quiet_mode, atom() = boolean()}]]></c></tag>
@@ -607,11 +618,13 @@ kex is implicit but public_key is set explicitly.</p>
 	    </p>
 	  </item>
 
-	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
+	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
-	    <p>Module implementing the behaviour
-	    <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
-	    Can be used to customize the handling of public keys.
+	    <p>Module implementing the behaviour <seealso
+	    marker="ssh_server_key_api">ssh_server_key_api</seealso>. Can be used to
+	    customize the handling of public keys. If callback options are provided
+	    along with the module name, they are made available to the callback
+	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
 	  
