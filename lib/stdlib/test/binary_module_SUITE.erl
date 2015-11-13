@@ -536,6 +536,12 @@ do_interesting(Module) ->
     ?line [<<3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
 					   [global,trim_all]),
+    [<<>>] = binary:split(<<>>, <<",">>, []),
+    [] = binary:split(<<>>, <<",">>, [trim]),
+    [] = binary:split(<<>>, <<",">>, [trim_all]),
+    [] = binary:split(<<>>, <<",">>, [global,trim]),
+    [] = binary:split(<<>>, <<",">>, [global,trim_all]),
+
     ?line badarg = ?MASK_ERROR(
 		      Module:replace(<<1,2,3,4,5,6,7,8>>,
 				     [<<4,5>>,<<7>>,<<8>>],<<99>>,
