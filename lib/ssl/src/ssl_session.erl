@@ -66,8 +66,9 @@ client_id(ClientInfo, Cache, CacheCb, OwnCert) ->
 %% Description: Check that the session has not expired
 %%--------------------------------------------------------------------
 valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
-    Now =  calendar:datetime_to_gregorian_seconds({date(), time()}),
-    Now - TimeStamp < LifeTime.
+    Now = erlang:monotonic_time(),
+    Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),
+    Lived < LifeTime.
 
 server_id(Port, <<>>, _SslOpts, _Cert, _, _) ->
     {ssl_manager:new_session_id(Port), undefined};

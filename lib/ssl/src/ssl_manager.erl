@@ -320,7 +320,7 @@ handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_
 handle_cast({register_session, Host, Port, Session}, 
 	    #state{session_cache_client = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     
     case CacheCb:select_session(Cache, {Host, Port}) of
@@ -335,7 +335,7 @@ handle_cast({register_session, Host, Port, Session},
 handle_cast({register_session, Port, Session},  
 	    #state{session_cache_server = Cache,
 		   session_cache_cb = CacheCb} = State) ->    
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    TimeStamp =  erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     CacheCb:update(Cache, {Port, NewSession#session.session_id}, NewSession),
     {noreply, State};
@@ -502,7 +502,7 @@ invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastT
 	#session{is_resumable = new} ->
 	    CacheCb:delete(Cache, Key),
 	    {noreply, State};
-	_ ->
+	_ -> 
 	    %% When a registered session is invalidated we need to wait a while before deleting
 	    %% it as there might be pending connections that rightfully needs to look
 	    %% up the session data but new connections should not get to use this session.
@@ -530,7 +530,7 @@ new_id(Port, Tries, Cache, CacheCb) ->
     Id = crypto:rand_bytes(?NUM_OF_SESSION_ID_BYTES),
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
-	    Now =  calendar:datetime_to_gregorian_seconds({date(), time()}),
+	    Now = erlang:monotonic_time(),
 	    %% New sessions can not be set to resumable
 	    %% until handshake is compleate and the
 	    %% other session values are set.
