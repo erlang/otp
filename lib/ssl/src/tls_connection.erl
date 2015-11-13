@@ -167,7 +167,7 @@ hello(start, #state{host = Host, port = Port, role = client,
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert),
     
-    Version = Hello#client_hello.client_version,
+    Version = Hello#client_hello.record_layer_version,
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello, Version, ConnectionStates0, Handshake0),

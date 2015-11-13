@@ -81,6 +81,7 @@
 -record(ssl_options, {
 	  protocol    :: tls | dtls,
 	  versions    :: [ssl_record:ssl_version()], %% ssl_record:atom_version() in API
+	  record_layer_version :: undefined | 'tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3,
 	  verify      :: verify_none | verify_peer,
 	  verify_fun,  %%:: fun(CertVerifyErrors::term()) -> boolean(),
 	  partial_chain       :: fun(),
