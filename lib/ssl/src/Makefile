@@ -51,6 +51,7 @@ MODULES= \
 	ssl_dist_sup\
 	ssl_sup \
 	inet_tls_dist \
+	inet6_tls_dist \
 	ssl_certificate\
 	ssl_pkix_db\
 	ssl_cipher \
