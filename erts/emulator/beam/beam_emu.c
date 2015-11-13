@@ -237,6 +237,14 @@ void** beam_ops;
     HEAP_TOP(c_p) = HTOP;  \
     c_p->stop = E
 
+#define HEAVY_SWAPIN       \
+    SWAPIN;		   \
+    FCALLS = c_p->fcalls
+
+#define HEAVY_SWAPOUT      \
+    SWAPOUT;		   \
+    c_p->fcalls = FCALLS
+
 /*
  * Use LIGHT_SWAPOUT when the called function
  * will call HeapOnlyAlloc() (and never HAlloc()).
@@ -297,7 +305,7 @@ void** beam_ops;
      if (E - HTOP < (needed + (HeapNeed))) { \
            SWAPOUT; \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
-           FCALLS -= erts_garbage_collect(c_p, needed + (HeapNeed), reg, (M)); \
+           FCALLS -= erts_garbage_collect_nobump(c_p, needed + (HeapNeed), reg, (M)); \
            ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            SWAPIN; \
@@ -349,7 +357,7 @@ void** beam_ops;
     if ((E - HTOP < need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) {\
        SWAPOUT;                                                 		\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
-       FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  		\
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live));  		\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);					\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
        SWAPIN;                                                  		\
@@ -370,7 +378,7 @@ void** beam_ops;
     if (E - HTOP < need) {                                      \
        SWAPOUT;                                                 \
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
-       FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  \
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live));\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);			\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
        SWAPIN;                                                  \
@@ -391,7 +399,7 @@ void** beam_ops;
        SWAPOUT;								\
        reg[Live] = Extra;						\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
-       FCALLS -= erts_garbage_collect(c_p, need, reg, (Live)+1);	\
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live)+1);	\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);				\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
        Extra = reg[Live];						\
@@ -415,9 +423,9 @@ void** beam_ops;
 
 #define MakeFun(FunP, NumFree)					\
   do {								\
-     SWAPOUT;							\
+     HEAVY_SWAPOUT;						\
      r(0) = new_fun(c_p, reg, (ErlFunEntry *) FunP, NumFree);	\
-     SWAPIN;							\
+     HEAVY_SWAPIN;						\
   } while (0)
 
 #define PutTuple(Dst, Arity)			\
@@ -1402,11 +1410,11 @@ void process_main(void)
 	    }
 
 	    live = Arg(2);
-	    SWAPOUT;
+	    HEAVY_SWAPOUT;
 	    reg[live] = increment_reg_val;
 	    reg[live+1] = make_small(increment_val);
 	    result = erts_gc_mixed_plus(c_p, reg, live);
-	    SWAPIN;
+	    HEAVY_SWAPIN;
 	    ERTS_HOLE_CHECK(c_p);
 	    if (is_value(result)) {
 		StoreBifResult(3, result);
@@ -1420,11 +1428,11 @@ void process_main(void)
      Eterm result;				\
      Uint live = Arg(1);			\
 						\
-     SWAPOUT;					\
+     HEAVY_SWAPOUT;				\
      reg[live] = Op1;				\
      reg[live+1] = Op2;				\
      result = erts_gc_##name(c_p, reg, live);	\
-     SWAPIN;					\
+     HEAVY_SWAPIN;				\
      ERTS_HOLE_CHECK(c_p);			\
      if (is_value(result)) {			\
 	 StoreBifResult(4, result);		\
@@ -1744,7 +1752,7 @@ void process_main(void)
 	     if (E - HTOP < 3) {
 		 SWAPOUT;
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 FCALLS -= erts_garbage_collect(c_p, 3, reg+2, 1);
+		 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1);
 		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 SWAPIN;
@@ -2382,9 +2390,9 @@ void process_main(void)
  OpCase(new_map_dII): {
      Eterm res;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      res = new_map(c_p, reg, I-1);
-     SWAPIN;
+     HEAVY_SWAPIN;
      StoreResult(res, Arg(0));
      Next(3+Arg(2));
  }
@@ -2472,9 +2480,9 @@ do {						\
      Eterm map;
 
      GetArg1(1, map);
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      res = update_map_assoc(c_p, reg, map, I);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (is_value(res)) {
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
@@ -2494,9 +2502,9 @@ do {						\
      Eterm map;
 
      GetArg1(1, map);
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      res = update_map_exact(c_p, reg, map, I);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (is_value(res)) {
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
@@ -3072,10 +3080,10 @@ do {						\
 	 bnot_val = make_small(~signed_val(bnot_val));
      } else {
 	 Uint live = Arg(2);
-	 SWAPOUT;
+	 HEAVY_SWAPOUT;
 	 reg[live] = bnot_val;
 	 bnot_val = erts_gc_bnot(c_p, reg, live);
-	 SWAPIN;
+	 HEAVY_SWAPIN;
 	 ERTS_HOLE_CHECK(c_p);
 	 if (is_nil(bnot_val)) {
 	     goto lb_Cl_error;
@@ -3090,9 +3098,9 @@ do {						\
 
  OpCase(i_apply): {
      BeamInstr *next;
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply(c_p, r(0), x(1), x(2), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+1);
 	 SET_I(next);
@@ -3104,9 +3112,9 @@ do {						\
 
  OpCase(i_apply_last_P): {
      BeamInstr *next;
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply(c_p, r(0), x(1), x(2), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
@@ -3119,9 +3127,9 @@ do {						\
 
  OpCase(i_apply_only): {
      BeamInstr *next;
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply(c_p, r(0), x(1), x(2), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_I(next);
 	 Dispatch();
@@ -3133,9 +3141,9 @@ do {						\
  OpCase(apply_I): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = fixed_apply(c_p, reg, Arg(0));
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+2);
 	 SET_I(next);
@@ -3148,9 +3156,9 @@ do {						\
  OpCase(apply_last_IP): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = fixed_apply(c_p, reg, Arg(0));
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(1));
@@ -3164,9 +3172,9 @@ do {						\
  OpCase(i_apply_fun): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply_fun(c_p, r(0), x(1), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+1);
 	 SET_I(next);
@@ -3178,9 +3186,9 @@ do {						\
  OpCase(i_apply_fun_last_P): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply_fun(c_p, r(0), x(1), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
@@ -3193,9 +3201,9 @@ do {						\
  OpCase(i_apply_fun_only): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = apply_fun(c_p, r(0), x(1), reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_I(next);
 	 Dispatchfun();
@@ -3206,9 +3214,9 @@ do {						\
  OpCase(i_call_fun_I): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	 SET_CP(c_p, I+2);
 	 SET_I(next);
@@ -3220,9 +3228,9 @@ do {						\
  OpCase(i_call_fun_last_IP): {
      BeamInstr *next;
 
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (next != NULL) {
 	SET_CP(c_p, (BeamInstr *) E[0]);
 	E = ADD_BYTE_OFFSET(E, Arg(1));
@@ -3421,9 +3429,9 @@ do {						\
      * code[3]: &&call_error_handler
      * code[4]: Not used
      */
-    SWAPOUT;
+    HEAVY_SWAPOUT;
     I = call_error_handler(c_p, I-3, reg, am_undefined_function);
-    SWAPIN;
+    HEAVY_SWAPIN;
     if (I) {
 	Goto(*I);
     }
@@ -3977,10 +3985,10 @@ do {						\
      Eterm Size;
 
      GetArg1(4, Size);
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      reg[live] = x(SCRATCH_X_REG);
      res = erts_bs_append(c_p, reg, live, Size, Arg(1), Arg(3));
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (is_non_value(res)) {
 	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
 	 goto lb_Cl_error;
@@ -4005,9 +4013,9 @@ do {						\
  }
 
  OpCase(bs_init_writable): {
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      r(0) = erts_bs_init_writable(c_p, r(0));
-     SWAPIN;
+     HEAVY_SWAPIN;
      Next(0);
  }
 
@@ -4835,7 +4843,7 @@ do {						\
 	     BeamInstr *next;
 
 	     next = call_fun(c_p, c_p->arity - 1, reg, THE_NON_VALUE);
-	     SWAPIN;
+	     HEAVY_SWAPIN;
 	     if (next != NULL) {
 		 SET_I(next);
 		 Dispatchfun();
@@ -4884,20 +4892,22 @@ do {						\
  }
 
  OpCase(i_hibernate): {
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      if (erts_hibernate(c_p, r(0), x(1), x(2), reg)) {
+	 FCALLS = c_p->fcalls;
 	 c_p->flags &= ~F_HIBERNATE_SCHED;
 	 goto do_schedule;
      } else {
+	 HEAVY_SWAPIN;
 	 I = handle_error(c_p, I, reg, hibernate_3);
 	 goto post_error_handling;
      }
  }
 
  OpCase(i_debug_breakpoint): {
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      I = call_error_handler(c_p, I-3, reg, am_breakpoint);
-     SWAPIN;
+     HEAVY_SWAPIN;
      if (I) {
 	 Goto(*I);
      }

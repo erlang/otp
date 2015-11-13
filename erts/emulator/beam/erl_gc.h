@@ -134,7 +134,8 @@ typedef struct {
 
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
-int erts_garbage_collect(struct process*, int, Eterm*, int);
+int erts_garbage_collect_nobump(struct process*, int, Eterm*, int);
+void erts_garbage_collect(struct process*, int, Eterm*, int);
 void erts_garbage_collect_hibernate(struct process* p);
 Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
 				 Eterm result, Eterm* regs, Uint arity);

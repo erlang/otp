@@ -583,7 +583,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	root[0] = id;
 	root[1] = value;
 	root[2] = old;
-	BUMP_REDS(p, erts_garbage_collect(p, needed, root, 3));
+	erts_garbage_collect(p, needed, root, 3);
 	id = root[0];
 	value = root[1];
 	old = root[2];
@@ -715,7 +715,7 @@ static void shrink(Process *p, Eterm* ret)
 		    needed = 2*erts_list_length(hi);
 		}
 		if (HeapWordsLeft(p) < needed) {
-		    BUMP_REDS(p, erts_garbage_collect(p, needed, ret, 1));
+		    erts_garbage_collect(p, needed, ret, 1);
 		    hi = pd->data[(pd->splitPosition + pd->homeSize)];
 		    lo = pd->data[pd->splitPosition];
 		}
@@ -811,7 +811,7 @@ static void grow(Process *p)
 	}
     }
     if (HeapWordsLeft(p) < needed) {
-	BUMP_REDS(p, erts_garbage_collect(p, needed, 0, 0));
+	erts_garbage_collect(p, needed, 0, 0);
     }
 #ifdef DEBUG
     hp_limit = p->htop + needed;

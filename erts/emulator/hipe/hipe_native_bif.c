@@ -80,7 +80,7 @@ Eterm hipe_show_nstack_1(BIF_ALIST_1)
 void hipe_gc(Process *p, Eterm need)
 {
     hipe_set_narity(p, 1);
-    p->fcalls -= erts_garbage_collect(p, unsigned_val(need), NULL, 0);
+    erts_garbage_collect(p, unsigned_val(need), NULL, 0);
     hipe_set_narity(p, 0);
 }
 

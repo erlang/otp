@@ -135,7 +135,7 @@ static Eterm* sweep_literals_to_old_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm
 					 char* src, Uint src_size);
 static Eterm* collect_live_heap_frags(Process* p, ErlHeapFragment *live_hf_end,
 				      Eterm* heap, Eterm* htop, Eterm* objv, int nobj);
-static void adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
+static int adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static void sweep_off_heap(Process *p, int fullsweep);
@@ -171,6 +171,20 @@ typedef struct {
     Uint req_sched;
     erts_smp_atomic32_t refc;
 } ErtsGCInfoReq;
+
+static ERTS_INLINE int
+gc_cost(Uint gc_moved_live_words, Uint resize_moved_words)
+{
+    Sint reds;
+
+    reds = gc_moved_live_words/10;
+    reds += resize_moved_words/100;
+    if (reds < 1)
+	return 1;
+    if (reds > INT_MAX)
+	return INT_MAX;
+    return (int) reds;
+}
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(gcireq,
                                  ErtsGCInfoReq,
@@ -413,6 +427,7 @@ static ERTS_INLINE void reset_active_writer(Process *p)
 }
 
 #define ERTS_DELAY_GC_EXTRA_FREE 40
+#define ERTS_ABANDON_HEAP_COST 10
 
 static int
 delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
@@ -421,6 +436,7 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
     Eterm *orig_heap, *orig_hend, *orig_htop, *orig_stop;
     Eterm *stop, *hend;
     Uint hsz, ssz;
+    int reds_left;
 
     ERTS_HOLE_CHECK(p);
 
@@ -482,7 +498,12 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
 
     /* Make sure that we do a proper GC as soon as possible... */
     p->flags |= F_FORCE_GC;
-    return CONTEXT_REDS;
+    reds_left = ERTS_BIF_REDS_LEFT(p);
+    if (reds_left > ERTS_ABANDON_HEAP_COST) {
+	int vreds = reds_left - ERTS_ABANDON_HEAP_COST;
+	ERTS_VBUMP_REDS(p, vreds);
+    }
+    return ERTS_ABANDON_HEAP_COST;
 }
 
 static ERTS_FORCE_INLINE Uint
@@ -536,7 +557,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 		int need, Eterm* objv, int nobj)
 {
     Uint reclaimed_now = 0;
-    int done = 0;
+    int reds;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
 #ifdef USE_VM_PROBES
@@ -562,9 +583,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ERTS_CHK_OFFHEAP(p);
 
     ErtsGcQuickSanityCheck(p);
-    if (GEN_GCS(p) >= MAX_GEN_GCS(p)) {
-        FLAGS(p) |= F_NEED_FULLSWEEP;
-    }
+
 #ifdef USE_VM_PROBES
     *pidbuf = '\0';
     if (DTRACE_ENABLED(gc_major_start)
@@ -577,17 +596,21 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     /*
      * Test which type of GC to do.
      */
-    while (!done) {
-	if ((FLAGS(p) & F_NEED_FULLSWEEP) != 0) {
-	    DTRACE2(gc_major_start, pidbuf, need);
-	    done = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
-	    DTRACE2(gc_major_end, pidbuf, reclaimed_now);
-	} else {
-	    DTRACE2(gc_minor_start, pidbuf, need);
-	    done = minor_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
-	    DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
-	}
+
+    if (GEN_GCS(p) < MAX_GEN_GCS(p) && !(FLAGS(p) & F_NEED_FULLSWEEP)) {
+	DTRACE2(gc_minor_start, pidbuf, need);
+	reds = minor_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
+	DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
+	if (reds < 0)
+	    goto do_major_collection;
     }
+    else {
+    do_major_collection:
+	DTRACE2(gc_major_start, pidbuf, need);
+	reds = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
+	DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+    }
+
     reset_active_writer(p);
 
     /*
@@ -648,21 +671,20 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     p->last_old_htop = p->old_htop;
 #endif
 
-    /* FIXME: This function should really return an Sint, i.e., a possibly
-       64 bit wide signed integer, but that requires updating all the code
-       that calls it. For now, we just return INT_MAX if the result is too
-       large for an int. */
-    {
-      Sint result = (HEAP_TOP(p) - HEAP_START(p)) / 10;
-      if (result >= INT_MAX) return INT_MAX;
-      else return (int) result;
-    }
+    return reds;
 }
 
 int
-erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
+erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj)
 {
     return garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj);
+}
+
+void
+erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
+{
+    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj);
+    BUMP_REDS(p, reds);
 }
 
 /*
@@ -679,6 +701,7 @@ erts_garbage_collect_hibernate(Process* p)
     char* area;
     Uint area_size;
     Sint offs;
+    int reds;
 
     if (p->flags & F_DISABLE_GC)
 	ERTS_INTERNAL_ERROR("GC disabled");
@@ -774,6 +797,9 @@ erts_garbage_collect_hibernate(Process* p)
     ErtsGcQuickSanityCheck(p);
 
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+
+    reds = gc_cost(actual_size, actual_size);
+    BUMP_REDS(p, reds);
 }
 
 
@@ -988,16 +1014,21 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
     if (OLD_HEAP(p) &&
 	((mature_size <= OLD_HEND(p) - OLD_HTOP(p)) &&
 	 ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
-	Uint stack_size, size_after, need_after, new_sz;
+	Eterm *prev_old_htop;
+	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
 	stack_size = p->hend - p->stop;
 	new_sz = stack_size + size_before;
         new_sz = next_heap_size(p, new_sz, 0);
 
+	prev_old_htop = p->old_htop;
         do_minor(p, live_hf_end, (char *) mature, mature_size*sizeof(Eterm),
 		 new_sz, objv, nobj);
 
-        size_after = HEAP_TOP(p) - HEAP_START(p);
+	new_mature = p->old_htop - prev_old_htop;
+
+	size_after = new_mature;
+        size_after += HEAP_TOP(p) - HEAP_START(p);
         *recl += (size_before - size_after);
 
 	ErtsGcQuickSanityCheck(p);
@@ -1015,6 +1046,8 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
          * use a really small portion of new heap, therefore, unless
          * the heap size is substantial, we don't want to shrink.
          */
+
+	adjust_size = 0;
 
         if ((HEAP_SIZE(p) > 3000) && (4 * need_after < HEAP_SIZE(p)) &&
             ((HEAP_SIZE(p) > 8000) ||
@@ -1037,31 +1070,33 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 					       : next_heap_size(p, wanted, 0);
             if (wanted < HEAP_SIZE(p)) {
                 shrink_new_heap(p, wanted, objv, nobj);
+		adjust_size = p->htop - p->heap;
             }
 
-            ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
-            ASSERT(MBUF(p) == NULL);
-	    return 1;		/* We are done. */
+	    goto done;
         }
 
         if (HEAP_SIZE(p) >= need_after) {
 	    /*
 	     * The heap size turned out to be just right. We are done.
 	     */
-            ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
-            ASSERT(MBUF(p) == NULL);
-            return 1;
+	    goto done;
 	}
 
         grow_new_heap(p, next_heap_size(p, need_after, 0), objv, nobj);
-	return 1;
+	adjust_size = p->htop - p->heap;
+
+    done:
+	ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
+	ASSERT(MBUF(p) == NULL);
+
+	return gc_cost(size_after, adjust_size);
     }
 
     /*
      * Not enough room for a minor collection. Must force a major collection.
      */
-    FLAGS(p) |= F_NEED_FULLSWEEP;
-    return 0;
+    return -1;
 }
 
 /*
@@ -1340,12 +1375,13 @@ static int
 major_collection(Process* p, ErlHeapFragment *live_hf_end,
 		 int need, Eterm* objv, int nobj, Uint *recl)
 {
-    Uint size_before, stack_size;
+    Uint size_before, size_after, stack_size;
     Eterm* n_heap;
     Eterm* n_htop;
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
     Uint new_sz, stk_sz;
+    int adjusted;
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
@@ -1412,9 +1448,10 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     ErtsGcQuickSanityCheck(p);
 
-    *recl += size_before - (HEAP_TOP(p) - HEAP_START(p));
+    size_after = HEAP_TOP(p) - HEAP_START(p);
+    *recl += size_before - size_after;
 
-    adjust_after_fullsweep(p, need, objv, nobj);
+    adjusted = adjust_after_fullsweep(p, need, objv, nobj);
 
 #ifdef HARDDEBUG
     disallow_heap_frag_ref_in_heap(p);
@@ -1422,7 +1459,8 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     remove_message_buffers(p);
 
     ErtsGcQuickSanityCheck(p);
-    return 1;			/* We are done. */
+
+    return gc_cost(size_after, adjusted ? size_after : 0);
 }
 
 static Eterm *
@@ -1523,9 +1561,10 @@ full_sweep_heaps(Process *p,
     return n_htop;
 }
 
-static void
+static int
 adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
 {
+    int adjusted = 0;
     Uint wanted, sz, need_after;
     Uint stack_size = STACK_SZ_ON_HEAP(p);
     
@@ -1538,6 +1577,7 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
         /* Too small - grow to match requested need */
         sz = next_heap_size(p, need_after, 0);
         grow_new_heap(p, sz, objv, nobj);
+	adjusted = 1;
     } else if (3 * HEAP_SIZE(p) < 4 * need_after){
         /* Need more than 75% of current, postpone to next GC.*/
         FLAGS(p) |= F_HEAP_GROW;
@@ -1554,8 +1594,10 @@ adjust_after_fullsweep(Process *p, int need, Eterm *objv, int nobj)
 
         if (sz < HEAP_SIZE(p)) {
             shrink_new_heap(p, sz, objv, nobj);
+	    adjusted = 1;
         }
     }
+    return adjusted;
 }
 
 /*
