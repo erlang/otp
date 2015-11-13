@@ -216,11 +216,17 @@ map_to_tuple_keys(_M) ->
     erlang:nif_error(undefined).
 
 %% return the internal term type
--spec term_type(M) -> Type when
-    M :: term(),
-    Type :: 'flatmap' | 'hashmap' | 'hashmap_node' | 'small' | 'big' | 'ifloat' | 'hfloat'.
+-spec term_type(T) -> Type when
+    T :: term(),
+    Type :: 'flatmap' | 'hashmap' | 'hashmap_node'
+          | 'fixnum'  | 'bignum'  | 'hfloat'
+          | 'list' | 'tuple' | 'export' | 'fun'
+          | 'refc_binary' | 'heap_binary' | 'sub_binary'
+          | 'reference'   | 'external_reference'
+          | 'pid' | 'external_pid' | 'port' | 'external_port'
+          | 'atom' | 'catch' | 'nil'.
 
-term_type(_M) ->
+term_type(_T) ->
     erlang:nif_error(undefined).
 
 %% return the internal hashmap sub-nodes from
