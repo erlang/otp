@@ -51,7 +51,18 @@
 
 #define MAX_STRING_LEN 0xffff
 
-#define is_valid_creation(Cre) ((unsigned)(Cre) < MAX_CREATION)
+/* MAX value for the creation field in pid, port and reference
+   for the local node and for the current external format.
+
+   Larger creation values than this are allowed in external pid, port and refs
+   encoded with NEW_PID_EXT, NEW_PORT_EXT and NEWER_REFERENCE_EXT.
+   The point here is to prepare for future upgrade to 32-bit creation.
+   OTP-19 (erts-8.0) can handle big creation values from other (newer) nodes,
+   but do not use big creation values for the local node yet,
+   as we still may have to communicate with older nodes.
+*/
+#define ERTS_MAX_LOCAL_CREATION (3)
+#define is_valid_creation(Cre) ((unsigned)(Cre) <= ERTS_MAX_LOCAL_CREATION)
 
 #undef ERTS_DEBUG_USE_DIST_SEP
 #ifdef DEBUG
@@ -97,7 +108,7 @@ static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 struct B2TContext_t;
 static byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, byte*, Eterm*, struct B2TContext_t*);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
-static byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, byte*, Eterm*);
+static byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, byte*, Eterm*, byte tag);
 static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
 static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1);
 
@@ -2154,8 +2165,9 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     Uint on, os;
     Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS))
 		      ? am_Empty : pid_node_name(pid));
+    Uint32 creation = pid_creation(pid);
+    byte* tagp = ep++;
 
-    *ep++ = PID_EXT;
     /* insert  atom here containing host and sysname  */
     ep = enc_atom(acmp, sysname, ep, dflags);
 
@@ -2166,7 +2178,15 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
     ep += 4;
     put_int32(os, ep);
     ep += 4;
-    *ep++ = pid_creation(pid);
+    if (creation <= ERTS_MAX_LOCAL_CREATION) {
+        *tagp = PID_EXT;
+        *ep++ = creation;
+    } else {
+        ASSERT(is_external_pid(pid));
+        *tagp = NEW_PID_EXT;
+        put_int32(creation, ep);
+        ep += 4;
+    }
     return ep;
 }
 
@@ -2246,7 +2266,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     return ep;
 }
 
-static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint creation)
+static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation)
 {
     if (sysname == am_Empty)  /* && DFLAG_INTERNAL_TAGS */
 	return erts_this_node;
@@ -2259,13 +2279,14 @@ static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint creation)
 }
 
 static byte*
-dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep, Eterm* objp)
+dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
+        Eterm* objp, byte tag)
 {
     Eterm sysname;
     Uint data;
     Uint num;
     Uint ser;
-    Uint cre;
+    Uint32 cre;
     ErlNode *node;
 
     *objp = NIL;		/* In case we fail, don't leave a hole in the heap */
@@ -2281,12 +2302,19 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep, Eterm* objp)
     ep += 4;
     if (ser > ERTS_MAX_PID_SERIAL)
 	return NULL;
-    cre = get_int8(ep);
-    ep += 1;
 
-    if (!is_valid_creation(cre)) {
-	return NULL;
+    if (tag == PID_EXT) {
+        cre = get_int8(ep);
+        ep += 1;
+        if (!is_valid_creation(cre)) {
+            return NULL;
+        }
+    } else {
+        ASSERT(tag == NEW_PID_EXT);
+        cre = get_int32(ep);
+        ep += 4;
     }
+
     data = make_pid_data(ser, num);
 
     /*
@@ -2528,15 +2556,24 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    Uint32 *ref_num;
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj))
 			     ? am_Empty : ref_node_name(obj));
+            Uint32 creation = ref_creation(obj);
+            byte* tagp = ep++;
 
 	    ASSERT(dflags & DFLAG_EXTENDED_REFERENCES);
 
-	    *ep++ = NEW_REFERENCE_EXT;
 	    i = ref_no_of_numbers(obj);
 	    put_int16(i, ep);
 	    ep += 2;
 	    ep = enc_atom(acmp, sysname, ep, dflags);
-	    *ep++ = ref_creation(obj);
+            if (creation <= ERTS_MAX_LOCAL_CREATION) {
+                *tagp = NEW_REFERENCE_EXT;
+                *ep++ = creation;
+            } else {
+                ASSERT(is_external_ref(obj));
+                *tagp = NEWER_REFERENCE_EXT;
+                put_int32(creation, ep);
+                ep += 4;
+            }
 	    ref_num = ref_numbers(obj);
 	    for (j = 0; j < i; j++) {
 		put_int32(ref_num[j], ep);
@@ -2548,12 +2585,22 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case EXTERNAL_PORT_DEF: {
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj))
 			     ? am_Empty : port_node_name(obj));
-	    *ep++ = PORT_EXT;
+            Uint32 creation = port_creation(obj);
+            byte* tagp = ep++;
+
 	    ep = enc_atom(acmp, sysname, ep, dflags);
 	    j = port_number(obj);
 	    put_int32(j, ep);
 	    ep += 4;
-	    *ep++ = port_creation(obj);
+            if (creation <= ERTS_MAX_LOCAL_CREATION) {
+                *tagp = PORT_EXT;
+                *ep++ = creation;
+            } else {
+                ASSERT(is_external_port(obj));
+                *tagp = NEW_PORT_EXT;
+                put_int32(creation, ep);
+                ep += 4;
+            }
 	    break;
 	}
 	case LIST_DEF:
@@ -3259,20 +3306,23 @@ dec_term_atom_common:
 		hp += FLOAT_SIZE_OBJECT;
 		break;
 	    }
-	case PID_EXT:
+        case PID_EXT:
+        case NEW_PID_EXT:
 	    factory->hp = hp;
-	    ep = dec_pid(edep, factory, ep, objp);
+	    ep = dec_pid(edep, factory, ep, objp, ep[-1]);
 	    hp = factory->hp;
 	    if (ep == NULL) {
 		goto error;
 	    }
 	    break;
-	case PORT_EXT:
+        case PORT_EXT:
+        case NEW_PORT_EXT:
 	    {
 		Eterm sysname;
 		ErlNode *node;
 		Uint num;
-		Uint cre;
+		Uint32 cre;
+                byte tag = ep[-1];
 
 		if ((ep = dec_atom(edep, ep, &sysname)) == NULL) {
 		    goto error;
@@ -3281,12 +3331,17 @@ dec_term_atom_common:
 		    goto error;
 		}
 		ep += 4;
-		cre = get_int8(ep);
-		ep++;
-		if (!is_valid_creation(cre)) {
-		    goto error;
-		}
-
+                if (tag == PORT_EXT) {
+                    cre = get_int8(ep);
+                    ep++;
+                    if (!is_valid_creation(cre)) {
+                        goto error;
+                    }
+                }
+                else {
+                    cre = get_int32(ep);
+                    ep += 4;
+                }
 		node = dec_get_node(sysname, cre);
 		if(node == erts_this_node) {
 		    *objp = make_internal_port(num);
@@ -3311,7 +3366,7 @@ dec_term_atom_common:
 		Eterm sysname;
 		ErlNode *node;
 		int i;
-		Uint cre;
+		Uint32 cre;
 		Uint32 *ref_num;
 		Uint32 r0;
 		Uint ref_words;
@@ -3335,9 +3390,6 @@ dec_term_atom_common:
 		ref_words = get_int16(ep);
 		ep += 2;
 
-		if (ref_words > ERTS_MAX_REF_NUMBERS)
-		    goto error;
-
 		if ((ep = dec_atom(edep, ep, &sysname)) == NULL)
 		    goto error;
 
@@ -3350,8 +3402,23 @@ dec_term_atom_common:
 		ep += 4;
 		if (r0 >= MAX_REFERENCE)
 		    goto error;
+		goto ref_ext_common;
+
+            case NEWER_REFERENCE_EXT:
+		ref_words = get_int16(ep);
+		ep += 2;
+
+		if ((ep = dec_atom(edep, ep, &sysname)) == NULL)
+		    goto error;
+
+		cre = get_int32(ep);
+		ep += 4;
+		r0 = get_int32(ep); /* allow full word */
+		ep += 4;
 
 	    ref_ext_common:
+		if (ref_words > ERTS_MAX_REF_NUMBERS)
+		    goto error;
 
 		node = dec_get_node(sysname, cre);
 		if(node == erts_this_node) {
@@ -3705,9 +3772,9 @@ dec_term_atom_common:
 		*objp = make_fun(funp);
 
 		/* Creator pid */
-		if (*ep != PID_EXT 
-		    || (ep = dec_pid(edep, factory, ++ep,
-				     &funp->creator))==NULL) { 
+		if ((*ep != PID_EXT && *ep != NEW_PID_EXT)
+		    || (ep = dec_pid(edep, factory, ep+1,
+				     &funp->creator, *ep))==NULL) {
 		    goto error;
 		}
 
@@ -4009,20 +4076,29 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    else
 		result += 1 + 4 + 1 + i;  /* tag,size,sign,digits */
 	    break;
+        case EXTERNAL_PID_DEF:
+            if (external_pid_creation(obj) > ERTS_MAX_LOCAL_CREATION)
+                result += 3;
+            /*fall through*/
 	case PID_DEF:
-	case EXTERNAL_PID_DEF:
 	    result += (1 + encode_size_struct2(acmp, pid_node_name(obj), dflags) +
 		       4 + 4 + 1);
 	    break;
+        case EXTERNAL_REF_DEF:
+            if (external_ref_creation(obj) > ERTS_MAX_LOCAL_CREATION)
+                result += 3;
+            /*fall through*/
 	case REF_DEF:
-	case EXTERNAL_REF_DEF:
 	    ASSERT(dflags & DFLAG_EXTENDED_REFERENCES);
 	    i = ref_no_of_numbers(obj);
 	    result += (1 + 2 + encode_size_struct2(acmp, ref_node_name(obj), dflags) +
 		       1 + 4*i);
 	    break;
-	case PORT_DEF:
-	case EXTERNAL_PORT_DEF:
+        case EXTERNAL_PORT_DEF:
+            if (external_port_creation(obj) > ERTS_MAX_LOCAL_CREATION)
+                result += 3;
+            /*fall through*/
+        case PORT_DEF:
 	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags) +
 		      4 + 1);
 	    break;
@@ -4349,19 +4425,22 @@ init_done:
 	    SKIP(1+atom_extra_skip);
 	    atom_extra_skip = 0;
 	    break;
-	case PID_EXT:
+        case PID_EXT:
+        case NEW_PID_EXT:
 	    atom_extra_skip = 9;
 	    /* In case it is an external pid */
 	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
 	    terms++;
 	    break;
-	case PORT_EXT:
+        case PORT_EXT:
+        case NEW_PORT_EXT:
 	    atom_extra_skip = 5;
 	    /* In case it is an external port */
 	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
 	    terms++;
 	    break;
-	case NEW_REFERENCE_EXT:
+        case NEW_REFERENCE_EXT:
+	case NEWER_REFERENCE_EXT:
 	    {
 		int id_words;
 

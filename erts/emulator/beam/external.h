@@ -18,8 +18,6 @@
  * %CopyrightEnd%
  */
 
-/* Same order as the ordering of terms in erlang */
-
 /* Since there are 255 different External tag values to choose from
    There is no reason to not be extravagant.
    Hence, the different tags for large/small tuple e.t.c
@@ -37,9 +35,12 @@
 #define SMALL_ATOM_EXT    's'
 #define REFERENCE_EXT     'e'
 #define NEW_REFERENCE_EXT 'r'
+#define NEWER_REFERENCE_EXT 'Z'
 #define PORT_EXT          'f'
+#define NEW_PORT_EXT      'Y'
 #define NEW_FLOAT_EXT     'F'
 #define PID_EXT           'g'
+#define NEW_PID_EXT       'X'
 #define SMALL_TUPLE_EXT   'h'
 #define LARGE_TUPLE_EXT   'i'
 #define NIL_EXT           'j'
