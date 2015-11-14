@@ -147,7 +147,7 @@ decode_size(Data = <<?CR, ?LF, ChunkRest/binary>>, HexList, AccHeaderSize,
 	    {MaxBodySize, Body, 
 	     AccLength,
 	     MaxHeaderSize}) ->
-    try http_util:hexlist_to_integer(lists:reverse(HexList)) of
+    try http_util:hexlist_to_integer(lists:reverse(string:strip(HexList, left))) of
 	0 -> % Last chunk, there was no data
 	    ignore_extensions(Data, remaing_size(MaxHeaderSize, AccHeaderSize), MaxHeaderSize,
 			      {?MODULE, decode_trailer, 
