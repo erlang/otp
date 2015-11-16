@@ -25,11 +25,19 @@
 %% If Emakefile is missing the current directory is used.
 -module(make).
 
--export([all/0,all/1,files/1,files/2]).
+-export([all_or_nothing/0,all/0,all/1,files/1,files/2]).
 
 -include_lib("kernel/include/file.hrl").
 
 -define(MakeOpts,[noexec,load,netload,noload]).
+
+all_or_nothing() ->
+    case all() of
+        up_to_date ->
+            up_to_date;
+        error ->
+            halt(1)
+    end.
 
 all() ->
     all([]).
