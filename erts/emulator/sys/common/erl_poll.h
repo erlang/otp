@@ -140,7 +140,7 @@ struct erts_sys_fd_type {
 #endif
 
 #define ERTS_POLL_EV_E2N(EV) \
-  ((__uint32_t) (EV))
+  ((uint32_t) (EV))
 #define ERTS_POLL_EV_N2E(EV) \
   ((ErtsPollEvents) (EV))
 
