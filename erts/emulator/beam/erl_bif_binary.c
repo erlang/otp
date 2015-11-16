@@ -1614,6 +1614,10 @@ static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindStat
     Eterm *hp;
     Eterm ret;
 
+    if (bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)
+        && binary_size(subject) == 0) {
+        return NIL;
+    }
     hp = HAlloc(p, 2);
     ret = CONS(hp, subject, NIL);
 
