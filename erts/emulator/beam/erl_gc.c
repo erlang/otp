@@ -2741,6 +2741,57 @@ erts_gc_info_request(Process *c_p)
     return ref;
 }
 
+Eterm
+erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp)
+{
+    ERTS_DECL_AM(bin_vheap_size);
+    ERTS_DECL_AM(bin_vheap_block_size);
+    ERTS_DECL_AM(bin_old_vheap_size);
+    ERTS_DECL_AM(bin_old_vheap_block_size);
+    Eterm tags[] = {
+        /* If you increase the number of elements here, make sure to update
+           any call sites as they may have stack allocations that depend
+           on the number of elements here. */
+        am_old_heap_block_size,
+        am_heap_block_size,
+        am_mbuf_size,
+        am_recent_size,
+        am_stack_size,
+        am_old_heap_size,
+        am_heap_size,
+        AM_bin_vheap_size,
+        AM_bin_vheap_block_size,
+        AM_bin_old_vheap_size,
+        AM_bin_old_vheap_block_size
+    };
+    UWord values[] = {
+        OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
+        HEAP_SIZE(p),
+        MBUF_SIZE(p),
+        HIGH_WATER(p) - HEAP_START(p),
+        STACK_START(p) - p->stop,
+        OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
+        HEAP_TOP(p) - HEAP_START(p),
+        MSO(p).overhead,
+        BIN_VHEAP_SZ(p),
+        BIN_OLD_VHEAP(p),
+        BIN_OLD_VHEAP_SZ(p)
+    };
+
+    Eterm res = THE_NON_VALUE;
+
+    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(*tags));
+    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == ERTS_PROCESS_GC_INFO_MAX_TERMS);
+
+    res = erts_bld_atom_uword_2tup_list(hpp,
+                                        sizep,
+                                        sizeof(values)/sizeof(*values),
+                                        tags,
+                                        values);
+
+    return res;
+}
+
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 
 static int

@@ -41,6 +41,7 @@
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
 	 process_info_lock_reschedule3/1,
+         process_info_garbage_collection/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
@@ -75,7 +76,9 @@ all() ->
      process_info_other_dist_msg, process_info_2_list,
      process_info_lock_reschedule,
      process_info_lock_reschedule2,
-     process_info_lock_reschedule3, process_status_exiting,
+     process_info_lock_reschedule3,
+     process_info_garbage_collection,
+     process_status_exiting,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -930,6 +933,48 @@ start_spawner() ->
     ok.
 
 stop_spawner() ->
+    ok.
+
+%% Tests erlang:process_info(Pid, garbage_collection_info)
+process_info_garbage_collection(_Config) ->
+    Parent = self(),
+    Pid = spawn_link(
+            fun() ->
+                    receive go -> ok end,
+                    (fun F(0) ->
+                             Parent ! deep,
+                             receive ok -> ok end,
+                             [];
+                         F(N) ->
+                             timer:sleep(1),
+                             [lists:seq(1,100) | F(N-1)]
+                     end)(1000),
+                    Parent ! shallow,
+                    receive done -> ok end
+            end),
+    {garbage_collection_info, Before} =
+        erlang:process_info(Pid, garbage_collection_info),
+    Pid ! go, receive deep -> ok end,
+    {_, Deep} = erlang:process_info(Pid, garbage_collection_info),
+    Pid ! ok, receive shallow -> ok end,
+    {_, After} = erlang:process_info(Pid, garbage_collection_info),
+    Pid ! done,
+
+    %% Do some general checks to see if everything seems to be roughly correct
+    ct:log("Before: ~p",[Before]),
+    ct:log("Deep: ~p",[Deep]),
+    ct:log("After: ~p",[After]),
+
+    %% Check stack_size
+    true = proplists:get_value(stack_size, Before) < proplists:get_value(stack_size, Deep),
+    true = proplists:get_value(stack_size, After) < proplists:get_value(stack_size, Deep),
+
+    %% Check used heap size
+    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
+        < proplists:get_value(heap_size, Deep) + proplists:get_value(old_heap_size, Deep),
+    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
+        < proplists:get_value(heap_size, After) + proplists:get_value(old_heap_size, After),
+
     ok.
 
 %% Tests erlang:bump_reductions/1.

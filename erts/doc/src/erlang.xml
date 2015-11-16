@@ -4621,6 +4621,17 @@ os_prompt% </pre>
 	       The content of <c><anno>GCInfo</anno></c> can be changed without
 	       prior notice.</p>
           </item>
+          <tag><c>{garbage_collection_info, <anno>GCInfo</anno>}</c></tag>
+          <item>
+            <p><c><anno>GCInfo</anno></c> is a list containing miscellaneous
+	       detailed information about garbage collection for this process.
+	       The content of <c><anno>GCInfo</anno></c> can be changed without
+	       prior notice.
+               See <seealso marker="#gc_start">gc_start</seealso> in
+               <seealso marker="#trace/3">erlang:trace/3</seealso> for details about
+               what each item means.
+            </p>
+          </item>
           <tag><c>{group_leader, <anno>GroupLeader</anno>}</c></tag>
           <item>
             <p><c><anno>GroupLeader</anno></c> is group leader for the I/O of
