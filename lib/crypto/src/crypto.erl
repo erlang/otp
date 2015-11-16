@@ -211,8 +211,8 @@ supports()->
 
     [{hashs, Hashs},
      {ciphers, [des_cbc, des_cfb, des3_cbc, des_ede3, blowfish_cbc,
-		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cbc128, aes_cfb8, aes_cfb128,
-		aes_cbc256, rc2_cbc, aes_ctr, rc4, aes_ecb] ++ Ciphers},
+		blowfish_cfb64, blowfish_ofb64, blowfish_ecb, aes_cfb8, aes_cfb128,
+		rc2_cbc, aes_ctr, rc4, aes_ecb, aes_cbc] ++ Ciphers},
      {public_keys, [rsa, dss, dh, srp] ++ PubKeys}
     ].
 
@@ -282,7 +282,7 @@ hmac_final_n(_Context, _HashLen) -> ? nif_stub.
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc,
+		    blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | rc2_cbc | aes_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
 
@@ -302,6 +302,8 @@ block_encrypt(blowfish_cfb64, Key, Ivec, Data) ->
     blowfish_cfb64_encrypt(Key, Ivec, Data);
 block_encrypt(blowfish_ofb64, Key, Ivec, Data) ->
     blowfish_ofb64_encrypt(Key, Ivec, Data);
+block_encrypt(aes_cbc, Key, Ivec, Data) ->
+    aes_cbc_crypt(Key, Ivec, Data, true);
 block_encrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_encrypt(Key, Ivec, Data);
 block_encrypt(aes_cbc256, Key, Ivec, Data) ->
@@ -326,8 +328,8 @@ block_encrypt(rc2_cbc, Key, Ivec, Data) ->
     rc2_cbc_encrypt(Key, Ivec, Data).
 
 -spec block_decrypt(des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | blowfish_cbc |
-		    blowfish_cfb64 | blowfish_ofb64  | aes_cbc128 | aes_cbc256 | aes_ige256 |
-		    aes_cfb8 | aes_cfb128 | rc2_cbc,
+		    blowfish_cfb64 | blowfish_ofb64 | aes_cbc | aes_cbc128 | aes_cbc256 |
+		    aes_ige256 | aes_cfb8 | aes_cfb128 | rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
 		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
@@ -347,6 +349,8 @@ block_decrypt(blowfish_cfb64, Key, Ivec, Data) ->
     blowfish_cfb64_decrypt(Key, Ivec, Data);
 block_decrypt(blowfish_ofb64, Key, Ivec, Data) ->
     blowfish_ofb64_decrypt(Key, Ivec, Data);
+block_decrypt(aes_cbc, Key, Ivec, Data) ->
+    aes_cbc_crypt(Key, Ivec, Data, false);
 block_decrypt(aes_cbc128, Key, Ivec, Data) ->
     aes_cbc_128_decrypt(Key, Ivec, Data);
 block_decrypt(aes_cbc256, Key, Ivec, Data) ->
@@ -1286,7 +1290,7 @@ des_cfb_ivec(IVec, Data) ->
 
 
 %%
-%% AES - with 128 or 256 bit key in cipher block chaining mode (CBC)
+%% AES - with 128, 192, or 256 bit key in cipher block chaining mode (CBC)
 %%
 -spec aes_cbc_128_encrypt(iodata(), binary(), iodata()) ->
 				 binary().

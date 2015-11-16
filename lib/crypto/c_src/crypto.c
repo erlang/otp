@@ -2511,7 +2511,7 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     CHECK_OSE_CRYPTO();
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| (key_bin.size != 16 && key_bin.size != 32)
+	|| (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
 	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
 	|| ivec_bin.size != 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
@@ -2529,6 +2529,8 @@ static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     if (key_bin.size == 16)
 	cipher = EVP_aes_128_cbc();
+    else if (key_bin.size == 24)
+	cipher = EVP_aes_192_cbc();
     else if (key_bin.size == 32)
 	cipher = EVP_aes_256_cbc();
 
