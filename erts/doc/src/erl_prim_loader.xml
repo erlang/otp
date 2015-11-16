@@ -36,17 +36,11 @@
       the system. The start script is also fetched with this low level
       loader.</p>
     <p><c>erl_prim_loader</c> knows about the environment and how to
-      fetch modules. The loader could, for example, fetch files using
-      the file system (with absolute file names as input), or a
-      database (where the binary format of a module is stored).</p>
+      fetch modules.</p>
     <p>The <c>-loader Loader</c> command line flag can be used to
       choose the method used by the <c>erl_prim_loader</c>. Two
       <c>Loader</c> methods are supported by the Erlang runtime system:
-      <c>efile</c> and <c>inet</c>. If another loader is required, then
-      it has to be implemented by the user. The <c>Loader</c> provided
-      by the user must fulfill the protocol defined below, and it is
-      started with the <c>erl_prim_loader</c> by evaluating
-      <c>open_port({spawn,Loader},[binary])</c>.</p>
+      <c>efile</c> and <c>inet</c>.</p>
 
     <warning><p>The support for loading of code from archive files is
      experimental. The sole purpose of releasing it before it is ready
@@ -83,9 +77,6 @@
           started on each of hosts given in <c><anno>Hosts</anno></c> in order to
           answer the requests. See <seealso
           marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>.</p>
-        <p>If <c>-loader</c> is something else, the given port program
-          is started. The port program is supposed to follow
-          the protocol specified below.</p>
       </desc>
     </func>
     <func>
@@ -175,22 +166,6 @@
   </funcs>
 
   <section>
-    <title>Protocol</title>
-    <p>The following protocol must be followed if a user provided
-      loader port program is used. The <c>Loader</c> port program is
-      started with the command
-      <c>open_port({spawn,Loader},[binary])</c>. The protocol is as
-      follows:</p>
-    <pre>
-Function          Send               Receive
--------------------------------------------------------------
-get_file          [102 | FileName]   [121 | BinaryFile] (on success)
-                                     [122]              (failure)
-
-stop              eof                terminate</pre>
-  </section>
-
-  <section>
     <title>Command Line Flags</title>
     <p>The <c>erl_prim_loader</c> module interprets the following
       command line flags:</p>
@@ -199,10 +174,8 @@ stop              eof                terminate</pre>
       <item>
         <p>Specifies the name of the loader used by
           <c>erl_prim_loader</c>. <c>Loader</c> can be <c>efile</c>
-          (use the local file system), or <c>inet</c> (load using
-          the <c>boot_server</c> on another Erlang node). If
-          <c>Loader</c> is user defined, the defined <c>Loader</c> port
-          program is started.</p>
+          (use the local file system) or <c>inet</c> (load using
+          the <c>boot_server</c> on another Erlang node).</p>
         <p>If the <c>-loader</c> flag is omitted, it defaults to
           <c>efile</c>.</p>
       </item>
