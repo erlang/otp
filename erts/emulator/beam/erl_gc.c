@@ -734,6 +734,12 @@ erts_garbage_collect_hibernate(Process* p)
 			    p->arg_reg,
 			    p->arity);
 
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
+		   (p->abandoned_heap
+		    ? p->abandoned_heap
+		    : p->heap),
+		   p->heap_sz * sizeof(Eterm));
+
     p->heap = heap;
     p->high_water = htop;
     p->htop = htop;
@@ -1435,7 +1441,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 		   (p->abandoned_heap
 		    ? p->abandoned_heap
 		    : HEAP_START(p)),
-		   (HEAP_END(p) - HEAP_START(p)) * sizeof(Eterm));
+		   p->heap_sz * sizeof(Eterm));
     p->abandoned_heap = NULL;
     p->flags &= ~F_ABANDONED_HEAP_USE;
     HEAP_START(p) = n_heap;

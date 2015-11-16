@@ -11259,6 +11259,7 @@ erts_cleanup_empty_process(Process* p)
 static void
 delete_process(Process* p)
 {
+    Eterm *heap;
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
 
     /* Cleanup psd */
@@ -11283,16 +11284,17 @@ delete_process(Process* p)
      * Release heaps. Clobber contents in DEBUG build.
      */
 
-
-#ifdef DEBUG
-    sys_memset(p->heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
-#endif
-
 #ifdef HIPE
     hipe_delete_process(&p->hipe);
 #endif
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) p->heap, p->heap_sz*sizeof(Eterm));
+    heap = p->abandoned_heap ? p->abandoned_heap : p->heap;
+
+#ifdef DEBUG
+    sys_memset(heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
+#endif
+
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) heap, p->heap_sz*sizeof(Eterm));
     if (p->old_heap != NULL) {
 
 #ifdef DEBUG
@@ -11310,6 +11312,9 @@ delete_process(Process* p)
     if (p->mbuf != NULL) {	
 	free_message_buffer(p->mbuf);
     }
+
+    if (p->msg_frag)
+	erts_cleanup_messages(p->msg_frag);
 
     erts_erase_dicts(p);
 
