@@ -27,7 +27,7 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1, encoding/1]).
+         otp_11728/1, encoding/1, extends/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding].
+     encoding, extends].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1474,6 +1474,20 @@ encoding(Config) when is_list(Config) ->
 	 {attribute,1,module,encoding},
 	 {eof,4}],[{encoding,latin1}]} =
 	epp_parse_file(ErlFile, [{default_encoding,utf8},extra]),
+    ok.
+
+extends(Config) ->
+    Cs = [{extends_c1,
+	   <<"-extends(some.other.module).\n">>,
+	   {errors,[{1,erl_parse,["syntax error before: ","'.'"]}],[]}}],
+    [] = compile(Config, Cs),
+
+    Ts = [{extends_1,
+	   <<"-extends(some_other_module).\n"
+	     "t() -> {?BASE_MODULE,?BASE_MODULE_STRING}.\n">>,
+	   {some_other_module,"some_other_module"}}],
+
+    [] = run(Config, Ts),
     ok.
 
 
