@@ -117,7 +117,7 @@ copy_anno(Kdst, Ksrc) ->
 	       fcount=0,			%Fun counter
                ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
-	       free=[],				%Free variables
+	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
 	       guard_refc=0}).			%> 0 means in guard
 
@@ -1837,14 +1837,17 @@ handle_reuse_anno_1(V, _St) -> V.
 %% get_free(Name, Arity, State) -> [Free].
 %% store_free(Name, Arity, [Free], State) -> State.
 
-get_free(F, A, St) ->
-    case orddict:find({F,A}, St#kern.free) of
-	{ok,Val} -> Val;
-	error -> []
+get_free(F, A, #kern{free=FreeMap}) ->
+    Key = {F,A},
+    case FreeMap of
+	#{Key:=Val} -> Val;
+	_ -> []
     end.
 
-store_free(F, A, Free, St) ->
-    St#kern{free=orddict:store({F,A}, Free, St#kern.free)}.
+store_free(F, A, Free, #kern{free=FreeMap0}=St) ->
+    Key = {F,A},
+    FreeMap = FreeMap0#{Key=>Free},
+    St#kern{free=FreeMap}.
 
 break_rets({break,Rs}) -> Rs;
 break_rets(return) -> [].

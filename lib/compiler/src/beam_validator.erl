@@ -31,13 +31,6 @@
 
 -import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
-%%-define(DEBUG, 1).
--ifdef(DEBUG).
--define(DBG_FORMAT(F, D), (io:format((F), (D)))).
--else.
--define(DBG_FORMAT(F, D), ok).
--endif.
-
 %% To be called by the compiler.
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
@@ -168,29 +161,18 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 		% in the module (those that start with bs_start_match2).
 	}).
 
--ifdef(DEBUG).
-print_st(#st{x=Xs,y=Ys,numy=NumY,h=H,ct=Ct}) ->
-    io:format("  #st{x=~p~n"
-	      "      y=~p~n"
-	      "      numy=~p,h=~p,ct=~w~n",
-	      [gb_trees:to_list(Xs),gb_trees:to_list(Ys),NumY,H,Ct]).
--endif.
-
 validate_1(Is, Name, Arity, Entry, Ft) ->
     validate_2(labels(Is), Name, Arity, Entry, Ft).
 
 validate_2({Ls1,[{func_info,{atom,Mod},{atom,Name},Arity}=_F|Is]},
 	   Name, Arity, Entry, Ft) ->
-    lists:foreach(fun (_L) -> ?DBG_FORMAT("  ~p.~n", [{label,_L}]) end, Ls1),
-    ?DBG_FORMAT("  ~p.~n", [_F]),
     validate_3(labels(Is), Name, Arity, Entry, Mod, Ls1, Ft);
 validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
     error({{'_',Name,Arity},{first(Is),length(Ls1),illegal_instruction}}).
 
 validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
-    lists:foreach(fun (_L) -> ?DBG_FORMAT("  ~p.~n", [{label,_L}]) end, Ls2),
     Offset = 1 + length(Ls1) + 1 + length(Ls2),
-    EntryOK = (Entry =:= undefined) orelse lists:member(Entry, Ls2),
+    EntryOK = lists:member(Entry, Ls2),
     if
 	EntryOK ->
 	    St = init_state(Arity),
@@ -258,7 +240,6 @@ valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
 	    error({MFA,Error})
     end;
 valfun([I|Is], MFA, Offset, Vst0) ->
-    ?DBG_FORMAT("    ~p.\n", [I]),
     valfun(Is, MFA, Offset+1,
 	   try
 	       Vst = val_dsetel(I, Vst0),
@@ -276,7 +257,6 @@ valfun_1({label,Lbl}, #vst{current=St0,branched=B,labels=Lbls}=Vst) ->
 valfun_1(_I, #vst{current=none}=Vst) ->
     %% Ignore instructions after erlang:error/1,2, which
     %% the original R10B compiler thought would return.
-    ?DBG_FORMAT("Ignoring ~p\n", [_I]),
     Vst;
 valfun_1({badmatch,Src}, Vst) ->
     assert_term(Src, Vst),
@@ -1626,8 +1606,4 @@ min(A, B) when is_integer(A), is_integer(B) -> B.
 
 gb_trees_from_list(L) -> gb_trees:from_orddict(lists:sort(L)).
 
--ifdef(DEBUG).
-error(Error) -> exit(Error).
--else.
 error(Error) -> throw(Error).
--endif.

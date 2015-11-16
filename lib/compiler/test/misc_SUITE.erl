@@ -38,7 +38,11 @@
 -compile({no_auto_import,[byte_size/1]}).
 -import(erlang,[byte_size/1]).
 
-
+%% Cover the code for callback handling.
+-callback must_define_this_one() -> 'ok'.
+-callback do_something_strange(atom()) -> 'ok'.
+-optional_callbacks([do_something_strange/1]).
+-optional_callbacks([ignore_me]).		%Invalid; ignored.
 
 %% Include an opaque declaration to cover the stripping of
 %% opaque types from attributes in v3_kernel.
