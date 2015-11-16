@@ -596,6 +596,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
+    am_heap_free
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -643,6 +644,7 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
+    case am_heap_free:                          return 31;
     default:					return -1;
     }
 }
@@ -662,6 +664,7 @@ static Eterm pi_1_keys[] = {
     am_group_leader,
     am_total_heap_size,
     am_heap_size,
+    am_heap_free,
     am_stack_size,
     am_reductions,
     am_garbage_collection,
@@ -1387,6 +1390,15 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3);
 	res = erts_proc_get_error_handler(BIF_P);
 	break;
+
+    case am_heap_free: {
+        Uint hsz = 3;
+        Uint free_heap = HEAP_END(rp) - HEAP_TOP(rp);
+        (void) erts_bld_uint(NULL, &hsz, free_heap);
+        hp = HAlloc(BIF_P, hsz);
+        res = erts_bld_uint(&hp, NULL, free_heap);
+        break;
+    }
 
     case am_heap_size: {
 	Uint hsz = 3;
