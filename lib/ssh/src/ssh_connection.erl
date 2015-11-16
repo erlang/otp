@@ -662,7 +662,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     ReplyMsg =  {subsystem, ChannelId, WantReply, binary_to_list(SsName)},
     
     try
-	{ok, Pid} = start_subsytem(SsName, Connection, Channel0, ReplyMsg),
+	{ok, Pid} = start_subsystem(SsName, Connection, Channel0, ReplyMsg),
 	erlang:monitor(process, Pid),
 	Channel = Channel0#channel{user = Pid},
 	ssh_channel:cache_update(Cache, Channel),
@@ -1017,7 +1017,7 @@ start_cli(#connection{options = Options,
 		      sub_system_supervisor = SubSysSup}, ChannelId) ->
     start_channel(CbModule, ChannelId, Args, SubSysSup, Exec, Options).
 
-start_subsytem(BinName, #connection{options = Options,
+start_subsystem(BinName, #connection{options = Options,
 				    sub_system_supervisor = SubSysSup},
 	       #channel{local_id = ChannelId}, _ReplyMsg) ->
     Name = binary_to_list(BinName),
