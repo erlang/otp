@@ -811,6 +811,10 @@ otp_8130(Config) when is_list(Config) ->
            <<"\n-include(\"no such file.erl\").\n">>,
            {errors,[{{2,2},epp,{include,file,"no such file.erl"}}],[]}},
 
+          {otp_8130_c25,
+           <<"\n-define(A.\n">>,
+           {errors,[{{2,2},epp,{bad,define}}],[]}},
+
           {otp_8130_7,
            <<"-record(b, {b}).\n"
              "-define(A, {{a,#b.b.\n"

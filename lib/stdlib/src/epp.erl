@@ -820,59 +820,26 @@ scan_extends(_Ts, Ms) -> Ms.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',_}=Comma|Toks], _Def, From, St)
+scan_define([{'(',_Lp},{Type,_Lm,_}=Mac|Toks], Def, From, St)
   when Type =:= atom; Type =:= var ->
+    scan_define_1(Toks, Mac, Def, From, St);
+scan_define(_Toks, Def, From, St) ->
+    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+    wait_req_scan(St).
+
+scan_define_1([{',',_}=Comma|Toks], Mac,_Def, From, St) ->
     case catch macro_expansion(Toks, Comma) of
         Expansion when is_list(Expansion) ->
-            case dict:find({atom,M}, St#epp.macs) of
-                {ok, Defs} when is_list(Defs) ->
-                    %% User defined macros: can be overloaded
-                    case proplists:is_defined(none, Defs) of
-                        true ->
-                            epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
-                            wait_req_scan(St);
-                        false ->
-                            scan_define_cont(From, St,
-                                             {atom, M},
-                                             {none, {none,Expansion}})
-                    end;
-                {ok, _PreDef} ->
-                    %% Predefined macros: cannot be overloaded
-                    epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
-                    wait_req_scan(St);
-                error ->
-                    scan_define_cont(From, St,
-                                     {atom, M},
-                                     {none, {none,Expansion}})
-            end;
+	    scan_define_2(none, {none,Expansion}, Mac, From, St);
         {error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St)
     end;
-scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
-  when Type =:= atom; Type =:= var ->
+scan_define_1([{'(',_Lc}|Toks], Mac, Def, From, St) ->
     case catch macro_pars(Toks, []) of
-        {ok, {As,Me}} ->
+        {ok,{As,_}=MacroDef} ->
             Len = length(As),
-            case dict:find({atom,M}, St#epp.macs) of
-                {ok, Defs} when is_list(Defs) ->
-                    %% User defined macros: can be overloaded
-                    case proplists:is_defined(Len, Defs) of
-                        true ->
-                            epp_reply(From,{error,{loc(Mac),epp,{redefine,M}}}),
-                            wait_req_scan(St);
-                        false ->
-                            scan_define_cont(From, St, {atom, M},
-                                             {Len, {As, Me}})
-                    end;
-                {ok, _PreDef} ->
-                    %% Predefined macros: cannot be overloaded
-                    %% (There are currently no predefined F(...) macros.)
-                    epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
-                    wait_req_scan(St);
-                error ->
-                    scan_define_cont(From, St, {atom, M}, {Len, {As, Me}})
-            end;
+	    scan_define_2(Len, MacroDef, Mac, From, St);
 	{error,ErrL,What} ->
             epp_reply(From, {error,{ErrL,epp,What}}),
             wait_req_scan(St);
@@ -880,9 +847,29 @@ scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
             epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
             wait_req_scan(St)
     end;
-scan_define(_Toks, Def, From, St) ->
+scan_define_1(_Toks, _Mac, Def, From, St) ->
     epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
     wait_req_scan(St).
+
+scan_define_2(Arity, Def, {_,_,M}=Mac, From, St) ->
+    Key = {atom,M},
+    case dict:find(Key, St#epp.macs) of
+	{ok,Defs} when is_list(Defs) ->
+	    %% User defined macros: can be overloaded
+	    case proplists:is_defined(Arity, Defs) of
+		true ->
+		    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+		    wait_req_scan(St);
+		false ->
+		    scan_define_cont(From, St, Key, Arity, Def)
+	    end;
+	{ok,_PreDef} ->
+	    %% Predefined macros: cannot be overloaded
+	    epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
+	    wait_req_scan(St);
+	error ->
+	    scan_define_cont(From, St, Key, Arity, Def)
+    end.
 
 %%% Detection of circular macro expansions (which would either keep
 %%% the compiler looping forever, or run out of memory):
@@ -893,7 +880,7 @@ scan_define(_Toks, Def, From, St) ->
 %%% the information from St#epp.uses is traversed, and if a circularity
 %%% is detected, an error message is thrown.
 
-scan_define_cont(F, St, M, {Arity, Def}) ->
+scan_define_cont(F, St, M, Arity, Def) ->
     Ms = dict:append_list(M, [{Arity, Def}], St#epp.macs),
     try dict:append_list(M, [{Arity, macro_uses(Def)}], St#epp.uses) of
         U ->
