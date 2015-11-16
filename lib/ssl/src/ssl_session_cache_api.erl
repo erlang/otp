@@ -33,3 +33,4 @@
 -callback delete(db_handle(), key()) -> any().
 -callback foldl(fun(), term(), db_handle()) -> term().
 -callback select_session(db_handle(), {host(), inet:port_number()} | inet:port_number()) -> [#session{}].
+-callback size(db_handle()) -> integer().

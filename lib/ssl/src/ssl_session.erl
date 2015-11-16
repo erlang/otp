@@ -61,10 +61,12 @@ client_id(ClientInfo, Cache, CacheCb, OwnCert) ->
 	    SessionId
     end.
 
--spec valid_session(#session{}, seconds()) -> boolean().
+-spec valid_session(#session{}, seconds() | {invalidate_before, integer()}) -> boolean().
 %%
 %% Description: Check that the session has not expired
 %%--------------------------------------------------------------------
+valid_session(#session{time_stamp = TimeStamp}, {invalidate_before, Before}) ->
+    TimeStamp > Before;
 valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
     Now = erlang:monotonic_time(),
     Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),

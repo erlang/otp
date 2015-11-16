@@ -66,7 +66,7 @@
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
-      <item><p>Lifetime of the session data in seconds.</p></item>
+      <item><p>Maximum lifetime of the session data in seconds.</p></item>
 
       <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
       <item><p>Name of the session cache callback module that implements
@@ -77,6 +77,13 @@
 
       <item><p>List of extra user-defined arguments to the <c>init</c> function
       in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c></tag>
+      <tag><c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <item><p>Limits the growth of the clients/servers session cache,
+      if the maximum number of sessions is reached, the current cache entries will
+      be invalidated regardless of their remaining lifetime. Defaults to 1000.
+      </p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
