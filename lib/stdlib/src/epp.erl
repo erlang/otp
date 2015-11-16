@@ -797,35 +797,26 @@ scan_toks(Toks0, From, St) ->
     end.
 
 scan_module([{'-',_Lh},{atom,_Lm,module},{'(',_Ll}|Ts], Ms) ->
-    scan_module_1(Ts, [], Ms);
+    scan_module_1(Ts, Ms);
 scan_module([{'-',_Lh},{atom,_Lm,extends},{'(',_Ll}|Ts], Ms) ->
-    scan_extends(Ts, [], Ms);
+    scan_extends(Ts, Ms);
 scan_module(_Ts, Ms) -> Ms.
 
-scan_module_1([{atom,_,_}=A,{',',L}|Ts], As, Ms) ->
+scan_module_1([{atom,_,_}=A,{',',L}|Ts], Ms) ->
     %% Parameterized modules.
-    scan_module_1([A,{')',L}|Ts], As, Ms);
-scan_module_1([{atom,Ln,A},{')',_Lr}|_Ts], As, Ms0) ->
-    Mod = lists:concat(lists:reverse([A|As])),
-    Ms = dict:store({atom,'MODULE'},
-		     {none,[{atom,Ln,list_to_atom(Mod)}]}, Ms0),
-    dict:store({atom,'MODULE_STRING'}, {none,[{string,Ln,Mod}]}, Ms);
-scan_module_1([{atom,_Ln,A},{'.',_Lr}|Ts], As, Ms) ->
-    scan_module_1(Ts, [".",A|As], Ms);
-scan_module_1([{'.',_Lr}|Ts], As, Ms) ->
-    scan_module_1(Ts, As, Ms);
-scan_module_1(_Ts, _As, Ms) -> Ms.
+    scan_module_1([A,{')',L}|Ts], Ms);
+scan_module_1([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+    ModString = atom_to_list(A),
+    Ms = dict:store({atom,'MODULE'}, {none,[ModAtom]}, Ms0),
+    dict:store({atom,'MODULE_STRING'}, {none,[{string,Ln,ModString}]}, Ms);
+scan_module_1(_Ts, Ms) -> Ms.
 
-scan_extends([{atom,Ln,A},{')',_Lr}|_Ts], As, Ms0) ->
-    Mod = lists:concat(lists:reverse([A|As])),
-    Ms = dict:store({atom,'BASE_MODULE'},
-		     {none,[{atom,Ln,list_to_atom(Mod)}]}, Ms0),
-    dict:store({atom,'BASE_MODULE_STRING'}, {none,[{string,Ln,Mod}]}, Ms);
-scan_extends([{atom,_Ln,A},{'.',_Lr}|Ts], As, Ms) ->
-    scan_extends(Ts, [".",A|As], Ms);
-scan_extends([{'.',_Lr}|Ts], As, Ms) ->
-    scan_extends(Ts, As, Ms);
-scan_extends(_Ts, _As, Ms) -> Ms.
+scan_extends([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
+    ModString = atom_to_list(A),
+    Ms = dict:store({atom,'BASE_MODULE'}, {none,[ModAtom]}, Ms0),
+    dict:store({atom,'BASE_MODULE_STRING'},
+	       {none,[{string,Ln,ModString}]}, Ms);
+scan_extends(_Ts, Ms) -> Ms.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
