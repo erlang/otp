@@ -1005,6 +1005,8 @@ check_imask(IMask) when is_list(IMask) ->
     do_check_imask(IMask), 
     {ok, IMask}.
 
+do_check_imask([]) ->
+    ok;
 do_check_imask([0|IMask]) ->
     do_check_imask(IMask);
 do_check_imask([1|IMask]) ->
