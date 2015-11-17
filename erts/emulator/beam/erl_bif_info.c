@@ -1497,7 +1497,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_off_heap_message_queue:
-	res = BIF_P->flags & F_OFF_HEAP_MSGQ ? am_true : am_false;
+	res = rp->flags & F_OFF_HEAP_MSGQ ? am_true : am_false;
 	hp = HAlloc(BIF_P, 3);
 	break;
 
