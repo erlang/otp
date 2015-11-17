@@ -20,7 +20,7 @@
 -module(filename_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([absname/1, absname_2/1, 
+-export([absname_home/1, absname/1, absname_2/1,
 	 basename_1/1, basename_2/1,
 	 dirname/1, extension/1, join/1, t_nativename/1]).
 -export([pathtype/1,rootname/1,split/1,find_src/1]).
@@ -34,7 +34,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [absname, absname_2, basename_1, basename_2, dirname,
+    [absname_home, absname, absname_2, basename_1, basename_2, dirname,
      extension,
      join, pathtype, rootname, split, t_nativename, find_src,
      absname_bin, absname_bin_2, basename_bin_1, basename_bin_2, dirname_bin,
@@ -56,6 +56,31 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+-define(_assert(What),
+	begin ?line true = What end
+       ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+absname_home(Config) when is_list(Config) ->
+	case init:get_argument(home) of
+	{ok, [[Home]]} ->
+		case os:type() of
+		{win32, _} ->
+		    ok;
+		_ ->
+		    ?line ok = file:set_cwd("/"),
+		    ?_assert(Home ++ "/foo" =:= filename:absname("~/foo")),
+		    ?_assert(Home ++ "/../ebin" =:= filename:absname("~/../ebin")),
+		    ?_assert(Home ++ "/erlang" =:= filename:absname("~/erlang")),
+		    ?_assert(Home ++ "/erlang/src" =:= filename:absname("~/erlang/src")),
+		    ?_assert(Home ++ "/erlang/src" =:= filename:absname(["~/erl",'ang/s',"rc"])),
+		    ?_assert(Home ++ "/erlang/src" =:= filename:absname(["~/erl",'a','ng',"/",'s',"rc"])),
+		    ?_assert(Home ++ "/erlang/src" =:= filename:absname("~/erlang///src")),
+		    ?_assert(Home ++ "/file_sorter" =:= filename:absname(['~/' | file_sorter])),
+		    ok
+		end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -64,6 +64,14 @@
 
 -spec absname(Filename) -> file:filename_all() when
       Filename :: file:name_all().
+absname(<<$~, $/, RevPath/binary>>) ->
+    absname_home(RevPath);
+absname([$~, $/|RevPath]) ->
+    absname_home(RevPath);
+absname([Atom|Rest]) when is_atom(Atom) ->
+    absname(atom_to_list(Atom)++Rest);
+absname([List|Rest]) when is_list(List) ->
+    absname(List++Rest);
 absname(Name) ->
     {ok, Cwd} = file:get_cwd(),
     absname(Name, Cwd).
@@ -86,6 +94,12 @@ absname(Name, AbsBase) ->
 	    join([flatten(Name)]);
 	volumerelative ->
 	    absname_vr(split(Name), split(AbsBase), AbsBase)
+    end.
+
+absname_home(RevPath) ->
+    case init:get_argument(home) of
+    {ok, [[Home]]} -> absname(RevPath, Home);
+    _ -> absname(RevPath)
     end.
 
 %% Handles volumerelative names (on Windows only).
