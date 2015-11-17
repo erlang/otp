@@ -69,6 +69,9 @@ two_way_tags() -> [cipher,mac,compression].
     
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    ct:log("os:getenv(\"HOME\") = ~p~n"
+	   "init:get_argument(home) = ~p",
+	   [os:getenv("HOME"), init:get_argument(home)]),
     ct:log("~n~n"
 	   "OS ssh:~n=======~n~p~n~n~n"
 	   "Erl ssh:~n========~n~p~n~n~n"
@@ -358,7 +361,9 @@ start_pubkey_daemon(Opts, Config) ->
 setup_pubkey(Config) ->
     DataDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
-    ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
+    ssh_test_lib:setup_dsa(DataDir, UserDir),
+    ssh_test_lib:setup_rsa(DataDir, UserDir),
+    ssh_test_lib:setup_ecdsa("256", DataDir, UserDir),
     Config.
 
 
