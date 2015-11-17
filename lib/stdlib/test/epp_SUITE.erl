@@ -621,6 +621,10 @@ otp_8130(Config) when is_list(Config) ->
              "                2 end,\n"
              "          7),\n"
              "   {2,7} =\n"
+             "      ?M1(begin 1 = fun _Name () -> 1 end(),\n"
+             "                2 end,\n"
+             "          7),\n"
+             "   {2,7} =\n"
              "      ?M1(begin 1 = fun t0/0(),\n"
              "                2 end,\n"
              "          7),\n"
@@ -644,6 +648,9 @@ otp_8130(Config) when is_list(Config) ->
              "   {2,7} =\n"
              "      ?M1(begin yes = try 1 of 1 -> yes after foo end,\n"
              "                2 end,\n"
+             "          7),\n"
+             "   {[42],7} =\n"
+             "      ?M1([42],\n"
              "          7),\n"
              "ok.\n">>,
            ok},
@@ -728,10 +735,15 @@ otp_8130(Config) when is_list(Config) ->
            {errors,[{{2,2},epp,{include,lib,"$apa/foo.hrl"}}],[]}},
 
 
-          {otp_8130_c9,
+          {otp_8130_c9a,
            <<"-define(S, ?S).\n"
              "t() -> ?S.\n">>,
            {errors,[{{2,9},epp,{circular,'S', none}}],[]}},
+
+          {otp_8130_c9b,
+           <<"-define(S(), ?S()).\n"
+             "t() -> ?S().\n">>,
+           {errors,[{{2,9},epp,{circular,'S', 0}}],[]}},
 
           {otp_8130_c10,
            <<"\n-file.">>,
