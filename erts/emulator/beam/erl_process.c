@@ -335,7 +335,6 @@ static ErtsAlignedSchedulerSleepInfo *aligned_dirty_io_sched_sleep_info;
 
 static Uint last_reductions;
 static Uint last_exact_reductions;
-Uint erts_default_process_flags;
 Eterm erts_system_monitor;
 Eterm erts_system_monitor_long_gc;
 Uint erts_system_monitor_long_schedule;
@@ -682,7 +681,6 @@ erts_init_process(int ncpu, int proc_tab_size, int legacy_proc_tab)
 
     last_reductions = 0;
     last_exact_reductions = 0;
-    erts_default_process_flags = 0;
 }
 
 void
@@ -10737,7 +10735,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		   Eterm args,	/* Arguments for function (must be well-formed list). */
 		   ErlSpawnOpts* so) /* Options for spawn. */
 {
-    Uint flags = erts_default_process_flags;
+    Uint flags = 0;
     ErtsRunQueue *rq = NULL;
     Process *p;
     Sint arity;			/* Number of arguments. */
