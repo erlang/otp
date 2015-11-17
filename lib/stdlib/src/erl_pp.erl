@@ -347,16 +347,8 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/2).
 
-map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}, Prec) ->
-    map_assoc_typed(ltype(Ktype), Vtype, Prec).
-
-map_assoc_typed(B, {type,_,union,Ts}, Prec) ->
-    {first,[B,$\s],{seq,[],[],[],map_assoc_union_type(Ts, Prec)}};
-map_assoc_typed(B, Type, Prec) ->
-    {list,[{cstep,[B," =>"],ltype(Type, Prec)}]}.
-
-map_assoc_union_type([T|Ts], Prec) ->
-    [[leaf("=> "),ltype(T)] | ltypes(Ts, fun union_elem/2, Prec)].
+map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
+    {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]}.
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
@@ -370,9 +362,6 @@ field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
 typed(B, Type) ->
     {_L,_P,R} = type_inop_prec('::'),
     {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
-
-union_elem(T, Prec) ->
-    [leaf(" | "),ltype(T, Prec)].
 
 tuple_type(Ts, F) ->
     {seq,${,$},[$,],ltypes(Ts, F, 0)}.
