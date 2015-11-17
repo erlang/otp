@@ -373,6 +373,9 @@
        <desc>
 	 <p>Is to be called by client- and server-channel processes to send data to each other.
 	 </p>
+	 <p>The function <seealso marker="ssh:ssh_connection#subsystem/4">subsystem/4</seealso> and subsequent
+	 calls of <c>send/3,4,5</c> must be executed in the same process.
+	 </p>
        </desc>
      </func>
      
@@ -453,6 +456,9 @@
        <desc>
 	 <p>Is to be called by a client-channel process for requesting to execute a predefined
 	 subsystem on the server.
+	 </p>
+	 <p>The function <c>subsystem/4</c> and subsequent calls of 
+	 <seealso marker="ssh:ssh_connection#send/3">send/3,4,5</seealso> must be executed in the same process.
 	 </p>
        </desc>
     </func>
