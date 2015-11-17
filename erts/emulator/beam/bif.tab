@@ -646,7 +646,7 @@ bif erlang:copy_literals/2
 bif binary:split/2
 bif binary:split/3
 bif erts_debug:size_shared/1
-bif 'erl.system.debug':size_shared/1	ebif_erts_debug_size_shared_1
+bif erts_debug:copy_shared/1
 
 #
 # Obsolete
