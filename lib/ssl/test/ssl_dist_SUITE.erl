@@ -41,7 +41,7 @@
 %%--------------------------------------------------------------------
 all() ->
     [basic, payload, plain_options, plain_verify_options, listen_port_options,
-     listen_options].
+     listen_options, use_interface].
 
 groups() ->
     [].
@@ -351,6 +351,34 @@ do_listen_options(Prio, Config) ->
 
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+use_interface() ->
+    [{doc, "Test inet_dist_use_interface"}].
+use_interface(Config) when is_list(Config) ->
+    %% Force the node to listen only on the loopback interface.
+    IpString = "'{127,0,0,1}'",
+    Options = "-kernel inet_dist_use_interface " ++ IpString,
+
+    %% Start a node, and get the port number it's listening on.
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node1 = NH1#node_handle.nodename,
+    Name = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
+    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+    {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
+    
+    %% Now find the socket listening on that port, and check its sockname.
+    Sockets = apply_on_ssl_node(
+		NH1,
+		fun() ->
+			[inet:sockname(P) ||
+			    P <- erlang:ports(),
+			    {ok, Port} =:= (catch inet:port(P))]
+		end),
+    %% And check that it's actually listening on localhost.
+    [{ok,{{127,0,0,1},Port}}] = Sockets,
+
+    stop_ssl_node(NH1),
     success(Config).
 
 %%--------------------------------------------------------------------
