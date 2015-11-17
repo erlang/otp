@@ -1160,25 +1160,24 @@ macro_expansion([], Anno0) -> throw({error,loc(Anno0),premature_end}).
 %%  Expand the macros in a list of tokens, making sure that an expansion
 %%  gets the same location as the macro call.
 
-expand_macros(Type, MacT, M, Toks, Ms0) ->
-    %% (Type will always be 'atom')
+expand_macros(MacT, M, Toks, Ms0) ->
     {Ms, U} = Ms0,
     Lm = loc(MacT),
     Tinfo = element(2, MacT),
-    case expand_macro1(Type, Lm, M, Toks, Ms) of
+    case expand_macro1(Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
-	    check_uses([{{Type,M}, none}], [], U, Lm),
+	    check_uses([{{atom,M}, none}], [], U, Lm),
 	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], dict:new()), Ms0),
 	    expand_macros(Toks1++Toks, Ms0);
 	{ok,{As,Exp}} ->
-	    check_uses([{{Type,M}, length(As)}], [], U, Lm),
+	    check_uses([{{atom,M}, length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, dict:new()),
 	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), Ms0)
     end.
 
-expand_macro1(Type, Lm, M, Toks, Ms) ->
+expand_macro1(Lm, M, Toks, Ms) ->
     Arity = count_args(Toks, Lm, M),
-    case dict:find({Type,M}, Ms) of
+    case dict:find({atom,M}, Ms) of
         error -> %% macro not found
             throw({error,Lm,{undefined,M,Arity}});
         {ok, undefined} -> %% Predefined macro without definition
@@ -1220,13 +1219,13 @@ get_macro_uses({M,Arity}, U) ->
 %% Macro expansion
 %% Note: io:scan_erl_form() does not return comments or white spaces.
 expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(atom, MacT, M, Toks, Ms);
+    expand_macros(MacT, M, Toks, Ms);
 %% Special macros
 expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], Ms) ->
     Line = erl_scan:line(Tok),
     [{integer,Lm,Line}|expand_macros(Toks, Ms)];
 expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(atom, MacT, M, Toks, Ms);
+    expand_macros(MacT, M, Toks, Ms);
 %% Illegal macros
 expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
     T = case erl_scan:text(Token) of
