@@ -1518,15 +1518,17 @@ eval_tests(Config, Fun, Tests) ->
 
 check_test(Config, Test) ->
     Filename = "epp_test.erl",
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line File = filename:join(PrivDir, Filename),
-    ?line ok = file:write_file(File, Test),
-    ?line case epp:parse_file(File, [PrivDir], []) of
-              {ok,Forms} ->
-                  [E || E={error,_} <- Forms];
-              {error,Error} ->
-                  Error
-          end.
+    PrivDir = ?config(priv_dir, Config),
+    File = filename:join(PrivDir, Filename),
+    ok = file:write_file(File, Test),
+    case epp:parse_file(File, [PrivDir], []) of
+	{ok,Forms} ->
+	    Errors = [E || E={error,_} <- Forms],
+	    call_format_error([E || {error,E} <- Errors]),
+	    Errors;
+	{error,Error} ->
+	    Error
+    end.
 
 compile_test(Config, Test0) ->
     Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
