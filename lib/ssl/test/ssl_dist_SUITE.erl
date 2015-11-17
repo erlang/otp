@@ -40,7 +40,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [basic, payload, plain_options, plain_verify_options].
+    [basic, payload, plain_options, plain_verify_options, listen_port_options].
 
 groups() ->
     [].
@@ -246,6 +246,52 @@ plain_verify_options(Config) when is_list(Config) ->
 
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+listen_port_options() ->
+    [{doc, "Test specifying listening ports"}].
+listen_port_options(Config) when is_list(Config) ->
+    %% Start a node, and get the port number it's listening on.
+    NH1 = start_ssl_node(Config),
+    Node1 = NH1#node_handle.nodename,
+    Name1 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
+    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+    {Name1, Port1} = lists:keyfind(Name1, 1, NodesPorts),
+    
+    %% Now start a second node, configuring it to use the same port
+    %% number.
+    PortOpt1 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
+        " inet_dist_listen_max " ++ integer_to_list(Port1),
+    
+    try start_ssl_node([{additional_dist_opts, PortOpt1} | Config]) of
+	#node_handle{} ->
+	    %% If the node was able to start, it didn't take the port
+	    %% option into account.
+	    exit(unexpected_success)
+    catch
+	exit:{accept_failed, timeout} ->
+	    %% The node failed to start, as expected.
+	    ok
+    end,
+
+    %% Try again, now specifying a high max port.
+    PortOpt2 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
+        " inet_dist_listen_max 65535",
+    NH2 = start_ssl_node([{additional_dist_opts, PortOpt2} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
+    {ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
+    {Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
+
+    %% The new port should be higher:
+    if Port2 > Port1 ->
+	    ok;
+       true ->
+	    error({port, Port2, not_higher_than, Port1})
+    end,
 
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
