@@ -593,16 +593,7 @@ user_predef([{M,Val}|Pdm], Ms) when is_atom(M) ->
 	    user_predef(Pdm, dict:store({atom,M}, [{none, {none,Exp}}], Ms))
     end;
 user_predef([M|Pdm], Ms) when is_atom(M) ->
-    case dict:find({atom,M}, Ms) of
-	{ok,_Defs} when is_list(_Defs) -> %% User defined macros
-	    {error,{redefine,M}};
-	{ok,_Def} -> %% Predefined macros
-	    {error,{redefine_predef,M}};
-	error ->
-            A = line1(),
-	    user_predef(Pdm,
-	                dict:store({atom,M}, [{none, {none,[{atom,A,true}]}}], Ms))
-    end;
+    user_predef([{M,true}|Pdm], Ms);
 user_predef([Md|_Pdm], _Ms) -> {error,{bad,Md}};
 user_predef([], Ms) -> {ok,Ms}.
 
