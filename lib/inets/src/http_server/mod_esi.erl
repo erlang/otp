@@ -473,13 +473,12 @@ handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    ?hdrv("handle_body - exit", [{reason, Reason}]),
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_died, Pid, Reason})
-
+	    done
     after Timeout ->
 	    ?hdrv("handle_body - timeout", []),
 	    process_flag(trap_exit,false),
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_timeout, Pid})
+	    done
     end.
 
 erl_script_timeout(Db) ->
