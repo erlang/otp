@@ -40,7 +40,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [basic, payload, plain_options, plain_verify_options, listen_port_options].
+    [basic, payload, plain_options, plain_verify_options, listen_port_options,
+     listen_options].
 
 groups() ->
     [].
@@ -296,6 +297,61 @@ listen_port_options(Config) when is_list(Config) ->
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
     success(Config).
+%%--------------------------------------------------------------------
+listen_options() ->
+    [{doc, "Test inet_dist_listen_options"}].
+listen_options(Config) when is_list(Config) ->
+    Prio = 1,
+    case gen_udp:open(0, [{priority,Prio}]) of
+	{ok,Socket} ->
+	    case inet:getopts(Socket, [priority]) of
+		{ok,[{priority,Prio}]} ->
+		    ok = gen_udp:close(Socket),
+		    do_listen_options(Prio, Config);
+		_ ->
+		    ok = gen_udp:close(Socket),
+		    {skip,
+		     "Can not set priority "++integer_to_list(Prio)++
+			 " on socket"}
+	    end;
+	{error,_} ->
+	    {skip, "Can not set priority on socket"}
+    end.
+
+do_listen_options(Prio, Config) ->
+    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
+    PriorityString =
+	case os:cmd("echo [{a,1}]") of
+	    "[{a,1}]"++_ ->
+		PriorityString0;
+	    _ ->
+		%% Some shells need quoting of [{}]
+		"'"++PriorityString0++"'"
+	end,
+
+    Options = "-kernel inet_dist_listen_options " ++ PriorityString,
+
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    PrioritiesNode1 =
+	apply_on_ssl_node(NH1, fun get_socket_priorities/0),
+    PrioritiesNode2 =
+	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
+
+    Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
+    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
+    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    [_|_] = Elevated1,
+    [_|_] = Elevated2,
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
@@ -310,6 +366,12 @@ tstsrvr_format(Fmt, ArgList) ->
 send_to_tstcntrl(Message) ->
     send_to_tstsrvr({message, Message}).
 
+get_socket_priorities() ->
+    [Priority ||
+	{ok,[{priority,Priority}]} <-
+	    [inet:getopts(Port, [priority]) ||
+		Port <- erlang:ports(),
+		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
 
 %%
 %% test_server side api

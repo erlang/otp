@@ -84,7 +84,6 @@ listen_options(Opts0) ->
         end,
     case application:get_env(kernel, inet_dist_listen_options) of
         {ok,ListenOpts} ->
-            erlang:display({inet_dist_listen_options, ListenOpts}),
             ListenOpts ++ Opts1;
         _ ->
             Opts1
