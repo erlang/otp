@@ -1914,20 +1914,7 @@ void process_main(void)
 	 if (DT_UTAG(c_p) != NIL) {
 	     if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
 		 SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
-#ifdef DTRACE_TAG_HARDDEBUG
-		 if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) 
-		     erts_fprintf(stderr,
-				  "Dtrace -> (%T) stop spreading "
-				  "tag %T with message %T\r\n",
-				  c_p->common.id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
-#endif
 	     } else {
-#ifdef DTRACE_TAG_HARDDEBUG
-		 erts_fprintf(stderr,
-			      "Dtrace -> (%T) kill tag %T with "
-			      "message %T\r\n",
-			      c_p->common.id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
-#endif
 		 DT_UTAG(c_p) = NIL;
 		 SEQ_TRACE_TOKEN(c_p) = NIL;
 	     }
@@ -1947,12 +1934,6 @@ void process_main(void)
 		 DT_UTAG(c_p) = ERL_MESSAGE_DT_UTAG(msgp);
 	     }
 	     DT_UTAG_FLAGS(c_p) |= DT_UTAG_SPREADING;
-#ifdef DTRACE_TAG_HARDDEBUG
-	     erts_fprintf(stderr,
-			  "Dtrace -> (%T) receive tag (%T) "
-			  "with message %T\r\n",
-			  c_p->common.id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
-#endif
 	 } else {
 #endif
 	     ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
