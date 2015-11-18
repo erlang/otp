@@ -117,7 +117,7 @@ groups() ->
      {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
      {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
      {http_1_1, [], [host, chunked, expect, cgi, cgi_chunked_encoding_test,
-		     trace, range, if_modified_since] ++ http_head() ++ http_get() ++ load()},
+		     trace, range, if_modified_since, mod_esi_chunk_timeout] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()}
     ].
@@ -756,6 +756,13 @@ esi(Config) when is_list(Config) ->
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
 		     Config, [{statuscode, 200},
 		      {no_header, "cache-control"}]).
+%%-------------------------------------------------------------------------
+mod_esi_chunk_timeout(Config) when is_list(Config) -> 
+    ok = httpd_1_1:mod_esi_chunk_timeout(?config(type, Config), 
+					 ?config(port, Config),
+					 ?config(host, Config),
+					 ?config(node, Config)).
+
 %%-------------------------------------------------------------------------
 cgi() ->
     [{doc, "Test mod_cgi"}].

@@ -630,21 +630,10 @@ decrease(N) when is_integer(N) ->
 decrease(N) ->
     N.
 
-error_log(ReasonString, Info) ->
+error_log(ReasonString,  #mod{config_db = ConfigDB}) ->
     Error = lists:flatten(
 	      io_lib:format("Error reading request: ~s", [ReasonString])),
-    error_log(mod_log, Info, Error),
-    error_log(mod_disk_log, Info, Error).
-
-error_log(Mod, #mod{config_db = ConfigDB} = Info, String) ->
-    Modules = httpd_util:lookup(ConfigDB, modules,
-				[mod_get, mod_head, mod_log]),
-    case lists:member(Mod, Modules) of
-	true ->
-	    Mod:error_log(Info, String);
-	_ ->
-	    ok
-    end.
+    httpd_util:error_log(ConfigDB, Error).
 
 
 %%--------------------------------------------------------------------
