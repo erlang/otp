@@ -164,12 +164,12 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     {term, X} = runner:get_term(P3, 10000),
     true = is_integer(X),
     Message = [112,term_to_binary({6,self(),'',test}),
-               term_to_binary({From,10000,
+               term_to_binary({From,50000,
                                {app,["lapp",{sa,["att",du,{slapp,
                                                            sitta}]}]}})],
     gen_tcp:send(SocketB,Message),
 
-    %% At this point the test program starts sending messages (max 10000). Since 
+    %% At this point the test program starts sending messages (max 50000). Since
     %% we're not receiving, eventually the send buffer fills up. Then no more 
     %% sending is possible and select() times out. The number of messages sent
     %% before this happens is returned in Iters. The timeout value for get_term/2
