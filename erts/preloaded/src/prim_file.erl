@@ -1276,6 +1276,7 @@ lseek_position(_) ->
 %% Translates the response from the driver into 
 %% {ok, Result} or {error, Reason}.
 
+-dialyzer({no_improper_lists, translate_response/2}).
 translate_response(?FILE_RESP_OK, []) ->
     ok;
 translate_response(?FILE_RESP_ERROR, List) when is_list(List) ->
