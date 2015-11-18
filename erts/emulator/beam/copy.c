@@ -923,10 +923,6 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
  *  Using an ESTACK but not very transparently; consider refactoring
  */
 
-#ifdef SHCOPY_DISABLE
-int disable_copy_shared = ERTS_SHCOPY_FLG_NONE;
-#endif
-
 #define DECLARE_SHTABLE(s)					\
     DECLARE_ESTACK(s);						\
     Uint ESTK_CONCAT(s,_offset) = 0
@@ -1034,7 +1030,7 @@ do {								\
  *  Copy object "obj" preserving sharing.
  *  First half: count size and calculate sharing.
  */
-Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
+Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 {
     Uint sum;
     Uint e;
@@ -1057,13 +1053,6 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
 
     if (IS_CONST(obj))
 	return 0;
-
-#ifdef SHCOPY_DISABLE
-    flags |= disable_copy_shared;
-#endif
-
-    if (flags & ERTS_SHCOPY_FLG_NONE)
-	return size_object(obj);
 
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_calculate %p\n", mypid, obj));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] message is %T\n", mypid, obj));
@@ -1299,7 +1288,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info, Uint32 flags)
  *  Second half: copy and restore the object.
  */
 Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
-                         Eterm** hpp, ErlOffHeap* off_heap, Uint32 flags) {
+                         Eterm** hpp, ErlOffHeap* off_heap) {
     Uint e;
     unsigned sz;
     Eterm* ptr;
@@ -1327,13 +1316,6 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 
     if (IS_CONST(obj))
 	return obj;
-
-#ifdef SHCOPY_DISABLE
-    flags |= disable_copy_shared;
-#endif
-
-    if (flags & ERTS_SHCOPY_FLG_NONE)
-	return copy_struct(obj, size, hpp, off_heap);
 
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] copy_shared_perform %p\n", mypid, obj));
 

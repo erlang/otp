@@ -97,20 +97,14 @@ erts_debug_copy_shared_1(BIF_ALIST_1)
     Eterm* hp;
     Eterm copy;
     erts_shcopy_t info;
-#ifdef SHCOPY_DISABLE
-    extern int disable_copy_shared;
-#endif
     INITIALIZE_SHCOPY(info);
 
-    size = copy_shared_calculate(term, &info, 0);
+    size = copy_shared_calculate(term, &info);
     if (size > 0) {
       hp = HAlloc(p, size);
     }
-    copy = copy_shared_perform(term, size, &info, &hp, &p->off_heap, 0);
+    copy = copy_shared_perform(term, size, &info, &hp, &p->off_heap);
     DESTROY_SHCOPY(info);
-#ifdef SHCOPY_DISABLE
-    disable_copy_shared = 0;
-#endif
     BIF_RET(copy);
 }
 

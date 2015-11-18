@@ -665,7 +665,6 @@ erts_send_message(Process* sender,
 #endif
     erts_aint32_t receiver_state;
 #ifdef SHCOPY_SEND
-    unsigned shflags = (flags & ERTS_SND_FLG_SHCOPY_MASK) >> ERTS_SND_FLG_SHCOPY_SHIFT;
     erts_shcopy_t info;
 #endif
     BM_STOP_TIMER(system);
@@ -716,7 +715,7 @@ erts_send_message(Process* sender,
 
 #ifdef SHCOPY_SEND
         INITIALIZE_SHCOPY(info);
-        msize = copy_shared_calculate(message, &info, shflags);
+        msize = copy_shared_calculate(message, &info);
 #else
         msize = size_object(message);
 #endif
@@ -737,7 +736,7 @@ erts_send_message(Process* sender,
 
 #ifdef SHCOPY_SEND
 	if (is_not_immed(message))
-            message = copy_shared_perform(message, msize, &info, &hp, ohp, shflags);
+            message = copy_shared_perform(message, msize, &info, &hp, ohp);
         DESTROY_SHCOPY(info);
 #else
 	if (is_not_immed(message))
@@ -786,7 +785,7 @@ erts_send_message(Process* sender,
 	    BM_SWAP_TIMER(send,size);
 #ifdef SHCOPY_SEND
             INITIALIZE_SHCOPY(info);
-            msize = copy_shared_calculate(message, &info, shflags);
+            msize = copy_shared_calculate(message, &info);
 #else
             msize = size_object(message);
 #endif
@@ -801,7 +800,7 @@ erts_send_message(Process* sender,
 	    BM_SWAP_TIMER(send,copy);
 #ifdef SHCOPY_SEND
             if (is_not_immed(message))
-                message = copy_shared_perform(message, msize, &info, &hp, ohp, shflags);
+                message = copy_shared_perform(message, msize, &info, &hp, ohp);
             DESTROY_SHCOPY(info);
 #else
             if (is_not_immed(message))

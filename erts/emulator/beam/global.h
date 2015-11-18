@@ -1052,13 +1052,7 @@ void erl_error(char*, va_list);
 #ifdef SHCOPY
 #define SHCOPY_SEND
 #define SHCOPY_SPAWN
-/* Use this if you want sharing-preserving copy to be initially disabled */
-#undef SHCOPY_DISABLE
 #endif
-
-#define ERTS_SHCOPY_FLG_MASK    (((Uint32) 3) << 0)
-#define ERTS_SHCOPY_FLG_NONE    (((Uint32) 1) << 0)
-#define ERTS_SHCOPY_FLG_TMPBUF  (((Uint32) 1) << 1) /* forces INHEAP to true */
 
 /* The persistent state while the sharing-preserving copier works */
 
@@ -1106,8 +1100,8 @@ Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
 Uint size_object(Eterm);
-Uint copy_shared_calculate(Eterm, erts_shcopy_t*, Uint32);
-Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*, Uint32);
+Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
+Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Uint size_shared(Eterm);
 

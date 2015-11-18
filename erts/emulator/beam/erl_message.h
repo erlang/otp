@@ -238,11 +238,6 @@ do {									\
 
 #define ERTS_SND_FLG_NO_SEQ_TRACE		(((unsigned) 1) << 0)
 
-#define ERTS_SND_FLG_SHCOPY_SHIFT	1
-#define ERTS_SND_FLG_SHCOPY_MASK        (ERTS_SHCOPY_FLG_MASK   << ERTS_SND_FLG_SHCOPY_SHIFT)
-#define ERTS_SND_FLG_SHCOPY_NONE        (ERTS_SHCOPY_FLG_NONE   << ERTS_SND_FLG_SHCOPY_SHIFT)
-#define ERTS_SND_FLG_SHCOPY_TMPBUF      (ERTS_SHCOPY_FLG_TMPBUF << ERTS_SND_FLG_SHCOPY_SHIFT)
-
 #define ERTS_HEAP_FRAG_SIZE(DATA_WORDS) \
    (sizeof(ErlHeapFragment) - sizeof(Eterm) + (DATA_WORDS)*sizeof(Eterm))
 
