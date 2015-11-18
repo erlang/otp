@@ -11520,31 +11520,44 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 {
     ErtsMessage *mp;
     ErlOffHeap *ohp;
+    Eterm* hp;
+    Eterm mess;
+#ifdef SHCOPY_SEND
+    erts_shcopy_t info;
+#endif
 
     if (token == NIL 
 #ifdef USE_VM_PROBES
 	|| token == am_have_dt_utag
 #endif
 	) {
-	Eterm* hp;
-	Eterm mess;
-
-	mp = erts_alloc_message_heap(to, to_locksp,
-				     term_size, &hp, &ohp);
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        term_size = copy_shared_calculate(exit_term, &info);
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
+        mess = copy_shared_perform(exit_term, term_size, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
+#endif
 	erts_queue_message(to, to_locksp, mp, mess, NIL);
     } else {
-	Eterm* hp;
-	Eterm mess;
 	Eterm temp_token;
 	Uint sz_token;
 
 	ASSERT(is_tuple(token));
 	sz_token = size_object(token);
-
-	mp = erts_alloc_message_heap(to, to_locksp,
-				     term_size+sz_token, &hp, &ohp);
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        term_size = copy_shared_calculate(exit_term, &info);
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
+        mess = copy_shared_perform(exit_term, term_size, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
+	mp = erts_alloc_message_heap(to, to_locksp, term_size+sz_token, &hp, &ohp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
+#endif
 	/* the trace token must in this case be updated by the caller */
 	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->common.id, NULL);
 	temp_token = copy_struct(token, sz_token, &hp, ohp);

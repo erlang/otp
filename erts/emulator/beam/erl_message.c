@@ -850,6 +850,9 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     Eterm temptoken;
     ErtsMessage* mp;
     ErlOffHeap *ohp;
+#ifdef SHCOPY_SEND
+    erts_shcopy_t info;
+#endif
 
     if (token != NIL
 #ifdef USE_VM_PROBES
@@ -858,13 +861,23 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	) {
 
 	ASSERT(is_tuple(token));
-	sz_reason = size_object(reason);
 	sz_token = size_object(token);
 	sz_from = size_object(from);
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        sz_reason = copy_shared_calculate(reason, &info);
+#else
+	sz_reason = size_object(reason);
+#endif
 	mp = erts_alloc_message_heap(to, to_locksp,
 				     sz_reason + sz_from + sz_token + 4,
 				     &hp, &ohp);
+#ifdef SHCOPY_SEND
+        mess = copy_shared_perform(reason, sz_reason, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
 	mess = copy_struct(reason, sz_reason, &hp, ohp);
+#endif
 	from_copy = copy_struct(from, sz_from, &hp, ohp);
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
 	hp += 4;
@@ -873,13 +886,22 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	temptoken = copy_struct(token, sz_token, &hp, ohp);
 	erts_queue_message(to, to_locksp, mp, save, temptoken);
     } else {
-	sz_reason = size_object(reason);
 	sz_from = IS_CONST(from) ? 0 : size_object(from);
-
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        sz_reason = copy_shared_calculate(reason, &info);
+#else
+	sz_reason = size_object(reason);
+#endif
 	mp = erts_alloc_message_heap(to, to_locksp,
 				     sz_reason+sz_from+4, &hp, &ohp);
 
+#ifdef SHCOPY_SEND
+        mess = copy_shared_perform(reason, sz_reason, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
 	mess = copy_struct(reason, sz_reason, &hp, ohp);
+#endif
 	from_copy = (IS_CONST(from)
 		     ? from
 		     : copy_struct(from, sz_from, &hp, ohp));
