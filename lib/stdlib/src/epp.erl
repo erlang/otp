@@ -543,7 +543,8 @@ init_server(Pid, Name, Options, St0) ->
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
-            enter_file_reply(From, Name, Anno, AtLocation, code),
+            enter_file_reply(From, file_name(Name), Anno,
+			     AtLocation, code),
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
@@ -678,7 +679,7 @@ enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
                generated -> erl_anno:set_generated(true, Anno0)
            end,
     Rep = {ok, [{'-',Anno},{atom,Anno,file},{'(',Anno},
-		{string,Anno,file_name(Name)},{',',Anno},
+		{string,Anno,Name},{',',Anno},
 		{integer,Anno,get_line(LocationAnno)},{')',LocationAnno},
                 {dot,Anno}]},
     epp_reply(From, Rep).
