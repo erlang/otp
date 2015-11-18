@@ -235,10 +235,27 @@ start_daemon(Host, Port, Options, Inet) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions}->
-	    do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    try 
+		do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    catch
+		throw:bad_fd -> {error,bad_fd};
+		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+	    end
     end.
     
-do_start_daemon(Host, Port, Options, SocketOptions) ->
+do_start_daemon(Host0, Port0, Options, SocketOptions) ->
+    {Host,Port} = try
+	       case proplists:get_value(fd, SocketOptions) of
+		   undefined ->
+		       {Host0,Port0};
+		   Fd when Port0==0 ->
+		       find_hostport(Fd);
+		   _ ->
+		       {Host0,Port0}
+	       end
+	   catch
+	       _:_ -> throw(bad_fd)
+	   end,
     Profile = proplists:get_value(profile, Options, ?DEFAULT_PROFILE),
     case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
@@ -271,6 +288,22 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 		    Other
 	    end
     end.
+
+find_hostport(Fd) ->
+    %% Using internal functions inet:open/8 and inet:close/0.
+    %% Don't try this at home unless you know what you are doing!
+    {ok,S} = inet:open(Fd, {0,0,0,0}, 0, [], tcp, inet, stream, inet_tcp),
+    {ok, HostPort} = inet:sockname(S),
+    ok = inet:close(S),
+    HostPort.
+    
+%% find_port(Fd) ->
+%%     %% Hack....
+%%     {ok,TmpSock} = gen_tcp:listen(0,[{fd,Fd}]),
+%%     {ok, {_,ThePort}} = inet:sockname(TmpSock),
+%%     gen_tcp:close(TmpSock),
+%%     ThePort.
+
 
 handle_options(Opts) ->
     try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of

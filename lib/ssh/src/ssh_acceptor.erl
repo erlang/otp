@@ -56,7 +56,12 @@ acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
 	    error
     end.
    
-do_socket_listen(Callback, Port, Opts) ->
+do_socket_listen(Callback, Port0, Opts) ->
+    Port =
+	case proplists:get_value(fd, Opts) of
+	    undefined -> Port0;
+	    _ -> 0
+	end,
     case Callback:listen(Port, Opts) of
 	{error, nxdomain} ->
 	    Callback:listen(Port, lists:delete(inet6, Opts));
