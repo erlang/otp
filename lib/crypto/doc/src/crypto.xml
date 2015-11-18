@@ -66,29 +66,29 @@
  <section>
     <title>DATA TYPES </title>
     
-    <p><code>key_value()  = integer() | binary() </code></p>
+    <code>key_value()  = integer() | binary() </code>
     <p>Always <c>binary()</c> when used as return value</p>
 
-    <p><code>rsa_public()  = [key_value()] = [E, N]  </code></p>
+    <code>rsa_public()  = [key_value()] = [E, N]  </code>
     <p> Where E is the public exponent and N is public modulus. </p>
 
-    <p><code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code></p>
+    <code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code>
     <p>Where E is the public exponent, N is public modulus and D is
     the private exponent.The longer key format contains redundant
     information that will make the calculation faster. P1,P2 are first
     and second prime factors. E1,E2 are first and second exponents. C
     is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
 
-    <p><code>dss_public() = [key_value()] = [P, Q, G, Y] </code></p>
+    <code>dss_public() = [key_value()] = [P, Q, G, Y] </code>
     <p>Where P, Q and G are the dss parameters and Y is the public key.</p>
 
-    <p><code>dss_private() =  [key_value()] = [P, Q, G, X] </code></p>
+    <code>dss_private() =  [key_value()] = [P, Q, G, X] </code>
     <p>Where P, Q and G are the dss parameters and X is the private key.</p>
 
-    <p><code>srp_public() = key_value() </code></p>
+    <code>srp_public() = key_value() </code>
     <p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
-    <p><code>srp_private() = key_value() </code></p>
+    <code>srp_private() = key_value() </code>
     <p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
     <p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
@@ -96,29 +96,29 @@
     Version = '3' |  '6' |  '6a'
     </p>
 
-    <p><code>dh_public() = key_value() </code></p>
+    <code>dh_public() = key_value() </code>
 
-    <p><code>dh_private() = key_value() </code></p>
+    <code>dh_private() = key_value() </code>
 
-    <p><code>dh_params() = [key_value()] = [P, G] </code></p>
+    <code>dh_params() = [key_value()] = [P, G] </code>
 
-    <p><code>ecdh_public() = key_value() </code></p>
+    <code>ecdh_public() = key_value() </code>
 
-    <p><code>ecdh_private() = key_value() </code></p>
+    <code>ecdh_private() = key_value() </code>
 
-    <p><code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code></p>
+    <code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code>
 
-    <p><code>ec_explicit_curve() =
-    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
+    <code>ec_explicit_curve() =
+    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code>
 
-    <p><code>ec_field() = {prime_field, Prime :: integer()} |
-    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code></p>
+    <code>ec_field() = {prime_field, Prime :: integer()} |
+    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code>
 
-    <p><code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
+    <code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
     {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} |
-    onbasis</code></p>
+    onbasis</code>
 
-    <p><code>ec_named_curve() ->
+    <code>ec_named_curve() ->
       sect571r1| sect571k1| sect409r1| sect409k1| secp521r1| secp384r1| secp224r1| secp224k1|
       secp192k1| secp160r2| secp128r2| secp128r1| sect233r1| sect233k1| sect193r2| sect193r1|
       sect131r2| sect131r1| sect283r1| sect283k1| sect163r2| secp256k1| secp160k1| secp160r1|
@@ -128,42 +128,42 @@
       brainpoolP224t1| brainpoolP256r1| brainpoolP256t1| brainpoolP320r1| brainpoolP320t1|
       brainpoolP384r1| brainpoolP384t1| brainpoolP512r1| brainpoolP512t1
     </code>
-    Note that the <em>sect</em> curves are GF2m (characteristic two) curves and are only supported if the
+    <p>Note that the <em>sect</em> curves are GF2m (characteristic two) curves and are only supported if the
     underlying OpenSSL has support for them.
     See also <seealso marker="#supports-0">crypto:supports/0</seealso>
     </p>
 
-     <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
+     <code>stream_cipher() = rc4 | aes_ctr </code>
 
-     <p><code>block_cipher() =  aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
+     <code>block_cipher() =  aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
-     | des_ede3 | rc2_cbc </code></p>
+     | des_ede3 | rc2_cbc </code>
 
-     <p><code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code></p>
+     <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
 
-     <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
+     <code>stream_key() =  aes_key() | rc4_key() </code>
 
-     <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
+     <code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code>
 
-     <p><code>aes_key() = iodata() </code> Key length is 128, 192 or 256 bits</p>
+     <code>aes_key() = iodata() </code> <p>Key length is 128, 192 or 256 bits</p>
 
-     <p><code>rc4_key() = iodata() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
+     <code>rc4_key() = iodata() </code> <p>Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
 
-     <p><code>blowfish_key() = iodata() </code> Variable key length from 32 bits up to 448 bits</p>
+     <code>blowfish_key() = iodata() </code> <p>Variable key length from 32 bits up to 448 bits</p>
 
-     <p><code>des_key() = iodata() </code> Key length is 64 bits (in CBC mode only 8 bits are used)</p>
+     <code>des_key() = iodata() </code> <p>Key length is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
+     <code>des3_key() = [binary(), binary(), binary()] </code> <p>Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
+     <code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code>
 
-     <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is also supported for hash_init/1 and hash/2.
+     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> <p>md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
-     <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code> </p>
-     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
-     Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
+     <code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code>
+     <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
+     <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
      </p>
 
@@ -381,8 +381,8 @@
       </type>
       <desc>
         <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
-        <c>Key</c> as the authentication key.</p> <c>MacLength</c>
-        will limit the size of the resultant <c>Mac</c>.
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
       </desc>
     </func>
 
@@ -650,7 +650,7 @@
 	<p>Creates a digital signature.</p>
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
-	See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>
+	<p>See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>.</p>
       </desc>
     </func>
 
@@ -802,7 +802,7 @@
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 
-	See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>
+	<p>See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>.</p>
       </desc>
     </func>
 

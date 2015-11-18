@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2014</year>
+      <year>2004</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -216,9 +216,9 @@
           <p>
 	    Thanks to Simon Cornish</p>
           <p>
-	    Own Id: OTP-12760 Aux Id: <a
+	    Own Id: OTP-12760 Aux Id: <url
 	    href="https://github.com/erlang/otp/pull/715">pull req
-	    715</a> </p>
+	    715</url> </p>
         </item>
         <item>
           <p>
@@ -384,13 +384,13 @@
         </item>
         <item>
           <p>
-	    Made Codenomicon Defensics test suite pass: <list>
+	    Made Codenomicon Defensics test suite pass:</p> <list>
 	    <item>limit number of algorithms in kexinit
 	    message</item> <item>check 'e' and 'f' parameters in
 	    kexdh</item> <item>implement 'keyboard-interactive' user
 	    authentication on server side</item> <item> return plain
 	    text message to bad version exchange message</item>
-	    </list></p>
+	    </list>
           <p>
 	    Own Id: OTP-12784</p>
         </item>

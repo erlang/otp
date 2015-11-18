@@ -622,12 +622,12 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. 
 	<c>LogName</c> defaults to "snmpa_log". 
-	<c>LogFile</c> defaults to "snmpa.log". 
+	<c>LogFile</c> defaults to "snmpa.log".</p>
 	<p>The <c>Block</c> option indicates if the log should be blocked
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>

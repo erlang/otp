@@ -76,8 +76,7 @@
     <c>{Domain, Addr}</c> tuple where <c>Domain</c> is
     <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv4</c>,
     and <c>Addr</c> is an
-    <c>{<seealso marker="kernel:inet#type-ip_address">IpAddr</seealso>,
-    IpPort}</c> tuple.</p>
+    <c>{</c><seealso marker="kernel:inet#type-ip_address"><c>IpAddr</c></seealso><c>,IpPort}</c> tuple.</p>
 
     <section>
       <marker id="outgoing_messages"></marker>
