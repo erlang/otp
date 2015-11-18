@@ -25,11 +25,10 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
--define(dummy_host,test01).
-
 -export([all/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
          framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
+	 ei_connect_tmo/0,
          ei_recv_tmo/1]).
 
 suite() ->
@@ -196,6 +195,8 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
 
 
 %% Check accept with timeouts.
+ei_connect_tmo() -> [{require, test_host_not_reachable}].
+
 ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
@@ -311,12 +312,13 @@ make_node(X) ->
 
 make_and_check_dummy() ->
     % First check that the host has an ip and is *not* reachable
-    case gen_tcp:connect(?dummy_host,23,[{active,false}],5000) of
+    HostNotReachable = ct:get_config(test_host_not_reachable),
+    case gen_tcp:connect(HostNotReachable, 23, [{active,false}],5000) of
         {error,timeout} -> ok;
         {error,ehostunreach} -> ok
     end,
 
-    list_to_atom("dummy@"++atom_to_list(?dummy_host)).
+    list_to_atom("dummy@"++HostNotReachable).
 
 %%
 %% Stolen from the erl_distribution_wb_test in kernel
