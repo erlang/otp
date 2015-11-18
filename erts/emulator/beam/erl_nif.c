@@ -379,9 +379,19 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;
     Eterm* hp;
+#ifdef SHCOPY
+    erts_shcopy_t info;
+    INITIALIZE_SHCOPY(info);
+    sz = copy_shared_calculate(src_term, &info);
+    hp = alloc_heap(dst_env, sz);
+    src_term = copy_shared_perform(src_term, sz, &info, &hp, &MSO(dst_env->proc));
+    DESTROY_SHCOPY(info);
+    return src_term;
+#else
     sz = size_object(src_term);
     hp = alloc_heap(dst_env, sz);
     return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
+#endif
 }
 
 
