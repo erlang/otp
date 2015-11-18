@@ -32,22 +32,23 @@
 
   <section>
     <marker id="general"></marker>
-    <title>General information</title>
+    <title>General Information</title>
 
-    <p>The two main interfaces for running tests with Common Test
-      are an executable program named <c>ct_run</c> and an
-      erlang module named <c>ct</c>. The ct_run program
-      is compiled for the underlying operating system (e.g. Unix/Linux
-      or Windows) during the build of the Erlang/OTP system, and is
-      installed automatically with other executable programs in
+    <p>The two main interfaces for running tests with <c>Common Test</c>
+      are an executable program named 
+      <seealso marker="ct_run"><c>ct_run</c></seealso> and the
+      Erlang module <seealso marker="ct"><c>ct</c></seealso>. 
+      <c>ct_run</c> is compiled for the underlying operating system (for example,
+      Unix/Linux or Windows) during the build of the Erlang/OTP system, 
+      and is installed automatically with other executable programs in
       the top level <c>bin</c> directory of Erlang/OTP.
       The <c>ct</c> interface functions can be called from the Erlang shell,
       or from any Erlang function, on any supported platform.</p>
 
-    <p>The Common Test application is installed with the Erlang/OTP
-      system and no additional installation step is required to start using
-      Common Test by means of the <c>ct_run</c> executable program, and/or
-      the interface functions in the <c>ct</c> module.</p>
+    <p>The <c>Common Test</c> application is installed with the Erlang/OTP
+      system. No extra installation step is required to start using
+      <c>Common Test</c> through the <c>ct_run</c> executable program, 
+      and/or the interface functions in the <c>ct</c> module.</p>
     </section>
 </chapter>
 
