@@ -691,22 +691,15 @@ erts_send_message(Process* sender,
 #ifdef USE_VM_PROBES
 	Uint dt_utag_size = 0;
 #endif
-#ifdef SHCOPY_SEND
-        unsigned shflags = (flags & ERTS_SND_FLG_SHCOPY_MASK) >> ERTS_SND_FLG_SHCOPY_SHIFT;
-        erts_shcopy_t info;
-        INITIALIZE_SHCOPY(info);
-#endif
-	BM_SWAP_TIMER(send,size);
-#ifdef SHCOPY_SEND
-        INITIALIZE_SHCOPY(info);
-        msize = copy_shared_calculate(message, &info, shflags);
-#else
-        msize = size_object(message);
-#endif
-	BM_SWAP_TIMER(size,send);
+        BM_SWAP_TIMER(send,size);
 
+        /* SHCOPY corrupts the heap between
+         * copy_shared_calculate, and
+         * copy_shared_perform. (it inserts move_markers like the gc).
+         * Make sure we don't use the heap between those instances.
+         */
 #ifdef USE_VM_PROBES
-	if (stoken != am_have_dt_utag) {
+        if (stoken != am_have_dt_utag) {
 #endif
 	    seq_trace_update_send(sender);
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
@@ -714,23 +707,31 @@ erts_send_message(Process* sender,
 	    seq_trace_size = 6; /* TUPLE5 */
 #ifdef USE_VM_PROBES
 	}
-	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
-	    dt_utag_size = size_object(DT_UTAG(sender));
-	} else if (stoken == am_have_dt_utag ) {
-	    stoken = NIL;
-	}
+        if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
+            dt_utag_size = size_object(DT_UTAG(sender));
+        } else if (stoken == am_have_dt_utag ) {
+            stoken = NIL;
+        }
 #endif
 
-	mp = erts_alloc_message_heap_state(receiver,
-					   &receiver_state,
-					   receiver_locks,
-					   (msize
-#ifdef USE_VM_PROBES
-					    + dt_utag_size
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        msize = copy_shared_calculate(message, &info, shflags);
+#else
+        msize = size_object(message);
 #endif
-					    + seq_trace_size),
-					   &hp,
-					   &ohp);
+        BM_SWAP_TIMER(size,send);
+
+        mp = erts_alloc_message_heap_state(receiver,
+                                           &receiver_state,
+                                           receiver_locks,
+                                           (msize
+#ifdef USE_VM_PROBES
+                                            + dt_utag_size
+#endif
+                                            + seq_trace_size),
+                                           &hp,
+                                           &ohp);
 
         BM_SWAP_TIMER(send,copy);
 
