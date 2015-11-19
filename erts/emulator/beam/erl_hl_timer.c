@@ -2891,6 +2891,26 @@ erts_print_bif_timer_info(int to, void *to_arg)
     }
 }
 
+static void
+btm_acc(ErtsHLTimer *tmr, void *vcount)
+{
+    Uint *count = (Uint *) vcount;
+    (*count)++;
+}
+
+Uint erts_timer_count(void)
+{
+    Uint count = 0;
+    int six;
+
+    for (six = 0; six < erts_no_schedulers; six++) {
+        ErtsHLTimerService *srv =
+                    erts_aligned_scheduler_data[six].esd.timer_service;
+        btm_rbt_foreach(srv->btm_tree, btm_acc, (void *) &count);
+    }
+    return count;
+}
+
 typedef struct {
     void (*func)(Eterm,
 		 Eterm,
