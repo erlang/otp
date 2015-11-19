@@ -36,6 +36,8 @@
 	 cli/1,
 	 close/1,
 	 daemon_already_started/1, 
+	 daemon_opt_fd/1,
+	 multi_daemon_opt_fd/1,
 	 double_close/1, 
 	 exec/1,
 	 exec_compressed/1,  
@@ -85,6 +87,8 @@ all() ->
      {group, internal_error},
      daemon_already_started,
      double_close,
+     daemon_opt_fd,
+     multi_daemon_opt_fd,
      packet_size_zero,
      ssh_info_print
     ].
@@ -703,6 +707,68 @@ double_close(Config) when is_list(Config) ->
     
     exit(CM, {shutdown, normal}),
     ok = ssh:close(CM).
+
+%%--------------------------------------------------------------------
+daemon_opt_fd(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    {ok,S1} = gen_tcp:listen(0,[]),
+    {ok,Fd1} = prim_inet:getfd(S1),
+    
+    {ok,Pid1} = ssh:daemon(0, [{system_dir, SystemDir},
+			       {fd,Fd1},
+			       {user_dir, UserDir},
+			       {user_passwords, [{"vego", "morot"}]},
+			       {failfun, fun ssh_test_lib:failfun/2}]),
+    
+    {ok,{_Host1,Port1}} = inet:sockname(S1),
+    {ok, C1} = ssh:connect("localhost", Port1, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user, "vego"},
+					  {password, "morot"},
+					  {user_interaction, false}]),
+    exit(C1, {shutdown, normal}),
+    ssh:stop_daemon(Pid1),
+    gen_tcp:close(S1).
+
+
+%%--------------------------------------------------------------------
+multi_daemon_opt_fd(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    Test = 
+	fun() ->
+		{ok,S} = gen_tcp:listen(0,[]),
+		{ok,Fd} = prim_inet:getfd(S),
+
+		{ok,Pid} = ssh:daemon(0, [{system_dir, SystemDir},
+					  {fd,Fd},
+					  {user_dir, UserDir},
+					  {user_passwords, [{"vego", "morot"}]},
+					  {failfun, fun ssh_test_lib:failfun/2}]),
+
+		{ok,{_Host,Port}} = inet:sockname(S),
+		{ok, C} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+							  {user_dir, UserDir},
+							  {user, "vego"},
+							  {password, "morot"},
+							  {user_interaction, false}]),
+		{S,Pid,C}
+	end,
+
+    Tests = [Test(),Test(),Test(),Test(),Test(),Test()],
+
+    [begin 
+	 gen_tcp:close(S),
+	 ssh:stop_daemon(Pid),
+	 exit(C, {shutdown, normal})
+     end || {S,Pid,C} <- Tests].
 
 %%--------------------------------------------------------------------
 packet_size_zero(Config) ->
