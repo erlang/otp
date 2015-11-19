@@ -440,8 +440,15 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
 
     ERTS_HOLE_CHECK(p);
 
-    if (p->live_hf_end == ERTS_INVALID_HFRAG_PTR)
+    if ((p->flags & F_DISABLE_GC)
+	&& p->live_hf_end == ERTS_INVALID_HFRAG_PTR) {
+	/*
+	 * A BIF yielded with disabled GC. Remember
+	 * heap fragments created by the BIF until we
+	 * do next GC.
+	 */
 	p->live_hf_end = live_hf_end;
+    }
 
     if (need == 0)
 	return 1;
@@ -564,10 +571,12 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
 
-    if (p->flags & F_DISABLE_GC)
+    if (p->flags & (F_DISABLE_GC|F_DELAY_GC))
 	return delay_garbage_collection(p, live_hf_end, need);
 
-    if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR)
+    if (p->abandoned_heap)
+	live_hf_end = ERTS_INVALID_HFRAG_PTR;
+    else if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR)
 	live_hf_end = p->live_hf_end;
 
     esdp = erts_get_scheduler_data();

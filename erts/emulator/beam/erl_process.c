@@ -9262,6 +9262,8 @@ Process *schedule(Process *p, int calls)
     } else {
     sched_out_proc:
 
+	ASSERT(!(p->flags & F_DELAY_GC));
+
 #ifdef ERTS_SMP
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 	esdp = p->scheduler_data;

@@ -1288,10 +1288,22 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_HAVE_BLCKD_MSCHED  (1 <<  8) /* Process has blocked multi-scheduling */
 #define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
-#define F_DISABLE_GC         (1 << 11) /* Disable GC */
+#define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
 #define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
 #define F_OFF_HEAP_MSGQ_CHNG (1 << 13) /* Off heap msg queue changing */
 #define F_ABANDONED_HEAP_USE (1 << 14) /* Have usage of abandoned heap */
+#define F_DELAY_GC           (1 << 15) /* Similar to disable GC (see below) */
+
+/*
+ * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
+ * GC of the process, but it is important to use the right
+ * one:
+ * - F_DISABLE_GC should *only* be used by BIFs. This when
+ *   the BIF needs to yield while preventig a GC.
+ * - F_DELAY_GC should only be used when GC is temporarily
+ *   disabled while the process is scheduled. A process must
+ *   not be scheduled out while F_DELAY_GC is set.
+ */
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)

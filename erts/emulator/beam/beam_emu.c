@@ -1843,8 +1843,8 @@ void process_main(void)
       * in the queue. This since messages with data outside
       * the heap will be corrupted by a GC.
       */
-     ASSERT(!(c_p->flags & F_DISABLE_GC));
-     c_p->flags |= F_DISABLE_GC;
+     ASSERT(!(c_p->flags & F_DELAY_GC));
+     c_p->flags |= F_DELAY_GC;
 
  loop_rec__:
      PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -1858,7 +1858,7 @@ void process_main(void)
 	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     SWAPOUT;
-	     c_p->flags &= ~F_DISABLE_GC;
+	     c_p->flags &= ~F_DELAY_GC;
 	     goto do_schedule; /* Will be rescheduled for exit */
 	 }
 	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
@@ -1868,7 +1868,7 @@ void process_main(void)
 	 else
 #endif
 	 {
-	     c_p->flags &= ~F_DISABLE_GC;
+	     c_p->flags &= ~F_DELAY_GC;
 	     SET_I((BeamInstr *) Arg(0));
 	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
 	 }
@@ -1997,7 +1997,7 @@ void process_main(void)
      CANCEL_TIMER(c_p);
 
      erts_save_message_in_proc(c_p, msgp);
-     c_p->flags &= ~F_DISABLE_GC;
+     c_p->flags &= ~F_DELAY_GC;
 
      if (ERTS_IS_GC_DESIRED_INTERNAL(c_p, HTOP, E)) {
 	 /*
@@ -2019,7 +2019,7 @@ void process_main(void)
      */
  OpCase(loop_rec_end_f): {
 
-     ASSERT(c_p->flags & F_DISABLE_GC);
+     ASSERT(c_p->flags & F_DELAY_GC);
 
      SET_I((BeamInstr *) Arg(0));
      SAVE_MESSAGE(c_p);
@@ -2028,7 +2028,7 @@ void process_main(void)
 	 goto loop_rec__;
      }
 
-     c_p->flags &= ~F_DISABLE_GC;
+     c_p->flags &= ~F_DELAY_GC;
      c_p->i = I;
      SWAPOUT;
      c_p->arity = 0;
