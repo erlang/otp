@@ -11526,11 +11526,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
     erts_shcopy_t info;
 #endif
 
-    if (token == NIL 
-#ifdef USE_VM_PROBES
-	|| token == am_have_dt_utag
-#endif
-	) {
+    if (!have_seqtrace(token)) {
 #ifdef SHCOPY_SEND
         INITIALIZE_SHCOPY(info);
         term_size = copy_shared_calculate(exit_term, &info);
@@ -11670,11 +11666,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     if ((state & ERTS_PSFLG_TRAP_EXIT)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-	if (is_not_nil(token) 
-#ifdef USE_VM_PROBES
-	    && token != am_have_dt_utag
-#endif
-	    && token_update)
+        if (have_seqtrace(token))
 	    seq_trace_update_send(token_update);
 	if (is_value(exit_tuple))
 	    send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);

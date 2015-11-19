@@ -1046,11 +1046,7 @@ seq_trace_update_send(Process *p)
 {
     Eterm seq_tracer = erts_get_system_seq_tracer();
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
-    if ( (p->common.id == seq_tracer) || (SEQ_TRACE_TOKEN(p) == NIL)
-#ifdef USE_VM_PROBES
-	 || (SEQ_TRACE_TOKEN(p) == am_have_dt_utag)
-#endif
-	 ) {
+    if ((p->common.id == seq_tracer) || have_no_seqtrace(SEQ_TRACE_TOKEN(p))) {
 	return 0;
     }
     SEQ_TRACE_TOKEN_SENDER(p) = p->common.id;

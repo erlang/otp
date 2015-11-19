@@ -314,7 +314,7 @@ erts_queue_dist_message(Process *rcvr,
 		DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
 		dtrace_proc_str(rcvr, receiver_name);
-		if (token != NIL && token != am_have_dt_utag) {
+                if (have_seqtrace(token)) {
 		    tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
 		    tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
 		    tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -335,7 +335,7 @@ erts_queue_dist_message(Process *rcvr,
             DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
             dtrace_proc_str(rcvr, receiver_name);
-            if (token != NIL && token != am_have_dt_utag) {
+            if (have_seqtrace(token)) {
                 tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
                 tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
                 tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -697,15 +697,13 @@ erts_send_message(Process* sender,
          * copy_shared_perform. (it inserts move_markers like the gc).
          * Make sure we don't use the heap between those instances.
          */
-#ifdef USE_VM_PROBES
-        if (stoken != am_have_dt_utag) {
-#endif
+        if (have_seqtrace(stoken)) {
 	    seq_trace_update_send(sender);
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
 			     receiver->common.id, sender);
 	    seq_trace_size = 6; /* TUPLE5 */
-#ifdef USE_VM_PROBES
 	}
+#ifdef USE_VM_PROBES
         if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
             dt_utag_size = size_object(DT_UTAG(sender));
         } else if (stoken == am_have_dt_utag ) {
@@ -765,7 +763,7 @@ erts_send_message(Process* sender,
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(message_send)) {
-	    if (stoken != NIL && stoken != am_have_dt_utag) {
+            if (have_seqtrace(stoken)) {
 		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
 		tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
 		tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
@@ -854,12 +852,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     erts_shcopy_t info;
 #endif
 
-    if (token != NIL
-#ifdef USE_VM_PROBES
-	&& token != am_have_dt_utag
-#endif
-	) {
-
+    if (have_seqtrace(token)) {
 	ASSERT(is_tuple(token));
 	sz_token = size_object(token);
 	sz_from = size_object(from);

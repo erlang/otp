@@ -2308,11 +2308,7 @@ restart:
 	    *esp++ = am_true;
 	    break;
 	case matchIsSeqTrace:
-	    if (SEQ_TRACE_TOKEN(c_p) != NIL
-#ifdef USE_VM_PROBES
-		&& SEQ_TRACE_TOKEN(c_p) != am_have_dt_utag
-#endif
-		)
+            if (have_seqtrace(SEQ_TRACE_TOKEN(c_p)))
 		*esp++ = am_true;
 	    else
 		*esp++ = am_false;
@@ -2336,11 +2332,7 @@ restart:
 	    --esp;
 	    break;
 	case matchGetSeqToken:
-	    if (SEQ_TRACE_TOKEN(c_p) == NIL
-#ifdef USE_VM_PROBES
-		|| SEQ_TRACE_TOKEN(c_p) == am_have_dt_utag
-#endif
-		) 
+            if (have_no_seqtrace(SEQ_TRACE_TOKEN(c_p)))
 		*esp++ = NIL;
 	    else {
 		Eterm sender = SEQ_TRACE_TOKEN_SENDER(c_p);
