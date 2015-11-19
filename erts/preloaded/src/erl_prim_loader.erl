@@ -1405,8 +1405,6 @@ absname_vr([Drive, $\: | NameRest], _) ->
 %% Assumes normalized name
 pathtype(Name) when is_list(Name) -> 
     case erlang:system_info(os_type) of
-	{ose, _}  ->
-	    unix_pathtype(Name);
 	{unix, _}  -> 
 	    unix_pathtype(Name);
 	{win32, _} ->
