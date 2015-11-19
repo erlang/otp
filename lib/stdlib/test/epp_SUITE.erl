@@ -27,7 +27,7 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1, encoding/1]).
+         otp_11728/1, encoding/1, extends/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding].
+     encoding, extends].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -621,6 +621,10 @@ otp_8130(Config) when is_list(Config) ->
              "                2 end,\n"
              "          7),\n"
              "   {2,7} =\n"
+             "      ?M1(begin 1 = fun _Name () -> 1 end(),\n"
+             "                2 end,\n"
+             "          7),\n"
+             "   {2,7} =\n"
              "      ?M1(begin 1 = fun t0/0(),\n"
              "                2 end,\n"
              "          7),\n"
@@ -644,6 +648,9 @@ otp_8130(Config) when is_list(Config) ->
              "   {2,7} =\n"
              "      ?M1(begin yes = try 1 of 1 -> yes after foo end,\n"
              "                2 end,\n"
+             "          7),\n"
+             "   {[42],7} =\n"
+             "      ?M1([42],\n"
              "          7),\n"
              "ok.\n">>,
            ok},
@@ -728,10 +735,15 @@ otp_8130(Config) when is_list(Config) ->
            {errors,[{{2,2},epp,{include,lib,"$apa/foo.hrl"}}],[]}},
 
 
-          {otp_8130_c9,
+          {otp_8130_c9a,
            <<"-define(S, ?S).\n"
              "t() -> ?S.\n">>,
            {errors,[{{2,9},epp,{circular,'S', none}}],[]}},
+
+          {otp_8130_c9b,
+           <<"-define(S(), ?S()).\n"
+             "t() -> ?S().\n">>,
+           {errors,[{{2,9},epp,{circular,'S', 0}}],[]}},
 
           {otp_8130_c10,
            <<"\n-file.">>,
@@ -798,6 +810,10 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c24,
            <<"\n-include(\"no such file.erl\").\n">>,
            {errors,[{{2,2},epp,{include,file,"no such file.erl"}}],[]}},
+
+          {otp_8130_c25,
+           <<"\n-define(A.\n">>,
+           {errors,[{{2,2},epp,{bad,define}}],[]}},
 
           {otp_8130_7,
            <<"-record(b, {b}).\n"
@@ -1476,6 +1492,20 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,utf8},extra]),
     ok.
 
+extends(Config) ->
+    Cs = [{extends_c1,
+	   <<"-extends(some.other.module).\n">>,
+	   {errors,[{1,erl_parse,["syntax error before: ","'.'"]}],[]}}],
+    [] = compile(Config, Cs),
+
+    Ts = [{extends_1,
+	   <<"-extends(some_other_module).\n"
+	     "t() -> {?BASE_MODULE,?BASE_MODULE_STRING}.\n">>,
+	   {some_other_module,"some_other_module"}}],
+
+    [] = run(Config, Ts),
+    ok.
+
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
@@ -1504,15 +1534,17 @@ eval_tests(Config, Fun, Tests) ->
 
 check_test(Config, Test) ->
     Filename = "epp_test.erl",
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line File = filename:join(PrivDir, Filename),
-    ?line ok = file:write_file(File, Test),
-    ?line case epp:parse_file(File, [PrivDir], []) of
-              {ok,Forms} ->
-                  [E || E={error,_} <- Forms];
-              {error,Error} ->
-                  Error
-          end.
+    PrivDir = ?config(priv_dir, Config),
+    File = filename:join(PrivDir, Filename),
+    ok = file:write_file(File, Test),
+    case epp:parse_file(File, [PrivDir], []) of
+	{ok,Forms} ->
+	    Errors = [E || E={error,_} <- Forms],
+	    call_format_error([E || {error,E} <- Errors]),
+	    Errors;
+	{error,Error} ->
+	    Error
+    end.
 
 compile_test(Config, Test0) ->
     Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
