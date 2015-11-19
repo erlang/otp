@@ -31,10 +31,10 @@
 -include("ssh.hrl").
 
 -export([versions/2, hello_version_msg/1]).
--export([next_seqnum/1, decrypt_first_block/2, decrypt_blocks/3,
+-export([next_seqnum/1, 
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
-	 is_valid_mac/3,
+	 handle_packet_part/4,
 	 handle_hello_version/1,
 	 key_exchange_init_msg/1,
 	 key_init/3, new_keys_message/1,
@@ -45,8 +45,12 @@
 	 handle_kex_ecdh_init/2,
 	 handle_kex_ecdh_reply/2,
 	 extract_public_key/1,
-	 unpack/3, decompress/2, ssh_packet/2, pack/2, pack/3, msg_data/1,
+	 ssh_packet/2, pack/2,
 	 sign/3, verify/4]).
+
+%%% For test suites
+-export([pack/3]).
+-export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -196,12 +200,6 @@ hello_version_msg(Data) ->
 next_seqnum(SeqNum) ->
     (SeqNum + 1) band 16#ffffffff.
 
-decrypt_first_block(Bin, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
-    <<EncBlock:BlockSize/binary, EncData/binary>> = Bin,
-    {Ssh, <<?UINT32(PacketLen), _/binary>> = DecData} =
-	decrypt(Ssh0, EncBlock),
-    {Ssh, PacketLen, DecData, EncData}.
-    
 decrypt_blocks(Bin, Length, Ssh0) ->
     <<EncBlocks:Length/binary, EncData/binary>> = Bin,
     {Ssh, DecData} = decrypt(Ssh0, EncBlocks),
@@ -938,27 +936,61 @@ pack(Data0, #ssh{encrypt_block_size = BlockSize,
     Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {Packet, Ssh}.
 
-unpack(EncodedSoFar, ReminingLenght, #ssh{recv_mac_size = MacSize} = Ssh0) ->
-    SshLength = ReminingLenght - MacSize,
-    {NoMac, Mac, Rest} = case MacSize of
-			     0 ->
-				 <<NoMac0:SshLength/binary, 
-				  Rest0/binary>> = EncodedSoFar,
-				 {NoMac0, <<>>, Rest0};
-			     _ ->
-				 <<NoMac0:SshLength/binary, 
-				  Mac0:MacSize/binary,
-				  Rest0/binary>> = EncodedSoFar,
-				 {NoMac0, Mac0, Rest0}
-			 end,
-    {Ssh1, DecData, <<>>} = 
-	case SshLength of
-	    0 ->
-		{Ssh0, <<>>, <<>>};
-	    _ ->
-		decrypt_blocks(NoMac, SshLength, Ssh0)
-	end,
-    {Ssh1, DecData, Rest, Mac}.
+
+handle_packet_part(<<>>, Encoded0, undefined, Ssh0) ->
+    %% New ssh packet
+    case get_length(Encoded0, Ssh0) of
+	get_more ->
+	    %% too short to get the length
+	    {get_more, <<>>, Encoded0, undefined, Ssh0};
+
+	{ok, PacketLen, _DecData, _Encoded1, _Ssh1} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
+	    %% far too long message than expected
+	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				      description = "Bad packet length " 
+				      ++ integer_to_list(PacketLen),
+				      language = ""});
+	
+	{ok, PacketLen, DecData, Encoded1, 
+	 #ssh{decrypt_block_size = BlockSize,
+	      recv_mac_size = MacSize} = Ssh1} ->
+	    %% enough bytes so we got the length and can calculate how many
+	    %% more bytes to expect for a full packet
+	    Remaining = (PacketLen + ?SSH_LENGHT_INDICATOR_SIZE) - BlockSize + MacSize,
+	    handle_packet_part(DecData, Encoded1, Remaining, Ssh1)
+    end;
+handle_packet_part(Decoded0, Encoded0, Remaining, Ssh0) 
+  when size(Encoded0) < Remaining ->
+    %% need more bytes to finalize the packet
+    {get_more, Decoded0, Encoded0, Remaining, Ssh0};
+handle_packet_part(Decoded0, Encoded0, Remaining, 
+		   #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    %% enough bytes to decode the packet.
+    SshLengthNotDecoded = Remaining - MacSize,
+    <<PktT:SshLengthNotDecoded/binary, Mac:MacSize/binary, EncRest0/binary>> = Encoded0,
+    {Ssh1, DecData} = decrypt(Ssh0, PktT),
+    MsgBytes = <<Decoded0/binary,DecData/binary>>,
+    case is_valid_mac(Mac, MsgBytes, Ssh1) of
+	false ->
+	    {bad_mac, Ssh1};
+	true ->
+	    {Ssh, DecompressedMsgBytes} = decompress(Ssh1, msg_data(MsgBytes)),
+	    {decoded, DecompressedMsgBytes, EncRest0, Ssh}
+    end.
+    
+    
+get_length(Encoded0, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
+    case size(Encoded0) >= erlang:max(8, BlockSize) of
+	true ->
+	    <<EncBlock:BlockSize/binary, EncodedRest/binary>> = Encoded0,
+	    {Ssh, Decoded} = decrypt(Ssh0, EncBlock),
+	    <<?UINT32(PacketLen), _/binary>> = Decoded,
+	    {ok, PacketLen, Decoded, EncodedRest, Ssh};
+	false ->
+	    get_more
+    end.
+
+
 
 msg_data(PacketData) ->
     <<Len:32, PaddingLen:8, _/binary>> = PacketData,
@@ -1181,6 +1213,8 @@ decrypt_final(Ssh) ->
 		  decrypt_ctx = undefined,
 		  decrypt_block_size = 8}}.
 
+decrypt(Ssh, <<>>) ->
+    {Ssh, <<>>};
 decrypt(#ssh{decrypt = none} = Ssh, Data) ->
     {Ssh, Data};
 decrypt(#ssh{decrypt = '3des-cbc', decrypt_keys = Keys,
