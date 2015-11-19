@@ -69,6 +69,7 @@
          insert_cstruct/3,
 	 is_remote_member/1,
          list2cs/1,
+         list2cs/2,
          lock_schema/0,
          merge_schema/0,
          merge_schema/1,
@@ -116,7 +117,8 @@
 	 do_delete_table/1,
 	 do_read_table_property/2,
 	 do_delete_table_property/2,
- 	 do_write_table_property/2]).
+         do_write_table_property/2,
+         do_change_table_copy_type/3]).
 
 -include("mnesia.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -144,6 +146,7 @@ init(IgnoreFallback) ->
     verbose("Schema initiated from: ~p~n", [Source]),
     set({schema, tables}, []),
     set({schema, local_tables}, []),
+    do_set_schema(schema),
     Tabs = set_schema(?ets_first(schema)),
     lists:foreach(fun(Tab) -> clear_whereabouts(Tab) end, Tabs),
     set({schema, where_to_read}, node()),
@@ -203,6 +206,7 @@ do_set_schema(Tab, Cs) ->
     set({Tab, ram_copies}, Cs#cstruct.ram_copies),
     set({Tab, disc_copies}, Cs#cstruct.disc_copies),
     set({Tab, disc_only_copies}, Cs#cstruct.disc_only_copies),
+    set({Tab, external_copies}, Cs#cstruct.external_copies),
     set({Tab, load_order}, Cs#cstruct.load_order),
     set({Tab, access_mode}, Cs#cstruct.access_mode),
     set({Tab, majority}, Cs#cstruct.majority),
@@ -218,7 +222,6 @@ do_set_schema(Tab, Cs) ->
     set({Tab, arity}, Arity),
     RecName =  Cs#cstruct.record_name,
     set({Tab, record_name}, RecName),
-    set({Tab, record_validation}, {RecName, Arity, Type}),
     set({Tab, wild_pattern}, wild(RecName, Arity)),
     set({Tab, index}, Cs#cstruct.index),
     %% create actual index tabs later
@@ -227,6 +230,7 @@ do_set_schema(Tab, Cs) ->
     set({Tab, cstruct}, Cs),
     Storage = mnesia_lib:schema_cs_to_storage_type(node(), Cs),
     set({Tab, storage_type}, Storage),
+    set_record_validation(Tab, Storage, RecName, Arity, Type),
     mnesia_lib:add({schema, tables}, Tab),
     Ns = mnesia_lib:cs_to_nodes(Cs),
     case lists:member(node(), Ns) of
@@ -236,7 +240,24 @@ do_set_schema(Tab, Cs) ->
             mnesia_lib:add({schema, local_tables}, Tab);
         false ->
             ignore
-    end.
+    end,
+    set_ext_types(Tab, get_ext_types(), Cs#cstruct.external_copies).
+
+set_record_validation(Tab, {ext,Alias,Mod}, RecName, Arity, Type) ->
+    set({Tab, record_validation}, {RecName, Arity, Type, Alias, Mod});
+set_record_validation(Tab, _, RecName, Arity, Type) ->
+    set({Tab, record_validation}, {RecName, Arity, Type}).
+
+set_ext_types(Tab, ExtTypes, ExtCopies) ->
+    lists:foreach(
+      fun({Type, _} = Key) ->
+	      Nodes = case lists:keyfind(Key, 1, ExtCopies) of
+			  {_, Ns} -> Ns;
+			  false   -> []
+		      end,
+	      set({Tab, Type}, Nodes)
+      end, ExtTypes).
+
 
 wild(RecName, Arity) ->
     Wp0 = list_to_tuple(lists:duplicate(Arity, '_')),
@@ -603,8 +624,9 @@ read_cstructs_from_disc() ->
 		    {type, set}],
 	    case dets:open_file(make_ref(), Args) of
 		{ok, Tab} ->
+                    ExtTypes = get_ext_types_disc(),
 		    Fun = fun({_, _, List}) ->
-				  {continue, list2cs(List)}
+				  {continue, list2cs(List, ExtTypes)}
 			  end,
 		    Cstructs = dets:traverse(Tab, Fun),
 		    dets:close(Tab),
@@ -684,7 +706,7 @@ do_insert_schema_ops(_Store, []) ->
 
 api_list2cs(List) when is_list(List) ->
     Name = pick(unknown, name, List, must),
-    Keys = check_keys(Name, List, record_info(fields, cstruct)),
+    Keys = check_keys(Name, List),
     check_duplicates(Name, Keys),
     list2cs(List);
 api_list2cs(Other) ->
@@ -729,6 +751,14 @@ cs2list({8,Minor}, Cs) when Minor =:= 2; Minor =:= 1 ->
 	    cookie,version],
     rec2list(Tags, Orig, 2, Cs).
 
+rec2list([external_copies | Tags], Orig0, Pos, Rec) ->
+    Orig = case Orig0 of
+	       [external_copies|Rest] -> Rest;
+	       _ -> Orig0
+	   end,
+    Val = element(Pos, Rec),
+    [{Alias, Ns} || {{Alias,_}, Ns} <- Val]
+	++ rec2list(Tags, Orig, Pos+1, Rec);
 rec2list([Tag | Tags], [Tag | Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
     [{Tag, Val} | rec2list(Tags, Orig, Pos + 1, Rec)];
@@ -751,14 +781,19 @@ convert_cs(Version, Cs) ->
     Fields = [Value || {_, Value} <- cs2list(Version, Cs)],
     list_to_tuple([cstruct|Fields]).
 
-list2cs(List) when is_list(List) ->
+list2cs(List) ->
+    list2cs(List, get_ext_types()).
+
+list2cs(List, ExtTypes) when is_list(List) ->
     Name = pick(unknown, name, List, must),
     Type = pick(Name, type, List, set),
     Rc0 = pick(Name, ram_copies, List, []),
     Dc = pick(Name, disc_copies, List, []),
     Doc = pick(Name, disc_only_copies, List, []),
-    Rc = case {Rc0, Dc, Doc} of
-             {[], [], []} -> [node()];
+
+    Ext = pick_external_copies(List, ExtTypes),
+    Rc = case {Rc0, Dc, Doc, Ext} of
+             {[], [], [], []} -> [node()];
              _ -> Rc0
          end,
     LC = pick(Name, local_content, List, false),
@@ -804,24 +839,47 @@ list2cs(List) when is_list(List) ->
     DetsOpts = proplists:get_value(dets, BEProps, []),
     is_list(DetsOpts) orelse mnesia:abort({badarg, Name, {dets, DetsOpts}}),
     [CheckProp(Prop, BadDetsOpts) || Prop <- DetsOpts],
-    #cstruct{name = Name,
-             ram_copies = Rc,
-             disc_copies = Dc,
-             disc_only_copies = Doc,
-             type = Type,
-             index = Ix2,
-             snmp = Snmp,
-             load_order = LoadOrder,
-             access_mode = AccessMode,
-	     majority = Majority,
-             local_content = LC,
-	     record_name = RecName,
-             attributes = Attrs,
-             user_properties = lists:sort(UserProps),
-	     frag_properties = lists:sort(Frag),
-	     storage_properties = lists:sort(BEProps),
-             cookie = Cookie,
-             version = Version}.
+
+    case lists:keymember(mnesia, 1, application:which_applications()) of
+        true ->
+            Keys = check_keys(Name, List),
+            check_duplicates(Name, Keys);
+        false ->
+            %% check_keys/2 cannot be executed when mnesia is not
+            %% running, due to it not being possible to read what ext
+            %% backends are loaded.
+            %%% this doesn't work - disabled for now:
+	    %%%Keys = check_keys(Name, List, record_info(fields, cstruct)),
+	    %%%check_duplicates(Name, Keys)
+            ignore
+    end,
+
+    Cs0 = #cstruct{name = Name,
+		   ram_copies = Rc,
+		   disc_copies = Dc,
+		   disc_only_copies = Doc,
+		   external_copies = Ext,
+		   type = Type,
+		   index = Ix,
+		   snmp = Snmp,
+		   load_order = LoadOrder,
+		   access_mode = AccessMode,
+		   majority = Majority,
+		   local_content = LC,
+		   record_name = RecName,
+		   attributes = Attrs,
+		   user_properties = lists:sort(UserProps),
+		   frag_properties = lists:sort(Frag),
+                   storage_properties = lists:sort(BEProps),
+		   cookie = Cookie,
+		   version = Version},
+    case Ix of
+	[] -> Cs0;
+	[_|_] ->
+	    Cs0#cstruct{index = Ix2}
+    end;
+list2cs(Other, _ExtTypes) ->
+    mnesia:abort({badarg, Other}).
 
 pick(Tab, Key, List, Default) ->
     case lists:keysearch(Key, 1, List) of
@@ -833,6 +891,31 @@ pick(Tab, Key, List, Default) ->
             Value;
 	{value, BadArg} ->
 	    mnesia:abort({bad_type, Tab, BadArg})
+    end.
+
+pick_external_copies(_List, []) ->
+    [];
+pick_external_copies(List, ExtTypes) ->
+    lists:foldr(
+      fun({K, Val}, Acc) ->
+	      case lists:keyfind(K, 1, ExtTypes) of
+		  false ->
+		      Acc;
+		  {_, Mod} ->
+		      [{{K,Mod}, Val}|Acc]
+	      end
+      end, [], List).
+
+expand_storage_type(S) when S==ram_copies;
+			    S==disc_copies;
+			    S==disc_only_copies ->
+    S;
+expand_storage_type(S) ->
+    case lists:keyfind(S, 1, get_ext_types()) of
+	false ->
+	    mnesia:abort({bad_type, {storage_type, S}});
+	{Alias, Mod} ->
+	    {ext, Alias, Mod}
     end.
 
 get_ext_types() ->
@@ -852,6 +935,32 @@ get_schema_user_property(Key) ->
 	    [];
 	{_, Types} ->
 	    Types
+    end.
+
+get_ext_types_disc() ->
+    try get_ext_types_disc_()
+    catch
+	error:_ ->[]
+    end.
+
+get_ext_types_disc_() ->
+    case mnesia_schema:remote_read_schema() of
+        {ok, _, Prop} ->
+            K1 = user_properties,
+            case lists:keyfind(K1, 1, Prop) of
+                {K1, UserProp} ->
+                    K2 = mnesia_backend_types,
+                    case lists:keyfind(K2, 1, UserProp) of
+                        {K2, Types} ->
+                            Types;
+                        _ ->
+                            []
+                    end;
+                _ ->
+                    []
+            end;
+        _ ->
+            []
     end.
 
 %% Convert attribute name to integer if neccessary
@@ -875,8 +984,18 @@ attr_to_pos(Attr, [_ | Attrs], Pos) ->
 attr_to_pos(Attr, _, _) ->
     mnesia:abort({bad_type, Attr}).
 
+check_keys(Tab, Attrs) ->
+    Types = [T || {T,_} <- get_ext_types()],
+    check_keys(Tab, Attrs, Types ++ record_info(fields, cstruct)).
+
 check_keys(Tab, [{Key, _Val} | Tail], Items) ->
-    case lists:member(Key, Items) of
+    Key1 = if
+               is_tuple(Key) ->
+                   element(1, Key);
+               true ->
+                   Key
+           end,
+    case lists:member(Key1, Items) of
         true ->  [Key | check_keys(Tab, Tail, Items)];
         false -> mnesia:abort({badarg, Tab, Key})
     end;
@@ -902,7 +1021,55 @@ has_duplicates([]) ->
 %% This is the only place where we check the validity of data
 verify_cstruct(#cstruct{} = Cs) ->
     assert_correct_cstruct(Cs),
-    Cs.
+    Cs1 = verify_external_copies(Cs),
+    assert_correct_cstruct(Cs1),
+    Cs1.
+
+verify_external_copies(#cstruct{external_copies = []} = Cs) ->
+    Cs;
+verify_external_copies(#cstruct{name = Tab, external_copies = EC} = Cs) ->
+    Bad = {bad_type, Tab, {external_copies, EC}},
+    AllECNodes = lists:concat([Ns || {_, Ns} <- EC,
+                                     is_list(Ns)]),
+    verify(true, length(lists:usort(AllECNodes)) == length(AllECNodes), Bad),
+    CsL = cs2list(Cs),
+    CsL1 = lists:foldl(
+	     fun({{Alias, Mod}, Ns} = _X, CsLx) ->
+		     BadTab = fun(Why) ->
+				      {Why, Tab, {{ext, Alias, Mod},Ns}}
+			      end,
+		     verify(atom, mnesia_lib:etype(Mod), BadTab),
+		     verify(true, fun() ->
+					  lists:all(fun is_atom/1, Ns)
+				  end, BadTab),
+		     check_semantics(Mod, Alias, BadTab, Cs),
+		     try Mod:check_definition(Alias, Tab, Ns, CsLx) of
+			 ok ->
+			     CsLx;
+			 {ok, CsLx1} ->
+			     CsLx1;
+			 {error, Reason} ->
+			     mnesia:abort(BadTab(Reason))
+		     catch
+			 error:E ->
+			     mnesia:abort(BadTab(E))
+		     end;
+		(_, CsLx) ->
+		     CsLx
+	     end, CsL, EC),
+    list2cs(CsL1).
+
+check_semantics(Mod, Alias, BadTab, #cstruct{type = Type}) ->
+    Ext = {ext, Alias, Mod},
+    case lists:member(mnesia_lib:semantics(Ext, storage), [ram_copies, disc_copies,
+							   disc_only_copies]) of
+	false -> mnesia:abort(BadTab(invalid_storage));
+	true  -> ok
+    end,
+    case lists:member(Type, mnesia_lib:semantics(Ext, types)) of
+	false -> mnesia:abort(BadTab(bad_type));
+	true  -> ok
+    end.
 
 assert_correct_cstruct(Cs) when is_record(Cs, cstruct) ->
     verify_nodes(Cs),
@@ -1011,12 +1178,22 @@ verify_nodes(Cs) ->
     Ram = Cs#cstruct.ram_copies,
     Disc = Cs#cstruct.disc_copies,
     DiscOnly = Cs#cstruct.disc_only_copies,
+    Ext = lists:append([Ns || {_,Ns} <- Cs#cstruct.external_copies]),
     LoadOrder = Cs#cstruct.load_order,
 
     verify({alt, [nil, list]}, mnesia_lib:etype(Ram),
 	   {bad_type, Tab, {ram_copies, Ram}}),
     verify({alt, [nil, list]}, mnesia_lib:etype(Disc),
 	   {bad_type, Tab, {disc_copies, Disc}}),
+    lists:foreach(
+      fun({BE, Ns}) ->
+	      verify({alt, [nil, list]}, mnesia_lib:etype(Ns),
+		     {bad_type, Tab, {BE, Ns}}),
+	      lists:foreach(fun(N) ->
+				    verify(atom, mnesia_lib:etype(N),
+					   {bad_type, Tab, {BE, Ns}})
+			    end, Ns)
+      end, Cs#cstruct.external_copies),
     case Tab of
 	schema ->
 	    verify([], DiscOnly, {bad_type, Tab, {disc_only_copies, DiscOnly}});
@@ -1028,12 +1205,15 @@ verify_nodes(Cs) ->
     verify(integer, mnesia_lib:etype(LoadOrder),
 	   {bad_type, Tab, {load_order, LoadOrder}}),
 
-    Nodes = Ram ++ Disc ++ DiscOnly,
+    Nodes = Ram ++ Disc ++ DiscOnly ++ Ext,
     verify(list, mnesia_lib:etype(Nodes),
 	   {combine_error, Tab,
-	    [{ram_copies, []}, {disc_copies, []}, {disc_only_copies, []}]}),
+	    [{ram_copies, []}, {disc_copies, []},
+	     {disc_only_copies, []}, {external_copies, []}]}),
     verify(false, has_duplicates(Nodes), {combine_error, Tab, Nodes}),
-    AtomCheck = fun(N) -> verify(atom, mnesia_lib:etype(N), {bad_type, Tab, N}) end,
+    AtomCheck = fun(N) ->
+			verify(atom, mnesia_lib:etype(N), {bad_type, Tab, N})
+		end,
     lists:foreach(AtomCheck, Nodes).
 
 verify(Expected, Fun, Error) when is_function(Fun) ->
@@ -1216,25 +1396,29 @@ backend_types() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Here's the real interface function to create a table
 
-create_table(TabDef) ->
-    schema_transaction(fun() -> do_multi_create_table(TabDef) end).
+create_table([_|_] = TabDef) ->
+    schema_transaction(fun() -> do_multi_create_table(TabDef) end);
+create_table(Arg) -> {aborted, {badarg, Arg}}.
 
 %% And the corresponding do routines ....
 
 do_multi_create_table(TabDef) ->
     get_tid_ts_and_lock(schema, write),
     ensure_writable(schema),
+    do_create_table(TabDef),
+    ok.
+
+do_create_table(TabDef) when is_list(TabDef) ->
     Cs = api_list2cs(TabDef),
     case Cs#cstruct.frag_properties of
 	[] ->
-	    do_create_table(Cs);
+	    do_create_table_1(Cs);
 	_Props ->
 	    CsList = mnesia_frag:expand_cstruct(Cs),
-	    lists:foreach(fun do_create_table/1, CsList)
-    end,
-    ok.
+	    lists:foreach(fun do_create_table_1/1, CsList)
+    end.
 
-do_create_table(Cs) ->
+do_create_table_1(Cs) ->
     {_Mod, _Tid, Ts} =  get_tid_ts_and_lock(schema, none),
     Store = Ts#tidstore.store,
     do_insert_schema_ops(Store, make_create_table(Cs)).
@@ -1495,8 +1679,34 @@ new_cs(Cs, Node, disc_copies, del) ->
 new_cs(Cs, Node, disc_only_copies, del) ->
     Cs#cstruct{disc_only_copies =
                lists:delete(Node , Cs#cstruct.disc_only_copies)};
-new_cs(Cs, _Node, Storage, _Op) ->
-    mnesia:abort({badarg, Cs#cstruct.name, Storage}).
+new_cs(#cstruct{external_copies = ExtCps} = Cs, Node, Storage0, Op) ->
+    Storage = case Storage0 of
+		  {ext, Alias, _} -> Alias;
+		  Alias -> Alias
+	      end,
+    ExtTypes = get_ext_types(),
+    case lists:keyfind(Storage, 1, ExtTypes) of
+	false ->
+	    mnesia:abort({badarg, Cs#cstruct.name, Storage});
+	{_, Mod} ->
+	    Key = {Storage, Mod},
+	    case {lists:keymember(Key, 1, ExtCps), Op} of
+		{false, del} ->
+		    Cs;
+		{false, add} ->
+		    Cs#cstruct{external_copies = [{Key, [Node]}|ExtCps]};
+		{true, _} ->
+		    F = fun({K, Ns}) when K == Key ->
+				case Op of
+				    del -> {K, lists:delete(Node, Ns)};
+				    add -> {K, opt_add(Node, Ns)}
+				end;
+			   (X) ->
+				X
+			end,
+		    Cs#cstruct{external_copies = lists:map(F, ExtCps)}
+	    end
+    end.
 
 
 opt_add(N, L) -> [N | lists:delete(N, L)].
@@ -1559,9 +1769,11 @@ make_change_table_copy_type(Tab, Node, ToS) ->
     Cs = incr_version(val({Tab, cstruct})),
     FromS = mnesia_lib:storage_type_at_node(Node, Tab),
 
-    case compare_storage_type(false, FromS, ToS) of
+    ToSExp = expand_storage_type(ToS),
+
+    case compare_storage_type(false, FromS, ToSExp) of
 	{same, _} ->
-	    mnesia:abort({already_exists, Tab, Node, ToS});
+	    mnesia:abort({already_exists, Tab, Node, ToSExp});
 	{diff, _} ->
 	    ignore;
 	incompatible ->
@@ -1570,7 +1782,7 @@ make_change_table_copy_type(Tab, Node, ToS) ->
 
     Cs2 = new_cs(Cs, Node, FromS, del),
     Cs3 = verify_cstruct(new_cs(Cs2, Node, ToS, add)),
-    [{op, change_table_copy_type, Node, FromS, ToS, vsn_cs2list(Cs3)}].
+    [{op, change_table_copy_type, Node, FromS, ToSExp, vsn_cs2list(Cs3)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% change index functions ....
@@ -1614,9 +1826,8 @@ make_del_table_index(Tab, Pos) ->
     Cs = incr_version(val({Tab, cstruct})),
     ensure_active(Cs),
     Ix = Cs#cstruct.index,
-    verify(true, lists:member(Pos, Ix), {no_exists, Tab, Pos}),
-    Cs2 = Cs#cstruct{index = lists:delete(Pos, Ix)},
-    verify_cstruct(Cs2),
+    verify(true, lists:keymember(Pos, 1, Ix), {no_exists, Tab, Pos}),
+    Cs2 = verify_cstruct(Cs#cstruct{index = lists:keydelete(Pos, 1, Ix)}),
     [{op, del_index, Pos, vsn_cs2list(Cs2)}].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1684,20 +1895,21 @@ make_transform(Tab, Fun, NewAttrs, NewRecName) ->
     Cs = incr_version(val({Tab, cstruct})),
     ensure_active(Cs),
     ensure_writable(Tab),
-    case mnesia_lib:val({Tab, index}) of
+    case Cs#cstruct.index of
 	[] ->
 	    Cs2 = verify_cstruct(
                     Cs#cstruct{attributes = NewAttrs,
                                record_name = NewRecName}),
 	    [{op, transform, Fun, vsn_cs2list(Cs2)}];
 	PosList ->
-	    DelIdx = fun(Pos, Ncs) ->
+	    DelIdx = fun({Pos,_,_}, Ncs) ->
 			     Ix = Ncs#cstruct.index,
-			     Ncs1 = Ncs#cstruct{index = lists:delete(Pos, Ix)},
+			     Ix2 = lists:keydelete(Pos, 1, Ix),
+			     Ncs1 = Ncs#cstruct{index = Ix2},
 			     Op = {op, del_index, Pos, vsn_cs2list(Ncs1)},
 			     {Op, Ncs1}
 		     end,
-	    AddIdx = fun(Pos, Ncs) ->
+	    AddIdx = fun({_,_,_} = Pos, Ncs) ->
 			     Ix = Ncs#cstruct.index,
 			     Ix2 = lists:sort([Pos | Ix]),
 			     Ncs1 = Ncs#cstruct{index = Ix2},
@@ -1797,6 +2009,7 @@ write_table_property(Tab, Prop) when is_tuple(Prop), size(Prop) >= 1 ->
     schema_transaction(fun() -> do_write_table_property(Tab, Prop) end);
 write_table_property(Tab, Prop) ->
     {aborted, {bad_type, Tab, Prop}}.
+
 do_write_table_property(Tab, Prop) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     {_, _, Ts} = TidTs,
@@ -2105,6 +2318,11 @@ prepare_op(Tid, {op, create_table, TabDef}, _WaitFor) ->
 	    create_disc_only_table(Tab,Cs),
 	    insert_cstruct(Tid, Cs, false),
 	    {true, optional};
+	{ext, Alias, Mod} ->
+	    mnesia_lib:set({Tab, create_table},true),
+            create_external_table(Alias, Tab, Mod, Cs),
+	    insert_cstruct(Tid, Cs, false),
+	    {true, optional};
         unknown -> %% No replica on this node
 	    mnesia_lib:set({Tab, create_table},true),
 	    insert_cstruct(Tid, Cs, false),
@@ -2173,6 +2391,12 @@ prepare_op(_Tid, {op, change_table_copy_type,  N, FromS, ToS, TabDef}, _WaitFor)
 
     NotActive = mnesia_lib:not_active_here(Tab),
 
+    if Tab =/= schema ->
+	    check_if_disc_required(FromS, ToS);
+       true ->
+	    ok
+    end,
+
     if
 	NotActive == true ->
 	    mnesia:abort({not_active, Tab, node()});
@@ -2212,6 +2436,15 @@ prepare_op(_Tid, {op, change_table_copy_type,  N, FromS, ToS, TabDef}, _WaitFor)
 		    mnesia:abort({combine_error, Tab, ToS})
 	    end;
 
+	element(1,FromS) == ext; element(1,ToS) == ext ->
+	    if ToS == ram_copies ->
+		    create_ram_table(Tab, Cs);
+	       true ->
+		    ok
+	    end,
+            mnesia_dumper:dump_to_logfile(FromS, Tab),
+            mnesia_checkpoint:tm_change_table_copy_type(Tab, FromS, ToS);
+
 	FromS == ram_copies ->
 	    case mnesia_monitor:use_dir() of
 		true ->
@@ -2237,6 +2470,7 @@ prepare_op(_Tid, {op, change_table_copy_type,  N, FromS, ToS, TabDef}, _WaitFor)
 
 	FromS == disc_copies, ToS == disc_only_copies ->
 	    mnesia_dumper:raw_named_dump_table(Tab, dmp);
+
 	FromS == disc_only_copies ->
 	    Type = Cs#cstruct.type,
 	    create_ram_table(Tab, Cs),
@@ -2248,6 +2482,7 @@ prepare_op(_Tid, {op, change_table_copy_type,  N, FromS, ToS, TabDef}, _WaitFor)
 		    Err = "Failed to copy disc data to ram",
 		    mnesia:abort({system_limit, Tab, {Err,Reason}})
 	    end;
+
 	true ->
 	    ignore
     end,
@@ -2311,6 +2546,8 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
                     {true, Objs, mandatory}
 	    catch _:Reason ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
+		    mnesia_lib:important("Transform function failed: '~p' in '~p'",
+					 [Reason, erlang:get_stacktrace()]),
                     exit({"Bad transform function", Tab, Fun, node(), Reason})
             end
     end;
@@ -2326,6 +2563,22 @@ prepare_op(_Tid, {op, merge_schema, TabDef}, _WaitFor) ->
     end;
 prepare_op(_Tid, _Op, _WaitFor) ->
     {true, optional}.
+
+check_if_disc_required(FromS, ToS) ->
+    FromSem = mnesia_lib:semantics(FromS, storage),
+    ToSem = mnesia_lib:semantics(ToS, storage),
+    case {FromSem, ToSem} of
+	{ram_copies, _} when ToSem == disc_copies;
+			     ToSem == disc_only_copies ->
+	    case mnesia_monitor:use_dir() of
+		true ->
+		    ok;
+		false ->
+		    mnesia:abort({has_no_disc, node()})
+	    end;
+	_ ->
+	    ok
+    end.
 
 create_ram_table(Tab, #cstruct{type=Type, storage_properties=Props}) ->
     EtsOpts = proplists:get_value(ets, Props, []),
@@ -2368,6 +2621,14 @@ create_disc_only_table(Tab, #cstruct{type=Type, storage_properties=Props}) ->
 	    mnesia:abort({system_limit, Tab, {Err,Reason}})
     end.
 
+create_external_table(Alias, Tab, Mod, Cs) ->
+    case mnesia_monitor:unsafe_create_external(Tab, Alias, Mod, Cs) of
+	ok ->
+	    ok;
+	{error,Reason} ->
+	    Err = "Failed to create external table",
+	    mnesia:abort({system_limit, Tab, {Err,Reason}})
+    end.
 
 receive_sync([], Pids) ->
     Pids;
@@ -2502,7 +2763,10 @@ undo_prepare_op(Tid, {op, create_table, TabDef}) ->
 	    mnesia_monitor:unsafe_close_dets(Tab),
 	    Dat = mnesia_lib:tab2dat(Tab),
 	    %%	    disc_delete_table(Tab, Storage),
-	    file:delete(Dat)
+	    file:delete(Dat);
+        {ext, Alias, Mod} ->
+	    Mod:close_table(Alias, Tab),
+            Mod:delete_table(Alias, Tab)
     end;
 
 undo_prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}) ->
@@ -2602,6 +2866,8 @@ ram_delete_table(Tab, Storage) ->
     case Storage of
 	unknown ->
 	    ignore;
+        {ext, _, _} ->
+            ignore;
 	disc_only_copies ->
 	    ignore;
 	_Else ->
@@ -2663,12 +2929,26 @@ purge_known_files([File | Tail], KeepFiles, Dir, Suffixes) ->
 		    ignore;
 		true ->
 		    AbsFile = filename:join([Dir, File]),
-		    file:delete(AbsFile)
-	    end
+                    delete_recursive(AbsFile)
+            end
     end,
     purge_known_files(Tail, KeepFiles, Dir, Suffixes);
 purge_known_files([], _KeepFiles, _Dir, _Suffixes) ->
     ok.
+
+%% Removes a directory or file recursively
+delete_recursive(Path) ->
+    case filelib:is_dir(Path) of
+        true ->
+            {ok, Names} = file:list_dir(Path),
+            lists:foreach(fun(Name) ->
+                                  delete_recursive(filename:join(Path, Name))
+                          end,
+                          Names),
+            file:del_dir(Path);
+        false ->
+            file:delete(Path)
+    end.
 
 has_known_suffix(_File, _Suffixes, true) ->
     true;
@@ -2677,11 +2957,33 @@ has_known_suffix(File, [Suffix | Tail], false) ->
 has_known_suffix(_File, [], Bool) ->
     Bool.
 
-known_suffixes() -> real_suffixes() ++ tmp_suffixes().
+known_suffixes() -> known_suffixes(get_ext_types_disc()).
 
-real_suffixes() ->  [".DAT", ".LOG", ".BUP", ".DCL", ".DCD"].
+known_suffixes(Ext) -> real_suffixes(Ext) ++ tmp_suffixes(Ext).
 
-tmp_suffixes() -> [".TMP", ".BUPTMP", ".RET", ".DMP"].
+real_suffixes(Ext) ->  [".DAT", ".LOG", ".BUP", ".DCL", ".DCD"] ++ ext_real_suffixes(Ext).
+
+tmp_suffixes() -> tmp_suffixes(get_ext_types_disc()).
+
+tmp_suffixes(Ext) -> [".TMP", ".BUPTMP", ".RET", ".DMP", "."] ++ ext_tmp_suffixes(Ext).
+
+ext_real_suffixes(Ext) ->
+    try lists:foldl(fun(Mod, Acc) -> Acc++Mod:real_suffixes() end, [],
+		    [M || {_,M} <- Ext])
+    catch
+        error:E ->
+            verbose("Cant find real ext suffixes (~p)~n", [E]),
+            []
+    end.
+
+ext_tmp_suffixes(Ext) ->
+    try lists:foldl(fun(Mod, Acc) -> Acc++Mod:tmp_suffixes() end, [],
+		    [M || {_,M} <- Ext])
+    catch
+        error:E ->
+            verbose("Cant find tmp ext suffixes (~p)~n", [E]),
+            []
+    end.
 
 info() ->
     Tabs = lists:sort(val({schema, tables})),
@@ -2799,12 +3101,12 @@ do_restore(R, BupSchema) ->
 
 arrange_restore(R, Fun, Recs) ->
     R2 = R#r{insert_op = Fun, recs = Recs},
-    case mnesia_bup:iterate(R#r.module, fun restore_items/4, R#r.opaque, R2) of
+    case mnesia_bup:iterate(R#r.module, fun restore_items/5, R#r.opaque, R2) of
 	{ok, R3} -> R3#r.recs;
 	{error, Reason} -> mnesia:abort(Reason)
     end.
 
-restore_items([Rec | Recs], Header, Schema, R) ->
+restore_items([Rec | Recs], Header, Schema, Ext, R) ->
     Tab = element(1, Rec),
     case lists:keysearch(Tab, 1, R#r.tables) of
 	{value, {Tab, Where0, Snmp, RecName}} ->
@@ -2817,13 +3119,13 @@ restore_items([Rec | Recs], Header, Schema, R) ->
 	    {Rest, NRecs} = restore_tab_items([Rec | Recs], Tab,
 					      RecName, Where, Snmp,
 					      R#r.recs, R#r.insert_op),
-	    restore_items(Rest, Header, Schema, R#r{recs = NRecs});
+	    restore_items(Rest, Header, Schema, Ext, R#r{recs = NRecs});
 	false ->
 	    Rest = skip_tab_items(Recs, Tab),
-	    restore_items(Rest, Header, Schema, R)
+	    restore_items(Rest, Header, Schema, Ext, R)
     end;
 
-restore_items([], _Header, _Schema, R) ->
+restore_items([], _Header, _Schema, _Ext, R) ->
     R.
 
 restore_func(Tab, R) ->
@@ -2837,8 +3139,14 @@ restore_func(Tab, R) ->
 where_to_commit(Tab, CsList) ->
     Ram =   [{N, ram_copies} || N <- pick(Tab, ram_copies, CsList, [])],
     Disc =  [{N, disc_copies} || N <- pick(Tab, disc_copies, CsList, [])],
-    DiscO = [{N, disc_only_copies} || N <- pick(Tab, disc_only_copies, CsList, [])],
-    Ram ++ Disc ++ DiscO.
+    DiscO = [{N, disc_only_copies} ||
+		N <- pick(Tab, disc_only_copies, CsList, [])],
+    ExtNodes = [{Alias, Mod, pick(Tab, Alias, CsList, [])} ||
+		   {Alias, Mod} <- get_ext_types()],
+    Ext = lists:foldl(fun({Alias, Mod, Ns}, Acc) ->
+			      [{N, {ext, Alias, Mod}} || N <- Ns] ++ Acc
+		      end, [], ExtNodes),
+    Ram ++ Disc ++ DiscO ++ Ext.
 
 %% Changes of the Meta info of schema itself is not allowed
 restore_schema([{schema, schema, _List} | Schema], R) ->
@@ -2917,7 +3225,13 @@ make_dump_tables([schema | _Tabs]) ->
 make_dump_tables([Tab | Tabs]) ->
     get_tid_ts_and_lock(Tab, read),
     TabDef = get_create_list(Tab),
-    DiscResident =  val({Tab, disc_copies}) ++ val({Tab, disc_only_copies}),
+    DiscResident =
+        val({Tab, disc_copies}) ++
+        val({Tab, disc_only_copies}) ++
+        lists:concat([Ns || {{A,M},Ns} <- val({Tab, external_copies}),
+			    lists:member(
+			      mnesia_lib:semantics({ext,A,M},storage),
+			      [disc_copies, disc_only_copies])]),
     verify([], DiscResident,
 	   {"Only allowed on ram_copies", Tab, DiscResident}),
     [{op, dump_table, unknown, TabDef} | make_dump_tables(Tabs)];
@@ -3337,4 +3651,3 @@ unannounce_im_running([N | Ns]) ->
     unannounce_im_running(Ns);
 unannounce_im_running([]) ->
     ok.
-
