@@ -112,6 +112,10 @@ int ethr_assert_failed(const char *file, int line, const char *func, char *a);
 #error "_GNU_SOURCE not defined. Please, compile all files with -D_GNU_SOURCE."
 #endif
 
+#ifdef ETHR_HAVE_PTHREAD_SETNAME_NP_1
+#define _DARWIN_C_SOURCE
+#endif
+
 #if defined(ETHR_NEED_NPTL_PTHREAD_H)
 #include <nptl/pthread.h>
 #elif defined(ETHR_HAVE_MIT_PTHREAD_H)
