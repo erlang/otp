@@ -1179,7 +1179,7 @@ typedef struct {
     ErtsHeapFactory factory;
     int remaining_n;
     char* remaining_bytes;
-    Eterm* maps_list;
+    ErtsWStack flat_maps;
     ErtsPStack hamt_array;
 } B2TDecodeContext;
 
@@ -1519,7 +1519,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binar
             ctx->u.dc.res = (Eterm) (UWord) NULL;
             ctx->u.dc.next = &ctx->u.dc.res;
 	    erts_factory_proc_prealloc_init(&ctx->u.dc.factory, p, ctx->heap_size);
-	    ctx->u.dc.maps_list = NULL;
+	    ctx->u.dc.flat_maps.wstart = NULL;
 	    ctx->u.dc.hamt_array.pstart = NULL;
             ctx->state = B2TDecode;
             /*fall through*/
@@ -2938,7 +2938,7 @@ dec_term(ErtsDistExternal *edep,
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
-    Eterm *maps_list;   /* for preprocessing of small maps */
+    DECLARE_WSTACK(flat_maps); /* for preprocessing of small maps */
     Eterm* next;
     SWord reds;
 #ifdef DEBUG
@@ -2950,7 +2950,6 @@ dec_term(ErtsDistExternal *edep,
         next     = ctx->u.dc.next;
         ep       = ctx->u.dc.ep;
 	factory  = &ctx->u.dc.factory;
-	maps_list = ctx->u.dc.maps_list;
 
         if (ctx->state != B2TDecode) {
             int n_limit = reds;
@@ -3026,15 +3025,18 @@ dec_term(ErtsDistExternal *edep,
             }
         }
 	PSTACK_CHANGE_ALLOCATOR(hamt_array, ERTS_ALC_T_SAVED_ESTACK);
+        WSTACK_CHANGE_ALLOCATOR(flat_maps, ERTS_ALC_T_SAVED_ESTACK);
 	if (ctx->u.dc.hamt_array.pstart) {
 	    PSTACK_RESTORE(hamt_array, &ctx->u.dc.hamt_array);
+	}
+	if (ctx->u.dc.flat_maps.wstart) {
+	    WSTACK_RESTORE(flat_maps, &ctx->u.dc.flat_maps);
 	}
     }
     else {
         reds = ERTS_SWORD_MAX;
         next = objp;
         *next = (Eterm) (UWord) NULL;
-	maps_list = NULL;
     }
     hp = factory->hp;
 
@@ -3595,14 +3597,8 @@ dec_term_atom_common:
                      * vptr, last word for values
                      */
 
-                    /*
-                     * Use thing_word to link through decoded maps.
-                     * The list of maps is for later validation.
-                     */
-
-                    mp->thing_word = (Eterm) COMPRESS_POINTER(maps_list);
-                    maps_list      = (Eterm *) mp;
-
+                    WSTACK_PUSH(flat_maps, (UWord)mp);
+                    mp->thing_word = MAP_HEADER_FLATMAP;
                     mp->size       = size;
                     mp->keys       = keys;
                     *objp          = make_flatmap(mp);
@@ -3851,7 +3847,9 @@ dec_term_atom_common:
                     ctx->u.dc.ep = ep;
                     ctx->u.dc.next = next;
                     ctx->u.dc.factory.hp = hp;
-		    ctx->u.dc.maps_list = maps_list;
+		    if (!WSTACK_ISEMPTY(flat_maps)) {
+			WSTACK_SAVE(flat_maps, &ctx->u.dc.flat_maps);
+		    }
 		    if (!PSTACK_IS_EMPTY(hamt_array)) {
 			PSTACK_SAVE(hamt_array, &ctx->u.dc.hamt_array);
 		    }
@@ -3865,18 +3863,6 @@ dec_term_atom_common:
         }
     }
 
-    /* Iterate through all the maps and check for validity and sort keys
-     * - done here for when we know it is complete.
-     */
-
-    while (maps_list) {
-	next  = (Eterm *)(EXPAND_POINTER(*maps_list));
-	*maps_list = MAP_HEADER_FLATMAP;
-	if (!erts_validate_and_sort_flatmap((flatmap_t*)maps_list))
-	    goto error;
-	maps_list  = next;
-    }
-
     ASSERT(hp <= factory->hp_end
            || (factory->mode == FACTORY_CLOSED && is_immed(*dbg_resultp)));
     factory->hp = hp;
@@ -3885,20 +3871,31 @@ dec_term_atom_common:
      */
 
     if (!PSTACK_IS_EMPTY(hamt_array)) {
-	do {
-	    struct dec_term_hamt* hamt = PSTACK_TOP(hamt_array);
+        do {
+            struct dec_term_hamt* hamt = PSTACK_TOP(hamt_array);
 
-	    *hamt->objp = erts_hashmap_from_array(factory,
-						  hamt->leaf_array,
-						  hamt->size,
-						  1);
-	    if (is_non_value(*hamt->objp))
-		goto error_hamt;
+            *hamt->objp = erts_hashmap_from_array(factory,
+                                                  hamt->leaf_array,
+                                                  hamt->size,
+                                                  1);
+            if (is_non_value(*hamt->objp))
+                goto error_hamt;
 
-	    (void) PSTACK_POP(hamt_array);
-	} while (!PSTACK_IS_EMPTY(hamt_array));
-	PSTACK_DESTROY(hamt_array);
+            (void) PSTACK_POP(hamt_array);
+        } while (!PSTACK_IS_EMPTY(hamt_array));
+        PSTACK_DESTROY(hamt_array);
     }
+
+    /* Iterate through all the (flat)maps and check for validity and sort keys
+     * - done here for when we know it is complete.
+     */
+
+    while(!WSTACK_ISEMPTY(flat_maps)) {
+        next = (Eterm *)WSTACK_POP(flat_maps);
+        if (!erts_validate_and_sort_flatmap((flatmap_t*)next))
+            goto error;
+    }
+    WSTACK_DESTROY(flat_maps);
 
     ASSERT((Eterm*)EXPAND_POINTER(*dbg_resultp) != NULL);
 
@@ -3924,6 +3921,7 @@ error_hamt:
 	ctx->state = B2TDecodeFail;
 	ctx->reds = reds;
     }
+    WSTACK_DESTROY(flat_maps);
         
     return NULL;
 }
