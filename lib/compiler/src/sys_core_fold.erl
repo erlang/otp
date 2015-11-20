@@ -3097,12 +3097,12 @@ bsm_ensure_no_partition_2([#c_var{name=V}|Ps], N, G, Vstate, S) ->
 bsm_ensure_no_partition_2([_|Ps], N, G, _, S) ->
     bsm_ensure_no_partition_2(Ps, N-1, G, bin_argument_order, S).
 
-bsm_ensure_no_partition_after([#c_clause{pats=Ps}|Cs], Pos) ->
+bsm_ensure_no_partition_after([#c_clause{pats=Ps}=C|Cs], Pos) ->
     case nth(Pos, Ps) of
 	#c_var{} ->
 	    bsm_ensure_no_partition_after(Cs, Pos);
-	P ->
-	    bsm_problem(P, bin_partition)
+	_ ->
+	    bsm_problem(C, bin_partition)
     end;
 bsm_ensure_no_partition_after([], _) -> ok.
 

@@ -36,7 +36,8 @@
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
-	 match_string_opt/1,select_on_integer/1]).
+	 match_string_opt/1,select_on_integer/1,
+	 map_and_binary/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -62,7 +63,8 @@ groups() ->
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
        no_partition,calling_a_binary,binary_in_map,
-       match_string_opt,select_on_integer]}].
+       match_string_opt,select_on_integer,
+       map_and_binary]}].
 
 
 init_per_suite(Config) ->
@@ -1246,6 +1248,25 @@ do_select_on_integer(<<0:1,I:7>>) ->
     I;
 do_select_on_integer(<<1:1,_:7,Bin/binary>>) ->
     Bin.
+
+%% If 'bin_opt_info' was given the warning would lack filename
+%% and line number.
+
+map_and_binary(_Config) ->
+    {<<"10">>,<<"37">>,<<"am">>} = do_map_and_binary(<<"10:37am">>),
+    Map1 = #{time => "noon"},
+    {ok,Map1} = do_map_and_binary(Map1),
+    Map2 = #{hour => 8, min => 42},
+    {8,42,Map2} = do_map_and_binary(Map2),
+    ok.
+
+do_map_and_binary(<<Hour:2/bytes, $:, Min:2/bytes, Rest/binary>>) ->
+    {Hour, Min, Rest};
+do_map_and_binary(#{time := _} = T) ->
+    {ok, T};
+do_map_and_binary(#{hour := Hour, min := Min} = T) ->
+    {Hour, Min, T}.
+
 
 check(F, R) ->
     R = F().
