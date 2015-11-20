@@ -167,7 +167,6 @@ stop(Status) -> init ! {stop,{stop,Status}}, ok.
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
-    start_on_load_handler_process(),
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     Start = map(fun prepare_run_args/1, Start0),
     Flags0 = flags_to_atoms_again(Flags),
@@ -225,6 +224,7 @@ code_path_choice() ->
     end.
 
 boot(Start,Flags,Args) ->
+    start_on_load_handler_process(),
     BootPid = do_boot(Flags,Start),
     State = #state{flags = Flags,
 		   args = Args,
