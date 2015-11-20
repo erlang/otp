@@ -86,11 +86,13 @@ class EwxScreenDC : public wxScreenDC {
  EwxScreenDC() : wxScreenDC() {};
 };
 
+#if wxUSE_POSTSCRIPT
 class EwxPostScriptDC : public wxPostScriptDC {
  public: ~EwxPostScriptDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxPostScriptDC(const wxPrintData& printData) : wxPostScriptDC(printData) {};
  EwxPostScriptDC() : wxPostScriptDC() {};
 };
+#endif // wxUSE_POSTSCRIPT
 
 class EwxWindowDC : public wxWindowDC {
  public: ~EwxWindowDC() {((WxeApp *)wxTheApp)->clearPtr(this);};

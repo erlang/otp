@@ -5856,6 +5856,7 @@ case wxScreenDC_new: { // wxScreenDC::wxScreenDC
  rt.addRef(getRef((void *)Result,memenv), "wxScreenDC");
  break;
 }
+#if wxUSE_POSTSCRIPT
 case wxPostScriptDC_new_0: { // wxPostScriptDC::wxPostScriptDC
  wxPostScriptDC * Result = new EwxPostScriptDC();
  newPtr((void *) Result, 4, memenv);
@@ -5883,6 +5884,7 @@ case wxPostScriptDC_GetResolution: { // wxPostScriptDC::GetResolution
  break;
 }
 #endif
+#endif // wxUSE_POSTSCRIPT
 #if !wxCHECK_VERSION(2,9,0)
 case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
  wxWindowDC * Result = new EwxWindowDC();
