@@ -601,8 +601,11 @@
       </type>
       <desc>
         <p>Generates N bytes randomly uniform 0..255, and returns the
-          result in a binary. Uses the <c>crypto</c> library pseudo-random
-          number generator.</p>
+        result in a binary. Uses the <c>crypto</c> library pseudo-random
+        number generator.</p>
+        <p>This function is not recommended for cryptographic purposes.
+        Please use <seealso marker="#strong_rand_bytes/1">
+        strong_rand_bytes/1</seealso> instead.</p>
       </desc>
     </func>
 
