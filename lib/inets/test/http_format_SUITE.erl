@@ -38,6 +38,7 @@ groups() ->
       [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
        chunk_decode_otp_6264,
        chunk_decode_empty_chunk_otp_6511,
+       chunk_whitespace_suffix,
        chunk_decode_trailer, chunk_max_headersize, chunk_max_bodysize, chunk_not_hex]}].
 
 init_per_suite(Config) ->
@@ -156,6 +157,21 @@ chunk_decode_empty_chunk_otp_6511(Config) when is_list(Config) ->
 	http_chunk:decode(list_to_binary(ChunkedBody),
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE).
     
+%%-------------------------------------------------------------------------
+chunk_whitespace_suffix() ->
+    [{doc, "Test whitespace after chunked length header"}].
+chunk_whitespace_suffix(Config) when is_list(Config) ->
+    ChunkedBody = "1a  ; ignore-stuff-here" ++ ?CRLF ++
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10   "  ++ ?CRLF
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0  " ++ ?CRLF
+	++ "some-footer:some-value"  ++ ?CRLF
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    {ok, {["content-length:42", "another-footer:another-value",
+	   "some-footer:some-value", ""],
+	  <<"abcdefghijklmnopqrstuvwxyz1234567890abcdef">>}} =
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE).
+
 %%-------------------------------------------------------------------------
 chunk_decode_trailer() ->
     [{doc,"Make sure trailers are handled correctly. Trailers should"
