@@ -551,10 +551,24 @@ huge_binary(Config) when is_list(Config) ->
     ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     ?line garbage_collect(),
     {Shift,Return} = case free_mem() of
-			 undefined -> {32,ok};
-			 Mb when Mb > 600 -> {32,ok};
-			 Mb when Mb > 300 -> {31,"Limit huge binaries to 256 Mb"};
-			 _ -> {30,"Limit huge binary to 128 Mb"}
+			 undefined ->
+			     %% This test has to be inlined inside the case to
+			     %% use a literal Shift
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 32)-1)>>),
+			     {32,ok};
+			 Mb when Mb > 600 ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 32)-1)>>),
+			     {32,ok};
+			 Mb when Mb > 300 ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 31)-1)>>),
+			     {31,"Limit huge binaries to 256 Mb"};
+			 _ ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 30)-1)>>),
+			     {30,"Limit huge binary to 128 Mb"}
 		     end,
     ?line garbage_collect(),
     ?line id(<<0:((1 bsl Shift)-1)>>),
