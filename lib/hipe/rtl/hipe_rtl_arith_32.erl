@@ -24,7 +24,8 @@
 %%  Filename : 	hipe_rtl_arith_32.erl
 %%  Module   :	hipe_rtl_arith_32
 %%  Purpose  :  To implement 32-bit RTL-arithmetic 
-%%  Notes    :  The arithmetic works on 32-bit signed integers. 
+%%  Notes    :  The arithmetic works on 32-bit signed and unsigned
+%%              integers.
 %%              The implementation is taken from the implementation
 %%              of arithmetic on SPARC.
 %%              XXX: This code is seldom used, and hence also
