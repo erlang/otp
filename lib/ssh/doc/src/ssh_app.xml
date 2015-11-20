@@ -137,6 +137,19 @@
     <p>Supported algorithms are:</p>
 
     <taglist>
+      <tag>Key exchange algorithms</tag>
+      <item>
+	<list type="bulleted">
+	  <item>ecdh-sha2-nistp256</item>
+	  <item>ecdh-sha2-nistp384</item>
+	  <item>ecdh-sha2-nistp521</item>
+	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>diffie-hellman-group-exchange-sha256</item>
+	  <item>diffie-hellman-group14-sha1</item>
+	  <item>diffie-hellman-group1-sha1</item>
+	</list>
+      </item>
+
       <tag>Public key algorithms</tag>
       <item>
 	<list type="bulleted">
@@ -157,30 +170,26 @@
 	</list>
       </item>
 
-      <tag>Encryption algorithms</tag>
+      <tag>Encryption algorithms (ciphers)</tag>
       <item>
 	<list type="bulleted">
+	  <item>aes128-gcm@openssh.com (AEAD_AES_128_GCM)</item>
+          <item>aes256-gcm@openssh.com (AEAD_AES_256_GCM)</item>
 	  <item>aes128-ctr</item>
 	  <item>aes192-ctr</item>
 	  <item>aes256-ctr</item>
 	  <item>aes128-cbc</item>
 	  <item>3des-cbc</item>
 	</list>
+	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
+	cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
+	cipher aes256-gcm@openssh.com is negotiated.
+	</p>
+	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
+	for more information.
+	</p>
       </item>
-
-      <tag>Key exchange algorithms</tag>
-      <item>
-	<list type="bulleted">
-	  <item>ecdh-sha2-nistp256</item>
-	  <item>ecdh-sha2-nistp384</item>
-	  <item>ecdh-sha2-nistp521</item>
-	  <item>diffie-hellman-group-exchange-sha1</item>
-	  <item>diffie-hellman-group-exchange-sha256</item>
-	  <item>diffie-hellman-group14-sha1</item>
-	  <item>diffie-hellman-group1-sha1</item>
-	</list>
-      </item>
-
+	
       <tag>Compression algorithms</tag>
       <item>
 	<list type="bulleted">
@@ -255,6 +264,30 @@
       <p></p>
       </item>
 
+      <item><url href="https://tools.ietf.org/html/rfc5647">RFC 5647</url>, AES Galois Counter Mode for
+      the Secure Shell Transport Layer Protocol.
+      <p><marker id="rfc5647_note"/>There is an ambiguity in the synchronized selection of cipher and mac algorithm. 
+      This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
+      If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
+      they could be enabled with the option preferred_algorithms.
+      <warning>
+	If the client or the server is not Erlang/OTP, it is the users responsibility to check that 
+	other implementation has the same interpretation of AEAD_AES_*_GCM as the Erlang/OTP SSH before
+	enabling them. The  aes*-gcm@openssh.com variants are always safe to use since they lack the
+	ambiguity.
+      </warning>
+      </p>
+      <p>The second paragraph in section 5.1 is resolved as:
+      <list type="ordered">
+	<item>If the negotiated cipher is AEAD_AES_128_GCM, the mac algorithm is set to  AEAD_AES_128_GCM.</item>
+	<item>If the negotiated cipher is AEAD_AES_256_GCM, the mac algorithm is set to  AEAD_AES_256_GCM.</item>
+	<item>If the mac algorithm is AEAD_AES_128_GCM, the cipher is set to AEAD_AES_128_GCM.</item>
+	<item>If the mac algorithm is AEAD_AES_256_GCM, the cipher is set to AEAD_AES_256_GCM.</item>
+      </list>
+      The first rule that matches when read in order from the top is applied
+      </p>
+      </item>
+	
       <item><url href="https://tools.ietf.org/html/rfc5656">RFC 5656</url>, Elliptic Curve Algorithm Integration in 
       the Secure Shell Transport Layer.
       <p>Except
@@ -266,6 +299,13 @@
       </list>
       </p>
       </item>
+      
+      <item><url href="https://tools.ietf.org/html/rfc6668">RFC 6668</url>, SHA-2 Data Integrity Verification for
+      the Secure Shell (SSH) Transport Layer Protocol
+      <p>Comment: Defines hmac-sha2-256 and hmac-sha2-512
+      </p>
+      </item>
+      
     </list>
 
   </section>
