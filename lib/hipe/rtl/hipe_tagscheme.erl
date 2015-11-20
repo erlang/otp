@@ -42,7 +42,7 @@
 	 test_ref/4, test_fun/4, test_fun2/5, test_matchstate/4,
 	 test_binary/4, test_bitstr/4, test_list/4, test_map/4,
 	 test_integer/4, test_number/4, test_tuple_N/5,
-	 test_pos_bignum_arity/5]).
+	 test_pos_bignum_arity/6]).
 -export([realtag_fixnum/2, tag_fixnum/2, realuntag_fixnum/2, untag_fixnum/2]).
 -export([test_two_fixnums/3, test_fixnums/4, unsafe_fixnum_add/3,
 	 unsafe_fixnum_sub/3,
@@ -351,14 +351,23 @@ test_pos_bignum(X, TrueLab, FalseLab, Pred) ->
    mask_and_compare(Tmp, BigMask, ?TAG_HEADER_POS_BIG,
 		    TrueLab, FalseLab, Pred)].
 
-test_pos_bignum_arity(X, Arity, TrueLab, FalseLab, Pred) ->
+test_pos_bignum_arity(X, Arity, TrueLab, NotPosBignumLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),
-  HalfTrueLab = hipe_rtl:mk_new_label(),
+  BoxedLab = hipe_rtl:mk_new_label(),
   HeaderImm = hipe_rtl:mk_imm(mk_header(Arity, ?TAG_HEADER_POS_BIG)),
-  [test_is_boxed(X, hipe_rtl:label_name(HalfTrueLab), FalseLab, Pred),
-   HalfTrueLab,
-   get_header(Tmp, X),
-   hipe_rtl:mk_branch(Tmp, 'eq', HeaderImm, TrueLab, FalseLab, Pred)].
+  [test_is_boxed(X, hipe_rtl:label_name(BoxedLab), NotPosBignumLab, Pred),
+   BoxedLab,
+   get_header(Tmp, X)] ++
+    case NotPosBignumLab =:= FalseLab of
+      true -> [];
+      false ->
+	BignumLab = hipe_rtl:mk_new_label(),
+	BigMask = ?TAG_HEADER_MASK,
+	[mask_and_compare(Tmp, BigMask, ?TAG_HEADER_POS_BIG,
+			  hipe_rtl:label_name(BignumLab), NotPosBignumLab, Pred),
+	 BignumLab]
+    end ++
+    [hipe_rtl:mk_branch(Tmp, 'eq', HeaderImm, TrueLab, FalseLab, Pred)].
 
 test_matchstate(X, TrueLab, FalseLab, Pred) ->
   Tmp = hipe_rtl:mk_new_reg_gcsafe(),

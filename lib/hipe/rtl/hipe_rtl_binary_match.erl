@@ -31,6 +31,8 @@
 
 -import(hipe_tagscheme, [set_field_from_term/3, get_field_from_term/3]).
 
+-import(hipe_rtl_binary, [make_size/3]).
+
 -include("hipe_literals.hrl").
 
 %%--------------------------------------------------------------------
@@ -1099,104 +1101,6 @@ create_gcsafe_regs(X) when X > 0 ->
   [hipe_rtl:mk_new_reg_gcsafe()|create_gcsafe_regs(X-1)];
 create_gcsafe_regs(0) ->
   [].
-
-first_part(Var, Register, FalseLblName) ->
-  [EndLbl] = create_lbls(1),
-  EndName = hipe_rtl:label_name(EndLbl),
-  first_part(Var, Register, FalseLblName, EndName, EndName, [EndLbl]).
-
-first_part(Var, Register, FalseLblName, TrueLblName, BigLblName, Tail) ->
-  [FixnumLbl, NotFixnumLbl, BignumLbl, SuccessLbl] = create_lbls(4),
-  [hipe_tagscheme:test_fixnum(Var, hipe_rtl:label_name(FixnumLbl),
-			      hipe_rtl:label_name(NotFixnumLbl), 0.99),
-   FixnumLbl,
-   hipe_tagscheme:fixnum_ge(Var, hipe_rtl:mk_imm(hipe_tagscheme:mk_fixnum(0)),
-			    hipe_rtl:label_name(SuccessLbl), FalseLblName,
-			    0.99),
-   SuccessLbl,
-   hipe_tagscheme:untag_fixnum(Register, Var),
-   hipe_rtl:mk_goto(TrueLblName),
-   NotFixnumLbl,
-   %% Since binaries are not allowed to be larger than 2^wordsize bits
-   %% and since bignum digits are words, we know that a bignum with an
-   %% arity larger than one can't match.
-   hipe_tagscheme:test_pos_bignum_arity(Var, 1, hipe_rtl:label_name(BignumLbl),
-					FalseLblName, 0.99),
-   BignumLbl,
-   hipe_tagscheme:unsafe_get_one_word_pos_bignum(Register, Var),
-   hipe_rtl:mk_goto(BigLblName) | Tail].
-
-make_size(1, BitsVar, FalseLblName) ->
-  [DstReg] = create_regs(1),
-  {first_part(BitsVar, DstReg, FalseLblName), DstReg};
-make_size(?BYTE_SIZE, BitsVar, FalseLblName) ->
-  [DstReg] = create_regs(1),
-  [FixnumLbl, BignumLbl] = create_lbls(2),
-  WordBits = hipe_rtl_arch:word_size() * ?BYTE_SIZE,
-  FixnumLblName = hipe_rtl:label_name(FixnumLbl),
-  Tail = [BignumLbl,
-	  hipe_rtl:mk_branch(DstReg, 'ltu',
-			     hipe_rtl:mk_imm(1 bsl (WordBits - ?BYTE_SHIFT)),
-			     FixnumLblName, FalseLblName, 0.99),
-	  FixnumLbl,
-	  hipe_rtl:mk_alu(DstReg, DstReg, sll, hipe_rtl:mk_imm(?BYTE_SHIFT))],
-  Code = first_part(BitsVar, DstReg, FalseLblName, FixnumLblName,
-		    hipe_rtl:label_name(BignumLbl), Tail),
-  {Code, DstReg};
-make_size(UnitImm, BitsVar, FalseLblName) ->
-  [DstReg] = create_regs(1),
-  UnitList = number2list(UnitImm),
-  Code = multiply_code(UnitList, BitsVar, DstReg, FalseLblName),
-  {Code, DstReg}.
-
-multiply_code(List=[Head|_Tail], Variable, Result, FalseLblName) ->
-  Test = set_high(Head),
-  Tmp1 = hipe_rtl:mk_new_reg(),
-  SuccessLbl = hipe_rtl:mk_new_label(),
-  Register = hipe_rtl:mk_new_reg(),
-  Code = [hipe_rtl:mk_move(Result, hipe_rtl:mk_imm(0))|
-	  first_part(Variable, Register, FalseLblName)]
-	++
-	 [hipe_rtl:mk_alub(Tmp1, Register, 'and', hipe_rtl:mk_imm(Test), 
-			   eq, hipe_rtl:label_name(SuccessLbl), 
-			   FalseLblName, 0.99),
-	  SuccessLbl],
-  multiply_code(List, Register, Result, FalseLblName, Tmp1, Code).
-
-multiply_code([ShiftSize|Rest], Register, Result, FalseLblName, Tmp1, OldCode) ->
-  SuccessLbl = hipe_rtl:mk_new_label(),
-  Code =
-    OldCode ++
-    [hipe_rtl:mk_alu(Tmp1, Register, sll, hipe_rtl:mk_imm(ShiftSize)),
-     hipe_rtl:mk_alub(Result, Tmp1, 'add', Result, not_overflow,
-		      hipe_rtl:label_name(SuccessLbl), FalseLblName, 0.99),
-     SuccessLbl],
-  multiply_code(Rest, Register, Result, FalseLblName, Tmp1, Code);
-multiply_code([], _Register, _Result, _FalseLblName, _Tmp1, Code) ->
-  Code.
-
-number2list(X) when is_integer(X), X >= 0 ->
-  number2list(X, []).
-
-number2list(1, Acc) ->
-  lists:reverse([0|Acc]);
-number2list(0, Acc) ->
-  lists:reverse(Acc);
-number2list(X, Acc) ->
-  F = floorlog2(X),
-  number2list(X-(1 bsl F), [F|Acc]).
-
-floorlog2(X) ->
-  round(math:log(X)/math:log(2)-0.5). 
-
-set_high(X) ->
-  WordBits = hipe_rtl_arch:word_size() * ?BYTE_SIZE,
-  set_high(min(X, WordBits), WordBits, 0).
-
-set_high(0, _, Y) ->
-  Y;
-set_high(X, WordBits, Y) ->
-  set_high(X-1, WordBits, Y+(1 bsl (WordBits-X))).
 
 is_illegal_const(Const) ->
   Const >=  1 bsl (hipe_rtl_arch:word_size() * ?BYTE_SIZE) orelse Const < 0.
