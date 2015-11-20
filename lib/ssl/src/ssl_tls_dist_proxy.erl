@@ -60,7 +60,7 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call({listen, Name}, _From, State) ->
-    case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}]) of
+    case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}, {ip, loopback}]) of
 	{ok, Socket} ->
 	    {ok, World} = gen_tcp:listen(0, [{active, false}, binary, {packet,?PPRE}]),
 	    {ok, TcpAddress} = get_tcp_address(Socket),
@@ -179,7 +179,7 @@ setup_proxy(Ip, Port, Parent) ->
     Opts = get_ssl_options(client),
     case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}] ++ Opts) of
 	{ok, World} ->
-	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, {127,0,0,1}}, binary, {packet,?PPRE}]),
+	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, loopback}, binary, {packet,?PPRE}]),
 	    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
 	    Parent ! {self(), go_ahead, LPort},
 	    case gen_tcp:accept(ErtsL) of
