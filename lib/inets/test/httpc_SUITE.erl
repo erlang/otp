@@ -106,6 +106,7 @@ only_simulated() ->
      bad_response,
      internal_server_error,
      invalid_http,
+     invalid_chunk_size,
      headers_dummy,
      headers_with_obs_fold,
      empty_response_header,
@@ -765,6 +766,22 @@ invalid_http(Config) when is_list(Config) ->
     ct:print("Parse error: ~p ~n", [Reason]).
 
 %%-------------------------------------------------------------------------
+
+invalid_chunk_size(doc) ->
+    ["Test parse error of HTTP chunk size"];
+invalid_chunk_size(suite) ->
+    [];
+invalid_chunk_size(Config) when is_list(Config) ->
+
+    URL = url(group_name(Config), "/invalid_chunk_size.html", Config),
+
+    {error, {chunk_size, _} = Reason} =
+	httpc:request(get, {URL, []}, [], []),
+
+    ct:print("Parse error: ~p ~n", [Reason]).
+
+%%-------------------------------------------------------------------------
+
 emulate_lower_versions(doc) ->
     [{doc, "Perform request as 0.9 and 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
@@ -1875,6 +1892,10 @@ handle_uri(_,"/once.html",_,_,Socket,_) ->
 handle_uri(_,"/invalid_http.html",_,_,_,_) ->
     "HTTP/1.1 301\r\nDate:Sun, 09 Dec 2007 13:04:18 GMT\r\n" ++
 	"Transfer-Encoding:chunked\r\n\r\n";
+
+handle_uri(_,"/invalid_chunk_size.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"Transfer-Encoding:chunked\r\n\r\nåäö\r\n";
 
 handle_uri(_,"/missing_reason_phrase.html",_,_,_,_) ->
     "HTTP/1.1 200\r\n" ++
