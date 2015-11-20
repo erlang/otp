@@ -1113,8 +1113,8 @@ handle_http_body(Body, #state{headers       = Headers,
     case case_insensitive_header(TransferEnc) of
         "chunked" ->
 	    ?hcrt("handle_http_body - chunked", []),
-	    case http_chunk:decode(Body, State#state.max_body_size, 
-				   State#state.max_header_size) of
+	    try http_chunk:decode(Body, State#state.max_body_size, 
+				  State#state.max_header_size) of
 		{Module, Function, Args} ->
 		    ?hcrt("handle_http_body - new mfa", 
 			  [{module,   Module}, 
@@ -1139,6 +1139,13 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
                     end
+	    catch throw:{error, Reason} ->
+		NewState =
+		    answer_request(Request,
+				   httpc_response:error(Request,
+							Reason),
+				   State),
+		    {stop, normal, NewState}
 	    end;
         Enc when Enc =:= "identity"; Enc =:= undefined ->
             ?hcrt("handle_http_body - identity", []),
