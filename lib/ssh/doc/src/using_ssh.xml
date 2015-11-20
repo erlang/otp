@@ -252,7 +252,7 @@
     <code type="erl">
 %% First three parameters depending on which crypto type we select:
 Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
-Ivec0 = crypto:rand_bytes(16),
+Ivec0 = crypto:strong_rand_bytes(16),
 DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
 
 %% Initialization of the CryptoState, in this case it is the Ivector.
