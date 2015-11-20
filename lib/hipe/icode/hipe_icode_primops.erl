@@ -505,11 +505,13 @@ type(Primop, Args) ->
 	  NewMatchState = 
 	    erl_types:t_matchstate_update_present(NewBinType, MatchState),
 	  if Signed =:= 0 ->
-	      erl_types:t_product([erl_types:t_from_range(0, 1 bsl Size - 1), 
+	      UpperBound = inf_add(safe_bsl(1, Size), -1),
+	      erl_types:t_product([erl_types:t_from_range(0, UpperBound),
 				   NewMatchState]);
 	     Signed =:= 4 ->
-	      erl_types:t_product([erl_types:t_from_range(- (1 bsl (Size-1)), 
-							  (1 bsl (Size-1)) - 1),
+	      erl_types:t_product([erl_types:t_from_range(
+				     inf_inv(safe_bsl(1, Size-1)),
+				     inf_add(safe_bsl(1, Size-1), -1)),
 				   NewMatchState])
 	  end;
 	[_Arg] ->
@@ -966,3 +968,19 @@ check_fun_args(_, _) ->
 
 match_bin(Pattern, Match) ->
   erl_types:t_bitstr_match(Pattern, Match).
+
+safe_bsl(0, _) -> 0;
+safe_bsl(Base, Shift) when Shift =< 128 -> Base bsl Shift;
+safe_bsl(Base, _Shift) when Base > 0 -> pos_inf;
+safe_bsl(Base, _Shift) when Base < 0 -> neg_inf.
+
+inf_inv(pos_inf) -> neg_inf;
+inf_inv(neg_inf) -> pos_inf;
+inf_inv(Number) -> -Number.
+
+inf_add(pos_inf, _Number) -> pos_inf;
+inf_add(neg_inf, _Number) -> neg_inf;
+inf_add(_Number, pos_inf) -> pos_inf;
+inf_add(_Number, neg_inf) -> neg_inf;
+inf_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
+  Number1 + Number2.
