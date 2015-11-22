@@ -1277,6 +1277,11 @@ encode_events(Evs) ->
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
     w("   if(cb->skip) event->Skip();~n"),
+    w("   if(app->recurse_level < 1) {~n"),
+    w("     app->recurse_level++;~n"),
+    w("     app->dispatch_cmds();~n"),
+    w("     app->recurse_level--;~n"),
+    w("   }~n"),
     w(" };~n"),
     w(" return send_res;~n"),
     w(" }~n").

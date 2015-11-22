@@ -225,9 +225,9 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
   if(driver_monitor_process(port, process, &monitor) == 0) {
     // Should we be able to handle commands when recursing? probably
     // fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
-    app->recurse_level++;
+    app->recurse_level += 2;
     app->dispatch_cb(wxe_queue, process);
-    app->recurse_level--;
+    app->recurse_level -= 2;
     // fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
     driver_demonitor_process(port, &monitor);
   }
