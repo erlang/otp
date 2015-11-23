@@ -54,7 +54,8 @@
 #endif
 
 #if defined(ETHR_DEBUG) || !defined(ETHR_INLINE) || ETHR_XCHK \
-    || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC))
+    || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC)) \
+    || (defined(__GNUC__) && defined(ERTS_MIXED_MSYS_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
 #  undef ETHR_FORCE_INLINE

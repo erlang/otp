@@ -127,18 +127,18 @@ MIXED_MSYS=no
 
 AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([Cygwin and VC])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	elif test -x /usr/bin/msysinfo; then
+	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="-O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
 		MIXED_MSYS_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
+	elif test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([Cygwin and VC])
+		MIXED_CYGWIN_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
 	else		    
 		AC_MSG_RESULT([undeterminable])
 		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
