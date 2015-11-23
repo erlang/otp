@@ -296,7 +296,7 @@ setup_dsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
     
@@ -306,7 +306,7 @@ setup_rsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_rsa_known_host(DataDir, UserDir),
     setup_rsa_auth_keys(DataDir, UserDir).
 
@@ -316,7 +316,7 @@ setup_ecdsa(Size, DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_ecdsa_known_host(Size, System, UserDir),
     setup_ecdsa_auth_keys(Size, UserDir, UserDir).
 
@@ -502,7 +502,7 @@ default_algorithms(sshd, Host, Port) ->
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->
-	    ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+	    ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
 	    []
     end.
 
@@ -522,7 +522,7 @@ default_algorithms(sshc, DaemonOptions) ->
 						    InitialState))
 		       catch
 			   _C:_E ->
-			       ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+			       ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
 			       []
 		       end}
 	  end),
