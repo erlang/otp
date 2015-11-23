@@ -380,7 +380,7 @@ extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
 
 /*
- * Here is an implementation of a lightweiht stack.
+ * Here is an implementation of a lightweight stack.
  *
  * Use it like this:
  *
@@ -845,6 +845,94 @@ do {\
 } while(0)
 
 
+/*
+ *  An implementation of lightweight unbounded queues,
+ *  using a circular dynamic array.
+ *  It does not include support for change_allocator.
+ *
+ *  Use it like this:
+ *
+ *  DECLARE_EQUEUE(Queue)	(At the start of a block)
+ *  ...
+ *  EQUEUE_PUT(Queue, Term)
+ *  ...
+ *  if (EQUEUE_ISEMPTY(Queue)) {
+ *     Queue is empty
+ *  } else {
+ *     Term = EQUEUE_GET(Stack);
+ *     Process popped Term here
+ *  }
+ *  ...
+ *  DESTROY_EQUEUE(Queue)
+ */
+
+typedef struct {
+    Eterm* start;
+    Eterm* front;
+    Eterm* back;
+    int possibly_empty;
+    Eterm* end;
+    ErtsAlcType_t alloc_type;
+} ErtsEQueue;
+
+#define DEF_EQUEUE_SIZE (16)
+
+void erl_grow_equeue(ErtsEQueue*, Eterm* def_queue);
+#define EQUE_CONCAT(a,b) a##b
+#define EQUE_DEF_QUEUE(q) EQUE_CONCAT(q,_default_equeue)
+
+#define DECLARE_EQUEUE(q)				\
+    UWord EQUE_DEF_QUEUE(q)[DEF_EQUEUE_SIZE];     	\
+    ErtsEQueue q = {					\
+        EQUE_DEF_QUEUE(q), /* start */			\
+        EQUE_DEF_QUEUE(q), /* front */			\
+        EQUE_DEF_QUEUE(q), /* back */			\
+        1,                 /* possibly_empty */		\
+        EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
+        ERTS_ALC_T_ESTACK  /* alloc_type */		\
+    }
+
+#define DESTROY_EQUEUE(q)				\
+do {							\
+    if (q.start != EQUE_DEF_QUEUE(q)) {			\
+      erts_free(q.alloc_type, q.start);			\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT_UNCHECKED(q, x)			\
+do {							\
+    q.possibly_empty = 0;				\
+    *(q.back) = (x);                    		\
+    if (++(q.back) == q.end) {				\
+	q.back = q.start;				\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT(q, x)				\
+do {							\
+    if (q.back == q.front && !q.possibly_empty) {	\
+        erl_grow_equeue(&q, EQUE_DEF_QUEUE(q));		\
+    }							\
+    EQUEUE_PUT_UNCHECKED(q, x);				\
+} while(0)
+
+#define EQUEUE_ISEMPTY(q) (q.back == q.front && q.possibly_empty)
+
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q) {
+    Eterm x;
+    q->possibly_empty = 1;
+    x = *(q->front);
+    if (++(q->front) == q->end) {
+        q->front = q->start;
+    }
+    return x;
+}
+#endif
+#define EQUEUE_GET(q) erts_equeue_get(&(q));
+
 /* binary.c */
 
 void erts_emasculate_writable_binary(ProcBin* pb);
@@ -899,6 +987,12 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 /* beam_bif_load.c */
 Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
 
+typedef struct {
+    Eterm *ptr;
+    Uint   sz;
+} copy_literals_t;
+
+extern copy_literals_t erts_clrange;
 
 /* beam_load.c */
 typedef struct {
@@ -953,12 +1047,67 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
+/* This controls whether sharing-preserving copy is used by Erlang */
+
+#ifdef SHCOPY
+#define SHCOPY_SEND
+#define SHCOPY_SPAWN
+#endif
+
+/* The persistent state while the sharing-preserving copier works */
+
+typedef struct {
+    Eterm  queue_default[DEF_EQUEUE_SIZE];
+    Eterm* queue_start;
+    Eterm* queue_end;
+    ErtsAlcType_t queue_alloc_type;
+    UWord  bitstore_default[DEF_WSTACK_SIZE];
+    UWord* bitstore_start;
+    ErtsAlcType_t bitstore_alloc_type;
+    Eterm  shtable_default[DEF_ESTACK_SIZE];
+    Eterm* shtable_start;
+    ErtsAlcType_t shtable_alloc_type;
+    Uint literal_size;
+    Eterm *range_ptr;
+    Uint  range_sz;
+} erts_shcopy_t;
+
+#define INITIALIZE_SHCOPY(info)                         \
+do {                                                    \
+    info.queue_start = info.queue_default;              \
+    info.bitstore_start = info.bitstore_default;        \
+    info.shtable_start = info.shtable_default;          \
+    info.literal_size = 0;                              \
+    info.range_ptr = erts_clrange.ptr;                  \
+    info.range_sz  = erts_clrange.sz;                   \
+} while(0)
+
+#define DESTROY_SHCOPY(info)                                            \
+do {                                                                    \
+    if (info.queue_start != info.queue_default) {                       \
+        erts_free(info.queue_alloc_type, info.queue_start);             \
+    }                                                                   \
+    if (info.bitstore_start != info.bitstore_default) {                 \
+        erts_free(info.bitstore_alloc_type, info.bitstore_start);       \
+    }                                                                   \
+    if (info.shtable_start != info.shtable_default) {                   \
+        erts_free(info.shtable_alloc_type, info.shtable_start);         \
+    }                                                                   \
+} while(0)
+
 /* copy.c */
 Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
 Uint size_object(Eterm);
-Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
+Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
+Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
+
+Uint size_shared(Eterm);
+
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+#define copy_struct(Obj,Sz,HPP,OH) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL)
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,

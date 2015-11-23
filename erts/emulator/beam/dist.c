@@ -881,11 +881,7 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
     DTRACE_CHARBUF(receiver_name, 64);
 #endif
 
-    if (SEQ_TRACE_TOKEN(sender) != NIL
-#ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
-#endif
-	) {
+    if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
@@ -900,7 +896,7 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
         erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
                       "%T", remote);
         msize = size_object(message);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -942,11 +938,7 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
     DTRACE_CHARBUF(receiver_name, 128);
 #endif
 
-    if (SEQ_TRACE_TOKEN(sender) != NIL
-#ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
-#endif
-	) {
+    if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
@@ -961,7 +953,7 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
         erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -1006,11 +998,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 #endif
 
     UseTmpHeapNoproc(6);
-    if (token != NIL 
-#ifdef USE_VM_PROBES
-	&& token != am_have_dt_utag
-#endif
-	) {	
+    if (have_seqtrace(token)) {
 	seq_trace_update_send(dsdp->proc);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
 	ctl = TUPLE5(&ctl_heap[0],
@@ -1029,7 +1017,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
                       "{%T,%s}", remote, node_name);
         erts_snprintf(reason_str, sizeof(DTRACE_CHARBUF_NAME(reason_str)),
                       "%T", reason);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));

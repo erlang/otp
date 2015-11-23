@@ -154,7 +154,7 @@ static struct /* Protected by code_write_permission */
 {
     Process* stager;
     ErtsThrPrgrLaterOp lop;
-}commiter_state;
+} committer_state;
 #endif
 
 static Eterm
@@ -367,9 +367,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 * schedulers to read active code_ix in a safe way while executing
 	 * without any memory barriers at all. 
 	 */
-	ASSERT(commiter_state.stager == NULL);
-	commiter_state.stager = c_p;
-	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &commiter_state.lop);
+	ASSERT(committer_state.stager == NULL);
+	committer_state.stager = c_p;
+	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &committer_state.lop);
 	erts_proc_inc_refc(c_p);
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	/*
@@ -385,11 +385,11 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 #ifdef ERTS_SMP
 static void smp_code_ix_commiter(void* null)
 {
-    Process* p = commiter_state.stager;
+    Process* p = committer_state.stager;
 
     erts_commit_staging_code_ix();
 #ifdef DEBUG
-    commiter_state.stager = NULL;
+    committer_state.stager = NULL;
 #endif
     erts_release_code_write_permission();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
@@ -1006,6 +1006,93 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
     }
     return 0;
 }
+
+#undef in_area
+
+#ifdef ERTS_SMP
+static void copy_literals_commit(void*);
+#endif
+
+copy_literals_t erts_clrange = {NULL, 0};
+
+/* copy literals
+ *
+ * copy_literals.ptr = LitPtr
+ * copy_literals.sz  = LitSz
+ * ------ THR PROG COMMIT -----
+ *
+ *  - check process code
+ *  - check process code
+ *  ...
+ * copy_literals.ptr = NULL
+ * copy_literals.sz  = 0
+ * ------ THR PROG COMMIT -----
+ *  ...
+ */
+
+
+BIF_RETTYPE copy_literals_2(BIF_ALIST_2)
+{
+    Module* modp;
+    ErtsCodeIndex code_ix;
+    Eterm res = am_true;
+
+    if (is_not_atom(BIF_ARG_1) || (am_true != BIF_ARG_2 && am_false != BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD2(bif_export[BIF_copy_literals_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
+
+    code_ix = erts_active_code_ix();
+
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL || !modp->old.code_hdr) {
+        res = am_false;
+        goto done;
+    }
+
+    if (BIF_ARG_2 == am_true) {
+        if (erts_clrange.ptr != NULL) {
+            res = am_aborted;
+            goto done;
+       }
+        erts_clrange.ptr = (Eterm*) modp->old.code_hdr->literals_start;
+        erts_clrange.sz  = (Eterm*) modp->old.code_hdr->literals_end - erts_clrange.ptr;
+    } else if (BIF_ARG_2 == am_false) {
+        erts_clrange.ptr = NULL;
+        erts_clrange.sz  = 0;
+    }
+
+#ifdef ERTS_SMP
+    ASSERT(committer_state.stager == NULL);
+    committer_state.stager = BIF_P;
+    erts_schedule_thr_prgr_later_op(copy_literals_commit, NULL, &committer_state.lop);
+    erts_proc_inc_refc(BIF_P);
+    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+#endif
+done:
+    erts_release_code_write_permission();
+    BIF_RET(res);
+}
+
+#ifdef ERTS_SMP
+static void copy_literals_commit(void* null) {
+    Process* p = committer_state.stager;
+#ifdef DEBUG
+    committer_state.stager = NULL;
+#endif
+    erts_release_code_write_permission();
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    if (!ERTS_PROC_IS_EXITING(p)) {
+	erts_resume(p, ERTS_PROC_LOCK_STATUS);
+    }
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_dec_refc(p);
+}
+#endif /* ERTS_SMP */
+
 
 BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 {

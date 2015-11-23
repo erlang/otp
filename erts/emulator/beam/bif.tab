@@ -639,14 +639,17 @@ bif ets:update_counter/4
 bif erts_debug:map_info/1
 
 #
+# New in 19.0
+#
+
+bif erlang:copy_literals/2
+bif binary:split/2
+bif binary:split/3
+bif erts_debug:size_shared/1
+bif erts_debug:copy_shared/1
+
+#
 # Obsolete
 #
 
 bif erlang:hash/2
-
-#
-# New in 19.0
-#
-
-bif binary:split/2
-bif binary:split/3

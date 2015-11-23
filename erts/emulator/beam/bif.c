@@ -2038,11 +2038,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
 	
-	if (SEQ_TRACE_TOKEN(p) != NIL
-#ifdef USE_VM_PROBES
-	    && SEQ_TRACE_TOKEN(p) != am_have_dt_utag
-#endif
-	    ) {
+        if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
 	    seq_trace_update_send(p);
 	    seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
 			     SEQ_TRACE_SEND, portid, p);

@@ -10747,6 +10747,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     Eterm res = THE_NON_VALUE;
     erts_aint32_t state = 0;
     erts_aint32_t prio = (erts_aint32_t) PRIORITY_NORMAL;
+#ifdef SHCOPY_SPAWN
+    erts_shcopy_t info;
+    INITIALIZE_SHCOPY(info);
+#endif
 
 #ifdef ERTS_SMP
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -10798,7 +10802,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_COUNT(processes_spawned);
 
     BM_SWAP_TIMER(system,size);
+#ifdef SHCOPY_SPAWN
+    arg_size = copy_shared_calculate(args, &info);
+#else
     arg_size = size_object(args);
+#endif
     BM_SWAP_TIMER(size,system);
     heap_need = arg_size;
 
@@ -10876,7 +10884,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_MESSAGE(args,p,parent);
     BM_START_TIMER(system);
     BM_SWAP_TIMER(system,copy);
+#ifdef SHCOPY_SPAWN
+    p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap);
+    DESTROY_SHCOPY(info);
+#else
     p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
+#endif
     BM_MESSAGE_COPIED(arg_size);
     BM_SWAP_TIMER(copy,system);
     p->arity = 3;
@@ -11260,6 +11273,8 @@ static void
 delete_process(Process* p)
 {
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
+                           HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
 
     /* Cleanup psd */
 
@@ -11505,31 +11520,40 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 {
     ErtsMessage *mp;
     ErlOffHeap *ohp;
-
-    if (token == NIL 
-#ifdef USE_VM_PROBES
-	|| token == am_have_dt_utag
+    Eterm* hp;
+    Eterm mess;
+#ifdef SHCOPY_SEND
+    erts_shcopy_t info;
 #endif
-	) {
-	Eterm* hp;
-	Eterm mess;
 
-	mp = erts_alloc_message_heap(to, to_locksp,
-				     term_size, &hp, &ohp);
+    if (!have_seqtrace(token)) {
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        term_size = copy_shared_calculate(exit_term, &info);
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
+        mess = copy_shared_perform(exit_term, term_size, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
+#endif
 	erts_queue_message(to, to_locksp, mp, mess, NIL);
     } else {
-	Eterm* hp;
-	Eterm mess;
 	Eterm temp_token;
 	Uint sz_token;
 
 	ASSERT(is_tuple(token));
 	sz_token = size_object(token);
-
-	mp = erts_alloc_message_heap(to, to_locksp,
-				     term_size+sz_token, &hp, &ohp);
+#ifdef SHCOPY_SEND
+        INITIALIZE_SHCOPY(info);
+        term_size = copy_shared_calculate(exit_term, &info);
+	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
+        mess = copy_shared_perform(exit_term, term_size, &info, &hp, ohp);
+        DESTROY_SHCOPY(info);
+#else
+	mp = erts_alloc_message_heap(to, to_locksp, term_size+sz_token, &hp, &ohp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
+#endif
 	/* the trace token must in this case be updated by the caller */
 	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->common.id, NULL);
 	temp_token = copy_struct(token, sz_token, &hp, ohp);
@@ -11642,11 +11666,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     if ((state & ERTS_PSFLG_TRAP_EXIT)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-	if (is_not_nil(token) 
-#ifdef USE_VM_PROBES
-	    && token != am_have_dt_utag
-#endif
-	    && token_update)
+        if (have_seqtrace(token))
 	    seq_trace_update_send(token_update);
 	if (is_value(exit_tuple))
 	    send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);

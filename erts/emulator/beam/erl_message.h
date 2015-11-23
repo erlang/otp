@@ -128,6 +128,13 @@ struct erl_heap_fragment {
 #else
 #endif
 
+#ifdef USE_VM_PROBES
+#define have_no_seqtrace(T) ((T) == NIL || (T) == am_have_dt_utag)
+#else
+#define have_no_seqtrace(T) ((T) == NIL)
+#endif
+#define have_seqtrace(T)    (!have_no_seqtrace(T))
+
 #define ERL_MESSAGE_REF_FIELDS__			\
     ErtsMessage *next;	/* Next message */		\
     union {						\
