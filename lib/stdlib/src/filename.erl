@@ -433,6 +433,10 @@ join(Name1, Name2) when is_atom(Name2) ->
 join1([UcLetter, $:|Rest], RelativeName, [], win32)
 when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
+join1([$/,$/|Rest], RelativeName, [], win32) ->
+    join1(Rest, RelativeName, [$/,$/], win32);
+join1([$\\,$\\|Rest], RelativeName, [], win32) ->
+    join1(Rest, RelativeName, [$/,$/], win32);
 join1([$\\|Rest], RelativeName, Result, win32) ->
     join1([$/|Rest], RelativeName, Result, win32);
 join1([$/|Rest], RelativeName, [$., $/|Result], OsType) ->
@@ -443,6 +447,8 @@ join1([], [], Result, OsType) ->
     maybe_remove_dirsep(Result, OsType);
 join1([], RelativeName, [$:|Rest], win32) ->
     join1(RelativeName, [], [$:|Rest], win32);
+join1([], RelativeName, [$/,$/|Result], OsType) ->
+    join1(RelativeName, [], [$/,$/|Result], OsType);
 join1([], RelativeName, [$/|Result], OsType) ->
     join1(RelativeName, [], [$/|Result], OsType);
 join1([], RelativeName, [$., $/|Result], OsType) ->
@@ -461,6 +467,8 @@ join1([Atom|Rest], RelativeName, Result, OsType) when is_atom(Atom) ->
 join1b(<<UcLetter, $:, Rest/binary>>, RelativeName, [], win32)
 when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1b(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
+join1b(<<$\\,$\\,Rest/binary>>, RelativeName, [], win32) ->
+    join1(Rest, RelativeName, [$/,$/], win32);
 join1b(<<$\\,Rest/binary>>, RelativeName, Result, win32) ->
     join1b(<<$/,Rest/binary>>, RelativeName, Result, win32);
 join1b(<<$/,Rest/binary>>, RelativeName, [$., $/|Result], OsType) ->
@@ -673,6 +681,9 @@ win32_splitb(<<Letter0,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter0) ->
     Letter = fix_driveletter(Letter0),
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<Letter,$:>> | [ X || X <- L, X =/= <<>> ]];
+win32_splitb(<<Slash,Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
+    L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
+    [<<$/,$/>> | [ X || X <- L, X =/= <<>> ]];
 win32_splitb(<<Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<$/>> | [ X || X <- L, X =/= <<>> ]];
@@ -699,8 +710,12 @@ win32_split([Letter, $:|Rest]) ->
 win32_split(Name) ->
     split(Name, [], win32).
 
+split([$/,$/|Rest], Components, win32) ->
+    split(Rest, [], [[$/,$/]|Components], win32);
 split([$/|Rest], Components, OsType) ->
     split(Rest, [], [[$/]|Components], OsType);
+split([$\\,$\\|Rest], Components, win32) ->
+    split(Rest, [], [[$/,$/]|Components], win32);
 split([$\\|Rest], Components, win32) ->
     split(Rest, [], [[$/]|Components], win32);
 split(RelativeName, Components, OsType) ->
@@ -953,4 +968,3 @@ filename_string_to_binary(List) ->
 	Bin when is_binary(Bin) ->
 	    Bin
     end.
-
