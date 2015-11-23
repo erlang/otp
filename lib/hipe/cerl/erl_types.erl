@@ -172,7 +172,6 @@
 	 t_number_vals/1, t_number_vals/2,
 	 t_opaque_from_records/1,
 	 t_opaque_structure/1,
-	 %% t_parameterized_module/0,
 	 t_pid/0,
 	 t_port/0,
 	 t_maybe_improper_list/0,
@@ -1785,7 +1784,7 @@ t_mfa() ->
 -spec t_module() -> erl_type().
 
 t_module() ->
-  t_sup(t_atom(), t_parameterized_module()).
+  t_atom().
 
 -spec t_node() -> erl_type().
 
@@ -1810,11 +1809,6 @@ t_iolist(N, T) when N > 0 ->
 		        t_sup(T, t_nil()));
 t_iolist(0, T) ->
   t_maybe_improper_list(t_any(), t_sup(T, t_nil())).
-
--spec t_parameterized_module() -> erl_type().
-
-t_parameterized_module() ->
-  t_tuple().
 
 -spec t_timeout() -> erl_type().
 
