@@ -2071,9 +2071,11 @@ final_skip([Skip|Skips], Final) ->
 final_skip([], Final) ->
     lists:reverse(Final).
 
+continue(_MakeErrors, true) ->
+    false;
 continue([], _) ->
     true;
-continue(_MakeErrors, AbortIfMissingSuites) ->
+continue(_MakeErrors, _AbortIfMissingSuites) ->
     io:nl(),
     OldGl = group_leader(),
     case set_group_leader_same_as_shell() of
@@ -2101,7 +2103,7 @@ continue(_MakeErrors, AbortIfMissingSuites) ->
 		    true
 	    end;
 	false ->				% no shell process to use
-	    not AbortIfMissingSuites
+	    true
     end.
 
 set_group_leader_same_as_shell() ->
