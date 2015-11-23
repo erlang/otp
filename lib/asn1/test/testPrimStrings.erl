@@ -123,6 +123,7 @@ bit_string(Rules, Opts) ->
     %% Bs2 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (7))
     %%==========================================================
     
+    roundtrip('Bs2', []),
     roundtrip('Bs2', [mo,tu,fr]),
     bs_roundtrip('Bs2', <<2#0110010:7>>, [mo,tu,fr]),
     bs_roundtrip('Bs2', <<2#0110011:7>>, [mo,tu,fr,sa]),
@@ -131,6 +132,7 @@ bit_string(Rules, Opts) ->
     %% Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
     %%==========================================================
     
+    roundtrip('Bs3', []),
     roundtrip('Bs3', [mo,tu,fr]),
     bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
     bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
