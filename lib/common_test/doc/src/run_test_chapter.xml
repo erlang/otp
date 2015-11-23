@@ -60,15 +60,15 @@
     <p>If compilation should fail for one or more suites, the compilation errors
       are printed to tty and the operator is asked if the test run should proceed
       without the missing suites, or be aborted. If the operator chooses to proceed, 
-      it is noted in the HTML log which tests have missing suites. If Common Test is
-      unable to prompt the user after compilation failure (if Common Test doesn't
-      control stdin), the test run will proceed automatically without the missing
-      suites. This behaviour can however be modified with the
-      <c><![CDATA[ct_run]]></c> flag <c><![CDATA[-abort_if_missing_suites]]></c>, 
+      it is noted in the HTML log which tests have missing suites. Also, for each failed
+      compilation, the failed tests counter in the return value of
+      <c><![CDATA[ct:run_test/1]]></c> is incremented. If Common Test is unable to prompt
+      the user after compilation failure (if Common Test doesn't control stdin), the test
+      run will proceed automatically without the missing suites. In order to always
+      abort the test run (without operator interaction) if one or more suites fail
+      to compile, the <c><![CDATA[ct_run]]></c> flag <c><![CDATA[-abort_if_missing_suites]]></c>, 
       or the <c><![CDATA[ct:run_test/1]]></c> option
-      <c><![CDATA[{abort_if_missing_suites,TrueOrFalse}]]></c>. If 
-      <c><![CDATA[abort_if_missing_suites]]></c> is set (to true), the test run
-      will stop immediately if some suites fail to compile.</p>
+      <c><![CDATA[{abort_if_missing_suites,true}]]></c> should be set.</p>
 
     <p>Any help module (i.e. regular Erlang module with name not ending with
       "_SUITE") that resides in the same test object directory as a suite 
