@@ -1697,7 +1697,7 @@ len_supported(Name, Len) ->
 		    crypto:block_encrypt(Name, 
 					 _Key = <<0:Len>>,
 					 _IV = <<0:12/unsigned-unit:8>>,
-					 {"AAD","PT"})
+					 {<<"AAD">>,"PT"})
 	end
     of
 	_ -> true
