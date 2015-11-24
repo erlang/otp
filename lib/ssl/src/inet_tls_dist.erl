@@ -30,7 +30,7 @@
 
 childspecs() ->
     {ok, [{ssl_dist_sup,{ssl_dist_sup, start_link, []},
-	   permanent, 2000, worker, [ssl_dist_sup]}]}.
+	   permanent, infinity, supervisor, [ssl_dist_sup]}]}.
 
 select(Node) ->
     case split_node(atom_to_list(Node), $@, []) of
