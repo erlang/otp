@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(off_heap_message_queue_SUITE).
+-module(message_queue_data_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -68,50 +68,73 @@ end_per_group(_GroupName, Config) ->
 
 basic(Config) when is_list(Config) ->
 
-    basic_test(erlang:system_info(off_heap_message_queue)),
+    basic_test(erlang:system_info(message_queue_data)),
 
-    {ok, Node1} = start_node(Config, "+xohmq true"),
-    ok = rpc:call(Node1, ?MODULE, basic_test, [true]),
+    {ok, Node1} = start_node(Config, "+xmqd off_heap"),
+    ok = rpc:call(Node1, ?MODULE, basic_test, [off_heap]),
     stop_node(Node1),
 
-    {ok, Node2} = start_node(Config, "+xohmq false"),
-    ok = rpc:call(Node2, ?MODULE, basic_test, [false]),
+    {ok, Node2} = start_node(Config, "+xmqd on_heap"),
+    ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
     stop_node(Node2),
+
+    {ok, Node3} = start_node(Config, "+xmqd mixed"),
+    ok = rpc:call(Node3, ?MODULE, basic_test, [mixed]),
+    stop_node(Node3),
+
     ok.
+
+is_valid_mqd_value(off_heap) ->
+    true;
+is_valid_mqd_value(on_heap) ->
+    true;
+is_valid_mqd_value(mixed) ->
+    true;
+is_valid_mqd_value(_) ->
+    false.
+
 
 basic_test(Default) ->
 
-    Default = erlang:system_info(off_heap_message_queue),
-    true = (Default == true) orelse (Default == false),
+    Default = erlang:system_info(message_queue_data),
+    true = is_valid_mqd_value(Default),
 
-    {off_heap_message_queue, Default} = process_info(self(), off_heap_message_queue),
-    Default = process_flag(off_heap_message_queue, true),
-    {off_heap_message_queue, true} = process_info(self(), off_heap_message_queue),
-    true = process_flag(off_heap_message_queue, false),
-    {off_heap_message_queue, false} = process_info(self(), off_heap_message_queue),
-    false = process_flag(off_heap_message_queue, Default),
-    {'EXIT', _} = (catch process_flag(off_heap_message_queue, blupp)),
+    {message_queue_data, Default} = process_info(self(), message_queue_data),
+    Default = process_flag(message_queue_data, off_heap),
+    {message_queue_data, off_heap} = process_info(self(), message_queue_data),
+    off_heap = process_flag(message_queue_data, on_heap),
+    {message_queue_data, on_heap} = process_info(self(), message_queue_data),
+    on_heap = process_flag(message_queue_data, mixed),
+    {message_queue_data, mixed} = process_info(self(), message_queue_data),
+    mixed = process_flag(message_queue_data, Default),
+    {'EXIT', _} = (catch process_flag(message_queue_data, blupp)),
 
     P1 = spawn_opt(fun () -> receive after infinity -> ok end end,
 		   [link]),
-    {off_heap_message_queue, Default} = process_info(P1, off_heap_message_queue),
+    {message_queue_data, Default} = process_info(P1, message_queue_data),
     unlink(P1),
     exit(P1, bye),
 
     P2 = spawn_opt(fun () -> receive after infinity -> ok end end,
-		   [link, {off_heap_message_queue, false}]),
-    {off_heap_message_queue, false} = process_info(P2, off_heap_message_queue),
+		   [link, {message_queue_data, off_heap}]),
+    {message_queue_data, off_heap} = process_info(P2, message_queue_data),
     unlink(P2),
     exit(P2, bye),
 
     P3 = spawn_opt(fun () -> receive after infinity -> ok end end,
-		   [link, {off_heap_message_queue, true}]),
-    {off_heap_message_queue, true} = process_info(P3, off_heap_message_queue),
+		   [link, {message_queue_data, on_heap}]),
+    {message_queue_data, on_heap} = process_info(P3, message_queue_data),
     unlink(P3),
     exit(P3, bye),
 
+    P4 = spawn_opt(fun () -> receive after infinity -> ok end end,
+		   [link, {message_queue_data, mixed}]),
+    {message_queue_data, mixed} = process_info(P4, message_queue_data),
+    unlink(P4),
+    exit(P4, bye),
+
     {'EXIT', _} = (catch spawn_opt(fun () -> receive after infinity -> ok end end,
-		   [link, {off_heap_message_queue, blapp}])),
+		   [link, {message_queue_data, blapp}])),
 
     ok.
 
@@ -119,21 +142,21 @@ process_info_messages(Config) when is_list(Config) ->
     Tester = self(),
     P1 = spawn_opt(fun () ->
 			   receive after 500 -> ok end,
-			   false = process_flag(off_heap_message_queue, true),
+			   mixed = process_flag(message_queue_data, off_heap),
 			   Tester ! first,
 			   receive after 500 -> ok end,
-			   true = process_flag(off_heap_message_queue, false),
+			   off_heap = process_flag(message_queue_data, on_heap),
 			   Tester ! second,
 			   receive after 500 -> ok end,
-			   false = process_flag(off_heap_message_queue, true),
+			   on_heap = process_flag(message_queue_data, mixed),
 			   Tester ! third,
 			   receive after 500 -> ok end,
-			   true = process_flag(off_heap_message_queue, false),
+			   mixed = process_flag(message_queue_data, off_heap),
 			   Tester ! fourth,
 			    
 			   receive after infinity -> ok end
 		   end,
-		   [link, {off_heap_message_queue, false}]),
+		   [link, {message_queue_data, mixed}]),
     
     P1 ! "A",
     receive first -> ok end,
@@ -149,16 +172,16 @@ process_info_messages(Config) when is_list(Config) ->
 
     P2 = spawn_opt(fun () ->
 			   receive after 500 -> ok end,
-			   false = process_flag(off_heap_message_queue, true),
+			   mixed = process_flag(message_queue_data, off_heap),
 			   Tester ! first,
 			   receive after 500 -> ok end,
-			   true = process_flag(off_heap_message_queue, false),
+			   off_heap = process_flag(message_queue_data, on_heap),
 			   Tester ! second,
 			   receive after 500 -> ok end,
-			   false = process_flag(off_heap_message_queue, true),
+			   on_heap = process_flag(message_queue_data, mixed),
 			   Tester ! third,
 			   receive after 500 -> ok end,
-			   true = process_flag(off_heap_message_queue, false),
+			   mixed = process_flag(message_queue_data, off_heap),
 			   Tester ! fourth,
 			   receive after 500 -> ok end,
 
@@ -172,7 +195,7 @@ process_info_messages(Config) when is_list(Config) ->
 
 			   Tester ! self()
 		   end,
-		   [link, {off_heap_message_queue, false}]),
+		   [link, {message_queue_data, mixed}]),
 
     P2 ! "A",
     receive first -> ok end,

@@ -1145,14 +1145,15 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
 #define ERTS_PSFLG_OFF_HEAP_MSGQ	ERTS_PSFLG_BIT(18)
+#define ERTS_PSFLG_ON_HEAP_MSGQ		ERTS_PSFLG_BIT(19)
 #ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(19)
-#define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(20)
-#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(21)
-#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(22)
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 23)
+#define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(20)
+#define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(21)
+#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(22)
+#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(23)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 24)
 #else
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 19)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 20)
 #endif
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
@@ -1201,6 +1202,7 @@ void erts_check_for_holes(Process* p);
 #define SPO_MONITOR 4
 #define SPO_SYSTEM_PROC 8
 #define SPO_OFF_HEAP_MSGQ 16
+#define SPO_ON_HEAP_MSGQ 32
 
 extern int erts_default_spo_flags;
 
@@ -1290,9 +1292,10 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
 #define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
-#define F_OFF_HEAP_MSGQ_CHNG (1 << 13) /* Off heap msg queue changing */
-#define F_ABANDONED_HEAP_USE (1 << 14) /* Have usage of abandoned heap */
-#define F_DELAY_GC           (1 << 15) /* Similar to disable GC (see below) */
+#define F_ON_HEAP_MSGQ       (1 << 13) /* Off heap msg queue */
+#define F_OFF_HEAP_MSGQ_CHNG (1 << 14) /* Off heap msg queue changing */
+#define F_ABANDONED_HEAP_USE (1 << 15) /* Have usage of abandoned heap */
+#define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent

@@ -10779,6 +10779,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	state |= ERTS_PSFLG_OFF_HEAP_MSGQ;
 	flags |= F_OFF_HEAP_MSGQ;
     }
+    else if (so->flags & SPO_ON_HEAP_MSGQ) {
+	state |= ERTS_PSFLG_ON_HEAP_MSGQ;
+	flags |= F_ON_HEAP_MSGQ;
+    }
 
     if (!rq)
 	rq = erts_get_runq_proc(parent);

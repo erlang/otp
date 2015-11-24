@@ -2033,6 +2033,9 @@ open_port(_PortName,_PortSettings) ->
 -type priority_level() ::
       low | normal | high | max.
 
+-type message_queue_data() ::
+	off_heap | on_heap | mixed.
+
 -spec process_flag(trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
@@ -2045,9 +2048,9 @@ open_port(_PortName,_PortSettings) ->
                   (min_bin_vheap_size, MinBinVHeapSize) -> OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
-                  (off_heap_message_queue, OHMQ) -> OldOHMQ when
-      OHMQ :: boolean(),
-      OldOHMQ :: boolean();
+                  (message_queue_data, MQD) -> OldMQD when
+      MQD :: message_queue_data(),
+      OldMQD :: message_queue_data();
                   (priority, Level) -> OldLevel when
       Level :: priority_level(),
       OldLevel :: priority_level();
@@ -2086,7 +2089,7 @@ process_flag(_Flag, _Value) ->
       min_bin_vheap_size |
       monitored_by |
       monitors |
-      off_heap_message_queue |
+      message_queue_data |
       priority |
       reductions |
       registered_name |
@@ -2128,7 +2131,7 @@ process_flag(_Flag, _Value) ->
       {monitors,
        Monitors :: [{process, Pid :: pid() |
                                      {RegName :: atom(), Node :: node()}}]} |
-      {off_heap_message_queue, OHMQ :: boolean()} |
+      {message_queue_data, MQD :: message_queue_data()} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, Atom :: atom()} |
@@ -2431,7 +2434,7 @@ tuple_to_list(_Tuple) ->
          (multi_scheduling) -> disabled | blocked | enabled;
          (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();
-         (off_heap_message_queue) -> boolean();
+         (message_queue_data) -> message_queue_data();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
@@ -2567,7 +2570,7 @@ spawn_monitor(M, F, A) ->
       | {fullsweep_after, Number :: non_neg_integer()}
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
-      | {off_heap_message_queue, OHMQ :: boolean()}.
+      | {message_queue_data, MQD :: message_queue_data()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
