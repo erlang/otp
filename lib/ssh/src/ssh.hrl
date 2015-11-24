@@ -29,7 +29,6 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
--define(SSH_LENGHT_INDICATOR_SIZE, 4).
 -define(REKEY_TIMOUT, 3600000).
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).

@@ -970,57 +970,39 @@ handle_info({Protocol, Socket, Info}, hello,
 		   transport_protocol = Protocol} = State) -> 
     event({info_line, Info}, hello, State);
 
-handle_info({Protocol, Socket, Data}, Statename, 
+handle_info({Protocol, Socket, Data}, StateName, 
 	    #state{socket = Socket,
 		   transport_protocol = Protocol,
-		   ssh_params = #ssh{decrypt_block_size = BlockSize,
-				     recv_mac_size = MacSize} = Ssh0,
-		   decoded_data_buffer = <<>>,
-		   encoded_data_buffer = EncData0} = State0) ->
-
-    %% Implementations SHOULD decrypt the length after receiving the
-    %% first 8 (or cipher block size, whichever is larger) bytes of a
-    %% packet. (RFC 4253: Section 6 - Binary Packet Protocol)
-    case size(EncData0) + size(Data) >= erlang:max(8, BlockSize) of
-	true ->
-	    {Ssh, SshPacketLen, DecData, EncData} = 
-
-		ssh_transport:decrypt_first_block(<<EncData0/binary, 
-						   Data/binary>>, Ssh0),
-	     case SshPacketLen > ?SSH_MAX_PACKET_SIZE of
- 		true ->
-  		    DisconnectMsg = 
-  			#ssh_msg_disconnect{code = 
-					    ?SSH_DISCONNECT_PROTOCOL_ERROR,
-  					    description = "Bad packet length " 
-					    ++ integer_to_list(SshPacketLen),
-  					    language = "en"},
-  		    handle_disconnect(DisconnectMsg, State0);
-  		false ->
-		    RemainingSshPacketLen = 
-			(SshPacketLen + ?SSH_LENGHT_INDICATOR_SIZE) - 
-			BlockSize + MacSize,
-		    State = State0#state{ssh_params = Ssh},
-		    handle_ssh_packet_data(RemainingSshPacketLen, 
-					   DecData, EncData, Statename,
-					   State)
-	     end;
-	false  ->
-	    {next_state, Statename, 
-	     next_packet(State0#state{encoded_data_buffer = 
-				      <<EncData0/binary, Data/binary>>})}
+		   ssh_params = Ssh0,
+		   decoded_data_buffer = DecData0,
+		   encoded_data_buffer = EncData0,
+		   undecoded_packet_length = RemainingSshPacketLen0} = State0) ->
+    Encoded = <<EncData0/binary, Data/binary>>,
+    case ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) of
+	{get_more, DecBytes, EncDataRest, RemainingSshPacketLen, Ssh1} ->
+	    {next_state, StateName,
+	     next_packet(State0#state{encoded_data_buffer = EncDataRest,
+				      decoded_data_buffer = DecBytes,
+				      undecoded_packet_length = RemainingSshPacketLen,
+				      ssh_params = Ssh1})};
+	{decoded, MsgBytes, EncDataRest, Ssh1} ->
+	    generate_event(MsgBytes, StateName,
+			   State0#state{ssh_params = Ssh1,
+					%% Important to be set for
+					%% next_packet
+%%% FIXME: the following three seem to always be set in generate_event!
+					decoded_data_buffer = <<>>,
+					undecoded_packet_length = undefined,
+					encoded_data_buffer = EncDataRest},
+			   EncDataRest);
+	{bad_mac, Ssh1} ->
+	    DisconnectMsg = 
+		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+					description = "Bad mac",
+					language = ""},
+	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1})
     end;
-
-handle_info({Protocol, Socket, Data}, Statename, 
-	    #state{socket = Socket,
-		   transport_protocol = Protocol,
-		   decoded_data_buffer = DecData, 
-		   encoded_data_buffer = EncData,
-		   undecoded_packet_length = Len} = 
-	    State) when is_integer(Len) ->
-    handle_ssh_packet_data(Len, DecData, <<EncData/binary, Data/binary>>, 
-			   Statename, State);
-
+		
 handle_info({CloseTag, _Socket}, _StateName, 
 	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
@@ -1630,57 +1612,6 @@ after_new_keys_events({event, Event}, {next_state, StateName, StateData}) ->
 after_new_keys_events({connection_reply, _Data} = Reply, {StateName, State}) ->
     NewState = send_replies([Reply], State),
     {next_state, StateName, NewState}.
-
-handle_ssh_packet_data(RemainingSshPacketLen, DecData, EncData, StateName, 
-		       State) ->
-    EncSize =  size(EncData), 
-    case RemainingSshPacketLen > EncSize of
-	true ->
-	    {next_state, StateName, 
-	     next_packet(State#state{decoded_data_buffer = DecData,
-				     encoded_data_buffer = EncData,
-				     undecoded_packet_length = 
-				     RemainingSshPacketLen})};
-	false ->
-	    handle_ssh_packet(RemainingSshPacketLen, StateName,
-			      State#state{decoded_data_buffer = DecData,
-					  encoded_data_buffer = EncData})
-    
-    end.    
-
-handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
-					    encoded_data_buffer = EncData0,
-					    ssh_params = Ssh0,
-					    transport_protocol = _Protocol,
-					    socket = _Socket} = State0) ->
-    try 
-	{Ssh1, DecData, EncData, Mac} = 
-	    ssh_transport:unpack(EncData0, Length, Ssh0),
-	SshPacket = <<DecData0/binary, DecData/binary>>,
-	case ssh_transport:is_valid_mac(Mac, SshPacket, Ssh1) of
-	    true ->
-		PacketData = ssh_transport:msg_data(SshPacket),
-		{Ssh1, Msg} = ssh_transport:decompress(Ssh1, PacketData),
-		generate_event(Msg, StateName, 
-			       State0#state{ssh_params = Ssh1,
-					    %% Important to be set for
-					    %% next_packet
-					    decoded_data_buffer = <<>>},
-			       EncData);
-	    false ->
-		DisconnectMsg = 
-		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					description = "Bad mac",
-					language = "en"},
-		handle_disconnect(DisconnectMsg, State0)
-	end
-    catch _:_ ->
-	    Disconnect = 
-		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				    description = "Bad input",
-				    language = "en"},
-	    handle_disconnect(Disconnect, State0) 
-    end.  
 
 
 handle_disconnect(DisconnectMsg, State) ->
