@@ -11666,7 +11666,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     if ((state & ERTS_PSFLG_TRAP_EXIT)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-        if (have_seqtrace(token))
+        if (have_seqtrace(token) && token_update)
 	    seq_trace_update_send(token_update);
 	if (is_value(exit_tuple))
 	    send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);
