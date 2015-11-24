@@ -1986,6 +1986,9 @@ case $host in
       AC_SEARCH_LIBS(getuid, unistd ,
 		     AC_DEFINE([HAVE_GETUID], [1],
 			       [Define to 1 if you have the 'getuid' function.]))
+      AC_SEARCH_LIBS(geteuid, unistd ,
+		     AC_DEFINE([HAVE_GETEUID], [1],
+			       [Define to 1 if you have the 'geteuid' function.]))
       ;;
 esac
 

@@ -852,6 +852,10 @@ void sys_get_pid(char *, size_t);
 void sys_get_uid(char *, size_t);
 #endif
 
+#ifdef HAVE_GETEUID
+void sys_get_euid(char *, size_t);
+#endif
+
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
 int erts_sys_putenv(char *key, char *value);
 /* Simple variant used from drivers, raw eightbit interface */

@@ -37,7 +37,7 @@
 #include <sys/utsname.h>
 #include <sys/select.h>
 
-#ifdef HAVE_GETUID
+#if defined(HAVE_GETUID) || defined(HAVE_GETEUID)
 #include <unistd.h>
 #include <sys/types.h>
 #endif
@@ -2658,6 +2658,13 @@ void sys_get_pid(char *buffer, size_t buffer_size){
 #ifdef HAVE_GETUID
 void sys_get_uid(char *buffer, size_t buffer_size) {
     uid_t uid = getuid();
+    erts_snprintf(buffer, buffer_size, "%lu", (unsigned long) uid);
+}
+#endif
+
+#ifdef HAVE_GETEUID
+void sys_get_euid(char *buffer, size_t buffer_size) {
+    uid_t uid = geteuid();
     erts_snprintf(buffer, buffer_size, "%lu", (unsigned long) uid);
 }
 #endif

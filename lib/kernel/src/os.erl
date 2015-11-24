@@ -27,7 +27,7 @@
 
 %%% BIFs
 
--export([getenv/0, getenv/1, getenv/2, getpid/0, getuid/0,
+-export([getenv/0, getenv/1, getenv/2, getpid/0, getuid/0, geteuid/0,
 	 putenv/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
 
@@ -65,6 +65,12 @@ getpid() ->
       Value :: string().
 
 getuid() ->
+    erlang:nif_error(undef).
+
+-spec geteuid() -> Value when
+      Value :: string().
+
+geteuid() ->
     erlang:nif_error(undef).
 
 -spec putenv(VarName, Value) -> true when
