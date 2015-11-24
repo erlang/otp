@@ -37,6 +37,11 @@
 #include <sys/utsname.h>
 #include <sys/select.h>
 
+#ifdef HAVE_GETUID
+#include <unistd.h>
+#include <sys/types.h>
+#endif
+
 #ifdef ISC32
 #include <sys/bsdtypes.h>
 #endif
@@ -2649,6 +2654,13 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     /* Assume the pid is scalar and can rest in an unsigned long... */
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
+
+#ifdef HAVE_GETUID
+void sys_get_uid(char *buffer, size_t buffer_size) {
+    uid_t uid = getuid();
+    erts_snprintf(buffer, buffer_size, "%lu", (unsigned long) uid);
+}
+#endif
 
 int
 erts_sys_putenv_raw(char *key, char *value) {

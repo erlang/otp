@@ -128,6 +128,15 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
+      <name name="getuid" arity="0"/>
+      <fsummary>Return the user identifier of the emulator process</fsummary>
+      <desc>
+        <p>Returns the user identifier, on Unix-like systems, under which the emulator
+          process is running. <c><anno>Value</anno></c> is returned as a string containing
+          the numerical identifier returned by the <c>getuid()</c> system call.</p>
+      </desc>
+    </func>
+    <func>
       <name name="putenv" arity="2"/>
       <fsummary>Set a new value for an environment variable</fsummary>
       <desc>
