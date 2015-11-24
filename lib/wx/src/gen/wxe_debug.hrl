@@ -3363,6 +3363,13 @@ wxdebug_table() ->
  {3583, {wxPopupTransientWindow, destruct, 0}},
  {3584, {wxPopupTransientWindow, popup, 1}},
  {3585, {wxPopupTransientWindow, dismiss, 0}},
+ {3586, {wxOverlay, new, 0}},
+ {3587, {wxOverlay, destruct, 0}},
+ {3588, {wxOverlay, reset, 0}},
+ {3589, {wxDCOverlay, new_6, 6}},
+ {3590, {wxDCOverlay, new_2, 2}},
+ {3591, {wxDCOverlay, destruct, 0}},
+ {3592, {wxDCOverlay, clear, 0}},
  {-1, {mod, func, -1}}
 ].
 

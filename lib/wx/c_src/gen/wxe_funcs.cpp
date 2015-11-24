@@ -31959,6 +31959,56 @@ case wxPopupTransientWindow_Dismiss: { // wxPopupTransientWindow::Dismiss
  break;
 }
 #endif // wxUSE_POPUPWIN
+case wxOverlay_new: { // wxOverlay::wxOverlay
+ wxOverlay * Result = new wxOverlay();
+ newPtr((void *) Result, 236, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxOverlay");
+ break;
+}
+case wxOverlay_destruct: { // wxOverlay::~wxOverlay
+ wxOverlay *This = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxOverlay_Reset: { // wxOverlay::Reset
+ wxOverlay *This = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->Reset();
+ break;
+}
+case wxDCOverlay_new_6: { // wxDCOverlay::wxDCOverlay
+ wxOverlay *overlay = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ wxWindowDC *dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
+ int * x = (int *) bp; bp += 4;
+ int * y = (int *) bp; bp += 4;
+ int * width = (int *) bp; bp += 4;
+ int * height = (int *) bp; bp += 4;
+ wxDCOverlay * Result = new EwxDCOverlay(*overlay,dc,*x,*y,*width,*height);
+ newPtr((void *) Result, 237, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxDCOverlay");
+ break;
+}
+case wxDCOverlay_new_2: { // wxDCOverlay::wxDCOverlay
+ wxOverlay *overlay = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ wxWindowDC *dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
+ wxDCOverlay * Result = new EwxDCOverlay(*overlay,dc);
+ newPtr((void *) Result, 237, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxDCOverlay");
+ break;
+}
+case wxDCOverlay_destruct: { // wxDCOverlay::~wxDCOverlay
+ wxDCOverlay *This = (wxDCOverlay *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxDCOverlay_Clear: { // wxDCOverlay::Clear
+ wxDCOverlay *This = (wxDCOverlay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->Clear();
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);
@@ -32005,6 +32055,8 @@ bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 215: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
   case 227: delete (wxLogNull *) ptr; break;
   case 231: delete (EwxLocale *) ptr; return false;
+  case 236: delete (wxOverlay *) ptr; break;
+  case 237: delete (EwxDCOverlay *) ptr; return false;
   default: delete (wxObject *) ptr; return false;
   }
   return true;

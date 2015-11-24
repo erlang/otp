@@ -35,7 +35,9 @@
 	  parent,
 	  config,
 	  canvas,
-	  bitmap
+	  bitmap,
+	  overlay,
+	  pos
 	}).
 
 start(Config) ->
@@ -60,6 +62,10 @@ do_init(Config) ->
 
     wxPanel:connect(Canvas, paint, [callback]),
     wxPanel:connect(Canvas, size),
+    wxPanel:connect(Canvas, left_down),
+    wxPanel:connect(Canvas, left_up),
+    wxPanel:connect(Canvas, motion),
+
     wxPanel:connect(Button, command_button_clicked),
 
     %% Add to sizers
@@ -78,7 +84,9 @@ do_init(Config) ->
     Bitmap = wxBitmap:new(erlang:max(W,30),erlang:max(30,H)),
     
     {Panel, #state{parent=Panel, config=Config,
-		   canvas = Canvas, bitmap = Bitmap}}.
+		   canvas = Canvas, bitmap = Bitmap,
+		   overlay = wxOverlay:new()
+		  }}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Sync event from callback events, paint event must be handled in callbacks
@@ -127,11 +135,39 @@ handle_event(#wx{event = #wxCommand{type = command_button_clicked}},
     wxBitmap:destroy(Bmp),
     {noreply, State};
 handle_event(#wx{event = #wxSize{size={W,H}}},
-	     State = #state{bitmap=Prev}) ->
+	     State = #state{bitmap=Prev, canvas=Canvas}) ->
     Bitmap = wxBitmap:new(W,H),
-    draw(State#state.canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
+    draw(Canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
     wxBitmap:destroy(Prev),
     {noreply, State#state{bitmap = Bitmap}};
+
+handle_event(#wx{event = #wxMouse{type=left_down, x=X, y=Y}}, State) ->
+    {noreply, State#state{pos={X,Y}}};
+handle_event(#wx{event = #wxMouse{type=motion, x=X1, y=Y1}},
+	     #state{pos=Start, overlay=Overlay, canvas=Canvas} = State) ->
+    case Start of
+	undefined -> ignore;
+	{X0,Y0} ->
+	    DC = wxClientDC:new(Canvas),
+	    DCO = wxDCOverlay:new(Overlay, DC),
+	    wxDCOverlay:clear(DCO),
+	    wxDC:setPen(DC, ?wxLIGHT_GREY_PEN),
+	    wxDC:setBrush(DC, ?wxTRANSPARENT_BRUSH),
+	    wxDC:drawRectangle(DC, {X0,Y0, X1-X0, Y1-Y0}),
+	    wxDCOverlay:destroy(DCO),
+	    wxClientDC:destroy(DC)
+    end,
+    {noreply, State};
+handle_event(#wx{event = #wxMouse{type=left_up}},
+	     #state{overlay=Overlay, canvas=Canvas} = State) ->
+    DC = wxClientDC:new(Canvas),
+    DCO = wxDCOverlay:new(Overlay, DC),
+    wxDCOverlay:clear(DCO),
+    wxDCOverlay:destroy(DCO),
+    wxClientDC:destroy(DC),
+    wxOverlay:reset(Overlay),
+    {noreply, State#state{pos=undefined}};
+
 handle_event(Ev = #wx{}, State = #state{}) ->
     demo:format(State#state.config, "Got Event ~p\n", [Ev]),
     {noreply, State}.
@@ -155,7 +191,8 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, ignore, State}.
 
-terminate(_Reason, _) ->
+terminate(_Reason, #state{overlay=Overlay}) ->
+    wxOverlay:destroy(Overlay),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

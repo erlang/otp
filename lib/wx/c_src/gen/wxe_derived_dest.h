@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2015. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -786,4 +786,10 @@ class EwxPopupTransientWindow : public wxPopupTransientWindow {
  EwxPopupTransientWindow() : wxPopupTransientWindow() {};
 };
 #endif // wxUSE_POPUPWIN
+
+class EwxDCOverlay : public wxDCOverlay {
+ public: ~EwxDCOverlay() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxDCOverlay(wxOverlay& overlay,wxWindowDC * dc,int x,int y,int width,int height) : wxDCOverlay(overlay,dc,x,y,width,height) {};
+ EwxDCOverlay(wxOverlay& overlay,wxWindowDC * dc) : wxDCOverlay(overlay,dc) {};
+};
 
