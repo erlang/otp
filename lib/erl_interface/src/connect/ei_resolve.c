@@ -601,6 +601,16 @@ struct hostent *ei_gethostbyaddr(const char *addr, int len, int type)
     return gethostbyaddr(addr, len, type);
 }
 
+/*
+ * Imprecise way to select the actually available gethostbyname_r and
+ * gethostbyaddr_r.
+ *
+ * TODO: check this properly in configure.in
+ */
+#if (defined(__linux__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
+    #define HAVE_GETHOSTBYADDR_R_8   1
+#endif
+
 struct hostent *ei_gethostbyaddr_r(const char *addr,
 				int length, 
 				int type, 
@@ -616,7 +626,7 @@ struct hostent *ei_gethostbyaddr_r(const char *addr,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyaddr_r(addr,length,type,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
+#ifdef HAVE_GETHOSTBYADDR_R_8
   struct hostent *result;
 
   gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, &result,
@@ -643,7 +653,7 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__) || defined(__ANDROID__))
+#ifdef HAVE_GETHOSTBYADDR_R_8
   struct hostent *result;
 
   gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);
