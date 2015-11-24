@@ -32,9 +32,15 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
+all() -> [{group,default_algs},
+	  {group,aes_gcm}
+	 ].
 
-groups() -> [].
+groups() -> [{default_algs, [], tests()},
+	     {aes_gcm,      [], tests()}
+	    ].
+
+tests() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -48,6 +54,18 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ssh:stop(),
     crypto:stop().
+
+%%--------------------------------------------------------------------
+init_per_group(aes_gcm, Config) ->
+    [{preferred_algorithms, [{cipher,[{client2server,['aes128-gcm@openssh.com']},
+				      {server2client,['aes128-gcm@openssh.com']}]}]}
+     | Config];
+init_per_group(_, Config) ->
+    [{preferred_algorithms, ssh:default_algorithms()} | Config].
+
+
+end_per_group(_, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
