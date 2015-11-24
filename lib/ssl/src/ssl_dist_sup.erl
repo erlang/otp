@@ -70,7 +70,7 @@ connection_manager_child_spec() ->
     Name = ssl_connection_dist,  
     StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
-    Shutdown = 4000,
+    Shutdown = infinity,
     Modules = [tls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
