@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -130,7 +130,7 @@ groups() ->
       [open1, old_modes, new_modes, path_open, close, access,
        read_write, pread_write, append, open_errors,
        exclusive]},
-     {pos, [], [pos1, pos2]},
+     {pos, [], [pos1, pos2, pos3]},
      {file_info, [],
       [file_info_basic_file, file_info_basic_directory,
        file_info_bad, file_info_times, file_write_file_info]},
@@ -1220,7 +1220,7 @@ pos2(Config) when is_list(Config) ->
     ok.
 
 pos3(suite) -> [];
-pos3(doc) -> ["When it does not use raw mode, file:postiion had a bug."];
+pos3(doc) -> ["When it does not use raw mode, file:position had a bug."];
 pos3(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(data_dir, Config),
@@ -1229,8 +1229,15 @@ pos3(Config) when is_list(Config) ->
     ?line {ok, Fd} = ?FILE_MODULE:open(Name, [read, binary]),
     ?line {ok, _}  = ?FILE_MODULE:read(Fd, 5),
     ?line {error, einval} = ?FILE_MODULE:position(Fd, {bof, -1}),
+
     %% Here ok had returned =(
     ?line {error, einval} = ?FILE_MODULE:position(Fd, {cur, -10}),
+    %% That test is actually questionable since file:position/2
+    %% is documented to leave the file position undefined after
+    %% it has returned an error.  But on Posix systems the position
+    %% is guaranteed to be unchanged after an error return.  On e.g
+    %% Windows there is nothing stated about this in the documentation.
+
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
