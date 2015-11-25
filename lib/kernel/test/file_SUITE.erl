@@ -79,6 +79,7 @@
 
 -export([interleaved_read_write/1]).
 
+-export([unicode/1]).
 -export([altname/1]).
 
 -export([large_file/1, large_write/1]).
@@ -110,7 +111,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [altname, read_write_file, {group, dirs},
+    [unicode, altname, read_write_file, {group, dirs},
      {group, files}, delete, rename, names, {group, errors},
      {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
@@ -2628,6 +2629,40 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
             test_server:fail(worker_timeout)
     end,
     compress_async_crash_loop(N - 1, Path, ExpectedData).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+unicode(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    Name = filename:join(Dir, "data-utf8.txt"),
+    Txt = lists:seq(128, 255),
+    D = unicode:characters_to_binary(Txt, latin1, latin1),
+    {ok,Fd1} =
+	?FILE_MODULE:open(Name, [write,read,binary,{encoding,unicode}]),
+    ok = ?FILE_MODULE:truncate(Fd1),
+    ok = ?FILE_MODULE:write(Fd1, Txt),
+    {ok,0} = ?FILE_MODULE:position(Fd1, bof),
+    {ok,D} = ?FILE_MODULE:read(Fd1, 129),
+    {ok,0} = ?FILE_MODULE:position(Fd1, bof),
+    {ok,D1} = ?FILE_MODULE:read(Fd1, 64),
+    {ok,Pos} = ?FILE_MODULE:position(Fd1, cur),
+    {ok,D2} = ?FILE_MODULE:pread(Fd1, {cur,0}, 65),
+    D = <<D1/binary, D2/binary>>,
+    {ok,D1} = ?FILE_MODULE:pread(Fd1, bof, 64),
+    {ok,Pos} = ?FILE_MODULE:position(Fd1, Pos),
+    {ok,D2} = ?FILE_MODULE:read(Fd1, 64),
+    ok = ?FILE_MODULE:close(Fd1),
+    %%
+    RawD = unicode:characters_to_binary(Txt, latin1, unicode),
+    {ok,RawD} = ?FILE_MODULE:read_file(Name),
+    %%
+    {ok,Fd2} = ?FILE_MODULE:open(Name, [read,{encoding,unicode}]),
+    {ok,Txt} = ?FILE_MODULE:read(Fd2, 129),
+    {Txt1,Txt2} = lists:split(64, Txt),
+    {ok,Txt2} = ?FILE_MODULE:pread(Fd2, Pos, 65),
+    {ok,0} = ?FILE_MODULE:position(Fd2, bof),
+    {ok,Txt1} = ?FILE_MODULE:read(Fd2, 64),
+    ok = ?FILE_MODULE:close(Fd2).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

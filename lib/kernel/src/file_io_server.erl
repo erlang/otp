@@ -214,18 +214,45 @@ file_request({allocate, Offset, Length},
          #state{handle = Handle} = State) ->
     Reply = ?PRIM_FILE:allocate(Handle, Offset, Length),
     {reply, Reply, State};
+file_request({pread,At,Sz}, State)
+  when At =:= cur;
+       At =:= {cur,0} ->
+    case get_chars(Sz, latin1, State) of
+	{reply,Reply,NewState}
+	  when is_list(Reply);
+	       is_binary(Reply) ->
+	    {reply,{ok,Reply},NewState};
+	{stop,_,Reply,NewState} ->
+	    {error,Reply,NewState};
+	Other ->
+	    Other
+    end;
 file_request({pread,At,Sz}, 
-	     #state{handle=Handle,buf=Buf,read_mode=ReadMode}=State) ->
+	     #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, At, Buf) of
 	{error,_} = Reply ->
 	    {error,Reply,State};
 	_ ->
-	    case ?PRIM_FILE:read(Handle, Sz) of
-		{ok,Bin} when ReadMode =:= list ->
-		    std_reply({ok,binary_to_list(Bin)}, State);
-		Reply ->
-		    std_reply(Reply, State)
+	    case get_chars(Sz, latin1, State#state{buf= <<>>}) of
+		{reply,Reply,NewState}
+		  when is_list(Reply);
+		       is_binary(Reply) ->
+		    {reply,{ok,Reply},NewState};
+		{stop,_,Reply,NewState} ->
+		    {error,Reply,NewState};
+		Other ->
+		    Other
 	    end
+    end;
+file_request({pwrite,At,Data},
+	     #state{buf= <<>>}=State)
+  when At =:= cur;
+       At =:= {cur,0} ->
+    case put_chars(Data, latin1, State) of
+	{stop,_,Reply,NewState} ->
+	    {error,Reply,NewState};
+	Other ->
+	    Other
     end;
 file_request({pwrite,At,Data}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
@@ -233,7 +260,12 @@ file_request({pwrite,At,Data},
 	{error,_} = Reply ->
 	    {error,Reply,State};
 	_ ->
-	    std_reply(?PRIM_FILE:write(Handle, Data), State)
+	    case put_chars(Data, latin1, State) of
+		{stop,_,Reply,NewState} ->
+		    {error,Reply,NewState};
+		Other ->
+		    Other
+	    end
     end;
 file_request(datasync,
 	     #state{handle=Handle}=State) ->
