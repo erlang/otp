@@ -425,6 +425,12 @@ key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg,
     send_msg(GexGroup, State),
     {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
 
+key_exchange(#ssh_msg_kex_dh_gex_request_old{} = Msg, 
+	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    send_msg(GexGroup, State),
+    {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
+
 key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
     {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
