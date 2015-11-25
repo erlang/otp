@@ -96,6 +96,7 @@ options_tests() ->
     [der_input,
      misc_ssl_options,
      ssl_options_not_proplist,
+     raw_ssl_option,
      socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
@@ -311,6 +312,14 @@ init_per_testcase(clear_pem_cache, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 20}),
     Config;
+init_per_testcase(raw_ssl_option, Config) ->
+    ct:timetrap({seconds, 5}),
+    case os:type() of
+        {unix,linux} ->
+            Config;
+        _ ->
+            {skip, "Raw options are platform-specific"}
+    end;
 
 init_per_testcase(_TestCase, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
@@ -1134,6 +1143,23 @@ ssl_options_not_proplist(Config) when is_list(Config) ->
     {option_not_a_key_value_tuple, BadOption} =
 	ssl:connect("twitter.com", 443, [binary, {active, false}, 
 					 BadOption]).
+
+%%--------------------------------------------------------------------
+raw_ssl_option() ->
+    [{doc,"Ensure that a single 'raw' option is passed to ssl:listen correctly."}].
+
+raw_ssl_option(Config) when is_list(Config) ->
+    % 'raw' option values are platform-specific; these are the Linux values:
+    IpProtoTcp = 6,
+    % Use TCP_KEEPIDLE, because (e.g.) TCP_MAXSEG can't be read back reliably.
+    TcpKeepIdle = 4,
+    KeepAliveTimeSecs = 55,
+    LOptions = [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}],
+    {ok, LSocket} = ssl:listen(0, LOptions),
+    % Per http://www.erlang.org/doc/man/inet.html#getopts-2, we have to specify
+    % exactly which raw option we want, and the size of the buffer.
+    {ok, [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}]} = ssl:getopts(LSocket, [{raw, IpProtoTcp, TcpKeepIdle, 4}]).
+
 
 %%--------------------------------------------------------------------
 versions() ->
