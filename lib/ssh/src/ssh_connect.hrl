@@ -248,6 +248,9 @@
 	  local_id,           %% local channel id
 
 	  recv_window_size,
+	  recv_window_pending = 0, %% Sum of window size updates that has not
+	                           %% yet been sent. This limits the number
+	                           %% of sent update msgs.
 	  recv_packet_size,
 	  recv_close = false,
 
