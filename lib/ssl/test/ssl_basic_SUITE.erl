@@ -35,7 +35,6 @@
 -include("tls_record.hrl").
 -include("tls_handshake.hrl").
 
--define('24H_in_sec', 86400).  
 -define(TIMEOUT, 20000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
