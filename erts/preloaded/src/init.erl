@@ -338,7 +338,7 @@ boot_loop(BootPid, State) ->
     end.
 
 ensure_loaded(Module, Loaded) ->
-    File = concat([Module,objfile_extension()]),
+    File = atom_to_list(Module) ++ objfile_extension(),
     case catch load_mod(Module,File) of
 	{ok, FullName} ->
 	    {{module, Module}, [{Module, FullName}|Loaded]};
@@ -773,7 +773,7 @@ get_boot_vars_1(Vars, []) ->
     Vars.
 
 bootfile(Flags,Root) ->
-    b2s(get_flag(boot, Flags, concat([Root,"/bin/start"]))).
+    b2s(get_flag(boot, Flags, Root++"/bin/start")).
 
 path_flags(Flags) ->
     Pa = append(reverse(get_flag_args(pa, Flags))),
@@ -781,12 +781,12 @@ path_flags(Flags) ->
     {bs2ss(Pa),bs2ss(Pz)}.
 
 get_boot(BootFile0,Root) ->
-    BootFile = concat([BootFile0,".boot"]),
+    BootFile = BootFile0 ++ ".boot",
     case get_boot(BootFile) of
 	{ok, CmdList} ->
 	    CmdList;
 	not_found -> %% Check for default.
-	    BootF = concat([Root,"/bin/",BootFile]),
+	    BootF = Root ++ "/bin/" ++ BootFile,
 	    case get_boot(BootF)  of
 		{ok, CmdList} ->
 		    CmdList;
@@ -874,7 +874,7 @@ eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
 load_modules([Mod|Mods], Init) ->
-    File = concat([Mod,objfile_extension()]),
+    File = atom_to_list(Mod) ++ objfile_extension(),
     {ok,Full} = load_mod(Mod,File),
     Init ! {self(),loaded,{Mod,Full}},	%Tell init about loaded module
     load_modules(Mods, Init);
@@ -1227,17 +1227,6 @@ set_argument([Item|Flags],Flag,Value) ->
     [Item|set_argument(Flags,Flag,Value)];
 set_argument([],Flag,Value) ->
     [{Flag,[Value]}].
-
-concat([A|T]) when is_atom(A) ->
-    atom_to_list(A) ++ concat(T);
-concat([C|T]) when is_integer(C), 0 =< C, C =< 255 ->
-    [C|concat(T)];
-concat([Bin|T]) when is_binary(Bin) ->
-    binary_to_list(Bin) ++ concat(T);
-concat([S|T]) ->
-    S ++ concat(T);
-concat([]) ->
-    [].
 
 append([E]) -> E;
 append([H|T]) ->
