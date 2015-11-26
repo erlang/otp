@@ -40,7 +40,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [basic, payload, plain_options, plain_verify_options].
+    [basic, payload, plain_options, plain_verify_options, nodelay_option].
 
 groups() ->
     [].
@@ -250,6 +250,17 @@ plain_verify_options(Config) when is_list(Config) ->
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
     success(Config).
+%%--------------------------------------------------------------------
+nodelay_option() ->
+    [{doc,"Test specifying dist_nodelay option"}].
+nodelay_option(Config) ->
+    try
+	%% The default is 'true', so try setting it to 'false'.
+	application:set_env(kernel, dist_nodelay, false),
+	basic(Config)
+    after
+	application:unset_env(kernel, dist_nodelay)
+    end.
 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
