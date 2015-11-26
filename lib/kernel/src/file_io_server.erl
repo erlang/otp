@@ -205,8 +205,8 @@ io_reply(From, ReplyAs, Reply) ->
 file_request({advise,Offset,Length,Advise},
          #state{handle=Handle}=State) ->
     case ?PRIM_FILE:advise(Handle, Offset, Length, Advise) of
-    {error,_}=Reply ->
-        {stop,normal,Reply,State};
+    {error,Reason}=Reply ->
+        {stop,Reason,Reply,State};
     Reply ->
         {reply,Reply,State}
     end;
@@ -222,8 +222,6 @@ file_request({pread,At,Sz}, State)
 	  when is_list(Reply);
 	       is_binary(Reply) ->
 	    {reply,{ok,Reply},NewState};
-	{stop,_,Reply,NewState} ->
-	    {error,Reply,NewState};
 	Other ->
 	    Other
     end;
@@ -238,8 +236,6 @@ file_request({pread,At,Sz},
 		  when is_list(Reply);
 		       is_binary(Reply) ->
 		    {reply,{ok,Reply},NewState};
-		{stop,_,Reply,NewState} ->
-		    {error,Reply,NewState};
 		Other ->
 		    Other
 	    end
@@ -248,44 +244,39 @@ file_request({pwrite,At,Data},
 	     #state{buf= <<>>}=State)
   when At =:= cur;
        At =:= {cur,0} ->
-    case put_chars(Data, latin1, State) of
-	{stop,_,Reply,NewState} ->
-	    {error,Reply,NewState};
-	Other ->
-	    Other
-    end;
+    put_chars(Data, latin1, State);
 file_request({pwrite,At,Data}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, At, Buf) of
 	{error,_} = Reply ->
 	    {error,Reply,State};
 	_ ->
-	    case put_chars(Data, latin1, State) of
-		{stop,_,Reply,NewState} ->
-		    {error,Reply,NewState};
-		Other ->
-		    Other
-	    end
+	    put_chars(Data, latin1, State)
     end;
 file_request(datasync,
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:datasync(Handle) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	Reply ->
 	    {reply,Reply,State}
     end;
 file_request(sync, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:sync(Handle) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	Reply ->
 	    {reply,Reply,State}
     end;
 file_request(close, 
 	     #state{handle=Handle}=State) ->
-    {stop,normal,?PRIM_FILE:close(Handle),State#state{buf= <<>>}};
+    case ?PRIM_FILE:close(Handle) of
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State#state{buf= <<>>}};
+	Reply ->
+	    {stop,normal,Reply,State#state{buf= <<>>}}
+    end;
 file_request({position,At}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, At, Buf) of
@@ -297,8 +288,8 @@ file_request({position,At},
 file_request(truncate, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:truncate(Handle) of
-	{error,_Reason}=Reply ->
-	    {stop,normal,Reply,State#state{buf= <<>>}};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State#state{buf= <<>>}};
 	Reply ->
 	    std_reply(Reply, State)
     end;
@@ -323,8 +314,8 @@ io_request({put_chars, Enc, Chars},
 io_request({put_chars, Enc, Chars}, 
 	   #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, cur, Buf) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	_ ->
 	    put_chars(Chars, Enc, State#state{buf= <<>>})
     end;
@@ -407,8 +398,8 @@ io_request_loop([Request|Tail],
 put_chars(Chars, latin1, #state{handle=Handle, unic=latin1}=State) ->
     NewState = State#state{buf = <<>>},
     case ?PRIM_FILE:write(Handle, Chars) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,NewState};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,NewState};
 	Reply ->
 	    {reply,Reply,NewState}
     end;
@@ -417,13 +408,13 @@ put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
     case unicode:characters_to_binary(Chars,InEncoding,OutEncoding) of
 	Bin when is_binary(Bin) ->
 	    case ?PRIM_FILE:write(Handle, Bin) of
-		{error,_}=Reply ->
-		    {stop,normal,Reply,NewState};
+		{error,Reason}=Reply ->
+		    {stop,Reason,Reply,NewState};
 		Reply ->
 		    {reply,Reply,NewState}
 	    end;
 	{error,_,_} ->
-	    {stop,normal,
+	    {stop,no_translation,
 	     {error,{no_translation, InEncoding, OutEncoding}},
 	     NewState}
     end.
