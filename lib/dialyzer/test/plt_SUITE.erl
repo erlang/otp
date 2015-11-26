@@ -8,14 +8,13 @@
 
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
-         run_plt_check/1, run_succ_typings/1]).
+         remove_plt/1, run_plt_check/1, run_succ_typings/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() ->
-  [build_plt, beam_tests, update_plt, run_plt_check, run_succ_typings,
-   local_fun_same_as_callback].
+all() -> [build_plt, beam_tests, update_plt, run_plt_check,
+          remove_plt, run_succ_typings, local_fun_same_as_callback].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -213,6 +212,42 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
                       {init_plt, Plt}] ++ Opts),
     ok.
   
+%%% [James Fish:]
+%%% Dialyzer always asserts that files and directories passed in its
+%%% options exist. Therefore it is not possible to remove a beam/module
+%%% from a PLT when the beam file no longer exists. Dialyzer should not to
+%%% check files exist on disk when removing from the PLT.
+remove_plt(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Prog1 = <<"-module(m1).
+               -export([t/0]).
+               t() ->
+                  m2:a(a).">>,
+    {ok, Beam1} = compile(Config, Prog1, m1, []),
+
+    Prog2 = <<"-module(m2).
+               -export([a/1]).
+               a(A) when is_integer(A) -> A.">>,
+    {ok, Beam2} = compile(Config, Prog2, m2, []),
+
+    Plt = filename:join(PrivDir, "remove.plt"),
+    Opts = [{check_plt, true}, {from, byte_code}],
+
+    [{warn_return_no_exit, _, {no_return,[only_normal,t,0]}},
+     {warn_failing_call, _, {call, [m2,a,"('a')",_,_,_,_,_]}}] =
+        dialyzer:run([{analysis_type, plt_build},
+                      {files, [Beam1, Beam2]},
+                      {get_warnings, true},
+                      {output_plt, Plt}] ++ Opts),
+
+    [] = dialyzer:run([{init_plt, Plt},
+                       {files, [Beam2]},
+                       {analysis_type, plt_remove}]),
+
+    [] =  dialyzer:run([{analysis_type, succ_typings},
+                        {files, [Beam1]},
+                        {init_plt, Plt}] ++ Opts),
+    ok.
 
 compile(Config, Prog, Module, CompileOpts) ->
     Source = lists:concat([Module, ".erl"]),
