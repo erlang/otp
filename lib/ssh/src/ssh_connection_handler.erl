@@ -731,13 +731,28 @@ handle_event({adjust_window, ChannelId, Bytes}, StateName,
 			#connection{channel_cache = Cache}} = State0) ->
     State =
 	case ssh_channel:cache_lookup(Cache, ChannelId) of
-	    #channel{recv_window_size = WinSize, remote_id = Id} = Channel ->
-		ssh_channel:cache_update(Cache, Channel#channel{recv_window_size =
-					       WinSize + Bytes}),
-		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes),
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     recv_packet_size = PktSize} = Channel
+	      when (WinSize-Bytes) >= 2*PktSize ->
+		%% The peer can send at least two more *full* packet, no hurry.
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_pending = Pending + Bytes}),
+		State0;
+
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     remote_id = Id} = Channel ->
+		%% Now we have to update the window - we can't receive so many more pkts
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_size =
+							     WinSize + Bytes + Pending,
+							 recv_window_pending = 0}),
+		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes + Pending),
 		send_replies([{connection_reply, Msg}], State0);
-	undefined ->
-	    State0
+
+	    undefined ->
+		State0
 	end,
     {next_state, StateName, next_packet(State)};
 
