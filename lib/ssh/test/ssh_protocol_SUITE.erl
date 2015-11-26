@@ -333,13 +333,13 @@ no_common_alg_client_disconnects(Config) ->
 gex_client_init_default_noexact(Config) ->
     do_gex_client_init(Config, {2000, 3000, 4000},
 		       %% Warning, app knowledege:
-		       ?dh_group15).
+		       ?dh_group14).
 
 
 gex_client_init_default_exact(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000},
+    do_gex_client_init(Config, {2000, 3072, 4000},
 		       %% Warning, app knowledege:
-		       ?dh_group14).
+		       ?dh_group15).
 
 
 gex_client_init_option_groups(Config) ->
