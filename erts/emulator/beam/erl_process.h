@@ -801,12 +801,11 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ERROR_HANDLER			0
 #define ERTS_PSD_SAVED_CALLS_BUF		1
 #define ERTS_PSD_SCHED_ID			2
-#define ERTS_PSD_DIST_ENTRY			3
-#define ERTS_PSD_CALL_TIME_BP			4
-#define ERTS_PSD_DELAYED_GC_TASK_QS		5
-#define ERTS_PSD_NIF_TRAP_EXPORT		6
+#define ERTS_PSD_CALL_TIME_BP			3
+#define ERTS_PSD_DELAYED_GC_TASK_QS		4
+#define ERTS_PSD_NIF_TRAP_EXPORT		5
 
-#define ERTS_PSD_SIZE				7
+#define ERTS_PSD_SIZE				6
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -823,9 +822,6 @@ typedef struct {
 
 #define ERTS_PSD_SCHED_ID_GET_LOCKS ERTS_PROC_LOCK_STATUS
 #define ERTS_PSD_SCHED_ID_SET_LOCKS ERTS_PROC_LOCK_STATUS
-
-#define ERTS_PSD_DIST_ENTRY_GET_LOCKS ERTS_PROC_LOCK_MAIN
-#define ERTS_PSD_DIST_ENTRY_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -1886,11 +1882,6 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 
 #define ERTS_PROC_SCHED_ID(P, L, ID) \
   ((UWord) erts_psd_set((P), (L), ERTS_PSD_SCHED_ID, (void *) (ID)))
-
-#define ERTS_PROC_GET_DIST_ENTRY(P) \
-  ((DistEntry *) erts_psd_get((P), ERTS_PSD_DIST_ENTRY))
-#define ERTS_PROC_SET_DIST_ENTRY(P, L, D) \
-  ((DistEntry *) erts_psd_set((P), (L), ERTS_PSD_DIST_ENTRY, (void *) (D)))
 
 #define ERTS_PROC_GET_SAVED_CALLS_BUF(P) \
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SAVED_CALLS_BUF))
