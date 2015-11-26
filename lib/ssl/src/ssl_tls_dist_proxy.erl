@@ -66,9 +66,13 @@ handle_call({listen, Name}, _From, State) ->
 	    {ok, TcpAddress} = get_tcp_address(Socket),
 	    {ok, WorldTcpAddress} = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
-	    {ok, Creation} = erl_epmd:register_node(Name, Port),
-	    {reply, {ok, {Socket, TcpAddress, Creation}},
-	     State#state{listen={Socket, World}}};
+	    case erl_epmd:register_node(Name, Port) of
+		{ok, Creation} ->
+		    {reply, {ok, {Socket, TcpAddress, Creation}},
+		     State#state{listen={Socket, World}}};
+		{error, _} = Error ->
+		    {reply, Error, State}
+	    end;
 	Error ->
 	    {reply, Error, State}
     end;
