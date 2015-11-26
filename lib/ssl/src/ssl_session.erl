@@ -31,8 +31,6 @@
 %% Internal application API
 -export([is_new/2, client_id/4, server_id/6, valid_session/2]).
 
--define('24H_in_sec', 8640).
-
 -type seconds()   :: integer(). 
 
 %%--------------------------------------------------------------------

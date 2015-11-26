@@ -57,8 +57,6 @@
 	  clear_pem_cache 
 	 }).
 
--define('24H_in_msec', 86400000).
--define('24H_in_sec', 86400).
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
 -define(CLEAR_PEM_CACHE, 120000).
