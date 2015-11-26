@@ -641,13 +641,7 @@ compute_key(ecdh, Others, My, Curve) ->
 
 
 random_bytes(N) ->
-    try strong_rand_bytes(N) of
-	RandBytes ->
-	    RandBytes
-    catch
-	error:low_entropy ->
-	    rand_bytes(N)
-    end.
+    strong_rand_bytes(N).
 
 %%--------------------------------------------------------------------
 %%% On load
