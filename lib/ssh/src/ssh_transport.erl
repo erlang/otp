@@ -427,6 +427,32 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min,
      Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
 	     keyex_info = {Min, Max, NBits}
 	    }};
+
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 
+			  Ssh0=#ssh{opts=Opts}) ->
+    %% server
+    %%
+    %% This message was in the draft-00 of rfc4419
+    %% (https://tools.ietf.org/html/draft-ietf-secsh-dh-group-exchange-00)
+    %% In later drafts and the rfc is "is used for backward compatibility".
+    %% Unfortunatly the rfc does not specify how to treat the parameter n
+    %% if there is no group of that modulus length :(
+    %% The draft-00 however specifies that n is the "... number of bits
+    %% the subgroup should have at least".
+    %% Further, it says that "Servers and clients SHOULD support groups
+    %% with a modulus length of k bits, where 1024 <= k <= 8192."
+    %%
+    Min = NBits,
+    Max = 8192,
+    {G, P} = dh_gex_group(Min, NBits, Max, proplists:get_value(dh_gex_groups,Opts)),
+    {Public, Private} = generate_key(dh, [P,G]),
+    {SshPacket, Ssh} = 
+	ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
+    {ok, SshPacket, 
+     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
+	     keyex_info = {-1, -1, NBits} % flag for kex_h hash calc
+	    }};
+
 handle_kex_dh_gex_request(_, _) ->
   throw({{error,bad_ssh_msg_kex_dh_gex_request},
 	 #ssh_msg_disconnect{
@@ -1286,6 +1312,9 @@ kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
 
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
     L = if Min==-1; Max==-1 ->
+		%% flag from 'ssh_msg_kex_dh_gex_request_old'
+		%% It was like this before that message was supported,
+		%% why?
 		Ts = [string,string,binary,binary,binary,
 		      uint32,
 		      mpint,mpint,mpint,mpint,mpint],
@@ -1349,34 +1378,22 @@ dh_gex_default_groups() -> ?dh_default_groups.
 dh_gex_group(Min, N, Max, undefined) ->
     dh_gex_group(Min, N, Max, dh_gex_default_groups());
 dh_gex_group(Min, N, Max, Groups) ->
-    %% First try to find an exact match. If not an exact match, select the largest possible.
-    {_,Group} =
-	lists:foldl(
-	  fun(_, {I,G}) when I==N ->
-		  %% If we have an exact match already: use that one
-		  {I,G};
-	     ({I,G}, _) when I==N ->
-		  %% If we now found an exact match: use that very one
-		  {I,G};
-	     ({I,G}, {Imax,_Gmax}) when Min=<I,I=<Max, % a) {I,G} fullfills the requirements
-				        I>Imax ->      % b) {I,G} is larger than current max
-		  %% A group within the limits and better than the one we have
-		  {I,G};
-	     (_, IGmax) ->
-		  %% Keep the one we have
-		  IGmax
-	  end, {-1,undefined}, Groups),
-
-    case Group of
-	undefined ->
-	    throw(#ssh_msg_disconnect{
-		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		     description = "No possible diffie-hellman-group-exchange group found", 
-		     language = ""});
-	_ ->
-	    Group
+    %% Try to find an exact match. If not an exact match, select the first found.
+    case lists:keyfind(N, 1, Groups) of
+	{N,Grp} -> 
+	    Grp;
+	false -> 
+	    case lists:dropwhile(fun({I,_}) -> I < Min-1 orelse I > Max+1 end,
+				 Groups) of
+		[{_,Grp}|_] ->
+		    Grp;
+		[] ->
+		    throw(#ssh_msg_disconnect{
+			     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			     description = "No possible diffie-hellman-group-exchange group found", 
+			     language = ""})
+	    end
     end.
-
 
 generate_key(Algorithm, Args) ->
     {Public,Private} = crypto:generate_key(Algorithm, Args),

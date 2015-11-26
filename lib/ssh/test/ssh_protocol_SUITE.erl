@@ -60,7 +60,9 @@ groups() ->
 		gex_client_init_default_noexact,
 		gex_client_init_default_exact,
 		gex_client_init_option_groups,
-		gex_client_init_option_groups_file
+		gex_client_init_option_groups_file,
+		gex_client_old_request_exact,
+		gex_client_old_request_noexact
 		]}
     ].
 
@@ -79,7 +81,9 @@ init_per_testcase(no_common_alg_server_disconnects, Config) ->
 init_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 				   TC == gex_client_init_default_exact ;
 				   TC == gex_client_init_option_groups ;
-				   TC == gex_client_init_option_groups_file ->
+				   TC == gex_client_init_option_groups_file ;
+				   TC == gex_client_old_request_exact ;
+				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
 		   [{dh_gex_groups, [{2345, 3, 41}]}];
@@ -101,7 +105,9 @@ end_per_testcase(no_common_alg_server_disconnects, Config) ->
 end_per_testcase(TC, Config) when TC == gex_client_init_default_noexact ;
 				  TC == gex_client_init_default_exact ;
 				  TC == gex_client_init_option_groups ;
-				  TC == gex_client_init_option_groups_file ->
+				  TC == gex_client_init_option_groups_file ;
+				  TC == gex_client_old_request_exact ;
+				  TC == gex_client_old_request_noexact ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -333,13 +339,13 @@ no_common_alg_client_disconnects(Config) ->
 gex_client_init_default_noexact(Config) ->
     do_gex_client_init(Config, {2000, 3000, 4000},
 		       %% Warning, app knowledege:
-		       ?dh_group15).
+		       ?dh_group14).
 
 
 gex_client_init_default_exact(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000},
+    do_gex_client_init(Config, {2000, 3072, 4000},
 		       %% Warning, app knowledege:
-		       ?dh_group14).
+		       ?dh_group15).
 
 
 gex_client_init_option_groups(Config) ->
@@ -372,6 +378,31 @@ do_gex_client_init(Config, {Min,N,Max}, {_,{G,P}}) ->
 	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
 	  ]
 	 ).
+
+%%%--------------------------------------------------------------------
+gex_client_old_request_exact(Config) -> do_gex_client_init_old(Config, 2048, ?dh_group14).
+gex_client_old_request_noexact(Config) -> do_gex_client_init_old(Config, 1000, ?dh_group1).
+    
+do_gex_client_init_old(Config, N, {_,{G,P}}) ->
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {connect,
+	    server_host(Config),server_port(Config),
+	    [{silently_accept_hosts, true},
+	     {user_dir, user_dir(Config)},
+	     {user_interaction, false},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']}]}
+	    ]},
+	   receive_hello,
+	   {send, hello},
+	   {send, ssh_msg_kexinit},
+	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+	   {send, #ssh_msg_kex_dh_gex_request_old{n = N}},
+	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
+	  ]
+	 ).
+
 
 %%%================================================================
 %%%==== Internal functions ========================================
