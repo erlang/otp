@@ -433,6 +433,40 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		     language = ""})
     end;
 
+handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 
+			  Ssh0=#ssh{opts=Opts}) ->
+    %% server
+    %%
+    %% This message was in the draft-00 of rfc4419
+    %% (https://tools.ietf.org/html/draft-ietf-secsh-dh-group-exchange-00)
+    %% In later drafts and the rfc is "is used for backward compatibility".
+    %% Unfortunatly the rfc does not specify how to treat the parameter n
+    %% if there is no group of that modulus length :(
+    %% The draft-00 however specifies that n is the "... number of bits
+    %% the subgroup should have at least".
+    %% Further, it says that "Servers and clients SHOULD support groups
+    %% with a modulus length of k bits, where 1024 <= k <= 8192."
+    %%
+    Min0 = NBits,
+    Max0 = 8192,
+    {Min, Max} = adjust_gex_min_max(Min0, Max0, Opts),
+    case public_key:dh_gex_group(Min, NBits, Max,
+				 proplists:get_value(dh_gex_groups,Opts)) of
+	{ok, {_Sz, {G,P}}} ->
+	    {Public, Private} = generate_key(dh, [P,G]),
+	    {SshPacket, Ssh} = 
+		ssh_packet(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0),
+	    {ok, SshPacket, 
+	     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}},
+		     keyex_info = {-1, -1, NBits} % flag for kex_h hash calc
+		    }};
+	{error,_} ->
+	    throw(#ssh_msg_disconnect{
+		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+		     description = "No possible diffie-hellman-group-exchange group found", 
+		     language = ""})
+    end;
+
 handle_kex_dh_gex_request(_, _) ->
   throw({{error,bad_ssh_msg_kex_dh_gex_request},
 	 #ssh_msg_disconnect{
@@ -1571,8 +1605,11 @@ kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
     crypto:hash(sha(Curve), L).
 
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
+    KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
     L = if Min==-1; Max==-1 ->
-		KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
+		%% flag from 'ssh_msg_kex_dh_gex_request_old'
+		%% It was like this before that message was supported,
+		%% why?
 		Ts = [string,string,binary,binary,binary,
 		      uint32,
 		      mpint,mpint,mpint,mpint,mpint],
@@ -1581,7 +1618,6 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 				 KeyBin, NBits, Prime, Gen, E,F,K],
 				Ts);
 	   true ->
-		KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
 		Ts = [string,string,binary,binary,binary,
 		      uint32,uint32,uint32,
 		      mpint,mpint,mpint,mpint,mpint],

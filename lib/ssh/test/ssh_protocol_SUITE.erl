@@ -69,7 +69,9 @@ groups() ->
 		gex_client_init_option_groups,
 		gex_server_gex_limit,
 		gex_client_init_option_groups_moduli_file,
-		gex_client_init_option_groups_file
+		gex_client_init_option_groups_file,
+		gex_client_old_request_exact,
+		gex_client_old_request_noexact
 		]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
@@ -94,7 +96,9 @@ init_per_testcase(no_common_alg_server_disconnects, Config) ->
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
 				   TC == gex_client_init_option_groups_file ;
-				   TC == gex_server_gex_limit ->
+				   TC == gex_server_gex_limit ;
+				   TC == gex_client_old_request_exact ;
+				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
 		   [{dh_gex_groups, [{2345, 3, 41}]}];
@@ -106,8 +110,10 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		   DataDir = ?config(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test.moduli"),
 		   [{dh_gex_groups, {ssh_moduli_file,F}}];
-	       gex_server_gex_limit ->
-		    [{dh_gex_groups, [{ 500, 3, 18},
+	       _ when TC == gex_server_gex_limit ;
+		      TC == gex_client_old_request_exact ;
+		      TC == gex_client_old_request_noexact ->
+		    [{dh_gex_groups, [{ 500, 3, 17},
 				      {1000, 7, 91},
 				      {3000, 5, 61}]},
 		     {dh_gex_limits,{500,1500}}
@@ -126,7 +132,9 @@ end_per_testcase(no_common_alg_server_disconnects, Config) ->
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
 				  TC == gex_client_init_option_groups_file ;
-				  TC == gex_server_gex_limit ->
+				  TC == gex_server_gex_limit ;
+				  TC == gex_client_old_request_exact ;
+				  TC == gex_client_old_request_noexact ->
     stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -381,6 +389,29 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	  ]
 	 ).
 
+%%%--------------------------------------------------------------------
+gex_client_old_request_exact(Config)  ->  do_gex_client_init_old(Config, 500, {3,17}).
+gex_client_old_request_noexact(Config) -> do_gex_client_init_old(Config, 800, {7,91}).
+    
+do_gex_client_init_old(Config, N, {G,P}) ->
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, print_seqnums, print_messages]},
+	   {connect,
+	    server_host(Config),server_port(Config),
+	    [{silently_accept_hosts, true},
+	     {user_dir, user_dir(Config)},
+	     {user_interaction, false},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']}]}
+	    ]},
+	   receive_hello,
+	   {send, hello},
+	   {send, ssh_msg_kexinit},
+	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+	   {send, #ssh_msg_kex_dh_gex_request_old{n = N}},
+	   {match, #ssh_msg_kex_dh_gex_group{p=P, g=G, _='_'},  receive_msg}
+	  ]
+	 ).
 
 %%%--------------------------------------------------------------------
 bad_service_name(Config) -> 
