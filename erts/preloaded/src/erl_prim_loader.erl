@@ -1205,24 +1205,15 @@ path_join([Path|Paths],Acc) ->
 name_split(ArchiveFile, File0) ->
     File = absname(File0),
     do_name_split(ArchiveFile, File).
-    
+
 do_name_split(undefined, File) ->
     %% Ignore primary archive
-    case string_split(File, init:archive_extension(), []) of
+    RevExt = reverse(init:archive_extension()),
+    case archive_split(File, RevExt, []) of
         no_split ->
-            %% Plain file
             {file, File};
-        {split, _RevArchiveBase, RevArchiveFile, []} ->
-            %% Top dir in archive
-            ArchiveFile = reverse(RevArchiveFile),
-            {archive, ArchiveFile, []};
-        {split, _RevArchiveBase, RevArchiveFile, [$/ | FileInArchive]} ->
-            %% File in archive
-            ArchiveFile = reverse(RevArchiveFile),
-            {archive, ArchiveFile, FileInArchive};
-        {split, _RevArchiveBase, _RevArchiveFile, _FileInArchive} ->
-	    %% False match. Assume plain file
-            {file, File}
+	Archive ->
+	    Archive
     end;
 do_name_split(ArchiveFile, File) ->
     %% Look first in primary archive
@@ -1244,20 +1235,28 @@ string_match([$/ | File], [], RevTop) ->
 string_match(_File, _Archive, _RevTop) ->
     no_match.
 
-string_split([Char | File], [Char | Ext] = FullExt, RevTop) ->
-    RevTop2 = [Char | RevTop],
-    string_split2(File, Ext, RevTop, RevTop2, File, FullExt, RevTop2);
-string_split([Char | File], Ext, RevTop) ->
-    string_split(File, Ext, [Char | RevTop]);
-string_split([], _Ext, _RevTop) ->
-    no_split.
+archive_split("/"++File, RevExt, Acc) ->
+    case is_prefix(RevExt, Acc) of
+	false ->
+	    archive_split(File, RevExt, [$/|Acc]);
+	true ->
+	    ArchiveFile = reverse(Acc),
+	    {archive, ArchiveFile, File}
+    end;
+archive_split([H|T], RevExt, Acc) ->
+    archive_split(T, RevExt, [H|Acc]);
+archive_split([], RevExt, Acc) ->
+    case is_prefix(RevExt, Acc) of
+	false ->
+	    no_split;
+	true ->
+	    ArchiveFile = reverse(Acc),
+	    {archive, ArchiveFile, []}
+    end.
 
-string_split2([Char | File], [Char | Ext], RevBase, RevTop, SaveFile, SaveExt, SaveTop) ->
-    string_split2(File, Ext, RevBase, [Char | RevTop], SaveFile, SaveExt, SaveTop);
-string_split2(File, [], RevBase, RevTop, _SaveFile, _SaveExt, _SaveTop) ->
-    {split, RevBase, RevTop, File};
-string_split2(_, _Ext, _RevBase, _RevTop, SaveFile, SaveExt, SaveTop) ->
-    string_split(SaveFile, SaveExt, SaveTop).
+is_prefix([H|T1], [H|T2]) -> is_prefix(T1, T2);
+is_prefix([_|_], _) -> false;
+is_prefix([], _ ) -> true.
 
 %% Parse list of ipv4 addresses 
 ipv4_list([H | T]) ->
