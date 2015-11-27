@@ -306,7 +306,7 @@ table_trans(Fun,Args) ->
 	    receive
 		{table_trans_done,Result} ->
 		    Result
-	    after 5000 ->
+	    after 20000 ->
 		    exit(table_trans_timeout)
 	    end
     end.

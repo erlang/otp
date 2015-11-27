@@ -353,7 +353,7 @@ get(Config) ->
 get_a_lot(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),
-    Descr = lists:append(lists:duplicate(1000,"Description of myserver! ")),
+    Descr = lists:append(lists:duplicate(100,"Description of myserver! ")),
     Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
 				       {description,[],[Descr]}]},
     Data = lists:duplicate(100,Server),
