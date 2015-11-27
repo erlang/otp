@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -342,8 +342,8 @@ records(doc) ->
 records(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(t, {"
-	             "t1 = [],"
-	             "t2 = foo,"
+	             "t1 = [] :: list(),"
+	             "t2 = foo :: atom(),"
 	             "t3,"
 	             "t4"
 	            "}).">>,
