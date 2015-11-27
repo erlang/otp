@@ -25,7 +25,8 @@ TEST_DRVS =	basic@dll@		\
 		bucket_mask@dll@	\
 		rbtree@dll@		\
 		mseg_clear_cache@dll@	\
-		cpool@dll@
+		cpool@dll@		\
+		migration@dll@
 
 CC = @CC@
 LD = @LD@

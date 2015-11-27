@@ -23,141 +23,147 @@
 #include <stdarg.h>
 #include <setjmp.h>
 #include <string.h>
+#include <limits.h>
 
 #ifdef __WIN32__
-#undef HAVE_VSNPRINTF
-#define HAVE_VSNPRINTF 1
-#define vsnprintf _vsnprintf
+static void my_vsnprintf(char *outBuf, size_t size, const char *format, va_list ap)
+{
+    _vsnprintf(outBuf, size, format, ap);
+    outBuf[size-1] = 0;  /* be sure string is terminated */
+}
+#elif defined(HAVE_VSNPRINTF)
+#  define my_vsnprintf(B,S,F,A) (void)vsnprintf(B,S,F,A)
+#else
+#  warning Using unsafe 'vsprintf' without buffer overflow protection
+#  define my_vsnprintf(B,S,F,A) (void)vsprintf(B,F,A)
 #endif
 
-#ifndef HAVE_VSNPRINTF
-#define HAVE_VSNPRINTF 0
-#endif
+static void my_snprintf(char *outBuf, size_t size, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    my_vsnprintf(outBuf, size, format, ap);
+    va_end(ap);
+}
 
 #define COMMENT_BUF_SZ 4096
 
 #define TESTCASE_FAILED		0
 #define TESTCASE_SKIPPED	1
 #define TESTCASE_SUCCEEDED	2
+#define TESTCASE_CONTINUE	3
 
 typedef struct {
     TestCaseState_t visible;
-    ErlDrvPort port;
-    ErlDrvTermData  port_id;
     int result;
-    jmp_buf done_jmp_buf;
+    jmp_buf* done_jmp_buf;
     char *comment;
     char comment_buf[COMMENT_BUF_SZ];
 } InternalTestCaseState_t;
 
-ErlDrvData testcase_drv_start(ErlDrvPort port, char *command);
-void testcase_drv_stop(ErlDrvData drv_data);
-void testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len);
+ERL_NIF_TERM testcase_nif_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM testcase_nif_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM testcase_nif_run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-static ErlDrvEntry testcase_drv_entry = { 
-    NULL,
-    testcase_drv_start,
-    testcase_drv_stop,
-    testcase_drv_run,
-    NULL,
-    NULL,
-    "testcase_drv",
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ERL_DRV_EXTENDED_MARKER,
-    ERL_DRV_EXTENDED_MAJOR_VERSION,
-    ERL_DRV_EXTENDED_MINOR_VERSION,
-    0,
-    NULL,
-    NULL,
-    NULL
+ErlNifFunc testcase_nif_funcs[] =
+{
+    {"start", 1, testcase_nif_start},
+    {"run", 1, testcase_nif_run},
+    {"stop", 1, testcase_nif_stop}
 };
 
+static ErlNifResourceType* testcase_rt;
+static ERL_NIF_TERM print_atom;
 
-DRIVER_INIT(testcase_drv)
+int testcase_nif_init(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    testcase_drv_entry.driver_name = testcase_name();
-    return &testcase_drv_entry;
+    testcase_rt = enif_open_resource_type(env, NULL, "testcase_rt", NULL,
+					  ERL_NIF_RT_CREATE, NULL);
+
+    print_atom = enif_make_atom(env, "print");
+    return 0;
 }
 
-ErlDrvData
-testcase_drv_start(ErlDrvPort port, char *command)
-{
+ERL_NIF_TERM
+testcase_nif_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ /* (ThrNr, FreeMeg, BuildType) */
+    ERL_NIF_TERM ret;
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *)
-	driver_alloc(sizeof(InternalTestCaseState_t));
-    if (!itcs) {
-	return ERL_DRV_ERROR_GENERAL;
-    }
+             enif_alloc_resource(testcase_rt, sizeof(InternalTestCaseState_t));
+    int free_megabyte;
+    const int max_megabyte = INT_MAX / (1024*1024);
+    const ERL_NIF_TERM* tpl;
+    int tpl_arity;
 
+    if (!itcs
+        || !enif_get_tuple(env, argv[0], &tpl_arity, &tpl)
+        || tpl_arity != 3
+	|| !enif_get_int(env, tpl[0], &itcs->visible.thr_nr)
+	|| !enif_get_int(env, tpl[1], &free_megabyte)) {
+	enif_make_badarg(env);
+    }
+    itcs->visible.free_mem = (free_megabyte < max_megabyte ?
+                              free_megabyte : max_megabyte) * (1024*1024);
     itcs->visible.testcase_name = testcase_name();
+    itcs->visible.build_type = tpl[2];
     itcs->visible.extra = NULL;
-    itcs->port = port;
-    itcs->port_id = driver_mk_port(port);
     itcs->result = TESTCASE_FAILED;
     itcs->comment = "";
 
-    return (ErlDrvData) itcs;
+    ret = enif_make_resource(env, itcs);
+    enif_release_resource(itcs);
+    return ret;
 }
 
-void
-testcase_drv_stop(ErlDrvData drv_data)
+ERL_NIF_TERM
+testcase_nif_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    testcase_cleanup((TestCaseState_t *) drv_data);
-    driver_free((void *) drv_data);
+    InternalTestCaseState_t *itcs;
+    if (!enif_get_resource(env, argv[0], testcase_rt, (void**)&itcs))
+	return enif_make_badarg(env);
+    testcase_cleanup(&itcs->visible);
+    return enif_make_atom(env,"ok");
 }
 
-void
-testcase_drv_run(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
+ERL_NIF_TERM
+testcase_nif_run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) drv_data;
-    ErlDrvTermData result_atom;
-    ErlDrvTermData msg[12];
+    InternalTestCaseState_t *itcs;
+    const char* result_atom;
+    jmp_buf the_jmp_buf;
 
-    itcs->visible.command = buf;
-    itcs->visible.command_len = len;
+    if (!enif_get_resource(env, argv[0], testcase_rt, (void**)&itcs))
+	return enif_make_badarg(env);
 
-    if (setjmp(itcs->done_jmp_buf) == 0) {
-	testcase_run((TestCaseState_t *) itcs);
+    itcs->visible.curr_env = env;
+
+    /* For some unknown reason, first call to setjmp crashes on win64
+     * when jmp_buf is allocated as part of the resource. But it works when
+     * allocated on stack. It used to work when this was a driver.
+     */
+    itcs->done_jmp_buf = &the_jmp_buf;
+
+    if (setjmp(the_jmp_buf) == 0) {
+	testcase_run(&itcs->visible);
 	itcs->result = TESTCASE_SUCCEEDED;
     }
 
     switch (itcs->result) {
-    case TESTCASE_SUCCEEDED:
-	result_atom = driver_mk_atom("succeeded");
-	break;
-    case TESTCASE_SKIPPED:
-	result_atom = driver_mk_atom("skipped");
-	break;
-    case TESTCASE_FAILED:
+    case TESTCASE_CONTINUE:
+	return enif_make_atom(env, "continue");
+
+    case TESTCASE_SUCCEEDED: result_atom = "succeeded"; break;
+    case TESTCASE_SKIPPED: result_atom = "skipped"; break;
+    case TESTCASE_FAILED: result_atom = "failed"; break;
     default:
-	result_atom = driver_mk_atom("failed");
-	break;
+        result_atom = "failed";
+        my_snprintf(itcs->comment_buf, sizeof(itcs->comment_buf),
+		    "Unexpected test result code %d.", itcs->result);
+        itcs->comment = itcs->comment_buf;
     }
 
-    msg[0] = ERL_DRV_ATOM;
-    msg[1] = (ErlDrvTermData) result_atom;
-
-    msg[2] = ERL_DRV_PORT;
-    msg[3] = itcs->port_id;
-
-    msg[4] = ERL_DRV_ATOM;
-    msg[5] = driver_mk_atom(itcs->visible.testcase_name);
- 
-    msg[6] = ERL_DRV_STRING;
-    msg[7] = (ErlDrvTermData) itcs->comment;
-    msg[8] = (ErlDrvTermData) strlen(itcs->comment);
-
-    msg[9] = ERL_DRV_TUPLE;
-    msg[10] = (ErlDrvTermData) 4;
-
-    erl_drv_output_term(itcs->port_id, msg, 11);
+    return enif_make_tuple2(env, enif_make_atom(env, result_atom),
+			    enif_make_string(env, itcs->comment, ERL_NIF_LATIN1));
 }
 
 int
@@ -172,34 +178,22 @@ testcase_assertion_failed(TestCaseState_t *tcs,
 void
 testcase_printf(TestCaseState_t *tcs, char *frmt, ...)
 {
-    InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
-    ErlDrvTermData msg[12];
+    InternalTestCaseState_t* itcs = (InternalTestCaseState_t*)tcs;
+    ErlNifPid pid;
+    ErlNifEnv* msg_env = enif_alloc_env();
+    ERL_NIF_TERM msg;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
-    msg[0] = ERL_DRV_ATOM;
-    msg[1] = (ErlDrvTermData) driver_mk_atom("print");
+    msg = enif_make_tuple2(msg_env, print_atom,
+		    enif_make_string(msg_env, itcs->comment_buf, ERL_NIF_LATIN1));
 
-    msg[2] = ERL_DRV_PORT;
-    msg[3] = itcs->port_id;
+    enif_send(itcs->visible.curr_env, enif_self(itcs->visible.curr_env, &pid),
+	      msg_env, msg);
 
-    msg[4] = ERL_DRV_ATOM;
-    msg[5] = driver_mk_atom(itcs->visible.testcase_name);
-
-    msg[6] = ERL_DRV_STRING;
-    msg[7] = (ErlDrvTermData) itcs->comment_buf;
-    msg[8] = (ErlDrvTermData) strlen(itcs->comment_buf);
-
-    msg[9] = ERL_DRV_TUPLE;
-    msg[10] = (ErlDrvTermData) 4;
-
-    erl_drv_output_term(itcs->port_id, msg, 11);
+    enif_free_env(msg_env);
 }
 
 
@@ -208,17 +202,13 @@ void testcase_succeeded(TestCaseState_t *tcs, char *frmt, ...)
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_SUCCEEDED;
     itcs->comment = itcs->comment_buf;
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
@@ -226,17 +216,20 @@ void testcase_skipped(TestCaseState_t *tcs, char *frmt, ...)
     InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_SKIPPED;
     itcs->comment = itcs->comment_buf;
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
+}
+
+void testcase_continue(TestCaseState_t *tcs)
+{
+    InternalTestCaseState_t *itcs = (InternalTestCaseState_t *) tcs;
+    itcs->result = TESTCASE_CONTINUE;
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void testcase_failed(TestCaseState_t *tcs, char *frmt, ...)
@@ -246,37 +239,33 @@ void testcase_failed(TestCaseState_t *tcs, char *frmt, ...)
     size_t bufsz = sizeof(buf);
     va_list va;
     va_start(va, frmt);
-#if HAVE_VSNPRINTF
-    vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
-#else
-    vsprintf(itcs->comment_buf, frmt, va);
-#endif
+    my_vsnprintf(itcs->comment_buf, COMMENT_BUF_SZ, frmt, va);
     va_end(va);
 
     itcs->result = TESTCASE_FAILED;
     itcs->comment = itcs->comment_buf;
 
-    if (erl_drv_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
+    if (enif_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
 	&& strcmp("true", buf) == 0) {
 	fprintf(stderr, "Testcase \"%s\" failed: %s\n",
 		itcs->visible.testcase_name, itcs->comment);
 	abort();
     }
 
-    longjmp(itcs->done_jmp_buf, 1);
+    longjmp(*itcs->done_jmp_buf, 1);
 }
 
 void *testcase_alloc(size_t size)
 {
-    return driver_alloc(size);
+    return enif_alloc(size);
 }
 
 void *testcase_realloc(void *ptr, size_t size)
 {
-    return driver_realloc(ptr, size);
+    return enif_realloc(ptr, size);
 }
 
 void testcase_free(void *ptr)
 {
-    driver_free(ptr);
+    enif_free(ptr);
 }

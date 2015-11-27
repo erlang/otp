@@ -52,7 +52,8 @@ void erl_sys_ddll_init(void) {
 #define ERL_NIF_API_FUNC_DECL(RET,NAME,ARGS) nif_callbacks.NAME = NAME
 #include "erl_nif_api_funcs.h"
 #undef ERL_NIF_API_FUNC_DECL
-   
+    nif_callbacks.erts_alc_test = erts_alc_test;
+ 
     return;
 }
 

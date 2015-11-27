@@ -2575,7 +2575,6 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_CLOSE_ON_PORT_EXIT:
 	  /* See file_stop. However this is never invoked after the port is killed. */
 	  free_data(data);
-	  EF_FREE(desc);
 	  desc = NULL;
 	  /* This is it for this port, so just send dtrace and return, avoid doing anything to the freed data */
 	  DTRACE6(efile_drv_return, sched_i1, sched_i2, sched_utag,
