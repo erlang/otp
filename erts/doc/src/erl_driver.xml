@@ -2811,7 +2811,7 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_putenv(char *key, char *value)</nametext></name>
+      <name><ret>int</ret><nametext>erl_drv_putenv(const char *key, char *value)</nametext></name>
       <fsummary>Set the value of an environment variable</fsummary>
       <desc>
         <marker id="erl_drv_putenv"></marker>
@@ -2840,7 +2840,7 @@ ERL_DRV_MAP          int sz
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>erl_drv_getenv(char *key, char *value, size_t *value_size)</nametext></name>
+      <name><ret>int</ret><nametext>erl_drv_getenv(const char *key, char *value, size_t *value_size)</nametext></name>
       <fsummary>Get the value of an environment variable</fsummary>
       <desc>
         <marker id="erl_drv_getenv"></marker>

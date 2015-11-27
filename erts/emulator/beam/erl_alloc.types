@@ -112,7 +112,7 @@ allocator	STANDARD_LOW	false		std_low_alloc
 allocator	BINARY		true		binary_alloc
 allocator	DRIVER		true		driver_alloc
 
-
+allocator	TEST            true            test_alloc
 
 # --- Class declarations -----------------------------------------------------
 #
@@ -455,5 +455,8 @@ type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 type	CON_VPRINTF_BUF	TEMPORARY	SYSTEM		con_vprintf_buf
 
 +endif
+
+# This type should only be used for test
+type	TEST		TEST		SYSTEM		testing
 
 # ----------------------------------------------------------------------------

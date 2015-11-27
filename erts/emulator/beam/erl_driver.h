@@ -696,8 +696,8 @@ EXTERN int driver_dl_close(void *);
 EXTERN char *driver_dl_error(void);
 
 /* environment */
-EXTERN int erl_drv_putenv(char *key, char *value);
-EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+EXTERN int erl_drv_putenv(const char *key, char *value);
+EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
 
 #ifdef __OSE__
 typedef ErlDrvUInt ErlDrvOseEventId;

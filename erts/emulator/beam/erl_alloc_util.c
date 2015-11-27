@@ -1437,6 +1437,16 @@ erts_alcu_fix_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 
 static void dealloc_carrier(Allctr_t *allctr, Carrier_t *crr, int superaligned);
 
+static ERTS_INLINE void
+dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
+{
+    ASSERT(IS_MB_CARRIER(crr));
+    if (allctr->destroying_mbc)
+        allctr->destroying_mbc(allctr, crr);
+
+    dealloc_carrier(allctr, crr, 1);
+}
+
 #ifdef ERTS_SMP
 
 static ERTS_INLINE Allctr_t*
@@ -3149,7 +3159,7 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	cpool_entrance = sentinel;
 	cpdp = cpool_aint2cpd(cpool_read(&cpool_entrance->prev));
 	if (cpdp == sentinel)
-	    return NULL;
+	    goto check_dc_list;
     }
 
     has_passed_sentinel = 0;
@@ -3160,18 +3170,18 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    if (cpool_entrance == sentinel) {
 		cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 		if (cpdp == sentinel)
-		    return NULL;
+		    break;
 	    }
 	    i = 0; /* Last one to inspect */
 	}
 	else if (cpdp == sentinel) {
 	    if (has_passed_sentinel) {
 		/* We been here before. cpool_entrance must have been removed */
-		return NULL;
+		break;
 	    }
 	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 	    if (cpdp == sentinel)
-		return NULL;
+                break;
 	    has_passed_sentinel = 1;
 	}
 	crr = (Carrier_t *)(((char *)cpdp) - offsetof(Carrier_t, cpool));
@@ -3195,10 +3205,12 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    return NULL;
     }
 
+check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
     crr = allctr->cpool.dc_list.last;
     while (crr) {
 	if (erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+	    Block_t* blk;
 	    unlink_carrier(&allctr->cpool.dc_list, crr);
 #ifdef ERTS_ALC_CPOOL_DEBUG
 	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_xchg_nob(&crr->allctr,
@@ -3207,6 +3219,9 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 #else
 	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
 #endif
+	    blk = MBC_TO_FIRST_BLK(allctr, crr);
+	    ASSERT(FBLK_TO_MBC(blk) == crr);
+	    allctr->link_free_block(allctr, blk);
 	    return crr;
 	}
 	crr = crr->prev;
@@ -3237,7 +3252,7 @@ check_pending_dealloc_carrier(Allctr_t *allctr,
 
 	    dcrr = crr;
 	    crr = crr->next;
-	    dealloc_carrier(allctr, dcrr, 1);
+	    dealloc_mbc(allctr, dcrr);
 	    i++;
 	} while (crr && i < ERTS_ALC_MAX_DEALLOC_CARRIER);
 
@@ -3268,18 +3283,20 @@ static void
 schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
     Allctr_t *orig_allctr;
+    Block_t *blk;
     int check_pending_dealloc;
     erts_aint_t max_size;
 
+    ASSERT(IS_MB_CARRIER(crr));
+
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 	return;
     }
 
     orig_allctr = crr->cpool.orig_allctr;
 
     if (allctr != orig_allctr) {
-	Block_t *blk = MBC_TO_FIRST_BLK(allctr, crr);
 	int cinit = orig_allctr->dd.ix - allctr->dd.ix;
 
 	/*
@@ -3296,6 +3313,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	 * since the block is an mbc block that is free and last
 	 * in the carrier.
 	 */
+	blk = MBC_TO_FIRST_BLK(allctr, crr);
 	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(blk));
 
 	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, blk));
@@ -3315,11 +3333,13 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     if (crr->cpool.thr_prgr == ERTS_THR_PRGR_INVALID
 	|| erts_thr_progress_has_reached(crr->cpool.thr_prgr)) {
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 	return;
     }
 
-    max_size = (erts_aint_t) allctr->largest_fblk_in_mbc(allctr, crr);
+    blk = MBC_TO_FIRST_BLK(allctr, crr);
+    ASSERT(IS_FREE_LAST_MBC_BLK(blk));
+    max_size = (erts_aint_t) MBC_FBLK_SZ(blk);
     erts_atomic_set_nob(&crr->cpool.max_size, max_size);
 
     crr->next = NULL;
@@ -3894,9 +3914,6 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	}
 #endif
 
-	if (allctr->destroying_mbc)
-	    (*allctr->destroying_mbc)(allctr, crr);
-
 #ifdef ERTS_SMP
 	if (busy_pcrr_pp && *busy_pcrr_pp) {
 	    ERTS_ALC_CPOOL_ASSERT(*busy_pcrr_pp == crr);
@@ -3920,12 +3937,15 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	    else
 #endif
 		STAT_SYS_ALLOC_MBC_FREE(allctr, crr_sz);
+
+            if (allctr->remove_mbc)
+                allctr->remove_mbc(allctr, crr);
 	}
 
 #ifdef ERTS_SMP
 	schedule_dealloc_carrier(allctr, crr);
 #else
-	dealloc_carrier(allctr, crr, 1);
+	dealloc_mbc(allctr, crr);
 #endif
     }
 }
@@ -6053,6 +6073,16 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x022: return (UWord) 0;
     case 0x023: return (UWord) 0;
     case 0x024: return (UWord) 0;
+#endif
+    case 0x025: /* UMEM2BLK_TEST*/
+#ifdef DEBUG
+# ifdef HARD_DEBUG
+	return (UWord)UMEM2BLK(a1-3*sizeof(UWord));
+# else
+	return (UWord)UMEM2BLK(a1-2*sizeof(UWord));
+# endif
+#else
+	return (UWord)UMEM2BLK(a1);
 #endif
 
     default:	ASSERT(0); return ~((UWord) 0);

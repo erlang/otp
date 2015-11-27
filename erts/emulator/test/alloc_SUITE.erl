@@ -31,7 +31,8 @@
 	 rbtree/1,
 	 mseg_clear_cache/1,
 	 erts_mmap/1,
-	 cpool/1]).
+	 cpool/1,
+	 migration/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -43,7 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
-     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool].
+     bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
 groups() -> 
     [].
@@ -64,7 +65,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog},{testcase, Case}|Config].
+    [{watchdog, Dog}, {testcase, Case}, {debug,false} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
@@ -111,6 +112,14 @@ mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
 cpool(suite) -> [];
 cpool(doc) ->   [];
 cpool(Cfg) -> ?line drv_case(Cfg).
+
+migration(Cfg) ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    drv_case(Cfg, concurrent, "+MZe true");
+	false ->
+	    {skipped, "No smp"}
+    end.
 
 erts_mmap(Config) when is_list(Config) ->
     case {?t:os_type(), is_halfword_vm()} of
@@ -176,18 +185,17 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
 %%                                                                        %%
 
 drv_case(Config) ->
-    drv_case(Config, "").
+    drv_case(Config, one_shot, "").
 
-drv_case(Config, Command) when is_list(Config),
-			       is_list(Command) ->
+drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     case ?t:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
-	    ?line {ok, Node} = start_node(Config),
+	    ?line {ok, Node} = start_node(Config, NodeOpts),
 	    ?line Self = self(),
 	    ?line Ref = make_ref(),
 	    ?line spawn_link(Node,
 			     fun () ->
-				     Res = run_drv_case(Config, Command),
+				     Res = run_drv_case(Config, Mode),
 				     Self ! {Ref, Res}
 			     end),
 	    ?line Result = receive {Ref, Rslt} -> Rslt end,
@@ -199,49 +207,172 @@ drv_case(Config, Command) when is_list(Config),
 				  | io_lib:format("~p",[SkipOs])])}
     end.
 
-run_drv_case(Config, Command) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line CaseName = ?config(testcase,Config),
-    case erl_ddll:load_driver(DataDir, CaseName) of
-	ok -> ok;
-	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+run_drv_case(Config, Mode) ->
+    DataDir = ?config(data_dir,Config),
+    CaseName = ?config(testcase,Config),
+    File = filename:join(DataDir, CaseName),
+    {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
+    {module,CaseName} = erlang:load_module(CaseName,Bin),
+    print_stats(CaseName),
+    ok = CaseName:init(File),
+
+    SlaveState = slave_init(CaseName),
+    case Mode of
+	one_shot ->
+	    Result = one_shot(CaseName);
+
+	concurrent ->
+	    Result = concurrent(CaseName)
     end,
-    ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
-    ?line true = is_port(Port),
-    ?line Port ! {self(), {command, Command}},
-    ?line Result = receive_drv_result(Port, CaseName),
-    ?line Port ! {self(), close},
-    ?line receive 
-	      {Port, closed} ->
-		  ok
-	  end,
-    ?line ok = erl_ddll:unload_driver(CaseName),
-    ?line Result.
 
-receive_drv_result(Port, CaseName) ->
-    ?line receive
-	      {print, Port, CaseName, Str} ->
-		  ?line ?t:format("~s", [Str]),
-		  ?line receive_drv_result(Port, CaseName);
-	      {'EXIT', Port, Error} ->
-		  ?line ?t:fail(Error);
-	      {'EXIT', error, Error} ->
-		  ?line ?t:fail(Error);
-	      {failed, Port, CaseName, Comment} ->
-		  ?line ?t:fail(Comment);
-	      {skipped, Port, CaseName, Comment} ->
-		  ?line {skipped, Comment};
-	      {succeeded, Port, CaseName, ""} ->
-		  ?line succeeded;
-	      {succeeded, Port, CaseName, Comment} ->
-		  ?line {comment, Comment}
-	  end.
+    wait_for_memory_deallocations(),
+    print_stats(CaseName),
 
-start_node(Config) ->
-    start_node(Config, []).
+    true = erlang:delete_module(CaseName),
+    slave_end(SlaveState),
+    Result.
+
+slave_init(migration) ->
+    A0 = case application:start(sasl) of
+	     ok -> [sasl];
+	     _ -> []
+	 end,
+    case application:start(os_mon) of
+	ok -> [os_mon|A0];
+	_ -> A0
+    end;
+slave_init(_) -> [].
+
+slave_end(Apps) ->
+    lists:foreach(fun (A) -> application:stop(A) end, Apps).
+
+wait_for_memory_deallocations() ->
+    try
+        erts_debug:set_internal_state(wait, deallocations)
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            wait_for_memory_deallocations()
+    end.
+
+print_stats(migration) ->
+    {Btot,Ctot} = lists:foldl(fun({instance,Inr,Istats}, {Bacc,Cacc}) ->
+				      {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
+				      Btup = lists:keyfind(blocks, 1, MBCS),
+				      Ctup = lists:keyfind(carriers, 1, MBCS),
+				      io:format("{instance,~p,~p,~p}\n", [Inr, Btup, Ctup]),
+				      {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup)};
+				 (_, Acc) -> Acc
+			      end,
+			      {{blocks,0,0,0},{carriers,0,0,0}},
+			      erlang:system_info({allocator,test_alloc})),
+
+    io:format("Number of blocks  : ~p\n", [Btot]),
+    io:format("Number of carriers: ~p\n", [Ctot]);
+
+print_stats(_) -> ok.
+
+tuple_add(T1, T2) ->
+    list_to_tuple(lists:zipwith(fun(E1,E2) when is_number(E1), is_number(E2) ->
+					 E1 + E2;
+				    (A,A) ->
+					 A
+				 end,
+				 tuple_to_list(T1), tuple_to_list(T2))).
+
+
+one_shot(CaseName) ->
+    State = CaseName:start({1, 0, erlang:system_info(build_type)}),
+    Result0 = CaseName:run(State),
+    false = (Result0 =:= continue),
+    Result1 = handle_result(State, Result0),
+    CaseName:stop(State),
+    Result1.
+
+
+many_shot(CaseName, I, Mem) ->
+    State = CaseName:start({I, Mem, erlang:system_info(build_type)}),
+    Result1 = repeat_while(fun() ->
+				   Result0 = CaseName:run(State),
+				   handle_result(State, Result0)
+			   end,
+			   10*1000, I),
+    CaseName:stop(State),
+    flush_log(),
+    Result1.
+
+concurrent(CaseName) ->
+    NSched = erlang:system_info(schedulers),
+    Mem = (free_memory() * 3) div 4,
+    PRs = lists:map(fun(I) -> spawn_opt(fun() ->
+						many_shot(CaseName, I,
+							  Mem div NSched)
+					end,
+				       [monitor, {scheduler,I}])
+		    end,
+		    lists:seq(1, NSched)),
+    lists:foreach(fun({Pid,Ref}) ->
+			  receive {'DOWN', Ref, process, Pid, Reason} ->
+				  Reason
+			  end
+		  end,
+		  PRs),
+    ok.
+
+repeat_while(Fun, Timeout, I) ->
+    TRef = erlang:start_timer(Timeout, self(), timeout),
+    R = repeat_while_loop(Fun, TRef, I),
+    erlang:cancel_timer(TRef, [{async,true},{info,false}]),
+    R.
+
+repeat_while_loop(Fun, TRef, I) ->
+    receive
+	{timeout, TRef, timeout} ->
+	    io:format("~p: Timeout, enough is enough.",[I]),
+	    succeeded
+    after 0 ->
+	    %%io:format("~p calls fun\n", [self()]),
+	    case Fun() of
+		continue -> repeat_while_loop(Fun, TRef, I);
+		R -> R
+	    end
+    end.
+
+flush_log() ->
+    receive
+	{print, Str} ->
+	    ?t:format("~s", [Str]),
+	    flush_log()
+    after 0 ->
+	    ok
+    end.
+
+handle_result(_State, Result0) ->
+    flush_log(),
+    case Result0 of
+	{'EXIT', Error} ->
+	    ?line ?t:fail(Error);
+	{'EXIT', error, Error} ->
+	    ?line ?t:fail(Error);
+	{failed, Comment} ->
+	    ?line ?t:fail(Comment);
+	{skipped, Comment} ->
+	    ?line {skipped, Comment};
+	{succeeded, ""} ->
+	    ?line succeeded;
+	{succeeded, Comment} ->
+	    ?line {comment, Comment};
+	continue ->
+	    continue
+    end.
+
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
+    case ?config(debug,Config) of
+	true -> {ok, node()};
+	_ -> start_node_1(Config, Opts)
+    end.
+
+start_node_1(Config, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
@@ -252,6 +383,7 @@ start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
 			++ integer_to_list(erlang:unique_integer([positive]))),
     ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
+stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->
     ?t:stop_node(Node).
 
@@ -260,4 +392,24 @@ is_halfword_vm() ->
 	  erlang:system_info({wordsize, external})} of
 	{4, 8} -> true;
 	{WS, WS} -> false
+    end.
+
+free_memory() ->
+    %% Free memory in MB.
+    try
+	SMD = memsup:get_system_memory_data(),
+	{value, {free_memory, Free}} = lists:keysearch(free_memory, 1, SMD),
+	TotFree = (Free +
+		   case lists:keysearch(cached_memory, 1, SMD) of
+		       {value, {cached_memory, Cached}} -> Cached;
+		       false -> 0
+		   end +
+		   case lists:keysearch(buffered_memory, 1, SMD) of
+		       {value, {buffered_memory, Buffed}} -> Buffed;
+		       false -> 0
+		   end),
+	TotFree div (1024*1024)
+    catch
+	error : undef ->
+	    ?t:fail({"os_mon not built"})
     end.

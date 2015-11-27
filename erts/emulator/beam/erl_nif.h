@@ -48,9 +48,10 @@
 **           add ErlNifEntry options
 **           add ErlNifFunc flags
 ** 2.8: 18.0 add enif_has_pending_exception
+** 2.9: 18.2 enif_getenv
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 8
+#define ERL_NIF_MINOR_VERSION 9
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -231,6 +232,7 @@ typedef enum {
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
 #  include "erl_nif_api_funcs.h"
+   void* erts_alc_test;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
