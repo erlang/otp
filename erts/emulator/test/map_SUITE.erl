@@ -58,6 +58,7 @@
 	%% erlang
 	t_erlang_hash/1,
 	t_map_encode_decode/1,
+	t_gc_rare_map_overflow/1,
 
 	%% non specific BIF related
 	t_bif_build_and_check/1,
@@ -121,6 +122,7 @@ all() -> [
 
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
+	t_gc_rare_map_overflow,
 	t_map_size, t_is_map,
 
 	%% non specific BIF related
@@ -2966,3 +2968,97 @@ do_badmap_17(Config) ->
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
+
+
+%% OTP-13146
+%% Provoke major GC with a lot of "fat" maps on external format in msg queue
+%% causing heap fragments to be allocated.
+t_gc_rare_map_overflow(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(gc_rare_map_overflow, slave, [{args, "-pa \""++Pa++"\""}]),
+    Echo = spawn_link(Node, fun Loop() -> receive {From,Msg} -> From ! Msg
+					  end,
+					  Loop()
+			    end),
+    FatMap = fatmap(34),
+    false = (flatmap =:= erts_internal:map_type(FatMap)),
+
+    t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
+
+    % Repeat test for minor gc:
+    minor_collect(), % need this to make the next gc really be a minor
+    t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> true = minor_collect() end),
+
+    unlink(Echo),
+    test_server:stop_node(Node).
+
+t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
+    Master = self(),
+    true = receive M -> false after 0 -> true end,   % assert empty msg queue
+    Echo ! {Master, token},
+    repeat(1000, fun(_) -> Echo ! {Master, FatMap} end, void),
+
+    timer:sleep(100),                % Wait for maps to arrive in our msg queue
+    token = receive Tok -> Tok end,  % and provoke move from outer to inner msg queue
+
+    %% Do GC that will "overflow" and create heap frags due to all the fat maps
+    GcFun(),
+
+    %% Now check that all maps in msg queueu are intact
+    %% Will crash emulator in OTP-18.1
+    repeat(1000, fun(_) -> FatMap = receive FM -> FM end end, void),
+    ok.
+
+minor_collect() ->
+    minor_collect(minor_gcs()).
+
+minor_collect(Before) ->
+    After = minor_gcs(),
+    case After of
+	_ when After > Before -> true;
+	_ when After =:= Before -> minor_collect(Before);
+	0 -> false
+    end.
+
+minor_gcs() ->
+    {garbage_collection, Info} = process_info(self(), garbage_collection),
+    {minor_gcs, GCS} = lists:keyfind(minor_gcs, 1, Info),
+    GCS.
+
+%% Generate a map with N (or N+1) keys that has an abnormal heap demand.
+%% Done by finding keys that collide in the first 32-bit hash.
+fatmap(N) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Table = ets:new(void, [bag, private]),
+
+    Seed0 = rand:seed_s(exsplus, {4711, 3141592, 2718281}),
+    Seed1 = fatmap_populate(Table, Seed0, (1 bsl 16)),
+    Keys = fatmap_generate(Table, Seed1, N, []),
+    ets:delete(Table),
+    maps:from_list([{K,K} || K <- Keys]).
+
+fatmap_populate(_, Seed, 0) -> Seed;
+fatmap_populate(Table, Seed, N) ->
+    {I, NextSeed} = rand:uniform_s(1 bsl 48, Seed),
+    Hash = internal_hash(I),
+    ets:insert(Table, [{Hash, I}]),
+    fatmap_populate(Table, NextSeed, N-1).
+
+
+fatmap_generate(_, _, N, Acc) when N =< 0 ->
+    Acc;
+fatmap_generate(Table, Seed, N0, Acc0) ->    
+    {I, NextSeed} = rand:uniform_s(1 bsl 48, Seed),
+    Hash = internal_hash(I),
+    case ets:member(Table, Hash) of
+	true ->
+	    NewKeys = [I | ets:lookup_element(Table, Hash, 2)],
+	    Acc1 = lists:usort(Acc0 ++ NewKeys),
+	    N1 = N0 - (length(Acc1) - length(Acc0)),
+	    fatmap_generate(Table, NextSeed, N1, Acc1);
+	false ->
+	    fatmap_generate(Table, NextSeed, N0, Acc0)
+    end.
+
+internal_hash(Term) ->
+    erts_debug:get_internal_state({internal_hash, Term}).
