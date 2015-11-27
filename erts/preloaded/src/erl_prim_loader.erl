@@ -1202,11 +1202,7 @@ path_join([Path],Acc) ->
 path_join([Path|Paths],Acc) ->
     path_join(Paths,"/" ++ reverse(Path) ++ Acc).
 
-name_split(ArchiveFile, File0) ->
-    File = absname(File0),
-    do_name_split(ArchiveFile, File).
-
-do_name_split(undefined, File) ->
+name_split(undefined, File) ->
     %% Ignore primary archive
     RevExt = reverse(init:archive_extension()),
     case archive_split(File, RevExt, []) of
@@ -1215,12 +1211,13 @@ do_name_split(undefined, File) ->
 	Archive ->
 	    Archive
     end;
-do_name_split(ArchiveFile, File) ->
+name_split(ArchiveFile, File0) ->
     %% Look first in primary archive
+    File = absname(File0),
     case string_match(real_path(File), ArchiveFile, []) of
         no_match ->
             %% Archive or plain file
-            do_name_split(undefined, File);
+            name_split(undefined, File);
         {match, _RevPrimArchiveFile, FileInArchive} ->
             %% Primary archive
 	    {archive, ArchiveFile, FileInArchive}
@@ -1240,7 +1237,7 @@ archive_split("/"++File, RevExt, Acc) ->
 	false ->
 	    archive_split(File, RevExt, [$/|Acc]);
 	true ->
-	    ArchiveFile = reverse(Acc),
+	    ArchiveFile = absname(reverse(Acc)),
 	    {archive, ArchiveFile, File}
     end;
 archive_split([H|T], RevExt, Acc) ->
@@ -1250,7 +1247,7 @@ archive_split([], RevExt, Acc) ->
 	false ->
 	    no_split;
 	true ->
-	    ArchiveFile = reverse(Acc),
+	    ArchiveFile = absname(reverse(Acc)),
 	    {archive, ArchiveFile, []}
     end.
 
