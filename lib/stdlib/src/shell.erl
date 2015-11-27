@@ -999,12 +999,7 @@ local_func(rl, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {value,list_records(record_defs(RT, listify(Recs))),Bs};
 local_func(rp, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {[V],Bs} = expr_list([A], Bs0, Lf, Ef),
-    Cs = io_lib_pretty:print(V, ([{column, 1},
-                                  {line_length, columns()},
-                                  {depth, -1},
-                                  {max_chars, ?CHAR_MAX},
-                                  {record_print_fun, record_print_fun(RT)}]
-                                 ++ enc())),
+    Cs = pp(V, _Column=1, _Depth=-1, RT),
     io:requests([{put_chars, unicode, Cs}, nl]),
     {value,ok,Bs};
 local_func(rr, [A], Bs0, _Shell, RT, Lf, Ef) ->
@@ -1397,9 +1392,9 @@ get_history_and_results() ->
     {History, erlang:min(Results, History)}.
 
 pp(V, I, RT) ->
-    pp(V, I, RT, enc()).
+    pp(V, I, _Depth=?LINEMAX, RT).
 
-pp(V, I, RT, Enc) ->
+pp(V, I, D, RT) ->
     Strings =
         case application:get_env(stdlib, shell_strings) of
             {ok, false} ->
@@ -1408,10 +1403,10 @@ pp(V, I, RT, Enc) ->
                 true
         end,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
-                             {depth, ?LINEMAX}, {max_chars, ?CHAR_MAX},
+                             {depth, D}, {max_chars, ?CHAR_MAX},
                              {strings, Strings},
                              {record_print_fun, record_print_fun(RT)}]
-                            ++ Enc)).
+                            ++ enc())).
 
 columns() ->
     case io:columns() of
