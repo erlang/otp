@@ -393,7 +393,9 @@ records(Config) when is_list(Config) ->
 
     Test = filename:join(?config(priv_dir, Config), "test.erl"),
     Contents = <<"-module(test).
-                  -record(state, {bin, reply, leader}).
+                  -record(state, {bin :: binary(),
+                                  reply = no,
+                                  leader = some :: atom()}).
 
                   -ifdef(test1).
                   -record(test1, {f}).
