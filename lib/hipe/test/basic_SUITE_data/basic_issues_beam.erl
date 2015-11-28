@@ -33,11 +33,11 @@ test() ->
 
 test_crash_R10_hinde() ->
   rec_R10_hinde(#r{}).
-  
+
 rec_R10_hinde(As) ->
   case As of
-    A when A#r.b == ""; A#r.b == undefined -> ok;       
-    _ -> error       
+    A when A#r.b == ""; A#r.b == undefined -> ok;
+    _ -> error
   end.
 
 %%--------------------------------------------------------------------
@@ -118,7 +118,7 @@ just_compile_me_R11_bjorklund() ->
 %% From: Tim Rath
 %% Date: Sep 13, 2006
 %% Subject: Compiler bug not quite fixed
-%% 
+%%
 %% I saw a compiler bug posted to the list by Martin Bjorklund that
 %% appeared to be exactly the problem I'm seeing, and then noticed
 %% that this was fixed in R11B-1. Unfortunately, though R11B-1 appears
@@ -198,9 +198,9 @@ die(A) ->
 
 test_crash_R12_morris() ->
   foo(42).
-    
+
 foo(Bar) when (is_integer(Bar) andalso Bar =:= 0) ; Bar =:= 42 ->
-  ok.   
+  ok.
 
 %%--------------------------------------------------------------------
 %% From: Paulo Sergio Almeida
@@ -237,20 +237,20 @@ collect(_, _, _) -> ok.
 test_error_R13B01_fisher() ->
   perform_select({foo, "42"}).
 
-perform_select({Type, Keyval}) -> 
+perform_select({Type, Keyval}) ->
   try
-    if is_atom(Type) andalso length(Keyval) > 0 -> ok; 
-       true -> ok 
-    end  
-  catch           
-    _:_ -> fail    
-  end.  
+    if is_atom(Type) andalso length(Keyval) > 0 -> ok;
+       true -> ok
+    end
+  catch
+    _:_ -> fail
+  end.
 
 %%--------------------------------------------------------------------
 %% From: Mikage Sawatari
 %% Date: Jun 12, 2009
 %%
-%% I have the following compilation problem on Erlang R13B01. 
+%% I have the following compilation problem on Erlang R13B01.
 %% Compiler reports "Internal consistency check failed".
 %%--------------------------------------------------------------------
 
@@ -263,7 +263,7 @@ test_sawatari([H|T], Bin) ->
         null -> <<Bin/binary>>;
         _ -> ok
       end,
-  test_sawatari(T, Bin). 
+  test_sawatari(T, Bin).
 
 %%--------------------------------------------------------------------
 
@@ -278,10 +278,10 @@ orgno_alphanum(Cs) ->
           orelse ((C >= $A) andalso (C =< $Z))].
 
 %%--------------------------------------------------------------------
-%% I'm getting an Internal Consistency Check error when attempting to  
+%% I'm getting an Internal Consistency Check error when attempting to
 %% build Wings3D on Mac OS X 10.4.2 (Erlang OTP R10B-6):
-%% 
-%% erlc -pa /ebin +warn_unused_vars -I/include -I ../e3d -W +debug_info  
+%%
+%% erlc -pa /ebin +warn_unused_vars -I/include -I ../e3d -W +debug_info
 %% '-Dwings_version="0.98.31"' -pa ../ebin -o../ebin wings_color.erl
 %% wings_color: function internal_rgb_to_hsv/3+97:
 %%    Internal consistency check failed - please report this bug.
@@ -322,4 +322,4 @@ test_error_R16B03_norell() ->
   test_error_R16B03_norell(#r{}, gazonk).
 
 test_error_R16B03_norell(Rec, Tag) ->
-  ok. %% is_record(Rec, Tag, 3) orelse ok.
+  is_record(Rec, Tag, 3) orelse ok.

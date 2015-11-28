@@ -14,7 +14,7 @@ test() ->
   ok = test_uplus(),
   ok = test_bsl_errors(),
   ok.
-  
+
 %%----------------------------------------------------------------------
 %% Tests the remainder operator.
 

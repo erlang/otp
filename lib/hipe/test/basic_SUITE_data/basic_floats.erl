@@ -36,7 +36,7 @@ sub(X) ->
 
 mult(X) ->
   3.1415 * X.
-        
+
 %% tests the translation of the fnegate BEAM instruction.
 negate(X) ->
   - (X + 0.0).

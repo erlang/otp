@@ -35,7 +35,7 @@ guard1(X) when hd(X) == foo ->
 test_guard2() ->
   ok1 = guard2(true),
   not_boolean = guard2(42),
-  ok2 = guard2(false),  
+  ok2 = guard2(false),
   ok.
 
 guard2(X) when X ->  % gets transformed to:  is_boolean(X), X =:= true
@@ -48,7 +48,7 @@ guard2(_) ->
 %%--------------------------------------------------------------------
 
 -define(is_foo(X), (is_atom(X) or (is_tuple(X) and (element(1, X) =:= 'foo')))).
-   
+
 test_guard3() ->
   no  = f('foo'),
   yes = f({'foo', 42}),
@@ -65,7 +65,7 @@ f(_) -> no.
 test_guard4() ->
   yes = is_ref(make_ref()),
   no  = is_ref(gazonk),
-  yes = is_ref(an_external_ref(?EXT_REF)),  
+  yes = is_ref(an_external_ref(?EXT_REF)),
   ok.
 
 is_ref(Ref) when is_reference(Ref) -> yes;

@@ -218,7 +218,7 @@ merge2_1(_nil, H2, T2, M) ->
 
 merge2_2(T1, H1, [H2 | T2], M) when H1 < H2 ->
   merge2_1(T1, H2, T2, [H1 | M]);
-merge2_2(T1, H1, [H2 | T2], M) ->    
+merge2_2(T1, H1, [H2 | T2], M) ->
   merge2_2(T1, H1, T2, [H2 | M]);
 merge2_2(T1, H1, _nil, M) ->
   lists:reverse(T1, [H1 | M]).
@@ -232,7 +232,7 @@ rmerge2_1(_nil, H2, T2, M) ->
 
 rmerge2_2(T1, H1, [H2 | T2], M) when H1 >= H2 ->
   rmerge2_1(T1, H2, T2, [H1 | M]);
-rmerge2_2(T1, H1, [H2 | T2], M) ->    
+rmerge2_2(T1, H1, [H2 | T2], M) ->
   rmerge2_2(T1, H1, T2, [H2 | M]);
 rmerge2_2(T1, H1, _nil, M) ->
   lists:reverse(T1, [H1 | M]).

@@ -87,7 +87,7 @@ bsl_f(X, Y) -> X bsl Y.
 
 %% applies a binary function N times
 n(1, F, X, Y) -> F(X, Y);
-n(N, F, X, Y) when N > 1 -> n(N-1, F, F(X, Y), Y). 
+n(N, F, X, Y) when N > 1 -> n(N-1, F, F(X, Y), Y).
 
 %%--------------------------------------------------------------------
 
