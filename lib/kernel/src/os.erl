@@ -62,13 +62,13 @@ getpid() ->
     erlang:nif_error(undef).
 
 -spec getuid() -> Value when
-      Value :: string().
+      Value :: nonempty_string().
 
 getuid() ->
     erlang:nif_error(undef).
 
 -spec geteuid() -> Value when
-      Value :: string().
+      Value :: nonempty_string().
 
 geteuid() ->
     erlang:nif_error(undef).
