@@ -11,6 +11,7 @@
 
 test() ->
   ok = test_hello_world(),
+  ok = test_list_plus_plus_match(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -34,3 +35,12 @@ gimme(binary) ->
   <<"hello world">>.
 
 %%--------------------------------------------------------------------
+%% Makes sure that pattern matching expressions involving ++ work OK.
+%% The third expression caused a problem in the Erlang shell of R11B-5.
+%% It worked OK in both interpreted and compiled code.
+
+test_list_plus_plus_match() ->
+  ok = (fun("X" ++ _) -> ok end)("X"),
+  ok = (fun([$X | _]) -> ok end)("X"),
+  ok = (fun([$X] ++ _) -> ok end)("X"),
+  ok.
