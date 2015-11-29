@@ -16,6 +16,8 @@ test() ->
   ok = test_unsafe_bsl(),
   ok = test_unsafe_bsr(),
   ok = test_R12B5_seg_fault(),
+  ok = test_switch_neg_int(),
+  ok = test_icode_range_anal(),
   ok.
 
 %%-----------------------------------------------------------------------
@@ -338,7 +340,7 @@ do_bsr(X, Y) ->
 %%   # Some message to be printed here each loop iteration
 %%   Segmentation fault
 %%
-%% Diagnozed and fixed by Mikael Petterson (22 Jan 2009):
+%% Diagnosed and fixed by Mikael Pettersson (22 Jan 2009):
 %%
 %%   I've analysed the recently posted HiPE bug report on erlang-bugs
 %%   <http://www.erlang.org/pipermail/erlang-bugs/2009-January/001162.html>.
@@ -361,3 +363,101 @@ repeat(N, Fun) ->
   %% io:format("# Some message to be printed here each loop iteration\n"),
   Fun(),
   repeat(N - 1, Fun).
+
+%%-----------------------------------------------------------------------
+%% From: Jon Meredith
+%% Date: July 9, 2009
+%%
+%% Binary search key tables are sorted by the loader based on the
+%% runtime representations of the keys as unsigned words.  However,
+%% the code generated for the binary search used signed comparisons.
+%% That worked for atoms and non-negative fixnums, but not for
+%% negative fixnums.  Fixed by Mikael Pettersson July 10, 2009.
+%%-----------------------------------------------------------------------
+
+test_switch_neg_int() ->
+  ok = f(-80, 8).
+
+f(10, -1) -> ok;
+f(X, Y) ->
+  Y = g(X),
+  f(X + 10, Y - 1).
+
+g(X) -> % g(0) should be 0 but became -1
+  case X of
+      0 -> 0;
+    -10 -> 1;
+    -20 -> 2;
+    -30 -> 3;
+    -40 -> 4;
+    -50 -> 5;
+    -60 -> 6;
+    -70 -> 7;
+    -80 -> 8;
+      _ -> -1
+  end.
+
+%%-----------------------------------------------------------------------
+%% From: Paul Guyot
+%% Date: Jan 31, 2011
+%%
+%%   There is a bug in HiPE compilation with the comparison of floats
+%%   with integers. This bug happens in functions f/1 and g/2 below.
+%%   BEAM will evaluate f_eq(42) and f_eq(42.0) to true, while HiPE
+%%   will evaluate them to false.
+%%
+%% The culprit was the Icode range analysis which was buggy. (On the
+%% other hand, HiPE properly evaluated these calls to true if passed
+%% the option 'no_icode_range'.)  Fixed by Kostis Sagonas.
+%% --------------------------------------------------------------------
+
+test_icode_range_anal() ->
+  true = f_eq(42),
+  true = f_eq(42.0),
+  false = f_ne(42),
+  false = f_ne(42.0),
+  false = f_eq_ex(42),
+  false = f_eq_ex(42.0),
+  true = f_ne_ex(42),
+  true = f_ne_ex(42.0),
+  false = f_gt(42),
+  false = f_gt(42.0),
+  true = f_le(42),
+  true = f_le(42.0),
+  zero_test = g(0, test),
+  zero_test = g(0.0, test),
+  non_zero_test = g(42, test),
+  other = g(42, other),
+  ok.
+
+f_eq(X) ->
+  Y = X / 2,
+  Y == 21.
+
+f_ne(X) ->
+  Y = X / 2,
+  Y /= 21.
+
+f_eq_ex(X) ->
+  Y = X / 2,
+  Y =:= 21.
+
+f_ne_ex(X) ->
+  Y = X / 2,
+  Y =/= 21.
+
+f_gt(X) ->
+  Y = X / 2,
+  Y > 21.
+
+f_le(X) ->
+  Y = X / 2,
+  Y =< 21.
+
+g(X, Z) ->
+  Y = X / 2,
+  case Z of
+    test when Y == 0 -> zero_test;
+    test -> non_zero_test;
+    other -> other
+  end.
