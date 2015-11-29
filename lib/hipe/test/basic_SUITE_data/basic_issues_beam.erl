@@ -119,6 +119,7 @@ just_compile_me_R11_bjorklund() ->
 %% Date: Sep 13, 2006
 %% Subject: Compiler bug not quite fixed
 %%
+%%
 %% I saw a compiler bug posted to the list by Martin Bjorklund that
 %% appeared to be exactly the problem I'm seeing, and then noticed
 %% that this was fixed in R11B-1. Unfortunately, though R11B-1 appears
@@ -201,7 +202,7 @@ test_crash_R12_morris() ->
 
 foo(Bar) when (is_integer(Bar) andalso Bar =:= 0) ; Bar =:= 42 ->
   ok.
-
+    
 %%--------------------------------------------------------------------
 %% From: Paulo Sergio Almeida
 %% Date: May 20, 2009
