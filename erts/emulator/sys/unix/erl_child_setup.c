@@ -83,11 +83,16 @@
         abort();                                                        \
     } while(0)
 
-#undef ASSERT
 #ifdef DEBUG
-#define ASSERT(cnd) do { if (!(cnd)) { ABORT("assertion %s failed", #cnd); } } while(0)
-#else
-#define ASSERT(cnd)
+void
+erl_assert_error(const char* expr, const char* func, const char* file, int line)
+{
+    fflush(stdout);
+    fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+            file, line, func, expr);
+    fflush(stderr);
+    abort();
+}
 #endif
 
 void sys_sigblock(int sig)
