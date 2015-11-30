@@ -1237,6 +1237,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
     Uint n;
     Uint new_sz;
+    int done;
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
@@ -1440,6 +1441,8 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 
     *recl += size_before - (HEAP_TOP(p) - HEAP_START(p));
 
+    remove_message_buffers(p);
+
     {
 	ErlMessage *msgp;
 
@@ -1458,15 +1461,21 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	}
     }
 
-    adjust_after_fullsweep(p, need, objv, nobj);
-
-#ifdef HARDDEBUG
-    disallow_heap_frag_ref_in_heap(p);
-#endif
-    remove_message_buffers(p);
+    if (MBUF(p)) {
+        /* This is a very rare case when distributed messages copied above
+         * contained maps so big they did not fit on the heap causing the
+         * factory to create heap frags.
+         * Solution: Trigger a minor gc (without tenuring)
+         */
+        HIGH_WATER(p) = HEAP_START(p);
+        done = 0;
+    } else {
+        adjust_after_fullsweep(p, need, objv, nobj);
+        done = 1;
+    }
 
     ErtsGcQuickSanityCheck(p);
-    return 1;			/* We are done. */
+    return done;
 }
 
 static void
@@ -1955,7 +1964,18 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
     if (p->dictionary != NULL) {
 	disallow_heap_frag_ref(p, n_htop, p->dictionary->data, p->dictionary->used);
     }
-    disallow_heap_frag_ref_in_heap(p);
+    /* OTP-18: Actually we do allow references from heap to heap fragments now.
+       This can happen when doing "binary_to_term" with a "fat" map contained
+       in another term. A "fat" map is a hashmap with higher heap demand than
+       first estimated by "binary_to_term" causing the factory to allocate
+       additional heap (fragments) for the hashmap tree nodes.
+       Run map_SUITE:t_gc_rare_map_overflow to provoke this.
+
+       Inverted references like this does not matter however. The copy done
+       below by move_one_area() with move markers in the fragments and the
+       sweeping done later by the GC should make everything ok in the end.
+    */
+    /***disallow_heap_frag_ref_in_heap(p);***/
 #endif
 
     /*
