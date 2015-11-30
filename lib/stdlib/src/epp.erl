@@ -258,20 +258,7 @@ parse_file(Ifile, Options) ->
 parse_file(Epp) ->
     case parse_erl_form(Epp) of
 	{ok,Form} ->
-	    case Form of
-		{attribute,La,record,{Record, Fields}} ->
-		    case normalize_typed_record_fields(Fields) of
-			{typed, NewFields} ->
-			    [{attribute, La, record, {Record, NewFields}},
-			     {attribute, La, type,
-			      {{record, Record}, Fields, []}}
-			     |parse_file(Epp)];
-			not_typed ->
-			    [Form|parse_file(Epp)]
-		    end;
-		_ ->
-		    [Form|parse_file(Epp)]
-	    end;
+            [Form|parse_file(Epp)];
 	{error,E} ->
 	    [{error,E}|parse_file(Epp)];
 	{eof,Location} ->
