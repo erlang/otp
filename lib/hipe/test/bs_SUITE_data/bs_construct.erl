@@ -17,6 +17,7 @@ test() ->
   ok = not_used(),
   ok = bad_append(),
   ok = system_limit(),
+  ok = bad_floats(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -257,3 +258,14 @@ system_limit_32() ->
     {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 43)>>),
     {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 40)+1)>>),
     ok.
+
+%%--------------------------------------------------------------------
+
+bad_floats() ->
+  WordSize = erlang:system_info(wordsize),
+  BitsPerWord = WordSize * 8,
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id(33))/float>>),
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id(64 bor 32))/float>>),
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id((1 bsl 28) bor 32))/float>>),
+  {'EXIT',{system_limit,_}} = (catch <<3.14:(id(1 bsl BitsPerWord))/float>>),
+  ok.
