@@ -33,8 +33,6 @@
                  vcount=0,            % Variable counter
                  imports=[],          % Imports
                  records=dict:new(),  % Record definitions
-		 trecords=sets:new(), % Typed records
-		 uses_types=false,    % Are there -spec or -type in the module
                  strict_ra=[],        % strict record accesses
                  checked_ra=[]        % successfully accessed records
                 }).
@@ -47,45 +45,18 @@
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
     Opts = compiler_options(Fs0) ++ Opts0,
-    TRecs = typed_records(Fs0),
-    UsesTypes = uses_types(Fs0),
-    St0 = #exprec{compile = Opts, trecords = TRecs, uses_types = UsesTypes},
+    St0 = #exprec{compile = Opts},
     {Fs,_St} = forms(Fs0, St0),
     Fs.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
-typed_records(Fs) ->
-    typed_records(Fs, sets:new()).
-
-typed_records([{attribute,_L,type,{{record, Name},_Defs,[]}} | Fs], Trecs) ->
-    typed_records(Fs, sets:add_element(Name, Trecs));
-typed_records([_|Fs], Trecs) ->
-    typed_records(Fs, Trecs);
-typed_records([], Trecs) ->
-    Trecs.
-
-uses_types([{attribute,_L,spec,_}|_]) -> true;
-uses_types([{attribute,_L,type,_}|_]) -> true;
-uses_types([{attribute,_L,opaque,_}|_]) -> true;
-uses_types([_|Fs]) -> uses_types(Fs);
-uses_types([]) -> false.
-    
-forms([{attribute,L,record,{Name,Defs}} | Fs], St0) ->
+forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
     St = St0#exprec{records=dict:store(Name, NDefs, St0#exprec.records)},
     {Fs1, St1} = forms(Fs, St),
-    %% Check if we need to keep the record information for usage in types.
-    case St#exprec.uses_types of
-	true ->
-	    case sets:is_element(Name, St#exprec.trecords) of
-		true -> {Fs1, St1};
-		false -> {[{attribute,L,type,{{record,Name},Defs,[]}}|Fs1], St1}
-	    end;
-	false ->
-	    {Fs1, St1}
-    end;
+    {[Attr | Fs1], St1};
 forms([{attribute,L,import,Is} | Fs0], St0) ->
     St1 = import(Is, St0),
     {Fs,St2} = forms(Fs0, St1),
@@ -512,7 +483,6 @@ lc_tq(Line, [F0 | Qs0], St0) ->
     end;
 lc_tq(_Line, [], St0) ->
     {[],St0#exprec{checked_ra = []}}.
-
 
 %% normalise_fields([RecDef]) -> [Field].
 %%  Normalise the field definitions to always have a default value. If
