@@ -27,8 +27,6 @@
 #endif
 
 #include "sys.h"
-#include "erl_vm.h"
-#include "global.h"
 #include "hash.h"
 
 /*
