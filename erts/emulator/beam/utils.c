@@ -399,9 +399,6 @@ erts_print(int to, void *arg, char *format, ...)
 	case ERTS_PRINT_DSBUF:
 	    res = erts_vdsprintf((erts_dsprintf_buf_t *) arg, format, arg_list);
 	    break;
-	case ERTS_PRINT_INVALID:
-	    res = -EINVAL;
-	    break;
 	default:
 	    res = erts_vfdprintf((int) to, format, arg_list);
 	    break;

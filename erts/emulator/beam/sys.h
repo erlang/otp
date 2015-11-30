@@ -634,7 +634,6 @@ Uint erts_sys_misc_mem_sz(void);
 /* Io constants to erts_print and erts_putc */
 #define ERTS_PRINT_STDERR	(2)
 #define ERTS_PRINT_STDOUT	(1)
-#define ERTS_PRINT_INVALID	(0) /* Don't want to use 0 since CBUF was 0 */
 #define ERTS_PRINT_FILE		(-1)
 #define ERTS_PRINT_SBUF		(-2)
 #define ERTS_PRINT_SNBUF	(-3)
