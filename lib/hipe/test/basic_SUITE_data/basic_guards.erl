@@ -14,6 +14,7 @@ test() ->
   ok = test_guard2(),
   ok = test_guard3(),
   ok = test_guard4(),
+  ok = test_is_boolean(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -73,3 +74,44 @@ is_ref(_Ref) -> no.
 
 an_external_ref(Bin) ->
   binary_to_term(Bin).
+
+%%--------------------------------------------------------------------
+
+test_is_boolean() ->
+  ok = is_boolean_in_if(),
+  ok = is_boolean_in_guard().
+
+is_boolean_in_if() ->
+  ok1 = tif(true),
+  ok2 = tif(false),
+  not_bool = tif(other),
+  ok.
+
+is_boolean_in_guard() ->
+  ok = tg(true),
+  ok = tg(false),
+  not_bool = tg(other),
+  ok.
+
+tif(V) ->
+  Yes = yes(),        %% just to prevent the optimizer removing this
+  if
+    %% the following line generates an is_boolean instruction
+    V, Yes == yes ->
+      %% while the following one does not (?!)
+      %% Yes == yes, V ->
+      ok1;
+    not(not(not(V))) ->
+      ok2;
+    V ->
+      ok3;
+    true ->
+      not_bool
+  end.
+
+tg(V) when is_boolean(V) ->
+  ok;
+tg(_) ->
+  not_bool.
+
+yes() -> yes.
