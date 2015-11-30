@@ -7,6 +7,8 @@
 -module(basic_guards).
 
 -export([test/0]).
+%% Prevent the inlining of the following functions
+-export([bad_arith/0, bad_tuple/0, is_strange_guard/0]).
 
 test() ->
   ok = guard0(4.2),
@@ -15,6 +17,7 @@ test() ->
   ok = test_guard3(),
   ok = test_guard4(),
   ok = test_is_boolean(),
+  ok = test_bad_guards(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -115,3 +118,47 @@ tg(_) ->
   not_bool.
 
 yes() -> yes.
+
+%%--------------------------------------------------------------------
+%% original test by Bjorn G
+
+test_bad_guards() ->
+  ok = bad_arith(),
+  ok = bad_tuple(),
+  ok = is_strange_guard(),
+  ok.
+
+bad_arith() ->
+  13 = bad_arith1(1, 12),
+  42 = bad_arith1(1, infinity),
+  42 = bad_arith1(infinity, 1),
+  42 = bad_arith2(infinity, 1),
+  42 = bad_arith3(inf),
+  42 = bad_arith4(infinity, 1),
+  ok.
+
+bad_arith1(T1, T2) when (T1 + T2) < 17 -> T1 + T2;
+bad_arith1(_, _) -> 42.
+
+bad_arith2(T1, T2) when (T1 * T2) < 17 -> T1 * T2;
+bad_arith2(_, _) -> 42.
+
+bad_arith3(T) when (bnot T) < 17 -> T;
+bad_arith3(_) -> 42.
+
+bad_arith4(T1, T2) when (T1 bsr T2) < 10 -> T1 bsr T2;
+bad_arith4(_, _) -> 42.
+
+bad_tuple() ->
+  error = bad_tuple1(a),
+  error = bad_tuple1({a, b}),
+  x = bad_tuple1({x, b}),
+  y = bad_tuple1({a, b, y}),
+  ok.
+
+bad_tuple1(T) when element(1, T) =:= x -> x;
+bad_tuple1(T) when element(3, T) =:= y -> y;
+bad_tuple1(_) -> error.
+
+is_strange_guard() when is_tuple({1, bar, length([1, 2, 3, 4]), self()}) -> ok;
+is_strange_guard() -> error.
