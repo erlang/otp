@@ -1008,6 +1008,7 @@ typedef struct {
 
 Binary* erts_alloc_loader_state(void);
 Eterm erts_module_for_prepared_code(Binary* magic);
+Eterm erts_has_code_on_load(Binary* magic);
 Eterm erts_prepare_loading(Binary* loader_state,  Process *c_p,
 			   Eterm group_leader, Eterm* modp,
 			   byte* code, Uint size);
