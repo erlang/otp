@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,8 +143,10 @@ attributes([]) -> [].
 
 include_attribute(type) -> false;
 include_attribute(spec) -> false;
+include_attribute(callback) -> false;
 include_attribute(opaque) -> false;
 include_attribute(export_type) -> false;
+include_attribute(record) -> false;
 include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->

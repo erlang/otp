@@ -1620,11 +1620,8 @@ output_encoding(F, #compile{encoding = Encoding}) ->
     ok = io:setopts(F, [{encoding, Encoding}]),
     ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
-restore_expanded_types("P", Fs) ->
-    epp:restore_typed_record_fields(Fs);
 restore_expanded_types("E", {M,I,Fs0}) ->
-    Fs1 = restore_expand_module(Fs0),
-    Fs = epp:restore_typed_record_fields(Fs1),
+    Fs = restore_expand_module(Fs0),
     {M,I,Fs};
 restore_expanded_types(_Ext, Code) -> Code.
 
@@ -1636,6 +1633,8 @@ restore_expand_module([{attribute,Line,spec,[Arg]}|Fs]) ->
     [{attribute,Line,spec,Arg}|restore_expand_module(Fs)];
 restore_expand_module([{attribute,Line,callback,[Arg]}|Fs]) ->
     [{attribute,Line,callback,Arg}|restore_expand_module(Fs)];
+restore_expand_module([{attribute,Line,record,[R]}|Fs]) ->
+    [{attribute,Line,record,R}|restore_expand_module(Fs)];
 restore_expand_module([F|Fs]) ->
     [F|restore_expand_module(Fs)];
 restore_expand_module([]) -> [].
