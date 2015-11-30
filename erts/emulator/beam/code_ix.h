@@ -100,7 +100,7 @@ void erts_release_code_write_permission(void);
  * Must be followed by calls to either "end" and "commit" or "abort" before
  * code write permission can be released.
  */
-void erts_start_staging_code_ix(void);
+void erts_start_staging_code_ix(int num_new);
 
 /* End the staging.
  * Preceded by "start" and must be followed by "commit".

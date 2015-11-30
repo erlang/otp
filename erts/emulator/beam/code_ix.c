@@ -65,12 +65,12 @@ void erts_code_ix_init(void)
     CIX_TRACE("init");
 }
 
-void erts_start_staging_code_ix(void)
+void erts_start_staging_code_ix(int num_new)
 {
     beam_catches_start_staging();
     export_start_staging();
     module_start_staging();
-    erts_start_staging_ranges();
+    erts_start_staging_ranges(num_new);
     CIX_TRACE("start");
 }
 

@@ -37,6 +37,7 @@ struct erl_module_instance {
 typedef struct erl_module {
     IndexSlot slot;		/* Must be located at top of struct! */
     int module;			/* Atom index for module (not tagged). */
+    int seen;			/* Used by finish_loading() */
 
     struct erl_module_instance curr;
     struct erl_module_instance old; /* protected by "old_code" rwlock */
