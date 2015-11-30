@@ -86,7 +86,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 	ASSERT(modp->curr.num_breakpoints == 0);
     }
 
-    erts_start_staging_code_ix();
+    erts_start_staging_code_ix(1);
 
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
@@ -163,14 +163,13 @@ exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
     Eterm* hp = HAlloc(p, 3 + 2*exceptions);
     Eterm res = NIL;
 
-    mp += exceptions - 1;
     while (exceptions > 0) {
 	if (mp->exception) {
 	    res = CONS(hp, mp->module, res);
 	    hp += 2;
 	    exceptions--;
 	}
-	mp--;
+	mp++;
     }
     return TUPLE2(hp, tag, res);
 }
@@ -202,8 +201,12 @@ finish_loading_1(BIF_ALIST_1)
 
     n = erts_list_length(BIF_ARG_1);
     if (n < 0) {
-	ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
-	goto done;
+    badarg:
+	if (p) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, p);
+	}
+	erts_release_code_write_permission();
+	BIF_ERROR(BIF_P, BADARG);
     }
     p = erts_alloc(ERTS_ALC_T_LOADER_TMP, n*sizeof(struct m));
 
@@ -218,29 +221,32 @@ finish_loading_1(BIF_ALIST_1)
 	ProcBin* pb;
 
 	if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
-	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
-	    goto done;
+	    goto badarg;
 	}
 	pb = (ProcBin*) binary_val(term);
 	p[i].code = pb->val;
 	p[i].module = erts_module_for_prepared_code(p[i].code);
 	if (p[i].module == NIL) {
-	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
-	    goto done;
+	    goto badarg;
 	}
 	BIF_ARG_1 = CDR(cons);
     }
 
     /*
      * Since we cannot handle atomic loading of a group of modules
-     * if one or more of them uses on_load, we will only allow one
-     * element in the list. This limitation is intended to be
-     * lifted in the future.
+     * if one or more of them uses on_load, we will only allow
+     * more than one element in the list if none of the modules
+     * have an on_load function.
      */
 
     if (n > 1) {
-	ERTS_BIF_PREP_ERROR(res, BIF_P, SYSTEM_LIMIT);
-	goto done;
+	for (i = 0; i < n; i++) {
+	    if (erts_has_code_on_load(p[i].code) == am_true) {
+		erts_free(ERTS_ALC_T_LOADER_TMP, p);
+		erts_release_code_write_permission();
+		BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+	    }
+	}
     }
 
     /*
@@ -252,11 +258,27 @@ finish_loading_1(BIF_ALIST_1)
      */
 
     res = am_ok;
-    erts_start_staging_code_ix();
+    erts_start_staging_code_ix(n);
 
     for (i = 0; i < n; i++) {
 	p[i].modp = erts_put_module(p[i].module);
+	p[i].modp->seen = 0;
     }
+
+    exceptions = 0;
+    for (i = 0; i < n; i++) {
+	p[i].exception = 0;
+	if (p[i].modp->seen) {
+	    p[i].exception = 1;
+	    exceptions++;
+	}
+	p[i].modp->seen = 1;
+    }
+    if (exceptions) {
+	res = exception_list(BIF_P, am_duplicated, p, exceptions);
+	goto done;
+    }
+
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
@@ -492,7 +514,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     {
-	erts_start_staging_code_ix();
+	erts_start_staging_code_ix(0);
 	code_ix = erts_staging_code_ix();
 	modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
