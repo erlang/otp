@@ -235,11 +235,17 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	_ ->
 	    ok
     end,
-    do_validate(http_response:header_list(Headers), Options, N, P),
-    check_body(RequestStr, StatusCode, 
-	       Headers#http_response_h.'content-type',
-	       list_to_integer(Headers#http_response_h.'content-length'),
-	       Body).
+    HList = http_response:header_list(Headers),
+    do_validate(HList, Options, N, P),
+    case lists:keysearch("warning", 1, HList) of
+	{value, _} ->
+	    ok;
+	_ ->
+	    check_body(RequestStr, StatusCode, 
+		       Headers#http_response_h.'content-type',
+		       list_to_integer(Headers#http_response_h.'content-length'),
+		       Body)
+    end.
 
 %--------------------------------------------------------------------
 %% Internal functions

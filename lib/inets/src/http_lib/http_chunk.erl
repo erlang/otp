@@ -25,7 +25,7 @@
 -include("http_internal.hrl").
 
 %% API
--export([decode/3, encode/1, encode_last/0, handle_headers/2]).
+-export([decode/3, encode/1, encode_last/0, encode_last/1, handle_headers/2]).
 %% Callback API - used for example if the chunkedbody is received a
 %% little at a time on a socket. 
 -export([decode_size/1, ignore_extensions/1, decode_data/1, decode_trailer/1]).
@@ -85,6 +85,11 @@ encode(Chunk) when is_list(Chunk)->
 encode_last() ->
     <<$0, ?CR, ?LF, ?CR, ?LF >>.
 
+encode_last([]) ->
+    encode_last();
+encode_last(Trailers0) ->
+     Trailers = list_to_binary(encode_trailers(Trailers0)),
+    <<$0, ?CR, ?LF, Trailers/binary>>.
 
 %%-------------------------------------------------------------------------
 %% handle_headers(HeaderRecord, ChunkedHeaders) -> NewHeaderRecord
@@ -276,10 +281,18 @@ decode_trailer(<<?CR, ?LF, Rest/binary>>, Header, Headers, Body, BodyLength, Rem
 		   Body, BodyLength, RemainingSize, TotalMaxHeaderSize);
 decode_trailer(<<Octet, Rest/binary>>, Header, Headers, Body,
 	       BodyLength, RemainingSize, TotalMaxHeaderSize) ->
-    decode_trailer(Rest, [Octet | Header], Headers, 
-		   Body, BodyLength, RemainingSize - 1, TotalMaxHeaderSize).
+    decode_trailer(Rest, [Octet | Header], Headers, 		   
+		   Body, BodyLength, remaing_size(RemainingSize, 1), TotalMaxHeaderSize).
 
 remaing_size(nolimit, _) ->
     nolimit;
 remaing_size(Total, Consumed) ->
     Total - Consumed.
+
+encode_trailers(Trailers) ->
+    encode_trailers(Trailers, "").
+    
+encode_trailers([], Acc) ->
+    Acc ++ ?CRLF ++ ?CRLF;
+encode_trailers([{Header, Value} | Rest], Acc) ->
+    encode_trailers(Rest, Header ++ ":" ++ Value ++ ?CRLF ++ Acc).

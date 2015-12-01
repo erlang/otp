@@ -24,7 +24,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([host/4, chunked/4, expect/4, range/4, if_test/5, trace/4,
-	 head/4, mod_cgi_chunked_encoding_test/5]).
+	 head/4, mod_cgi_chunked_encoding_test/5, mod_esi_chunk_timeout/4]).
 
 %% -define(all_keys_lower_case,true).
 -ifndef(all_keys_lower_case).
@@ -274,6 +274,15 @@ mod_cgi_chunked_encoding_test(Type, Port, Host, Node, [Request| Rest])->
 				       [{statuscode, 200}]),
     mod_cgi_chunked_encoding_test(Type, Port, Host, Node, Rest).
 
+
+mod_esi_chunk_timeout(Type, Port, Host, Node) ->
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET /cgi-bin/erl/httpd_example/chunk_timeout?input=20000 HTTP/1.1\r\n" 
+				       "Host:"++ Host ++"\r\n"
+				       "\r\n",
+				       [{statuscode, 200},
+					{header, "warning"}]).
+     
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
