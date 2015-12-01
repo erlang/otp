@@ -53,11 +53,11 @@
 /* Hash utility macros  */
 #define HASH_RANGE(PDict) ((PDict)->homeSize + (PDict)->splitPosition)
 
-#define MAKE_HASH(Term) 				\
-((is_small(Term)) ? unsigned_val(Term) :		\
- ((is_atom(Term)) ? 					\
-  (atom_tab(atom_val(term))->slot.bucket.hvalue) :	\
-  make_hash2(Term)))
+#define MAKE_HASH(Term)                                \
+    ((is_small(Term)) ? unsigned_val(Term) :           \
+     ((is_atom(Term)) ?                                \
+      (atom_tab(atom_val(Term))->slot.bucket.hvalue) : \
+      make_internal_hash(Term)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
 
