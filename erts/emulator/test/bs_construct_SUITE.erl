@@ -925,8 +925,8 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
-%% Produce a large result of bs_add that would fit a smallnum if it was viewed
-%% as signed.
+%% Produce a large result of bs_add that, if cast to signed int, would overflow
+%% into a negative number that fits a smallnum.
 bs_add_overflow(Config) ->
     case erlang:system_info(wordsize) of
 	8 ->

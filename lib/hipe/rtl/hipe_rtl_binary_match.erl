@@ -37,7 +37,6 @@
 
 %%--------------------------------------------------------------------
 
--define(MAX_BINSIZE, trunc(?MAX_HEAP_BIN_SIZE / hipe_rtl_arch:word_size()) + 2).
 -define(BYTE_SHIFT, 3). %% Turn bits into bytes or vice versa
 -define(LOW_BITS, 7). %% Three lowest bits set 
 -define(BYTE_SIZE, 8).
@@ -819,10 +818,10 @@ create_lbls(0) ->
 create_lbls(X) when X > 0 ->
   [hipe_rtl:mk_new_label()|create_lbls(X-1)].
 
-make_dyn_prep(SizeReg, CCode) ->   
+make_dyn_prep(SizeReg, CCode) ->
   [CLbl, SuccessLbl] = create_lbls(2),
-  Init = [hipe_rtl:mk_branch(SizeReg, le, hipe_rtl:mk_imm(?MAX_SMALL_BITS),  
-			     hipe_rtl:label_name(SuccessLbl), 
+  Init = [hipe_rtl:mk_branch(SizeReg, leu, hipe_rtl:mk_imm(?MAX_SMALL_BITS),
+			     hipe_rtl:label_name(SuccessLbl),
 			     hipe_rtl:label_name(CLbl)),
 	  SuccessLbl],
   End = [CLbl|CCode],
@@ -867,8 +866,8 @@ get_unaligned_int_to_reg(Reg, Size, Base, Offset, LowBits, Shiftr, Type) ->
 			 hipe_rtl:mk_imm((WordSize-MinLoad)*?BYTE_SIZE))];
       {_, WordSize} ->
 	UnsignedBig = {unsigned, big},
-	[hipe_rtl:mk_branch(TotBits, le, hipe_rtl:mk_imm(MinLoad*?BYTE_SIZE), 
-			    hipe_rtl:label_name(LessLbl), 
+	[hipe_rtl:mk_branch(TotBits, leu, hipe_rtl:mk_imm(MinLoad*?BYTE_SIZE),
+			    hipe_rtl:label_name(LessLbl),
 			    hipe_rtl:label_name(MoreLbl)),
 	 LessLbl,
 	 load_bytes(LoadDst, Base, ByteOffset, Type, MinLoad),
@@ -928,7 +927,7 @@ get_big_unknown_int(Dst1, Base, Offset, NewOffset,
    hipe_rtl:mk_alu(ByteOffset, Offset, srl, hipe_rtl:mk_imm(?BYTE_SHIFT)),
    load_bytes(LoadDst, Base, ByteOffset, Type, 1),
    BackLbl,
-   hipe_rtl:mk_branch(ByteOffset, le, Limit, hipe_rtl:label_name(LoopLbl), 
+   hipe_rtl:mk_branch(ByteOffset, leu, Limit, hipe_rtl:label_name(LoopLbl),
 		      hipe_rtl:label_name(EndLbl)),
    LoopLbl,
    load_bytes(Tmp, Base, ByteOffset, {unsigned, big}, 1),
@@ -957,8 +956,8 @@ get_little_unknown_int(Dst1, Base, Offset, NewOffset,
    hipe_rtl:mk_alu(Limit, Tmp, srl, hipe_rtl:mk_imm(?BYTE_SHIFT)),
    hipe_rtl:mk_move(ShiftReg, hipe_rtl:mk_imm(0)),
    BackLbl,
-   hipe_rtl:mk_branch(ByteOffset, lt, Limit, 
-		      hipe_rtl:label_name(LoopLbl), 
+   hipe_rtl:mk_branch(ByteOffset, ltu, Limit,
+		      hipe_rtl:label_name(LoopLbl),
 		      hipe_rtl:label_name(DoneLbl)),
    LoopLbl,
    load_bytes(Tmp, Base, ByteOffset, {unsigned, big}, 1),
@@ -1074,7 +1073,7 @@ load_bytes(Dst, Base, Offset, {Signedness, Endianness}, X) when X > 1 ->
        hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(1)),
        hipe_rtl:mk_alu(Dst, Dst, sll, hipe_rtl:mk_imm(8)),
        hipe_rtl:mk_alu(Dst, Dst, 'or', Tmp1),
-       hipe_rtl:mk_branch(Offset, lt, Limit, hipe_rtl:label_name(LoopLbl),
+       hipe_rtl:mk_branch(Offset, ltu, Limit, hipe_rtl:label_name(LoopLbl),
 			  hipe_rtl:label_name(EndLbl)),
        EndLbl];
     little ->
@@ -1086,7 +1085,7 @@ load_bytes(Dst, Base, Offset, {Signedness, Endianness}, X) when X > 1 ->
        hipe_rtl:mk_load(Tmp1, Base, TmpOffset, byte, Signedness),
        hipe_rtl:mk_alu(Dst, Dst, sll, hipe_rtl:mk_imm(8)),
        hipe_rtl:mk_alu(Dst, Dst, 'or', Tmp1),
-       hipe_rtl:mk_branch(Offset, lt, TmpOffset, hipe_rtl:label_name(LoopLbl),
+       hipe_rtl:mk_branch(Offset, ltu, TmpOffset, hipe_rtl:label_name(LoopLbl),
 			  hipe_rtl:label_name(EndLbl)),
        EndLbl,
        hipe_rtl:mk_move(Offset, Limit)]

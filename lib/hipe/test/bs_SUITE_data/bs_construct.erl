@@ -18,6 +18,7 @@ test() ->
   ok = bad_append(),
   ok = system_limit(),
   ok = bad_floats(),
+  ok = huge_binaries(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -268,4 +269,37 @@ bad_floats() ->
   {'EXIT',{badarg,_}} = (catch <<3.14:(id(64 bor 32))/float>>),
   {'EXIT',{badarg,_}} = (catch <<3.14:(id((1 bsl 28) bor 32))/float>>),
   {'EXIT',{system_limit,_}} = (catch <<3.14:(id(1 bsl BitsPerWord))/float>>),
+  ok.
+
+%%--------------------------------------------------------------------
+%% A bug in the implementation of binaries compared sizes in bits with sizes in
+%% bytes, causing <<0:(id((1 bsl 31)-1))>> to fail to construct with
+%% 'system_limit'.
+%% <<0:(id((1 bsl 32)-1))>> was succeeding because the comparison was
+%% (incorrectly) signed.
+
+huge_binaries() ->
+  AlmostIllegal = id(<<0:(id((1 bsl 32)-8))>>),
+  case erlang:system_info(wordsize) of
+    4 -> huge_binaries_32(AlmostIllegal);
+    8 -> ok
+  end,
+  garbage_collect(),
+  id(<<0:(id((1 bsl 31)-1))>>),
+  id(<<0:(id((1 bsl 30)-1))>>),
+  garbage_collect(),
+  ok.
+
+huge_binaries_32(AlmostIllegal) ->
+  %% Attempt construction of too large binary using bs_init/1 (which takes the
+  %% number of bytes as an argument, which should be compared to the maximum
+  %% size in bytes).
+  {'EXIT',{system_limit,_}} = (catch <<0:32,AlmostIllegal/binary>>),
+  %% Attempt construction of too large binary using bs_init/1 with a size in
+  %% bytes that has the msb set (and would be negative if it was signed).
+  {'EXIT',{system_limit,_}} =
+    (catch <<0:8, AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary>>),
   ok.
