@@ -65,6 +65,8 @@ header_list(Headers) ->
 %%%========================================================================
 fill_headers([], _, Headers) ->
     Headers;
+fill_headers([[]], _, Headers) ->
+    Headers;
 fill_headers([[Ch|HeaderFold]|Tail], Folded, Headers)
   when Ch == $\t; Ch == $\s ->
     fill_headers(Tail, [HeaderFold|Folded], Headers);

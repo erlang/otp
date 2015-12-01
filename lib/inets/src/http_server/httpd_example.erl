@@ -24,7 +24,7 @@
 
 -export([newformat/3]).
 %% These are used by the inets test-suite
--export([delay/1]).
+-export([delay/1, chunk_timeout/3]).
 
 
 print(String) ->
@@ -142,3 +142,11 @@ i(F)   -> i(F,[]).
 i(F,A) -> io:format(F ++ "~n",A).
 
 sleep(T) -> receive after T -> ok end.
+
+%% ------------------------------------------------------
+
+chunk_timeout(SessionID, _, StrInt) ->
+    mod_esi:deliver(SessionID, "Tranfer-Encoding:chunked/html\r\n\r\n"),
+    mod_esi:deliver(SessionID, top("Test chunk encoding timeout")),
+    timer:sleep(20000),
+    mod_esi:deliver(SessionID, footer()).
