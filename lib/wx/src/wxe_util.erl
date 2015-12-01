@@ -127,8 +127,21 @@ connect_cb(Object,EvData0 = #evh{cb=Callback}) ->
 
 disconnect_cb(Object,EvData) ->
     Server = (wx:get_env())#wx_env.sv,
-    gen_server:call(Server, {disconnect_cb,Object,EvData}, infinity).
-	
+    {try_in_order, Handlers} =
+	gen_server:call(Server, {disconnect_cb,Object,EvData}, infinity),
+    disconnect(Object, Handlers).
+
+disconnect(Object,[Ev|Evs]) ->
+    try wxEvtHandler:disconnect_impl(Object,Ev) of
+	true ->  true;
+	false -> disconnect(Object, Evs);
+	Error -> Error
+    catch _:_ ->
+	    false
+    end;
+disconnect(_, []) -> false.
+
+
 debug_cast(1, Op, _Args, _Port) ->
     check_previous(),
     case ets:lookup(wx_debug_info,Op) of
