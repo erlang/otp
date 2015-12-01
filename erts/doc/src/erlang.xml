@@ -1802,6 +1802,8 @@ os_prompt% </pre>
 	  <tag>string()</tag>
 	  <item>An Erlang crash dump is produced with <c><anno>Status</anno></c>
 	  as slogan. Then the runtime system exits with status code <c>1</c>.
+	  Note that the string may not be longer than 200 characters and only
+	  code points in the range 0-255 may be used.
 	  </item>
 	  <tag><c>abort</c></tag>
 	  <item>
