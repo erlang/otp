@@ -99,6 +99,10 @@
 # define HAVE_CHACHA20_POLY1305
 #endif
 
+#if OPENSSL_VERSION_NUMBER <= 0x009080cfL
+# define HAVE_ECB_IVEC_BUG
+#endif
+
 #if defined(HAVE_EC)
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
@@ -358,6 +362,11 @@ static ERL_NIF_TERM atom_onbasis;
 
 static ERL_NIF_TERM atom_aes_cfb8;
 static ERL_NIF_TERM atom_aes_cfb128;
+#ifdef HAVE_ECB_IVEC_BUG
+static ERL_NIF_TERM atom_aes_ecb;
+static ERL_NIF_TERM atom_des_ecb;
+static ERL_NIF_TERM atom_blowfish_ecb;
+#endif
 
 static ErlNifResourceType* hmac_context_rtype;
 struct hmac_context
@@ -613,6 +622,11 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif
     atom_aes_cfb8 = enif_make_atom(env, "aes_cfb8");
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
+#ifdef HAVE_ECB_IVEC_BUG
+    atom_aes_ecb = enif_make_atom(env, "aes_ecb");
+    atom_des_ecb = enif_make_atom(env, "des_ecb");
+    atom_blowfish_ecb = enif_make_atom(env, "blowfish_ecb");
+#endif
 
     init_digest_types(env);
     init_cipher_types(env);
@@ -1318,6 +1332,12 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     cipher = cipherp->cipher_func();
     ivec_size  = EVP_CIPHER_iv_length(cipher);
+
+#ifdef HAVE_ECB_IVEC_BUG
+    if (argv[0] == atom_aes_ecb || argv[0] == atom_blowfish_ecb ||
+	argv[0] == atom_des_ecb)
+	ivec_size = 0; /* 0.9.8l returns faulty ivec_size */
+#endif
 
     if (text.size % EVP_CIPHER_block_size(cipher) != 0 ||
         (ivec_size == 0 ? argc != 4
