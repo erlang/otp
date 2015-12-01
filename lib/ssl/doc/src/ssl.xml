@@ -245,7 +245,7 @@
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>. 
       By default <c>secure_renegotiate</c> is set to <c>false</c>, 
       that is, secure renegotiation is used if possible,
-      but it fallback to unsecure renegotiation if the peer
+      but it falls back to insecure renegotiation if the peer
       does not support 
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.</p>
       </item>
@@ -331,7 +331,7 @@ atom()}} |
 	<tag><c>unknown_ca</c></tag>
 	<item><p>No trusted CA was found in the trusted store. The trusted CA is
 	normally a so called ROOT CA, which is a self-signed certificate. Trust can
-	be claimed for an intermediat CA (trusted anchor does not have to be
+	be claimed for an intermediate CA (trusted anchor does not have to be
 	self-signed according to X-509) by using option <c>partial_chain</c>.</p>
 	</item>
 
@@ -376,7 +376,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	  <tag><c>{http, timeout()}</c></tag>
 	  <item><p>
 	    Enables fetching of CRLs specified as http URIs in<seealso 
-	    marker="public_key:public_key_records"> X509 cerificate extensions.</seealso>
+	    marker="public_key:public_key_records"> X509 certificate extensions.</seealso>
 	    Requires the OTP inets application.</p>
 	  </item>	    
 	</taglist>    
@@ -636,14 +636,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client
-      matching a host listed in the <c>sni_hosts</c> option, the speicific options for
+      matching a host listed in the <c>sni_hosts</c> option, the specific options for
       that host will override previously specified options.
 
       The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
 
       <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client,
-      the given function will be called to retrive <c>ssloptions()</c> for indicated server.
+      the given function will be called to retrieve <c>ssloptions()</c> for the indicated server.
       These options will be merged into predefined <c>ssloptions()</c>.
 
       The function should be defined as:
@@ -657,7 +657,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       of resources of such an operation is higher for the server than the
       client. This can act as a vector for denial of service attacks. The SSL
       application already takes measures to counter-act such attempts,
-      but client-initiated renegotiation can be stricly disabled by setting
+      but client-initiated renegotiation can be strictly disabled by setting
       this option to <c>false</c>. The default value is <c>true</c>.
       Note that disabling renegotiation can result in long-lived connections
       becoming unusable due to limits on the number of messages the underlying
@@ -773,10 +773,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Closes or downgrades an SSL connection, in the later case the transport
-      connection will be handed over to the <c>NewController</c> process after reciving
-      the TLS close alert from the peer. The retuned transport socket will have
-      the following options set [{active, false}, {packet, 0}, {mode, binary}].</p>
+      <desc><p>Closes or downgrades an SSL connection. In the latter case the transport
+      connection will be handed over to the <c>NewController</c> process after receiving
+      the TLS close alert from the peer. The returned transport socket will have
+      the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
       </desc>
     </func>
 
@@ -843,7 +843,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <v>Reason = term()</v>
       </type>
       <desc><p>Returns the connection information you requested. The connection information you can request contains protocol, cipher_suite, and sni_hostname.
-      <c>{ok, Info}</c> will be returned if it executes sucessfully. The Info is a proplists containing the information you requested.
+      <c>{ok, Info}</c> will be returned if it executes successfully. <c>Info</c> is a proplist containing the information you requested.
       Otherwise, <c>{error, Reason}</c> will be returned.</p>
       </desc>
     </func>
