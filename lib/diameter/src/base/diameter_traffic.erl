@@ -1490,16 +1490,20 @@ send_R(Pkt0,
                    caps = Caps,
                    packet = Pkt0},
 
-    try
-        incr(send, Pkt, TPid, AppDict),
-        TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
-        Pid ! Ref,  %% tell caller a send has been attempted
-        handle_answer(SvcName,
-                      App,
-                      recv_A(Timeout, SvcName, App, Opts, {TRef, Req}))
-    after
-        erase_requests(Pkt)
-    end.
+    %% Ensure that request table is cleaned even if we receive an exit
+    %% signal. An alternative would be to simply trap exits, but
+    %% callbacks are applied in this process, and these could possibly
+    %% be expecting the prevailing behaviour.
+    Self = self(),
+    Seqs = diameter_codec:sequence_numbers(Pkt),
+    spawn(fun() -> diameter_lib:wait([Self]), erase_requests(Seqs) end),
+
+    incr(send, Pkt, TPid, AppDict),
+    TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
+    Pid ! Ref,  %% tell caller a send has been attempted
+    handle_answer(SvcName,
+                  App,
+                  recv_A(Timeout, SvcName, App, Opts, {TRef, Req})).
 
 %% recv_A/5
 
@@ -1831,6 +1835,10 @@ store_request(TPid, Bin, Req, Timeout) ->
     TRef.
 
 %% lookup_request/2
+%%
+%% Note the match on both the key and transport pid. The latter is
+%% necessary since the same Hop-by-Hop and End-to-End identifiers are
+%% reused in the case of retransmission.
 
 lookup_request(Msg, TPid) ->
     Seqs = diameter_codec:sequence_numbers(Msg),
@@ -1846,8 +1854,8 @@ lookup_request(Msg, TPid) ->
 
 %% erase_requests/1
 
-erase_requests(Pkt) ->
-    ets:delete(?REQUEST_TABLE, diameter_codec:sequence_numbers(Pkt)).
+erase_requests(Seqs) ->
+    ets:delete(?REQUEST_TABLE, Seqs).
 
 %% match_requests/1
 
