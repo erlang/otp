@@ -1192,13 +1192,13 @@ wait_for_openssl_server(Port, N) ->
     end.
 
 version_flag(tlsv1) ->
-    " -tls1 ";
+    "-tls1";
 version_flag('tlsv1.1') ->
-    " -tls1_1 ";
+    "-tls1_1";
 version_flag('tlsv1.2') ->
-    " -tls1_2 ";
+    "-tls1_2";
 version_flag(sslv3) ->
-    " -ssl3 ".
+    "-ssl3".
 
 filter_suites(Ciphers0) ->
     Version = tls_record:highest_protocol_version([]),
@@ -1243,3 +1243,9 @@ close_loop(Port, Time, SentClose) ->
 		    ct:log("Timeout~n",[])
 	    end
     end.
+
+portable_open_port(Exe, Args) ->
+    AbsPath = os:find_executable(Exe),
+    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
+    open_port({spawn_executable, AbsPath}, 
+	      [{args, Args}, stderr_to_stdout]). 
