@@ -197,6 +197,9 @@
       <cell><c>char()</c></cell><cell><c>0..16#10ffff</c></cell>
     </row>
     <row> 
+      <cell><c>nil()</c></cell><cell><c>[]</c></cell>
+    </row>
+    <row>
       <cell><c>number()</c></cell><cell><c>integer() | float()</c></cell>
     </row>
     <row> 
@@ -312,7 +315,7 @@
     <p>
       As seen, the basic syntax of a type is an atom followed by closed
       parentheses. New types are declared using <c>-type</c> and <c>-opaque</c>
-      compiler attributes as in the following:
+      attributes as in the following:
     </p>
     <pre>
   -type my_struct_type() :: Type.
@@ -435,8 +438,8 @@
   <section>
     <title>Specifications for Functions</title>
     <p>
-      A specification (or contract) for a function is given using the new 
-      compiler attribute <c>-spec</c>. The general format is as follows:
+      A specification (or contract) for a function is given using the
+      <c>-spec</c> attribute. The general format is as follows:
     </p>
     <pre>
   -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
@@ -451,7 +454,7 @@
       explicitly) import these functions.
     </p>
     <p>
-      Within a given module, the following shorthand suffice in most cases:
+      Within a given module, the following shorthand suffices in most cases:
     </p>
     <pre>
   -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
