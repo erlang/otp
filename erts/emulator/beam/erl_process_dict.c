@@ -61,6 +61,9 @@
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
 
+#define pd_hash_value(Pdict, Key) \
+    pd_hash_value_to_ix(Pdict, MAKE_HASH((Key)))
+
 /* Memory allocation macros */
 #define PD_ALLOC(Sz)				\
      erts_alloc(ERTS_ALC_T_PROC_DICT, (Sz))
@@ -82,6 +85,7 @@
  */
 static void pd_hash_erase(Process *p, Eterm id, Eterm *ret);
 static void pd_hash_erase_all(Process *p);
+static Eterm pd_hash_get_with_hval(Process *p, Eterm bucket, Eterm id);
 static Eterm pd_hash_get_keys(Process *p, Eterm value);
 static Eterm pd_hash_get_all_keys(Process *p, ProcDict *pd);
 static Eterm pd_hash_get_all(Process *p, ProcDict *pd);
@@ -93,7 +97,7 @@ static void grow(Process *p);
 static void array_shrink(ProcDict **ppd, unsigned int need);
 static Eterm array_put(ProcDict **ppdict, unsigned int ndx, Eterm term);
 
-static unsigned int pd_hash_value(ProcDict *pdict, Eterm term);
+static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx);
 static unsigned int next_array_size(unsigned int need);
 
 /*
@@ -390,39 +394,54 @@ static void pd_hash_erase_all(Process *p)
     }
 }
 
+Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)
+{
+    unsigned int hval;
+    ProcDict *pd = p->dictionary;
+
+    if (pd == NULL)
+	return am_undefined;
+    hval = pd_hash_value_to_ix(pd, hx);
+    return pd_hash_get_with_hval(p, ARRAY_GET(pd, hval), id);
+}
+
 Eterm erts_pd_hash_get(Process *p, Eterm id) 
 {
     unsigned int hval;
-    Eterm tmp;
     ProcDict *pd = p->dictionary;
 
     if (pd == NULL)
 	return am_undefined;
     hval = pd_hash_value(pd, id);
-    tmp = ARRAY_GET(pd, hval);
-    if (is_boxed(tmp)) {	/* Tuple */
-	ASSERT(is_tuple(tmp));
-	if (EQ(tuple_val(tmp)[1], id)) {
-	    return tuple_val(tmp)[2];
+    return pd_hash_get_with_hval(p, ARRAY_GET(pd, hval), id);
+}
+
+Eterm pd_hash_get_with_hval(Process *p, Eterm bucket, Eterm id)
+{
+    if (is_boxed(bucket)) {     /* Tuple */
+	ASSERT(is_tuple(bucket));
+	if (EQ(tuple_val(bucket)[1], id)) {
+	    return tuple_val(bucket)[2];
 	}
-    } else if (is_list(tmp)) {
-	for (; tmp != NIL && !EQ(tuple_val(TCAR(tmp))[1], id); tmp = TCDR(tmp)) {
+    } else if (is_list(bucket)) {
+	for (; bucket != NIL && !EQ(tuple_val(TCAR(bucket))[1], id); bucket = TCDR(bucket)) {
 	    ;
 	}
-	if (tmp != NIL) {
-	    return tuple_val(TCAR(tmp))[2];
+	if (bucket != NIL) {
+	    return tuple_val(TCAR(bucket))[2];
 	}
-    } else if (is_not_nil(tmp)) {
+    } else if (is_not_nil(bucket)) {
 #ifdef DEBUG
 	erts_fprintf(stderr,
 		     "Process dictionary for process %T is broken, trying to "
 		     "display term found in line %d:\n"
-		     "%T\n", p->common.id, __LINE__, tmp);
+		     "%T\n", p->common.id, __LINE__, bucket);
 #endif
 	erl_exit(1, "Damaged process dictionary found during get/1.");
     }
     return am_undefined;
 }
+
 
 #define PD_GET_TKEY(Dst,Src)                            \
 do {                                                    \
@@ -932,16 +951,15 @@ static Eterm array_put(ProcDict **ppdict, unsigned int ndx, Eterm term)
 ** Basic utilities
 */
 
-static unsigned int pd_hash_value(ProcDict *pdict, Eterm term) 
+static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx) 
 { 
-    Uint hash, high;
-
-    hash = MAKE_HASH(term);
-    high = hash % (pdict->homeSize*2);
+    Uint high;
+    high = hx % (pdict->homeSize*2);
     if (high >= HASH_RANGE(pdict))
-	return hash % pdict->homeSize;
+	return hx % pdict->homeSize;
     return high;
 }
+
 
 static unsigned int next_array_size(unsigned int need)
 {
