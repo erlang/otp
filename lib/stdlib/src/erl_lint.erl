@@ -360,6 +360,9 @@ format_error({redefine_type, {TypeName, Arity}}) ->
 		  [TypeName, gen_type_paren(Arity)]);
 format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
+format_error(old_abstract_code) ->
+    io_lib:format("abstract code generated before Erlang/OTP 19.0 and "
+                  "having typed record fields cannot be compiled", []);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
 format_error({redefine_spec, {F, A}}) ->
@@ -2812,6 +2815,8 @@ check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St1}, Args);
+check_type([{typed_record_field,Field,_T}|_], SeenVars, St) ->
+    {SeenVars, add_error(element(2, Field), old_abstract_code, St)};
 check_type(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_ILn,_Integer} -> {SeenVars, St};
@@ -3009,7 +3014,9 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    L = gb_sets:to_list(ExpTs) ++ dict:fetch_keys(D),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
-		fun(Type, #typeinfo{line = FileLine}, AccSt) ->
+                fun({{record, _}=_Type, 0}, _, AccSt) ->
+                        AccSt; % Before Erlang/OTP 19.0
+                   (Type, #typeinfo{line = FileLine}, AccSt) ->
                         case loc(FileLine, AccSt) of
 			    {FirstFile, _} ->
 				case gb_sets:is_member(Type, UsedTypes) of
