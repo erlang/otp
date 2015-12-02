@@ -249,7 +249,7 @@ format_error(illegal_map_key) -> "illegal map key in pattern";
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
 format_error(illegal_expr) -> "illegal expression";
-format_error({illegal_guard_local_call, {F,A}}) -> 
+format_error({illegal_guard_local_call, {F,A}}) ->
     io_lib:format("call to local/imported function ~w/~w is illegal in guard",
 		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
@@ -292,7 +292,9 @@ format_error({variable_in_record_def,V}) ->
     io_lib:format("variable ~w in record definition", [V]);
 %% --- binaries ---
 format_error({undefined_bittype,Type}) ->
-    io_lib:format("bit type ~w undefined", [Type]);
+    io_lib:format("bit type ~w is undefined", [Type]);
+format_error({bittype_mismatch, Val1, Val2, Type}) ->
+    io_lib:format("bit type specifier ~w mismatch: ~w, ~w", [Type, Val1, Val2]);
 format_error(bittype_unit) ->
     "a bit unit size must not be specified unless a size is specified too";
 format_error(illegal_bitsize) ->
@@ -2199,7 +2201,7 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     AutoSuppressed = is_autoimport_suppressed(St2#lint.no_auto,{F,A}),
     Warn = is_warn_enabled(bif_clash, St2) and (not bif_clash_specifically_disabled(St2,{F,A})),
     Imported = imported(F, A, St2),
-    case ((not IsLocal) andalso (Imported =:= no) andalso 
+    case ((not IsLocal) andalso (Imported =:= no) andalso
 	  IsAutoBif andalso (not AutoSuppressed)) of
         true ->
 	    St3 = deprecated_function(Line, erlang, F, As, St2),
