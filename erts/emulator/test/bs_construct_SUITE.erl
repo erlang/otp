@@ -29,7 +29,7 @@
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
 	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1, zero_width/1, bad_append/1]).
+	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -40,7 +40,7 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn,
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append].
+     bad_append, bs_add_overflow].
 
 groups() -> 
     [].
@@ -925,5 +925,19 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
+%% Produce a large result of bs_add that would fit a smallnum if it was viewed
+%% as signed.
+bs_add_overflow(Config) ->
+    case erlang:system_info(wordsize) of
+	8 ->
+	    {skip, "64-bit architecture"};
+	4 ->
+	    Large = <<0:((1 bsl 30)-1)>>,
+	    {'EXIT',{system_limit,_}} =
+		(catch <<Large/bits, Large/bits, Large/bits, Large/bits,
+			 Large/bits, Large/bits, Large/bits, Large/bits,
+			 Large/bits>>),
+	    ok
+    end.
     
 id(I) -> I.

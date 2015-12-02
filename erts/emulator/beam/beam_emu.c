@@ -4069,7 +4069,7 @@ do {								\
 	     tmp_arg1 += Arg1;
 
 	 store_bs_add_result:
-	     if (MY_IS_SSMALL((Sint) tmp_arg1)) {
+	     if (tmp_arg1 <= MAX_SMALL) {
 		 tmp_arg1 = make_small(tmp_arg1);
 	     } else {
 		 /*
