@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
 	 list_dir/1,list_dir_error/1,
 	 untranslatable_names/1, untranslatable_names_error/1,
-	 pos1/1, pos2/1]).
+	 pos1/1, pos2/1, pos3/1]).
 -export([close/1, consult1/1, path_consult/1, delete/1]).
 -export([ eval1/1, path_eval/1, script1/1, path_script/1,
 	 open1/1,
@@ -80,6 +80,7 @@
 
 -export([interleaved_read_write/1]).
 
+-export([unicode/1]).
 -export([altname/1]).
 
 -export([large_file/1, large_write/1]).
@@ -114,7 +115,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [altname, read_write_file, {group, dirs},
+    [unicode, altname, read_write_file, {group, dirs},
      {group, files}, delete, rename, names, {group, errors},
      {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
@@ -136,7 +137,7 @@ groups() ->
       [open1, old_modes, new_modes, path_open, close, access,
        read_write, pread_write, append, open_errors,
        exclusive]},
-     {pos, [], [pos1, pos2]},
+     {pos, [], [pos1, pos2, pos3]},
      {file_info, [],
       [file_info_basic_file, file_info_basic_directory,
        file_info_bad, file_info_times, file_write_file_info]},
@@ -1357,6 +1358,27 @@ pos2(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+pos3(suite) -> [];
+pos3(doc) -> ["When it does not use raw mode, file:position had a bug."];
+pos3(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line RootDir = ?config(data_dir, Config),
+    ?line Name = filename:join(RootDir, "realmen.html.gz"),
+
+    ?line {ok, Fd} = ?FILE_MODULE:open(Name, [read, binary]),
+    ?line {ok, _}  = ?FILE_MODULE:read(Fd, 5),
+    ?line {error, einval} = ?FILE_MODULE:position(Fd, {bof, -1}),
+
+    %% Here ok had returned =(
+    ?line {error, einval} = ?FILE_MODULE:position(Fd, {cur, -10}),
+    %% That test is actually questionable since file:position/2
+    %% is documented to leave the file position undefined after
+    %% it has returned an error.  But on Posix systems the position
+    %% is guaranteed to be unchanged after an error return.  On e.g
+    %% Windows there is nothing stated about this in the documentation.
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
 
 file_info_basic_file(suite) -> [];
 file_info_basic_file(doc) -> [];
@@ -2742,6 +2764,40 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
             test_server:fail(worker_timeout)
     end,
     compress_async_crash_loop(N - 1, Path, ExpectedData).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+unicode(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    Name = filename:join(Dir, "data-utf8.txt"),
+    Txt = lists:seq(128, 255),
+    D = unicode:characters_to_binary(Txt, latin1, latin1),
+    {ok,Fd1} =
+	?FILE_MODULE:open(Name, [write,read,binary,{encoding,unicode}]),
+    ok = ?FILE_MODULE:truncate(Fd1),
+    ok = ?FILE_MODULE:write(Fd1, Txt),
+    {ok,0} = ?FILE_MODULE:position(Fd1, bof),
+    {ok,D} = ?FILE_MODULE:read(Fd1, 129),
+    {ok,0} = ?FILE_MODULE:position(Fd1, bof),
+    {ok,D1} = ?FILE_MODULE:read(Fd1, 64),
+    {ok,Pos} = ?FILE_MODULE:position(Fd1, cur),
+    {ok,D2} = ?FILE_MODULE:pread(Fd1, {cur,0}, 65),
+    D = <<D1/binary, D2/binary>>,
+    {ok,D1} = ?FILE_MODULE:pread(Fd1, bof, 64),
+    {ok,Pos} = ?FILE_MODULE:position(Fd1, Pos),
+    {ok,D2} = ?FILE_MODULE:read(Fd1, 64),
+    ok = ?FILE_MODULE:close(Fd1),
+    %%
+    RawD = unicode:characters_to_binary(Txt, latin1, unicode),
+    {ok,RawD} = ?FILE_MODULE:read_file(Name),
+    %%
+    {ok,Fd2} = ?FILE_MODULE:open(Name, [read,{encoding,unicode}]),
+    {ok,Txt} = ?FILE_MODULE:read(Fd2, 129),
+    {Txt1,Txt2} = lists:split(64, Txt),
+    {ok,Txt2} = ?FILE_MODULE:pread(Fd2, Pos, 65),
+    {ok,0} = ?FILE_MODULE:position(Fd2, bof),
+    {ok,Txt1} = ?FILE_MODULE:read(Fd2, 64),
+    ok = ?FILE_MODULE:close(Fd2).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
