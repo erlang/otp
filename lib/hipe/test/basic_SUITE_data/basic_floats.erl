@@ -7,6 +7,7 @@
 -module(basic_floats).
 
 -export([test/0]).
+-export([test_fmt_double_fpe_leak/0]).   % suppress the unused warning
 
 test() ->
   ok = test_arith_ops(),
@@ -16,6 +17,7 @@ test() ->
   ok = test_catch_bad_fp_arith(),
   ok = test_catch_fp_conv(),
   ok = test_fp_with_fp_exceptions(),
+  %% ok = test_fmt_double_fpe_leak(),    % this requires printing
   ok.
 
 %%--------------------------------------------------------------------
@@ -47,8 +49,8 @@ negate(X) ->
 %%--------------------------------------------------------------------
 
 test_fp_ebb() ->
-  1.0 = foo(2*math:pi()),
-  1.0 = bar(2*math:pi()),
+  1.0 = foo(2 * math:pi()),
+  1.0 = bar(2 * math:pi()),
   ok.
 
 foo(X) ->
@@ -123,7 +125,7 @@ big_int_arith(I) when is_integer(I) ->
 big_const_float(F) ->
   I = trunc(F),
   badarith = try (1/(2*I)) catch error:Err -> Err end,
-  _Ignore = 2/I,
+  _ = 2/I,
   {'EXIT', _} = (catch 4/(2*I)),
   ok.
 
@@ -133,14 +135,14 @@ big_const_float(F) ->
 
 test_fp_with_fp_exceptions() ->
   0.0 = math:log(1.0),
-  badarith = try math:log(minus_one_float()) catch error:E1 -> E1 end,
+  badarith = try math:log(float_minus_one()) catch error:E1 -> E1 end,
   0.0 = math:log(1.0),
-  badarith = try math:log(zero_float()) catch error:E2 -> E2 end,
+  badarith = try math:log(float_zero()) catch error:E2 -> E2 end,
   0.0 = math:log(1.0),
   %% An old-fashioned exception here just so as to test this case also
-  {'EXIT',_} = (catch fp_mult(3.23e133, 3.57e257)),
+  {'EXIT', _} = (catch fp_mult(3.23e133, 3.57e257)),
   0.0 = math:log(1.0),
-  badarith = try fp_div(5.0,0.0) catch error:E3 -> E3 end,
+  badarith = try fp_div(5.0, 0.0) catch error:E3 -> E3 end,
   0.0 = math:log(1.0),
   ok.
 
@@ -151,6 +153,28 @@ fp_div(X, Y) -> X / Y.
 %% The following two function definitions appear here just to shut
 %% off 'expression will fail with a badarg' warnings from the compiler
 
-zero_float() -> 0.0.
+float_zero() -> 0.0.
 
-minus_one_float() -> -1.0.
+float_minus_one() -> -1.0.
+
+%%--------------------------------------------------------------------
+%% Test that erl_printf_format.c:fmt_double() does not leak pending FP
+%% exceptions to subsequent code.  This used to break x87 FP code on
+%% 32-bit x86.  Based on a problem report from Richard Carlsson.
+
+test_fmt_double_fpe_leak() ->
+  test_fmt_double_fpe_leak(float_zero(), int_two()),
+  ok.
+
+%% We need the specific sequence of erlang:display/1 on a float that
+%% triggers faulting ops in fmt_double() followed by a simple FP BIF.
+%% We also need to repeat this at least three times.
+test_fmt_double_fpe_leak(X, Y) ->
+  erlang:display(X), _ = math:log10(Y),
+  erlang:display(X), _ = math:log10(Y),
+  erlang:display(X), _ = math:log10(Y),
+  erlang:display(X), _ = math:log10(Y),
+  erlang:display(X),
+  math:log10(Y).
+
+int_two() -> 2.
