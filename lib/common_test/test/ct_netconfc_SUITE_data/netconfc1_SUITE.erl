@@ -73,6 +73,7 @@ all() ->
 	     timeout_close_session,
 	     get,
 	     timeout_get,
+	     flush_timeout_get,
 	     get_xpath,
 	     get_config,
 	     get_config_xpath,
@@ -356,6 +357,28 @@ timeout_get(Config) ->
     {ok,Client} = open_success(DataDir),
     ?NS:expect('get'),
     {error,timeout} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1000),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+%% Test OTP-13008 "ct_netconfc crash when receiving unknown timeout"
+%% If the timer expires "at the same time" as the rpc reply is
+%% received, the timeout message might already be sent when the timer
+%% is cancelled. This test checks that the timeout message is flushed
+%% from the message queue. If it isn't, the client crashes and the
+%% session can not be closed afterwards.
+%% Note that we can only hope that the test case triggers the problem
+%% every now and then, as it is very timing dependent...
+flush_timeout_get(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
+    ?NS:expect_reply('get',{data,Data}),
+    timer:sleep(1000),
+    case ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1) of
+	{error,timeout} -> ok; % problem not triggered
+	{ok,Data} -> ok % problem possibly triggered
+    end,
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
