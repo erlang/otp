@@ -11542,7 +11542,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 #ifdef SHCOPY_SEND
         INITIALIZE_SHCOPY(info);
         term_size = copy_shared_calculate(exit_term, &info);
-	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
+	mp = erts_alloc_message_heap(to, to_locksp, term_size+sz_token, &hp, &ohp);
         mess = copy_shared_perform(exit_term, term_size, &info, &hp, ohp);
         DESTROY_SHCOPY(info);
 #else
@@ -11661,7 +11661,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     if ((state & ERTS_PSFLG_TRAP_EXIT)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-        if (have_seqtrace(token))
+        if (have_seqtrace(token) && token_update)
 	    seq_trace_update_send(token_update);
 	if (is_value(exit_tuple))
 	    send_exit_message(rp, rp_locks, exit_tuple, exit_tuple_sz, token);
