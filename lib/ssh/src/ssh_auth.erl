@@ -118,11 +118,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-
-
-	    Algs = proplists:get_value(public_key, 
-				       proplists:get_value(preferred_algorithms, Opts, []),
-				       ssh_transport:default_algorithms(public_key)),
+	    Algs = proplists:get_value(pref_public_key_algs, Opts, ?SUPPORTED_USER_KEYS),
 	    Prefs = method_preference(Algs),
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 						  userauth_preference = Prefs,
