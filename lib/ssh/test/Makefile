@@ -47,6 +47,8 @@ MODULES= \
 	ssh_to_openssh_SUITE \
 	ssh_upgrade_SUITE \
 	ssh_test_lib \
+	ssh_key_cb \
+	ssh_key_cb_options \
 	ssh_trpt_test_lib \
 	ssh_echo_server \
 	ssh_peername_sockname_server \

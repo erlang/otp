@@ -54,8 +54,10 @@
 	 send/1,
 	 shell/1,
 	 shell_no_unicode/1,
-	 shell_unicode_string/1, 
-	 ssh_info_print/1
+	 shell_unicode_string/1,
+	 ssh_info_print/1,
+	 key_callback/1,
+	 key_callback_options/1
 	]).
 
 %%% Common test callbacks
@@ -84,6 +86,7 @@ all() ->
      {group, ecdsa_sha2_nistp521_key},
      {group, dsa_pass_key},
      {group, rsa_pass_key},
+     {group, key_cb},
      {group, internal_error},
      daemon_already_started,
      double_close,
@@ -101,6 +104,7 @@ groups() ->
      {ecdsa_sha2_nistp521_key, [], basic_tests()},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
+     {key_cb, [], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]}
     ].
 
@@ -180,6 +184,11 @@ init_per_group(dsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
     [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+init_per_group(key_cb, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    Config;
 init_per_group(internal_error, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -246,6 +255,10 @@ end_per_group(dsa_pass_key, Config) ->
 end_per_group(rsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
+    Config;
+end_per_group(key_cb, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(internal_error, Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -572,6 +585,56 @@ pass_phrase(Config) when is_list(Config) ->
 					  PhraseArg,
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that we can use key callback
+key_callback(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    NoPubKeyDir = filename:join(UserDir, "nopubkey"),
+    file:make_dir(NoPubKeyDir),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnectOpts = [{silently_accept_hosts, true},
+                   {user_dir, NoPubKeyDir},
+                   {user_interaction, false},
+                   {key_cb, ssh_key_cb}],
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, ConnectOpts),
+
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh:stop_daemon(Pid).
+
+
+%%--------------------------------------------------------------------
+%%% Test that we can use key callback with callback options
+key_callback_options(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    NoPubKeyDir = filename:join(UserDir, "nopubkey"),
+    file:make_dir(NoPubKeyDir),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_dsa")),
+
+    ConnectOpts = [{silently_accept_hosts, true},
+                   {user_dir, NoPubKeyDir},
+                   {user_interaction, false},
+                   {key_cb, {ssh_key_cb_options, [{priv_key, PrivKey}]}}],
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, ConnectOpts),
+
     {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh:stop_daemon(Pid).
 
