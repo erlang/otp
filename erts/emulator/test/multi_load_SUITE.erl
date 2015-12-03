@@ -126,6 +126,12 @@ on_load(_Config) ->
     MixedPrep = prepare_modules(Mixed),
     {'EXIT',{system_limit,_}} = (catch erlang:finish_loading(MixedPrep)),
 
+    [false,true] = [erlang:has_prepared_code_on_load(Code) ||
+		       Code <- MixedPrep],
+    {'EXIT',{badarg,_}} = (catch erlang:has_prepared_code_on_load(<<1,2,3>>)),
+    Magic = ets:match_spec_compile([{'_',[true],['$_']}]),
+    {'EXIT',{badarg,_}} = (catch erlang:has_prepared_code_on_load(Magic)),
+
     SingleOnPrep = tl(OnPrep),
     {on_load,[OnLoadMod]} = erlang:finish_loading(SingleOnPrep),
     ok = erlang:call_on_load_function(OnLoadMod),

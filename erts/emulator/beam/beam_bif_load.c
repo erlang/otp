@@ -139,6 +139,25 @@ prepare_loading_2(BIF_ALIST_2)
     BIF_RET(res);
 }
 
+BIF_RETTYPE
+has_prepared_code_on_load_1(BIF_ALIST_1)
+{
+    Eterm res;
+    ProcBin* pb;
+
+    if (!ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_1)) {
+    error:
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    pb = (ProcBin*) binary_val(BIF_ARG_1);
+    res = erts_has_code_on_load(pb->val);
+    if (res == NIL) {
+	goto error;
+    }
+    BIF_RET(res);
+}
+
 struct m {
     Binary* code;
     Eterm module;
