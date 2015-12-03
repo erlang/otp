@@ -690,6 +690,7 @@ connect_options(Opts, Family) ->
     case con_opt(Opts, BaseOpts, connect_options()) of
 	{ok, R} ->
 	    {ok, R#connect_opts {
+		   opts = lists:reverse(R#connect_opts.opts),
 		   ifaddr = translate_ip(R#connect_opts.ifaddr, Family)
 		  }};
 	Error -> Error	    
@@ -758,6 +759,7 @@ listen_options(Opts, Family) ->
     case list_opt(Opts, BaseOpts, listen_options()) of
 	{ok, R} ->
 	    {ok, R#listen_opts {
+		   opts = lists:reverse(R#listen_opts.opts),
 		   ifaddr = translate_ip(R#listen_opts.ifaddr, Family)
 		  }};
 	Error -> Error
@@ -816,6 +818,7 @@ udp_options(Opts, Family) ->
     case udp_opt(Opts, #udp_opts { }, udp_options()) of
 	{ok, R} ->
 	    {ok, R#udp_opts {
+		   opts = lists:reverse(R#udp_opts.opts),
 		   ifaddr = translate_ip(R#udp_opts.ifaddr, Family)
 		  }};
 	Error -> Error
@@ -889,9 +892,12 @@ sctp_options() ->
 sctp_options(Opts, Mod)  ->
     case sctp_opt(Opts, Mod, #sctp_opts{}, sctp_options()) of
 	{ok,#sctp_opts{ifaddr=undefined}=SO} -> 
-	    {ok,SO#sctp_opts{ifaddr=Mod:translate_ip(?SCTP_DEF_IFADDR)}};
-	{ok,_}=OK ->
-	    OK;
+	    {ok,
+	     SO#sctp_opts{
+	       opts=lists:reverse(SO#sctp_opts.opts),
+	       ifaddr=Mod:translate_ip(?SCTP_DEF_IFADDR)}};
+	{ok,SO} ->
+	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
 	Error -> Error
     end.
 
@@ -963,6 +969,8 @@ add_opt(Name, Val, Opts, As) ->
     case lists:member(Name, As) of
 	true ->
 	    case prim_inet:is_sockopt_val(Name, Val) of
+		true when Name =:= raw ->
+		    {ok, [{Name,Val} | Opts]};
 		true ->
 		    Opts1 = lists:keydelete(Name, 1, Opts),
 		    {ok, [{Name,Val} | Opts1]};

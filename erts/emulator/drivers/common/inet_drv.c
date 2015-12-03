@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2015. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -6051,9 +6051,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int arg_sz;
     enum PacketParseType old_htype = desc->htype;
     int old_active = desc->active;
-    int propagate = 0; /* Set to 1 if failure to set this option
-			  should be propagated to erlang (not all 
-			  errors can be propagated for BC reasons) */
+    int propagate; /* Set to 1 if failure to set this option
+		      should be propagated to erlang (not all
+		      errors can be propagated for BC reasons) */
     int res;
 #ifdef HAVE_SCTP
     /* SCTP sockets are treated completely separately: */
@@ -6070,6 +6070,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	arg_ptr = (char*) &ival;
 	arg_sz = sizeof(ival);
 	proto = SOL_SOCKET;
+	propagate = 0;
 
 	switch(opt) {
 	case INET_LOPT_HEADER:
