@@ -3920,21 +3920,34 @@ run_test2(Conf, Test, Warnings0) ->
     %% is no reason to produce an output file since we are only
     %% interested in the errors and warnings.
 
-    %% Print warnings, call erl_lint:format_error/1.
+    %% Print warnings, call erl_lint:format_error/1. (But note that
+    %% the compiler will ignore failing calls to erl_lint:format_error/1.)
     compile:file(File, [binary,report|Opts]),
 
     case compile:file(File, [binary|Opts]) of
-        {ok, _M, Code, Ws} when is_binary(Code) -> warnings(File, Ws);
-        {error, [{File,Es}], []} -> {errors, Es, []};
-        {error, [{File,Es}], [{File,Ws}]} -> {error, Es, Ws};
-        {error, [{File,Es1},{File,Es2}], []} -> {errors2, Es1, Es2}
+        {ok, _M, Code, Ws} when is_binary(Code) ->
+	    warnings(File, Ws);
+        {error, [{File,Es}], []} ->
+	    {errors, call_format_error(Es), []};
+        {error, [{File,Es}], [{File,Ws}]} ->
+	    {error, call_format_error(Es), call_format_error(Ws)};
+        {error, [{File,Es1},{File,Es2}], []} ->
+	    {errors2, Es1, Es2}
     end.
 
 warnings(File, Ws) ->
     case lists:append([W || {F, W} <- Ws, F =:= File]) of
-        [] -> [];
-        L -> {warnings, L}
+        [] ->
+	    [];
+        L ->
+	    {warnings, call_format_error(L)}
     end.
+
+call_format_error(L) ->
+    %% Smoke test of format_error/1 to make sure that no crashes
+    %% slip through.
+    _ = [Mod:format_error(Term) || {_,Mod,Term} <- L],
+    L.
 
 fail() ->
     io:format("failed~n"),
