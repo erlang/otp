@@ -3604,7 +3604,10 @@ bin_syntax_errors(Config) ->
 	      t(<<X/unit:8>>) -> X;
 	      t(<<X:7/float>>) -> X;
 	      t(<< <<_:8>> >>) -> ok;
-	      t(<<(x ! y):8/integer>>) -> ok.
+	      t(<<(x ! y):8/integer>>) -> ok;
+              t(X) ->
+                {<<X/binary-integer>>,<<X/signed-unsigned-integer>>,
+                 <<X/little-big>>,<<X/unit:4-unit:8>>}.
 	    ">>,
 	   [],
 	   {error,[{1,erl_lint,illegal_bitsize},
@@ -3613,7 +3616,12 @@ bin_syntax_errors(Config) ->
 		   {4,erl_lint,{undefined_bittype,bad_type}},
 		   {5,erl_lint,bittype_unit},
 		   {7,erl_lint,illegal_pattern},
-		   {8,erl_lint,illegal_pattern}],
+		   {8,erl_lint,illegal_pattern},
+		   {10,erl_lint,{bittype_mismatch,integer,binary,"type"}},
+		   {10,erl_lint,{bittype_mismatch,unsigned,signed,"sign"}},
+		   {11,erl_lint,{bittype_mismatch,8,4,"unit"}},
+		   {11,erl_lint,{bittype_mismatch,big,little,"endianness"}}
+		  ],
 	    [{6,erl_lint,{bad_bitsize,"float"}}]}}
 	 ],
     [] = run(Config, Ts),
