@@ -169,7 +169,7 @@ incr_error(Dir, Id, TPid, _) ->
 
 incr_error(Dir, Id, TPid) ->
     incr(TPid, {Id, Dir, error}).
-    
+
 %% ---------------------------------------------------------------------------
 %% incr_rc/4
 %% ---------------------------------------------------------------------------
@@ -1490,14 +1490,6 @@ send_R(Pkt0,
                    caps = Caps,
                    packet = Pkt0},
 
-    %% Ensure that request table is cleaned even if we receive an exit
-    %% signal. An alternative would be to simply trap exits, but
-    %% callbacks are applied in this process, and these could possibly
-    %% be expecting the prevailing behaviour.
-    Self = self(),
-    Seqs = diameter_codec:sequence_numbers(Pkt),
-    spawn(fun() -> diameter_lib:wait([Self]), erase_requests(Seqs) end),
-
     incr(send, Pkt, TPid, AppDict),
     TRef = send_request(TPid, Pkt, Req, SvcName, Timeout),
     Pid ! Ref,  %% tell caller a send has been attempted
@@ -1706,9 +1698,18 @@ encode(_, _, #diameter_packet{} = Pkt) ->
 
 send_request(TPid, #diameter_packet{bin = Bin} = Pkt, Req, _SvcName, Timeout)
   when node() == node(TPid) ->
-    %% Store the outgoing request before sending to avoid a race with
-    %% reply reception.
-    TRef = store_request(TPid, Bin, Req, Timeout),
+    Seqs = diameter_codec:sequence_numbers(Bin),
+    TRef = erlang:start_timer(Timeout, self(), TPid),
+    Entry = {Seqs, Req, TRef},
+
+    %% Ensure that request table is cleaned even if we receive an exit
+    %% signal. An alternative would be to simply trap exits, but
+    %% callbacks are applied in this process, and these could possibly
+    %% be expecting the prevailing behaviour.
+    Self = self(),
+    spawn(fun() -> diameter_lib:wait([Self]), erase_request(Entry) end),
+
+    store_request(Entry, TPid),
     send(TPid, Pkt),
     TRef;
 
@@ -1723,31 +1724,21 @@ send_request(TPid, #diameter_packet{} = Pkt, Req, SvcName, Timeout) ->
 %% send/1
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
-    Seqs = diameter_codec:sequence_numbers(Pkt),
     Req = Req0#request{handler = self()},
-    Ref = send_request(TPid, Pkt, Req, SvcName, Timeout),
-
-    try
-        recv(TPid, Pid, TRef, Ref)
-    after
-        %% Remove only the entry for this specific send since a resend
-        %% from the originating node can pick another transport on
-        %% this one.
-        ets:delete_object(?REQUEST_TABLE, {Seqs, Req, Ref})
-    end.
+    recv(TPid, Pid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
 
 %% recv/4
 %%
 %% Relay an answer from a remote node.
 
-recv(TPid, Pid, TRef, Ref) ->        
+recv(TPid, Pid, TRef, LocalTRef) ->
     receive
         {answer, _, _, _, _} = A ->
             Pid ! A;
-        {failover = T, Ref} ->
+        {failover = T, LocalTRef} ->
             Pid ! {T, TRef};
         T ->
-            exit({timeout, Ref, TPid} = T)
+            exit({timeout, LocalTRef, TPid} = T)
     end.
 
 %% send/2
@@ -1824,15 +1815,15 @@ resend_request(Pkt0,
     TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
     {TRef, Req}.
 
-%% store_request/4
+%% store_request/2
 
-store_request(TPid, Bin, Req, Timeout) ->
-    Seqs = diameter_codec:sequence_numbers(Bin),
-    TRef = erlang:start_timer(Timeout, self(), TPid),
-    ets:insert(?REQUEST_TABLE, {Seqs, Req, TRef}),
+store_request(T, TPid) ->
+    ets:insert(?REQUEST_TABLE, T),
     ets:member(?REQUEST_TABLE, TPid)
-        orelse (self() ! {failover, TRef}),  %% failover/1 may have missed
-    TRef.
+        orelse begin
+                   {_Seqs, _Req, TRef} = T,
+                   (self() ! {failover, TRef})  %% failover/1 may have missed
+               end.
 
 %% lookup_request/2
 %%
@@ -1852,10 +1843,10 @@ lookup_request(Msg, TPid) ->
             false
     end.
 
-%% erase_requests/1
+%% erase_request/1
 
-erase_requests(Seqs) ->
-    ets:delete(?REQUEST_TABLE, Seqs).
+erase_request(T) ->
+    ets:delete_object(?REQUEST_TABLE, T).
 
 %% match_requests/1
 
@@ -1878,7 +1869,7 @@ failover(TPid)
   when is_pid(TPid) ->
     lists:foreach(fun failover/1, match_requests(TPid));
 %% Note that a request process can store its request after failover
-%% notifications are sent here: store_request/4 sends the notification
+%% notifications are sent here: store_request/2 sends the notification
 %% in that case.
 
 %% Failover as a consequence of request_peer_down/1: inform the
