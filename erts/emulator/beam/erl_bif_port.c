@@ -617,7 +617,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
 static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
-    int i;
+    Sint i;
     Eterm option;
     Uint arity;
     Eterm* tp;
@@ -945,8 +945,8 @@ static char **convert_args(Eterm l)
 {
     char **pp;
     char *b;
-    int n;
-    int i = 0;
+    Sint n;
+    Sint i = 0;
     Eterm str;
     if (is_not_list(l) && is_not_nil(l)) {
 	return NULL;
@@ -992,7 +992,7 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* temp_heap;
     Eterm* hp;
     Uint heap_size;
-    int n;
+    Sint n;
     Sint size;
     byte* bytes;
     int encoding = erts_get_native_filename_encoding();
