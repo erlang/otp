@@ -2837,7 +2837,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
-    int i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
+    Sint i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -2857,7 +2857,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
  
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
-    int i;
+    Sint i;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
 
     if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS)) < 0) {
@@ -2964,7 +2964,7 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
      and since we have erts_chars_to_integer now it is simpler
      as well. This could be optmized further if we did not have to
      copy the list to buf. */
-    int i;
+    Sint i;
     Eterm res, dummy;
     int base;
 
@@ -3288,7 +3288,7 @@ static BIF_RETTYPE do_charbuf_to_float(Process *BIF_P,char *buf) {
 
 BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
 {
-    int i;
+    Sint i;
     Eterm res;
     char *buf = NULL;
 
@@ -3405,7 +3405,7 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     Eterm* cons;
     Eterm res;
     Eterm* hp;
-    int len;
+    Sint len;
 
     if ((len = erts_list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -3752,7 +3752,7 @@ BIF_RETTYPE display_string_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm string = BIF_ARG_1;
-    int len = is_string(string);
+    Sint len = is_string(string);
     char *str;
 
     if (len <= 0) {
@@ -3806,7 +3806,7 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
 	erl_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	int i;
+	Sint i;
 
 	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
 	    goto error;
@@ -3875,7 +3875,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erl_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	int i;
+	Sint i;
 
 	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
 	    goto error;
@@ -4018,7 +4018,7 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 {
     Uint a = 0, b = 0, c = 0;
     char* cp;
-    int i;
+    Sint i;
     DistEntry *dep = NULL;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, 65);
     /*

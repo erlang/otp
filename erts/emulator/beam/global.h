@@ -1308,7 +1308,7 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
 void bin_write(int, void*, byte*, size_t);
-int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
+Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
 
 struct Sint_buf {
 #if defined(ARCH_64)
@@ -1381,7 +1381,7 @@ ErlDrvSizeT erts_iolist_to_buf(Eterm, char*, ErlDrvSizeT);
 ErlDrvSizeT erts_iolist_to_buf_yielding(ErtsIOList2BufState *);
 int erts_iolist_size_yielding(ErtsIOListState *state);
 int erts_iolist_size(Eterm, ErlDrvSizeT *);
-int is_string(Eterm);
+Sint is_string(Eterm);
 void erl_at_exit(void (*) (void*), void*);
 Eterm collect_memory(Process *);
 void dump_memory_to_fd(int);

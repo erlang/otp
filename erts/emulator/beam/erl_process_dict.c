@@ -749,7 +749,7 @@ static void shrink(Process *p, Eterm* ret)
 	    if (lo == NIL) {
 		ARRAY_PUT(pd, pd->splitPosition, hi);
 	    } else {
-		int needed = 4;
+		Sint needed = 4;
 		if (is_list(hi) && is_list(lo)) {
 		    needed = 2*erts_list_length(hi);
 		}
@@ -814,7 +814,7 @@ static void grow(Process *p)
     Eterm *hp;
     unsigned int pos;
     unsigned int homeSize;
-    int needed = 0;
+    Sint needed = 0;
     ProcDict *pd = p->dictionary;
 #ifdef DEBUG
     Eterm *hp_limit;

@@ -179,8 +179,8 @@ exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
 BIF_RETTYPE
 finish_loading_1(BIF_ALIST_1)
 {
-    int i;
-    int n;
+    Sint i;
+    Sint n;
     struct m* p = NULL;
     Uint exceptions;
     Eterm res;
@@ -201,7 +201,7 @@ finish_loading_1(BIF_ALIST_1)
      */
 
     n = erts_list_length(BIF_ARG_1);
-    if (n == -1) {
+    if (n < 0) {
 	ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
 	goto done;
     }

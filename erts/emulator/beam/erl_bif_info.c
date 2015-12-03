@@ -1721,7 +1721,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	if (arity == 2) {
 	    Eterm res = THE_NON_VALUE;
 	    char *buf;
-	    int len = is_string(*tp);
+	    Sint len = is_string(*tp);
 	    if (len <= 0)
 		return res;
 	    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
@@ -1740,7 +1740,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    else {
 		Eterm res = THE_NON_VALUE;
 		char *buf;
-		int len = is_string(tp[1]);
+		Sint len = is_string(tp[1]);
 		if (len <= 0)
 		    return res;
 		buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
