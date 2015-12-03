@@ -1372,13 +1372,16 @@ void erts_factory_undo(ErtsHeapFactory* factory)
         break;
 
     case FACTORY_HEAP_FRAGS:
+	erts_cleanup_offheap(factory->off_heap);
+	factory->off_heap->first = NULL;
+
         bp = factory->heap_frags;
         do {
             ErlHeapFragment* next_bp = bp->next;
 
-            erts_cleanup_offheap(&bp->off_heap);
+            ASSERT(bp->off_heap.first == NULL);
             ERTS_HEAP_FREE(factory->alloc_type, (void *) bp,
-                           ERTS_HEAP_FRAG_SIZE(bp->size));
+                           ERTS_HEAP_FRAG_SIZE(bp->alloc_size));
             bp = next_bp;
         }while (bp != NULL);
 	break;
