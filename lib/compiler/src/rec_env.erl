@@ -598,7 +598,16 @@ start_range(Env) ->
 %% (pseudo-)randomly distributed over the range.
 
 generate(_N, Range) ->
-    random:uniform(Range).    % works well
+    %% We must use the same sequence of random variables to ensure
+    %% that two compilations of the same source code generates the
+    %% same BEAM code.
+    case rand:export_seed() of
+	undefined ->
+	    rand:seed(exsplus, {1,42,2053});
+	_ ->
+	    ok
+    end,
+    rand:uniform(Range).			% works well
 
 
 %% =====================================================================
