@@ -126,6 +126,9 @@ seed_1(Alg) ->
     false = (S1 =:= rand:seed_s(Alg)),
     %% Negative integers works
     _ = rand:seed_s(Alg, {-1,-1,-1}),
+    %% Check that export_seed/1 returns 'undefined' if there is no seed
+    erase(rand_seed),
+    undefined = rand:export_seed(),
 
     %% Other term do not work
     {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
