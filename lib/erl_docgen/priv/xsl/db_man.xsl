@@ -595,6 +595,12 @@
     <xsl:text>\fR\&amp; </xsl:text>
   </xsl:template>
 
+  <xsl:template match="i">
+    <xsl:text>\fI</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>\fR\&amp; </xsl:text>
+  </xsl:template>
+
   <xsl:template match="br">
     <xsl:choose>
       <xsl:when test="ancestor::head">

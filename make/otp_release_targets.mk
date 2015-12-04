@@ -113,7 +113,16 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
 xmllint: $(XML_FILES)
-	$(XMLLINT) --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities  $(XML_FILES)
+	@echo "Running xmllint"
+	@BookFiles=`awk -F\" '/xi:include/ {print $$2}' book.xml`; \
+	for i in $$BookFiles; do \
+		if [ $$i = "notes.xml" ]; then \
+			echo Checking $$i; \
+			xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities $$i; \
+		else\
+			awk -F\" '/xi:include/ {print "echo Checking " $$2 ;print "xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities " $$2}' $$i |sh; \
+		fi \
+	done
 
 # ----------------------------------------------------
 # Local documentation target for testing 
