@@ -3360,3 +3360,10 @@
 -define(wxPopupTransientWindow_destruct, 3583).
 -define(wxPopupTransientWindow_Popup, 3584).
 -define(wxPopupTransientWindow_Dismiss, 3585).
+-define(wxOverlay_new, 3586).
+-define(wxOverlay_destruct, 3587).
+-define(wxOverlay_Reset, 3588).
+-define(wxDCOverlay_new_6, 3589).
+-define(wxDCOverlay_new_2, 3590).
+-define(wxDCOverlay_destruct, 3591).
+-define(wxDCOverlay_Clear, 3592).

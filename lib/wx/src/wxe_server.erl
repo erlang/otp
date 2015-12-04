@@ -352,25 +352,8 @@ handle_disconnect(Object, Evh = #evh{cb=Fun}, From,
 		  State0 = #state{users=Users0, cb=Callbacks}) ->
     #user{events=Evs0} = gb_trees:get(From, Users0),
     FunId = gb_trees:lookup(Fun, Callbacks),
-    case find_handler(Evs0, Object, Evh#evh{cb=FunId}) of
-	[] -> 
-	    {reply, false, State0};
-	Handlers ->
-	    case disconnect(Object,Handlers) of
-		#evh{} -> {reply, true, State0};
-		Result -> {reply, Result, State0}
-	    end
-    end.
-
-disconnect(Object,[Ev|Evs]) ->
-    try wxEvtHandler:disconnect_impl(Object,Ev) of
-	true ->  Ev;
-	false -> disconnect(Object, Evs);
-	Error -> Error
-    catch _:_ ->
-	    false
-    end;
-disconnect(_, []) -> false.
+    Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
+    {reply, {try_in_order, Handlers}, State0}.
 
 find_handler([{Object,Evh}|Evs], Object, Match) ->
     case match_handler(Match, Evh) of

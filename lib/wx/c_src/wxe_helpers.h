@@ -67,9 +67,13 @@ class wxeFifo {
     void Append(wxeCommand *Other);
 
     wxeCommand * Get();
+    wxeCommand * Peek(unsigned int *item);
 
     void Realloc();
+    void Strip();
+    unsigned int Cleanup(unsigned int peek=0);
 
+    unsigned int cb_start;
     unsigned int m_max;
     unsigned int m_first;
     unsigned int m_n;
