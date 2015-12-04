@@ -26,8 +26,9 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 7.1</title>
 
+
+<section><title>SSL 7.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -107,12 +108,6 @@
           <p>
 	    Own Id: OTP-12815</p>
         </item>
-        <item>
-          <p>
-	    Gracefully ignore proprietary hash_sign algorithms</p>
-          <p>
-	    Own Id: OTP-12829</p>
-        </item>
       </list>
     </section>
 
@@ -162,6 +157,20 @@
     </section>
 
 </section>
+
+<section><title>SSL 6.0.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+          <item>
+          <p>
+	    Gracefully ignore proprietary hash_sign algorithms</p>
+          <p>
+	    Own Id: OTP-12829</p>
+        </item>
+    </list>
+    </section>
+</section>
+
 
 <section><title>SSL 6.0.1</title>
 
