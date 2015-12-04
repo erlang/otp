@@ -198,7 +198,7 @@ static void do_init(void)
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __DARWIN__ */
 
-#if !defined(__GLIBC__) && !defined(__DARWIN__) && !defined(__NetBSD__)
+#if defined(__sun__)
 /*
  * Assume Solaris/x86 2.8.
  * There is a number of sigaction() procedures in libc:
@@ -232,7 +232,34 @@ static void do_init(void)
 }
 #define _NSIG NSIG
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
-#endif	/* not glibc or darwin */
+#endif /* __sun__ */
+
+#if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__sun__))
+/*
+ * Unknown libc -- assume musl.  Note: musl deliberately does not provide a musl-specific
+ * feature test macro, so we cannot check for it.
+ *
+ * sigaction is a weak alias for __sigaction, which is a wrapper for __libc_sigaction.
+ * There are libc-internal calls to __libc_sigaction which install handlers, so we must
+ * override __libc_sigaction rather than __sigaction.
+ */
+#include <dlfcn.h>
+static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
+#define init_done()	(__next_sigaction != 0)
+#define __SIGACTION __libc_sigaction
+static void do_init(void)
+{
+    __next_sigaction = dlsym(RTLD_NEXT, "__libc_sigaction");
+    if (__next_sigaction != 0)
+	return;
+    perror("dlsym");
+    abort();
+}
+#ifndef _NSIG
+#define _NSIG NSIG
+#endif
+#define INIT()	do { if (!init_done()) do_init(); } while (0)
+#endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __sun__) */
 
 #if !defined(__NetBSD__)
 /*
