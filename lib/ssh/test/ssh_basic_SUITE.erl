@@ -525,32 +525,40 @@ exec_key_differs3(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp384','ec
 
 
 exec_key_differs(Config, UserPKAlgs) ->
-    process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
-    SystemUserDir = filename:join(SystemDir, user),
-    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+    case lists:usort(['ssh-rsa'|UserPKAlgs])
+	-- ssh_transport:supported_algorithms(public_key)
+    of
+	[] ->
+	    process_flag(trap_exit, true),
+	    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
+	    SystemUserDir = filename:join(SystemDir, user),
+	    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
    
-    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					       {user_dir, SystemUserDir},
-					       {preferred_algorithms,
-						[{public_key,['ssh-rsa']}]}]),
-    ct:sleep(500),
+	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						       {user_dir, SystemUserDir},
+						       {preferred_algorithms,
+							[{public_key,['ssh-rsa']}]}]),
+	    ct:sleep(500),
 
-    IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
-				     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-				      {pref_public_key_algs,UserPKAlgs}
-				     ]),
+	    IO = ssh_test_lib:start_io_server(),
+	    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
+					     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+					      {pref_public_key_algs,UserPKAlgs}
+					     ]),
 
 
-    receive
-	{'EXIT', _, _} ->
-	    ct:fail(no_ssh_connection);  
-	ErlShellStart ->
-	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
-	    do_shell(IO, Shell)
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	    receive
+		{'EXIT', _, _} ->
+		    ct:fail(no_ssh_connection);  
+		ErlShellStart ->
+		    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
+		    do_shell(IO, Shell)
+	    after 
+		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	    end;
+
+	UnsupportedPubKeys ->
+	    {skip, io_lib:format("~p unsupported",[UnsupportedPubKeys])}
     end.
     
 %%--------------------------------------------------------------------
