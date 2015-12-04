@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug that could cause a crash dump to become
+	    almost empty.</p>
+          <p>
+	    Own Id: OTP-13150</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
