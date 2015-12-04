@@ -118,7 +118,16 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-	    Algs = proplists:get_value(pref_public_key_algs, Opts, ?SUPPORTED_USER_KEYS),
+	    Algs0 = proplists:get_value(pref_public_key_algs, Opts, ?SUPPORTED_USER_KEYS),
+	    %% The following line is not strictly correct. The call returns the
+	    %% supported HOST key types while we are interested in USER keys. However,
+	    %% they "happens" to be the same (for now).  This could change....
+	    %% There is no danger as long as the set of user keys is a subset of the set
+	    %% of host keys.
+	    CryptoSupported = ssh_transport:supported_algorithms(public_key),
+	    Algs = [A || A <- Algs0,
+			 lists:member(A, CryptoSupported)],
+
 	    Prefs = method_preference(Algs),
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 						  userauth_preference = Prefs,
