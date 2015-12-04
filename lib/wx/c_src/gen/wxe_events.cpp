@@ -897,6 +897,11 @@ case 235: {// wxMouseCaptureLostEvent
  } else {
    send_res =  rt.send();
    if(cb->skip) event->Skip();
+   if(app->recurse_level < 1) {
+     app->recurse_level++;
+     app->dispatch_cmds();
+     app->recurse_level--;
+   }
  };
  return send_res;
  }

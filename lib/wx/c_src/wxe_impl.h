@@ -67,8 +67,8 @@ public:
 
   void shutdown(wxeMetaCommand& event);
 
-  int dispatch(wxeFifo *, int, int);
-  void dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process);
+  int dispatch(wxeFifo *);
+  void dispatch_cb(wxeFifo * batch, ErlDrvTermData process);
 
   void wxe_dispatch(wxeCommand& event);
 
