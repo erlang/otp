@@ -999,7 +999,8 @@ handle_info({Protocol, Socket, Data}, StateName,
 		   encoded_data_buffer = EncData0,
 		   undecoded_packet_length = RemainingSshPacketLen0} = State0) ->
     Encoded = <<EncData0/binary, Data/binary>>,
-    case ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) of
+    try ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) 
+    of
 	{get_more, DecBytes, EncDataRest, RemainingSshPacketLen, Ssh1} ->
 	    {next_state, StateName,
 	     next_packet(State0#state{encoded_data_buffer = EncDataRest,
@@ -1021,7 +1022,22 @@ handle_info({Protocol, Socket, Data}, StateName,
 		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
 					description = "Bad mac",
 					language = ""},
-	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1})
+	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1});
+
+	{error, {exceeds_max_size,PacketLen}} ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet length " 
+				    ++ integer_to_list(PacketLen),
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
+    catch
+	_:_ ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet",
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
     end;
 		
 handle_info({CloseTag, _Socket}, _StateName, 
