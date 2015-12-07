@@ -646,3 +646,15 @@ ssh_supports(Alg, SshDefaultAlg_tag) ->
 		    {false,UnSup}
 	    end
     end.
+
+%%%----------------------------------------------------------------
+has_inet6_address() ->
+    try 
+	[throw(6) || {ok,L} <- [inet:getifaddrs()],
+		     {_,L1} <- L,
+		     {addr,{_,_,_,_,_,_,_,_}} <- L1]
+    of
+	[] -> false
+    catch
+	throw:6 -> true
+    end.
