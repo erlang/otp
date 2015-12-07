@@ -65,7 +65,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1,otp_11851/1
+          maps/1,maps_type/1,otp_11851/1,otp_11879/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -94,7 +94,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851].
+     maps, maps_type, otp_11851, otp_11879].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3847,6 +3847,29 @@ otp_11851(Config) when is_list(Config) ->
           []}}
           ],
     [] = run(Config, Ts),
+    ok.
+
+otp_11879(doc) ->
+    "OTP-11879: The -spec f/a :: (As) -> B; syntax removed, "
+    "and is_subtype/2 deprecated";
+otp_11879(_Config) ->
+    Fs = [{attribute,0,file,{"file.erl",0}},
+          {attribute,0,module,m},
+          {attribute,1,spec,
+           {{f,1},
+            [{type,2,'fun',[{type,3,product,[{var,4,'V1'},
+                                             {var,5,'V1'}]},
+                            {type,6,integer,[]}]}]}},
+          {attribute,20,callback,
+           {{cb,21},
+            [{type,22,'fun',[{type,23,product,[{var,24,'V1'},
+                                               {var,25,'V1'}]},
+                             {type,6,integer,[]}]}]}}],
+    {error,[{"file.erl",
+             [{1,erl_lint,{spec_fun_undefined,{f,1}}},
+              {2,erl_lint,spec_wrong_arity},
+              {22,erl_lint,callback_wrong_arity}]}],
+     []} = compile:forms(Fs, [return,report]),
     ok.
 
 run(Config, Tests) ->

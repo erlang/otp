@@ -85,10 +85,6 @@ type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
 
 spec_fun ->                           atom : '$1'.
 spec_fun ->                  atom ':' atom : {'$1', '$3'}.
-%% The following two are retained only for backwards compatibility;
-%% they are not part of the EEP syntax and should be removed.
-spec_fun ->          atom '/' integer '::' : {'$1', '$3'}.
-spec_fun -> atom ':' atom '/' integer '::' : {'$1', '$3', '$5'}.
 
 typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
 typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
@@ -634,14 +630,8 @@ build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
 	    {atom, _, Fun} ->
 		{Fun, find_arity_from_specs(TypeSpecs)};
 	    {{atom,_, Mod}, {atom,_, Fun}} ->
-		{Mod,Fun,find_arity_from_specs(TypeSpecs)};
-	    {{atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Fun,Arity};
-	    {{atom,_, Mod}, {atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Mod,Fun,Arity}
-	    end,
+		{Mod,Fun,find_arity_from_specs(TypeSpecs)}
+        end,
     {attribute,Aa,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
