@@ -63,7 +63,7 @@
 %% Return algorithm and seed so that RNG state can be recreated with seed/1
 -spec export_seed() -> undefined | export_state().
 export_seed() ->
-    case seed_get() of
+    case get(?SEED_DICT) of
 	{#{type:=Alg}, Seed} -> {Alg, Seed};
 	_ -> undefined
     end.
