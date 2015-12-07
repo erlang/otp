@@ -22,7 +22,6 @@
 
 %%% Description: Ssh User Authentication Protocol
 
--define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
 -define(SSH_MSG_USERAUTH_REQUEST,  50).
 -define(SSH_MSG_USERAUTH_FAILURE,  51).

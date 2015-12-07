@@ -206,26 +206,25 @@
 	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
 	    <note>
-	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
-	      option is used. The equivalence of <c>{public_key_alg,'ssh-dss'}</c> is 
-	      <c>{preferred_algorithms, [{public_key,['ssh-dss','ssh-rsa']}]}</c>.</p>
+	      <p>This option will be removed in OTP 20, but is kept for compatibility. It is ignored if
+	      the preferred <c>pref_public_key_algs</c> option is used.</p>
 	    </note>
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the preferred algorithm fails,
-	    the other algorithm is tried. The default is
-	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
+	    the other algorithm is tried. If <c>{public_key_alg, 'ssh-rsa'}</c> is set, it is translated
+	    to <c>{pref_public_key_algs, ['ssh-rsa','ssh-dss']}</c>.  If it is 
+	    <c>{public_key_alg, 'ssh-dss'}</c>, it is translated
+	    to <c>{pref_public_key_algs, ['ssh-dss','ssh-rsa']}</c>.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
-	    <note>
-	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
-	      option is used. The equivalence of <c>{pref_public_key_algs,['ssh-dss']}</c> is 
-	      <c>{preferred_algorithms, [{public_key,['ssh-dss']}]}</c>.</p>
-	    </note>
-            <p>List of public key algorithms to try to use.
-	    <c>'ssh-rsa'</c> and <c>'ssh-dss'</c> are available.
-	    Overrides <c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></p>
+            <p>List of user (client) public key algorithms to try to use.</p>
+	    <p>The default value is 
+	    <c><![CDATA[['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'] ]]></c>
+	    </p>
+	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
@@ -233,6 +232,7 @@
             <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
 	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
 	    </p>
+	    <p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	    <p>Here is an example of this option:</p>
 	<code>
 {preferred_algorithms, 
@@ -243,9 +243,9 @@
   {compression,[none,zlib]}
 }
 </code>
-        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
-algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
-kex is implicit but public_key is set explicitly.</p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
@@ -451,6 +451,7 @@ kex is implicit but public_key is set explicitly.</p>
             <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
 	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
 	    </p>
+	    <p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	    <p>Here is an example of this option:</p>
 	<code>
 {preferred_algorithms, 
@@ -461,9 +462,9 @@ kex is implicit but public_key is set explicitly.</p>
   {compression,[none,zlib]}
 }
 </code>
-        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
-algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
-kex is implicit but public_key is set explicitly.</p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you

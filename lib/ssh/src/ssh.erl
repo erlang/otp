@@ -297,13 +297,6 @@ find_hostport(Fd) ->
     ok = inet:close(S),
     HostPort.
     
-%% find_port(Fd) ->
-%%     %% Hack....
-%%     {ok,TmpSock} = gen_tcp:listen(0,[{fd,Fd}]),
-%%     {ok, {_,ThePort}} = inet:sockname(TmpSock),
-%%     gen_tcp:close(TmpSock),
-%%     ThePort.
-
 
 handle_options(Opts) ->
     try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of
@@ -315,32 +308,27 @@ handle_options(Opts) ->
     end.
 
 
-algs_compatibility(Os) ->
+algs_compatibility(Os0) ->
     %% Take care of old options 'public_key_alg' and 'pref_public_key_algs'
-    comp_pk(proplists:get_value(preferred_algorithms,Os),
-	    proplists:get_value(pref_public_key_algs,Os),
-	    proplists:get_value(public_key_alg, Os),
-	    [{K,V} || {K,V} <- Os,
-		      K =/= public_key_alg,
-		      K =/= pref_public_key_algs]
-	   ).
-
-comp_pk(undefined, undefined, undefined, Os) -> Os;
-comp_pk( PrefAlgs,         _,         _, Os) when PrefAlgs =/= undefined -> Os;
-
-comp_pk(undefined, undefined,   ssh_dsa, Os) -> comp_pk(undefined, undefined, 'ssh-dss', Os);
-comp_pk(undefined, undefined,   ssh_rsa, Os) -> comp_pk(undefined, undefined, 'ssh-rsa', Os);
-comp_pk(undefined, undefined,        PK, Os) -> 
-    PKs = [PK | ssh_transport:supported_algorithms(public_key)--[PK]],
-    [{preferred_algorithms, [{public_key,PKs}] } | Os];
-
-comp_pk(undefined, PrefPKs, _, Os) when PrefPKs =/= undefined ->
-    PKs = [case PK of
-	       ssh_dsa -> 'ssh-dss';
-	       ssh_rsa -> 'ssh-rsa';
-	       _ -> PK
-	   end || PK <- PrefPKs],
-    [{preferred_algorithms, [{public_key,PKs}]} | Os].
+    case proplists:get_value(public_key_alg, Os0) of
+	undefined -> 
+	    Os0;
+	A when is_atom(A) -> 
+	    %% Skip public_key_alg if pref_public_key_algs is defined:
+	    Os = lists:keydelete(public_key_alg, 1, Os0),
+	    case proplists:get_value(pref_public_key_algs,Os) of
+		undefined when A == 'ssh-rsa' ; A==ssh_rsa ->
+		    [{pref_public_key_algs,['ssh-rsa','ssh-dss']} | Os];
+		undefined when A == 'ssh-dss' ; A==ssh_dsa ->
+		    [{pref_public_key_algs,['ssh-dss','ssh-rsa']} | Os];
+		undefined ->
+		    throw({error, {eoptions, {public_key_alg,A} }});
+		_ -> 
+		    Os
+	    end;
+	V ->
+	    throw({error, {eoptions, {public_key_alg,V} }})
+    end.
 
 
 handle_option([], SocketOptions, SshOptions) ->
@@ -410,6 +398,8 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -522,6 +512,13 @@ handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0
 							  is_integer(Max), Max>=I ->
     %% Client
     Opt;
+handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
+    case handle_user_pref_pubkey_algs(Value, []) of
+	{true, NewOpts} ->
+	    {pref_public_key_algs, NewOpts};
+	_ ->
+	    throw({error, {eoptions, Opt}})
+    end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
@@ -780,3 +777,16 @@ read_moduli_file(D, I, Acc) ->
 	    end
     end.
 			   
+handle_user_pref_pubkey_algs([], Acc) ->
+    {true, lists:reverse(Acc)};
+handle_user_pref_pubkey_algs([H|T], Acc) ->
+    case lists:member(H, ?SUPPORTED_USER_KEYS) of
+	true ->
+	    handle_user_pref_pubkey_algs(T, [H| Acc]);
+
+	false when H==ssh_dsa -> handle_user_pref_pubkey_algs(T, ['ssh-dss'| Acc]);
+	false when H==ssh_rsa -> handle_user_pref_pubkey_algs(T, ['ssh-rsa'| Acc]);
+
+	false ->
+	    false
+    end.
