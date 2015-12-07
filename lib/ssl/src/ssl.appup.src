@@ -1,24 +1,14 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {<<"7\\.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
-	       {load_module, ssl_connection, soft_purge, soft_purge, []},
-	       {load_module, tls_connection, soft_purge, soft_purge, []},
-	       {load_module, ssl_session, soft_purge, soft_purge, []},
-	       {load_module, ssl_session_cache, soft_purge, soft_purge, []}
-	      ]},
+  {<<"7\\..*">>, [{restart_application, ssl}]},
   {<<"6\\..*">>, [{restart_application, ssl}]},
   {<<"5\\..*">>, [{restart_application, ssl}]},
   {<<"4\\..*">>, [{restart_application, ssl}]},
   {<<"3\\..*">>, [{restart_application, ssl}]}
  ], 
  [
-  {<<"7\\.0">>, [{load_module, ssl, soft_purge, soft_purge, []},
-	       {load_module, ssl_connection, soft_purge, soft_purge, []},
-	       {load_module, tls_connection, soft_purge, soft_purge, []},
-	       {load_module, ssl_session, soft_purge, soft_purge, []},
-	       {load_module, ssl_session_cache, soft_purge, soft_purge, []}
-	      ]},
+  {<<"7\\..*">>, [{restart_application, ssl}]},
   {<<"6\\..*">>, [{restart_application, ssl}]},
   {<<"5\\..*">>, [{restart_application, ssl}]},
   {<<"4\\..*">>, [{restart_application, ssl}]},
