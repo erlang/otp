@@ -33,6 +33,9 @@
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
+-define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
+-define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
+
 -define(FALSE, 0).
 -define(TRUE,  1).
 %% basic binary constructors
