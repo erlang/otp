@@ -2030,14 +2030,14 @@ load_code(LoaderState* stp)
     do_transform:
 	ASSERT(stp->genop != NULL);
 	if (gen_opc[stp->genop->op].transform != -1) {
-	    int need;
-	    tmp_op = stp->genop;
-
-	    for (need = gen_opc[stp->genop->op].min_window-1; need > 0; need--) {
-		if (tmp_op == NULL) {
-		    goto get_next_instr;
-		}
-		tmp_op = tmp_op->next;
+	    if (stp->genop->next == NULL) {
+		/*
+		 * Simple heuristic: Most transformations requires
+		 * at least two instructions, so make sure that
+		 * there are. That will reduce the number of
+		 * TE_SHORT_WINDOWs.
+		 */
+		goto get_next_instr;
 	    }
 	    switch (transform_engine(stp)) {
 	    case TE_FAIL:

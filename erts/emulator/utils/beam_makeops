@@ -113,7 +113,6 @@ my @if_line;
 #
 my $te_max_vars = 0;		# Max number of variables ever needed.
 my %gen_transform;
-my %min_window;
 my %match_engine_ops;		# All opcodes for the match engine.
 my %gen_transform_offset;
 my @transformations;
@@ -382,7 +381,6 @@ while (<>) {
 	    $gen_arity{$name} = $arity;
 	    $gen_to_spec{"$name/$arity"} = undef;
 	    $num_specific{"$name/$arity"} = 0;
-	    $min_window{"$name/$arity"} = 255;
 	    $obsolete[$op_num] = defined $obsolete;
 	} else {		# Unnumbered generic operation.
 	    push(@unnumbered_generic, [$name, $arity]);
@@ -440,7 +438,6 @@ $num_file_opcodes = @gen_opname;
 	$gen_arity{$name} = $arity;
 	$gen_to_spec{"$name/$arity"} = undef;
 	$num_specific{"$name/$arity"} = 0;
-	$min_window{"$name/$arity"} = 255;
     }
 }
 
@@ -607,7 +604,7 @@ sub emulator_output {
 		$is_transformed{$name,$arity} or
 		error("instruction $key has no specific instruction");
 	    $spec_op = -1 unless defined $spec_op;
-	    &init_item($name, $arity, $spec_op, $num_specific, $tr, $min_window{$key});
+	    &init_item($name, $arity, $spec_op, $num_specific, $tr);
 	}
     }
     print "};\n";
@@ -1503,7 +1500,6 @@ sub tr_gen_from {
     my(%var_type);
     my($var_num) = 0;
     my(@code);
-    my($min_window) = 0;
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
     my %var_used = %$used_ref;
@@ -1551,7 +1547,6 @@ sub tr_gen_from {
 	$opnum = $gen_opnum{$name,$arity};
 
 	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
-	$min_window++;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
 	    my $ignored_var = "$var (ignored)";
@@ -1642,12 +1637,12 @@ sub tr_gen_from {
 
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
-    [$min_window, \%var, \%var_type, \@code];
+    [\%var, \%var_type, \@code];
 }
 
 sub tr_gen_to {
     my($line, $orig_transform, $so_far, @tr) = @_;
-    my($min_window, $var_ref, $var_type_ref, $code_ref) = @$so_far;
+    my($var_ref, $var_type_ref, $code_ref) = @$so_far;
     my(%var) = %$var_ref;
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
@@ -1731,8 +1726,6 @@ sub tr_gen_to {
     my($dummy, $arity);
     ($dummy, $op, $arity) = @$first;
     my($comment) = "\n/*\n * Line $line:\n *   $orig_transform\n */\n\n";
-    $min_window{$key} = $min_window
-	if $min_window{$key} > $min_window;
 
     my $prev_last;
     $prev_last = pop(@{$gen_transform{$key}})
