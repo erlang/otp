@@ -180,7 +180,7 @@ stop(SvcName) ->
     end.
 
 stop(ok, Pid) ->
-    MRef = erlang:monitor(process, Pid),
+    MRef = monitor(process, Pid),
     receive {'DOWN', MRef, process, _, _} -> ok end;
 stop(No, _) ->
     No.
@@ -710,7 +710,7 @@ service_options(Opts) ->
 mref(false = No) ->
     No;
 mref(P) ->
-    erlang:monitor(process, P).
+    monitor(process, P).
 
 init_shared(#state{options = [_, _, {_,T} | _],
                    service_name = Svc}) ->
@@ -1402,7 +1402,7 @@ rpu(Pid, Aliases, Caps, #state{service = Svc, shared_peers = PDict}) ->
 rpu(_, [] = No, _, _) ->
     No;
 rpu(Pid, Aliases, Caps, PDict) ->
-    erlang:monitor(process, Pid),
+    monitor(process, Pid),
     T = {Pid, Caps},
     lists:foreach(fun(A) -> ?Dict:append(A, T, PDict) end, Aliases).
 
