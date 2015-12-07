@@ -974,7 +974,7 @@ ssl_config(Opts, Role, State) ->
     {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbInfo, OwnCert, Key, DHParams} = 
 	ssl_config:init(Opts, Role), 
     Handshake = ssl_handshake:init_handshake_history(),
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    TimeStamp = erlang:monotonic_time(),
     Session = State#state.session,
     State#state{tls_handshake_history = Handshake,
 		session = Session#session{own_certificate = OwnCert,

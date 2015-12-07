@@ -84,7 +84,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><marker id="type-ssloption"></marker><c>ssloption() =</c></tag>
+      <tag><marker id="type-ssloption"/><c>ssloption() =</c></tag>
       <item>
 	<p><c>{verify, verify_type()}</c></p>
 	<p><c>| {verify_fun, {fun(), term()}}</c></p>
@@ -160,7 +160,7 @@
       <tag><c>sslsocket() =</c></tag>
       <item><p>opaque()</p></item>
 
-      <tag><c>protocol() =</c></tag>
+      <tag><marker id="type-protocol"/><c>protocol() =</c></tag>
       <item><p><c>sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
 
       <tag><c>ciphers() =</c></tag>
