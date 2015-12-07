@@ -1539,7 +1539,6 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # GCing arithmetic instructions.
 #
 
-gen_plus Fail Live Y=y X=x Dst => i_plus Fail Live X Y Dst
 gen_plus Fail Live S1 S2 Dst => i_plus Fail Live S1 S2 Dst
 
 gen_minus Fail Live S1 S2 Dst => i_minus Fail Live S1 S2 Dst
