@@ -35,17 +35,26 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
+-define(ID_REFRESH_INTERVAL, 102).
+
+-define(DISP_FREQ, 10).
+-define(FETCH_DATA, 20). %% per 10000ms
+-define(DISP_SECONDS, 120).
+
+-record(ti, {tick=0, disp=10*?DISP_FREQ/?FETCH_DATA, fetch=?FETCH_DATA, secs=?DISP_SECONDS}).
+
 -record(state,
 	{
-	  offset = 0.0,
+	  time = #ti{},
 	  active = false,
 	  parent,
 	  windows,
-	  data = {0, queue:new()},
+	  data,
 	  panel,
 	  paint,
 	  appmon
 	}).
+
 
 -define(wxGC, wxGraphicsContext).
 
@@ -83,7 +92,8 @@ init([Notebook, Parent]) ->
     {Panel, #state{parent=Parent,
 		   panel =Panel,
 		   windows = {CPU, MEM, IO},
-		   paint=PaintInfo
+		   paint=PaintInfo,
+		   data=reset_data()
 		  }}
    catch _:Err ->
 	   io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
@@ -129,7 +139,15 @@ setup_graph_drawing(Panels) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
+	     #state{panel=Panel, appmon=Old, time=#ti{fetch=F0} = Ti0} = State) ->
+    case interval_dialog(Panel, Ti0) of
+	Ti0 -> {noreply, State};
+	#ti{fetch=F0} = Ti -> %% Same fetch interval
+	    {noreply, State#state{time=Ti}};
+	Ti -> %% Changed fetch interval
+	    {noreply, restart_fetcher(node(Old), State#state{time=Ti})}
+    end;
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{}) ->
     {noreply, State};
@@ -139,7 +157,7 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
-		  #state{active=Active, offset=Offset, paint=Paint,
+		  #state{active=Active, time=Ti, paint=Paint,
 			 windows=Windows, data=Data}) ->
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
     %% Panel = element(Id, Windows),
@@ -147,11 +165,10 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	    Panel =:= element(?MEM_W, Windows) -> memory;
 	    Panel =:= element(?IO_W, Windows)  -> io
 	 end,
-
-    refresh_panel(Panel, Id, Offset, Data, Active, Paint),
+    refresh_panel(Panel, Id, Ti, Data, Active, Paint),
     ok.
 
-refresh_panel(Panel, Id, Offset, Data, Active, #paint{usegc=UseGC} = Paint) ->
+refresh_panel(Panel, Id, Ti, Data, Active, #paint{usegc=UseGC} = Paint) ->
     %% PaintDC must be created in a callback to work on windows.
     IsWindows = element(1, os:type()) =:= win32,
     DC = if IsWindows ->
@@ -167,7 +184,7 @@ refresh_panel(Panel, Id, Offset, Data, Active, #paint{usegc=UseGC} = Paint) ->
 	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
     try
-	draw(Offset, Id, {UseGC, GC}, Panel, Paint, Data, Active)
+	draw(Ti, Id, {UseGC, GC}, Panel, Paint, Data, Active)
     catch _:Err ->
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
@@ -183,40 +200,34 @@ handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
 handle_info(Stats = {stats, 1, _, _, _},
-	    State = #state{panel=Panel, data=Data, active=Active}) ->
+	    State = #state{panel=Panel, data=Data, active=Active,
+			   time=#ti{tick=Tick, disp=Disp0}=Ti}) ->
+    Disp = trunc(Disp0),
+    Next = max(Tick - Disp, 0),
     if Active ->
 	    wxWindow:refresh(Panel),
-	    Freq = 6,
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq});
+	    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next});
        true -> ignore
     end,
-    {noreply, State#state{offset=0.0, data = add_data(Stats, Data)}};
+    {noreply, State#state{time=Ti#ti{tick=Next}, data = add_data(Stats, Data, Ti)}};
 
-handle_info({refresh, Seq, Freq}, State = #state{panel=Panel, offset=Prev}) ->
-    wxWindow:refresh(Panel),
+handle_info({refresh, Seq}, State = #state{panel=Panel, time=#ti{tick=Seq, disp=DispF}=Ti})
+  when (Seq+1) < (DispF*1.5) ->
     Next = Seq+1,
-    if Seq > 1, Prev =:= 0.0 ->
-	    %% We didn't have time to handle the refresh
-	    {noreply, State};
-       Next < Freq ->
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, Next, Freq}),
-	    {noreply, State#state{offset=Seq/Freq}};
-       true ->
-	    {noreply, State#state{offset=Seq/Freq}}
-    end;
+    wxWindow:refresh(Panel),
+    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
+    {noreply, State#state{time=Ti#ti{tick=Next}}};
+handle_info({refresh, _}, State) ->
+    {noreply, State};
 
-handle_info({active, Node}, State = #state{parent=Parent, panel=Panel, appmon=Old}) ->
+handle_info({active, Node}, #state{parent=Parent, panel=Panel, appmon=Old} = State) ->
     create_menus(Parent, []),
     try
 	Node = node(Old),
 	wxWindow:refresh(Panel),
 	{noreply, State#state{active=true}}
     catch _:_ ->
-	    catch Old ! exit,
-	    Me = self(),
-	    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, 1000]),
-	    wxWindow:refresh(Panel),
-	    {noreply, State#state{active=true, appmon=Pid, data={0, queue:new()}}}
+	    {noreply,restart_fetcher(Node, State)}
     end;
 
 handle_info(not_active, State = #state{appmon=_Pid}) ->
@@ -233,24 +244,80 @@ handle_info(_Event, State) ->
 %%%%%%%%%%
 terminate(_Event, #state{appmon=Pid}) ->
     catch Pid ! exit,
+    cprof:pause(),
     ok.
 code_change(_, _, State) ->
     State.
 
-add_data(Stats, {N, Q}) when N > 60 ->
+restart_fetcher(Node, #state{appmon=Old, panel=Panel, time=#ti{fetch=Freq}=Ti}=State) ->
+    catch Old ! exit,
+    Me = self(),
+    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, 10000 div Freq]),
+    wxWindow:refresh(Panel),
+    cprof:start(?MODULE, '_'),
+    State#state{active=true, appmon=Pid, data=reset_data(), time=Ti#ti{tick=0}}.
+
+reset_data() ->
+    {0, queue:new()}.
+
+add_data(Stats, {N, Q}, #ti{fetch=Fetch, secs=Secs}) when N > Secs*Fetch div 10 ->
     {N, queue:drop(queue:in(Stats, Q))};
-add_data(Stats, {N, Q}) ->
+add_data(Stats, {N, Q}, _) ->
     {N+1, queue:in(Stats, Q)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 create_menus(Parent, _) ->
-    MenuEntries =
-	[{"File",
-	  [
-	  ]}
-	],
-    observer_wx:create_menus(Parent, MenuEntries).
+    View = {"View", [#create_menu{id = ?ID_REFRESH_INTERVAL, text = "Graph Settings"}]},
+    observer_wx:create_menus(Parent, [{"File", []}, View]).
+
+interval_dialog(Parent0, #ti{fetch=Fetch0, secs=Secs0}=Ti) ->
+    Parent = observer_lib:get_wx_parent(Parent0),
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Load Chart Settings",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
+				?wxRESIZE_BORDER}]),
+    {Sl1,FetchSl} = slider(Dialog, "Fetch (ms)", 10000 div Fetch0, 100, 10000),
+    {Sl2, SecsSl} = slider(Dialog, "Length (min)", Secs0 div 60, 1, 10),
+    TopSizer = wxBoxSizer:new(?wxVERTICAL),
+    Flags = [{flag, ?wxEXPAND bor ?wxTOP bor ?wxLEFT bor ?wxRIGHT},
+	     {border, 5}, {proportion, 1}],
+    wxSizer:add(TopSizer, Sl1, Flags),
+    wxSizer:add(TopSizer, Sl2, Flags),
+    wxSizer:add(TopSizer, wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL), Flags),
+    wxWindow:setSizerAndFit(Dialog, TopSizer),
+    wxSizer:setSizeHints(TopSizer, Dialog),
+    Res = case wxDialog:showModal(Dialog) of
+	      ?wxID_OK ->
+		  Fetch = 10000 div wxSlider:getValue(FetchSl),
+		  Secs = wxSlider:getValue(SecsSl) * 60,
+		  Ti#ti{fetch=Fetch, secs=Secs, disp=10*?DISP_FREQ/Fetch};
+	      ?wxID_CANCEL ->
+		  Ti
+	  end,
+    wxDialog:destroy(Dialog),
+    Res.
+
+slider(Parent, Str, Value, Min, Max) ->
+    Sz = wxBoxSizer:new(?wxHORIZONTAL),
+    Center = [{flag, ?wxALIGN_CENTER_VERTICAL}],
+    wxSizer:add(Sz, wxStaticText:new(Parent, ?wxID_ANY, Str), [{proportion, 1}|Center]),
+    Opt = [{style, ?wxSL_HORIZONTAL bor ?wxSL_LABELS}],
+    Slider = wxSlider:new(Parent, ?wxID_ANY, Value, Min, Max, Opt),
+    wxSizer:add(Sz, Slider, [{proportion, 2}|Center]),
+    case Min > 1 of
+	false ->
+	    {Sz, Slider};
+	true ->
+	    CB = fun(#wx{event=Ev},_) -> step(Ev, Slider, Min) end,
+	    wxSlider:connect(Slider, scroll_thumbtrack, [{callback, CB}]),
+	    wxSlider:connect(Slider, scroll_changed, [{callback, CB}]),
+	    {Sz, Slider}
+    end.
+
+step(_Ev = #wxScroll{commandInt=Value}, Slider, Min) ->
+    Val = Min * round(Value / Min),
+    wxSlider:setValue(Slider, Val),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 collect_data(runq, {N, Q}) ->
@@ -322,16 +389,23 @@ calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
 calc_delta([], []) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) ->
+draw(#ti{tick=Tick, fetch=FetchFreq0, secs=Secs, disp=DispFreq},
+     Id, DC, Panel,
+     Paint=#paint{pens=Pens, small=Small},
+     Data, Active) ->
     %% This can be optimized a lot by collecting data once
     %% and draw to memory and then blit memory and only draw new entries in new memory
     %% area.  Hmm now rewritten to use ?wxGC I don't now if it is feasable.
     {Len, Max0, Hs, Info} = collect_data(Id, Data),
     {Max,_,_} = MaxDisp = calc_max(Id, Max0),
     Size = wxWindow:getClientSize(Panel),
-    {X0,Y0,WS,HS, DrawBs} = draw_borders(Id, Info, DC, Size, MaxDisp, Paint),
-    Last = 60*WS+X0-1,
-    Start = max(61-Len, 0)*WS+X0 - Offset*WS,
+    {X0,Y0,WS0,HS,DrawBs} = draw_borders(Id, Info, DC, Size, Secs, MaxDisp, Paint),
+    FetchFreq = FetchFreq0/10,
+    WS = WS0/FetchFreq,
+    Last = Secs*FetchFreq*WS+X0-1,
+    Offset = Tick / DispFreq,
+    Start = max(Secs*FetchFreq+1-Len, 0)*WS+X0 - Offset*WS,
+    %% Id == io andalso io:format("~p ~p~n", [Tick, DispFreq]),
     Samples = length(Hs),
     NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     case Active andalso Samples > 1 andalso NoGraphs > 0 of
@@ -426,7 +500,7 @@ spline_tan(Y0, Y1, Y2, Y3) ->
 -define(BW, 5).
 -define(BH, 5).
 
-draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
+draw_borders(Type, Info, DC, {W,H}, Secs, {Max, Unit, MaxUnit},
 	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
     Str1 = observer_lib:to_str(MaxUnit),
     Str2 = observer_lib:to_str(MaxUnit div 2),
@@ -449,7 +523,7 @@ draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
     GraphY25 = GraphY0 + (GraphY1 - GraphY0) / 4,
     GraphY50 = GraphY0 + (GraphY1 - GraphY0) / 2,
     GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) / 4,
-    ScaleW = GraphW / 60,
+    ScaleW = GraphW / Secs,
     ScaleH = GraphH / Max,
 
     setFont(DC, Small, {0,0,0}),
@@ -462,14 +536,21 @@ draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
     Align(Str3, GraphY1 - (TH / 2) + 1),
 
     setPen(DC, Pen),
-    DrawSecs = fun(Secs, Pos) ->
-		       Str = [observer_lib:to_str(Secs)|" s"],
+    DrawSecs = fun(Sec, {Pos, Prev}) ->
+		       Str = observer_lib:to_str(Sec) ++ "s",
 		       X = GraphX0+Pos,
-		       drawText(DC, Str,  X-SpaceW, SecondsY),
 		       strokeLine(DC, X, GraphY0, X, GraphY1+5),
-		       Pos + 10*ScaleW
+		       TxtX = X-SpaceW,
+		       case TxtX > Prev of
+			   true ->
+			       drawText(DC, Str,  TxtX, SecondsY),
+			       TxtW = SpaceW*length(Str),
+			       {Pos + 10*ScaleW, TxtX+TxtW};
+			   false ->
+			       {Pos + 10*ScaleW, Prev}
+		       end
 	       end,
-    lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
+    lists:foldl(DrawSecs, {0, 0}, lists:seq(Secs,0, -10)),
 
     strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
     strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
