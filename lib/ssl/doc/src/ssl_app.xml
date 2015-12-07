@@ -58,7 +58,7 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c><![CDATA[protocol_version =  <seealso marker="kernel:error_logger">ssl:protocol()</seealso> <optional>]]></c>.</tag>
+      <tag><c> protocol_version = <seealso marker="ssl#type-protocol">ssl:protocol()</seealso> <![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       protocols currently supported by the SSL application.
@@ -71,7 +71,7 @@
       <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
       <item><p>Name of the session cache callback module that implements
       the <c>ssl_session_cache_api</c> behavior. Defaults to
-      <c>ssl_session_cache.erl</c>.</p></item>
+      <c>ssl_session_cache</c>.</p></item>
 
       <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
 
@@ -110,7 +110,10 @@
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The SSL application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors and TLS alerts. The logging of TLS alerts may be turned off with the <c>log_alert</c> option. </p>
+    <p>The SSL application uses the default <seealso
+    marker="kernel:error_logger">OTP error logger</seealso> to log
+    unexpected errors and TLS alerts. The logging of TLS alerts may be
+    turned off with the <c>log_alert</c> option. </p>
   </section>
 
   <section>
