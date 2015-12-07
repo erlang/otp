@@ -5077,6 +5077,12 @@ transform_engine(LoaderState* st)
 	    instr->arity = gen_opc[op].arity;
 	    ap = 0;
 	    break;
+#ifdef TOP_rename
+	case TOP_rename:
+	    instr->op = op = *pc++;
+	    instr->arity = gen_opc[op].arity;
+	    return TE_OK;
+#endif
 	case TOP_store_type:
 	    i = *pc++;
 	    instr->a[ap].type = i;

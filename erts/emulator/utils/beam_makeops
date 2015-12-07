@@ -1718,6 +1718,8 @@ sub tr_gen_to {
     push(@code, make_op('', 'end'))
 	unless is_instr($code[$#code], 'call_end');
 
+    tr_maybe_rename(\@code);
+
     #
     # Chain together all codes segments having the same first operation.
     #
@@ -1741,6 +1743,59 @@ sub tr_gen_to {
     }
     unshift(@code, make_op($comment));
     push(@{$gen_transform{$key}}, @code),
+}
+
+sub tr_maybe_rename {
+    my($ref) = @_;
+    my $s = 'left';
+    my $a = 0;
+    my $num_args = 0;
+    my $new_instr;
+    my $first;
+    my $i;
+
+    for ($i = 1; $i < @$ref; $i++) {
+	my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+
+	if ($s eq 'left') {
+	    if ($op eq 'set_var_next_arg') {
+		if ($num_args == $a and $args[0] == $a) {
+		    $num_args++;
+		}
+		$a++;
+	    } elsif ($op eq 'next_arg') {
+		$a++;
+	    } elsif ($op eq 'commit') {
+		$a = 0;
+		$first = $i;
+		$s = 'committed';
+	    } elsif ($op eq 'next_instr') {
+		return;
+	    }
+	} elsif ($s eq 'committed') {
+	    if ($op eq 'new_instr') {
+		$new_instr = $args[0];
+		$a = 0;
+		$s = 'right';
+	    } else {
+		return;
+	    }
+	} elsif ($s eq 'right') {
+	    if ($op eq 'store_var_next_arg' && $args[0] == $a) {
+		$a++;
+	    } elsif ($op eq 'end' && $a <= $num_args) {
+		my $name = $gen_opname[$new_instr];
+		my $arity = $gen_arity[$new_instr];
+		my $new_op = make_op("$name/$arity", 'rename', $new_instr);
+		splice @$ref, $first, $i-$first+1, ($new_op);
+		return;
+	    } else {
+		return;
+	    }
+	}
+    }
 }
 
 sub tr_code_len {
