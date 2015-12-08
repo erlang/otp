@@ -44,7 +44,8 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name].
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
+     short_cert_issuer_hash, short_crl_issuer_hash].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
@@ -816,6 +817,42 @@ general_name(Config) when is_list(Config) ->
 					[{rfc822Name, DummyRfc822Name}],
 				    authorityCertSerialNumber = 
 					1}).
+%%--------------------------------------------------------------------
+short_cert_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for certificate issuer"}].
+
+short_cert_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'Certificate', CertDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl x509 -in client_cert.pem -issuer_hash -noout
+    CertIssuerHash = "d4c8d7e5",
+
+    #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{issuer = Issuer}} =
+	public_key:pkix_decode_cert(CertDER, otp),
+
+    CertIssuerHash = public_key:short_name_hash(Issuer).
+
+%%--------------------------------------------------------------------
+short_crl_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for CRL issuer"}].
+
+short_crl_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'CertificateList', CrlDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "idp_crl.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl crl -in idp_crl.pem -hash -noout
+    CrlIssuerHash = "d6134ed3",
+
+    Issuer = public_key:pkix_crl_issuer(CrlDER),
+
+    CrlIssuerHash = public_key:short_name_hash(Issuer).
+
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------

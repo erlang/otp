@@ -836,7 +836,26 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <p>Verifies a digital signature.</p>
   </desc> 
   </func>
-  
+
+  <func>
+    <name>short_name_hash(Name) -> string()</name>
+    <type>
+      <v>Name = issuer_name()</v>
+    </type>
+    <desc>
+      <p>Generates a short hash of an issuer name.  The hash is
+      returned as a string containing eight hexadecimal digits.</p>
+
+      <p>The return value of this function is the same as the result
+      of the commands <c>openssl crl -hash</c> and
+      <c>openssl x509 -issuer_hash</c>, when passed the issuer name of
+      a CRL or a certificate, respectively.  This hash is used by the
+      <c>c_rehash</c> tool to maintain a directory of symlinks to CRL
+      files, in order to facilitate looking up a CRL by its issuer
+      name.</p>
+    </desc>
+  </func>
+
 </funcs>
 
 </erlref>

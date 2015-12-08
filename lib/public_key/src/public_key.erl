@@ -55,7 +55,8 @@
 	 pkix_dist_points/1,
 	 pkix_match_dist_point/2,
 	 pkix_crl_verify/2,
-	 pkix_crl_issuer/1
+	 pkix_crl_issuer/1,
+	 short_name_hash/1
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
@@ -818,6 +819,17 @@ oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
 oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
 %%--------------------------------------------------------------------
+-spec short_name_hash({rdnSequence, [#'AttributeTypeAndValue'{}]}) ->
+			     string().
+
+%% Description: Generates OpenSSL-style hash of a name.
+%%--------------------------------------------------------------------
+short_name_hash({rdnSequence, _Attributes} = Name) ->
+    HashThis = encode_name_for_short_hash(Name),
+    <<HashValue:32/little, _/binary>> = crypto:hash(sha, HashThis),
+    string:to_lower(string:right(integer_to_list(HashValue, 16), 8, $0)).
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 do_verify(DigestOrPlainText, DigestType, Signature,
@@ -1080,3 +1092,74 @@ ec_key({PubKey, PrivateKey}, Params) ->
 		    parameters = Params,
 		    publicKey = PubKey}.
 
+encode_name_for_short_hash({rdnSequence, Attributes0}) ->
+    Attributes = lists:map(fun normalise_attribute/1, Attributes0),
+    {Encoded, _} = 'OTP-PUB-KEY':'enc_RDNSequence'(Attributes, []),
+    Encoded.
+
+%% Normalise attribute for "short hash".  If the attribute value
+%% hasn't been decoded yet, decode it so we can normalise it.
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = Binary} = ATV]) when is_binary(Binary) ->
+    case pubkey_cert_records:transform(ATV, decode) of
+	#'AttributeTypeAndValue'{value = Binary} ->
+	    %% Cannot decode attribute; return original.
+	    [ATV];
+	DecodedATV = #'AttributeTypeAndValue'{} ->
+	    %% The new value will either be String or {Encoding,String}.
+	    normalise_attribute([DecodedATV])
+    end;
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = {Encoding, String}} = ATV])
+  when
+      Encoding =:= utf8String;
+      Encoding =:= printableString;
+      Encoding =:= teletexString;
+      Encoding =:= ia5String ->
+    %% These string types all give us something that the unicode
+    %% module understands.
+    NewValue = normalise_attribute_value(String),
+    [ATV#'AttributeTypeAndValue'{value = NewValue}];
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = String} = ATV]) when is_list(String) ->
+    %% A string returned by pubkey_cert_records:transform/2, for
+    %% certain attributes that commonly have incorrect value types.
+    NewValue = normalise_attribute_value(String),
+    [ATV#'AttributeTypeAndValue'{value = NewValue}].
+
+normalise_attribute_value(String) ->
+    Converted = unicode:characters_to_binary(String),
+    NormalisedString = normalise_string(Converted),
+    %% We can't use the encoding function for the actual type of the
+    %% attribute, since some of them don't allow utf8Strings, which is
+    %% the required encoding when creating the hash.
+    {NewBinary, _} = 'OTP-PUB-KEY':'enc_X520CommonName'({utf8String, NormalisedString}, []),
+    NewBinary.
+
+normalise_string(String) ->
+    %% Normalise attribute values as required for "short hashes", as
+    %% implemented by OpenSSL.
+
+    %% Remove ASCII whitespace from beginning and end.
+    TrimmedLeft = re:replace(String, "^[\s\f\n\r\t\v]+", "", [unicode, global]),
+    TrimmedRight = re:replace(TrimmedLeft, "[\s\f\n\r\t\v]+$", "", [unicode, global]),
+    %% Convert multiple whitespace characters to a single space.
+    Collapsed = re:replace(TrimmedRight, "[\s\f\n\r\t\v]+", "\s", [unicode, global]),
+    %% Convert ASCII characters to lowercase
+    Lower = ascii_to_lower(Collapsed),
+    %% And we're done!
+    Lower.
+
+ascii_to_lower(String) ->
+    %% Can't use string:to_lower/1, because that changes Latin-1
+    %% characters as well.
+    << <<(if $A =< C, C =< $Z ->
+                  C + ($a - $A);
+             true ->
+                  C
+          end)>>
+       ||
+        <<C>> <= iolist_to_binary(String) >>.
