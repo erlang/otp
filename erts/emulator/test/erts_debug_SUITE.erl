@@ -24,13 +24,13 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 test_size/1,flat_size_big/1,df/1,
+	 test_size/1,flat_size_big/1,df/1,term_type/1,
 	 instructions/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [test_size, flat_size_big, df, instructions].
+    [test_size, flat_size_big, df, instructions, term_type].
 
 groups() -> 
     [].
@@ -137,6 +137,47 @@ flat_size_big_1(Term, Size0, Limit) when Size0 < Limit ->
 	    flat_size_big_1([Term|Term], Size, Limit)
     end;
 flat_size_big_1(_, _, _) -> ok.
+
+
+term_type(Config) when is_list(Config) ->
+    Ts = [{fixnum, 1},
+          {fixnum, -1},
+          {bignum, 1 bsl 300},
+          {bignum, -(1 bsl 300)},
+          {hfloat, 0.0},
+          {hfloat, 0.0/-1},
+          {hfloat, 1.0/(1 bsl 302)},
+          {hfloat, 1.0*(1 bsl 302)},
+          {hfloat, -1.0/(1 bsl 302)},
+          {hfloat, -1.0*(1 bsl 302)},
+          {hfloat, 3.1416},
+          {hfloat, 1.0e18},
+          {hfloat, -3.1416},
+          {hfloat, -1.0e18},
+
+          {heap_binary, <<1,2,3>>},
+          {refc_binary, <<0:(8*80)>>},
+          {sub_binary,  <<5:7>>},
+
+          {flatmap, #{ a => 1}},
+          {hashmap, maps:from_list([{I,I}||I <- lists:seq(1,76)])},
+
+          {list, [1,2,3]},
+          {nil, []},
+          {tuple, {1,2,3}},
+          {tuple, {}},
+
+          {export, fun lists:sort/1},
+          {'fun', fun() -> ok end},
+          {pid, self()},
+          {atom, atom}],
+    lists:foreach(fun({E,Val}) ->
+                          R = erts_internal:term_type(Val),
+                          io:format("expecting term type ~w, got ~w (~p)~n", [E,R,Val]),
+                          E = R
+                  end, Ts),
+    ok.
+
 
 df(Config) when is_list(Config) ->
     P0 = pps(),

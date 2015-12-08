@@ -167,7 +167,7 @@ bif erts_internal:request_system_task/3
 bif erts_internal:check_process_code/2
 
 bif erts_internal:map_to_tuple_keys/1
-bif erts_internal:map_type/1
+bif erts_internal:term_type/1
 bif erts_internal:map_hashmap_children/1
 
 bif erts_internal:time_unit/0

@@ -2698,32 +2698,88 @@ BIF_RETTYPE erts_internal_map_to_tuple_keys_1(BIF_ALIST_1) {
 }
 
 /*
- * erts_internal:map_type/1
+ * erts_internal:term_type/1
  *
  * Used in erts_debug:size/1
  */
 
-BIF_RETTYPE erts_internal_map_type_1(BIF_ALIST_1) {
-    DECL_AM(hashmap);
-    DECL_AM(hashmap_node);
-    DECL_AM(flatmap);
-    if (is_map(BIF_ARG_1)) {
-        Eterm hdr = *(boxed_val(BIF_ARG_1));
-        ASSERT(is_header(hdr));
-        switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
-            case HAMT_SUBTAG_HEAD_FLATMAP:
-                BIF_RET(AM_flatmap);
-            case HAMT_SUBTAG_HEAD_ARRAY:
-            case HAMT_SUBTAG_HEAD_BITMAP:
-                BIF_RET(AM_hashmap);
-            case HAMT_SUBTAG_NODE_BITMAP:
-                BIF_RET(AM_hashmap_node);
-            default:
-                erl_exit(1, "bad header");
+BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
+    Eterm obj = BIF_ARG_1;
+    switch (primary_tag(obj)) {
+        case TAG_PRIMARY_LIST:
+            BIF_RET(ERTS_MAKE_AM("list"));
+        case TAG_PRIMARY_BOXED: {
+            Eterm hdr = *boxed_val(obj);
+            ASSERT(is_header(hdr));
+            switch (hdr & _TAG_HEADER_MASK) {
+                case ARITYVAL_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("tuple"));
+                case EXPORT_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("export"));
+                case FUN_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("fun"));
+                case MAP_SUBTAG:
+                    switch (MAP_HEADER_TYPE(hdr)) {
+                        case MAP_HEADER_TAG_FLATMAP_HEAD :
+                            BIF_RET(ERTS_MAKE_AM("flatmap"));
+                        case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+                        case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+                            BIF_RET(ERTS_MAKE_AM("hashmap"));
+                        case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+                            BIF_RET(ERTS_MAKE_AM("hashmap_node"));
+                        default:
+                            erl_exit(ERTS_ABORT_EXIT, "term_type: bad map header type %d\n", MAP_HEADER_TYPE(hdr));
+                    }
+                case REFC_BINARY_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("refc_binary"));
+                case HEAP_BINARY_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("heap_binary"));
+                case SUB_BINARY_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("sub_binary"));
+                case BIN_MATCHSTATE_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("matchstate"));
+                case POS_BIG_SUBTAG:
+                case NEG_BIG_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("bignum"));
+                case REF_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("reference"));
+                case EXTERNAL_REF_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("external_reference"));
+                case EXTERNAL_PID_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("external_pid"));
+                case EXTERNAL_PORT_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("external_port"));
+                case FLOAT_SUBTAG:
+                    BIF_RET(ERTS_MAKE_AM("hfloat"));
+                default:
+                    erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", hdr);
+            }
         }
+        case TAG_PRIMARY_IMMED1:
+            switch (obj & _TAG_IMMED1_MASK) {
+                case _TAG_IMMED1_SMALL:
+                    BIF_RET(ERTS_MAKE_AM("fixnum"));
+                case _TAG_IMMED1_PID:
+                    BIF_RET(ERTS_MAKE_AM("pid"));
+                case _TAG_IMMED1_PORT:
+                    BIF_RET(ERTS_MAKE_AM("port"));
+                case _TAG_IMMED1_IMMED2:
+                    switch (obj & _TAG_IMMED2_MASK) {
+                        case _TAG_IMMED2_ATOM:
+                            BIF_RET(ERTS_MAKE_AM("atom"));
+                        case _TAG_IMMED2_CATCH:
+                            BIF_RET(ERTS_MAKE_AM("catch"));
+                        case _TAG_IMMED2_NIL:
+                            BIF_RET(ERTS_MAKE_AM("nil"));
+                        default:
+                            erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
+                    }
+                default:
+                    erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
+            }
+        default:
+            erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
     }
-    BIF_P->fvalue = BIF_ARG_1;
-    BIF_ERROR(BIF_P, BADMAP);
 }
 
 /*

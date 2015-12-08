@@ -2598,7 +2598,7 @@ hashmap_balance(KeyFun) ->
     F = fun(I, {M0,Max0}) ->
 		Key = KeyFun(I),
 		M1 = M0#{Key => Key},
-		Max1 = case erts_internal:map_type(M1) of
+		Max1 = case erts_internal:term_type(M1) of
 			   hashmap ->
 			       Nodes = hashmap_nodes(M1),
 			       Avg = maps:size(M1) * 0.4,
@@ -3004,7 +3004,7 @@ t_gc_rare_map_overflow(Config) ->
 					  Loop()
 			    end),
     FatMap = fatmap(34),
-    false = (flatmap =:= erts_internal:map_type(FatMap)),
+    false = (flatmap =:= erts_internal:term_type(FatMap)),
 
     t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
 
