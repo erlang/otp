@@ -77,8 +77,10 @@
 #define TCDR(Term) CDR(list_val(Term))
 
 /* Array access macro */ 
-#define ARRAY_GET(PDict, Index) (((PDict)->size > (Index)) ? \
-				 (PDict)->data[Index] : NIL)
+#define ARRAY_GET(PDict, Index) (ASSERT((Index) < (PDict)->size), \
+				 (PDict)->data[Index])
+#define ARRAY_PUT(PDict, Index, Val) (ASSERT((Index) < (PDict)->size), \
+                                      (PDict)->data[Index] = (Val))
 
 #define IS_POW2(X) ((X) && !((X) & ((X)-1)))
 
@@ -97,7 +99,7 @@ static void shrink(Process *p, Eterm* ret);
 static void grow(Process *p);
 
 static void array_shrink(ProcDict **ppd, unsigned int need);
-static Eterm array_put(ProcDict **ppdict, unsigned int ndx, Eterm term);
+static void ensure_array_size(ProcDict**, unsigned int size);
 
 static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx);
 static unsigned int next_array_size(unsigned int need);
@@ -361,7 +363,7 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
     if (is_boxed(old)) {	/* Tuple */
 	ASSERT(is_tuple(old));
 	if (EQ(tuple_val(old)[1], id)) {
-	    array_put(&(p->dictionary), hval, NIL);
+	    ARRAY_PUT(p->dictionary, hval, NIL);
 	    --(p->dictionary->numElements);
 	    *ret = tuple_val(old)[2];
 	}
@@ -381,7 +383,7 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
 	old = ARRAY_GET(p->dictionary, hval);
 	ASSERT(is_list(old));
 	if (is_nil(TCDR(old))) {
-	    array_put(&p->dictionary, hval, TCAR(old));
+	    ARRAY_PUT(p->dictionary, hval, TCAR(old));
 	}
     } else if (is_not_nil(old)) {
 #ifdef DEBUG
@@ -581,9 +583,8 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 
     if (p->dictionary == NULL) {
 	/* Create it */
-	array_put(&(p->dictionary), INITIAL_SIZE - 1, NIL);
+        ensure_array_size(&p->dictionary, INITIAL_SIZE);
 	p->dictionary->homeSize = INITIAL_SIZE;
-	ASSERT(IS_POW2(p->dictionary->homeSize));
     }	
     hval = pd_hash_value(p->dictionary, id);
     old = ARRAY_GET(p->dictionary, hval);
@@ -635,19 +636,19 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
      * Update the dictionary.
      */
     if (is_nil(old)) {
-	array_put(&(p->dictionary), hval, tpl);
+	ARRAY_PUT(p->dictionary, hval, tpl);
 	++(p->dictionary->numElements);
     } else if (is_boxed(old)) {
 	ASSERT(is_tuple(old));
 	if (EQ(tuple_val(old)[1],id)) {
-	    array_put(&(p->dictionary), hval, tpl);
+	    ARRAY_PUT(p->dictionary, hval, tpl);
 	    return tuple_val(old)[2];
 	} else {
 	    hp = HeapOnlyAlloc(p, 4);
 	    tmp = CONS(hp, old, NIL);
 	    hp += 2;
 	    ++(p->dictionary->numElements);
-	    array_put(&(p->dictionary), hval, CONS(hp, tpl, tmp));
+	    ARRAY_PUT(p->dictionary, hval, CONS(hp, tpl, tmp));
 	    hp += 2;
 	    ASSERT(hp <= hp_limit);
 	}
@@ -657,7 +658,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	     * New key. Simply prepend the tuple to the beginning of the list.
 	     */
 	    hp = HeapOnlyAlloc(p, 2);
-	    array_put(&(p->dictionary), hval, CONS(hp, tpl, old));
+	    ARRAY_PUT(p->dictionary, hval, CONS(hp, tpl, old));
 	    hp += 2;
 	    ASSERT(hp <= hp_limit);
 	    ++(p->dictionary->numElements);
@@ -692,7 +693,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	    nlist = CONS(hp, tpl, nlist);
 	    hp += 2;
 	    ASSERT(hp <= hp_limit);
-	    array_put(&(p->dictionary), hval, nlist);
+	    ARRAY_PUT(p->dictionary, hval, nlist);
 	    return tuple_val(TCAR(tmp))[2];
 	}
     } else {
@@ -741,7 +742,7 @@ static void shrink(Process *p, Eterm* ret)
 	lo = ARRAY_GET(pd, pd->splitPosition);
 	if (hi != NIL) {
 	    if (lo == NIL) {
-		array_put(&(p->dictionary), pd->splitPosition, hi);
+		ARRAY_PUT(p->dictionary, pd->splitPosition, hi);
 	    } else {
 		int needed = 4;
 		if (is_list(hi) && is_list(lo)) {
@@ -760,13 +761,13 @@ static void shrink(Process *p, Eterm* ret)
 			hp = HeapOnlyAlloc(p, 4);
 			tmp = CONS(hp, hi, NIL);
 			hp += 2;
-			array_put(&(p->dictionary), pd->splitPosition, 
+			ARRAY_PUT(p->dictionary, pd->splitPosition,
 				  CONS(hp,lo,tmp));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
 		    } else { /* hi is a list */
 			hp = HeapOnlyAlloc(p, 2);
-			array_put(&(p->dictionary), pd->splitPosition, 
+			ARRAY_PUT(p->dictionary, pd->splitPosition,
 				  CONS(hp, lo, hi));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
@@ -774,7 +775,7 @@ static void shrink(Process *p, Eterm* ret)
 		} else { /* lo is a list */
 		    if (is_tuple(hi)) {
 			hp = HeapOnlyAlloc(p, 2);
-			array_put(&(p->dictionary), pd->splitPosition, 
+			ARRAY_PUT(p->dictionary, pd->splitPosition,
 				  CONS(hp, hi, lo));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
@@ -786,12 +787,12 @@ static void shrink(Process *p, Eterm* ret)
 			    hp += 2;
 			}
 			ASSERT(hp <= hp_limit);
-			array_put(&(p->dictionary), pd->splitPosition, lo);
+			ARRAY_PUT(p->dictionary, pd->splitPosition, lo);
 		    }
 		}
 	    }
 	}
-	array_put(&(p->dictionary), (pd->splitPosition + pd->homeSize), NIL);
+	ARRAY_PUT(p->dictionary, (pd->splitPosition + pd->homeSize), NIL);
     }
     if (HASH_RANGE(p->dictionary) <= (p->dictionary->size / 4)) {
 	array_shrink(&(p->dictionary), (HASH_RANGE(p->dictionary) * 3) / 2);
@@ -808,7 +809,7 @@ static void grow(Process *p)
     unsigned int pos;
     unsigned int homeSize;
     int needed = 0;
-    ProcDict *pd;
+    ProcDict *pd = p->dictionary;
 #ifdef DEBUG
     Eterm *hp_limit;
 #endif
@@ -817,16 +818,18 @@ static void grow(Process *p)
     if (steps == 0)
 	steps = 1;
     /* Dont grow over MAX_HASH */
-    if ((MAX_HASH - steps) <= HASH_RANGE(p->dictionary)) {
+    if ((MAX_HASH - steps) <= HASH_RANGE(pd)) {
 	return;
     }
+
+    ensure_array_size(&p->dictionary, HASH_RANGE(pd) + steps);
+    pd = p->dictionary;
 
     /*
      * Calculate total number of heap words needed, and garbage collect
      * if necessary.
      */
 
-    pd = p->dictionary;
     pos = pd->splitPosition;
     homeSize = pd->homeSize;
     for (i = 0; i < steps; ++i) {
@@ -855,7 +858,6 @@ static void grow(Process *p)
      */
 
     for (i = 0; i < steps; ++i) {
-	ProcDict *pd = p->dictionary;
 	if (pd->splitPosition == pd->homeSize) {
 	    pd->homeSize *= 2;
 	    pd->splitPosition = 0;
@@ -865,9 +867,8 @@ static void grow(Process *p)
 	l = ARRAY_GET(pd, pos);
 	if (is_tuple(l)) {
 	    if (pd_hash_value(pd, tuple_val(l)[1]) != pos) {
-		array_put(&(p->dictionary), pos + 
-			  p->dictionary->homeSize, l);
-		array_put(&(p->dictionary), pos, NIL);
+		ARRAY_PUT(pd, pos + pd->homeSize, l);
+		ARRAY_PUT(pd, pos, NIL);
 	    }
 	} else {
 	    l2 = NIL;
@@ -889,10 +890,8 @@ static void grow(Process *p)
 	    if (l2 != NIL && TCDR(l2) == NIL)
 		l2 = TCAR(l2);
 	    ASSERT(hp <= hp_limit);
-	    /* After array_put pd is no longer valid */
-	    array_put(&(p->dictionary), pos, l1);
-	    array_put(&(p->dictionary), pos + 
-		      p->dictionary->homeSize, l2);
+	    ARRAY_PUT(pd, pos, l1);
+	    ARRAY_PUT(pd, pos + pd->homeSize, l2);
 	}
     }
 
@@ -912,7 +911,7 @@ static void array_shrink(ProcDict **ppd, unsigned int need)
     HDEBUGF(("array_shrink: size = %d, used = %d, need = %d",
 	     (*ppd)->size, (*ppd)->used, need));
 
-    if (siz > (*ppd)->size)
+    if (siz >= (*ppd)->size)
 	return; /* Only shrink */
 
     *ppd = PD_REALLOC(((void *) *ppd),
@@ -925,40 +924,33 @@ static void array_shrink(ProcDict **ppd, unsigned int need)
 }
     
 			
-static Eterm array_put(ProcDict **ppdict, unsigned int ndx, Eterm term)
+static void ensure_array_size(ProcDict **ppdict, unsigned int size)
 {
+    ProcDict *pd = *ppdict;
     unsigned int i;
-    Eterm ret;
-    if (*ppdict == NULL) {
-	Uint siz = next_array_size(ndx+1);
-	ProcDict *p;
 
-        p = PD_ALLOC(PD_SZ2BYTES(siz));
+    if (pd == NULL) {
+	Uint siz = next_array_size(size);
+
+        pd = PD_ALLOC(PD_SZ2BYTES(siz));
 	for (i = 0; i < siz; ++i) 
-	    p->data[i] = NIL;
-	p->size = siz;
-	p->homeSize = p->splitPosition = p->numElements = p->used = 0;
-	*ppdict = p;
-    } else if (ndx >= (*ppdict)->size) {
-	Uint osize = (*ppdict)->size;
-	Uint nsize = next_array_size(ndx+1);
-	*ppdict = PD_REALLOC(((void *) *ppdict),
+	    pd->data[i] = NIL;
+	pd->size = siz;
+	pd->homeSize = pd->splitPosition = pd->numElements = pd->used = 0;
+        *ppdict = pd;
+    } else if (size > pd->size) {
+	Uint osize = pd->size;
+	Uint nsize = next_array_size(size);
+	pd = PD_REALLOC(((void *) pd),
 			     PD_SZ2BYTES(osize),
 			     PD_SZ2BYTES(nsize));
 	for (i = osize; i < nsize; ++i)
-	    (*ppdict)->data[i] = NIL;
-	(*ppdict)->size = nsize;
+	    pd->data[i] = NIL;
+	pd->size = nsize;
+        *ppdict = pd;
     }
-    ret = (*ppdict)->data[ndx];
-    (*ppdict)->data[ndx] = term;
-    if ((ndx + 1) > (*ppdict)->used)
-	(*ppdict)->used = ndx + 1;
-#ifdef HARDDEBUG
-    HDEBUGF(("array_put: (*ppdict)->size = %d, (*ppdict)->used = %d, ndx = %d",
-	     (*ppdict)->size, (*ppdict)->used, ndx));
-    erts_fprintf(stderr, "%T", term);
-#endif /* HARDDEBUG */
-    return ret;
+    if (size > pd->used)
+	pd->used = size;
 }
 
 /*
