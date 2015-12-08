@@ -96,19 +96,9 @@ end_per_group(_, Config) ->
 
 
 init_per_testcase(erlang_server_openssh_client_public_key_dsa, Config) ->
-    case ssh_test_lib:openssh_supports(sshc, public_key, 'ssh-dss') of
-	true ->
-	    init_per_testcase('__default__',Config);
-	false ->
-	    {skip,"openssh client does not support DSA"}
-    end;
+    chk_key(sshc, 'ssh-dss', ".ssh/id_dsa", Config);
 init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
-    case ssh_test_lib:openssh_supports(sshd, public_key, 'ssh-dss') of
-	true ->
-	    init_per_testcase('__default__',Config);
-	false ->
-	    {skip,"openssh client does not support DSA"}
-    end;
+    chk_key(sshd, 'ssh-dss', ".ssh/id_dsa", Config);
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -116,6 +106,27 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
     ok.
+
+
+chk_key(Pgm, Name, File, Config) ->
+    case ssh_test_lib:openssh_supports(Pgm, public_key, Name) of
+	true ->
+	    {skip,lists:concat(["openssh client does not support ",Name])};
+	false ->
+	    {ok,[[Home]]} = init:get_argument(home),
+	    KeyFile =  filename:join(Home, File),
+	    case file:read_file(KeyFile) of
+		{ok, Pem} ->
+		    case public_key:pem_decode(Pem) of
+			[{_,_, not_encrypted}] ->
+			    init_per_testcase('__default__',Config);
+			_ ->
+			    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
+		    end;
+		_ ->
+		    {skip, lists:concat(["no ~/",File])}  
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -328,27 +339,16 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 erlang_client_openssh_server_publickey_dsa() ->
     [{doc, "Validate using dsa publickey."}].
 erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
-    {ok,[[Home]]} = init:get_argument(home),
-    KeyFile =  filename:join(Home, ".ssh/id_dsa"),
-    case file:read_file(KeyFile) of
-	{ok, Pem} ->
-	    case public_key:pem_decode(Pem) of
-		[{_,_, not_encrypted}] ->
-		    ConnectionRef =
-			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-					     [{public_key_alg, ssh_dsa},
-					      {user_interaction, false},
-					      silently_accept_hosts]),
-		    {ok, Channel} =
-			ssh_connection:session_channel(ConnectionRef, infinity),
-		    ok = ssh_connection:close(ConnectionRef, Channel),
-		    ok = ssh:close(ConnectionRef);
-		_ ->
-		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
-	    end;
-	_ ->
-	    {skip, "no ~/.ssh/id_dsa"}  
-    end.
+    ConnectionRef =
+	ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+			     [{public_key_alg, ssh_dsa},
+			      {user_interaction, false},
+			      silently_accept_hosts]),
+    {ok, Channel} =
+	ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:close(ConnectionRef, Channel),
+    ok = ssh:close(ConnectionRef).
+
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_public_key_dsa() ->
     [{doc, "Validate using dsa publickey."}].
@@ -360,7 +360,7 @@ erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, ssh_dsa},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    
+
     ct:sleep(500),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
@@ -369,12 +369,12 @@ erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     SshPort = open_port({spawn, Cmd}, [binary]),
 
     receive
-        {SshPort,{data, <<"2\n">>}} ->
+	{SshPort,{data, <<"2\n">>}} ->
 	    ok
     after ?TIMEOUT ->
 	    ct:fail("Did not receive answer")
     end,
-     ssh:stop_daemon(Pid).
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_password() ->
@@ -384,10 +384,10 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
     UserDir = ?config(data_dir, Config),
     {error, Reason0} =
 	ssh:connect(any, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-						 {user, "foo"},
-						 {password, "morot"},
-						 {user_interaction, false},
-						 {user_dir, UserDir}]),
+					     {user, "foo"},
+					     {password, "morot"},
+					     {user_interaction, false},
+					     {user_dir, UserDir}]),
     
     ct:log("Test of user foo that does not exist. "
 		       "Error msg: ~p~n", [Reason0]),

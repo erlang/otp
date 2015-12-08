@@ -279,7 +279,9 @@ no_common_alg_server_disconnects(Config) ->
 	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
 	   {match,
 	    {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-                  tcp_closed]},
+		   tcp_closed,
+		   {tcp_error,econnaborted}
+		  ]},
 	    receive_msg}
 	  ]
 	 ).
@@ -475,7 +477,8 @@ bad_packet_length(Config, LengthExcess) ->
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
+			  tcp_closed,
+			  {tcp_error,econnaborted}
 			 ]},
 		    receive_msg}
 	  ], InitialState).
@@ -507,7 +510,8 @@ bad_service_name_length(Config, LengthExcess) ->
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
 	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
+			  tcp_closed,
+			  {tcp_error,econnaborted}
 			 ]},
 	    receive_msg}
 	  ], InitialState).
