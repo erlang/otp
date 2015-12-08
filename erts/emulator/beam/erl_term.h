@@ -1129,11 +1129,11 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 #define FIRST_VACANT_TAG_DEF    0x12
 
 #if ET_DEBUG
-extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
-#define tag_val_def(x)	tag_val_def_debug((x),__FILE__,__LINE__)
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm, const char*, unsigned);
 #else
-extern unsigned tag_val_def(Wterm);
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm);
 #endif
+
 #define not_eq_tags(X,Y)	(tag_val_def((X)) ^ tag_val_def((Y)))
 
 #define NUMBER_CODE(x,y)	((tag_val_def(x) << 5) | tag_val_def(y))
@@ -1151,6 +1151,81 @@ extern unsigned tag_val_def(Wterm);
 #define is_same(A,B) ((A)==(B))
 
 void erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz);
+
+#if ET_DEBUG
+#define ET_ASSERT(expr,file,line) \
+do { \
+    if (!(expr)) \
+	erl_assert_error("TYPE ASSERTION: " #expr, __FUNCTION__, file, line); \
+} while(0)
+#else
+#define ET_ASSERT(expr,file,line)	do { } while(0)
+#endif
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#if ET_DEBUG
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm x, const char *file, unsigned line)
+#else
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
+#define file __FILE__
+#define line __LINE__
+#endif
+{
+    static char *msg = "tag_val_def error";
+
+    switch (x & _TAG_PRIMARY_MASK) {
+    case TAG_PRIMARY_LIST:
+	ET_ASSERT(_list_precond(x),file,line);
+	return LIST_DEF;
+      case TAG_PRIMARY_BOXED: {
+	  Eterm hdr = *boxed_val(x);
+	  ET_ASSERT(is_header(hdr),file,line);
+	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
+	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
+	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
+	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;
+	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):	return FLOAT_DEF;
+	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):     return EXPORT_DEF;
+	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):	return FUN_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PID_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PORT_DEF;
+	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):	return EXTERNAL_REF_DEF;
+	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):	return MAP_DEF;
+	    case (_TAG_HEADER_REFC_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_HEAP_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_SUB_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_BIN_MATCHSTATE >> _TAG_PRIMARY_SIZE): return MATCHSTATE_DEF;
+	  }
+
+	  break;
+      }
+      case TAG_PRIMARY_IMMED1: {
+	  switch ((x & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+	    case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):	return PID_DEF;
+	    case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):	return PORT_DEF;
+	    case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
+		switch ((x & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
+		  case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
+		  case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return NIL_DEF;
+		}
+		break;
+	    }
+	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):	return SMALL_DEF;
+	  }
+	  break;
+      }
+    }
+    erl_assert_error(msg, __FUNCTION__, file, line);
+#undef file
+#undef line
+}
+#endif
+
+#if ET_DEBUG
+#define tag_val_def(X) tag_val_def(X, __FILE__, __LINE__)
+#endif
 
 #endif	/* __ERL_TERM_H */
 
