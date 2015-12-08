@@ -630,9 +630,24 @@ erts_try_alloc_message_on_heap(Process *pp,
 #endif
     else {
     in_message_fragment:
-
-	mp = erts_alloc_message(sz, hpp);
-	*ohpp = sz == 0 ? NULL : &mp->hfrag.off_heap;
+	if (!((*psp) & ERTS_PSFLG_ON_HEAP_MSGQ)) {
+	    mp = erts_alloc_message(sz, hpp);
+	    *ohpp = sz == 0 ? NULL : &mp->hfrag.off_heap;
+	}
+	else {
+	    mp = erts_alloc_message(0, NULL);
+	    if (!sz) {
+		*hpp = NULL;
+		*ohpp = NULL;
+	    }
+	    else {
+		ErlHeapFragment *bp;
+		bp = new_message_buffer(sz);
+		*hpp = &bp->mem[0];
+		mp->data.heap_frag = bp;
+		*ohpp = &bp->off_heap;
+	    }
+	}
 	*on_heap_p = 0;
     }
 
@@ -1022,12 +1037,12 @@ erts_complete_off_heap_message_queue_change(Process *c_p)
     ASSERT(erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_OFF_HEAP_MSGQ);
 
     /*
-     * This job was first initiated when the process changed
-     * "off heap message queue" state from false to true. Since
-     * then ERTS_PSFLG_OFF_HEAP_MSGQ has been set. However, the
-     * state change might have been changed again (multiple times)
-     * since then. Check users last requested state (the flag
-     * F_OFF_HEAP_MSGQ), and make the state consistent with that.
+     * This job was first initiated when the process changed to off heap
+     * message queue management. Since then ERTS_PSFLG_OFF_HEAP_MSGQ
+     * has been set. However, the management state might have been changed
+     * again (multiple times) since then. Check users last requested state
+     * (the flags F_OFF_HEAP_MSGQ, and F_ON_HEAP_MSGQ), and make the state
+     * consistent with that.
      */
 
     if (!(c_p->flags & F_OFF_HEAP_MSGQ))
@@ -1068,8 +1083,9 @@ change_off_heap_msgq(void *vcohmq)
 }
 
 Eterm
-erts_change_off_heap_message_queue_state(Process *c_p, int enable)
+erts_change_message_queue_management(Process *c_p, Eterm new_state)
 {
+    Eterm res;
 
 #ifdef DEBUG
     if (c_p->flags & F_OFF_HEAP_MSGQ) {
@@ -1088,57 +1104,117 @@ erts_change_off_heap_message_queue_state(Process *c_p, int enable)
     }
 #endif
 
-    if (c_p->flags & F_OFF_HEAP_MSGQ) {
-	/* Off heap message queue is enabled */
+    switch (c_p->flags & (F_OFF_HEAP_MSGQ|F_ON_HEAP_MSGQ)) {
 
-	if (!enable) {
+    case F_OFF_HEAP_MSGQ:
+	res = am_off_heap;
+
+	switch (new_state) {
+	case am_off_heap:
+	    break;
+	case am_on_heap:
+	    c_p->flags |= F_ON_HEAP_MSGQ;
+	    erts_smp_atomic32_read_bor_nob(&c_p->state,
+					   ERTS_PSFLG_ON_HEAP_MSGQ);
+	    /* fall through */
+	case am_mixed:
 	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
-	     * if a change is ongoing. It will be adjusted when the
-	     * change completes...
+	     * if a off heap change is ongoing. It will be adjusted
+	     * when the change completes...
 	     */
 	    if (!(c_p->flags & F_OFF_HEAP_MSGQ_CHNG)) {
 		/* Safe to clear ERTS_PSFLG_OFF_HEAP_MSGQ... */
 		erts_smp_atomic32_read_band_nob(&c_p->state,
 						~ERTS_PSFLG_OFF_HEAP_MSGQ);
 	    }
+	    break;
+	default:
+	    res = THE_NON_VALUE; /* badarg */
+	    break;
 	}
+	break;
 
-	return am_true; /* Old state */
-    }
+    case F_ON_HEAP_MSGQ:
+	res = am_on_heap;
 
-    /* Off heap message queue is disabled */
+	switch (new_state) {
+	case am_on_heap:
+	    break;
+	case am_mixed:
+	    c_p->flags &= ~F_ON_HEAP_MSGQ;
+	    erts_smp_atomic32_read_band_nob(&c_p->state,
+					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
+	    break;
+	case am_off_heap:
+	    c_p->flags &= ~F_ON_HEAP_MSGQ;
+	    erts_smp_atomic32_read_band_nob(&c_p->state,
+					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
+	    goto change_to_off_heap;
+	default:
+	    res = THE_NON_VALUE; /* badarg */
+	    break;
+	}
+	break;
 
-    if (enable) {
-	c_p->flags |= F_OFF_HEAP_MSGQ;
-	/*
-	 * We do not have to schedule a change if
-	 * we have an ongoing change...
-	 */
-	if (!(c_p->flags & F_OFF_HEAP_MSGQ_CHNG)) {
-	    ErtsChangeOffHeapMessageQueue *cohmq;
-	    /*
-	     * Need to set ERTS_PSFLG_OFF_HEAP_MSGQ and wait
-	     * thread progress before completing the change in
-	     * order to ensure that all senders observe that
-	     * messages should be passed off heap. When the
-	     * change has completed, GC does not need to inspect
-	     * the message queue at all.
-	     */
+    case 0:
+	res = am_mixed;
+
+	switch (new_state) {
+	case am_mixed:
+	    break;
+	case am_on_heap:
+	    c_p->flags |= F_ON_HEAP_MSGQ;
 	    erts_smp_atomic32_read_bor_nob(&c_p->state,
-					   ERTS_PSFLG_OFF_HEAP_MSGQ);
-	    c_p->flags |= F_OFF_HEAP_MSGQ_CHNG;
-	    cohmq = erts_alloc(ERTS_ALC_T_MSGQ_CHNG,
-			       sizeof(ErtsChangeOffHeapMessageQueue));
-	    cohmq->pid = c_p->common.id;
-	    erts_schedule_thr_prgr_later_op(change_off_heap_msgq,
-					    (void *) cohmq,
-					    &cohmq->lop);
+					   ERTS_PSFLG_ON_HEAP_MSGQ);
+	    break;
+	case am_off_heap:
+	    goto change_to_off_heap;
+	default:
+	    res = THE_NON_VALUE; /* badarg */
+	    break;
 	}
+	break;
+
+    default:
+	res = am_error;
+	ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	break;
     }
 
-    return am_false; /* Old state */
+    return res;
+
+change_to_off_heap:
+
+    c_p->flags |= F_OFF_HEAP_MSGQ;
+
+    /*
+     * We do not have to schedule a change if
+     * we have an ongoing off heap change...
+     */
+    if (!(c_p->flags & F_OFF_HEAP_MSGQ_CHNG)) {
+	ErtsChangeOffHeapMessageQueue *cohmq;
+	/*
+	 * Need to set ERTS_PSFLG_OFF_HEAP_MSGQ and wait
+	 * thread progress before completing the change in
+	 * order to ensure that all senders observe that
+	 * messages should be passed off heap. When the
+	 * change has completed, GC does not need to inspect
+	 * the message queue at all.
+	 */
+	erts_smp_atomic32_read_bor_nob(&c_p->state,
+				       ERTS_PSFLG_OFF_HEAP_MSGQ);
+	c_p->flags |= F_OFF_HEAP_MSGQ_CHNG;
+	cohmq = erts_alloc(ERTS_ALC_T_MSGQ_CHNG,
+			   sizeof(ErtsChangeOffHeapMessageQueue));
+	cohmq->pid = c_p->common.id;
+	erts_schedule_thr_prgr_later_op(change_off_heap_msgq,
+					(void *) cohmq,
+					&cohmq->lop);
+    }
+
+    return res;
 }
 
 int

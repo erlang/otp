@@ -292,7 +292,7 @@ static void
 set_default_literal_alloc_opts(struct au_init *ip)
 {
     SET_DEFAULT_ALLOC_OPTS(ip);
-    ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
+    ip->enable			= 1;
     ip->thr_spec		= 0;
     ip->atype			= BESTFIT;
     ip->init.bf.ao		= 1;

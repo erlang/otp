@@ -630,7 +630,8 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
-    erts_fprintf(stderr, "-xohmq  bool   set default off_heap_message_queue flag for processes\n");
+    erts_fprintf(stderr, "-xmqd  val     set default message queue data flag for processes,\n");
+    erts_fprintf(stderr, "               valid values are: off_heap | on_heap | mixed\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
@@ -2020,15 +2021,21 @@ erl_start(int argc, char **argv)
 
 	case 'x': {
 	    char *sub_param = argv[i]+2;
-	    if (has_prefix("ohmq", sub_param)) {
-		arg = get_arg(sub_param+4, argv[i+1], &i);
-		if (sys_strcmp(arg, "true") == 0)
-		    erts_default_spo_flags |= SPO_OFF_HEAP_MSGQ;
-		else if (sys_strcmp(arg, "false") == 0)
+	    if (has_prefix("mqd", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (sys_strcmp(arg, "mixed") == 0)
+		    erts_default_spo_flags &= ~(SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ);
+		else if (sys_strcmp(arg, "on_heap") == 0) {
 		    erts_default_spo_flags &= ~SPO_OFF_HEAP_MSGQ;
+		    erts_default_spo_flags |= SPO_ON_HEAP_MSGQ;
+		}
+		else if (sys_strcmp(arg, "off_heap") == 0) {
+		    erts_default_spo_flags &= ~SPO_ON_HEAP_MSGQ;
+		    erts_default_spo_flags |= SPO_OFF_HEAP_MSGQ;
+		}
 		else {
 		    erts_fprintf(stderr,
-				 "Invalid off_heap_message_queue flag: %s\n", arg);
+				 "Invalid message_queue_data flag: %s\n", arg);
 		    erts_usage();
 		}
 	    } else {

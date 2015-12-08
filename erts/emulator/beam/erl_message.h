@@ -284,7 +284,7 @@ void erts_cleanup_offheap(ErlOffHeap *offheap);
 void erts_save_message_in_proc(Process *p, ErtsMessage *msg);
 Sint erts_move_messages_off_heap(Process *c_p);
 Sint erts_complete_off_heap_message_queue_change(Process *c_p);
-Eterm erts_change_off_heap_message_queue_state(Process *c_p, int enable);
+Eterm erts_change_message_queue_management(Process *c_p, Eterm new_state);
 
 int erts_decode_dist_message(Process *, ErtsProcLocks, ErtsMessage *, int);
 

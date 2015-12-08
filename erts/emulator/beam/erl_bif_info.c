@@ -592,7 +592,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-    am_off_heap_message_queue
+    am_message_queue_data
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -640,7 +640,7 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
-    case am_off_heap_message_queue:		return 31;
+    case am_message_queue_data:			return 31;
     default:					return -1;
     }
 }
@@ -1499,8 +1499,22 @@ process_info_aux(Process *BIF_P,
 	break;
     }
 
-    case am_off_heap_message_queue:
-	res = BIF_P->flags & F_OFF_HEAP_MSGQ ? am_true : am_false;
+    case am_message_queue_data:
+	switch (rp->flags & (F_OFF_HEAP_MSGQ|F_ON_HEAP_MSGQ)) {
+	case F_OFF_HEAP_MSGQ:
+	    res = am_off_heap;
+	    break;
+	case F_ON_HEAP_MSGQ:
+	    res = am_on_heap;
+	    break;
+	case 0:
+	    res = am_mixed;
+	    break;
+	default:
+	    res = am_error;
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    break;
+	}
 	hp = HAlloc(BIF_P, 3);
 	break;
 
@@ -2665,9 +2679,18 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_true);
     }
 #endif
-    else if (BIF_ARG_1 == am_off_heap_message_queue) {
-	BIF_RET(erts_default_spo_flags & SPO_OFF_HEAP_MSGQ
-		? am_true : am_false);
+    else if (BIF_ARG_1 == am_message_queue_data) {
+	switch (erts_default_spo_flags & (SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ)) {
+	case SPO_OFF_HEAP_MSGQ:
+	    BIF_RET(am_off_heap);
+	case SPO_ON_HEAP_MSGQ:
+	    BIF_RET(am_on_heap);
+	case 0:
+	    BIF_RET(am_mixed);
+	default:
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    BIF_RET(am_error);
+	}
     }
     else if (ERTS_IS_ATOM_STR("compile_info",BIF_ARG_1)) {
 	Uint  sz;

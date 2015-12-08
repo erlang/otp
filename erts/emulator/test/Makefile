@@ -79,6 +79,7 @@ MODULES= \
 	node_container_SUITE \
 	nofrag_SUITE \
 	num_bif_SUITE \
+	message_queue_data_SUITE \
 	op_SUITE \
 	port_SUITE \
 	port_bif_SUITE \

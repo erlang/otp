@@ -350,6 +350,7 @@ atom memory_internal
 atom memory_types
 atom message
 atom message_binary
+atom message_queue_data
 atom message_queue_len
 atom messages
 atom merge_trap
@@ -361,6 +362,7 @@ atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
 atom Minus='-'
+atom mixed
 atom module
 atom module_info
 atom monitored_by
@@ -423,11 +425,12 @@ atom notify
 atom notsup
 atom nouse_stdio
 atom objects
-atom off_heap_message_queue
+atom off_heap
 atom offset
 atom ok
 atom old_heap_block_size
 atom old_heap_size
+atom on_heap
 atom on_load
 atom open
 atom open_error

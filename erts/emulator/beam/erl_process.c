@@ -335,7 +335,6 @@ static ErtsAlignedSchedulerSleepInfo *aligned_dirty_io_sched_sleep_info;
 
 static Uint last_reductions;
 static Uint last_exact_reductions;
-Uint erts_default_process_flags;
 Eterm erts_system_monitor;
 Eterm erts_system_monitor_long_gc;
 Uint erts_system_monitor_long_schedule;
@@ -677,7 +676,6 @@ erts_init_process(int ncpu, int proc_tab_size, int legacy_proc_tab)
 
     last_reductions = 0;
     last_exact_reductions = 0;
-    erts_default_process_flags = 0;
 }
 
 void
@@ -9259,6 +9257,8 @@ Process *schedule(Process *p, int calls)
     } else {
     sched_out_proc:
 
+	ASSERT(!(p->flags & F_DELAY_GC));
+
 #ifdef ERTS_SMP
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 	esdp = p->scheduler_data;
@@ -10732,7 +10732,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		   Eterm args,	/* Arguments for function (must be well-formed list). */
 		   ErlSpawnOpts* so) /* Options for spawn. */
 {
-    Uint flags = erts_default_process_flags;
+    Uint flags = 0;
     ErtsRunQueue *rq = NULL;
     Process *p;
     Sint arity;			/* Number of arguments. */
@@ -10777,6 +10777,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     if (so->flags & SPO_OFF_HEAP_MSGQ) {
 	state |= ERTS_PSFLG_OFF_HEAP_MSGQ;
 	flags |= F_OFF_HEAP_MSGQ;
+    }
+    else if (so->flags & SPO_ON_HEAP_MSGQ) {
+	state |= ERTS_PSFLG_ON_HEAP_MSGQ;
+	flags |= F_ON_HEAP_MSGQ;
     }
 
     if (!rq)
@@ -11267,6 +11271,7 @@ erts_cleanup_empty_process(Process* p)
 static void
 delete_process(Process* p)
 {
+    Eterm *heap;
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
                            HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
@@ -11293,16 +11298,17 @@ delete_process(Process* p)
      * Release heaps. Clobber contents in DEBUG build.
      */
 
-
-#ifdef DEBUG
-    sys_memset(p->heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
-#endif
-
 #ifdef HIPE
     hipe_delete_process(&p->hipe);
 #endif
 
-    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) p->heap, p->heap_sz*sizeof(Eterm));
+    heap = p->abandoned_heap ? p->abandoned_heap : p->heap;
+
+#ifdef DEBUG
+    sys_memset(heap, DEBUG_BAD_BYTE, p->heap_sz*sizeof(Eterm));
+#endif
+
+    ERTS_HEAP_FREE(ERTS_ALC_T_HEAP, (void*) heap, p->heap_sz*sizeof(Eterm));
     if (p->old_heap != NULL) {
 
 #ifdef DEBUG
@@ -11320,6 +11326,9 @@ delete_process(Process* p)
     if (p->mbuf != NULL) {	
 	free_message_buffer(p->mbuf);
     }
+
+    if (p->msg_frag)
+	erts_cleanup_messages(p->msg_frag);
 
     erts_erase_dicts(p);
 

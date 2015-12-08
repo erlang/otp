@@ -164,7 +164,7 @@ void hipe_select_msg(Process *p)
     JOIN_MESSAGE(p);
     CANCEL_TIMER(p);		/* calls erts_cancel_proc_timer() */
     erts_save_message_in_proc(p, msgp);
-    p->flags &= ~F_DISABLE_GC;
+    p->flags &= ~F_DELAY_GC;
     if (ERTS_IS_GC_DESIRED(p)) {
 	/*
 	 * We want to GC soon but we leave a few
@@ -519,7 +519,7 @@ Eterm hipe_check_get_msg(Process *c_p)
 {
     ErtsMessage *msgp;
 
-    c_p->flags |= F_DISABLE_GC;
+    c_p->flags |= F_DELAY_GC;
 
  next_message:
 
@@ -541,7 +541,7 @@ Eterm hipe_check_get_msg(Process *c_p)
 	    /* XXX: BEAM doesn't need this */
 	    c_p->hipe_smp.have_receive_locks = 1;
 #endif
-	    c_p->flags &= ~F_DISABLE_GC;
+	    c_p->flags &= ~F_DELAY_GC;
 	    return THE_NON_VALUE;
 #ifdef ERTS_SMP
 	}

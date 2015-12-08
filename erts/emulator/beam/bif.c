@@ -910,13 +910,22 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    so.priority = PRIORITY_LOW;
 		else
 		    goto error;
-	    } else if (arg == am_off_heap_message_queue) {
-		if (val == am_true)
-		    so.flags |= SPO_OFF_HEAP_MSGQ;
-		else if (val == am_false)
+	    } else if (arg == am_message_queue_data) {
+		switch (val) {
+		case am_mixed:
+		    so.flags &= ~(SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ);
+		    break;
+		case am_on_heap:
 		    so.flags &= ~SPO_OFF_HEAP_MSGQ;
-		else
+		    so.flags |= SPO_ON_HEAP_MSGQ;
+		    break;
+		case am_off_heap:
+		    so.flags &= ~SPO_ON_HEAP_MSGQ;
+		    so.flags |= SPO_OFF_HEAP_MSGQ;
+		    break;
+		default:
 		    goto error;
+		}
 	    } else if (arg == am_min_heap_size && is_small(val)) {
 		Sint min_heap_size = signed_val(val);
 		if (min_heap_size < 0) {
@@ -1695,15 +1704,10 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        }
        BIF_RET(old_value);
    }
-   else if (BIF_ARG_1 == am_off_heap_message_queue) {
-       int enable;
-       if (BIF_ARG_2 == am_true)
-	   enable = 1;
-       else if (BIF_ARG_2 == am_false)
-	   enable = 0;
-       else
+   else if (BIF_ARG_1 == am_message_queue_data) {
+       old_value = erts_change_message_queue_management(BIF_P, BIF_ARG_2);
+       if (is_non_value(old_value))
 	   goto error;
-       old_value = erts_change_off_heap_message_queue_state(BIF_P, enable);
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_sensitive) {

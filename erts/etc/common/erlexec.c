@@ -158,7 +158,7 @@ static char *plusr_val_switches[] = {
 
 /* +x arguments with values */
 static char *plusx_val_switches[] = {
-    "ohmq",
+    "mqd",
     NULL
 };
 
