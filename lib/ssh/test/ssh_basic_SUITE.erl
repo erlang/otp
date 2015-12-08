@@ -311,6 +311,14 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
     wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
+
+init_per_testcase(inet6_option, Config) ->
+    case ssh_test_lib:has_inet6_address() of
+	true ->
+	    init_per_testcase('__default__', Config);
+	false ->
+	    {skip,"No ipv6 interface address"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
