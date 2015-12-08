@@ -845,7 +845,58 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <p>Verifies a digital signature.</p>
   </desc> 
   </func>
-  
+
+  <func>
+    <name>openssl_crl_issuer_hash(CRL) -> string()</name>
+    <type>
+      <v>CRL = binary() | #'CertificateList'{}</v>
+      <d>A certificate revocation list, either as a DER binary or
+      parsed into a record.</d>
+    </type>
+    <desc>
+      <p>Generates an OpenSSL-style hash of the issuer of the CRL.
+      The hash is returned as a string containing eight hexadecimal
+      digits.</p>
+
+      <p>The return value of this function is the same as the result
+      of the command <c>openssl crl -hash</c>.  This hash is used by
+      the <c>c_rehash</c> tool to maintain a directory of symlinks to
+      CRL files, in order to facilitate looking up a CRL by its issuer
+      name.</p>
+    </desc>
+  </func>
+
+  <func>
+    <name>openssl_cert_issuer_hash(Cert) -> string()</name>
+    <type>
+      <v>Cert = binary() | #'OTPCertificate'{}</v>
+      <d>A certificate, either as a DER binary or parsed into a
+      record.</d>
+    </type>
+    <desc>
+      <p>Generates an OpenSSL-style hash of the issuer of the
+      certificate.  The hash is returned as a string containing eight
+      hexadecimal digits.</p>
+
+      <p>The return value of this function is the same as the result
+      of the command <c>openssl x509 -issuer_hash</c>.</p>
+    </desc>
+  </func>
+
+  <func>
+    <name>openssl_name_hash(Name) -> string()</name>
+    <type>
+      <v>Name = issuer_name()</v>
+    </type>
+    <desc>
+      <p>Generates an OpenSSL-style hash of an issuer name.</p>
+
+      <p>This function is used by
+      <seealso marker="#openssl_crl_issuer_hash-1">openssl_crl_issuer_hash/1</seealso> and
+      <seealso marker="#openssl_cert_issuer_hash-1">openssl_cert_issuer_hash/1</seealso>.</p>
+    </desc>
+  </func>
+
 </funcs>
 
 </erlref>

@@ -43,7 +43,8 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl].
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl,
+     openssl_cert_issuer_hash, openssl_crl_issuer_hash].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
@@ -775,6 +776,37 @@ pkix_crl(Config) when is_list(Config) ->
     #'DistributionPoint'{cRLIssuer = asn1_NOVALUE,
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point} = public_key:pkix_dist_point(OTPIDPCert).
+
+%%--------------------------------------------------------------------
+openssl_cert_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for certificate issuer"}].
+
+openssl_cert_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'Certificate', CertDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl x509 -in client_cert.pem -issuer_hash -noout
+    CertIssuerHash = "d4c8d7e5",
+    
+    CertIssuerHash = public_key:openssl_cert_issuer_hash(CertDER).
+
+%%--------------------------------------------------------------------
+openssl_crl_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for CRL issuer"}].
+
+openssl_crl_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'CertificateList', CrlDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "idp_crl.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl crl -in idp_crl.pem -hash -noout
+    CrlIssuerHash = "d6134ed3",
+    
+    CrlIssuerHash = public_key:openssl_crl_issuer_hash(CrlDER).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
