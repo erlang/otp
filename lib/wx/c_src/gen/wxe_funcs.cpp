@@ -8520,6 +8520,25 @@ data = (wxObject *) getPtr(bp,memenv); bp += 4;
  rt.addRef(getRef((void *)Result,memenv), "wx");
  break;
 }
+#if wxCHECK_VERSION(3,0,0)
+case wxToolBar_AddStretchableSpace: { // wxToolBar::AddStretchableSpace
+ wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxToolBarToolBase * Result = (wxToolBarToolBase*)This->AddStretchableSpace();
+ rt.addRef(getRef((void *)Result,memenv), "wx");
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0)
+case wxToolBar_InsertStretchableSpace: { // wxToolBar::InsertStretchableSpace
+ wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
+ int * pos = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxToolBarToolBase * Result = (wxToolBarToolBase*)This->InsertStretchableSpace(*pos);
+ rt.addRef(getRef((void *)Result,memenv), "wx");
+ break;
+}
+#endif
 case wxToolBar_DeleteTool: { // wxToolBar::DeleteTool
  wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
  int * toolid = (int *) bp; bp += 4;

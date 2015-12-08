@@ -387,7 +387,9 @@ remove_lgt(Deep) ->
 
 remove_lgt_1([$<,$<|Rest]) ->
     [$>,$>|BinStr] = lists:reverse(Rest),
-    replace_lgt(lists:reverse(BinStr)).
+    replace_lgt(lists:reverse(BinStr));
+remove_lgt_1(TruncBin) ->
+    TruncBin.
 
 replace_lgt([$<|R]) ->
     ["&lt;"|replace_lgt(R)];

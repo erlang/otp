@@ -526,14 +526,19 @@ toolbar(Config) ->
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     TB = wxFrame:createToolBar(Frame),
-    wxToolBar:addTool(TB, 747, "PressMe", wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}]),
+    BM1 = wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}, {client, "wxART_TOOLBAR"}]),
+    BM2 = wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}, {client, "wxART_TOOLBAR"}]),
+    wxToolBar:addTool(TB, 747, "PressMe", BM1,
 		      [{shortHelp, "Press Me"}]),
-
+    catch wxToolBar:addStretchableSpace(TB),  %% wxWidgets 3.0 only
     Add = fun(#wx{}, _) ->
-		  wxToolBar:addTool(TB, -1, "Added", wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}]),
-				    [{shortHelp, "Test 2 popup text"}])
+		  wxToolBar:addTool(TB, -1, "Added", BM2,
+				    [{shortHelp, "Test 2 popup text"}]),
+		  catch wxToolBar:addStretchableSpace(TB), %% wxWidgets 3.0 only
+		  wxToolBar:realize(TB)
 	  end,
 
+    wxToolBar:realize(TB),
     wxFrame:connect(Frame, command_menu_selected, [{callback, Add}, {id, 747}]),
     wxFrame:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
