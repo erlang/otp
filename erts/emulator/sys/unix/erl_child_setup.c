@@ -136,7 +136,7 @@ start_new_child(int pipes[])
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
     if (res <= 0) {
-        ABORT("Failed to read size from %d (%d)", pipes[0], errno);
+        goto child_error;
     }
 
     buff = malloc(size);
@@ -147,8 +147,7 @@ start_new_child(int pipes[])
         if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
             if (errno == ERRNO_BLOCK || errno == EINTR)
                 continue;
-            ABORT("Failed to read %d bytes from %d (%d,%d)",
-                  size, pipes[0], res, errno);
+            goto child_error;
         }
         if (res == 0) {
             errno = EPIPE;
@@ -200,7 +199,8 @@ start_new_child(int pipes[])
     }
 
     if (o_buff + size != buff) {
-        ABORT("Buff error: %p, %p:%p", o_buff, o_buff+size, buff);
+        errno = EINVAL;
+        goto child_error;
     }
 
     DEBUG_PRINT("read ack");
