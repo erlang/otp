@@ -366,13 +366,17 @@ erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++
 	" " ++ Host ++ " 1+1.",
-    SshPort = open_port({spawn, Cmd}, [binary]),
+    SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
     receive
 	{SshPort,{data, <<"2\n">>}} ->
 	    ok
     after ?TIMEOUT ->
-	    ct:fail("Did not receive answer")
+	    receive
+		X -> ct:fail("Received: ~p",[X])
+	    after 0 ->
+		    ct:fail("Did not receive answer")
+	    end
     end,
     ssh:stop_daemon(Pid).
 
