@@ -33,6 +33,7 @@
   <xi:include href="ssl.xml"/>
   <xi:include href="ssl_crl_cache.xml"/>
   <xi:include href="ssl_crl_cache_api.xml"/>
+  <xi:include href="ssl_crl_hash_dir.xml"/>
   <xi:include href="ssl_session_cache_api.xml"/>
 </application>
 

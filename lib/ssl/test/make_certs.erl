@@ -172,11 +172,15 @@ revoke(Root, CA, User, C) ->
     gencrl(Root, CA, C).
 
 gencrl(Root, CA, C) ->
+    %% By default, the CRL is valid for 24 hours from now.
+    gencrl(Root, CA, C, 24).
+
+gencrl(Root, CA, C, CrlHours) ->
     CACnfFile = filename:join([Root, CA, "ca.cnf"]),
     CACRLFile = filename:join([Root, CA, "crl.pem"]),
     Cmd = [C#config.openssl_cmd, " ca"
 	   " -gencrl ",
-	   " -crlhours 24",
+	   " -crlhours ", integer_to_list(CrlHours),
 	   " -out ", CACRLFile,
 	   " -config ", CACnfFile],
     Env = [{"ROOTDIR", filename:absname(Root)}], 
