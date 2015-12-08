@@ -80,6 +80,8 @@
 #define ARRAY_GET(PDict, Index) (((PDict)->size > (Index)) ? \
 				 (PDict)->data[Index] : NIL)
 
+#define IS_POW2(X) ((X) && !((X) & ((X)-1)))
+
 /*
  * Forward decalarations
  */
@@ -137,6 +139,16 @@ static void pd_check(ProcDict *pd);
 /*
 ** External interface
 */
+
+int
+erts_pd_set_initial_size(int size)
+{
+    if (size <= 0)
+	return 0;
+
+    erts_pd_initial_size = 1 << erts_fit_in_bits_uint(size-1);
+    return 1;
+}
 
 /*
  * Called from break handler
@@ -399,6 +411,7 @@ Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)
     unsigned int hval;
     ProcDict *pd = p->dictionary;
 
+    ASSERT(hx == MAKE_HASH(id));
     if (pd == NULL)
 	return am_undefined;
     hval = pd_hash_value_to_ix(pd, hx);
@@ -570,6 +583,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	/* Create it */
 	array_put(&(p->dictionary), INITIAL_SIZE - 1, NIL);
 	p->dictionary->homeSize = INITIAL_SIZE;
+	ASSERT(IS_POW2(p->dictionary->homeSize));
     }	
     hval = pd_hash_value(p->dictionary, id);
     old = ARRAY_GET(p->dictionary, hval);
@@ -954,9 +968,12 @@ static Eterm array_put(ProcDict **ppdict, unsigned int ndx, Eterm term)
 static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx) 
 { 
     Uint high;
-    high = hx % (pdict->homeSize*2);
+
+    ASSERT(IS_POW2(pdict->homeSize));
+
+    high = hx & (pdict->homeSize*2 - 1);
     if (high >= HASH_RANGE(pdict))
-	return hx % pdict->homeSize;
+	return hx & (pdict->homeSize - 1);
     return high;
 }
 
