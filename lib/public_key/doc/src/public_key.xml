@@ -114,8 +114,8 @@
       </item>
 
       <tag><c>pem_entry () =</c></tag>
-      <item><p><c>{pki_asn1_type(), binary(), %% DER or encrypted DER not_encrypted</c></p>
-      <p><c>| cipher_info()}</c></p></item>
+      <item><p><c>{pki_asn1_type(), binary(), %% DER or encrypted DER</c></p>
+      <p><c> not_encrypted | cipher_info()}</c></p></item>
       
       <tag><c>cipher_info() = </c></tag>
       <item><p><c>{"RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)</c></p>
@@ -786,13 +786,13 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <fsummary>Decodes an SSH file-binary.</fsummary>
     <type>
       <v>SshBin = binary()</v>
-      <d>Example {ok, SshBin} = file:read_file("known_hosts").</d>
+      <d>Example <c>{ok, SshBin} = file:read_file("known_hosts")</c>.</d>
       <v>Type = public_key | ssh_file()</v>
       <d>If <c>Type</c> is <c>public_key</c> the binary can be either
       an RFC4716 public key or an OpenSSH public key.</d>
     </type>
   <desc>
-    <p>Decodes an SSH file-binary. In the case of <c>know_hosts</c> or
+    <p>Decodes an SSH file-binary. In the case of <c>known_hosts</c> or
     <c>auth_keys</c>, the binary can include one or more lines of the
     file. Returns a list of public keys and their attributes, possible
     attribute values depends on the file type represented by the
@@ -842,7 +842,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v>
   </type>
   <desc>
-    <p>Veryfies a digital signature.</p>
+    <p>Verifies a digital signature.</p>
   </desc> 
   </func>
   
