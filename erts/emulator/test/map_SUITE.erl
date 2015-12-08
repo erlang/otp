@@ -2999,21 +2999,38 @@ id(I) -> I.
 t_gc_rare_map_overflow(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(gc_rare_map_overflow, slave, [{args, "-pa \""++Pa++"\""}]),
-    Echo = spawn_link(Node, fun Loop() -> receive {From,Msg} -> From ! Msg
-					  end,
-					  Loop()
-			    end),
-    FatMap = fatmap(34),
-    false = (flatmap =:= erts_internal:map_type(FatMap)),
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+	Echo = spawn_link(Node, fun Loop() -> receive {From,Msg} -> From ! Msg
+					      end,
+					      Loop()
+				end),
+	FatMap = fatmap(34),
+	false = (flatmap =:= erts_internal:map_type(FatMap)),
 
-    t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
+	t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
 
-    % Repeat test for minor gc:
-    minor_collect(), % need this to make the next gc really be a minor
-    t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> true = minor_collect() end),
+	%% Repeat test for minor gc:
+	t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> minor_collect() end),
 
-    unlink(Echo),
-    test_server:stop_node(Node).
+	unlink(Echo),
+
+	%% Test fatmap in exit signal
+	Exiter = spawn_link(Node, fun Loop() -> receive {From,Msg} ->
+							"not_a_map" = Msg  % badmatch!
+						end,
+						Loop()
+				  end),
+	process_flag(trap_exit, true),
+	Exiter ! {self(), FatMap},
+	{'EXIT', Exiter, {{badmatch,FatMap}, _}} = receive M -> M end,
+	ok
+
+    after
+	process_flag(trap_exit, false),
+	erts_debug:set_internal_state(available_internal_state, false),
+	test_server:stop_node(Node)
+    end.
 
 t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
     Master = self(),
@@ -3033,15 +3050,11 @@ t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
     ok.
 
 minor_collect() ->
-    minor_collect(minor_gcs()).
-
-minor_collect(Before) ->
+    Before = minor_gcs(),
+    erts_debug:set_internal_state(force_gc, self()),
+    erlang:yield(),
     After = minor_gcs(),
-    case After of
-	_ when After > Before -> true;
-	_ when After =:= Before -> minor_collect(Before);
-	0 -> false
-    end.
+    io:format("minor_gcs: ~p -> ~p\n", [Before, After]).
 
 minor_gcs() ->
     {garbage_collection, Info} = process_info(self(), garbage_collection),
@@ -3051,7 +3064,7 @@ minor_gcs() ->
 %% Generate a map with N (or N+1) keys that has an abnormal heap demand.
 %% Done by finding keys that collide in the first 32-bit hash.
 fatmap(N) ->
-    erts_debug:set_internal_state(available_internal_state, true),
+    %%erts_debug:set_internal_state(available_internal_state, true),
     Table = ets:new(void, [bag, private]),
 
     Seed0 = rand:seed_s(exsplus, {4711, 3141592, 2718281}),

@@ -58,7 +58,8 @@ typedef struct {
         FACTORY_HALLOC,
         FACTORY_MESSAGE,
         FACTORY_HEAP_FRAGS,
-        FACTORY_STATIC
+        FACTORY_STATIC,
+        FACTORY_TMP
     } mode;
     Process* p;
     Eterm* hp_start;
@@ -80,6 +81,7 @@ ErtsMessage *erts_factory_message_create(ErtsHeapFactory *, Process *,
 					  ErtsProcLocks *, Uint sz);
 void erts_factory_selfcontained_message_init(ErtsHeapFactory*, ErtsMessage *, Eterm *);
 void erts_factory_static_init(ErtsHeapFactory*, Eterm* hp, Uint size, ErlOffHeap*);
+void erts_factory_tmp_init(ErtsHeapFactory*, Eterm* hp, Uint size, Uint32 atype);
 void erts_factory_dummy_init(ErtsHeapFactory*);
 
 Eterm* erts_produce_heap(ErtsHeapFactory*, Uint need, Uint xtra);
