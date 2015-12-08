@@ -999,7 +999,8 @@ handle_info({Protocol, Socket, Data}, StateName,
 		   encoded_data_buffer = EncData0,
 		   undecoded_packet_length = RemainingSshPacketLen0} = State0) ->
     Encoded = <<EncData0/binary, Data/binary>>,
-    case ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) of
+    try ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) 
+    of
 	{get_more, DecBytes, EncDataRest, RemainingSshPacketLen, Ssh1} ->
 	    {next_state, StateName,
 	     next_packet(State0#state{encoded_data_buffer = EncDataRest,
@@ -1021,7 +1022,22 @@ handle_info({Protocol, Socket, Data}, StateName,
 		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
 					description = "Bad mac",
 					language = ""},
-	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1})
+	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1});
+
+	{error, {exceeds_max_size,PacketLen}} ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet length " 
+				    ++ integer_to_list(PacketLen),
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
+    catch
+	_:_ ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet",
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
     end;
 		
 handle_info({CloseTag, _Socket}, _StateName, 
@@ -1392,43 +1408,53 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	Byte == ?SSH_MSG_CHANNEL_REQUEST;
 	Byte == ?SSH_MSG_CHANNEL_SUCCESS;
 	Byte == ?SSH_MSG_CHANNEL_FAILURE ->
-    ConnectionMsg =  ssh_message:decode(Msg),
-    State1 = generate_event_new_state(State0, EncData),
-    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
-	{{replies, Replies0}, Connection} ->
-	    if StateName == connected ->
-		    Replies = Replies0,
-		    State2  = State1;
-	       true ->
-		    {ConnReplies, Replies} =
-			lists:splitwith(fun not_connected_filter/1, Replies0),
-		    Q = State1#state.event_queue ++ ConnReplies,
-		    State2  = State1#state{ event_queue = Q }
-	    end,
-	    State = send_replies(Replies,  State2#state{connection_state = Connection}),
-	    {next_state, StateName, next_packet(State)};
-	{noreply, Connection} ->
-	    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
-	{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
-	      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    User ! {self(), not_connected, Reason},
-	    {stop, {shutdown, normal},
-	     next_packet(State#state{connection_state = Connection})};
-	{disconnect, _Reason, {{replies, Replies}, Connection}} ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
-    catch
-	_:Error ->
-	    {disconnect, _Reason, {{replies, Replies}, Connection}} =
-		ssh_connection:handle_msg(
-		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-					  description = "Internal error",
-				      language = "en"}, Connection0, Role),
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
-    end;
+    try
+	ssh_message:decode(Msg)
+    of
+	ConnectionMsg ->
+	    State1 = generate_event_new_state(State0, EncData),
+	    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
+		{{replies, Replies0}, Connection} ->
+		    if StateName == connected ->
+			    Replies = Replies0,
+			    State2  = State1;
+		       true ->
+			    {ConnReplies, Replies} =
+				lists:splitwith(fun not_connected_filter/1, Replies0),
+			    Q = State1#state.event_queue ++ ConnReplies,
+			    State2  = State1#state{ event_queue = Q }
+		    end,
+		    State = send_replies(Replies,  State2#state{connection_state = Connection}),
+		    {next_state, StateName, next_packet(State)};
+		{noreply, Connection} ->
+		    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
+		{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
+		      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    User ! {self(), not_connected, Reason},
+		    {stop, {shutdown, normal},
+		     next_packet(State#state{connection_state = Connection})};
+		{disconnect, _Reason, {{replies, Replies}, Connection}} ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
+	    catch
+		_:Error ->
+		    {disconnect, _Reason, {{replies, Replies}, Connection}} =
+			ssh_connection:handle_msg(
+			  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+					      description = "Internal error",
+					      language = "en"}, Connection0, Role),
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
+	    end
 
+    catch
+	_:_ ->
+	    handle_disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				  description = "Bad packet received",
+				  language = ""}, State0)
+    end;
 
 generate_event(Msg, StateName, State0, EncData) ->
     try 

@@ -1004,10 +1004,7 @@ handle_packet_part(<<>>, Encrypted0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0
 
 	{ok, PacketLen, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
 	    %% far too long message than expected
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				      description = "Bad packet length " 
-				      ++ integer_to_list(PacketLen),
-				      language = ""});
+	    {error, {exceeds_max_size,PacketLen}};
 	
 	{ok, PacketLen, Decrypted, Encrypted1,
 	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
