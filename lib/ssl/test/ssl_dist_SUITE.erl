@@ -538,17 +538,13 @@ host_name() ->
     Host.
 
 mk_node_name(Config) ->
-    {A, B, C} = erlang:now(),
+    N = erlang:unique_integer([positive]),
     Case = ?config(testcase, Config),
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
 	++ "_"
-	++ integer_to_list(A)
-	++ "-"
-	++ integer_to_list(B)
-	++ "-"
-	++ integer_to_list(C).
+	++ integer_to_list(N).
 
 mk_node_cmdline(ListenPort, Name, Args) ->
     Static = "-detached -noinput",
@@ -777,12 +773,10 @@ rand_bin(N) ->
 rand_bin(0, Acc) ->
     Acc;
 rand_bin(N, Acc) ->
-    rand_bin(N-1, [random:uniform(256)-1|Acc]).
+    rand_bin(N-1, [rand:uniform(256)-1|Acc]).
 
 make_randfile(Dir) ->
     {ok, IoDev} = file:open(filename:join([Dir, "RAND"]), [write]),
-    {A, B, C} = erlang:now(),
-    random:seed(A, B, C),
     ok = file:write(IoDev, rand_bin(1024)),
     file:close(IoDev).
 
