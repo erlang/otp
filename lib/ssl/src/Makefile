@@ -70,6 +70,7 @@ MODULES= \
 	ssl_session_cache \
 	ssl_crl\
 	ssl_crl_cache \
+	ssl_crl_hash_dir \
 	ssl_socket \
 	ssl_listen_tracker_sup \
 	tls_record \
