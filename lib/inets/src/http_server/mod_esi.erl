@@ -281,6 +281,15 @@ erl(#mod{request_uri  = ReqUri,
 		       ?NICE("Erl mechanism doesn't support method DELETE")}}|
 	      Data]};
 
+erl(#mod{request_uri  = ReqUri, 
+	 method       = "PATCH",
+         http_version = Version, 
+	 data         = Data}, _ESIBody, _Modules) ->
+    ?hdrt("erl", [{method, patch}]),
+    {proceed, [{status,{501,{"PATCH", ReqUri, Version},
+			?NICE("Erl mechanism doesn't support method PATCH")}}|
+	       Data]};
+
 erl(#mod{method      = "POST", 
 	 entity_body = Body} = ModData, ESIBody, Modules) ->
     ?hdrt("erl", [{method, post}]),
