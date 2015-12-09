@@ -24,7 +24,6 @@
 
 typedef struct proc_dict {
     unsigned int size;
-    unsigned int used;
     unsigned int homeSize;
     unsigned int splitPosition;
     Uint numElements;
@@ -32,7 +31,7 @@ typedef struct proc_dict {
 } ProcDict;
 
 #define ERTS_PD_START(PD) ((PD)->data)
-#define ERTS_PD_SIZE(PD)  ((PD)->used)
+#define ERTS_PD_SIZE(PD)  ((PD)->homeSize + (PD)->splitPosition)
 
 int erts_pd_set_initial_size(int size);
 Uint erts_dicts_mem_size(struct process *p);

@@ -164,9 +164,9 @@ erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
     /*PD_CHECK(pd);*/
     if (pd == NULL)
 	return;
-    erts_print(to, to_arg, "(size = %d, used = %d, homeSize = %d, "
+    erts_print(to, to_arg, "(size = %d, homeSize = %d, "
 	       "splitPosition = %d, numElements = %d)\n",
-	       pd->size, pd->used, pd->homeSize, 
+	       pd->size, pd->homeSize,
 	       pd->splitPosition, (unsigned int) pd->numElements);
     for (i = 0; i < HASH_RANGE(pd); ++i) {
 	erts_print(to, to_arg, "%d: %T\n", i, ARRAY_GET(pd, i));
@@ -908,8 +908,8 @@ static void array_shrink(ProcDict **ppd, unsigned int need)
 {
     unsigned int siz = next_array_size(need);
 
-    HDEBUGF(("array_shrink: size = %d, used = %d, need = %d",
-	     (*ppd)->size, (*ppd)->used, need));
+    HDEBUGF(("array_shrink: size = %d, need = %d",
+	     (*ppd)->size, need));
 
     if (siz >= (*ppd)->size)
 	return; /* Only shrink */
@@ -919,8 +919,6 @@ static void array_shrink(ProcDict **ppd, unsigned int need)
 		      PD_SZ2BYTES(siz));
 
     (*ppd)->size = siz;
-    if ((*ppd)->size < (*ppd)->used)
-	(*ppd)->used = (*ppd)->size;
 }
     
 			
@@ -936,7 +934,7 @@ static void ensure_array_size(ProcDict **ppdict, unsigned int size)
 	for (i = 0; i < siz; ++i) 
 	    pd->data[i] = NIL;
 	pd->size = siz;
-	pd->homeSize = pd->splitPosition = pd->numElements = pd->used = 0;
+	pd->homeSize = pd->splitPosition = pd->numElements = 0;
         *ppdict = pd;
     } else if (size > pd->size) {
 	Uint osize = pd->size;
@@ -949,8 +947,6 @@ static void ensure_array_size(ProcDict **ppdict, unsigned int size)
 	pd->size = nsize;
         *ppdict = pd;
     }
-    if (size > pd->used)
-	pd->used = size;
 }
 
 /*
@@ -1029,12 +1025,14 @@ static unsigned int next_array_size(unsigned int need)
 static void pd_check(ProcDict *pd) 
 {
     unsigned int i;
+    unsigned int used;
     Uint num;
     if (pd == NULL)
 	return;
-    ASSERT(pd->size >= pd->used);
+    used = HASH_RANGE(pd);
+    ASSERT(pd->size >= used);
     ASSERT(HASH_RANGE(pd) <= MAX_HASH);
-    for (i = 0, num = 0; i < pd->used; ++i) {
+    for (i = 0, num = 0; i < used; ++i) {
 	Eterm t = pd->data[i];
 	if (is_nil(t)) {
 	    continue;
