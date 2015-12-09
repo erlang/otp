@@ -69,7 +69,7 @@
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -742,25 +742,21 @@ chk_strc(Res0, Res1) ->
     ok.
 
 chk_random_values(FR, TR) ->
-%    case (FR rem TR == 0) orelse (TR rem FR == 0) of
-%	true ->
-	    io:format("rand values ~p -> ~p~n", [FR, TR]),
-	    random:seed(268438039, 268440479, 268439161),
-	    Values = lists:map(fun (_) -> random:uniform(1 bsl 65) - (1 bsl 64) end,
-			       lists:seq(1, 100000)),
-	    CheckFun = fun (V) ->
-			       CV = erlang:convert_time_unit(V, FR, TR),
-			       case {(FR*CV) div TR =< V,
-				     (FR*(CV+1)) div TR >= V} of
-				   {true, true} ->
-				       ok;
-				   Failure ->
-				       ?t:fail({Failure, CV, V, FR, TR})
-			       end
-		       end,
-	    lists:foreach(CheckFun, Values).%;
-%	false -> ok
-%    end.
+    io:format("rand values ~p -> ~p~n", [FR, TR]),
+    rand:seed(exsplus, {268438039,268440479,268439161}),
+    Values = lists:map(fun (_) -> rand:uniform(1 bsl 65) - (1 bsl 64) end,
+		       lists:seq(1, 100000)),
+    CheckFun = fun (V) ->
+		       CV = erlang:convert_time_unit(V, FR, TR),
+		       case {(FR*CV) div TR =< V,
+			     (FR*(CV+1)) div TR >= V} of
+			   {true, true} ->
+			       ok;
+			   Failure ->
+			       ?t:fail({Failure, CV, V, FR, TR})
+		       end
+	       end,
+    lists:foreach(CheckFun, Values).
 		       
 
 chk_values_per_value(_FromRes, _ToRes,

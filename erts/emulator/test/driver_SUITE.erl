@@ -224,7 +224,7 @@ outputv_errors_1(Term) ->
     port_close(Port).
 
 build_iolist(N, Base) when N < 16 ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -232,7 +232,7 @@ build_iolist(N, Base) when N < 16 ->
 	    lists:seq(1, N)
     end;
 build_iolist(N, Base) when N =< byte_size(Base) ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -250,7 +250,7 @@ build_iolist(N, Base) when N =< byte_size(Base) ->
 	    end
     end;
 build_iolist(N0, Base) ->
-    Small = random:uniform(15),
+    Small = rand:uniform(15),
     Seq = lists:seq(1, Small),
     N = N0 - Small,
     case N rem 2 of
@@ -2502,14 +2502,7 @@ random_char() ->
     uniform(256) - 1.
 
 uniform(N) ->
-    case get(random_seed) of
-	undefined ->
-	    {X, Y, Z} = time(),
-	    random:seed(X, Y, Z);
-	_ ->
-	    ok
-    end,
-    random:uniform(N).
+    rand:uniform(N).
 
 erl_millisecs() ->
     erl_millisecs(erlang:monotonic_time()).

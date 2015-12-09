@@ -97,10 +97,11 @@ relop_simple(Config) when is_list(Config) ->
     lists:foreach(fun({A,B}) -> relop_simple_do(A,B) end,
 		  Combos),
 
-    repeat(fun() -> Size = random:uniform(100),
-		    Rnd1 = make_rand_term(Size),
-		    {Rnd2,0} = clone_and_mutate(Rnd1, random:uniform(Size)),
-		    relop_simple_do(Rnd1,Rnd2)
+    repeat(fun() ->
+		   Size = rand:uniform(100),
+		   Rnd1 = make_rand_term(Size),
+		   {Rnd2,0} = clone_and_mutate(Rnd1, rand:uniform(Size)),
+		   relop_simple_do(Rnd1,Rnd2)
 	   end,
 	   1000),
     ok.
@@ -158,7 +159,7 @@ cmp_emu(A,B) ->
 make_rand_term(1) ->
     make_rand_term_single();
 make_rand_term(Arity) ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    make_rand_list(Arity);
 	2 ->
@@ -169,17 +170,17 @@ make_rand_term(Arity) ->
     end.
 
 make_rand_term_single() ->
-    Range = 1 bsl random:uniform(200),
-    case random:uniform(12) of
+    Range = 1 bsl rand:uniform(200),
+    case rand:uniform(12) of
 	1 -> random;
 	2 -> uniform;
-	3 -> random:uniform(Range) - (Range div 2);
-	4 -> Range * (random:uniform() - 0.5);
+	3 -> rand:uniform(Range) - (Range div 2);
+	4 -> Range * (rand:uniform() - 0.5);
 	5 -> 0;
 	6 -> 0.0;
 	7 -> make_ref();
 	8 -> self();
-	9 -> term_to_binary(random:uniform(Range));
+	9 -> term_to_binary(rand:uniform(Range));
 	10 -> fun(X) -> X*Range end; 
 	11 -> fun(X) -> X/Range end;
 	12 -> []
@@ -188,7 +189,7 @@ make_rand_term_single() ->
 make_rand_term_rand_size(1) ->
     {make_rand_term(1), 0};
 make_rand_term_rand_size(MaxArity) ->
-    Arity = random:uniform(MaxArity-1),
+    Arity = rand:uniform(MaxArity-1),
     {make_rand_term(Arity), MaxArity-Arity}.
 
 make_rand_list(0) -> [];
