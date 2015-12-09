@@ -1577,6 +1577,9 @@ void erts_factory_selfcontained_message_init(ErtsHeapFactory* factory,
     ASSERT(factory->hp >= factory->hp_start && factory->hp <= factory->hp_end);
 }
 
+/* One static sized heap that must suffice.
+   No extra heap fragments will be allocated.
+*/
 void erts_factory_static_init(ErtsHeapFactory* factory,
 			     Eterm* hp,
 			     Uint size,
@@ -1589,6 +1592,23 @@ void erts_factory_static_init(ErtsHeapFactory* factory,
     factory->off_heap = off_heap;
     factory->off_heap_saved.first    = factory->off_heap->first;
     factory->off_heap_saved.overhead = factory->off_heap->overhead;
+}
+
+/* A temporary heap with default buffer allocated/freed by client.
+ * factory_close is same as factory_undo
+ */
+void erts_factory_tmp_init(ErtsHeapFactory* factory, Eterm* hp, Uint size,
+			   Uint32 atype)
+{
+    factory->mode     = FACTORY_TMP;
+    factory->hp_start = hp;
+    factory->hp       = hp;
+    factory->hp_end   = hp + size;
+    factory->heap_frags = NULL;
+    factory->off_heap_saved.first    = NULL;
+    factory->off_heap_saved.overhead = 0;
+    factory->off_heap = &factory->off_heap_saved;
+    factory->alloc_type = atype;
 }
 
 /* When we know the term is an immediate and need no heap.
@@ -1641,6 +1661,7 @@ static void reserve_heap(ErtsHeapFactory* factory, Uint need, Uint xtra)
 	else {
 	    /* Fall through */
 	case FACTORY_HEAP_FRAGS:
+	case FACTORY_TMP:
 	    bp = factory->heap_frags;
 	}
 
@@ -1705,6 +1726,9 @@ void erts_factory_close(ErtsHeapFactory* factory)
 
 	    bp->used_size = factory->hp - bp->mem;
         }
+	break;
+    case FACTORY_TMP:
+	erts_factory_undo(factory);
 	break;
     case FACTORY_STATIC: break;
     case FACTORY_CLOSED: break;
@@ -1832,8 +1856,20 @@ void erts_factory_undo(ErtsHeapFactory* factory)
 	    factory->message->data.heap_frag = factory->heap_frags;
 	erts_cleanup_messages(factory->message);
 	break;
+    case FACTORY_TMP:
     case FACTORY_HEAP_FRAGS:
-	free_message_buffer(factory->heap_frags);
+	erts_cleanup_offheap(factory->off_heap);
+	factory->off_heap->first = NULL;
+
+        bp = factory->heap_frags;
+        while (bp != NULL) {
+            ErlHeapFragment* next_bp = bp->next;
+
+            ASSERT(bp->off_heap.first == NULL);
+            ERTS_HEAP_FREE(factory->alloc_type, (void *) bp,
+                           ERTS_HEAP_FRAG_SIZE(bp->alloc_size));
+            bp = next_bp;
+        }
 	break;
 
     case FACTORY_CLOSED: break;
