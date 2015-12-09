@@ -80,8 +80,6 @@ report_result(Error) -> ?line test_server:fail(Error).
 big_test(N) ->
     C = start_collect(),
     system_time(), system_time(), system_time(),
-    random:seed(erlang:timestamp()),
-    random:uniform(100),random:uniform(100),random:uniform(100),
 
     big_loop(C, N, []),
 
@@ -127,17 +125,17 @@ big_loop(C, N, Pids) ->
     after 0 ->
 
 	    %% maybe start an interval timer test
-	    Pids1 = maybe_start_i_test(Pids, C, random:uniform(4)),
+	    Pids1 = maybe_start_i_test(Pids, C, rand:uniform(4)),
 	    
 	    %% start 1-4 "after" tests
-	    Pids2 = start_after_test(Pids1, C, random:uniform(4)),
+	    Pids2 = start_after_test(Pids1, C, rand:uniform(4)),
 	    %%Pids2=Pids1,
 
 	    %% wait a little while
-	    timer:sleep(random:uniform(200)*3),
+	    timer:sleep(rand:uniform(200)*3),
 
 	    %% spawn zero, one or two nrev to get some load ;-/
-	    Pids3 = start_nrev(Pids2, random:uniform(100)),
+	    Pids3 = start_nrev(Pids2, rand:uniform(100)),
 	    
 	    big_loop(C, N-1, Pids3)
     end.
@@ -148,20 +146,20 @@ start_nrev(Pids, N) when N < 25 ->
 start_nrev(Pids, N) when N < 75 ->
     [spawn_link(timer_SUITE, do_nrev, [1])|Pids];
 start_nrev(Pids, _N) ->
-    NrevPid1 = spawn_link(timer_SUITE, do_nrev, [random:uniform(1000)*10]),
+    NrevPid1 = spawn_link(timer_SUITE, do_nrev, [rand:uniform(1000)*10]),
     NrevPid2 = spawn_link(timer_SUITE, do_nrev, [1]),
     [NrevPid1,NrevPid2|Pids].
     
 
 start_after_test(Pids, C, 1) ->
-    TO1 = random:uniform(100)*47,
+    TO1 = rand:uniform(100)*47,
     [s_a_t(C, TO1)|Pids];
 start_after_test(Pids, C, 2) ->
-    TO1 = random:uniform(100)*47,
-    TO2 = TO1 div random:uniform(3) + 101,
+    TO1 = rand:uniform(100)*47,
+    TO2 = TO1 div rand:uniform(3) + 101,
     [s_a_t(C, TO1),s_a_t(C, TO2)|Pids];
 start_after_test(Pids, C, N) ->
-    TO1 = random:uniform(100)*47,
+    TO1 = rand:uniform(100)*47,
     start_after_test([s_a_t(C, TO1)|Pids], C, N-1).
 
 s_a_t(C, TimeOut) ->
@@ -187,8 +185,8 @@ a_t(C, TimeOut) ->
 
 maybe_start_i_test(Pids, C, 1) ->
     %% ok do it
-    TOI = random:uniform(53)*49,
-    CountI = random:uniform(10) + 3,                      % at least 4 times
+    TOI = rand:uniform(53)*49,
+    CountI = rand:uniform(10) + 3,		% at least 4 times
     [spawn_link(timer_SUITE, i_t, [C, TOI, CountI])|Pids];
 maybe_start_i_test(Pids, _C, _) ->
     Pids.

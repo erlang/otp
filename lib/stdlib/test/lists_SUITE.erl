@@ -1677,8 +1677,7 @@ check_stab(L, U, S, US, SS) ->
 %%% Element 3 in the tuple is the position of the tuple in the list.
 
 biglist(N) ->
-    {A, B, C} = get_seed(),
-    random:seed(A, B, C),
+    rand:seed(exsplus),
     biglist(N, []).
 
 biglist(0, L) ->
@@ -1694,8 +1693,7 @@ biglist(N, L) ->
 %%% No sequence number.
 
 ubiglist(N) ->
-    {A, B, C} = get_seed(),
-    random:seed(A, B, C),
+    rand:seed(exsplus),
     ubiglist(N, []).
 
 ubiglist(0, L) ->
@@ -1719,8 +1717,7 @@ urandom_tuple(N, I) ->
 %%% sequence number.
 
 bigfunlist(N) ->
-    {A, B, C} = get_seed(),
-    random:seed(A, B, C),
+    rand:seed(exsplus),
     bigfunlist_1(N).
 
 bigfunlist_1(N) when N < 30000 -> % Now (R8) max 32000 different pids.
@@ -1754,21 +1751,13 @@ make_fun(Pid) ->
 fun_pid(Fun) ->
     erlang:fun_info(Fun, pid).
 
-get_seed() ->
-    case random:seed() of
-	undefined ->
-	    erlang:timestamp();
-	Tuple ->
-	    Tuple
-    end.
-
 random_tuple(N, Seq) ->
     R1 = randint(N),
     R2 = randint(N),
     {R1, R2, Seq}.
 
 randint(N) ->
-    trunc(random:uniform() * N).
+    trunc(rand:uniform() * N).
 
 %% The first "duplicate" is kept.
 no_dups([]) ->
@@ -1830,8 +1819,7 @@ sort_loop_1(Pid) ->
     end.
 
 sloop(N) ->
-    {A, B, C} = get_seed(),
-    random:seed(A, B, C),
+    rand:seed(exsplus),
     sloop(N, #state{}).
 
 sloop(N, S) ->
