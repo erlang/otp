@@ -298,7 +298,7 @@ highest_protocol_version(_,Version) ->
     Version.
 
 %%--------------------------------------------------------------------
--spec is_higher(V1 :: tls_version(), V2::tls_version()) -> tls_version().
+-spec is_higher(V1 :: tls_version(), V2::tls_version()) -> boolean().
 %%     
 %% Description: Is V1 > V2
 %%--------------------------------------------------------------------
