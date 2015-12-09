@@ -60,7 +60,8 @@
                {load_module, diameter_gen_acct_rfc6733},
                {load_module, diameter_gen_base_rfc3588},
                {load_module, diameter_gen_base_accounting},
-               {load_module, diameter_gen_relay}]}
+               {load_module, diameter_gen_relay}]},
+  {"1.11",    [{load_module, diameter_traffic}]}   %% 18.1
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -102,6 +103,7 @@
                {load_module, diameter_stats},
                {load_module, diameter_watchdog},
                {load_module, diameter_peer_fsm},
-               {load_module, diameter_codec}]}
+               {load_module, diameter_codec}]},
+  {"1.11",    [{load_module, diameter_traffic}]}
  ]
 }.
