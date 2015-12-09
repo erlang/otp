@@ -1257,7 +1257,7 @@ client_check_result(Port, DataExpected, DataReceived) ->
                     client_check_result(Port, DataExpected, NewData)
             end
     after 3000 ->
-	    ct:fail({"Time out on opensssl Client", {expected, DataExpected},
+	    ct:fail({"Time out on openSSL Client", {expected, DataExpected},
 		     {got, DataReceived}})   
     end.
 client_check_result(Port, DataExpected) ->
@@ -1675,8 +1675,6 @@ erlang_ssl_receive(Socket, Data) ->
 	    erlang_ssl_receive(Socket,Data);
 	Other ->
 	    ct:fail({unexpected_message, Other})
-    after 4000 ->
-	    ct:fail({did_not_get, Data})
     end.
  
 connection_info(Socket, Version) ->
