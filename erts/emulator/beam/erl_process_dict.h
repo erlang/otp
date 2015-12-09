@@ -31,6 +31,9 @@ typedef struct proc_dict {
     Eterm data[1]; /* The beginning of an array of erlang terms */
 } ProcDict;
 
+#define ERTS_PD_START(PD) ((PD)->data)
+#define ERTS_PD_SIZE(PD)  ((PD)->used)
+
 int erts_pd_set_initial_size(int size);
 Uint erts_dicts_mem_size(struct process *p);
 void erts_erase_dicts(struct process *p);

@@ -416,7 +416,7 @@ void verify_process(Process *p)
     erts_check_heap(p);
 
     if (p->dictionary)
-        VERIFY_AREA("dictionary",p->dictionary->data, p->dictionary->used);
+        VERIFY_AREA("dictionary", ERTS_PD_START(p->dictionary), ERTS_PD_SIZE(p->dictionary));
     VERIFY_ETERM("seq trace token",p->seq_trace_token);
     VERIFY_ETERM("group leader",p->group_leader);
     VERIFY_ETERM("fvalue",p->fvalue);
@@ -542,8 +542,8 @@ static void print_process_memory(Process *p)
     }
 
     if (p->dictionary != NULL) {
-        int n = p->dictionary->used;
-        Eterm *ptr = p->dictionary->data;
+        int n = ERTS_PD_SIZE(p->dictionary);
+        Eterm *ptr = ERTS_PD_START(p->dictionary);
         erts_printf("  Dictionary: ");
         while (n--) erts_printf("0x%0*lx ",PTR_SIZE,(unsigned long)ptr++);
         erts_printf("\n");
