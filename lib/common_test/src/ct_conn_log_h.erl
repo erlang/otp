@@ -116,9 +116,14 @@ write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
 	{silent,_} ->
 	    ok;
 	{LogType,Fd} ->
-	    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
-					format_title(LogType,Info),
-					format_data(ConnMod,LogType,Data)])
+	    case format_data(ConnMod,LogType,Data) of
+		[] ->
+		    ok;
+		FormattedData ->
+		    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
+						format_title(LogType,Info),
+						FormattedData])
+	    end
     end.
 
 write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->

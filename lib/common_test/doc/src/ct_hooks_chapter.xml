@@ -30,8 +30,8 @@
     <file>ct_hooks_chapter.xml</file>
   </header>
 
-  <marker id="general"></marker>
   <section>
+    <marker id="general"></marker>
     <title>General</title>
     <p>
       The <em>Common Test Hook</em> (henceforth called CTH) framework allows 
@@ -60,8 +60,8 @@
 
   </section>
   
-  <marker id="installing"></marker>
   <section>
+    <marker id="installing"></marker>
     <title>Installing a CTH</title>
     <p>There are multiple ways to install a CTH in your test run. You can do it
       for all tests in a run, for specific test suites and for specific groups 
@@ -120,8 +120,8 @@
     </section>
   </section>
 
-  <marker id="scope"/>
   <section>
+    <marker id="scope"/>
     <title>CTH Scope</title>
     <p>Once the CTH is installed into a certain test run it will be there until
       its scope is expired. The scope of a CTH depends on when it is 
@@ -208,8 +208,8 @@
 
   </section>
 
-  <marker id="manipulating"/>
   <section>
+    <marker id="manipulating"/>
     <title>Manipulating tests</title>
     <p>It is through CTHs possible to manipulate the results of tests and 
     configuration functions. The main purpose of doing this with CTHs is to
@@ -226,8 +226,8 @@
       makes it possible to use hooks as configuration fallbacks, or even
       completely replace all configuration functions with hook functions.</p>
 
-    <marker id="pre"/>
     <section>
+      <marker id="pre"/>
       <title>Pre Hooks</title>
       <p>
 	It is possible in a CTH to hook in behaviour before 
@@ -263,8 +263,8 @@
 	
     </section>
     
-    <marker id="post"/>
     <section>
+      <marker id="post"/>
       <title>Post Hooks</title>
       <p>It is also possible in a CTH to hook in behaviour after 
       <seealso marker="common_test#Module:init_per_suite-1">init_per_suite</seealso>, 
@@ -308,8 +308,8 @@ post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
   
     </section>
 
-    <marker id="skip_n_fail"/>
     <section>
+      <marker id="skip_n_fail"/>
       <title>Skip and Fail hooks</title>
       <p>
 	After any post hook has been executed for all installed CTHs, 
@@ -323,8 +323,8 @@ post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
 
   </section>
 
-  <marker id="synchronizing"/>
   <section>
+    <marker id="synchronizing"/>
     <title>Synchronizing external user applications with Common Test</title>
     <p>CTHs can be used to synchronize test runs with external user applications.
     The init function may e.g. start and/or communicate with an application that
@@ -351,8 +351,8 @@ post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
     </p>
   </section>
 
-  <marker id="example"/>
   <section>
+     <marker id="example"/>
      <title>Example CTH</title>
      <p>The CTH below will log information about a test run into a format 
        parseable by <seealso marker="kernel:file#consult-1">file:consult/1</seealso>.
@@ -455,8 +455,8 @@ terminate(State) ->
     ok.</code>
   </section>
 
-  <marker id="builtin_cths"/>
   <section>
+    <marker id="builtin_cths"/>
     <title>Built-in CTHs</title>
     <p>Common Test is delivered with a couple of general purpose CTHs that
     can be enabled by the user to provide some generic testing functionality.

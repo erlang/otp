@@ -377,7 +377,6 @@
     <p>The <em>Memory</em> panel shows memory and allocator
     information. From the left hand menu you can select:</p>
 
-    <p>
       <list>
 
 	<item><em>Memory</em> <seealso
@@ -394,7 +393,6 @@
 	marker="erts:crash_dump#allocated_areas">More...</seealso></item>
 
       </list>
-    </p>
   </section>
 
   <section>
