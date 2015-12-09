@@ -36,11 +36,13 @@
              {load_module, diameter_config},
              {load_module, diameter_capx},
              {load_module, diameter_service},
+             {load_module, diameter_traffic},
              {load_module, diameter_peer_fsm},
              {load_module, diameter_watchdog},
              {load_module, diameter}]},
   {"1.4.3", [{load_module, diameter_capx},       %% R16B02
              {load_module, diameter_service},
+             {load_module, diameter_traffic},
              {load_module, diameter_watchdog},
              {load_module, diameter_codec},
              {load_module, diameter_types},
@@ -48,9 +50,12 @@
              {load_module, diameter}]},
   {"1.4.4", [{load_module, diameter_capx},
              {load_module, diameter_service},
+             {load_module, diameter_traffic},
              {load_module, diameter_watchdog},
              {load_module, diameter_config},
-             {load_module, diameter}]}
+             {load_module, diameter}]},
+  {"1.5",   [{load_module, diameter_service},    %% R16B03
+             {load_module, diameter_traffic}]}
  ],
  [
   {"0.9",   [{restart_application, diameter}]},
@@ -68,14 +73,18 @@
   {"1.4.3", [{load_module, diameter_types},
              {load_module, diameter_config},
              {load_module, diameter_codec},
+             {load_module, diameter_traffic},
              {load_module, diameter_service},
              {load_module, diameter_watchdog},
              {load_module, diameter_capx},
              {load_module, diameter}]},
   {"1.4.4", [{load_module, diameter_capx},
              {load_module, diameter_config},
+             {load_module, diameter_traffic},
              {load_module, diameter_service},
              {load_module, diameter_watchdog},
-             {load_module, diameter}]}
+             {load_module, diameter}]},
+  {"1.5",   [{load_module, diameter_traffic},
+             {load_module, diameter_service}]}
  ]
 }.
