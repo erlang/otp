@@ -1882,7 +1882,7 @@ register_corruption_dummy_call(A,B,C) -> {A,B,C}.
 
 
 t_frequency_table(Config) when is_list(Config) ->
-    random:seed({13,1337,54}),  % pseudo random
+    rand:seed(exsplus, {13,1337,54}),		% pseudo random
     N = 100000,
     Ts = rand_terms(N),
     #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
@@ -1925,7 +1925,7 @@ rand_terms(0) -> [];
 rand_terms(N) -> [rand_term()|rand_terms(N-1)].
 
 rand_term() ->
-    case random:uniform(6) of
+    case rand:uniform(6) of
 	1 -> rand_binary();
 	2 -> rand_number();
 	3 -> rand_atom();
@@ -1935,21 +1935,21 @@ rand_term() ->
     end.
 
 rand_binary() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> <<>>;
 	2 -> <<"hi">>;
 	3 -> <<"message text larger than 64 bytes. yep, message text larger than 64 bytes.">>
     end.
 
 rand_number() ->
-    case random:uniform(3) of
-	1 -> random:uniform(5);
-	2 -> float(random:uniform(5));
-	3 -> 1 bsl (63 + random:uniform(3))
+    case rand:uniform(3) of
+	1 -> rand:uniform(5);
+	2 -> float(rand:uniform(5));
+	3 -> 1 bsl (63 + rand:uniform(3))
     end.
 
 rand_atom() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> hi;
 	2 -> some_atom;
 	3 -> some_other_atom
@@ -1957,21 +1957,21 @@ rand_atom() ->
 
 
 rand_tuple() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> {ok, rand_term()}; % careful
 	2 -> {1, 2, 3};
 	3 -> {<<"yep">>, 1337}
     end.
 
 rand_list() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> "hi";
 	2 -> [1,rand_term()]; % careful
 	3 -> [improper|list]
     end.
 
 rand_map() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> #{ hi => 3 };
 	2 -> #{ wat => rand_term(), other => 3 };  % careful
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }

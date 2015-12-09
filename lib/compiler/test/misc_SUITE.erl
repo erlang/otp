@@ -389,9 +389,9 @@ integer_encoding_1(Config) ->
 
 do_integer_encoding(0, _, _, _) -> ok;
 do_integer_encoding(N, I0, Src, Data) ->
-    I1 = (I0 bsl 5) bor (random:uniform(32) - 1),
+    I1 = (I0 bsl 5) bor (rand:uniform(32) - 1),
     do_integer_encoding(I1, Src, Data),
-    I2 = -(I1 bxor (random:uniform(32) - 1)),
+    I2 = -(I1 bxor (rand:uniform(32) - 1)),
     do_integer_encoding(I2, Src, Data),
     do_integer_encoding(N-1, I1, Src, Data).
 
