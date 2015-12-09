@@ -42,6 +42,36 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix pick_peer case clause failure.</p>
+          <p>
+	    In the case of {call_mutates_state, true} configuration
+	    on the service in question, any peer selection that
+	    failed to select a peer resulted in a case clause
+	    failure. This was noticed in the case of a peer failover
+	    in which an alternate peer wasn't available.</p>
+          <p>
+	    Own Id: OTP-11789</p>
+        </item>
+        <item>
+          <p>
+	    Remove logging of faulty answer messages.</p>
+          <p>
+	    Since excessive numbers of them can overload a node with
+	    logging.</p>
+          <p>
+	    Own Id: OTP-13182</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.5</title>
 
     <section><title>Improvements and New Features</title>
