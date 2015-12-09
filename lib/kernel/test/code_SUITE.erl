@@ -35,7 +35,7 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
-	 native_early_modules/1, get_mode/1]).
+	 native_early_modules/1, get_mode/1, on_load_failure/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -61,7 +61,7 @@ all() ->
      where_is_file_cached, purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
-     big_boot_embedded, native_early_modules, get_mode].
+     big_boot_embedded, native_early_modules, get_mode, on_load_failure].
 
 groups() ->
     [].
@@ -1563,6 +1563,18 @@ create_big_script(Config,Local) ->
 is_source_dir() ->
     filename:basename(code:lib_dir(kernel)) =:= "kernel" andalso
 	filename:basename(code:lib_dir(stdlib)) =:= "stdlib".
+
+on_load_failure(Config) when is_list(Config) ->
+    SourceFile = filename:join([
+	?config(data_dir, Config),
+	"on_load_failure",
+	"code_on_load_failure.erl"
+    ]),
+    {ok, code_on_load_failure, Binary} = compile:file(SourceFile, [binary]),
+    {error, on_load_failure} = code:load_binary(
+	code_on_load_failure,
+	SourceFile,
+	Binary).
 
 on_load_errors(Config) when is_list(Config) ->
     Master = on_load_error_test_case_process,

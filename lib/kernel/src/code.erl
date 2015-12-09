@@ -81,6 +81,7 @@
                         | 'nofile'
                         | 'not_purged'
                         | 'on_load'
+                        | 'on_load_failure'
                         | 'sticky_directory'.
 -type load_ret() :: {'error', What :: load_error_rsn()}
                   | {'module', Module :: module()}.
