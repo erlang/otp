@@ -39,5 +39,6 @@ void erts_deep_dictionary_dump(int to, void *to_arg,
 Eterm erts_dictionary_copy(struct process *p, ProcDict *pd);
 
 Eterm erts_pd_hash_get(struct process *p, Eterm id);
+Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id);
 
 #endif

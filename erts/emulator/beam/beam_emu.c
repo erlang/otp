@@ -3558,6 +3558,16 @@ do {						\
 	StoreBifResult(1, result);
     }
 
+ OpCase(i_get_hash_cId):
+    {
+	Eterm arg;
+	Eterm result;
+
+	GetArg1(0, arg);
+	result = erts_pd_hash_get_with_hx(c_p, Arg(1), arg);
+	StoreBifResult(2, result);
+    }
+
     {
 	Eterm case_end_val;
 

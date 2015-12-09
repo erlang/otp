@@ -4284,6 +4284,53 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     return op;
 }
 
+static int
+hash_internal_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
+{
+    switch (Key.type) {
+    case TAG_a:
+	*hx = atom_tab(atom_val(Key.val))->slot.bucket.hvalue;
+	return 1;
+    case TAG_i:
+	*hx = Key.val;
+	return 1;
+    case TAG_n:
+	*hx = make_internal_hash(NIL);
+	return 1;
+    case TAG_q:
+	*hx = make_internal_hash(stp->literals[Key.val].term);
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+
+static GenOp*
+gen_get(LoaderState* stp, GenOpArg Src, GenOpArg Dst)
+{
+    GenOp* op;
+    Uint32 hx = 0;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    if (hash_internal_genop_arg(stp, Src, &hx)) {
+	op->arity = 3;
+	op->op = genop_i_get_hash_3;
+        op->a[0] = Src;
+	op->a[1].type = TAG_u;
+	op->a[1].val = (BeamInstr) hx;
+	op->a[2] = Dst;
+    } else {
+	op->arity = 2;
+	op->op = genop_i_get_2;
+        op->a[0] = Src;
+	op->a[1] = Dst;
+    }
+    return op;
+}
+
+
 static GenOp*
 gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		     GenOpArg Size, GenOpArg* Rest)

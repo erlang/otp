@@ -1036,7 +1036,7 @@ call_bif e
 bif0 u$bif:erlang:self/0 Dst=d => self Dst
 bif0 u$bif:erlang:node/0 Dst=d => node Dst
 
-bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => i_get Src Dst
+bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
 
@@ -1045,6 +1045,7 @@ bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
 bif2 p Bif S1 S2 Dst => i_bif2_body Bif S1 S2 Dst
 bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
 
+i_get_hash c I d
 i_get s d
 
 %macro: self Self
