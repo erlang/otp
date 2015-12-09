@@ -1072,8 +1072,7 @@ int(_) ->
 -spec x(any(), atom(), list()) -> no_return().
 
 %% Warn and exit request process on errors in an incoming answer.
-x(Reason, F, A) ->
-    diameter_lib:warning_report(Reason, {?MODULE, F, A}),
+x(Reason, _F, _A) ->
     x(Reason).
 
 x(T) ->
