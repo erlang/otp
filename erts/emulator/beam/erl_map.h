@@ -195,14 +195,17 @@ typedef struct hashmap_head_s {
    [one cons cell + one list term in parent node] per key
    [one header + one boxed term in parent node] per inner node
    [one header + one size word] for root node
+   Observed average number of nodes per key is about 0.35.
 */
-#define HASHMAP_HEAP_SIZE(KEYS,NODES) ((KEYS)*3 + (NODES)*2)
+#define HASHMAP_WORDS_PER_KEY 3
+#define HASHMAP_WORDS_PER_NODE 2
 #ifdef DEBUG
-#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (KEYS)
+#  define HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS) \
+    (HASHMAP_WORDS_PER_NODE * (KEYS) * 3/10)   /* slightly under estimated */
 #else
-#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (2*(KEYS)/5)
+#  define HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS) \
+    (HASHMAP_WORDS_PER_NODE * (KEYS) * 4/10)   /* slightly over estimated */
 #endif
 #define HASHMAP_ESTIMATED_HEAP_SIZE(KEYS) \
-        HASHMAP_HEAP_SIZE(KEYS,HASHMAP_ESTIMATED_NODE_COUNT(KEYS))
-
+        ((KEYS)*HASHMAP_WORDS_PER_KEY + HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS))
 #endif

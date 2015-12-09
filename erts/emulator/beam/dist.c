@@ -1153,7 +1153,6 @@ int erts_net_message(Port *prt,
     Process* rp;
     DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
     Eterm* ctl = ctl_default;
-    ErlOffHeap off_heap;
     ErtsHeapFactory factory;
     Eterm* hp;
     Sint type;
@@ -1168,9 +1167,6 @@ int erts_net_message(Port *prt,
 #endif
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    /* Thanks to Luke Gorrie */
-    off_heap.first = NULL;
-    off_heap.overhead = 0;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1231,7 +1227,7 @@ int erts_net_message(Port *prt,
     }
     hp = ctl;
 
-    erts_factory_static_init(&factory, ctl, ctl_len, &off_heap);
+    erts_factory_tmp_init(&factory, ctl, ctl_len, ERTS_ALC_T_DCTRL_BUF);
     arg = erts_decode_dist_ext(&factory, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
@@ -1719,7 +1715,7 @@ int erts_net_message(Port *prt,
 	goto invalid_message;
     }
 
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
@@ -1734,7 +1730,7 @@ int erts_net_message(Port *prt,
     }
  data_error:
     PURIFY_MSG("data error");
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
