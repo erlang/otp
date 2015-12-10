@@ -135,21 +135,22 @@ get_proc(Process *cp, Uint32 cp_locks, Eterm id, Uint32 id_locks)
 
 
 static Eterm
-set_tracee_flags(Process *tracee_p, Eterm tracer, Uint d_flags, Uint e_flags) {
+set_tracee_flags(Process *tracee_p, ErtsTracer tracer,
+                 Uint d_flags, Uint e_flags) {
     Eterm ret;
     Uint flags;
 
-    if (tracer == NIL) {
+    if (ERTS_TRACER_IS_NIL(tracer)) {
 	flags = ERTS_TRACE_FLAGS(tracee_p) & ~TRACEE_FLAGS;
     }  else {
 	flags = ((ERTS_TRACE_FLAGS(tracee_p) & ~d_flags) | e_flags);
-	if (! flags) tracer = NIL;
+	if (! flags) tracer = erts_tracer_nil;
     }
-    ret = ((ERTS_TRACER_PROC(tracee_p) != tracer
+    ret = ((!ERTS_TRACER_COMPARE(ERTS_TRACER(tracee_p),tracer)
 	    || ERTS_TRACE_FLAGS(tracee_p) != flags)
 	   ? am_true
 	   : am_false);
-    ERTS_TRACER_PROC(tracee_p) = tracer;
+    erts_tracer_replace(&tracee_p->common, tracer);
     ERTS_TRACE_FLAGS(tracee_p) = flags;
     return ret;
 }
@@ -163,40 +164,16 @@ set_tracee_flags(Process *tracee_p, Eterm tracer, Uint d_flags, Uint e_flags) {
 ** returns fail_term on failure. Fails if tracer pid or port is invalid.
 */
 static Eterm 
-set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
+set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
 		Uint d_flags, Uint e_flags) {
-    Eterm ret = fail_term;
-    Process *tracer_p;
-    
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCKS_ALL == 
-		       erts_proc_lc_my_proc_locks(tracee_p));
 
-    if (is_internal_pid(tracer)
-	&& (tracer_p = 
-	    erts_pid2proc(tracee_p, ERTS_PROC_LOCKS_ALL,
-			  tracer, ERTS_PROC_LOCKS_ALL))) {
-	if (tracee_p != tracer_p) {
-	    ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-	    ERTS_TRACE_FLAGS(tracer_p) |= (ERTS_TRACE_FLAGS(tracee_p)
-					   ? F_TRACER
-					   : 0);
-	    erts_smp_proc_unlock(tracer_p, ERTS_PROC_LOCKS_ALL);
-	}
-    } else if (is_internal_port(tracer)) {
-	Port *tracer_port = 
-	    erts_id2port_sflgs(tracer,
-			       tracee_p,
-			       ERTS_PROC_LOCKS_ALL,
-			       ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
-	if (tracer_port) {
-	    ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-	    erts_port_release(tracer_port);
-	}
-    } else {
-	ASSERT(is_nil(tracer));
-	ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-    }
-    return ret;
+    ERTS_SMP_LC_ASSERT(
+        ERTS_PROC_LOCKS_ALL == erts_proc_lc_my_proc_locks(tracee_p)
+        || erts_thr_progress_is_blocking());
+
+    if (ERTS_TRACER_IS_NIL(tracer) || erts_is_tracer_enabled(tracee_p, tracer))
+        return set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
+    return fail_term;
 }
 
 /*
@@ -2358,7 +2335,7 @@ restart:
 	case matchEnableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
 		BEGIN_ATOMIC_TRACE(c_p);
-		set_tracee_flags(c_p, ERTS_TRACER_PROC(c_p), 0, n);
+		set_tracee_flags(c_p, ERTS_TRACER(c_p), 0, n);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2371,7 +2348,7 @@ restart:
 		BEGIN_ATOMIC_TRACE(c_p);
 		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, ERTS_TRACER_PROC(c_p), 0, n);
+		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), 0, n);
 		    esp[-1] = am_true;
 		}
 	    }
@@ -2379,7 +2356,7 @@ restart:
 	case matchDisableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
 		BEGIN_ATOMIC_TRACE(c_p);
-		set_tracee_flags(c_p, ERTS_TRACER_PROC(c_p), n, 0);
+		set_tracee_flags(c_p, ERTS_TRACER(c_p), n, 0);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2392,7 +2369,7 @@ restart:
 		BEGIN_ATOMIC_TRACE(c_p);
 		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
 		    /* Always take over the tracer of the current process */
-		    set_tracee_flags(tmpp, ERTS_TRACER_PROC(c_p), n, 0);
+		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), n, 0);
 		    esp[-1] = am_true;
 		}
 	    }
@@ -2428,7 +2405,7 @@ restart:
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
-		Eterm tracer = ERTS_TRACER_PROC(c_p);
+		ErtsTracer tracer = erts_tracer_nil;
 		/* XXX Atomicity note: Not fully atomic. Default tracer
 		 * is sampled from current process but applied to
 		 * tracee and tracer later after releasing main
@@ -2440,29 +2417,34 @@ restart:
 		 * {trace,[],[{{tracer,Tracer}}]} is much, much older.
 		 */
 		int   cputs = 0;
+                erts_tracer_update(&tracer, ERTS_TRACER(c_p));
 		
 		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs) ||
 		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs) ||
 		    cputs ) {
 		    (--esp)[-1] = FAIL_TERM;
+                    ERTS_TRACER_CLEAR(&tracer);
 		    break;
 		}
 		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		(--esp)[-1] = set_match_trace(c_p, FAIL_TERM, tracer,
 					      d_flags, e_flags);
 		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                ERTS_TRACER_CLEAR(&tracer);
 	    }
 	    break;
 	case matchTrace3:
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
-		Eterm tracer = ERTS_TRACER_PROC(c_p);
+		ErtsTracer tracer = erts_tracer_nil;
 		/* XXX Atomicity note. Not fully atomic. See above. 
 		 * Above it could possibly be solved, but not here.
 		 */
 		int   cputs = 0;
 		Eterm tracee = (--esp)[0];
+
+                erts_tracer_update(&tracer, ERTS_TRACER(c_p));
 		
 		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs) ||
 		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs) ||
@@ -2470,6 +2452,7 @@ restart:
 		    ! (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, 
 				       tracee, ERTS_PROC_LOCKS_ALL))) {
 		    (--esp)[-1] = FAIL_TERM;
+                    ERTS_TRACER_CLEAR(&tracer);
 		    break;
 		}
 		if (tmpp == c_p) {
@@ -2483,6 +2466,7 @@ restart:
 		    erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
 		    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 		}
+                ERTS_TRACER_CLEAR(&tracer);
 	    }
 	    break;
 	case matchCatch:  /* Match success, now build result */
@@ -5084,7 +5068,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	lint_res = db_match_set_lint(p, spec, DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
 	mps = db_match_set_compile(p, spec, DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
     }
-    
+
     if (mps == NULL) {
 	hp = HAlloc(p,3);
 	ret = TUPLE2(hp, am_error, lint_res);

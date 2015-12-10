@@ -94,6 +94,7 @@ void erts_commit_staging_code_ix(void)
     ix = (ix + 1) % ERTS_NUM_CODE_IX;
     erts_smp_atomic32_set_nob(&the_staging_code_index, ix);
     export_staging_unlock();
+    erts_tracer_nif_clear();
     CIX_TRACE("activate");
 }
 

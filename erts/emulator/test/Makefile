@@ -110,6 +110,8 @@ MODULES= \
 	trace_meta_SUITE \
 	trace_call_count_SUITE \
 	trace_call_time_SUITE \
+	tracer_SUITE \
+	tracer_test \
 	scheduler_SUITE \
 	old_scheduler_SUITE \
 	unique_SUITE \

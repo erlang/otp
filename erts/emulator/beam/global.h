@@ -44,6 +44,8 @@
 #include "erl_port.h"
 #include "erl_gc.h"
 
+struct enif_func_t;
+
 struct enif_environment_t /* ErlNifEnv */
 {
     struct erl_module_nif* mod_nif;
@@ -54,6 +56,7 @@ struct enif_environment_t /* ErlNifEnv */
     int fpe_was_unmasked;
     struct enif_tmp_obj_t* tmp_obj_list;
     int exception_thrown; /* boolean */
+    Process *tracee;
 };
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*);
@@ -62,6 +65,12 @@ extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(int to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
+extern int erts_nif_get_funcs(struct erl_module_nif*,
+                              struct enif_func_t **funcs);
+extern Eterm erts_nif_call_function(Process *p, Process *tracee,
+                                    struct erl_module_nif*,
+                                    struct enif_func_t *,
+                                    int argc, Eterm *argv);
 
 /* Driver handle (wrapper for old plain handle) */
 #define ERL_DE_OK      0
@@ -1532,10 +1541,15 @@ ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
 ERTS_GLB_INLINE void
 dtrace_pid_str(Eterm pid, char *process_buf)
 {
-    erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "<%lu.%lu.%lu>",
-                  pid_channel_no(pid),
-                  pid_number(pid),
-                  pid_serial(pid));
+    if (is_pid(pid))
+        erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "<%lu.%lu.%lu>",
+                      pid_channel_no(pid),
+                      pid_number(pid),
+                      pid_serial(pid));
+    else if (is_port(pid))
+        erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+                      port_channel_no(pid),
+                      port_number(pid));
 }
 
 ERTS_GLB_INLINE void
@@ -1547,9 +1561,7 @@ dtrace_proc_str(Process *process, char *process_buf)
 ERTS_GLB_INLINE void
 dtrace_port_str(Port *port, char *port_buf)
 {
-    erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
-                  port_channel_no(port->common.id),
-                  port_number(port->common.id));
+    dtrace_pid_str(port->common.id, port_buf);
 }
 
 ERTS_GLB_INLINE void

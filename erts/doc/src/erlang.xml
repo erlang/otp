@@ -8371,7 +8371,7 @@ timestamp() ->
         <taglist>
           <tag><c>all</c></tag>
           <item>
-            <p>Sets all trace flags except <c>{tracer, Tracer}</c> and
+            <p>Sets all trace flags except <c>tracer</c> and
               <c>cpu_timestamp</c>, which are in their nature different
               than the others.</p>
           </item>
@@ -8529,12 +8529,20 @@ timestamp() ->
           <item>
             <p>Specifies where to send the trace messages. <c>Tracer</c>
               must be the process identifier of a local process
-              or the port identifier
-              of a local port. If this flag is not given, trace
-              messages are sent to the process that called
-              <c>erlang:trace/3</c>.</p>
+              or the port identifier of a local port.</p>
+          </item>
+          <tag><c>{tracer, TracerModule, TracerState}</c></tag>
+          <item>
+            <p>Specifies that a tracer module should be called
+            instead of sending a trace message. The tracer module
+            can then ignore or change the trace message. For more details
+            on how to write a tracer module see <seealso marker="erl_tracer">
+            erl_tracer</seealso>
+          </p>
           </item>
         </taglist>
+        <p>If no <c>tracer</c> is given, the calling process
+        will be receiving all of the trace messages</p>
         <p>The effect of combining <c>set_on_first_link</c> with
           <c>set_on_link</c> is the same as having
           <c>set_on_first_link</c> alone. Likewise for
@@ -8706,9 +8714,9 @@ timestamp() ->
               garbage collection.</p>
           </item>
         </taglist>
-        <p>If the tracing process dies, the flags are silently
-          removed.</p>
-        <p>Only one process can trace a particular process. Therefore,
+        <p>If the tracing process/port dies or the tracer module returns
+        <c>remove</c>, the flags are silently removed.</p>
+        <p>Each process can only be traced by one tracer. Therefore,
           attempts to trace an already traced process fail.</p>
         <p>Returns: A number indicating the number of processes that
           matched <c><anno>PidSpec</anno></c>.
@@ -8716,7 +8724,7 @@ timestamp() ->
           identifier, the return value is <c>1</c>.
           If <c><anno>PidSpec</anno></c>
           is <c>all</c> or <c>existing</c>, the return value is
-          the number of processes running, excluding tracer processes.
+          the number of processes running.
           If <c><anno>PidSpec</anno></c> is <c>new</c>, the return value is
           <c>0</c>.</p>
         <p>Failure: <c>badarg</c> if the specified arguments are
@@ -8750,7 +8758,7 @@ timestamp() ->
           has not been traced by someone, but if this is the case,
           <em>no</em> trace messages have been delivered when the
           <c>trace_delivered</c> message arrives.</p>
-        <p>Notice that that <c><anno>Tracee</anno></c> must refer
+        <p>Notice that <c><anno>Tracee</anno></c> must refer
           to a process currently,
           or previously existing on the same node as the caller of
           <c>erlang:trace_delivered(<anno>Tracee</anno>)</c> resides on.
@@ -8801,7 +8809,8 @@ timestamp() ->
           </item>
           <tag><c>tracer</c></tag>
           <item>
-            <p>Returns the identifier for process or port tracing this
+            <p>Returns the identifier for process, port or a tuple containing
+              the tracer module and tracer state tracing this
               process. If this process is not being traced, the return
               value is <c>[]</c>.</p>
           </item>
@@ -8830,8 +8839,8 @@ timestamp() ->
           </item>
           <tag><c>meta</c></tag>
           <item>
-            <p>Returns the meta-trace tracer process or port for this
-              function, if it has one. If the function is not
+            <p>Returns the meta-trace tracer process, port or trace module
+              for this function, if it has one. If the function is not
               meta-traced, the returned value is <c>false</c>. If
               the function is meta-traced but has once detected that
               the tracer process is invalid, the returned value is [].</p>
@@ -8999,13 +9008,12 @@ timestamp() ->
               the process, a <c>return_to</c> message is also sent
               when this function returns to its caller.</p>
           </item>
-          <tag><c>meta | {meta, <anno>Pid</anno>}</c></tag>
+          <tag><c>meta | {meta, <anno>Pid</anno>} | {meta, <anno>TracerModule</anno>, <anno>TracerState</anno>}</c>
+          </tag>
           <item>
             <p>Turns on or off meta-tracing for all types of function
-              calls. Trace messages are sent to the tracer process
-              or port <c><anno>Pid</anno></c> whenever any of the specified
-              functions are called, regardless of how they are called.
-              If no <c><anno>Pid</anno></c> is specified,
+              calls. Trace messages are sent to the tracer whenever any of
+              the specified functions are called. If no tracer is specified,
               <c>self()</c> is used as a default tracer process.</p>
             <p>Meta-tracing traces all processes and does not care
               about the process trace flags set by <c>trace/3</c>,
@@ -9013,7 +9021,7 @@ timestamp() ->
               <c>[call, timestamp]</c>.</p>
             <p>The match specification function <c>{return_trace}</c>
               works with meta-trace and sends its trace message to the
-              same tracer process.</p>
+              same tracer.</p>
           </item>
           <tag><c>call_count</c></tag>
           <item>

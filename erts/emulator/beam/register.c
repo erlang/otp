@@ -226,7 +226,8 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     rp = (RegProc*) hash_put(&process_reg, (void*) &r);
     if (proc && rp->p == proc) {
 	if (IS_TRACED_FL(proc, F_TRACE_PROCS)) {
-	    trace_proc(c_p, proc, am_register, name);
+	    trace_proc(proc, ERTS_PROC_LOCK_MAIN,
+                       proc, am_register, name);
 	}
 	proc->common.u.alive.reg = rp;
     }
@@ -470,8 +471,8 @@ int erts_unregister_name(Process *c_p,
     int res = 0;
     RegProc r, *rp;
     Port *port = c_prt;
+    ErtsProcLocks current_c_p_locks = 0;
 #ifdef ERTS_SMP
-    ErtsProcLocks current_c_p_locks;
 
     /*
      * SMP note: If 'c_prt != NULL' and 'c_prt->reg->name == name',
@@ -555,7 +556,8 @@ int erts_unregister_name(Process *c_p,
 #endif
 	    rp->p->common.u.alive.reg = NULL;
 	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
-		trace_proc(c_p, rp->p, am_unregister, r.name);
+		trace_proc(c_p, current_c_p_locks,
+                           rp->p, am_unregister, r.name);
 	    }
 #ifdef ERTS_SMP
 	    if (rp->p != c_p) {
