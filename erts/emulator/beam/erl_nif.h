@@ -96,7 +96,7 @@ typedef enum {
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
 
-typedef struct
+typedef struct enif_func_t
 {
     const char* name;
     unsigned arity;

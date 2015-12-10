@@ -2960,6 +2960,51 @@ void erl_nif_init()
     resource_type_list.name = THE_NON_VALUE;
 }
 
+int erts_nif_get_funcs(struct erl_module_nif* mod,
+                       ErlNifFunc **funcs)
+{
+    *funcs = mod->entry->funcs;
+    return mod->entry->num_of_funcs;
+}
+
+Eterm erts_nif_call_function(Process *p, struct erl_module_nif* mod,
+                             ErlNifFunc *fun, int argc, Eterm *argv)
+{
+    Eterm nif_result;
+#ifdef DEBUG
+    /* Verify that function is part of this module */
+    int i;
+    for (i = 0; i < mod->entry->num_of_funcs; i++)
+        if (fun == mod->entry->funcs+i)
+            break;
+    ASSERT(i < mod->entry->num_of_funcs);
+    if (p)
+        ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
+#endif
+    if (p) {
+        struct enif_environment_t env;
+        ASSERT(is_internal_pid(p->common.id));
+        erts_pre_nif(&env, p, mod);
+        env.may_delay_enif_send = 1;
+        nif_result = (*fun->fptr)(&env, argc, argv);
+        if (env.exception_thrown)
+            nif_result = THE_NON_VALUE;
+        erts_post_nif(&env);
+    } else {
+        /* Nif call was done without a process context,
+           so we create a phony one. */
+        struct enif_msg_environment_t msg_env;
+        setup_nif_env(&msg_env, mod);
+        msg_env.env.may_delay_enif_send = 1;
+        nif_result = (*fun->fptr)(&msg_env.env, argc, argv);
+        if (msg_env.env.exception_thrown)
+            nif_result = THE_NON_VALUE;
+        enif_clear_env(&msg_env.env);
+    }
+
+    return nif_result;
+}
+
 #ifdef USE_VM_PROBES
 void dtrace_nifenv_str(ErlNifEnv *env, char *process_buf)
 {
