@@ -51,7 +51,7 @@
 #define INITIAL_SIZE        (erts_pd_initial_size)
 
 /* Hash utility macros  */
-#define HASH_RANGE(PDict) ((PDict)->homeSize + (PDict)->splitPosition)
+#define HASH_RANGE(PDict) ((PDict)->usedSlots)
 
 #define MAKE_HASH(Term)                                \
     ((is_small(Term)) ? unsigned_val(Term) :           \
@@ -164,9 +164,9 @@ erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
     /*PD_CHECK(pd);*/
     if (pd == NULL)
 	return;
-    erts_print(to, to_arg, "(size = %d, homeSize = %d, "
+    erts_print(to, to_arg, "(size = %d, usedSlots = %d, "
 	       "splitPosition = %d, numElements = %d)\n",
-	       pd->size, pd->homeSize,
+	       pd->arraySize, pd->usedSlots,
 	       pd->splitPosition, (unsigned int) pd->numElements);
     for (i = 0; i < HASH_RANGE(pd); ++i) {
 	erts_print(to, to_arg, "%d: %T\n", i, ARRAY_GET(pd, i));
@@ -584,8 +584,8 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
     if (p->dictionary == NULL) {
 	/* Create it */
         ensure_array_size(&p->dictionary, INITIAL_SIZE);
-	p->dictionary->homeSize = INITIAL_SIZE;
-        p->dictionary->sizeMask = p->dictionary->homeSize*2 - 1;
+	p->dictionary->usedSlots = INITIAL_SIZE;
+        p->dictionary->sizeMask = INITIAL_SIZE*2 - 1;
         p->dictionary->splitPosition = 0;
         p->dictionary->numElements = 0;
     }	
@@ -737,12 +737,13 @@ static void shrink(Process *p, Eterm* ret)
 
     for (i = 0; i < steps; ++i) {
 	if (pd->splitPosition == 0) {
-            pd->sizeMask = pd->homeSize - 1;
-	    pd->homeSize /= 2;
-	    pd->splitPosition = pd->homeSize;
+            ASSERT(IS_POW2(pd->usedSlots));
+            pd->sizeMask = pd->usedSlots - 1;
+	    pd->splitPosition = pd->usedSlots / 2;
 	}
 	--(pd->splitPosition);
-	hi = ARRAY_GET(pd, (pd->splitPosition + pd->homeSize));
+        /* Must wait to decrement 'usedSlots' for GC rootset below */
+	hi = ARRAY_GET(pd, pd->usedSlots - 1);
 	lo = ARRAY_GET(pd, pd->splitPosition);
 	if (hi != NIL) {
 	    if (lo == NIL) {
@@ -754,7 +755,7 @@ static void shrink(Process *p, Eterm* ret)
 		}
 		if (HeapWordsLeft(p) < needed) {
 		    BUMP_REDS(p, erts_garbage_collect(p, needed, ret, 1));
-		    hi = pd->data[(pd->splitPosition + pd->homeSize)];
+		    hi = pd->data[pd->usedSlots - 1];
 		    lo = pd->data[pd->splitPosition];
 		}
 #ifdef DEBUG
@@ -796,7 +797,8 @@ static void shrink(Process *p, Eterm* ret)
 		}
 	    }
 	}
-	ARRAY_PUT(pd, (pd->splitPosition + pd->homeSize), NIL);
+        --pd->usedSlots;
+	ARRAY_PUT(pd, pd->usedSlots, NIL);
     }
     if (HASH_RANGE(p->dictionary) <= (p->dictionary->size / 4)) {
 	array_shrink(&(p->dictionary), (HASH_RANGE(p->dictionary) * 3) / 2);
@@ -806,7 +808,7 @@ static void shrink(Process *p, Eterm* ret)
 static void grow(Process *p)
 {
     unsigned int i,j;
-    unsigned int steps = p->dictionary->homeSize / 5;
+    unsigned int steps = (p->dictionary->usedSlots / 4) & 0xf;
     Eterm l1,l2;
     Eterm l;
     Eterm *hp;
@@ -835,7 +837,7 @@ static void grow(Process *p)
      */
 
     pos = pd->splitPosition;
-    homeSize = pd->homeSize;
+    homeSize = pd->usedSlots - pd->splitPosition;
     for (i = 0; i < steps; ++i) {
 	if (pos == homeSize) {
 	    homeSize *= 2;
@@ -860,19 +862,21 @@ static void grow(Process *p)
     /*
      * Now grow.
      */
-
+    homeSize = pd->usedSlots - pd->splitPosition;
     for (i = 0; i < steps; ++i) {
-	if (pd->splitPosition == pd->homeSize) {
-	    pd->homeSize *= 2;
-            pd->sizeMask = pd->homeSize*2 - 1;
+	if (pd->splitPosition == homeSize) {
+	    homeSize *= 2;
+            pd->sizeMask = homeSize*2 - 1;
             pd->splitPosition = 0;
 	}
 	pos = pd->splitPosition;
 	++pd->splitPosition; /* For the hashes */
+        ++pd->usedSlots;
+        ASSERT(pos + homeSize == pd->usedSlots - 1);
 	l = ARRAY_GET(pd, pos);
 	if (is_tuple(l)) {
 	    if (pd_hash_value(pd, tuple_val(l)[1]) != pos) {
-		ARRAY_PUT(pd, pos + pd->homeSize, l);
+		ARRAY_PUT(pd, pos + homeSize, l);
 		ARRAY_PUT(pd, pos, NIL);
 	    }
 	} else {
@@ -896,7 +900,7 @@ static void grow(Process *p)
 		l2 = TCAR(l2);
 	    ASSERT(hp <= hp_limit);
 	    ARRAY_PUT(pd, pos, l1);
-	    ARRAY_PUT(pd, pos + pd->homeSize, l2);
+	    ARRAY_PUT(pd, pos + homeSize, l2);
 	}
     }
 
@@ -961,7 +965,9 @@ static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx)
 { 
     Uint high;
 
-    ASSERT(IS_POW2(pdict->homeSize));
+    ASSERT(IS_POW2(pdict->sizeMask+1));
+    ASSERT(HASH_RANGE(pdict) >= (pdict->sizeMask >> 1));
+    ASSERT(HASH_RANGE(pdict) <= (pdict->sizeMask + 1));
 
     high = hx & pdict->sizeMask;
     if (high >= HASH_RANGE(pdict))
@@ -1043,12 +1049,14 @@ static void pd_check(ProcDict *pd)
 	} else if (is_tuple(t)) {
 	    ++num;
 	    ASSERT(arityval(*tuple_val(t)) == 2);
+            ASSERT(pd_hash_value(pd, tuple_val(t)[1]) == i);
 	    continue;
 	} else if (is_list(t)) {
 	    while (t != NIL) {
 		++num;
 		ASSERT(is_tuple(TCAR(t)));
 		ASSERT(arityval(*(tuple_val(TCAR(t)))) == 2);
+                ASSERT(pd_hash_value(pd, tuple_val(TCAR(t))[1]) == i);
 		t = TCDR(t);
 	    }
 	    continue;
@@ -1059,7 +1067,7 @@ static void pd_check(ProcDict *pd)
 	}
     }
     ASSERT(num == pd->numElements);
-    ASSERT(pd->splitPosition <= pd->homeSize);
+    ASSERT(pd->usedSlots >= pd->splitPosition*2);
 }
 
 #endif /* DEBUG */
