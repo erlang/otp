@@ -159,7 +159,7 @@ normalize(suite) ->
 normalize(doc) ->
     ["Check that filename normalization works"];
 normalize(Config) when is_list(Config) ->
-    random:seed({1290,431421,830412}),
+    rand:seed(exsplus, {1290,431421,830412}),
     try
 	?line UniMode = file:native_name_encoding() =/= latin1,
 	if 
@@ -845,7 +845,7 @@ conv(L) ->
 
 
 rand_comp_decomp(Max) ->
-    N = random:uniform(Max),
+    N = rand:uniform(Max),
     L = [ rand_decomp() || _ <- lists:seq(1,N) ],
     LC = [ A || {A,_} <- L],
     LD = lists:flatten([B || {_,B} <- L]),
@@ -855,7 +855,7 @@ rand_comp_decomp(Max) ->
 rand_decomp() ->
     BT = bigtup(),
     SZ = tuple_size(BT),
-    element(random:uniform(SZ),BT).
+    element(rand:uniform(SZ),BT).
 bigtup() ->
     {{192,[65,768]},
      {200,[69,768]},

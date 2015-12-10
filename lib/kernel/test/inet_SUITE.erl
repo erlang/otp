@@ -868,7 +868,6 @@ gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts) ->
     ?line Lookupers = 
 	[spawn_link(
 	   fun () -> 
-		   random:seed(),
 		   lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
 	   end)
 	 || _ <- lists:seq(1, N)],
@@ -929,7 +928,7 @@ lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
 	    Parent ! {Tag,Error}
     end,
     receive 
-    after random:uniform(Delay) -> 
+    after rand:uniform(Delay) ->
 	    lookup_loop(Hs, Delay, Tag, Parent, Cnt-1, Hosts) 
     end.
 

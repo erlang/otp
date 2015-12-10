@@ -120,7 +120,7 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 	{unix,_} ->
 	    PortNum = case {os:type(),os:version()} of
 			  {{unix,solaris},{M,V,_}} when M =< 5, V < 10 ->
-			      11895 + random:uniform(100);
+			      11895 + rand:uniform(100);
 			  _ ->
 			      {ok,S} = gen_udp:open(0, [{reuseaddr,true}]),
 			      {ok,PNum} = inet:port(S),
