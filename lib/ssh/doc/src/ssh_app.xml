@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2012</year><year>2013</year>
+      <year>2012</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -214,21 +214,21 @@
     <p>The following rfc:s are supported:</p>
     <list type="bulleted">
       <item><url href="https://tools.ietf.org/html/rfc4251">RFC 4251</url>, The Secure Shell (SSH) Protocol Architecture.
-      <p>Except
+      <p>Except</p>
       <list type="bulleted">
 	<item>9.4.6 Host-Based Authentication</item>
 	<item>9.5.2 Proxy Forwarding</item>
 	<item>9.5.3 X11 Forwarding</item>
       </list>
-      </p>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4252">RFC 4252</url>, The Secure Shell (SSH) Authentication Protocol.
-      <p>Except
+      <p>Except</p>
       <list type="bulleted">
 	<item>9. Host-Based Authentication: "hostbased"</item>
       </list>
-      </p>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
@@ -236,32 +236,32 @@
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
-      <p>Except
+      <p>Except</p>
       <list type="bulleted">
 	<item>6.3. X11 Forwarding</item>
 	<item>7. TCP/IP Port Forwarding</item>
       </list>
-      </p>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4256">RFC 4256</url>, Generic Message Exchange Authentication for
       the Secure Shell Protocol (SSH).
-      <p>Except
+      <p>Except</p>
       <list type="bulleted">
 	<item><c>num-prompts > 1</c></item>
 	<item>password changing</item>
 	<item>other identification methods than userid-password</item>
 	</list>
-      </p>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>, Diffie-Hellman Group Exchange for
       the Secure Shell (SSH) Transport Layer Protocol.
-       <p></p>
+       <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4716">RFC 4716</url>, The Secure Shell (SSH) Public Key File Format.
-      <p></p>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc5647">RFC 5647</url>, AES Galois Counter Mode for
@@ -270,34 +270,35 @@
       This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
       If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
       they could be enabled with the option preferred_algorithms.
-      <warning>
-	If the client or the server is not Erlang/OTP, it is the users responsibility to check that 
-	other implementation has the same interpretation of AEAD_AES_*_GCM as the Erlang/OTP SSH before
-	enabling them. The  aes*-gcm@openssh.com variants are always safe to use since they lack the
-	ambiguity.
-      </warning>
       </p>
-      <p>The second paragraph in section 5.1 is resolved as:
+      <warning>
+	<p>
+	  If the client or the server is not Erlang/OTP, it is the users responsibility to check that 
+	  other implementation has the same interpretation of AEAD_AES_*_GCM as the Erlang/OTP SSH before
+	  enabling them. The  aes*-gcm@openssh.com variants are always safe to use since they lack the
+	  ambiguity.
+	</p>
+      </warning>
+      <p>The second paragraph in section 5.1 is resolved as:</p>
       <list type="ordered">
 	<item>If the negotiated cipher is AEAD_AES_128_GCM, the mac algorithm is set to  AEAD_AES_128_GCM.</item>
 	<item>If the negotiated cipher is AEAD_AES_256_GCM, the mac algorithm is set to  AEAD_AES_256_GCM.</item>
 	<item>If the mac algorithm is AEAD_AES_128_GCM, the cipher is set to AEAD_AES_128_GCM.</item>
 	<item>If the mac algorithm is AEAD_AES_256_GCM, the cipher is set to AEAD_AES_256_GCM.</item>
       </list>
-      The first rule that matches when read in order from the top is applied
-      </p>
+      <p>The first rule that matches when read in order from the top is applied</p>
       </item>
 	
       <item><url href="https://tools.ietf.org/html/rfc5656">RFC 5656</url>, Elliptic Curve Algorithm Integration in 
       the Secure Shell Transport Layer.
-      <p>Except
+      <p>Except</p>
       <list type="bulleted">
 	<item>5.   ECMQV Key Exchange</item>
 	<item>6.4. ECMQV Key Exchange and Verification Method Name</item>
 	<item>7.2. ECMQV Message Numbers</item>
 	<item>10.2. Recommended Curves</item>
       </list>
-      </p>
+      <p/>
       </item>
       
       <item><url href="https://tools.ietf.org/html/rfc6668">RFC 6668</url>, SHA-2 Data Integrity Verification for
