@@ -480,8 +480,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
       </item>
 
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c></tag>
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
+      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c><br/>
+      <c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
 	   <item>
 	   <p>Indicates that the client is to try to perform Next Protocol
 	   Negotiation.</p>
@@ -538,7 +538,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
-      
     </taglist>
    </section>
 

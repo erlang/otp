@@ -58,7 +58,7 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c> protocol_version = <seealso marker="ssl#type-protocol">ssl:protocol()</seealso> <![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       protocols currently supported by the SSL application.
@@ -78,8 +78,8 @@
       <item><p>List of extra user-defined arguments to the <c>init</c> function
       in the session cache callback module. Defaults to <c>[]</c>.</p></item>
 
-      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c></tag>
-      <tag><c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/>
+      <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
       <item><p>Limits the growth of the clients/servers session cache,
       if the maximum number of sessions is reached, the current cache entries will
       be invalidated regardless of their remaining lifetime. Defaults to 1000.

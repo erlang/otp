@@ -84,9 +84,9 @@
 	<v> CRLs = [<seealso
 	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
 	</type>
-	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>. </p>
+	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
-	links depending on how the cache is administrated.
+	links depending on how the cache is administrated. </p>
 	</desc>
     </func>
     
