@@ -33,7 +33,33 @@
   <appsummary>The ssl application provides secure communication over
   sockets.</appsummary>
 
-  <description></description>
+  <description>
+    <p>
+      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+    </p>
+    <list type="bulleted">
+      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1, and TLS-1.2.</item>
+      <item>For security reasons SSL-2.0 is not supported.</item>
+      <item>For security reasons SSL-3.0 is no longer supported by default,
+      but can be configured.</item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported,
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Elliptic Curve cipher suites are supported if the Crypto 
+      application supports it and named curves are used.
+      </item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
+      <item>IDEA cipher suites are not supported as they have
+      become deprecated by the latest TLS specification so it is not 
+      motivated to implement them.</item>
+      <item>CRL validation is supported.</item>
+      <item>Policy certificate extensions are not supported.</item>
+      <item>'Server Name Indication' extension client side
+      (RFC 6066, Section 3) is supported.</item>
+    </list>
+   </description>
+
   <section>
     <title>DEPENDENCIES</title>
     <p>The SSL application uses the <c>public_key</c> and
