@@ -27,8 +27,6 @@
 #endif
 
 #include "sys.h"
-#include "erl_vm.h"
-#include "global.h"
 #include "hash.h"
 
 /*
@@ -66,6 +64,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
     int i;
     int max_depth = 0;
     int objects = 0;
+    int used = 0;
 
     for (i = 0; i < size; i++) {
 	int depth = 0;
@@ -76,14 +75,18 @@ void hash_get_info(HashInfo *hi, Hash *h)
 	    depth++;
 	    b = b->next;
 	}
-	if (depth > max_depth)
-	    max_depth = depth;
+        if (depth) {
+            used++;
+            if (depth > max_depth)
+                max_depth = depth;
+        }
     }
+    ASSERT(objects == h->nobjs);
 
     hi->name  = h->name;
     hi->size  = h->size;
-    hi->used  = h->used;
-    hi->objs  = objects;
+    hi->used  = used;
+    hi->objs  = h->nobjs;
     hi->depth = max_depth;
 }
 
@@ -119,6 +122,15 @@ hash_table_sz(Hash *h)
 }
 
 
+static ERTS_INLINE void set_thresholds(Hash* h)
+{
+    h->grow_threshold = (8*h->size)/5;   /* grow at 160% load */
+    if (h->size_ix > h->min_size_ix)
+        h->shrink_threshold = h->size / 5;  /* shrink at 20% load */
+    else
+        h->shrink_threshold = -1;  /* never shrink below inital size */
+}
+
 /*
 ** init a pre allocated or static hash structure
 ** and allocate buckets.
@@ -145,10 +157,10 @@ Hash* hash_init(ErtsAlcType_t type, Hash* h, char* name, int size, HashFunctions
     h->name = name;
     h->fun = fun;
     h->size = size;
-    h->size20percent = h->size/5;
-    h->size80percent = (4*h->size)/5;
-    h->ix = ix;
-    h->used = 0;
+    h->size_ix = ix;
+    h->min_size_ix = ix;
+    h->nobjs = 0;
+    set_thresholds(h);
     return h;
 }
 
@@ -199,32 +211,26 @@ static void rehash(Hash* h, int grow)
     int i;
 
     if (grow) {
-	if ((h_size_table[h->ix+1]) == -1)
+	if ((h_size_table[h->size_ix+1]) == -1)
 	    return;
-	h->ix++;
+	h->size_ix++;
     }
     else {
-	if (h->ix == 0)
+	if (h->size_ix == 0)
 	    return;
-	h->ix--;
+	h->size_ix--;
     }
-    h->size = h_size_table[h->ix];
-    h->size20percent = h->size/5;
-    h->size80percent = (4*h->size)/5;
+    h->size = h_size_table[h->size_ix];
     sz = h->size*sizeof(HashBucket*);
 
     new_bucket = (HashBucket **) erts_alloc(h->type, sz);
     sys_memzero(new_bucket, sz);
-
-    h->used = 0;
 
     for (i = 0; i < old_size; i++) {
 	HashBucket* b = h->bucket[i];
 	while (b != (HashBucket*) 0) {
 	    HashBucket* b_next = b->next;
 	    int ix = b->hvalue % h->size;
-	    if (new_bucket[ix] == NULL)
-		h->used++;
 	    b->next = new_bucket[ix];
 	    new_bucket[ix] = b;
 	    b = b_next;
@@ -232,6 +238,7 @@ static void rehash(Hash* h, int grow)
     }
     erts_free(h->type, (void *) h->bucket);
     h->bucket = new_bucket;
+    set_thresholds(h);
 }
 
 /*
@@ -268,66 +275,13 @@ void* hash_put(Hash* h, void* tmpl)
     }
     b = (HashBucket*) h->fun.alloc(tmpl);
 
-    if (h->bucket[ix] == NULL)
-	h->used++;
-
     b->hvalue = hval;
     b->next = h->bucket[ix];
     h->bucket[ix] = b;
 
-    if (h->used > h->size80percent)  /* rehash at 80% */
+    if (++h->nobjs > h->grow_threshold)
 	rehash(h, 1);
     return (void*) b;
-}
-
-static void
-hash_insert_entry(Hash* h, HashBucket* entry)
-{
-    HashValue hval = entry->hvalue;
-    int ix = hval % h->size;
-    HashBucket* b = h->bucket[ix];
-
-    while (b != (HashBucket*) 0) {
-	if ((b->hvalue == hval) && (h->fun.cmp((void*)entry, (void*)b) == 0)) {
-	    abort();		/* Should not happen */
-	}
-	b = b->next;
-    }
-
-    if (h->bucket[ix] == NULL)
-	h->used++;
-
-    entry->next = h->bucket[ix];
-    h->bucket[ix] = entry;
-
-    if (h->used > h->size80percent)  /* rehash at 80% */
-	rehash(h, 1);
-}
-
-
-/*
- * Move all entries in src into dst; empty src.
- * Entries in src must not exist in dst.
- */
-void
-erts_hash_merge(Hash* src, Hash* dst)
-{
-    int limit = src->size;
-    HashBucket** bucket = src->bucket;
-    int i;
-
-    src->used = 0;
-    for (i = 0; i < limit; i++) {
-	HashBucket* b = bucket[i];
-	HashBucket* next;
-
-	bucket[i] = NULL;
-	while (b) {
-	    next = b->next;
-	    hash_insert_entry(dst, b);
-	    b = next;
-	}
-    }
 }
 
 /*
@@ -348,9 +302,7 @@ void* hash_erase(Hash* h, void* tmpl)
 	    else
 		h->bucket[ix] = b->next;
 	    h->fun.free((void*)b);
-	    if (h->bucket[ix] == NULL)
-		h->used--;
-	    if (h->used < h->size20percent)  /* rehash at 20% */
+	    if (--h->nobjs < h->shrink_threshold)
 		rehash(h, 0);
 	    return tmpl;
 	}
@@ -381,9 +333,7 @@ hash_remove(Hash *h, void *tmpl)
 		prev->next = b->next;
 	    else
 		h->bucket[ix] = b->next;
-	    if (h->bucket[ix] == NULL)
-		h->used--;
-	    if (h->used < h->size20percent)  /* rehash at 20% */
+	    if (--h->nobjs < h->shrink_threshold)
 		rehash(h, 0);
 	    return (void *) b;
 	}
