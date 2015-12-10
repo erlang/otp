@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -554,8 +554,8 @@
         <v>IpDesc = string()</v>
         <d>Example: "134.138" or "[FEDC:BA98" 
 	(all IP addresses starting with 134.138 or FEDC:BA98), 
-	"66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP address).</d>
-	<d><c>proxy</c> defaults to <c>{undefined, []}</c>, 
+	"66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP address). 
+	<c>proxy</c> defaults to <c>{undefined, []}</c>, 
 	that is, no proxy is configured and 
 	<c>https_proxy</c> defaults to the value of <c>proxy</c>.</d>	
 	<v>MaxSessions = integer()</v>
@@ -597,8 +597,8 @@
 	for details.</d>
 	<v>socket_opts() = [socket_opt()]</v>
 	<d>The options are appended to the socket options used by the 
-	client.</d>
-	<d>These are the default values when a new request handler
+	client. 
+	These are the default values when a new request handler
 	is started (for the initial connect). They are passed directly 
         to the underlying transport (<c>gen_tcp</c> or <c>SSL</c>) 
 	<em>without</em> verification.</d>

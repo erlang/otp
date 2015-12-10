@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2013</year>
+      <year>2006</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -216,12 +216,9 @@
 	  five times when the time-out expires.</p>
       </item>
     </taglist>
-
-    <marker id="start1"></marker>
   </section>
 
   <funcs>
-    <marker id="change_config_daemons"></marker>
     <func>
       <name>change_config(daemons, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all daemons.
@@ -234,8 +231,6 @@
       </type>
       <desc>
         <p>Changes configuration for all TFTP daemon processes. </p>
-	
-	<marker id="change_config_servers"></marker>
       </desc>
     </func>
 
@@ -251,8 +246,6 @@
       </type>
       <desc>
         <p>Changes configuration for all TFTP server processes.</p>
-	
-	<marker id="change_config_pid"></marker>
       </desc>
     </func>
 
@@ -268,7 +261,6 @@
       </type>
       <desc>
         <p>Changes configuration for a TFTP daemon, server, or client process.</p>
-	<marker id="info_daemons"></marker>
       </desc>
     </func>
     
@@ -282,8 +274,6 @@
       </type>
       <desc>
         <p>Returns information about all TFTP daemon processes.</p>
-	
-	<marker id="info_servers"></marker>
       </desc>
     </func>
 
@@ -297,8 +287,6 @@
       </type>
       <desc>
         <p>Returns information about all TFTP server processes. </p>
-	
-	<marker id="info_pid"></marker>
       </desc>
     </func>
 
@@ -341,9 +329,7 @@
 	the regexps of these and the callback module corresponding to
 	the first match is used, or an error tuple is returned if no
 	matching regexp is found.</p>
-      </desc>
-	
-      <marker id="write_file"></marker>
+      </desc>	
     </func>
     
     <func>
@@ -359,8 +345,6 @@
 	port. When it receives a request for read or write, it spawns
 	a temporary server process handling the actual transfer
 	of the (virtual) file.</p>
-	
-	<marker id="read_file"></marker>
       </desc>
     </func>
 
@@ -393,7 +377,6 @@
 	matching regexp is found.</p>
       </desc>
     </func>
-   
   </funcs>
 
   <section>
