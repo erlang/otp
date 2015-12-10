@@ -787,7 +787,6 @@ start_tracer() ->
     seq_trace:set_system_tracer(Pid),
     Pid.
 
-
 set_token_flags([]) ->
     ok;
 set_token_flags([no_timestamp|Flags]) ->
@@ -836,7 +835,7 @@ check_ts(strict_monotonic_timestamp, Ts) ->
 	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok.
-	
+
 start_node(Name, Param) ->
     test_server:start_node(Name, slave, [{args, Param}]).
 

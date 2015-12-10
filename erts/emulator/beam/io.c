@@ -211,6 +211,7 @@ static ERTS_INLINE void
 kill_port(Port *pp)
 {
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_TRACER_CLEAR(&ERTS_TRACER(pp));
     erts_ptab_delete_element(&erts_port, &pp->common); /* Time of death */
     erts_port_task_free_port(pp);
     /* In non-smp case the port structure may have been deallocated now */
@@ -403,7 +404,7 @@ static Port *create_port(char *name,
     prt->os_pid = -1;
 
     /* Set default tracing */
-    erts_get_default_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER_PROC(prt));
+    erts_get_default_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER(prt));
 
     ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
@@ -1287,7 +1288,7 @@ try_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	reds_left_in = CONTEXT_REDS/10;
     else {
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_virtual_sched(c_p, am_out);
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_out);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -1371,7 +1372,7 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
 	}
 
 	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS))
-	    trace_virtual_sched(c_p, am_in);
+	    trace_sched(c_p, ERTS_PROC_LOCK_MAIN, am_in);
 	/*
 	 * No status lock held while sending runnable
 	 * proc trace messages. It is however not needed
@@ -1434,7 +1435,7 @@ queue_port_sched_op_reply(Process *rp,
 
     erts_factory_trim_and_close(factory, &msg, 1);
 
-    erts_queue_message(rp, rp_locksp, factory->message, msg, NIL);
+    erts_queue_message(rp, rp_locksp, factory->message, msg);
 }
 
 static void
@@ -1522,9 +1523,8 @@ erts_schedule_proc2port_signal(Process *c_p,
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 	c_p->msg.save = c_p->msg.last;
 
-	erts_smp_proc_unlock(c_p,
-			     (ERTS_PROC_LOCK_MAIN
-			      | ERTS_PROC_LOCKS_MSG_RECEIVE));
+        erts_smp_proc_unlock(c_p, (ERTS_PROC_LOCKS_MSG_RECEIVE
+                                   | ERTS_PROC_LOCK_MAIN));
     }
 
 
@@ -2918,7 +2918,7 @@ port_link_failure(Eterm port_id, Eterm linker)
 	    if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
 		/* We didn't exit the process and it is traced */
 		if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-		    trace_proc(NULL, rp, am_getting_unlinked, port_id);
+		    trace_proc(NULL, 0, rp, am_getting_unlinked, port_id);
 	    }
 	    if (rp_locks)
 		erts_smp_proc_unlock(rp, rp_locks);
@@ -3387,7 +3387,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 				     sz_res + 3, &hp, &ohp);
 	res = copy_struct(res, sz_res, &hp, ohp);
 	tuple = TUPLE2(hp, sender, res);
-	erts_queue_message(rp, &rp_locks, mp, tuple, NIL);
+	erts_queue_message(rp, &rp_locks, mp, tuple);
 
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -3483,7 +3483,8 @@ static void deliver_read_message(Port* prt, erts_aint32_t state, Eterm to,
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
+    erts_queue_message(rp, &rp_locks, mp, tuple);
     if (rp_locks)
 	erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
@@ -3650,7 +3651,8 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->common.id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
+    ERL_MESSAGE_TOKEN(mp) = am_undefined;
+    erts_queue_message(rp, &rp_locks, mp, tuple);
     erts_smp_proc_unlock(rp, rp_locks);
     if (!scheduler)
 	erts_proc_dec_refc(rp);
@@ -3888,7 +3890,7 @@ static void sweep_one_link(ErtsLink *lnk, void *vpsc)
 		if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
 		    /* We didn't exit the process and it is traced */
 		    if (IS_TRACED_FL(rp, F_TRACE_PROCS)) {
-			trace_proc(NULL, rp, am_getting_unlinked,
+			trace_proc(NULL, 0, rp, am_getting_unlinked,
 				   psc->port);
 		    }
 		}
@@ -4966,7 +4968,7 @@ reply_io_bytes(void *vreq)
 	eout = erts_bld_uint64(&hp, NULL, out);
 
 	msg = TUPLE4(hp, ref, make_small(sched_id), ein, eout);
-	erts_queue_message(rp, &rp_locks, mp, msg, NIL);
+	erts_queue_message(rp, &rp_locks, mp, msg);
 
 	if (req->sched_id == sched_id)
 	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -5450,7 +5452,8 @@ void driver_report_exit(ErlDrvPort ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->common.id, tuple);
 
-   erts_queue_message(rp, &rp_locks, mp, tuple, am_undefined);
+   ERL_MESSAGE_TOKEN(mp) = am_undefined;
+   erts_queue_message(rp, &rp_locks, mp, tuple);
 
    erts_smp_proc_unlock(rp, rp_locks);
    if (!scheduler)
@@ -6044,7 +6047,8 @@ driver_deliver_term(Eterm to, ErlDrvTermData* data, int len)
 	mess = ESTACK_POP(stack);  /* get resulting value */
 	erts_factory_trim_and_close(&factory, &mess, 1);
 	/* send message */
-	erts_queue_message(rp, &rp_locks, factory.message, mess, am_undefined);
+        ERL_MESSAGE_TOKEN(factory.message) = am_undefined;
+	erts_queue_message(rp, &rp_locks, factory.message, mess);
     }
     else {
 	if (b2t.ix > b2t.used)

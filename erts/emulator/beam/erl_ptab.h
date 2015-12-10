@@ -37,14 +37,16 @@
 #include "erl_alloc.h"
 #include "erl_monitors.h"
 
-#define ERTS_TRACER_PROC(P) 	((P)->common.tracer_proc)
+#define ERTS_TRACER(P)          ((P)->common.tracer)
+#define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
+#define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
 #define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
 
 #define IS_TRACED(p) \
-    (ERTS_TRACER_PROC((p)) != NIL)
+    (ERTS_TRACER(p) != NIL)
 #define ARE_TRACE_FLAGS_ON(p,tf) \
     ((ERTS_TRACE_FLAGS((p)) & (tf|F_SENSITIVE)) == (tf))
 #define IS_TRACED_FL(p,tf) \
@@ -56,7 +58,7 @@ typedef struct {
 	erts_atomic_t atmc;
 	Sint sint;
     } refc;
-    Eterm tracer_proc;
+    ErtsTracer tracer;
     Uint trace_flags;
     erts_smp_atomic_t timer;
     union {

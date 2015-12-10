@@ -123,15 +123,12 @@ static int insert_internal_link(Process* p, Eterm rpid)
 	erts_add_link(&ERTS_P_LINKS(p), LINK_PID, rp->common.id);
 	erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, p->common.id);
 
-	ASSERT(is_nil(ERTS_TRACER_PROC(p))
-	       || is_internal_pid(ERTS_TRACER_PROC(p))
-	       || is_internal_port(ERTS_TRACER_PROC(p)));
+	ASSERT(IS_TRACER_VALID(ERTS_TRACER(p)));
 
 	if (IS_TRACED(p)) {
 	    if (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))  {
 		ERTS_TRACE_FLAGS(rp) |= (ERTS_TRACE_FLAGS(p) & TRACEE_FLAGS);
-		ERTS_TRACER_PROC(rp) = ERTS_TRACER_PROC(p); /* maybe steal */
-
+                erts_tracer_replace(&rp->common, ERTS_TRACER(p));
 		if (ERTS_TRACE_FLAGS(p) & F_TRACE_SOL1) { /* maybe override */
 		    ERTS_TRACE_FLAGS(rp) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
 		    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
@@ -140,7 +137,8 @@ static int insert_internal_link(Process* p, Eterm rpid)
 	}
     }
     if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-	trace_proc(p, rp, am_getting_linked, p->common.id);
+	trace_proc(p, p == rp ? rp_locks : ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK,
+                   rp, am_getting_linked, p->common.id);
 
     if (p == rp)
 	erts_smp_proc_unlock(p, rp_locks & ~ERTS_PROC_LOCK_MAIN);
@@ -159,7 +157,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     DistEntry *dep;
 
     if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
-	trace_proc(BIF_P, BIF_P, am_link, BIF_ARG_1);
+	trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P, am_link, BIF_ARG_1);
     }
     /* check that the pid or port which is our argument is OK */
 
@@ -613,7 +611,7 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, msgp, tup, NIL);
+    erts_queue_message(p, p_locksp, msgp, tup);
 }
 
 static BIF_RETTYPE
@@ -1001,6 +999,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     Process *rp;
     DistEntry *dep;
     ErtsLink *l = NULL, *rl = NULL;
+    ErtsProcLocks cp_locks = ERTS_PROC_LOCK_MAIN;
 
     /*
      * SMP specific note concerning incoming exit signals:
@@ -1015,7 +1014,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
      */
 
     if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
-	trace_proc(BIF_P, BIF_P, am_unlink, BIF_ARG_1);
+	trace_proc(BIF_P, cp_locks, BIF_P, am_unlink, BIF_ARG_1);
     }
 
     if (is_internal_port(BIF_ARG_1)) {
@@ -1120,10 +1119,10 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
 
+    cp_locks |= ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS;
+
     /* get process struct */
-    rp = erts_pid2proc_opt(BIF_P, (ERTS_PROC_LOCK_MAIN
-				   | ERTS_PROC_LOCK_LINK
-				   | ERTS_PROC_LOCK_STATUS),
+    rp = erts_pid2proc_opt(BIF_P, cp_locks,
 			   BIF_ARG_1, ERTS_PROC_LOCK_LINK,
 			   ERTS_P2P_FLG_ALLOW_OTHER_X);
 
@@ -1149,14 +1148,17 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    erts_destroy_link(rl);
 
 	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && rl != NULL) {
-	    trace_proc(BIF_P, rp, am_getting_unlinked, BIF_P->common.id);
+            erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
+            cp_locks &= ~ERTS_PROC_LOCK_STATUS;
+	    trace_proc(BIF_P, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
+                       rp, am_getting_unlinked, BIF_P->common.id);
 	}
 
 	if (rp != BIF_P)
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     }
  
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
+    erts_smp_proc_unlock(BIF_P, cp_locks & ~ERTS_PROC_LOCK_MAIN);
 
     BIF_RET(am_true);
 
@@ -4334,12 +4336,34 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
     } else if (BIF_ARG_1 == am_trace_control_word) {
 	BIF_RET(db_set_trace_control_word(BIF_P, BIF_ARG_2));
     } else if (BIF_ARG_1 == am_sequential_tracer) {
-        Eterm old_value = erts_set_system_seq_tracer(BIF_P,
-						     ERTS_PROC_LOCK_MAIN,
-						     BIF_ARG_2);
-	if (old_value != THE_NON_VALUE) {
-	    BIF_RET(old_value);
-	}
+        ErtsTracer new_seq_tracer, old_seq_tracer;
+        Eterm ret;
+
+        if (BIF_ARG_2 == am_false)
+            new_seq_tracer = erts_tracer_nil;
+        else
+            new_seq_tracer = erts_term_to_tracer(THE_NON_VALUE, BIF_ARG_2);
+
+        if (new_seq_tracer == THE_NON_VALUE)
+            goto error;
+
+        old_seq_tracer = erts_set_system_seq_tracer(BIF_P,
+                                                    ERTS_PROC_LOCK_MAIN,
+                                                    new_seq_tracer);
+
+        ERTS_TRACER_CLEAR(&new_seq_tracer);
+
+        if (old_seq_tracer == THE_NON_VALUE)
+            goto error;
+
+        if (ERTS_TRACER_IS_NIL(old_seq_tracer))
+            BIF_RET(am_false);
+
+        ret = erts_tracer_to_term(BIF_P, old_seq_tracer);
+
+        ERTS_TRACER_CLEAR(&old_seq_tracer);
+
+        BIF_RET(ret);
     } else if (BIF_ARG_1 == make_small(1)) {
 	int i, max;
 	ErtsMessage* mp;
@@ -4676,7 +4700,7 @@ skip_current_msgq(Process *c_p)
 	res = 0;
     }
     else {
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+        ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 	c_p->msg.save = c_p->msg.last;
 	res = 1;
     }

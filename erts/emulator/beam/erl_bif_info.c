@@ -843,6 +843,7 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
 
 	if (unlock_locks)
 	    erts_smp_proc_unlock(rp, unlock_locks);
+
     }
 
     /*
@@ -2159,8 +2160,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = build_snifs_term(&hp, NULL, NIL);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
-	val = erts_get_system_seq_tracer();
-	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false);
+	ErtsTracer seq_tracer = erts_get_system_seq_tracer();
+        val = erts_tracer_to_term(BIF_P, seq_tracer);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);

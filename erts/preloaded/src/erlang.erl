@@ -245,12 +245,14 @@
       set_on_first_spawn |
       set_on_link |
       set_on_first_link |
-      {tracer, pid() | port()}.
+      {tracer, pid() | port()} |
+      {tracer, module(), term()}.
 
 -type trace_info_item_result() ::
        {traced, global | local | false | undefined} |
        {match_spec, trace_match_spec() | false | undefined} |
        {meta, pid() | port() | false | undefined | []} |
+       {meta, module(), term() } |
        {meta_match_spec, trace_match_spec() | false | undefined} |
        {call_count, non_neg_integer() | boolean() | undefined} |
        {call_time, [{pid(), non_neg_integer(),
@@ -276,6 +278,7 @@
       undefined |
       {flags, [trace_info_flag()]} |
       {tracer, pid() | port() | []} |
+      {tracer, module(), term()} |
       trace_info_item_result() |
       {all, [ trace_info_item_result() ] | false | undefined}.
 
@@ -1709,8 +1712,28 @@ time() ->
       PidSpec :: pid() | existing | new | all,
       How :: boolean(),
       FlagList :: [trace_flag()].
-trace(_PidSpec, _How, _FlagList) ->
-    erlang:nif_error(undefined).
+trace(PidSpec, How, FlagList) ->
+    %% Make sure that we have loaded the tracer module
+    case lists:keyfind(tracer, 1, FlagList) of
+        {tracer, Module, State} when erlang:is_atom(Module) ->
+            case erlang:module_loaded(Module) of
+                false ->
+                    Module:enabled(trace_status, erlang:self(), State);
+                true ->
+                    ok
+            end;
+        _ ->
+            ignore
+    end,
+
+    try erts_internal:trace(PidSpec, How, FlagList) of
+        Res -> Res
+    catch E:R ->
+            {_, [_ | CST]} = erlang:process_info(
+                               erlang:self(), current_stacktrace),
+            erlang:raise(
+              E, R, [{?MODULE, trace, [PidSpec, How, FlagList], []} | CST])
+    end.
 
 %% trace_delivered/1
 -spec erlang:trace_delivered(Tracee) -> Ref when
@@ -2319,7 +2342,7 @@ subtract(_,_) ->
       OldState :: preliminary | final | volatile;
                         %% These are deliberately not documented
 			(internal_cpu_topology, term()) -> term();
-                        (sequential_tracer, pid() | port() | false) -> pid() | port() | false;
+                        (sequential_tracer, pid() | port() | {module(), term()} | false) -> pid() | port() | false;
                         (1,0) -> true.
 
 system_flag(_Flag, _Value) ->
@@ -2355,12 +2378,20 @@ tl(_List) ->
                  | boolean()
                  | restart
                  | pause.
-trace_pattern(_MFA, _MatchSpec) ->
-    erlang:nif_error(undefined).
+trace_pattern(MFA, MatchSpec) ->
+    try erts_internal:trace_pattern(MFA, MatchSpec, []) of
+        Res -> Res
+    catch E:R ->
+            {_, [_ | CST]} = erlang:process_info(
+                               erlang:self(), current_stacktrace),
+            erlang:raise(
+              E, R, [{?MODULE, trace_pattern, [MFA, MatchSpec], []} | CST])
+    end.
 
 -type trace_pattern_flag() ::
       global | local |
       meta | {meta, Pid :: pid()} |
+      {meta, TracerModule :: module(), TracerState :: term()} |
       call_count |
       call_time.
 
@@ -2371,8 +2402,28 @@ trace_pattern(_MFA, _MatchSpec) ->
                  | restart
                  | pause,
       FlagList :: [ trace_pattern_flag() ].
-trace_pattern(_MFA, _MatchSpec, _FlagList) ->
-    erlang:nif_error(undefined).
+trace_pattern(MFA, MatchSpec, FlagList) ->
+    %% Make sure that we have loaded the tracer module
+    case lists:keyfind(meta, 1, FlagList) of
+        {meta, Module, State} when erlang:is_atom(Module) ->
+            case erlang:module_loaded(Module) of
+                false ->
+                    Module:enabled(trace_status, erlang:self(), State);
+                true ->
+                    ok
+            end;
+        _ ->
+            ignore
+    end,
+
+    try erts_internal:trace_pattern(MFA, MatchSpec, FlagList) of
+        Res -> Res
+    catch E:R ->
+            {_, [_ | CST]} = erlang:process_info(
+                               erlang:self(), current_stacktrace),
+            erlang:raise(
+              E, R, [{?MODULE, trace_pattern, [MFA, MatchSpec, FlagList], []} | CST])
+    end.
 
 %% Shadowed by erl_bif_types: erlang:tuple_to_list/1
 -spec tuple_to_list(Tuple) -> [term()] when

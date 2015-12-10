@@ -2233,9 +2233,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 #endif
-    ASSERT(is_nil(ERTS_TRACER_PROC(p)) ||
-	   is_internal_pid(ERTS_TRACER_PROC(p)) ||
-	   is_internal_port(ERTS_TRACER_PROC(p)));
+    ASSERT(IS_TRACER_VALID(ERTS_TRACER(p)));
 
     ASSERT(is_pid(follow_moved(p->group_leader, (Eterm) 0)));
     if (is_not_immed(p->group_leader)) {
@@ -2905,7 +2903,7 @@ reply_gc_info(void *vgcirp)
 	hpp = &hp;
     }
 
-    erts_queue_message(rp, &rp_locks, mp, msg, NIL);
+    erts_queue_message(rp, &rp_locks, mp, msg);
 
     if (gcirp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;

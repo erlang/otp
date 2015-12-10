@@ -195,7 +195,7 @@ void hipe_print_pcb(Process *p)
     U("rcount     ", rcount);
     U("id         ", common.id);
     U("reds       ", reds);
-    U("tracer_pr..", common.tracer_proc);
+    U("tracer     ", common.tracer);
     U("trace_fla..", common.trace_flags);
     U("group_lea..", group_leader);
     U("flags      ", flags);

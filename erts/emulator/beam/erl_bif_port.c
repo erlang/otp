@@ -79,6 +79,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     }
 
     if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
+
         /* Copied from erl_port_task.c */
         port->async_open_port = erts_alloc(ERTS_ALC_T_PRTSD,
                                            sizeof(*port->async_open_port));
@@ -911,7 +912,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_out);
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
     }
     
 
@@ -935,13 +936,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		err_typep ? *err_typep : 4711,
 		err_nump ? *err_nump : 4711));
     	if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-            trace_virtual_sched(p, am_in);
+            trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
     	}
 	goto do_return;
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_in);
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
     }
 
     if (linebuf && port->linebuf == NULL){

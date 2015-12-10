@@ -719,13 +719,13 @@ set_default_trace_pattern(Eterm module)
     Binary *match_spec;
     Binary *meta_match_spec;
     struct trace_pattern_flags trace_pattern_flags;
-    Eterm meta_tracer_pid;
+    ErtsTracer meta_tracer;
 
     erts_get_default_trace_pattern(&trace_pattern_is_on,
 				   &match_spec,
 				   &meta_match_spec,
 				   &trace_pattern_flags,
-				   &meta_tracer_pid);
+				   &meta_tracer);
     if (trace_pattern_is_on) {
 	Eterm mfa[1];
 	mfa[0] = module;
@@ -733,7 +733,7 @@ set_default_trace_pattern(Eterm module)
 				      match_spec,
 				      meta_match_spec,
 				      1, trace_pattern_flags,
-				      meta_tracer_pid, 1);
+				      meta_tracer, 1);
     }
 }
 
@@ -1264,6 +1264,7 @@ delete_code(Module* modp)
     modp->curr.code_length = 0;
     modp->curr.catches = BEAM_CATCHES_NIL;
     modp->curr.nif = NULL;
+
 }
 
 

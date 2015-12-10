@@ -55,7 +55,9 @@
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
 
-%% Auto-import name clash
+-export([trace/3, trace_pattern/3]).
+
+%% Auto import name clash
 -export([check_process_code/2]).
 
 %%
@@ -403,3 +405,28 @@ microstate_accounting(Ref, Threads) ->
         {Ref, Res} ->
 	    [Res | microstate_accounting(Ref, Threads - 1)]
     end.
+
+-spec trace(PidPortSpec, How, FlagList) -> integer() when
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
+      How :: boolean(),
+      FlagList :: [].
+trace(_PidSpec, _How, _FlagList) ->
+    erlang:nif_error(undefined).
+
+-type trace_pattern_mfa() ::
+      {atom(),atom(),arity() | '_'} | on_load.
+-type trace_match_spec() ::
+      [{[term()] | '_' ,[term()],[term()]}].
+
+-spec trace_pattern(MFA, MatchSpec, FlagList) -> non_neg_integer() when
+      MFA :: trace_pattern_mfa(),
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean()
+                 | restart
+                 | pause,
+      FlagList :: [ ].
+trace_pattern(_MFA, _MatchSpec, _FlagList) ->
+    erlang:nif_error(undefined).

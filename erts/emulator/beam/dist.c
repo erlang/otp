@@ -337,7 +337,7 @@ static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
 	    erts_destroy_link(rlnk);
 	    if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
 		/* We didn't exit the process and it is traced */
-		trace_proc(NULL, rp, am_getting_unlinked, sublnk->pid);
+		trace_proc(NULL, 0, rp, am_getting_unlinked, sublnk->pid);
 	    }
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
@@ -397,7 +397,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	    msgp = erts_alloc_message_heap(rp, &rp_locks,
 					   3, &hp, &ohp);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, msgp, tup, NIL);
+	    erts_queue_message(rp, &rp_locks, msgp, tup);
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -1275,7 +1275,7 @@ int erts_net_message(Port *prt,
 	erts_smp_de_links_unlock(dep);
 
 	if (IS_TRACED_FL(rp, F_TRACE_PROCS))
-	    trace_proc(NULL, rp, am_getting_linked, from);
+	    trace_proc(NULL, 0, rp, am_getting_linked, from);
 
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	break;
@@ -1300,7 +1300,7 @@ int erts_net_message(Port *prt,
 	lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
 	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
-	    trace_proc(NULL, rp, am_getting_unlinked, from);
+	    trace_proc(NULL, 0, rp, am_getting_unlinked, from);
 	}
 
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
@@ -1628,7 +1628,11 @@ int erts_net_message(Port *prt,
 					     ERTS_XSIG_FLG_IGN_KILL);
 		if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
 		    /* We didn't exit the process and it is traced */
-		    trace_proc(NULL, rp, am_getting_unlinked, from);
+                    if (rp_locks & ERTS_PROC_LOCKS_XSIG_SEND) {
+                        erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_XSIG_SEND);
+                        rp_locks &= ~ERTS_PROC_LOCKS_XSIG_SEND;
+                    }
+		    trace_proc(NULL, 0, rp, am_getting_unlinked, from);
 		}
 	    }
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -3313,7 +3317,7 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, mp, msg, NIL);
+    erts_queue_message(rp, rp_locksp, mp, msg);
 }
 
 static void

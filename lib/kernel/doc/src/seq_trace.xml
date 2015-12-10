@@ -220,9 +220,10 @@ seq_trace:set_token(OldToken), % activate the trace token again
       <type name="tracer"/>
       <desc>
         <p>Sets the system tracer. The system tracer can be either a
-          process or port denoted by <c><anno>Tracer</anno></c>. Returns the previous
-          value (which can be <c>false</c> if no system tracer is
-          active).</p>
+          process, port or <seealso marker="erts:erl_tracer">tracer module</seealso>
+          denoted by <c><anno>Tracer</anno></c>.
+          Returns the previous value (which can be <c>false</c> if no system
+          tracer is active).</p>
         <p>Failure: <c>{badarg, Info}}</c> if <c><anno>Pid</anno></c> is not an
           existing local pid.</p>
       </desc>
@@ -232,7 +233,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       <fsummary>Return the pid() or port() of the current system tracer.</fsummary>
       <type name="tracer"/>
       <desc>
-        <p>Returns the pid or port identifier of the current system
+        <p>Returns the pid, port identifier or tracer module of the current system
           tracer or <c>false</c> if no system tracer is activated.</p>
       </desc>
     </func>
@@ -300,7 +301,8 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
     <p>The trace token of a process is set each time the process
       matches a message in a receive statement, according to the trace
       token carried by the received message, empty or not.</p>
-    <p>On each Erlang node a process can be set as the <em>system tracer</em>. This process will receive trace messages each time
+    <p>On each Erlang node a process can be set as the <em>system tracer</em>.
+      This process will receive trace messages each time
       a message with a trace token is sent or received (if the trace
       token flag <c>send</c> or <c>'receive'</c> is set). The system
       tracer can then print each trace event, write it to a file or

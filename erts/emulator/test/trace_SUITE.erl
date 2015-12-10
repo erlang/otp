@@ -24,8 +24,8 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0, suite/0,
-	 receive_trace/1, self_send/1,
+-export([all/0, suite/0, link_receive_call_correlation/0,
+         receive_trace/1, link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
@@ -48,7 +48,8 @@ suite() ->
      {timetrap, {seconds, 5}}].
 
 all() -> 
-    [cpu_timestamp, receive_trace, self_send, timeout_trace,
+    [cpu_timestamp, receive_trace, link_receive_call_correlation,
+     self_send, timeout_trace,
      send_trace, procs_trace, dist_procs_trace, suspend,
      mutual_suspend, suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
@@ -87,10 +88,10 @@ receive_trace(Config) when is_list(Config) ->
     1 = erlang:trace(Receiver, true, ['receive']),
     Hello = {hello, world},
     Receiver ! Hello,
-    {trace, Receiver, 'receive', Hello} = receive_first(),
+    {trace, Receiver, 'receive', Hello} = receive_first_trace(),
     Hello2 = {hello, again, world},
     Receiver ! Hello2,
-    {trace, Receiver, 'receive', Hello2} = receive_first(),
+    {trace, Receiver, 'receive', Hello2} = receive_first_trace(),
     receive_nothing(),
 
     %% Another process should not be able to trace Receiver.
@@ -103,6 +104,112 @@ receive_trace(Config) when is_list(Config) ->
     Receiver ! any_garbage,
     receive_nothing(),
     ok.
+
+%% Tests that receive of a message always happens before a call with
+%% that message and that links/unlinks are ordered together with the
+%% 'receive'.
+link_receive_call_correlation() ->
+    [{timetrap, {minutes, 5}}].
+link_receive_call_correlation(Config) when is_list(Config) ->
+    Receiver = fun_spawn(fun F() ->
+                                 receive
+                                     stop -> ok;
+                                     M -> receive_msg(M), F()
+                                 end
+                         end),
+    process_flag(trap_exit, true),
+
+    %% Trace the process; make sure that we receive the trace messages.
+    1 = erlang:trace(Receiver, true, ['receive', procs, call, timestamp, scheduler_id]),
+    1 = erlang:trace_pattern({?MODULE, receive_msg, '_'}, [], [local]),
+
+    Num = 100000,
+
+    (fun F(0) -> [];
+         F(N) ->
+             if N rem 2 == 0 ->
+                     link(Receiver);
+                true ->
+                     unlink(Receiver)
+             end,
+             [Receiver ! N | F(N-1)]
+     end)(Num),
+
+    Receiver ! stop,
+    MonRef = erlang:monitor(process, Receiver),
+    receive {'DOWN', MonRef, _, _, _} -> ok end,
+    Ref = erlang:trace_delivered(Receiver),
+    receive {trace_delivered, _, Ref} -> ok end,
+
+    Msgs = (fun F() -> receive M -> [M | F()] after 1 -> [] end end)(),
+
+    case check_consistent(Receiver, Num, Num, Num, Msgs) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ct:log("~p", [Msgs]),
+            ct:fail({error, Reason})
+    end.
+
+-define(schedid, , _).
+
+check_consistent(_Pid, Recv, Call, _LU, [Msg | _]) when Recv > Call ->
+    {error, Msg};
+check_consistent(Pid, Recv, Call, LU, [Msg | Msgs]) ->
+
+    case Msg of
+        {trace, Pid, 'receive', Recv ?schedid} ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+        {trace_ts, Pid, 'receive', Recv ?schedid, _} ->
+            check_consistent(Pid,Recv - 1, Call, LU, Msgs);
+
+        {trace, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+        {trace_ts, Pid, call, {?MODULE, receive_msg, [Call]} ?schedid, _} ->
+            check_consistent(Pid,Recv, Call - 1, LU, Msgs);
+
+        %% We check that for each receive we have gotten a
+        %% getting_linked or getting_unlinked message. Also
+        %% if we receive a getting_linked, then the next
+        %% message we expect to receive is an even number
+        %% and odd number for getting_unlinked.
+        {trace, Pid, getting_linked, _Self ?schedid}
+          when Recv rem 2 == 0, Recv == LU ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+        {trace_ts, Pid, getting_linked, _Self ?schedid, _}
+          when Recv rem 2 == 0, Recv == LU ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+
+        {trace, Pid, getting_unlinked, _Self ?schedid}
+          when Recv rem 2 == 1, Recv == LU ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+        {trace_ts, Pid, getting_unlinked, _Self ?schedid, _}
+          when Recv rem 2 == 1, Recv == LU ->
+            check_consistent(Pid, Recv, Call, LU - 1, Msgs);
+
+        {trace,Pid,'receive',Ignore ?schedid}
+          when Ignore == stop; Ignore == timeout ->
+            check_consistent(Pid, Recv, Call, LU, Msgs);
+        {trace_ts,Pid,'receive',Ignore ?schedid,_}
+          when Ignore == stop; Ignore == timeout ->
+            check_consistent(Pid, Recv, Call, LU, Msgs);
+
+        {trace, Pid, exit, normal ?schedid} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs);
+        {trace_ts, Pid, exit, normal  ?schedid, _} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs);
+        {'EXIT', Pid, normal} ->
+            check_consistent(Pid, Recv, Call, LU, Msgs);
+        Msg ->
+            {error, Msg}
+    end;
+check_consistent(_, 0, 0, 0, []) ->
+    ok;
+check_consistent(_, Recv, Call, LU, []) ->
+    {error,{Recv, Call, LU}}.
+
+receive_msg(M) ->
+    M.
 
 %% Test that traces are generated for messages sent
 %% and received to/from self().
@@ -134,8 +241,8 @@ timeout_trace(Config) when is_list(Config) ->
     Process = fun_spawn(fun process/0),
     1 = erlang:trace(Process, true, ['receive']),
     Process ! timeout_please,
-    {trace, Process, 'receive', timeout_please} = receive_first(),
-    {trace, Process, 'receive', timeout} = receive_first(),
+    {trace, Process, 'receive', timeout_please} = receive_first_trace(),
+    {trace, Process, 'receive', timeout} = receive_first_trace(),
     receive_nothing(),
     ok.
 
@@ -149,13 +256,13 @@ send_trace(Config) when is_list(Config) ->
     %% Check that a message sent to another process is traced.
     1 = erlang:trace(Sender, true, [send]),
     Sender ! {send_please, Receiver, to_receiver},
-    {trace, Sender, send, to_receiver, Receiver} = receive_first(),
+    {trace, Sender, send, to_receiver, Receiver} = receive_first_trace(),
     receive_nothing(),
 
     %% Check that a message sent to another registered process is traced.
     register(?MODULE,Receiver),
     Sender ! {send_please, ?MODULE, to_receiver},
-    {trace, Sender, send, to_receiver, ?MODULE} = receive_first(),
+    {trace, Sender, send, to_receiver, ?MODULE} = receive_first_trace(),
     receive_nothing(),
     unregister(?MODULE),
 
@@ -163,14 +270,14 @@ send_trace(Config) when is_list(Config) ->
     Sender ! {send_please, self(), to_myself},
     receive to_myself -> ok end,
     Self = self(),
-    {trace, Sender, send, to_myself, Self} = receive_first(),
+    {trace, Sender, send, to_myself, Self} = receive_first_trace(),
     receive_nothing(),
 
     %% Check that a message sent to dead process is traced.
     {Pid,Ref} = spawn_monitor(fun() -> ok end),
     receive {'DOWN',Ref,_,_,_} -> ok end,
     Sender ! {send_please, Pid, to_dead},
-    {trace, Sender, send_to_non_existing_process, to_dead, Pid} = receive_first(),
+    {trace, Sender, send_to_non_existing_process, to_dead, Pid} = receive_first_trace(),
     receive_nothing(),
 
     %% Check that a message sent to unknown registrated process is traced.
@@ -178,7 +285,7 @@ send_trace(Config) when is_list(Config) ->
     1 = erlang:trace(BadargSender, true, [send]),
     unlink(BadargSender),
     BadargSender ! {send_please, not_registered, to_unknown},
-    {trace, BadargSender, send, to_unknown, not_registered} = receive_first(),
+    {trace, BadargSender, send, to_unknown, not_registered} = receive_first_trace(),
     receive_nothing(),
 
     %% Another process should not be able to trace Sender.
@@ -211,9 +318,9 @@ procs_trace(Config) when is_list(Config) ->
     %% spawn, link
     Proc1 ! {spawn_link_please, Self, MFA},
     Proc3 = receive {spawned, Proc1, P3} -> P3 end,
-    {trace, Proc1, spawn, Proc3, MFA} = receive_first(),
+    {trace, Proc1, spawn, Proc3, MFA} = receive_first_trace(),
     io:format("Proc3 = ~p ~n", [Proc3]),
-    {trace, Proc1, link, Proc3} = receive_first(),
+    {trace, Proc1, link, Proc3} = receive_first_trace(),
     receive_nothing(),
     %%
     %% getting_unlinked by exit()
@@ -221,60 +328,60 @@ procs_trace(Config) when is_list(Config) ->
     Reason3 = make_ref(),
     Proc1 ! {send_please, Proc3, {exit_please, Reason3}},
     receive {Proc1, {'EXIT', Proc3, Reason3}} -> ok end,
-    {trace, Proc1, getting_unlinked, Proc3} = receive_first(),
+    {trace, Proc1, getting_unlinked, Proc3} = receive_first_trace(),
     Proc1 ! {trap_exit_please, false},
     receive_nothing(),
     %%
     %% link
     Proc1 ! {link_please, Proc2},
-    {trace, Proc1, link, Proc2} = receive_first(),
+    {trace, Proc1, link, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% unlink
     Proc1 ! {unlink_please, Proc2},
-    {trace, Proc1, unlink, Proc2} = receive_first(),
+    {trace, Proc1, unlink, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% getting_linked
     Proc2 ! {link_please, Proc1},
-    {trace, Proc1, getting_linked, Proc2} = receive_first(),
+    {trace, Proc1, getting_linked, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% getting_unlinked
     Proc2 ! {unlink_please, Proc1},
-    {trace, Proc1, getting_unlinked, Proc2} = receive_first(),
+    {trace, Proc1, getting_unlinked, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% register
     true = register(Name, Proc1),
-    {trace, Proc1, register, Name} = receive_first(),
+    {trace, Proc1, register, Name} = receive_first_trace(),
     receive_nothing(),
     %%
     %% unregister
     true = unregister(Name),
-    {trace, Proc1, unregister, Name} = receive_first(),
+    {trace, Proc1, unregister, Name} = receive_first_trace(),
     receive_nothing(),
     %%
     %% exit (with registered name, due to link)
     Reason4 = make_ref(),
     Proc1 ! {spawn_link_please, Self, MFA},
     Proc4 = receive {spawned, Proc1, P4} -> P4 end,
-    {trace, Proc1, spawn, Proc4, MFA} = receive_first(),
+    {trace, Proc1, spawn, Proc4, MFA} = receive_first_trace(),
     io:format("Proc4 = ~p ~n", [Proc4]),
-    {trace, Proc1, link, Proc4} = receive_first(),
+    {trace, Proc1, link, Proc4} = receive_first_trace(),
     Proc1 ! {register_please, Name, Proc1},
-    {trace, Proc1, register, Name} = receive_first(),
+    {trace, Proc1, register, Name} = receive_first_trace(),
     Proc4 ! {exit_please, Reason4},
     receive {'EXIT', Proc1, Reason4} -> ok end,
-    {trace, Proc1, exit, Reason4} = receive_first(),
-    {trace, Proc1, unregister, Name} = receive_first(),
+    {trace, Proc1, exit, Reason4} = receive_first_trace(),
+    {trace, Proc1, unregister, Name} = receive_first_trace(),
     receive_nothing(),
     %%
     %% exit (not linked to tracing process)
     1 = erlang:trace(Proc2, true, [procs]),
     Reason2 = make_ref(),
     Proc2 ! {exit_please, Reason2},
-    {trace, Proc2, exit, Reason2} = receive_first(),
+    {trace, Proc2, exit, Reason2} = receive_first_trace(),
     receive_nothing(),
     ok.
 
@@ -299,45 +406,45 @@ dist_procs_trace(Config) when is_list(Config) ->
     Proc1 ! {trap_exit_please, true},
     Proc3 = receive {spawned, Proc1, P3} -> P3 end,
     io:format("Proc3 = ~p ~n", [Proc3]),
-    {trace, Proc1, getting_linked, Proc3} = receive_first(),
+    {trace, Proc1, getting_linked, Proc3} = receive_first_trace(),
     Reason3 = make_ref(),
     Proc1 ! {send_please, Proc3, {exit_please, Reason3}},
     receive {Proc1, {'EXIT', Proc3, Reason3}} -> ok end,
-    {trace, Proc1, getting_unlinked, Proc3} = receive_first(),
+    {trace, Proc1, getting_unlinked, Proc3} = receive_first_trace(),
     Proc1 ! {trap_exit_please, false},
     receive_nothing(),
     %%
     %% link
     Proc1 ! {link_please, Proc2},
-    {trace, Proc1, link, Proc2} = receive_first(),
+    {trace, Proc1, link, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% unlink
     Proc1 ! {unlink_please, Proc2},
-    {trace, Proc1, unlink, Proc2} = receive_first(),
+    {trace, Proc1, unlink, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% getting_linked
     Proc2 ! {link_please, Proc1},
-    {trace, Proc1, getting_linked, Proc2} = receive_first(),
+    {trace, Proc1, getting_linked, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% getting_unlinked
     Proc2 ! {unlink_please, Proc1},
-    {trace, Proc1, getting_unlinked, Proc2} = receive_first(),
+    {trace, Proc1, getting_unlinked, Proc2} = receive_first_trace(),
     receive_nothing(),
     %%
     %% exit (with registered name, due to link)
     Name = list_to_atom(OtherName),
     Reason2 = make_ref(),
     Proc1 ! {link_please, Proc2},
-    {trace, Proc1, link, Proc2} = receive_first(),
+    {trace, Proc1, link, Proc2} = receive_first_trace(),
     Proc1 ! {register_please, Name, Proc1},
-    {trace, Proc1, register, Name} = receive_first(),
+    {trace, Proc1, register, Name} = receive_first_trace(),
     Proc2 ! {exit_please, Reason2},
     receive {'EXIT', Proc1, Reason2} -> ok end,
-    {trace, Proc1, exit, Reason2} = receive_first(),
-    {trace, Proc1, unregister, Name} = receive_first(),
+    {trace, Proc1, exit, Reason2} = receive_first_trace(),
+    {trace, Proc1, unregister, Name} = receive_first_trace(),
     receive_nothing(),
     %%
     %% Done.
@@ -1247,7 +1354,8 @@ existing_clear(Config) when is_list(Config) ->
               [N, M]),
     {flags, []} = erlang:trace_info(Self, flags),
     {tracer, []} = erlang:trace_info(Self, tracer),
-    M = N + 1, % Since trace could not be enabled on the tracer.
+    M = N, % Used to be N + 1, but from 19.0 the tracer is also traced
+
     ok.
 
 %% Test that an invalid flag cause badarg
@@ -1315,6 +1423,13 @@ tok_trace_loop(Parent, N, M) ->
 receive_first() ->
     receive
         Any -> Any
+    end.
+
+%% Waits for and returns the first message in the message queue.
+
+receive_first_trace() ->
+    receive
+	Any when element(1,Any) =:= trace; element(1,Any) =:= trace_ts -> Any
     end.
 
 %% Ensures that there is no message in the message queue.
@@ -1421,7 +1536,7 @@ fun_spawn(Fun, Args) ->
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Cookie = atom_to_list(erlang:get_cookie()),
-    test_server:start_node(Name, slave, 
+    test_server:start_node(Name, slave,
                            [{args, "-setcookie " ++ Cookie ++" -pa " ++ Pa}]).
 
 stop_node(Node) ->

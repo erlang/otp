@@ -1966,7 +1966,7 @@ send_time_offset_changed_notifications(void *new_offsetp)
 		    *patch_refp = ref;
 		    ASSERT(hsz == size_object(message_template));
 		    message = copy_struct(message_template, hsz, &hp, ohp);
-		    erts_queue_message(rp, &rp_locks, mp, message, NIL);
+		    erts_queue_message(rp, &rp_locks, mp, message);
 		}
 		erts_smp_proc_unlock(rp, rp_locks);
 	    }
