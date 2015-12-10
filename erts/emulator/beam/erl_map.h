@@ -66,7 +66,7 @@ typedef struct flatmap_s {
 
 
 /* erl_term.h stuff */
-#define flatmap_get_values(x)        (((Eterm *)(x)) + 3)
+#define flatmap_get_values(x)        (((Eterm *)(x)) + sizeof(flatmap_t)/sizeof(Eterm))
 #define flatmap_get_keys(x)          (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
 #define flatmap_get_size(x)          (((flatmap_t*)(x))->size)
 
