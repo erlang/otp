@@ -30,6 +30,7 @@ static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
 static ERL_NIF_TERM atom_false;
+static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_self;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_join;
@@ -138,6 +139,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 						    msgenv_dtor,
 						    ERL_NIF_RT_CREATE, NULL);
     atom_false = enif_make_atom(env,"false");
+    atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
     atom_ok = enif_make_atom(env,"ok");
     atom_join = enif_make_atom(env,"join");
@@ -2008,6 +2010,26 @@ static ERL_NIF_TERM unique_integer(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return enif_make_unique_integer(env, properties);
 }
 
+static ERL_NIF_TERM is_process_alive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+    if (!enif_get_local_pid(env, argv[0], &pid))
+        return enif_make_badarg(env);
+    if (enif_is_process_alive(env, &pid))
+        return atom_true;
+    return atom_false;
+}
+
+static ERL_NIF_TERM is_port_alive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPort port;
+    if (!enif_get_local_port(env, argv[0], &port))
+        return enif_make_badarg(env);
+    if (enif_is_port_alive(env, &port))
+        return atom_true;
+    return atom_false;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2083,7 +2105,9 @@ static ErlNifFunc nif_funcs[] =
     {"convert_time_unit", 3, convert_time_unit},
     {"now_time", 0, now_time},
     {"cpu_time", 0, cpu_time},
-    {"unique_integer_nif", 1, unique_integer}
+    {"unique_integer_nif", 1, unique_integer},
+    {"is_process_alive_nif", 1, is_process_alive},
+    {"is_port_alive_nif", 1, is_port_alive}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

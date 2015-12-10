@@ -43,7 +43,8 @@
 	 nif_exception/1, call_nif_exception/1,
 	 nif_nan_and_inf/1, nif_atom_too_long/1,
 	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1,
-         nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1
+         nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1,
+         nif_is_process_alive/1, nif_is_port_alive/1
 	]).
 
 -export([many_args_100/100]).
@@ -75,7 +76,8 @@ all() ->
      nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
      nif_exception, nif_nan_and_inf, nif_atom_too_long,
      nif_monotonic_time, nif_time_offset, nif_convert_time_unit,
-     nif_now_time, nif_cpu_time, nif_unique_integer
+     nif_now_time, nif_cpu_time, nif_unique_integer,
+     nif_is_process_alive, nif_is_port_alive
     ].
 
 init_per_testcase(_Case, Config) ->
@@ -1939,6 +1941,23 @@ nif_unique_integer(Config) ->
     true = is_integer(unique_integer_nif([])),
     true = is_integer(unique_integer_nif([])).
 
+nif_is_process_alive(Config) ->
+    ensure_lib_loaded(Config),
+
+    {Pid,_} = spawn_monitor(fun() -> receive ok -> nok end end),
+    true = is_process_alive_nif(Pid),
+    exit(Pid, die),
+    receive _ -> ok end, %% Clear monitor
+    false = is_process_alive_nif(Pid).
+
+nif_is_port_alive(Config) ->
+    ensure_lib_loaded(Config),
+
+    Port = open_port({spawn,"/bin/sh -s unix:cmd"},[stderr_to_stdout,eof]),
+    true = is_port_alive_nif(Port),
+    port_close(Port),
+    false = is_port_alive_nif(Port).
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -1997,6 +2016,8 @@ call_nif_exception(_) -> ?nif_stub.
 call_nif_nan_or_inf(_) -> ?nif_stub.
 call_nif_atom_too_long(_) -> ?nif_stub.
 unique_integer_nif(_) -> ?nif_stub.
+is_process_alive_nif(_) -> ?nif_stub.
+is_port_alive_nif(_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

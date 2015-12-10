@@ -532,6 +532,14 @@ typedef struct {
           <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPid</c>
           is an opaque type.</p>
         </item>
+      <tag><marker id="ErlNifPort"/>ErlNifPort</tag>
+       <item>
+          <p><c>ErlNifPort</c> is a port identifier. In contrast to
+          port id terms (instances of <c>ERL_NIF_TERM</c>), <c>ErlNifPort</c>'s are self
+          contained and not bound to any
+          <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPort</c>
+          is an opaque type.</p>
+        </item>
 
       <tag><marker id="ErlNifResourceType"/>ErlNifResourceType</tag>
        <item>
@@ -801,6 +809,12 @@ typedef enum {
     pid variable <c>*pid</c> from it and return true. Otherwise return false.
     No check if the process is alive is done.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
+    <fsummary>Read an local port term</fsummary>
+    <desc><p>If <c>term</c> is the port of a node local port, initialize the
+    port variable <c>*port_id</c> from it and return true. Otherwise return false.
+    No check if the port is alive is done.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
       <fsummary>Get head and tail from a list</fsummary>
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
@@ -968,6 +982,17 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a port</fsummary>
       <desc><p>Return true if <c>term</c> is a port.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
+      <fsummary>Determine if a local port is alive or not.</fsummary>
+      <desc><p>Return true if <c>port_id</c> is currently alive.</p>
+      <p>This function can only be used in a from a NIF-calling thread.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
+      <fsummary>Determine if a local process is alive or not.</fsummary>
+      <desc><p>Return true if <c>pid</c> is currently alive.</p>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a reference</fsummary>

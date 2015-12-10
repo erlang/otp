@@ -150,7 +150,12 @@ typedef enum
 typedef struct
 {
     ERL_NIF_TERM pid;  /* internal, may change */
-}ErlNifPid;
+} ErlNifPid;
+
+typedef struct
+{
+    ERL_NIF_TERM port_id;  /* internal, may change */
+}ErlNifPort;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 

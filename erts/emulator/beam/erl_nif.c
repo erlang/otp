@@ -404,12 +404,28 @@ static int is_offheap(const ErlOffHeap* oh)
 
 ErlNifPid* enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)
 {
+    if (caller_env->proc->common.id == ERTS_INVALID_PID)
+        return NULL;
     pid->pid = caller_env->proc->common.id;
     return pid;
 }
+
 int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)
 {
-    return is_internal_pid(term) ? (pid->pid=term, 1) : 0;
+    if (is_internal_pid(term)) {
+        pid->pid=term;
+        return 1;
+    }
+    return 0;
+}
+
+int enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port)
+{
+    if (is_internal_port(term)) {
+        port->port_id=term;
+        return 1;
+    }
+    return 0;
 }
 
 int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -1156,6 +1172,58 @@ int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list
     }
     *list = ret;
     return 1;
+}
+
+int enif_is_process_alive(ErlNifEnv* env, ErlNifPid *proc)
+{
+    ErtsProcLocks rp_locks = 0; /* We don't need any locks,
+                                   just to check if it is alive */
+    Eterm target = proc->pid;
+    Process* rp;
+    Process* c_p;
+    int scheduler = erts_get_scheduler_id() != 0;
+
+    if (env != NULL) {
+	c_p = env->proc;
+	if (target == c_p->common.id) {
+            /* We are alive! */
+	    return 1;
+	}
+    }
+    else {
+#ifdef ERTS_SMP
+	c_p = NULL;
+#else
+	erts_exit(ERTS_ABORT_EXIT,"enif_is_process_alive: "
+                  "env==NULL on non-SMP VM");
+#endif
+    }
+
+    rp = (scheduler
+	  ? erts_proc_lookup(target)
+	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			      target, rp_locks, ERTS_P2P_FLG_INC_REFC));
+    if (rp == NULL) {
+        ASSERT(env == NULL || target != c_p->common.id);
+	return 0;
+    } else {
+        if (!scheduler)
+            erts_proc_dec_refc(rp);
+        return 1;
+    }
+}
+
+int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
+{
+    /* only allowed if called from scheduler */
+    if (erts_get_scheduler_id() == 0)
+        erts_exit(ERTS_ABORT_EXIT,"enif_is_port_alive: called from non-scheduler");
+
+    return erts_port_lookup(
+        port->port_id,
+        (erts_port_synchronous_ops
+         ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+         : ERTS_PORT_SFLGS_INVALID_LOOKUP)) != NULL;
 }
 
 ERL_NIF_TERM
