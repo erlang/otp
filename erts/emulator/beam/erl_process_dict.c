@@ -77,9 +77,9 @@
 #define TCDR(Term) CDR(list_val(Term))
 
 /* Array access macro */ 
-#define ARRAY_GET(PDict, Index) (ASSERT((Index) < (PDict)->size), \
+#define ARRAY_GET(PDict, Index) (ASSERT((Index) < (PDict)->arraySize), \
 				 (PDict)->data[Index])
-#define ARRAY_PUT(PDict, Index, Val) (ASSERT((Index) < (PDict)->size), \
+#define ARRAY_PUT(PDict, Index, Val) (ASSERT((Index) < (PDict)->arraySize), \
                                       (PDict)->data[Index] = (Val))
 
 #define IS_POW2(X) ((X) && !((X) & ((X)-1)))
@@ -221,7 +221,7 @@ erts_dicts_mem_size(Process *p)
 {
     Uint size = 0;
     if (p->dictionary)
-	size += PD_SZ2BYTES(p->dictionary->size);
+	size += PD_SZ2BYTES(p->dictionary->arraySize);
     return size;
 }
 
@@ -800,7 +800,7 @@ static void shrink(Process *p, Eterm* ret)
         --pd->usedSlots;
 	ARRAY_PUT(pd, pd->usedSlots, NIL);
     }
-    if (HASH_RANGE(p->dictionary) <= (p->dictionary->size / 4)) {
+    if (HASH_RANGE(p->dictionary) <= (p->dictionary->arraySize / 4)) {
 	array_shrink(&(p->dictionary), (HASH_RANGE(p->dictionary) * 3) / 2);
     }
 }
@@ -918,16 +918,16 @@ static void array_shrink(ProcDict **ppd, unsigned int need)
     unsigned int siz = next_array_size(need);
 
     HDEBUGF(("array_shrink: size = %d, need = %d",
-	     (*ppd)->size, need));
+	     (*ppd)->arraySize, need));
 
-    if (siz >= (*ppd)->size)
+    if (siz >= (*ppd)->arraySize)
 	return; /* Only shrink */
 
     *ppd = PD_REALLOC(((void *) *ppd),
-		      PD_SZ2BYTES((*ppd)->size),
+		      PD_SZ2BYTES((*ppd)->arraySize),
 		      PD_SZ2BYTES(siz));
 
-    (*ppd)->size = siz;
+    (*ppd)->arraySize = siz;
 }
     
 			
@@ -942,17 +942,17 @@ static void ensure_array_size(ProcDict **ppdict, unsigned int size)
         pd = PD_ALLOC(PD_SZ2BYTES(siz));
 	for (i = 0; i < siz; ++i) 
 	    pd->data[i] = NIL;
-	pd->size = siz;
+	pd->arraySize = siz;
         *ppdict = pd;
-    } else if (size > pd->size) {
-	Uint osize = pd->size;
+    } else if (size > pd->arraySize) {
+	Uint osize = pd->arraySize;
 	Uint nsize = next_array_size(size);
 	pd = PD_REALLOC(((void *) pd),
 			     PD_SZ2BYTES(osize),
 			     PD_SZ2BYTES(nsize));
 	for (i = osize; i < nsize; ++i)
 	    pd->data[i] = NIL;
-	pd->size = nsize;
+	pd->arraySize = nsize;
         *ppdict = pd;
     }
 }
@@ -1040,7 +1040,7 @@ static void pd_check(ProcDict *pd)
     if (pd == NULL)
 	return;
     used = HASH_RANGE(pd);
-    ASSERT(pd->size >= used);
+    ASSERT(pd->arraySize >= used);
     ASSERT(HASH_RANGE(pd) <= MAX_HASH);
     for (i = 0, num = 0; i < used; ++i) {
 	Eterm t = pd->data[i];

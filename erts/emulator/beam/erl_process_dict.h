@@ -24,8 +24,8 @@
 
 typedef struct proc_dict {
     unsigned int sizeMask;
-    unsigned int size;
     unsigned int usedSlots;
+    unsigned int arraySize;
     unsigned int splitPosition;
     Uint numElements;
     Eterm data[1]; /* The beginning of an array of erlang terms */
