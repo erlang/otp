@@ -266,17 +266,19 @@ static ERTS_INLINE Eterm unique_integer_bif(Process *c_p, int positive)
 }
 
 Uint
-erts_raw_unique_integer_heap_size(Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES])
+erts_raw_unique_integer_heap_size(Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES],
+                                  int positive)
 {
     Uint sz;
-    bld_unique_integer_term(NULL, &sz, val[0], val[1], 0);
+    bld_unique_integer_term(NULL, &sz, val[0], val[1], positive);
     return sz;
 }
 
 Eterm
-erts_raw_make_unique_integer(Eterm **hpp, Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES])
+erts_raw_make_unique_integer(Eterm **hpp, Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES],
+    int positive)
 {
-    return bld_unique_integer_term(hpp, NULL, val[0], val[1], 0);
+    return bld_unique_integer_term(hpp, NULL, val[0], val[1], positive);
 }
 
 void
@@ -426,16 +428,16 @@ erts_raw_get_unique_monotonic_integer(void)
 }
 
 Uint
-erts_raw_unique_monotonic_integer_heap_size(Sint64 raw)
+erts_raw_unique_monotonic_integer_heap_size(Sint64 raw, int positive)
 {
-    return get_unique_monotonic_integer_heap_size(raw, 0);
+    return get_unique_monotonic_integer_heap_size(raw, positive);
 }
 
 Eterm
-erts_raw_make_unique_monotonic_integer_value(Eterm **hpp, Sint64 raw)
+erts_raw_make_unique_monotonic_integer_value(Eterm **hpp, Sint64 raw, int positive)
 {
-    Uint hsz = get_unique_monotonic_integer_heap_size(raw, 0);
-    Eterm res = make_unique_monotonic_integer_value(*hpp, hsz, raw, 0);
+    Uint hsz = get_unique_monotonic_integer_heap_size(raw, positive);
+    Eterm res = make_unique_monotonic_integer_value(*hpp, hsz, raw, positive);
     *hpp += hsz;
     return res;
 }

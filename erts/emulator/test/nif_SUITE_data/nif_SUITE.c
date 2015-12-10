@@ -1978,6 +1978,36 @@ static ERL_NIF_TERM convert_time_unit(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return enif_make_int64(env, enif_convert_time_unit(val, from, to));
 }
 
+static ERL_NIF_TERM now_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_now_time(env);
+}
+
+static ERL_NIF_TERM cpu_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_cpu_time(env);
+}
+
+static ERL_NIF_TERM unique_integer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM atom_pos = enif_make_atom(env,"positive"),
+        atom_mon = enif_make_atom(env,"monotonic");
+    ERL_NIF_TERM opts = argv[0], opt;
+    ErlNifUniqueInteger properties = 0;
+
+    while (!enif_is_empty_list(env, opts)) {
+	if (!enif_get_list_cell(env, opts, &opt, &opts))
+            return enif_make_badarg(env);
+
+        if (enif_compare(opt, atom_pos) == 0)
+            properties |= ERL_NIF_UNIQUE_POSITIVE;
+        if (enif_compare(opt, atom_mon) == 0)
+            properties |= ERL_NIF_UNIQUE_MONOTONIC;
+    }
+
+    return enif_make_unique_integer(env, properties);
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2050,8 +2080,10 @@ static ErlNifFunc nif_funcs[] =
     {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif},
     {"monotonic_time", 1, monotonic_time},
     {"time_offset", 1, time_offset},
-    {"convert_time_unit", 3, convert_time_unit}
+    {"convert_time_unit", 3, convert_time_unit},
+    {"now_time", 0, now_time},
+    {"cpu_time", 0, cpu_time},
+    {"unique_integer_nif", 1, unique_integer}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
-

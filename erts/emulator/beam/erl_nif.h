@@ -197,6 +197,11 @@ typedef enum {
     ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
 } ErlNifMapIteratorEntry;
 
+typedef enum {
+    ERL_NIF_UNIQUE_POSITIVE = (1 << 0),
+    ERL_NIF_UNIQUE_MONOTONIC = (1 << 1)
+} ErlNifUniqueInteger;
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {

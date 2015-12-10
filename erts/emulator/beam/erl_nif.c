@@ -1158,6 +1158,51 @@ int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list
     return 1;
 }
 
+ERL_NIF_TERM
+enif_now_time(ErlNifEnv *env)
+{
+    Uint mega, sec, micro;
+    Eterm *hp;
+    get_now(&mega, &sec, &micro);
+    hp = alloc_heap(env, 4);
+    return TUPLE3(hp, make_small(mega), make_small(sec), make_small(micro));
+}
+
+ERL_NIF_TERM
+enif_cpu_time(ErlNifEnv *env)
+{
+#ifdef HAVE_ERTS_NOW_CPU
+    Uint mega, sec, micro;
+    Eterm *hp;
+    erts_get_now_cpu(&mega, &sec, &micro);
+    hp = alloc_heap(env, 4);
+    return TUPLE3(hp, make_small(mega), make_small(sec), make_small(micro));
+#else
+    return enif_make_badarg(env);
+#endif
+}
+
+ERL_NIF_TERM
+enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)
+{
+    int monotonic = properties & ERL_NIF_UNIQUE_MONOTONIC;
+    int positive = properties & ERL_NIF_UNIQUE_POSITIVE;
+    Eterm *hp;
+    Uint hsz;
+
+    if (monotonic) {
+        Sint64 raw_unique = erts_raw_get_unique_monotonic_integer();
+        hsz = erts_raw_unique_monotonic_integer_heap_size(raw_unique, positive);
+        hp = alloc_heap(env, hsz);
+        return erts_raw_make_unique_monotonic_integer_value(&hp, raw_unique, positive);
+    } else {
+        Uint64 raw_unique[ERTS_UNIQUE_INT_RAW_VALUES];
+        erts_raw_get_unique_integer(raw_unique);
+        hsz = erts_raw_unique_integer_heap_size(raw_unique, positive);
+        hp = alloc_heap(env, hsz);
+        return erts_raw_make_unique_integer(&hp, raw_unique, positive);
+    }
+}
 
 ErlNifMutex* enif_mutex_create(char *name) { return erl_drv_mutex_create(name); }
 void enif_mutex_destroy(ErlNifMutex *mtx) {  erl_drv_mutex_destroy(mtx); }

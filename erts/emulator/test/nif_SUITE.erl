@@ -42,7 +42,9 @@
 	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
 	 nif_exception/1, call_nif_exception/1,
 	 nif_nan_and_inf/1, nif_atom_too_long/1,
-	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1]).
+	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1,
+         nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1
+	]).
 
 -export([many_args_100/100]).
 
@@ -72,7 +74,8 @@ all() ->
      otp_9668, consume_timeslice,
      nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
      nif_exception, nif_nan_and_inf, nif_atom_too_long,
-     nif_monotonic_time, nif_time_offset, nif_convert_time_unit
+     nif_monotonic_time, nif_time_offset, nif_convert_time_unit,
+     nif_now_time, nif_cpu_time, nif_unique_integer
     ].
 
 init_per_testcase(_Case, Config) ->
@@ -1885,6 +1888,57 @@ chk_ctu(Time, FromTU, [ToTU|ToTUs]) ->
 	    chk_ctu(Time, FromTU, ToTUs)
     end.
 
+nif_now_time(Config) ->
+    ensure_lib_loaded(Config),
+
+    N1 = now(),
+    NifN1 = now_time(),
+    NifN2 = now_time(),
+    N2 = now(),
+    true = N1 < NifN1,
+    true = NifN1 < NifN2,
+    true = NifN2 < N2.
+
+nif_cpu_time(Config) ->
+    ensure_lib_loaded(Config),
+
+    try cpu_time() of
+        {_, _, _} ->
+            ok
+    catch error:badarg ->
+            {comment, "cpu_time not supported"}
+    end.
+
+nif_unique_integer(Config) ->
+    ensure_lib_loaded(Config),
+
+    UM1 = erlang:unique_integer([monotonic]),
+    UM2 = unique_integer_nif([monotonic]),
+    UM3 = erlang:unique_integer([monotonic]),
+
+    true = UM1 < UM2,
+    true = UM2 < UM3,
+
+    UMP1 = erlang:unique_integer([monotonic, positive]),
+    UMP2 = unique_integer_nif([monotonic, positive]),
+    UMP3 = erlang:unique_integer([monotonic, positive]),
+
+    true = 0 =< UMP1,
+    true = UMP1 < UMP2,
+    true = UMP2 < UMP3,
+
+    UP1 = erlang:unique_integer([positive]),
+    UP2 = unique_integer_nif([positive]),
+    UP3 = erlang:unique_integer([positive]),
+
+    true = 0 =< UP1,
+    true = 0 =< UP2,
+    true = 0 =< UP3,
+
+    true = is_integer(unique_integer_nif([])),
+    true = is_integer(unique_integer_nif([])),
+    true = is_integer(unique_integer_nif([])).
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -1942,6 +1996,7 @@ call_dirty_nif_zero_args() -> ?nif_stub.
 call_nif_exception(_) -> ?nif_stub.
 call_nif_nan_or_inf(_) -> ?nif_stub.
 call_nif_atom_too_long(_) -> ?nif_stub.
+unique_integer_nif(_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.
@@ -1958,7 +2013,8 @@ sorted_list_from_maps_nif(_) -> ?nif_stub.
 monotonic_time(_) -> ?nif_stub.
 time_offset(_) -> ?nif_stub.
 convert_time_unit(_,_,_) -> ?nif_stub.
-    
+now_time() -> ?nif_stub.
+cpu_time() -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -591,6 +591,21 @@ typedef enum {
 	</taglist>
       </item>
 
+      <tag><marker id="ErlNifUniqueInteger"/>ErlNifUniqueInteger</tag>
+      <item>
+        <p>An enumeration of the properties that can be requested from
+        <seealso marker="#enif_unique_integer">
+        enif_unique_integer</seealso>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_UNIQUE_POSITIVE</c></tag>
+	  <item><p>A positive integer</p></item>
+	  <tag><c>ERL_NIF_UNIQUE_MONOTONIC</c></tag>
+	  <item><p>A
+	  <seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly
+	  monotonically increasing</seealso> integer corresponding to creation time</p></item>
+	</taglist>
+      </item>
+
     </taglist>
   </section>
 
@@ -689,7 +704,49 @@ typedef enum {
     a number of repeated NIF-calls without the need to create threads.
     See also the <seealso marker="#WARNING">warning</seealso> text at the beginning of this document.</p>
     </desc>
+
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
+      <fsummary>Convert time unit of a time value</fsummary>
+      <desc>
+	<marker id="enif_convert_time_unit"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>val</c></tag>
+	  <item>Value to convert time unit for.</item>
+	  <tag><c>from</c></tag>
+	  <item>Time unit of <c>val</c>.</item>
+	  <tag><c>to</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Converts the <c>val</c> value of time unit <c>from</c> to
+	the corresponding value of time unit <c>to</c>. The result is
+	rounded using the floor function.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument.</p>
+	<p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_cpu_time(ErlNifEnv *)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the CPU time in the same format as <seealso marker="erlang#timestamp-0">erlang:timestamp()</seealso>.
+        The CPU time is the time the current logical cpu has spent executing since
+        some arbitrary point in the past.
+        If the OS does not support fetching of this value <c>enif_cpu_time</c>
+        invokes <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+        </p>
+      </desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids</seealso>.
@@ -1195,6 +1252,24 @@ typedef enum {
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an unsigned 64-bit integer.</p></desc>
     </func>
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a unique integer with the same properties as given by <seealso marker="erlang#unique_integer-1">erlang:unique_integer/1</seealso>.</p>
+        <p><c>env</c> is the environment to create the integer in.</p>
+        <p>
+          <c>ERL_NIF_UNIQUE_POSITIVE</c> and <c>ERL_NIF_UNIQUE_MONOTONIC</c> can
+          be passed as the second argument to change the properties of the
+          integer returned. It is possible to combine them by or:ing the
+          two values together.
+        </p>
+        <p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifUniqueInteger"><c>ErlNifUniqueInteger</c></seealso></item>
+	</list>
+      </desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
@@ -1265,6 +1340,34 @@ enif_map_iterator_destroy(env, &amp;iter);
       or false if the iterator is positioned at the head (before the first
       entry).</p></desc>
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get Erlang Monotonic Time</fsummary>
+      <desc>
+	<marker id="enif_monotonic_time"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>
+	  Returns
+	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	  monotonic time</seealso>. Note that it is not uncommon with
+	  negative values.
+	</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
     <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
@@ -1289,6 +1392,11 @@ enif_map_iterator_destroy(env, &amp;iter);
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
           </p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Retuns an <seealso marker="erlang#now-0">erlang:now()</seealso> timestamp.
+    The enif_now_time function is <em>deprecated</em>.</p></desc>
     </func>
     <func><name><ret>ErlNifResourceType *</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
                              const char* module_str, const char* name,
@@ -1496,54 +1604,6 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
-    <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
-          </p></desc>
-    </func>
-    <func><name><ret>void</ret><nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
-    <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy</seealso>.
-          </p></desc>
-    </func>
-    <func><name><ret>void *</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
-    <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get</seealso>.
-          </p></desc>
-    </func>
-    <func><name><ret>void</ret><nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
-    <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
-          </p></desc>
-    </func>
-
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
-      <fsummary>Get Erlang Monotonic Time</fsummary>
-      <desc>
-	<marker id="enif_monotonic_time"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>time_unit</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>
-	  Returns
-	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
-	  monotonic time</seealso>. Note that it is not uncommon with
-	  negative values.
-	</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument, or if called from a thread that is not a
-	scheduler thread.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
 
     <func>
       <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
@@ -1571,33 +1631,26 @@ enif_map_iterator_destroy(env, &amp;iter);
       </desc>
     </func>
 
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
-      <fsummary>Convert time unit of a time value</fsummary>
-      <desc>
-	<marker id="enif_convert_time_unit"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>val</c></tag>
-	  <item>Value to convert time unit for.</item>
-	  <tag><c>from</c></tag>
-	  <item>Time unit of <c>val</c>.</item>
-	  <tag><c>to</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>Converts the <c>val</c> value of time unit <c>from</c> to
-	the corresponding value of time unit <c>to</c>. The result is
-	rounded using the floor function.</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
+    <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
+          </p></desc>
     </func>
-
+    <func><name><ret>void</ret><nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void *</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
+          </p></desc>
+    </func>
   </funcs>
   <section>
     <title>SEE ALSO</title>
