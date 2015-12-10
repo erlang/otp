@@ -135,7 +135,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config) ->
 
     C = lists:map(
 	  fun(NodeName) ->
-		  Rnd = random:uniform(2),
+		  Rnd = rand:uniform(2),
 		  if Rnd == 1->
 			  {config,NodeName,filename:join(DataDir,
 							 "master/config.txt")};
