@@ -22,6 +22,7 @@
 
     </legalnotice>
     <title>HTTP server</title>
+    <file>http_server.xml</file>
   </header>
 
   <section>
@@ -54,12 +55,9 @@
 
     <p>As of <c>Inets</c> 5.0 the HTTP server is an easy to
       start/stop and customize web server providing the most basic
-      web server functionality. Depending on your needs, there 
-      are also other Erlang-based web servers that can be of interest
-      such as <url href=" http://yaws.hyber.org ">Yaws</url>, which,
-      for example, has its own
-      markup support to generate HTML and supports certain buzzword
-      technologies, such as SOAP.</p>
+      web server functionality. Inets is designed for embedded systems
+      and if you want a full-fledged web server there are exists other 
+      erlang open source alternatives.</p>
     
     <p>Almost all server functionality has been implemented using an
       especially crafted server API, which is described in the Erlang Web
@@ -530,7 +528,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <title>mod_action - Filetype/Method-Based Script Execution</title>
       <p>This module runs CGI scripts whenever a file of a
 	certain type or HTTP method (see 
-	<url href="http://tools.ietf.org/html/rfc1945">RFC 1945</url>RFC 1945)
+	<url href="http://tools.ietf.org/html/rfc1945">RFC 1945</url>)
 	is requested.
       </p>
       <p>Uses the following Erlang Web Server API interaction data:
@@ -557,7 +555,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <taglist>
 	<tag><c>{real_name, PathData}</c></tag>
 	<item><c>PathData</c> is the argument used for API function 
-	<seealso marker="mod_alias:path/3">mod_alias:path/3</seealso>.</item>
+	<seealso marker="mod_alias#path/3">mod_alias:path/3</seealso>.</item>
       </taglist>
     </section>
     
