@@ -51,8 +51,6 @@
 DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks);
 
 
-static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
-
 static void nomem(size_t size, const char* op)
 {
     fprintf(stderr, "Out of memory abort. Crypto failed to %s %zu bytes.\r\n",
@@ -83,6 +81,8 @@ static void crypto_free(void* ptr)
 
 
 #ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
+
+static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 
 #include <openssl/crypto.h>
 
