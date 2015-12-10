@@ -585,6 +585,9 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 	/* Create it */
         ensure_array_size(&p->dictionary, INITIAL_SIZE);
 	p->dictionary->homeSize = INITIAL_SIZE;
+        p->dictionary->sizeMask = p->dictionary->homeSize*2 - 1;
+        p->dictionary->splitPosition = 0;
+        p->dictionary->numElements = 0;
     }	
     hval = pd_hash_value(p->dictionary, id);
     old = ARRAY_GET(p->dictionary, hval);
@@ -718,6 +721,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 
 static void shrink(Process *p, Eterm* ret) 
 {
+    ProcDict *pd = p->dictionary;
     unsigned int range = HASH_RANGE(p->dictionary);
     unsigned int steps = (range*3) / 10;
     Eterm hi, lo, tmp;
@@ -732,8 +736,8 @@ static void shrink(Process *p, Eterm* ret)
     }
 
     for (i = 0; i < steps; ++i) {
-	ProcDict *pd = p->dictionary;
 	if (pd->splitPosition == 0) {
+            pd->sizeMask = pd->homeSize - 1;
 	    pd->homeSize /= 2;
 	    pd->splitPosition = pd->homeSize;
 	}
@@ -742,7 +746,7 @@ static void shrink(Process *p, Eterm* ret)
 	lo = ARRAY_GET(pd, pd->splitPosition);
 	if (hi != NIL) {
 	    if (lo == NIL) {
-		ARRAY_PUT(p->dictionary, pd->splitPosition, hi);
+		ARRAY_PUT(pd, pd->splitPosition, hi);
 	    } else {
 		int needed = 4;
 		if (is_list(hi) && is_list(lo)) {
@@ -761,13 +765,13 @@ static void shrink(Process *p, Eterm* ret)
 			hp = HeapOnlyAlloc(p, 4);
 			tmp = CONS(hp, hi, NIL);
 			hp += 2;
-			ARRAY_PUT(p->dictionary, pd->splitPosition,
+			ARRAY_PUT(pd, pd->splitPosition,
 				  CONS(hp,lo,tmp));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
 		    } else { /* hi is a list */
 			hp = HeapOnlyAlloc(p, 2);
-			ARRAY_PUT(p->dictionary, pd->splitPosition,
+			ARRAY_PUT(pd, pd->splitPosition,
 				  CONS(hp, lo, hi));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
@@ -775,7 +779,7 @@ static void shrink(Process *p, Eterm* ret)
 		} else { /* lo is a list */
 		    if (is_tuple(hi)) {
 			hp = HeapOnlyAlloc(p, 2);
-			ARRAY_PUT(p->dictionary, pd->splitPosition,
+			ARRAY_PUT(pd, pd->splitPosition,
 				  CONS(hp, hi, lo));
 			hp += 2;
 			ASSERT(hp <= hp_limit);
@@ -787,12 +791,12 @@ static void shrink(Process *p, Eterm* ret)
 			    hp += 2;
 			}
 			ASSERT(hp <= hp_limit);
-			ARRAY_PUT(p->dictionary, pd->splitPosition, lo);
+			ARRAY_PUT(pd, pd->splitPosition, lo);
 		    }
 		}
 	    }
 	}
-	ARRAY_PUT(p->dictionary, (pd->splitPosition + pd->homeSize), NIL);
+	ARRAY_PUT(pd, (pd->splitPosition + pd->homeSize), NIL);
     }
     if (HASH_RANGE(p->dictionary) <= (p->dictionary->size / 4)) {
 	array_shrink(&(p->dictionary), (HASH_RANGE(p->dictionary) * 3) / 2);
@@ -860,7 +864,8 @@ static void grow(Process *p)
     for (i = 0; i < steps; ++i) {
 	if (pd->splitPosition == pd->homeSize) {
 	    pd->homeSize *= 2;
-	    pd->splitPosition = 0;
+            pd->sizeMask = pd->homeSize*2 - 1;
+            pd->splitPosition = 0;
 	}
 	pos = pd->splitPosition;
 	++pd->splitPosition; /* For the hashes */
@@ -934,7 +939,6 @@ static void ensure_array_size(ProcDict **ppdict, unsigned int size)
 	for (i = 0; i < siz; ++i) 
 	    pd->data[i] = NIL;
 	pd->size = siz;
-	pd->homeSize = pd->splitPosition = pd->numElements = 0;
         *ppdict = pd;
     } else if (size > pd->size) {
 	Uint osize = pd->size;
@@ -959,9 +963,9 @@ static unsigned int pd_hash_value_to_ix(ProcDict *pdict, Uint32 hx)
 
     ASSERT(IS_POW2(pdict->homeSize));
 
-    high = hx & (pdict->homeSize*2 - 1);
+    high = hx & pdict->sizeMask;
     if (high >= HASH_RANGE(pdict))
-	return hx & (pdict->homeSize - 1);
+	return hx & (pdict->sizeMask >> 1);
     return high;
 }
 

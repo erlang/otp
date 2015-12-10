@@ -23,6 +23,7 @@
 #include "sys.h"
 
 typedef struct proc_dict {
+    unsigned int sizeMask;
     unsigned int size;
     unsigned int homeSize;
     unsigned int splitPosition;
