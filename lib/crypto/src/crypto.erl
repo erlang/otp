@@ -274,6 +274,7 @@ hmac_final_n(Context, HashLen) ->
                     des3_cbc | des3_cbf | des_ede3 |
                     blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
                     aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
+		    aes_cbc |
                     rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(), {AAD::binary(), Data::iodata()}) -> {binary(), binary()}.
@@ -287,6 +288,7 @@ block_encrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= aes_cfb8;
                                           Type =:= aes_cfb128;
                                           Type =:= aes_cbc256;
+					  Type =:= aes_cbc;
                                           Type =:= rc2_cbc ->
     block_crypt_nif(Type, Key, Ivec, Data, true);
 block_encrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
@@ -307,6 +309,7 @@ block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, Data}) ->
                     des3_cbc | des3_cbf | des_ede3 |
                     blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
                     aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
+		    aes_cbc |
                     rc2_cbc,
 		    Key::iodata(), Ivec::binary(), Data::iodata()) -> binary();
 		   (aes_gcm | chacha20_poly1305, Key::iodata(), Ivec::binary(),
@@ -316,6 +319,7 @@ block_decrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
                                           Type =:= blowfish_cbc;
                                           Type =:= blowfish_cfb64;
                                           Type =:= blowfish_ofb64;
+					  Type =:= aes_cbc;
                                           Type =:= aes_cbc128;
                                           Type =:= aes_cfb8;
                                           Type =:= aes_cfb128;
