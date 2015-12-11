@@ -1359,6 +1359,7 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                            key.data, ivec_size ? ivec.data : NULL, -1) ||
         !EVP_CIPHER_CTX_set_padding(&ctx, 0)) {
 
+        EVP_CIPHER_CTX_cleanup(&ctx);
         return enif_raise_exception(env, atom_notsup);
     }
 
