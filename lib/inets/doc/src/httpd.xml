@@ -30,13 +30,14 @@
     <file>httpd.sgml</file>
   </header>
   <module>httpd</module> 
-  <modulesummary>An implementation of an HTTP
-    1.1 compliant web server, as defined in <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>
+  <modulesummary>
+    HTTP server API
   </modulesummary>
   <description>
-    <p>This module provides the HTTP server start options, some administrative
-      functions, and specifies the Erlang web server callback
-      API.</p>
+    <p>An implementation of an HTTP 1.1 compliant web server, as defined in 
+    <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>. 
+    Provides web server start options, administrative functions, and 
+    an Erlang callback API.</p>
   </description>
   
   <section>
@@ -78,8 +79,7 @@
     list.</p>
     
     <taglist>
-      <marker id="prop_proplist_file"></marker>
-      <tag>{proplist_file, path()}</tag>
+      <tag><marker id="prop_proplist_file"></marker>{proplist_file, path()}</tag>
       <item>
 	<p>If this property is defined, <c>Inets</c> expects to find
 	all other properties defined in this file. The
@@ -87,8 +87,7 @@
 	properties.</p>
       </item>
 
-      <marker id="prop_file"></marker>
-      <tag>{file, path()}</tag>
+      <tag><marker id="prop_file"></marker>{file, path()}</tag>
       <item> 
 	<p>If this property is defined, <c>Inets</c> expects to find all 
 	other properties defined in this file, which uses Apache-like 
@@ -121,8 +120,7 @@
     <marker id="props_mand"></marker>
     <p><em>Mandatory Properties</em></p>
     <taglist>
-      <marker id="prop_port"></marker>
-      <tag>{port, integer()} </tag>
+      <tag><marker id="prop_port"></marker>{port, integer()} </tag>
       <item> 
 	<p>The port that the HTTP server listen to.
 	If zero is specified as port, an arbitrary available port
@@ -130,22 +128,19 @@
 	determine which port was picked.</p>
       </item>
 
-      <marker id="prop_server_name"></marker>
-      <tag>{server_name, string()}</tag>
+      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
       <item>
 	<p>The name of your server, normally a fully qualified domain name.</p>
       </item>
 
-      <marker id="prop_server_root"></marker>
-      <tag>{server_root, path()}</tag>
+      <tag><marker id="prop_server_root"></marker>{server_root, path()}</tag>
       <item> 
 	<p>Defines the home directory of the server, where log files, and so on, 
 	can be stored. Relative paths specified in other properties refer
 	to this directory.</p>
       </item>
 
-      <marker id="prop_doc_root"></marker>
-      <tag>{document_root, path()}</tag>
+      <tag> <marker id="prop_doc_root"></marker>{document_root, path()}</tag>
       <item>
 	<p>Defines the top directory for the documents that
 	are available on the HTTP server.</p>
@@ -155,15 +150,13 @@
     <marker id="props_comm"></marker>
     <p><em>Communication Properties</em></p>
     <taglist>
-      <marker id="prop_bind_address"></marker>
-      <tag>{bind_address, ip_address() | hostname() | any}</tag>
+      <tag><marker id="prop_bind_address"></marker>{bind_address, ip_address() | hostname() | any}</tag>
       <item>
 	<p>Default is <c>any</c>. <c>any</c> is denoted <em>*</em> 
 	in the Apache-like configuration file.</p>
       </item>
 
-      <marker id="profile"></marker>
-      <tag>{profile, atom()}</tag>
+      <tag><marker id="profile"></marker>{profile, atom()}</tag>
       <item>
         <p>Used together with <seealso marker="#prop_bind_address"><c>bind_address</c></seealso>
 	and <seealso marker="#prop_port"><c>port</c></seealso> to uniquely identify
@@ -176,8 +169,7 @@
 	</p>
       </item>
 
-      <marker id="prop_socket_type"></marker>
-      <tag>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</tag>
+      <tag><marker id="prop_socket_type"></marker>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</tag>
       <item>
 	<p>For <c>ip_comm</c> configuration options, see 
 	<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>, some options
@@ -187,15 +179,13 @@
 	<p>Default is <c>ip_comm</c>.</p> 
       </item>
 
-      <marker id="prop_ipfamily"></marker>
-      <tag>{ipfamily, inet | inet6}</tag>
+      <tag><marker id="prop_ipfamily"></marker>{ipfamily, inet | inet6}</tag>
       <item>
 	<p>Default is <c>inet</c>, legacy option <c>inet6fb4</c> no longer makes sense and will be translated
 	to inet.</p>
       </item>
       
-      <marker id="prop_minimum_bytes_per_second"></marker>
-      <tag>{minimum_bytes_per_second, integer()}</tag>
+      <tag><marker id="prop_minimum_bytes_per_second"></marker>{minimum_bytes_per_second, integer()}</tag>
       <item>
 	<p>If given, sets a minimum of bytes per second value for connections.</p>
 	<p>If the value is unreached, the socket closes for that connection.</p>
@@ -206,8 +196,7 @@
     <marker id="props_api_modules"></marker>
     <p><em>Erlang Web Server API Modules</em> </p>
     <taglist>
-      <marker id="prop_modules"></marker>
-      <tag>{modules, [atom()]} </tag>
+      <tag><marker id="prop_modules"></marker>{modules, [atom()]} </tag>
       <item>
 	<p>Defines which modules the HTTP server uses when handling
 	requests. Default is <c>[mod_alias, mod_auth, mod_esi,
@@ -224,60 +213,52 @@
     <p><em>Limit properties</em> </p>
     <taglist>
 
-      <marker id="prop_customize"></marker>
-      <tag>{customize, atom()}</tag>
+      <tag><marker id="prop_customize"></marker>{customize, atom()}</tag>
       <item> 
 	<p>A callback module to customize the inets HTTP servers behaviour
 	see <seealso marker="httpd_custom_api"> httpd_custom_api</seealso> </p>
       </item>
       
-      <marker id="prop_disable_chunked_encoding"></marker>
-      <tag>{disable_chunked_transfer_encoding_send, boolean()}</tag>
+      <tag><marker id="prop_disable_chunked_encoding"></marker>{disable_chunked_transfer_encoding_send, boolean()}</tag>
       <item> 
 	<p>Allows you to disable chunked
 	transfer-encoding when sending a response to an HTTP/1.1
 	client. Default is <c>false</c>.</p>
       </item>
       
-      <marker id="prop_keep_alive"></marker>
-      <tag>{keep_alive, boolean()}</tag>
+      <tag><marker id="prop_keep_alive"></marker>{keep_alive, boolean()}</tag>
       <item>
 	<p>Instructs the server whether to use persistent
 	connections when the client claims to be HTTP/1.1
 	compliant. Default is <c>true</c>.</p>
       </item>
       
-      <marker id="prop_keep_alive_timeout"></marker>
-      <tag>{keep_alive_timeout, integer()}</tag>
+      <tag><marker id="prop_keep_alive_timeout"></marker>{keep_alive_timeout, integer()}</tag>
       <item>
 	<p>The number of seconds the server waits for a
 	subsequent request from the client before closing the
 	connection. Default is <c>150</c>.</p>
       </item>
       
-      <marker id="prop_max_body_size"></marker>
-      <tag>{max_body_size, integer()}</tag>
+      <tag><marker id="prop_max_body_size"></marker>{max_body_size, integer()}</tag>
       <item>
 	<p>Limits the size of the message body of an HTTP request.
 	Default is no limit.</p>
       </item>
       
-      <marker id="prop_max_clients"></marker>
-      <tag>{max_clients, integer()}</tag>
+      <tag><marker id="prop_max_clients"></marker>{max_clients, integer()}</tag>
       <item> 
 	<p>Limits the number of simultaneous requests that can be
 	supported. Default is <c>150</c>.</p>
       </item>
 
-      <marker id="prop_max_header_size"></marker>
-      <tag>{max_header_size, integer()}</tag>
+      <tag><marker id="prop_max_header_size"></marker>{max_header_size, integer()}</tag>
       <item>
 	<p>Limits the size of the message header of an HTTP request.
 	Default is <c>10240</c>.</p>
       </item>
 
-      <marker id="prop_max_content_length"></marker>
-      <tag>{max_content_length, integer()}</tag>
+      <tag><marker id="prop_max_content_length"></marker>{max_content_length, integer()}</tag>
       <item>
 	<p>Maximum content-length in an incoming request, in bytes. Requests
 	with content larger than this are answered with status 413.
@@ -285,15 +266,13 @@
 	</p>
       </item>
 
-      <marker id="prop_max_uri"></marker>
-      <tag>{max_uri_size, integer()}</tag>
+      <tag><marker id="prop_max_uri"></marker>{max_uri_size, integer()}</tag>
       <item>
 	<p>Limits the size of the HTTP request URI.
 	Default is no limit.</p>
       </item>
       
-      <marker id="prop_max_keep_alive_req"></marker>
-      <tag>{max_keep_alive_request, integer()}</tag>
+      <tag><marker id="prop_max_keep_alive_req"></marker>{max_keep_alive_request, integer()}</tag>
       <item>
 	<p>The number of requests that a client can do on one
 	connection. When the server has responded to the number of
@@ -306,8 +285,7 @@
     <marker id="props_admin"></marker>
     <p><em>Administrative Properties</em></p>
     <taglist> 
-      <marker id="prop_mime_types"></marker>
-      <tag>{mime_types, [{MimeType, Extension}] | path()}</tag>
+      <tag><marker id="prop_mime_types"></marker>{mime_types, [{MimeType, Extension}] | path()}</tag>
       <item>
 	<p><c>MimeType = string()</c> and <c>Extension = string()</c>.
 	  Files delivered to the client are MIME typed according to RFC
@@ -323,24 +301,21 @@ text/plain	asc txt</pre>
 	<p>Default is [{"html","text/html"},{"htm","text/html"}].</p>
       </item>
 
-      <marker id="prop_mime_type"></marker>
-      <tag>{mime_type, string()}</tag>
+      <tag><marker id="prop_mime_type"></marker>{mime_type, string()}</tag>
       <item>
 	<p>When the server is asked to provide a document type that
 	cannot be determined by the MIME Type Settings, the server
 	uses this default type.</p>
       </item>
   
-      <marker id="prop_server_admin"></marker>
-      <tag>{server_admin, string()}</tag>
+      <tag><marker id="prop_server_admin"></marker>{server_admin, string()}</tag>
       <item>
 	<p>Defines the email-address of the server
 	administrator to be included in any error messages returned by
 	the server.</p>
       </item>
 
-      <marker id="prop_server_tokens"></marker>
-      <tag>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</tag>
+      <tag><marker id="prop_server_tokens"></marker>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</tag>
       <item>
 	<p>Defines the look of the value of the server header.</p>
 	<p>Example: Assuming the version of <c>Inets</c> is 5.8.1, 
@@ -367,8 +342,7 @@ text/plain	asc txt</pre>
 	<p>By default, the value is as before, that is, <c>minimal</c>.</p>
       </item>
 
-      <marker id="prop_log_format"></marker>
-      <tag>{log_format, common | combined}</tag>
+      <tag><marker id="prop_log_format"></marker>{log_format, common | combined}</tag>
       <item>
 	<p>Defines if access logs are to be written according to the <c>common</c>
 	log format or the extended common log format.
@@ -411,8 +385,7 @@ text/plain	asc txt</pre>
 	</p>	
       </item>      
 
-      <marker id="prop_elog_format"></marker>
-      <tag>{error_log_format, pretty | compact}</tag>
+      <tag><marker id="prop_elog_format"></marker>{error_log_format, pretty | compact}</tag>
       <item>
 	<p>Default is <c>pretty</c>. If the error log is meant to be read
 	directly by a human, <c>pretty</c> is the best option.</p>
@@ -434,60 +407,57 @@ text/plain	asc txt</pre>
     <marker id="props_alias"></marker>
     <p><em>URL Aliasing Properties - Requires mod_alias</em></p>
     <taglist>
-      <marker id="prop_alias"></marker>
-      <tag>{alias, {Alias, RealName}}</tag>
+      <tag><marker id="prop_alias"></marker>{alias, {Alias, RealName}}</tag>
       <item>
 	<p><c>Alias = string()</c> and <c>RealName = string()</c>. 
 	<c>alias</c> allows documents to be stored in the local file
 	system instead of the <c>document_root</c> location. URLs with a path
 	beginning with url-path is mapped to local files beginning with
-	directory-filename, for example:
+	directory-filename, for example:</p>
 	
 	<code>{alias, {"/image", "/ftp/pub/image"}}</code>
 	
-	Access to http://your.server.org/image/foo.gif would refer to
+	<p>Access to http://your.server.org/image/foo.gif would refer to
 	the file /ftp/pub/image/foo.gif.</p>
       </item>
 
-      <marker id="prop_re_write"></marker>
-      <tag>{re_write, {Re, Replacement}}</tag>      
+      <tag><marker id="prop_re_write"></marker>{re_write, {Re, Replacement}}</tag>      
       <item>
 	<p><c>Re = string()</c> and <c>Replacement = string()</c>. 
 	<c>re_write</c> allows documents to be stored in the local file
 	system instead of the <c>document_root</c> location. URLs are rewritten
         by <c>re:replace/3</c> to produce a path in the local file-system,
-        for example:
+        for example:</p>
 	
 	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
 	
-	Access to http://your.server.org/~bob/foo.gif would refer to
+	<p>Access to http://your.server.org/~bob/foo.gif would refer to
 	the file /home/bob/public/foo.gif.
 
         In an Apache-like configuration file, <c>Re</c> is separated
         from <c>Replacement</c> with one single space, and as expected
         backslashes do not need to be backslash escaped, the
-        same example would become:
+        same example would become:</p>
 
         <code>ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code>
 
-        Beware of trailing space in <c>Replacement</c> to be used.
+        <p>Beware of trailing space in <c>Replacement</c> to be used.
         If you must have a space in <c>Re</c>, use, for example, the character 
 	encoding <c>\040</c>, see 
 	<seealso marker="stdlib:re">re(3)</seealso>.</p>
       </item>
 
-      <marker id="prop_dir_idx"></marker>
-      <tag>{directory_index, [string()]}</tag>      
+      <tag><marker id="prop_dir_idx"></marker>{directory_index, [string()]}</tag>      
       <item> 
 	<p><c>directory_index</c> specifies a list of resources to look for
 	if a client requests a directory using a <c>/</c> at the end of the
 	directory name. <c>file</c> depicts the name of a file in the
 	directory. Several files can be given, in which case the server
-	returns the first it finds, for example:
+	returns the first it finds, for example:</p>
 	
 	<code>{directory_index, ["index.hml", "welcome.html"]}</code>
 	
-	Access to http://your.server.org/docs/ would return
+	<p>Access to http://your.server.org/docs/ would return
 	http://your.server.org/docs/index.html or
 	http://your.server.org/docs/welcome.html if index.html does not
 	exist.</p>
@@ -497,38 +467,35 @@ text/plain	asc txt</pre>
     <marker id="props_cgi"></marker>
     <p><em>CGI Properties - Requires mod_cgi</em></p>
     <taglist> 
-      <marker id="prop_script_alias"></marker>
-      <tag>{script_alias, {Alias, RealName}}</tag>
+      <tag><marker id="prop_script_alias"></marker>{script_alias, {Alias, RealName}}</tag>
       <item>
 	<p><c>Alias = string()</c> and <c>RealName = string()</c>.
 	Have the same behavior as property <c>alias</c>, except that
 	they also mark the target directory as containing CGI
 	scripts. URLs with a path beginning with url-path are mapped to
-	scripts beginning with directory-filename, for example:
+	scripts beginning with directory-filename, for example:</p>
 	
 	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}</code>
 	
-	Access to http://your.server.org/cgi-bin/foo would cause
+	<p>Access to http://your.server.org/cgi-bin/foo would cause
 	the server to run the script /web/cgi-bin/foo.</p>
       </item>
       
-      <marker id="prop_script_re_write"></marker>
-      <tag>{script_re_write, {Re, Replacement}}</tag>
+      <tag><marker id="prop_script_re_write"></marker>{script_re_write, {Re, Replacement}}</tag>
       <item>
 	<p><c>Re = string()</c> and <c>Replacement = string()</c>.
 	Have the same behavior as property <c>re_write</c>, except that
 	they also mark the target directory as containing CGI
 	scripts. URLs with a path beginning with url-path are mapped to
-	scripts beginning with directory-filename, for example:
+	scripts beginning with directory-filename, for example:</p>
 	
 	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}</code>
 	
-	Access to http://your.server.org/cgi-bin/17/foo would cause
+	<p>Access to http://your.server.org/cgi-bin/17/foo would cause
 	the server to run the script /web/17/cgi-bin/foo.</p>
       </item>
       
-      <marker id="prop_script_nocache"></marker>
-      <tag>{script_nocache, boolean()}</tag>
+      <tag><marker id="prop_script_nocache"></marker>{script_nocache, boolean()}</tag>
       <item> 
 	<p>If <c>script_nocache</c> is set to <c>true</c>, the HTTP server by
 	default adds the header fields necessary to prevent proxies from
@@ -536,8 +503,7 @@ text/plain	asc txt</pre>
 	Default to <c>false</c>.</p>
       </item>
       
-      <marker id="prop_script_timeout"></marker>
-      <tag>{script_timeout, integer()}</tag>
+      <tag><marker id="prop_script_timeout"></marker>{script_timeout, integer()}</tag>
       <item>
 	<p>The time in seconds the web server waits between each
 	chunk of data from the script. If the CGI script does not deliver
@@ -545,8 +511,7 @@ text/plain	asc txt</pre>
 	closed. Default is <c>15</c>.</p>
       </item>
       
-      <marker id="prop_action"></marker>
-      <tag>{action, {MimeType, CgiScript}} - requires mod_action</tag>
+      <tag><marker id="prop_action"></marker>{action, {MimeType, CgiScript}} - requires mod_action</tag>
       <item>
 	<p><c>MimeType = string()</c> and <c>CgiScript = string()</c>.
 	<c>action</c> adds an action activating a CGI script
@@ -559,8 +524,7 @@ text/plain	asc txt</pre>
 	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}</code>
       </item>
 
-      <marker id="prop_script"></marker>
-      <tag>{script, {Method, CgiScript}} - requires mod_action</tag>
+      <tag><marker id="prop_script"></marker>{script, {Method, CgiScript}} - requires mod_action</tag>
       <item>
 	<p><c>Method = string()</c> and <c>CgiScript = string()</c>.
 	<c>script</c> adds an action activating a CGI script
@@ -579,17 +543,16 @@ text/plain	asc txt</pre>
     <marker id="props_esi"></marker>
     <p><em>ESI Properties - Requires mod_esi</em></p>
     <taglist>
-      <marker id="prop_esi_alias"></marker>
-      <tag>{erl_script_alias, {URLPath, [AllowedModule]}}</tag>      
+      <tag><marker id="prop_esi_alias"></marker>{erl_script_alias, {URLPath, [AllowedModule]}}</tag>      
       <item>
 	<p><c>URLPath = string()</c> and <c>AllowedModule = atom()</c>.
 	<c>erl_script_alias</c> marks all URLs matching url-path as erl
 	scheme scripts. A matching URL is mapped into a specific module
-	and function, for example:
+	and function, for example:</p>
 	
 	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}}</code>
 	
-	A request to
+	<p>A request to
 	http://your.server.org/cgi-bin/example/httpd_example:yahoo
 	would refer to httpd_example:yahoo/3 or, if that does not exist,
 	httpd_example:yahoo/2 and
@@ -597,8 +560,7 @@ text/plain	asc txt</pre>
 	not be allowed to execute.</p>
       </item>
 
-      <marker id="prop_esi_nocache"></marker>
-      <tag>{erl_script_nocache, boolean()}</tag>
+      <tag><marker id="prop_esi_nocache"></marker>{erl_script_nocache, boolean()}</tag>
       <item>
 	<p>If <c>erl_script_nocache</c> is set to <c>true</c>, the server adds
 	HTTP header fields preventing proxies from caching the
@@ -607,8 +569,7 @@ text/plain	asc txt</pre>
 	Default is <c>false</c>.</p>
       </item>
 
-      <marker id="prop_esi_timeout"></marker>
-      <tag>{erl_script_timeout, integer()}</tag>
+      <tag><marker id="prop_esi_timeout"></marker>{erl_script_timeout, integer()}</tag>
       <item>
 	<p>If <c>erl_script_timeout</c> sets the time in seconds the server
 	waits between each chunk of data to be delivered through
@@ -616,8 +577,7 @@ text/plain	asc txt</pre>
 	for scripts that use the erl scheme.</p>
       </item>
 
-      <marker id="prop_esi_timeout"></marker>
-      <tag>{eval_script_alias, {URLPath, [AllowedModule]}}</tag>
+      <tag><marker id="prop_esi_timeout"></marker>{eval_script_alias, {URLPath, [AllowedModule]}}</tag>
       <item>
 	<p><c>URLPath = string()</c> and <c>AllowedModule = atom()</c>.
 	Same as <c>erl_script_alias</c> but for scripts
@@ -629,24 +589,21 @@ text/plain	asc txt</pre>
     <marker id="props_log"></marker>
     <p><em>Log Properties - Requires mod_log</em></p>
     <taglist>
-      <marker id="prop_elog"></marker>
-      <tag>{error_log, path()}</tag>
+      <tag><marker id="prop_elog"></marker>{error_log, path()}</tag>
       <item>
 	<p>Defines the filename of the error log file to be used to log
 	server errors. If the filename does not begin with a slash (/),
 	it is assumed to be relative to the <c>server_root</c>.</p>
       </item>
 
-      <marker id="prop_slog"></marker>
-      <tag>{security_log, path()}</tag>
+      <tag><marker id="prop_slog"></marker>{security_log, path()}</tag>
       <item>
 	<p>Defines the filename of the access log file to be used to
 	log security events. If the filename does not begin with a slash
 	(/), it is assumed to be relative to the <c>server_root</c>.</p>
       </item>
 
-      <marker id="prop_tlog"></marker>
-      <tag>{transfer_log, path()}</tag>
+      <tag><marker id="prop_tlog"></marker>{transfer_log, path()}</tag>
       <item> 
 	<p>Defines the filename of the access log file to be used to
 	log incoming requests. If the filename does not begin with a
@@ -657,8 +614,7 @@ text/plain	asc txt</pre>
     <marker id="props_dlog"></marker>
     <p><em>Disk Log Properties - Requires mod_disk_log</em></p>
     <taglist>
-      <marker id="prop_dlog_format"></marker>
-      <tag>{disk_log_format, internal | external}</tag>
+      <tag><marker id="prop_dlog_format"></marker>{disk_log_format, internal | external}</tag>
       <item>
 	<p>Defines the file format of the log files. See <c>disk_log</c> for
 	details. If the internal file format is used, the
@@ -668,16 +624,14 @@ text/plain	asc txt</pre>
 	<c>external</c>.</p>
       </item>
 
-      <marker id="prop_edlog"></marker>
-      <tag>{error_disk_log, path()}</tag>
+      <tag><marker id="prop_edlog"></marker>{error_disk_log, path()}</tag>
       <item>
 	<p>Defines the filename of the (<c>disk_log(3)</c>) error log file
 	to be used to log server errors. If the filename does not begin
 	with a slash (/), it is assumed to be relative to the <c>server_root</c>.</p>
       </item>
 
-      <marker id="prop_edlog_size"></marker>
-      <tag>{error_disk_log_size, {MaxBytes, MaxFiles}}</tag>
+      <tag><marker id="prop_edlog_size"></marker>{error_disk_log_size, {MaxBytes, MaxFiles}}</tag>
       <item>
 	<p><c>MaxBytes = integer()</c> and <c>MaxFiles = integer()</c>.
 	Defines the properties of the (<c>disk_log(3)</c>) error log
@@ -686,8 +640,7 @@ text/plain	asc txt</pre>
 	used before the first file is truncated and reused.</p>
       </item>
 
-      <marker id="prop_sdlog"></marker>
-      <tag>{security_disk_log, path()}</tag>
+      <tag><marker id="prop_sdlog"></marker>{security_disk_log, path()}</tag>
       <item>
 	<p>Defines the filename of the (<c>disk_log(3)</c>) access log file
 	logging incoming security events, that is, authenticated
@@ -695,8 +648,7 @@ text/plain	asc txt</pre>
 	is assumed to be relative to the <c>server_root</c>.</p>
       </item>
 
-      <marker id="prop_sdlog_size"></marker>
-      <tag>{security_disk_log_size, {MaxBytes, MaxFiles}}</tag>
+      <tag><marker id="prop_sdlog_size"></marker>{security_disk_log_size, {MaxBytes, MaxFiles}}</tag>
       <item>
 	<p><c>MaxBytes = integer()</c> and <c>MaxFiles = integer()</c>. 
 	Defines the properties of the <c>disk_log(3)</c> access log
@@ -705,8 +657,7 @@ text/plain	asc txt</pre>
 	used before the first file is truncated and reused.</p>
       </item>
 
-      <marker id="prop_tdlog"></marker>
-      <tag>{transfer_disk_log, path()}</tag> 
+      <tag><marker id="prop_tdlog"></marker>{transfer_disk_log, path()}</tag> 
       <item>
 	<p>Defines the filename of the (<c>disk_log(3)</c>) access log file
 	logging incoming requests. If the filename does not begin
@@ -714,8 +665,7 @@ text/plain	asc txt</pre>
 	<c>server_root</c>.</p>
       </item>
       
-      <marker id="prop_tdlog_size"></marker>
-      <tag>{transfer_disk_log_size, {MaxBytes, MaxFiles}}</tag>
+      <tag><marker id="prop_tdlog_size"></marker>{transfer_disk_log_size, {MaxBytes, MaxFiles}}</tag>
       <item>
 	<p><c>MaxBytes = integer()</c> and <c>MaxFiles = integer()</c>.  
 	Defines the properties of the <c>disk_log(3)</c> access log
@@ -735,32 +685,29 @@ text/plain	asc txt</pre>
     <p>The properties for directories are as follows:</p>
     
     <taglist>
-      <marker id="prop_allow_from"></marker>
-      <tag>{allow_from, all | [RegxpHostString]}</tag>
+      <tag><marker id="prop_allow_from"></marker>{allow_from, all | [RegxpHostString]}</tag>
       <item>
 	<p>Defines a set of hosts to be granted access to a
-	given directory, for example:
+	given directory, for example:</p>
 	
 	<code>{allow_from, ["123.34.56.11", "150.100.23"]}</code>
           
-	The host <c>123.34.56.11</c> and all machines on the <c>150.100.23</c>
+	<p>The host <c>123.34.56.11</c> and all machines on the <c>150.100.23</c>
 	subnet are allowed access.</p>
       </item>
       
-      <marker id="prop_deny_from"></marker>
-      <tag>{deny_from, all | [RegxpHostString]}</tag>
+      <tag><marker id="prop_deny_from"></marker>{deny_from, all | [RegxpHostString]}</tag>
       <item>
 	<p>Defines a set of hosts
-	to be denied access to a given directory, for example:
+	to be denied access to a given directory, for example:</p>
 	
 	<code>{deny_from, ["123.34.56.11", "150.100.23"]}</code>
           
-	The host <c>123.34.56.11</c> and all machines on the <c>150.100.23</c>
+	<p>The host <c>123.34.56.11</c> and all machines on the <c>150.100.23</c>
 	subnet are not allowed access.</p>
       </item>
 
-      <marker id="prop_auth_type"></marker>
-      <tag>{auth_type, plain | dets | mnesia}</tag>
+      <tag><marker id="prop_auth_type"></marker>{auth_type, plain | dets | mnesia}</tag>
       <item>
 	<p>Sets the type of authentication database that is used for the
 	directory. The key difference between the different methods is
@@ -770,8 +717,7 @@ text/plain	asc txt</pre>
 	configuration files.</p>
       </item>
 
-      <marker id="prop_auth_user_file"></marker>
-      <tag>{auth_user_file, path()}</tag>
+      <tag><marker id="prop_auth_user_file"></marker>{auth_user_file, path()}</tag>
       <item>
 	<p>Sets the name of a file containing the list of users and
 	passwords for user authentication. The filename can be either
@@ -795,8 +741,7 @@ text/plain	asc txt</pre>
 	clients can download it.</p>
       </item>
       
-      <marker id="prop_auth_group_file"></marker>
-      <tag>{auth_group_file, path()}</tag>
+      <tag><marker id="prop_auth_group_file"></marker>{auth_group_file, path()}</tag>
       <item>
 	<p>Sets the name of a file containing the list of user
 	groups for user authentication. The filename can be either
@@ -818,16 +763,14 @@ text/plain	asc txt</pre>
 	can download it.</p>
       </item>
 
-      <marker id="prop_auth_name"></marker>
-      <tag>{auth_name, string()}</tag>
+      <tag><marker id="prop_auth_name"></marker>{auth_name, string()}</tag>
       <item> 
 	<p>Sets the name of the authorization realm (auth-domain) for
 	a directory. This string informs the client about which 
 	username and password to use.</p>
       </item>
 
-      <marker id="prop_auth_access_passwd"></marker>
-      <tag>{auth_access_password, string()}</tag>
+      <tag><marker id="prop_auth_access_passwd"></marker>{auth_access_password, string()}</tag>
       <item>
 	<p>If set to other than "NoPassword", the password is required
 	for all API calls. If the password is set to "DummyPassword", the
@@ -837,15 +780,13 @@ text/plain	asc txt</pre>
 	text in the configuration file.</p>
       </item>
       
-      <marker id="prop_req_user"></marker>
-      <tag>{require_user, [string()]}</tag>
+      <tag><marker id="prop_req_user"></marker>{require_user, [string()]}</tag>
       <item> 
 	<p>Defines users to grant access to a given
 	directory using a secret password.</p>
       </item>
 
-      <marker id="prop_req_grp"></marker>
-      <tag>{require_group, [string()]}</tag>
+      <tag><marker id="prop_req_grp"></marker>{require_group, [string()]}</tag>
       <item>
 	<p>Defines users to grant access to a given
 	directory using a secret password.</p>
@@ -856,8 +797,7 @@ text/plain	asc txt</pre>
     <marker id="props_htaccess"></marker> 
     <p><em>Htaccess Authentication Properties - Requires mod_htaccess</em></p>
     <taglist>
-      <marker id="prop_access_files"></marker>
-      <tag>{access_files, [path()]}</tag>
+      <tag><marker id="prop_access_files"></marker>{access_files, [path()]}</tag>
       <item>
 	<p>Specifies the filenames that are used for
 	access files. When a request comes, every directory in the path
@@ -877,16 +817,14 @@ text/plain	asc txt</pre>
     <marker id="props_sdir"></marker>
     <p>The properties for the security directories are as follows:</p>
     <taglist>
-      <marker id="prop_data_file"></marker>
-      <tag>{data_file, path()}</tag>      
+      <tag><marker id="prop_data_file"></marker>{data_file, path()}</tag>      
       <item>
 	<p>Name of the security data file. The filename can either be
 	absolute or relative to the <c>server_root</c>. This file is used to
 	store persistent data for module <c>mod_security</c>.</p>
       </item>
 	  
-      <marker id="prop_max_retries"></marker>
-      <tag>{max_retries, integer()}</tag>	  
+      <tag><marker id="prop_max_retries"></marker>{max_retries, integer()}</tag>	  
       <item>
 	<p>Specifies the maximum number of attempts to authenticate a
 	user before the user is blocked out. If a user
@@ -898,16 +836,14 @@ text/plain	asc txt</pre>
 	Default is <c>3</c>. Can be set to infinity.</p>
       </item>
 	
-      <marker id="prop_block_time"></marker>
-      <tag>{block_time, integer()}</tag>
+      <tag><marker id="prop_block_time"></marker>{block_time, integer()}</tag>
       <item>
 	<p>Specifies the number of minutes a user is blocked. After
 	this timehas passed, the user automatically regains access.
 	Default is <c>60</c>.</p>
       </item>
       
-      <marker id="prop_fail_exp_time"></marker>
-      <tag>{fail_expire_time, integer()}</tag>
+      <tag><marker id="prop_fail_exp_time"></marker>{fail_expire_time, integer()}</tag>
       <item>
 	<p>Specifies the number of minutes a failed user authentication
 	is remembered. If a user authenticates after this
@@ -916,8 +852,7 @@ text/plain	asc txt</pre>
 	Default is <c>30</c>.</p>
       </item>
       
-      <marker id="prop_auth_timeout"></marker>
-      <tag>{auth_timeout, integer()}</tag>
+      <tag><marker id="prop_auth_timeout"></marker>{auth_timeout, integer()}</tag>
       <item>
 	Specifies the number of seconds a successful user
 	authentication is remembered. After this time has passed, the

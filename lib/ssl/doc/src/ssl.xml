@@ -31,37 +31,13 @@
   <module>ssl</module>
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
-    <p>This module contains interface functions for the SSL.</p>
+    <p>
+      This module contains interface functions for the SSL/TLS protocol.
+      For detailed information about the supported standards see 
+      <seealso marker="ssl_app">ssl(6)</seealso>.
+    </p>
   </description>
-  
-  <section>
-    <title>SSL</title>
-
-    <list type="bulleted">
-      <item>For application dependencies see <seealso marker="ssl_app"> ssl(6)</seealso> </item>
-      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, and TLS-1.2.</item>
-      <item>For security reasons SSL-2.0 is not supported.</item>
-      <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured.</item>
-      <item>Ephemeral Diffie-Hellman cipher suites are supported,
-      but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported if the Crypto 
-      application supports it and named curves are used.
-      </item>
-      <item>Export cipher suites are not supported as the
-      U.S. lifted its export restrictions in early 2000.</item>
-      <item>IDEA cipher suites are not supported as they have
-      become deprecated by the latest TLS specification so it is not 
-      motivated to implement them.</item>
-      <item>CRL validation is supported.</item>
-      <item>Policy certificate extensions are not supported.</item>
-      <item>'Server Name Indication' extension client side
-      (RFC 6066, Section 3) is supported.</item>
-    </list>
- 
-  </section>
-  
+    
   <section>
     <title>DATA TYPES</title>
     <p>The following data types are used in the functions for SSL:</p>
@@ -480,8 +456,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
       </item>
 
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c></tag>
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
+      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c><br/>
+      <c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
 	   <item>
 	   <p>Indicates that the client is to try to perform Next Protocol
 	   Negotiation.</p>
@@ -538,7 +514,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
-      
     </taglist>
    </section>
 
