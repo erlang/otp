@@ -39,7 +39,7 @@
 %% dbg_iserver. We are suspended until the module has been loaded.
 %%--------------------------------------------------------------------
 -spec load_mod(Mod, file:filename(), binary(), ets:tid()) ->
-        {'ok', Mod} when is_subtype(Mod, atom()).
+        {'ok', Mod} when Mod :: atom().
 
 load_mod(Mod, File, Binary, Db) ->
     Flag = process_flag(trap_exit, true),
