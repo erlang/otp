@@ -35,241 +35,252 @@
   <module>rb</module>
   <modulesummary>The Report Browser Tool</modulesummary>
   <description>
-    <p>The Report Browser (RB) tool makes it possible to browse and
+    <p>The Report Browser (RB) tool is used to browse and
       format error reports written by the error logger handler
-      <c>log_mf_h</c>.
-      </p>
+      <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso>
+      in <c>STDLIB</c>.</p>
   </description>
+
   <funcs>
     <func>
       <name>filter(Filters)</name>
       <name>filter(Filters, Dates)</name>
-      <fsummary>Filter reports and displays them on the screen</fsummary>
+      <fsummary>Filters reports and displays them on the screen.</fsummary>
       <type>
         <v>Filters = [filter()]</v>
-        <v>filter() = {Key, Value} | {Key, Value, no} | {Key, RegExp, re} | {Key, RegExp, re, no}</v>
+        <v>filter() = {Key, Value} | {Key, Value, no} | {Key, RegExp, re} |
+          {Key, RegExp, re, no}</v>
         <v>Key = term()</v>
         <v>Value = term()</v>
-        <v>RegExp = string() | {string, Options} | mp(), {mp(), Options}</v>
+        <v>RegExp = string() | {string(), Options} | re:mp() | {re:mp(), Options}</v>
         <v>Dates = {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to}</v>
-        <v>DateFrom = DateTo = {date(), time()}</v>
-        <v>date() and time() are the same type as in the <c>calendar</c> module</v>
+        <v>DateFrom = DateTo = calendar:datetime()</v>
       </type>
       <desc>
-        <p>This function displays the reports that match the provided filters.</p>
-        <p>
-          When a filter includes the <c>no</c> atom it will exclude the reports that match
-          that filter.
-        </p>
-        <p>
-          The reports are matched using the <c>proplists</c> module. The report must be a proplist
-          to be matched against any of the <c>filters()</c>.
-        </p>
-	<p>
-	  If the filter is of the form <c>{Key, RegExp, re}</c> the report must contain an element with
-	  <c>key = Key</c> and <c>Value</c> must match the RegExp regular expression.
-	</p>
-	<p>
-	  If the Dates parameter is provided, then the reports are filtered according to the date
-	  when they occurred. If Dates is of the form <c>{DateFrom, from}</c> then reports that occurred
-	  after DateFrom are displayed.
-	</p>
-	<p>
-	  If Dates is of the form <c>{DateTo, to}</c> then reports that occurred before DateTo
-	  are displayed.
-	</p>
-	<p>
-	  If two Dates are provided, then reports that occurred between those dates are returned.
-	</p>
-	<p>
-	   If you only want to filter only by dates, then you can provide the empty list as the Filters
-	   parameter.
-	</p>
-	<p>
-	  See <c>rb:grep/1</c> for more information on the RegExp parameter.
-	</p>
+        <p>Displays the reports that match the provided filters.</p>
+        <p>When a filter includes the <c>no</c> atom, it excludes the
+          reports that match that filter.</p>
+        <p>The reports are matched using the
+          <seealso marker="stdlib:proplists"><c>proplists</c></seealso>
+          module in <c>STDLIB</c>. The report must be a proplist
+          to be matched against any of the filters.</p>
+        <p>If the filter has the form <c>{Key, RegExp, re}</c>, the
+          report must contain an element with key equal to <c>Key</c> and
+          the value must match the regular expression <c>RegExp</c>.</p>
+        <p>If parameter <c>Dates</c> is specified, the reports are filtered
+          according to the date when they occurred. If <c>Dates</c> has
+          the form <c>{DateFrom, from}</c>, reports that occurred after
+	  <c>DateFrom</c> are displayed.</p>
+        <p>If <c>Dates</c> has the form <c>{DateTo, to}</c>, reports that
+          occurred before <c>DateTo</c> are displayed.</p>
+        <p>If two <c>Dates</c> are specified, reports that occurred between
+          those dates are returned.</p>
+        <p>To filter only by dates, specify the empty list as the <c>Filters</c>
+	   parameter.</p>
+        <p>For details about parameter <c>RegExp</c>, see <c>rb:grep/1</c>.</p>
+	<p>For details about data type <c>mp()</c>, see 
+	<seealso marker="stdlib:re#type-mp"><c>re:mp()</c></seealso>.</p>
+	<p>For details about data type <c>datetime()</c>, see 
+	<seealso marker="stdlib:calendar#type-datetime"><c>calendar:datetime()</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name>grep(RegExp)</name>
-      <fsummary>Search the reports for a regular expression</fsummary>
+      <fsummary>Searches the reports for a regular expression.</fsummary>
       <type>
-        <v>RegExp = string() | {string, Options} | mp(), {mp(), Options}</v>
+        <v>RegExp = string() | {string(), Options} | re:mp() | {re:mp(), Options}</v>
       </type>
       <desc>
-        <p>All reports containing the regular expression <c>RegExp</c>
-          are printed.
-          </p>
-        <p><c>RegExp</c> can be a string containing the regular
-          expression; a tuple with the string and the options for
-	  compilation; a compiled regular expression; a compiled
-	  regular expression and the options for running it.
-	  Refer to the module <c>re</c> and specially the function <c>re:run/3</c>
-	  for a definition of valid regular expressions and options.
-          </p>
+        <p>All reports matching the regular expression <c>RegExp</c>
+          are displayed. <c>RegExp</c> can be any of the following:</p>
+        <list type="bulleted">
+          <item>A string containing the regular expression</item>
+          <item>A tuple with the string and the options for compilation</item>
+          <item>A compiled regular expression</item>
+          <item>A compiled regular expression and the options for running it</item>
+        </list>
+        <p>For a definition of valid regular expressions and options, see
+          the <seealso marker="stdlib:re"><c>re</c></seealso> module in
+          <c>STDLIB</c> and in particular function <c>re:run/3</c>.</p>
+	  <p>For details about data type <c>mp()</c>, see 
+	<seealso marker="stdlib:re#type-mp"><c>re:mp()</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name>h()</name>
       <name>help()</name>
-      <fsummary>Print help information</fsummary>
+      <fsummary>Displays help information.</fsummary>
       <desc>
-        <p>Prints the on-line help information.
-          </p>
+        <p>Displays online help information.</p>
       </desc>
     </func>
+
     <func>
       <name>list()</name>
       <name>list(Type)</name>
-      <fsummary>List all reports</fsummary>
+      <fsummary>Lists all reports.</fsummary>
       <type>
         <v>Type = type()</v>
         <v>type() = error | error_report | info_msg | info_report |
-        warning_msg | warning_report | crash_report |
-        supervisor_report | progress</v>
+          warning_msg | warning_report | crash_report |
+          supervisor_report | progress</v>
       </type>
       <desc>
-        <p>This function lists all reports loaded in the
+        <p>Lists all reports loaded in
           <c>rb_server</c>. Each report is given a unique number that
-          can be used as a reference to the report in the
-          <c>show/1</c> function.
-          </p>
-        <p>If no <c>Type</c> is given, all reports are listed.
-          </p>
+          can be used as a reference to the report in function
+          <seealso marker="#show/1"><c>show/1</c></seealso>.</p>
+        <p>If no <c>Type</c> is specified, all reports are listed.</p>
       </desc>
     </func>
+
     <func>
       <name>log_list()</name>
       <name>log_list(Type)</name>
-      <fsummary>Log reports list</fsummary>
+      <fsummary>Logs report lists.</fsummary>
       <type>
         <v>Type = type()</v>
         <v>type() = error | error_report | info_msg | info_report |
-        warning_msg | warning_report | crash_report |
-        supervisor_report | progress</v>
+          warning_msg | warning_report | crash_report |
+          supervisor_report | progress</v>
       </type>
       <desc>
-	<p>Same as <c>list/0</c> or <c>list/1</c> functions 
-	   but result is printed to logfile, if set, otherwise to standard_io.
-          </p>
-        <p>If no <c>Type</c> is given, all reports are listed.
-          </p>
+        <p>Same as functions 
+	<seealso marker="#list/0"><c>list/0</c></seealso> or 
+	<seealso marker="#list/1"><c>list/1</c></seealso>,
+	  but the result is printed to a log file, if set; otherwise
+          to <c>standard_io</c>.</p>
+        <p>If no <c>Type</c> is specified, all reports are listed.</p>
       </desc>
     </func>
+
     <func>
       <name>rescan()</name>
       <name>rescan(Options)</name>
-      <fsummary>Rescan the report directory</fsummary>
+      <fsummary>Rescans the report directory.</fsummary>
       <type>
         <v>Options = [opt()]</v>
       </type>
       <desc>
         <p>Rescans the report directory. <c>Options</c> is the same as
-          for <c>start()</c>.
-          </p>
+          for function 
+	<seealso marker="#start/1"><c>start/1</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name>show()</name>
       <name>show(Report)</name>
-      <fsummary>Show reports</fsummary>
+      <fsummary>Displays reports.</fsummary>
       <type>
-        <v>Report = int() | type()</v>
+        <v>Report = integer() | type()</v>
       </type>
       <desc>
-        <p>If a type argument is given, all loaded reports of this
-          type are printed. If an integer argument is given, the
-          report with this reference number is printed. If no argument
-          is given, all reports are shown.
-          </p>
+        <p>If argument <c>type</c> is specified, all loaded reports of this
+          type are displayed. If an integer argument is specified, the
+          report with this reference number is displayed. If no argument
+          is specified, all reports are displayed.</p>
       </desc>
     </func>
+
     <func>
       <name>start()</name>
       <name>start(Options)</name>
-      <fsummary>Start the RB server</fsummary>
+      <fsummary>Starts the <c>rb_server</c>.</fsummary>
       <type>
         <v>Options = [opt()]</v>
-        <v>opt() = {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool}</v>
+        <v>opt() = {start_log, FileName} | {max, MaxNoOfReports} |
+          {report_dir, DirString} | {type, ReportType} |
+          {abort_on_error, Bool}</v>
         <v>FileName = string() | atom() | pid()</v>
-        <v>MaxNoOfReports = int() | all</v>
+        <v>MaxNoOfReports = integer() | all</v>
         <v>DirString = string()</v>
         <v>ReportType = type() | [type()] | all</v>
-        <v>Bool = true | false</v>
+        <v>Bool = boolean()</v>
       </type>
       <desc>
-        <p>The function <c>start/1</c> starts the <c>rb_server</c>
-          with the specified options, while <c>start/0</c> starts with
-          default options. The <c>rb_server</c> must be started before
-          reports can be browsed. When the <c>rb_server</c> is
+        <p>Function <c>start/1</c> starts <c>rb_server</c> with the
+          specified options, whereas function <c>start/0</c> starts with
+          default options. <c>rb_server</c> must be started before
+          reports can be browsed. When <c>rb_server</c> is
           started, the files in the specified directory are
           scanned. The other functions assume that the server has
-	  started.
-          </p>
-	  <p><c>{start_log, FileName}</c> starts logging to file, 
-	  registered name or io_device. All reports will be printed 
-	  to the named file. The default is <c>standard_io</c>. 
-	  The option {start_log, standard_error} is not allowed and 
-	  will be replaced by default standard_io.
-          </p>
-        <p><c>{max, MaxNoOfReports}</c>. Controls how many reports the
-          <c>rb_server</c> should read on start-up. This option is
-          useful as the directory may contain 20.000 reports. If this
-          option is given, the <c>MaxNoOfReports</c> latest reports
-          will be read. The default is 'all'.
-          </p>
-        <p><c>{report_dir, DirString}</c>. Defines the directory where
-          the error log files are located. The default is <c>{sasl, error_logger_mf_dir}</c>.  </p>
-        <p><c>{type, ReportType}</c>. Controls what kind of reports the
-          <c>rb_server</c> should read on start-up.  <c>ReportType</c>
-          is a supported type, 'all', or a list of supported
-          types. The default is 'all'.
-          </p>
-        <p><c>{abort_on_error, Bool}</c>. This option specifies whether
-          or not logging should be aborted if rb encounters an unprintable 
-          report. (You may get a report on incorrect form if the 
-          <c>error_logger</c> function <c>error_msg</c> or 
-          <c>info_msg</c> has been called with an invalid format string).
-          If <c>Bool</c> is <c>true</c>, rb will stop logging (and print an
-          error message to stdout) if it encounters a badly formatted report.
-          If logging to file is enabled, an error message will be appended to
-          the log file as well. 
-          If <c>Bool</c> is <c>false</c> (which is the default value), rb will 
-          print an error message to stdout for every bad report it 
-          encounters, but the logging process is never aborted. All printable 
-          reports will be written. If logging to file is enabled, rb prints 
-          <c>* UNPRINTABLE REPORT *</c> in the log file at the location of an 
-          unprintable report.
-          </p>
+	  started.</p>
+	<p><em>Options:</em></p>
+        <taglist>
+	<tag><c>{start_log, FileName}</c></tag>
+          <item><p>Starts logging to file,
+	  registered name, or <c>io_device</c>. All reports are printed
+	  to the specified destination. Default is <c>standard_io</c>.
+	  Option <c>{start_log, standard_error}</c> is not allowed and
+          will be replaced by default <c>standard_io</c>.</p></item>
+        <tag><c>{max, MaxNoOfReports}</c></tag>
+          <item><p>Controls how many reports
+          <c>rb_server</c> is to read at startup. This option is
+          useful, as the directory can contain a large amount of reports. If this
+          option is specified, the <c>MaxNoOfReports</c> latest reports
+          are read. Default is <c>all</c>.</p></item>
+        <tag><c>{report_dir, DirString}</c></tag>
+          <item><p>Defines the directory where
+          the error log files are located. Default is
+          the directory specified by application environment
+          variable <c>error_logger_mf_dir</c>,
+          see <seealso marker="sasl_app">sasl(6)</seealso>.</p></item>
+        <tag><c>{type, ReportType}</c></tag>
+          <item><p>Controls what kind of reports
+          <c>rb_server</c> is to read at startup. <c>ReportType</c>
+          is a supported type, <c>all</c>, or a list of supported
+          types. Default is <c>all</c>.</p></item>
+        <tag><c>{abort_on_error, Bool}</c></tag>
+          <item><p>Specifies if
+          logging is to be ended if <c>rb</c> encounters an unprintable
+          report. (You can get a report with an incorrect form if function
+          <c>error_logger</c>, <c>error_msg</c>, or
+          <c>info_msg</c> has been called with an invalid format string)</p>
+          <list type="bulleted">
+            <item>If <c>Bool</c> is <c>true</c>, <c>rb</c> stops logging
+            (and prints an error message to <c>stdout</c>) if it encounters
+            a badly formatted report. If logging to file is enabled, an
+            error message is appended to the log file as well.</item>
+            <item>If <c>Bool</c> is <c>false</c> (the default value), <c>rb</c> 
+            prints an error message to <c>stdout</c> for every bad report it
+            encounters, but the logging process is never ended. All printable 
+            reports are written. If logging to file is enabled, <c>rb</c> prints 
+            <c>* UNPRINTABLE REPORT *</c> in the log file at the location of an
+            unprintable report.</item>
+         </list></item>
+       </taglist>
       </desc>
     </func>
+
     <func>
       <name>start_log(FileName)</name>
-      <fsummary>Redirect all output to <c>FileName</c></fsummary>
+      <fsummary>Redirects all output to <c>FileName</c>.</fsummary>
       <type>
         <v>FileName = string() | atom() | pid()</v>
       </type>
       <desc>
         <p>Redirects all report output from the RB tool to the
-          specified file, registered name or io_device.
-          </p>
+          specified file, registered name, or <c>io_device</c>.</p>
       </desc>
     </func>
+
     <func>
       <name>stop()</name>
-      <fsummary>Stop the RB server</fsummary>
+      <fsummary>Stops the <c>rb_server</c>.</fsummary>
       <desc>
-        <p>Stops the <c>rb_server</c>.
-          </p>
+        <p>Stops <c>rb_server</c>.</p>
       </desc>
     </func>
+
     <func>
       <name>stop_log()</name>
-      <fsummary>Stop logging to file</fsummary>
+      <fsummary>Stops logging to file.</fsummary>
       <desc>
-        <p>Closes the log file. The output from the RB tool will be
-          directed to <c>standard_io</c>.
-          </p>
+        <p>Closes the log file. The output from the RB tool is
+          directed to <c>standard_io</c>.</p>
       </desc>
     </func>
   </funcs>
