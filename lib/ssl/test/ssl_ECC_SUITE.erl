@@ -275,8 +275,8 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Exe = "openssl",
     Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-	    "-verify", "2",  "-cert ", Cert, "-CAfile", NewCA,
-	    "-key", Key, "-msg" "-debug"],
+	    "-verify", "2", "-cert", Cert, "-CAfile", NewCA,
+	    "-key", Key, "-msg", "-debug"],
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
