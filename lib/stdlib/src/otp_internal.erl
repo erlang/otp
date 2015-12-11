@@ -644,6 +644,8 @@ obsolete_1(httpd_conf, make_integer, 1) ->
 obsolete_1(random, _, _) ->
     {deprecated, "the 'random' module is deprecated; "
      "use the 'rand' module instead"};
+obsolete_1(code, rehash, 0) ->
+    {deprecated, "deprecated because the code path cache feature has been removed"};
 
 obsolete_1(_, _, _) ->
     no.
