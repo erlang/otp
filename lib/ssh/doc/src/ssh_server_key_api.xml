@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2013</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -75,7 +75,7 @@
 	<d>Host key algorithm. Is to support <c>'ssh-rsa' | 'ssh-dss'</c>, but more algorithms
 	can be handled.</d>
 	<v>DaemonOptions = proplists:proplist()</v>
-	<d>Options provided to  <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</d>
+	<d>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</d>
 	<v>Key = private_key()</v>
 	<d>Private key of the host matching the <c>Algorithm</c>.</d>
 	<v>Reason = term()</v>

@@ -31,9 +31,13 @@
   <module>ssl_session_cache_api</module>
   <modulesummary>TLS session cache API</modulesummary>
 
-  <description>Defines the API for the TLS session cache so
-    that the data storage scheme can be replaced by
-    defining a new callback module implementing this API.</description>
+  <description>
+    <p>
+      Defines the API for the TLS session cache so
+      that the data storage scheme can be replaced by
+      defining a new callback module implementing this API.
+    </p>
+  </description>
   <section>
     <title>DATA TYPES</title>
 

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2014</year>
+      <year>2002</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1807,23 +1807,21 @@
 
         <item>
 	  <p>[httpd] - Issues with ESI erl_script_timeout. </p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>The <c>erl_script_timeout</c> config option is ducumented
-                  as a number of seconds. But when parsing the config, in the
-                  new format (not a config file), it was handled as if in
-                  number of milliseconds. </p>
-              </item>
-	      <item>
-		<p>When the erl-script-timeout time was exceeded, the server
-                  incorrectly marked the answer as sent, thereby leaving 
-                  client hanging (with an incomplete answer).
-                  This has been changed, so that now the socket will be
-                  closed. </p>
-	      </item>
-	    </list>
-	  </p>
+          <list type="bulleted">
+	    <item>
+	      <p>The <c>erl_script_timeout</c> config option is ducumented
+              as a number of seconds. But when parsing the config, in the
+              new format (not a config file), it was handled as if in
+              number of milliseconds. </p>
+            </item>
+	    <item>
+	      <p>When the erl-script-timeout time was exceeded, the server
+              incorrectly marked the answer as sent, thereby leaving 
+              client hanging (with an incomplete answer).
+              This has been changed, so that now the socket will be
+              closed. </p>
+	    </item>
+	  </list>
 	  <p>Own Id: OTP-8509</p>
         </item>
       </list>
@@ -1899,20 +1897,19 @@
 
         <item>
           <p>[httpc] Several more or less critical fixes:</p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>Initial call between the httpc manager and request 
-                  handler was synchronous. </p>
-		<p>When the manager starts a new request handler, 
-                  this is no longer a synchronous operation. Previously, 
-                  the new request handler made the connection to the 
-                  server and issuing of the first request (the reason 
-                  for starting it) in the gen_server init function. 
-                  If the connection for some reason "took some time", 
-                  the manager hanged, leaving all other activities by 
-                  that manager also hanging. </p>
-              </item>
+          <list type="bulleted">
+	    <item>
+	      <p>Initial call between the httpc manager and request 
+              handler was synchronous. </p>
+	      <p>When the manager starts a new request handler, 
+              this is no longer a synchronous operation. Previously, 
+              the new request handler made the connection to the 
+              server and issuing of the first request (the reason 
+              for starting it) in the gen_server init function. 
+              If the connection for some reason "took some time", 
+              the manager hanged, leaving all other activities by 
+              that manager also hanging. </p>
+            </item>
 <!--
 	      <item>
 	        <p>Copying of data between processes</p>
@@ -1923,8 +1920,7 @@
 	        <p>TBD</p>
 	      </item>
 -->
-	    </list>
-	  </p>
+	  </list>
           <p>As a side-effect of these changes, some modules was also 
             renamed, and a new api module, 
             <seealso marker="httpc">httpc</seealso>, has been introduced

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2014</year>
+      <year>2004</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -418,10 +418,10 @@
 	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
           </item>
 
-	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]>
-	  <br/>where:
-	  <br/>PromptTexts = kb_int_tuple()  | fun(Peer::{IP::tuple(),Port::integer()}, User::string(), Service::string()) ->  kb_int_tuple()
-	  <br/>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
+	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]></c>
+	  <br/><c>where:</c>
+	  <br/><c>PromptTexts = kb_int_tuple()  | fun(Peer::{IP::tuple(),Port::integer()}, User::string(), Service::string()) ->  kb_int_tuple()</c>
+	  <br/><c>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
 	  </tag>
 	  <item>
 	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when using <c>keyboar-interactive</c> authentication. If the fun/3 is used, it is called when the actual authentication occurs and may therefore return dynamic data like time, remote ip etc.</p>
@@ -516,29 +516,29 @@
 	  <item>
 	    <p>Provides a function for password validation. This could used for calling an external system or if
 	    passwords should be stored as a hash. The fun returns:
-	      <list type="bulleted">
-		<item><c>true</c> if the user and password is valid and</item>
-		<item><c>false</c> otherwise.</item> 
-	      </list>
 	    </p>
+	    <list type="bulleted">
+	      <item><c>true</c> if the user and password is valid and</item>
+	      <item><c>false</c> otherwise.</item> 
+	    </list>
 	    <p>This fun can also be used to make delays in authentication tries for example by calling
 	      <seealso marker="stdlib:timer#sleep/1">timer:sleep/1</seealso>. To facilitate counting of failed tries
 	      the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
 	      is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.  
 	      The pwdfun can return - in addition to the values above - a new state
 	      as:
-	      <list type="bulleted">
-		<item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
-		<item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
-	      </list>
 	    </p>
+	    <list type="bulleted">
+	      <item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
+	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	    </list>
 	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
 	    can be used for this. In addition to the responses above, the following return value is introduced:
+	    </p>
 	    <list type="bulleted">
 	      <item><c>disconnect</c> if the connection should be closed immediately after sending a SSH_MSG_DISCONNECT
 	      message.</item>
 	    </list>
-	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string()) -> boolean()}]]></c></tag>
