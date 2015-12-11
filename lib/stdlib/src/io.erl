@@ -444,7 +444,7 @@ scan_erl_form(Io, Prompt, Pos0, Options) ->
 %% Parsing Erlang code.
 
 -type parse_ret() :: {'ok',
-                      ExprList :: erl_parse:abstract_expr(),
+                      ExprList :: [erl_parse:abstract_expr()],
                       EndLocation :: location()}
                    | {'eof', EndLocation :: location()}
                    | {'error',
