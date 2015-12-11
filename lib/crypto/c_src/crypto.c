@@ -1620,7 +1620,7 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In) */
 #if defined(HAVE_GCM)
-    EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER_CTX ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
     unsigned char *outp, *tagp;
@@ -1642,40 +1642,40 @@ static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     else if (key.size == 32)
         cipher = EVP_aes_256_gcm();
 
-    if (!(ctx = EVP_CIPHER_CTX_new()))
-        return atom_error;
-    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+    EVP_CIPHER_CTX_init(&ctx);
+
+    if (EVP_EncryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
         goto out_err;
 
-    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
         goto out_err;
-    if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+    if (EVP_EncryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
         goto out_err;
-    if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1)
+    if (EVP_EncryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
         goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    if (EVP_EncryptUpdate(ctx, outp, &len, in.data, in.size) != 1)
+    if (EVP_EncryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
         goto out_err;
-    if (EVP_EncryptFinal_ex(ctx, outp+len, &len) != 1)
+    if (EVP_EncryptFinal_ex(&ctx, outp+len, &len) != 1)
         goto out_err;
 
     tagp = enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag);
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, EVP_GCM_TLS_TAG_LEN, tagp) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, EVP_GCM_TLS_TAG_LEN, tagp) != 1)
         goto out_err;
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
 
     CONSUME_REDS(env, in);
 
     return enif_make_tuple2(env, out, out_tag);
 
 out_err:
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
     return atom_error;
 
 #else
@@ -1686,7 +1686,7 @@ out_err:
 static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_GCM)
-    EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER_CTX ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned char *outp;
@@ -1709,34 +1709,34 @@ static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     else if (key.size == 32)
         cipher = EVP_aes_256_gcm();
 
-    if (!(ctx = EVP_CIPHER_CTX_new()))
-        return atom_error;
-    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+    EVP_CIPHER_CTX_init(&ctx);
+
+    if (EVP_DecryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
         goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
         goto out_err;
-    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+    if (EVP_DecryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
         goto out_err;
-    if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1)
+    if (EVP_DecryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
         goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    if (EVP_DecryptUpdate(ctx, outp, &len, in.data, in.size) != 1)
+    if (EVP_DecryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
         goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, EVP_GCM_TLS_TAG_LEN, tag.data) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, EVP_GCM_TLS_TAG_LEN, tag.data) != 1)
         goto out_err;
-    if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
+    if (EVP_DecryptFinal_ex(&ctx, outp+len, &len) != 1)
         goto out_err;
 
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
 
     CONSUME_REDS(env, in);
 
     return out;
 
 out_err:
-    EVP_CIPHER_CTX_free(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
     return atom_error;
 
 #else
