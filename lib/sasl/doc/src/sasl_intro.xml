@@ -31,22 +31,32 @@
   </header>
 
   <section>
-    <title>About This Document</title>
-    <p>The SASL (System Architecture Support Libraries) 
-       application provides support for:</p>
+    <title>Scope</title>
+    <p>The <c>SASL</c> application provides support for:</p>
     <list type="bulleted">
-      <item>error logging</item>
-      <item>alarm handling</item>
-      <item>overload regulation</item>
-      <item>release handling</item>
-      <item>report browsing.</item>
+      <item>Error logging</item>
+      <item>Alarm handling</item>
+      <item>Overload regulation</item>
+      <item>Release handling</item>
+      <item>Report browsing</item>
     </list>
-    <p>In this document, "SASL Error Logging" describes the error
-      handler which produces the supervisor, progress, and crash
-      reports which can be written to screen, or to a specified file.
-      It also describes the report browser <c>rb</c>.</p>
-    <p>The chapters about release structure and release handling have
-      been moved to <em>OTP Design Principles</em>.</p>
+    <p>Section
+      <seealso marker="error_logging">SASL Error Logging</seealso> 
+      describes the error
+      handler that produces the supervisor, progress, and crash
+      reports, which can be written to screen or to a specified file.
+      It also describes the Report Browser (RB).</p>
+    <p>The sections about release structure and release handling have
+      been moved to section
+      <seealso marker="doc/design_principles:users_guide">OTP Design Principles</seealso>
+      in <em>System Documentation</em>.</p>
   </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+      programming language.</p>
+  </section>
+
 </chapter>
 
