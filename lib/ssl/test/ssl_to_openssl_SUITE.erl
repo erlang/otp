@@ -1753,7 +1753,9 @@ check_sane_openssl_renegotaite(Config, _) ->
     check_sane_openssl_renegotaite(Config).
 	
 check_sane_openssl_renegotaite(Config) ->
-    case os:cmd("openssl version") of     
+    case os:cmd("openssl version") of  
+	"OpenSSL 1.0.0" ++ _ ->
+	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.8" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
