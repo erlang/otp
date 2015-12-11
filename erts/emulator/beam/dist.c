@@ -1231,11 +1231,11 @@ int erts_net_message(Port *prt,
     arg = erts_decode_dist_ext(&factory, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
+	erts_fprintf(stderr, "DIST MSG DEBUG: erts_decode_dist_ext(CTL) failed:\n");
 	bw(buf, orig_len);
 #endif
 	PURIFY_MSG("data error");
-	goto data_error;
+	goto decode_error;
     }
     ctl_len = t - buf;
 
@@ -1728,12 +1728,13 @@ int erts_net_message(Port *prt,
 	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
- data_error:
+decode_error:
     PURIFY_MSG("data error");
     erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
+data_error:
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
