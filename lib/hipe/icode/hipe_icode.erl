@@ -1376,12 +1376,12 @@ remove_constants(L) ->
 %% Substitution: replace occurrences of X by Y if {X,Y} is in the
 %%   Subst_list.
 
--spec subst([{_,_}], I) -> I when is_subtype(I, icode_instr()).
+-spec subst([{_,_}], I) -> I when I :: icode_instr().
 
 subst(Subst, I) ->
   subst_defines(Subst, subst_uses(Subst, I)).
 
--spec subst_uses([{_,_}], I) -> I when is_subtype(I, icode_instr()).
+-spec subst_uses([{_,_}], I) -> I when I :: icode_instr().
 
 subst_uses(Subst, I) ->
   case I of
@@ -1405,7 +1405,7 @@ subst_uses(Subst, I) ->
     #icode_label{} -> I
   end.
 
--spec subst_defines([{_,_}], I) -> I when is_subtype(I, icode_instr()).
+-spec subst_defines([{_,_}], I) -> I when I :: icode_instr().
 
 subst_defines(Subst, I) ->
   case I of
