@@ -110,9 +110,9 @@ end_per_testcase(_TestCase, _Config) ->
 
 chk_key(Pgm, Name, File, Config) ->
     case ssh_test_lib:openssh_supports(Pgm, public_key, Name) of
-	true ->
-	    {skip,lists:concat(["openssh client does not support ",Name])};
 	false ->
+	    {skip,lists:concat(["openssh client does not support ",Name])};
+	true ->
 	    {ok,[[Home]]} = init:get_argument(home),
 	    KeyFile =  filename:join(Home, File),
 	    case file:read_file(KeyFile) of
