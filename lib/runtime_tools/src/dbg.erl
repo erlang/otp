@@ -1269,7 +1269,7 @@ gen_reader(follow_file, Filename) ->
 
 %% Opens a file and returns a reader (lazy list).
 gen_reader_file(ReadFun, Filename) ->
-    case file:open(Filename, [read, raw, binary]) of
+    case file:open(Filename, [read, raw, binary, read_ahead]) of
 	{ok, File} ->
 	    mk_reader(ReadFun, File);
 	Error ->
@@ -1294,7 +1294,7 @@ mk_reader(ReadFun, Source) ->
 mk_reader_wrap([]) ->
     [];
 mk_reader_wrap([Hd | _] = WrapFiles) ->
-    case file:open(wrap_name(Hd), [read, raw, binary]) of
+    case file:open(wrap_name(Hd), [read, raw, binary, read_ahead]) of
 	{ok, File} ->
 	    mk_reader_wrap(WrapFiles, File);
 	Error ->
