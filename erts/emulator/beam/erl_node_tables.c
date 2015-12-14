@@ -752,6 +752,10 @@ erts_set_this_node(Eterm sysname, Uint creation)
     erts_this_dist_entry = erts_this_node->dist_entry;
 
     erts_refc_inc(&erts_this_dist_entry->refc, 2);
+
+    erts_this_node_sysname = erts_this_node_sysname_BUFFER;
+    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
+		  "%T", sysname);
 }
 
 Uint
