@@ -1214,22 +1214,22 @@ name_split(undefined, File) ->
 name_split(ArchiveFile, File0) ->
     %% Look first in primary archive
     File = absname(File0),
-    case string_match(real_path(File), ArchiveFile, []) of
+    case string_match(real_path(File), ArchiveFile) of
         no_match ->
             %% Archive or plain file
             name_split(undefined, File);
-        {match, _RevPrimArchiveFile, FileInArchive} ->
+        {match, FileInArchive} ->
             %% Primary archive
 	    {archive, ArchiveFile, FileInArchive}
     end.
 
-string_match([Char | File], [Char | Archive], RevTop) ->
-    string_match(File, Archive, [Char | RevTop]);
-string_match([] = File, [], RevTop) ->
-    {match, RevTop, File};
-string_match([$/ | File], [], RevTop) ->
-    {match, RevTop, File};
-string_match(_File, _Archive, _RevTop) ->
+string_match([Char | File], [Char | Archive]) ->
+    string_match(File, Archive);
+string_match([] = File, []) ->
+    {match, File};
+string_match([$/ | File], []) ->
+    {match, File};
+string_match(_File, _Archive) ->
     no_match.
 
 archive_split("/"++File, RevExt, Acc) ->
