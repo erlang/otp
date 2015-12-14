@@ -694,11 +694,10 @@ make_crypto_key(String) ->
     {[K1,K2,K3],IVec}.
 
 random_bytes(N) ->
-    random:seed(os:timestamp()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;
-random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
+random_bytes_1(N, Acc) -> random_bytes_1(N-1, [rand:uniform(255)|Acc]).
 
 check_callback_load(Callback) ->
     case code:is_loaded(Callback) of

@@ -26,7 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES =  src tcl contribs examples doc/src
+SUB_DIRECTORIES =  src tcl examples doc/src
 
 include vsn.mk
 VSN = $(GS_VSN)

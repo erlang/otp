@@ -223,11 +223,10 @@ basic_test() ->
 
 
 range_test() ->
-    random:seed(),
     F = fun(From,From,_FF) ->
 		ok;
 	   (From,To,FF) ->
-		R = random:uniform(16#FFFFFFFFFFFFFFFF),
+		R = rand:uniform(16#FFFFFFFFFFFFFFFF),
 		X = erlang:phash(R, From),
 		Y = erlang:phash(R, 16#100000000) - 1,
 		Z = (Y rem From) + 1,
@@ -265,14 +264,13 @@ spread_test(N) ->
 
 
 cmp_test(N) ->
-    % No need to save seed, the error indicates what number caused it.
-    random:seed(),
     do_cmp_hashes(N,8).
+
 do_cmp_hashes(0,_) ->
     ok;
 do_cmp_hashes(N,Steps) ->
-    R0 = random:uniform(1 bsl Steps - 1) + random:uniform(16#FFFFFFFF),
-    R = case random:uniform(2) of
+    R0 = rand:uniform(1 bsl Steps - 1) + rand:uniform(16#FFFFFFFF),
+    R = case rand:uniform(2) of
 	    1 ->
 		R0;
 	    _ ->

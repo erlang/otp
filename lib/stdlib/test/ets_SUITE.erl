@@ -112,9 +112,8 @@
 -define(m(A,B), ?line assert_eq(A,B)).
 
 init_per_testcase(Case, Config) ->
-    Seed = {S1,S2,S3} = random:seed0(), %now(),
-    random:seed(S1,S2,S3),
-    io:format("*** SEED: ~p ***\n", [Seed]),
+    rand:seed(exsplus),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
     Dog=test_server:timetrap(test_server:minutes(20)),
@@ -1330,7 +1329,7 @@ drop_match() ->
 
 
 ets_match(Tab,Expr) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	    ets:match(Tab,Expr);
 	_ ->
@@ -1339,14 +1338,14 @@ ets_match(Tab,Expr) ->
 
 match_chunked(Tab,Expr) ->
     match_chunked_collect(ets:match(Tab,Expr,
-				    random:uniform(1999) + 1)).
+				    rand:uniform(1999) + 1)).
 match_chunked_collect('$end_of_table') ->
     [];
 match_chunked_collect({Results, Continuation}) ->
     Results ++ match_chunked_collect(ets:match(Continuation)).
 
 ets_match_object(Tab,Expr) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	    ets:match_object(Tab,Expr);
 	_ ->
@@ -1355,7 +1354,7 @@ ets_match_object(Tab,Expr) ->
 
 match_object_chunked(Tab,Expr) ->
     match_object_chunked_collect(ets:match_object(Tab,Expr,
-						  random:uniform(1999) + 1)).
+						  rand:uniform(1999) + 1)).
 match_object_chunked_collect('$end_of_table') ->
     [];
 match_object_chunked_collect({Results, Continuation}) ->
@@ -1367,19 +1366,15 @@ random_test() ->
     ?line ReadDir = get(where_to_read),
     ?line WriteDir = get(where_to_write),
     ?line (catch file:make_dir(WriteDir)),
-    ?line Seed = case file:consult(filename:join([ReadDir, 
-					    "preset_random_seed.txt"])) of
-	       {ok,[X]} ->
-		   X;
-	       _ ->
-		   {A,B,C} = erlang:timestamp(),
-		   random:seed(A,B,C),
-		   get(random_seed)
-	   end,
-    put(random_seed,Seed),
-    ?line {ok, F} = file:open(filename:join([WriteDir, 
-					     "last_random_seed.txt"]), 
-			      [write]),
+    case file:consult(filename:join([ReadDir,"preset_random_seed.txt"])) of
+	{ok,[X]} ->
+	    rand:seed(X);
+	_ ->
+	    rand:seed(exsplus)
+    end,
+    Seed = rand:export_seed(),
+    {ok,F} = file:open(filename:join([WriteDir,"last_random_seed.txt"]),
+			[write]),
     io:format(F,"~p. ~n",[Seed]),
     file:close(F),
     io:format("Random seed ~p written to ~s, copy to ~s to rerun with "
@@ -1401,7 +1396,7 @@ do_random_test() ->
 	       end, 5000),
     ?line io:format("~nData inserted~n"),
     ?line do_n_times(fun() ->
-		       ?line I = random:uniform(25),
+		       I = rand:uniform(25),
 		       ?line Key = create_random_string(I) ++ '_',
 		       ?line L1 = ets_match_object(OrdSet,{Key,'_'}),
 		       ?line L2 = lists:sort(ets_match_object(Set,{Key,'_'})),
@@ -1961,7 +1956,7 @@ evil_update_counter(Config) when is_list(Config) ->
     gb_sets:module_info(),
     math:module_info(),
     ordsets:module_info(),
-    random:module_info(),
+    rand:module_info(),
 
     repeat_for_opts(evil_update_counter_do).
 
@@ -1995,7 +1990,7 @@ evil_counter(I,Opts) ->
 		1 -> 16#12345678FFFFFFFF;
 		2 -> 16#7777777777FFFFFFFF863648726743
 	    end,
-    Start = Start0 + random:uniform(100000),
+    Start = Start0 + rand:uniform(100000),
     ets:insert(T, {dracula,Start}),
     Iter = 40000,
     End = Start + Iter,
@@ -4645,11 +4640,11 @@ create_random_string(0) ->
     [];
 
 create_random_string(OfLength) ->
-    C = case random:uniform(2) of
+    C = case rand:uniform(2) of
 	1 ->
-	    (random:uniform($Z - $A + 1) - 1) + $A;
+	    (rand:uniform($Z - $A + 1) - 1) + $A;
 	_ ->
-	    (random:uniform($z - $a + 1) - 1) + $a
+	    (rand:uniform($z - $a + 1) - 1) + $a
 	end,
     [C | create_random_string(OfLength - 1)].
 
@@ -4660,7 +4655,7 @@ create_random_tuple(OfLength) ->
 			    end,create_random_string(OfLength))).
 
 create_partly_bound_tuple(OfLength) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	   create_partly_bound_tuple1(OfLength); 
 	_ ->
@@ -4669,14 +4664,14 @@ create_partly_bound_tuple(OfLength) ->
 
 create_partly_bound_tuple1(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength),
+    I = rand:uniform(OfLength),
     setelement(I,T0,'$1').
 
 
 set_n_random_elements(T0,0,_,_) ->
     T0;
 set_n_random_elements(T0,N,OfLength,GenFun) ->
-    I = random:uniform(OfLength),
+    I = rand:uniform(OfLength),
     What = GenFun(I),
     case element(I,T0) of
 	What ->
@@ -4690,12 +4685,12 @@ make_dollar_atom(I) ->
     list_to_atom([$$] ++ integer_to_list(I)).
 create_partly_bound_tuple2(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength - 1),
+    I = rand:uniform(OfLength - 1),
     set_n_random_elements(T0,I,OfLength,fun make_dollar_atom/1).
 
 create_partly_bound_tuple3(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength - 1),
+    I = rand:uniform(OfLength - 1),
     set_n_random_elements(T0,I,OfLength,fun(_) -> '_' end).
 
 do_n_times(_,0) ->
@@ -5058,11 +5053,12 @@ meta_wb_do(Opts) ->
 
     io:format("Colliding names = ~p\n",[Names]),
     F = fun(0,_,_) -> ok;
-	   (N,Tabs,Me) -> Name1 = lists:nth(random:uniform(Len),Names), 
-			  Name2 = lists:nth(random:uniform(Len),Names), 
-			  Op = element(random:uniform(3),OpFuns),
-			  NTabs = Op(Name1, Name2, Tabs, Opts),
-			  Me(N-1,NTabs,Me) 
+	   (N,Tabs,Me) ->
+		Name1 = lists:nth(rand:uniform(Len), Names),
+		Name2 = lists:nth(rand:uniform(Len), Names),
+		Op = element(rand:uniform(3),OpFuns),
+		NTabs = Op(Name1, Name2, Tabs, Opts),
+		Me(N-1, NTabs, Me)
 	end,
     F(Len*100, [], F),
 
@@ -5328,7 +5324,7 @@ smp_insert(suite) -> [];
 smp_insert(Config) when is_list(Config) ->
     ets_new(smp_insert,[named_table,public,{write_concurrency,true}]),
     InitF = fun(_) -> ok end,
-    ExecF = fun(_) -> true = ets:insert(smp_insert,{random:uniform(10000)})
+    ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
 	    end,
     FiniF = fun(_) -> ok end,
     run_workers(InitF,ExecF,FiniF,100000),
@@ -5579,10 +5575,10 @@ smp_select_delete(Config) when is_list(Config) ->
     Zeros = erlang:make_tuple(Mod,0),
     InitF = fun(_) -> Zeros end,
     ExecF = fun(Diffs0) -> 
-		    case random:uniform(20) of
+		    case rand:uniform(20) of
 			1 ->
 			    Mod = 17,
-			    Eq = random:uniform(Mod) - 1,
+			    Eq = rand:uniform(Mod) - 1,
 			    Deleted = ets:select_delete(T,
 							[{{'_', '$1'},
 							  [{'=:=', {'rem', '$1', Mod}, Eq}],
@@ -5591,7 +5587,7 @@ smp_select_delete(Config) when is_list(Config) ->
 						element(Eq+1,Diffs0) - Deleted),
 			    Diffs1;
 			_ ->
-			    Key = random:uniform(10000),
+			    Key = rand:uniform(10000),
 			    Eq = Key rem Mod,
 			    ?line case ets:insert_new(T,{Key,Key}) of
 				      true ->
@@ -5795,7 +5791,7 @@ run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
 			   N when (N > Exclude) -> N - Exclude
 		       end,
     io:format("smp starting ~p workers\n",[NumOfProcs]),
-    Seeds = [{ProcN,random:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
+    Seeds = [{ProcN,rand:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
     Pids = [my_spawn_link(fun()-> worker(Seed,InitF,ExecF,FiniF,Laps,Parent,NumOfProcs) end)
 	    || Seed <- Seeds],
@@ -5806,7 +5802,7 @@ run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
 	    
 worker({ProcN,Seed}, InitF, ExecF, FiniF, Laps, Parent, NumOfProcs) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
-    random:seed(Seed,Seed,Seed),
+    rand:seed(exsplus, {Seed,Seed,Seed}),
     State1 = InitF([ProcN, NumOfProcs]),
     State2 = worker_loop(Laps, ExecF, State1),
     Result = FiniF(State2),

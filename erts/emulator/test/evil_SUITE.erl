@@ -382,10 +382,10 @@ my_appender_1(N, T0) ->
     my_appender_1(N-1, T).
     
 seed() ->
-    random:seed(3172, 9815, 20129).
+    rand:seed(exsplus, {3172,9815,20129}).
 
 rnd_term() ->
-    U0 = random:uniform(),
+    U0 = rand:uniform(),
     B = <<U0/float>>,
     {U0,U0 * 2.5 + 3.14,[U0*2.3,B]}.
 

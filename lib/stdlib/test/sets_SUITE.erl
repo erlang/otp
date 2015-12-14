@@ -107,9 +107,9 @@ add_element_del([H|T], M, S, Del, []) ->
     add_element_del(T, M, M(add_element, {H,S}), Del, [H]);
 add_element_del([H|T], M, S0, Del, Inserted) ->
     S1 = M(add_element, {H,S0}),
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
-	    OldEl = lists:nth(random:uniform(length(Inserted)), Inserted),
+	    OldEl = lists:nth(rand:uniform(length(Inserted)), Inserted),
 	    S = M(del_element, {OldEl,S1}),
 	    add_element_del(T, M, S, [OldEl|Del], [H|Inserted]);
 	_ ->
@@ -438,7 +438,7 @@ iterate_1(M) ->
     M(empty, []).
 
 iterate_2(M) ->
-    random:seed(1, 2, 42),
+    rand:seed(exsplus, {1,2,42}),
     iter_set(M, 1000).
 
 iter_set(_M, 0) ->
@@ -447,7 +447,7 @@ iter_set(M, N) ->
     L = [I || I <- lists:seq(1, N)],
     T = M(from_list, L),
     L = lists:reverse(iterate_set(M, T)),
-    R = random:uniform(N),
+    R = rand:uniform(N),
     S = lists:reverse(iterate_set(M, R, T)),
     S = [E || E <- L, E >= R],
     iter_set(M, N-1).
@@ -481,7 +481,7 @@ sets_mods() ->
 
 test_all(Tester) ->
     Res = [begin
-	       random:seed(1, 2, 42),
+	       rand:seed(exsplus, {1,2,42}),
 	       S = Tester(M),
 	       {M(size, S),lists:sort(M(to_list, S))}
 	   end || M <- sets_mods()],
@@ -492,7 +492,7 @@ test_all([{Low,High}|T], Tester) ->
 test_all([Sz|T], Tester) when is_integer(Sz) ->
     List = rnd_list(Sz),
     Res = [begin
-		     random:seed(19, 2, Sz),
+		     rand:seed(exsplus, {19,2,Sz}),
 		     S = Tester(List, M),
 		     {M(size, S),lists:sort(M(to_list, S))}
 		 end || M <- sets_mods()],
@@ -512,10 +512,10 @@ rnd_list(Sz) ->
     rnd_list_1(Sz, []).
     
 atomic_rnd_term() ->
-    case random:uniform(3) of
-	1 -> list_to_atom(integer_to_list($\s+random:uniform(94))++"rnd");
-	2 -> random:uniform();
-	3 -> random:uniform(50)-37
+    case rand:uniform(3) of
+	1 -> list_to_atom(integer_to_list($\s+rand:uniform(94))++"rnd");
+	2 -> rand:uniform();
+	3 -> rand:uniform(50)-37
     end.
 
 rnd_list_1(0, Acc) -> Acc;
@@ -543,7 +543,7 @@ remove_some(List0, P) ->
     end.
 
 remove_some([H|T], P, Acc) ->
-    case random:uniform() of
+    case rand:uniform() of
 	F when F < P ->				%Remove.
 	    remove_some(T, P, Acc);
 	_ ->

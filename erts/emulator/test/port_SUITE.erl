@@ -2183,15 +2183,14 @@ random_char(Chars) ->
     lists:nth(uniform(length(Chars)), Chars).
 
 uniform(N) ->
-    case get(random_seed) of
-	undefined ->	    
-	    {X, Y, Z} = Seed = time(),
-	    io:format("Random seed = ~p\n",[Seed]),
-	    random:seed(X, Y, Z);
+    case rand:export_seed() of
+	undefined ->
+	    rand:seed(exsplus),
+	    io:format("Random seed = ~p\n", [rand:export_seed()]);
 	_ ->
 	    ok
     end,
-    random:uniform(N).
+    rand:uniform(N).
 
 fun_spawn(Fun) ->
     fun_spawn(Fun, []).
@@ -2331,7 +2330,7 @@ close_deaf_port(Config) when is_list(Config) ->
 close_deaf_port_1(200, _) ->
     ok;
 close_deaf_port_1(N, Cmd) ->
-    Timeout = integer_to_list(random:uniform(5*1000)),
+    Timeout = integer_to_list(rand:uniform(5*1000)),
     try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
     	Port ->
 	    erlang:port_command(Port,"Hello, can you hear me!?!?"),
@@ -2372,7 +2371,7 @@ port_setget_data(Config) when is_list(Config) ->
     ok.
 
 port_setget_data_hammer(Port, HeapData, IsSet0, N) ->
-    Rand = random:uniform(3),
+    Rand = rand:uniform(3),
     IsSet1 = try case Rand of
 		     1 -> true = erlang:port_set_data(Port, atom), true;
 		     2 -> true = erlang:port_set_data(Port, HeapData), true;

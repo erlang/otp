@@ -2068,23 +2068,17 @@ get_known() ->
     gen_server:call(global_name_server, get_known, infinity).
 
 random_sleep(Times) ->
-    case (Times rem 10) of
-	0 -> erase(random_seed);
-	_ -> ok
-    end,
-    case get(random_seed) of
-	undefined ->
-	    _ = random:seed(erlang:phash2([erlang:node()]),
-			    erlang:monotonic_time(),
-			    erlang:unique_integer()),
-	    ok;
-	_ -> ok
-    end,
+    _ = case Times rem 10 of
+	    0 ->
+		_ = rand:seed(exsplus);
+	    _ ->
+		ok
+	end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.
     Tmax = if Times > 5 -> 8000;
 	      true -> ((1 bsl Times) * 1000) div 8
 	   end,
-    T = random:uniform(Tmax),
+    T = rand:uniform(Tmax),
     ?trace({random_sleep, {me,self()}, {times,Times}, {t,T}, {tmax,Tmax}}),
     receive after T -> ok end.
 

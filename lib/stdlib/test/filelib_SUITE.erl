@@ -318,7 +318,7 @@ same_lists(Expected0, Actual0, BaseDir) ->
 
 mkfiles([H|T], Dir) ->
     Name = filename:join(Dir, H),
-    Garbage = [31+random:uniform(95) || _ <- lists:seq(1, random:uniform(1024))],
+    Garbage = [31+rand:uniform(95) || _ <- lists:seq(1, rand:uniform(1024))],
     file:write_file(Name, Garbage),
     [Name|mkfiles(T, Dir)];
 mkfiles([], _) -> [].
