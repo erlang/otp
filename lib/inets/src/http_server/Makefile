@@ -137,7 +137,7 @@ release_spec: opt
 	$(INSTALL_DIR)  "$(RELSYSDIR)/src/http_server"
 	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) "$(RELSYSDIR)/src/http_server"
 	$(INSTALL_DIR)  "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
 
