@@ -4085,6 +4085,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_ok);
 	    }
 	}
+        else if (ERTS_IS_ATOM_STR("fill_heap", BIF_ARG_1)) {
+            UWord left = HeapWordsLeft(BIF_P);
+            if (left > 1) {
+                Eterm* hp = HAlloc(BIF_P, left);
+                *hp = make_pos_bignum_header(left - 1);
+            }
+            if (BIF_ARG_2 == am_true) {
+                FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
+            }
+            BIF_RET(am_ok);
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
