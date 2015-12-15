@@ -24,7 +24,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -include_lib("ssh/src/ssh.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
 -include_lib("ssh/src/ssh_connect.hrl").
+-include_lib("ssh/src/ssh_userauth.hrl").
+
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 %%suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -115,14 +118,14 @@ openssh_client_shell(Config) ->
 			     Parent ! {self(),os:cmd(Cmd)}
 		     end),
     receive
-	{SlavePid, ClientResponse} ->
-%%	    ct:pal("ClientResponse = ~p",[ClientResponse]),
+	{SlavePid, _ClientResponse} ->
+%%	    ct:pal("ClientResponse = ~p",[_ClientResponse]),
 	    {ok, List} = get_trace_list(TracerPid),
 	    Times = find_times(List),
-	    Algs = proplists:get_value(algorithms, List, #alg{}),
-	    ct:pal("List = ~p~n~nAlgorithms = ~p~n~nTimes = ~p",[List,Algs,Times]),
+	    Algs = find_algs(List),
+	    ct:pal("Algorithms = ~p~n~nTimes = ~p",[Algs,Times]),
 	    lists:foreach(
-	      fun({Tag0,MicroSeconds,Unit}) ->
+	      fun({Tag0,Value,Unit}) ->
 		      Tag = case Tag0 of
 				{A,B} -> lists:concat([A," ",B]);
 				_ when is_list(Tag0) -> lists:concat(Tag0);
@@ -130,7 +133,7 @@ openssh_client_shell(Config) ->
 			    end,
 		      DataName = 
 			  ["Erl server ",Tag,sp(algo(Tag,Algs))," [",Unit,"]"],
-		      EventData = [{value, MicroSeconds},
+		      EventData = [{value, Value},
 				   {suite, ?MODULE}, 
 				   {name, lists:concat(DataName)}
 				  ],
@@ -155,56 +158,109 @@ sp(A) -> lists:concat([" ",A]).
     
 %%%================================================================
 find_times(L) ->
-    [{accept_to_hello, find_time([tcp_accept,
-				  {send,hello}],  L, [])/1000,
-      millisec},
-     {kex,             find_time([{send,hello},
-				  {send,ssh_msg_newkeys}], L, []),
-      microsec},
-     {kex_to_auth,     find_time([{send,ssh_msg_newkeys},
-				  {recv,ssh_msg_userauth_request}], L, []),
-      microsec},
-     {auth,            find_time([{recv,ssh_msg_userauth_request},
-				  {send,ssh_msg_userauth_success}], L, []),
-      microsec},
-     {to_prompt,       find_time([tcp_accept,
-				  {recv,{ssh_msg_channel_request,"env"}}], L, []),
-      microsec}
+    Xs =  [accept_to_hello, kex, kex_to_auth, auth, to_prompt],
+    [find_time(X,L) || X <- Xs]	++
+	crypto_algs_times_sizes([encrypt,decrypt], L).
 
-     | alg_times([encrypt,decrypt], L)
-    ].
+-record(call, {
+	  mfa,
+	  pid,
+	  t_call,
+	  t_return,
+	  args,
+	  result
+	 }).
+
+%%%----------------
+-define(send(M), fun(C=#call{mfa = {ssh_message,encode,1},
+			     args = [M]}) ->
+			 C#call.t_return
+		 end).
+
+-define(recv(M), fun(C=#call{mfa = {ssh_message,decode,1},
+			     result = M}) ->
+			    C#call.t_call
+		 end).
+
+find_time(accept_to_hello, L) ->
+    [T0,T1] = find([fun(C=#call{mfa = {ssh_acceptor,handle_connection,5}}) ->
+			    C#call.t_call
+		    end,
+		    fun(C=#call{mfa = {ssh_connection_handler,hello,_},
+				args = [socket_control|_]}) ->
+			    C#call.t_return
+		    end
+		   ], L, []),
+    {accept_to_hello, now2micro_sec(now_diff(T1,T0)), microsec};
+find_time(kex, L) ->
+    [T0,T1] = find([fun(C=#call{mfa = {ssh_connection_handler,hello,_},
+				args = [socket_control|_]}) ->
+			    C#call.t_call
+		    end,
+		    ?send(#ssh_msg_newkeys{})
+		    ], L, []),
+    {kex, now2micro_sec(now_diff(T1,T0)), microsec};
+find_time(kex_to_auth, L) ->
+    [T0,T1] = find([?send(#ssh_msg_newkeys{}),
+		    ?recv(#ssh_msg_userauth_request{})
+		   ], L, []),
+    {kex_to_auth, now2micro_sec(now_diff(T1,T0)), microsec};
+find_time(auth, L) ->
+    [T0,T1] = find([?recv(#ssh_msg_userauth_request{}),
+		    ?send(#ssh_msg_userauth_success{})
+		   ], L, []),
+    {auth, now2micro_sec(now_diff(T1,T0)), microsec};
+find_time(to_prompt, L) ->
+    [T0,T1] = find([fun(C=#call{mfa = {ssh_acceptor,handle_connection,5}}) ->
+			    C#call.t_call
+		    end,
+		    ?recv(#ssh_msg_channel_request{request_type="env"})
+		   ], L, []),
+    {to_prompt, now2micro_sec(now_diff(T1,T0)), microsec}.
 
 
-find_time([Event|Events], [{Event,T}|TraceList], Ts) ->
-    %% Important that the first one found is used!
-    find_time(Events, TraceList, [T|Ts]);
-find_time([], _, [T1,T0]) ->
-    now2micro_sec(now_diff(T1,T0));
-find_time(Events, [_|TraceList], Ts) ->
-    find_time(Events, TraceList, Ts);
-find_time(_, [], _Ts) ->
-    throw({error,not_found}).
+find([F|Fs], [C|Cs], Acc) when is_function(F,1) ->
+    try
+	F(C)
+    of
+	T -> find(Fs, Cs, [T|Acc])
+    catch
+	_:_ -> find([F|Fs], Cs, Acc)
+    end;
+find([], _, Acc) ->
+    lists:reverse(Acc).
 
 
+find_algs(L) ->
+    {value,#call{result={ok,Algs}}} =
+	lists:keysearch({ssh_transport,select_algorithm,3}, #call.mfa, L),
+    Algs.
 
-alg_times(Ops, L) ->
-    OpAlgs = lists:usort([{Op,Alg} || Op <- Ops,
-				      {{{Op,Alg},_,_},_} <- L]),
-    [begin
-	 {[Op,"(",Alg,")"],
-	  sum_times(OpAlg, L, 0, 0),
-	  "microsec/kbyte"
-	 }
-     end || {Op,Alg} = OpAlg <- OpAlgs].
+%%%----------------
+crypto_algs_times_sizes(EncDecs, L) ->
+    Raw = [{_Algorithm = case EncDec of
+			     encrypt -> [encrypt," ",S#ssh.encrypt];
+			     decrypt -> [decrypt," ",S#ssh.decrypt]
+			 end, 
+	    size(Data),
+	    now2micro_sec(now_diff(T1, T0))
+	   }
+	   || EncDec <- EncDecs,
+	      #call{mfa = {ssh_transport,ED,2},
+		    args = [S,Data],
+		    t_call = T0,
+		    t_return = T1} <- L,
+	      ED == EncDec
+	  ],
+    [{Alg, round(1024*Time/Size), "microsec/kbyte"}  % Microseconds per 1k bytes.
+     || {Alg,Size,Time} <- lists:foldl(fun increment/2, [], Raw)].
 
-
-sum_times(T, [{{T,start,Id={_,Nbytes}},TS0}|Events], SumBytes, SumMicroSec) ->
-    TS1 = proplists:get_value({T,stop,Id}, Events),
-    sum_times(T, Events, SumBytes+Nbytes, SumMicroSec+now2micro_sec(now_diff(TS1,TS0)));
-sum_times(T, [_|Events], SumBytes, SumMicroSec) ->
-    sum_times(T, Events, SumBytes, SumMicroSec);
-sum_times(T, [], SumBytes, SumMicroSec) ->
-    round(1024*SumMicroSec / SumBytes). % Microseconds per 1k bytes.
+increment({Alg,Sz,T}, [{Alg,SumSz,SumT}|Acc]) ->
+    [{Alg,SumSz+Sz,SumT+T} | Acc];
+increment(Spec, [X|Acc]) ->
+    [X | increment(Spec,Acc)]; % Not so many Alg, 2 or 3
+increment({Alg,Sz,T},[]) ->
+    [{Alg,Sz,T}].
 
 %%%----------------------------------------------------------------
 %%%
@@ -213,26 +269,28 @@ sum_times(T, [], SumBytes, SumMicroSec) ->
 get_trace_list(TracerPid) ->
     TracerPid ! {get_trace_list,self()},
     receive
-	{trace_list,L} -> {ok,lists:reverse(L)}
+	{trace_list,L} -> {ok, pair_events(lists:reverse(L))}
     after 5000 -> {error,no_reply}
     end.
 
 erlang_trace() ->
     TracerPid = spawn(fun trace_loop/0),
     0 = erlang:trace(new, true, [call,timestamp,{tracer,TracerPid}]),
-    [init_trace(MFA, TP)
-     || {MFA,TP} <- [{{ssh_acceptor,handle_connection,5},  []},
-		     {{ssh_connection_handler,hello,2},    []},
-		     {{ssh_message,encode,1},              []},
-		     {{ssh_message,decode,1},              [{['_'],         [], [{return_trace}]}]},
-		     {{ssh_transport,select_algorithm,3},  [{['_','_','_'], [], [{return_trace}]}]},
-		     {{ssh_transport,encrypt,2},           [{['_','_'],     [], [{return_trace}]}]},
-		     {{ssh_transport,decrypt,2},           [{['_','_'],     [], [{return_trace}]}]}
-		    ]],
+    [init_trace(MFA, tp(MFA))
+     || MFA <- [{ssh_acceptor,handle_connection,5},
+		{ssh_connection_handler,hello,2},
+		{ssh_message,encode,1},
+		{ssh_message,decode,1},
+		{ssh_transport,select_algorithm,3},
+		{ssh_transport,encrypt,2},
+		{ssh_transport,decrypt,2}
+	       ]],
     {ok, TracerPid}.
 
+tp({_M,_F,Arity}) ->
+    [{lists:duplicate(Arity,'_'), [], [{return_trace}]}].
 
-%%%----------------
+%%%----------------------------------------------------------------
 init_trace(MFA = {Module,_,_}, TP) ->
     case code:is_loaded(Module) of
 	false -> code:load_file(Module);
@@ -246,50 +304,43 @@ trace_loop() ->
 
 trace_loop(L) ->
     receive
-	{trace_ts, Pid, call, {M,F,Args}, TS} = Ev -> 
-	    cond_pal(Ev),
-	    trace_loop(save_event(call, Pid, {M,F,Args}, TS, L));
-	{trace_ts, Pid, return_from, {M,F,Arity}, Ret, TS} = Ev -> 
-	    cond_pal(Ev),
-	    trace_loop(save_event(return_from, Pid, {M,F,Arity,Ret}, TS, L));
 	{get_trace_list, From} ->
 	    From ! {trace_list, L},
-	    trace_loop(L)
-
-	; Other -> io:format('~p got ~p~n',[self(),Other]), trace_loop(L)
-    end.
-	    
-%%cond_pal(Ev) -> ct:pal("~p",[Ev]).
-cond_pal(Ev) -> ok.
-    
-
-save_event(_Type, _Pid, MFA, TimeStamp, L) ->
-    try	
-	event_name(MFA)
-    of
-	{Tag, 'TS'} -> [{Tag,TimeStamp} | L];
-	Val -> [Val | L]
-    catch
-	_:_ -> L
+	    trace_loop(L);
+	Ev ->
+	    trace_loop([Ev|L])
     end.
 
-event_name({ssh_acceptor,handle_connection,_}) ->                      {tcp_accept, 'TS'};
-event_name({ssh_connection_handler,hello,[socket_control|_]}) ->       {{send,hello}, 'TS'};
-event_name({ssh_connection_handler,hello,[{version_exchange,_}|_]}) -> {{recv,hello}, 'TS'};
-event_name({ssh_message,encode,[Msg]}) ->                              {{send,element(1,Msg)}, 'TS'};
-event_name({ssh_message,decode,1,
-	    #ssh_msg_channel_request{request_type=ReqType}}) ->  {{recv,{ssh_msg_channel_request,ReqType}}, 'TS'};
-event_name({ssh_message,decode,1,Return}) ->                     {{recv,element(1,Return)}, 'TS'};
-event_name({ssh_transport,select_algorithm,3,{ok,Algs}}) ->      {algorithms,Algs};
-event_name({ssh_transport,encrypt,[S,Data]}) ->   {{{encrypt,S#ssh.encrypt},start, {S#ssh.send_sequence,size(Data)}}, 'TS'};
-event_name({ssh_transport,encrypt,2,{S,Ret}}) ->  {{{encrypt,S#ssh.encrypt},stop,  {S#ssh.send_sequence,size(Ret) }}, 'TS'};
-event_name({ssh_transport,decrypt,[S,Data]}) ->   {{{decrypt,S#ssh.decrypt},start, {S#ssh.recv_sequence,size(Data)}}, 'TS'};
-event_name({ssh_transport,decrypt,2,{S,Ret}}) ->  {{{decrypt,S#ssh.decrypt},stop,  {S#ssh.recv_sequence,size(Ret) }}, 'TS'}.
+pair_events(L) ->
+    pair_events(L, []).
+
+pair_events([{trace_ts,Pid,call,{M,F,Args},TS0} | L], Acc) ->
+    Arity = length(Args),
+    {ReturnValue,TS1} = find_return(Pid, {M,F,Arity}, L),
+    pair_events(L, [#call{mfa = {M,F,Arity},
+			  pid = Pid,
+			  t_call = TS0,
+			  t_return = TS1,
+			  args = Args,
+			  result = ReturnValue} | Acc]);
+pair_events([_|L], Acc) ->
+    pair_events(L, Acc);
+pair_events([], Acc) ->
+    lists:reverse(Acc).
 
 
+find_return(Pid, MFA, 
+	    [{trace_ts, Pid, return_from, MFA, ReturnValue, TS}|_]) ->
+    {ReturnValue, TS};
+find_return(Pid, MFA, [_|L]) ->
+    find_return(Pid, MFA, L);
+find_return(_, _, []) ->
+    {undefined, undefined}.
+
+%%%----------------------------------------------------------------
 now2sec({A,B,C}) -> A*1000000 + B + C/1000000.
 
 now2micro_sec({A,B,C}) -> (A*1000000 + B)*1000000 + C.
 		    
 now_diff({A1,B1,C1}, {A0,B0,C0}) -> {A1-A0, B1-B0, C1-C0}.
-    
+
