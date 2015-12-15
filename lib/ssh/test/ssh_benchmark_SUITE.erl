@@ -125,18 +125,25 @@ openssh_client_shell(Config) ->
 	    Algs = find_algs(List),
 	    ct:pal("Algorithms = ~p~n~nTimes = ~p",[Algs,Times]),
 	    lists:foreach(
-	      fun({Tag0,Value,Unit}) ->
-		      Tag = case Tag0 of
-				{A,B} -> lists:concat([A," ",B]);
-				_ when is_list(Tag0) -> lists:concat(Tag0);
-				_ when is_atom(Tag0) -> Tag0
-			    end,
-		      DataName = 
-			  ["Erl server ",Tag,sp(algo(Tag,Algs))," [",Unit,"]"],
-		      EventData = [{value, Value},
+	      fun({Tag,Value,Unit}) ->
+		      EventData =
+			  case Tag of
+			      {A,B} when A==encrypt ; A==decrypt -> 
+				  [{value, Value},
 				   {suite, ?MODULE}, 
-				   {name, lists:concat(DataName)}
-				  ],
+				   {name, mk_name(["Cipher ",A," ",B," [",Unit,"]"])}
+				  ];
+			      kex ->
+				  [{value, Value},
+				   {suite, ?MODULE}, 
+				   {name, mk_name(["Erl server kex ",Algs#alg.kex," [",Unit,"]"])}
+				  ];
+			      _ when is_atom(Tag) ->
+				  [{value, Value},
+				   {suite, ?MODULE}, 
+				   {name, mk_name(["Erl server ",Tag," [",Unit,"]"])}
+				  ]
+			  end,
 		      ct:pal("ct_event:notify ~p",[EventData]),
 		      ct_event:notify(#event{name = benchmark_data,
 					     data = EventData})
@@ -150,13 +157,13 @@ openssh_client_shell(Config) ->
     end.
 
 
-algo(kex,      #alg{kex=Alg}        ) -> Alg;
-algo(_, _) -> "".
-    
-sp("") -> "";
-sp(A) -> lists:concat([" ",A]).
-    
 %%%================================================================
+mk_name(Name) -> [char(C) || C <- lists:concat(Name)].
+
+char($-) -> $_;
+char(C) -> C.
+
+%%%----------------------------------------------------------------
 find_times(L) ->
     Xs =  [accept_to_hello, kex, kex_to_auth, auth, to_prompt],
     [find_time(X,L) || X <- Xs]	++
@@ -239,8 +246,8 @@ find_algs(L) ->
 %%%----------------
 crypto_algs_times_sizes(EncDecs, L) ->
     Raw = [{_Algorithm = case EncDec of
-			     encrypt -> [encrypt," ",S#ssh.encrypt];
-			     decrypt -> [decrypt," ",S#ssh.decrypt]
+			     encrypt -> {encrypt,S#ssh.encrypt};
+			     decrypt -> {decrypt,S#ssh.decrypt}
 			 end, 
 	    size(Data),
 	    now2micro_sec(now_diff(T1, T0))
@@ -252,7 +259,7 @@ crypto_algs_times_sizes(EncDecs, L) ->
 		    t_return = T1} <- L,
 	      ED == EncDec
 	  ],
-    [{Alg, round(1024*Time/Size), "microsec/kbyte"}  % Microseconds per 1k bytes.
+    [{Alg, round(1024*Time/Size), "microsec per kbyte"}  % Microseconds per 1k bytes.
      || {Alg,Size,Time} <- lists:foldl(fun increment/2, [], Raw)].
 
 increment({Alg,Sz,T}, [{Alg,SumSz,SumT}|Acc]) ->
