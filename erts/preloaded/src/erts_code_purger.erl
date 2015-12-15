@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2013. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2016. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,30 +14,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
-{application, erts, [
-	{description, "ERTS  CXC 138 10"},
-	{vsn, "%VSN%"},
-	{modules, [
-		%% preloaded
-		erlang,
-		erl_prim_loader,
-		erts_internal,
-		init,
-		otp_ring0,
-		erts_code_purger,
-		prim_eval,
-		prim_file,
-		prim_inet,
-		prim_zip,
-		zlib
-	    ]},
-	{registered, []},
-	{applications, []},
-	{env, []},
-	{runtime_dependencies, ["stdlib-2.5", "kernel-4.0", "sasl-2.4"]}
-    ]}.
+-module(erts_code_purger).
 
-%% vim: ft=erlang
+%% Purpose : Implement system process erts_code_purger
+%%           to handle code module purging.
+
+-export([start/0]).
+
+-spec start() -> term().
+start() ->
+    receive M ->
+	    erlang:display({"erts_code_purger got msg", M})
+    end,
+    start().

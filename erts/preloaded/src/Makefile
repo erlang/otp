@@ -41,6 +41,7 @@ PRE_LOADED_ERL_MODULES = \
 	zlib \
 	prim_zip \
 	otp_ring0 \
+	erts_code_purger \
 	erlang \
 	erts_internal
 
