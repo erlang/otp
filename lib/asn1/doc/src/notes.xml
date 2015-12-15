@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trying to encode an empty named BIT STRING in BER would
+	    fail with a <c>function_clause</c> exception. (Thanks to
+	    Svilen Ivanov for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13149</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

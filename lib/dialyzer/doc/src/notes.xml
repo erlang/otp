@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reintroduce the <c>erlang:make_fun/3</c> BIF in
+	    erl_bif_types.</p>
+          <p>
+	    Own Id: OTP-13068</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add wxOverlay and make wxPostScripDC optional to make
+	    it easier to build on windows.</p> <p>Correct some
+	    function specifications.</p> <p>The driver implementation
+	    have been optimized and now invokes commands after events
+	    have been sent to erlang.</p>
+          <p>
+	    Own Id: OTP-13160</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.5</title>
 
     <section><title>Improvements and New Features</title>

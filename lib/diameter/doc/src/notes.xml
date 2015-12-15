@@ -43,6 +43,29 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix request table leaks</p>
+          <p>
+	    The End-to-End and Hop-by-Hop identifiers of outgoing
+	    Diameter requests are stored in a table in order for the
+	    caller to be located when the corresponding answer
+	    message is received. Entries were orphaned if the handler
+	    was terminated by an exit signal as a consequence of
+	    actions taken by callback functions, or if callbacks
+	    modified identifiers in retransmission cases.</p>
+          <p>
+	    Own Id: OTP-13137</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
