@@ -310,69 +310,59 @@ check_file_result(_, _, Other) ->
 %%% The main loop.
 %%% --------------------------------------------------------
 
-loop(State, Parent, Paths) ->
+loop(St0, Parent, Paths) ->
     receive
+	{Pid,{set_path,NewPaths}} when is_pid(Pid) ->
+	    Pid ! {self(),ok},
+	    loop(St0, Parent, to_strs(NewPaths));
         {Pid,Req} when is_pid(Pid) ->
-            %% erlang:display(Req),
-            {Resp,State2,Paths2} =
-                case Req of
-                    {set_path,NewPaths} ->
-                        {ok,State,to_strs(NewPaths)};
-                    {get_path,_} ->
-                        {{ok,Paths},State,Paths};
-                    {get_file,File} ->
-                        {Res,State1} = handle_get_file(State, Paths, File),
-                        {Res,State1,Paths};
-                    {get_files,{ModFiles,Fun}} ->
-                        {Res,State1} = handle_get_files(State, ModFiles, Paths, Fun),
-                        {Res,State1,Paths};
-                    {list_dir,Dir} ->
-                        {Res,State1} = handle_list_dir(State, Dir),
-                        {Res,State1,Paths};
-                    {read_file_info,File} ->
-                        {Res,State1} = handle_read_file_info(State, File),
-                        {Res,State1,Paths};
-                    {read_link_info,File} ->
-                        {Res,State1} = handle_read_link_info(State, File),
-                        {Res,State1,Paths};
-                    {get_cwd,[]} ->
-                        {Res,State1} = handle_get_cwd(State, []),
-                        {Res,State1,Paths};
-                    {get_cwd,[_]=Args} ->
-                        {Res,State1} = handle_get_cwd(State, Args),
-                        {Res,State1,Paths};
-                    {set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
-                        {Res,State1} =
-			    handle_set_primary_archive(State, File,
-						       ArchiveBin, FileInfo,
-						       ParserFun),
-                        {Res,State1,Paths};
-                    release_archives ->
-                        {Res,State1} = handle_release_archives(State),
-                        {Res,State1,Paths};
-                    _Other ->
-                        {ignore,State,Paths}
-                end,
-            if Resp =:= ignore -> ok;
-               true -> Pid ! {self(),Resp}, ok
-            end,
-            if 
-                is_record(State2, state) ->
-                    loop(State2, Parent, Paths2);
-                true ->
-                    exit({bad_state, Req, State2})          
+	    case handle_request(Req, Paths, St0) of
+		ignore ->
+		    ok;
+		{Resp,#state{}=St1} ->
+		    Pid ! {self(),Resp},
+                    loop(St1, Parent, Paths);
+		{_,State2,_} ->
+                    exit({bad_state,Req,State2})
             end;
         {'EXIT',Parent,W} ->
-            _State1 = handle_stop(State),
+            _ = handle_stop(St0),
             exit(W);
         {'EXIT',P,W} ->
-            State1 = handle_exit(State, P, W),
-            loop(State1, Parent, Paths);
+            St1 = handle_exit(St0, P, W),
+            loop(St1, Parent, Paths);
         _Message ->
-            loop(State, Parent, Paths)
-    after State#state.timeout ->
-            State1 = handle_timeout(State, Parent),
-            loop(State1, Parent, Paths)
+            loop(St0, Parent, Paths)
+    after St0#state.timeout ->
+            St1 = handle_timeout(St0, Parent),
+            loop(St1, Parent, Paths)
+    end.
+
+handle_request(Req, Paths, St0) ->
+    case Req of
+	{get_path,_} ->
+	    {{ok,Paths},St0};
+	{get_file,File} ->
+	    handle_get_file(St0, Paths, File);
+	{get_files,{ModFiles,Fun}} ->
+	    handle_get_files(St0, ModFiles, Paths, Fun);
+	{list_dir,Dir} ->
+	    handle_list_dir(St0, Dir);
+	{read_file_info,File} ->
+	    handle_read_file_info(St0, File);
+	{read_link_info,File} ->
+	    handle_read_link_info(St0, File);
+	{get_cwd,[]} ->
+	    handle_get_cwd(St0, []);
+	{get_cwd,[_]=Args} ->
+	    handle_get_cwd(St0, Args);
+	{set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
+	    handle_set_primary_archive(St0, File, ArchiveBin,
+				       FileInfo, ParserFun);
+	release_archives ->
+	    handle_release_archives(St0);
+	_ ->
+	    ignore
     end.
 
 handle_get_files(State = #state{multi_get = true}, ModFiles, Paths, Fun) ->
