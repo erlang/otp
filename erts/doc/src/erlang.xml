@@ -5684,8 +5684,31 @@ true</pre>
 	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="statistics" arity="1" clause_i="1"/>
+      <fsummary>Information about active processes and ports.</fsummary>
+      <desc><marker id="statistics_active_tasks"></marker>
+	<p>
+	  Returns a list where each element represents the amount
+	  of active processes and ports on each run queue and its
+	  associated scheduler. That is, the number of processes and
+	  ports that are ready to run, or are currently running. The
+	  element location in the list corresponds to the scheduler
+	  and its run queue. The first element corresponds to scheduler
+	  number 1 and so on. The information is <em>not</em> gathered
+	  atomically. That is, the result is not necessarily a
+	  consistent snapshot of the state, but instead quite
+	  efficiently gathered. See also,
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>, and
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="2"/>
       <fsummary>Information about context switches.</fsummary>
       <desc>
         <p>Returns the total number of context switches since the
@@ -5694,7 +5717,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="2"/>
+      <name name="statistics" arity="1" clause_i="3"/>
       <fsummary>Information about exact reductions.</fsummary>
       <desc>
         <marker id="statistics_exact_reductions"></marker>
@@ -5708,7 +5731,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="3"/>
+      <name name="statistics" arity="1" clause_i="4"/>
       <fsummary>Information about garbage collection.</fsummary>
       <desc>
         <p>Returns information about garbage collection, for example:</p>
@@ -5720,7 +5743,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="4"/>
+      <name name="statistics" arity="1" clause_i="5"/>
       <fsummary>Information about I/O.</fsummary>
       <desc>
         <p>Returns <c><anno>Input</anno></c>,
@@ -5731,7 +5754,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="5"/>
+      <name name="statistics" arity="1" clause_i="6"/>
       <fsummary>Information about reductions.</fsummary>
       <desc>
         <marker id="statistics_reductions"></marker>
@@ -5749,16 +5772,43 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="6"/>
-      <fsummary>Information about the run-queue.</fsummary>
-      <desc>
-        <p>Returns the total length of run-queues, that is, the number
-          of processes that are ready to run on all available run-queues.</p>
+      <name name="statistics" arity="1" clause_i="7"/>
+      <fsummary>Information about the run-queues.</fsummary>
+      <desc><marker id="statistics_run_queue"></marker>
+        <p>
+	  Returns the total length of the run-queues. That is, the number
+          of processes and ports that are ready to run on all available
+	  run-queues. The information is gathered atomically. That
+	  is, the result is a consistent snapshot of the state, but
+	  this operation is much more expensive compared to
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	  This especially when a large amount of schedulers is used.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="7"/>
+      <name name="statistics" arity="1" clause_i="8"/>
+      <fsummary>Information about the run-queue lengths.</fsummary>
+      <desc><marker id="statistics_run_queue_lengths"></marker>
+	<p>
+	  Returns a list where each element represents the amount
+	  of processes and ports ready to run for each run queue. The
+	  element location in the list corresponds to the run queue
+	  of a scheduler. The first element corresponds to the run
+	  queue of scheduler number 1 and so on. The information is
+	  <em>not</em> gathered atomically. That is, the result is
+	  not necessarily a consistent snapshot of the state, but
+	  instead quite efficiently gathered. See also,
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>,
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>, and
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="9"/>
       <fsummary>Information about runtime.</fsummary>
       <desc>
         <p>Returns information about runtime, in milliseconds.</p>
@@ -5773,7 +5823,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="8"/>
+      <name name="statistics" arity="1" clause_i="10"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
       <marker id="statistics_scheduler_wall_time"></marker>
@@ -5844,7 +5894,44 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="9"/>
+      <name name="statistics" arity="1" clause_i="11"/>
+      <fsummary>Information about active processes and ports.</fsummary>
+      <desc><marker id="statistics_total_active_tasks"></marker>
+	<p>
+	  Returns the total amount of active processes and ports in
+	  the system. That is, the number of processes and ports that
+	  are ready to run, or are currently running. The information
+	  is <em>not</em> gathered atomically. That is, the result
+	  is not necessarily a consistent snapshot of the state, but
+	  instead quite efficiently gathered. See also,
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>, and
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="12"/>
+      <fsummary>Information about the run-queue lengths.</fsummary>
+      <desc><marker id="statistics_total_run_queue_lengths"></marker>
+        <p>
+	  Returns the total length of the run-queues. That is, the number
+          of processes and ports that are ready to run on all available
+	  run-queues. The information is <em>not</em> gathered atomically.
+	  That is, the result is not necessarily a consistent snapshot of
+	  the state, but much more efficiently gathered compared to
+	  <seealso marker="#statistics_run_queue"><c>statistics(run_queue)</c></seealso>.
+	  See also,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>,
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>, and
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="13"/>
       <fsummary>Information about wall clock.</fsummary>
       <desc>
         <p>Returns information about wall clock. <c>wall_clock</c> can
