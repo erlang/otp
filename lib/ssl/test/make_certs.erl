@@ -116,16 +116,16 @@ do_append_files([F|Fs], RF) ->
     do_append_files(Fs, RF).
 
 rootCA(Root, Name, C) ->
-    create_ca_dir(Root, Name, ca_cnf(C#config{commonName = Name})),
-    create_self_signed_cert(Root, Name, req_cnf(C#config{commonName = Name}), C),
+    create_ca_dir(Root, Name, ca_cnf(Root, C#config{commonName = Name})),
+    create_self_signed_cert(Root, Name, req_cnf(Root, C#config{commonName = Name}), C),
     file:copy(filename:join([Root, Name, "cert.pem"]), filename:join([Root, Name, "cacerts.pem"])),
     gencrl(Root, Name, C).
 
 intermediateCA(Root, CA, ParentCA, C) ->
-    create_ca_dir(Root, CA, ca_cnf(C#config{commonName = CA})),
+    create_ca_dir(Root, CA, ca_cnf(Root, C#config{commonName = CA})),
     CARoot = filename:join([Root, CA]),
     CnfFile = filename:join([CARoot, "req.cnf"]),
-    file:write_file(CnfFile, req_cnf(C#config{commonName = CA})),
+    file:write_file(CnfFile, req_cnf(Root, C#config{commonName = CA})),
     KeyFile = filename:join([CARoot, "private", "key.pem"]), 
     ReqFile =  filename:join([CARoot, "req.pem"]), 
     create_req(Root, CnfFile, KeyFile, ReqFile, C),
@@ -147,7 +147,7 @@ enduser(Root, CA, User, C) ->
     UsrRoot = filename:join([Root, User]),
     file:make_dir(UsrRoot),
     CnfFile = filename:join([UsrRoot, "req.cnf"]),
-    file:write_file(CnfFile, req_cnf(C#config{commonName = User})),
+    file:write_file(CnfFile, req_cnf(Root, C#config{commonName = User})),
     KeyFile = filename:join([UsrRoot, "key.pem"]), 
     ReqFile =  filename:join([UsrRoot, "req.pem"]), 
     create_req(Root, CnfFile, KeyFile, ReqFile, C),
@@ -337,10 +337,10 @@ eval_cmd(Port, Cmd) ->
 %% Contents of configuration files 
 %%
 
-req_cnf(C) ->
+req_cnf(Root, C) ->
     ["# Purpose: Configuration for requests (end users and CAs)."
      "\n"
-     "ROOTDIR	        = $ENV::ROOTDIR\n"
+     "ROOTDIR	        = " ++ Root ++ "\n"
      "\n"
 
      "[req]\n"
@@ -371,10 +371,10 @@ req_cnf(C) ->
      "subjectKeyIdentifier = hash\n"
      "subjectAltName	= email:copy\n"].
 
-ca_cnf(C = #config{issuing_distribution_point = true}) ->
+ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
     ["# Purpose: Configuration for CAs.\n"
      "\n"
-     "ROOTDIR	        = $ENV::ROOTDIR\n"
+     "ROOTDIR	       = " ++ Root ++ "\n"
      "default_ca	= ca\n"
      "\n"
 
@@ -450,10 +450,10 @@ ca_cnf(C = #config{issuing_distribution_point = true}) ->
      "crlDistributionPoints=@crl_section\n"
     ];
 
-ca_cnf(C = #config{issuing_distribution_point = false}) ->
+ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
     ["# Purpose: Configuration for CAs.\n"
      "\n"
-     "ROOTDIR	        = $ENV::ROOTDIR\n"
+     "ROOTDIR	          = " ++ Root ++ "\n"
      "default_ca	= ca\n"
      "\n"
 

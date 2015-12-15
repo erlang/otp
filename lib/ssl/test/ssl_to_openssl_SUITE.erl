@@ -112,6 +112,7 @@ init_per_suite(Config0) ->
 	false ->
 	    {skip, "Openssl not found"};
 	_ ->
+	    ct:pal("Version: ~p", [os:cmd("openssl version")]),
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
