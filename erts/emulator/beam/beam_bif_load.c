@@ -837,10 +837,10 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
 		return am_true;
 	    /* Should not contain any constants... */
-	    ASSERT(!any_heap_ref_ptrs(&hfrag->mem[0],
-				      &hfrag->mem[hfrag->used_size],
-				      mod_start,
-				      mod_size));
+	    ASSERT(!any_heap_refs(&hfrag->mem[0],
+				  &hfrag->mem[hfrag->used_size],
+				  mod_start,
+				  mod_size));
 	}
     }
 
@@ -881,7 +881,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 	    hp = &hfrag->mem[0];
 	    hp_end = &hfrag->mem[hfrag->used_size];
-	    if (any_heap_ref_ptrs(hp, hp_end, mod_start, lit_bsize))
+	    if (any_heap_refs(hp, hp_end, mod_start, lit_bsize))
 		goto try_literal_gc;
 	}
 
@@ -902,7 +902,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 		hp = &hfrag->mem[0];
 		hp_end = &hfrag->mem[hfrag->used_size];
-		ASSERT(!any_heap_ref_ptrs(hp, hp_end, mod_start, lit_bsize));
+		ASSERT(!any_heap_refs(hp, hp_end, mod_start, lit_bsize));
 	    }
 	}
 
