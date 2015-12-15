@@ -876,6 +876,9 @@ type_examples() ->
      {ex30,<<"-type t99() ::"
        "{t2(),'\\'t::4'(),t5(),t6(),t7(),t8(),t10(),t14(),"
        "t15(),t20(),t21(), t22(),t25()}. ">>},
+     %% Writing constraints as is_subtype(V, T) is not supported since
+     %% Erlang/OTP 19.0, but as long as the parser recognizes the
+     %% is_subtype(V, T) syntax, we need a few examples of the syntax.
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
                           "(t2()) -> t2();"
                           "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
@@ -1000,16 +1003,8 @@ otp_8567(Config) when is_list(Config) ->
           "t() ->\n"
           "    3.\n"
           "\n"
-          "-spec(t1/1 :: (ot()) -> ot1()).\n"
-          "t1(A) ->\n"
-          "    A.\n"
-          "\n"
           "-spec(t2 (ot()) -> ot1()).\n"
           "t2(A) ->\n"
-          "    A.\n"
-          "\n"
-          "-spec(otp_8567:t3/1 :: (ot()) -> ot1()).\n"
-          "t3(A) ->\n"
           "    A.\n"
           "\n"
           "-spec(otp_8567:t4 (ot()) -> ot1()).\n"

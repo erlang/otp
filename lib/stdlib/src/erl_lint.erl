@@ -373,9 +373,9 @@ format_error({spec_fun_undefined, {F, A}}) ->
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
-    "spec has the wrong arity";
+    "spec has wrong arity";
 format_error(callback_wrong_arity) ->
-    "callback has the wrong arity";
+    "callback has wrong arity";
 format_error({deprecated_builtin_type, {Name, Arity},
               Replacement, Rel}) ->
     UseS = case Replacement of
@@ -2878,7 +2878,7 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
 	true -> add_error(Line, {redefine_spec, MFA0}, St1);
-	false -> check_specs(TypeSpecs, Arity, St1)
+	false -> check_specs(TypeSpecs, spec_wrong_arity, Arity, St1)
     end.
 
 %% callback_decl(Line, Fun, Types, State) -> State.
@@ -2892,7 +2892,8 @@ callback_decl(Line, MFA0, TypeSpecs,
             St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
             case dict:is_key(MFA, Callbacks) of
                 true -> add_error(Line, {redefine_callback, MFA0}, St1);
-                false -> check_specs(TypeSpecs, Arity, St1)
+                false -> check_specs(TypeSpecs, callback_wrong_arity,
+                                     Arity, St1)
             end
     end.
 
@@ -2929,7 +2930,7 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_specs([FunType|Left], Arity, St0) ->
+check_specs([FunType|Left], ETag, Arity, St0) ->
     {FunType1, CTypes} =
 	case FunType of
 	    {type, _, bounded_fun, [FT = {type, _, 'fun', _}, Cs]} ->
@@ -2937,18 +2938,16 @@ check_specs([FunType|Left], Arity, St0) ->
 		{FT, lists:append(Types0)};
 	    {type, _, 'fun', _} = FT -> {FT, []}
 	end,
-    SpecArity =
-	case FunType1 of
-	    {type, L, 'fun', [any, _]} -> any;
-	    {type, L, 'fun', [{type, _, product, D}, _]} -> length(D)
-	end,
+    {type, L, 'fun', [{type, _, product, D}, _]} = FunType1,
+    SpecArity = length(D),
     St1 = case Arity =:= SpecArity of
 	      true -> St0;
-	      false -> add_error(L, spec_wrong_arity, St0)
+	      false -> %% Cannot happen if called from the compiler.
+                  add_error(L, ETag, St0)
 	  end,
     St2 = check_type({type, nowarn(), product, [FunType1|CTypes]}, St1),
-    check_specs(Left, Arity, St2);
-check_specs([], _Arity, St) ->
+    check_specs(Left, ETag, Arity, St2);
+check_specs([], _ETag, _Arity, St) ->
     St.
 
 nowarn() ->
