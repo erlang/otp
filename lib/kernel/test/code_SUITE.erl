@@ -380,8 +380,23 @@ purge(Config) when is_list(Config) ->
 
 purge_many_exits(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
+
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:purge({})),
+
+    CodePurgeF = fun(M, Exp) -> Exp = code:purge(M) end,
+    purge_many_exits_do(CodePurgeF),
+
+    %% Let's repeat test for erlang:purge_module as it does the same thing
+    %% now in erts-8.0 (except for return value).
+    ErlangPurgeF = fun(M, _Exp) -> erlang:purge_module(M) end,
+    purge_many_exits_do(ErlangPurgeF),
+
+    process_flag(trap_exit, OldFlag),
+    ok.
+
+
+purge_many_exits_do(PurgeF) ->
     false = code:purge(code_b_test),
     TPids = lists:map(fun (_) ->
 			      {code_b_test:do_spawn(),
@@ -400,7 +415,7 @@ purge_many_exits(Config) when is_list(Config) ->
 			  false = code_b_test:check_exit(Pid1),
 			  true = erlang:is_process_alive(Pid2)
 		  end, TPids),
-    true = code:purge(code_b_test),
+    PurgeF(code_b_test, true),
     lists:foreach(fun ({Pid1, Pid2}) ->
 			  false = erlang:is_process_alive(Pid1),
 			  true = code_b_test:check_exit(Pid1),
@@ -409,9 +424,7 @@ purge_many_exits(Config) when is_list(Config) ->
 		  end, TPids),
     lists:foreach(fun ({_Pid1, Pid2}) ->
 			  receive {'EXIT', Pid2, _} -> ok end
-		  end, TPids),
-    process_flag(trap_exit, OldFlag),
-    ok.
+		  end, TPids).
 
 
 soft_purge(suite) -> [];

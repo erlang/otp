@@ -125,7 +125,6 @@ bif erlang:process_flag/3
 bif erlang:process_info/1
 bif erlang:process_info/2
 bif erlang:processes/0
-bif erlang:purge_module/1
 bif erlang:put/2
 bif erlang:register/2
 bif erlang:registered/0
@@ -643,6 +642,7 @@ bif erts_debug:map_info/1
 #
 
 bif erlang:copy_literals/2
+bif erts_internal:purge_module/1
 bif binary:split/2
 bif binary:split/3
 bif erts_debug:size_shared/1

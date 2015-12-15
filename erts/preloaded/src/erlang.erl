@@ -1471,8 +1471,16 @@ processes() ->
 %% purge_module/1
 -spec purge_module(Module) -> true when
       Module :: atom().
-purge_module(_Module) ->
-    erlang:nif_error(undefined).
+purge_module(Module) when erlang:is_atom(Module) ->
+    case erts_code_purger:purge(Module) of
+	{false, _} ->
+	    erlang:error(badarg, [Module]);
+	{true, _} ->
+	    true
+    end;
+purge_module(Arg) ->
+    erlang:error(badarg, [Arg]).
+
 
 %% put/2
 -spec put(Key, Val) -> term() when

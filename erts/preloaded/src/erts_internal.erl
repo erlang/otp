@@ -38,6 +38,7 @@
 -export([request_system_task/3]).
 
 -export([check_process_code/2]).
+-export([purge_module/1]).
 
 -export([flush_monitor_messages/3]).
 
@@ -202,6 +203,11 @@ request_system_task(_Pid, _Prio, _Request) ->
       Option :: {allow_gc, boolean()},
       OptionList :: [Option].
 check_process_code(_Module, _OptionList) ->
+    erlang:nif_error(undefined).
+
+-spec purge_module(Module) -> boolean() when
+      Module :: module().
+purge_module(_Module) ->
     erlang:nif_error(undefined).
 
 %% term compare where integer() < float() = true

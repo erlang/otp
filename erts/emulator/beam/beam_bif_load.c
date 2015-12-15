@@ -1094,7 +1094,12 @@ static void copy_literals_commit(void* null) {
 #endif /* ERTS_SMP */
 
 
-BIF_RETTYPE purge_module_1(BIF_ALIST_1)
+/* Do the actualy module purging and return:
+ * true for success
+ * false if no such old module
+ * BADARG if not an atom
+ */
+BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
 {
     ErtsCodeIndex code_ix;
     BeamInstr* code;
@@ -1108,7 +1113,8 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(bif_export[BIF_purge_module_1], BIF_P, BIF_ARG_1);
+	ERTS_BIF_YIELD1(bif_export[BIF_erts_internal_purge_module_1],
+                        BIF_P, BIF_ARG_1);
     }
 
     code_ix = erts_active_code_ix();
@@ -1118,7 +1124,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
      */
 
     if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
-	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+        ERTS_BIF_PREP_RET(ret, am_false);
     }
     else {
 	erts_rwlock_old_code(code_ix);
@@ -1127,7 +1133,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	 * Any code to purge?
 	 */
 	if (!modp->old.code_hdr) {
-	    ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+            ERTS_BIF_PREP_RET(ret, am_false);
 	}
 	else {
 	    /*

@@ -70,12 +70,8 @@ do_purge(Mod) ->
             true = erlang:copy_literals(Mod, true),
             DidKill = check_proc_code(erlang:processes(), Mod, true),
             true = erlang:copy_literals(Mod, false),
-            try
-                erlang:purge_module(Mod)
-            catch
-                _:_ -> ignore
-            end,
-            {true, DidKill}
+	    WasPurged = erts_internal:purge_module(Mod),
+            {WasPurged, DidKill}
     end.
 
 %% soft_purge(Module)
@@ -104,11 +100,7 @@ do_soft_purge(Mod) ->
 		    false;
 		true ->
                     true = erlang:copy_literals(Mod, false),
-		    try
-			erlang:purge_module(Mod)
-		    catch
-			_:_ -> ignore
-		    end,
+		    erts_internal:purge_module(Mod),
 		    true
 	    end
     end.
