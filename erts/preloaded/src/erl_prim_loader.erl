@@ -55,6 +55,9 @@
 %% Used by test suites
 -export([purge_archive_cache/0]).
 
+%% Used by init and the code server.
+-export([get_modules/3]).
+
 -include_lib("kernel/include/file.hrl").
 
 -type host() :: atom().
@@ -236,6 +239,16 @@ set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
 purge_archive_cache() ->
     request(purge_archive_cache).
 
+
+-spec get_modules([module()],
+		  fun((atom(), string(), binary()) ->
+			     {'ok',any()} | {'error',any()}),
+		  [string()]) ->
+			 {'ok',{[any()],[any()]}}.
+
+get_modules(Modules, Fun, Path) ->
+    request({get_modules,{Modules,Fun,Path}}).
+
 request(Req) ->
     Loader = whereis(erl_prim_loader),
     Loader ! {self(),Req},
@@ -325,6 +338,8 @@ handle_request(Req, Paths, St0) ->
 	    {{ok,Paths},St0};
 	{get_file,File} ->
 	    handle_get_file(St0, Paths, File);
+	{get_modules,{Modules,Fun,ModPaths}} ->
+	    handle_get_modules(St0, Modules, Fun, ModPaths);
 	{list_dir,Dir} ->
 	    handle_list_dir(St0, Dir);
 	{read_file_info,File} ->
@@ -463,6 +478,124 @@ efile_exit_port(State, _Port, _Reason) ->
 efile_timeout_handler(State, _Parent) ->
     prim_purge_cache(),
     State.
+
+%%% --------------------------------------------------------
+%%% Read and process severals modules in parallel.
+%%% --------------------------------------------------------
+
+handle_get_modules(#state{loader=efile}=St, Ms, Process, Paths) ->
+    Primary = (St#state.prim_state)#prim_state.primary_archive,
+    Res = case efile_any_archives(Paths, Primary) of
+	      false ->
+		  efile_get_mods_par(Ms, Process, Paths);
+	      true ->
+		  Get = fun efile_get_file_from_port/3,
+		  gm_get_mods(St, Get, Ms, Process, Paths)
+	  end,
+    {Res,St};
+handle_get_modules(#state{loader=inet}=St, Ms, Process, Paths) ->
+    Get = fun inet_get_file_from_port/3,
+    {gm_get_mods(St, Get, Ms, Process, Paths),St}.
+
+efile_get_mods_par(Ms, Process, Paths) ->
+    Self = self(),
+    Ref = make_ref(),
+    GmSpawn = fun() ->
+		      efile_gm_spawn({Self,Ref}, Ms, Process, Paths)
+	      end,
+    _ = spawn_link(GmSpawn),
+    N = length(Ms),
+    efile_gm_recv(N, Ref, [], []).
+
+efile_any_archives([H|T], Primary) ->
+    case name_split(Primary, H) of
+	{file,_} -> efile_any_archives(T, Primary);
+	{archive,_,_} -> true
+    end;
+efile_any_archives([], _) ->
+    false.
+
+efile_gm_recv(0, _Ref, Succ, Fail) ->
+    {ok,{Succ,Fail}};
+efile_gm_recv(N, Ref, Succ, Fail) ->
+    receive
+	{Ref,Mod,{ok,Res}} ->
+	    efile_gm_recv(N-1, Ref, [{Mod,Res}|Succ], Fail);
+	{Ref,Mod,{error,Res}} ->
+	    efile_gm_recv(N-1, Ref, Succ, [{Mod,Res}|Fail])
+    end.
+
+efile_gm_spawn(ParentRef, Ms, Process, Paths) ->
+    efile_gm_spawn_1(0, Ms, ParentRef, Process, Paths).
+
+efile_gm_spawn_1(N, Ms, ParentRef, Process, Paths) when N >= 32 ->
+    receive
+	{'DOWN',_,process,_,_} ->
+	    efile_gm_spawn_1(N-1, Ms, ParentRef, Process, Paths)
+    end;
+efile_gm_spawn_1(N, [M|Ms], ParentRef, Process, Paths) ->
+    Get = fun() -> efile_gm_get(Paths, M, ParentRef, Process) end,
+    _ = spawn_monitor(Get),
+    efile_gm_spawn_1(N+1, Ms, ParentRef, Process, Paths);
+efile_gm_spawn_1(_, [], _, _, _) ->
+    ok.
+
+efile_gm_get(Paths, Mod, ParentRef, Process) ->
+    File = atom_to_list(Mod) ++ init:objfile_extension(),
+    efile_gm_get_1(Paths, File, Mod, ParentRef, Process).
+
+efile_gm_get_1([P|Ps], File0, Mod, {Parent,Ref}=PR, Process) ->
+    File = join(P, File0),
+    Res = try prim_file:read_file(File) of
+	      {ok,Bin} ->
+		  gm_process(Mod, File, Bin, Process);
+	      {error,enoent} ->
+		  efile_gm_get_1(Ps, File0, Mod, PR, Process);
+	      Error ->
+		  check_file_result(get_modules, File, Error),
+		  Error
+	  catch
+	      _:Reason ->
+		  {error,{crash,Reason}}
+	  end,
+    Parent ! {Ref,Mod,Res};
+efile_gm_get_1([], _, Mod, {Parent,Ref}, _Process) ->
+    Parent ! {Ref,Mod,{error,enoent}}.
+
+gm_get_mods(St, Get, Ms, Process, Paths) ->
+    gm_get_mods(St, Get, Ms, Process, Paths, [], []).
+
+gm_get_mods(St, Get, [M|Ms], Process, Paths, Succ, Fail) ->
+    File = atom_to_list(M) ++ init:objfile_extension(),
+    case gm_arch_get(St, Get, M, File, Paths, Process) of
+	{ok,Res} ->
+	    gm_get_mods(St, Get, Ms, Process, Paths,
+			[{M,Res}|Succ], Fail);
+	{error,Res} ->
+	    gm_get_mods(St, Get, Ms, Process, Paths,
+			Succ, [{M,Res}|Fail])
+    end;
+gm_get_mods(_St, _Get, [], _, _, Succ, Fail) ->
+    {ok,{Succ,Fail}}.
+
+gm_arch_get(St, Get, Mod, File, Paths, Process) ->
+    case Get(St, File, Paths) of
+	{{error,_}=E,_} ->
+	    E;
+	{{ok,Bin,Full},_} ->
+	    gm_process(Mod, Full, Bin, Process)
+    end.
+
+gm_process(Mod, File, Bin, Process) ->
+    try Process(Mod, File, Bin) of
+	{ok,_}=Res -> Res;
+	{error,_}=Res -> Res;
+	Other -> {error,{bad_return,Other}}
+    catch
+	_:Error ->
+	    {error,{crash,Error}}
+    end.
+
 
 %%% --------------------------------------------------------
 %%% Functions which handle inet prim_loader
