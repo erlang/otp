@@ -125,7 +125,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	3
-#define ERL_DRV_EXTENDED_MINOR_VERSION	2
+#define ERL_DRV_EXTENDED_MINOR_VERSION	3
 
 /*
  * The emulator will refuse to load a driver with a major version
@@ -163,6 +163,7 @@ typedef struct {
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 #define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
+#define ERL_DRV_FLAG_USE_INIT_ACK	(1 << 3)
 
 /*
  * Integer types
@@ -689,6 +690,12 @@ EXTERN char *driver_dl_error(void);
 /* environment */
 EXTERN int erl_drv_putenv(const char *key, char *value);
 EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
+
+/* spawn start init ack */
+EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
+
+/* set the pid seen in port_info */
+EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 

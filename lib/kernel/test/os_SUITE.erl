@@ -22,7 +22,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
-	 find_executable/1, unix_comment_in_command/1, deep_list_command/1, evil/1]).
+	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
+         large_output_command/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -30,7 +31,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
-     find_executable, unix_comment_in_command, deep_list_command, evil].
+     find_executable, unix_comment_in_command, deep_list_command,
+     large_output_command].
 
 groups() ->
     [].
@@ -267,50 +269,14 @@ deep_list_command(Config) when is_list(Config) ->
     %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
     ok.
 
-
--define(EVIL_PROCS, 100).
--define(EVIL_LOOPS, 100).
--define(PORT_CREATOR, os_cmd_port_creator).
-evil(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(5)),
-    Parent = self(),
-    Ps = lists:map(fun (N) ->
-			   spawn_link(fun () ->
-					      evil_loop(Parent, ?EVIL_LOOPS,N)
-				      end)
-		   end, lists:seq(1, ?EVIL_PROCS)),
-    Devil = spawn_link(fun () -> devil(hd(Ps), hd(lists:reverse(Ps))) end),
-    lists:foreach(fun (P) -> receive {P, done} -> ok end end, Ps),
-    unlink(Devil),
-    exit(Devil, kill),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-devil(P1, P2) ->
-    erlang:display({?PORT_CREATOR, whereis(?PORT_CREATOR)}),
-    (catch ?PORT_CREATOR ! lists:seq(1,1000000)),
-    (catch ?PORT_CREATOR ! lists:seq(1,666)),
-    (catch ?PORT_CREATOR ! grrrrrrrrrrrrrrrr),
-    (catch ?PORT_CREATOR ! {'EXIT', P1, buhuuu}),
-    (catch ?PORT_CREATOR ! {'EXIT', hd(erlang:ports()), buhuuu}),
-    (catch ?PORT_CREATOR ! {'EXIT', P2, arggggggg}),
-    receive after 500 -> ok end,
-    (catch exit(whereis(?PORT_CREATOR), kill)),
-    (catch ?PORT_CREATOR ! ">8|"),
-    receive after 500 -> ok end,
-    (catch exit(whereis(?PORT_CREATOR), diiiiiiiiiiiiiiiiiiiie)),
-    receive after 100 -> ok end,
-    devil(P1, P2).
-
-evil_loop(Parent, Loops, N) ->
-    Res = integer_to_list(N),
-    evil_loop(Parent, Loops, Res, "echo " ++ Res).
-
-evil_loop(Parent, 0, _Res, _Cmd) ->
-    Parent ! {self(), done};
-evil_loop(Parent, Loops, Res, Cmd) ->
-    comp(Res, os:cmd(Cmd)),
-    evil_loop(Parent, Loops-1, Res, Cmd).
+large_output_command(doc) ->
+    "Test to take sure that the correct data is"
+    "received when doing large commands";
+large_output_command(suite) -> [];
+large_output_command(Config) when is_list(Config) ->
+    %% Maximum allowed on windows is 8192, so we test well below that
+    AAA = lists:duplicate(7000, $a),
+    comp(AAA,os:cmd("echo " ++ AAA)).
 
 comp(Expected, Got) ->
     case strip_nl(Got) of

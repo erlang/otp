@@ -115,7 +115,7 @@ bif erlang:time_offset/0
 bif erlang:time_offset/1
 bif erlang:timestamp/0
 
-bif erlang:open_port/2
+bif erts_internal:open_port/2
 
 bif erlang:pid_to_list/1
 bif erlang:ports/0

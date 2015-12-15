@@ -2395,12 +2395,34 @@ z_test(Config) when is_list(Config) ->
 
 check_io_debug() ->
     get_stable_check_io_info(),
-    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs}
+    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs} = CheckIoDebug
 	= erts_debug:get_internal_state(check_io_debug),
+    HasGetHost = has_gethost(),
+    ct:log("check_io_debug: ~p~n"
+           "HasGetHost: ~p",[CheckIoDebug, HasGetHost]),
     0 = NoErrorFds,
-    NoUsedFds = NoDrvSelStructs,
+    if
+        NoUsedFds == NoDrvSelStructs ->
+            ok;
+        HasGetHost andalso (NoUsedFds == (NoDrvSelStructs - 1)) ->
+            %% If the inet_gethost port is alive, we may have
+            %% one extra used fd that is not selected on
+            ok
+    end,
     0 = NoDrvEvStructs,
     ok.
+
+has_gethost() ->
+    has_gethost(erlang:ports()).
+has_gethost([P|T]) ->
+    case erlang:port_info(P, name) of
+        {name,"inet_gethost"++_} ->
+            true;
+        _ ->
+            has_gethost(T)
+    end;
+has_gethost([]) ->
+    false.
 
 %flush_msgs() ->
 %    receive

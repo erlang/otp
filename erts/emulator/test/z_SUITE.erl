@@ -249,6 +249,7 @@ pollset_size(Config) when is_list(Config) ->
     ?line io:format("Initial: ~p~nFinal: ~p~n", [InitChkIo, FinChkIo]),
     ?line InitPollsetSize = lists:keysearch(total_poll_set_size, 1, InitChkIo),
     ?line FinPollsetSize = lists:keysearch(total_poll_set_size, 1, FinChkIo),
+    HasGethost = case has_gethost() of true -> 1; _ -> 0 end,
     ?line case InitPollsetSize =:= FinPollsetSize of
 	      true ->
 		  case InitPollsetSize of
@@ -269,7 +270,7 @@ pollset_size(Config) when is_list(Config) ->
 		      = InitPollsetSize,
 		  ?line {value, {total_poll_set_size, FinSize}}
 		      = FinPollsetSize,
-		  ?line true = FinSize < InitSize,
+		  ?line true = FinSize < (InitSize + HasGethost),
 		  ?line true = 2 =< FinSize,
 		  ?line {comment,
 			 "Start pollset size: "
@@ -289,16 +290,39 @@ check_io_debug(Config) when is_list(Config) ->
 	  end.
 
 check_io_debug_test() ->
-    ?line erlang:display(get_check_io_info()),
-    ?line erts_debug:set_internal_state(available_internal_state, true),
-    ?line {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs}
+    erlang:display(get_check_io_info()),
+    erts_debug:set_internal_state(available_internal_state, true),
+    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs} = CheckIoDebug
 	= erts_debug:get_internal_state(check_io_debug),
-    ?line erts_debug:set_internal_state(available_internal_state, false),
-    ?line 0 = NoErrorFds,
-    ?line NoUsedFds = NoDrvSelStructs,
+    erts_debug:set_internal_state(available_internal_state, false),
+    HasGetHost = has_gethost(),
+    ct:log("check_io_debug: ~p~n"
+           "HasGetHost: ~p",[CheckIoDebug, HasGetHost]),
+    0 = NoErrorFds,
+    if
+        NoUsedFds == NoDrvSelStructs ->
+            ok;
+        HasGetHost andalso (NoUsedFds == (NoDrvSelStructs - 1)) ->
+            %% If the inet_gethost port is alive, we may have
+            %% one extra used fd that is not selected on.
+            %% This happens when the initial setup of the
+            %% port returns an EAGAIN
+            ok
+    end,
     ?line 0 = NoDrvEvStructs,
     ?line ok.
 
+has_gethost() ->
+    has_gethost(erlang:ports()).
+has_gethost([P|T]) ->
+    case erlang:port_info(P, name) of
+        {name,"inet_gethost"++_} ->
+            true;
+        _ ->
+            has_gethost(T)
+    end;
+has_gethost([]) ->
+    false.
 
 
 %%

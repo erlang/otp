@@ -87,15 +87,6 @@
 #  define NO_FPE_SIGNALS
 #endif
 
-#ifdef DISABLE_CHILD_WAITER_THREAD
-#undef ENABLE_CHILD_WAITER_THREAD
-#endif
-
-#if defined(ERTS_SMP) && !defined(DISABLE_CHILD_WAITER_THREAD)
-#undef ENABLE_CHILD_WAITER_THREAD
-#define ENABLE_CHILD_WAITER_THREAD 1
-#endif
-
 #define ERTS_I64_LITERAL(X) X##LL
 
 #define ErtsInArea(ptr,start,nbytes) \
@@ -746,6 +737,7 @@ void erts_sys_main_thread(void);
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
+extern void erl_sys_late_init(void);
 extern void erl_sys_args(int *argc, char **argv);
 extern void erl_sys_schedule(int);
 void sys_tty_reset(int);

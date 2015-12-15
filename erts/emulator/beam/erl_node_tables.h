@@ -41,6 +41,7 @@
 
 #include "sys.h"
 #include "hash.h"
+#include "erl_alloc.h"
 #include "erl_process.h"
 #include "erl_monitors.h"
 #include "erl_smp.h"

@@ -187,6 +187,11 @@ struct _erl_drv_port {
 
     ErtsPrtSD *psd;		 /* Port specific data */
     int reds; /* Only used while executing driver callbacks */
+
+    struct {
+        Eterm to;
+        Uint32 ref[ERTS_MAX_REF_NUMBERS];
+    } *async_open_port;         /* Reference used with async open port */
 };
 
 
@@ -687,7 +692,7 @@ erts_drvport2port_state(ErlDrvPort drvport, erts_aint32_t *statep)
     Port *prt = ERTS_ErlDrvPort2Port(drvport);
     erts_aint32_t state;
     ASSERT(prt);
-    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
+//    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return ERTS_INVALID_ERL_DRV_PORT;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)
@@ -943,5 +948,10 @@ ErtsPortOpResult erts_port_unlink(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
+
+/*
+ * Signals from ports to ports. Used by sys drivers.
+ */
+int erl_drv_port_control(Eterm, char, char*, ErlDrvSizeT);
 
 #endif

@@ -787,10 +787,13 @@ void erts_init_node_tables(int dd_sec)
     erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
     erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
 
-    f.hash  = (H_FUN)			dist_table_hash;
-    f.cmp   = (HCMP_FUN)		dist_table_cmp;
-    f.alloc = (HALLOC_FUN)		dist_table_alloc;
-    f.free  = (HFREE_FUN)		dist_table_free;
+    f.hash       = (H_FUN)		dist_table_hash;
+    f.cmp        = (HCMP_FUN)		dist_table_cmp;
+    f.alloc      = (HALLOC_FUN)		dist_table_alloc;
+    f.free       = (HFREE_FUN)		dist_table_free;
+    f.meta_alloc = (HMALLOC_FUN) 	erts_alloc;
+    f.meta_free  = (HMFREE_FUN) 	erts_free;
+    f.meta_print = (HMPRINT_FUN) 	erts_print;
     hash_init(ERTS_ALC_T_DIST_TABLE, &erts_dist_table, "dist_table", 11, f);
 
     f.hash  = (H_FUN)      			node_table_hash;
