@@ -60,8 +60,6 @@
           <c><anno>Filename</anno></c> is either an absolute file name or just the name
           of the file, for example <c>"lists.beam"</c>. If an internal
           path is set to the loader, this path is used to find the file.
-          If a user supplied loader is used, the path can be stripped
-          off if it is obsolete, and the loader does not use a path.
           <c><anno>FullName</anno></c> is the complete name of the fetched file.
           <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
 
