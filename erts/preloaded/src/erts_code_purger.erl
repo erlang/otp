@@ -67,9 +67,9 @@ do_purge(Mod) ->
         false ->
             {false, false};
         true ->
-            true = erlang:copy_literals(Mod, true),
+            true = erts_internal:copy_literals(Mod, true),
             DidKill = check_proc_code(erlang:processes(), Mod, true),
-            true = erlang:copy_literals(Mod, false),
+            true = erts_internal:copy_literals(Mod, false),
 	    WasPurged = erts_internal:purge_module(Mod),
             {WasPurged, DidKill}
     end.
@@ -93,13 +93,13 @@ do_soft_purge(Mod) ->
 	false ->
 	    true;
 	true ->
-            true = erlang:copy_literals(Mod, true),
+            true = erts_internal:copy_literals(Mod, true),
 	    case check_proc_code(erlang:processes(), Mod, false) of
 		false ->
-                    true = erlang:copy_literals(Mod, false),
+                    true = erts_internal:copy_literals(Mod, false),
 		    false;
 		true ->
-                    true = erlang:copy_literals(Mod, false),
+                    true = erts_internal:copy_literals(Mod, false),
 		    erts_internal:purge_module(Mod),
 		    true
 	    end

@@ -1031,7 +1031,7 @@ copy_literals_t erts_clrange = {NULL, 0};
  */
 
 
-BIF_RETTYPE copy_literals_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
 {
     Module* modp;
     ErtsCodeIndex code_ix;
@@ -1042,7 +1042,8 @@ BIF_RETTYPE copy_literals_2(BIF_ALIST_2)
     }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD2(bif_export[BIF_copy_literals_2], BIF_P, BIF_ARG_1, BIF_ARG_2);
+	ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_copy_literals_2],
+                        BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
     code_ix = erts_active_code_ix();

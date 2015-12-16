@@ -91,7 +91,7 @@
 -export([bit_size/1, bitsize/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
 -export([cancel_timer/1, cancel_timer/2, check_old_code/1, check_process_code/2,
-	 check_process_code/3, copy_literals/2, crc32/1]).
+	 check_process_code/3, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
@@ -519,13 +519,6 @@ get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
     get_cpc_opts(Options, Async, AllowGC);
 get_cpc_opts([], Async, AllowGC) ->
     {Async, AllowGC}.
-
-%% copy_literals/2
--spec erlang:copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
-      Module :: module(),
-      Bool :: boolean().
-copy_literals(_Mod, _Bool) ->
-    erlang:nif_error(undefined).
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when
