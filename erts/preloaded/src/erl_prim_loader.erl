@@ -42,7 +42,7 @@
 -include("inet_boot.hrl").
 
 %% Public
--export([start/3, set_path/1, get_path/0, get_file/1, get_files/2,
+-export([start/3, set_path/1, get_path/0, get_file/1,
          list_dir/1, read_file_info/1, read_link_info/1, get_cwd/0, get_cwd/1]).
 
 %% Used by erl_boot_server
@@ -69,7 +69,6 @@
          timeout           :: timeout(),         % idle timeout
 	 %% Number of timeouts before archives are released
 	 n_timeouts        :: non_neg_integer(),
-         multi_get = false :: boolean(),
          prim_state        :: prim_state()}).    % state for efile code loader
 
 -define(IDLE_TIMEOUT, 60000).  %% tear inet connection after 1 minutes
@@ -162,16 +161,11 @@ start_it("efile", Id, Pid, _Hosts) ->
 	_ ->
 	    init_ack(Pid)
     end,
-    MultiGet = case erlang:system_info(thread_pool_size) of
-                   0 -> false;
-                   _ -> true
-               end,
     PS = prim_init(),
     State = #state {loader = efile,
                     id = Id,
                     data = Port,
                     timeout = infinity,
-                    multi_get = MultiGet,
                     prim_state = PS},
     loop(State, Pid, []).
 
@@ -197,20 +191,6 @@ get_file(File) when is_atom(File) ->
     get_file(atom_to_list(File));
 get_file(File) ->
     check_file_result(get_file, File, request({get_file,File})).
-
--spec get_files([{atom(), string()}],
-		fun((atom(),binary(),string()) -> 'ok' | {'error', atom()})) ->
-			'ok' | {'error', atom()}.
-get_files(ModFiles, Fun) ->
-    case request({get_files,{ModFiles,Fun}}) of
-        E = {error,_M} ->
-            E;
-        {error,Reason,M} ->
-            check_file_result(get_files, M, {error,Reason}),
-            {error,M};
-        ok ->
-            ok
-    end.
 
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
       Dir :: string(),
@@ -344,8 +324,6 @@ handle_request(Req, Paths, St0) ->
 	    {{ok,Paths},St0};
 	{get_file,File} ->
 	    handle_get_file(St0, Paths, File);
-	{get_files,{ModFiles,Fun}} ->
-	    handle_get_files(St0, ModFiles, Paths, Fun);
 	{list_dir,Dir} ->
 	    handle_list_dir(St0, Dir);
 	{read_file_info,File} ->
@@ -365,11 +343,6 @@ handle_request(Req, Paths, St0) ->
 	    ignore
     end.
 
-handle_get_files(State = #state{multi_get = true}, ModFiles, Paths, Fun) ->
-    ?SAFE2(efile_multi_get_file_from_port(State, ModFiles, Paths, Fun), State);
-handle_get_files(State, _ModFiles, _Paths, _Fun) ->     % no multi get
-    {{error,no_multi_get},State}.
-    
 handle_get_file(State = #state{loader = efile}, Paths, File) ->
     ?SAFE2(efile_get_file_from_port(State, File, Paths), State);
 handle_get_file(State = #state{loader = inet}, Paths, File) ->
@@ -420,53 +393,6 @@ handle_timeout(State = #state{loader = inet}, Parent) ->
 %%% Functions which handle efile as prim_loader (default).
 %%% --------------------------------------------------------
 
-%%% Reading many files in parallel is an optimization. 
-%%% See also comment in init.erl.
-
-%% -> {ok,State} | {{error,Module},State} | {{error,Reason,Module},State}
-efile_multi_get_file_from_port(State, ModFiles, Paths, Fun) ->
-    Ref = make_ref(),
-    %% More than 200 processes is no gain.
-    Max = erlang:min(200, erlang:system_info(thread_pool_size)),
-    efile_multi_get_file_from_port2(ModFiles, 0, Max, State, Paths, Fun, Ref, ok).
-
-efile_multi_get_file_from_port2([MF | MFs], Out, Max, State, Paths, Fun, Ref, Ret) when Out < Max ->
-    Self = self(),
-    _Pid = spawn(fun() -> efile_par_get_file(Ref, State, MF, Paths, Self, Fun) end),
-    efile_multi_get_file_from_port2(MFs, Out+1, Max, State, Paths, Fun, Ref, Ret);
-efile_multi_get_file_from_port2(MFs, Out, Max, _State, Paths, Fun, Ref, Ret) when Out > 0 ->
-    receive 
-        {Ref, ok, State1} ->
-            efile_multi_get_file_from_port2(MFs, Out-1, Max, State1, Paths, Fun, Ref, Ret);
-        {Ref, {error,_Mod} = Error, State1} ->
-            efile_multi_get_file_from_port2(MFs, Out-1, Max, State1, Paths, Fun, Ref, Error);
-        {Ref, MF, {error,emfile,State1}} ->
-            %% Max can take negative values. Out cannot.
-            efile_multi_get_file_from_port2([MF | MFs], Out-1, Max-1, State1, Paths, Fun, Ref, Ret);
-        {Ref, {M,_F}, {error,Error,State1}} -> 
-            efile_multi_get_file_from_port2(MFs, Out-1, 0, State1, Paths, Fun, Ref, {error,Error,M})
-    end;
-efile_multi_get_file_from_port2(_MFs, 0, _Max, State, _Paths, _Fun, _Ref, Ret) ->
-    {Ret,State}.
-
-efile_par_get_file(Ref, State, {Mod,File} = MF, Paths, Pid, Fun) ->
-    %% One port for each file read in "parallel":
-    case prim_file:start() of
-        {ok, Port} ->
-            Port0 = State#state.data,
-            State1 = State#state{data = Port},
-            R = case efile_get_file_from_port(State1, File, Paths) of
-                    {{error,Reason},State2} -> 
-                        {Ref,MF,{error,Reason,State2}};
-                    {{ok,BinFile,Full},State2} -> 
-                        %% Fun(...) -> ok | {error,Mod}
-                        {Ref,Fun(Mod, BinFile, Full),State2#state{data=Port0}}
-                end,
-            prim_file:close(Port),
-            Pid ! R;
-        {error, Error} ->
-            Pid ! {Ref,MF,{error,Error,State}}
-    end.
 
 %% -> {{ok,BinFile,File},State} | {{error,Reason},State}
 efile_get_file_from_port(State, File, Paths) ->

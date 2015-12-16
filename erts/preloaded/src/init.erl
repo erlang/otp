@@ -85,7 +85,6 @@
 	 path_choice,
 	 prim_load,
 	 load_mode,
-	 par_load,
 	 vars
 	}).
 
@@ -749,13 +748,11 @@ do_boot(Init,Flags,Start) ->
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
-    ParLoad = Pgm =:= "efile" andalso
-	erlang:system_info(thread_pool_size) > 0,
 
     PathChoice = code_path_choice(),
     Es = #es{init=Init,debug=Deb,path=Path,pa=Pa,pz=Pz,
 	     path_choice=PathChoice,
-	     prim_load=true,load_mode=LoadMode,par_load=ParLoad,
+	     prim_load=true,load_mode=LoadMode,
 	     vars=BootVars},
     eval_script(BootList, Es),
 
@@ -857,15 +854,12 @@ eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
 	     _ -> Es0#es{prim_load=false}
 	 end,
     eval_script(T, Es);
-eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad,
-				     par_load=Par}=Es)
+eval_script([{primLoad,Mods}|T], #es{prim_load=PrimLoad}=Es)
   when is_list(Mods) ->
-    case {PrimLoad,Par} of
-	{true,true} ->
-	    par_load_modules(Mods, Init);
-	{true,false} ->
+    case PrimLoad of
+	true ->
 	    load_modules(Mods);
-	{false,_} ->
+	false ->
 	    %% Do not load now, code_server does that dynamically!
 	    ok
     end,
@@ -891,41 +885,6 @@ load_modules([Mod|Mods]) ->
     load_modules(Mods);
 load_modules([]) ->
     ok.
-
-%%% An optimization: erl_prim_loader gets the chance of loading many
-%%% files in parallel, using threads. This will reduce the seek times,
-%%% and loaded code can be processed while other threads are waiting
-%%% for the disk. The optimization is not tried unless the loader is
-%%% "efile" and there is a non-empty pool of threads.
-%%%
-%%% Many threads are needed to get a good result, so it would be
-%%% beneficial to load several applications in parallel. However,
-%%% measurements show that the file system handles one directory at a
-%%% time, regardless if parallel threads are created for files on
-%%% several directories (a guess: writing the meta information when
-%%% the file was last read ('mtime'), forces the file system to sync
-%%% between directories).
-
-par_load_modules(Mods,Init) ->
-    Ext = objfile_extension(),
-    ModFiles = [{Mod,concat([Mod,Ext])} || Mod <- Mods,
-					   not erlang:module_loaded(Mod)],
-    Self = self(),
-    Fun = fun(Mod, BinCode, FullName) ->
-		  case catch load_mod_code(Mod, BinCode, FullName) of
-		      {ok, _} ->
-			  Init ! {Self,loaded,{Mod,FullName}},
-			  ok;
-		      _EXIT ->
-			  {error, Mod}
-		  end
-	  end,
-    case erl_prim_loader:get_files(ModFiles, Fun) of
-	ok ->
-	    ok;
-	{error,Mod} ->
-	    exit({'cannot load',Mod,get_files})
-    end.
 
 make_path(Pa, Pz, Path, Vars) ->
     append([Pa,append([fix_path(Path,Vars),Pz])]).
