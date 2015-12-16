@@ -1013,7 +1013,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 static void copy_literals_commit(void*);
 #endif
 
-copy_literals_t erts_clrange = {NULL, 0};
+copy_literals_t erts_clrange = {NULL, 0, THE_NON_VALUE};
 
 /* copy literals
  *
@@ -1033,7 +1033,6 @@ copy_literals_t erts_clrange = {NULL, 0};
 
 BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
 {
-    Module* modp;
     ErtsCodeIndex code_ix;
     Eterm res = am_true;
 
@@ -1048,21 +1047,28 @@ BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
 
     code_ix = erts_active_code_ix();
 
-    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL || !modp->old.code_hdr) {
-        res = am_false;
-        goto done;
-    }
-
     if (BIF_ARG_2 == am_true) {
-        if (erts_clrange.ptr != NULL) {
+        Module* modp = erts_get_module(BIF_ARG_1, code_ix);
+        if (!modp || !modp->old.code_hdr) {
+            res = am_false;
+            goto done;
+        }
+        if (erts_clrange.ptr != NULL
+            && !(BIF_P->static_flags & ERTS_STC_FLG_SYSTEM_PROC)) {
             res = am_aborted;
             goto done;
-       }
-        erts_clrange.ptr = (Eterm*) modp->old.code_hdr->literals_start;
-        erts_clrange.sz  = (Eterm*) modp->old.code_hdr->literals_end - erts_clrange.ptr;
+        }
+        erts_clrange.ptr = modp->old.code_hdr->literals_start;
+        erts_clrange.sz  = modp->old.code_hdr->literals_end - erts_clrange.ptr;
+        erts_clrange.pid = BIF_P->common.id;
     } else if (BIF_ARG_2 == am_false) {
+        if (erts_clrange.pid != BIF_P->common.id) {
+            res = am_false;
+            goto done;
+        }
         erts_clrange.ptr = NULL;
         erts_clrange.sz  = 0;
+        erts_clrange.pid = THE_NON_VALUE;
     }
 
 #ifdef ERTS_SMP

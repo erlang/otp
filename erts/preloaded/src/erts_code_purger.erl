@@ -63,11 +63,10 @@ purge(Mod) when is_atom(Mod) ->
 
 
 do_purge(Mod) ->
-    case erlang:check_old_code(Mod) of
+    case erts_internal:copy_literals(Mod, true) of
         false ->
             {false, false};
         true ->
-            true = erts_internal:copy_literals(Mod, true),
             DidKill = check_proc_code(erlang:processes(), Mod, true),
             true = erts_internal:copy_literals(Mod, false),
 	    WasPurged = erts_internal:purge_module(Mod),
@@ -89,17 +88,16 @@ soft_purge(Mod) ->
 
 
 do_soft_purge(Mod) ->
-    case erlang:check_old_code(Mod) of
+    case erts_internal:copy_literals(Mod, true) of
 	false ->
 	    true;
 	true ->
-            true = erts_internal:copy_literals(Mod, true),
-	    case check_proc_code(erlang:processes(), Mod, false) of
+	    DoPurge = check_proc_code(erlang:processes(), Mod, false),
+	    true = erts_internal:copy_literals(Mod, false),
+	    case DoPurge of
 		false ->
-                    true = erts_internal:copy_literals(Mod, false),
 		    false;
 		true ->
-                    true = erts_internal:copy_literals(Mod, false),
 		    erts_internal:purge_module(Mod),
 		    true
 	    end

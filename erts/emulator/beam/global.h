@@ -990,6 +990,7 @@ Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *red
 typedef struct {
     Eterm *ptr;
     Uint   sz;
+    Eterm pid;
 } copy_literals_t;
 
 extern copy_literals_t erts_clrange;
