@@ -16,10 +16,10 @@ test() ->
   ok = utf8_roundtrip(),
   ok = utf16_roundtrip(),
   ok = utf32_roundtrip(),
-  %% Currently, the following are problematic for the LLVM backend
-  %% ok = utf8_illegal_sequences(),
-  %% ok = utf16_illegal_sequences(),
-  %% ok = utf32_illegal_sequences(),
+  %% The following were problematic for the LLVM backend
+  ok = utf8_illegal_sequences(),
+  ok = utf16_illegal_sequences(),
+  ok = utf32_illegal_sequences(),
   ok.
 
 %%-------------------------------------------------------------------
