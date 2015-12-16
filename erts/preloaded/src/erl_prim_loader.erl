@@ -42,7 +42,7 @@
 -include("inet_boot.hrl").
 
 %% Public
--export([start/3, set_path/1, get_path/0, get_file/1,
+-export([start/0, set_path/1, get_path/0, get_file/1,
          list_dir/1, read_file_info/1, read_link_info/1, get_cwd/0, get_cwd/1]).
 
 %% Used by erl_boot_server
@@ -64,9 +64,8 @@
 -record(state, 
         {loader            :: 'efile' | 'inet',
          hosts = []        :: [host()], % hosts list (to boot from)
-         id,                      % not used any more?
          data              :: 'noport' | port(), % data port etc
-         timeout           :: timeout(),         % idle timeout
+         timeout           :: timeout(),	 % idle timeout
 	 %% Number of timeouts before archives are released
 	 n_timeouts        :: non_neg_integer(),
          prim_state        :: prim_state()}).    % state for efile code loader
@@ -102,26 +101,13 @@ debug(#prim_state{debug = Deb}, Term) ->
 %%% Interface Functions. 
 %%% --------------------------------------------------------
 
--spec start(Id, Loader, Hosts) ->
+-spec start() ->
 	    {'ok', Pid} | {'error', What} when
-      Id :: term(),
-      Loader :: atom() | string(),
-      Hosts :: Host | [Host],
-      Host :: host(),
       Pid :: pid(),
       What :: term().
-start(Id, Pgm, Hosts) when is_atom(Hosts) ->
-    start(Id, Pgm, [Hosts]);
-start(Id, Pgm0, Hosts) ->
-    Pgm = if
-              is_atom(Pgm0) ->
-                  atom_to_list(Pgm0);
-              true ->
-                  Pgm0
-          end,
+start() ->
     Self = self(),
-    Pid = spawn_link(fun() -> start_it(Pgm, Id, Self, Hosts) end),
-    register(erl_prim_loader, Pid),
+    Pid = spawn_link(fun() -> start_it(Self) end),
     receive
         {Pid,ok} ->
             {ok,Pid};
@@ -129,26 +115,40 @@ start(Id, Pgm0, Hosts) ->
             {error,Reason}
     end.
 
-%% Hosts must be a list of form ['1.2.3.4' ...]
-start_it("inet", Id, Pid, Hosts) ->
+start_it(Parent) ->
     process_flag(trap_exit, true),
-    ?dbg(inet, {Id,Pid,Hosts}),
+    register(erl_prim_loader, self()),
+    Loader = case init:get_argument(loader) of
+		 {ok,[[Loader0]]} ->
+		     Loader0;
+		 error ->
+		     "efile"
+	     end,
+    case Loader of
+	"efile" -> start_efile(Parent);
+	"inet" -> start_inet(Parent)
+    end.
+
+%% Hosts must be a list of form ['1.2.3.4' ...]
+start_inet(Parent) ->
+    Hosts = case init:get_argument(hosts) of
+		{ok,[Hosts0]} -> Hosts0;
+		_ -> []
+	    end,
     AL = ipv4_list(Hosts),
     ?dbg(addresses, AL),
     {ok,Tcp} = find_master(AL),
-    init_ack(Pid),
+    init_ack(Parent),
     PS = prim_init(),
     State = #state {loader = inet,
                     hosts = AL,
-                    id = Id,
                     data = Tcp,
                     timeout = ?IDLE_TIMEOUT,
 		    n_timeouts = ?N_TIMEOUTS,
                     prim_state = PS},
-    loop(State, Pid, []);
+    loop(State, Parent, []).
 
-start_it("efile", Id, Pid, _Hosts) ->
-    process_flag(trap_exit, true),
+start_efile(Parent) ->
     {ok, Port} = prim_file:start(),
     %% Check that we started in a valid directory.
     case prim_file:get_cwd(Port) of
@@ -159,15 +159,14 @@ start_it("efile", Id, Pid, _Hosts) ->
 	    erlang:display(Report),
 	    exit({error, invalid_current_directory});
 	_ ->
-	    init_ack(Pid)
+	    init_ack(Parent)
     end,
     PS = prim_init(),
     State = #state {loader = efile,
-                    id = Id,
                     data = Port,
                     timeout = infinity,
                     prim_state = PS},
-    loop(State, Pid, []).
+    loop(State, Parent, []).
 
 init_ack(Pid) ->
     Pid ! {self(),ok},
@@ -1262,11 +1261,7 @@ string_split2(_, _Ext, _RevBase, _RevTop, SaveFile, SaveExt, SaveTop) ->
 
 %% Parse list of ipv4 addresses 
 ipv4_list([H | T]) ->
-    IPV = if is_atom(H) -> ipv4_address(atom_to_list(H));
-             is_list(H) -> ipv4_address(H);
-             true -> {error,einal}
-          end,
-    case IPV of
+    case ipv4_address(H) of
         {ok,IP} -> [IP | ipv4_list(T)];
         _ -> ipv4_list(T)
     end;

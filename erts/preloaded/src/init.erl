@@ -23,7 +23,6 @@
 %% a local file or distributed from another erlang node.
 %% 
 %% Flags:
-%%        -id Identity   : identity of the system.
 %%        -boot File     : Absolute file name of the boot script.
 %%        -boot_var Var Value
 %%                       : $Var in the boot script is expanded to
@@ -693,17 +692,15 @@ sleep(T) -> receive after T -> ok end.
 %%% The loader shall run for ever!
 %%% -------------------------------------------------
 
-start_prim_loader(Init,Id,Pgm,Nodes,Path,{Pa,Pz}) ->
-    case erl_prim_loader:start(Id,Pgm,Nodes) of
-	{ok,Pid} when Path =:= false ->
-	    InitPath = append(Pa,["."|Pz]),
-	    erl_prim_loader:set_path(InitPath),
-	    add_to_kernel(Init,Pid),
-	    Pid;
+start_prim_loader(Init, Path0, {Pa,Pz}) ->
+    Path = case Path0 of
+	       false -> Pa ++ ["."|Pz];
+	       _ -> Path0
+	   end,
+    case erl_prim_loader:start() of
 	{ok,Pid} ->
 	    erl_prim_loader:set_path(Path),
-	    add_to_kernel(Init,Pid),
-	    Pid;
+	    add_to_kernel(Init, Pid);
 	{error,Reason} ->
 	    erlang:display({"cannot start loader",Reason}),
 	    exit(Reason)
@@ -717,13 +714,6 @@ add_to_kernel(Init,Pid) ->
 	    ok
     end.
 
-prim_load_flags(Flags) ->
-    PortPgm = get_flag(loader, Flags, <<"efile">>),
-    Hosts = get_flag_list(hosts, Flags, []),
-    Id = get_flag(id, Flags, none),
-    Path = get_flag_list(path, Flags, false),
-    {PortPgm, Hosts, Id, Path}.
-
 %%% -------------------------------------------------
 %%% The boot process fetches a boot script and loads
 %%% all modules specified and starts spec. processes.
@@ -736,12 +726,10 @@ do_boot(Flags,Start) ->
 
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
-    {Pgm0,Nodes,Id,Path} = prim_load_flags(Flags),
     Root = get_root(Flags),
+    Path = get_flag_list(path, Flags, false),
     {Pa,Pz} = PathFls = path_flags(Flags),
-    Pgm = b2s(Pgm0),
-    _Pid = start_prim_loader(Init,b2a(Id),Pgm,bs2as(Nodes),
-			     bs2ss(Path),PathFls),
+    start_prim_loader(Init, bs2ss(Path), PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
     LoadMode = b2a(get_flag(mode, Flags, false)),
@@ -854,11 +842,18 @@ eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
 	     _ -> Es0#es{prim_load=false}
 	 end,
     eval_script(T, Es);
-eval_script([{primLoad,Mods}|T], #es{prim_load=PrimLoad}=Es)
+eval_script([{primLoad,[Mod]}|T], #es{prim_load=true}=Es) ->
+    %% Common special case (loading of error_handler). Nothing
+    %% to gain by parallel loading.
+    File = atom_to_list(Mod) ++ objfile_extension(),
+    {ok,Full} = load_mod(Mod, File),
+    init ! {self(),loaded,{Mod,Full}}, % Tell init about loaded module
+    eval_script(T, Es);
+eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad}=Es)
   when is_list(Mods) ->
     case PrimLoad of
 	true ->
-	    load_modules(Mods);
+	    load_modules(Mods, Init);
 	false ->
 	    %% Do not load now, code_server does that dynamically!
 	    ok
@@ -878,12 +873,12 @@ eval_script([], #es{}) ->
 eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
-load_modules([Mod|Mods]) ->
+load_modules([Mod|Mods], Init) ->
     File = concat([Mod,objfile_extension()]),
     {ok,Full} = load_mod(Mod,File),
-    init ! {self(),loaded,{Mod,Full}},  %% Tell init about loaded module
-    load_modules(Mods);
-load_modules([]) ->
+    Init ! {self(),loaded,{Mod,Full}},	%Tell init about loaded module
+    load_modules(Mods, Init);
+load_modules([], _) ->
     ok.
 
 make_path(Pa, Pz, Path, Vars) ->
@@ -1243,8 +1238,6 @@ concat([S|T]) ->
     S ++ concat(T);
 concat([]) ->
     [].
-
-append(L, Z) -> L ++ Z.
 
 append([E]) -> E;
 append([H|T]) ->
