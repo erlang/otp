@@ -31,6 +31,70 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Host name lookups though inet_res, the Erlang DNS
+	    resolver, are now done case insensitively according to
+	    RFC 4343. Patch by Holger Weiß.</p>
+          <p>
+	    Own Id: OTP-12836</p>
+        </item>
+        <item>
+          <p>
+	    IPv6 distribution handler has been updated to share code
+	    with IPv4 so that all features are supported in IPv6 as
+	    well. A bug when using an IPv4 address as hostname has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-13040</p>
+        </item>
+        <item>
+          <p>
+	    Caching of host names in the internal DNS resolver
+	    inet_res has been made character case insensitive for
+	    host names according to RFC 4343.</p>
+          <p>
+	    Own Id: OTP-13083</p>
+        </item>
+        <item>
+	    <p>Cooked file mode buffering has been fixed so
+	    file:position/2 now works according to Posix on Posix
+	    systems i.e. when file:position/2 returns an error the
+	    file pointer is unaffected.</p> <p>The Windows system
+	    documentation, however, is unclear on this point so the
+	    documentation of file:position/2 still does not promise
+	    anything.</p> <p>Cooked file mode file:pread/2,3 and
+	    file:pwrite/2,3 have been corrected to honor character
+	    encoding like the combination of file:position/2 and
+	    file:read/2 or file:write/2 already does. This is
+	    probably not very useful since the character
+	    representation on the caller's side is latin1,
+	    period.</p>
+          <p>
+	    Own Id: OTP-13155 Aux Id: PR#646 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add {line_delim, byte()} option to inet:setopts/2 and
+	    decode_packet/3</p>
+          <p>
+	    Own Id: OTP-12837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 4.1</title>
 
     <section><title>Improvements and New Features</title>

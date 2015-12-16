@@ -31,6 +31,51 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix hipe bug causing segfaults when native code
+	    constructs binaries starting with a zero-length integer
+	    field.</p>
+          <p>
+	    Own Id: OTP-13048</p>
+        </item>
+        <item>
+          <p>
+	    Reintroduce the <c>erlang:make_fun/3</c> BIF in
+	    erl_bif_types.</p>
+          <p>
+	    Own Id: OTP-13068</p>
+        </item>
+        <item>
+          <p>
+	    In certain cases of matching with very big binaries, the
+	    HiPE compiler generated code that would fail the match,
+	    even in cases that the matching was successful. The
+	    problem was more quite noticeable on 32-bit platforms.</p>
+          <p>
+	    Own Id: OTP-13092</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    mikpe/hipe_x86_signal-musl-support</p>
+          <p>
+	    Own Id: OTP-13159</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
