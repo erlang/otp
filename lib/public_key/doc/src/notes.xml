@@ -35,6 +35,46 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384' and
+	    'ecdsa-sha2-nistp521' signature algorithms for ssh are
+	    implemented. See RFC 5656.</p>
+          <p>
+	    Own Id: OTP-12936</p>
+        </item>
+        <item>
+          <p>
+	    There is now a file (public_key/priv/moduli) which lists
+	    size-generator-modulus triples. The purpose is to give
+	    servers the possibility to select the crypto primes
+	    randomly among a list of pregenerated triples. This
+	    reduces the risk for some attacks on diffie-hellman
+	    negotiation.</p>
+          <p>
+	    See the reference manual for public_key:dh_gex_group/4
+	    where the handling of this is described.</p>
+          <p>
+	    The ssh server (ssh:daemon) uses this.</p>
+          <p>
+	    Own Id: OTP-13054 Aux Id: OTP-13052 </p>
+        </item>
+        <item>
+          <p>
+	    Add different upper bounds for diffrent string types as
+	    suggested by comment in PKIX1Explicit88.</p>
+          <p>
+	    Own Id: OTP-13132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.0.1</title>
 
     <section><title>Improvements and New Features</title>

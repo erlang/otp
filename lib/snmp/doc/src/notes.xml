@@ -34,7 +34,35 @@
   </header>
 
 
-  <section><title>SNMP 5.2</title>
+  <section><title>SNMP 5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update configuration check of imask ( list of ones and
+	    zeros) to allow the empty list.</p>
+          <p>
+	    Own Id: OTP-13101</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

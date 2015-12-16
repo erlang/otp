@@ -30,6 +30,191 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Better error handling in ssh_file. There was some rare
+	    errors when a NFS-mounted file was opened by ssh_file and
+	    then remotely deleted during reading. That caused an
+	    endless loop. </p>
+          <p>
+	    That bug is now fixed.</p>
+          <p>
+	    Own Id: OTP-12699 Aux Id: OTP-11688 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in the compression algorithm
+	    zlib@openssh.com.</p>
+          <p>
+	    Own Id: OTP-12759</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to start more than one daemon with a
+	    file descriptor given in option fd. Each daemon must of
+	    course have a unique file descriptor.</p>
+          <p>
+	    Own Id: OTP-12966 Aux Id: seq12945 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug that caused the option <c>dh_gex_limit</c> to
+	    be ignored.</p>
+          <p>
+	    Own Id: OTP-13029</p>
+        </item>
+        <item>
+          <p>
+	    A problem is fixed with the <c>ssh:connect</c> option
+	    <c>pref_public_key_algs</c> specifying user keys.</p>
+          <p>
+	    Own Id: OTP-13158</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Document updates in the ssh reference manual: app doc
+	    file and ssh_connection.</p>
+          <p>
+	    Own Id: OTP-12003</p>
+        </item>
+        <item>
+          <p>
+	    The authorization phase is made stateful to prevent ssh
+	    acting on messages sent in wrong order.</p>
+          <p>
+	    Own Id: OTP-12787</p>
+        </item>
+        <item>
+          <p>
+	    Testcases for bad message lengths and for bad subfield
+	    lengths added.</p>
+          <p>
+	    Own Id: OTP-12792 Aux Id: Codenomicon #5214, 6166 </p>
+        </item>
+        <item>
+          <p>
+	    The 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384' and
+	    'ecdsa-sha2-nistp521' signature algorithms for ssh are
+	    implemented. See RFC 5656.</p>
+          <p>
+	    Own Id: OTP-12936</p>
+        </item>
+        <item>
+          <p>
+	    The crypto algorithms 'aes192-ctr' and 'aes256-ctr' are
+	    implemented. See RFC 4344.</p>
+          <p>
+	    Own Id: OTP-12939</p>
+        </item>
+        <item>
+          <p>
+	    The ciphers and macs AEAD_AES_128_GCM and
+	    AEAD_AES_256_GCM are implemented but not enabled per
+	    default. See the SSH App Reference Manual and RFC5647 for
+	    details.</p>
+          <p>
+	    The ciphers aes128-gcm@openssh.com and
+	    aes256-gcm@openssh.com are also implemented and available
+	    in the default configuration.</p>
+          <p>
+	    Own Id: OTP-13018</p>
+        </item>
+        <item>
+          <p>
+	    The ssh:daemon option dh_gex_groups is extended to read a
+	    user provided ssh moduli file with generator-modulus
+	    pairs. The file is in openssh format.</p>
+          <p>
+	    Own Id: OTP-13052 Aux Id: OTP-13054 </p>
+        </item>
+        <item>
+          <p>
+	    There is now a file (public_key/priv/moduli) which lists
+	    size-generator-modulus triples. The purpose is to give
+	    servers the possibility to select the crypto primes
+	    randomly among a list of pregenerated triples. This
+	    reduces the risk for some attacks on diffie-hellman
+	    negotiation.</p>
+          <p>
+	    See the reference manual for public_key:dh_gex_group/4
+	    where the handling of this is described.</p>
+          <p>
+	    The ssh server (ssh:daemon) uses this.</p>
+          <p>
+	    Own Id: OTP-13054 Aux Id: OTP-13052 </p>
+        </item>
+        <item>
+          <p>
+	    The ssh:daemon option pwdfun now also takes a fun/4. This
+	    enables the user to 1) check userid-password in another
+	    way than the builtin algorithm, 2) implement rate
+	    limiting per user or source IP or IP+Port, and 3)
+	    implement blocking of missbehaving peers.</p>
+          <p>
+	    The old fun/2 still works as previously.</p>
+          <p>
+	    Own Id: OTP-13055 Aux Id: OTP-13053 </p>
+        </item>
+        <item>
+          <p>
+	    There is now a new option to make the server limit the
+	    size range of moduli available for the diffie-hellman
+	    group exchange negotiation. See option <c>
+	    {dh_gex_limits,{Min,Max}}</c> in ssh:daemon/3.</p>
+          <p>
+	    Own Id: OTP-13066</p>
+        </item>
+        <item>
+          <p>
+	    Ecdh key exchange now validates compressed and
+	    uncompressed keys as defined in rfc5656</p>
+          <p>
+	    Own Id: OTP-13067</p>
+        </item>
+        <item>
+          <p>
+	    Search order for the .ssh directory are changed so
+	    <c>$HOME</c> is tried before
+	    <c>init:get_argument(home)</c>.</p>
+          <p>
+	    Own Id: OTP-13109</p>
+        </item>
+        <item>
+          <p>
+	    The sftp receive window handling is optimized so it will
+	    not update the remote end too often. This makes "sftp
+	    mget" considerable faster.</p>
+          <p>
+	    Own Id: OTP-13130</p>
+        </item>
+        <item>
+          <p>
+	    The option <c>key_cb</c> is extended to take an optional
+	    list that is passed to the callback module as an option.
+	    With this it is possible to have different keys depending
+	    on which host that is connected. Another possibility is
+	    to write a callback module that fetches keys etc from a
+	    database.</p>
+          <p>
+	    Thanks to Vipin Nair.</p>
+          <p>
+	    Own Id: OTP-13156</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.1.3</title>
 
     <section><title>Known Bugs and Problems</title>

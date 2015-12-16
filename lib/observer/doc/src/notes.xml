@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Show ets owner pid in crashdump viewers popup window,
+	    thanks Leo Liu.</p>
+          <p>
+	    Own Id: OTP-13030</p>
+        </item>
+        <item>
+          <p>
+	    Several initialisms (eg, ERTS, ETS, SMP) are used as
+	    headings. They were being capitalized incorrectly.</p>
+          <p>
+	    Own Id: OTP-13044</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a crash in crashdump viewer when dump contained a
+	    truncated binary.</p>
+          <p>
+	    Own Id: OTP-13163</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

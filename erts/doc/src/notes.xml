@@ -32,6 +32,111 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory corruption bug caused by disabling
+	    distribution and then re-enable distribution with a node
+	    name that has previously been used by a remote node.</p>
+          <p>
+	    Own Id: OTP-13076 Aux Id: seq12959 </p>
+        </item>
+        <item>
+          <p>
+	    Renamed variables with name bool as Visual Studio 2015
+	    now treats this is a keyword.</p>
+          <p>
+	    Own Id: OTP-13079</p>
+        </item>
+        <item>
+	    <p><c>erl_prim_loader</c> has not supported custom
+	    loaders for several releases. In the documentation for
+	    <c>erl_prim_loader</c>, all references to custom loaders
+	    have now been removed.</p>
+          <p>
+	    Own Id: OTP-13102</p>
+        </item>
+        <item>
+          <p>
+	    Fixed compilation of erts together with libc versions
+	    that do not define __uint32_t.</p>
+          <p>
+	    Own Id: OTP-13105</p>
+        </item>
+        <item>
+          <p>
+	    erl -make now returns non-zero exit codes on failure</p>
+          <p>
+	    Own Id: OTP-13107</p>
+        </item>
+        <item>
+          <p>
+	    Fix crash on init:restart in embedded mode caused by
+	    on_load handler process not being relaunched leading to
+	    load failure for modules such as crypto and asn1rt_nif
+	    that need it to be present for correct NIF loading.</p>
+          <p>
+	    Own Id: OTP-13115</p>
+        </item>
+        <item>
+          <p>
+	    Fix maps decode in erlang:binary_to_term/1</p>
+	    <p>Decoding a term with a large (HAMT) map in an small
+	    (FLAT) map could cause a critical error if the external
+	    format was not produced by beam.</p>
+          <p>
+	    Own Id: OTP-13125</p>
+        </item>
+        <item>
+          <p>
+	    Fix very rare bug in GC when big maps with a lot of hash
+	    collisions from a remote node are waiting in inner
+	    message queue.</p>
+          <p>
+	    Own Id: OTP-13146</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug that could cause a crash dump to become
+	    almost empty.</p>
+          <p>
+	    Own Id: OTP-13150</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Updated the xmllint target to just check the xml
+	    files with real documentation content.<br/> Corrected
+	    some errors and added some missing target in the DTD's.
+	    </p>
+          <p>
+	    Own Id: OTP-13026</p>
+        </item>
+        <item>
+          <p>
+	    Add function enif_getenv to read OS environment variables
+	    in a portable way from NIFs.</p>
+          <p>
+	    Own Id: OTP-13147</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

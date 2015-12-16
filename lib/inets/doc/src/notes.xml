@@ -33,7 +33,72 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.0.3</title>
+  <section><title>Inets 6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replace obs-folds with spaces instead of failing</p>
+          <p>
+	    Own Id: OTP-13069</p>
+        </item>
+        <item>
+          <p>
+	    Add validation fun for URI scheme to http_uri API</p>
+          <p>
+	    Own Id: OTP-13071</p>
+        </item>
+        <item>
+          <p>
+	    Handle stream bodies as documented.</p>
+          <p>
+	    Own Id: OTP-13093</p>
+        </item>
+        <item>
+          <p>
+	    Correct error handling of mod_esi generated chunks. Send
+	    warning headers in chunk trailers instead of generating
+	    an unexpected additional 500 request response, when
+	    problems, such as a timeout occurs.</p>
+          <p>
+	    Own Id: OTP-13110</p>
+        </item>
+        <item>
+          <p>
+	    HTTP client terminates gracefully when an invalid chunked
+	    length header is encountered.</p>
+          <p>
+	    Own Id: OTP-13117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add default for SNI (Server Name Indication) when running
+	    https using the inets HTTP-client.</p>
+          <p>
+	    Own Id: OTP-12985</p>
+        </item>
+        <item>
+          <p>
+	    Be forgiving to chunked sizes that have trailing
+	    whitespaces as prior implementation was. Also some legacy
+	    embedded devices does actually have trailing whitespaces
+	    even though this in not according to the spec.</p>
+          <p>
+	    Own Id: OTP-13116</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
