@@ -30,8 +30,7 @@
 	 upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
-	 load_cached/1, start_node_with_cache/1, add_and_rehash/1,
-	 where_is_file_cached/1, where_is_file_no_cache/1,
+	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
@@ -56,9 +55,8 @@ all() ->
      load_binary, dir_req, object_code, set_path_file,
      upgrade,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
-     ext_mod_dep, clash, load_cached, start_node_with_cache,
-     add_and_rehash, where_is_file_no_cache,
-     where_is_file_cached, purge_stacktrace, mult_lib_roots,
+     ext_mod_dep, clash, where_is_file,
+     purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
      big_boot_embedded, native_early_modules, get_mode].
@@ -904,140 +902,7 @@ uniq([H|T],A) ->
     uniq(T,[H|A]).
 
 
-load_cached(suite) ->
-    [];
-load_cached(doc) ->
-    [];
-load_cached(Config) when is_list(Config) ->
-    Priv = ?config(priv_dir, Config),
-    WD = filename:dirname(code:which(?MODULE)),
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-pa \"" ++ WD ++ "\""},
-					      {erl, [this]}]),
-    CCTabCreated = fun(Tab) ->
-			   case ets:info(Tab, name) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    Tabs = rpc:call(Node, ets, all, []),
-    case rpc:call(Node, lists, any, [CCTabCreated,Tabs]) of
-	true ->
-	    ?t:stop_node(Node),
-	    ?t:fail("Code cache should not be active!");
-	false ->
-	    ok
-    end,
-    rpc:call(Node, code, del_path, [Priv]),
-    rpc:call(Node, code, add_pathz, [Priv]),
-
-    FullModName = Priv ++ "/code_cache_test",
-    {ok,Dev} = file:open(FullModName ++ ".erl", [write]),
-    io:format(Dev, "-module(code_cache_test). -export([a/0]). a() -> ok.~n", []),
-    ok = file:close(Dev),
-    {ok,code_cache_test} = compile:file(FullModName, [{outdir,Priv}]),
-
-    F = fun load_loop/2,
-    N = 1000,
-    {T0,T1} = rpc:call(Node, erlang, apply, [F, [N,code_cache_test]]),
-    TNoCache = now_diff(T1, T0),
-    rpc:call(Node, code, rehash, []),
-    {T2,T3} = rpc:call(Node, erlang, apply, [F, [N,code_cache_test]]),
-    TCache = now_diff(T3, T2),
-    AvgNoCache = TNoCache/N,
-    AvgCache = TCache/N,
-    io:format("Avg. load time (no_cache/cache): ~w/~w~n", [AvgNoCache,AvgCache]),
-    ?t:stop_node(Node),
-    if AvgNoCache =< AvgCache ->
-	    ?t:fail("Cache not working properly.");
-       true ->
-	    ok
-    end.
-
-load_loop(N, M) ->
-    load_loop(N, M, now()).
-load_loop(0, _M, T0) ->
-    {T0,now()};
-load_loop(N, M, T0) ->
-    code:load_file(M),
-    code:delete(M),
-    code:purge(M),
-    load_loop(N-1, M, T0).
-
-now_diff({A2, B2, C2}, {A1, B1, C1}) ->
-    ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
-
-start_node_with_cache(suite) ->
-    [];
-start_node_with_cache(doc) ->
-    [];
-start_node_with_cache(Config) when is_list(Config) ->
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-code_path_cache"},
-					      {erl, [this]}]),
-    Tabs = rpc:call(Node, ets, all, []),
-    io:format("Tabs: ~w~n", [Tabs]),
-    CCTabCreated = fun(Tab) ->
-			   case rpc:call(Node, ets, info, [Tab,name]) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    true = lists:any(CCTabCreated, Tabs),
-    ?t:stop_node(Node),
-    ok.
-
-add_and_rehash(suite) ->
-    [];
-add_and_rehash(doc) ->
-    [];
-add_and_rehash(Config) when is_list(Config) ->
-    Priv = ?config(priv_dir, Config),
-    WD = filename:dirname(code:which(?MODULE)),
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-pa \"" ++ WD ++ "\""},
-					      {erl, [this]}]),
-    CCTabCreated = fun(Tab) ->
-			   case ets:info(Tab, name) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    Tabs0 = rpc:call(Node, ets, all, []),
-    case rpc:call(Node, lists, any, [CCTabCreated,Tabs0]) of
-	true ->
-	    ?t:stop_node(Node),
-	    ?t:fail("Code cache should not be active!");
-	false ->
-	    ok
-    end,
-    ok = rpc:call(Node, code, rehash, []),	             % create cache
-    Tabs1 = rpc:call(Node, ets, all, []),
-    true = rpc:call(Node, lists, any, [CCTabCreated,Tabs1]), % cache table created
-    ok = rpc:call(Node, code, rehash, []),
-    OkDir = filename:join(Priv, ""),
-    BadDir = filename:join(Priv, "guggemuffsussiputt"),
-    CP = [OkDir | rpc:call(Node, code, get_path, [])],
-    true = rpc:call(Node, code, set_path, [CP]),
-    CP1 = [BadDir | CP],
-    {error,_} = rpc:call(Node, code, set_path, [CP1]),
-    true = rpc:call(Node, code, del_path, [OkDir]),
-    true = rpc:call(Node, code, add_path, [OkDir]),
-    true = rpc:call(Node, code, add_path, [OkDir]),
-    {error,_} = rpc:call(Node, code, add_path, [BadDir]),
-    ok = rpc:call(Node, code, rehash, []),
-
-    ?t:stop_node(Node),
-    ok.
-
-where_is_file_no_cache(suite) ->
-    [];
-where_is_file_no_cache(doc) ->
-    [];
-where_is_file_no_cache(Config) when is_list(Config) ->
+where_is_file(Config) when is_list(Config) ->
     {T,KernelBeamFile} = timer:tc(code, where_is_file, ["kernel.beam"]),
     io:format("Load time: ~w ms~n", [T]),
     KernelEbinDir = filename:dirname(KernelBeamFile),
@@ -1045,35 +910,6 @@ where_is_file_no_cache(Config) when is_list(Config) ->
     AppFile = code:where_is_file("kernel.app"),
     non_existing = code:where_is_file("kernel"), % no such file
     ok.
-
-where_is_file_cached(suite) ->
-    [];
-where_is_file_cached(doc) ->
-    [];
-where_is_file_cached(Config) when is_list(Config) ->
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-code_path_cache"},
-					      {erl, [this]}]),
-    Tabs = rpc:call(Node, ets, all, []),
-    io:format("Tabs: ~w~n", [Tabs]),
-    CCTabCreated = fun(Tab) ->
-			   case rpc:call(Node, ets, info, [Tab,name]) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    true = lists:any(CCTabCreated, Tabs),
-    KernelBeamFile = rpc:call(Node, code, where_is_file, ["kernel.beam"]),
-    {T,KernelBeamFile} = rpc:call(Node, timer, tc, [code,where_is_file,["kernel.beam"]]),
-    io:format("Load time: ~w ms~n", [T]),
-    KernelEbinDir = rpc:call(Node, filename, dirname, [KernelBeamFile]),
-    AppFile = rpc:call(Node, filename, join, [KernelEbinDir,"kernel.app"]),
-    AppFile = rpc:call(Node, code, where_is_file, ["kernel.app"]),
-    non_existing = rpc:call(Node, code, where_is_file, ["kernel"]), % no such file
-    ?t:stop_node(Node),
-    ok.
-
 
 purge_stacktrace(suite) ->
     [];
