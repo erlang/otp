@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1489,11 +1489,16 @@ type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
 type_preop_prec('#') -> {700,800}.
 
+-type erl_parse_tree() :: abstract_clause()
+                        | abstract_expr()
+                        | abstract_form()
+                        | abstract_type().
+
 -spec map_anno(Fun, Abstr) -> NewAbstr when
       Fun :: fun((Anno) -> Anno),
       Anno :: erl_anno:anno(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 map_anno(F0, Abstr) ->
     F = fun(A, Acc) -> {F0(A), Acc} end,
@@ -1506,8 +1511,8 @@ map_anno(F0, Abstr) ->
       Acc0 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 fold_anno(F0, Acc0, Abstr) ->
     F = fun(A, Acc) -> {A, F0(A, Acc)} end,
@@ -1521,26 +1526,26 @@ fold_anno(F0, Acc0, Abstr) ->
       Acc1 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 mapfold_anno(F, Acc0, Abstr) ->
     modify_anno1(Abstr, Acc0, F).
 
 -spec new_anno(Term) -> Abstr when
       Term :: term(),
-      Abstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree().
 
 new_anno(Term) ->
     map_anno(fun erl_anno:new/1, Term).
 
 -spec anno_to_term(Abstr) -> term() when
-      Abstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree().
 
 anno_to_term(Abstract) ->
     map_anno(fun erl_anno:to_term/1, Abstract).
 
--spec anno_from_term(Term) -> abstract_form() | abstract_expr() when
+-spec anno_from_term(Term) -> erl_parse_tree() when
       Term :: term().
 
 anno_from_term(Term) ->

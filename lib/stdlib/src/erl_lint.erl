@@ -696,7 +696,12 @@ set_form_file({function,L,N,A,C}, File) ->
 set_form_file(Form, _File) ->
     Form.
 
+set_file(Ts, File) when is_list(Ts) ->
+    [anno_set_file(T, File) || T <- Ts];
 set_file(T, File) ->
+    anno_set_file(T, File).
+
+anno_set_file(T, File) ->
     F = fun(Anno) -> erl_anno:set_file(File, Anno) end,
     erl_parse:map_anno(F, T).
 
