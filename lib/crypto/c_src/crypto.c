@@ -1359,6 +1359,7 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
                            key.data, ivec_size ? ivec.data : NULL, -1) ||
         !EVP_CIPHER_CTX_set_padding(&ctx, 0)) {
 
+        EVP_CIPHER_CTX_cleanup(&ctx);
         return enif_raise_exception(env, atom_notsup);
     }
 
@@ -1620,44 +1621,62 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In) */
 #if defined(HAVE_GCM)
-    GCM128_CONTEXT *ctx = NULL;
+    EVP_CIPHER_CTX ctx;
+    const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
-    AES_KEY aes_key;
-    unsigned char *outp;
+    unsigned char *outp, *tagp;
     ERL_NIF_TERM out, out_tag;
+    int len;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| (key.size != 16 && key.size != 24 && key.size != 32)
 	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
 	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
 	return enif_make_badarg(env);
     }
 
-    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
-	return atom_error;
+    if (key.size == 16)
+        cipher = EVP_aes_128_gcm();
+    else if (key.size == 24)
+        cipher = EVP_aes_192_gcm();
+    else if (key.size == 32)
+        cipher = EVP_aes_256_gcm();
 
-    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
-	goto out_err;
+    if (EVP_EncryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
+
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_EncryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_EncryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    /* encrypt */
-    if (CRYPTO_gcm128_encrypt(ctx, in.data, outp, in.size))
-	goto out_err;
+    if (EVP_EncryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_EncryptFinal_ex(&ctx, outp+len, &len) != 1)
+        goto out_err;
 
-    /* calculate the tag */
-    CRYPTO_gcm128_tag(ctx, enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag), EVP_GCM_TLS_TAG_LEN);
-    CRYPTO_gcm128_release(ctx);
+    tagp = enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag);
+
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, EVP_GCM_TLS_TAG_LEN, tagp) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_cleanup(&ctx);
 
     CONSUME_REDS(env, in);
 
     return enif_make_tuple2(env, out, out_tag);
 
 out_err:
-    CRYPTO_gcm128_release(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
     return atom_error;
 
 #else
@@ -1668,14 +1687,15 @@ out_err:
 static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_GCM)
-    GCM128_CONTEXT *ctx;
+    EVP_CIPHER_CTX ctx;
+    const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
-    AES_KEY aes_key;
     unsigned char *outp;
     ERL_NIF_TERM out;
+    int len;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| (key.size != 16 && key.size != 24 && key.size != 32)
 	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
 	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
@@ -1683,32 +1703,43 @@ static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	return enif_make_badarg(env);
     }
 
-    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
-	return atom_error;
+    if (key.size == 16)
+        cipher = EVP_aes_128_gcm();
+    else if (key.size == 24)
+        cipher = EVP_aes_192_gcm();
+    else if (key.size == 32)
+        cipher = EVP_aes_256_gcm();
 
-    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
-	goto out_err;
+    if (EVP_DecryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_DecryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_DecryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    /* decrypt */
-    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
-	    goto out_err;
+    if (EVP_DecryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, EVP_GCM_TLS_TAG_LEN, tag.data) != 1)
+        goto out_err;
+    if (EVP_DecryptFinal_ex(&ctx, outp+len, &len) != 1)
+        goto out_err;
 
-    /* calculate and check the tag */
-    if (CRYPTO_gcm128_finish(ctx, tag.data, EVP_GCM_TLS_TAG_LEN))
-	    goto out_err;
+    EVP_CIPHER_CTX_cleanup(&ctx);
 
-    CRYPTO_gcm128_release(ctx);
     CONSUME_REDS(env, in);
 
     return out;
 
 out_err:
-    CRYPTO_gcm128_release(ctx);
+    EVP_CIPHER_CTX_cleanup(&ctx);
     return atom_error;
+
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
