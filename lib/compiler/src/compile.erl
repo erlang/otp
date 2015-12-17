@@ -40,6 +40,8 @@
 
 %%----------------------------------------------------------------------
 
+-type abstract_code() :: [erl_parse:abstract_form()].
+
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
 -type err_info() :: {erl_anno:line() | 'none',
@@ -48,6 +50,9 @@
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
+                  | {'ok',                            %% with option 'to_pp'
+                     module() | [],                   %% module() if 'to_exp'
+                     abstract_code()}
                   | {'ok', module(), warnings()}.
 -type bin_ret()  :: {'ok', module(), binary()}
                   | {'ok', module(), binary(), warnings()}.
@@ -78,7 +83,11 @@ file(File, Opts) when is_list(Opts) ->
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
-forms(File) -> forms(File, ?DEFAULT_OPTIONS).
+-spec forms(abstract_code()) -> comp_ret().
+
+forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
+
+-spec forms(abstract_code(), [option()] | option()) -> comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -105,6 +114,8 @@ noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
 noenv_file(File, Opt) ->
     noenv_file(File, [Opt|?DEFAULT_OPTIONS]).
+
+-spec noenv_forms(abstract_code(), [option()] | option()) -> comp_ret().
 
 noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
