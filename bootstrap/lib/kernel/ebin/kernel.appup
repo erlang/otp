@@ -16,11 +16,11 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"4.1",
+{"4.1.1",
  %% Up from - max one major revision back
- [{<<"4\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},      % OTP-18.0.*
+ [{<<"4\\.[0-1](\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-18.*
   {<<"3\\.[0-2](\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-17
  %% Down to - max one major revision back
- [{<<"4\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},      % OTP-18.0.*
+ [{<<"4\\.[0-1](\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-18.*
   {<<"3\\.[0-2](\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-17
 }.
