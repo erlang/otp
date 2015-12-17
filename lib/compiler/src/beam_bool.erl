@@ -142,11 +142,6 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		throw:not_boolean_expr ->
  		    failed;
 
-		%% The block contains a 'move' instruction that could
-		%% not be handled.
-		throw:move ->
- 		    failed;
-
 		%% The optimization is not safe. (A register
 		%% used by the instructions following the
 		%% optimized code is either not assigned a
@@ -215,37 +210,14 @@ ensure_opt_safe(Bl, NewCode, OldIs, Fail, PrecedingCode, St) ->
 	false -> throw(all_registers_not_killed);
 	true -> ok
     end,
-    Same = assigned_same_value(Bl, NewCode),
     MustBeUnused = ordsets:subtract(ordsets:union(NotSet, NewDst),
-				    ordsets:union(MustBeKilled, Same)),
+				    MustBeKilled),
     case none_used(MustBeUnused, OldIs, Fail, St) of
 	false -> throw(registers_used);
 	true -> ok
     end,
     ok.
 
-%% assigned_same_value(OldCode, NewCodeReversed) -> [DestinationRegs]
-%%  Return an ordset with a list of all y registers that are always
-%%  assigned the same value in the old and new code. Currently, we
-%%  are very conservative in that we only consider identical move
-%%  instructions in the same order.
-%%
-assigned_same_value(Old, New) ->
-    case reverse(New) of
-	[{block,Bl}|_] ->
-	    assigned_same_value(Old, Bl, []);
-	_ ->
-	    ordsets:new()
-    end.
-
-assigned_same_value([{set,[{y,_}=D],[S],move}|T1],
-		    [{set,[{y,_}=D],[S],move}|T2], Acc) ->
-    assigned_same_value(T1, T2, [D|Acc]);
-assigned_same_value(_, _, Acc) ->
-    ordsets:from_list(Acc).
-
-update_fail_label([{set,_,_,move}=I|Is], Fail, Acc) ->
-    update_fail_label(Is, Fail, [I|Acc]);
 update_fail_label([{set,Ds,As,{bif,N,{f,_}}}|Is], Fail, Acc) ->
     update_fail_label(Is, Fail, [{set,Ds,As,{bif,N,{f,Fail}}}|Acc]);
 update_fail_label([{set,Ds,As,{alloc,Regs,{gc_bif,N,{f,_}}}}|Is], Fail, Acc) ->
@@ -314,8 +286,6 @@ split_block_1(Is, Fail, ProhibitFailLabel) ->
 	    end
     end.
 
-split_block_2([{set,_,_,move}=I|Is], Fail, Acc) ->
-    split_block_2(Is, Fail, [I|Acc]);
 split_block_2([{set,[_],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
     split_block_2(Is, Fail, [I|Acc]);
 split_block_2([{set,[_],_,{alloc,_,{gc_bif,_,{f,Fail}}}}=I|Is], Fail, Acc) ->
@@ -342,8 +312,6 @@ dst_regs([{block,Bl}|Is], Acc) ->
 dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
-    dst_regs(Is, [D|Acc]);
-dst_regs([{set,[D],_,move}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);
@@ -411,13 +379,6 @@ bopt_tree([{protected,[Dst],Code,_}|Is], Forest0, Pre) ->
         _Res ->
             throw(not_boolean_expr)
     end;
-bopt_tree([{set,[Dst],[Src],move}=Move|Is], Forest, Pre) ->
-    case {Src,Dst} of
-	{{tmp,_},_} -> throw(move);
-	{_,{tmp,_}} -> throw(move);
-	_ -> ok
-    end,
-    bopt_tree(Is, Forest, [Move|Pre]);
 bopt_tree([{set,[Dst],As,{bif,N,_}}=Bif|Is], Forest0, Pre) ->
     Ar = length(As),
     case safe_bool_op(N, Ar) of
@@ -589,10 +550,6 @@ free_variables(Is) ->
     E = gb_sets:empty(),
     free_vars_1(Is, E, E, E).
 
-free_vars_1([{set,Ds,As,move}|Is], F0, N0, A) ->
-    F = gb_sets:union(F0, gb_sets:difference(var_list(As), N0)),
-    N = gb_sets:union(N0, var_list(Ds)),
-    free_vars_1(Is, F, N, A);
 free_vars_1([{set,Ds,As,{bif,_,_}}|Is], F0, N0, A) ->
     F = gb_sets:union(F0, gb_sets:difference(var_list(As), N0)),
     N = gb_sets:union(N0, var_list(Ds)),
@@ -632,8 +589,6 @@ free_vars_regs(X) -> [{x,X-1}|free_vars_regs(X-1)].
 rename_regs(Is, Regs) ->
     rename_regs(Is, Regs, []).
 
-rename_regs([{set,_,_,move}=I|Is], Regs, Acc) ->
-    rename_regs(Is, Regs, [I|Acc]);
 rename_regs([{set,[Dst0],Ss0,{alloc,_,Info}}|Is], Regs0, Acc) ->
     Live = live_regs(Regs0),
     Ss = rename_sources(Ss0, Regs0),
@@ -737,8 +692,7 @@ ssa_assign({x,_}=R, #ssa{sub=Sub0}=Ssa0) ->
 	    Sub1 = gb_trees:update(R, NewReg, Sub0),
 	    Sub = gb_trees:insert(NewReg, NewReg, Sub1),
 	    Ssa#ssa{sub=Sub}
-    end;
-ssa_assign(_, Ssa) -> Ssa.
+    end.
 
 ssa_sub_list(List, Sub) ->
     [ssa_sub(E, Sub) || E <- List].
