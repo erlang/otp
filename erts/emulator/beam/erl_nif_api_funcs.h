@@ -169,6 +169,8 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_unique_integer, (ErlNifEnv *env, E
 ERL_NIF_API_FUNC_DECL(int, enif_is_process_alive, (ErlNifEnv *env, ErlNifPid *pid));
 ERL_NIF_API_FUNC_DECL(int, enif_is_port_alive, (ErlNifEnv *env, ErlNifPort *port_id));
 ERL_NIF_API_FUNC_DECL(int, enif_get_local_port, (ErlNifEnv* env, ERL_NIF_TERM, ErlNifPort* port_id));
+ERL_NIF_API_FUNC_DECL(int, enif_term_to_binary, (ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin));
+ERL_NIF_API_FUNC_DECL(int, enif_binary_to_term, (ErlNifEnv *env, ErlNifBinary *bin, ERL_NIF_TERM *term));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -330,6 +332,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_is_process_alive ERL_NIF_API_FUNC_MACRO(enif_is_process_alive)
 #  define enif_is_port_alive ERL_NIF_API_FUNC_MACRO(enif_is_port_alive)
 #  define enif_get_local_port ERL_NIF_API_FUNC_MACRO(enif_get_local_port)
+#  define enif_term_to_binary ERL_NIF_API_FUNC_MACRO(enif_term_to_binary)
+#  define enif_binary_to_term ERL_NIF_API_FUNC_MACRO(enif_binary_to_term)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

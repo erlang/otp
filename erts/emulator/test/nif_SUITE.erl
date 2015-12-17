@@ -44,7 +44,8 @@
 	 nif_nan_and_inf/1, nif_atom_too_long/1,
 	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1,
          nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1,
-         nif_is_process_alive/1, nif_is_port_alive/1
+         nif_is_process_alive/1, nif_is_port_alive/1,
+         nif_term_to_binary/1, nif_binary_to_term/1
 	]).
 
 -export([many_args_100/100]).
@@ -77,7 +78,8 @@ all() ->
      nif_exception, nif_nan_and_inf, nif_atom_too_long,
      nif_monotonic_time, nif_time_offset, nif_convert_time_unit,
      nif_now_time, nif_cpu_time, nif_unique_integer,
-     nif_is_process_alive, nif_is_port_alive
+     nif_is_process_alive, nif_is_port_alive,
+     nif_term_to_binary, nif_binary_to_term
     ].
 
 init_per_testcase(_Case, Config) ->
@@ -1958,6 +1960,23 @@ nif_is_port_alive(Config) ->
     port_close(Port),
     false = is_port_alive_nif(Port).
 
+nif_term_to_binary(Config) ->
+    ensure_lib_loaded(Config),
+    T = {#{ok => nok}, <<0:8096>>, lists:seq(1,100)},
+    Bin = term_to_binary(T),
+    ct:log("~p",[Bin]),
+    Bin = term_to_binary_nif(T, undefined),
+    true = term_to_binary_nif(T, self()),
+    receive Bin -> ok end.
+
+nif_binary_to_term(Config) ->
+    ensure_lib_loaded(Config),
+    T = {#{ok => nok}, <<0:8096>>, lists:seq(1,100)},
+    Bin = term_to_binary(T),
+    T = binary_to_term_nif(Bin, undefined),
+    true = binary_to_term_nif(Bin, self()),
+    receive T -> ok end.
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -2018,6 +2037,8 @@ call_nif_atom_too_long(_) -> ?nif_stub.
 unique_integer_nif(_) -> ?nif_stub.
 is_process_alive_nif(_) -> ?nif_stub.
 is_port_alive_nif(_) -> ?nif_stub.
+term_to_binary_nif(_, _) -> ?nif_stub.
+binary_to_term_nif(_, _) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

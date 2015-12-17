@@ -655,6 +655,18 @@ typedef enum {
       have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       </p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_binary_to_term(ErlNifEnv *env, ErlNifBinary *bin, ERL_NIF_TERM *term)</nametext></name>
+    <fsummary>Convert a term from the external format</fsummary>
+    <desc>
+      <p>Returns a term that is the result of decoding <c>bin</c>
+      according to the Erlang external term format.</p>
+      <p>See also:</p>
+      <list>
+        <item><seealso marker="erlang#binary_to_term-1"><c>erlang:binary_to_term/1</c></seealso></item>
+        <item><seealso marker="#enif_term_to_binary"><c>enif_term_to_binary</c></seealso></item>
+      </list>
+    </desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Compare two terms</fsummary>
       <desc><p>Return an integer less than, equal to, or greater than
@@ -1598,6 +1610,18 @@ enif_map_iterator_destroy(env, &amp;iter);
       <fsummary>Get information about the Erlang runtime system</fsummary>
       <desc><p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info</seealso>.
             </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
+    <fsummary>Convert a term to the external format</fsummary>
+    <desc>
+      <p>Returns a binary data object that is the result of encoding <c>term</c>
+      according to the Erlang external term format.</p>
+      <p>See also:</p>
+      <list>
+        <item><seealso marker="erlang#term_to_binary-1"><c>erlang:term_to_binary/1</c></seealso></item>
+        <item><seealso marker="#enif_binary_to_term"><c>enif_binary_to_term</c></seealso></item>
+      </list>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
     <fsummary></fsummary>

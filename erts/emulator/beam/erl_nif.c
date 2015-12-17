@@ -638,6 +638,76 @@ unsigned char* enif_make_new_binary(ErlNifEnv* env, size_t size,
     return binary_bytes(*termp);
 }
 
+int enif_term_to_binary(ErlNifEnv *dst_env, ERL_NIF_TERM term,
+                        ErlNifBinary *bin)
+{
+    Sint size;
+    byte *bp;
+    Binary* refbin;
+
+    size = erts_encode_ext_size(term);
+    if (!enif_alloc_binary(size, bin))
+        return 0;
+
+    refbin = bin->ref_bin;
+
+    bp = bin->data;
+
+    erts_encode_ext(term, &bp);
+
+    bin->size = bp - bin->data;
+    refbin->orig_size = bin->size;
+
+    ASSERT(bin->data + bin->size == bp);
+
+    return 1;
+}
+
+int enif_binary_to_term(ErlNifEnv *dst_env, ErlNifBinary *bin,
+                        ERL_NIF_TERM *term)
+{
+    Sint size;
+    ErtsHeapFactory factory;
+
+    if ((size = erts_decode_ext_size(bin->data, bin->size)) < 0)
+        return 0;
+
+    if (size > 0) {
+        byte *bp;
+
+        if (is_internal_pid(dst_env->proc->common.id)) {
+            flush_env(dst_env);
+            erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
+            cache_env(dst_env);
+        } else {
+
+            /* this is guaranteed to create a heap fragment */
+            if (!alloc_heap(dst_env, size))
+                return 0;
+
+            erts_factory_heap_frag_init(&factory, dst_env->heap_frag);
+        }
+
+        bp = bin->data;
+        *term = erts_decode_ext(&factory, &bp);
+
+        if (is_non_value(*term)) {
+            return 0;
+        }
+
+        erts_factory_close(&factory);
+    }
+    else {
+        erts_factory_dummy_init(&factory);
+        *term = erts_decode_ext(&factory, &bin->data);
+        if (is_non_value(*term)) {
+            return 0;
+        }
+        ASSERT(is_immed(*term));
+    }
+    return 1;
+}
+
 int enif_is_identical(Eterm lhs, Eterm rhs)
 {
     return EQ(lhs,rhs);
