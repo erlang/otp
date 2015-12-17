@@ -307,8 +307,8 @@ create_boot(Config) ->
 
 is_real_system(KernelVsn, StdlibVsn) ->
     LibDir = code:lib_dir(),
-    filelib:is_dir(filename:join(LibDir, "kernel"++KernelVsn)) andalso
-	filelib:is_dir(filename:join(LibDir, "stdlib"++StdlibVsn)).
+    filelib:is_dir(filename:join(LibDir, "kernel-"++KernelVsn)) andalso
+	filelib:is_dir(filename:join(LibDir, "stdlib-"++StdlibVsn)).
     
 %% ------------------------------------------------
 %% Slave executes erlang:halt() on master nodedown.
