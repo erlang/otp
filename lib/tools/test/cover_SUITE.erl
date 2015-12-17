@@ -778,8 +778,8 @@ distribution_performance(Config) ->
     %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
     %% 	   end,
     CFun = fun() -> cover:compile_beam(Mods) end,
-    {CT,CA} = timer:tc(CFun),
-%    erlang:display(CA),
+    {CT,_CA} = timer:tc(CFun),
+%    erlang:display(_CA),
     erlang:display({compile,CT}),
 
     {SNT,_} = timer:tc(fun() -> {ok,[N1]} = cover:start(nodes()) end),
@@ -799,7 +799,7 @@ distribution_performance(Config) ->
 
 %    Fun = fun() -> cover:reset() end,
 
-    {AT,A} = timer:tc(Fun),
+    {AT,_A} = timer:tc(Fun),
     erlang:display({analyse,AT}),
 %    erlang:display(lists:sort([X || X={_MFA,N} <- lists:append([L || {ok,L}<-A]), N=/=0])),
 
