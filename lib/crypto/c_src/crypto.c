@@ -447,6 +447,9 @@ struct cipher_type_t cipher_types[] =
     {"blowfish_cfb64", &EVP_bf_cfb64},
     {"blowfish_ofb64", &EVP_bf_ofb},
     {"blowfish_ecb", &EVP_bf_ecb},
+    {"aes_cbc", &EVP_aes_128_cbc, 16},
+    {"aes_cbc", &EVP_aes_192_cbc, 24},
+    {"aes_cbc", &EVP_aes_256_cbc, 32},
     {"aes_cbc128", &EVP_aes_128_cbc},
     {"aes_cbc256", &EVP_aes_256_cbc},
     {"aes_cfb8", &EVP_aes_128_cfb8},
@@ -757,6 +760,7 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_DES_ede3_cfb_encrypt
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
 #endif
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
