@@ -2711,7 +2711,6 @@ is_compat_args([A1|Args1], [A2|Args2]) ->
 is_compat_args([], []) -> true;
 is_compat_args(_, _) -> false.
 
-is_compat_arg(A, A) -> true;
 is_compat_arg(A1, A2) ->
   is_specialization(A1, A2) orelse is_specialization(A2, A1).
 
@@ -2722,6 +2721,7 @@ is_compat_arg(A1, A2) ->
 %% any(). For example, {_,_} is a specialization of any(), but not of
 %% tuple(). Does not handle variables, but any() and unions (sort of).
 
+is_specialization(T, T) -> true;
 is_specialization(_, ?any) -> true;
 is_specialization(?any, _) -> false;
 is_specialization(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
@@ -2747,8 +2747,8 @@ is_specialization(?tuple(Elements1, Arity, _),
   specialization_list(Elements1, sup_tuple_elements(List));
 is_specialization(?tuple_set(List1), ?tuple_set(List2)) ->
   try
-    specialization_list(lists:append([T || {_Arity, T} <- List1]),
-                        lists:append([T || {_Arity, T} <- List2]))
+    specialization_list_list([sup_tuple_elements(T) || {_Arity, T} <- List1],
+                             [sup_tuple_elements(T) || {_Arity, T} <- List2])
   catch _:_ -> false
   end;
 is_specialization(?union(List1)=T1, ?union(List2)=T2) ->
@@ -2772,12 +2772,18 @@ is_specialization(T1, ?opaque(_) = T2) ->
   is_specialization(T1, t_opaque_structure(T2));
 is_specialization(?var(_), _) -> exit(error);
 is_specialization(_, ?var(_)) -> exit(error);
-is_specialization(T, T) -> true;
 is_specialization(?none, _) -> false;
 is_specialization(_, ?none) -> false;
 is_specialization(?unit, _) -> false;
 is_specialization(_, ?unit) -> false;
 is_specialization(#c{}, #c{}) -> false.
+
+specialization_list_list(LL1, LL2) ->
+  length(LL1) =:= length(LL2) andalso specialization_list_list1(LL1, LL2).
+
+specialization_list_list1([], []) -> true;
+specialization_list_list1([L1|LL1], [L2|LL2]) ->
+  specialization_list(L1, L2) andalso specialization_list_list1(LL1, LL2).
 
 specialization_list(L1, L2) ->
   length(L1) =:= length(L2) andalso specialization_list1(L1, L2).
