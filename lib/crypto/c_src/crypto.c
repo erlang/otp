@@ -452,6 +452,7 @@ struct cipher_type_t cipher_types[] =
     {"aes_cfb8", &EVP_aes_128_cfb8},
     {"aes_cfb128", &EVP_aes_128_cfb128},
     {"aes_ecb", &EVP_aes_128_ecb, 16},
+    {"aes_ecb", &EVP_aes_192_ecb, 24},
     {"aes_ecb", &EVP_aes_256_ecb, 32},
     {NULL}
 };
