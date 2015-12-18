@@ -277,12 +277,7 @@ no_common_alg_server_disconnects(Config) ->
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
-	   {match,
-	    {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-		   tcp_closed,
-		   {tcp_error,econnaborted}
-		  ]},
-	    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
 
@@ -323,10 +318,7 @@ no_common_alg_client_disconnects(Config) ->
 				     first_kex_packet_follows = false,
 				     reserved = 0
 				    }},
-                     	 {match,
-                     	  {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-                                tcp_closed]},
-                     	  receive_msg}
+			  {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}
 			 ],
 			 InitialState)
 		      }
@@ -437,10 +429,7 @@ bad_service_name_then_correct(Config) ->
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {send, #ssh_msg_service_request{name = "kdjglkfdjgkldfjglkdfjglkfdjglkj"}},
 	   {send, #ssh_msg_service_request{name = "ssh-connection"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	   ], InitialState).
 
 
@@ -450,10 +439,7 @@ bad_service_name(Config, Name) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {send, #ssh_msg_service_request{name = Name}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
@@ -476,11 +462,7 @@ bad_packet_length(Config, LengthExcess) ->
 		   PacketFun}},
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed,
-			  {tcp_error,econnaborted}
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
@@ -509,11 +491,7 @@ bad_service_name_length(Config, LengthExcess) ->
 		   PacketFun} },
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed,
-			  {tcp_error,econnaborted}
-			 ]},
-	    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
     
 %%%================================================================
@@ -644,3 +622,16 @@ connect_and_kex(Config, InitialState) ->
        {match, #ssh_msg_newkeys{_='_'}, receive_msg}
       ],
       InitialState).
+
+%%%----------------------------------------------------------------
+
+%%% For matching peer disconnection
+disconnect() ->
+    disconnect('_').
+
+disconnect(Code) ->
+    {'or',[#ssh_msg_disconnect{code = Code,
+			       _='_'},
+	   tcp_closed,
+	   {tcp_error,econnaborted}
+	  ]}.
