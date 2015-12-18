@@ -765,7 +765,7 @@ erts_send_message(Process* sender,
 	    if (is_immed(DT_UTAG(sender)))
 		utag = DT_UTAG(sender);
 	    else
-		utag = copy_struct(DT_UTAG(sender), dt_utag_size, ohp);
+		utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, ohp);
 #ifdef DTRACE_TAG_HARDDEBUG
 	    erts_fprintf(stderr,
 			 "Dtrace -> (%T) Spreading tag (%T) with "
