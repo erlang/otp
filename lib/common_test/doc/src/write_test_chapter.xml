@@ -740,7 +740,7 @@
     the shuffle property <c>{shuffle,Seed}</c>. This way, the same shuffling
     order can be created every time the group is executed. If no seed value
     is specified, <c>Common Test</c> creates a "random" seed for the shuffling operation 
-    (using the return value of <c>erlang:now()</c>). The seed value is always
+    (using the return value of <c>erlang:timestamp/0</c>). The seed value is always
     printed to the <c>init_per_group/2</c> log file so that it can be used to
     recreate the same execution order in a subsequent test run.</p>
 
@@ -816,17 +816,6 @@
       test suite directory has changed between test suite implementation and
       execution.
     </p>
-
-<!--
-    <p>
-      When using the <c>Common Test</c> framework <c>ct</c>, automatic
-      compilation of code in the data directory can be obtained by
-      placing a makefile source called <c>Makefile.src</c> in the data
-      directory. <c>Makefile.src</c> is converted to a valid makefile by
-      <c>ct</c> when the test suite is run. For details about the syntax 
-      of <c>Makefile.src</c>, see module <seealso marker="ct"><c>ct</c></seealso>.
-    </p>
--->
     <p>
       <c>priv_dir</c> is the private directory for the test cases.
       This directory can be used whenever a test case (or configuration function)

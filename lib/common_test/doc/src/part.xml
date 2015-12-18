@@ -31,8 +31,6 @@
   </header>
   
   <description>
-   <p>The <c>Common Test</c> application is a framework for implementing and performing 
-automatic and semi-automatic execution of test cases.</p>
   </description>
 
   <xi:include href="introduction.xml"/>
