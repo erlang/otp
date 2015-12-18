@@ -72,6 +72,7 @@ erts_handle_canceled_timers(void *vesdp,
 #endif
 
 Uint erts_bif_timer_memory_size(void);
+Uint erts_timer_count(void);
 void erts_print_bif_timer_info(int to, void *to_arg);
 
 void erts_debug_bif_timer_foreach(void (*func)(Eterm,
