@@ -2779,33 +2779,37 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 {
     ErtsMessage* mp = p->msg.first;
 
-    while (mp != NULL) {
-        Eterm mesg = ERL_MESSAGE_TERM(mp);
-	if (is_value(mesg)) {
-	    switch (primary_tag(mesg)) {
-	    case TAG_PRIMARY_LIST:
-	    case TAG_PRIMARY_BOXED:
-		if (ErtsInArea(ptr_val(mesg), area, area_size)) {
-		    ERL_MESSAGE_TERM(mp) = offset_ptr(mesg, offs);
+    if ((p->flags & (F_OFF_HEAP_MSGQ|F_OFF_HEAP_MSGQ_CHNG)) != F_OFF_HEAP_MSGQ) {
+
+	while (mp != NULL) {
+	    Eterm mesg = ERL_MESSAGE_TERM(mp);
+	    if (is_value(mesg)) {
+		switch (primary_tag(mesg)) {
+		case TAG_PRIMARY_LIST:
+		case TAG_PRIMARY_BOXED:
+		    if (ErtsInArea(ptr_val(mesg), area, area_size)) {
+			ERL_MESSAGE_TERM(mp) = offset_ptr(mesg, offs);
+		    }
+		    break;
 		}
-		break;
 	    }
-	}
-	mesg = ERL_MESSAGE_TOKEN(mp);
-	if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
-	    ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
-        }
+	    mesg = ERL_MESSAGE_TOKEN(mp);
+	    if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
+		ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
+	    }
 #ifdef USE_VM_PROBES
-	mesg = ERL_MESSAGE_DT_UTAG(mp);
-	if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
-	    ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
-        }
+	    mesg = ERL_MESSAGE_DT_UTAG(mp);
+	    if (is_boxed(mesg) && ErtsInArea(ptr_val(mesg), area, area_size)) {
+		ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
+	    }
 #endif	
 	
-        ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
-		is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
-		is_atom(ERL_MESSAGE_TOKEN(mp))));
-        mp = mp->next;
+	    ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
+		    is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
+		    is_atom(ERL_MESSAGE_TOKEN(mp))));
+	    mp = mp->next;
+	}
+
     }
 }
 
