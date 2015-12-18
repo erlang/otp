@@ -420,8 +420,8 @@ ssl_options(server, ["server_dhfile", Value|T]) ->
     [{dhfile, Value} | ssl_options(server,T)];
 ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
     [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
-ssl_options(_,_) ->
-    exit(malformed_ssl_dist_opt).
+ssl_options(Type, Opts) ->
+    error(malformed_ssl_dist_opt, [Type, Opts]).
 
 atomize(List) when is_list(List) ->
     list_to_atom(List);
