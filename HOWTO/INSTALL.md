@@ -76,10 +76,10 @@ also find the utilities needed for building the documentation.
     Read more and download from <http://www.openssl.org>.
 *   Oracle Java SE JDK -- The Java Development Kit (Standard Edition).
     Required for building the application `jinterface` and parts of `ic` and `orber`.
-    At least version 1.5.0 of the JDK is required.
+    At least version 1.6.0 of the JDK is required.
 
     Download from <http://www.oracle.com/technetwork/java/javase/downloads>.
-    We have also tested with IBM's JDK 1.5.0.
+    We have also tested with IBM's JDK 1.6.0.
 *   X Windows -- Development headers and libraries are needed
     to build the Erlang/OTP application `gs` on Unix/Linux.
 *   `flex` -- Headers and libraries are needed to build the flex
