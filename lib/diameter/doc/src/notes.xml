@@ -42,6 +42,58 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.9.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix diameter_watchdog function clause.</p>
+          <p>
+	    OTP-12912 introduced an error with accepting transports
+	    setting <c>{restrict_connections, false}</c>, causing
+	    processes to fail when peer connections were terminated.</p>
+          <p>
+	    Own Id: OTP-12969</p>
+        </item>
+        <item>
+          <p>
+	    Fix request table leaks</p>
+          <p>
+	    The End-to-End and Hop-by-Hop identifiers of outgoing
+	    Diameter requests are stored in a table in order for the
+	    caller to be located when the corresponding answer
+	    message is received. Entries were orphaned if the handler
+	    was terminated by an exit signal as a consequence of
+	    actions taken by callback functions, or if callbacks
+	    modified identifiers in retransmission cases.</p>
+          <p>
+	    Own Id: OTP-13137</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add service_opt() strict_mbit.</p>
+          <p>
+	    There are differing opinions on whether or not reception
+	    of an arbitrary AVP setting the M-bit is an error. The
+	    default interpretation is strict: if a command grammar
+	    doesn't explicitly allow an AVP setting the M-bit then
+	    reception of such an AVP is regarded as an error. Setting
+	    <c>{strict_mbit, false}</c> disables this check.</p>
+          <p>
+	    Own Id: OTP-12947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.9.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
