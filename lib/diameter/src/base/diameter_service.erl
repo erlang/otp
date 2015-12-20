@@ -128,6 +128,7 @@
              | {share_peers, diameter:remotes()}       %% broadcast to
              | {use_shared_peers, diameter:remotes()}  %% use from
              | {restrict_connections, diameter:restriction()}
+             | {strict_mbit, boolean()}
              | {string_decode, boolean()}
              | {incoming_maxlen, diameter:message_length()}]}).
 %% shared_peers reflects the peers broadcast from remote nodes.
@@ -697,7 +698,8 @@ service_options(Opts) ->
                                                 ?RESTRICT)},
      {spawn_opt, proplists:get_value(spawn_opt, Opts, [])},
      {string_decode, proplists:get_value(string_decode, Opts, true)},
-     {incoming_maxlen, proplists:get_value(incoming_maxlen, Opts, 16#FFFFFF)}].
+     {incoming_maxlen, proplists:get_value(incoming_maxlen, Opts, 16#FFFFFF)},
+     {strict_mbit, proplists:get_value(strict_mbit, Opts, true)}].
 %% The order of options is significant since we match against the list.
 
 mref(false = No) ->
