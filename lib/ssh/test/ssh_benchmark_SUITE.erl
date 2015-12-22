@@ -37,8 +37,8 @@ all() -> [{group, opensshc_erld}
 	 ].
 
 groups() ->
-    [{opensshc_erld, [{repeat, 3}], [openssh_client_shell]},
-     {erlc_opensshd, [{repeat, 3}], [erl_shell]}
+    [{opensshc_erld, [{repeat, 3}], [openssh_client_shell,
+				     openssh_client_sftp]}
     ].
 
 
@@ -50,7 +50,7 @@ init_per_suite(Config) ->
 	report_client_algorithms(),
 	ok = ssh:start(),
 	{ok,TracerPid} = erlang_trace(),
-	[{tracer_pid,TracerPid} | Config]
+	[{tracer_pid,TracerPid} | init_sftp_dirs(Config)]
     catch
 	C:E ->
 	    {skip, io_lib:format("Couldn't start ~p:~p",[C,E])}
@@ -71,8 +71,12 @@ init_per_group(opensshc_erld, Config) ->
 	    ssh_test_lib:setup_dsa(DataDir, UserDir),
 	    ssh_test_lib:setup_rsa(DataDir, UserDir),
 	    ssh_test_lib:setup_ecdsa("256", DataDir, UserDir),
+	    Common = ssh_test_lib:intersect_bi_dir(
+		       ssh_test_lib:intersection(ssh:default_algorithms(),
+						 ssh_test_lib:default_algorithms(sshc))),
 	    [{c_kexs, ssh_test_lib:sshc(kex)},
-	     {c_ciphers, ssh_test_lib:sshc(cipher)}
+	     {c_ciphers, ssh_test_lib:sshc(cipher)},
+	     {common_algs, Common}
 	     | Config];
 	_ -> 
 	    {skip, "No OpenSsh client found"}
@@ -94,20 +98,21 @@ init_per_testcase(_Func, Conf) ->
 end_per_testcase(_Func, _Conf) ->
     ok.
 
+
+init_sftp_dirs(Config) ->
+    UserDir = ?config(priv_dir, Config),
+    SrcDir = filename:join(UserDir, "sftp_src"),
+    ok = file:make_dir(SrcDir),
+    SrcFile = "big_data",
+    DstDir = filename:join(UserDir, "sftp_dst"),
+    ok = file:make_dir(DstDir),
+    N = 100 * 1024*1024,
+    ok = file:write_file(filename:join(SrcDir,SrcFile), crypto:rand_bytes(N)),
+    [{sftp_src_dir,SrcDir}, {sftp_dst_dir,DstDir}, {src_file,SrcFile}, {sftp_size,N}
+     | Config].
+
 %%%================================================================
 openssh_client_shell(Config) ->
-    CommonAlgs = ssh_test_lib:intersect_bi_dir(
-		   ssh_test_lib:intersection(ssh:default_algorithms(),
-					     ssh_test_lib:default_algorithms(sshc))),
-    KexVariants = 
-	[ [{kex,[Kex]}]
-	  || Kex <- proplists:get_value(kex, CommonAlgs)],
-    CipherVariants = 
-	[ [{cipher,[{client2server,[Cipher]},
-		    {server2client,[Cipher]}]}]
-	  || Cipher <- proplists:get_value(cipher, CommonAlgs)],
-    
-    
     lists:foreach(
       fun(PrefAlgs=[{kex,[Kex]}]) when Kex == 'diffie-hellman-group-exchange-sha256' ->
 	      lists:foreach(
@@ -120,7 +125,8 @@ openssh_client_shell(Config) ->
 	 (PrefAlgs) -> 
 	      openssh_client_shell(Config, 
 				   [{preferred_algorithms, PrefAlgs}])
-      end, KexVariants ++ CipherVariants).
+      end, variants(kex,Config) ++ variants(cipher,Config)
+     ).
     
 
 openssh_client_shell(Config, Options) ->
@@ -151,7 +157,7 @@ openssh_client_shell(Config, Options) ->
 	{SlavePid, _ClientResponse} ->
 %%	    ct:pal("ClientResponse = ~p",[_ClientResponse]),
 	    {ok, List} = get_trace_list(TracerPid),
-	    Times = find_times(List),
+	    Times = find_times(List, [accept_to_hello, kex, kex_to_auth, auth, to_prompt]),
 	    Algs = find_algs(List),
 	    ct:pal("Algorithms = ~p~n~nTimes = ~p",[Algs,Times]),
 	    lists:foreach(
@@ -189,6 +195,95 @@ openssh_client_shell(Config, Options) ->
 
 
 %%%================================================================
+openssh_client_sftp(Config) ->
+    lists:foreach(
+      fun(PrefAlgs) -> 
+	      openssh_client_sftp(Config, [{preferred_algorithms,PrefAlgs}])
+      end, variants(cipher,Config)).
+
+
+openssh_client_sftp(Config, Options) ->
+    SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    SftpSrcDir = ?config(sftp_src_dir, Config),
+    SrcFile = ?config(src_file, Config),
+    SrcSize = ?config(sftp_size, Config),
+    KnownHosts = filename:join(UserDir, "known_hosts"),
+
+    {ok, TracerPid} = erlang_trace(),
+    {ServerPid, _Host, Port} =
+	ssh_test_lib:daemon([{system_dir, SystemDir},
+			     {public_key_alg, ssh_dsa},
+			     {subsystems,[ssh_sftpd:subsystem_spec([%{cwd,  SftpSrcDir},
+								    {root, SftpSrcDir}])]},
+			     {failfun, fun ssh_test_lib:failfun/2} 
+			     | Options]),
+    ct:sleep(500),
+    Cmd = lists:concat(["sftp",
+			" -b -",
+			" -P ",Port,
+			" -o UserKnownHostsFile=", KnownHosts,
+			" -o \"StrictHostKeyChecking no\"",
+			" localhost:",SrcFile
+		       ]),
+%%    ct:pal("Cmd = ~p",[Cmd]),
+    
+    Parent = self(),
+    SlavePid = spawn(fun() ->
+			     Parent ! {self(),os:cmd(Cmd)}
+		     end),
+    receive
+	{SlavePid, _ClientResponse} ->
+	    ct:pal("ClientResponse = ~p",[_ClientResponse]),
+	    {ok, List} = get_trace_list(TracerPid),
+%%ct:pal("List=~p",[List]),
+	    Times = find_times(List, [channel_open_close]),
+	    Algs = find_algs(List),
+	    ct:pal("Algorithms = ~p~n~nTimes = ~p",[Algs,Times]),
+	    lists:foreach(
+	      fun({{A,B},Value,Unit}) when A==encrypt ; A==decrypt -> 
+		      Data = [{value, Value},
+			      {suite, ?MODULE}, 
+			      {name, mk_name(["Sftp Cipher ",A," ",B," [",Unit,"]"])}
+			     ],
+		      ct:pal("sftp ct_event:notify ~p",[Data]),
+		      ct_event:notify(#event{name = benchmark_data,
+					     data = Data});
+		 ({channel_open_close,Value,Unit}) ->
+		      Data = [{value, round( (1024*Value) / SrcSize )},
+			      {suite, ?MODULE}, 
+			      {name, mk_name(["Sftp transfer [",Unit," per kbyte]"])}
+			     ],
+		      ct:pal("sftp ct_event:notify ~p",[Data]),
+		      ct_event:notify(#event{name = benchmark_data,
+					     data = Data});
+		 (_) ->
+		      skip
+	      end, Times),
+	    ssh:stop_daemon(ServerPid),
+	    ok
+    after 10000 ->
+	    ssh:stop_daemon(ServerPid),
+	    exit(SlavePid, kill),
+	    {fail, timeout}
+    end.
+
+%%%================================================================
+variants(Tag, Config) ->
+    TagType =
+	case proplists:get_value(Tag, ssh:default_algorithms()) of
+	    [{_,_}|_] -> one_way;
+	    [A|_] when is_atom(A) -> two_way
+	end,
+    [ [{Tag,tag_value(TagType,Alg)}]
+      || Alg <- proplists:get_value(Tag, ?config(common_algs,Config))
+    ].
+
+tag_value(two_way, Alg) -> [Alg];
+tag_value(one_way, Alg) -> [{client2server,[Alg]},
+			    {server2client,[Alg]}].
+    
+%%%----------------------------------------------------------------
 fmt_alg(Alg, List) when is_atom(Alg) ->
     fmt_alg(atom_to_list(Alg), List);
 fmt_alg(Alg = "diffie-hellman-group-exchange-sha" ++ _, List) ->
@@ -199,7 +294,7 @@ fmt_alg(Alg = "diffie-hellman-group-exchange-sha" ++ _, List) ->
     catch
 	_:_ -> Alg
     end;
-fmt_alg(Alg, List) ->
+fmt_alg(Alg, _List) ->
     Alg.
 
 %%%----------------------------------------------------------------
@@ -209,8 +304,7 @@ char($-) -> $_;
 char(C) -> C.
 
 %%%----------------------------------------------------------------
-find_times(L) ->
-    Xs =  [accept_to_hello, kex, kex_to_auth, auth, to_prompt],
+find_times(L, Xs) ->
     [find_time(X,L) || X <- Xs]	++
 	crypto_algs_times_sizes([encrypt,decrypt], L).
 
@@ -268,7 +362,13 @@ find_time(to_prompt, L) ->
 		    end,
 		    ?recv(#ssh_msg_channel_request{request_type="env"})
 		   ], L, []),
-    {to_prompt, now2micro_sec(now_diff(T1,T0)), microsec}.
+    {to_prompt, now2micro_sec(now_diff(T1,T0)), microsec};
+find_time(channel_open_close, L) ->
+    [T0,T1] = find([?recv(#ssh_msg_channel_request{request_type="subsystem"}),
+		    ?send(#ssh_msg_channel_close{})
+		   ], L, []),
+    {channel_open_close, now2micro_sec(now_diff(T1,T0)), microsec}.
+ 
 
 
 find([F|Fs], [C|Cs], Acc) when is_function(F,1) ->
