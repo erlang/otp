@@ -1,6 +1,6 @@
 {suites,"../ssh_test",all}.
 {skip_cases, "../ssh_test",
-    ssl_benchmark_SUITE, [openssh_shell,erl_shell],
+    ssh_benchmark_SUITE, [openssh_shell,erl_shell],
     "Benchmarks run separately"}.
 {skip_cases,"../ssh_test",ssh_ssh_SUITE,
             [ssh],
