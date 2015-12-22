@@ -208,7 +208,7 @@ stop_transport(SvcName, [_|_] = Refs) ->
 
 info(SvcName, Item) ->
     case lookup_state(SvcName) of
-        [#state{} = S] ->
+        [S] ->
             service_info(Item, S);
         [] ->
             undefined
@@ -217,7 +217,12 @@ info(SvcName, Item) ->
 %% lookup_state/1
 
 lookup_state(SvcName) ->
-    ets:lookup(?STATE_TABLE, SvcName).
+    case ets:lookup(?STATE_TABLE, SvcName) of
+        [#state{}] = L ->
+            L;
+        _ ->
+            []
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # subscribe/1
