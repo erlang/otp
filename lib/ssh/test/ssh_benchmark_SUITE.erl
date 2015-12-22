@@ -250,9 +250,10 @@ openssh_client_sftp(Config, Options) ->
 		      ct_event:notify(#event{name = benchmark_data,
 					     data = Data});
 		 ({channel_open_close,Value,Unit}) ->
+		      Cipher = fmt_alg(Algs#alg.encrypt, List),
 		      Data = [{value, round( (1024*Value) / SrcSize )},
 			      {suite, ?MODULE}, 
-			      {name, mk_name(["Sftp transfer [",Unit," per kbyte]"])}
+			      {name, mk_name(["Sftp transfer ",Cipher," [",Unit," per kbyte]"])}
 			     ],
 		      ct:pal("sftp ct_event:notify ~p",[Data]),
 		      ct_event:notify(#event{name = benchmark_data,
