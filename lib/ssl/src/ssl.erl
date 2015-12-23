@@ -34,7 +34,8 @@
 	 listen/2, transport_accept/1, transport_accept/2,
 	 ssl_accept/1, ssl_accept/2, ssl_accept/3,
 	 controlling_process/2, peername/1, peercert/1, sockname/1,
-	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2, getopts/2, setopts/2
+	 close/1, close/2, shutdown/2, recv/2, recv/3, send/2,
+	 getopts/2, setopts/2, getstat/1, getstat/2
 	]).
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, suite_definition/1,
@@ -472,6 +473,32 @@ setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_}}}} = Lis
     end;
 setopts(#sslsocket{}, Options) ->
     {error, {options,{not_a_proplist, Options}}}.
+
+%%---------------------------------------------------------------
+-spec getstat(Socket) ->
+	{ok, OptionValues} | {error, inet:posix()} when
+      Socket :: #sslsocket{},
+      OptionValues :: [{inet:stat_option(), integer()}].
+%%
+%% Description: Get all statistic options for a socket.
+%%--------------------------------------------------------------------
+getstat(Socket) ->
+	getstat(Socket, inet:stats()).
+
+%%---------------------------------------------------------------
+-spec getstat(Socket, Options) ->
+	{ok, OptionValues} | {error, inet:posix()} when
+      Socket :: #sslsocket{},
+      Options :: [inet:stat_option()],
+      OptionValues :: [{inet:stat_option(), integer()}].
+%%
+%% Description: Get one or more statistic options for a socket.
+%%--------------------------------------------------------------------
+getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}, Options) when is_port(Listen), is_list(Options) ->
+    ssl_socket:getstat(Transport, Listen, Options);
+
+getstat(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}, Options) when is_pid(Pid), is_list(Options) ->
+    ssl_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
 -spec shutdown(#sslsocket{}, read | write | read_write) ->  ok | {error, reason()}.
