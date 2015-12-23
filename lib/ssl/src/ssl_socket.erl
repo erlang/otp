@@ -24,7 +24,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([socket/5, setopts/3, getopts/3, peername/2, sockname/2, port/2]).
+-export([socket/5, setopts/3, getopts/3, getstat/3, peername/2, sockname/2, port/2]).
 -export([emulated_options/0, internal_inet_values/0, default_inet_values/0,
 	 init/1, start_link/3, terminate/2, inherit_tracker/3, get_emulated_opts/1, 
 	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
@@ -73,6 +73,11 @@ getopts(gen_tcp, Socket, Options) ->
     inet:getopts(Socket, Options);
 getopts(Transport, Socket, Options) ->
     Transport:getopts(Socket, Options).
+
+getstat(gen_tcp, Socket, Options) ->
+	inet:getstat(Socket, Options);
+getstat(Transport, Socket, Options) ->
+	Transport:getstat(Socket, Options).
 
 peername(gen_tcp, Socket) ->
     inet:peername(Socket);
