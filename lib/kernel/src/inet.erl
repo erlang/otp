@@ -73,7 +73,7 @@
 
 -export_type([address_family/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, posix/0, socket/0,
-              port_number/0]).
+              port_number/0, stat_option/0]).
 
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
