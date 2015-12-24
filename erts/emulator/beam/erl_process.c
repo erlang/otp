@@ -8197,7 +8197,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    process_main();
+    dirty_process_main();
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty CPU scheduler thread number %beu terminated\n",
@@ -8242,7 +8242,7 @@ sched_dirty_io_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    process_main();
+    dirty_process_main();
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty I/O scheduler thread number %beu terminated\n",

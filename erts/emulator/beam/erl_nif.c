@@ -178,8 +178,10 @@ static ERTS_INLINE void ensure_heap(ErlNifEnv* env, size_t may_need)
 void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
                   Process* tracee)
 {
+#ifdef DEBUG
 #ifdef ERTS_DIRTY_SCHEDULERS
     ErtsSchedulerData *esdp;
+#endif
 #endif
     env->mod_nif = mod_nif;
     env->proc = p;
@@ -193,12 +195,12 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 
     ASSERT(p->common.id != ERTS_INVALID_PID);
 
+#ifdef DEBUG
 #ifdef ERTS_DIRTY_SCHEDULERS
     esdp = erts_get_scheduler_data();
     ASSERT(esdp);
 
     if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-#ifdef DEBUG
 	erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
 
 	ASSERT(p->scheduler_data == esdp);
@@ -206,44 +208,57 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 			 | ERTS_PSFLG_RUNNING_SYS))
 	       && !(state & (ERTS_PSFLG_DIRTY_RUNNING
 			     | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
-#endif
-
     }
-    else {
-	Process *sproc;
+#endif
+#endif
+}
+
+void erts_pre_dirty_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
+			Process* tracee)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
 #ifdef DEBUG
-	erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
+    erts_aint32_t state;
+#endif
+    Process *sproc;
+    ErtsSchedulerData *esdp;
+    esdp = erts_get_scheduler_data();
+    ASSERT(esdp);
 
-	ASSERT(!p->scheduler_data);
-	ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
-	       && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
+    erts_pre_nif(env, p, mod_nif, tracee);
+
+#ifdef DEBUG
+    state = erts_smp_atomic32_read_nob(&p->state);
+
+    ASSERT(!p->scheduler_data);
+    ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
+	   && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
 #endif
 
-	sproc = esdp->dirty_shadow_process;
-	ASSERT(sproc);
-	ASSERT(sproc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
-	ASSERT(erts_smp_atomic32_read_nob(&sproc->state)
-	       == (ERTS_PSFLG_ACTIVE
-		   | ERTS_PSFLG_DIRTY_RUNNING
-		   | ERTS_PSFLG_PROXY));
+    sproc = esdp->dirty_shadow_process;
+    ASSERT(sproc);
+    ASSERT(sproc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
+    ASSERT(erts_smp_atomic32_read_nob(&sproc->state)
+	   == (ERTS_PSFLG_ACTIVE
+	       | ERTS_PSFLG_DIRTY_RUNNING
+	       | ERTS_PSFLG_PROXY));
 
-	sproc->next = p;
-	sproc->common.id = p->common.id;
-	sproc->htop = p->htop;
-	sproc->stop = p->stop;
-	sproc->hend = p->hend;
-	sproc->heap = p->heap;
-	sproc->abandoned_heap = p->abandoned_heap;
-	sproc->heap_sz = p->heap_sz;
-	sproc->high_water = p->high_water;
-	sproc->old_hend = p->old_hend;
-	sproc->old_htop = p->old_htop;
-	sproc->old_heap = p->old_heap;
-	sproc->mbuf = NULL;
-	sproc->mbuf_sz = 0;
-	ERTS_INIT_OFF_HEAP(&sproc->off_heap);
-	env->proc = sproc;
-    }
+    sproc->next = p;
+    sproc->common.id = p->common.id;
+    sproc->htop = p->htop;
+    sproc->stop = p->stop;
+    sproc->hend = p->hend;
+    sproc->heap = p->heap;
+    sproc->abandoned_heap = p->abandoned_heap;
+    sproc->heap_sz = p->heap_sz;
+    sproc->high_water = p->high_water;
+    sproc->old_hend = p->old_hend;
+    sproc->old_htop = p->old_htop;
+    sproc->old_heap = p->old_heap;
+    sproc->mbuf = NULL;
+    sproc->mbuf_sz = 0;
+    ERTS_INIT_OFF_HEAP(&sproc->off_heap);
+    env->proc = sproc;
 #endif
 }
 

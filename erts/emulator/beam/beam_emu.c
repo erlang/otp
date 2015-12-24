@@ -3559,12 +3559,8 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
-#ifdef ERTS_DIRTY_SCHEDULERS
-		if (!c_p->scheduler_data)
-		    live_hf_end = ERTS_INVALID_HFRAG_PTR; /* On dirty scheduler */
-		else
-#endif
-		    live_hf_end = c_p->mbuf;
+		ASSERT(c_p->scheduler_data);
+		live_hf_end = c_p->mbuf;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
@@ -3574,10 +3570,7 @@ do {						\
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-		if (env.exiting) {
-		    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-		    goto do_schedule;
-		}
+		ASSERT(!env.exiting);
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    }
 
@@ -5159,6 +5152,300 @@ do {						\
 	dis_next = (Eterm *) *I;
 	FCALLS--;
 	Goto(dis_next);
+    }
+}
+
+/*
+ * dirty_process_main() is what dirty schedulers execute. Since they handle
+ * only NIF calls they do not need to be able to execute all BEAM
+ * instructions.
+ */
+void dirty_process_main(void)
+{
+    Process* c_p = NULL;
+    int reds_used;
+#ifdef DEBUG
+    ERTS_DECLARE_DUMMY(Eterm pid);
+#endif
+    BeamInstr *do_call_nif = OpCode(call_nif);
+
+    /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
+     * in all other cases x0 is used.
+     */
+    register Eterm* reg REG_xregs = NULL;
+
+    /*
+     * Top of heap (next free location); grows upwards.
+     */
+    register Eterm* HTOP REG_htop = NULL;
+
+    /* Stack pointer.  Grows downwards; points
+     * to last item pushed (normally a saved
+     * continuation pointer).
+     */
+    register Eterm* E REG_stop = NULL;
+
+    /*
+     * Pointer to next threaded instruction.
+     */
+    register BeamInstr *I REG_I = NULL;
+
+    /* Number of reductions left.  This function
+     * returns to the scheduler when FCALLS reaches zero.
+     */
+    register Sint FCALLS REG_fcalls = 0;
+
+    /*
+     * X registers and floating point registers are located in
+     * scheduler specific data.
+     */
+    register FloatDef *freg = NULL;
+
+    /*
+     * For keeping the negative old value of 'reds' when call saving is active.
+     */
+    int neg_o_reds = 0;
+
+    ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
+
+    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
+
+    c_p = NULL;
+    reds_used = 0;
+
+    goto do_dirty_schedule1;
+
+ context_switch:
+    c_p->arity = I[-1];
+    c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
+
+    {
+	Eterm* argp;
+	int i;
+
+	/*
+	 * Make sure that there is enough room for the argument registers to be saved.
+	 */
+	if (c_p->arity > c_p->max_arg_reg) {
+	    /*
+	     * Yes, this is an expensive operation, but you only pay it the first
+	     * time you call a function with more than 6 arguments which is
+	     * scheduled out.  This is better than paying for 26 words of wasted
+	     * space for most processes which never call functions with more than
+	     * 6 arguments.
+	     */
+	    Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
+	    if (c_p->arg_reg != c_p->def_arg_reg) {
+		c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
+						      (void *) c_p->arg_reg,
+						      size);
+	    } else {
+		c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
+	    }
+	    c_p->max_arg_reg = c_p->arity;
+	}
+
+	/*
+	 * Since REDS_IN(c_p) is stored in the save area (c_p->arg_reg) we must read it
+	 * now before saving registers.
+	 */
+
+	ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
+	if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	    reds_used = REDS_IN(c_p) - FCALLS;
+	else
+	    reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
+	ASSERT(reds_used >= 0);
+
+	/*
+	 * Save the argument registers and everything else.
+	 */
+
+	argp = c_p->arg_reg;
+	for (i = c_p->arity - 1; i >= 0; i--) {
+	    argp[i] = reg[i];
+	}
+	SWAPOUT;
+	c_p->i = I;
+	goto do_dirty_schedule1;
+    }
+
+ do_dirty_schedule:
+    ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	reds_used = REDS_IN(c_p) - FCALLS;
+    else
+	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
+    ASSERT(reds_used >= 0);
+ do_dirty_schedule1:
+
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    c_p = schedule(c_p, reds_used);
+    ASSERT(!(c_p->flags & F_HIPE_MODE));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+#ifdef DEBUG
+    pid = c_p->common.id; /* Save for debugging purposes */
+#endif
+    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+
+    ERTS_MSACC_UPDATE_CACHE_X();
+
+    reg = erts_proc_sched_data(c_p)->x_reg_array;
+    freg = erts_proc_sched_data(c_p)->f_reg_array;
+    ERL_BITS_RELOAD_STATEP(c_p);
+    {
+	int reds;
+	Eterm* argp;
+	int i;
+
+	argp = c_p->arg_reg;
+	for (i = c_p->arity - 1; i >= 0; i--) {
+	    reg[i] = argp[i];
+	    CHECK_TERM(reg[i]);
+	}
+
+	/*
+	 * We put the original reduction count in the process structure, to reduce
+	 * the code size (referencing a field in a struct through a pointer stored
+	 * in a register gives smaller code than referencing a global variable).
+	 */
+
+	I = c_p->i;
+
+	REDS_IN(c_p) = reds = c_p->fcalls;
+#ifdef DEBUG
+	c_p->debug_reds_in = reds;
+#endif
+
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+	    neg_o_reds = -CONTEXT_REDS;
+	    FCALLS = neg_o_reds + reds;
+	} else {
+	    neg_o_reds = 0;
+	    FCALLS = reds;
+	}
+
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
+
+	SWAPIN;
+
+#ifdef USE_VM_PROBES
+        if (DTRACE_ENABLED(process_scheduled)) {
+            DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
+            dtrace_proc_str(c_p, process_buf);
+
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                strcpy(fun_buf, "<exiting>");
+            } else {
+                BeamInstr *fptr = find_function_from_pc(c_p->i);
+                if (fptr) {
+                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
+                                      (Eterm)fptr[1], (Uint)fptr[2],
+                                      NULL, fun_buf);
+                } else {
+                    erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
+                                  "<unknown/%p>", next);
+                }
+            }
+
+            DTRACE2(process_scheduled, process_buf, fun_buf);
+        }
+#endif
+    }
+
+    {
+	Eterm nif_bif_result;
+	Eterm bif_nif_arity;
+
+    OpCase(call_nif):
+	{
+	    /*
+	     * call_nif is always first instruction in function:
+	     *
+	     * I[-3]: Module
+	     * I[-2]: Function
+	     * I[-1]: Arity
+	     * I[0]: &&call_nif
+	     * I[1]: Function pointer to NIF function
+	     * I[2]: Pointer to erl_module_nif
+	     * I[3]: Function pointer to dirty NIF
+	     */
+	    BifFunction vbf;
+
+            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
+                /* If we have run out of reductions, we do a context
+                   switch before calling the nif */
+                goto context_switch;
+            }
+
+	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+
+	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    c_p->current = I-3; /* current and vbf set to please handle_error */
+	    SWAPOUT;
+	    c_p->fcalls = FCALLS - 1;
+	    PROCESS_MAIN_CHK_LOCKS(c_p);
+	    bif_nif_arity = I[-1];
+	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+
+	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	    {
+		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
+		NifF* fp = vbf = (NifF*) I[1];
+		struct enif_environment_t env;
+		ASSERT(!c_p->scheduler_data);
+		erts_pre_dirty_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
+		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
+		if (env.exception_thrown)
+		    nif_bif_result = THE_NON_VALUE;
+		erts_post_nif(&env);
+		PROCESS_MAIN_CHK_LOCKS(c_p);
+		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+		if (env.exiting) {
+		    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+		    goto do_dirty_schedule;
+		}
+		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	    }
+	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_HOLE_CHECK(c_p);
+	    if (ERTS_IS_GC_DESIRED(c_p)) {
+		nif_bif_result = erts_gc_after_bif_call(c_p,
+							nif_bif_result,
+							reg, bif_nif_arity);
+	    }
+	    SWAPIN;  /* There might have been a garbage collection. */
+	    FCALLS = c_p->fcalls;
+	    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+	    if (is_value(nif_bif_result)) {
+		r(0) = nif_bif_result;
+		CHECK_TERM(r(0));
+		I = c_p->cp;
+		c_p->cp = 0;
+		Goto(*I);
+	    } else if (c_p->freason == TRAP) {
+		I = c_p->i;
+		if (c_p->flags & F_HIBERNATE_SCHED) {
+		    c_p->flags &= ~F_HIBERNATE_SCHED;
+		    goto do_dirty_schedule;
+		}
+		DispatchMacro();
+	    }
+	    I = handle_error(c_p, c_p->cp, reg, vbf);
+	}
+    }
+    if (I == 0) {
+	goto do_dirty_schedule;
+    } else {
+	ASSERT(!is_value(r(0)));
+	SWAPIN;
+	Goto(do_call_nif);
     }
 }
 
