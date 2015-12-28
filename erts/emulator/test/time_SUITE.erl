@@ -320,7 +320,41 @@ timestamp(suite) ->
 timestamp(doc) ->
     ["Test that os:timestamp works."];
 timestamp(Config) when is_list(Config) ->
-    repeating_timestamp_check(100000).
+    try
+	repeating_timestamp_check(100000)
+    catch
+	throw : {fail, Failure} ->
+	    %%
+	    %% Our time warping test machines currently warps
+	    %% time every 6:th second. If we get a warp during
+	    %% 10 seconds, assume this is a time warping test
+	    %% and ignore the failure.
+	    %%
+	    case had_time_warp(10) of
+		true ->
+		    {skip, "Seems to be time warp test run..."};
+		false ->
+		    test_server:fail(Failure)
+	    end
+    end.
+
+os_system_time_offset() ->
+    erlang:convert_time_unit(os:system_time() - erlang:monotonic_time(),
+			     native, micro_seconds).
+
+had_time_warp(Secs) ->
+    had_time_warp(os_system_time_offset(), Secs).
+
+had_time_warp(OrigOffs, 0) ->
+    false;
+had_time_warp(OrigOffs, N) ->
+    receive after 1000 -> ok end,
+    case OrigOffs - os_system_time_offset() of
+	Diff when Diff > 500000; Diff < -500000 ->
+	    true;
+	_Diff ->
+	    had_time_warp(OrigOffs, N-1)
+    end.
 
 repeating_timestamp_check(0) ->
     ok;
@@ -346,15 +380,15 @@ repeating_timestamp_check(N) ->
     NSecs = NA*1000000+NB+round(NC/1000000),
     case Secs - NSecs of
 	TooLarge when TooLarge > 3600 ->
-	    test_server:fail(
-	      lists:flatten(
+	    throw({fail,
+	       lists:flatten(
 		io_lib:format("os:timestamp/0 is ~w s more than erlang:now/0",
-			     [TooLarge])));
+			     [TooLarge]))});
 	TooSmall when TooSmall < -3600 ->
-	     test_server:fail(
+	    throw({fail,
 	      lists:flatten(
 		io_lib:format("os:timestamp/0 is ~w s less than erlang:now/0",
-			     [-TooSmall])));
+			     [-TooSmall]))});
 	_ ->
 	    ok
     end,
