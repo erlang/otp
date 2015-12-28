@@ -695,9 +695,6 @@ static void do_request(g, fd, s, buf, bsize)
 	    put_int16(node->creation, wbuf+2);
 	}
   
-	if (g->delay_write)		/* Test of busy server */
-	  sleep(g->delay_write);
-
 	if (reply(g, fd, wbuf, 4) != 4)
 	  {
 	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
