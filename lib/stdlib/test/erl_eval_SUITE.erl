@@ -1483,6 +1483,16 @@ eep43(Config) when is_list(Config) ->
 	  "    #{ K1 := 1, K2 := 2, K3 := 3, {2,2} := 4} = Map "
 	  "end.",
 	  #{ 1 => 1, <<42:301>> => 2, {3,<<42:301>>} => 3, {2,2} => 4}),
+    check(fun () ->
+		X = key,
+		(fun(#{X := value}) -> true end)(#{X => value})
+	  end,
+	  "begin "
+	  "    X = key, "
+	  "    (fun(#{X := value}) -> true end)(#{X => value}) "
+	  "end.",
+	  true),
+
     error_check("[camembert]#{}.", {badmap,[camembert]}),
     error_check("[camembert]#{nonexisting:=v}.", {badmap,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
