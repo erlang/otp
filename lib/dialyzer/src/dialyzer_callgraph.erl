@@ -478,14 +478,37 @@ scan_one_core_fun(TopTree, FunName) ->
 		  call ->
 		    CalleeM = cerl:call_module(Tree),
 		    CalleeF = cerl:call_name(Tree),
-		    A = length(cerl:call_args(Tree)),
+		    CalleeArgs = cerl:call_args(Tree),
+		    A = length(CalleeArgs),
 		    case (cerl:is_c_atom(CalleeM) andalso 
 			  cerl:is_c_atom(CalleeF)) of
 		      true -> 
 			M = cerl:atom_val(CalleeM),
 			F = cerl:atom_val(CalleeF),
 			case erl_bif_types:is_known(M, F, A) of
-			  true -> Acc;
+			  true ->
+			    case {M, F, A} of
+			      {erlang, make_fun, 3} ->
+				[CA1, CA2, CA3] = CalleeArgs,
+				case
+				  cerl:is_c_atom(CA1) andalso
+				  cerl:is_c_atom(CA2) andalso
+				  cerl:is_c_int(CA3)
+				of
+				  true ->
+				    MM = cerl:atom_val(CA1),
+				    FF = cerl:atom_val(CA2),
+				    AA = cerl:int_val(CA3),
+				    case erl_bif_types:is_known(MM, FF, AA) of
+				      true -> Acc;
+				      false -> [{FunName, {MM, FF, AA}}|Acc]
+				    end;
+				  false ->
+				    Acc
+				end;
+			      _ ->
+				Acc
+			    end;
 			  false -> [{FunName, {M, F, A}}|Acc]
 			end;
 		      false -> 
