@@ -204,6 +204,11 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
 				   end),
 		    ok = ssl:controlling_process(SslSocket, PairHandler),
 		    flush_old_controller(PairHandler, SslSocket);
+		{error, {options, _}} = Error ->
+		    %% Bad options: that's probably our fault.  Let's log that.
+		    error_logger:error_msg("Cannot accept TLS distribution connection: ~s~n",
+					   [ssl:format_error(Error)]),
+		    gen_tcp:close(Socket);
 		_ ->
 		    gen_tcp:close(Socket)
 	    end;
@@ -235,6 +240,11 @@ setup_proxy(Ip, Port, Parent) ->
 		Err ->
 		    Parent ! {self(), Err}
 	    end;
+	{error, {options, _}} = Err ->
+	    %% Bad options: that's probably our fault.  Let's log that.
+	    error_logger:error_msg("Cannot open TLS distribution connection: ~s~n",
+				   [ssl:format_error(Err)]),
+	    Parent ! {self(), Err};
 	Err ->
 	    Parent ! {self(), Err}
     end.
