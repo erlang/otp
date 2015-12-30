@@ -2018,7 +2018,7 @@ bif_timer_access_request(void *vreq)
 static int
 try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 			    Process *c_p, Uint32 sid,
-			    Eterm tref, Uint32 *trefn,
+			    Uint32 *trefn,
 			    int async, int cancel,
 			    int info, Eterm *resp)
 {
@@ -2078,13 +2078,13 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
     }
     else {
 	ErtsMessage *mp;
-	Eterm tag, res, msg;
+	Eterm tag, res, msg, tref;
 	Uint hsz;
 	Eterm *hp;
 	ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
 	ErlOffHeap *ohp;
 
-	hsz = 4;
+	hsz = 4 + REF_THING_SIZE;
 	if (time_left > (Sint64) MAX_SMALL)
 	    hsz += ERTS_SINT64_HEAP_SIZE(time_left);
 
@@ -2094,6 +2094,13 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 	    tag = am_cancel_timer;
 	else
 	    tag = am_read_timer;
+
+	write_ref_thing(hp,
+			trefn[0],
+			trefn[1],
+			trefn[2]);
+	tref = make_internal_ref(hp);
+	hp += REF_THING_SIZE;
 
 	if (time_left < 0)
 	    res = am_false;
@@ -2145,8 +2152,8 @@ access_bif_timer(Process *c_p, Eterm tref, int cancel, int async, int info)
 				     info);
 	ERTS_BIF_PREP_RET(ret, res);
     }
-    else if (try_access_sched_remote_btm(esdp, c_p, sid,
-					 tref, trefn,
+    else if (try_access_sched_remote_btm(esdp, c_p,
+					 sid, trefn,
 					 async, cancel,
 					 info, &res)) {
 	ERTS_BIF_PREP_RET(ret, res);
