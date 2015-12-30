@@ -52,8 +52,9 @@ open(Port, Opts) ->
 	{ok, #udp_opts{fd=Fd,
 		       ifaddr=BAddr={A,B,C,D},
 		       port=BPort,
+		       family=Family,
 		       opts=SockOpts}} when ?ip(A,B,C,D), ?port(BPort) ->
-	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet,dgram,?MODULE);
+	    inet:open(Fd,BAddr,BPort,SockOpts,udp,Family,dgram,?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
@@ -92,9 +93,12 @@ controlling_process(Socket, NewOwner) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
+    fdopen(Fd, inet:getfamily(Opts), Opts).
+
+fdopen(Fd, Family, Opts) ->
     inet:fdopen(Fd, 
 		optuniquify([{recbuf, ?RECBUF} | Opts]), 
-		udp, inet, dgram, ?MODULE).
+		udp, Family, dgram, ?MODULE).
 
 
 %% Remove all duplicate options from an option list.

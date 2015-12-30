@@ -108,9 +108,10 @@ do_connect({A,B,C,D}, Port, Opts, Time) when ?ip(A,B,C,D), ?port(Port) ->
 	{ok, #connect_opts{fd=Fd,
 			   ifaddr=BAddr={Ab,Bb,Cb,Db},
 			   port=BPort,
+			   family=Family,
 			   opts=SockOpts}}
 	when ?ip(Ab,Bb,Cb,Db), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,Family,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:connect(S, {A,B,C,D}, Port, Time) of
 			ok    -> {ok,S};
@@ -130,9 +131,10 @@ listen(Port, Opts) ->
 	{ok, #listen_opts{fd=Fd,
 			  ifaddr=BAddr={A,B,C,D},
 			  port=BPort,
+			  family=Family,
 			  opts=SockOpts}=R}
 	when ?ip(A,B,C,D), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
+	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,Family,stream,?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
@@ -165,4 +167,7 @@ accept(L,Timeout) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, tcp, inet, stream, ?MODULE).
+    fdopen(Fd, inet:getfamily(Opts), Opts).
+
+fdopen(Fd, Family, Opts) ->
+    inet:fdopen(Fd, Opts, tcp, Family, stream, ?MODULE).
