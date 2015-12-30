@@ -170,8 +170,10 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 5))
 #define ERTS_RUNQ_FLG_PROTECTED \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
+#define ERTS_RUNQ_FLG_EXEC \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 7)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 8)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -215,6 +217,9 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLGS_SET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_bor_relb(&(RQ)->flags,		\
 					      (erts_aint32_t) (FLGS)))
+#define ERTS_RUNQ_FLGS_SET_NOB(RQ, FLGS)				\
+    ((Uint32) erts_smp_atomic32_read_bor_nob(&(RQ)->flags,		\
+					     (erts_aint32_t) (FLGS)))
 #define ERTS_RUNQ_FLGS_BSET(RQ, MSK, FLGS)				\
     ((Uint32) erts_smp_atomic32_read_bset_relb(&(RQ)->flags,		\
 					       (erts_aint32_t) (MSK),	\
@@ -222,6 +227,9 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLGS_UNSET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_band_relb(&(RQ)->flags,		\
 					       (erts_aint32_t) ~(FLGS)))
+#define ERTS_RUNQ_FLGS_UNSET_NOB(RQ, FLGS)					\
+    ((Uint32) erts_smp_atomic32_read_band_nob(&(RQ)->flags,		\
+					      (erts_aint32_t) ~(FLGS)))
 #define ERTS_RUNQ_FLGS_GET(RQ)						\
     ((Uint32) erts_smp_atomic32_read_acqb(&(RQ)->flags))
 #define ERTS_RUNQ_FLGS_GET_NOB(RQ)					\
@@ -467,7 +475,7 @@ struct ErtsRunQueue_ {
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
     erts_aint32_t max_len;
-    erts_aint32_t len;
+    erts_smp_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
     int halt_in_progress;
@@ -728,7 +736,19 @@ erts_smp_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rq->len);
+
+#ifdef ERTS_SMP
+    if (len == 0)
+	erts_non_empty_runq(rq);
+#endif
+    len++;
+    if (rq->max_len < len)
+	rq->max_len = len;
+    ASSERT(len > 0);
+    erts_smp_atomic32_set_nob(&rq->len, len);
+
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     ASSERT(len >= 0);
     if (len == 0) {
 	ASSERT((erts_smp_atomic32_read_nob(&rq->flags)
@@ -741,15 +761,6 @@ erts_smp_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 	rqi->max_len = len;
 
     erts_smp_atomic32_set_relb(&rqi->len, len);
-
-#ifdef ERTS_SMP
-    if (rq->len == 0)
-	erts_non_empty_runq(rq);
-#endif
-    rq->len++;
-    if (rq->max_len < rq->len)
-	rq->max_len = len;
-    ASSERT(rq->len > 0);
 }
 
 ERTS_GLB_INLINE void
@@ -759,7 +770,12 @@ erts_smp_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rq->len);
+    len--;
+    ASSERT(len >= 0);
+    erts_smp_atomic32_set_nob(&rq->len, len);
+
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     len--;
     ASSERT(len >= 0);
     if (len == 0) {
@@ -770,8 +786,6 @@ erts_smp_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
     }
     erts_smp_atomic32_set_relb(&rqi->len, len);
 
-    rq->len--;
-    ASSERT(rq->len >= 0);
 }
 
 ERTS_GLB_INLINE void
@@ -781,7 +795,7 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     ASSERT(rqi->max_len >= len);
     rqi->max_len = len;
 }
@@ -1678,7 +1692,7 @@ void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
 Eterm erts_process_status(Process *, ErtsProcLocks, Process *, Eterm);
-Uint erts_run_queues_len(Uint *);
+Uint erts_run_queues_len(Uint *, int, int);
 void erts_add_to_runq(Process *);
 Eterm erts_bound_schedulers_term(Process *c_p);
 Eterm erts_get_cpu_topology_term(Process *c_p, Eterm which);
