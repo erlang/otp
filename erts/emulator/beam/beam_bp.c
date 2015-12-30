@@ -75,6 +75,16 @@ extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 erts_smp_atomic32_t erts_active_bp_index;
 erts_smp_atomic32_t erts_staging_bp_index;
 
+/*
+ * Inlined helpers
+ */
+
+static ERTS_INLINE ErtsMonotonicTime
+get_mtime(Process *c_p)
+{
+    return erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(c_p));
+}
+
 /* *************************************************************************
 ** Local prototypes
 */
@@ -97,9 +107,6 @@ static int clear_function_break(BeamInstr *pc, Uint break_flags);
 
 static BpDataTime* get_time_break(BeamInstr *pc);
 static GenericBpData* check_break(BeamInstr *pc, Uint break_flags);
-static void bp_time_diff(bp_data_time_item_t *item,
-			 process_breakpoint_time_t *pbt,
-			 Uint ms, Uint s, Uint us);
 
 static void bp_meta_unref(BpMetaPid* bmp);
 static void bp_count_unref(BpCount* bcp);
@@ -110,13 +117,8 @@ static void uninstall_breakpoint(BeamInstr* pc);
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
     do {                                            \
-	Uint r;                                     \
 	(pi0)->count   += (pi1)->count;             \
-	(pi0)->s_time  += (pi1)->s_time;            \
-	(pi0)->us_time += (pi1)->us_time;           \
-	r = (pi0)->us_time / 1000000;               \
-	(pi0)->s_time  += r;                        \
-	(pi0)->us_time  = (pi0)->us_time % 1000000; \
+	(pi0)->time    += (pi1)->time;              \
     } while(0)
 
 static void bp_hash_init(bp_time_hash_t *hash, Uint n);
@@ -948,7 +950,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 void
 erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
 {
-    Uint ms,s,us;
+    ErtsMonotonicTime time;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
@@ -961,7 +963,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
      * from the process psd  */
 
     pbt = ERTS_PROC_GET_CALL_TIME(c_p);
-    get_sys_now(&ms, &s, &us);
+    time = get_mtime(c_p);
 
     /* get pbt
      * timestamp = t0
@@ -976,7 +978,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     } else {
 	ASSERT(pbt->pc);
 	/* add time to previous code */
-	bp_time_diff(&sitem, pbt, ms, s, us);
+	sitem.time = time - pbt->time;
 	sitem.pid = c_p->common.id;
 	sitem.count = 0;
 
@@ -1002,8 +1004,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     /* Add count to this code */
     sitem.pid     = c_p->common.id;
     sitem.count   = 1;
-    sitem.s_time  = 0;
-    sitem.us_time = 0;
+    sitem.time    = 0;
 
     /* this breakpoint */
     ASSERT(bdt);
@@ -1020,15 +1021,13 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     }
 
     pbt->pc = I;
-    pbt->ms = ms;
-    pbt->s  = s;
-    pbt->us = us;
+    pbt->time = time;
 }
 
 void
 erts_trace_time_return(Process *p, BeamInstr *pc)
 {
-    Uint ms,s,us;
+    ErtsMonotonicTime time;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
@@ -1041,7 +1040,7 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
      * from the process psd  */
 
     pbt = ERTS_PROC_GET_CALL_TIME(p);
-    get_sys_now(&ms,&s,&us);
+    time = get_mtime(p);
 
     /* get pbt
      * lookup bdt from code
@@ -1057,7 +1056,7 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
 	 */
 	ASSERT(pbt->pc);
 
-	bp_time_diff(&sitem, pbt, ms, s, us);
+	sitem.time = time - pbt->time;
 	sitem.pid   = p->common.id;
 	sitem.count = 0;
 
@@ -1080,9 +1079,7 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
 	}
 
 	pbt->pc = pc;
-	pbt->ms = ms;
-	pbt->s  = s;
-	pbt->us = us;
+	pbt->time = time;
     }
 }
 
@@ -1183,10 +1180,14 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
 		for(ix = 0; ix < hash.n; ix++) {
 		    item = &(hash.item[ix]);
 		    if (item->pid != NIL) {
+			ErtsMonotonicTime sec, usec;
+			usec = ERTS_MONOTONIC_TO_USEC(item->time);
+			sec = usec / 1000000;
+			usec = usec - sec*1000000;
 			t = TUPLE4(hp, item->pid,
 				make_small(item->count),
-				make_small(item->s_time),
-				make_small(item->us_time));
+				   make_small((Uint) sec),
+				   make_small((Uint) usec));
 			hp += 5;
 			*retval = CONS(hp, t, *retval); hp += 2;
 		    }
@@ -1266,8 +1267,7 @@ static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
 	    }
 	    item[hval].pid     = hash->item[ix].pid;
 	    item[hval].count   = hash->item[ix].count;
-	    item[hval].s_time  = hash->item[ix].s_time;
-	    item[hval].us_time = hash->item[ix].us_time;
+	    item[hval].time    = hash->item[ix].time;
 	}
     }
 
@@ -1315,8 +1315,7 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_da
     item = &(hash->item[hval]);
 
     item->pid     = sitem->pid;
-    item->s_time  = sitem->s_time;
-    item->us_time = sitem->us_time;
+    item->time    = sitem->time;
     item->count   = sitem->count;
     hash->used++;
 
@@ -1330,41 +1329,7 @@ static void bp_hash_delete(bp_time_hash_t *hash) {
     hash->item = NULL;
 }
 
-static void bp_time_diff(bp_data_time_item_t *item, /* out */
-	process_breakpoint_time_t *pbt,             /* in  */
-	Uint ms, Uint s, Uint us) {
-    int ds,dus;
-#ifdef DEBUG
-    int dms;
-
-
-    dms = ms - pbt->ms;
-#endif
-    ds  = s  - pbt->s;
-    dus = us - pbt->us;
-
-    /* get_sys_now may return zero difftime,
-     * this is ok.
-     */
-
-#ifdef DEBUG
-    ASSERT(dms >= 0 || ds >= 0 || dus >= 0);
-#endif
-
-    if (dus < 0) {
-	dus += 1000000;
-	ds  -= 1;
-    }
-    if (ds < 0) {
-	ds += 1000000;
-    }
-
-    item->s_time  = ds;
-    item->us_time = dus;
-}
-
 void erts_schedule_time_break(Process *p, Uint schedule) {
-    Uint ms, s, us;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
@@ -1387,8 +1352,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 
 	    pbdt = get_time_break(pbt->pc);
 	    if (pbdt) {
-		get_sys_now(&ms,&s,&us);
-		bp_time_diff(&sitem, pbt, ms, s, us);
+		sitem.time = get_mtime(p) - pbt->time;
 		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
@@ -1410,10 +1374,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * timestamp it and remove the previous
 	     * timestamp in the psd.
 	     */
-	    get_sys_now(&ms,&s,&us);
-	    pbt->ms = ms;
-	    pbt->s  = s;
-	    pbt->us = us;
+	    pbt->time = get_mtime(p);
 	    break;
 	default :
 	    ASSERT(0);

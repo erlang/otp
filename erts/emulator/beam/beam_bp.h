@@ -29,8 +29,7 @@
 typedef struct {
     Eterm pid;
     Sint  count;
-    Uint  s_time;
-    Uint  us_time;
+    ErtsMonotonicTime time;
 } bp_data_time_item_t;
 
 typedef struct {
@@ -46,9 +45,7 @@ typedef struct bp_data_time {     /* Call time */
 } BpDataTime;
 
 typedef struct {
-    Uint ms;
-    Uint s;
-    Uint us;
+    ErtsMonotonicTime time;
     BeamInstr *pc;
 } process_breakpoint_time_t; /* used within psd */
 
