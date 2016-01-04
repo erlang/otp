@@ -307,7 +307,10 @@ char(C) -> C.
 %%%----------------------------------------------------------------
 find_times(L, Xs) ->
     [find_time(X,L) || X <- Xs]	++
-	crypto_algs_times_sizes([encrypt,decrypt], L).
+	function_algs_times_sizes([{ssh_transport,encrypt,2},
+				   {ssh_transport,decrypt,2},
+				   {ssh_message,decode,1},
+				   {ssh_message,encode,1}], L).
 
 -record(call, {
 	  mfa,
@@ -396,23 +399,30 @@ find_gex_size_string(L) ->
     Size.
 
 %%%----------------
-crypto_algs_times_sizes(EncDecs, L) ->
-    Raw = [{_Algorithm = case EncDec of
-			     encrypt -> {encrypt,S#ssh.encrypt};
-			     decrypt -> {decrypt,S#ssh.decrypt}
-			 end, 
-	    size(Data),
-	    now2micro_sec(now_diff(T1, T0))
-	   }
+function_algs_times_sizes(EncDecs, L) ->
+    Raw = [begin
+	       {Tag,Size} = function_ats_result(EncDec, C),
+	       {Tag, Size, now2micro_sec(now_diff(T1,T0))}
+	   end
 	   || EncDec <- EncDecs,
-	      #call{mfa = {ssh_transport,ED,2},
-		    args = [S,Data],
-		    t_call = T0,
-		    t_return = T1} <- L,
+	      C = #call{mfa = ED,
+			args = Args,  %%[S,Data],
+			t_call = T0,
+			t_return = T1} <- L,
 	      ED == EncDec
 	  ],
     [{Alg, round(1024*Time/Size), "microsec per kbyte"}  % Microseconds per 1k bytes.
      || {Alg,Size,Time} <- lists:foldl(fun increment/2, [], Raw)].
+
+function_ats_result({ssh_transport,encrypt,2}, #call{args=[S,Data]}) ->
+    {{encrypt,S#ssh.encrypt}, size(Data)};
+function_ats_result({ssh_transport,decrypt,2}, #call{args=[S,Data]}) ->
+    {{decrypt,S#ssh.decrypt}, size(Data)};
+function_ats_result({ssh_message,encode,1}, #call{result=Data}) ->
+    {encode, size(Data)};
+function_ats_result({ssh_message,decode,1}, #call{args=[Data]}) ->
+    {decode, size(Data)}.
+    
 
 increment({Alg,Sz,T}, [{Alg,SumSz,SumT}|Acc]) ->
     [{Alg,SumSz+Sz,SumT+T} | Acc];
@@ -443,6 +453,8 @@ erlang_trace() ->
 		{ssh_transport,select_algorithm,3},
 		{ssh_transport,encrypt,2},
 		{ssh_transport,decrypt,2},
+		{ssh_message,encode,1},
+		{ssh_message,decode,1},
 		{public_key,dh_gex_group,4} % To find dh_gex group size
 	       ]],
     {ok, TracerPid}.
