@@ -445,28 +445,22 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
 			       cookie = Cookie,
 			       cipher_suites = CipherSuites,
 			       compression_methods = CompMethods,
-			       extensions = HelloExtensions}, Version) ->
+			       extensions = HelloExtensions}, _Version) ->
     SIDLength = byte_size(SessionID),
-    BinCookie = enc_client_hello_cookie(Version, Cookie),
+    CookieLength = byte_size(Cookie),
     BinCompMethods = list_to_binary(CompMethods),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
     ExtensionsBin = ssl_handshake:encode_hello_extensions(HelloExtensions),
-    
+
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
  		      ?BYTE(SIDLength), SessionID/binary,
- 		      BinCookie/binary,
+		      ?BYTE(CookieLength), Cookie/binary,
 		      ?UINT16(CsLength), BinCipherSuites/binary,
  		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
 enc_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, dtls_v1:corresponding_tls_version(Version)).
-
-enc_client_hello_cookie(_, <<>>) ->
-    <<>>;
-enc_client_hello_cookie(_, Cookie) ->
-    CookieLength = byte_size(Cookie),
-    <<?BYTE(CookieLength), Cookie/binary>>.
 
 decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
