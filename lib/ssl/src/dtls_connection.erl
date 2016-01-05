@@ -372,6 +372,17 @@ handle_info({CloseTag, Socket}, StateName,
     end,
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown, transport_closed}};
+
+handle_info(Msg, StateName,
+	    #state{socket = Socket, transport_cb = Transport} = State)
+  when element(2, Msg) == Socket ->
+    case Transport:handle_ssl_info(Socket, Msg) of
+	{next, NextMsg} ->
+	    handle_info(NextMsg, StateName, State);
+	_ ->
+	    ssl_connection:handle_info(Msg, StateName, State)
+    end;
+
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
 
