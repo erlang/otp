@@ -30,7 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Connection state handling
--export([init_connection_states/1,
+-export([init_connection_states/2,
 	 current_connection_state/2, pending_connection_state/2,
 	 activate_pending_connection_state/2,
 	 set_security_params/3,
@@ -62,16 +62,16 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec init_connection_states(client | server) -> #connection_states{}.
+-spec init_connection_states(client | server, non_neg_integer()) -> #connection_states{}.
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role) ->
+init_connection_states(Role, InitialSeqNo) ->
     ConnectionEnd = record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd),
+    Current = initial_connection_state(ConnectionEnd, InitialSeqNo),
     Pending = empty_connection_state(ConnectionEnd),
-    #connection_states{dtls_write_msg_seq = 1,
+    #connection_states{dtls_write_msg_seq = InitialSeqNo,
 		       current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
@@ -492,11 +492,11 @@ record_protocol_role(client) ->
 record_protocol_role(server) ->
     ?SERVER.
 
-initial_connection_state(ConnectionEnd) ->
+initial_connection_state(ConnectionEnd, InitialSeqNo) ->
     #connection_state{security_parameters =
 			  initial_security_params(ConnectionEnd),
 		      epoch = 0,
-                      sequence_number = 1
+                      sequence_number = InitialSeqNo
                      }.
 
 initial_security_params(ConnectionEnd) ->

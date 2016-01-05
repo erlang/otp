@@ -136,7 +136,8 @@
 	  fallback = false           :: boolean(),
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
-	  signature_algs
+	  signature_algs,
+	  hello_verify = true        :: boolean()
 	  }).
 
 -record(socket_options,

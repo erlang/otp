@@ -170,7 +170,6 @@ init({call, From}, {start, Timeout},
      #state{host = Host, port = Port, role = client,
 	    ssl_options = SslOpts,
 	    session = #session{own_certificate = Cert} = Session0,
-	    transport_cb = Transport, socket = Socket,
 	    connection_states = ConnectionStates0,
 	    renegotiation = {Renegotiation, _},
 	    session_cache = Cache,
@@ -179,21 +178,21 @@ init({call, From}, {start, Timeout},
     Timer = ssl_connection:start_or_recv_cancel_timer(Timeout, From),
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert),
-    
+
     Version = Hello#client_hello.client_version,
-    HelloVersion = dtls_record:lowest_protocol_version(SslOpts#ssl_options.versions),
-    Handshake0 = ssl_handshake:init_handshake_history(),
-    {BinMsg, ConnectionStates, Handshake} =
-        encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
-    Transport:send(Socket, BinMsg),
-    State1 = State0#state{connection_states = ConnectionStates,
-			  negotiated_version = Version, %% Requested version
-			  session =
-			      Session0#session{session_id = Hello#client_hello.session_id},
-			  tls_handshake_history = Handshake,
-			  start_or_recv_from = From,
-			  timer = Timer},
-    {Record, State} = next_record(State1),
+    _HelloVersion = dtls_record:lowest_protocol_version(SslOpts#ssl_options.versions),
+    %%
+    %% TODO: HelloVersion handling is not correct
+    %%
+    State1 = State0#state{
+	       negotiated_version = Version, %% Requested version
+	       session =
+		   Session0#session{session_id = Hello#client_hello.session_id},
+	       tls_handshake_history = ssl_handshake:init_handshake_history(),
+	       start_or_recv_from = From,
+	       timer = Timer},
+    State2 = send_handshake(Hello, State1),
+    {Record, State} = next_record(State2),
     next_event(hello, Record, State);
 init(Type, Event, State) ->
     ssl_connection:init(Type, Event, State, ?MODULE).
@@ -242,6 +241,26 @@ hello(internal, #client_hello{client_version = ClientVersion,
 					     client_ecc = {EllipticCurves, EcPointFormats},
 					     negotiated_protocol = Protocol}, ?MODULE)
     end;
+
+hello(internal, #hello_verify_request{cookie = Cookie},
+      #state{host = Host, port = Port, role = client,
+	     ssl_options = SslOpts,
+	     session = #session{own_certificate = Cert},
+	     connection_states = ConnectionStates0,
+	     renegotiation = {Renegotiation, _},
+	     session_cache = Cache,
+	     session_cache_cb = CacheCb
+	    } = State0) ->
+    Hello = dtls_handshake:client_hello(Host, Port, Cookie, ConnectionStates0, SslOpts,
+					Cache, CacheCb, Renegotiation, Cert),
+    State1 = State0#state{
+	       tls_handshake_history = ssl_handshake:init_handshake_history()
+	       %%	       client_cookie = Cookie
+	      },
+    State2 = send_handshake(Hello, State1),
+    {Record, State} = next_record(State2),
+    next_event(hello, Record, State);
+
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
@@ -539,7 +558,7 @@ decode_alerts(Bin) ->
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
-    ConnectionStates = ssl_record:init_connection_states(Role),
+    ConnectionStates = init_connection_states(Role, SSLOptions#ssl_options.hello_verify),
 
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
@@ -574,6 +593,11 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   flight_state = waiting,
 	   flight_buffer = []
 	  }.
+
+init_connection_states(server, true) ->
+    ssl_record:init_connection_states(server, 1);
+init_connection_states(Role, _) ->
+    ssl_record:init_connection_states(Role, 0).
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
     SSLOption =
