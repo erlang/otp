@@ -185,6 +185,8 @@
       'receive' |
       'print' |
       'timestamp' |
+      'monotonic_timestamp' |
+      'strict_monotonic_timestamp' |
       'label' |
       'serial'.
 
@@ -198,7 +200,10 @@
       'exclusive' |
       'runnable_ports' |
       'runnable_procs' |
-      'scheduler'.
+      'scheduler' |
+      'timestamp' |
+      'monotonic_timestamp' |
+      'strict_monotonic_timestamp'.
 
 -type system_monitor_option() ::
       'busy_port' |
@@ -230,6 +235,8 @@
       garbage_collection |
       timestamp |
       cpu_timestamp |
+      monotonic_timestamp |
+      strict_monotonic_timestamp |
       arity |
       set_on_spawn |
       set_on_first_spawn |
@@ -258,6 +265,8 @@
       running |
       garbage_collection |
       timestamp |
+      monotonic_timestamp |
+      strict_monotonic_timestamp |
       arity.
 
 -type trace_info_return() ::
@@ -2178,6 +2187,8 @@ send(_Dest,_Msg,_Options) ->
                     ('receive') -> {'receive', boolean()};
                     (print) -> {print, boolean()};
                     (timestamp) -> {timestamp, boolean()};
+                    (monotonic_timestamp) -> {timestamp, boolean()};
+                    (strict_monotonic_timestamp) -> {strict_monotonic_timestamp, boolean()};
                     (label) -> [] | {label, non_neg_integer()};
                     (serial) -> [] | {serial, {non_neg_integer(), non_neg_integer()}}.
 seq_trace_info(_What) ->

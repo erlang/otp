@@ -35,6 +35,11 @@
 						%-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
+-define(TIMESTAMP_MODES, [no_timestamp,
+			  timestamp,
+			  monotonic_timestamp,
+			  strict_monotonic_timestamp]).
+
 -define(default_timeout, ?t:minutes(1)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -75,6 +80,17 @@ end_per_testcase(_Case, Config) ->
 token_set_get(doc) -> [];
 token_set_get(suite) -> [];
 token_set_get(Config) when is_list(Config) ->
+    do_token_set_get(timestamp),
+    do_token_set_get(monotonic_timestamp),
+    do_token_set_get(strict_monotonic_timestamp).
+    
+do_token_set_get(TsType) ->
+    io:format("Testing ~p~n", [TsType]),
+    Flags = case TsType of
+		timestamp -> 15;
+		strict_monotonic_timestamp -> 23;
+		monotonic_timestamp -> 39
+	    end,
     ?line Self = self(),
     ?line seq_trace:reset_trace(),
     %% Test that initial seq_trace is disabled
@@ -88,22 +104,22 @@ token_set_get(Config) when is_list(Config) ->
     ?line {send,true} = seq_trace:get_token(send),
     ?line false = seq_trace:set_token('receive',true),
     ?line {'receive',true} = seq_trace:get_token('receive'),
-    ?line false = seq_trace:set_token(timestamp,true),
-    ?line {timestamp,true} = seq_trace:get_token(timestamp),
+    ?line false = seq_trace:set_token(TsType,true),
+    ?line {TsType,true} = seq_trace:get_token(TsType),
     %% Check the whole token
-    ?line {15,17,0,Self,0} = seq_trace:get_token(), % all flags are set
+    ?line {Flags,17,0,Self,0} = seq_trace:get_token(), % all flags are set
     %% Test setting and reading the 'serial' field
     ?line {0,0} = seq_trace:set_token(serial,{3,5}),
     ?line {serial,{3,5}} = seq_trace:get_token(serial),
     %% Check the whole token, test that a whole token can be set and get
-    ?line {15,17,5,Self,3} = seq_trace:get_token(),
-    ?line seq_trace:set_token({15,19,7,Self,5}),
-    ?line {15,19,7,Self,5} = seq_trace:get_token(),
+    ?line {Flags,17,5,Self,3} = seq_trace:get_token(),
+    ?line seq_trace:set_token({Flags,19,7,Self,5}),
+    ?line {Flags,19,7,Self,5} = seq_trace:get_token(),
     %% Check that receive timeout does not reset token
     ?line receive after 0 -> ok end,
-    ?line {15,19,7,Self,5} = seq_trace:get_token(),
+    ?line {Flags,19,7,Self,5} = seq_trace:get_token(),
     %% Check that token can be unset
-    ?line {15,19,7,Self,5} = seq_trace:set_token([]),
+    ?line {Flags,19,7,Self,5} = seq_trace:set_token([]),
     ?line [] = seq_trace:get_token(),
     %% Check that Previous serial counter survived unset token
     ?line 0 = seq_trace:set_token(label, 17),
@@ -139,30 +155,42 @@ tracer_set_get(Config) when is_list(Config) ->
 print(doc) -> [];
 print(suite) -> [];
 print(Config) when is_list(Config) ->
+    lists:foreach(fun do_print/1, ?TIMESTAMP_MODES).
+    
+do_print(TsType) ->
     ?line start_tracer(),
-    ?line seq_trace:set_token(print,true),
+    ?line set_token_flags([print, TsType]),
     ?line seq_trace:print(0,print1),
     ?line seq_trace:print(1,print2),
     ?line seq_trace:print(print3),
     ?line seq_trace:reset_trace(),
-    ?line [{0,{print,_,_,[],print1}},
-	   {0,{print,_,_,[],print3}}] = stop_tracer(2).
+    ?line [{0,{print,_,_,[],print1}, Ts0},
+	   {0,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
+    check_ts(TsType, Ts0),
+    check_ts(TsType, Ts1).
     
 send(doc) -> [];
 send(suite) -> [];
 send(Config) when is_list(Config) ->
+    lists:foreach(fun do_send/1, ?TIMESTAMP_MODES).
+
+do_send(TsType) ->
     ?line seq_trace:reset_trace(),
     ?line start_tracer(),
     ?line Receiver = spawn(?MODULE,one_time_receiver,[]),
-    ?line seq_trace:set_token(send,true),
+    ?line set_token_flags([send, TsType]),
     ?line Receiver ! send,
     ?line Self = self(),
     ?line seq_trace:reset_trace(),
-    ?line [{0,{send,_,Self,Receiver,send}}] = stop_tracer(1).
+    ?line [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    check_ts(TsType, Ts).
 
 distributed_send(doc) -> [];
 distributed_send(suite) -> [];
 distributed_send(Config) when is_list(Config) ->
+    lists:foreach(fun do_distributed_send/1, ?TIMESTAMP_MODES).
+
+do_distributed_send(TsType) ->
     ?line {ok,Node} = start_node(seq_trace_other,[]),
     ?line {_,Dir} = code:is_loaded(?MODULE),
     ?line Mdir = filename:dirname(Dir),
@@ -170,30 +198,39 @@ distributed_send(Config) when is_list(Config) ->
     ?line seq_trace:reset_trace(),
     ?line start_tracer(),
     ?line Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-    ?line seq_trace:set_token(send,true),
+    ?line set_token_flags([send,TsType]),
     ?line Receiver ! send,
     ?line Self = self(),
     ?line seq_trace:reset_trace(),
     ?line stop_node(Node),
-    ?line [{0,{send,_,Self,Receiver,send}}] = stop_tracer(1).
+    ?line [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    check_ts(TsType, Ts).
+    
 
 recv(doc) -> [];
 recv(suite) -> [];
 recv(Config) when is_list(Config) ->
+    lists:foreach(fun do_recv/1, ?TIMESTAMP_MODES).
+
+do_recv(TsType) ->
     ?line seq_trace:reset_trace(),
     ?line start_tracer(),
     ?line Receiver = spawn(?MODULE,one_time_receiver,[]),
-    ?line seq_trace:set_token('receive',true),
+    ?line set_token_flags(['receive',TsType]),
     ?line Receiver ! 'receive',
     %% let the other process receive the message:
     ?line receive after 1 -> ok end,
     ?line Self = self(),
     ?line seq_trace:reset_trace(),
-    ?line [{0,{'receive',_,Self,Receiver,'receive'}}] = stop_tracer(1).
+    ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = stop_tracer(1),
+    check_ts(TsType, Ts).
 
 distributed_recv(doc) -> [];
 distributed_recv(suite) -> [];
 distributed_recv(Config) when is_list(Config) ->
+    lists:foreach(fun do_distributed_recv/1, ?TIMESTAMP_MODES).
+
+do_distributed_recv(TsType) ->
     ?line {ok,Node} = start_node(seq_trace_other,[]),
     ?line {_,Dir} = code:is_loaded(?MODULE),
     ?line Mdir = filename:dirname(Dir),
@@ -201,7 +238,7 @@ distributed_recv(Config) when is_list(Config) ->
     ?line seq_trace:reset_trace(),
     ?line rpc:call(Node,?MODULE,start_tracer,[]),
     ?line Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-    ?line seq_trace:set_token('receive',true),
+    ?line set_token_flags(['receive',TsType]),
     ?line Receiver ! 'receive',
     %% let the other process receive the message:
     ?line receive after 1 -> ok end,
@@ -210,16 +247,20 @@ distributed_recv(Config) when is_list(Config) ->
     ?line Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
     ?line stop_node(Node),
     ?line ok = io:format("~p~n",[Result]),
-    ?line [{0,{'receive',_,Self,Receiver,'receive'}}] = Result.
+    ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
+    check_ts(TsType, Ts).
 
 trace_exit(doc) -> [];
 trace_exit(suite) -> [];
 trace_exit(Config) when is_list(Config) ->
+    lists:foreach(fun do_trace_exit/1, ?TIMESTAMP_MODES).
+
+do_trace_exit(TsType) ->
     ?line seq_trace:reset_trace(),
     ?line start_tracer(),
     ?line Receiver = spawn_link(?MODULE, one_time_receiver, [exit]),
     ?line process_flag(trap_exit, true),
-    ?line seq_trace:set_token(send,true),
+    ?line set_token_flags([send, TsType]),
     ?line Receiver ! {before, exit},
     %% let the other process receive the message:
     ?line receive
@@ -233,13 +274,18 @@ trace_exit(Config) when is_list(Config) ->
     ?line Result = stop_tracer(2),
     ?line seq_trace:reset_trace(),
     ?line ok = io:format("~p~n", [Result]),
-    ?line [{0, {send, {0,1}, Self, Receiver, {before, exit}}}, 
+    ?line [{0, {send, {0,1}, Self, Receiver, {before, exit}}, Ts0}, 
 	   {0, {send, {1,2}, Receiver, Self,
-	       {'EXIT', Receiver, {exit, {before, exit}}}}}] = Result.
+	       {'EXIT', Receiver, {exit, {before, exit}}}}, Ts1}] = Result,
+    check_ts(TsType, Ts0),
+    check_ts(TsType, Ts1).
 
 distributed_exit(doc) -> [];
 distributed_exit(suite) -> [];
 distributed_exit(Config) when is_list(Config) ->
+    lists:foreach(fun do_distributed_exit/1, ?TIMESTAMP_MODES).
+
+do_distributed_exit(TsType) ->
     ?line {ok, Node} = start_node(seq_trace_other, []),
     ?line {_, Dir} = code:is_loaded(?MODULE),
     ?line Mdir = filename:dirname(Dir),
@@ -248,7 +294,7 @@ distributed_exit(Config) when is_list(Config) ->
     ?line rpc:call(Node, ?MODULE, start_tracer,[]),
     ?line Receiver = spawn_link(Node, ?MODULE, one_time_receiver, [exit]),
     ?line process_flag(trap_exit, true),
-    ?line seq_trace:set_token(send, true),
+    ?line set_token_flags([send, TsType]),
     ?line Receiver ! {before, exit},
     %% let the other process receive the message:
     ?line receive
@@ -264,7 +310,8 @@ distributed_exit(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line ok = io:format("~p~n", [Result]),
     ?line [{0, {send, {1, 2}, Receiver, Self, 
-		{'EXIT', Receiver, {exit, {before, exit}}}}}] = Result.
+		{'EXIT', Receiver, {exit, {before, exit}}}}, Ts}] = Result,
+    check_ts(TsType, Ts).
 
 call(doc) -> 
     "Tests special forms {is_seq_trace} and {get_seq_token} "
@@ -361,14 +408,22 @@ port(doc) ->
     "Send trace messages to a port.";
 port(suite) -> [];
 port(Config) when is_list(Config) ->
+    lists:foreach(fun (TsType) -> do_port(TsType, Config) end,
+		  ?TIMESTAMP_MODES).
+
+do_port(TsType, Config) ->
+    io:format("Testing ~p~n",[TsType]),
     ?line Port = load_tracer(Config),
     ?line seq_trace:set_system_tracer(Port),
 
-    ?line seq_trace:set_token(print, true),
+    ?line set_token_flags([print, TsType]),
     ?line Small = [small,term],
     ?line seq_trace:print(0, Small),
     ?line case get_port_message(Port) of
-	      {seq_trace,0,{print,_,_,[],Small}} ->
+	      {seq_trace,0,{print,_,_,[],Small}} when TsType == no_timestamp ->
+		  ok;
+	      {seq_trace,0,{print,_,_,[],Small},Ts0} when TsType /= no_timestamp ->
+		  check_ts(TsType, Ts0),
 		  ok;
 	      Other ->
 		  ?line seq_trace:reset_trace(),
@@ -382,7 +437,10 @@ port(Config) when is_list(Config) ->
     ?line seq_trace:print(0, OtherSmall),
     ?line seq_trace:reset_trace(),
     ?line case get_port_message(Port) of
-	      {seq_trace,0,{print,_,_,[],OtherSmall}} ->
+	      {seq_trace,0,{print,_,_,[],OtherSmall}} when TsType == no_timestamp ->
+		  ok;
+	      {seq_trace,0,{print,_,_,[],OtherSmall}, Ts1} when TsType /= no_timestamp ->
+		  check_ts(TsType, Ts1),
 		  ok;
 	      Other1 ->
 		  ?line ?t:fail({unexpected,Other1})
@@ -399,6 +457,8 @@ port(Config) when is_list(Config) ->
 	      Other2 ->
 		  ?line ?t:fail({unexpected,Other2})
 	  end,
+    unlink(Port),
+    exit(Port,kill),
     ok.
 
 get_port_message(Port) ->
@@ -734,7 +794,7 @@ simple_tracer(Data, DN) ->
 	{seq_trace,Label,Info,Ts} ->
 	    simple_tracer([{Label,Info,Ts}|Data], DN+1);
 	{seq_trace,Label,Info} ->
-	    simple_tracer([{Label,Info}|Data], DN+1);
+	    simple_tracer([{Label,Info, no_timestamp}|Data], DN+1);
 	{stop,N,From} when DN >= N ->
 	    From ! {tracerlog,lists:reverse(Data)}
     end.
@@ -759,7 +819,55 @@ start_tracer() ->
     seq_trace:set_system_tracer(Pid),
     Pid.
 
-    
+
+set_token_flags([]) ->
+    ok;
+set_token_flags([no_timestamp|Flags]) ->
+    seq_trace:set_token(timestamp, false),
+    seq_trace:set_token(monotonic_timestamp, false),
+    seq_trace:set_token(strict_monotonic_timestamp, false),
+    set_token_flags(Flags);
+set_token_flags([Flag|Flags]) ->
+    seq_trace:set_token(Flag, true),
+    set_token_flags(Flags).
+
+check_ts(no_timestamp, Ts) ->
+    try
+	no_timestamp = Ts
+    catch
+	_ : _ ->
+	    ?t:fail({unexpected_timestamp, Ts})
+    end,
+    ok;
+check_ts(timestamp, Ts) ->
+    try
+	{Ms,S,Us} = Ts,
+	true = is_integer(Ms),
+	true = is_integer(S),
+	true = is_integer(Us)
+    catch
+	_ : _ ->
+	    ?t:fail({unexpected_timestamp, Ts})
+    end,
+    ok;
+check_ts(monotonic_timestamp, Ts) ->
+    try
+	true = is_integer(Ts)
+    catch
+	_ : _ ->
+	    ?t:fail({unexpected_timestamp, Ts})
+    end,
+    ok;
+check_ts(strict_monotonic_timestamp, Ts) ->
+    try
+	{MT, UMI} = Ts,
+	true = is_integer(MT),
+	true = is_integer(UMI)
+    catch
+	_ : _ ->
+	    ?t:fail({unexpected_timestamp, Ts})
+    end,
+    ok.
 	
 start_node(Name, Param) ->
     test_server:start_node(Name, slave, [{args, Param}]).

@@ -370,6 +370,7 @@ atom monitor
 atom monitor_nodes
 atom monitors
 atom monotonic
+atom monotonic_timestamp
 atom more
 atom multi_scheduling
 atom multiline
@@ -559,6 +560,7 @@ atom static
 atom stderr_to_stdout
 atom stop
 atom stream
+atom strict_monotonic_timestamp
 atom sunrm
 atom suspend
 atom suspended
