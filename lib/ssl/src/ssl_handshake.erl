@@ -590,6 +590,9 @@ prf({3,_N}, Secret, Label, Seed, WantedLength) ->
 %%
 %% Description: Handles signature_algorithms extension
 %%--------------------------------------------------------------------
+select_hashsign(HashSigns, Cert, KeyExAlgo, SupportedHashSigns, {254, _} = Version) ->
+    select_hashsign(HashSigns, Cert, KeyExAlgo, SupportedHashSigns,
+		    dtls_v1:corresponding_tls_version(Version));
 select_hashsign(_, undefined, _,  _, _Version) ->
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
@@ -868,6 +871,8 @@ decode_client_key(ClientKey, Type, Version) ->
 %%
 %% Description: Decode server_key data and return appropriate type
 %%--------------------------------------------------------------------
+decode_server_key(ServerKey, Type, Version = {254, _}) ->
+    decode_server_key(ServerKey, Type, dtls_v1:corresponding_tls_version(Version));
 decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
 

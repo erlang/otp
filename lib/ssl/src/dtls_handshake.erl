@@ -460,7 +460,7 @@ enc_handshake(#client_hello{client_version = {Major, Minor},
 		      ?UINT16(CsLength), BinCipherSuites/binary,
  		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
 enc_handshake(HandshakeMsg, Version) ->
-    ssl_handshake:encode_handshake(HandshakeMsg, Version).
+    ssl_handshake:encode_handshake(HandshakeMsg, dtls_v1:corresponding_tls_version(Version)).
 
 enc_client_hello_cookie(_, <<>>) ->
     <<>>;
@@ -494,7 +494,7 @@ decode_handshake(_Version, ?HELLO_VERIFY_REQUEST, <<?BYTE(Major), ?BYTE(Minor),
        protocol_version = {Major,Minor},
        cookie = Cookie};
 decode_handshake(Version, Tag, Msg) ->
-    ssl_handshake:decode_handshake(Version, Tag, Msg).
+    ssl_handshake:decode_handshake(dtls_v1:corresponding_tls_version(Version), Tag, Msg).
 
 %% address_to_bin({A,B,C,D}, Port) ->
 %%     <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
