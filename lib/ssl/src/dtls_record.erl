@@ -36,7 +36,7 @@
 -export([decode_cipher_text/2]).
 
 %% Encoding
--export([encode_plain_text/4, encode_handshake/3, encode_change_cipher_spec/2]).
+-export([encode_plain_text/4, encode_change_cipher_spec/2]).
 
 %% Protocol version handling
 -export([protocol_version/1, lowest_protocol_version/2, lowest_protocol_version/1,
@@ -208,14 +208,6 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
-%%--------------------------------------------------------------------
--spec encode_handshake(iolist(), dtls_version(), #connection_states{}) ->
-			      {iolist(), #connection_states{}}.
-%%
-%% Description: Encodes a handshake message to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec encode_change_cipher_spec(dtls_version(), #connection_states{}) ->

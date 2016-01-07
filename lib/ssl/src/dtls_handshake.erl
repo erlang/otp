@@ -136,9 +136,9 @@ hello(#client_hello{client_version = ClientVersion}, _Options, {_,_,_,_,Connecti
 encode_handshake(Handshake, Version, MsgSeq) ->
     {MsgType, Bin} = enc_handshake(Handshake, Version),
     Len = byte_size(Bin),
-    EncHandshake = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
-    FragmentedHandshake = dtls_fragment(erlang:iolist_size(EncHandshake), MsgType, Len, MsgSeq, Bin, 0, []),
-    {EncHandshake, FragmentedHandshake}.
+    Enc = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
+    Frag = {MsgType, MsgSeq, Bin},
+    {Enc, Frag}.
 
 %%--------------------------------------------------------------------
 -spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
@@ -188,17 +188,6 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
-
-dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc)
-  when byte_size(Bin) + 12 < Mss ->
-    FragmentLen = byte_size(Bin),
-    BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Bin],
-    lists:reverse([BinMsg|Acc]);
-dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc) ->
-    FragmentLen = Mss - 12,
-    <<Fragment:FragmentLen/bytes, Rest/binary>> = Bin,
-    BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Fragment],
-    dtls_fragment(Mss, MsgType, Len, MsgSeq, Rest, Offset + FragmentLen, [BinMsg|Acc]).
 
 get_dtls_handshake_aux(#ssl_tls{version = Version,
  				sequence_number = SeqNo,
