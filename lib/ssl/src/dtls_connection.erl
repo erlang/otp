@@ -656,6 +656,5 @@ handle_own_alert(_,_,_, State) -> %% Place holder
 handle_normal_shutdown(_, _, _State) -> %% Place holder
     ok.
 
-sequence(_) ->
-    %%TODO real imp
-    1.
+sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
+    {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.

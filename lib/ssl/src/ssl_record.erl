@@ -71,7 +71,8 @@ init_connection_states(Role) ->
     ConnectionEnd = record_protocol_role(Role),
     Current = initial_connection_state(ConnectionEnd),
     Pending = empty_connection_state(ConnectionEnd),
-    #connection_states{current_read = Current,
+    #connection_states{dtls_write_msg_seq = 1,
+		       current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
 		       pending_write = Pending
