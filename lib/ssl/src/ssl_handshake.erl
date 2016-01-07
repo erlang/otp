@@ -370,6 +370,9 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
+verify_signature(Version = {254,_}, Hash, HashAlgo, Signature, PublicKeyInfo) ->
+    verify_signature(dtls_v1:corresponding_tls_version(Version),
+		     Hash, HashAlgo, Signature, PublicKeyInfo);
 verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
     true;
 verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
@@ -569,6 +572,8 @@ server_key_exchange_hash(Hash, Value) ->
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
+prf(Version = {254,_}, Secret, Label, Seed, WantedLength) ->
+    prf(tls_v1:corresponding_tls_version(Version), Secret, Label, Seed, WantedLength);
 prf({3,0}, _, _, _, _) ->
     {error, undefined};
 prf({3,1}, Secret, Label, Seed, WantedLength) ->
@@ -638,6 +643,8 @@ select_hashsign(_, Cert, _, _, Version) ->
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
 %%--------------------------------------------------------------------
+select_hashsign_algs(HashSign, Encryption, Version = {254, _}) ->
+    select_hashsign_algs(HashSign, Encryption, dtls_v1:corresponding_tls_version(Version));
 select_hashsign_algs(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
 						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
@@ -1539,6 +1546,9 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE))
     end.
 
+digitally_signed(Version = {254, _}, Hash, HashAlgo, Key) ->
+    digitally_signed(dtls_v1:corresponding_tls_version(Version),
+		     Hash, HashAlgo, Key);
 digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
 digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
@@ -1549,11 +1559,17 @@ digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
 digitally_signed(_Version, Hash, HashAlgo, Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
 
+calc_certificate_verify(Version = {254, _}, HashAlgo, MasterSecret, Handshake) ->
+    calc_certificate_verify(dtls_v1:corresponding_tls_version(Version),
+			    HashAlgo, MasterSecret, Handshake);
 calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
     ssl_v3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
 calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake) ->
     tls_v1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
 
+calc_finished(Version = {254, _}, Role, PrfAlgo, MasterSecret, Handshake) ->
+    calc_finished(dtls_v1:corresponding_tls_version(Version),
+		  Role, PrfAlgo, MasterSecret, Handshake);
 calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
     ssl_v3:finished(Role, MasterSecret, lists:reverse(Handshake));
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
@@ -1586,6 +1602,11 @@ master_secret(_RecordCB, Version, MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
 
+setup_keys(Version = {254, _}, PrfAlgo, MasterSecret,
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
+    setup_keys(dtls_v1:corresponding_tls_version(Version),
+	       PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS);
+
 setup_keys({3,0}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
     ssl_v3:setup_keys(MasterSecret, ServerRandom,
@@ -1600,6 +1621,9 @@ calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
     ssl_v3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
 calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
+    tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom);
+
+calc_master_secret({254,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 

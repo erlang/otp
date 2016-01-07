@@ -1020,7 +1020,9 @@ validate_versions([], Versions) ->
 validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
                                                    Version == tlsv1;
-                                                   Version == sslv3 ->
+                                                   Version == sslv3;
+                                                   Version == dtlsv1;
+                                                   Version == 'dtlsv1.2' ->
     validate_versions(Rest, Versions);
 validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).

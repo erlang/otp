@@ -311,7 +311,9 @@ aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
 suites({3, 0}) ->
     ssl_v3:suites();
 suites({3, N}) ->
-    tls_v1:suites(N).
+    tls_v1:suites(N);
+suites({254, N}) ->
+    dtls_v1:suites(N).
 
 all_suites(Version) ->
     suites(Version)
@@ -327,6 +329,8 @@ all_suites(Version) ->
 %% if explicitly set by user. Intended only for testing.
 %%--------------------------------------------------------------------
 
+anonymous_suites(Version = {254, _}) ->
+    anonymous_suites(dtls_v1:corresponding_tls_version(Version));
 anonymous_suites({3, N}) ->
     anonymous_suites(N);
 
@@ -355,6 +359,8 @@ anonymous_suites(_) ->
 %% Description: Returns a list of the PSK cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
+psk_suites(Version = {254, _}) ->
+    psk_suites(dtls_v1:corresponding_tls_version(Version));
 psk_suites({3, N}) ->
     psk_suites(N);
 
@@ -413,6 +419,8 @@ srp_suites() ->
 %% Are not considered secure any more. Other RC4 suites already
 %% belonged to the user configured only category.
 %%--------------------------------------------------------------------
+rc4_suites({254, _}) ->
+    [];
 rc4_suites({3, 0}) ->
     [?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5];
