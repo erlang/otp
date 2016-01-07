@@ -46,8 +46,10 @@
 -record(connection_states, {
 	  dtls_write_msg_seq, %% Only used by DTLS
 
+	  previous_read,
 	  current_read,
 	  pending_read,
+	  previous_write,
 	  current_write,
 	  pending_write
 	 }).

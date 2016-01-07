@@ -465,8 +465,8 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake, false),
     {Frag, ConnectionStates, Hist}.
 
-encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
-    dtls_record:encode_change_cipher_spec(Version, ConnectionStates).
+encode_change_cipher(#change_cipher_spec{}, Version, Epoch, ConnectionStates) ->
+    dtls_record:encode_plain_text(?CHANGE_CIPHER_SPEC, Version, {Epoch, <<1:8>>}, ConnectionStates).
 
 encode_handshake_flight(Flight, ConnectionStates) ->
     MSS = 1400,

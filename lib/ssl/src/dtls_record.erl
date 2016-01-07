@@ -36,7 +36,7 @@
 -export([decode_cipher_text/2]).
 
 %% Encoding
--export([encode_plain_text/4, encode_change_cipher_spec/2]).
+-export([encode_plain_text/4, encode_tls_cipher_text/5]).
 
 %% Protocol version handling
 -export([protocol_version/1, lowest_protocol_version/2, lowest_protocol_version/1,
@@ -120,42 +120,47 @@ get_dtls_records_aux(Data, Acc) ->
 	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
     end.
 
-encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write =
-					 #connection_state{
+encode_plain_text(Type, Version, {Epoch, Data}, ConnectionStates0) ->
+    WriteState0 = connection_state_by_epoch(ConnectionStates0, Epoch, write),
+    {CipherText, WriteState} = encode_plain_text_1(Type, Version, Data, WriteState0),
+    ConnectionStates = set_connection_state_by_epoch(ConnectionStates0, WriteState, write),
+    {CipherText, ConnectionStates};
+encode_plain_text(Type, Version, Data, ConnectionStates0 =
+		      #connection_states{current_write = WriteState0}) ->
+    {CipherText, WriteState} = encode_plain_text_1(Type, Version, Data, WriteState0),
+    {CipherText, ConnectionStates0#connection_states{current_write = WriteState}}.
+
+encode_plain_text_1(Type, Version, Data, #connection_state{
 					    epoch = Epoch,
 					    sequence_number = Seq,
-					    compression_state=CompS0,
-					    security_parameters=
+					    compression_state = CompS0,
+					    security_parameters =
 						#security_parameters{
 						   cipher_type = ?AEAD,
-						   compression_algorithm=CompAlg}
-					   }= WriteState0} = ConnectionStates) ->
+						   compression_algorithm = CompAlg}
+					   } = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
     WriteState1 = WriteState0#connection_state{compression_state = CompS1},
     AAD = calc_aad(Type, Version, Epoch, Seq),
     {CipherFragment, WriteState} = ssl_record:cipher_aead(dtls_v1:corresponding_tls_version(Version),
 							  Comp, WriteState1, AAD),
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write =
-							WriteState#connection_state{sequence_number = Seq +1}}};
+    {CipherText, WriteState#connection_state{sequence_number = Seq + 1}};
 
-encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write=#connection_state{
-						      epoch = Epoch,
-						      sequence_number = Seq,
-						      compression_state=CompS0,
-						      security_parameters=
-							  #security_parameters{compression_algorithm=CompAlg}
-						     }= WriteState0} = ConnectionStates) ->
+encode_plain_text_1(Type, Version, Data, #connection_state{
+					    epoch = Epoch,
+					    sequence_number = Seq,
+					    compression_state = CompS0,
+					    security_parameters =
+						#security_parameters{compression_algorithm = CompAlg}
+					   } = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
     WriteState1 = WriteState0#connection_state{compression_state = CompS1},
     MacHash = calc_mac_hash(WriteState1, Type, Version, Epoch, Seq, Comp),
-    {CipherFragment, WriteState} = ssl_record:cipher(dtls_v1:corresponding_tls_version(Version), 
+    {CipherFragment, WriteState} = ssl_record:cipher(dtls_v1:corresponding_tls_version(Version),
 						     Comp, WriteState1, MacHash),
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write =
-							WriteState#connection_state{sequence_number = Seq +1}}}.
+    {CipherText, WriteState#connection_state{sequence_number = Seq + 1}}.
 
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    epoch = Epoch,
@@ -208,15 +213,6 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
-
-%%--------------------------------------------------------------------
--spec encode_change_cipher_spec(dtls_version(), #connection_states{}) ->
-				       {iolist(), #connection_states{}}.
-%%
-%% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
-%%--------------------------------------------------------------------
-encode_change_cipher_spec(Version, ConnectionStates) ->
-    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec protocol_version(dtls_atom_version() | dtls_version()) ->
@@ -364,10 +360,16 @@ current_connection_state_epoch(#connection_states{current_write = Current},
 %% Description: Returns the instance of the connection_state record
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
+connection_state_by_epoch(#connection_states{previous_read = CS}, Epoch, read)
+  when CS#connection_state.epoch == Epoch ->
+    CS;
 connection_state_by_epoch(#connection_states{current_read = CS}, Epoch, read)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{pending_read = CS}, Epoch, read)
+  when CS#connection_state.epoch == Epoch ->
+    CS;
+connection_state_by_epoch(#connection_states{previous_write = CS}, Epoch, write)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{current_write = CS}, Epoch, write)
@@ -385,6 +387,12 @@ connection_state_by_epoch(#connection_states{pending_write = CS}, Epoch, write)
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
 set_connection_state_by_epoch(ConnectionStates0 =
+				  #connection_states{previous_read = CS},
+			      NewCS = #connection_state{epoch = Epoch}, read)
+  when CS#connection_state.epoch == Epoch ->
+    ConnectionStates0#connection_states{previous_read = NewCS};
+
+set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_read = CS},
 			      NewCS = #connection_state{epoch = Epoch}, read)
   when CS#connection_state.epoch == Epoch ->
@@ -395,6 +403,12 @@ set_connection_state_by_epoch(ConnectionStates0 =
 			      NewCS = #connection_state{epoch = Epoch}, read)
   when CS#connection_state.epoch == Epoch ->
     ConnectionStates0#connection_states{pending_read = NewCS};
+
+set_connection_state_by_epoch(ConnectionStates0 =
+				  #connection_states{previous_write = CS},
+			      NewCS = #connection_state{epoch = Epoch}, write)
+  when CS#connection_state.epoch == Epoch ->
+    ConnectionStates0#connection_states{previous_write = NewCS};
 
 set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_write = CS},

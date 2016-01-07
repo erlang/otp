@@ -125,7 +125,8 @@ activate_pending_connection_state(States =
     EmptyPending = empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_read = NewCurrent,
+    States#connection_states{previous_read = Current,
+                             current_read = NewCurrent,
                              pending_read = NewPending
                             };
 
@@ -140,7 +141,8 @@ activate_pending_connection_state(States =
     EmptyPending = empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_write = NewCurrent,
+    States#connection_states{previous_write = Current,
+			     current_write = NewCurrent,
                              pending_write = NewPending
                             }.
 
