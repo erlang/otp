@@ -585,11 +585,6 @@ handle_own_alert(_,_,_, State) -> %% Place holder
 handle_normal_shutdown(_, _, _State) -> %% Place holder
     ok.
 
-
-sequence(_) ->
-    %%TODO real imp
-    1.
-
 handle_packet(Address, Port, Packet) ->
     try dtls_record:get_dtls_records(Packet, <<>>) of
 	%% expect client hello
@@ -637,3 +632,5 @@ address_to_bin({A,B,C,D}, Port) ->
 address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
     <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
 
+sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
+    {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.

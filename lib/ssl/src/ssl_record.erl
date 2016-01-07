@@ -72,7 +72,8 @@ init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = record_protocol_role(Role),
     Current = initial_connection_state(ConnectionEnd, BeastMitigation),
     Pending = empty_connection_state(ConnectionEnd, BeastMitigation),
-    #connection_states{current_read = Current,
+    #connection_states{dtls_write_msg_seq = 1, % only used by dtls
+		       current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
 		       pending_write = Pending
