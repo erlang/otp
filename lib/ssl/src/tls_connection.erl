@@ -410,14 +410,14 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 		HState = handle_sni_extension(Packet, HState0),
 		Version = Packet#client_hello.client_version,
 		Hs0 = ssl_handshake:init_handshake_history(),
-		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, true),
 		{HState#state{tls_handshake_history = Hs1,
 			      renegotiation = {true, peer}}, 
 		 {next_event, internal, Packet}};
 	   
 	   ({Packet, Raw}, {_SName, HState0 = #state{tls_handshake_history=Hs0}}) ->
 		HState = handle_sni_extension(Packet, HState0),
-		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, true),
 		{HState#state{tls_handshake_history=Hs1}, {next_event, internal, Packet}}
    	end,
     try
@@ -478,7 +478,7 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     Frag = tls_handshake:encode_handshake(Handshake, Version),
-    Hist = ssl_handshake:update_handshake_history(Hist0, Frag),
+    Hist = ssl_handshake:update_handshake_history(Hist0, Frag, true),
     {Encoded, ConnectionStates} =
         ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.

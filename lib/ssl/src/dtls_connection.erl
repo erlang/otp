@@ -359,7 +359,7 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     Seq = sequence(ConnectionStates0),
     {EncHandshake, FragmentedHandshake} = dtls_handshake:encode_handshake(Handshake, Version,
 								      Seq),
-    Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake),
+    Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake, false),
     {Encoded, ConnectionStates} =
         dtls_record:encode_handshake(FragmentedHandshake, 
 				     Version, ConnectionStates0),
@@ -386,7 +386,6 @@ next_record(#state{socket = Socket,
 
 next_record(State) ->
     {no_record, State}.
-
 
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
