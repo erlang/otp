@@ -24,7 +24,7 @@
 -include("ssl_alert.hrl").
 
 -export([client_hello/8, client_hello/9, hello/4,
-	 get_dtls_handshake/2,
+	 hello_verify_request/1, get_dtls_handshake/2,
 	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/3]).
 
@@ -92,45 +92,25 @@ hello(#server_hello{server_version = Version, random = Random,
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
 
-hello(#client_hello{client_version = ClientVersion}, _Options, {_,_,_,_,ConnectionStates,_}, _Renegotiation) ->      
-    %% Return correct typ to make dialyzer happy until we have time to make the real imp.
-    HashSigns = tls_v1:default_signature_algs(dtls_v1:corresponding_tls_version(ClientVersion)),
-    {ClientVersion, {new, #session{}}, ConnectionStates, #hello_extensions{}, 
-     %% Placeholder for real hasign handling
-     hd(HashSigns)}.
+hello(#client_hello{client_version = ClientVersion} = Hello,
+      #ssl_options{versions = Versions} = SslOpts,
+      Info, Renegotiation) ->
+    Version = ssl_handshake:select_version(dtls_record, ClientVersion, Versions),
+    %%
+    %% TODO: handle Cipher Fallback
+    %%
+    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation).
 
-%% hello(Address, Port,
-%%       #ssl_tls{epoch = _Epoch, sequence_number = _Seq,
-%% 	       version = Version} = Record) ->
-%%     case get_dtls_handshake(Record,
-%% 				dtls_handshake_new_flight(undefined)) of
-%% 	{[Hello | _], _} ->
-%% 	    hello(Address, Port, Version, Hello);
-%% 	{retransmit, HandshakeState} ->
-%% 	    {retransmit, HandshakeState}
-%%     end.
-					     
-%% hello(Address, Port, Version, Hello) ->
-%%     #client_hello{client_version = {Major, Minor},
-%% 		  random = Random,
-%% 		  session_id = SessionId,
-%% 		  cipher_suites = CipherSuites,
-%% 		  compression_methods = CompressionMethods} = Hello,
-%%     CookieData = [address_to_bin(Address, Port),
-%% 		  <<?BYTE(Major), ?BYTE(Minor)>>,
-%% 		  Random, SessionId, CipherSuites, CompressionMethods],
-%%     Cookie = crypto:hmac(sha, <<"secret">>, CookieData),
+-spec hello_verify_request(binary()) -> #hello_verify_request{}.
+%%
+%% Description: Creates a hello verify request message sent by server to
+%% verify client
+%%--------------------------------------------------------------------
+hello_verify_request(Cookie) ->
+    %% TODO: DTLS Versions?????
+    #hello_verify_request{protocol_version = {254, 255}, cookie = Cookie}.
 
-%%     case Hello of
-%% 	#client_hello{cookie = Cookie} ->
-%% 	    accept;
-%% 	_ ->
-%% 	    %% generate HelloVerifyRequest
-%% 	    HelloVerifyRequest = enc_hs(#hello_verify_request{protocol_version = Version,
-%% 									  cookie = Cookie},
-%% 						    Version, 0, 1400),
-%% 	    {reply, HelloVerifyRequest}
-%%     end.
+%%--------------------------------------------------------------------
 
 %% %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, MsgSeq) ->
@@ -186,10 +166,61 @@ dtls_handshake_new_flight(ExpectedReadReq) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+handle_client_hello(Version, #client_hello{session_id = SugesstedId,
+					   cipher_suites = CipherSuites,
+					   compression_methods = Compressions,
+					   random = Random,
+					   extensions = #hello_extensions{elliptic_curves = Curves,
+									  signature_algs = ClientHashSigns} = HelloExt},
+		    #ssl_options{versions = Versions,
+				 signature_algs = SupportedHashSigns} = SslOpts,
+		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
+    case dtls_record:is_acceptable_version(Version, Versions) of
+	true ->
+	    AvailableHashSigns = ssl_handshake:available_signature_algs(
+				   ClientHashSigns, SupportedHashSigns, Cert,
+				   dtls_v1:corresponding_tls_version(Version)),
+	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
+	    {Type, #session{cipher_suite = CipherSuite} = Session1}
+		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
+					       Port, Session0#session{ecc = ECCCurve}, Version,
+					       SslOpts, Cache, CacheCb, Cert),
+	    case CipherSuite of
+		no_suite ->
+		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+		_ ->
+		    {KeyExAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
+		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
+			#alert{} = Alert ->
+			    Alert;
+			HashSign ->
+			    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
+							   SslOpts, Session1, ConnectionStates0,
+							   Renegotiation, HashSign)
+		    end
+	    end;
+	false ->
+	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+    end.
+
+handle_client_hello_extensions(Version, Type, Random, CipherSuites,
+			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
+    try ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
+						     HelloExt, dtls_v1:corresponding_tls_version(Version),
+						     SslOpts, Session0, ConnectionStates0, Renegotiation) of
+	#alert{} = Alert ->
+	    Alert;
+	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
+	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
+    catch throw:Alert ->
+	    Alert
+    end.
+
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
     case ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
-						      Compression, HelloExt, Version,
+						      Compression, HelloExt,
+						      dtls_v1:corresponding_tls_version(Version),
 						      SslOpt, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
@@ -406,6 +437,8 @@ enc_handshake(#hello_verify_request{protocol_version = {Major, Minor},
  			      ?BYTE(CookieLength),
  			      Cookie/binary>>};
 
+enc_handshake(#hello_request{}, _Version) ->
+    {?HELLO_REQUEST, <<>>};
 enc_handshake(#client_hello{client_version = {Major, Minor},
 			       random = Random,
 			       session_id = SessionID,
