@@ -54,7 +54,7 @@
 %% Data handling
 -export([%%write_application_data/3, 
 	 read_application_data/2,
-	 %%passive_receive/2,
+	 passive_receive/2,
 	 next_record_if_active/1 %%,
 	 %%handle_common_event/4
 	]).
@@ -356,20 +356,81 @@ format_status(Type, Data) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
-    Seq = sequence(ConnectionStates0),
-    {EncHandshake, FragmentedHandshake} = dtls_handshake:encode_handshake(Handshake, Version,
-								      Seq),
+    {Seq, ConnectionStates} = sequence(ConnectionStates0),
+    {EncHandshake, Frag} = dtls_handshake:encode_handshake(Handshake, Version, Seq),
     Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake),
-    {Encoded, ConnectionStates} =
-        dtls_record:encode_handshake(FragmentedHandshake, 
-				     Version, ConnectionStates0),
-    {Encoded, ConnectionStates, Hist}.
+    {Frag, ConnectionStates, Hist}.
 
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     dtls_record:encode_change_cipher_spec(Version, ConnectionStates).
 
-decode_alerts(Bin) ->
-    ssl_alert:decode(Bin).
+encode_handshake_flight(Flight, ConnectionStates) ->
+    MSS = 1400,
+    encode_handshake_records(Flight, ConnectionStates, MSS, init_pack_records()).
+
+encode_handshake_records([], CS, _MSS, Recs) ->
+    {finish_pack_records(Recs), CS};
+
+encode_handshake_records([{Version, _Epoch, Frag = #change_cipher_spec{}}|Tail], ConnectionStates0, MSS, Recs0) ->
+    {Encoded, ConnectionStates} =
+        encode_change_cipher(Frag, Version, ConnectionStates0),
+    Recs = append_pack_records([Encoded], MSS, Recs0),
+    encode_handshake_records(Tail, ConnectionStates, MSS, Recs);
+
+encode_handshake_records([{Version, Epoch, {MsgType, MsgSeq, Bin}}|Tail], CS0, MSS, Recs0 = {Buf0, _}) ->
+    Space = MSS - iolist_size(Buf0),
+    Len = byte_size(Bin),
+    {Encoded, CS} =
+	encode_handshake_record(Version, Epoch, Space, MsgType, MsgSeq, Len, Bin, 0, MSS, [], CS0),
+    Recs = append_pack_records(Encoded, MSS, Recs0),
+    encode_handshake_records(Tail, CS, MSS, Recs).
+
+%% TODO: move to dtls_handshake????
+encode_handshake_record(_Version, _Epoch, _Space, _MsgType, _MsgSeq, _Len, <<>>, _Offset, _MRS, Encoded, CS)
+  when length(Encoded) > 0 ->
+    %% make sure we encode at least one segment (for empty messages like Server Hello Done
+    {lists:reverse(Encoded), CS};
+
+encode_handshake_record(Version, Epoch, Space, MsgType, MsgSeq, Len, Bin,
+			Offset, MRS, Encoded0, CS0) ->
+    MaxFragmentLen = Space - 25,
+    case Bin of
+	<<BinFragment:MaxFragmentLen/bytes, Rest/binary>> ->
+	    ok;
+	_ ->
+	    BinFragment = Bin,
+	    Rest = <<>>
+    end,
+    FragLength = byte_size(BinFragment),
+    Frag = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragLength), BinFragment],
+    {Encoded, CS} = ssl_record:encode_handshake({Epoch, Frag}, Version, CS0),
+    encode_handshake_record(Version, Epoch, MRS, MsgType, MsgSeq, Len, Rest, Offset + FragLength, MRS, [Encoded|Encoded0], CS).
+
+init_pack_records() ->
+    {[], []}.
+
+append_pack_records([], MSS, Recs = {Buf0, Acc0}) ->
+    Remaining = MSS - iolist_size(Buf0),
+    if Remaining < 12 ->
+	    {[], [lists:reverse(Buf0)|Acc0]};
+       true ->
+	    Recs
+    end;
+append_pack_records([Head|Tail], MSS, {Buf0, Acc0}) ->
+    TotLen = iolist_size(Buf0) + iolist_size(Head),
+    if TotLen > MSS ->
+	    append_pack_records(Tail, MSS, {[Head], [lists:reverse(Buf0)|Acc0]});
+       true ->
+	    append_pack_records(Tail, MSS, {[Head|Buf0], Acc0})
+    end.
+
+finish_pack_records({[], Acc}) ->
+    lists:reverse(Acc);
+finish_pack_records({Buf, Acc}) ->
+    lists:reverse([lists:reverse(Buf)|Acc]).
+
+%% decode_alerts(Bin) ->
+%%     ssl_alert:decode(Bin).
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
