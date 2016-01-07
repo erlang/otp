@@ -52,7 +52,8 @@
 
 %% Data handling
 -export([write_application_data/3, read_application_data/2,
-	 passive_receive/2,  next_record_if_active/1, handle_common_event/4]).
+	 passive_receive/2,  next_record_if_active/1, handle_common_event/4,
+	 handle_packet/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -1026,3 +1027,50 @@ close(_, Socket, Transport, _,_) ->
 
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
+
+handle_packet(Address, Port, Packet) ->
+    try dtls_record:get_dtls_records(Packet, <<>>) of
+	%% expect client hello
+	{[#ssl_tls{type = ?HANDSHAKE, version = {254, _}} = Record], <<>>} ->
+	    handle_dtls_client_hello(Address, Port, Record);
+	_Other ->
+	    {error, not_dtls}
+    catch
+	_Class:_Error ->
+	    {error, not_dtls}
+    end.
+
+handle_dtls_client_hello(Address, Port,
+			 #ssl_tls{epoch = Epoch, sequence_number = Seq,
+				  version = Version} = Record) ->
+    {[{Hello, _}], _} =
+	dtls_handshake:get_dtls_handshake(Record,
+					 dtls_handshake:dtls_handshake_new_flight(undefined)),
+    #client_hello{client_version = {Major, Minor},
+		  random = Random,
+		  session_id = SessionId,
+		  cipher_suites = CipherSuites,
+		  compression_methods = CompressionMethods} = Hello,
+    CookieData = [address_to_bin(Address, Port),
+		  <<?BYTE(Major), ?BYTE(Minor)>>,
+		  Random, SessionId, CipherSuites, CompressionMethods],
+    Cookie = crypto:hmac(sha, <<"secret">>, CookieData),
+
+    case Hello of
+	#client_hello{cookie = Cookie} ->
+	    accept;
+
+	_ ->
+	    %% generate HelloVerifyRequest
+	    {RequestFragment, _} = dtls_handshake:encode_handshake(
+				     dtls_handshake:hello_verify_request(Cookie),
+				     Version, 0),
+	    HelloVerifyRequest =
+		dtls_record:encode_tls_cipher_text(?HANDSHAKE, Version, Epoch, Seq, RequestFragment),
+	    {reply, HelloVerifyRequest}
+    end.
+
+address_to_bin({A,B,C,D}, Port) ->
+    <<0:80,16#ffff:16,A,B,C,D,Port:16>>;
+address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
+    <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
