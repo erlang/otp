@@ -1049,9 +1049,9 @@ format_status(terminate, [_, StateName, State]) ->
 					       srp_params = ?SECRET_PRINTOUT,
 					       srp_keys =  ?SECRET_PRINTOUT,
 					       premaster_secret =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions}
+					       ssl_options = NewOptions,
+					       flight_buffer =  ?SECRET_PRINTOUT}
 		       }}]}].
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1120,7 +1120,7 @@ resumed_server_hello(#state{session = Session,
 server_hello(ServerHello, State0, Connection) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
     {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
-    State = Connection:send_handshake(ServerHello, State0),
+    State = Connection:queue_handshake(ServerHello, State0),
     State#state{key_algorithm = KeyAlgorithm}.
 
 server_hello_done(State, Connection) ->
@@ -1166,7 +1166,7 @@ certify_client(#state{client_certificate_requested = true, role = client,
 		      session = #session{own_certificate = OwnCert}}
 	       = State, Connection) ->
     Certificate = ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, client),
-    Connection:send_handshake(Certificate, State);
+    Connection:queue_handshake(Certificate, State);
 
 certify_client(#state{client_certificate_requested = false} = State, _) ->
     State.
@@ -1182,7 +1182,7 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret,
 						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
-           Connection:send_handshake(Verified, State);
+           Connection:queue_handshake(Verified, State);
 	ignore ->
 	    State;
 	#alert{} = Alert ->
@@ -1276,7 +1276,7 @@ certify_server(#state{cert_db = CertDbHandle,
 		      session = #session{own_certificate = OwnCert}} = State, Connection) ->
     case ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, server) of
 	Cert = #certificate{} ->
-	    Connection:send_handshake(Cert, State);
+	    Connection:queue_handshake(Cert, State);
 	Alert = #alert{} ->
 	    throw(Alert)
     end.
@@ -1303,7 +1303,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 
 key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State, _)
@@ -1328,7 +1328,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = ECDHKeys};
 
 key_exchange(#state{role = server, key_algorithm = psk,
@@ -1350,7 +1350,7 @@ key_exchange(#state{role = server, key_algorithm = psk,
 						       HashSignAlgo, ClientRandom,
 						       ServerRandom,
 						       PrivateKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
@@ -1371,7 +1371,7 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 
 key_exchange(#state{role = server, key_algorithm = rsa_psk,
@@ -1393,7 +1393,7 @@ key_exchange(#state{role = server, key_algorithm = rsa_psk,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    ssl_options = #ssl_options{user_lookup_fun = LookupFun},
@@ -1422,7 +1422,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{srp_params = SrpParams,
 		srp_keys = Keys};
 
@@ -1432,7 +1432,7 @@ key_exchange(#state{role = client,
 		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret} = State0, Connection) ->
     Msg = rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1443,7 +1443,7 @@ key_exchange(#state{role = client,
        Algorithm == dhe_rsa;
        Algorithm == dh_anon ->
     Msg =  ssl_handshake:key_exchange(client, Version, {dh, DhPubKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1453,7 +1453,7 @@ key_exchange(#state{role = client,
        Algorithm == ecdh_ecdsa; Algorithm == ecdh_rsa;
        Algorithm == ecdh_anon ->
     Msg = ssl_handshake:key_exchange(client, Version, {ecdh, Keys}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
@@ -1461,7 +1461,7 @@ key_exchange(#state{role = client,
 		    negotiated_version = Version} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, Version, 
 				      {psk, SslOpts#ssl_options.psk_identity}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
@@ -1471,7 +1471,7 @@ key_exchange(#state{role = client,
     Msg =  ssl_handshake:key_exchange(client, Version,
 				      {dhe_psk, 
 				       SslOpts#ssl_options.psk_identity, DhPubKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
@@ -1481,7 +1481,7 @@ key_exchange(#state{role = client,
 	     = State0, Connection) ->
     Msg = rsa_psk_key_exchange(Version, SslOpts#ssl_options.psk_identity,
 			       PremasterSecret, PublicKeyInfo),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1492,7 +1492,7 @@ key_exchange(#state{role = client,
        Algorithm == srp_rsa;
        Algorithm == srp_anon ->
     Msg =  ssl_handshake:key_exchange(client, Version, {srp, ClientPubKey}),
-    Connection:send_handshake(Msg, State0).
+    Connection:queue_handshake(Msg, State0).
 
 rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
   when Algorithm == ?rsaEncryption;
@@ -1539,7 +1539,7 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer,
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, Version, [Version]),
     Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, 
 					    HashSigns, Version),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{client_certificate_requested = true};
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_none}} =
@@ -1583,10 +1583,10 @@ next_protocol(#state{expecting_next_protocol_negotiation = false} = State, _) ->
     State;
 next_protocol(#state{negotiated_protocol = NextProtocol} = State0, Connection) ->
     NextProtocolMessage = ssl_handshake:next_protocol(NextProtocol),
-    Connection:send_handshake(NextProtocolMessage, State0).
+    Connection:queue_handshake(NextProtocolMessage, State0).
 
 cipher_protocol(State, Connection) ->
-    Connection:send_change_cipher(#change_cipher_spec{}, State).
+    Connection:queue_change_cipher(#change_cipher_spec{}, State).
 
 finished(#state{role = Role, negotiated_version = Version,
 		session = Session,
