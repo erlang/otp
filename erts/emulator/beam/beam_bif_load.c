@@ -826,6 +826,9 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
+    literals = (char*) modp->old.code_hdr->literals_start;
+    lit_bsize = (char*) modp->old.code_hdr->literals_end - literals;
+
     for (msgp = rp->msg.first; msgp; msgp = msgp->next) {
 	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
 	    hfrag = &msgp->hfrag;
@@ -839,13 +842,10 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 	    /* Should not contain any constants... */
 	    ASSERT(!any_heap_refs(&hfrag->mem[0],
 				  &hfrag->mem[hfrag->used_size],
-				  mod_start,
-				  mod_size));
+                                  literals,
+				  lit_bsize));
 	}
     }
-
-    literals = (char*) modp->old.code_hdr->literals_start;
-    lit_bsize = (char*) modp->old.code_hdr->literals_end - literals;
 
     while (1) {
 
@@ -881,7 +881,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 	    hp = &hfrag->mem[0];
 	    hp_end = &hfrag->mem[hfrag->used_size];
-	    if (any_heap_refs(hp, hp_end, mod_start, lit_bsize))
+	    if (any_heap_refs(hp, hp_end, literals, lit_bsize))
 		goto try_literal_gc;
 	}
 
@@ -902,7 +902,7 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 		hp = &hfrag->mem[0];
 		hp_end = &hfrag->mem[hfrag->used_size];
-		ASSERT(!any_heap_refs(hp, hp_end, mod_start, lit_bsize));
+		ASSERT(!any_heap_refs(hp, hp_end, literals, lit_bsize));
 	    }
 	}
 
