@@ -56,6 +56,8 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
+-define(IS_SOCKET(Socket), (is_port(Socket) orelse is_pid(Socket))).
+
 %%--------------------------------------------------------------------
 -spec start() -> ok  | {error, reason()}.
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
@@ -93,10 +95,10 @@ stop() ->
 %%
 %% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
-connect(Socket, SslOptions) when is_port(Socket) ->
+connect(Socket, SslOptions) when ?IS_SOCKET(Socket) ->
     connect(Socket, SslOptions, infinity).
 
-connect(Socket, SslOptions0, Timeout) when is_port(Socket),
+connect(Socket, SslOptions0, Timeout) when ?IS_SOCKET(Socket),
 					    (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
 					      {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -209,7 +211,7 @@ ssl_accept(ListenSocket) ->
 ssl_accept(#sslsocket{} = Socket, Timeout) when  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
     ssl_connection:handshake(Socket, Timeout);
     
-ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
+ssl_accept(ListenSocket, SslOptions) ->
     ssl_accept(ListenSocket, SslOptions, infinity).
 
 ssl_accept(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
@@ -223,7 +225,7 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when
     catch
 	Error = {error, _Reason} -> Error
     end;
-ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket),
+ssl_accept(Socket, SslOptions, Timeout) when ?IS_SOCKET(Socket),
 					     (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) -> 
     {Transport,_,_,_} =
 	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -289,7 +291,7 @@ recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid),
 						  (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity)->
     ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {Listen,
-		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when is_port(Listen)->
+		       #config{transport_info = {Transport, _, _, _}}}}, _,_) when ?IS_SOCKET(Listen)->
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
@@ -302,7 +304,7 @@ controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid), is_pid(Ne
     ssl_connection:new_user(Pid, NewOwner);
 controlling_process(#sslsocket{pid = {Listen,
 				      #config{transport_info = {Transport, _, _, _}}}},
-		    NewOwner) when is_port(Listen),
+		    NewOwner) when ?IS_SOCKET(Listen),
 				   is_pid(NewOwner) ->
     Transport:controlling_process(Listen, NewOwner).
 
@@ -319,7 +321,7 @@ connection_information(#sslsocket{pid = Pid}) when is_pid(Pid) ->
 	Error ->
             Error
     end;
-connection_information(#sslsocket{pid = {Listen, _}}) when is_port(Listen) -> 
+connection_information(#sslsocket{pid = {Listen, _}}) when ?IS_SOCKET(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -373,7 +375,7 @@ peercert(#sslsocket{pid = Pid}) when is_pid(Pid) ->
         Result ->
 	    Result
     end;
-peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
+peercert(#sslsocket{pid = {Listen, _}}) when ?IS_SOCKET(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -475,7 +477,7 @@ setopts(#sslsocket{}, Options) ->
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
 shutdown(#sslsocket{pid = {Listen, #config{transport_info = {Transport,_, _, _}}}},
-	 How) when is_port(Listen) ->
+	 How) when ?IS_SOCKET(Listen) ->
     Transport:shutdown(Listen, How);
 shutdown(#sslsocket{pid = Pid}, How) ->
     ssl_connection:shutdown(Pid, How).
@@ -485,7 +487,7 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 %%
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when is_port(Listen) ->
+sockname(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _}}}}) when ?IS_SOCKET(Listen) ->
     ssl_socket:sockname(Transport, Listen);
 
 sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid) ->
@@ -499,7 +501,7 @@ sockname(#sslsocket{pid = Pid, fd = {Transport, Socket, _, _}}) when is_pid(Pid)
 %%--------------------------------------------------------------------
 session_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:session_info(Pid);
-session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
+session_info(#sslsocket{pid = {Listen,_}}) when ?IS_SOCKET(Listen) ->
     {error, enotconn}.
 
 %%---------------------------------------------------------------
@@ -523,7 +525,7 @@ versions() ->
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:renegotiation(Pid);
-renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
+renegotiate(#sslsocket{pid = {Listen,_}}) when ?IS_SOCKET(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -536,7 +538,7 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 prf(#sslsocket{pid = Pid},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
     ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
-prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
+prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when ?IS_SOCKET(Listen) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
