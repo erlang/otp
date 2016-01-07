@@ -25,7 +25,7 @@
 
 -export([client_hello/8, client_hello/9, hello/4,
 	 get_dtls_handshake/2,
-	 %%dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
+	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/3]).
 
 -type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | 
@@ -141,39 +141,47 @@ encode_handshake(Handshake, Version, MsgSeq) ->
     {Enc, Frag}.
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
+-spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | undefined) ->
 				{[dtls_handshake()], #dtls_hs_state{}} | {retransmit, #dtls_hs_state{}}.
 %%
 %% Description: Given a DTLS state and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns a new
 %% DTLS state
 %%--------------------------------------------------------------------
-get_dtls_handshake(Record, <<>>) ->
-    get_dtls_handshake_aux(Record, #dtls_hs_state{}); %% Init handshake state!?
-get_dtls_handshake(Record, HsState) ->
-    get_dtls_handshake_aux(Record, HsState).
+get_dtls_handshake(Records, undefined) ->
+    HsState = #dtls_hs_state{highest_record_seq = 0,
+			     starting_read_seq = 0,
+			     fragments = gb_trees:empty(),
+			     completed = []},
+    get_dtls_handshake(Records, HsState);
+get_dtls_handshake(Records, HsState0) when is_list(Records) ->
+    HsState1 = lists:foldr(fun get_dtls_handshake_aux/2, HsState0, Records),
+    get_dtls_handshake_completed(HsState1);
+get_dtls_handshake(Record, HsState0) when is_record(Record, ssl_tls) ->
+    HsState1 = get_dtls_handshake_aux(Record, HsState0),
+    get_dtls_handshake_completed(HsState1).
 
-%% %%--------------------------------------------------------------------
-%% -spec dtls_handshake_new_epoch(#dtls_hs_state{}) -> #dtls_hs_state{}.
-%% %%
-%% %% Description: Reset the DTLS decoder state for a new Epoch
-%% %%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+-spec dtls_handshake_new_epoch(#dtls_hs_state{}) -> #dtls_hs_state{}.
+%%
+%% Description: Reset the DTLS decoder state for a new Epoch
+%%--------------------------------------------------------------------
 %% dtls_handshake_new_epoch(<<>>) ->
 %%     dtls_hs_state_init();
-%% dtls_handshake_new_epoch(HsState) ->
-%%     HsState#dtls_hs_state{highest_record_seq = 0,
-%%   			  starting_read_seq = HsState#dtls_hs_state.current_read_seq,
-%%   			  fragments = gb_trees:empty(), completed = []}.
+dtls_handshake_new_epoch(HsState) ->
+    HsState#dtls_hs_state{highest_record_seq = 0,
+			  starting_read_seq = HsState#dtls_hs_state.current_read_seq,
+			  fragments = gb_trees:empty(), completed = []}.
 
-%% %--------------------------------------------------------------------
-%% -spec dtls_handshake_new_flight(integer() | undefined) -> #dtls_hs_state{}.
-%% %
-%% % Description: Init the DTLS decoder state for a new Flight
-%% dtls_handshake_new_flight(ExpectedReadReq) ->
-%%     #dtls_hs_state{current_read_seq = ExpectedReadReq,
-%% 		   highest_record_seq = 0,
-%% 		   starting_read_seq = 0,
-%% 		   fragments = gb_trees:empty(), completed = []}.
+%--------------------------------------------------------------------
+-spec dtls_handshake_new_flight(integer() | undefined) -> #dtls_hs_state{}.
+%
+% Description: Init the DTLS decoder state for a new Flight
+dtls_handshake_new_flight(ExpectedReadReq) ->
+    #dtls_hs_state{current_read_seq = ExpectedReadReq,
+		   highest_record_seq = 0,
+		   starting_read_seq = 0,
+		   fragments = gb_trees:empty(), completed = []}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -189,6 +197,9 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 
+get_dtls_handshake_completed(HsState = #dtls_hs_state{completed = Completed}) ->
+    {lists:reverse(Completed), HsState#dtls_hs_state{completed = []}}.
+
 get_dtls_handshake_aux(#ssl_tls{version = Version,
  				sequence_number = SeqNo,
  				fragment = Data}, HsState) ->
@@ -203,25 +214,18 @@ get_dtls_handshake_aux(Version, SeqNo,
     case reassemble_dtls_fragment(SeqNo, Type, Length, MessageSeq,
 				  FragmentOffset, FragmentLength,
 				  Body, HsState0) of
- 	{retransmit, HsState1} ->
- 	    case Rest of
- 		<<>> ->
- 		    {retransmit, HsState1};
- 		_ ->
- 		    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState1)
- 	    end;
  	{HsState1, HighestSeqNo, MsgBody} ->
  	    HsState2 = dec_dtls_fragment(Version, HighestSeqNo, Type, Length, MessageSeq, MsgBody, HsState1),
  	    HsState3 = process_dtls_fragments(Version, HsState2),
  	    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState3);
+
  	HsState2 ->
  	    HsState3 = process_dtls_fragments(Version, HsState2),
  	    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState3)
      end;
 
 get_dtls_handshake_aux(_Version, _SeqNo, <<>>, HsState) ->
-     {lists:reverse(HsState#dtls_hs_state.completed),
-      HsState#dtls_hs_state{completed = []}}.
+    HsState.
 
 dec_dtls_fragment(Version, SeqNo, Type, Length, MessageSeq, MsgBody,
  		  HsState = #dtls_hs_state{highest_record_seq = HighestSeqNo, completed = Acc}) ->
@@ -286,12 +290,6 @@ reassemble_dtls_fragment(SeqNo, _Type, Length, MessageSeq, 0, Length,
     %%
     HsState = dtls_hs_state_process_seq(HsState0),
     {HsState, SeqNo, Body};
-
-reassemble_dtls_fragment(_SeqNo, _Type, Length, MessageSeq, 0, Length,
- 			 _Body, HsState =
- 			     #dtls_hs_state{current_read_seq = CurrentReadSeq})
-  when MessageSeq < CurrentReadSeq ->
-    {retransmit, HsState};
 
 reassemble_dtls_fragment(_SeqNo, _Type, Length, MessageSeq, 0, Length,
  			 _Body, HsState = #dtls_hs_state{current_read_seq = CurrentReadSeq})
