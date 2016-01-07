@@ -34,7 +34,7 @@
 	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
-	 bad_constants/1,bad_guards/1]).
+	 bad_constants/1,bad_guards/1,scotland/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -52,7 +52,7 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards]}].
+       bad_constants,bad_guards,scotland]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1830,6 +1830,29 @@ bad_guards_2(M, [_]) when M#{a := 0, b => 0}, map_size(M) ->
 
 bad_guards_3(M, [_]) when is_map(M) andalso M#{a := 0, b => 0}, length(M) ->
     ok.
+
+%% beam_bool would remove the initialization of {y,0}.
+%% (Thanks to Thomas Arts and QuickCheck.)
+
+scotland(_Config) ->
+    million = do_scotland(placed),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
+    ok.
+
+do_scotland(Echo) ->
+  found(case Echo of
+	    Echo when true; Echo, Echo, Echo ->
+		Echo;
+	    echo ->
+		[]
+	end,
+	Echo = placed).
+
+found(_, _) -> million.
+
+
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
