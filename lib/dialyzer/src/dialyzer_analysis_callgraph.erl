@@ -115,9 +115,6 @@ loop(#server_state{parent = Parent} = State,
     {AnalPid, ext_types, ExtTypes} ->
       send_ext_types(Parent, ExtTypes),
       loop(State, Analysis, ExtCalls);
-    {AnalPid, unknown_behaviours, UnknownBehaviour} ->
-      send_unknown_behaviours(Parent, UnknownBehaviour),
-      loop(State, Analysis, ExtCalls);
     {AnalPid, mod_deps, ModDeps} ->
       send_mod_deps(Parent, ModDeps),
       loop(State, Analysis, ExtCalls);
@@ -578,10 +575,6 @@ send_ext_calls(Parent, ExtCalls) ->
 
 send_ext_types(Parent, ExtTypes) ->
   Parent ! {self(), ext_types, ExtTypes},
-  ok.
-
-send_unknown_behaviours(Parent, UnknownBehaviours) ->
-  Parent ! {self(), unknown_behaviours, UnknownBehaviours},
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt ) ->
