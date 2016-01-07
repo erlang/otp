@@ -866,8 +866,8 @@ check_process_code(Process* rp, Module* modp, int allow_gc, int *redsp)
 
 	/* Check dictionary */
 	if (rp->dictionary) {
-	    Eterm* start = rp->dictionary->data;
-	    Eterm* end = start + rp->dictionary->used;
+	    Eterm* start = ERTS_PD_START(rp->dictionary);
+	    Eterm* end = start + ERTS_PD_SIZE(rp->dictionary);
 
 	    if (any_heap_ref_ptrs(start, end, literals, lit_bsize))
 		goto try_literal_gc;

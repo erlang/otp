@@ -2203,8 +2203,8 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     ++n;
 
     if (p->dictionary != NULL) {
-        roots[n].v = p->dictionary->data;
-        roots[n].sz = p->dictionary->used;
+        roots[n].v = ERTS_PD_START(p->dictionary);
+        roots[n].sz = ERTS_PD_SIZE(p->dictionary);
         ++n;
     }
     if (nobj > 0) {
@@ -2818,8 +2818,8 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
 	       Eterm* objv, int nobj)
 {
     if (p->dictionary)  {
-	offset_heap(p->dictionary->data, 
-		    p->dictionary->used, 
+	offset_heap(ERTS_PD_START(p->dictionary),
+		    ERTS_PD_SIZE(p->dictionary),
 		    offs, area, area_size);
     }
 

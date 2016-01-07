@@ -192,7 +192,7 @@ Uint32 verbose;             /* See erl_debug.h for information about verbose */
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
 
-int erts_pd_initial_size = 10;
+int erts_pd_initial_size = 8;  /* must be power of 2 */
 
 int erts_modified_timing_level;
 
@@ -1479,7 +1479,7 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM, ("using minimum heap size %d\n", H_MIN_SIZE));
 	    } else if (has_prefix("pds", sub_param)) {
 		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if ((erts_pd_initial_size = atoi(arg)) <= 0) {
+		if (!erts_pd_set_initial_size(atoi(arg))) {
 		    erts_fprintf(stderr, "bad initial process dictionary size %s\n", arg);
 		    erts_usage();
 		}
