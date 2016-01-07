@@ -1327,12 +1327,13 @@ bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     %% that we save any variable that will be live after this BIF call.
 
     MayFail = not erl_bifs:is_safe(erlang, Bif, length(As)),
-    {Sis,Int0} = case St0#cg.in_catch andalso
-		     St0#cg.bfail =:= 0 andalso
-		     MayFail of
-		     true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
-		     false -> {[],Bef}
-		 end,
+    {Sis,Int0} =
+	case MayFail of
+	    true ->
+		maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0);
+	    false ->
+		{[],Bef}
+	end,
     Int1 = clear_dead(Int0, Le#l.i, Vdb),
     Reg = put_reg(V, Int1#sr.reg),
     Int = Int1#sr{reg=Reg},
@@ -1363,11 +1364,7 @@ gc_bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     %%   Currently, we are somewhat pessimistic in
     %% that we save any variable that will be live after this BIF call.
 
-    {Sis,Int0} =
-	case St0#cg.in_catch andalso St0#cg.bfail =:= 0 of
-	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
-	    false -> {[],Bef}
-	end,
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0),
 
     Int1 = clear_dead(Int0, Le#l.i, Vdb),
     Reg = put_reg(V, Int1#sr.reg),
@@ -1512,8 +1509,7 @@ set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
     Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
     Ret = fetch_reg(R, Int1#sr.reg),
     {[{put_list,S1,S2,Ret}], Int1, St};
-set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
-       #cg{in_catch=InCatch, bfail=Bfail}=St) ->
+set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef, #cg{bfail=Bfail}=St) ->
     %% At run-time, binaries are constructed in three stages:
     %% 1) First the size of the binary is calculated.
     %% 2) Then the binary is allocated.
@@ -1532,11 +1528,7 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     %% First generate the code that constructs each field.
     Fail = {f,Bfail},
     PutCode = cg_bin_put(Segs, Fail, Bef),
-    {Sis,Int1} =
-	case InCatch of
-	    true -> adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb);
-	    false -> {[],Int0}
-	end,
+    {Sis,Int1} = maybe_adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb, St),
     MaxRegs = max_reg(Bef#sr.reg),
     Aft = clear_dead(Int1, Le#l.i, Vdb),
 
@@ -1545,14 +1537,11 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
     {Sis++Code,Aft,St};
 % Map single variable key
 set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
-       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+       #cg{bfail=Bfail}=St) ->
 
     Fail = {f,Bfail},
-    {Sis,Int0} =
-	case InCatch of
-	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
-	    false -> {[],Bef}
-	end,
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
+
     SrcReg = cg_reg_arg(Map,Int0),
     Line = line(Le#l.a),
 
@@ -1573,17 +1562,13 @@ set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
 
 % Map (possibly) multiple literal keys
 set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
-       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+       #cg{bfail=Bfail}=St) ->
 
     %% assert key literals
     [] = [Var||{map_pair,{var,_}=Var,_} <- Es],
 
     Fail = {f,Bfail},
-    {Sis,Int0} =
-	case InCatch of
-	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
-	    false -> {[],Bef}
-	end,
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
     SrcReg = cg_reg_arg(Map,Int0),
     Line = line(Le#l.a),
 
@@ -2037,6 +2022,19 @@ trim_free([R|Rs0]) ->
 	{Rs,R} -> [R|Rs]
     end;
 trim_free([]) -> [].
+
+%% maybe_adjust_stack(Bef, FirstBefore, LastFrom, Vdb, St) -> {[Ainstr],Aft}.
+%%  Adjust the stack, but only if the code is inside a catch and not
+%%  inside a guard.  Use this funtion before instructions that may
+%%  cause an exception.
+
+maybe_adjust_stack(Bef, Fb, Lf, Vdb, St) ->
+    case St of
+	#cg{in_catch=true,bfail=0} ->
+	    adjust_stack(Bef, Fb, Lf, Vdb);
+	#cg{} ->
+	    {[],Bef}
+    end.
 
 %% adjust_stack(Bef, FirstBefore, LastFrom, Vdb) -> {[Ainstr],Aft}.
 %%  Do complete stack adjustment by compressing stack and adding
