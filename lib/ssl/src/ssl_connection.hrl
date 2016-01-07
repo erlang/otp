@@ -84,7 +84,8 @@
 	  client_ecc,          % {Curves, PointFmt}
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined,
-	  downgrade
+	  downgrade,
+	  flight_buffer = []   :: list()        %% buffer of not yet ACKed TLS records
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
