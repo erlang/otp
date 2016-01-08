@@ -1070,7 +1070,7 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 connection_info(#state{sni_hostname = SNIHostname, 
 		       session = #session{cipher_suite = CipherSuite}, 
-		       negotiated_version = Version, ssl_options = Opts}) ->
+		       negotiated_version =  {_,_} = Version, ssl_options = Opts}) ->
     [{protocol, tls_record:protocol_version(Version)}, 
      {cipher_suite, ssl_cipher:erl_suite_definition(CipherSuite)}, 
      {sni_hostname, SNIHostname}] ++ ssl_options_list(Opts).
