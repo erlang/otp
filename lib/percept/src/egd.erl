@@ -42,16 +42,11 @@
 %%
 %%==========================================================================
 
-%% @type egd_image()
-%% @type font()
-%% @type point() = {integer(), integer()}
-%% @type color()  
-%% @type render_option() = {render_engine, opaque} | {render_engine, alpha}
-
 -type egd_image() :: pid().
 -type point() :: {non_neg_integer(), non_neg_integer()}.
 -type render_option() :: {'render_engine', 'opaque'} | {'render_engine', 'alpha'}.
 -type color() :: {float(), float(), float(), float()}.
+-type font() :: egd_font:font().
 
 %%==========================================================================
 %%

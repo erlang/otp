@@ -24,9 +24,6 @@
 %% of XML Schema second edition 28 october 2004. For an introduction to
 %% XML Schema study <a href="http://www.w3.org/TR/xmlschema-0/">part 0.</a>
 %% An XML structure is validated by xmerl_xsd:validate/[2,3].
-%% @type global_state(). <p>The global state of the validator. It is 
-%% representated by the <code>#xsd_state{}</code> record.
-%% </p>
 %% @type option_list(). <p>Options allow to customize the behaviour of the 
 %% validation.
 %% </p>
@@ -60,6 +57,20 @@
 -include("xmerl_internal.hrl").
 -include("xmerl_xsd.hrl").
 -include_lib("kernel/include/file.hrl").
+
+%%----------------------------------------------------------------------
+%% Internal types
+%%----------------------------------------------------------------------
+-type global_state() :: #xsd_state{}.
+%% The global state of the validator.
+
+-type fetch_fun() :: fun((Schema::file:name(), Options::option_list()) ->
+                                {ok,term(),term()} | {error,term()}).
+-type option_list() :: {tab2file, boolean()} |
+                       {xsdbase, file:name()} |
+                       {fetch_fun, fetch_fun()} |
+                       {fetch_path, [file:name()]} |
+                       {state, global_state()}.
 
 %%----------------------------------------------------------------------
 %% External exports

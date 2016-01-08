@@ -127,27 +127,17 @@
 %%
 %% @end
 
-%% @type connection_type() = telnet | ts1 | ts2
-
-%% @type connection() = handle() |
-%% {ct:target_name(),connection_type()} | ct:target_name()
-
-%% @type handle() = ct_gen_conn:handle(). Handle for a
-%% specific telnet connection.
-
-%% @type prompt_regexp() = string(). A regular expression which
-%% matches all possible prompts for a specific type of target. The
-%% regexp must not have any groups i.e. when matching, re:run/3 shall
-%% return a list with one single element.
-%%
-%% @see unix_telnet
-
 -module(ct_telnet).
 
 -export([open/1, open/2, open/3, open/4, close/1]).
 -export([cmd/2, cmd/3, cmdf/3, cmdf/4, get_data/1, 
 	 send/2, send/3, sendf/3, sendf/4,
 	 expect/2, expect/3]).
+
+-export_type([connection/0,
+              connection_type/0,
+              handle/0,
+              prompt_regexp/0]).
 
 %% Callbacks
 -export([init/3,handle_msg/2,reconnect/2,terminate/2]).
@@ -184,20 +174,34 @@
 	       reconns=?RECONNS,
 	       reconn_int=?RECONN_TIMEOUT}).
 
+-type connection_type() :: telnet | ts1 | ts2.
+
+-type connection() :: handle() |
+                      {ct:target_name(), connection_type()} |
+                      ct:target_name().
+
+-type handle() :: ct_gen_conn:handle().
+%% Handle for a specific telnet connection.
+
+-type prompt_regexp() :: string().
+%% A regular expression which matches all possible prompts for a specific
+%% type of target. The regexp must not have any groups i.e. when matching,
+%% re:run/3 shall return a list with one single element.
+%% @see unix_telnet
+
 %%%-----------------------------------------------------------------
 %%% @spec open(Name) -> {ok,Handle} | {error,Reason}
-%%% @equiv open(Name,telnet)
+%%% @equiv open(Name, telnet)
 open(Name) ->
     open(Name,telnet).
 
 %%%-----------------------------------------------------------------
-%%% @spec open(Name,ConnType) -> {ok,Handle} | {error,Reason}
-%%%      Name = target_name()
-%%%      ConnType = ct_telnet:connection_type()
-%%%      Handle = ct_telnet:handle()
-%%%      Reason = term()
-%%%
 %%% @doc Open a telnet connection to the specified target host.
+-spec open(Name, ConnType) -> {ok,Handle} | {error,Reason} when
+      Name :: ct:target_name(),
+      ConnType :: connection_type(),
+      Handle :: handle(),
+      Reason :: term().
 open(Name,ConnType) ->
     case ct_util:get_key_from_name(Name) of
 	{ok, unix} -> % unix host
@@ -209,24 +213,13 @@ open(Name,ConnType) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec open(KeyOrName,ConnType,TargetMod) -> 
-%%%                                     {ok,Handle} | {error,Reason}
-%%% @equiv open(KeyOrName,ConnType,TargetMod,[])
+%%% @spec open(KeyOrName, ConnType, TargetMod) ->
+%%%                   {ok,Handle} | {error,Reason}
+%%% @equiv open(KeyOrName, ConnType, TargetMod, [])
 open(KeyOrName,ConnType,TargetMod) ->
     open(KeyOrName,ConnType,TargetMod,KeyOrName).
 
 %%%-----------------------------------------------------------------
-%%% @spec open(KeyOrName,ConnType,TargetMod,Extra) -> 
-%%%                                     {ok,Handle} | {error,Reason}
-%%%      KeyOrName = Key | Name
-%%%      Key = atom()
-%%%      Name = ct:target_name()
-%%%      ConnType = connection_type()
-%%%      TargetMod = atom()
-%%%      Extra = term()
-%%%      Handle = handle()
-%%%      Reason = term()
-%%%
 %%% @doc Open a telnet connection to the specified target host.
 %%%
 %%% <p>The target data must exist in a configuration file. The connection 
@@ -244,8 +237,18 @@ open(KeyOrName,ConnType,TargetMod) ->
 %%% <p><code>TargetMod</code> is a module which exports the functions
 %%% <code>connect(Ip,Port,KeepAlive,Extra)</code> and <code>get_prompt_regexp()</code>
 %%% for the given <code>TargetType</code> (e.g. <code>unix_telnet</code>).</p>
-%%%
+%%% @end
 %%% @see ct:require/2
+-spec open(KeyOrName, ConnType, TargetMod, Extra) ->
+                  {ok,Handle} | {error,Reason} when
+      KeyOrName :: Key | Name,
+      Key :: atom(),
+      Name :: ct:target_name(),
+      ConnType :: connection_type(),
+      TargetMod :: atom(),
+      Extra :: term(),
+      Handle :: handle(),
+      Reason :: term().
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->
@@ -286,16 +289,16 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec close(Connection) -> ok | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      Reason = term()
-%%%
 %%% @doc Close the telnet connection and stop the process managing it.
 %%% 
 %%% <p>A connection may be associated with a target name and/or a handle.
 %%% If <code>Connection</code> has no associated target name, it may only
 %%% be closed with the handle value (see the <code>open/4</code> 
 %%% function).</p>
+%%% @end
+-spec close(Connection) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Reason :: term().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -313,18 +316,11 @@ close(Connection) ->
 %%%=================================================================
 %%% Test suite interface
 %%%-----------------------------------------------------------------
-%%% @spec cmd(Connection,Cmd) -> {ok,Data} | {error,Reason}
-%%% @equiv cmd(Connection,Cmd,[])
+%%% @spec cmd(Connection, Cmd) -> {ok,Data} | {error,Reason}
+%%% @equiv cmd(Connection, Cmd, [])
 cmd(Connection,Cmd) ->
     cmd(Connection,Cmd,[]).
 %%%-----------------------------------------------------------------
-%%% @spec cmd(Connection,Cmd,Opts) -> {ok,Data} | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      Cmd = string()
-%%%      Opts = [Opt]
-%%%      Opt = {timeout,timeout()} | {newline,boolean()}
-%%%      Data = [string()]
-%%%      Reason = term()
 %%% @doc Send a command via telnet and wait for prompt.
 %%%
 %%% <p>This function will by default add a newline to the end of the
@@ -337,6 +333,14 @@ cmd(Connection,Cmd) ->
 %%% prompt. If the time expires, the function returns
 %%% `{error,timeout}'. See the module description for information
 %%% about the default value for the command timeout.</p>
+%%% @end
+-spec cmd(Connection, Cmd, Opts) -> {ok,Data} | {error,Reason} when
+      Connection :: connection(),
+      Cmd :: string(),
+      Opts :: [Opt],
+      Opt :: {timeout,timeout()} | {newline,boolean()},
+      Data :: [string()],
+      Reason :: term().
 cmd(Connection,Cmd,Opts) when is_list(Opts) ->
     case check_cmd_opts(Opts) of
 	ok ->
@@ -362,32 +366,29 @@ check_cmd_opts(Opts) ->
     check_send_opts(Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec cmdf(Connection,CmdFormat,Args) -> {ok,Data} | {error,Reason}
-%%% @equiv cmdf(Connection,CmdFormat,Args,[])
+%%% @spec cmdf(Connection, CmdFormat, Args) -> {ok,Data} | {error,Reason}
+%%% @equiv cmdf(Connection, CmdFormat, Args, [])
 cmdf(Connection,CmdFormat,Args) ->
     cmdf(Connection,CmdFormat,Args,[]).
 %%%-----------------------------------------------------------------
-%%% @spec cmdf(Connection,CmdFormat,Args,Opts) -> {ok,Data} | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      CmdFormat = string()
-%%%      Args = list()
-%%%      Opts = [Opt]
-%%%      Opt = {timeout,timeout()} | {newline,boolean()}
-%%%      Data = [string()]
-%%%      Reason = term()
 %%% @doc Send a telnet command and wait for prompt 
 %%%      (uses a format string and list of arguments to build the command).
 %%%
 %%% <p>See {@link cmd/3} further description.</p>
+%%% @end
+-spec cmdf(Connection, CmdFormat, Args, Opts) -> {ok,Data} | {error,Reason} when
+      Connection :: connection(),
+      CmdFormat :: string(),
+      Args :: list(),
+      Opts :: [Opt],
+      Opt :: {timeout,timeout()} | {newline,boolean()},
+      Data :: [string()],
+      Reason :: term().
 cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     cmd(Connection,Cmd,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_data(Connection) -> {ok,Data} | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      Data = [string()]
-%%%      Reason = term()
 %%% @doc Get all data that has been received by the telnet client
 %%% since the last command was sent. Note that only newline terminated
 %%% strings are returned. If the last string received has not yet
@@ -397,6 +398,11 @@ cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
 %%% by default disabled (meaning the function will immediately
 %%% return all complete strings received and save a remaining
 %%% non-terminated string for a later `get_data' call).
+%%% @end
+-spec get_data(Connection) -> {ok,Data} | {error,Reason} when
+      Connection :: connection(),
+      Data :: [string()],
+      Reason :: term().
 get_data(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -406,18 +412,12 @@ get_data(Connection) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec send(Connection,Cmd) -> ok | {error,Reason}
-%%% @equiv send(Connection,Cmd,[])
+%%% @spec send(Connection, Cmd) -> ok | {error,Reason}
+%%% @equiv send(Connection, Cmd, [])
 send(Connection,Cmd) ->
     send(Connection,Cmd,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec send(Connection,Cmd,Opts) -> ok | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      Cmd = string()
-%%%      Opts = [Opt]
-%%%      Opt = {newline,boolean()}
-%%%      Reason = term()
 %%% @doc Send a telnet command and return immediately.
 %%%
 %%% This function will by default add a newline to the end of the
@@ -428,6 +428,13 @@ send(Connection,Cmd) ->
 %%%
 %%% <p>The resulting output from the command can be read with
 %%% <code>get_data/1</code> or <code>expect/2/3</code>.</p>
+%%% @end
+-spec send(Connection, Cmd, Opts) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Cmd :: string(),
+      Opts :: [Opt],
+      Opt :: {newline,boolean()},
+      Reason :: term().
 send(Connection,Cmd,Opts) ->
     case check_send_opts(Opts) of
 	ok ->
@@ -450,55 +457,33 @@ check_send_opts([]) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec sendf(Connection,CmdFormat,Args) -> ok | {error,Reason}
-%%% @equiv sendf(Connection,CmdFormat,Args,[])
+%%% @spec sendf(Connection, CmdFormat, Args) -> ok | {error,Reason}
+%%% @equiv sendf(Connection, CmdFormat, Args, [])
 sendf(Connection,CmdFormat,Args) when is_list(Args) ->
     sendf(Connection,CmdFormat,Args,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec sendf(Connection,CmdFormat,Args,Opts) -> ok | {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      CmdFormat = string()
-%%%      Args = list()
-%%%      Opts = [Opt]
-%%%      Opt = {newline,boolean()}
-%%%      Reason = term()
 %%% @doc Send a telnet command and return immediately (uses a format
 %%% string and a list of arguments to build the command).
+%%% @end
+-spec sendf(Connection, CmdFormat, Args, Opts) -> ok | {error,Reason} when
+      Connection :: connection(),
+      CmdFormat :: string(),
+      Args :: list(),
+      Opts :: [Opt],
+      Opt :: {newline,boolean()},
+      Reason :: term().
 sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     send(Connection,Cmd,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec expect(Connection,Patterns) -> term()
-%%% @equiv expect(Connections,Patterns,[])
+%%% @spec expect(Connection, Patterns) -> term()
+%%% @equiv expect(Connections, Patterns, [])
 expect(Connection,Patterns) ->
     expect(Connection,Patterns,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec expect(Connection,Patterns,Opts) -> {ok,Match} | 
-%%%                                           {ok,MatchList,HaltReason} | 
-%%%                                           {error,Reason}
-%%%      Connection = ct_telnet:connection()
-%%%      Patterns = Pattern | [Pattern]
-%%%      Pattern = string() | {Tag,string()} | prompt | {prompt,Prompt}
-%%%      Prompt = string()
-%%%      Tag = term()
-%%%      Opts = [Opt]
-%%%      Opt = {idle_timeout,IdleTimeout} | {total_timeout,TotalTimeout} |
-%%%            repeat | {repeat,N} | sequence | {halt,HaltPatterns} |
-%%%            ignore_prompt | no_prompt_check | wait_for_prompt |
-%%%            {wait_for_prompt,Prompt}
-%%%      IdleTimeout = infinity | integer()
-%%%      TotalTimeout = infinity | integer()
-%%%      N = integer()
-%%%      HaltPatterns = Patterns
-%%%      MatchList = [Match]
-%%%      Match = RxMatch | {Tag,RxMatch} | {prompt,Prompt}
-%%%      RxMatch = [string()]
-%%%      HaltReason = done | Match
-%%%      Reason = timeout | {prompt,Prompt}
-%%%
 %%% @doc Get data from telnet and wait for the expected pattern.
 %%%
 %%% <p><code>Pattern</code> can be a POSIX regular expression. The function
@@ -584,6 +569,29 @@ expect(Connection,Patterns) ->
 %%%
 %%% <p>The <code>repeat</code> and <code>sequence</code> options can be
 %%% combined in order to match a sequence multiple times.</p>
+%%% @end
+-spec expect(Connection, Patterns, Opts) -> {ok,Match} |
+                                            {ok,MatchList,HaltReason} |
+                                            {error,Reason} when
+      Connection :: connection(),
+      Patterns :: Pattern | [Pattern],
+      Pattern :: string() | {Tag,string()} | prompt | {prompt,Prompt},
+      Prompt :: string(),
+      Tag :: term(),
+      Opts :: [Opt],
+      Opt :: {idle_timeout,IdleTimeout} | {total_timeout,TotalTimeout} |
+             repeat | {repeat,N} | sequence | {halt,HaltPatterns} |
+             ignore_prompt | no_prompt_check | wait_for_prompt |
+             {wait_for_prompt,Prompt},
+      IdleTimeout :: infinity | integer(),
+      TotalTimeout :: infinity | integer(),
+      N :: integer(),
+      HaltPatterns :: Patterns,
+      MatchList :: [Match],
+      Match :: RxMatch | {Tag,RxMatch} | {prompt,Prompt},
+      RxMatch :: [string()],
+      HaltReason :: done | Match,
+      Reason :: timeout | {prompt,Prompt}.
 expect(Connection,Patterns,Opts) ->
     case get_handle(Connection) of
 	{ok,Pid} ->

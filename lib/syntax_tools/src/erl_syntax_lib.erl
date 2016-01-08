@@ -23,9 +23,6 @@
 %%
 %% This module contains utility functions for working with the
 %% abstract data type defined in the module {@link erl_syntax}.
-%%
-%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
-%% tree. See the {@link erl_syntax} module for details.
 
 -module(erl_syntax_lib).
 
@@ -46,9 +43,9 @@
 -export_type([info_pair/0]).
 
 %% =====================================================================
-%% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
+%% @spec map(Function, Tree::erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %%
-%%          Function = (syntaxTree()) -> syntaxTree()
+%%          Function = (erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %% 
 %% @doc Applies a function to each node of a syntax tree. The result of
 %% each application replaces the corresponding original node. The order
@@ -72,7 +69,7 @@ map(F, Tree) ->
 
 
 %% =====================================================================
-%% @spec map_subtrees(Function, syntaxTree()) -> syntaxTree()
+%% @spec map_subtrees(Function, erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %%
 %%          Function = (Tree) -> Tree1
 %%         
@@ -97,9 +94,9 @@ map_subtrees(F, Tree) ->
 
 
 %% =====================================================================
-%% @spec fold(Function, Start::term(), Tree::syntaxTree()) -> term()
+%% @spec fold(Function, Start::term(), Tree::erl_syntax:syntaxTree()) -> term()
 %%
-%%          Function = (syntaxTree(), term()) -> term()
+%%          Function = (erl_syntax:syntaxTree(), term()) -> term()
 %%
 %% @doc Folds a function over all nodes of a syntax tree. The result is
 %% the value of `Function(X1, Function(X2, ... Function(Xn, Start)
@@ -132,10 +129,10 @@ fold_2(_, S, []) ->
 
 
 %% =====================================================================
-%% @spec fold_subtrees(Function, Start::term(), Tree::syntaxTree()) ->
+%% @spec fold_subtrees(Function, Start::term(), Tree::erl_syntax:syntaxTree()) ->
 %%           term()
 %%
-%%          Function = (syntaxTree(), term()) -> term()
+%%          Function = (erl_syntax:syntaxTree(), term()) -> term()
 %%
 %% @doc Folds a function over the immediate subtrees of a syntax tree.
 %% This is similar to `fold/3', but only on the immediate
@@ -176,10 +173,10 @@ foldl(_, S, []) ->
 
 
 %% =====================================================================
-%% @spec mapfold(Function, Start::term(), Tree::syntaxTree()) ->
-%%           {syntaxTree(), term()}
+%% @spec mapfold(Function, Start::term(), Tree::erl_syntax:syntaxTree()) ->
+%%           {erl_syntax:syntaxTree(), term()}
 %%
-%%          Function = (syntaxTree(), term()) -> {syntaxTree(), term()}
+%%          Function = (erl_syntax:syntaxTree(), term()) -> {erl_syntax:syntaxTree(), term()}
 %%
 %% @doc Combines map and fold in a single operation. This is similar to
 %% `map/2', but also propagates an extra value from each
@@ -221,9 +218,9 @@ mapfold_2(_, S, []) ->
 
 %% =====================================================================
 %% @spec mapfold_subtrees(Function, Start::term(),
-%%                        Tree::syntaxTree()) -> {syntaxTree(), term()}
+%%                        Tree::erl_syntax:syntaxTree()) -> {erl_syntax:syntaxTree(), term()}
 %%
-%%          Function = (syntaxTree(), term()) -> {syntaxTree(), term()}
+%%          Function = (erl_syntax:syntaxTree(), term()) -> {erl_syntax:syntaxTree(), term()}
 %%
 %% @doc Does a mapfold operation over the immediate subtrees of a syntax
 %% tree. This is similar to `mapfold/3', but only on the
@@ -277,7 +274,7 @@ mapfoldl(_, S, []) ->
 
 
 %% =====================================================================
-%% @spec variables(syntaxTree()) -> set(atom())
+%% @spec variables(erl_syntax:syntaxTree()) -> set(atom())
 %%
 %%        set(T) = //stdlib/sets:set(T)
 %%
@@ -453,10 +450,8 @@ new_variable_names(0, Names, _, _, _) ->
 
 
 %% =====================================================================
-%% @spec annotate_bindings(Tree::syntaxTree(),
-%%                         Bindings::ordset(atom())) -> syntaxTree()
-%%
-%% @type ordset(T) = //stdlib/ordsets:ordset(T)
+%% @spec annotate_bindings(Tree::erl_syntax:syntaxTree(),
+%%                         Bindings::ordsets:ordset(atom())) -> erl_syntax:syntaxTree()
 %%
 %% @doc Adds or updates annotations on nodes in a syntax tree.
 %% `Bindings' specifies the set of bound variables in the
@@ -487,7 +482,7 @@ annotate_bindings(Tree, Env) ->
     Tree1.
 
 %% =====================================================================
-%% @spec annotate_bindings(Tree::syntaxTree()) -> syntaxTree()
+%% @spec annotate_bindings(Tree::erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %%
 %% @doc Adds or updates annotations on nodes in a syntax tree.
 %% Equivalent to `annotate_bindings(Tree, Bindings)' where
@@ -888,7 +883,7 @@ delete_binding_anns([]) ->
 
 
 %% =====================================================================
-%% @spec is_fail_expr(Tree::syntaxTree()) -> boolean()
+%% @spec is_fail_expr(Tree::erl_syntax:syntaxTree()) -> boolean()
 %%
 %% @doc Returns `true' if `Tree' represents an
 %% expression which never terminates normally. Note that the reverse
@@ -938,7 +933,7 @@ is_fail_expr(E) ->
 %% =====================================================================
 %% @spec analyze_forms(Forms) -> [{Key, term()}]
 %%
-%%          Forms = syntaxTree() | [syntaxTree()]
+%%          Forms = erl_syntax:syntaxTree() | [erl_syntax:syntaxTree()]
 %%          Key = attributes | errors | exports | functions | imports
 %%                | module | records | warnings
 %%
@@ -1030,7 +1025,7 @@ is_fail_expr(E) ->
 %%       <dd><ul>
 %% 	    <li>`Records = [{atom(), Fields}]'</li>
 %% 	    <li>`Fields = [{atom(), Default}]'</li>
-%% 	    <li>`Default = none | syntaxTree()'</li>
+%% 	    <li>`Default = none | erl_syntax:syntaxTree()'</li>
 %%       </ul>
 %% 	 `Records' is a list of pairs representing the names
 %% 	 and corresponding field declarations of all record declaration
@@ -1184,7 +1179,7 @@ list_value(List) ->
 
 
 %% =====================================================================
-%% @spec analyze_form(Node::syntaxTree()) -> {atom(), term()} | atom()
+%% @spec analyze_form(Node::erl_syntax:syntaxTree()) -> {atom(), term()} | atom()
 %%
 %% @doc Analyzes a "source code form" node. If `Node' is a
 %% "form" type (cf. `erl_syntax:is_form/1'), the returned
@@ -1243,7 +1238,7 @@ analyze_form(Node) ->
     end.
 
 %% =====================================================================
-%% @spec analyze_attribute(Node::syntaxTree()) ->
+%% @spec analyze_attribute(Node::erl_syntax:syntaxTree()) ->
 %%           preprocessor | {atom(), atom()}
 %%
 %% @doc Analyzes an attribute node. If `Node' represents a
@@ -1334,7 +1329,7 @@ analyze_attribute(_, Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_module_attribute(Node::syntaxTree()) ->
+%% @spec analyze_module_attribute(Node::erl_syntax:syntaxTree()) ->
 %%           Name::atom() | {Name::atom(), Variables::[atom()]}
 %%
 %% @doc Returns the module name and possible parameters declared by a
@@ -1380,7 +1375,7 @@ analyze_variable_list(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_export_attribute(Node::syntaxTree()) -> [FunctionName]
+%% @spec analyze_export_attribute(Node::erl_syntax:syntaxTree()) -> [FunctionName]
 %%
 %%          FunctionName = atom() | {atom(), integer()}
 %%                       | {ModuleName, FunctionName}
@@ -1424,7 +1419,7 @@ analyze_function_name_list(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_function_name(Node::syntaxTree()) -> FunctionName
+%% @spec analyze_function_name(Node::erl_syntax:syntaxTree()) -> FunctionName
 %%
 %%          FunctionName = atom() | {atom(), integer()}
 %%                       | {ModuleName, FunctionName}
@@ -1481,7 +1476,7 @@ append_arity(_A, Name) ->
 
 
 %% =====================================================================
-%% @spec analyze_import_attribute(Node::syntaxTree()) ->
+%% @spec analyze_import_attribute(Node::erl_syntax:syntaxTree()) ->
 %%           {atom(), [FunctionName]} | atom()
 %%
 %%          FunctionName = atom() | {atom(), integer()}
@@ -1523,7 +1518,7 @@ analyze_import_attribute(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_wild_attribute(Node::syntaxTree()) -> {atom(), term()}
+%% @spec analyze_wild_attribute(Node::erl_syntax:syntaxTree()) -> {atom(), term()}
 %%
 %% @doc Returns the name and value of a "wild" attribute. The result is
 %% the pair `{Name, Value}', if `Node' represents "`-Name(Value)'".
@@ -1565,10 +1560,10 @@ analyze_wild_attribute(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_record_attribute(Node::syntaxTree()) ->
+%% @spec analyze_record_attribute(Node::erl_syntax:syntaxTree()) ->
 %%           {atom(), Fields}
 %%
-%%          Fields = [{atom(), none | syntaxTree()}]
+%%          Fields = [{atom(), none | erl_syntax:syntaxTree()}]
 %%
 %% @doc Returns the name and the list of fields of a record declaration
 %% attribute. The result is a pair `{Name, Fields}', if
@@ -1621,11 +1616,11 @@ analyze_record_attribute_tuple(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_record_expr(Node::syntaxTree()) ->
+%% @spec analyze_record_expr(Node::erl_syntax:syntaxTree()) ->
 %%     {atom(), Info} | atom()
 %%
 %%    Info = {atom(), [{atom(), Value}]} | {atom(), atom()} | atom()
-%%    Value = none | syntaxTree()
+%%    Value = none | erl_syntax:syntaxTree()
 %%
 %% @doc Returns the record name and field name/names of a record
 %% expression. If `Node' has type `record_expr',
@@ -1713,9 +1708,9 @@ analyze_record_expr(Node) ->
     end.
 
 %% =====================================================================
-%% @spec analyze_record_field(Node::syntaxTree()) -> {atom(), Value}
+%% @spec analyze_record_field(Node::erl_syntax:syntaxTree()) -> {atom(), Value}
 %%
-%%          Value = none | syntaxTree()
+%%          Value = none | erl_syntax:syntaxTree()
 %%
 %% @doc Returns the label and value-expression of a record field
 %% specifier. The result is a pair `{Label, Value}', if
@@ -1751,7 +1746,7 @@ analyze_record_field(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_file_attribute(Node::syntaxTree()) ->
+%% @spec analyze_file_attribute(Node::erl_syntax:syntaxTree()) ->
 %%           {string(), integer()}
 %%
 %% @doc Returns the file name and line number of a `file'
@@ -1788,7 +1783,7 @@ analyze_file_attribute(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_function(Node::syntaxTree()) -> {atom(), integer()}
+%% @spec analyze_function(Node::erl_syntax:syntaxTree()) -> {atom(), integer()}
 %%
 %% @doc Returns the name and arity of a function definition. The result
 %% is a pair `{Name, A}' if `Node' represents a
@@ -1818,7 +1813,7 @@ analyze_function(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_implicit_fun(Node::syntaxTree()) -> FunctionName
+%% @spec analyze_implicit_fun(Node::erl_syntax:syntaxTree()) -> FunctionName
 %%
 %%          FunctionName = atom() | {atom(), integer()}
 %%                       | {ModuleName, FunctionName}
@@ -1845,7 +1840,7 @@ analyze_implicit_fun(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_application(Node::syntaxTree()) -> FunctionName | Arity
+%% @spec analyze_application(Node::erl_syntax:syntaxTree()) -> FunctionName | Arity
 %%
 %%          FunctionName = {atom(), Arity}
 %%                       | {ModuleName, FunctionName}
@@ -1931,7 +1926,7 @@ function_name_expansions(A, Name, Ack) ->
 
 
 %% =====================================================================
-%% @spec strip_comments(Tree::syntaxTree()) -> syntaxTree()
+%% @spec strip_comments(Tree::erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %%
 %% @doc Removes all comments from all nodes of a syntax tree. All other
 %% attributes (such as position information) remain unchanged.
@@ -1957,7 +1952,7 @@ strip_comments_1(T) ->
     end.
 
 %% =====================================================================
-%% @spec to_comment(Tree) -> syntaxTree()
+%% @spec to_comment(Tree) -> erl_syntax:syntaxTree()
 %% @equiv to_comment(Tree, "% ")
 
 -spec to_comment(erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree().
@@ -1966,8 +1961,8 @@ to_comment(Tree) ->
     to_comment(Tree, "% ").
 
 %% =====================================================================
-%% @spec to_comment(Tree::syntaxTree(), Prefix::string()) ->
-%%           syntaxTree()
+%% @spec to_comment(Tree::erl_syntax:syntaxTree(), Prefix::string()) ->
+%%           erl_syntax:syntaxTree()
 %%
 %% @doc Equivalent to `to_comment(Tree, Prefix, F)' for a
 %% default formatting function `F'. The default
@@ -1983,10 +1978,10 @@ to_comment(Tree, Prefix) ->
     to_comment(Tree, Prefix, F).
 
 %% =====================================================================
-%% @spec to_comment(Tree::syntaxTree(), Prefix::string(), Printer) ->
-%%           syntaxTree()
+%% @spec to_comment(Tree::erl_syntax:syntaxTree(), Prefix::string(), Printer) ->
+%%           erl_syntax:syntaxTree()
 %%
-%%          Printer = (syntaxTree()) -> string()
+%%          Printer = (erl_syntax:syntaxTree()) -> string()
 %%
 %% @doc Transforms a syntax tree into an abstract comment. The lines of
 %% the comment contain the text for `Node', as produced by
@@ -2016,7 +2011,7 @@ to_comment(Tree, Prefix, F) ->
 
 
 %% =====================================================================
-%% @spec limit(Tree, Depth) -> syntaxTree()
+%% @spec limit(Tree, Depth) -> erl_syntax:syntaxTree()
 %%
 %% @doc Equivalent to `limit(Tree, Depth, Text)' using the
 %% text `"..."' as default replacement.
@@ -2030,8 +2025,8 @@ limit(Tree, Depth) ->
     limit(Tree, Depth, erl_syntax:text("...")).
 
 %% =====================================================================
-%% @spec limit(Tree::syntaxTree(), Depth::integer(),
-%%             Node::syntaxTree()) -> syntaxTree()
+%% @spec limit(Tree::erl_syntax:syntaxTree(), Depth::integer(),
+%%             Node::erl_syntax:syntaxTree()) -> erl_syntax:syntaxTree()
 %%
 %% @doc Limits a syntax tree to a specified depth. Replaces all non-leaf
 %% subtrees in `Tree' at the given `Depth' by

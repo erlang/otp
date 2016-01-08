@@ -41,15 +41,6 @@
 %%%   <c>init_per_testcase/2</c> in the test suite.</li>
 %%% </ul>
 
-%%% @type var_name() = atom(). A variable name which is specified when
-%%% <c>ct:require/2</c> is called,
-%%% e.g. <c>ct:require(mynodename,{node,[telnet]})</c>
-%%%
-%%% @type target_name() = var_name(). The name of a target.
-%%%
-%%% @type handle() = ct_gen_conn:handle() | term(). The identity of a
-%%% specific connection.
-
 -module(ct).
 
 -include("ct.hrl").
@@ -87,6 +78,19 @@
 
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
+
+
+-type var_name() :: atom().
+%% A variable name which is specified when <c>ct:require/2</c> is called,
+%% e.g. <c>ct:require(mynodename,{node,[telnet]})</c>
+
+-type target_name() :: var_name().
+%% The name of a target.
+
+-type handle() :: ct_gen_conn:handle() | term().
+%% The identity of a specific connection.
+
+-export_type([target_name/0]).
 
 %%%-----------------------------------------------------------------
 %%% @spec install(Opts) -> ok | {error,Reason}
@@ -880,14 +884,15 @@ make_priv_dir() ->
     test_server:make_priv_dir().
 
 %%%-----------------------------------------------------------------
-%%% @spec get_target_name(Handle) -> {ok,TargetName} | {error,Reason}
-%%%      Handle = handle()
-%%%      TargetName = target_name()
 %%% @doc Return the name of the target that the given connection
 %%% belongs to.
+-spec get_target_name(Handle) -> {ok,TargetName} | {error,Reason} when
+      Handle :: handle(),
+      TargetName :: target_name(),
+      Reason :: term().
 get_target_name(Handle) ->
     ct_util:get_target_name(Handle).
-    
+
 %%%-----------------------------------------------------------------
 %%% @spec parse_table(Data) -> {Heading,Table}
 %%%       Data = [string()]
