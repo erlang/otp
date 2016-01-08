@@ -305,12 +305,16 @@ connection(internal, #hello_request{}, #state{host = Host, port = Port,
 				    renegotiation = {Renegotiation, _}} = State0) ->
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Cache, CacheCb, Renegotiation, Cert),
-    %% TODO DTLS version State1 = send_handshake(Hello, State0),
-    State1 = State0,
+
+    %% getting a hello_request in connection means that we want to renegotiate the
+    %% security parameter, to indicate that we have to unset the session id
+    %% see RFC 5246, Sect. 7.4.1.2. Client Hello
+    State1 = send_handshake(Hello#client_hello{session_id = <<>>},
+			    State0#state{connection_states =
+					     ConnectionStates0#connection_states{dtls_write_msg_seq = 0}}),
     {Record, State} =
 	next_record(
-	  State1#state{session = Session0#session{session_id
-						  = Hello#client_hello.session_id}}),
+	  State1#state{session = Session0#session{session_id = <<>>}}),
     next_event(hello, Record, State);
 
 connection(internal, #client_hello{} = Hello, #state{role = server, allow_renegotiate = true} = State) ->
