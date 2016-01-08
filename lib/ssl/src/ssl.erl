@@ -100,8 +100,7 @@ connect(Socket, SslOptions) when ?IS_SOCKET(Socket) ->
 
 connect(Socket, SslOptions0, Timeout) when ?IS_SOCKET(Socket),
 					    (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) ->
-    {Transport,_,_,_} = proplists:get_value(cb_info, SslOptions0,
-					      {gen_tcp, tcp, tcp_closed, tcp_error}),
+    {Transport,_,_,_} = cb_info(SslOptions0),
     EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
     try handle_options(SslOptions0 ++ SocketValues, client) of
@@ -227,8 +226,7 @@ ssl_accept(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts0, Timeout) when
     end;
 ssl_accept(Socket, SslOptions, Timeout) when ?IS_SOCKET(Socket),
 					     (is_integer(Timeout) andalso Timeout > 0) or (Timeout == infinity) -> 
-    {Transport,_,_,_} =
-	proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error}),
+    {Transport,_,_,_} = cb_info(SslOptions),
     EmulatedOptions = ssl_socket:emulated_options(),
     {ok, SocketValues} = ssl_socket:getopts(Transport, Socket, EmulatedOptions),
     ConnetionCb = connection_cb(SslOptions),
@@ -646,7 +644,8 @@ handle_options(Opts0, Role) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
-    RecordCb = record_cb(Opts),
+    Protocol = proplists:get_value(protocol, Opts, tls),
+    RecordCb = record_cb(Protocol),
 
     ReuseSessionFun = fun(_, _, _, _) -> true end,
     CaCerts = handle_option(cacerts, Opts, undefined),
@@ -716,7 +715,7 @@ handle_options(Opts0, Role) ->
 		    honor_cipher_order = handle_option(honor_cipher_order, Opts, 
 						       default_option_role(server, false, Role), 
 						       server, Role),
-		    protocol = proplists:get_value(protocol, Opts, tls),
+		    protocol = Protocol,
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
 		    fallback = handle_option(fallback, Opts,
 					     proplists:get_value(fallback, Opts,    
@@ -728,7 +727,7 @@ handle_options(Opts0, Role) ->
 		    hello_verify = handle_option(hello_verify, Opts, true)
 		   },
 
-    CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
+    CbInfo  = cb_info(Protocol, Opts),
     SslOptions = [protocol, versions, verify, verify_fun, partial_chain,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
@@ -1300,7 +1299,8 @@ new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordC
 					 handle_hashsigns_option(Value, 
 								 RecordCB:highest_protocol_version())}, 
 		    RecordCB);
-
+new_ssl_options([{protocol, Protocol} | Rest], #ssl_options{protocol = Protocol} = Opts, RecordCB) ->
+    new_ssl_options(Rest, Opts, RecordCB);
 new_ssl_options([{Key, Value} | _Rest], #ssl_options{}, _) -> 
     throw({error, {options, {Key, Value}}}).
 
@@ -1362,3 +1362,11 @@ default_option_role(Role, Value, Role) ->
     Value;
 default_option_role(_,_,_) ->
     undefined.
+
+cb_info(tls, SslOptions) ->
+    proplists:get_value(cb_info, SslOptions, {gen_tcp, tcp, tcp_closed, tcp_error});
+cb_info(dtls, SslOptions) ->
+    proplists:get_value(cb_info, SslOptions, {dtls_udp, dtls_udp, udp_close, udp_error}).
+
+cb_info(SslOptions) ->
+    cb_info(proplists:get_value(protocol, SslOptions, tls), SslOptions).
