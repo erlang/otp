@@ -250,7 +250,13 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  define ERL_NIF_INIT_EXPORT
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_NIF_INIT_EXPORT __global
+#  else
+#    define ERL_NIF_INIT_EXPORT
+#  endif
 #endif
 
 #ifdef STATIC_ERLANG_NIF

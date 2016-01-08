@@ -378,15 +378,23 @@ typedef struct erl_drv_entry {
 
 #ifdef STATIC_ERLANG_DRIVER
 #  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#  define ERL_DRIVER_EXPORT
 #else
 #  define ERLANG_DRIVER_NAME(NAME) driver_init
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_DRIVER_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_DRIVER_EXPORT __global
+#  else
+#    define ERL_DRIVER_EXPORT
+#  endif
 #endif
 
 #ifndef ERL_DRIVER_TYPES_ONLY
 
-#  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
+#define DRIVER_INIT(DRIVER_NAME) \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
 #define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
