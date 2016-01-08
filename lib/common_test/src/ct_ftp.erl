@@ -19,10 +19,6 @@
 %%
 
 %%% @doc FTP client module (based on the FTP support of the INETS application).
-%%%
-%%% @type connection() = handle() | ct:target_name()
-%%% @type handle() = ct_gen_conn:handle(). Handle for a specific
-%%% ftp connection.
 
 -module(ct_ftp).
 
@@ -34,6 +30,10 @@
 -export([init/3,handle_msg/2,reconnect/2,terminate/2]).
 
 -include("ct_util.hrl").
+
+-type connection() :: handle() | ct:target_name().
+-type handle() :: ct_gen_conn:handle().
+%% Handle for a specific ftp connection.
 
 -record(state,{ftp_pid,target_name}).
 
@@ -163,14 +163,15 @@ send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
 %%%-----------------------------------------------------------------
-%%% @spec send(Connection,LocalFile,RemoteFile) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%      LocalFile = string()
-%%%      RemoteFile = string()
-%%%
 %%% @doc Send a file over FTP.
 %%%
 %%% <p>The file will be named <code>RemoteFile</code> on the remote host.</p>
+%%% @end
+-spec send(Connection, LocalFile, RemoteFile) -> ok | {error,Reason} when
+      Connection :: connection(),
+      LocalFile :: string(),
+      RemoteFile :: string(),
+      Reason :: term().
 send(Connection,LocalFile,RemoteFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -189,14 +190,15 @@ recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
 %%%-----------------------------------------------------------------
-%%% @spec recv(Connection,RemoteFile,LocalFile) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%      RemoteFile = string()
-%%%      LocalFile = string()
-%%%
 %%% @doc Fetch a file over FTP.
 %%%
 %%% <p>The file will be named <code>LocalFile</code> on the local host.</p>
+%%% @end
+-spec recv(Connection, RemoteFile, LocalFile) -> ok | {error,Reason} when
+      Connection :: connection(),
+      RemoteFile :: string(),
+      LocalFile :: string(),
+      Reason :: term().
 recv(Connection,RemoteFile,LocalFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -206,11 +208,11 @@ recv(Connection,RemoteFile,LocalFile) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec cd(Connection,Dir) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%      Dir = string()
-%%%
 %%% @doc Change directory on remote host.
+-spec cd(Connection, Dir) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Dir :: string(),
+      Reason :: term().
 cd(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -220,12 +222,12 @@ cd(Connection,Dir) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec ls(Connection,Dir) -> {ok,Listing} | {error,Reason}
-%%%      Connection = connection()
-%%%      Dir = string()
-%%%      Listing = string()
-%%%
 %%% @doc List the directory Dir.
+-spec ls(Connection, Dir) -> {ok,Listing} | {error,Reason} when
+      Connection :: connection(),
+      Dir :: string(),
+      Listing :: string(),
+      Reason :: term().
 ls(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -235,11 +237,11 @@ ls(Connection,Dir) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec type(Connection,Type) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%      Type = ascii | binary
-%%%
 %%% @doc Change file transfer type
+-spec type(Connection, Type) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Type :: ascii | binary,
+      Reason :: term().
 type(Connection,Type) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -249,11 +251,11 @@ type(Connection,Type) ->
     end.
     
 %%%-----------------------------------------------------------------
-%%% @spec delete(Connection,File) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%      File = string()
-%%%
 %%% @doc Delete a file on remote host
+-spec delete(Connection, File) -> ok | {error,Reason} when
+      Connection :: connection(),
+      File :: string(),
+      Reason :: term().
 delete(Connection,File) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -263,10 +265,10 @@ delete(Connection,File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec close(Connection) -> ok | {error,Reason}
-%%%      Connection = connection()
-%%%
 %%% @doc Close the FTP connection.
+-spec close(Connection) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Reason :: term().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->

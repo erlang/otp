@@ -19,9 +19,6 @@
 %%
 
 %%% @doc Generic connection owner process.
-%%%
-%%% @type handle() = pid(). A handle for using a connection implemented
-%%% with ct_gen_conn.erl.
 
 -module(ct_gen_conn).
 
@@ -34,7 +31,8 @@
 %%----------------------------------------------------------------------
 -export_type([server_id/0,
 	      target_name/0,
-	      key_or_name/0]).
+	      key_or_name/0,
+              handle/0]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -64,6 +62,8 @@
 %% `require' statement or a call to {@link ct:require/2} in the
 %% test suite.
 -type key_or_name() :: server_id() | target_name().
+-opaque handle() :: pid().
+%% A handle for using a connection implemented with ct_gen_conn.erl.
 
 
 %%%-----------------------------------------------------------------
