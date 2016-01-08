@@ -18,6 +18,7 @@
 	       ssl,  %% Main API		  
 	       tls,  %% TLS specific
 	       dtls, %% DTLS specific 
+	       dtls_udp, %% DTLS generic UDP mapping
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
 	       ssl_config,
