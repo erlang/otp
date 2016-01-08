@@ -648,10 +648,12 @@ userauth_keyboard_interactive(Msg = #ssh_msg_userauth_failure{},
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{},
 					    #state{ssh_params = #ssh{role = client}} = State) ->
     userauth(Msg, State);
-
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{},
 					    #state{ssh_params = #ssh{role = client}} = State) ->
-    userauth(Msg, State).
+    userauth(Msg, State);
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_info_request{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
+    userauth_keyboard_interactive(Msg, State).
 
 %%--------------------------------------------------------------------
 -spec connected({#ssh_msg_kexinit{}, binary()}, %%| %% #ssh_msg_kexdh_init{},
