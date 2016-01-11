@@ -30,6 +30,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The authentication method 'keyboard-interactive' failed
+	    in the Erlang client when the server after successful
+	    authentication continued by asking for zero more
+	    passwords.</p>
+          <p>
+	    Own Id: OTP-13225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

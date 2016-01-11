@@ -477,7 +477,7 @@ keyboard_interact_get_responses(_, undefined, Password, _, _, _, _, _,
 				1) when Password =/= undefined ->
     [Password]; %% Password auth implemented with keyboard-interaction and passwd is known
 keyboard_interact_get_responses(_, _, _, _, _, _, _, _, 0)  ->
-    [""];
+    [];
 keyboard_interact_get_responses(false, undefined, undefined, _, _, _, [Prompt|_], Opts, _) ->
     ssh_no_io:read_line(Prompt, Opts); %% Throws error as keyboard interaction is not allowed
 keyboard_interact_get_responses(true, undefined, _,IoCb, Name, Instr, PromptInfos, Opts, _) ->
