@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -764,7 +764,8 @@ finalize(OrigList, Mod, Exports, WholeModule, Opts) ->
 finalize_fun(MfaIcodeList, Exports, Opts) ->
   case proplists:get_value(concurrent_comp, Opts) of
     FalseVal when (FalseVal =:= undefined) orelse (FalseVal =:= false) ->
-      [finalize_fun_sequential(MFAIcode, Opts, #comp_servers{})
+      NoServers = #comp_servers{pp_server = none, range = none, type = none},
+      [finalize_fun_sequential(MFAIcode, Opts, NoServers)
        || {_MFA, _Icode} = MFAIcode <- MfaIcodeList];
     TrueVal when (TrueVal =:= true) orelse (TrueVal =:= debug) ->
       finalize_fun_concurrent(MfaIcodeList, Exports, Opts)

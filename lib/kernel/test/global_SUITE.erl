@@ -2931,7 +2931,7 @@ sync_until(LogFile) ->
     timer:sleep(Time).
 
 shuffle(L) ->
-    [E || {_, E} <- lists:keysort(1, [{random:uniform(), E} || E <- L])].
+    [E || {_, E} <- lists:keysort(1, [{rand:uniform(), E} || E <- L])].
 
 sync_0(suite) -> [];
 sync_0(doc) ->

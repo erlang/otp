@@ -48,27 +48,28 @@
           socket_options        :: #socket_options{},
           connection_states     :: #connection_states{} | secret_printout(),
 	  protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
-          tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout(),
-	  cert_db               :: reference(),
+          tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
+                                 | 'undefined',
+	  cert_db               :: reference() | 'undefined',
           session               :: #session{} | secret_printout(),
 	  session_cache         :: db_handle(),
 	  session_cache_cb      :: atom(),
 	  crl_db                :: term(), 
-          negotiated_version    :: ssl_record:ssl_version(),
+          negotiated_version    :: ssl_record:ssl_version() | 'undefined',
           client_certificate_requested = false :: boolean(),
 	  key_algorithm         :: ssl_cipher:key_algo(),
 	  hashsign_algorithm = {undefined, undefined},
 	  cert_hashsign_algorithm,
-          public_key_info      :: ssl_handshake:public_key_info(),
-          private_key          :: public_key:private_key() | secret_printout(),
+          public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
+          private_key          :: public_key:private_key() | secret_printout() | 'undefined',
 	  diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
 	  diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),  
-	  psk_identity         :: binary(), % server psk identity hint
-	  srp_params           :: #srp_user{} | secret_printout(), 
-	  srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout(),
-          premaster_secret     :: binary() | secret_printout() ,
+	  psk_identity         :: binary() | 'undefined', % server psk identity hint
+	  srp_params           :: #srp_user{} | secret_printout() | 'undefined',
+	  srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
+          premaster_secret     :: binary() | secret_printout() | 'undefined',
 	  file_ref_db          :: db_handle(),
-          cert_db_ref          :: certdb_ref(),
+          cert_db_ref          :: certdb_ref() | 'undefined',
           bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
           user_data_buffer     :: undefined | binary() | secret_printout(), 
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
@@ -81,7 +82,7 @@
 	  expecting_finished =                  false ::boolean(),
           negotiated_protocol = undefined             :: undefined | binary(),
 	  client_ecc,          % {Curves, PointFmt}
-	  tracker              :: pid(), %% Tracker process for listen socket
+	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined
 	 }).
 

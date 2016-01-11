@@ -168,12 +168,7 @@ init_per_suite(Config) when is_list(Config) ->
 		     ok ->
 			 [{sasl,started}]
 		 end,
-    ok = case os:type() of
-	     {ose,_} ->
-		 ok;
-	     _ ->
-		 application:start(os_mon)
-	 end,
+    application:start(os_mon),
 
     case os:type() of
 	{win32, _} ->
@@ -199,12 +194,7 @@ end_per_suite(Config) when is_list(Config) ->
 	    ok
     end,
 
-    case os:type() of
-	{ose,_} ->
-	    ok;
-	_ ->
-	    application:stop(os_mon)
-    end,
+    application:stop(os_mon),
     case proplists:get_value(sasl, Config) of
 	started ->
 	    application:stop(sasl);
@@ -889,10 +879,7 @@ open1(Config) when is_list(Config) ->
     ?line io:format(Fd1,Str,[]),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line Str = io:get_line(Fd1,''),
-    ?line case io:get_line(Fd2,'') of
-	      Str -> Str;
-	      eof -> Str
-	  end,
+    ?line Str = io:get_line(Fd2,''),
     ?line ok = ?FILE_MODULE:close(Fd2),
     ?line {ok,0} = ?FILE_MODULE:position(Fd1,bof),
     ?line ok = ?FILE_MODULE:truncate(Fd1),
@@ -2368,9 +2355,6 @@ e_rename(Config) when is_list(Config) ->
 	    %% At least Windows NT can 
 	    %% successfully move a file to
 	    %% another drive.
-	    ok;
-	{ose, _} ->
-	    %% disabled for now
 	    ok
     end,
     [] = flush(),

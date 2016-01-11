@@ -252,7 +252,7 @@ print_process_info(int to, void *to_arg, Process *p)
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_print(to, to_arg, "Message queue: [");
 	for (mp = p->msg.first; mp; mp = mp->next)
 	    erts_print(to, to_arg, mp->next ? "%T," : "%T", ERL_MESSAGE_TERM(mp));
@@ -323,7 +323,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
-    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
+    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
@@ -381,7 +381,7 @@ loaded(int to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    BeamInstr* code;
+    BeamCodeHeader* code;
     Module* modp;
     ErtsCodeIndex code_ix;
 
@@ -439,30 +439,30 @@ loaded(int to, void *to_arg)
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
 			   modp->curr.code_length);
-		code = modp->curr.code;
-		if (code != NULL && code[MI_ATTR_PTR]) {
+		code = modp->curr.code_hdr;
+		if (code != NULL && code->attr_ptr) {
 		    erts_print(to, to_arg, "Current attributes: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-				    code[MI_ATTR_SIZE]);
+		    dump_attributes(to, to_arg, code->attr_ptr,
+				    code->attr_size);
 		}
-		if (code != NULL && code[MI_COMPILE_PTR]) {
+		if (code != NULL && code->compile_ptr) {
 		    erts_print(to, to_arg, "Current compilation info: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-				    code[MI_COMPILE_SIZE]);
+		    dump_attributes(to, to_arg, code->compile_ptr,
+				    code->compile_size);
 		}
 
 		if (modp->old.code_length != 0) {
 		    erts_print(to, to_arg, "Old size: %d\n", modp->old.code_length);
-		    code = modp->old.code;
-		    if (code[MI_ATTR_PTR]) {
+		    code = modp->old.code_hdr;
+		    if (code->attr_ptr) {
 			erts_print(to, to_arg, "Old attributes: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-					code[MI_ATTR_SIZE]);
+			dump_attributes(to, to_arg, code->attr_ptr,
+					code->attr_size);
 		    }
-		    if (code[MI_COMPILE_PTR]) {
+		    if (code->compile_ptr) {
 			erts_print(to, to_arg, "Old compilation info: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-					code[MI_COMPILE_SIZE]);
+			dump_attributes(to, to_arg, code->compile_ptr,
+					code->compile_size);
 		    }
 		}
 	    }

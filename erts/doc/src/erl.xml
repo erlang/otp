@@ -1334,6 +1334,21 @@
           <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
           for further information.</p>
       </item>
+      <tag><c><![CDATA[+xFlag Value]]></c></tag>
+      <item>
+        <p>Default process flag settings.</p>
+        <taglist>
+          <tag><marker id="+xmqd"><c>+xmqd off_heap|on_heap|mixed</c></marker></tag>
+          <item><p>
+	    Sets the default value for the process flag
+	    <c>message_queue_data</c>. If <c>+xmqd</c> is not
+	    passed, <c>mixed</c> will be the default. For more information,
+	    see the documentation of
+            <seealso marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	    MQD)</c></seealso>.
+	  </p></item>
+	</taglist>
+      </item>
       <tag><c><![CDATA[+zFlag Value]]></c></tag>
       <item>
         <p>Miscellaneous flags.</p>

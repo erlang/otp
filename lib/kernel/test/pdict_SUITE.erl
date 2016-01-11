@@ -32,6 +32,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
+	 mixed/1,
 	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
@@ -47,7 +48,8 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [simple, complicated, heavy, simple_all_keys, info].
+    [simple, complicated, heavy, simple_all_keys, info,
+     mixed].
 
 groups() -> 
     [].
@@ -369,3 +371,60 @@ match_keys(All) ->
     Ks = lists:sort([K||{K,_}<-All]),
     Ks = lists:sort(erlang:get_keys()),
     ok.
+
+
+%% Do random mixed put/erase to test grow/shrink
+%% Written for a temporary bug in gc during shrink
+mixed(_Config) ->
+    Rand0 = rand:seed_s(exsplus),
+    io:format("Random seed = ~p\n\n", [rand:export_seed_s(Rand0)]),
+
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+	C = do_mixed([10,0,100,50,1000,500,600,100,150,1,11,2,30,0],
+		     0,
+		     array:new(),
+		     1,
+		     Rand0),
+	io:format("\nDid total of ~p operations\n", [C])
+    after
+	erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+do_mixed([], _, _, C, _) ->
+    C;
+do_mixed([GoalN | Tail], GoalN, Array, C, Rand0) ->
+    io:format("Reached goal of ~p keys in dict after ~p mixed ops\n",[GoalN, C]),
+    GoalN = array:size(Array),
+    do_mixed(Tail, GoalN, Array, C, Rand0);
+do_mixed([GoalN | _]=Goals, CurrN, Array0, C, Rand0) ->
+    CurrN = array:size(Array0),
+    GrowPercent = case GoalN > CurrN of
+		      true when CurrN == 0 -> 100;
+		      true -> 75;
+		      false -> 25
+		  end,
+    {R, Rand1} = rand:uniform_s(100, Rand0),
+    case R of
+	_ when R =< GrowPercent ->   %%%%%%%%%%%%% GROW
+	    {Key, Rand2} = rand:uniform_s(10000, Rand1),
+	    case put(Key, {Key,C}) of
+		undefined ->
+		    Array1 = array:set(CurrN, Key, Array0),
+		    do_mixed(Goals, CurrN+1, Array1, C+1, Rand2);
+		_ ->
+		    do_mixed(Goals, CurrN, Array0, C+1, Rand2)
+	    end;
+
+	_ ->                          %%%%%%%%%% SHRINK
+	    {Kix, Rand2} = rand:uniform_s(CurrN, Rand1),
+	    Key = array:get(Kix-1, Array0),
+
+	    %% provoke GC during shrink
+	    erts_debug:set_internal_state(fill_heap, true),
+
+	    {Key, _} = erase(Key),
+	    Array1 = array:set(Kix-1, array:get(CurrN-1, Array0), Array0),
+	    Array2 = array:resize(CurrN-1, Array1),
+	    do_mixed(Goals, CurrN-1, Array2, C+1, Rand2)
+    end.

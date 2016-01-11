@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,15 +141,15 @@
           app_name    :: '_'  | app_name(),
           incl_cond   :: '_'  | incl_cond() | undefined,
           debug_info  :: '_'  | debug_info() | undefined,
-          is_app_mod  :: '_'  | boolean(),
-          is_ebin_mod :: '_'  | boolean(),
-          uses_mods   :: '$2' | [mod_name()],
-          exists      :: '_'  | boolean(),
+          is_app_mod  :: '_'  | boolean() | undefined,
+          is_ebin_mod :: '_'  | boolean() | undefined,
+          uses_mods   :: '$2' | [mod_name()] | undefined,
+          exists      :: '_'  | boolean() | undefined,
           %% Dynamic
-          status          :: '_' | status(),
-          used_by_mods    :: '_' | [mod_name()],
-          is_pre_included :: '_' | boolean() | undefined,
-          is_included     :: '_' | boolean() | undefined
+          status = ok       :: '_' | status(),
+          used_by_mods = [] :: '_' | [mod_name()],
+          is_pre_included   :: '_' | boolean() | undefined,
+          is_included       :: '_' | boolean() | undefined
 	}).
 
 -record(app_info,
@@ -177,10 +177,10 @@
           name             :: '_' | app_name(),
           is_escript       :: '_' | boolean() | {inlined, escript_app_name()},
           use_selected_vsn :: '_' | vsn | dir | undefined,
-          active_dir       :: '_' | dir(),
+          active_dir       :: '_' | dir() | undefined,
           sorted_dirs      :: '_' | [dir()],
-          vsn              :: '_' | app_vsn(),
-          label            :: '_' | app_label(),
+          vsn              :: '_' | app_vsn() | undefined,
+          label            :: '_' | app_label() | undefined,
           info             :: '_' | #app_info{} | undefined,
           mods             :: '_' | [#mod{}],
 
@@ -192,21 +192,21 @@
           debug_info            :: '_' | debug_info() | undefined,
           app_file              :: '_' | app_file() | undefined,
           app_type              :: '_' | app_type() | undefined,
-          incl_app_filters      :: '_' | [#regexp{}],
-          excl_app_filters      :: '_' | [#regexp{}],
-          incl_archive_filters  :: '_' | [#regexp{}],
-          excl_archive_filters  :: '_' | [#regexp{}],
-          archive_opts          :: '_' | [archive_opt()],
+          incl_app_filters      :: '_' | [#regexp{}] | undefined,
+          excl_app_filters      :: '_' | [#regexp{}] | undefined,
+          incl_archive_filters  :: '_' | [#regexp{}] | undefined,
+          excl_archive_filters  :: '_' | [#regexp{}] | undefined,
+          archive_opts          :: '_' | [archive_opt()] | undefined,
 
           %% Dynamic
           status          :: '_' | status(),
-          uses_mods       :: '_' | [mod_name()],
-          used_by_mods    :: '_' | [mod_name()],
-          uses_apps       :: '_' | [app_name()],
-          used_by_apps    :: '_' | [app_name()],
+          uses_mods       :: '_' | [mod_name()] | undefined,
+          used_by_mods    :: '_' | [mod_name()] | undefined,
+          uses_apps       :: '_' | [app_name()] | undefined,
+          used_by_apps    :: '_' | [app_name()] | undefined,
           is_pre_included :: '_' | '$2' | boolean() | undefined,
           is_included     :: '_' | '$1' | boolean() | undefined,
-          rels            :: '_' | [rel_name()]
+          rels            :: '_' | [rel_name()] | undefined
 	}).
 
 -record(rel_app,
@@ -237,7 +237,7 @@
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
-	  excl_lib             :: excl_lib(),
+	  excl_lib             :: excl_lib() | undefined,
           incl_sys_filters     :: [#regexp{}],
           excl_sys_filters     :: [#regexp{}],
           incl_app_filters     :: [#regexp{}],

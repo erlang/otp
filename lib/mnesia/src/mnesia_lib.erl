@@ -921,20 +921,7 @@ random_time(Retries, _Counter0) ->
     UpperLimit = 500,
     Dup = Retries * Retries,
     MaxIntv = trunc(UpperLimit * (1-(50/((Dup)+50)))),
-    
-    case get(random_seed) of
-	undefined ->
-	    _ = random:seed(erlang:unique_integer(),
-			    erlang:monotonic_time(),
-			    erlang:unique_integer()),
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time;
-	_ ->
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time	    
-    end.
+    Dup + rand:uniform(MaxIntv).
 
 report_system_event(Event0) ->
     Event = {mnesia_system_event, Event0},

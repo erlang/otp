@@ -1879,11 +1879,7 @@ new_seq_trace_token(Process* p)
 {
     Eterm* hp;
 
-    if (SEQ_TRACE_TOKEN(p) == NIL
-#ifdef USE_VM_PROBES
-	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
-#endif
-	) {
+    if (have_no_seqtrace(SEQ_TRACE_TOKEN(p))) {
 	hp = HAlloc(p, 6);
 	SEQ_TRACE_TOKEN(p) = TUPLE5(hp, make_small(0),		/* Flags  */ 
 				    make_small(0),		/* Label  */
@@ -1903,12 +1899,8 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 	BIF_ERROR(p, BADARG);
     }
 
-    if (SEQ_TRACE_TOKEN(p) == NIL
-#ifdef USE_VM_PROBES
-	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
-#endif
-	) {
-	if ((item == am_send) || (item == am_receive) || 
+    if (have_no_seqtrace(SEQ_TRACE_TOKEN(p))) {
+	if ((item == am_send)  || (item == am_receive) || 
 	    (item == am_print) || (item == am_timestamp)) {
 	    hp = HAlloc(p,3);
 	    res = TUPLE2(hp, item, am_false);
@@ -1964,11 +1956,7 @@ BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
  */
 BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)    
 {
-    if (SEQ_TRACE_TOKEN(BIF_P) == NIL 
-#ifdef USE_VM_PROBES
-	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
-#endif
-	) {
+    if (have_no_seqtrace(SEQ_TRACE_TOKEN(BIF_P))) {
 	BIF_RET(am_false);
     }
     seq_trace_update_send(BIF_P);
@@ -1987,11 +1975,7 @@ BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)
  */
 BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)    
 {
-    if (SEQ_TRACE_TOKEN(BIF_P) == NIL
-#ifdef USE_VM_PROBES
-	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
-#endif
-	) {
+    if (have_no_seqtrace(SEQ_TRACE_TOKEN(BIF_P))) {
 	BIF_RET(am_false);
     }
     if (!(is_atom(BIF_ARG_1) || is_small(BIF_ARG_1))) {

@@ -827,21 +827,24 @@ select_extract_bin([{var,Hd},{var,Tl}], Size0, Unit, Type, Flags, Vf,
 		  {bs_save2,CtxReg,{Ctx,Tl}}],Int1}
 	end,
     {Es,clear_dead(Aft, I, Vdb),St};
-select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
+select_extract_bin([{var,Hd}], Size, Unit, binary, Flags, Vf,
 		   I, Vdb, Bef, Ctx, Body, St) ->
-    SizeReg = get_bin_size_reg(Size0, Bef),
+    %% Match the last segment of a binary. We KNOW that the size
+    %% must be 'all'.
+    Size = {atom,all},				%Assertion.
     {Es,Aft} =
 	case vdb_find(Hd, Vdb) of
 	    {_,_,Lhd} when Lhd =< I ->
+		%% The result will not be used. Furthermore, since we
+		%% we are at the end of the binary, the position will
+		%% not be used again; thus, it is safe to do a cheaper
+		%% test of the unit.
 		CtxReg = fetch_var(Ctx, Bef),
-		{case SizeReg =:= {atom,all} andalso is_context_unused(Body) of
-		     true when Unit =:= 1 ->
+		{case Unit of
+		     1 ->
 			 [];
-		     true ->
-			 [{test,bs_test_unit,{f,Vf},[CtxReg,Unit]}];
-		     false ->
-			 [{test,bs_skip_bits2,{f,Vf},
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}]}]
+		     _ ->
+			 [{test,bs_test_unit,{f,Vf},[CtxReg,Unit]}]
 		 end,Bef};
 	    {_,_,_} ->
 		case is_context_unused(Body) of
@@ -853,7 +856,7 @@ select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
 			Name = bs_get_binary2,
 			Live = max_reg(Bef#sr.reg),
 			{[{test,Name,{f,Vf},Live,
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}],Rhd}],
+			   [CtxReg,Size,Unit,{field_flags,Flags}],Rhd}],
 			 Int1};
 		    true ->
 			%% Since the matching context will not be used again,
@@ -868,7 +871,7 @@ select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
 			Name = bs_get_binary2,
 			Live = max_reg(Int1#sr.reg),
 			{[{test,Name,{f,Vf},Live,
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}],CtxReg}],
+			   [CtxReg,Size,Unit,{field_flags,Flags}],CtxReg}],
 			 Int1}
 		end
 	end,

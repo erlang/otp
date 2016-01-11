@@ -30,11 +30,12 @@
 module(Code, Abst, SourceFile, Opts) ->
     {ok,assemble(Code, Abst, SourceFile, Opts)}.
 
-assemble({Mod,Exp,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
+    Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
     build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
 
@@ -61,7 +62,7 @@ insert_on_load_instruction(Is0, Entry) ->
     Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
-    Dict1 = case member({Name,Arity}, Exp) of
+    Dict1 = case cerl_sets:is_element({Name,Arity}, Exp) of
 		true ->
 		    beam_dict:export(Name, Arity, Entry, Dict0);
 		false ->

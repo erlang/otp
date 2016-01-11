@@ -338,7 +338,7 @@ static struct {
     } w;
 } raw_unique_monotonic_integer erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 #  define ERTS_UNIQUE_MONOTONIC_OFFSET ERTS_SINT64_MIN
 #else
 #  define ERTS_UNIQUE_MONOTONIC_OFFSET MIN_SMALL
@@ -368,7 +368,7 @@ get_unique_monotonic_integer_heap_size(Uint64 raw, int positive)
 	Sint64 value = ((Sint64) raw) + ERTS_UNIQUE_MONOTONIC_OFFSET;
 	if (IS_SSMALL(value))
 	    return 0;
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 	return ERTS_SINT64_HEAP_SIZE(value);
 #else
 	return ERTS_UINT64_HEAP_SIZE((Uint64) value);
@@ -393,7 +393,7 @@ make_unique_monotonic_integer_value(Eterm *hp, Uint hsz, Uint64 raw, int positiv
 	if (hsz == 0)
 	    res = make_small(value);
 	else {
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 	    res = erts_sint64_to_big(value, &hp);
 #else 
 	    res = erts_uint64_to_big((Uint64) value, &hp);

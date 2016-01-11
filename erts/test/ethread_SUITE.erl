@@ -123,38 +123,6 @@ try_lock_mutex(suite) ->
 try_lock_mutex(Config) ->
     run_case(Config, "try_lock_mutex", "").
 
-%% Remove dead code?
-
-% wd_dispatch(P) ->
-%     receive
-% 	bye ->
-% 	    ?line true = port_command(P, "-1 "),
-% 	    ?line bye;
-% 	L when is_list(L) ->
-% 	    ?line true = port_command(P, L),
-% 	    ?line wd_dispatch(P)
-%     end.
-% 
-% watchdog(Port) ->
-%     ?line process_flag(priority, max),
-%     ?line receive after 500 -> ok end,
-% 
-%     ?line random:seed(),
-%     ?line true = port_command(Port, "0 "),
-%     ?line lists:foreach(fun (T) ->
-% 				erlang:send_after(T,
-% 						  self(),
-% 						  integer_to_list(T)
-% 						  ++ " ")
-% 			end,
-% 			lists:usort(lists:map(fun (_) ->
-% 						      random:uniform(4500)+500
-% 					      end,
-% 					      lists:duplicate(50,0)))),
-%     ?line erlang:send_after(5100, self(), bye),
-% 
-%     wd_dispatch(Port).
-
 cond_wait(doc) ->
     ["Tests ethr_cond_wait with ethr_cond_signal and ethr_cond_broadcast."];
 cond_wait(suite) ->

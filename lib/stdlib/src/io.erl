@@ -631,41 +631,20 @@ io_requests(Pid, [], [Rs|Cont], Tail) ->
 io_requests(_Pid, [], [], _Tail) -> 
     {false,[]}.
 
-
-bc_req(Pid,{Op,Enc,Param},MaybeConvert) ->
+bc_req(Pid, Req0, MaybeConvert) ->
     case net_kernel:dflag_unicode_io(Pid) of
 	true ->
-	    {false,{Op,Enc,Param}};
+	    %% The most common case. A modern i/o server.
+	    {false,Req0};
 	false ->
-	    {MaybeConvert,{Op,Param}}
-    end;
-bc_req(Pid,{Op,Enc,P,F},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,P,F}};
-	false ->
-	    {MaybeConvert,{Op,P,F}}
-    end;
-bc_req(Pid, {Op,Enc,M,F,A},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,M,F,A}};
-	false ->
-	    {MaybeConvert,{Op,M,F,A}}
-    end;
-bc_req(Pid, {Op,Enc,P,M,F,A},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,P,M,F,A}};
-	false ->
-	    {MaybeConvert,{Op,P,M,F,A}}
-    end;
-bc_req(Pid,{Op,Enc},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op, Enc}};
-	false ->
-	    {MaybeConvert,Op}
+	    %% Backward compatibility only. Unlikely to ever happen.
+	    case tuple_to_list(Req0) of
+		[Op,_Enc] ->
+		    {MaybeConvert,Op};
+		[Op,_Enc|T] ->
+		    Req = list_to_tuple([Op|T]),
+		    {MaybeConvert,Req}
+	    end
     end.
 
 io_request(Pid, {write,Term}) ->

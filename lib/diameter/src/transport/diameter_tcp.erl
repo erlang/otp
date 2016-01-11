@@ -73,7 +73,7 @@
 %% Listener process state.
 -record(listener, {socket    :: inet:socket(),
                    count = 1 :: non_neg_integer(),
-                   tref      :: reference()}).
+                   tref      :: reference() | undefined}).
 
 %% Monitor process state.
 -record(monitor,

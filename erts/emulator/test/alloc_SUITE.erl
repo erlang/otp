@@ -122,13 +122,10 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case {?t:os_type(), is_halfword_vm()} of
-	{{unix, _}, false} ->
+    case ?t:os_type() of
+	{unix, _} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
-
-	{_,true} ->
-	    {skipped, "No supercarrier support on halfword vm"};
 	{SkipOs,_} ->
 	    ?line {skipped,
 		   lists:flatten(["Not run on "
@@ -387,13 +384,6 @@ stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->
     ?t:stop_node(Node).
 
-is_halfword_vm() ->
-    case {erlang:system_info({wordsize, internal}),
-	  erlang:system_info({wordsize, external})} of
-	{4, 8} -> true;
-	{WS, WS} -> false
-    end.
-
 free_memory() ->
     %% Free memory in MB.
     try
@@ -413,3 +403,4 @@ free_memory() ->
 	error : undef ->
 	    ?t:fail({"os_mon not built"})
     end.
+

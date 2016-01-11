@@ -521,30 +521,29 @@ external_size_1(Term, Size0, Limit) when Size0 < Limit ->
 external_size_1(_, _, _) -> ok.
 
 t_iolist_size(Config) when is_list(Config) ->
-    ?line Seed = {erlang:monotonic_time(),
-		  erlang:time_offset(),
-		  erlang:unique_integer([positive])},
-    ?line io:format("Seed: ~p", [Seed]),
-    ?line random:seed(Seed),
-    ?line Base = <<0:(1 bsl 20)/unit:8>>,
-    ?line Powers = [1 bsl N || N <- lists:seq(2, 37)],
-    ?line Sizes0 = [[N - random:uniform(N div 2),
-		     lists:seq(N-2, N+2),
-		     N+N div 2,
-		     N + random:uniform(N div 2)] ||
-		       N <- Powers],
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    Base = <<0:(1 bsl 20)/unit:8>>,
+    Powers = [1 bsl N || N <- lists:seq(2, 37)],
+    Sizes0 = [[N - rand:uniform(N div 2),
+	       lists:seq(N-2, N+2),
+	       N+N div 2,
+	       N + rand:uniform(N div 2)] ||
+		 N <- Powers],
+
     %% Test sizes around 1^32 more thoroughly.
     FourGigs = 1 bsl 32,
-    ?line Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
-    ?line Sizes2 = lists:flatten(Sizes1),
-    ?line Sizes = lists:usort(Sizes2),
+    Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
+    Sizes2 = lists:flatten(Sizes1),
+    Sizes = lists:usort(Sizes2),
     io:format("~p sizes:", [length(Sizes)]),
     io:format("~p\n", [Sizes]),
-    ?line [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
+    _ = [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
     ok.
 
 build_iolist(N, Base) when N < 16 ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -552,7 +551,7 @@ build_iolist(N, Base) when N < 16 ->
 	    lists:seq(1, N)
     end;
 build_iolist(N, Base) when N =< byte_size(Base) ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -570,7 +569,7 @@ build_iolist(N, Base) when N =< byte_size(Base) ->
 	    end
     end;
 build_iolist(N0, Base) ->
-    Small = random:uniform(15),
+    Small = rand:uniform(15),
     Seq = lists:seq(1, Small),
     N = N0 - Small,
     case N rem 2 of
@@ -1604,7 +1603,7 @@ bit_sized_binary(Bin0) ->
 
 unaligned_sub_bin(Bin, 0) -> Bin;
 unaligned_sub_bin(Bin0, Offs) ->
-    F = random:uniform(256),
+    F = rand:uniform(256),
     Roffs = 8-Offs,
     Bin1 = <<F:Offs,Bin0/binary,F:Roffs>>,
     Sz = size(Bin0),

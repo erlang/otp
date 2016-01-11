@@ -115,7 +115,7 @@ bif erlang:time_offset/0
 bif erlang:time_offset/1
 bif erlang:timestamp/0
 
-bif erlang:open_port/2
+bif erts_internal:open_port/2
 
 bif erlang:pid_to_list/1
 bif erlang:ports/0
@@ -167,7 +167,7 @@ bif erts_internal:request_system_task/3
 bif erts_internal:check_process_code/2
 
 bif erts_internal:map_to_tuple_keys/1
-bif erts_internal:map_type/1
+bif erts_internal:term_type/1
 bif erts_internal:map_hashmap_children/1
 
 bif erts_internal:time_unit/0
@@ -637,6 +637,16 @@ bif erlang:fun_info_mfa/1
 bif erlang:get_keys/0
 bif ets:update_counter/4
 bif erts_debug:map_info/1
+
+#
+# New in 19.0
+#
+
+bif erlang:copy_literals/2
+bif binary:split/2
+bif binary:split/3
+bif erts_debug:size_shared/1
+bif erts_debug:copy_shared/1
 
 #
 # Obsolete

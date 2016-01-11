@@ -21,7 +21,6 @@
  [{description, "DEVTOOLS  CXC 138 16"},
   {vsn, "%VSN%"},
   {modules, [cover,
-	     cover_web,
 	     eprof,
 	     fprof,
 	     instrument,
@@ -36,12 +35,12 @@
 	     xref_utils
 	    ]
   },
-  {registered,[webcover_server]},
+  {registered, []},
   {applications, [kernel, stdlib]},
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
   },
-  {runtime_dependencies, ["webtool-0.8.10","stdlib-2.5","runtime_tools-1.8.14",
+  {runtime_dependencies, ["stdlib-2.5","runtime_tools-1.8.14",
 			  "kernel-3.0","inets-5.10","erts-7.0",
 			  "compiler-5.0"]}
  ]

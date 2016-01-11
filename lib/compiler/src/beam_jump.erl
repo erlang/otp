@@ -495,7 +495,7 @@ is_label_used_in_block({set,_,_,Info}, Lbl) ->
         {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
         {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
         {get_map_elements,{f,F}} -> F =:= Lbl;
-        {'catch',{f,F}} -> F =:= Lbl;
+        {try_catch,_,{f,F}} -> F =:= Lbl;
         {alloc,_,_} -> false;
         {put_tuple,_} -> false;
         {get_tuple_element,_} -> false;

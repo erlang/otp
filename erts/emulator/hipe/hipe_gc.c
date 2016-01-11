@@ -46,10 +46,6 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
     /* arch-specific nstack walk state */
     struct nstack_walk_state walk_state;
 
-    /* fullsweep-specific state */
-    char *src, *oh;
-    Uint src_size, oh_size;
-
     if (!p->hipe.nstack) {
 	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
 	return n_htop;
@@ -65,11 +61,6 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
     nsp_end = nstack_walk_nsp_end(p);
 
     sdesc = nstack_walk_init_sdesc(p, &walk_state);
-
-    src = (char*)HEAP_START(p);
-    src_size = (char*)HEAP_TOP(p) - src;
-    oh = (char*)OLD_HEAP(p);
-    oh_size = (char*)OLD_HTOP(p) - oh;
 
     for (;;) {
 	if (nstack_walk_nsp_reached_end(nsp, nsp_end)) {
@@ -97,8 +88,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 		    if (IS_MOVED_BOXED(val)) {
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
-		    } else if (in_area(ptr, src, src_size) ||
-			       in_area(ptr, oh, oh_size)) {
+		    } else if (!erts_is_literal(gval, ptr)) {
 			MOVE_BOXED(ptr, val, n_htop, nsp_i);
 		    }
 		} else if (is_list(gval)) {
@@ -106,8 +96,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 		    Eterm val = *ptr;
 		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
-		    } else if (in_area(ptr, src, src_size) ||
-			       in_area(ptr, oh, oh_size)) {
+		    } else if (!erts_is_literal(gval, ptr)) {
 			ASSERT(within(ptr, p));
 			MOVE_CONS(ptr, val, n_htop, nsp_i);
 		    }
@@ -139,11 +128,13 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
     unsigned int mask;
     /* arch-specific nstack walk state */
     struct nstack_walk_state walk_state;
+    char *oh;
+    Uint oh_size;
 
     /* gensweep-specific state */
     Eterm *old_htop, *n_htop;
-    char *heap;
-    Uint heap_size, mature_size;
+    char *mature;
+    Uint mature_size;
 
     if (!p->hipe.nstack) {
 	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
@@ -168,9 +159,10 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 
     old_htop = *ptr_old_htop;
     n_htop = *ptr_n_htop;
-    heap = (char*)HEAP_START(p);
-    heap_size = (char*)HEAP_TOP(p) - heap;
-    mature_size = (char*)HIGH_WATER(p) - heap;
+    mature = (char *) (p->abandoned_heap ? p->abandoned_heap : p->heap);
+    mature_size = (char*)HIGH_WATER(p) - mature;
+    oh = (char*)OLD_HEAP(p);
+    oh_size = (char*)OLD_HTOP(p) - oh;
 
     for (;;) {
 	if (nstack_walk_nsp_reached_end(nsp, nsp_end)) {
@@ -209,9 +201,9 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		    if (IS_MOVED_BOXED(val)) {
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
-		    } else if (in_area(ptr, heap, mature_size)) {
+		    } else if (ErtsInArea(ptr, mature, mature_size)) {
 			MOVE_BOXED(ptr, val, old_htop, nsp_i);
-		    } else if (in_area(ptr, heap, heap_size)) {
+		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
 			ASSERT(within(ptr, p));
 			MOVE_BOXED(ptr, val, n_htop, nsp_i);
 		    }
@@ -220,9 +212,9 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		    Eterm val = *ptr;
 		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
-		    } else if (in_area(ptr, heap, mature_size)) {
+		    } else if (ErtsInArea(ptr, mature, mature_size)) {
 			MOVE_CONS(ptr, val, old_htop, nsp_i);
-		    } else if (in_area(ptr, heap, heap_size)) {
+		    } else if (ErtsInYoungGen(gval, ptr, oh, oh_size)) {
 			ASSERT(within(ptr, p));
 			MOVE_CONS(ptr, val, n_htop, nsp_i);
 		    }

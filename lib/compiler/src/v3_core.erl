@@ -469,7 +469,8 @@ unforce_tree([#iset{var=#c_var{name=V},arg=Arg0}|Es], D0) ->
     unforce_tree(Es, D);
 unforce_tree([#icall{}=Call], D) ->
     unforce_tree_subst(Call, D);
-unforce_tree([Top], _) -> Top.
+unforce_tree([#c_var{name=V}], D) ->
+    gb_trees:get(V, D).
 
 unforce_tree_subst(#icall{module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},

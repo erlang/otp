@@ -85,10 +85,6 @@ type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
 
 spec_fun ->                           atom : '$1'.
 spec_fun ->                  atom ':' atom : {'$1', '$3'}.
-%% The following two are retained only for backwards compatibility;
-%% they are not part of the EEP syntax and should be removed.
-spec_fun ->          atom '/' integer '::' : {'$1', '$3'}.
-spec_fun -> atom ':' atom '/' integer '::' : {'$1', '$3', '$5'}.
 
 typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
 typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
@@ -525,11 +521,6 @@ Erlang code.
 -export([type_inop_prec/1,type_preop_prec/1]).
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
--export([set_line/2,get_attribute/2,get_attributes/1]).
-
--deprecated([{set_line, 2, next_major_release},
-             {get_attribute, 2, next_major_release},
-             {get_attributes, 1, next_major_release}]).
 
 %% The following directive is needed for (significantly) faster compilation
 %% of the generated .erl file by the HiPE compiler.  Please do not remove.
@@ -639,14 +630,8 @@ build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
 	    {atom, _, Fun} ->
 		{Fun, find_arity_from_specs(TypeSpecs)};
 	    {{atom,_, Mod}, {atom,_, Fun}} ->
-		{Mod,Fun,find_arity_from_specs(TypeSpecs)};
-	    {{atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Fun,Arity};
-	    {{atom,_, Mod}, {atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Mod,Fun,Arity}
-	    end,
+		{Mod,Fun,find_arity_from_specs(TypeSpecs)}
+        end,
     {attribute,Aa,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
@@ -795,30 +780,10 @@ record_fields([{match,_Am,{atom,Aa,A},Expr}|Fields]) ->
     [{record_field,Aa,{atom,Aa,A},Expr}|record_fields(Fields)];
 record_fields([{typed,Expr,TypeInfo}|Fields]) ->
     [Field] = record_fields([Expr]),
-    TypeInfo1 =
-	case Expr of
-	    {match, _, _, _} -> TypeInfo; %% If we have an initializer.
-	    {atom, Aa, _} ->
-                case has_undefined(TypeInfo) of
-                    false ->
-                        lift_unions(abstract2(undefined, Aa), TypeInfo);
-                    true ->
-                        TypeInfo
-                end
-	end,
-    [{typed_record_field,Field,TypeInfo1}|record_fields(Fields)];
+    [{typed_record_field,Field,TypeInfo}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
     ret_err(?anno(Other), "bad record field");
 record_fields([]) -> [].
-
-has_undefined({atom,_,undefined}) ->
-    true;
-has_undefined({ann_type,_,[_,T]}) ->
-    has_undefined(T);
-has_undefined({type,_,union,Ts}) ->
-    lists:any(fun has_undefined/1, Ts);
-has_undefined(_) ->
-    false.
 
 term(Expr) ->
     try normalise(Expr)
@@ -1117,28 +1082,6 @@ type_preop_prec('+') -> {600,700};
 type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
 type_preop_prec('#') -> {700,800}.
-
-%%% [Experimental]. The parser just copies the attributes of the
-%%% scanner tokens to the abstract format. This design decision has
-%%% been hidden to some extent: use set_line() and get_attribute() to
-%%% access the second element of (almost all) of the abstract format
-%%% tuples. A typical use is to negate line numbers to prevent the
-%%% compiler from emitting warnings and errors. The second element can
-%%% (of course) be set to any value, but then these functions no
-%%% longer apply. To get all present attributes as a property list
-%%% get_attributes() should be used.
-
--compile({nowarn_deprecated_function,{erl_scan,set_attribute,3}}).
-set_line(L, F) ->
-    erl_scan:set_attribute(line, L, F).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,2}}).
-get_attribute(L, Name) ->
-    erl_scan:attributes_info(L, Name).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,1}}).
-get_attributes(L) ->
-    erl_scan:attributes_info(L).
 
 -spec map_anno(Fun, Abstr) -> NewAbstr when
       Fun :: fun((Anno) -> Anno),

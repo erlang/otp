@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,15 +96,22 @@
 %%		   whenever applicable.
 %%-----------------------------------------------------------------------------
 
+%% Types with comment 'race' are due to dialyzer_races.erl.
 -record(callgraph, {digraph        = digraph:new() :: digraph:graph(),
-		    active_digraph                 :: active_digraph(),
-                    esc	                           :: ets:tid(),
-                    letrec_map                     :: ets:tid(),
+		    active_digraph                 :: active_digraph()
+                                                    | 'undefined', % race
+                    esc	                           :: ets:tid()
+                                                    | 'undefined', % race
+                    letrec_map                     :: ets:tid()
+                                                    | 'undefined', % race
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
-                    rec_var_map                    :: ets:tid(),
-                    self_rec	                   :: ets:tid(),
-                    calls                          :: ets:tid(),
+                    rec_var_map                    :: ets:tid()
+                                                    | 'undefined', % race
+                    self_rec	                   :: ets:tid()
+                                                    | 'undefined', % race
+                    calls                          :: ets:tid()
+                                                    | 'undefined', % race
                     race_detection = false         :: boolean(),
 		    race_data_server = new_race_data_server() :: pid()}).
 

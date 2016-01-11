@@ -137,7 +137,7 @@
 %% Record representing an RFC 3539 watchdog process implemented by
 %% diameter_watchdog.
 -record(watchdog,
-        {pid  :: match(pid()),
+        {pid  :: match(pid()) | undefined,
          type :: match(connect | accept),
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport

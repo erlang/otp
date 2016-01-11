@@ -53,11 +53,8 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Seed = {S1,S2,S3} = {erlang:monotonic_time(),
-			 erlang:time_offset(),
-			 erlang:unique_integer()},
-    random:seed(S1,S2,S3),
-    io:format("*** SEED: ~p ***\n", [Seed]),
+    rand:seed(exsplus),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     Dog=?t:timetrap(?t:minutes(1)),
     [{watchdog, Dog}|Config].
 
@@ -136,7 +133,7 @@ pack(Type,Body,Rest,BitOffs) ->
     {Packet,Unpacked} = pack(Type,Body),
 
     %% Make Bin a sub-bin with an arbitrary bitoffset within Orig
-    Prefix = random:uniform(1 bsl BitOffs) - 1,
+    Prefix = rand:uniform(1 bsl BitOffs) - 1,
     Orig = <<Prefix:BitOffs,Packet/binary,Rest/bits>>,
     <<_:BitOffs,Bin/bits>> = Orig,
     {Bin,Unpacked,Orig}.
@@ -151,13 +148,13 @@ pack(4,Bin) ->
     Psz = byte_size(Bin),
     {<<Psz:32,Bin/binary>>, Bin};
 pack(asn1,Bin) ->
-    Ident = case random:uniform(3) of
+    Ident = case rand:uniform(3) of
 		1 -> <<17>>;
 		2 -> <<16#1f,16#81,17>>;
 		3 -> <<16#1f,16#81,16#80,16#80,17>>
 	    end,
     Psz = byte_size(Bin),
-    Length = case random:uniform(4) of
+    Length = case rand:uniform(4) of
 		 1 when Psz < 128 -> 
 		     <<Psz:8>>;
 		 R when R=<2 andalso Psz < 16#10000 ->
@@ -177,42 +174,42 @@ pack(sunrm,Bin) ->
     {Res,Res};
 pack(cdr,Bin) ->
     GIOP = <<"GIOP">>,
-    Major = random:uniform(256) - 1,
-    Minor = random:uniform(256) - 1,
-    MType = random:uniform(256) - 1,
+    Major = rand:uniform(256) - 1,
+    Minor = rand:uniform(256) - 1,
+    MType = rand:uniform(256) - 1,
     Psz = byte_size(Bin),
-    Res = case random:uniform(2) of 
+    Res = case rand:uniform(2) of
 	      1 -> <<GIOP/binary,Major:8,Minor:8,0:8,MType:8,Psz:32/big,Bin/binary>>;
 	      2 -> <<GIOP/binary,Major:8,Minor:8,1:8,MType:8,Psz:32/little,Bin/binary>>
 	  end,
     {Res,Res};
 pack(fcgi,Bin) ->
     Ver = 1,
-    Type = random:uniform(256) - 1,
-    Id = random:uniform(65536) - 1,
-    PaddSz = random:uniform(16) - 1,    
+    Type = rand:uniform(256) - 1,
+    Id = rand:uniform(65536) - 1,
+    PaddSz = rand:uniform(16) - 1,
     Psz = byte_size(Bin),
-    Reserv = random:uniform(256) - 1,
+    Reserv = rand:uniform(256) - 1,
     Padd = case PaddSz of
 	       0 -> <<>>;
-	       _ -> list_to_binary([random:uniform(256)-1
+	       _ -> list_to_binary([rand:uniform(256)-1
 				    || _<- lists:seq(1,PaddSz)])
 	   end,
     Res = <<Ver:8,Type:8,Id:16,Psz:16/big,PaddSz:8,Reserv:8,Bin/binary>>,
     {<<Res/binary,Padd/binary>>, Res};
 pack(tpkt,Bin) ->
     Ver = 3,
-    Reserv = random:uniform(256) - 1,
+    Reserv = rand:uniform(256) - 1,
     Size = byte_size(Bin) + 4,
     Res = <<Ver:8,Reserv:8,Size:16,Bin/binary>>,
     {Res, Res};
 pack(ssl_tls,Bin) ->
-    Content = case (random:uniform(256) - 1) of
+    Content = case (rand:uniform(256) - 1) of
 		  C when C<128 -> C;
 		  _ -> v2hello
 	      end,
-    Major = random:uniform(256) - 1,
-    Minor = random:uniform(256) - 1,
+    Major = rand:uniform(256) - 1,
+    Minor = rand:uniform(256) - 1,
     pack_ssl(Content,Major,Minor,Bin).
 
 pack_ssl(Content, Major, Minor, Body) ->
@@ -371,10 +368,10 @@ http_do({Bin,[{_Line,PL,PB}|Tail]}, Type) ->
     ?line {ok, PB, Rest} = decode_pkt(http_with_bin(Type),Bin),
 
     %% Same tests again but as SubBin
-    PreLen = random:uniform(64),
-    Prefix = random:uniform(1 bsl PreLen) - 1,
-    SufLen = random:uniform(64),
-    Suffix = random:uniform(1 bsl SufLen) - 1,
+    PreLen = rand:uniform(64),
+    Prefix = rand:uniform(1 bsl PreLen) - 1,
+    SufLen = rand:uniform(64),
+    Suffix = rand:uniform(1 bsl SufLen) - 1,
     Orig = <<Prefix:PreLen, Bin/bits, Suffix:SufLen>>,
     BinLen = bit_size(Bin),
     <<_:PreLen, SubBin:BinLen/bits, _/bits>> = Orig, % Make SubBin

@@ -25,8 +25,6 @@
 
 -import(lists, [reverse/1,reverse/2,foldl/3,mapfoldl/3,map/2]).
 
--define(MAXREG, 1024).
-
 -record(st,
 	{next,					%Next label number.
 	 ll					%Live regs at labels.

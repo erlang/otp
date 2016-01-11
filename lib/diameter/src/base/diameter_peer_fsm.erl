@@ -117,7 +117,7 @@
          parent       :: pid(),     %% watchdog process
          transport    :: pid(),     %% transport process
          dictionary   :: module(),  %% common dictionary
-         service      :: #diameter_service{},
+         service      :: #diameter_service{} | undefined,
          dpr = false  :: false
                        | true  %% DPR received, DPA sent
                        | {boolean(), uint32(), uint32()},

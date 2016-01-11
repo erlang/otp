@@ -21,6 +21,19 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
+#if !defined(__GNUC__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
+#elif !defined(__GNUC_MINOR__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#elif !defined(__GNUC_PATCHLEVEL__)
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#else
+#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#endif
+
 #ifdef ERTS_INLINE
 #  ifndef ERTS_CAN_INLINE
 #    define ERTS_CAN_INLINE 1
@@ -38,6 +51,17 @@
 #  endif
 #endif
 
+#ifndef ERTS_FORCE_INLINE
+#  if ERTS_AT_LEAST_GCC_VSN__(3,1,1)
+#    define ERTS_FORCE_INLINE __inline__ __attribute__((__always_inline__))
+#  elif defined(__WIN32__)
+#    define ERTS_FORCE_INLINE __forceinline
+#  endif
+#  ifndef ERTS_FORCE_INLINE
+#    define ERTS_FORCE_INLINE ERTS_INLINE
+#  endif
+#endif
+
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #  undef ERTS_CAN_INLINE
 #  define ERTS_CAN_INLINE 0
@@ -46,8 +70,10 @@
 #endif
 
 #if ERTS_CAN_INLINE
+#define ERTS_GLB_FORCE_INLINE static ERTS_FORCE_INLINE
 #define ERTS_GLB_INLINE static ERTS_INLINE
 #else
+#define ERTS_GLB_FORCE_INLINE
 #define ERTS_GLB_INLINE
 #endif
 
@@ -61,22 +87,14 @@
 #  define NO_FPE_SIGNALS
 #endif
 
-#ifdef DISABLE_CHILD_WAITER_THREAD
-#undef ENABLE_CHILD_WAITER_THREAD
-#endif
-
-#if defined(ERTS_SMP) && !defined(DISABLE_CHILD_WAITER_THREAD)
-#undef ENABLE_CHILD_WAITER_THREAD
-#define ENABLE_CHILD_WAITER_THREAD 1
-#endif
-
 #define ERTS_I64_LITERAL(X) X##LL
+
+#define ErtsInArea(ptr,start,nbytes) \
+    ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
-#elif defined (__OSE__)
-#  include "erl_ose_sys.h"
-#else 
+#else
 #  include "erl_unix_sys.h"
 #ifndef UNIX
 #  define UNIX 1
@@ -109,19 +127,6 @@ typedef int ErtsSysFdType;
 # error missing ERTS_SYS_FD_INVALID
 #endif
 typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
-#endif
-
-#if !defined(__GNUC__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
-#elif !defined(__GNUC_MINOR__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#elif !defined(__GNUC_PATCHLEVEL__)
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#else
-#  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
 #endif
 
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0)
@@ -285,61 +290,10 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
-#if defined(ARCH_64) && defined(HALFWORD_HEAP_EMULATOR)
-#    define HALFWORD_HEAP 1
-#    define HALFWORD_ASSERT 0
-#    define ASSERT_HALFWORD(COND) ASSERT(COND)
-#    undef ERTS_SIZEOF_TERM
-#    define ERTS_SIZEOF_TERM 4
-#else
-#    define HALFWORD_HEAP 0
-#    define HALFWORD_ASSERT 0
-#    define ASSERT_HALFWORD(COND)
-#endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T
 #error sizeof(void*) != sizeof(size_t)
 #endif
-
-#if HALFWORD_HEAP
-
-#if SIZEOF_INT == 4
-typedef unsigned int Eterm;
-typedef unsigned int Uint;
-typedef int          Sint;
-#define ERTS_UINT_MAX UINT_MAX
-#define ERTS_SIZEOF_ETERM SIZEOF_INT
-#define ErtsStrToSint strtol
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
-
-#if SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long UWord;
-typedef long          SWord;
-#define SWORD_CONSTANT(Const) Const##L
-#define UWORD_CONSTANT(Const) Const##UL
-#define ERTS_UWORD_MAX ULONG_MAX
-#define ERTS_SWORD_MAX LONG_MAX
-#elif SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int UWord;
-typedef int          SWord;
-#define SWORD_CONSTANT(Const) Const
-#define UWORD_CONSTANT(Const) Const##U
-#define ERTS_UWORD_MAX UINT_MAX
-#define ERTS_SWORD_MAX INT_MAX
-#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
-typedef unsigned long long UWord;
-typedef long long          SWord;
-#define SWORD_CONSTANT(Const) Const##LL
-#define UWORD_CONSTANT(Const) Const##ULL
-#define ERTS_UWORD_MAX ULLONG_MAX
-#define ERTS_SWORD_MAX LLONG_MAX
-#else
-#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
-#endif
-
-#else /* !HALFWORD_HEAP */
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long Eterm;
@@ -382,8 +336,6 @@ typedef long long          Sint;
 typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
-
-#endif /* HALFWORD_HEAP */
 
 typedef UWord BeamInstr;
 
@@ -785,6 +737,7 @@ void erts_sys_main_thread(void);
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
+extern void erl_sys_late_init(void);
 extern void erl_sys_args(int *argc, char **argv);
 extern void erl_sys_schedule(int);
 void sys_tty_reset(int);
@@ -1097,7 +1050,6 @@ extern int erts_use_kernel_poll;
 
 
 #define put_int8(i, s) do {((unsigned char*)(s))[0] = (i) & 0xff;} while (0)
-
 
 /*
  * Use DEBUGF as you would use printf, but use double parentheses:

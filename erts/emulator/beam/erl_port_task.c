@@ -1734,7 +1734,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_INPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_input, pp);
-	    /* NOTE some windows/ose drivers use ->ready_input
+	    /* NOTE some windows drivers use ->ready_input
 	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
 					ptp->u.alive.td.io.event);

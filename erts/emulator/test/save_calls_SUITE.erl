@@ -189,7 +189,7 @@ is_local_function(_) ->
 
 % Number crunching for reds test.
 carmichaels_below(N) ->
-    random:seed(3172,9814,20125),
+    rand:seed(exsplus, {3172,9814,20125}),
     carmichaels_below(1,N).
 
 carmichaels_below(N,N2) when N >= N2 ->
@@ -219,7 +219,7 @@ expmod(Base,Exp,Mod) ->
     (Base * expmod(Base,Exp - 1,Mod)) rem Mod.
 
 uniform(N) ->
-    random:uniform(N-1).
+    rand:uniform(N-1).
 
 fermat(N) ->    
     R = uniform(N),

@@ -131,11 +131,6 @@
         <item>If V is <c>A = E</c>,
 	 where <c>E</c> is an expression, then
          Rep(V) = <c>{record_field,LINE,Rep(A),Rep(E)}</c>.</item>
-        <item>If V is <c>A :: T</c>, where <c>T</c> is a
-          type and it does not contain
-          <c>undefined</c> syntactically, then Rep(V) =
-          <c>{typed_record_field,{record_field,LINE,Rep(A)},Rep(undefined | T)}</c>.
-        </item>
         <item>If V is <c>A :: T</c>, where <c>T</c> is a type, then Rep(V) =
           <c>{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}</c>.
           </item>

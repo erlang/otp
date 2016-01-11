@@ -18,6 +18,7 @@
  */
 
 #if defined(DEBUG) || 0
+#  include <stdio.h>
 #  define PRINTF(X) printf X
 #else
 #  define PRINTF(X)

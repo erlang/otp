@@ -80,7 +80,7 @@ Eterm hipe_show_nstack_1(BIF_ALIST_1)
 void hipe_gc(Process *p, Eterm need)
 {
     hipe_set_narity(p, 1);
-    p->fcalls -= erts_garbage_collect(p, unsigned_val(need), NULL, 0);
+    erts_garbage_collect(p, unsigned_val(need), NULL, 0);
     hipe_set_narity(p, 0);
 }
 
@@ -157,13 +157,22 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
  */
 void hipe_select_msg(Process *p)
 {
-    ErlMessage *msgp;
+    ErtsMessage *msgp;
 
     msgp = PEEK_MESSAGE(p);
     UNLINK_MESSAGE(p, msgp);	/* decrements global 'erts_proc_tot_mem' variable */
     JOIN_MESSAGE(p);
     CANCEL_TIMER(p);		/* calls erts_cancel_proc_timer() */
-    free_message(msgp);
+    erts_save_message_in_proc(p, msgp);
+    p->flags &= ~F_DELAY_GC;
+    if (ERTS_IS_GC_DESIRED(p)) {
+	/*
+	 * We want to GC soon but we leave a few
+	 * reductions giving the message some time
+	 * to turn into garbage.
+	 */
+	ERTS_VBUMP_LEAVE_REDS(p, 5);
+    }
 }
 
 void hipe_fclearerror_error(Process *p)
@@ -508,8 +517,9 @@ int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
  */
 Eterm hipe_check_get_msg(Process *c_p)
 {
-    Eterm ret;
-    ErlMessage *msgp;
+    ErtsMessage *msgp;
+
+    c_p->flags |= F_DELAY_GC;
 
  next_message:
 
@@ -531,25 +541,29 @@ Eterm hipe_check_get_msg(Process *c_p)
 	    /* XXX: BEAM doesn't need this */
 	    c_p->hipe_smp.have_receive_locks = 1;
 #endif
+	    c_p->flags &= ~F_DELAY_GC;
 	    return THE_NON_VALUE;
 #ifdef ERTS_SMP
 	}
 #endif
     }
-    ErtsMoveMsgAttachmentIntoProc(msgp, c_p, c_p->stop, HEAP_TOP(c_p),
-				  c_p->fcalls, (void) 0, (void) 0);
-    ret = ERL_MESSAGE_TERM(msgp);
-    if (is_non_value(ret)) {
+
+    if (is_non_value(ERL_MESSAGE_TERM(msgp))
+	&& !erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
 	/*
 	 * A corrupt distribution message that we weren't able to decode;
 	 * remove it...
 	 */
 	ASSERT(!msgp->data.attached);
 	UNLINK_MESSAGE(c_p, msgp);
-	free_message(msgp);
+	msgp->next = NULL;
+	erts_cleanup_messages(msgp);
 	goto next_message;
     }
-    return ret;
+
+    ASSERT(is_value(ERL_MESSAGE_TERM(msgp)));
+
+    return ERL_MESSAGE_TERM(msgp);
 }
 
 /*

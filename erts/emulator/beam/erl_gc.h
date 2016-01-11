@@ -69,17 +69,18 @@ do {                                                                    \
     while (nelts--) *HTOP++ = *PTR++;                                   \
 } while(0)
 
-#define in_area(ptr,start,nbytes) \
- ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
-
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int within(Eterm *ptr, Process *p);
 #endif
 
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term);
+#define ErtsInYoungGen(TPtr, Ptr, OldHeap, OldHeapSz)			\
+    (!erts_is_literal((TPtr), (Ptr))					\
+     & !ErtsInArea((Ptr), (OldHeap), (OldHeapSz)))
+
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 {
     Eterm* ptr;
     switch (primary_tag(term)) {
@@ -87,17 +88,18 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	if (IS_MOVED_BOXED(*ptr)) term = (*ptr) | xptr_tag;
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	if (IS_MOVED_CONS(ptr[0])) term = (ptr[1]) | xptr_tag;
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");
     }
     return term;
 }
+
 #endif
 
 #endif /* ERL_GC_C__ || HIPE_GC_C__ */
@@ -105,6 +107,23 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 /*
  * Global exported
  */
+
+#define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop)			\
+    ((((STop) - (HTop) < (Proc)->mbuf_sz))				\
+     | ((Proc)->off_heap.overhead > (Proc)->bin_vheap_sz)		\
+     | !!((Proc)->flags & F_FORCE_GC))
+
+#define ERTS_IS_GC_DESIRED(Proc)					\
+    ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop)
+
+#define ERTS_FORCE_GC_INTERNAL(Proc, FCalls)				\
+    do {								\
+	(Proc)->flags |= F_FORCE_GC;					\
+	ERTS_VBUMP_ALL_REDS_INTERNAL((Proc), (FCalls));			\
+    } while (0)
+
+#define ERTS_FORCE_GC(Proc)						\
+    ERTS_FORCE_GC_INTERNAL((Proc), (Proc)->fcalls)
 
 extern Uint erts_test_long_gc_sleep;
 
@@ -115,8 +134,11 @@ typedef struct {
 
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
-int erts_garbage_collect(struct process*, int, Eterm*, int);
+int erts_garbage_collect_nobump(struct process*, int, Eterm*, int);
+void erts_garbage_collect(struct process*, int, Eterm*, int);
 void erts_garbage_collect_hibernate(struct process* p);
+Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
+				 Eterm result, Eterm* regs, Uint arity);
 Eterm erts_gc_after_bif_call(struct process* p, Eterm result, Eterm* regs, Uint arity);
 void erts_garbage_collect_literals(struct process* p, Eterm* literals,
 				   Uint lit_size,

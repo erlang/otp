@@ -101,30 +101,6 @@
   </section>
 
   <section>
-    <title>Code Path Cache</title>
-    <p>The code server incorporates a code path cache. The cache
-      functionality is disabled by default. To activate it, start
-      the emulator with the command line flag <c>-code_path_cache</c>
-      or call <c>code:rehash()</c>. When the cache is created (or
-      updated), the code server searches for modules in the code path
-      directories. This may take some time if the the code path is long.
-      After the cache creation, the time for loading modules in a large
-      system (one with a large directory structure) is significantly
-      reduced compared to having the cache disabled. The code server
-      is able to look up the location of a module from the cache in
-      constant time instead of having to search through the code path
-      directories.</p>
-    <p>Application resource files (<c>.app</c> files) are also stored
-      in the code path cache. This feature is used by the application
-      controller (see
-      <seealso marker="application">application(3)</seealso>) to load
-      applications efficiently in large systems.</p>
-    <p>Note that when the code path cache is created (or updated), any
-      relative directory names in the code path are converted to
-      absolute.</p>
-  </section>
-
-  <section>
     <title>Loading of Code From Archive Files</title>
 
     <warning><p>The support for loading of code from archive files is
@@ -700,13 +676,6 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="rehash" arity="0"/>
-      <fsummary>Rehash or create code path cache</fsummary>
-      <desc>
-        <p>This function creates or rehashes the code path cache.</p>
-      </desc>
-    </func>
-    <func>
       <name name="where_is_file" arity="1"/>
       <fsummary>Full name of a file located in the code path</fsummary>
       <desc>
@@ -714,10 +683,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
           arbitrary type. If found, the full name is returned.
           <c>non_existing</c> is returned if the file cannot be found.
           The function can be useful, for example, to locate
-          application resource files. If the code path cache is used,
-          the code server will efficiently read the full name from
-          the cache, provided that <c><anno>Filename</anno></c> is an object code
-          file or an <c>.app</c> file.</p>
+          application resource files.</p>
       </desc>
     </func>
     <func>

@@ -220,8 +220,8 @@ graph_add_node_unsure(Key, State, G = #graph{ vs = Vs }) ->
 graph_add_node(Key, Color, G = #graph{ vs = Vs}) ->
     Q  = 20.0,   % repulsive force
     M  = 0.5,    % mass
-    P  = {float(450 + random:uniform(100)),
-	  float(450 + random:uniform(100))},
+    P  = {float(450 + rand:uniform(100)),
+	  float(450 + rand:uniform(100))},
     G#graph{ vs = reltool_fgraph:add(Key,
 				     #fg_v{ p = P, m = M, q = Q, color = Color},
 				     Vs)}.

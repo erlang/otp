@@ -97,20 +97,11 @@ absname(Config) when is_list(Config) ->
 	    
 	    ?line file:set_cwd(Cwd),
 	    ok;
-	Type ->
-	    case Type of
-		{unix, _} ->
-		    ?line ok = file:set_cwd("/usr"),
-		    ?line "/usr/foo" = filename:absname(foo),
-		    ?line "/usr/foo" = filename:absname("foo"),
-		    ?line "/usr/../ebin" = filename:absname("../ebin");
-		{ose, _} ->
-		    ?line ok = file:set_cwd("/romfs"),
-		    ?line "/romfs/foo" = filename:absname(foo),
-		    ?line "/romfs/foo" = filename:absname("foo"),
-		    ?line "/romfs/../ebin" = filename:absname("../ebin")
-	    end,
-	    
+	{unix, _} ->
+            ?line ok = file:set_cwd("/usr"),
+            ?line "/usr/foo" = filename:absname(foo),
+            ?line "/usr/foo" = filename:absname("foo"),
+            ?line "/usr/../ebin" = filename:absname("../ebin"),
 	    ?line file:set_cwd("/"),
 	    ?line "/foo" = filename:absname(foo),
 	    ?line "/foo" = filename:absname("foo"),
@@ -494,18 +485,10 @@ absname_bin(Config) when is_list(Config) ->
 	    
 	    ?line file:set_cwd(Cwd),
 	    ok;
-	Type ->
-	    case Type of
-		{unix,_} ->
-		    ?line ok = file:set_cwd(<<"/usr">>),
-		    ?line <<"/usr/foo">> = filename:absname(<<"foo">>),
-		    ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>);
-		{ose,_} ->
-		    ?line ok = file:set_cwd(<<"/romfs">>),
-		    ?line <<"/romfs/foo">> = filename:absname(<<"foo">>),
-		    ?line <<"/romfs/../ebin">> = filename:absname(<<"../ebin">>)
-	    end,
-	    
+	{unix, _} ->
+            ?line ok = file:set_cwd(<<"/usr">>),
+            ?line <<"/usr/foo">> = filename:absname(<<"foo">>),
+            ?line <<"/usr/../ebin">> = filename:absname(<<"../ebin">>),
 	    ?line file:set_cwd(<<"/">>),
 	    ?line <<"/foo">> = filename:absname(<<"foo">>),
 	    ?line <<"/../ebin">> = filename:absname(<<"../ebin">>),

@@ -212,11 +212,10 @@ init_random(Config) ->
 	       {ok,[X]} ->
 		   X;
 	       _ ->
-		   {A,B,C} = erlang:timestamp(),
-		   random:seed(A,B,C),
-		   get(random_seed)
+		   rand:seed(exsplus),
+		   rand:export_seed()
 	   end,
-    put(random_seed,Seed),
+    rand:seed(Seed),
     {ok, F} = file:open(filename:join([WriteDir, "last_random_seed2.txt"]), 
 			[write]),
     io:format(F,"~p. ~n",[Seed]),
@@ -224,11 +223,11 @@ init_random(Config) ->
     ok.
 
 create_random_key(N,Type) ->
-    gen_key(random:uniform(N),Type).
+    gen_key(rand:uniform(N),Type).
 
 create_pb_key(N,list) ->
-    X = random:uniform(N),
-    case random:uniform(4) of
+    X = rand:uniform(N),
+    case rand:uniform(4) of
 	3 -> {[X, X+1, '_'], fun([Z,Z1,P1]) ->  
 				      [Z,Z1,P1] =:= [X,X+1,P1] end};
 	2 -> {[X, '_', '_'], fun([Z,P1,P2]) ->  [Z,P1,P2] =:= [X,P1,P2] end};
@@ -237,14 +236,14 @@ create_pb_key(N,list) ->
 	_ -> {[X, '$1', '$2'], fun([Z,P1,P2]) ->  [Z,P1,P2] =:= [X,P1,P2] end}
     end;
 create_pb_key(N, tuple) ->
-    X = random:uniform(N),
-    case random:uniform(2) of
+    X = rand:uniform(N),
+    case rand:uniform(2) of
 	1 -> {{X, X+1, '$1'},fun({Z,Z1,P1}) ->  {Z,Z1,P1} =:= {X,X+1,P1} end};
 	_ -> {{X, '$1', '$2'},fun({Z,P1,P2}) ->  {Z,P1,P2} =:= {X,P1,P2} end}
     end;
 create_pb_key(N, complex) ->
-    X = random:uniform(N),
-    case random:uniform(2) of
+    X = rand:uniform(N),
+    case rand:uniform(2) of
 	1 -> {{[X, X+1], '$1'}, fun({[Z,Z1],P1}) ->  
 					{[Z,Z1],P1} =:= {[X,X+1],P1} end};
 	_ -> {{[X, '$1'], '$2'},fun({[Z,P1],P2}) -> 

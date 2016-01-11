@@ -1919,15 +1919,16 @@ send_time_offset_changed_notifications(void *new_offsetp)
 		ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
 		erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
 		if (erts_lookup_monitor(ERTS_P_MONITORS(rp), ref)) {
-		    ErlHeapFragment *bp;
+		    ErtsMessage *mp;
 		    ErlOffHeap *ohp;
 		    Eterm message;
 
-		    hp = erts_alloc_message_heap(hsz, &bp, &ohp, rp, &rp_locks);
+		    mp = erts_alloc_message_heap(rp, &rp_locks,
+						 hsz, &hp, &ohp);
 		    *patch_refp = ref;
 		    ASSERT(hsz == size_object(message_template));
 		    message = copy_struct(message_template, hsz, &hp, ohp);
-		    erts_queue_message(rp, &rp_locks, bp, message, NIL);
+		    erts_queue_message(rp, &rp_locks, mp, message, NIL);
 		}
 		erts_smp_proc_unlock(rp, rp_locks);
 	    }

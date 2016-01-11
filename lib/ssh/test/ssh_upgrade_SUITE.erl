@@ -46,20 +46,17 @@ all() ->
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
-    try {crypto:start(), erlang:system_info({wordsize, internal}) == 
-                 	     erlang:system_info({wordsize, external})} of
-	{ok, true} ->
-	    case ct_release_test:init(Config0) of
-		{skip, Reason} ->
-		    {skip, Reason};
-		Config ->
-		    ssh:start(),
-		    Config
-	    end;
-	{ok, false} ->
-	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
+    try crypto:start() of
+        ok ->
+            case ct_release_test:init(Config0) of
+                {skip, Reason} ->
+                    {skip, Reason};
+                Config ->
+                    ssh:start(),
+                    Config
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+              {skip, "Crypto did not start"}
     end.
 
 end_per_suite(Config) ->

@@ -224,7 +224,7 @@ conf5_end(_Config) ->
     ok.
 
 conf6_init(Config) when is_list(Config) ->
-    [{shuffle,{_,_,_}}] = ?config(tc_group_properties,Config),
+    validate_shuffle(Config),
     test_server:comment("Shuffle (random)"),
     init = ?config(suite,Config),
     [{cc6,conf6}|Config].
@@ -242,22 +242,27 @@ conf5(suite) ->					% test specification
 
 conf7_init(Config) when is_list(Config) ->
     test_server:comment("Group 7, Shuffle (random seed)"),
-    case proplists:get_value(shuffle,?config(tc_group_properties,Config)) of
-	{_,_,_} -> ok
-    end,
+    validate_shuffle(Config),
     [{cc7,conf7}|Config].
 conf7_end(_Config) ->
     ok.
 
 conf8_init(Config) when is_list(Config) ->
     test_server:comment("Group 8, Shuffle (user start seed)"),
-    case proplists:get_value(shuffle,?config(tc_group_properties,Config)) of
-	{_,_,_} -> ok
-    end,
+    validate_shuffle(Config),
     init = ?config(suite,Config),
     [{cc8,conf8}|Config].
 conf8_end(_Config) ->
     ok.
+
+validate_shuffle(Config) ->
+    case proplists:get_value(shuffle, ?config(tc_group_properties,Config)) of
+	{_,_,_} ->
+	    ok;
+	Seed ->
+	    %% Must be a valid seed.
+	    _ = rand:seed_s(rand:export_seed_s(Seed))
+    end.
 
 
 %%---------- test cases ----------

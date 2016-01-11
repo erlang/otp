@@ -73,9 +73,6 @@ static char otp_version[] = ERLANG_OTP_VERSION;
 static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     "%s"
 				     " [erts-" ERLANG_VERSION "]"
-#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
-				     " [no-c-stack-objects]"
-#endif
 #ifndef OTP_RELEASE
 #ifdef ERLANG_GIT_VERSION
 				     " [source-" ERLANG_GIT_VERSION "]"
@@ -84,11 +81,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #endif	
 #ifdef ARCH_64
-#if HALFWORD_HEAP
-				     " [64-bit halfword]"
-#else
 				     " [64-bit]"
-#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"
@@ -136,6 +129,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #ifdef USE_SYSTEMTAP
 				     " [systemtap]"
+#endif
+#ifdef SHCOPY
+				     " [sharing-preserving]"
 #endif
 				     "\n");
 
@@ -596,6 +592,7 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
+    am_message_queue_data
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -643,6 +640,7 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
+    case am_message_queue_data:			return 31;
     default:					return -1;
     }
 }
@@ -671,18 +669,12 @@ static Eterm pi_1_keys[] = {
 #define ERTS_PI_1_NO_OF_KEYS (sizeof(pi_1_keys)/sizeof(Eterm))
 
 static Eterm pi_1_keys_list;
-#if HEAP_ON_C_STACK
 static Eterm pi_1_keys_list_heap[2*ERTS_PI_1_NO_OF_KEYS];
-#endif
 
 static void
 process_info_init(void)
 {
-#if HEAP_ON_C_STACK
     Eterm *hp = &pi_1_keys_list_heap[0];
-#else
-    Eterm *hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM,sizeof(Eterm)*2*ERTS_PI_1_NO_OF_KEYS);
-#endif
     int i;
 
     pi_1_keys_list = NIL;
@@ -731,9 +723,10 @@ pi_pid2proc(Process *c_p, Eterm pid, ErtsProcLocks info_locks)
 
 
 
-BIF_RETTYPE
+static BIF_RETTYPE
 process_info_aux(Process *BIF_P,
 		 Process *rp,
+		 ErtsProcLocks rp_locks,
 		 Eterm rpid,
 		 Eterm item,
 		 int always_wrap);
@@ -824,10 +817,31 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
 	*fail_type = ERTS_PI_FAIL_TYPE_AWAIT_EXIT;
 	goto done;
     }
-    else if (!(locks & ERTS_PROC_LOCK_STATUS)) {
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+    else {
+	ErtsProcLocks unlock_locks = 0;
+
+	if (c_p == rp)
+	    locks |= ERTS_PROC_LOCK_MAIN;
+
+	if (!(locks & ERTS_PROC_LOCK_STATUS))
+	    unlock_locks |= ERTS_PROC_LOCK_STATUS;
+
+	if (locks & ERTS_PROC_LOCK_MSGQ) {
+	    /*
+	     * Move in queue into private queue and
+	     * release msgq lock, enabling others to
+	     * send messages to the process while it
+	     * is being inspected...
+	     */
+	    ASSERT(locks & ERTS_PROC_LOCK_MAIN);
+	    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+	    locks &= ~ERTS_PROC_LOCK_MSGQ;
+	    unlock_locks |= ERTS_PROC_LOCK_MSGQ;
+	}
+
+	if (unlock_locks)
+	    erts_smp_proc_unlock(rp, unlock_locks);
     }
-	
 
     /*
      * We always handle 'messages' first if it should be part
@@ -839,7 +853,7 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
     if (want_messages) {
 	ix = pi_arg2ix(am_messages);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
-	part_res[ix] = process_info_aux(c_p, rp, pid, am_messages, always_wrap);
+	part_res[ix] = process_info_aux(c_p, rp, locks, pid, am_messages, always_wrap);
 	ASSERT(part_res[ix] != THE_NON_VALUE);
     }
 
@@ -847,7 +861,7 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
 	ix = res_elem_ix[res_elem_ix_ix];
 	if (part_res[ix] == THE_NON_VALUE) {
 	    arg = pi_ix2arg(ix);
-	    part_res[ix] = process_info_aux(c_p, rp, pid, arg, always_wrap);
+	    part_res[ix] = process_info_aux(c_p, rp, locks, pid, arg, always_wrap);
 	    ASSERT(part_res[ix] != THE_NON_VALUE);
 	}
     }
@@ -978,9 +992,31 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 	ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
     }
     else {
+	ErtsProcLocks unlock_locks = 0;
+
+	if (BIF_P == rp)
+	    info_locks |= ERTS_PROC_LOCK_MAIN;
+
 	if (!(info_locks & ERTS_PROC_LOCK_STATUS))
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-	res = process_info_aux(BIF_P, rp, pid, BIF_ARG_2, 0);
+	    unlock_locks |= ERTS_PROC_LOCK_STATUS;
+
+	if (info_locks & ERTS_PROC_LOCK_MSGQ) {
+	    /*
+	     * Move in queue into private queue and
+	     * release msgq lock, enabling others to
+	     * send messages to the process while it
+	     * is being inspected...
+	     */
+	    ASSERT(info_locks & ERTS_PROC_LOCK_MAIN);
+	    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+	    info_locks &= ~ERTS_PROC_LOCK_MSGQ;
+	    unlock_locks |= ERTS_PROC_LOCK_MSGQ;
+	}
+
+	if (unlock_locks)
+	    erts_smp_proc_unlock(rp, unlock_locks);
+
+	res = process_info_aux(BIF_P, rp, info_locks, pid, BIF_ARG_2, 0);
     }
     ASSERT(is_value(res));
 
@@ -998,6 +1034,7 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 Eterm
 process_info_aux(Process *BIF_P,
 		 Process *rp,
+		 ErtsProcLocks rp_locks,
 		 Eterm rpid,
 		 Eterm item,
 		 int always_wrap)
@@ -1069,171 +1106,55 @@ process_info_aux(Process *BIF_P,
 	break;
 
     case am_messages: {
-	ErlMessage* mp;
-	int n;
 
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-	n = rp->msg.len;
-
-	if (n == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
+	if (rp->msg.len == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
 	    hp = HAlloc(BIF_P, 3);
 	} else {
-	    int remove_bad_messages = 0;
-	    struct {
-		Uint copy_struct_size;
-		ErlMessage* msgp;
-	    } *mq = erts_alloc(ERTS_ALC_T_TMP, n*sizeof(*mq));
-	    Sint i = 0;
-	    Uint heap_need = 3;
+	    ErtsMessageInfo *mip;
+	    Sint i;
+	    Uint heap_need;
+#ifdef DEBUG
 	    Eterm *hp_end;
+#endif
 
-	    for (mp = rp->msg.first; mp; mp = mp->next) {
-		heap_need += 2;
-		mq[i].msgp = mp;
-		if (rp != BIF_P) {
-		    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		    if (is_value(msg)) {
-			mq[i].copy_struct_size = (is_immed(msg)? 0 :
-						  size_object(msg));
-		    }
-		    else if (mq[i].msgp->data.attached) {
-			mq[i].copy_struct_size
-			    = erts_msg_attached_data_size(mq[i].msgp);
-		    }
-		    else {
-			/* Bad distribution message; ignore */
-			remove_bad_messages = 1;
-			mq[i].copy_struct_size = 0;
-		    }
-		    heap_need += mq[i].copy_struct_size;
-		}
-		else {
-		    mq[i].copy_struct_size = mp->data.attached ?
-                        erts_msg_attached_data_size(mp) : 0;
-		}
-		i++;
+	    mip = erts_alloc(ERTS_ALC_T_TMP,
+			     rp->msg.len*sizeof(ErtsMessageInfo));
+
+	    /*
+	     * Note that message queue may shrink when calling
+	     * erts_prep_msgq_for_inspection() since it removes
+	     * corrupt distribution messages.
+	     */
+	    heap_need = erts_prep_msgq_for_inspection(BIF_P, rp, rp_locks, mip);
+	    heap_need += 3; /* top 2-tuple */
+	    heap_need += rp->msg.len*2; /* Cons cells */
+
+	    hp = HAlloc(BIF_P, heap_need); /* heap_need is exact */
+#ifdef DEBUG
+	    hp_end = hp + heap_need;
+#endif
+
+	    /* Build list of messages... */
+	    for (i = rp->msg.len - 1, res = NIL; i >= 0; i--) {
+		Eterm msg = ERL_MESSAGE_TERM(mip[i].msgp);
+		Uint sz = mip[i].size;
+
+		if (sz != 0)
+		    msg = copy_struct(msg, sz, &hp, &BIF_P->off_heap);
+
+		res = CONS(hp, msg, res);
+		hp += 2;
 	    }
 
-            if (rp != BIF_P) {
-                hp = HAlloc(BIF_P, heap_need);
-                hp_end = hp + heap_need;
-                ASSERT(i == n);
-                for (i--; i >= 0; i--) {
-                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		    if (is_value(msg)) {
-			if (mq[i].copy_struct_size)
-			    msg = copy_struct(msg,
-					      mq[i].copy_struct_size,
-					      &hp,
-					      &MSO(BIF_P));
-		    }
-		    else if (mq[i].msgp->data.attached) {
-			ErlHeapFragment *hfp;
-			/*
-			 * Decode it into a message buffer and attach it
-			 * to the message instead of the attached external
-			 * term.
-			 *
-			 * Note that we may not pass a process pointer
-			 * to erts_msg_distext2heap(), since it would then
-			 * try to alter locks on that process.
-			 */
-			msg = erts_msg_distext2heap(
-			    NULL, NULL, &hfp, &ERL_MESSAGE_TOKEN(mq[i].msgp),
-			    mq[i].msgp->data.dist_ext);
+	    ASSERT(hp_end == hp + 3);
 
-			ERL_MESSAGE_TERM(mq[i].msgp) = msg;
-			mq[i].msgp->data.heap_frag = hfp;
-
-			if (is_non_value(msg)) {
-			    ASSERT(!mq[i].msgp->data.heap_frag);
-			    /* Bad distribution message; ignore */
-			    remove_bad_messages = 1;
-			    continue;
-			}
-			else {
-			    /* Make our copy of the message */
-			    ASSERT(size_object(msg) == erts_used_frag_sz(hfp));
-			    msg = copy_struct(msg,
-					      erts_used_frag_sz(hfp),
-					      &hp,
-					      &MSO(BIF_P));
-			}
-		    }
-		    else {
-			/* Bad distribution message; ignore */
-			remove_bad_messages = 1;
-			continue;
-		    }
-                    res = CONS(hp, msg, res);
-                    hp += 2;
-		}
-                HRelease(BIF_P, hp_end, hp+3);
-            }
-	    else {
-                for (i--; i >= 0; i--) {
-                    ErtsHeapFactory factory;
-                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-
-                    erts_factory_proc_prealloc_init(&factory, BIF_P,
-                                                    mq[i].copy_struct_size+2);
-		    if (mq[i].msgp->data.attached) {
-			/* Decode it on the heap */
-			erts_move_msg_attached_data_to_heap(&factory,
-							    mq[i].msgp);
-			msg = ERL_MESSAGE_TERM(mq[i].msgp);
-			ASSERT(!mq[i].msgp->data.attached);
-                    }
-                    if (is_value(msg)) {
-                        hp = erts_produce_heap(&factory, 2, 0);
-                        res = CONS(hp, msg, res);
-                    }
-                    else {
-                        /* Bad distribution message; ignore */
-                        remove_bad_messages = 1;
-                        continue;
-                    }
-                    erts_factory_close(&factory);
-		}
-                hp = HAlloc(BIF_P, 3);
-	    }
-	    erts_free(ERTS_ALC_T_TMP, mq);
-	    if (remove_bad_messages) {
-		ErlMessage **mpp;
-		/*
-		 * We need to remove bad distribution messages from
-		 * the queue, so that the value returned for
-		 * 'message_queue_len' is consistent with the value
-		 * returned for 'messages'.
-		 */
-		mpp = &rp->msg.first;
-		mp = rp->msg.first;
-		while (mp) {
-		    if (is_value(ERL_MESSAGE_TERM(mp))) {
-			mpp = &mp->next;
-			mp = mp->next;
-		    }
-		    else {
-			ErlMessage* bad_mp = mp;
-			ASSERT(!mp->data.attached);
-			if (rp->msg.save == &mp->next)
-			    rp->msg.save = mpp;
-			if (rp->msg.last == &mp->next)
-			    rp->msg.last = mpp;
-			*mpp = mp->next;
-			mp = mp->next;
-			rp->msg.len--;
-			free_message(bad_mp);
-		    }
-		}
-	    }
+	    erts_free(ERTS_ALC_T_TMP, mip);
 	}
 	break;
     }
 
     case am_message_queue_len:
 	hp = HAlloc(BIF_P, 3);
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 	res = make_small(rp->msg.len);
 	break;
 
@@ -1421,7 +1342,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_total_heap_size: {
-	ErlMessage *mp;
+	ErtsMessage *mp;
 	Uint total_heap_size;
 	Uint hsz = 3;
 
@@ -1430,8 +1351,6 @@ process_info_aux(Process *BIF_P,
 	    total_heap_size += rp->old_hend - rp->old_heap;
 
 	total_heap_size += rp->mbuf_sz;
-
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 
 	for (mp = rp->msg.first; mp; mp = mp->next)
 	    if (mp->data.attached)
@@ -1454,7 +1373,7 @@ process_info_aux(Process *BIF_P,
 
     case am_memory: { /* Memory consumed in bytes */
 	Uint hsz = 3;
-	Uint size = erts_process_memory(rp);
+	Uint size = erts_process_memory(rp, 0);
 	(void) erts_bld_uint(NULL, &hsz, size);
 	hp = HAlloc(BIF_P, hsz);
 	res = erts_bld_uint(&hp, NULL, size);
@@ -1579,6 +1498,25 @@ process_info_aux(Process *BIF_P,
 	}
 	break;
     }
+
+    case am_message_queue_data:
+	switch (rp->flags & (F_OFF_HEAP_MSGQ|F_ON_HEAP_MSGQ)) {
+	case F_OFF_HEAP_MSGQ:
+	    res = am_off_heap;
+	    break;
+	case F_ON_HEAP_MSGQ:
+	    res = am_on_heap;
+	    break;
+	case 0:
+	    res = am_mixed;
+	    break;
+	default:
+	    res = am_error;
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    break;
+	}
+	hp = HAlloc(BIF_P, 3);
+	break;
 
     default:
 	return THE_NON_VALUE; /* will produce badarg */
@@ -2741,6 +2679,19 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_true);
     }
 #endif
+    else if (BIF_ARG_1 == am_message_queue_data) {
+	switch (erts_default_spo_flags & (SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ)) {
+	case SPO_OFF_HEAP_MSGQ:
+	    BIF_RET(am_off_heap);
+	case SPO_ON_HEAP_MSGQ:
+	    BIF_RET(am_on_heap);
+	case 0:
+	    BIF_RET(am_mixed);
+	default:
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    BIF_RET(am_error);
+	}
+    }
     else if (ERTS_IS_ATOM_STR("compile_info",BIF_ARG_1)) {
 	Uint  sz;
 	Eterm res = NIL, tup, text;
@@ -2778,6 +2729,20 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
 	BIF_RET(erts_eager_check_io ? am_true : am_false);
+    }
+    else if (ERTS_IS_ATOM_STR("literal_test",BIF_ARG_1)) {
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+#ifdef ARCH_64
+	DECL_AM(range);
+	BIF_RET(AM_range);
+#else /* ARCH_32 */
+	DECL_AM(range_bitmask);
+	BIF_RET(AM_range_bitmask);
+#endif /* ARCH_32 */
+#else  /* ! ERTS_HAVE_IS_IN_LITERAL_RANGE */
+	DECL_AM(tag);
+	BIF_RET(AM_tag);
+#endif
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3487,7 +3452,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(res);
 	}
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
-            BIF_RET(erts_mmap_debug_info(BIF_P));
+            BIF_RET(erts_mmap_debug_info(&erts_dflt_mmapper, BIF_P));
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
@@ -3897,9 +3862,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_false);
 	    }
 	    else {
-		FLAGS(rp) |= F_FORCE_GC;
-		if (BIF_P != rp)
-		    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+		ERTS_FORCE_GC(BIF_P);
 		BIF_RET(am_true);
 	    }
 	}
@@ -4118,6 +4081,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_ok);
 	    }
 	}
+        else if (ERTS_IS_ATOM_STR("fill_heap", BIF_ARG_1)) {
+            UWord left = HeapWordsLeft(BIF_P);
+            if (left > 1) {
+                Eterm* hp = HAlloc(BIF_P, left);
+                *hp = make_pos_bignum_header(left - 1);
+            }
+            if (BIF_ARG_2 == am_true) {
+                FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
+            }
+            BIF_RET(am_ok);
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -4367,14 +4341,17 @@ static void os_info_init(void)
     os_flavor(buf, 1024);
     flav = erts_atom_put((byte *) buf, strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM, (3+4)*sizeof(Eterm));
+    hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);
+    erts_set_literal_tag(&os_type_tuple, hp, 3);
+
     hp += 3;
     os_version(&major, &minor, &build);
     os_version_tuple = TUPLE3(hp,
 			      make_small(major),
 			      make_small(minor),
 			      make_small(build));
+    erts_set_literal_tag(&os_version_tuple, hp, 4);
 }
 
 void

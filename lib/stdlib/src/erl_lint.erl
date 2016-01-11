@@ -31,11 +31,7 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--export([modify_line/2]).
-
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
-
--deprecated([{modify_line, 2, next_major_release}]).
 
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
@@ -79,7 +75,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
--type line() :: erl_anno:line().     % a convenient alias
+-type line() :: erl_anno:anno().     % a convenient alias
 -type fa()   :: {atom(), arity()}.   % function+arity
 -type ta()   :: {atom(), arity()}.   % type+arity
 
@@ -238,6 +234,9 @@ format_error({removed, MFA, ReplacementMFA, Rel}) ->
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
 format_error({removed, MFA, String}) when is_list(String) ->
     io_lib:format("~s: ~s", [format_mfa(MFA), String]);
+format_error({removed_type, MNA, ReplacementMNA, Rel}) ->
+    io_lib:format("the type ~s was removed in ~s; use ~s instead",
+                  [format_mna(MNA), Rel, format_mna(ReplacementMNA)]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete", [F, A]);
 format_error({too_many_arguments,Arity}) ->
@@ -374,9 +373,9 @@ format_error({spec_fun_undefined, {F, A}}) ->
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
-    "spec has the wrong arity";
+    "spec has wrong arity";
 format_error(callback_wrong_arity) ->
-    "callback has the wrong arity";
+    "callback has wrong arity";
 format_error({deprecated_builtin_type, {Name, Arity},
               Replacement, Rel}) ->
     UseS = case Replacement of
@@ -415,6 +414,9 @@ format_mfa({M, F, A}) when is_integer(A) ->
 
 format_mf(M, F, ArityString) when is_atom(M), is_atom(F) ->
     atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ ArityString.
+
+format_mna({M, N, A}) when is_integer(A) ->
+    atom_to_list(M) ++ ":" ++ atom_to_list(N) ++ gen_type_paren(A).
 
 format_where(L) when is_integer(L) ->
     io_lib:format("(line ~p)", [L]);
@@ -2876,7 +2878,7 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
 	true -> add_error(Line, {redefine_spec, MFA0}, St1);
-	false -> check_specs(TypeSpecs, Arity, St1)
+	false -> check_specs(TypeSpecs, spec_wrong_arity, Arity, St1)
     end.
 
 %% callback_decl(Line, Fun, Types, State) -> State.
@@ -2890,7 +2892,8 @@ callback_decl(Line, MFA0, TypeSpecs,
             St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
             case dict:is_key(MFA, Callbacks) of
                 true -> add_error(Line, {redefine_callback, MFA0}, St1);
-                false -> check_specs(TypeSpecs, Arity, St1)
+                false -> check_specs(TypeSpecs, callback_wrong_arity,
+                                     Arity, St1)
             end
     end.
 
@@ -2927,7 +2930,7 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_specs([FunType|Left], Arity, St0) ->
+check_specs([FunType|Left], ETag, Arity, St0) ->
     {FunType1, CTypes} =
 	case FunType of
 	    {type, _, bounded_fun, [FT = {type, _, 'fun', _}, Cs]} ->
@@ -2935,18 +2938,16 @@ check_specs([FunType|Left], Arity, St0) ->
 		{FT, lists:append(Types0)};
 	    {type, _, 'fun', _} = FT -> {FT, []}
 	end,
-    SpecArity =
-	case FunType1 of
-	    {type, L, 'fun', [any, _]} -> any;
-	    {type, L, 'fun', [{type, _, product, D}, _]} -> length(D)
-	end,
+    {type, L, 'fun', [{type, _, product, D}, _]} = FunType1,
+    SpecArity = length(D),
     St1 = case Arity =:= SpecArity of
 	      true -> St0;
-	      false -> add_error(L, spec_wrong_arity, St0)
+	      false -> %% Cannot happen if called from the compiler.
+                  add_error(L, ETag, St0)
 	  end,
     St2 = check_type({type, nowarn(), product, [FunType1|CTypes]}, St1),
-    check_specs(Left, Arity, St2);
-check_specs([], _Arity, St) ->
+    check_specs(Left, ETag, Arity, St2);
+check_specs([], _ETag, _Arity, St) ->
     St.
 
 nowarn() ->
@@ -3190,8 +3191,8 @@ handle_generator(P,E,Vt,Uvt,St0) ->
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
         {bin_element,Line,{var,_,_},default,Flags} when is_list(Flags) ->
-            case member(binary, Flags) orelse member(bits, Flags)
-                                       orelse member(bitstring, Flags) of
+            case member(binary, Flags) orelse member(bytes, Flags)
+              orelse member(bits, Flags) orelse member(bitstring, Flags) of
                 true ->
                     add_error(Line, unsized_binary_in_bin_gen_pattern, St);
                 false ->
@@ -3485,13 +3486,6 @@ vt_no_unused(Vt) -> [V || {_,{_,U,_L}}=V <- Vt, U =/= unused].
 copy_expr(Expr, Anno) ->
     erl_parse:map_anno(fun(_A) -> Anno end, Expr).
 
-%% modify_line(Form, Fun) -> Form
-%% modify_line(Expression, Fun) -> Expression
-%%  Applies Fun to each line number occurrence.
-
-modify_line(T, F0) ->
-    erl_parse:map_anno(F0, T).
-
 %% Check a record_info call. We have already checked that it is not
 %% shadowed by an import.
 
@@ -3560,6 +3554,7 @@ deprecated_function(Line, M, F, As, St) ->
 	    St
     end.
 
+-dialyzer({no_match, deprecated_type/5}).
 deprecated_type(L, M, N, As, St) ->
     NAs = length(As),
     case otp_internal:obsolete_type(M, N, NAs) of
@@ -3570,6 +3565,8 @@ deprecated_type(L, M, N, As, St) ->
                 false ->
                     St
             end;
+        {removed, Replacement, Rel} ->
+            add_warning(L, {removed_type, {M,N,NAs}, Replacement, Rel}, St);
         no ->
             St
     end.

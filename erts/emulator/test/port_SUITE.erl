@@ -82,10 +82,11 @@
 	 mul_basic/1, mul_slow_writes/1,
 	 dying_port/1, port_program_with_path/1,
 	 open_input_file_port/1, open_output_file_port/1,
+         count_fds/1,
 	 iter_max_ports/1, eof/1, input_only/1, output_only/1,
 	 name1/1,
 	 t_binary/1, parallell/1, t_exit/1,
-	 env/1, bad_env/1, cd/1, exit_status/1,
+	 env/1, huge_env/1, bad_env/1, cd/1, exit_status/1,
 	 tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
@@ -111,8 +112,8 @@ all() ->
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
-     open_output_file_port, name1, env, bad_env, cd,
-     exit_status, iter_max_ports, t_exit, {group, tps}, line,
+     open_output_file_port, name1, env, huge_env, bad_env, cd,
+     exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
@@ -385,27 +386,33 @@ input_only(Config) when is_list(Config) ->
 output_only(Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(100)),
     Dir = ?config(priv_dir, Config),
-    Filename = filename:join(Dir, "output_only_stream"),
-    output_and_verify(Config, Filename, "-h0",
-          	    random_packet(35777, "echo")),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
-output_and_verify(Config, Filename, Options, Data) ->
-    PortTest = port_test(Config),
-    Command = lists:concat([PortTest, " ",
-          		  Options, " -o", Filename]),
-    Port = open_port({spawn, Command}, [out]),
-    Port ! {self(), {command, Data}},
-    Port ! {self(), close},
-    receive
-        {Port, closed} -> ok
-    end,
+    %% First we test that the port program gets the data
+    Filename = filename:join(Dir, "output_only_stream"),
+    Data = random_packet(35777, "echo"),
+    output_and_verify(Config, ["-h0 -o", Filename], Data),
     Wait_time = 500,
     test_server:sleep(Wait_time),
     {ok, Written} = file:read_file(Filename),
     Data = binary_to_list(Written),
+
+    %% Then we test that any writes to stdout from
+    %% the port program is not sent to erlang
+    output_and_verify(Config, ["-h0"], Data),
+
+    test_server:timetrap_cancel(Dog),
     ok.
+
+output_and_verify(Config, Options, Data) ->
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " " | Options]),
+    Port = open_port({spawn, Command}, [out]),
+    Port ! {self(), {command, Data}},
+    Port ! {self(), close},
+    receive
+        {Port, closed} -> ok;
+        Msg -> ct:fail({received_unexpected_message, Msg})
+    end.
 
 %% Test that receiving several packages written in the same
 %% write operation works.
@@ -610,6 +617,38 @@ open_output_file_port(Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
+%% Tests that all appropriate fd's have been closed in the port program
+count_fds(suite) -> [];
+count_fds(Config) when is_list(Config) ->
+    case os:type() of
+        {unix, _} ->
+            PrivDir = proplists:get_value(priv_dir, Config),
+            Filename = filename:join(PrivDir, "my_fd_counter"),
+
+            RunTest = fun(PortOpts) ->
+                              PortTest = port_test(Config),
+                              Command = lists:concat([PortTest, " -n -f -o", Filename]),
+                              Port = open_port({spawn, Command}, PortOpts),
+                              Port ! {self(), close},
+                              receive
+                                  {Port, closed} -> ok
+                              end,
+                              test_server:sleep(500),
+                              {ok, Written} = file:read_file(Filename),
+                              Written
+                      end,
+                    <<4:32/native>> = RunTest([out, nouse_stdio]),
+                    <<4:32/native>> = RunTest([in, nouse_stdio]),
+                    <<5:32/native>> = RunTest([in, out, nouse_stdio]),
+            <<3:32/native>> = RunTest([out, use_stdio]),
+            <<3:32/native>> = RunTest([in, use_stdio]),
+            <<3:32/native>> = RunTest([in, out, use_stdio]),
+            <<3:32/native>> = RunTest([in, out, use_stdio, stderr_to_stdout]),
+            <<3:32/native>> = RunTest([out, use_stdio, stderr_to_stdout]);
+        _ ->
+            {skip, "Skipped on windows"}
+    end.
+
 %%
 %% Open as many ports as possible. Do this several times and check
 %% that we get the same number of ports every time.
@@ -680,7 +719,16 @@ close_ports([]) ->
     ok.
 
 open_ports(Name, Settings) ->
-    test_server:sleep(5),
+    case os:type() of
+        {unix, freebsd} ->
+            %% FreeBsd has issues with sendmsg/recvmsg in fork
+            %% implementation and we therefor have to spawn
+            %% slower to make sure that we always hit the same
+            %% make roof.
+            test_server:sleep(10);
+        _ ->
+            test_server:sleep(5)
+    end,
     case catch open_port(Name, Settings) of
 	P when is_port(P) ->
 	    [P| open_ports(Name, Settings)];
@@ -922,6 +970,40 @@ try_bad_env(Env) ->
     catch
 	error:badarg -> ok
     end.
+
+%% Test that we can handle a very very large environment gracefully.
+huge_env(Config) when is_list(Config) ->
+    Vars = case os:type() of
+                {win32,_} -> 500;
+                _ ->
+                   %% We create a huge environment,
+                   %% 20000 variables is about 25MB
+                   %% which seems to be the limit on Linux.
+                   20000
+            end,
+    Env = [{[$a + I div (25*25*25*25) rem 25,
+              $a + I div (25*25*25) rem 25,
+              $a + I div (25*25) rem 25,
+              $a+I div 25 rem 25, $a+I rem 25],
+            lists:duplicate(100,$a+I rem 25)}
+           || I <- lists:seq(1,Vars)],
+    try erlang:open_port({spawn,"ls"},[exit_status, {env, Env}]) of
+        P ->
+            receive
+                {P, {exit_status,N}} = M ->
+                    %% We test that the exit status is an integer, this means
+                    %% that the child program has started. If we get an atom
+                    %% something went wrong in the driver which is not ok.
+                    ct:log("Got ~p",[M]),
+                    true = is_integer(N)
+            end
+    catch E:R ->
+            %% Have to catch the error here, as printing the stackdump
+            %% in the ct log is way to heavy for some test machines.
+            ct:fail("Open port failed ~p:~p",[E,R])
+    end.
+
+
 
 %% 'cd' option
 %% (Can perhaps be made smaller by calling the other utility functions
@@ -1228,13 +1310,15 @@ otp_4389(Config)  when is_list(Config) ->
 							    {P,{exit_status,_}} ->
 								TCR ! {self(),ok};
 							    {'EXIT',_,{R2,_}} when R2 == emfile;
-										   R2 == eagain ->
+										   R2 == eagain;
+                                                                                   R2 == enomem ->
 								TCR ! {self(),ok};
 							    Err2 ->
 								TCR ! {self(),{msg,Err2}}
 							end;
 						    {'EXIT',{R1,_}} when R1 == emfile;
-									 R1 == eagain ->
+									 R1 == eagain;
+                                                                         R1 == enomem ->
 							TCR ! {self(),ok};
 						    Err1 ->
 							TCR ! {self(), {open_port,Err1}}
@@ -1840,10 +1924,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 					      {Prt,
 					       erlang:system_info(scheduler_id)};
 					  {'EXIT', {Err, _}} when Err == eagain;
-								  Err == emfile ->
+								  Err == emfile;
+                                                                  Err == enomem ->
 					      noop;
 					  {'EXIT', Err} when Err == eagain;
-							     Err == emfile ->
+							     Err == emfile;
+                                                             Err == enomem ->
 					      noop;
 					  Error ->
 					      ?t:fail(Error)
@@ -2183,15 +2269,14 @@ random_char(Chars) ->
     lists:nth(uniform(length(Chars)), Chars).
 
 uniform(N) ->
-    case get(random_seed) of
-	undefined ->	    
-	    {X, Y, Z} = Seed = time(),
-	    io:format("Random seed = ~p\n",[Seed]),
-	    random:seed(X, Y, Z);
+    case rand:export_seed() of
+	undefined ->
+	    rand:seed(exsplus),
+	    io:format("Random seed = ~p\n", [rand:export_seed()]);
 	_ ->
 	    ok
     end,
-    random:uniform(N).
+    rand:uniform(N).
 
 fun_spawn(Fun) ->
     fun_spawn(Fun, []).
@@ -2331,7 +2416,7 @@ close_deaf_port(Config) when is_list(Config) ->
 close_deaf_port_1(200, _) ->
     ok;
 close_deaf_port_1(N, Cmd) ->
-    Timeout = integer_to_list(random:uniform(5*1000)),
+    Timeout = integer_to_list(rand:uniform(5*1000)),
     try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
     	Port ->
 	    erlang:port_command(Port,"Hello, can you hear me!?!?"),
@@ -2372,7 +2457,7 @@ port_setget_data(Config) when is_list(Config) ->
     ok.
 
 port_setget_data_hammer(Port, HeapData, IsSet0, N) ->
-    Rand = random:uniform(3),
+    Rand = rand:uniform(3),
     IsSet1 = try case Rand of
 		     1 -> true = erlang:port_set_data(Port, atom), true;
 		     2 -> true = erlang:port_set_data(Port, HeapData), true;
