@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 	 otp_7550/1,
          otp_8133/1,
          otp_10622/1,
+         otp_13228/1,
          funs/1,
 	 try_catch/1,
 	 eval_expr_5/1,
@@ -83,7 +84,8 @@ all() ->
      pattern_expr, match_bin, guard_3, guard_4, guard_5, lc,
      simple_cases, unary_plus, apply_atom, otp_5269,
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
-     otp_8133, otp_10622, funs, try_catch, eval_expr_5, zero_width,
+     otp_8133, otp_10622, otp_13228,
+     funs, try_catch, eval_expr_5, zero_width,
      eep37, eep43].
 
 groups() -> 
@@ -1041,6 +1043,13 @@ otp_10622(Config) when is_list(Config) ->
           [a]),
 
     ok.
+
+otp_13228(doc) ->
+    ["OTP-13228. ERL-32: non-local function handler bug."];
+otp_13228(_Config) ->
+    LFH = {value, fun(foo, [io_fwrite]) -> worked end},
+    EFH = {value, fun({io, fwrite}, [atom]) -> io_fwrite end},
+    {value, worked, []} = parse_and_run("foo(io:fwrite(atom)).", LFH, EFH).
 
 funs(doc) ->
     ["Simple cases, just to cover some code."];
