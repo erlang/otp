@@ -804,7 +804,7 @@ map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
 
 is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
-is_valid_map_src(#c_var{})  -> true;
+is_valid_map_src(#c_var{}=Var)  -> not cerl:is_c_fname(Var);
 is_valid_map_src(_)         -> false.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
