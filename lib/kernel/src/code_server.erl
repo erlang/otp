@@ -353,6 +353,9 @@ handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}, {_From
 handle_call(get_mode, {_From,_Tag}, S=#state{mode=Mode}) ->
     {reply, Mode, S};
 
+handle_call({finish_loading,Prepared,EnsureLoaded}, {_,_}, S) ->
+    {reply,finish_loading(Prepared, EnsureLoaded, S),S};
+
 handle_call(Other,{_From,_Tag}, S) ->			
     error_msg(" ** Codeserver*** ignoring ~w~n ",[Other]),
     {noreply,S}.
@@ -1218,7 +1221,6 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
     absname(filename:join(Name), Dcwd).
 
 
-
 is_loaded(M, Db) ->
     case ets:lookup(Db, M) of
 	[{M,File}] -> {file,File};
@@ -1232,6 +1234,64 @@ do_purge(Mod) ->
 do_soft_purge(Mod) ->
     erts_code_purger:soft_purge(Mod).
 
+
+%%%
+%%% Loading of multiple modules in parallel.
+%%%
+
+finish_loading(Prepared, EnsureLoaded, #state{moddb=Db}=St) ->
+    Ps = [fun(L) -> finish_loading_ensure(L, EnsureLoaded) end,
+	  fun(L) -> abort_if_pending_on_load(L, St) end,
+	  fun(L) -> abort_if_sticky(L, Db) end,
+	  fun(L) -> do_finish_loading(L, St) end],
+    run(Ps, Prepared).
+
+finish_loading_ensure(Prepared, true) ->
+    {ok,[P || {M,_}=P <- Prepared, not erlang:module_loaded(M)]};
+finish_loading_ensure(Prepared, false) ->
+    {ok,Prepared}.
+
+abort_if_pending_on_load(L, #state{on_load=[]}) ->
+    {ok,L};
+abort_if_pending_on_load(L, #state{on_load=OnLoad}) ->
+    Pending = [{M,pending_on_load} ||
+		  {M,_} <- L,
+		  lists:keymember(M, 2, OnLoad)],
+    case Pending of
+	[] -> {ok,L};
+	[_|_] -> {error,Pending}
+    end.
+
+abort_if_sticky(L, Db) ->
+    Sticky = [{M,sticky_directory} || {M,_} <- L, is_sticky(M, Db)],
+    case Sticky of
+	[] -> {ok,L};
+	[_|_] -> {error,Sticky}
+    end.
+
+do_finish_loading(Prepared, #state{moddb=Db}=St) ->
+    MagicBins = [B || {_,{B,_}} <- Prepared],
+    case erlang:finish_loading(MagicBins) of
+	ok ->
+	    MFs = [{M,F} || {M,{_,F}} <- Prepared],
+	    true = ets:insert(Db, MFs),
+	    Ms = [M || {M,_} <- MFs],
+	    Architecture = erlang:system_info(hipe_architecture),
+	    post_beam_load(Ms, Architecture, St),
+	    ok;
+	{Reason,Ms} ->
+	    {error,[{M,Reason} || M <- Ms]}
+    end.
+
+run([F], Data) ->
+    F(Data);
+run([F|Fs], Data0) ->
+    case F(Data0) of
+	{ok,Data} ->
+	    run(Fs, Data);
+	{error,_}=Error ->
+	    Error
+    end.
 
 %% -------------------------------------------------------
 %% The on_load functionality.

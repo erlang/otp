@@ -79,7 +79,8 @@ MODULES= \
 	zlib_SUITE \
 	loose_node \
 	sendfile_SUITE \
-	standard_error_SUITE
+	standard_error_SUITE \
+	multi_load_SUITE
 
 APP_FILES = \
 	appinc.app \
