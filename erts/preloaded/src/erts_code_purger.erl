@@ -283,8 +283,9 @@ cpc_sched_kill(Pid,
 		       killed = true}.
 
 cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
-    erlang:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-					 {allow_gc, AllowGc}]).
+    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
+						{allow_gc, AllowGc},
+						{copy_literals, true}]).
 
 cpc_request_gc(CpcS, [Pid|Pids]) ->
     cpc_request(CpcS, Pid, true),

@@ -202,22 +202,24 @@ port_info(_Result, _Item) ->
 request_system_task(_Pid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
--spec check_process_code(Module, OptionList) -> boolean() when
+-define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
+-define(ERTS_CPC_COPY_LITERALS, (1 bsl 1)).
+
+-spec check_process_code(Module, Flags) -> boolean() when
       Module :: module(),
-      Option :: {allow_gc, boolean()},
-      OptionList :: [Option].
-check_process_code(_Module, _OptionList) ->
+      Flags :: non_neg_integer().
+check_process_code(_Module, _Flags) ->
     erlang:nif_error(undefined).
 
 -spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
       Pid :: pid(),
       Module :: module(),
       RequestId :: term(),
-      Option :: {async, RequestId} | {allow_gc, boolean()},
+      Option :: {async, RequestId} | {allow_gc, boolean()} | {copy_literals, boolean()},
       OptionList :: [Option],
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
-    {Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
+    {Async, Flags} = get_cpc_opts(OptionList, sync, ?ERTS_CPC_ALLOW_GC),
     case Async of
 	{async, ReqId} ->
 	    {priority, Prio} = erlang:process_info(erlang:self(),
@@ -227,13 +229,12 @@ check_process_code(Pid, Module, OptionList)  ->
 					      {check_process_code,
 					       ReqId,
 					       Module,
-					       AllowGC}),
+					       Flags}),
 	    async;
 	sync ->
 	    case Pid == erlang:self() of
 		true ->
-		    erts_internal:check_process_code(Module,
-						     [{allow_gc, AllowGC}]);
+		    erts_internal:check_process_code(Module, Flags);
 		false ->
 		    {priority, Prio} = erlang:process_info(erlang:self(),
 							   priority),
@@ -243,7 +244,7 @@ check_process_code(Pid, Module, OptionList)  ->
 						      {check_process_code,
 						       ReqId,
 						       Module,
-						       AllowGC}),
+						       Flags}),
 		    receive
 			{check_process_code, ReqId, CheckResult} ->
 			    CheckResult
@@ -251,13 +252,20 @@ check_process_code(Pid, Module, OptionList)  ->
 	    end
     end.
 
-% gets async and allow_gc opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
-    get_cpc_opts(Options, AsyncTuple, AllowGC);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
-    get_cpc_opts(Options, Async, AllowGC);
-get_cpc_opts([], Async, AllowGC) ->
-    {Async, AllowGC}.
+% gets async and flag opts and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
+    get_cpc_opts(Options, AsyncTuple, Flags);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
+get_cpc_opts([{copy_literals, CopyLit} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_COPY_LITERALS, CopyLit));
+get_cpc_opts([], Async, Flags) ->
+    {Async, Flags}.
+
+cpc_flags(OldFlags, Bit, true) ->
+    OldFlags bor Bit;
+cpc_flags(OldFlags, Bit, false) ->
+    OldFlags band (bnot Bit).
 
 -spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
       Module :: module(),
