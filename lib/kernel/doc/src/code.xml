@@ -310,6 +310,9 @@
     <datatype>
       <name name="load_error_rsn"/>
     </datatype>
+    <datatype>
+      <name name="prepared_code"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -476,6 +479,138 @@
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
 	<c>{error, Reason}</c> if loading fails.
 	See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of the possible error reasons.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="atomic_load" arity="1"/>
+      <fsummary>Load a list of modules atomically</fsummary>
+      <desc>
+        <p>Tries to load all of the modules in the list
+        <c><anno>Modules</anno></c> atomically.  That means that
+        either all modules will become loaded at the same time, or
+        none of the modules will be loaded if loading fails for
+	any reason.</p>
+	<p>Loading can fail for one the following reasons:</p>
+	<taglist>
+	  <tag><c>badfile</c></tag>
+	  <item>
+	    <p>The object code has an incorrect format or the module
+	    name in the object code is not the expected module name.</p>
+	  </item>
+	  <tag><c>nofile</c></tag>
+	  <item>
+	    <p>No file with object code was found.</p>
+	  </item>
+	  <tag><c>on_load_not_allowed</c></tag>
+	  <item>
+	    <p>A module contained an
+	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	  </item>
+	  <tag><c>duplicated</c></tag>
+	  <item>
+	    <p>A module was included more than once in
+	    <c><anno>Modules</anno></c>.</p>
+	  </item>
+	  <tag><c>not_purged</c></tag>
+	  <item>
+	    <p>The object code could not be loaded because an old version
+	    of the code already existed.</p>
+	  </item>
+	  <tag><c>sticky_directory</c></tag>
+	  <item>
+	    <p>The object code resides in a sticky directory.</p>
+	  </item>
+	  <tag><c>pending_on_load</c></tag>
+	  <item>
+	    <p>A module that was previously loaded contained an
+	    <c>-on_load</c> function that never finished.</p>
+	  </item>
+	</taglist>
+	<p>If it is important to minimize the time that an application
+	is inactive while changing code,
+	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>
+	and
+	<seealso marker="#finish_loading/1">finish_loading/1</seealso>
+	can be used instead of <c>atomic_load/1</c>. Here is an example:</p>
+<pre>
+{ok,Prepared} = code:prepare_loading(Modules),
+%% Put the application into an inactive state or do any
+%% other preparation needed before changing the code.
+ok = code:finish_loading(Prepared),
+%% Resume the application.</pre>
+      </desc>
+    </func>
+    <func>
+      <name name="prepare_loading" arity="1"/>
+      <fsummary>Prepare a list of modules atomically</fsummary>
+      <desc>
+        <p>Prepares to load the modules in the list
+        <c><anno>Modules</anno></c>.
+	The loading can be finished by calling
+	<seealso marker="#finish_loading/1">finish_loading(Prepared)</seealso>.</p>
+	<p>This function can fail with one of the following error reasons:</p>
+	<taglist>
+	  <tag><c>badfile</c></tag>
+	  <item>
+	    <p>The object code has an incorrect format or the module
+	    name in the object code is not the expected module name.</p>
+	  </item>
+	  <tag><c>nofile</c></tag>
+	  <item>
+	    <p>No file with object code was found.</p>
+	  </item>
+	  <tag><c>on_load_not_allowed</c></tag>
+	  <item>
+	    <p>A module contained an
+	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	  </item>
+	  <tag><c>duplicated</c></tag>
+	  <item>
+	    <p>A module was included more than once in
+	    <c><anno>Modules</anno></c>.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="finish_loading" arity="1"/>
+      <fsummary>Finish loading a list of prepared modules atomically</fsummary>
+      <desc>
+        <p>Tries to load code for all modules that have been previously
+	prepared by
+	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>.
+	The loading will occur atomically, meaning that
+        either all modules will become loaded at the same time, or
+        none of the modules will be loaded.</p>
+	<p>This function can fail with one of the following error reasons:</p>
+	<taglist>
+	  <tag><c>not_purged</c></tag>
+	  <item>
+	    <p>The object code could not be loaded because an old version
+	    of the code already existed.</p>
+	  </item>
+	  <tag><c>sticky_directory</c></tag>
+	  <item>
+	    <p>The object code resides in a sticky directory.</p>
+	  </item>
+	  <tag><c>pending_on_load</c></tag>
+	  <item>
+	    <p>A module that was previously loaded contained an
+	    <c>-on_load</c> function that never finished.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="ensure_modules_loaded" arity="1"/>
+      <fsummary>Ensure that a list of modules is loaded</fsummary>
+      <desc>
+        <p>Tries to load any modules not already loaded in the list
+	<c><anno>Modules</anno></c> in the same way as
+          <seealso marker="#load_file/1">load_file/1</seealso>.</p>
+	  <p>Returns <c>ok</c> if successful, or
+	  <c>{error,[{Module,Reason}]}</c> if loading of some modules fails.
+	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
       </desc>
     </func>
     <func>
