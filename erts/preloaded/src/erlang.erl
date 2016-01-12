@@ -460,7 +460,7 @@ check_old_code(_Module) ->
       CheckResult :: boolean().
 check_process_code(Pid, Module) ->
     try
-	erlang:check_process_code(Pid, Module, [{allow_gc, true}])
+	erts_internal:check_process_code(Pid, Module, [{allow_gc, true}])
     catch
 	error:Error -> erlang:error(Error, [Pid, Module])
     end.
@@ -475,50 +475,10 @@ check_process_code(Pid, Module) ->
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
     try
-	{Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
-	case Async of
-	    {async, ReqId} ->
-		{priority, Prio} = erlang:process_info(erlang:self(),
-						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {check_process_code,
-						   ReqId,
-						   Module,
-						   AllowGC}),
-		async;
-	    sync ->
-		case Pid == erlang:self() of
-		    true ->
-			erts_internal:check_process_code(Module,
-							 [{allow_gc, AllowGC}]);
-		    false ->
-			{priority, Prio} = erlang:process_info(erlang:self(),
-							       priority),
-			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {check_process_code,
-							   ReqId,
-							   Module,
-							   AllowGC}),
-			receive
-			    {check_process_code, ReqId, CheckResult} ->
-				CheckResult
-			end
-		end
-	end
+	erts_internal:check_process_code(Pid, Module, OptionList)
     catch
 	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
     end.
-
-% gets async and allow_gc opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
-    get_cpc_opts(Options, AsyncTuple, AllowGC);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
-    get_cpc_opts(Options, Async, AllowGC);
-get_cpc_opts([], Async, AllowGC) ->
-    {Async, AllowGC}.
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when

@@ -37,7 +37,7 @@
 
 -export([request_system_task/3]).
 
--export([check_process_code/2]).
+-export([check_process_code/3]).
 -export([copy_literals/2]).
 -export([purge_module/1]).
 
@@ -48,6 +48,9 @@
 -export([time_unit/0]).
 
 -export([is_system_process/1]).
+
+%% Auto import name clash
+-export([check_process_code/2]).
 
 %%
 %% Await result of send to port
@@ -205,6 +208,56 @@ request_system_task(_Pid, _Prio, _Request) ->
       OptionList :: [Option].
 check_process_code(_Module, _OptionList) ->
     erlang:nif_error(undefined).
+
+-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
+      Pid :: pid(),
+      Module :: module(),
+      RequestId :: term(),
+      Option :: {async, RequestId} | {allow_gc, boolean()},
+      OptionList :: [Option],
+      CheckResult :: boolean() | aborted.
+check_process_code(Pid, Module, OptionList)  ->
+    {Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
+    case Async of
+	{async, ReqId} ->
+	    {priority, Prio} = erlang:process_info(erlang:self(),
+						   priority),
+	    erts_internal:request_system_task(Pid,
+					      Prio,
+					      {check_process_code,
+					       ReqId,
+					       Module,
+					       AllowGC}),
+	    async;
+	sync ->
+	    case Pid == erlang:self() of
+		true ->
+		    erts_internal:check_process_code(Module,
+						     [{allow_gc, AllowGC}]);
+		false ->
+		    {priority, Prio} = erlang:process_info(erlang:self(),
+							   priority),
+		    ReqId = erlang:make_ref(),
+		    erts_internal:request_system_task(Pid,
+						      Prio,
+						      {check_process_code,
+						       ReqId,
+						       Module,
+						       AllowGC}),
+		    receive
+			{check_process_code, ReqId, CheckResult} ->
+			    CheckResult
+		    end
+	    end
+    end.
+
+% gets async and allow_gc opts and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
+    get_cpc_opts(Options, AsyncTuple, AllowGC);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
+    get_cpc_opts(Options, Async, AllowGC);
+get_cpc_opts([], Async, AllowGC) ->
+    {Async, AllowGC}.
 
 -spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
       Module :: module(),
