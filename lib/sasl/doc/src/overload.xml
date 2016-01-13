@@ -35,6 +35,12 @@
   <module>overload</module>
   <modulesummary>An Overload Regulation Process</modulesummary>
   <description>
+    <warning>
+      <p>
+	All functions in this module are deprecated and will be
+	removed in a future release.
+      </p>
+    </warning>
     <p><c>overload</c> is a process that indirectly regulates the CPU
       usage in the system. The idea is that a main application calls
       function 

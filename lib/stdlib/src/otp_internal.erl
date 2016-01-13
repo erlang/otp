@@ -648,6 +648,9 @@ obsolete_1(httpd_conf, is_file, 1) ->
 obsolete_1(httpd_conf, make_integer, 1) ->
     {deprecated, "deprecated; use erlang:list_to_integer/1 instead"};
 
+obsolete_1(overload, _, _) ->
+    {deprecated, "deprecated; will be removed in OTP 19"};
+
 obsolete_1(_, _, _) ->
     no.
 
