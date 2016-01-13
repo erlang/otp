@@ -57,7 +57,6 @@
 -type host() :: atom().
 
 -record(prim_state, {debug :: boolean(),
-		     cache,
 		     primary_archive}).
 -type prim_state() :: #prim_state{}.
 
