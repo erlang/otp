@@ -435,10 +435,6 @@ efile_set_primary_archive(#state{prim_state = PS} = State, File,
 					  FileInfo, ParserFun),
     {Res,State#state{prim_state = PS2}}.
 
-efile_release_archives(#state{prim_state = PS} = State) ->
-    {Res, PS2} = prim_release_archives(PS),
-    {Res,State#state{prim_state = PS2}}.
-
 efile_list_dir(#state{prim_state = PS} = State, Dir) ->
     {Res, PS2} = prim_list_dir(PS, Dir),
     {Res, State#state{prim_state = PS2}}.
@@ -463,8 +459,8 @@ efile_exit_port(State, _Port, _Reason) ->
 efile_timeout_handler(#state{n_timeouts = N} = State, _Parent) ->
     if
 	N =< 0 ->
-	    {_Res, State2} = efile_release_archives(State),
-	    State2#state{n_timeouts = ?N_TIMEOUTS};
+	    prim_purge_cache(),
+	    State#state{n_timeouts = ?N_TIMEOUTS};
 	true ->
 	    State#state{n_timeouts = N - 1}
     end.
@@ -733,32 +729,19 @@ prim_init() ->
         end,
     cache_new(#prim_state{debug = Deb}).
 
-prim_release_archives(PS) ->
-    debug(PS, release_archives),
-    {Res, PS2} = prim_do_release_archives(PS, get(), []),
-    debug(PS2, {return, Res}),
-    {Res, PS2}.
+prim_purge_cache() ->
+    do_prim_purge_cache(get()).
 
-prim_do_release_archives(PS, [{ArchiveFile, DictVal} | KeyVals], Acc) ->
-    Res = 
-	case DictVal of
-	    {primary, _PrimZip, _FI, _ParserFun} ->
-		ok; % Keep primary archive
-	    {Cache, _FI} ->
-		debug(PS, {release, cache, ArchiveFile}),
-		erase(ArchiveFile),
-		clear_cache(ArchiveFile, Cache)
-	end,
-    case Res of
-	ok ->
-	    prim_do_release_archives(PS, KeyVals, Acc);
-	{error, Reason} ->
-	    prim_do_release_archives(PS, KeyVals, [{ArchiveFile, Reason} | Acc])
-    end;
-prim_do_release_archives(PS, [], []) ->
-    {ok, PS#prim_state{primary_archive = undefined}};
-prim_do_release_archives(PS, [], Errors) ->
-    {{error, Errors}, PS#prim_state{primary_archive = undefined}}.
+do_prim_purge_cache([{Key,Val}|T]) ->
+    case Val of
+	{Cache,_FI} ->
+	    catch clear_cache(Key, Cache);
+	_ ->
+	    ok
+    end,
+    do_prim_purge_cache(T);
+do_prim_purge_cache([]) ->
+    ok.
 
 prim_set_primary_archive(PS, undefined, undefined, undefined, _ParserFun) ->
     debug(PS, {set_primary_archive, clean}),
