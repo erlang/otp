@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1,otp_11851/1,otp_11879/1
+          maps/1,maps_type/1,otp_11851/1,otp_11879/1,otp_13230/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -94,7 +94,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851, otp_11879].
+     maps, maps_type, otp_11851, otp_11879, otp_13230].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3870,6 +3870,15 @@ otp_11879(_Config) ->
               {2,erl_lint,spec_wrong_arity},
               {22,erl_lint,callback_wrong_arity}]}],
      []} = compile:forms(Fs, [return,report]),
+    ok.
+
+otp_13230(doc) ->
+    "OTP-13230: -deprecated without -module";
+otp_13230(Config) when is_list(Config) ->
+    Abstr = <<"-deprecated([{frutt,0,next_version}]).">>,
+    {errors,[{1,erl_lint,undefined_module},
+             {1,erl_lint,{bad_deprecated,{frutt,0}}}],
+     []} = run_test2(Config, Abstr, []),
     ok.
 
 run(Config, Tests) ->
