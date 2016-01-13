@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1]).
+         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -110,7 +110,8 @@ all() ->
 	many_clients, otp_4906, otp_5402, simultaneous_open,
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709
+	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709,
+        otp_13229
     ].
 
 groups() -> 
@@ -3987,6 +3988,18 @@ otp_11709(Config) when is_list(Config) ->
 
     _ = file:delete(File),
     ok.
+
+otp_13229(doc) ->
+    ["OTP-13229. open_file() exits with badarg when given binary file name."];
+otp_13229(_Config) ->
+    F = <<"binfile.tab">>,
+    try dets:open_file(name, [{file, F}]) of
+        R ->
+            exit({open_succeeded, R})
+    catch
+        error:badarg ->
+            ok
+    end.
 
 %%
 %% Parts common to several test cases

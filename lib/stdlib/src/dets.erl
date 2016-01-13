@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1124,7 +1124,9 @@ repl({delayed_write, {Delay,Size} = C}, Defs)
     Defs#open_args{delayed_write = C};
 repl({estimated_no_objects, I}, Defs)  ->
     repl({min_no_slots, I}, Defs);
-repl({file, File}, Defs) ->
+repl({file, File}, Defs) when is_list(File) ->
+    Defs#open_args{file = File};
+repl({file, File}, Defs) when is_atom(File) ->
     Defs#open_args{file = to_list(File)};
 repl({keypos, P}, Defs) when is_integer(P), P > 0 ->
     Defs#open_args{keypos =P};
