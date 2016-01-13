@@ -883,6 +883,9 @@ t_update_map_expressions(Config) when is_list(Config) ->
     %% Error cases.
     {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
     {'EXIT',{{badmap,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    {'EXIT',{{badmap,_},_}} =
+	(catch (fun t_update_map_expressions/1)#{u => 42}),
+
     ok.
 
 
