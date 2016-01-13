@@ -40,7 +40,8 @@ all() -> [decode_hello_handshake,
 	  decode_single_hello_sni_extension_correctly,
 	  decode_empty_server_sni_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign,
-	  ignore_hassign_extension_pre_tls_1_2].
+	  ignore_hassign_extension_pre_tls_1_2,
+          unorded_chain].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -172,6 +173,29 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     %%% Ignore
     {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
     {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
+
+unorded_chain(Config) when is_list(Config) ->
+    DefConf = ssl_test_lib:default_cert_chain_conf(),
+    CertChainConf = ssl_test_lib:gen_conf(rsa, rsa, DefConf, DefConf),
+    #{server_config := ServerConf,
+      client_config := _ClientConf} = public_key:pkix_test_data(CertChainConf),
+    PeerCert = proplists:get_value(cert, ServerConf),
+    CaCerts = [_, C1, C2] = proplists:get_value(cacerts, ServerConf),
+    {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, CaCerts}),
+    UnordedChain = case public_key:pkix_is_self_signed(C1) of
+                       true ->
+                           [C1, C2];
+                       false ->
+                           [C2, C1]
+                   end,
+    OrderedChain = [PeerCert | lists:reverse(UnordedChain)],
+    {ok, _, OrderedChain} = 
+        ssl_certificate:certificate_chain(PeerCert, ets:new(foo, []), ExtractedCerts, UnordedChain).
+
+
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
 
 is_supported(Hash) ->
     Algos = crypto:supports(),
