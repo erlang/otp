@@ -243,20 +243,26 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
-#  ifdef STATIC_ERLANG_NIF
-#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* MODNAME ## _nif_init(TWinDynNifCallbacks* callbacks)
-#  else
-#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
-#  endif
+#  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
+#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
+#  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  ifdef STATIC_ERLANG_NIF
-#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* MODNAME ## _nif_init(void)
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_NIF_INIT_EXPORT __global
 #  else
-#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* nif_init(void)
+#    define ERL_NIF_INIT_EXPORT
 #  endif
+#endif
+
+#ifdef STATIC_ERLANG_NIF
+#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME ## _nif_init(ERL_NIF_INIT_ARGS)
+#else
+#  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
 
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
