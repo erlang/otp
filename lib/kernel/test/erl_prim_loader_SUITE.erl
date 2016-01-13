@@ -392,7 +392,7 @@ local_archive(Config) when is_list(Config) ->
     ?line ok = test_archive(Node, Archive, KernelDir, BeamName),
 
     %% Cleanup
-    ?line ok = rpc:call(Node, erl_prim_loader, release_archives, []),
+    ok = rpc:call(Node, erl_prim_loader, purge_archive_cache, []),
     ?line ok = file:delete(Archive),
     ok.
 
@@ -550,7 +550,7 @@ virtual_dir_in_archive(Config) when is_list(Config) ->
     ?line {ok, [EbinBase]} = erl_prim_loader:list_dir(AppDir),
     
     %% Cleanup
-    ?line ok = erl_prim_loader:release_archives(),
+    ok = erl_prim_loader:purge_archive_cache(),
     ?line ok = file:delete(Archive),
     ok.
 

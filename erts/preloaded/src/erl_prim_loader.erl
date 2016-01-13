@@ -50,7 +50,10 @@
          prim_read_file_info/3, prim_get_cwd/2]).
 
 %% Used by escript and code
--export([set_primary_archive/4, release_archives/0]).
+-export([set_primary_archive/4]).
+
+%% Used by test suites
+-export([purge_archive_cache/0]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -225,10 +228,13 @@ set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
   when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
     request({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}).
 
--spec release_archives() -> 'ok' | {'error', _}.
+%% NOTE: Does not close the primary archive. Only closes all
+%% open zip files kept in the cache. Should be called before an archive
+%% file is to be removed (for example in the test suites).
 
-release_archives() ->
-    request(release_archives).
+-spec purge_archive_cache() -> 'ok' | {'error', _}.
+purge_archive_cache() ->
+    request(purge_archive_cache).
 
 request(Req) ->
     Loader = whereis(erl_prim_loader),
@@ -332,8 +338,8 @@ handle_request(Req, Paths, St0) ->
 	{set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
 	    handle_set_primary_archive(St0, File, ArchiveBin,
 				       FileInfo, ParserFun);
-	release_archives ->
-	    handle_release_archives(St0);
+	purge_archive_cache ->
+	    handle_purge_archive_cache(St0);
 	_ ->
 	    ignore
     end.
@@ -346,8 +352,9 @@ handle_get_file(State = #state{loader = inet}, Paths, File) ->
 handle_set_primary_archive(State= #state{loader = efile}, File, ArchiveBin, FileInfo, ParserFun) ->
     ?SAFE2(efile_set_primary_archive(State, File, ArchiveBin, FileInfo, ParserFun), State).
 
-handle_release_archives(State= #state{loader = efile}) ->
-    ?SAFE2(efile_release_archives(State), State).
+handle_purge_archive_cache(#state{loader = efile}=State) ->
+    prim_purge_cache(),
+    {ok,State}.
 
 handle_list_dir(State = #state{loader = efile}, Dir) ->
     ?SAFE2(efile_list_dir(State, Dir), State);
