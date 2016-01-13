@@ -65,12 +65,10 @@
          hosts = []        :: [host()], % hosts list (to boot from)
          data              :: 'noport' | port(), % data port etc
          timeout           :: timeout(),	 % idle timeout
-	 %% Number of timeouts before archives are released
-	 n_timeouts        :: non_neg_integer(),
          prim_state        :: prim_state()}).    % state for efile code loader
 
--define(IDLE_TIMEOUT, 60000).  %% tear inet connection after 1 minutes
--define(N_TIMEOUTS, 6).        %% release efile archive after 6 minutes
+-define(EFILE_IDLE_TIMEOUT, (6*60*1000)).	%purge archives
+-define(INET_IDLE_TIMEOUT, (60*1000)). 		%tear down connection timeout
 
 %% Defines for inet as prim_loader
 -define(INET_FAMILY, inet).
@@ -142,8 +140,7 @@ start_inet(Parent) ->
     State = #state {loader = inet,
                     hosts = AL,
                     data = Tcp,
-                    timeout = ?IDLE_TIMEOUT,
-		    n_timeouts = ?N_TIMEOUTS,
+                    timeout = ?INET_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
 
@@ -163,7 +160,7 @@ start_efile(Parent) ->
     PS = prim_init(),
     State = #state {loader = efile,
                     data = Port,
-                    timeout = infinity,
+                    timeout = ?EFILE_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
 
@@ -456,14 +453,9 @@ efile_exit_port(State, Port, Reason) when State#state.data =:= Port ->
 efile_exit_port(State, _Port, _Reason) ->
     State.
 
-efile_timeout_handler(#state{n_timeouts = N} = State, _Parent) ->
-    if
-	N =< 0 ->
-	    prim_purge_cache(),
-	    State#state{n_timeouts = ?N_TIMEOUTS};
-	true ->
-	    State#state{n_timeouts = N - 1}
-    end.
+efile_timeout_handler(State, _Parent) ->
+    prim_purge_cache(),
+    State.
 
 %%% --------------------------------------------------------
 %%% Functions which handle inet prim_loader
@@ -604,7 +596,7 @@ inet_get_file_from_port1(_File, [], State) ->
 inet_send_and_rcv(Msg, Tag, State) when State#state.data =:= noport ->
     {ok,Tcp} = find_master(State#state.hosts),     %% reconnect
     inet_send_and_rcv(Msg, Tag, State#state{data = Tcp,
-					    timeout = ?IDLE_TIMEOUT});
+					    timeout = ?INET_IDLE_TIMEOUT});
 inet_send_and_rcv(Msg, Tag, #state{data = Tcp, timeout = Timeout} = State) ->
     prim_inet:send(Tcp, term_to_binary(Msg)),
     receive
