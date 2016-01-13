@@ -3989,15 +3989,37 @@ safe_fixtable_do(Opts) ->
     ?line true = ets:safe_fixtable(Tab, true),
     ?line receive after 1 -> ok end,
     ?line true = ets:safe_fixtable(Tab, false),
-    ?line false = ets:info(Tab,safe_fixed),
-    ?line true = ets:safe_fixtable(Tab, true),
+    false = ets:info(Tab,safe_fixed_monotonic_time),
+    false = ets:info(Tab,safe_fixed),
+    SysBefore = erlang:timestamp(),
+    MonBefore = erlang:monotonic_time(),
+    true = ets:safe_fixtable(Tab, true),
+    MonAfter = erlang:monotonic_time(),
+    SysAfter = erlang:timestamp(),
     Self = self(),
-    ?line {{_,_,_},[{Self,1}]} = ets:info(Tab,safe_fixed),
+    {FixMonTime,[{Self,1}]} = ets:info(Tab,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = ets:info(Tab,safe_fixed),
+    true = is_integer(FixMonTime),
+    true = MonBefore =< FixMonTime,
+    true = FixMonTime =< MonAfter,
+    {FstMs,FstS,FstUs} = FixSysTime,
+    true = is_integer(FstMs),
+    true = is_integer(FstS),
+    true = is_integer(FstUs),
+    case erlang:system_info(time_warp_mode) of
+	no_time_warp ->
+	    true = timer:now_diff(FixSysTime, SysBefore) >= 0,
+	    true = timer:now_diff(SysAfter, FixSysTime) >= 0;
+	_ ->
+	    %% ets:info(Tab,safe_fixed) not timewarp safe...
+	    ignore
+    end,
     %% Test that an unjustified 'unfix' is a no-op.
     {Pid,MRef} = my_spawn_monitor(fun() -> true = ets:safe_fixtable(Tab,false) end),
     {'DOWN', MRef, process, Pid, normal} = receive M -> M end,
-    ?line true = ets:info(Tab,fixed),
-    ?line {{_,_,_},[{Self,1}]} = ets:info(Tab,safe_fixed),
+    true = ets:info(Tab,fixed),
+    {FixMonTime,[{Self,1}]} = ets:info(Tab,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = ets:info(Tab,safe_fixed),
     %% badarg's
     ?line {'EXIT', {badarg, _}} = (catch ets:safe_fixtable(Tab, foobar)),
     ?line true = ets:info(Tab,fixed),
@@ -4043,6 +4065,7 @@ info_do(Opts) ->
     ?line undefined = ets:info(non_existing_table_xxyy,type),
     ?line undefined = ets:info(non_existing_table_xxyy,node),
     ?line undefined = ets:info(non_existing_table_xxyy,named_table),
+    ?line undefined = ets:info(non_existing_table_xxyy,safe_fixed_monotonic_time),
     ?line undefined = ets:info(non_existing_table_xxyy,safe_fixed),
     ?line verify_etsmem(EtsMem).
 
@@ -5532,7 +5555,7 @@ otp_8166_zombie_creator(T,Deleted) ->
 						  [{'=<','$1', Deleted}],
 						  [true]}]),
 	    Pid ! zombies_created,
-	    repeat_while(fun() -> case ets:info(T,safe_fixed) of
+	    repeat_while(fun() -> case ets:info(T,safe_fixed_monotonic_time) of
 				      {_,[_P1,_P2]} ->
 					  false;
 				      _ -> 

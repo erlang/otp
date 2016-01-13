@@ -1376,7 +1376,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status |= DB_ORDERED_SET;
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG);
 	}
-	/*TT*/
 	else if (is_tuple(val)) {
 	    Eterm *tp = tuple_val(val);
 	    if (arityval(tp[0]) == 2) {
@@ -3466,10 +3465,10 @@ static void fix_table_locked(Process* p, DbTable* tb)
 #endif
     erts_refc_inc(&tb->common.ref,1);
     fix = tb->common.fixations;
-    if (fix == NULL) { 
-	get_now(&(tb->common.megasec),
-		&(tb->common.sec), 
-		&(tb->common.microsec));
+    if (fix == NULL) {
+	tb->common.time.monotonic
+	    = erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(p));
+	tb->common.time.offset = erts_get_time_offset();
     }
     else {
 	for (; fix != NULL; fix = fix->next) {
@@ -3731,6 +3730,7 @@ static int free_table_cont(Process *p,
 static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 {
     Eterm ret = THE_NON_VALUE;
+    int use_monotonic;
 
     if (What == am_size) {
 	ret = make_small(erts_smp_atomic_read_nob(&tb->common.nitems));
@@ -3788,7 +3788,10 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_true;
 	else
 	    ret = am_false;
-    } else if (What == am_atom_put("safe_fixed",10)) {
+    } else if ((use_monotonic
+		= ERTS_IS_ATOM_STR("safe_fixed_monotonic_time",
+				   What))
+	       || ERTS_IS_ATOM_STR("safe_fixed", What)) {
 #ifdef ERTS_SMP
 	erts_smp_mtx_lock(&tb->common.fixlock);
 #endif
@@ -3797,7 +3800,19 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    Eterm *hp;
 	    Eterm tpl, lst;
 	    DbFixation *fix;
-	    need = 7;
+	    Sint64 mtime;
+	    
+	    need = 3;
+	    if (use_monotonic) {
+		mtime = (Sint64) tb->common.time.monotonic;
+		mtime += ERTS_MONOTONIC_OFFSET_NATIVE;
+		if (!IS_SSMALL(mtime))
+		    need += ERTS_SINT64_HEAP_SIZE(mtime);
+	    }
+	    else {
+		mtime = 0;
+		need += 4;
+	    }
 	    for (fix = tb->common.fixations; fix != NULL; fix = fix->next) {
 		need += 5;
 	    }
@@ -3809,11 +3824,18 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 		lst = CONS(hp,tpl,lst);
 		hp += 2;
 	    }
-	    tpl = TUPLE3(hp,
-			 make_small(tb->common.megasec),
-			 make_small(tb->common.sec),
-			 make_small(tb->common.microsec));
-	    hp += 4;
+	    if (use_monotonic)
+		tpl = (IS_SSMALL(mtime)
+		       ? make_small(mtime)
+		       : erts_sint64_to_big(mtime, &hp));
+	    else {
+		Uint ms, s, us;
+		erts_make_timestamp_value(&ms, &s, &us,
+					  tb->common.time.monotonic,
+					  tb->common.time.offset);
+		tpl = TUPLE3(hp, make_small(ms), make_small(s), make_small(us));
+		hp += 4;
+	    }
 	    ret = TUPLE2(hp, tpl, lst);
 	} else {
 	    ret = am_false;

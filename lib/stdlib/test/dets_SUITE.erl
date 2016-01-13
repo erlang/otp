@@ -1876,9 +1876,33 @@ fixtable(Config, Version) when is_list(Config) ->
     {ok, _} = dets:open_file(T, [{type, duplicate_bag} | Args]),
     %% In a fixed table, delete and re-insert an object.
     ok = dets:insert(T, {1, a, b}),
+    SysBefore = erlang:timestamp(),
+    MonBefore = erlang:monotonic_time(),
     dets:safe_fixtable(T, true),
+    MonAfter = erlang:monotonic_time(),
+    SysAfter = erlang:timestamp(),
+    Self = self(),
+    {FixMonTime,[{Self,1}]} = dets:info(T,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = dets:info(T,safe_fixed),
+    true = is_integer(FixMonTime),
+    true = MonBefore =< FixMonTime,
+    true = FixMonTime =< MonAfter,
+    {FstMs,FstS,FstUs} = FixSysTime,
+    true = is_integer(FstMs),
+    true = is_integer(FstS),
+    true = is_integer(FstUs),
+    case erlang:system_info(time_warp_mode) of
+	no_time_warp ->
+	    true = timer:now_diff(FixSysTime, SysBefore) >= 0,
+	    true = timer:now_diff(SysAfter, FixSysTime) >= 0;
+	_ ->
+	    %% ets:info(Tab,safe_fixed) not timewarp safe...
+	    ignore
+    end,
     ok = dets:match_delete(T, {1, a, b}),
     ok = dets:insert(T, {1, a, b}),
+    {FixMonTime,[{Self,1}]} = dets:info(T,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = dets:info(T,safe_fixed),
     dets:safe_fixtable(T, false),
     1 = length(dets:match_object(T, '_')),
 

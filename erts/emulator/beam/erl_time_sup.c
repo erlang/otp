@@ -1747,6 +1747,39 @@ erts_get_monotonic_time(ErtsSchedulerData *esdp)
     return mtime;    
 }
 
+ErtsMonotonicTime
+erts_get_time_offset(void)
+{
+    return get_time_offset();
+}
+
+static ERTS_INLINE void
+make_timestamp_value(Uint* megasec, Uint* sec, Uint* microsec,
+		     ErtsMonotonicTime mtime, ErtsMonotonicTime offset)
+{
+    ErtsMonotonicTime stime, as;
+    Uint ms;
+
+    stime = ERTS_MONOTONIC_TO_USEC(mtime + offset);
+
+    as = stime / ERTS_MONOTONIC_TIME_MEGA;
+    *megasec = ms = (Uint) (stime / ERTS_MONOTONIC_TIME_TERA);
+    *sec = (Uint) (as - (((ErtsMonotonicTime) ms)
+			 * ERTS_MONOTONIC_TIME_MEGA));
+    *microsec = (Uint) (stime - as*ERTS_MONOTONIC_TIME_MEGA);
+
+    ASSERT(((ErtsMonotonicTime) ms)*ERTS_MONOTONIC_TIME_TERA
+	   + ((ErtsMonotonicTime) *sec)*ERTS_MONOTONIC_TIME_MEGA
+	   + *microsec == stime);
+}
+
+void
+erts_make_timestamp_value(Uint* megasec, Uint* sec, Uint* microsec,
+			  ErtsMonotonicTime mtime, ErtsMonotonicTime offset)
+{
+    make_timestamp_value(megasec, sec, microsec, mtime, offset);
+}
+
 void
 get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
@@ -2220,22 +2253,14 @@ BIF_RETTYPE time_offset_1(BIF_ALIST_1)
 BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 {
     Eterm *hp, res;
-    ErtsMonotonicTime stime, mtime, all_sec, offset;
+    ErtsMonotonicTime mtime, offset;
     Uint mega_sec, sec, micro_sec;
 
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
     update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
-    stime = ERTS_MONOTONIC_TO_USEC(mtime + offset);
-    all_sec = stime / ERTS_MONOTONIC_TIME_MEGA;
-    mega_sec = (Uint) (stime / ERTS_MONOTONIC_TIME_TERA);
-    sec = (Uint) (all_sec - (((ErtsMonotonicTime) mega_sec)
-			     * ERTS_MONOTONIC_TIME_MEGA));
-    micro_sec = (Uint) (stime - all_sec*ERTS_MONOTONIC_TIME_MEGA);
 
-    ASSERT(((ErtsMonotonicTime) mega_sec)*ERTS_MONOTONIC_TIME_TERA
-	   + ((ErtsMonotonicTime) sec)*ERTS_MONOTONIC_TIME_MEGA
-	   + micro_sec == stime);
+    make_timestamp_value(&mega_sec, &sec, &micro_sec, mtime, offset);
 
     /*
      * Mega seconds is the only value that potentially

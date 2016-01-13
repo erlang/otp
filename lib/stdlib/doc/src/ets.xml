@@ -488,14 +488,39 @@ Error: fun containing local Erlang function calls
           <item><c>Item=fixed, Value=boolean()</c>          <br></br>
 
            Indicates if the table is fixed by any process or not.</item>
-          <item>
-            <p><c>Item=safe_fixed, Value={FirstFixed,Info}|false</c>              <br></br>
+          <item><marker id="info_2_safe_fixed_monotonic_time"/>
+            <p><c>Item=safe_fixed|safe_fixed_monotonic_time, Value={FixationTime,Info}|false</c>              <br></br>
 </p>
-            <p>If the table has been fixed using <c>safe_fixtable/2</c>,
-              the call returns a tuple where <c>FirstFixed</c> is the
+            <p>If the table has been fixed using
+	    <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
+              the call returns a tuple where <c>FixationTime</c> is the
               time when the table was first fixed by a process, which
               may or may not be one of the processes it is fixed by
               right now.</p>
+	    <p>The format and value of <c>FixationTime</c> depends on
+	    <c>Item</c>:</p>
+	    <taglist>
+	      <tag><c>safe_fixed</c></tag>
+	      <item><p><c>FixationTime</c> will correspond to the result
+	      returned by
+	      <seealso marker="erts:erlang#timestamp/0">erlang:timestamp/0</seealso>
+	      at the time of fixation. Note that when the system is using
+	      single or multi
+	      <seealso marker="erts:time_correction#Time_Warp_Modes">time warp
+	      modes</seealso> this might produce strange results. This
+	      since the usage of <c>safe_fixed</c> is not
+	      <seealso marker="erts:time_correction#Time_Warp_Safe_Code">time warp
+	      safe</seealso>. Time warp safe code need to use
+	      <c>safe_fixed_monotonic_time</c> instead.</p></item>
+
+	      <tag><c>safe_fixed_monotonic_time</c></tag>
+	      <item><p><c>FixationTime</c> will correspond to the result
+	      returned by
+	      <seealso marker="erts:erlang#monotonic_time/0">erlang:monotonic_time/0</seealso>
+	      at the time of fixation. The usage of <c>safe_fixed_monotonic_time</c> is
+	      <seealso marker="erts:time_correction#Time_Warp_Safe_Code">time warp
+	      safe</seealso>.</p></item>
+	    </taglist>
             <p><c>Info</c> is a possibly empty lists of tuples
               <c>{Pid,RefCount}</c>, one tuple for every process the
               table is fixed by right now. <c>RefCount</c> is the value
@@ -1135,9 +1160,11 @@ clean_all_with_value(Tab,X,Key) ->
           table but never releases it, the memory used by the deleted
           objects will never be freed. The performance of operations on
           the table will also degrade significantly.</p>
-        <p>Use <c>info/2</c> to retrieve information about which
-          processes have fixed which tables. A system with a lot of
-          processes fixing tables may need a monitor which sends alarms
+        <p>Use
+	<seealso marker="#info_2_safe_fixed_monotonic_time"><c>info(Tab,
+	safe_fixed_monotonic_time)</c></seealso> to retrieve information
+	about which processes have fixed which tables. A system with a lot
+	of processes fixing tables may need a monitor which sends alarms
           when tables have been fixed for too long.</p>
         <p>Note that for tables of the <c>ordered_set</c> type,
           <c>safe_fixtable/2</c> is not necessary as calls to

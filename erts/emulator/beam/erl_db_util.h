@@ -229,7 +229,10 @@ typedef struct db_table_common {
     DbTableMethod* meth;      /* table methods */
     erts_smp_atomic_t nitems; /* Total number of items in table */
     erts_smp_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
-    Uint megasec,sec,microsec; /* Last fixation time */
+    struct {                  /* Last fixation time */
+	ErtsMonotonicTime monotonic;
+	ErtsMonotonicTime offset;
+    } time;
     DbFixation* fixations;    /* List of processes who have done safe_fixtable,
                                  "local" fixations not included. */ 
     /* All 32-bit fields */
