@@ -1360,8 +1360,15 @@ archive_split("/"++File, RevExt, Acc) ->
 	false ->
 	    archive_split(File, RevExt, [$/|Acc]);
 	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, File}
+            %% it's not an archive if it's a directory
+            FileAcc = reverse(Acc),
+            case is_dir(FileAcc) of
+                true ->
+                    archive_split(File, RevExt, [$/|Acc]);
+                false ->
+                    ArchiveFile = absname(FileAcc),
+                    {archive, ArchiveFile, File}
+            end
     end;
 archive_split([H|T], RevExt, Acc) ->
     archive_split(T, RevExt, [H|Acc]);
@@ -1370,13 +1377,28 @@ archive_split([], RevExt, Acc) ->
 	false ->
 	    no_split;
 	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, []}
+            %% it's not an archive if it's a directory
+            FileAcc = reverse(Acc),
+            case is_dir(FileAcc) of
+                true ->
+                    no_split;
+                false ->
+                    ArchiveFile = absname(FileAcc),
+                    {archive, ArchiveFile, []}
+            end
     end.
 
 is_prefix([H|T1], [H|T2]) -> is_prefix(T1, T2);
 is_prefix([_|_], _) -> false;
 is_prefix([], _ ) -> true.
+
+is_dir(File) ->
+    case prim_file:read_link_info(File) of
+        {ok, #file_info{type = Type}} when Type =/= directory ->
+            false;
+        _ ->
+            true
+    end.
 
 %% Parse list of ipv4 addresses 
 ipv4_list([H | T]) ->
