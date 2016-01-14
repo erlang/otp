@@ -627,12 +627,10 @@ lay_map_pair(Node, Ctxt) ->
     K = map_pair_key(Node),
     V = map_pair_val(Node),
     OpTxt = case concrete(map_pair_op(Node)) of
-	assoc -> "::<";
-	exact -> "~<"
+	assoc -> "=>";
+	exact -> ":="
     end,
-    beside(floating(text(OpTxt)),
-	beside(lay(K,Ctxt),beside(floating(text(",")), beside(lay(V,Ctxt),
-		    floating(text(">")))))).
+    beside(lay(K,Ctxt),beside(floating(text(OpTxt)),lay(V,Ctxt))).
 
 lay_let(Node, Ctxt) ->
     V = lay_value_list(let_vars(Node), Ctxt),
