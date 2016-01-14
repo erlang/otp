@@ -99,8 +99,8 @@ start_channel(Host) when is_list(Host) ->
     start_channel(Host, []).					 
 start_channel(Cm, Opts) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, Opts, infinity),
-    {_, SftpOpts} = handle_options(Opts, [], []),
-    case ssh_xfer:attach(Cm, []) of
+    {_, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
+    case ssh_xfer:attach(Cm, [], ChanOpts) of
 	{ok, ChannelId, Cm} -> 
 	    case ssh_channel:start(Cm, ChannelId, 
 				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
@@ -123,9 +123,9 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 start_channel(Host, Opts) ->
     start_channel(Host, 22, Opts).
 start_channel(Host, Port, Opts) ->
-    {SshOpts, SftpOpts} = handle_options(Opts, [], []),
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
     Timeout = proplists:get_value(timeout, SftpOpts, infinity),
-    case ssh_xfer:connect(Host, Port, SshOpts, Timeout) of
+    case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
 	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
 							    ChannelId, SftpOpts]) of
@@ -842,14 +842,18 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-handle_options([], Sftp, Ssh) ->
-    {Ssh, Sftp};
-handle_options([{timeout, _} = Opt | Rest], Sftp, Ssh) ->
-    handle_options(Rest, [Opt | Sftp], Ssh);
-handle_options([{sftp_vsn, _} = Opt| Rest], Sftp, Ssh) ->
-    handle_options(Rest, [Opt | Sftp], Ssh);
-handle_options([Opt | Rest], Sftp, Ssh) ->
-    handle_options(Rest, Sftp, [Opt | Ssh]).
+handle_options([], Sftp, Chan, Ssh) ->
+    {Ssh, Chan, Sftp};
+handle_options([{timeout, _} = Opt | Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, [Opt|Sftp], Chan, Ssh);
+handle_options([{sftp_vsn, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, [Opt|Sftp], Chan, Ssh);
+handle_options([{window_size, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, [Opt|Chan], Ssh);
+handle_options([{packet_size, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, [Opt|Chan], Ssh);
+handle_options([Opt|Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, Chan, [Opt|Ssh]).
 
 call(Pid, Msg, TimeOut) ->
     ssh_channel:call(Pid, {{timeout, TimeOut}, Msg}, infinity).
