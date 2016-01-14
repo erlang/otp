@@ -8367,14 +8367,14 @@ timestamp() ->
             <p>When <c>Pid</c> is scheduled to run. The process
               runs in function <c>{M, F, Arity}</c>. On some rare
               occasions, the current function cannot be determined,
-              then the last element <c>Arity</c> is <c>0</c>.</p>
+              then the last element is <c>0</c>.</p>
           </item>
           <tag><c>{trace, Pid, out, {M, F, Arity} | 0}</c></tag>
           <item>
             <p>When <c>Pid</c> is scheduled out. The process was
               running in function {M, F, Arity}. On some rare occasions,
               the current function cannot be determined, then the last
-              element <c>Arity</c> is <c>0</c>.</p>
+              element is <c>0</c>.</p>
           </item>
           <tag><c>{trace, Pid, gc_start, Info}</c></tag>
           <item>
