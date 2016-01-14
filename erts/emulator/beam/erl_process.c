@@ -2239,6 +2239,7 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     erts_aint32_t aux_work = orig_aux_work;
     erts_aint32_t ignore = 0;
 
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 #ifdef ERTS_SMP
     haw_thr_prgr_current_reset(awdp);
 #endif
@@ -2972,14 +2973,13 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    ErtsMonotonicTime current_time;
 
 	    aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
-	    if (aux_work) {
-		if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
+	    if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		if (!thr_prgr_active) {
 		    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 		    sched_wall_time_change(esdp, 1);
 		}
 		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
-		if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)
-		    && erts_thr_progress_update(esdp))
+		if (aux_work && erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
 	    }
 
@@ -3131,19 +3131,16 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 #endif
 
 	    aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
-	    if (aux_work) {
-		if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-		    if (!working)
-			sched_wall_time_change(esdp, working = 1);
+	    if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+		if (!working)
+		    sched_wall_time_change(esdp, working = 1);
 #ifdef ERTS_SMP
-		    if (!thr_prgr_active)
-			erts_thr_progress_active(esdp, thr_prgr_active = 1);
+		if (!thr_prgr_active)
+		    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 #endif
-		}
 		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
 #ifdef ERTS_SMP
-		if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && aux_work &&
-		    erts_thr_progress_update(esdp))
+		if (aux_work && erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
 #endif
 	    }
@@ -6798,18 +6795,19 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			 & ERTS_RUNQ_FLGS_QMASK);
 		aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 		if (aux_work|qmask) {
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
-			erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			sched_wall_time_change(esdp, 1);
-		    }
-		    if (aux_work)
-			aux_work = handle_aux_work(&esdp->aux_work_data,
-						   aux_work,
-						   1);
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+			if (!thr_prgr_active) {
+			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+			    sched_wall_time_change(esdp, 1);
+			}
+			if (aux_work)
+			    aux_work = handle_aux_work(&esdp->aux_work_data,
+						       aux_work,
+						       1);
 
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
-			(aux_work && erts_thr_progress_update(esdp)))
-			erts_thr_progress_leader_update(esdp);
+			if (aux_work && erts_thr_progress_update(esdp))
+			    erts_thr_progress_leader_update(esdp);
+		    }
 		    if (qmask) {
 #ifdef ERTS_DIRTY_SCHEDULERS
 			if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
@@ -7026,17 +7024,18 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			 & ERTS_RUNQ_FLGS_QMASK);
 		aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 		if (aux_work|qmask) {
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && !thr_prgr_active) {
-			erts_thr_progress_active(esdp, thr_prgr_active = 1);
-			sched_wall_time_change(esdp, 1);
+		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+			if (!thr_prgr_active) {
+			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+			    sched_wall_time_change(esdp, 1);
+			}
+			if (aux_work)
+			    aux_work = handle_aux_work(&esdp->aux_work_data,
+						       aux_work,
+						       1);
+			if (aux_work && erts_thr_progress_update(esdp))
+			    erts_thr_progress_leader_update(esdp);
 		    }
-		    if (aux_work)
-			aux_work = handle_aux_work(&esdp->aux_work_data,
-						   aux_work,
-						   1);
-		    if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && aux_work &&
-			erts_thr_progress_update(esdp))
-			erts_thr_progress_leader_update(esdp);
 		    if (qmask) {
 			erts_smp_runq_lock(esdp->run_queue);
 			evacuate_run_queue(esdp->run_queue, &sbp);
@@ -9427,10 +9426,9 @@ Process *schedule(Process *p, int calls)
 	    suspend_scheduler(esdp);
 #endif
 
-	{
+	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	    erts_aint32_t aux_work;
-	    int leader_update = ERTS_SCHEDULER_IS_DIRTY(esdp) ? 0
-		: erts_thr_progress_update(esdp);
+	    int leader_update = erts_thr_progress_update(esdp);
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
 	    if (aux_work | leader_update | ERTS_SCHED_FAIR) {
 		erts_smp_runq_unlock(rq);
@@ -9443,8 +9441,7 @@ Process *schedule(Process *p, int calls)
 		erts_smp_runq_lock(rq);
 	    }
 
-	    ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp)
-			       || !erts_thr_progress_is_blocking());
+	    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
 	}
 	ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
