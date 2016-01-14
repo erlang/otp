@@ -612,7 +612,7 @@ typedef enum {
 typedef union {
     struct {
 	ErtsDirtySchedulerType type: 1;
-	unsigned num: 31;
+	Uint num: sizeof(Uint)*8 - 1;
     } s;
     Uint no;
 } ErtsDirtySchedId;
