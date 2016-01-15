@@ -47,8 +47,8 @@
 -define(is_set(F, Bits),
 	((F) band (Bits)) == (F)).
 
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+-define(XFER_PACKET_SIZE, 65536).
+-define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
 
 attach(CM, Opts) ->
     open_xfer(CM, Opts, []).
