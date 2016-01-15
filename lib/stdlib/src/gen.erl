@@ -27,7 +27,8 @@
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/1,
-	 call/3, call/4, reply/2, stop/1, stop/3]).
+	 call/3, call/4, async_call/4,
+         reply/2, stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
@@ -64,7 +65,7 @@
 %%          (debug == log && statistics)
 %% Returns: {ok, Pid} | ignore |{error, Reason} |
 %%          {error, {already_started, Pid}} |
-%%    The 'already_started' is returned only if Name is given 
+%%    The 'already_started' is returned only if Name is given
 %%-----------------------------------------------------------------
 
 -spec start(module(), linkage(), emgr_name(), module(), term(), options()) ->
@@ -90,13 +91,13 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 do_spawn(GenMod, link, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start_link(?MODULE, init_it,
-			[GenMod, self(), self(), Mod, Args, Options], 
+			[GenMod, self(), self(), Mod, Args, Options],
 			Time,
 			spawn_opts(Options));
 do_spawn(GenMod, _, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Mod, Args, Options], 
+		   [GenMod, self(), self, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -109,7 +110,7 @@ do_spawn(GenMod, link, Name, Mod, Args, Options) ->
 do_spawn(GenMod, _, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Name, Mod, Args, Options], 
+		   [GenMod, self(), self, Name, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -137,13 +138,13 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %%-----------------------------------------------------------------
 %% Makes a synchronous call to a generic process.
 %% Request is sent to the Pid, and the response must be
-%% {Tag, _, Reply}.
+%% {Tag, Reply}.
 %%-----------------------------------------------------------------
 
 %%% New call function which uses the new monitor BIF
 %%% call(ServerId, Label, Request)
 
-call(Process, Label, Request) -> 
+call(Process, Label, Request) ->
     call(Process, Label, Request, ?default_timeout).
 
 call(Process, Label, Request, Timeout)
@@ -184,15 +185,15 @@ do_call(Process, Label, Request, Timeout) ->
 	    %% The other possible case -- this node is not distributed
 	    %% -- should have been handled earlier.
 	    %% Do the best possible with monitor_node/2.
-	    %% This code may hang indefinitely if the Process 
+	    %% This code may hang indefinitely if the Process
 	    %% does not exist. It is only used for featureweak remote nodes.
 	    Node = get_node(Process),
 	    monitor_node(Node, true),
 	    receive
-		{nodedown, Node} -> 
+		{nodedown, Node} ->
 		    monitor_node(Node, false),
 		    exit({nodedown, Node})
-	    after 0 -> 
+	    after 0 ->
 		    Tag = make_ref(),
 		    Process ! {Label, {self(), Tag}, Request},
 		    wait_resp(Node, Tag, Timeout)
@@ -223,6 +224,19 @@ wait_resp(Node, Tag, Timeout) ->
 	    monitor_node(Node, false),
 	    exit(timeout)
     end.
+
+%%-----------------------------------------------------------------
+%% Makes an asynchronous call to a generic process.
+%% Request is sent to the Pid, and the response must be
+%% {Tag, Reply}.
+%%-----------------------------------------------------------------
+async_call(Process, Label, Request, Tag) ->
+    Fun = fun(Pid) -> do_async_call(Pid, Label, Request, Tag) end,
+    do_for_proc(Process, Fun).
+
+do_async_call(Process, Label, Request, Tag) ->
+    Process ! {Label, {self(), Tag}, Request},
+    ok.
 
 %%
 %% Send a reply to the client.
