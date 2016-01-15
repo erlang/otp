@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -50,6 +50,7 @@ gen_server:start_link -----> Module:init/1
 gen_server:stop       -----> Module:terminate/2
 
 gen_server:call
+gen_server:async_call
 gen_server:multi_call -----> Module:handle_call/3
 
 gen_server:cast
@@ -71,7 +72,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       the specified gen_server does not exist or if bad arguments are
       given.</p>
 
-    <p>The gen_server process can go into hibernation 
+    <p>The gen_server process can go into hibernation
     (see <seealso marker="erts:erlang#erlang:hibernate/3">erlang(3)</seealso>) if a callback
     function specifies <c>'hibernate'</c> instead of a timeout value. This
     might be useful if the server is expected to be idle for a long
@@ -269,6 +270,51 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>The ancient behaviour of sometimes consuming the server
           exit message if the server died during the call while
           linked to the client has been removed in OTP R12B/Erlang 5.6.</p>
+      </desc>
+    </func>
+    <func>
+      <name>async_call(ServerRef, Request, Tag) -> ok</name>
+      <fsummary>Make an asynchronous call to a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Request = term()</v>
+        <v>Tag = reference()</v>
+      </type>
+      <desc>
+        <p>Makes an asynchronous call to the gen_server <c>ServerRef</c>
+          by sending a request without waiting for a reply or a timeout.
+          Instead the caller needs to be able to map the returned Tag with the
+          reply recieved as {<c>Tag</c>, <c>Reply</c>}. The caller is encuraged
+          to add timeout handling separately.</p>
+        <p>The intent with this function is to allow the caller to do something
+          else while waiting for a <c>call</c> to reply. The same behavior
+          could be implemented using <c>erlang:send</c> or <c>gen_server:cast</c>
+          but that would require a separate handling on the server side plus
+          re-inventing a reply mechanism.</p>
+        <p>The gen_server will call <c>Module:handle_call/3</c> to handle the
+          request.</p>
+        <p><c>ServerRef</c> can be:</p>
+        <list type="bulleted">
+          <item>the pid,</item>
+          <item><c>Name</c>, if the gen_server is locally registered,</item>
+          <item><c>{Name,Node}</c>, if the gen_server is locally
+           registered at another node, or</item>
+          <item><c>{global,GlobalName}</c>, if the gen_server is
+           globally registered.</item>
+          <item><c>{via,Module,ViaName}</c>, if the gen_server is
+           registered through an alternative process registry.</item>
+        </list>
+        <p><c>Request</c> is an arbitrary term which is passed as one of
+          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Tag</c> is an arbitrary term which is passed in one of
+          the arguments to <c>Module:handle_call/3</c> and it is used to
+          identify the recieved reply {<c>Tag</c>, <c>Reply</c>}.</p>
+        <p>The call will succeed but the reply may never come for several
+          reasons, including the called gen_server dying before or during the
+          call.</p>
       </desc>
     </func>
     <func>
@@ -477,8 +523,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           the <c>handle_info/2</c> callback function. The atom
           <c>infinity</c> can be used to wait indefinitely, this is
           the default value.</p>
-	<p>If <c>hibernate</c> is specified instead of a timeout value, the process will go 
-	   into hibernation when waiting for the next message to arrive (by calling 
+	<p>If <c>hibernate</c> is specified instead of a timeout value, the process will go
+	   into hibernation when waiting for the next message to arrive (by calling
 	   <seealso marker="proc_lib#hibernate/3">proc_lib:hibernate/3</seealso>).</p>
         <p>If something goes wrong during the initialization
           the function should return <c>{stop,Reason}</c> where
@@ -492,9 +538,9 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Request = term()</v>
         <v>From = {pid(),Tag}</v>
         <v>State = term()</v>
-        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
+        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v>
 	<v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
-        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
+        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v>
 	<v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
         <v>&nbsp;Reply = term()</v>
@@ -512,8 +558,8 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>From</c> is a tuple <c>{Pid,Tag}</c> where <c>Pid</c> is
           the pid of the client and <c>Tag</c> is a unique tag.</p>
         <p><c>State</c> is the internal state of the gen_server.</p>
-        <p>If the function returns <c>{reply,Reply,NewState}</c>, 
-          <c>{reply,Reply,NewState,Timeout}</c> or 
+        <p>If the function returns <c>{reply,Reply,NewState}</c>,
+          <c>{reply,Reply,NewState,Timeout}</c> or
 	  <c>{reply,Reply,NewState,hibernate}</c>, <c>Reply</c> will be
           given back to <c>From</c> as the return value of
           <c>call/2,3</c> or included in the return value of
@@ -522,7 +568,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>NewState</c>. See <c>Module:init/1</c> for a description
           of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the functions returns <c>{noreply,NewState}</c>,
-          <c>{noreply,NewState,Timeout}</c> or <c>{noreply,NewState,hibernate}</c>, 
+          <c>{noreply,NewState,Timeout}</c> or <c>{noreply,NewState,hibernate}</c>,
 	  the gen_server will
           continue executing with <c>NewState</c>. Any reply to
           <c>From</c> must be given explicitly using
@@ -720,4 +766,3 @@ gen_server:abcast     -----> Module:handle_cast/2
       <seealso marker="sys">sys(3)</seealso></p>
   </section>
 </erlref>
-
