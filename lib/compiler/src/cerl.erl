@@ -1598,13 +1598,20 @@ is_c_map(#c_literal{val = V}) when is_map(V) ->
 is_c_map(_) ->
     false.
 
--spec map_es(c_map()) -> [c_map_pair()].
+-spec map_es(c_map() | c_literal()) -> [c_map_pair()].
 
+map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
+    [ann_c_map_pair(As,
+                    #c_literal{anno=As,val='assoc'},
+                    #c_literal{anno=As,val=K},
+                    #c_literal{anno=As,val=V}) || {K,V} <- maps:to_list(M)];
 map_es(#c_map{es = Es}) ->
     Es.
 
--spec map_arg(c_map()) -> c_map() | c_literal().
+-spec map_arg(c_map() | c_literal()) -> c_map() | c_literal().
 
+map_arg(#c_literal{anno=As,val=M}) when is_map(M) ->
+    #c_literal{anno=As,val=#{}};
 map_arg(#c_map{arg=M}) ->
     M.
 

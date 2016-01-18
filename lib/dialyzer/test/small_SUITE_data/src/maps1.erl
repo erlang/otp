@@ -39,3 +39,15 @@ t2() -> ok.
 
 update(#{ id := Id, val := Val } = M, X) when is_integer(Id) ->
     M#{ val := [Val,X] }.
+
+t3() ->
+    foo(#{greger => 3, #{arne=>anka} => 45}, 1).
+
+foo(#{} = M, b) -> %% Error
+    M#{alfa => 42, beta := 1337}.
+
+t4() ->
+    case #{} of
+        #{} -> ok;
+        Mod -> Mod:function(#{literal => map}, another_arg) %% Error
+    end.
