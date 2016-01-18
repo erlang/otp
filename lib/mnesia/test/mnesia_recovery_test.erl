@@ -576,7 +576,7 @@ delete_during_start(Config) when is_list(Config) ->
     mnesia_test_lib:kill_mnesia([N2,N3]),
 %%    timer:sleep(500),
     ?match({[ok,ok],[]}, rpc:multicall([N2,N3], mnesia,start, 
-				       [[{extra_db_nodes,[N1]}]])),
+				       [[{extra_db_nodes,[N1]}, {schema, ?BACKEND}]])),
     [Tab1,Tab2,Tab3|_] = Tabs,
     ?match({atomic, ok}, mnesia:delete_table(Tab1)),
     ?match({atomic, ok}, mnesia:delete_table(Tab2)),
@@ -1542,7 +1542,7 @@ disc_less(Config) when is_list(Config) ->
     ?match(ok, rpc:call(Node2, mnesia, start, [])),
 
     timer:sleep(500),
-    ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}]])),
+    ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}, {schema, ?BACKEND}]])),
     ?match(ok, rpc:call(Node3, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
     ?match(ok, rpc:call(Node1, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
 

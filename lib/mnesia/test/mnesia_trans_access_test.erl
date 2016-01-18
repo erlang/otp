@@ -1142,8 +1142,9 @@ create_live_table_index(Config, Storage) ->
     ?match([{atomic,ok}|_], [Create(N) || N <- lists:seq(1,50)]),
 
     ?match([], mnesia_test_lib:stop_mnesia([N2,N3])),
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1]}]])),
-    ?match(ok, rpc:call(N3, mnesia, start, [[{extra_db_nodes,[N1]}]])),
+    Ext = [{schema, ?BACKEND}],
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1]}|Ext]])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{extra_db_nodes,[N1]}|Ext]])),
 
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
 

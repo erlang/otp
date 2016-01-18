@@ -40,43 +40,40 @@ all() ->
 
 groups() -> 
     [{dirty_write, [],
-      [dirty_write_ram, dirty_write_disc,
-       dirty_write_disc_only]},
+      [dirty_write_ram, dirty_write_disc, dirty_write_disc_only,
+       dirty_write_xets]},
      {dirty_read, [],
-      [dirty_read_ram, dirty_read_disc,
-       dirty_read_disc_only]},
+      [dirty_read_ram, dirty_read_disc, dirty_read_disc_only, dirty_read_xets]},
      {dirty_update_counter, [],
       [dirty_update_counter_ram, dirty_update_counter_disc,
-       dirty_update_counter_disc_only]},
+       dirty_update_counter_disc_only, dirty_update_counter_xets]},
      {dirty_delete, [],
       [dirty_delete_ram, dirty_delete_disc,
-       dirty_delete_disc_only]},
+       dirty_delete_disc_only, dirty_delete_xets]},
      {dirty_delete_object, [],
       [dirty_delete_object_ram, dirty_delete_object_disc,
-       dirty_delete_object_disc_only]},
+       dirty_delete_object_disc_only, dirty_delete_object_xets]},
      {dirty_match_object, [],
       [dirty_match_object_ram, dirty_match_object_disc,
-       dirty_match_object_disc_only]},
+       dirty_match_object_disc_only, dirty_match_object_xets]},
      {dirty_index, [],
       [{group, dirty_index_match_object},
        {group, dirty_index_read},
        {group, dirty_index_update}]},
      {dirty_index_match_object, [],
-      [dirty_index_match_object_ram,
-       dirty_index_match_object_disc,
-       dirty_index_match_object_disc_only]},
+      [dirty_index_match_object_ram, dirty_index_match_object_disc,
+       dirty_index_match_object_disc_only, dirty_index_match_object_xets]},
      {dirty_index_read, [],
       [dirty_index_read_ram, dirty_index_read_disc,
-       dirty_index_read_disc_only]},
+       dirty_index_read_disc_only, dirty_index_read_xets]},
      {dirty_index_update, [],
-      [dirty_index_update_set_ram,
-       dirty_index_update_set_disc,
-       dirty_index_update_set_disc_only,
+      [dirty_index_update_set_ram,  dirty_index_update_set_disc,
+       dirty_index_update_set_disc_only,  dirty_index_update_set_xets,
        dirty_index_update_bag_ram, dirty_index_update_bag_disc,
-       dirty_index_update_bag_disc_only]},
+       dirty_index_update_bag_disc_only, dirty_index_update_bag_xets]},
      {dirty_iter, [],
-      [dirty_iter_ram, dirty_iter_disc,
-       dirty_iter_disc_only]},
+      [dirty_iter_ram, dirty_iter_disc, dirty_iter_disc_only,
+       dirty_iter_xets]},
      {admin_tests, [],
       [del_table_copy_1, del_table_copy_2, del_table_copy_3,
        add_table_copy_1, add_table_copy_2, add_table_copy_3,
@@ -105,6 +102,9 @@ dirty_write_disc(Config) when is_list(Config) ->
 dirty_write_disc_only(suite) -> [];
 dirty_write_disc_only(Config) when is_list(Config) ->
     dirty_write(Config, disc_only_copies).
+
+dirty_write_xets(Config) when is_list(Config) ->
+    dirty_write(Config, ext_ets).
 
 dirty_write(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -136,6 +136,9 @@ dirty_read_disc(Config) when is_list(Config) ->
 dirty_read_disc_only(suite) -> [];
 dirty_read_disc_only(Config) when is_list(Config) ->
     dirty_read(Config, disc_only_copies).
+
+dirty_read_xets(Config) when is_list(Config) ->
+    dirty_read(Config, ext_ets).
 
 dirty_read(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -180,6 +183,9 @@ dirty_update_counter_disc_only(suite) -> [];
 dirty_update_counter_disc_only(Config) when is_list(Config) ->
     dirty_update_counter(Config, disc_only_copies).
 
+dirty_update_counter_xets(Config) when is_list(Config) ->
+    dirty_update_counter(Config, ext_ets).
+
 dirty_update_counter(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_update_counter, 
@@ -222,6 +228,9 @@ dirty_delete_disc_only(suite) -> [];
 dirty_delete_disc_only(Config) when is_list(Config) ->
     dirty_delete(Config, disc_only_copies).
 
+dirty_delete_xets(Config) when is_list(Config) ->
+    dirty_delete(Config, ext_ets).
+
 dirty_delete(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_delete, 
@@ -258,6 +267,9 @@ dirty_delete_object_disc(Config) when is_list(Config) ->
 dirty_delete_object_disc_only(suite) -> [];
 dirty_delete_object_disc_only(Config) when is_list(Config) ->
     dirty_delete_object(Config, disc_only_copies).
+
+dirty_delete_object_xets(Config) when is_list(Config) ->
+    dirty_delete_object(Config, ext_ets).
 
 dirty_delete_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -302,6 +314,9 @@ dirty_match_object_disc_only(suite) -> [];
 dirty_match_object_disc_only(Config) when is_list(Config) ->
     dirty_match_object(Config, disc_only_copies).
 
+dirty_match_object_xets(Config) when is_list(Config) ->
+    dirty_match_object(Config, ext_ets).
+
 dirty_match_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_match, 
@@ -326,7 +341,6 @@ dirty_match_object(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty read matching records by using an index
 
-
 dirty_index_match_object_ram(suite) -> [];
 dirty_index_match_object_ram(Config) when is_list(Config) ->
     dirty_index_match_object(Config, ram_copies).
@@ -338,6 +352,9 @@ dirty_index_match_object_disc(Config) when is_list(Config) ->
 dirty_index_match_object_disc_only(suite) -> [];
 dirty_index_match_object_disc_only(Config) when is_list(Config) ->
     dirty_index_match_object(Config, disc_only_copies).
+
+dirty_index_match_object_xets(Config) when is_list(Config) ->
+    dirty_index_match_object(Config, ext_ets).
 
 dirty_index_match_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -375,6 +392,9 @@ dirty_index_read_disc(Config) when is_list(Config) ->
 dirty_index_read_disc_only(suite) -> [];
 dirty_index_read_disc_only(Config) when is_list(Config) ->
     dirty_index_read(Config, disc_only_copies).
+
+dirty_index_read_xets(Config) when is_list(Config) ->
+    dirty_index_read(Config, ext_ets).
 
 dirty_index_read(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -436,6 +456,9 @@ dirty_index_update_set_disc(Config) when is_list(Config) ->
 dirty_index_update_set_disc_only(suite) -> [];
 dirty_index_update_set_disc_only(Config) when is_list(Config) ->
     dirty_index_update_set(Config, disc_only_copies).
+
+dirty_index_update_set_xets(Config) when is_list(Config) ->
+    dirty_index_update_set(Config, ext_ets).
 
 dirty_index_update_set(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -524,6 +547,9 @@ dirty_index_update_bag_disc(Config)when is_list(Config) ->
 dirty_index_update_bag_disc_only(suite) -> [];
 dirty_index_update_bag_disc_only(Config)when is_list(Config) ->
     dirty_index_update_bag(Config, disc_only_copies).
+
+dirty_index_update_bag_xets(Config) when is_list(Config) ->
+    dirty_index_update_bag(Config, ext_ets).
 
 dirty_index_update_bag(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -631,7 +657,6 @@ dirty_index_update_bag(Config, Storage) ->
 %% Dirty iteration
 %% dirty_slot,  dirty_first,  dirty_next
 
-
 dirty_iter_ram(suite) -> [];
 dirty_iter_ram(Config) when is_list(Config) ->
     dirty_iter(Config, ram_copies).
@@ -643,6 +668,9 @@ dirty_iter_disc(Config) when is_list(Config) ->
 dirty_iter_disc_only(suite) -> [];
 dirty_iter_disc_only(Config) when is_list(Config) ->
     dirty_iter(Config, disc_only_copies).
+
+dirty_iter_xets(Config) when is_list(Config) ->
+    dirty_iter(Config, ext_ets).
 
 dirty_iter(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
