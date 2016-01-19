@@ -43,6 +43,7 @@
 -export(
    [
     register_name/1,
+    register_name_ipv6/1,
     register_names_1/1,
     register_names_2/1,
     register_duplicate_name/1,
@@ -111,7 +112,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [register_name, register_names_1, register_names_2,
+    [register_name, register_name_ipv6,
+     register_names_1, register_names_2,
      register_duplicate_name, unicode_name, long_unicode_name,
      get_port_nr, slow_get_port_nr,
      unregister_others_name_1, unregister_others_name_2,
@@ -168,6 +170,24 @@ register_name(Config) when is_list(Config) ->
     ?line {ok,Sock} = register_node("foobar"),
     ?line ok = close(Sock),			% Unregister
     ok.
+
+register_name_ipv6(doc) ->
+    ["Register a name over IPv6"];
+register_name_ipv6(suite) ->
+    [];
+register_name_ipv6(Config) when is_list(Config) ->
+    % Test if the host has an IPv6 loopback address
+    Res = gen_tcp:listen(0, [inet6, {ip, {0,0,0,0,0,0,0,1}}]),
+    case Res of
+    {ok,LSock} ->
+	    gen_tcp:close(LSock),
+	    ?line ok = epmdrun(),
+	    ?line {ok,Sock} = register_node6("foobar6"),
+	    ?line ok = close(Sock),         % Unregister
+	    ok;
+    _Error ->
+	    {skip, "Host does not have an IPv6 loopback address"}
+    end.
 
 register_names_1(doc) ->
     ["Register and unregister two nodes"];
@@ -242,13 +262,18 @@ register_node(Name) ->
 register_node(Name,Port) ->
     register_node_v2(Port,$M,0,5,5,Name,"").
 
+register_node6(Name) ->
+    register_node_v2({0,0,0,0,0,0,0,1},?DUMMY_PORT,$M,0,5,5,Name,"").
+
 register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
+    register_node_v2("localhost", Port, NodeType, Prot, HVsn, LVsn, Name, Extra).
+register_node_v2(Addr, Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
     Utf8Name = unicode:characters_to_binary(Name),
     Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
 	   put16(HVsn), put16(LVsn),
 	   put16(size(Utf8Name)), binary_to_list(Utf8Name),
 	   size16(Extra), Extra],
-    case send_req(Req) of
+    case send_req(Req, Addr) of
 	{ok,Sock} ->
 	    case recv(Sock,4) of
 		{ok, [?EPMD_ALIVE2_RESP,_Res=0,_C0,_C1]} ->
@@ -1151,7 +1176,9 @@ send_direct(Sock, Bytes) ->
     end.
 
 send_req(Req) ->
-    case connect() of
+    send_req(Req, "localhost").
+send_req(Req, Addr) ->
+    case connect(Addr) of
 	{ok,Sock} ->
 	    case send(Sock, [size16(Req), Req]) of
 		ok ->
