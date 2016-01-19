@@ -1048,7 +1048,7 @@ typedef union {
 #endif
 
 typedef struct _multi_timer_data {
-    ErlDrvNowData when;
+    ErlDrvTime when;
     ErlDrvTermData caller;
     void (*timeout_function)(ErlDrvData drv_data, ErlDrvTermData caller);
     struct _multi_timer_data *next;
@@ -12144,115 +12144,18 @@ make_noninheritable_handle(SOCKET s)
  * Multi-timers
  */
 
-static void absolute_timeout(unsigned millis, ErlDrvNowData *out)
-{
-    unsigned rest;
-    unsigned long millipart;
-    unsigned long secpart;
-    unsigned long megasecpart;
-    unsigned tmo_secs = (millis / 1000U);
-    unsigned tmo_millis = (millis % 1000);
-    driver_get_now(out);
-    rest = (out->microsecs) % 1000;
-    millipart = ((out->microsecs) / 1000UL);
-    if (rest >= 500) {
-	++millipart;
-    }
-    secpart = out->secs;
-    megasecpart = out->megasecs;
-    millipart += tmo_millis;
-    secpart += (millipart / 1000000UL);
-    millipart %= 1000000UL;
-    secpart += tmo_secs;
-    megasecpart += (secpart / 1000000UL);
-    secpart %= 1000000UL;
-    out->megasecs = megasecpart;
-    out->secs = secpart;
-    out->microsecs = (millipart * 1000UL);
-}
-
-static unsigned relative_timeout(ErlDrvNowData *in) 
-{
-    ErlDrvNowData now;
-    unsigned rest;
-    unsigned long millipart, in_millis, in_secs, in_megasecs;
-
-    driver_get_now(&now);
-
-    in_secs = in->secs;
-    in_megasecs = in->megasecs;
-
-    rest = (now.microsecs) % 1000;
-    millipart = ((now.microsecs) / 1000UL);
-    if (rest >= 500) {
-	++millipart;
-    }
-    in_millis = ((in->microsecs) / 1000UL);
-    if ( in_millis < millipart ) {
-	if (in_secs > 0) {
-	    --in_secs;
-	} else {
-	    in_secs = (1000000UL - 1UL);
-	    if (in_megasecs <= now.megasecs) {
-		return 0;
-	    } else {
-		--in_megasecs;
-	    }
-	}
-	in_millis += 1000UL;
-    }
-    in_millis -= millipart;
-    
-    if (in_secs < now.secs) {
-	if (in_megasecs <= now.megasecs) {
-	    return 0;
-	} else {
-	    --in_megasecs;
-	}
-	in_secs += 1000000;
-    }
-    in_secs -= now.secs;
-    if (in_megasecs < now.megasecs) {
-	return 0;
-    } else {
-	in_megasecs -= now.megasecs;
-    }
-    return (unsigned) ((in_megasecs * 1000000000UL) + 
-		       (in_secs * 1000UL) + 
-		       in_millis);
-}
-
-#ifdef DEBUG
-static int nowcmp(ErlDrvNowData *d1, ErlDrvNowData *d2)
-{
-    /* Assume it's not safe to do signed conversion on megasecs... */
-    if (d1->megasecs < d2->megasecs) {
-	return -1;
-    } else if (d1->megasecs > d2->megasecs) {
-	return 1;
-    } else if (d1->secs != d2->secs) {
-	return ((int) d1->secs) - ((int) d2->secs);
-    } 
-    return ((int) d1->microsecs) - ((int) d2->microsecs);
-}
-#endif
-
 static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 			      ErlDrvData data)
 {
-    unsigned next_timeout;
+    ErlDrvTime next_timeout;
     if (!*first) {
 	ASSERT(0);
 	return;
     }
 #ifdef DEBUG
     {
-	ErlDrvNowData chk;
-	driver_get_now(&chk);
-	chk.microsecs /= 10000UL;
-	chk.microsecs *= 10000UL;
-	chk.microsecs += 10000;
-	ASSERT(nowcmp(&chk,&((*first)->when)) >= 0);
+	ErlDrvTime chk = erl_drv_monotonic_time(ERL_DRV_MSEC);
+	ASSERT(chk >= (*first)->when);
     }
 #endif
     do {
@@ -12264,9 +12167,9 @@ static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 	    return;
 	}
 	(*first)->prev = NULL;
-	next_timeout = relative_timeout(&((*first)->when));
-    } while (next_timeout == 0);
-    driver_set_timer(port,next_timeout);
+	next_timeout = (*first)->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
+    } while (next_timeout <= 0);
+    driver_set_timer(port, (unsigned long) next_timeout);
 }
 
 static void clean_multi_timers(MultiTimerData **first, ErlDrvPort port)
@@ -12289,8 +12192,10 @@ static void remove_multi_timer(MultiTimerData **first, ErlDrvPort port, MultiTim
 	driver_cancel_timer(port);
 	*first = p->next;
 	if (*first) {
-	    unsigned ntmo = relative_timeout(&((*first)->when));
-	    driver_set_timer(port,ntmo);
+	    ErlDrvTime ntmo = (*first)->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
+	    if (ntmo < 0)
+		ntmo = 0;
+	    driver_set_timer(port, (unsigned long) ntmo);
 	}
     }
     if (p->next != NULL) {
@@ -12304,26 +12209,14 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
 				       void (*timeout_fun)(ErlDrvData drv_data, 
 							   ErlDrvTermData caller))
 {
-#define eq_mega(a, b) ((a)->when.megasecs == (b)->when.megasecs)
-#define eq_sec(a, b) ((a)->when.secs == (b)->when.secs)
     MultiTimerData *mtd, *p, *s;
     mtd = ALLOC(sizeof(MultiTimerData));
-    absolute_timeout(timeout, &(mtd->when));
+    mtd->when = erl_drv_monotonic_time(ERL_DRV_MSEC) + ((ErlDrvTime) timeout) + 1;
     mtd->timeout_function = timeout_fun;
     mtd->caller = caller;
     mtd->next = mtd->prev = NULL;
     for(p = *first,s = NULL; p != NULL; s = p, p = p->next) {
-	if (p->when.megasecs >= mtd->when.megasecs) {
-	    break;
-	}
-    }
-    for (; p!= NULL && eq_mega(p, mtd); s = p, p = p->next) {
-	if (p->when.secs >= mtd->when.secs) {
-	    break;
-	}
-    }
-    for (; p!= NULL && eq_mega(p, mtd) && eq_sec(p, mtd); s = p, p = p->next) {
-	if (p->when.microsecs >= mtd->when.microsecs) {
+	if (p->when >= mtd->when) {
 	    break;
 	}
     }
@@ -12353,12 +12246,6 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
     }
     return mtd;
 }
-#undef eq_mega
-#undef eq_sec
-	
-
-
-
 
 /*-----------------------------------------------------------------------------
 
