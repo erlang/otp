@@ -764,6 +764,8 @@ handle_tls_handshake(Handle, StateName,
     case Handle(Packet, FsmReturn) of
 	{next_state, NextStateName, State, _Timeout} ->
 	    handle_tls_handshake(Handle, NextStateName, State);
+	{next_state, NextStateName, State} ->
+	    handle_tls_handshake(Handle, NextStateName, State);
 	{stop, _,_} = Stop ->
 	    Stop
     end;
