@@ -40,8 +40,7 @@ loop() ->
 	    Res = do_soft_purge(Mod),
 	    From ! {reply, soft_purge, Res, Ref};
 
-	M ->
-	    erlang:display({"erts_code_purger got msg", M})
+	_Other -> ignore
     end,
     loop().
 
