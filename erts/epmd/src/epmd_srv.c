@@ -301,7 +301,7 @@ void run(EpmdVars *g)
 	      epmd_cleanup_exit(g,1);
 	    }
 
-#if defined(HAVE_IN6) && defined(AF_INET6)
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
 	  if (sa->ss_family == AF_INET6 && IN6_IS_ADDR_LOOPBACK(&addr6))
 	      continue;
 
