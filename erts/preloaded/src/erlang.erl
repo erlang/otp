@@ -91,7 +91,7 @@
 -export([bit_size/1, bitsize/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
 -export([cancel_timer/1, cancel_timer/2, check_old_code/1, check_process_code/2,
-	 check_process_code/3, copy_literals/2, crc32/1]).
+	 check_process_code/3, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
@@ -460,7 +460,7 @@ check_old_code(_Module) ->
       CheckResult :: boolean().
 check_process_code(Pid, Module) ->
     try
-	erlang:check_process_code(Pid, Module, [{allow_gc, true}])
+	erts_internal:check_process_code(Pid, Module, [{allow_gc, true}])
     catch
 	error:Error -> erlang:error(Error, [Pid, Module])
     end.
@@ -475,57 +475,10 @@ check_process_code(Pid, Module) ->
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
     try
-	{Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
-	case Async of
-	    {async, ReqId} ->
-		{priority, Prio} = erlang:process_info(erlang:self(),
-						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {check_process_code,
-						   ReqId,
-						   Module,
-						   AllowGC}),
-		async;
-	    sync ->
-		case Pid == erlang:self() of
-		    true ->
-			erts_internal:check_process_code(Module,
-							 [{allow_gc, AllowGC}]);
-		    false ->
-			{priority, Prio} = erlang:process_info(erlang:self(),
-							       priority),
-			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {check_process_code,
-							   ReqId,
-							   Module,
-							   AllowGC}),
-			receive
-			    {check_process_code, ReqId, CheckResult} ->
-				CheckResult
-			end
-		end
-	end
+	erts_internal:check_process_code(Pid, Module, OptionList)
     catch
 	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
     end.
-
-% gets async and allow_gc opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
-    get_cpc_opts(Options, AsyncTuple, AllowGC);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
-    get_cpc_opts(Options, Async, AllowGC);
-get_cpc_opts([], Async, AllowGC) ->
-    {Async, AllowGC}.
-
-%% copy_literals/2
--spec erlang:copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
-      Module :: module(),
-      Bool :: boolean().
-copy_literals(_Mod, _Bool) ->
-    erlang:nif_error(undefined).
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when
@@ -1471,8 +1424,16 @@ processes() ->
 %% purge_module/1
 -spec purge_module(Module) -> true when
       Module :: atom().
-purge_module(_Module) ->
-    erlang:nif_error(undefined).
+purge_module(Module) when erlang:is_atom(Module) ->
+    case erts_code_purger:purge(Module) of
+	{false, _} ->
+	    erlang:error(badarg, [Module]);
+	{true, _} ->
+	    true
+    end;
+purge_module(Arg) ->
+    erlang:error(badarg, [Arg]).
+
 
 %% put/2
 -spec put(Key, Val) -> term() when

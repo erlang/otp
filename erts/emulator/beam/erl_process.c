@@ -10052,7 +10052,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	case ERTS_PSTT_CPC:
 	    st_res = erts_check_process_code(c_p,
 					     st->arg[0],
-					     st->arg[1] == am_true,
+                                             unsigned_val(st->arg[1]),
 					     &reds);
 	    if (is_non_value(st_res)) {
 		/* Needed gc, but gc was disabled */
@@ -10216,7 +10216,7 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
     case am_check_process_code:
 	if (is_not_atom(st->arg[0]))
 	    goto badarg;
-	if (st->arg[1] != am_true && st->arg[1] != am_false)
+	if (is_not_small(st->arg[1]) || (unsigned_val(st->arg[1]) & ~ERTS_CPC_ALL))
 	    goto badarg;
 	noproc_res = am_false;
 	st->type = ERTS_PSTT_CPC;

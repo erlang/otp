@@ -37,7 +37,9 @@
 
 -export([request_system_task/3]).
 
--export([check_process_code/2]).
+-export([check_process_code/3]).
+-export([copy_literals/2]).
+-export([purge_module/1]).
 
 -export([flush_monitor_messages/3]).
 
@@ -46,6 +48,9 @@
 -export([time_unit/0]).
 
 -export([is_system_process/1]).
+
+%% Auto import name clash
+-export([check_process_code/2]).
 
 %%
 %% Await result of send to port
@@ -197,11 +202,80 @@ port_info(_Result, _Item) ->
 request_system_task(_Pid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
--spec check_process_code(Module, OptionList) -> boolean() when
+-define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
+-define(ERTS_CPC_COPY_LITERALS, (1 bsl 1)).
+
+-spec check_process_code(Module, Flags) -> boolean() when
       Module :: module(),
-      Option :: {allow_gc, boolean()},
-      OptionList :: [Option].
-check_process_code(_Module, _OptionList) ->
+      Flags :: non_neg_integer().
+check_process_code(_Module, _Flags) ->
+    erlang:nif_error(undefined).
+
+-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
+      Pid :: pid(),
+      Module :: module(),
+      RequestId :: term(),
+      Option :: {async, RequestId} | {allow_gc, boolean()} | {copy_literals, boolean()},
+      OptionList :: [Option],
+      CheckResult :: boolean() | aborted.
+check_process_code(Pid, Module, OptionList)  ->
+    {Async, Flags} = get_cpc_opts(OptionList, sync, ?ERTS_CPC_ALLOW_GC),
+    case Async of
+	{async, ReqId} ->
+	    {priority, Prio} = erlang:process_info(erlang:self(),
+						   priority),
+	    erts_internal:request_system_task(Pid,
+					      Prio,
+					      {check_process_code,
+					       ReqId,
+					       Module,
+					       Flags}),
+	    async;
+	sync ->
+	    case Pid == erlang:self() of
+		true ->
+		    erts_internal:check_process_code(Module, Flags);
+		false ->
+		    {priority, Prio} = erlang:process_info(erlang:self(),
+							   priority),
+		    ReqId = erlang:make_ref(),
+		    erts_internal:request_system_task(Pid,
+						      Prio,
+						      {check_process_code,
+						       ReqId,
+						       Module,
+						       Flags}),
+		    receive
+			{check_process_code, ReqId, CheckResult} ->
+			    CheckResult
+		    end
+	    end
+    end.
+
+% gets async and flag opts and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
+    get_cpc_opts(Options, AsyncTuple, Flags);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
+get_cpc_opts([{copy_literals, CopyLit} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_COPY_LITERALS, CopyLit));
+get_cpc_opts([], Async, Flags) ->
+    {Async, Flags}.
+
+cpc_flags(OldFlags, Bit, true) ->
+    OldFlags bor Bit;
+cpc_flags(OldFlags, Bit, false) ->
+    OldFlags band (bnot Bit).
+
+-spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
+      Module :: module(),
+      Bool :: boolean().
+copy_literals(_Mod, _Bool) ->
+    erlang:nif_error(undefined).
+
+-spec purge_module(Module) -> boolean() when
+      Module :: module().
+purge_module(_Module) ->
     erlang:nif_error(undefined).
 
 %% term compare where integer() < float() = true

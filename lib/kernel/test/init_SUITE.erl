@@ -401,6 +401,7 @@ restart(Config) when is_list(Config) ->
     %% Ok, the node is up, now the real test test begins.
     ?line erlang:monitor_node(Node, true),
     ?line InitPid = rpc:call(Node, erlang, whereis, [init]),
+    ?line PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     ?line Procs = rpc:call(Node, erlang, processes, []),
     ?line MaxPid = lists:last(Procs),
     ?line ok = rpc:call(Node, init, restart, []),
@@ -418,8 +419,13 @@ restart(Config) when is_list(Config) ->
     InitP = pid_to_list(InitPid),
     ?line InitP = pid_to_list(InitPid1),
 
+    %% and same purger process!
+    ?line PurgerPid1 = rpc:call(Node, erlang, whereis, [erts_code_purger]),
+    PurgerP = pid_to_list(PurgerPid),
+    ?line PurgerP = pid_to_list(PurgerPid1),
+
     ?line NewProcs0 = rpc:call(Node, erlang, processes, []),
-    NewProcs = lists:delete(InitPid1, NewProcs0),
+    NewProcs = NewProcs0 -- [InitPid1, PurgerPid1],
     ?line case check_processes(NewProcs, MaxPid) of
 	      true ->
 		  ok;

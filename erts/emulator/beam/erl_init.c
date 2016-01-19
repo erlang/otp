@@ -439,6 +439,29 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     return res;
 }
 
+static Eterm
+erl_system_process_otp(Eterm parent_pid, char* modname)
+{
+    Eterm start_mod;
+    Process* parent;
+    ErlSpawnOpts so;
+    Eterm res;
+
+    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
+    if (erts_find_function(start_mod, am_start, 0,
+			   erts_active_code_ix()) == NULL) {
+	erl_exit(5, "No function %s:start/0\n", modname);
+    }
+
+    parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
+
+    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
+    res = erl_create_process(parent, start_mod, am_start, NIL, &so);
+    erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
+    return res;
+}
+
+
 Eterm
 erts_preloaded(Process* p)
 {
@@ -1234,6 +1257,7 @@ erl_start(int argc, char **argv)
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
     ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
+    Eterm otp_ring0_pid;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -2183,8 +2207,10 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    (void) erl_first_process_otp("otp_ring0", NULL, 0,
-				 boot_argc, boot_argv);
+    otp_ring0_pid = erl_first_process_otp("otp_ring0", NULL, 0,
+					  boot_argc, boot_argv);
+
+    (void) erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
