@@ -33,6 +33,8 @@
 #include "global.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "erl_driver.h"
+#include "erl_nif.h"
  
 static erts_smp_mtx_t erts_timeofday_mtx;
 static erts_smp_mtx_t erts_get_time_mtx;
@@ -57,6 +59,7 @@ static int time_sup_initialized = 0;
 #define ERTS_MONOTONIC_TIME_TERA \
     (ERTS_MONOTONIC_TIME_GIGA*ERTS_MONOTONIC_TIME_KILO)
 
+static void init_time_napi(void);
 static void
 schedule_send_time_offset_changed_notifications(ErtsMonotonicTime new_offset);
 
@@ -947,6 +950,8 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime abs_native_offset, native_offset;
 #endif
+
+    init_time_napi();
 
     erts_hl_timer_init();
 
@@ -2195,6 +2200,146 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
     }
 
     return ret;
+}
+
+
+/*
+ * Time Native API (drivers and NIFs)
+ */
+
+#define ERTS_NAPI_TIME_ERROR ((ErtsMonotonicTime) ERTS_NAPI_TIME_ERROR__)
+
+static void
+init_time_napi(void)
+{
+    /* Verify that time native api constants are as expected... */
+
+    ASSERT(sizeof(ErtsMonotonicTime) == sizeof(ErlDrvTime));
+    ASSERT(ERL_DRV_TIME_ERROR == (ErlDrvTime) ERTS_NAPI_TIME_ERROR);
+    ASSERT(ERL_DRV_TIME_ERROR < (ErlDrvTime) 0);
+    ASSERT(ERTS_NAPI_SEC__ == (int) ERL_DRV_SEC);
+    ASSERT(ERTS_NAPI_MSEC__ == (int) ERL_DRV_MSEC);
+    ASSERT(ERTS_NAPI_USEC__ == (int) ERL_DRV_USEC);
+    ASSERT(ERTS_NAPI_NSEC__ == (int) ERL_DRV_NSEC);
+
+    ASSERT(sizeof(ErtsMonotonicTime) == sizeof(ErlNifTime));
+    ASSERT(ERL_NIF_TIME_ERROR == (ErlNifTime) ERTS_NAPI_TIME_ERROR);
+    ASSERT(ERL_NIF_TIME_ERROR < (ErlNifTime) 0);
+    ASSERT(ERTS_NAPI_SEC__ == (int) ERL_NIF_SEC);
+    ASSERT(ERTS_NAPI_MSEC__ == (int) ERL_NIF_MSEC);
+    ASSERT(ERTS_NAPI_USEC__ == (int) ERL_NIF_USEC);
+    ASSERT(ERTS_NAPI_NSEC__ == (int) ERL_NIF_NSEC);
+}
+
+ErtsMonotonicTime
+erts_napi_monotonic_time(int time_unit)
+{
+    ErtsSchedulerData *esdp;
+    ErtsMonotonicTime mtime;
+
+    /* At least for now only allow schedulers to do this... */
+    esdp = erts_get_scheduler_data();
+    if (!esdp)
+	return ERTS_NAPI_TIME_ERROR;
+
+    mtime = time_sup.r.o.get_time();
+    update_last_mtime(esdp, mtime);
+
+    switch (time_unit) {
+    case ERTS_NAPI_SEC__:
+	mtime = ERTS_MONOTONIC_TO_SEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_SEC;
+	break;
+    case ERTS_NAPI_MSEC__:
+	mtime = ERTS_MONOTONIC_TO_MSEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_MSEC;
+	break;
+    case ERTS_NAPI_USEC__:
+	mtime = ERTS_MONOTONIC_TO_USEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_USEC;
+	break;
+    case ERTS_NAPI_NSEC__:
+	mtime = ERTS_MONOTONIC_TO_NSEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_NSEC;
+	break;
+    default:
+	return ERTS_NAPI_TIME_ERROR;
+    }
+
+    return mtime;
+}
+
+ErtsMonotonicTime
+erts_napi_time_offset(int time_unit)
+{
+    ErtsSchedulerData *esdp;
+    ErtsSystemTime offs;
+
+    /* At least for now only allow schedulers to do this... */
+    esdp = erts_get_scheduler_data();
+    if (!esdp)
+	return ERTS_NAPI_TIME_ERROR;
+
+    offs = get_time_offset();
+    switch (time_unit) {
+    case ERTS_NAPI_SEC__:
+	offs = ERTS_MONOTONIC_TO_SEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_SEC;
+	break;
+    case ERTS_NAPI_MSEC__:
+	offs = ERTS_MONOTONIC_TO_MSEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_MSEC;
+	break;
+    case ERTS_NAPI_USEC__:
+	offs = ERTS_MONOTONIC_TO_USEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_USEC;
+	break;
+    case ERTS_NAPI_NSEC__:
+	offs = ERTS_MONOTONIC_TO_NSEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_NSEC;
+	break;
+    default:
+	return ERTS_NAPI_TIME_ERROR;
+    }
+    return offs;
+}
+
+ErtsMonotonicTime
+erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
+{
+    ErtsMonotonicTime ffreq, tfreq, denom;
+    /*
+     * Convertion between time units using floor function.
+     *
+     * Note that this needs to work also for negative
+     * values. Ordinary integer division on a negative
+     * value will give ceiling...
+     */
+
+    switch ((int) from) {
+    case ERTS_NAPI_SEC__: ffreq = 1; break;
+    case ERTS_NAPI_MSEC__: ffreq = 1000; break;
+    case ERTS_NAPI_USEC__: ffreq = 1000*1000; break;
+    case ERTS_NAPI_NSEC__: ffreq = 1000*1000*1000; break;
+    default: return ERTS_NAPI_TIME_ERROR;
+    }
+
+    switch ((int) to) {
+    case ERTS_NAPI_SEC__: tfreq = 1; break;
+    case ERTS_NAPI_MSEC__: tfreq = 1000; break;
+    case ERTS_NAPI_USEC__: tfreq = 1000*1000; break;
+    case ERTS_NAPI_NSEC__: tfreq = 1000*1000*1000; break;
+    default: return ERTS_NAPI_TIME_ERROR;
+    }
+
+    if (tfreq >= ffreq)
+	return val * (tfreq / ffreq);
+
+    denom = ffreq / tfreq;
+    if (val >= 0)
+	return val / denom;
+
+    return (val - (denom - 1)) / denom;
 }
 
 /* Built in functions */

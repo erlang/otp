@@ -50,6 +50,7 @@
 #include "erl_map.h"
 #include "erl_bif_unique.h"
 #include "erl_hl_timer.h"
+#include "erl_time.h"
 
 extern ErlDrvEntry fd_driver_entry;
 #ifndef __OSE__
@@ -6760,6 +6761,28 @@ driver_get_now(ErlDrvNowData *now_data)
     now_data->secs = (unsigned long) secs;
     now_data->microsecs = (unsigned long) micro;
     return 0;
+}
+
+ErlDrvTime
+erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)
+{
+    return (ErlDrvTime) erts_napi_monotonic_time((int) time_unit);
+}
+
+ErlDrvTime
+erl_drv_time_offset(ErlDrvTimeUnit time_unit)
+{
+    return (ErlDrvTime) erts_napi_time_offset((int) time_unit);
+}
+
+ErlDrvTime
+erl_drv_convert_time_unit(ErlDrvTime val,
+			  ErlDrvTimeUnit from,
+			  ErlDrvTimeUnit to)
+{
+    return (ErlDrvTime) erts_napi_convert_time_unit((ErtsMonotonicTime) val,
+						    (int) from,
+						    (int) to);
 }
 
 static void ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon)

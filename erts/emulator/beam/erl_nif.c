@@ -1175,6 +1175,26 @@ void enif_thread_exit(void *resp) { erl_drv_thread_exit(resp); }
 int enif_thread_join(ErlNifTid tid, void **respp) { return erl_drv_thread_join(tid,respp); }
 int enif_getenv(const char *key, char *value, size_t *value_size) { return erl_drv_getenv(key, value, value_size); }
 
+ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit)
+{
+    return (ErlNifTime) erts_napi_monotonic_time((int) time_unit);
+}
+
+ErlNifTime enif_time_offset(ErlNifTimeUnit time_unit)
+{
+    return (ErlNifTime) erts_napi_time_offset((int) time_unit);
+}
+
+ErlNifTime
+enif_convert_time_unit(ErlNifTime val,
+		       ErlNifTimeUnit from,
+		       ErlNifTimeUnit to)
+{
+    return (ErlNifTime) erts_napi_convert_time_unit((ErtsMonotonicTime) val,
+						    (int) from,
+						    (int) to);
+}
+
 int enif_fprintf(void* filep, const char* format, ...) 
 { 
     int ret;
