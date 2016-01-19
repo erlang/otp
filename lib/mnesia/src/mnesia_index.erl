@@ -348,9 +348,10 @@ init_ext_index(_, _, _, _, []) ->
 init_ext_index(Tab, Storage, Alias, Mod, [{Pos,Type} | Tail]) ->
     PosInfo = {Pos, Type},
     IxTag = {Tab, index, PosInfo},
-    _Res = Mod:create_table(Alias, IxTag, []),
     CS = val({Tab, cstruct}),
-    Mod:load_table(Alias, IxTag, init_index, mnesia_schema:cs2list(CS)),
+    CsList = mnesia_schema:cs2list(CS),
+    _Res = mnesia_monitor:unsafe_create_external(IxTag, Alias, Mod, CsList),
+    Mod:load_table(Alias, IxTag, init_index, CsList),
     case Mod:is_index_consistent(Alias, IxTag) of
         false ->
 	    Mod:index_is_consistent(Alias, IxTag, false),

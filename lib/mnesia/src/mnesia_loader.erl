@@ -150,11 +150,17 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_only_copies -
     end;
 
 do_get_disc_copy2(Tab, Reason, Storage = {ext, Alias, Mod}, _Type) ->
-    ok = ext_load_table(Mod, Alias, Tab, Reason),
-    mnesia_index:init_index(Tab, Storage),
-    set({Tab, load_node}, node()),
-    set({Tab, load_reason}, Reason),
-    {loaded, ok}.
+    Cs = val({Tab, cstruct}),
+    case mnesia_monitor:unsafe_create_external(Tab, Alias, Mod, Cs) of
+	ok ->
+	    ok = ext_load_table(Mod, Alias, Tab, Reason),
+	    mnesia_index:init_index(Tab, Storage),
+	    set({Tab, load_node}, node()),
+	    set({Tab, load_reason}, Reason),
+	    {loaded, ok};
+	Other ->
+	    {not_loaded, Other}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load a table from a remote node

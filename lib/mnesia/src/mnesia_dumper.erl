@@ -562,7 +562,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		{{ext,_FromAlias,_FromMod},{ext,ToAlias,ToMod}} ->
 		    disc_delete_table(Tab, FromS),
                     ok = ToMod:delete_table(ToAlias, Tab),
-		    ok = ToMod:create_table(ToAlias, Tab, []),
+		    ok = mnesia_monitor:unsafe_create_external(Tab, ToAlias, ToMod, TabDef),
 		    ok = ToMod:load_table(ToAlias, Tab, {dumper,change_table_copy_type}, TabDef),
 		    ok = load_from_logfile(ToS, Tab, Logtmp),
 		    file:delete(Logtmp),
@@ -582,7 +582,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 		    end,
 
                     ok = ToMod:delete_table(ToAlias, Tab),
-		    ok = ToMod:create_table(ToAlias, Tab, []),
+		    ok = mnesia_monitor:unsafe_create_external(Tab, ToAlias, ToMod, TabDef),
 		    ok = ToMod:load_table(ToAlias, Tab, {dumper,change_table_copy_type}, TabDef),
 		    ok = load_from_logfile(ToS, Tab, Logtmp),
 		    file:delete(Logtmp),
@@ -1400,6 +1400,8 @@ load_from_logfile(Storage, Tab, F) ->
 			{repair, true},
 			{linkto, self()}]) of
 	{ok, Fd} ->
+	    chunk_from_log(disk_log:chunk(Fd, start), Fd, Storage, Tab);
+	{repaired, Fd, _, _} ->
 	    chunk_from_log(disk_log:chunk(Fd, start), Fd, Storage, Tab);
 	{error, _} = E ->
 	    E
