@@ -396,7 +396,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 	bp->p = (unsigned char *) ALLOC(a, bp->s);
 	if(!bp->p)
 	    fail(t_no, "ALLOC(%lu) failed [id=%d])\n", bp->s, id);
-	memset((void *) bp->p, id, (size_t) bp->s);
+	memset((void *) bp->p, (unsigned char)id, (size_t) bp->s);
     }
     else {
 	unsigned char *p = (unsigned char *) REALLOC(a, bp->p, bp->as[bp->i]);
@@ -406,7 +406,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 
 	if(bp->s < bp->as[bp->i]) {
 	    CHECK_BLOCK_DATA(t_no, p, bp->s, id);
-	    memset((void *) p, id, (size_t) bp->as[bp->i]);
+	    memset((void *) p, (unsigned char)id, (size_t) bp->as[bp->i]);
 	}
 	else
 	    CHECK_BLOCK_DATA(t_no, p, bp->as[bp->i], id);
