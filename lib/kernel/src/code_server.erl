@@ -1191,7 +1191,7 @@ load_file_1(Mod, Caller, #state{path=Path}=St) ->
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
-	    try_load_module(File, Mod, Binary, Caller, St)
+	    try_load_module_1(File, Mod, Binary, Caller, St)
     end.
 
 mod_to_bin([Dir|Tail], Mod) ->
