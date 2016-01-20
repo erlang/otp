@@ -2182,7 +2182,7 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     erts_aint32_t aux_work = orig_aux_work;
     erts_aint32_t ignore = 0;
 
-    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
+    ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 #ifdef ERTS_SMP
     haw_thr_prgr_current_reset(awdp);
 #endif
