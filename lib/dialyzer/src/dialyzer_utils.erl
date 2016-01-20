@@ -83,7 +83,7 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 %% ----------------------------------------------------------------------------
 
--type abstract_code() :: [tuple()]. %% XXX: import from somewhere
+-type abstract_code() :: [erl_parse:abstract_form()].
 -type comp_options()  :: [compile:option()].
 -type mod_or_fname()  :: module() | file:filename().
 -type fa()            :: {atom(), arity()}.

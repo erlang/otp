@@ -316,7 +316,7 @@
 %% Auxiliary types and convenient macros
 %%
 
--type parse_form() :: {atom(), _, _} | {atom(), _, _, _} | {'op', _, _, _, _}. %% XXX: Temporarily
+-type parse_form() :: erl_parse:abstract_expr().
 -type rng_elem()   :: 'pos_inf' | 'neg_inf' | integer().
 
 -record(int_set, {set :: [integer()]}).
@@ -365,8 +365,8 @@
 -type type_key()     :: {'type' | 'opaque', atom(), arity()}.
 -type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
 -type type_value()   :: {module(), erl_type(), atom()}.
--type type_table() :: dict:dict(record_key(), record_value())
-                    | dict:dict(type_key(), type_value()).
+-type type_table() :: dict:dict(record_key() | type_key(),
+                                record_value() | type_value()).
 
 -type var_table() :: dict:dict(atom(), erl_type()).
 

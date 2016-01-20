@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2015</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,19 +44,31 @@
   </description>
   <datatypes>
     <datatype>
-      <name name="abstract_clause"></name>
-      <desc><p>Parse tree for Erlang clause.</p>
+      <name>abstract_clause()</name>
+      <desc><p><marker id="type-abstract_clause"/>
+        Abstract form of an Erlang clause.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="abstract_expr"></name>
-      <desc><p>Parse tree for Erlang expression.</p>
+      <name>abstract_expr()</name>
+      <desc><p><marker id="type-abstract_expr"/>
+        Abstract form of an Erlang expression.</p>
       </desc>
     </datatype>
     <datatype>
-      <name name="abstract_form"></name>
-      <desc><p>Parse tree for Erlang form.</p>
+      <name>abstract_form()</name>
+      <desc><p><marker id="type-abstract_form"/>
+        Abstract form of an Erlang form.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name>abstract_type()</name>
+      <desc><p><marker id="type-abstract_type"/>
+        Abstract form of an Erlang type.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="erl_parse_tree"></name>
     </datatype>
     <datatype>
       <name name="error_description"></name>
@@ -180,7 +192,7 @@
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
           abstract form of type <c><anno>AbsTerm</anno></c>.</p>
         <p>The <c><anno>Line</anno></c> option is the line that will
-          be assigned to each node of the abstract form.</p>
+          be assigned to each node of <c><anno>AbsTerm</anno></c>.</p>
         <p>The <c><anno>Encoding</anno></c> option is used for
           selecting which integer lists will be considered
           as strings. The default is to use the encoding returned by
@@ -196,47 +208,53 @@
     <func>
       <name name="map_anno" arity="2"/>
       <fsummary>
-        Map a function over the annotations of an abstract form
+        Map a function over the annotations of a <c>erl_parse</c> tree
       </fsummary>
       <desc>
-        <p>Modifies the abstract form <anno>Abstr</anno> by applying
-          <anno>Fun</anno> on every collection of annotations of the
-          abstract form. The abstract form is traversed in a
-          depth-first, left-to-right, fashion.
+        <p>Modifies the <c>erl_parse</c> tree <c><anno>Abstr</anno></c>
+	  by applying <c><anno>Fun</anno></c> on each collection of
+	  annotations of the nodes of the <c>erl_parse</c> tree. The
+	  <c>erl_parse</c> tree is traversed in a depth-first,
+	  left-to-right, fashion.
         </p>
       </desc>
     </func>
     <func>
       <name name="fold_anno" arity="3"/>
       <fsummary>
-        Fold a function over the annotations of an abstract form
+        Fold a function over the annotations of a <c>erl_parse</c> tree
       </fsummary>
       <desc>
-        <p>Updates an accumulator by applying <anno>Fun</anno> on
-          every collection of annotations of the abstract form
-          <anno>Abstr</anno>. The first call to <anno>Fun</anno> has
-          <anno>AccIn</anno> as argument, and the returned accumulator
-          <anno>AccOut</anno> is passed to the next call, and so on.
-          The final value of the accumulator is returned. The abstract
-          form is traversed in a depth-first, left-to-right, fashion.
+        <p>Updates an accumulator by applying <c><anno>Fun</anno></c> on
+          each collection of annotations of the <c>erl_parse</c> tree
+          <c><anno>Abstr</anno></c>. The first call to
+          <c><anno>Fun</anno></c> has <c><anno>AccIn</anno></c> as
+          argument, and the returned accumulator
+          <c><anno>AccOut</anno></c> is passed to the next call, and
+          so on. The final value of the accumulator is returned. The
+          <c>erl_parse</c> tree is traversed in a depth-first, left-to-right,
+          fashion.
         </p>
       </desc>
     </func>
     <func>
       <name name="mapfold_anno" arity="3"/>
       <fsummary>
-        Map and fold a function over the annotations of an abstract form
+        Map and fold a function over the annotations of a
+        <c>erl_parse</c> tree
       </fsummary>
       <desc>
-        <p>Modifies the abstract form <anno>Abstr</anno> by applying
-          <anno>Fun</anno> on every collection of annotations of the
-          abstract form, while at the same time updating an
-          accumulator. The first call to <anno>Fun</anno> has
-          <anno>AccIn</anno> as second argument, and the returned
-          accumulator <anno>AccOut</anno> is passed to the next call,
-          and so on. The modified abstract form as well as the the
-          final value of the accumulator is returned. The abstract
-          form is traversed in a depth-first, left-to-right, fashion.
+        <p>Modifies the <c>erl_parse</c> tree <c><anno>Abstr</anno></c>
+	  by applying <c><anno>Fun</anno></c> on each collection of
+	  annotations of the nodes of the <c>erl_parse</c> tree, while
+	  at the same time updating an accumulator. The first call to
+	  <c><anno>Fun</anno></c> has <c><anno>AccIn</anno></c> as
+	  second argument, and the returned accumulator
+	  <c><anno>AccOut</anno></c> is passed to the next call, and
+	  so on. The modified <c>erl_parse</c> tree as well as the the
+	  final value of the accumulator are returned. The
+	  <c>erl_parse</c> tree is traversed in a depth-first,
+	  left-to-right, fashion.
         </p>
       </desc>
     </func>
@@ -246,12 +264,15 @@
         Create new annotations
       </fsummary>
       <desc>
-        <p>Creates an abstract form from a term which has the same
-          structure as an abstract form, but <seealso
-          marker="erl_anno#type-location">locations</seealso> where the
-          abstract form has annotations. For each location, <seealso
-          marker="erl_anno#new/1"><c>erl_anno:new/1</c></seealso> is
-          called, and the annotations replace the location.
+        <p>Assumes that <c><anno>Term</anno></c> is a term with the same
+          structure as a <c>erl_parse</c> tree, but with <seealso
+          marker="erl_anno#type-location">locations</seealso> where a
+          <c>erl_parse</c> tree has collections of annotations.
+          Returns a <c>erl_parse</c> tree where each location <c>L</c>
+          has been replaced by the value returned by <seealso
+          marker="erl_anno#new/1"><c>erl_anno:new(L)</c></seealso>.
+          The term <c><anno>Term</anno></c> is traversed in a
+          depth-first, left-to-right, fashion.
         </p>
       </desc>
     </func>
@@ -261,12 +282,14 @@
         Return annotations as terms
       </fsummary>
       <desc>
-        <p>Assumes that <anno>Term</anno> is a term with the same
-          structure as an abstract form, but with terms, T say, on
-          those places where an abstract form has annotations. Returns
-          an abstract form where every term T has been replaced by the
-          value returned by calling <c>erl_anno:from_term(T)</c>. The
-          term <anno>Term</anno> is traversed in a depth-first,
+        <p>Assumes that <c><anno>Term</anno></c> is a term with the same
+          structure as a <c>erl_parse</c> tree, but with terms,
+          <c>T</c> say, where a <c>erl_parse</c> tree has collections
+          of annotations. Returns a <c>erl_parse</c> tree where each
+          term <c>T</c> has been replaced by the value returned by
+          <seealso marker="erl_anno#from_term/1">
+          <c>erl_anno:from_term(T)</c></seealso>. The term
+          <c><anno>Term</anno></c> is traversed in a depth-first,
           left-to-right, fashion.
         </p>
       </desc>
@@ -277,10 +300,13 @@
         Return the representation of annotations
       </fsummary>
       <desc>
-        <p>Returns a term where every collection of annotations Anno of
-          <anno>Abstr</anno> has been replaced by the term returned by
-          calling <c>erl_anno:to_term(Anno)</c>. The abstract form is
-          traversed in a depth-first, left-to-right, fashion.
+        <p>Returns a term where each collection of annotations
+          <c>Anno</c> of the nodes of the <c>erl_parse</c> tree
+          <c><anno>Abstr</anno></c> has been replaced by the term
+          returned by <seealso marker="erl_anno#to_term/1">
+          <c>erl_anno:to_term(Anno)</c></seealso>. The
+          <c>erl_parse</c> tree is traversed in a depth-first,
+          left-to-right, fashion.
         </p>
       </desc>
     </func>
