@@ -22,6 +22,7 @@
 %% Tests compile:file/1 and compile:file/2 with various options.
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/erl_compile.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -32,7 +33,7 @@
 	 strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
-	 warnings/1
+	 warnings/1, pre_load_check/1
 	]).
 
 -export([init/3]).
@@ -50,7 +51,7 @@ all() ->
      other_output, encrypted_abstr,
      strict_record,
      missing_testheap, cover, env, core, asm,
-     sys_pre_attributes, dialyzer, warnings].
+     sys_pre_attributes, dialyzer, warnings, pre_load_check].
 
 groups() -> 
     [].
@@ -880,6 +881,115 @@ do_warnings_2([{Int,_,_}=W|T], Next, F) ->
 do_warnings_2([], Next, F) ->
     do_warnings_1(Next, F).
 
+
+%% Test that the compile:pre_load/0 function (used by 'erlc')
+%% pre-loads the modules that are used by a typical compilation.
+
+pre_load_check(Config) ->
+    case test_server:is_cover() of
+	true ->
+	    {skip,"Cover is running"};
+	false ->
+	    try
+		do_pre_load_check(Config)
+	    after
+		dbg:stop_clear()
+	    end
+    end.
+
+do_pre_load_check(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Simple = filename:join(DataDir, "simple.erl"),
+    Big = filename:join(DataDir, "big.erl"),
+    {ok,_} = dbg:tracer(process, {fun pre_load_trace/2,[]}),
+    dbg:p(self(), call),
+    dbg:p(new, call),
+    {ok,_} = dbg:tpl({?MODULE,get_trace_data,0}, []),
+    {ok,_} = dbg:tp({code,ensure_modules_loaded,1}, []),
+
+    %% Compile a simple module using the erl_compile interface
+    %% to find out the modules that are pre-loaded by
+    %% compile:pre_load/0.
+    Opts = #options{specific=[binary]},
+    {ok,simple,_} = compile:compile(Simple, "", Opts),
+    [{code,ensure_modules_loaded,[PreLoaded0]}] = get_trace_data(),
+    PreLoaded1 = ordsets:from_list(PreLoaded0),
+
+    %% Since 'compile' is the function doing the pre-loaded,
+    %% it is useless to include it in the list.
+    case ordsets:is_element(compile, PreLoaded1) of
+	true ->
+	    io:put_chars("The 'compile' module should not be included "
+			 "in the list of modules to be pre-loaded."),
+	    ?t:fail(compile);
+	false ->
+	    []
+    end,
+    PreLoaded = ordsets:add_element(compile, PreLoaded1),
+
+    %% Now unload all pre-loaded modules and all modules in
+    %% compiler application. Then compile a module to find
+    %% which modules that get loaded.
+    CompilerMods = compiler_modules(),
+    Unload = ordsets:union(ordsets:from_list(CompilerMods), PreLoaded),
+    _ = [begin
+	     code:delete(M),
+	     code:purge(M)
+	 end || M <- Unload],
+
+    {ok,_} = dbg:ctp({code,ensure_modules_loaded,1}),
+    {ok,_} = dbg:tp({code,ensure_loaded,1}, []),
+    {ok,big,_} = compile:file(Big, [binary]),
+    WasLoaded0 = get_trace_data(),
+    WasLoaded1 = [M || {code,ensure_loaded,[M]} <- WasLoaded0],
+    WasLoaded = ordsets:from_list(WasLoaded1),
+
+    %% Check for modules that should have been pre-loaded.
+    case ordsets:subtract(WasLoaded, PreLoaded) of
+	[] ->
+	    ok;
+	[_|_]=NotPreLoaded ->
+	    io:format("The following modules were used "
+		      "but not pre-loaded:\n~p\n",
+		      [NotPreLoaded]),
+	    ?t:fail({not_preload,NotPreLoaded})
+    end,
+
+    %% Check for modules that should not be pre-loaded.
+    case ordsets:subtract(PreLoaded, WasLoaded) of
+	[] ->
+	    ok;
+	[_|_]=NotUsed ->
+	    io:format("The following modules were pre-loaded"
+		      " but not used:\n~p\n",
+		      [NotUsed]),
+	    ?t:fail({not_used,NotUsed})
+    end,
+
+    ok.
+
+get_trace_data() ->
+    %% Apparantely, doing a receive at the beginning of
+    %% a traced function can cause extra trace messages.
+    %% To avoid that, don't do the receive in this function.
+    do_get_trace_data().
+
+do_get_trace_data() ->
+    receive
+	{trace_data,Data} -> Data
+    end.
+
+pre_load_trace({trace,Pid,call,{?MODULE,get_trace_data,[]}}, Acc) ->
+    Pid ! {trace_data,Acc},
+    [];
+pre_load_trace({trace,_,call,MFA}, Acc) ->
+    [MFA|Acc].
+
+compiler_modules() ->
+    Wc = filename:join([code:lib_dir(compiler),"ebin","*.beam"]),
+    Ms = filelib:wildcard(Wc),
+    FN = filename,
+    [list_to_atom(FN:rootname(FN:basename(M), ".beam")) || M <- Ms].
 
 %%%
 %%% Utilities.
