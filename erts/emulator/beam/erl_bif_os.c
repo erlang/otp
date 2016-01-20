@@ -65,6 +65,36 @@ BIF_RETTYPE os_getpid_0(BIF_ALIST_0)
      BIF_RET(buf_to_intlist(&hp, pid_string, n, NIL));
 }
 
+BIF_RETTYPE os_getuid_0(BIF_ALIST_0)
+{
+#ifdef HAVE_GETUID
+     char uid_string[21]; /* also enough for a 64 bit number */
+     int n;
+     Eterm* hp;
+     sys_get_uid(uid_string, sizeof(uid_string)); /* In sys.c */
+     n = sys_strlen(uid_string);
+     hp = HAlloc(BIF_P, n*2);
+     BIF_RET(buf_to_intlist(&hp, uid_string, n, NIL));
+#else
+     BIF_ERROR(BIF_P, EXC_NOTSUP);
+#endif
+}
+
+BIF_RETTYPE os_geteuid_0(BIF_ALIST_0)
+{
+#ifdef HAVE_GETEUID
+     char uid_string[21]; /* alas, also enough for a 64 bit number */
+     int n;
+     Eterm* hp;
+     sys_get_euid(uid_string, sizeof(uid_string)); /* In sys.c */
+     n = sys_strlen(uid_string);
+     hp = HAlloc(BIF_P, n*2);
+     BIF_RET(buf_to_intlist(&hp, uid_string, n, NIL));
+#else
+     BIF_ERROR(BIF_P, EXC_NOTSUP);
+#endif
+}
+
 BIF_RETTYPE os_getenv_0(BIF_ALIST_0)
 {
     GETENV_STATE state;

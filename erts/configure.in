@@ -1978,6 +1978,19 @@ dnl       fdatasync requires linking against -lrt on SunOS <= 5.10.
 dnl       OpenSolaris 2009.06 is SunOS 5.11 and does not require -lrt.
 AC_SEARCH_LIBS(fdatasync, [rt])
 
+dnl getuid / geteuid syscalls
+case $host in
+   win32) ;;
+   *ose)  ;;
+   *)
+      AC_CHECK_FUNC(getuid,
+		    AC_DEFINE([HAVE_GETUID], [1],
+			      [Define to 1 if you have the `getuid' function.]))
+      AC_CHECK_FUNC(geteuid,
+		    AC_DEFINE([HAVE_GETEUID], [1],
+			      [Define to 1 if you have the `geteuid' function.]))
+      ;;
+esac
 
 dnl sendfile syscall
 case $host_os in
