@@ -4870,6 +4870,12 @@ os_prompt% </pre>
             <seealso marker="kernel:code">code(3)</seealso>)
             and is not to be used elsewhere.</p>
         </warning>
+        <note>
+	  <p>As from <c>ERTS</c> 8.0 (OTP 19), any lingering processes
+	   that still execute the old code will be killed by this function.
+	   In earlier versions, such incorrect use could cause much
+	   more fatal failures, like emulator crash.</p>
+        </note>
         <p>Failure: <c>badarg</c> if there is no old code for
           <c><anno>Module</anno></c>.</p>
       </desc>
