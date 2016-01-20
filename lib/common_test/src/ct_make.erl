@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -324,10 +324,11 @@ check_includes(File, IncludePath, ObjMTime) ->
     end.
     
 check_includes2(Epp, File, ObjMTime) ->
+    A1 = erl_anno:new(1),
     case epp:parse_erl_form(Epp) of
-	{ok, {attribute, 1, file, {File, 1}}} ->
+	{ok, {attribute, A1, file, {File, A1}}} ->
 	    check_includes2(Epp, File, ObjMTime);
-	{ok, {attribute, 1, file, {IncFile, 1}}} ->
+	{ok, {attribute, A1, file, {IncFile, A1}}} ->
 	    case file:read_file_info(IncFile) of
 		{ok, #file_info{mtime=MTime}} when MTime>ObjMTime ->
 		    epp:close(Epp),
