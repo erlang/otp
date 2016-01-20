@@ -24,8 +24,9 @@
 
 -type channel_id()           :: integer().
 
--define(DEFAULT_PACKET_SIZE, 32768).
--define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
+-define(DEFAULT_PACKET_SIZE, 65536).
+-define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
+
 -define(DEFAULT_TIMEOUT, 5000).
 -define(MAX_PROTO_VERSION, 255).
 
