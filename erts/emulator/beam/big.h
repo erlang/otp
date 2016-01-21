@@ -173,4 +173,12 @@ Eterm erts_sint64_to_big(Sint64, Eterm **);
 
 Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
 
+#define LTI_BAD_STRUCTURE 0
+#define LTI_NO_INTEGER 1
+#define LTI_SOME_INTEGER 2
+#define LTI_ALL_INTEGER 3
+
+int do_list_to_integer(Process *p, Eterm orig_list,
+                       Eterm *integer, Eterm *rest);
+
 #endif
