@@ -50,14 +50,16 @@
          prim_read_file_info/3, prim_get_cwd/2]).
 
 %% Used by escript and code
--export([set_primary_archive/4, release_archives/0]).
+-export([set_primary_archive/4]).
+
+%% Used by test suites
+-export([purge_archive_cache/0]).
 
 -include_lib("kernel/include/file.hrl").
 
 -type host() :: atom().
 
 -record(prim_state, {debug :: boolean(),
-		     cache,
 		     primary_archive}).
 -type prim_state() :: #prim_state{}.
 
@@ -66,12 +68,10 @@
          hosts = []        :: [host()], % hosts list (to boot from)
          data              :: 'noport' | port(), % data port etc
          timeout           :: timeout(),	 % idle timeout
-	 %% Number of timeouts before archives are released
-	 n_timeouts        :: non_neg_integer(),
          prim_state        :: prim_state()}).    % state for efile code loader
 
--define(IDLE_TIMEOUT, 60000).  %% tear inet connection after 1 minutes
--define(N_TIMEOUTS, 6).        %% release efile archive after 6 minutes
+-define(EFILE_IDLE_TIMEOUT, (6*60*1000)).	%purge archives
+-define(INET_IDLE_TIMEOUT, (60*1000)). 		%tear down connection timeout
 
 %% Defines for inet as prim_loader
 -define(INET_FAMILY, inet).
@@ -143,8 +143,7 @@ start_inet(Parent) ->
     State = #state {loader = inet,
                     hosts = AL,
                     data = Tcp,
-                    timeout = ?IDLE_TIMEOUT,
-		    n_timeouts = ?N_TIMEOUTS,
+                    timeout = ?INET_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
 
@@ -164,7 +163,7 @@ start_efile(Parent) ->
     PS = prim_init(),
     State = #state {loader = efile,
                     data = Port,
-                    timeout = infinity,
+                    timeout = ?EFILE_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
 
@@ -229,10 +228,13 @@ set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
   when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
     request({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}).
 
--spec release_archives() -> 'ok' | {'error', _}.
+%% NOTE: Does not close the primary archive. Only closes all
+%% open zip files kept in the cache. Should be called before an archive
+%% file is to be removed (for example in the test suites).
 
-release_archives() ->
-    request(release_archives).
+-spec purge_archive_cache() -> 'ok' | {'error', _}.
+purge_archive_cache() ->
+    request(purge_archive_cache).
 
 request(Req) ->
     Loader = whereis(erl_prim_loader),
@@ -336,8 +338,8 @@ handle_request(Req, Paths, St0) ->
 	{set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
 	    handle_set_primary_archive(St0, File, ArchiveBin,
 				       FileInfo, ParserFun);
-	release_archives ->
-	    handle_release_archives(St0);
+	purge_archive_cache ->
+	    handle_purge_archive_cache(St0);
 	_ ->
 	    ignore
     end.
@@ -350,8 +352,9 @@ handle_get_file(State = #state{loader = inet}, Paths, File) ->
 handle_set_primary_archive(State= #state{loader = efile}, File, ArchiveBin, FileInfo, ParserFun) ->
     ?SAFE2(efile_set_primary_archive(State, File, ArchiveBin, FileInfo, ParserFun), State).
 
-handle_release_archives(State= #state{loader = efile}) ->
-    ?SAFE2(efile_release_archives(State), State).
+handle_purge_archive_cache(#state{loader = efile}=State) ->
+    prim_purge_cache(),
+    {ok,State}.
 
 handle_list_dir(State = #state{loader = efile}, Dir) ->
     ?SAFE2(efile_list_dir(State, Dir), State);
@@ -436,10 +439,6 @@ efile_set_primary_archive(#state{prim_state = PS} = State, File,
 					  FileInfo, ParserFun),
     {Res,State#state{prim_state = PS2}}.
 
-efile_release_archives(#state{prim_state = PS} = State) ->
-    {Res, PS2} = prim_release_archives(PS),
-    {Res,State#state{prim_state = PS2}}.
-
 efile_list_dir(#state{prim_state = PS} = State, Dir) ->
     {Res, PS2} = prim_list_dir(PS, Dir),
     {Res, State#state{prim_state = PS2}}.
@@ -461,14 +460,9 @@ efile_exit_port(State, Port, Reason) when State#state.data =:= Port ->
 efile_exit_port(State, _Port, _Reason) ->
     State.
 
-efile_timeout_handler(#state{n_timeouts = N} = State, _Parent) ->
-    if
-	N =< 0 ->
-	    {_Res, State2} = efile_release_archives(State),
-	    State2#state{n_timeouts = ?N_TIMEOUTS};
-	true ->
-	    State#state{n_timeouts = N - 1}
-    end.
+efile_timeout_handler(State, _Parent) ->
+    prim_purge_cache(),
+    State.
 
 %%% --------------------------------------------------------
 %%% Functions which handle inet prim_loader
@@ -609,7 +603,7 @@ inet_get_file_from_port1(_File, [], State) ->
 inet_send_and_rcv(Msg, Tag, State) when State#state.data =:= noport ->
     {ok,Tcp} = find_master(State#state.hosts),     %% reconnect
     inet_send_and_rcv(Msg, Tag, State#state{data = Tcp,
-					    timeout = ?IDLE_TIMEOUT});
+					    timeout = ?INET_IDLE_TIMEOUT});
 inet_send_and_rcv(Msg, Tag, #state{data = Tcp, timeout = Timeout} = State) ->
     prim_inet:send(Tcp, term_to_binary(Msg)),
     receive
@@ -734,32 +728,19 @@ prim_init() ->
         end,
     cache_new(#prim_state{debug = Deb}).
 
-prim_release_archives(PS) ->
-    debug(PS, release_archives),
-    {Res, PS2} = prim_do_release_archives(PS, get(), []),
-    debug(PS2, {return, Res}),
-    {Res, PS2}.
+prim_purge_cache() ->
+    do_prim_purge_cache(get()).
 
-prim_do_release_archives(PS, [{ArchiveFile, DictVal} | KeyVals], Acc) ->
-    Res = 
-	case DictVal of
-	    {primary, _PrimZip, _FI, _ParserFun} ->
-		ok; % Keep primary archive
-	    {Cache, _FI} ->
-		debug(PS, {release, cache, ArchiveFile}),
-		erase(ArchiveFile),
-		clear_cache(ArchiveFile, Cache)
-	end,
-    case Res of
-	ok ->
-	    prim_do_release_archives(PS, KeyVals, Acc);
-	{error, Reason} ->
-	    prim_do_release_archives(PS, KeyVals, [{ArchiveFile, Reason} | Acc])
-    end;
-prim_do_release_archives(PS, [], []) ->
-    {ok, PS#prim_state{primary_archive = undefined}};
-prim_do_release_archives(PS, [], Errors) ->
-    {{error, Errors}, PS#prim_state{primary_archive = undefined}}.
+do_prim_purge_cache([{Key,Val}|T]) ->
+    case Val of
+	{Cache,_FI} ->
+	    catch clear_cache(Key, Cache);
+	_ ->
+	    ok
+    end,
+    do_prim_purge_cache(T);
+do_prim_purge_cache([]) ->
+    ok.
 
 prim_set_primary_archive(PS, undefined, undefined, undefined, _ParserFun) ->
     debug(PS, {set_primary_archive, clean}),
