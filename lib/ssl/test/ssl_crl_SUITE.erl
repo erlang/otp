@@ -186,11 +186,6 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-					      {from, self()}, 
-					      {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     
@@ -206,15 +201,8 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 			   {verify, verify_peer}]
 		  end,	
     
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
-     					      {host, Hostname},
-   					      {from, self()}, 
-     					      {options, ClientOpts}]),
-    receive
-	{Server, AlertOrColse} ->
-	    ct:pal("Server Alert or Close ~p", [AlertOrColse])
-    end,	    
-    ssl_test_lib:check_result(Client, {error, {tls_alert, "certificate revoked"}}).
+    crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                     "certificate revoked").
 
 
 crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts) ->
@@ -235,6 +223,22 @@ crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts, ExpectedAlert) ->
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {options, ClientOpts}]),
+    receive
+	{Server, AlertOrClose} ->
+	    ct:pal("Server Alert or Close ~p", [AlertOrClose])
+    end,
+    ssl_test_lib:check_result(Client, {error, {tls_alert, ExpectedAlert}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
