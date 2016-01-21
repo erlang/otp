@@ -361,7 +361,7 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
-type    MSACC           LONG_LIVED      SYSTEM          microstate_accounting
+type    MSACC           DRIVER          SYSTEM          microstate_accounting
 
 #
 # Types used by system specific code
