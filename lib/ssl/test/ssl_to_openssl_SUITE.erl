@@ -175,7 +175,12 @@ special_init(TestCase, Config)
     check_sane_openssl_renegotaite(Config, Version);
 
 special_init(ssl2_erlang_server_openssl_client, Config) ->
-    check_sane_openssl_sslv2(Config);
+    case ssl_test_lib:supports_ssl_tls_version(sslv2) of
+	true ->
+	     Config;
+	false ->
+	     {skip, "sslv2 not supported by openssl"}
+    end;
 
 special_init(TestCase, Config)
     when TestCase == erlang_client_alpn_openssl_server_alpn;
@@ -1754,32 +1759,6 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	_ ->
 	    Config
-    end.
-
-check_sane_openssl_sslv2(Config) ->
-    Exe = "openssl",
-    Args = ["s_client", "-ssl2"],
-    Port = ssl_test_lib:portable_open_port(Exe, Args),
-    case supports_sslv2(Port) of
-	true ->
-	    Config;
-	false ->
-	    {skip, "sslv2 not supported by openssl"}
-    end.
-
-supports_sslv2(Port) ->
-    receive 
-	{Port, {data, "unknown option -ssl2" ++ _}} -> 
-	    false;
-	{Port, {data, Data}} ->
-	    case lists:member("error", string:tokens(Data, ":")) of
-		true ->
-		    false;
-		false ->
-		    supports_sslv2(Port)
-	    end
-    after 500 ->
-	    true
     end.
 
 workaround_openssl_s_clinent() ->
