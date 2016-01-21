@@ -1168,6 +1168,9 @@ extern ErtsModifiedTimings erts_modified_timings[];
 extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
+#if defined(USE_THREADS) && !defined(ERTS_SMP)
+extern erts_tid_t erts_main_thread;
+#endif
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
 void erts_short_init(void);

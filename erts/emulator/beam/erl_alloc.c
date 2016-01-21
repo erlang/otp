@@ -968,6 +968,10 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
     else
 #endif
     {
+#ifdef ERTS_SMP
+        erl_exit(ERTS_ABORT_EXIT, "%salloc is not thread safe\n",
+                 init->init.util.name_prefix);
+#else
 	af->alloc = erts_alcu_alloc;
 	if (init->init.util.fix_type_size)
 	    af->realloc = erts_realloc_fixed_size;
@@ -976,6 +980,7 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
 	else
 	    af->realloc = erts_alcu_realloc;
 	af->free = erts_alcu_free;
+#endif
     }
     af->extra	= NULL;
     ai->alloc_util	= 1;
@@ -3402,8 +3407,11 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    init.enable = 1;
 	    init.atype = GOODFIT;
 	    init.init.util.name_prefix = (char *) a1;
-	    init.init.util.ts = a2 ? 1 : 0;
-
+#ifdef ERTS_SMP
+	    init.init.util.ts = 1;
+#else
+            init.init.util.ts = a2 ? 1 : 0;
+#endif
 	    if ((char **) a3) {
 		char **argv = (char **) a3;
 		int i = 0;

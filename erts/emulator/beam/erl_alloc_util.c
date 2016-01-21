@@ -5337,6 +5337,11 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 {
     void *res;
+#ifdef ERTS_SMP
+    ASSERT(!"This is not thread safe");
+#elif defined(USE_THREADS)
+    ASSERT(erts_equal_tids(erts_main_thread, erts_thr_self()));
+#endif
     res = do_erts_alcu_alloc(type, extra, size);
     DEBUG_CHECK_ALIGNMENT(res);
     return res;
