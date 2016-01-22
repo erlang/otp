@@ -1113,9 +1113,10 @@ try_load_module_2(File, Mod, Bin, Caller, undefined, St) ->
     try_load_module_3(File, Mod, Bin, Caller, undefined, St);
 try_load_module_2(File, Mod, Bin, Caller, Architecture,
                   #state{moddb=Db}=St) ->
-    case catch load_native_code(Mod, Bin, Architecture) of
+    case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-            ets:insert(Db, {Mod,File}),
+	    put(?ANY_NATIVE_CODE_LOADED, true),
+	    ets:insert(Db, {Mod,File}),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, Caller, Architecture, St);
@@ -1136,26 +1137,6 @@ try_load_module_3(File, Mod, Bin, Caller, Architecture,
         {error,What} = Error ->
             error_msg("Loading of ~ts failed: ~p\n", [File, What]),
             {reply,Error,St}
-    end.
-
-load_native_code(Mod, Bin, Architecture) ->
-    %% During bootstrapping of Open Source Erlang, we don't have any hipe
-    %% loader modules, but the Erlang emulator might be hipe enabled.
-    %% Therefore we must test for that the loader modules are available
-    %% before trying to to load native code.
-    case erlang:module_loaded(hipe_unified_loader) of
-	false ->
-	    no_native;
-	true ->
-	    Result = hipe_unified_loader:load_native_code(Mod, Bin,
-                                                          Architecture),
-	    case Result of
-		{module,_} ->
-		    put(?ANY_NATIVE_CODE_LOADED, true);
-		_ ->
-		    ok
-	    end,
-	    Result
     end.
 
 hipe_result_to_status(Result) ->
