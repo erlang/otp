@@ -333,52 +333,64 @@ find_time(accept_to_hello, L) ->
     [T0,T1] = find([fun(C=#call{mfa = {ssh_acceptor,handle_connection,5}}) ->
 			    C#call.t_call
 		    end,
-		    fun(C=#call{mfa = {ssh_connection_handler,hello,_},
-				args = [socket_control|_]}) ->
-			    C#call.t_return
-		    end
+		    ?LINE,
+		    fun(C=#call{mfa = {ssh_connection_handler,handle_event,5},
+				args = [_, {version_exchange,_}, _, {hello,_}, _]}) ->
+			    C#call.t_call
+		    end,
+		    ?LINE
 		   ], L, []),
     {accept_to_hello, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(kex, L) ->
-    [T0,T1] = find([fun(C=#call{mfa = {ssh_connection_handler,hello,_},
-				args = [socket_control|_]}) ->
+    [T0,T1] = find([fun(C=#call{mfa = {ssh_connection_handler,handle_event,5},
+				args = [_, {version_exchange,_}, _, {hello,_}, _]}) ->
 			    C#call.t_call
 		    end,
-		    ?send(#ssh_msg_newkeys{})
+		    ?LINE,
+		    ?send(#ssh_msg_newkeys{}),
+		    ?LINE
 		    ], L, []),
     {kex, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(kex_to_auth, L) ->
     [T0,T1] = find([?send(#ssh_msg_newkeys{}),
-		    ?recv(#ssh_msg_userauth_request{})
+		    ?LINE,
+		    ?recv(#ssh_msg_userauth_request{}),
+		    ?LINE
 		   ], L, []),
     {kex_to_auth, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(auth, L) ->
     [T0,T1] = find([?recv(#ssh_msg_userauth_request{}),
-		    ?send(#ssh_msg_userauth_success{})
+		    ?LINE,
+		    ?send(#ssh_msg_userauth_success{}),
+		    ?LINE
 		   ], L, []),
     {auth, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(to_prompt, L) ->
     [T0,T1] = find([fun(C=#call{mfa = {ssh_acceptor,handle_connection,5}}) ->
 			    C#call.t_call
 		    end,
-		    ?recv(#ssh_msg_channel_request{request_type="env"})
+		    ?LINE,
+		    ?recv(#ssh_msg_channel_request{request_type="env"}),
+		    ?LINE
 		   ], L, []),
     {to_prompt, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(channel_open_close, L) ->
     [T0,T1] = find([?recv(#ssh_msg_channel_request{request_type="subsystem"}),
-		    ?send(#ssh_msg_channel_close{})
+		    ?LINE,
+		    ?send(#ssh_msg_channel_close{}),
+		    ?LINE
 		   ], L, []),
     {channel_open_close, now2micro_sec(now_diff(T1,T0)), microsec}.
  
 
 
-find([F|Fs], [C|Cs], Acc) when is_function(F,1) ->
+find([F,Id|Fs], [C|Cs], Acc) when is_function(F,1) ->
     try
 	F(C)
     of
 	T -> find(Fs, Cs, [T|Acc])
     catch
-	_:_ -> find([F|Fs], Cs, Acc)
+	_:_ -> find([F,Id|Fs], Cs, Acc)
     end;
 find([], _, Acc) ->
     lists:reverse(Acc).
@@ -444,7 +456,7 @@ erlang_trace() ->
     0 = erlang:trace(new, true, [call,timestamp,{tracer,TracerPid}]),
     [init_trace(MFA, tp(MFA))
      || MFA <- [{ssh_acceptor,handle_connection,5},
-		{ssh_connection_handler,hello,2},
+%%		{ssh_connection_handler,hello,2},
 		{ssh_message,encode,1},
 		{ssh_message,decode,1},
 		{ssh_transport,select_algorithm,3},
@@ -454,6 +466,10 @@ erlang_trace() ->
 		{ssh_message,decode,1},
 		{public_key,dh_gex_group,4} % To find dh_gex group size
 	       ]],
+    init_trace({ssh_connection_handler,handle_event,5},
+	       [{['_', {version_exchange,'_'}, '_', {hello,'_'}, '_'],
+		 [],
+		 [return_trace]}]),
     {ok, TracerPid}.
 
 tp({_M,_F,Arity}) ->

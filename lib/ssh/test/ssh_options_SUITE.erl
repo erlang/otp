@@ -493,7 +493,7 @@ ssh_msg_debug_fun_option_client(Config) ->
 					  {user_interaction, false},
 					  {ssh_msg_debug_fun,DbgFun}]),
     %% Beware, implementation knowledge:
-    gen_fsm:send_all_state_event(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+    gen_statem:cast(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
     receive
 	{msg_dbg,X={ConnectionRef,false,<<"Hello">>,<<>>}} ->
 	    ct:log("Got expected dbg msg ~p",[X]),
@@ -606,7 +606,7 @@ ssh_msg_debug_fun_option_server(Config) ->
     receive
 	{connection_pid,Server} ->
 	    %% Beware, implementation knowledge:
-	    gen_fsm:send_all_state_event(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+	    gen_statem:cast(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
 	    receive
 		{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
 		    ct:log("Got expected dbg msg ~p",[X]),

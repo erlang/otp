@@ -28,26 +28,26 @@
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
 
 yes_no(_, _) ->
-    throw({{no_io_allowed, yes_no},
-	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			       description = "User interaction is not allowed",
-			       language = "en"}}).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			  description = "User interaction is not allowed"},
+      {no_io_allowed, yes_no}).
 
 read_password(_, _) ->
-    throw({{no_io_allowed, read_password},
-	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			       description = "User interaction is not allowed",
-			      language = "en"}}).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			  description = "User interaction is not allowed"},
+      {no_io_allowed, read_password}).
 
 read_line(_, _) ->
-    throw({{no_io_allowed, read_line},
-	  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			      description =  "User interaction is not allowed",
-			      language = "en"}} ).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			  description =  "User interaction is not allowed"},
+    {no_io_allowed, read_line}).
 
 format(_, _) ->
-    throw({{no_io_allowed, format},
-	   #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			       description =   "User interaction is not allowed",
-			       language = "en"}}).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			  description =   "User interaction is not allowed"},
+      {no_io_allowed, format}).
     

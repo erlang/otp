@@ -361,13 +361,15 @@ get_atoms(L) ->
 %%% Test case related
 %%%
 start_std_daemon(Opts, Config) ->
+    ct:log("starting std_daemon",[]),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
     ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
 
 start_pubkey_daemon(Opts, Config) ->
+    ct:log("starting pubkey_daemon",[]),
     {Pid, Host, Port} = ssh_test_lib:std_daemon1(Config, Opts),
-    ct:log("started1 ~p:~p  ~p",[Host,Port,Opts]),
+    ct:log("started pubkey_daemon ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
 
 

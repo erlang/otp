@@ -38,7 +38,6 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{seconds,40}}].
 
-
 all() -> 
     [{group, not_unicode},
      {group, unicode}
