@@ -53,7 +53,7 @@ groups() ->
      {idp_crl, [], basic_tests()}].
 
 basic_tests() ->
-    [crl_verify_valid, crl_verify_revoked].
+    [crl_verify_valid, crl_verify_revoked, crl_verify_no_crl].
 
 
 init_per_suite(Config) ->
@@ -204,6 +204,52 @@ crl_verify_revoked(Config)  when is_list(Config) ->
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
                      "certificate revoked").
 
+crl_verify_no_crl() ->
+    [{doc,"Verify a simple CRL chain when the CRL is missing"}].
+crl_verify_no_crl(Config) when is_list(Config) ->
+    PrivDir = ?config(cert_dir, Config),
+    Check = ?config(crl_check, Config),
+    ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
+      		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
+		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
+    ClientOpts =  case ?config(idp_crl, Config) of 
+		      true ->	       
+			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
+			   {crl_check, Check},
+			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
+			   {verify, verify_peer}];
+		      false ->
+			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
+			   {crl_check, Check},
+			   {verify, verify_peer}]
+		  end,			  
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% In case we're running an HTTP server that serves CRLs, let's
+    %% rename those files, so the CRL is absent when we try to verify
+    %% it.
+    %%
+    %% If we're not using an HTTP server, we just need to refrain from
+    %% adding the CRLs to the cache manually.
+    rename_crl(filename:join([PrivDir, "erlangCA", "crl.pem"])),
+    rename_crl(filename:join([PrivDir, "otpCA", "crl.pem"])),
+
+    %% The expected outcome when the CRL is missing depends on the
+    %% crl_check setting.
+    case Check of
+        true ->
+            %% The error "revocation status undetermined" gets turned
+            %% into "bad certificate".
+            crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                             "bad certificate");
+        peer ->
+            crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                             "bad certificate");
+        best_effort ->
+            %% In "best effort" mode, we consider the certificate not
+            %% to be revoked if we can't find the appropriate CRL.
+            crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts)
+    end.
 
 crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -263,3 +309,5 @@ make_dir_path(PathComponents) ->
 		"",
 		PathComponents).
 
+rename_crl(Filename) ->
+    file:rename(Filename, Filename ++ ".notfound").
