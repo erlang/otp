@@ -19,43 +19,16 @@
 %%
 -module(cover_SUITE).
 
--export([all/0, init_per_testcase/2, end_per_testcase/2,
-	 suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
-
--export([coverage/1, coverage_analysis/1,
-	 start/1, compile/1, analyse/1, misc/1, stop/1,
-	 distribution/1, reconnect/1, die_and_reconnect/1,
-	 dont_reconnect_after_stop/1, stop_node_after_disconnect/1,
-	 export_import/1,
-	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
-         otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
-         analyse_no_beam/1, line_0/1]).
-
--export([do_coverage/1]).
-
--export([distribution_performance/1]).
+-compile(export_all).
 
 -include_lib("test_server/include/test_server.hrl").
-
-%%----------------------------------------------------------------------
-%% The following directory structure is assumed:
-%%  cwd __________________________________________
-%%  |  \   \   \   \   \     \                    \
-%%  a   b   cc   d   f  d1   compile_beam_____  otp_6115
-%%                      |      \    \  \  \   \    \  \
-%%                      e      crypt v  w  x   d   f1  f2
-%%                                             |
-%%                                             y
-%%----------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
-		   analyse_no_beam, line_0],
+		   analyse_no_beam, line_0, compile_beam_no_file],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -778,8 +751,8 @@ distribution_performance(Config) ->
     %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
     %% 	   end,
     CFun = fun() -> cover:compile_beam(Mods) end,
-    {CT,CA} = timer:tc(CFun),
-%    erlang:display(CA),
+    {CT,_CA} = timer:tc(CFun),
+%    erlang:display(_CA),
     erlang:display({compile,CT}),
 
     {SNT,_} = timer:tc(fun() -> {ok,[N1]} = cover:start(nodes()) end),
@@ -799,7 +772,7 @@ distribution_performance(Config) ->
 
 %    Fun = fun() -> cover:reset() end,
 
-    {AT,A} = timer:tc(Fun),
+    {AT,_A} = timer:tc(Fun),
     erlang:display({analyse,AT}),
 %    erlang:display(lists:sort([X || X={_MFA,N} <- lists:append([L || {ok,L}<-A]), N=/=0])),
 
@@ -1745,6 +1718,32 @@ line_0(Config) ->
     <<_:S/binary,Match/binary>> = Bin,
     ok.
 
+
+%% OTP-13200: Return error instead of crashing when trying to compile
+%% a beam which has no 'file' attribute.
+compile_beam_no_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Dir = filename:join(PrivDir,"compile_beam_no_file"),
+    ok = filelib:ensure_dir(filename:join(Dir,"*")),
+    code:add_patha(Dir),
+    Str = lists:concat(
+	    ["-module(nofile).\n"
+	     "-compile(export_all).\n"
+	     "foo() -> ok.\n"]),
+    TT = do_scan(Str),
+    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- TT ],
+    {ok,_,Bin} = compile:forms(Forms,[debug_info]),
+    BeamFile = filename:join(Dir,"nofile.beam"),
+    ok = file:write_file(BeamFile,Bin),
+    {error,{no_file_attribute,BeamFile}} = cover:compile_beam(nofile),
+    [{error,{no_file_attribute,BeamFile}}] = cover:compile_beam_directory(Dir),
+    ok.
+
+do_scan([]) ->
+    [];
+do_scan(Str) ->
+    {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
+    [ T | do_scan(C) ].
 
 
 %%--Auxiliary------------------------------------------------------------
