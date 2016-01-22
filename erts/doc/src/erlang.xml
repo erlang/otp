@@ -9199,7 +9199,8 @@ timestamp() ->
           </item>
           <tag><c>true</c></tag>
           <item>
-            <p>Enables tracing for the matching functions.</p>
+            <p>Enables tracing for the matching functions.
+	       Any match specification is removed.</p>
           </item>
           <tag><c><anno>MatchSpecList</anno></c></tag>
           <item>
