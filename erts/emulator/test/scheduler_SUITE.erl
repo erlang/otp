@@ -54,6 +54,7 @@
 	 sct_cmd/1,
 	 sbt_cmd/1,
 	 scheduler_threads/1,
+	 scheduler_suspend_basic/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
 	 dirty_scheduler_exit/1,
@@ -69,8 +70,10 @@ all() ->
     [equal, few_low, many_low, equal_with_part_time_high,
      equal_with_part_time_max,
      equal_and_high_with_part_time_max, equal_with_high,
-     equal_with_high_max, bound_process,
-     {group, scheduler_bind}, scheduler_threads, scheduler_suspend,
+     equal_with_high_max,
+     bound_process,
+     {group, scheduler_bind}, scheduler_threads,
+     scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads, dirty_scheduler_exit,
      reader_groups].
 
@@ -1131,6 +1134,7 @@ dirty_schedulers_online_test(true) ->
     dirty_schedulers_online_smp_test(erlang:system_info(schedulers_online)).
 dirty_schedulers_online_smp_test(SchedOnln) when SchedOnln < 4 -> ok;
 dirty_schedulers_online_smp_test(SchedOnln) ->
+    receive after 500 -> ok end,
     DirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
     SchedOnln = DirtyCPUSchedOnln,
     HalfSchedOnln = SchedOnln div 2,
@@ -1139,9 +1143,11 @@ dirty_schedulers_online_smp_test(SchedOnln) ->
     HalfDirtyCPUSchedOnln = erlang:system_flag(schedulers_online, SchedOnln),
     DirtyCPUSchedOnln = erlang:system_flag(dirty_cpu_schedulers_online,
 					   HalfDirtyCPUSchedOnln),
+    receive after 500 -> ok end,
     HalfDirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
     QrtrDirtyCPUSchedOnln = HalfDirtyCPUSchedOnln div 2,
     SchedOnln = erlang:system_flag(schedulers_online, HalfSchedOnln),
+    receive after 500 -> ok end,
     QrtrDirtyCPUSchedOnln = erlang:system_info(dirty_cpu_schedulers_online),
     ok.
 
@@ -1214,6 +1220,113 @@ wait_dse([Pid|Pids]) ->
 dirty_sleeper() ->
     erlang:nif_error({error,?MODULE}).
 
+scheduler_suspend_basic(Config) when is_list(Config) ->
+    case erlang:system_info(multi_scheduling) of
+	disabled ->
+	    {skip, "Nothing to test"};
+	_ ->
+	    Onln = erlang:system_info(schedulers_online),
+	    try
+		scheduler_suspend_basic_test()
+	    after
+		erlang:system_flag(schedulers_online, Onln)
+	    end
+    end.
+
+scheduler_suspend_basic_test() ->
+    %% The receives after setting scheduler states are there
+    %% since the operation is not fully synchronous. For example,
+    %% we do not wait for dirty cpu schedulers online to complete
+    %% before returning from erlang:system_flag(schedulers_online, _).
+
+    erlang:system_flag(schedulers_online,
+		       erlang:system_info(schedulers)),
+    try
+	erlang:system_flag(dirty_cpu_schedulers_online,
+			   erlang:system_info(dirty_cpu_schedulers)),
+	receive after 500 -> ok end
+    catch
+	_ : _ ->
+	    ok
+    end,
+
+    S0 = sched_state(),
+    io:format("~p~n", [S0]),
+    {{normal,NTot0,NOnln0,NAct0},
+     {dirty_cpu,DCTot0,DCOnln0,DCAct0},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = S0,
+    enabled = erlang:system_info(multi_scheduling),
+
+    DCOne = case DCTot0 of
+		0 -> 0;
+		_ -> 1
+	    end,
+
+    blocked_normal = erlang:system_flag(multi_scheduling, block_normal),
+    blocked_normal = erlang:system_info(multi_scheduling),
+    {{normal,NTot0,NOnln0,1},
+     {dirty_cpu,DCTot0,DCOnln0,DCAct0},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    NOnln0 = erlang:system_flag(schedulers_online, 1),
+    receive after 500 -> ok end,
+    {{normal,NTot0,1,1},
+     {dirty_cpu,DCTot0,DCOne,DCOne},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    1 = erlang:system_flag(schedulers_online, NOnln0),
+    receive after 500 -> ok end,
+    {{normal,NTot0,NOnln0,1},
+     {dirty_cpu,DCTot0,DCOnln0,DCAct0},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    blocked = erlang:system_flag(multi_scheduling, block),
+    blocked = erlang:system_info(multi_scheduling),
+    receive after 500 -> ok end,
+    {{normal,NTot0,NOnln0,1},
+     {dirty_cpu,DCTot0,DCOnln0,0},
+     {dirty_io,DITot0,DIOnln0,0}} = sched_state(),
+
+    NOnln0 = erlang:system_flag(schedulers_online, 1),
+    receive after 500 -> ok end,
+    {{normal,NTot0,1,1},
+     {dirty_cpu,DCTot0,DCOne,0},
+     {dirty_io,DITot0,DIOnln0,0}} = sched_state(),
+
+    1 = erlang:system_flag(schedulers_online, NOnln0),
+    receive after 500 -> ok end,
+    {{normal,NTot0,NOnln0,1},
+     {dirty_cpu,DCTot0,DCOnln0,0},
+     {dirty_io,DITot0,DIOnln0,0}} = sched_state(),
+
+    blocked = erlang:system_flag(multi_scheduling, unblock_normal),
+    blocked = erlang:system_info(multi_scheduling),
+    {{normal,NTot0,NOnln0,1},
+     {dirty_cpu,DCTot0,DCOnln0,0},
+     {dirty_io,DITot0,DIOnln0,0}} = sched_state(),
+
+    enabled = erlang:system_flag(multi_scheduling, unblock),
+    enabled = erlang:system_info(multi_scheduling),
+    receive after 500 -> ok end,
+    {{normal,NTot0,NOnln0,NAct0},
+     {dirty_cpu,DCTot0,DCOnln0,DCAct0},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    NOnln0 = erlang:system_flag(schedulers_online, 1),
+    receive after 500 -> ok end,
+    {{normal,NTot0,1,1},
+     {dirty_cpu,DCTot0,DCOne,DCOne},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    1 = erlang:system_flag(schedulers_online, NOnln0),
+    receive after 500 -> ok end,
+    {{normal,NTot0,NOnln0,NAct0},
+     {dirty_cpu,DCTot0,DCOnln0,DCAct0},
+     {dirty_io,DITot0,DIOnln0,DIAct0}} = sched_state(),
+
+    ok.
+    
+
 scheduler_suspend(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),
     ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
@@ -1238,12 +1351,17 @@ scheduler_suspend_test(Config, Schedulers) ->
     ?line [ok] = mcall(Node, [fun () -> sst0_loop(300) end]),
     ?line [ok] = mcall(Node, [fun () -> sst1_loop(300) end]),
     ?line [ok] = mcall(Node, [fun () -> sst2_loop(300) end]),
-    ?line [ok, ok, ok, ok, ok] = mcall(Node,
-				       [fun () -> sst0_loop(200) end,
-					fun () -> sst1_loop(200) end,
-					fun () -> sst2_loop(200) end,
-					fun () -> sst2_loop(200) end,
-					fun () -> sst3_loop(Sched, 200) end]),
+    ?line [ok] = mcall(Node, [fun () -> sst4_loop(300) end]),
+    ?line [ok] = mcall(Node, [fun () -> sst5_loop(300) end]),
+    ?line [ok, ok, ok, ok,
+	   ok, ok, ok] = mcall(Node,
+			       [fun () -> sst0_loop(200) end,
+				fun () -> sst1_loop(200) end,
+				fun () -> sst2_loop(200) end,
+				fun () -> sst2_loop(200) end,
+				fun () -> sst3_loop(Sched, 200) end,
+				fun () -> sst4_loop(200) end,
+				fun () -> sst5_loop(200) end]),
     ?line [SState] = mcall(Node, [fun () ->
 					  case Sched == SchedOnln of
 					      false ->
@@ -1319,6 +1437,20 @@ sst3_loop_with_dirty_schedulers(S, DS, N) ->
     erlang:system_flag(schedulers_online, S),
     erlang:system_flag(dirty_cpu_schedulers_online, DS),
     sst3_loop_with_dirty_schedulers(S, DS, N-1).
+
+sst4_loop(0) ->
+    ok;
+sst4_loop(N) ->
+    erlang:system_flag(multi_scheduling, block_normal),
+    erlang:system_flag(multi_scheduling, unblock_normal),
+    sst4_loop(N-1).
+
+sst5_loop(0) ->
+    ok;
+sst5_loop(N) ->
+    erlang:system_flag(multi_scheduling, block_normal),
+    erlang:system_flag(multi_scheduling, unblock_normal),
+    sst5_loop(N-1).
 
 reader_groups(Config) when is_list(Config) ->
     %% White box testing. These results are correct, but other results
@@ -1597,6 +1729,34 @@ reader_groups_map(CPUT, Groups) ->
 %%
 %% Utils
 %%
+
+sched_state() ->
+    sched_state(erlang:system_info(all_schedulers_state),
+		undefined,
+		{dirty_cpu,0,0,0},
+		{dirty_io,0,0,0}).
+
+	    
+sched_state([], N, DC, DI) ->
+    try
+	chk_basic(N),
+	chk_basic(DC),
+	chk_basic(DI),
+	{N, DC, DI}
+    catch
+	_ : _ ->
+	    ?t:fail({inconsisten_scheduler_state, {N, DC, DI}})
+    end;
+sched_state([{normal, _, _, _} = S | Rest], _S, DC, DI) ->
+    sched_state(Rest, S, DC, DI);
+sched_state([{dirty_cpu, _, _, _} = DC | Rest], S, _DC, DI) ->
+    sched_state(Rest, S, DC, DI);
+sched_state([{dirty_io, _, _, _} = DI | Rest], S, DC, _DI) ->
+    sched_state(Rest, S, DC, DI).
+
+chk_basic({_Type, Tot, Onln, Act}) ->
+    true = Tot >= Onln,
+    true = Onln >= Act.
 
 l(Id) ->
     {logical, Id}.

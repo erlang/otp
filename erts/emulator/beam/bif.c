@@ -4197,21 +4197,32 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
     Sint n;
 
     if (BIF_ARG_1 == am_multi_scheduling) {
-	if (BIF_ARG_2 == am_block || BIF_ARG_2 == am_unblock) {
+	if (BIF_ARG_2 == am_block || BIF_ARG_2 == am_unblock
+	    || BIF_ARG_2 == am_block_normal || BIF_ARG_2 == am_unblock_normal) {
 #ifndef ERTS_SMP
 	    BIF_RET(am_disabled);
 #else
+	    int block = (BIF_ARG_2 == am_block
+			 || BIF_ARG_2 == am_block_normal);
+	    int normal = (BIF_ARG_2 == am_block_normal
+			  || BIF_ARG_2 == am_unblock_normal);
 	    if (erts_no_schedulers == 1)
 		BIF_RET(am_disabled);
 	    else {
 		switch (erts_block_multi_scheduling(BIF_P,
 						    ERTS_PROC_LOCK_MAIN,
-						    BIF_ARG_2 == am_block,
+						    block,
+						    normal,
 						    0)) {
 		case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
 		    BIF_RET(am_blocked);
+		case ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED:
+		    BIF_RET(am_blocked_normal);
 		case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
 		    ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked,
+					    am_multi_scheduling);
+		case ERTS_SCHDLR_SSPND_YIELD_DONE_NMSCHED_BLOCKED:
+		    ERTS_BIF_YIELD_RETURN_X(BIF_P, am_blocked_normal,
 					    am_multi_scheduling);
 		case ERTS_SCHDLR_SSPND_DONE:
 		    BIF_RET(am_enabled);
@@ -4245,11 +4256,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	switch (erts_set_schedulers_online(BIF_P,
 					   ERTS_PROC_LOCK_MAIN,
 					   signed_val(BIF_ARG_2),
-					   &old_no
-#ifdef ERTS_DIRTY_SCHEDULERS
-					   , 0
-#endif
-					   )) {
+					   &old_no, 0)) {
 	case ERTS_SCHDLR_SSPND_DONE:
 	    BIF_RET(make_small(old_no));
 	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
@@ -4619,29 +4626,27 @@ BIF_RETTYPE erts_internal_cmp_term_2(BIF_ALIST_2) {
 /*
  * Processes doing yield on return in a bif ends up in bif_return_trap().
  */
-static BIF_RETTYPE bif_return_trap(
-#ifdef DEBUG
-    BIF_ALIST_2
-#else
-    BIF_ALIST_1
-#endif
-    )
+static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
 {
-#ifdef DEBUG
+    Eterm res = BIF_ARG_1;
+
     switch (BIF_ARG_2) {
-    case am_multi_scheduling:
 #ifdef ERTS_SMP
-	erts_dbg_multi_scheduling_return_trap(BIF_P, BIF_ARG_1);
-#endif
-	break;
-    case am_schedulers_online:
-	break;
-    default:
+    case am_multi_scheduling: {
+	int msb = erts_is_multi_scheduling_blocked();
+	if (msb > 0)
+	    res = am_blocked;
+	else if (msb < 0)
+	    res = am_blocked_normal;
+	else
+	    ERTS_INTERNAL_ERROR("Unexpected multi scheduling block state");
 	break;
     }
 #endif
-
-    BIF_RET(BIF_ARG_1);
+    default:
+	break;
+    }
+    BIF_RET(res);
 }
 
 /*
@@ -4746,17 +4751,12 @@ void erts_init_bif(void)
     erts_smp_atomic_init_nob(&erts_dead_ports_ptr, (erts_aint_t) NULL);
 
     /*
-     * bif_return_trap/1 is a hidden BIF that bifs that need to
-     * yield the calling process traps to. The only thing it does:
-     * return the value passed as argument.
+     * bif_return_trap/2 is a hidden BIF that bifs that need to
+     * yield the calling process traps to.
      */
-    erts_init_trap_export(&bif_return_trap_export, am_erlang, am_bif_return_trap,
-#ifdef DEBUG
-		     2
-#else
-		     1
-#endif
-		     , &bif_return_trap);
+    erts_init_trap_export(&bif_return_trap_export,
+			  am_erlang, am_bif_return_trap, 2,
+			  &bif_return_trap);
 
     erts_await_result = erts_export_put(am_erts_internal,
 					am_await_result,

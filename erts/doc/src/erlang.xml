@@ -6469,32 +6469,44 @@ ok
         <p><marker id="system_flag_multi_scheduling"></marker>
           If multi-scheduling is enabled, more than one scheduler
           thread is used by the emulator. Multi-scheduling can be
-          blocked. When multi-scheduling is blocked, only
-          one scheduler thread schedules Erlang processes.</p>
+          blocked in two different ways. Either all schedulers but
+	  one is blocked, or all <em>normal</em> schedulers but
+	  one is blocked. When only normal schedulers are blocked
+	  dirty schedulers are free to continue to schedule
+	  processes.</p>
         <p>If <c><anno>BlockState</anno> =:= block</c>, multi-scheduling is
-          blocked. If <c><anno>BlockState</anno> =:= unblock</c> and no one
+          blocked. That is, one and only one scheduler thread will
+	  execute. If <c><anno>BlockState</anno> =:= unblock</c> and no one
           else blocks multi-scheduling, and this process has
           blocked only once, multi-scheduling is unblocked.</p>
-        <p>One process can block multi-scheduling multiple times.
-          If a process has blocked multiple times, it must
-          unblock exactly as many times as it has blocked before it
-          has released its multi-scheduling block. If a process that
-          has blocked multi-scheduling exits, it releases its
-          blocking of multi-scheduling.</p>
+        <p>If <c><anno>BlockState</anno> =:= block_normal</c>, normal
+	  multi-scheduling is blocked. That is, only one normal scheduler
+	  thread will execute, but multiple dirty schedulers may execute.
+	  If <c><anno>BlockState</anno> =:= unblock_normal</c> and no one
+          else blocks normal multi-scheduling, and this process has
+          blocked only once, normal multi-scheduling is unblocked.</p>
+        <p>One process can block multi-scheduling as well as normal
+	  multi-scheduling multiple times. If a process has blocked
+	  multiple times, it must unblock exactly as many times as it
+	  has blocked before it has released its multi-scheduling
+	  block. If a process that has blocked multi-scheduling or normal
+	  multi scheduling exits, it automatically releases its blocking
+	  of multi-scheduling and normal multi-scheduling.</p>
         <p>The return values are <c>disabled</c>, <c>blocked</c>,
-          or <c>enabled</c>. The returned value describes the
-          state just after the call to
+          <c>blocked_normal</c>, or <c>enabled</c>. The returned value
+	  describes the state just after the call to
           <c>erlang:system_flag(multi_scheduling, <anno>BlockState</anno>)</c>
           has been made. For information about the return values, see
           <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>.</p>
-        <note><p>Blocking of multi-scheduling is normally not needed.
-          If you feel that you need to block multi-scheduling,
-          consider it a few more times again. Blocking multi-scheduling
-          is only to be used as a last resort, as it is most likely
-          a <em>very inefficient</em> way to solve the problem.</p>
+        <note><p>Blocking of multi-scheduling and normal multi-scheduling
+	  is normally not needed. If you feel that you need to use these
+	  features, consider it a few more times again. Blocking
+	  multi-scheduling is only to be used as a last resort, as it is
+	  most likely a <em>very inefficient</em> way to solve the problem.</p>
         </note>
         <p>See also
           <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>,
+          <seealso marker="#system_info_normal_multi_scheduling_blockers">erlang:system_info(normal_multi_scheduling_blockers)</seealso>,
           <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>, and
           <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
       </desc>
@@ -7329,6 +7341,16 @@ ok
               where <c><anno>MinHeapSize</anno></c> is the current
               system-wide minimum heap size for spawned processes.</p>
           </item>
+          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
+          <item>
+            <p>Returns the default value of the <c>message_queue_data</c>
+	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
+	    This default is set by the <c>erl</c> command line argument
+	    <seealso marker="erl#+xmqd"><c>+xmqd</c></seealso>. For more information on the
+	    <c>message_queue_data</c> process flag, see documentation of
+            <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	    MQD)</c></seealso>.</p>
+          </item>
 	  <tag><c>min_bin_vheap_size</c></tag>
           <item>
 	      <p>Returns <c>{min_bin_vheap_size,
@@ -7348,7 +7370,8 @@ ok
           <tag><c>multi_scheduling</c></tag>
           <item>
           <marker id="system_info_multi_scheduling"></marker>
-            <p>Returns <c>disabled</c>, <c>blocked</c>, or <c>enabled</c>:</p>
+            <p>Returns <c>disabled</c>, <c>blocked</c>, <c>blocked_normal</c>,
+	    or <c>enabled</c>:</p>
             <taglist>
               <tag><c>disabled</c></tag>
               <item>
@@ -7359,14 +7382,22 @@ ok
               <tag><c>blocked</c></tag>
               <item>
                 <p>The emulator has more than one scheduler thread,
-                  but all scheduler threads except one are blocked,
-                  that is, only one scheduler thread schedules
+                  but all scheduler threads except one are blocked.
+                  That is, only one scheduler thread schedules
                   Erlang processes and executes Erlang code.</p>
+              </item>
+              <tag><c>blocked_normal</c></tag>
+              <item>
+                <p>The emulator has more than one scheduler thread,
+                  but all normal scheduler threads except one are
+		  blocked. Note that dirty schedulers are not
+		  blocked, and may schedule Erlang processes and
+		  execute native code.</p>
               </item>
               <tag><c>enabled</c></tag>
               <item>
                 <p>The emulator has more than one scheduler thread,
-                  and no scheduler threads are blocked, that is,
+                  and no scheduler threads are blocked. That is,
                   all available scheduler threads schedule
                   Erlang processes and execute Erlang code.</p>
               </item>
@@ -7374,6 +7405,7 @@ ok
             <p>See also
               <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
               <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>,
+              <seealso marker="#system_info_normal_multi_scheduling_blockers">erlang:system_info(normal_multi_scheduling_blockers)</seealso>,
               and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
@@ -7390,6 +7422,8 @@ ok
             <p>See also
               <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>,
+	      <seealso marker="#system_info_normal_multi_scheduling_blockers">erlang:system_info(normal_multi_scheduling_blockers)</seealso>,
+
               and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
@@ -7399,15 +7433,23 @@ ok
               used by the runtime system. It is on the form
 	      "&lt;major ver&gt;.&lt;minor ver&gt;".</p>
           </item>
-          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
+          <tag><c>normal_multi_scheduling_blockers</c></tag>
           <item>
-            <p>Returns the default value of the <c>message_queue_data</c>
-	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
-	    This default is set by the <c>erl</c> command line argument
-	    <seealso marker="erl#+xmqd"><c>+xmqd</c></seealso>. For more information on the
-	    <c>message_queue_data</c> process flag, see documentation of
-            <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
-	    MQD)</c></seealso>.</p>
+          <marker id="system_info_normal_multi_scheduling_blockers"></marker>
+            <p>Returns a list of <c><anno>Pid</anno></c>s when
+              normal multi-scheduling is blocked (i.e. all normal schedulers
+	      but one is blocked), otherwise the empty list is returned.
+	      The <c><anno>Pid</anno></c>s in the list represent all the
+	      processes currently blocking normal multi-scheduling.
+	      A <c><anno>Pid</anno></c> occurs only once in the list, even if
+	      the corresponding process has blocked multiple times.</p>
+            <p>See also
+              <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
+              <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>,
+	      <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>,
+
+              and
+              <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
           <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>
@@ -7650,6 +7692,7 @@ ok
 	      <seealso marker="#system_info_scheduler_id">erlang:system_info(scheduler_id)</seealso>,
               <seealso marker="#system_flag_multi_scheduling">erlang:system_flag(multi_scheduling, BlockState)</seealso>,
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>,
+	      <seealso marker="#system_info_normal_multi_scheduling_blockers">erlang:system_info(normal_multi_scheduling_blockers)</seealso>
               and
               <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>.</p>
           </item>
