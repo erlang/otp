@@ -1457,6 +1457,9 @@ do { \
     ASSERT(ethr_ ## A ## _read ## B(&A) == 0x33333333); \
 } while (0)
 
+ethr_atomic32_t atomic32;
+ethr_atomic_t atomic;
+ethr_dw_atomic_t dw_atomic;
 
 static void
 atomic_basic_test(void)
@@ -1465,8 +1468,6 @@ atomic_basic_test(void)
      * Verify that each op does what it is expected
      * to do for at least one input.
      */
-    ethr_atomic32_t atomic32;
-    ethr_atomic_t atomic;
 
     print_line("AT_AINT32_MAX=%d",AT_AINT32_MAX);
     print_line("AT_AINT32_MIN=%d",AT_AINT32_MIN);
@@ -1629,7 +1630,6 @@ atomic_basic_test(void)
 
     /* Double word */
     {
-	ethr_dw_atomic_t dw_atomic;
 	ethr_dw_sint_t dw0, dw1;
 	dw0.sint[0] = 4711;
 	dw0.sint[1] = 4712;
