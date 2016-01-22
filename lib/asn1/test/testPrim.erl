@@ -78,8 +78,37 @@ int(Rules) ->
     roundtrip('ASeq', {'ASeq',false,250,true,200,true,199,true,77788}),
     roundtrip('ASeq', {'ASeq',true,0,false,0,true,0,true,68789}),
 
+    %%==========================================================
+    %% Longitude ::= INTEGER {
+    %%  oneMicrodegreeEast(10),
+    %%  oneMicrodegreeWest(-10),
+    %%  unavailable(1800000001)
+    %% } (-1799999999..1800000001)
+    %%==========================================================
+
+    Enc10 = encoding(Rules, oneMicrodegreeEast),
+    Enc10 = roundtrip('Longitude', oneMicrodegreeEast),
+    Enc10 = roundtrip('Longitude', 10, oneMicrodegreeEast),
+
+    Enc20 = encoding(Rules, oneMicrodegreeWest),
+    Enc20 = roundtrip('Longitude', oneMicrodegreeWest),
+    Enc20 = roundtrip('Longitude', -10, oneMicrodegreeWest),
+
+    Enc30 = roundtrip('Longitude', unavailable),
+    Enc30 = roundtrip('Longitude', 1800000001, unavailable),
+
     ok.
 
+encoding(Rules, Type) ->
+    asn1_test_lib:hex_to_bin(encoding_1(Rules, Type)).
+
+encoding_1(ber, oneMicrodegreeEast) -> "02010A";
+encoding_1(per, oneMicrodegreeEast) -> "C06B49D2 09";
+encoding_1(uper, oneMicrodegreeEast) -> "6B49D209";
+
+encoding_1(ber, oneMicrodegreeWest) -> "0201F6";
+encoding_1(per, oneMicrodegreeWest) -> "C06B49D1 F5";
+encoding_1(uper, oneMicrodegreeWest) -> "6B49D1F5".
 
 enum(Rules) ->
 

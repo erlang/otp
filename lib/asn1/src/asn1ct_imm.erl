@@ -1120,37 +1120,40 @@ per_enc_constrained(Val0, Lb, Ub, false) ->
 per_enc_constrained(Val0, Lb, Ub, true) ->
     {Prefix,Val} = sub_lb(Val0, Lb),
     Range = Ub - Lb + 1,
+    Check = {ult,Val,Range},
     if
 	Range < 256 ->
 	    NumBits = per_num_bits(Range),
-	    Check = {ult,Val,Range},
 	    Put = [{put_bits,Val,NumBits,[1]}],
 	    {Prefix,Check,Put};
 	Range =:= 256 ->
 	    NumBits = 8,
-	    Check = {ult,Val,Range},
 	    Put = [{put_bits,Val,NumBits,[1,align]}],
 	    {Prefix,Check,Put};
 	Range =< 65536 ->
-	    Check = {ult,Val,Range},
 	    Put = [{put_bits,Val,16,[1,align]}],
 	    {Prefix,Check,Put};
 	true ->
-	    {var,VarBase} = Val,
-	    Bin = {var,VarBase++"@bin"},
-	    BinSize0 = {var,VarBase++"@bin_size0"},
-	    BinSize = {var,VarBase++"@bin_size"},
-	    Check = {ult,Val,Range},
 	    RangeOctsLen = byte_size(binary:encode_unsigned(Range - 1)),
 	    BitsNeeded = per_num_bits(RangeOctsLen),
-	    Enc = [{call,binary,encode_unsigned,[Val],Bin},
-		   {call,erlang,byte_size,[Bin],BinSize0},
-		   {sub,BinSize0,1,BinSize},
-		   {'cond',[['_',
-			     {put_bits,BinSize,BitsNeeded,[1]},
-			     {put_bits,Bin,binary,[8,align]}]]}],
-	    {Prefix,Check,Enc}
+	    {Prefix,Check,per_enc_constrained_huge(BitsNeeded, Val)}
     end.
+
+per_enc_constrained_huge(BitsNeeded, {var,VarBase}=Val) ->
+    Bin = {var,VarBase++"@bin"},
+    BinSize0 = {var,VarBase++"@bin_size0"},
+    BinSize = {var,VarBase++"@bin_size"},
+    [{call,binary,encode_unsigned,[Val],Bin},
+     {call,erlang,byte_size,[Bin],BinSize0},
+     {sub,BinSize0,1,BinSize},
+     {'cond',[['_',
+	       {put_bits,BinSize,BitsNeeded,[1]},
+	       {put_bits,Bin,binary,[8,align]}]]}];
+per_enc_constrained_huge(BitsNeeded, Val) when is_integer(Val) ->
+    Bin = binary:encode_unsigned(Val),
+    BinSize = erlang:byte_size(Bin),
+    [{put_bits,BinSize-1,BitsNeeded,[1]},
+     {put_bits,Val,8*BinSize,[1,align]}].
 
 per_enc_unconstrained(Val, Aligned) ->
     case Aligned of
