@@ -47,6 +47,7 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 #include "erl_map.h"
 #include "erl_bif_unique.h"
 #include "erl_hl_timer.h"
@@ -717,7 +718,19 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
             DTRACE3(driver_start, process_str, driver->name, port_str);
         }
 #endif
+
 	ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(driver_start)) {
+            lttng_decl_portbuf(port_str);
+            lttng_decl_procbuf(proc_str);
+            lttng_pid_to_str(pid, proc_str);
+            lttng_port_to_str(port, port_str);
+            LTTNG3(driver_start, proc_str, driver->name, port_str);
+        }
+#endif
+
 	fpe_was_unmasked = erts_block_fpe();
 	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
 	if (((SWord) drv_data) == -1)
@@ -1724,6 +1737,15 @@ call_driver_outputv(int bang_op,
 	    DTRACE4(driver_outputv, process_str, port_str, prt->name, size);
 	}
 #endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(driver_outputv)) {
+            lttng_decl_portbuf(port_str);
+            lttng_decl_procbuf(proc_str);
+            lttng_pid_to_str(caller, proc_str);
+            lttng_port_to_str(prt, port_str);
+            LTTNG4(driver_outputv, proc_str, port_str, prt->name, size);
+        }
+#endif
 
 	prt->caller = caller;
 	(*drv->outputv)((ErlDrvData) prt->drv_data, evp);
@@ -1825,6 +1847,15 @@ call_driver_output(int bang_op,
 	    DTRACE_FORMAT_COMMON_PID_AND_PORT(caller, prt);
 	    DTRACE4(driver_output, process_str, port_str, prt->name, size);
 	}
+#endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(driver_output)) {
+            lttng_decl_portbuf(port_str);
+            lttng_decl_procbuf(proc_str);
+            lttng_pid_to_str(caller, proc_str);
+            lttng_port_to_str(prt, port_str);
+            LTTNG4(driver_output, proc_str, port_str, prt->name, size);
+        }
 #endif
 
 	prt->caller = caller;
@@ -1949,7 +1980,6 @@ erts_port_output(Process *c_p,
 	DTRACE4(port_command, process_str, port_str, prt->name, "command");
     }
 #endif
-
     if (drv->outputv) {
 	ErlIOVec ev;
 	SysIOVec iv[SMALL_WRITE_VEC];
@@ -3489,6 +3519,17 @@ static void flush_port(Port *p)
             DTRACE3(driver_flush, process_str, port_str, p->name);
         }
 #endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(driver_flush)) {
+            lttng_decl_portbuf(port_str);
+            lttng_decl_procbuf(proc_str);
+            lttng_pid_to_str(ERTS_PORT_GET_CONNECTED(p), proc_str);
+            lttng_port_to_str(p, port_str);
+            LTTNG3(driver_flush, proc_str, port_str, p->name);
+        }
+#endif
+
+
         if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_in, am_flush);
 	}
@@ -3551,6 +3592,16 @@ terminate_port(Port *prt)
             DTRACE3(driver_stop, process_str, drv->name, port_str);
         }
 #endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+        if (LTTNG_ENABLED(driver_stop)) {
+            lttng_decl_portbuf(port_str);
+            lttng_decl_procbuf(proc_str);
+            lttng_pid_to_str(connected_id, proc_str);
+            lttng_port_to_str(prt, port_str);
+            LTTNG3(driver_stop, proc_str, drv->name, port_str);
+        }
+#endif
+
 	(*drv->stop)((ErlDrvData)prt->drv_data);
 	erts_unblock_fpe(fpe_was_unmasked);
 	ERTS_MSACC_POP_STATE_M();
@@ -3880,6 +3931,16 @@ call_driver_control(Eterm caller,
 #endif
     
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+    if (LTTNG_ENABLED(driver_control)) {
+        lttng_decl_procbuf(proc_str);
+        lttng_decl_portbuf(port_str);
+        lttng_pid_to_str(caller, proc_str);
+        lttng_port_to_str(prt, port_str);
+        LTTNG5(driver_control, proc_str, port_str, prt->name, command, size);
+    }
+#endif
 
     prt->caller = caller;
     cres = prt->drv_ptr->control((ErlDrvData) prt->drv_data,
@@ -4292,6 +4353,15 @@ call_driver_call(Eterm caller,
         dtrace_pid_str(caller, process_str);
         dtrace_port_str(prt, port_str);
         DTRACE5(driver_call, process_str, port_str, prt->name, command, size);
+    }
+#endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+    if (LTTNG_ENABLED(driver_call)) {
+        lttng_decl_procbuf(proc_str);
+        lttng_decl_portbuf(port_str);
+        lttng_pid_to_str(caller,proc_str);
+        lttng_port_to_str(prt, port_str);
+        LTTNG5(driver_call, proc_str, port_str, prt->name, command, size);
     }
 #endif
 
@@ -5054,6 +5124,15 @@ int async_ready(Port *p, void* data)
             if (DTRACE_ENABLED(driver_ready_async)) {
                 DTRACE_FORMAT_COMMON_PID_AND_PORT(ERTS_PORT_GET_CONNECTED(p), p)
                 DTRACE3(driver_ready_async, process_str, port_str, p->name);
+            }
+#endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS 
+            if (LTTNG_ENABLED(driver_ready_async)) {
+                lttng_decl_portbuf(port_str);
+                lttng_decl_procbuf(proc_str);
+                lttng_pid_to_str(ERTS_PORT_GET_CONNECTED(p), proc_str);
+                lttng_port_to_str(p, port_str);
+                LTTNG3(driver_ready_async, proc_str, port_str, p->name);
             }
 #endif
 	    (*p->drv_ptr->ready_async)((ErlDrvData)p->drv_data, data);
@@ -7102,6 +7181,15 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
         DTRACE3(driver_process_exit, process_str, port_str, prt->name);
     }
 #endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+    if (LTTNG_ENABLED(driver_process_exit)) {
+        lttng_decl_portbuf(port_str);
+        lttng_decl_procbuf(proc_str);
+        lttng_pid_to_str(ERTS_PORT_GET_CONNECTED(prt), proc_str);
+        lttng_port_to_str(prt, port_str);
+        LTTNG3(driver_process_exit, proc_str, port_str, prt->name);
+    }
+#endif
     fpe_was_unmasked = erts_block_fpe();
     (*callback)((ErlDrvData) (prt->drv_data), &drv_monitor);
     erts_unblock_fpe(fpe_was_unmasked);
@@ -7578,6 +7666,8 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
 	int res;
 	int fpe_was_unmasked = erts_block_fpe();
         DTRACE4(driver_init, drv->name, drv->version.major, drv->version.minor,
+                drv->flags);
+        LTTNG4(driver_init, drv->name, drv->version.major, drv->version.minor,
                 drv->flags);
 	res = (*de->init)();
 	erts_unblock_fpe(fpe_was_unmasked);

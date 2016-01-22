@@ -35,6 +35,7 @@
 #include "dist.h"
 #include "erl_check_io.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 #include <stdarg.h>
 
 /*
@@ -68,6 +69,18 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
     }
 #else
 #define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
+#endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+#define LTTNG_DRIVER(TRACEPOINT, PP)                              \
+    if (LTTNG_ENABLED(TRACEPOINT)) {                              \
+        lttng_decl_portbuf(port_str);                             \
+        lttng_decl_procbuf(proc_str);                             \
+        lttng_pid_to_str(ERTS_PORT_GET_CONNECTED(PP), proc_str);  \
+        lttng_port_to_str((PP), port_str);                        \
+        LTTNG3(TRACEPOINT, proc_str, port_str, (PP)->name);       \
+    }
+#else
+#define LTTNG_DRIVER(TRACEPOINT, PP) do {} while(0)
 #endif
 
 #define ERTS_SMP_LC_VERIFY_RQ(RQ, PP)					\
@@ -1728,6 +1741,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		reds = ERTS_PORT_REDS_TIMEOUT;
 		if (!(state & ERTS_PORT_SFLGS_DEAD)) {
 		    DTRACE_DRIVER(driver_timeout, pp);
+		    LTTNG_DRIVER(driver_timeout, pp);
 		    (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
 		}
 	    }
@@ -1736,6 +1750,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_INPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_input, pp);
+            LTTNG_DRIVER(driver_ready_input, pp);
 	    /* NOTE some windows drivers use ->ready_input
 	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
@@ -1747,6 +1762,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_OUTPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_output, pp);
+            LTTNG_DRIVER(driver_ready_output, pp);
 	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
 					 ptp->u.alive.td.io.event);
 	    reset_executed_io_task_handle(ptp);
@@ -1756,6 +1772,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_EVENT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_event, pp);
+            LTTNG_DRIVER(driver_event, pp);
 	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
 				  ptp->u.alive.td.io.event,
 				  ptp->u.alive.td.io.event_data);

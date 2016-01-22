@@ -59,6 +59,255 @@ typedef struct {
 #endif
 
 
+/* Port and Driver Scheduling */
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_start,
+    TP_ARGS(
+        char*, pid,
+        char*, driver,
+        char*, port
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(driver, driver)
+        ctf_string(port, port)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_init,
+    TP_ARGS(
+        char*, driver,
+        int, major,
+        int, minor,
+        int, flags
+    ),
+    TP_FIELDS(
+        ctf_string(driver, driver)
+        ctf_integer(int, major, major)
+        ctf_integer(int, minor, minor)
+        ctf_integer(int, flags, flags)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_outputv,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver,
+        size_t, bytes
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+        ctf_integer(size_t, bytes, bytes)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_output,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver,
+        size_t, bytes
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+        ctf_integer(size_t, bytes, bytes)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_ready_input,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_ready_output,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_event,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_timeout,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_stop_select,
+    TP_ARGS(
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_flush,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_stop,
+    TP_ARGS(
+        char*, pid,
+        char*, driver,
+        char*, port
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(driver, driver)
+        ctf_string(port, port)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_process_exit,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_ready_async,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_finish,
+    TP_ARGS(
+        char*, driver
+    ),
+    TP_FIELDS(
+        ctf_string(driver, driver)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_call,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver,
+        unsigned int, command,
+        size_t, bytes
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+        ctf_integer(unsigned int, command, command)
+        ctf_integer(size_t, bytes, bytes)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_otp,
+    driver_control,
+    TP_ARGS(
+        char*, pid,
+        char*, port,
+        char*, driver,
+        unsigned int, command,
+        size_t, bytes
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(port, port)
+        ctf_string(driver, driver)
+        ctf_integer(unsigned int, command, command)
+        ctf_integer(size_t, bytes, bytes)
+    )
+)
+
+
 /* Memory Allocator */
 
 TRACEPOINT_EVENT(

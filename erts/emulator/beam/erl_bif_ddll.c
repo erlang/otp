@@ -48,6 +48,7 @@
 #include "erl_version.h"
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 
 #ifdef ERTS_SMP
 #define DDLL_SMP 1
@@ -1619,6 +1620,7 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	    if (q->finish) {
 		int fpe_was_unmasked = erts_block_fpe();
 		DTRACE1(driver_finish, q->name);
+                LTTNG1(driver_finish, q->name);
 		(*(q->finish))();
 		erts_unblock_fpe(fpe_was_unmasked);
 	    }
