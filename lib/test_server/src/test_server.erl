@@ -734,11 +734,13 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 			    catch
 				_:Why ->
 				    timer:sleep(1),
+				    WhyStr = test_server_ctrl:escape_chars(
+					       io_lib:format("~tp", [Why])),
 				    group_leader() ! {printout,12,
 						      "WARNING! "
 						      "~w:end_per_testcase(~w, ~p)"
-						      " crashed!\n\tReason: ~p\n",
-						      [Mod,Func,Conf,Why]}
+						      " crashed!\n\tReason: ~ts\n",
+						      [Mod,Func,Conf,WhyStr]}
 			    end,
 			    Supervisor ! {self(),end_conf}
 		    end,
@@ -747,10 +749,12 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 		    {Pid,end_conf} ->
 			Starter ! {self(),{call_end_conf,Data,ok}};
 		    {'EXIT',Pid,Reason} ->
+			ReasonStr = test_server_ctrl:escape_chars(
+				      io_lib:format("~tp", [Reason])),
 			group_leader() ! {printout,12,
 					  "WARNING! ~w:end_per_testcase(~w, ~p)"
-					  " failed!\n\tReason: ~p\n",
-					  [Mod,Func,Conf,Reason]},
+					  " failed!\n\tReason: ~ts\n",
+					  [Mod,Func,Conf,ReasonStr]},
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
 		    {'EXIT',_OtherPid,Reason} ->
 			%% Probably the parent - not much to do about that
@@ -1199,9 +1203,11 @@ do_init_per_testcase(Mod, Args) ->
 		[] ->
 		    {ok,NewConf};
 		Bad ->
-		    group_leader() ! {printout,12,
-				      "ERROR! init_per_testcase has returned "
-				      "bad elements in Config: ~p\n",[Bad]},
+		    ErrorStr =
+			test_server_ctrl:escape_chars(
+			  io_lib:format("ERROR! init_per_testcase has returned "
+					"bad elements in Config: ~p\n",[Bad])),
+		    group_leader() ! {printout,12,ErrorStr,[]},
 		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 	    end;
 	{fail,_Reason}=Res ->
@@ -1220,10 +1226,13 @@ do_init_per_testcase(Mod, Args) ->
 	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
 	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase thrown!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc, Other]},
+	    ReasonStr =
+		test_server_ctrl:escape_chars(io_lib:format("~tp", [Other])),
+	    ErrorStr =
+		io_lib:format("ERROR! init_per_testcase thrown!\n"
+			      "\tLocation: ~ts\n\tReason: ~ts\n",
+			      [FormattedLoc,ReasonStr]),
+	    group_leader() ! {printout,12,ErrorStr,[]},
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
 	_:Reason0 ->
 	    Stk = erlang:get_stacktrace(),
@@ -1231,10 +1240,13 @@ do_init_per_testcase(Mod, Args) ->
 	    set_loc(Stk),
 	    Line = get_loc(),
 	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase crashed!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc,Reason]},
+	    ReasonStr =
+		test_server_ctrl:escape_chars(io_lib:format("~tp", [Reason])),
+	    ErrorStr =
+		io_lib:format("ERROR! init_per_testcase crashed!\n"
+			      "\tLocation: ~ts\n\tReason: ~ts\n",
+			      [FormattedLoc,ReasonStr]),
+	    group_leader() ! {printout,12,ErrorStr,[]},
 	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
     end.
 
@@ -1272,11 +1284,13 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
+	    ReasonStr =
+		test_server_ctrl:escape_chars(io_lib:format("~tp", [Other])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w thrown!\n"
-			      "Reason: ~p\n"
+			      "Reason: ~ts\n"
 			      "Line: ~ts\n",
-			      [EndFunc, Other,
+			      [EndFunc, ReasonStr,
 			       test_server_sup:format_loc(get_loc())]},
 	    {failed,{Mod,end_per_testcase,Other}};
 	  Class:Reason ->
@@ -1294,11 +1308,13 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w crashed!"
 				  "</font>\n",[Comment0,EndFunc])),
+	    ReasonStr =
+		test_server_ctrl:escape_chars(io_lib:format("~tp", [Reason])),
 	    group_leader() ! {printout,12,
 			      "WARNING: ~w crashed!\n"
-			      "Reason: ~p\n"
+			      "Reason: ~ts\n"
 			      "Line: ~ts\n",
-			      [EndFunc, Reason,
+			      [EndFunc, ReasonStr,
 			       test_server_sup:format_loc(get_loc())]},
 	    {failed,{Mod,end_per_testcase,Why}}
     end.

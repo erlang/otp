@@ -193,7 +193,15 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 			#st{capture=CapturePid} ->
 			    CapturePid ! {captured,Data}
 		    end,
-		    output(minor, Data, From, From, St)
+
+
+		    %%! PROBLEM HERE! 
+		    %%! Data could come html tagged from CT!!
+
+		    %EscapedChars = test_server_ctrl:escape_chars(Data),
+		    EscapedChars = Data,
+
+		    output(minor, EscapedChars, From, From, St)
 	    end,
 	    From ! {io_reply,ReplyAs,ok}
     catch

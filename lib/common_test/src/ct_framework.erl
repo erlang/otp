@@ -831,13 +831,13 @@ tag(_Other) ->
 %%% <code>Func</code> in suite <code>Mod</code> crashing. 
 %%% <code>Error</code> specifies the reason for failing.
 error_notification(Mod,Func,_Args,{Error,Loc}) ->
-    ErrSpec = case Error of
+    ErrorSpec = case Error of
 		 {What={_E,_R},Trace} when is_list(Trace) ->
 		      What;
 		  What ->
 		      What
 	      end,
-    ErrStr = case ErrSpec of
+    ErrorStr = case ErrorSpec of
 		 {badmatch,Descr} ->
 		     Descr1 = lists:flatten(io_lib:format("~P",[Descr,10])),
 		     if length(Descr1) > 50 ->
@@ -859,7 +859,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		 Other ->
 		     io_lib:format("~P", [Other,5])
 	     end,
-    ErrorHtml = "<font color=\"brown\">" ++ ErrStr ++ "</font>",
+    ErrorHtml =
+	"<font color=\"brown\">" ++ ct_logs:escape_chars(ErrorStr) ++ "</font>",
     case {Mod,Error} of
 	%% some notifications come from the main test_server process
 	%% and for these cases the existing comment may not be modified
@@ -887,41 +888,43 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	    end
     end,
 
-    PrintErr = fun(ErrFormat, ErrArgs) ->
+    PrintError = fun(ErrorFormat, ErrorArgs) ->
 		       Div = "~n- - - - - - - - - - - - - - - - - - - "
 			     "- - - - - - - - - - - - - - - - - - - - -~n",
-		       io:format(user, lists:concat([Div,ErrFormat,Div,"~n"]),
-				 ErrArgs),
+		       ErrorStr2 = io_lib:format(ErrorFormat, ErrorArgs),
+		       io:format(user, lists:concat([Div,ErrorStr2,Div,"~n"]),
+				 []),
 		       Link =
 			   "\n\n<a href=\"#end\">"
 			   "Full error description and stacktrace"
 			   "</a>",
+		       ErrorHtml2 = ct_logs:escape_chars(ErrorStr2),
 		       ct_logs:tc_log(ct_error_notify,
 				      ?MAX_IMPORTANCE,
 				      "CT Error Notification",
-				      ErrFormat++Link, ErrArgs)
+				      ErrorHtml2++Link, [], [])
 	       end,
     case Loc of
 	[{?MODULE,error_in_suite}] ->
-	    PrintErr("Error in suite detected: ~ts", [ErrStr]);
+	    PrintError("Error in suite detected: ~ts", [ErrorStr]);
 
 	R when R == unknown; R == undefined ->
-	    PrintErr("Error detected: ~ts", [ErrStr]);
+	    PrintError("Error detected: ~ts", [ErrorStr]);
 
 	%% if a function specified by all/0 does not exist, we
 	%% pick up undef here
-	[{LastMod,LastFunc}|_] when ErrStr == "undef" ->
-	    PrintErr("~w:~w could not be executed~nReason: ~ts",
-		     [LastMod,LastFunc,ErrStr]);
+	[{LastMod,LastFunc}|_] when ErrorStr == "undef" ->
+	    PrintError("~w:~w could not be executed~nReason: ~ts",
+		     [LastMod,LastFunc,ErrorStr]);
 
 	[{LastMod,LastFunc}|_] ->
-	    PrintErr("~w:~w failed~nReason: ~ts", [LastMod,LastFunc,ErrStr]);
+	    PrintError("~w:~w failed~nReason: ~ts", [LastMod,LastFunc,ErrorStr]);
 	    
 	[{LastMod,LastFunc,LastLine}|_] ->
 	    %% print error to console, we are only
 	    %% interested in the last executed expression
-	    PrintErr("~w:~w failed on line ~w~nReason: ~ts",
-		     [LastMod,LastFunc,LastLine,ErrStr]),
+	    PrintError("~w:~w failed on line ~w~nReason: ~ts",
+		     [LastMod,LastFunc,LastLine,ErrorStr]),
 	    
 	    case ct_util:read_suite_data({seq,Mod,Func}) of
 		undefined ->
