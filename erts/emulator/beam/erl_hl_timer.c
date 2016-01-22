@@ -1055,6 +1055,8 @@ create_hl_timer(ErtsSchedulerData *esdp,
     erts_aint32_t refc;
     Uint32 roflgs;
 
+    ERTS_HLT_HDBG_CHK_SRV(srv);
+
     check_canceled_queue(esdp, srv);
 
     ERTS_HLT_ASSERT((esdp->no & ~ERTS_TMR_ROFLG_SID_MASK) == 0);
@@ -1178,8 +1180,6 @@ create_hl_timer(ErtsSchedulerData *esdp,
     tmr->head.roflgs = roflgs;
     erts_smp_atomic32_init_nob(&tmr->head.refc, refc);
     erts_smp_atomic32_init_nob(&tmr->state, ERTS_TMR_STATE_ACTIVE);
-
-    ERTS_HLT_HDBG_CHK_SRV(srv);
 
     if (!srv->next_timeout
 	|| tmr->timeout < srv->next_timeout->timeout) {
@@ -3099,7 +3099,8 @@ tt_hdbg_func(ErtsHLTimer *tmr, void *vhdbg)
 				& ~ERTS_HLT_PFLGS_MASK);
 	ERTS_HLT_ASSERT(tmr == prnt);
     }
-    ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, tmr->btm.refn) == tmr);
+    if (tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR)
+	ERTS_HLT_ASSERT(btm_rbt_lookup(hdbg->srv->btm_tree, tmr->btm.refn) == tmr);
     if (tmr->time.tree.same_time) {
 	ErtsHdbgHLT st_hdbg;
 	st_hdbg.srv = hdbg->srv;
