@@ -1445,7 +1445,7 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
 
     Exe = "openssl",
     Args = ["s_server", "-msg", "-alpn", "http/1.1,spdy/2", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-	    "-cert", CertFile, "-key" ++ KeyFile],
+	    "-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
     ssl_test_lib:wait_for_openssl_server(Port),
 
@@ -1480,7 +1480,7 @@ start_erlang_server_and_openssl_client_for_alpn_negotiation(Config, Data, Callba
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
 
     Exe = "openssl",
-    Args = ["s_client", "-alpn", "http/1.0,spdy/2" "-msg" "-port", 
+    Args = ["s_client", "-alpn", "http/1.0,spdy/2", "-msg", "-port", 
 	    integer_to_list(Port), ssl_test_lib:version_flag(Version),
 	    "-host", "localhost"],
 
@@ -1512,7 +1512,7 @@ start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Ca
     Exe = "openssl",
     Args = ["s_server", "-msg", "-alpn", "http/1.1,spdy/2", "-nextprotoneg", 
 	    "spdy/3", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-	    "-cert" ++ CertFile  ++ "-key" ++ KeyFile],
+	    "-cert", CertFile, "-key",  KeyFile],
 
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
 
