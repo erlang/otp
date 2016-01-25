@@ -1291,7 +1291,15 @@ init(Parent, Server) ->
     open_file_loop(#head{parent = Parent, server = Server}).
 
 open_file_loop(Head) ->
-    open_file_loop(Head, 0).
+    %% The Dets server pretends the file is open before
+    %% internal_open() has been called, which means that unless the
+    %% internal_open message is applied first, other processes can
+    %% find the pid by calling dets_server:get_pid() and do things
+    %% before Head has been initialized properly.
+    receive
+        ?DETS_CALL(From, {internal_open, _Ref, _Args}=Op) ->
+            do_apply_op(Op, From, Head, 0)
+    end.
 
 open_file_loop(Head, N) when element(1, Head#head.update_mode) =:= error ->
     open_file_loop2(Head, N);
