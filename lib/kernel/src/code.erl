@@ -77,10 +77,9 @@
 %%----------------------------------------------------------------------------
 
 -type load_error_rsn() :: 'badfile'
-                        | 'native_code'
                         | 'nofile'
                         | 'not_purged'
-                        | 'on_load'
+                        | 'on_load_failure'
                         | 'sticky_directory'.
 -type load_ret() :: {'error', What :: load_error_rsn()}
                   | {'module', Module :: module()}.
@@ -135,7 +134,7 @@ load_file(Mod) when is_atom(Mod) ->
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
       Module :: module(),
-      What :: embedded | badfile | native_code | nofile | on_load.
+      What :: embedded | badfile | nofile | on_load_failure.
 ensure_loaded(Mod) when is_atom(Mod) -> 
     call({ensure_loaded,Mod}).
 

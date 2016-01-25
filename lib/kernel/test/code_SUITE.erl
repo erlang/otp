@@ -1600,6 +1600,17 @@ on_load_errors(Config) when is_list(Config) ->
 	    ok
     end,
 
+    %% Make sure that the code loading functions return the correct
+    %% error code.
+    Simple = simple_on_load_error,
+    SimpleList = atom_to_list(Simple),
+    {error,on_load_failure} = code:load_file(Simple),
+    {error,on_load_failure} = code:ensure_loaded(Simple),
+    {ok,SimpleCode} = file:read_file("simple_on_load_error.beam"),
+    {error,on_load_failure} = code:load_binary(Simple, "", SimpleCode),
+    {error,on_load_failure} = code:load_abs(SimpleList),
+    {error,on_load_failure} = code:load_abs(SimpleList, Simple),
+
     ok.
 
 do_on_load_error(ReturnValue) ->
