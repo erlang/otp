@@ -246,13 +246,8 @@ handle_call({dir,Dir}, {_From,_Tag}, S) ->
     Resp = do_dir(Root,Dir,S#state.namedb),
     {reply,Resp,S};
 
-handle_call({load_file,Mod}, Caller, St) ->
-    case modp(Mod) of
-	false ->
-	    {reply,{error,badarg},St};
-	true ->
-	    load_file(Mod, Caller, St)
-    end;
+handle_call({load_file,Mod}, Caller, St) when is_atom(Mod) ->
+    load_file(Mod, Caller, St);
 
 handle_call({add_path,Where,Dir0}, {_From,_Tag},
 	    #state{namedb=Namedb,path=Path0}=S) ->
@@ -291,7 +286,7 @@ handle_call({load_abs,File,Mod}, Caller, S) ->
 	    load_abs(File, Mod, Caller, S)
     end;
 
-handle_call({load_binary,Mod,File,Bin}, Caller, S) ->
+handle_call({load_binary,Mod,File,Bin}, Caller, S) when is_atom(Mod) ->
     do_load_binary(Mod, File, Bin, Caller, S);
 
 handle_call({load_native_partial,Mod,Bin}, {_From,_Tag}, S) ->
@@ -307,59 +302,44 @@ handle_call({load_native_sticky,Mod,Bin,WholeModule}, {_From,_Tag}, S) ->
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
-handle_call({ensure_loaded,Mod0}, Caller, St0) ->
-    Fun = fun (M, St) ->
-		  case erlang:module_loaded(M) of
-		      true ->
-			  {reply,{module,M},St};
-		      false when St#state.mode =:= interactive ->
-			  load_file(M, Caller, St);
-		      false -> 
-			  {reply,{error,embedded},St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, {error,badarg}, St0);
+handle_call({ensure_loaded,Mod}, Caller, St) when is_atom(Mod) ->
+    case erlang:module_loaded(Mod) of
+	true ->
+	    {reply,{module,Mod},St};
+	false when St#state.mode =:= interactive ->
+	    load_file(Mod, Caller, St);
+	false ->
+	    {reply,{error,embedded},St}
+    end;
 
-handle_call({delete,Mod0}, {_From,_Tag}, S) ->
-    Fun = fun (M, St) ->
-		  case catch erlang:delete_module(M) of
-		      true ->
-			  ets:delete(St#state.moddb, M),
-			  {reply,true,St};
-		      _ -> 
-			  {reply,false,St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, false, S);
+handle_call({delete,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    case catch erlang:delete_module(Mod) of
+	true ->
+	    ets:delete(St#state.moddb, Mod),
+	    {reply,true,St};
+	_ ->
+	    {reply,false,St}
+    end;
 
-handle_call({purge,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,do_purge(M),St}
-		end, Mod0, false, St0);
+handle_call({purge,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,do_purge(Mod),St};
 
-handle_call({soft_purge,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,do_soft_purge(M),St}
-		end, Mod0, true, St0);
+handle_call({soft_purge,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,do_soft_purge(Mod),St};
 
-handle_call({is_loaded,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,is_loaded(M, St#state.moddb),St}
-		end, Mod0, false, St0);
+handle_call({is_loaded,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,is_loaded(Mod, St#state.moddb),St};
 
 handle_call(all_loaded, {_From,_Tag}, S) ->
     Db = S#state.moddb,
     {reply,all_loaded(Db),S};
 
-handle_call({get_object_code,Mod0}, {_From,_Tag}, St0) ->
-    Fun = fun(M, St) ->
-		  Path = St#state.path,
-		  case mod_to_bin(Path, atom_to_list(M)) of
-		      {_,Bin,FName} -> {reply,{M,Bin,FName},St};
-		      Error -> {reply,Error,St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, error, St0);
+handle_call({get_object_code,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    Path = St#state.path,
+    case mod_to_bin(Path, Mod) of
+	{_,Bin,FName} -> {reply,{Mod,Bin,FName},St};
+	Error -> {reply,Error,St}
+    end;
 
 handle_call({is_sticky, Mod}, {_From,_Tag}, S) ->
     Db = S#state.moddb,
@@ -382,17 +362,6 @@ handle_call(get_mode, {_From,_Tag}, S=#state{mode=Mode}) ->
 handle_call(Other,{_From,_Tag}, S) ->			
     error_msg(" ** Codeserver*** ignoring ~w~n ",[Other]),
     {noreply,S}.
-
-do_mod_call(Action, Module, _Error, St) when is_atom(Module) ->
-    Action(Module, St);
-do_mod_call(Action, Module, Error, St) ->
-    try list_to_atom(Module) of
-	Atom when is_atom(Atom) ->
-	    Action(Atom, St)
-    catch
-	error:badarg ->
-	    {reply,Error,St}
-    end.
 
 %% --------------------------------------------------------------
 %% Path handling functions.
@@ -1091,9 +1060,9 @@ add_paths(_,_,Path,_) ->
     {ok,Path}.
 
 do_load_binary(Module, File, Binary, Caller, St) ->
-    case modp(Module) andalso modp(File) andalso is_binary(Binary) of
+    case modp(File) andalso is_binary(Binary) of
 	true ->
-	    case erlang:module_loaded(to_atom(Module)) of
+	    case erlang:module_loaded(Module) of
 		true -> do_purge(Module);
 		false -> ok
 	    end,
@@ -1123,10 +1092,9 @@ load_abs(File, Mod0, Caller, St) ->
     end.
 
 try_load_module(File, Mod, Bin, {From,_}=Caller, St0) ->
-    M = to_atom(Mod),
-    case pending_on_load(M, From, St0) of
+    case pending_on_load(Mod, From, St0) of
 	no ->
-	    try_load_module_1(File, M, Bin, Caller, St0);
+	    try_load_module_1(File, Mod, Bin, Caller, St0);
 	{yes,St} ->
 	    {noreply,St}
     end.
@@ -1145,9 +1113,10 @@ try_load_module_2(File, Mod, Bin, Caller, undefined, St) ->
     try_load_module_3(File, Mod, Bin, Caller, undefined, St);
 try_load_module_2(File, Mod, Bin, Caller, Architecture,
                   #state{moddb=Db}=St) ->
-    case catch load_native_code(Mod, Bin, Architecture) of
+    case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-            ets:insert(Db, {Mod,File}),
+	    put(?ANY_NATIVE_CODE_LOADED, true),
+	    ets:insert(Db, {Mod,File}),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, Caller, Architecture, St);
@@ -1168,26 +1137,6 @@ try_load_module_3(File, Mod, Bin, Caller, Architecture,
         {error,What} = Error ->
             error_msg("Loading of ~ts failed: ~p\n", [File, What]),
             {reply,Error,St}
-    end.
-
-load_native_code(Mod, Bin, Architecture) ->
-    %% During bootstrapping of Open Source Erlang, we don't have any hipe
-    %% loader modules, but the Erlang emulator might be hipe enabled.
-    %% Therefore we must test for that the loader modules are available
-    %% before trying to to load native code.
-    case erlang:module_loaded(hipe_unified_loader) of
-	false ->
-	    no_native;
-	true ->
-	    Result = hipe_unified_loader:load_native_code(Mod, Bin,
-                                                          Architecture),
-	    case Result of
-		{module,_} ->
-		    put(?ANY_NATIVE_CODE_LOADED, true);
-		_ ->
-		    ok
-	    end,
-	    Result
     end.
 
 hipe_result_to_status(Result) ->
@@ -1212,8 +1161,7 @@ int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
 int_list([])                       -> true.
 
-load_file(Mod0, {From,_}=Caller, St0) ->
-    Mod = to_atom(Mod0),
+load_file(Mod, {From,_}=Caller, St0) ->
     case pending_on_load(Mod, From, St0) of
 	no -> load_file_1(Mod, Caller, St0);
 	{yes,St} -> {noreply,St}
@@ -1224,11 +1172,11 @@ load_file_1(Mod, Caller, #state{path=Path}=St) ->
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
-	    try_load_module(File, Mod, Binary, Caller, St)
+	    try_load_module_1(File, Mod, Binary, Caller, St)
     end.
 
 mod_to_bin([Dir|Tail], Mod) ->
-    File = filename:append(Dir, to_list(Mod) ++ objfile_extension()),
+    File = filename:append(Dir, atom_to_list(Mod) ++ objfile_extension()),
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    mod_to_bin(Tail, Mod);
@@ -1288,13 +1236,11 @@ is_loaded(M, Db) ->
 	[] -> false
     end.
 
-do_purge(Mod0) ->
-    Mod = to_atom(Mod0),
+do_purge(Mod) ->
     {_WasOld, DidKill} = erts_code_purger:purge(Mod),
     DidKill.
 
-do_soft_purge(Mod0) ->
-    Mod = to_atom(Mod0),
+do_soft_purge(Mod) ->
     erts_code_purger:soft_purge(Mod).
 
 
@@ -1412,6 +1358,3 @@ archive_extension() ->
 
 to_list(X) when is_list(X) -> X;
 to_list(X) when is_atom(X) -> atom_to_list(X).
-
-to_atom(X) when is_atom(X) -> X;
-to_atom(X) when is_list(X) -> list_to_atom(X).
