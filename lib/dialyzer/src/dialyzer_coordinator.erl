@@ -29,8 +29,8 @@
 %%% Export for dialyzer main process
 -export([parallel_job/4]).
 
-%%% Exports for all possible workers
--export([wait_activation/0, job_done/3]).
+%%% Export for all possible workers
+-export([job_done/3]).
 
 %%% Exports for the typesig and dataflow analysis workers
 -export([sccs_to_pids/2, request_activation/1]).
@@ -46,7 +46,7 @@
 -type regulator()  :: pid().
 -type scc_to_pid() :: ets:tid() | 'unused'.
 
--type coordinator() :: {collector(), regulator(), scc_to_pid()}. %%opaque
+-opaque coordinator() :: {collector(), regulator(), scc_to_pid()}.
 -type timing() :: dialyzer_timing:timing_server().
 
 -type scc()     :: [mfa_or_funlbl()].
@@ -74,8 +74,9 @@
 		  dataflow_result() | warnings_result().
 
 -type job() :: scc() | module() | file:filename().
--type job_result() :: dialyzer_analysis_callgraph:one_file_result() |
-		      typesig_result() | dataflow_result() | warnings_result().
+-type job_result() :: dialyzer_analysis_callgraph:one_file_mid_error() |
+                      dialyzer_analysis_callgraph:one_file_result_ok() |
+                      typesig_result() | dataflow_result() | warnings_result().
 
 -record(state, {mode           :: mode(),
 		active     = 0 :: integer(),
@@ -118,7 +119,7 @@ spawn_jobs(Mode, Jobs, InitData, Timing) ->
 	Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
 	case TypesigOrDataflow of
 	  true  -> true = ets:insert(SCCtoPID, {Job, Pid}), ok;
-	  false -> request_activation(Regulator, Pid)
+	  false -> ok
 	end,
 	Count + 1
     end,
@@ -216,10 +217,6 @@ activate_pid(Pid) ->
 request_activation({_Collector, Regulator, _SCCtoPID}) ->
   Regulator ! {req, self()},
   wait_activation().
-
-request_activation(Regulator, Pid) ->
-  Regulator ! {req, Pid},
-  ok.
 
 spawn_regulator() ->
   InitTickets = dialyzer_utils:parallelism(),
