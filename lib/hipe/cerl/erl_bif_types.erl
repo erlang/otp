@@ -139,7 +139,7 @@ type(M, F, A) ->
 type(M, F, A, Xs) ->
   type(M, F, A, Xs, 'universe').
 
--type opaques() :: 'universe' | [erl_types:erl_type()].
+-type opaques() :: erl_types:opaques().
 
 -type arg_types() :: [erl_types:erl_type()].
 

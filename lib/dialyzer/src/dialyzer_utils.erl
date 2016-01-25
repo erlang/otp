@@ -297,35 +297,33 @@ get_record_fields([], _RecDict, Acc) ->
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
-  TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
-          fun(Key, Value) ->
-              case Key of
-                {record, Name} ->
-                  FieldFun =
-                    fun(Arity, Fields) ->
-                        Site = {record, {Module, Name, Arity}},
-                        [{FieldName, Field,
-                          erl_types:t_from_form(Field,
-                                                TempExpTypes,
-                                                Site,
-                                                TempRecords1)}
-                         || {FieldName, Field, _} <- Fields]
-                    end,
-                  {FileLine, Fields} = Value,
-                  {FileLine, orddict:map(FieldFun, Fields)};
-                _Other -> Value
-              end
+          fun
+            ({record, Name} = _Key, Value) ->
+              FieldFun =
+                fun(Arity, Fields) ->
+                    Site = {record, {Module, Name, Arity}},
+                    [{FieldName, Field,
+                      erl_types:t_from_form(Field,
+                                            ExpTypes,
+                                            Site,
+                                            TempRecords1)}
+                     || {FieldName, Field, _} <- Fields]
+                end,
+              {FileLine, Fields} = Value,
+              {FileLine, orddict:map(FieldFun, Fields)};
+            (_Other, Value) ->
+              Value
           end,
 	dict:map(RecordFun, Record)
     end,
   NewRecords = dict:map(ModuleFun, TempRecords1),
-  ok = check_record_fields(NewRecords, TempExpTypes),
-  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+  ok = check_record_fields(NewRecords, ExpTypes),
+  dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
@@ -339,16 +337,15 @@ process_opaque_types(TempRecords, TempExpTypes) ->
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
-          fun(Key, Value) ->
-              case Key of
-                {opaque, Name, NArgs} ->
-                  {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
-                  Site = {type, {Module, Name, NArgs}},
-                  Type = erl_types:t_from_form(Form, TempExpTypes, Site,
-                                               TempRecords),
-                  {F, Type};
-                _Other -> Value
-              end
+          fun
+            ({opaque, Name, NArgs} = _Key, Value) ->
+              {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
+              Site = {type, {Module, Name, NArgs}},
+              Type = erl_types:t_from_form(Form, TempExpTypes, Site,
+                                           TempRecords),
+              {F, Type};
+            (_Other, Value) ->
+              Value
           end,
 	dict:map(RecordFun, Record)
     end,
@@ -362,25 +359,23 @@ check_record_fields(Records, TempExpTypes) ->
                                                       Site, Records)
                   end,
         ElemFun =
-          fun({Key, Value}) ->
-              case Key of
-                {record, Name} ->
-                  FieldFun =
-                    fun({Arity, Fields}) ->
-                        Site = {record, {Module, Name, Arity}},
-                        _ = [ok = CheckForm(Field, Site) ||
-                              {_, Field, _} <- Fields],
-                        ok
-                    end,
-                  {FileLine, Fields} = Value,
-                  Fun = fun() -> lists:foreach(FieldFun, Fields) end,
-                  msg_with_position(Fun, FileLine);
-                {_OpaqueOrType, Name, NArgs} ->
-                  Site = {type, {Module, Name, NArgs}},
-                  {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
-                  Fun = fun() -> ok = CheckForm(Form, Site) end,
-                  msg_with_position(Fun, FileLine)
-              end
+          fun
+            ({{record, Name} = _Key, Value}) ->
+              FieldFun =
+                fun({Arity, Fields}) ->
+                    Site = {record, {Module, Name, Arity}},
+                    _ = [ok = CheckForm(Field, Site) ||
+                          {_, Field, _} <- Fields],
+                    ok
+                end,
+              {FileLine, Fields} = Value,
+              Fun = fun() -> lists:foreach(FieldFun, Fields) end,
+              msg_with_position(Fun, FileLine);
+            ({{_OpaqueOrType, Name, NArgs} = _Key, Value}) ->
+              Site = {type, {Module, Name, NArgs}},
+              {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
+              Fun = fun() -> ok = CheckForm(Form, Site) end,
+              msg_with_position(Fun, FileLine)
           end,
         lists:foreach(ElemFun, dict:to_list(Element))
     end,
