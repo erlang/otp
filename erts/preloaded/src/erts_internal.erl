@@ -49,7 +49,7 @@
 
 -export([is_system_process/1]).
 
-%% Auto import name clash
+%% Auto-import name clash
 -export([check_process_code/2]).
 
 %%
@@ -196,7 +196,7 @@ port_info(_Result, _Item) ->
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
       Request :: {'garbage_collect', term()}
-	       | {'check_process_code', term(), module(), boolean()},
+	       | {'check_process_code', term(), module(), non_neg_integer()},
       Pid :: pid().
 
 request_system_task(_Pid, _Prio, _Request) ->
