@@ -142,7 +142,9 @@ ensure_loaded(Mod) when is_atom(Mod) ->
 %% XXX File as an atom is allowed only for backwards compatibility.
 -spec load_abs(Filename) -> load_ret() when
       Filename :: file:filename().
-load_abs(File) when is_list(File); is_atom(File) -> call({load_abs,File,[]}).
+load_abs(File) when is_list(File); is_atom(File) ->
+    Mod = list_to_atom(filename:basename(File)),
+    call({load_abs,File,Mod}).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_abs(Filename :: loaded_filename(), Module :: module()) -> load_ret().
