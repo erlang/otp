@@ -729,5 +729,9 @@ annos_type([E=#xmlElement{name = typevar}]) ->
     annos_elem(E);
 annos_type([#xmlElement{name = paren, content = Es}]) ->
     annos(get_elem(type, Es));
+annos_type([#xmlElement{name = map, content = Es}]) ->
+    lists:flatmap(fun(E) -> annos_type([E]) end, Es);
+annos_type([#xmlElement{name = map_field, content = Es}]) ->
+    lists:flatmap(fun annos_elem/1, get_elem(type,Es));
 annos_type(_) ->
     [].
