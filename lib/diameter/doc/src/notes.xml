@@ -42,6 +42,27 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.9.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make peer handling more efficient.</p>
+          <p>
+	    Inefficient lookup and manipulation of peer lists could
+	    result in poor performance when many outgoing requests
+	    were sent simultaneously, or when many peers connected
+	    simultaneously. Filtering peer lists on realm/host is now
+	    also more efficient in many cases.</p>
+          <p>
+	    Own Id: OTP-13164</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.9.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
