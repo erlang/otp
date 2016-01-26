@@ -53,7 +53,8 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1]).
+         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1,
+         otp_13260/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -111,7 +112,7 @@ all() ->
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
 	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709,
-        otp_13229
+        otp_13229, otp_13260
     ].
 
 groups() -> 
@@ -3999,6 +4000,54 @@ otp_13229(_Config) ->
     catch
         error:badarg ->
             ok
+    end.
+
+otp_13260(doc) ->
+    ["OTP-13260. Race when opening a table."];
+otp_13260(Config) ->
+    [ok] = lists:usort([otp_13260_1(Config) || _ <- lists:seq(1, 3)]),
+    ok.
+
+otp_13260_1(Config) ->
+    Tab = otp_13260,
+    File = filename(Tab, Config),
+    N = 20,
+    P = self(),
+    Pids = [spawn_link(fun() -> counter(P, Tab, File) end) ||
+               _ <- lists:seq(1, N)],
+    Rs = rec(Pids),
+    true = lists:all(fun(R) -> is_integer(R) end, Rs),
+    wait_for_close(Tab).
+
+rec([]) ->
+    [];
+rec([Pid | Pids]) ->
+    receive {Pid, R} ->
+            [R | rec(Pids)]
+    end.
+
+%% One may have to run the test several times to trigger the bug.
+counter(P, Tab, File) ->
+    Key = key,
+    N = case catch dets:update_counter(Tab, Key, 1) of
+            {'EXIT', _} ->
+                {ok, Tab} = dets:open_file(Tab, [{file, File}]),
+                ok = dets:insert(Tab, {Key, 1}),
+                dets:update_counter(Tab, Key, 1);
+            N1 when is_integer(N1) ->
+                N1;
+            DetsBug ->
+                DetsBug
+        end,
+    P ! {self(), N}.
+
+wait_for_close(Tab) ->
+    case dets:info(Tab, owner) of
+        undefined ->
+            ok;
+        _ ->
+            timer:sleep(100),
+            wait_for_close(Tab)
     end.
 
 %%
