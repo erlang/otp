@@ -258,6 +258,7 @@ atom functions
 atom function_clause
 atom garbage_collecting
 atom garbage_collection
+atom garbage_collection_info
 atom gc_end
 atom gc_start
 atom Ge='>='

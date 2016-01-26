@@ -132,6 +132,11 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
+#define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
+#define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
+    (ERTS_PROCESS_GC_INFO_MAX_TERMS * (2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE))
+Eterm erts_process_gc_info(struct process*, Uint *, Eterm **);
+
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
 int erts_garbage_collect_nobump(struct process*, int, Eterm*, int);

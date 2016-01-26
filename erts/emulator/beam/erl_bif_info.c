@@ -592,7 +592,8 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-    am_message_queue_data
+    am_message_queue_data,
+    am_garbage_collection_info
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -641,6 +642,7 @@ pi_arg2ix(Eterm arg)
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
     case am_message_queue_data:			return 31;
+    case am_garbage_collection_info:		return 32;
     default:					return -1;
     }
 }
@@ -1396,6 +1398,32 @@ process_info_aux(Process *BIF_P,
 	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 	break;
+    }
+
+    case am_garbage_collection_info: {
+        Uint sz = 0, actual_sz = 0;
+
+        if (rp == BIF_P) {
+            sz += ERTS_PROCESS_GC_INFO_MAX_SIZE;
+        } else {
+            erts_process_gc_info(rp, &sz, NULL);
+            sz += 3;
+        }
+
+        hp = HAlloc(BIF_P, sz);
+        res = erts_process_gc_info(rp, &actual_sz, &hp);
+
+        /* We may have some extra space, fill with 0 tuples */
+        if (actual_sz <= sz - 3) {
+            for (; actual_sz < sz - 3; hp++, actual_sz++)
+                hp[0] = make_arityval(0);
+        } else {
+            for (; actual_sz < sz; hp++, actual_sz++)
+                hp[0] = make_arityval(0);
+            hp = HAlloc(BIF_P, 3);
+        }
+
+        break;
     }
 
     case am_group_leader: {

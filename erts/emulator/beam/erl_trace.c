@@ -2140,11 +2140,6 @@ void save_calls(Process *p, Export *e)
 void
 trace_gc(Process *p, Eterm what)
 {
-    ERTS_DECL_AM(bin_vheap_size);
-    ERTS_DECL_AM(bin_vheap_block_size);
-    ERTS_DECL_AM(bin_old_vheap_size);
-    ERTS_DECL_AM(bin_old_vheap_block_size);
-
     ErlHeapFragment *bp = NULL;
     ErlOffHeap *off_heap;
     ERTS_TRACER_REF_TYPE tracer_ref = ERTS_NULL_TRACER_REF;	/* Initialized
@@ -2155,43 +2150,13 @@ trace_gc(Process *p, Eterm what)
     Eterm msg = NIL;
     Uint size;
 
-    Eterm tags[] = {
-	am_old_heap_block_size,
-	am_heap_block_size,
-	am_mbuf_size,
-	am_recent_size,
-	am_stack_size,
-	am_old_heap_size,
-	am_heap_size,
-	AM_bin_vheap_size,
-	AM_bin_vheap_block_size,
-	AM_bin_old_vheap_size,
-	AM_bin_old_vheap_block_size
-    };
-
-    UWord values[] = {
-	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
-	HEAP_SIZE(p),
-	MBUF_SIZE(p),
-	HIGH_WATER(p) - HEAP_START(p),
-	STACK_START(p) - p->stop,
-	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
-	HEAP_TOP(p) - HEAP_START(p),
-	MSO(p).overhead,
-	BIN_VHEAP_SZ(p),
-	BIN_OLD_VHEAP(p),
-	BIN_OLD_VHEAP_SZ(p)
-    };
 #define LOCAL_HEAP_SIZE						\
-    (sizeof(values)/sizeof(*values)) *				\
-	(2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE) +	\
+    (ERTS_PROCESS_GC_INFO_MAX_SIZE) +                           \
 	5/*4-tuple */ + TS_HEAP_WORDS
     DeclareTmpHeap(local_heap,LOCAL_HEAP_SIZE,p);
 #ifdef DEBUG
     Eterm* limit;
 #endif
-
-    ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(Eterm));
 
     UseTmpHeap(LOCAL_HEAP_SIZE,p);
 
@@ -2199,11 +2164,8 @@ trace_gc(Process *p, Eterm what)
 	hp = local_heap;
 #ifdef DEBUG
 	size = 0;
-	(void) erts_bld_atom_uword_2tup_list(NULL,
-					    &size,
-					    sizeof(values)/sizeof(*values),
-					    tags,
-					    values);
+        (void) erts_process_gc_info(p, &size, NULL);
+
 	size += 5/*4-tuple*/ + TS_SIZE(p);
 #endif
     } else {
@@ -2214,11 +2176,8 @@ trace_gc(Process *p, Eterm what)
 			    ERTS_TRACE_FLAGS(p));
 
 	size = 0;
-	(void) erts_bld_atom_uword_2tup_list(NULL,
-					    &size,
-					    sizeof(values)/sizeof(*values),
-					    tags,
-					    values);
+        (void) erts_process_gc_info(p, &size, NULL);
+
 	size += 5/*4-tuple*/ + TS_SIZE(p);
 
 	hp = ERTS_ALLOC_SYSMSG_HEAP(size, &bp, &off_heap, tracer_ref);
@@ -2229,11 +2188,7 @@ trace_gc(Process *p, Eterm what)
     ASSERT(size <= LOCAL_HEAP_SIZE);
 #endif
 
-    msg = erts_bld_atom_uword_2tup_list(&hp,
-				       NULL,
-				       sizeof(values)/sizeof(*values),
-				       tags,
-				       values);
+    msg = erts_process_gc_info(p, NULL, &hp);
 
     msg = TUPLE4(hp, am_trace, p->common.id, what, msg);
     hp += 5;

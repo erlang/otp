@@ -2051,6 +2051,7 @@ process_flag(_Flag, _Value) ->
       dictionary |
       error_handler |
       garbage_collection |
+      garbage_collection_info |
       group_leader |
       heap_size |
       initial_call |
@@ -2091,6 +2092,7 @@ process_flag(_Flag, _Value) ->
       {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
       {error_handler, Module :: module()} |
       {garbage_collection, GCInfo :: [{atom(),non_neg_integer()}]} |
+      {garbage_collection_info, GCInfo :: [{atom(),non_neg_integer()}]} |
       {group_leader, GroupLeader :: pid()} |
       {heap_size, Size :: non_neg_integer()} |
       {initial_call, mfa()} |
