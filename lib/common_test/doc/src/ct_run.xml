@@ -33,7 +33,7 @@
     <file>ct_run.xml</file>
   </header>
   <com>ct_run</com>
-  <comsummary>Program used for starting <c>Common Test</c> from the
+  <comsummary>Program used for starting Common Test from the
     OS command line.</comsummary>
 
   <description>
