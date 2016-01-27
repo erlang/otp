@@ -467,7 +467,7 @@ Matches only those peers whose Origin-Host has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{realm, any|&dict_DiameterIdentity;</c></tag>
+<tag><c>{realm, any|&dict_DiameterIdentity;}</c></tag>
 <item>
 <p>
 Matches only those peers whose Origin-Realm has the
@@ -500,18 +500,22 @@ Matches only those peers matched by each filter in the specified list.</p>
 <item>
 <p>
 Matches only those peers matched by at least one filter in the
-specified list.</p>
-
-<p>
-The resulting peer list will be in match order, peers matching the
+specified list.
+The resulting list will be in match order, peers matching the
 first filter of the list sorting before those matched by the second,
-and so on.
-For example, the following filter causes peers matching both the host
-and realm filters to be presented before those matching only the realm
-filter.</p>
+and so on.</p>
+</item>
+
+<tag><c>{first, [&peer_filter;]}</c></tag>
+<item>
+<p>
+Like <c>any</c>, but stops at the first filter for which there are
+matches, which can be much more efficient when there are many peers.
+For example, the following filter causes only peers best matching
+both the host and realm filters to be presented.</p>
 
 <pre>
-{any, [{all, [host, realm]}, realm]}
+{first, [{all, [host, realm]}, realm]}
 </pre>
 </item>
 
