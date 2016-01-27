@@ -1033,6 +1033,9 @@ struct process {
     ErtsProcSysTaskQs *sys_task_qs;
 
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_smp_atomic32_t dirty_state; /* Process dirty state flags (see ERTS_PDSFLG_*) */
+#endif
 
 #ifdef ERTS_SMP
     ErlMessageInQueue msg_inq;
@@ -1150,15 +1153,14 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
 #define ERTS_PSFLG_PROXY		ERTS_PSFLG_BIT(16)
 #define ERTS_PSFLG_DELAYED_SYS		ERTS_PSFLG_BIT(17)
-#ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(18)
 #define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(19)
-#define ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q	ERTS_PSFLG_BIT(20)
-#define ERTS_PSFLG_DIRTY_IO_PROC_IN_Q	ERTS_PSFLG_BIT(21)
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 22)
-#else
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 18)
-#endif
+#define ERTS_PSFLG_DIRTY_ACTIVE_SYS	ERTS_PSFLG_BIT(20)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 20)
+
+#define ERTS_PSFLGS_DIRTY_WORK		(ERTS_PSFLG_DIRTY_CPU_PROC	\
+					 | ERTS_PSFLG_DIRTY_IO_PROC	\
+					 | ERTS_PSFLG_DIRTY_ACTIVE_SYS)
 
 #define ERTS_PSFLGS_IN_PRQ_MASK 	(ERTS_PSFLG_IN_PRQ_MAX		\
 					 | ERTS_PSFLG_IN_PRQ_HIGH	\
@@ -1170,7 +1172,37 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLGS_GET_USR_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 #define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
-    (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+    (((PSFLGS) >> ERTS_PSFLGS_PRQ_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+/*
+ * Flags in the dirty_state field.
+ */
+
+#define ERTS_PDSFLG_IN_CPU_PRQ_MAX 	(((erts_aint32_t) 1) << 0)
+#define ERTS_PDSFLG_IN_CPU_PRQ_HIGH	(((erts_aint32_t) 1) << 1)
+#define ERTS_PDSFLG_IN_CPU_PRQ_NORMAL	(((erts_aint32_t) 1) << 2)
+#define ERTS_PDSFLG_IN_CPU_PRQ_LOW 	(((erts_aint32_t) 1) << 3)
+#define ERTS_PDSFLG_IN_IO_PRQ_MAX 	(((erts_aint32_t) 1) << 4)
+#define ERTS_PDSFLG_IN_IO_PRQ_HIGH	(((erts_aint32_t) 1) << 5)
+#define ERTS_PDSFLG_IN_IO_PRQ_NORMAL	(((erts_aint32_t) 1) << 6)
+#define ERTS_PDSFLG_IN_IO_PRQ_LOW 	(((erts_aint32_t) 1) << 7)
+
+#define ERTS_PDSFLGS_QMASK 		ERTS_PSFLGS_QMASK
+#define ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
+#define ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET ERTS_PSFLGS_QMASK_BITS
+
+#define ERTS_PDSFLG_IN_CPU_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
+#define ERTS_PDSFLG_IN_IO_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
+#endif
+
 
 /*
  * Static flags that do not change after process creation.

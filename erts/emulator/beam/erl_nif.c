@@ -1772,12 +1772,10 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
     ep->fp = NULL;
+    erts_smp_atomic32_read_band_mb(&proc->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
+						   | ERTS_PSFLG_DIRTY_IO_PROC));
     result = (*fp)(env, argc, argv);
-    erts_smp_atomic32_read_band_mb(&proc->state,
-				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
-				     |ERTS_PSFLG_DIRTY_IO_PROC
-				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
-				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
+
     if (erts_refc_dectest(&env->mod_nif->rt_dtor_cnt, 0) == 0 && env->mod_nif->mod == NULL)
 	close_lib(env->mod_nif);
     /*
@@ -1825,13 +1823,6 @@ schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[
     a = erts_smp_atomic32_read_acqb(&proc->state);
     while (1) {
 	n = state = a;
-	/*
-	 * clear any current dirty flags and dirty queue indicators,
-	 * in case the application is shifting a job from one type
-	 * of dirty scheduler to the other
-	 */
-	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
-	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
 	if (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND)
 	    n |= ERTS_PSFLG_DIRTY_CPU_PROC;
 	else
