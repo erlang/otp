@@ -33,13 +33,15 @@
 
 -define(ANY_NATIVE_CODE_LOADED, any_native_code_loaded).
 
--record(state, {supervisor,
-		root,
-		path,
-		moddb,
-		namedb,
-		mode = interactive,
-		on_load = []}).
+-type on_load_item() :: {reference(),module(),file:name_all(),[pid()]}.
+
+-record(state, {supervisor :: pid(),
+		root :: file:name_all(),
+		path :: [file:name_all()],
+		moddb :: ets:tab(),
+		namedb :: ets:tab(),
+		mode = interactive :: 'interactive' | 'embedded',
+		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.
 
 start_link(Args) ->
@@ -80,7 +82,8 @@ init(Ref, Parent, [Root,Mode]) ->
 	end,
 
     Path = add_loader_path(IPath, Mode),
-    State = #state{root = Root,
+    State = #state{supervisor = Parent,
+		   root = Root,
 		   path = Path,
 		   moddb = Db,
 		   namedb = init_namedb(Path),
@@ -89,7 +92,7 @@ init(Ref, Parent, [Root,Mode]) ->
     put(?ANY_NATIVE_CODE_LOADED, false),
 
     Parent ! {Ref,{ok,self()}},
-    loop(State#state{supervisor = Parent}).
+    loop(State).
 
 get_user_lib_dirs() ->
     case os:getenv("ERL_LIBS") of
