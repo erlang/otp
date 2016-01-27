@@ -333,32 +333,50 @@ float_get_c_code(Dst1, Ms, Size, Flags, TrueLblName, FalseLblName) ->
 get_c_code(Func, Dst1, Ms, Size, Flags, TrueLblName, FalseLblName) ->  
   SizeReg = hipe_rtl:mk_new_reg_gcsafe(),
   FlagsReg = hipe_rtl:mk_new_reg_gcsafe(),
+  RetReg = hipe_rtl:mk_new_reg_gcsafe(),
   MatchBuf = hipe_rtl:mk_new_reg(),
   RetLabel = hipe_rtl:mk_new_label(),
+  OkLabel = hipe_rtl:mk_new_label(),
   NonVal = hipe_rtl:mk_imm(hipe_tagscheme:mk_non_value()),
   [hipe_rtl:mk_move(SizeReg, Size),
    hipe_rtl:mk_move(FlagsReg, hipe_rtl:mk_imm(Flags)),
    hipe_tagscheme:extract_matchbuffer(MatchBuf, Ms),
-   hipe_rtl_arch:call_bif([Dst1], Func, [SizeReg, FlagsReg, MatchBuf], 
+   hipe_rtl_arch:call_bif([RetReg], Func, [SizeReg, FlagsReg, MatchBuf],
 			  hipe_rtl:label_name(RetLabel), FalseLblName), 
    RetLabel,
-   hipe_rtl:mk_branch(Dst1, eq, NonVal, FalseLblName, TrueLblName, 0.01)].
+   hipe_rtl:mk_branch(RetReg, eq, NonVal, FalseLblName,
+		      hipe_rtl:label_name(OkLabel), 0.01),
+   OkLabel,
+   hipe_rtl:mk_move(Dst1, RetReg),
+   hipe_rtl:mk_goto(TrueLblName)].
 
 utf8_get_c_code(Dst, Ms, TrueLblName, FalseLblName) ->
+  RetReg = hipe_rtl:mk_new_reg_gcsafe(),
+  OkLabel = hipe_rtl:mk_new_label(),
   MatchBuf = hipe_rtl:mk_new_reg(),
   NonVal = hipe_rtl:mk_imm(hipe_tagscheme:mk_non_value()),
   [hipe_tagscheme:extract_matchbuffer(MatchBuf, Ms),
-   hipe_rtl_arch:call_bif([Dst], bs_get_utf8, [MatchBuf], [], []),
-   hipe_rtl:mk_branch(Dst, eq, NonVal, FalseLblName, TrueLblName, 0.01)].
+   hipe_rtl_arch:call_bif([RetReg], bs_get_utf8, [MatchBuf], [], []),
+   hipe_rtl:mk_branch(RetReg, eq, NonVal, FalseLblName,
+		      hipe_rtl:label_name(OkLabel), 0.01),
+   OkLabel,
+   hipe_rtl:mk_move(Dst, RetReg),
+   hipe_rtl:mk_goto(TrueLblName)].
 
 utf16_get_c_code(Flags, Dst, Ms, TrueLblName, FalseLblName) ->
+  RetReg = hipe_rtl:mk_new_reg_gcsafe(),
+  OkLabel = hipe_rtl:mk_new_label(),
   MatchBuf = hipe_rtl:mk_new_reg(),
   NonVal = hipe_rtl:mk_imm(hipe_tagscheme:mk_non_value()),
   FlagsReg = hipe_rtl:mk_new_reg_gcsafe(),
   [hipe_tagscheme:extract_matchbuffer(MatchBuf, Ms),
    hipe_rtl:mk_move(FlagsReg, hipe_rtl:mk_imm(Flags)),
-   hipe_rtl_arch:call_bif([Dst], bs_get_utf16, [MatchBuf, FlagsReg], [], []),
-   hipe_rtl:mk_branch(Dst, eq, NonVal, FalseLblName, TrueLblName, 0.01)].
+   hipe_rtl_arch:call_bif([RetReg], bs_get_utf16, [MatchBuf, FlagsReg], [], []),
+   hipe_rtl:mk_branch(RetReg, eq, NonVal, FalseLblName,
+		      hipe_rtl:label_name(OkLabel), 0.01),
+   OkLabel,
+   hipe_rtl:mk_move(Dst, RetReg),
+   hipe_rtl:mk_goto(TrueLblName)].
 
 validate_unicode_retract_c_code(Src, Ms, TrueLblName, FalseLblName) ->
   MatchBuf = hipe_rtl:mk_new_reg(),

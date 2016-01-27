@@ -10,8 +10,10 @@ MODULES= \
 
 # .erl files for these modules are automatically generated
 GEN_MODULES= \
+	basic_SUITE \
 	bs_SUITE \
-	maps_SUITE
+	maps_SUITE \
+	sanity_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
