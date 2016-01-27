@@ -647,6 +647,9 @@ obsolete_1(random, _, _) ->
 obsolete_1(code, rehash, 0) ->
     {deprecated, "deprecated because the code path cache feature has been removed"};
 
+obsolete_1(overload, _, _) ->
+    {deprecated, "deprecated; will be removed in OTP 19"};
+
 obsolete_1(_, _, _) ->
     no.
 

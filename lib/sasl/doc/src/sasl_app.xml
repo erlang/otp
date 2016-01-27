@@ -34,7 +34,7 @@
     <p>The <c>SASL</c> application provides the following services:</p>
     <list type="bulleted">
       <item><c>alarm_handler</c></item>
-      <item><c>overload</c></item>
+      <item><c>overload</c> (deprecated)</item>
       <item><c>rb</c></item>
       <item><c>release_handler</c></item>
       <item><c>systools</c></item>
@@ -145,11 +145,15 @@
         <p>Specifies the maximum intensity
           for <seealso marker="overload"><c>overload</c></seealso>. Default
           is <c>0.8</c>.</p>
+	<p>Note that the <c>overload</c> module is deprected and
+	  will be removed in a future release.</p>
       </item>
       <tag><c><![CDATA[overload_weight = float() > 0 ]]></c></tag>
       <item>
         <p>Specifies the <seealso marker="overload"><c>overload</c></seealso>
         weight. Default is <c>0.1</c>.</p>
+	<p>Note that the <c>overload</c> module is deprected and
+	  will be removed in a future release.</p>
       </item>
       <tag><c><![CDATA[start_prg = string() ]]></c></tag>
       <item>

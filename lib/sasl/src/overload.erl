@@ -19,6 +19,8 @@
 %%
 -module(overload). 
 
+-deprecated(module).
+
 -export([start_link/0, request/0, set_config_data/2,
 	 get_overload_info/0]).
 
