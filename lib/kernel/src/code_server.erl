@@ -23,8 +23,6 @@
 
 -export([start_link/1,
 	 call/1,
-	 system_continue/3, 
-	 system_terminate/4,
 	 system_code_change/4,
 	 error_msg/2, info_msg/2
 	]).
