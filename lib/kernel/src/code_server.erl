@@ -22,7 +22,7 @@
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,
-	 call/2,
+	 call/1,
 	 system_continue/3, 
 	 system_terminate/4,
 	 system_code_change/4,
@@ -133,8 +133,8 @@ split_paths([C|T], S, Path, Paths) ->
 split_paths([], _S, Path, Paths) ->
     lists:reverse(Paths, [lists:reverse(Path)]).
 
-call(Name, Req) ->
-    Name ! {code_call, self(), Req},
+call(Req) ->
+    ?MODULE ! {code_call, self(), Req},
     receive 
 	{?MODULE, Reply} ->
 	    Reply

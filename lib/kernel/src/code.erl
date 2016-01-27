@@ -305,7 +305,7 @@ get_mode() -> call(get_mode).
 %%-----------------------------------------------------------------
 
 call(Req) ->
-    code_server:call(code_server, Req).
+    code_server:call(Req).
 
 -spec start_link() -> {'ok', pid()} | {'error', 'crash'}.
 start_link() ->
