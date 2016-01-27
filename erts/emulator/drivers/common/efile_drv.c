@@ -1532,10 +1532,10 @@ static void invoke_writev(void *data) {
 		     * with errno.
 		     */
 		    errno = EINVAL; 
-		    if (! (status = 
-			   erts_gzwrite((ErtsGzFile)d->fd,
-					iov[i].iov_base,
-					iov[i].iov_len)) == iov[i].iov_len) {
+		    status = erts_gzwrite((ErtsGzFile)d->fd,
+					  iov[i].iov_base,
+					  iov[i].iov_len) == iov[i].iov_len;
+		    if (! status) {
 			d->errInfo.posix_errno =
 			    d->errInfo.os_errno = errno; /* XXX Correct? */
 			break;
