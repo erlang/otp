@@ -58,7 +58,7 @@ start_link(Args) ->
 %% Init the code_server process.
 %% -----------------------------------------------------------
 
-init(Ref, Parent, [Root,Mode0]) ->
+init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
@@ -68,12 +68,6 @@ init(Ref, Parent, [Root,Mode0]) ->
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
 	    end, erlang:pre_loaded()),
     ets:insert(Db, init:fetch_loaded()),
-
-    Mode = 
-	case Mode0 of
-	    minimal -> interactive;
-	    _       -> Mode0
-	end,
 
     IPath =
 	case Mode of
