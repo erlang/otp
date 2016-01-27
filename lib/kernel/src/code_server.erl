@@ -44,6 +44,7 @@
 		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.
 
+-spec start_link([term()]) -> {'ok', pid()}.
 start_link(Args) ->
     Ref = make_ref(),
     Parent = self(),
@@ -128,6 +129,7 @@ split_paths([C|T], S, Path, Paths) ->
 split_paths([], _S, Path, Paths) ->
     lists:reverse(Paths, [lists:reverse(Path)]).
 
+-spec call(term()) -> term().
 call(Req) ->
     ?MODULE ! {code_call, self(), Req},
     receive 
@@ -1333,13 +1335,13 @@ strip_mod_info([{{sticky,_},_}|T], Acc) -> strip_mod_info(T, Acc);
 strip_mod_info([H|T], Acc)              -> strip_mod_info(T, [H|Acc]);
 strip_mod_info([], Acc)                 -> Acc.
 
-% error_msg(Format) ->
-%     error_msg(Format,[]).
+-spec error_msg(io:format(), [term()]) -> 'ok'.
 error_msg(Format, Args) ->
     Msg = {notify,{error, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,
     ok.
 
+-spec info_msg(io:format(), [term()]) -> 'ok'.
 info_msg(Format, Args) ->
     Msg = {notify,{info_msg, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,
