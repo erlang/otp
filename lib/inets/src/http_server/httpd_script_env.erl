@@ -104,7 +104,7 @@ create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } |
 
 create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc) 
   when is_list(Value) ->
-    {ok, NewName, _} = inets_regexp:gsub(Name,"-","_"),
+    NewName = re:replace(Name,"-","_", [{return,list}, global]),
     Element = http_env_element(ScriptType, NewName, Value),
     create_http_header_elements(ScriptType, Headers, [Element | Acc]).
 

@@ -273,12 +273,12 @@ secret_path(_Path, [], to_be_found) ->
 secret_path(_Path, [], Dir) ->
     {yes, Dir};
 secret_path(Path, [[NewDir]|Rest], Dir) ->
-    case inets_regexp:match(Path, NewDir) of
-	{match, _, _} when Dir =:= to_be_found ->
+    case re:run(Path, NewDir, [{capture, first}]) of
+	{match, _} when Dir =:= to_be_found ->
 	    secret_path(Path, Rest, NewDir);
-	{match, _, Length} when Length > length(Dir) ->
+	{match, [{_, Length}]} when Length > length(Dir) ->
 	    secret_path(Path, Rest, NewDir);
-	{match, _, _} ->
+	{match, _} ->
 	    secret_path(Path, Rest, Dir);
 	nomatch ->
 	    secret_path(Path, Rest, Dir)
