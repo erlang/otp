@@ -601,10 +601,14 @@ cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-   
+    
+    TmpDir = filename:join(?config(priv_dir,Config), "tmp"),
+    ok = ssh_test_lib:del_dirs(TmpDir),
+    ok = file:make_dir(TmpDir),
+
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {password, "morot"},
-					       {ssh_cli, {ssh_test_cli, [cli]}}, 
+					       {ssh_cli, {ssh_test_cli, [cli,TmpDir]}}, 
 					       {subsystems, []},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
