@@ -514,7 +514,8 @@ res_update(Tag, TagTm, TagInfo, TagSetTm, SetFun) ->
 	undefined -> ok;
 	TM ->
 	    case times() of
-		Now when Now >= TM + ?RES_FILE_UPDATE_TM ->
+		Now when Now >= TM + ?RES_FILE_UPDATE_TM;
+		(TM =:= 0 andalso Now < ?RES_FILE_UPDATE_TM) ->
 		    case db_get(Tag) of
 			undefined ->
 			    SetFun("");
