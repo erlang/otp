@@ -29,12 +29,19 @@
 #define LTTNG_BUFFER_SZ      (256)
 #define LTTNG_PROC_BUFFER_SZ (16)
 #define LTTNG_PORT_BUFFER_SZ (20)
+#define LTTNG_MFA_BUFFER_SZ  (256)
 
 #define lttng_decl_procbuf(Name) \
     char Name[LTTNG_PROC_BUFFER_SZ]
 
 #define lttng_decl_portbuf(Name) \
     char Name[LTTNG_PORT_BUFFER_SZ]
+
+#define lttng_decl_mfabuf(Name) \
+    char Name[LTTNG_MFA_BUFFER_SZ]
+
+#define lttng_decl_carrier_stats(Name) \
+    lttng_carrier_stats_t Name##_STATSTRUCT, *Name = &Name##_STATSTRUCT
 
 #define lttng_pid_to_str(pid, name) \
     erts_snprintf(name, LTTNG_PROC_BUFFER_SZ, "%T", (pid))
@@ -47,6 +54,23 @@
 
 #define lttng_port_to_str(p, name) \
     lttng_portid_to_str(((p) ? (p)->common.id : ERTS_INVALID_PORT), name)
+
+#define lttng_mfa_to_str(m,f,a, Name) \
+    erts_snprintf(Name, LTTNG_MFA_BUFFER_SZ, "%T:%T/%lu", (Eterm)(m), (Eterm)(f), (Uint)(a))
+
+#define lttng_proc_to_mfa_str(p, Name)                              \
+    do {                                                            \
+        if (ERTS_PROC_IS_EXITING((p))) {                            \
+            strcpy(Name, "<exiting>");                              \
+        } else {                                                    \
+            BeamInstr *_fptr = find_function_from_pc((p)->i);       \
+            if (_fptr) {                                            \
+                lttng_mfa_to_str(_fptr[0],_fptr[1],_fptr[2], Name); \
+            } else {                                                \
+                strcpy(Name, "<unknown>");                          \
+            }                                                       \
+        }                                                           \
+    } while(0)
 
 /* ErtsRunQueue->ErtsSchedulerData->Uint */
 #define lttng_rq_to_id(RQ) \
