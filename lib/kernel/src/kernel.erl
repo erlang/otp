@@ -98,7 +98,7 @@ init([]) ->
 	      {kernel_config, start_link, []},
 	      permanent, 2000, worker, [kernel_config]},
     Code = {code_server,
-	    {code, start_link, get_code_args()},
+	    {code, start_link, []},
 	    permanent, 2000, worker, [code]},
     File = {file_server_2,
 	    {file_server, start_link, []},
@@ -157,12 +157,6 @@ init(safe) ->
     init:run_on_load_handlers(),
 
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
-
-get_code_args() ->
-    case init:get_argument(nostick) of
-	{ok, [[]]} -> [[nostick]];
-	_ -> []
-    end.
 
 start_dist_ac() ->
     Spec = [{dist_ac,{dist_ac,start_link,[]},permanent,2000,worker,[dist_ac]}],

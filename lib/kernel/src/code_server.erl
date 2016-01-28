@@ -22,9 +22,7 @@
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,
-	 call/2,
-	 system_continue/3, 
-	 system_terminate/4,
+	 call/1,
 	 system_code_change/4,
 	 error_msg/2, info_msg/2
 	]).
@@ -35,15 +33,18 @@
 
 -define(ANY_NATIVE_CODE_LOADED, any_native_code_loaded).
 
--record(state, {supervisor,
-		root,
-		path,
-		moddb,
-		namedb,
-		mode = interactive,
-		on_load = []}).
+-type on_load_item() :: {reference(),module(),file:name_all(),[pid()]}.
+
+-record(state, {supervisor :: pid(),
+		root :: file:name_all(),
+		path :: [file:name_all()],
+		moddb :: ets:tab(),
+		namedb :: ets:tab(),
+		mode = interactive :: 'interactive' | 'embedded',
+		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.
 
+-spec start_link([term()]) -> {'ok', pid()}.
 start_link(Args) ->
     Ref = make_ref(),
     Parent = self(),
@@ -58,7 +59,7 @@ start_link(Args) ->
 %% Init the code_server process.
 %% -----------------------------------------------------------
 
-init(Ref, Parent, [Root,Mode0]) ->
+init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
@@ -68,12 +69,6 @@ init(Ref, Parent, [Root,Mode0]) ->
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
 	    end, erlang:pre_loaded()),
     ets:insert(Db, init:fetch_loaded()),
-
-    Mode = 
-	case Mode0 of
-	    minimal -> interactive;
-	    _       -> Mode0
-	end,
 
     IPath =
 	case Mode of
@@ -88,7 +83,8 @@ init(Ref, Parent, [Root,Mode0]) ->
 	end,
 
     Path = add_loader_path(IPath, Mode),
-    State = #state{root = Root,
+    State = #state{supervisor = Parent,
+		   root = Root,
 		   path = Path,
 		   moddb = Db,
 		   namedb = init_namedb(Path),
@@ -97,7 +93,7 @@ init(Ref, Parent, [Root,Mode0]) ->
     put(?ANY_NATIVE_CODE_LOADED, false),
 
     Parent ! {Ref,{ok,self()}},
-    loop(State#state{supervisor = Parent}).
+    loop(State).
 
 get_user_lib_dirs() ->
     case os:getenv("ERL_LIBS") of
@@ -133,8 +129,9 @@ split_paths([C|T], S, Path, Paths) ->
 split_paths([], _S, Path, Paths) ->
     lists:reverse(Paths, [lists:reverse(Path)]).
 
-call(Name, Req) ->
-    Name ! {code_call, self(), Req},
+-spec call(term()) -> term().
+call(Req) ->
+    ?MODULE ! {code_call, self(), Req},
     receive 
 	{?MODULE, Reply} ->
 	    Reply
@@ -1333,13 +1330,13 @@ strip_mod_info([{{sticky,_},_}|T], Acc) -> strip_mod_info(T, Acc);
 strip_mod_info([H|T], Acc)              -> strip_mod_info(T, [H|Acc]);
 strip_mod_info([], Acc)                 -> Acc.
 
-% error_msg(Format) ->
-%     error_msg(Format,[]).
+-spec error_msg(io:format(), [term()]) -> 'ok'.
 error_msg(Format, Args) ->
     Msg = {notify,{error, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,
     ok.
 
+-spec info_msg(io:format(), [term()]) -> 'ok'.
 info_msg(Format, Args) ->
     Msg = {notify,{info_msg, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,

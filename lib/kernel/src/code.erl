@@ -60,7 +60,7 @@
 	 del_path/1,
 	 replace_path/2,
 	 rehash/0,
-	 start_link/0, start_link/1,
+	 start_link/0,
 	 which/1,
 	 where_is_file/1,
 	 where_is_file/2,
@@ -306,15 +306,11 @@ get_mode() -> call(get_mode).
 %%-----------------------------------------------------------------
 
 call(Req) ->
-    code_server:call(code_server, Req).
+    code_server:call(Req).
 
 -spec start_link() -> {'ok', pid()} | {'error', 'crash'}.
 start_link() ->
-    start_link([stick]).
-
--spec start_link(Flags :: [atom()]) -> {'ok', pid()} | {'error', 'crash'}.
-start_link(Flags) ->
-    do_start(Flags).
+    do_start().
     
 %%-----------------------------------------------------------------
 %% In the init phase, code must not use any modules not yet loaded,
@@ -326,36 +322,21 @@ start_link(Flags) ->
 %% us, so the module is loaded.
 %%-----------------------------------------------------------------
 
-do_start(Flags) ->
+do_start() ->
     maybe_warn_for_cache(),
     load_code_server_prerequisites(),
 
-    Mode = get_mode(Flags),
-    case init:get_argument(root) of 
-	{ok,[[Root0]]} ->
-	    Root = filename:join([Root0]), % Normalize.  Use filename
-	    case code_server:start_link([Root,Mode]) of
-		{ok,_Pid} = Ok2 ->
-		    if
-			Mode =:= interactive ->
-			    case lists:member(stick, Flags) of
-				true -> do_stick_dirs();
-				_    -> ok
-			    end;
-			true ->
-			    ok
-		    end,
-		    %% Quietly load native code for all modules loaded so far
-                    Architecture = erlang:system_info(hipe_architecture),
-		    load_native_code_for_all_loaded(Architecture),
-		    Ok2;
-		Other ->
-		    Other
-	    end;
-	Other ->
-	    error_logger:error_msg("Can not start code server ~w ~n", [Other]),
-	    {error, crash}
-    end.
+    {ok,[[Root0]]} = init:get_argument(root),
+    Mode = start_get_mode(),
+    Root = filename:join([Root0]),	    % Normalize.
+    Res = code_server:start_link([Root,Mode]),
+
+    maybe_stick_dirs(Mode),
+
+    %% Quietly load native code for all modules loaded so far.
+    Architecture = erlang:system_info(hipe_architecture),
+    load_native_code_for_all_loaded(Architecture),
+    Res.
 
 %% Make sure that all modules that the code_server process calls
 %% (directly or indirectly) are loaded. Otherwise the code_server
@@ -375,6 +356,16 @@ load_code_server_prerequisites() ->
     _ = [M = M:module_info(module) || M <- Needed],
     ok.
 
+maybe_stick_dirs(interactive) ->
+    case init:get_argument(nostick) of
+	{ok,[[]]} ->
+	    ok;
+	_ ->
+	    do_stick_dirs()
+    end;
+maybe_stick_dirs(_) ->
+    ok.
+
 do_stick_dirs() ->
     do_s(compiler),
     do_s(stdlib),
@@ -392,19 +383,12 @@ do_s(Lib) ->
 	    ok
     end.
 
-get_mode(Flags) ->
-    case lists:member(embedded, Flags) of
-	true ->
+start_get_mode() ->
+    case init:get_argument(mode) of
+	{ok,[["embedded"]]} ->
 	    embedded;
-	_Otherwise -> 
-	    case init:get_argument(mode) of
-		{ok,[["embedded"]]} ->
-		    embedded;
-		{ok,[["minimal"]]} ->
-		    minimal;
-		_Else ->
-		    interactive
-	    end
+	_ ->
+	    interactive
     end.
 
 %% Find out which version of a particular module we would
