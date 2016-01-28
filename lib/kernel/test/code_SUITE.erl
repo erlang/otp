@@ -323,6 +323,7 @@ load_abs(Config) when is_list(Config) ->
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
     {error, badfile} = code:load_abs(TestDir ++ "/code_a_test"),
     {'EXIT', _} = (catch code:load_abs({})),
+    {'EXIT', _} = (catch code:load_abs("Non-latin-имя-файла")),
     {module, code_b_test} = code:load_abs(TestDir ++ "/code_b_test"),
     code:stick_dir(TestDir),
     {error, sticky_directory} = code:load_abs(TestDir ++ "/code_b_test"),
@@ -1598,6 +1599,17 @@ on_load_errors(Config) when is_list(Config) ->
     after 10 ->
 	    ok
     end,
+
+    %% Make sure that the code loading functions return the correct
+    %% error code.
+    Simple = simple_on_load_error,
+    SimpleList = atom_to_list(Simple),
+    {error,on_load_failure} = code:load_file(Simple),
+    {error,on_load_failure} = code:ensure_loaded(Simple),
+    {ok,SimpleCode} = file:read_file("simple_on_load_error.beam"),
+    {error,on_load_failure} = code:load_binary(Simple, "", SimpleCode),
+    {error,on_load_failure} = code:load_abs(SimpleList),
+    {error,on_load_failure} = code:load_abs(SimpleList, Simple),
 
     ok.
 
