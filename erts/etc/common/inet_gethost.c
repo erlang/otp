@@ -2646,7 +2646,7 @@ static void *my_realloc(void *old, size_t size)
 
 BOOL create_mesq(MesQ **q) 
 {
-    MesQ *tmp = malloc(sizeof(MesQ));
+    MesQ *tmp = ALLOC(sizeof(MesQ));
     tmp->data_present = CreateEvent(NULL, TRUE, FALSE,NULL);
     if (tmp->data_present == NULL) {
 	free(tmp);
