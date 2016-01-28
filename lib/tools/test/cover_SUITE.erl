@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
-		   analyse_no_beam, line_0, compile_beam_no_file],
+		   analyse_no_beam, line_0, compile_beam_no_file,
+                   otp_13277],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1252,7 +1253,7 @@ otp_8340(doc) ->
     ["OTP-8340. Bug."];
 otp_8340(suite) -> [];
 otp_8340(Config) when is_list(Config) ->
-    ?line [{{t,1},1},{{t,2},1},{{t,4},1}] = 
+    ?line [{{t,1},1},{{t,4},1}] =
         analyse_expr(<<"<< \n"
                        " <<3:2, \n"
                        "   SeqId:62>> \n"
@@ -1546,8 +1547,10 @@ comprehension_8188(Cf) ->
                        "    true]. \n" % 2
                        "  two() -> 2">>, Cf), % 1
 
-    ?line [{{t,1},1},
-           {{t,2},2},
+    %% The template cannot have a counter since it is not allowed to
+    %% be a block.
+    ?line [% {{t,1},1},
+           %% {{t,2},2},
            {{t,3},1},
            {{t,4},1},
            {{t,5},0},
@@ -1556,8 +1559,8 @@ comprehension_8188(Cf) ->
            {{t,12},3},
            {{t,13},2},
            {{t,14},2}] = 
-        analyse_expr(<<"<< \n" % 1
-                       " << (X*2) >> || \n" % 2
+        analyse_expr(<<"<< \n" % 1 (now: 0)
+                       " << (X*2) >> || \n" % 2 (now: 0)
                        "    <<X>> <= << (case two() of\n"
                        "                     2 -> 1;\n" % 1
                        "                     _ -> 2\n" % 0
@@ -1571,8 +1574,8 @@ comprehension_8188(Cf) ->
                        "    true >>.\n" % 2
                        "two() -> 2">>, Cf),
 
-    ?line [{{t,1},1},
-           {{t,2},4},
+    ?line [% {{t,1},1},
+           %% {{t,2},4},
            {{t,4},1},
            {{t,6},1},
            {{t,7},0},
@@ -1580,8 +1583,8 @@ comprehension_8188(Cf) ->
            {{t,11},2},
            {{t,12},4},
            {{t,13},1}] =
-        analyse_expr(<<"<< \n" % 1
-                       " << (2)\n" % 4
+        analyse_expr(<<"<< \n" % 1 (now: 0)
+                       " << (2)\n" % 4 (now: 0)
                        "     :(8) >> || \n"
                        "    <<X>> <= << 1,\n" % 1
                        "                (case two() of \n"
@@ -1745,6 +1748,23 @@ do_scan(Str) ->
     {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
     [ T | do_scan(C) ].
 
+otp_13277(doc) ->
+    ["PR 856. Fix a bc bug."];
+otp_13277(Config) ->
+    Test = <<"-module(t).
+              -export([t/0]).
+
+              pad(A, L) ->
+                  P = << <<\"#\">> || _ <- lists:seq(1, L) >>,
+                  <<A/binary, P/binary>>.
+
+              t() ->
+                  pad(<<\"hi\">>, 2).
+             ">>,
+    ?line File = cc_mod(t, Test, Config),
+    ?line <<"hi##">> = t:t(),
+    ?line ok = file:delete(File),
+    ok.
 
 %%--Auxiliary------------------------------------------------------------
 
