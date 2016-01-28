@@ -1030,9 +1030,9 @@ hello</pre>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes.</fsummary>
       <desc>
         <p>Stops the <c>dbg</c> server and clears all trace flags for
-          all processes and all trace patterns for all functions. Also
+          all processes and all local trace patterns for all functions. Also
           shuts down all trace clients and closes all trace ports.</p>
-        <p>Note that no trace patterns are affected by this
+        <p>Note that no global trace patterns are affected by this
           function.</p>
       </desc>
     </func>
@@ -1040,8 +1040,7 @@ hello</pre>
       <name>stop_clear() -> ok</name>
       <fsummary>Stop the <c>dbg</c>server and the tracing of all processes, and clears trace patterns.</fsummary>
       <desc>
-        <p>Same as stop/0, but also clears all trace patterns on local
-          and global functions calls.</p>
+        <p>Same as stop/0, but also clears all trace patterns on global functions calls.</p>
       </desc>
     </func>
   </funcs>

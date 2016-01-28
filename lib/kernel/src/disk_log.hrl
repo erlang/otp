@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -152,8 +152,8 @@
 	 users = 0         :: non_neg_integer(),   %% non-linked users
 	 filename          :: file:filename(),	   %% real name of the file
 	 owners = []       :: [{pid(), boolean()}],%% [{pid, notify}]
-	 type = halt	   :: dlog_type(),
-	 format = internal :: dlog_format(),
+	 type              :: dlog_type(),
+	 format            :: dlog_format(),
 	 format_type	   :: dlog_format_type(),
 	 head = none,         %%  none | {head, H} | {M,F,A}
 	                      %%  called when wraplog wraps

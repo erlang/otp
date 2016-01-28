@@ -101,30 +101,6 @@
   </section>
 
   <section>
-    <title>Code Path Cache</title>
-    <p>The code server incorporates a code path cache. The cache
-      functionality is disabled by default. To activate it, start
-      the emulator with the command line flag <c>-code_path_cache</c>
-      or call <c>code:rehash()</c>. When the cache is created (or
-      updated), the code server searches for modules in the code path
-      directories. This may take some time if the the code path is long.
-      After the cache creation, the time for loading modules in a large
-      system (one with a large directory structure) is significantly
-      reduced compared to having the cache disabled. The code server
-      is able to look up the location of a module from the cache in
-      constant time instead of having to search through the code path
-      directories.</p>
-    <p>Application resource files (<c>.app</c> files) are also stored
-      in the code path cache. This feature is used by the application
-      controller (see
-      <seealso marker="application">application(3)</seealso>) to load
-      applications efficiently in large systems.</p>
-    <p>Note that when the code path cache is created (or updated), any
-      relative directory names in the code path are converted to
-      absolute.</p>
-  </section>
-
-  <section>
     <title>Loading of Code From Archive Files</title>
 
     <warning><p>The support for loading of code from archive files is
@@ -180,7 +156,7 @@
      example, the call
      <c>erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
      would list the contents of a directory inside an archive.
-     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso></p>.
+     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso>.</p>
 
     <p>An application archive file and a regular application directory
      may coexist. This may be useful when there is a need of having
@@ -230,7 +206,7 @@
      <c>-code_path_choice Choice</c>. If the flag is set to <c>relaxed</c>,
      the code server will instead choose a suitable directory
      depending on the actual file structure. If there exists a regular
-     application ebin directory,situation it will be chosen. But if it does
+     application ebin directory, it will be chosen. But if it does
      not exist, the ebin directory in the archive is chosen if it
      exists. If neither of them exists the original directory will be
      chosen.</p>
@@ -242,7 +218,7 @@
      particular useful to set the flag to <c>relaxed</c> when you want
      to elaborate with code loading from archives without editing the
      <c>boot script</c>. The default is <c>relaxed</c>. See <seealso
-     marker="erts:init">init(3)</seealso></p> </section>
+     marker="erts:init">init(3)</seealso></p></section>
 
   <section>
 
@@ -282,9 +258,9 @@
 
     <p>From the R12B release, functions in this module will generally fail with an
     exception if they are passed an incorrect type (for instance, an integer or a tuple
-    where an atom was expected). An error tuple will be returned if type of argument
+    where an atom was expected). An error tuple will be returned if the type of the argument
     was correct, but there was some other error (for instance, a non-existing directory
-    given to <c>set_path/1</c>.</p>
+    was given to <c>set_path/1</c>).</p>
   </section>
 
   <datatypes>
@@ -700,13 +676,6 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="rehash" arity="0"/>
-      <fsummary>Rehash or create code path cache</fsummary>
-      <desc>
-        <p>This function creates or rehashes the code path cache.</p>
-      </desc>
-    </func>
-    <func>
       <name name="where_is_file" arity="1"/>
       <fsummary>Full name of a file located in the code path</fsummary>
       <desc>
@@ -714,10 +683,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
           arbitrary type. If found, the full name is returned.
           <c>non_existing</c> is returned if the file cannot be found.
           The function can be useful, for example, to locate
-          application resource files. If the code path cache is used,
-          the code server will efficiently read the full name from
-          the cache, provided that <c><anno>Filename</anno></c> is an object code
-          file or an <c>.app</c> file.</p>
+          application resource files.</p>
       </desc>
     </func>
     <func>

@@ -86,7 +86,7 @@ static void fail(int t_no, char *frmt, ...)
 
     tc_failed = 1;
 
-    if (erl_drv_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
+    if (enif_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
 	&& strcmp("true", buf) == 0) {
 	fprintf(stderr, "Testcase \"%s\" failed: %s\n",
 		testcase_name(), err_buf);
@@ -187,7 +187,6 @@ testcase_run(TestCaseState_t *tcs)
 
     for(i = 1; i <= NO_OF_THREADS; i++) {
 	char *alc;
-	int res;
 
 	threads[i].arg.no_ops_per_bl = NO_OF_OPS_PER_BL;
 
@@ -397,7 +396,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 	bp->p = (unsigned char *) ALLOC(a, bp->s);
 	if(!bp->p)
 	    fail(t_no, "ALLOC(%lu) failed [id=%d])\n", bp->s, id);
-	memset((void *) bp->p, id, (size_t) bp->s);
+	memset((void *) bp->p, (unsigned char)id, (size_t) bp->s);
     }
     else {
 	unsigned char *p = (unsigned char *) REALLOC(a, bp->p, bp->as[bp->i]);
@@ -407,7 +406,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 
 	if(bp->s < bp->as[bp->i]) {
 	    CHECK_BLOCK_DATA(t_no, p, bp->s, id);
-	    memset((void *) p, id, (size_t) bp->as[bp->i]);
+	    memset((void *) p, (unsigned char)id, (size_t) bp->as[bp->i]);
 	}
 	else
 	    CHECK_BLOCK_DATA(t_no, p, bp->as[bp->i], id);
@@ -446,3 +445,6 @@ thread_func(void *arg)
     exit_thread(td->t_no, 1);
     return NULL;
 }
+
+ERL_NIF_INIT(threads, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

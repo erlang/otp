@@ -26,6 +26,8 @@
 
 -include("odbc_internal.hrl").
 
+-define(ODBC_PORT_TIMEOUT, 5000).
+
 %% API --------------------------------------------------------------------
 
 -export([start/0, start/1, stop/0,
@@ -523,10 +525,10 @@ handle_msg({connect, ODBCCmd, AutoCommitMode, SrollableCursors},
     NewState = State#state{auto_commit_mode = AutoCommitMode,
 			   scrollable_cursors = SrollableCursors},
     
-    case gen_tcp:accept(ListenSocketSup, 5000) of
+    case gen_tcp:accept(ListenSocketSup, port_timeout()) of
 	{ok, SupSocket} ->
 	    gen_tcp:close(ListenSocketSup),
-	    case gen_tcp:accept(ListenSocketOdbc, 5000) of
+	    case gen_tcp:accept(ListenSocketOdbc, port_timeout()) of
 		{ok, OdbcSocket} ->
 		    gen_tcp:close(ListenSocketOdbc),
 		    odbc_send(OdbcSocket, ODBCCmd), 
@@ -983,3 +985,6 @@ string_terminate_value(Binary) when is_binary(Binary) ->
     <<Binary/binary,0:16>>;
 string_terminate_value(null) ->
     null.
+
+port_timeout() ->
+  application:get_env(?MODULE, port_timeout, ?ODBC_PORT_TIMEOUT).

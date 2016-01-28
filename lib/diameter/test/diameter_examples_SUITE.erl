@@ -299,7 +299,7 @@ slave(_) ->
     T0 = diameter_lib:now(),
     {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
     T1 = diameter_lib:now(),
-    T2 = rpc:call(Node, erlang, now, []),
+    T2 = rpc:call(Node, diameter_lib, now, []),
     {ok, Node} = ct_slave:stop(?MODULE),
     now_diff([T0, T1, T2, diameter_lib:now()]).
 

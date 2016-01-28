@@ -278,3 +278,5 @@ testcase_cleanup(TestCaseState_t *tcs)
 	STOP_ALC((Allctr_t *) tcs->extra);
 }
 
+ERL_NIF_INIT(realloc_copy, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

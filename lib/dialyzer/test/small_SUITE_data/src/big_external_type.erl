@@ -36,7 +36,7 @@
 
 %% Start of Abstract Format
 
--type line() :: erl_scan:line().
+-type line() :: erl_anno:line().
 
 -export_type([af_record_index/0, af_record_field/1, af_record_name/0,
               af_field_name/0, af_function_decl/0]).
@@ -332,8 +332,8 @@
 %% End of Abstract Format
 
 -type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
--type token() :: {Tag :: atom(), Line :: erl_scan:line()}.
+-type error_info() :: {erl_anno:line(), module(), error_description()}.
+-type token() :: {Tag :: atom(), Line :: erl_scan:anno()}.
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
 %% mkop(Left, Op, Right) -> {op,Line,Op,Left,Right}.

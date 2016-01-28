@@ -105,7 +105,16 @@ init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_huge;
 					 TestCase == client_echos_passive_huge;
 					 TestCase == client_echos_active_once_huge;
 					 TestCase == client_echos_active_huge ->
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({seconds, 90}),
+    Config;
+
+init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_big;
+					 TestCase == server_echos_active_once_big;
+					 TestCase == server_echos_active_big;
+					 TestCase == client_echos_passive_big;
+					 TestCase == client_echos_active_once_big;
+					 TestCase == client_echos_active_big ->
+    ct:timetrap({seconds, 60}),
     Config;
 
 init_per_testcase(_TestCase, Config) ->

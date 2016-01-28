@@ -340,7 +340,7 @@
               SEQUENCE {
                   empDepNo         INTEGER,
                   empName          DisplayString,
-                  empTelNo         DisplayString
+                  empTelNo         DisplayString,
                   empStatus        RowStatus
               }
       </code>

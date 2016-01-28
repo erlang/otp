@@ -49,8 +49,10 @@ groups() ->
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem]},
      {ssh_public_key_decode_encode, [],
-      [ssh_rsa_public_key, ssh_dsa_public_key, ssh_rfc4716_rsa_comment,
-       ssh_rfc4716_dsa_comment, ssh_rfc4716_rsa_subject, ssh_known_hosts,
+      [ssh_rsa_public_key, ssh_dsa_public_key, ssh_ecdsa_public_key,
+       ssh_rfc4716_rsa_comment, ssh_rfc4716_dsa_comment,
+       ssh_rfc4716_rsa_subject,
+       ssh_known_hosts,
        ssh_auth_keys, ssh1_known_hosts, ssh1_auth_keys, ssh_openssh_public_key_with_comment,
        ssh_openssh_public_key_long_header]},
      {sign_verify, [], [rsa_sign_verify, dsa_sign_verify]}
@@ -281,6 +283,32 @@ ssh_dsa_public_key(Config) when is_list(Config) ->
 
     %% Can not check EncodedSSh == DSARawSsh2 and EncodedOpenSsh
     %% = DSARawOpenSsh as line breakpoints may differ
+
+    EncodedSSh = public_key:ssh_encode([{PubKey, Attributes1}], rfc4716_public_key),
+    EncodedOpenSsh = public_key:ssh_encode([{PubKey, Attributes2}], openssh_public_key),
+
+    [{PubKey, Attributes1}] =
+	public_key:ssh_decode(EncodedSSh, public_key),
+    [{PubKey, Attributes2}] =
+	public_key:ssh_decode(EncodedOpenSsh, public_key).
+
+%%--------------------------------------------------------------------
+
+ssh_ecdsa_public_key() ->
+    [{doc, "ssh ecdsa public key decode/encode"}].
+ssh_ecdsa_public_key(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+
+    {ok, ECDSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_ecdsa_pub")),
+    [{PubKey, Attributes1}] = public_key:ssh_decode(ECDSARawSsh2, public_key),
+    [{PubKey, Attributes1}] = public_key:ssh_decode(ECDSARawSsh2, rfc4716_public_key),
+
+    {ok, ECDSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_ecdsa_pub")),
+    [{PubKey, Attributes2}] = public_key:ssh_decode(ECDSARawOpenSsh, public_key),
+    [{PubKey, Attributes2}] = public_key:ssh_decode(ECDSARawOpenSsh, openssh_public_key),
+
+    %% Can not check EncodedSSh == ECDSARawSsh2 and EncodedOpenSsh
+    %% = ECDSARawOpenSsh as line breakpoints may differ
 
     EncodedSSh = public_key:ssh_encode([{PubKey, Attributes1}], rfc4716_public_key),
     EncodedOpenSsh = public_key:ssh_encode([{PubKey, Attributes2}], openssh_public_key),

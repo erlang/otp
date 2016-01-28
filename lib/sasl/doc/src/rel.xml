@@ -33,74 +33,65 @@
   <file>rel</file>
   <filesummary>Release resource file</filesummary>
   <description>
-    <p>The <em>release resource file</em> specifies which applications are
+    <p>The <em>release resource file</em> specifies which applications
       are included in a release (system) based on Erlang/OTP.</p>
-    <p>This file is used by the functions in <c>systools</c> when generating
-      start scripts (<c>.script</c>, <c>.boot</c>) and release upgrade
-      files (<c>relup</c>).</p>
+    <p>This file is used by the functions in 
+    <seealso marker="systools"><c>systools</c></seealso> 
+    when generating start scripts (<c>.script</c>, <c>.boot</c>) and 
+    release upgrade files (<c>relup</c>).</p>
   </description>
 
   <section>
-    <title>FILE SYNTAX</title>
-    <p>The release resource file should be called <c>Name.rel</c>.</p>
+    <title>File Syntax</title>
+    <p>The release resource file is to be called <c>Name.rel</c>.</p>
     <p>The <c>.rel</c> file contains one single Erlang term, which is
-      called a <em>release specification</em>.  The file has the
+      called a <em>release specification</em>. The file has the
       following syntax:</p>
     <code type="none">
 {release, {RelName,Vsn}, {erts, EVsn},
   [{Application, AppVsn} |
    {Application, AppVsn, Type} |
    {Application, AppVsn, IncApps} |
-   {Application, AppVsn, Type, IncApps}]}.
-    </code>
-    <list type="bulleted">
-      <item>
-        <p><c>RelName = string()</c> is the name of the release.</p>
-      </item>
-      <item>
-        <p><c>Vsn = string()</c> is the version of the release.</p>
-      </item>
-      <item>
-        <p><c>EVsn = string()</c> is the version of ERTS the release is
-          intended for.</p>
-      </item>
-      <item>
-        <p><c>Application = atom()</c> is the name of an application
-          included in the release.</p>
-      </item>
-      <item>
-        <p><c>AppVsn = string()</c> is the version of an application
-          included in the release.</p>
-      </item>
-      <item>
-        <p><c>Type = permanent | transient | temporary | load | none</c>
-          is the start type of an application included in the release.</p>
-        <p>If <c>Type = permanent | transient | temporary</c>,
-          the application will be loaded and started in the corresponding
-          way, see <c>application(3)</c>. If <c>Type = load</c>,
-          the application will only be loaded. If <c>Type = none</c>,
-          the application will be neither loaded nor started, although
-          the code for its modules will be loaded.
-          Defaults to <c>permanent</c></p>
-      </item>
-      <item>
-        <p><c>IncApps = [atom()]</c> is a list of applications that are
-          included by an application included in the release.</p>
-        <p>The list must be a subset of the included applications
+   {Application, AppVsn, Type, IncApps}]}.</code>
+    <taglist>
+      <tag><c>RelName = string()</c></tag>
+        <item><p>Release name.</p></item>
+      <tag><c>Vsn = string()</c></tag>
+        <item><p>Release version.</p></item>
+      <tag><c>EVsn = string()</c></tag>
+        <item><p><c>ERTS</c> version the release is intended for.</p></item>
+      <tag><c>Application = atom()</c></tag>
+        <item><p>Name of an application included in the release.</p></item>
+      <tag><c>AppVsn = string()</c></tag>
+        <item><p>Version of an application included in the release.</p></item>
+      <tag><c>Type = permanent | transient | temporary | load | none</c></tag>
+        <item><p>Start type of an application included in the release.</p>
+          <p>If <c>Type = permanent | transient | temporary</c>, the
+          application is loaded and started in the corresponding way, see
+          <seealso marker="kernel:application"><c>application(3)</c></seealso>.</p>
+          <p>If <c>Type = load</c>, the application is only loaded.</p>
+          <p>If <c>Type = none</c>, the application is not loaded and not
+          started, although the code for its modules is loaded.</p>
+          <p>Defaults to <c>permanent</c></p></item>
+      <tag><c>IncApps = [atom()]</c></tag>
+        <item><p>A list of applications that are included by an application
+          included in the release. The list must be a subset of the
+          included applications
           specified in the application resource file
           (<c>Application.app</c>) and overrides this value. Defaults
-          to the same value as in the application resource file.</p>
-      </item>
-    </list>
+          to the same value as in the application resource file.</p></item>
+    </taglist>
     <note>
-      <p>The list of applications must contain the <c>kernel</c> and
-        <c>stdlib</c> applications.</p>
+      <p>The list of applications must contain the <c>Kernel</c> and
+        <c>STDLIB</c> applications.</p>
     </note>
   </section>
 
   <section>
-    <title>SEE ALSO</title>
-    <p>application(3), relup(4), systools(3)</p>
+    <title>See Also</title>
+    <p><seealso marker="kernel:application"><c>application(3)</c></seealso>,
+      <seealso marker="relup"><c>relup(4)</c></seealso>,
+      <seealso marker="systools"><c>systools(3)</c></seealso></p>
   </section>
 </fileref>
 

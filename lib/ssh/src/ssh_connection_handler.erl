@@ -46,8 +46,13 @@
 	 get_print_info/1]).
 
 %% gen_fsm callbacks
--export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
-	 userauth/2, connected/2,
+-export([hello/2, kexinit/2, key_exchange/2, 
+	 key_exchange_dh_gex_init/2, key_exchange_dh_gex_reply/2,
+	 new_keys/2,
+	 service_request/2, connected/2,
+	 userauth/2,
+	 userauth_keyboard_interactive/2,
+	 userauth_keyboard_interactive_info_response/2,
 	 error/2]).
 
 -export([init/1, handle_event/3,
@@ -80,7 +85,12 @@
 	  recbuf
 	 }). 
 
--type state_name()           :: hello | kexinit | key_exchange | new_keys | userauth | connection.
+-type state_name()           :: hello | kexinit | key_exchange | key_exchange_dh_gex_init |
+				key_exchange_dh_gex_reply | new_keys | service_request | 
+				userauth | userauth_keyboard_interactive |
+				userauth_keyboard_interactive_info_response |
+				connection.
+
 -type gen_fsm_state_return() :: {next_state, state_name(), term()} |
 				{next_state, state_name(), term(), timeout()} |
 				{stop, term(), term()}.
@@ -417,25 +427,57 @@ key_exchange(#ssh_msg_kexdh_reply{} = Msg,
     send_msg(NewKeys, State),
     {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
 
-key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
+key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
 	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
-    {ok, NextKexMsg, Ssh1} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
-    send_msg(NextKexMsg, State),
+    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    send_msg(GexGroup, State),
+    {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_dh_gex_request_old{} = Msg, 
+	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    send_msg(GexGroup, State),
+    {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
+	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
+    send_msg(KexGexInit, State),
+    {next_state, key_exchange_dh_gex_reply, next_packet(State#state{ssh_params = Ssh})};
+
+key_exchange(#ssh_msg_kex_ecdh_init{} = Msg, 
+	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, KexEcdhReply, Ssh1} = ssh_transport:handle_kex_ecdh_init(Msg, Ssh0),
+    send_msg(KexEcdhReply, State),
     {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
     send_msg(NewKeys, State),
     {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
 
-key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
+key_exchange(#ssh_msg_kex_ecdh_reply{} = Msg, 
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
-    {ok, NextKexMsg, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
-    send_msg(NextKexMsg, State),
-    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})};
-
-key_exchange(#ssh_msg_kex_dh_gex_reply{} = Msg, 
-	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
-    {ok, NewKeys, Ssh} = ssh_transport:handle_kex_dh_gex_reply(Msg, Ssh0),
+    {ok, NewKeys, Ssh} = ssh_transport:handle_kex_ecdh_reply(Msg, Ssh0),
     send_msg(NewKeys, State),
     {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}.
+
+%%--------------------------------------------------------------------
+-spec key_exchange_dh_gex_init(#ssh_msg_kex_dh_gex_init{}, #state{}) -> gen_fsm_state_return().
+%%--------------------------------------------------------------------
+key_exchange_dh_gex_init(#ssh_msg_kex_dh_gex_init{} = Msg,
+			 #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, KexGexReply, Ssh1} =  ssh_transport:handle_kex_dh_gex_init(Msg, Ssh0),
+    send_msg(KexGexReply, State),
+    {ok, NewKeys, Ssh} = ssh_transport:new_keys_message(Ssh1),
+    send_msg(NewKeys, State),
+    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}.
+
+%%--------------------------------------------------------------------
+-spec key_exchange_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{}, #state{}) -> gen_fsm_state_return().
+%%--------------------------------------------------------------------
+key_exchange_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{} = Msg,
+			  #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    {ok, NewKeys, Ssh1} =  ssh_transport:handle_kex_dh_gex_reply(Msg, Ssh0),
+    send_msg(NewKeys, State),
+    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh1})}.
 
 %%--------------------------------------------------------------------
 -spec new_keys(#ssh_msg_newkeys{}, #state{}) -> gen_fsm_state_return().
@@ -446,28 +488,30 @@ new_keys(#ssh_msg_newkeys{} = Msg, #state{ssh_params = Ssh0} = State0) ->
     after_new_keys(next_packet(State0#state{ssh_params = Ssh})).
 
 %%--------------------------------------------------------------------
--spec userauth(#ssh_msg_service_request{} | #ssh_msg_service_accept{} |
-	       #ssh_msg_userauth_request{} | #ssh_msg_userauth_info_request{} |
-	       #ssh_msg_userauth_info_response{} | #ssh_msg_userauth_success{} |
-	       #ssh_msg_userauth_failure{} | #ssh_msg_userauth_banner{},
-	       #state{}) -> gen_fsm_state_return().
+-spec service_request(#ssh_msg_service_request{} | #ssh_msg_service_accept{},
+		      #state{}) -> gen_fsm_state_return().
 %%--------------------------------------------------------------------
-
-userauth(#ssh_msg_service_request{name = "ssh-userauth"} = Msg, 
+service_request(#ssh_msg_service_request{name = "ssh-userauth"} = Msg, 
 	 #state{ssh_params = #ssh{role = server, 
 				  session_id = SessionId} = Ssh0} = State) ->
     {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_request(Msg, SessionId, Ssh0),
     send_msg(Reply, State),
     {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
 
-userauth(#ssh_msg_service_accept{name = "ssh-userauth"},  
-	 #state{ssh_params = #ssh{role = client,
-				  service = "ssh-userauth"} = Ssh0} = 
-	 State) ->
+service_request(#ssh_msg_service_accept{name = "ssh-userauth"},  
+		#state{ssh_params = #ssh{role = client,
+					 service = "ssh-userauth"} = Ssh0} = 
+		    State) ->
     {Msg, Ssh} = ssh_auth:init_userauth_request_msg(Ssh0),
     send_msg(Msg, State),
-    {next_state, userauth, next_packet(State#state{auth_user = Ssh#ssh.user, ssh_params = Ssh})};
+    {next_state, userauth, next_packet(State#state{auth_user = Ssh#ssh.user, ssh_params = Ssh})}.
 
+%%--------------------------------------------------------------------
+-spec userauth(#ssh_msg_userauth_request{} | #ssh_msg_userauth_info_request{} |
+	       #ssh_msg_userauth_info_response{} | #ssh_msg_userauth_success{} |
+	       #ssh_msg_userauth_failure{} | #ssh_msg_userauth_banner{},
+	       #state{}) -> gen_fsm_state_return().
+%%--------------------------------------------------------------------
 userauth(#ssh_msg_userauth_request{service = "ssh-connection",
                                   method = "none"} = Msg, 
         #state{ssh_params = #ssh{session_id = SessionId, role = server, 
@@ -492,7 +536,11 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 		    Pid ! ssh_connected,
 		    connected_fun(User, Address, Method, Opts),
 		    {next_state, connected, 
-		     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
+		     next_packet(State#state{auth_user = User, ssh_params = Ssh#ssh{authenticated = true}})};
+		{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
+		    retry_fun(User, Address, Reason, Opts),
+		    send_msg(Reply, State),
+		    {next_state, userauth_keyboard_interactive, next_packet(State#state{ssh_params = Ssh})};
 		{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 		    retry_fun(User, Address, Reason, Opts),
 		    send_msg(Reply, State),
@@ -502,30 +550,6 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 	    userauth(Msg#ssh_msg_userauth_request{method="none"}, State)
     end;
 
-userauth(#ssh_msg_userauth_info_request{} = Msg, 
-	 #state{ssh_params = #ssh{role = client, 
-				  io_cb = IoCb} = Ssh0} = State) ->
-    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_request(Msg, IoCb, Ssh0),
-    send_msg(Reply, State),
-    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})};
-
-userauth(#ssh_msg_userauth_info_response{} = Msg, 
-	 #state{ssh_params = #ssh{role = server,
-				  peer = {_, Address}} = Ssh0,
-		opts = Opts, starter = Pid} = State) ->
-    case ssh_auth:handle_userauth_info_response(Msg, Ssh0) of
-	{authorized, User, {Reply, Ssh}} ->
-	    send_msg(Reply, State),
-	    Pid ! ssh_connected,
-	    connected_fun(User, Address, "keyboard-interactive", Opts),
-	    {next_state, connected, 
-	     next_packet(State#state{auth_user = User, ssh_params = Ssh})};
-	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
-	    retry_fun(User, Address, Reason, Opts),
-	    send_msg(Reply, State),
-	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
-    end;
-			
 userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client} = Ssh,
 					     starter = Pid} = State) ->
     Pid ! ssh_connected,
@@ -552,19 +576,25 @@ userauth(#ssh_msg_userauth_failure{authentications = Methodes},
 	{disconnect, DisconnectMsg, {Msg, Ssh}} ->
 	    send_msg(Msg, State),
 	    handle_disconnect(DisconnectMsg, State#state{ssh_params = Ssh});
-	{Msg, Ssh} ->
+	{"keyboard-interactive", {Msg, Ssh}} ->
+	    send_msg(Msg, State),
+	    {next_state, userauth_keyboard_interactive, next_packet(State#state{ssh_params = Ssh})};
+	{_Method, {Msg, Ssh}} ->
 	    send_msg(Msg, State),
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     end;
 
 %% The prefered authentication method failed try next method 
-userauth(#ssh_msg_userauth_failure{},  
+userauth(#ssh_msg_userauth_failure{},
 	 #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
     case ssh_auth:userauth_request_msg(Ssh0) of
 	{disconnect,  DisconnectMsg,{Msg, Ssh}} ->
 	    send_msg(Msg, State),
 	    handle_disconnect(DisconnectMsg, State#state{ssh_params = Ssh}); 
-	{Msg, Ssh} ->	  
+	{"keyboard-interactive", {Msg, Ssh}} ->
+	    send_msg(Msg, State),
+	    {next_state, userauth_keyboard_interactive, next_packet(State#state{ssh_params = Ssh})};
+	{_Method, {Msg, Ssh}} ->
 	    send_msg(Msg, State),
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     end;
@@ -578,6 +608,52 @@ userauth(#ssh_msg_userauth_banner{message = Msg},
 		#ssh{userauth_quiet_mode = false, role = client}} = State) ->
     io:format("~s", [Msg]),
     {next_state, userauth, next_packet(State)}.
+
+
+
+userauth_keyboard_interactive(#ssh_msg_userauth_info_request{} = Msg, 
+			      #state{ssh_params = #ssh{role = client, 
+						       io_cb = IoCb} = Ssh0} = State) ->
+    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_request(Msg, IoCb, Ssh0),
+    send_msg(Reply, State),
+    {next_state, userauth_keyboard_interactive_info_response, next_packet(State#state{ssh_params = Ssh})};
+
+userauth_keyboard_interactive(#ssh_msg_userauth_info_response{} = Msg, 
+			      #state{ssh_params = #ssh{role = server,
+						       peer = {_, Address}} = Ssh0,
+				     opts = Opts, starter = Pid} = State) ->
+    case ssh_auth:handle_userauth_info_response(Msg, Ssh0) of
+	{authorized, User, {Reply, Ssh}} ->
+	    send_msg(Reply, State),
+	    Pid ! ssh_connected,
+	    connected_fun(User, Address, "keyboard-interactive", Opts),
+	    {next_state, connected, 
+	     next_packet(State#state{auth_user = User, ssh_params = Ssh#ssh{authenticated = true}})};
+	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
+	    retry_fun(User, Address, Reason, Opts),
+	    send_msg(Reply, State),
+	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
+    end;
+userauth_keyboard_interactive(Msg = #ssh_msg_userauth_failure{},
+			      #state{ssh_params = Ssh0 =
+					 #ssh{role = client,
+					      userauth_preference = Prefs0}} 
+			      = State) ->
+    Prefs = [{Method,M,F,A} || {Method,M,F,A} <- Prefs0,
+			       Method =/= "keyboard-interactive"],
+    userauth(Msg, State#state{ssh_params = Ssh0#ssh{userauth_preference=Prefs}}).
+
+
+
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
+    userauth(Msg, State);
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
+    userauth(Msg, State);
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_info_request{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
+    userauth_keyboard_interactive(Msg, State).
 
 %%--------------------------------------------------------------------
 -spec connected({#ssh_msg_kexinit{}, binary()}, %%| %% #ssh_msg_kexdh_init{},
@@ -663,13 +739,28 @@ handle_event({adjust_window, ChannelId, Bytes}, StateName,
 			#connection{channel_cache = Cache}} = State0) ->
     State =
 	case ssh_channel:cache_lookup(Cache, ChannelId) of
-	    #channel{recv_window_size = WinSize, remote_id = Id} = Channel ->
-		ssh_channel:cache_update(Cache, Channel#channel{recv_window_size =
-					       WinSize + Bytes}),
-		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes),
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     recv_packet_size = PktSize} = Channel
+	      when (WinSize-Bytes) >= 2*PktSize ->
+		%% The peer can send at least two more *full* packet, no hurry.
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_pending = Pending + Bytes}),
+		State0;
+
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     remote_id = Id} = Channel ->
+		%% Now we have to update the window - we can't receive so many more pkts
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_size =
+							     WinSize + Bytes + Pending,
+							 recv_window_pending = 0}),
+		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes + Pending),
 		send_replies([{connection_reply, Msg}], State0);
-	undefined ->
-	    State0
+
+	    undefined ->
+		State0
 	end,
     {next_state, StateName, next_packet(State)};
 
@@ -902,57 +993,55 @@ handle_info({Protocol, Socket, Info}, hello,
 		   transport_protocol = Protocol} = State) -> 
     event({info_line, Info}, hello, State);
 
-handle_info({Protocol, Socket, Data}, Statename, 
+handle_info({Protocol, Socket, Data}, StateName, 
 	    #state{socket = Socket,
 		   transport_protocol = Protocol,
-		   ssh_params = #ssh{decrypt_block_size = BlockSize,
-				     recv_mac_size = MacSize} = Ssh0,
-		   decoded_data_buffer = <<>>,
-		   encoded_data_buffer = EncData0} = State0) ->
+		   ssh_params = Ssh0,
+		   decoded_data_buffer = DecData0,
+		   encoded_data_buffer = EncData0,
+		   undecoded_packet_length = RemainingSshPacketLen0} = State0) ->
+    Encoded = <<EncData0/binary, Data/binary>>,
+    try ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) 
+    of
+	{get_more, DecBytes, EncDataRest, RemainingSshPacketLen, Ssh1} ->
+	    {next_state, StateName,
+	     next_packet(State0#state{encoded_data_buffer = EncDataRest,
+				      decoded_data_buffer = DecBytes,
+				      undecoded_packet_length = RemainingSshPacketLen,
+				      ssh_params = Ssh1})};
+	{decoded, MsgBytes, EncDataRest, Ssh1} ->
+	    generate_event(MsgBytes, StateName,
+			   State0#state{ssh_params = Ssh1,
+					%% Important to be set for
+					%% next_packet
+%%% FIXME: the following three seem to always be set in generate_event!
+					decoded_data_buffer = <<>>,
+					undecoded_packet_length = undefined,
+					encoded_data_buffer = EncDataRest},
+			   EncDataRest);
+	{bad_mac, Ssh1} ->
+	    DisconnectMsg = 
+		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+					description = "Bad mac",
+					language = ""},
+	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1});
 
-    %% Implementations SHOULD decrypt the length after receiving the
-    %% first 8 (or cipher block size, whichever is larger) bytes of a
-    %% packet. (RFC 4253: Section 6 - Binary Packet Protocol)
-    case size(EncData0) + size(Data) >= erlang:max(8, BlockSize) of
-	true ->
-	    {Ssh, SshPacketLen, DecData, EncData} = 
-
-		ssh_transport:decrypt_first_block(<<EncData0/binary, 
-						   Data/binary>>, Ssh0),
-	     case SshPacketLen > ?SSH_MAX_PACKET_SIZE of
- 		true ->
-  		    DisconnectMsg = 
-  			#ssh_msg_disconnect{code = 
-					    ?SSH_DISCONNECT_PROTOCOL_ERROR,
-  					    description = "Bad packet length " 
-					    ++ integer_to_list(SshPacketLen),
-  					    language = "en"},
-  		    handle_disconnect(DisconnectMsg, State0);
-  		false ->
-		    RemainingSshPacketLen = 
-			(SshPacketLen + ?SSH_LENGHT_INDICATOR_SIZE) - 
-			BlockSize + MacSize,
-		    State = State0#state{ssh_params = Ssh},
-		    handle_ssh_packet_data(RemainingSshPacketLen, 
-					   DecData, EncData, Statename,
-					   State)
-	     end;
-	false  ->
-	    {next_state, Statename, 
-	     next_packet(State0#state{encoded_data_buffer = 
-				      <<EncData0/binary, Data/binary>>})}
+	{error, {exceeds_max_size,PacketLen}} ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet length " 
+				    ++ integer_to_list(PacketLen),
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
+    catch
+	_:_ ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet",
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
     end;
-
-handle_info({Protocol, Socket, Data}, Statename, 
-	    #state{socket = Socket,
-		   transport_protocol = Protocol,
-		   decoded_data_buffer = DecData, 
-		   encoded_data_buffer = EncData,
-		   undecoded_packet_length = Len} = 
-	    State) when is_integer(Len) ->
-    handle_ssh_packet_data(Len, DecData, <<EncData/binary, Data/binary>>, 
-			   Statename, State);
-
+		
 handle_info({CloseTag, _Socket}, _StateName, 
 	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
@@ -1030,7 +1119,7 @@ handle_info(UnexpectedMessage, StateName, #state{opts = Opts,
 terminate(normal, _, #state{transport_cb = Transport,
 			    connection_state = Connection,
 			    socket = Socket}) ->
-    terminate_subsytem(Connection),
+    terminate_subsystem(Connection),
     (catch Transport:close(Socket)),
     ok;
 
@@ -1059,7 +1148,7 @@ terminate({shutdown, _}, StateName, State) ->
 
 terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
 				   connection_state = Connection} = State) ->
-    terminate_subsytem(Connection),
+    terminate_subsystem(Connection),
     log_error(Reason),
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
@@ -1070,10 +1159,10 @@ terminate(Reason, StateName, #state{ssh_params = Ssh0, starter = _Pid,
     terminate(normal, StateName, State#state{ssh_params = Ssh}).
 
 
-terminate_subsytem(#connection{system_supervisor = SysSup,
+terminate_subsystem(#connection{system_supervisor = SysSup,
 			       sub_system_supervisor = SubSysSup}) when is_pid(SubSysSup) ->
     ssh_system_sup:stop_subsystem(SysSup, SubSysSup);
-terminate_subsytem(_) ->
+terminate_subsystem(_) ->
     ok.
 
 format_status(normal, [_, State]) ->
@@ -1173,7 +1262,10 @@ init_ssh(client = Role, Vsn, Version, Options, Socket) ->
 	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
 	 peer = {PeerName, PeerAddr},
-	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
+	 random_length_padding = proplists:get_value(max_random_length_padding, 
+						     Options, 
+						     (#ssh{})#ssh.random_length_padding)
 	};
 
 init_ssh(server = Role, Vsn, Version, Options, Socket) ->
@@ -1193,7 +1285,10 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 	 userauth_methods = AuthMethodsAsList,
 	 kb_tries_left = 3,
 	 peer = {undefined, PeerAddr},
-	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
+	 random_length_padding = proplists:get_value(max_random_length_padding, 
+						     Options, 
+						     (#ssh{})#ssh.random_length_padding)
 	 }.
 
 supported_host_keys(client, _, Options) ->
@@ -1202,9 +1297,9 @@ supported_host_keys(client, _, Options) ->
 				 proplists:get_value(preferred_algorithms,Options,[])
 				) of
 	    undefined -> 
-		ssh_auth:default_public_key_algorithms();
+		ssh_transport:default_algorithms(public_key);
 	    L ->
-		L -- (L--ssh_auth:default_public_key_algorithms())
+		L -- (L--ssh_transport:default_algorithms(public_key))
 	end
     of
 	[] ->
@@ -1216,20 +1311,16 @@ supported_host_keys(client, _, Options) ->
 	    {stop, {shutdown, Reason}}
     end;
 supported_host_keys(server, KeyCb, Options) ->
-    Algs=
     [atom_to_list(A) || A <- proplists:get_value(public_key, 
 						 proplists:get_value(preferred_algorithms,Options,[]),
-						 ssh_auth:default_public_key_algorithms()
+						 ssh_transport:default_algorithms(public_key)
 						),
 			available_host_key(KeyCb, A, Options)
-    ],
-    Algs.
-
+    ].
 
 %% Alg :: atom()
 available_host_key(KeyCb, Alg, Opts) ->
     element(1, catch KeyCb:host_key(Alg, Opts)) == ok.
-
 
 send_msg(Msg, #state{socket = Socket, transport_cb = Transport}) ->
     Transport:send(Socket, Msg).
@@ -1287,7 +1378,7 @@ event(Event, StateName, State) ->
 	    handle_disconnect(DisconnectMsg, State);
 	throw:{ErrorToDisplay, #ssh_msg_disconnect{} = DisconnectMsg}  ->
 	    handle_disconnect(DisconnectMsg, State, ErrorToDisplay);
-	_:_ ->
+	_C:_Error ->
 	    handle_disconnect(#ssh_msg_disconnect{code = error_code(StateName),
 						  description = "Invalid state",
 						  language = "en"}, State)
@@ -1319,46 +1410,57 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	Byte == ?SSH_MSG_CHANNEL_REQUEST;
 	Byte == ?SSH_MSG_CHANNEL_SUCCESS;
 	Byte == ?SSH_MSG_CHANNEL_FAILURE ->
-    ConnectionMsg =  ssh_message:decode(Msg),
-    State1 = generate_event_new_state(State0, EncData),
-    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
-	{{replies, Replies0}, Connection} ->
-	    if StateName == connected ->
-		    Replies = Replies0,
-		    State2  = State1;
-	       true ->
-		    {ConnReplies, Replies} =
-			lists:splitwith(fun not_connected_filter/1, Replies0),
-		    Q = State1#state.event_queue ++ ConnReplies,
-		    State2  = State1#state{ event_queue = Q }
-	    end,
-	    State = send_replies(Replies,  State2#state{connection_state = Connection}),
-	    {next_state, StateName, next_packet(State)};
-	{noreply, Connection} ->
-	    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
-	{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
-	      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    User ! {self(), not_connected, Reason},
-	    {stop, {shutdown, normal},
-	     next_packet(State#state{connection_state = Connection})};
-	{disconnect, _Reason, {{replies, Replies}, Connection}} ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
+    try
+	ssh_message:decode(Msg)
+    of
+	ConnectionMsg ->
+	    State1 = generate_event_new_state(State0, EncData),
+	    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
+		{{replies, Replies0}, Connection} ->
+		    if StateName == connected ->
+			    Replies = Replies0,
+			    State2  = State1;
+		       true ->
+			    {ConnReplies, Replies} =
+				lists:splitwith(fun not_connected_filter/1, Replies0),
+			    Q = State1#state.event_queue ++ ConnReplies,
+			    State2  = State1#state{ event_queue = Q }
+		    end,
+		    State = send_replies(Replies,  State2#state{connection_state = Connection}),
+		    {next_state, StateName, next_packet(State)};
+		{noreply, Connection} ->
+		    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
+		{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
+		      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    User ! {self(), not_connected, Reason},
+		    {stop, {shutdown, normal},
+		     next_packet(State#state{connection_state = Connection})};
+		{disconnect, _Reason, {{replies, Replies}, Connection}} ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
+	    catch
+		_:Error ->
+		    {disconnect, _Reason, {{replies, Replies}, Connection}} =
+			ssh_connection:handle_msg(
+			  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+					      description = "Internal error",
+					      language = "en"}, Connection0, Role),
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
+	    end
+
     catch
-	_:Error ->
-	    {disconnect, _Reason, {{replies, Replies}, Connection}} =
-		ssh_connection:handle_msg(
-		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-					  description = "Internal error",
-				      language = "en"}, Connection0, Role),
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
+	_:_ ->
+	    handle_disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				  description = "Bad packet received",
+				  language = ""}, State0)
     end;
 
 generate_event(Msg, StateName, State0, EncData) ->
     try 
-	Event = ssh_message:decode(Msg),
+	Event = ssh_message:decode(set_prefix_if_trouble(Msg,State0)),
 	State = generate_event_new_state(State0, EncData),
 	case Event of
 	    #ssh_msg_kexinit{} ->
@@ -1368,7 +1470,7 @@ generate_event(Msg, StateName, State0, EncData) ->
 		event(Event, StateName, State)
 	end
     catch 
-	_:_  ->
+	_C:_E  ->
 	    DisconnectMsg =
 		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR, 
 				    description = "Encountered unexpected input",
@@ -1376,6 +1478,26 @@ generate_event(Msg, StateName, State0, EncData) ->
 	    handle_disconnect(DisconnectMsg, State0)   
     end.		
 	    
+
+set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #state{ssh_params=SshParams}) 
+  when Op == 30;
+       Op == 31
+       ->
+    case catch atom_to_list(kex(SshParams)) of
+	"ecdh-sha2-" ++ _ -> 
+	    <<"ecdh",Msg/binary>>;
+	"diffie-hellman-group-exchange-" ++ _ ->
+	    <<"dh_gex",Msg/binary>>;
+	"diffie-hellman-group" ++ _ ->
+	    <<"dh",Msg/binary>>;
+	_ -> 
+	    Msg
+    end;
+set_prefix_if_trouble(Msg, _) ->
+    Msg.
+
+kex(#ssh{algorithms=#alg{kex=Kex}}) -> Kex;
+kex(_) -> undefined.
 
 
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From,
@@ -1471,6 +1593,7 @@ new_channel_id(#state{connection_state = #connection{channel_id_seed = Id} =
 	       = State) ->
     {Id, State#state{connection_state =
 		     Connection#connection{channel_id_seed = Id + 1}}}.
+
 generate_event_new_state(#state{ssh_params = 
 				#ssh{recv_sequence = SeqNum0} 
 				= Ssh} = State, EncData) ->
@@ -1507,10 +1630,10 @@ after_new_keys(#state{renegotiate = false,
 		      ssh_params = #ssh{role = client} = Ssh0} = State) ->
     {Msg, Ssh} = ssh_auth:service_request_msg(Ssh0),
     send_msg(Msg, State),
-    {next_state, userauth, State#state{ssh_params = Ssh}};
+    {next_state, service_request, State#state{ssh_params = Ssh}};
 after_new_keys(#state{renegotiate = false,  
 		      ssh_params = #ssh{role = server}} = State) ->
-    {next_state, userauth, State}.
+    {next_state, service_request, State}.
 
 after_new_keys_events({sync, _Event, From}, {stop, _Reason, _StateData}=Terminator) ->
     gen_fsm:reply(From, {error, closed}),
@@ -1538,57 +1661,6 @@ after_new_keys_events({event, Event}, {next_state, StateName, StateData}) ->
 after_new_keys_events({connection_reply, _Data} = Reply, {StateName, State}) ->
     NewState = send_replies([Reply], State),
     {next_state, StateName, NewState}.
-
-handle_ssh_packet_data(RemainingSshPacketLen, DecData, EncData, StateName, 
-		       State) ->
-    EncSize =  size(EncData), 
-    case RemainingSshPacketLen > EncSize of
-	true ->
-	    {next_state, StateName, 
-	     next_packet(State#state{decoded_data_buffer = DecData,
-				     encoded_data_buffer = EncData,
-				     undecoded_packet_length = 
-				     RemainingSshPacketLen})};
-	false ->
-	    handle_ssh_packet(RemainingSshPacketLen, StateName,
-			      State#state{decoded_data_buffer = DecData,
-					  encoded_data_buffer = EncData})
-    
-    end.    
-
-handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
-					    encoded_data_buffer = EncData0,
-					    ssh_params = Ssh0,
-					    transport_protocol = _Protocol,
-					    socket = _Socket} = State0) ->
-    try 
-	{Ssh1, DecData, EncData, Mac} = 
-	    ssh_transport:unpack(EncData0, Length, Ssh0),
-	SshPacket = <<DecData0/binary, DecData/binary>>,
-	case ssh_transport:is_valid_mac(Mac, SshPacket, Ssh1) of
-	    true ->
-		PacketData = ssh_transport:msg_data(SshPacket),
-		{Ssh1, Msg} = ssh_transport:decompress(Ssh1, PacketData),
-		generate_event(Msg, StateName, 
-			       State0#state{ssh_params = Ssh1,
-					    %% Important to be set for
-					    %% next_packet
-					    decoded_data_buffer = <<>>},
-			       EncData);
-	    false ->
-		DisconnectMsg = 
-		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					description = "Bad mac",
-					language = "en"},
-		handle_disconnect(DisconnectMsg, State0)
-	end
-    catch _:_ ->
-	    Disconnect = 
-		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				    description = "Bad input",
-				    language = "en"},
-	    handle_disconnect(Disconnect, State0) 
-    end.  
 
 
 handle_disconnect(DisconnectMsg, State) ->

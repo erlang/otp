@@ -24,24 +24,28 @@
 
 %%%
 %%% A handler that can be connected to the error_logger
-%%% event handler.
-%%% Writes all events formatted to file.
-%%%   Handles events tagged error, emulator and info.
+%%% event handler. Writes all events formatted to file.
 %%%
 %%% It can only be started from error_logger:swap_handler({logfile, File})
-%%% or error_logger:logfile(File)
+%%% or error_logger:logfile(File).
 %%%
 
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
+-record(st,
+	{fd,
+	 filename,
+	 prev_handler,
+	 depth=unlimited :: 'unlimited' | non_neg_integer()}).
+
 %% This one is used when we takeover from the simple error_logger.
 init({File, {error_logger, Buf}}) ->
     case init(File, error_logger) of
-	{ok, {Fd, File, PrevHandler}} ->
-	    write_events(Fd, Buf),
-	    {ok, {Fd, File, PrevHandler}};
+	{ok, State} ->
+	    write_events(State, Buf),
+	    {ok, State};
 	Error ->
 	    Error
     end;
@@ -53,49 +57,45 @@ init(File, PrevHandler) ->
     process_flag(trap_exit, true),
     case file:open(File, [write]) of
 	{ok,Fd} ->
-	    {ok, {Fd, File, PrevHandler}};
+	    Depth = get_depth(),
+	    State = #st{fd=Fd,filename=File,prev_handler=PrevHandler,
+			depth=Depth},
+	    {ok, State};
 	Error ->
 	    Error
     end.
-    
+
+get_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.
+
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
-handle_event(Event, {Fd, File, PrevHandler}) ->
-    write_event(Fd, tag_event(Event)),
-    {ok, {Fd, File, PrevHandler}};
-handle_event(_, State) ->
+handle_event(Event, State) ->
+    write_event(State, Event),
     {ok, State}.
 
-handle_info({'EXIT', Fd, _Reason}, {Fd, _File, PrevHandler}) ->
+handle_info({'EXIT', Fd, _Reason}, #st{fd=Fd,prev_handler=PrevHandler}) ->
     case PrevHandler of
 	[] ->
 	    remove_handler;
 	_ -> 
 	    {swap_handler, install_prev, [], PrevHandler, go_back}
     end;
-handle_info({emulator, GL, Chars}, {Fd, File, PrevHandler})
-  when node(GL) == node() ->
-    write_event(Fd, tag_event({emulator, GL, Chars})),
-    {ok, {Fd, File, PrevHandler}};
-handle_info({emulator, noproc, Chars}, {Fd, File, PrevHandler}) ->
-    write_event(Fd, tag_event({emulator, noproc, Chars})),
-    {ok, {Fd, File, PrevHandler}};
 handle_info(_, State) ->
     {ok, State}.
 
-handle_call(filename, {Fd, File, Prev}) ->
-    {ok, File, {Fd, File, Prev}};
+handle_call(filename, #st{filename=File}=State) ->
+    {ok, File, State};
 handle_call(_Query, State) ->
     {ok, {error, bad_query}, State}.
 
-terminate(_Reason, State) ->
-    case State of
-        {Fd, _File, _Prev} ->
-            ok = file:close(Fd);
-        _ ->
-            ok
-    end,
-    [].
+terminate(_Reason, #st{fd=Fd}) ->
+    file:close(Fd).
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -104,69 +104,73 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Misc. functions.
 %%% ------------------------------------------------------
 
-tag_event(Event) ->    
-    {erlang:universaltime(), Event}.
-
-write_events(Fd, Events) -> write_events1(Fd, lists:reverse(Events)).
-
-write_events1(Fd, [Event|Es]) ->
-    write_event(Fd, Event),
-    write_events1(Fd, Es);
-write_events1(_, []) ->
+write_events(State, [Ev|Es]) ->
+    %% Write the events in reversed order.
+    write_events(State, Es),
+    write_event(State, Ev);
+write_events(_State, []) ->
     ok.
 
-write_event(Fd, {Time, {error, _GL, {Pid, Format, Args}}}) ->
-    T = write_time(maybe_utc(Time)),
-    case catch io_lib:format(add_node(Format,Pid), Args) of
-	S when is_list(S) ->
-	    io:format(Fd, T ++ S, []);
-	_ ->
-	    F = add_node("ERROR: ~p - ~p~n", Pid),
-	    io:format(Fd, T ++ F, [Format,Args])
-    end;
-write_event(Fd, {Time, {emulator, _GL, Chars}}) ->
-    T = write_time(maybe_utc(Time)),
-    case catch io_lib:format(Chars, []) of
-	S when is_list(S) ->
-	    io:format(Fd, T ++ S, []);
-	_ ->
-	    io:format(Fd, T ++ "ERROR: ~p ~n", [Chars])
-    end;
-write_event(Fd, {Time, {info, _GL, {Pid, Info, _}}}) ->
-    T = write_time(maybe_utc(Time)),
-    io:format(Fd, T ++ add_node("~p~n",Pid),[Info]);
-write_event(Fd, {Time, {error_report, _GL, {Pid, std_error, Rep}}}) ->
-    T = write_time(maybe_utc(Time)),
-    S = format_report(Rep),
-    io:format(Fd, T ++ S ++ add_node("", Pid), []);
-write_event(Fd, {Time, {info_report, _GL, {Pid, std_info, Rep}}}) ->
-    T = write_time(maybe_utc(Time), "INFO REPORT"),
-    S = format_report(Rep),
-    io:format(Fd, T ++ S ++ add_node("", Pid), []);
-write_event(Fd, {Time, {info_msg, _GL, {Pid, Format, Args}}}) ->
-    T = write_time(maybe_utc(Time), "INFO REPORT"),
-    case catch io_lib:format(add_node(Format,Pid), Args) of
-	S when is_list(S) ->
-	    io:format(Fd, T ++ S, []);
-	_ ->
-	    F = add_node("ERROR: ~p - ~p~n", Pid),
-	    io:format(Fd, T ++ F, [Format,Args])
-    end;
-write_event(Fd, {Time, {warning_report, _GL, {Pid, std_warning, Rep}}}) ->
-    T = write_time(maybe_utc(Time), "WARNING REPORT"),
-    S = format_report(Rep),
-    io:format(Fd, T ++ S ++ add_node("", Pid), []);
-write_event(Fd, {Time, {warning_msg, _GL, {Pid, Format, Args}}}) ->
-    T = write_time(maybe_utc(Time), "WARNING REPORT"),
-    case catch io_lib:format(add_node(Format,Pid), Args) of
-	S when is_list(S) ->
-	    io:format(Fd, T ++ S, []);
-	_ ->
-	    F = add_node("ERROR: ~p - ~p~n", Pid),
-	    io:format(Fd, T ++ F, [Format,Args])
-    end;
-write_event(_, _) ->
-    ok.
+write_event(#st{fd=Fd}=State, Event) ->
+    case parse_event(Event) of
+	ignore ->
+	    ok;
+	{Head,Pid,FormatList} ->
+	    Time = maybe_utc(erlang:universaltime()),
+	    Header = write_time(Time, Head),
+	    Body = format_body(State, FormatList),
+	    AtNode = if
+			 node(Pid) =/= node() ->
+			     ["** at node ",atom_to_list(node(Pid))," **\n"];
+			 true ->
+			     []
+		     end,
+	    io:put_chars(Fd, [Header,Body,AtNode])
+    end.
+
+format_body(State, [{Format,Args}|T]) ->
+    S = try format(State, Format, Args) of
+	    S0 ->
+		S0
+	catch
+	    _:_ ->
+		format(State, "ERROR: ~p - ~p\n", [Format,Args])
+	end,
+    [S|format_body(State, T)];
+format_body(_State, []) ->
+    [].
+
+format(#st{depth=unlimited}, Format, Args) ->
+    io_lib:format(Format, Args);
+format(#st{depth=Depth}, Format0, Args) ->
+    Format1 = io_lib:scan_format(Format0, Args),
+    Format = limit_format(Format1, Depth),
+    io_lib:build_text(Format).
+
+limit_format([#{control_char:=C0}=M0|T], Depth) when C0 =:= $p;
+						     C0 =:= $w ->
+    C = C0 - ($a - $A),				%To uppercase.
+    #{args:=Args} = M0,
+    M = M0#{control_char:=C,args:=Args++[Depth]},
+    [M|limit_format(T, Depth)];
+limit_format([H|T], Depth) ->
+    [H|limit_format(T, Depth)];
+limit_format([], _) ->
+    [].
+
+parse_event({error, _GL, {Pid, Format, Args}}) ->
+    {"ERROR REPORT",Pid,[{Format,Args}]};
+parse_event({info_msg, _GL, {Pid, Format, Args}}) ->
+    {"INFO REPORT",Pid,[{Format, Args}]};
+parse_event({warning_msg, _GL, {Pid, Format, Args}}) ->
+    {"WARNING REPORT",Pid,[{Format,Args}]};
+parse_event({error_report, _GL, {Pid, std_error, Args}}) ->
+    {"ERROR REPORT",Pid,format_term(Args)};
+parse_event({info_report, _GL, {Pid, std_info, Args}}) ->
+    {"INFO REPORT",Pid,format_term(Args)};
+parse_event({warning_report, _GL, {Pid, std_warning, Args}}) ->
+    {"WARNING REPORT",Pid,format_term(Args)};
+parse_event(_) -> ignore.
 
 maybe_utc(Time) ->
     UTC = case application:get_env(sasl, utc_log) of
@@ -183,29 +187,26 @@ maybe_utc(Time) ->
 maybe_utc(Time, true) -> {utc, Time};
 maybe_utc(Time, _) -> {local, calendar:universal_time_to_local_time(Time)}.
 
-format_report(Rep) when is_list(Rep) ->
-    case string_p(Rep) of
+format_term(Term) when is_list(Term) ->
+    case string_p(Term) of
 	true ->
-	    io_lib:format("~s~n",[Rep]);
-	_ ->
-	    format_rep(Rep)
+	    [{"~s\n",[Term]}];
+	false ->
+	    format_term_list(Term)
     end;
-format_report(Rep) ->
-    io_lib:format("~p~n",[Rep]).
+format_term(Term) ->
+    [{"~p\n",[Term]}].
 
-format_rep([{Tag,Data}|Rep]) ->
-    io_lib:format("    ~p: ~p~n",[Tag,Data]) ++ format_rep(Rep);
-format_rep([Other|Rep]) ->
-    io_lib:format("    ~p~n",[Other]) ++ format_rep(Rep);
-format_rep(_) ->
+format_term_list([{Tag,Data}|T]) ->
+    [{"    ~p: ~p\n",[Tag,Data]}|format_term_list(T)];
+format_term_list([Data|T]) ->
+    [{"    ~p\n",[Data]}|format_term_list(T)];
+format_term_list([]) ->
+    [];
+format_term_list(_) ->
+    %% Continue to allow non-proper lists for now.
+    %% FIXME: Remove this clause in OTP 19.
     [].
-
-add_node(X, Pid) when is_atom(X) ->
-    add_node(atom_to_list(X), Pid);
-add_node(X, Pid) when node(Pid) =/= node() ->
-    lists:concat([X,"** at node ",node(Pid)," **~n"]);
-add_node(X, _) ->
-    X.
 
 string_p([]) ->
     false;
@@ -222,14 +223,9 @@ string_p1([$\b|T]) -> string_p1(T);
 string_p1([$\f|T]) -> string_p1(T);
 string_p1([$\e|T]) -> string_p1(T);
 string_p1([H|T]) when is_list(H) ->
-    case string_p1(H) of
-	true -> string_p1(T);
-	_    -> false
-    end;
+    string_p1(H) andalso string_p1(T);
 string_p1([]) -> true;
 string_p1(_) ->  false.
-
-write_time(Time) -> write_time(Time, "ERROR REPORT").
 
 write_time({utc,{{Y,Mo,D},{H,Mi,S}}}, Type) ->
     io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s UTC ===~n",

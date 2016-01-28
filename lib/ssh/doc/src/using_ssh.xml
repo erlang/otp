@@ -234,7 +234,7 @@
     <title>SFTP Client with TAR Compression and Encryption</title>
 
     <p>Example of writing and then reading a tar file follows:</p>
-    <code type="erlang">
+    <code type="erl">
       {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
       ok = erl_tar:add(HandleWrite, .... ),
       ok = erl_tar:add(HandleWrite, .... ),
@@ -249,10 +249,10 @@
     </code>
 
     <p>The previous write and read example can be extended with encryption and decryption as follows:</p>
-    <code type="erlang">
+    <code type="erl">
 %% First three parameters depending on which crypto type we select:
 Key = &lt;&lt;"This is a 256 bit key. abcdefghi">>,
-Ivec0 = crypto:rand_bytes(16),
+Ivec0 = crypto:strong_rand_bytes(16),
 DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
 
 %% Initialization of the CryptoState, in this case it is the Ivector.

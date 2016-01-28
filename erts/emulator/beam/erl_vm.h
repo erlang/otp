@@ -40,14 +40,6 @@
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
-/* Scheduler stores data for temporary heaps if
-   !HEAP_ON_C_STACK. Macros (*TmpHeap*) in global.h selects if we put temporary
-   heap data on the C stack or if we use the buffers in the scheduler data. */
-#define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
-				        small heap for transient heap data */
-#define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
-#define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
-
 /*
  * The new arithmetic operations need some extra X registers in the register array.
  * so does the gc_bif's (i_gc_bif3 need 3 extra).
@@ -117,12 +109,8 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-#if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xdeadbeef)
-#else
 # define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
-#endif
-#endif
+#endif /* egil: 32-bit ? */
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap
@@ -153,6 +141,7 @@
 typedef struct op_entry {
    char* name;			/* Name of instruction. */
    Uint32 mask[3];		/* Signature mask. */
+   unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */

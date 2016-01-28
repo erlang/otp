@@ -145,8 +145,8 @@ WDD_TYPEDEF(ErlDrvTid, erl_drv_thread_self, (void));
 WDD_TYPEDEF(int, erl_drv_equal_tids, (ErlDrvTid tid1, ErlDrvTid tid2));
 WDD_TYPEDEF(void, erl_drv_thread_exit, (void *resp));
 WDD_TYPEDEF(int, erl_drv_thread_join, (ErlDrvTid, void **respp));
-WDD_TYPEDEF(int, erl_drv_putenv, (char *key, char *value));
-WDD_TYPEDEF(int, erl_drv_getenv, (char *key, char *value, size_t *value_size));
+WDD_TYPEDEF(int, erl_drv_putenv, (const char *key, char *value));
+WDD_TYPEDEF(int, erl_drv_getenv, (const char *key, char *value, size_t *value_size));
 
 typedef struct {
     WDD_FTYPE(null_func) *null_func;

@@ -227,6 +227,17 @@ init(Parent) ->
       </desc>
     </func>
     <func>
+      <name name="format" arity="3"/>
+      <fsummary>Format a crash report.</fsummary>
+      <desc>
+        <p>This function can be used by a user defined event handler to
+          format a crash report. When <anno>Depth</anno> is given as an
+	  positive integer, it will be used in the format string to
+	  limit the output as follows: <c>io_lib:format("~P",
+	  [Term,<anno>Depth</anno>])</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="initial_call" arity="1"/>
       <fsummary>Extract the initial call of a <c>proc_lib</c>spawned process.</fsummary>
       <desc>

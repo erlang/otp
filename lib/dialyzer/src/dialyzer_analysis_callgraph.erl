@@ -167,9 +167,12 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       TmpCServer2 =
         dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
                                                        TmpCServer1),
-      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       ?timing(State#analysis_state.timing_server, "remote",
-	      dialyzer_contracts:process_contract_remote_types(TmpCServer3))
+              begin
+                TmpCServer3 =
+                  dialyzer_utils:process_record_remote_types(TmpCServer2),
+                dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+              end)
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
@@ -621,6 +624,28 @@ find_call_file_and_line(Tree, MFA) ->
 		  MFA ->
 		    Ann = cerl:get_ann(SubTree),
 		    [{get_file(Ann), get_line(Ann)}|Acc];
+		  {erlang, make_fun, 3} ->
+		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
+		    case
+		      cerl:is_c_atom(CA1) andalso
+		      cerl:is_c_atom(CA2) andalso
+		      cerl:is_c_int(CA3)
+		    of
+		      true ->
+			case
+			  {cerl:concrete(CA1),
+			   cerl:concrete(CA2),
+			   cerl:concrete(CA3)}
+			of
+			  MFA ->
+			    Ann = cerl:get_ann(SubTree),
+			    [{get_file(Ann), get_line(Ann)}|Acc];
+			  _ ->
+			    Acc
+			end;
+		      false ->
+			Acc
+		    end;
 		  _ -> Acc
 		end;
 	      false -> Acc

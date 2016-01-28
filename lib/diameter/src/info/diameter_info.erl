@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,6 @@
          widest/1,
          p/1,
          p/3]).
-
--compile({no_auto_import,[max/2]}).
 
 -export([collect/2]).
 
@@ -683,9 +681,6 @@ pt(T) ->
 
 recsplit(SFun, Rec) ->
     fun(Fs,Vs) -> SFun(element(1, Rec), Fs, Vs) end.
-
-max(A, B) ->
-    if A > B -> A; true -> B end.
 
 keyfetch(Key, List) ->
     {Key,V} = lists:keyfind(Key, 1, List),

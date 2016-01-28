@@ -1192,11 +1192,8 @@ send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
     %% number of workers running.
-    Seed = {erlang:monotonic_time(),
-	    erlang:time_offset(),
-	    erlang:unique_integer()},
-    io:format("seed: ~p\n",[Seed]), 
-    random:seed(Seed),    
+    rand:seed(exsplus),
+    io:format("seed: ~p\n",[rand:export_seed()]),
     ets:new(nif_SUITE,[named_table,public]),
     ?line true = ets:insert(nif_SUITE,{send3,0,0,0,0}),
     timer:send_after(10000, timeout), % Run for 10 seconds
@@ -1229,7 +1226,7 @@ send3_controller(SpawnCnt0, Mons0, Pids0, Tick) ->
     after Tick -> 
         Max = 20,
         N = length(Pids0),
-        PidN = random:uniform(Max),
+        PidN = rand:uniform(Max),
         %%io:format("N=~p PidN=~p Pids0=~p\n", [N,PidN,Pids0]), 
         case PidN > N of
             true ->
@@ -1293,7 +1290,7 @@ send3_proc(Pids0, Counters={Rcv,SndOk,SndFail}, State0) ->
     end.
 
 send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
-    To = lists:nth(random:uniform(length(Pids)),Pids),
+    To = lists:nth(rand:uniform(length(Pids)),Pids),
     Blob = send3_make_blob(),
     State1 = send3_new_state(State0,Blob), 
     case send3_send(To, Blob) of
@@ -1305,12 +1302,12 @@ send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
 
 
 send3_make_blob() ->    
-    case random:uniform(20)-1 of
+    case rand:uniform(20)-1 of
         0 -> {term,[]};
         N ->
             MsgEnv = alloc_msgenv(), 
             repeat(N bsr 1,
-                   fun(_) -> grow_blob(MsgEnv,other_term(),random:uniform(1 bsl 20))
+                   fun(_) -> grow_blob(MsgEnv,other_term(),rand:uniform(1 bsl 20))
                    end, void),
             case (N band 1) of
                 0 -> {term,copy_blob(MsgEnv)};
@@ -1320,7 +1317,7 @@ send3_make_blob() ->
 
 send3_send(Pid, Msg) ->
     %% 90% enif_send and 10% normal bang
-    case random:uniform(10) of
+    case rand:uniform(10) of
         1 -> send3_send_bang(Pid,Msg);
         _ -> send3_send_nif(Pid,Msg)
     end.
@@ -1341,7 +1338,7 @@ send3_send_bang(Pid, {msgenv,MsgEnv}) ->
     true.
 
 send3_new_state(State, Blob) ->
-    case random:uniform(5+2) of
+    case rand:uniform(5+2) of
         N when N =< 5-> setelement(N, State, Blob);
         _ -> State  % Don't store blob
     end.

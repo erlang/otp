@@ -54,7 +54,7 @@ fragmented_strings(Len, Types) ->
     ok.
 
 make_ns_value(0) -> [];
-make_ns_value(N) -> [($0 - 1) + random:uniform(10)|make_ns_value(N-1)].
+make_ns_value(N) -> [($0 - 1) + rand:uniform(10)|make_ns_value(N-1)].
 
 fragmented_lengths() ->
     K16 = 1 bsl 14,
@@ -123,6 +123,7 @@ bit_string(Rules, Opts) ->
     %% Bs2 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (7))
     %%==========================================================
     
+    roundtrip('Bs2', []),
     roundtrip('Bs2', [mo,tu,fr]),
     bs_roundtrip('Bs2', <<2#0110010:7>>, [mo,tu,fr]),
     bs_roundtrip('Bs2', <<2#0110011:7>>, [mo,tu,fr,sa]),
@@ -131,12 +132,20 @@ bit_string(Rules, Opts) ->
     %% Bs3 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) } (SIZE (1..7))
     %%==========================================================
     
+    roundtrip('Bs3', []),
     roundtrip('Bs3', [mo,tu,fr]),
     bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
     bs_roundtrip('Bs3', <<2#0110010:7>>, [mo,tu,fr]),
     bs_roundtrip('Bs2', <<2#0110011:7>>, [mo,tu,fr,sa]),
     bs_roundtrip('Bs3', <<2#011001:6>>, [mo,tu,fr]),
     bs_roundtrip('Bs3', <<2#11:2>>, [su,mo]),
+
+    %%==========================================================
+    %% Bs4 ::= BIT STRING {su(0), mo(1), tu(2), we(3), th(4), fr(5), sa(6) }
+    %%==========================================================
+
+    roundtrip('Bs4', []),
+    roundtrip('Bs4', [mo,tu,fr,sa]),
 
     %%==========================================================
     %% Bs7 ::= BIT STRING (SIZE (24))

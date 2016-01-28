@@ -114,15 +114,10 @@ void erts_init_trace(void) {
 
 static Eterm system_seq_tracer;
 
-#ifdef ERTS_SMP
 #define ERTS_ALLOC_SYSMSG_HEAP(SZ, BPP, OHPP, UNUSED) \
   (*(BPP) = new_message_buffer((SZ)), \
    *(OHPP) = &(*(BPP))->off_heap, \
    (*(BPP))->mem)
-#else
-#define ERTS_ALLOC_SYSMSG_HEAP(SZ, BPP, OHPP, RPP) \
-  erts_alloc_message_heap((SZ), (BPP), (OHPP), (RPP), 0)
-#endif
 
 #ifdef ERTS_SMP
 #define ERTS_ENQ_TRACE_MSG(FPID, TPID, MSG, BP) \
@@ -131,8 +126,12 @@ do { \
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_TRACE, (FPID), (TPID), (MSG), (BP)); \
 } while(0)
 #else
-#define ERTS_ENQ_TRACE_MSG(FPID, TPROC, MSG, BP) \
-    erts_queue_message((TPROC), NULL, (BP), (MSG), NIL)
+#define ERTS_ENQ_TRACE_MSG(FPID, TPROC, MSG, BP)		\
+    do {							\
+	ErtsMessage *mp__ = erts_alloc_message(0, NULL);		\
+	mp__->data.heap_frag = (BP);				\
+	erts_queue_message((TPROC), NULL, mp__, (MSG), NIL);	\
+    } while (0)
 #endif
 
 /*
@@ -591,11 +590,9 @@ send_to_port(Process *c_p, Eterm message,
 static void 
 profile_send(Eterm from, Eterm message) {
     Uint sz = 0;
-    ErlHeapFragment *bp = NULL;
     Uint *hp = NULL;
     Eterm msg = NIL;
     Process *profile_p = NULL;
-    ErlOffHeap *off_heap = NULL;
 
     Eterm profiler = erts_get_system_profile();
 
@@ -621,6 +618,7 @@ profile_send(Eterm from, Eterm message) {
 	}
     	
     } else {
+	ErtsMessage *mp;
 	ASSERT(is_internal_pid(profiler));
         
 	profile_p = erts_proc_lookup(profiler);
@@ -629,10 +627,13 @@ profile_send(Eterm from, Eterm message) {
 	    return;
 
 	sz = size_object(message);
-	hp = erts_alloc_message_heap(sz, &bp, &off_heap, profile_p, 0);
-	msg = copy_struct(message, sz, &hp, &bp->off_heap);
-	
-        erts_queue_message(profile_p, NULL, bp, msg, NIL);
+	mp = erts_alloc_message(sz, &hp);
+	if (sz == 0)
+	    msg = message;
+	else
+	    msg = copy_struct(message, sz, &hp, &mp->hfrag.off_heap);
+
+        erts_queue_message(profile_p, NULL, mp, msg, NIL);
     }
 }
 
@@ -1045,11 +1046,7 @@ seq_trace_update_send(Process *p)
 {
     Eterm seq_tracer = erts_get_system_seq_tracer();
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
-    if ( (p->common.id == seq_tracer) || (SEQ_TRACE_TOKEN(p) == NIL)
-#ifdef USE_VM_PROBES
-	 || (SEQ_TRACE_TOKEN(p) == am_have_dt_utag)
-#endif
-	 ) {
+    if ((p->common.id == seq_tracer) || have_no_seqtrace(SEQ_TRACE_TOKEN(p))) {
 	return 0;
     }
     SEQ_TRACE_TOKEN_SENDER(p) = p->common.id;
@@ -1233,7 +1230,11 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 	erts_smp_mtx_unlock(&smq_mtx);
 #else
         /* trace_token must be NIL here */
-	erts_queue_message(tracer, NULL, bp, mess, NIL);
+	{
+	    ErtsMessage *mp = erts_alloc_message(0, NULL);
+	    mp->data.heap_frag = bp;
+	    erts_queue_message(tracer, NULL, mp, mess, NIL);
+	}
 #endif
     }
 }
@@ -1677,12 +1678,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
     args = transformed_args;
 
     if (is_internal_port(*tracer_pid)) {
-#if HEAP_ON_C_STACK
 	Eterm local_heap[64+MAX_ARG];
-#else
-	Eterm *local_heap = erts_alloc(ERTS_ALC_T_TEMP_TERM,
-				       sizeof(Eterm)*(64+MAX_ARG));
-#endif
 	hp = local_heap;
 
 	if (!erts_is_valid_tracer_port(*tracer_pid)) {
@@ -1696,9 +1692,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 #ifdef ERTS_SMP
 	    if (is_not_nil(tracee))
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
-#endif
-#if !HEAP_ON_C_STACK
-	    erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
 #endif
 	    UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 	    return 0;
@@ -1727,9 +1720,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 					    ERTS_PAM_TMP_RESULT, &return_flags);
 	    if (is_non_value(pam_result)) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return 0;
 	    }
@@ -1738,9 +1728,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	    /* Meta trace */
 	    if (pam_result == am_false) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return return_flags;
 	    }
@@ -1748,17 +1735,11 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	    /* Non-meta trace */
 	    if (*tracee_flags & F_TRACE_SILENT) { 
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return 0;
 	    }
 	    if (pam_result == am_false) {
 		erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-		erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 		return return_flags;
 	    }
@@ -1802,9 +1783,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	send_to_port(p, mess, tracer_pid, tracee_flags);
 	erts_smp_mtx_unlock(&smq_mtx);
 	erts_match_set_release_result(p);
-#if !HEAP_ON_C_STACK
-	erts_free(ERTS_ALC_T_TEMP_TERM,local_heap);
-#endif
 	UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);
 	return *tracer_pid == NIL ? 0 : return_flags;
 
@@ -1823,7 +1801,6 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 #ifdef DEBUG
 	Eterm* limit;
 #endif
-
 	ASSERT(is_internal_pid(*tracer_pid));
 	
 	tracer = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN,
@@ -2332,7 +2309,11 @@ monitor_long_schedule_proc(Process *p, BeamInstr *in_fp, BeamInstr *out_fp, Uint
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(monitor_p, NULL, mp, msg, NIL);
+    }
 #endif
 }
 void 
@@ -2393,7 +2374,11 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, pp->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(monitor_p, NULL, mp, msg, NIL);
+    }
 #endif
 }
 
@@ -2464,7 +2449,11 @@ monitor_long_gc(Process *p, Uint time) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(monitor_p, NULL, mp, msg, NIL);
+    }
 #endif
 }
 
@@ -2535,7 +2524,11 @@ monitor_large_heap(Process *p) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(monitor_p, NULL, mp, msg, NIL);
+    }
 #endif
 }
 
@@ -2563,7 +2556,11 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
 #ifdef ERTS_SMP
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
 #else
-    erts_queue_message(monitor_p, NULL, bp, msg, NIL);
+    {
+	ErtsMessage *mp = erts_alloc_message(0, NULL);
+	mp->data.heap_frag = bp;
+	erts_queue_message(monitor_p, NULL, mp, msg, NIL);
+    }
 #endif
 
 }
@@ -3297,8 +3294,6 @@ sys_msg_dispatcher_func(void *unused)
 	    if (erts_thr_progress_update(NULL))
 		erts_thr_progress_leader_update(NULL);
 
-	    ERTS_SCHED_FAIR_YIELD();
-
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);
 #endif
@@ -3357,8 +3352,11 @@ sys_msg_dispatcher_func(void *unused)
 		    goto failure;
 		}
 		else {
+		    ErtsMessage *mp;
 		queue_proc_msg:
-		    erts_queue_message(proc,&proc_locks,smqp->bp,smqp->msg,NIL);
+		    mp = erts_alloc_message(0, NULL);
+		    mp->data.heap_frag = smqp->bp;
+		    erts_queue_message(proc,&proc_locks,mp,smqp->msg,NIL);
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "delivered\n");
 #endif
@@ -3453,9 +3451,6 @@ static void
 init_sys_msg_dispatcher(void)
 {
     erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
-#ifdef __OSE__
-    thr_opts.coreNo   = 0;
-#endif
     thr_opts.detached = 1;
     thr_opts.name = "sys_msg_dispatcher";
     init_smq_element_alloc();
@@ -3463,7 +3458,6 @@ init_sys_msg_dispatcher(void)
     sys_message_queue_end = NULL;
     erts_smp_cnd_init(&smq_cnd);
     erts_smp_mtx_init(&smq_mtx, "sys_msg_q");
-
     erts_smp_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,

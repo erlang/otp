@@ -1771,7 +1771,18 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 		{Tests1,Skip1} ->	    
 		    ReleaseSh = proplists:get_value(release_shell, Args),
 		    ct_util:set_testdata({release_shell,ReleaseSh}),
-		    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts)
+		    TestResult = 
+			possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts),
+		    case TestResult of
+			{Ok,Errors,Skipped} ->
+			    NoOfMakeErrors =
+				lists:foldl(fun({_,BadMods}, X) ->
+						    X + length(BadMods)
+					    end, 0, SuiteMakeErrors),
+			    {Ok,Errors+NoOfMakeErrors,Skipped};
+			ErrorResult ->
+			    ErrorResult
+		    end
 	    catch
 		_:BadFormat ->
 		    {error,BadFormat}
@@ -2073,7 +2084,9 @@ final_skip([], Final) ->
 
 continue([], _) ->
     true;
-continue(_MakeErrors, AbortIfMissingSuites) ->
+continue(_MakeErrors, true) ->
+    false;
+continue(_MakeErrors, _AbortIfMissingSuites) ->
     io:nl(),
     OldGl = group_leader(),
     case set_group_leader_same_as_shell() of
@@ -2101,11 +2114,10 @@ continue(_MakeErrors, AbortIfMissingSuites) ->
 		    true
 	    end;
 	false ->				% no shell process to use
-	    not AbortIfMissingSuites
+	    true
     end.
 
 set_group_leader_same_as_shell() ->
-    %%! Locate the shell process... UGLY!!!
     GS2or3 = fun(P) ->
     		     case process_info(P,initial_call) of
     			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->

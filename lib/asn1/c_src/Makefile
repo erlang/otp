@@ -97,12 +97,7 @@ endif
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 opt: $(NIF_SHARED_OBJ_FILE)
-else
-# Do not build dynamic files on OSE
-opt:
-endif
 
 debug: opt
 
@@ -140,9 +135,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
-ifneq ($(findstring ose,$(TARGET)),ose)
 	$(INSTALL_PROGRAM) $(NIF_SHARED_OBJ_FILE) "$(RELSYSDIR)/priv/lib"
-endif
 	$(INSTALL_DIR) "$(RELSYSDIR)/c_src"
 	$(INSTALL_DATA) *.c "$(RELSYSDIR)/c_src"
 

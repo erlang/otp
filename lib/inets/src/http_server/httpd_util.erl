@@ -31,7 +31,7 @@
 	 convert_netscapecookie_date/1, enable_debug/1, valid_options/3,
 	 modules_validate/1, module_validate/1, 
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
-	 mime_types_validate/1, custom_date/0]).
+	 mime_types_validate/1, custom_date/0, error_log/2]).
 
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
@@ -42,17 +42,7 @@ ip_address({_,_,_,_,_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
 ip_address(Host, IpFamily) 
   when ((IpFamily =:= inet) orelse (IpFamily =:= inet6)) ->
-    inet:getaddr(Host, IpFamily);
-ip_address(Host, inet6fb4 = _IpFamily) ->
-    Inet = case gen_tcp:listen(0, [inet6]) of
-	       {ok, Dummyport} ->
-		   gen_tcp:close(Dummyport),
-		   inet6;
-	       _ ->
-		   inet
-	   end,
-    inet:getaddr(Host, Inet).
-
+    inet:getaddr(Host, IpFamily).
 
 %% lookup
 
@@ -786,3 +776,17 @@ do_enable_debug([{Level,Modules}|Rest])
 	    ok
     end,
     do_enable_debug(Rest).
+
+error_log(ConfigDb, Error) ->
+    error_log(mod_log, ConfigDb, Error),
+    error_log(mod_disk_log, ConfigDb, Error).
+	
+error_log(Mod, ConfigDB, Error) ->
+    Modules = httpd_util:lookup(ConfigDB, modules,
+				[mod_get, mod_head, mod_log]),
+    case lists:member(Mod, Modules) of
+	true ->
+	    Mod:report_error(ConfigDB, Error);
+	_ ->
+	    ok
+    end.

@@ -31,7 +31,10 @@
 
 %% Key to a value in the process dictionary that determines whether or
 %% not an unrecognized AVP setting the M-bit should be regarded as an
-%% error or not. See is_strict/0.
+%% error or not. See is_strict/0. This is only used to relax M-bit
+%% interpretation inside Grouped AVPs not setting the M-bit. The
+%% service_opt() strict_mbit can be used to disable the check
+%% globally.
 -define(STRICT_KEY, strict).
 
 %% Key that says whether or not we should do a best-effort decode
@@ -186,9 +189,10 @@ decode_avps(Name, Recs) ->
         = lists:foldl(fun(T,A) -> decode(Name, T, A) end,
                       {[], {newrec(Name), []}},
                       Recs),
-    {Rec, Avps, Failed ++ missing(Rec, Name)}.
-%% Append 5005 errors so that a 5014 for the same AVP will take
-%% precedence in a Result-Code/Failed-AVP setting.
+    {Rec, Avps, Failed ++ missing(Rec, Name, Failed)}.
+%% Append 5005 errors so that errors are reported in the order
+%% encountered. Failed-AVP should typically contain the first
+%% encountered error accordg to the RFC.
 
 newrec(Name) ->
     '#new-'(name2rec(Name)).
@@ -201,19 +205,35 @@ newrec(Name) ->
 %%      Failed-AVP AVP SHOULD be included in the message.  The Failed-AVP
 %%      AVP MUST contain an example of the missing AVP complete with the
 %%      Vendor-Id if applicable.  The value field of the missing AVP
-%%      should be of correct minimum length and contain zeroes.
+%%      should be of correct minimum length and contain zeros.
 
-missing(Rec, Name) ->
-    [{5005, empty_avp(F)} || F <- '#info-'(element(1, Rec), fields),
-                             A <- [avp_arity(Name, F)],
-                             false <- [have_arity(A, '#get-'(F, Rec))]].
+missing(Rec, Name, Failed) ->
+    Avps = lists:foldl(fun({_, #diameter_avp{code = C, vendor_id = V}}, A) ->
+                               sets:add_element({C,V}, A)
+                       end,
+                       sets:new(),
+                       Failed),
+    [{5005, A} || F <- '#info-'(element(1, Rec), fields),
+                  not has_arity(avp_arity(Name, F), '#get-'(F, Rec)),
+                  #diameter_avp{code = C, vendor_id = V}
+                      = A <- [empty_avp(F)],
+                  not sets:is_element({C,V}, Avps)].
 
 %% Maximum arities have already been checked in building the record.
 
-have_arity({Min, _}, L) ->
-    Min =< length(L);
-have_arity(N, V) ->
+has_arity({Min, _}, L) ->
+    has_prefix(Min, L);
+has_arity(N, V) ->
     N /= 1 orelse V /= undefined.
+
+%% Compare a non-negative integer and the length of a list without
+%% computing the length.
+has_prefix(0, _) ->
+    true;
+has_prefix(_, []) ->
+    false;
+has_prefix(N, L) ->
+    has_prefix(N-1, tl(L)).
 
 %% empty_avp/1
 
@@ -431,7 +451,8 @@ relax(_, _) ->
     false.
 
 is_strict() ->
-    false /= getr(?STRICT_KEY).
+    diameter_codec:getopt(strict_mbit)
+        andalso false /= getr(?STRICT_KEY).
 
 %% relax/1
 %%
@@ -608,14 +629,17 @@ pack(undefined, 1, FieldName, Avp, Acc) ->
 %%      AVP MUST be included and contain a copy of the first instance of
 %%      the offending AVP that exceeded the maximum number of occurrences
 %%
+
 pack(_, 1, _, Avp, {Rec, Failed}) ->
     {Rec, [{5009, Avp} | Failed]};
-pack(L, {_, Max}, _, Avp, {Rec, Failed})
-  when length(L) == Max ->
-    {Rec, [{5009, Avp} | Failed]};
-
-pack(L, _, FieldName, Avp, Acc) ->
-    p(FieldName, fun(V) -> [V|L] end, Avp, Acc).
+pack(L, {_, Max}, FieldName, Avp, Acc) ->
+    case '*' /= Max andalso has_prefix(Max, L) of
+        true ->
+            {Rec, Failed} = Acc,
+            {Rec, [{5009, Avp} | Failed]};
+        false ->
+            p(FieldName, fun(V) -> [V|L] end, Avp, Acc)
+    end.
 
 %% p/4
 

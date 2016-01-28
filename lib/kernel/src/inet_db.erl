@@ -633,20 +633,22 @@ make_hostent(Name, Datas, Aliases, Type) ->
 
 hostent_by_domain(Domain, Type) ->
     ?dbg("hostent_by_domain: ~p~n", [Domain]),
-    hostent_by_domain(stripdot(Domain), [], Type).
+    hostent_by_domain(stripdot(Domain), [], [], Type).
 
-hostent_by_domain(Domain, Aliases, Type) ->
+hostent_by_domain(Domain, Aliases, LAliases, Type) ->
     case lookup_type(Domain, Type) of
 	[] ->
 	    case lookup_cname(Domain) of
 		[] ->  
 		    {error, nxdomain};
 		[CName | _] ->
-		    case lists:member(CName, [Domain | Aliases]) of
+		    LDomain = tolower(Domain),
+		    case lists:member(CName, [LDomain | LAliases]) of
                         true -> 
 			    {error, nxdomain};
                         false ->
-			    hostent_by_domain(CName, [Domain | Aliases], Type)
+			    hostent_by_domain(CName, [Domain | Aliases],
+					      [LDomain | LAliases], Type)
 		    end
 	    end;
 	Addrs ->
@@ -671,24 +673,26 @@ lookup_rr(Domain, Class, Type) ->
 %% match data field directly and cache RRs.
 %%
 res_hostent_by_domain(Domain, Type, Rec) ->
-    res_cache_answer(Rec),
-    RRs = Rec#dns_rec.anlist,
+    RRs = lists:map(fun lower_rr/1, Rec#dns_rec.anlist),
+    res_cache_answer(Rec#dns_rec{anlist = RRs}),
     ?dbg("res_hostent_by_domain: ~p - ~p~n", [Domain, RRs]),
-    res_hostent_by_domain(stripdot(Domain), [], Type, RRs).
+    res_hostent_by_domain(stripdot(Domain), [], [], Type, RRs).
 
-res_hostent_by_domain(Domain, Aliases, Type, RRs) ->
-    case res_lookup_type(Domain, Type, RRs) of
+res_hostent_by_domain(Domain, Aliases, LAliases, Type, RRs) ->
+    LDomain = tolower(Domain),
+    case res_lookup_type(LDomain, Type, RRs) of
 	[] ->
-	    case res_lookup_type(Domain, ?S_CNAME, RRs) of
+	    case res_lookup_type(LDomain, ?S_CNAME, RRs) of
 		[] ->  
 		    {error, nxdomain};
 		[CName | _] ->
-		    case lists:member(CName, [Domain | Aliases]) of
+		    case lists:member(tolower(CName), [LDomain | LAliases]) of
 			true -> 
 			    {error, nxdomain};
 			false ->
 			    res_hostent_by_domain(CName, [Domain | Aliases],
-						  Type, RRs)
+						  [LDomain | LAliases], Type,
+						  RRs)
 		    end
 	    end;
 	Addrs ->
@@ -721,7 +725,8 @@ gethostbyaddr(IP) ->
 %%
 res_gethostbyaddr(IP, Rec) ->
     {ok, {IP1, HType, HLen}} = dnt(IP),
-    res_cache_answer(Rec),
+    RRs = lists:map(fun lower_rr/1, Rec#dns_rec.anlist),
+    res_cache_answer(Rec#dns_rec{anlist = RRs}),
     ent_gethostbyaddr(Rec#dns_rec.anlist, IP1, HType, HLen).
 
 ent_gethostbyaddr(RRs, IP, AddrType, Length) ->
@@ -1378,7 +1383,7 @@ times() ->
 %% lookup and remove old entries
 
 do_lookup_rr(Domain, Class, Type) ->
-    match_rr(#dns_rr{domain = Domain, class = Class,type = Type,
+    match_rr(#dns_rr{domain = tolower(Domain), class = Class,type = Type,
 		     cnt = '_', tm = '_', ttl = '_',
 		     bm = '_', func = '_', data = '_'}).
 
@@ -1400,6 +1405,11 @@ filter_rr([RR | RRs], Time) ->
     [RR | filter_rr(RRs, Time)];
 filter_rr([], _Time) ->  [].
 
+%% Lower case the domain name before storage.
+%%
+lower_rr(#dns_rr{domain=Domain}=RR) when is_list(Domain) ->
+    RR#dns_rr { domain = tolower(Domain) };
+lower_rr(RR) -> RR.
 
 %%
 %% Case fold upper-case to lower-case according to RFC 4343

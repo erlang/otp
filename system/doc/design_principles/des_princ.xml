@@ -183,7 +183,7 @@ handle_cast({free, Ch}, Chs) ->
       <item>The server name, in this example the atom
       <c>ch2</c>, is hidden from the users of the client functions. This
        means that the name can be changed without affecting them.</item>
-      <item>The protcol (messages sent to and received from the server)
+      <item>The protocol (messages sent to and received from the server)
        is also hidden. This is good programming practice and allows
        one to change the protocol without changing the code using
        the interface functions.</item>

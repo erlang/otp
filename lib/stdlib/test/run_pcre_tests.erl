@@ -1083,7 +1083,7 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 %% Generate replacement tests from indatafile, 
 %% you will need perl on the machine
 gen_repl_test(OneFile) ->
-    random:seed(1219,687731,62804),
+    rand:seed(exsplus, {1219,687731,62804}),
     {ok,Bin} = file:read_file(OneFile),
     Lines = splitfile(0,Bin,1),
     Structured = stru(Lines),
@@ -1237,15 +1237,15 @@ btr(_) ->
 
 
 ranchar() ->
-    case random:uniform(10) of
+    case rand:uniform(10) of
 	9 -> $&;
         10 -> <<"\\1">>;		 
 	N when N < 5 ->
-	    random:uniform($Z-$A)+$A-1;
+	    rand:uniform($Z-$A)+$A-1;
 	M when M < 9 ->
-	    random:uniform($z-$a)+$a-1
+	    rand:uniform($z-$a)+$a-1
     end.
 
 ranstring() ->
-    iolist_to_binary([ranchar() || _ <- lists:duplicate(random:uniform(20),0) ]).
+    iolist_to_binary([ranchar() || _ <- lists:duplicate(rand:uniform(20),0) ]).
 

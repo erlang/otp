@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,11 +107,13 @@
 -define(SET, sets:set).
 
 -record(state, {name,
-		strategy               :: strategy(),
+		strategy               :: strategy() | 'undefined',
 		children = []          :: [child_rec()],
-		dynamics               :: ?DICT(pid(), list()) | ?SET(pid()),
-		intensity              :: non_neg_integer(),
-		period                 :: pos_integer(),
+                dynamics               :: {'dict', ?DICT(pid(), list())}
+                                        | {'set', ?SET(pid())}
+                                        | 'undefined',
+		intensity              :: non_neg_integer() | 'undefined',
+		period                 :: pos_integer() | 'undefined',
 		restarts = [],
 	        module,
 	        args}).
@@ -577,7 +579,7 @@ handle_cast({try_again_restart,Pid}, #state{children=[Child]}=State)
   when ?is_simple(State) ->
     RT = Child#child.restart_type,
     RPid = restarting(Pid),
-    case dynamic_child_args(RPid, dynamics_db(RT, State#state.dynamics)) of
+    case dynamic_child_args(RPid, RT, State#state.dynamics) of
 	{ok, Args} ->
 	    {M, F, _} = Child#child.mfargs,
 	    NChild = Child#child{pid = RPid, mfargs = {M, F, Args}},
@@ -735,7 +737,7 @@ handle_start_child(Child, State) ->
 
 restart_child(Pid, Reason, #state{children = [Child]} = State) when ?is_simple(State) ->
     RestartType = Child#child.restart_type,
-    case dynamic_child_args(Pid, dynamics_db(RestartType, State#state.dynamics)) of
+    case dynamic_child_args(Pid, RestartType, State#state.dynamics) of
 	{ok, Args} ->
 	    {M, F, _} = Child#child.mfargs,
 	    NChild = Child#child{pid = Pid, mfargs = {M, F, Args}},
@@ -812,14 +814,16 @@ restart(simple_one_for_one, Child, State) ->
 					       State#state.dynamics)),
     case do_start_child_i(M, F, A) of
 	{ok, Pid} ->
-	    NState = State#state{dynamics = ?DICTS:store(Pid, A, Dynamics)},
+            DynamicsDb = {dict, ?DICTS:store(Pid, A, Dynamics)},
+	    NState = State#state{dynamics = DynamicsDb},
 	    {ok, NState};
 	{ok, Pid, _Extra} ->
-	    NState = State#state{dynamics = ?DICTS:store(Pid, A, Dynamics)},
+            DynamicsDb = {dict, ?DICTS:store(Pid, A, Dynamics)},
+	    NState = State#state{dynamics = DynamicsDb},
 	    {ok, NState};
 	{error, Error} ->
-	    NState = State#state{dynamics = ?DICTS:store(restarting(OldPid), A,
-							Dynamics)},
+            DynamicsDb = {dict, ?DICTS:store(restarting(OldPid), A, Dynamics)},
+	    NState = State#state{dynamics = DynamicsDb},
 	    report_error(start_error, Error, Child, State#state.name),
 	    {try_again, NState}
     end;
@@ -1083,7 +1087,7 @@ wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
 
         {timeout, TRef, kill} ->
             ?SETS:fold(fun(P, _) -> exit(P, kill) end, ok, Pids),
-            wait_dynamic_children(Child, Pids, Sz-1, undefined, EStack)
+            wait_dynamic_children(Child, Pids, Sz, undefined, EStack)
     end.
 
 %%-----------------------------------------------------------------
@@ -1102,31 +1106,32 @@ save_child(Child, #state{children = Children} = State) ->
     State#state{children = [Child |Children]}.
 
 save_dynamic_child(temporary, Pid, _, #state{dynamics = Dynamics} = State) ->
-    State#state{dynamics = ?SETS:add_element(Pid, dynamics_db(temporary, Dynamics))};
+    DynamicsDb = dynamics_db(temporary, Dynamics),
+    State#state{dynamics = {set, ?SETS:add_element(Pid, DynamicsDb)}};
 save_dynamic_child(RestartType, Pid, Args, #state{dynamics = Dynamics} = State) ->
-    State#state{dynamics = ?DICTS:store(Pid, Args, dynamics_db(RestartType, Dynamics))}.
+    DynamicsDb = dynamics_db(RestartType, Dynamics),
+    State#state{dynamics = {dict, ?DICTS:store(Pid, Args, DynamicsDb)}}.
 
 dynamics_db(temporary, undefined) ->
     ?SETS:new();
 dynamics_db(_, undefined) ->
     ?DICTS:new();
-dynamics_db(_,Dynamics) ->
-    Dynamics.
+dynamics_db(_, {_Tag, DynamicsDb}) ->
+    DynamicsDb.
 
-dynamic_child_args(Pid, Dynamics) ->
-    case ?SETS:is_set(Dynamics) of
-        true ->
-            {ok, undefined};
-        false ->
-            ?DICTS:find(Pid, Dynamics)
-    end.
+dynamic_child_args(_Pid, temporary, _DynamicsDb) ->
+    {ok, undefined};
+dynamic_child_args(Pid, _RT, {dict, DynamicsDb}) ->
+    ?DICTS:find(Pid, DynamicsDb);
+dynamic_child_args(_Pid, _RT, undefined) ->
+    error.
 
 state_del_child(#child{pid = Pid, restart_type = temporary}, State) when ?is_simple(State) ->
     NDynamics = ?SETS:del_element(Pid, dynamics_db(temporary, State#state.dynamics)),
-    State#state{dynamics = NDynamics};
+    State#state{dynamics = {set, NDynamics}};
 state_del_child(#child{pid = Pid, restart_type = RType}, State) when ?is_simple(State) ->
     NDynamics = ?DICTS:erase(Pid, dynamics_db(RType, State#state.dynamics)),
-    State#state{dynamics = NDynamics};
+    State#state{dynamics = {dict, NDynamics}};
 state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),
     State#state{children = NChildren}.
@@ -1160,19 +1165,19 @@ split_child(_, [], After) ->
 
 get_child(Name, State) ->
     get_child(Name, State, false).
+
 get_child(Pid, State, AllowPid) when AllowPid, is_pid(Pid) ->
     get_dynamic_child(Pid, State);
 get_child(Name, State, _) ->
     lists:keysearch(Name, #child.name, State#state.children).
 
 get_dynamic_child(Pid, #state{children=[Child], dynamics=Dynamics}) ->
-    DynamicsDb = dynamics_db(Child#child.restart_type, Dynamics),
-    case is_dynamic_pid(Pid, DynamicsDb) of
+    case is_dynamic_pid(Pid, Dynamics) of
 	true ->
 	    {value, Child#child{pid=Pid}};
 	false ->
 	    RPid = restarting(Pid),
-	    case is_dynamic_pid(RPid, DynamicsDb) of
+	    case is_dynamic_pid(RPid, Dynamics) of
 		true ->
 		    {value, Child#child{pid=RPid}};
 		false ->
@@ -1183,13 +1188,12 @@ get_dynamic_child(Pid, #state{children=[Child], dynamics=Dynamics}) ->
 	    end
     end.
 
-is_dynamic_pid(Pid, Dynamics) ->
-    case ?SETS:is_set(Dynamics) of
-	true ->
-	    ?SETS:is_element(Pid, Dynamics);
-	false ->
-	    ?DICTS:is_key(Pid, Dynamics)
-    end.
+is_dynamic_pid(Pid, {dict, Dynamics}) ->
+    ?DICTS:is_key(Pid, Dynamics);
+is_dynamic_pid(Pid, {set, Dynamics}) ->
+    ?SETS:is_element(Pid, Dynamics);
+is_dynamic_pid(_Pid, undefined) ->
+    false.
 
 replace_child(Child, State) ->
     Chs = do_replace_child(Child, State#state.children),

@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
@@ -181,17 +181,20 @@ gen_rtl({bs_get_binary, Size, Flags}, [Dst, NewMs], Args,
       [hipe_rtl:mk_goto(FalseLblName)];
     false ->
       Unsafe = unsafe(Flags),
-      case Args of
-	[Ms] ->
-	  SizeReg = hipe_rtl:mk_new_reg(),
-	  SizeCode = [hipe_rtl:mk_move(SizeReg, hipe_rtl:mk_imm(Size))];
-	[Ms, BitsVar] -> 
-	  {SizeCode, SizeReg} = make_size(Size, BitsVar, FalseLblName)
-      end,
-      InCode = get_binary(Dst, Ms, SizeReg, Unsafe,
+      {OldMs, SizeReg, SizeCode} =
+	case Args of
+	  [Ms] ->
+	    SzReg = hipe_rtl:mk_new_reg(),
+	    SzCode = [hipe_rtl:mk_move(SzReg, hipe_rtl:mk_imm(Size))],
+	    {Ms, SzReg, SzCode};
+	  [Ms, BitsVar] ->
+	    {SzCode, SzReg} = make_size(Size, BitsVar, FalseLblName),
+	    {Ms, SzReg, SzCode}
+	end,
+      InCode = get_binary(Dst, OldMs, SizeReg, Unsafe,
 			  TrueLblName, FalseLblName),
       [hipe_rtl:mk_gctest(?SUB_BIN_WORDSIZE)] ++ 
-	update_ms(NewMs, Ms) ++ SizeCode ++ InCode
+	update_ms(NewMs, OldMs) ++ SizeCode ++ InCode
   end;
 %% ----- bs_get_utf8 -----
 gen_rtl(bs_get_utf8, [Dst, NewMs], [Ms], TrueLblName, FalseLblName) ->
@@ -230,14 +233,26 @@ gen_rtl({bs_skip_bits_all, Unit, _Flags}, Dst, [Ms],
     skip_bits_all(Unit, Ms, TrueLblName, FalseLblName);
 %% ----- bs_skip_bits -----
 gen_rtl({bs_skip_bits, Bits}, Dst, [Ms|Args], TrueLblName, FalseLblName) ->
+  MaxValue = (1 bsl (hipe_rtl_arch:word_size() * ?BYTE_SIZE)),
   opt_update_ms(Dst, Ms) ++
-    case Args of
-      [] ->
-	skip_bits2(Ms, hipe_rtl:mk_imm(Bits), TrueLblName, FalseLblName);
-      [Arg] ->
-	{SizeCode, SizeReg} = make_size(Bits, Arg, FalseLblName),
-	InCode = skip_bits2(Ms, SizeReg, TrueLblName, FalseLblName),
-	SizeCode ++ InCode
+    case Bits < MaxValue of
+      true ->
+	case Args of
+	  [] ->
+	    skip_bits2(Ms, hipe_rtl:mk_imm(Bits), TrueLblName, FalseLblName);
+	  [Arg] ->
+	    {SizeCode, SizeReg} = make_size(Bits, Arg, FalseLblName),
+	    InCode = skip_bits2(Ms, SizeReg, TrueLblName, FalseLblName),
+	    SizeCode ++ InCode
+	end;
+      false -> % handle overflow case
+	case Args of
+	  [] ->
+	    [hipe_rtl:mk_goto(FalseLblName)];
+	  [Arg] ->
+	    [hipe_rtl:mk_branch(Arg, 'eq', hipe_tagscheme:mk_fixnum(0),
+				TrueLblName, FalseLblName, 0.5)]
+	end
     end;
 %% ----- bs_restore -----
 gen_rtl({bs_restore, Slot}, [NewMs], [Ms], TrueLblName, _FalseLblName) ->
@@ -1086,23 +1101,47 @@ create_gcsafe_regs(0) ->
   [].
 
 first_part(Var, Register, FalseLblName) ->
-  [SuccessLbl1, SuccessLbl2] = create_lbls(2),
-  [hipe_tagscheme:test_fixnum(Var, hipe_rtl:label_name(SuccessLbl1),
-			      FalseLblName, 0.99),
-  SuccessLbl1,
-  hipe_tagscheme:fixnum_ge(Var, hipe_rtl:mk_imm(hipe_tagscheme:mk_fixnum(0)), 
-			   hipe_rtl:label_name(SuccessLbl2), FalseLblName, 0.99),
-  SuccessLbl2,
-  hipe_tagscheme:untag_fixnum(Register, Var)].
+  [EndLbl] = create_lbls(1),
+  EndName = hipe_rtl:label_name(EndLbl),
+  first_part(Var, Register, FalseLblName, EndName, EndName, [EndLbl]).
+
+first_part(Var, Register, FalseLblName, TrueLblName, BigLblName, Tail) ->
+  [FixnumLbl, NotFixnumLbl, BignumLbl, SuccessLbl] = create_lbls(4),
+  [hipe_tagscheme:test_fixnum(Var, hipe_rtl:label_name(FixnumLbl),
+			      hipe_rtl:label_name(NotFixnumLbl), 0.99),
+   FixnumLbl,
+   hipe_tagscheme:fixnum_ge(Var, hipe_rtl:mk_imm(hipe_tagscheme:mk_fixnum(0)),
+			    hipe_rtl:label_name(SuccessLbl), FalseLblName,
+			    0.99),
+   SuccessLbl,
+   hipe_tagscheme:untag_fixnum(Register, Var),
+   hipe_rtl:mk_goto(TrueLblName),
+   NotFixnumLbl,
+   %% Since binaries are not allowed to be larger than 2^wordsize bits
+   %% and since bignum digits are words, we know that a bignum with an
+   %% arity larger than one can't match.
+   hipe_tagscheme:test_pos_bignum_arity(Var, 1, hipe_rtl:label_name(BignumLbl),
+					FalseLblName, 0.99),
+   BignumLbl,
+   hipe_tagscheme:unsafe_get_one_word_pos_bignum(Register, Var),
+   hipe_rtl:mk_goto(BigLblName) | Tail].
 
 make_size(1, BitsVar, FalseLblName) ->
   [DstReg] = create_regs(1),
   {first_part(BitsVar, DstReg, FalseLblName), DstReg};
 make_size(?BYTE_SIZE, BitsVar, FalseLblName) ->
   [DstReg] = create_regs(1),
-  Code = 
-    first_part(BitsVar, DstReg, FalseLblName) ++
-    [hipe_rtl:mk_alu(DstReg, DstReg, sll, hipe_rtl:mk_imm(?BYTE_SHIFT))],
+  [FixnumLbl, BignumLbl] = create_lbls(2),
+  WordBits = hipe_rtl_arch:word_size() * ?BYTE_SIZE,
+  FixnumLblName = hipe_rtl:label_name(FixnumLbl),
+  Tail = [BignumLbl,
+	  hipe_rtl:mk_branch(DstReg, 'ltu',
+			     hipe_rtl:mk_imm(1 bsl (WordBits - ?BYTE_SHIFT)),
+			     FixnumLblName, FalseLblName, 0.99),
+	  FixnumLbl,
+	  hipe_rtl:mk_alu(DstReg, DstReg, sll, hipe_rtl:mk_imm(?BYTE_SHIFT))],
+  Code = first_part(BitsVar, DstReg, FalseLblName, FixnumLblName,
+		    hipe_rtl:label_name(BignumLbl), Tail),
   {Code, DstReg};
 make_size(UnitImm, BitsVar, FalseLblName) ->
   [DstReg] = create_regs(1),
@@ -1151,12 +1190,13 @@ floorlog2(X) ->
   round(math:log(X)/math:log(2)-0.5). 
 
 set_high(X) ->
-  set_high(X, 0).
+  WordBits = hipe_rtl_arch:word_size() * ?BYTE_SIZE,
+  set_high(min(X, WordBits), WordBits, 0).
 
-set_high(0, Y) ->
+set_high(0, _, Y) ->
   Y;
-set_high(X, Y) ->
-  set_high(X-1, Y+(1 bsl (27-X))).
+set_high(X, WordBits, Y) ->
+  set_high(X-1, WordBits, Y+(1 bsl (WordBits-X))).
 
 is_illegal_const(Const) ->
   Const >=  1 bsl (hipe_rtl_arch:word_size() * ?BYTE_SIZE) orelse Const < 0.

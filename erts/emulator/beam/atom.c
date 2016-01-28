@@ -435,6 +435,9 @@ init_atom_table(void)
     f.cmp  = (HCMP_FUN) atom_cmp;
     f.alloc = (HALLOC_FUN) atom_alloc;
     f.free = (HFREE_FUN) atom_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     atom_text_pos = NULL;
     atom_text_end = NULL;

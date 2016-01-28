@@ -46,25 +46,27 @@
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
-	  session_cache_client,
-	  session_cache_server,
-	  session_cache_cb,
-	  session_lifetime,
-	  certificate_db,
-	  session_validation_timer,
+	  session_cache_client    :: db_handle(),
+	  session_cache_server    :: db_handle(),
+	  session_cache_cb        :: atom(),
+	  session_lifetime        :: integer(),
+	  certificate_db          :: db_handle(),
+	  session_validation_timer :: reference(),
 	  last_delay_timer  = {undefined, undefined},%% Keep for testing purposes
-	  last_pem_check,
-	  clear_pem_cache 
+	  last_pem_check             :: erlang:timestamp(),
+	  clear_pem_cache            :: integer(),
+	  session_cache_client_max   :: integer(),
+	  session_cache_server_max   :: integer(),
+	  session_server_invalidator :: undefined | pid(),
+	  session_client_invalidator :: undefined | pid()
 	 }).
 
--define('24H_in_msec', 86400000).
--define('24H_in_sec', 86400).
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
 -define(CLEAR_PEM_CACHE, 120000).
 -define(CLEAN_SESSION_DB, 60000).
 -define(CLEAN_CERT_DB, 500).
--define(NOT_TO_BIG, 10).
+-define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
 %%====================================================================
 %% API
@@ -89,7 +91,8 @@ manager_name(dist) ->
 %%--------------------------------------------------------------------
 start_link(Opts) ->
     DistMangerName = manager_name(normal),
-    gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
+    gen_server:start_link({local, DistMangerName}, 
+			  ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
 -spec start_link_dist(list()) -> {ok, pid()} | ignore | {error, term()}.
@@ -99,7 +102,8 @@ start_link(Opts) ->
 %%--------------------------------------------------------------------
 start_link_dist(Opts) ->
     DistMangerName = manager_name(dist),
-    gen_server:start_link({local, DistMangerName}, ?MODULE, [DistMangerName, Opts], []).
+    gen_server:start_link({local, DistMangerName}, 
+			  ?MODULE, [DistMangerName, Opts], []).
 
 %%--------------------------------------------------------------------
 -spec connection_init(binary()| {der, list()}, client | server, 
@@ -169,7 +173,8 @@ new_session_id(Port) ->
 %% be called by ssl-connection processes. 
 %%--------------------------------------------------------------------
 clean_cert_db(Ref, File) ->
-    erlang:send_after(?CLEAN_CERT_DB, get(ssl_manager), {clean_cert_db, Ref, File}),
+    erlang:send_after(?CLEAN_CERT_DB, get(ssl_manager), 
+		      {clean_cert_db, Ref, File}),
     ok.
 
 %%--------------------------------------------------------------------
@@ -237,10 +242,12 @@ init([Name, Opts]) ->
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_pkix_db:create(),
-    ClientSessionCache = CacheCb:init([{role, client} | 
-				       proplists:get_value(session_cb_init_args, Opts, [])]),
-    ServerSessionCache = CacheCb:init([{role, server} | 
-				       proplists:get_value(session_cb_init_args, Opts, [])]),
+    ClientSessionCache = 
+	CacheCb:init([{role, client} | 
+		      proplists:get_value(session_cb_init_args, Opts, [])]),
+    ServerSessionCache = 
+	CacheCb:init([{role, server} | 
+		      proplists:get_value(session_cb_init_args, Opts, [])]),
     Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     Interval = pem_check_interval(),
@@ -252,7 +259,11 @@ init([Name, Opts]) ->
 		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer,
 		last_pem_check =  os:timestamp(),
-		clear_pem_cache = Interval 	
+		clear_pem_cache = Interval, 	
+		session_cache_client_max = 
+		    max_session_cache_size(session_cache_client_max),
+		session_cache_server_max = 
+		    max_session_cache_size(session_cache_server_max)
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -269,7 +280,8 @@ init([Name, Opts]) ->
 handle_call({{connection_init, <<>>, Role, {CRLCb, UserCRLDb}}, _Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace | _] = Db} = State) ->
     Ref = make_ref(), 
-    Result = {ok, Ref, CertDb, FileRefDb, PemChace, session_cache(Role, State), {CRLCb, crl_db_info(Db, UserCRLDb)}},
+    Result = {ok, Ref, CertDb, FileRefDb, PemChace, 
+	      session_cache(Role, State), {CRLCb, crl_db_info(Db, UserCRLDb)}},
     {reply, Result, State#state{certificate_db = Db}};
 
 handle_call({{connection_init, Trustedcerts, Role, {CRLCb, UserCRLDb}}, Pid}, _From,
@@ -307,7 +319,8 @@ handle_call({{cache_pem,File}, _Pid}, _,
 	_:Reason ->
 	    {reply, {error, Reason}, State}
     end;
-handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_,PemChace | _]} = State) ->
+handle_call({unconditionally_clear_pem_cache, _},_, 
+	    #state{certificate_db = [_,_,PemChace | _]} = State) ->
     ssl_pkix_db:clear(PemChace),
     {reply, ok,  State}.
 
@@ -319,27 +332,12 @@ handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_
 %%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({register_session, Host, Port, Session}, 
-	    #state{session_cache_client = Cache,
-		   session_cache_cb = CacheCb} = State) ->
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
-    NewSession = Session#session{time_stamp = TimeStamp},
-    
-    case CacheCb:select_session(Cache, {Host, Port}) of
-	no_session ->
-	    CacheCb:update(Cache, {{Host, Port}, 
-				   NewSession#session.session_id}, NewSession);
-	Sessions ->
-	    register_unique_session(Sessions, NewSession, CacheCb, Cache, {Host, Port})
-    end,
+handle_cast({register_session, Host, Port, Session}, State0) ->
+    State = ssl_client_register_session(Host, Port, Session, State0), 
     {noreply, State};
 
-handle_cast({register_session, Port, Session},  
-	    #state{session_cache_server = Cache,
-		   session_cache_cb = CacheCb} = State) ->    
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
-    NewSession = Session#session{time_stamp = TimeStamp},
-    CacheCb:update(Cache, {Port, NewSession#session.session_id}, NewSession),
+handle_cast({register_session, Port, Session}, State0) ->    
+    State = server_register_session(Port, Session, State0), 		       
     {noreply, State};
 
 handle_cast({invalidate_session, Host, Port,
@@ -413,10 +411,10 @@ handle_info({clean_cert_db, Ref, File},
     end,
     {noreply, State};
 
-handle_info({'EXIT', _, _}, State) ->
-    %% Session validator died!! Do we need to take any action?
-    %% maybe error log
-    {noreply, State};
+handle_info({'EXIT', Pid, _}, #state{session_client_invalidator = Pid} = State) ->
+    {noreply, State#state{session_client_invalidator = undefined}};
+handle_info({'EXIT', Pid, _}, #state{session_server_invalidator = Pid} = State) ->
+    {noreply, State#state{session_server_invalidator = undefined}};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -497,7 +495,15 @@ delay_time() ->
 	   ?CLEAN_SESSION_DB
     end.
 
-invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastTimer} = State) ->
+max_session_cache_size(CacheType) ->
+    case application:get_env(ssl, CacheType) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_ ->
+	   ?DEFAULT_MAX_SESSION_CACHE
+    end.
+
+invalidate_session(Cache, CacheCb, Key, Session, State) ->
     case CacheCb:lookup(Cache, Key) of
 	undefined -> %% Session is already invalidated
 	    {noreply, State};
@@ -505,14 +511,22 @@ invalidate_session(Cache, CacheCb, Key, Session, #state{last_delay_timer = LastT
 	    CacheCb:delete(Cache, Key),
 	    {noreply, State};
 	_ ->
-	    %% When a registered session is invalidated we need to wait a while before deleting
-	    %% it as there might be pending connections that rightfully needs to look
-	    %% up the session data but new connections should not get to use this session.
-	    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
-	    TRef =
-		erlang:send_after(delay_time(), self(), {delayed_clean_session, Key, Cache}),
-	    {noreply, State#state{last_delay_timer = last_delay_timer(Key, TRef, LastTimer)}}
+	    delayed_invalidate_session(CacheCb, Cache, Key, Session, State)
     end.
+
+delayed_invalidate_session(CacheCb, Cache, Key, Session, 
+			   #state{last_delay_timer = LastTimer} = State) ->
+    %% When a registered session is invalidated we need to
+    %% wait a while before deleting it as there might be
+    %% pending connections that rightfully needs to look up
+    %% the session data but new connections should not get to
+    %% use this session.
+    CacheCb:update(Cache, Key, Session#session{is_resumable = false}),
+    TRef =
+	erlang:send_after(delay_time(), self(), 
+			  {delayed_clean_session, Key, Cache}),
+    {noreply, State#state{last_delay_timer = 
+			      last_delay_timer(Key, TRef, LastTimer)}}.
 
 last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
     {LastServer, TRef};
@@ -532,12 +546,12 @@ new_id(Port, Tries, Cache, CacheCb) ->
     Id = crypto:rand_bytes(?NUM_OF_SESSION_ID_BYTES),
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
-	    Now =  calendar:datetime_to_gregorian_seconds({date(), time()}),
+	    Now = erlang:monotonic_time(),
 	    %% New sessions can not be set to resumable
 	    %% until handshake is compleate and the
 	    %% other session values are set.
 	    CacheCb:update(Cache, {Port, Id}, #session{session_id = Id,
-						       is_resumable = false,
+						       is_resumable = new,
 						       time_stamp = Now}),
 	    Id;
 	_ ->
@@ -559,15 +573,62 @@ clean_cert_db(Ref, CertDb, RefDb, PemCache, File) ->
 	    ok
     end.
 
+ssl_client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
+							session_cache_cb = CacheCb,
+							session_cache_client_max = Max,
+							session_client_invalidator = Pid0} = State) ->
+    TimeStamp = erlang:monotonic_time(),
+    NewSession = Session#session{time_stamp = TimeStamp},
+    
+    case CacheCb:select_session(Cache, {Host, Port}) of
+	no_session ->
+	    Pid = do_register_session({{Host, Port}, 
+				     NewSession#session.session_id}, 
+				      NewSession, Max, Pid0, Cache, CacheCb),
+	    State#state{session_client_invalidator = Pid};
+	Sessions ->
+	    register_unique_session(Sessions, NewSession, {Host, Port}, State)
+    end.
+
+server_register_session(Port, Session, #state{session_cache_server_max = Max,
+					      session_cache_server = Cache,
+					      session_cache_cb = CacheCb,
+					      session_server_invalidator = Pid0} = State) ->
+    TimeStamp =  erlang:monotonic_time(),
+    NewSession = Session#session{time_stamp = TimeStamp},
+    Pid = do_register_session({Port, NewSession#session.session_id}, 
+			      NewSession, Max, Pid0, Cache, CacheCb),
+    State#state{session_server_invalidator = Pid}.
+
+do_register_session(Key, Session, Max, Pid, Cache, CacheCb) ->
+    try CacheCb:size(Cache) of
+	N when N > Max  ->
+	  invalidate_session_cache(Pid, CacheCb, Cache);
+	_ ->	
+	    CacheCb:update(Cache, Key, Session),
+	    Pid
+    catch 
+	error:undef ->
+	    CacheCb:update(Cache, Key, Session),
+            Pid		
+    end.
+
+
 %% Do not let dumb clients create a gigantic session table
 %% for itself creating big delays at connection time. 
-register_unique_session(Sessions, Session, CacheCb, Cache, PartialKey) ->
+register_unique_session(Sessions, Session, PartialKey, 
+			#state{session_cache_client_max = Max,
+			       session_cache_client = Cache,
+			       session_cache_cb = CacheCb,
+			       session_client_invalidator = Pid0} = State) ->
     case exists_equivalent(Session , Sessions) of
 	true ->
-	    ok;
+	    State;
 	false ->
-	    CacheCb:update(Cache, {PartialKey, 
-				   Session#session.session_id}, Session)
+	    Pid = do_register_session({PartialKey, 
+				       Session#session.session_id}, 
+				      Session, Max, Pid0, Cache, CacheCb),
+	    State#state{session_client_invalidator = Pid}
     end.
 
 exists_equivalent(_, []) ->
@@ -622,7 +683,8 @@ pem_check_interval() ->
     end.
 	
 is_before_checkpoint(Time, CheckPoint) ->
-    calendar:datetime_to_gregorian_seconds(calendar:now_to_datetime(CheckPoint)) -
+    calendar:datetime_to_gregorian_seconds(
+      calendar:now_to_datetime(CheckPoint)) -
     calendar:datetime_to_gregorian_seconds(Time) > 0.
 
 add_trusted_certs(Pid, Trustedcerts, Db) ->
@@ -643,3 +705,9 @@ crl_db_info([_,_,_,Local], {internal, Info}) ->
 crl_db_info(_, UserCRLDb) ->
     UserCRLDb.
 
+%% Only start a session invalidator if there is not
+%% one already active
+invalidate_session_cache(undefined, CacheCb, Cache) ->
+    start_session_validator(Cache, CacheCb, {invalidate_before, erlang:monotonic_time()});
+invalidate_session_cache(Pid, _CacheCb, _Cache) ->
+    Pid.

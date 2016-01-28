@@ -30,9 +30,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef QNX
 #include <memory.h>
-#endif
 
 #if defined(__sun__) && defined(__SVR4) && !defined(__EXTENSIONS__)
 #   define __EXTENSIONS__
@@ -92,11 +90,6 @@
 #include <ieeefp.h>
 #endif
 
-#ifdef QNX
-#include <process.h>
-#include <sys/qnx_glob.h>
-#endif
-
 #include <pwd.h>
 
 #ifndef HZ
@@ -134,13 +127,6 @@
 #ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
-
-#ifndef ENABLE_CHILD_WAITER_THREAD
-#  ifdef ERTS_SMP
-#    define ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-void erts_check_children(void);
-#  endif
 #endif
 
 typedef void *GETENV_STATE;
@@ -310,7 +296,6 @@ typedef void (*SIGFUNC)(int);
 extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
-extern void sys_stop_cat(void);
 
 /*
  * Handling of floating point exceptions.
@@ -424,19 +409,6 @@ void erts_sys_unblock_fpe(int);
 #define ERTS_FP_ERROR(p, f, A)		__ERTS_FP_ERROR(&(p)->fp_exception, f, A)
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
 
-
-#ifdef NEED_CHILD_SETUP_DEFINES
-/* The child setup argv[] */
-#define CS_ARGV_PROGNAME_IX	0		/* Program name		*/
-#define CS_ARGV_UNBIND_IX	1		/* Unbind from cpu	*/
-#define CS_ARGV_WD_IX		2		/* Working directory	*/
-#define CS_ARGV_CMD_IX		3		/* Command		*/
-#define CS_ARGV_FD_CR_IX	4		/* Fd close range	*/
-#define CS_ARGV_DUP2_OP_IX(N)	((N) + 5)	/* dup2 operations	*/
-
-#define CS_ARGV_NO_OF_DUP2_OPS	3		/* Number of dup2 ops	*/
-#define CS_ARGV_NO_OF_ARGS	8		/* Number of arguments	*/
-#endif /* #ifdef NEED_CHILD_SETUP_DEFINES */
 
 /* Threads */
 #ifdef USE_THREADS

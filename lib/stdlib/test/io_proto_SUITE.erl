@@ -1378,47 +1378,43 @@ rtnode(C,N) ->
 rtnode(Commands,Nodename,ErlPrefix) ->
     rtnode(Commands,Nodename,ErlPrefix,[]).
 rtnode(Commands,Nodename,ErlPrefix,Extra) ->
-    ?line case get_progs() of
-	      {error,_Reason} ->
-		  ?line {skip,"No runerl present"};
-	      {RunErl,ToErl,Erl} ->
-		  ?line case create_tempdir() of
-			    {error, Reason2} ->
-				?line {skip, Reason2};
-			    Tempdir ->
-				?line SPid = 
-				    start_runerl_node(RunErl,ErlPrefix++
-							  "\\\""++Erl++"\\\"",
-						      Tempdir,Nodename, Extra),
-				?line CPid = start_toerl_server(ToErl,Tempdir),
-				?line erase(getline_skipped),
-				?line Res = 
-				    (catch get_and_put(CPid, Commands,1)),
-				?line case stop_runerl_node(CPid) of
-					  {error,_} ->
-					      ?line CPid2 = 
-						  start_toerl_server
-						    (ToErl,Tempdir),
-					      ?line erase(getline_skipped),
-					      ?line ok = get_and_put
-							   (CPid2, 
-							    [{putline,[7]},
-							     {sleep,
-							      timeout(short)},
-							     {putline,""},
-							     {getline," -->"},
-							     {putline,"s"},
-							     {putline,"c"},
-							     {putline,""}],1),
-					      ?line stop_runerl_node(CPid2);
-					  _ ->
-					      ?line ok
-				      end,
-				?line wait_for_runerl_server(SPid),
-				?line ok = ?RM_RF(Tempdir),
-				?line ok = Res
-			end
-	  end.
+    case get_progs() of
+	{error,_Reason} ->
+	    {skip,"No runerl present"};
+	{RunErl,ToErl,Erl} ->
+	    case create_tempdir() of
+		{error, Reason2} ->
+		    {skip, Reason2};
+		Tempdir ->
+		    SPid = start_runerl_node(RunErl, ErlPrefix++
+						 "\\\""++Erl++"\\\"",
+					     Tempdir, Nodename, Extra),
+		    CPid = start_toerl_server(ToErl, Tempdir),
+		    put(getline_skipped, []),
+		    Res = (catch get_and_put(CPid, Commands, 1)),
+		    case stop_runerl_node(CPid) of
+			{error,_} ->
+			    CPid2 = start_toerl_server(ToErl, Tempdir),
+			    put(getline_skipped, []),
+			    ok = get_and_put
+				   (CPid2,
+				    [{putline,[7]},
+				     {sleep,
+				      timeout(short)},
+				     {putline,""},
+				     {getline," -->"},
+				     {putline,"s"},
+				     {putline,"c"},
+				     {putline,""}], 1),
+			    stop_runerl_node(CPid2);
+			_ ->
+			    ok
+		    end,
+		    wait_for_runerl_server(SPid),
+		    ok = ?RM_RF(Tempdir),
+		    ok = Res
+	    end
+    end.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -1462,57 +1458,51 @@ get_and_put(CPid, [{sleep, X}|T],N) ->
     after X ->
 	    get_and_put(CPid,T,N+1)
     end;
-get_and_put(CPid, [{getline, Match}|T],N) ->
+get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
+  when is_function(Pred) ->
     ?dbg({getline, Match}),
     CPid ! {self(), {get_line, timeout(normal)}},
     receive
 	{get_line, timeout} ->
 	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
 				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
+				   [?MODULE,Msg,N,get(getline_skipped)]),
 	    {error, timeout};
 	{get_line, Data} ->
 	    ?dbg({data,Data}),
-	    case lists:prefix(Match, Data) of
-		true ->
-		    erase(getline_skipped),
+	    case Pred(Data) of
+		yes ->
+		    put(getline_skipped, []),
 		    get_and_put(CPid, T,N+1);
-		false ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline, Match}|T],N)
+		no ->
+		    error_logger:error_msg("~p: getline match failure "
+					   "\"~s\" "
+					   "(command number ~p)\n",
+					   [?MODULE,Msg,N]),
+		    {error, no_match};
+		maybe ->
+		    List = get(getline_skipped),
+		    put(getline_skipped, List ++ [Data]),
+		    get_and_put(CPid, T0, N)
 	    end
     end;
+get_and_put(CPid, [{getline, Match}|T],N) ->
+    ?dbg({getline, Match}),
+    F = fun(Data) ->
+		case lists:prefix(Match, Data) of
+		    true -> yes;
+		    false -> maybe
+		end
+	end,
+    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
 get_and_put(CPid, [{getline_re, Match}|T],N) ->
-    ?dbg({getline_re, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline_re timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case re:run(Data, Match,[{capture,none}]) of
-		match ->
-		    erase(getline_skipped),
-		    get_and_put(CPid, T,N+1);
-		_ ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline_re, Match}|T],N)
-	    end
-    end;
-
+    F = fun(Data) ->
+		case re:run(Data, Match, [{capture,none}]) of
+		    match -> yes;
+		    _ -> maybe
+		end
+	end,
+    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
 get_and_put(CPid, [{putline_raw, Line}|T],N) ->
     ?dbg({putline_raw, Line}),
     CPid ! {self(), {send_line, Line}},
@@ -1801,10 +1791,22 @@ get_data_within(Port, Timeout, Acc) ->
     end.
 
 get_default_shell() ->
+    Match = fun(Data) ->
+		    case lists:prefix("undefined", Data) of
+			true ->
+			    yes;
+			false ->
+			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
+					[{capture,none}]) of
+				match -> no;
+				_ -> maybe
+			    end
+		    end
+	    end,
     try
 	rtnode([{putline,""},
 		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
+		{getline_pred, Match, "matching of user_drv pid"}], []),
 	old
     catch _E:_R ->
 	    ?dbg({_E,_R}),

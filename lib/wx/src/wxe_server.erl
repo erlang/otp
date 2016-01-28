@@ -240,6 +240,8 @@ handle_connect(Object, EvData=#evh{handler=Handler},
 invoke_cb({{Ev=#wx{}, Ref=#wx_ref{}}, FunId,_}, _S) ->
     %% Event callbacks
     case get(FunId) of
+	{{nospawn, Fun}, _} when is_function(Fun) ->
+	    invoke_callback_fun(fun() -> Fun(Ev, Ref), <<>> end);
 	{Fun,_} when is_function(Fun) ->
 	    invoke_callback(fun() -> Fun(Ev, Ref), <<>> end);
 	{Pid,_} when is_pid(Pid) -> %% wx_object sync event
@@ -258,21 +260,10 @@ invoke_cb({FunId, Args, _}, _S) when is_list(Args), is_integer(FunId) ->
 
 invoke_callback(Fun) ->
     Env = get(?WXE_IDENTIFIER),
-    CB = fun() ->
-		 wx:set_env(Env),
-		 wxe_util:cast(?WXE_CB_START, <<>>),
-		 Res = try
-			   Return = Fun(),
-			   true = is_binary(Return),
-			   Return
-		       catch _:Reason ->
-			       ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
-				    [Reason, erlang:get_stacktrace()]),
-			       <<>>
-		       end,
-		 wxe_util:cast(?WXE_CB_RETURN, Res)
-	 end,
-    spawn(CB),
+    spawn(fun() ->
+		  wx:set_env(Env),
+		  invoke_callback_fun(Fun)
+	  end),
     ok.
 
 invoke_callback(Pid, Ev, Ref) ->
@@ -301,6 +292,20 @@ invoke_callback(Pid, Ev, Ref) ->
 	 end,
     spawn(CB),
     ok.
+
+invoke_callback_fun(Fun) ->
+    wxe_util:cast(?WXE_CB_START, <<>>),
+    Res = try
+	      Return = Fun(),
+	      true = is_binary(Return),
+	      Return
+	  catch _:Reason ->
+		  ?log("Callback fun crashed with {'EXIT, ~p, ~p}~n",
+		       [Reason, erlang:get_stacktrace()]),
+		  <<>>
+	  end,
+    wxe_util:cast(?WXE_CB_RETURN, Res).
+
 
 get_wx_object_state(Pid) ->
     case process_info(Pid, dictionary) of
@@ -347,25 +352,8 @@ handle_disconnect(Object, Evh = #evh{cb=Fun}, From,
 		  State0 = #state{users=Users0, cb=Callbacks}) ->
     #user{events=Evs0} = gb_trees:get(From, Users0),
     FunId = gb_trees:lookup(Fun, Callbacks),
-    case find_handler(Evs0, Object, Evh#evh{cb=FunId}) of
-	[] -> 
-	    {reply, false, State0};
-	Handlers ->
-	    case disconnect(Object,Handlers) of
-		#evh{} -> {reply, true, State0};
-		Result -> {reply, Result, State0}
-	    end
-    end.
-
-disconnect(Object,[Ev|Evs]) ->
-    try wxEvtHandler:disconnect_impl(Object,Ev) of
-	true ->  Ev;
-	false -> disconnect(Object, Evs);
-	Error -> Error
-    catch _:_ ->
-	    false
-    end;
-disconnect(_, []) -> false.
+    Handlers = find_handler(Evs0, Object, Evh#evh{cb=FunId}),
+    {reply, {try_in_order, Handlers}, State0}.
 
 find_handler([{Object,Evh}|Evs], Object, Match) ->
     case match_handler(Match, Evh) of

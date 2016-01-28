@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -791,6 +791,10 @@ typedef enum {
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_getenv(const char* key, char* value, size_t *value_size)</nametext></name>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <desc><p>Same as <seealso marker="erl_driver#erl_drv_getenv">erl_drv_getenv</seealso>.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</nametext></name>
       <fsummary>Check if an exception has been raised</fsummary>
       <desc><p>Return true if a pending exception is associated
@@ -833,9 +837,10 @@ typedef enum {
       <fsummary>Determine if a term is an empty list</fsummary>
       <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
     </func>
-    <marker id="enif_is_exception"/><func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+    <func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an exception</fsummary>
-      <desc><p>Return true if <c>term</c> is an exception.</p></desc>
+      <desc><marker id="enif_is_exception"/>
+        <p>Return true if <c>term</c> is an exception.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a map</fsummary>

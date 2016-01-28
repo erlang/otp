@@ -1,3 +1,3 @@
 
 pretty_bitstring.erl:7: Function t/0 has no local return
-pretty_bitstring.erl:8: The call binary:copy(#{#<1>(8, 1, 'integer', ['unsigned', 'big']), #<2>(8, 1, 'integer', ['unsigned', 'big']), #<3>(3, 1, 'integer', ['unsigned', 'big'])}#,2) breaks the contract (Subject,N) -> binary() when is_subtype(Subject,binary()), is_subtype(N,non_neg_integer())
+pretty_bitstring.erl:8: The call binary:copy(#{#<1>(8, 1, 'integer', ['unsigned', 'big']), #<2>(8, 1, 'integer', ['unsigned', 'big']), #<3>(3, 1, 'integer', ['unsigned', 'big'])}#,2) breaks the contract (Subject,N) -> binary() when Subject :: binary(), N :: non_neg_integer()

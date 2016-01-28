@@ -24,8 +24,9 @@
 
 -type channel_id()           :: integer().
 
--define(DEFAULT_PACKET_SIZE, 32768).
--define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
+-define(DEFAULT_PACKET_SIZE, 65536).
+-define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
+
 -define(DEFAULT_TIMEOUT, 5000).
 -define(MAX_PROTO_VERSION, 255).
 
@@ -248,6 +249,9 @@
 	  local_id,           %% local channel id
 
 	  recv_window_size,
+	  recv_window_pending = 0, %% Sum of window size updates that has not
+	                           %% yet been sent. This limits the number
+	                           %% of sent update msgs.
 	  recv_packet_size,
 	  recv_close = false,
 

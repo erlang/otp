@@ -26,7 +26,152 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  <section><title>SSL 7.0</title>
+
+
+<section><title>SSL 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honor distribution port range options</p>
+          <p>
+	    Own Id: OTP-12838</p>
+        </item>
+        <item>
+          <p>
+	    Correct supervisor specification in TLS distribution.</p>
+          <p>
+	    Own Id: OTP-13134</p>
+        </item>
+        <item>
+          <p>
+	    Correct cache timeout</p>
+          <p>
+	    Own Id: OTP-13141</p>
+        </item>
+        <item>
+          <p>
+	    Avoid crash and restart of ssl process when key file does
+	    not exist.</p>
+          <p>
+	    Own Id: OTP-13144</p>
+        </item>
+        <item>
+          <p>
+	    Enable passing of raw socket options on the format
+	    {raw,_,_,_} to the underlying socket.</p>
+          <p>
+	    Own Id: OTP-13166</p>
+        </item>
+        <item>
+          <p>
+	    Hibernation with small or a zero timeout will now work as
+	    expected</p>
+          <p>
+	    Own Id: OTP-13189</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add upper limit for session cache, configurable on ssl
+	    application level.</p>
+          <p>
+	    If upper limit is reached, invalidate the current cache
+	    entries, e.i the session lifetime is the max time a
+	    session will be keept, but it may be invalidated earlier
+	    if the max limit for the table is reached. This will keep
+	    the ssl manager process well behaved, not exhusting
+	    memeory. Invalidating the entries will incrementally
+	    empty the cache to make room for fresh sessions entries.</p>
+          <p>
+	    Own Id: OTP-12392</p>
+        </item>
+        <item>
+          <p>
+	    Use new time functions to measure passed time.</p>
+          <p>
+	    Own Id: OTP-12457</p>
+        </item>
+        <item>
+          <p>
+	    Improved error handling in TLS distribution</p>
+          <p>
+	    Own Id: OTP-13142</p>
+        </item>
+        <item>
+          <p>
+	    Distribution over TLS now honors the nodelay distribution
+	    flag</p>
+          <p>
+	    Own Id: OTP-13143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DER encoded ECPrivateKey as valid input format for
+	    key option.</p>
+          <p>
+	    Own Id: OTP-12974</p>
+        </item>
+        <item>
+          <p>
+	    Correct return value of default session callback module</p>
+          <p>
+	    This error had the symptom that the client check for
+	    unique session would always fail, potentially making the
+	    client session table grow a lot and causing long setup
+	    times.</p>
+          <p>
+	    Own Id: OTP-12980</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to downgrade an SSL/TLS connection to a
+	    tcp connection, and give back the socket control to a
+	    user process.</p>
+          <p>
+	    This also adds the possibility to specify a timeout to
+	    the ssl:close function.</p>
+          <p>
+	    Own Id: OTP-11397</p>
+        </item>
+        <item>
+          <p>
+	    Add application setting to be able to change fatal alert
+	    shutdown timeout, also shorten the default timeout. The
+	    fatal alert timeout is the number of milliseconds between
+	    sending of a fatal alert and closing the connection.
+	    Waiting a little while improves the peers chances to
+	    properly receiving the alert so it may shutdown
+	    gracefully.</p>
+          <p>
+	    Own Id: OTP-12832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -50,12 +195,6 @@
 	    the server-side of the SSL application.</p>
           <p>
 	    Own Id: OTP-12815</p>
-        </item>
-        <item>
-          <p>
-	    Gracefully ignore proprietary hash_sign algorithms</p>
-          <p>
-	    Own Id: OTP-12829</p>
         </item>
       </list>
     </section>
@@ -106,6 +245,20 @@
     </section>
 
 </section>
+
+<section><title>SSL 6.0.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+          <item>
+          <p>
+	    Gracefully ignore proprietary hash_sign algorithms</p>
+          <p>
+	    Own Id: OTP-12829</p>
+        </item>
+    </list>
+    </section>
+</section>
+
 
 <section><title>SSL 6.0.1</title>
 

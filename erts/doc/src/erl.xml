@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -138,7 +138,7 @@
           see <seealso marker="kernel:app">app(4)</seealso> and
           <seealso marker="kernel:application">application(3)</seealso>.</p>
       </item>
-      <tag><marker id="args_file"><c><![CDATA[-args_file FileName]]></c></marker></tag>
+      <tag><marker id="args_file"/><c><![CDATA[-args_file FileName]]></c></tag>
       <item>
         <p>Command line arguments are read from the file <c><![CDATA[FileName]]></c>.
           The arguments read from the file replace the
@@ -203,7 +203,7 @@
           <seealso marker="kernel:app">app(4)</seealso> and
           <seealso marker="kernel:application">application(3)</seealso>.</p>
       </item>
-      <tag><marker id="connect_all"><c><![CDATA[-connect_all false]]></c></marker></tag>
+      <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
         <p>If this flag is present, <c><![CDATA[global]]></c> will not maintain a
           fully connected network of distributed Erlang nodes, and then
@@ -288,7 +288,7 @@
         <p>Makes <c><![CDATA[init]]></c> write some debug information while
           interpreting the boot script.</p>
       </item>
-      <tag><marker id="instr"><c><![CDATA[-instr]]></c>(emulator flag)</marker></tag>
+      <tag><marker id="instr"/><c><![CDATA[-instr]]></c>(emulator flag)</tag>
       <item>
         <p>Selects an instrumented Erlang runtime system (virtual
           machine) to run, instead of the ordinary one. When running an
@@ -371,7 +371,7 @@
           path, similar to <c><![CDATA[code:add_pathsa/1]]></c>. See
           <seealso marker="kernel:code">code(3)</seealso>.
 	  As an alternative to <c>-pa</c>, if several directories are
-	  to be prepended to the code and the directories have a
+	  to be prepended to the code path and the directories have a
 	  common parent directory, that parent directory could be
 	  specified in the <c>ERL_LIBS</c> environment variable.
 	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
@@ -436,7 +436,7 @@
           flag and those running with the <c><![CDATA[-name]]></c> flag, as node
           names must be unique in distributed Erlang systems.</p>
       </item>
-      <tag><marker id="smp"><c><![CDATA[-smp [enable|auto|disable]]]></c></marker></tag>
+      <tag><marker id="smp"/><c><![CDATA[-smp [enable|auto|disable]]]></c></tag>
       <item>
         <p><c>-smp enable</c> and <c>-smp</c> starts the Erlang runtime
 	  system with SMP support enabled. This may fail if no runtime
@@ -462,7 +462,7 @@
     <p><c><![CDATA[erl]]></c> invokes the code for the Erlang emulator (virtual
       machine), which supports the following flags:</p>
     <taglist>
-      <tag><marker id="async_thread_stack_size"><c><![CDATA[+a size]]></c></marker></tag>
+      <tag><marker id="async_thread_stack_size"/><c><![CDATA[+a size]]></c></tag>
       <item>
         <p>Suggested stack size, in kilowords, for threads in the
           async-thread pool. Valid range is 16-8192 kilowords. The
@@ -477,7 +477,7 @@
           suggestion, and it might even be ignored on some
           platforms.</p>
       </item>
-      <tag><marker id="async_thread_pool_size"><c><![CDATA[+A size]]></c></marker></tag>
+      <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
       <item>
         <p>Sets the number of threads in async thread pool, valid range
           is 0-1024. If thread support is available, the default is 10.</p>
@@ -496,7 +496,7 @@
           <c><![CDATA[werl]]></c>, not <c><![CDATA[erl]]></c> (<c><![CDATA[oldshell]]></c>). Note also that
           <c><![CDATA[Ctrl-Break]]></c> is used instead of <c><![CDATA[Ctrl-C]]></c> on Windows.</p>
       </item>
-      <tag><marker id="+c"><c><![CDATA[+c true | false]]></c></marker></tag>
+      <tag><marker id="+c"/><c><![CDATA[+c true | false]]></c></tag>
       <item>
         <p>Enable or disable
 	<seealso marker="time_correction#Time_Correction">time correction</seealso>:</p>
@@ -512,7 +512,7 @@
 	This is interpreted as <c>+c false</c>.
 	</p>
       </item>
-      <tag><marker id="+C_"><c><![CDATA[+C no_time_warp | single_time_warp | multi_time_warp]]></c></marker></tag>
+      <tag><marker id="+C_"/><c><![CDATA[+C no_time_warp | single_time_warp | multi_time_warp]]></c></tag>
       <item>
         <p>Set
 	<seealso marker="time_correction#Time_Warp_Modes">time warp mode</seealso>:
@@ -540,7 +540,7 @@
 	produce a crash dump. On Unix systems, sending an emulator process
 	a SIGUSR1 signal will also force a crash dump.</p>
       </item>
-      <tag><marker id="+e"><c><![CDATA[+e Number]]></c></marker></tag>
+      <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
       <item>
         <p>Set max number of ETS tables.</p>
       </item>
@@ -625,7 +625,7 @@
 	  information about the file names and line numbers.
           </p>
       </item>
-      <tag><marker id="erts_alloc"><c><![CDATA[+MFlag Value]]></c></marker></tag>
+      <tag><marker id="erts_alloc"/><c><![CDATA[+MFlag Value]]></c></tag>
       <item>
         <p>Memory allocator specific flags, see
           <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
@@ -664,10 +664,10 @@
 	     debugging.</item>
 	   </taglist>
       </item>
-      <tag><marker id="+pc"/><marker id="printable_character_range"><c><![CDATA[+pc Range]]></c></marker></tag>
+      <tag><marker id="+pc"/><marker id="printable_character_range"/><c><![CDATA[+pc Range]]></c></tag>
       <item>
 	<p>Sets the range of characters that the system will consider printable in heuristic detection of strings. This typically affects the shell, debugger and io:format functions (when ~tp is used in the format string).</p> 
-	<p>Currently two values for the <c>Range</c> are supported:
+	<p>Currently two values for the <c>Range</c> are supported:</p>
 	<taglist>
 	  <tag><c>latin1</c></tag> <item>The default. Only characters
 	  in the ISO-latin-1 range can be considered printable, which means
@@ -682,11 +682,10 @@
 	  example your font does not cover all Unicode
 	  characters.</item>
 	</taglist>
-	</p>
 	<p>Se also <seealso marker="stdlib:io#printable_range/0">
 	io:printable_range/0</seealso>.</p>
       </item>
-      <tag><marker id="+P"/><marker id="max_processes"><c><![CDATA[+P Number|legacy]]></c></marker></tag>
+      <tag><marker id="+P"/><marker id="max_processes"/><c><![CDATA[+P Number|legacy]]></c></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing processes for this
           system if a <c>Number</c> is passed as value. Valid range for
@@ -706,7 +705,7 @@
 	circumstances be extremely expensive. The legacy algoritm is deprecated,
 	and the <c>legacy</c> option is scheduled for removal in OTP-R18.</p>
       </item>
-      <tag><marker id="+Q"/><marker id="max_ports"><c><![CDATA[+Q Number|legacy]]></c></marker></tag>
+      <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number|legacy]]></c></tag>
       <item>
 	<p>Sets the maximum number of simultaneously existing ports for this
           system if a Number is passed as value. Valid range for <c>Number</c>
@@ -737,7 +736,7 @@
 	circumstances be extremely expensive. The legacy algoritm is deprecated,
 	and the <c>legacy</c> option is scheduled for removal in OTP-R18.</p>
       </item>
-      <tag><marker id="compat_rel"><c><![CDATA[+R ReleaseNumber]]></c></marker></tag>
+      <tag><marker id="compat_rel"/><c><![CDATA[+R ReleaseNumber]]></c></tag>
       <item>
         <p>Sets the compatibility mode.</p>
         <p>The distribution mechanism is not backwards compatible by
@@ -757,7 +756,7 @@
       <item>
         <p>Force ets memory block to be moved on realloc.</p>
       </item>
-      <tag><marker id="+rg"><c><![CDATA[+rg ReaderGroupsLimit]]></c></marker></tag>
+      <tag><marker id="+rg"/><c><![CDATA[+rg ReaderGroupsLimit]]></c></tag>
       <item>
         <p>Limits the amount of reader groups used by read/write locks
 	   optimized for read operations in the Erlang runtime system. By
@@ -775,7 +774,7 @@
 	   schedulers to logical processors</seealso>, since the reader groups
 	   are distributed better between schedulers.</p>
       </item>
-      <tag><marker id="+S"><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></marker></tag>
+      <tag><marker id="+S"/><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
       <item>
         <p>Sets the number of scheduler threads to create and scheduler
 	  threads to set online when SMP support has been enabled. The maximum for
@@ -800,7 +799,7 @@
           SMP support enabled (see the <seealso marker="#smp">-smp</seealso>
           flag).</p>
       </item>
-      <tag><marker id="+SP"><c><![CDATA[+SP SchedulersPercentage:SchedulersOnlinePercentage]]></c></marker></tag>
+      <tag><marker id="+SP"/><c><![CDATA[+SP SchedulersPercentage:SchedulersOnlinePercentage]]></c></tag>
       <item>
         <p>Similar to <seealso marker="#+S">+S</seealso> but uses percentages to set the
 	  number of scheduler threads to create, based on logical processors configured,
@@ -821,7 +820,7 @@
           SMP support enabled (see the <seealso marker="#smp">-smp</seealso>
           flag).</p>
       </item>
-      <tag><marker id="+SDcpu"><c><![CDATA[+SDcpu DirtyCPUSchedulers:DirtyCPUSchedulersOnline]]></c></marker></tag>
+      <tag><marker id="+SDcpu"/><c><![CDATA[+SDcpu DirtyCPUSchedulers:DirtyCPUSchedulersOnline]]></c></tag>
       <item>
           <p>Sets the number of dirty CPU scheduler threads to create and dirty
             CPU scheduler threads to set online when threading support has been
@@ -845,7 +844,7 @@
             enabled (it's disabled by default).
           </p>
       </item>
-      <tag><marker id="+SDPcpu"><c><![CDATA[+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></marker></tag>
+      <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
       <item>
           <p>Similar to <seealso marker="#+SDcpu">+SDcpu</seealso> but uses percentages to set the
             number of dirty CPU scheduler threads to create and number of dirty CPU scheduler threads
@@ -868,7 +867,7 @@
             enabled (it's disabled by default).
           </p>
       </item>
-      <tag><marker id="+SDio"><c><![CDATA[+SDio IOSchedulers]]></c></marker></tag>
+      <tag><marker id="+SDio"/><c><![CDATA[+SDio IOSchedulers]]></c></tag>
       <item>
           <p>Sets the number of dirty I/O scheduler threads to create when threading
             support has been enabled. The valid range is 0-1024. By default, the number
@@ -886,7 +885,7 @@
       <item>
         <p>Scheduling specific flags.</p>
         <taglist>
-          <tag><marker id="+sbt"><c>+sbt BindType</c></marker></tag>
+          <tag><marker id="+sbt"/><c>+sbt BindType</c></tag>
           <item>
             <p>Set scheduler bind type.</p>
 	    <p>Schedulers can also be bound using the
@@ -1010,7 +1009,7 @@
 	       <seealso marker="erlang#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
           </item>
-	  <tag><marker id="+sbwt"><c>+sbwt none|very_short|short|medium|long|very_long</c></marker></tag>
+	  <tag><marker id="+sbwt"/><c>+sbwt none|very_short|short|medium|long|very_long</c></tag>
 	  <item>
              <p>Set scheduler busy wait threshold. Default is <c>medium</c>.
 	        The threshold determines how long schedulers should busy
@@ -1020,7 +1019,7 @@
 	        without prior notice.
 	     </p>
 	  </item>
-          <tag><marker id="+scl"><c>+scl true|false</c></marker></tag>
+          <tag><marker id="+scl"/><c>+scl true|false</c></tag>
           <item>
 	    <p>Enable or disable scheduler compaction of load. By default
 	    scheduler compaction of load is enabled. When enabled, load
@@ -1037,7 +1036,7 @@
 	    between schedulers.
 	    </p>
           </item>
-          <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
+          <tag><marker id="+sct"/><c>+sct CpuTopology</c></tag>
           <item>
             <list type="bulleted">
               <item><c><![CDATA[<Id> = integer(); when 0 =< <Id> =< 65535]]></c></item>
@@ -1159,7 +1158,7 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>.</p>
           </item>
-          <tag><marker id="+secio"><c>+secio true|false</c></marker></tag>
+          <tag><marker id="+secio"/><c>+secio true|false</c></tag>
           <item>
 	    <p>Enable or disable eager check I/O scheduling. The default
 	    is currently <c>true</c>. The default was changed from <c>false</c>
@@ -1176,7 +1175,7 @@
 	    <p><seealso marker="erlang#system_info_eager_check_io"><c>erlang:system_info(eager_check_io)</c></seealso>
 	    returns the value of this parameter used when starting the VM.</p>
           </item>
-          <tag><marker id="+sfwi"><c>+sfwi Interval</c></marker></tag>
+          <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
           <item>
             <p>Set scheduler forced wakeup interval. All run queues will
 	    be scanned each <c>Interval</c> milliseconds. While there are
@@ -1185,12 +1184,12 @@
 	    disables this feature, which also is the default.
 	    </p>
 	    <p>This feature has been introduced as a temporary workaround
-	    for lengthy executing native code, and native code that do not
+	    for long-executing native code, and native code that does not
 	    bump reductions properly in OTP. When these bugs have be fixed
 	    the <c>+sfwi</c> flag will be removed.
 	    </p>
 	  </item>
-          <tag><marker id="+stbt"><c>+stbt BindType</c></marker></tag>
+          <tag><marker id="+stbt"/><c>+stbt BindType</c></tag>
           <item>
             <p>Try to set scheduler bind type. The same as the
 	    <seealso marker="#+sbt">+sbt</seealso> flag with the exception of
@@ -1198,7 +1197,7 @@
 	    documentation of the <seealso marker="#+sbt">+sbt</seealso> flag.
 	    </p>
 	  </item>
-          <tag><marker id="+sub"><c>+sub true|false</c></marker></tag>
+          <tag><marker id="+sub"/><c>+sub true|false</c></tag>
           <item>
 	    <p>Enable or disable
 	    <seealso marker="erts:erlang#statistics_scheduler_wall_time">scheduler
@@ -1211,7 +1210,7 @@
 	    balance scheduler utilization between schedulers. That is,
 	    strive for equal scheduler utilization on all schedulers.
 	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> is only supported on
-	    systems where the runtime system detects and use a monotonically
+      systems where the runtime system detects and uses a monotonically
 	    increasing high resolution clock. On other systems, the runtime
 	    system will fail to start.
 	    <br/>&nbsp;&nbsp;&nbsp;<c>+sub true</c> implies
@@ -1221,7 +1220,7 @@
 	    utilization.
 	    </p>
           </item>
-	  <tag><marker id="+swct"><c>+swct very_eager|eager|medium|lazy|very_lazy</c></marker></tag>
+	  <tag><marker id="+swct"/><c>+swct very_eager|eager|medium|lazy|very_lazy</c></tag>
 	  <item>
              <p>
 	       Set scheduler wake cleanup threshold. Default is <c>medium</c>.
@@ -1235,7 +1234,7 @@
              <p><em>NOTE:</em> This flag may be removed or changed at any time without prior notice.
 	     </p>
 	  </item>
-	  <tag><marker id="+sws"><c>+sws default|legacy</c></marker></tag>
+	  <tag><marker id="+sws"/><c>+sws default|legacy</c></tag>
 	  <item>
              <p>
 	       Set scheduler wakeup strategy. Default strategy changed in erts-5.10/OTP-R16A. This strategy was previously known as <c>proposal</c> in OTP-R15. The <c>legacy</c> strategy was used as default from R13 up to and including R15.
@@ -1243,7 +1242,7 @@
              <p><em>NOTE:</em> This flag may be removed or changed at any time without prior notice.
 	     </p>
 	  </item>
-	  <tag><marker id="+swt"><c>+swt very_low|low|medium|high|very_high</c></marker></tag>
+	  <tag><marker id="+swt"/><c>+swt very_low|low|medium|high|very_high</c></tag>
 	  <item>
              <p>Set scheduler wakeup threshold. Default is <c>medium</c>.
 	        The threshold determines when to wake up sleeping schedulers
@@ -1257,7 +1256,7 @@
 	        without prior notice.
 	     </p>
 	  </item>
-          <tag><marker id="+spp"><c>+spp Bool</c></marker></tag>
+          <tag><marker id="+spp"/><c>+spp Bool</c></tag>
           <item>
 	    <p>Set default scheduler hint for port parallelism. If set to
 	    <c>true</c>, the VM will schedule port tasks when doing so will
@@ -1273,7 +1272,7 @@
 	    option to <seealso
 	    marker="erlang#open_port/2">open_port/2</seealso></p>.
 	  </item>
-	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
+	  <tag><marker id="sched_thread_stack_size"/><c><![CDATA[+sss size]]></c></tag>
 	  <item>
 	    <p>Suggested stack size, in kilowords, for scheduler threads.
             Valid range is 4-8192 kilowords. The default stack size
@@ -1281,11 +1280,11 @@
 	  </item>
         </taglist>
       </item>
-      <tag><marker id="+t"><c><![CDATA[+t size]]></c></marker></tag>
+      <tag><marker id="+t"/><c><![CDATA[+t size]]></c></tag>
       <item>
         <p>Set the maximum number of atoms the VM can handle. Default is 1048576.</p>
       </item>
-      <tag><marker id="+T"><c><![CDATA[+T Level]]></c></marker></tag>
+      <tag><marker id="+T"/><c><![CDATA[+T Level]]></c></tag>
       <item>
         <p>Enables modified timing and sets the modified timing level.
           Currently valid range is 0-9. The timing of the runtime system
@@ -1335,11 +1334,26 @@
           <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
           for further information.</p>
       </item>
+      <tag><c><![CDATA[+xFlag Value]]></c></tag>
+      <item>
+        <p>Default process flag settings.</p>
+        <taglist>
+          <tag><marker id="+xmqd"><c>+xmqd off_heap|on_heap|mixed</c></marker></tag>
+          <item><p>
+	    Sets the default value for the process flag
+	    <c>message_queue_data</c>. If <c>+xmqd</c> is not
+	    passed, <c>mixed</c> will be the default. For more information,
+	    see the documentation of
+            <seealso marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	    MQD)</c></seealso>.
+	  </p></item>
+	</taglist>
+      </item>
       <tag><c><![CDATA[+zFlag Value]]></c></tag>
       <item>
         <p>Miscellaneous flags.</p>
         <taglist>
-          <tag><marker id="+zdbbl"><c>+zdbbl size</c></marker></tag>
+          <tag><marker id="+zdbbl"/><c>+zdbbl size</c></tag>
           <item>
             <p>Set the distribution buffer busy limit
 	    (<seealso marker="erlang#system_info_dist_buf_busy_limit">dist_buf_busy_limit</seealso>)
@@ -1352,7 +1366,7 @@
             give lower latency and higher throughput at the expense
             of higher memory usage.</p>
           </item>
-          <tag><marker id="+zdntgc"><c>+zdntgc time</c></marker></tag>
+          <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>
             <p>Set the delayed node table garbage collection time
 	    (<seealso marker="erlang#system_info_delayed_node_table_gc">delayed_node_table_gc</seealso>)
@@ -1426,7 +1440,7 @@
 		  </item>
 	  </taglist>
       </item>
-      <tag><marker id="ERL_AFLAGS"><c><![CDATA[ERL_AFLAGS]]></c></marker></tag>
+      <tag><marker id="ERL_AFLAGS"/><c><![CDATA[ERL_AFLAGS]]></c></tag>
       <item>
         <p>The content of this environment variable will be added to the
           beginning of the command line for <c><![CDATA[erl]]></c>.</p>
@@ -1436,7 +1450,7 @@
           the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
           following after an <c><![CDATA[-extra]]></c> flag.</p>
       </item>
-      <tag><marker id="ERL_ZFLAGS"><c><![CDATA[ERL_ZFLAGS]]></c></marker> and <marker id="ERL_FLAGS"><c><![CDATA[ERL_FLAGS]]></c></marker></tag>
+      <tag><marker id="ERL_ZFLAGS"/><c><![CDATA[ERL_ZFLAGS]]></c> and <marker id="ERL_FLAGS"/><c><![CDATA[ERL_FLAGS]]></c></tag>
       <item>
         <p>The content of these environment variables will be added to the
           end of the command line for <c><![CDATA[erl]]></c>.</p>

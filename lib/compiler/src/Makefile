@@ -50,6 +50,7 @@ MODULES =  \
 	beam_asm \
 	beam_block \
 	beam_bool \
+	beam_bs \
 	beam_bsm \
 	beam_clean \
 	beam_dead \
@@ -62,6 +63,7 @@ MODULES =  \
 	beam_opcodes \
 	beam_peep \
 	beam_receive \
+	beam_reorder \
 	beam_split \
 	beam_trim \
 	beam_type \

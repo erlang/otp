@@ -460,7 +460,7 @@ check_old_code(_Module) ->
       CheckResult :: boolean().
 check_process_code(Pid, Module) ->
     try
-	erlang:check_process_code(Pid, Module, [{allow_gc, true}])
+	erts_internal:check_process_code(Pid, Module, [{allow_gc, true}])
     catch
 	error:Error -> erlang:error(Error, [Pid, Module])
     end.
@@ -475,50 +475,10 @@ check_process_code(Pid, Module) ->
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
     try
-	{Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
-	case Async of
-	    {async, ReqId} ->
-		{priority, Prio} = erlang:process_info(erlang:self(),
-						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {check_process_code,
-						   ReqId,
-						   Module,
-						   AllowGC}),
-		async;
-	    sync ->
-		case Pid == erlang:self() of
-		    true ->
-			erts_internal:check_process_code(Module,
-							 [{allow_gc, AllowGC}]);
-		    false ->
-			{priority, Prio} = erlang:process_info(erlang:self(),
-							       priority),
-			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {check_process_code,
-							   ReqId,
-							   Module,
-							   AllowGC}),
-			receive
-			    {check_process_code, ReqId, CheckResult} ->
-				CheckResult
-			end
-		end
-	end
+	erts_internal:check_process_code(Pid, Module, OptionList)
     catch
 	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
     end.
-
-% gets async and allow_gc opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
-    get_cpc_opts(Options, AsyncTuple, AllowGC);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
-    get_cpc_opts(Options, Async, AllowGC);
-get_cpc_opts([], Async, AllowGC) ->
-    {Async, AllowGC}.
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when
@@ -1464,8 +1424,16 @@ processes() ->
 %% purge_module/1
 -spec purge_module(Module) -> true when
       Module :: atom().
-purge_module(_Module) ->
-    erlang:nif_error(undefined).
+purge_module(Module) when erlang:is_atom(Module) ->
+    case erts_code_purger:purge(Module) of
+	{false, _} ->
+	    erlang:error(badarg, [Module]);
+	{true, _} ->
+	    true
+    end;
+purge_module(Arg) ->
+    erlang:error(badarg, [Arg]).
+
 
 %% put/2
 -spec put(Key, Val) -> term() when
@@ -1974,6 +1942,7 @@ localtime_to_universaltime(_Localtime, _IsDst) ->
 %% CHECK! Why the strange very thorough specification of the error
 %% condition with disallowed arity in erl_bif_types?
 %% Not documented
+%% Shadowed by erl_bif_types: erlang:make_fun/3
 -spec erlang:make_fun(Module, Function, Arity) -> function() when
       Module :: atom(),
       Function :: atom(),
@@ -2026,11 +1995,20 @@ nodes(_Arg) ->
            | eof
 	   | {parallelism, Boolean :: boolean()}
 	   | hide.
-open_port(_PortName,_PortSettings) ->
-    erlang:nif_error(undefined).
+open_port(PortName, PortSettings) ->
+    case case erts_internal:open_port(PortName, PortSettings) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	Port when erlang:is_port(Port) -> Port;
+	Error -> erlang:error(Error, [PortName, PortSettings])
+    end.
 
 -type priority_level() ::
       low | normal | high | max.
+
+-type message_queue_data() ::
+	off_heap | on_heap | mixed.
 
 -spec process_flag(trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),
@@ -2044,6 +2022,9 @@ open_port(_PortName,_PortSettings) ->
                   (min_bin_vheap_size, MinBinVHeapSize) -> OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
+                  (message_queue_data, MQD) -> OldMQD when
+      MQD :: message_queue_data(),
+      OldMQD :: message_queue_data();
                   (priority, Level) -> OldLevel when
       Level :: priority_level(),
       OldLevel :: priority_level();
@@ -2082,6 +2063,7 @@ process_flag(_Flag, _Value) ->
       min_bin_vheap_size |
       monitored_by |
       monitors |
+      message_queue_data |
       priority |
       reductions |
       registered_name |
@@ -2123,6 +2105,7 @@ process_flag(_Flag, _Value) ->
       {monitors,
        Monitors :: [{process, Pid :: pid() |
                                      {RegName :: atom(), Node :: node()}}]} |
+      {message_queue_data, MQD :: message_queue_data()} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, Atom :: atom()} |
@@ -2204,7 +2187,9 @@ setelement(_Index, _Tuple1, _Value) ->
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
 
--spec statistics(context_switches) -> {ContextSwitches,0} when
+-spec statistics(active_tasks) -> [ActiveTasks] when
+      ActiveTasks :: non_neg_integer();
+		(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
                                        Exact_Reductions_Since_Last_Call} when
@@ -2221,6 +2206,8 @@ spawn_opt(_Tuple) ->
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLenght] when
+      RunQueueLenght :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2228,6 +2215,10 @@ spawn_opt(_Tuple) ->
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
+		(total_active_tasks) -> ActiveTasks when
+      ActiveTasks :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLenghts when
+      TotalRunQueueLenghts :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
@@ -2423,8 +2414,9 @@ tuple_to_list(_Tuple) ->
                                   MinBinVHeapSize :: pos_integer()};
          (modified_timing_level) -> integer() | undefined;
          (multi_scheduling) -> disabled | blocked | enabled;
-         (multi_scheduling_blockers) -> [PID :: pid()];
+         (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();
+         (message_queue_data) -> message_queue_data();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
@@ -2552,14 +2544,19 @@ spawn_monitor(M, F, A) when erlang:is_atom(M),
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
+
+-type spawn_opt_option() ::
+	link
+      | monitor
+      | {priority, Level :: priority_level()}
+      | {fullsweep_after, Number :: non_neg_integer()}
+      | {min_heap_size, Size :: non_neg_integer()}
+      | {min_bin_vheap_size, VSize :: non_neg_integer()}
+      | {message_queue_data, MQD :: message_queue_data()}.
+
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(F, O) when erlang:is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
@@ -2572,12 +2569,7 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when erlang:is_function(F) ->
@@ -2664,12 +2656,7 @@ spawn_link(N,M,F,A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -2684,12 +2671,7 @@ spawn_opt(M, F, A, Opts) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,15 +96,22 @@
 %%		   whenever applicable.
 %%-----------------------------------------------------------------------------
 
+%% Types with comment 'race' are due to dialyzer_races.erl.
 -record(callgraph, {digraph        = digraph:new() :: digraph:graph(),
-		    active_digraph                 :: active_digraph(),
-                    esc	                           :: ets:tid(),
-                    letrec_map                     :: ets:tid(),
+		    active_digraph                 :: active_digraph()
+                                                    | 'undefined', % race
+                    esc	                           :: ets:tid()
+                                                    | 'undefined', % race
+                    letrec_map                     :: ets:tid()
+                                                    | 'undefined', % race
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
-                    rec_var_map                    :: ets:tid(),
-                    self_rec	                   :: ets:tid(),
-                    calls                          :: ets:tid(),
+                    rec_var_map                    :: ets:tid()
+                                                    | 'undefined', % race
+                    self_rec	                   :: ets:tid()
+                                                    | 'undefined', % race
+                    calls                          :: ets:tid()
+                                                    | 'undefined', % race
                     race_detection = false         :: boolean(),
 		    race_data_server = new_race_data_server() :: pid()}).
 
@@ -478,14 +485,37 @@ scan_one_core_fun(TopTree, FunName) ->
 		  call ->
 		    CalleeM = cerl:call_module(Tree),
 		    CalleeF = cerl:call_name(Tree),
-		    A = length(cerl:call_args(Tree)),
+		    CalleeArgs = cerl:call_args(Tree),
+		    A = length(CalleeArgs),
 		    case (cerl:is_c_atom(CalleeM) andalso 
 			  cerl:is_c_atom(CalleeF)) of
 		      true -> 
 			M = cerl:atom_val(CalleeM),
 			F = cerl:atom_val(CalleeF),
 			case erl_bif_types:is_known(M, F, A) of
-			  true -> Acc;
+			  true ->
+			    case {M, F, A} of
+			      {erlang, make_fun, 3} ->
+				[CA1, CA2, CA3] = CalleeArgs,
+				case
+				  cerl:is_c_atom(CA1) andalso
+				  cerl:is_c_atom(CA2) andalso
+				  cerl:is_c_int(CA3)
+				of
+				  true ->
+				    MM = cerl:atom_val(CA1),
+				    FF = cerl:atom_val(CA2),
+				    AA = cerl:int_val(CA3),
+				    case erl_bif_types:is_known(MM, FF, AA) of
+				      true -> Acc;
+				      false -> [{FunName, {MM, FF, AA}}|Acc]
+				    end;
+				  false ->
+				    Acc
+				end;
+			      _ ->
+				Acc
+			    end;
 			  false -> [{FunName, {M, F, A}}|Acc]
 			end;
 		      false -> 

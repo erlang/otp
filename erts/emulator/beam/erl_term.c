@@ -28,6 +28,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+void
+erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
+{
+#ifdef TAG_LITERAL_PTR
+    Eterm *hp_end, *hp;
+    
+    hp_end = hp_start + hsz;
+    hp = hp_start;
+
+    while (hp < hp_end) {
+	switch (primary_tag(*hp)) {
+	case TAG_PRIMARY_BOXED:
+	case TAG_PRIMARY_LIST:
+	    *hp |= TAG_LITERAL_PTR;
+	    break;
+	case TAG_PRIMARY_HEADER:
+	    if (header_is_thing(*hp)) {
+		hp += thing_arityval(*hp);
+	    }
+	    break;
+	default:
+	    break;
+	}
+	
+	hp++;
+    }
+    if (is_boxed(*term) || is_list(*term))
+	*term |= TAG_LITERAL_PTR;
+#endif
+}
+
 __decl_noreturn static void __noreturn
 et_abort(const char *expr, const char *file, unsigned line)
 {
@@ -91,6 +122,7 @@ unsigned tag_val_def(Wterm x)
 	    case (_TAG_HEADER_REFC_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
 	    case (_TAG_HEADER_HEAP_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
 	    case (_TAG_HEADER_SUB_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_BIN_MATCHSTATE >> _TAG_PRIMARY_SIZE): return MATCHSTATE_DEF;
 	  }
  
 	  break;
@@ -173,9 +205,7 @@ ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
 ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
 ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
-ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
-ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);
-ET_DEFINE_CHECKED(Uint,x_reg_index,Uint,_is_xreg);
-ET_DEFINE_CHECKED(Uint,y_reg_index,Uint,_is_yreg);
+ET_DEFINE_CHECKED(Uint,loader_x_reg_index,Uint,_is_loader_x_reg);
+ET_DEFINE_CHECKED(Uint,loader_y_reg_index,Uint,_is_loader_y_reg);
 
 #endif	/* ET_DEBUG */

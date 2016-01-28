@@ -470,7 +470,7 @@ oops(suite) ->
 oops(Config) when is_list(Config) ->
     ?line N = 3142,
     ?line Optab = optab(),
-    ?line Seed0 = random:seed0(),
+    ?line Seed0 = rand:seed(exsplus, {1,2,4}),
     ?line {Is,Seed} = random_list(N, tuple_size(Optab), Seed0, []),
     ?line io:format("~p ", [Is]),
     ?line QA = queue:new(),
@@ -562,20 +562,20 @@ args([], _, Seed, R) ->
 args([q|Ts], [Q|Qs]=Qss, Seed, R) ->
     args(Ts, if Qs =:= [] -> Qss; true -> Qs end, Seed, [Q|R]);
 args([l|Ts], Qs, Seed0, R) ->
-    {N,Seed1} = random:uniform_s(17, Seed0),
+    {N,Seed1} = rand:uniform_s(17, Seed0),
     {L,Seed} = random_list(N, 4711, Seed1, []),
     args(Ts, Qs, Seed, [L|R]);
 args([t|Ts], Qs, Seed0, R) ->
-    {T,Seed} = random:uniform_s(4711, Seed0),
+    {T,Seed} = rand:uniform_s(4711, Seed0),
     args(Ts, Qs, Seed, [T|R]);
 args([n|Ts], Qs, Seed0, R) ->
-    {N,Seed} = random:uniform_s(17, Seed0),
+    {N,Seed} = rand:uniform_s(17, Seed0),
     args(Ts, Qs, Seed, [N|R]).
 
 random_list(0, _, Seed, R) ->
     {R,Seed};
 random_list(N, M, Seed0, R) ->
-    {X,Seed} = random:uniform_s(M, Seed0),
+    {X,Seed} = rand:uniform_s(M, Seed0),
     random_list(N-1, M, Seed, [X|R]).
 
 call(Func, As) ->

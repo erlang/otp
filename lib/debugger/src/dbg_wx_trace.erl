@@ -73,6 +73,10 @@ start(Pid, TraceWin, BackTrace) ->
 
 start(Pid, TraceWin, BackTrace, Strings) ->
     case whereis(dbg_wx_mon) of
+        undefined ->
+            Parent = wx:new(),
+            Env = wx:get_env(),
+            start(Pid, Env, Parent, TraceWin, BackTrace, Strings);
 	Monitor when is_pid(Monitor) ->
 	    Monitor ! {?MODULE, self(), get_env},
 	    receive

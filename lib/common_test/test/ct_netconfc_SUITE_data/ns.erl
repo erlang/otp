@@ -277,6 +277,18 @@ hupp_kill(State = #session{connection = ConnRef}) ->
 send({CM,Ch},Data) ->
     ssh_connection:send(CM, Ch, Data).
 
+%%% Split into many small parts and send to client
+send_frag({CM,Ch},Data) ->
+    Sz = rand:uniform(2000),
+    case Data of
+	<<Chunk:Sz/binary,Rest/binary>> ->
+	    ssh_connection:send(CM, Ch, Chunk),
+	    send_frag({CM,Ch},Rest);
+	Chunk ->
+	    ssh_connection:send(CM, Ch, Chunk)
+    end.
+
+
 %%% Kill ssh connection
 kill({CM,_Ch}) ->
     ssh:close(CM).
@@ -294,7 +306,7 @@ table_trans(Fun,Args) ->
 	    receive
 		{table_trans_done,Result} ->
 		    Result
-	    after 5000 ->
+	    after 20000 ->
 		    exit(table_trans_timeout)
 	    end
     end.
@@ -424,6 +436,9 @@ do(_, undefined) ->
 reply(_,undefined) ->
     ?dbg("no reply~n",[]),
     ok;
+reply(ConnRef,{fragmented,Reply}) ->
+    ?dbg("Reply fragmented: ~p~n",[Reply]),
+    send_frag(ConnRef,make_msg(Reply));
 reply(ConnRef,Reply) ->
     ?dbg("Reply: ~p~n",[Reply]),
     send(ConnRef, make_msg(Reply)).

@@ -33,6 +33,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash when starting a quick debugging session. Thanks
+	    Alan Duffield.</p>
+          <p>
+	    Own Id: OTP-12911 Aux Id: seq12906 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
 <section><title>Debugger 4.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -46,7 +46,7 @@ groups() ->
      {'tlsv1', [], all_versions_groups()},
      {'erlang_server', [], key_cert_combinations()},
      {'erlang_client', [], key_cert_combinations()},
-     {'erlang', [], key_cert_combinations()}
+     {'erlang', [], key_cert_combinations() ++ misc()}
     ].
 
 all_versions_groups ()->
@@ -64,6 +64,9 @@ key_cert_combinations() ->
      client_ecdsa_server_rsa,
      client_rsa_server_ecdsa
     ].
+
+misc()->
+    [client_ecdsa_server_ecdsa_with_raw_key].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -143,7 +146,7 @@ init_per_testcase(TestCase, Config) ->
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
     ssl:start(),	
-    ct:timetrap({seconds, 5}),
+    ct:timetrap({seconds, 15}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
@@ -189,6 +192,32 @@ client_rsa_server_ecdsa(Config)  when is_list(Config) ->
     SOpts = ?config(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 
+client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
+    COpts =  ?config(client_ecdsa_opts, Config),
+    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    ServerCert = proplists:get_value(certfile, SOpts),
+    ServerKeyFile = proplists:get_value(keyfile, SOpts),
+    {ok, PemBin} = file:read_file(ServerKeyFile),
+    PemEntries = public_key:pem_decode(PemBin),
+    {'ECPrivateKey', Key, not_encrypted} = proplists:lookup('ECPrivateKey', PemEntries),
+    ServerKey = {'ECPrivateKey', Key},
+    ServerCA = proplists:get_value(cacertfile, SOpts),
+    ClientCert = proplists:get_value(certfile, COpts),
+    ClientKey = proplists:get_value(keyfile, COpts),
+    ClientCA = proplists:get_value(cacertfile, COpts),
+    SType = ?config(server_type, Config),
+    CType = ?config(client_type, Config),
+    {Server, Port} = start_server_with_raw_key(SType,
+				  ClientCA, ServerCA,
+				  ServerCert,
+				  ServerKey,
+				  Config),
+    Client = start_client(CType, Port, ServerCA, ClientCA,
+			  ClientCert,
+			  ClientKey, Config),
+    check_result(Server, SType, Client, CType),
+    close(Server, Client).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -219,10 +248,13 @@ start_client(openssl, Port, CA, OwnCa, Cert, Key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Cmd = "openssl s_client -verify 2 -port " ++ integer_to_list(Port) ++  ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ Cert ++ " -CAfile " ++ NewCA
-	++ " -key " ++ Key ++ " -host localhost -msg -debug",
-    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    Exe = "openssl",
+    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+	    ssl_test_lib:version_flag(Version),
+	    "-cert", Cert, "-CAfile", NewCA,
+	    "-key", Key, "-host","localhost", "-msg", "-debug"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
 start_client(erlang, Port, CA, _, Cert, Key, Config) ->
@@ -241,15 +273,14 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
 
     Port = ssl_test_lib:inet_port(node()),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Cmd = "openssl s_server -accept " ++ integer_to_list(Port) ++ ssl_test_lib:version_flag(Version) ++
-	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
-	++ " -key " ++ Key ++ " -msg -debug",
-    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
+	    "-verify", "2", "-cert", Cert, "-CAfile", NewCA,
+	    "-key", Key, "-msg", "-debug"],
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
-
 start_server(erlang, CA, _, Cert, Key, Config) ->
-
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 			       {from, self()},
@@ -259,6 +290,17 @@ start_server(erlang, CA, _, Cert, Key, Config) ->
 			       {options,
 				[{verify, verify_peer}, {cacertfile, CA},
 				 {certfile, Cert}, {keyfile, Key}]}]),
+    {Server, ssl_test_lib:inet_port(Server)}.
+start_server_with_raw_key(erlang, CA, _, Cert, Key, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+			       {from, self()},
+			       {mfa, {ssl_test_lib,
+				      send_recv_result_active,
+				      []}},
+			       {options,
+				[{verify, verify_peer}, {cacertfile, CA},
+				 {certfile, Cert}, {key, Key}]}]),
     {Server, ssl_test_lib:inet_port(Server)}.
 
 check_result(Server, erlang, Client, erlang) ->

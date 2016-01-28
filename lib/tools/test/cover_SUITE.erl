@@ -31,7 +31,7 @@
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
          otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
-         analyse_no_beam/1]).
+         analyse_no_beam/1, line_0/1]).
 
 -export([do_coverage/1]).
 
@@ -55,7 +55,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
-		   analyse_no_beam],
+		   analyse_no_beam, line_0],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1726,6 +1726,26 @@ analyse_no_beam(Config) when is_list(Config) ->
     ok = file:delete("t.coverdata"),
     ok = file:set_cwd(Cwd),
     ok.
+
+%% When including eunit.hrl, a parse transform adds the function
+%% test/0 to line 0 in your module. A bug in OTP-18.0 caused
+%% cover:analyse_to_file/1 to fail to insert cover data in the output
+%% file in this situation. The test below tests that this bug is
+%% corrected.
+line_0(Config) ->
+    ok = file:set_cwd(filename:join(?config(data_dir, Config),
+				    "include_eunit_hrl")),
+    {ok, cover_inc_eunit} = compile:file(cover_inc_eunit,[debug_info]),
+    {ok, cover_inc_eunit} = cover:compile_beam(cover_inc_eunit),
+    {ok, CovOut} = cover:analyse_to_file(cover_inc_eunit),
+
+    {ok,Bin} = file:read_file(CovOut),
+    Match = <<"0..|      ok.\n">>,  % "0.." is missing when bug is there
+    S = byte_size(Bin)-byte_size(Match),
+    <<_:S/binary,Match/binary>> = Bin,
+    ok.
+
+
 
 %%--Auxiliary------------------------------------------------------------
 

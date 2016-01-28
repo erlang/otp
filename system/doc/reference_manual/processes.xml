@@ -100,11 +100,9 @@ spawn(Module, Name, Args) -> pid()
       <item><c>exit(Reason)</c></item>
       <item><c>erlang:error(Reason)</c></item>
       <item><c>erlang:error(Reason, Args)</c></item>
-      <item><c>erlang:fault(Reason)</c></item>
-      <item><c>erlang:fault(Reason, Args)</c></item>
     </list>
     <p>The process then terminates with reason <c>Reason</c> for
-      <c>exit/1</c> or <c>{Reason,Stack} for the others</c>.</p>
+      <c>exit/1</c> or <c>{Reason,Stack}</c> for the others.</p>
     <p>A process can also be terminated if it receives an exit signal
       with another exit reason than <c>normal</c>, see
       <seealso marker="#errors">Error Handling</seealso>.</p>

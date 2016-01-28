@@ -65,6 +65,7 @@
 	    httpd_connection_sup,
             httpd_conf,
 	    httpd_custom,
+	    httpd_custom_api,
 	    httpd_esi,
             httpd_example,
 	    httpd_file,

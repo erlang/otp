@@ -145,7 +145,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
     State0 =  initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Handshake = ssl_handshake:init_handshake_history(),
-    TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
+    TimeStamp = erlang:monotonic_time(),
     try ssl_config:init(SSLOpts0, Role) of
 	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle,  CRLDbInfo, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,

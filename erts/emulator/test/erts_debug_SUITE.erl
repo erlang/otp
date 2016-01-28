@@ -24,13 +24,13 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 test_size/1,flat_size_big/1,df/1,
+	 test_size/1,flat_size_big/1,df/1,term_type/1,
 	 instructions/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [test_size, flat_size_big, df, instructions].
+    [test_size, flat_size_big, df, instructions, term_type].
 
 groups() -> 
     [].
@@ -138,24 +138,90 @@ flat_size_big_1(Term, Size0, Limit) when Size0 < Limit ->
     end;
 flat_size_big_1(_, _, _) -> ok.
 
-df(Config) when is_list(Config) ->
-    ?line P0 = pps(),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line ok = file:set_cwd(PrivDir),
-    ?line erts_debug:df(?MODULE),
-    ?line Beam = filename:join(PrivDir, ?MODULE_STRING++".dis"),
-    ?line {ok,Bin} = file:read_file(Beam),
-    ?line ok = io:put_chars(binary_to_list(Bin)),
-    ?line ok = file:delete(Beam),
-    ?line true = (P0 == pps()),    
+
+term_type(Config) when is_list(Config) ->
+    Ts = [{fixnum, 1},
+          {fixnum, -1},
+          {bignum, 1 bsl 300},
+          {bignum, -(1 bsl 300)},
+          {hfloat, 0.0},
+          {hfloat, 0.0/-1},
+          {hfloat, 1.0/(1 bsl 302)},
+          {hfloat, 1.0*(1 bsl 302)},
+          {hfloat, -1.0/(1 bsl 302)},
+          {hfloat, -1.0*(1 bsl 302)},
+          {hfloat, 3.1416},
+          {hfloat, 1.0e18},
+          {hfloat, -3.1416},
+          {hfloat, -1.0e18},
+
+          {heap_binary, <<1,2,3>>},
+          {refc_binary, <<0:(8*80)>>},
+          {sub_binary,  <<5:7>>},
+
+          {flatmap, #{ a => 1}},
+          {hashmap, maps:from_list([{I,I}||I <- lists:seq(1,76)])},
+
+          {list, [1,2,3]},
+          {nil, []},
+          {tuple, {1,2,3}},
+          {tuple, {}},
+
+          {export, fun lists:sort/1},
+          {'fun', fun() -> ok end},
+          {pid, self()},
+          {atom, atom}],
+    lists:foreach(fun({E,Val}) ->
+                          R = erts_internal:term_type(Val),
+                          io:format("expecting term type ~w, got ~w (~p)~n", [E,R,Val]),
+                          E = R
+                  end, Ts),
     ok.
+
+
+df(Config) when is_list(Config) ->
+    P0 = pps(),
+    PrivDir = ?config(priv_dir, Config),
+    ok = file:set_cwd(PrivDir),
+
+    AllLoaded = [M || {M,_} <- code:all_loaded()],
+    {Pid,Ref} = spawn_monitor(fun() -> df_smoke(AllLoaded) end),
+    receive
+	{'DOWN',Ref,process,Pid,Status} ->
+	    normal = Status
+    after 20*1000 ->
+	    %% Not finished (i.e. a slow computer). Stop now.
+	    Pid ! stop,
+	    receive
+		{'DOWN',Ref,process,Pid,Status} ->
+		    normal = Status,
+		    io:format("...")
+	    end
+    end,
+    io:nl(),
+    _ = [_ = file:delete(atom_to_list(M) ++ ".dis") ||
+	    M <- AllLoaded],
+
+    true = (P0 == pps()),
+    ok.
+
+df_smoke([M|Ms]) ->
+    io:format("~p", [M]),
+    erts_debug:df(M),
+    receive
+	stop ->
+	    ok
+    after 0 ->
+	    df_smoke(Ms)
+    end;
+df_smoke([]) -> ok.
 
 pps() ->
     {erlang:ports()}.
 
 instructions(Config) when is_list(Config) ->
-    ?line Is = erts_debug:instructions(),
-    ?line _ = [list_to_atom(I) || I <- Is],
+    Is = erts_debug:instructions(),
+    _ = [list_to_atom(I) || I <- Is],
     ok.
 
 id(I) ->

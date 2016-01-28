@@ -48,7 +48,7 @@
       tuple of three integers.</p>
     <p>It should be noted that this random number generator is not cryptographically 
       strong. If a strong cryptographic random number generator is needed for
-      example <c>crypto:rand_bytes/1</c> could be used instead.</p>
+      example <c>crypto:strong_rand_bytes/1</c> could be used instead.</p>
       <note><p>The new and improved <seealso
       marker="stdlib:rand">rand</seealso> module should be used
       instead of this module.</p></note>
@@ -76,9 +76,15 @@
           dictionary, and returns the old state.</p>
         <p>One easy way of obtaining a unique value to seed with is to:</p>
         <code type="none">
-          random:seed(<seealso marker="erts:erlang#phash2/1">erlang:phash2</seealso>([<seealso marker="erts:erlang#node/0">node()</seealso>]),
-	              <seealso marker="erts:erlang#monotonic_time/0">erlang:monotonic_time()</seealso>,
-		      <seealso marker="erts:erlang#unique_integer/0">erlang:unique_integer()</seealso>)</code>
+random:seed(erlang:phash2([node()]),
+            erlang:monotonic_time(),
+            erlang:unique_integer())</code>
+        <p>See <seealso marker="erts:erlang#phash2/1">
+          erlang:phash2/1</seealso>, <seealso marker="erts:erlang#node/0">
+          node/0</seealso>, <seealso marker="erts:erlang#monotonic_time/0">
+          erlang:monotonic_time/0</seealso>, and
+          <seealso marker="erts:erlang#unique_integer/0">
+          erlang:unique_integer/0</seealso>) for details.</p>
       </desc>
     </func>
     <func>
@@ -142,7 +148,7 @@
     <p>The implementation changed in R15. Upgrading to R15 will break
       applications that expect a specific output for a given seed. The output
       is still deterministic number series, but different compared to releases
-      older than R15. The seed <c>{0,0,0}</c> will for example no longer
+      older than R15. The seed <c>{0,0,0}</c> will, for example, no longer
       produce a flawed series of only zeros.</p>
   </section>
 </erlref>

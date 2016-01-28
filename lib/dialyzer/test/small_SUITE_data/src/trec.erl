@@ -8,7 +8,7 @@
 -module(trec).
 -export([test/0, mk_foo_exp/2]).
 
--record(foo, {a :: integer(), b :: [atom()]}).
+-record(foo, {a :: integer() | 'undefined', b :: [atom()]}).
 
 %%
 %% For these functions we currently get the following warnings:

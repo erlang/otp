@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@
 		    t_bitstr/0,
 		    t_boolean/0,
 		    t_byte/0,
-		    t_char/0,
 		    t_cons/0,
 		    t_cons/2,
 		    t_cons_hd/1,
@@ -87,13 +86,12 @@
 		    t_is_port/2,
 		    t_is_maybe_improper_list/2,
 		    t_is_reference/2,
-		    t_is_string/1,
 		    t_is_subtype/2,
 		    t_is_tuple/2,
 		    t_list/0,
 		    t_list/1,
 		    t_list_elements/2,
-		    t_list_termination/1,
+		    t_list_termination/2,
 		    t_mfa/0,
 		    t_module/0,
 		    t_nil/0,
@@ -514,14 +512,15 @@ type(erlang, 'bsl', 2, Xs, Opaques) ->
 type(erlang, 'bnot', 1, Xs, Opaques) ->
  strict(erlang, 'bnot', 1, Xs,
 	 fun ([X1]) ->
-	     case arith('bnot', X1, Opaques) of
+	     case arith_bnot(X1, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
 	 end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, abs, 1, Xs, Opaques) ->
-  strict(erlang, abs, 1, Xs, fun ([X]) -> X end, Opaques);
+  strict(erlang, abs, 1, Xs,
+         fun ([X1]) -> arith_abs(X1, Opaques) end, Opaques);
 %% This returns (-X)-1, so it often gives a negative result.
 %%  strict(erlang, 'bnot', 1, Xs, fun (_) -> t_integer() end, Opaques);
 type(erlang, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs); % alias
@@ -551,9 +550,6 @@ type(erlang, bit_size, 1, Xs, Opaques) ->
 type(erlang, byte_size, 1, Xs, Opaques) ->
   strict(erlang, byte_size, 1, Xs,
 	 fun (_) -> t_non_neg_integer() end, Opaques);
-type(erlang, disconnect_node, 1, Xs, Opaques) ->
-  strict(erlang, disconnect_node, 1, Xs,
-         fun (_) -> t_sup([t_boolean(), t_atom('ignored')]) end, Opaques);
 %% Guard bif, needs to be here.
 %% Also much more expressive than anything you could write in a spec...
 type(erlang, element, 2, Xs, Opaques) ->
@@ -582,16 +578,9 @@ type(erlang, element, 2, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, float, 1, Xs, Opaques) ->
   strict(erlang, float, 1, Xs, fun (_) -> t_float() end, Opaques);
-type(erlang, fun_info, 1, Xs, Opaques) ->
-  strict(erlang, fun_info, 1, Xs,
-	 fun (_) -> t_list(t_tuple([t_atom(), t_any()])) end, Opaques);
-type(erlang, get_cookie, 0, _, _Opaques) -> t_atom();  % | t_atom('nocookie')
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
-type(erlang, integer_to_list, 2, Xs, Opaques) ->
-  strict(erlang, integer_to_list, 2, Xs,
-	 fun (_) -> t_string() end, Opaques);
 type(erlang, info, 1, Xs, _) -> type(erlang, system_info, 1, Xs); % alias
 %% All type tests are guard BIF's and may be implemented in ways that
 %% cannot be expressed in a type spec, why they are kept in erl_bif_types.
@@ -767,6 +756,18 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   strict(erlang, map_size, 1, Xs, fun (_) -> t_non_neg_integer() end, Opaques);
+type(erlang, make_fun, 3, Xs, Opaques) ->
+  strict(erlang, make_fun, 3, Xs,
+         fun ([_, _, Arity]) ->
+             case t_number_vals(Arity, Opaques) of
+               [N] ->
+                 case is_integer(N) andalso 0 =< N andalso N =< 255 of
+                   true -> t_fun(N, t_any());
+                   false -> t_none()
+                 end;
+               _Other -> t_fun()
+             end
+         end, Opaques);
 type(erlang, make_tuple, 2, Xs, Opaques) ->
   strict(erlang, make_tuple, 2, Xs,
 	 fun ([Int, _]) ->
@@ -783,8 +784,6 @@ type(erlang, make_tuple, 3, Xs, Opaques) ->
 	       _Other -> t_tuple()
 	     end
 	 end, Opaques);
-type(erlang, memory, 0, _, _Opaques) ->
-  t_list(t_tuple([t_atom(), t_non_neg_fixnum()]));
 type(erlang, nif_error, 1, Xs, Opaques) ->
   %% this BIF and the next one are stubs for NIFs and never return
   strict(erlang, nif_error, 1, Xs, fun (_) -> t_any() end, Opaques);
@@ -800,8 +799,6 @@ type(erlang, round, 1, Xs, Opaques) ->
   strict(erlang, round, 1, Xs, fun (_) -> t_integer() end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, self, 0, _, _Opaques) -> t_pid();
-type(erlang, set_cookie, 2, Xs, Opaques) ->
-  strict(erlang, set_cookie, 2, Xs, fun (_) -> t_atom('true') end, Opaques);
 type(erlang, setelement, 3, Xs, Opaques) ->
   strict(erlang, setelement, 3, Xs,
 	 fun ([X1, X2, X3]) ->
@@ -836,19 +833,7 @@ type(erlang, setelement, 3, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, size, 1, Xs, Opaques) ->
   strict(erlang, size, 1, Xs, fun (_) -> t_non_neg_integer() end, Opaques);
-type(erlang, spawn, 1, Xs, Opaques) ->
-  strict(erlang, spawn, 1, Xs, fun (_) -> t_pid() end, Opaques);
-type(erlang, spawn, 2, Xs, Opaques) ->
-  strict(erlang, spawn, 2, Xs, fun (_) -> t_pid() end, Opaques);
-type(erlang, spawn, 4, Xs, Opaques) ->
-  strict(erlang, spawn, 4, Xs, fun (_) -> t_pid() end, Opaques);
-type(erlang, spawn_link, 1, Xs, _) -> type(erlang, spawn, 1, Xs);  % same
-type(erlang, spawn_link, 2, Xs, _) -> type(erlang, spawn, 2, Xs);  % same
-type(erlang, spawn_link, 4, Xs, _) -> type(erlang, spawn, 4, Xs);  % same
 type(erlang, subtract, 2, Xs, _Opaques) -> type(erlang, '--', 2, Xs); % alias
-type(erlang, suspend_process, 1, Xs, Opaques) ->
-  strict(erlang, suspend_process, 1, Xs,
-	 fun (_) -> t_atom('true') end, Opaques);
 type(erlang, system_info, 1, Xs, Opaques) ->
   strict(erlang, system_info, 1, Xs,
 	 fun ([Type]) ->
@@ -913,8 +898,7 @@ type(erlang, system_info, 1, Xs, Opaques) ->
 		     t_list(t_pid());
 		   ['os_type'] ->
 		     t_tuple([t_sup([t_atom('unix'),
-				     t_atom('win32'),
-				     t_atom('ose')]),
+				     t_atom('win32')]),
 			      t_atom()]);
 		   ['os_version'] ->
 		     t_sup(t_tuple([t_non_neg_fixnum(),
@@ -1002,10 +986,6 @@ type(erlang, tuple_to_list, 1, Xs, Opaques) ->
 		 end
 	     end
 	 end, Opaques);
-type(erlang, yield, 0, _, _Opaques) -> t_atom('true');
-%%-- ets ----------------------------------------------------------------------
-type(ets, rename, 2, Xs, Opaques) ->
-  strict(ets, rename, 2, Xs, fun ([_, Name]) -> Name end, Opaques);
 %%-- hipe_bifs ----------------------------------------------------------------
 type(hipe_bifs, add_ref, 2, Xs, Opaques) ->
   strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_nil() end, Opaques);
@@ -1336,8 +1316,8 @@ type(lists, foldr, 3, Xs, _Opaques) -> type(lists, foldl, 3, Xs);  % same
 type(lists, keydelete, 3, Xs, Opaques) ->
   strict(lists, keydelete, 3, Xs,
 	 fun ([_, _, L]) ->
-	     Term = t_list_termination(L),
-	     t_sup(Term, erl_types:lift_list_to_pos_empty(L))
+	     Term = t_list_termination(L, Opaques),
+	     t_sup(Term, erl_types:lift_list_to_pos_empty(L, Opaques))
 	 end, Opaques);
 type(lists, keyfind, 3, Xs, Opaques) ->
   strict(lists, keyfind, 3, Xs,
@@ -1665,25 +1645,6 @@ type(lists, zipwith3, 4, Xs, Opaques) ->
 	 fun ([F,_As,_Bs,_Cs]) -> t_sup(t_list(t_fun_range(F, Opaques)),
                                         t_nil()) end, Opaques);
 
-%%-- string -------------------------------------------------------------------
-type(string, chars, 2, Xs, Opaques) ->  % NOTE: added to avoid loss of info
-  strict(string, chars, 2, Xs, fun (_) -> t_string() end, Opaques);
-type(string, chars, 3, Xs, Opaques) -> % NOTE: added to avoid loss of info
-  strict(string, chars, 3, Xs,
-	 fun ([Char, N, Tail]) ->
-	     case t_is_nil(Tail) of
-	       true ->
-		 type(string, chars, 2, [Char, N]);
-	       false ->
-		 case t_is_string(Tail) of
-		   true ->
-		     t_string();
-		   false ->
-		     t_sup(t_sup(t_string(), Tail), t_cons(Char, Tail))
-		 end
-	     end
-	 end, Opaques);
-
 %%-----------------------------------------------------------------------------
 type(M, F, A, Xs, _O) when is_atom(M), is_atom(F),
 		       is_integer(A), 0 =< A, A =< 255 ->
@@ -1927,7 +1888,7 @@ negwidth(X, N) ->
     false -> negwidth(X, N+1)
   end.
 
-arith('bnot', X1, Opaques) ->
+arith_bnot(X1, Opaques) ->
   case t_is_integer(X1, Opaques) of
     false -> error;
     true ->
@@ -1935,6 +1896,28 @@ arith('bnot', X1, Opaques) ->
       Max1 = number_max(X1, Opaques),
       {ok, t_from_range(infinity_add(infinity_inv(Max1), -1),
 			infinity_add(infinity_inv(Min1), -1))}
+  end.
+
+arith_abs(X1, Opaques) ->
+  case t_is_integer(X1, Opaques) of
+    false ->
+      case t_is_float(X1, Opaques) of
+        true -> t_float();
+        false -> t_number()
+      end;
+    true ->
+      Min1 = number_min(X1, Opaques),
+      Max1 = number_max(X1, Opaques),
+      {NewMin, NewMax} =
+        case infinity_geq(Min1, 0) of
+          true -> {Min1, Max1};
+          false ->
+            case infinity_geq(Max1, 0) of
+              true  -> {0, infinity_inv(Min1)};
+              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+            end
+        end,
+      t_from_range(NewMin, NewMax)
   end.
 
 arith_mult(Min1, Max1, Min2, Max2) ->
@@ -2266,8 +2249,6 @@ arg_types(erlang, bit_size, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
   [t_binary()];
-arg_types(erlang, disconnect_node, 1) ->
-  [t_node()];
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
@@ -2287,17 +2268,11 @@ arg_types(erlang, element, 2) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, float, 1) ->
   [t_number()];
-arg_types(erlang, fun_info, 1) ->
-  [t_fun()];
-arg_types(erlang, get_cookie, 0) ->
-  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];
 arg_types(erlang, info, 1) ->
   arg_types(erlang, system_info, 1); % alias
-arg_types(erlang, integer_to_list, 2) ->
-  [t_integer(), t_from_range(2, 36)];
 arg_types(erlang, is_atom, 1) ->
   [t_any()];
 arg_types(erlang, is_binary, 1) ->
@@ -2338,12 +2313,12 @@ arg_types(erlang, length, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
+arg_types(erlang, make_fun, 3) ->
+  [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->
   [t_non_neg_fixnum(), t_any()];  % the value 0 is OK as first argument
 arg_types(erlang, make_tuple, 3) ->
   [t_non_neg_fixnum(), t_any(), t_list(t_tuple([t_pos_integer(), t_any()]))];
-arg_types(erlang, memory, 0) ->
-  [];
 arg_types(erlang, nif_error, 1) ->
   [t_any()];
 arg_types(erlang, nif_error, 2) ->
@@ -2360,29 +2335,13 @@ arg_types(erlang, round, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, self, 0) ->
   [];
-arg_types(erlang, set_cookie, 2) ->
-  [t_node(), t_atom()];
 arg_types(erlang, setelement, 3) ->
   [t_pos_integer(), t_tuple(), t_any()];
 %% Guard bif, needs to be here.
 arg_types(erlang, size, 1) ->
   [t_sup(t_tuple(), t_binary())];
-arg_types(erlang, spawn, 1) -> %% TODO: Tuple?
-  [t_fun()];
-arg_types(erlang, spawn, 2) -> %% TODO: Tuple?
-  [t_node(), t_fun()];
-arg_types(erlang, spawn, 4) -> %% TODO: Tuple?
-  [t_node(), t_atom(), t_atom(), t_list()];
-arg_types(erlang, spawn_link, 1) ->
-  arg_types(erlang, spawn, 1);  % same
-arg_types(erlang, spawn_link, 2) ->
-  arg_types(erlang, spawn, 2);  % same
-arg_types(erlang, spawn_link, 4) ->
-  arg_types(erlang, spawn, 4);  % same
 arg_types(erlang, subtract, 2) ->
   arg_types(erlang, '--', 2);
-arg_types(erlang, suspend_process, 1) ->
-  [t_pid()];
 arg_types(erlang, system_info, 1) ->
   [t_sup([t_atom(),                     % documented
 	  t_tuple([t_atom(), t_any()]), % documented
@@ -2401,11 +2360,6 @@ arg_types(erlang, tuple_size, 1) ->
   [t_tuple()];
 arg_types(erlang, tuple_to_list, 1) ->
   [t_tuple()];
-arg_types(erlang, yield, 0) ->
-  [];
-%%------- ets -----------------------------------------------------------------
-arg_types(ets, rename, 2) ->
-  [t_atom(), t_atom()];
 %%------- hipe_bifs -----------------------------------------------------------
 arg_types(hipe_bifs, add_ref, 2) ->
   [t_mfa(), t_tuple([t_mfa(),
@@ -2602,13 +2556,6 @@ arg_types(lists, zipwith, 3) ->
   [t_fun([t_any(), t_any()], t_any()), t_list(), t_list()];
 arg_types(lists, zipwith3, 4) ->
   [t_fun([t_any(), t_any(), t_any()], t_any()), t_list(), t_list(), t_list()];
-
-%%------- string --------------------------------------------------------------
-arg_types(string, chars, 2) ->
-  [t_char(), t_non_neg_integer()];
-arg_types(string, chars, 3) ->
-  [t_char(), t_non_neg_integer(), t_any()];
-%%-----------------------------------------------------------------------------
 arg_types(M, F, A) when is_atom(M), is_atom(F),
 			is_integer(A), 0 =< A, A =< 255 ->
   unknown.                     % safe approximation for all functions.

@@ -138,14 +138,31 @@ parse_scheme(AbsURI, Opts) ->
 	{error, no_scheme} ->
 	    {error, no_scheme};
 	{SchemeStr, Rest} ->
-	    Scheme = list_to_atom(http_util:to_lower(SchemeStr)),
-	    SchemeDefaults = which_scheme_defaults(Opts), 
-	    case lists:keysearch(Scheme, 1, SchemeDefaults) of
-		{value, {Scheme, DefaultPort}} ->
-		    {Scheme, DefaultPort, Rest};
-		false ->
-		    {Scheme, no_default_port, Rest}
+	    case extract_scheme(SchemeStr, Opts) of
+		{error, Error} ->
+		    {error, Error};
+		{ok, Scheme} ->
+		    SchemeDefaults = which_scheme_defaults(Opts),
+		    case lists:keysearch(Scheme, 1, SchemeDefaults) of
+			{value, {Scheme, DefaultPort}} ->
+			    {Scheme, DefaultPort, Rest};
+			false ->
+			    {Scheme, no_default_port, Rest}
+		    end
 	    end
+    end.
+
+extract_scheme(Str, Opts) ->
+    case lists:keysearch(scheme_validation_fun, 1, Opts) of
+	{value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
+	    case Fun(Str) of
+		valid ->
+		    {ok, list_to_atom(http_util:to_lower(Str))};
+		{error, Error} ->
+		    {error, Error}
+	    end;
+	_ ->
+	    {ok, list_to_atom(http_util:to_lower(Str))}
     end.
 
 parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->

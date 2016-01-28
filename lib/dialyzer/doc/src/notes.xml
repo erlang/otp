@@ -32,6 +32,64 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reintroduce the <c>erlang:make_fun/3</c> BIF in
+	    erl_bif_types.</p>
+          <p>
+	    Own Id: OTP-13068</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Improve the translation of forms to types. </p>
+          <p>
+	    Own Id: OTP-12865</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-12866</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-12940</p>
+        </item>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c>. </p>
+          <p>
+	    Own Id: OTP-12948</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning <c>lists:keydelete/3</c> with
+	    union and opaque types. </p>
+          <p>
+	    Own Id: OTP-12949</p>
+        </item>
+        <item>
+          <p>
+	    Use new function <c>hipe:erts_checksum</c> to get correct
+	    runtime checksum for cached beam files.</p>
+          <p>
+	    Own Id: OTP-12964 Aux Id: OTP-12963, OTP-12962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -405,22 +463,28 @@
           <p>
 	    EEP43: New data type - Maps</p>
           <p>
-	    With Maps you may for instance: <taglist> <item><c>M0 =
-	    #{ a =&gt; 1, b =&gt; 2}, % create
-	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
-	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
-	    "hello"}, % add new associations</c></item> <item><c>#{
-	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
-	    values</c></item> </taglist></p>
+	    With Maps you may for instance:</p>
+          <taglist>
+            <tag/> <item><c>M0 = #{ a =&gt; 1, b =&gt; 2}, % create
+	      associations</c></item>
+            <tag/><item><c>M1 = M0#{ a := 10 }, % update values</c></item>
+            <tag/><item><c>M2 = M1#{ "hi" =&gt;
+	      "hello"}, % add new associations</c></item>
+            <tag/><item><c>#{ "hi" := V1, a := V2, b := V3} = M2.
+               % match keys with values</c></item>
+          </taglist>
           <p>
 	    For information on how to use Maps please see Map Expressions in the
 		<seealso marker="doc/reference_manual:expressions#map_expressions">
 			Reference Manual</seealso>.</p>
           <p>
 	    The current implementation is without the following
-	    features: <taglist> <item>No variable keys</item>
-	    <item>No single value access</item> <item>No map
-	    comprehensions</item> </taglist></p>
+	    features:</p>
+          <taglist>
+            <tag/><item>No variable keys</item>
+	    <tag/><item>No single value access</item>
+            <tag/><item>No map comprehensions</item>
+          </taglist>
           <p>
 	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
           <p>
@@ -734,19 +798,17 @@
 	    Own Id: OTP-9731</p>
         </item>
         <item>
-          <p>
 	    <list> <item><p>No warnings for underspecs with remote
 	    types</p></item> <item><p> Fix crash in Typer</p></item>
 	    <item><p>Fix Dialyzer's warning for its own
 	    code</p></item> <item><p>Fix Dialyzer's warnings in
 	    HiPE</p></item> <item><p>Add file/line info in a
 	    particular Dialyzer crash</p></item> <item><p>Update
-	    inets test results</p></item> </list></p>
+	    inets test results</p></item> </list>
           <p>
 	    Own Id: OTP-9758</p>
         </item>
         <item>
-          <p>
 	    <list> <item><p>Correct callback spec in application
 	    module</p></item> <item><p>Refine warning about callback
 	    specs with extra ranges</p></item> <item><p>Cleanup
@@ -757,7 +819,7 @@
 	    analysis</p></item> <item><p>Fix crash in
 	    Dialyzer</p></item> <item><p>Variable substitution was
 	    not generalizing any unknown variables.</p></item>
-	    </list></p>
+	    </list>
           <p>
 	    Own Id: OTP-9776</p>
         </item>

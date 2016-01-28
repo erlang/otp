@@ -247,10 +247,7 @@
           <c>Expr</c> during system initialization. If any of these
           steps fail (syntax error, parse error or exception during
           evaluation), Erlang stops with an error message. Here is an
-          example that seeds the random number generator:</p>
-        <pre>
-% <input>erl -eval '{X,Y,Z} = now(), random:seed(X,Y,Z).'</input></pre>
-        <p>This example uses Erlang as a hexadecimal calculator:</p>
+          example that uses Erlang as a hexadecimal calculator:</p>
         <pre>
 % <input>erl -noshell -eval 'R = 16#1F+16#A0, io:format("~.16B~n", [R])' \\</input>
 <input>-s erlang halt</input>

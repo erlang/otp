@@ -376,7 +376,6 @@ erl_scheme_webpage_chunk(Mod, Func, Env, Input, ModData) ->
 	    end),
  
     Response = deliver_webpage_chunk(ModData, Pid), 
-  
     process_flag(trap_exit,false),
     Response.
 
@@ -418,7 +417,6 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
 	    ?hdrv("deliver_webpage_chunk - timeout", []),
 	    send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
-	    process_flag(trap_exit,false),
 	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
     end.
 
@@ -446,7 +444,6 @@ send_headers(ModData, StatusCode, HTTPHeaders) ->
 			       ExtraHeaders ++ HTTPHeaders).
 
 handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
-    process_flag(trap_exit,false),
     {proceed, [{response, {already_sent, 200, Size}} | ModData#mod.data]};
 
 handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
@@ -454,33 +451,53 @@ handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
 	{esi_data, Data} when is_binary(Data) ->
-	    ?hdrt("handle_body - received binary data (esi)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data),
 			IsDisableChunkedSend);
 	{esi_data, Data} ->
-	    ?hdrt("handle_body - received data (esi)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
 			IsDisableChunkedSend);
 	{ok, Data} ->
-	    ?hdrt("handle_body - received data (ok)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
 			IsDisableChunkedSend);
 	{'EXIT', Pid, normal} when is_pid(Pid) ->
-	    ?hdrt("handle_body - exit:normal", []),
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
 	    {proceed, [{response, {already_sent, 200, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
-	    ?hdrv("handle_body - exit", [{reason, Reason}]),
-	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_died, Pid, Reason})
-
+	    Error = lists:flatten(io_lib:format("mod_esi process failed with reason ~p", [Reason])),
+	    httpd_util:error_log(ModData#mod.config_db, Error),
+	    httpd_response:send_final_chunk(ModData, 
+					    [{"Warning", "199 inets server - body maybe incomplete, "
+					      "internal server error"}],
+					    IsDisableChunkedSend),
+	    done
     after Timeout ->
-	    ?hdrv("handle_body - timeout", []),
-	    process_flag(trap_exit,false),
-	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_timeout, Pid})
+	    kill_esi_delivery_process(Pid),
+	    httpd_response:send_final_chunk(ModData, [{"Warning", "199 inets server - "
+						       "body maybe incomplete, timed out"}],
+					    IsDisableChunkedSend),
+	    done
     end.
+
+kill_esi_delivery_process(Pid) -> 
+    exit(Pid, kill),
+    receive 
+	{'EXIT', Pid, killed} ->	
+	    %% Clean message queue
+	    receive
+		{esi_data, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end,
+	    receive
+		{ok, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end
+    end.    
+	
 
 erl_script_timeout(Db) ->
     httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT).

@@ -520,29 +520,6 @@ When a variable has been set, no warning will be issued.
     `posix_memalign` implementation that accepts larger than page size
     alignment.
 
-*   `erl_xcomp_ose_ldflags_pass1` - Linker flags for the OSE module (pass 1)
-
-*   `erl_xcomp_ose_ldflags_pass2` - Linker flags for the OSE module (pass 2)
-
-*   `erl_xcomp_ose_OSEROOT` - OSE installation root directory
-
-*   `erl_xcomp_ose_STRIP` - Strip utility shipped with the OSE distribution
-
-*   `erl_xcomp_ose_LM_POST_LINK` - OSE postlink tool
-
-*   `erl_xcomp_ose_LM_SET_CONF` - Sets the configuration for an OSE load module
-
-*   `erl_xcomp_ose_LM_ELF_SIZE` - Prints the section size information for an
-	OSE load module
-
-*   `erl_xcomp_ose_LM_LCF` - OSE load module linker configuration file
-
-*   `erl_xcomp_ose_BEAM_LM_CONF` - Beam OSE load module configuration file
-
-*   `erl_xcomp_ose_EPMD_LM_CONF` - EPMD OSE load module configuration file
-
-*   `erl_xcomp_ose_RUN_ERL_LM_CONF` - run_erl_lm OSE load module configuration file
-
 Copyright and License
 ---------------------
 

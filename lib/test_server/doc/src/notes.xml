@@ -33,6 +33,35 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When generating Makefile from Makefile.src,
+	    ts_lib:get_arg/4 earlier removed all spaces in the
+	    extracted argument. The code was probably meant for
+	    removing leading and trailing spaces only, and is now
+	    corrected to do so.</p>
+          <p>
+	    Own Id: OTP-13015</p>
+        </item>
+        <item>
+          <p>
+	    With the Common Test 'create_priv_dir' start option set
+	    to 'auto_per_tc', the name of the priv directory for a
+	    configuration function could clash with the name of the
+	    priv directory for a test case, which would cause Test
+	    Server failure. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-13181</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -298,7 +327,7 @@
 	    configuration function or test specification term), the
 	    affected test cases get the status <c>user_skipped</c>
 	    instead.</p> <p>This update has meant a few changes that
-	    may affect Common Test users in various ways: <list>
+	    may affect Common Test users in various ways:</p> <list>
 	    <item>The test results and statistics will be affected,
 	    which is important to know when running regression tests
 	    and comparing results to previous test runs.</item>
@@ -318,7 +347,7 @@
 	    <c>auto_skipped</c> rather than <c>user_skipped</c> as
 	    before.</item> <item>The event messages that Common Test
 	    generates during test runs have been affected by this
-	    update. For details see OTP-11524.</item> </list> </p>
+	    update. For details see OTP-11524.</item> </list>
           <p>
 	    Own Id: OTP-11305 Aux Id: OTP-11524 </p>
         </item>
@@ -445,7 +474,7 @@
 	    that were not opened with the {encoding,utf8} option. If
 	    then the argument contained unicode characters above 255,
 	    the file descriptor would crash. This has been corrected
-	    by the following modifications: <list> <item> Since the
+	    by the following modifications:</p> <list> <item> Since the
 	    'unexpected_io' log file is used only when the test case
 	    HTML file is not available (e.g. between test cases),
 	    this file is now also a HTML file and as other
@@ -467,7 +496,7 @@
 	    path to the last run.&lt;timestamp&gt; directory, is now
 	    dependent on the file name mode of the VM. If file names
 	    are expected to be unicode, then the 'last_name' file is
-	    UTF-8 encoded, else it is latin1 encoded. </item> </list></p>
+	    UTF-8 encoded, else it is latin1 encoded. </item> </list>
           <p>
 	    Also, ~tp has been changed back to ~p unless it is
 	    somehow likely that the argument includes strings. It is
@@ -615,7 +644,7 @@
         </item>
         <item>
           <p>
-	    Update common test modules to handle unicode <list>
+	    Update common test modules to handle Unicode:</p> <list>
 	    <item> Use UTF-8 encoding for all HTML files, except the
 	    HTML version of the test suite generated with
 	    erl2html2:convert, which will have the same encoding as
@@ -626,7 +655,7 @@
 	    unicode:characters_to_list and
 	    unicode:characters_to_binary for conversion between
 	    binaries and strings instead of binary_to_list and
-	    list_to_binary. </item> </list></p>
+	    list_to_binary. </item> </list>
         </item>
       </list>
     </section>

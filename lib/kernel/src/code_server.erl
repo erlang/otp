@@ -40,7 +40,6 @@
 		path,
 		moddb,
 		namedb,
-		cache = no_cache,
 		mode = interactive,
 		on_load = []}).
 -type state() :: #state{}.
@@ -89,19 +88,11 @@ init(Ref, Parent, [Root,Mode0]) ->
 	end,
 
     Path = add_loader_path(IPath, Mode),
-    State0 = #state{root = Root,
-		    path = Path,
-		    moddb = Db,
-		    namedb = init_namedb(Path),
-		    mode = Mode},
-
-    State =
-	case init:get_argument(code_path_cache) of
-	    {ok, _} -> 
-		create_cache(State0);
-	    error -> 
-		State0
-	end,
+    State = #state{root = Root,
+		   path = Path,
+		   moddb = Db,
+		   namedb = init_namedb(Path),
+		   mode = Mode},
 
     put(?ANY_NATIVE_CODE_LOADED, false),
 
@@ -264,50 +255,29 @@ handle_call({load_file,Mod}, Caller, St) ->
     end;
 
 handle_call({add_path,Where,Dir0}, {_From,_Tag},
-	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
-    case Cache0 of
-	no_cache ->
-	    {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
-	    {reply,Resp,S#state{path=Path}};
-	_ ->
-	    Dir = absname(Dir0), %% Cache always expands the path 
-	    {Resp,Path} = add_path(Where, Dir, Path0, Namedb),
-	    Cache = update_cache([Dir], Where, Cache0),
-	    {reply,Resp,S#state{path=Path,cache=Cache}}
-    end;
+	    #state{namedb=Namedb,path=Path0}=S) ->
+    {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({add_paths,Where,Dirs0}, {_From,_Tag},
-	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
-    case Cache0 of
-	no_cache ->
-	    {Resp,Path} = add_paths(Where, Dirs0, Path0, Namedb),
-	    {reply,Resp,S#state{path=Path}};
-	_ ->
-	    %% Cache always expands the path 
-	    Dirs = [absname(Dir) || Dir <- Dirs0], 
-	    {Resp,Path} = add_paths(Where, Dirs, Path0, Namedb),
-	    Cache=update_cache(Dirs,Where,Cache0),
-	    {reply,Resp,S#state{cache=Cache,path=Path}}
-    end;
+	    #state{namedb=Namedb,path=Path0}=S) ->
+    {Resp,Path} = add_paths(Where, Dirs0, Path0, Namedb),
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({set_path,PathList}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path,namedb=NewDb})};
+    {reply,Resp,S#state{path=Path,namedb=NewDb}};
 
 handle_call({del_path,Name}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path} = del_path(Name, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path})};
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({replace_path,Name,Dir}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path} = replace_path(Name, Dir, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path})};
-
-handle_call(rehash, {_From,_Tag}, S0) ->
-    S = create_cache(S0),
-    {reply,ok,S};
+    {reply,Resp,S#state{path=Path}};
 
 handle_call(get_path, {_From,_Tag}, S) ->
     {reply,S#state.path,S};
@@ -398,35 +368,12 @@ handle_call({is_sticky, Mod}, {_From,_Tag}, S) ->
 handle_call(stop,{_From,_Tag}, S) ->
     {stop,normal,stopped,S};
 
-handle_call({is_cached,_File}, {_From,_Tag}, S=#state{cache=no_cache}) ->
-    {reply, no, S};
-
 handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}, {_From,_Tag}, S=#state{mode=Mode}) ->
     case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo, ParserFun) of
 	{ok, Files} ->
 	    {reply, {ok, Mode, Files}, S};
 	{error, _Reason} = Error ->
 	    {reply, Error, S}
-    end;
-
-handle_call({is_cached,File}, {_From,_Tag}, S=#state{cache=Cache}) ->
-    ObjExt = objfile_extension(),
-    Ext = filename:extension(File),
-    Type = case Ext of
-	       ObjExt -> obj;
-	       ".app" -> app;
-	       _ -> undef
-	   end,
-    if Type =:= undef -> 
-	    {reply, no, S};
-       true ->
-	    Key = {Type,list_to_atom(filename:rootname(File, Ext))},
-	    case ets:lookup(Cache, Key) of
-		[] -> 
-		    {reply, no, S};
-		[{Key,Dir}] ->
-		    {reply, Dir, S}
-	    end
     end;
 
 handle_call(get_mode, {_From,_Tag}, S=#state{mode=Mode}) ->
@@ -446,69 +393,6 @@ do_mod_call(Action, Module, Error, St) ->
 	error:badarg ->
 	    {reply,Error,St}
     end.
-
-%% --------------------------------------------------------------
-%% Cache functions 
-%% --------------------------------------------------------------
-
-create_cache(St = #state{cache = no_cache}) ->
-    Cache = ets:new(code_cache, [protected]),
-    rehash_cache(Cache, St);
-create_cache(St) ->
-    rehash_cache(St).
-
-rehash_cache(St = #state{cache = no_cache}) ->
-    St;
-rehash_cache(St = #state{cache = OldCache}) ->
-    ets:delete(OldCache), 
-    Cache = ets:new(code_cache, [protected]),
-    rehash_cache(Cache, St).
-
-rehash_cache(Cache, St = #state{path = Path}) ->
-    Exts = [{obj,objfile_extension()}, {app,".app"}],
-    {Cache,NewPath} = locate_mods(lists:reverse(Path), first, Exts, Cache, []),
-    St#state{cache = Cache, path=NewPath}.
-
-update_cache(Dirs, Where, Cache0) ->
-    Exts = [{obj,objfile_extension()}, {app,".app"}],
-    {Cache, _} = locate_mods(Dirs, Where, Exts, Cache0, []),
-    Cache.
-
-locate_mods([Dir0|Path], Where, Exts, Cache, Acc) ->
-    Dir = absname(Dir0), %% Cache always expands the path 
-    case erl_prim_loader:list_dir(Dir) of
-	{ok, Files} -> 
-	    Cache = filter_mods(Files, Where, Exts, Dir, Cache),
-	    locate_mods(Path, Where, Exts, Cache, [Dir|Acc]);
-	error ->
-	    locate_mods(Path, Where, Exts, Cache, Acc)
-    end;
-locate_mods([], _, _, Cache, Path) ->
-    {Cache,Path}.
-
-filter_mods([File|Rest], Where, Exts, Dir, Cache) ->
-    Ext = filename:extension(File),
-    Root = list_to_atom(filename:rootname(File, Ext)),
-    case lists:keyfind(Ext, 2, Exts) of
-	{Type, _} ->
-	    Key = {Type,Root},
-	    case Where of
-		first ->
-		    true = ets:insert(Cache, {Key,Dir});
-		last ->
-		    case ets:lookup(Cache, Key) of
-			[] ->
-			    true = ets:insert(Cache, {Key,Dir});
-			_ ->
-			    ignore
-		    end
-	    end;
-	false ->
-	    ok
-    end,
-    filter_mods(Rest, Where, Exts, Dir, Cache);
-filter_mods([], _, _, _, Cache) ->
-    Cache.
 
 %% --------------------------------------------------------------
 %% Path handling functions.
@@ -1238,16 +1122,6 @@ load_abs(File, Mod0, Caller, St) ->
 	    {reply,{error,nofile},St}
     end.
 
-try_load_module(Mod, Dir, Caller, St) ->
-    File = filename:append(Dir, to_list(Mod) ++
-			   objfile_extension()),
-    case erl_prim_loader:get_file(File) of
-	error -> 
-	    {reply,error,St};
-	{ok,Binary,FName} ->
-	    try_load_module(absname(FName), Mod, Binary, Caller, St)
-    end.
-
 try_load_module(File, Mod, Bin, {From,_}=Caller, St0) ->
     M = to_atom(Mod),
     case pending_on_load(M, From, St0) of
@@ -1345,26 +1219,12 @@ load_file(Mod0, {From,_}=Caller, St0) ->
 	{yes,St} -> {noreply,St}
     end.
 
-load_file_1(Mod, Caller, #state{path=Path,cache=no_cache}=St) ->
+load_file_1(Mod, Caller, #state{path=Path}=St) ->
     case mod_to_bin(Path, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
 	    try_load_module(File, Mod, Binary, Caller, St)
-    end;
-load_file_1(Mod, Caller, #state{cache=Cache}=St0) ->
-    Key = {obj,Mod},
-    case ets:lookup(Cache, Key) of
-	[] -> 
-	    St = rehash_cache(St0),
-	    case ets:lookup(St#state.cache, Key) of
-		[] -> 
-		    {reply,{error,nofile},St};
-		[{Key,Dir}] ->
-		    try_load_module(Mod, Dir, Caller, St)
-	    end;
-	[{Key,Dir}] ->
-	    try_load_module(Mod, Dir, Caller, St0)
     end.
 
 mod_to_bin([Dir|Tail], Mod) ->
@@ -1421,249 +1281,22 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
     absname(filename:join(Name), Dcwd).
 
 
-%% do_purge(Module)
-%%  Kill all processes running code from *old* Module, and then purge the
-%%  module. Return true if any processes killed, else false.
-
-do_purge(Mod0) ->
-    Mod = to_atom(Mod0),
-    case erlang:check_old_code(Mod) of
-	false ->
-	    false;
-	true ->
-	    Res = check_proc_code(erlang:processes(), Mod, true),
-	    try
-		erlang:purge_module(Mod)
-	    catch
-		_:_ -> ignore
-	    end,
-	    Res
-    end.
-
-%% do_soft_purge(Module)
-%% Purge old code only if no procs remain that run old code.
-%% Return true in that case, false if procs remain (in this
-%% case old code is not purged)
-
-do_soft_purge(Mod0) ->
-    Mod = to_atom(Mod0),
-    case erlang:check_old_code(Mod) of
-	false ->
-	    true;
-	true ->
-	    case check_proc_code(erlang:processes(), Mod, false) of
-		false ->
-		    false;
-		true ->
-		    try
-			erlang:purge_module(Mod)
-		    catch
-			_:_ -> ignore
-		    end,
-		    true
-	    end
-    end.
-
-%%
-%% check_proc_code(Pids, Mod, Hard) - Send asynchronous
-%%   requests to all processes to perform a check_process_code
-%%   operation. Each process will check their own state and
-%%   reply with the result. If 'Hard' equals
-%%   - true, processes that refer 'Mod' will be killed. If
-%%     any processes were killed true is returned; otherwise,
-%%     false.
-%%   - false, and any processes refer 'Mod', false will
-%%     returned; otherwise, true.
-%%
-%%   Requests will be sent to all processes identified by
-%%   Pids at once, but without allowing GC to be performed.
-%%   Check process code operations that are aborted due to
-%%   GC need, will be restarted allowing GC. However, only
-%%   ?MAX_CPC_GC_PROCS outstanding operation allowing GC at
-%%   a time will be allowed. This in order not to blow up
-%%   memory wise.
-%%
-%%   We also only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
-%%   outstanding kills. This both in order to avoid flooding
-%%   our message queue with 'DOWN' messages and limiting the
-%%   amount of memory used to keep references to all
-%%   outstanding kills.
-%%
-
-%% We maybe should allow more than two outstanding
-%% GC requests, but for now we play it safe...
--define(MAX_CPC_GC_PROCS, 2).
--define(MAX_CPC_NO_OUTSTANDING_KILLS, 10).
-
--record(cpc_static, {hard, module, tag}).
-
--record(cpc_kill, {outstanding = [],
-		   no_outstanding = 0,
-		   waiting = [],
-		   killed = false}).
-
-check_proc_code(Pids, Mod, Hard) ->
-    Tag = erlang:make_ref(),
-    CpcS = #cpc_static{hard = Hard,
-		       module = Mod,
-		       tag = Tag},
-    check_proc_code(CpcS, cpc_init(CpcS, Pids, 0), 0, [], #cpc_kill{}, true).
-
-check_proc_code(#cpc_static{hard = true}, 0, 0, [],
-		#cpc_kill{outstanding = [], waiting = [], killed = Killed},
-		true) ->
-    %% No outstanding requests. We did a hard check, so result is whether or
-    %% not we killed any processes...
-    Killed;
-check_proc_code(#cpc_static{hard = false}, 0, 0, [], _KillState, Success) ->
-    %% No outstanding requests and we did a soft check...
-    Success;
-check_proc_code(#cpc_static{hard = false, tag = Tag} = CpcS, NoReq0, NoGcReq0,
-		[], _KillState, false) ->
-    %% Failed soft check; just cleanup the remaining replies corresponding
-    %% to the requests we've sent...
-    {NoReq1, NoGcReq1} = receive
-			     {check_process_code, {Tag, _P, GC}, _Res} ->
-				 case GC of
-				     false -> {NoReq0-1, NoGcReq0};
-				     true -> {NoReq0, NoGcReq0-1}
-				 end
-			 end,
-    check_proc_code(CpcS, NoReq1, NoGcReq1, [], _KillState, false);
-check_proc_code(#cpc_static{tag = Tag} = CpcS, NoReq0, NoGcReq0, NeedGC0,
-		KillState0, Success) ->
-
-    %% Check if we should request a GC operation
-    {NoGcReq1, NeedGC1} = case NoGcReq0 < ?MAX_CPC_GC_PROCS of
-			      GcOpAllowed when GcOpAllowed == false;
-					       NeedGC0 == [] ->
-				  {NoGcReq0, NeedGC0};
-			      _ ->
-				  {NoGcReq0+1, cpc_request_gc(CpcS,NeedGC0)}
-			  end,
-
-    %% Wait for a cpc reply or 'DOWN' message
-    {NoReq1, NoGcReq2, Pid, Result, KillState1} = cpc_recv(Tag,
-							   NoReq0,
-							   NoGcReq1,
-							   KillState0),
-
-    %% Check the result of the reply
-    case Result of
-	aborted ->
-	    %% Operation aborted due to the need to GC in order to
-	    %% determine if the process is referring the module.
-	    %% Schedule the operation for restart allowing GC...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, [Pid|NeedGC1], KillState1,
-			    Success);
-	false ->
-	    %% Process not referring the module; done with this process...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1, KillState1,
-			    Success);
-	true ->
-	    %% Process referring the module...
-	    case CpcS#cpc_static.hard of
-		false ->
-		    %% ... and soft check. The whole operation failed so
-		    %% no point continuing; clean up and fail...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, [], KillState1,
-				    false);
-		true ->
-		    %% ... and hard check; schedule kill of it...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-				    cpc_sched_kill(Pid, KillState1), Success)
-	    end;
-	'DOWN' ->
-	    %% Handled 'DOWN' message
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-			    KillState1, Success)
-    end.
-
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = []} = KillState) ->
-    receive
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq,
-	 #cpc_kill{outstanding = [R0, R1, R2, R3, R4 | _]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} when R == R0;
-					R == R1;
-					R == R2;
-					R == R3;
-					R == R4 ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState); 
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = [R|_]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState); 
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end.
-
-cpc_handle_down(NoReq, NoGcReq, R, #cpc_kill{outstanding = Rs,
-					     no_outstanding = N} = KillState) ->
-    {NoReq, NoGcReq, undefined, 'DOWN',
-     cpc_sched_kill_waiting(KillState#cpc_kill{outstanding = cpc_list_rm(R, Rs),
-					       no_outstanding = N-1})}.
-
-cpc_list_rm(R, [R|Rs]) ->
-    Rs;
-cpc_list_rm(R0, [R1|Rs]) ->
-    [R1|cpc_list_rm(R0, Rs)].
-
-cpc_handle_cpc(NoReq, NoGcReq, false, Pid, Res, KillState) ->
-    {NoReq-1, NoGcReq, Pid, Res, KillState};
-cpc_handle_cpc(NoReq, NoGcReq, true, Pid, Res, KillState) ->
-    {NoReq, NoGcReq-1, Pid, Res, KillState}.
-
-cpc_sched_kill_waiting(#cpc_kill{waiting = []} = KillState) ->
-    KillState;
-cpc_sched_kill_waiting(#cpc_kill{outstanding = Rs,
-				 no_outstanding = N,
-				 waiting = [P|Ps]} = KillState) ->
-    R = erlang:monitor(process, P),
-    exit(P, kill),
-    KillState#cpc_kill{outstanding = [R|Rs],
-		       no_outstanding = N+1,
-		       waiting = Ps,
-		       killed = true}.
-
-cpc_sched_kill(Pid, #cpc_kill{no_outstanding = N, waiting = Pids} = KillState)
-  when N >= ?MAX_CPC_NO_OUTSTANDING_KILLS ->
-    KillState#cpc_kill{waiting = [Pid|Pids]};
-cpc_sched_kill(Pid,
-	       #cpc_kill{outstanding = Rs, no_outstanding = N} = KillState) ->
-    R = erlang:monitor(process, Pid),
-    exit(Pid, kill),
-    KillState#cpc_kill{outstanding = [R|Rs],
-		       no_outstanding = N+1,
-		       killed = true}.
-
-cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
-    erlang:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-					 {allow_gc, AllowGc}]).
-
-cpc_request_gc(CpcS, [Pid|Pids]) ->
-    cpc_request(CpcS, Pid, true),
-    Pids.
-
-cpc_init(_CpcS, [], NoReqs) ->
-    NoReqs;
-cpc_init(CpcS, [Pid|Pids], NoReqs) ->
-    cpc_request(CpcS, Pid, false),
-    cpc_init(CpcS, Pids, NoReqs+1).
-
-% end of check_proc_code() implementation.
 
 is_loaded(M, Db) ->
     case ets:lookup(Db, M) of
 	[{M,File}] -> {file,File};
 	[] -> false
     end.
+
+do_purge(Mod0) ->
+    Mod = to_atom(Mod0),
+    {_WasOld, DidKill} = erts_code_purger:purge(Mod),
+    DidKill.
+
+do_soft_purge(Mod0) ->
+    Mod = to_atom(Mod0),
+    erts_code_purger:soft_purge(Mod).
+
 
 %% -------------------------------------------------------
 %% The on_load functionality.

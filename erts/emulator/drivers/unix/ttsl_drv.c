@@ -720,6 +720,7 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
     }
 
     driver_enq_bin(ttysl_port,putcbuf,0,putcpos);
+    driver_free_binary(putcbuf);
 
     if (sz == 0) {
         for (;;) {
@@ -732,13 +733,13 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
             else
                 written = 0;
             if (written < 0) {
-                if (errno == EAGAIN) {
+                if (errno == ERRNO_BLOCK || errno == EINTR) {
                     driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
                                   ERL_DRV_USE|ERL_DRV_WRITE,1);
                     break;
                 } else {
-                    /* we ignore all other errors */
-                    break;
+		    driver_failure_posix(ttysl_port, errno);
+		    return;
                 }
             } else {
                 if (driver_deq(ttysl_port, written) == 0)
@@ -778,11 +779,12 @@ static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
         else
             written = 0;
         if (written < 0) {
-            if (errno == EAGAIN) {
-                break;
-            } else {
-                /* we ignore all other errors */
+            if (errno == EINTR) {
+	        continue;
+	    } else if (errno != ERRNO_BLOCK){
+	        driver_failure_posix(ttysl_port, errno);
             }
+            break;
         } else {
             sz = driver_deq(ttysl_port, written);
             if (sz < TTY_BUFFSIZE && ttysl_send_ok) {
@@ -1207,6 +1209,7 @@ static int outc(int c)
     putcbuf->orig_bytes[putcpos++] = c;
     if (putcpos == putclen) {
         driver_enq_bin(ttysl_port,putcbuf,0,putclen);
+        driver_free_binary(putcbuf);
         putcpos = 0;
         putclen = TTY_BUFFSIZE;
         putcbuf = driver_alloc_binary(BUFSIZ);

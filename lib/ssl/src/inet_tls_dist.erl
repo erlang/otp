@@ -30,7 +30,7 @@
 
 childspecs() ->
     {ok, [{ssl_dist_sup,{ssl_dist_sup, start_link, []},
-	   permanent, 2000, worker, [ssl_dist_sup]}]}.
+	   permanent, infinity, supervisor, [ssl_dist_sup]}]}.
 
 select(Node) ->
     case split_node(atom_to_list(Node), $@, []) of
@@ -76,23 +76,23 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 						     Timer, Version, Ip, TcpPort, Address,
 						     Type),
 			    dist_util:handshake_we_started(HSData);
-			_ ->
+			Other ->
 			    %% Other Node may have closed since 
 			    %% port_please !
 			    ?trace("other node (~p) "
 				   "closed since port_please.~n", 
 				   [Node]),
-			    ?shutdown(Node)
+			    ?shutdown2(Node, {shutdown, {connect_failed, Other}})
 		    end;
-		_ ->
+		Other ->
 		    ?trace("port_please (~p) "
 			   "failed.~n", [Node]),
-		    ?shutdown(Node)
+		    ?shutdown2(Node, {shutdown, {port_please_failed, Other}})
 	    end;
-	_Other ->
+	Other ->
 	    ?trace("inet_getaddr(~p) "
 		   "failed (~p).~n", [Node,Other]),
-	    ?shutdown(Node)
+	    ?shutdown2(Node, {shutdown, {inet_getaddr_failed, Other}})
     end.
 
 close(Socket) ->

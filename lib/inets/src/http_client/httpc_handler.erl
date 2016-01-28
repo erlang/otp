@@ -26,6 +26,7 @@
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
+-define(IS_STREAMED(Code), ((Code =:= 200) orelse (Code =:= 206))).
 
 %%--------------------------------------------------------------------
 %% Internal Application API
@@ -163,22 +164,22 @@ info(Pid) ->
 %% Request should not be streamed
 stream(BodyPart, #request{stream = none} = Request, _) ->
     ?hcrt("stream - none", []),
-    {BodyPart, Request};
+    {false, BodyPart, Request};
 
 %% Stream to caller
 stream(BodyPart, #request{stream = Self} = Request, Code) 
-  when ((Code =:= 200) orelse  (Code =:= 206)) andalso 
+  when ?IS_STREAMED(Code) andalso
        ((Self =:= self) orelse (Self =:= {self, once})) ->
     ?hcrt("stream - self", [{stream, Self}, {code, Code}]),
     httpc_response:send(Request#request.from, 
                         {Request#request.id, stream, BodyPart}),
-    {<<>>, Request};
+    {true, <<>>, Request};
 
 %% Stream to file
 %% This has been moved to start_stream/3
 %% We keep this for backward compatibillity...
 stream(BodyPart, #request{stream = Filename} = Request, Code)
-  when ((Code =:= 200) orelse (Code =:= 206)) andalso is_list(Filename) -> 
+  when ?IS_STREAMED(Code) andalso is_list(Filename) ->
     ?hcrt("stream - filename", [{stream, Filename}, {code, Code}]),
     case file:open(Filename, [write, raw, append, delayed_write]) of
         {ok, Fd} ->
@@ -190,18 +191,18 @@ stream(BodyPart, #request{stream = Filename} = Request, Code)
 
 %% Stream to file
 stream(BodyPart, #request{stream = Fd} = Request, Code)  
-  when ((Code =:= 200) orelse (Code =:= 206)) -> 
+  when ?IS_STREAMED(Code) ->
     ?hcrt("stream to file", [{stream, Fd}, {code, Code}]),
     case file:write(Fd, BodyPart) of
         ok ->
-            {<<>>, Request};
+            {true, <<>>, Request};
         {error, Reason} ->
             exit({stream_to_file_failed, Reason})
     end;
 
 stream(BodyPart, Request,_) -> % only 200 and 206 responses can be streamed
     ?hcrt("stream - ignore", [{request, Request}]),
-    {BodyPart, Request}.
+    {false, BodyPart, Request}.
 
 
 %%====================================================================
@@ -421,6 +422,16 @@ handle_cast({cancel, RequestId},
                      {profile, ProfileName},
                      {canceled,   Canceled}]),
     {noreply, State#state{canceled = [RequestId | Canceled]}};
+handle_cast({cancel, RequestId},
+            #state{profile_name = ProfileName,
+                   request      = undefined,
+                   canceled     = Canceled} = State) ->
+    ?hcrv("cancel", [{request_id, RequestId},
+                     {curr_req_id, undefined},
+                     {profile, ProfileName},
+                     {canceled,   Canceled}]),
+    {noreply, State};
+
 
 handle_cast(stream_next, #state{session = Session} = State) ->
     activate_once(Session), 
@@ -464,18 +475,18 @@ handle_info({Proto, _Socket, Data},
             {Module, whole_body, [Body, Length]} ->
                 ?hcrd("data processed - whole body", [{length, Length}]),
                 {_, Code, _} = StatusLine,
-                {NewBody, NewRequest} = stream(Body, Request, Code),
+                {Streamed, NewBody, NewRequest} = stream(Body, Request, Code),
                 %% When we stream we will not keep the already
                 %% streamed data, that would be a waste of memory.
                 NewLength = 
-                    case Stream of
-                        none ->   
+                    case Streamed of
+                        false ->
                             Length;
-                        _ ->
+                        true ->
                             Length - size(Body)                     
                     end,
                 
-                NewState = next_body_chunk(State),
+                NewState = next_body_chunk(State, Code),
                 NewMFA   = {Module, whole_body, [NewBody, NewLength]}, 
                 {noreply, NewState#state{mfa     = NewMFA,
                                          request = NewRequest}};
@@ -487,8 +498,8 @@ handle_info({Proto, _Socket, Data},
                 %% The response body is chunk-encoded. Steal decoded
                 %% chunks as much as possible to stream.
                 {_, Code, _} = StatusLine,
-                {NewBody, NewRequest} = stream(BodySoFar, Request, Code),
-                NewState = next_body_chunk(State),
+                {_, NewBody, NewRequest} = stream(BodySoFar, Request, Code),
+                NewState = next_body_chunk(State, Code),
                 NewMFA   = {Module, decode_size,
                             [TotalChunk, HexList,
                              {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
@@ -507,8 +518,8 @@ handle_info({Proto, _Socket, Data},
                 NewChunkSize = ChunkSize - ChunkSizeToSteal,
                 {_, Code, _} = StatusLine,
 
-                {NewBody, NewRequest} = stream(StolenBody, Request, Code),
-                NewState = next_body_chunk(State),
+                {_, NewBody, NewRequest} = stream(StolenBody, Request, Code),
+                NewState = next_body_chunk(State, Code),
                 NewMFA   = {Module, decode_data,
                             [NewChunkSize, NewTotalChunk,
                              {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]},
@@ -1061,13 +1072,13 @@ handle_http_msg({ChunkedHeaders, Body},
     ?hcrt("handle_http_msg", 
 	  [{chunked_headers, ChunkedHeaders}, {headers, Headers}]),
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
-    {NewBody, NewRequest} = stream(Body, State#state.request, Code),
+    {_, NewBody, NewRequest} = stream(Body, State#state.request, Code),
     handle_response(State#state{headers = NewHeaders,
                                 body    = NewBody,
                                 request = NewRequest});
 handle_http_msg(Body, #state{status_line = {_,Code, _}} = State) ->
     ?hcrt("handle_http_msg", [{code, Code}]),
-    {NewBody, NewRequest} = stream(Body, State#state.request, Code),
+    {_, NewBody, NewRequest} = stream(Body, State#state.request, Code),
     handle_response(State#state{body = NewBody, request = NewRequest}).
 
 handle_http_body(_, #state{status = {ssl_tunnel, _},
@@ -1102,14 +1113,14 @@ handle_http_body(Body, #state{headers       = Headers,
     case case_insensitive_header(TransferEnc) of
         "chunked" ->
 	    ?hcrt("handle_http_body - chunked", []),
-	    case http_chunk:decode(Body, State#state.max_body_size, 
-				   State#state.max_header_size) of
+	    try http_chunk:decode(Body, State#state.max_body_size, 
+				  State#state.max_header_size) of
 		{Module, Function, Args} ->
 		    ?hcrt("handle_http_body - new mfa", 
 			  [{module,   Module}, 
 			   {function, Function}, 
 			   {args,     Args}]),
-		    NewState = next_body_chunk(State),
+		    NewState = next_body_chunk(State, Code),
 		    {noreply, NewState#state{mfa = 
 					     {Module, Function, Args}}};
 		{ok, {ChunkedHeaders, NewBody}} ->
@@ -1123,11 +1134,18 @@ handle_http_body(Body, #state{headers       = Headers,
                            handle_response(State#state{headers = NewHeaders,
                                                 body    = NewBody});
                         _ ->
-                           {NewBody2, _NewRequest} =
+                           {_, NewBody2, _} =
                                 stream(NewBody, Request, Code),
                            handle_response(State#state{headers = NewHeaders,
                                        body    = NewBody2})
                     end
+	    catch throw:{error, Reason} ->
+		NewState =
+		    answer_request(Request,
+				   httpc_response:error(Request,
+							Reason),
+				   State),
+		    {stop, normal, NewState}
 	    end;
         Enc when Enc =:= "identity"; Enc =:= undefined ->
             ?hcrt("handle_http_body - identity", []),
@@ -1137,12 +1155,12 @@ handle_http_body(Body, #state{headers       = Headers,
                 true ->
                     case httpc_response:whole_body(Body, Length) of
                         {ok, Body} ->
-			    {NewBody, NewRequest} = 
+			    {_, NewBody, NewRequest} =
 				stream(Body, Request, Code),
 			    handle_response(State#state{body    = NewBody,
 							request = NewRequest});
                         MFA ->
-			    NewState = next_body_chunk(State),   
+			    NewState = next_body_chunk(State, Code),
 			    {noreply, NewState#state{mfa = MFA}}
 		    end;
                 false ->
@@ -1636,21 +1654,21 @@ start_stream({_Version, _Code, _ReasonPhrase}, _Headers,
     {ok, Request};
 start_stream({_Version, Code, _ReasonPhrase}, Headers, 
 	     #request{stream = self} = Request) 
-  when (Code =:= 200) orelse (Code =:= 206) ->
+  when ?IS_STREAMED(Code) ->
     ?hcrt("start stream - self", [{code, Code}]), 
     Msg = httpc_response:stream_start(Headers, Request, ignore),
     httpc_response:send(Request#request.from, Msg),
     {ok, Request};
 start_stream({_Version, Code, _ReasonPhrase}, Headers, 
 	     #request{stream = {self, once}} = Request) 
-  when (Code =:= 200) orelse (Code =:= 206) ->
+  when ?IS_STREAMED(Code) ->
     ?hcrt("start stream - self:once", [{code, Code}]), 
     Msg = httpc_response:stream_start(Headers, Request, self()),
     httpc_response:send(Request#request.from, Msg),
     {ok, Request};    
 start_stream({_Version, Code, _ReasonPhrase}, _Headers, 
 	     #request{stream = Filename} = Request)
-  when ((Code =:= 200) orelse (Code =:= 206)) andalso is_list(Filename) ->
+  when ?IS_STREAMED(Code) andalso is_list(Filename) ->
     ?hcrt("start stream", [{code, Code}, {filename, Filename}]),
     case file:open(Filename, [write, raw, append, delayed_write]) of
         {ok, Fd} ->
@@ -1702,13 +1720,15 @@ end_stream(SL, R) ->
 
 next_body_chunk(#state{request = #request{stream = {self, once}}, 
 		       once    = once, 
-		       session = Session} = State) ->
+		       session = Session} = State,
+		Code) when ?IS_STREAMED(Code) ->
     activate_once(Session), 
     State#state{once = inactive};
 next_body_chunk(#state{request = #request{stream = {self, once}}, 
-		       once = inactive} = State) ->
+		       once = inactive} = State,
+		Code) when ?IS_STREAMED(Code) ->
     State; %% Wait for user to call stream_next
-next_body_chunk(#state{session = Session} = State) ->
+next_body_chunk(#state{session = Session} = State, _) ->
     activate_once(Session), 
     State.
 
@@ -1807,13 +1827,15 @@ host_header(_, URI) ->
 tls_upgrade(#state{status = 
 		       {ssl_tunnel, 
 			#request{settings = 
-				     #http_options{ssl = {_, TLSOptions} = SocketType}} = Request},
+				     #http_options{ssl = {_, TLSOptions0} = SocketType},
+				     address = {Host, _} = Address} = Request},
 		   session = #session{socket = TCPSocket} = Session0,
 		   options = Options} = State) ->
 
+    TLSOptions = maybe_add_sni(Host, TLSOptions0),
+
     case ssl:connect(TCPSocket, TLSOptions) of
 	{ok, TLSSocket} ->
-	    Address = Request#request.address,
 	    ClientClose = httpc_request:is_client_closing(Request#request.headers),
 	    SessionType = httpc_manager:session_type(Options),
 	    Session = Session0#session{
@@ -1834,8 +1856,21 @@ tls_upgrade(#state{status =
 				   status = new
 				  },
 	    {noreply, activate_request_timeout(NewState)};
-	{error, _Reason} ->
+	{error, Reason} ->
+	    Error = httpc_response:error(Request, {failed_connect,
+						   [{to_address, Address},
+						    {tls, TLSOptions, Reason}]}),
+	    maybe_send_answer(Request, Error, State),
 	    {stop, normal, State#state{request = Request}}
+    end.
+
+maybe_add_sni(Host, Options) ->
+    case http_util:is_hostname(Host) andalso
+	  not lists:keymember(server_name_indication, 1, Options) of
+	true ->
+	    [{server_name_indication, Host} | Options];
+	false ->
+	    Options
     end.
 
 %% ---------------------------------------------------------------------

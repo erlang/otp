@@ -47,6 +47,12 @@ ethr_event_init(ethr_event *e)
 }
 
 int
+ethr_event_prepare_timed(ethr_event *e)
+{
+    return 0;
+}
+
+int
 ethr_event_destroy(ethr_event *e)
 {
     BOOL res = CloseHandle(e->handle);

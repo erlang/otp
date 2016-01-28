@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -415,7 +415,7 @@ expr({call,_,{atom,_,Func},As0}, Bs0, Lf, Ef, RBs) ->
             {As,Bs} = expr_list(As0, Bs0, Lf, Ef),
             bif(Func, As, Bs, Ef, RBs);
         false ->
-            local_func(Func, As0, Bs0, Lf, RBs)
+            local_func(Func, As0, Bs0, Lf, Ef, RBs)
     end;
 expr({call,_,Func0,As0}, Bs0, Lf, Ef, RBs) -> % function or {Mod,Fun}
     {value,Func,Bs1} = expr(Func0, Bs0, Lf, Ef, none),
@@ -542,33 +542,34 @@ unhide_calls([E | Es], MaxLine, D) ->
 unhide_calls(E, _MaxLine, _D) -> 
     E.
 
-%% local_func(Function, Arguments, Bindings, LocalFuncHandler, RBs) ->
+%% local_func(Function, Arguments, Bindings, LocalFuncHandler,
+%%            ExternalFuncHandler, RBs) ->
 %%	{value,Value,Bindings} | Value when
 %%	LocalFuncHandler = {value,F} | {value,F,Eas} |
 %%                         {eval,F}  | {eval,F,Eas}  | none.
 
-local_func(Func, As0, Bs0, {value,F}, value) ->
-    {As1,_Bs1} = expr_list(As0, Bs0, {value,F}),
+local_func(Func, As0, Bs0, {value,F}, Ef, value) ->
+    {As1,_Bs1} = expr_list(As0, Bs0, {value,F}, Ef),
     %% Make tail recursive calls when possible.
     F(Func, As1);
-local_func(Func, As0, Bs0, {value,F}, RBs) ->
-    {As1,Bs1} = expr_list(As0, Bs0, {value,F}),
+local_func(Func, As0, Bs0, {value,F}, Ef, RBs) ->
+    {As1,Bs1} = expr_list(As0, Bs0, {value,F}, Ef),
     ret_expr(F(Func, As1), Bs1, RBs);
-local_func(Func, As0, Bs0, {value,F,Eas}, RBs) ->
+local_func(Func, As0, Bs0, {value,F,Eas}, Ef, RBs) ->
     Fun = fun(Name, Args) -> apply(F, [Name,Args|Eas]) end,
-    local_func(Func, As0, Bs0, {value, Fun}, RBs);
-local_func(Func, As, Bs, {eval,F}, RBs) ->
+    local_func(Func, As0, Bs0, {value, Fun}, Ef, RBs);
+local_func(Func, As, Bs, {eval,F}, _Ef, RBs) ->
     local_func2(F(Func, As, Bs), RBs);
-local_func(Func, As, Bs, {eval,F,Eas}, RBs) ->
+local_func(Func, As, Bs, {eval,F,Eas}, _Ef, RBs) ->
     local_func2(apply(F, [Func,As,Bs|Eas]), RBs);
 %% These two clauses are for backwards compatibility.
-local_func(Func, As0, Bs0, {M,F}, RBs) ->
-    {As1,Bs1} = expr_list(As0, Bs0, {M,F}),
+local_func(Func, As0, Bs0, {M,F}, Ef, RBs) ->
+    {As1,Bs1} = expr_list(As0, Bs0, {M,F}, Ef),
     ret_expr(M:F(Func,As1), Bs1, RBs);
-local_func(Func, As, _Bs, {M,F,Eas}, RBs) ->
+local_func(Func, As, _Bs, {M,F,Eas}, _Ef, RBs) ->
     local_func2(apply(M, F, [Func,As|Eas]), RBs);
 %% Default unknown function handler to undefined function.
-local_func(Func, As0, _Bs0, none, _RBs) ->
+local_func(Func, As0, _Bs0, none, _Ef, _RBs) ->
     erlang:raise(error, undef, [{erl_eval,Func,length(As0)}|stacktrace()]).
 
 local_func2({value,V,Bs}, RBs) ->
@@ -1184,7 +1185,7 @@ match_tuple([], _, _, Bs, _BBs) ->
 
 match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs) ->
     Vm = try
-	{value, Ke, _} = expr(K, Bs0),
+	{value, Ke, _} = expr(K, BBs),
 	maps:get(Ke,Map)
     catch error:_ ->
 	throw(nomatch)

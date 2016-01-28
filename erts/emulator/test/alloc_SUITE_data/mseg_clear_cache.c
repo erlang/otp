@@ -101,3 +101,6 @@ testcase_cleanup(TestCaseState_t *tcs)
 	tcs->extra = NULL;
     }
 }
+
+ERL_NIF_INIT(mseg_clear_cache, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

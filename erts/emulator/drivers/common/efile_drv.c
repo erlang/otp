@@ -101,15 +101,9 @@
 #  include "config.h"
 #endif
 
-#ifndef __OSE__
 #include <ctype.h>
 #include <sys/types.h>
 #include <stdlib.h>
-#else
-#include "ctype.h"
-#include "sys/types.h"
-#include "stdlib.h"
-#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
@@ -895,7 +889,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     TRACE_C('N');
 
     response[0] = FILE_RESP_NUMERR;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, response+1);
 #else
     put_int32(num>>32, response+1);
@@ -964,7 +958,7 @@ static int reply_Uint(file_descriptor *desc, Uint result) {
     TRACE_C('R');
 
     tmp[0] = FILE_RESP_NUMBER;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, tmp+1);
 #else
     put_int32(result>>32, tmp+1);
@@ -2581,7 +2575,6 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_CLOSE_ON_PORT_EXIT:
 	  /* See file_stop. However this is never invoked after the port is killed. */
 	  free_data(data);
-	  EF_FREE(desc);
 	  desc = NULL;
 	  /* This is it for this port, so just send dtrace and return, avoid doing anything to the freed data */
 	  DTRACE6(efile_drv_return, sched_i1, sched_i2, sched_utag,

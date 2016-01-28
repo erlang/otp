@@ -29,7 +29,7 @@
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
 #endif
-
+#include <time.h>
 /* forward declarations */
 
 static void usage(EpmdVars *);
@@ -397,7 +397,7 @@ static void run_daemon(EpmdVars *g)
 }
 #endif
 
-#if defined(VXWORKS) || defined(__OSE__)
+#if defined(VXWORKS)
 static void run_daemon(EpmdVars *g)
 {
     run(g);

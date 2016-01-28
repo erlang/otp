@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Show ets owner pid in crashdump viewers popup window,
+	    thanks Leo Liu.</p>
+          <p>
+	    Own Id: OTP-13030</p>
+        </item>
+        <item>
+          <p>
+	    Several initialisms (eg, ERTS, ETS, SMP) are used as
+	    headings. They were being capitalized incorrectly.</p>
+          <p>
+	    Own Id: OTP-13044</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a crash in crashdump viewer when dump contained a
+	    truncated binary.</p>
+          <p>
+	    Own Id: OTP-13163</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -273,13 +303,12 @@
     <section><title>Improvements and New Features</title>
       <list>
         <item>
-          <p>
 	    <list> <item> The new Memory field from a crash dump is
 	    now presented by crashdump viewer, both in the process
 	    overview and in the process detail page. </item> <item> A
 	    summary of blocks- and carriers sizes is added to the
 	    allocator information page in the crashdump viewer.
-	    </item> </list></p>
+	    </item> </list>
           <p>
 	    Own Id: OTP-10604 Aux Id: kunagi-336 [247] </p>
         </item>
@@ -408,7 +437,6 @@
         <item>
           <p>
 	    The following bugs in <c>ttb</c> have been corrected:</p>
-          <p>
 	    <list> <item><c>ttb:tracer/2</c> would earlier crash when
 	    trying to set up tracing for a diskless node to wrap
 	    files, i.e. when option
@@ -421,7 +449,7 @@
 	    <c>{file,{local,Filename}}</c></item> <item>A deadlock
 	    would sometimes occur due to an information printout from
 	    the <c>ttb_control</c> process when <c>ttb</c> was
-	    stopped.</item> </list></p>
+	    stopped.</item> </list>
           <p>
 	    Own Id: OTP-9431</p>
         </item>
@@ -449,7 +477,6 @@
         <item>
           <p>
 	    The following new features are added to <c>ttb</c>:</p>
-          <p>
 	    <list> <item>A one-command trace setup is added,
 	    <c>ttb:start_trace/4</c>.</item> <item>The following new
 	    options are added to <c>ttb:tracer/2</c>: <list>
@@ -485,7 +512,7 @@
 	    <c>disable_sort</c> is added to <c>ttb:format/2</c>. When
 	    this option is used, trace messages from different logs
 	    are not merged according to timestamps, but just appended
-	    one log after the other. </item> </list></p>
+	    one log after the other. </item> </list>
           <p>
 	    Own Id: OTP-9403</p>
         </item>
@@ -493,7 +520,6 @@
           <p>
 	    The following non backwards compatible changes are done
 	    in <c>ttb</c>:</p>
-          <p>
 	    <list> <item> When setting up trace with ttb, the
 	    'timestamp' trace flag will now always be set. </item>
 	    <item> The 'fetch' option to ttb:stop/1 is removed since
@@ -509,7 +535,7 @@
 	    trace file, this is now changed so the handler state is
 	    passed not only from one trace message to the next in the
 	    same file, but also from one file to the next. </item>
-	    </list></p>
+	    </list>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>

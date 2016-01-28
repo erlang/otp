@@ -31,7 +31,24 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.4</title>
+  <section><title>Erl_Docgen 0.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Updated the xmllint target to just check the xml
+	    files with real documentation content.<br/> Corrected
+	    some errors and added some missing target in the DTD's.
+	    </p>
+          <p>
+	    Own Id: OTP-13026</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

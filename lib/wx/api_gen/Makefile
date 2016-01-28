@@ -49,7 +49,7 @@ opt:  $(WX) $(GL)
 $(WX): wxxml_generated $(COMPILER_T) wxapi.conf $(wildcard wx_extra/wx*.c_src) $(wildcard wx_extra/wx*.erl)
 	erl -noshell -run wx_gen code && touch wx_code_generated
 
-wxxml_generated:  wx_doxygen.conf wx_extra/bugs.h wx_extra/wxe_evth.h
+wxxml_generated:  wx_doxygen.conf wx_extra/bugs.h wx_extra/wxe_evth.h wx_extra/added_func.h
 	sed -e 's|@WXGTK_DIR@|$(WXGTK_DIR)|g' wx_doxygen.conf > wx_doxygen
 	doxygen wx_doxygen && touch wxxml_generated
 

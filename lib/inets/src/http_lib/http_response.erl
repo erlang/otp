@@ -31,16 +31,11 @@
 %%   Value - string()	
 %%                                   
 %% Description: Creates a http_response_h-record used internally to
-%%              handle http-headers.
+%%              handle http-headers, assumes reversed list of headers
+%%              to unfold multiline headers with obs-folds
 %%-------------------------------------------------------------------------
-headers([], Headers) ->
-    Headers;
-
-headers([Header | Tail], Headers) ->  
-    {Key, [$: | Value]} =
-	lists:splitwith(fun($:) -> false; (_) -> true end, Header), 
-    headers(Tail, headers(http_util:to_lower(string:strip(Key)), 
-			  string:strip(Value), Headers)).
+headers(RevLines, Headers) ->
+    fill_headers(RevLines, [], Headers).
 
 %%-------------------------------------------------------------------------
 %% headers(#http_response_h{}) -> HeaderList
@@ -68,6 +63,25 @@ header_list(Headers) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+fill_headers([], _, Headers) ->
+    Headers;
+fill_headers([[]], _, Headers) ->
+    Headers;
+fill_headers([[Ch|HeaderFold]|Tail], Folded, Headers)
+  when Ch == $\t; Ch == $\s ->
+    fill_headers(Tail, [HeaderFold|Folded], Headers);
+fill_headers([Header | Tail], Folded, Headers) ->
+    Unfolded = unfold([Header|Folded]),
+    {Key, [$: | Value]} =
+	lists:splitwith(fun($:) -> false; (_) -> true end, Unfolded),
+    fill_headers(Tail, [], headers(http_util:to_lower(string:strip(Key)),
+				   string:strip(Value), Headers)).
+
+unfold([L]) ->
+    L;
+unfold(Folded) ->
+    string:join(Folded, " ").
+
 headers("cache-control", Value, Headers) ->
     Headers#http_response_h{'cache-control'= Value};
 headers("connection", Value, Headers) ->

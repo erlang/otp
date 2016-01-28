@@ -41,8 +41,9 @@
 -export([encode_plain_text/4]).
 
 %% Protocol version handling
--export([protocol_version/1, lowest_protocol_version/2,
-	 highest_protocol_version/1, is_higher/2, supported_protocol_versions/0,
+-export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
+	 highest_protocol_version/1, highest_protocol_version/2,
+	 is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/1, is_acceptable_version/2]).
 
 -export_type([tls_version/0, tls_atom_version/0]).
@@ -257,6 +258,18 @@ lowest_protocol_version(Version = {M,_},
     Version;
 lowest_protocol_version(_,Version) ->
     Version.
+
+%%--------------------------------------------------------------------
+-spec lowest_protocol_version([tls_version()]) -> tls_version().
+%%     
+%% Description: Lowest protocol version present in a list
+%%--------------------------------------------------------------------
+lowest_protocol_version([]) ->
+    lowest_protocol_version();
+lowest_protocol_version(Versions) ->
+    [Ver | Vers] = Versions,
+    lowest_list_protocol_version(Ver, Vers).
+
 %%--------------------------------------------------------------------
 -spec highest_protocol_version([tls_version()]) -> tls_version().
 %%     
@@ -266,19 +279,29 @@ highest_protocol_version([]) ->
     highest_protocol_version();
 highest_protocol_version(Versions) ->
     [Ver | Vers] = Versions,
-    highest_protocol_version(Ver, Vers).
+    highest_list_protocol_version(Ver, Vers).
 
-highest_protocol_version(Version, []) ->
+%%--------------------------------------------------------------------
+-spec highest_protocol_version(tls_version(), tls_version()) -> tls_version().
+%%     
+%% Description: Highest protocol version of two given versions 
+%%--------------------------------------------------------------------
+highest_protocol_version(Version = {M, N}, {M, O})   when N > O ->
     Version;
-highest_protocol_version(Version = {N, M}, [{N, O} | Rest])   when M > O ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version({M, _}, [Version = {M, _} | Rest]) ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(Version = {M,_}, [{N,_} | Rest])  when M > N ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(_, [Version | Rest]) ->
-    highest_protocol_version(Version, Rest).
+highest_protocol_version({M, _}, 
+			Version = {M, _}) ->
+    Version;
+highest_protocol_version(Version = {M,_}, 
+			{N, _}) when M > N ->
+    Version;
+highest_protocol_version(_,Version) ->
+    Version.
 
+%%--------------------------------------------------------------------
+-spec is_higher(V1 :: tls_version(), V2::tls_version()) -> boolean().
+%%     
+%% Description: Is V1 > V2
+%%--------------------------------------------------------------------
 is_higher({M, N}, {M, O}) when N > O ->
     true;
 is_higher({M, _}, {N, _}) when M > N ->
@@ -352,6 +375,17 @@ is_acceptable_version(_,_) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+lowest_list_protocol_version(Ver, []) ->
+    Ver;
+lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
+
+highest_list_protocol_version(Ver, []) ->
+    Ver;
+highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
+
 encode_tls_cipher_text(Type, {MajVer, MinVer}, Fragment) ->
     Length = erlang:iolist_size(Fragment),
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Fragment].
@@ -369,6 +403,10 @@ mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
 
 highest_protocol_version() ->
     highest_protocol_version(supported_protocol_versions()).
+
+lowest_protocol_version() ->
+    lowest_protocol_version(supported_protocol_versions()).
+
 
 sufficient_tlsv1_2_crypto_support() ->
     CryptoSupport = crypto:supports(),

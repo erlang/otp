@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,14 +31,15 @@
 -module(wxToolBar).
 -include("wxe.hrl").
 -export([addCheckTool/4,addCheckTool/5,addControl/2,addRadioTool/4,addRadioTool/5,
-  addSeparator/1,addTool/2,addTool/3,addTool/4,addTool/5,addTool/6,addTool/7,
-  deleteTool/2,deleteToolByPos/2,enableTool/3,findById/2,findControl/2,
-  findToolForPosition/3,getMargins/1,getToolBitmapSize/1,getToolEnabled/2,
-  getToolLongHelp/2,getToolPacking/1,getToolPos/2,getToolSeparation/1,
-  getToolShortHelp/2,getToolSize/1,getToolState/2,insertControl/3,insertSeparator/2,
-  insertTool/3,insertTool/4,insertTool/5,insertTool/6,realize/1,removeTool/2,
-  setMargins/3,setToolBitmapSize/2,setToolLongHelp/3,setToolPacking/2,
-  setToolSeparation/2,setToolShortHelp/3,toggleTool/3]).
+  addSeparator/1,addStretchableSpace/1,addTool/2,addTool/3,addTool/4,
+  addTool/5,addTool/6,addTool/7,deleteTool/2,deleteToolByPos/2,enableTool/3,
+  findById/2,findControl/2,findToolForPosition/3,getMargins/1,getToolBitmapSize/1,
+  getToolEnabled/2,getToolLongHelp/2,getToolPacking/1,getToolPos/2,
+  getToolSeparation/1,getToolShortHelp/2,getToolSize/1,getToolState/2,
+  insertControl/3,insertSeparator/2,insertStretchableSpace/2,insertTool/3,
+  insertTool/4,insertTool/5,insertTool/6,realize/1,removeTool/2,setMargins/3,
+  setToolBitmapSize/2,setToolLongHelp/3,setToolPacking/2,setToolSeparation/2,
+  setToolShortHelp/3,toggleTool/3]).
 
 %% inherited exports
 -export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
@@ -327,6 +328,23 @@ addRadioTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,r
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
   wxe_util:call(?wxToolBar_AddRadioTool,
   <<ThisRef:32/?UI,Toolid:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((4+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8,BitmapRef:32/?UI, 0:32,BinOpt/binary>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbar.html#wxtoolbaraddstretchablespace">external documentation</a>.
+-spec addStretchableSpace(This) -> wx:wx_object() when
+	This::wxToolBar().
+addStretchableSpace(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxToolBar),
+  wxe_util:call(?wxToolBar_AddStretchableSpace,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbar.html#wxtoolbarinsertstretchablespace">external documentation</a>.
+-spec insertStretchableSpace(This, Pos) -> wx:wx_object() when
+	This::wxToolBar(), Pos::integer().
+insertStretchableSpace(#wx_ref{type=ThisT,ref=ThisRef},Pos)
+ when is_integer(Pos) ->
+  ?CLASS(ThisT,wxToolBar),
+  wxe_util:call(?wxToolBar_InsertStretchableSpace,
+  <<ThisRef:32/?UI,Pos:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbar.html#wxtoolbardeletetool">external documentation</a>.
 -spec deleteTool(This, Toolid) -> boolean() when

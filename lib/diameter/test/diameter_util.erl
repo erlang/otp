@@ -31,7 +31,6 @@
          fold/3,
          foldl/3,
          scramble/1,
-         timestamp/0,
          seed/0,
          unique_string/0,
          have_sctp/0]).
@@ -189,12 +188,6 @@ s(Acc, L) ->
     s([T|Acc], H ++ Rest).
 
 %% ---------------------------------------------------------------------------
-%% timestamp/0
-
-timestamp() ->
-    diameter_lib:timestamp(diameter_lib:now()).
-
-%% ---------------------------------------------------------------------------
 %% seed/0
 
 seed() ->
@@ -205,14 +198,7 @@ seed() ->
 %% unique_string/0
 
 unique_string() ->
-    try erlang:unique_integer() of
-        N ->
-            integer_to_list(N)
-    catch
-        error: undef ->  %% OTP < 18
-            {M,S,U} = timestamp(),
-            tl(lists:append(["-" ++ integer_to_list(N) || N <- [M,S,U]]))
-    end.
+    integer_to_list(erlang:unique_integer()).
 
 %% ---------------------------------------------------------------------------
 %% have_sctp/0

@@ -1272,6 +1272,14 @@ set_request_timer(T) ->
     {ok,TRef} = timer:send_after(T,{Ref,timeout}),
     {Ref,TRef}.
 
+%%%-----------------------------------------------------------------
+cancel_request_timer(undefined,undefined) ->
+    ok;
+cancel_request_timer(Ref,TRef) ->
+    _ = timer:cancel(TRef),
+    receive {Ref,timeout} -> ok
+    after 0 -> ok
+    end.
 
 %%%-----------------------------------------------------------------
 client_hello(Options) when is_list(Options) ->
@@ -1366,11 +1374,18 @@ to_xml_doc(Simple) ->
 %%% Parse and handle received XML data
 handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
     log(Connection,recv,NewData),
-    Data = append_wo_initial_nl(Buff0,NewData),
-    case binary:split(Data,[?END_TAG],[]) of
+    {Start,AddSz} =
+	case byte_size(Buff0) of
+	    BSz when BSz<5 -> {0,BSz};
+	    BSz -> {BSz-5,5}
+	end,
+    Length = byte_size(NewData) + AddSz,
+    Data = <<Buff0/binary, NewData/binary>>,
+    case binary:split(Data,?END_TAG,[{scope,{Start,Length}}]) of
 	[_NoEndTagFound] ->
 	    {noreply, State0#state{buff=Data}};
-	[FirstMsg,Buff1] ->
+	[FirstMsg0,Buff1] ->
+	    FirstMsg = remove_initial_nl(FirstMsg0),
 	    SaxArgs = [{event_fun,fun sax_event/3}, {event_state,[]}],
 	    case xmerl_sax_parser:stream(FirstMsg, SaxArgs) of
 		{ok, Simple, _Thrash} ->
@@ -1392,11 +1407,10 @@ handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
 
 %% xml does not accept a leading nl and some netconf server add a nl after
 %% each ?END_TAG, ignore them
-append_wo_initial_nl(<<>>,NewData) -> NewData;
-append_wo_initial_nl(<<"\n", Data/binary>>, NewData) ->
-    append_wo_initial_nl(Data, NewData);
-append_wo_initial_nl(Data, NewData) ->
-    <<Data/binary, NewData/binary>>.
+remove_initial_nl(<<"\n", Data/binary>>) ->
+    remove_initial_nl(Data);
+remove_initial_nl(Data) ->
+    Data.
 
 handle_error(Reason, State) ->
     Pending1 = case State#state.pending of
@@ -1404,9 +1418,9 @@ handle_error(Reason, State) ->
 		   Pending ->
 		       %% Assuming the first request gets the
 		       %% first answer
-		       P=#pending{tref=TRef,caller=Caller} =
+		       P=#pending{tref=TRef,ref=Ref,caller=Caller} =
 			   lists:last(Pending),
-		       _ = timer:cancel(TRef),
+		       cancel_request_timer(Ref,TRef),
 		       Reason1 = {failed_to_parse_received_data,Reason},
 		       ct_gen_conn:return(Caller,{error,Reason1}),
 		       lists:delete(P,Pending)
@@ -1492,8 +1506,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 			{error,Reason} ->
 			    {noreply,State#state{hello_status = {error,Reason}}}
 		    end;
-		#pending{tref=TRef,caller=Caller} ->
-		    _ = timer:cancel(TRef),
+		#pending{tref=TRef,ref=Ref,caller=Caller} ->
+		    cancel_request_timer(Ref,TRef),
 		    case decode_hello(E) of
 			{ok,SessionId,Capabilities} ->
 			    ct_gen_conn:return(Caller,ok),
@@ -1519,9 +1533,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 	    %% there is just one pending that matches (i.e. has
 	    %% undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
-		[#pending{tref=TRef,
-			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		[#pending{tref=TRef,ref=Ref,caller=Caller}] ->
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1542,8 +1555,8 @@ get_msg_id(Attrs) ->
 
 decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
     case lists:keytake(MsgId,#pending.msg_id,Pending) of
-	{value, #pending{tref=TRef,op=Op,caller=Caller}, Pending1} ->
-	    _ = timer:cancel(TRef),
+	{value, #pending{tref=TRef,ref=Ref,op=Op,caller=Caller}, Pending1} ->
+	    cancel_request_timer(Ref,TRef),
 	    Content = forward_xmlns_attr(Attrs,Content0),
 	    {CallerReply,{ServerReply,State2}} =
 		do_decode_rpc_reply(Op,Content,State#state{pending=Pending1}),
@@ -1555,10 +1568,11 @@ decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
 	    %% pending that matches (i.e. has undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
 		[#pending{tref=TRef,
+			  ref=Ref,
 			  msg_id=undefined,
 			  op=undefined,
 			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1762,9 +1776,14 @@ format_data(How,Data) ->
 do_format_data(raw,Data) ->
     io_lib:format("~n~ts~n",[hide_password(Data)]);
 do_format_data(pretty,Data) ->
-    io_lib:format("~n~ts~n",[indent(Data)]);
+    maybe_io_lib_format(indent(Data));
 do_format_data(html,Data) ->
-    io_lib:format("~n~ts~n",[html_format(Data)]).
+    maybe_io_lib_format(html_format(Data)).
+
+maybe_io_lib_format(<<>>) ->
+    [];
+maybe_io_lib_format(String) ->
+    io_lib:format("~n~ts~n",[String]).
 
 %%%-----------------------------------------------------------------
 %%% Hide password elements from XML data
@@ -1803,13 +1822,21 @@ indent1("<?"++Rest1,Indent1) ->
     Line++indent1(Rest2,Indent2);
 indent1("</"++Rest1,Indent1) ->
     %% Stop tag
-    {Line,Rest2,Indent2} = indent_line1(Rest1,Indent1,[$/,$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line1(Rest1,Indent1,[$/,$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1("<"++Rest1,Indent1) ->
     %% Start- or empty tag
     put(tag,get_tag(Rest1)),
-    {Line,Rest2,Indent2} = indent_line(Rest1,Indent1,[$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line(Rest1,Indent1,[$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1([H|T],Indent) ->
     [H|indent1(T,Indent)];
 indent1([],_Indent) ->

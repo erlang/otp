@@ -523,10 +523,10 @@ unblock_user(Info, User, Dir, Addr, Port, Profile, ETS, DETS, CBModule) ->
     ets:match_delete(ETS, {blocked_user, {User, Addr, Port, Profile, Dir, '_'}}).
   
 make_name(Addr,Port, Profile) ->
-    httpd_util:make_name(?MODULE,Addr,Port, Profile).
+    httpd_util:make_name(?MODULE_STRING, Addr, Port, Profile).
 
 make_name(Addr,Port, Profile, Num) ->
-    httpd_util:make_name(?MODULE,Addr,Port,
+    httpd_util:make_name(?MODULE_STRING, Addr,Port,
 			 atom_to_list(Profile) ++ "__" ++ integer_to_list(Num)).
 
 auth_fail_event(Mod,Addr,Port,Dir,User,Passwd) ->

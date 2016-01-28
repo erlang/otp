@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,10 +85,6 @@ type_spec -> '(' spec_fun type_sigs ')' : {'$2', '$3'}.
 
 spec_fun ->                           atom : '$1'.
 spec_fun ->                  atom ':' atom : {'$1', '$3'}.
-%% The following two are retained only for backwards compatibility;
-%% they are not part of the EEP syntax and should be removed.
-spec_fun ->          atom '/' integer '::' : {'$1', '$3'}.
-spec_fun -> atom ':' atom '/' integer '::' : {'$1', '$3', '$5'}.
 
 typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
 typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
@@ -525,23 +521,424 @@ Erlang code.
 -export([type_inop_prec/1,type_preop_prec/1]).
 -export([map_anno/2, fold_anno/3, mapfold_anno/3,
          new_anno/1, anno_to_term/1, anno_from_term/1]).
--export([set_line/2,get_attribute/2,get_attributes/1]).
-
--deprecated([{set_line, 2, next_major_release},
-             {get_attribute, 2, next_major_release},
-             {get_attributes, 1, next_major_release}]).
 
 %% The following directive is needed for (significantly) faster compilation
 %% of the generated .erl file by the HiPE compiler.  Please do not remove.
 -compile([{hipe,[{regalloc,linear_scan}]}]).
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
-              error_info/0]).
+              abstract_type/0, error_info/0]).
+
+%% Start of Abstract Format
+
+-type anno() :: erl_anno:anno().
+
+-type abstract_form() :: af_module()
+                       | af_behavior()
+                       | af_behaviour()
+                       | af_export()
+                       | af_import()
+                       | af_export_type()
+                       | af_optional_callbacks()
+                       | af_compile()
+                       | af_file()
+                       | af_record_decl()
+                       | af_type_decl()
+                       | af_function_spec()
+                       | af_wild_attribute()
+                       | af_function_decl().
+
+-type af_module() :: {'attribute', anno(), 'module', module()}.
+
+-type af_behavior() :: {'attribute', anno(), 'behavior', behaviour()}.
+
+-type af_behaviour() :: {'attribute', anno(), 'behaviour', behaviour()}.
+
+-type behaviour() :: atom().
+
+-type af_export() :: {'attribute', anno(), 'export', af_fa_list()}.
+
+-type af_import() :: {'attribute', anno(), 'import', af_fa_list()}.
+
+-type af_fa_list() :: [{function_name(), arity()}].
+
+-type af_export_type() :: {'attribute', anno(), 'export_type', af_ta_list()}.
+
+-type af_ta_list() :: [{type_name(), arity()}].
+
+-type af_optional_callbacks() ::
+        {'attribute', anno(), 'optional_callbacks', af_fa_list()}.
+
+-type af_compile() :: {'attribute', anno(), 'compile', any()}.
+
+-type af_file() :: {'attribute', anno(), 'file', {string(), anno()}}.
+
+-type af_record_decl() ::
+        {'attribute', anno(), 'record', {record_name(), [af_field_decl()]}}.
+
+-type af_field_decl() :: af_typed_field() | af_field().
+
+-type af_typed_field() ::
+        {'typed_record_field', af_field(), abstract_type()}.
+
+-type af_field() :: {'record_field', anno(), af_field_name()}
+                  | {'record_field', anno(), af_field_name(), abstract_expr()}.
+
+-type af_type_decl() :: {'attribute', anno(), type_attr(),
+                         {type_name(), abstract_type(), [af_variable()]}}.
+
+-type type_attr() :: 'opaque' | 'type'.
+
+-type af_function_spec() :: {'attribute', anno(), spec_attr(),
+                             {{function_name(), arity()},
+                              af_function_type_list()}}
+                          | {'attribute', anno(), 'spec',
+                             {{module(), function_name(), arity()},
+                              af_function_type_list()}}.
+
+-type spec_attr() :: 'callback' | 'spec'.
+
+-type af_wild_attribute() :: {'attribute', anno(), atom(), any()}.
+
+-type af_function_decl() ::
+        {'function', anno(), function_name(), arity(), af_clause_seq()}.
+
+-type abstract_expr() :: af_literal()
+                       | af_match(abstract_expr())
+                       | af_variable()
+                       | af_tuple(abstract_expr())
+                       | af_nil()
+                       | af_cons(abstract_expr())
+                       | af_bin(abstract_expr())
+                       | af_binary_op(abstract_expr())
+                       | af_unary_op(abstract_expr())
+                       | af_record_access(abstract_expr())
+                       | af_record_update(abstract_expr())
+                       | af_record_index()
+                       | af_record_field_access(abstract_expr())
+                       | af_map_access(abstract_expr())
+                       | af_map_update(abstract_expr())
+                       | af_catch()
+                       | af_local_call()
+                       | af_remote_call()
+                       | af_list_comprehension()
+                       | af_binary_comprehension()
+                       | af_block()
+                       | af_if()
+                       | af_case()
+                       | af_try()
+                       | af_receive()
+                       | af_local_fun()
+                       | af_remote_fun()
+                       | af_fun()
+                       | af_named_fun().
+
+-type af_record_update(T) :: {'record',
+                              anno(),
+                              abstract_expr(),
+                              record_name(),
+                              [af_record_field(T)]}.
+
+-type af_catch() :: {'catch', anno(), abstract_expr()}.
+
+-type af_local_call() :: {'call', anno(), af_local_function(), af_args()}.
+
+-type af_remote_call() :: {'call', anno(), af_remote_function(), af_args()}.
+
+-type af_args() :: [abstract_expr()].
+
+-type af_local_function() :: abstract_expr().
+
+-type af_remote_function() ::
+        {'remote', anno(), abstract_expr(), abstract_expr()}.
+
+-type af_list_comprehension() ::
+        {'lc', anno(), af_template(), af_qualifier_seq()}.
+
+-type af_binary_comprehension() ::
+        {'bc', anno(), af_template(), af_qualifier_seq()}.
+
+-type af_template() :: abstract_expr().
+
+-type af_qualifier_seq() :: [af_qualifier()].
+
+-type af_qualifier() :: af_generator() | af_filter().
+
+-type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
+                      | {'b_generate', anno(), af_pattern(), abstract_expr()}.
+
+-type af_filter() :: abstract_expr().
+
+-type af_block() :: {'block', anno(), af_body()}.
+
+-type af_if() :: {'if', anno(), af_clause_seq()}.
+
+-type af_case() :: {'case', anno(), abstract_expr(), af_clause_seq()}.
+
+-type af_try() :: {'try',
+                   anno(),
+                   af_body() | [],
+                   af_clause_seq() | [],
+                   af_clause_seq() | [],
+                   af_body() | []}.
+
+-type af_clause_seq() :: [af_clause(), ...].
+
+-type af_receive() ::
+        {'receive', anno(), af_clause_seq()}
+      | {'receive', anno(), af_clause_seq(), abstract_expr(), af_body()}.
+
+-type af_local_fun() ::
+        {'fun', anno(), {'function', function_name(), arity()}}.
+
+-type af_remote_fun() ::
+        {'fun', anno(), {'function', module(), function_name(), arity()}}
+      | {'fun', anno(), {'function', af_atom(), af_atom(), af_integer()}}.
+
+-type af_fun() :: {'fun', anno(), {'clauses', af_clause_seq()}}.
+
+-type af_named_fun() :: {'named_fun', anno(), fun_name(), af_clause_seq()}.
+
+-type fun_name() :: atom().
+
+-type abstract_clause() :: af_clause().
+
+-type af_clause() ::
+        {'clause', anno(), [af_pattern()], af_guard_seq(), af_body()}.
+
+-type af_body() :: [abstract_expr(), ...].
+
+-type af_guard_seq() :: [af_guard()].
+
+-type af_guard() :: [af_guard_test(), ...].
+
+-type af_guard_test() :: af_literal()
+                       | af_variable()
+                       | af_tuple(af_guard_test())
+                       | af_nil()
+                       | af_cons(af_guard_test())
+                       | af_bin(af_guard_test())
+                       | af_binary_op(af_guard_test())
+                       | af_unary_op(af_guard_test())
+                       | af_record_access(af_guard_test())
+                       | af_record_index()
+                       | af_record_field_access(af_guard_test())
+                       | af_map_access(abstract_expr()) % FIXME
+                       | af_map_update(abstract_expr()) % FIXME
+                       | af_guard_call()
+                       | af_remote_guard_call().
+
+-type af_record_field_access(T) ::
+        {'record_field', anno(), T, record_name(), af_field_name()}.
+
+-type af_map_access(T) :: {'map', anno(), [af_map_field(T)]}.
+
+-type af_map_update(T) :: {'map', anno(), T, [af_map_field(T)]}.
+
+-type af_map_field(T) :: af_map_field_assoc(T) | af_map_field_exact(T).
+
+-type af_map_field_assoc(T) :: {'map_field_assoc', anno(), T, T}.
+
+-type af_map_field_exact(T) :: {'map_field_exact', anno(), T, T}.
+
+-type af_guard_call() :: {'call', anno(), function_name(), [af_guard_test()]}.
+
+-type af_remote_guard_call() ::
+        {'call', anno(),
+         {'remote', anno(), af_lit_atom('erlang'), af_atom()},
+         [af_guard_test()]}.
+
+-type af_pattern() :: af_literal()
+                    | af_match(af_pattern())
+                    | af_variable()
+                    | af_tuple(af_pattern())
+                    | af_nil()
+                    | af_cons(af_pattern())
+                    | af_bin(af_pattern())
+                    | af_binary_op(af_pattern())
+                    | af_unary_op(af_pattern())
+                    | af_record_access(af_pattern())
+                    | af_record_index()
+                    | af_map_pattern().
+
+-type af_record_index() ::
+        {'record_index', anno(), record_name(), af_field_name()}.
+
+-type af_record_access(T) ::
+        {'record', anno(), record_name(), [af_record_field(T)]}.
+
+-type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
+
+-type af_map_pattern() ::
+        {'map', anno(), [af_map_field_exact(abstract_expr)]}. % FIXME?
+
+-type abstract_type() :: af_annotated_type()
+                       | af_atom()
+                       | af_bitstring_type()
+                       | af_empty_list_type()
+                       | af_fun_type()
+                       | af_integer_range_type()
+                       | af_map_type()
+                       | af_predefined_type()
+                       | af_record_type()
+                       | af_remote_type()
+                       | af_singleton_integer_type()
+                       | af_tuple_type()
+                       | af_type_union()
+                       | af_type_variable()
+                       | af_user_defined_type().
+
+-type af_annotated_type() ::
+        {'ann_type', anno(), [af_anno() | abstract_type()]}. % [Var, Type]
+
+-type af_anno() :: af_variable().
+
+-type af_bitstring_type() ::
+        {'type', anno(), 'binary', [af_singleton_integer_type()]}.
+
+-type af_empty_list_type() :: {'type', anno(), 'nil', []}.
+
+-type af_fun_type() :: {'type', anno(), 'fun', []}
+                     | {'type', anno(), 'fun', [{'type', anno(), 'any'} |
+                                                abstract_type()]}
+                     | {'type', anno(), 'fun', af_function_type()}.
+
+-type af_integer_range_type() ::
+        {'type', anno(), 'range', [af_singleton_integer_type()]}.
+
+-type af_map_type() :: {'type', anno(), 'map', 'any'}
+                     | {'type', anno(), 'map', [af_map_pair_type()]}.
+
+-type af_map_pair_type() ::
+        {'type', anno(), 'map_field_assoc', [abstract_type()]}.
+
+-type af_predefined_type() ::
+        {'type', anno(), type_name(),  [abstract_type()]}.
+
+-type af_record_type() ::
+        {'type', anno(), 'record', [(Name :: af_atom()) % [Name, T1, ... Tk]
+                                    | af_record_field_type()]}.
+
+-type af_record_field_type() ::
+        {'type', anno(), 'field_type', [(Name :: af_atom()) |
+                                        abstract_type()]}. % [Name, Type]
+
+-type af_remote_type() ::
+        {'remote_type', anno(), [(Module :: af_atom()) |
+                                 (TypeName :: af_atom()) |
+                                 [abstract_type()]]}. % [Module, Name, [T]]
+
+-type af_tuple_type() :: {'type', anno(), 'tuple', 'any'}
+                       | {'type', anno(), 'tuple', [abstract_type()]}.
+
+-type af_type_union() :: {'type', anno(), 'union', [abstract_type()]}.
+
+-type af_type_variable() :: {'var', anno(), atom()}. % except '_'
+
+-type af_user_defined_type() ::
+        {'user_type', anno(), type_name(),  [abstract_type()]}.
+
+-type af_function_type_list() :: [af_constrained_function_type() |
+                                  af_function_type()].
+
+-type af_constrained_function_type() ::
+        {'type', anno(), 'bounded_fun', [af_function_type() | % [Ft, Fc]
+                                         af_function_constraint()]}.
+
+-type af_function_type() ::
+        {'type', anno(), 'fun',
+         [{'type', anno(), 'product', [abstract_type()]} | abstract_type()]}.
+
+-type af_function_constraint() :: [af_constraint()].
+
+-type af_constraint() :: {'type', anno(), 'constraint',
+                          af_lit_atom('is_subtype'),
+                          [af_type_variable() | abstract_type()]}. % [V, T]
+
+-type af_singleton_integer_type() :: af_integer()
+                                   | af_unary_op(af_singleton_integer_type())
+                                   | af_binary_op(af_singleton_integer_type()).
+
+-type af_literal() :: af_atom() | af_integer() | af_float() | af_string().
+
+-type af_atom() :: af_lit_atom(atom()).
+
+-type af_lit_atom(A) :: {'atom', anno(), A}.
+
+-type af_integer() :: {'integer', anno(), non_neg_integer()}.
+
+-type af_float() :: {'float', anno(), float()}.
+
+-type af_string() :: {'string', anno(), string()}.
+
+-type af_match(T) :: {'match', anno(), af_pattern(), T}.
+
+-type af_variable() :: {'var', anno(), atom()}. % | af_anon_variable()
+
+%-type af_anon_variable() :: {'var', anno(), '_'}.
+
+-type af_tuple(T) :: {'tuple', anno(), [T]}.
+
+-type af_nil() :: {'nil', anno()}.
+
+-type af_cons(T) :: {'cons', anno(), T, T}.
+
+-type af_bin(T) :: {'bin', anno(), [af_binelement(T)]}.
+
+-type af_binelement(T) :: {'bin_element',
+                           anno(),
+                           T,
+                           af_binelement_size(),
+                           type_specifier_list()}.
+
+-type af_binelement_size() :: 'default' | abstract_expr().
+
+-type af_binary_op(T) :: {'op', anno(), binary_op(), T, T}.
+
+-type binary_op() :: '/' | '*' | 'div' | 'rem' | 'band' | 'and' | '+' | '-'
+                   | 'bor' | 'bxor' | 'bsl' | 'bsr' | 'or' | 'xor' | '++'
+                   | '--' | '==' | '/=' | '=<' | '<'  | '>=' | '>' | '=:='
+                   | '=/='.
+
+-type af_unary_op(T) :: {'op', anno(), unary_op(), T}.
+
+-type unary_op() :: '+' | '*' | 'bnot' | 'not'.
+
+%% See also lib/stdlib/{src/erl_bits.erl,include/erl_bits.hrl}.
+-type type_specifier_list() :: 'default' | [type_specifier(), ...].
+
+-type type_specifier() :: type()
+                        | signedness()
+                        | endianness()
+                        | unit().
+
+-type type() :: 'integer'
+              | 'float'
+              | 'binary'
+              | 'bytes'
+              | 'bitstring'
+              | 'bits'
+              | 'utf8'
+              | 'utf16'
+              | 'utf32'.
+
+-type signedness() :: 'signed' | 'unsigned'.
+
+-type endianness() :: 'big' | 'little' | 'native'.
+
+-type unit() :: {'unit', 1..256}.
+
+-type record_name() :: atom().
+
+-type af_field_name() :: af_atom().
+
+-type function_name() :: atom().
+
+-type type_name() :: atom().
+
+%% End of Abstract Format
 
 %% XXX. To be refined.
--type abstract_clause() :: term().
--type abstract_expr() :: term().
--type abstract_form() :: term().
 -type error_description() :: term().
 -type error_info() :: {erl_anno:line(), module(), error_description()}.
 -type token() :: erl_scan:token().
@@ -639,14 +1036,8 @@ build_type_spec({Kind,Aa}, {SpecFun, TypeSpecs})
 	    {atom, _, Fun} ->
 		{Fun, find_arity_from_specs(TypeSpecs)};
 	    {{atom,_, Mod}, {atom,_, Fun}} ->
-		{Mod,Fun,find_arity_from_specs(TypeSpecs)};
-	    {{atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Fun,Arity};
-	    {{atom,_, Mod}, {atom, _, Fun}, {integer, _, Arity}} ->
-		%% Old style spec. Allow this for now.
-		{Mod,Fun,Arity}
-	    end,
+		{Mod,Fun,find_arity_from_specs(TypeSpecs)}
+        end,
     {attribute,Aa,Kind,{NewSpecFun, TypeSpecs}}.
 
 find_arity_from_specs([Spec|_]) ->
@@ -795,30 +1186,10 @@ record_fields([{match,_Am,{atom,Aa,A},Expr}|Fields]) ->
     [{record_field,Aa,{atom,Aa,A},Expr}|record_fields(Fields)];
 record_fields([{typed,Expr,TypeInfo}|Fields]) ->
     [Field] = record_fields([Expr]),
-    TypeInfo1 =
-	case Expr of
-	    {match, _, _, _} -> TypeInfo; %% If we have an initializer.
-	    {atom, Aa, _} ->
-                case has_undefined(TypeInfo) of
-                    false ->
-                        lift_unions(abstract2(undefined, Aa), TypeInfo);
-                    true ->
-                        TypeInfo
-                end
-	end,
-    [{typed_record_field,Field,TypeInfo1}|record_fields(Fields)];
+    [{typed_record_field,Field,TypeInfo}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
     ret_err(?anno(Other), "bad record field");
 record_fields([]) -> [].
-
-has_undefined({atom,_,undefined}) ->
-    true;
-has_undefined({ann_type,_,[_,T]}) ->
-    has_undefined(T);
-has_undefined({type,_,union,Ts}) ->
-    lists:any(fun has_undefined/1, Ts);
-has_undefined(_) ->
-    false.
 
 term(Expr) ->
     try normalise(Expr)
@@ -1118,33 +1489,16 @@ type_preop_prec('-') -> {600,700};
 type_preop_prec('bnot') -> {600,700};
 type_preop_prec('#') -> {700,800}.
 
-%%% [Experimental]. The parser just copies the attributes of the
-%%% scanner tokens to the abstract format. This design decision has
-%%% been hidden to some extent: use set_line() and get_attribute() to
-%%% access the second element of (almost all) of the abstract format
-%%% tuples. A typical use is to negate line numbers to prevent the
-%%% compiler from emitting warnings and errors. The second element can
-%%% (of course) be set to any value, but then these functions no
-%%% longer apply. To get all present attributes as a property list
-%%% get_attributes() should be used.
-
--compile({nowarn_deprecated_function,{erl_scan,set_attribute,3}}).
-set_line(L, F) ->
-    erl_scan:set_attribute(line, L, F).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,2}}).
-get_attribute(L, Name) ->
-    erl_scan:attributes_info(L, Name).
-
--compile({nowarn_deprecated_function,{erl_scan,attributes_info,1}}).
-get_attributes(L) ->
-    erl_scan:attributes_info(L).
+-type erl_parse_tree() :: abstract_clause()
+                        | abstract_expr()
+                        | abstract_form()
+                        | abstract_type().
 
 -spec map_anno(Fun, Abstr) -> NewAbstr when
       Fun :: fun((Anno) -> Anno),
       Anno :: erl_anno:anno(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 map_anno(F0, Abstr) ->
     F = fun(A, Acc) -> {F0(A), Acc} end,
@@ -1157,8 +1511,8 @@ map_anno(F0, Abstr) ->
       Acc0 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 fold_anno(F0, Acc0, Abstr) ->
     F = fun(A, Acc) -> {A, F0(A, Acc)} end,
@@ -1172,26 +1526,26 @@ fold_anno(F0, Acc0, Abstr) ->
       Acc1 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: abstract_form() | abstract_expr(),
-      NewAbstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree(),
+      NewAbstr :: erl_parse_tree().
 
 mapfold_anno(F, Acc0, Abstr) ->
     modify_anno1(Abstr, Acc0, F).
 
 -spec new_anno(Term) -> Abstr when
       Term :: term(),
-      Abstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree().
 
 new_anno(Term) ->
     map_anno(fun erl_anno:new/1, Term).
 
 -spec anno_to_term(Abstr) -> term() when
-      Abstr :: abstract_form() | abstract_expr().
+      Abstr :: erl_parse_tree().
 
 anno_to_term(Abstract) ->
     map_anno(fun erl_anno:to_term/1, Abstract).
 
--spec anno_from_term(Term) -> abstract_form() | abstract_expr() when
+-spec anno_from_term(Term) -> erl_parse_tree() when
       Term :: term().
 
 anno_from_term(Term) ->

@@ -31,13 +31,15 @@
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
--export([map_to_tuple_keys/1, map_type/1, map_hashmap_children/1]).
--export([port_command/3, port_connect/2, port_close/1,
+-export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1]).
+-export([open_port/2, port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
 -export([request_system_task/3]).
 
--export([check_process_code/2]).
+-export([check_process_code/3]).
+-export([copy_literals/2]).
+-export([purge_module/1]).
 
 -export([flush_monitor_messages/3]).
 
@@ -46,6 +48,9 @@
 -export([time_unit/0]).
 
 -export([is_system_process/1]).
+
+%% Auto import name clash
+-export([check_process_code/2]).
 
 %%
 %% Await result of send to port
@@ -87,6 +92,13 @@ gather_io_bytes(Ref, No, InAcc, OutAcc) ->
 %%
 %% Statically linked port NIFs
 %%
+
+-spec erts_internal:open_port(PortName, PortSettings) -> Result when
+      PortName :: tuple(),
+      PortSettings :: term(),
+      Result :: port() | reference() | atom().
+open_port(_PortName, _PortSettings) ->
+    erlang:nif_error(undefined).
 
 -spec erts_internal:port_command(Port, Data, OptionList) -> Result when
       Port :: port() | atom(),
@@ -190,11 +202,80 @@ port_info(_Result, _Item) ->
 request_system_task(_Pid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
--spec check_process_code(Module, OptionList) -> boolean() when
+-define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
+-define(ERTS_CPC_COPY_LITERALS, (1 bsl 1)).
+
+-spec check_process_code(Module, Flags) -> boolean() when
       Module :: module(),
-      Option :: {allow_gc, boolean()},
-      OptionList :: [Option].
-check_process_code(_Module, _OptionList) ->
+      Flags :: non_neg_integer().
+check_process_code(_Module, _Flags) ->
+    erlang:nif_error(undefined).
+
+-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
+      Pid :: pid(),
+      Module :: module(),
+      RequestId :: term(),
+      Option :: {async, RequestId} | {allow_gc, boolean()} | {copy_literals, boolean()},
+      OptionList :: [Option],
+      CheckResult :: boolean() | aborted.
+check_process_code(Pid, Module, OptionList)  ->
+    {Async, Flags} = get_cpc_opts(OptionList, sync, ?ERTS_CPC_ALLOW_GC),
+    case Async of
+	{async, ReqId} ->
+	    {priority, Prio} = erlang:process_info(erlang:self(),
+						   priority),
+	    erts_internal:request_system_task(Pid,
+					      Prio,
+					      {check_process_code,
+					       ReqId,
+					       Module,
+					       Flags}),
+	    async;
+	sync ->
+	    case Pid == erlang:self() of
+		true ->
+		    erts_internal:check_process_code(Module, Flags);
+		false ->
+		    {priority, Prio} = erlang:process_info(erlang:self(),
+							   priority),
+		    ReqId = erlang:make_ref(),
+		    erts_internal:request_system_task(Pid,
+						      Prio,
+						      {check_process_code,
+						       ReqId,
+						       Module,
+						       Flags}),
+		    receive
+			{check_process_code, ReqId, CheckResult} ->
+			    CheckResult
+		    end
+	    end
+    end.
+
+% gets async and flag opts and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
+    get_cpc_opts(Options, AsyncTuple, Flags);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
+get_cpc_opts([{copy_literals, CopyLit} | Options], Async, Flags) ->
+    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_COPY_LITERALS, CopyLit));
+get_cpc_opts([], Async, Flags) ->
+    {Async, Flags}.
+
+cpc_flags(OldFlags, Bit, true) ->
+    OldFlags bor Bit;
+cpc_flags(OldFlags, Bit, false) ->
+    OldFlags band (bnot Bit).
+
+-spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
+      Module :: module(),
+      Bool :: boolean().
+copy_literals(_Mod, _Bool) ->
+    erlang:nif_error(undefined).
+
+-spec purge_module(Module) -> boolean() when
+      Module :: module().
+purge_module(_Module) ->
     erlang:nif_error(undefined).
 
 %% term compare where integer() < float() = true
@@ -215,12 +296,18 @@ cmp_term(_A,_B) ->
 map_to_tuple_keys(_M) ->
     erlang:nif_error(undefined).
 
-%% return the internal map type
--spec map_type(M) -> Type when
-    M :: map(),
-    Type :: 'flatmap' | 'hashmap' | 'hashmap_node'.
+%% return the internal term type
+-spec term_type(T) -> Type when
+    T :: term(),
+    Type :: 'flatmap' | 'hashmap' | 'hashmap_node'
+          | 'fixnum'  | 'bignum'  | 'hfloat'
+          | 'list' | 'tuple' | 'export' | 'fun'
+          | 'refc_binary' | 'heap_binary' | 'sub_binary'
+          | 'reference'   | 'external_reference'
+          | 'pid' | 'external_pid' | 'port' | 'external_port'
+          | 'atom' | 'catch' | 'nil'.
 
-map_type(_M) ->
+term_type(_T) ->
     erlang:nif_error(undefined).
 
 %% return the internal hashmap sub-nodes from

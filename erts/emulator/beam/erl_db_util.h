@@ -90,9 +90,6 @@ typedef struct {
     Uint new_size;
     int flags;
     void* lck;
-#if HALFWORD_HEAP
-    unsigned char* abs_vec;  /* [i] true if dbterm->tpl[i] is absolute Eterm */
-#endif
 } DbUpdateHandle;
 
 
@@ -287,10 +284,10 @@ ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
     Eterm key = GETKEY(tb, obj->tpl);
     if IS_CONST(key) return key;
     else {
-	Uint size = size_object_rel(key, obj->tpl);
+	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);
-	Eterm res = copy_struct_rel(key, size, &hp, &MSO(p), obj->tpl, NULL);
-	ASSERT(eq_rel(res,NULL,key,obj->tpl));
+	Eterm res = copy_struct(key, size, &hp, &MSO(p));
+	ASSERT(EQ(res,key));
 	return res;
     }
 }
@@ -302,14 +299,14 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 	return db_copy_from_comp(tb, bp, hpp, off_heap);
     }
     else {
-	return copy_shallow_rel(bp->tpl, bp->size, hpp, off_heap, bp->tpl);
+	return copy_shallow(bp->tpl, bp->size, hpp, off_heap);
     }
 }
 
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     if (!tb->compress) {
-	return eq_rel(a, NULL, make_tuple_rel(b->tpl,b->tpl), b->tpl);
+	return EQ(a, make_tuple(b->tpl));
     }
     else {
 	return db_eq_comp(tb, a, b);
@@ -435,7 +432,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
 
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term,
 		    Eterm *termp, int arity,
 		    enum erts_pam_run_flags in_flags,
 		    Uint32 *return_flags /* Zeroed on enter */);

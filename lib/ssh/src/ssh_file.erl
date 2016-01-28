@@ -52,8 +52,20 @@ host_key(Algorithm, Opts) ->
     %% so probably we could hardcod Password = ignore, but
     %% we keep it as an undocumented option for now.
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
-    decode(File, Password).
-
+    case decode(File, Password) of
+	{ok,Key} ->
+	    case {Key,Algorithm} of
+		{#'RSAPrivateKey'{}, 'ssh-rsa'} -> {ok,Key};
+		{#'DSAPrivateKey'{}, 'ssh-dss'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp256r1'}}, 'ecdsa-sha2-nistp256'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp384r1'}}, 'ecdsa-sha2-nistp384'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp521r1'}}, 'ecdsa-sha2-nistp521'} -> {ok,Key};
+		_ -> 
+		    {error,bad_keytype_in_file}
+	    end;
+	Other ->
+	    Other
+    end.
 
 is_auth_key(Key, User,Opts) ->
     case lookup_user_key(Key, User, Opts) of
@@ -81,16 +93,15 @@ user_key(Algorithm, Opts) ->
 
 %% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-file_base_name('ssh-rsa') ->
-    "ssh_host_rsa_key";
-file_base_name('ssh-dss') ->
-    "ssh_host_dsa_key";
-file_base_name(_) ->
-    "ssh_host_key".
+file_base_name('ssh-rsa'            ) -> "ssh_host_rsa_key";
+file_base_name('ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name('ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
+file_base_name('ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
+file_base_name('ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name(_                    ) -> "ssh_host_key".
 
 decode(File, Password) ->
-    try 
-	{ok, decode_ssh_file(read_ssh_file(File), Password)}
+    try {ok, decode_ssh_file(read_ssh_file(File), Password)}
     catch 
 	throw:Reason ->
 	    {error, Reason};
@@ -210,29 +221,32 @@ do_lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
 	{ok, Fd} ->
 	    Res = lookup_host_key_fd(Fd, KeyToMatch, Host, Alg),
 	    file:close(Fd),
-	    {ok, Res};
-	{error, enoent} -> {error, not_found};
-	Error -> Error
+	    Res;
+	{error, enoent} ->
+	    {error, not_found};
+	Error ->
+	    Error
     end.
 
-identity_key_filename('ssh-dss') ->
-    "id_dsa";
-identity_key_filename('ssh-rsa') ->
-    "id_rsa".
+identity_key_filename('ssh-dss'            ) -> "id_dsa";
+identity_key_filename('ssh-rsa'            ) -> "id_rsa";
+identity_key_filename('ecdsa-sha2-nistp256') -> "id_ecdsa";
+identity_key_filename('ecdsa-sha2-nistp384') -> "id_ecdsa";
+identity_key_filename('ecdsa-sha2-nistp521') -> "id_ecdsa".
 
-identity_pass_phrase("ssh-dss") ->
-    dsa_pass_phrase;
-identity_pass_phrase('ssh-dss') ->
-    dsa_pass_phrase;
-identity_pass_phrase('ssh-rsa') ->
-    rsa_pass_phrase;
-identity_pass_phrase("ssh-rsa") ->
-    rsa_pass_phrase.
-
+identity_pass_phrase("ssh-dss"       ) -> dsa_pass_phrase;
+identity_pass_phrase("ssh-rsa"       ) -> rsa_pass_phrase;
+identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
+identity_pass_phrase(P) when is_atom(P) -> 
+    identity_pass_phrase(atom_to_list(P)).
+    
 lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
+	{error,Error} ->
+	    %% Rare... For example NFS errors
+	    {error,Error};
 	Line ->
 	    case ssh_decode_line(Line, known_hosts) of
 		[{Key, Attributes}] ->
@@ -253,7 +267,7 @@ handle_host(Fd, KeyToMatch, Host, HostList, Key, KeyType) ->
     Host1 = host_name(Host),
     case lists:member(Host1, HostList) andalso key_match(Key, KeyType) of
 	true when KeyToMatch == Key ->
-	    Key;
+	    {ok,Key};
 	_ ->
 	    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
     end.
@@ -267,6 +281,13 @@ key_match(#'RSAPublicKey'{}, 'ssh-rsa') ->
     true;
 key_match({_, #'Dss-Parms'{}}, 'ssh-dss') ->
     true;
+key_match({#'ECPoint'{},{namedCurve,Curve}}, Alg) ->
+    case atom_to_list(Alg) of
+	"ecdsa-sha2-"++IdS ->
+	    Curve == public_key:ssh_curvename2oid(list_to_binary(IdS));
+	_ ->
+	    false
+    end;
 key_match(_, _) ->
     false.
 
@@ -293,6 +314,9 @@ lookup_user_key_fd(Fd, Key) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
+	{error,Error} ->
+	    %% Rare... For example NFS errors
+	    {error,Error};
 	Line ->
 	    case ssh_decode_line(Line, auth_keys) of
 		[{AuthKey, _}] ->
@@ -312,8 +336,18 @@ is_auth_key(Key, Key) ->
 is_auth_key(_,_) -> 
     false.
 
-default_user_dir()->
-    {ok,[[Home|_]]} = init:get_argument(home),
+
+default_user_dir() ->
+    try
+	default_user_dir(os:getenv("HOME"))
+    catch
+	_:_ ->
+	    default_user_dir(init:get_argument(home))
+    end.
+
+default_user_dir({ok,[[Home|_]]}) ->
+    default_user_dir(Home);
+default_user_dir(Home) when is_list(Home) ->
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
     {ok,Info} = file:read_file_info(UserDir),

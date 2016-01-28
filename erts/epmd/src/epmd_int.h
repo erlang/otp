@@ -37,13 +37,6 @@
 #define DONT_USE_MAIN
 #endif
 
-#ifdef __OSE__
-#  define NO_DAEMON
-#  define NO_SYSLOG
-#  define NO_SYSCONF
-#  define NO_FCNTL
-#endif
-
 /* ************************************************************************ */
 /* Standard includes                                                        */
 
@@ -100,12 +93,7 @@
 #endif /* ! WIN32 */
 
 #include <ctype.h>
-
-#if !defined(__OSE__)
-#  include <signal.h>
-#endif
-
-
+#include <signal.h>
 #include <errno.h>
 
 #ifdef HAVE_SYSLOG_H
@@ -121,10 +109,6 @@
 #endif
 
 #include <stdarg.h>
-
-#ifdef __OSE__
-#  include "sys/select.h"
-#endif
 
 #ifdef HAVE_SYSTEMD_DAEMON
 #  include <systemd/sd-daemon.h>

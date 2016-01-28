@@ -57,7 +57,6 @@ typedef struct flatmap_s {
 
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_size_rel(RTERM, BASE) hashmap_size(rterm2wterm(RTERM, BASE))
 #define hashmap_make_hash(Key)        make_internal_hash(Key)
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
@@ -104,23 +103,9 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
 Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
-const Eterm *
-#if HALFWORD_HEAP
-erts_maps_get_rel(Eterm key, Eterm map, Eterm *map_base);
-#  define erts_maps_get(A, B) erts_maps_get_rel(A, B, NULL)
-#else
-erts_maps_get(Eterm key, Eterm map);
-#  define erts_maps_get_rel(A, B, B_BASE) erts_maps_get(A, B)
-#endif
+const Eterm *erts_maps_get(Eterm key, Eterm map);
 
-const Eterm *
-#if HALFWORD_HEAP
-erts_hashmap_get_rel(Uint32 hx, Eterm key, Eterm node, Eterm *map_base);
-#  define erts_hashmap_get(Hx, K, M) erts_hashmap_get_rel(Hx, K, M, NULL)
-#else
-erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
-#  define erts_hashmap_get_rel(Hx, K, M, M_BASE) erts_hashmap_get(Hx, K, M)
-#endif
+const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
 
 /* hamt nodes v2.0
  *
@@ -195,14 +180,17 @@ typedef struct hashmap_head_s {
    [one cons cell + one list term in parent node] per key
    [one header + one boxed term in parent node] per inner node
    [one header + one size word] for root node
+   Observed average number of nodes per key is about 0.35.
 */
-#define HASHMAP_HEAP_SIZE(KEYS,NODES) ((KEYS)*3 + (NODES)*2)
+#define HASHMAP_WORDS_PER_KEY 3
+#define HASHMAP_WORDS_PER_NODE 2
 #ifdef DEBUG
-#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (KEYS)
+#  define HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS) \
+    (HASHMAP_WORDS_PER_NODE * (KEYS) * 3/10)   /* slightly under estimated */
 #else
-#  define HASHMAP_ESTIMATED_NODE_COUNT(KEYS) (2*(KEYS)/5)
+#  define HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS) \
+    (HASHMAP_WORDS_PER_NODE * (KEYS) * 4/10)   /* slightly over estimated */
 #endif
 #define HASHMAP_ESTIMATED_HEAP_SIZE(KEYS) \
-        HASHMAP_HEAP_SIZE(KEYS,HASHMAP_ESTIMATED_NODE_COUNT(KEYS))
-
+        ((KEYS)*HASHMAP_WORDS_PER_KEY + HASHMAP_ESTIMATED_TOT_NODE_SIZE(KEYS))
 #endif

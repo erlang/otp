@@ -18,9 +18,11 @@
 %% %CopyrightEnd%
 {"%VSN%",
  [
+  {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ],
  [
+  {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ]
 }.

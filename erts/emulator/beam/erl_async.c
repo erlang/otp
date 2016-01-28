@@ -167,7 +167,6 @@ async_ready_q(Uint sched_id)
 
 #endif
 
-
 void
 erts_init_async(void)
 {

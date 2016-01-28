@@ -876,6 +876,9 @@ type_examples() ->
      {ex30,<<"-type t99() ::"
        "{t2(),'\\'t::4'(),t5(),t6(),t7(),t8(),t10(),t14(),"
        "t15(),t20(),t21(), t22(),t25()}. ">>},
+     %% Writing constraints as is_subtype(V, T) is not supported since
+     %% Erlang/OTP 19.0, but as long as the parser recognizes the
+     %% is_subtype(V, T) syntax, we need a few examples of the syntax.
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
                           "(t2()) -> t2();"
                           "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
@@ -928,7 +931,9 @@ otp_8522(Config) when is_list(Config) ->
     ?line {ok, _} = compile:file(FileName, [{outdir,?privdir},debug_info]),
     BF = filename("otp_8522", Config),
     ?line {ok, A} = beam_lib:chunks(BF, [abstract_code]),
-    ?line 5 = count_atom(A, undefined),
+    %% OTP-12719: Since 'undefined' is no longer added by the Erlang
+    %% Parser, the number of 'undefined' is 4. It used to be 5.
+    ?line 4 = count_atom(A, undefined),
     ok.
 
 count_atom(A, A) ->
@@ -960,6 +965,9 @@ maps_syntax(Config) when is_list(Config) ->
           "-compile(export_all).\n"
           "-type t1() :: map().\n"
           "-type t2() :: #{ atom() => integer(), atom() => float() }.\n"
+          "-type u() :: #{a => (I :: integer()) | (A :: atom()),\n"
+          "               (X :: atom()) | (Y :: atom()) =>\n"
+          "                   (I :: integer()) | (A :: atom())}.\n"
           "-spec f1(t1()) -> 'true'.\n"
           "f1(M) when is_map(M) -> true.\n"
           "-spec f2(t2()) -> integer().\n"
@@ -995,16 +1003,8 @@ otp_8567(Config) when is_list(Config) ->
           "t() ->\n"
           "    3.\n"
           "\n"
-          "-spec(t1/1 :: (ot()) -> ot1()).\n"
-          "t1(A) ->\n"
-          "    A.\n"
-          "\n"
           "-spec(t2 (ot()) -> ot1()).\n"
           "t2(A) ->\n"
-          "    A.\n"
-          "\n"
-          "-spec(otp_8567:t3/1 :: (ot()) -> ot1()).\n"
-          "t3(A) ->\n"
           "    A.\n"
           "\n"
           "-spec(otp_8567:t4 (ot()) -> ot1()).\n"
@@ -1062,7 +1062,7 @@ otp_9147(Config) when is_list(Config) ->
     ?line {ok, Bin} = file:read_file(PFileName),
     %% The parentheses around "F1 :: a | b" are new (bugfix).
     ?line true = 
-        lists:member("-record(undef,{f1 :: undefined | (F1 :: a | b)}).",
+        lists:member("-record(undef,{f1 :: F1 :: a | b}).",
                      string:tokens(binary_to_list(Bin), "\n")),
     ok.
 

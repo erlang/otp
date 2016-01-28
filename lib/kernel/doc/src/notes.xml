@@ -31,6 +31,96 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Host name lookups though inet_res, the Erlang DNS
+	    resolver, are now done case insensitively according to
+	    RFC 4343. Patch by Holger Weiß.</p>
+          <p>
+	    Own Id: OTP-12836</p>
+        </item>
+        <item>
+          <p>
+	    IPv6 distribution handler has been updated to share code
+	    with IPv4 so that all features are supported in IPv6 as
+	    well. A bug when using an IPv4 address as hostname has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-13040</p>
+        </item>
+        <item>
+          <p>
+	    Caching of host names in the internal DNS resolver
+	    inet_res has been made character case insensitive for
+	    host names according to RFC 4343.</p>
+          <p>
+	    Own Id: OTP-13083</p>
+        </item>
+        <item>
+	    <p>Cooked file mode buffering has been fixed so
+	    file:position/2 now works according to Posix on Posix
+	    systems i.e. when file:position/2 returns an error the
+	    file pointer is unaffected.</p> <p>The Windows system
+	    documentation, however, is unclear on this point so the
+	    documentation of file:position/2 still does not promise
+	    anything.</p> <p>Cooked file mode file:pread/2,3 and
+	    file:pwrite/2,3 have been corrected to honor character
+	    encoding like the combination of file:position/2 and
+	    file:read/2 or file:write/2 already does. This is
+	    probably not very useful since the character
+	    representation on the caller's side is latin1,
+	    period.</p>
+          <p>
+	    Own Id: OTP-13155 Aux Id: PR#646 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add {line_delim, byte()} option to inet:setopts/2 and
+	    decode_packet/3</p>
+          <p>
+	    Own Id: OTP-12837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A mechanism for limiting the amount of text that the
+	    built-in error logger events will produce has been
+	    introduced. It is useful for limiting both the size of
+	    log files and the CPU time used to produce them.</p>
+	    <p>This mechanism is experimental in the sense that it
+	    may be changed if it turns out that it does not solve the
+	    problem it is supposed to solve. In that case, there may
+	    be backward incompatible improvements to this
+	    mechanism.</p>
+	    <p>See the documentation for the config parameter
+	    <c>error_logger_format_depth</c> in the Kernel
+	    application for information about how to turn on this
+	    feature.</p>
+          <p>
+	    Own Id: OTP-12864</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -158,6 +248,22 @@
     </section>
 
 </section>
+
+<section><title>Kernel 3.2.0.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The 'raw' socket option could not be used multiple times
+	    in one call to any e.g gen_tcp function because only one
+	    of the occurrences were used. This bug has been fixed,
+	    and also a small bug concerning propagating error codes
+	    from within inet:setopts/2.</p>
+          <p>Own Id: OTP-11482 Aux Id: seq12872 </p>
+          </item>
+        </list>
+      </section>
+    </section>
+
 
 <section><title>Kernel 3.2</title>
 
@@ -423,8 +529,7 @@
 	    Erlang/OTP has been ported to the realtime operating
 	    system OSE. The port supports both smp and non-smp
 	    emulator. For details around the port and how to started
-	    see the User's Guide in the <seealso
-	    marker="ose:ose_intro">ose</seealso> application. </p>
+	    see the User's Guide in the ose application. </p>
           <p>
 	    Note that not all parts of Erlang/OTP has been ported. </p>
           <p>
@@ -1192,7 +1297,7 @@
         </item>
         <item>
 	    <p> Fix returned error from gen_tcp:accept/1,2 when
-	    running out of ports
+	    running out of ports.</p>
           <p>
 	    The {error, enfile} return value is badly misleading and
 	    confusing for this case, since the Posix ENFILE errno
@@ -1201,7 +1306,7 @@
 	    {error, system_limit}, which is consistent with e.g.
 	    various file(3) functions. inet:format_error/1 has also
 	    been updated to support system_limit in the same manner
-	    as file:format_error/1. (Thanks to Per Hedeland)</p></p>
+	    as file:format_error/1. (Thanks to Per Hedeland)</p>
           <p>
 	    Own Id: OTP-9990</p>
         </item>
@@ -1396,7 +1501,6 @@
 	    Own Id: OTP-9764</p>
         </item>
         <item>
-          <p>
 	    <list> <item><p>Correct callback spec in application
 	    module</p></item> <item><p>Refine warning about callback
 	    specs with extra ranges</p></item> <item><p>Cleanup
@@ -1407,7 +1511,7 @@
 	    analysis</p></item> <item><p>Fix crash in
 	    Dialyzer</p></item> <item><p>Variable substitution was
 	    not generalizing any unknown variables.</p></item>
-	    </list></p>
+	    </list>
           <p>
 	    Own Id: OTP-9776</p>
         </item>

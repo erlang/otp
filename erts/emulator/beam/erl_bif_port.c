@@ -41,6 +41,7 @@
 #include "external.h"
 #include "packet_parser.h"
 #include "erl_bits.h"
+#include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
@@ -50,10 +51,10 @@ static void free_args(char **);
 
 char *erts_default_arg0 = "default";
 
-BIF_RETTYPE open_port_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
 {
     Port *port;
-    Eterm port_id;
+    Eterm res;
     char *str;
     int err_type, err_num;
 
@@ -61,27 +62,58 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
     if (!port) {
 	if (err_type == -3) {
 	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
-	    BIF_ERROR(BIF_P, err_num);
+	    if (err_num == BADARG)
+                res = am_badarg;
+            else if (err_num == SYSTEM_LIMIT)
+                res = am_system_limit;
+            else
+                /* this is only here to silence gcc, it should not happen */
+                BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	} else if (err_type == -2) {
 	    str = erl_errno_id(err_num);
+            res = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
 	} else {
-	    str = "einval";
+	    res = am_einval;
 	}
-	BIF_P->fvalue = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
-	BIF_ERROR(BIF_P, EXC_ERROR);
+        BIF_RET(res);
     }
 
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+    if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
+        /* Copied from erl_port_task.c */
+        port->async_open_port = erts_alloc(ERTS_ALC_T_PRTSD,
+                                           sizeof(*port->async_open_port));
+        erts_make_ref_in_array(port->async_open_port->ref);
+        port->async_open_port->to = BIF_P->common.id;
 
-    port_id = port->common.id;
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+        if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
+	    /* need to exit caller instead */
+	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+	    KILL_CATCHES(BIF_P);
+	    BIF_P->freason = EXC_EXIT;
+            erts_port_release(port);
+            BIF_RET(am_badarg);
+	}
+
+	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(BIF_P);
+	BIF_P->msg.save = BIF_P->msg.last;
+
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE);
+
+        res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
+    } else {
+        res = port->common.id;
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+    }
+
     erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
-    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_id);
+    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port->common.id);
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
     erts_port_release(port);
 
-    BIF_RET(port_id);
+    BIF_RET(res);
 }
 
 static ERTS_INLINE Port *
@@ -1329,7 +1361,8 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     ErlSubBin* rest;
     Eterm res;
     Eterm options;
-    int code;
+    int   code;
+    char  delimiter = '\n';
 
     if (!is_binary(BIF_ARG_2) || 
         (!is_list(BIF_ARG_3) && !is_nil(BIF_ARG_3))) {
@@ -1370,6 +1403,11 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
                 case am_line_length:
                     trunc_len = val;
                     goto next_option;
+                case am_line_delimiter:
+                    if (type == TCP_PB_LINE_LF && val >= 0 && val <= 255) {
+                        delimiter = (char)val;
+                        goto next_option;
+                    }
                 }
             }
         }
@@ -1390,7 +1428,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         pca.aligned_ptr = bin_ptr;
     }
     packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, pca.bin_sz,
-                                  max_plen, trunc_len, &http_state);
+                                  max_plen, trunc_len, delimiter, &http_state);
     if (!(packet_sz > 0 && packet_sz <= pca.bin_sz)) {
         if (packet_sz < 0) {
 	    goto error;

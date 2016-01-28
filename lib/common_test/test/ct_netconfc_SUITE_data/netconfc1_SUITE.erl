@@ -36,7 +36,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,
 		  [{ct_netconfc,[{log_type,html}, %will be overwritten by config
 				 {hosts,[my_named_connection,netconf1]}]
 		   }]
@@ -72,7 +73,9 @@ all() ->
 	     invalid_opt,
 	     timeout_close_session,
 	     get,
+	     get_a_lot,
 	     timeout_get,
+	     flush_timeout_get,
 	     get_xpath,
 	     get_config,
 	     get_config_xpath,
@@ -112,12 +115,9 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     ets:delete_all_objects(ns_tab),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
@@ -351,11 +351,46 @@ get(Config) ->
     ?ok = ct_netconfc:close_session(Client),
     ok.
 
+get_a_lot(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Descr = lists:append(lists:duplicate(100,"Description of myserver! ")),
+    Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
+				       {description,[],[Descr]}]},
+    Data = lists:duplicate(100,Server),
+    ?NS:expect_reply('get',{fragmented,{data,Data}}),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
 timeout_get(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),
     ?NS:expect('get'),
     {error,timeout} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1000),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+%% Test OTP-13008 "ct_netconfc crash when receiving unknown timeout"
+%% If the timer expires "at the same time" as the rpc reply is
+%% received, the timeout message might already be sent when the timer
+%% is cancelled. This test checks that the timeout message is flushed
+%% from the message queue. If it isn't, the client crashes and the
+%% session can not be closed afterwards.
+%% Note that we can only hope that the test case triggers the problem
+%% every now and then, as it is very timing dependent...
+flush_timeout_get(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
+    ?NS:expect_reply('get',{data,Data}),
+    timer:sleep(1000),
+    case ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1) of
+	{error,timeout} -> ok; % problem not triggered
+	{ok,Data} -> ok % problem possibly triggered
+    end,
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.

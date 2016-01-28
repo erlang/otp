@@ -221,6 +221,18 @@
 					  and their meanings are dependent on the database being used.</item>
 				  <item><c>Reason</c> is as per the <c>Reason</c> field when extended errors are not enabled.</item>
 		  </list>
+
+        <note>
+            <p>The current implementation spawns a port programm
+            written in C that utilizes the actual ODBC driver. There
+            is a default timeout of 5000 msec for this port programm
+            to connect to the Erlang ODBC application. This timeout
+            can be changed by setting an application specific
+            environment variable 'port_timeout' with the number of
+            milliseconds for the ODBC application. E.g.: [{odbc,
+            [{port_timeout, 60000}]}] to set it to 60 seconds.
+            </p>
+        </note>
       </desc>
     </func>
     <func>

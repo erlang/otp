@@ -32,7 +32,31 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.11</title>
+  <section><title>ODBC 2.11.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New application variable to set timeout of internal
+	    communication setup between the erlang code and the
+	    c-port program that interfaces the odbc driver. This can
+	    be useful if you have an underlying system that is slow
+	    due to heavy load at startup.</p>
+          <p>
+	    With this environment variable you can easily bypass and
+	    tailor odbc to the needs of the underlying actual system
+	    without changing the configuration. Which is a good thing
+	    because this value is very system specific.</p>
+          <p>
+	    Own Id: OTP-12935</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.11</title>
 
     <section><title>Improvements and New Features</title>
       <list>

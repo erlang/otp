@@ -38,8 +38,7 @@
 -module(diameter_config).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2, now/0]}).
--import(diameter_lib, [now/0]).
+-compile({no_auto_import, [monitor/2]}).
 
 -export([start_service/2,
          stop_service/1,
@@ -70,7 +69,7 @@
 -include("diameter_internal.hrl").
 
 %% Server state.
--record(state, {id = now()}).
+-record(state, {id = diameter_lib:now()}).
 
 %% Registered name of the server.
 -define(SERVER, ?MODULE).
@@ -648,6 +647,7 @@ make_config(SvcName, Opts) ->
                          {?NOMASK, sequence},
                          {nodes, restrict_connections},
                          {16#FFFFFF, incoming_maxlen},
+                         {true, strict_mbit},
                          {true, string_decode},
                          {[], spawn_opt}]),
 
@@ -686,12 +686,14 @@ opt(K, false = B)
        K == use_shared_peers;
        K == monitor;
        K == restrict_connections;
+       K == strict_mbit;
        K == string_decode ->
     B;
 
 opt(K, true = B)
   when K == share_peers;
        K == use_shared_peers;
+       K == strict_mbit;
        K == string_decode ->
     B;
 

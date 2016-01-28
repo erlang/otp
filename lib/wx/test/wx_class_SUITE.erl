@@ -386,13 +386,26 @@ listCtrlSort(Config) ->
     io:format("Sorted ~p ~n",[Time]),
 
     Item = wxListItem:new(),
+
+    %% Test that wx-asserts are sent to error logger
+    %% Force an assert on 3.0 (when debug compiled which it is by default)
+    wxListItem:setId(Item, 200),
+    case os:type() of
+	{win32, _} ->
+	    wxListItem:setColumn(Item, 3),
+	    io:format("Got ~p ~n", [wxListCtrl:insertItem(LC, Item)]),
+	    wxListItem:setColumn(Item, 0);
+	_ -> %% Uses generic listctrl
+	    %% we can't use the code above on linux with wx-2.8.8 because it segfaults.
+	    io:format("Got ~p ~n", [wxListCtrl:getItem(LC, Item)])
+    end,
+
     wxListItem:setMask(Item, ?wxLIST_MASK_TEXT),
     _List = wx:map(fun(Int) ->
 			   wxListItem:setId(Item, Int),
 			   ?m(true, wxListCtrl:getItem(LC, Item)),
 			   io:format("~p: ~s~n",[Int, wxListItem:getText(Item)])
 		   end, lists:seq(0,10)),
-    wxListItem:destroy(Item),
 
     wx_test_lib:wx_destroy(Frame,Config).
 
@@ -513,18 +526,22 @@ toolbar(Config) ->
     Wx = wx:new(),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     TB = wxFrame:createToolBar(Frame),
-    wxToolBar:addTool(TB, 747, "PressMe", wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}]),
+    BM1 = wxArtProvider:getBitmap("wxART_COPY", [{size, {16,16}}, {client, "wxART_TOOLBAR"}]),
+    BM2 = wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}, {client, "wxART_TOOLBAR"}]),
+    wxToolBar:addTool(TB, 747, "PressMe", BM1,
 		      [{shortHelp, "Press Me"}]),
-
+    catch wxToolBar:addStretchableSpace(TB),  %% wxWidgets 3.0 only
     Add = fun(#wx{}, _) ->
-		  wxToolBar:addTool(TB, -1, "Added", wxArtProvider:getBitmap("wxART_TICK_MARK", [{size, {16,16}}]),
-				    [{shortHelp, "Test 2 popup text"}])
+		  wxToolBar:addTool(TB, -1, "Added", BM2,
+				    [{shortHelp, "Test 2 popup text"}]),
+		  catch wxToolBar:addStretchableSpace(TB), %% wxWidgets 3.0 only
+		  wxToolBar:realize(TB)
 	  end,
 
+    wxToolBar:realize(TB),
     wxFrame:connect(Frame, command_menu_selected, [{callback, Add}, {id, 747}]),
     wxFrame:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
-
 
 popup(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 popup(Config) ->
@@ -575,3 +592,32 @@ popup(Config) ->
 	    wxPopupTransientWindow:dismiss(Pop)
     end,
     wx_test_lib:wx_destroy(Frame,Config).
+
+locale(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+locale(_Config) ->
+    wx:new(),
+    io:format("SystemEncoding: ~p~n",[wxLocale:getSystemEncoding()]),
+    io:format("SystemEncodingName: ~ts~n",[wxLocale:getSystemEncodingName()]),
+    io:format("SystemLanguage: ~p~n",[wxLocale:getSystemLanguage()]),
+    io:format("SystemLanguageName: ~p~n",[wxLocale:getLanguageName(wxLocale:getSystemLanguage())]),
+    lang_env(),
+    LC = wxLocale:new(),
+    %% wxLocale:addCatalog(LC, "wxstd"),
+    io:format("Swedish: ~p~n",[wxLocale:getLanguageName(?wxLANGUAGE_SWEDISH)]),
+    R0 = wxLocale:init(LC, [{language, ?wxLANGUAGE_SWEDISH}, {flags, 0}]),
+    io:format("initiated ~p~n",[R0]),
+    lang_env(),
+    ok.
+%% wx_test_lib:wx_destroy(Frame,Config).
+
+lang_env() ->
+    Env0 = os:getenv(),
+    Env = [[R,"\n"]||R <- Env0],
+    %%io:format("~p~n",[lists:sort(Env)]),
+    Opts = [global, multiline, {capture, all, list}],
+    format_env(re:run(Env, "LC_ALL.*", Opts)),
+    format_env(re:run(Env, "^LANG.*=.*$", Opts)),
+    ok.
+format_env({match, List}) ->
+    [io:format("  ~ts~n",[L]) || L <- List];
+format_env(nomatch) -> ok.

@@ -310,9 +310,6 @@ typedef union {
 typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
-#if HALFWORD_HEAP
-    void* dummy_ptr_padding__;
-#endif
     struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */
     byte *bytes;		/* Pointer to the actual data bytes. */
@@ -383,7 +380,7 @@ extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
 
 /*
- * Here is an implementation of a lightweiht stack.
+ * Here is an implementation of a lightweight stack.
  *
  * Use it like this:
  *
@@ -848,6 +845,94 @@ do {\
 } while(0)
 
 
+/*
+ *  An implementation of lightweight unbounded queues,
+ *  using a circular dynamic array.
+ *  It does not include support for change_allocator.
+ *
+ *  Use it like this:
+ *
+ *  DECLARE_EQUEUE(Queue)	(At the start of a block)
+ *  ...
+ *  EQUEUE_PUT(Queue, Term)
+ *  ...
+ *  if (EQUEUE_ISEMPTY(Queue)) {
+ *     Queue is empty
+ *  } else {
+ *     Term = EQUEUE_GET(Stack);
+ *     Process popped Term here
+ *  }
+ *  ...
+ *  DESTROY_EQUEUE(Queue)
+ */
+
+typedef struct {
+    Eterm* start;
+    Eterm* front;
+    Eterm* back;
+    int possibly_empty;
+    Eterm* end;
+    ErtsAlcType_t alloc_type;
+} ErtsEQueue;
+
+#define DEF_EQUEUE_SIZE (16)
+
+void erl_grow_equeue(ErtsEQueue*, Eterm* def_queue);
+#define EQUE_CONCAT(a,b) a##b
+#define EQUE_DEF_QUEUE(q) EQUE_CONCAT(q,_default_equeue)
+
+#define DECLARE_EQUEUE(q)				\
+    UWord EQUE_DEF_QUEUE(q)[DEF_EQUEUE_SIZE];     	\
+    ErtsEQueue q = {					\
+        EQUE_DEF_QUEUE(q), /* start */			\
+        EQUE_DEF_QUEUE(q), /* front */			\
+        EQUE_DEF_QUEUE(q), /* back */			\
+        1,                 /* possibly_empty */		\
+        EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
+        ERTS_ALC_T_ESTACK  /* alloc_type */		\
+    }
+
+#define DESTROY_EQUEUE(q)				\
+do {							\
+    if (q.start != EQUE_DEF_QUEUE(q)) {			\
+      erts_free(q.alloc_type, q.start);			\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT_UNCHECKED(q, x)			\
+do {							\
+    q.possibly_empty = 0;				\
+    *(q.back) = (x);                    		\
+    if (++(q.back) == q.end) {				\
+	q.back = q.start;				\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT(q, x)				\
+do {							\
+    if (q.back == q.front && !q.possibly_empty) {	\
+        erl_grow_equeue(&q, EQUE_DEF_QUEUE(q));		\
+    }							\
+    EQUEUE_PUT_UNCHECKED(q, x);				\
+} while(0)
+
+#define EQUEUE_ISEMPTY(q) (q.back == q.front && q.possibly_empty)
+
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q) {
+    Eterm x;
+    q->possibly_empty = 1;
+    x = *(q->front);
+    if (++(q->front) == q->end) {
+        q->front = q->start;
+    }
+    return x;
+}
+#endif
+#define EQUEUE_GET(q) erts_equeue_get(&(q));
+
 /* binary.c */
 
 void erts_emasculate_writable_binary(ProcBin* pb);
@@ -900,8 +985,18 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
-Eterm erts_check_process_code(Process *c_p, Eterm module, int allow_gc, int *redsp);
+#define ERTS_CPC_ALLOW_GC      (1 << 0)
+#define ERTS_CPC_COPY_LITERALS (1 << 1)
+#define ERTS_CPC_ALL           (ERTS_CPC_ALLOW_GC | ERTS_CPC_COPY_LITERALS)
+Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp);
 
+typedef struct {
+    Eterm *ptr;
+    Uint   sz;
+    Eterm pid;
+} copy_literals_t;
+
+extern copy_literals_t erts_clrange;
 
 /* beam_load.c */
 typedef struct {
@@ -956,35 +1051,71 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
-/* copy.c */
-Eterm copy_object(Eterm, Process*);
+/* This controls whether sharing-preserving copy is used by Erlang */
 
-#if HALFWORD_HEAP
-Uint size_object_rel(Eterm, Eterm*);
-#  define size_object(A) size_object_rel(A,NULL)
-
-Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm* dst_base);
-#  define copy_struct(OBJ,SZ,HPP,OH) copy_struct_rel(OBJ,SZ,HPP,OH, NULL,NULL)
-
-Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
-#  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
-
-#else /* !HALFWORD_HEAP */
-
-Uint size_object(Eterm);
-#  define size_object_rel(A,B) size_object(A)
-
-Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
-#  define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
-
-Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
-#  define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
-
+#ifdef SHCOPY
+#define SHCOPY_SEND
+#define SHCOPY_SPAWN
 #endif
 
+/* The persistent state while the sharing-preserving copier works */
 
-void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
-		      Eterm* refs, unsigned nrefs);
+typedef struct {
+    Eterm  queue_default[DEF_EQUEUE_SIZE];
+    Eterm* queue_start;
+    Eterm* queue_end;
+    ErtsAlcType_t queue_alloc_type;
+    UWord  bitstore_default[DEF_WSTACK_SIZE];
+    UWord* bitstore_start;
+    ErtsAlcType_t bitstore_alloc_type;
+    Eterm  shtable_default[DEF_ESTACK_SIZE];
+    Eterm* shtable_start;
+    ErtsAlcType_t shtable_alloc_type;
+    Uint literal_size;
+    Eterm *range_ptr;
+    Uint  range_sz;
+} erts_shcopy_t;
+
+#define INITIALIZE_SHCOPY(info)                         \
+do {                                                    \
+    info.queue_start = info.queue_default;              \
+    info.bitstore_start = info.bitstore_default;        \
+    info.shtable_start = info.shtable_default;          \
+    info.literal_size = 0;                              \
+    info.range_ptr = erts_clrange.ptr;                  \
+    info.range_sz  = erts_clrange.sz;                   \
+} while(0)
+
+#define DESTROY_SHCOPY(info)                                            \
+do {                                                                    \
+    if (info.queue_start != info.queue_default) {                       \
+        erts_free(info.queue_alloc_type, info.queue_start);             \
+    }                                                                   \
+    if (info.bitstore_start != info.bitstore_default) {                 \
+        erts_free(info.bitstore_alloc_type, info.bitstore_start);       \
+    }                                                                   \
+    if (info.shtable_start != info.shtable_default) {                   \
+        erts_free(info.shtable_alloc_type, info.shtable_start);         \
+    }                                                                   \
+} while(0)
+
+/* copy.c */
+Eterm copy_object_x(Eterm, Process*, Uint);
+#define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
+
+Uint size_object(Eterm);
+Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
+Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
+
+Uint size_shared(Eterm);
+
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+#define copy_struct(Obj,Sz,HPP,OH) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL)
+Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
+
+void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
+			   Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
 extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
@@ -1180,7 +1311,7 @@ void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     char s[22];
 #else
     char s[12];
@@ -1296,6 +1427,27 @@ int erts_print_system_version(int to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
 
+ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr)
+{
+    ASSERT(is_boxed(tptr) || is_list(tptr));
+    ASSERT(ptr == ptr_val(tptr));
+
+#if defined(ERTS_HAVE_IS_IN_LITERAL_RANGE)
+    return erts_is_in_literal_range(ptr);
+#elif defined(TAG_LITERAL_PTR)
+    return is_literal_ptr(tptr);
+#else
+#  error Not able to detect literals...
+#endif
+
+}
+
+#endif
+
 /*
 ** Call_trace uses this API for the parameter matching functions
 */
@@ -1344,191 +1496,21 @@ extern void erts_match_prog_foreach_offheap(Binary *b,
 
 extern erts_driver_t vanilla_driver;
 extern erts_driver_t spawn_driver;
+extern erts_driver_t forker_driver;
 extern erts_driver_t fd_driver;
 
 int erts_beam_jump_table(void);
 
-/* Should maybe be placed in erl_message.h, but then we get an include mess. */
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap_state(Uint size,
-			      ErlHeapFragment **bpp,
-			      ErlOffHeap **ohpp,
-			      Process *receiver,
-			      ErtsProcLocks *receiver_locks,
-			      erts_aint32_t *statep);
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap(Uint size,
-			ErlHeapFragment **bpp,
-			ErlOffHeap **ohpp,
-			Process *receiver,
-			ErtsProcLocks *receiver_locks);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-/*
- * NOTE: erts_alloc_message_heap() releases msg q and status
- *       lock on receiver without ensuring that other locks are
- *       held. User is responsible to ensure that the receiver
- *       pointer cannot become invalid until after message has
- *       been passed. This is normal done either by increasing
- *       reference count on process (preferred) or by holding
- *       main or link lock over the whole message passing
- *       operation.
- */
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap_state(Uint size,
-			      ErlHeapFragment **bpp,
-			      ErlOffHeap **ohpp,
-			      Process *receiver,
-			      ErtsProcLocks *receiver_locks,
-			      erts_aint32_t *statep)
-{
-    Eterm *hp;
-    erts_aint32_t state;
-#ifdef ERTS_SMP
-    int locked_main = 0;
-    state = erts_smp_atomic32_read_acqb(&receiver->state);
-    if (statep)
-	*statep = state;
-    if (state & (ERTS_PSFLG_EXITING
-		 | ERTS_PSFLG_PENDING_EXIT))
-	goto allocate_in_mbuf;
-#endif
-
-    if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT, "HUGE size (%beu)\n", size);
-
-    if (
-#if defined(ERTS_SMP)
-	*receiver_locks & ERTS_PROC_LOCK_MAIN
-#else
-	1
-#endif
-	) {
-#ifdef ERTS_SMP
-    try_allocate_on_heap:
-#endif
-	state = erts_smp_atomic32_read_nob(&receiver->state);
-	if (statep)
-	    *statep = state;
-	if ((state & (ERTS_PSFLG_EXITING
-		      | ERTS_PSFLG_PENDING_EXIT))
-	    || (receiver->flags & F_DISABLE_GC)
-	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
-	    /*
-	     * The heap is either potentially in an inconsistent
-	     * state, or not large enough.
-	     */
-#ifdef ERTS_SMP
-	    if (locked_main) {
-		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;
-		erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MAIN);
-	    }
-#endif
-	    goto allocate_in_mbuf;
-	}
-	hp = HEAP_TOP(receiver);
-	HEAP_TOP(receiver) = hp + size;
-	*bpp = NULL;
-	*ohpp = &MSO(receiver);
-    }
-#ifdef ERTS_SMP
-    else if (erts_smp_proc_trylock(receiver, ERTS_PROC_LOCK_MAIN) == 0) {
-	locked_main = 1;
-	*receiver_locks |= ERTS_PROC_LOCK_MAIN;
-	goto try_allocate_on_heap;
-    }
-#endif
-    else {
-	ErlHeapFragment *bp;
-    allocate_in_mbuf:
-	bp = new_message_buffer(size);
-	hp = bp->mem;
-	*bpp = bp;
-	*ohpp = &bp->off_heap;
-    }
-
-    return hp;
-}
-
-ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap(Uint size,
-			ErlHeapFragment **bpp,
-			ErlOffHeap **ohpp,
-			Process *receiver,
-			ErtsProcLocks *receiver_locks)
-{
-    return erts_alloc_message_heap_state(size, bpp, ohpp, receiver,
-					 receiver_locks, NULL);
-}
-
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
-#if !HEAP_ON_C_STACK
-#  if defined(DEBUG)
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_use_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         erts_debug_unuse_tmp_heap((Size),(Proc)); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_use_tmp_heap(Size,NULL); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_debug_unuse_tmp_heap(Size,NULL); \
-       } while (0)
-#  else
-#    define DeclareTmpHeap(VariableName,Size,Process) \
-       Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
-      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
-#    define DeclareTmpHeapNoproc(VariableName,Size) \
-       Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
-#    define UseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeap(Size,Proc) \
-       do { \
-         ERTS_PROC_GET_SCHDATA(Proc)->num_tmp_heap_used -= (Size); \
-       } while (0)
-#    define UseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used += (Size); \
-       } while (0)
-#    define UnUseTmpHeapNoproc(Size) \
-       do { \
-         erts_get_scheduler_data()->num_tmp_heap_used -= (Size); \
-       } while (0)
-
-
-#  endif
-
-#else
-#  define DeclareTmpHeap(VariableName,Size,Process) \
+#define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
-#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+#define DeclareTypedTmpHeap(Type,VariableName,Process)	\
      Type VariableName[1]
-#  define DeclareTmpHeapNoproc(VariableName,Size) \
+#define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
-#  define UseTmpHeap(Size,Proc) /* Nothing */
-#  define UnUseTmpHeap(Size,Proc) /* Nothing */
-#  define UseTmpHeapNoproc(Size) /* Nothing */
-#  define UnUseTmpHeapNoproc(Size) /* Nothing */
-#endif /* HEAP_ON_C_STACK */
+#define UseTmpHeap(Size,Proc) /* Nothing */
+#define UnUseTmpHeap(Size,Proc) /* Nothing */
+#define UseTmpHeapNoproc(Size) /* Nothing */
+#define UnUseTmpHeapNoproc(Size) /* Nothing */
 
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
@@ -1576,6 +1558,7 @@ dtrace_fun_decode(Process *process,
     erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
                   module, function, arity);
 }
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* !__GLOBAL_H__ */

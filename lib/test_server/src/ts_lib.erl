@@ -250,12 +250,10 @@ do_test(Rest, Vars, Test) ->
     {Result,Comment,Rest2}.
 
 %% extract an argument
-get_arg([$ |Rest], Vars, Stop, Acc) ->		
-    get_arg(Rest, Vars, Stop, Acc);
 get_arg([$(|Rest], Vars, Stop, _) ->		
     get_arg(Rest, Vars, Stop, []); 
 get_arg([Stop|Rest], Vars, Stop, Acc) ->
-    Arg = lists:reverse(Acc),
+    Arg = string:strip(lists:reverse(Acc)),
     Subst = subst(Arg, Vars),
     {Subst,Rest};
 get_arg([C|Rest], Vars, Stop, Acc) ->

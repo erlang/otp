@@ -40,6 +40,8 @@
 
 %%----------------------------------------------------------------------
 
+-type abstract_code() :: [erl_parse:abstract_form()].
+
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
 -type err_info() :: {erl_anno:line() | 'none',
@@ -48,6 +50,9 @@
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
+                  | {'ok',                            %% with option 'to_pp'
+                     module() | [],                   %% module() if 'to_exp'
+                     abstract_code()}
                   | {'ok', module(), warnings()}.
 -type bin_ret()  :: {'ok', module(), binary()}
                   | {'ok', module(), binary(), warnings()}.
@@ -78,7 +83,11 @@ file(File, Opts) when is_list(Opts) ->
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
-forms(File) -> forms(File, ?DEFAULT_OPTIONS).
+-spec forms(abstract_code()) -> comp_ret().
+
+forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
+
+-spec forms(abstract_code(), [option()] | option()) -> comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -105,6 +114,8 @@ noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
 noenv_file(File, Opt) ->
     noenv_file(File, [Opt|?DEFAULT_OPTIONS]).
+
+-spec noenv_forms(abstract_code(), [option()] | option()) -> comp_ret().
 
 noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
@@ -671,11 +682,16 @@ asm_passes() ->
     %% Assembly level optimisations.
     [{delay,
       [{pass,beam_a},
+       {iff,da,{listing,"a"}},
        {unless,no_postopt,
-	[{pass,beam_block},
+	[{unless,no_reorder,{pass,beam_reorder}},
+	 {iff,dre,{listing,"reorder"}},
+	 {pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
 	 {iff,dexcept,{listing,"except"}},
+	 {unless,no_bs_opt,{pass,beam_bs}},
+	 {iff,dbs,{listing,"bs"}},
 	 {unless,no_bopt,{pass,beam_bool}},
 	 {iff,dbool,{listing,"bool"}},
 	 {unless,no_topt,{pass,beam_type}},
@@ -703,6 +719,7 @@ asm_passes() ->
        {iff,no_postopt,[{pass,beam_clean}]},
 
        {pass,beam_z},
+       {iff,dz,{listing,"z"}},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
@@ -1300,20 +1317,11 @@ generate_key(String) when is_list(String) ->
 encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     Bin1 = case byte_size(Bin0) rem BlockSize of
 	       0 -> Bin0;
-	       N -> list_to_binary([Bin0,random_bytes(BlockSize-N)])
+	       N -> list_to_binary([Bin0,crypto:rand_bytes(BlockSize-N)])
 	   end,
     Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
-
-random_bytes(N) ->
-    _ = random:seed(erlang:time_offset(),
-		    erlang:monotonic_time(),
-		    erlang:unique_integer()),
-    random_bytes_1(N, []).
-
-random_bytes_1(0, Acc) -> Acc;
-random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
 save_core_code(St) ->
     {ok,St#compile{core_code=cerl:from_records(St#compile.code)}}.

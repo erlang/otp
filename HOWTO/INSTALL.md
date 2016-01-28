@@ -76,10 +76,10 @@ also find the utilities needed for building the documentation.
     Read more and download from <http://www.openssl.org>.
 *   Oracle Java SE JDK -- The Java Development Kit (Standard Edition).
     Required for building the application `jinterface` and parts of `ic` and `orber`.
-    At least version 1.5.0 of the JDK is required.
+    At least version 1.6.0 of the JDK is required.
 
     Download from <http://www.oracle.com/technetwork/java/javase/downloads>.
-    We have also tested with IBM's JDK 1.5.0.
+    We have also tested with IBM's JDK 1.6.0.
 *   X Windows -- Development headers and libraries are needed
     to build the Erlang/OTP application `gs` on Unix/Linux.
 *   `flex` -- Headers and libraries are needed to build the flex
@@ -209,6 +209,14 @@ When building the documentation you need a full Erlang/OTP-%OTP-VSN% system in
 the `$PATH`.
 
     $ export PATH=$ERL_TOP/bin:$PATH     # Assuming bash/sh
+
+For the FOP print formatter, two steps must be taken:
+
+*   Adding the location of your installation of `fop` in `$FOP_HOME`.
+
+        $ export FOP_HOME=/path/to/fop/dir # Assuming bash/sh
+
+*   Adding the `fop` script (in `$FOP_HOME`) to your `$PATH`, either by adding `$FOP_HOME` to `$PATH`, or by copying the `fop` script to a directory already in your `$PATH`.
 
 Build the documentation.
 
@@ -400,6 +408,18 @@ Some of the available `configure` options are:
 	no automatic dependency handling between applications. If you disable
 	an application that another application depends on, you also have to disable the
 	dependant application.
+*   `--enable-gettimeofday-as-os-system-time` - Force usage of `gettimeofday()` for
+    OS system time.
+*   `--enable-prefer-elapsed-monotonic-time-during-suspend` - Prefer an OS monotonic
+    time source with elapsed time during suspend.
+*   `--disable-prefer-elapsed-monotonic-time-during-suspend` - Do not prefer an OS
+    monotonic time source with elapsed time during suspend.
+*   `--with-clock-resolution=high|low` - Try to find clock sources for OS system
+    time, and OS monotonic time with higher or lower resolution than chosen by
+    default. Note that both alternatives may have a negative impact on the performance
+    and scalability compared to the default clock sources chosen.
+*   `--disable-saved-compile-time` - Disable saving of compile date and time
+    in the emulator binary.
 *   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
     functionality. Note that the dirty schedulers functionality is experimental,
     and **not supported**. This functionality **will** be subject to backward
@@ -496,7 +516,7 @@ If you have Xcode 4.3, or later, you will also need to download
 If you want to build the `wx` application, you will need to get wxWidgets-3.0
 (`wxWidgets-3.0.0.tar.bz2` from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>) or get it from github with bug fixes:
 
-    $ git clone --branch WX_3_0_branch git@github.com:wxWidgets/wxWidgets.git
+    $ git clone --branch WX_3_0_BRANCH git@github.com:wxWidgets/wxWidgets.git
 
 Be aware that the wxWidgets-3.0 is a new release of wxWidgets, it is not as
 mature as the old releases and the OS X port still lags behind the other ports.

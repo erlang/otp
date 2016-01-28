@@ -21,9 +21,6 @@
 -module(diameter_peer).
 -behaviour(gen_server).
 
--compile({no_auto_import, [now/0]}).
--import(diameter_lib, [now/0]).
-
 %% Interface towards transport modules ...
 -export([recv/2,
          up/1,
@@ -60,7 +57,7 @@
 -define(SERVER, ?MODULE).
 
 %% Server state.
--record(state, {id = now()}).
+-record(state, {id = diameter_lib:now()}).
 
 %% Default transport_module/config.
 -define(DEFAULT_TMOD, diameter_tcp).

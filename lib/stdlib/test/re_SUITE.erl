@@ -28,7 +28,7 @@
 	 pcre_compile_workspace_overflow/1,re_infinite_loop/1, 
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
-	 match_limit/1,sub_binaries/1]).
+	 match_limit/1,sub_binaries/1,copt/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -319,32 +319,26 @@ replace_return(doc) ->
     ["Tests return options of replace together with global searching"];
 replace_return(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
-    ?line {'EXIT',{badarg,_}} = (catch re:replace("na","(a","")),
-    ?line <<"nasse">> = re:replace(<<"nisse">>,"i","a",[{return,binary}]),
-    ?line <<"ABCÅXABCXA">> = re:replace("ABC\305abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary}]),
-    
-    ?line [<<"ABCÅ">>,
-	   <<"X">>,
-	   <<"ABC">>,
-	   <<"X">> | 
-	   <<"A">> ] = 
-	re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,iodata}]),
-    ?line "ABCÅXABCXA" = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,list},unicode]),
-    ?line <<65,66,67,195,133,88,65,66,67,88,65>> = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary},unicode]),
-    ?line <<65,66,67,195,133,88,65,66,67,97,98,99,100,65>> = re:replace("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[{return,binary},unicode]),
-    ?line <<"iXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\9X",[{return,binary}]),
-    ?line <<"jXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\10X",[{return,binary}]),
-    ?line <<"Xk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\11X",[{return,binary}]),
-    ?line <<"9X1">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g9X",[{return,binary}]),
-    ?line <<"0X1">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g10X",[{return,binary}]),
-    ?line <<"X1">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g11X",[{return,binary}]),
-    ?line <<"971">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{9}7",[{return,binary}]),
-    ?line <<"071">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{10}7",[{return,binary}]),
-    ?line <<"71">> = re:replace("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{11}7",[{return,binary}]),
-    ?line "a\x{400}bcX" = re:replace("a\x{400}bcd","d","X",[global,{return,list},unicode]),
-    ?line <<"a",208,128,"bcX">> = re:replace("a\x{400}bcd","d","X",[global,{return,binary},unicode]),
-    ?line "a\x{400}bcd" = re:replace("a\x{400}bcd","Z","X",[global,{return,list},unicode]),
-    ?line <<"a",208,128,"bcd">> = re:replace("a\x{400}bcd","Z","X",[global,{return,binary},unicode]),
+    {'EXIT',{badarg,_}} = (catch re:replace("na","(a","")),
+    ok = replacetest(<<"nisse">>,"i","a",[{return,binary}],<<"nasse">>),
+    ok = replacetest("ABC\305abcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary}],<<"ABCÅXABCXA">>),
+    ok = replacetest("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,iodata}],[<<"ABCÅ">>,<<"X">>,<<"ABC">>,<<"X">>|<<"A">>]),
+    ok = replacetest("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,list},unicode],"ABCÅXABCXA"),
+    ok = replacetest("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[global,{return,binary},unicode],<<65,66,67,195,133,88,65,66,67,88,65>>),
+    ok = replacetest("ABCÅabcdABCabcdA","a(?<FOO>bcd)","X",[{return,binary},unicode],<<65,66,67,195,133,88,65,66,67,97,98,99,100,65>>),
+    ok = replacetest("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\9X",[{return,binary}],<<"iXk">>),
+    ok = replacetest("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\10X",[{return,binary}],<<"jXk">>),
+    ok = replacetest("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\11X",[{return,binary}],<<"Xk">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g9X",[{return,binary}],<<"9X1">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g10X",[{return,binary}],<<"0X1">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g11X",[{return,binary}],<<"X1">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{9}7",[{return,binary}],<<"971">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{10}7",[{return,binary}],<<"071">>),
+    ok = replacetest("12345678901","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\g{11}7",[{return,binary}],<<"71">>),
+    ok = replacetest("a\x{400}bcd","d","X",[global,{return,list},unicode],"a\x{400}bcX"),
+    ok = replacetest("a\x{400}bcd","d","X",[global,{return,binary},unicode],<<"a",208,128,"bcX">>),
+    ok = replacetest("a\x{400}bcd","Z","X",[global,{return,list},unicode],"a\x{400}bcd"),
+    ok = replacetest("a\x{400}bcd","Z","X",[global,{return,binary},unicode],<<"a",208,128,"bcd">>),
     ?t:timetrap_cancel(Dog),
     ok.
 
@@ -389,6 +383,35 @@ crtest(Subject,RE,Options,true,Result) ->
 	    error
     end.
 
+replacetest(Subject,RE,Replacement,Options,Result) ->
+    Result = re:replace(Subject,RE,Replacement,Options),
+    {CompileOptions,ReplaceOptions} = lists:partition(fun copt/1, Options),
+    {ok,MP} = re:compile(RE,CompileOptions),
+    Result = re:replace(Subject,MP,Replacement,ReplaceOptions),
+    ok.
+
+splittest(Subject,RE,Options,Result) ->
+    Result = re:split(Subject,RE,Options),
+    {CompileOptions,SplitOptions} = lists:partition(fun copt/1, Options),
+    {ok,MP} = re:compile(RE,CompileOptions),
+    Result = re:split(Subject,MP,SplitOptions),
+    ok.
+
+copt(caseless) -> true;
+copt(no_start_optimize) -> true;
+copt(never_utf) -> true;
+copt(ucp) -> true;
+copt(dollar_endonly) -> true;
+copt(dotall) -> true;
+copt(extended) -> true;
+copt(firstline) -> true;
+copt(multiline) -> true;
+copt(no_auto_capture) -> true;
+copt(dupnames) -> true;
+copt(ungreedy) -> true;
+copt(unicode) -> true;
+copt(_) -> false.
+
 split_autogen(doc) ->    
     ["Test split with autogenerated erlang module"];
 split_autogen(Config) when is_list(Config) ->
@@ -401,43 +424,23 @@ split_options(doc) ->
     ["Test special options to split."];
 split_options(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),
-    ?line [[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]] = re:split("a b c ","( )",[group,trim]),
-    ?line [[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]] = re:split("a b c ","( )",[group,{parts,0}]),
-    ?line [[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]] = 
-	re:split("a b c ","( )",[{parts,infinity},group]),
-    ?line [[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]] = 
-	re:split("a b c ","( )",[group]),
-    ?line [[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],
-	   [<<"c">>,<<" ">>],[<<"d">>,<<" ">>]] = 
-	re:split(" a b c d ","( +)",[group,trim]),
-    ?line [[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],
-	   [<<"c">>,<<" ">>],[<<"d">>,<<" ">>]] = 
-	re:split(" a b c d ","( +)",[{parts,0},group]),
-    ?line [[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],
-	   [<<"c">>,<<" ">>],[<<"d">>,<<" ">>],[<<>>]] =  
-	re:split(" a b c d ","( +)",[{parts,infinity},group]),
-    ?line [[<<"a">>,<<" ">>],[<<"b c d">>]] =
-	re:split("a b c d","( +)",[{parts,2},group]),
-    ?line [[[967]," "],["b c d"]] = 
-	re:split([967]++" b c d","( +)",
-		 [{parts,2},group,{return,list},unicode]),    
-    ?line [[<<207,135>>,<<" ">>],[<<"b c d">>]] = 
-	re:split([967]++" b c d","( +)",
-		 [{parts,2},group,{return,binary},unicode]),
-    ?line {'EXIT',{badarg,_}} = 
-	(catch re:split([967]++" b c d","( +)",
-		       [{parts,2},group,{return,binary}])),
-    ?line {'EXIT',{badarg,_}} = 
-	(catch re:split("a b c d","( +)",[{parts,-2}])),
-    ?line {'EXIT',{badarg,_}} = 
-	(catch re:split("a b c d","( +)",[{parts,banan}])),
-    ?line {'EXIT',{badarg,_}} = 
-	(catch re:split("a b c d","( +)",[{capture,all}])),
-    ?line {'EXIT',{badarg,_}} = 
-	(catch re:split("a b c d","( +)",[{capture,[],binary}])),
+    ok = splittest("a b c ","( )",[group,trim],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
+    ok = splittest("a b c ","( )",[group,{parts,0}],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
+    ok = splittest("a b c ","( )",[{parts,infinity},group],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]]),
+    ok = splittest("a b c ","( )",[group],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]]),
+    ok = splittest(" a b c d ","( +)",[group,trim],[[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<"d">>,<<" ">>]]),
+    ok = splittest(" a b c d ","( +)",[{parts,0},group],[[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<"d">>,<<" ">>]]),
+    ok = splittest(" a b c d ","( +)",[{parts,infinity},group],[[<<>>,<<" ">>],[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<"d">>,<<" ">>],[<<>>]]),
+    ok = splittest("a b c d","( +)",[{parts,2},group],[[<<"a">>,<<" ">>],[<<"b c d">>]]),
+    ok = splittest([967]++" b c d","( +)",[{parts,2},group,{return,list},unicode],[[[967]," "],["b c d"]]),
+    ok = splittest([967]++" b c d","( +)",[{parts,2},group,{return,binary},unicode],[[<<207,135>>,<<" ">>],[<<"b c d">>]]),
+    {'EXIT',{badarg,_}} = (catch re:split([967]++" b c d","( +)",[{parts,2},group,{return,binary}])),
+    {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{parts,-2}])),
+    {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{parts,banan}])),
+    {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{capture,all}])),
+    {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{capture,[],binary}])),
     % Parts 0 is equal to no parts specification (implicit strip)
-    ?line ["a"," ","b"," ","c"," ","d"] = 
-	re:split("a b c d","( *)",[{parts,0},{return,list}]),
+    ok = splittest("a b c d","( *)",[{parts,0},{return,list}],["a"," ","b"," ","c"," ","d"]),
     ?t:timetrap_cancel(Dog),
     ok.
     

@@ -1550,57 +1550,33 @@ unix_extra_field_and_var_from_bin(_) ->
 
 %% A pwrite-like function for iolists (used by memory-option)
 
-split_iolist(B, Pos) when is_binary(B) ->
-    split_binary(B, Pos);
-split_iolist(L, Pos) when is_list(L) ->
-    splitter([], L, Pos).
+pwrite_binary(B, Pos, Bin) when byte_size(B) =:= Pos ->
+    append_bins(Bin, B);
+pwrite_binary(B, Pos, Bin) ->
+    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
 
-splitter(Left, Right, 0) ->
-    {Left, Right};
-splitter(Left, [A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    {Leftx, Rightx} = split_iolist(A, RelPos),
-	    {[Left | Leftx], [Rightx, Right]};
-	_ ->
-	    splitter([Left | A], Right, RelPos - Sz)
-    end;
-splitter(Left, [A | Right], RelPos) when is_integer(A) ->
-    splitter([Left, A], Right, RelPos - 1);
-splitter(Left, Right, RelPos) when is_binary(Right) ->
-    splitter(Left, [Right], RelPos).
+append_bins([Bin|Bins], B) when is_binary(Bin) ->
+    append_bins(Bins, <<B/binary, Bin/binary>>);
+append_bins([List|Bins], B) when is_list(List) ->
+    append_bins(Bins, append_bins(List, B));
+append_bins(Bin, B) when is_binary(Bin) ->
+    <<B/binary, Bin/binary>>;
+append_bins([_|_]=List, B) ->
+    <<B/binary, (iolist_to_binary(List))/binary>>;
+append_bins([], B) ->
+    B.
 
-skip_iolist(B, Pos) when is_binary(B) ->
+pwrite_iolist(B, Pos, Bin) ->
+    {Left, Right} = split_binary(B, Pos),
+    Sz = erlang:iolist_size(Bin),
+    R = skip_bin(Right, Sz),
+    [Left, Bin | R].
+
+skip_bin(B, Pos) when is_binary(B) ->
     case B of
 	<<_:Pos/binary, Bin/binary>> -> Bin;
 	_ -> <<>>
-    end;
-skip_iolist(L, Pos) when is_list(L) ->
-    skipper(L, Pos).
-
-skipper(Right, 0) ->
-    Right;
-skipper([A | Right], RelPos) when is_list(A) or is_binary(A) ->
-    Sz = erlang:iolist_size(A),
-    case Sz > RelPos of
-	true ->
-	    Rightx = skip_iolist(A, RelPos),
-	    [Rightx, Right];
-	_ ->
-	    skip_iolist(Right, RelPos - Sz)
-    end;
-skipper([A | Right], RelPos) when is_integer(A) ->
-    skip_iolist(Right, RelPos - 1).
-
-pwrite_iolist(Iolist, Pos, Bin) ->
-    {Left, Right} = split_iolist(Iolist, Pos),
-    Sz = erlang:iolist_size(Bin),
-    R = skip_iolist(Right, Sz),
-    [Left, Bin | R].
-
-pwrite_binary(B, Pos, Bin) ->
-    erlang:iolist_to_binary(pwrite_iolist(B, Pos, Bin)).
+    end.
 
 
 %% ZIP header manipulations

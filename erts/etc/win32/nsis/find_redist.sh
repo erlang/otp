@@ -164,7 +164,7 @@ fi
 
 #echo $BPATH_LIST
 for BP in $BPATH_LIST; do
-    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A" "v7.0"  "v7.0A" "v7.1"; do
+    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A" "v7.0"  "v7.0A" "v7.1" "VC redist 1033"; do
 	BPATH=$BP
 	fail=false
 	allow_fail=false

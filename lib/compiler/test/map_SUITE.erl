@@ -63,7 +63,10 @@
 	%% errors in 17.0-rc1
 	t_update_values/1,
         t_expand_map_update/1,
-        t_export/1
+        t_export/1,
+
+	%% errors in 18
+        t_register_corruption/1
     ]).
 
 suite() -> [].
@@ -108,11 +111,13 @@ all() ->
 	t_build_and_match_nil,
 	t_build_and_match_structure,
 
-
 	%% errors in 17.0-rc1
 	t_update_values,
         t_expand_map_update,
-        t_export
+        t_export,
+
+	%% errors in 18
+        t_register_corruption
     ].
 
 groups() -> [].
@@ -878,6 +883,9 @@ t_update_map_expressions(Config) when is_list(Config) ->
     %% Error cases.
     {'EXIT',{{badmap,<<>>},_}} = (catch (id(<<>>))#{ a := 42, b => 2 }),
     {'EXIT',{{badmap,[]},_}} = (catch (id([]))#{ a := 42, b => 2 }),
+    {'EXIT',{{badmap,_},_}} =
+	(catch (fun t_update_map_expressions/1)#{u => 42}),
+
     ok.
 
 
@@ -1827,10 +1835,57 @@ map_guard_sequence_mixed(K1,K2,M) ->
 	#{ K1 := 1, c := 6, K2 := 8, h := 3} -> 6
     end.
 
+%% register corruption discovered in 18 due to
+%% get_map_elements might destroys registers when fail-label is taken.
+%% Only seen when patterns have two targets,
+%% specifically: we copy one register, and then jump.
+%%    {test,is_map,{f,5},[{x,1}]}.
+%%
+%%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
+%%    %% if 'a' exists but not 'b' {x,1} is overwritten, jump {f,7}
+%%
+%%    {move,{integer,1},{x,0}}.
+%%    {call_only,3,{f,10}}.
+%%
+%%  {label,7}.
+%%    {get_map_elements,{f,8},{x,1},{list,[{atom,b},{x,2}]}}.
+%%    %% {x,1} (src) is now corrupt
+%%
+%%    {move,{x,0},{x,1}}.
+%%    {move,{integer,2},{x,0}}.
+%%    {call_only,3,{f,10}}.
+%%
+%% Only happens in beam_block opt_move pass with two destinations.
+
+t_register_corruption(Config) when is_list(Config) ->
+    M = #{a=> <<"value">>, c=>3},
+    {3,wanted,<<"value">>} = register_corruption_bar(M,wanted),
+    {3,wanted,<<"value">>} = register_corruption_foo(wanted,M),
+    ok.
+
+register_corruption_foo(A,#{a := V1, b := V2}) ->
+    register_corruption_dummy_call(1,V1,V2);
+register_corruption_foo(A,#{b := V}) ->
+    register_corruption_dummy_call(2,A,V);
+register_corruption_foo(A,#{a := V}) ->
+    register_corruption_dummy_call(3,A,V).
+
+register_corruption_bar(M,A) ->
+    case M of
+        #{a := V1, b := V2} ->
+            register_corruption_dummy_call(1,V1,V2);
+        #{b := V} ->
+            register_corruption_dummy_call(2,A,V);
+        #{a := V} ->
+            register_corruption_dummy_call(3,A,V)
+    end.
+
+
+register_corruption_dummy_call(A,B,C) -> {A,B,C}.
 
 
 t_frequency_table(Config) when is_list(Config) ->
-    random:seed({13,1337,54}),  % pseudo random
+    rand:seed(exsplus, {13,1337,54}),		% pseudo random
     N = 100000,
     Ts = rand_terms(N),
     #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
@@ -1873,7 +1928,7 @@ rand_terms(0) -> [];
 rand_terms(N) -> [rand_term()|rand_terms(N-1)].
 
 rand_term() ->
-    case random:uniform(6) of
+    case rand:uniform(6) of
 	1 -> rand_binary();
 	2 -> rand_number();
 	3 -> rand_atom();
@@ -1883,21 +1938,21 @@ rand_term() ->
     end.
 
 rand_binary() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> <<>>;
 	2 -> <<"hi">>;
 	3 -> <<"message text larger than 64 bytes. yep, message text larger than 64 bytes.">>
     end.
 
 rand_number() ->
-    case random:uniform(3) of
-	1 -> random:uniform(5);
-	2 -> float(random:uniform(5));
-	3 -> 1 bsl (63 + random:uniform(3))
+    case rand:uniform(3) of
+	1 -> rand:uniform(5);
+	2 -> float(rand:uniform(5));
+	3 -> 1 bsl (63 + rand:uniform(3))
     end.
 
 rand_atom() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> hi;
 	2 -> some_atom;
 	3 -> some_other_atom
@@ -1905,21 +1960,21 @@ rand_atom() ->
 
 
 rand_tuple() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> {ok, rand_term()}; % careful
 	2 -> {1, 2, 3};
 	3 -> {<<"yep">>, 1337}
     end.
 
 rand_list() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> "hi";
 	2 -> [1,rand_term()]; % careful
 	3 -> [improper|list]
     end.
 
 rand_map() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> #{ hi => 3 };
 	2 -> #{ wat => rand_term(), other => 3 };  % careful
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }

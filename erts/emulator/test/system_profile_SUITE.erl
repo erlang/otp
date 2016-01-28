@@ -448,7 +448,7 @@ run_load(N, Pids) ->
     run_load(N - 1, [Pid | Pids]).
 
 list_load() -> 
-    ok = case math:sin(random:uniform(32451)) of
+    ok = case math:sin(rand:uniform(32451)) of
     	A when is_float(A) -> ok;
 	_ -> ok
     end,

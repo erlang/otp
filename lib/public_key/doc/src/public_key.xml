@@ -108,8 +108,9 @@
 	<p><c>| 'SubjectPublicKeyInfo'</c></p>
 	<p><c>| 'PrivateKeyInfo'</c></p>
 	<p><c>| 'CertificationRequest'</c></p>
+	<p><c>| 'CertificateList'</c></p>
 	<p><c>| 'ECPrivateKey'</c></p>
-      <p><c>| 'EcpkParameters'</c></p>
+	<p><c>| 'EcpkParameters'</c></p>
       </item>
 
       <tag><c>pem_entry () =</c></tag>
@@ -298,6 +299,37 @@
   </desc> 
   </func>
 
+  <func>
+    <name>dh_gex_group(MinSize, SuggestedSize, MaxSize, Groups) -> {ok, {Size,Group}} | {error,Error}</name>
+    <fsummary>Selects a group for Diffie-Hellman key exchange</fsummary>
+    <type>
+      <v>MinSize = positive_integer()</v>
+      <v>SuggestedSize = positive_integer()</v>
+      <v>MaxSize = positive_integer()</v>
+      <v>Groups = undefined | [{Size,[{G,P}]}]</v>
+      <v>Size = positive_integer()</v>
+      <v>Group = {G,P}</v>
+      <v>G = positive_integer()</v>
+      <v>P = positive_integer()</v>
+    </type>
+    <desc>
+      <p>Selects a group for Diffie-Hellman key exchange with the key size in the range <c>MinSize...MaxSize</c>
+      and as close to <c>SuggestedSize</c> as possible. If <c>Groups == undefined</c> a default set will be
+      used, otherwise the group is selected from <c>Groups</c>.</p>
+      <p>First a size, as close as possible to SuggestedSize, is selected. Then one group with that key size
+      is randomly selected from the specified set of groups. If no size within the limits of <c>MinSize</c>
+      and <c>MaxSize</c> is available, <c>{error,no_group_found}</c> is returned.</p>
+      <p>The default set of groups is listed in <c>lib/public_key/priv/moduli</c>. This file may be regenerated like this:</p>
+      <pre>
+	$> cd $ERL_TOP/lib/public_key/priv/
+	$> generate
+         ---- wait until all background jobs has finished. It may take several days !
+	$> cat moduli-* > moduli
+	$> cd ..; make 
+      </pre>
+    </desc>
+  </func>
+
     <func>
     <name>encrypt_private(PlainText, Key) -> binary()</name>
     <fsummary>Public-key encryption using the private key.</fsummary>
@@ -433,7 +465,7 @@
     <name>pkix_is_issuer(Cert, IssuerCert) -> boolean()</name>
     <fsummary>Checks if <c>IssuerCert</c> issued <c>Cert</c>.</fsummary>
     <type>
-      <v>Cert = der_encoded() | #'OTPCertificate'{}</v>
+      <v>Cert = der_encoded() | #'OTPCertificate'{} | #'CertificateList'{}</v>
       <v>IssuerCert = der_encoded() | #'OTPCertificate'{}</v>
   </type> 
   <desc> 
@@ -497,13 +529,13 @@
     <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
      <type>
-       <v>TrustedCert =  #'OTPCertificate'{} | der_encode() | atom()</v>
+       <v>TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</v>
        <d>Normally a trusted certificate, but it can also be a path-validation
        error that can be discovered while
        constructing the input to this function and that is to be run through the <c>verify_fun</c>.
        Examples are <c>unknown_ca</c> and <c>selfsigned_peer.</c>
        </d>
-       <v>CertChain = [der_encode()]</v>
+       <v>CertChain = [der_encoded()]</v>
        <d>A list of DER-encoded certificates in trust order ending with the peer certificate.</d>
        <v>Options = proplists:proplist()</v>
        <v>PublicKeyInfo = {?'rsaEncryption' | ?'id-dsa',
@@ -698,7 +730,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encoded()</name>
     <fsummary>Signs certificate.</fsummary>
     <type>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
+      <v>Key = rsa_private_key() | dsa_private_key()</v> 
     </type> 
     <desc> 
       <p>Signs an 'OTPTBSCertificate'. Returns the corresponding
@@ -713,7 +745,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <v>AlgorithmId = oid()</v>
       <d>Signature OID from a certificate or a certificate revocation list.</d>
       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
-      <v>SignatureType = rsa | dsa</v>
+      <v>SignatureType = rsa | dsa | ecdsa</v>
     </type>
     <desc>
       <p>Translates signature algorithm OID to Erlang digest and signature types.
@@ -726,7 +758,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <fsummary>Verifies PKIX x.509 certificate signature.</fsummary>
     <type>
       <v>Cert = der_encoded()</v>
-      <v>Key = rsa_public_key() | dsa_public_key()</v> 
+      <v>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</v> 
     </type> 
   <desc> 
     <p>Verifies PKIX x.509 certificate signature.</p>

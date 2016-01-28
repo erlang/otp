@@ -113,11 +113,15 @@ case 101: { // wxEvtHandler::Disconnect
 
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   if(eventType > 0) {
+    if(recurse_level > 1) {
+      delayed_delete->Append(Ecmd.Save());
+    } else {
      bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
                                     (wxObjectEventFunction)(wxEventFunction)
                                     &wxeEvtListener::forward,
                                     NULL, Listener);
      rt.addBool(Result);
+    }
   } else {
     rt.addAtom("badarg");
     rt.addAtom("event_type");
@@ -5856,6 +5860,7 @@ case wxScreenDC_new: { // wxScreenDC::wxScreenDC
  rt.addRef(getRef((void *)Result,memenv), "wxScreenDC");
  break;
 }
+#if wxUSE_POSTSCRIPT
 case wxPostScriptDC_new_0: { // wxPostScriptDC::wxPostScriptDC
  wxPostScriptDC * Result = new EwxPostScriptDC();
  newPtr((void *) Result, 4, memenv);
@@ -5883,6 +5888,7 @@ case wxPostScriptDC_GetResolution: { // wxPostScriptDC::GetResolution
  break;
 }
 #endif
+#endif // wxUSE_POSTSCRIPT
 #if !wxCHECK_VERSION(2,9,0)
 case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
  wxWindowDC * Result = new EwxWindowDC();
@@ -8514,6 +8520,25 @@ data = (wxObject *) getPtr(bp,memenv); bp += 4;
  rt.addRef(getRef((void *)Result,memenv), "wx");
  break;
 }
+#if wxCHECK_VERSION(3,0,0)
+case wxToolBar_AddStretchableSpace: { // wxToolBar::AddStretchableSpace
+ wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxToolBarToolBase * Result = (wxToolBarToolBase*)This->AddStretchableSpace();
+ rt.addRef(getRef((void *)Result,memenv), "wx");
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0)
+case wxToolBar_InsertStretchableSpace: { // wxToolBar::InsertStretchableSpace
+ wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
+ int * pos = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxToolBarToolBase * Result = (wxToolBarToolBase*)This->InsertStretchableSpace(*pos);
+ rt.addRef(getRef((void *)Result,memenv), "wx");
+ break;
+}
+#endif
 case wxToolBar_DeleteTool: { // wxToolBar::DeleteTool
  wxToolBar *This = (wxToolBar *) getPtr(bp,memenv); bp += 4;
  int * toolid = (int *) bp; bp += 4;
@@ -23735,8 +23760,11 @@ case wxAuiManager_DetachPane: { // wxAuiManager::DetachPane
 case wxAuiManager_GetAllPanes: { // wxAuiManager::GetAllPanes
  wxAuiManager *This = (wxAuiManager *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxAuiPaneInfoArray * Result = &This->GetAllPanes();
- rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfoArray");
+ wxAuiPaneInfoArray Result = This->GetAllPanes();
+ for(unsigned int i=0; i < Result.GetCount(); i++) {
+  rt.addRef(getRef((void *) &Result.Item(i), memenv), "wxAuiPaneInfo");
+ }
+ rt.endList(Result.GetCount());
  break;
 }
 case wxAuiManager_GetArtProvider: { // wxAuiManager::GetArtProvider
@@ -24595,6 +24623,102 @@ case wxAuiPaneInfo_Window: { // wxAuiPaneInfo::Window
  rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfo");
  break;
 }
+case wxAuiPaneInfo_GetWindow: { // wxAuiPaneInfo::GetWindow
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxWindow * Result = (wxWindow*)This->GetWindow();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxWindow* Result = This->window;
+ rt.addRef(getRef((void *)Result,memenv), "wxWindow");
+ break;
+}
+case wxAuiPaneInfo_GetFrame: { // wxAuiPaneInfo::GetFrame
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxFrame * Result = (wxFrame*)This->GetFrame();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxFrame* Result = This->frame;
+ rt.addRef(getRef((void *)Result,memenv), "wxFrame");
+ break;
+}
+case wxAuiPaneInfo_GetDirection: { // wxAuiPaneInfo::GetDirection
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetDirection();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_direction;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetLayer: { // wxAuiPaneInfo::GetLayer
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetLayer();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_layer;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetRow: { // wxAuiPaneInfo::GetRow
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetRow();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_row;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetPosition: { // wxAuiPaneInfo::GetPosition
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetPosition();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ int Result = This->dock_pos;
+ rt.addInt(Result);
+ break;
+}
+case wxAuiPaneInfo_GetFloatingPosition: { // wxAuiPaneInfo::GetFloatingPosition
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->GetFloatingPosition();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->floating_pos;
+ rt.add(Result);
+ break;
+}
+case wxAuiPaneInfo_GetFloatingSize: { // wxAuiPaneInfo::GetFloatingSize
+ wxAuiPaneInfo *This = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
+ #if 0
+;
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->GetFloatingSize();
+ #endif
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->floating_size;
+ rt.add(Result);
+ break;
+}
 #endif // wxUSE_AUI
 #if wxUSE_AUI
 case wxAuiNotebook_new_0: { // wxAuiNotebook::wxAuiNotebook
@@ -24840,8 +24964,128 @@ case wxAuiNotebook_SetUniformBitmapSize: { // wxAuiNotebook::SetUniformBitmapSiz
 }
 #endif // wxUSE_AUI
 #if wxUSE_AUI
+case wxAuiTabArt_SetFlags: { // wxAuiTabArt::SetFlags
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ unsigned int * flags = (unsigned int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetFlags(*flags);
+ break;
+}
+case wxAuiTabArt_SetMeasuringFont: { // wxAuiTabArt::SetMeasuringFont
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetMeasuringFont(*font);
+ break;
+}
+case wxAuiTabArt_SetNormalFont: { // wxAuiTabArt::SetNormalFont
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetNormalFont(*font);
+ break;
+}
+case wxAuiTabArt_SetSelectedFont: { // wxAuiTabArt::SetSelectedFont
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetSelectedFont(*font);
+ break;
+}
+#if wxCHECK_VERSION(3,0,0)
+case wxAuiTabArt_SetColour: { // wxAuiTabArt::SetColour
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ int * colourR = (int *) bp; bp += 4;
+ int * colourG = (int *) bp; bp += 4;
+ int * colourB = (int *) bp; bp += 4;
+ int * colourA = (int *) bp; bp += 4;
+ wxColour colour = wxColour(*colourR,*colourG,*colourB,*colourA);
+ if(!This) throw wxe_badarg(0);
+ This->SetColour(colour);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0)
+case wxAuiTabArt_SetActiveColour: { // wxAuiTabArt::SetActiveColour
+ wxAuiTabArt *This = (wxAuiTabArt *) getPtr(bp,memenv); bp += 4;
+ int * colourR = (int *) bp; bp += 4;
+ int * colourG = (int *) bp; bp += 4;
+ int * colourB = (int *) bp; bp += 4;
+ int * colourA = (int *) bp; bp += 4;
+ wxColour colour = wxColour(*colourR,*colourG,*colourB,*colourA);
+ if(!This) throw wxe_badarg(0);
+ This->SetActiveColour(colour);
+ break;
+}
+#endif
 #endif // wxUSE_AUI
 #if wxUSE_AUI
+case wxAuiDockArt_GetColour: { // wxAuiDockArt::GetColour
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxColour Result = This->GetColour(*id);
+ rt.add(Result);
+ break;
+}
+case wxAuiDockArt_GetFont: { // wxAuiDockArt::GetFont
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxFont * Result = new wxFont(This->GetFont(*id)); newPtr((void *) Result,3, memenv);;
+ rt.addRef(getRef((void *)Result,memenv), "wxFont");
+ break;
+}
+case wxAuiDockArt_GetMetric: { // wxAuiDockArt::GetMetric
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetMetric(*id);
+ rt.addInt(Result);
+ break;
+}
+case wxAuiDockArt_SetColour: { // wxAuiDockArt::SetColour
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ int * colourR = (int *) bp; bp += 4;
+ int * colourG = (int *) bp; bp += 4;
+ int * colourB = (int *) bp; bp += 4;
+ int * colourA = (int *) bp; bp += 4;
+ wxColour colour = wxColour(*colourR,*colourG,*colourB,*colourA);
+ if(!This) throw wxe_badarg(0);
+ This->SetColour(*id,colour);
+ break;
+}
+case wxAuiDockArt_SetFont: { // wxAuiDockArt::SetFont
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetFont(*id,*font);
+ break;
+}
+case wxAuiDockArt_SetMetric: { // wxAuiDockArt::SetMetric
+ wxAuiDockArt *This = (wxAuiDockArt *) getPtr(bp,memenv); bp += 4;
+ int * id = (int *) bp; bp += 4;
+ int * new_val = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetMetric(*id,*new_val);
+ break;
+}
+#endif // wxUSE_AUI
+#if wxUSE_AUI
+case wxAuiSimpleTabArt_new: { // wxAuiSimpleTabArt::wxAuiSimpleTabArt
+ wxAuiSimpleTabArt * Result = new wxAuiSimpleTabArt();
+ newPtr((void *) Result, 159, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxAuiSimpleTabArt");
+ break;
+}
+case wxAuiSimpleTabArt_destroy: { // wxAuiSimpleTabArt::destroy
+ wxAuiSimpleTabArt *This = (wxAuiSimpleTabArt *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
 #endif // wxUSE_AUI
 case wxMDIParentFrame_new_0: { // wxMDIParentFrame::wxMDIParentFrame
  wxMDIParentFrame * Result = new EwxMDIParentFrame();
@@ -30473,7 +30717,7 @@ case wxNotebookEvent_SetSelection: { // wxNotebookEvent::SetSelection
 }
 case wxFileDataObject_new: { // wxFileDataObject::wxFileDataObject
  wxFileDataObject * Result = new wxFileDataObject();
- newPtr((void *) Result, 212, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxFileDataObject");
  break;
 }
@@ -30509,7 +30753,7 @@ case wxTextDataObject_new: { // wxTextDataObject::wxTextDataObject
   } break;
  }};
  wxTextDataObject * Result = new wxTextDataObject(text);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextDataObject");
  break;
 }
@@ -30545,7 +30789,7 @@ case wxTextDataObject_destroy: { // wxTextDataObject::destroy
 case wxBitmapDataObject_new_1_1: { // wxBitmapDataObject::wxBitmapDataObject
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 214, memenv);
+ newPtr((void *) Result, 215, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -30557,7 +30801,7 @@ bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 214, memenv);
+ newPtr((void *) Result, 215, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -31390,7 +31634,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 226, memenv);
+ newPtr((void *) Result, 227, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31439,7 +31683,7 @@ case wxTaskBarIcon_SetIcon: { // wxTaskBarIcon::SetIcon
 }
 case wxLocale_new_0: { // wxLocale::wxLocale
  wxLocale * Result = new EwxLocale();
- newPtr((void *) Result, 230, memenv);
+ newPtr((void *) Result, 231, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLocale");
  break;
 }
@@ -31453,7 +31697,7 @@ case wxLocale_new_2: { // wxLocale::wxLocale
   } break;
  }};
  wxLocale * Result = new EwxLocale(*language,flags);
- newPtr((void *) Result, 230, memenv);
+ newPtr((void *) Result, 231, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLocale");
  break;
 }
@@ -31740,6 +31984,56 @@ case wxPopupTransientWindow_Dismiss: { // wxPopupTransientWindow::Dismiss
  break;
 }
 #endif // wxUSE_POPUPWIN
+case wxOverlay_new: { // wxOverlay::wxOverlay
+ wxOverlay * Result = new wxOverlay();
+ newPtr((void *) Result, 236, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxOverlay");
+ break;
+}
+case wxOverlay_destruct: { // wxOverlay::~wxOverlay
+ wxOverlay *This = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxOverlay_Reset: { // wxOverlay::Reset
+ wxOverlay *This = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->Reset();
+ break;
+}
+case wxDCOverlay_new_6: { // wxDCOverlay::wxDCOverlay
+ wxOverlay *overlay = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ wxWindowDC *dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
+ int * x = (int *) bp; bp += 4;
+ int * y = (int *) bp; bp += 4;
+ int * width = (int *) bp; bp += 4;
+ int * height = (int *) bp; bp += 4;
+ wxDCOverlay * Result = new EwxDCOverlay(*overlay,dc,*x,*y,*width,*height);
+ newPtr((void *) Result, 237, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxDCOverlay");
+ break;
+}
+case wxDCOverlay_new_2: { // wxDCOverlay::wxDCOverlay
+ wxOverlay *overlay = (wxOverlay *) getPtr(bp,memenv); bp += 4;
+ wxWindowDC *dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
+ wxDCOverlay * Result = new EwxDCOverlay(*overlay,dc);
+ newPtr((void *) Result, 237, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxDCOverlay");
+ break;
+}
+case wxDCOverlay_destruct: { // wxDCOverlay::~wxDCOverlay
+ wxDCOverlay *This = (wxDCOverlay *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxDCOverlay_Clear: { // wxDCOverlay::Clear
+ wxDCOverlay *This = (wxDCOverlay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->Clear();
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);
@@ -31780,11 +32074,14 @@ bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 101: delete (wxListItemAttr *) ptr; break;
   case 103: delete (wxTextAttr *) ptr; break;
   case 155: delete (wxAuiPaneInfo *) ptr; break;
-  case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 226: delete (wxLogNull *) ptr; break;
-  case 230: delete (EwxLocale *) ptr; return false;
+  case 159: /* delete (wxAuiSimpleTabArt *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 214: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 215: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 227: delete (wxLogNull *) ptr; break;
+  case 231: delete (EwxLocale *) ptr; return false;
+  case 236: delete (wxOverlay *) ptr; break;
+  case 237: delete (EwxDCOverlay *) ptr; return false;
   default: delete (wxObject *) ptr; return false;
   }
   return true;

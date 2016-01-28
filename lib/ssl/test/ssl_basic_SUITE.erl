@@ -35,7 +35,6 @@
 -include("tls_record.hrl").
 -include("tls_handshake.hrl").
 
--define('24H_in_sec', 86400).  
 -define(TIMEOUT, 20000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
@@ -96,6 +95,7 @@ options_tests() ->
     [der_input,
      misc_ssl_options,
      ssl_options_not_proplist,
+     raw_ssl_option,
      socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
@@ -129,11 +129,14 @@ api_tests() ->
      controlling_process,
      upgrade,
      upgrade_with_timeout,
+     downgrade,
+     close_with_timeout,
      shutdown,
      shutdown_write,
      shutdown_both,
      shutdown_error,
      hibernate,
+     hibernate_right_away,
      listen_socket,
      ssl_accept_timeout,
      ssl_recv_timeout,
@@ -265,12 +268,12 @@ init_per_testcase(protocol_versions, Config)  ->
     Config;
 
 init_per_testcase(reuse_session_expired, Config)  ->
-    ct:timetrap({seconds, 30}),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
     application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
+    ct:timetrap({seconds, 30}),
     Config;
 
 init_per_testcase(empty_protocol_versions, Config)  ->
@@ -303,7 +306,25 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 30}),
     Config;
-init_per_testcase(ssl_accept_timeout, Config) ->
+
+init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
+					 TestCase == psk_with_hint_cipher_suites;
+					 TestCase == ciphers_rsa_signed_certs;
+					 TestCase == ciphers_rsa_signed_certs_openssl_names;
+					 TestCase == versions_option,
+					 TestCase == tcp_connect_big ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+
+    ct:timetrap({seconds, 30}),
+    Config;
+init_per_testcase(rizzo, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 40}),
+    Config;
+
+init_per_testcase(TestCase, Config) when TestCase == ssl_accept_timeout;
+					 TestCase == client_closes_socket;
+					 TestCase == downgrade ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 15}),
     Config;
@@ -311,6 +332,14 @@ init_per_testcase(clear_pem_cache, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 20}),
     Config;
+init_per_testcase(raw_ssl_option, Config) ->
+    ct:timetrap({seconds, 5}),
+    case os:type() of
+        {unix,linux} ->
+            Config;
+        _ ->
+            {skip, "Raw options are platform-specific"}
+    end;
 
 init_per_testcase(_TestCase, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
@@ -1136,6 +1165,23 @@ ssl_options_not_proplist(Config) when is_list(Config) ->
 					 BadOption]).
 
 %%--------------------------------------------------------------------
+raw_ssl_option() ->
+    [{doc,"Ensure that a single 'raw' option is passed to ssl:listen correctly."}].
+
+raw_ssl_option(Config) when is_list(Config) ->
+    % 'raw' option values are platform-specific; these are the Linux values:
+    IpProtoTcp = 6,
+    % Use TCP_KEEPIDLE, because (e.g.) TCP_MAXSEG can't be read back reliably.
+    TcpKeepIdle = 4,
+    KeepAliveTimeSecs = 55,
+    LOptions = [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}],
+    {ok, LSocket} = ssl:listen(0, LOptions),
+    % Per http://www.erlang.org/doc/man/inet.html#getopts-2, we have to specify
+    % exactly which raw option we want, and the size of the buffer.
+    {ok, [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}]} = ssl:getopts(LSocket, [{raw, IpProtoTcp, TcpKeepIdle, 4}]).
+
+
+%%--------------------------------------------------------------------
 versions() ->
     [{doc,"Test API function versions/0"}].
 
@@ -1391,6 +1437,53 @@ upgrade_with_timeout(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+downgrade() ->
+      [{doc,"Test that you can downgarde an ssl connection to an tcp connection"}].
+downgrade(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, tls_downgrade, []}},
+					{options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, tls_downgrade, []}},
+					{options, [{active, false} |ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+close_with_timeout() ->
+      [{doc,"Test normal (not downgrade) ssl:close/2"}].
+close_with_timeout(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, tls_close, []}},
+					{options,[{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, tls_close, []}},
+					{options, [{active, false} |ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok).
+
+
+%%--------------------------------------------------------------------
 tcp_connect() ->
     [{doc,"Test what happens when a tcp tries to connect, i,e. a bad (ssl) packet is sent first"}].
 
@@ -1428,6 +1521,7 @@ tcp_connect_big(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
+    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
 						      {from, self()},
 						      {timeout, 5000},
@@ -1439,7 +1533,6 @@ tcp_connect_big(Config) when is_list(Config) ->
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
     ct:log("Testcase ~p connected to Server ~p ~n", [self(), Server]),
 
-    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     gen_tcp:send(Socket, <<?BYTE(0),
 			   ?BYTE(3), ?BYTE(1), ?UINT16(?MAX_CIPHER_TEXT_LENGTH), Rand/binary>>),
 
@@ -2831,6 +2924,43 @@ hibernate(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+
+hibernate_right_away() ->
+    [{doc,"Check that an SSL connection that is configured to hibernate "
+    "after 0 or 1 milliseconds hibernates as soon as possible and not "
+    "crashes"}].
+
+hibernate_right_away(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    StartServerOpts = [{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                    {options, ServerOpts}],
+    StartClientOpts = [return_socket,
+                    {node, ClientNode},
+                    {host, Hostname},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+
+    Server1 = ssl_test_lib:start_server(StartServerOpts),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    {Client1, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1),
+
+    Server2 = ssl_test_lib:start_server(StartServerOpts),
+    Port2 = ssl_test_lib:inet_port(Server2),
+    {Client2, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client2).
+
+%%--------------------------------------------------------------------
 listen_socket() ->
     [{doc,"Check error handling and inet compliance when calling API functions with listen sockets."}].
 
@@ -3913,6 +4043,33 @@ connect_dist_c(S) ->
     Test = binary_to_list(term_to_binary({erlang,term})),
     {ok, Test} = ssl:recv(S, 0, 10000),
     ok.
+
+tls_downgrade(Socket) ->
+    ok = ssl_test_lib:send_recv_result(Socket),
+    case ssl:close(Socket, {self(), 10000})  of
+	{ok, TCPSocket} -> 
+	    inet:setopts(TCPSocket, [{active, true}]),
+	    gen_tcp:send(TCPSocket, "Downgraded"),
+	    receive 
+		{tcp, TCPSocket, <<"Downgraded">>} ->
+		    ok;
+		{tcp_closed, TCPSocket} ->
+		    ct:pal("Peer timed out, downgrade aborted"),
+		    ok;
+		Other ->
+		   {error, Other}
+	    end;
+	{error, timeout} ->
+	    ct:pal("Timed out, downgrade aborted"),
+	    ok;
+	Fail ->
+	    {error, Fail}
+    end.
+
+tls_close(Socket) ->
+    ok = ssl_test_lib:send_recv_result(Socket),
+    ok = ssl:close(Socket, 5000).
+    
 
  %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
 treashold(N, {3,0}) ->

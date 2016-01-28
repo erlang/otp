@@ -57,13 +57,18 @@ class WxeApp : public wxApp
 {
 public:
    virtual bool OnInit();
+
+   virtual void OnAssertFailure(const wxChar *file, int line, const wxChar *func,
+				const wxChar *cond, const wxChar *msg);
+
 #ifdef  _MACOSX
   virtual void MacOpenFile(const wxString &filename);
 #endif
+
   void shutdown(wxeMetaCommand& event);
 
-  int dispatch(wxeFifo *, int, int);
-  void dispatch_cb(wxeFifo * batch, wxeFifo * temp, ErlDrvTermData process);
+  int dispatch(wxeFifo *);
+  void dispatch_cb(wxeFifo * batch, ErlDrvTermData process);
 
   void wxe_dispatch(wxeCommand& event);
 

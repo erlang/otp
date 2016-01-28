@@ -87,9 +87,10 @@
       <name name="deep_list"/>
     </datatype>
     <datatype>
-      <name><marker id="type-fd">fd()</marker></name>
+      <name>fd()</name>
       <desc>
-        <p>A file descriptor representing a file opened in <seealso
+        <p><marker id="type-fd"/>
+          A file descriptor representing a file opened in <seealso
           marker="#raw">raw</seealso> mode.</p>
       </desc>
     </datatype>
@@ -491,7 +492,7 @@
       <name name="list_dir" arity="1"/>
       <fsummary>List files in a directory</fsummary>
       <desc>
-        <p>Lists all files in a directory, <b>except</b> files
+        <p>Lists all files in a directory, <em>except</em> files
 	with "raw" names. Returns
           <c>{ok, <anno>Filenames</anno>}</c> if successful.
           Otherwise, it returns <c>{error, <anno>Reason</anno>}</c>.
@@ -1193,8 +1194,8 @@
           and <c>read_line/1</c> are the only ways to read from a file
           opened in raw mode (although they work for normally opened
           files, too).</p>
-	  <p>For files where <c>encoding</c> is set to something else than <c>latin1</c>, one character might be represented by more than one byte on the file. The parameter <c>Number</c> always denotes the number of <em>characters</em> read from the file, why the position in the file might be moved a lot more than this number when reading a Unicode file.</p>
-	  <p>Also if <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read/3</c> call will fail if the data contains characters larger than 255, why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
+	  <p>For files where <c>encoding</c> is set to something else than <c>latin1</c>, one character might be represented by more than one byte on the file. The parameter <c>Number</c> always denotes the number of <em>characters</em> read from the file, while the position in the file might be moved much more than this number when reading a Unicode file.</p>
+	  <p>Also, if <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read/3</c> call will fail if the data contains characters larger than 255, which is why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
 	  <p>The function returns:</p>
         <taglist>
           <tag><c>{ok, <anno>Data</anno>}</c></tag>
@@ -1307,15 +1308,15 @@
           <item>
             <p>The current system access to the file.</p>
           </item>
-          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
+          <tag><c>atime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was read.</p>
           </item>
-          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
+          <tag><c>mtime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was written.</p>
           </item>
-          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >=0</c></tag>
+          <tag><c>ctime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >=0</c></tag>
           <item>
             <p>The interpretation of this time field depends on
               the operating system. On Unix, it is the last time
@@ -1745,7 +1746,7 @@
 	See <seealso marker="gen_tcp#controlling_process-2">gen_tcp:controlling_process/2</seealso></p>
 	<p>If the OS used does not support sendfile, an Erlang fallback
 	using file:read and gen_tcp:send is used.</p>
-	<p>The option list can contain the following options:
+	<p>The option list can contain the following options:</p>
 	<taglist>
           <tag><c>chunk_size</c></tag>
           <item>The chunk size used by the erlang fallback to send
@@ -1760,7 +1761,6 @@
 	  the sendfile call will return <c>{error,einval}</c>.
 	  Introduced in Erlang/OTP 17.0. Default is false.</item>
 	</taglist>
-	</p>
       </desc>
     </func>
     <func>
@@ -1851,22 +1851,21 @@
 			Type <c>local</c> will interpret the time set as local, <c>universal</c> will
 			interpret it as universal time and <c>posix</c> must be seconds since
 			or before unix time epoch which is 1970-01-01 00:00 UTC.
-			Default is <c>{time, local}</c>.
+			Default is <c>{time, local}</c>.</p>
         <p>If the <c>raw</c> option is set, the file server will not be called
           and only informations about local files will be returned.</p>
-		</p>
         <p>The following fields are used from the record, if they are
           given.</p>
         <taglist>
-          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
+          <tag><c>atime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was read.</p>
           </item>
-          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
+          <tag><c>mtime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >= 0</c></tag>
           <item>
             <p>The last time the file was written.</p>
           </item>
-          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso> | integer() >= 0</c></tag>
+          <tag><c>ctime = </c><seealso marker="#type-date_time">date_time()</seealso><c> | integer() >= 0</c></tag>
           <item>
             <p>On Unix, any value give for this field will be ignored
               (the "ctime" for the file will be set to the current

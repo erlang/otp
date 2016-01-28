@@ -98,13 +98,17 @@ only_simulated() ->
      stream_once,
      stream_single_chunk,
      stream_no_length,
+     not_streamed_once,
+     stream_large_not_200_or_206,
      no_content_204,
      tolerate_missing_CR,
      userinfo,
      bad_response,
      internal_server_error,
      invalid_http,
+     invalid_chunk_size,
      headers_dummy,
+     headers_with_obs_fold,
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
@@ -407,6 +411,21 @@ stream_no_length(Config) when is_list(Config) ->
     stream_test(Request1, {stream, self}),
     Request2 = {url(group_name(Config), "/http_1_0_no_length_multiple.html", Config), []},
     stream_test(Request2, {stream, self}).
+%%-------------------------------------------------------------------------
+stream_large_not_200_or_206() ->
+    [{doc, "Test the option stream for large responses with status codes "
+      "other than 200 or 206" }].
+stream_large_not_200_or_206(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/large_404_response.html", Config), []},
+    {404, _} = not_streamed_test(Request, {stream, self}).
+%%-------------------------------------------------------------------------
+not_streamed_once() ->
+    [{doc, "Test not streamed responses with once streaming"}].
+not_streamed_once(Config) when is_list(Config) ->
+    Request0 = {url(group_name(Config), "/404.html", Config), []},
+    {404, _} = not_streamed_test(Request0, {stream, {self, once}}),
+    Request1 = {url(group_name(Config), "/404_chunked.html", Config), []},
+    {404, _} = not_streamed_test(Request1, {stream, {self, once}}).
 
 
 %%-------------------------------------------------------------------------
@@ -747,6 +766,22 @@ invalid_http(Config) when is_list(Config) ->
     ct:print("Parse error: ~p ~n", [Reason]).
 
 %%-------------------------------------------------------------------------
+
+invalid_chunk_size(doc) ->
+    ["Test parse error of HTTP chunk size"];
+invalid_chunk_size(suite) ->
+    [];
+invalid_chunk_size(Config) when is_list(Config) ->
+
+    URL = url(group_name(Config), "/invalid_chunk_size.html", Config),
+
+    {error, {chunk_size, _} = Reason} =
+	httpc:request(get, {URL, []}, [], []),
+
+    ct:print("Parse error: ~p ~n", [Reason]).
+
+%%-------------------------------------------------------------------------
+
 emulate_lower_versions(doc) ->
     [{doc, "Perform request as 0.9 and 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
@@ -890,6 +925,13 @@ headers_dummy(Config) when is_list(Config) ->
 		      ], "text/plain", FooBar},
 		     [], []).
 
+
+%%-------------------------------------------------------------------------
+
+headers_with_obs_fold(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
+    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [], []),
+    "a b" = proplists:get_value("folded", Headers).
 
 %%-------------------------------------------------------------------------
 
@@ -1108,6 +1150,19 @@ stream_test(Request, To) ->
 	end,
 
     Body = binary_to_list(StreamedBody).
+
+not_streamed_test(Request, To) ->
+    {ok, {{_,Code,_}, [_ | _], Body}} =
+	httpc:request(get, Request, [], [{body_format, binary}]),
+    {ok, RequestId} =
+	httpc:request(get, Request, [], [{body_format, binary}, {sync, false}, To]),
+
+    receive
+	{http, {RequestId, {{_, Code, _}, _Headers, Body}}} ->
+	    {Code, binary_to_list(Body)};
+	{http, Msg} ->
+	    ct:fail(Msg)
+    end.
 
 url(http, End, Config) ->
     Port = ?config(port, Config),
@@ -1640,6 +1695,11 @@ handle_uri(_,"/307.html",Port,_,Socket,_) ->
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
 
+handle_uri(_,"/404.html",_,_,_,_) ->
+    "HTTP/1.1 404 not found\r\n" ++
+	"Content-Length:14\r\n\r\n" ++
+	"Page not found";
+
 handle_uri(_,"/500.html",_,_,_,_) ->
     "HTTP/1.1 500 Internal Server Error\r\n" ++
 	"Content-Length:47\r\n\r\n" ++
@@ -1713,6 +1773,13 @@ handle_uri(_,"/dummy_headers.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/obs_folded_headers.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n"
+    "Content-Length:5\r\n"
+    "Folded: a\r\n"
+    " b\r\n\r\n"
+    "Hello";
+
 handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
 	"Transfer-Encoding:Chunked\r\n\r\n",
@@ -1768,6 +1835,15 @@ handle_uri(_,"/once_chunked.html",_,_,Socket,_) ->
 	 http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/404_chunked.html",_,_,Socket,_) ->
+    Head =  "HTTP/1.1 404 not found\r\n" ++
+	"Transfer-Encoding:Chunked\r\n\r\n",
+    send(Socket, Head),
+    send(Socket, http_chunk:encode("<HTML><BODY>Not ")),
+    send(Socket,
+	 http_chunk:encode("found</BODY></HTML>")),
+    http_chunk:encode_last();
+
 handle_uri(_,"/single_chunk.html",_,_,Socket,_) ->
     Chunk =  "HTTP/1.1 200 ok\r\n" ++
         "Transfer-Encoding:Chunked\r\n\r\n" ++
@@ -1792,6 +1868,17 @@ handle_uri(_,"/http_1_0_no_length_multiple.html",_,_,Socket,_) ->
     send(Socket, string:copies("other multiple packets ", 200)),
     close(Socket);
 
+handle_uri(_,"/large_404_response.html",_,_,Socket,_) ->
+    %% long body to make sure it will be sent in multiple tcp packets
+    Body = string:copies("other multiple packets ", 200),
+    Head = io_lib:format("HTTP/1.1 404 not found\r\n"
+                         "Content-length: ~B\r\n"
+                         "Content-type: text/plain\r\n\r\n",
+                         [length(Body)]),
+    send(Socket, Head),
+    send(Socket, Body),
+    close(Socket);
+
 handle_uri(_,"/once.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:32\r\n\r\n",
@@ -1805,6 +1892,10 @@ handle_uri(_,"/once.html",_,_,Socket,_) ->
 handle_uri(_,"/invalid_http.html",_,_,_,_) ->
     "HTTP/1.1 301\r\nDate:Sun, 09 Dec 2007 13:04:18 GMT\r\n" ++
 	"Transfer-Encoding:chunked\r\n\r\n";
+
+handle_uri(_,"/invalid_chunk_size.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"Transfer-Encoding:chunked\r\n\r\nåäö\r\n";
 
 handle_uri(_,"/missing_reason_phrase.html",_,_,_,_) ->
     "HTTP/1.1 200\r\n" ++

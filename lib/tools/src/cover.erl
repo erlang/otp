@@ -20,9 +20,7 @@
 -module(cover).
 
 %%
-%% This module implements the Erlang coverage tool. The module named
-%% cover_web implements a user interface for the coverage tool to run
-%% under webtool.
+%% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
 %% The coverage tool consists of one process on each node involved in
@@ -2437,7 +2435,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                 "\n\n"]),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
-		    MS = [{Pattern,[],[{{'$1','$2'}}]}],
+		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
 		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    

@@ -42,7 +42,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 TARGET_DIR = $(RELEASE_PATH)
 
-ifeq ($(MSYSTEM),MINGW32)
+ifdef MSYSTEM
+ ifeq ($(MSYSTEM),$(filter $(MSYSTEM),MSYS MINGW32 MINGW64))
+  USEMSYS := true
+ endif
+endif
+
+ifeq ($(USEMSYS),true)
 
   MAKENSISFLAGS = //V2
   WTESTROOT=$(shell (msys2win_path.sh "$(RELEASE_PATH)"))
@@ -63,7 +69,7 @@ else
 endif
 
 REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
-ifeq ($(MSYSTEM),MINGW32)
+ifeq ($(USEMSYS),true)
 	NICEREDISTFILE=$(shell (msys2win_path.sh -m "$(REDIST_FILE)" 2>/dev/null || echo ""))
 else
 	NICEREDISTFILE=$(shell (cygpath -d -m "$(REDIST_FILE)" 2>/dev/null || echo ""))

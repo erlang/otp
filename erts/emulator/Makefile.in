@@ -23,10 +23,6 @@ include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 -include $(TARGET)/gen_git_version.mk
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
-endif
-
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 HIPE_ENABLED=@HIPE_ENABLED@
 DTRACE_ENABLED=@DTRACE_ENABLED@
@@ -245,9 +241,7 @@ HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
 RANLIB  = @RANLIB@
-ifneq ($(findstring ose,$(TARGET)),ose)
 STRIP   = strip
-endif
 PERL    = @PERL@
 RM	= @RM@
 MKDIR	= @MKDIR@
@@ -323,7 +317,7 @@ else
 CS_CFLAGS = $(CS_CFLAGS_)
 endif
 CS_LDFLAGS = $(LDFLAGS)
-CS_LIBS = -L../lib/internal/$(TARGET) -lerts_internal$(TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+CS_LIBS = -L../lib/internal/$(TARGET) -lerts_internal$(TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ @SOCKET_LIBS@
 
 LIBS	+= @TERMCAP_LIB@ -L../lib/internal/$(TARGET) @ERTS_INTERNAL_X_LIBS@
 
@@ -404,7 +398,7 @@ EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
 else
 EMULATOR_EXECUTABLE = beam$(TF_MARKER)
 endif
-CS_EXECUTABLE = child_setup$(TYPEMARKER)
+CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
 
 # ----------------------------------------------------------------------
 
@@ -597,6 +591,7 @@ ifeq ($(TARGET),win32)
 PRELOAD_OBJ = $(OBJDIR)/beams.$(RES_EXT)
 PRELOAD_SRC = $(TARGET)/beams.rc
 $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
@@ -606,11 +601,13 @@ $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam
+
 	$(gen_verbose)LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
 else
 PRELOAD_OBJ = $(OBJDIR)/preload.o
 PRELOAD_SRC = $(TARGET)/preload.c
 $(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_eval.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
@@ -684,14 +681,6 @@ $(OBJDIR)/%.o: $(TTF_DIR)/%.c
 $(OBJDIR)/%.o: sys/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
-	$(V_CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-endif
-
 $(OBJDIR)/%.o: sys/common/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -704,11 +693,11 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 # ----------------------------------------------------------------------
 # Specials
 #
-CS_SRC = sys/$(ERLANG_OSTYPE)/erl_child_setup.c
+CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
 
-$(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_SRC) $(ERTS_LIB)
-	$(ld_verbose)$(CS_PURIFY) $(CC) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
-               $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_SRC) $(CS_LIBS)
+$(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
+	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
+               $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS)
 
 $(OBJDIR)/%.kp.o: sys/common/%.c
 	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
@@ -810,31 +799,10 @@ OS_OBJS = \
 	$(OBJDIR)/dosmap.o
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
 OS_OBJS = \
 	$(OBJDIR)/sys.o \
-	$(OBJDIR)/driver_tab.o \
-	$(OBJDIR)/ose_efile.o \
-	$(OBJDIR)/gzio.o \
-	$(OBJDIR)/elib_memmove.o
-
-OS_OBJS += $(OBJDIR)/ose_confd.o \
-	$(OBJDIR)/crt0_lm.o
-
-OS_OBJS += $(OBJDIR)/sys_float.o \
-					 $(OBJDIR)/sys_time.o
-
-DRV_OBJS = \
-	$(OBJDIR)/efile_drv.o \
-	$(OBJDIR)/ose_signal_drv.o \
-	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/zlib_drv.o \
-	$(OBJDIR)/ram_file_drv.o \
-	$(OBJDIR)/ttsl_drv.o
-
-else
-OS_OBJS = \
-	$(OBJDIR)/sys.o \
+	$(OBJDIR)/sys_drivers.o \
+	$(OBJDIR)/sys_uds.o \
 	$(OBJDIR)/driver_tab.o \
 	$(OBJDIR)/unix_efile.o \
 	$(OBJDIR)/gzio.o \
@@ -848,7 +816,6 @@ DRV_OBJS = \
 	$(OBJDIR)/zlib_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
-endif
 endif
 
 ifneq ($(STATIC_NIFS),no)
@@ -1022,18 +989,11 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(STATIC_DRIVER_LIBS) $(LIBS)
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS) $(LCF)
-	$(call build-ose-load-module, $@, $(INIT_OBJS) $(OBJS), $(STATIC_NIF_LIBS) \
-	$(STATIC_DRIVER_LIBS) $(LIBS), $(BEAM_LMCONF))
-
-else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 	$(ld_verbose)$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
 	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
-endif
 endif
 
 # ----------------------------------------------------------------------

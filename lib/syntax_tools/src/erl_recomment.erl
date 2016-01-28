@@ -611,11 +611,14 @@ expand_comment(C) ->
 	       attrs             :: erl_syntax:syntaxTreeAttributes(),
 	       precomments  = [] :: [erl_syntax:syntaxTree()],
 	       postcomments = [] :: [erl_syntax:syntaxTree()],
-	       subtrees     = [] :: [erl_syntax:syntaxTree()]}).
+	       subtrees     = [] :: [extendedSyntaxTree()]}).
+
 
 -record(list, {min = 0           :: integer(),
 	       max = 0           :: integer(),
 	       subtrees = []     :: [erl_syntax:syntaxTree()]}).
+
+-type extendedSyntaxTree() :: #tree{} | #leaf{} | #list{}.
 
 leaf_node(Min, Max, Value) ->
     #leaf{min = Min,

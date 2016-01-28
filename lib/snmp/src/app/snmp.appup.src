@@ -29,6 +29,7 @@
 %% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
 %% {add_module,  snmpm_net_if_mt}
  [
+  {"5.2", [{load_module, snmp_conf, soft_purge, soft_purge, []}]},
   {"5.1.2", [ % Only runtime dependencies change
   ]},
   {"5.1.1", [{restart_application, snmp}]},
@@ -50,6 +51,7 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
 
  [
+  {"5.2", [{load_module, snmp_conf, soft_purge, soft_purge, []}]},
   {"5.1.2", [ % Only runtime dependencies change
   ]},
   {"5.1.1", [{restart_application, snmp}]},

@@ -226,10 +226,14 @@ gen_types(Where) ->
 	    w("-type clamp() :: float().    %% 0.0..1.0~n", []),
 	    w("-type offset() :: non_neg_integer(). %% Offset in memory block~n", [])
     end,
-    w("-type matrix() :: {float(),float(),float(),float(),~n", []),
+    w("-type matrix12() :: {float(),float(),float(),float(),~n", []),
+    w("                   float(),float(),float(),float(),~n", []),
+    w("                   float(),float(),float(),float()}.~n", []),
+    w("-type matrix16() :: {float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float()}.~n", []),
+    w("-type matrix() :: matrix12() | matrix16().~n", []),
     w("-type mem() :: binary() | tuple().   %% Memory block~n", []),
     ok.
 
@@ -480,10 +484,12 @@ doc_arg_type2(T=#type{single=true}) ->
     doc_arg_type3(T);
 doc_arg_type2(T=#type{single=undefined}) ->
     doc_arg_type3(T);
-doc_arg_type2(T=#type{single={tuple,undefined}}) ->
-    "{" ++ doc_arg_type3(T) ++ "}";
+doc_arg_type2(_T=#type{single={tuple,undefined}}) ->
+    "tuple()";
 doc_arg_type2(#type{base=float, single={tuple,16}}) ->
     "matrix()";
+doc_arg_type2(#type{base=string, single=list}) ->
+    "iolist()";
 doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
 doc_arg_type2(T=#type{single=list}) ->

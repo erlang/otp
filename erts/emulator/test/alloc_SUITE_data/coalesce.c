@@ -317,3 +317,6 @@ testcase_cleanup(TestCaseState_t *tcs)
     if (tcs->extra)
 	STOP_ALC((Allctr_t *) tcs->extra);
 }
+
+ERL_NIF_INIT(coalesce, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

@@ -922,8 +922,22 @@ public class OtpOutputStream extends ByteArrayOutputStream {
                 oos.writeTo(dos);
                 dos.close(); // note: closes this, too!
             } catch (final IllegalArgumentException e) {
-                // discard further un-compressed data
-                // -> if not called, there may be memory leaks!
+                /*
+                 * Discard further un-compressed data (if not called, there may
+                 * be memory leaks).
+                 *
+                 * After calling java.util.zip.Deflater.end(), the deflater
+                 * should not be used anymore, not even the close() method of
+                 * dos. Calling dos.close() before def.end() is prevented since
+                 * an unfinished DeflaterOutputStream will try to deflate its
+                 * unprocessed data to the (fixed) byte array which is prevented
+                 * by ensureCapacity() and would also unnecessarily process
+                 * further data that is discarded anyway.
+                 *
+                 * Since we are re-using the byte array of this object below, we
+                 * must not call close() in e.g. a finally block either (with or
+                 * without a call to def.end()).
+                 */
                 def.end();
                 // could not make the value smaller than originally
                 // -> reset to starting count, write uncompressed
@@ -942,11 +956,6 @@ public class OtpOutputStream extends ByteArrayOutputStream {
                         "Intermediate stream failed for Erlang object " + o);
             } finally {
                 fixedSize = Integer.MAX_VALUE;
-                try {
-                    dos.close();
-                } catch (final IOException e) {
-                    // ignore
-                }
             }
         }
     }

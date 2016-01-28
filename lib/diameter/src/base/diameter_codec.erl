@@ -77,9 +77,10 @@ setopts(Opts)
   when is_list(Opts) ->
     lists:foreach(fun setopt/1, Opts).
 
-%% Decode stringish types to string()? The default true is for
-%% backwards compatibility.
-setopt({string_decode = K, false = B}) ->
+%% The default string_decode true is for backwards compatibility.
+setopt({K, false = B})
+  when K == string_decode;
+       K == strict_mbit ->
     setopt(K, B);
 
 %% Regard anything but the generated RFC 3588 dictionary as modern.
@@ -97,7 +98,8 @@ setopt(Key, Value) ->
 
 getopt(Key) ->
     case get({diameter, Key}) of
-        undefined when Key == string_decode ->
+        undefined when Key == string_decode;
+                       Key == strict_mbit ->
             true;
         undefined when Key == rfc ->
             6733;
@@ -657,16 +659,23 @@ split_data(Bin, Len) ->
 
 %% The normal case here is data as an #diameter_avp{} list or an
 %% iolist, which are the cases that generated codec modules use. The
-%% other case is as a convenience in the relay case in which the
+%% other cases are a convenience in the relay case in which the
 %% dictionary doesn't know about specific AVP's.
 
-%% Grouped AVP whose components need packing ...
-pack_avp([#diameter_avp{} = A | Avps]) ->
-    pack_avp(A#diameter_avp{data = Avps});
-pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Avps} = A) ->
-    pack_avp(A#diameter_avp{data = encode_avps(Avps)});
+%% Decoded Grouped AVP with decoded components: ignore components
+%% since they're already encoded in the Grouped AVP.
+pack_avp([#diameter_avp{} = Grouped | _Components]) ->
+    pack_avp(Grouped);
 
-%% ... data as a type/value tuple ...
+%% Grouped AVP whose components need packing. It's intentional that
+%% this isn't equivalent to [Grouped | Components]: here the
+%% components need to be encoded before wrapping with the Grouped AVP,
+%% and the list is flat, nesting being accomplished in the data
+%% fields.
+pack_avp(#diameter_avp{data = [#diameter_avp{} | _] = Components} = Grouped) ->
+    pack_avp(Grouped#diameter_avp{data = encode_avps(Components)});
+
+%% Data as a type/value tuple ...
 pack_avp(#diameter_avp{data = {Type, Value}} = A)
   when is_atom(Type) ->
     pack_avp(A#diameter_avp{data = diameter_types:Type(encode, Value)});

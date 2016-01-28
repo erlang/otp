@@ -80,9 +80,14 @@ if [ -n "$OUTPUT_DIRNAME" ]; then
 	exit $RES
     fi
 fi
+# MSYS2 (currently) converts the paths wrong, avoid it
+export MSYS2_ARG_CONV_EXCL=
 eval $MCC "$CMD"  >/tmp/mc.exe.${p}.1 2>/tmp/mc.exe.${p}.2
 RES=$?
-tail +2 /tmp/mc.exe.${p}.2 >&2
+if [ $RES != 0 ]; then
+    echo Failed: $MCC "$CMD" 
+fi
+tail -n +2 /tmp/mc.exe.${p}.2 >&2
 cat /tmp/mc.exe.${p}.1
 rm -f /tmp/mc.exe.${p}.2 /tmp/mc.exe.${p}.1
 exit $RES

@@ -990,10 +990,13 @@
     </p>
   </xsl:template>
 
-
   <!-- Inline elements -->
   <xsl:template match="b">
     <strong><xsl:apply-templates/></strong>
+  </xsl:template>
+
+  <xsl:template match="i">
+    <i><xsl:apply-templates/></i>
   </xsl:template>
 
   <xsl:template match="br">

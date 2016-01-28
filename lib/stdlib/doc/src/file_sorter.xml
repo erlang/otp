@@ -223,82 +223,82 @@ output(L) ->
 
   <datatypes>
     <datatype>
-      <name name="file_name"/><br/>
+      <name name="file_name"/>
     </datatype>
     <datatype>
-      <name name="file_names"/><br/>
+      <name name="file_names"/>
     </datatype>
     <datatype>
-      <name name="i_command"/><br/>
+      <name name="i_command"/>
     </datatype>
     <datatype>
-      <name name="i_reply"/><br/>
+      <name name="i_reply"/>
     </datatype>
     <datatype>
-      <name name="infun"/><br/>
+      <name name="infun"/>
     </datatype>
     <datatype>
-      <name name="input"/><br/>
+      <name name="input"/>
     </datatype>
     <datatype>
-      <name name="input_reply"/><br/>
+      <name name="input_reply"/>
     </datatype>
     <datatype>
-      <name name="o_command"/><br/>
+      <name name="o_command"/>
     </datatype>
     <datatype>
-      <name name="o_reply"/><br/>
+      <name name="o_reply"/>
     </datatype>
     <datatype>
-      <name name="object"/><br/>
+      <name name="object"/>
     </datatype>
     <datatype>
-      <name name="outfun"/><br/>
+      <name name="outfun"/>
     </datatype>
     <datatype>
-      <name name="output"/><br/>
+      <name name="output"/>
     </datatype>
     <datatype>
-      <name name="output_reply"/><br/>
+      <name name="output_reply"/>
     </datatype>
     <datatype>
-      <name name="value"/><br/>
+      <name name="value"/>
     </datatype>
     <datatype>
-      <name name="options"/><br/>
+      <name name="options"/>
     </datatype>
     <datatype>
-      <name name="option"/><br/>
+      <name name="option"/>
     </datatype>
     <datatype>
-      <name name="format"/><br/>
+      <name name="format"/>
     </datatype>
     <datatype>
-      <name name="format_fun"/><br/>
+      <name name="format_fun"/>
     </datatype>
     <datatype>
-      <name name="header_length"/><br/>
+      <name name="header_length"/>
     </datatype>
     <datatype>
-      <name name="key_pos"/><br/>
+      <name name="key_pos"/>
     </datatype>
     <datatype>
-      <name name="no_files"/><br/>
+      <name name="no_files"/>
     </datatype>
     <datatype>
-      <name name="order"/><br/>
+      <name name="order"/>
     </datatype>
     <datatype>
-      <name name="order_fun"/><br/>
+      <name name="order_fun"/>
     </datatype>
     <datatype>
-      <name name="size"/><br/>
+      <name name="size"/>
     </datatype>
     <datatype>
-      <name name="tmp_directory"/><br/>
+      <name name="tmp_directory"/>
     </datatype>
     <datatype>
-      <name name="reason"/><br/>
+      <name name="reason"/>
     </datatype>
   </datatypes>
 

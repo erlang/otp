@@ -33,7 +33,8 @@
 	 default_algorithms/0,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
-	 shell/1, shell/2, shell/3]).
+	 shell/1, shell/2, shell/3
+	]).
 
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
@@ -117,9 +118,9 @@ channel_info(ConnectionRef, ChannelId, Options) ->
     ssh_connection_handler:channel_info(ConnectionRef, ChannelId, Options).
 
 %%--------------------------------------------------------------------
--spec daemon(integer()) -> {ok, pid()}.
--spec daemon(integer(), proplists:proplist()) -> {ok, pid()}.
--spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()}.
+-spec daemon(integer()) -> {ok, pid()} | {error, term()}.
+-spec daemon(integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
+-spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 
 %% Description: Starts a server listening for SSH connections 
 %% on the given port.
@@ -234,10 +235,27 @@ start_daemon(Host, Port, Options, Inet) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions}->
-	    do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    try 
+		do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    catch
+		throw:bad_fd -> {error,bad_fd};
+		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+	    end
     end.
     
-do_start_daemon(Host, Port, Options, SocketOptions) ->
+do_start_daemon(Host0, Port0, Options, SocketOptions) ->
+    {Host,Port} = try
+	       case proplists:get_value(fd, SocketOptions) of
+		   undefined ->
+		       {Host0,Port0};
+		   Fd when Port0==0 ->
+		       find_hostport(Fd);
+		   _ ->
+		       {Host0,Port0}
+	       end
+	   catch
+	       _:_ -> throw(bad_fd)
+	   end,
     Profile = proplists:get_value(profile, Options, ?DEFAULT_PROFILE),
     case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
@@ -271,6 +289,15 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 	    end
     end.
 
+find_hostport(Fd) ->
+    %% Using internal functions inet:open/8 and inet:close/0.
+    %% Don't try this at home unless you know what you are doing!
+    {ok,S} = inet:open(Fd, {0,0,0,0}, 0, [], tcp, inet, stream, inet_tcp),
+    {ok, HostPort} = inet:sockname(S),
+    ok = inet:close(S),
+    HostPort.
+    
+
 handle_options(Opts) ->
     try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of
 	{Inet, Ssh} ->
@@ -281,32 +308,27 @@ handle_options(Opts) ->
     end.
 
 
-algs_compatibility(Os) ->
+algs_compatibility(Os0) ->
     %% Take care of old options 'public_key_alg' and 'pref_public_key_algs'
-    comp_pk(proplists:get_value(preferred_algorithms,Os),
-	    proplists:get_value(pref_public_key_algs,Os),
-	    proplists:get_value(public_key_alg, Os),
-	    [{K,V} || {K,V} <- Os,
-		      K =/= public_key_alg,
-		      K =/= pref_public_key_algs]
-	   ).
-
-comp_pk(undefined, undefined, undefined, Os) -> Os;
-comp_pk( PrefAlgs,         _,         _, Os) when PrefAlgs =/= undefined -> Os;
-
-comp_pk(undefined, undefined,   ssh_dsa, Os) -> comp_pk(undefined, undefined, 'ssh-dss', Os);
-comp_pk(undefined, undefined,   ssh_rsa, Os) -> comp_pk(undefined, undefined, 'ssh-rsa', Os);
-comp_pk(undefined, undefined,        PK, Os) -> 
-    PKs = [PK | ssh_transport:supported_algorithms(public_key)--[PK]],
-    [{preferred_algorithms, [{public_key,PKs}] } | Os];
-
-comp_pk(undefined, PrefPKs, _, Os) when PrefPKs =/= undefined ->
-    PKs = [case PK of
-	       ssh_dsa -> 'ssh-dss';
-	       ssh_rsa -> 'ssh-rsa';
-	       _ -> PK
-	   end || PK <- PrefPKs],
-    [{preferred_algorithms, [{public_key,PKs}]} | Os].
+    case proplists:get_value(public_key_alg, Os0) of
+	undefined -> 
+	    Os0;
+	A when is_atom(A) -> 
+	    %% Skip public_key_alg if pref_public_key_algs is defined:
+	    Os = lists:keydelete(public_key_alg, 1, Os0),
+	    case proplists:get_value(pref_public_key_algs,Os) of
+		undefined when A == 'ssh-rsa' ; A==ssh_rsa ->
+		    [{pref_public_key_algs,['ssh-rsa','ssh-dss']} | Os];
+		undefined when A == 'ssh-dss' ; A==ssh_dsa ->
+		    [{pref_public_key_algs,['ssh-dss','ssh-rsa']} | Os];
+		undefined ->
+		    throw({error, {eoptions, {public_key_alg,A} }});
+		_ -> 
+		    Os
+	    end;
+	V ->
+	    throw({error, {eoptions, {public_key_alg,V} }})
+    end.
 
 
 handle_option([], SocketOptions, SshOptions) ->
@@ -335,7 +357,13 @@ handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
+handle_option([{key_cb, {Module, Options}} | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({key_cb, Module}),
+                                        handle_ssh_priv_option({key_cb_private, Options}) |
+                                        SshOptions]);
+handle_option([{key_cb, Module} | Rest], SocketOptions, SshOptions) ->
+    handle_option([{key_cb, {Module, []}} | Rest], SocketOptions, SshOptions);
+handle_option([{keyboard_interact_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility
 handle_option([{allow_user_interaction, Value}  | Rest], SocketOptions, SshOptions) ->
@@ -371,7 +399,13 @@ handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_groups,_} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dh_gex_limits,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -381,17 +415,22 @@ handle_option([{rekey_limit, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{max_sessions, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{max_channels, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{negotiation_timeout, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{parallel_login, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
+%% (Is handled by proplists:unfold above:)
+%% handle_option([parallel_login|Rest], SocketOptions, SshOptions) ->
+%%     handle_option(Rest, SocketOptions, [handle_ssh_option({parallel_login,true}) | SshOptions]);
 handle_option([{minimal_remote_max_packet_size, _} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{id_string, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{profile, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{max_random_length_padding, _Bool} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
@@ -411,9 +450,80 @@ handle_ssh_option({user_interaction, Value} = Opt) when is_boolean(Value) ->
     Opt;
 handle_ssh_option({preferred_algorithms,[_|_]} = Opt) -> 
     handle_pref_algs(Opt);
+
+handle_ssh_option({dh_gex_groups,L0}) when is_list(L0) ->
+    {dh_gex_groups,
+     collect_per_size(
+       lists:foldl(
+	 fun({N,G,P}, Acc) when is_integer(N),N>0,
+				is_integer(G),G>0,
+				is_integer(P),P>0 -> 
+		 [{N,{G,P}} | Acc];
+	    ({N,{G,P}}, Acc) when is_integer(N),N>0,
+				  is_integer(G),G>0,
+				  is_integer(P),P>0 ->
+		 [{N,{G,P}} | Acc];
+	    ({N,GPs}, Acc) when is_list(GPs) ->
+		 lists:foldr(fun({Gi,Pi}, Acci) when is_integer(Gi),Gi>0,
+						     is_integer(Pi),Pi>0 -> 
+				     [{N,{Gi,Pi}} | Acci]
+			     end, Acc, GPs)
+	 end, [], L0))};
+
+handle_ssh_option({dh_gex_groups,{Tag,File=[C|_]}}=Opt) when is_integer(C), C>0,
+							      Tag == file ;
+							      Tag == ssh_moduli_file ->
+    {ok,GroupDefs} =
+	case Tag of
+	    file -> 
+		file:consult(File);
+	    ssh_moduli_file ->
+		case file:open(File,[read]) of
+		    {ok,D} ->
+			try
+			    {ok,Moduli} = read_moduli_file(D, 1, []),
+			    file:close(D),
+			    {ok, Moduli}
+			catch
+			    _:_ ->
+				throw({error, {{eoptions, Opt}, "Bad format in file "++File}})
+			end;
+		    {error,enoent} ->
+			throw({error, {{eoptions, Opt}, "File not found:"++File}});
+		    {error,Error} ->
+			throw({error, {{eoptions, Opt}, io_lib:format("Error reading file ~s: ~p",[File,Error])}})
+		end
+	end,
+
+    try
+	handle_ssh_option({dh_gex_groups,GroupDefs})
+    catch
+	_:_ ->
+	    throw({error, {{eoptions, Opt}, "Bad format in file: "++File}})
+    end;	    
+    
+
+handle_ssh_option({dh_gex_limits,{Min,Max}} = Opt) when is_integer(Min), Min>0, 
+							is_integer(Max), Max>=Min ->
+    %% Server
+    Opt;
+handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0, 
+							  is_integer(I),   I>=Min,
+							  is_integer(Max), Max>=I ->
+    %% Client
+    Opt;
+handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
+    case handle_user_pref_pubkey_algs(Value, []) of
+	{true, NewOpts} ->
+	    {pref_public_key_algs, NewOpts};
+	_ ->
+	    throw({error, {eoptions, Opt}})
+    end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
+    Opt;
+handle_ssh_option({max_channels, Value} = Opt) when is_integer(Value), Value>0 ->
     Opt;
 handle_ssh_option({negotiation_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
@@ -429,9 +539,16 @@ handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
     Opt;
 handle_ssh_option({user_passwords, Value} = Opt) when is_list(Value)->
     Opt;
-handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value) ->
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,2) ->
+    Opt;
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
+    Opt;
+handle_ssh_option({key_cb, {CallbackMod, CallbackOptions}} = Opt) when is_atom(CallbackMod),
+                                                                      is_list(CallbackOptions) ->
+    Opt;
+handle_ssh_option({keyboard_interact_fun, Value} = Opt) when is_function(Value,3) ->
     Opt;
 handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
     Opt;
@@ -489,10 +606,16 @@ handle_ssh_option({id_string, random}) ->
     {id_string, {random,2,5}}; %% 2 - 5 random characters
 handle_ssh_option({id_string, ID} = Opt) when is_list(ID) ->
     Opt;
+handle_ssh_option({max_random_length_padding, Value} = Opt) when is_integer(Value),
+								 Value =< 255 ->
+    Opt;
 handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
+
+handle_ssh_priv_option({key_cb_private, Value} = Opt) when is_list(Value) ->
+    Opt.
 
 handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "SSH has built in flow control, "
@@ -624,3 +747,46 @@ directory_exist_readable(Dir) ->
 		
 		    
 
+collect_per_size(L) ->
+    lists:foldr(
+      fun({Sz,GP}, [{Sz,GPs}|Acc]) -> [{Sz,[GP|GPs]}|Acc];
+	 ({Sz,GP}, Acc) -> [{Sz,[GP]}|Acc]
+      end, [], lists:sort(L)).
+
+read_moduli_file(D, I, Acc) ->
+    case io:get_line(D,"") of
+	{error,Error} ->
+	    {error,Error};
+	eof ->
+	    {ok, Acc};
+	"#" ++ _ -> read_moduli_file(D, I+1, Acc);
+	<<"#",_/binary>> ->  read_moduli_file(D, I+1, Acc);
+	Data ->
+	    Line = if is_binary(Data) -> binary_to_list(Data);
+		      is_list(Data) -> Data
+		   end,
+	    try
+		[_Time,_Type,_Tests,_Tries,Size,G,P] = string:tokens(Line," \r\n"),
+		M = {list_to_integer(Size),
+		     {list_to_integer(G), list_to_integer(P,16)}
+		    },
+		read_moduli_file(D, I+1, [M|Acc])
+	    catch
+		_:_ ->
+		    read_moduli_file(D, I+1, Acc)
+	    end
+    end.
+			   
+handle_user_pref_pubkey_algs([], Acc) ->
+    {true, lists:reverse(Acc)};
+handle_user_pref_pubkey_algs([H|T], Acc) ->
+    case lists:member(H, ?SUPPORTED_USER_KEYS) of
+	true ->
+	    handle_user_pref_pubkey_algs(T, [H| Acc]);
+
+	false when H==ssh_dsa -> handle_user_pref_pubkey_algs(T, ['ssh-dss'| Acc]);
+	false when H==ssh_rsa -> handle_user_pref_pubkey_algs(T, ['ssh-rsa'| Acc]);
+
+	false ->
+	    false
+    end.

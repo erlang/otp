@@ -32,6 +32,49 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 6.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix cerl_trees:label/2 bug with map K/V swap</p>
+          <p>
+	    Own Id: OTP-13091</p>
+        </item>
+        <item>
+          <p>
+	    Warnings produced when the '<c>bin_opt_info</c>' option
+	    was given could sometimes lack filenames and line
+	    numbers. (Thanks to José Valim for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13113</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>get_map_elements</c> register corruption</p>
+          <p>
+	    Instruction <c>get_map_elements</c> might destroy target
+	    registers when the fail-label is taken. Only seen for
+	    patterns with two, and only two, target registers.
+	    Specifically if we copy one register and then jump.</p>
+          <p>
+	    Own Id: OTP-12967</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 6.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -438,22 +481,28 @@
           <p>
 	    EEP43: New data type - Maps</p>
           <p>
-	    With Maps you may for instance: <taglist> <item><c>M0 =
-	    #{ a =&gt; 1, b =&gt; 2}, % create
-	    associations</c></item> <item><c>M1 = M0#{ a := 10 }, %
-	    update values</c></item> <item><c>M2 = M1#{ "hi" =&gt;
-	    "hello"}, % add new associations</c></item> <item><c>#{
-	    "hi" := V1, a := V2, b := V3} = M2. % match keys with
-	    values</c></item> </taglist></p>
+	    With Maps you may for instance:</p>
+          <taglist>
+            <tag/> <item><c>M0 = #{ a =&gt; 1, b =&gt; 2}, % create
+	      associations</c></item>
+            <tag/><item><c>M1 = M0#{ a := 10 }, % update values</c></item>
+            <tag/><item><c>M2 = M1#{ "hi" =&gt;
+	      "hello"}, % add new associations</c></item>
+            <tag/><item><c>#{ "hi" := V1, a := V2, b := V3} = M2.
+               % match keys with values</c></item>
+          </taglist>
 		<p>
 	    For information on how to use Maps please see Map Expressions in the
 		<seealso marker="doc/reference_manual:expressions#map_expressions">
 			Reference Manual</seealso>.</p>
           <p>
 	    The current implementation is without the following
-	    features: <taglist> <item>No variable keys</item>
-	    <item>No single value access</item> <item>No map
-	    comprehensions</item> </taglist></p>
+	    features:</p>
+          <taglist>
+            <tag/><item>No variable keys</item>
+	    <tag/><item>No single value access</item>
+            <tag/><item>No map comprehensions</item>
+          </taglist>
           <p>
 	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
           <p>

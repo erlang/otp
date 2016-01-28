@@ -718,14 +718,12 @@ do_terminate(int erlin_fd, int reason) {
 		print_error("Would reboot. Terminating.");
 	    else {
 		kill_old_erlang();
-		/* suppress gcc warning with 'if' */
 		ret = system(command);
 		print_error("Executed \"%s\" -> %d. Terminating.",command, ret);
 	    }
 	    free_env_val(command);
 	} else {
 	    kill_old_erlang();
-	    /* suppress gcc warning with 'if' */
 	    ret = system((char*)&cmd[0]);
 	    print_error("Executed \"%s\" -> %d. Terminating.",cmd, ret);
 	}

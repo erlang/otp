@@ -226,6 +226,17 @@ run_client(Opts) ->
 		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 		    Pid ! {self(), {error, Reason}}
 	    end;
+	{error, econnreset = Reason} ->
+	      case get(retries) of
+		N when N < 5 ->
+		    ct:log("~p:~p~neconnreset retries=~p sleep ~p",[?MODULE,?LINE, N,?SLEEP]),
+		    put(retries, N+1),
+		    ct:sleep(?SLEEP),
+		    run_client(Opts);
+	       _ ->
+		    ct:log("~p:~p~nClient faild several times: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
+		    Pid ! {self(), {error, Reason}}
+	    end;
 	{error, Reason} ->
 	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 	    Pid ! {connect_failed, Reason};
@@ -241,7 +252,21 @@ close(Pid) ->
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason])
+	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
+		
+    end.
+
+close(Pid, Timeout) ->
+    ct:log("~p:~p~n Close ~p ~n", [?MODULE,?LINE, Pid]),
+    Monitor = erlang:monitor(process, Pid),
+    Pid ! close,
+    receive
+	{'DOWN', Monitor, process, Pid, Reason} ->
+	    erlang:demonitor(Monitor),
+	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
+    after 
+	Timeout ->
+	    exit(Pid, kill)
     end.
 
 check_result(Server, ServerMsg, Client, ClientMsg) -> 
@@ -360,7 +385,7 @@ cert_options(Config) ->
     SNIServerAKeyFile = filename:join([?config(priv_dir, Config), "a.server", "key.pem"]),
     SNIServerBCertFile = filename:join([?config(priv_dir, Config), "b.server", "cert.pem"]),
     SNIServerBKeyFile = filename:join([?config(priv_dir, Config), "b.server", "key.pem"]),
-    [{client_opts, [{ssl_imp, new},{reuseaddr, true}]}, 
+    [{client_opts, []}, 
      {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
@@ -1076,6 +1101,9 @@ is_sane_ecc(openssl) ->
 	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
+	"OpenSSL 1.0.1l" ++ _ ->  
+	    %% Breaks signature verification 
+	    false;
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
 	"OpenSSL 0.9.7" ++ _ -> % Does not support ECC
@@ -1130,23 +1158,27 @@ cipher_restriction(Config0) ->
     end.
 
 check_sane_openssl_version(Version) ->
-    case {Version, os:cmd("openssl version")} of
-	{_, "OpenSSL 1.0.2" ++ _} ->
-	    true;
-	{_, "OpenSSL 1.0.1" ++ _} ->
-	    true;
-	{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
-	    false;
-	{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
-	    false;
-	{'tlsv1.2', "OpenSSL 0" ++ _} ->
-	    false;
-	{'tlsv1.1', "OpenSSL 0" ++ _} ->
-	    false;
-	{_, _} ->
-	    true
+    case supports_ssl_tls_version(Version) of 
+	true ->
+	    case {Version, os:cmd("openssl version")} of
+		{_, "OpenSSL 1.0.2" ++ _} ->
+		    true;
+		{_, "OpenSSL 1.0.1" ++ _} ->
+		    true;
+		{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
+		    false;
+		{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
+		    false;
+		{'tlsv1.2', "OpenSSL 0" ++ _} ->
+		    false;
+		{'tlsv1.1', "OpenSSL 0" ++ _} ->
+		    false;
+		{_, _} ->
+		    true
+	    end;
+	false ->
+	    false
     end.
-
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
@@ -1164,13 +1196,15 @@ wait_for_openssl_server(Port, N) ->
     end.
 
 version_flag(tlsv1) ->
-    " -tls1 ";
+    "-tls1";
 version_flag('tlsv1.1') ->
-    " -tls1_1 ";
+    "-tls1_1";
 version_flag('tlsv1.2') ->
-    " -tls1_2 ";
+    "-tls1_2";
 version_flag(sslv3) ->
-    " -ssl3 ".
+    "-ssl3";
+version_flag(sslv2) ->
+    "-ssl2".
 
 filter_suites(Ciphers0) ->
     Version = tls_record:highest_protocol_version([]),
@@ -1214,4 +1248,32 @@ close_loop(Port, Time, SentClose) ->
 		true ->
 		    ct:log("Timeout~n",[])
 	    end
+    end.
+
+portable_open_port(Exe, Args) ->
+    AbsPath = os:find_executable(Exe),
+    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
+    open_port({spawn_executable, AbsPath}, 
+	      [{args, Args}, stderr_to_stdout]). 
+
+supports_ssl_tls_version(Version) ->
+    VersionFlag = version_flag(Version),
+    Exe = "openssl",
+    Args = ["s_client", VersionFlag],
+    Port = ssl_test_lib:portable_open_port(Exe, Args),
+    do_supports_ssl_tls_version(Port).
+
+do_supports_ssl_tls_version(Port) ->
+    receive 
+	{Port, {data, "unknown option"  ++ _}} -> 
+	    false;
+	{Port, {data, Data}} ->
+	    case lists:member("error", string:tokens(Data, ":")) of
+		true ->
+		    false;
+		false ->
+		    do_supports_ssl_tls_version(Port)
+	    end
+    after 500 ->
+	    true
     end.

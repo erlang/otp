@@ -24,21 +24,23 @@
 
 <!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
                                erleval" >
-<!ENTITY % inline             "#PCDATA|c|em|term|cite|br|path|seealso|
-                               url|marker" >
+<!ENTITY % inline             "#PCDATA|c|i|em|term|cite|br|path|seealso|
+                               url|marker|anno" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
-<!ELEMENT pre                 (#PCDATA|seealso|url|input)* >
-<!ELEMENT input               (#PCDATA|seealso|url)* >
-<!ELEMENT code                (#PCDATA) >
+<!ELEMENT pre                 (#PCDATA|seealso|url|input|anno)* >
+<!ELEMENT input               (#PCDATA|seealso|url|anno)* >
+<!ELEMENT code                (#PCDATA|anno)* >
 <!ATTLIST code                type (erl|c|none) "none" >
 <!ELEMENT quote               (p)* >
 <!ELEMENT warning             (%block;|quote|br|marker)* >
 <!ELEMENT note                (%block;|quote|br|marker)* >
 <!ELEMENT dont                (%block;|quote|br|marker)* >
 <!ELEMENT do                  (%block;|quote|br|marker)* >
-<!ELEMENT c                   (#PCDATA) >
-<!ELEMENT em                  (#PCDATA|c)* >
+<!ELEMENT c                   (#PCDATA|anno)* >
+<!ELEMENT i                   (#PCDATA|c|anno)* >
+<!ELEMENT em                  (#PCDATA|c|anno)* >
+<!ELEMENT anno                (#PCDATA) >
 
 <!-- XXX -->
 <!ELEMENT term                (termdef?) >
@@ -64,13 +66,13 @@
 
 <!ELEMENT list                (item+) >
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
-<!ELEMENT taglist             (tag,item)+ >
-<!ELEMENT tag                 (#PCDATA|c|em|seealso|url|marker)* >
-<!ELEMENT item                (%inline;|%block;)* >
+<!ELEMENT taglist             (tag,item+)+ >
+<!ELEMENT tag                 (#PCDATA|c|i|em|br|seealso|url|marker|anno)* >
+<!ELEMENT item                (%inline;|%block;|warning|note|dont|do)* >
 
 <!-- References -->
 
-<!ELEMENT seealso             (#PCDATA|c|em)* >
+<!ELEMENT seealso             (#PCDATA|c|i|em|anno)* >
 <!ATTLIST seealso             marker CDATA #REQUIRED >
 <!ELEMENT url                 (#PCDATA) >
 <!ATTLIST url                 href CDATA #REQUIRED >

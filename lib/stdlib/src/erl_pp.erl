@@ -253,6 +253,8 @@ lattribute(import, Name, _Opts, _State) when is_list(Name) ->
     attr("import", [{var,a0(),pname(Name)}]);
 lattribute(import, {From,Falist}, _Opts, _State) ->
     attr("import",[{var,a0(),pname(From)},falist(Falist)]);
+lattribute(export_type, Talist, _Opts, _State) ->
+    call({var,a0(),"-export_type"}, [falist(Talist)], 0, options(none));
 lattribute(optional_callbacks, Falist, Opts, _State) ->
     ArgL = try falist(Falist)
            catch _:_ -> abstract(Falist, Opts)
@@ -321,7 +323,6 @@ ltype({type,_,'fun',[{type,_,any},_]}=FunType, _) ->
 ltype({type,_Line,'fun',[{type,_,product,_},_]}=FunType, _) ->
     [fun_type(['fun',$(], FunType),$)];
 ltype({type,Line,T,Ts}, _) ->
-    %% Compatibility. Before 18.0.
     simple_type({atom,Line,T}, Ts);
 ltype({user_type,Line,T,Ts}, _) ->
     simple_type({atom,Line,T}, Ts);
@@ -346,16 +347,8 @@ map_type(Fs) ->
 map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/2).
 
-map_pair_type({type,_Line,map_field_assoc,[Ktype,Vtype]}, Prec) ->
-    map_assoc_typed(ltype(Ktype), Vtype, Prec).
-
-map_assoc_typed(B, {type,_,union,Ts}, Prec) ->
-    {first,[B,$\s],{seq,[],[],[],map_assoc_union_type(Ts, Prec)}};
-map_assoc_typed(B, Type, Prec) ->
-    {list,[{cstep,[B," =>"],ltype(Type, Prec)}]}.
-
-map_assoc_union_type([T|Ts], Prec) ->
-    [[leaf("=> "),ltype(T)] | ltypes(Ts, fun union_elem/2, Prec)].
+map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
+    {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]}.
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
@@ -369,9 +362,6 @@ field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
 typed(B, Type) ->
     {_L,_P,R} = type_inop_prec('::'),
     {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
-
-union_elem(T, Prec) ->
-    [leaf(" | "),ltype(T, Prec)].
 
 tuple_type(Ts, F) ->
     {seq,${,$},[$,],ltypes(Ts, F, 0)}.
@@ -399,6 +389,9 @@ guard_type(Before, Gs) ->
     Gl = {list,[{step,'when',expr_list(Gs, [$,], fun constraint/2, Opts)}]},
     {list,[{step,Before,Gl}]}.
 
+constraint({type,_Line,constraint,[{atom,_,is_subtype},[{var,_,_}=V,Type]]},
+           _Opts) ->
+    typed(lexpr(V, options(none)), Type);
 constraint({type,_Line,constraint,[Tag,As]}, _Opts) ->
     simple_type(Tag, As).
 

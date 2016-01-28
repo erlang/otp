@@ -31,37 +31,13 @@
   <module>ssl</module>
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
-    <p>This module contains interface functions for the SSL.</p>
+    <p>
+      This module contains interface functions for the SSL/TLS protocol.
+      For detailed information about the supported standards see 
+      <seealso marker="ssl_app">ssl(6)</seealso>.
+    </p>
   </description>
-  
-  <section>
-    <title>SSL</title>
-
-    <list type="bulleted">
-      <item>For application dependencies see <seealso marker="ssl_app"> ssl(6)</seealso> </item>
-      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, and TLS-1.2.</item>
-      <item>For security reasons SSL-2.0 is not supported.</item>
-      <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured.</item>
-      <item>Ephemeral Diffie-Hellman cipher suites are supported,
-      but not Diffie Hellman Certificates cipher suites.</item>
-      <item>Elliptic Curve cipher suites are supported if the Crypto 
-      application supports it and named curves are used.
-      </item>
-      <item>Export cipher suites are not supported as the
-      U.S. lifted its export restrictions in early 2000.</item>
-      <item>IDEA cipher suites are not supported as they have
-      become deprecated by the latest TLS specification so it is not 
-      motivated to implement them.</item>
-      <item>CRL validation is supported.</item>
-      <item>Policy certificate extensions are not supported.</item>
-      <item>'Server Name Indication' extension client side
-      (RFC 6066, Section 3) is supported.</item>
-    </list>
- 
-  </section>
-  
+    
   <section>
     <title>DATA TYPES</title>
     <p>The following data types are used in the functions for SSL:</p>
@@ -84,11 +60,12 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><marker id="type-ssloption"></marker><c>ssloption() =</c></tag>
+      <tag><marker id="type-ssloption"/><c>ssloption() =</c></tag>
       <item>
 	<p><c>{verify, verify_type()}</c></p>
 	<p><c>| {verify_fun, {fun(), term()}}</c></p>
-	<p><c>| {fail_if_no_peer_cert, boolean()} {depth, integer()}</c></p>
+	<p><c>| {fail_if_no_peer_cert, boolean()}</c></p>
+	<p><c>| {depth, integer()}</c></p>
 	<p><c>| {cert, public_key:der_encoded()}</c></p>
 	<p><c>| {certfile, path()}</c></p>
 	<p><c>| {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' 
@@ -159,7 +136,7 @@
       <tag><c>sslsocket() =</c></tag>
       <item><p>opaque()</p></item>
 
-      <tag><c>protocol() =</c></tag>
+      <tag><marker id="type-protocol"/><c>protocol() =</c></tag>
       <item><p><c>sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'</c></p></item>
 
       <tag><c>ciphers() =</c></tag>
@@ -479,8 +456,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <p>The negotiated protocol can be retrieved using the <c>negotiated_protocol/1</c> function.</p>
       </item>
 
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c></tag>
-      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
+      <tag><c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()]}}</c><br/>
+      <c>{client_preferred_next_protocols, {Precedence :: server | client, ClientPrefs :: [binary()], Default :: binary()}}</c></tag>
 	   <item>
 	   <p>Indicates that the client is to try to perform Next Protocol
 	   Negotiation.</p>
@@ -537,7 +514,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
-      
     </taglist>
    </section>
 
@@ -663,11 +639,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
       cipher suite can encipher.
       </item>
 
-      <tag><c>{psk_identity, string()}</c></tag>
-      <item>Specifies the server identity hint the server presents to the client.
-      </item>
-      <tag><c>{log_alert, boolean()}</c></tag>
-      <item>If false, error reports will not be displayed.</item>
       <tag><c>{honor_cipher_order, boolean()}</c></tag>
       <item>If true, use the server's preference for cipher selection. If false
       (the default), use the client's preference.
@@ -766,6 +737,21 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <v>Reason = term()</v>
       </type>
       <desc><p>Closes an SSL connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
+      <fsummary>Closes an SSL connection.</fsummary>
+      <type>
+	  <v>SslSocket = sslsocket()</v>
+	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
+	  <v>Reason = term()</v>
+      </type>
+      <desc><p>Closes or downgrades an SSL connection, in the later case the transport
+      connection will be handed over to the <c>NewController</c> process after reciving
+      the TLS close alert from the peer. The retuned transport socket will have
+      the following options set [{active, false}, {packet, 0}, {mode, binary}].</p>
       </desc>
     </func>
 

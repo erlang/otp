@@ -141,12 +141,10 @@ heavier_1(Config) ->
 
     ?line ToErl = open_port({spawn,"to_erl "++Pipe}, []),
     io:format("ToErl = ~p\n", [ToErl]),
-    X = 1,
-    Y = 555,
-    Z = 42,
-    ?line random:seed(X, Y, Z),
-    SeedCmd = lists:flatten(io_lib:format("random:seed(~p, ~p, ~p). \r\n",
-					  [X,Y,Z])),
+    Seed = {1,555,42},
+    rand:seed(exsplus, Seed),
+    SeedCmd = lists:flatten(io_lib:format("rand:seed(exsplus, ~p). \r\n",
+					  [Seed])),
     ?line io:format("~p\n", [SeedCmd]),
     ?line erlang:port_command(ToErl, SeedCmd),
 
@@ -157,9 +155,9 @@ heavier_1(Config) ->
 	"F = fun(F,0) -> ok; "++
 	       "(F,N) -> " ++
 	           "io:format(\"\\\"~s\\\"~n\","++
-	                     "[[35|[random:uniform(25)+65 || " ++
+	                     "[[35|[rand:uniform(25)+65 || " ++
 	                     "_ <- lists:seq(1, "++
-	                                "random:uniform("++
+	                                "rand:uniform("++
                                              integer_to_list(MaxLen)++
                                         "))]]]), "++
 	           "F(F,N-1) "++
@@ -189,8 +187,8 @@ receive_all(Iter, ToErl, MaxLen) ->
 
 receive_all_1(0, _, _, _) -> ok;
 receive_all_1(Iter, Line, ToErl, MaxLen) ->
-    NumChars = random:uniform(MaxLen),
-    Pattern = [random:uniform(25)+65 || _ <- lists:seq(1, NumChars)],
+    NumChars = rand:uniform(MaxLen),
+    Pattern = [rand:uniform(25)+65 || _ <- lists:seq(1, NumChars)],
     receive_all_2(Iter, {NumChars,Pattern}, Line, ToErl, MaxLen).
     
 

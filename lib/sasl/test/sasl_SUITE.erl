@@ -28,10 +28,11 @@
 -export([app_test/1,
 	 appup_test/1,
 	 log_mf_h_env/1,
-	 log_file/1]).
+	 log_file/1,
+	 utc_log/1]).
 
 all() -> 
-    [log_mf_h_env, log_file, app_test, appup_test].
+    [log_mf_h_env, log_file, app_test, appup_test, utc_log].
 
 groups() -> 
     [].
@@ -182,19 +183,103 @@ log_mf_h_env(Config) ->
 log_file(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
-    ok      = filelib:ensure_dir(LogDir),
     File    = filename:join(LogDir, "file.log"),
+    ok      = filelib:ensure_dir(File),
     application:stop(sasl),
     clear_env(sasl),
 
-    ok = application:set_env(sasl,sasl_error_logger,{file, File}, [{persistent, true}]),
-    ok = application:start(sasl),
-    application:stop(sasl),
-    ok = application:set_env(sasl,sasl_error_logger,{file, File, [append]}, [{persistent, true}]),
-    ok = application:start(sasl),
-    application:stop(sasl),
-    ok = application:set_env(sasl,sasl_error_logger, tty, [{persistent, false}]),
+    _ = test_log_file(File, {file,File}),
+    _ = test_log_file(File, {file,File,[write]}),
+
+    ok = file:write_file(File, <<"=PROGRESS preserve me\n">>),
+    <<"=PROGRESS preserve me\n",_/binary>> =
+	test_log_file(File, {file,File,[append]}),
+
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
     ok = application:start(sasl).
+
+test_log_file(File, Arg) ->
+    ok = application:set_env(sasl, sasl_error_logger, Arg,
+			     [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    {ok,Bin} = file:read_file(File),
+    ok = file:delete(File),
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    io:format("~p:\n~p\n", [Arg,Lines]),
+
+    %% There must be at least four PROGRESS lines.
+    if
+	length(Lines) >= 4 -> ok;
+	true -> ?t:fail()
+    end,
+    Bin.
+
+%% Make a basic test of utc_log.
+utc_log(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    LogDir = filename:join(PrivDir, sasl_SUITE_log_dir),
+    Log = filename:join(LogDir, "utc.log"),
+    ok = filelib:ensure_dir(Log),
+
+    application:stop(sasl),
+    clear_env(sasl),
+
+    %% Test that the UTC marker gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to true.
+    ok = application:set_env(sasl, sasl_error_logger, {file,Log},
+			     [{persistent,true}]),
+    ok = application:set_env(sasl, utc_log, true, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, true),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to false.
+    ok = application:set_env(sasl, utc_log, false, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is unset.
+    ok = application:unset_env(sasl, utc_log, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Change back to the standard TTY error logger.
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+verify_utc_log(Log, UTC) ->
+    {ok,Bin} = file:read_file(Log),
+    ok = file:delete(Log),
+
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    Setting = application:get_env(sasl, utc_log),
+    io:format("utc_log ~p:\n~p\n", [Setting,Lines]),
+    Filtered = [L || L <- Lines,
+		     binary:match(L, <<" UTC ===">>) =:= nomatch],
+    %% Filtered now contains all lines WITHOUT any UTC markers.
+    case UTC of
+	false ->
+	    %% No UTC marker on the PROGRESS line.
+	    Filtered = Lines;
+	true ->
+	    %% Each PROGRESS line must have an UTC marker.
+	    [] = Filtered
+    end,
+    ok.
 
 
 %%-----------------------------------------------------------------

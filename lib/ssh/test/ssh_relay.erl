@@ -117,7 +117,7 @@ stop(Srv) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([ListenAddr, ListenPort, PeerAddr, PeerPort | Options]) ->
+init([ListenAddr, ListenPort, PeerAddr, PeerPort | _Options]) ->
     IfAddr = case ListenAddr of
 		 {0,0,0,0} ->
 		     [];

@@ -412,7 +412,6 @@ notify(Config) when is_list(Config) ->
 		  ok
 	  end,
     ?line ok = gen_event:notify(my_dummy_handler, {swap_event,dummy1_h,swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
     ?line ok = gen_event:notify(my_dummy_handler, Event),
     ?line receive
@@ -445,7 +444,6 @@ notify(Config) when is_list(Config) ->
 	  end,
     ?line ok = gen_event:notify(my_dummy_handler,
 				{swap_event, {dummy1_h, 9}, swap}),
-    ?t:sleep(1000),
     ?line [{dummy1_h,9}] = gen_event:which_handlers(my_dummy_handler),
     ?line ok = gen_event:notify(my_dummy_handler, Event),
     ?line receive
@@ -485,7 +483,6 @@ notify(Config) when is_list(Config) ->
 
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line ok = gen_event:notify(my_dummy_handler, {swap_event,dummy1_h,swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:notify(my_dummy_handler, do_crash),
@@ -496,7 +493,6 @@ notify(Config) when is_list(Config) ->
 
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line ok = gen_event:notify(my_dummy_handler, {swap_event,dummy1_h,swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:notify(my_dummy_handler, delete_event),
@@ -529,7 +525,6 @@ sync_notify(Config) when is_list(Config) ->
 	  end,
     ?line ok = gen_event:sync_notify(my_dummy_handler,
 				     {swap_event, dummy1_h, swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
     ?line ok = gen_event:sync_notify(my_dummy_handler, Event),
     ?line receive
@@ -562,7 +557,6 @@ sync_notify(Config) when is_list(Config) ->
 	  end,
     ?line ok = gen_event:sync_notify(my_dummy_handler,
 				     {swap_event, {dummy1_h, 9}, swap}),
-    ?t:sleep(1000),
     ?line [{dummy1_h,9}] = gen_event:which_handlers(my_dummy_handler),
     ?line ok = gen_event:sync_notify(my_dummy_handler, Event),
     ?line receive
@@ -603,7 +597,6 @@ sync_notify(Config) when is_list(Config) ->
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line ok = gen_event:sync_notify(my_dummy_handler,
 				     {swap_event,dummy1_h,swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:sync_notify(my_dummy_handler, do_crash),
@@ -615,7 +608,6 @@ sync_notify(Config) when is_list(Config) ->
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line ok = gen_event:sync_notify(my_dummy_handler,
 				     {swap_event,dummy1_h,swap}),
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:sync_notify(my_dummy_handler, delete_event),
@@ -789,7 +781,6 @@ info(Config) when is_list(Config) ->
 		  ok
 	  end,
     ?line my_dummy_handler ! {swap_info,dummy1_h,swap},
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
     ?line my_dummy_handler ! Info,
     ?line receive
@@ -821,7 +812,6 @@ info(Config) when is_list(Config) ->
 		  ok
 	  end,
     ?line my_dummy_handler ! {swap_info,{dummy1_h,2},swap},
-    ?t:sleep(1000),
     ?line [{dummy1_h,2}] = gen_event:which_handlers(my_dummy_handler),
     ?line my_dummy_handler ! Info,
     ?line receive
@@ -853,7 +843,6 @@ info(Config) when is_list(Config) ->
 		  ok
 	  end,
     ?line my_dummy_handler ! {swap_info,dummy1_h,swap},
-    ?t:sleep(1000),
     ?line [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
     ?line my_dummy_handler ! Info,
     ?line receive

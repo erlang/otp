@@ -739,6 +739,8 @@ encode_named_bit_string([H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
     do_encode_named_bit_string(Bits, NamedBitList, TagIn);
 encode_named_bit_string([{bit,_}|_]=Bits, NamedBitList, TagIn) ->
     do_encode_named_bit_string(Bits, NamedBitList, TagIn);
+encode_named_bit_string([], _NamedBitList, TagIn) ->
+    encode_unnamed_bit_string(<<>>, TagIn);
 encode_named_bit_string(Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
     encode_unnamed_bit_string(Bits, TagIn).
 
@@ -746,6 +748,8 @@ encode_named_bit_string(C, [H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
     do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
 encode_named_bit_string(C, [{bit,_}|_]=Bits, NamedBitList, TagIn) ->
     do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
+encode_named_bit_string(C, [], _NamedBitList, TagIn) ->
+    encode_unnamed_bit_string(C, <<>>, TagIn);
 encode_named_bit_string(C, Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
     encode_unnamed_bit_string(C, Bits, TagIn).
 

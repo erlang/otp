@@ -334,13 +334,39 @@ realm(Host) ->
 
 call(Server) ->
     Realm = realm(Server),
+    %% Include some arbitrary AVPs to exercise encode/decode, that
+    %% are received back in the STA.
+    Avps = [#diameter_avp{code = 111,
+                          data = [#diameter_avp{code = 222,
+                                                data = <<222:24>>},
+                                  #diameter_avp{code = 333,
+                                                data = <<333:16>>}]},
+            #diameter_avp{code = 444,
+                          data = <<444:24>>},
+            #diameter_avp{code = 555,
+                          data = [#diameter_avp{code = 666,
+                                                data = [#diameter_avp
+                                                        {code = 777,
+                                                         data = <<7>>}]},
+                                  #diameter_avp{code = 888,
+                                                data = <<8>>},
+                                  #diameter_avp{code = 999,
+                                                data = <<9>>}]}],
+
     Req = ['STR', {'Destination-Realm', Realm},
                   {'Destination-Host', [Server]},
                   {'Termination-Cause', ?LOGOUT},
-                  {'Auth-Application-Id', ?APP_ID}],
+                  {'Auth-Application-Id', ?APP_ID},
+                  {'AVP', Avps}],
+
     #diameter_base_STA{'Result-Code' = ?SUCCESS,
                        'Origin-Host' = Server,
-                       'Origin-Realm' = Realm}
+                       'Origin-Realm' = Realm,
+                       %% Unknown AVPs can't be decoded as Grouped since
+                       %% types aren't known.
+                       'AVP' = [#diameter_avp{code = 111},
+                                #diameter_avp{code = 444},
+                                #diameter_avp{code = 555}]}
         = call(Req, [{filter, realm}]).
 
 call(Req, Opts) ->
@@ -434,9 +460,18 @@ request(_Pkt, #diameter_caps{origin_host = {OH, _}})
 request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId,
                                                   'Origin-Host' = Host,
                                                   'Origin-Realm' = Realm,
-                                                  'Route-Record' = Route}},
+                                                  'Route-Record' = Route,
+                                                  'AVP' = Avps}},
         #diameter_caps{origin_host  = {OH, _},
                        origin_realm = {OR, _}}) ->
+
+    %% Payloads of unknown AVPs aren't decoded, so we don't know that
+    %% some types here are Grouped.
+    [#diameter_avp{code = 111, vendor_id = undefined},
+     #diameter_avp{code = 444, vendor_id = undefined, data = <<444:24>>},
+     #diameter_avp{code = 555, vendor_id = undefined}]
+        = Avps,
+
     %% The request should have the Origin-Host/Realm of the original
     %% sender.
     R = realm(?CLIENT),
@@ -447,4 +482,5 @@ request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId,
     {reply, #diameter_base_STA{'Result-Code' = ?SUCCESS,
                                'Session-Id' = SId,
                                'Origin-Host' = OH,
-                               'Origin-Realm' = OR}}.
+                               'Origin-Realm' = OR,
+                               'AVP' = Avps}}.

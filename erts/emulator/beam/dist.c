@@ -45,6 +45,8 @@
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
 
+#define DIST_CTL_DEFAULT_SIZE 64
+
 /* Turn this on to get printouts of all distribution messages
  * which go on the line
  */
@@ -66,9 +68,13 @@ static void bw(byte *buf, ErlDrvSizeT sz)
 static void
 dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
 {
+    ErtsHeapFactory factory;
+    DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
+    Eterm* ctl = ctl_default;
     byte *extp = edep->extp;
     Eterm msg;
-    Sint size = erts_decode_dist_ext_size(edep);
+    Sint ctl_len;
+    Sint size = ctl_len = erts_decode_dist_ext_size(edep);
     if (size < 0) {
 	erts_fprintf(stderr,
 		     "DIST MSG DEBUG: erts_decode_dist_ext_size(%s) failed:\n",
@@ -76,10 +82,9 @@ dist_msg_dbg(ErtsDistExternal *edep, char *what, byte *buf, int sz)
 	bw(buf, sz);
     }
     else {
-	Eterm *hp;
 	ErlHeapFragment *mbuf = new_message_buffer(size);
-	hp = mbuf->mem;
-	msg = erts_decode_dist_ext(&hp, &mbuf->off_heap, edep);
+	erts_factory_static_init(&factory, ctl, ctl_len, &mbuf->off_heap);
+	msg = erts_decode_dist_ext(&factory, edep);
 	if (is_value(msg))
 	    erts_fprintf(stderr, "    %s: %T\n", what, msg);
 	else {
@@ -373,10 +378,11 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
     ASSERT(lnk->type == LINK_NODE);
     if (is_internal_pid(lnk->pid)) {
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
-	rp = erts_pid2proc(NULL, 0, lnk->pid, rp_locks);
-	if (!rp) {
+	ErlOffHeap *ohp;
+	rp = erts_proc_lookup(lnk->pid);
+	if (!rp)
 	    goto done;
-	}
+	erts_smp_proc_lock(rp, rp_locks);
 	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
 	if (rlnk != NULL) {
 	    ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
@@ -384,12 +390,14 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	}
 	n = ERTS_LINK_REFC(lnk);
 	for (i = 0; i < n; ++i) {
-	    ErlHeapFragment* bp;
-	    ErlOffHeap *ohp;
 	    Eterm tup;
-	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
+	    Eterm *hp;
+	    ErtsMessage *msgp;
+
+	    msgp = erts_alloc_message_heap(rp, &rp_locks,
+					   3, &hp, &ohp);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, bp, tup, NIL);
+	    erts_queue_message(rp, &rp_locks, msgp, tup, NIL);
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -732,19 +740,11 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx)
     Binary* ctx_bin = erts_create_magic_binary(sizeof(struct exported_ctx),
 					       erts_dsend_context_dtor);
     struct exported_ctx* dst = ERTS_MAGIC_BIN_DATA(ctx_bin);
-    Uint ctl_size = !HALFWORD_HEAP ? 0 : (arityval(ctx->ctl_heap[0]) + 1);
-    Eterm* hp = HAlloc(p, ctl_size + PROC_BIN_SIZE);
+    Eterm* hp = HAlloc(p, PROC_BIN_SIZE);
 
     sys_memcpy(&dst->ctx, ctx, sizeof(ErtsSendContext));
     ASSERT(ctx->dss.ctl == make_tuple(ctx->ctl_heap));
-#if !HALFWORD_HEAP
     dst->ctx.dss.ctl = make_tuple(dst->ctx.ctl_heap);
-#else
-    /* Must put control tuple in low mem */
-    sys_memcpy(hp, ctx->ctl_heap,  ctl_size*sizeof(Eterm));
-    dst->ctx.dss.ctl = make_tuple(hp);
-    hp += ctl_size;
-#endif
     if (ctx->dss.acmp) {
 	sys_memcpy(&dst->acm, ctx->dss.acmp, sizeof(ErtsAtomCacheMap));
 	dst->ctx.dss.acmp = &dst->acm;
@@ -881,11 +881,7 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
     DTRACE_CHARBUF(receiver_name, 64);
 #endif
 
-    if (SEQ_TRACE_TOKEN(sender) != NIL
-#ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
-#endif
-	) {
+    if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
@@ -900,7 +896,7 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
         erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
                       "%T", remote);
         msize = size_object(message);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -942,11 +938,7 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
     DTRACE_CHARBUF(receiver_name, 128);
 #endif
 
-    if (SEQ_TRACE_TOKEN(sender) != NIL
-#ifdef USE_VM_PROBES
-	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
-#endif
-	) {
+    if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
@@ -961,7 +953,7 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
         erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -1006,11 +998,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 #endif
 
     UseTmpHeapNoproc(6);
-    if (token != NIL 
-#ifdef USE_VM_PROBES
-	&& token != am_have_dt_utag
-#endif
-	) {	
+    if (have_seqtrace(token)) {
 	seq_trace_update_send(dsdp->proc);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
 	ctl = TUPLE5(&ctl_heap[0],
@@ -1029,7 +1017,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
                       "{%T,%s}", remote, node_name);
         erts_snprintf(reason_str, sizeof(DTRACE_CHARBUF_NAME(reason_str)),
                       "%T", reason);
-        if (token != NIL && token != am_have_dt_utag) {
+        if (have_seqtrace(token)) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -1136,7 +1124,6 @@ int erts_net_message(Port *prt,
 		     byte *buf,
 		     ErlDrvSizeT len)
 {
-#define DIST_CTL_DEFAULT_SIZE 64
     ErtsDistExternal ede;
     byte *t;
     Sint ctl_len;
@@ -1149,7 +1136,6 @@ int erts_net_message(Port *prt,
     Process* rp;
     DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
     Eterm* ctl = ctl_default;
-    ErlOffHeap off_heap;
     ErtsHeapFactory factory;
     Eterm* hp;
     Sint type;
@@ -1164,9 +1150,6 @@ int erts_net_message(Port *prt,
 #endif
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    /* Thanks to Luke Gorrie */
-    off_heap.first = NULL;
-    off_heap.overhead = 0;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1227,15 +1210,15 @@ int erts_net_message(Port *prt,
     }
     hp = ctl;
 
-    erts_factory_static_init(&factory, ctl, ctl_len, &off_heap);
+    erts_factory_tmp_init(&factory, ctl, ctl_len, ERTS_ALC_T_DCTRL_BUF);
     arg = erts_decode_dist_ext(&factory, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
+	erts_fprintf(stderr, "DIST MSG DEBUG: erts_decode_dist_ext(CTL) failed:\n");
 	bw(buf, orig_len);
 #endif
 	PURIFY_MSG("data error");
-	goto data_error;
+	goto decode_error;
     }
     ctl_len = t - buf;
 
@@ -1466,7 +1449,7 @@ int erts_net_message(Port *prt,
 		ErlOffHeap *ohp;
 		ASSERT(xsize);
 		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+		ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
 		hp = heap_frag->mem;
 		ohp = &heap_frag->off_heap;
 		token = tuple[5];
@@ -1515,7 +1498,7 @@ int erts_net_message(Port *prt,
 		ErlOffHeap *ohp;
 		ASSERT(xsize);
 		heap_frag = erts_dist_ext_trailer(ede_copy);
-		ERTS_INIT_HEAP_FRAG(heap_frag, token_size);
+		ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
 		hp = heap_frag->mem;
 		ohp = &heap_frag->off_heap;
 		token = tuple[4];
@@ -1715,7 +1698,7 @@ int erts_net_message(Port *prt,
 	goto invalid_message;
     }
 
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
@@ -1728,12 +1711,13 @@ int erts_net_message(Port *prt,
 	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
- data_error:
+decode_error:
     PURIFY_MSG("data error");
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
+data_error:
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -1790,8 +1774,8 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 
     #ifdef ERTS_DIST_MSG_DBG
 	    erts_fprintf(stderr, ">>%s CTL: %T\n", ctx->pass_through_size ? "P" : " ", ctx->ctl);
-	    if (is_value(msg))
-		erts_fprintf(stderr, "    MSG: %T\n", msg);
+        if (is_value(ctx->msg))
+            erts_fprintf(stderr, "    MSG: %T\n", ctx->msg);
     #endif
 
 	    ctx->data_size = ctx->pass_through_size;
@@ -2061,9 +2045,9 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 }
 
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define ERTS_PORT_REDS_MASK__ 0x003fffffffffffffL
-#elif defined(ARCH_32) || HALFWORD_HEAP
+#elif defined(ARCH_32)
 #define ERTS_PORT_REDS_MASK__ 0x003fffff
 #else
 #  error "Ohh come on ... !?!"
@@ -2572,7 +2556,9 @@ int distribution_info(int to, void *arg)	/* Called by break handler */
     }
 
     for (dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
-	info_dist_entry(to, arg, dep, 0, 0);
+        if (dep != erts_this_dist_entry) {
+            info_dist_entry(to, arg, dep, 0, 0);
+        }
     }
 
     return(0);
@@ -2650,13 +2636,8 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     if (!net_kernel)
 	goto error;
 
-    /* By setting dist_entry==erts_this_dist_entry and DISTRIBUTION on
-       net_kernel do_net_exist will be called when net_kernel
-       is terminated !! */
-    (void) ERTS_PROC_SET_DIST_ENTRY(net_kernel,
-				    ERTS_PROC_LOCK_MAIN,
-				    erts_this_dist_entry);
-    erts_refc_inc(&erts_this_dist_entry->refc, 2);
+    /* By setting F_DISTRIBUTION on net_kernel,
+     * do_net_exist will be called when net_kernel is terminated !! */
     net_kernel->flags |= F_DISTRIBUTION;
 
     if (net_kernel != BIF_P)
@@ -3017,11 +2998,11 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
 
-    ASSERT(erts_no_of_not_connected_dist_entries >= 0);
+    ASSERT(erts_no_of_not_connected_dist_entries > 0);
     ASSERT(erts_no_of_hidden_dist_entries >= 0);
     ASSERT(erts_no_of_visible_dist_entries >= 0);
     if(not_connected)
-      length += erts_no_of_not_connected_dist_entries;
+      length += (erts_no_of_not_connected_dist_entries - 1);
     if(hidden)
       length += erts_no_of_hidden_dist_entries;
     if(visible)
@@ -3043,8 +3024,10 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 #endif
     if(not_connected)
       for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
-	result = CONS(hp, dep->sysname, result);
-	hp += 2;
+          if (dep != erts_this_dist_entry) {
+            result = CONS(hp, dep->sysname, result);
+            hp += 2;
+          }
       }
     if(hidden)
       for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
@@ -3275,11 +3258,16 @@ send_nodes_mon_msg(Process *rp,
 		   Uint sz)
 {
     Eterm msg;
-    ErlHeapFragment* bp;
+    Eterm *hp;
+    ErtsMessage *mp;
     ErlOffHeap *ohp;
-    Eterm *hp = erts_alloc_message_heap(sz, &bp, &ohp, rp, rp_locksp);
 #ifdef DEBUG
-    Eterm *hend = hp + sz;
+    Eterm *hend;
+#endif
+
+    mp = erts_alloc_message_heap(rp, rp_locksp, sz, &hp, &ohp);
+#ifdef DEBUG
+    hend = hp + sz;
 #endif
 
     if (!nmp->opts) {
@@ -3325,7 +3313,7 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
+    erts_queue_message(rp, rp_locksp, mp, msg, NIL);
 }
 
 static void

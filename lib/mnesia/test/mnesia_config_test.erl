@@ -1206,7 +1206,7 @@ dynamic_ext(Config) when is_list(Config) ->
 	    end,
     [Check(Test) || Test <- [{tab1, ram_copies},{tab2, disc_copies},{tab3, disc_only_copies}]],
     
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, mnesia:dirty_write({tab0, 42, T})),
     ?match(ok, mnesia:dirty_write({tab1, 42, T})),
     ?match(ok, mnesia:dirty_write({tab2, 42, T})),
@@ -1284,7 +1284,7 @@ check_storage(Me, Orig, Other) ->
     
     mnesia_test_lib:kill_mnesia([Orig]),
     mnesia_test_lib:kill_mnesia(Other),
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, rpc:call(Me, mnesia, dirty_write, [{tab2, 42, T}])),
     ?match(stopped, rpc:call(Me, mnesia, stop, [])),
     ?match(ok, rpc:call(Me, mnesia, start, [])),   

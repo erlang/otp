@@ -269,21 +269,23 @@ noproc_primop_interface_1(nbif_atomic_inc, hipe_atomic_inc)
 /* BIFs that disable GC while trapping are called via a wrapper
  * to reserve stack space for the "trap frame".
  */
-define(CFUN,`ifelse($1,term_to_binary_1,hipe_wrapper_term_to_binary_1,
-ifelse($1,term_to_binary_2,hipe_wrapper_term_to_binary_2,
-ifelse($1,binary_to_term_1,hipe_wrapper_binary_to_term_1,
-ifelse($1,binary_to_term_2,hipe_wrapper_binary_to_term_2,
-ifelse($1,binary_to_list_1,hipe_wrapper_binary_to_list_1,
-ifelse($1,binary_to_list_3,hipe_wrapper_binary_to_list_3,
-ifelse($1,bitstring_to_list_1,hipe_wrapper_bitstring_to_list_1,
-ifelse($1,list_to_binary_1,hipe_wrapper_list_to_binary_1,
-ifelse($1,iolist_to_binary_1,hipe_wrapper_iolist_to_binary_1,
-ifelse($1,binary_list_to_bin_1,hipe_wrapper_binary_list_to_bin_1,
-ifelse($1,list_to_bitstring_1,hipe_wrapper_list_to_bitstring_1,
-ifelse($1,send_2,hipe_wrapper_send_2,
-ifelse($1,send_3,hipe_wrapper_send_3,
-ifelse($1,ebif_bang_2,hipe_wrapper_ebif_bang_2,
-$1))))))))))))))')
+define(CFUN,`ifelse(
+$1, term_to_binary_1, hipe_wrapper_$1,
+$1, term_to_binary_2, hipe_wrapper_$1,
+$1, binary_to_term_1, hipe_wrapper_$1,
+$1, binary_to_term_2, hipe_wrapper_$1,
+$1, binary_to_list_1, hipe_wrapper_$1,
+$1, binary_to_list_3, hipe_wrapper_$1,
+$1, bitstring_to_list_1, hipe_wrapper_$1,
+$1, list_to_binary_1, hipe_wrapper_$1,
+$1, iolist_to_binary_1, hipe_wrapper_$1,
+$1, binary_list_to_bin_1, hipe_wrapper_$1,
+$1, list_to_bitstring_1, hipe_wrapper_$1,
+$1, send_2, hipe_wrapper_$1,
+$1, send_3, hipe_wrapper_$1,
+$1, ebif_bang_2, hipe_wrapper_$1,
+$1, maps_merge_2, hipe_wrapper_$1,
+$1)')
 
 define(BIF_LIST,`standard_bif_interface_$3(nbif_$4, CFUN($4))')
 include(TARGET/`erl_bif_list.h')

@@ -27,6 +27,8 @@
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
+
 
 -define(TIMEOUT, 50000).
 
@@ -65,6 +67,61 @@ daemon(Host, Port, Options) ->
     end.
 
 
+std_daemon(Config, ExtraOpts) ->
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    std_daemon1(Config, 
+		ExtraOpts ++
+		    [{user_dir, UserDir},
+		     {user_passwords, [{"usr1","pwd1"}]}]).
+
+std_daemon1(Config, ExtraOpts) ->
+    SystemDir = ?config(data_dir, Config),
+    {_Server, _Host, _Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						   {failfun, fun ssh_test_lib:failfun/2}
+						   | ExtraOpts]).
+
+std_connect(Config, Host, Port, ExtraOpts) ->
+    UserDir = ?config(priv_dir, Config),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user, "usr1"},
+					  {password, "pwd1"},
+					  {user_interaction, false}
+					  | ExtraOpts]).
+
+std_simple_sftp(Host, Port, Config) ->
+    std_simple_sftp(Host, Port, Config, []).
+
+std_simple_sftp(Host, Port, Config, Opts) ->
+    UserDir = ?config(priv_dir, Config),
+    DataFile = filename:join(UserDir, "test.data"),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    {ok, ChannelRef} = ssh_sftp:start_channel(ConnectionRef),
+    Data = crypto:rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
+    ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
+    {ok,ReadData} = file:read_file(DataFile),
+    ok = ssh:close(ConnectionRef),
+    Data == ReadData.
+
+std_simple_exec(Host, Port, Config) ->
+    std_simple_exec(Host, Port, Config, []).
+
+std_simple_exec(Host, Port, Config, Opts) ->
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
+    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
+    case ssh_test_lib:receive_exec_result(Data) of
+	expected ->
+	    ok;
+	Other ->
+	    ct:fail(Other)
+    end,
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId).
+
 
 start_shell(Port, IOServer, UserDir) ->
     start_shell(Port, IOServer, UserDir, []).
@@ -97,16 +154,18 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
-%%ct:pal("~p",[{io_request, From, ReplyAs, Request}]),
+%%ct:log("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
-%%ct:pal("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
+%%ct:log("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
 	 {'EXIT',_, _} ->
 	     erlang:display('ssh_test_lib:loop_io_server/2 EXIT'),
 	     ok
-     end.
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
 
 io_request({put_chars, Chars}, TestCase, _, _, Buff) ->
     reply(TestCase, Chars),
@@ -134,27 +193,29 @@ io_request({get_line, _Enc,_}, _, _, _, [Line | Buff]) ->
 io_reply(_, _, []) ->
     ok;
 io_reply(From, ReplyAs, Reply) ->
-%%ct:pal("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
+%%ct:log("io_reply ~p sending ~p ! ~p",[self(),From, {io_reply, ReplyAs, Reply}]),
     From ! {io_reply, ReplyAs, Reply}.
 
 reply(_, []) ->
     ok;
 reply(TestCase, Result) ->
-%%ct:pal("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
+%%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
 receive_exec_result(Msg) ->
-    ct:pal("Expect data! ~p", [Msg]),
+    ct:log("Expect data! ~p", [Msg]),
     receive
 	{ssh_cm,_,{data,_,1, Data}} ->
-	    ct:pal("StdErr: ~p~n", [Data]),
+	    ct:log("StdErr: ~p~n", [Data]),
 	    receive_exec_result(Msg);
 	Msg ->
-	    ct:pal("1: Collected data ~p", [Msg]),
+	    ct:log("1: Collected data ~p", [Msg]),
 	    expected;
 	Other ->
-	    ct:pal("Other ~p", [Other]),
+	    ct:log("Other ~p", [Other]),
 	    {unexpected_msg, Other}
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
 
@@ -165,15 +226,15 @@ receive_exec_end(ConnectionRef, ChannelId) ->
     case receive_exec_result(ExitStatus) of
 	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
 	    %% in the same order!
-	    ct:pal("2: Collected data ~p", [Eof]),
+	    ct:log("2: Collected data ~p", [Eof]),
 	    case receive_exec_result(ExitStatus) of
 		expected ->
 		    expected = receive_exec_result(Closed);
 		{unexpected_msg, Closed} ->
-		    ct:pal("3: Collected data ~p", [Closed])
+		    ct:log("3: Collected data ~p", [Closed])
 	    end;
 	expected ->
-	    ct:pal("4: Collected data ~p", [ExitStatus]),
+	    ct:log("4: Collected data ~p", [ExitStatus]),
 	    expected = receive_exec_result(Eof),
 	    expected = receive_exec_result(Closed);
 	Other ->
@@ -235,6 +296,7 @@ setup_dsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
     
@@ -243,9 +305,20 @@ setup_rsa(DataDir, UserDir) ->
     System = filename:join(UserDir, "system"),
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key.pub")),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_rsa_known_host(DataDir, UserDir),
     setup_rsa_auth_keys(DataDir, UserDir).
+
+setup_ecdsa(Size, DataDir, UserDir) ->
+    file:copy(filename:join(DataDir, "id_ecdsa"++Size), filename:join(UserDir, "id_ecdsa")),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+    setup_ecdsa_known_host(Size, System, UserDir),
+    setup_ecdsa_auth_keys(Size, UserDir, UserDir).
 
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
@@ -298,6 +371,11 @@ setup_rsa_known_host(SystemDir, UserDir) ->
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
     setup_known_hosts(Key, UserDir).
 
+setup_ecdsa_known_host(_Size, SystemDir, UserDir) ->
+    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_ecdsa_key.pub")),
+    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+    setup_known_hosts(Key, UserDir).
+
 setup_known_hosts(Key, UserDir) ->
     {ok, Hostname} = inet:gethostname(),
     {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
@@ -324,6 +402,14 @@ setup_rsa_auth_keys(Dir, UserDir) ->
     #'RSAPrivateKey'{publicExponent = E, modulus = N} = RSA,
     PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
     setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
+
+setup_ecdsa_auth_keys(_Size, Dir, UserDir) ->
+    {ok, Pem} = file:read_file(filename:join(Dir, "id_ecdsa")),
+    ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
+    #'ECPrivateKey'{publicKey = Q,
+		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
+    PKey = #'ECPoint'{point = Q},
+    setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
@@ -371,4 +457,237 @@ openssh_sanity_check(Config) ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
 	    ssh:stop(),
 	    {skip, Str}
+    end.
+
+openssh_supports(ClientOrServer, Tag, Alg) when ClientOrServer == sshc ;
+						ClientOrServer == sshd ->
+    SSH_algos = ssh_test_lib:default_algorithms(ClientOrServer),
+    L = proplists:get_value(Tag, SSH_algos, []),
+    lists:member(Alg, L) orelse 
+	lists:member(Alg, proplists:get_value(client2server, L, [])) orelse
+	lists:member(Alg, proplists:get_value(server2client, L, [])).
+
+%%--------------------------------------------------------------------
+%% Check if we have a "newer" ssh client that supports these test cases
+
+ssh_client_supports_Q() ->
+    ErlPort = open_port({spawn, "ssh -Q cipher"}, [exit_status, stderr_to_stdout]),
+    0 == check_ssh_client_support2(ErlPort).
+
+check_ssh_client_support2(P) ->
+    receive
+	{P, {data, _A}} ->
+	    check_ssh_client_support2(P);
+	{P, {exit_status, E}} ->
+	    E
+    after 5000 ->
+
+	    ct:log("Openssh command timed out ~n"),
+	    -1
+    end.
+
+%%%--------------------------------------------------------------------
+%%% Probe a server or a client about algorithm support
+
+default_algorithms(sshd) ->
+    default_algorithms(sshd, "localhost", 22);
+
+default_algorithms(sshc) ->
+    default_algorithms(sshc, []).
+
+default_algorithms(sshd, Host, Port) ->
+    try run_fake_ssh(
+	  ssh_trpt_test_lib:exec(
+	    [{connect,Host,Port, [{silently_accept_hosts, true},
+				  {user_interaction, false}]}]))
+    catch
+	_C:_E ->
+	    ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+	    []
+    end.
+
+default_algorithms(sshc, DaemonOptions) ->
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Srvr =
+	spawn_link(
+	  fun() ->
+		  Parent ! 
+		      {result, self(),
+		       try
+			   {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+			   Parent ! {hostport,self(),ssh_trpt_test_lib:server_host_port(InitialState)},
+			   run_fake_ssh(
+			     ssh_trpt_test_lib:exec([{accept, DaemonOptions}],
+						    InitialState))
+		       catch
+			   _C:_E ->
+			       ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+			       []
+		       end}
+	  end),
+   
+    receive
+	{hostport,Srvr,{_Host,Port}} ->
+	    spawn(fun()-> os:cmd(lists:concat(["ssh -o \"StrictHostKeyChecking no\" -p ",Port," localhost"])) end)
+    after ?TIMEOUT ->
+	    ct:fail("No server respons 1")
+    end,
+
+    receive
+	{result,Srvr,L} ->
+	    L
+    after ?TIMEOUT ->
+	    ct:fail("No server respons 2")
+    end.
+
+run_fake_ssh({ok,InitialState}) ->
+    KexInitPattern =
+	#ssh_msg_kexinit{
+	   kex_algorithms = '$kex_algorithms',
+	   server_host_key_algorithms = '$server_host_key_algorithms',
+	   encryption_algorithms_client_to_server = '$encryption_algorithms_client_to_server',
+	   encryption_algorithms_server_to_client = '$encryption_algorithms_server_to_client',
+	   mac_algorithms_client_to_server = '$mac_algorithms_client_to_server',
+	   mac_algorithms_server_to_client = '$mac_algorithms_server_to_client',
+	   compression_algorithms_client_to_server = '$compression_algorithms_client_to_server',
+	   compression_algorithms_server_to_client = '$compression_algorithms_server_to_client',
+	   _ = '_'
+	  },
+    {ok,E} = ssh_trpt_test_lib:exec([{set_options,[silent]},
+				     {send, hello},
+				     receive_hello,
+				     {send, ssh_msg_kexinit},
+				     {match, KexInitPattern, receive_msg},
+				     close_socket
+				    ],
+				    InitialState),
+     [Kex, PubKey, EncC2S, EncS2C, MacC2S, MacS2C, CompC2S, CompS2C] =
+	ssh_trpt_test_lib:instantiate(['$kex_algorithms',
+				       '$server_host_key_algorithms',
+				       '$encryption_algorithms_client_to_server',
+				       '$encryption_algorithms_server_to_client',
+				       '$mac_algorithms_client_to_server',
+				       '$mac_algorithms_server_to_client',
+				       '$compression_algorithms_client_to_server',
+				       '$compression_algorithms_server_to_client'
+				      ], E),
+    [{kex, to_atoms(Kex)},
+     {public_key, to_atoms(PubKey)},
+     {cipher, [{client2server, to_atoms(EncC2S)},
+	       {server2client, to_atoms(EncS2C)}]},
+     {mac, [{client2server, to_atoms(MacC2S)},
+	    {server2client, to_atoms(MacS2C)}]},
+     {compression, [{client2server, to_atoms(CompC2S)},
+		    {server2client, to_atoms(CompS2C)}]}].
+    
+
+%%%----------------------------------------------------------------
+extract_algos(Spec) ->
+    [{Tag,get_atoms(List)} || {Tag,List} <- Spec].
+
+get_atoms(L) ->
+    lists:usort(
+      [ A || X <- L,
+	     A <- case X of
+		      {_,L1} when is_list(L1) -> L1;
+		      Y when is_atom(Y) -> [Y]
+		  end]).
+
+
+intersection(AlgoSpec1, AlgoSpec2) -> intersect(sort_spec(AlgoSpec1), sort_spec(AlgoSpec2)).
+
+intersect([{Tag,S1}|Ss1], [{Tag,S2}|Ss2]) ->
+    [{Tag,intersect(S1,S2)} | intersect(Ss1,Ss2)];
+intersect(L1=[A1|_], L2=[A2|_]) when is_atom(A1),is_atom(A2) -> 
+    Diff = L1 -- L2,
+    L1 -- Diff;
+intersect(_, _) -> 
+    [].
+
+intersect_bi_dir([{Tag,[{client2server,L1},{server2client,L2}]}|T]) ->
+    [{Tag,intersect(L1,L2)} | intersect_bi_dir(T)];
+intersect_bi_dir([H={_,[A|_]}|T]) when is_atom(A) ->
+    [H | intersect_bi_dir(T)];
+intersect_bi_dir([]) ->
+    [].
+    
+
+sort_spec(L = [{_,_}|_] ) ->  [{Tag,sort_spec(Es)} || {Tag,Es} <- L];
+sort_spec(L) -> lists:usort(L).
+
+%%--------------------------------------------------------------------
+sshc(Tag) -> 
+    to_atoms(
+      string:tokens(os:cmd(lists:concat(["ssh -Q ",Tag])), "\n")
+     ).
+
+ssh_type() ->
+     case os:find_executable("ssh") of
+	 false -> not_found;
+	 _ ->
+	     case os:cmd("ssh -V") of
+		 "OpenSSH" ++ _ ->
+		     openSSH;
+		 Str -> 
+		     ct:log("ssh client ~p is unknown",[Str]),
+		     unknown
+	     end
+     end.
+
+algo_intersection([], _) -> [];
+algo_intersection(_, []) -> [];
+algo_intersection(L1=[A1|_], L2=[A2|_]) when is_atom(A1), is_atom(A2) -> 
+    true = lists:all(fun erlang:is_atom/1, L1++L2),
+    lists:foldr(fun(A,Acc) ->
+			case lists:member(A,L2) of
+			    true -> [A|Acc];
+			    false -> Acc
+			end
+		end, [], L1);
+algo_intersection([{K,V1}|T1], L2) ->
+    case lists:keysearch(K,1,L2) of
+	{value, {K,V2}} ->
+	    [{K,algo_intersection(V1,V2)} | algo_intersection(T1,L2)];
+	false ->
+	    algo_intersection(T1,L2)
+    end;
+algo_intersection(_, _) ->
+    [].
+
+
+to_atoms(L) -> lists:map(fun erlang:list_to_atom/1, L).
+    
+%%%----------------------------------------------------------------    
+ssh_supports(Alg, SshDefaultAlg_tag) ->
+    SupAlgs = 
+	case proplists:get_value(SshDefaultAlg_tag,
+				 ssh:default_algorithms()) of
+	    [{_K1,L1}, {_K2,L2}] ->
+		lists:usort(L1++L2);
+	    L ->
+		L
+	end,
+    if 
+	is_atom(Alg) ->
+	    lists:member(Alg, SupAlgs);
+	is_list(Alg) ->
+	    case Alg--SupAlgs of
+		[] ->
+		    true;
+		UnSup ->
+		    {false,UnSup}
+	    end
+    end.
+
+%%%----------------------------------------------------------------
+has_inet6_address() ->
+    try 
+	[throw(6) || {ok,L} <- [inet:getifaddrs()],
+		     {_,L1} <- L,
+		     {addr,{_,_,_,_,_,_,_,_}} <- L1]
+    of
+	[] -> false
+    catch
+	throw:6 -> true
     end.

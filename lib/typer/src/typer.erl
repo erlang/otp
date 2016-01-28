@@ -1012,15 +1012,7 @@ compile_error(Reason) ->
 -spec msg(string()) -> 'ok'.
 
 msg(Msg) ->
-  case os:type() of
-    {unix, _} -> % Output a message on 'stderr', if possible
-      P = open_port({fd, 0, 2}, [out]),
-      port_command(P, Msg),
-      true = port_close(P),
-      ok;
-    _ ->  % win32
-      io:format("~s", [Msg])
-  end.
+  io:format(standard_error, "~s", [Msg]).
 
 %%--------------------------------------------------------------------
 %% Version and help messages.

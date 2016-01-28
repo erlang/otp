@@ -33,7 +33,7 @@
 
 -export_type([anno_term/0]).
 
--define(LN(L), is_integer(L)).
+-define(LN(L), is_integer(L), L >= 0).
 -define(COL(C), (is_integer(C) andalso C >= 1)).
 
 %% Location.
@@ -52,13 +52,13 @@
                     | {'record', record()}
                     | {'text', string()}.
 
--type anno() :: location() | [annotation(), ...].
+-opaque anno() :: location() | [annotation(), ...].
 -type anno_term() :: term().
 
 -type column() :: pos_integer().
 -type generated() :: boolean().
 -type filename() :: file:filename_all().
--type line() :: integer().
+-type line() :: non_neg_integer().
 -type location() :: line() | {line(), column()}.
 -type record() :: boolean().
 -type text() :: string().
@@ -90,9 +90,13 @@ to_term(Anno) ->
 -ifdef(DEBUG).
 from_term(Term) when is_list(Term) ->
     Term;
+from_term(Line) when is_integer(Line), Line < 0 -> % Before OTP 19
+    set_generated(true, new(-Line));
 from_term(Term) ->
     [{location, Term}].
 -else.
+from_term(Line) when is_integer(Line), Line < 0 -> % Before OTP 19
+    set_generated(true, new(-Line));
 from_term(Term) ->
     Term.
 -endif.
@@ -198,18 +202,11 @@ file(Anno) ->
       Anno :: anno().
 
 generated(Line) when ?ALINE(Line) ->
-    Line =< 0;
+    false;
 generated({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
-    Line =< 0;
+    false;
 generated(Anno) ->
-    _ = anno_info(Anno, generated, false),
-    {location, Location} = lists:keyfind(location, 1, Anno),
-    case Location of
-        {Line, _Column} ->
-            Line =< 0;
-        Line ->
-            Line =< 0
-    end.
+    anno_info(Anno, generated, false).
 
 -spec line(Anno) -> line() when
       Anno :: anno().
@@ -226,18 +223,11 @@ line(Anno) ->
       Anno :: anno().
 
 location(Line) when ?ALINE(Line) ->
-    abs(Line);
-location({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
-    {abs(Line), Column};
+    Line;
+location({Line, Column}=Location) when ?ALINE(Line), ?ACOLUMN(Column) ->
+    Location;
 location(Anno) ->
-    case anno_info(Anno, location) of
-        Line when Line < 0 ->
-            -Line;
-        {Line, Column} when Line < 0 ->
-            {-Line, Column};
-        Location ->
-            Location
-    end.
+    anno_info(Anno, location).
 
 -spec record(Anno) -> record() when
       Anno :: anno().
@@ -270,31 +260,8 @@ set_file(File, Anno) ->
       Generated :: generated(),
       Anno :: anno().
 
-set_generated(true, Line) when ?ALINE(Line) ->
-    -abs(Line);
-set_generated(false, Line) when ?ALINE(Line) ->
-    abs(Line);
-set_generated(true, {Line, Column}) when ?ALINE(Line),
-                                         ?ACOLUMN(Column) ->
-    {-abs(Line),Column};
-set_generated(false, {Line, Column}) when ?ALINE(Line),
-                                          ?ACOLUMN(Column) ->
-    {abs(Line),Column};
 set_generated(Generated, Anno) ->
-    _ = set(generated, Generated, Anno),
-    {location, Location} = lists:keyfind(location, 1, Anno),
-    NewLocation =
-        case Location of
-            {Line, Column} when Generated ->
-                {-abs(Line), Column};
-            {Line, Column} when not Generated ->
-                {abs(Line), Column};
-            Line when Generated ->
-                -abs(Line);
-            Line when not Generated ->
-                abs(Line)
-        end,
-    lists:keyreplace(location, 1, Anno, {location, NewLocation}).
+    set(generated, Generated, Anno).
 
 -spec set_line(Line, Anno) -> Anno when
       Line :: line(),
@@ -313,38 +280,17 @@ set_line(Line, Anno) ->
       Anno :: anno().
 
 set_location(Line, L) when ?ALINE(L), ?LLINE(Line) ->
-    new_location(fix_line(Line, L));
+    new_location(Line);
 set_location(Line, {L, Column}) when ?ALINE(L), ?ACOLUMN(Column),
                                      ?LLINE(Line) ->
-    new_location(fix_line(Line, L));
+    new_location(Line);
 set_location({L, C}=Loc, Line) when ?ALINE(Line), ?LLINE(L), ?LCOLUMN(C) ->
-    new_location(fix_location(Loc, Line));
+    new_location(Loc);
 set_location({L, C}=Loc, {Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column),
                                               ?LLINE(L), ?LCOLUMN(C) ->
-    new_location(fix_location(Loc, Line));
+    new_location(Loc);
 set_location(Location, Anno) ->
-    _ = set(location, Location, Anno),
-    {location, OldLocation} = lists:keyfind(location, 1, Anno),
-    NewLocation =
-        case {Location, OldLocation} of
-            {{_Line, _Column}=Loc, {L, _C}} ->
-                fix_location(Loc, L);
-            {Line, {L, _C}} ->
-                fix_line(Line, L);
-            {{_Line, _Column}=Loc, L} ->
-                fix_location(Loc, L);
-            {Line, L} ->
-                fix_line(Line, L)
-        end,
-    lists:keyreplace(location, 1, Anno, {location, NewLocation}).
-
-fix_location({Line, Column}, OldLine) ->
-    {fix_line(Line, OldLine), Column}.
-
-fix_line(Line, OldLine) when OldLine < 0, Line > 0 ->
-    -Line;
-fix_line(Line, _OldLine) ->
-    Line.
+    set(location, Location, Anno).
 
 -spec set_record(Record, Anno) -> Anno when
       Record :: record(),
@@ -383,7 +329,7 @@ set_anno(Item, Value, Anno) ->
                     _ ->
                         lists:keyreplace(Item, 1, Anno, {Item, Value})
                 end,
-            simplify(R)
+            reset_simplify(R)
     end.
 
 reset(Anno, Item) ->

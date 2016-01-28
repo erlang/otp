@@ -1478,7 +1478,15 @@ processes_this_tab(doc) ->
 processes_this_tab(suite) ->
     [];
 processes_this_tab(Config) when is_list(Config) ->
-    sys_mem_cond_run(1024, fun () -> chk_processes_bif_test_res(processes_bif_test()) end).
+    Mem = case {erlang:system_info(build_type),
+                erlang:system_info(allocator)} of
+              {lcnt, {_, _Vsn, [sys_alloc], _Opts}} ->
+                  %% When running +Mea min + lcnt we may need more memory
+                  1024 * 4;
+              _ ->
+                  1024
+          end,
+    sys_mem_cond_run(Mem, fun () -> chk_processes_bif_test_res(processes_bif_test()) end).
 
 chk_processes_bif_test_res(ok) -> ok;
 chk_processes_bif_test_res({comment, _} = Comment) -> Comment;

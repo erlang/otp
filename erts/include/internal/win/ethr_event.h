@@ -56,6 +56,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 #endif
 
 int ethr_event_init(ethr_event *e);
+int ethr_event_prepare_timed(ethr_event *e);
 int ethr_event_destroy(ethr_event *e);
 int ethr_event_wait(ethr_event *e);
 int ethr_event_swait(ethr_event *e, int spincount);

@@ -157,10 +157,11 @@ fallback_to_schema(Fname) ->
 read_schema(Mod, Opaque) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
     try read_schema_section(R) of
-        {_, {_Header, Schema, _}} -> Schema
+        {R2, {_Header, Schema, _}} ->
+	    close_read(R2),
+	    Schema
     catch throw:{error,_} = Error ->
 	    Error
-    after close_read(R)
     end.
 
 %% Open backup media and extract schema
@@ -173,8 +174,13 @@ read_schema_section(R) ->
 
 do_read_schema_section(R) ->
     R2 = safe_apply(R, open_read, [R#restore.bup_data]),
-    {R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
-    do_read_schema_section(R3, verify_header(RawSchema), []).
+    try
+	{R3, RawSchema} = safe_apply(R2, read, [R2#restore.bup_data]),
+	do_read_schema_section(R3, verify_header(RawSchema), [])
+    catch T:E ->
+	    close_read(R2),
+	    erlang:raise(T,E,erlang:get_stacktrace())
+    end.
 
 do_read_schema_section(R, {ok, B, C, []}, Acc) ->
     case safe_apply(R, read, [R#restore.bup_data]) of

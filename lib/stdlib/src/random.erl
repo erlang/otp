@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(random).
+-deprecated(module).
 
 %% Reasonable random number generator.
 %%  The method is attributed to B. A. Wichmann and I. D. Hill

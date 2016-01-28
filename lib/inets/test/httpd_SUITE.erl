@@ -97,7 +97,7 @@ groups() ->
      {https_reload, [], [{group, reload}]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
-     {custom, [],  [customize]},  
+     {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
@@ -117,7 +117,7 @@ groups() ->
      {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
      {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
      {http_1_1, [], [host, chunked, expect, cgi, cgi_chunked_encoding_test,
-		     trace, range, if_modified_since] ++ http_head() ++ http_get() ++ load()},
+		     trace, range, if_modified_since, mod_esi_chunk_timeout] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()}
     ].
@@ -757,6 +757,13 @@ esi(Config) when is_list(Config) ->
 		     Config, [{statuscode, 200},
 		      {no_header, "cache-control"}]).
 %%-------------------------------------------------------------------------
+mod_esi_chunk_timeout(Config) when is_list(Config) -> 
+    ok = httpd_1_1:mod_esi_chunk_timeout(?config(type, Config), 
+					 ?config(port, Config),
+					 ?config(host, Config),
+					 ?config(node, Config)).
+
+%%-------------------------------------------------------------------------
 cgi() ->
     [{doc, "Test mod_cgi"}].
 
@@ -1003,10 +1010,23 @@ customize(Config) when is_list(Config) ->
 					{no_header, "Server"},
 					{version, Version}]).
 
-response_header({"server", _}) ->
-    false;
-response_header(Header) ->
-    {true, Header}.
+add_default() ->
+    [{doc, "Test adding default header with custom callback"}].
+
+add_default(Config) when is_list(Config) -> 
+    Version = "HTTP/1.1",
+    Host = ?config(host, Config),
+    Type = ?config(type, Config),
+    ok = httpd_test_lib:verify_request(?config(type, Config), Host, 
+				       ?config(port, Config),  
+				       transport_opts(Type, Config),
+				       ?config(node, Config),
+				       http_request("GET /index.html ", Version, Host),
+				       [{statuscode, 200},
+					{header, "Content-Type", "text/html"},
+					{header, "Date", "Override-date"},
+					{header, "X-Frame-Options"},
+					{version, Version}]).
 
 %%-------------------------------------------------------------------------
 max_header() ->
@@ -1421,13 +1441,15 @@ server_config(http_reload, Config) ->
 server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
-    [{max_clients, 1},
-     %% Make sure option checking code is run
-     {max_content_length, 100000002}]  ++ server_config(http, Config);
+    Conf = [{max_clients, 1},
+	    %% Make sure option checking code is run
+	    {max_content_length, 100000002}]  ++ server_config(http, Config),
+    ct:pal("Received message ~p~n", [Conf]),
+    Conf;
 server_config(http_custom, Config) ->
-    [{custom, ?MODULE}]  ++ server_config(http, Config);
+    [{customize, ?MODULE}]  ++ server_config(http, Config);
 server_config(https_custom, Config) ->
-    [{custom, ?MODULE}]  ++ server_config(https, Config);
+    [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
     [{max_clients, 1}]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
@@ -1473,6 +1495,7 @@ server_config(http_mime_types, Config0) ->
 server_config(http, Config) ->
     ServerRoot = ?config(server_root, Config),
     [{port, 0},
+     {socket_type, {ip_comm, [{nodelay, true}]}},
      {server_name,"httpd_test"},
      {server_root, ServerRoot},
      {document_root, ?config(doc_root, Config)},
@@ -1494,13 +1517,14 @@ server_config(http, Config) ->
 server_config(https, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [{socket_type, {essl,
-		  [{cacertfile, 
-		    filename:join(PrivDir, "public_key_cacert.pem")},
-		   {certfile, 
-		    filename:join(PrivDir, "public_key_cert.pem")},
-		   {keyfile,
-		    filename:join(PrivDir, "public_key_cert_key.pem")}
-		  ]}}] ++ server_config(http, Config).
+		    [{nodelay, true},
+		     {cacertfile, 
+		      filename:join(PrivDir, "public_key_cacert.pem")},
+		     {certfile, 
+		      filename:join(PrivDir, "public_key_cert.pem")},
+		     {keyfile,
+		      filename:join(PrivDir, "public_key_cert_key.pem")}
+		    ]}}] ++ proplists:delete(socket_type, server_config(http, Config)).
 
 init_httpd(Group, Config0) ->
     Config1 = proplists:delete(port, Config0),
@@ -2030,3 +2054,14 @@ typestr(ip_comm) ->
     "tcp";
 typestr(_) ->
     "ssl".
+
+response_header({"server", _}) ->
+    false;
+response_header(Header) ->
+    {true, Header}.
+
+response_default_headers() ->
+    [%% Add new header
+     {"X-Frame-Options", "SAMEORIGIN"},
+     %% Override built-in default
+     {"Date", "Override-date"}].

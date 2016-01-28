@@ -30,21 +30,21 @@
     <rev></rev>
   </header>
   <module>inets</module>
-  <modulesummary>The inets services API</modulesummary>
+  <modulesummary>The Inets services API.</modulesummary>
   <description>
     <p>This module provides the most basic API to the 
-    clients and servers, that are part of the Inets application,
-    such as start and stop. </p>
+    clients and servers that are part of the <c>Inets</c> application,
+    such as start and stop.</p>
 
     <marker id="common_data_types"></marker>
   </description>
 
   <section>
-    <title>COMMON DATA TYPES </title>
+    <title>DATA TYPES</title>
     <p>Type definitions that are used more than once in
-      this module: </p>
-    <p><c> service() = ftpc | tftp | httpc | httpd</c></p>
-    <p><c> property() = atom() </c></p>
+      this module:</p>
+    <p><c>service() = ftpc | tftp | httpc | httpd</c></p>
+    <p><c>property() = atom()</c></p>
     <marker id="functions"></marker>
     <marker id="services"></marker>
   </section>
@@ -52,7 +52,7 @@
   <funcs>
     <func>
       <name>services() -> [{Service, Pid}]</name>
-      <fsummary>Returns a list of currently running services. </fsummary>
+      <fsummary>Returns a list of currently running services.</fsummary>
       <type>
         <v>Service = service()</v>
         <v>Pid = pid()</v>
@@ -60,7 +60,7 @@
       <desc>
         <p>Returns a list of currently running services.</p>
         <note>
-	  <p>Services started as <c>stand_alone</c> will not be listed.</p>
+	  <p>Services started as <c>stand_alone</c> are not listed.</p>
         </note>
 
 	<marker id="services_info"></marker>
@@ -70,8 +70,8 @@
     <func>
       <name>services_info() -> [{Service, Pid, Info}]</name>
       <fsummary>Returns a list of currently running services where
-      each service is described by a [{Option, Value}]
-      list. </fsummary>
+      each service is described by an <c>[{Option, Value}]</c>
+      list.</fsummary>
       <type>
         <v>Service = service()</v>
         <v>Pid = pid()</v>
@@ -81,11 +81,10 @@
       </type>
       <desc>
         <p>Returns a list of currently running services where each
-	service is described by a [{Option, Value}] list. The
-	information given in the list is specific for each service
-	and it is probable that each service will have its own info
-	function that gives you even more details about the
-	service.</p>
+	service is described by an <c>[{Option, Value}]</c> list. The
+	information in the list is specific for each service
+	and each service has probably its own info
+	function that gives more details about the service.</p>
 
 	<marker id="service_names"></marker>
       </desc>
@@ -107,59 +106,48 @@
     <func>
       <name>start() -> </name>
       <name>start(Type) -> ok | {error, Reason}</name>
-      <fsummary>Starts the Inets application. </fsummary>
+      <fsummary>Starts the <c>Inets</c> application.</fsummary>
       <type>
         <v>Type = permanent | transient | temporary</v>
       </type>
       <desc>
-        <p>Starts the Inets application. Default type
-	is temporary. See also
-	<seealso marker="kernel:application">application(3)</seealso>. </p>
+        <p>Starts the <c>Inets</c> application. Default type
+	is <c>temporary</c>. See also
+	<seealso marker="kernel:application">application(3)</seealso>.</p>
 
 	<marker id="stop"></marker>
       </desc>
     </func>
 
     <func>
-      <name>stop() -> ok </name>
-      <fsummary>Stops the inets application.</fsummary>
-      <desc>
-        <p>Stops the inets application. See also
-	<seealso marker="kernel:application">application(3)</seealso>. </p>
-	
-	<marker id="start2"></marker>
-      </desc>
-    </func>
-
-    <func>
       <name>start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
       <name>start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
-      <fsummary>Dynamically starts an inets
-      service after the inets application has been started. </fsummary>
+      <fsummary>Dynamically starts an <c>Inets</c>
+      service after the <c>Inets</c> application has been started.</fsummary>
       <type>
         <v>Service = service()</v>
         <v>ServiceConfig = [{Option, Value}]</v>
 	<v>Option = property()</v>
 	<v>Value = term()</v>
-        <v>How = inets | stand_alone - default is inets</v>
+        <v>How = inets | stand_alone - default is inets.</v>
       </type>
       <desc>
-        <p>Dynamically starts an inets service after the inets
-          application has been started. </p>
+        <p>Dynamically starts an <c>Inets</c> service after the <c>Inets</c>
+          application has been started.</p>
         <note>
-          <p>Dynamically started services will not be handled by
-            application takeover and failover behavior when inets is
-            run as a distributed application. Nor will they be
-            automatically restarted when the inets application is
-            restarted, but as long as the inets application is up and
-            running they will be supervised and may be soft code
-            upgraded. Services started as <c>stand_alone</c>,
-            e.i. the service is not started as part of the inets
-            application, will lose all OTP application benefits such
-            as soft upgrade. The "stand_alone-service" will be linked to
-            the process that started it. In most cases some of the
-            supervision functionality will still be in place and in
-            some sense the calling process has now become the top
+          <p>Dynamically started services are not handled by
+            application takeover and failover behavior when <c>Inets</c> is
+            run as a distributed application. Nor are they
+            automatically restarted when the <c>Inets</c> application is
+            restarted. As long as the <c>Inets</c> application is operational,
+	    they are supervised and can be soft code upgraded.</p>
+	    <p>A service started as <c>stand_alone</c>, that is, the service 
+	    is not started as part of the <c>Inets</c> application, 
+	    lose all OTP application benefits, such as soft upgrade. 
+	    The <c>stand_alone</c>-service is linked to
+            the process that started it. Usually some
+            supervision functionality is still in place and in
+            some sense the calling process becomes the top
             supervisor.</p>
         </note>
 	
@@ -167,19 +155,30 @@
       </desc>
     </func>
 
+     <func>
+      <name>stop() -> ok </name>
+      <fsummary>Stops the <c>Inets</c> application.</fsummary>
+      <desc>
+        <p>Stops the <c>Inets</c> application. See also
+	<seealso marker="kernel:application">application(3)</seealso>.</p>
+	
+	<marker id="start2"></marker>
+      </desc>
+    </func>
+    
     <func>
       <name>stop(Service, Reference) -> ok | {error, Reason} </name>
-      <fsummary>Stops a started service of the inets application or takes
-          down a "stand_alone-service" gracefully.</fsummary>
+      <fsummary>Stops a started service of the <c>Inets</c> application or takes
+          down a <c>stand_alone </c>service gracefully.</fsummary>
       <type>
 	<v>Service = service() | stand_alone</v>
-	<v>Reference = pid() | term() - service specified reference</v>
+	<v>Reference = pid() | term() - service-specified reference</v>
 	<v>Reason = term()</v>
       </type>
       <desc>
-        <p>Stops a started service of the inets application or takes
-	down a "stand_alone-service" gracefully. When the
-	<c>stand_alone</c> option is used in start,
+        <p>Stops a started service of the <c>Inets</c> application or takes
+	down a <c>stand_alone</c>-service gracefully. When option
+	<c>stand_alone</c> is used in start,
 	only the pid is a valid argument to stop.</p>
 	
 	<marker id="see_also"></marker>

@@ -25,7 +25,9 @@
 	]).
 
 -export([interval_int/1, interval_float/1, seed/1,
-         api_eq/1, reference/1, basic_stats/1,
+         api_eq/1, reference/1,
+	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
+	 basic_stats_normal/1,
 	 plugin/1, measure/1
 	]).
 
@@ -51,11 +53,13 @@ all() ->
     [seed, interval_int, interval_float,
      api_eq,
      reference,
-     basic_stats,
+     {group, basic_stats},
      plugin, measure
     ].
 
-groups() -> [].
+groups() ->
+    [{basic_stats, [parallel],
+      [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_normal]}].
 
 init_per_suite(Config) ->  Config.
 end_per_suite(_Config) -> ok.
@@ -122,6 +126,9 @@ seed_1(Alg) ->
     false = (S1 =:= rand:seed_s(Alg)),
     %% Negative integers works
     _ = rand:seed_s(Alg, {-1,-1,-1}),
+    %% Check that export_seed/1 returns 'undefined' if there is no seed
+    erase(rand_seed),
+    undefined = rand:export_seed(),
 
     %% Other term do not work
     {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
@@ -291,14 +298,19 @@ gen(_, _, Acc) -> lists:reverse(Acc).
 %% The algorithms must have good properties to begin with
 %%
 
-basic_stats(doc) -> ["Check that the algorithms generate sound values."];
-basic_stats(suite) -> [];
-basic_stats(Config) when is_list(Config) ->
-    io:format("Testing uniform~n",[]),
+%% Check that the algorithms generate sound values.
+
+basic_stats_uniform_1(Config) when is_list(Config) ->
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
      || Alg <- algs()],
+    ok.
+
+basic_stats_uniform_2(Config) when is_list(Config) ->
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
      || Alg <- algs()],
+    ok.
+
+basic_stats_normal(Config) when is_list(Config) ->
     io:format("Testing normal~n",[]),
     [basic_normal_1(?LOOP, rand:seed_s(Alg), 0, 0) || Alg <- algs()],
     ok.

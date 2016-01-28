@@ -1151,17 +1151,13 @@ read_expected(Version) ->
 	  {POS8+4,{FF,{a,b,1}}},
 	  {POS8+4,{FF,{erlang,apply,2}}},
 	  {POS8+5,{FF,{erlang,apply,2}}},
-	  {POS8+6,{FF,{erlang,apply,3}}},
 	  {POS8+6,{FF,{m,f,1}}},
-	  {POS8+7,{FF,{erlang,apply,3}}},
-	  {POS9+1,{FF,{erlang,apply,3}}},
 	  {POS9+1,{FF,{read,bi,0}}},
 	  {POS9+2,{FF,{a,b,1}}},
 	  {POS9+2,{FF,{erlang,apply,2}}},
 	  {POS9+3,{FF,{erlang,apply,2}}},
 	  {POS9+4,{FF,{erlang,apply,2}}},
 	  {POS9+4,{FF,{erlang,not_a_function,1}}},
-	  {POS9+5,{FF,{erlang,apply,3}}},
 	  {POS9+5,{FF,{mod,func,2}}},
 	  {POS9+6,{FF,{erlang,apply,1}}},
 	  {POS9+7,{FF,{erlang,apply,2}}},
@@ -1169,17 +1165,11 @@ read_expected(Version) ->
 	  {POS9+8,{FF,{q,f,1}}},
 	  {POS10+4,{FF,{erlang,apply,2}}},
 	  {POS10+5,{FF,{mod1,fun1,1}}},
-	  {POS11+1,{FF,{erlang,apply,3}}},
-	  {POS11+2,{FF,{erlang,apply,3}}},
-	  {POS11+3,{FF,{erlang,apply,3}}},
-	  {POS11+4,{FF,{erlang,apply,3}}},
 	  {POS11+6,{FF,{erlang,apply,2}}},
 	  {POS12+1,{FF,{erlang,apply,2}}},
 	  {POS12+4,{FF,{erlang,apply,2}}},
-	  {POS12+5,{FF,{erlang,apply,3}}},
 	  {POS12+5,{FF,{m3,f3,2}}},
 	  {POS12+7,{FF,{erlang,apply,2}}},
-	  {POS12+8,{FF,{erlang,apply,3}}},
 	  {POS13+1,{FF,{dm,df,1}}},
 	  {POS13+6,{{read,bi,0},{foo,module_info,0}}},
 	  {POS13+7,{{read,bi,0},{read,module_info,0}}},
@@ -1189,10 +1179,6 @@ read_expected(Version) ->
 
     OK = case Version of
 	     abstract_v1 ->
-		 [{POS8+3, {FF,{erlang,apply,3}}},
-		  {POS10+1, {FF,{erlang,apply,3}}},
-		  {POS10+6, {FF,{erlang,apply,3}}}]
-                 ++
                  [{0,{FF,{read,'$F_EXPR',178}}},
                   {0,{FF,{modul,'$F_EXPR',179}}}]
                  ++ O1;
@@ -1213,13 +1199,25 @@ read_expected(Version) ->
             {POS3+3,  {FF,{erlang,spawn_link,3}}},
             {POS3+4, {FF,{erlang,spawn_link,3}}},
             {POS6+4, {FF,{erlang,spawn,3}}},
+	    {POS8+6,{FF,{erlang,apply,3}}},
+	    {POS8+7,{FF,{erlang,apply,3}}},
+	    {POS9+1,{FF,{erlang,apply,3}}},
+	    {POS9+5,{FF,{erlang,apply,3}}},
+	    {POS11+1,{FF,{erlang,apply,3}}},
+	    {POS11+2,{FF,{erlang,apply,3}}},
+	    {POS11+3,{FF,{erlang,apply,3}}},
+	    {POS11+4,{FF,{erlang,apply,3}}},
+	    {POS12+5,{FF,{erlang,apply,3}}},
+	    {POS12+8,{FF,{erlang,apply,3}}},
             {POS13+5, {{read,bi,0},{erlang,length,1}}},
             {POS14+3, {{read,bi,0},{erlang,length,1}}}],
 
     %% Operators (OTP-8647):
     OKB = case Version of
               abstract_v1 ->
-                  [];
+		  [{POS8+3, {FF,{erlang,apply,3}}},
+		   {POS10+1, {FF,{erlang,apply,3}}},
+		   {POS10+6, {FF,{erlang,apply,3}}}];
               _ ->
                   [{POS13+16, {{read,bi,0},{erlang,'!',2}}},
                    {POS13+16, {{read,bi,0},{erlang,'-',1}}},

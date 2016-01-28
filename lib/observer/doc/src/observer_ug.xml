@@ -105,7 +105,7 @@
     <note>
       <p><em>Reds</em> can be presented as accumulated values or as values since last update.</p>
     </note>
-    <p><c>Process info</c> open a detailed information window on the selected process.
+    <p><c>Process info</c> open a detailed information window on the selected process.</p>
     <taglist>
       <tag>Process Information</tag>
       <item>Shows the process information.</item>
@@ -127,7 +127,6 @@
       <c>rb</c> server will be stopped on the observed node when exiting or changing observed node.
       </p>
     </note>
-    </p>
     <p><c>Trace Processes</c> will add the selected process identifiers to the <c>Trace Overview</c> view and the
     node the processes reside on will be added as well.
     <c>Trace Named Processes</c> will add the registered name of processes. This can be useful

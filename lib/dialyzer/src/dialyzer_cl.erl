@@ -36,7 +36,7 @@
 -include_lib("kernel/include/file.hrl").  % needed for #file_info{}
 
 -record(cl_state,
-	{backend_pid                      :: pid(),
+	{backend_pid                      :: pid() | 'undefined',
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
          external_types  = []             :: [mfa()],
@@ -547,13 +547,13 @@ hc(Mod, Cache) ->
 
 hc_cache(Mod) ->
   CacheBase = cache_base_dir(),
-  %% Use HiPE architecture and version in directory name, to avoid
-  %% clashes between incompatible binaries.
+  %% Use HiPE architecture, version and erts checksum in directory name,
+  %% to avoid clashes between incompatible binaries.
   HipeArchVersion =
     lists:concat(
       [erlang:system_info(hipe_architecture), "-",
        hipe:version(), "-",
-       hipe_bifs:system_crc()]),
+       hipe:erts_checksum()]),
   CacheDir = filename:join(CacheBase, HipeArchVersion),
   OrigBeamFile = code:which(Mod),
   {ok, {Mod, <<Checksum:128>>}} = beam_lib:md5(OrigBeamFile),

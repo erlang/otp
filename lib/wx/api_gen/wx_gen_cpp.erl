@@ -206,8 +206,8 @@ gen_funcs(Defs) ->
       "     rt.addAtom(\"ok\");~n"
       "     break;~n"
       " }~n"),
-    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
-    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0].bin);~n   break;~n",[]),
+    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0].bin);~n   break;~n",[]),
     w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(&rt, bp);~n   break;~n",[]),
 
     Res = [gen_class(Class) || Class <- Defs],
@@ -235,7 +235,8 @@ gen_funcs(Defs) ->
     w("}} /* The End */~n~n~n"),
 
     UglySkipList = ["wxCaret", "wxCalendarDateAttr",
-		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject"
+		    "wxFileDataObject", "wxTextDataObject", "wxBitmapDataObject",
+		    "wxAuiSimpleTabArt"
 		   ],
 
     w("bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
@@ -323,12 +324,8 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     put(current_func, N),
     put(bin_count,-1),
     ?WTC("gen_method"),
-    Endif = case lists:keysearch(deprecated, 1, FOpts) of
-		{value, {deprecated, IfDef}} ->
-		    w("#if ~s~n", [IfDef]),
-		    true;
-		_ -> false
-	    end,
+    Endif1 = gen_if(deprecated, FOpts),
+    Endif2 = gen_if(test_if, FOpts),
     w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
     Ps1 = declare_variables(void, Ps0),
     {Ps2,Align} = decode_arguments(Ps1),
@@ -347,9 +344,18 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     free_args(),
     build_return_vals(T,Ps3),
     w(" break;~n}~n", []),
-    Endif andalso w("#endif~n", []),
+    Endif1 andalso w("#endif~n", []),
+    Endif2 andalso w("#endif~n", []),
     erase(current_func),
     M.
+
+gen_if(What, Opts) ->
+    case lists:keysearch(What, 1, Opts) of
+	{value, {What, IfDef}} ->
+	    w("#if ~s~n", [IfDef]),
+	    true;
+	_ -> false
+    end.
 
 declare_variables(void,Ps) ->
     [declare_var(P) || P <- Ps];
@@ -631,10 +637,10 @@ decode_arg(N,#type{name=Type,base=binary,mod=Mod0},Arg,A0) ->
     Mod = mods([M || M <- Mod0]),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
+	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p].base;~n",
 	      [Mod,Type,N,Mod,Type, next_id(bin_count)]);
 	opt ->
-	    w(" ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
+	    w(" ~s = (~s~s*) Ecmd.bin[~p].base;~n",
 	      [N,Mod,Type,next_id(bin_count)])
     end,
     A0;
@@ -644,10 +650,10 @@ decode_arg(N,#type{base={term,"wxTreeItemData"},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
+	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p].size, Ecmd.bin[~p].base);~n",
 	      [Mod,Type,N,Type,BinCnt,BinCnt]);
 	opt ->
-	    w(" ~s = new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
+	    w(" ~s = new ~s(Ecmd.bin[~p].size, Ecmd.bin[~p].base);~n",
 	      [N,Type,BinCnt,BinCnt])
     end,
     A0;
@@ -656,10 +662,10 @@ decode_arg(N,#type{name=Type,base={term,_},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg ->
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]);~n",
+	    w(" ~s~s * ~s =  new ~s(&Ecmd.bin[~p]);~n",
 	      [Mod,Type,N,Type,BinCnt]);
 	opt ->
-	    w(" ~s = new ~s(Ecmd.bin[~p]);~n",
+	    w(" ~s = new ~s(&Ecmd.bin[~p]);~n",
 	      [N,Type,BinCnt])
     end,
     A0;
@@ -832,7 +838,7 @@ call_arg(#param{where=c, alt={length,Alt}}) when is_list(Alt) ->
     "*" ++ Alt ++ "Len";
 call_arg(#param{where=c, alt={size,Id}}) when is_integer(Id) ->
     %% It's a binary
-    "Ecmd.bin["++ integer_to_list(Id) ++ "]->size";
+    "Ecmd.bin["++ integer_to_list(Id) ++ "].size";
 call_arg(#param{name=N,def=Def,type=#type{by_val=true,single=true,base=Base}})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     case Def of
@@ -1014,6 +1020,10 @@ build_ret(Name,_,#type{base={comp,_,_},single=array}) ->
     w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
     w("  rt.add(~s[i]);~n }~n",[Name]),
     w(" rt.endList(~s.GetCount());~n",[Name]);
+build_ret(Name,_,#type{base={class,Class},single=array}) ->
+    w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
+    w("  rt.addRef(getRef((void *) &~s.Item(i), memenv), \"~s\");~n }~n",[Name, Class]),
+    w(" rt.endList(~s.GetCount());~n",[Name]);
 build_ret(Name,_,#type{name=List,single=list,base={class,Class}}) ->
     w(" int i=0;~n"),
     w(" for(~s::const_iterator it = ~s.begin(); it != ~s.end(); ++it) {~n",
@@ -1131,6 +1141,7 @@ gen_macros() ->
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),
     w("#include <wx/sysopt.h>~n"),
+    w("#include <wx/overlay.h>~n"),
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
@@ -1266,6 +1277,11 @@ encode_events(Evs) ->
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
     w("   if(cb->skip) event->Skip();~n"),
+    w("   if(app->recurse_level < 1) {~n"),
+    w("     app->recurse_level++;~n"),
+    w("     app->dispatch_cmds();~n"),
+    w("     app->recurse_level--;~n"),
+    w("   }~n"),
     w(" };~n"),
     w(" return send_res;~n"),
     w(" }~n").

@@ -41,7 +41,8 @@ groups() ->
       [{group, primitive_datatypes},
        {group, derived_datatypes}]},
      {validation_tests, [],
-      [{group, xmlSchemaPrimerExamples},
+      [{group, xmlXsdAndExample},
+       {group, xmlSchemaPrimerExamples},
        {group, miscXMLexamples}]},
      {primitive_datatypes, [],
       [string, boolean, decimal, float, double, duration,
@@ -55,6 +56,8 @@ groups() ->
        negativeInteger, long, int, short, byte,
        nonNegativeInteger, unsignedLong, unsignedInt,
        unsignedShort, unsignedByte, positiveInteger]},
+     {xmlXsdAndExample, [],
+      [xml_xsd, xml_lang_attr]},
      {xmlSchemaPrimerExamples, [],
       [po, po1, po2, ipo, ipo_redefine, '4Q99']},
      {miscXMLexamples, [],
@@ -863,6 +866,19 @@ compare_duration(_Config) ->
     ?line indefinite = xmerl_xsd_type:compare_durations("P5M","P153D"),
     ?line lt = xmerl_xsd_type:compare_durations("P5M","P154D").
 
+xml_xsd(suite) -> [];
+xml_xsd(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Options = [{fetch_path, [DataDir]}],
+    {ok, _} = xmerl_xsd:process_schema("xml.xsd", Options).
+
+xml_lang_attr(suite) -> [];
+xml_lang_attr(Config) ->
+    DataDir = ?config(data_dir, Config),
+    {Element, _} = xmerl_scan:file(filename:join([DataDir, "book.xml"])),
+    Options = [{fetch_path, [DataDir]}],
+    {ok, Schema} = xmerl_xsd:process_schema("book.xsd", Options),
+    {Element, _} = xmerl_xsd:validate(Element, Schema).
 
 po(suite) -> [];
 po(Config) ->

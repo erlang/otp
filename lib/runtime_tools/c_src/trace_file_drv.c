@@ -327,9 +327,11 @@ static ErlDrvData trace_file_start(ErlDrvPort port, char *buff)
 		   | O_BINARY
 #endif
 		   , 0777)) < 0) {
+	int saved_errno = errno;
 	if (wrap)
 	    driver_free(wrap);
 	driver_free(data);
+	errno = saved_errno;
 	return ERL_DRV_ERROR_ERRNO;
     } 
 
@@ -525,14 +527,19 @@ static void *my_alloc(size_t size)
 ** A write wrapper that regards it as an error if not all data was written.
 */
 static int do_write(FILETYPE fd, unsigned char *buff, int siz) {
-    int w = write(fd, buff, siz);
-    if (w != siz) {
-	if (w >= 0) {
-	    errno = ENOSPC;
+    int w;
+    while (1) {
+	w = write(fd, buff, siz);
+	if (w < 0 && errno == EINTR)
+	    continue;
+	else if (w != siz) {
+	    if (w >= 0) {
+		errno = ENOSPC;
+	    }
+	    return -1;
 	}
-	return -1;
+	return siz;
     }
-    return siz;
 }
 
 /*
@@ -627,8 +634,10 @@ static void close_unlink_port(TraceFileData *data)
 */
 static int wrap_file(TraceFileData *data) {
     if (my_flush(data) < 0) {
+	int saved_errno = errno;
 	close(data->fd);
 	data->fd = -1;
+	errno = saved_errno;
 	return -1;
     }
     close(data->fd);
@@ -644,12 +653,15 @@ static int wrap_file(TraceFileData *data) {
 	next_name(&data->wrap->del);
     }
     next_name(&data->wrap->cur);
+try_open:
     data->fd = open(data->wrap->cur.name, O_WRONLY | O_TRUNC | O_CREAT
 #ifdef O_BINARY
 	      | O_BINARY
 #endif
 	      , 0777);
     if (data->fd < 0) {
+	if (errno == EINTR)
+	    goto try_open;
 	data->fd = -1;
 	return -1;
     }

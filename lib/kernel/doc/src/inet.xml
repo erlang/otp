@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -117,8 +117,9 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
-      <name><marker id="type-socket">socket()</marker></name>
-      <desc><p>See <seealso marker="gen_tcp#type-socket">gen_tcp(3)</seealso>
+      <name>socket()</name>
+      <desc><p><marker id="type-socket"></marker>
+         See <seealso marker="gen_tcp#type-socket">gen_tcp(3)</seealso>
          and <seealso marker="gen_udp#type-socket">gen_udp(3)</seealso>.</p>
       </desc>
     </datatype>
@@ -222,7 +223,7 @@ fe80::204:acff:fe17:bf38
       </p>
       <p>
 	Do not rely too much on the order of <c><anno>Flag</anno></c> atoms or
-	<c><anno>Ifopt</anno></c> tuples. There are some rules, though:
+	<c><anno>Ifopt</anno></c> tuples. There are some rules, though:</p>
 	<list>
 	  <item>
 	    Immediately after <c>{addr,_}</c> follows <c>{netmask,_}</c>
@@ -238,7 +239,6 @@ fe80::204:acff:fe17:bf38
 	    tuple concerns that address.
 	  </item>
 	</list>
-      </p>
       <p>
 	The <c>{hwaddr,_}</c> tuple is not returned on Solaris since the
 	hardware address historically belongs to the link layer and only
@@ -379,14 +379,14 @@ fe80::204:acff:fe17:bf38
       <name name="ntoa" arity="1" />
       <fsummary>Convert IPv6 / IPV4 adress to ascii</fsummary>
       <desc>
-	<p>Parses an <a href="#type-ip_address">ip_address()</a> and returns an IPv4 or IPv6 address string.</p>
+	<p>Parses an <seealso marker="#type-ip_address">ip_address()</seealso> and returns an IPv4 or IPv6 address string.</p>
       </desc>
     </func>
     <func>
       <name name="parse_ipv4_address" arity="1" />
       <fsummary>Parse an IPv4 address</fsummary>
       <desc>
-	<p>Parses an IPv4 address string and returns an <a href="#type-ip4_address">ip4_address()</a>.
+	<p>Parses an IPv4 address string and returns an <seealso marker="#type-ip4_address">ip4_address()</seealso>.
 	 Accepts a shortened IPv4 shortened address string.</p>
       </desc>
     </func>
@@ -394,14 +394,14 @@ fe80::204:acff:fe17:bf38
       <name name="parse_ipv4strict_address" arity="1" />
       <fsummary>Parse an IPv4 address strict.</fsummary>
       <desc>
-	<p>Parses an IPv4 address string containing four fields, i.e <b>not</b> shortened, and returns an <a href="#type-ip4_adress">ip4_address()</a>.</p>
+	<p>Parses an IPv4 address string containing four fields, i.e <em>not</em> shortened, and returns an <seealso marker="#type-ip4_address">ip4_address()</seealso>.</p>
       </desc>
     </func>
     <func>
       <name name="parse_ipv6_address" arity="1" />
       <fsummary>Parse an IPv6 address</fsummary>
       <desc>
-	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>.
+	<p>Parses an IPv6 address string and returns an <seealso marker="#type-ip6_address">ip6_address()</seealso>.
 	 If an IPv4 address string is passed, an IPv4-mapped IPv6 address is returned.</p>
       </desc>
     </func>
@@ -409,22 +409,22 @@ fe80::204:acff:fe17:bf38
       <name name="parse_ipv6strict_address" arity="1" />
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
-	<p>Parses an IPv6 address string and returns an <a href="#type-ip6_address">ip6_address()</a>.
-	Does <b>not</b> accept IPv4 adresses.</p>
+	<p>Parses an IPv6 address string and returns an <seealso marker="#type-ip6_address">ip6_address()</seealso>.
+	Does <em>not</em> accept IPv4 adresses.</p>
       </desc>
     </func>
     <func>
       <name name="parse_address" arity="1" />
       <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
       <desc>
-	<p>Parses an IPv4 or IPv6 address string and returns an <a href="#type-ip4_address">ip4_address()</a> or <a href="#type-ip6_address">ip6_address()</a>. Accepts a shortened IPv4 address string.</p>
+	<p>Parses an IPv4 or IPv6 address string and returns an <seealso marker="#type-ip4_address">ip4_address()</seealso> or <seealso marker="#type-ip6_address">ip6_address()</seealso>. Accepts a shortened IPv4 address string.</p>
       </desc>
     </func>
     <func>
       <name name="parse_strict_address" arity="1" />
       <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
       <desc>
-	<p>Parses an IPv4 or IPv6 address string and returns an <a href="#type-ip4_address">ip4_address()</a> or <a href="#type-ip6_adress">ip6_address()</a>. Does <b>not</b> accept a shortened IPv4 address string.</p>
+	<p>Parses an IPv4 or IPv6 address string and returns an <seealso marker="#type-ip4_address">ip4_address()</seealso> or <seealso marker="#type-ip6_address">ip6_address()</seealso>. Does <em>not</em> accept a shortened IPv4 address string.</p>
       </desc>
     </func>
     <func>
@@ -862,10 +862,10 @@ fe80::204:acff:fe17:bf38
 	    <c>CAP_SYS_ADMIN</c> according to the documentation for setns(2).
 	    However, during testing also <c>CAP_SYS_PTRACE</c>
 	    and <c>CAP_DAC_READ_SEARCH</c> has proven to be necessary.
-	    Example:<code>
+	    Example:</p><code>
 setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
 </code>
-            Note also that the filesystem containing the virtual machine
+            <p>Note also that the filesystem containing the virtual machine
 	    executable (<c>beam.smp</c> in the example above) has to be local,
 	    mounted without the <c>nosetuid</c> flag,
 	    support extended attributes and that
@@ -980,6 +980,11 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
 	    option <c>packet_size</c> also guarantees that lines up to the
 	    indicated length are accepted and not considered invalid due
 	    to internal buffer limitations.</p>
+          </item>
+          <tag><c>{line_delimiter, Char}</c>(TCP/IP sockets)</tag>
+          <item>
+            <p>Sets the line delimiting character for line oriented protocols
+              (<c>line</c>). Default value is <c>$\n</c>.</p>
           </item>
 
 		  <tag><c>{priority, Priority}</c></tag>

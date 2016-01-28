@@ -431,7 +431,7 @@ static ERTS_INLINE int
 is_interrupted_reset(ErtsPollSet ps)
 {
 #if defined(USE_THREADS) || ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
-    return (erts_atomic32_xchg_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN)
+    return (erts_atomic32_xchg_acqb(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN)
 	    == ERTS_POLL_WOKEN_INTR);
 #else
     return 0;
@@ -442,7 +442,7 @@ static ERTS_INLINE void
 woke_up(ErtsPollSet ps)
 {
 #if defined(USE_THREADS) || ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
-    erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
+    erts_aint32_t wakeup_state = erts_atomic32_read_acqb(&ps->wakeup_state);
     if (wakeup_state == ERTS_POLL_NOT_WOKEN)
 	(void) erts_atomic32_cmpxchg_nob(&ps->wakeup_state,
 					 ERTS_POLL_WOKEN,
@@ -469,14 +469,9 @@ wake_poller(ErtsPollSet ps, int interrupted, int async_signal_safe)
 	    wakeup_state = erts_atomic32_cmpxchg_relb(&ps->wakeup_state,
 						      ERTS_POLL_WOKEN,
 						      ERTS_POLL_NOT_WOKEN);
-	else {
-	    /*
-	     * We might unnecessarily write to the pipe, however,
-	     * that isn't problematic.
-	     */
-	    wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
-	    erts_atomic32_set_relb(&ps->wakeup_state, ERTS_POLL_WOKEN_INTR);
-	}
+	else
+            wakeup_state = erts_atomic32_xchg_relb(&ps->wakeup_state,
+                                                   ERTS_POLL_WOKEN_INTR);
 	wake = wakeup_state == ERTS_POLL_NOT_WOKEN;
     }
     /*

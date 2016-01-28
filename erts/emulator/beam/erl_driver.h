@@ -57,10 +57,6 @@
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
 #endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
 #include "erl_int_sizes_config.h"
 #if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
 #  error SIZEOF_CHAR mismatch
@@ -76,11 +72,6 @@
 #endif
 #if defined(SIZEOF_LONG_LONG_SAVED__) && SIZEOF_LONG_LONG_SAVED__ != SIZEOF_LONG_LONG
 #  error SIZEOF_LONG_LONG mismatch
-#endif
-
-/* This is OK to override by the NIF/driver implementor */
-#if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
-#define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
 #endif
 
 #include "erl_drv_nif.h"
@@ -134,7 +125,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	3
-#define ERL_DRV_EXTENDED_MINOR_VERSION	2
+#define ERL_DRV_EXTENDED_MINOR_VERSION	3
 
 /*
  * The emulator will refuse to load a driver with a major version
@@ -172,6 +163,7 @@ typedef struct {
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 #define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
+#define ERL_DRV_FLAG_USE_INIT_ACK	(1 << 3)
 
 /*
  * Integer types
@@ -386,22 +378,23 @@ typedef struct erl_drv_entry {
 
 #ifdef STATIC_ERLANG_DRIVER
 #  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#  define ERL_DRIVER_EXPORT
 #else
 #  define ERLANG_DRIVER_NAME(NAME) driver_init
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_DRIVER_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_DRIVER_EXPORT __global
+#  else
+#    define ERL_DRIVER_EXPORT
+#  endif
 #endif
 
-/* For windows dynamic drivers */
 #ifndef ERL_DRIVER_TYPES_ONLY
 
-#if defined(__WIN32__)
-#  define DRIVER_INIT(DRIVER_NAME) \
-  __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void);	\
-    __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
-#else 
-#  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
-#endif
+#define DRIVER_INIT(DRIVER_NAME) \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
 #define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
@@ -696,18 +689,14 @@ EXTERN int driver_dl_close(void *);
 EXTERN char *driver_dl_error(void);
 
 /* environment */
-EXTERN int erl_drv_putenv(char *key, char *value);
-EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+EXTERN int erl_drv_putenv(const char *key, char *value);
+EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
 
-#ifdef __OSE__
-typedef ErlDrvUInt ErlDrvOseEventId;
-EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
-EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig, ErlDrvOseEventId handle,
-					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra);
-EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
-EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
-                  ErlDrvOseEventId *handle, void **extra);
-#endif
+/* spawn start init ack */
+EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
+
+/* set the pid seen in port_info */
+EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 

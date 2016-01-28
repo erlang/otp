@@ -108,11 +108,11 @@ run(What, OtherInfo, Ops, F) ->
     run(t, What, OtherInfo, Ops, F).
 
 run(How, What, OtherInfo, Ops, F) ->
-    T1 = erlang:now(),
+    T1 = erlang:monotonic_time(),
     statistics(runtime),
     do_times(How, ?TIMES, F),
     {_, RunTime} = statistics(runtime),
-    T2 = erlang:now(),
+    T2 = erlang:monotonic_time(),
     RealTime = subtr(T1, T2),
     report(How, What, OtherInfo, Ops, RunTime, RealTime).
 
@@ -140,11 +140,7 @@ report(dirty, What, OtherInfo, Ops, RunTime, RealTime) ->
 
 
 subtr(Before, After) ->
-    E =(element(1,After)*1000000000000
-	+element(2,After)*1000000+element(3,After)) -
-        (element(1,Before)*1000000000000
-         +element(2,Before)*1000000+element(3,Before)),
-    E div 1000.
+    erlang:convert_time_unit(After-Before, native, milli_seconds).
 
 do_times(t, I, F) ->
     do_trans_times(I, F);

@@ -3163,11 +3163,17 @@ delete_prop([], Props) ->
 %% Shuffles the order of Cases.
 
 shuffle_cases(Ref, Cases, undefined) ->
-    shuffle_cases(Ref, Cases, ?now);
+    shuffle_cases(Ref, Cases, rand:seed_s(exsplus));
 
-shuffle_cases(Ref, [{conf,Ref,_,_}=Start | Cases], Seed) ->
+shuffle_cases(Ref, [{conf,Ref,_,_}=Start | Cases], Seed0) ->
     {N,CasesToShuffle,Rest} = cases_to_shuffle(Ref, Cases),
-    ShuffledCases = random_order(N, random:uniform_s(N, Seed), CasesToShuffle, []),
+    Seed = case Seed0 of
+	       {X,Y,Z} when is_integer(X+Y+Z) ->
+		   rand:seed(exsplus, Seed0);
+	       _ ->
+		   Seed0
+	   end,
+    ShuffledCases = random_order(N, rand:uniform_s(N, Seed), CasesToShuffle, []),
     [Start|ShuffledCases] ++ Rest.
 
 cases_to_shuffle(Ref, Cases) ->
@@ -3201,7 +3207,7 @@ random_order(1, {_Pos,Seed}, [{_Ix,CaseOrGroup}], Shuffled) ->
     Shuffled++CaseOrGroup;
 random_order(N, {Pos,NewSeed}, IxCases, Shuffled) ->
     {First,[{_Ix,CaseOrGroup}|Rest]} = lists:split(Pos-1, IxCases),
-    random_order(N-1, random:uniform_s(N-1, NewSeed),
+    random_order(N-1, rand:uniform_s(N-1, NewSeed),
 		 First++Rest, Shuffled++CaseOrGroup).
 
 
@@ -3711,8 +3717,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		RunDir = filename:dirname(MinorName),
 		Ext =
 		    if Num == 0 ->
-			    Nr = erlang:unique_integer([positive]),
-			    lists:flatten(io_lib:format(".~w", [Nr]));
+			    Int = erlang:unique_integer([positive,monotonic]),
+			    lists:flatten(io_lib:format(".cfg.~w", [Int]));
 		       true ->
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,

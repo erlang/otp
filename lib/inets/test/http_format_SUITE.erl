@@ -20,26 +20,12 @@
 %%
 
 -module(http_format_SUITE).
--author('ingela@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("http_internal.hrl").
 
-%% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
-
-%% Test cases must be exported.
--export([ chunk_decode/1, chunk_encode/1,
-	  chunk_extensions_otp_6005/1, chunk_decode_otp_6264/1,
-	  chunk_decode_empty_chunk_otp_6511/1,
-	  chunk_decode_trailer/1,
-	  http_response/1, http_request/1, validate_request_line/1,
-	  esi_parse_headers/1, cgi_parse_headers/1,
-	  is_absolut_uri/1, convert_netscapecookie_date/1,
-	  check_content_length_encoding/1]).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
 
 all() -> 
     [{group, chunk}, http_response, http_request,
@@ -52,7 +38,8 @@ groups() ->
       [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
        chunk_decode_otp_6264,
        chunk_decode_empty_chunk_otp_6511,
-       chunk_decode_trailer]}].
+       chunk_whitespace_suffix,
+       chunk_decode_trailer, chunk_max_headersize, chunk_max_bodysize, chunk_not_hex]}].
 
 init_per_suite(Config) ->
     Config.
@@ -81,12 +68,8 @@ end_per_testcase(_, Config) ->
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 
-
-%%-------------------------------------------------------------------------
-chunk_decode(doc) ->
-    ["Test http_chunk:decode/3"];
-chunk_decode(suite) ->
-    [];
+chunk_decode() ->
+    [{doc, "Test http_chunk:decode/3"}].
 chunk_decode(Config) when is_list(Config) ->
     ReqHeaders =  #http_request_h{'transfer-encoding' = "chunked"},
     ChunkedBody = "A" ++ ?CRLF ++ "1234567890" ++ ?CRLF ++ "4" ++
@@ -109,15 +92,11 @@ chunk_decode(Config) when is_list(Config) ->
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
 
     {_, Body} = parse(Module, Function, Args, tl(NewChunkedBody)),
-    "1234567890HEJ!" = binary_to_list(Body),
-
-    ok.
+    "1234567890HEJ!" = binary_to_list(Body).
 
 %%-------------------------------------------------------------------------
-chunk_extensions_otp_6005(doc) ->
-    ["Make sure so called extensions are ignored"];
-chunk_extensions_otp_6005(suite) ->
-    [];
+chunk_extensions_otp_6005() ->
+    [{doc, "Make sure so called extensions are ignored"}].
 chunk_extensions_otp_6005(Config) when is_list(Config)->
     ChunkedBody = "A;ignore this" ++ ?CRLF ++ "1234567890" ++
 	?CRLF ++ "4" ++ ?CRLF  ++ "HEJ!"++ ?CRLF  ++ "0" ++
@@ -136,14 +115,11 @@ chunk_extensions_otp_6005(Config) when is_list(Config)->
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
     
     {_, NewBody} = parse(Module1, Function1, Args1, tl(ChunkedBody1)),
-    "1234567890HEJ!" = binary_to_list(NewBody),
-    ok.
+    "1234567890HEJ!" = binary_to_list(NewBody).
 
 %%-------------------------------------------------------------------------
-chunk_decode_otp_6264(doc) ->
-      ["Check that 0 in the body does not count as the last chunk"];
-chunk_decode_otp_6264(suite) ->
-    [];
+chunk_decode_otp_6264() ->
+    [{doc, "Check that 0 in the body does not count as the last chunk"}].
 chunk_decode_otp_6264(Config) when is_list(Config)->
     ChunkedBody = "A;ignore this" ++ ?CRLF ++ "1234567890" ++
 	?CRLF ++ "4" ++ ?CRLF  ++ "0123"++ ?CRLF  ++ "0" ++
@@ -173,27 +149,33 @@ chunk_decode_otp_6264(Config) when is_list(Config)->
 			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
     
     {_, NewBody} = parse(Module1, Function1, Args1, tl(NewChunkedBody1)),
-    "12345678900" = binary_to_list(NewBody),
-    
-    ok.
+    "12345678900" = binary_to_list(NewBody).
 %%-------------------------------------------------------------------------
-chunk_decode_empty_chunk_otp_6511(doc) ->
-    [""];
-chunk_decode_empty_chunk_otp_6511(suite) ->
-    [];
 chunk_decode_empty_chunk_otp_6511(Config) when is_list(Config) ->
     ChunkedBody = "0" ++ ?CRLF ++ ?CRLF,
     {ok,{["content-length:0"],<<>>}}  = 
 	http_chunk:decode(list_to_binary(ChunkedBody),
-			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
-    ok.
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE).
     
 %%-------------------------------------------------------------------------
-chunk_decode_trailer(doc) ->
-    ["Make sure trailers are handled correctly. Trailers should"
-     "become new headers"];
-chunk_decode_trailer(suite) ->
-    [];
+chunk_whitespace_suffix() ->
+    [{doc, "Test whitespace after chunked length header"}].
+chunk_whitespace_suffix(Config) when is_list(Config) ->
+    ChunkedBody = "1a  ; ignore-stuff-here" ++ ?CRLF ++
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10   "  ++ ?CRLF
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0  " ++ ?CRLF
+	++ "some-footer:some-value"  ++ ?CRLF
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    {ok, {["content-length:42", "another-footer:another-value",
+	   "some-footer:some-value", ""],
+	  <<"abcdefghijklmnopqrstuvwxyz1234567890abcdef">>}} =
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE).
+
+%%-------------------------------------------------------------------------
+chunk_decode_trailer() ->
+    [{doc,"Make sure trailers are handled correctly. Trailers should"
+     "become new headers"}].
 chunk_decode_trailer(Config) when is_list(Config)->
     ChunkedBody = "1a; ignore-stuff-here" ++ ?CRLF ++ 
 	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
@@ -249,30 +231,79 @@ chunk_decode_trailer(Config) when is_list(Config)->
  			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
     
      {_, NewBody} = parse(Module1, Function1, Args1, tl(ChunkedBody3)),
-     "abcdefghijklmnopqrstuvwxyz1234567890abcdef" = binary_to_list(NewBody),
-    
-    ok.
+     "abcdefghijklmnopqrstuvwxyz1234567890abcdef" = binary_to_list(NewBody).
 
 %%-------------------------------------------------------------------------
-chunk_encode(doc) ->
-    ["Test http_chunk:encode/1 & http_chunk:encode_last/0"];
-chunk_encode(suite) ->
-    [];
+chunk_encode() ->
+    [{doc, "Test http_chunk:encode/1 & http_chunk:encode_last/0"}].
 chunk_encode(Config) when is_list(Config) ->
     <<54, ?CR, ?LF, 102,111,111,98,97,114, ?CR, ?LF>> = 
 	http_chunk:encode(list_to_binary("foobar")),
     ["6", ?CR, ?LF,"foobar", ?CR, ?LF] = http_chunk:encode("foobar"),
-    <<$0, ?CR, ?LF, ?CR, ?LF >> = http_chunk:encode_last(),
-    ok.
-
+    <<$0, ?CR, ?LF, ?CR, ?LF >> = http_chunk:encode_last().
+%%-------------------------------------------------------------------------
+chunk_max_headersize() ->
+    [{doc, "Test max header limit"}].
+chunk_max_headersize(Config) when is_list(Config) ->
+    ChunkedBody = "1a; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    
+    {ok, {_, _}} = 
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
+    
+    %% Too long in length header
+    {error,{header_too_long, {max, 1}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 1)),
+    
+    %% Too long in extension field
+    {error,{header_too_long, {max, 10}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 10)),
+    
+    %% Too long in trailer
+    {error,{header_too_long, {max, 30}}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, 30)).
+%%-------------------------------------------------------------------------
+chunk_not_hex() ->
+    [{doc, "Test bad chunked length header"}].
+chunk_not_hex(Config) when is_list(Config) ->
+     ChunkedBody = "åäö; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+     {error,{chunk_size, "åäö"}} = 
+	(catch http_chunk:decode(list_to_binary(ChunkedBody),
+				 ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE)).
+%%-------------------------------------------------------------------------
+chunk_max_bodysize() ->
+    [{doc, "Test max body limit"}].
+chunk_max_bodysize(Config) when is_list(Config) ->
+     ChunkedBody = "1a; ignore-stuff-here" ++ ?CRLF ++ 
+	"abcdefghijklmnopqrstuvwxyz" ++ ?CRLF ++ "10"  ++ ?CRLF 
+	++ "1234567890abcdef" ++ ?CRLF  ++ "0" ++ ?CRLF 
+	++ "some-footer:some-value"  ++ ?CRLF 
+	++ "another-footer:another-value" ++ ?CRLF ++ ?CRLF,
+    {ok, {_, _}} = 
+	http_chunk:decode(list_to_binary(ChunkedBody),
+			  ?HTTP_MAX_BODY_SIZE, ?HTTP_MAX_HEADER_SIZE),
+    
+    %% Too long body
+    {error,{body_too_big, {max, 10}}} = 
+	 (catch http_chunk:decode(list_to_binary(ChunkedBody),
+				  10, ?HTTP_MAX_HEADER_SIZE)).
 
 %%-------------------------------------------------------------------------
-http_response(doc) ->
-    ["Test httpc_response:parse*. This test case will simulate that the "
+http_response() ->
+    [{doc, "Test httpc_response:parse*. This test case will simulate that the "
      "message will be recived a little at the time on a socket and the "
-     "package may be broken up into smaller parts at arbitrary point."];
-http_response(suite) ->
-    [];
+     "package may be broken up into smaller parts at arbitrary point."}].
 http_response(Config) when is_list(Config) ->
 
     HttpHead1 = ["HTTP", "/1.1 ", "20", "0 ", "ok", [?CR, ?LF], 
@@ -340,12 +371,10 @@ http_response(Config) when is_list(Config) ->
 			       [<<>>,Length1], HttpBody1)),
     ok.
 %%-------------------------------------------------------------------------
-http_request(doc) ->
-    ["Test httpd_request:parse* This test case will simulate that the " 
+http_request() ->
+    [{doc, "Test httpd_request:parse* This test case will simulate that the " 
      "message will be recived a little at the time on a socket and the " 
-     "package may be broken up into smaller parts at arbitrary point."];
-http_request(suite) ->
-    [];
+      "package may be broken up into smaller parts at arbitrary point."}].
 http_request(Config) when is_list(Config) ->
 
     HttpHead = ["GE", "T ", "http://www.erlang", ".org ", "HTTP", 
@@ -407,15 +436,12 @@ http_request(Config) when is_list(Config) ->
     NewBody1 = 	
 	binary_to_list(parse
 		       (httpd_request, whole_body, 
-			[<<>>, Length1], HttpBody1)),    
-    ok.
+			[<<>>, Length1], HttpBody1)).
 %%-------------------------------------------------------------------------
-validate_request_line(doc) ->
-    ["Test httpd_request:validate/3. Makes sure you can not get past"
+validate_request_line() ->
+    [{doc, "Test httpd_request:validate/3. Makes sure you can not get past"
      " the server_root and that the request is recognized by the server"
-     " and protcol version." ];
-validate_request_line(suite) ->
-    [];
+     " and protcol version."}].
 validate_request_line(Config) when is_list(Config) ->
 
     %% HTTP/0.9 only has GET requests
@@ -468,16 +494,12 @@ validate_request_line(Config) when is_list(Config) ->
     NewForbiddenUri1 = 
 	"http://127.0.0.1:8888/../home/ingela/test.html",
     {error, {bad_request, {forbidden, NewForbiddenUri1}}} = 
-	httpd_request:validate("GET", NewForbiddenUri1, "HTTP/1.1"),
-
-    ok.
+	httpd_request:validate("GET", NewForbiddenUri1, "HTTP/1.1").
 
 %%-------------------------------------------------------------------------
-check_content_length_encoding(doc) ->
-    ["Test http_request:headers/2. Check that the content-length is"
-     " encoded even when it is zero." ];
-check_content_length_encoding(suite) ->
-    [];
+check_content_length_encoding() ->
+    [{doc, "Test http_request:headers/2. Check that the content-length is"
+      " encoded even when it is zero."}].
 check_content_length_encoding(Config) when is_list(Config) ->
 
     %% Check that the content-length is preserved.
@@ -486,16 +508,12 @@ check_content_length_encoding(Config) when is_list(Config) ->
     true = (string:str(Header1, "content-length: 123\r\n") > 0),
     %% Check that content-length=0 is handled correctly.
     Header2 = http_request:http_headers(#http_request_h{'content-length'="0"}),
-    true = (string:str(Header2, "content-length: 0\r\n") > 0),
-
-    ok.
+    true = (string:str(Header2, "content-length: 0\r\n") > 0).
 
 %%-------------------------------------------------------------------------
-esi_parse_headers(doc) ->
-    ["Test httpd_esi:*. All header values are received in the same"
-     " erlang message."];
-esi_parse_headers(suite) ->
-    [];
+esi_parse_headers() ->
+    [{doc, "Test httpd_esi:*. All header values are received in the same"
+      " erlang message."}].
 esi_parse_headers(Config) when is_list(Config) ->
 
     ESIResult = "content-type:text/html\r\ndate:Thu, 28 Oct 2004 07:57:43 "
@@ -522,16 +540,14 @@ esi_parse_headers(Config) when is_list(Config) ->
 	httpd_esi:handle_headers(Headers2),
     
     {proceed,"/foo/bar.html"} = 
-	httpd_esi:handle_headers("location:/foo/bar.html\r\n"),
-    ok.
+	httpd_esi:handle_headers("location:/foo/bar.html\r\n").
 
 %%--------------------------------------------------------------------
-cgi_parse_headers(doc) ->
-    ["Test httpd_cgi:*. This test case will simulate that the "
+cgi_parse_headers() ->
+    [{doc, "Test httpd_cgi:*. This test case will simulate that the "
      "message will be recived a little at the time on a socket and the "
-     "package may be broken up into smaller parts at arbitrary point."];
-cgi_parse_headers(suite) ->
-    [];
+     "package may be broken up into smaller parts at arbitrary point."}].
+
 cgi_parse_headers(Config) when is_list(Config) ->
 
     CGIResult = ["content-type:text", "/html\ndate:Thu, 28 Oct 2004 07:57:43 "
@@ -567,26 +583,18 @@ cgi_parse_headers(Config) when is_list(Config) ->
     {ok,[{"content-type","text/html"},
 	 {"connection","close"},
 	 {"content-language","en"},
-	 {"age","4711"}], {200,"ok"}}  = httpd_cgi:handle_headers(Headers3),
-
-    ok.
-    
+	 {"age","4711"}], {200,"ok"}}  = httpd_cgi:handle_headers(Headers3).    
 %%-------------------------------------------------------------------------
-is_absolut_uri(doc) ->
-    ["Test http_request:is_absolut_uri/1."];
-is_absolut_uri(suite) ->
-    [];
+is_absolut_uri() ->
+    [{doc, "Test http_request:is_absolut_uri/1."}].
 is_absolut_uri(Config) when is_list(Config) ->
     true = http_request:is_absolut_uri("http://www.erlang.org"),
     true = http_request:is_absolut_uri("https://www.erlang.org"),
     false = http_request:is_absolut_uri("index.html").
 
-
 %%-------------------------------------------------------------------------
-convert_netscapecookie_date(doc) ->
-    ["Test http_util:convert_netscapecookie_date/1."];
-convert_netscapecookie_date(suite) ->
-    [];
+convert_netscapecookie_date() ->
+    [{doc, "Test http_util:convert_netscapecookie_date/1."}].
 convert_netscapecookie_date(Config) when is_list(Config) ->
     {{2006,1,6},{8,59,38}} = 
 	http_util:convert_netscapecookie_date("Mon, 06-Jan-2006 08:59:38 GMT"),
@@ -619,9 +627,7 @@ convert_netscapecookie_date(Config) when is_list(Config) ->
     {{2006,12,12},{8,59,38}} = 
 	http_util:convert_netscapecookie_date("Sun 12-Dec-06 08:59:38 GMT"),
     {{2036,1,1},{8,0,1}} = 
-	http_util:convert_netscapecookie_date("Tue Jan 01 08:00:01 2036 GMT"),
-    ok.
-
+	http_util:convert_netscapecookie_date("Tue Jan 01 08:00:01 2036 GMT").
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

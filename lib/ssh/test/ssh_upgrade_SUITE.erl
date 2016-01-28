@@ -46,20 +46,17 @@ all() ->
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
-    try {crypto:start(), erlang:system_info({wordsize, internal}) == 
-                 	     erlang:system_info({wordsize, external})} of
-	{ok, true} ->
-	    case ct_release_test:init(Config0) of
-		{skip, Reason} ->
-		    {skip, Reason};
-		Config ->
-		    ssh:start(),
-		    Config
-	    end;
-	{ok, false} ->
-	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
+    try crypto:start() of
+        ok ->
+            case ct_release_test:init(Config0) of
+                {skip, Reason} ->
+                    {skip, Reason};
+                Config ->
+                    ssh:start(),
+                    Config
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+              {skip, "Crypto did not start"}
     end.
 
 end_per_suite(Config) ->
@@ -94,8 +91,8 @@ minor_upgrade(Config) when is_list(Config) ->
 %%% Called by ct_release_test:upgrade/4
 upgrade_init(CTData, State) -> 
     {ok, AppUp={_, _, Up, _Down}} = ct_release_test:get_appup(CTData, ssh),
-    ct:pal("AppUp: ~p", [AppUp]),
-    ct:pal("Up: ~p", [Up]),
+    ct:log("AppUp: ~p", [AppUp]),
+    ct:log("Up: ~p", [Up]),
     case Soft = is_soft(Up) of
 	%% It is symmetrical, if upgrade is soft so is downgrade  
 	true ->
@@ -134,12 +131,12 @@ is_soft(_) ->
 
 
 test_hard(State0, FileName) ->
-    ct:pal("test_hard State0=~p, FileName=~p",[State0, FileName]),
+    ct:log("test_hard State0=~p, FileName=~p",[State0, FileName]),
     State = setup_server_client(State0),
     test_connection(FileName, random_contents(), State).
 
 test_soft(State0, FileName) ->
-    ct:pal("test_soft State0=~p, FileName=~p",[State0, FileName]),
+    ct:log("test_soft State0=~p, FileName=~p",[State0, FileName]),
     State = test_connection(FileName, random_contents(), State0),
     setup_server_client( close(State) ).
 
@@ -171,7 +168,7 @@ setup_server_client(#state{config=Config} = State) ->
 test_connection(FileName, FileContents,
 		#state{client = ChannelPid,
 		       root_dir = FtpRootDir} = State) ->
-    ct:pal("test_connection Writing with ssh_sftp:write_file",[]),
+    ct:log("test_connection Writing with ssh_sftp:write_file",[]),
     case ssh_sftp:write_file(ChannelPid, FileName, FileContents) of
 	ok ->
 	    case ssh_sftp:read_file(ChannelPid, FileName) of

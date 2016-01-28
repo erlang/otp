@@ -68,6 +68,8 @@
 	 clash/0,
      get_mode/0]).
 
+-deprecated({rehash,0,next_major_release}).
+
 -export_type([load_error_rsn/0, load_ret/0]).
 
 -include_lib("kernel/include/file.hrl").
@@ -293,7 +295,9 @@ replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
     call({replace_path,Name,Dir}).
 
 -spec rehash() -> 'ok'.
-rehash() -> call(rehash).
+rehash() ->
+    cache_warning(),
+    ok.
 
 -spec get_mode() -> 'embedded' | 'interactive'.
 get_mode() -> call(get_mode).
@@ -322,6 +326,7 @@ start_link(Flags) ->
 %%-----------------------------------------------------------------
 
 do_start(Flags) ->
+    maybe_warn_for_cache(),
     load_code_server_prerequisites(),
 
     Mode = get_mode(Flags),
@@ -452,30 +457,14 @@ which(File, Base, [Directory|Tail]) ->
       Filename :: file:filename(),
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
-    case call({is_cached,File}) of
-	no ->
-	    Path = get_path(),
-	    which(File, ".", Path);
-	Dir ->
-	    filename:join(Dir, File)
-    end.
+    Path = get_path(),
+    which(File, ".", Path).
 
 -spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
         file:filename() | 'non_existing'.
 
 where_is_file(Path, File) when is_list(Path), is_list(File) ->
-    CodePath = get_path(),
-    if
-	Path =:= CodePath ->
-	    case call({is_cached, File}) of
-		no ->
-		    which(File, ".", Path);
-		Dir ->
-		    filename:join(Dir, File)
-	    end;
-	true ->
-	    which(File, ".", Path)
-    end.
+    which(File, ".", Path).
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
@@ -551,6 +540,22 @@ has_ext(Ext, Extlen, File) ->
 	Ext -> true;
 	_ -> false
     end.
+
+%%%
+%%% Warning for deprecated code path cache.
+%%%
+
+maybe_warn_for_cache() ->
+    case init:get_argument(code_path_cache) of
+	{ok, _} ->
+	    cache_warning();
+	error ->
+	    ok
+    end.
+
+cache_warning() ->
+    W = "The code path cache functionality has been removed",
+    error_logger:warning_report(W).
 
 %%%
 %%% Silently load native code for all modules loaded so far.

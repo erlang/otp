@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2014</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,15 +31,15 @@
     <rev></rev>
   </header>
   <module>ssh_connection</module>
-  <modulesummary>This module provides API functions to send
-  <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH Connection Protocol </url>
-  events to the other side of an SSH channel.
+  <modulesummary>
+    This module provides API functions to send SSH Connection Protocol 
+    events to the other side of an SSH channel.
   </modulesummary>
 
   <description>
-    <p>The SSH Connection Protocol is used by clients and servers,
-    that is, SSH channels, to communicate over the SSH connection. The
-    API functions in this module send SSH Connection Protocol events,
+    <p>The <url href="http://www.ietf.org/rfc/rfc4254.txt">SSH Connection Protocol</url> 
+    is used by clients and servers, that is, SSH channels, to communicate over the 
+    SSH connection. The API functions in this module send SSH Connection Protocol events,
     which are received as messages by the remote channel.
     If the receiving channel is an Erlang process, the
     messages have the format
@@ -373,6 +373,9 @@
        <desc>
 	 <p>Is to be called by client- and server-channel processes to send data to each other.
 	 </p>
+	 <p>The function <seealso marker="ssh:ssh_connection#subsystem/4">subsystem/4</seealso> and subsequent
+	 calls of <c>send/3,4,5</c> must be executed in the same process.
+	 </p>
        </desc>
      </func>
      
@@ -453,6 +456,9 @@
        <desc>
 	 <p>Is to be called by a client-channel process for requesting to execute a predefined
 	 subsystem on the server.
+	 </p>
+	 <p>The function <c>subsystem/4</c> and subsequent calls of 
+	 <seealso marker="ssh:ssh_connection#send/3">send/3,4,5</seealso> must be executed in the same process.
 	 </p>
        </desc>
     </func>

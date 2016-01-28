@@ -58,6 +58,7 @@
 	%% erlang
 	t_erlang_hash/1,
 	t_map_encode_decode/1,
+	t_gc_rare_map_overflow/1,
 
 	%% non specific BIF related
 	t_bif_build_and_check/1,
@@ -121,6 +122,7 @@ all() -> [
 
 	%% erlang
 	t_erlang_hash, t_map_encode_decode,
+	t_gc_rare_map_overflow,
 	t_map_size, t_is_map,
 
 	%% non specific BIF related
@@ -1509,11 +1511,8 @@ t_map_equal(Config) when is_list(Config) ->
 
 
 t_map_compare(Config) when is_list(Config) ->
-    Seed = {erlang:monotonic_time(),
-	    erlang:time_offset(),
-	    erlang:unique_integer()},
-    io:format("seed = ~p\n", [Seed]),
-    random:seed(Seed),
+    rand:seed(exsplus),
+    io:format("seed = ~p\n", [rand:export_seed()]),
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
     ok.
@@ -1531,7 +1530,7 @@ float_int_compare() ->
 
 numeric_keys(N) ->
     lists:foldl(fun(_,Acc) ->
-			Int = random:uniform(N*4) - N*2,
+			Int = rand:uniform(N*4) - N*2,
 			Float = float(Int),
 			[Int, Float, Float * 0.99, Float * 1.01 | Acc]
 		end,
@@ -1562,7 +1561,7 @@ do_compare([Gen1, Gen2]) ->
 
     %% Change one key from int to float (or vice versa) and check compare
     ML1 = maps:to_list(M1),
-    {K1,V1} = lists:nth(random:uniform(length(ML1)), ML1),
+    {K1,V1} = lists:nth(rand:uniform(length(ML1)), ML1),
     case K1 of
 	I when is_integer(I) ->
 	    case maps:find(float(I),M1) of
@@ -1653,9 +1652,9 @@ cmp_others(T1, T2, _) ->
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
-				KI = random:uniform(size(Keys)),
+				KI = rand:uniform(size(Keys)),
 				K = element(KI,Keys),
-				KV = element(random:uniform(size(K)), K),
+				KV = element(rand:uniform(size(K)), K),
 				{erlang:delete_element(KI,Keys), [KV | Acc]}
 			end,
 			{Pairs, []},
@@ -1695,15 +1694,15 @@ term_gen_recursive(Leafs, Flags, Depth) ->
     MaxDepth = 10,
     Rnd = case {Flags, Depth} of
 	      {_, MaxDepth} -> % Only leafs
-		  random:uniform(size(Leafs)) + 3;
+		  rand:uniform(size(Leafs)) + 3;
 	      {0, 0} ->        % Only containers
-		  random:uniform(3);
+		  rand:uniform(3);
 	      {0,_} ->         % Anything
-		  random:uniform(size(Leafs)+3)
+		  rand:uniform(size(Leafs)+3)
 	  end,
     case Rnd of
 	1 -> % Make map
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    lists:foldl(fun(_, {Acc1,Acc2}) ->
 				{K1,K2} = term_gen_recursive(Leafs, Flags,
 							     Depth+1),
@@ -1718,7 +1717,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags, Depth+1),
 	    {[Car1 | Cdr1], [Car2 | Cdr2]};
 	3 -> % Make tuple
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags, Depth+1) end,
 			  lists:seq(1,Size)),
 	    {L1, L2} = lists:unzip(L),
@@ -1727,7 +1726,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	N -> % Make leaf
 	    case element(N-3, Leafs) of
 		I when is_integer(I) ->
-		    case random:uniform(4) of
+		    case rand:uniform(4) of
 			1 -> {I, float(I)};
 			2 -> {float(I), I};
 			_ -> {I,I}
@@ -2181,7 +2180,9 @@ t_map_encode_decode(Config) when is_list(Config) ->
 	{<<>>, sc9}, {3.14158, sc10},
 	{[3.14158], sc11}, {more_atoms, sc12},
 	{{more_tuples}, sc13}, {self(), sc14},
-	{{},{}},{[],[]}
+	{{},{}},{[],[]},
+        {map_s, #{a=>a, 2=>b, 3=>c}},
+        {map_l, maps:from_list([{I,I}||I <- lists:seq(1,74)])}
     ],
     ok = map_encode_decode_and_match(Pairs,[],#{}),
 
@@ -2245,9 +2246,30 @@ t_map_encode_decode(Config) when is_list(Config) ->
 
     %% bad size (too small) .. should fail just truncate it .. weird.
     %% possibly change external format so truncated will be #{a:=1}
-    #{ a:=b } =
-	erlang:binary_to_term(<<131,116,0,0,0,1,100,0,1,97,100,0,1,98,97,1,97,1>>),
+    #{ a:=b } = erlang:binary_to_term(<<131,116,0,0,0,1,100,0,1,97,100,0,1,98,97,1,97,1>>),
 
+    %% specific fannerl (opensource app) binary_to_term error in 18.1
+
+    #{bias := {1,1,0},
+      bit_fail := 0,
+      connections := #{{2,9}   := _,
+                       {8,14}  := _,
+                       {2,12}  := _,
+                       {5,7}   := _,
+                       {11,16} := _,
+                       {11,15} := _},
+      layers := {5,7,3},
+      network_type := fann_nettype_layer,
+      num_input := 5,
+      num_layers := 3,
+      num_output := 3,
+      rprop_delta_max := _,
+      rprop_delta_min := _,
+      total_connections := 66,
+      total_neurons := 17,
+      train_error_function := fann_errorfunc_tanh,
+      train_stop_function := fann_stopfunc_mse,
+      training_algorithm := fann_train_rprop} = erlang:binary_to_term(fannerl()),
     ok.
 
 map_encode_decode_and_match([{K,V}|Pairs], EncodedPairs, M0) ->
@@ -2391,6 +2413,9 @@ check_keys_exist([K|Ks],M) ->
     check_keys_exist(Ks,M).
 
 t_bif_merge_and_check(Config) when is_list(Config) ->
+
+    io:format("rand:export_seed() -> ~p\n",[rand:export_seed()]),
+
     %% simple disjunct ones
     %% make sure all keys are unique
     Kss = [[a,b,c,d],
@@ -2438,7 +2463,48 @@ t_bif_merge_and_check(Config) when is_list(Config) ->
     M41 = maps:merge(M4,M1),
     ok  = check_key_values(KVs1 ++ [{d,5}] ++ KVs, M41),
 
+    [begin Ma = random_map(SzA, a),
+	   Mb = random_map(SzB, b),
+	   ok = merge_maps(Ma, Mb)
+     end || SzA <- [3,10,20,100,200,1000], SzB <- [3,10,20,100,200,1000]],
+
     ok.
+
+% Generate random map with an average of Sz number of pairs: K -> {V,K}
+random_map(Sz, V) ->
+    random_map_insert(#{}, 0, V, Sz*2).
+
+random_map_insert(M0, K0, _, Sz) when K0 > Sz ->
+    M0;
+random_map_insert(M0, K0, V, Sz) ->
+    Key = K0 + rand:uniform(3),
+    random_map_insert(M0#{Key => {V,Key}}, Key, V, Sz).
+
+
+merge_maps(A, B) ->
+    AB = maps:merge(A, B),
+    %%io:format("A=~p\nB=~p\n",[A,B]),
+    maps_foreach(fun(K,VB) -> VB = maps:get(K, AB)
+		 end, B),
+    maps_foreach(fun(K,VA) ->
+			 case {maps:get(K, AB),maps:find(K, B)} of
+			     {VA, error} -> ok;
+			     {VB, {ok, VB}} -> ok
+			 end
+		 end, A),
+
+    maps_foreach(fun(K,V) ->
+			 case {maps:find(K, A),maps:find(K, B)} of
+			     {{ok, V}, error} -> ok;
+			     {error, {ok, V}} -> ok;
+			     {{ok,_}, {ok, V}} -> ok
+			 end
+		 end, AB),
+    ok.
+
+maps_foreach(Fun, Map) ->
+    maps:fold(fun(K,V,_) -> Fun(K,V) end, void, Map).
+
 
 check_key_values([],_) -> ok;
 check_key_values([{K,V}|KVs],M) ->
@@ -2529,7 +2595,7 @@ hashmap_balance(KeyFun) ->
     F = fun(I, {M0,Max0}) ->
 		Key = KeyFun(I),
 		M1 = M0#{Key => Key},
-		Max1 = case erts_internal:map_type(M1) of
+		Max1 = case erts_internal:term_type(M1) of
 			   hashmap ->
 			       Nodes = hashmap_nodes(M1),
 			       Avg = maps:size(M1) * 0.4,
@@ -2922,3 +2988,189 @@ do_badmap_17(Config) ->
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
+
+
+%% OTP-13146
+%% Provoke major GC with a lot of "fat" maps on external format in msg queue
+%% causing heap fragments to be allocated.
+t_gc_rare_map_overflow(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(gc_rare_map_overflow, slave, [{args, "-pa \""++Pa++"\""}]),
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+	Echo = spawn_link(Node, fun Loop() -> receive {From,Msg} -> From ! Msg
+					      end,
+					      Loop()
+				end),
+	FatMap = fatmap(34),
+	false = (flatmap =:= erts_internal:term_type(FatMap)),
+
+	t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
+
+	%% Repeat test for minor gc:
+	t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> minor_collect() end),
+
+	unlink(Echo),
+
+	%% Test fatmap in exit signal
+	Exiter = spawn_link(Node, fun Loop() -> receive {From,Msg} ->
+							"not_a_map" = Msg  % badmatch!
+						end,
+						Loop()
+				  end),
+	process_flag(trap_exit, true),
+	Exiter ! {self(), FatMap},
+	{'EXIT', Exiter, {{badmatch,FatMap}, _}} = receive M -> M end,
+	ok
+
+    after
+	process_flag(trap_exit, false),
+	erts_debug:set_internal_state(available_internal_state, false),
+	test_server:stop_node(Node)
+    end.
+
+t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
+    Master = self(),
+    true = receive M -> false after 0 -> true end,   % assert empty msg queue
+    Echo ! {Master, token},
+    repeat(1000, fun(_) -> Echo ! {Master, FatMap} end, void),
+
+    timer:sleep(100),                % Wait for maps to arrive in our msg queue
+    token = receive Tok -> Tok end,  % and provoke move from outer to inner msg queue
+
+    %% Do GC that will "overflow" and create heap frags due to all the fat maps
+    GcFun(),
+
+    %% Now check that all maps in msg queueu are intact
+    %% Will crash emulator in OTP-18.1
+    repeat(1000, fun(_) -> FatMap = receive FM -> FM end end, void),
+    ok.
+
+minor_collect() ->
+    Before = minor_gcs(),
+    erts_debug:set_internal_state(force_gc, self()),
+    erlang:yield(),
+    After = minor_gcs(),
+    io:format("minor_gcs: ~p -> ~p\n", [Before, After]).
+
+minor_gcs() ->
+    {garbage_collection, Info} = process_info(self(), garbage_collection),
+    {minor_gcs, GCS} = lists:keyfind(minor_gcs, 1, Info),
+    GCS.
+
+%% Generate a map with N (or N+1) keys that has an abnormal heap demand.
+%% Done by finding keys that collide in the first 32-bit hash.
+fatmap(N) ->
+    %%erts_debug:set_internal_state(available_internal_state, true),
+    Table = ets:new(void, [bag, private]),
+
+    Seed0 = rand:seed_s(exsplus, {4711, 3141592, 2718281}),
+    Seed1 = fatmap_populate(Table, Seed0, (1 bsl 16)),
+    Keys = fatmap_generate(Table, Seed1, N, []),
+    ets:delete(Table),
+    maps:from_list([{K,K} || K <- Keys]).
+
+fatmap_populate(_, Seed, 0) -> Seed;
+fatmap_populate(Table, Seed, N) ->
+    {I, NextSeed} = rand:uniform_s(1 bsl 48, Seed),
+    Hash = internal_hash(I),
+    ets:insert(Table, [{Hash, I}]),
+    fatmap_populate(Table, NextSeed, N-1).
+
+
+fatmap_generate(_, _, N, Acc) when N =< 0 ->
+    Acc;
+fatmap_generate(Table, Seed, N0, Acc0) ->    
+    {I, NextSeed} = rand:uniform_s(1 bsl 48, Seed),
+    Hash = internal_hash(I),
+    case ets:member(Table, Hash) of
+	true ->
+	    NewKeys = [I | ets:lookup_element(Table, Hash, 2)],
+	    Acc1 = lists:usort(Acc0 ++ NewKeys),
+	    N1 = N0 - (length(Acc1) - length(Acc0)),
+	    fatmap_generate(Table, NextSeed, N1, Acc1);
+	false ->
+	    fatmap_generate(Table, NextSeed, N0, Acc0)
+    end.
+
+internal_hash(Term) ->
+    erts_debug:get_internal_state({internal_hash, Term}).
+
+
+%% map external_format (fannerl).
+fannerl() ->
+    <<131,116,0,0,0,28,100,0,13,108,101,97,114,110,105,110,103,95,114,
+      97,116,101,70,63,230,102,102,96,0,0,0,100,0,17,108,101,97,114,110,105,110,
+      103,95,109,111,109,101,110,116,117,109,70,0,0,0,0,0,0,0,0,100,0,
+      18,116,114,97,105,110,105,110,103,95,97,108,103,111,114,105,116,104,109,100,0,
+      16,102,97,110,110,95,116,114,97,105,110,95,114,112,114,111,112,
+      100,0,17,109,101,97,110,95,115,113,117,97,114,101,95,101,114,114,111,114,70,
+      0,0,0,0,0,0,0,0,100,0,8,98,105,116,95,102,97,105,108,97,0,100,0,20,
+      116,114,97,105,110,95,101,114,114,111,114,95,102,117,110,99,116,105,111,
+      110,100,0,19,102,97,110,110,95,101,114,114,111,114,102,117,110,99,
+      95,116,97,110,104,100,0,9,110,117,109,95,105,110,112,117,116,97,5,100,0,10,110,
+      117,109,95,111,117,116,112,117,116,97,3,100,0,13,116,111,116,97,108,
+      95,110,101,117,114,111,110,115,97,17,100,0,17,116,111,116,97,108,95,99,111,110,
+      110,101,99,116,105,111,110,115,97,66,100,0,12,110,101,116,119,111,114,107,
+      95,116,121,112,101,100,0,18,102,97,110,110,95,110,101,116,116,121,112,101,
+      95,108,97,121,101,114,100,0,15,99,111,110,110,101,99,116,105,111,110,95,
+      114,97,116,101,70,63,240,0,0,0,0,0,0,100,0,10,110,117,109,95,108,97,121,101,
+      114,115,97,3,100,0,19,116,114,97,105,110,95,115,116,111,112,95,102,117,110,
+      99,116,105,111,110,100,0,17,102,97,110,110,95,115,116,111,112,102,117,110,
+      99,95,109,115,101,100,0,15,113,117,105,99,107,112,114,111,112,95,100,101,99,
+      97,121,70,191,26,54,226,224,0,0,0,100,0,12,113,117,105,99,107,112,114,
+      111,112,95,109,117,70,63,252,0,0,0,0,0,0,100,0,21,114,112,114,111,112,95,105,
+      110,99,114,101,97,115,101,95,102,97,99,116,111,114,70,63,243,51,51,
+      64,0,0,0,100,0,21,114,112,114,111,112,95,100,101,99,114,101,97,115,101,
+      95,102,97,99,116,111,114,70,63,224,0,0,0,0,0,0,100,0,15,114,112,114,111,112,
+      95,100,101,108,116,97,95,109,105,110,70,0,0,0,0,0,0,0,0,100,0,15,114,112,114,
+      111,112,95,100,101,108,116,97,95,109,97,120,70,64,73,0,0,0,0,0,0,100,0,
+      16,114,112,114,111,112,95,100,101,108,116,97,95,122,101,114,111,70,63,185,153,
+      153,160,0,0,0,100,0,26,115,97,114,112,114,111,112,95,119,101,105,103,
+      104,116,95,100,101,99,97,121,95,115,104,105,102,116,70,192,26,147,116,192,0,0,0,
+      100,0,35,115,97,114,112,114,111,112,95,115,116,101,112,95,101,114,
+      114,111,114,95,116,104,114,101,115,104,111,108,100,95,102,97,99,116,111,114,70,
+      63,185,153,153,160,0,0,0,100,0,24,115,97,114,112,114,111,112,95,115,
+      116,101,112,95,101,114,114,111,114,95,115,104,105,102,116,70,63,246,40,245,
+      192,0,0,0,100,0,19,115,97,114,112,114,111,112,95,116,101,109,112,101,114,
+      97,116,117,114,101,70,63,142,184,81,224,0,0,0,100,0,6,108,97,121,101,114,115,
+      104,3,97,5,97,7,97,3,100,0,4,98,105,97,115,104,3,97,1,97,1,97,0,100,0,11,
+      99,111,110,110,101,99,116,105,111,110,115,116,0,0,0,66,104,2,97,0,97,6,70,
+      191,179,51,44,64,0,0,0,104,2,97,1,97,6,70,63,178,130,90,32,0,0,0,104,2,97,2,
+      97,6,70,63,82,90,88,0,0,0,0,104,2,97,3,97,6,70,63,162,91,63,192,0,0,0,104,2,
+      97,4,97,6,70,191,151,70,169,0,0,0,0,104,2,97,5,97,6,70,191,117,52,222,0,0,0,
+      0,104,2,97,0,97,7,70,63,152,240,139,0,0,0,0,104,2,97,1,97,7,70,191,166,31,
+      187,160,0,0,0,104,2,97,2,97,7,70,191,150,70,63,0,0,0,0,104,2,97,3,97,7,70,
+      63,152,181,126,128,0,0,0,104,2,97,4,97,7,70,63,151,187,162,128,0,0,0,104,2,
+      97,5,97,7,70,191,143,161,101,0,0,0,0,104,2,97,0,97,8,70,191,153,102,36,128,0,
+      0,0,104,2,97,1,97,8,70,63,160,139,250,64,0,0,0,104,2,97,2,97,8,70,63,164,62,
+      196,64,0,0,0,104,2,97,3,97,8,70,191,178,78,209,192,0,0,0,104,2,97,4,97,8,70,
+      191,185,19,76,224,0,0,0,104,2,97,5,97,8,70,63,183,142,196,96,0,0,0,104,2,97,0,
+      97,9,70,63,150,104,248,0,0,0,0,104,2,97,1,97,9,70,191,164,4,100,224,0,0,0,
+      104,2,97,2,97,9,70,191,169,42,42,224,0,0,0,104,2,97,3,97,9,70,63,145,54,78,128,0,
+      0,0,104,2,97,4,97,9,70,63,126,243,134,0,0,0,0,104,2,97,5,97,9,70,63,177,
+      203,25,96,0,0,0,104,2,97,0,97,10,70,63,172,104,47,64,0,0,0,104,2,97,1,97,10,
+      70,63,161,242,193,64,0,0,0,104,2,97,2,97,10,70,63,175,208,241,192,0,0,0,104,2,
+      97,3,97,10,70,191,129,202,161,0,0,0,0,104,2,97,4,97,10,70,63,178,151,55,32,0,0,0,
+      104,2,97,5,97,10,70,63,137,155,94,0,0,0,0,104,2,97,0,97,11,70,191,179,
+      106,160,0,0,0,0,104,2,97,1,97,11,70,63,184,253,164,96,0,0,0,104,2,97,2,97,11,
+      70,191,143,30,157,0,0,0,0,104,2,97,3,97,11,70,63,153,225,140,128,0,0,0,104,
+      2,97,4,97,11,70,63,161,35,85,192,0,0,0,104,2,97,5,97,11,70,63,175,200,55,192,
+      0,0,0,104,2,97,0,97,12,70,191,180,116,132,96,0,0,0,104,2,97,1,97,12,70,191,
+      165,151,152,0,0,0,0,104,2,97,2,97,12,70,191,180,197,91,160,0,0,0,104,2,97,3,97,12,
+      70,191,91,30,160,0,0,0,0,104,2,97,4,97,12,70,63,180,251,45,32,0,0,0,
+      104,2,97,5,97,12,70,63,165,134,77,64,0,0,0,104,2,97,6,97,14,70,63,181,56,242,96,
+      0,0,0,104,2,97,7,97,14,70,191,165,239,234,224,0,0,0,104,2,97,8,97,14,
+      70,191,154,65,216,128,0,0,0,104,2,97,9,97,14,70,63,150,250,236,0,0,0,0,104,2,97,
+      10,97,14,70,191,141,105,108,0,0,0,0,104,2,97,11,97,14,70,191,152,40,
+      165,0,0,0,0,104,2,97,12,97,14,70,63,141,159,46,0,0,0,0,104,2,97,13,97,14,70,
+      191,183,172,137,32,0,0,0,104,2,97,6,97,15,70,63,163,26,123,192,0,0,0,104,
+      2,97,7,97,15,70,63,176,184,106,32,0,0,0,104,2,97,8,97,15,70,63,152,234,144,
+      0,0,0,0,104,2,97,9,97,15,70,191,172,58,70,160,0,0,0,104,2,97,10,97,15,70,
+      63,161,211,211,192,0,0,0,104,2,97,11,97,15,70,191,148,171,120,128,0,0,0,104,
+      2,97,12,97,15,70,63,180,117,214,224,0,0,0,104,2,97,13,97,15,70,191,104,
+      230,216,0,0,0,0,104,2,97,6,97,16,70,63,178,53,103,96,0,0,0,104,2,97,7,97,16,
+      70,63,170,230,232,64,0,0,0,104,2,97,8,97,16,70,191,183,45,100,192,0,0,0,
+      104,2,97,9,97,16,70,63,184,100,97,32,0,0,0,104,2,97,10,97,16,70,63,169,174,
+      254,64,0,0,0,104,2,97,11,97,16,70,191,119,121,234,0,0,0,0,104,2,97,12,97,
+      16,70,63,149,12,170,128,0,0,0,104,2,97,13,97,16,70,191,144,193,191,0,0,0,0>>.

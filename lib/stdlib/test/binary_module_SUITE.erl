@@ -536,6 +536,12 @@ do_interesting(Module) ->
     ?line [<<3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
 					   [global,trim_all]),
+    [<<>>] = binary:split(<<>>, <<",">>, []),
+    [] = binary:split(<<>>, <<",">>, [trim]),
+    [] = binary:split(<<>>, <<",">>, [trim_all]),
+    [] = binary:split(<<>>, <<",">>, [global,trim]),
+    [] = binary:split(<<>>, <<",">>, [global,trim_all]),
+
     ?line badarg = ?MASK_ERROR(
 		      Module:replace(<<1,2,3,4,5,6,7,8>>,
 				     [<<4,5>>,<<7>>,<<8>>],<<99>>,
@@ -710,7 +716,7 @@ do_interesting(Module) ->
 encode_decode(doc) ->
     ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
 encode_decode(Config) when is_list(Config) ->
-    ?line random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     ?line ok = encode_decode_loop({1,200},1000), % Need to be long enough
 						 % to create offheap binaries
     ok.
@@ -817,7 +823,7 @@ copy(Config) when is_list(Config) ->
     ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,
 					   16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
     ?line <<>> = binary:copy(<<>>,10000),
-    ?line random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     ?line ok = random_copy(3000),
     ?line erts_debug:set_internal_state(available_internal_state,true),
     ?line io:format("oldlimit: ~p~n",
@@ -855,7 +861,7 @@ random_copy(0) ->
     ok;
 random_copy(N) ->
     Str = random_string({0,N}),
-    Num = random:uniform(N div 10+1),
+    Num = rand:uniform(N div 10+1),
     A = ?MASK_ERROR(binary:copy(Str,Num)),
     B = ?MASK_ERROR(binref:copy(Str,Num)),
     C = ?MASK_ERROR(binary:copy(make_unaligned(Str),Num)),
@@ -896,7 +902,7 @@ bin_to_list(Config) when is_list(Config) ->
     ?line [5] = lists:nthtail(byte_size(X)-1,LX),
     ?line [0,5] = lists:nthtail(byte_size(X)-2,LX),
     ?line [0,5] = lists:nthtail(byte_size(Y)-2,LY),
-    ?line random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     ?line ok = random_bin_to_list(5000),
     ok.
 
@@ -963,7 +969,7 @@ parts(Config) when is_list(Config) ->
     ?line badarg = ?MASK_ERROR(binary:part(Simple,{-1,0})),
     ?line badarg = ?MASK_ERROR(binary:part(Simple,{7,2})),
     ?line <<8>> = binary:part(Simple,{7,1}),
-    ?line random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     ?line random_parts(5000),
     ok.
 
@@ -987,15 +993,15 @@ random_parts(N) ->
 random_parts(0,_) ->
     [];
 random_parts(X,N) ->
-    Pos = random:uniform(N),
-    Len = random:uniform((Pos * 12) div 10),
+    Pos = rand:uniform(N),
+    Len = rand:uniform((Pos * 12) div 10),
     [{Pos,Len} | random_parts(X-1,N)].
 
 random_ref_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation"];
 random_ref_comp(Config) when is_list(Config) ->
     put(success_counter,0),
-    random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
     Hr = {30,1000},
     I1 = 1500,
@@ -1025,7 +1031,7 @@ random_ref_sr_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_sr_comp(Config) when is_list(Config) ->
     put(success_counter,0),
-    random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
     Hr = {30,1000},
     I1 = 1500,
@@ -1043,7 +1049,7 @@ random_ref_fla_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
 random_ref_fla_comp(Config) when is_list(Config) ->
     ?line put(success_counter,0),
-    ?line random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     ?line do_random_first_comp(5000,{1,1000}),
     ?line do_random_last_comp(5000,{1,1000}),
     ?line do_random_at_comp(5000,{1,1000}),
@@ -1377,24 +1383,24 @@ one_random(N) ->
 
 random_number({Min,Max}) -> % Min and Max are *length* of number in
                             % decimal positions
-    X = random:uniform(Max - Min + 1) + Min - 1,
-    list_to_integer([one_random_number(random:uniform(10)) || _ <- lists:seq(1,X)]).
+    X = rand:uniform(Max - Min + 1) + Min - 1,
+    list_to_integer([one_random_number(rand:uniform(10)) || _ <- lists:seq(1,X)]).
 
 
 random_length({Min,Max}) ->
-    random:uniform(Max - Min + 1) + Min - 1.
+    rand:uniform(Max - Min + 1) + Min - 1.
 random_string({Min,Max}) ->
-    X = random:uniform(Max - Min + 1) + Min - 1,
-    list_to_binary([one_random(random:uniform(68)) || _ <- lists:seq(1,X)]).
+    X = rand:uniform(Max - Min + 1) + Min - 1,
+    list_to_binary([one_random(rand:uniform(68)) || _ <- lists:seq(1,X)]).
 random_substring({Min,Max},Hay) ->
-    X = random:uniform(Max - Min + 1) + Min - 1,
+    X = rand:uniform(Max - Min + 1) + Min - 1,
     Y = byte_size(Hay),
     Z = if
 	    X > Y -> Y;
 	    true -> X
 	end,
     PMax = Y - Z,
-    Pos = random:uniform(PMax + 1) - 1,
+    Pos = rand:uniform(PMax + 1) - 1,
     <<_:Pos/binary,Res:Z/binary,_/binary>> = Hay,
     Res.
 

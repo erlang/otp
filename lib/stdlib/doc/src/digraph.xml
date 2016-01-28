@@ -103,13 +103,15 @@
       <desc><p>A digraph as returned by <c>new/0,1</c>.</p></desc>
     </datatype>
     <datatype>
-      <name><marker id="type-edge">edge()</marker></name>
+      <name>edge()</name>
+      <desc><p><marker id="type-edge"/></p></desc>
     </datatype>
     <datatype>
       <name name="label"/>
     </datatype>
     <datatype>
-      <name><marker id="type-vertex">vertex()</marker></name>
+      <name>vertex()</name>
+      <desc><p><marker id="type-vertex"/></p></desc>
     </datatype>
   </datatypes>
   <funcs>

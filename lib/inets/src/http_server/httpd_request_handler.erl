@@ -30,7 +30,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2, code_change/3, format_status/2]).
 
 -include("httpd.hrl").
 -include("http_internal.hrl").
@@ -310,6 +310,18 @@ do_terminate(#state{mod = ModData} = State) ->
     cancel_request_timeout(State),
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
+format_status(normal, [_, State]) ->
+    [{data, [{"StateData", State}]}];  
+format_status(terminate, [_, State]) ->
+    Mod = (State#state.mod),
+    case Mod#mod.socket_type of
+	ip_comm ->
+	    [{data, [{"StateData", State}]}];  
+	{essl, _} ->
+	    %% Do not print ssl options in superviosr reports
+	    [{data, [{"StateData", 
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+    end.
 
 %%--------------------------------------------------------------------
 %% code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -431,7 +443,7 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 	    MaxHeaderSize, MaxBodySize) ->
     case Headers#http_request_h.'transfer-encoding' of
 	"chunked" ->
-	    case http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
+	    try http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
 		{Module, Function, Args} ->
 		    http_transport:setopts(ModData#mod.socket_type, 
 					   ModData#mod.socket, 
@@ -443,6 +455,14 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 			http_chunk:handle_headers(Headers, ChunkedHeaders),
 		    handle_response(State#state{headers = NewHeaders,
 						body = NewBody})
+	    catch 
+		throw:Error ->
+		    httpd_response:send_status(ModData, 400, 
+					       "Bad input"),
+		    Reason = io_lib:format("Chunk decoding failed: ~p~n", 
+					   [Error]),
+		    error_log(Reason, ModData),
+		    {stop, normal, State#state{response_sent = true}}  
 	    end;
 	Encoding when is_list(Encoding) ->
 	    httpd_response:send_status(ModData, 501, 
@@ -610,21 +630,10 @@ decrease(N) when is_integer(N) ->
 decrease(N) ->
     N.
 
-error_log(ReasonString, Info) ->
+error_log(ReasonString,  #mod{config_db = ConfigDB}) ->
     Error = lists:flatten(
 	      io_lib:format("Error reading request: ~s", [ReasonString])),
-    error_log(mod_log, Info, Error),
-    error_log(mod_disk_log, Info, Error).
-
-error_log(Mod, #mod{config_db = ConfigDB} = Info, String) ->
-    Modules = httpd_util:lookup(ConfigDB, modules,
-				[mod_get, mod_head, mod_log]),
-    case lists:member(Mod, Modules) of
-	true ->
-	    Mod:error_log(Info, String);
-	_ ->
-	    ok
-    end.
+    httpd_util:error_log(ConfigDB, Error).
 
 
 %%--------------------------------------------------------------------

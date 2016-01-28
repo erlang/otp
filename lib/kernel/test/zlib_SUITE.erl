@@ -912,7 +912,7 @@ smp(Config) ->
 	    FnAList = lists:map(fun(F) -> {F,?MODULE:F({get_arg,Config})}
 				end, Funcs),	    
 
-	    Pids = [spawn_link(?MODULE, worker, [random:uniform(9999),
+	    Pids = [spawn_link(?MODULE, worker, [rand:uniform(9999),
 						 list_to_tuple(FnAList),
 						 self()])
 		    || _ <- lists:seq(1,NumOfProcs)],
@@ -925,7 +925,7 @@ smp(Config) ->
 
 worker(Seed, FnATpl, Parent) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
-    random:seed(Seed,Seed,Seed),
+    rand:seed(exsplus, {Seed,Seed,Seed}),
     worker_loop(100, FnATpl),
     Parent ! self().
 
@@ -933,7 +933,7 @@ worker_loop(0, _FnATpl) ->
     large_deflate_do(), % the time consuming one as finale
     ok;
 worker_loop(N, FnATpl) ->
-    {F,A} = element(random:uniform(size(FnATpl)),FnATpl),
+    {F,A} = element(rand:uniform(tuple_size(FnATpl)), FnATpl),
     ?MODULE:F(A),
     worker_loop(N-1, FnATpl).
     

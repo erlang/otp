@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
-	 hibernate/1, stop/1]).
+	 hibernate/1, stop/1, t_format/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -51,7 +51,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, {group, sync_start}, spawn_opt, hibernate,
-     {group, tickets}, stop].
+     {group, tickets}, stop, t_format].
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
@@ -80,77 +80,123 @@ end_per_group(_GroupName, Config) ->
 crash(Config) when is_list(Config) ->
     error_logger:add_report_handler(?MODULE, self()),
 
-    Pid = proc_lib:spawn(?MODULE, sp1, []),
-    Pid ! die,
-    ?line Report = receive
-		       {crash_report, Pid, Report0} -> Report0
-		   after 2000 -> test_server:fail(no_crash_report)
-		   end,
-    ?line proc_lib:format(Report),
-    ?line [PidRep, []] = Report,
-    ?line {value, {initial_call,{?MODULE,sp1,[]}}} =
-	lists:keysearch(initial_call, 1, PidRep),
-    Self = self(),
-    ?line {value, {ancestors,[Self]}} =
-	lists:keysearch(ancestors, 1, PidRep),
-    ?line {value, {error_info,{exit,die,_StackTrace1}}} =
-	lists:keysearch(error_info, 1, PidRep),
-
-    F = fun sp1/0,
-    Pid1 = proc_lib:spawn(node(), F),
-    Pid1 ! die,
-    ?line [PidRep1, []] = receive
-		       {crash_report, Pid1, Report1} -> Report1
-		   after 2000 -> test_server:fail(no_crash_report)
-		   end,
-    ?line {value, {initial_call,{Fmod,Fname,[]}}} =
-	lists:keysearch(initial_call, 1, PidRep1),
-    ?line {module,Fmod} = erlang:fun_info(F, module),
-    ?line {name,Fname} = erlang:fun_info(F, name),
-    ?line {value, {ancestors,[Self]}} =
-	lists:keysearch(ancestors, 1, PidRep1),
-    ?line {value, {error_info,{exit,die,_StackTrace2}}} =
-	lists:keysearch(error_info, 1, PidRep1),
-
-    Pid2 = proc_lib:spawn(?MODULE, sp2, []),
-    test_server:sleep(100),
-    ?line {?MODULE,sp2,[]} = proc_lib:initial_call(Pid2),
-    ?line {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid2),
-    Pid2 ! die,
-    ?line [Pid2Rep, [{neighbour, LinkRep}]] =
-	receive
-	    {crash_report, Pid2, Report2} -> Report2
-	after 2000 -> test_server:fail(no_crash_report)
-	end,
-    ?line {value, {initial_call,{?MODULE,sp2,[]}}} =
-	lists:keysearch(initial_call, 1, Pid2Rep),
-    ?line {value, {ancestors,[Self]}} =
-	lists:keysearch(ancestors, 1, Pid2Rep),
-    ?line {value, {error_info,{exit,die,_StackTrace3}}} =
-	lists:keysearch(error_info, 1, Pid2Rep),
-    ?line {value, {initial_call,{?MODULE,sp1,[]}}} =
-	lists:keysearch(initial_call, 1, LinkRep),
-
     %% Make sure that we don't get a crash report if a process
     %% terminates with reason 'shutdown' or reason {shutdown,Reason}.
-    ?line process_flag(trap_exit, true),
-    ?line Pid3 = proc_lib:spawn_link(erlang, apply,
-				     [fun() -> exit(shutdown) end,[]]),
+    process_flag(trap_exit, true),
+    Pid0 = proc_lib:spawn_link(erlang, apply,
+			       [fun() -> exit(shutdown) end,[]]),
+    Pid1 = proc_lib:spawn_link(erlang, apply,
+			       [fun() -> exit({shutdown,{a,b,c}}) end,[]]),
 
-    ?line Pid4 = proc_lib:spawn_link(erlang, apply,
-				     [fun() -> exit({shutdown,{a,b,c}}) end,[]]),
+    receive {'EXIT',Pid0,shutdown} -> ok end,
+    receive {'EXIT',Pid1,{shutdown,{a,b,c}}} -> ok end,
+    process_flag(trap_exit, false),
+    %% We expect any unexpected messages to be caught below,
+    %% so we don't have explicitly wait some time to be sure.
 
-    ?line receive {'EXIT',Pid3,shutdown} -> ok end,
-    ?line receive {'EXIT',Pid4,{shutdown,{a,b,c}}} -> ok end,
-    ?line process_flag(trap_exit, false),
+    %% Spawn export function.
+    Pid2 = proc_lib:spawn(?MODULE, sp1, []),
+    Pid2 ! die,
+    Exp2 = [{initial_call,{?MODULE,sp1,[]}},
+	    {ancestors,[self()]},
+	    {error_info,{exit,die,{stacktrace}}}],
+    analyse_crash(Pid2, Exp2, []),
 
+    %% Spawn fun.
+    F = fun sp1/0,
+    Pid3 = proc_lib:spawn(node(), F),
+    Pid3 ! die,
+    {module,?MODULE} = erlang:fun_info(F, module),
+    {name,Fname} = erlang:fun_info(F, name),
+    Exp3 = [{initial_call,{?MODULE,Fname,[]}},
+	    {ancestors,[self()]},
+	    {error_info,{exit,die,{stacktrace}}}],
+    analyse_crash(Pid3, Exp3, []),
+
+    %% Spawn function with neighbour.
+    Pid4 = proc_lib:spawn(?MODULE, sp2, []),
+    test_server:sleep(100),
+    {?MODULE,sp2,[]} = proc_lib:initial_call(Pid4),
+    {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid4),
+    Pid4 ! die,
+    Exp4 = [{initial_call,{?MODULE,sp2,[]}},
+	    {ancestors,[self()]},
+	    {error_info,{exit,die,{stacktrace}}}],
+    Links4 = [[{initial_call,{?MODULE,sp1,[]}},
+	       {ancestors,[Pid4,self()]}]],
+    analyse_crash(Pid4, Exp4, Links4),
+
+    %% Make sure that we still get a crash report if the
+    %% process dictionary have been tampered with.
+
+    Pid5 = proc_lib:spawn(erlang, apply,
+			  [fun() ->
+				   erase(),
+				   exit(abnormal)
+			   end,[]]),
+    Exp5 = [{initial_call,absent},
+	    {ancestors,[]},
+	    {error_info,{exit,abnormal,{stacktrace}}}],
+    analyse_crash(Pid5, Exp5, []),
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
+analyse_crash(Pid, Expected0, ExpLinks) ->
+    Expected = [{pid,Pid}|Expected0],
     receive
-	Any ->
-	    ?line ?t:fail({unexpected_message,Any})
-	after 2000 ->
-		ok
-	end.
+	{crash_report, Pid, Report} ->
+	    _ = proc_lib:format(Report),	%Smoke test.
+	    [Crash,Links] = Report,
+	    analyse_crash_1(Expected, Crash),
+	    analyse_links(ExpLinks, Links);
+	Unexpected ->
+	    io:format("~p\n", [Unexpected]),
+	    test_server:fail(unexpected_message)
+    after 5000 ->
+	    test_server:fail(no_crash_report)
+    end.
 
+analyse_links([H|Es], [{neighbour,N}|Links]) ->
+    analyse_crash_1(H, N),
+    analyse_links(Es, Links);
+analyse_links([], []) ->
+    ok.
+
+analyse_crash_1([{Key,absent}|T], Report) ->
+    false = lists:keymember(Key, 1, Report),
+    analyse_crash_1(T, Report);
+analyse_crash_1([{Key,Pattern}|T], Report) ->
+    case lists:keyfind(Key, 1, Report) of
+	false ->
+	    io:format("~p", [Report]),
+	    test_server:fail({missing_key,Key});
+	{Key,Info} ->
+	    try
+		match_info(Pattern, Info)
+	    catch
+		no_match ->
+		    io:format("key: ~p", [Key]),
+		    io:format("pattern: ~p", [Pattern]),
+		    io:format("actual: ~p", [Report]),
+		    test_server:fail(no_match)
+	    end,
+	    analyse_crash_1(T, Report)
+    end;
+analyse_crash_1([], _Report) ->
+    [].
+
+match_info(T, T) ->
+    ok;
+match_info({stacktrace}, Stk) when is_list(Stk) ->
+    ok;
+match_info([H1|T1], [H2|T2]) ->
+    match_info(H1, H2),
+    match_info(T1, T2);
+match_info(Tuple1, Tuple2) when tuple_size(Tuple1) =:= tuple_size(Tuple2) ->
+    match_info(tuple_to_list(Tuple1), tuple_to_list(Tuple2));
+match_info(_, _) ->
+    throw(no_match).
 
 sync_start_nolink(Config) when is_list(Config) ->
     _Pid = spawn_link(?MODULE, sp5, [self()]),
@@ -301,6 +347,7 @@ hibernate(Config) when is_list(Config) ->
     ?line {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
 	lists:keysearch(initial_call, 1, Report),
 
+    error_logger:delete_report_handler(?MODULE),
     ok.
 
 hib_loop(LoopData) ->
@@ -364,7 +411,7 @@ init_dont_hang(Config) when is_list(Config) ->
     end.
 
 init_dont_hang_init(_Parent) ->
-    1 = 2.
+    error(bad_init).
 
 %% Test proc_lib:stop/1,3
 stop(_Config) ->
@@ -448,9 +495,54 @@ stop(_Config) ->
     ok.
 
 system_terminate(crash,_Parent,_Deb,_State) ->
-    1 = 2;
+    error({badmatch,2});
 system_terminate(Reason,_Parent,_Deb,_State) ->
     exit(Reason).
+
+
+t_format(_Config) ->
+    error_logger:tty(false),
+    try
+	t_format()
+    after
+	error_logger:tty(true)
+    end,
+    ok.
+
+t_format() ->
+    error_logger:add_report_handler(?MODULE, self()),
+    Pid = proc_lib:spawn(fun t_format_looper/0),
+    HugeData = gb_sets:from_list(lists:seq(1, 100)),
+    Pid ! {die,HugeData},
+    Report = receive
+		 {crash_report, Pid, Report0} -> Report0
+	     end,
+    Usz = do_test_format(Report, unlimited),
+    Tsz = do_test_format(Report, 20),
+
+    if
+	Tsz >= Usz ->
+	    ?t:fail();
+	true ->
+	    ok
+    end,
+
+    ok.
+
+do_test_format(Report, Depth) ->
+    io:format("*** Depth = ~p", [Depth]),
+    S0 = proc_lib:format(Report, latin1, Depth),
+    S = lists:flatten(S0),
+    io:put_chars(S),
+    length(S).
+
+t_format_looper() ->
+    receive
+	{die,Data} ->
+	    exit(Data);
+	_ ->
+	    t_format_looper()
+    end.
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.

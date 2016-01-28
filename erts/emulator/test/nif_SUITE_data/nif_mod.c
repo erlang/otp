@@ -240,7 +240,7 @@ static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("get_priv_data_ptr");
-    return enif_make_ulong(env, (unsigned long)priv_data(env));
+    return enif_make_uint64(env, (ErlNifUInt64)priv_data(env));
 }
 
 static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

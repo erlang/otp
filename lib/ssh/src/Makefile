@@ -67,7 +67,6 @@ MODULES= \
 	ssh_file \
 	ssh_io \
 	ssh_info \
-	ssh_math \
 	ssh_message \
 	ssh_no_io \
 	ssh_sftp \
@@ -144,4 +143,79 @@ release_spec: opt
 
 
 release_docs_spec:
+
+
+deps:
+	erlc -M $(ERL_FILES) \
+	| sed 's@$(ERL_TOP)/lib@../..@g' \
+	| sed 's/\.$(EMULATOR)/\.$$\(EMULATOR\)/' \
+	| sed 's@^ssh_@$$(EBIN)/ssh_@'
+
+ssh.$(EMULATOR): ssh.erl ssh.hrl ssh_connect.hrl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ../../kernel/include/file.hrl
+$(EBIN)/ssh_sup.$(EMULATOR): ssh_sup.erl
+sshc_sup.$(EMULATOR): sshc_sup.erl
+sshd_sup.$(EMULATOR): sshd_sup.erl ssh.hrl
+$(EBIN)/ssh_connection_sup.$(EMULATOR): ssh_connection_sup.erl
+$(EBIN)/ssh_connection.$(EMULATOR): ssh_connection.erl ssh.hrl ssh_connect.hrl \
+  ssh_transport.hrl
+$(EBIN)/ssh_connection_handler.$(EMULATOR): ssh_connection_handler.erl ssh.hrl \
+  ssh_transport.hrl ssh_auth.hrl ssh_connect.hrl
+$(EBIN)/ssh_shell.$(EMULATOR): ssh_shell.erl ssh_connect.hrl
+$(EBIN)/ssh_system_sup.$(EMULATOR): ssh_system_sup.erl ssh.hrl
+$(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
+$(EBIN)/ssh_channel_sup.$(EMULATOR): ssh_channel_sup.erl
+$(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
+$(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
+$(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl
+$(EBIN)/ssh_auth.$(EMULATOR): ssh_auth.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ssh.hrl ssh_auth.hrl ssh_transport.hrl
+$(EBIN)/ssh_bits.$(EMULATOR): ssh_bits.erl ssh.hrl
+$(EBIN)/ssh_cli.$(EMULATOR): ssh_cli.erl ssh.hrl ssh_connect.hrl
+$(EBIN)/ssh_file.$(EMULATOR): ssh_file.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ../../kernel/include/file.hrl ssh.hrl
+$(EBIN)/ssh_io.$(EMULATOR): ssh_io.erl ssh.hrl
+$(EBIN)/ssh_info.$(EMULATOR): ssh_info.erl
+$(EBIN)/ssh_message.$(EMULATOR): ssh_message.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ssh.hrl ssh_connect.hrl ssh_auth.hrl ssh_transport.hrl
+$(EBIN)/ssh_no_io.$(EMULATOR): ssh_no_io.erl ssh_transport.hrl
+$(EBIN)/ssh_sftp.$(EMULATOR): ssh_sftp.erl \
+  ../../kernel/include/file.hrl ssh.hrl \
+  ssh_xfer.hrl
+$(EBIN)/ssh_sftpd.$(EMULATOR): ssh_sftpd.erl \
+  ../../kernel/include/file.hrl ssh.hrl \
+  ssh_xfer.hrl
+$(EBIN)/ssh_sftpd_file.$(EMULATOR): ssh_sftpd_file.erl
+$(EBIN)/ssh_transport.$(EMULATOR): ssh_transport.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ../../kernel/include/inet.hrl \
+  ssh_transport.hrl ssh.hrl
+$(EBIN)/ssh_xfer.$(EMULATOR): ssh_xfer.erl ssh.hrl ssh_xfer.hrl
+$(EBIN)/ssh_sftpd_file_api.$(EMULATOR): ssh_sftpd_file_api.erl
+$(EBIN)/ssh_channel.$(EMULATOR): ssh_channel.erl ssh_connect.hrl
+$(EBIN)/ssh_daemon_channel.$(EMULATOR): ssh_daemon_channel.erl
+$(EBIN)/ssh_client_key_api.$(EMULATOR): ssh_client_key_api.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ssh.hrl
+$(EBIN)/ssh_server_key_api.$(EMULATOR): ssh_server_key_api.erl \
+  ../../public_key/include/public_key.hrl \
+  ../../public_key/include/OTP-PUB-KEY.hrl \
+  ../../public_key/include/PKCS-FRAME.hrl \
+  ssh.hrl
 
