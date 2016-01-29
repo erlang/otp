@@ -138,8 +138,8 @@ do(Info) ->
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
 load("TransferDiskLogSize " ++ TransferDiskLogSize, []) ->
-    case inets_regexp:split(TransferDiskLogSize," ") of
-	{ok,[MaxBytes,MaxFiles]} ->
+    try re:split(TransferDiskLogSize, " ",  [{return, list}]) of
+	[MaxBytes, MaxFiles] ->
 	    case make_integer(MaxBytes) of
 		{ok,MaxBytesInteger} ->
 		    case make_integer(MaxFiles) of
@@ -151,17 +151,20 @@ load("TransferDiskLogSize " ++ TransferDiskLogSize, []) ->
 			     ?NICE(string:strip(TransferDiskLogSize)++
 				   " is an invalid TransferDiskLogSize")}
 		    end;
-		{error,_} ->
+		_ ->
 		    {error,?NICE(string:strip(TransferDiskLogSize)++
-				 " is an invalid TransferDiskLogSize")}
+				     " is an invalid TransferDiskLogSize")}
 	    end
+    catch _:_ ->
+	    {error,?NICE(string:strip(TransferDiskLogSize) ++
+			     " is an invalid TransferDiskLogSize")}   
     end;
 load("TransferDiskLog " ++ TransferDiskLog,[]) ->
     {ok,[],{transfer_disk_log,string:strip(TransferDiskLog)}};
  
 load("ErrorDiskLogSize " ++  ErrorDiskLogSize, []) ->
-    case inets_regexp:split(ErrorDiskLogSize," ") of
-	{ok,[MaxBytes,MaxFiles]} ->
+    try re:split(ErrorDiskLogSize," ", [{return, list}]) of
+	[MaxBytes,MaxFiles] ->
 	    case make_integer(MaxBytes) of
 		{ok,MaxBytesInteger} ->
 		    case make_integer(MaxFiles) of
@@ -176,13 +179,16 @@ load("ErrorDiskLogSize " ++  ErrorDiskLogSize, []) ->
 		    {error,?NICE(string:strip(ErrorDiskLogSize)++
 				 " is an invalid ErrorDiskLogSize")}
 	    end
+    catch _:_ ->
+	    {error,?NICE(string:strip(ErrorDiskLogSize) ++
+			     " is an invalid TransferDiskLogSize")}   
     end;
 load("ErrorDiskLog " ++ ErrorDiskLog, []) ->
     {ok, [], {error_disk_log, string:strip(ErrorDiskLog)}};
 
 load("SecurityDiskLogSize " ++ SecurityDiskLogSize, []) ->
-    case inets_regexp:split(SecurityDiskLogSize, " ") of
-	{ok, [MaxBytes, MaxFiles]} ->
+    try re:split(SecurityDiskLogSize, " ", [{return, list}]) of
+	[MaxBytes, MaxFiles] ->
 	    case make_integer(MaxBytes) of
 		{ok, MaxBytesInteger} ->
 		    case make_integer(MaxFiles) of
@@ -198,6 +204,9 @@ load("SecurityDiskLogSize " ++ SecurityDiskLogSize, []) ->
 		    {error, ?NICE(string:strip(SecurityDiskLogSize) ++
 				  " is an invalid SecurityDiskLogSize")}
 	    end
+    catch _:_ ->
+	    {error,?NICE(string:strip(SecurityDiskLogSize) ++
+			     " is an invalid SecurityDiskLogSize")}   	
     end;
 load("SecurityDiskLog " ++ SecurityDiskLog, []) ->
     {ok, [], {security_disk_log, string:strip(SecurityDiskLog)}};

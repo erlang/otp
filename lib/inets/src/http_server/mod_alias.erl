@@ -113,31 +113,51 @@ real_name(ConfigDB, RequestURI, []) ->
 	httpd_util:split_path(default_index(ConfigDB, RealName)),
     {ShortPath, Path, AfterPath};
 
-real_name(ConfigDB, RequestURI, [{MP,Replacement}|Rest])
+real_name(ConfigDB, RequestURI, [{MP,Replacement}| _] = Aliases)
   when element(1, MP) =:= re_pattern ->
-    case re:run(RequestURI, MP, [{capture,[]}]) of
-	match ->
+    case longest_match(Aliases, RequestURI) of
+	{match, {MP, Replacement}} ->
 	    NewURI = re:replace(RequestURI, MP, Replacement, [{return,list}]),
 	    {ShortPath,_} = httpd_util:split_path(NewURI),
 	    {Path,AfterPath} =
 		httpd_util:split_path(default_index(ConfigDB, NewURI)),
 	    {ShortPath, Path, AfterPath};
 	nomatch ->
-	    real_name(ConfigDB, RequestURI, Rest)
+	    real_name(ConfigDB, RequestURI, [])
     end;
 
-real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
-     case inets_regexp:match(RequestURI, "^" ++ FakeName) of
-	{match, _, _} ->
-	    {ok, ActualName, _} = inets_regexp:sub(RequestURI,
-					     "^" ++ FakeName, RealName),
+real_name(ConfigDB, RequestURI,  [{_,_}|_] = Aliases) ->
+    case longest_match(Aliases, RequestURI) of
+	{match, {FakeName, RealName}} ->
+	    ActualName = re:replace(RequestURI,
+				    "^" ++ FakeName, RealName, [{return,list}]),
  	    {ShortPath, _AfterPath} = httpd_util:split_path(ActualName),
 	    {Path, AfterPath} =
-	       httpd_util:split_path(default_index(ConfigDB, ActualName)),
+		httpd_util:split_path(default_index(ConfigDB, ActualName)),
 	    {ShortPath, Path, AfterPath};
-	 nomatch ->
-	     real_name(ConfigDB, RequestURI, Rest)
+	nomatch ->
+	    real_name(ConfigDB, RequestURI, [])
     end.
+
+longest_match(Aliases, RequestURI) ->
+    longest_match(Aliases, RequestURI, _LongestNo = 0, _LongestAlias = undefined).
+
+longest_match([{FakeName, RealName} | Rest], RequestURI, LongestNo, LongestAlias) ->
+    case re:run(RequestURI, "^" ++ FakeName, [{capture, first}]) of
+	{match, [{_, Length}]} ->
+	    if
+		Length > LongestNo ->
+		    longest_match(Rest, RequestURI, Length, {FakeName, RealName});
+		true ->
+		    longest_match(Rest, RequestURI, LongestNo, LongestAlias)
+	    end;
+	nomatch ->
+	    longest_match(Rest, RequestURI, LongestNo, LongestAlias)
+    end;
+longest_match([], _RequestURI, 0, _LongestAlias) ->
+    nomatch;
+longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
+    {match, LongestAlias}.
 
 %% real_script_name
 
@@ -146,7 +166,7 @@ real_script_name(_ConfigDB, _RequestURI, []) ->
 
 real_script_name(ConfigDB, RequestURI, [{MP,Replacement} | Rest])
   when element(1, MP) =:= re_pattern ->
-    case re:run(RequestURI, MP, [{capture,[]}]) of
+    case re:run(RequestURI, MP, [{capture, none}]) of
 	match ->
 	    ActualName =
 		re:replace(RequestURI, MP, Replacement, [{return,list}]),
@@ -156,10 +176,10 @@ real_script_name(ConfigDB, RequestURI, [{MP,Replacement} | Rest])
     end;
 
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
-    case inets_regexp:match(RequestURI, "^" ++ FakeName) of
-	{match,_,_} ->
-	    {ok, ActualName, _} = 
-		inets_regexp:sub(RequestURI, "^" ++ FakeName, RealName),
+    case re:run(RequestURI, "^" ++ FakeName, [{capture, none}]) of
+	match ->
+	    ActualName = 
+		re:replace(RequestURI, "^" ++ FakeName, RealName,  [{return,list}]),
 	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
 	nomatch ->
 	    real_script_name(ConfigDB, RequestURI, Rest)
@@ -206,26 +226,26 @@ path(Data, ConfigDB, RequestURI) ->
 %% load
 
 load("DirectoryIndex " ++ DirectoryIndex, []) ->
-    {ok, DirectoryIndexes} = inets_regexp:split(DirectoryIndex," "),
+    DirectoryIndexes = re:split(DirectoryIndex," ", [{return, list}]),
     {ok,[], {directory_index, DirectoryIndexes}};
 load("Alias " ++ Alias, []) ->
-    case inets_regexp:split(Alias," ") of
-	{ok, [FakeName, RealName]} ->
+    case re:split(Alias," ", [{return, list}]) of
+	[FakeName, RealName] ->
 	    {ok,[],{alias,{FakeName,RealName}}};
-	{ok, _} ->
+	_ ->
 	    {error,?NICE(string:strip(Alias)++" is an invalid Alias")}
     end;
 load("ReWrite " ++ Rule, Acc) ->
     load_re_write(Rule, Acc, "ReWrite", re_write);
 load("ScriptAlias " ++ ScriptAlias, []) ->
-    case inets_regexp:split(ScriptAlias, " ") of
-	{ok, [FakeName, RealName]} ->
+    case re:split(ScriptAlias, " ", [{return, list}]) of
+	[FakeName, RealName] ->
 	    %% Make sure the path always has a trailing slash..
 	    RealName1 = filename:join(filename:split(RealName)),
 	    {ok, [], {script_alias, {FakeName, RealName1++"/"}}};
-	{ok, _} ->
+	_ ->
 	    {error, ?NICE(string:strip(ScriptAlias)++
-			  " is an invalid ScriptAlias")}
+			      " is an invalid ScriptAlias")}
     end;
 load("ScriptReWrite " ++ Rule, Acc) ->
     load_re_write(Rule, Acc, "ScriptReWrite", script_re_write).

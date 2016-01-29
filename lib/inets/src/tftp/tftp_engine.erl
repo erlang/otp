@@ -1153,8 +1153,8 @@ match_callback(Filename, Callbacks) ->
     end.
 
 do_match_callback(Filename, [C | Tail]) when is_record(C, callback) ->
-    case catch inets_regexp:match(Filename, C#callback.internal) of
-        {match, _, _} ->
+    case catch re:run(Filename, C#callback.internal, [{capture, none}]) of
+        match ->
             {ok, C};
         nomatch ->
             do_match_callback(Filename, Tail);
