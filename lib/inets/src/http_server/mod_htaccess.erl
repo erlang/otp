@@ -327,9 +327,9 @@ memberNetwork(Networks,UserNetwork,IfTrue,IfFalse)->
 %ipadresses or subnet addresses.
 memberNetwork(Networks,UserNetwork)->
     case lists:filter(fun(Net)->
-			      case inets_regexp:match(UserNetwork,
-						formatRegexp(Net)) of
-				  {match,1,_}->
+			      case re:run(UserNetwork,
+					  formatRegexp(Net), [{capture, first}]) of
+				  {match,[{0,_}]}->
 				      true;
 				  _NotSubNet ->
 				      false
@@ -638,13 +638,8 @@ getHtAccessFileNames(Info)->
 %HtAccessFileNames=["accessfileName1",..."AccessFileName2"]
 %----------------------------------------------------------------------
 getData(Path,Info,HtAccessFileNames)->	    
-    case inets_regexp:split(Path,"/") of
-	{error,Error}->
-	    {error,Error};
-	{ok,SplittedPath}->
-	    getData2(HtAccessFileNames,SplittedPath,Info)
-	end.
-
+    SplittedPath = re:split(Path, "/", [{return, list}]),
+    getData2(HtAccessFileNames,SplittedPath,Info).
 
 %----------------------------------------------------------------------
 %Add to together the data in the Splittedpath up to the path 
@@ -942,20 +937,16 @@ getAuthorizationType(AuthType)->
 %Returns a list of the specified methods to limit or the atom all
 %----------------------------------------------------------------------
 getLimits(Limits)->
-    case inets_regexp:split(Limits,">")of
-	{ok,[_NoEndOnLimit]}->
+    case re:split(Limits,">", [{return, list}])of
+	[_NoEndOnLimit]->
 	    error;
-	{ok, [Methods | _Crap]}->
-	    case inets_regexp:split(Methods," ") of
-		{ok,[]}->
+	[Methods | _Crap]->
+	    case re:split(Methods," ",  [{return, list}]) of
+		[[]]->
 		    all;
-		{ok,SplittedMethods}->
-		    SplittedMethods;
-		{error, _Error}->
-		    error
-	    end;
-	{error,_Error}->
-	    error
+		SplittedMethods ->
+		    SplittedMethods
+	    end
     end.
 
 

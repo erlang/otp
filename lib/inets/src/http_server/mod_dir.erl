@@ -125,12 +125,13 @@ header(Path,RequestURI) ->
 	RequestURI ++ "</H1>\n<PRE><IMG SRC=\"" ++ icon(blank) ++
 	"\" ALT="     "> Name                   Last modified         "
 	"Size  Description <HR>\n",
-    case inets_regexp:sub(RequestURI,"[^/]*\$","") of
-	{ok,"/",_} ->
+    case re:replace(RequestURI,"[^/]*\$","", [{return,list}]) of
+	"/" ->
 	    Header;
-	{ok,ParentRequestURI,_} ->
-	    {ok,ParentPath,_} =
-		inets_regexp:sub(string:strip(Path,right,$/),"[^/]*\$",""),
+	ParentRequestURI ->
+	    ParentPath =
+		re:replace(string:strip(Path,right,$/),"[^/]*\$","",
+			   [{return,list}]),
 	    Header++format(ParentPath,ParentRequestURI)
     end.
 

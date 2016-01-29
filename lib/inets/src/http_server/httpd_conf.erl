@@ -232,7 +232,7 @@ load("KeepAliveTimeout " ++ Timeout, []) ->
     end;
 
 load("Modules " ++ Modules, []) ->
-    {ok, ModuleList} = inets_regexp:split(Modules," "),
+    ModuleList = re:split(Modules," ", [{return, list}]),
     {ok, [], {modules,[list_to_atom(X) || X <- ModuleList]}};
 
 load("ServerAdmin " ++ ServerAdmin, []) ->
@@ -879,7 +879,7 @@ bootstrap([]) ->
 bootstrap([Line|Config]) ->
     case Line of
 	"Modules " ++ Modules ->
-	    {ok, ModuleList} = inets_regexp:split(Modules," "),
+	    ModuleList = re:split(Modules," ", [{return, list}]),
 	    TheMods = [list_to_atom(X) || X <- ModuleList],
 	    case verify_modules(TheMods) of
 		ok ->
@@ -1004,7 +1004,7 @@ read_config_file(Stream, SoFar) ->
 	    %% Ignore commented lines for efficiency later ..
 	    read_config_file(Stream, SoFar);
 	Line ->
-	    {ok, NewLine, _}=inets_regexp:sub(clean(Line),"[\t\r\f ]"," "),
+	    NewLine = re:replace(clean(Line),"[\t\r\f ]"," ", [{return,list}]),
 	    case NewLine of
 		[] ->
 		    %% Also ignore empty lines ..
@@ -1031,12 +1031,12 @@ parse_mime_types(Stream, MimeTypesList, "") ->
 parse_mime_types(Stream, MimeTypesList, [$#|_]) ->
     parse_mime_types(Stream, MimeTypesList);
 parse_mime_types(Stream, MimeTypesList, Line) ->
-    case inets_regexp:split(Line, " ") of
-	{ok, [NewMimeType|Suffixes]} ->
+    case re:split(Line, " ", [{return, list}]) of
+	[NewMimeType|Suffixes] ->
 	    parse_mime_types(Stream,
 			     lists:append(suffixes(NewMimeType,Suffixes),
 					  MimeTypesList));
-	{ok, _} ->
+	_ ->
 	    {error, ?NICE(Line)}
     end.
 
@@ -1207,9 +1207,8 @@ error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, 
 			       {apply, {M, F, []}}, Error]).
 white_space_clean(String) ->
-    {ok,CleanedString,_} = 
-	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
-    CleanedString.
+    re:replace(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$","", 
+	       [{return,list}, global]).
 
 
 %%%=========================================================================
@@ -1246,22 +1245,23 @@ is_file(_Type,_Access,FileInfo,_File) ->
     {error,FileInfo}.
 
 make_integer(String) ->
-    case inets_regexp:match(string:strip(String),"[0-9]+") of
-	{match, _, _} ->
+    case re:run(string:strip(String),"[0-9]+", [{capture, none}]) of
+	match ->
 	    {ok, list_to_integer(string:strip(String))};
 	nomatch ->
 	    {error, nomatch}
     end.
 
 clean(String) ->
-    {ok,CleanedString,_} = 
-	inets_regexp:gsub(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$",""),
-    CleanedString.
+    re:replace(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$","",
+	       [{return,list}, global]).
 
 custom_clean(String,MoreBefore,MoreAfter) ->
-    {ok,CleanedString,_} = inets_regexp:gsub(String,"^[ \t\n\r\f"++MoreBefore++
-				       "]*|[ \t\n\r\f"++MoreAfter++"]*\$",""),
-    CleanedString.
+    re:replace(String,
+	       "^[ \t\n\r\f"++MoreBefore++
+		   "]*|[ \t\n\r\f"++MoreAfter++"]*\$","",
+	       [{return,list}, global]).
+
 
 check_enum(_Enum,[]) ->
     {error, not_valid};

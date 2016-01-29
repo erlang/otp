@@ -81,18 +81,18 @@ script(RequestURI, Method, [_ | Rest]) ->
 %% load
 
 load("Action "++  Action, []) ->
-  case inets_regexp:split(Action, " ") of
-    {ok,[MimeType, CGIScript]} ->
-      {ok,[],{action, {MimeType, CGIScript}}};
-    {ok,_} ->
-      {error,?NICE(string:strip(Action)++" is an invalid Action")}
+  case re:split(Action, " ", [{return, list}]) of
+      [MimeType, CGIScript] ->
+	  {ok,[],{action, {MimeType, CGIScript}}};
+      _ ->
+	  {error,?NICE(string:strip(Action)++" is an invalid Action")}
   end;
 load("Script " ++ Script,[]) ->
-  case inets_regexp:split(Script, " ") of
-    {ok,[Method, CGIScript]} ->
-      {ok,[],{script, {Method, CGIScript}}};
-    {ok,_} ->
-      {error,?NICE(string:strip(Script)++" is an invalid Script")}
+  case re:split(Script, " ", [{return, list}]) of
+      [Method, CGIScript] ->
+	  {ok,[],{script, {Method, CGIScript}}};
+      _ ->
+	  {error,?NICE(string:strip(Script)++" is an invalid Script")}
   end.
 
 store({action, {MimeType, CGIScript}} = Conf, _) when is_list(MimeType),

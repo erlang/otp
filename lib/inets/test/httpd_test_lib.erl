@@ -96,10 +96,10 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
-	    State = case inets_regexp:match(RequestStr, "printenv") of
+	    State = case re:run(RequestStr, "printenv", [{capture, none}]) of
 			nomatch ->
 			    #state{};
-			_ ->
+			match ->
 			    #state{print = true}
 		    end,
 	    
@@ -317,10 +317,10 @@ do_validate(Header, [_Unknown | Rest], N, P) ->
     do_validate(Header, Rest, N, P).
 
 is_expect(RequestStr) ->
-    case inets_regexp:match(RequestStr, "xpect:100-continue") of
-	{match, _, _}->
+    case re:run(RequestStr, "xpect:100-continue", [{capture, none}]) of
+	match->
 	    true;
-	_ ->
+	nomatch ->
 	    false
     end.
 
