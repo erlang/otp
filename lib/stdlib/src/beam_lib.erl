@@ -972,9 +972,7 @@ handle_call({get_crypto_key, What}, From, #state{crypto_key_f=F}=S) ->
 handle_call({crypto_key_fun, F}, {_,_} = From, S) ->
     case S#state.crypto_key_f of
 	undefined ->
-	    %% Don't allow tuple funs here. (They weren't allowed before,
-	    %% so there is no reason to allow them now.)
-	    if is_function(F), is_function(F, 1) ->
+	    if is_function(F, 1) ->
 		    {Result, Fun, Reply} = 
 			case catch F(init) of
 			    ok ->
