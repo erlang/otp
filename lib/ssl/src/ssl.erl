@@ -1280,6 +1280,12 @@ handle_verify_options(Opts, CaCerts) ->
     DefaultVerifyNoneFun =
 	{fun(_,{bad_cert, _}, UserState) ->
 		 {valid, UserState};
+	    (_,{extension, #'Extension'{critical = true}}, UserState) ->
+		 %% This extension is marked as critical, so
+		 %% certificate verification should fail if we don't
+		 %% understand the extension.  However, this is
+		 %% `verify_none', so let's accept it anyway.
+		 {valid, UserState};
 	    (_,{extension, _}, UserState) ->
 		 {unknown, UserState};
 	    (_, valid, UserState) ->

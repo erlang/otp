@@ -269,7 +269,11 @@ atom()}} |
 	  terminate regarding verification failures and the connection is
 	  established.</p></item>
 	  <item><p>If called with an extension unknown to the user application,
-	  return value <c>{unknown, UserState}</c> is to be used.</p></item>
+	  return value <c>{unknown, UserState}</c> is to be used.</p>
+
+	  <p>Note that if the fun returns <c>unknown</c> for an extension marked
+	  as critical, validation will fail.</p>
+	  </item>
 	</list>
 
 	<p>Default option <c>verify_fun</c> in <c>verify_peer mode</c>:</p>
@@ -290,6 +294,8 @@ atom()}} |
 
        <code>
 {fun(_,{bad_cert, _}, UserState) ->
+	 {valid, UserState};
+    (_,{extension, #'Extension'{critical = true}}, UserState) ->
 	 {valid, UserState};
     (_,{extension, _}, UserState) ->
 	 {unknown, UserState};

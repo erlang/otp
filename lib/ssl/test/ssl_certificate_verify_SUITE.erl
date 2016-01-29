@@ -66,7 +66,9 @@ tests() ->
      invalid_signature_client,
      invalid_signature_server,
      extended_key_usage_verify_peer,
-     extended_key_usage_verify_none].
+     extended_key_usage_verify_none,
+     critical_extension_verify_peer,
+     critical_extension_verify_none].
 
 error_handling_tests()->
     [client_with_cert_cipher_suites_handshake,
@@ -792,6 +794,121 @@ extended_key_usage_verify_none(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+critical_extension_verify_peer() ->
+    [{doc,"Test cert that has a critical unknown extension in verify_peer mode"}].
+
+critical_extension_verify_peer(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Active = ?config(active, Config),
+    ReceiveFunction =  ?config(receive_function, Config),
+
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    NewCertName = integer_to_list(erlang:unique_integer()) ++ ".pem",
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join([PrivDir, "server", NewCertName]),
+    add_critical_netscape_cert_type(ServerCertFile, NewServerCertFile, KeyFile),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    NewClientCertFile = filename:join([PrivDir, "client", NewCertName]),
+    add_critical_netscape_cert_type(ClientCertFile, NewClientCertFile, KeyFile),
+    NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {ssl_test_lib,  ReceiveFunction, []}},
+                {options, [{verify, verify_peer}, {active, Active} | NewServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                {options, [{verify, verify_peer}, {active, Active} | NewClientOpts]}]),
+
+    %% This certificate has a critical extension that we don't
+    %% understand.  Therefore, verification should fail.
+    tcp_delivery_workaround(Server, {error, {tls_alert, "unsupported certificate"}},
+                            Client, {error, {tls_alert, "unsupported certificate"}}),
+
+    ssl_test_lib:close(Server),
+    ok.
+
+%%--------------------------------------------------------------------
+critical_extension_verify_none() ->
+    [{doc,"Test cert that has a critical unknown extension in verify_none mode"}].
+
+critical_extension_verify_none(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Active = ?config(active, Config),
+    ReceiveFunction =  ?config(receive_function, Config),
+
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    NewCertName = integer_to_list(erlang:unique_integer()) ++ ".pem",
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join([PrivDir, "server", NewCertName]),
+    add_critical_netscape_cert_type(ServerCertFile, NewServerCertFile, KeyFile),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    NewClientCertFile = filename:join([PrivDir, "client", NewCertName]),
+    add_critical_netscape_cert_type(ClientCertFile, NewClientCertFile, KeyFile),
+    NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                {options, [{verify, verify_none}, {active, Active} | NewServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {ssl_test_lib, ReceiveFunction, []}},
+                {options, [{verify, verify_none}, {active, Active} | NewClientOpts]}]),
+
+    %% This certificate has a critical extension that we don't
+    %% understand.  But we're using `verify_none', so verification
+    %% shouldn't fail.
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ok.
+
+add_critical_netscape_cert_type(CertFile, NewCertFile, KeyFile) ->
+    [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
+
+    [{'Certificate', DerCert, _}] = ssl_test_lib:pem_to_der(CertFile),
+    OTPCert = public_key:pkix_decode_cert(DerCert, otp),
+    %% This is the "Netscape Cert Type" extension, telling us that the
+    %% certificate can be used for SSL clients and SSL servers.
+    NetscapeCertTypeExt = #'Extension'{
+                             extnID = {2,16,840,1,113730,1,1},
+                             critical = true,
+                             extnValue = <<3,2,6,192>>},
+    OTPTbsCert = OTPCert#'OTPCertificate'.tbsCertificate,
+    Extensions =  OTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewOTPTbsCert = OTPTbsCert#'OTPTBSCertificate'{
+                      extensions = [NetscapeCertTypeExt] ++ Extensions},
+    NewDerCert = public_key:pkix_sign(NewOTPTbsCert, Key),
+    ssl_test_lib:der_to_pem(NewCertFile, [{'Certificate', NewDerCert, not_encrypted}]),
+    ok.
 
 %%--------------------------------------------------------------------
 no_authority_key_identifier() ->
