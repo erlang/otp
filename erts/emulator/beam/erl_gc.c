@@ -729,9 +729,7 @@ erts_garbage_collect_hibernate(Process* p)
      */
     erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
-    ASSERT(p->mbuf == NULL);
     ASSERT(p->stop == p->hend);	/* Stack must be empty. */
-    ASSERT(!p->abandoned_heap);
 
     /*
      * Do it.
