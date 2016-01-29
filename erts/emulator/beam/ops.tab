@@ -479,14 +479,19 @@ i_is_lt_spec f r r
 i_is_lt_spec f c c
 %hot
 
-is_ge Lbl S1=xc S2=xc => i_is_ge_spec Lbl S1 S2
+is_ge Lbl S1=rxc S2=rxc => i_is_ge_spec Lbl S1 S2
 
 %macro: i_is_ge_spec IsGreaterEqual -fail_action
 
 i_is_ge_spec f x x
+i_is_ge_spec f x r
 i_is_ge_spec f x c
+i_is_ge_spec f r x
+i_is_ge_spec f r c
 i_is_ge_spec f c x
+i_is_ge_spec f c r
 %cold
+i_is_ge_spec f r r
 i_is_ge_spec f c c
 %hot
 
