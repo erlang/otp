@@ -81,7 +81,6 @@
 #define __USE_GNU		/* to un-hide RTLD_NEXT */
 #endif
 #define NEXT_SIGACTION "__sigaction"
-extern int __sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION __sigaction
 #endif	/* glibc >= 2.3 */
 
@@ -107,7 +106,6 @@ extern int __sigaction(int, const struct sigaction*, struct sigaction*);
  * of and don't modify.
  */
 #define NEXT_SIGACTION "sigaction"
-extern int _sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION _sigaction
 #define _NSIG NSIG
 #endif /* __DARWIN__ */
@@ -143,7 +141,6 @@ extern int _sigaction(int, const struct sigaction*, struct sigaction*);
  * CAVEAT: detailed semantics are not verified yet.
  */
 #define NEXT_SIGACTION "sigaction"
-extern int _sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION _sigaction
 #define _NSIG NSIG
 #endif /* __FreeBSD__ */
@@ -218,11 +215,12 @@ static int my_sigaction(int signum, const struct sigaction *act, struct sigactio
 }
 #endif
 
+#if defined(LIBC_SIGACTION)
 /*
  * This overrides the C library's core sigaction() procedure, catching
  * all its internal calls.
  */
-#if defined(LIBC_SIGACTION)
+extern int LIBC_SIGACTION(int, const struct sigaction*, struct sigaction*);
 int LIBC_SIGACTION(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
     return my_sigaction(signum, act, oldact);
