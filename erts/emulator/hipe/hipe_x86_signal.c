@@ -84,7 +84,7 @@
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
 extern int __sigaction(int, const struct sigaction*, struct sigaction*);
-#define __SIGACTION __sigaction
+#define LIBC_SIGACTION __sigaction
 static void do_init(void)
 {
     __next_sigaction = dlsym(RTLD_NEXT, "__sigaction");
@@ -121,7 +121,7 @@ static void do_init(void)
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
 extern int _sigaction(int, const struct sigaction*, struct sigaction*);
-#define __SIGACTION _sigaction
+#define LIBC_SIGACTION _sigaction
 static void do_init(void)
 {
     __next_sigaction = dlsym(RTLD_NEXT, "sigaction");
@@ -157,7 +157,7 @@ static void do_init(void)
 #include <dlfcn.h>
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
-#define __SIGACTION _sigaction
+#define LIBC_SIGACTION _sigaction
 static void do_init(void)
 {
     __next_sigaction = dlsym(RTLD_NEXT, "_sigaction");
@@ -179,7 +179,7 @@ static void do_init(void)
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
 extern int _sigaction(int, const struct sigaction*, struct sigaction*);
-#define __SIGACTION _sigaction
+#define LIBC_SIGACTION _sigaction
 static void do_init(void)
 {
     __next_sigaction = dlsym(RTLD_NEXT, "sigaction");
@@ -213,7 +213,7 @@ static void do_init(void)
 #include <dlfcn.h>
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
-#define __SIGACTION __libc_sigaction
+#define LIBC_SIGACTION __libc_sigaction
 static void do_init(void)
 {
     __next_sigaction = dlsym(RTLD_NEXT, "__libc_sigaction");
@@ -257,8 +257,8 @@ static int my_sigaction(int signum, const struct sigaction *act, struct sigactio
  * This overrides the C library's core sigaction() procedure, catching
  * all its internal calls.
  */
-#ifdef __SIGACTION
-int __SIGACTION(int signum, const struct sigaction *act, struct sigaction *oldact)
+#if defined(LIBC_SIGACTION)
+int LIBC_SIGACTION(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
     return my_sigaction(signum, act, oldact);
 }
