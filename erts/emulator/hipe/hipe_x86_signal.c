@@ -80,20 +80,9 @@
 #ifndef __USE_GNU
 #define __USE_GNU		/* to un-hide RTLD_NEXT */
 #endif
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
+#define NEXT_SIGACTION "__sigaction"
 extern int __sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION __sigaction
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "__sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym");
-    abort();
-}
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif	/* glibc >= 2.3 */
 
 /* Is there no standard identifier for Darwin/MacOSX ? */
@@ -117,21 +106,10 @@ static void do_init(void)
  * The other _sigaction, _sigaction_no_bind I don't understand the purpose
  * of and don't modify.
  */
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
+#define NEXT_SIGACTION "sigaction"
 extern int _sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION _sigaction
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym_darwin");
-    abort();
-}
 #define _NSIG NSIG
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __DARWIN__ */
 
 #if defined(__sun__)
@@ -154,20 +132,9 @@ static void do_init(void)
  * our init routine has had a chance to find _sigaction()'s address.
  * This forces us to initialise at the first call.
  */
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
+#define NEXT_SIGACTION "_sigaction"
 #define LIBC_SIGACTION _sigaction
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "_sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym");
-    abort();
-}
 #define _NSIG NSIG
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __sun__ */
 
 #if defined(__FreeBSD__)
@@ -175,21 +142,10 @@ static void do_init(void)
  * This is a copy of Darwin code for FreeBSD.
  * CAVEAT: detailed semantics are not verified yet.
  */
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
+#define NEXT_SIGACTION "sigaction"
 extern int _sigaction(int, const struct sigaction*, struct sigaction*);
 #define LIBC_SIGACTION _sigaction
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym_freebsd");
-    abort();
-}
 #define _NSIG NSIG
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __FreeBSD__ */
 
 #if defined(__NetBSD__)
@@ -198,7 +154,7 @@ static void do_init(void)
  * Whether this actually provides the needed overrides for safe
  * signal delivery or not is unknown.
  */
-#define INIT()	do { } while (0)
+#undef NEXT_SIGACTION
 #endif /* __NetBSD__ */
 
 #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
@@ -210,30 +166,39 @@ static void do_init(void)
  * There are libc-internal calls to __libc_sigaction which install handlers, so we must
  * override __libc_sigaction rather than __sigaction.
  */
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
+#define NEXT_SIGACTION "__libc_sigaction"
 #define LIBC_SIGACTION __libc_sigaction
+#ifndef _NSIG
+#define _NSIG NSIG
+#endif
+#endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */
+
+#if defined(NEXT_SIGACTION)
+/*
+ * Initialize a function pointer to the libc core sigaction routine,
+ * to be used by our wrappers.
+ */
+#include <dlfcn.h>
+static int (*next_sigaction)(int, const struct sigaction*, struct sigaction*);
 static void do_init(void)
 {
-    __next_sigaction = dlsym(RTLD_NEXT, "__libc_sigaction");
-    if (__next_sigaction != 0)
+    next_sigaction = dlsym(RTLD_NEXT, NEXT_SIGACTION);
+    if (next_sigaction != 0)
 	return;
     perror("dlsym");
     abort();
 }
-#ifndef _NSIG
-#define _NSIG NSIG
-#endif
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
-#endif	/* !(__GLIBC__ || __DARWIN__ || __NetBSD__ || __FreeBSD__ || __sun__) */
+#define INIT()	do { if (!next_sigaction) do_init(); } while (0)
+#else	/* !defined(NEXT_SIGACTION) */
+#define INIT()	do { } while (0)
+#endif	/* !defined(NEXT_SIGACTION) */
 
-#if !defined(__NetBSD__)
+#if defined(NEXT_SIGACTION)
 /*
  * This is our wrapper for sigaction(). sigaction() can be called before
  * hipe_signal_init() has been executed, especially when threads support
  * has been linked with the executable. Therefore, we must initialise
- * __next_sigaction() dynamically, the first time it's needed.
+ * next_sigaction() dynamically, the first time it's needed.
  */
 static int my_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
@@ -249,7 +214,7 @@ static int my_sigaction(int signum, const struct sigaction *act, struct sigactio
 	newact.sa_flags |= SA_ONSTACK;
 	act = &newact;
     }
-    return __next_sigaction(signum, act, oldact);
+    return next_sigaction(signum, act, oldact);
 }
 #endif
 
