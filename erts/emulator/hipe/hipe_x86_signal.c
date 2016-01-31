@@ -192,6 +192,15 @@ static void do_init(void)
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
 #endif /* __FreeBSD__ */
 
+#if defined(__NetBSD__)
+/*
+ * Note: This is only stub code to allow the build to succeed.
+ * Whether this actually provides the needed overrides for safe
+ * signal delivery or not is unknown.
+ */
+#define INIT()	do { } while (0)
+#endif /* __NetBSD__ */
+
 #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
 /*
  * Unknown libc -- assume musl.  Note: musl deliberately does not provide a musl-specific
@@ -243,6 +252,7 @@ static int my_sigaction(int signum, const struct sigaction *act, struct sigactio
     return __next_sigaction(signum, act, oldact);
 }
 #endif
+
 /*
  * This overrides the C library's core sigaction() procedure, catching
  * all its internal calls.
@@ -313,9 +323,7 @@ void hipe_signal_init(void)
     struct sigaction sa;
     int i;
 
-#ifndef __NetBSD__
     INIT();
-#endif
 
     hipe_sigaltstack_init();
 
