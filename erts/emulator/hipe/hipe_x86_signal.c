@@ -82,6 +82,7 @@
 #endif
 #define NEXT_SIGACTION "__sigaction"
 #define LIBC_SIGACTION __sigaction
+#define OVERRIDE_SIGACTION
 #endif	/* glibc >= 2.3 */
 
 /* Is there no standard identifier for Darwin/MacOSX ? */
@@ -107,6 +108,7 @@
  */
 #define NEXT_SIGACTION "sigaction"
 #define LIBC_SIGACTION _sigaction
+#undef OVERRIDE_SIGACTION
 #define _NSIG NSIG
 #endif /* __DARWIN__ */
 
@@ -132,6 +134,7 @@
  */
 #define NEXT_SIGACTION "_sigaction"
 #define LIBC_SIGACTION _sigaction
+#define OVERRIDE_SIGACTION
 #define _NSIG NSIG
 #endif /* __sun__ */
 
@@ -142,6 +145,7 @@
  */
 #define NEXT_SIGACTION "sigaction"
 #define LIBC_SIGACTION _sigaction
+#undef OVERRIDE_SIGACTION
 #define _NSIG NSIG
 #endif /* __FreeBSD__ */
 
@@ -152,6 +156,7 @@
  * signal delivery or not is unknown.
  */
 #undef NEXT_SIGACTION
+#undef OVERRIDE_SIGACTION
 #endif /* __NetBSD__ */
 
 #if !(defined(__GLIBC__) || defined(__DARWIN__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__sun__))
@@ -165,6 +170,7 @@
  */
 #define NEXT_SIGACTION "__libc_sigaction"
 #define LIBC_SIGACTION __libc_sigaction
+#define OVERRIDE_SIGACTION
 #ifndef _NSIG
 #define _NSIG NSIG
 #endif
@@ -227,10 +233,10 @@ int LIBC_SIGACTION(int signum, const struct sigaction *act, struct sigaction *ol
 }
 #endif
 
+#if defined(OVERRIDE_SIGACTION)
 /*
  * This catches the application's own sigaction() calls.
  */
-#if !defined(__DARWIN__) && !defined(__NetBSD__) && !defined(__FreeBSD__)
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 {
     return my_sigaction(signum, act, oldact);
