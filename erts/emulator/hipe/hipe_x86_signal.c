@@ -38,9 +38,6 @@
  *
  * Our solution is to override the C library's signal handler setup
  * procedure with our own which enforces the SA_ONSTACK flag.
- *
- * XXX: This code only supports Linux with glibc-2.1 or above,
- * and Solaris 8.
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -55,27 +52,6 @@
 #include "hipe_signal.h"
 
 #if __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
-/* See comment below for glibc 2.2. */
-#ifndef __USE_GNU
-#define __USE_GNU		/* to un-hide RTLD_NEXT */
-#endif
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
-extern int __sigaction(int, const struct sigaction*, struct sigaction*);
-#define __SIGACTION __sigaction
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "__sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym");
-    abort();
-}
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
-#endif	/* glibc 2.3 */
-
-#if __GLIBC__ == 2 && (__GLIBC_MINOR__ == 2 /*|| __GLIBC_MINOR__ == 3*/)
 /*
  * __libc_sigaction() is the core routine.
  * Without libpthread, sigaction() and __sigaction() are both aliases
@@ -100,16 +76,14 @@ static void do_init(void)
  * old BSD or SysV interfaces.
  * glibc's internal calls to __sigaction() appear to be mostly safe.
  * hipe_signal_init() fixes some unsafe ones, e.g. the SIGPROF handler.
- *
- * Tested with glibc-2.1.92 on RedHat 7.0, glibc-2.2.2 on RedHat 7.1,
- * glibc-2.2.4 on RedHat 7.2, and glibc-2.2.5 on RedHat 7.3.
  */
-#if 0
-/* works with 2.2.5 and 2.2.4, but not 2.2.2 or 2.1.92 */
+#ifndef __USE_GNU
 #define __USE_GNU		/* to un-hide RTLD_NEXT */
+#endif
 #include <dlfcn.h>
 static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
 #define init_done()	(__next_sigaction != 0)
+extern int __sigaction(int, const struct sigaction*, struct sigaction*);
 #define __SIGACTION __sigaction
 static void do_init(void)
 {
@@ -120,45 +94,7 @@ static void do_init(void)
     abort();
 }
 #define INIT()	do { if (!init_done()) do_init(); } while (0)
-#else
-/* semi-works with all 2.2 versions so far */
-extern int __sigaction(int, const struct sigaction*, struct sigaction*);
-#define __next_sigaction __sigaction	/* pthreads-aware version */
-#undef __SIGACTION	/* we can't override __sigaction() */
-#define INIT()		do{}while(0)
-#endif
-#endif	/* glibc 2.2 */
-
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ == 1
-/*
- * __sigaction() is the core routine.
- * Without libpthread, sigaction() is an alias for __sigaction().
- * libpthread redefines sigaction() as a non-trivial wrapper around
- * __sigaction().
- * glibc has internal calls to both sigaction() and __sigaction().
- *
- * Overriding __sigaction() would be ideal, but doing so breaks
- * libpthread (threads hang). Instead we override sigaction() and
- * use dlsym RTLD_NEXT to find glibc's version of sigaction().
- * glibc's internal calls to __sigaction() appear to be mostly safe.
- * hipe_signal_init() fixes some unsafe ones, e.g. the SIGPROF handler.
- *
- * Tested with glibc-2.1.3 on RedHat 6.2.
- */
-#include <dlfcn.h>
-static int (*__next_sigaction)(int, const struct sigaction*, struct sigaction*);
-#define init_done()	(__next_sigaction != 0)
-#undef __SIGACTION
-static void do_init(void)
-{
-    __next_sigaction = dlsym(RTLD_NEXT, "sigaction");
-    if (__next_sigaction != 0)
-	return;
-    perror("dlsym");
-    abort();
-}
-#define INIT()	do { if (!init_done()) do_init(); } while (0)
-#endif	/* glibc 2.1 */
+#endif	/* glibc >= 2.3 */
 
 /* Is there no standard identifier for Darwin/MacOSX ? */
 #if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
@@ -339,12 +275,8 @@ static void hipe_sigaltstack(void *ss_sp)
     ss.ss_flags = SS_ONSTACK;
     ss.ss_size = SIGSTKSZ;
     if (sigaltstack(&ss, NULL) < 0) {
-	/* might be a broken pre-2.4 Linux kernel, try harder */
-	ss.ss_flags = 0;
-	if (sigaltstack(&ss, NULL) < 0) {
-	    perror("sigaltstack");
-	    abort();
-	}
+	perror("sigaltstack");
+	abort();
     }
 }
 
