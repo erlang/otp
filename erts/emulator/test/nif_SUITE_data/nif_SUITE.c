@@ -2079,6 +2079,18 @@ static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     }
 }
 
+static ERL_NIF_TERM port_command(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPort port;
+
+    if (!enif_get_local_port(env, argv[0], &port))
+        return enif_make_badarg(env);
+
+    if (!enif_port_command(env, &port, NULL, argv[1]))
+        return enif_make_badarg(env);
+    return atom_true;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2158,7 +2170,8 @@ static ErlNifFunc nif_funcs[] =
     {"is_process_alive_nif", 1, is_process_alive},
     {"is_port_alive_nif", 1, is_port_alive},
     {"term_to_binary_nif", 2, term_to_binary},
-    {"binary_to_term_nif", 2, binary_to_term}
+    {"binary_to_term_nif", 2, binary_to_term},
+    {"port_command_nif", 2, port_command}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

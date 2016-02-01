@@ -375,6 +375,29 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     return 1;
 }
 
+int
+enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
+                  ErlNifEnv *msg_env, ERL_NIF_TERM msg)
+{
+
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    int scheduler = esdp ? esdp->no : 0;
+    Port *prt;
+
+    if (scheduler == 0 || !env)
+        return 0;
+
+    prt = erts_port_lookup(to_port->port_id,
+                           (erts_port_synchronous_ops
+                            ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+                            : ERTS_PORT_SFLGS_INVALID_LOOKUP));
+
+    if (!prt)
+        return 0;
+
+    return erts_port_output_async(prt, env->proc->common.id, msg);
+}
+
 ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;

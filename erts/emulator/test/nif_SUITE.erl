@@ -45,7 +45,8 @@
 	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1,
          nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1,
          nif_is_process_alive/1, nif_is_port_alive/1,
-         nif_term_to_binary/1, nif_binary_to_term/1
+         nif_term_to_binary/1, nif_binary_to_term/1,
+         nif_port_command/1
 	]).
 
 -export([many_args_100/100]).
@@ -79,7 +80,8 @@ all() ->
      nif_monotonic_time, nif_time_offset, nif_convert_time_unit,
      nif_now_time, nif_cpu_time, nif_unique_integer,
      nif_is_process_alive, nif_is_port_alive,
-     nif_term_to_binary, nif_binary_to_term
+     nif_term_to_binary, nif_binary_to_term,
+     nif_port_command
     ].
 
 init_per_testcase(_Case, Config) ->
@@ -1977,6 +1979,35 @@ nif_binary_to_term(Config) ->
     true = binary_to_term_nif(Bin, self()),
     receive T -> ok end.
 
+nif_port_command(Config) ->
+    ensure_lib_loaded(Config),
+
+    Port = open_port({spawn,"/bin/sh -s unix:cmd"},[stderr_to_stdout,eof]),
+    true = port_command_nif(Port, "echo hello\n"),
+    receive {Port,{data,"hello\n"}} -> ok
+    after 1000 -> ct:fail(timeout) end,
+
+    RefcBin = lists:flatten([lists:duplicate(100, "hello"),"\n"]),
+    true = port_command_nif(Port, iolist_to_binary(["echo ",RefcBin])),
+    receive {Port,{data,RefcBin}} -> ok
+    after 1000 -> ct:fail(timeout) end,
+
+    %% Test that invalid arguments correctly returns
+    %% badarg and that the port survives.
+    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, [ok])),
+
+    IoList = [lists:duplicate(100,<<"hello">>),"\n"],
+    true = port_command_nif(Port, ["echo ",IoList]),
+    FlatIoList = binary_to_list(iolist_to_binary(IoList)),
+    receive {Port,{data,FlatIoList}} -> ok
+    after 1000 -> ct:fail(timeout) end,
+
+    port_close(Port),
+
+    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, "echo hello\n")),
+
+    ok.
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -2039,6 +2070,7 @@ is_process_alive_nif(_) -> ?nif_stub.
 is_port_alive_nif(_) -> ?nif_stub.
 term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _) -> ?nif_stub.
+port_command_nif(_, _) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.

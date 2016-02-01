@@ -1749,7 +1749,6 @@ cleanup_scheduled_outputv(ErlIOVec *ev, ErlDrvBinary *cbinp)
 	    driver_free_binary(ev->binv[i]);
     if (cbinp)
 	driver_free_binary(cbinp);
-    erts_free(ERTS_ALC_T_DRV_CMD_DATA, ev);
 }
 
 static int
@@ -1887,6 +1886,188 @@ port_sig_output(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *si
     return ERTS_PORT_REDS_CMD_OUTPUT;
 }
 
+
+/*
+ * This erts_port_output will always create a port task.
+ * The call is treated as a port_command call, i.e. no
+ * badsig i generated if the input in invalid. However
+ * an error_logger message is generated.
+ */
+int
+erts_port_output_async(Port *prt, Eterm from, Eterm list)
+{
+
+    ErtsPortOpResult res;
+    ErtsProc2PortSigData *sigdp;
+    erts_driver_t *drv = prt->drv_ptr;
+    size_t size;
+    int task_flags;
+    ErtsProc2PortSigCallback port_sig_callback;
+    ErlDrvBinary *cbin = NULL;
+    ErlIOVec *evp = NULL;
+    char *buf = NULL;
+    ErtsPortTaskHandle *ns_pthp;
+
+    if (drv->outputv) {
+        ErlIOVec ev;
+	SysIOVec* ivp;
+	ErlDrvBinary**  bvp;
+        int vsize;
+	Uint csize;
+	Uint pvsize;
+	Uint pcsize;
+        size_t iov_offset, binv_offset, alloc_size;
+        Uint blimit = 0;
+        char *ptr;
+        int i;
+
+        Eterm* bptr = NULL;
+        Uint offset;
+
+        if (is_binary(list)) {
+            /* We optimize for when we get a procbin without offset */
+            Eterm real_bin;
+            int bitoffs;
+            int bitsize;
+            ERTS_GET_REAL_BIN(list, real_bin, offset, bitoffs, bitsize);
+            bptr = binary_val(real_bin);
+            if (*bptr == HEADER_PROC_BIN && bitoffs == 0) {
+                size = binary_size(list);
+                vsize = 1;
+            } else
+                bptr = NULL;
+        }
+
+        if (!bptr) {
+            if (io_list_vec_len(list, &vsize, &csize, &pvsize, &pcsize, &size))
+                goto bad_value;
+
+            /* To pack or not to pack (small binaries) ...? */
+            if (vsize >= SMALL_WRITE_VEC) {
+                /* Do pack */
+                vsize = pvsize + 1;
+                csize = pcsize;
+                blimit = ERL_SMALL_IO_BIN_LIMIT;
+            }
+            cbin = driver_alloc_binary(csize);
+            if (!cbin)
+                erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, ERTS_SIZEOF_Binary(csize));
+        }
+
+
+        iov_offset = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErlIOVec));
+	binv_offset = iov_offset;
+        binv_offset += ERTS_ALC_DATA_ALIGN_SIZE((vsize+1)*sizeof(SysIOVec));
+        alloc_size = binv_offset;
+	alloc_size += (vsize+1)*sizeof(ErlDrvBinary *);
+
+        sigdp = erts_port_task_alloc_p2p_sig_data_extra(alloc_size, (void**)&ptr);
+
+        evp = (ErlIOVec *) ptr;
+        ivp = evp->iov = (SysIOVec *) (ptr + iov_offset);
+        bvp = evp->binv = (ErlDrvBinary **) (ptr + binv_offset);
+
+        ivp[0].iov_base = NULL;
+	ivp[0].iov_len = 0;
+	bvp[0] = NULL;
+
+        if (bptr) {
+            ProcBin* pb = (ProcBin *) bptr;
+
+            ivp[1].iov_base = pb->bytes+offset;
+            ivp[1].iov_len = size;
+            bvp[1] = Binary2ErlDrvBinary(pb->val);
+
+            evp->vsize = 1;
+        } else {
+
+            evp->vsize = io_list_to_vec(list, ivp+1, bvp+1, cbin, blimit);
+            if (evp->vsize < 0) {
+                if (evp != &ev)
+                    erts_free(ERTS_ALC_T_DRV_CMD_DATA, evp);
+                driver_free_binary(cbin);
+                goto bad_value;
+            }
+        }
+#if 0
+	/* This assertion may say something useful, but it can
+        be falsified during the emulator test suites. */
+	ASSERT(evp->vsize == vsize);
+#endif
+	evp->vsize++;
+	evp->size = size;  /* total size */
+
+        /* Need to increase refc on all binaries */
+        for (i = 1; i < evp->vsize; i++)
+            if (bvp[i])
+                driver_binary_inc_refc(bvp[i]);
+
+	sigdp->flags = ERTS_P2P_SIG_TYPE_OUTPUTV;
+	sigdp->u.outputv.from = from;
+	sigdp->u.outputv.evp = evp;
+	sigdp->u.outputv.cbinp = cbin;
+	port_sig_callback = port_sig_outputv;
+    } else {
+        ErlDrvSizeT ERTS_DECLARE_DUMMY(r);
+
+	/*
+	 * Apperently there exist code that write 1 byte to
+	 * much in buffer. Where it resides I don't know, but
+	 * we can live with one byte extra allocated...
+	 */
+
+        if (erts_iolist_size(list, &size))
+            goto bad_value;
+
+        buf = erts_alloc(ERTS_ALC_T_DRV_CMD_DATA, size + 1);
+
+        r = erts_iolist_to_buf(list, buf, size);
+        ASSERT(ERTS_IOLIST_TO_BUF_SUCCEEDED(r));
+
+	sigdp = erts_port_task_alloc_p2p_sig_data();
+	sigdp->flags = ERTS_P2P_SIG_TYPE_OUTPUT;
+	sigdp->u.output.from = from;
+	sigdp->u.output.bufp = buf;
+	sigdp->u.output.size = size;
+	port_sig_callback = port_sig_output;
+    }
+    sigdp->flags = 0;
+    ns_pthp = NULL;
+    task_flags = 0;
+
+    res = erts_schedule_proc2port_signal(NULL,
+					 prt,
+					 ERTS_INVALID_PID,
+					 NULL,
+					 sigdp,
+					 task_flags,
+					 ns_pthp,
+					 port_sig_callback);
+
+    if (res != ERTS_PORT_OP_SCHEDULED) {
+	if (drv->outputv)
+	    cleanup_scheduled_outputv(evp, cbin);
+	else
+	    cleanup_scheduled_output(buf);
+	return 1;
+    }
+    return 1;
+
+bad_value:
+
+    /*
+     * We call badsig directly here as this function is called with
+     * the main lock of the calling process still held.
+     * At the moment this operation is always not a bang_op, so
+     * only an error_logger message should be generated, no badsig.
+    */
+
+    badsig_received(0, prt, erts_atomic32_read_nob(&prt->state), 1);
+
+    return 0;
+
+}
+
 ErtsPortOpResult
 erts_port_output(Process *c_p,
 		 int flags,
@@ -1896,7 +2077,7 @@ erts_port_output(Process *c_p,
 		 Eterm *refp)
 {
     ErtsPortOpResult res;
-    ErtsProc2PortSigData *sigdp;
+    ErtsProc2PortSigData *sigdp = NULL;
     erts_driver_t *drv = prt->drv_ptr;
     size_t size;
     int try_call;
@@ -1978,10 +2159,13 @@ erts_port_output(Process *c_p,
 	    evp = &ev;
 	}
 	else {
-	    char *ptr = erts_alloc((try_call
-				    ? ERTS_ALC_T_TMP
-				    : ERTS_ALC_T_DRV_CMD_DATA), alloc_size);
-
+            char *ptr;
+            if (try_call) {
+                ptr = erts_alloc(ERTS_ALC_T_TMP, alloc_size);
+            } else {
+                sigdp = erts_port_task_alloc_p2p_sig_data_extra(
+                    alloc_size, (void**)&ptr);
+            }
 	    evp = (ErlIOVec *) ptr;
 	    ivp = evp->iov = (SysIOVec *) (ptr + iov_offset);
 	    bvp = evp->binv = (ErlDrvBinary **) (ptr + binv_offset);
@@ -2010,9 +2194,12 @@ erts_port_output(Process *c_p,
 	bvp[0] = NULL;
 	evp->vsize = io_list_to_vec(list, ivp+1, bvp+1, cbin, blimit);
 	if (evp->vsize < 0) {
-	    if (evp != &ev)
-		erts_free(try_call ? ERTS_ALC_T_TMP : ERTS_ALC_T_DRV_CMD_DATA,
-			  evp);
+            if (evp != &ev) {
+                if (try_call)
+                    erts_free(ERTS_ALC_T_TMP, evp);
+                else
+                    erts_port_task_free_p2p_sig_data(sigdp);
+            }
 	    driver_free_binary(cbin);
 	    goto bad_value;
 	}
@@ -2064,8 +2251,10 @@ erts_port_output(Process *c_p,
 		/* Fall through... */
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 		driver_free_binary(cbin);
-		if (evp != &ev)
+		if (evp != &ev) {
+                    ASSERT(!sigdp);
 		    erts_free(ERTS_ALC_T_TMP, evp);
+                }
 		if (try_call_res != ERTS_TRY_IMM_DRV_CALL_OK)
 		    return ERTS_PORT_OP_DROPPED;
 		if (c_p)
@@ -2076,8 +2265,10 @@ erts_port_output(Process *c_p,
 		if (async_nosuspend
 		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
 		    driver_free_binary(cbin);
-		    if (evp != &ev)
+                    if (evp != &ev) {
+                        ASSERT(!sigdp);
 			erts_free(ERTS_ALC_T_TMP, evp);
+                    }
 		    return ((sched_flags & ERTS_PTS_FLG_EXIT)
 			    ? ERTS_PORT_OP_DROPPED
 			    : ERTS_PORT_OP_BUSY);
@@ -2092,9 +2283,16 @@ erts_port_output(Process *c_p,
 		if (bvp[i])
 		    driver_binary_inc_refc(bvp[i]);
 
-	    new_evp = erts_alloc(ERTS_ALC_T_DRV_CMD_DATA, alloc_size);
+            /* The port task and iovec is allocated in the
+               same structure as an optimization. This
+               is especially important in erts_port_output_async
+               of when !try_call */
+            ASSERT(sigdp == NULL);
+            sigdp = erts_port_task_alloc_p2p_sig_data_extra(
+                alloc_size, (void**)&new_evp);
 
 	    if (evp != &ev) {
+                /* Copy from TMP alloc to port task */
 		sys_memcpy((void *) new_evp, (void *) evp, alloc_size);
 		new_evp->iov = (SysIOVec *) (((char *) new_evp)
 					     + iov_offset);
@@ -2142,7 +2340,6 @@ erts_port_output(Process *c_p,
 	    evp = new_evp;
 	}
 
-	sigdp = erts_port_task_alloc_p2p_sig_data();
 	sigdp->flags = ERTS_P2P_SIG_TYPE_OUTPUTV;
 	sigdp->u.outputv.from = from;
 	sigdp->u.outputv.evp = evp;

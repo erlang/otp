@@ -1464,6 +1464,38 @@ enif_map_iterator_destroy(env, &amp;iter);
        and <seealso marker="#upgrade">upgrade</seealso>.</p>
       </desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext></name>
+      <fsummary>Send a port_command to to_port</fsummary>
+      <desc>
+        <p>This function works the same as <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>
+        except that it is always completely asynchronous. This call may return false
+        if it detects that the port is already dead, otherwise it will return true.
+        </p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. May not be NULL.</item>
+          <tag><c>*to_port</c></tag>
+          <item>The port id of the receiving port. The port id should refer to a
+          port on the local node.</item>
+          <tag><c>msg_env</c></tag>
+          <item>The environment of the message term. Can be a process
+          independent environment allocated with
+          <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
+          <tag><c>msg</c></tag>
+          <item>The message term to send. The same limitations apply as on the
+          payload to <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>.</item>
+        </taglist>
+        <p>Using a <c>msg_env</c> of NULL is an optimization which groups together
+        calls to <c>enif_alloc_env</c>, <c>enif_make_copy</c>, <c>enif_port_command</c>
+        and <c>enif_free_env</c> into one call. This optimization is only usefull
+        when a majority of the terms are to be copied from <c>env</c> to the <c>msg_env</c>.</p>
+        <p>The call may return false if it detects that the command failed for some reason. Otherwise true is returned.</p>
+        <p>See also:</p>
+        <list>
+          <item><seealso marker="#enif_get_local_port"><c>enif_get_local_port</c></seealso></item>
+        </list>
+      </desc>
+    </func>
     <func><name><ret>void *</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
       <fsummary>Get the private data of a NIF library</fsummary>
       <desc><p>Return the pointer to the private data that was set by <c>load</c>,
