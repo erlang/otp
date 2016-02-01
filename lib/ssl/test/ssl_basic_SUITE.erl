@@ -121,6 +121,7 @@ options_tests() ->
 
 api_tests() ->
     [connection_info,
+     connection_information,
      peername,
      peercert,
      peercert_with_client_cert,
@@ -459,6 +460,37 @@ connection_info(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+connection_information() ->
+    [{doc,"Test the API function ssl:connection_information/1"}].
+connection_information(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, connection_information_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, connection_information_result, []}},
+			   {options, ClientOpts}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+    
+    ServerMsg = ClientMsg = ok,
+			   
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 protocol_versions() ->
@@ -3989,7 +4021,7 @@ run_suites(Ciphers, Version, Config, Type) ->
     end.
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl:suite_definition(ssl_cipher:openssl_suite(Suite));
+    ssl_cipher:erl_suite_definition(ssl_cipher:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 
@@ -4010,11 +4042,11 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-			   {options,
-			    [{ciphers,[CipherSuite]} |
-			     ClientOpts]}]),
+					{from, self()},
+					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
+					{options,
+					 [{ciphers,[CipherSuite]} |
+					  ClientOpts]}]),
 
     Result = ssl_test_lib:wait_for_result(Server, ok, Client, ok),
 
@@ -4026,6 +4058,17 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 	    [];
 	Error ->
 	    [{ErlangCipherSuite, Error}]
+    end.
+
+connection_information_result(Socket) ->
+    {ok, Info = [_ | _]} = ssl:connection_information(Socket),
+    case  length(Info) > 3 of
+	true -> 
+	    %% Atleast one ssloption() is set
+	    ct:log("Info ~p", [Info]),
+	    ok;
+	false ->
+	    ct:fail(no_ssl_options_returned)
     end.
 
 connection_info_result(Socket) ->

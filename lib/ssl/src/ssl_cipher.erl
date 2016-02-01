@@ -34,6 +34,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, security_parameters/3, suite_definition/1,
+	 erl_suite_definition/1,
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
@@ -720,6 +721,16 @@ suite_definition(?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256) ->
     {ecdhe_ecdsa, chacha20_poly1305, null, sha256};
 suite_definition(?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256) ->
     {dhe_rsa, chacha20_poly1305, null, sha256}.
+
+%%--------------------------------------------------------------------
+-spec erl_suite_definition(ssl_cipher:cipher_suite()) -> ssl_cipher:erl_cipher_suite().
+%%
+%% Description: Return erlang cipher suite definition. Filters last value
+%% for now (compatibility reasons).
+%%--------------------------------------------------------------------
+erl_suite_definition(S) ->
+    {KeyExchange, Cipher, Hash, _} = ssl_cipher:suite_definition(S),
+    {KeyExchange, Cipher, Hash}.
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
