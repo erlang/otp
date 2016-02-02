@@ -1052,8 +1052,9 @@ typedef struct ErlIOVec {
       <desc>
         <marker id="driver_get_now"></marker>
 	<warning><p><em>This function is deprecated! Do not use it!</em>
-	Use the documented 
-	<seealso marker="#time_measurement">time measurement functionality</seealso>
+	Use <seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso>
+	(perhaps in combination with
+	<seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso>)
 	instead.</p></warning>
         <p>This function reads a timestamp into the memory pointed to by
           the parameter <c>now</c>. See the description of <seealso marker="#ErlDrvNowData">ErlDrvNowData</seealso> for
