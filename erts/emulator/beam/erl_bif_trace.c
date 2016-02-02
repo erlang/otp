@@ -431,6 +431,9 @@ Uint
 erts_trace_flag2bit(Eterm flag) 
 {
     switch (flag) {
+    case am_timestamp: return F_NOW_TS;
+    case am_strict_monotonic_timestamp: return F_STRICT_MON_TS;
+    case am_monotonic_timestamp: return F_MON_TS;
     case am_all: return TRACEE_FLAGS;
     case am_send: return F_TRACE_SEND;
     case am_receive: return F_TRACE_RECEIVE;
@@ -439,7 +442,6 @@ erts_trace_flag2bit(Eterm flag)
     case am_set_on_first_spawn: return F_TRACE_SOS1;
     case am_set_on_link: return F_TRACE_SOL;
     case am_set_on_first_link: return F_TRACE_SOL1;
-    case am_timestamp: return F_TIMESTAMP;
     case am_running: return F_TRACE_SCHED;
     case am_exiting: return F_TRACE_SCHED_EXIT;
     case am_garbage_collection: return F_TRACE_GC;
@@ -592,7 +594,7 @@ Eterm trace_3(BIF_ALIST_3)
 	    ERTS_TRACE_FLAGS(tracee_port) |= mask;
 	else
 	    ERTS_TRACE_FLAGS(tracee_port) &= ~mask;
-	
+
 	if (!ERTS_TRACE_FLAGS(tracee_port))
 	    ERTS_TRACER_PROC(tracee_port) = NIL;
 	else if (tracer != NIL)
@@ -978,7 +980,7 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
     }
 
     if (key == am_flags) {
-	int num_flags = 19;	/* MAXIMUM number of flags. */
+	int num_flags = 21;	/* MAXIMUM number of flags. */
 	Uint needed = 3+2*num_flags;
 	Eterm flag_list = NIL;
 	Eterm* limit;
@@ -996,6 +998,9 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 #endif
         hp = HAlloc(p, needed);
 	limit = hp+needed;
+	FLAG(F_NOW_TS, am_timestamp);
+	FLAG(F_STRICT_MON_TS, am_strict_monotonic_timestamp);
+	FLAG(F_MON_TS, am_monotonic_timestamp);
 	FLAG(F_TRACE_SEND, am_send);
 	FLAG(F_TRACE_RECEIVE, am_receive);
 	FLAG(F_TRACE_SOS, am_set_on_spawn);
@@ -1007,7 +1012,6 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 	FLAG(F_TRACE_SCHED, am_running);
 	FLAG(F_TRACE_SCHED_EXIT, am_exiting);
 	FLAG(F_TRACE_GC, am_garbage_collection);
-	FLAG(F_TIMESTAMP, am_timestamp);
 	FLAG(F_TRACE_ARITY_ONLY, am_arity);
 	FLAG(F_TRACE_RETURN_TO, am_return_to);
 	FLAG(F_TRACE_SILENT, am_silent);
@@ -1798,7 +1802,11 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
     } else if (arg1 == am_print) {
 	current_flag = SEQ_TRACE_PRINT; 
     } else if (arg1 == am_timestamp) {
-	current_flag = SEQ_TRACE_TIMESTAMP; 
+	current_flag = SEQ_TRACE_NOW_TS; 
+    } else if (arg1 == am_strict_monotonic_timestamp) {
+	current_flag = SEQ_TRACE_STRICT_MON_TS; 
+    } else if (arg1 == am_monotonic_timestamp) {
+	current_flag = SEQ_TRACE_MON_TS; 
     }
     else
 	current_flag = 0;
@@ -1909,7 +1917,9 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 #endif
 	) {
 	if ((item == am_send) || (item == am_receive) || 
-	    (item == am_print) || (item == am_timestamp)) {
+	    (item == am_print) || (item == am_timestamp)
+	    || (item == am_monotonic_timestamp)
+	    || (item == am_strict_monotonic_timestamp)) {
 	    hp = HAlloc(p,3);
 	    res = TUPLE2(hp, item, am_false);
 	    BIF_RET(res);
@@ -1927,7 +1937,11 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
     } else if (item == am_print) {
 	current_flag = SEQ_TRACE_PRINT; 
     } else if (item == am_timestamp) {
-	current_flag = SEQ_TRACE_TIMESTAMP; 
+	current_flag = SEQ_TRACE_NOW_TS; 
+    } else if (item == am_strict_monotonic_timestamp) {
+	current_flag = SEQ_TRACE_STRICT_MON_TS; 
+    } else if (item == am_monotonic_timestamp) {
+	current_flag = SEQ_TRACE_MON_TS; 
     } else {
 	current_flag = 0;
     }
@@ -2237,6 +2251,7 @@ static Eterm system_profile_get(Process *p) {
 	if (erts_system_profile_flags.exclusive) {
 	    res = CONS(hp, am_exclusive, res); hp += 2;
 	}
+
     	return TUPLE2(hp, system_profile, res);
     }
 }
@@ -2255,6 +2270,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
     int system_blocked = 0;
     Process *profiler_p = NULL;
     Port *profiler_port = NULL;
+    int ts;
 
     if (profiler == am_undefined || list == NIL) {
 	prev = system_profile_get(p);
@@ -2286,7 +2302,8 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	    goto error;
 	}
 
-	for (scheduler = 0, runnable_ports = 0, runnable_procs = 0, exclusive = 0;
+	for (ts = ERTS_TRACE_FLG_NOW_TIMESTAMP, scheduler = 0,
+		 runnable_ports = 0, runnable_procs = 0, exclusive = 0;
 	    is_list(list);
 	    list = CDR(list_val(list))) {
 	    
@@ -2299,6 +2316,12 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 		exclusive = !0;
 	    } else if (t == am_scheduler) {
 		scheduler = !0;
+	    } else if (t == am_timestamp) {
+		ts = ERTS_TRACE_FLG_NOW_TIMESTAMP;
+	    } else if (t == am_strict_monotonic_timestamp) {
+		ts = ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP;
+	    } else if (t == am_monotonic_timestamp) {
+		ts = ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP;
 	    } else goto error;
 	}	
 	if (is_not_nil(list)) goto error;
@@ -2311,7 +2334,7 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	erts_system_profile_flags.runnable_ports = !!runnable_ports;
 	erts_system_profile_flags.runnable_procs = !!runnable_procs;
 	erts_system_profile_flags.exclusive = !!exclusive;
-
+	erts_system_profile_ts_type = ts;
 	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 	

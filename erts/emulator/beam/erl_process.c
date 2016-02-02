@@ -353,6 +353,7 @@ struct erts_system_monitor_flags_t erts_system_monitor_flags;
 /* system performance monitor */
 Eterm erts_system_profile;
 struct erts_system_profile_flags_t erts_system_profile_flags;
+int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 
 #if ERTS_MAX_PROCESSES > 0x7fffffff
 #error "Need to store process_count in another type"

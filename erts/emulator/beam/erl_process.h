@@ -60,6 +60,9 @@ typedef struct process Process;
 #include "erl_mseg.h"
 #include "erl_async.h"
 #include "erl_gc.h"
+#define ERTS_ONLY_INCLUDE_TRACE_FLAGS
+#include "erl_trace.h"
+#undef ERTS_ONLY_INCLUDE_TRACE_FLAGS
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -1292,6 +1295,7 @@ struct erts_system_profile_flags_t {
     unsigned int exclusive : 1;
 };
 extern struct erts_system_profile_flags_t erts_system_profile_flags;
+extern int erts_system_profile_ts_type;
 
 /* process flags */
 #define F_HIBERNATE_SCHED    (1 <<  0) /* Schedule out after hibernate op */
@@ -1307,61 +1311,90 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC */
 
+#define ERTS_TRACE_FLAGS_TS_TYPE_SHIFT			0
+
+#define F_TRACE_FLAG(N)      (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
+
 /* process trace_flags */
-#define F_SENSITIVE          (1 << 0)
-#define F_TRACE_SEND         (1 << 1)   
-#define F_TRACE_RECEIVE      (1 << 2)
-#define F_TRACE_SOS          (1 << 3) /* Set on spawn       */
-#define F_TRACE_SOS1         (1 << 4) /* Set on first spawn */
-#define F_TRACE_SOL          (1 << 5) /* Set on link        */
-#define F_TRACE_SOL1         (1 << 6) /* Set on first link  */
-#define F_TRACE_CALLS        (1 << 7)
-#define F_TIMESTAMP          (1 << 8)
-#define F_TRACE_PROCS        (1 << 9)
-#define F_TRACE_FIRST_CHILD  (1 << 10)
-#define F_TRACE_SCHED        (1 << 11)
-#define F_TRACE_GC           (1 << 12)
-#define F_TRACE_ARITY_ONLY   (1 << 13)
-#define F_TRACE_RETURN_TO    (1 << 14) /* Return_to trace when breakpoint tracing */
-#define F_TRACE_SILENT       (1 << 15) /* No call trace msg suppress */
-#define F_TRACER             (1 << 16) /* May be (has been) tracer */
-#define F_EXCEPTION_TRACE    (1 << 17) /* May have exception trace on stack */
+
+#define F_NOW_TS             (ERTS_TRACE_FLG_NOW_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_STRICT_MON_TS      (ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_MON_TS             (ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_SENSITIVE          F_TRACE_FLAG(0)
+#define F_TRACE_SEND         F_TRACE_FLAG(1)
+#define F_TRACE_RECEIVE      F_TRACE_FLAG(2)
+#define F_TRACE_SOS          F_TRACE_FLAG(3) /* Set on spawn       */
+#define F_TRACE_SOS1         F_TRACE_FLAG(4) /* Set on first spawn */
+#define F_TRACE_SOL          F_TRACE_FLAG(5) /* Set on link        */
+#define F_TRACE_SOL1         F_TRACE_FLAG(6) /* Set on first link  */
+#define F_TRACE_CALLS        F_TRACE_FLAG(7)
+#define F_TRACE_PROCS        F_TRACE_FLAG(8)
+#define F_TRACE_FIRST_CHILD  F_TRACE_FLAG(9)
+#define F_TRACE_SCHED        F_TRACE_FLAG(10)
+#define F_TRACE_GC           F_TRACE_FLAG(11)
+#define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
+#define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
+#define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
+#define F_TRACER             F_TRACE_FLAG(15) /* May be (has been) tracer */
+#define F_EXCEPTION_TRACE    F_TRACE_FLAG(16) /* May have exception trace on stack */
 
 /* port trace flags, currently the same as process trace flags */
-#define F_TRACE_SCHED_PORTS  (1 << 18) /* Trace of port scheduling */
-#define F_TRACE_SCHED_PROCS  (1 << 19) /* With virtual scheduling */
-#define F_TRACE_PORTS	     (1 << 20) /* Ports equivalent to F_TRACE_PROCS */
-#define F_TRACE_SCHED_NO     (1 << 21) /* Trace with scheduler id */
-#define F_TRACE_SCHED_EXIT   (1 << 22)
+#define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
+#define F_TRACE_SCHED_PROCS  F_TRACE_FLAG(18) /* With virtual scheduling */
+#define F_TRACE_PORTS	     F_TRACE_FLAG(19) /* Ports equivalent to F_TRACE_PROCS */
+#define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
+#define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
 
-#define F_NUM_FLAGS          23
+#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
 #ifdef DEBUG
 #  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
 #else
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif
 
+/* F_TIMESTAMP_MASK is a bit-field of all all timestamp types */
+#define F_TIMESTAMP_MASK \
+    (ERTS_TRACE_TS_TYPE_MASK << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+
 #define TRACEE_FLAGS ( F_TRACE_PROCS | F_TRACE_CALLS \
 		     | F_TRACE_SOS |  F_TRACE_SOS1| F_TRACE_RECEIVE  \
 		     | F_TRACE_SOL | F_TRACE_SOL1 | F_TRACE_SEND \
-		     | F_TRACE_SCHED | F_TIMESTAMP | F_TRACE_GC \
+		     | F_TRACE_SCHED | F_TIMESTAMP_MASK | F_TRACE_GC \
 		     | F_TRACE_ARITY_ONLY | F_TRACE_RETURN_TO \
                      | F_TRACE_SILENT | F_TRACE_SCHED_PROCS | F_TRACE_PORTS \
 		     | F_TRACE_SCHED_PORTS | F_TRACE_SCHED_NO \
 		     | F_TRACE_SCHED_EXIT)
 
 #define ERTS_TRACEE_MODIFIER_FLAGS \
-  (F_TRACE_SILENT | F_TIMESTAMP | F_TRACE_SCHED_NO)
+  (F_TRACE_SILENT | F_TIMESTAMP_MASK | F_TRACE_SCHED_NO)
 #define ERTS_PORT_TRACEE_FLAGS \
   (ERTS_TRACEE_MODIFIER_FLAGS | F_TRACE_PORTS | F_TRACE_SCHED_PORTS)
 #define ERTS_PROC_TRACEE_FLAGS \
   ((TRACEE_FLAGS & ~ERTS_PORT_TRACEE_FLAGS) | ERTS_TRACEE_MODIFIER_FLAGS)
 
+#define SEQ_TRACE_FLAG(N)        (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
+
 /* Sequential trace flags */
+
+/* SEQ_TRACE_TIMESTAMP_MASK is a bit-field */
+#define SEQ_TRACE_TIMESTAMP_MASK \
+    (ERTS_TRACE_TS_TYPE_MASK << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+
 #define SEQ_TRACE_SEND     (1 << 0)
 #define SEQ_TRACE_RECEIVE  (1 << 1)
 #define SEQ_TRACE_PRINT    (1 << 2)
-#define SEQ_TRACE_TIMESTAMP (1 << 3)
+
+#define ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT 3
+
+#define SEQ_TRACE_NOW_TS   (ERTS_TRACE_FLG_NOW_TIMESTAMP \
+			    << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define SEQ_TRACE_STRICT_MON_TS (ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP \
+				 << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define SEQ_TRACE_MON_TS (ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP \
+			  << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
 
 #ifdef USE_VM_PROBES
 #define DT_UTAG_PERMANENT (1 << 0)

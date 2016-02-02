@@ -819,6 +819,10 @@ int local_to_univ(Sint *year, Sint *month, Sint *day,
 void get_now(Uint*, Uint*, Uint*);
 struct ErtsSchedulerData_;
 ErtsMonotonicTime erts_get_monotonic_time(struct ErtsSchedulerData_ *);
+ErtsMonotonicTime erts_get_time_offset(void);
+void
+erts_make_timestamp_value(Uint* megasec, Uint* sec, Uint* microsec,
+			  ErtsMonotonicTime mtime, ErtsMonotonicTime offset);
 void get_sys_now(Uint*, Uint*, Uint*);
 void set_break_quit(void (*)(void), void (*)(void));
 

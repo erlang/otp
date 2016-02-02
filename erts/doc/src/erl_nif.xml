@@ -317,6 +317,17 @@ ok
       libraries might however fail if deprecated features are used.
       </p></item>
 
+      <tag><marker id="time_measurement"/>Time Measurement</tag>
+      <item><p>Support for time measurement in NIF libraries:
+      <list>
+	<item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	<item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	<item><seealso marker="#enif_monotonic_time"><c>enif_monotonic_time()</c></seealso></item>
+	<item><seealso marker="#enif_time_offset"><c>enif_time_offset()</c></seealso></item>
+	<item><seealso marker="#enif_convert_time_unit"><c>enif_convert_time_unit()</c></seealso></item>
+      </list></p>
+      </item>
+
       <tag>Long-running NIFs</tag>
       <item><p><marker id="dirty_nifs"/>Native functions
       <seealso marker="#lengthy_work">
@@ -560,6 +571,25 @@ typedef enum {
                <item><p>A native signed 64-bit integer type.</p></item>
               <tag><marker id="ErlNifUInt64"/>ErlNifUInt64</tag>
                <item><p>A native unsigned 64-bit integer type.</p></item>
+	       
+      <tag><marker id="ErlNifTime"/>ErlNifTime</tag>
+      <item>
+        <p>A signed 64-bit integer type for representation of time.</p>
+      </item>
+      <tag><marker id="ErlNifTimeUnit"/>ErlNifTimeUnit</tag>
+      <item>
+        <p>An enumeration of time units supported by the NIF API:</p>
+	<taglist>
+	  <tag><c>ERL_NIF_SEC</c></tag>
+	  <item><p>Seconds</p></item>
+	  <tag><c>ERL_NIF_MSEC</c></tag>
+	  <item><p>Milliseconds</p></item>
+	  <tag><c>ERL_NIF_USEC</c></tag>
+	  <item><p>Microseconds</p></item>
+	  <tag><c>ERL_NIF_NSEC</c></tag>
+	  <item><p>Nanoseconds</p></item>
+	</taglist>
+      </item>
 
     </taglist>
   </section>
@@ -1486,6 +1516,88 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
           </p></desc>
     </func>
+
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get Erlang Monotonic Time</fsummary>
+      <desc>
+	<marker id="enif_monotonic_time"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>
+	  Returns
+	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	  monotonic time</seealso>. Note that it is not uncommon with
+	  negative values.
+	</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get current Time Offset</fsummary>
+      <desc>
+	<marker id="enif_time_offset"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Returns the current time offset between
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	and
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	converted into the <c>time_unit</c> passed as argument.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
+      <fsummary>Convert time unit of a time value</fsummary>
+      <desc>
+	<marker id="enif_convert_time_unit"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>val</c></tag>
+	  <item>Value to convert time unit for.</item>
+	  <tag><c>from</c></tag>
+	  <item>Time unit of <c>val</c>.</item>
+	  <tag><c>to</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Converts the <c>val</c> value of time unit <c>from</c> to
+	the corresponding value of time unit <c>to</c>. The result is
+	rounded using the floor function.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument.</p>
+	<p>See also:</p>
+	<list>
+	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
+	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
+	</list>
+      </desc>
+    </func>
+
   </funcs>
   <section>
     <title>SEE ALSO</title>

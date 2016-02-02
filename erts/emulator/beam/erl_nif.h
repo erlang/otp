@@ -49,9 +49,10 @@
 **           add ErlNifFunc flags
 ** 2.8: 18.0 add enif_has_pending_exception
 ** 2.9: 18.2 enif_getenv
+** 2.10: Time API
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 9
+#define ERL_NIF_MINOR_VERSION 10
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -67,62 +68,35 @@
 
 #include <stdlib.h>
 
-#ifdef SIZEOF_CHAR
-#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
-#  undef SIZEOF_CHAR
-#endif
-#ifdef SIZEOF_SHORT
-#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
-#  undef SIZEOF_SHORT
-#endif
-#ifdef SIZEOF_INT
-#  define SIZEOF_INT_SAVED__ SIZEOF_INT
-#  undef SIZEOF_INT
-#endif
-#ifdef SIZEOF_LONG
-#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
-#  undef SIZEOF_LONG
-#endif
-#ifdef SIZEOF_LONG_LONG
-#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
-#  undef SIZEOF_LONG_LONG
-#endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
-#include "erl_int_sizes_config.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
-typedef unsigned __int64 ErlNifUInt64;
-typedef __int64 ErlNifSInt64;
-#elif SIZEOF_LONG == 8
-typedef unsigned long ErlNifUInt64;
-typedef long ErlNifSInt64;
-#elif SIZEOF_LONG_LONG == 8
-typedef unsigned long long ErlNifUInt64;
-typedef long long ErlNifSInt64;
-#else
-#error No 64-bit integer type
-#endif
+typedef ErlNapiUInt64 ErlNifUInt64;
+typedef ErlNapiSInt64 ErlNifSInt64;
+typedef ErlNapiUInt ErlNifUInt;
+typedef ErlNapiSInt ErlNifSInt;
 
 #ifdef HALFWORD_HEAP_EMULATOR
 #  define ERL_NIF_VM_VARIANT "beam.halfword" 
 typedef unsigned int ERL_NIF_TERM;
 #else
 #  define ERL_NIF_VM_VARIANT "beam.vanilla" 
-#  if SIZEOF_LONG == SIZEOF_VOID_P
-typedef unsigned long ERL_NIF_TERM;
-#  elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
-typedef unsigned long long ERL_NIF_TERM;
-#  endif
+typedef ErlNifUInt ERL_NIF_TERM;
 #endif
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;
+
+typedef ErlNifSInt64 ErlNifTime;
+
+#define ERL_NIF_TIME_ERROR ((ErlNifSInt64) ERTS_NAPI_TIME_ERROR__)
+
+typedef enum {
+    ERL_NIF_SEC = ERTS_NAPI_SEC__,
+    ERL_NIF_MSEC = ERTS_NAPI_MSEC__,
+    ERL_NIF_USEC = ERTS_NAPI_USEC__,
+    ERL_NIF_NSEC = ERTS_NAPI_NSEC__
+} ErlNifTimeUnit;
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;

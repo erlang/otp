@@ -37,47 +37,6 @@
 #  endif
 #endif
 
-#ifdef SIZEOF_CHAR
-#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
-#  undef SIZEOF_CHAR
-#endif
-#ifdef SIZEOF_SHORT
-#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
-#  undef SIZEOF_SHORT
-#endif
-#ifdef SIZEOF_INT
-#  define SIZEOF_INT_SAVED__ SIZEOF_INT
-#  undef SIZEOF_INT
-#endif
-#ifdef SIZEOF_LONG
-#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
-#  undef SIZEOF_LONG
-#endif
-#ifdef SIZEOF_LONG_LONG
-#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
-#  undef SIZEOF_LONG_LONG
-#endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
-#include "erl_int_sizes_config.h"
-#if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
-#  error SIZEOF_CHAR mismatch
-#endif
-#if defined(SIZEOF_SHORT_SAVED__) && SIZEOF_SHORT_SAVED__ != SIZEOF_SHORT
-#  error SIZEOF_SHORT mismatch
-#endif
-#if defined(SIZEOF_INT_SAVED__) && SIZEOF_INT_SAVED__ != SIZEOF_INT
-#  error SIZEOF_INT mismatch
-#endif
-#if defined(SIZEOF_LONG_SAVED__) && SIZEOF_LONG_SAVED__ != SIZEOF_LONG
-#  error SIZEOF_LONG mismatch
-#endif
-#if defined(SIZEOF_LONG_LONG_SAVED__) && SIZEOF_LONG_LONG_SAVED__ != SIZEOF_LONG_LONG
-#  error SIZEOF_LONG_LONG mismatch
-#endif
-
 /* This is OK to override by the NIF/driver implementor */
 #if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
 #define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
@@ -134,7 +93,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	3
-#define ERL_DRV_EXTENDED_MINOR_VERSION	2
+#define ERL_DRV_EXTENDED_MINOR_VERSION	3
 
 /*
  * The emulator will refuse to load a driver with a major version
@@ -176,28 +135,12 @@ typedef struct {
 /*
  * Integer types
  */
-#if  defined(__WIN32__) && (SIZEOF_VOID_P == 8)
-typedef unsigned __int64 ErlDrvTermData;
-typedef unsigned __int64 ErlDrvUInt;
-typedef signed __int64 ErlDrvSInt;
-#else
-typedef unsigned long ErlDrvTermData;
-typedef unsigned long ErlDrvUInt;
-typedef signed long ErlDrvSInt;
-#endif
 
-#if defined(__WIN32__)
-typedef unsigned __int64 ErlDrvUInt64;
-typedef __int64 ErlDrvSInt64;
-#elif SIZEOF_LONG == 8
-typedef unsigned long ErlDrvUInt64;
-typedef long ErlDrvSInt64;
-#elif SIZEOF_LONG_LONG == 8
-typedef unsigned long long ErlDrvUInt64;
-typedef long long ErlDrvSInt64;
-#else
-#error No 64-bit integer type
-#endif
+typedef ErlNapiUInt64 ErlDrvUInt64;
+typedef ErlNapiSInt64 ErlDrvSInt64;
+typedef ErlNapiUInt ErlDrvUInt;
+typedef ErlNapiSInt ErlDrvSInt;
+typedef ErlNapiUInt ErlDrvTermData;
 
 #if defined(__WIN32__) || defined(_WIN32)
 typedef ErlDrvUInt ErlDrvSizeT;
@@ -249,6 +192,17 @@ typedef struct {
     unsigned long secs;
     unsigned long microsecs;
 } ErlDrvNowData;
+
+typedef ErlDrvSInt64 ErlDrvTime;
+
+#define ERL_DRV_TIME_ERROR ((ErlDrvSInt64) ERTS_NAPI_TIME_ERROR__)
+
+typedef enum {
+    ERL_DRV_SEC = ERTS_NAPI_SEC__,
+    ERL_DRV_MSEC = ERTS_NAPI_MSEC__,
+    ERL_DRV_USEC = ERTS_NAPI_USEC__,
+    ERL_DRV_NSEC = ERTS_NAPI_NSEC__
+} ErlDrvTimeUnit;
 
 /*
  * Error codes that can be return from driver.
@@ -685,8 +639,16 @@ EXTERN long driver_async(ErlDrvPort ix,
 EXTERN int driver_lock_driver(ErlDrvPort ix);
 
 /* Get the current 'now' timestamp (analogue to erlang:now()) */
-EXTERN int driver_get_now(ErlDrvNowData *now);
+EXTERN int driver_get_now(ErlDrvNowData *now) ERL_DRV_DEPRECATED_FUNC;
 
+/* Erlang Monotonic Time */
+EXTERN ErlDrvTime erl_drv_monotonic_time(ErlDrvTimeUnit time_unit);
+/* Time offset between Erlang Monotonic Time and Erlang System Time */
+EXTERN ErlDrvTime erl_drv_time_offset(ErlDrvTimeUnit time_unit);
+/* Time unit conversion */
+EXTERN ErlDrvTime erl_drv_convert_time_unit(ErlDrvTime val,
+					    ErlDrvTimeUnit from,
+					    ErlDrvTimeUnit to);
 
 /* These were removed from the ANSI version, now they're back. */
 

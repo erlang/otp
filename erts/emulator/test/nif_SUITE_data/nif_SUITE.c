@@ -34,6 +34,10 @@ static ERL_NIF_TERM atom_self;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_join;
 static ERL_NIF_TERM atom_binary_resource_type;
+static ERL_NIF_TERM atom_seconds;
+static ERL_NIF_TERM atom_milli_seconds;
+static ERL_NIF_TERM atom_micro_seconds;
+static ERL_NIF_TERM atom_nano_seconds;
 
 
 typedef struct
@@ -138,6 +142,10 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_ok = enif_make_atom(env,"ok");
     atom_join = enif_make_atom(env,"join");
     atom_binary_resource_type = enif_make_atom(env,"binary_resource_type");
+    atom_seconds = enif_make_atom(env,"seconds");
+    atom_milli_seconds = enif_make_atom(env,"milli_seconds");
+    atom_micro_seconds = enif_make_atom(env,"micro_seconds");
+    atom_nano_seconds = enif_make_atom(env,"nano_seconds");
 
     *priv_data = data;
     return 0;
@@ -1885,6 +1893,87 @@ static ERL_NIF_TERM sorted_list_from_maps_nif(ErlNifEnv* env, int argc, const ER
     return enif_make_tuple2(env, list_f, list_b);
 }
 
+
+static ERL_NIF_TERM monotonic_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifTimeUnit time_unit;
+
+    if (argc != 1)
+	return atom_false;
+
+    if (enif_compare(argv[0], atom_seconds) == 0)
+	time_unit = ERL_NIF_SEC;
+    else if (enif_compare(argv[0], atom_milli_seconds) == 0)
+	time_unit = ERL_NIF_MSEC;
+    else if (enif_compare(argv[0], atom_micro_seconds) == 0)
+	time_unit = ERL_NIF_USEC;
+    else if (enif_compare(argv[0], atom_nano_seconds) == 0)
+	time_unit = ERL_NIF_NSEC;
+    else
+	time_unit = 4711; /* invalid time unit */
+
+    return enif_make_int64(env, enif_monotonic_time(time_unit));
+}
+
+static ERL_NIF_TERM time_offset(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifTimeUnit time_unit;
+
+    if (argc != 1)
+	return atom_false;
+
+    if (enif_compare(argv[0], atom_seconds) == 0)
+	time_unit = ERL_NIF_SEC;
+    else if (enif_compare(argv[0], atom_milli_seconds) == 0)
+	time_unit = ERL_NIF_MSEC;
+    else if (enif_compare(argv[0], atom_micro_seconds) == 0)
+	time_unit = ERL_NIF_USEC;
+    else if (enif_compare(argv[0], atom_nano_seconds) == 0)
+	time_unit = ERL_NIF_NSEC;
+    else
+	time_unit = 4711; /* invalid time unit */
+    return enif_make_int64(env, enif_time_offset(time_unit));
+}
+
+static ERL_NIF_TERM convert_time_unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifSInt64 i64;
+    ErlNifTime val;
+    ErlNifTimeUnit from, to;
+
+    if (argc != 3)
+	return atom_false;
+
+    if (!enif_get_int64(env, argv[0], &i64))
+	return enif_make_badarg(env);
+
+    val = (ErlNifTime) i64;
+
+    if (enif_compare(argv[1], atom_seconds) == 0)
+	from = ERL_NIF_SEC;
+    else if (enif_compare(argv[1], atom_milli_seconds) == 0)
+	from = ERL_NIF_MSEC;
+    else if (enif_compare(argv[1], atom_micro_seconds) == 0)
+	from = ERL_NIF_USEC;
+    else if (enif_compare(argv[1], atom_nano_seconds) == 0)
+	from = ERL_NIF_NSEC;
+    else
+	from = 4711; /* invalid time unit */
+
+    if (enif_compare(argv[2], atom_seconds) == 0)
+	to = ERL_NIF_SEC;
+    else if (enif_compare(argv[2], atom_milli_seconds) == 0)
+	to = ERL_NIF_MSEC;
+    else if (enif_compare(argv[2], atom_micro_seconds) == 0)
+	to = ERL_NIF_USEC;
+    else if (enif_compare(argv[2], atom_nano_seconds) == 0)
+	to = ERL_NIF_NSEC;
+    else
+	to = 4711; /* invalid time unit */
+
+    return enif_make_int64(env, enif_convert_time_unit(val, from, to));
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -1954,7 +2043,10 @@ static ErlNifFunc nif_funcs[] =
     {"make_map_update_nif", 3, make_map_update_nif},
     {"make_map_remove_nif", 2, make_map_remove_nif},
     {"maps_from_list_nif", 1, maps_from_list_nif},
-    {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif}
+    {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif},
+    {"monotonic_time", 1, monotonic_time},
+    {"time_offset", 1, time_offset},
+    {"convert_time_unit", 3, convert_time_unit}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
