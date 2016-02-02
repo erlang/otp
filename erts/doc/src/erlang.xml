@@ -7859,7 +7859,8 @@ ok
             <p>Timestamps in profile messages will use
 	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso>. The time-stamp (Ts) has the same
-	    format and value as produced by <c>erlang:monotonic_time()</c>.</p>
+	    format and value as produced by
+	    <c>erlang:monotonic_time(nano_seconds)</c>.</p>
           </item>
           <tag><c>runnable_procs</c></tag>
           <item>
@@ -7887,7 +7888,7 @@ ok
 	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> and a monotonically increasing
 	    integer. The time-stamp (Ts) has the same format and value
-	    as produced by <c>{erlang:monotonic_time(),
+	    as produced by <c>{erlang:monotonic_time(nano_seconds),
 	    erlang:unique_integer([monotonic])}</c>.</p>
           </item>
           <tag><c>timestamp</c></tag>
@@ -8276,7 +8277,7 @@ timestamp() ->
 	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> time-stamp in all trace messages. The
             time-stamp (Ts) has the same format and value as produced by
-            <c>erlang:monotonic_time()</c>. This flag overrides
+            <c>erlang:monotonic_time(nano_seconds)</c>. This flag overrides
 	    the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>strict_monotonic_timestamp</c></tag>
@@ -8286,7 +8287,7 @@ timestamp() ->
 	    monotonic time</seealso> and a monotonically increasing
 	    integer in all trace messages. The time-stamp (Ts) has the
 	    same format and value as produced by
-            <c>{erlang:monotonic_time(),
+            <c>{erlang:monotonic_time(nano_seconds),
 	    erlang:unique_integer([monotonic])}</c>. This flag overrides
 	    the <c>cpu_timestamp</c> flag.</p>
           </item>

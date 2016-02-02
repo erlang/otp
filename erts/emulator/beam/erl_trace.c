@@ -165,7 +165,8 @@ take_timestamp(ErtsTraceTimeStamp *tsp, int ts_type)
     case ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP: {
 	Uint hsz = 0;
 	ErtsMonotonicTime mtime = erts_get_monotonic_time(NULL);
-	mtime += ERTS_MONOTONIC_OFFSET_NATIVE;
+	mtime = ERTS_MONOTONIC_TO_NSEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_NSEC;
 	hsz = (IS_SSMALL(mtime) ?
 	       (Uint) 0
 	       : ERTS_SINT64_HEAP_SIZE((Sint64) mtime));
