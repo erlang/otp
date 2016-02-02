@@ -49,8 +49,7 @@
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
-	 stored_warnings = []             :: [raw_warning()],
-	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
+	 stored_warnings = []             :: [raw_warning()]
 	}).
 
 %%--------------------------------------------------------------------
@@ -638,9 +637,6 @@ cl_loop(State, LogCache) ->
     {BackendPid, warnings, Warnings} ->
       NewState = store_warnings(State, Warnings),
       cl_loop(NewState, LogCache);
-    {BackendPid, unknown_behaviours, Behaviours} ->
-      NewState = store_unknown_behaviours(State, Behaviours),
-      cl_loop(NewState, LogCache);
     {BackendPid, done, NewPlt, _NewDocPlt} ->
       return_value(State, NewPlt);
     {BackendPid, ext_calls, ExtCalls} ->
@@ -683,11 +679,6 @@ format_log_cache(LogCache) ->
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
 
--spec store_unknown_behaviours(#cl_state{}, [dialyzer_behaviours:behaviour()]) -> #cl_state{}.
-
-store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
-  St#cl_state{unknown_behaviours = Beh ++ Behs}.
-
 -spec cl_error(string()) -> no_return().
 
 cl_error(Msg) ->
@@ -724,7 +715,6 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
       print_warnings(State),
       print_ext_calls(State),
       print_ext_types(State),
-      print_unknown_behaviours(State),
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
@@ -737,8 +727,7 @@ unknown_warnings(State = #cl_state{legal_warnings = LegalWarnings}) ->
   Unknown = case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
               true ->
                 unknown_functions(State) ++
-                  unknown_types(State) ++
-                  unknown_behaviours(State);
+                  unknown_types(State);
               false -> []
             end,
   WarningInfo = {_Filename = "", _Line = 0, _MorMFA = ''},
@@ -812,48 +801,6 @@ do_print_ext_types(Output, [{M,F,A}|T], Before) ->
   io:format(Output, "~s~p:~p/~p\n", [Before,M,F,A]),
   do_print_ext_types(Output, T, Before);
 do_print_ext_types(_, [], _) ->
-  ok.
-
-unknown_behaviours(#cl_state{unknown_behaviours = DupBehaviours,
-                             legal_warnings = LegalWarnings}) ->
-  case ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings) of
-    false -> [];
-    true ->
-      Behaviours = lists:usort(DupBehaviours),
-      [{unknown_behaviour, B} || B <- Behaviours]
-  end.
-
-%%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
-%%  ok;
-print_unknown_behaviours(#cl_state{output = Output,
-				   external_calls = Calls,
-				   external_types = Types,
-				   stored_warnings = Warnings,
-				   unknown_behaviours = DupBehaviours,
-				   legal_warnings = LegalWarnings,
-				   output_format = Format}) ->
-  case ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings)
-    andalso DupBehaviours =/= [] of
-    false -> ok;
-    true ->
-      Behaviours = lists:usort(DupBehaviours),
-      case Warnings =:= [] andalso Calls =:= [] andalso Types =:= [] of
-	true -> io:nl(Output); %% Need to do a newline first
-	false -> ok
-      end,
-      {Prompt, Prefix} =
-	case Format of
-	  formatted -> {"Unknown behaviours:\n","  "};
-	  raw -> {"%% Unknown behaviours:\n","%%  "}
-	end,
-      io:put_chars(Output, Prompt),
-      do_print_unknown_behaviours(Output, Behaviours, Prefix)
-  end.
-
-do_print_unknown_behaviours(Output, [B|T], Before) ->
-  io:format(Output, "~s~p\n", [Before,B]),
-  do_print_unknown_behaviours(Output, T, Before);
-do_print_unknown_behaviours(_, [], _) ->
   ok.
 
 print_warnings(#cl_state{stored_warnings = []}) ->

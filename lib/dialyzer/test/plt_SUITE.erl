@@ -7,12 +7,15 @@
 -include("dialyzer_test_constants.hrl").
 
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
+         local_fun_same_as_callback/1,
          run_plt_check/1, run_succ_typings/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() -> [build_plt, beam_tests, update_plt, run_plt_check, run_succ_typings].
+all() ->
+  [build_plt, beam_tests, update_plt, run_plt_check, run_succ_typings,
+   local_fun_same_as_callback].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -157,6 +160,59 @@ update_plt(Config) ->
                       {files, [TestBeam]},
                       {init_plt, Plt}] ++ Opts),
     ok.
+
+%%% If a behaviour module contains an non-exported function with the same name
+%%% as one of the behaviour's callbacks, the callback info was inadvertently
+%%% deleted from the PLT as the dialyzer_plt:delete_list/2 function was cleaning
+%%% up the callback table. This bug was reported by Brujo Benavides.
+
+local_fun_same_as_callback(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Prog1 =
+      <<"-module(bad_behaviour).
+         -callback bad() -> bad.
+         -export([publicly_bad/0]).
+
+         %% @doc This function is here just to avoid the 'unused' warning for bad/0
+         publicly_bad() -> bad().
+
+         %% @doc This function overlaps with the callback with the same name, and
+         %%      that was an issue for dialyzer since it's a private function.
+         bad() -> bad.">>,
+    {ok, Beam} = compile(Config, Prog1, bad_behaviour, []),
+
+    ErlangBeam = case code:where_is_file("erlang.beam") of
+                     non_existing ->
+                         filename:join([code:root_dir(),
+                                        "erts", "preloaded", "ebin",
+                                        "erlang.beam"]);
+                     EBeam ->
+                         EBeam
+                 end,
+    Plt = filename:join(PrivDir, "plt_bad_behaviour.plt"),
+    Opts = [{check_plt, true}, {from, byte_code}],
+    [] = dialyzer:run([{analysis_type, plt_build},
+                       {files, [Beam, ErlangBeam]},
+                       {output_plt, Plt}] ++ Opts),
+
+    Prog2 =
+        <<"-module(bad_child).
+           -behaviour(bad_behaviour).
+
+           -export([bad/0]).
+
+           %% @doc This function incorreclty implements bad_behaviour.
+           bad() -> not_bad.">>,
+    {ok, TestBeam} = compile(Config, Prog2, bad_child, []),
+
+    [{warn_behaviour, _,
+      {callback_type_mismatch,
+       [bad_behaviour,bad,0,"'not_bad'","'bad'"]}}] =
+        dialyzer:run([{analysis_type, succ_typings},
+                      {files, [TestBeam]},
+                      {init_plt, Plt}] ++ Opts),
+    ok.
+  
 
 compile(Config, Prog, Module, CompileOpts) ->
     Source = lists:concat([Module, ".erl"]),

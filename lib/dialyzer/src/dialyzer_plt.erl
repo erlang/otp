@@ -137,7 +137,7 @@ delete_list(#plt{info = Info, types = Types,
   #plt{info = table_delete_list(Info, List),
        types = Types,
        contracts = table_delete_list(Contracts, List),
-       callbacks = table_delete_list(Callbacks, List),
+       callbacks = Callbacks,
        exported_types = ExpTypes}.
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
