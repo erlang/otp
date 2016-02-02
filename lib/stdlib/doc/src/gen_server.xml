@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -71,7 +71,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       the specified gen_server does not exist or if bad arguments are
       given.</p>
 
-    <p>The gen_server process can go into hibernation 
+    <p>The gen_server process can go into hibernation
     (see <seealso marker="erts:erlang#erlang:hibernate/3">erlang(3)</seealso>) if a callback
     function specifies <c>'hibernate'</c> instead of a timeout value. This
     might be useful if the server is expected to be idle for a long
@@ -477,8 +477,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           the <c>handle_info/2</c> callback function. The atom
           <c>infinity</c> can be used to wait indefinitely, this is
           the default value.</p>
-	<p>If <c>hibernate</c> is specified instead of a timeout value, the process will go 
-	   into hibernation when waiting for the next message to arrive (by calling 
+	<p>If <c>hibernate</c> is specified instead of a timeout value, the process will go
+	   into hibernation when waiting for the next message to arrive (by calling
 	   <seealso marker="proc_lib#hibernate/3">proc_lib:hibernate/3</seealso>).</p>
         <p>If something goes wrong during the initialization
           the function should return <c>{stop,Reason}</c> where
@@ -492,9 +492,9 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Request = term()</v>
         <v>From = {pid(),Tag}</v>
         <v>State = term()</v>
-        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
+        <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v>
 	<v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
-        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
+        <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v>
 	<v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
         <v>&nbsp;Reply = term()</v>
@@ -512,8 +512,8 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>From</c> is a tuple <c>{Pid,Tag}</c> where <c>Pid</c> is
           the pid of the client and <c>Tag</c> is a unique tag.</p>
         <p><c>State</c> is the internal state of the gen_server.</p>
-        <p>If the function returns <c>{reply,Reply,NewState}</c>, 
-          <c>{reply,Reply,NewState,Timeout}</c> or 
+        <p>If the function returns <c>{reply,Reply,NewState}</c>,
+          <c>{reply,Reply,NewState,Timeout}</c> or
 	  <c>{reply,Reply,NewState,hibernate}</c>, <c>Reply</c> will be
           given back to <c>From</c> as the return value of
           <c>call/2,3</c> or included in the return value of
@@ -522,7 +522,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>NewState</c>. See <c>Module:init/1</c> for a description
           of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the functions returns <c>{noreply,NewState}</c>,
-          <c>{noreply,NewState,Timeout}</c> or <c>{noreply,NewState,hibernate}</c>, 
+          <c>{noreply,NewState,Timeout}</c> or <c>{noreply,NewState,hibernate}</c>,
 	  the gen_server will
           continue executing with <c>NewState</c>. Any reply to
           <c>From</c> must be given explicitly using
@@ -720,4 +720,3 @@ gen_server:abcast     -----> Module:handle_cast/2
       <seealso marker="sys">sys(3)</seealso></p>
   </section>
 </erlref>
-
