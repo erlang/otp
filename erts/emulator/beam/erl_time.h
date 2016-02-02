@@ -142,6 +142,8 @@ erts_time_unit_conversion(Uint64 value,
 			  Uint32 from_time_unit,
 			  Uint32 to_time_unit);
 
+ErtsSysPerfCounter erts_perf_counter_unit(void);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Uint64

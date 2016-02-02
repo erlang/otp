@@ -27,6 +27,7 @@
 #include "erl_alloc.h"
 #include "erl_poll.h"
 #include "erl_time.h"
+#include "erl_msacc.h"
 
 /*
  * Some debug macros 
@@ -1188,16 +1189,19 @@ int erts_poll_wait(ErtsPollSet ps,
     if (timeout > 0 && !erts_atomic32_read_nob(&break_waiter_state)) {
 	HANDLE harr[2] = {ps->event_io_ready, break_happened_event};
 	int num_h = 2;
+        ERTS_MSACC_PUSH_STATE_M();
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
 #ifdef ERTS_SMP
 	erts_thr_progress_prepare_wait(NULL);
 #endif
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
 	WaitForMultipleObjects(num_h, harr, FALSE, timeout);
 #ifdef ERTS_SMP
 	erts_thr_progress_finalize_wait(NULL);
 #endif
+        ERTS_MSACC_POP_STATE_M();
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
 	woke_up(ps);

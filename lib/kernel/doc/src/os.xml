@@ -37,6 +37,7 @@
       use these functions can be of help in enabling a program to run on
       most platforms.</p>
   </description>
+
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
@@ -207,6 +208,30 @@ format_utc_timestamp() ->
        <p>OS system time can also be retreived by
 	<seealso marker="#system_time/0"><c>os:system_time/0</c></seealso>,
 	and <seealso marker="#system_time/1"><c>os:system_time/1</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="perf_counter" arity="0"/>
+      <fsummary>Returns a performance counter</fsummary>
+      <desc>
+        <p>Returns the current performance counter value in <c>perf_counter</c>
+	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.
+        This is a highly optimized call that might not be traceable.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="perf_counter" arity="1"/>
+      <fsummary>Returns a performance counter</fsummary>
+      <desc><p>Returns a performance counter that can be used as a very fast and
+      high resolution timestamp. This counter is read directly from the hardware or operating
+      system with the same guarantees. This means that two consecutive calls
+      to the function are not guaranteed to be monotonic, though it most likely will be.
+      The performance counter till be converted to the resolution passed as an argument.</p>
+      <pre>1> <input>T1 = os:perf_counter(1000),receive after 10000 -> ok end,T2 = os:perf_counter(1000).</input>
+176525861
+2> <input>T2 - T1.</input>
+10004</pre>
       </desc>
     </func>
     <func>

@@ -576,6 +576,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     int reds;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
+    ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
@@ -587,6 +588,8 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
     else if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR)
 	live_hf_end = p->live_hf_end;
+
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_GC);
 
     esdp = erts_get_scheduler_data();
 
@@ -624,9 +627,11 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     }
     else {
     do_major_collection:
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC_FULL);
 	DTRACE2(gc_major_start, pidbuf, need);
 	reds = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
 	DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC);
     }
 
     reset_active_writer(p);
@@ -668,6 +673,8 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
+
+    ERTS_MSACC_POP_STATE_M();
 
 #ifdef CHECK_FOR_HOLES
     /*

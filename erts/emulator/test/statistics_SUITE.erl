@@ -32,7 +32,7 @@
 	 run_queue_one/1,
 	 scheduler_wall_time/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
-	 badarg/1, run_queues_lengths_active_tasks/1]).
+	 badarg/1, run_queues_lengths_active_tasks/1, msacc/1]).
 
 %% Internal exports.
 
@@ -55,7 +55,8 @@ all() ->
     [{group, wall_clock}, {group, runtime}, reductions,
      reductions_big, {group, run_queue}, scheduler_wall_time,
      garbage_collection, io, badarg,
-     run_queues_lengths_active_tasks].
+     run_queues_lengths_active_tasks,
+     msacc].
 
 groups() -> 
     [{wall_clock, [],
@@ -470,3 +471,114 @@ run_queues_lengths_active_tasks(Config) ->
 		  TokLoops),
 
     ok.
+
+msacc(doc) ->
+    "Tests that statistics(microstate_statistics) works.";
+msacc(Config) ->
+
+    %% Test if crypto nif is available
+    Niff = try crypto:strong_rand_bytes(1), ok catch _:_ -> nok end,
+    TmpFile = filename:join(proplists:get_value(priv_dir,Config),"file.tmp"),
+
+    false = erlang:system_flag(microstate_accounting, true),
+
+    msacc_test(TmpFile),
+
+    true = erlang:system_flag(microstate_accounting, false),
+
+    MsaccStats = erlang:statistics(microstate_accounting),
+
+    case os:type() of
+        {win32, _} ->
+            %% Some windows have a very poor accuracy on their
+            %% timing primitives, so we just make sure that
+            %% some state besides sleep has been triggered.
+            Sum = lists:sum(
+                    lists:map(fun({sleep, _V}) -> 0;
+                                 ({_, V}) -> V
+                              end, maps:to_list(msacc_sum_states()))
+                   ),
+            if Sum > 0 ->
+                    ok;
+               true ->
+                    ct:fail({no_states_triggered, MsaccStats})
+            end;
+        _ ->
+
+            %% Make sure that all states were triggered at least once
+            maps:map(fun(nif, 0) ->
+                             case Niff of
+                                 ok ->
+                                     ct:fail({zero_state,nif});
+                                 nok ->
+                                     ok
+                             end;
+                        (aux, 0) ->
+                             %% aux will be zero if we do not have smp support
+                             %% or no async threads
+                             case erlang:system_info(smp_support) orelse
+                                 erlang:system_info(thread_pool_size) > 0
+                             of
+                                 false ->
+                                     ok;
+                                 true ->
+                                     ct:log("msacc: ~p",[MsaccStats]),
+                                     ct:fail({zero_state,aux})
+                             end;
+                        (Key, 0) ->
+                             ct:log("msacc: ~p",[MsaccStats]),
+                             ct:fail({zero_state,Key});
+                        (_,_) -> ok
+                     end, msacc_sum_states())
+    end,
+
+    erlang:system_flag(microstate_accounting, reset),
+
+    msacc_test(TmpFile),
+
+    %% Make sure all counters are zero after stopping and resetting
+    maps:map(fun(_Key, 0) -> ok;
+                (Key,_) ->
+                     ct:log("msacc: ~p",[erlang:statistics(microstate_accounting)]),
+                     ct:fail({non_zero_state,Key})
+             end,msacc_sum_states()).
+
+%% This test tries to make sure to trigger all of the different available states
+msacc_test(TmpFile) ->
+
+    %% We write some data
+    [file:write_file(TmpFile,<<0:(1024*1024*8)>>,[raw]) || _ <- lists:seq(1,100)],
+
+    %% Do some ETS operations
+    Tid = ets:new(table, []),
+    ets:insert(Tid, {1, hello}),
+    ets:delete(Tid),
+
+    %% Collect some garbage
+    [erlang:garbage_collect() || _ <- lists:seq(1,100)],
+
+    %% Send some messages
+    [begin self() ! {hello},receive _ -> ok end end ||  _ <- lists:seq(1,100)],
+
+    %% Setup some timers
+    Refs = [erlang:send_after(10000,self(),ok) ||  _ <- lists:seq(1,100)],
+
+    %% Do some nif work
+    catch [crypto:strong_rand_bytes(128) || _ <- lists:seq(1,100)],
+
+    %% Cancel some timers
+    [erlang:cancel_timer(R) ||  R <- Refs],
+
+    %% Wait for a while
+    timer:sleep(100).
+
+msacc_sum_states() ->
+    Stats = erlang:statistics(microstate_accounting),
+    [#{ counters := C }|_] = Stats,
+    InitialCounters = maps:map(fun(_,_) -> 0 end,C),
+    lists:foldl(fun(#{ counters := Counters }, Cnt) ->
+                        maps:fold(fun(Key, Value, Acc) ->
+                                          NewValue = Value+maps:get(Key,Acc),
+                                          maps:update(Key, NewValue, Acc)
+                                  end, Cnt, Counters)
+               end,InitialCounters,Stats).

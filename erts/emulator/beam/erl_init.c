@@ -394,6 +394,7 @@ erl_init(int ncpu,
 #endif
     packet_parser_init();
     erl_nif_init();
+    erts_msacc_init();
 }
 
 static Eterm
@@ -1193,6 +1194,7 @@ early_init(int *argc, char **argv) /*
 	erts_thr_late_init(&elid);
     }
 #endif
+    erts_msacc_early_init();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_late_init();
@@ -2220,6 +2222,7 @@ erl_start(int argc, char **argv)
 #else
     {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        erts_msacc_init_thread("scheduler", 1, 1);
 	erts_thr_set_main_status(1, 1);
 #if ERTS_USE_ASYNC_READY_Q
 	esdp->aux_work_data.async_ready.queue

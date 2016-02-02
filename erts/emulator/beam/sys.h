@@ -136,6 +136,17 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_LIKELY(BOOL)   (BOOL)
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
+
+#if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0)
+#ifndef __llvm__
+#  define ERTS_WRITE_UNLIKELY(X) X __attribute__ ((section ("ERTS_LOW_WRITE") ))
+#else
+#  define ERTS_WRITE_UNLIKELY(X) X __attribute__ ((section ("__DATA,ERTS_LOW_WRITE") ))
+#endif
+#else
+#  define ERTS_WRITE_UNLIKELY(X) X
+#endif
+
 #ifdef __GNUC__
 #  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 5)
 #    define ERTS_DECLARE_DUMMY(X) X __attribute__ ((unused))

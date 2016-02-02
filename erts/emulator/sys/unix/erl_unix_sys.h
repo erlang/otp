@@ -101,6 +101,10 @@
 #endif
 #include <netdb.h>
 
+#ifdef HAVE_MACH_ABSOLUTE_TIME
+#include <mach/mach_time.h>
+#endif
+
 #ifdef HAVE_POSIX_MEMALIGN
 #  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
 #endif
@@ -157,6 +161,7 @@ typedef long long ErtsSysHrTime;
 #endif
 
 typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsSysHrTime ErtsSysPerfCounter;
 
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
@@ -205,6 +210,7 @@ ErtsSystemTime erts_os_system_time(void);
  * It may or may not be monotonic.
  */
 ErtsSysHrTime erts_sys_hrtime(void);
+#define ERTS_HRTIME_UNIT (1000*1000*1000)
 
 struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
@@ -213,6 +219,8 @@ struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
     void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
+    ErtsSysPerfCounter (*perf_counter)(void);
+    ErtsSysPerfCounter perf_counter_unit;
     int ticks_per_sec;
 };
 
@@ -266,7 +274,24 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 #endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
 
 /*
- *
+ * Functions for getting the performance counter
+ */
+
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
+#define erts_sys_perf_counter_unit() erts_sys_time_data__.r.o.perf_counter_unit
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter()
+{
+    return (*erts_sys_time_data__.r.o.perf_counter)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+/*
+ * Functions for measuring CPU time
  */
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))

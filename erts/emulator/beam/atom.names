@@ -102,6 +102,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom await_microstate_accounting_modifications
 atom await_port_send_result
 atom await_proc_exit
 atom await_result
@@ -172,6 +173,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom counters
 atom cpu
 atom cpu_timestamp
 atom cr
@@ -269,6 +271,7 @@ atom get_tcw
 atom getenv
 atom gather_gc_info_result
 atom gather_io_bytes
+atom gather_microstate_accounting_result
 atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked
@@ -360,6 +363,7 @@ atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microstate_accounting
 atom milli_seconds
 atom min_heap_size
 atom min_bin_vheap_size

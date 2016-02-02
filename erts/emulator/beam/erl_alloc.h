@@ -233,12 +233,14 @@ ERTS_ALC_INLINE
 void *erts_alloc(ErtsAlcType_t type, Uint size)
 {
     void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	size);
     if (!res)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(type), size);
+    ERTS_MSACC_POP_STATE_X();
     return res;
 }
 
@@ -246,6 +248,7 @@ ERTS_ALC_INLINE
 void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
 {
     void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
@@ -253,37 +256,48 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
 	size);
     if (!res)
 	erts_realloc_n_enomem(ERTS_ALC_T2N(type), ptr, size);
+    ERTS_MSACC_POP_STATE_X();
     return res;
 }
 
 ERTS_ALC_INLINE
 void erts_free(ErtsAlcType_t type, void *ptr)
 {
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     (*erts_allctrs[ERTS_ALC_T2A(type)].free)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr);
+    ERTS_MSACC_POP_STATE_X();
 }
 
 
 ERTS_ALC_INLINE
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
 {
-    return (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
+    void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
+    res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	size);
+    ERTS_MSACC_POP_STATE_X();
+    return res;
 }
 
 
 ERTS_ALC_INLINE
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 {
-    return (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
+    void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
+    res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
+    ERTS_MSACC_POP_STATE_X();
+    return res;
 }
 
 ERTS_ALC_INLINE

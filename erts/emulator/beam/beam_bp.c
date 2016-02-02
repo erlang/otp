@@ -864,7 +864,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
     Eterm* cpp;
     int return_to_trace = 0;
     BeamInstr w;
-    BeamInstr *cp_save;
+    BeamInstr *cp_save = c_p->cp;
     Uint32 flags;
     Uint need = 0;
     Eterm* E = c_p->stop;

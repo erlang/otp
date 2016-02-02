@@ -71,7 +71,8 @@
       | 'milli_seconds'
       | 'micro_seconds'
       | 'nano_seconds'
-      | 'native'.
+      | 'native'
+      | 'perf_counter'.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -1347,6 +1348,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
     try
 	FU = case FromUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
@@ -1355,6 +1357,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	     end,
 	TU = case ToUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
@@ -2214,6 +2217,16 @@ spawn_opt(_Tuple) ->
                 (io) -> {{input, Input}, {output, Output}} when
       Input :: non_neg_integer(),
       Output :: non_neg_integer();
+                (microstate_accounting) -> [MSAcc_Thread] | undefined when
+      MSAcc_Thread :: #{ type => MSAcc_Thread_Type,
+                        id => MSAcc_Thread_Id,
+                        counters => MSAcc_Counters},
+      MSAcc_Thread_Type :: scheduler | async | aux,
+      MSAcc_Thread_Id :: non_neg_integer(),
+      MSAcc_Counters :: #{ MSAcc_Thread_State => non_neg_integer() },
+      MSAcc_Thread_State :: alloc | aux | bif | busy_wait | check_io |
+                            emulator | ets | gc | gc_fullsweep | nif |
+                            other | port | send | sleep | timers;
                 (reductions) -> {Total_Reductions,
                                  Reductions_Since_Last_Call} when
       Total_Reductions :: non_neg_integer(),
@@ -2268,6 +2281,9 @@ subtract(_,_) ->
                         (fullsweep_after, Number) -> OldNumber when
       Number :: non_neg_integer(),
       OldNumber :: non_neg_integer();
+                        (microstate_accounting, Action) -> OldState when
+      Action :: true | false | reset,
+      OldState :: true | false;
                         (min_heap_size, MinHeapSize) -> OldMinHeapSize when
       MinHeapSize :: non_neg_integer(),
       OldMinHeapSize :: non_neg_integer();
