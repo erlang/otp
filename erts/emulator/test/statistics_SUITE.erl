@@ -440,6 +440,10 @@ run_queues_lengths_active_tasks(Config) ->
 
     SO = erlang:system_flag(schedulers_online, 1),
 
+    %% Give newly suspended schedulers some time to
+    %% migrate away work from their run queues...
+    receive after 1000 -> ok end,
+
     TRQLs1 = statistics(total_run_queue_lengths),
     TATs1 = statistics(total_active_tasks),
     true = TRQLs1 >= 10,
