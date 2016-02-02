@@ -342,6 +342,21 @@ AS_HELP_STRING([--disable-saved-compile-time], [disable saved compile time]),
 
 AC_DEFINE_UNQUOTED(ERTS_SAVED_COMPILE_TIME, $save_compile_time, [Save compile time?])
 
+AC_ARG_WITH(microstate-accounting,
+AS_HELP_STRING([--with-microstate-accounting={yes|extra}],
+               [enable microstate account, possibly with extra detailed states])
+AS_HELP_STRING([--without-microstate-accounting],
+               [don't enable microstate accounting]),
+[],[with_microstate_accounting=yes])
+
+case "$with_microstate_accounting" in
+    yes) AC_DEFINE(ERTS_ENABLE_MSACC,[1],
+		[Define as 1 if you want to enable microstate accounting, 2 if you want extra states]) ;;
+    extra) AC_DEFINE(ERTS_ENABLE_MSACC,[2],
+		[Define as 1 if you want to enable microstate accounting, 2 if you want extra states]) ;;
+    *) ;;
+esac
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then

@@ -1448,6 +1448,8 @@ ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr)
 
 #endif
 
+Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
+
 /*
 ** Call_trace uses this API for the parameter matching functions
 */

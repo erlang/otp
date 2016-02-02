@@ -20,10 +20,11 @@
 -module(os_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2]).
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
-         large_output_command/1]).
+         large_output_command/1, perf_counter_api/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -32,7 +33,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
-     large_output_command].
+     large_output_command, perf_counter_api].
 
 groups() ->
     [].
@@ -49,6 +50,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_TC,Config) ->
+    Config.
+
+end_per_testcase(_,_Config) ->
+    ok.
 
 space_in_cwd(doc) ->
     "Test that executing a command in a current working directory "
@@ -277,6 +283,40 @@ large_output_command(Config) when is_list(Config) ->
     %% Maximum allowed on windows is 8192, so we test well below that
     AAA = lists:duplicate(7000, $a),
     comp(AAA,os:cmd("echo " ++ AAA)).
+
+%% Test that the os:perf_counter api works as expected
+perf_counter_api(_Config) ->
+
+    true = is_integer(os:perf_counter()),
+    true = os:perf_counter() > 0,
+
+    T1 = os:perf_counter(),
+    timer:sleep(100),
+    T2 = os:perf_counter(),
+    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nano_seconds),
+    ct:pal("T1: ~p~n"
+           "T2: ~p~n"
+           "TsDiff: ~p~n",
+           [T1,T2,TsDiff]),
+
+    %% We allow a 15% diff
+    true = TsDiff < 115000000,
+    true = TsDiff > 85000000,
+
+    T1Ms = os:perf_counter(1000),
+    timer:sleep(100),
+    T2Ms = os:perf_counter(1000),
+    MsDiff = T2Ms - T1Ms,
+    ct:pal("T1Ms: ~p~n"
+           "T2Ms: ~p~n"
+           "MsDiff: ~p~n",
+           [T1Ms,T2Ms,MsDiff]),
+
+    %% We allow a 15% diff
+    true = MsDiff < 115,
+    true = MsDiff > 85.
+
+%% Util functions
 
 comp(Expected, Got) ->
     case strip_nl(Got) of

@@ -113,6 +113,9 @@ do {                                     \
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
+#define GET_BIF_MODULE(p)  ((Eterm) (((Export *) p)->code[0]))
+#define GET_BIF_FUNCTION(p)  ((Eterm) (((Export *) p)->code[1]))
+#define GET_BIF_ARITY(p)  ((Eterm) (((Export *) p)->code[2]))
 #define GET_BIF_ADDRESS(p) ((BifFunction) (((Export *) p)->code[4]))
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
@@ -1249,6 +1252,8 @@ void process_main(void)
     Uint64 start_time = 0;          /* Monitor long schedule */
     BeamInstr* start_time_i = NULL;
 
+    ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
+
     ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
 
 
@@ -1301,6 +1306,8 @@ void process_main(void)
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
+
+    ERTS_MSACC_UPDATE_CACHE_X();
 
     if (erts_system_monitor_long_schedule != 0) {
 	start_time = erts_timestamp_millis();
@@ -2741,10 +2748,20 @@ do {						\
      */
  OpCase(call_bif_e):
     {
-	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+        Eterm (*bf)(Process*, Eterm*, BeamInstr*);
 	Eterm result;
 	BeamInstr *next;
 	ErlHeapFragment *live_hf_end;
+
+        if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
+            if (GET_BIF_MODULE(Arg(0)) == am_ets) {
+                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
+            } else {
+                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
+            }
+        }
+
+	bf = GET_BIF_ADDRESS(Arg(0));
 
 	PRE_BIF_SWAPOUT(c_p);
 	c_p->fcalls = FCALLS - 1;
@@ -2768,6 +2785,12 @@ do {						\
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
+        /* We have to update the cache if we are enabled in order
+           to make sure no book keeping is done after we disabled
+           msacc. We don't always do this as it is quite expensive. */
+        if (ERTS_MSACC_IS_ENABLED_CACHED_X())
+            ERTS_MSACC_UPDATE_CACHE_X();
+	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
 	if (is_value(result)) {
 	    r(0) = result;
 	    CHECK_TERM(r(0));
@@ -3452,6 +3475,8 @@ do {						\
 	    BifFunction vbf;
 	    ErlHeapFragment *live_hf_end;
 
+	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
 	    SWAPOUT;
@@ -3476,6 +3501,8 @@ do {						\
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
+	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
 	 
@@ -3490,6 +3517,13 @@ do {						\
 	     * code[3]: &&apply_bif
 	     * code[4]: Function pointer to BIF function
 	     */
+            if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
+                if ((Eterm)I[-3] == am_ets) {
+                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
+                } else {
+                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
+                }
+            }
 
 	    c_p->current = I-3;	/* In case we apply process_info/1,2 or load_nif/1 */
 	    c_p->i = I;		/* In case we apply check_process_code/2. */
@@ -3516,7 +3550,12 @@ do {						\
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 	    }
-
+            /* We have to update the cache if we are enabled in order
+               to make sure no book keeping is done after we disabled
+               msacc. We don't always do this as it is quite expensive. */
+            if (ERTS_MSACC_IS_ENABLED_CACHED_X())
+                ERTS_MSACC_UPDATE_CACHE_X();
+	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
 	    DTRACE_BIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 
 	apply_bif_or_nif_epilogue:
@@ -4893,6 +4932,38 @@ do {						\
 	 I = handle_error(c_p, I, reg, hibernate_3);
 	 goto post_error_handling;
      }
+ }
+
+ /* This is optimised as an instruction because
+    it has to be very very fast */
+ OpCase(i_perf_counter): {
+    BeamInstr* next;
+    ErtsSysPerfCounter ts;
+    PreFetch(0, next);
+
+    ts = erts_sys_perf_counter();
+
+    if (IS_SSMALL(ts)) {
+        r(0) = make_small((Sint)ts);
+    } else {
+        TestHeap(ERTS_SINT64_HEAP_SIZE(ts),0);
+        r(0) = make_big(HTOP);
+#if defined(ARCH_32) || HALFWORD_HEAP
+        if (ts >= (((Uint64) 1) << 32)) {
+            *HTOP = make_pos_bignum_header(2);
+            BIG_DIGIT(HTOP, 0) = (Uint) (ts & ((Uint) 0xffffffff));
+            BIG_DIGIT(HTOP, 1) = (Uint) ((ts >> 32) & ((Uint) 0xffffffff));
+            HTOP += 3;
+        }
+        else
+#endif
+        {
+                *HTOP = make_pos_bignum_header(1);
+                BIG_DIGIT(HTOP, 0) = (Uint) ts;
+                HTOP += 2;
+        }
+    }
+    NextPF(0, next);
  }
 
  OpCase(i_debug_breakpoint): {

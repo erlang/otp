@@ -706,6 +706,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
     error_number = error_type = 0;
     if (driver->start) {
+        ERTS_MSACC_PUSH_STATE_M();
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_in, am_start);
 	}
@@ -716,6 +717,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
             DTRACE3(driver_start, process_str, driver->name, port_str);
         }
 #endif
+	ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 	fpe_was_unmasked = erts_block_fpe();
 	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
 	if (((SWord) drv_data) == -1)
@@ -735,6 +737,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	}
 
 	erts_unblock_fpe(fpe_was_unmasked);
+	ERTS_MSACC_POP_STATE_M();
 	port->caller = NIL;
 	if (IS_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_out, am_start);
@@ -1710,6 +1713,7 @@ call_driver_outputv(int bang_op,
     else {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
 	ErlDrvSizeT size = evp->size;
+	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
 			   || ERTS_IS_CRASH_DUMPING);
@@ -1730,6 +1734,8 @@ call_driver_outputv(int bang_op,
 	    esdp->io.out += (Uint64) size;
 	else
 	    erts_atomic64_add_nob(&bytes_out, (erts_aint64_t) size);
+
+	ERTS_MSACC_POP_STATE_M();
     }
 }
 
@@ -1810,6 +1816,7 @@ call_driver_output(int bang_op,
 	send_badsig(prt);
     else {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)	
 			   || ERTS_IS_CRASH_DUMPING);
 
@@ -1829,6 +1836,8 @@ call_driver_output(int bang_op,
 	    esdp->io.out += (Uint64) size;
 	else
 	    erts_atomic64_add_nob(&bytes_out, (erts_aint64_t) size);
+
+	ERTS_MSACC_POP_STATE_M();
     }
 }
 
@@ -3473,6 +3482,7 @@ static void flush_port(Port *p)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
 
     if (p->drv_ptr->flush != NULL) {
+        ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_flush)) {
             DTRACE_FORMAT_COMMON_PID_AND_PORT(ERTS_PORT_GET_CONNECTED(p), p)
@@ -3482,9 +3492,11 @@ static void flush_port(Port *p)
         if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_in, am_flush);
 	}
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 	fpe_was_unmasked = erts_block_fpe();
 	(*p->drv_ptr->flush)((ErlDrvData)p->drv_data);
 	erts_unblock_fpe(fpe_was_unmasked);
+	ERTS_MSACC_POP_STATE_M();
         if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(p, am_out, am_flush);
 	}
@@ -3532,6 +3544,7 @@ terminate_port(Port *prt)
     drv = prt->drv_ptr;
     if ((drv != NULL) && (drv->stop != NULL)) {
 	int fpe_was_unmasked = erts_block_fpe();
+	ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(driver_stop)) {
             DTRACE_FORMAT_COMMON_PID_AND_PORT(connected_id, prt)
@@ -3540,6 +3553,7 @@ terminate_port(Port *prt)
 #endif
 	(*drv->stop)((ErlDrvData)prt->drv_data);
 	erts_unblock_fpe(fpe_was_unmasked);
+	ERTS_MSACC_POP_STATE_M();
 #ifdef ERTS_SMP
 	if (prt->xports)
 	    erts_port_handle_xports(prt);
@@ -3850,6 +3864,7 @@ call_driver_control(Eterm caller,
 		    ErlDrvSizeT *from_size)
 {
     ErlDrvSSizeT cres;
+    ERTS_MSACC_PUSH_STATE_M();
 
     if (!prt->drv_ptr->control)
 	return ERTS_PORT_OP_BADARG;
@@ -3863,6 +3878,8 @@ call_driver_control(Eterm caller,
                 command, size);
     }
 #endif
+    
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 
     prt->caller = caller;
     cres = prt->drv_ptr->control((ErlDrvData) prt->drv_data,
@@ -3872,6 +3889,8 @@ call_driver_control(Eterm caller,
 				 resp_bufp,
 				 *from_size);
     prt->caller = NIL;
+
+    ERTS_MSACC_POP_STATE_M();
 
     if (cres < 0)
 	return ERTS_PORT_OP_BADARG;
@@ -4260,6 +4279,7 @@ call_driver_call(Eterm caller,
 		 unsigned *ret_flagsp)
 {
     ErlDrvSSizeT cres;
+    ERTS_MSACC_PUSH_STATE_M();
 
     if (!prt->drv_ptr->call)
 	return ERTS_PORT_OP_BADARG;
@@ -4275,6 +4295,8 @@ call_driver_call(Eterm caller,
     }
 #endif
 
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
+
     prt->caller = caller;
     cres = prt->drv_ptr->call((ErlDrvData) prt->drv_data,
 			      command,
@@ -4284,6 +4306,8 @@ call_driver_call(Eterm caller,
 			      *from_size,
 			      ret_flagsp);
     prt->caller = NIL;
+
+    ERTS_MSACC_POP_STATE_M();
 
     if (cres <= 0
 	|| ((byte) (*resp_bufp)[0]) != VERSION_MAGIC)
@@ -4988,6 +5012,7 @@ int get_port_flags(ErlDrvPort ix)
 void erts_raw_port_command(Port* p, byte* buf, Uint len)
 {
     int fpe_was_unmasked;
+    ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
@@ -5008,9 +5033,11 @@ void erts_raw_port_command(Port* p, byte* buf, Uint len)
         DTRACE4(driver_output, "-raw-", port_str, p->name, len);
     }
 #endif
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     fpe_was_unmasked = erts_block_fpe();
     (*p->drv_ptr->output)((ErlDrvData)p->drv_data, (char*) buf, (int) len);
     erts_unblock_fpe(fpe_was_unmasked);
+    ERTS_MSACC_POP_STATE_M();
 }
 
 int async_ready(Port *p, void* data)
@@ -5022,6 +5049,7 @@ int async_ready(Port *p, void* data)
     if (p) {
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
 	if (p->drv_ptr->ready_async != NULL) {
+	    ERTS_MSACC_PUSH_AND_SET_STATE_M(ERTS_MSACC_STATE_PORT);
 #ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(driver_ready_async)) {
                 DTRACE_FORMAT_COMMON_PID_AND_PORT(ERTS_PORT_GET_CONNECTED(p), p)
@@ -5030,6 +5058,7 @@ int async_ready(Port *p, void* data)
 #endif
 	    (*p->drv_ptr->ready_async)((ErlDrvData)p->drv_data, data);
 	    need_free = 0;
+	    ERTS_MSACC_POP_STATE_M();
 
 	}
 	erts_port_driver_callback_epilogue(p, NULL);
@@ -7053,6 +7082,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     void (*callback)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
     ErlDrvMonitor drv_monitor;
     int fpe_was_unmasked;
+    ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
     ASSERT(prt->drv_ptr != NULL);    
@@ -7064,6 +7094,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     callback = prt->drv_ptr->process_exit;
     ASSERT(callback != NULL);
     ref_to_driver_monitor(ref,&drv_monitor);
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     DRV_MONITOR_UNLOCK_PDL(prt);
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(driver_process_exit)) {
@@ -7075,6 +7106,7 @@ void erts_fire_port_monitor(Port *prt, Eterm ref)
     (*callback)((ErlDrvData) (prt->drv_data), &drv_monitor);
     erts_unblock_fpe(fpe_was_unmasked);
     DRV_MONITOR_LOCK_PDL(prt);
+    ERTS_MSACC_POP_STATE_M();
     /* remove monitor *after* callback */
     rmon = erts_remove_monitor(&ERTS_P_MONITORS(prt), ref);
     DRV_MONITOR_UNLOCK_PDL(prt);

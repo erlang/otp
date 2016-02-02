@@ -1749,7 +1749,7 @@ erts_get_monotonic_time(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
     update_last_mtime(esdp, mtime);
-    return mtime;    
+    return mtime;
 }
 
 ErtsMonotonicTime
@@ -2435,9 +2435,19 @@ BIF_RETTYPE os_system_time_0(BIF_ALIST_0)
     BIF_RET(make_time_val(BIF_P, stime));
 }
 
-BIF_RETTYPE os_system_time_1(BIF_ALIST_0)
+BIF_RETTYPE os_system_time_1(BIF_ALIST_1)
 {
     ErtsSystemTime stime = erts_os_system_time();
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, stime, 0));
 }
 
+BIF_RETTYPE
+os_perf_counter_0(BIF_ALIST_0)
+{
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter()));
+}
+
+BIF_RETTYPE erts_internal_perf_counter_unit_0(BIF_ALIST_0)
+{
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter_unit()));
+}

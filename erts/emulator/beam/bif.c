@@ -44,6 +44,7 @@
 #include "erl_ptab.h"
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
+#include "erl_msacc.h"
 
 Export *erts_await_result;
 static Export* flush_monitor_messages_trap = NULL;
@@ -53,6 +54,9 @@ static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
 static Export dsend_continue_trap_export;
 Export *erts_convert_time_unit_trap = NULL;
+
+static Export *await_msacc_mod_trap = NULL;
+static erts_smp_atomic32_t msacc;
 
 static Export *await_sched_wall_time_mod_trap;
 static erts_smp_atomic32_t sched_wall_time;
@@ -2143,7 +2147,11 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     int connect = !0;
     Eterm l = opts;
     Sint result;
+
     DeclareTypedTmpHeap(ErtsSendContext, ctx, BIF_P);
+
+    ERTS_MSACC_PUSH_STATE_M_X();
+
     UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
 
     ctx->suspend = !0;
@@ -2172,7 +2180,10 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     ref = NIL;
 #endif
 
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_SEND);
     result = do_send(p, to, msg, &ref, ctx);
+    ERTS_MSACC_POP_STATE_M_X();
+
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
@@ -2288,8 +2299,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     Eterm ref;
     Sint result;
     DeclareTypedTmpHeap(ErtsSendContext, ctx, p);
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_SEND);
     UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
-
 #ifdef DEBUG
     ref = NIL;
 #endif
@@ -2300,7 +2311,9 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
 
     result = do_send(p, to, msg, &ref, ctx);
-    
+
+    ERTS_MSACC_POP_STATE_M_X();
+
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
@@ -4586,6 +4599,31 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	default:
 	    ERTS_INTERNAL_ERROR("Unknown state");
 	}
+#ifdef ERTS_ENABLE_MSACC
+    } else if (BIF_ARG_1 == am_microstate_accounting) {
+      Eterm threads;
+      if (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false) {
+        erts_aint32_t new = BIF_ARG_2 == am_true ? ERTS_MSACC_ENABLE : ERTS_MSACC_DISABLE;
+	erts_aint32_t old = erts_smp_atomic32_xchg_nob(&msacc, new);
+	Eterm ref = erts_msacc_request(BIF_P, new, &threads);
+        if (is_non_value(ref))
+            BIF_RET(old ? am_true : am_false);
+	BIF_TRAP3(await_msacc_mod_trap,
+		  BIF_P,
+		  ref,
+		  old ? am_true : am_false,
+		  threads);
+      } else if (BIF_ARG_2 == am_reset) {
+	Eterm ref = erts_msacc_request(BIF_P, ERTS_MSACC_RESET, &threads);
+	erts_aint32_t old = erts_smp_atomic32_read_nob(&msacc);
+	ASSERT(is_value(ref));
+	BIF_TRAP3(await_msacc_mod_trap,
+		  BIF_P,
+		  ref,
+		  old ? am_true : am_false,
+		  threads);
+      }
+#endif
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))
@@ -4915,8 +4953,12 @@ void erts_init_bif(void)
     await_port_send_result_trap
 	= erts_export_put(am_erts_internal, am_await_port_send_result, 3);
     await_sched_wall_time_mod_trap
-	= erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+        = erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+    await_msacc_mod_trap
+	= erts_export_put(am_erts_internal, am_await_microstate_accounting_modifications, 3);
+
     erts_smp_atomic32_init_nob(&sched_wall_time, 0);
+    erts_smp_atomic32_init_nob(&msacc, ERTS_MSACC_IS_ENABLED());
 }
 
 #ifdef HARDDEBUG

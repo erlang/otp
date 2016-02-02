@@ -988,6 +988,13 @@ move Discarded x==0 | move Something x==0 => move Something x=0
 
 %endif
 
+call_ext u==0 u$func:os:perf_counter/0 => \
+    i_perf_counter
+call_ext_last u==0 u$func:os:perf_counter/0 D => \
+    i_perf_counter | deallocate_return D
+call_ext_only u==0 u$func:os:perf_counter/0 => \
+    i_perf_counter | return
+
 #
 # The general case for BIFs that have no special instructions.
 # A BIF used in the tail must be followed by a return instruction.
@@ -1026,6 +1033,8 @@ i_apply_fun_last P
 i_apply_fun_only
 
 i_hibernate
+
+i_perf_counter
 
 call_bif e
 

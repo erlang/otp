@@ -92,7 +92,6 @@ void ethr_run_exit_handlers__(void);
 void ethr_ts_event_destructor__(void *vtsep);
 
 #if defined(ETHR_X86_RUNTIME_CONF__)
-int ethr_x86_have_cpuid__(void);
 void ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx);
 #endif
 
