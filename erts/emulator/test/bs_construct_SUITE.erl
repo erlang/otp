@@ -29,7 +29,7 @@
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
 	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1, zero_width/1, bad_append/1]).
+	 otp_7422/1, zero_width/1, bad_append/1, bs_add_overflow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -40,7 +40,7 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn,
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append].
+     bad_append, bs_add_overflow].
 
 groups() -> 
     [].
@@ -551,10 +551,24 @@ huge_binary(Config) when is_list(Config) ->
     ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     ?line garbage_collect(),
     {Shift,Return} = case free_mem() of
-			 undefined -> {32,ok};
-			 Mb when Mb > 600 -> {32,ok};
-			 Mb when Mb > 300 -> {31,"Limit huge binaries to 256 Mb"};
-			 _ -> {30,"Limit huge binary to 128 Mb"}
+			 undefined ->
+			     %% This test has to be inlined inside the case to
+			     %% use a literal Shift
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 32)-1)>>),
+			     {32,ok};
+			 Mb when Mb > 600 ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 32)-1)>>),
+			     {32,ok};
+			 Mb when Mb > 300 ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 31)-1)>>),
+			     {31,"Limit huge binaries to 256 Mb"};
+			 _ ->
+			     ?line garbage_collect(),
+			     ?line id(<<0:((1 bsl 30)-1)>>),
+			     {30,"Limit huge binary to 128 Mb"}
 		     end,
     ?line garbage_collect(),
     ?line id(<<0:((1 bsl Shift)-1)>>),
@@ -911,5 +925,19 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
+%% Produce a large result of bs_add that, if cast to signed int, would overflow
+%% into a negative number that fits a smallnum.
+bs_add_overflow(Config) ->
+    case erlang:system_info(wordsize) of
+	8 ->
+	    {skip, "64-bit architecture"};
+	4 ->
+	    Large = <<0:((1 bsl 30)-1)>>,
+	    {'EXIT',{system_limit,_}} =
+		(catch <<Large/bits, Large/bits, Large/bits, Large/bits,
+			 Large/bits, Large/bits, Large/bits, Large/bits,
+			 Large/bits>>),
+	    ok
+    end.
     
 id(I) -> I.

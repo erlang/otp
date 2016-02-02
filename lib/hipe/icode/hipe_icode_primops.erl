@@ -116,7 +116,7 @@ is_safe({hipe_bs_primop, {bs_init, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_init_bits, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_init_bits, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_binary, _, _}}) -> false;
-is_safe({hipe_bs_primop, {bs_put_binary_all, _}}) -> false;  
+is_safe({hipe_bs_primop, {bs_put_binary_all, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_float, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_integer, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_put_string, _, _}}) -> false;  
@@ -219,7 +219,7 @@ fails({hipe_bs_primop, {bs_init, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_init_bits, _}}) -> true;
 fails({hipe_bs_primop, {bs_init_bits, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_binary, _, _}}) -> true;
-fails({hipe_bs_primop, {bs_put_binary_all, _}}) -> true;  
+fails({hipe_bs_primop, {bs_put_binary_all, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_float, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_integer, _, _, _}}) -> true;
 fails({hipe_bs_primop, {bs_put_string, _, _}}) -> true;  
@@ -265,8 +265,8 @@ pp(Dev, Op) ->
       io:format(Dev, "gc_test<~w>", [N]);
     {hipe_bs_primop, BsOp}  ->
       case BsOp of
-	{bs_put_binary_all, Flags} -> 
-	  io:format(Dev, "bs_put_binary_all<~w>", [Flags]);
+	{bs_put_binary_all, Unit, Flags} ->
+	  io:format(Dev, "bs_put_binary_all<~w, ~w>", [Unit,Flags]);
 	{bs_put_binary, Size} ->
 	  io:format(Dev, "bs_put_binary<~w>", [Size]);
 	{bs_put_binary, Flags, Size} ->
@@ -505,11 +505,13 @@ type(Primop, Args) ->
 	  NewMatchState = 
 	    erl_types:t_matchstate_update_present(NewBinType, MatchState),
 	  if Signed =:= 0 ->
-	      erl_types:t_product([erl_types:t_from_range(0, 1 bsl Size - 1), 
+	      UpperBound = inf_add(safe_bsl(1, Size), -1),
+	      erl_types:t_product([erl_types:t_from_range(0, UpperBound),
 				   NewMatchState]);
 	     Signed =:= 4 ->
-	      erl_types:t_product([erl_types:t_from_range(- (1 bsl (Size-1)), 
-							  (1 bsl (Size-1)) - 1),
+	      erl_types:t_product([erl_types:t_from_range(
+				     inf_inv(safe_bsl(1, Size-1)),
+				     inf_add(safe_bsl(1, Size-1), -1)),
 				   NewMatchState])
 	  end;
 	[_Arg] ->
@@ -628,8 +630,9 @@ type(Primop, Args) ->
 	[_SrcType, _BitsType, _Base, Type] ->
 	  erl_types:t_bitstr_concat(Type, erl_types:t_bitstr(Size, 0))
       end;
-    {hipe_bs_primop, {bs_put_binary_all, _Flags}} ->
-      [SrcType, _Base, Type] = Args,
+    {hipe_bs_primop, {bs_put_binary_all, Unit, _Flags}} ->
+      [SrcType0, _Base, Type] = Args,
+      SrcType = erl_types:t_inf(erl_types:t_bitstr(Unit, 0), SrcType0),
       erl_types:t_bitstr_concat(SrcType,Type);
     {hipe_bs_primop, {bs_put_string, _, Size}} ->
       [_Base, Type] = Args,
@@ -965,3 +968,19 @@ check_fun_args(_, _) ->
 
 match_bin(Pattern, Match) ->
   erl_types:t_bitstr_match(Pattern, Match).
+
+safe_bsl(0, _) -> 0;
+safe_bsl(Base, Shift) when Shift =< 128 -> Base bsl Shift;
+safe_bsl(Base, _Shift) when Base > 0 -> pos_inf;
+safe_bsl(Base, _Shift) when Base < 0 -> neg_inf.
+
+inf_inv(pos_inf) -> neg_inf;
+inf_inv(neg_inf) -> pos_inf;
+inf_inv(Number) -> -Number.
+
+inf_add(pos_inf, _Number) -> pos_inf;
+inf_add(neg_inf, _Number) -> neg_inf;
+inf_add(_Number, pos_inf) -> pos_inf;
+inf_add(_Number, neg_inf) -> neg_inf;
+inf_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
+  Number1 + Number2.

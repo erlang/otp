@@ -794,9 +794,9 @@ bitstr_gen_op([V], #ctxt{fail=FL, class=guard}, SizeInfo, ConstInfo,
 	      Type, Flags, Base, Offset) ->
     SL = new_label(),
     case SizeInfo of
-	{all,_NewUnit, NewAlign, S1} ->
+	{all, NewUnit, NewAlign, S1} ->
 	    Type = binary,
-	    Name = {bs_put_binary_all, Flags},
+	    Name = {bs_put_binary_all, NewUnit, Flags},
 	    Primop = {hipe_bs_primop, Name},
 	    {add_code([icode_guardop([Offset], Primop,
 				     [V, Base, Offset], SL, FL),
@@ -819,9 +819,9 @@ bitstr_gen_op([V], #ctxt{fail=FL, class=guard}, SizeInfo, ConstInfo,
 bitstr_gen_op([V], _Ctxt, SizeInfo, ConstInfo, Type, Flags, Base,
 	      Offset) ->
     case SizeInfo of
-	{all, _NewUnit, NewAlign, S} ->
+	{all, NewUnit, NewAlign, S} ->
 	    Type = binary,
-	    Name = {bs_put_binary_all, Flags},
+	    Name = {bs_put_binary_all, NewUnit, Flags},
 	    Primop = {hipe_bs_primop, Name},
 	    {add_code([icode_call_primop([Offset], Primop, 
 					 [V, Base, Offset])], S), 
