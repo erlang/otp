@@ -86,10 +86,10 @@ typedef struct generic_bp {
 #endif
 
 enum erts_break_op{
-    erts_break_nop   =  0, /* Must be false */
-    erts_break_set   = !0, /* Must be true */
-    erts_break_reset,
-    erts_break_stop
+    ERTS_BREAK_NOP   =  0, /* Must be false */
+    ERTS_BREAK_SET   = !0, /* Must be true */
+    ERTS_BREAK_RESTART,
+    ERTS_BREAK_PAUSE
 };
 
 typedef Uint32 ErtsBpIndex;

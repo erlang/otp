@@ -137,10 +137,10 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	on = 1;
     } else if (Pattern == am_restart) {
 	match_prog_set = NULL;
-	on = erts_break_reset;
+	on = ERTS_BREAK_RESTART;
     } else if (Pattern == am_pause) {
 	match_prog_set = NULL;
-	on = erts_break_stop;
+	on = ERTS_BREAK_PAUSE;
     } else if ((match_prog_set = erts_match_set_compile(p, Pattern)) != NULL) {
 	MatchSetRef(match_prog_set);
 	on = 1;

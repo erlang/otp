@@ -1432,7 +1432,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
     g = (GenericBp *) pc[-4];
     if (g == 0) {
 	int i;
-	if (count_op == erts_break_reset || count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_RESTART || count_op == ERTS_BREAK_PAUSE) {
 	    /* Do not insert a new breakpoint */
 	    return;
 	}
@@ -1456,7 +1456,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	MatchSetUnref(bp->meta_ms);
 	bp_meta_unref(bp->meta_tracer);
     } else if (common & ERTS_BPF_COUNT) {
-	if (count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_PAUSE) {
 	    bp->flags &= ~ERTS_BPF_COUNT_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_COUNT_ACTIVE;
@@ -1468,7 +1468,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	BpDataTime* bdt = bp->time;
 	Uint i = 0;
 
-	if (count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_PAUSE) {
 	    bp->flags &= ~ERTS_BPF_TIME_TRACE_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_TIME_TRACE_ACTIVE;
