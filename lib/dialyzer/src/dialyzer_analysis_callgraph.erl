@@ -93,30 +93,18 @@ loop(#server_state{parent = Parent} = State,
       send_log(Parent, LogMsg),
       loop(State, Analysis, ExtCalls);
     {AnalPid, warnings, Warnings} ->
-      case Warnings of
-	[] -> ok;
-	SendWarnings ->
-	  send_warnings(Parent, SendWarnings)
-      end,
+      send_warnings(Parent, Warnings),
       loop(State, Analysis, ExtCalls);
     {AnalPid, cserver, CServer, Plt} ->
       send_codeserver_plt(Parent, CServer, Plt),
       loop(State, Analysis, ExtCalls);
     {AnalPid, done, Plt, DocPlt} ->
-      case ExtCalls =:= none of
-	true ->
-	  send_analysis_done(Parent, Plt, DocPlt);
-	false ->
-	  send_ext_calls(Parent, ExtCalls),
-	  send_analysis_done(Parent, Plt, DocPlt)
-      end;
+      send_ext_calls(Parent, ExtCalls),
+      send_analysis_done(Parent, Plt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
       send_ext_types(Parent, ExtTypes),
-      loop(State, Analysis, ExtCalls);
-    {AnalPid, unknown_behaviours, UnknownBehaviour} ->
-      send_unknown_behaviours(Parent, UnknownBehaviour),
       loop(State, Analysis, ExtCalls);
     {AnalPid, mod_deps, ModDeps} ->
       send_mod_deps(Parent, ModDeps),
@@ -572,16 +560,14 @@ send_analysis_done(Parent, Plt, DocPlt) ->
   Parent ! {self(), done, Plt, DocPlt},
   ok.
 
+send_ext_calls(_Parent, none) ->
+  ok;
 send_ext_calls(Parent, ExtCalls) ->
   Parent ! {self(), ext_calls, ExtCalls},
   ok.
 
 send_ext_types(Parent, ExtTypes) ->
   Parent ! {self(), ext_types, ExtTypes},
-  ok.
-
-send_unknown_behaviours(Parent, UnknownBehaviours) ->
-  Parent ! {self(), unknown_behaviours, UnknownBehaviours},
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt ) ->
