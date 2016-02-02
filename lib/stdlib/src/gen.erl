@@ -27,7 +27,8 @@
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/1,
-	 call/3, call/4, reply/2, stop/1, stop/3]).
+	 call/3, call/4, async_call/4,
+	 reply/2, stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
@@ -137,7 +138,7 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %%-----------------------------------------------------------------
 %% Makes a synchronous call to a generic process.
 %% Request is sent to the Pid, and the response must be
-%% {Tag, _, Reply}.
+%% {Tag, Reply}.
 %%-----------------------------------------------------------------
 
 %%% New call function which uses the new monitor BIF
@@ -223,6 +224,19 @@ wait_resp(Node, Tag, Timeout) ->
 	    monitor_node(Node, false),
 	    exit(timeout)
     end.
+
+%%-----------------------------------------------------------------
+%% Makes an asynchronous call to a generic process.
+%% Request is sent to the Pid, and the response must be
+%% {Tag, Reply}.
+%%-----------------------------------------------------------------
+async_call(Process, Label, Request, Tag) ->
+    Fun = fun(Pid) -> do_async_call(Pid, Label, Request, Tag) end,
+    do_for_proc(Process, Fun).
+
+do_async_call(Process, Label, Request, Tag) ->
+    Process ! {Label, {self(), Tag}, Request},
+    ok.
 
 %%
 %% Send a reply to the client.

@@ -50,6 +50,7 @@ gen_server:start_link -----> Module:init/1
 gen_server:stop       -----> Module:terminate/2
 
 gen_server:call
+gen_server:async_call
 gen_server:multi_call -----> Module:handle_call/3
 
 gen_server:cast
@@ -269,6 +270,51 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>The ancient behaviour of sometimes consuming the server
           exit message if the server died during the call while
           linked to the client has been removed in OTP R12B/Erlang 5.6.</p>
+      </desc>
+    </func>
+    <func>
+      <name>async_call(ServerRef, Request, Tag) -> ok</name>
+      <fsummary>Make an asynchronous call to a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Request = term()</v>
+        <v>Tag = reference()</v>
+      </type>
+      <desc>
+        <p>Makes an asynchronous call to the gen_server <c>ServerRef</c>
+          by sending a request without waiting for a reply or a timeout.
+          Instead the caller needs to be able to map the returned Tag with the
+          reply received as {<c>Tag</c>, <c>Reply</c>}. The caller is encouraged
+          to add timeout handling separately.</p>
+        <p>The intent with this function is to allow the caller to do something
+          else while waiting for a <c>call</c> to reply. The same behavior
+          could be implemented using <c>erlang:send</c> or <c>gen_server:cast</c>
+          but that would require a separate handling on the server side plus
+          re-inventing a reply mechanism.</p>
+        <p>The gen_server will call <c>Module:handle_call/3</c> to handle the
+          request.</p>
+        <p><c>ServerRef</c> can be:</p>
+        <list type="bulleted">
+          <item>the pid,</item>
+          <item><c>Name</c>, if the gen_server is locally registered,</item>
+          <item><c>{Name,Node}</c>, if the gen_server is locally
+           registered at another node, or</item>
+          <item><c>{global,GlobalName}</c>, if the gen_server is
+           globally registered.</item>
+          <item><c>{via,Module,ViaName}</c>, if the gen_server is
+           registered through an alternative process registry.</item>
+        </list>
+        <p><c>Request</c> is an arbitrary term which is passed as one of
+          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Tag</c> is an arbitrary term which is passed in one of
+          the arguments to <c>Module:handle_call/3</c> and it is used to
+          identify the recieved reply {<c>Tag</c>, <c>Reply</c>}.</p>
+        <p>The call will succeed but the reply may never come for several
+          reasons, including the called gen_server dying before or during the
+          call.</p>
       </desc>
     </func>
     <func>

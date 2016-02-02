@@ -91,6 +91,7 @@
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
+	 async_call/3,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
@@ -210,6 +211,22 @@ call(Name, Request, Timeout) ->
 	    Res;
 	{'EXIT',Reason} ->
 	    exit({Reason, {?MODULE, call, [Name, Request, Timeout]}})
+    end.
+
+%% -----------------------------------------------------------------
+%% Make an asynchronous call to a generic server.
+%% If the server is located at another node, that node will
+%% be monitored.
+%% If the client is trapping exits and is linked server termination
+%% is handled here (? Shall we do that here (or rely on timeouts) ?).
+%% Reply is received as {Tag, Result}.
+%% -----------------------------------------------------------------
+async_call(Name, Request, Tag) ->
+    case catch gen:async_call(Name, '$gen_call', Request, Tag) of
+	ok ->
+	    ok;
+	{'EXIT',Reason} ->
+	    exit({Reason, {?MODULE, call, [Name, Request]}})
     end.
 
 %% -----------------------------------------------------------------

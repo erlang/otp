@@ -237,6 +237,29 @@ start(Config) when is_list(Config) ->
 	  after 5000 ->
 		  test_server:fail(not_stopped)
 	  end,
+
+    %% async call
+    ?line {ok, Pid9} = gen_server:start(gen_server_SUITE, [], []),
+    ?line ok = gen_server:async_call(Pid9, started_p, tag9a),
+    ?line receive
+	      {tag9a, ok} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(no_reply)
+	  end,
+    ?line ok = gen_server:async_call(Pid9, stop, tag9b),
+    ?line receive
+	      {tag9b, ok} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_replied)
+	  end,
+    ?line receive
+	      {'EXIT', Pid9, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
     test_server:messages_get(),
 
     process_flag(trap_exit, OldFl),
