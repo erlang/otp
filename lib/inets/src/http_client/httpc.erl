@@ -101,7 +101,8 @@ request(Url, Profile) ->
 %%           {ok, {StatusLine, Headers, Body}} | {ok, {Status, Body}} |
 %%           {ok, RequestId} | {error,Reason} | {ok, {saved_as, FilePath}
 %%
-%%	Method - atom() = head | get | put | post | trace | options| delete 
+%%	Method - atom() = head | get | put | patch | post | trace |
+%%	                  options | delete 
 %%	Request - {Url, Headers} | {Url, Headers, ContentType, Body} 
 %%	Url - string() 
 %%	HTTPOptions - [HttpOption]
@@ -176,8 +177,8 @@ request(Method,
 request(Method, 
 	{Url, Headers, ContentType, Body}, 
 	HTTPOptions, Options, Profile) 
-  when ((Method =:= post) orelse (Method =:= put) orelse (Method =:= delete)) andalso 
-       (is_atom(Profile) orelse is_pid(Profile)) ->
+  when ((Method =:= post) orelse (Method =:= patch) orelse (Method =:= put) orelse
+	(Method =:= delete)) andalso (is_atom(Profile) orelse is_pid(Profile)) ->
     ?hcrt("request", [{method,       Method}, 
 		      {url,          Url},
 		      {headers,      Headers}, 

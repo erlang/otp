@@ -86,7 +86,8 @@ body_data(Headers, Body) ->
 %%-------------------------------------------------------------------------
 %% validate(Method, Uri, Version) -> ok | {error, {bad_request, Reason} |
 %%			     {error, {not_supported, {Method, Uri, Version}}
-%%      Method = "HEAD" | "GET" | "POST" | "TRACE" | "PUT" | "DELETE"
+%%      Method = "HEAD" | "GET" | "POST" | "PATCH" | "TRACE" | "PUT"
+%%               | "DELETE"
 %%      Uri = uri()
 %%      Version = "HTTP/N.M"      
 %% Description: Checks that HTTP-request-line is valid.
@@ -104,6 +105,8 @@ validate("PUT", Uri, "HTTP/1." ++ _N) ->
 validate("DELETE", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("POST", Uri, "HTTP/1." ++ _N) ->
+    validate_uri(Uri);
+validate("PATCH", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("TRACE", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
     validate_uri(Uri);
