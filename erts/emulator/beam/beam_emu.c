@@ -3885,7 +3885,7 @@ do {						\
 	     Op1 += Arg1;
 
 	 store_bs_add_result:
-	     if (MY_IS_SSMALL((Sint) Op1)) {
+	     if (Op1 <= MAX_SMALL) {
 		 Op1 = make_small(Op1);
 	     } else {
 		 /*

@@ -30,13 +30,13 @@
 %% Returns a tuple
 %%  {Res, Sign, Zero, Overflow, Carry}
 %%  Res will be a number in the range 
-%%   MAX_SIGNED_INT >= Res >= MIN_SIGNED_INT
+%%   MAX_UNSIGNED_INT >= Res >= 0
 %% The other four values are flags that are either true or false
 %% 
 eval_alu(Op, Arg1, Arg2) 
-  when Arg1 =< ?MAX_SIGNED_INT, 
+  when Arg1 =< ?MAX_UNSIGNED_INT,
        Arg1 >= ?MIN_SIGNED_INT,
-       Arg2 =< ?MAX_SIGNED_INT, 
+       Arg2 =< ?MAX_UNSIGNED_INT,
        Arg2 >= ?MIN_SIGNED_INT ->
 
   Sign1 = sign_bit(Arg1),
@@ -111,7 +111,7 @@ eval_alu(Op, Arg1, Arg2)
       Res = N = Z = V = C = 0,
       ?EXIT({"unknown alu op", Op})
   end,
-  {two_comp_to_erl(Res), N, Z, V, C};
+  {Res, N, Z, V, C};
 eval_alu(Op, Arg1, Arg2) ->
   ?EXIT({argument_overflow,Op,Arg1,Arg2}).
 
@@ -162,16 +162,9 @@ eval_cond(Cond, Arg1, Arg2) ->
 sign_bit(Val) ->
   ((Val bsr ?SIGN_BIT) band 1) =:= 1.
 
-two_comp_to_erl(V) ->
-  if V > ?MAX_SIGNED_INT ->
-      - ((?MAX_UNSIGNED_INT + 1) - V);
-     true -> V
-  end.
-
 shiftmask(Arg) ->
   Setbits = ?BITS - Arg,
   (1 bsl Setbits) - 1.
 
 zero(Val) ->
   Val =:= 0.
-
