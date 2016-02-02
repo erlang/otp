@@ -89,6 +89,14 @@ listen_options(Opts0) ->
             Opts1
     end.
 
+connect_options(Opts) ->
+    case application:get_env(kernel, inet_dist_connect_options) of
+	{ok,ConnectOpts} ->
+	    lists:ukeysort(1, ConnectOpts ++ Opts);
+	_ ->
+	    Opts
+    end.
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -257,7 +265,7 @@ try_connect(Port) ->
 
 setup_proxy(Ip, Port, Parent) ->
     process_flag(trap_exit, true),
-    Opts = get_ssl_options(client),
+    Opts = connect_options(get_ssl_options(client)),
     case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay()] ++ Opts) of
 	{ok, World} ->
 	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, {127,0,0,1}}, binary, {packet,?PPRE}]),
