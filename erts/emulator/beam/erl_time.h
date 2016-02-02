@@ -133,6 +133,10 @@ typedef struct {
 
 extern ErtsTimeSupData erts_time_sup__;
 
+ErtsMonotonicTime erts_napi_monotonic_time(int time_unit);
+ErtsMonotonicTime erts_napi_time_offset(int time_unit);
+ErtsMonotonicTime erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to);
+
 ERTS_GLB_INLINE Uint64
 erts_time_unit_conversion(Uint64 value,
 			  Uint32 from_time_unit,

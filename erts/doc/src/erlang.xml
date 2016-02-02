@@ -7854,6 +7854,13 @@ ok
              <c>inactive</c>, and later <c>active</c> when the port
 	     callback returns.</p>
           </item>
+          <tag><c>monotonic_timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will use
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso>. The time-stamp (Ts) has the same
+	    format and value as produced by <c>erlang:monotonic_time()</c>.</p>
+          </item>
           <tag><c>runnable_procs</c></tag>
           <item>
           <p>If a process is put into or removed from the run queue, a
@@ -7873,6 +7880,25 @@ ok
           <p>If a scheduler is put to sleep or awoken, a message,
              <c>{profile, scheduler, Id, State, NoScheds, Ts}</c>, is
              sent to <c><anno>ProfilerPid</anno></c>.</p>
+          </item>
+          <tag><c>strict_monotonic_timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will consisting of
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer. The time-stamp (Ts) has the same format and value
+	    as produced by <c>{erlang:monotonic_time(),
+	    erlang:unique_integer([monotonic])}</c>.</p>
+          </item>
+          <tag><c>timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will include a
+            time-stamp (Ts) that has the same form as returned by
+            <c>erlang:now()</c>. This is also the default if no
+	    timestamp flag is given. If <c>cpu_timestamp</c> has
+	    been enabled via <c>erlang:trace/3</c>, this will also
+	    effect the timestamp produced in profiling messages
+	    when <c>timestamp</c> flag is enabled.</p>
           </item>
         </taglist>
         <note><p><c>erlang:system_profile</c> is considered experimental
@@ -8233,13 +8259,36 @@ timestamp() ->
           <tag><c>cpu_timestamp</c></tag>
           <item>
             <p>A global trace flag for the Erlang node that makes all
-              trace time-stamps to be in CPU time, not wall clock time.
+              trace time-stamps using the <c>timestamp</c> flag to be
+	      in CPU time, not wall clock time. That is, <c>cpu_timestamp</c>
+	      will not be used if <c>monotonic_timestamp</c>, or
+	      <c>strict_monotonic_timestamp</c> is enabled.
               Only allowed with <c>PidSpec==all</c>. If the host
               machine OS does not support high-resolution
               CPU time measurements, <c>trace/3</c> exits with
               <c>badarg</c>. Notice that most OS do
               not synchronize this value across cores, so be prepared
               that time might seem to go backwards when using this option.</p>
+          </item>
+          <tag><c>monotonic_timestamp</c></tag>
+          <item>
+            <p>Includes an
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> time-stamp in all trace messages. The
+            time-stamp (Ts) has the same format and value as produced by
+            <c>erlang:monotonic_time()</c>. This flag overrides
+	    the <c>cpu_timestamp</c> flag.</p>
+          </item>
+          <tag><c>strict_monotonic_timestamp</c></tag>
+          <item>
+            <p>Includes an timestamp consisting of
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer in all trace messages. The time-stamp (Ts) has the
+	    same format and value as produced by
+            <c>{erlang:monotonic_time(),
+	    erlang:unique_integer([monotonic])}</c>. This flag overrides
+	    the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>arity</c></tag>
           <item>
@@ -8287,9 +8336,16 @@ timestamp() ->
 	in the following list. <c>Pid</c> is the process identifier of the
 	traced process in which the traced event has occurred. The
 	third tuple element is the message tag.</p>
-        <p>If flag <c>timestamp</c> is given, the first tuple
-          element is <c>trace_ts</c> instead, and the time-stamp
-          is added last in the message tuple.</p>
+        <p>If flag <c>timestamp</c>, <c>strict_monotonic_timestamp</c>, or
+	<c>monotonic_timestamp</c> is given, the first tuple
+        element is <c>trace_ts</c> instead, and the time-stamp
+        is added as an extra element last in the message tuple. If
+	multiple timestamp flags are passed, <c>timestamp</c> has
+	precedence over <c>strict_monotonic_timestamp</c> which
+	in turn has precedence over <c>monotonic_timestamp</c>. All
+	timestamp flags are remembered, so if two are passed
+	and the one with highest precedence later is disabled
+	the other one will become active.</p>
         <marker id="trace_3_trace_messages"></marker>
         <taglist>
           <tag><c>{trace, Pid, 'receive', Msg}</c></tag>

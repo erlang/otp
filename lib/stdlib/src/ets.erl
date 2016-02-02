@@ -146,7 +146,7 @@ info(_) ->
       Tab :: tab(),
       Item :: compressed | fixed | heir | keypos | memory
             | name | named_table | node | owner | protection
-            | safe_fixed | size | stats | type
+            | safe_fixed | safe_fixed_monotonic_time | size | stats | type
 	    | write_concurrency | read_concurrency,
       Value :: term().
 
