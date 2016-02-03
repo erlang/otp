@@ -396,6 +396,10 @@ ssl_options(server, ["server_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_verify_fun", Value|T]) ->
+    [{verify_fun, verify_fun(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_verify_fun", Value|T]) ->
+    [{verify_fun, verify_fun(Value)} | ssl_options(client,T)];
 ssl_options(server, ["server_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_reuse_sessions", Value|T]) ->
@@ -427,6 +431,20 @@ atomize(List) when is_list(List) ->
     list_to_atom(List);
 atomize(Atom) when is_atom(Atom) ->
     Atom.
+
+termify(String) when is_list(String) ->
+    {ok, Tokens, _} = erl_scan:string(String ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.
+
+verify_fun(Value) ->
+    case termify(Value) of
+	{Mod, Func, State} when is_atom(Mod), is_atom(Func) ->
+	    Fun = fun Mod:Func/3,
+	    {Fun, State};
+	_ ->
+	    error(malformed_ssl_dist_opt, [Value])
+    end.
 
 flush_old_controller(Pid, Socket) ->
     receive

@@ -41,7 +41,8 @@
 %%--------------------------------------------------------------------
 all() ->
     [basic, payload, plain_options, plain_verify_options, nodelay_option, 
-     listen_port_options, listen_options, connect_options, use_interface].
+     listen_port_options, listen_options, connect_options, use_interface,
+     verify_fun_fail, verify_fun_pass].
 
 groups() ->
     [].
@@ -418,6 +419,78 @@ use_interface(Config) when is_list(Config) ->
 
     stop_ssl_node(NH1),
     success(Config).
+%%--------------------------------------------------------------------
+verify_fun_fail() ->
+    [{doc,"Test specifying verify_fun with a function that always fails"}].
+verify_fun_fail(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+        "server_verify verify_peer server_verify_fun {ssl_dist_SUITE,verify_fail_always,{}} "
+        "client_verify verify_peer client_verify_fun {ssl_dist_SUITE,verify_fail_always,{}} ",
+
+    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    Node2 = NH2#node_handle.nodename,
+
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{verify_fail_always_ran, true}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(verify_fun_ran) end),
+    %% On the server node, it wouldn't run, because the server didn't
+    %% request a certificate from the client.
+    undefined =
+        apply_on_ssl_node(NH2, fun () -> ets:info(verify_fun_ran) end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+verify_fail_always(_Certificate, _Event, _State) ->
+    %% Create an ETS table, to record the fact that the verify function ran.
+    ets:new(verify_fun_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
+    ets:insert(verify_fun_ran, {verify_fail_always_ran, true}),
+    {fail, bad_certificate}.
+
+%%--------------------------------------------------------------------
+verify_fun_pass() ->
+    [{doc,"Test specifying verify_fun with a function that always succeeds"}].
+verify_fun_pass(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+        "server_verify verify_peer server_verify_fun {ssl_dist_SUITE,verify_pass_always,{}} "
+        "server_fail_if_no_peer_cert true "
+        "client_verify verify_peer client_verify_fun {ssl_dist_SUITE,verify_pass_always,{}} ",
+
+    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    Node1 = NH1#node_handle.nodename,
+    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{verify_pass_always_ran, true}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(verify_fun_ran) end),
+    %% Check that it ran on the server node as well.  The server
+    %% requested and verified the client's certificate because we
+    %% passed fail_if_no_peer_cert.
+    [{verify_pass_always_ran, true}] =
+        apply_on_ssl_node(NH2, fun () -> ets:tab2list(verify_fun_ran) end),
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+
+verify_pass_always(_Certificate, _Event, State) ->
+    %% Create an ETS table, to record the fact that the verify function ran.
+    ets:new(verify_fun_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
+    ets:insert(verify_fun_ran, {verify_pass_always_ran, true}),
+    {valid, State}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
