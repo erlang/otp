@@ -33,6 +33,9 @@
 	 terminate/2, code_change/3]).
 -export([try_again_restart/2]).
 
+%% For release_handler only
+-export([get_callback_module/1]).
+
 %%--------------------------------------------------------------------------
 
 -export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
@@ -249,6 +252,17 @@ try_again_restart(Supervisor, Child) ->
 
 cast(Supervisor, Req) ->
     gen_server:cast(Supervisor, Req).
+
+%%%-----------------------------------------------------------------
+%%% Called by release_handler during upgrade
+-spec get_callback_module(Pid) -> Module when
+      Pid :: pid(),
+      Module :: atom().
+get_callback_module(Pid) ->
+    {status, _Pid, {module, _Mod},
+     [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(Pid),
+    [_Header, _Data, {data, [{"State", State}]}] = Misc,
+    State#state.module.
 
 %%% ---------------------------------------------------
 %%% 

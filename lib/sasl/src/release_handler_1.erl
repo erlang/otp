@@ -655,47 +655,18 @@ maybe_get_dynamic_mods(Name, Pid) ->
             error(get_modules_failed)
     end.
 
-%% XXXX
-%% Note: The following is a terrible hack done in order to resolve the
-%% problem stated in ticket OTP-3452.
-
-%% XXXX NOTE WELL: This record is from supervisor.erl. Also the record
-%% name is really `state'. 
--record(supervisor_state, {name,
-                strategy,
-                children = [],
-                dynamics = [],
-                intensity,
-                period,
-                restarts = [],
-                module,
-                args}).
-
 %% Return the name of the call-back module that implements the
 %% (top) supervisor SupPid.
 %% Returns: {ok, Module} | {error,undefined}
 %%
 get_supervisor_module(SupPid) ->
-    case catch get_supervisor_module1(SupPid) of
-	{ok, Module} when is_atom(Module) ->
+    case catch supervisor:get_callback_module(SupPid) of
+	Module when is_atom(Module) ->
 	    {ok, Module};
 	_Other ->
 	    io:format("~w: reason: ~w~n", [SupPid, _Other]),
 	    {error, undefined}
     end.
-
-get_supervisor_module1(SupPid) ->
-    {status, _Pid, {module, _Mod}, 
-     [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(SupPid),
-    %% supervisor Misc field changed at R13B04, handle old and new variants here
-    State = case Misc of
-                [_Name, State1, _Type, _Time] ->
-                    State1;
-                [_Header, _Data, {data, [{"State", State2}]}] ->
-                    State2
-            end,
-    %% Cannot use #supervisor_state{module = Module} = State.
-    {ok, element(#supervisor_state.module, State)}.
 
 %%-----------------------------------------------------------------
 %% Func: do_soft_purge/3
