@@ -61,6 +61,12 @@ In short:
 *   Once or twice a week, a status email called ["What's cooking in Erlang/OTP"] [4]
     will be sent to the [`erlang-patches`] [3] mailing list.
 
+Bug Reports
+--------------------------
+
+Please look at the [instructions for submitting bugs reports] [6].
+
+
 Copyright and License
 ---------------------
 
@@ -89,3 +95,4 @@ Copyright and License
    [3]: http://www.erlang.org/static/doc/mailinglist.html
    [4]: http://erlang.github.com/otp/
    [5]: HOWTO/INSTALL.md
+   [6]: https://github.com/erlang/otp/wiki/Bug-reports
