@@ -2917,175 +2917,20 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
 
 /**********************************************************************/
 
-/* convert a list of ascii ascii integer value to an integer */
+/*
+ * Converts a list of ascii base10 digits to an integer fully or partially.
+ * Returns result and the remaining tail.
+ * On error returns: {error,not_a_list}, or {error, no_integer}
+ */
 
-
-#define LTI_BAD_STRUCTURE 0
-#define LTI_NO_INTEGER 1
-#define LTI_SOME_INTEGER 2
-#define LTI_ALL_INTEGER 3
-
-static int do_list_to_integer(Process *p, Eterm orig_list, 
-			      Eterm *integer, Eterm *rest)
-{
-     Sint i = 0;
-     Uint ui = 0;
-     int skip = 0;
-     int neg = 0;
-     Sint n = 0;
-     int m;
-     int lg2;
-     Eterm res;
-     Eterm* hp;
-     Eterm *hp_end;
-     Eterm lst = orig_list;
-     Eterm tail = lst;
-     int error_res = LTI_BAD_STRUCTURE;
-
-     if (is_nil(lst)) {
-       error_res = LTI_NO_INTEGER;
-     error:
-	 *rest = tail;
-	 *integer = make_small(0);
-	 return error_res;
-     }       
-     if (is_not_list(lst))
-       goto error;
-
-     /* if first char is a '-' then it is a negative integer */
-     if (CAR(list_val(lst)) == make_small('-')) {
-	  neg = 1;
-	  skip = 1;
-	  lst = CDR(list_val(lst));
-	  if (is_not_list(lst)) {
-	      tail = lst;
-	      error_res = LTI_NO_INTEGER;
-	      goto error;
-	  }
-     } else if (CAR(list_val(lst)) == make_small('+')) {
-	 /* ignore plus */
-	 skip = 1;
-	 lst = CDR(list_val(lst));
-	 if (is_not_list(lst)) {
-	     tail = lst;
-	     error_res = LTI_NO_INTEGER;
-	     goto error;
-	 }
-     }
-
-     /* Calculate size and do type check */
-
-     while(1) {
-	 if (is_not_small(CAR(list_val(lst)))) {
-	     break;
-	 }
-	 if (unsigned_val(CAR(list_val(lst))) < '0' ||
-	     unsigned_val(CAR(list_val(lst))) > '9') {
-	     break;
-	 }
-	 ui = ui * 10;
-	 ui = ui + unsigned_val(CAR(list_val(lst))) - '0';
-	 n++;
-	 lst = CDR(list_val(lst));
-	 if (is_nil(lst)) {
-	     break;
-	 }
-	 if (is_not_list(lst)) {
-	     break;
-	 }
-     }
-
-     tail = lst;
-     if (!n) {
-	 error_res = LTI_NO_INTEGER;
-	 goto error;
-     } 
-
-	 
-      /* If n <= 8 then we know it's a small int 
-      ** since 2^27 = 134217728. If n > 8 then we must
-      ** construct a bignum and let that routine do the checking
-      */
-
-     if (n <= SMALL_DIGITS) {  /* It must be small */
-	 if (neg) i = -(Sint)ui;
-         else i = (Sint)ui;
-	 res = make_small(i);
-     } else {
-	 /* Convert from log10 to log2 by multiplying with 1/log10(2)=3.3219
-	    which we round up to (3 + 1/3) */
-	 lg2 = (n+1)*3 + (n+1)/3 + 1;
-	 m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
-	 m  = BIG_NEED_SIZE(m);    /* number of words + thing */
-
-	 hp = HAlloc(p, m);
-	 hp_end = hp + m;
-	 
-	 lst = orig_list;
-	 if (skip)
-	     lst = CDR(list_val(lst));
-	 
-	 /* load first digits (at least one digit) */
-	 if ((i = (n % D_DECIMAL_EXP)) == 0)
-	     i = D_DECIMAL_EXP;
-	 n -= i;
-	 m = 0;
-	 while(i--) {
-	     m = 10*m + (unsigned_val(CAR(list_val(lst))) - '0');
-	     lst = CDR(list_val(lst));
-	 }
-	 res = small_to_big(m, hp);  /* load first digits */
-	 
-	 while(n) {
-	     i = D_DECIMAL_EXP;
-	     n -= D_DECIMAL_EXP;
-	     m = 0;
-	     while(i--) {
-		 m = 10*m + (unsigned_val(CAR(list_val(lst))) - '0');
-		 lst = CDR(list_val(lst));
-	     }
-	     if (is_small(res))
-		 res = small_to_big(signed_val(res), hp);
-	     res = big_times_small(res, D_DECIMAL_BASE, hp);
-	     if (is_small(res))
-		 res = small_to_big(signed_val(res), hp);
-	     res = big_plus_small(res, m, hp);
-	 }
-
-	 if (neg) {
-	     if (is_small(res))
-		 res = make_small(-signed_val(res));
-	     else {
-		 Uint *big = big_val(res); /* point to thing */
-		 *big = bignum_header_neg(*big);
-	     }
-	 }
-
-	 if (is_not_small(res)) {
-	     res = big_plus_small(res, 0, hp); /* includes conversion to small */
-
-	     if (is_not_small(res)) {
-		 hp += (big_arity(res)+1);
-	     }
-	 }
-	 HRelease(p,hp_end,hp);
-     }
-     *integer = res;
-     *rest = tail;
-     if (tail != NIL) {
-	 return LTI_SOME_INTEGER;
-     }
-     return LTI_ALL_INTEGER;
-}
 BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 {
      Eterm res;
      Eterm tail;
      Eterm *hp;
      /* must be a list */
-     switch (do_list_to_integer(BIF_P,BIF_ARG_1,&res,&tail)) {
-	 /* HAlloc after do_list_to_integer as it 
-	    might HAlloc itself (bignum) */
+     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &tail)) {
+     /* HAlloc after erts_list_to_integer as it might HAlloc itself (bignum) */
      case LTI_BAD_STRUCTURE:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, am_error, am_not_a_list));
@@ -3100,13 +2945,14 @@ BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
  {
-   /* Using do_list_to_integer is about twice as fast as using 
+   /* Using erts_list_to_integer is about twice as fast as using
       erts_chars_to_integer because we do not have to copy the 
       entire list */
      Eterm res;
      Eterm dummy;
      /* must be a list */
-     if (do_list_to_integer(BIF_P,BIF_ARG_1,&res,&dummy) != LTI_ALL_INTEGER) {
+     if (erts_list_to_integer(BIF_P, BIF_ARG_1, 10,
+                              &res, &dummy) != LTI_ALL_INTEGER) {
 	 BIF_ERROR(BIF_P,BADARG);
      }
      BIF_RET(res);
@@ -3114,14 +2960,12 @@ BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 {
-
   /* Bif implementation is about 50% faster than pure erlang,
      and since we have erts_chars_to_integer now it is simpler
      as well. This could be optmized further if we did not have to
      copy the list to buf. */
     int i;
-    Eterm res;
-    char *buf = NULL;
+    Eterm res, dummy;
     int base;
 
     i = erts_list_length(BIF_ARG_1);
@@ -3129,31 +2973,16 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
       BIF_ERROR(BIF_P, BADARG);
     
     base = signed_val(BIF_ARG_2);
-  
+
     if (base < 2 || base > 36) 
       BIF_ERROR(BIF_P, BADARG);
 
-    /* Take fast path if base it 10 */
-    if (base == 10)
-      return list_to_integer_1(BIF_P,&BIF_ARG_1);
-    
-    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-    
-    if (intlist_to_buf(BIF_ARG_1, buf, i) < 0)
-      goto list_to_integer_1_error;
-    buf[i] = '\0';		/* null terminal */
-    
-    if ((res = erts_chars_to_integer(BIF_P,buf,i,base)) == THE_NON_VALUE)
-      goto list_to_integer_1_error;
-    
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
+                             &res, &dummy) != LTI_ALL_INTEGER) {
+        BIF_ERROR(BIF_P,BADARG);
+    }
     BIF_RET(res);
-    
- list_to_integer_1_error:
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    BIF_ERROR(BIF_P, BADARG);
-     
- }
+}
 
 /**********************************************************************/
 
