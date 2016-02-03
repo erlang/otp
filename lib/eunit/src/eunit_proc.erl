@@ -268,6 +268,8 @@ insulator_wait(Child, Parent, Buf, St) ->
 	    kill_task(Child, St)
     end.
 
+-spec kill_task(_, _) -> no_return().
+
 kill_task(Child, St) ->
     exit(Child, kill),
     terminate_insulator(St).
