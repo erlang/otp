@@ -406,7 +406,7 @@ Some of the available `configure` options are:
     that has to be the same as the filename. You also have to define
     `STATIC_ERLANG_{NIF,DRIVER}` when compiling the .o files for the nif/driver.
     If your nif/driver depends on some other dynamic library, you now have to link
-    that to the Erlang VM binary. This is easily achived by passing `LIBS=-llibname`
+    that to the Erlang VM binary. This is easily achieved by passing `LIBS=-llibname`
     to configure.
 *   `--without-$app` - By default all applications in Erlang/OTP will be included
 	in a release. If this is not wanted it is possible to specify that Erlang/OTP
