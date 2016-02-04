@@ -63,11 +63,16 @@
   <funcs>
     <func>
       <name name="allow" arity="1"/>
-      <fsummary>Limit access to a specified set of nodes</fsummary>
+      <fsummary>Permit access to a specified set of nodes</fsummary>
       <desc>
-        <p>Limits access to the specified set of nodes. Any access
-          attempts made from (or to) nodes not in <c><anno>Nodes</anno></c> will be
-          rejected.</p>
+        <p>Permits access to the specified set of nodes.</p>
+        <p>Before the first call to <c>allow/1</c>, any node with the correct
+          cookie can be connected. When <c>allow/1</c> is called, a list
+          of allowed nodes is established. Any access attempts made from (or to)
+          nodes not in that list will be rejected.</p>
+        <p>Subsequent calls to <c>allow/1</c> will add the specified nodes
+          to the list of allowed nodes. It is not possible to remove nodes
+          from the list.</p>
         <p>Returns <c>error</c> if any element in <c><anno>Nodes</anno></c> is not
           an atom.</p>
       </desc>
