@@ -702,6 +702,7 @@ static void do_request(g, fd, s, buf, bsize)
   
 	if (reply(g, fd, wbuf, 4) != 4)
 	  {
+            node_unreg(g, name);
 	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
 			   name);
 	    return;
