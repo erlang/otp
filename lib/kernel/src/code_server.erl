@@ -32,8 +32,6 @@
 
 -import(lists, [foreach/2]).
 
--define(ANY_NATIVE_CODE_LOADED, any_native_code_loaded).
-
 -type on_load_item() :: {reference(),module(),file:name_all(),[pid()]}.
 
 -record(state, {supervisor :: pid(),
@@ -90,8 +88,6 @@ init(Ref, Parent, [Root,Mode]) ->
 		   moddb = Db,
 		   namedb = init_namedb(Path),
 		   mode = Mode},
-
-    put(?ANY_NATIVE_CODE_LOADED, false),
 
     Parent ! {Ref,{ok,self()}},
     loop(State).
@@ -290,14 +286,14 @@ handle_call({load_binary,Mod,File,Bin}, Caller, S) when is_atom(Mod) ->
 handle_call({load_native_partial,Mod,Bin}, {_From,_Tag}, S) ->
     Architecture = erlang:system_info(hipe_architecture),
     Result = (catch hipe_unified_loader:load(Mod, Bin, Architecture)),
-    Status = hipe_result_to_status(Result),
+    Status = hipe_result_to_status(Result, S),
     {reply,Status,S};
 
 handle_call({load_native_sticky,Mod,Bin,WholeModule}, {_From,_Tag}, S) ->
     Architecture = erlang:system_info(hipe_architecture),
     Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule,
                                                     Architecture)),
-    Status = hipe_result_to_status(Result),
+    Status = hipe_result_to_status(Result, S),
     {reply,Status,S};
 
 handle_call({ensure_loaded,Mod}, Caller, St) when is_atom(Mod) ->
@@ -1108,8 +1104,7 @@ try_load_module_2(File, Mod, Bin, Caller, Architecture,
                   #state{moddb=Db}=St) ->
     case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-	    put(?ANY_NATIVE_CODE_LOADED, true),
-	    ets:insert(Db, {Mod,File}),
+	    ets:insert(Db, [{{native,Mod},true},{Mod,File}]),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, Caller, Architecture, St);
@@ -1123,7 +1118,7 @@ try_load_module_3(File, Mod, Bin, Caller, Architecture,
     case erlang:load_module(Mod, Bin) of
         {module,Mod} = Module ->
             ets:insert(Db, {Mod,File}),
-            post_beam_load(Mod, Architecture),
+            post_beam_load([Mod], Architecture, St),
             {reply,Module,St};
         {error,on_load} ->
             handle_on_load(Mod, File, Caller, St);
@@ -1132,23 +1127,24 @@ try_load_module_3(File, Mod, Bin, Caller, Architecture,
             {reply,Error,St}
     end.
 
-hipe_result_to_status(Result) ->
+hipe_result_to_status(Result, #state{moddb=Db}) ->
     case Result of
-	{module,_} ->
-	    put(?ANY_NATIVE_CODE_LOADED, true),
+	{module,Mod} ->
+	    ets:insert(Db, [{{native,Mod},true}]),
 	    Result;
 	_ ->
 	    {error,Result}
     end.
 
-post_beam_load(Mod, Architecture) ->
+post_beam_load(_, undefined, _) ->
+    %% HiPE is disabled.
+    ok;
+post_beam_load(Mods0, _Architecture, #state{moddb=Db}) ->
     %% post_beam_load/2 can potentially be very expensive because it
-    %% blocks multi-scheduling; thus we want to avoid the call if we
-    %% know that it is not needed.
-    case get(?ANY_NATIVE_CODE_LOADED) of
-	true -> hipe_unified_loader:post_beam_load(Mod, Architecture);
-	false -> ok
-    end.
+    %% blocks multi-scheduling. Therefore, we only want to call
+    %% it with modules that are known to have native code loaded.
+    Mods = [M || M <- Mods0, ets:member(Db, {native,M})],
+    hipe_unified_loader:post_beam_load(Mods).
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
