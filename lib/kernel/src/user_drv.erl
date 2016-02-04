@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -559,6 +559,7 @@ put_int16(N, Tail) ->
 %% is sent back to the process sending the request. This command was added in
 %% OTP 18 to make sure that data sent from io:format is actually printed
 %% to the console before the vm stops when calling erlang:halt(integer()).
+-dialyzer({no_improper_lists, io_command/1}).
 io_command({put_chars_sync, unicode,Cs,Reply}) ->
     {{command,[?OP_PUTC_SYNC|unicode:characters_to_binary(Cs,utf8)]},Reply};
 io_command({put_chars, unicode,Cs}) ->
