@@ -114,7 +114,8 @@
         option().
 -type socket() :: port().
 
--export_type([option/0, option_name/0, connect_option/0, listen_option/0]).
+-export_type([option/0, option_name/0, connect_option/0, listen_option/0,
+              socket/0]).
 
 %%
 %% Connect a socket
