@@ -3569,6 +3569,9 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	} else
 	    goto out_err;
 
+        if (!group)
+            goto out_err;
+
 	if (enif_inspect_binary(env, prime[2], &seed)) {
 	    EC_GROUP_set_seed(group, seed.data, seed.size);
 	}

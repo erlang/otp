@@ -35,19 +35,19 @@
 %%   version                                        3
 %%   subject                                        [] list of the following content
 %%      {name,  Name}
-%%      {email, Email} 
+%%      {email, Email}
 %%      {city,  City}
 %%      {state, State}
 %%      {org, Org}
 %%      {org_unit, OrgUnit}
-%%      {country, Country} 
+%%      {country, Country}
 %%      {serial, Serial}
 %%      {title, Title}
 %%      {dnQualifer, DnQ}
-%%   issuer = {Issuer, IssuerKey}                   true (i.e. a ca cert is created) 
+%%   issuer = {Issuer, IssuerKey}                   true (i.e. a ca cert is created)
 %%                                                  (obs IssuerKey migth be {Key, Password}
 %%   key = KeyFile|KeyBin|rsa|dsa|ec                Subject PublicKey rsa, dsa or ec generates key
-%%   
+%%
 %%
 %%   (OBS: The generated keys are for testing only)
 %% @spec ([{::atom(), ::term()}]) -> {Cert::binary(), Key::binary()}
@@ -108,9 +108,9 @@ gen_ec(Curve) when is_atom(Curve) ->
 %%--------------------------------------------------------------------
 verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
     Key = decode_key(DerKey),
-    case Key of 
+    case Key of
 	#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} ->
-	    public_key:pkix_verify(DerEncodedCert, 
+	    public_key:pkix_verify(DerEncodedCert,
 				   #'RSAPublicKey'{modulus=Mod, publicExponent=Exp});
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
 	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}});
@@ -136,7 +136,7 @@ decode_key({Key, Pw}) ->
     decode_key(Key, Pw);
 decode_key(Key) ->
     decode_key(Key, no_passwd).
-    
+
 
 decode_key(#'RSAPublicKey'{} = Key,_) ->
     Key;
@@ -162,16 +162,16 @@ encode_key(Key = #'ECPrivateKey'{}) ->
     {ok, Der} = 'OTP-PUB-KEY':encode('ECPrivateKey', Key),
     {'ECPrivateKey', Der, not_encrypted}.
 
-make_tbs(SubjectKey, Opts) ->    
+make_tbs(SubjectKey, Opts) ->
     Version = list_to_atom("v"++integer_to_list(proplists:get_value(version, Opts, 3))),
 
     IssuerProp = proplists:get_value(issuer, Opts, true),
     {Issuer, IssuerKey}  = issuer(IssuerProp, Opts, SubjectKey),
 
     {Algo, Parameters} = sign_algorithm(IssuerKey, Opts),
-    
+
     SignAlgo = #'SignatureAlgorithm'{algorithm  = Algo,
-				     parameters = Parameters},    
+				     parameters = Parameters},
     Subject = case IssuerProp of
 		  true -> %% Is a Root Ca
 		      Issuer;
@@ -239,14 +239,14 @@ subject_enc(Other) ->               Other.
 
 extensions(Opts) ->
     case proplists:get_value(extensions, Opts, []) of
-	false -> 
+	false ->
 	    asn1_NOVALUE;
-	Exts  -> 
+	Exts  ->
 	    lists:flatten([extension(Ext) || Ext <- default_extensions(Exts)])
     end.
 
 default_extensions(Exts) ->
-    Def = [{key_usage,undefined}, 
+    Def = [{key_usage,undefined},
 	   {subject_altname, undefined},
 	   {issuer_altname, undefined},
 	   {basic_constraints, default},
@@ -259,7 +259,7 @@ default_extensions(Exts) ->
 	   {policy_mapping, undefined}],
     Filter = fun({Key, _}, D) -> lists:keydelete(Key, 1, D) end,
     Exts ++ lists:foldl(Filter, Def, Exts).
-       	
+
 extension({_, undefined}) -> [];
 extension({basic_constraints, Data}) ->
     case Data of
@@ -267,7 +267,7 @@ extension({basic_constraints, Data}) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
 			 extnValue = #'BasicConstraints'{cA=true},
 			 critical=true};
-	false -> 
+	false ->
 	    [];
 	Len when is_integer(Len) ->
 	    #'Extension'{extnID = ?'id-ce-basicConstraints',
@@ -287,7 +287,7 @@ publickey(#'RSAPrivateKey'{modulus=N, publicExponent=E}) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
 publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
-    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa',
 				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
 publickey(#'ECPrivateKey'{version = _Version,
@@ -334,8 +334,10 @@ make_key(dsa, _Opts) ->
     gen_dsa2(128, 20);  %% Bytes i.e. {1024, 160}
 make_key(ec, _Opts) ->
     %% (OBS: for testing only)
-    gen_ec2(secp256k1).
-    
+    CurveOid = hd(tls_v1:ecc_curves(0)),
+    NamedCurve = pubkey_cert_records:namedCurves(CurveOid),
+    gen_ec2(NamedCurve).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RSA key generation  (OBS: for testing only)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -360,11 +362,11 @@ gen_rsa2(Size) ->
 	    #'RSAPrivateKey'{version = 'two-prime',
 			     modulus = N,
 			     publicExponent  = E,
-			     privateExponent = D, 
-			     prime1 = P, 
-			     prime2 = Q, 
-			     exponent1 = D rem (P-1), 
-			     exponent2 = D rem (Q-1), 
+			     privateExponent = D,
+			     prime1 = P,
+			     prime2 = Q,
+			     exponent1 = D rem (P-1),
+			     exponent2 = D rem (Q-1),
 			     coefficient = Co
 			    }
     end.
@@ -378,22 +380,22 @@ gen_dsa2(LSize, NSize) ->
     Q  = prime(NSize),  %% Choose N-bit prime Q
     X0 = prime(LSize),
     P0 = prime((LSize div 2) +1),
-    
+
     %% Choose L-bit prime modulus P such that p-1 is a multiple of q.
     case dsa_search(X0 div (2*Q*P0), P0, Q, 1000) of
-	error -> 
+	error ->
 	    gen_dsa2(LSize, NSize);
-	P ->	    
+	P ->
 	    G = crypto:mod_pow(2, (P-1) div Q, P), % Choose G a number whose multiplicative order modulo p is q.
 	    %%                 such that This may be done by setting g = h^(p-1)/q mod p, commonly h=2 is used.
-	    
+
 	    X = prime(20),               %% Choose x by some random method, where 0 < x < q.
 	    Y = crypto:mod_pow(G, X, P), %% Calculate y = g^x mod p.
-	    
-	    #'DSAPrivateKey'{version=0, p = P, q = Q, 
+
+	    #'DSAPrivateKey'{version=0, p = P, q = Q,
 			     g = crypto:bytes_to_integer(G), y = crypto:bytes_to_integer(Y), x = X}
     end.
-    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EC key generation  (OBS: for testing only)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -413,7 +415,7 @@ dsa_search(T, P0, Q, Iter) when Iter > 0 ->
 	true -> P;
 	false -> dsa_search(T+1, P0, Q, Iter-1)
     end;
-dsa_search(_,_,_,_) -> 
+dsa_search(_,_,_,_) ->
     error.
 
 
@@ -424,15 +426,15 @@ prime(ByteSize) ->
 
 prime_odd(Rand, N) ->
     case is_prime(Rand, 50) of
-	true -> 
+	true ->
 	    Rand;
-	false -> 
+	false ->
 	    prime_odd(Rand+2, N+1)
     end.
 
 %% see http://en.wikipedia.org/wiki/Fermat_primality_test
 is_prime(_, 0) -> true;
-is_prime(Candidate, Test) -> 
+is_prime(Candidate, Test) ->
     CoPrime = odd_rand(10000, Candidate),
     Result = crypto:mod_pow(CoPrime, Candidate, Candidate) ,
     is_prime(CoPrime, crypto:bytes_to_integer(Result), Candidate, Test).
@@ -450,9 +452,9 @@ odd_rand(Size) ->
 odd_rand(Min,Max) ->
     Rand = crypto:rand_uniform(Min,Max),
     case Rand rem 2 of
-	0 -> 
+	0 ->
 	    Rand + 1;
-	_ -> 
+	_ ->
 	    Rand
     end.
 
@@ -472,4 +474,3 @@ pem_to_der(File) ->
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
     file:write_file(File, PemBin).
-

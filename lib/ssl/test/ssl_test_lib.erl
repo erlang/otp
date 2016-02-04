@@ -69,8 +69,8 @@ run_server(Opts) ->
 
 run_server(ListenSocket, Opts) ->
     Accepters = proplists:get_value(accepters, Opts, 1),
-    run_server(ListenSocket, Opts, Accepters). 
-    
+    run_server(ListenSocket, Opts, Accepters).
+
 run_server(ListenSocket, Opts, 1) ->
     do_run_server(ListenSocket, connect(ListenSocket, Opts), Opts);
 run_server(ListenSocket, Opts, N) ->
@@ -128,7 +128,7 @@ connect(#sslsocket{} = ListenSocket, Opts) ->
 connect(ListenSocket, Opts) ->
     Node = proplists:get_value(node, Opts),
     ct:log("~p:~p~ngen_tcp:accept(~p)~n", [?MODULE,?LINE, ListenSocket]),
-    {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, 
+    {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept,
 				  [ListenSocket]),
     AcceptSocket.
 
@@ -137,8 +137,8 @@ connect(_, _, 0, AcceptSocket, _, _) ->
 
 connect(ListenSocket, Node, N, _, Timeout, []) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
-    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
-				  [ListenSocket]),    
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept,
+				  [ListenSocket]),
     ct:log("~p:~p~nssl:ssl_accept(~p, ~p)~n", [?MODULE,?LINE, AcceptSocket, Timeout]),
 
     case rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Timeout]) of
@@ -150,8 +150,8 @@ connect(ListenSocket, Node, N, _, Timeout, []) ->
     end;
 connect(ListenSocket, Node, _, _, Timeout, Opts) ->
     ct:log("ssl:transport_accept(~p)~n", [ListenSocket]),
-    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
-				  [ListenSocket]),    
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept,
+				  [ListenSocket]),
     ct:log("ssl:ssl_accept(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
     rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Opts, Timeout]),
     AcceptSocket.
@@ -163,10 +163,10 @@ remove_close_msg(ReconnectTimes) ->
 	{ssl_closed, _} ->
 	   remove_close_msg(ReconnectTimes -1)
     end.
-	    
+
 start_client(Args) ->
     Result = spawn_link(?MODULE, run_client_init, [lists:delete(return_socket, Args)]),
-    receive 
+    receive
 	{connected, Socket} ->
 	    case lists:member(return_socket, Args) of
 		true -> {Result, Socket};
@@ -252,8 +252,8 @@ close(Pid) ->
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
-		
+	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason])
+
     end.
 
 close(Pid, Timeout) ->
@@ -263,14 +263,14 @@ close(Pid, Timeout) ->
     receive
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
-	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason]) 
-    after 
+	    ct:log("~p:~p~nPid: ~p down due to:~p ~n", [?MODULE,?LINE, Pid, Reason])
+    after
 	Timeout ->
 	    exit(Pid, kill)
     end.
 
-check_result(Server, ServerMsg, Client, ClientMsg) -> 
-    receive 
+check_result(Server, ServerMsg, Client, ClientMsg) ->
+    receive
 	{Server, ServerMsg} ->
 	    check_result(Client, ClientMsg);
 
@@ -286,9 +286,9 @@ check_result(Server, ServerMsg, Client, ClientMsg) ->
 	    ct:fail(Reason)
     end.
 
-check_result(Pid, Msg) -> 
-    receive 
-	{Pid, Msg} -> 
+check_result(Pid, Msg) ->
+    receive
+	{Pid, Msg} ->
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
@@ -297,22 +297,22 @@ check_result(Pid, Msg) ->
 	%%     ct:log("~p:~p Exit status: ~p~n",[?MODULE,?LINE, Status]),
 	%%    check_result(Pid, Msg);
 	Unexpected ->
-	    Reason = {{expected, {Pid, Msg}}, 
+	    Reason = {{expected, {Pid, Msg}},
 		      {got, Unexpected}},
 	    ct:fail(Reason)
     end.
 
-wait_for_result(Server, ServerMsg, Client, ClientMsg) -> 
-    receive 
-	{Server, ServerMsg} -> 
-	    receive 
+wait_for_result(Server, ServerMsg, Client, ClientMsg) ->
+    receive
+	{Server, ServerMsg} ->
+	    receive
 		{Client, ClientMsg} ->
 		    ok
 		%% Unexpected ->
 		%%     Unexpected
 	    end;
-	{Client, ClientMsg} -> 
-	    receive 
+	{Client, ClientMsg} ->
+	    receive
 		{Server, ServerMsg} ->
 		    ok
 		%% Unexpected ->
@@ -328,16 +328,16 @@ wait_for_result(Server, ServerMsg, Client, ClientMsg) ->
 check_ok([]) ->
     ok;
 check_ok(Pids) ->
-    receive 
+    receive
 	{Pid, ok} ->
 	    check_ok(lists:delete(Pid, Pids));
 	Other ->
 	    ct:fail({expected, {"pid()", ok}, got, Other})
     end.
-	
-wait_for_result(Pid, Msg) -> 
-    receive 
-	{Pid, Msg} -> 
+
+wait_for_result(Pid, Msg) ->
+    receive
+	{Pid, Msg} ->
 	    ok;
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("~p:~p~nopenssl ~s~n",[?MODULE,?LINE, Debug]),
@@ -354,30 +354,30 @@ user_lookup(srp, Username, _UserState) ->
     {ok, {srp_1024, Salt, UserPassHash}}.
 
 cert_options(Config) ->
-    ClientCaCertFile = filename:join([?config(priv_dir, Config), 
+    ClientCaCertFile = filename:join([?config(priv_dir, Config),
 				      "client", "cacerts.pem"]),
-    ClientCertFile = filename:join([?config(priv_dir, Config), 
+    ClientCertFile = filename:join([?config(priv_dir, Config),
 				    "client", "cert.pem"]),
     ClientCertFileDigitalSignatureOnly = filename:join([?config(priv_dir, Config),
 				    "client", "digital_signature_only_cert.pem"]),
-    ServerCaCertFile = filename:join([?config(priv_dir, Config), 
+    ServerCaCertFile = filename:join([?config(priv_dir, Config),
 				      "server", "cacerts.pem"]),
-    ServerCertFile = filename:join([?config(priv_dir, Config), 
+    ServerCertFile = filename:join([?config(priv_dir, Config),
 				    "server", "cert.pem"]),
-    ServerKeyFile = filename:join([?config(priv_dir, Config), 
+    ServerKeyFile = filename:join([?config(priv_dir, Config),
 			     "server", "key.pem"]),
-    ClientKeyFile = filename:join([?config(priv_dir, Config), 
+    ClientKeyFile = filename:join([?config(priv_dir, Config),
 			     "client", "key.pem"]),
-    ServerKeyCertFile = filename:join([?config(priv_dir, Config), 
+    ServerKeyCertFile = filename:join([?config(priv_dir, Config),
 				       "server", "keycert.pem"]),
-    ClientKeyCertFile = filename:join([?config(priv_dir, Config), 
+    ClientKeyCertFile = filename:join([?config(priv_dir, Config),
 				       "client", "keycert.pem"]),
 
-    BadCaCertFile = filename:join([?config(priv_dir, Config), 
+    BadCaCertFile = filename:join([?config(priv_dir, Config),
 				   "badcacert.pem"]),
-    BadCertFile = filename:join([?config(priv_dir, Config), 
+    BadCertFile = filename:join([?config(priv_dir, Config),
 				   "badcert.pem"]),
-    BadKeyFile = filename:join([?config(priv_dir, Config), 
+    BadKeyFile = filename:join([?config(priv_dir, Config),
 			      "badkey.pem"]),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
 
@@ -385,16 +385,16 @@ cert_options(Config) ->
     SNIServerAKeyFile = filename:join([?config(priv_dir, Config), "a.server", "key.pem"]),
     SNIServerBCertFile = filename:join([?config(priv_dir, Config), "b.server", "cert.pem"]),
     SNIServerBKeyFile = filename:join([?config(priv_dir, Config), "b.server", "key.pem"]),
-    [{client_opts, []}, 
-     {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
-				{certfile, ClientCertFile},  
+    [{client_opts, []},
+     {client_verification_opts, [{cacertfile, ClientCaCertFile},
+				{certfile, ClientCertFile},
 				{keyfile, ClientKeyFile},
-				{ssl_imp, new}]}, 
+				{ssl_imp, new}]},
      {client_verification_opts_digital_signature_only, [{cacertfile, ClientCaCertFile},
 				{certfile, ClientCertFileDigitalSignatureOnly},
 				{keyfile, ClientKeyFile},
 				{ssl_imp, new}]},
-     {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {server_opts, [{ssl_imp, new},{reuseaddr, true},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
      {client_psk, [{ssl_imp, new},{reuseaddr, true},
@@ -425,22 +425,22 @@ cert_options(Config) ->
      {server_srp_anon, [{ssl_imp, new},{reuseaddr, true},
 			{user_lookup_fun, {fun user_lookup/3, undefined}},
 			{ciphers, srp_anon_suites()}]},
-     {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {server_verification_opts, [{ssl_imp, new},{reuseaddr, true},
 		    {cacertfile, ServerCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {client_kc_opts, [{certfile, ClientKeyCertFile},  {ssl_imp, new}]}, 
-     {server_kc_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {client_kc_opts, [{certfile, ClientKeyCertFile},  {ssl_imp, new}]},
+     {server_kc_opts, [{ssl_imp, new},{reuseaddr, true},
 		       {certfile, ServerKeyCertFile}]},
-     {client_bad_ca, [{cacertfile, BadCaCertFile}, 
+     {client_bad_ca, [{cacertfile, BadCaCertFile},
 		      {certfile, ClientCertFile},
 		      {keyfile, ClientKeyFile},
 		      {ssl_imp, new}]},
-     {client_bad_cert, [{cacertfile, ClientCaCertFile},	    
-			{certfile, BadCertFile},  
+     {client_bad_cert, [{cacertfile, ClientCaCertFile},
+			{certfile, BadCertFile},
 			{keyfile, ClientKeyFile},
 			{ssl_imp, new}]},
      {server_bad_ca, [{ssl_imp, new},{cacertfile, BadCaCertFile},
-		      {certfile, ServerCertFile}, 
+		      {certfile, ServerCertFile},
 		      {keyfile, ServerKeyFile}]},
      {server_bad_cert, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
 			{certfile, BadCertFile}, {keyfile, ServerKeyFile}]},
@@ -460,25 +460,25 @@ cert_options(Config) ->
 
 
 make_dsa_cert(Config) ->
-    
+
     {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa, dsa, ""),
     {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa, dsa, ""),
-    [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
+    [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true},
 				 {cacertfile, ServerCaCertFile},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_dsa_verify_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {server_dsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
 			       {cacertfile, ClientCaCertFile},
 			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 			       {verify, verify_peer}]},
-     {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true},
 			{cacertfile, ClientCaCertFile},
 			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]},
-     {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+     {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true},
 		       {cacertfile, ServerCaCertFile},
 		       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 		       {user_lookup_fun, {fun user_lookup/3, undefined}},
 		       {ciphers, srp_dss_suites()}]},
-     {client_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+     {client_srp_dsa, [{ssl_imp, new},{reuseaddr, true},
 		       {srp_identity, {"Test-User", "secret"}},
 		       {cacertfile, ClientCaCertFile},
 		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
@@ -552,13 +552,13 @@ make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix) ->
     Alg2Str = atom_to_list(Alg2),
     CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}]),
     {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo}]),
-    CaCertFile = filename:join([?config(priv_dir, Config), 
+    CaCertFile = filename:join([?config(priv_dir, Config),
 				RoleStr, Prefix ++ Alg1Str ++ "_cacerts.pem"]),
-    CertFile = filename:join([?config(priv_dir, Config), 
+    CertFile = filename:join([?config(priv_dir, Config),
 			      RoleStr, Prefix ++ Alg2Str ++ "_cert.pem"]),
-    KeyFile = filename:join([?config(priv_dir, Config), 
+    KeyFile = filename:join([?config(priv_dir, Config),
 				   RoleStr, Prefix ++ Alg2Str ++ "_key.pem"]),
-    
+
     der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
     der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
     der_to_pem(KeyFile, [CertKey]),
@@ -623,7 +623,7 @@ run_upgrade_client(Opts) ->
     Pid = proplists:get_value(from, Opts),
     TcpOptions = proplists:get_value(tcp_options, Opts),
     SslOptions = proplists:get_value(ssl_options, Opts),
-    
+
     ct:log("~p:~p~ngen_tcp:connect(~p, ~p, ~p)~n",
 		       [?MODULE,?LINE, Host, Port, TcpOptions]),
     {ok, Socket} = rpc:call(Node, gen_tcp, connect, [Host, Port, TcpOptions]),
@@ -639,7 +639,7 @@ run_upgrade_client(Opts) ->
     Msg = rpc:call(Node, Module, Function, [SslSocket | Args]),
     ct:log("~p:~p~nUpgrade Client Msg: ~p ~n", [?MODULE,?LINE, Msg]),
     Pid ! {self(), Msg},
-    receive 
+    receive
 	close ->
 	    ct:log("~p:~p~nUpgrade Client closing~n", [?MODULE,?LINE]),
 	    rpc:call(Node, ssl, close, [SslSocket])
@@ -682,7 +682,7 @@ run_upgrade_server_error(Opts) ->
 
 start_server_error(Args) ->
     Result = spawn_link(?MODULE, run_server_error, [Args]),
-    receive 
+    receive
 	{listen, up} ->
 	    Result
     end.
@@ -718,7 +718,7 @@ run_server_error(Opts) ->
 		     Pid ! {self(), Error}
 	     end;
 	Error ->
-	    %% Not really true but as this is an error test 
+	    %% Not really true but as this is an error test
 	    %% this is what we want.
 	    Pid ! {listen, up},
 	    Pid ! {self(), Error}
@@ -744,7 +744,7 @@ accepters(N) ->
 accepters(Acc, 0) ->
     Acc;
 accepters(Acc, N) ->
-    receive 
+    receive
 	{accepter, _, Server} ->
 	    accepters([Server| Acc], N-1)
     end.
@@ -780,7 +780,7 @@ trigger_renegotiate(Socket, _, 0, Id) ->
 	%% Tests that uses this function will not reuse
 	%% sessions so if we get a new session id the
 	%% renegotiation has succeeded.
-       	[{session_id, _} | _ ] -> 
+       	[{session_id, _} | _ ] ->
 	    ok;
 	{error, closed} ->
 	    fail_session_fatal_alert_during_renegotiation;
@@ -790,14 +790,14 @@ trigger_renegotiate(Socket, _, 0, Id) ->
 
 trigger_renegotiate(Socket, ErlData, N, Id) ->
     ssl:send(Socket, ErlData),
-    trigger_renegotiate(Socket, ErlData, N-1, Id).				   
-    
+    trigger_renegotiate(Socket, ErlData, N-1, Id).
+
 
 send_selected_port(Pid, 0, #sslsocket{} = Socket) ->
-    {ok, {_, NewPort}} = ssl:sockname(Socket),	 
+    {ok, {_, NewPort}} = ssl:sockname(Socket),
     Pid ! {self(), {port, NewPort}};
 send_selected_port(Pid, 0, Socket) ->
-    {ok, {_, NewPort}} = inet:sockname(Socket),	 
+    {ok, {_, NewPort}} = inet:sockname(Socket),
     Pid ! {self(), {port, NewPort}};
 send_selected_port(_,_,_) ->
     ok.
@@ -818,7 +818,17 @@ rsa_suites(CounterPart) ->
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+                 common_ciphers(CounterPart)).
+
+common_ciphers(crypto) ->
+    ssl:cipher_suites();
+common_ciphers(openssl) ->
+    OpenSslSuites =
+        string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
+    [ssl:suite_definition(S)
+     || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
+        lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
+    ].
 
 rsa_non_signed_suites() ->
     lists:filter(fun({rsa, _, _}) ->
@@ -986,7 +996,7 @@ cipher_result(Socket, Result) ->
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
     ssl:send(Socket, "Hello\n"),
-    receive 
+    receive
 	{ssl, Socket, "H"} ->
 	    ssl:send(Socket, " world\n"),
 	    receive_rizzo_duong_beast();
@@ -995,7 +1005,7 @@ cipher_result(Socket, Result) ->
 	    receive
 		{ssl, Socket, " world\n"} ->
 		    ok
-	    end;       
+	    end;
 	Other ->
 	    {unexpected, Other}
     end.
@@ -1016,9 +1026,9 @@ public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 public_key(Key) ->
     Key.
 receive_rizzo_duong_beast() ->
-    receive 
+    receive
 	{ssl, _, "ello\n"} ->
-	    receive 
+	    receive
 		{ssl, _, " "} ->
 		    receive
 			{ssl, _, "world\n"} ->
@@ -1101,8 +1111,8 @@ is_sane_ecc(openssl) ->
 	"OpenSSL 1.0.0" ++ _ ->  % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
-	"OpenSSL 1.0.1l" ++ _ ->  
-	    %% Breaks signature verification 
+	"OpenSSL 1.0.1l" ++ _ ->
+	    %% Breaks signature verification
 	    false;
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
@@ -1112,7 +1122,7 @@ is_sane_ecc(openssl) ->
 	    true
     end;
 is_sane_ecc(crypto) ->
-    [{_,_, Bin}]  = crypto:info_lib(), 
+    [{_,_, Bin}]  = crypto:info_lib(),
     case binary_to_list(Bin) of
 	"OpenSSL 0.9.8" ++ _ -> % Does not support ECC
 	    false;
@@ -1158,7 +1168,7 @@ cipher_restriction(Config0) ->
     end.
 
 check_sane_openssl_version(Version) ->
-    case supports_ssl_tls_version(Version) of 
+    case supports_ssl_tls_version(Version) of
 	true ->
 	    case {Version, os:cmd("openssl version")} of
 		{_, "OpenSSL 1.0.2" ++ _} ->
@@ -1211,7 +1221,7 @@ filter_suites(Ciphers0) ->
     Supported0 = ssl_cipher:suites(Version)
 	++ ssl_cipher:anonymous_suites(Version)
 	++ ssl_cipher:psk_suites(Version)
-	++ ssl_cipher:srp_suites() 
+	++ ssl_cipher:srp_suites()
 	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
     Supported2 = [ssl:suite_definition(S) || S <- Supported1],
@@ -1223,14 +1233,14 @@ close_port(Port) ->
     close_loop(Port, 500, false).
 
 close_loop(Port, Time, SentClose) ->
-    receive 
+    receive
 	{Port, {data,Debug}} when is_port(Port) ->
 	    ct:log("openssl ~s~n",[Debug]),
-	    close_loop(Port, Time, SentClose);	
+	    close_loop(Port, Time, SentClose);
 	{ssl,_,Msg} ->
 	    ct:log("ssl Msg ~s~n",[Msg]),
-	    close_loop(Port, Time, SentClose);	
-	{Port, closed} -> 
+	    close_loop(Port, Time, SentClose);
+	{Port, closed} ->
 	    ct:log("Port Closed~n",[]),
 	    ok;
 	{'EXIT', Port, Reason} ->
@@ -1241,7 +1251,7 @@ close_loop(Port, Time, SentClose) ->
 	    close_loop(Port, Time, SentClose)
     after Time ->
 	    case SentClose of
-		false -> 
+		false ->
 		    ct:log("Closing port ~n",[]),
 		    catch erlang:port_close(Port),
 		    close_loop(Port, Time, true);
@@ -1253,8 +1263,8 @@ close_loop(Port, Time, SentClose) ->
 portable_open_port(Exe, Args) ->
     AbsPath = os:find_executable(Exe),
     ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
-    open_port({spawn_executable, AbsPath}, 
-	      [{args, Args}, stderr_to_stdout]). 
+    open_port({spawn_executable, AbsPath},
+	      [{args, Args}, stderr_to_stdout]).
 
 supports_ssl_tls_version(Version) ->
     VersionFlag = version_flag(Version),
@@ -1264,8 +1274,8 @@ supports_ssl_tls_version(Version) ->
     do_supports_ssl_tls_version(Port).
 
 do_supports_ssl_tls_version(Port) ->
-    receive 
-	{Port, {data, "unknown option"  ++ _}} -> 
+    receive
+	{Port, {data, "unknown option"  ++ _}} ->
 	    false;
 	{Port, {data, Data}} ->
 	    case lists:member("error", string:tokens(Data, ":")) of
