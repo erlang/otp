@@ -180,7 +180,9 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
     FullDesc = get_content(fullDescription, Desc),
     Functions = [{function_name(E), E} || E <- get_content(functions, Es)],
     Types = [{type_name(E), E} || E <- get_content(typedecls, Es)],
-    SortedFs = lists:sort(Functions),
+    SortedFs = if Opts#opts.sort_functions -> lists:sort(Functions);
+                  true -> Functions
+               end,
     Body = (navigation("top")
             ++ [?NL, hr, ?NL, ?NL, {h1, Title}, ?NL]
 	    ++ doc_index(FullDesc, Functions, Types)
@@ -204,9 +206,7 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
 	       end
 	    ++ types(lists:sort(Types), Opts)
 	    ++ function_index(SortedFs, Opts#opts.index_columns)
-	    ++ if Opts#opts.sort_functions -> functions(SortedFs, Opts);
-		  true -> functions(Functions, Opts)
-	       end
+	    ++ functions(SortedFs, Opts)
 	    ++ [hr, ?NL]
 	    ++ navigation("bottom")
 	    ++ timestamp()),
