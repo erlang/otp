@@ -197,6 +197,8 @@ Eshell V5.0  (abort with ^G)
       <item><c>cacertfile</c></item>
       <item><c>verify</c></item>
       <item><c>verify_fun</c> (write as <c>{Module, Function, InitialUserState}</c>)</item>
+      <item><c>crl_check</c></item>
+      <item><c>crl_cache</c> (write as Erlang term)</item>
       <item><c>reuse_sessions</c></item>
       <item><c>secure_renegotiate</c></item>
       <item><c>depth</c></item>

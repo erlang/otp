@@ -400,6 +400,14 @@ ssl_options(server, ["server_verify_fun", Value|T]) ->
     [{verify_fun, verify_fun(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_verify_fun", Value|T]) ->
     [{verify_fun, verify_fun(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_crl_check", Value|T]) ->
+    [{crl_check, atomize(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_crl_check", Value|T]) ->
+    [{crl_check, atomize(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_crl_cache", Value|T]) ->
+    [{crl_cache, termify(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_crl_cache", Value|T]) ->
+    [{crl_cache, termify(Value)} | ssl_options(client,T)];
 ssl_options(server, ["server_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_reuse_sessions", Value|T]) ->
