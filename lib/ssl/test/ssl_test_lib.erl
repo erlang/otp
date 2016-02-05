@@ -971,6 +971,10 @@ rc4_suites(Version) ->
     Suites = ssl_cipher:rc4_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
+des_suites(Version) ->
+    Suites = ssl_cipher:des_suites(Version),
+    ssl_cipher:filter_suites(Suites).
+
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
     public_key:pem_decode(PemBin).

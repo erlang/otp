@@ -37,7 +37,7 @@
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
-	 rc4_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
+	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1]).
 
 -export_type([cipher_suite/0,
@@ -311,7 +311,8 @@ all_suites(Version) ->
 	++ anonymous_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites()
-        ++ rc4_suites(Version).
+        ++ rc4_suites(Version)
+        ++ des_suites(Version).
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
@@ -415,6 +416,16 @@ rc4_suites({3, N}) when N =< 3 ->
      ?TLS_RSA_WITH_RC4_128_MD5,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
+%%--------------------------------------------------------------------
+-spec des_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
+%%
+%% Description: Returns a list of the cipher suites
+%% with DES cipher, only supported if explicitly set by user. 
+%% Are not considered secure any more. 
+%%--------------------------------------------------------------------
+des_suites(_)->
+    [?TLS_DHE_RSA_WITH_DES_CBC_SHA,
+     ?TLS_RSA_WITH_DES_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> int_cipher_suite().
@@ -1714,7 +1725,8 @@ dhe_rsa_suites() ->
      ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256].
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    ].
 
 psk_rsa_suites() ->
     [?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
