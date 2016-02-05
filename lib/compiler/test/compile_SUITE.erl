@@ -29,7 +29,7 @@
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
-	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
+	 strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1
@@ -48,13 +48,12 @@ all() ->
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
-     {group, bad_record_use}, strict_record,
+     strict_record,
      missing_testheap, cover, env, core, asm,
      sys_pre_attributes, dialyzer, warnings].
 
 groups() -> 
-    [{bad_record_use, [],
-      [bad_record_use1, bad_record_use2]}].
+    [].
 
 init_per_suite(Config) ->
     Config.
@@ -598,28 +597,6 @@ exists(Name) ->
 	{error, _} -> false
     end.
 
-
-%% Tests that the compiler does not accept
-%% bad use of records.
-bad_record_use1(Config) when is_list(Config) ->
-    ?line {ok, Cwd} = file:get_cwd(),
-    ?line file:set_cwd(?config(data_dir, Config)),
-    ?line true=exists("bad_record_use.erl"),
-    ?line Ret=c:c(bad_record_use),
-    ?line file:set_cwd(Cwd),
-    ?line error=Ret,
-    ok.
-
-%% Tests that the compiler does not accept
-%% bad use of records.
-bad_record_use2(Config) when is_list(Config) ->
-    ?line {ok, Cwd} = file:get_cwd(),
-    ?line file:set_cwd(?config(data_dir, Config)),
-    ?line true=exists("bad_record_use2.erl"),
-    ?line Ret=c:c(bad_record_use),
-    ?line file:set_cwd(Cwd),
-    ?line error=Ret,
-    ok.
 
 strict_record(Config) when is_list(Config) ->
     ?line Priv = ?config(priv_dir, Config),

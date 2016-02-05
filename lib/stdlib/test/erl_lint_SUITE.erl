@@ -65,7 +65,8 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1,otp_11851/1,otp_11879/1,otp_13230/1
+          maps/1,maps_type/1,otp_11851/1,otp_11879/1,otp_13230/1,
+	  record_errors/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -94,7 +95,8 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851, otp_11879, otp_13230].
+     maps, maps_type, otp_11851, otp_11879, otp_13230,
+     record_errors].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3880,6 +3882,17 @@ otp_13230(Config) when is_list(Config) ->
              {1,erl_lint,{bad_deprecated,{frutt,0}}}],
      []} = run_test2(Config, Abstr, []),
     ok.
+
+record_errors(Config) when is_list(Config) ->
+    Ts = [{rec1,
+           <<"-record(r, {a,b}).
+              b() -> #r{a=foo,b=42,a=bar}.
+              u(R) -> R#r{a=1,b=2,a=2}.
+             ">>,
+           [],
+           {errors,[{2,erl_lint,{redefine_field,r,a}},
+		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
+    run(Config, Ts).
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
