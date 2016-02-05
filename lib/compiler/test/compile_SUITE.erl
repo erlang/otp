@@ -86,7 +86,7 @@ file_1(Config) when is_list(Config) ->
 
     process_flag(trap_exit, true),
 
-    ?line {Simple, Target} = files(Config, "file_1"),
+    {Simple, Target} = get_files(Config, simple, "file_1"),
     ?line {ok, Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
 
@@ -179,7 +179,7 @@ big_file(Config) when is_list(Config) ->
 
 outdir(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "outdir"),
+    {Simple, Target} = get_files(Config, simple, "outdir"),
     ?line {ok, simple} = compile:file(Simple, [{outdir, filename:dirname(Target)}]),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
@@ -192,7 +192,7 @@ outdir(Config) when is_list(Config) ->
 
 binary(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "binary"),
+    {Simple, Target} = get_files(Config, simple, "binary"),
     ?line {ok, simple, Binary} = compile:file(Simple, [binary]),
     ?line code:load_binary(simple, Target, Binary),
     ?line passed = simple:test(),
@@ -206,7 +206,7 @@ binary(Config) when is_list(Config) ->
 
 makedep(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple,Target} = files(Config, "makedep"),
+    {Simple,Target} = get_files(Config, simple, "makedep"),
     ?line DataDir = ?config(data_dir, Config),
     ?line SimpleRootname = filename:rootname(Simple),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
@@ -282,7 +282,7 @@ makedep_modify_target(Mf, Target) ->
 
 cond_and_ifdef(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "cond_and_ifdef"),
+    {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
     ?line Options = [{outdir, filename:dirname(Target)},
 		     {d, need_foo}, {d, foo_value, 42},
@@ -434,7 +434,7 @@ other_output(Config) when is_list(Config) ->
 
 encrypted_abstr(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(10)),
-    ?line {Simple,Target} = files(Config, "encrypted_abstr"),
+    {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),
 
     Res = case has_crypto() of
 	      false ->
@@ -582,17 +582,17 @@ do_listing(Source, TargetDir, Type, Ext) ->
     Target = filename:join(TargetDir, SourceBase ++ Ext),
     true = exists(Target).
 
-files(Config, Name) ->
-    ?line code:delete(simple),
-    ?line code:purge(simple),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(DataDir, "simple"),
-    ?line TargetDir = filename:join(PrivDir, Name),
-    ?line ok = file:make_dir(TargetDir),
-    ?line Target = filename:join(TargetDir, "simple"++code:objfile_extension()),
-    {Simple, Target}.
-
+get_files(Config, Module, OutputName) ->
+    code:delete(Module),
+    code:purge(Module),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Src = filename:join(DataDir, atom_to_list(Module)),
+    TargetDir = filename:join(PrivDir, OutputName),
+    ok = file:make_dir(TargetDir),
+    File = atom_to_list(Module) ++ code:objfile_extension(),
+    Target = filename:join(TargetDir, File),
+    {Src, Target}.
 
 run(Target, Func, Args) ->
     ?line Module = list_to_atom(filename:rootname(filename:basename(Target))),
@@ -715,7 +715,7 @@ init(ReplyTo, Fun, _Filler) ->
     ReplyTo ! {result, Fun()}.
 
 env(Config) when is_list(Config) ->
-    ?line {Simple,Target} = files(Config, "file_1"),
+    {Simple,Target} = get_files(Config, simple, env),
     ?line {ok,Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
 
@@ -724,9 +724,9 @@ env(Config) when is_list(Config) ->
 	env_1(Simple, Target)
     after
 	true = os:putenv("ERL_COMPILER_OPTIONS", "ignore_me"),
-      file:set_cwd(Cwd),
-      file:delete(Target),
-      file:del_dir(filename:dirname(Target))
+	file:set_cwd(Cwd),
+	file:delete(Target),
+	file:del_dir(filename:dirname(Target))
     end,
     ok.
 
