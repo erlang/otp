@@ -263,7 +263,9 @@ init([Name, Opts]) ->
 		session_cache_client_max = 
 		    max_session_cache_size(session_cache_client_max),
 		session_cache_server_max = 
-		    max_session_cache_size(session_cache_server_max)
+		    max_session_cache_size(session_cache_server_max),
+		session_client_invalidator = undefined,
+		session_server_invalidator = undefined
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -378,13 +380,17 @@ handle_cast({invalidate_pem, File},
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 				      session_cache_client = ClientCache,
 				      session_cache_server = ServerCache,
-				      session_lifetime = LifeTime
+				      session_lifetime = LifeTime,
+				      session_client_invalidator = Client,
+				      session_server_invalidator = Server				      
 				     } = State) ->
     Timer = erlang:send_after(?SESSION_VALIDATION_INTERVAL, 
 			      self(), validate_sessions),
-    start_session_validator(ClientCache, CacheCb, LifeTime),
-    start_session_validator(ServerCache, CacheCb, LifeTime),
-    {noreply, State#state{session_validation_timer = Timer}};
+    CPid = start_session_validator(ClientCache, CacheCb, LifeTime, Client),
+    SPid = start_session_validator(ServerCache, CacheCb, LifeTime, Server),
+    {noreply, State#state{session_validation_timer = Timer, 
+			  session_client_invalidator = CPid,
+			  session_server_invalidator = SPid}};
 
 
 handle_info({delayed_clean_session, Key, Cache}, #state{session_cache_cb = CacheCb
@@ -471,9 +477,11 @@ validate_session(Port, Session, LifeTime) ->
 	    invalidate_session(Port, Session)
     end.
 		    
-start_session_validator(Cache, CacheCb, LifeTime) ->
+start_session_validator(Cache, CacheCb, LifeTime, undefined) ->
     spawn_link(?MODULE, init_session_validator, 
-	       [[get(ssl_manager), Cache, CacheCb, LifeTime]]).
+	       [[get(ssl_manager), Cache, CacheCb, LifeTime]]);
+start_session_validator(_,_,_, Pid) ->
+    Pid.
 
 init_session_validator([SslManagerName, Cache, CacheCb, LifeTime]) ->
     put(ssl_manager, SslManagerName),
@@ -708,6 +716,6 @@ crl_db_info(_, UserCRLDb) ->
 %% Only start a session invalidator if there is not
 %% one already active
 invalidate_session_cache(undefined, CacheCb, Cache) ->
-    start_session_validator(Cache, CacheCb, {invalidate_before, erlang:monotonic_time()});
+    start_session_validator(Cache, CacheCb, {invalidate_before, erlang:monotonic_time()}, undefined);
 invalidate_session_cache(Pid, _CacheCb, _Cache) ->
     Pid.
