@@ -182,8 +182,7 @@ hello(start, #state{host = Host, port = Port, role = client,
     next_state(hello, hello, Record, State);
 
 hello(Hello = #client_hello{client_version = ClientVersion,
-			    extensions = #hello_extensions{hash_signs = HashSigns,
-							   ec_point_formats = EcPointFormats,
+			    extensions = #hello_extensions{ec_point_formats = EcPointFormats,
 							   elliptic_curves = EllipticCurves}},
       State = #state{connection_states = ConnectionStates0,
 		     port = Port, session = #session{own_certificate = Cert} = Session0,
@@ -191,27 +190,28 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 		     session_cache = Cache,
 		     session_cache_cb = CacheCb,
 		     negotiated_protocol = CurrentProtocol,
+		     key_algorithm = KeyExAlg,
 		     ssl_options = SslOpts}) ->
+
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
-					      ConnectionStates0, Cert}, Renegotiation) of
+					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State);
         {Version, {Type, Session},
-	 ConnectionStates, Protocol0, ServerHelloExt} ->
-
+	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
 	    Protocol = case Protocol0 of
-		undefined -> CurrentProtocol;
-		_ -> Protocol0
-	    end,
-
-            HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
-            ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
+			   undefined -> CurrentProtocol;
+			   _ -> Protocol0
+		       end,
+	    ssl_connection:hello({common_client_hello, Type, ServerHelloExt},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,
+					     hashsign_algorithm = HashSign,
 					     session = Session,
 					     client_ecc = {EllipticCurves, EcPointFormats},
 					     negotiated_protocol = Protocol}, ?MODULE)
     end;
+
 hello(Hello = #server_hello{},
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
@@ -1069,3 +1069,4 @@ handle_sni_extension(#client_hello{extensions = HelloExtensions}, State0) ->
     end;
 handle_sni_extension(_, State0) ->
     State0.
+

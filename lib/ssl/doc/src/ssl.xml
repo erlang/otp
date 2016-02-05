@@ -421,7 +421,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
         <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
 	vulnerable to the Poodle attack.</p></warning>
-
   </section>
   
   <section>
@@ -522,9 +521,45 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
-    </taglist>
+      <tag><marker id="client_signature_algs"/><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
+	<item>
+	<p>In addition to the algorithms negotiated by the cipher
+	suite used for key exchange, payload encryption, message
+	authentication and pseudo random calculation, the TLS signature
+	algorithm extension <url
+	href="http://www.ietf.org/rfc/rfc5246.txt">Section 7.4.1.4.1 in RFC 5246</url> may be
+	used, from TLS 1.2, to negotiate which signature algorithm to use during the
+	TLS handshake. If no lower TLS versions than 1.2 are supported,
+	the client will send a TLS signature algorithm extension
+	with the algorithms specified by this option.
+	Defaults to
+	
+	<code>[
+%% SHA2
+{sha512, ecdsa},
+{sha512, rsa},
+{sha384, ecdsa},
+{sha384, rsa},
+{sha256, ecdsa},
+{sha256, rsa},
+{sha224, ecdsa},
+{sha224, rsa},
+%% SHA
+{sha, ecdsa},
+{sha, rsa},
+{sha, dsa},
+%% MD5
+{md5, rsa}
+]</code>
+	
+	The algorithms should be in the preferred order.
+	Selected signature algorithm can restrict which hash functions
+	that may be selected.
+	</p>
+	</item>
+      </taglist>
    </section>
-
+   
   <section>
     <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
 
@@ -651,6 +686,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <item>If true, use the server's preference for cipher selection. If false
       (the default), use the client's preference.
       </item>
+      
+      <tag><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
+      <item><p> The algorithms specified by
+      this option will be the ones accepted by the server in a signature algorithm
+      negotiation, introduced in TLS-1.2. The algorithms will also be offered to the client if a
+      client certificate is requested. For more details see the <seealso marker="#client_signature_algs">corresponding client option</seealso>.
+      </p> </item>
+
     </taglist>
   </section>
   
