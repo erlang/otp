@@ -161,11 +161,8 @@ module_mismatch(Config) when is_list(Config) ->
 
 big_file(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(5)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Big = filename:join(DataDir, "big.erl"),
-    ?line Target = filename:join(PrivDir, "big.beam"),
-    ?line ok = file:set_cwd(PrivDir),
+    {Big,Target} = get_files(Config, big, "big_file"),
+    ok = file:set_cwd(filename:dirname(Target)),
     ?line compile_and_verify(Big, Target, []),
     ?line compile_and_verify(Big, Target, [debug_info]),
     ?line compile_and_verify(Big, Target, [no_postopt]),
@@ -362,21 +359,18 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 
 listings_big(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(10)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Big = filename:join(DataDir, big),
-    ?line TargetDir = filename:join(PrivDir, listings_big),
-    ?line ok = file:make_dir(TargetDir),
+    {Big,Target} = get_files(Config, big, listings_big),
+    TargetDir = filename:dirname(Target),
     ?line do_listing(Big, TargetDir, 'S'),
     ?line do_listing(Big, TargetDir, 'E'),
     ?line do_listing(Big, TargetDir, 'P'),
     ?line do_listing(Big, TargetDir, dkern, ".kernel"),
 
-    ?line Target = filename:join(TargetDir, big),
-    {ok,big} = compile:file(Target, [from_asm,{outdir,TargetDir}]),
+    TargetNoext = filename:rootname(Target, code:objfile_extension()),
+    {ok,big} = compile:file(TargetNoext, [from_asm,{outdir,TargetDir}]),
 
     %% Cleanup.
-    ?line ok = file:delete(Target ++ ".beam"),
+    ok = file:delete(Target),
     ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
 			filelib:wildcard(filename:join(TargetDir, "*"))),
     ?line ok = file:del_dir(TargetDir),
@@ -385,11 +379,7 @@ listings_big(Config) when is_list(Config) ->
 
 other_output(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(8)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(DataDir, simple),
-    ?line TargetDir = filename:join(PrivDir, other_output),
-    ?line ok = file:make_dir(TargetDir),
+    {Simple,_Target} = get_files(Config, simple, "other_output"),
 
     io:put_chars("to_pp"),
     ?line {ok,[],PP} = compile:file(Simple, [to_pp,binary,time]),
