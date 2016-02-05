@@ -43,11 +43,12 @@
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
-	      key_algo/0]).
+	      hash/0, key_algo/0, sign_algo/0]).
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
 -type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
+-type sign_algo()         :: rsa | dsa | ecdsa.
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()} % Pre TLS 1.2 
 			     %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
