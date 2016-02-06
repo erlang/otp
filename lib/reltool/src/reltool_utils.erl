@@ -44,6 +44,7 @@
 	 decode_regexps/3,
 	 default_val/2,
 	 escript_foldl/3,
+         match/3,
 
 	 call/2, cast/2, reply/3]).
 
@@ -634,6 +635,21 @@ escript_foldl(Fun, Acc, File) ->
 	    end;
 	{error, Reason} ->
 	    {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+match(String, InclRegexps, ExclRegexps) ->
+    match(String, InclRegexps) andalso not match(String, ExclRegexps).
+
+%% Match at least one regexp
+match(_String, []) ->
+    false;
+match(String, [#regexp{source = _, compiled = MP} | Regexps]) ->
+    %% io:format("Regexp: ~p ~p\n", [String, Regexp]),
+    case re:run(String, MP, [{capture, none}]) of
+        nomatch -> match(String, Regexps);
+        match   -> true
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

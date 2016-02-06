@@ -142,6 +142,7 @@ all() ->
      save_config,
      dependencies,
      mod_incl_cond_derived,
+     filter_mods,
      use_selected_vsn,
      use_selected_vsn_relative_path,
      non_standard_vsn_id,
@@ -2343,6 +2344,58 @@ mod_incl_cond_derived(Config) ->
     %% is used by x3.
     ?msym({ok,#mod{is_included=true}}, reltool_server:get_mod(Pid,y2)),
 
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+filter_mods(_Config) ->
+    %% Configure the server
+    Sys = {sys,
+           [
+            {excl_archive_filters, [".*"]},
+            {app,inets,[{incl_cond,include},
+                        {incl_app_filters,["^ebin/inets.app$", "^ebin/ftp*"]},
+                        {app_file,strip}]},
+            {app,tools,[{incl_cond,include},
+                        {excl_app_filters,["^ebin/xref*"]},
+                        {app_file,strip}]}
+           ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "filter_mods"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Ensure that there are no unexpected modules in inets and and tools
+    LibDir = filename:join([TargetDir, "lib"]),
+    Find = fun(File, {Inets,Tools,Files}) ->
+                   Base = filename:basename(File),
+                   EbinDir = filename:dirname(File),
+                   AppDir = filename:dirname(EbinDir),
+                   AppName = filename:basename(AppDir),
+                   case AppName of
+                       "inets"++_ ->
+                           case lists:prefix("ftp", Base) of
+                               true  -> {true,Tools,Files};
+                               false -> {true,Tools,[File|Files]} % Error
+                           end;
+                       "tools"++_ ->
+                           case lists:prefix("xref", Base) of
+                               true  -> {Inets,true,[File|Files]}; % Error
+                               false -> {Inets,true,Files}
+                           end;
+                       _ ->
+                           {Inets,Tools,Files}
+                   end
+           end,
+    ?m({true,true,[]},
+       filelib:fold_files(LibDir, ".*\.beam", true, Find, {false,false,[]})),
+
+    %% Ensure that the target system is able to start
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    ?msym(ok, stop_node(Node)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

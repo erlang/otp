@@ -1111,7 +1111,10 @@ spec_archive(#app{label               = Label,
 	reltool_utils:default_val(AppExclArchiveDirs, SysExclArchiveDirs),
     ArchiveOpts =
 	reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-    Match = fun(F) -> match(element(2, F), InclArchiveDirs, ExclArchiveDirs) end,
+    Match = fun(F) -> reltool_utils:match(element(2, F),
+                                          InclArchiveDirs,
+                                          ExclArchiveDirs)
+            end,
     case lists:filter(Match, Files) of
         [] ->
             %% Nothing to archive
@@ -1357,7 +1360,7 @@ do_filter_spec(Path, {create_dir, Dir, Files}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, Dir),
     case do_filter_spec(Path2, Files, InclRegexps, ExclRegexps) of
         [] ->
-            case match(Path2, InclRegexps, ExclRegexps) of
+            case reltool_utils:match(Path2, InclRegexps, ExclRegexps) of
                 true ->
                     {true, {create_dir, Dir, []}};
                 false ->
@@ -1373,7 +1376,7 @@ do_filter_spec(Path,
     Path2 = opt_join(Path, NewDir),
     case do_filter_spec(Path2, Files, InclRegexps, ExclRegexps) of
         [] ->
-            case match(Path2, InclRegexps, ExclRegexps) of
+            case reltool_utils:match(Path2, InclRegexps, ExclRegexps) of
                 true ->
                     {true, {create_dir, NewDir, OldDir, []}};
                 false ->
@@ -1388,7 +1391,7 @@ do_filter_spec(Path,
 	       ExclRegexps) ->
     case do_filter_spec(Path, Files, InclRegexps, ExclRegexps) of
         [] ->
-            case match(Path, InclRegexps, ExclRegexps) of
+            case reltool_utils:match(Path, InclRegexps, ExclRegexps) of
                 true ->
                     {true, {archive, Archive, Options, []}};
                 false ->
@@ -1399,37 +1402,24 @@ do_filter_spec(Path,
     end;
 do_filter_spec(Path, {copy_file, File}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
-    match(Path2, InclRegexps, ExclRegexps);
+    reltool_utils:match(Path2, InclRegexps, ExclRegexps);
 do_filter_spec(Path,
 	       {copy_file, NewFile, _OldFile},
 	       InclRegexps,
 	       ExclRegexps) ->
     Path2 = opt_join(Path, NewFile),
-    match(Path2, InclRegexps, ExclRegexps);
+    reltool_utils:match(Path2, InclRegexps, ExclRegexps);
 do_filter_spec(Path, {write_file, File, _IoList}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
-    match(Path2, InclRegexps, ExclRegexps);
+    reltool_utils:match(Path2, InclRegexps, ExclRegexps);
 do_filter_spec(Path, {strip_beam, File}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
-    match(Path2, InclRegexps, ExclRegexps).
+    reltool_utils:match(Path2, InclRegexps, ExclRegexps).
 
 opt_join([], File) ->
     File;
 opt_join(Path, File) ->
     filename:join([Path, File]).
-
-match(String, InclRegexps, ExclRegexps) ->
-    match(String, InclRegexps) andalso not match(String, ExclRegexps).
-
-%% Match at least one regexp
-match(_String, []) ->
-    false;
-match(String, [#regexp{source = _, compiled = MP} | Regexps]) ->
-    %% io:format("Regexp: ~p ~p\n", [String, Regexp]),
-    case re:run(String, MP, [{capture, none}]) of
-        nomatch -> match(String, Regexps);
-        match   -> true
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Old style installation

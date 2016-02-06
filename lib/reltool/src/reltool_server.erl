@@ -654,6 +654,8 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 								  ModCond,
 								  AppCond,
 								  Default,
+                                                                  A,
+                                                                  Sys,
 								  Acc)
 				     end,
 				     Status2,
@@ -665,46 +667,12 @@ app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
     ets:insert(AppTab, A2),
     Status3.
 
-mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
+mod_init_is_included(ModTab, M, ModCond, AppCond, Default, App, Sys, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~w\n", [AppCond]),
-    IsIncl =
-        case AppCond of
-            include ->
-                case M#mod.incl_cond of
-                    include ->
-                        true;
-                    exclude ->
-                        false;
-		    derived ->
-			undefined;
-                    undefined ->
-                        %% print(M#mod.name, hipe, "mod_cond -> ~w\n",
-			%%       [ModCond]),
-                        case ModCond of
-                            all     -> true;
-                            app     -> false_to_undefined(M#mod.is_app_mod);
-                            ebin    -> false_to_undefined(M#mod.is_ebin_mod);
-                            derived -> Default;
-                            none    -> false
-                        end
-                end;
-            exclude ->
-                false;
-            derived ->
-                case M#mod.incl_cond of
-                    include ->
-                        true;
-                    exclude ->
-                        false;
-		    derived ->
-			undefined;
-                    undefined ->
-                        Default
-                end
-        end,
-
+    Path = filename:join(["ebin", atom_to_list(M#mod.name) ++ ".beam"]),
+    IsIncl = match_path(Path, App, Sys) andalso
+        is_mod_included(M, ModCond, AppCond, Default),
     M2 = M#mod{is_pre_included = IsIncl, is_included = IsIncl},
-
     Status2 =
 	case ets:lookup(ModTab,M#mod.name) of
 	    [Existing] ->
@@ -738,6 +706,51 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
 
     %% print(M#mod.name, hipe, "~p -> ~w\n", [M2, IsIncl]),
     {M2,Status2}.
+
+match_path(Path,
+      #app{incl_app_filters  = AppInclRegexps,
+           excl_app_filters  = AppExclRegexps},
+      #sys{incl_app_filters  = SysInclRegexps,
+           excl_app_filters  = SysExclRegexps}) ->
+    InclRegexps = reltool_utils:default_val(AppInclRegexps, SysInclRegexps),
+    ExclRegexps = reltool_utils:default_val(AppExclRegexps, SysExclRegexps),
+    reltool_utils:match(Path, InclRegexps, ExclRegexps).
+
+is_mod_included(M, ModCond, AppCond, Default) ->
+    case AppCond of
+            include ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        %% print(M#mod.name, hipe, "mod_cond -> ~w\n",
+			%%       [ModCond]),
+                        case ModCond of
+                            all     -> true;
+                            app     -> false_to_undefined(M#mod.is_app_mod);
+                            ebin    -> false_to_undefined(M#mod.is_ebin_mod);
+                            derived -> Default;
+                            none    -> false
+                        end
+                end;
+            exclude ->
+                false;
+            derived ->
+                case M#mod.incl_cond of
+                    include ->
+                        true;
+                    exclude ->
+                        false;
+		    derived ->
+			undefined;
+                    undefined ->
+                        Default
+                end
+        end.
 
 false_to_undefined(Bool) ->
     case Bool of
