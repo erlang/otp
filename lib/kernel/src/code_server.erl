@@ -28,6 +28,7 @@
 	]).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
 -import(lists, [foreach/2]).
 
@@ -1317,18 +1318,8 @@ finish_on_load_report(Mod, Term) ->
 %% -------------------------------------------------------
 
 all_loaded(Db) ->
-    all_l(Db, ets:slot(Db, 0), 1, []).
-
-all_l(_Db, '$end_of_table', _, Acc) ->
-    Acc;
-all_l(Db, ModInfo, N, Acc) ->
-    NewAcc = strip_mod_info(ModInfo,Acc),
-    all_l(Db, ets:slot(Db, N), N + 1, NewAcc).
-
-
-strip_mod_info([{{sticky,_},_}|T], Acc) -> strip_mod_info(T, Acc);
-strip_mod_info([H|T], Acc)              -> strip_mod_info(T, [H|Acc]);
-strip_mod_info([], Acc)                 -> Acc.
+    Ms = ets:fun2ms(fun({M,_}=T) when is_atom(M) -> T end),
+    ets:select(Db, Ms).
 
 -spec error_msg(io:format(), [term()]) -> 'ok'.
 error_msg(Format, Args) ->
