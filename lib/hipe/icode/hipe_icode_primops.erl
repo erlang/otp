@@ -504,16 +504,16 @@ type(Primop, Args) ->
 	  NewBinType = match_bin(erl_types:t_bitstr(0, Size), BinType),
 	  NewMatchState = 
 	    erl_types:t_matchstate_update_present(NewBinType, MatchState),
-	  if Signed =:= 0 ->
-	      UpperBound = inf_add(safe_bsl(1, Size), -1),
-	      erl_types:t_product([erl_types:t_from_range(0, UpperBound),
-				   NewMatchState]);
-	     Signed =:= 4 ->
-	      erl_types:t_product([erl_types:t_from_range(
-				     inf_inv(safe_bsl(1, Size-1)),
-				     inf_add(safe_bsl(1, Size-1), -1)),
-				   NewMatchState])
-	  end;
+	  Range =
+	    case Signed of
+	      0 ->
+		UpperBound = inf_add(safe_bsl_1(Size), -1),
+		erl_types:t_from_range(0, UpperBound);
+	      4 ->
+		Bound = safe_bsl_1(Size - 1),
+		erl_types:t_from_range(inf_inv(Bound), inf_add(Bound, -1))
+	    end,
+	  erl_types:t_product([Range, NewMatchState]);
 	[_Arg] ->
 	  NewBinType = match_bin(erl_types:t_bitstr(Size, 0), BinType),
 	  NewMatchState = 
@@ -969,18 +969,19 @@ check_fun_args(_, _) ->
 match_bin(Pattern, Match) ->
   erl_types:t_bitstr_match(Pattern, Match).
 
-safe_bsl(0, _) -> 0;
-safe_bsl(Base, Shift) when Shift =< 128 -> Base bsl Shift;
-safe_bsl(Base, _Shift) when Base > 0 -> pos_inf;
-safe_bsl(Base, _Shift) when Base < 0 -> neg_inf.
+-spec safe_bsl_1(non_neg_integer()) -> non_neg_integer() | 'pos_inf'.
+
+safe_bsl_1(Shift) when Shift =< 128 -> 1 bsl Shift;
+safe_bsl_1(_Shift) -> pos_inf.
+
+%%
+%% The following two functions are stripped-down versions of more
+%% general functions that exist in hipe_icode_range.erl
+%%
 
 inf_inv(pos_inf) -> neg_inf;
-inf_inv(neg_inf) -> pos_inf;
-inf_inv(Number) -> -Number.
+inf_inv(Number) when is_integer(Number) -> -Number.
 
 inf_add(pos_inf, _Number) -> pos_inf;
-inf_add(neg_inf, _Number) -> neg_inf;
-inf_add(_Number, pos_inf) -> pos_inf;
-inf_add(_Number, neg_inf) -> neg_inf;
 inf_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
   Number1 + Number2.
