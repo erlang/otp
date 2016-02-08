@@ -152,7 +152,7 @@ volatile int erts_writing_erl_crash_dump = 0;
 int erts_initialized = 0;
 
 #if defined(USE_THREADS) && !defined(ERTS_SMP)
-static erts_tid_t main_thread;
+erts_tid_t erts_main_thread;
 #endif
 
 int erts_use_sender_punish;
@@ -745,6 +745,10 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
+#if defined(USE_THREADS) && !defined(ERTS_SMP)
+    erts_main_thread = erts_thr_self();
+#endif
+
     erts_save_emu_args(*argc, argv);
 
     erts_sched_compact_load = 1;
@@ -798,9 +802,6 @@ early_init(int *argc, char **argv) /*
 			       (erts_aint32_t) ((Uint16) -1));
 
     erts_pre_init_process();
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-    main_thread = erts_thr_self();
-#endif
 
     /*
      * We need to know the number of schedulers to use before we
@@ -2288,7 +2289,7 @@ system_cleanup(int flush_async)
     if (!flush_async
 	|| !erts_initialized
 #if defined(USE_THREADS) && !defined(ERTS_SMP)
-	|| !erts_equal_tids(main_thread, erts_thr_self())
+	|| !erts_equal_tids(erts_main_thread, erts_thr_self())
 #endif
 	)
 	return;

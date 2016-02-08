@@ -1504,7 +1504,7 @@ erts_factory_message_create(ErtsHeapFactory* factory,
     }
 
     if (on_heap) {
-	ASSERT(*proc_locksp & ERTS_PROC_LOCK_MAIN);
+	ERTS_SMP_ASSERT(*proc_locksp & ERTS_PROC_LOCK_MAIN);
 	ASSERT(ohp == &proc->off_heap);
 	factory->mode = FACTORY_HALLOC;
 	factory->p = proc;
