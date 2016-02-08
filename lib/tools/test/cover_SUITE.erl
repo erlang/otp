@@ -1549,7 +1549,7 @@ comprehension_8188(Cf) ->
 
     %% The template cannot have a counter since it is not allowed to
     %% be a block.
-    ?line [% {{t,1},1},
+    ?line [{{t,1},1},
            %% {{t,2},2},
            {{t,3},1},
            {{t,4},1},
@@ -1559,7 +1559,7 @@ comprehension_8188(Cf) ->
            {{t,12},3},
            {{t,13},2},
            {{t,14},2}] = 
-        analyse_expr(<<"<< \n" % 1 (now: 0)
+        analyse_expr(<<"<< \n" % 1
                        " << (X*2) >> || \n" % 2 (now: 0)
                        "    <<X>> <= << (case two() of\n"
                        "                     2 -> 1;\n" % 1
@@ -1574,7 +1574,7 @@ comprehension_8188(Cf) ->
                        "    true >>.\n" % 2
                        "two() -> 2">>, Cf),
 
-    ?line [% {{t,1},1},
+    ?line [{{t,1},1},
            %% {{t,2},4},
            {{t,4},1},
            {{t,6},1},
@@ -1583,7 +1583,7 @@ comprehension_8188(Cf) ->
            {{t,11},2},
            {{t,12},4},
            {{t,13},1}] =
-        analyse_expr(<<"<< \n" % 1 (now: 0)
+        analyse_expr(<<"<< \n" % 1
                        " << (2)\n" % 4 (now: 0)
                        "     :(8) >> || \n"
                        "    <<X>> <= << 1,\n" % 1
