@@ -6322,6 +6322,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_hdr->literals_end = NULL;
     code_hdr->literals_off_heap = 0;
     code_hdr->on_load_function_ptr = NULL;
+    code_hdr->line_table = NULL;
     code_hdr->md5_ptr = NULL;
 
     /*
