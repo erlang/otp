@@ -334,7 +334,9 @@ make_key(dsa, _Opts) ->
     gen_dsa2(128, 20);  %% Bytes i.e. {1024, 160}
 make_key(ec, _Opts) ->
     %% (OBS: for testing only)
-    gen_ec2(secp256k1).
+    CurveOid = hd(tls_v1:ecc_curves(0)),
+    NamedCurve = pubkey_cert_records:namedCurves(CurveOid),
+    gen_ec2(NamedCurve).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RSA key generation  (OBS: for testing only)
