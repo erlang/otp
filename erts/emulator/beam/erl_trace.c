@@ -52,8 +52,10 @@
 Export exp_send, exp_receive, exp_timeout;
 
 static ErtsTracer system_seq_tracer;
-static Uint default_trace_flags;
-static ErtsTracer default_tracer;
+static Uint default_proc_trace_flags;
+static ErtsTracer default_proc_tracer;
+static Uint default_port_trace_flags;
+static ErtsTracer default_port_tracer;
 
 static Eterm system_monitor;
 static Eterm system_profile;
@@ -327,8 +329,10 @@ void erts_init_trace(void) {
     erts_bif_trace_init();
     erts_system_monitor_clear(NULL);
     erts_system_profile_clear(NULL);
-    default_trace_flags = F_INITIAL_TRACE_FLAGS;
-    default_tracer = erts_tracer_nil;
+    default_proc_trace_flags = F_INITIAL_TRACE_FLAGS;
+    default_proc_tracer = erts_tracer_nil;
+    default_port_trace_flags = F_INITIAL_TRACE_FLAGS;
+    default_port_tracer = erts_tracer_nil;
     system_seq_tracer = erts_tracer_nil;
 #ifdef ERTS_SMP
     init_sys_msg_dispatcher();
@@ -456,56 +460,111 @@ erts_get_system_seq_tracer(void)
 }
 
 static ERTS_INLINE void
-get_default_tracing(Uint *flagsp, ErtsTracer *tracerp)
+get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
+                    Uint *default_trace_flags,
+                    ErtsTracer *default_tracer)
 {
-    if (!(default_trace_flags & TRACEE_FLAGS))
-	ERTS_TRACER_CLEAR(&default_tracer);
+    if (!(*default_trace_flags & TRACEE_FLAGS))
+	ERTS_TRACER_CLEAR(default_tracer);
 
-    if (ERTS_TRACER_IS_NIL(default_tracer)) {
-	default_trace_flags &= ~TRACEE_FLAGS;
+    if (ERTS_TRACER_IS_NIL(*default_tracer)) {
+	*default_trace_flags &= ~TRACEE_FLAGS;
     } else {
         Eterm nif_result = call_enabled_tracer(
-            NULL, default_tracer, NULL,
+            NULL, *default_tracer, NULL,
             am_trace_status, am_undefined);
         switch (nif_result) {
         case am_trace: break;
-        default:
-            default_trace_flags &= ~TRACEE_FLAGS;
-            ERTS_TRACER_CLEAR(&default_tracer);
+        default: {
+            ErtsTracer curr_default_tracer = *default_tracer;
+            if (tracerp) {
+                /* we only have a rlock, so we have to unlock and then rwlock */
+                erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+                erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+            }
+            /* check if someone else changed default tracer
+               while we got the write lock, if so we don't do
+               anything. */
+            if (curr_default_tracer == *default_tracer) {
+                *default_trace_flags &= ~TRACEE_FLAGS;
+                ERTS_TRACER_CLEAR(default_tracer);
+            }
+            if (tracerp) {
+                erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+                erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+            }
+        }
         }
     }
 
     if (flagsp)
-	*flagsp = default_trace_flags;
+	*flagsp = *default_trace_flags;
     if (tracerp) {
-	erts_tracer_update(tracerp,default_tracer);
+	erts_tracer_update(tracerp,*default_tracer);
     }
 }
 
+static ERTS_INLINE void
+erts_change_default_tracing(int setflags, Uint flags,
+                            const ErtsTracer tracer,
+                            Uint *default_trace_flags,
+                            ErtsTracer *default_tracer)
+{
+    if (setflags)
+        *default_trace_flags |= flags;
+    else
+        *default_trace_flags &= ~flags;
+
+    erts_tracer_update(default_tracer, tracer);
+
+    get_default_tracing(NULL, NULL, default_trace_flags, default_tracer);
+}
+
 void
-erts_change_default_tracing(int setflags, Uint *flagsp,
-                            const ErtsTracer tracer)
+erts_change_default_proc_tracing(int setflags, Uint flagsp,
+                                 const ErtsTracer tracer)
 {
     erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
-    if (flagsp) {
-	if (setflags)
-	    default_trace_flags |= *flagsp;
-	else
-	    default_trace_flags &= ~(*flagsp);
-    }
-
-    erts_tracer_update(&default_tracer, tracer);
-
-    get_default_tracing(flagsp, NULL);
+    erts_change_default_tracing(
+        setflags, flagsp, tracer,
+        &default_proc_trace_flags,
+        &default_proc_tracer);
     erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_default_tracing(Uint *flagsp, ErtsTracer *tracerp)
+erts_change_default_port_tracing(int setflags, Uint flagsp,
+                                 const ErtsTracer tracer)
+{
+    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_change_default_tracing(
+        setflags, flagsp, tracer,
+        &default_port_trace_flags,
+        &default_port_tracer);
+    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+}
+
+void
+erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp)
 {
     erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_default_tracing(flagsp, tracerp);
+    get_default_tracing(
+        flagsp, tracerp,
+        &default_proc_trace_flags,
+        &default_proc_tracer);
+    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+}
+
+void
+erts_get_default_port_tracing(Uint *flagsp, ErtsTracer *tracerp)
+{
+    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    *tracerp = erts_tracer_nil; /* initialize */
+    get_default_tracing(
+        flagsp, tracerp,
+        &default_port_trace_flags,
+        &default_port_tracer);
     erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
@@ -710,9 +769,7 @@ trace_send(Process *p, Eterm to, Eterm msg)
     Eterm operation = am_send;
     ErtsTracerNif *tnif = NULL;
 
-    if (!ARE_TRACE_FLAGS_ON(p, F_TRACE_SEND)) {
-	return;
-    }
+    ASSERT(ARE_TRACE_FLAGS_ON(p, F_TRACE_SEND));
 
     if (is_internal_pid(to)) {
 	if (!erts_proc_lookup(to))
@@ -720,10 +777,8 @@ trace_send(Process *p, Eterm to, Eterm msg)
     }
     else if(is_external_pid(to)
 	    && external_pid_dist_entry(to) == erts_this_dist_entry) {
-	char *s;
     send_to_non_existing_process:
-	s = "send_to_non_existing_process";
-	operation = am_atom_put(s, sys_strlen(s));
+	operation = am_send_to_non_existing_process;
     }
 
     if (is_tracer_proc_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif, operation))
@@ -1666,9 +1721,11 @@ profile_scheduler_q(Eterm scheduler_id, Eterm state, Eterm no_schedulers, Uint M
 
 void
 trace_port_open(Port *p, Eterm calling_pid, Eterm drv_name) {
-
-    send_to_tracer_nif(NULL, &p->common, calling_pid, NULL, am_open,
-                       p->common.id, drv_name);
+    ErtsTracerNif *tnif = NULL;
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &p->common, &tnif, am_open))
+        send_to_tracer_nif(NULL, &p->common, p->common.id, tnif, am_open,
+                           calling_pid, drv_name);
 }
 
 /* Sends trace message:
@@ -1681,10 +1738,208 @@ trace_port_open(Port *p, Eterm calling_pid, Eterm drv_name) {
 void
 trace_port(Port *t_p, Eterm what, Eterm data) {
 
+    ErtsTracerNif *tnif = NULL;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, NULL,
-                       am_open, data, THE_NON_VALUE);
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, what))
+        send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
+                           what, data, THE_NON_VALUE);
+}
+
+
+static Eterm
+trace_port_tmp_binary(char *bin, Sint sz, Binary **bptrp, Eterm **hp)
+{
+    if (sz <= ERL_ONHEAP_BIN_LIMIT) {
+        ErlHeapBin *hb = (ErlHeapBin *)*hp;
+        hb->thing_word = header_heap_bin(sz);
+        hb->size = sz;
+        sys_memcpy(hb->data, bin, sz);
+        *hp += heap_bin_size(sz);
+        return make_binary(hb);
+    } else {
+        ProcBin* pb = (ProcBin *)*hp;
+        Binary *bptr = erts_bin_nrml_alloc(sz);
+        erts_refc_init(&bptr->refc, 1);
+        sys_memcpy(bptr->orig_bytes, bin, sz);
+        pb->thing_word = HEADER_PROC_BIN;
+        pb->size = sz;
+        pb->next = NULL;
+        pb->val = bptr;
+        pb->bytes = (byte*) bptr->orig_bytes;
+        pb->flags = 0;
+        *bptrp = bptr;
+        *hp += PROC_BIN_SIZE;
+        return make_binary(pb);
+    }
+}
+
+/* Sends trace message:
+ *    {trace, PortPid, 'receive', {pid(), {command, iolist()}}}
+ *    {trace, PortPid, 'receive', {pid(), {control, pid()}}}
+ *    {trace, PortPid, 'receive', {pid(), exit}}
+ *
+ */
+void
+trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
+{
+    ErtsTracerNif *tnif = NULL;
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+		       || erts_thr_progress_is_blocking());
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, am_receive)) {
+        /* We can use a stack heap here, as the nif is called in the
+           context of a port */
+#define LOCAL_HEAP_SIZE (3 + 3 + heap_bin_size(ERL_ONHEAP_BIN_LIMIT) + 3)
+        DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
+
+        Eterm *hp, data, *orig_hp = NULL;
+        Binary *bptr = NULL;
+        va_list args;
+        UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
+        hp = local_heap;
+
+        if (what == am_close) {
+            data = what;
+        } else {
+            Eterm arg;
+            va_start(args, what);
+            if (what == am_command) {
+                char *bin = va_arg(args, char *);
+                Sint sz = va_arg(args, Sint);
+                va_end(args);
+                arg = trace_port_tmp_binary(bin, sz, &bptr, &hp);
+            } else if (what == am_call || what == am_control) {
+                unsigned int command = va_arg(args, unsigned int);
+                char *bin = va_arg(args, char *);
+                Sint sz = va_arg(args, Sint);
+                Eterm cmd;
+                va_end(args);
+                arg = trace_port_tmp_binary(bin, sz, &bptr, &hp);
+#if defined(ARCH_32)
+                if (!IS_USMALL(0, command)) {
+                    *hp = make_pos_bignum_header(1);
+                    BIG_DIGIT(hp, 0) = (Uint)command;
+                    cmd = make_big(hp);
+                    hp += 2;
+                } else
+#endif
+                {
+                    cmd = make_small((Sint)command);
+                }
+                arg = TUPLE2(hp, cmd, arg);
+                hp += 3;
+            } else if (what == am_commandv) {
+                ErlIOVec *evp = va_arg(args, ErlIOVec*);
+                int i;
+                va_end(args);
+                if ((6 + evp->vsize * (2+PROC_BIN_SIZE+ERL_SUB_BIN_SIZE)) > LOCAL_HEAP_SIZE) {
+                    hp = erts_alloc(ERTS_ALC_T_TMP,
+                                    (6 + evp->vsize * (2+PROC_BIN_SIZE+ERL_SUB_BIN_SIZE)) * sizeof(Eterm));
+                    orig_hp = hp;
+                }
+                arg = NIL;
+                /* Convert each element in the ErlIOVec to a sub bin that points
+                   to a procbin. We don't have to increment the proc bin refc as
+                   the port task keeps the reference alive. */
+                for (i = evp->vsize-1; i >= 0; i--) {
+                    if (evp->iov[i].iov_len) {
+                        ProcBin* pb = (ProcBin*)hp;
+                        ErlSubBin *sb;
+                        ASSERT(evp->binv[i]);
+                        pb->thing_word = HEADER_PROC_BIN;
+                        pb->val = ErlDrvBinary2Binary(evp->binv[i]);
+                        pb->size = pb->val->orig_size;
+                        pb->next = NULL;
+                        pb->bytes = (byte*) pb->val->orig_bytes;
+                        pb->flags = 0;
+                        hp += PROC_BIN_SIZE;
+
+                        sb = (ErlSubBin*) hp;
+                        sb->thing_word = HEADER_SUB_BIN;
+                        sb->size = evp->iov[i].iov_len;
+                        sb->offs = (byte*)(evp->iov[i].iov_base) - pb->bytes;
+                        sb->orig = make_binary(pb);
+                        sb->bitoffs = 0;
+                        sb->bitsize = 0;
+                        sb->is_writable = 0;
+                        hp += ERL_SUB_BIN_SIZE;
+
+                        arg = CONS(hp, make_binary(sb), arg);
+                        hp += 2;
+                    }
+                }
+                what = am_command;
+            } else {
+                arg = va_arg(args, Eterm);
+                va_end(args);
+            }
+            data = TUPLE2(hp, what, arg);
+            hp += 3;
+        }
+
+        data = TUPLE2(hp, caller, data);
+        send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
+                           am_receive, data, THE_NON_VALUE);
+
+        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
+            erts_bin_free(bptr);
+
+        if (orig_hp)
+            erts_free(ERTS_ALC_T_TMP, orig_hp);
+
+        UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
+    }
+#undef LOCAL_HEAP_SIZE
+}
+
+void
+trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
+{
+    ErtsTracerNif *tnif = NULL;
+    Eterm op = exists ? am_send : am_send_to_non_existing_process;
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+		       || erts_thr_progress_is_blocking());
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, op))
+        send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
+                           op, msg, receiver);
+}
+
+void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
+{
+    ErtsTracerNif *tnif = NULL;
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+		       || erts_thr_progress_is_blocking());
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, am_send)) {
+        Eterm msg;
+        Binary* bptr = NULL;
+#define LOCAL_HEAP_SIZE (3 + 3 + heap_bin_size(ERL_ONHEAP_BIN_LIMIT))
+        DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
+
+        Eterm *hp;
+
+        ERTS_CT_ASSERT(heap_bin_size(ERL_ONHEAP_BIN_LIMIT) >= PROC_BIN_SIZE);
+        UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
+        hp = local_heap;
+
+        msg = trace_port_tmp_binary(bin, sz, &bptr, &hp);
+
+        msg = TUPLE2(hp, what, msg);
+        hp += 3;
+        msg = TUPLE2(hp, t_p->common.id, msg);
+        hp += 3;
+
+        send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
+                           am_send, msg, to);
+        if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
+            erts_bin_free(bptr);
+
+        UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
+#undef LOCAL_HEAP_SIZE
+    }
 }
 
 /* Send {trace_ts, Pid, What, {Mod, Func, Arity}, Timestamp}
@@ -1702,9 +1957,13 @@ trace_sched_ports(Port *p, Eterm what) {
 
 void
 trace_sched_ports_where(Port *t_p, Eterm what, Eterm where) {
-
-    send_to_tracer_nif(NULL, &t_p->common, t_p->common.id,
-                       NULL, am_open, where, THE_NON_VALUE);
+    ErtsTracerNif *tnif = NULL;
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+		       || erts_thr_progress_is_blocking());
+    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    if (is_tracer_proc_enabled(NULL, 0, &t_p->common, &tnif, what))
+        send_to_tracer_nif(NULL, &t_p->common, t_p->common.id,
+                           tnif, what, where, THE_NON_VALUE);
 }
 
 /* Port profiling */
@@ -2515,7 +2774,7 @@ is_tracer_proc_enabled(Process* c_p, ErtsProcLocks c_p_locks,
 }
 
 int erts_is_tracer_proc_enabled(Process* c_p, ErtsProcLocks c_p_locks,
-                                ErtsPTabElementCommon *t_p)
+                                ErtsPTabElementCommon *t_p, Eterm type)
 {
     return is_tracer_proc_enabled(c_p, c_p_locks, t_p, NULL, am_trace_status);
 }

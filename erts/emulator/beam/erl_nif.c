@@ -417,6 +417,7 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	  ? erts_proc_lookup(receiver)
 	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
 			      receiver, rp_locks, ERTS_P2P_FLG_INC_REFC));
+
     if (rp == NULL) {
 	ASSERT(env == NULL || receiver != c_p->common.id);
 	return 0;
@@ -450,9 +451,17 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     }
 
     if (!env || !env->tracee) {
-        erts_queue_message(rp, &rp_locks, mp, msg);
+
+        if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND))
+            trace_send(c_p, receiver, msg);
+
+#ifndef ERTS_SMP
     }
+#endif
+
+        erts_queue_message(rp, &rp_locks, mp, msg);
 #ifdef ERTS_SMP
+    }
     else {
         /* This clause is taken when the nif is called in the context
            of a traced process. We do not know which locks we have
@@ -547,6 +556,9 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
 
     if (!prt)
         return 0;
+
+    if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
+        trace_port_receive(prt, env->proc->common.id, am_command, msg);
 
     return erts_port_output_async(prt, env->proc->common.id, msg);
 }

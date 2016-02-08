@@ -161,6 +161,7 @@ atom close
 atom closed
 atom code
 atom command
+atom commandv
 atom compact
 atom compat_rel
 atom compile
@@ -244,6 +245,9 @@ atom event
 atom exact_reductions
 atom exclusive
 atom exit_status
+atom existing
+atom existing_processes
+atom existing_ports
 atom existing
 atom exiting
 atom exports
@@ -404,6 +408,8 @@ atom net_kernel_terminated
 atom never_utf
 atom new
 atom new_index
+atom new_processes
+atom new_ports
 atom new_uniq
 atom newline
 atom next
@@ -543,6 +549,7 @@ atom scheme
 atom scientific
 atom scope
 atom seconds
+atom send_to_non_existing_process
 atom sensitive
 atom sequential_tracer
 atom sequential_trace_token

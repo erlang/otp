@@ -2311,7 +2311,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 						    ERTS_PORT_SFLG_HALT);
 		erts_smp_atomic32_inc_nob(&erts_halt_progress);
 		if (!(state & (ERTS_PORT_SFLG_EXITING|ERTS_PORT_SFLG_CLOSING)))
-		    erts_deliver_port_exit(prt, prt->common.id, am_killed, 0);
+		    erts_deliver_port_exit(prt, prt->common.id, am_killed, 0, 1);
 	    }
 
 	    erts_port_release(prt);
@@ -11095,7 +11095,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	    : STORE_NC(&p->htop, &p->off_heap, parent->group_leader);
     }
 
-    erts_get_default_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
+    erts_get_default_proc_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
 
     p->msg.first = NULL;
     p->msg.last = &p->msg.first;

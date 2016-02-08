@@ -1752,6 +1752,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		reds = ERTS_PORT_REDS_TIMEOUT;
 		if (!(state & ERTS_PORT_SFLGS_DEAD)) {
 		    DTRACE_DRIVER(driver_timeout, pp);
+                    if (IS_TRACED_FL(pp, F_TRACE_RECEIVE))
+                        trace_port(pp, am_receive, am_timeout);
 		    (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
 		}
 	    }

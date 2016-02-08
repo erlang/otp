@@ -538,8 +538,12 @@ int erts_unregister_name(Process *c_p,
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 
 	    rp->pt->common.u.alive.reg = NULL;
-	    
+
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
+                if (current_c_p_locks) {
+                    erts_smp_proc_unlock(c_p, current_c_p_locks);
+                    current_c_p_locks = 0;
+                }
 		trace_port(port, am_unregister, r.name);
 	    }
 

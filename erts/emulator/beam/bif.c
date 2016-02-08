@@ -1908,7 +1908,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     }
 
     if (res >= 0) {
-	if (IS_TRACED(p))
+	if (IS_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, full_to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -1927,7 +1927,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
     Eterm* tp;
 
     if (is_internal_pid(to)) {
-	if (IS_TRACED(p))
+	if (IS_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -1956,7 +1956,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 
 	rp = erts_proc_lookup_raw(id);
 	if (rp) {
-	    if (IS_TRACED(p))
+	    if (IS_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -1972,7 +1972,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	    goto port_common;
 	}
 
-	if (IS_TRACED(p))
+	if (IS_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2003,10 +2003,19 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 
       port_common:
 	ret_val = 0;
-        
+
 	if (pt) {
 	    int ps_flags = ctx->suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    *refp = NIL;
+
+            if (IS_TRACED_FL(p, F_TRACE_SEND)) 	/* trace once only !! */
+                trace_send(p, portid, msg);
+
+            if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
+                seq_trace_update_send(p);
+                seq_trace_output(SEQ_TRACE_TOKEN(p), msg,
+                                 SEQ_TRACE_SEND, portid, p);
+            }
 
 	    switch (erts_port_command(p, ps_flags, pt, msg, refp)) {
 	    case ERTS_PORT_OP_CALLER_EXIT:
@@ -2040,18 +2049,10 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 		break;
 	    }
 	}
-	
-	if (IS_TRACED(p)) 	/* trace once only !! */
-	    trace_send(p, portid, msg);
+
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
-	
-        if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
-	    seq_trace_update_send(p);
-	    seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
-			     SEQ_TRACE_SEND, portid, p);
-	}	    
-	
+
 	if (ERTS_PROC_IS_EXITING(p)) {
 	    KILL_CATCHES(p); /* Must exit */
 	    return SEND_USER_ERROR;
@@ -2074,7 +2075,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
 	    erts_deref_dist_entry(dep);
-	    if (IS_TRACED(p))
+	    if (IS_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -2105,7 +2106,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	}
 	return ret;
     } else {
-	if (IS_TRACED(p)) /* XXX Is this really neccessary ??? */
+	if (IS_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);

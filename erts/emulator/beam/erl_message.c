@@ -596,7 +596,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 #if defined(ERTS_SMP)
 	*plp & ERTS_PROC_LOCK_MAIN
 #else
-	1
+	pp
 #endif
 	) {
 #ifdef ERTS_SMP
@@ -626,7 +626,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 	*on_heap_p = !0;
     }
 #ifdef ERTS_SMP
-    else if (erts_smp_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
+    else if (pp && erts_smp_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
 	locked_main = 1;
 	*psp = erts_smp_atomic32_read_nob(&pp->state);
 	*plp |= ERTS_PROC_LOCK_MAIN;
@@ -1493,7 +1493,7 @@ erts_factory_message_create(ErtsHeapFactory* factory,
     int on_heap;
     erts_aint32_t state;
 
-    state = erts_smp_atomic32_read_nob(&proc->state);
+    state = proc ? erts_smp_atomic32_read_nob(&proc->state) : 0;
 
     if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
 	msgp = erts_alloc_message(sz, &hp);
