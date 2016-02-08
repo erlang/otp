@@ -4,20 +4,25 @@
 
 -record(state, {
 	  type,
+	  tmpdir,
 	  id, 
 	  ref,
 	  port
 	 }).
 
-init([Type]) ->
-    {ok, #state{type = Type}}.
+
+init([Type]) -> init([Type,"/tmp"]);
+
+init([Type,TmpDir]) ->
+    {ok, #state{type = Type,
+		tmpdir = TmpDir}}.
 
 handle_msg({ssh_channel_up, Id, Ref}, S) ->
     User = get_ssh_user(Ref), 
     ok = ssh_connection:send(Ref,
 			     Id,
 			     << "\r\nYou are accessing a dummy, type \"q\" to exit\r\n\n" >>),
-    Port = run_portprog(User, S#state.type),
+    Port = run_portprog(User, S#state.type, S#state.tmpdir),
     {ok, S#state{port = Port, id = Id, ref = Ref}};
 
 handle_msg({Port, {data, Data}}, S = #state{port = Port}) ->
@@ -68,10 +73,10 @@ handle_ssh_msg({ssh_cm, _, {exit_signal, Id, _, _, _}},
 terminate(_Why, _S) ->
     nop.
 
-run_portprog(User, cli) ->
+run_portprog(User, cli, TmpDir) ->
     Pty_bin = os:find_executable("cat"), 
     open_port({spawn_executable, Pty_bin},
-	      [stream, {cd, "/tmp"}, {env, [{"USER", User}]},
+	      [stream, {cd, TmpDir}, {env, [{"USER", User}]},
 	       {args, []}, binary,
 	       exit_status, use_stdio, stderr_to_stdout]).
 
