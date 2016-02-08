@@ -914,6 +914,7 @@ static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_T
  * argv[2] empty list
  * argv[3] not an atom
  * argv[4] not a list
+ * argv[5] improper list
  */
 static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -932,6 +933,9 @@ static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	return enif_make_badarg(env);
 
     if (enif_get_list_length(env, argv[4], &len))
+	return enif_make_badarg(env);
+
+    if (enif_get_list_length(env, argv[5], &len))
 	return enif_make_badarg(env);
 
     return enif_make_atom(env, "ok");
@@ -2002,7 +2006,7 @@ static ErlNifFunc nif_funcs[] =
     {"make_new_resource", 2, make_new_resource},
     {"check_is", 11, check_is},
     {"check_is_exception", 0, check_is_exception},
-    {"length_test", 5, length_test},
+    {"length_test", 6, length_test},
     {"make_atoms", 0, make_atoms},
     {"make_strings", 0, make_strings},
     {"make_new_resource", 2, make_new_resource},

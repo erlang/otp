@@ -1398,7 +1398,7 @@ is_checks(Config) when is_list(Config) ->
 get_length(doc) -> ["Test all enif_get_length functions"];
 get_length(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
-    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list).
+    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list, [1,2|3]).
 
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).
@@ -1951,7 +1951,7 @@ last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
-length_test(_,_,_,_,_) -> ?nif_stub.
+length_test(_,_,_,_,_,_) -> ?nif_stub.
 make_atoms() -> ?nif_stub.
 make_strings() -> ?nif_stub.
 make_new_resource_binary(_) -> ?nif_stub.
