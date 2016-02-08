@@ -72,8 +72,14 @@ preprocess_opts([Opt|Opts]) ->
   [Opt|preprocess_opts(Opts)].
 
 postprocess_opts(Opts = #options{}) ->
+  check_file_existence(Opts),
   Opts1 = check_output_plt(Opts),
   adapt_get_warnings(Opts1).
+
+check_file_existence(#options{analysis_type = plt_remove}) -> ok;
+check_file_existence(#options{files = Files, files_rec = FilesRec}) ->
+  assert_filenames_exist(Files),
+  assert_filenames_exist(FilesRec).
 
 check_output_plt(Opts = #options{analysis_type = Mode, from = From,
 				 output_plt = OutPLT}) ->
@@ -126,14 +132,14 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     apps ->
       OldValues = Options#options.files_rec,
       AppDirs = get_app_dirs(Value),
-      assert_filenames(Term, AppDirs),
+      assert_filenames_form(Term, AppDirs),
       build_options(Rest, Options#options{files_rec = AppDirs ++ OldValues});
     files ->
-      assert_filenames(Term, Value),
+      assert_filenames_form(Term, Value),
       build_options(Rest, Options#options{files = Value});
     files_rec ->
       OldValues = Options#options.files_rec,
-      assert_filenames(Term, Value),
+      assert_filenames_form(Term, Value),
       build_options(Rest, Options#options{files_rec = Value ++ OldValues});
     analysis_type ->
       NewOptions =
@@ -210,16 +216,26 @@ get_app_dirs(Apps) when is_list(Apps) ->
 get_app_dirs(Apps) ->
   bad_option("Use a list of otp applications", Apps).
 
-assert_filenames(Term, [FileName|Left]) when length(FileName) >= 0 ->
+assert_filenames(Term, Files) ->
+  assert_filenames_form(Term, Files),
+  assert_filenames_exist(Files).
+
+assert_filenames_form(Term, [FileName|Left]) when length(FileName) >= 0 ->
+  assert_filenames_form(Term, Left);
+assert_filenames_form(_Term, []) ->
+  ok;
+assert_filenames_form(Term, [_|_]) ->
+  bad_option("Malformed or non-existing filename", Term).
+
+assert_filenames_exist([FileName|Left]) ->
   case filelib:is_file(FileName) orelse filelib:is_dir(FileName) of
     true -> ok;
-    false -> bad_option("No such file, directory or application", FileName)
+    false ->
+      bad_option("No such file, directory or application", FileName)
   end,
-  assert_filenames(Term, Left);
-assert_filenames(_Term, []) ->
-  ok;
-assert_filenames(Term, [_|_]) ->
-  bad_option("Malformed or non-existing filename", Term).
+  assert_filenames_exist(Left);
+assert_filenames_exist([]) ->
+  ok.
 
 assert_filename(FileName) when length(FileName) >= 0 ->
   ok;
