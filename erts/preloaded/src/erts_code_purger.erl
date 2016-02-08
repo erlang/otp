@@ -31,7 +31,7 @@ start() ->
     loop().
 
 loop() ->
-    receive
+    _ = receive
 	{purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
 	    Res = do_purge(Mod),
 	    From ! {reply, purge, Res, Ref};
