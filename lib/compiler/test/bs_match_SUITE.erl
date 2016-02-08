@@ -36,7 +36,8 @@
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
-	 match_string_opt/1,map_and_binary/1]).
+	 match_string_opt/1,map_and_binary/1,
+	 unsafe_branch_caching/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -62,7 +63,8 @@ groups() ->
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
        no_partition,calling_a_binary,binary_in_map,
-       match_string_opt,map_and_binary]}].
+       match_string_opt,map_and_binary,
+       unsafe_branch_caching]}].
 
 
 init_per_suite(Config) ->
@@ -1242,6 +1244,32 @@ do_map_and_binary(#{time := _} = T) ->
     {ok, T};
 do_map_and_binary(#{hour := Hour, min := Min} = T) ->
     {Hour, Min, T}.
+
+%% Unsafe caching of branch outcomes in beam_bsm would cause the
+%% delayed creation of sub-binaries optimization to be applied even
+%% when it was unsafe.
+
+unsafe_branch_caching(_Config) ->
+    <<>> = do_unsafe_branch_caching(<<42,1>>),
+    <<>> = do_unsafe_branch_caching(<<42,2>>),
+    <<>> = do_unsafe_branch_caching(<<42,3>>),
+    <<17,18>> = do_unsafe_branch_caching(<<42,3,17,18>>),
+    <<>> = do_unsafe_branch_caching(<<1,3,42,2>>),
+
+    ok.
+
+do_unsafe_branch_caching(<<Code/integer, Bin/binary>>) ->
+    <<C1/integer, B1/binary>> = Bin,
+    case C1 of
+	X when X =:= 1 orelse X =:= 2 ->
+	    Bin2 = <<>>;
+	_ ->
+	    Bin2 = B1
+    end,
+    case Code of
+	1 -> do_unsafe_branch_caching(Bin2);
+	_ -> Bin2
+    end.
 
 
 check(F, R) ->
