@@ -311,9 +311,19 @@ set_pending_cipher_state(#connection_states{pending_read = Read,
 %%
 %% Description: Encodes a handshake message to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
-
+encode_handshake(Frag, Version, 
+		 #connection_states{current_write = 
+					#connection_state{
+					   security_parameters =
+					       #security_parameters{bulk_cipher_algorithm = BCA}}} = 
+		     ConnectionStates) ->
+    case iolist_size(Frag) of
+	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
+	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA),
+	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
+	_  ->
+	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
+    end.
 %%--------------------------------------------------------------------
 -spec encode_alert_record(#alert{}, ssl_version(), #connection_states{}) ->
 				 {iolist(), #connection_states{}}.
