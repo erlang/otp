@@ -1723,7 +1723,7 @@ decode_error:
     }
 data_error:
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
+    erts_deliver_port_exit(prt, dep->cid, am_killed, 0, 1);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return -1;
 }
@@ -2093,7 +2093,7 @@ erts_dist_command(Port *prt, int reds_limit)
     erts_smp_de_runlock(dep);
 
     if (status & ERTS_DE_SFLG_EXITING) {
-	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0);
+	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0, 1);
 	erts_deref_dist_entry(dep);
 	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
     }

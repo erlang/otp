@@ -230,17 +230,20 @@
       send |
       'receive' |
       procs |
+      ports |
       call |
-      silent |
+      arity |
       return_to |
+      silent |
       running |
       exiting |
+      running_procs |
+      running_ports |
       garbage_collection |
       timestamp |
       cpu_timestamp |
       monotonic_timestamp |
       strict_monotonic_timestamp |
-      arity |
       set_on_spawn |
       set_on_first_spawn |
       set_on_link |
@@ -1708,11 +1711,14 @@ time() ->
     erlang:nif_error(undefined).
 
 %% trace/3
--spec erlang:trace(PidSpec, How, FlagList) -> integer() when
-      PidSpec :: pid() | existing | new | all,
+-spec erlang:trace(PidPortSpec, How, FlagList) -> integer() when
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
       How :: boolean(),
       FlagList :: [trace_flag()].
-trace(PidSpec, How, FlagList) ->
+trace(PidPortSpec, How, FlagList) ->
     %% Make sure that we have loaded the tracer module
     case lists:keyfind(tracer, 1, FlagList) of
         {tracer, Module, State} when erlang:is_atom(Module) ->
@@ -1726,13 +1732,13 @@ trace(PidSpec, How, FlagList) ->
             ignore
     end,
 
-    try erts_internal:trace(PidSpec, How, FlagList) of
+    try erts_internal:trace(PidPortSpec, How, FlagList) of
         Res -> Res
     catch E:R ->
             {_, [_ | CST]} = erlang:process_info(
                                erlang:self(), current_stacktrace),
             erlang:raise(
-              E, R, [{?MODULE, trace, [PidSpec, How, FlagList], []} | CST])
+              E, R, [{?MODULE, trace, [PidPortSpec, How, FlagList], []} | CST])
     end.
 
 %% trace_delivered/1
@@ -1743,14 +1749,16 @@ trace_delivered(_Tracee) ->
     erlang:nif_error(undefined).
 
 %% trace_info/2
--spec erlang:trace_info(PidOrFunc, Item) -> Res when
-      PidOrFunc :: pid() | new | {Module, Function, Arity} | on_load,
+-spec erlang:trace_info(PidPortOrFunc, Item) -> Res when
+      PidPortOrFunc :: pid() | port() | new | new_processes | new_ports
+                     | {Module, Function, Arity} | on_load,
       Module :: module(),
       Function :: atom(),
       Arity :: arity(),
-      Item :: flags | tracer | traced | match_spec | meta | meta_match_spec | call_count | call_time | all,
+      Item :: flags | tracer | traced | match_spec
+            | meta | meta_match_spec | call_count | call_time | all,
       Res :: trace_info_return().
-trace_info(_PidOrFunc, _Item) ->
+trace_info(_PidPortOrFunc, _Item) ->
     erlang:nif_error(undefined).
 
 %% trunc/1

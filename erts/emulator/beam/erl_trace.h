@@ -68,9 +68,12 @@ ErtsTracer erts_set_system_seq_tracer(Process *c_p,
                                       ErtsProcLocks c_p_locks,
                                       ErtsTracer new);
 ErtsTracer erts_get_system_seq_tracer(void);
-void erts_change_default_tracing(int setflags, Uint *flagsp,
-                                 const ErtsTracer tracerp);
-void erts_get_default_tracing(Uint *flagsp, ErtsTracer *tracerp);
+void erts_change_default_proc_tracing(int setflags, Uint flagsp,
+                                      const ErtsTracer tracerp);
+void erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp);
+void erts_change_default_port_tracing(int setflags, Uint flagsp,
+                                      const ErtsTracer tracerp);
+void erts_get_default_port_tracing(Uint *flagsp, ErtsTracer *tracerp);
 void erts_set_system_monitor(Eterm monitor);
 Eterm erts_get_system_monitor(void);
 int erts_is_tracer_valid(Process* p);
@@ -106,6 +109,9 @@ void trace_sched_ports(Port *pp, Eterm);
 void trace_sched_ports_where(Port *pp, Eterm, Eterm);
 void trace_port(Port *, Eterm what, Eterm data);
 void trace_port_open(Port *, Eterm calling_pid, Eterm drv_name);
+void trace_port_receive(Port *, Eterm calling_pid, Eterm tag, ...);
+void trace_port_send(Port *, Eterm to, Eterm msg, int exists);
+void trace_port_send_binary(Port *, Eterm to, Eterm what, char *bin, Sint sz);
 
 /* system_profile */
 void erts_set_system_profile(Eterm profile);
@@ -177,7 +183,7 @@ int erts_finish_breakpointing(void);
 
 /* Nif tracer functions */
 int erts_is_tracer_proc_enabled(Process *c_p, ErtsProcLocks c_p_locks,
-                                ErtsPTabElementCommon *t_p);
+                                ErtsPTabElementCommon *t_p, Eterm type);
 int erts_is_tracer_enabled(Process *c_p, const ErtsTracer tracer);
 Eterm erts_tracer_to_term(Process *p, ErtsTracer tracer);
 ErtsTracer erts_term_to_tracer(Eterm prefix, Eterm term);
@@ -210,6 +216,7 @@ ERTS_DECLARE_DUMMY(erts_tracer_nil) = NIL;
 
 #define ERTS_TRACER_PROC_IS_ENABLED(PROC)                               \
     (!ERTS_TRACER_IS_NIL(ERTS_TRACER(PROC))                             \
-     && erts_is_tracer_proc_enabled(PROC, ERTS_PROC_LOCK_MAIN, &(PROC)->common))
+     && erts_is_tracer_proc_enabled(PROC, ERTS_PROC_LOCK_MAIN,          \
+                                    &(PROC)->common, am_trace_status))
 
 #endif /* ERL_TRACE_H__ */

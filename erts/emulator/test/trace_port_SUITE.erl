@@ -440,7 +440,7 @@ default_tracer(Config) when is_list(Config) ->
     {tracer, []} = erlang:trace_info(G1, tracer),
     G1 ! {apply,{erlang,exit,[normal]}},
     io:format("~p = ~p.~n", [M, N]),
-    M = N,
+    M = N - 1, % G1 has been started, but Tracer and Port have died
     ok.
 
 tracer_port_crash(Config) when is_list(Config) ->

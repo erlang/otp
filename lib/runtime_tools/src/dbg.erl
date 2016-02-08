@@ -1188,6 +1188,11 @@ to_pidspec(X) when is_pid(X) ->
 	true -> X;
 	false -> {badpid,X}
     end;
+to_pidspec(X) when is_port(X) ->
+    case erlang:port_info(X) of
+        undefined -> {badport, X};
+        _ -> X
+    end;
 to_pidspec(new) -> new;
 to_pidspec(all) -> all;
 to_pidspec(existing) -> existing;
@@ -1203,6 +1208,7 @@ to_pidspec(X) -> {badpid,X}.
 %%
 
 to_pid(X) when is_pid(X) -> X;
+to_pid(X) when is_port(X) -> X;
 to_pid(X) when is_integer(X) -> to_pid({0,X,0});
 to_pid({X,Y,Z}) ->
     to_pid(lists:concat(["<",integer_to_list(X),".",
