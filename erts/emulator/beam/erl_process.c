@@ -9699,6 +9699,8 @@ Process *schedule(Process *p, int calls)
 
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 
+	state = erts_smp_atomic32_read_nob(&p->state);
+
 	if (erts_sched_stat.enabled) {
 	    int prio;
 	    UWord old = ERTS_PROC_SCHED_ID(p,
