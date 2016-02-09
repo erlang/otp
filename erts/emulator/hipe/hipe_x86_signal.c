@@ -251,7 +251,7 @@ static void hipe_sigaltstack(void *ss_sp)
     stack_t ss;
 
     ss.ss_sp = ss_sp;
-    ss.ss_flags = SS_ONSTACK;
+    ss.ss_flags = 0;
     ss.ss_size = SIGSTKSZ;
     if (sigaltstack(&ss, NULL) < 0) {
 	perror("sigaltstack");
