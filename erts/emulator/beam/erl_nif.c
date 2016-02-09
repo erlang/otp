@@ -120,7 +120,8 @@ static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
 }
 #endif
 
-void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
+void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
+                  Process* tracee)
 {
     env->mod_nif = mod_nif;
     env->proc = p;
@@ -130,7 +131,7 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
     env->fpe_was_unmasked = erts_block_fpe();
     env->tmp_obj_list = NULL;
     env->exception_thrown = 0;
-    env->tracee = NULL;
+    env->tracee = tracee;
 }
 
 /* Temporary object header, auto-deallocated when NIF returns
@@ -232,7 +233,8 @@ struct enif_msg_environment_t
 
 static ERTS_INLINE void
 setup_nif_env(struct enif_msg_environment_t* msg_env,
-              struct erl_module_nif* mod)
+              struct erl_module_nif* mod,
+              Process* tracee)
 {
     Eterm* phony_heap = (Eterm*) msg_env; /* dummy non-NULL ptr */
 
@@ -241,7 +243,6 @@ setup_nif_env(struct enif_msg_environment_t* msg_env,
     msg_env->env.heap_frag = NULL;
     msg_env->env.mod_nif = mod;
     msg_env->env.tmp_obj_list = NULL;
-    msg_env->env.fpe_was_unmasked = erts_block_fpe();
     msg_env->env.proc = &msg_env->phony_proc;
     msg_env->env.exception_thrown = 0;
     memset(&msg_env->phony_proc, 0, sizeof(Process));
@@ -255,19 +256,34 @@ setup_nif_env(struct enif_msg_environment_t* msg_env,
     msg_env->phony_proc.space_verified = 0;
     msg_env->phony_proc.space_verified_from = NULL;
 #endif
+    msg_env->env.tracee = tracee;
 }
 
 ErlNifEnv* enif_alloc_env(void)
 {
     struct enif_msg_environment_t* msg_env =
 	erts_alloc_fnf(ERTS_ALC_T_NIF, sizeof(struct enif_msg_environment_t));
-    setup_nif_env(msg_env, NULL);
+    setup_nif_env(msg_env, NULL, NULL);
     return &msg_env->env;
 }
 void enif_free_env(ErlNifEnv* env)
 {
     enif_clear_env(env);
     erts_free(ERTS_ALC_T_NIF, env);
+}
+
+static ERTS_INLINE void pre_nif_noproc(struct enif_msg_environment_t* msg_env,
+                                       struct erl_module_nif* mod,
+                                       Process* tracee)
+{
+    setup_nif_env(msg_env, mod, tracee);
+    msg_env->env.fpe_was_unmasked = erts_block_fpe();
+}
+
+static ERTS_INLINE void post_nif_noproc(struct enif_msg_environment_t* msg_env)
+{
+    erts_unblock_fpe(msg_env->env.fpe_was_unmasked);
+    enif_clear_env(&msg_env->env);
 }
 
 static ERTS_INLINE void clear_offheap(ErlOffHeap* oh)
@@ -294,7 +310,6 @@ void enif_clear_env(ErlNifEnv* env)
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));
-    erts_unblock_fpe(env->fpe_was_unmasked);
     free_tmp_objs(env);
 }
 
@@ -465,7 +480,7 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     else {
         /* This clause is taken when the nif is called in the context
            of a traced process. We do not know which locks we have
-           so we have to do a try lock and if that fails we en queue
+           so we have to do a try lock and if that fails we enqueue
            the message in a special trace message output queue of the
            tracee */
         ErlTraceMessageQueue *msgq;
@@ -1648,9 +1663,9 @@ static void close_lib(struct erl_module_nif* lib)
 
     if (lib->entry != NULL && lib->entry->unload != NULL) {
 	struct enif_msg_environment_t msg_env;
-        setup_nif_env(&msg_env, lib);
+        pre_nif_noproc(&msg_env, lib, NULL);
 	lib->entry->unload(&msg_env.env, lib->priv_data);
-        enif_clear_env(&msg_env.env);
+        post_nif_noproc(&msg_env);
     }
     if (!erts_is_static_nif(lib->handle))
       erts_sys_ddll_close(lib->handle);
@@ -1797,9 +1812,9 @@ static void nif_resource_dtor(Binary* bin)
 
     if (type->dtor != NULL) {
         struct enif_msg_environment_t msg_env;
-        setup_nif_env(&msg_env, type->owner);
+        pre_nif_noproc(&msg_env, type->owner, NULL);
 	type->dtor(&msg_env.env, resource->data);
-        enif_clear_env(&msg_env.env);
+        post_nif_noproc(&msg_env);
     }
     if (erts_refc_dectest(&type->refc, 0) == 0) {
 	ASSERT(type->next == NULL);
@@ -2959,7 +2974,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    }
 	    old_func = next_func(mod->curr.nif->entry, &old_incr, old_func);
 	}
-	erts_pre_nif(&env, BIF_P, lib);
+	erts_pre_nif(&env, BIF_P, lib, NULL);
 	veto = entry->reload(&env, &lib->priv_data, BIF_ARG_2);
 	erts_post_nif(&env);
 	if (veto) {
@@ -2980,7 +2995,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
 		goto error;
 	    }
-	    erts_pre_nif(&env, BIF_P, lib);
+	    erts_pre_nif(&env, BIF_P, lib, NULL);
 	    veto = entry->upgrade(&env, &lib->priv_data, &mod->old.nif->priv_data, BIF_ARG_2);
 	    erts_post_nif(&env);
 	    if (veto) {
@@ -2991,7 +3006,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		commit_opened_resource_types(lib);
 	}
 	else if (entry->load != NULL) { /********* Initial load ***********/
-	    erts_pre_nif(&env, BIF_P, lib);
+	    erts_pre_nif(&env, BIF_P, lib, NULL);
 	    veto = entry->load(&env, &lib->priv_data, BIF_ARG_2);
 	    erts_post_nif(&env);
 	    if (veto) {
@@ -3152,8 +3167,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
     if (p) {
         struct enif_environment_t env;
         ASSERT(is_internal_pid(p->common.id));
-        erts_pre_nif(&env, p, mod);
-        env.tracee = tracee;
+        erts_pre_nif(&env, p, mod, tracee);
         nif_result = (*fun->fptr)(&env, argc, argv);
         if (env.exception_thrown)
             nif_result = THE_NON_VALUE;
@@ -3162,12 +3176,11 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         /* Nif call was done without a process context,
            so we create a phony one. */
         struct enif_msg_environment_t msg_env;
-        setup_nif_env(&msg_env, mod);
-        msg_env.env.tracee = tracee;
+        pre_nif_noproc(&msg_env, mod, tracee);
         nif_result = (*fun->fptr)(&msg_env.env, argc, argv);
         if (msg_env.env.exception_thrown)
             nif_result = THE_NON_VALUE;
-        enif_clear_env(&msg_env.env);
+        post_nif_noproc(&msg_env);
     }
 
     return nif_result;

@@ -3490,7 +3490,7 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
-		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
+		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		live_hf_end = c_p->mbuf;
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
