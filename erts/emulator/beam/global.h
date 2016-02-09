@@ -59,7 +59,7 @@ struct enif_environment_t /* ErlNifEnv */
     Process *tracee;
 };
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
-			 struct erl_module_nif*);
+			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(int to, void* to_arg);
