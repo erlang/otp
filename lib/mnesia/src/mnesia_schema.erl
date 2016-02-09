@@ -646,54 +646,18 @@ cs2list(Cs) when is_record(Cs, cstruct) ->
     rec2list(Tags, Tags, 2, Cs);
 cs2list(CreateList) when is_list(CreateList) ->
     CreateList;
-%% 4.6
+
+%% since 4.6
 cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
     Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
 	    load_order,access_mode,majority,index,snmp,local_content,
 	    record_name,attributes,
 	    user_properties,frag_properties,storage_properties,
 	    cookie,version],
-    rec2list(Tags, Tags, 2, Cs);
-%% 4.4.19
-cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,majority,index,snmp,local_content,
-	    record_name,attributes,user_properties,frag_properties,
-	    cookie,version],
-    rec2list(Tags, Tags, 2, Cs);
-%% 4.4.18 and earlier
-cs2list(Cs) when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,index,snmp,local_content,
-	    record_name,attributes,user_properties,frag_properties,
-	    cookie,version],
     rec2list(Tags, Tags, 2, Cs).
 
 cs2list(false, Cs) ->
-    cs2list(Cs);
-cs2list(ver4_4_18, Cs) -> %% Or earlier
-    Orig = record_info(fields, cstruct),
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,index,snmp,local_content,
-	    record_name,attributes,user_properties,frag_properties,
-	    cookie,version],
-    rec2list(Tags, Orig, 2, Cs);
-cs2list(ver4_4_19, Cs) ->
-    Orig = record_info(fields, cstruct),
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,majority,index,snmp,local_content,
-	    record_name,attributes,user_properties,frag_properties,
-	    cookie,version],
-    rec2list(Tags, Orig, 2, Cs);
-cs2list(ver4_6, Cs) ->
-    Orig = record_info(fields, cstruct),
-    Tags = [name,type,ram_copies,disc_copies,disc_only_copies,
-	    load_order,access_mode,majority,index,snmp,local_content,
-	    record_name,attributes,
-	    user_properties,frag_properties,storage_properties,
-	    cookie,version],
-    rec2list(Tags, Orig, 2, Cs).
-
+    cs2list(Cs).
 
 rec2list([Tag | Tags], [Tag | Orig], Pos, Rec) ->
     Val = element(Pos, Rec),
@@ -703,19 +667,8 @@ rec2list([], _, _Pos, _Rec) ->
 rec2list(Tags, [_|Orig], Pos, Rec) ->
     rec2list(Tags, Orig, Pos+1, Rec).
 
-normalize_cs(Cstructs, Node) ->
-    %% backward-compatibility hack; normalize before returning
-    case need_old_cstructs([Node]) of
-	false ->
-	    Cstructs;
-	Version ->
-	    %% some other format
-	    [convert_cs(Version, Cs) || Cs <- Cstructs]
-    end.
-
-convert_cs(Version, Cs) ->
-    Fields = [Value || {_, Value} <- cs2list(Version, Cs)],
-    list_to_tuple([cstruct|Fields]).
+normalize_cs(Cstructs, _Node) ->
+    Cstructs.
 
 list2cs(List) when is_list(List) ->
     Name = pick(unknown, name, List, must),
@@ -1357,7 +1310,11 @@ do_move_table(schema, _FromNode, _ToNode) ->
     mnesia:abort({bad_type, schema});
 do_move_table(Tab, FromNode, ToNode) when is_atom(FromNode), is_atom(ToNode) ->
     TidTs = get_tid_ts_and_lock(schema, write),
-    %% get_tid_ts_and_lock(Tab, write), write locked by load_table in mnesia_loader
+    AnyOld = lists:any(fun(Node) -> mnesia_monitor:needs_protocol_conversion(Node) end,
+		       [ToNode|val({Tab, where_to_write})]),
+    if AnyOld -> ignore;  %% Leads to deadlock on old nodes
+       true -> get_tid_ts_and_lock(Tab, write)
+    end,
     insert_schema_ops(TidTs, make_move_table(Tab, FromNode, ToNode));
 do_move_table(Tab, FromNode, ToNode) ->
     mnesia:abort({badarg, Tab, FromNode, ToNode}).
@@ -1965,7 +1922,7 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 	    end,
 	    %% Tables are created by mnesia_loader get_network code
 	    insert_cstruct(Tid, Cs, true),
-	    case mnesia_controller:get_network_copy(Tab, Cs) of
+	    case mnesia_controller:get_network_copy(Tid, Tab, Cs) of
 		{loaded, ok} ->
 		    {true, optional};
 		{not_loaded, ErrReason} ->
@@ -2373,7 +2330,7 @@ undo_prepare_op(_Tid, {op, del_table_copy, _, Node, TabDef}) ->
 	    case mnesia_lib:val({Tab, where_to_read}) of
 		nowhere ->
 		    mnesia_lib:set_remote_where_to_read(Tab);
-		true ->
+		_ ->
 		    ignore
 	    end
     end;
@@ -2837,40 +2794,11 @@ do_merge_schema(LockTabs0) ->
     end.
 
 fetch_cstructs(Node) ->
-    case need_old_cstructs([Node]) of
-	false ->
-	    rpc:call(Node, mnesia_controller, get_remote_cstructs, []);
-	_Ver ->
-	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
-		{cstructs, Cs0, RR} ->
-		    {cstructs, [list2cs(cs2list(Cs)) || Cs <- Cs0], RR};
-		Err -> Err
-	    end
-    end.
+    rpc:call(Node, mnesia_controller, get_remote_cstructs, []).
 
-need_old_cstructs() ->
-    need_old_cstructs(val({schema, where_to_write})).
+need_old_cstructs() -> false.
 
-need_old_cstructs(Nodes) ->
-    Filter = fun(Node) -> not mnesia_monitor:needs_protocol_conversion(Node) end,
-    case lists:dropwhile(Filter, Nodes) of
-	[] -> false;
-	[Node|_] ->
-	    case rpc:call(Node, mnesia_lib, val, [{schema,cstruct}]) of
-		#cstruct{} ->
-		    %% mnesia_lib:warning("Mnesia on ~p do not need to convert cstruct (~p)~n",
-		    %% 		       [node(), Node]),
-		    false;
-		{badrpc, _} ->
-		    need_old_cstructs(lists:delete(Node,Nodes));
-		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 17 ->
-		    ver4_4_18;			% Without majority
-		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 18 ->
-		    ver4_4_19;			% With majority
-		Cs when element(1, Cs) == cstruct, tuple_size(Cs) == 19 ->
-		    ver4_6			% With storage_properties
-	    end
-    end.
+need_old_cstructs(_Nodes) -> false.
 
 tab_to_nodes(Tab) when is_atom(Tab) ->
     Cs = val({Tab, cstruct}),
