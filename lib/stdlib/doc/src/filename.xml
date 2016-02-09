@@ -214,7 +214,7 @@
       <desc>
         <p>Converts <c><anno>Path</anno></c> to a form accepted by the command shell
           and native applications on the current platform. On Windows,
-          forward slashes is converted to backward slashes. On all
+          forward slashes are converted to backward slashes. On all
           platforms, the name is normalized as done by <c>join/1</c>.</p>
         <pre>
 19> <input>filename:nativename("/usr/local/bin/").</input> % Unix
