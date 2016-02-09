@@ -96,10 +96,10 @@ erlang:'!'            -----> Module:State/5
       </seealso> will be called.
       If you use <c>handle_event</c> as a
       <seealso marker="#type-state">state</seealso> and later
-      decides to use non-atom states you will then have to
+      decide to use non-atom states you will then have to
       rewrite your code to stop using that state.
     </p>
-    <p>When the using an atom-only
+    <p>When using an atom-only
       <seealso marker="#type-state">State</seealso>
       it becomes fairly obvious in the implementation code
       which events are handled in which state
