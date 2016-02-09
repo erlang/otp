@@ -231,8 +231,11 @@ sshc_simple_exec(Config) ->
 			" ",Host," 1+1."]),
     ct:log("~p",[Cmd]),
     SshPort = open_port({spawn, Cmd}, [binary]),
+    Expect = <<"2\n">>,
     receive
-        {SshPort,{data, <<"2\n">>}} ->
+	{SshPort, {data,Expect}} ->
+	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
+	    port_close(SshPort),
 	    ok
     after ?TIMEOUT ->
 	    ct:fail("Did not receive answer")
@@ -273,7 +276,9 @@ sshd_simple_exec(_Config) ->
 					     ConnectionRef, ChannelId1);
 	Other1 ->
 	    ct:fail(Other1)
-    end.
+    end,
+    ssh:close(ConnectionRef).
+
 
 %%%================================================================
 %%%

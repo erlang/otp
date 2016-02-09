@@ -441,6 +441,7 @@ exec(Config) when is_list(Config) ->
 	    ct:fail(Other1)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1),
+    ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -474,6 +475,7 @@ exec_compressed(Config) when is_list(Config) ->
 		    ct:fail(Other)
 	    end,
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
     end.
 
@@ -979,7 +981,10 @@ shell_no_unicode(Config) ->
     new_do_shell(?config(io,Config),
 		 [new_prompt,
 		  {type,"io:format(\"hej ~p~n\",[42])."},
-		  {expect,"hej 42"}
+		  {expect,"hej 42"},
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 	      
 %%--------------------------------------------------------------------
@@ -988,7 +993,9 @@ shell_unicode_string(Config) ->
 		 [new_prompt,
 		  {type,"io:format(\"こにちわ~ts~n\",[\"四二\"])."},
 		  {expect,"こにちわ四二"},
-		  {expect,"ok"}
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 
 %%--------------------------------------------------------------------
