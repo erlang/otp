@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2200,7 +2200,7 @@ type_ranks(Type, I, Min, Max, [TypeClass|Rest], Opaques) ->
 
 type_order() ->
   [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
-   t_list(), t_binary()].
+   t_map(), t_list(), t_bitstr()].
 
 key_comparisons_fail(X0, KeyPos, TupleList, Opaques) ->
   X = case t_is_number(t_inf(X0, t_number(), Opaques), Opaques) of
@@ -2300,7 +2300,7 @@ arg_types(erlang, bit_size, 1) ->
   [t_bitstr()];
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
-  [t_binary()];
+  [t_bitstr()];
 arg_types(erlang, disconnect_node, 1) ->
   [t_node()];
 arg_types(erlang, halt, 0) ->
