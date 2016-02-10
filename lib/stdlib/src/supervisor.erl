@@ -33,6 +33,9 @@
 	 terminate/2, code_change/3]).
 -export([try_again_restart/2]).
 
+%% For release_handler only
+-export([get_callback_module/1]).
+
 %%--------------------------------------------------------------------------
 
 -export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
@@ -115,6 +118,7 @@
 		intensity              :: non_neg_integer() | 'undefined',
 		period                 :: pos_integer() | 'undefined',
 		restarts = [],
+		dynamic_restarts = 0   :: non_neg_integer(),
 	        module,
 	        args}).
 -type state() :: #state{}.
@@ -251,6 +255,17 @@ try_again_restart(Supervisor, Child) ->
 
 cast(Supervisor, Req) ->
     gen_server:cast(Supervisor, Req).
+
+%%%-----------------------------------------------------------------
+%%% Called by release_handler during upgrade
+-spec get_callback_module(Pid) -> Module when
+      Pid :: pid(),
+      Module :: atom().
+get_callback_module(Pid) ->
+    {status, _Pid, {module, _Mod},
+     [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(Pid),
+    [_Header, _Data, {data, [{"State", State}]}] = Misc,
+    State#state.module.
 
 %%% ---------------------------------------------------
 %%% 
@@ -506,39 +521,26 @@ handle_call(which_children, _From, State) ->
 handle_call(count_children, _From, #state{children = [#child{restart_type = temporary,
 							     child_type = CT}]} = State)
   when ?is_simple(State) ->
-    {Active, Count} =
-	?SETS:fold(fun(Pid, {Alive, Tot}) ->
-			   case is_pid(Pid) andalso is_process_alive(Pid) of
-			       true ->{Alive+1, Tot +1};
-			       false ->
-				   {Alive, Tot + 1}
-			   end
-		   end, {0, 0}, dynamics_db(temporary, State#state.dynamics)),
+    Sz = ?SETS:size(dynamics_db(temporary, State#state.dynamics)),
     Reply = case CT of
-		supervisor -> [{specs, 1}, {active, Active},
-			       {supervisors, Count}, {workers, 0}];
-		worker -> [{specs, 1}, {active, Active},
-			   {supervisors, 0}, {workers, Count}]
+		supervisor -> [{specs, 1}, {active, Sz},
+			       {supervisors, Sz}, {workers, 0}];
+		worker -> [{specs, 1}, {active, Sz},
+			   {supervisors, 0}, {workers, Sz}]
 	    end,
     {reply, Reply, State};
 
-handle_call(count_children, _From,  #state{children = [#child{restart_type = RType,
+handle_call(count_children, _From,  #state{dynamic_restarts = Restarts,
+					   children = [#child{restart_type = RType,
 							      child_type = CT}]} = State)
   when ?is_simple(State) ->
-    {Active, Count} =
-	?DICTS:fold(fun(Pid, _Val, {Alive, Tot}) ->
-			   case is_pid(Pid) andalso is_process_alive(Pid) of
-			       true ->
-				   {Alive+1, Tot +1};
-			       false ->
-				   {Alive, Tot + 1}
-			   end
-		   end, {0, 0}, dynamics_db(RType, State#state.dynamics)),
+    Sz = ?DICTS:size(dynamics_db(RType, State#state.dynamics)),
+    Active = Sz - Restarts,
     Reply = case CT of
 		supervisor -> [{specs, 1}, {active, Active},
-			       {supervisors, Count}, {workers, 0}];
+			       {supervisors, Sz}, {workers, 0}];
 		worker -> [{specs, 1}, {active, Active},
-			   {supervisors, 0}, {workers, Count}]
+			   {supervisors, 0}, {workers, Sz}]
 	    end,
     {reply, Reply, State};
 
@@ -808,8 +810,15 @@ restart(Child, State) ->
 	    {shutdown, remove_child(Child, NState)}
     end.
 
-restart(simple_one_for_one, Child, State) ->
+restart(simple_one_for_one, Child, State0) ->
     #child{pid = OldPid, mfargs = {M, F, A}} = Child,
+    State = case OldPid of
+		?restarting(_) ->
+		    NRes = State0#state.dynamic_restarts - 1,
+		    State0#state{dynamic_restarts = NRes};
+		_ ->
+		    State0
+	    end,
     Dynamics = ?DICTS:erase(OldPid, dynamics_db(Child#child.restart_type,
 					       State#state.dynamics)),
     case do_start_child_i(M, F, A) of
@@ -822,8 +831,10 @@ restart(simple_one_for_one, Child, State) ->
 	    NState = State#state{dynamics = DynamicsDb},
 	    {ok, NState};
 	{error, Error} ->
+	    NRestarts = State#state.dynamic_restarts + 1,
             DynamicsDb = {dict, ?DICTS:store(restarting(OldPid), A, Dynamics)},
-	    NState = State#state{dynamics = DynamicsDb},
+	    NState = State#state{dynamic_restarts = NRestarts,
+				 dynamics = DynamicsDb},
 	    report_error(start_error, Error, Child, State#state.name),
 	    {try_again, NState}
     end;
