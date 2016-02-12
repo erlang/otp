@@ -180,8 +180,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_only_copies -
 -define(MAX_RAM_TRANSFERS, (?MAX_RAM_FILE_SIZE div ?MAX_TRANSFER_SIZE) + 1).
 -define(MAX_NOPACKETS, 20).
 
-net_load_table(Tab, Reason, Ns, Cs)
-        when Reason == {dumper,add_table_copy} ->
+net_load_table(Tab, {dumper,{add_table_copy, _}}=Reason, Ns, Cs) ->
     try_net_load_table(Tab, Reason, Ns, Cs);
 net_load_table(Tab, Reason, Ns, _Cs) ->
     try_net_load_table(Tab, Reason, Ns, val({Tab, cstruct})).
@@ -233,7 +232,8 @@ do_snmpify(Tab, Us, Storage) ->
     set({Tab, {index, snmp}}, Snmp).
 
 %% Start the recieiver
-init_receiver(Node, Tab, Storage, Cs, Reas={dumper,add_table_copy}) ->
+init_receiver(Node, Tab, Storage, Cs, Reas={dumper,{add_table_copy, Tid}}) ->
+    rpc:call(Node, mnesia_lib, set, [{?MODULE, active_trans}, Tid]),
     case start_remote_sender(Node, Tab, Storage) of
 	{SenderPid, TabSize, DetsData} ->
 	    start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,Reas);
@@ -307,7 +307,7 @@ table_init_fun(SenderPid) ->
     end.
 
 %% Add_table_copy get's it's own locks.
-start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,{dumper,add_table_copy}) ->
+start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,{dumper,{add_table_copy,_}}) ->
     Init = table_init_fun(SenderPid),
     case do_init_table(Tab,Storage,Cs,SenderPid,TabSize,DetsData,self(), Init) of
 	Err = {error, _} ->
@@ -658,9 +658,10 @@ send_table(Pid, Tab, RemoteS) ->
 	    {Init, Chunk} = reader_funcs(UseDetsChunk, Tab, Storage, KeysPerTransfer),
 
 	    SendIt = fun() ->
-			     {atomic, ok} = prepare_copy(Pid, Tab, Storage),
+			     NeedLock = need_lock(Tab),
+			     {atomic, ok} = prepare_copy(Pid, Tab, Storage, NeedLock),
 			     send_more(Pid, 1, Chunk, Init(), Tab),
-			     finish_copy(Pid, Tab, Storage, RemoteS)
+			     finish_copy(Pid, Tab, Storage, RemoteS, NeedLock)
 		     end,
 
 	    try SendIt() of
@@ -678,16 +679,31 @@ send_table(Pid, Tab, RemoteS) ->
 	    end
     end.
 
-prepare_copy(Pid, Tab, Storage) ->
+prepare_copy(Pid, Tab, Storage, NeedLock) ->
     Trans =
 	fun() ->
-		mnesia:lock_table(Tab, load),
+		NeedLock andalso mnesia:lock_table(Tab, load),
 		mnesia_subscr:subscribe(Pid, {table, Tab}),
 		update_where_to_write(Tab, node(Pid)),
 		mnesia_lib:db_fixtable(Storage, Tab, true),
 		ok
 	end,
     mnesia:transaction(Trans).
+
+
+need_lock(Tab) ->
+    case ?catch_val({?MODULE, active_trans}) of
+	#tid{} = Tid ->
+	    %% move_table_copy grabs it's own table-lock
+	    %% do not deadlock with it
+	    mnesia_lib:unset({?MODULE, active_trans}),
+	    case mnesia_locker:get_held_locks(Tab) of
+		[{write, Tid}|_] -> false;
+		_Locks -> true
+	    end;
+	_ ->
+	    true
+    end.
 
 update_where_to_write(Tab, Node) ->
     case val({Tab, access_mode}) of
@@ -783,12 +799,12 @@ send_packet(N, Pid, Chunk, {Recs, Cont}) when N < ?MAX_NOPACKETS ->
 send_packet(_N, _Pid, _Chunk, DataState) ->
     DataState.
 
-finish_copy(Pid, Tab, Storage, RemoteS) ->
+finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
     RecNode = node(Pid),
     DatBin = dat2bin(Tab, Storage, RemoteS),
     Trans =
 	fun() ->
-		mnesia:read_lock_table(Tab),
+		NeedLock andalso mnesia:read_lock_table(Tab),
 		A = val({Tab, access_mode}),
 		mnesia_controller:sync_and_block_table_whereabouts(Tab, RecNode, RemoteS, A),
 		cleanup_tab_copier(Pid, Storage, Tab),

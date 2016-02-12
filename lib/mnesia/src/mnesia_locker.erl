@@ -22,7 +22,7 @@
 -module(mnesia_locker).
 
 -export([
-	 get_held_locks/0,
+	 get_held_locks/0, get_held_locks/1,
 	 get_lock_queue/0,
 	 global_lock/5,
 	 ixrlock/5,
@@ -234,6 +234,11 @@ loop(State) ->
 	{{From, Ref},{release_remote_non_pending, Node, Pending}} ->
 	    release_remote_non_pending(Node, Pending),
 	    From ! {Ref, ok},
+	    loop(State);
+
+	{From, {is_locked, Oid}} ->
+	    Held = ?ets_lookup(mnesia_held_locks, Oid),
+	    reply(From, Held),
 	    loop(State);
 
 	{'EXIT', Pid, _} when Pid == State#state.supervisor ->
@@ -1150,6 +1155,19 @@ get_held_locks() ->
     ?MODULE ! {get_table, self(), mnesia_held_locks},
     Locks = receive {mnesia_held_locks, Ls} -> Ls after 5000 -> [] end,
     rewrite_locks(Locks, []).
+
+%% Mnesia internal usage only
+get_held_locks(Tab) when is_atom(Tab) ->
+    Oid = {Tab, ?ALL},
+    ?MODULE ! {self(), {is_locked, Oid}},
+    receive
+	{?MODULE, _Node, Locks} ->
+	    case Locks of
+		[] -> [];
+		[{Oid, _Prev, What}] -> What
+	    end
+    end.
+
 
 rewrite_locks([{Oid, _, Ls}|Locks], Acc0) ->
     Acc = rewrite_locks(Ls, Oid, Acc0),
