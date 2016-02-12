@@ -967,15 +967,23 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
     return THE_NON_VALUE;
 }
 
-Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext)
+Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
 {
+    ErtsDistExternal ede, *edep;
     Eterm obj;
     byte *ep = *ext;
     if (*ep++ != VERSION_MAGIC) {
         erts_factory_undo(factory);
 	return THE_NON_VALUE;
     }
-    ep = dec_term(NULL, factory, ep, &obj, NULL);
+    if (flags) {
+        ASSERT(flags == ERTS_DIST_EXT_BTT_SAFE);
+        ede.flags = flags; /* a dummy struct just for the flags */
+        edep = &ede;
+    } else {
+        edep = NULL;
+    }
+    ep = dec_term(edep, factory, ep, &obj, NULL);
     if (!ep) {
 #ifdef DEBUG
 	bin_write(ERTS_PRINT_STDERR,NULL,*ext,500);

@@ -4570,7 +4570,7 @@ port_sig_call(Port *prt,
 
                 (void) erts_factory_message_create(&factory, rp, &rp_locks, hsz);
 		endp = (byte *) resp_bufp;
-		msg = erts_decode_ext(&factory, &endp);
+		msg = erts_decode_ext(&factory, &endp, 0);
 		if (is_value(msg)) {
                     hp = erts_produce_heap(&factory,
                                            3,
@@ -4689,7 +4689,7 @@ erts_port_call(Process* c_p,
 	    hsz += 3;
             erts_factory_proc_prealloc_init(&factory, c_p, hsz);
 	    endp = (byte *) resp_bufp;
-	    term = erts_decode_ext(&factory, &endp);
+	    term = erts_decode_ext(&factory, &endp, 0);
 	    if (term == THE_NON_VALUE)
 		return ERTS_PORT_OP_BADARG;
             hp = erts_produce_heap(&factory,3,0);

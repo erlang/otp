@@ -2057,25 +2057,31 @@ static ERL_NIF_TERM term_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary bin;
-    ERL_NIF_TERM term;
+    ERL_NIF_TERM term, ret_term;
     ErlNifPid pid;
     ErlNifEnv *msg_env = env;
+    unsigned int opts;
+    ErlNifUInt64 ret;
 
     if (enif_get_local_pid(env, argv[1], &pid))
         msg_env = enif_alloc_env();
 
-    if (!enif_inspect_binary(env, argv[0], &bin))
+    if (!enif_inspect_binary(env, argv[0], &bin)
+	|| !enif_get_uint(env, argv[2], &opts))
         return enif_make_badarg(env);
 
-    if (!enif_binary_to_term(env, &bin, &term))
-        return enif_make_badarg(env);
+    ret = enif_binary_to_term(msg_env, bin.data, bin.size, &term,
+			      (ErlNifBinaryToTerm)opts);
+    if (!ret)
+	return atom_false;
 
+    ret_term = enif_make_uint64(env, ret);
     if (msg_env != env) {
         enif_send(env, &pid, msg_env, term);
         enif_free_env(msg_env);
-        return atom_true;
+        return ret_term;
     } else {
-        return term;
+        return enif_make_tuple2(env, ret_term, term);
     }
 }
 
@@ -2170,7 +2176,7 @@ static ErlNifFunc nif_funcs[] =
     {"is_process_alive_nif", 1, is_process_alive},
     {"is_port_alive_nif", 1, is_port_alive},
     {"term_to_binary_nif", 2, term_to_binary},
-    {"binary_to_term_nif", 2, binary_to_term},
+    {"binary_to_term_nif", 3, binary_to_term},
     {"port_command_nif", 2, port_command}
 };
 

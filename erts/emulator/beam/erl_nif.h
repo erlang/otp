@@ -207,6 +207,10 @@ typedef enum {
     ERL_NIF_UNIQUE_MONOTONIC = (1 << 1)
 } ErlNifUniqueInteger;
 
+typedef enum {
+    ERL_NIF_BIN2TERM_SAFE = 0x20000000
+} ErlNifBinaryToTerm;
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {

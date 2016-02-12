@@ -524,6 +524,18 @@ typedef struct {
           <p>Note that <c>ErlNifBinary</c> is a semi-opaque type and you are
           only allowed to read fields <c>size</c> and <c>data</c>.</p>
       </item>
+
+      <tag><marker id="ErlNifBinaryToTerm"/>ErlNifBinaryToTerm</tag>
+      <item>
+        <p>An enumeration of the options that can be given to
+        <seealso marker="#enif_binary_to_term">enif_binary_to_term</seealso>.
+	For default behavior, use the value <c>0</c>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_BIN2TERM_SAFE</c></tag>
+	  <item><p>Use this option when receiving data from untrusted sources.</p></item>
+	</taglist>
+      </item>
+
       <tag><marker id="ErlNifPid"/>ErlNifPid</tag>
        <item>
           <p><c>ErlNifPid</c> is a process identifier (pid). In contrast to
@@ -655,16 +667,23 @@ typedef enum {
       have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       </p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_binary_to_term(ErlNifEnv *env, ErlNifBinary *bin, ERL_NIF_TERM *term)</nametext></name>
-    <fsummary>Convert a term from the external format</fsummary>
+    <func><name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env, const unsigned char* data, size_t size, ERL_NIF_TERM *term, ErlNifBinaryToTerm opts)</nametext></name>
+    <fsummary>Create a term from the external format</fsummary>
     <desc>
-      <p>Returns a term that is the result of decoding <c>bin</c>
-      according to the Erlang external term format.</p>
-      <p>See also:</p>
-      <list>
-        <item><seealso marker="erlang#binary_to_term-1"><c>erlang:binary_to_term/1</c></seealso></item>
-        <item><seealso marker="#enif_term_to_binary"><c>enif_term_to_binary</c></seealso></item>
-      </list>
+      <p>Create a term that is the result of decoding the binary data
+      at <c>data</c>, which must be encoded according to the Erlang external term format.
+      No more than <c>size</c> bytes are read from <c>data</c>. Argument <c>opts</c>
+      correspond to the second argument to <seealso marker="erlang#binary_to_term-2">
+      <c>erlang:binary_to_term/2</c></seealso>, and must be either <c>0</c> or
+      <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
+      <p>On success, store the resulting term at <c>*term</c> and return
+      the actual number of bytes read. Return zero if decoding fails or if <c>opts</c>
+      is invalid.</p>
+      <p>See also:
+        <seealso marker="#ErlNifBinaryToTerm"><c>ErlNifBinaryToTerm</c></seealso>,
+        <seealso marker="erlang#binary_to_term-2"><c>erlang:binary_to_term/2</c></seealso> and
+        <seealso marker="#enif_term_to_binary"><c>enif_term_to_binary</c></seealso>.
+      </p>
     </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>

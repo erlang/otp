@@ -1971,13 +1971,22 @@ nif_term_to_binary(Config) ->
     true = term_to_binary_nif(T, self()),
     receive Bin -> ok end.
 
+-define(ERL_NIF_BIN2TERM_SAFE, 16#20000000).
+
 nif_binary_to_term(Config) ->
     ensure_lib_loaded(Config),
     T = {#{ok => nok}, <<0:8096>>, lists:seq(1,100)},
     Bin = term_to_binary(T),
-    T = binary_to_term_nif(Bin, undefined),
-    true = binary_to_term_nif(Bin, self()),
-    receive T -> ok end.
+    Len = byte_size(Bin),
+    {Len,T} = binary_to_term_nif(Bin, undefined, 0),
+    Len = binary_to_term_nif(Bin, self(), 0),
+    T = receive M -> M after 1000 -> timeout end,
+
+    {Len, T} = binary_to_term_nif(Bin, undefined, ?ERL_NIF_BIN2TERM_SAFE),
+    false = binary_to_term_nif(<<131,100,0,14,"undefined_atom">>,
+			   undefined, ?ERL_NIF_BIN2TERM_SAFE),
+    false = binary_to_term_nif(Bin, undefined, 1),
+    ok.
 
 nif_port_command(Config) ->
     ensure_lib_loaded(Config),
@@ -2069,7 +2078,7 @@ unique_integer_nif(_) -> ?nif_stub.
 is_process_alive_nif(_) -> ?nif_stub.
 is_port_alive_nif(_) -> ?nif_stub.
 term_to_binary_nif(_, _) -> ?nif_stub.
-binary_to_term_nif(_, _) -> ?nif_stub.
+binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 
 %% maps
