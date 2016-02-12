@@ -267,10 +267,21 @@ calc_sched_bits(NoScheds, Shift) when NoScheds < 1 bsl Shift ->
 calc_sched_bits(NoScheds, Shift) ->
     calc_sched_bits(NoScheds, Shift+1).
 
+schedulers() ->
+    S = erlang:system_info(schedulers),
+    try
+	DCPUS = erlang:system_info(dirty_cpu_schedulers),
+	DIOS = erlang:system_info(dirty_io_schedulers),
+	S+DCPUS+DIOS
+    catch
+	_ : _ ->
+	    S
+    end.
+
 init_uniqint_info() ->
     SmallBits = erlang:system_info({wordsize, internal})*8-4,
     io:format("SmallBits=~p~n", [SmallBits]),
-    Schedulers = erlang:system_info(schedulers),
+    Schedulers = schedulers(),
     io:format("Schedulers=~p~n", [Schedulers]),
     MinSmall = -1*(1 bsl (SmallBits-1)),
     io:format("MinSmall=~p~n", [MinSmall]),
@@ -337,7 +348,7 @@ check_uniqint(Int, UinqintInfo) ->
 	true ->
 	    io:format("OK~n~n", []);
 	false ->
-	    io:format("result UniqInt=~p FAILED~n", [UniqInt]),
+	    io:format("result Int=~p FAILED~n", [Int]),
 	    exit(badres)
     end.
 
