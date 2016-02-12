@@ -1289,6 +1289,7 @@ gen_head(Erules,Mod,Hrl) ->
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
     emit({"-compile(nowarn_unused_vars).",nl}),
+    emit({"-dialyzer(no_improper_lists).",nl}),
     case Hrl of
 	0 -> ok;
 	_ -> emit({"-include(\"",Mod,".hrl\").",nl})
