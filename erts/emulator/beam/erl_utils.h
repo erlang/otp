@@ -169,14 +169,12 @@ Sint cmp(Eterm a, Eterm b);
 #define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
 #define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
 
-#define cmp_lt(a,b)          (CMP((a),(b)) <  0)
-#define cmp_le(a,b)          (CMP((a),(b)) <= 0)
-#define cmp_eq(a,b)          (CMP_EQ_ONLY((a),(b)) == 0)
-#define cmp_ne(a,b)          (CMP_EQ_ONLY((a),(b)) != 0)
-#define cmp_ge(a,b)          (CMP((a),(b)) >= 0)
-#define cmp_gt(a,b)          (CMP((a),(b)) >  0)
-
-#define CMP_EQ(a,b)          ((a) == (b) || cmp_eq((a),(b)))
+#define CMP_LT(a,b)          ((a) != (b) && CMP((a),(b)) <  0)
+#define CMP_LE(a,b)          ((a) == (b) || CMP((a),(b)) <= 0)
+#define CMP_EQ(a,b)          ((a) == (b) || CMP_EQ_ONLY((a),(b)) == 0)
+#define CMP_NE(a,b)          ((a) != (b) && CMP_EQ_ONLY((a),(b)) != 0)
+#define CMP_GE(a,b)          ((a) == (b) || CMP((a),(b)) >= 0)
+#define CMP_GT(a,b)          ((a) != (b) && CMP((a),(b)) >  0)
 
 #define CMP_EQ_ACTION(X,Y,Action)	\
     if ((X) != (Y)) { CMP_SPEC((X),(Y),!=,Action,1); }
