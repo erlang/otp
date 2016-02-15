@@ -985,9 +985,6 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
     }
     ep = dec_term(edep, factory, ep, &obj, NULL);
     if (!ep) {
-#ifdef DEBUG
-	bin_write(ERTS_PRINT_STDERR,NULL,*ext,500);
-#endif
 	return THE_NON_VALUE;
     }
     *ext = ep;
