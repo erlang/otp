@@ -133,14 +133,8 @@ inet_existing(doc) -> ["Start a node using the 'inet' loading method, ",
 		       "from an already started boot server."];
 inet_existing(Config) when is_list(Config) ->
     Name = erl_prim_test_inet_existing,
-    Host = host(),
-    Cookie = atom_to_list(erlang:get_cookie()),
-    IpStr = ip_str(Host),
-    LFlag = get_loader_flag(os:type()),
-    Args = LFlag ++ " -hosts " ++ IpStr ++
-	" -setcookie " ++ Cookie,
-    {ok, BootPid} = erl_boot_server:start_link([Host]),
-    {ok, Node} = start_node(Name, Args),
+    BootPid = start_boot_server(),
+    Node = start_node_using_inet(Name),
     {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
     stop_node(Node),
     unlink(BootPid),
@@ -151,19 +145,11 @@ inet_coming_up(doc) -> ["Start a node using the 'inet' loading method, ",
 			"but start the boot server afterwards."];
 inet_coming_up(Config) when is_list(Config) ->
     Name = erl_prim_test_inet_coming_up,
-    Cookie = atom_to_list(erlang:get_cookie()),
-    Host = host(),
-    IpStr = ip_str(Host),
-    LFlag = get_loader_flag(os:type()),
-    Args = LFlag ++ 
-	" -hosts " ++ IpStr ++
-	" -setcookie " ++ Cookie,
-    {ok, Node} = start_node(Name, Args, [{wait, false}]),
+    Node = start_node_using_inet(Name, [{wait,false}]),
 
     %% Wait a while, then start boot server, and wait for node to start.
     test_server:sleep(test_server:seconds(6)),
-    io:format("erl_boot_server:start_link([~p]).", [Host]),
-    {ok, BootPid} = erl_boot_server:start_link([Host]),
+    BootPid = start_boot_server(),
     wait_really_started(Node, 25),
 
     %% Check loader argument, then cleanup.
@@ -191,24 +177,19 @@ inet_disconnects(Config) when is_list(Config) ->
 	true ->
 	    {skip,"erl_boot_server is native"};
 	false ->
-	    ?line Name = erl_prim_test_inet_disconnects,
-	    ?line Host = host(),
-	    ?line Cookie = atom_to_list(erlang:get_cookie()),
-	    ?line IpStr = ip_str(Host),
-	    ?line LFlag = get_loader_flag(os:type()),
-	    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
-		" -setcookie " ++ Cookie,
+	    Name = erl_prim_test_inet_disconnects,
 	    
-	    ?line {ok, BootPid} = erl_boot_server:start([Host]),
+	    BootPid = start_boot_server(),
+	    unlink(BootPid),
 	    Self = self(),
 	    %% This process shuts down the boot server during loading.
-	    ?line Stopper = spawn_link(fun() -> stop_boot(BootPid, Self) end),
-	    ?line receive
-		      {Stopper,ready} -> ok
-		  end,
+	    Stopper = spawn_link(fun() -> stop_boot(BootPid, Self) end),
+	    receive
+		{Stopper,ready} -> ok
+	    end,
 
 	    %% Let the loading begin...
-	    ?line {ok, Node} = start_node(Name, Args, [{wait, false}]),
+	    Node = start_node_using_inet(Name, [{wait,false}]),
 
 	    %% When the stopper is ready, the slave node should be
 	    %% looking for a boot server again.
@@ -222,12 +203,12 @@ inet_disconnects(Config) when is_list(Config) ->
 	    end,
 
 	    %% Start new boot server to see that loading is continued.
-	    ?line {ok, BootPid2} = erl_boot_server:start_link([Host]),
-	    ?line wait_really_started(Node, 25),
-	    ?line {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-	    ?line stop_node(Node),
-	    ?line unlink(BootPid2),
-	    ?line exit(BootPid2, kill),
+	    BootPid2 = start_boot_server(),
+	    wait_really_started(Node, 25),
+	    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
+	    stop_node(Node),
+	    unlink(BootPid2),
+	    exit(BootPid2, kill),
 	    ok
     end.
 
@@ -262,11 +243,8 @@ multiple_slaves(doc) ->
 multiple_slaves(Config) when is_list(Config) ->
     ?line Name = erl_prim_test_multiple_slaves,
     ?line Host = host(),
-    ?line Cookie = atom_to_list(erlang:get_cookie()),
     ?line IpStr = ip_str(Host),
-    ?line LFlag = get_loader_flag(os:type()),
-    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
-        " -setcookie " ++ Cookie,
+    Args = " -loader inet -hosts " ++ IpStr,
 
     NoOfNodes = 10,			% no of slave nodes to be started
 
@@ -286,7 +264,7 @@ multiple_slaves(Config) when is_list(Config) ->
     %% long for this test to work).
     ?line test_server:sleep(test_server:seconds(5)),
     %% start the code loading circus!
-    ?line {ok,BootPid} = erl_boot_server:start_link([Host]),
+    BootPid = start_boot_server(),
     %% give the nodes a chance to boot up before attempting to stop them
     ?line test_server:sleep(test_server:seconds(10)),
 
@@ -361,20 +339,6 @@ file_requests(Config) when is_list(Config) ->
     ?line unlink(BootPid),
     ?line exit(BootPid, kill),
     ok.
-
-complete_start_node(Name) ->
-    ?line Host = host(),
-    ?line Cookie = atom_to_list(erlang:get_cookie()),
-    ?line IpStr = ip_str(Host),
-    ?line LFlag = get_loader_flag(os:type()),
-    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
-	" -setcookie " ++ Cookie,
-
-    ?line {ok,BootPid} = erl_boot_server:start_link([Host]),
-
-    ?line {ok,Node} = start_node(Name, Args),
-    ?line wait_really_started(Node, 25),
-    {ok, Node, BootPid}.
 
 local_archive(suite) ->
     [];
@@ -554,7 +518,37 @@ virtual_dir_in_archive(Config) when is_list(Config) ->
     ?line ok = file:delete(Archive),
     ok.
 
-%% Misc. functions
+%%%
+%%% Helper functions.
+%%%
+
+complete_start_node(Name) ->
+    BootPid = start_boot_server(),
+    Node = start_node_using_inet(Name),
+    wait_really_started(Node, 25),
+    {ok, Node, BootPid}.
+
+start_boot_server() ->
+    %% Many linux systems define:
+    %%   127.0.0.1 localhost
+    %%   127.0.1.1 somehostname
+    %% Therefore, to allow the tests to work on those kind of systems,
+    %% also include "localhost" in the list of allowed hosts.
+
+    Hosts = [host(),ip_str("localhost")],
+    {ok,BootPid} = erl_boot_server:start_link(Hosts),
+    BootPid.
+
+start_node_using_inet(Name) ->
+    start_node_using_inet(Name, []).
+
+start_node_using_inet(Name, Opts) ->
+    Host = host(),
+    IpStr = ip_str(Host),
+    Args = " -loader inet -hosts " ++ IpStr,
+    {ok,Node} = start_node(Name, Args, Opts),
+    Node.
+
 
 ip_str({A, B, C, D}) ->
     lists:concat([A, ".", B, ".", C, ".", D]);
@@ -579,9 +573,6 @@ host() ->
 
 stop_node(Node) ->
     test_server:stop_node(Node).
-
-get_loader_flag(_) ->
-    " -loader inet ".
 
 compile_app(TopDir, AppName) ->
     AppDir = filename:join([TopDir, AppName]),
