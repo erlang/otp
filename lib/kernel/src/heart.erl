@@ -333,6 +333,7 @@ get_heart_cmd(Port) ->
 %% if something goes wront -> no heartbeat.
 
 check_callback(Callback) ->
+    ok = erts_internal:system_check(schedulers),
     case Callback of
         undefined -> ok;
         {M,F} ->
