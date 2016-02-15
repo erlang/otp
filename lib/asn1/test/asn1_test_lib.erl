@@ -58,7 +58,7 @@ dialyze(Files) ->
     Beams0 = [code:which(module(F)) || F <- Files],
     Beams = [code:which(asn1rt_nif)|Beams0],
     case dialyzer:run([{files,Beams},
-		       {warnings,[no_improper_lists]},
+		       {warnings,[]},
 		       {get_warnings,true}]) of
 	[] ->
 	    ok;
