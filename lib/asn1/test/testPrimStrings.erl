@@ -33,7 +33,7 @@
 -export([utf8_string/1]).
 -export([fragmented/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 fragmented(Rules) ->
     Lens = fragmented_lengths(),

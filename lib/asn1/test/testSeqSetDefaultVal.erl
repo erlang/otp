@@ -22,7 +22,7 @@
 -export([main/2]).
 
 -include("External.hrl").
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqInts',{a = asn1_DEFAULT, 
 		   b = asn1_DEFAULT, 

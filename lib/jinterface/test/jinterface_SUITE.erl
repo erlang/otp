@@ -46,7 +46,6 @@
      ]).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 
 -define(debug,true).
 -ifdef(debug).

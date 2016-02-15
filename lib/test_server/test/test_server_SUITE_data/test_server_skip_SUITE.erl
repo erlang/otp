@@ -22,8 +22,7 @@
 -export([all/1, init_per_suite/1, end_per_suite/1]).
 -export([dummy/1]).
 
--include_lib("test_server/include/test_server.hrl").
--include_lib("test_server/include/test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 all(suite) ->
     [dummy].

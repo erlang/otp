@@ -19,7 +19,7 @@
 %%
 
 -module(percept_db_SUITE).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/1]).

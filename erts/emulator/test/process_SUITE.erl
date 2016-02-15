@@ -26,7 +26,7 @@
 %%	process_info/1,2
 %%	register/2 (partially)
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(heap_binary_size, 64).
 

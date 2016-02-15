@@ -22,7 +22,7 @@
 
 -export([set/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('ChoSet', {setInt, setOs}).
 -record('ChoSetImp', {setInt, setOs}).

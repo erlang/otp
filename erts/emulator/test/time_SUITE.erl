@@ -48,7 +48,7 @@
 
 -export([local_to_univ_utc/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([linear_time/1]).
 

@@ -22,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('Def1',{bool0, 
 		bool1 = asn1_DEFAULT, 

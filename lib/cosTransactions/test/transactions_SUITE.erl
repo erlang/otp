@@ -29,7 +29,7 @@
 -include_lib("cosTransactions/include/CosTransactions.hrl").
 -include("etrap_test_lib.hrl").
  
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(20)).
 

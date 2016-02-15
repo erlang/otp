@@ -22,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('Set1',{bool1, int1, set1}).
 -record('Set2',{set2, bool2, int2}).

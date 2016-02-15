@@ -21,7 +21,7 @@
 -module(test_x691).
 -export([cases/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 cases(Erule) ->
     _ = [begin

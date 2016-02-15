@@ -26,7 +26,7 @@
 	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
       coverage/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

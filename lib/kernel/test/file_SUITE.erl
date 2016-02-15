@@ -106,7 +106,7 @@
 %% System probe functions that might be handy to check from the shell
 -export([disc_free/1, memsize/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(THROW_ERROR(RES), throw({fail, ?LINE, RES})).

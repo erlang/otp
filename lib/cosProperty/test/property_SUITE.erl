@@ -33,7 +33,7 @@
 -include_lib("cosProperty/src/cosProperty.hrl").
 -include_lib("cosProperty/include/CosPropertyService.hrl").
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
  
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).

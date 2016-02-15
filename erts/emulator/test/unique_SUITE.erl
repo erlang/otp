@@ -26,7 +26,7 @@
 -export([unique_monotonic_integer_white_box/1,
 	 unique_integer_white_box/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %-define(P(V), V).
 -define(P(V), print_ret_val(?FILE, ?LINE, V)).

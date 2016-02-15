@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2,
 	 byte_split_binary/1,bit_split_binary/1,match_huge_bin/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

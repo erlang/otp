@@ -1,6 +1,6 @@
 -module(tester).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([load_nif_lib/2, run/0]).
 

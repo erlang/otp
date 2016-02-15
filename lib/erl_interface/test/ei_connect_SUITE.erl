@@ -21,7 +21,7 @@
 %%
 -module(ei_connect_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([

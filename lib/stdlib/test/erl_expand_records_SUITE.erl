@@ -28,7 +28,7 @@
 -define(privdir, "erl_expand_records_SUITE_priv").
 -define(t, test_server).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 

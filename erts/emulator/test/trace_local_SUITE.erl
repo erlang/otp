@@ -46,7 +46,7 @@
 -export([config/2]).
 -define(DEFAULT_RECEIVE_TIMEOUT, 1000).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(DEFAULT_RECEIVE_TIMEOUT, infinity).
 -endif.
  

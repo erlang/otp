@@ -38,7 +38,7 @@
 	 default_tracer/1,
 	 tracer_port_crash/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 test_cases() -> 
     [call_trace, return_trace, send, receive_trace,

@@ -29,7 +29,7 @@
 %%--------------- INCLUDES -----------------------------------
 -include_lib("cosFileTransfer/src/cosFileTransferApp.hrl").
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).

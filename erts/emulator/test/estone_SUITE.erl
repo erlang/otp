@@ -46,7 +46,7 @@
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 %% Test suite defines

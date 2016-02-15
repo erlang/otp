@@ -22,7 +22,7 @@
 %%% Test Server self test. 
 %%%------------------------------------------------------------------
 -module(test_server_conf02_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).
 

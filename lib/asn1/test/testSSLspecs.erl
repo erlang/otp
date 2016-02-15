@@ -23,7 +23,7 @@
 
 -export([compile/2,run/1,compile_combined/2,run_combined/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Options) ->
     DataDir = ?config(data_dir, Config),

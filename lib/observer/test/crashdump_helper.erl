@@ -21,7 +21,7 @@
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2]).
 -compile(r13).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->
     spawn(fun() -> n1_proc(Creator,N2,x,y,[]) end).

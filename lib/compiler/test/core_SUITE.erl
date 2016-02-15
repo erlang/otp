@@ -29,7 +29,7 @@
 	 bs_shadowed_size_var/1
 	]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).

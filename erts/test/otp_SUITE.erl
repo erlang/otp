@@ -27,7 +27,7 @@
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
 	 erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
 

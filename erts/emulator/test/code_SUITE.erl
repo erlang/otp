@@ -30,7 +30,7 @@
          t_copy_literals/1]).
 
 -define(line_trace, 1).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

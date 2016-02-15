@@ -21,7 +21,7 @@
 -module(testSeqSetIndefinite).
 -export([main/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 main() ->
     seq_indefinite(),

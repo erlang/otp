@@ -28,7 +28,7 @@
 	 utf32_illegal_sequences/1,
 	 bad_construction/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
 

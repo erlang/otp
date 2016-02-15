@@ -28,7 +28,7 @@
 -define(privdir(_), "./dets_SUITE_priv").
 -define(datadir(_), "./dets_SUITE_data").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -define(datadir(Conf), ?config(data_dir, Conf)).

@@ -25,7 +25,7 @@
 
 -export([basic/1, rwlock/1, tsd/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 

@@ -23,7 +23,7 @@
 
 -export([compile/3,test/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Erules, Options0) ->
     Options = [no_ok_wrapper|Options0],

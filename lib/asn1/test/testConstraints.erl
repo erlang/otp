@@ -23,7 +23,7 @@
 -export([int_constraints/1,refed_NNL_name/1]).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 int_constraints(Rules) ->
 

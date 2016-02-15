@@ -20,7 +20,7 @@
 -module(random_kill_SUITE).
 -compile([export_all]).
 %%-define(line_trace,1).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

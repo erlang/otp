@@ -21,7 +21,7 @@
 -module(testSelectionTypes).
 -export([test/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 test() ->
     ["Es"] = Val2 = ['SelectionType':einsteinium()],

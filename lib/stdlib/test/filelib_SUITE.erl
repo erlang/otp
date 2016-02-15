@@ -29,7 +29,7 @@
 
 -import(lists, [foreach/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 init_per_testcase(_Case, Config) ->

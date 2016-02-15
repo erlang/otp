@@ -25,7 +25,7 @@
 
 -export(['+Mim true'/1, '+Mis true'/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=?t:timetrap(10000),

@@ -22,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 main(_Rules) ->
     roundtrip('Seq', {'Seq',<<1,1,255>>,<<1,1,255>>,12,<<1,1,255>>}),

@@ -22,7 +22,7 @@
 
 -export([go/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 go(all) ->
     {Time_S_s,Time_S_e,Time_S_c}=go(10000,'PartialDecSeq'),

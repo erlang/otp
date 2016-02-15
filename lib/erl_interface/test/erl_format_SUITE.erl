@@ -21,7 +21,7 @@
 %%
 -module(erl_format_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("erl_format_SUITE_data/format_test_cases.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

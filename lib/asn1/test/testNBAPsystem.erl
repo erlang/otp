@@ -22,7 +22,7 @@
 
 -export([compile/2,test/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('InitiatingMessage',{
 procedureID, criticality, messageDiscriminator, transactionID, value}).

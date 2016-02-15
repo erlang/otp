@@ -23,7 +23,7 @@
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

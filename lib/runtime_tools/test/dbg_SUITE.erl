@@ -31,7 +31,7 @@
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
