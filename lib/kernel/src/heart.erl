@@ -34,7 +34,10 @@
 %%%
 %%% It recognizes the flag '-heart'
 %%%--------------------------------------------------------------------
--export([start/0, init/2, set_cmd/1, clear_cmd/0, get_cmd/0, cycle/0]).
+-export([start/0, init/2,
+         set_cmd/1, clear_cmd/0, get_cmd/0,
+         set_callback/2, clear_callback/0, get_callback/0,
+         cycle/0]).
 
 -define(START_ACK, 1).
 -define(HEART_BEAT, 2).
@@ -50,7 +53,8 @@
 -define(HEART_PORT_NAME, heart_port).
 
 -record(state,{port :: port(),
-               cmd  :: [] | binary()}).
+               cmd  :: [] | binary(),
+               callback :: 'undefined' | {module(), function()}}).
 
 %%---------------------------------------------------------------------
 
@@ -84,7 +88,7 @@ wait_for_init_ack(From) ->
 init(Starter, Parent) ->
     process_flag(trap_exit, true),
     process_flag(priority, max),
-    register(heart, self()),
+    register(?MODULE, self()),
     case catch start_portprogram() of
 	{ok, Port} ->
 	    Starter ! {ok, self()},
@@ -99,20 +103,41 @@ init(Starter, Parent) ->
       Cmd :: string().
 
 set_cmd(Cmd) ->
-    heart ! {self(), set_cmd, Cmd},
+    ?MODULE ! {self(), set_cmd, Cmd},
     wait().
 
 -spec get_cmd() -> {ok, Cmd} when
       Cmd :: string().
 
 get_cmd() ->
-    heart ! {self(), get_cmd},
+    ?MODULE ! {self(), get_cmd},
     wait().
 
 -spec clear_cmd() -> ok.
 
 clear_cmd() ->
-    heart ! {self(), clear_cmd},
+    ?MODULE ! {self(), clear_cmd},
+    wait().
+
+-spec set_callback(Module,Function) -> 'ok' | {'error', {'bad_callback', {Module, Function}}} when
+      Module :: module(),
+      Function :: function().
+
+set_callback(Module, Function) ->
+    ?MODULE ! {self(), set_callback, {Module,Function}},
+    wait().
+
+-spec get_callback() -> {'ok', Callback} | 'none' when
+      Callback :: {module(), function()}.
+
+get_callback() ->
+    ?MODULE ! {self(), get_callback},
+    wait().
+
+-spec clear_callback() -> ok.
+
+clear_callback() ->
+    ?MODULE ! {self(), clear_callback},
     wait().
 
 
@@ -120,12 +145,12 @@ clear_cmd() ->
 -spec cycle() -> 'ok' | {'error', term()}.
 
 cycle() ->
-    heart ! {self(), cycle},
+    ?MODULE ! {self(), cycle},
     wait().
 
 wait() ->
     receive
-	{heart, Res} ->
+	{?MODULE, Res} ->
 	    Res
     end.
 
@@ -186,7 +211,7 @@ wait_ack(Port) ->
     end.
 
 loop(Parent, #state{port=Port}=S) ->
-    _ = send_heart_beat(Port),
+    _ = send_heart_beat(S),
     receive
 	{From, set_cmd, NewCmd0} ->
 	    Enc = file:native_name_encoding(),
@@ -194,20 +219,39 @@ loop(Parent, #state{port=Port}=S) ->
 		NewCmd when is_binary(NewCmd), byte_size(NewCmd) < 2047 ->
 		    _ = send_heart_cmd(Port, NewCmd),
 		    _ = wait_ack(Port),
-		    From ! {heart, ok},
+		    From ! {?MODULE, ok},
 		    loop(Parent, S#state{cmd=NewCmd});
 		_ ->
-		    From ! {heart, {error, {bad_cmd, NewCmd0}}},
+		    From ! {?MODULE, {error, {bad_cmd, NewCmd0}}},
 		    loop(Parent, S)
 	    end;
 	{From, clear_cmd} ->
-	    From ! {heart, ok},
+	    From ! {?MODULE, ok},
 	    _ = send_heart_cmd(Port, []),
 	    _ = wait_ack(Port),
 	    loop(Parent, S#state{cmd = []});
 	{From, get_cmd} ->
-	    From ! {heart, get_heart_cmd(Port)},
+	    From ! {?MODULE, get_heart_cmd(Port)},
             loop(Parent, S);
+	{From, set_callback, Callback} ->
+            case Callback of
+                {M,F} when is_atom(M), is_atom(F) ->
+                    From ! {?MODULE, ok},
+                    loop(Parent, S#state{callback=Callback});
+                _ ->
+		    From ! {?MODULE, {error, {bad_callback, Callback}}},
+                    loop(Parent, S)
+            end;
+        {From, get_callback} ->
+            Res = case S#state.callback of
+                      undefined -> none;
+                      Cb -> {ok, Cb}
+                  end,
+            From ! {?MODULE, Res},
+            loop(Parent, S);
+        {From, clear_callback} ->
+            From ! {?MODULE, ok},
+            loop(Parent, S#state{callback=undefined});
 	{From, cycle} ->
 	    %% Calls back to loop
 	    do_cycle_port_program(From, Parent, S);
@@ -219,7 +263,7 @@ loop(Parent, #state{port=Port}=S) ->
 	{'EXIT', Port, badsig} ->  % we can ignore badsig-messages!
 	    loop(Parent, S);
 	{'EXIT', Port, _Reason} ->
-	    exit({port_terminated, {heart, loop, [Parent, S]}});
+	    exit({port_terminated, {?MODULE, loop, [Parent, S]}});
 	_ -> 
 	    loop(Parent, S)
     after
@@ -244,7 +288,7 @@ do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
 	    receive
 		{'EXIT', Port, _Reason} ->
 		    _ = send_heart_cmd(NewPort, S#state.cmd),
-		    Caller ! {heart, ok},
+		    Caller ! {?MODULE, ok},
 		    loop(Parent, S#state{port=NewPort})
 	    after
 		?CYCLE_TIMEOUT ->
@@ -252,20 +296,22 @@ do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
 		    %% well, the old one has to be sick not to respond
 		    %% so we'll settle for the new one...
 		    _ = send_heart_cmd(NewPort, S#state.cmd),
-		    Caller ! {heart, {error, stop_error}},
+		    Caller ! {?MODULE, {error, stop_error}},
 		    loop(Parent, S#state{port=NewPort})
 	    end;
 	no_heart ->
-	    Caller ! {heart, {error, no_heart}},
+	    Caller ! {?MODULE, {error, no_heart}},
 	    loop(Parent, S);
 	error ->
-	    Caller ! {heart, {error, start_error}},
+	    Caller ! {?MODULE, {error, start_error}},
 	    loop(Parent, S)
     end.
     
 
 %% "Beates" the heart once.
-send_heart_beat(Port) -> Port ! {self(), {command, [?HEART_BEAT]}}.
+send_heart_beat(#state{port=Port, callback=Cb}) ->
+    ok = check_callback(Cb),
+    Port ! {self(), {command, [?HEART_BEAT]}}.
 
 %% Set a new HEART_COMMAND.
 send_heart_cmd(Port, []) ->
@@ -278,6 +324,19 @@ get_heart_cmd(Port) ->
     receive
 	{Port, {data, [?HEART_CMD | Cmd]}} ->
 	    {ok, Cmd}
+    end.
+
+%% validate system by performing a check before the heartbeat
+%% return 'ok' if everything is alright.
+%% Terminate if with reason if something is a miss.
+%% It is fine to timeout in the callback, in fact that is the intention
+%% if something goes wront -> no heartbeat.
+
+check_callback(Callback) ->
+    case Callback of
+        undefined -> ok;
+        {M,F} ->
+            erlang:apply(M,F,[])
     end.
 
 %% Sends shutdown command to the port.
