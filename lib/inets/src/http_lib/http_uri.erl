@@ -112,7 +112,15 @@ encode(URI) ->
 decode(String) ->
     do_decode(String).
 
-do_decode([$%,Hex1,Hex2|Rest]) ->
+do_decode([$%,Hex1,Hex2|Rest])
+  when
+      ( (Hex1>=$0) andalso (Hex1=<$9)
+	orelse (Hex1>=$A) andalso (Hex1=<$F)
+	orelse (Hex1>=$a) andalso (Hex1=<$f) )
+      andalso ( (Hex2>=$0) andalso (Hex2=<$9)
+		orelse (Hex2>=$A) andalso (Hex2=<$F)
+		orelse (Hex2>=$a) andalso (Hex2=<$f) )
+      ->
     [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
 do_decode([First|Rest]) ->
     [First|do_decode(Rest)];
