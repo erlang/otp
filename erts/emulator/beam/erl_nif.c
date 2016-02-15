@@ -209,6 +209,7 @@ static void flush_env(ErlNifEnv* env)
 */
 static void cache_env(ErlNifEnv* env)
 {
+    env->heap_frag = MBUF(env->proc);
     if (env->heap_frag == NULL) {
 	ASSERT(env->hp_end == HEAP_LIMIT(env->proc));
 	ASSERT(env->hp <= HEAP_TOP(env->proc));
@@ -216,10 +217,6 @@ static void cache_env(ErlNifEnv* env)
 	env->hp = HEAP_TOP(env->proc);
     }
     else {
-	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);       
-	env->heap_frag = MBUF(env->proc);
-	ASSERT(env->heap_frag != NULL);
 	env->hp = env->heap_frag->mem + env->heap_frag->used_size;
 	env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
     }
