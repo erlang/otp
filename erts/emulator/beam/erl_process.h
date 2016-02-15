@@ -1483,6 +1483,7 @@ void erts_init_scheduling(int, int
 
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_system_check_request(Process *c_p);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
