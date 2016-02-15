@@ -705,19 +705,8 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
         return 0;
 
     if (size > 0) {
-
-        if (is_internal_pid(dst_env->proc->common.id)) {
-            flush_env(dst_env);
-            erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
-            cache_env(dst_env);
-        } else {
-
-            /* this is guaranteed to create a heap fragment */
-            if (!alloc_heap(dst_env, size))
-                return 0;
-
-            erts_factory_heap_frag_init(&factory, dst_env->heap_frag);
-        }
+        flush_env(dst_env);
+        erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
     } else {
         erts_factory_dummy_init(&factory);
     }
@@ -728,6 +717,8 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
         return 0;
     }
     erts_factory_close(&factory);
+    cache_env(dst_env);
+
     ASSERT(bp > data);
     return bp - data;
 }
