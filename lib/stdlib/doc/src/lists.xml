@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -365,7 +365,9 @@ flatmap(Fun, List1) ->
       <desc>
         <p>Returns a list containing the sorted elements of the list
           <c><anno>TupleList1</anno></c>. Sorting is performed on the <c><anno>N</anno></c>th
-          element of the tuples. The sort is stable.</p>
+          element of the tuples. The sort is stable and in ascending order.
+          Strings are sorted on the value of underlying codepoints; for
+          Unicode, this might not be alphabetical order.</p>
       </desc>
     </func>
     <func>
@@ -918,4 +920,3 @@ splitwith(Pred, List) ->
     </func>
   </funcs>
 </erlref>
-
