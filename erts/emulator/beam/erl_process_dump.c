@@ -618,7 +618,7 @@ erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
     if (psflg)
         erts_print(to, to_arg, " | ");
 
-    for (i = 0; i < ERTS_PSFLG_MAX && psflg; i++) {
+    for (i = 0; i <= ERTS_PSFLG_MAX && psflg; i++) {
         erts_aint32_t chk = (1 << i);
         if (psflg & chk) {
             switch (chk) {
@@ -660,16 +660,14 @@ erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
                 erts_print(to, to_arg, "DELAYED_SYS"); break;
             case ERTS_PSFLG_OFF_HEAP_MSGQ:
                 erts_print(to, to_arg, "OFF_HEAP_MSGQ"); break;
-#ifdef ERTS_DIRTY_SCHEDULERS
+            case ERTS_PSFLG_ON_HEAP_MSGQ:
+                erts_print(to, to_arg, "ON_HEAP_MSGQ"); break;
             case ERTS_PSFLG_DIRTY_CPU_PROC:
                 erts_print(to, to_arg, "DIRTY_CPU_PROC"); break;
             case ERTS_PSFLG_DIRTY_IO_PROC:
                 erts_print(to, to_arg, "DIRTY_IO_PROC"); break;
-            case ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q:
-                erts_print(to, to_arg, "DIRTY_CPU_PROC_IN_Q"); break;
-            case ERTS_PSFLG_DIRTY_IO_PROC_IN_Q:
-                erts_print(to, to_arg, "DIRTY_IO_PROC_IN_Q"); break;
-#endif
+            case ERTS_PSFLG_DIRTY_ACTIVE_SYS:
+                erts_print(to, to_arg, "DIRTY_ACTIVE_SYS"); break;
             default:
                 erts_print(to, to_arg, "UNKNOWN(%d)", chk); break;
             }
