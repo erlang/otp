@@ -49,6 +49,9 @@
 -define(CYCLE_TIMEOUT, 10000).
 -define(HEART_PORT_NAME, heart_port).
 
+-record(state,{port :: port(),
+               cmd  :: [] | binary()}).
+
 %%---------------------------------------------------------------------
 
 -spec start() -> 'ignore' | {'error', term()} | {'ok', pid()}.
@@ -85,7 +88,7 @@ init(Starter, Parent) ->
     case catch start_portprogram() of
 	{ok, Port} ->
 	    Starter ! {ok, self()},
-	    loop(Parent, Port, "");
+	    loop(Parent, #state{port = Port, cmd = []});
 	no_heart ->
 	    Starter ! {no_heart, self()};
 	error ->
@@ -182,7 +185,7 @@ wait_ack(Port) ->
 	    {error, Reason}
     end.
 
-loop(Parent, Port, Cmd) ->
+loop(Parent, #state{port=Port}=S) ->
     _ = send_heart_beat(Port),
     receive
 	{From, set_cmd, NewCmd0} ->
@@ -192,36 +195,36 @@ loop(Parent, Port, Cmd) ->
 		    _ = send_heart_cmd(Port, NewCmd),
 		    _ = wait_ack(Port),
 		    From ! {heart, ok},
-		    loop(Parent, Port, NewCmd);
+		    loop(Parent, S#state{cmd=NewCmd});
 		_ ->
 		    From ! {heart, {error, {bad_cmd, NewCmd0}}},
-		    loop(Parent, Port, Cmd)
+		    loop(Parent, S)
 	    end;
 	{From, clear_cmd} ->
 	    From ! {heart, ok},
-	    _ = send_heart_cmd(Port, ""),
+	    _ = send_heart_cmd(Port, []),
 	    _ = wait_ack(Port),
-	    loop(Parent, Port, "");
+	    loop(Parent, S#state{cmd = []});
 	{From, get_cmd} ->
 	    From ! {heart, get_heart_cmd(Port)},
-	    loop(Parent, Port, Cmd);
+            loop(Parent, S);
 	{From, cycle} ->
 	    %% Calls back to loop
-	    do_cycle_port_program(From, Parent, Port, Cmd);  
+	    do_cycle_port_program(From, Parent, S);
 	{'EXIT', Parent, shutdown} ->
 	    no_reboot_shutdown(Port);
 	{'EXIT', Parent, Reason} ->
 	    exit(Port, Reason),
 	    exit(Reason);
 	{'EXIT', Port, badsig} ->  % we can ignore badsig-messages!
-	    loop(Parent, Port, Cmd);
+	    loop(Parent, S);
 	{'EXIT', Port, _Reason} ->
-	    exit({port_terminated, {heart, loop, [Parent, Port, Cmd]}});
+	    exit({port_terminated, {heart, loop, [Parent, S]}});
 	_ -> 
-	    loop(Parent, Port, Cmd)
+	    loop(Parent, S)
     after
 	?TIMEOUT ->
-	    loop(Parent, Port, Cmd)
+	    loop(Parent, S)
     end.
 
 -spec no_reboot_shutdown(port()) -> no_return().
@@ -233,31 +236,31 @@ no_reboot_shutdown(Port) ->
 	    exit(normal)
     end.
 
-do_cycle_port_program(Caller, Parent, Port, Cmd) ->
+do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
     unregister(?HEART_PORT_NAME),
     case catch start_portprogram() of
 	{ok, NewPort} ->
 	    _ = send_shutdown(Port),
 	    receive
 		{'EXIT', Port, _Reason} ->
-		    _ = send_heart_cmd(NewPort, Cmd),
+		    _ = send_heart_cmd(NewPort, S#state.cmd),
 		    Caller ! {heart, ok},
-		    loop(Parent, NewPort, Cmd)
+		    loop(Parent, S#state{port=NewPort})
 	    after
 		?CYCLE_TIMEOUT ->
 		    %% Huh! Two heart port programs running...
 		    %% well, the old one has to be sick not to respond
 		    %% so we'll settle for the new one...
-		    _ = send_heart_cmd(NewPort, Cmd),
+		    _ = send_heart_cmd(NewPort, S#state.cmd),
 		    Caller ! {heart, {error, stop_error}},
-		    loop(Parent, NewPort, Cmd)
+		    loop(Parent, S#state{port=NewPort})
 	    end;
 	no_heart ->
 	    Caller ! {heart, {error, no_heart}},
-	    loop(Parent, Port, Cmd);
+	    loop(Parent, S);
 	error ->
 	    Caller ! {heart, {error, start_error}},
-	    loop(Parent, Port, Cmd)
+	    loop(Parent, S)
     end.
     
 
