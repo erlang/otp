@@ -55,8 +55,7 @@ RELSYSDIR = $(RELEASE_PATH)/os_mon_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-	-I$(ERL_TOP)/lib/snmp/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/snmp/include
 
 # ----------------------------------------------------
 # Targets

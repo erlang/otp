@@ -84,8 +84,8 @@ RELSYSDIR = $(RELEASE_PATH)/common_test_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_MAKE_FLAGS += -pa $(ERL_TOP)/lib/test_server/ebin
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_MAKE_FLAGS +=
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 

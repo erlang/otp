@@ -84,7 +84,7 @@ RELSYSDIR = $(RELEASE_PATH)/xmerl_test
 # FLAGS
 # ----------------------------------------------------
 
-#ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include -I$(ERL_TOP)/lib/xmerl/include/ $(XMERL_PRESERV_TEST_DIRS)
+ERL_COMPILE_FLAGS +=
 
 
 # ----------------------------------------------------
