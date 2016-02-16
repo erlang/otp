@@ -64,10 +64,10 @@
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
 	<v> DistributionPoint = dist_point() </v>
-	<v> CRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
-	<v> FreshCRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	<v> CRL = <seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso> </v>
+	<v> FreshCRL = <seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso> </v>
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
