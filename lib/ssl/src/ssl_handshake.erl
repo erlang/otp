@@ -2100,13 +2100,14 @@ crl_check_same_issuer(OtpCert, _, Dps, Options) ->
     public_key:pkix_crls_validate(OtpCert, Dps, Options).
 
 dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
-	case public_key:pkix_dist_points(OtpCert) of
-	    [] ->
-		no_dps;
-	    DistPoints ->
-		distpoints_lookup(DistPoints, Callback, CRLDbHandle) 
-	end;
-    
+    case public_key:pkix_dist_points(OtpCert) of
+	[] ->
+	    no_dps;
+	DistPoints ->
+	    Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
+	    distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle)
+    end;
+
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
     DP = #'DistributionPoint'{distributionPoint = {fullName, GenNames}} = 
 	public_key:pkix_dist_point(OtpCert),
@@ -2117,12 +2118,12 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->
 			 end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
-distpoints_lookup([], _, _) ->
+distpoints_lookup([], _, _, _) ->
     [];
-distpoints_lookup([DistPoint | Rest], Callback, CRLDbHandle) ->
-    case Callback:lookup(DistPoint, CRLDbHandle) of
+distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
+    case Callback:lookup(DistPoint, Issuer, CRLDbHandle) of
 	not_available ->
-	    distpoints_lookup(Rest, Callback, CRLDbHandle);
+	    distpoints_lookup(Rest, Issuer, Callback, CRLDbHandle);
 	CRLs ->
 	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
     end.	
