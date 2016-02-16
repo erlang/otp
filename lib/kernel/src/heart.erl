@@ -54,7 +54,7 @@
 
 -record(state,{port :: port(),
                cmd  :: [] | binary(),
-               callback :: 'undefined' | {module(), function()}}).
+               callback :: 'undefined' | {atom(), atom()}}).
 
 %%---------------------------------------------------------------------
 
@@ -120,15 +120,16 @@ clear_cmd() ->
     wait().
 
 -spec set_callback(Module,Function) -> 'ok' | {'error', {'bad_callback', {Module, Function}}} when
-      Module :: module(),
-      Function :: function().
+      Module :: atom(),
+      Function :: atom().
 
 set_callback(Module, Function) ->
     ?MODULE ! {self(), set_callback, {Module,Function}},
     wait().
 
--spec get_callback() -> {'ok', Callback} | 'none' when
-      Callback :: {module(), function()}.
+-spec get_callback() -> {'ok', {Module, Function}} | 'none' when
+      Module :: atom(),
+      Function :: atom().
 
 get_callback() ->
     ?MODULE ! {self(), get_callback},
