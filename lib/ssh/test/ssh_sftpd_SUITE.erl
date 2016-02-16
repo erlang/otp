@@ -44,6 +44,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() ->
+    [{timetrap,{minutes,5}}].
+
 all() -> 
     [open_close_file, 
      open_close_dir, 

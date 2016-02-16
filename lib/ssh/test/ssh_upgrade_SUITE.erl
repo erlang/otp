@@ -38,6 +38,9 @@
 %%%
 %%% CommonTest callbacks
 %%% 
+suite() ->
+    [{timetrap,{minutes,5}}].
+
 all() -> 
     [
      minor_upgrade,

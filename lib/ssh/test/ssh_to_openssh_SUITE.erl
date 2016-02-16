@@ -33,6 +33,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() ->
+    [{timetrap,{minutes,5}}].
+
 all() -> 
     case os:find_executable("ssh") of
 	false -> 

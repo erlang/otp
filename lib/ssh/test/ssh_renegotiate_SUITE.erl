@@ -30,7 +30,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {timetrap,{minutes,15}}].
+
 
 all() -> [{group,default_algs},
 	  {group,aes_gcm}

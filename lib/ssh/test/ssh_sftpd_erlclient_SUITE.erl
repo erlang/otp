@@ -36,7 +36,9 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
+
 
 all() -> 
     [close_file, 
