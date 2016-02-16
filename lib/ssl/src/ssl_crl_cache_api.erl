@@ -24,8 +24,9 @@
 
 -include_lib("public_key/include/public_key.hrl"). 
 
--type db_handle() :: term(). 
+-type db_handle() :: term().
+-type issuer_name() :: {rdnSequence, [#'AttributeTypeAndValue'{}]}.
 
--callback lookup(#'DistributionPoint'{}, db_handle()) -> not_available | [public_key:der_encoded()].
--callback select(term(), db_handle()) ->  [public_key:der_encoded()].
+-callback lookup(#'DistributionPoint'{}, issuer_name(), db_handle()) -> not_available | [public_key:der_encoded()].
+-callback select(issuer_name(), db_handle()) ->  [public_key:der_encoded()].
 -callback fresh_crl(#'DistributionPoint'{}, public_key:der_encoded()) -> public_key:der_encoded().

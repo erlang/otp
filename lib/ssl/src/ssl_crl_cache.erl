@@ -28,7 +28,7 @@
 
 -behaviour(ssl_crl_cache_api).
 
--export([lookup/2, select/2, fresh_crl/2]).
+-export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
 
 %%====================================================================
@@ -36,9 +36,10 @@
 %%====================================================================
 
 lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
+       _Issuer,
        CRLDbInfo) ->
     get_crls(Names, CRLDbInfo);
-lookup(_,_) ->
+lookup(_,_,_) ->
     not_available.
 
 select(Issuer, {{_Cache, Mapping},_}) ->
