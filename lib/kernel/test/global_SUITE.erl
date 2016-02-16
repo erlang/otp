@@ -1349,7 +1349,7 @@ stress_partition(Config) when is_list(Config) ->
 
 
 %% Use this one to test alot of connection tests
-%%  erl -sname ts -rsh ctrsh -pa /clearcase/otp/internal_tools/test_server/ebin/ -ring_line 10000 -s test_server run_test global_SUITE
+%%  erl -sname ts -ring_line 10000 -s test_server run_test global_SUITE
 
 ring_line(suite) -> [];
 ring_line(doc) -> [""];
