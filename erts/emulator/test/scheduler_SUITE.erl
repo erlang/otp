@@ -56,6 +56,7 @@
 	 scheduler_threads/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
+	 dirty_scheduler_exit/1,
 	 reader_groups/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(15)).
@@ -70,7 +71,7 @@ all() ->
      equal_and_high_with_part_time_max, equal_with_high,
      equal_with_high_max, bound_process,
      {group, scheduler_bind}, scheduler_threads, scheduler_suspend,
-     dirty_scheduler_threads,
+     dirty_scheduler_threads, dirty_scheduler_exit,
      reader_groups].
 
 groups() -> 
@@ -1165,6 +1166,53 @@ get_dsstate(Config, Cmd) ->
 			  end]),
     stop_node(Node),
     {DSCPU, DSCPUOnln, DSIO}.
+
+dirty_scheduler_exit(Config) when is_list(Config) ->
+    try
+        erlang:system_info(dirty_cpu_schedulers),
+        dirty_scheduler_exit_test(Config)
+    catch
+        error:badarg ->
+            {skipped, "No dirty scheduler support"}
+    end.
+
+dirty_scheduler_exit_test(Config) ->
+    {ok, Node} = start_node(Config, "+SDio 1"),
+    [ok] = mcall(Node,
+                 [fun() ->
+                          Path = ?config(data_dir, Config),
+                          Lib = atom_to_list(?MODULE),
+                          ok = erlang:load_nif(filename:join(Path,Lib), []),
+                          ok = test_dirty_scheduler_exit()
+                  end]),
+    stop_node(Node),
+    ok.
+
+test_dirty_scheduler_exit() ->
+    process_flag(trap_exit,true),
+    test_dse(10,[]).
+test_dse(0,Pids) ->
+    timer:sleep(100),
+    kill_dse(Pids,[]);
+test_dse(N,Pids) ->
+    Pid = spawn_link(fun dirty_sleeper/0),
+    test_dse(N-1,[Pid|Pids]).
+kill_dse([],Killed) ->
+    wait_dse(Killed);
+kill_dse([Pid|Pids],AlreadyKilled) ->
+    exit(Pid,kill),
+    kill_dse(Pids,[Pid|AlreadyKilled]).
+wait_dse([]) ->
+    ok;
+wait_dse([Pid|Pids]) ->
+    receive
+        {'EXIT',Pid,killed} ->
+            ok
+    end,
+    wait_dse(Pids).
+
+dirty_sleeper() ->
+    erlang:nif_error({error,?MODULE}).
 
 scheduler_suspend(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),
