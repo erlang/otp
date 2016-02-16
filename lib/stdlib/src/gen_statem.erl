@@ -44,6 +44,9 @@
 -export(
    [wakeup_from_hibernate/3]).
 
+%% Fix problem for doc build
+-export_type([state_callback_result/0]).
+
 %%%==========================================================================
 %%% Interface functions.
 %%%==========================================================================
@@ -51,14 +54,18 @@
 -type client() ::
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
 -type state() ::
-	atom() | % Calls state callback function State/5
-	term(). % Calls state callback function handle_event/5
+	state_name() | % For state callback function StateName/5
+	term(). % For state callback function handle_event/5
+-type state_name() :: atom().
 -type state_data() :: term().
 -type event_type() ::
 	{'call',Client :: client()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
 -type event_predicate() :: % Return true for the event in question
 	fun((event_type(), term()) -> boolean()).
+-type init_option() ::
+	{'callback_mode', callback_mode()}.
+-type callback_mode() :: 'state_functions' | 'handle_event_function'.
 -type state_op() ::
 	%% First NewState and NewStateData are set,
 	%% then all state_operations() are executed in order of
@@ -97,39 +104,13 @@
 -type reply_operation() ::
 	{'reply', % Reply to a client
 	 Client :: client(), Reply :: term()}.
-
-%% The state machine init function.  It is called only once and
-%% the server is not running until this function has returned
-%% an {ok, ...} tuple.  Thereafter the state callbacks are called
-%% for all events to this server.
--callback init(Args :: term()) ->
-    {'ok', state(), state_data()} |
-    {'ok', state(), state_data(), [state_op()]} |
-    'ignore' |
-    {'stop', Reason :: term()}.
-
-%% An example callback for a fictive state 'handle_event'
-%% that you should avoid having. See below.
-%%
-%% Note that state callbacks and only state callbacks have arity 5
-%% and that is intended.
-%%
-%% You should not actually use 'handle_event' as a state name,
-%% since it is the callback function that is used if you would use
-%% a State that is not an atom().  This is because since there is
-%% no obvious way to decide on a state function name from any term().
--callback handle_event(
-	    event_type(),
-	    EventContent :: term(),
-	    PrevState :: state(),
-	    State :: state(), % Current state
-	    StateData :: state_data()) ->
+-type state_callback_result() ::
     {stop, % Stop the server
      Reason :: term(),
      NewStateData :: state_data()} |
     {stop, % Stop the server
      Reason :: term(),
-     [reply_operation()] | reply_operation(),
+     Replies :: [reply_operation()] | reply_operation(),
      NewStateData :: state_data()} |
     {next_state, % {next_state,NewState,NewStateData,[]}
      NewState :: state(),
@@ -137,7 +118,44 @@
     {next_state, % State transition, maybe to the same state
      NewState :: state(),
      NewStateData :: state_data(),
-     [state_op()] | state_op()}.
+     StateOps :: [state_op()] | state_op()}.
+
+%% The state machine init function.  It is called only once and
+%% the server is not running until this function has returned
+%% an {ok, ...} tuple.  Thereafter the state callbacks are called
+%% for all events to this server.
+-callback init(Args :: term()) ->
+    {'ok', state(), state_data()} |
+    {'ok', state(), state_data(), [state_op()|init_option()]} |
+    'ignore' |
+    {'stop', Reason :: term()}.
+
+%% Example callback for callback_mode =:= state_functions
+%% state name 'state_name'.
+%%
+%% In this mode all states has to be type state_name() i.e atom().
+%%
+%% Note that state callbacks and only state callbacks have arity 5
+%% and that is intended.
+-callback state_name(
+	    event_type(),
+	    EventContent :: term(),
+	    PrevStateName :: state_name() | reference(),
+	    StateName :: state_name(), % Current state
+	    StateData :: state_data()) ->
+    state_callback_result().
+%%
+%% Callback for callback_mode =:= handle_event_function.
+%%
+%% Note that state callbacks and only state callbacks have arity 5
+%% and that is intended.
+-callback handle_event(
+	    event_type(),
+	    EventContent :: term(),
+	    PrevState :: state(),
+	    State :: state(), % Current state
+	    StateData :: state_data()) ->
+    state_callback_result().
 
 %% Clean up before the server terminates.
 -callback terminate(
@@ -171,8 +189,11 @@
 
 -optional_callbacks(
    [format_status/2, % Has got a default implementation
-    handle_event/5]). % Only needed for State not an atom()
-%%  For every atom() State there has to be a State/5 callback function
+    %%
+    state_name/5, % Example for callback_mode =:= state_functions:
+    %% there has to be a StateName/5 callback function for every StateName.
+    %%
+    handle_event/5]). % For callback_mode =:= handle_event_function
 
 %% Type validation functions
 client({Pid,Tag}) when is_pid(Pid), is_reference(Tag) ->
@@ -366,7 +387,8 @@ enter_loop(Module, Options, State, StateData) ->
 -spec enter_loop(
 	Module :: module(), Options :: [debug_opt()],
 	State :: state(), StateData :: state_data(),
-	Server_or_StateOps :: server_name() | pid() | [state_op()]) ->
+	Server_or_StateOps ::
+	  server_name() | pid() | [state_op()|init_option()]) ->
 			no_return().
 enter_loop(Module, Options, State, StateData, Server_or_StateOps) ->
     if
@@ -384,7 +406,7 @@ enter_loop(Module, Options, State, StateData, Server_or_StateOps) ->
 	Module :: module(), Options :: [debug_opt()],
 	State :: state(), StateData :: state_data(),
 	Server :: server_name() | pid(),
-	StateOps :: [state_op()]) ->
+	StateOps :: [state_op()|init_option()]) ->
 			no_return().
 enter_loop(Module, Options, State, StateData, Server, StateOps) ->
     Parent = gen:get_parent(),
@@ -410,11 +432,12 @@ do_send(Proc, Msg) ->
     end.
 
 %% Here init_it and all enter_loop functions converge
-enter(Module, Options, State, StateData, Server, StateOps, Parent) ->
+enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Options),
     PrevState = make_ref(),
     S = #{
+      callback_mode => state_functions,
       module => Module,
       name => Name,
       prev_state => PrevState,
@@ -423,9 +446,17 @@ enter(Module, Options, State, StateData, Server, StateOps, Parent) ->
       timer => undefined,
       postponed => [],
       hibernate => false},
-    loop_event_state_ops(
-      Parent, Debug, S, [], {event,undefined},
-      State, StateData, [{retry,false}|StateOps]).
+    case collect_init_options(InitOps) of
+	{CallbackMode,StateOps} ->
+	    loop_event_state_ops(
+	      Parent, Debug,
+	      S#{callback_mode := CallbackMode},
+	      [], {event,undefined},
+	      State, StateData,
+	      [{retry,false}|StateOps]);
+	[Reason] ->
+	    terminate(Reason, Debug, S, [])
+    end.
 
 %%%==========================================================================
 %%%  gen callbacks
@@ -643,13 +674,13 @@ loop_receive(Parent, Debug, S, Event, Timer) ->
 %% The loop_event* functions optimize S map handling by dismantling it,
 %% passing the parts in arguments to avoid map lookups and construct the
 %% new S map in one go on exit.  Premature optimization, I know, but
-%% the code was way to readable and there were quite some map lookups
-%% repeated in different functions.
+%% there were quite some map lookups repeated in different functions.
 loop_events(Parent, Debug, S, [], _Timer) ->
     loop(Parent, Debug, S);
 loop_events(
   Parent, Debug,
-  #{module := Module,
+  #{callback_mode := CallbackMode,
+    module := Module,
     prev_state := PrevState,
     state := State,
     state_data := StateData} = S,
@@ -657,11 +688,11 @@ loop_events(
     _ = (Timer =/= undefined) andalso
 	cancel_timer(Timer),
     Func =
-	if
-	    is_atom(State) ->
-		State;
-	    true ->
-		handle_event
+	case CallbackMode of
+	    handle_event_function ->
+		handle_event;
+	    state_functions ->
+		State
 	end,
     try Module:Func(Type, Content, PrevState, State, StateData) of
 	Result ->
@@ -675,7 +706,10 @@ loop_events(
 	    %% Process an undef to check for the simple mistake
 	    %% of calling a nonexistent state function
 	    case erlang:get_stacktrace() of
-		[{Module,State,[Event,StateData]=Args,_}|Stacktrace] ->
+		[{Module,Func,
+		  [Type,Content,PrevState,State,StateData]=Args,
+		  _}
+		 |Stacktrace] ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
@@ -709,7 +743,7 @@ loop_event_result(Parent, Debug, S, Events, Event, Result) ->
 		end,
 	    BadReplies =
 		reply_then_terminate(Reason, Debug, NewS, Q, Replies),
-	    %% Since it returned Replies was bad
+	    %% Since we got back here Replies was bad
 	    terminate(
 	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
 	      Debug, NewS, Q);
@@ -793,6 +827,24 @@ loop_event_state_ops(
 
 %%---------------------------------------------------------------------------
 %% Server helpers
+
+collect_init_options(InitOps) ->
+    collect_init_options(lists:reverse(InitOps), state_functions, []).
+%% Keep the last of each kind
+collect_init_options([], CallbackMode, StateOps) ->
+    {CallbackMode,StateOps};
+collect_init_options([InitOp|InitOps] = IOIOs, CallbackMode, StateOps) ->
+    case InitOp of
+	{callback_mode,Mode}
+	  when Mode =:= state_functions;
+	       Mode =:= handle_event_function ->
+	    collect_init_options(InitOps, Mode, StateOps);
+	{callback_mode,_} ->
+	    [{bad_init_ops,IOIOs}];
+	_ -> % Collect others as StateOps
+	    collect_init_options(
+	      InitOps, CallbackMode, [InitOp|StateOps])
+    end.
 
 collect_state_options(StateOps) ->
     collect_state_options(

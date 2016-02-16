@@ -31,8 +31,15 @@
   <module>gen_statem</module>
   <modulesummary>Generic State Machine Behaviour</modulesummary>
   <description>
-    <p>A behaviour module for implementing a state machine, primarily
-      a finite state machine, but an infinite state space is possible.
+    <p>A behaviour module for implementing a state machine.
+      Two callback modes are supported.  One for a finite state
+      machine like <seealso marker="gen_fsm">gen_fsm</seealso>
+      that require the state to be an atom and use that state as
+      the name of the callback function for a particular state,
+      and one without restriction on the state that use the same
+      callback function for all states.
+    </p>
+    <p>
       A generic state machine process (gen_statem) implemented using
       this module will have a standard set of interface functions
       and include functionality for tracing and error reporting.
@@ -55,7 +62,7 @@ gen_statem:stop       -----> Module:terminate/2
 gen_statem:call
 gen_statem:cast
 erlang:send
-erlang:'!'            -----> Module:State/5
+erlang:'!'            -----> Module:StateName/5
                              Module:handle_event/5
 
 -                     -----> Module:terminate/3
@@ -75,47 +82,39 @@ erlang:'!'            -----> Module:State/5
     <p>The "<em>state function</em>" for a specific
       <seealso marker="#type-state">state</seealso>
       in a gen_statem is the callback function that is called
-      for all events in this state.
+      for all events in this state, and is selected depending on
+      <seealso marker="#type-callback_mode">callback_mode</seealso>
+      that the implementation selects during gen_statem init.
+    </p>
+    <p>When
+      <seealso marker="#type-callback_mode">callback_mode</seealso>
+      is <c>state_functions</c> the state has to be an atom and
+      is used as the state function name.
+      See
+      <seealso marker="#Module:StateName/5">
+        <c>Module:StateName/5</c>
+      </seealso>.
+      This naturally collects all code for a specific state
+      in one function and hence dispatches on state first.
+    </p>
+    <p>When
+      <seealso marker="#type-callback_mode">callback_mode</seealso>
+      is <c>handle_event_function</c> the state can be any term
+      and the state function name is
+      <seealso marker="#Module:handle_event/5">
+        <c>Module:handle_event/5</c>
+      </seealso>.
+      This makes it easy to dispatch on state or on event as
+      you like but you will have to implement it.
+      Also be careful about which events you handle in which
+      states so you do not accidentally postpone one event
+      forever creating an infinite busy loop.
+    </p>
+    <p>
       An event can can be postponed causing it to be retried
       after the state has changed, or more precisely;
       after a state change all postponed events are retried
       in the new state.
-    </p>
-    <p>The state machine
-      <seealso marker="#type-state"><c>State</c></seealso>
-      is normally an atom in which case the
-      <seealso marker="#state_function">state function</seealso>
-      that will be called is
-      <seealso marker="#Module:State/5"><c>Module:State/5</c></seealso>.
-      For a
-      <seealso marker="#type-state"><c>State</c></seealso>
-      that is <em>not</em> an atom the
-      <seealso marker="#state_function">state function</seealso>
-      <seealso marker="#Module:handle_event/5">
-	<c>Module:handle_event/5</c>
-      </seealso> will be called.
-      If you use <c>handle_event</c> as a
-      <seealso marker="#type-state">state</seealso> and later
-      decide to use non-atom states you will then have to
-      rewrite your code to stop using that state.
-    </p>
-    <p>When using an atom-only
-      <seealso marker="#type-state">State</seealso>
-      it becomes fairly obvious in the implementation code
-      which events are handled in which state
-      since there are different callback functions for different states.
-    </p>
-    <p>
-      When using a non-atom <seealso marker="#type-state">State</seealso>
-      all events are handled in the callback function
-      <seealso marker="#Module:handle_event/5">
-	<c>Module:handle_event/5</c>
-      </seealso>
-      so it may require more coding discipline to ensure what events
-      are handled in which state.  Therefore it might be a wee bit
-      easier to accidentally postpone an event in two or more states
-      and not handling it in any of them causing a tight infinite
-      loop when the event bounces to be retried between the states.
     </p>
     <p>A gen_statem handles system messages as documented in
        <seealso marker="sys">sys</seealso>.
@@ -239,15 +238,19 @@ erlang:'!'            -----> Module:State/5
     <datatype>
       <name name="state" />
       <desc>
-	<p>If the gen_statem <c>State</c> is an <c>atom()</c>, the
-	  <seealso marker="#state_function">state function</seealso> is
-	  <seealso marker="#Module:State/5">Module:State/5</seealso>.
-	  If it is any other <c>term()</c> the
-	  <seealso marker="#state_function">state function</seealso> is
-	  <seealso marker="#Module:handle_event/5">
-	    Module:handle_event/5
-	  </seealso>.  After a state change (<c>NewState =/= State</c>)
+	<p>After a state change (<c>NewState =/= State</c>)
 	  all postponed events are retried.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="state_name" />
+      <desc>
+	<p>If
+	  <seealso marker="#type-callback_mode">
+	    callback_mode
+	  </seealso> is <c>state_functions</c>, which is the default,
+	  the state has to be of this type i.e an <c>atom()</c>.
 	</p>
       </desc>
     </datatype>
@@ -294,6 +297,33 @@ erlang:'!'            -----> Module:State/5
 	  The predicate may <em>not</em> use a throw exception
 	  to return its result.
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="init_option" />
+      <desc>
+	<p>Option that only is valid when initializing the gen_statem</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="callback_mode" />
+      <desc>
+	<taglist>
+	  <tag><c>state_functions</c></tag>
+	  <item>The state has to be of type
+	    <seealso marker="#type-state_name"><c>state_name()</c></seealso>
+	    and one callback function per state that is
+	    <seealso marker="#Module:StateName/5">
+	      <c>Module:StateName/5</c>
+	    </seealso> is used.  This is the default.
+	  </item>
+	  <tag><c>handle_event_function</c></tag>
+	  <item>The state can be any term and the callback function
+	    <seealso marker="#Module:handle_event/5">
+	      <c>Module:handle_event/5</c>
+	    </seealso> is used for all states.
+	  </item>
+	</taglist>
       </desc>
     </datatype>
     <datatype>
@@ -468,6 +498,53 @@ erlang:'!'            -----> Module:State/5
 	      <c>{call,<anno>Client</anno>}</c>
 	    </seealso> argument to the
 	    <seealso marker="#state_function">state function</seealso>.
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="state_callback_result" />
+      <desc>
+	<taglist>
+	  <tag>
+	   <c>{stop,<anno>Reason</anno>,<anno>NewStateData</anno>}</c>
+	  </tag>
+	  <item>The same as
+	    <c>{stop,<anno>Reason</anno>,[],<anno>NewStateData</anno>}</c>
+	  </item>
+	  <tag><c>{stop,
+	    <anno>Reason</anno>,
+	    <anno>Replies</anno>,
+	    <anno>NewStateData</anno>}</c>
+	  </tag>
+	  <item>The gen_statem will first send all
+	    <c><anno>Replies</anno></c> and then terminate by calling
+	    <seealso marker="#Module:terminate/3">
+	      <c>Module:terminate/3</c>
+	    </seealso> with <c>Reason</c>.
+	  </item>
+	  <tag>
+	    <c>
+	      {next_state,<anno>NewState</anno>,<anno>NewStateData</anno>}
+	    </c>
+	  </tag>
+	  <item>The same as
+	    <c>
+	      {next_state,<anno>NewState</anno>,<anno>NewStateData</anno>,[]}
+	    </c>
+	  </item>
+	  <tag>
+	    <c>
+	      {next_state,
+	       <anno>NewState</anno>,
+	       <anno>NewStateData</anno>,
+	       <anno>StateOps</anno>}
+	    </c>
+	  </tag>
+	  <item>The gen_statem will do a state transition to
+	    <c><anno>NewState</anno></c>
+	    (which may be the same as <c>State</c>)
+	    and execute all <c>StateOps</c>
 	  </item>
 	</taglist>
       </desc>
@@ -777,13 +854,16 @@ erlang:'!'            -----> Module:State/5
         <p><c><anno>Module</anno></c>, <c><anno>Options</anno></c> and
 	  <c><anno>Server</anno></c> have the same meanings
 	  as when calling
-          <seealso marker="#start_link/3">gen_statem:start[_link]/3,4</seealso>.
+          <seealso marker="#start_link/3">
+	    gen_statem:start[_link]/3,4
+	  </seealso>.
           However, the
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
 	  </seealso> name must have been registered accordingly
 	  <em>before</em> this function is called.</p>
-        <p><c><anno>State</anno></c> and <c><anno>StateData</anno></c>
+        <p><c><anno>State</anno></c>, <c><anno>StateData</anno></c>
+	  and <c><anno>StateOps</anno></c>
 	  have the same meanings as in the return value of
           <seealso marker="#Module:init/1">Module:init/1</seealso>.
           Also, the callback module <c><anno>Module</anno></c>
@@ -821,8 +901,13 @@ erlang:'!'            -----> Module:State/5
 	<v>&nbsp;| {ok,State,StateData,StateOps}</v>
         <v>&nbsp;| {stop,Reason} | ignore</v>
 	<v>State = <seealso marker="#type-state">state()</seealso></v>
-	<v>StateData = <seealso marker="#type-state_data">state_data()</seealso></v>
-	<v>StateOps = [<seealso marker="#type-state_op">state_op()</seealso>]</v>
+	<v>StateData =
+	  <seealso marker="#type-state_data">state_data()</seealso>
+	</v>
+	<v>StateOps =
+	  [<seealso marker="#type-state_op">state_op()</seealso>
+	   | <seealso marker="#type-init_option">init_option()</seealso>]
+	</v>
 	<v>Reason = term()</v>
       </type>
       <desc>
@@ -843,9 +928,14 @@ erlang:'!'            -----> Module:State/5
 	  of the gen_statem.
 	</p>
 	<p>The <seealso marker="#type-state_op"><c>StateOps</c></seealso>
-	  are executed before entering the first
+	  are executed when entering the first
 	  <seealso marker="#type-state">state</seealso> just as for a
 	  <seealso marker="#state_function">state function</seealso>.
+	</p>
+	<p>This function allows an option to select the callback mode
+	  of the gen_statem.  See
+	  <seealso marker="#type-init_option">init_option</seealso>.
+	  This option is not allowed from the state function(s).
 	</p>
         <p>If something goes wrong during the initialization
           the function should return <c>{stop,Reason}</c>
@@ -856,10 +946,10 @@ erlang:'!'            -----> Module:State/5
     </func>
 
     <func>
-      <name>Module:handle_event(EventType, EventContent,
-        PrevState, State, StateData) -> Result
+      <name>Module:StateName(EventType, EventContent,
+        PrevStateName, StateName, StateData) -> Result
       </name>
-      <name>Module:State(EventType, EventContent,
+      <name>Module:handle_event(EventType, EventContent,
         PrevState, State, StateData) -> Result
       </name>
       <fsummary>Handle an event</fsummary>
@@ -868,41 +958,23 @@ erlang:'!'            -----> Module:State/5
 	  <seealso marker="#type-event_type">event_type()</seealso>
 	</v>
 	<v>EventContent = term()</v>
-	<v>Result = {stop,Reason,NewStateData}</v>
-	<d>&nbsp;&nbsp;The same as <c>{stop,Reason,[],NewStateData}</c></d>
-	<v>&nbsp;&nbsp;| {stop,Reason,Reply,NewStateData}</v>
-	<d>&nbsp;&nbsp;The same as
-	  <c>{stop,Reason,[Reply],NewStateData}</c>
-	</d>
-	<v>&nbsp;&nbsp;| {stop,Reason,Replies,NewStateData}</v>
-	<d>&nbsp;&nbsp;The gen_statem will first send all
-	  <c>Replies</c> and then call
-	    <seealso marker="#Module:terminate/3">
-	      <c>Module:terminate/3</c>
-	    </seealso> with <c>Reason</c> and terminate.
-	</d>
-	<v>&nbsp;&nbsp;| {next_state,NewState,NewStateData}</v>
-	<d>&nbsp;&nbsp;The same as
-	  <c>{next_state,NewState,NewStateData,NewStateData,[]}</c>
-	</d>
-	<v>&nbsp;&nbsp;| {next_state,NewState,NewStateData,StateOps}</v>
-	<d>&nbsp;&nbsp;The gen_statem will do a state transition to
-	  <c>NewState</c> (which may be the same as <c>State</c>)
-	  and execute all <c>StateOps</c>
-	</d>
-	<v>Reason = term()</v>
-	<v>PrevState = State = NewState =
+	<v>PrevStateName =
+	  <seealso marker="#type-state_name">state_name()</seealso>
+	  | reference()
+	</v>
+	<v>StateName =
+	  <seealso marker="#type-state_name">state_name()</seealso>
+	</v>
+	<v>PrevState = State =
 	  <seealso marker="#type-state">state()</seealso>
 	</v>
 	<v>StateData = NewStateData =
 	  <seealso marker="#type-state_data">state_data()</seealso>
 	</v>
-	<v>Reply =
-	  <seealso marker="#type-reply_operation">reply_operation()</seealso>
-	</v>
-	<v>Replies = [Reply]</v>
-	<v>StateOps =
-	  [<seealso marker="#type-state_op">state_op()</seealso>]
+	<v>Result =
+	  <seealso marker="#type-state_callback_result">
+	    state_callback_result()
+	  </seealso>
 	</v>
       </type>
       <desc>
@@ -923,19 +995,18 @@ erlang:'!'            -----> Module:State/5
 	    <c>gen_statem:reply(Client, Reply)</c>
 	  </seealso>.
 	</p>
-        <p><seealso marker="#type-state"><c>State</c></seealso>
-	  is the internal state of the gen_statem which
-	  when <c>State</c> is an <c>atom()</c>
-	  is the same as this function's name, so it is seldom useful,
-	  except for example when comparing with <c>PrevState</c>
-	  that is the gen_statem's previous state, or in
-	  <seealso marker="#Module:handle_event/5">
-	    Module:handle_event/5
-	  </seealso> since that function is common for all states
-	  that are not an <c>atom()</c>.
+        <p><c>StateName</c> is rarely useful.  One exception is if
+	  you call a common event handling function from your state
+	  function then you might want to pass <c>StateName</c>.
 	</p>
-	<p>If this function returns with
-	  <seealso marker="#type-state"><c>NewState =/= State</c></seealso>
+	<p><c>PrevStateName</c> and <c>PrevState</c> are rarely useful.
+	  They can be used when you want to do something only at the
+	  first event in a state.  Note that when gen_statem enters
+	  its first state this is set to a <c>reference()</c> since
+	  that can not match the state.
+	</p>
+	<p>If this function returns with a new state that
+	  does not match equal (<c>=/=</c>) to the current state
 	  all postponed events will be retried in the new state.
 	</p>
 	<p>See <seealso marker="#type-state_op">state_op()</seealso>
@@ -946,7 +1017,7 @@ erlang:'!'            -----> Module:State/5
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State, StateData)</name>
+      <name>Module:terminate(Reason, State, StateData) -> Ignored</name>
       <fsummary>Clean up before termination</fsummary>
       <type>
         <v>Reason = normal | shutdown | {shutdown,term()} | term()</v>
@@ -956,6 +1027,7 @@ erlang:'!'            -----> Module:State/5
 	    state_data()
 	  </seealso>
 	</v>
+	<v>Ignored = term()</v>
       </type>
       <desc>
         <p>This function is called by a gen_statem when it is about to
