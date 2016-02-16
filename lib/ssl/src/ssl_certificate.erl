@@ -56,15 +56,15 @@
 %% errors. Returns {RootCert, Path, VerifyErrors}
 %%--------------------------------------------------------------------
 trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) ->
-    Path = [Cert | _] = lists:reverse(CertChain),
-    OtpCert = public_key:pkix_decode_cert(Cert, otp),
+    Path = [BinCert | _] = lists:reverse(CertChain),
+    OtpCert = public_key:pkix_decode_cert(BinCert, otp),
     SignedAndIssuerID =
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
 		{ok, IssuerId} = public_key:pkix_issuer_id(OtpCert, self),
 		{self, IssuerId};
 	    false ->
-		other_issuer(OtpCert, CertDbHandle)
+		other_issuer(OtpCert, BinCert, CertDbHandle)
 	end,
     
     case SignedAndIssuerID of
@@ -187,7 +187,7 @@ public_key_type(?'id-ecPublicKey') ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_chain(OtpCert, _Cert, CertDbHandle, CertsDbRef, Chain) ->
+certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain) ->
     IssuerAndSelfSigned = 
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
@@ -200,7 +200,7 @@ certificate_chain(OtpCert, _Cert, CertDbHandle, CertsDbRef, Chain) ->
 	{_, true = SelfSigned} ->
 	    certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, CertDbHandle) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle) of
 		{ok, {SerialNr, Issuer}} ->
 		    certificate_chain(CertDbHandle, CertsDbRef, Chain,
 				      SerialNr, Issuer, SelfSigned);
@@ -232,12 +232,12 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	    {ok, undefined, lists:reverse(Chain)}		      
     end.
 
-find_issuer(OtpCert, CertDbHandle) ->
+find_issuer(OtpCert, BinCert, CertDbHandle) ->
     IsIssuerFun =
 	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
-			case verify_cert_signer(OtpCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
+			case verify_cert_signer(BinCert, ErlCertCandidate#'OTPCertificate'.tbsCertificate) of
 			    true ->
 				throw(public_key:pkix_issuer_id(ErlCertCandidate, self));
 			    false ->
@@ -265,9 +265,9 @@ is_valid_extkey_usage(KeyUse, server) ->
     %% Server wants to verify client
     is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
 
-verify_cert_signer(OtpCert, SignerTBSCert) -> 
+verify_cert_signer(BinCert, SignerTBSCert) ->
     PublicKey = public_key(SignerTBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
-    public_key:pkix_verify(public_key:pkix_encode('OTPCertificate', OtpCert, otp),  PublicKey).
+    public_key:pkix_verify(BinCert, PublicKey).
 
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
 									parameters = Params},
@@ -281,12 +281,12 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 				      subjectPublicKey = Key}) ->
     {Key, Params}.
 
-other_issuer(OtpCert, CertDbHandle) ->
+other_issuer(OtpCert, BinCert, CertDbHandle) ->
     case public_key:pkix_issuer_id(OtpCert, other) of
 	{ok, IssuerId} ->
 	    {other, IssuerId};
 	{error, issuer_not_found} ->
-	    case find_issuer(OtpCert, CertDbHandle) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle) of
 		{ok, IssuerId} ->
 		    {other, IssuerId};
 		Other ->
