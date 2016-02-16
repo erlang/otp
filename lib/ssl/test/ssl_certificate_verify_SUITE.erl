@@ -75,7 +75,8 @@ error_handling_tests()->
      unknown_server_ca_accept_verify_none,
      unknown_server_ca_accept_verify_peer,
      unknown_server_ca_accept_backwardscompatibility,
-     no_authority_key_identifier].
+     no_authority_key_identifier,
+     no_authority_key_identifier_and_nonstandard_encoding].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -847,6 +848,68 @@ delete_authority_key_extension([#'Extension'{extnID = ?'id-ce-authorityKeyIdenti
     delete_authority_key_extension(Rest, Acc);
 delete_authority_key_extension([Head | Rest], Acc) ->
     delete_authority_key_extension(Rest, [Head | Acc]).
+
+%%--------------------------------------------------------------------
+
+no_authority_key_identifier_and_nonstandard_encoding() ->
+    [{doc, "Test cert with nonstandard encoding that does not have"
+      " authorityKeyIdentifier extension but are present in trusted certs db."}].
+
+no_authority_key_identifier_and_nonstandard_encoding(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
+
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    NewCertFile = filename:join(PrivDir, "server/new_cert.pem"),
+    [{'Certificate', DerCert, _}] = ssl_test_lib:pem_to_der(CertFile),
+    ServerCert = public_key:pkix_decode_cert(DerCert, plain),
+    ServerTbsCert = ServerCert#'Certificate'.tbsCertificate,
+    Extensions0 =  ServerTbsCert#'TBSCertificate'.extensions,
+    %% need to remove authorityKeyIdentifier extension to cause DB lookup by signature
+    Extensions = delete_authority_key_extension(Extensions0, []),
+    NewExtensions = replace_key_usage_extension(Extensions, []),
+    NewServerTbsCert = ServerTbsCert#'TBSCertificate'{extensions = NewExtensions},
+
+    ct:log("Extensions ~p~n, NewExtensions: ~p~n", [Extensions, NewExtensions]),
+
+    TbsDer = public_key:pkix_encode('TBSCertificate', NewServerTbsCert, plain),
+    Sig = public_key:sign(TbsDer, md5, Key),
+    NewServerCert = ServerCert#'Certificate'{tbsCertificate = NewServerTbsCert, signature = Sig},
+    NewDerCert = public_key:pkix_encode('Certificate', NewServerCert, plain),
+    ssl_test_lib:der_to_pem(NewCertFile, [{'Certificate', NewDerCert, not_encrypted}]),
+    NewServerOpts = [{certfile, NewCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib,
+					       send_recv_result_active, []}},
+					{options, [{active, true} | NewServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib,
+					       send_recv_result_active, []}},
+					{options, [{verify, verify_peer} | ClientOpts]}]),
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+replace_key_usage_extension([], Acc) ->
+    lists:reverse(Acc);
+replace_key_usage_extension([#'Extension'{extnID = ?'id-ce-keyUsage'} = E | Rest], Acc) ->
+    %% A nonstandard DER encoding of [digitalSignature, keyEncipherment]
+    Val = <<3, 2, 0, 16#A0>>,
+    replace_key_usage_extension(Rest, [E#'Extension'{extnValue = Val} | Acc]);
+replace_key_usage_extension([Head | Rest], Acc) ->
+    replace_key_usage_extension(Rest, [Head | Acc]).
 
 %%--------------------------------------------------------------------
 
