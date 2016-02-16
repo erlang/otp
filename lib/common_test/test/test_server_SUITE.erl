@@ -330,7 +330,7 @@ generate_and_run_unicode_test(Config0,Encoding) ->
 
     %% Compile the suite
     Node = proplists:get_value(node,Config),
-    {ok,Mod} = rpc:call(Node,compile,file,[Suite,[{outdir,DataDir}]]),
+    {ok,Mod} = rpc:call(Node,compile,file,[Suite,[report,{outdir,DataDir}]]),
     ModStr = atom_to_list(Mod),
 
     %% Clean logdir
@@ -383,7 +383,7 @@ create_unicode_test_suite(Dir,Encoding) ->
 	 "-export([init_per_testcase/2, end_per_testcase/2]).\n"
 	 "-export([tc_äöå/1]).\n"
 	 "\n"
-	 "-include_lib(\"test_server/include/test_server.hrl\").\n"
+	 "-include_lib(\"common_test/include/ct.hrl\").\n"
 	 "\n"
 	 "all(suite) ->\n"
 	 "    [tc_äöå].\n"

@@ -65,9 +65,13 @@ MODULES= \
 	ct_cover_nomerge_SUITE \
 	ct_groups_search_SUITE \
 	ct_surefire_SUITE \
-	ct_telnet_SUITE
+	ct_telnet_SUITE \
+	erl2html2_SUITE \
+	test_server_SUITE \
+	test_server_test_lib
 
 ERL_FILES= $(MODULES:%=%.erl)
+HRL_FILES= test_server_test_lib.hrl
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
@@ -118,7 +122,7 @@ release_spec: opt
 
 release_tests_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) common_test.spec common_test.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

@@ -681,13 +681,9 @@ add_del_path(Config) when is_list(Config) ->
 clash(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config)++"clash/",
     P = code:get_path(),
-    [TestServerPath|_] = [Path || Path <- code:get_path(),
-				  re:run(Path,"test_server/?$",[unicode]) /= nomatch],
 
     %% test non-clashing entries
 
-    %% remove TestServerPath to prevent clash with test-server path
-    true = code:del_path(TestServerPath),
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"zork-0.8/ebin"),
     test_server:capture_start(),
@@ -699,8 +695,6 @@ clash(Config) when is_list(Config) ->
 
     %% test clashing entries
 
-    %% remove TestServerPath to prevent clash with test-server path
-    true = code:del_path(TestServerPath),
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
     test_server:capture_start(),
@@ -713,9 +707,7 @@ clash(Config) when is_list(Config) ->
 
     %% test "Bad path can't read"
 
-    %% remove TestServerPath to prevent clash with test-server path
     Priv = ?config(priv_dir, Config),
-    true = code:del_path(TestServerPath),
     TmpEzFile = Priv++"foobar-0.tmp.ez",
     {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
     true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
