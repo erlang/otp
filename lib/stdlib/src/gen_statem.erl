@@ -74,14 +74,13 @@
 	{'retry', Retry :: boolean()} |
 	'hibernate' | % Hibernate the server instead of going into receive
 	{'hibernate', Hibernate :: boolean()} |
+	(Timeout :: timeout()) | % {timeout,Timeout}
 	{'timeout', % Generate a ('timeout', Msg, ...) event after Time
 	 Time :: timeout(), Msg :: term()}.
 -type state_operation() ::
 	%% These can occur multiple times and are executed in order
 	%% of appearence in the state_op() list
-	{'reply', % Reply to a client
-	 Client :: client(), Reply :: term()} |
-	{'stop', Reason :: term()} | % Stop the server
+	reply_operation() |
 	{'insert_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
@@ -95,6 +94,9 @@
 	 MonitorRef :: reference()} |
 	{'unlink', % Unlink and clean up mess(ages)
 	 Id :: pid() | port()}.
+-type reply_operation() ::
+	{'reply', % Reply to a client
+	 Client :: client(), Reply :: term()}.
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
@@ -122,12 +124,20 @@
 	    PrevState :: state(),
 	    State :: state(), % Current state
 	    StateData :: state_data()) ->
-    [state_op()] | % {State,StateData,[state_op()]}
-    {} | % {State,StateData,[]}
-    {NewStateData :: state_data()} | % {State,NewStateData,[retry]}
-    {NewState :: state(),
-     NewStateData :: state_data()} | % {NewState,NewStateData,[]}
-    {NewState :: state(), NewStateData :: state_data(), [state_op()]}.
+    {stop, % Stop the server
+     Reason :: term(),
+     NewStateData :: state_data()} |
+    {stop, % Stop the server
+     Reason :: term(),
+     [reply_operation()] | reply_operation(),
+     NewStateData :: state_data()} |
+    {next_state, % {next_state,NewState,NewStateData,[]}
+     NewState :: state(),
+     NewStateData :: state_data()} |
+    {next_state, % State transition, maybe to the same state
+     NewState :: state(),
+     NewStateData :: state_data(),
+     [state_op()] | state_op()}.
 
 %% Clean up before the server terminates.
 -callback terminate(
@@ -679,35 +689,42 @@ loop_events(
 	    terminate(Class, Reason, Stacktrace, Debug, S, Q)
     end.
 
-%% Interprete all callback return value variants
-loop_event_result(
-  Parent, Debug,
-  #{state := State, state_data := StateData} = S,
-  Events, Event, Result) ->
+%% Interpret all callback return value variants
+loop_event_result(Parent, Debug, S, Events, Event, Result) ->
     case Result of
-	{} -> % Ignore
-	    loop_event_state_ops(
-	      Parent, Debug, S, Events, Event,
-	      State, StateData, []);
-	{NewStateData} -> % Retry
-	    loop_event_state_ops(
-	      Parent, Debug, S, Events, Event,
-	      State, NewStateData, [retry]);
-	{NewState,NewStateData} -> % Consume
+	{stop,Reason,NewStateData} ->
+	    terminate(
+	      Reason, Debug,
+	      S#{state_data := NewStateData},
+	      [Event|Events]);
+	{stop,Reason,Reply,NewStateData} ->
+	    NewS = S#{state_data := NewStateData},
+	    Q = [Event|Events],
+	    Replies =
+		if
+		    is_list(Reply) ->
+			Reply;
+		    true ->
+			[Reply]
+		end,
+	    BadReplies =
+		reply_then_terminate(Reason, Debug, NewS, Q, Replies),
+	    %% Since it returned Replies was bad
+	    terminate(
+	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
+	      Debug, NewS, Q);
+	{next_state,NewState,NewStateData} ->
 	    loop_event_state_ops(
 	      Parent, Debug, S, Events, Event,
 	      NewState, NewStateData, []);
-	{NewState,NewStateData,StateOps} when is_list(StateOps) ->
+	{next_state,NewState,NewStateData,StateOps}
+	  when is_list(StateOps) ->
 	    loop_event_state_ops(
 	      Parent, Debug, S, Events, Event,
 	      NewState, NewStateData, StateOps);
-	StateOps when is_list(StateOps) -> % Stay in state
-	    loop_event_state_ops(
-	      Parent, Debug, S, Events, Event,
-	      State, StateData, StateOps);
-	BadReturn ->
+	_ ->
 	    terminate(
-	      {bad_return_value,BadReturn}, Debug, S, [Event|Events])
+	      {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
 loop_event_state_ops(
@@ -750,7 +767,8 @@ loop_event_state_ops(
 				%% Pretend the timeout has just been received
 				{undefined,Q3 ++ [{timeout,Msg}]};
 			    {timeout,Time,Msg} ->
-				{erlang:start_timer(Time, self(), Msg),Q3}
+				{erlang:start_timer(Time, self(), Msg),
+				 Q3}
 			end,
 		    loop_events(
 		      Parent, NewDebug,
@@ -820,11 +838,8 @@ process_state_operations([], Debug, _S, Q, P) ->
 process_state_operations([Operation|Operations] = OOs, Debug, S, Q, P) ->
     case Operation of
 	{reply,{_To,_Tag}=Client,Reply} ->
-	    reply(Client, Reply),
-	    NewDebug = sys_debug(Debug, S, {out,Reply,Client}),
+	    NewDebug = do_reply(Debug, S, Client, Reply),
 	    process_state_operations(Operations, NewDebug, S, Q, P);
-	{stop,Reason} ->
-	    [Reason,Debug];
 	{insert_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
@@ -853,6 +868,22 @@ process_state_operations([Operation|Operations] = OOs, Debug, S, Q, P) ->
 		    Error ++ [Debug]
 	    end
     end.
+
+reply_then_terminate(Reason, Debug, S, Q, []) ->
+    terminate(Reason, Debug, S, Q);
+reply_then_terminate(Reason, Debug, S, Q, [R|Rs] = RRs) ->
+    case R of
+	{reply,{_To,_Tag}=Client,Reply} ->
+	    NewDebug = do_reply(Debug, S, Client, Reply),
+	    reply_then_terminate(Reason, NewDebug, S, Q, Rs);
+	_ ->
+	    RRs % bad_return_value
+    end.
+
+do_reply(Debug, S, Client, Reply) ->
+    reply(Client, Reply),
+    sys_debug(Debug, S, {out,Reply,Client}).
+
 
 %% Remove oldest matching event from the queue(s)
 remove_event(RemoveFun, Q, P) ->
@@ -928,7 +959,7 @@ remove_fun({unlink,Id}) ->
 	    end
     catch
 	Class:Reason ->
-	    {Class,Reason,erlang:get_stacktrace()}
+	    [Class,Reason,erlang:get_stacktrace()]
     end;
 remove_fun(_) ->
     undefined.

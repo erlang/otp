@@ -398,23 +398,6 @@ erlang:'!'            -----> Module:State/5
       <desc>
 	<taglist>
 	  <tag>
-	   <c>{reply,<anno>Client</anno>,<anno>Reply</anno>}</c>
-	  </tag>
-	  <item>Reply to a client that called
-	    <seealso marker="#call/2"><c>call/2</c></seealso>.
-            <c><anno>Client</anno></c> must be the term from the
-	    <seealso marker="#type-event_type">
-	      <c>{call,<anno>Client</anno>}</c>
-	    </seealso> argument to the
-	    <seealso marker="#state_function">state function</seealso>.
-	  </item>
-	  <tag><c>{stop,<anno>Reason</anno>}</c></tag>
-	  <item>The gen_statem will call
-	    <seealso marker="#Module:terminate/3">
-	      <c>Module:terminate/3</c>
-	    </seealso> with <c><anno>Reason</anno></c> and terminate.
-	  </item>
-	  <tag>
 	    <c>
 	      {insert_event,<anno>EventType</anno>,<anno>EventContent</anno>}
 	    </c>
@@ -467,6 +450,24 @@ erlang:'!'            -----> Module:State/5
 	    <seealso marker="erts:erlang#unlink/1">
 	      <c>unlink/1</c>
 	    </seealso>.
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="reply_operation" />
+      <desc>
+	<taglist>
+	  <tag>
+	   <c>{reply,<anno>Client</anno>,<anno>Reply</anno>}</c>
+	  </tag>
+	  <item>Reply to a client that called
+	    <seealso marker="#call/2"><c>call/2</c></seealso>.
+            <c><anno>Client</anno></c> must be the term from the
+	    <seealso marker="#type-event_type">
+	      <c>{call,<anno>Client</anno>}</c>
+	    </seealso> argument to the
+	    <seealso marker="#state_function">state function</seealso>.
 	  </item>
 	</taglist>
       </desc>
@@ -867,22 +868,39 @@ erlang:'!'            -----> Module:State/5
 	  <seealso marker="#type-event_type">event_type()</seealso>
 	</v>
 	<v>EventContent = term()</v>
-	<v>Result = {NewState,NewStateData,StateOps}</v>
-	<v>&nbsp;&nbsp;| {NewState,NewStateData}</v>
-	<d>&nbsp;&nbsp;The same as <c>{NewState,NewStateData,[]}</c></d>
-	<v>&nbsp;&nbsp;| {NewStateData}</v>
-	<d>&nbsp;&nbsp;The same as <c>{State,NewStateData,[retry]}</c></d>
-	<v>&nbsp;&nbsp;| {}</v>
-	<d>&nbsp;&nbsp;The same as <c>{State,StateData,[]}</c></d>
-	<v>&nbsp;&nbsp;| StateOps</v>
-	<d>&nbsp;&nbsp;The same as <c>{State,StateData,StateOps}</c></d>
-
+	<v>Result = {stop,Reason,NewStateData}</v>
+	<d>&nbsp;&nbsp;The same as <c>{stop,Reason,[],NewStateData}</c></d>
+	<v>&nbsp;&nbsp;| {stop,Reason,Reply,NewStateData}</v>
+	<d>&nbsp;&nbsp;The same as
+	  <c>{stop,Reason,[Reply],NewStateData}</c>
+	</d>
+	<v>&nbsp;&nbsp;| {stop,Reason,Replies,NewStateData}</v>
+	<d>&nbsp;&nbsp;The gen_statem will first send all
+	  <c>Replies</c> and then call
+	    <seealso marker="#Module:terminate/3">
+	      <c>Module:terminate/3</c>
+	    </seealso> with <c>Reason</c> and terminate.
+	</d>
+	<v>&nbsp;&nbsp;| {next_state,NewState,NewStateData}</v>
+	<d>&nbsp;&nbsp;The same as
+	  <c>{next_state,NewState,NewStateData,NewStateData,[]}</c>
+	</d>
+	<v>&nbsp;&nbsp;| {next_state,NewState,NewStateData,StateOps}</v>
+	<d>&nbsp;&nbsp;The gen_statem will do a state transition to
+	  <c>NewState</c> (which may be the same as <c>State</c>)
+	  and execute all <c>StateOps</c>
+	</d>
+	<v>Reason = term()</v>
 	<v>PrevState = State = NewState =
 	  <seealso marker="#type-state">state()</seealso>
 	</v>
 	<v>StateData = NewStateData =
 	  <seealso marker="#type-state_data">state_data()</seealso>
 	</v>
+	<v>Reply =
+	  <seealso marker="#type-reply_operation">reply_operation()</seealso>
+	</v>
+	<v>Replies = [Reply]</v>
 	<v>StateOps =
 	  [<seealso marker="#type-state_op">state_op()</seealso>]
 	</v>
@@ -898,7 +916,8 @@ erlang:'!'            -----> Module:State/5
 	  from this or from any other
 	  <seealso marker="#state_function">state function</seealso>
 	  by returning with <c>{reply,Client,Reply}</c> in
-	  <seealso marker="#type-state_op">StateOps</seealso>
+	  <seealso marker="#type-state_op">StateOps</seealso>, in
+	  <seealso marker="#type-reply_operation">Replies</seealso>
 	  or by calling
 	  <seealso marker="#reply/2">
 	    <c>gen_statem:reply(Client, Reply)</c>
