@@ -154,6 +154,34 @@
           the empty string will be returned.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="set_callback" arity="2"/>
+      <fsummary>Set a validation callback</fsummary>
+      <desc>
+          <p> This validation callback will be executed before any heartbeat sent
+              to the port program. For the validation to succeed it needs to return
+              with the value <c>ok</c>.
+        </p>
+        <p> An exception within the callback will be treated as a validation failure. </p>
+        <p> The callback will be removed if the system reboots. </p>
+      </desc>
+    </func>
+    <func>
+      <name name="clear_callback" arity="0"/>
+      <fsummary>Clear the validation callback</fsummary>
+      <desc>
+          <p>Removes the validation callback call before heartbeats.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_callback" arity="0"/>
+      <fsummary>Get the validation callback</fsummary>
+      <desc>
+          <p>Get the validation callback. If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
   </funcs>
 </erlref>
 
