@@ -217,6 +217,22 @@ event_type(Type) ->
 	    false
     end.
 
+
+
+-define(
+   STACKTRACE(),
+   try throw(ok) catch _ -> erlang:get_stacktrace() end).
+
+-define(
+   TERMINATE(Reason, Debug, S, Q),
+   terminate(
+     exit,
+     begin Reason end,
+     ?STACKTRACE(),
+     begin Debug end,
+     begin S end,
+     begin Q end)).
+
 %%%==========================================================================
 %%% API
 
@@ -455,7 +471,7 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 	      State, StateData,
 	      [{retry,false}|StateOps]);
 	[Reason] ->
-	    terminate(Reason, Debug, S, [])
+	    ?TERMINATE(Reason, Debug, S, [])
     end.
 
 %%%==========================================================================
@@ -510,7 +526,7 @@ system_continue(Parent, Debug, S) ->
     loop(Parent, Debug, S).
 
 system_terminate(Reason, _Parent, Debug, S) ->
-    terminate(Reason, Debug, S, []).
+    ?TERMINATE(Reason, Debug, S, []).
 
 system_code_change(
   #{module := Module,
@@ -646,7 +662,7 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    %% EXIT is not a 2-tuple and therefore
 		    %% not an event and has no event_type(),
 		    %% but this will stand out in the crash report...
-		    terminate(Reason, Debug, S, [EXIT]);
+		    ?TERMINATE(Reason, Debug, S, [EXIT]);
 		{timeout,Timer,Content} when Timer =/= undefined ->
 		    loop_receive(
 		      Parent, Debug, S, {timeout,Content}, undefined);
@@ -727,7 +743,7 @@ loop_events(
 loop_event_result(Parent, Debug, S, Events, Event, Result) ->
     case Result of
 	{stop,Reason,NewStateData} ->
-	    terminate(
+	    ?TERMINATE(
 	      Reason, Debug,
 	      S#{state_data := NewStateData},
 	      [Event|Events]);
@@ -742,9 +758,10 @@ loop_event_result(Parent, Debug, S, Events, Event, Result) ->
 			[Reply]
 		end,
 	    BadReplies =
-		reply_then_terminate(Reason, Debug, NewS, Q, Replies),
+		reply_then_terminate(
+		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
-	    terminate(
+	    ?TERMINATE(
 	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
 	      Debug, NewS, Q);
 	{next_state,NewState,NewStateData} ->
@@ -757,7 +774,7 @@ loop_event_result(Parent, Debug, S, Events, Event, Result) ->
 	      Parent, Debug, S, Events, Event,
 	      NewState, NewStateData, StateOps);
 	_ ->
-	    terminate(
+	    ?TERMINATE(
 	      {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
@@ -815,14 +832,14 @@ loop_event_state_ops(
 			postponed := P},
 		      Q, Timer);
 		[Reason,Debug] ->
-		    terminate(Reason, Debug, S, [Event|Events]);
+		    ?TERMINATE(Reason, Debug, S, [Event|Events]);
 		[Class,Reason,Stacktrace,Debug] ->
 		    terminate(
 		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
 	    end;
 	%%
 	[Reason] ->
-	    terminate(Reason, Debug0, S, [Event|Events])
+	    ?TERMINATE(Reason, Debug0, S, [Event|Events])
     end.
 
 %%---------------------------------------------------------------------------
@@ -921,13 +938,15 @@ process_state_operations([Operation|Operations] = OOs, Debug, S, Q, P) ->
 	    end
     end.
 
-reply_then_terminate(Reason, Debug, S, Q, []) ->
-    terminate(Reason, Debug, S, Q);
-reply_then_terminate(Reason, Debug, S, Q, [R|Rs] = RRs) ->
+reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
+    terminate(Class, Reason, Stacktrace, Debug, S, Q);
+reply_then_terminate(
+  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs] = RRs) ->
     case R of
 	{reply,{_To,_Tag}=Client,Reply} ->
 	    NewDebug = do_reply(Debug, S, Client, Reply),
-	    reply_then_terminate(Reason, NewDebug, S, Q, Rs);
+	    reply_then_terminate(
+	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
 	    RRs % bad_return_value
     end.
@@ -1034,12 +1053,9 @@ cancel_timer(TimerRef) ->
     end.
 
 
-terminate(Reason, Debug, S, Q) ->
-    terminate(exit, Reason, [], Debug, S, Q).
-%%
 terminate(
   Class, Reason, Stacktrace, Debug,
-  #{name := Name, module := Module,
+  #{module := Module,
     state := State, state_data := StateData} = S,
   Q) ->
     try Module:terminate(Reason, State, StateData) of
@@ -1049,7 +1065,7 @@ terminate(
 	C:R ->
 	    ST = erlang:get_stacktrace(),
 	    error_info(
-	      C, R, ST, Debug, Name, Q,
+	      C, R, ST, Debug, S, Q,
 	      format_status(terminate, get(), S)),
 	    erlang:raise(C, R, ST)
     end,
@@ -1059,7 +1075,7 @@ terminate(
 	{shutdown,_} -> ok;
 	_ ->
 	    error_info(
-	      Class, Reason, Stacktrace, Debug, Name, Q,
+	      Class, Reason, Stacktrace, Debug, S, Q,
 	      format_status(terminate, get(), S))
     end,
     case Stacktrace of
@@ -1070,7 +1086,10 @@ terminate(
     end.
 
 error_info(
-  Class, Reason, Stacktrace, Debug, Name, Q, FmtStateData) ->
+  Class, Reason, Stacktrace, Debug,
+  #{name := Name, callback_mode := CallbackMode,
+    state := State, postponed := P},
+  Q, FmtStateData) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1079,7 +1098,13 @@ error_info(
 		    false ->
 			{{'module could not be loaded',M},ST};
 		    _ ->
-			Arity = length(Args),
+			Arity =
+			    if
+				is_list(Args) ->
+				    length(Args);
+				is_integer(Args) ->
+				    Args
+			    end,
 			case erlang:function_exported(M, F, Arity) of
 			    true ->
 				{Reason,Stacktrace};
@@ -1100,6 +1125,9 @@ error_info(
 	  end ++
 	  "** When Server state  = ~p~n" ++
 	  "** Reason for termination = ~w:~p~n" ++
+	  "** State = ~p~n" ++
+	  "** Callback mode = ~p~n" ++
+	  "** Queued/Posponed = ~w/~w~n" ++
 	  case FixedStacktrace of
 	      [] ->
 		  "";
@@ -1110,10 +1138,12 @@ error_info(
       [Name |
        case Q of
 	   [] ->
-	       [FmtStateData,Class,FixedReason];
+	       [];
 	   [Event|_] ->
-	       [Event,FmtStateData,Class,FixedReason]
+	       [Event]
        end] ++
+	  [FmtStateData,Class,FixedReason,
+	   State,CallbackMode,length(Q),length(P)] ++
 	  case FixedStacktrace of
 	      [] ->
 		  [];
