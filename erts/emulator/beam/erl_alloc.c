@@ -165,6 +165,8 @@ enum allctr_type {
 struct au_init {
     int enable;
     int thr_spec;
+    int disable_allowed;
+    int thr_spec_allowed;
     int carrier_migration_allowed;
     enum allctr_type	atype;
     struct {
@@ -217,7 +219,7 @@ typedef struct {
     struct au_init test_alloc;
 } erts_alc_hndl_args_init_t;
 
-#define ERTS_AU_INIT__ {0, 0, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
+#define ERTS_AU_INIT__ {0, 0, 1, 1, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
 
 #define SET_DEFAULT_ALLOC_OPTS(IP)					\
 do {									\
@@ -294,6 +296,9 @@ set_default_literal_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= 1;
     ip->thr_spec		= 0;
+    ip->disable_allowed         = 0;
+    ip->thr_spec_allowed        = 0;
+    ip->carrier_migration_allowed = 0;
     ip->atype			= BESTFIT;
     ip->init.bf.ao		= 1;
     ip->init.util.ramv		= 0;
@@ -1352,9 +1357,17 @@ handle_au_arg(struct au_init *auip,
 	else
 	    goto bad_switch;
 	break;
-    case 'e':
-	auip->enable = get_bool_value(sub_param+1, argv, ip);
+    case 'e': {
+	int e = get_bool_value(sub_param + 1, argv, ip);
+        if (!auip->disable_allowed && !e) {
+            if (!u_switch)
+                bad_value(param, sub_param + 1, "false");
+	    else
+		ASSERT(auip->enable); /* ignore */
+        }
+	else auip->enable = e;
 	break;
+    }
     case 'l':
 	if (has_prefix("lmbcs", sub_param)) {
 	    auip->default_.lmbcs = 0;
@@ -1423,7 +1436,14 @@ handle_au_arg(struct au_init *auip,
     case 't': {
 	int res = get_bool_value(sub_param+1, argv, ip);
 	if (res > 0) {
-	    auip->thr_spec = 1;
+	    if (!auip->thr_spec_allowed) {
+		if (!u_switch)
+                    bad_value(param, sub_param + 1, "true");
+		else
+		    ASSERT(!auip->thr_spec); /* ignore */
+	    }
+	    else
+		auip->thr_spec = 1;
 	    break;
 	}
 	else if (res == 0) {
@@ -1471,6 +1491,9 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		switch (argv[i][2]) {
 		case 'B':
 		    handle_au_arg(&init->binary_alloc, &argv[i][3], argv, &i, 0);
+		    break;
+		case 'I':
+                    handle_au_arg(&init->literal_alloc, &argv[i][3], argv, &i, 0);
 		    break;
 		case 'D':
 		    handle_au_arg(&init->std_alloc, &argv[i][3], argv, &i, 0);

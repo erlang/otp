@@ -65,6 +65,7 @@
 static const char plusM_au_allocs[]= {
     'u',	/* all alloc_util allocators */
     'B',	/* binary_alloc		*/
+    'I',	/* literal_alloc	*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
     'F',	/* fix_alloc		*/
