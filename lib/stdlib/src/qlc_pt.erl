@@ -1914,9 +1914,9 @@ expand_pattern_records(P, State) ->
 expand_expr_records(E, State) ->
     RecordDefs = State#state.records,
     A = anno1(),
-    Forms = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[pe(E)]}]}],
-    [{function,_,foo,0,[{clause,_,[],[],[NE]}]}] = 
-        erl_expand_records:module(Forms, [no_strict_record_tests]),
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[pe(E)]}]}],
+    Forms = erl_expand_records:module(Forms0, [no_strict_record_tests]),
+    {function,_,foo,0,[{clause,_,[],[],[NE]}]} = lists:last(Forms),
     NE.
 
 %% Partial evaluation.

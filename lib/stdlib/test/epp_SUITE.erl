@@ -25,7 +25,7 @@
 	 upcase_mac_1/1, upcase_mac_2/1,
 	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
+         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1]).
 
@@ -68,7 +68,7 @@ all() ->
     [rec_1, {group, upcase_mac}, include_local, predef_mac,
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
+     overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends].
 
@@ -1230,23 +1230,8 @@ otp_8470(Config) when is_list(Config) ->
     ?line receive _ -> fail() after 0 -> ok end,
     ok.
 
-otp_8503(doc) ->
-    ["OTP-8503. Record with no fields is considered typed."];
-otp_8503(suite) ->
-    [];
-otp_8503(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
-    C = <<"-record(r, {}).">>,
-    ?line File = filename:join(Dir, "otp_8503.erl"),
-    ?line ok = file:write_file(File, C),
-    ?line {ok, List} = epp:parse_file(File, [], []),
-    ?line [_] = [F || {attribute,_,type,{{record,r},[],[]}}=F <- List],
-    file:delete(File),
-    ?line receive _ -> fail() after 0 -> ok end,
-    ok.
-
 otp_8562(doc) ->
-    ["OTP-8503. Record with no fields is considered typed."];
+    ["OTP-8562. Record with no fields is considered typed."];
 otp_8562(suite) ->
     [];
 otp_8562(Config) when is_list(Config) ->

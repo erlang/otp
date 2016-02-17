@@ -360,6 +360,9 @@ format_error({redefine_type, {TypeName, Arity}}) ->
 		  [TypeName, gen_type_paren(Arity)]);
 format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
+format_error(old_abstract_code) ->
+    io_lib:format("abstract code generated before Erlang/OTP 19.0 and "
+                  "having typed record fields cannot be compiled", []);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
 format_error({redefine_spec, {F, A}}) ->
@@ -1143,7 +1146,7 @@ check_untyped_records(Forms, St0) ->
 	    RecNames = dict:fetch_keys(St0#lint.records),
 	    %% these are the records with field(s) containing type info
 	    TRecNames = [Name ||
-			    {attribute,_,type,{{record,Name},Fields,_}} <- Forms,
+			    {attribute,_,record,{Name,Fields}} <- Forms,
 			    lists:all(fun ({typed_record_field,_,_}) -> true;
 					  (_) -> false
 				      end, Fields)],
@@ -1153,7 +1156,8 @@ check_untyped_records(Forms, St0) ->
 			      [] -> St; % exclude records with no fields
 			      [_|_] -> add_warning(L, {untyped_record, N}, St)
 			  end
-		  end, St0, RecNames -- TRecNames);
+		  end, St0, ordsets:subtract(ordsets:from_list(RecNames),
+                                             ordsets:from_list(TRecNames)));
 	false ->
 	    St0
     end.
@@ -2443,7 +2447,10 @@ record_def(Line, Name, Fs0, St0) ->
         true -> add_error(Line, {redefine_record,Name}, St0);
         false ->
             {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
-            St1#lint{records=dict:store(Name, {Line,Fs1}, St1#lint.records)}
+            St2 = St1#lint{records=dict:store(Name, {Line,Fs1},
+                                              St1#lint.records)},
+            Types = [T || {typed_record_field, _, T} <- Fs0],
+            check_type({type, nowarn(), product, Types}, St2)
     end.
 
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
@@ -2646,11 +2653,6 @@ find_field(_F, []) -> error.
 %%    Attr :: 'type' | 'opaque'
 %% Checks that a type definition is valid.
 
-type_def(_Attr, _Line, {record, _RecName}, Fields, [], St0) ->
-    %% The record field names and such are checked in the record format.
-    %% We only need to check the types.
-    Types = [T || {typed_record_field, _, T} <- Fields],
-    check_type({type, nowarn(), product, Types}, St0);
 type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     TypeDefs = St0#lint.types,
     Arity = length(Args),
@@ -2813,6 +2815,8 @@ check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St1}, Args);
+check_type([{typed_record_field,Field,_T}|_], SeenVars, St) ->
+    {SeenVars, add_error(element(2, Field), old_abstract_code, St)};
 check_type(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_ILn,_Integer} -> {SeenVars, St};
@@ -2994,9 +2998,10 @@ add_missing_spec_warnings(Forms, St0, Type) ->
 		[{FA,L} || {function,L,F,A,_} <- Forms,
 			   not lists:member(FA = {F,A}, Specs)];
 	    exported ->
-		Exps = gb_sets:to_list(St0#lint.exports) -- pseudolocals(),
+		Exps0 = gb_sets:to_list(St0#lint.exports) -- pseudolocals(),
+                Exps = Exps0 -- Specs,
 		[{FA,L} || {function,L,F,A,_} <- Forms,
-			   member(FA = {F,A}, Exps -- Specs)]
+			   member(FA = {F,A}, Exps)]
 	end,
     foldl(fun ({FA,L}, St) ->
 		  add_warning(L, {missing_spec,FA}, St)
@@ -3009,7 +3014,9 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    L = gb_sets:to_list(ExpTs) ++ dict:fetch_keys(D),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
-		fun(Type, #typeinfo{line = FileLine}, AccSt) ->
+                fun({{record, _}=_Type, 0}, _, AccSt) ->
+                        AccSt; % Before Erlang/OTP 19.0
+                   (Type, #typeinfo{line = FileLine}, AccSt) ->
                         case loc(FileLine, AccSt) of
 			    {FirstFile, _} ->
 				case gb_sets:is_member(Type, UsedTypes) of
