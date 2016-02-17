@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@
 %% Exported to qlc_pt.erl only:
 -export([template_state/0, aux_name/3, name_suffix/2, vars/1,
          var_ufold/2, var_fold/3, all_selections/1]).
+
+-dialyzer(no_improper_lists).
 
 %% When cache=list lists bigger than ?MAX_LIST_SIZE bytes are put on
 %% file. Also used when merge join finds big equivalence classes.

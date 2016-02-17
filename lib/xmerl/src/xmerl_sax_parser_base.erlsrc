@@ -152,6 +152,7 @@ parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
 %%             [22] prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?
 %%             [23] XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
 %%----------------------------------------------------------------------
+-dialyzer({[no_fail_call, no_match], parse_xml_decl/2}).
 parse_xml_decl(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_xml_decl/2);
 parse_xml_decl(?BYTE_ORDER_MARK_1, State) ->
@@ -1205,6 +1206,7 @@ send_character_event(_, true, String, State) ->
 %% Description: Parse whitespaces.
 %%              [3] S ::= (#x20 | #x9 | #xD | #xA)+
 %%----------------------------------------------------------------------
+-dialyzer({no_fail_call, whitespace/3}).
 whitespace(?STRING_EMPTY, State, Acc) ->  
     case cf(?STRING_EMPTY, State, Acc, fun whitespace/3) of
 	{?STRING_EMPTY, State} ->
@@ -1716,6 +1718,7 @@ handle_external_entity({Tag, _Url}, State) ->
 %% Result    : {Rest, State}
 %% Description: Parse the external entity.
 %%----------------------------------------------------------------------
+-dialyzer({[no_fail_call, no_match], parse_external_entity_1/2}).
 parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} = State) ->
     case catch cf(?STRING_EMPTY, State, fun parse_external_entity_1/2) of
 	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->

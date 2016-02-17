@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -669,6 +669,7 @@ merge([], New, _Key) ->
 merge(Old, New, Key) ->
     merge2(keysort(Key, Old), keysort(Key, New), Key).
 
+-dialyzer({no_improper_lists, merge2/3}).
 merge2([[Obj|_]|Old], [Obj|New], Key) ->
     [[Obj]|merge2(Old, New, Key)];
 merge2([[A|Op]|Old], [B|New], Key)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ start_tracer_node(TraceFile,TI) ->
 %%%
 trace_nodes(Sock,Nodes) ->
     Bin = term_to_binary({add_nodes,Nodes}),
-    ok = gen_tcp:send(Sock, [1|Bin]),
+    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
     receive_ack(Sock).
 
 
@@ -142,7 +142,7 @@ receive_ack(Sock) ->
 %%%
 stop_tracer_node(Sock) ->
     Bin = term_to_binary(id(stop)),
-    ok = gen_tcp:send(Sock, [1|Bin]),
+    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
     receive {tcp_closed,Sock} -> gen_tcp:close(Sock) end,
     ok.
     
@@ -171,7 +171,7 @@ trc([TraceFile, PortAtom, Type]) ->
 						   {packet,2}]) of
 	{ok,Sock} -> 
 	    BinResult = term_to_binary(Result),
-	    ok = gen_tcp:send(Sock,[1|BinResult]),
+	    ok = gen_tcp:send(Sock,tag_trace_message(BinResult)),
 	    trc_loop(Sock,Patterns,Type);
 	_else ->
 	    ok
@@ -187,7 +187,7 @@ trc_loop(Sock,Patterns,Type) ->
 		{ok,{add_nodes,Nodes}} -> 
 		    add_nodes(Nodes,Patterns,Type),
 		    Bin = term_to_binary(id(ok)),
-		    ok = gen_tcp:send(Sock, [1|Bin]),
+		    ok = gen_tcp:send(Sock, tag_trace_message(Bin)),
 		    trc_loop(Sock,Patterns,Type);
 		{ok,stop} -> 
 		    ttb:stop(),
@@ -482,7 +482,7 @@ node_started(Host,PortAtom) ->
 	
 	{ok,Sock} -> 
 	    Started = term_to_binary({started, node(), Version, VsnStr}),
-	    ok = gen_tcp:send(Sock, [1|Started]),
+	    ok = gen_tcp:send(Sock, tag_trace_message(Started)),
 	    receive _Anyting ->
 		    gen_tcp:close(Sock),
 		    erlang:halt()
@@ -492,8 +492,10 @@ node_started(Host,PortAtom) ->
     end.
 
 
-
-
+-compile({inline, [tag_trace_message/1]}).
+-dialyzer({no_improper_lists, tag_trace_message/1}).
+tag_trace_message(M) ->
+    [1|M].
 
 % start_which_node(Optlist) -> hostname
 start_which_node(Optlist) ->

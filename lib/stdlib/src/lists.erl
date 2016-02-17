@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2266,6 +2266,8 @@ ukeysplit_2(I, Y, EY, [Z | L], R) ->
     end;
 ukeysplit_2(_I, Y, _EY, [], R) ->
     [Y | R].
+
+-dialyzer({no_improper_lists, ukeymergel/3}).
 
 ukeymergel(I, [T1, [H2 | T2], [H3 | T3] | L], Acc) ->
     %% The fourth argument, [H2 | H3] (=HdM), may confuse type

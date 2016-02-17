@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2251,6 +2251,8 @@ do_analyse(Table, Analyse) ->
     ?dbg(5, "do_analyse_1(_, _) ->~p~n", [Result]),
     Result.
 
+-dialyzer({no_improper_lists, do_analyse_1/2}).
+
 do_analyse_1(Table, 
 	   #analyse{group_leader = GroupLeader,
 		    dest = Io,
@@ -2624,6 +2626,8 @@ funcstat_pd(Pid, Func1, Func0, Clocks) ->
 funcstat_sort_r(FuncstatList, Element) ->
     funcstat_sort_r_1(FuncstatList, Element, []).
 
+-dialyzer({no_improper_lists, funcstat_sort_r_1/3}).
+
 funcstat_sort_r_1([], _, R) ->
     postsort_r(lists:sort(R));
 funcstat_sort_r_1([#funcstat{callers_sum = #clocks{} = Clocks,
@@ -2645,6 +2649,8 @@ funcstat_sort_r_1([#funcstat{callers_sum = #clocks{} = Clocks,
 %% Sort a list of clocks records.
 clocks_sort_r(L, E) ->
     clocks_sort_r_1(L, E, []).
+
+-dialyzer({no_improper_lists, clocks_sort_r_1/3}).
 
 clocks_sort_r_1([], _, R) ->
     postsort_r(lists:sort(R));

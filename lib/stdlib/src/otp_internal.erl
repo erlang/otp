@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 -export([obsolete/3, obsolete_type/3]).
 
 %%----------------------------------------------------------------------
+
+-dialyzer({no_match, obsolete/3}).
 
 -type tag()     :: 'deprecated' | 'removed'. %% | 'experimental'.
 -type mfas()    :: mfa() | {atom(), atom(), [byte()]}.
@@ -697,18 +699,20 @@ is_snmp_agent_function(del_agent_caps,        1) -> true;
 is_snmp_agent_function(get_agent_caps,        0) -> true;
 is_snmp_agent_function(_,		      _) -> false.
 
+-dialyzer({no_match, obsolete_type/3}).
+
 -spec obsolete_type(module(), atom(), arity()) ->
 	'no' | {tag(), string()} | {tag(), mfas(), release()}.
 
 -dialyzer({no_match, obsolete_type/3}).
 obsolete_type(Module, Name, NumberOfVariables) ->
     case obsolete_type_1(Module, Name, NumberOfVariables) of
-	{deprecated=Tag,{_,_,_}=Replacement} ->
-	    {Tag,Replacement,"in a future release"};
+        {deprecated=Tag,{_,_,_}=Replacement} ->
+            {Tag,Replacement,"in a future release"};
 	{_,String}=Ret when is_list(String) ->
 	    Ret;
-	{_,_,_}=Ret ->
-	    Ret;
+        {_,_,_}=Ret ->
+            Ret;
 	no ->
 	    no
     end.
