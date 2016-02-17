@@ -89,22 +89,22 @@ BIF_RETTYPE not_1(BIF_ALIST_1)
 
 BIF_RETTYPE sgt_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_gt(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_GT(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE sge_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_ge(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_GE(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE slt_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_lt(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_LT(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE sle_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_le(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_LE(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE seq_2(BIF_ALIST_2)
@@ -114,7 +114,7 @@ BIF_RETTYPE seq_2(BIF_ALIST_2)
 
 BIF_RETTYPE seqeq_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_eq(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_EQ(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE sneq_2(BIF_ALIST_2)
@@ -124,7 +124,7 @@ BIF_RETTYPE sneq_2(BIF_ALIST_2)
 
 BIF_RETTYPE sneqeq_2(BIF_ALIST_2)
 {
-    BIF_RET(cmp_ne(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
+    BIF_RET(CMP_NE(BIF_ARG_1, BIF_ARG_2) ? am_true : am_false);
 }
 
 BIF_RETTYPE is_atom_1(BIF_ALIST_1)
