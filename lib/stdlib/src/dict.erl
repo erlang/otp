@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -332,6 +332,8 @@ update_counter(Key, Incr, D0) when is_number(Incr) ->
     {D1,Ic} = on_bucket(fun (B0) -> counter_bkt(Key, Incr, B0) end,
 			D0, Slot),
     maybe_expand(D1, Ic).
+
+-dialyzer({no_improper_lists, counter_bkt/3}).
 
 counter_bkt(Key, I, [?kv(Key,Val)|Bkt]) ->
     {[?kv(Key,Val+I)|Bkt],0};

@@ -3532,6 +3532,8 @@ check_qlc_hrl(Line, M, F, As, St) ->
 %% deprecated_function(Line, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for calls to deprecated functions.
 
+-dialyzer({no_match, deprecated_function/5}).
+
 deprecated_function(Line, M, F, As, St) ->
     Arity = length(As),
     MFA = {M, F, Arity},
@@ -3559,6 +3561,8 @@ deprecated_function(Line, M, F, As, St) ->
         no ->
 	    St
     end.
+
+-dialyzer({no_match, deprecated_type/5}).
 
 deprecated_type(L, M, N, As, St) ->
     NAs = length(As),

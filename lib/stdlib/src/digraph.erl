@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -338,6 +338,8 @@ edge(G, E) ->
 %%
 -spec new_edge_id(graph()) -> edge().
 
+-dialyzer({no_improper_lists, new_edge_id/1}).
+
 new_edge_id(G) ->
     NT = G#digraph.ntab,
     [{'$eid', K}] = ets:lookup(NT, '$eid'),
@@ -349,6 +351,8 @@ new_edge_id(G) ->
 %% Generate a "unique" vertex identifier (relative to this graph)
 %%
 -spec new_vertex_id(graph()) -> vertex().
+
+-dialyzer({no_improper_lists, new_vertex_id/1}).
 
 new_vertex_id(G) ->
     NT = G#digraph.ntab,

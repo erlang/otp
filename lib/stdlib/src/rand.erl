@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -256,12 +256,16 @@ exs64_uniform(Max, {Alg, R}) ->
 %% =====================================================================
 -type exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
 
+-dialyzer({no_improper_lists, exsplus_seed/1}).
+
 exsplus_seed({A1, A2, A3}) ->
     {_, R1} = exsplus_next([(((A1 * 4294967197) + 1) band ?UINT58MASK)|
 			    (((A2 * 4294967231) + 1) band ?UINT58MASK)]),
     {_, R2} = exsplus_next([(((A3 * 4294967279) + 1) band ?UINT58MASK)|
 			    tl(R1)]),
     R2.
+
+-dialyzer({no_improper_lists, exsplus_next/1}).
 
 %% Advance xorshift116+ state for one step and generate 58bit unsigned integer
 -spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
