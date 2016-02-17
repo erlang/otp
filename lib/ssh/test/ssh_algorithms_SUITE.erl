@@ -91,18 +91,12 @@ init_per_suite(Config) ->
 	    ?MAX_NUM_ALGORITHMS
 	    ]),
     ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    ssh:start(),
-	    [{std_simple_sftp_size,25000} % Sftp transferred data size
-	     | setup_pubkey(Config)];
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    ssh:start(),
+    [{std_simple_sftp_size,25000} % Sftp transferred data size
+     | setup_pubkey(Config)].
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
 
 
 init_per_group(Group, Config) ->

@@ -60,21 +60,14 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    case gen_tcp:connect("localhost", 22, []) of
-		{error,econnrefused} ->
-		    {skip,"No openssh deamon"};
-		_ ->
-		    ssh_test_lib:openssh_sanity_check(Config)
-	    end;
-	_Else ->
-	    {skip,"Could not start crypto!"}
+    case gen_tcp:connect("localhost", 22, []) of
+	{error,econnrefused} ->
+	    {skip,"No openssh deamon"};
+	_ ->
+	    ssh_test_lib:openssh_sanity_check(Config)
     end.
 
 end_per_suite(_Config) ->
-    crypto:stop(),
     ok.
 
 init_per_group(erlang_server, Config) ->

@@ -126,16 +126,11 @@ groups() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    Config;
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    Config.
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
+
 %%--------------------------------------------------------------------
 init_per_group(hardening_tests, Config) ->
     DataDir = ?config(data_dir, Config),
