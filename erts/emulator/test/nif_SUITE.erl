@@ -617,7 +617,6 @@ resource_new_do2(Type) ->
     ?line {PtrA,BinA} = get_resource(Type, ResA),
     ?line {PtrB,BinB} = get_resource(Type, ResB),
     ?line true = (PtrA =/= PtrB),
-    ?line [] = last_resource_dtor_call(),
     %% forget ResA and make it garbage
     {{PtrA,BinA}, {ResB,PtrB,BinB}}.
 
