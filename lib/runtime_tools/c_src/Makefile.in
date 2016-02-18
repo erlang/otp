@@ -91,7 +91,7 @@ $(OBJDIR):
 $(LIBDIR):
 	-@mkdir -p $(LIBDIR)
 
-$(OBJDIR)/%$(TYPEMARKER).o: %.c
+$(OBJDIR)/%$(TYPEMARKER).o: %.c dyntrace_lttng.h
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/%$(TYPEMARKER).@DED_EXT@: $(OBJDIR)/%$(TYPEMARKER).o

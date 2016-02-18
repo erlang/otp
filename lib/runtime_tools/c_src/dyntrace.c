@@ -60,11 +60,25 @@ static ERL_NIF_TERM user_trace_s1(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM user_trace_i4s4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
 static ErlNifFunc nif_funcs[] = {
     {"available", 0, available},
     {"user_trace_s1", 1, user_trace_s1},
     {"user_trace_i4s4", 9, user_trace_i4s4},
     {"user_trace_n", 10, user_trace_n}
+    {"enabled", 3, enabled},
+    {"trace", 5, trace},
+    {"trace", 6, trace},
+    {"trace_procs", 6, trace_procs},
+    {"trace_send", 6, trace_send},
+    {"trace_receive", 6, trace_receive},
+    {"trace_garbage_collection", 6, trace_garbage_collection}
 };
 
 ERL_NIF_INIT(dyntrace, nif_funcs, load, NULL, NULL, NULL)
@@ -76,6 +90,10 @@ static ERL_NIF_TERM atom_not_available;
 static ERL_NIF_TERM atom_badarg;
 static ERL_NIF_TERM atom_ok;
 
+static ERL_NIF_TERM atom_trace;
+static ERL_NIF_TERM atom_remove;
+static ERL_NIF_TERM atom_discard;
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     atom_true = enif_make_atom(env,"true");
@@ -84,6 +102,10 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_not_available = enif_make_atom(env,"not_available");
     atom_badarg = enif_make_atom(env,"badarg");
     atom_ok = enif_make_atom(env,"ok");
+
+    atom_trace = enif_make_atom(env,"trace");
+    atom_remove = enif_make_atom(env,"remove");
+    atom_discard = enif_make_atom(env,"discard");
 
     return 0;
 }
@@ -123,3 +145,294 @@ static ERL_NIF_TERM user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return atom_error;
 #endif
 }
+
+static ERL_NIF_TERM enabled(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HAVE_USE_DTRACE
+    ErlNifPid to;
+    ASSERT(argc == 3);
+    /* Only generate trace events when probe is enabled */
+    if (argv[0] == atom_seq_trace) {
+        if (!erlang_trace_seq_enabled())
+            return atom_discard;
+    } else if (!erlang_trace_enabled()) {
+        return atom_discard;
+    }
+
+    return atom_trace;
+#else
+    int i;
+    erts_fprintf(stderr, "enabled:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+    return atom_trace;
+    return atom_remove;
+#endif
+}
+
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int i;
+    erts_fprintf(stderr, "trace:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+
+#ifdef HAVE_USE_DTRACE
+#define BUFF_SIZE 1024
+    size_t sz = BUFF_SIZE;
+    char buff[BUFF_SIZE];
+    ASSERT(argc == 6);
+
+    if (argv[0] == atom_seq_trace) {
+        if (erlang_trace_seq_enabled()) {
+            char *label = buff,
+                *seq_info = buff + BUFF_SIZE/4;
+            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
+            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
+            erlang_trace_seq(label, seq_info);
+        }
+    } else {
+        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
+
+        event = buff + BUFF_SIZE - sz;
+        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
+
+        state = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(state, sz, "%T", argv[1]);
+
+        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
+            dtrace_pid_str(argv[2], p);
+        else
+            p = NULL;
+
+        arg1 = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
+
+        if (argc == 6) {
+            arg2 = buff + BUFF_SIZE - sz;
+            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
+        } else
+            args2 = NULL;
+
+        erlang_trace(p, event, state, arg1, arg2);
+
+    }
+#endif
+    return atom_ok;
+}
+static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HARDDEBUG
+    int i;
+    erts_fprintf(stderr, "trace:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+#endif
+#ifdef HAVE_USE_DTRACE
+#define BUFF_SIZE 1024
+    size_t sz = BUFF_SIZE;
+    char buff[BUFF_SIZE];
+    ASSERT(argc == 6);
+
+    if (argv[0] == atom_seq_trace) {
+        if (erlang_trace_seq_enabled()) {
+            char *label = buff,
+                *seq_info = buff + BUFF_SIZE/4;
+            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
+            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
+            erlang_trace_seq(label, seq_info);
+        }
+    } else {
+        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
+
+        event = buff + BUFF_SIZE - sz;
+        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
+
+        state = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(state, sz, "%T", argv[1]);
+
+        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
+            dtrace_pid_str(argv[2], p);
+        else
+            p = NULL;
+
+        arg1 = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
+
+        if (argc == 6) {
+            arg2 = buff + BUFF_SIZE - sz;
+            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
+        } else
+            args2 = NULL;
+
+        erlang_trace(p, event, state, arg1, arg2);
+
+    }
+#endif
+    return atom_ok;
+}
+
+
+static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HARDDEBUG
+    int i;
+    erts_fprintf(stderr, "trace:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+#endif
+#ifdef HAVE_USE_DTRACE
+#define BUFF_SIZE 1024
+    size_t sz = BUFF_SIZE;
+    char buff[BUFF_SIZE];
+    ASSERT(argc == 6);
+
+    if (argv[0] == atom_seq_trace) {
+        if (erlang_trace_seq_enabled()) {
+            char *label = buff,
+                *seq_info = buff + BUFF_SIZE/4;
+            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
+            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
+            erlang_trace_seq(label, seq_info);
+        }
+    } else {
+        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
+
+        event = buff + BUFF_SIZE - sz;
+        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
+
+        state = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(state, sz, "%T", argv[1]);
+
+        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
+            dtrace_pid_str(argv[2], p);
+        else
+            p = NULL;
+
+        arg1 = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
+
+        if (argc == 6) {
+            arg2 = buff + BUFF_SIZE - sz;
+            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
+        } else
+            args2 = NULL;
+
+        erlang_trace(p, event, state, arg1, arg2);
+
+    }
+#endif
+    return atom_ok;
+}
+
+
+static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HARDDEBUG
+    int i;
+    erts_fprintf(stderr, "trace:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+#endif
+#ifdef HAVE_USE_DTRACE
+#define BUFF_SIZE 1024
+    size_t sz = BUFF_SIZE;
+    char buff[BUFF_SIZE];
+    ASSERT(argc == 6);
+
+    if (argv[0] == atom_seq_trace) {
+        if (erlang_trace_seq_enabled()) {
+            char *label = buff,
+                *seq_info = buff + BUFF_SIZE/4;
+            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
+            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
+            erlang_trace_seq(label, seq_info);
+        }
+    } else {
+        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
+
+        event = buff + BUFF_SIZE - sz;
+        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
+
+        state = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(state, sz, "%T", argv[1]);
+
+        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
+            dtrace_pid_str(argv[2], p);
+        else
+            p = NULL;
+
+        arg1 = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
+
+        if (argc == 6) {
+            arg2 = buff + BUFF_SIZE - sz;
+            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
+        } else
+            args2 = NULL;
+
+        erlang_trace(p, event, state, arg1, arg2);
+
+    }
+#endif
+    return atom_ok;
+}
+
+static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HARDDEBUG
+    int i;
+    erts_fprintf(stderr, "trace:\r\n");
+    for (i = 0; i < argc; i++) {
+        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    }
+#endif
+#ifdef HAVE_USE_DTRACE
+#define BUFF_SIZE 1024
+    size_t sz = BUFF_SIZE;
+    char buff[BUFF_SIZE];
+    ASSERT(argc == 6);
+
+    if (argv[0] == atom_seq_trace) {
+        if (erlang_trace_seq_enabled()) {
+            char *label = buff,
+                *seq_info = buff + BUFF_SIZE/4;
+            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
+            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
+            erlang_trace_seq(label, seq_info);
+        }
+    } else {
+        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
+
+        event = buff + BUFF_SIZE - sz;
+        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
+
+        state = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(state, sz, "%T", argv[1]);
+
+        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
+            dtrace_pid_str(argv[2], p);
+        else
+            p = NULL;
+
+        arg1 = buff + BUFF_SIZE - sz;
+        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
+
+        if (argc == 6) {
+            arg2 = buff + BUFF_SIZE - sz;
+            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
+        } else
+            args2 = NULL;
+
+        erlang_trace(p, event, state, arg1, arg2);
+
+    }
+#endif
+    return atom_ok;
+}
+
