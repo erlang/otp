@@ -57,9 +57,9 @@
     
     <taglist>
       <tag><c>time() =</c></tag>
-      <item><p><c>uct_time() | general_time()</c></p></item>
+      <item><p><c>utc_time() | general_time()</c></p></item>
 
-      <tag><c>uct_time() =</c></tag>
+      <tag><c>utc_time() =</c></tag>
       <item><p><c>{utcTime, "YYMMDDHHMMSSZ"}</c></p></item>
 
       <tag><c>general_time() =</c></tag>
@@ -144,7 +144,7 @@
 
   <section>
     <title>DSA</title>
-     <p>Erlang representation of <url href="http://www.ietf.org/rfc/rfc6979.txt">Digigital Signature Algorithm (DSA)</url> keys</p>
+     <p>Erlang representation of <url href="http://www.ietf.org/rfc/rfc6979.txt">Digital Signature Algorithm (DSA)</url> keys</p>
     <code>	 
 #'DSAPrivateKey',{
 	  version,      % integer()
