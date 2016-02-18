@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -780,6 +780,7 @@ find_repository() ->
 
 'Repository__get_def_kind'(Objref) ->
     orber_ifr_repository:'_get_def_kind'(Objref).
+-spec 'Repository_destroy'(_) -> no_return().
 'Repository_destroy'(Objref) ->
     orber_ifr_repository:destroy(Objref).
 'Repository_lookup'(Objref,Search_name) ->
@@ -1405,6 +1406,7 @@ find_repository() ->
     orber_ifr_orb:create_wstring_tc(Bound).
 'ORB_create_sequence_tc'(Bound,Element_type) ->
     orber_ifr_orb:create_sequence_tc(Bound,Element_type).
+-spec 'ORB_create_recursive_sequence_tc'(_,_) -> no_return().
 'ORB_create_recursive_sequence_tc'(Bound,Offset) ->
     orber_ifr_orb:create_recursive_sequence_tc(Bound,Offset).
 'ORB_create_array_tc'(Length,Element_type) ->

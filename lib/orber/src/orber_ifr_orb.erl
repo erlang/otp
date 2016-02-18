@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,7 @@ create_wstring_tc(Bound) ->
 create_sequence_tc(Bound, Element_type) ->
     {tk_sequence,Element_type,Bound}.
 
+-spec create_recursive_sequence_tc(_, _) -> no_return().
 create_recursive_sequence_tc(Bound, Offset) ->
     orber:dbg("[~p] ~p:create_recursive_sequence_tc(~p, ~p);~n"
 	      "Create_recursive_sequence is not implemented.~n", 

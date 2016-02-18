@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -909,7 +909,7 @@ run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
 
 run_test(StartOpts) when is_list(StartOpts) ->
-    CTPid = spawn(fun() -> run_test1(StartOpts) end),
+    CTPid = spawn(run_test1_fun(StartOpts)),
     Ref = monitor(process, CTPid),
     receive
 	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
@@ -917,6 +917,11 @@ run_test(StartOpts) when is_list(StartOpts) ->
 	{'DOWN',Ref,process,CTPid,Other} ->
 		    Other
     end.
+
+-spec run_test1_fun(_) -> fun(() -> no_return()).
+
+run_test1_fun(StartOpts) ->
+    fun() -> run_test1(StartOpts) end.
 
 run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
@@ -1369,7 +1374,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 %%% @equiv ct:run_testspec/1
 %%%-----------------------------------------------------------------
 run_testspec(TestSpec) ->
-    CTPid = spawn(fun() -> run_testspec1(TestSpec) end),
+    CTPid = spawn(run_testspec1_fun(TestSpec)),
     Ref = monitor(process, CTPid),
     receive
 	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
@@ -1377,6 +1382,11 @@ run_testspec(TestSpec) ->
 	{'DOWN',Ref,process,CTPid,Other} ->
 		    Other
     end.
+
+-spec run_testspec1_fun(_) -> fun(() -> no_return()).
+
+run_testspec1_fun(TestSpec) ->
+    fun() -> run_testspec1(TestSpec) end.
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),

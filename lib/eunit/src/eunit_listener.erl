@@ -50,7 +50,7 @@ start(Callback, Options) ->
     spawn_opt(init_fun(St, Options),
 	      proplists:get_all_values(spawn, Options)).
 
--spec init_fun(_, _) -> no_return().
+-spec init_fun(_, _) -> fun(() -> no_return()).
 
 init_fun(St0, Options) ->
     fun () ->

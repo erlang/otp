@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -403,6 +403,7 @@ other_val_1(Var) ->
 	_ -> error
     end.
 
+-spec pr_other(_) -> no_return().
 pr_other(Var) ->
     Why =
 	case is_running() of
