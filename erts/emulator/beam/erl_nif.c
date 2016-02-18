@@ -312,7 +312,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     Process* rp;
     Process* c_p;
     ErtsMessage *mp;
-    ErlHeapFragment* frags;
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
     int scheduler = erts_get_scheduler_id() != 0;
@@ -340,25 +339,32 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	ASSERT(env == NULL || receiver != c_p->common.id);
 	return 0;
     }
-    flush_env(msg_env);
-    frags = menv->env.heap_frag; 
-    ASSERT(frags == MBUF(&menv->phony_proc));
-    if (frags != NULL) {
-	/* Move all offheap's from phony proc to the first fragment.
-	   Quick and dirty... */
-	ASSERT(!is_offheap(&frags->off_heap));
-	frags->off_heap = MSO(&menv->phony_proc);
-	clear_offheap(&MSO(&menv->phony_proc));
-	menv->env.heap_frag = NULL; 
-	MBUF(&menv->phony_proc) = NULL;
+    if (menv) {
+        flush_env(msg_env);
+        mp = erts_alloc_message(0, NULL);
+        mp->data.heap_frag = menv->env.heap_frag;
+        ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
+        if (mp->data.heap_frag != NULL) {
+            /* Move all offheap's from phony proc to the first fragment.
+               Quick and dirty... */
+            ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
+            mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
+            clear_offheap(&MSO(&menv->phony_proc));
+            menv->env.heap_frag = NULL;
+            MBUF(&menv->phony_proc) = NULL;
+        }
+        ASSERT(!is_offheap(&MSO(&menv->phony_proc)));
+    } else {
+        Uint sz = size_object(msg);
+        Eterm *hp;
+        mp = erts_alloc_message(sz, &hp);
+        msg = copy_struct(msg, sz, &hp, &mp->hfrag.off_heap);
+        ASSERT(hp == mp->hfrag.mem+mp->hfrag.used_size);
     }
-    ASSERT(!is_offheap(&MSO(&menv->phony_proc)));
 
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    mp = erts_alloc_message(0, NULL);
-    mp->data.heap_frag = frags;
     erts_queue_message(rp, &rp_locks, mp, msg, am_undefined);
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;

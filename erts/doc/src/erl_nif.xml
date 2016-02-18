@@ -1632,7 +1632,7 @@ enif_map_iterator_destroy(env, &amp;iter);
         <tag><c>msg_env</c></tag>
               <item>The environment of the message term. Must be a process
               independent environment allocated with
-               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.</item>
+               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
         <tag><c>msg</c></tag>
               <item>The message term to send.</item>
       </taglist>
@@ -1641,6 +1641,8 @@ enif_map_iterator_destroy(env, &amp;iter);
       <c>msg</c>) will be invalidated by a successful call to <c>enif_send</c>. The environment
       should either be freed with <seealso marker="#enif_free_env">enif_free_env</seealso>
       of cleared for reuse with <seealso marker="#enif_clear_env">enif_clear_env</seealso>.</p>
+      <p>If <c>msg_env</c> is set to NULL the <c>msg</c> term is copied and
+      the original term and its environemt is still valid after the call.</p>
       <p>This function is only thread-safe when the emulator with SMP support is used.
       It can only be used in a non-SMP emulator from a NIF-calling thread.</p>
       <note><p>Passing <c>msg_env</c> as <c>NULL</c> is only supported since

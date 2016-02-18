@@ -1466,6 +1466,18 @@ static ERL_NIF_TERM send_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return enif_make_int(env, ret);
 }
 
+static ERL_NIF_TERM send_copy_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifEnv* menv;
+    ErlNifPid pid;
+    int ret;
+    if (!enif_get_local_pid(env, argv[0], &pid)) {
+	return enif_make_badarg(env);
+    }
+    ret = enif_send(env, &pid, NULL, argv[1]);
+    return enif_make_int(env, ret);
+}
+
 static ERL_NIF_TERM reverse_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM rev_list;
 
@@ -2142,6 +2154,7 @@ static ErlNifFunc nif_funcs[] =
     {"join_send_thread", 1, join_send_thread},
     {"copy_blob", 1, copy_blob},
     {"send_term", 2, send_term},
+    {"send_copy_term", 2, send_copy_term},
     {"reverse_list",1, reverse_list},
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes},
