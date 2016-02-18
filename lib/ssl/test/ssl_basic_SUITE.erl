@@ -4197,6 +4197,12 @@ first_rsa_suite([{dhe_rsa, _, _} = Suite| _]) ->
     Suite;
 first_rsa_suite([{rsa, _, _} = Suite| _]) ->
     Suite;
+first_rsa_suite([{ecdhe_rsa, _, _, _} = Suite | _]) ->
+    Suite;
+first_rsa_suite([{dhe_rsa, _, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{rsa, _, _, _} = Suite| _]) ->
+    Suite;
 first_rsa_suite([_ | Rest]) ->
     first_rsa_suite(Rest).
     
