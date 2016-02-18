@@ -277,7 +277,7 @@ expr(#c_fun{}=Fun, effect, _) ->
     add_warning(Fun, useless_building),
     void();
 expr(#c_fun{vars=Vs0,body=B0}=Fun, Ctxt0, Sub0) ->
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     Ctxt = case Ctxt0 of
 	       {letrec,Ctxt1} -> Ctxt1;
 	       value -> value
@@ -420,13 +420,13 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
     %% Here is the general try/catch construct outside of guards.
     %% We can remove try if the value is simple and replace it with a let.
     E1 = body(E0, value, Sub0),
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     B1 = body(B0, value, Sub1),
     case is_safe_simple(E1, Sub0) of
 	true ->
 	    expr(#c_let{anno=A,vars=Vs1,arg=E1,body=B1}, value, Sub0);
 	false ->
-	    {Evs1,Sub2} = pattern_list(Evs0, Sub0),
+	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
 	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
     end.
@@ -1124,7 +1124,7 @@ clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
 %%  the unsubstituted variables and values.
 
 let_substs(Vs0, As0, Sub0) ->
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
     Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
     {Vs2,As1,
@@ -1223,6 +1223,16 @@ pattern_list(Ps, Sub) -> pattern_list(Ps, Sub, Sub).
 
 pattern_list(Ps0, Isub, Osub0) ->
     mapfoldl(fun (P, Osub) -> pattern(P, Isub, Osub) end, Osub0, Ps0).
+
+%% var_list([Var], InSub) -> {Pattern,OutSub}.
+%%  Works like pattern_list/2 but only accept variables and is
+%%  guaranteed not to throw an exception.
+
+var_list(Vs, Sub0) ->
+    mapfoldl(fun (#c_var{}=V, Sub) ->
+		     pattern(V, Sub, Sub)
+	     end, Sub0, Vs).
+
 
 %% is_subst(Expr) -> true | false.
 %%  Test whether an expression is a suitable substitution.
@@ -2255,11 +2265,11 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
     %%
     Arg = body(Arg0, Sub0),
     ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-    {OuterVs,ScopeSub} = pattern_list(OuterVs0, ScopeSub0),
+    {OuterVs,ScopeSub} = var_list(OuterVs0, ScopeSub0),
 
     OuterBody = body(OuterBody0, ScopeSub),
 
-    {InnerVs,Sub} = pattern_list(InnerVs0, Sub0),
+    {InnerVs,Sub} = var_list(InnerVs0, Sub0),
     InnerBody = body(InnerBody0, Sub),
     Outer#c_let{vars=OuterVs,arg=Arg,
 		body=Inner#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}};
@@ -2599,7 +2609,7 @@ move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
     %% in case <InnerArg> of <InnerClauses> end
     %%
     ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
-    {OuterVars,ScopeSub} = pattern_list(OuterVars0, ScopeSub0),
+    {OuterVars,ScopeSub} = var_list(OuterVars0, ScopeSub0),
     InnerArg = body(InnerArg0, ScopeSub),
     Outer#c_let{vars=OuterVars,arg=OuterArg,
                 body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
