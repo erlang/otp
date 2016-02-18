@@ -110,6 +110,14 @@ erlang:'!'            -----> Module:StateName/5
       states so you do not accidentally postpone one event
       forever creating an infinite busy loop.
     </p>
+    <p>Any state name or any state value (depending on
+      <seealso marker="#type-callback_mode">callback_mode</seealso>)
+      is permitted with a small gotcha regarding the state
+      <c>undefined</c> that is used as the previous state when
+      the first gen_statem state function is called.
+      You might need to know about this faked state if you
+      inspect the previous state argument in your state functions.
+    </p>
     <p>The gen_statem enqueues incoming events in order of arrival
       and presents these to the
       <seealso marker="#state_function">state function</seealso>
@@ -117,6 +125,12 @@ erlang:'!'            -----> Module:StateName/5
       so it is not retried in the current state.
       After a state change all enqueued events (including postponed)
       are again presented to the state function.
+    </p>
+    <p>The gen_statem event queue model is sufficient to emulate
+      the normal process message queue and selective receive
+      with postponing an event corresponding to not matching
+      it in a receive statement and changing states corresponding
+      to entering a new receive statement.
     </p>
     <p>The
       <seealso marker="#state_function">state function</seealso>
@@ -132,6 +146,15 @@ erlang:'!'            -----> Module:StateName/5
       </seealso>
       that can be used for such events making it impossible
       to mistake for an external event.
+    </p>
+    <p>Inserting an event replaces the trick of calling your own
+      state handling functions that you often would have to
+      resort to in e.g <seealso marker="gen_fsm">gen_fsm</seealso>
+      to force processing a faked event before others.
+      If you for example in gen_statem postpone an event
+      in one state and then call some other state function of yours,
+      you have not changed states and hence the postponed event
+      will not be retried, which is logical but might be confusing.
     </p>
     <p>A gen_statem handles system messages as documented in
        <seealso marker="sys">sys</seealso>.
@@ -1011,7 +1034,6 @@ erlang:'!'            -----> Module:StateName/5
 	<v>EventContent = term()</v>
 	<v>PrevStateName =
 	  <seealso marker="#type-state_name">state_name()</seealso>
-	  | reference()
 	</v>
 	<v>StateName =
 	  <seealso marker="#type-state_name">state_name()</seealso>
@@ -1060,8 +1082,7 @@ erlang:'!'            -----> Module:StateName/5
 	  in some odd cases for example when you want to do something
 	  only at the first event in a state.
 	  Note that when gen_statem enters its first state
-	  this is set to a <c>reference()</c>
-	  since that can not match equal to any state.
+	  this is set to <c>undefined</c>.
 	</p>
 	<p>If this function returns with a new state that
 	  does not match equal (<c>=/=</c>) to the current state

@@ -459,13 +459,13 @@ do_send(Proc, Msg) ->
 enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Options),
-    PrevState = make_ref(),
+    PrevState = undefined,
     S = #{
       callback_mode => state_functions,
       module => Module,
       name => Name,
       prev_state => PrevState,
-      state => PrevState,
+      state => PrevState, % Will be discarded by loop_event_state_ops
       state_data => StateData,
       timer => undefined,
       postponed => [],
@@ -475,7 +475,8 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 	    loop_event_state_ops(
 	      Parent, Debug,
 	      S#{callback_mode := CallbackMode},
-	      [], {event,undefined},
+	      [],
+	      {event,undefined}, % Will be discarded by {postpone,false}
 	      State, StateData,
 	      StateOps++[{postpone,false}]);
 	[Reason] ->
