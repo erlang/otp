@@ -51,7 +51,7 @@
 	 timer/4,
 	 timer/5]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).

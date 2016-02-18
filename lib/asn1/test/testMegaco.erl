@@ -23,7 +23,7 @@
 
 -export([compile/3,main/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Erule, Options) ->
     asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),

@@ -33,7 +33,7 @@
 	 do_match_set_seq_token/1, do_gc_seq_token/1, countdown_start/2]).
 
 						%-define(line_trace, 1).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMESTAMP_MODES, [no_timestamp,
 			  timestamp,

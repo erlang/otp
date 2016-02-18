@@ -21,7 +21,7 @@
 
 -export([make/1,make/3,unmake/1]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Functions to be called from make test cases.
 

@@ -36,7 +36,7 @@
 	 copy_writable_binary/1, dynamic/1,
 	 otp_7422/1, zero_width/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

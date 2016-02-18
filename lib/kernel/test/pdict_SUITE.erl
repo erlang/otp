@@ -21,7 +21,7 @@
 %% NB: The ?line macro cannot be used when testing the dictionary.
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(M(A,B),m(A,B,?MODULE,?LINE)).
 -ifdef(DEBUG).

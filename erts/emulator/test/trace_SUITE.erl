@@ -38,7 +38,7 @@
 	 system_monitor_long_schedule/1,
 	 bad_flag/1, trace_delivered/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% Internal exports
 -export([process/1]).

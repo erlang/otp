@@ -28,7 +28,7 @@
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
 	 hockey/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

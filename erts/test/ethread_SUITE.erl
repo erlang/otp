@@ -51,7 +51,7 @@
 	 atomic/1,
 	 dw_atomic_massage/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 tests() ->
     [create_join_thread,

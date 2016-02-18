@@ -93,13 +93,11 @@ ERL_IDL_FLAGS += -pa $(ERL_TOP)/lib/cosTransactions/ebin\
 ERL_COMPILE_FLAGS +=  \
 	$(ERL_IDL_FLAGS) \
 	-pa $(ERL_TOP)/lib/orber/include \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
 	-pa $(ERL_TOP)/lib/cosTransactions/ebin \
 	-pa $(ERL_TOP)/lib/cosTransactions/test/idl_output \
 	-I$(ERL_TOP)/lib/orber/include \
 	-I$(ERL_TOP)/lib/cosTransactions \
-	-I$(ERL_TOP)/lib/cosTransactions/test/$(IDLOUTDIR) \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/cosTransactions/test/$(IDLOUTDIR)
 
 # ----------------------------------------------------
 # Targets

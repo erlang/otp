@@ -38,7 +38,7 @@
 -export([config/2]).
 -define(fmt(A,B),io:format(A,B)).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(fmt(A,B),test_server:format(A,B)).
 -endif.
  

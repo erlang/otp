@@ -32,7 +32,7 @@
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("xmerl.hrl").
 -include("xmerl_xsd.hrl").
 -include_lib("kernel/include/file.hrl").

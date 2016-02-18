@@ -19,7 +19,7 @@
 %%
 %%
 -module(orber_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(15)).
 -define(application, orber).

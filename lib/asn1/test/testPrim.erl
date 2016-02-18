@@ -28,7 +28,7 @@
 -export([null/1]).
 -export([real/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 bool(Rules) ->
     Types = ['Bool','BoolCon','BoolPri','BoolApp',

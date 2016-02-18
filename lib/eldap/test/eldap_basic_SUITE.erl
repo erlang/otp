@@ -23,7 +23,7 @@
 -compile(export_all).
 
 %%-include_lib("common_test/include/ct.hrl").
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("eldap/include/eldap.hrl").
 -include_lib("eldap/ebin/ELDAPv3.hrl").
 

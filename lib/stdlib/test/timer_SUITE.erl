@@ -24,7 +24,7 @@
 -export([big_test/1, collect/3, i_t/3, a_t/2]).
 -export([do_nrev/1, internal_watchdog/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Random test of the timer module. This is a really nasty test, as it
 %% runs a lot of timeouts and then checks in the end if any of them

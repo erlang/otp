@@ -29,7 +29,7 @@
 %% Internal exports.
 -export([init/1,handle_event/2,handle_info/2,handle_call/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(EXPECT(Pattern),
 	(fun() ->

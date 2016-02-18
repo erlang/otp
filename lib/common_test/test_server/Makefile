@@ -26,27 +26,10 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
-# Application version
-# ----------------------------------------------------
-include ../vsn.mk
-VSN=$(TEST_SERVER_VSN)
-
-# ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/test_server-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
-MODULES= test_server_ctrl \
-	 test_server_gl \
-	 test_server_io \
-	 test_server_node \
-	 test_server \
-	 test_server_sup \
-	 erl2html2
+EBIN=.
 
 TS_MODULES= \
 	ts \
@@ -62,31 +45,15 @@ TS_MODULES= \
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 TS_TARGET_MODULES= $(TS_MODULES:%=$(EBIN)/%)
 
-ERL_FILES= $(MODULES:=.erl)
-TS_ERL_FILES= $(TS_MODULES:=.erl)
-HRL_FILES = ../include/test_server.hrl ../include/test_server_line.hrl
-INTERNAL_HRL_FILES = test_server_internal.hrl
-TS_HRL_FILES= ts.hrl
-C_FILES = 
+TS_ERL_FILES = $(TS_MODULES:=.erl)
+TS_HRL_FILES = ts.hrl
 AUTOCONF_FILES = configure.in conf_vars.in
 PROGRAMS = configure config.sub config.guess install-sh 
 CONFIG = ts.config ts.unix.config ts.win32.config
 
-TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
-	       $(APP_TARGET) $(APPUP_TARGET)
 TS_TARGET_FILES = $(TS_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(PROGRAMS) \
-	  $(APP_TARGET) $(APPUP_TARGET)
 TS_TARGETS = $(TS_MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-APP_FILE= test_server.app
-APP_SRC= $(APP_FILE).src
-APP_TARGET= $(EBIN)/$(APP_FILE)
-
-APPUP_FILE= test_server.appup
-APPUP_SRC= $(APPUP_FILE).src
-APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 # ----------------------------------------------------
 # FLAGS
@@ -97,10 +64,10 @@ ERL_COMPILE_FLAGS += -I../include -Werror
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGETS) $(TS_TARGETS)
+tests debug opt: $(TS_TARGETS)
 
 clean:
-	rm -f $(TARGET_FILES) $(TS_TARGET_FILES)
+	rm -f $(TS_TARGET_FILES)
 	rm -f core
 
 docs:
@@ -111,32 +78,17 @@ configure: configure.in
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(APP_TARGET): $(APP_SRC) ../vsn.mk
-	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
-
-$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
-	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/src"
-	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)/src"
-	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) $(TS_HRL_FILES) "$(RELSYSDIR)/src"
-	$(INSTALL_DIR) "$(RELSYSDIR)/include"
-	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)/include"
-	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
-
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELEASE_PATH)/test_server"
-	$(INSTALL_DATA) $(ERL_FILES) $(TS_ERL_FILES) \
-		$(HRL_FILES) $(INTERNAL_HRL_FILES) $(TS_HRL_FILES) \
+	$(INSTALL_DATA) $(TS_ERL_FILES) $(TS_HRL_FILES) \
 		$(TS_TARGET_FILES) \
-		$(AUTOCONF_FILES) $(C_FILES) $(CONFIG) \
+		$(AUTOCONF_FILES) $(CONFIG) \
 		"$(RELEASE_PATH)/test_server"
 	$(INSTALL_SCRIPT) $(PROGRAMS) "$(RELEASE_PATH)/test_server"
 

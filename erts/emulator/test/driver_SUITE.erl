@@ -86,7 +86,7 @@
 
 -export([bin_prefix/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 % First byte in communication with the timer driver

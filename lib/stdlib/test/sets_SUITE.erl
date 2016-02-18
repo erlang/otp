@@ -31,7 +31,7 @@
 	 is_set/1,fold/1,filter/1,
 	 take_smallest/1,take_largest/1, iterate/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [foldl/3,reverse/1]).
 

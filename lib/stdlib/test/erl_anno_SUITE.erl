@@ -22,10 +22,10 @@
 %-define(debug, true).
 
 -ifdef(debug).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), io:format(S, A)).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -endif.
 

@@ -46,7 +46,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.

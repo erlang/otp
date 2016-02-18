@@ -25,8 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 ERTS_APPLICATIONS = stdlib sasl kernel compiler
 
 # Then these have to be build
-ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
-			inets parsetools
+ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 
 # These are only build if -a is given to otp_build or make is used directly
 ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \

@@ -28,8 +28,7 @@
          compress_control/1,
 	 foldl/1]).
 
--include_lib("test_server/include/test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
 

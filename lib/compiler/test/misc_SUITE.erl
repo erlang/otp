@@ -25,7 +25,7 @@
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/1,override_bif/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% For the override_bif testcase.
 %% NB, no other testcases in this testsuite can use these without erlang:prefix!

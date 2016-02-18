@@ -26,7 +26,7 @@
 -export([text/1,text/2,text_tracing_off/1,text_tracing_off/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 

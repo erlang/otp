@@ -22,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqTRset',{seqSet, seqSetI, seqSetE, 'seqSet-I', 'seqSetI-I', 'seqSetE-I', 'seqSet-E', 'seqSetI-E', 'seqSetE-E'}).
 -record('SeqSet',{setInt, setOs}).

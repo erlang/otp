@@ -23,7 +23,7 @@
 
 -module(event_domain_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("cosNotification/include/CosNotifyChannelAdmin.hrl").
 -include_lib("cosNotification/include/CosNotification.hrl").

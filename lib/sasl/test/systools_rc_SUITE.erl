@@ -26,10 +26,6 @@
 	 translate_emulator_restarts/1,
 	 translate_add_delete_module/1]).
 
-%%-----------------------------------------------------------------
-%% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
-%% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
-%%-----------------------------------------------------------------
 all() -> 
     [syntax_check, translate, translate_app, translate_emulator_restarts,
      translate_add_delete_module].

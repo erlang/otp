@@ -28,7 +28,7 @@
 	 break_in_end_tc_after_abort/1,
 	 check_all_breaks/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 all(suite) ->
     [break_in_init_tc,

@@ -22,7 +22,7 @@
 
 -export([prim/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 prim(_Rules) ->
     roundtrip('ChoTR', {bool,true}),

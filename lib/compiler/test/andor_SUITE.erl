@@ -25,7 +25,7 @@
 	 combined/1,in_case/1,before_and_inside_if/1,
 	 slow_compilation/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

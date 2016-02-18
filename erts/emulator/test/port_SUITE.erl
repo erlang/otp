@@ -102,7 +102,7 @@
 -export([otp_3906_forker/5, otp_3906_start_forker_starter/4]).
 -export([env_slave_main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].

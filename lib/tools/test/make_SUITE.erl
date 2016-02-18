@@ -25,7 +25,7 @@
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -include_lib("kernel/include/file.hrl").
 

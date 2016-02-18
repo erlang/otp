@@ -19,7 +19,7 @@
 %%
 -module(gen_tcp_echo_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%-compile(export_all).
 

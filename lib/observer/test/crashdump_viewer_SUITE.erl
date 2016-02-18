@@ -30,7 +30,6 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(failed_file,"failed-cases.txt").

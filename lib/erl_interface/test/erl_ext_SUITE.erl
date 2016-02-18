@@ -21,7 +21,7 @@
 %%
 -module(erl_ext_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
 -export([

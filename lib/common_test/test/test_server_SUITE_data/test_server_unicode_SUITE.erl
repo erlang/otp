@@ -25,7 +25,7 @@
 	 print_and_log_unicode/1,
 	 print_and_log_latin1/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 all(suite) ->
     ['#=@: difficult_case_name_äöå',

@@ -53,8 +53,7 @@ RELSYSDIR = $(RELEASE_PATH)/tools_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-	-I$(ERL_TOP)/lib/percept/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/percept/include
 
 EBIN = .
 

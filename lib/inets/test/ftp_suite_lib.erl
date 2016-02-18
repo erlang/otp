@@ -22,8 +22,8 @@
 -module(ftp_suite_lib).
 
 
--include_lib("test_server/include/test_server.hrl").
--include_lib("test_server/include/test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 
 %% Test server specific exports

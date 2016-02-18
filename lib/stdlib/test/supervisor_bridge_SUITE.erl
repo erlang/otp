@@ -24,7 +24,7 @@
          simple_global_supervisor/1]).
 -export([client/1,init/1,internal_loop_init/1,terminate/2,server9212/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(bridge_name,supervisor_bridge_SUITE_server).
 -define(work_bridge_name,work_supervisor_bridge_SUITE_server).
 

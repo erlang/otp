@@ -26,7 +26,7 @@
 	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
 	 t_append_element/1, t_append_element_upper_boundry/1,
 	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
 %%

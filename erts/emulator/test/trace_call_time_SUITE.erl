@@ -58,7 +58,7 @@
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% When run in test server.
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

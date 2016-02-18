@@ -28,7 +28,7 @@
 
 -module(ignore_cores).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init/1, fini/1, setup/3, setup/4, restore/1, dir/1]).
 

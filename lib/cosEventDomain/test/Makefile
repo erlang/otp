@@ -61,15 +61,13 @@ ERL_IDL_FLAGS += -pa $(ERL_TOP)/lib/orber/ebin -pa $(ERL_TOP)/lib/ic/ebin
 
 ERL_COMPILE_FLAGS += \
 	$(ERL_IDL_FLAGS) \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
 	-pa $(ERL_TOP)/lib/cosEventDomain/ebin \
 	-pa $(ERL_TOP)/lib/cosEventDomain/include \
 	-pa $(ERL_TOP)/lib/cosNotification/ebin \
 	-pa $(ERL_TOP)/lib/cosNotification/include \
 	-I$(ERL_TOP)/lib/cosEventDomain/include \
 	-I$(ERL_TOP)/lib/cosNotification/include \
-	-I$(ERL_TOP)/lib/cosNotification/ebin \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/cosNotification/ebin
 
 # ----------------------------------------------------
 # Targets

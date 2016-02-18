@@ -29,7 +29,7 @@
 	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

@@ -1,1 +1,0 @@
-TEST_SERVER_VSN = 3.9.1

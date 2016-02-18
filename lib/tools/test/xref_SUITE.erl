@@ -30,7 +30,7 @@
 -define(privdir, "xref_SUITE_priv").
 -define(copydir, "xref_SUITE_priv/datacopy").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(datadir, ?config(data_dir, Conf)).
 -define(privdir, ?config(priv_dir, Conf)).

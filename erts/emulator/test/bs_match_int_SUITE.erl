@@ -24,7 +24,7 @@
 	 integer/1,signed_integer/1,dynamic/1,more_dynamic/1,mml/1,
 	 match_huge_int/1,bignum/1,unaligned_32_bit/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [seq/2]).
 

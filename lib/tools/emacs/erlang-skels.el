@@ -1070,7 +1070,7 @@ Please see the function `tempo-define-template'.")
    "%% Note: This directive should only be used in test suites." n
     "-compile(export_all)." n n
 
-    "-include_lib(\"test_server/include/test_server.hrl\")." n n
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
 
     (erlang-skel-separator-start 2)
     "%% TEST SERVER CALLBACK FUNCTIONS" n

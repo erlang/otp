@@ -96,12 +96,10 @@ TARGET_FILES = \
 ERL_IDL_FLAGS += -pa $(ERL_TOP)/lib/orber/ebin -pa $(ERL_TOP)/lib/ic/ebin
 
 ERL_COMPILE_FLAGS += $(ERL_IDL_FLAGS) \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
 	-pa $(ERL_TOP)/lib/cosEvent/ebin \
 	-pa $(ERL_TOP)/lib/cosEvent/test/idl_output \
 	-I$(ERL_TOP)/lib/cosEvent \
-	-I$(ERL_TOP)/lib/cosEvent/test/$(IDLOUTDIR) \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/cosEvent/test/$(IDLOUTDIR)
 
 # ----------------------------------------------------
 # Targets

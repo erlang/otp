@@ -107,7 +107,7 @@
 
 -export([t_select_reverse/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(m(A,B), ?line assert_eq(A,B)).
 

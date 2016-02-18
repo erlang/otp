@@ -109,7 +109,7 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include +clint +clint0
+ERL_COMPILE_FLAGS += +clint +clint0
 
 EBIN = .
 

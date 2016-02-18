@@ -37,7 +37,7 @@
 -export([profiler_process/1, ring_loop/1, port_echo_start/0, 
 	 list_load/0, run_load/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 

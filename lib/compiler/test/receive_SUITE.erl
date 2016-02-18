@@ -27,7 +27,7 @@
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),

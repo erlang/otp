@@ -27,7 +27,7 @@
 	 object_sets/1,parameterization/1,
 	 syntax/1,table_constraints/1,tags/1,values/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks, [ts_install_cth]}].
 

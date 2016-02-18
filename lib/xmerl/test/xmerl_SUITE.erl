@@ -27,7 +27,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 %%-include("xmerl.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("kernel/include/file.hrl").

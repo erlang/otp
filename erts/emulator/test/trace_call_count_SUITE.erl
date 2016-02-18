@@ -43,7 +43,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
  
 -ifdef(debug).

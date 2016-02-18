@@ -47,7 +47,7 @@ config(priv_dir, _) ->
 config(data_dir, _) ->
     filename:absname("./epp_SUITE_data").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Default timetrap timeout (set in init_per_testcase).

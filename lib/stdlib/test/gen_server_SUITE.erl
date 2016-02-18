@@ -19,7 +19,7 @@
 %%
 -module(gen_server_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 
 -export([init_per_testcase/2, end_per_testcase/2]).

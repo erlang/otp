@@ -36,7 +36,7 @@ RELSYSDIR = $(RELEASE_PATH)/hipe_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 

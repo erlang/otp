@@ -42,7 +42,7 @@
 %% config(data_dir, _) ->
 %%     ".".
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->

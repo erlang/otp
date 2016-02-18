@@ -20,7 +20,7 @@
 %%
 -module(httpc_cookie_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %% Test server specific exports

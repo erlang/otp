@@ -26,7 +26,7 @@ EXPECTED_AUTOCONF_VERSION=2.59
 #
 # NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
-    AUTOCONF_SUBDIRS="lib lib/* lib/test_server/src"
+    AUTOCONF_SUBDIRS="lib lib/* lib/common_test/test_server"
 fi
 AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS erts ."
 
@@ -264,7 +264,7 @@ create_lib_configure_in()
 distribute_config_helpers ()
 {
     aclocal_dirs=". ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
-    autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/test_server/src ./lib/wx/autoconf"
+    autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
 
     aclocal_master="./erts/aclocal.m4"
     install_sh_master="./erts/autoconf/install-sh"

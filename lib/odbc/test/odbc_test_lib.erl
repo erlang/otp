@@ -26,7 +26,7 @@
 -compile(export_all).
 
 -include("odbc_test.hrl").
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 unique_table_name() ->                              
     lists:reverse(lists:foldl(fun($@, Acc) -> [$t, $A |Acc] ;

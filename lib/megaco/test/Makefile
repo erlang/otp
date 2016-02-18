@@ -100,10 +100,7 @@ ifeq ($(USE_MEGACO_HIPE),true)
 ERL_COMPILE_FLAGS += +native -Dmegaco_hipe_special=true
 endif
 
-ERL_COMPILE_FLAGS += \
-	$(MEGACO_ERL_COMPILE_FLAGS)         \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
-	-I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
 
 ERL_PATH = -pa ../../megaco/examples/simple \
            -pa ../../megaco/ebin \

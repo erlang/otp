@@ -26,7 +26,7 @@
 %%-----------------------------------------------------------------
 -module(iop_ior_11_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
