@@ -267,7 +267,7 @@ for x in $SOURCES; do
 		echo
 		echo 
 		after_sed=`date '+%s'`
-		echo Made dependencises for $x':' `expr $after_sed '-' $start_time` 's' >&2
+		echo Made dependencies for $x':' `expr $after_sed '-' $start_time` 's' >&2
 	    fi 
 	else
 	    cat $MSG_FILE
