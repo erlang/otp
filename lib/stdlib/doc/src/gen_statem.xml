@@ -110,11 +110,28 @@ erlang:'!'            -----> Module:StateName/5
       states so you do not accidentally postpone one event
       forever creating an infinite busy loop.
     </p>
-    <p>
-      An event can can be postponed causing it to be retried
-      after the state has changed, or more precisely;
-      after a state change all postponed events are retried
-      in the new state.
+    <p>The gen_statem enqueues incoming events in order of arrival
+      and presents these to the
+      <seealso marker="#state_function">state function</seealso>
+      in that order.  The state function can postpone an event
+      so it is not retried in the current state.
+      After a state change all enqueued events (including postponed)
+      are again presented to the state function.
+    </p>
+    <p>The
+      <seealso marker="#state_function">state function</seealso>
+      can insert events using the
+      <seealso marker="#type-state_operation">
+	<c>state_operation()</c> <c>next_event</c>
+      </seealso>
+      and such an event is inserted as the next to present
+      to the state function.  That is: as if it is
+      the oldest incoming event.  There is a dedicated
+      <seealso marker="#type-event_type">
+        <c>event_type()</c> <c>internal</c>
+      </seealso>
+      that can be used for such events making it impossible
+      to mistake for an external event.
     </p>
     <p>A gen_statem handles system messages as documented in
        <seealso marker="sys">sys</seealso>.
@@ -302,7 +319,12 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="init_option" />
       <desc>
-	<p>Option that only is valid when initializing the gen_statem</p>
+	<p>Option that only is valid when initializing the gen_statem
+	  that is it can be returned from
+	  <seealso marker="#Module:init/1">Module:init/1</seealso>
+	  or given to
+	  <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>.
+	</p>
       </desc>
     </datatype>
     <datatype>
@@ -332,7 +354,7 @@ erlang:'!'            -----> Module:StateName/5
 	<p>Either a
 	  <seealso marker="#type-state_option">
 	    <c>state_option()</c>
-	  </seealso> of which the first occurence
+	  </seealso> of which the last occurence
 	  in the containing list takes precedence, or a
 	  <seealso marker="#type-state_operation">
 	    <c>state_operation()</c>
@@ -340,42 +362,34 @@ erlang:'!'            -----> Module:StateName/5
 	  the containing list.
 	</p>
 	<p>These may be returned from the
-	  <seealso marker="#state_function">state function</seealso>
-	  or from <seealso marker="#Module:init/1">Module:init/1</seealso>.
+	  <seealso marker="#state_function">state function</seealso>,
+	  from <seealso marker="#Module:init/1">Module:init/1</seealso>
+	  or given to
+	  <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>.
 	</p>
-	<p>The gen_statem enqueues postponed events and
-	  not yet processed events in order of arrival, except for
-	  an event that a callback function inserts with
-	  <c>{insert_event,EventType,EventContent}</c> that is inserted
-	  as the next event to process.
-	</p>
-	<p>When the state machine changes states all enqueued events
-	  becomes not yet processed to be processed before the old
-	  not yet processed events.  In other words; the order of arrival
-	  is retained.
-	</p>
-	<p>The processing order is:</p>
+	<p>The processing order for a state change is:</p>
 	<list type="ordered">
 	  <item>If the option <c>retry</c> is <c>true</c>
-	    the current event is enqueued as postponed to be retried.
+	    the current event is postponed.
 	  </item>
-	  <item>If the state changes all postponed events
-	    are transferred to not yet processed to be processed
-	    before other not yet processed events.
+	  <item>If the state changes the queue of incoming events
+	    is reset to start with the oldest postponed.
 	  </item>
 	  <item>All operations are processed in order of appearance.
 	  </item>
-	  <item>The <c>timeout</c> option is processed if present.
-	    So a state timer may be started or a timeout zero event
-	    may be inserted as if just received.
+	  <item>The <c>timeout</c> option is processed if present,
+	    so a state timer may be started or a timeout zero event
+	    may be enqueued as the newest incoming.
 	  </item>
 	  <item>The (possibly new)
 	    <seealso marker="#state_function">state function</seealso>
-	    is called with the next not yet processed event
-	    if there is any, otherwise the gen_statem goes into <c>receive</c>
+	    is called with the oldest enqueued event if there is any,
+	    otherwise the gen_statem goes into <c>receive</c>
 	    or hibernation (if the option <c>hibernate</c> is <c>true</c>)
 	    to wait for the next message.  In hibernation the next
-	    non-system event awakens the gen_statem.
+	    non-system event awakens the gen_statem, or rather
+	    the next incoming message awakens the gen_statem but if it
+	    is a system event it goes back into hibernation.
 	  </item>
 	</list>
       </desc>
@@ -383,12 +397,21 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="state_option" />
       <desc>
+	<p>If multiple state options of the same type are present
+	  in the containing list these are set in the list order
+	  and the last value is kept.
+	</p>
 	<taglist>
 	  <tag><c>retry</c></tag>
 	  <tag><c>{retry,<anno>Retry</anno>}</c></tag>
 	  <item>If <c><anno>Retry</anno> =:= true</c>
 	    or plain <c>retry</c> postpone the current event
 	    to be retried after a state change.
+	    This option is ignored when returned from
+	    <seealso marker="#Module:init/1">Module:init/1</seealso>
+	    or given to
+	    <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>
+	    since there is no event to postpone in those cases.
 	  </item>
 	  <tag><c>hibernate</c></tag>
 	  <tag><c>{hibernate,<anno>Hibernate</anno>}</c></tag>
@@ -397,9 +420,9 @@ erlang:'!'            -----> Module:StateName/5
 	    <seealso marker="proc_lib#hibernate/3">
 	      <c>proc_lib:hibernate/3</c>
 	    </seealso> before <c>receive</c> to wait for a new event.
-	    If there are not yet processed events the
-	    <c>hibernate</c> operation is ignored as if an event
-	    just arrived and awakened the gen_statem.
+	    If there are enqueued events the <c>hibernate</c> operation
+	    is ignored as if an event just arrived and awakened
+	    the gen_statem.
 	  </item>
 	  <tag>
 	    <c>{timeout,<anno>Time</anno>,<anno>Msg</anno>}</c>
@@ -426,14 +449,20 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="state_operation" />
       <desc>
+	<p>The state operations are executed in the containing
+	 list order.  This matters for <c>next_event</c> where
+	 the last one in the list will become the next event to present
+	 to the state functions.  Regarding the other operations
+	 it is only for <c>{remove_event,<anno>EventPredicate</anno>}</c>
+	 that the order may matter.
+	</p>
 	<taglist>
 	  <tag>
 	    <c>
-	      {insert_event,<anno>EventType</anno>,<anno>EventContent</anno>}
+	      {next_event,<anno>EventType</anno>,<anno>EventContent</anno>}
 	    </c>
 	  </tag>
-	  <item>Insert the given event as the next to process
-	    before any other not yet processed events.
+	  <item>Insert the given event as the next to process.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
@@ -982,7 +1011,13 @@ erlang:'!'            -----> Module:StateName/5
           <seealso marker="#call/2">gen_statem:call/2</seealso>,
           <seealso marker="#cast/2">gen_statem:cast/2</seealso> or
 	  as a normal process message this function is called.
-	  If the <c>EventType</c> is
+	  If
+	  <seealso marker="#type-callback_mode">callback_mode</seealso>
+	  is <c>state_functions</c> then <c>Module:StateName/5</c> is called,
+	  and if it is <c>handle_event_function</c>
+	  then <c>Module:handle_event/5</c> is called.
+	</p>
+	<p>If <c>EventType</c> is
 	  <seealso marker="#type-event_type"><c>{call,Client}</c></seealso>
 	  the client is waiting for a reply.  The reply can be sent
 	  from this or from any other
@@ -995,23 +1030,24 @@ erlang:'!'            -----> Module:StateName/5
 	    <c>gen_statem:reply(Client, Reply)</c>
 	  </seealso>.
 	</p>
-        <p><c>StateName</c> is rarely useful.  One exception is if
-	  you call a common event handling function from your state
+        <p><c>StateName</c> is useful in some odd cases for example
+	  if you call a common event handling function from your state
 	  function then you might want to pass <c>StateName</c>.
 	</p>
-	<p><c>PrevStateName</c> and <c>PrevState</c> are rarely useful.
-	  They can be used when you want to do something only at the
-	  first event in a state.  Note that when gen_statem enters
-	  its first state this is set to a <c>reference()</c> since
-	  that can not match the state.
+	<p><c>PrevStateName</c> and <c>PrevState</c> are useful
+	  in some odd cases for example when you want to do something
+	  only at the first event in a state.
+	  Note that when gen_statem enters its first state
+	  this is set to a <c>reference()</c>
+	  since that can not match equal to any state.
 	</p>
 	<p>If this function returns with a new state that
 	  does not match equal (<c>=/=</c>) to the current state
 	  all postponed events will be retried in the new state.
 	</p>
 	<p>See <seealso marker="#type-state_op">state_op()</seealso>
-	  for the operations that can be done by gen_statem
-	  after returning from this function.
+	  for options that can be set and operations that can be done
+	  by gen_statem after returning from this function.
 	</p>
       </desc>
     </func>

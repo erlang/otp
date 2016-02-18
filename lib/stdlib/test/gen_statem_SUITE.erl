@@ -1180,7 +1180,7 @@ timeout(timeout, idle, idle, timeout, {From,Time}) ->
     TRefC2 = erlang:start_timer(Time, self(), cancel2),
     {next_state,timeout2,{From,Time,TRef2},
      [{cancel_timer, TRefC1},
-      {insert_event,internal,{cancel_timer,TRefC2}}]};
+      {next_event,internal,{cancel_timer,TRefC2}}]};
 timeout(_, _, _, State, Data) ->
     {next_state,State,Data}.
 

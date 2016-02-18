@@ -88,7 +88,7 @@
 	%% These can occur multiple times and are executed in order
 	%% of appearence in the state_op() list
 	reply_operation() |
-	{'insert_event', % Insert event as the next to handle
+	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
 	{'remove_event', % Remove the oldest matching (=:=) event
@@ -469,7 +469,7 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 	      S#{callback_mode := CallbackMode},
 	      [], {event,undefined},
 	      State, StateData,
-	      [{retry,false}|StateOps]);
+	      StateOps++[{retry,false}]);
 	[Reason] ->
 	    ?TERMINATE(Reason, Debug, S, [])
     end.
@@ -846,10 +846,10 @@ loop_event_state_ops(
 %% Server helpers
 
 collect_init_options(InitOps) ->
-    collect_init_options(lists:reverse(InitOps), state_functions, []).
+    collect_init_options(InitOps, state_functions, []).
 %% Keep the last of each kind
 collect_init_options([], CallbackMode, StateOps) ->
-    {CallbackMode,StateOps};
+    {CallbackMode,lists:reverse(StateOps)};
 collect_init_options([InitOp|InitOps] = IOIOs, CallbackMode, StateOps) ->
     case InitOp of
 	{callback_mode,Mode}
@@ -864,12 +864,11 @@ collect_init_options([InitOp|InitOps] = IOIOs, CallbackMode, StateOps) ->
     end.
 
 collect_state_options(StateOps) ->
-    collect_state_options(
-      lists:reverse(StateOps), false, false, undefined, []).
+    collect_state_options(StateOps, false, false, undefined, []).
 %% Keep the last of each kind
 collect_state_options(
   [], Retry, Hibernate, Timeout, Operations) ->
-    {Retry,Hibernate,Timeout,Operations};
+    {Retry,Hibernate,Timeout,lists:reverse(Operations)};
 collect_state_options(
   [StateOp|StateOps] = SOSOs, Retry, Hibernate, Timeout, Operations) ->
     case StateOp of
@@ -909,7 +908,7 @@ process_state_operations([Operation|Operations] = OOs, Debug, S, Q, P) ->
 	{reply,{_To,_Tag}=Client,Reply} ->
 	    NewDebug = do_reply(Debug, S, Client, Reply),
 	    process_state_operations(Operations, NewDebug, S, Q, P);
-	{insert_event,Type,Content} ->
+	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
 		    process_state_operations(
