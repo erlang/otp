@@ -46,6 +46,10 @@
 -type tokens() :: [erl_scan:token()].
 -type used() :: {name(), argspec()}.
 
+-type function_name_type() :: 'undefined'
+			    | {atom(),non_neg_integer()}
+			    | tokens().
+
 -define(DEFAULT_ENCODING, utf8).
 
 %% Epp state record.
@@ -63,7 +67,8 @@
               uses = #{}			%Macro use structure
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
-	      pre_opened = false :: boolean()
+	      pre_opened = false :: boolean(),
+	      fname = [] :: function_name_type()
 	     }).
 
 %% open(Options)
@@ -205,6 +210,10 @@ format_error({include,W,F}) ->
     io_lib:format("can't find include ~s \"~s\"", [W,F]);
 format_error({illegal,How,What}) ->
     io_lib:format("~s '-~s'", [How,What]);
+format_error({illegal_function,Macro}) ->
+    io_lib:format("?~s can only be used within a function", [Macro]);
+format_error({illegal_function_usage,Macro}) ->
+    io_lib:format("?~s must not begin a form", [Macro]);
 format_error({'NYI',What}) ->
     io_lib:format("not yet implemented '~s'", [What]);
 format_error(E) -> file:format_error(E).
@@ -545,6 +554,8 @@ predef_macros(File) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
+	    {'FUNCTION_NAME',      undefined},
+	    {'FUNCTION_ARITY',     undefined},
 	    {'LINE',		   {none,[{integer,Anno,1}]}},
 	    {'MODULE',	           undefined},
 	    {'MODULE_STRING',      undefined},
@@ -755,7 +766,7 @@ scan_toks([{'-',_Lh},{atom,_Le,elif}=Elif|Toks], From, St) ->
 scan_toks([{'-',_Lh},{atom,_Le,endif}=Endif|Toks], From, St) ->
     scan_endif(Toks, Endif, From, St);
 scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
-    case catch expand_macros(Toks0, {St#epp.macs, St#epp.uses}) of
+    case catch expand_macros(Toks0, St) of
 	Toks1 when is_list(Toks1) ->
             scan_file(Toks1, FileToken, From, St);
 	{error,ErrL,What} ->
@@ -763,7 +774,7 @@ scan_toks([{'-',_Lh},{atom,_Lf,file}=FileToken|Toks0], From, St) ->
 	    wait_req_scan(St)
     end;
 scan_toks(Toks0, From, St) ->
-    case catch expand_macros(Toks0, {St#epp.macs, St#epp.uses}) of
+    case catch expand_macros(Toks0, St#epp{fname=Toks0}) of
 	Toks1 when is_list(Toks1) ->
 	    epp_reply(From, {ok,Toks1}),
 	    wait_req_scan(St#epp{macs=scan_module(Toks1, St#epp.macs)});
@@ -1145,24 +1156,24 @@ macro_expansion([T|Ts], _Anno0) ->
     [T|macro_expansion(Ts, T)];
 macro_expansion([], Anno0) -> throw({error,loc(Anno0),premature_end}).
 
-%% expand_macros(Tokens, Macros)
+%% expand_macros(Tokens, St)
 %% expand_macro(Tokens, MacroToken, RestTokens)
 %%  Expand the macros in a list of tokens, making sure that an expansion
 %%  gets the same location as the macro call.
 
-expand_macros(MacT, M, Toks, Ms0) ->
-    {Ms,U} = Ms0,
+expand_macros(MacT, M, Toks, St) ->
+    #epp{macs=Ms,uses=U} = St,
     Lm = loc(MacT),
     Tinfo = element(2, MacT),
     case expand_macro1(Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
 	    check_uses([{M,none}], [], U, Lm),
-	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), Ms0),
-	    expand_macros(Toks1++Toks, Ms0);
+	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], #{}), St),
+	    expand_macros(Toks1++Toks, St);
 	{ok,{As,Exp}} ->
 	    check_uses([{M,length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, #{}),
-	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), Ms0)
+	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), St)
     end.
 
 expand_macro1(Lm, M, Toks, Ms) ->
@@ -1211,16 +1222,32 @@ get_macro_uses({M,Arity}, U) ->
 
 %% Macro expansion
 %% Note: io:scan_erl_form() does not return comments or white spaces.
-expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(MacT, M, Toks, Ms);
+expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], St) ->
+    expand_macros(MacT, M, Toks, St);
 %% Special macros
-expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], Ms) ->
+expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_NAME'}=Token|Toks], St0) ->
+    St = update_fun_name(Token, St0),
+    case St#epp.fname of
+	undefined ->
+	    [{'?',_Lq},Token];
+	{Name,_} ->
+	    [{atom,Lm,Name}]
+    end ++ expand_macros(Toks, St);
+expand_macros([{'?',_Lq},{var,Lm,'FUNCTION_ARITY'}=Token|Toks], St0) ->
+    St = update_fun_name(Token, St0),
+    case St#epp.fname of
+	undefined ->
+	    [{'?',_Lq},Token];
+	{_,Arity} ->
+	    [{integer,Lm,Arity}]
+    end ++ expand_macros(Toks, St);
+expand_macros([{'?',_Lq},{var,Lm,'LINE'}=Tok|Toks], St) ->
     Line = erl_scan:line(Tok),
-    [{integer,Lm,Line}|expand_macros(Toks, Ms)];
-expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], Ms) ->
-    expand_macros(MacT, M, Toks, Ms);
+    [{integer,Lm,Line}|expand_macros(Toks, St)];
+expand_macros([{'?',_Lq},{var,_Lm,M}=MacT|Toks], St) ->
+    expand_macros(MacT, M, Toks, St);
 %% Illegal macros
-expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
+expand_macros([{'?',_Lq},Token|_Toks], _St) ->
     T = case erl_scan:text(Token) of
             Text when is_list(Text) ->
                 Text;
@@ -1229,9 +1256,9 @@ expand_macros([{'?',_Lq},Token|_Toks], _Ms) ->
                 io_lib:write(Symbol)
         end,
     throw({error,loc(Token),{call,[$?|T]}});
-expand_macros([T|Ts], Ms) ->
-    [T|expand_macros(Ts, Ms)];
-expand_macros([], _Ms) -> [].
+expand_macros([T|Ts], St) ->
+    [T|expand_macros(Ts, St)];
+expand_macros([], _St) -> [].
 
 %% bind_args(Tokens, MacroLocation, MacroName, ArgumentVars, Bindings)
 %%  Collect the arguments to a macro call.
@@ -1353,6 +1380,93 @@ expand_arg([A|As], Ts, _L, Rest, Bs) ->
     [A|expand_arg(As, Ts, NextL, Rest, Bs)];
 expand_arg([], Ts, L, Rest, Bs) ->
     expand_macro(Ts, L, Rest, Bs).
+
+%%%
+%%% Here follows support for the ?FUNCTION_NAME and ?FUNCTION_ARITY
+%%% macros. Since the parser has not been run yet, we don't know the
+%%% name and arity of the current function. Therefore, we will need to
+%%% scan the beginning of the current form to extract the name and
+%%% arity of the function.
+%%%
+
+update_fun_name(Token, #epp{fname=Toks0}=St) when is_list(Toks0) ->
+    %% ?FUNCTION_NAME or ?FUNCTION_ARITY is used for the first time in
+    %% a function.  First expand macros (except ?FUNCTION_NAME and
+    %% ?FUNCTION_ARITY) in the form.
+
+    Toks1 = (catch expand_macros(Toks0, St#epp{fname=undefined})),
+
+    %% Now extract the name and arity from the stream of tokens, and store
+    %% the result in the #epp{} record so we don't have to do it
+    %% again.
+
+    case Toks1 of
+	[{atom,_,Name},{'(',_}|Toks] ->
+	    %% This is the beginning of a function definition.
+	    %% Scan the token stream up to the matching right
+	    %% parenthesis and count the number of arguments.
+	    FA = update_fun_name_1(Toks, 1, {Name,0}, St),
+	    St#epp{fname=FA};
+	[{'?',_}|_] ->
+	    %% ?FUNCTION_NAME/?FUNCTION_ARITY used at the beginning
+	    %% of a form. Does not make sense.
+	    {var,_,Macro} = Token,
+	    throw({error,loc(Token),{illegal_function_usage,Macro}});
+	_ when is_list(Toks1) ->
+	    %% Not the beginning of a function (an attribute or a
+	    %% syntax error).
+	    {var,_,Macro} = Token,
+	    throw({error,loc(Token),{illegal_function,Macro}});
+	_ ->
+	    %% A macro expansion error. Return a dummy value and
+	    %% let the caller notice and handle the error.
+	    St#epp{fname={'_',0}}
+    end;
+update_fun_name(_Token, St) ->
+    St.
+
+update_fun_name_1([Tok|Toks], L, FA, St) ->
+    case classify_token(Tok) of
+	comma ->
+	    if
+		L =:= 1 ->
+		    {Name,Arity} = FA,
+		    update_fun_name_1(Toks, L, {Name,Arity+1}, St);
+		true ->
+		    update_fun_name_1(Toks, L, FA, St)
+	    end;
+	left ->
+	    update_fun_name_1(Toks, L+1, FA, St);
+	right when L =:= 1 ->
+	    FA;
+	right ->
+	    update_fun_name_1(Toks, L-1, FA, St);
+	other ->
+	    case FA of
+		{Name,0} ->
+		    update_fun_name_1(Toks, L, {Name,1}, St);
+		{_,_} ->
+		    update_fun_name_1(Toks, L, FA, St)
+	    end
+    end;
+update_fun_name_1([], _, FA, _) ->
+    %% Syntax error, but never mind.
+    FA.
+
+classify_token({C,_}) -> classify_token_1(C);
+classify_token(_) -> other.
+
+classify_token_1(',') -> comma;
+classify_token_1('(') -> left;
+classify_token_1('{') -> left;
+classify_token_1('[') -> left;
+classify_token_1('<<') -> left;
+classify_token_1(')') -> right;
+classify_token_1('}') -> right;
+classify_token_1(']') -> right;
+classify_token_1('>>') -> right;
+classify_token_1(_) -> other.
+
 
 %%% stringify(Ts, L) returns a list of one token: a string which when
 %%% tokenized would yield the token list Ts.
