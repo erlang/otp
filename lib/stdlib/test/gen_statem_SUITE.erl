@@ -1158,11 +1158,10 @@ idle(cast, badreturn, _, _, _Data) ->
     badreturn;
 idle({call,_From}, badreturn, _, _, _Data) ->
     badreturn;
-idle({call,From}, {delayed_answer,T}, _, State, Data) ->
+idle({call,From}, {delayed_answer,T}, _, _, _) ->
     receive
     after T ->
-	    {next_state,State,Data,
-	     [{reply,From,delayed}]}
+	    throw({next_state,{reply,From,delayed}})
     end;
 idle({call,From}, {timeout,Time}, _, State, _Data) ->
     {next_state,timeout,{From,Time},
@@ -1172,9 +1171,10 @@ idle(Type, Content, PrevState, State, Data) ->
 	undefined ->
 	    case Type of
 		{call,From} ->
-		    {next_state,State,Data,[{reply,From,'eh?'}]};
+		    throw({next_state,[{reply,From,'eh?'}]});
 		_ ->
-		    {stop,{unexpected,State,PrevState,Type,Content},Data}
+		    throw(
+		      {stop,{unexpected,State,PrevState,Type,Content}})
 	    end;
 	Result ->
 	    Result
@@ -1208,8 +1208,8 @@ timeout3(_, _, _, State, Data) ->
 wfor_conf({call,From}, confirm, _, _, Data) ->
     {next_state,connected,Data,
      [{reply,From,yes}]};
-wfor_conf(cast, {ping,_,_}, _, State, Data) ->
-    {next_state,State,Data,[postpone]};
+wfor_conf(cast, {ping,_,_}, _, _, _) ->
+    {next_state,[postpone]};
 wfor_conf(cast, confirm, _, _, Data) ->
     {next_state,connected,Data};
 wfor_conf(Type, Content, PrevState, State, Data) ->
@@ -1220,7 +1220,7 @@ wfor_conf(Type, Content, PrevState, State, Data) ->
 		    {next_state,idle,Data,
 		     [{reply,From,'eh?'}]};
 		_ ->
-		    {next_state,State,Data}
+		    throw({next_state,[]})
 	    end;
 	Result ->
 	    Result
@@ -1320,12 +1320,12 @@ handle_common_events(cast, {get,Pid}, _, State, Data) ->
     {next_state,State,Data};
 handle_common_events({call,From}, stop, _, _, Data) ->
     {stop,normal,[{reply,From,stopped}],Data};
-handle_common_events(cast, stop, _, _, Data) ->
-    {stop,normal,Data};
+handle_common_events(cast, stop, _, _, _) ->
+    {stop,normal};
 handle_common_events({call,From}, {stop,Reason}, _, _, Data) ->
     {stop,Reason,{reply,From,stopped},Data};
-handle_common_events(cast, {stop,Reason}, _, _, Data) ->
-     {stop,Reason,Data};
+handle_common_events(cast, {stop,Reason}, _, _, _) ->
+     {stop,Reason};
 handle_common_events({call,From}, 'alive?', _, State, Data) ->
     {next_state,State,Data,
      [{reply,From,yes}]};

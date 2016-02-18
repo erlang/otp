@@ -535,6 +535,13 @@ erlang:'!'            -----> Module:StateName/5
       <desc>
 	<taglist>
 	  <tag>
+	   <c>{stop,<anno>Reason</anno>}</c>
+	  </tag>
+	  <item>The same as
+	    <c>{stop,<anno>Reason</anno>,[],StateData}</c>
+	    but keeps the old <c>StateData</c>.
+	  </item>
+	  <tag>
 	   <c>{stop,<anno>Reason</anno>,<anno>NewStateData</anno>}</c>
 	  </tag>
 	  <item>The same as
@@ -550,6 +557,19 @@ erlang:'!'            -----> Module:StateName/5
 	    <seealso marker="#Module:terminate/3">
 	      <c>Module:terminate/3</c>
 	    </seealso> with <c>Reason</c>.
+	  </item>
+	  <tag>
+	    <c>
+	      {next_state,<anno>StateOps</anno>}
+	    </c>
+	  </tag>
+	  <item>The same as
+	    <c>
+	      {next_state,State,StateData,<anno>StateOps</anno>}
+	    </c>but keeps the old <c>State</c> and <c>StateData</c>.
+	    Believe it or not, but this one has actually
+	    been proven useful to <c>throw/1</c> from deep down
+	    in the state logic.
 	  </item>
 	  <tag>
 	    <c>
@@ -805,6 +825,7 @@ erlang:'!'            -----> Module:StateName/5
     </func>
 
     <func>
+      <name name="reply" arity="1" />
       <name name="reply" arity="2" />
       <fsummary>Send a reply to a client</fsummary>
       <desc>
@@ -820,6 +841,8 @@ erlang:'!'            -----> Module:StateName/5
 	    <c>{call,<anno>Client</anno>}</c>
 	  </seealso> argument to the
 	  <seealso marker="#state_function">state function</seealso>.
+	  <c><anno>Client</anno></c> and <c><anno>Reply</anno></c>
+	  an also be specified using <c><anno>ReplyOperation</anno></c>.
 	</p>
 	<note>
 	  <p>A reply sent with this function will not be visible

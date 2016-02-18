@@ -25,7 +25,7 @@
     stop/1,stop/3,
     cast/2,call/2,call/3,
     enter_loop/4,enter_loop/5,enter_loop/6,
-    reply/2]).
+    reply/1,reply/2]).
 
 %% gen callbacks
 -export(
@@ -105,17 +105,21 @@
 	{'reply', % Reply to a client
 	 Client :: client(), Reply :: term()}.
 -type state_callback_result() ::
-    {stop, % Stop the server
+    {'stop', % Stop the server
+     Reason :: term()} |
+    {'stop', % Stop the server
      Reason :: term(),
      NewStateData :: state_data()} |
-    {stop, % Stop the server
+    {'stop', % Stop the server
      Reason :: term(),
      Replies :: [reply_operation()] | reply_operation(),
      NewStateData :: state_data()} |
-    {next_state, % {next_state,NewState,NewStateData,[]}
+    {'next_state', % {next_state,State,StateData,StateOps} % Actually useful
+     StateOps :: [state_op()] | state_op()} |
+    {'next_state', % {next_state,NewState,NewStateData,[]}
      NewState :: state(),
      NewStateData :: state_data()} |
-    {next_state, % State transition, maybe to the same state
+    {'next_state', % State transition, maybe to the same state
      NewState :: state(),
      NewStateData :: state_data(),
      StateOps :: [state_op()] | state_op()}.
@@ -379,6 +383,10 @@ call(ServerRef, Request, Timeout) ->
     end.
 
 %% Reply from a state machine callback to whom awaits in call/2
+-spec reply(ReplyOperation :: reply_operation()) -> ok.
+reply({reply,{_To,_Tag}=Client,Reply}) ->
+    reply(Client, Reply).
+%%
 -spec reply(Client :: client(), Reply :: term()) -> ok.
 reply({To,Tag}, Reply) ->
     Msg = {Tag,Reply},
@@ -742,6 +750,8 @@ loop_events(
 %% Interpret all callback return value variants
 loop_event_result(Parent, Debug, S, Events, Event, Result) ->
     case Result of
+	{stop,Reason} ->
+	    ?TERMINATE(Reason, Debug, S, [Event|Events]);
 	{stop,Reason,NewStateData} ->
 	    ?TERMINATE(
 	      Reason, Debug,
@@ -764,6 +774,11 @@ loop_event_result(Parent, Debug, S, Events, Event, Result) ->
 	    ?TERMINATE(
 	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
 	      Debug, NewS, Q);
+	{next_state,StateOps} ->
+	    #{state := State, state_data := StateData} = S,
+	    loop_event_state_ops(
+	      Parent, Debug, S, Events, Event,
+	      State, StateData, StateOps);
 	{next_state,NewState,NewStateData} ->
 	    loop_event_state_ops(
 	      Parent, Debug, S, Events, Event,
@@ -846,7 +861,12 @@ loop_event_state_ops(
 %% Server helpers
 
 collect_init_options(InitOps) ->
-    collect_init_options(InitOps, state_functions, []).
+    if
+	is_list(InitOps) ->
+	    collect_init_options(InitOps, state_functions, []);
+	true ->
+	    collect_init_options([InitOps], state_functions, [])
+    end.
 %% Keep the last of each kind
 collect_init_options([], CallbackMode, StateOps) ->
     {CallbackMode,lists:reverse(StateOps)};
@@ -864,7 +884,12 @@ collect_init_options([InitOp|InitOps] = IOIOs, CallbackMode, StateOps) ->
     end.
 
 collect_state_options(StateOps) ->
-    collect_state_options(StateOps, false, false, undefined, []).
+    if
+	is_list(StateOps) ->
+	    collect_state_options(StateOps, false, false, undefined, []);
+	true ->
+	    collect_state_options([StateOps], false, false, undefined, [])
+    end.
 %% Keep the last of each kind
 collect_state_options(
   [], Postpone, Hibernate, Timeout, Operations) ->
