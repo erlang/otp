@@ -369,7 +369,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>The processing order for a state change is:</p>
 	<list type="ordered">
-	  <item>If the option <c>retry</c> is <c>true</c>
+	  <item>If the option <c>postpone</c> is <c>true</c>
 	    the current event is postponed.
 	  </item>
 	  <item>If the state changes the queue of incoming events
@@ -402,10 +402,10 @@ erlang:'!'            -----> Module:StateName/5
 	  and the last value is kept.
 	</p>
 	<taglist>
-	  <tag><c>retry</c></tag>
-	  <tag><c>{retry,<anno>Retry</anno>}</c></tag>
-	  <item>If <c><anno>Retry</anno> =:= true</c>
-	    or plain <c>retry</c> postpone the current event
+	  <tag><c>postpone</c></tag>
+	  <tag><c>{postpone,<anno>Postpone</anno>}</c></tag>
+	  <item>If <c><anno>Postpone</anno> =:= true</c>
+	    or plain <c>postpone</c> postpone the current event
 	    to be retried after a state change.
 	    This option is ignored when returned from
 	    <seealso marker="#Module:init/1">Module:init/1</seealso>
@@ -434,9 +434,8 @@ erlang:'!'            -----> Module:StateName/5
 	    event counts just like a new in this respect.
 	    If <c>Time =:= infinity</c> or <c>Time =:= 0</c>
 	    no timer is started but for zero time the timeout
-	    event is enqued as just received after all
-	    other already received events.
-	    Also note that it is not possible
+	    event is immediately enqueued as the newest received.
+	    Also note that it is not possible nor needed
 	    to cancel this timeout using the
 	    <seealso marker="#type-state_operation">
 	      <c>state_operation()</c>

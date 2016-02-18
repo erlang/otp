@@ -70,15 +70,15 @@
 	%% First NewState and NewStateData are set,
 	%% then all state_operations() are executed in order of
 	%% apperance. Postponing the current event is performed
-	%% (iff state_option() 'retry' is 'true').
+	%% (iff state_option() 'postpone' is 'true').
 	%% Lastly pending events are processed or if there are
 	%% no pending events the server goes into receive
 	%% or hibernate (iff state_option() 'hibernate' is 'true')
 	state_option() | state_operation().
 -type state_option() ::
 	%% The first of each kind in the state_op() list takes precedence
-	'retry' |  % Postpone the current event to a different (=/=) state
-	{'retry', Retry :: boolean()} |
+	'postpone' |  % Postpone the current event to a different (=/=) state
+	{'postpone', Postpone :: boolean()} |
 	'hibernate' | % Hibernate the server instead of going into receive
 	{'hibernate', Hibernate :: boolean()} |
 	(Timeout :: timeout()) | % {timeout,Timeout}
@@ -469,7 +469,7 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 	      S#{callback_mode := CallbackMode},
 	      [], {event,undefined},
 	      State, StateData,
-	      StateOps++[{retry,false}]);
+	      StateOps++[{postpone,false}]);
 	[Reason] ->
 	    ?TERMINATE(Reason, Debug, S, [])
     end.
@@ -782,9 +782,9 @@ loop_event_state_ops(
   Parent, Debug0, #{state := State, postponed := P0} = S, Events, Event,
   NewState, NewStateData, StateOps) ->
     case collect_state_options(StateOps) of
-	{Retry,Hibernate,Timeout,Operations} ->
-	    P1 = % Move current event to postponed if Retry
-		case Retry of
+	{Postpone,Hibernate,Timeout,Operations} ->
+	    P1 = % Move current event to postponed if Postpone
+		case Postpone of
 		    true ->
 			[Event|P0];
 		    false ->
@@ -804,9 +804,9 @@ loop_event_state_ops(
 		    NewDebug =
 			sys_debug(
 			  Debug, S,
-			  case Retry of
+			  case Postpone of
 			      true ->
-				  {retry,Event,NewState};
+				  {postpone,Event,NewState};
 			      false ->
 				  {consume,Event,NewState}
 			  end),
@@ -867,38 +867,38 @@ collect_state_options(StateOps) ->
     collect_state_options(StateOps, false, false, undefined, []).
 %% Keep the last of each kind
 collect_state_options(
-  [], Retry, Hibernate, Timeout, Operations) ->
-    {Retry,Hibernate,Timeout,lists:reverse(Operations)};
+  [], Postpone, Hibernate, Timeout, Operations) ->
+    {Postpone,Hibernate,Timeout,lists:reverse(Operations)};
 collect_state_options(
-  [StateOp|StateOps] = SOSOs, Retry, Hibernate, Timeout, Operations) ->
+  [StateOp|StateOps] = SOSOs, Postpone, Hibernate, Timeout, Operations) ->
     case StateOp of
-	retry ->
+	postpone ->
 	    collect_state_options(
 	      StateOps, true, Hibernate, Timeout, Operations);
-	{retry,NewRetry} when is_boolean(NewRetry) ->
+	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
 	    collect_state_options(
-	      StateOps, NewRetry, Hibernate, Timeout, Operations);
-	{retry,_} ->
+	      StateOps, NewPostpone, Hibernate, Timeout, Operations);
+	{postpone,_} ->
 	    [{bad_state_ops,SOSOs}];
 	hibernate ->
 	    collect_state_options(
-	      StateOps, Retry, true, Timeout, Operations);
+	      StateOps, Postpone, true, Timeout, Operations);
 	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
 	    collect_state_options(
-	      StateOps, Retry, NewHibernate, Timeout, Operations);
+	      StateOps, Postpone, NewHibernate, Timeout, Operations);
 	{hibernate,_} ->
 	    [{bad_state_ops,SOSOs}];
 	{timeout,infinity,_} -> % Ignore since it will never time out
 	    collect_state_options(
-	      StateOps, Retry, Hibernate, undefined, Operations);
+	      StateOps, Postpone, Hibernate, undefined, Operations);
 	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
 	    collect_state_options(
-	      StateOps, Retry, Hibernate, NewTimeout, Operations);
+	      StateOps, Postpone, Hibernate, NewTimeout, Operations);
 	{timeout,_,_} ->
 	    [{bad_state_ops,SOSOs}];
 	_ -> % Collect others as operations
 	    collect_state_options(
-	      StateOps, Retry, Hibernate, Timeout, [StateOp|Operations])
+	      StateOps, Postpone, Hibernate, Timeout, [StateOp|Operations])
     end.
 
 process_state_operations([], Debug, _S, Q, P) ->

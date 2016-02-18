@@ -1032,7 +1032,10 @@ do_connect(STM) ->
     gen_statem:cast(STM, {connect,self()}),
     wfor(accept),
     check_state(STM, wfor_conf),
+    Tag = make_ref(),
+    gen_statem:cast(STM, {ping,self(),Tag}),
     gen_statem:cast(STM, confirm),
+    wfor({pong,Tag}),
     check_state(STM, connected),
     ok.
 
@@ -1071,7 +1074,10 @@ do_sync_connect(STM) ->
     check_state(STM, idle),
     accept = gen_statem:call(STM, connect),
     check_state(STM, wfor_conf),
+    Tag = make_ref(),
+    gen_statem:cast(STM, {ping,self(),Tag}),
     yes = gen_statem:call(STM, confirm),
+    wfor({pong,Tag}),
     check_state(STM, connected),
     ok.
 
@@ -1202,6 +1208,8 @@ timeout3(_, _, _, State, Data) ->
 wfor_conf({call,From}, confirm, _, _, Data) ->
     {next_state,connected,Data,
      [{reply,From,yes}]};
+wfor_conf(cast, {ping,_,_}, _, State, Data) ->
+    {next_state,State,Data,[postpone]};
 wfor_conf(cast, confirm, _, _, Data) ->
     {next_state,connected,Data};
 wfor_conf(Type, Content, PrevState, State, Data) ->
@@ -1229,6 +1237,9 @@ connected({call,From}, disconnect, _, _, Data) ->
      [{reply,From,yes}]};
 connected(cast, disconnect, _, _, Data) ->
     {next_state,idle,Data};
+connected(cast, {ping,Pid,Tag}, _, State, Data) ->
+    Pid ! {pong,Tag},
+    {next_state,State,Data};
 connected(Type, Content, PrevState, State, Data) ->
     case handle_common_events(Type, Content, PrevState, State, Data) of
 	undefined ->
