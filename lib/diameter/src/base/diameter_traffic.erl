@@ -1824,7 +1824,7 @@ store_request(T, TPid) ->
     ets:member(?REQUEST_TABLE, TPid)
         orelse begin
                    {_Seqs, _Req, TRef} = T,
-                   (self() ! {failover, TRef})  %% failover/1 may have missed
+                   self() ! {failover, TRef}  %% failover/1 may have missed
                end.
 
 %% lookup_request/2
