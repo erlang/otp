@@ -6219,10 +6219,10 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     BeamInstr* code_base;
     BeamInstr* fp;
     byte* info;
-    int n;
+    Sint n;
     int code_size;
     int rval;
-    int i;
+    Sint i;
     byte* temp_alloc = NULL;
     byte* bytes;
     Uint size;

@@ -753,7 +753,7 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
       <fsummary>Get the length of list <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length of list <c>term</c> and return true,
-      or return false if <c>term</c> is not a list.</p></desc>
+      or return false if <c>term</c> is not a proper list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
       <fsummary>Read an long integer term</fsummary>

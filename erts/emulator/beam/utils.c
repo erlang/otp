@@ -317,10 +317,10 @@ erl_grow_equeue(ErtsEQueue* q, Eterm* default_equeue)
  * Calculate length of a list.
  * Returns -1 if not a proper list (i.e. not terminated with NIL)
  */
-int
+Sint
 erts_list_length(Eterm list)
 {
-    int i = 0;
+    Sint i = 0;
 
     while(is_list(list)) {
 	i++;
@@ -3930,11 +3930,11 @@ void bin_write(int to, void *to_arg, byte* buf, size_t sz)
 /* Fill buf with the contents of bytelist list 
    return number of chars in list or -1 for error */
 
-int
-intlist_to_buf(Eterm list, char *buf, int len)
+Sint
+intlist_to_buf(Eterm list, char *buf, Sint len)
 {
     Eterm* listptr;
-    int sz = 0;
+    Sint sz = 0;
 
     if (is_nil(list)) 
 	return 0;
@@ -4481,11 +4481,12 @@ int erts_iolist_size(Eterm obj, ErlDrvSizeT* sizep)
     return iolist_size(0, NULL, obj, sizep);
 }
 
-/* return 0 if item is not a non-empty flat list of bytes */
-int
+/* return 0 if item is not a non-empty flat list of bytes
+   otherwise return the nonzero length of the list */
+Sint
 is_string(Eterm list)
 {
-    int len = 0;
+    Sint len = 0;
 
     while(is_list(list)) {
 	Eterm* consp = list_val(list);
