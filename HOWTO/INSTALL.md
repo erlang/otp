@@ -374,9 +374,15 @@ Some of the available `configure` options are:
     `jinterface` application won't be built)
 *   `--{enable,disable}-dynamic-ssl-lib` - Dynamic OpenSSL libraries
 *   `--{enable,disable}-builtin-zlib` - Use the built-in source for zlib.
-*   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
 *   `--{with,without}-ssl` - OpenSSL (without implies that the `crypto`,
     `ssh`, and `ssl` won't be built)
+*   `--with-ssl=PATH` - Specify location of OpenSSL include and lib
+*   `--with-ssl-incl=PATH` - Location of OpenSSL `include` directory,
+    if different than specified by `--with-ssl=PATH`
+*   `--with-ssl-rpath=yes|no|PATHS` - Runtime library path for OpenSSL.
+    Default is `yes`, which equates to a number of standard locations. If
+    `no`, then no runtime library paths wil be used. Anything else should be
+    a comma separated list of paths.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the
