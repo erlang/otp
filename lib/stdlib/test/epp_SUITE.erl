@@ -27,7 +27,7 @@
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
-         otp_11728/1, encoding/1]).
+         otp_11728/1, encoding/1, discontiguous/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding].
+     encoding, discontiguous].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1476,6 +1476,98 @@ encoding(Config) when is_list(Config) ->
 	epp_parse_file(ErlFile, [{default_encoding,utf8},extra]),
     ok.
 
+discontiguous(Config) ->
+    Cs = [{error_for_invalid_contiguous_directive_1,
+	   <<"-discontiguous(something_bad).">>,
+	   {errors,[{1,epp,bad_discontiguous_function_arity}],[]}},
+	  {error_for_invalid_contiguous_directive_2,
+	   <<"-discontiguous([x]).">>,
+	   {errors,[{1,epp,bad_discontiguous_function_arity}],[]}},
+	  {error_for_missing_contiguously_declared_function,
+	   <<"-discontiguous([f/1, g/1]).">>,
+	   {errors,[{1,epp,{missing_discontiguous,{f,1}}},
+                    {1,epp,{missing_discontiguous,{g,1}}}],[]}},
+	  {still_error_for_nondiscontiguously_declared_discontiguous_function,
+	   <<"f(1) -> a.
+	      x() -> x.
+	      f(2) -> b.
+	     ">>,
+	   {errors,[{3,erl_lint,{redefine_function,{f,1}}}],[]}}],
+    [] = compile(Config, Cs),
+
+    Ts = [{declaring_single_clause_as_discontiguous_is_ok,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> a.
+	      t() -> [f(1)].
+	     ">>,
+	   [a]},
+	  {simple_noninterleaved_discontiguous,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> a.
+	      f(2) -> b.
+	      f(3) -> c.
+	      t() -> [f(1),f(2),f(3)].
+	     ">>,
+	   [a,b,c]},
+	  {line_numbers_preserved_in_stacktraces_for_discontiguous,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> error(a). % line 2
+	      f(2) -> error(b). % line 3
+	      f(3) -> error(c). % line 4
+	      g(N) -> try f(N)
+		      catch error:V ->
+			  [{_M,_F,_A,Loc}|_] = erlang:get_stacktrace(),
+			  {V, proplists:get_value(line, Loc)}
+		      end.
+	      t() -> [g(1),g(2),g(3)].
+	     ">>,
+	   [{a,2},{b,3},{c,4}]},
+	  {groups_of_clauses,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> a;
+	      f(2) -> b.
+	      x() -> x.
+	      f(3) -> c;
+	      f(4) -> d.
+	      y() -> y.
+	      f(_) -> z.
+	      t() -> [f(1),f(2),x(),f(3),f(4),y(),f(99)].
+	     ">>,
+	   [a,b,x,c,d,y,z]},
+	  {order_of_clauses_within_group_preserved,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> a;
+	      f(_) -> b.
+	      t() -> [f(1),f(99)].
+	     ">>,
+	   [a,b]},
+	  {order_of_clauses_between_group_preserved,
+	   <<"-discontiguous([f/1]).
+	      f(1) -> a.
+	      x() -> x.
+	      f(_) -> b.
+	      t() -> [f(1),f(99)].
+	     ">>,
+	   [a,b]}],
+    [] = run(Config, Ts),
+
+    %% Check that the discontiguous attribute has been removed
+    %% during parsing
+    Dir = ?config(priv_dir, Config),
+    ErlFile = filename:join(Dir, "discontiguous.erl"),
+    C1 = <<"-module(discontiguous).
+	    -discontiguous([f/1]).
+	    f(1) -> a.
+	    f(2) -> b.
+	   ">>,
+    ok = file:write_file(ErlFile, C1),
+    {ok,[{attribute,1,file,_},
+	 {attribute,1,module,discontiguous},
+	 {function, _, f,1, [_Clause1, _Clause2]},
+	 {eof,_}]} = epp_parse_file(ErlFile, []),
+    _ = file:delete(ErlFile),
+
+    ok.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
