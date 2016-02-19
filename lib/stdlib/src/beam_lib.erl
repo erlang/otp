@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -904,7 +904,11 @@ anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
 anno_from_term(T) ->
     T.
 
-anno_from_forms(Forms) ->
+anno_from_forms(Forms0) ->
+    %% Forms with record field types created before OTP 19.0 are
+    %% replaced by well-formed record forms holding the type
+    %% information.
+    Forms = epp:restore_typed_record_fields(Forms0),
     [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
