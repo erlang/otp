@@ -1212,11 +1212,13 @@ erlang:'!'            -----> Module:StateName/5
       </type>
       <desc>
         <note>
-          <p>This callback is optional, so callback modules need not
+          <p>This callback is optional, so a callback module need not
             export it. The <c>gen_statem</c> module provides a default
-            implementation of this function that returns the callback
-            module state and data.  The default function will also
-	    be used if this callback fails.
+            implementation of this function that returns
+            <c>{State,Data}</c>.  If this callback fails the default
+	    function will return <c>{State,Info}</c>
+	    where <c>Info</c> informs of the crash but no details,
+	    to hide possibly sensitive data.
 	  </p>
         </note>
         <p>This function is called by a <c>gen_statem</c> process when:</p>
@@ -1270,7 +1272,8 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
         <p>One use for this function is to return compact alternative
           state representations to avoid having large state terms
-          printed in logfiles.
+          printed in logfiles.  Another is to hide sensitive data from
+	  being written to the error log.
 	</p>
 	<p>This function may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,

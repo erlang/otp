@@ -1214,7 +1214,9 @@ format_status(
 	    catch
 		Result -> Result;
 		_:_ ->
-		    format_status_default(Opt, State, Data)
+		    format_status_default(
+		      Opt, State,
+		      "Module:format_status/2 crashed")
 	    end;
 	false ->
 	    format_status_default(Opt, State, Data)
