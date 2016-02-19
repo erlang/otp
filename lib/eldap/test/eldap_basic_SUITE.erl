@@ -30,6 +30,11 @@
 
 -define(TIMEOUT, 120000). % 2 min
 
+
+%% Control to delete a referral object:
+-define(manageDsaIT, {control,"2.16.840.1.113730.3.4.2",false,asn1_NOVALUE}).
+
+
 all() ->
     [app,
      appup,
@@ -59,6 +64,7 @@ groups() ->
      {api_bound, [], [add_when_bound,
 		      add_already_exists,
 		      more_add,
+		      add_referral,
 		      search_filter_equalityMatch,
 		      search_filter_substring_any,
 		      search_filter_initial,
@@ -67,8 +73,11 @@ groups() ->
 		      search_filter_or,
 		      search_filter_and_not,
 		      search_two_hits,
+		      search_referral,
 		      modify,
+		      modify_referral,
 		      delete,
+		      delete_referral,
 		      modify_dn_delete_old,
 		      modify_dn_keep_old]},
      {v4_connections, [], connection_tests()},
@@ -92,11 +101,16 @@ connection_tests() ->
 
 init_per_suite(Config) ->
     SSL_available = init_ssl_certs_et_al(Config),
-    LDAP_server =  find_first_server(false, [{config,eldap_server}, {config,ldap_server}, {"localhost",9876}]),
+    LDAP_server =  find_first_server(false, [{config,eldap_server},
+					     {config,ldap_server}, 
+					     {"localhost",9876},
+					     {"aramis.otp.ericsson.se",9876}]),
     LDAPS_server =
 	case SSL_available of
 	    true ->
-		find_first_server(true,  [{config,ldaps_server}, {"localhost",9877}]);
+		find_first_server(true,  [{config,ldaps_server},
+					  {"localhost",9877},
+					  {"aramis.otp.ericsson.se",9877}]);
 	    false ->
 		undefined
 	end,
@@ -454,6 +468,16 @@ more_add(Config) ->
 		   [{"objectclass", ["organizationalUnit"]},
 		    {"ou", ["Team"]}]).
 
+%%%----------------------------------------------------------------
+add_referral(Config) ->
+    H = ?config(handle, Config),
+    BasePath = ?config(eldap_path, Config),
+    {ok,{referral,["ldap://nowhere.example.com"++_]}} =
+	eldap:add(H, "cn=Foo Bar,dc=notHere," ++ BasePath,
+		  [{"objectclass", ["person"]},
+		   {"cn", ["Foo Bar"]},
+		   {"sn", ["Bar"]},
+		   {"telephoneNumber", ["555-1232", "555-5432"]}]).
 
 %%%----------------------------------------------------------------
 search_filter_equalityMatch(Config) ->
@@ -569,6 +593,16 @@ search_two_hits(Config) ->
     [ok=eldap:delete(H,DN) || DN <- ExpectedDNs].
 
 %%%----------------------------------------------------------------
+search_referral(Config) ->
+    H = ?config(handle, Config),
+    BasePath = ?config(eldap_path, Config),
+    DN = "cn=Santa Claus,dc=notHere," ++ BasePath,
+    {ok,{referral,["ldap://nowhere.example.com"++_]}} =
+	eldap:search(H, #eldap_search{base = DN,
+				      filter = eldap:present("description"),
+				      scope=eldap:singleLevel()}).
+
+%%%----------------------------------------------------------------
 modify(Config) ->
     H = ?config(handle, Config),
     BasePath = ?config(eldap_path, Config),
@@ -602,6 +636,19 @@ modify(Config) ->
     restore_original_object(H, DN, OriginalAttrs).
 
 %%%----------------------------------------------------------------
+modify_referral(Config) ->
+    H = ?config(handle, Config),
+    BasePath = ?config(eldap_path, Config),
+    %% The object to modify
+    DN = "cn=Foo Bar,dc=notHere," ++ BasePath,
+
+    %% Do a change
+    Mod = [eldap:mod_replace("telephoneNumber", ["555-12345"]),
+	   eldap:mod_add("description", ["Nice guy"])],
+    {ok,{referral,["ldap://nowhere.example.com"++_]}} =
+	eldap:modify(H, DN, Mod).
+
+%%%----------------------------------------------------------------
 delete(Config) ->
     H = ?config(handle, Config),
     BasePath = ?config(eldap_path, Config),
@@ -618,6 +665,14 @@ delete(Config) ->
 
     %% And restore the object for subsequent tests
     restore_original_object(H, DN, OriginalAttrs).
+
+%%%----------------------------------------------------------------
+delete_referral(Config) ->
+    H = ?config(handle, Config),
+    BasePath = ?config(eldap_path, Config),
+    %% The element to play with:
+    DN = "cn=Jonas Jonsson,dc=notHere," ++ BasePath,
+    {ok,{referral,["ldap://nowhere.example.com"++_]}} = eldap:delete(H, DN).
 
 %%%----------------------------------------------------------------
 modify_dn_delete_old(Config) ->
@@ -817,25 +872,44 @@ delete_old_contents(H, Path) ->
 			  {filter, eldap:present("objectclass")},
 			  {scope,  eldap:wholeSubtree()}])
     of
-	{ok, #eldap_search_result{entries=Entries}} ->
+	{ok, _R=#eldap_search_result{entries=Entries}} ->
+	    case eldap:delete(H, "dc=notHere,"++Path, [?manageDsaIT]) of
+		ok -> ok;
+		{error,noSuchObject} -> ok;
+		Other -> ct:fail("eldap:delete notHere ret ~p",[Other])
+	    end,
 	    [ok = eldap:delete(H,DN) || #eldap_entry{object_name=DN} <- Entries];
 	_Res ->
 	    ignore
     end.
 
+
+-define(ok(X), ok(?MODULE,?LINE,X)).
+
 add_new_contents(H, Path, MyHost) ->
-    ok(eldap:add(H,"dc=ericsson,dc=se",
+    ?ok(eldap:add(H,"dc=ericsson,dc=se",
 		 [{"objectclass", ["dcObject", "organization"]},
 		  {"dc", ["ericsson"]},
 		  {"o", ["Testing"]}])),
-    ok(eldap:add(H,Path,
+    ?ok(eldap:add(H,Path,
 		 [{"objectclass", ["dcObject", "organization"]},
 		  {"dc", [MyHost]},
-		  {"o", ["Test machine"]}])).
+		  {"o", ["Test machine"]}])),
+    ?ok(eldap:add(H,  "dc=notHere,"++Path,
+		  [{"objectclass", ["referral", 
+				    "dcObject"
+				   ]},
+		   {"ref", ["ldap://nowhere.example.com/notHere,"++Path]},
+		   {"dc", ["notHere"]}
+		  ])).
 
 
-ok({error,entryAlreadyExists}) -> ok;
-ok(X) -> ok=X.
+
+ok(_, _, {error,entryAlreadyExists}) -> ok;
+ok(_, _, ok) -> ok;
+ok(MODULE, LINE, X) -> 
+    ct:pal("~p:~p add_new_contents: ret from eldap:add = ~p",[MODULE,LINE,X]),
+    X.
 
 
 

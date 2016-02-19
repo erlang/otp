@@ -19,7 +19,9 @@
 	 extensibleMatch/2,
 	 approxMatch/2,search/2,substrings/2,present/1,
 	 'and'/1,'or'/1,'not'/1,modify/3, mod_add/2, mod_delete/2,
-	 mod_replace/2, add/3, delete/2, modify_dn/5,parse_dn/1,
+	 mod_replace/2, add/3, 
+	 delete/2, delete/3,
+	 modify_dn/5,parse_dn/1,
 	 parse_ldap_url/1]).
 
 -export([neverDerefAliases/0, derefInSearching/0,
@@ -188,7 +190,10 @@ add_attrs(Attrs) ->
 %%%        )
 %%% --------------------------------------------------------------------
 delete(Handle, Entry) when is_pid(Handle), is_list(Entry) ->
-    send(Handle, {delete, Entry}),
+    delete(Handle, Entry, asn1_NOVALUE).
+
+delete(Handle, Entry, Controls)  when is_pid(Handle), is_list(Entry) ->
+    send(Handle, {delete, Entry, Controls}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -504,8 +509,8 @@ loop(Cpid, Data) ->
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-	{From, {delete, Entry}} ->
-	    {Res,NewData} = do_delete(Data, Entry),
+	{From, {delete, Entry, Controls}} ->
+	    {Res,NewData} = do_delete(Data, Entry, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
@@ -593,8 +598,9 @@ do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout) ->
 		{error,Error} ->
 		    {{error,Error}, Data}
 	    end;
-	{error,Error} -> {{error,Error},Data};
-	Else         -> {{error,Else},Data}
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
+	{error,Error}      -> {{error,Error},Data};
+	Else               -> {{error,Else},Data}
     end.
 
 -define(START_TLS_OID, "1.3.6.1.4.1.1466.20037").
@@ -611,6 +617,8 @@ exec_extended_req_reply(Data, {ok,Msg}) when
 	    case Result#'ExtendedResponse'.resultCode of
 		success ->
 		    {ok,Data};
+		referral ->
+		    {{ok, {referral,Result#'ExtendedResponse'.referral}}, Data};
 		Error ->
 		    {error, {response,Error}}
 	    end;
@@ -639,9 +647,10 @@ do_the_simple_bind(Data, Dn, Passwd) ->
     case catch exec_simple_bind(Data#eldap{binddn = Dn,
 					   passwd = Passwd,
 					   id     = bump_id(Data)}) of
-	{ok,NewData} -> {ok,NewData};
-	{error,Emsg} -> {{error,Emsg},Data};
-	Else         -> {{error,Else},Data}
+	{ok,NewData}       -> {ok,NewData};
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
+	{error,Emsg}       -> {{error,Emsg},Data};
+	Else               -> {{error,Else},Data}
     end.
 
 exec_simple_bind(Data) ->
@@ -659,6 +668,7 @@ exec_simple_bind_reply(Data, {ok,Msg}) when
 	{bindResponse, Result} ->
 	    case Result#'BindResponse'.resultCode of
 		success -> {ok,Data};
+		referral -> {{ok, {referral,Msg#'BindResponse'.referral}}, Data};
 		Error   -> {error, Error}
 	    end;
 	Other -> {error, Other}
@@ -675,6 +685,7 @@ do_search(Data, A) ->
     case catch do_search_0(Data, A) of
 	{error,Emsg}         -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}       -> {ldap_closed_p(Data, Error),Data};
+	{{ok,Val},NewData}   -> {{ok,Val},NewData};
 	{ok,Res,Ref,NewData} -> {{ok,polish(Res, Ref)},NewData};
 	{{error,Reason},NewData} -> {{error,Reason},NewData};
 	Else                 -> {ldap_closed_p(Data, Else),Data}
@@ -732,6 +743,8 @@ collect_search_responses(Data, S, ID, {ok,Msg}, Acc, Ref)
                 success ->
                     log2(Data, "search reply = searchResDone ~n", []),
                     {ok,Acc,Ref,Data};
+		referral -> 
+		    {{ok, {referral,R#'LDAPResult'.referral}}, Data};
                 Reason ->
                     {{error,Reason},Data}
             end;
@@ -761,6 +774,7 @@ do_add(Data, Entry, Attrs) ->
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
@@ -779,19 +793,20 @@ do_add_0(Data, Entry, Attrs) ->
 %%% deleteRequest
 %%% --------------------------------------------------------------------
 
-do_delete(Data, Entry) ->
-    case catch do_delete_0(Data, Entry) of
+do_delete(Data, Entry, Controls) ->
+    case catch do_delete_0(Data, Entry, Controls) of
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
-do_delete_0(Data, Entry) ->
+do_delete_0(Data, Entry, Controls) ->
     S = Data#eldap.fd,
     Id = bump_id(Data),
     log2(Data, "del request = ~p~n", [Entry]),
-    Resp = request(S, Data, Id, {delRequest, Entry}),
+    Resp = request(S, Data, Id, {delRequest, Entry, Controls}),
     log2(Data, "del reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, delResponse).
 
@@ -805,6 +820,7 @@ do_modify(Data, Obj, Mod) ->
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
@@ -830,6 +846,7 @@ do_passwd_modify(Data, Dn, NewPasswd, OldPasswd) ->
 	{error,Emsg}        -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}      -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}        -> {ok,NewData};
+	{{ok,Val},NewData}  -> {{ok,Val},NewData};
         {ok,Passwd,NewData} -> {{ok, Passwd},NewData};
 	Else                -> {ldap_closed_p(Data, Else),Data}
     end.
@@ -865,6 +882,8 @@ exec_passwd_modify_reply(Data, {ok,Msg}) when
                                     throw(Error)
                             end
                     end;
+		referral ->
+		    {{ok, {referral,Result#'ExtendedResponse'.referral}}, Data};
 		Error ->
 		    {error, {response,Error}}
 	    end;
@@ -882,6 +901,7 @@ do_modify_dn(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
+	{{ok,Val},NewData} -> {{ok,Val},NewData};
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
@@ -900,15 +920,26 @@ do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
 %%% --------------------------------------------------------------------
 %%% Send an LDAP request and receive the answer
 %%% --------------------------------------------------------------------
-
 request(S, Data, ID, Request) ->
     send_request(S, Data, ID, Request),
     recv_response(S, Data).
 
-send_request(S, Data, ID, Request) ->
-    Message = #'LDAPMessage'{messageID  = ID,
-			     protocolOp = Request},
-    {ok,Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),
+send_request(S, Data, Id, {T,P}) ->
+    send_the_LDAPMessage(S, Data, #'LDAPMessage'{messageID = Id,
+						 protocolOp = {T,P}});
+send_request(S, Data, Id, {T,P,asn1_NOVALUE}) ->
+    send_the_LDAPMessage(S, Data, #'LDAPMessage'{messageID = Id,
+						 protocolOp = {T,P}});
+send_request(S, Data, Id, {T,P,Controls0}) ->
+    Controls = [#'Control'{controlType=F1,
+			   criticality=F2,
+			   controlValue=F3} || {control,F1,F2,F3} <- Controls0],
+    send_the_LDAPMessage(S, Data, #'LDAPMessage'{messageID = Id,
+						 protocolOp = {T,P},
+						 controls = Controls}).
+
+send_the_LDAPMessage(S, Data, LDAPMessage) ->
+    {ok,Bytes} = 'ELDAPv3':encode('LDAPMessage', LDAPMessage),
     case do_send(S, Data, Bytes) of
 	{error,Reason} -> throw({gen_tcp_error,Reason});
 	Else           -> Else
@@ -942,6 +973,7 @@ check_reply(Data, {ok,Msg}, Op) when
 	{Op, Result} ->
 	    case Result#'LDAPResult'.resultCode of
 		success -> {ok,Data};
+		referral -> {{ok, {referral,Result#'LDAPResult'.referral}}, Data};
 		Error   -> {error, Error}
 	    end;
 	Other -> {error, Other}
