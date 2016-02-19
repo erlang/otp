@@ -40,14 +40,14 @@
       callback function for all states.
     </p>
     <p>
-      A generic state machine process (gen_statem) implemented using
-      this module will have a standard set of interface functions
+      A generic state machine process (<c>gen_statem</c>) implemented
+      using this module will have a standard set of interface functions
       and include functionality for tracing and error reporting.
       It will also fit into an OTP supervision tree. Refer to
       <seealso marker="doc/design_principles:gen_server_concepts">
         OTP Design Principles</seealso> for more information.
     </p>
-    <p>A gen_statem assumes all specific parts to be located in a
+    <p>A <c>gen_statem</c> assumes all specific parts to be located in a
       callback module exporting a pre-defined set of functions.
       The relationship between the behaviour functions and the callback
       functions can be illustrated as follows:</p>
@@ -74,17 +74,17 @@ erlang:'!'            -----> Module:StateName/5
       and how to respond.
     </p>
     <p>If a callback function fails or returns a bad value,
-      the gen_statem will terminate.  An exception of class
+      the <c>gen_statem</c> will terminate.  An exception of class
       <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
       however, is not regarded as an error but as a valid return.
     </p>
     <marker id="state_function" />
     <p>The "<em>state function</em>" for a specific
       <seealso marker="#type-state">state</seealso>
-      in a gen_statem is the callback function that is called
+      in a <c>gen_statem</c> is the callback function that is called
       for all events in this state, and is selected depending on
       <seealso marker="#type-callback_mode">callback_mode</seealso>
-      that the implementation selects during gen_statem init.
+      that the implementation selects during <c>gen_statem</c> init.
     </p>
     <p>When
       <seealso marker="#type-callback_mode">callback_mode</seealso>
@@ -114,11 +114,11 @@ erlang:'!'            -----> Module:StateName/5
       <seealso marker="#type-callback_mode">callback_mode</seealso>)
       is permitted with a small gotcha regarding the state
       <c>undefined</c> that is used as the previous state when
-      the first gen_statem state function is called.
+      the first <c>gen_statem</c> state function is called.
       You might need to know about this faked state if you
       inspect the previous state argument in your state functions.
     </p>
-    <p>The gen_statem enqueues incoming events in order of arrival
+    <p>The <c>gen_statem</c> enqueues incoming events in order of arrival
       and presents these to the
       <seealso marker="#state_function">state function</seealso>
       in that order.  The state function can postpone an event
@@ -126,8 +126,8 @@ erlang:'!'            -----> Module:StateName/5
       After a state change all enqueued events (including postponed)
       are again presented to the state function.
     </p>
-    <p>The gen_statem event queue model is sufficient to emulate
-      the normal process message queue and selective receive
+    <p>The <c>gen_statem</c> event queue model is sufficient
+      to emulate the normal process message queue and selective receive
       with postponing an event corresponding to not matching
       it in a receive statement and changing states corresponding
       to entering a new receive statement.
@@ -151,23 +151,25 @@ erlang:'!'            -----> Module:StateName/5
       state handling functions that you often would have to
       resort to in e.g <seealso marker="gen_fsm">gen_fsm</seealso>
       to force processing a faked event before others.
-      If you for example in gen_statem postpone an event
+      If you for example in <c>gen_statem</c> postpone an event
       in one state and then call some other state function of yours,
       you have not changed states and hence the postponed event
       will not be retried, which is logical but might be confusing.
     </p>
-    <p>A gen_statem handles system messages as documented in
+    <p>A <c>gen_statem</c> handles system messages as documented in
        <seealso marker="sys">sys</seealso>.
        The <seealso marker="sys">sys</seealso> module
-       can be used for debugging a gen_statem.
+       can be used for debugging a <c>gen_statem</c>.
     </p>
-    <p>Note that a gen_statem does not trap exit signals automatically,
-      this must be explicitly initiated by the callback module.
+    <p>Note that a <c>gen_statem</c> does not trap exit signals
+      automatically, this must be explicitly initiated by
+      the callback module.
     </p>
     <p>Unless otherwise stated, all functions in this module fail if
-      the specified gen_statem does not exist or if bad arguments are given.
+      the specified <c>gen_statem</c> does not exist or
+      if bad arguments are given.
     </p>
-    <p>The gen_statem process can go into hibernation (see
+    <p>The <c>gen_statem</c> process can go into hibernation (see
       <seealso marker="erts:erlang#hibernate/3">
 	<c>erlang:hibernate/3</c>
       </seealso>) if a
@@ -187,7 +189,8 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="server_name" />
       <desc>
-	<p>Name specification to use when starting a gen_statem server.
+	<p>Name specification to use when starting
+	  a<c>gen_statem</c> server.
 	  See <seealso marker="#start_link/3">
 	    <c>start_link/3</c>
 	  </seealso> and
@@ -200,7 +203,8 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="server_ref" />
       <desc>
-	<p>Server specification to use when addressing a gen_statem server.
+	<p>Server specification to use when addressing
+	  a <c>gen_statem</c> server.
 	  See <seealso marker="#call/2">call/2</seealso> and
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
@@ -210,16 +214,17 @@ erlang:'!'            -----> Module:StateName/5
 	<taglist>
 	  <tag><c>pid()</c></tag>
 	  <tag><c>LocalName</c></tag>
-	  <item>The gen_statem is locally registered.</item>
+	  <item>The <c>gen_statem</c> is locally registered.</item>
 	  <tag><c>Name, Node</c></tag>
-	  <item>The gen_statem is locally registered on another node.
+	  <item>The <c>gen_statem</c> is locally registered
+	    on another node.
 	  </item>
 	  <tag><c>GlobalName</c></tag>
-	  <item>The gen_statem is globally registered
+	  <item>The <c>gen_statem</c> is globally registered
 	    in <seealso marker="kernel:global"><c>global</c></seealso>.
 	  </item>
 	  <tag><c>RegMod, ViaName</c></tag>
-	  <item>The gen_statem is registered through
+	  <item>The <c>gen_statem</c> is registered through
 	    an alternative process registry.
 	    The registry callback module <c>RegMod</c>
 	    should export the functions
@@ -237,7 +242,7 @@ erlang:'!'            -----> Module:StateName/5
       <name name="debug_opt" />
       <desc>
 	<p>Debug option that can be used when starting
-	  a gen_statem server through for example
+	  a <c>gen_statem</c> server through for example
 	  <seealso marker="#enter_loop/4">enter_loop/4</seealso>.
 	</p>
 	<p>For every entry in <c><anno>Dbgs</anno></c>
@@ -250,7 +255,7 @@ erlang:'!'            -----> Module:StateName/5
       <name name="start_opt" />
       <desc>
 	<p>Options that can be used when starting
-	  a gen_statem server through for example
+	  a <c>gen_statem</c> server through for example
 	  <seealso marker="#start_link/3">start_link/3</seealso>.
 	</p>
       </desc>
@@ -271,7 +276,7 @@ erlang:'!'            -----> Module:StateName/5
 	  <seealso marker="#type-state_op">
 	    state_op() {reply,Client,Reply}
 	  </seealso>
-	  to a client that has called the gen_statem server using
+	  to a client that has called the <c>gen_statem</c> server using
 	  <seealso marker="#call/2">call/2</seealso>.
 	</p>
       </desc>
@@ -316,7 +321,7 @@ erlang:'!'            -----> Module:StateName/5
 	  originate from the corresponding API functions.
 	  For calls the event contain whom to reply to.
 	  Type <c>info</c> originates from normal messages sent
-	  to the gen_statem process.
+	  to the <c>gen_statem</c> process.
 	  It is also possible for the state machine
 	  implementation to insert events to itself,
 	  in particular of types
@@ -343,8 +348,8 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="init_option" />
       <desc>
-	<p>Option that only is valid when initializing the gen_statem
-	  that is it can be returned from
+	<p>Option that only is valid when initializing
+	  the <c>gen_statem</c> that is it can be returned from
 	  <seealso marker="#Module:init/1">Module:init/1</seealso>
 	  or given to
 	  <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>.
@@ -408,12 +413,12 @@ erlang:'!'            -----> Module:StateName/5
 	  <item>The (possibly new)
 	    <seealso marker="#state_function">state function</seealso>
 	    is called with the oldest enqueued event if there is any,
-	    otherwise the gen_statem goes into <c>receive</c>
+	    otherwise the <c>gen_statem</c> goes into <c>receive</c>
 	    or hibernation (if the option <c>hibernate</c> is <c>true</c>)
 	    to wait for the next message.  In hibernation the next
-	    non-system event awakens the gen_statem, or rather
-	    the next incoming message awakens the gen_statem but if it
-	    is a system event it goes back into hibernation.
+	    non-system event awakens the <c>gen_statem</c>, or rather
+	    the next incoming message awakens the <c>gen_statem</c>
+	    but if it is a system event it goes back into hibernation.
 	  </item>
 	</list>
       </desc>
@@ -438,13 +443,14 @@ erlang:'!'            -----> Module:StateName/5
 	  </item>
 	  <tag><c>hibernate</c></tag>
 	  <item>If <c><anno>Hibernate</anno> =:= true</c>
-	    or plain <c>hibernate</c> hibernate the gen_statem by calling
+	    or plain <c>hibernate</c> hibernate the <c>gen_statem</c>
+	    by calling
 	    <seealso marker="proc_lib#hibernate/3">
 	      <c>proc_lib:hibernate/3</c>
 	    </seealso> before <c>receive</c> to wait for a new event.
 	    If there are enqueued events the <c>hibernate</c> operation
 	    is ignored as if an event just arrived and awakened
-	    the gen_statem.
+	    the <c>gen_statem</c>.
 	  </item>
 	  <tag><c>timeout</c>
 	  </tag>
@@ -500,7 +506,7 @@ erlang:'!'            -----> Module:StateName/5
 	    </seealso> with <c><anno>TimerRef</anno></c>,
 	    clean the process message queue from any late timeout message,
 	    and removes any late timeout message
-	    from the gen_statem event queue using
+	    from the <c>gen_statem</c> event queue using
 	    <c>{remove_event,<anno>EventPredicate</anno>}</c> above.
 	    This is a convenience function that saves quite some
 	    lines of code and testing time over doing it from
@@ -540,27 +546,27 @@ erlang:'!'            -----> Module:StateName/5
 	<taglist>
 	  <tag><c>stop</c></tag>
 	  <item>Send all <c><anno>Replies</anno></c> if given,
-	    then terminate the gen_statem by calling
+	    then terminate the <c>gen_statem</c> by calling
 	    <seealso marker="#Module:terminate/3">
 	      <c>Module:terminate/3</c>
 	    </seealso> with <c>Reason</c> and
 	    <c><anno>NewStateData</anno></c>, if given.
 	  </item>
 	  <tag><c>next_state</c></tag>
-	  <item>The gen_statem will do a state transition to
+	  <item>The <c>gen_statem</c> will do a state transition to
 	    <c><anno>NewState</anno></c>
 	    (which may be the same as the current state),
 	    set <c><anno>NewStateData</anno></c>
 	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
 	  <tag><c>keep_state</c></tag>
-	  <item>The gen_statem will keep the current state, or
+	  <item>The <c>gen_statem</c> will keep the current state, or
 	    do a state transition to the current state if you like,
 	    set <c><anno>NewStateData</anno></c>
 	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
 	  <tag><c>keep_state_and_data</c></tag>
-	  <item>The gen_statem will keep the current state, or
+	  <item>The <c>gen_statem</c> will keep the current state, or
 	    do a state transition to the current state if you like,
 	    keep the current state data,
 	    and execute all <c><anno>StateOps</anno></c>
@@ -575,17 +581,18 @@ erlang:'!'            -----> Module:StateName/5
     <func>
       <name name="start_link" arity="3" />
       <name name="start_link" arity="4" />
-      <fsummary>Create a linked gen_statem process</fsummary>
+      <fsummary>Create a linked <c>gen_statem</c> process</fsummary>
       <desc>
-        <p>Creates a gen_statem process according to OTP design principles
+        <p>Creates a <c>gen_statem</c> process according
+	  to OTP design principles
 	  (using
           <seealso marker="proc_lib"><c>proc_lib</c></seealso>
 	  primitives)
 	  that is linked to the calling process.
-	  This is essential when the gen_statem shall be part of
+	  This is essential when the <c>gen_statem</c> shall be part of
 	  a supervision tree so it gets linked to its supervisor.
 	</p>
-        <p>The gen_statem process calls
+        <p>The <c>gen_statem</c> process calls
 	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
 	  to initialize the server. To ensure a synchronized start-up
 	  procedure, <c>start_link/3,4</c> does not return until
@@ -595,10 +602,10 @@ erlang:'!'            -----> Module:StateName/5
 	<p><c><anno>ServerName</anno></c> specifies the
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
-	  </seealso> to register for the gen_statem.
-	  If the gen_statem is started with  <c>start_link/3</c>
+	  </seealso> to register for the <c>gen_statem</c>.
+	  If the <c>gen_statem</c> is started with  <c>start_link/3</c>
 	  no <c><anno>ServerName</anno></c> is provided and
-	  the gen_statem is not registered.
+	  the <c>gen_statem</c> is not registered.
 	</p>
         <p><c><anno>Module</anno></c> is the name of the callback module.</p>
         <p><c><anno>Args</anno></c> is an arbitrary term which is passed as
@@ -607,9 +614,9 @@ erlang:'!'            -----> Module:StateName/5
 	  </seealso>.
 	</p>
         <p>If the option <c>{timeout,Time}</c> is present in
-	  <c><anno>Options</anno></c>, the gen_statem is allowed to spend
-	  <c>Time</c> milliseconds initializing or it will be
-	  terminated and the start function will return
+	  <c><anno>Options</anno></c>, the <c>gen_statem</c>
+	  is allowed to spend <c>Time</c> milliseconds initializing
+	  or it will be terminated and the start function will return
 	  <seealso marker="#type-start_ret">
 	    <c>{error,timeout}</c>
 	  </seealso>.
@@ -624,18 +631,19 @@ erlang:'!'            -----> Module:StateName/5
 	  as option list to the <c>spawn_opt</c> BIF
 	  which is used to
           <seealso marker="erts:erlang#spawn_opt/2">spawn</seealso>
-	  the gen_statem.
+	  the <c>gen_statem</c>.
 	</p>
         <note>
           <p>Using the spawn option <c>monitor</c> is currently not
             allowed, but will cause this function to fail with reason
             <c>badarg</c>.</p>
         </note>
-        <p>If the gen_statem is successfully created and initialized
-          this function returns
+        <p>If the <c>gen_statem</c> is successfully created
+	  and initialized this function returns
 	  <seealso marker="#type-start_ret">
 	    <c>{ok,Pid}</c>,
-	  </seealso> where <c>Pid</c> is the <c>pid()</c> of the gen_statem.
+	  </seealso> where <c>Pid</c> is the <c>pid()</c>
+	  of the <c>gen_statem</c>.
 	  If there already exists a process with the specified
 	  <c><anno>ServerName</anno></c> this function returns
 	  <seealso marker="#type-start_ret">
@@ -669,9 +677,9 @@ erlang:'!'            -----> Module:StateName/5
     <func>
       <name name="start" arity="3" />
       <name name="start" arity="4" />
-      <fsummary>Create a stand-alone gen_statem process</fsummary>
+      <fsummary>Create a stand-alone <c>gen_statem</c> process</fsummary>
       <desc>
-        <p>Creates a stand-alone gen_statem process according to
+        <p>Creates a stand-alone <c>gen_statem</c> process according to
 	  OTP design principles (using
           <seealso marker="proc_lib"><c>proc_lib</c></seealso>
 	  primitives).
@@ -700,12 +708,12 @@ erlang:'!'            -----> Module:StateName/5
       <name name="stop" arity="3" />
       <fsummary>Synchronously stop a generic server</fsummary>
       <desc>
-	<p>Orders the gen_statem
+	<p>Orders the <c>gen_statem</c>
 	  <seealso marker="#type-server_ref">
 	    <c><anno>ServerRef</anno></c>
 	  </seealso> to exit with the given <c><anno>Reason</anno></c>
 	  and waits for it to terminate.
-	  The gen_statem will call
+	  The <c>gen_statem</c> will call
           <seealso marker="#Module:terminate/3">
 	    Module:terminate/3
 	  </seealso> before exiting.
@@ -735,14 +743,14 @@ erlang:'!'            -----> Module:StateName/5
     <func>
       <name name="call" arity="2" />
       <name name="call" arity="3" />
-      <fsummary>Make a synchronous call to a gen_statem</fsummary>
+      <fsummary>Make a synchronous call to a <c>gen_statem</c></fsummary>
       <desc>
-        <p>Makes a synchronous call to the gen_statem
+        <p>Makes a synchronous call to the <c>gen_statem</c>
 	  <seealso marker="#type-server_ref">
 	    <c><anno>ServerRef</anno></c>
 	  </seealso> by sending a request
 	  and waiting until its reply arrives.
-	  The gen_statem will call the
+	  The <c>gen_statem</c> will call the
 	  <seealso marker="#state_function">state function</seealso> with
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
 	  <c>{call,Client}</c> and event content
@@ -771,7 +779,7 @@ erlang:'!'            -----> Module:StateName/5
 	    </p>
 	  </note>
 	</p>
-        <p>The call may fail for example if the gen_statem dies
+        <p>The call may fail for example if the <c>gen_statem</c> dies
 	  before or during this function call.
 	</p>
       </desc>
@@ -779,14 +787,15 @@ erlang:'!'            -----> Module:StateName/5
 
     <func>
       <name name="cast" arity="2" />
-      <fsummary>Send an asynchronous event to a gen_statem</fsummary>
+      <fsummary>Send an asynchronous event to a <c>gen_statem</c></fsummary>
       <desc>
-	<p>Sends an asynchronous event to the gen_statem
+	<p>Sends an asynchronous event to the <c>gen_statem</c>
 	  <seealso marker="#type-server_ref">
 	    <c><anno>ServerRef</anno></c>
 	  </seealso> and returns <c>ok</c> immediately,
-	  ignoring if the destination node or gen_statem does not exist.
-	  The gen_statem will call the
+	  ignoring if the destination node or <c>gen_statem</c>
+	  does not exist.
+	  The <c>gen_statem</c> will call the
 	  <seealso marker="#state_function">state function</seealso> with
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
 	  <c>cast</c> and event content
@@ -800,8 +809,8 @@ erlang:'!'            -----> Module:StateName/5
       <name name="reply" arity="2" />
       <fsummary>Send a reply to a client</fsummary>
       <desc>
-        <p>This function can be used by a gen_statem to explicitly send
-          a reply to a client that called
+        <p>This function can be used by a <c>gen_statem</c>
+	  to explicitly send a reply to a client that called
 	  <seealso marker="#call/2"><c>call/2</c></seealso>
           when the reply cannot be defined in
           the return value of the
@@ -828,7 +837,7 @@ erlang:'!'            -----> Module:StateName/5
 
     <func>
       <name name="enter_loop" arity="4" />
-      <fsummary>Enter the gen_statem receive loop</fsummary>
+      <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
 	<p>The same as
 	  <seealso marker="#enter_loop/6"><c>enter_loop/6</c></seealso>
@@ -841,7 +850,7 @@ erlang:'!'            -----> Module:StateName/5
     </func>
     <func>
       <name name="enter_loop" arity="5" />
-      <fsummary>Enter the gen_statem receive loop</fsummary>
+      <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
 	<p>If <c><anno>Server_or_StateOps</anno></c> is a <c>list()</c>
 	  the same as
@@ -862,25 +871,27 @@ erlang:'!'            -----> Module:StateName/5
     </func>
     <func>
       <name name="enter_loop" arity="6" />
-      <fsummary>Enter the gen_statem receive loop</fsummary>
+      <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
-        <p>Makes an the calling process become a gen_statem. Does not return,
-          instead the calling process will enter the gen_statem receive
-          loop and become a gen_statem server. The process
-          <em>must</em> have been started using one of the start
-          functions in
+        <p>Makes an the calling process become a <c>gen_statem</c>.
+	  Does not return, instead the calling process will enter
+	  the <c>gen_statem</c> receive loop and become
+	  a <c>gen_statem</c> server.
+	  The process <em>must</em> have been started
+	  using one of the start functions in
           <seealso marker="proc_lib"><c>proc_lib</c></seealso>.
 	  The user is responsible for any initialization of the process,
 	  including registering a name for it.
 	</p>
         <p>This function is useful when a more complex initialization
-          procedure is needed than the gen_statem behaviour provides.
+          procedure is needed than
+	  the <c>gen_statem</c> behaviour provides.
 	</p>
         <p><c><anno>Module</anno></c>, <c><anno>Options</anno></c> and
 	  <c><anno>Server</anno></c> have the same meanings
 	  as when calling
           <seealso marker="#start_link/3">
-	    gen_statem:start[_link]/3,4
+	    <c>gen_statem</c>:start[_link]/3,4
 	  </seealso>.
           However, the
 	  <seealso marker="#type-server_name">
@@ -912,7 +923,7 @@ erlang:'!'            -----> Module:StateName/5
   <section>
     <title>CALLBACK FUNCTIONS</title>
     <p>The following functions should be exported from a
-      <c>gen_statem</c> callback module.
+      <c><c>gen_statem</c></c> callback module.
     </p>
   </section>
   <funcs>
@@ -937,10 +948,10 @@ erlang:'!'            -----> Module:StateName/5
       </type>
       <desc>
 	<marker id="Module:init-1" />
-        <p>Whenever a gen_statem is started using
-          <seealso marker="#start_link/3">gen_statem:start_link/3,4</seealso>
+        <p>Whenever a <c>gen_statem</c> is started using
+          <seealso marker="#start_link/3">start_link/3,4</seealso>
 	  or
-          <seealso marker="#start/3">gen_statem:start/3,4</seealso>,
+          <seealso marker="#start/3">start/3,4</seealso>,
           this function is called by the new process to initialize
 	  the implementation loop data.
 	</p>
@@ -950,7 +961,7 @@ erlang:'!'            -----> Module:StateName/5
           return <c>{ok,State,StateData}</c> or
 	  <c>{ok,State,StateData,StateOps}</c>.
 	  <c>State</c> is the <seealso marker="#type-state">state</seealso>
-	  of the gen_statem.
+	  of the <c>gen_statem</c>.
 	</p>
 	<p>The <seealso marker="#type-state_op"><c>StateOps</c></seealso>
 	  are executed when entering the first
@@ -958,14 +969,14 @@ erlang:'!'            -----> Module:StateName/5
 	  <seealso marker="#state_function">state function</seealso>.
 	</p>
 	<p>This function allows an option to select the callback mode
-	  of the gen_statem.  See
+	  of the <c>gen_statem</c>.  See
 	  <seealso marker="#type-init_option">init_option</seealso>.
 	  This option is not allowed from the state function(s).
 	</p>
         <p>If something goes wrong during the initialization
           the function should return <c>{stop,Reason}</c>
 	  or <c>ignore</c>. See
-          <seealso marker="#start_link/3">gen_statem:start_link/3,4</seealso>.
+          <seealso marker="#start_link/3">start_link/3,4</seealso>.
 	</p>
       </desc>
     </func>
@@ -1002,9 +1013,9 @@ erlang:'!'            -----> Module:StateName/5
 	</v>
       </type>
       <desc>
-        <p>Whenever a gen_statem receives an event from
-          <seealso marker="#call/2">gen_statem:call/2</seealso>,
-          <seealso marker="#cast/2">gen_statem:cast/2</seealso> or
+        <p>Whenever a <c>gen_statem</c> receives an event from
+          <seealso marker="#call/2">call/2</seealso>,
+          <seealso marker="#cast/2">cast/2</seealso> or
 	  as a normal process message this function is called.
 	  If
 	  <seealso marker="#type-callback_mode">callback_mode</seealso>
@@ -1022,7 +1033,7 @@ erlang:'!'            -----> Module:StateName/5
 	  <seealso marker="#type-reply_operation">Replies</seealso>
 	  or by calling
 	  <seealso marker="#reply/2">
-	    <c>gen_statem:reply(Client, Reply)</c>
+	    <c>reply(Client, Reply)</c>
 	  </seealso>.
 	</p>
         <p><c>StateName</c> is useful in some odd cases for example
@@ -1032,7 +1043,7 @@ erlang:'!'            -----> Module:StateName/5
 	<p><c>PrevStateName</c> and <c>PrevState</c> are useful
 	  in some odd cases for example when you want to do something
 	  only at the first event in a state.
-	  Note that when gen_statem enters its first state
+	  Note that when <c>gen_statem</c> enters its first state
 	  this is set to <c>undefined</c>.
 	</p>
 	<p>If this function returns with a new state that
@@ -1041,7 +1052,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>See <seealso marker="#type-state_op">state_op()</seealso>
 	  for options that can be set and operations that can be done
-	  by gen_statem after returning from this function.
+	  by <c>gen_statem</c> after returning from this function.
 	</p>
       </desc>
     </func>
@@ -1060,45 +1071,49 @@ erlang:'!'            -----> Module:StateName/5
 	<v>Ignored = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_statem when it is about to
-          terminate. It should be the opposite of
+        <p>This function is called by a <c>gen_statem</c>
+	  when it is about to terminate. It should be the opposite of
 	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
           and do any necessary cleaning up. When it returns,
-          the gen_statem terminates with <c>Reason</c>. The return
+          the <c>gen_statem</c> terminates with <c>Reason</c>. The return
           value is ignored.</p>
         <p><c>Reason</c> is a term denoting the stop reason and
           <seealso marker="#type-state">State</seealso>
-	  is the internal state of the gen_statem.
+	  is the internal state of the <c>gen_statem</c>.
 	</p>
-        <p><c>Reason</c> depends on why the gen_statem is terminating.
+        <p><c>Reason</c> depends on why the <c>gen_statem</c>
+	  is terminating.
           If it is because another callback function has returned a
           stop tuple <c>{stop,Reason}</c> in
 	  <seealso marker="#type-state_op">StateOps</seealso>,
 	  <c>Reason</c> will have the value specified in that tuple.
 	  If it is due to a failure, <c>Reason</c> is the error reason.
 	</p>
-        <p>If the gen_statem is part of a supervision tree and is
+        <p>If the <c>gen_statem</c> is part of a supervision tree and is
           ordered by its supervisor to terminate, this function will be
           called with <c>Reason = shutdown</c> if the following
           conditions apply:</p>
         <list type="bulleted">
-          <item>the gen_statem has been set to trap exit signals, and</item>
+          <item>the <c>gen_statem</c> has been set
+	    to trap exit signals, and
+	  </item>
           <item>the shutdown strategy as defined in the supervisor's
             child specification is an integer timeout value, not
             <c>brutal_kill</c>.
 	  </item>
         </list>
-        <p>Even if the gen_statem is <em>not</em> part of a supervision tree,
-	   this function will be called if it receives an <c>'EXIT'</c>
-	   message from its parent. <c>Reason</c> will be the same as in
-	   the <c>'EXIT'</c> message.
+        <p>Even if the <c>gen_statem</c> is <em>not</em>
+	  part of a supervision tree, this function will be called
+	  if it receives an <c>'EXIT'</c> message from its parent.
+	  <c>Reason</c> will be the same as
+	  in the <c>'EXIT'</c> message.
 	</p>
-        <p>Otherwise, the gen_statem will be immediately terminated.
+        <p>Otherwise, the <c>gen_statem</c> will be immediately terminated.
 	</p>
         <p>Note that for any other reason than <c>normal</c>,
-          <c>shutdown</c>, or <c>{shutdown,Term}</c> the gen_statem is
-	  assumed to terminate due to an error and
-	  an error report is issued using
+          <c>shutdown</c>, or <c>{shutdown,Term}</c>
+	  the <c>gen_statem</c> is assumed to terminate due to an error
+	  and an error report is issued using
           <seealso marker="kernel:error_logger#format/2">
 	    error_logger:format/2
 	  </seealso>.
@@ -1126,7 +1141,7 @@ erlang:'!'            -----> Module:StateName/5
 	<v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_statem when it should
+        <p>This function is called by a <c>gen_statem</c> when it should
           update its internal state during a release upgrade/downgrade,
           i.e. when the instruction <c>{update,Module,Change,...}</c>
           where <c>Change={advanced,Extra}</c> is given in
@@ -1144,7 +1159,7 @@ erlang:'!'            -----> Module:StateName/5
           is the checksum of the BEAM file.
 	</p>
         <p><c>OldState</c> and <c>OldStateData</c> is the internal state
-	  of the gen_statem.
+	  of the <c>gen_statem</c>.
 	</p>
         <p><c>Extra</c> is passed as-is from the <c>{advanced,Extra}</c>
           part of the update instruction.
@@ -1163,7 +1178,7 @@ erlang:'!'            -----> Module:StateName/5
         Status
       </name>
       <fsummary>Optional function for providing a term describing the
-        current gen_statem status</fsummary>
+        current <c>gen_statem</c> status</fsummary>
       <type>
         <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>
@@ -1180,43 +1195,43 @@ erlang:'!'            -----> Module:StateName/5
       <desc>
         <note>
           <p>This callback is optional, so callback modules need not
-            export it. The gen_statem module provides a default
+            export it. The <c>gen_statem</c> module provides a default
             implementation of this function that returns the callback
             module state.
 	  </p>
         </note>
-        <p>This function is called by a gen_statem process when:</p>
+        <p>This function is called by a <c>gen_statem</c> process when:</p>
         <list type="bulleted">
           <item>One of
             <seealso marker="sys#get_status/1">
 	      <c>sys:get_status/1,2</c>
 	    </seealso>
-            is invoked to get the gen_statem status. <c>Opt</c> is set
+            is invoked to get the <c>gen_statem</c> status. <c>Opt</c> is set
             to the atom <c>normal</c> for this case.
 	  </item>
-          <item>The gen_statem terminates abnormally and logs an error.
+          <item>The <c>gen_statem</c> terminates abnormally and logs an error.
 	    <c>Opt</c> is set to the atom <c>terminate</c> for this case.
 	  </item>
         </list>
         <p>This function is useful for customising the form and
-          appearance of the gen_statem status for these cases. A
+          appearance of the <c>gen_statem</c> status for these cases. A
           callback module wishing to customise the
           <seealso marker="sys#get_status/1">
 	    <c>sys:get_status/1,2</c>
 	  </seealso> return value as well as how
           its status appears in termination error logs exports an
           instance of <c>format_status/2</c> that returns a term
-          describing the current status of the gen_statem.
+          describing the current status of the <c>gen_statem</c>.
 	</p>
-        <p><c>PDict</c> is the current value of the gen_statem's
+        <p><c>PDict</c> is the current value of the <c>gen_statem</c>'s
           process dictionary.
 	</p>
         <p><seealso marker="#type-state"><c>State</c></seealso>
-	  is the internal state of the gen_statem.
+	  is the internal state of the <c>gen_statem</c>.
 	</p>
         <p>The function should return <c>Status</c>, a term that
           customises the details of the current state and status of
-          the gen_statem. There are no restrictions on the
+          the <c>gen_statem</c>. There are no restrictions on the
           form <c>Status</c> can take, but for the
           <seealso marker="sys#get_status/1">
 	    <c>sys:get_status/1,2</c>
@@ -1224,7 +1239,7 @@ erlang:'!'            -----> Module:StateName/5
           is <c>normal</c>), the recommended form for
           the <c>Status</c> value is <c>[{data, [{"State",
           Term}]}]</c> where <c>Term</c> provides relevant details of
-          the gen_statem state. Following this recommendation isn't
+          the <c>gen_statem</c> state. Following this recommendation isn't
           required, but doing so will make the callback module status
           consistent with the rest of the
           <seealso marker="sys#get_status/1">
