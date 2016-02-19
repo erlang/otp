@@ -57,7 +57,7 @@
 	state_name() | % For state callback function StateName/5
 	term(). % For state callback function handle_event/5
 -type state_name() :: atom().
--type state_data() :: term().
+-type data() :: term().
 -type event_type() ::
 	{'call',Client :: client()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
@@ -66,17 +66,18 @@
 -type init_option() ::
 	{'callback_mode', callback_mode()}.
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
--type state_op() ::
-	%% First NewState and NewStateData are set,
-	%% then all state_operations() are executed in order of
+-type transition_op() ::
+	%% First NewState and NewData are set,
+	%% then all transition_action()s are executed in order of
 	%% apperance. Postponing the current event is performed
-	%% (iff state_option() 'postpone' is 'true').
+	%% (iff transition_option() 'postpone' is 'true').
 	%% Lastly pending events are processed or if there are
 	%% no pending events the server goes into receive
-	%% or hibernate (iff state_option() 'hibernate' is 'true')
-	state_option() | state_operation().
--type state_option() ::
-	%% The first of each kind in the state_op() list takes precedence
+	%% or hibernate (iff transition_option() 'hibernate' is 'true')
+	transition_option() | transition_action().
+-type transition_option() ::
+	%% The last of each kind in the transition_op()
+	%% list takes precedence
 	'postpone' |  % Postpone the current event to a different (=/=) state
 	{'postpone', Postpone :: boolean()} |
 	'hibernate' | % Hibernate the server instead of going into receive
@@ -84,10 +85,10 @@
 	(Timeout :: timeout()) | % {timeout,Timeout}
 	{'timeout', % Generate a ('timeout', Msg, ...) event after Time
 	 Time :: timeout(), Msg :: term()}.
--type state_operation() ::
+-type transition_action() ::
 	%% These can occur multiple times and are executed in order
-	%% of appearence in the state_op() list
-	reply_operation() |
+	%% of appearence in the transition_op() list
+	reply_action() |
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
@@ -101,7 +102,7 @@
 	 MonitorRef :: reference()} |
 	{'unlink', % Unlink and clean up mess(ages)
 	 Id :: pid() | port()}.
--type reply_operation() ::
+-type reply_action() ::
 	{'reply', % Reply to a client
 	 Client :: client(), Reply :: term()}.
 -type state_callback_result() ::
@@ -109,34 +110,34 @@
      Reason :: term()} |
     {'stop', % Stop the server
      Reason :: term(),
-     NewStateData :: state_data()} |
+     NewData :: data()} |
     {'stop', % Stop the server
      Reason :: term(),
-     Replies :: [reply_operation()] | reply_operation(),
-     NewStateData :: state_data()} |
-    {'next_state', % {next_state,NewState,NewStateData,[]}
+     Replies :: [reply_action()] | reply_action(),
+     NewData :: data()} |
+    {'next_state', % {next_state,NewState,NewData,[]}
      NewState :: state(),
-     NewStateData :: state_data()} |
+     NewData :: data()} |
     {'next_state', % State transition, maybe to the same state
      NewState :: state(),
-     NewStateData :: state_data(),
-     StateOps :: [state_op()] | state_op()} |
-    {'keep_state', % {keep_state,NewStateData,[]}
-     NewStateData :: state_data()} |
+     NewData :: data(),
+     Ops :: [transition_op()] | transition_op()} |
+    {'keep_state', % {keep_state,NewData,[]}
+     NewData :: data()} |
     {'keep_state',
-     NewStateData :: state_data(),
-     StateOps :: [state_op()] | state_op()} |
+     NewData :: data(),
+     Ops :: [transition_op()] | transition_op()} |
     {'keep_state_and_data'} | % {keep_state_and_data,[]}
     {'keep_state_and_data',
-     StateOps :: [state_op()] | state_op()}.
+     Ops :: [transition_op()] | transition_op()}.
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
 -callback init(Args :: term()) ->
-    {'ok', state(), state_data()} |
-    {'ok', state(), state_data(), [state_op()|init_option()]} |
+    {'ok', state(), data()} |
+    {'ok', state(), data(), [transition_op()|init_option()]} |
     'ignore' |
     {'stop', Reason :: term()}.
 
@@ -152,7 +153,7 @@
 	    EventContent :: term(),
 	    PrevStateName :: state_name() | reference(),
 	    StateName :: state_name(), % Current state
-	    StateData :: state_data()) ->
+	    Data :: data()) ->
     state_callback_result().
 %%
 %% Callback for callback_mode =:= handle_event_function.
@@ -164,7 +165,7 @@
 	    EventContent :: term(),
 	    PrevState :: state(),
 	    State :: state(), % Current state
-	    StateData :: state_data()) ->
+	    Data :: data()) ->
     state_callback_result().
 
 %% Clean up before the server terminates.
@@ -172,7 +173,7 @@
 	    Reason :: 'normal' | 'shutdown' | {'shutdown', term()}
 		    | term(),
 	    State :: state(),
-	    StateData :: state_data()) ->
+	    Data :: data()) ->
     any().
 
 %% Note that the new code can expect to get an OldState from
@@ -181,9 +182,9 @@
 -callback code_change(
 	    OldVsn :: term() | {'down', term()},
 	    OldState :: state(),
-	    OldStateData :: state_data(),
+	    OldData :: data(),
 	    Extra :: term()) ->
-    {ok, {NewState :: state(), NewStateData :: state_data()}}.
+    {ok, {NewState :: state(), NewData :: data()}}.
 
 %% Format the callback module state in some sensible that is
 %% often condensed way.  For StatusOption =:= 'normal' the perferred
@@ -193,7 +194,7 @@
 	    StatusOption,
 	    [ [{Key :: term(), Value :: term()}] |
 	      state() |
-	      state_data()]) ->
+	      data()]) ->
     Status :: term() when
       StatusOption :: 'normal' | 'terminate'.
 
@@ -264,38 +265,38 @@ event_type(Type) ->
 -type start_opt() ::
 	debug_opt()
       | {'timeout', Time :: timeout()}
-      | {'spawn_opt', SOpts :: [proc_lib:spawn_option()]}.
+      | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type start_ret() ::  {'ok', pid()} | 'ignore' | {'error', term()}.
 
 
 
 %% Start a state machine
 -spec start(
-	Module :: module(), Args :: term(), Options :: [start_opt()]) ->
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
-start(Module, Args, Options) ->
-    gen:start(?MODULE, nolink, Module, Args, Options).
+start(Module, Args, Opts) ->
+    gen:start(?MODULE, nolink, Module, Args, Opts).
 %%
 -spec start(
 	ServerName :: server_name(),
-	Module :: module(), Args :: term(), Options :: [start_opt()]) ->
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
-start(ServerName, Module, Args, Options) ->
-    gen:start(?MODULE, nolink, ServerName, Module, Args, Options).
+start(ServerName, Module, Args, Opts) ->
+    gen:start(?MODULE, nolink, ServerName, Module, Args, Opts).
 
 %% Start and link to a state machine
 -spec start_link(
-	Module :: module(), Args :: term(), Options :: [start_opt()]) ->
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
-start_link(Module, Args, Options) ->
-    gen:start(?MODULE, link, Module, Args, Options).
+start_link(Module, Args, Opts) ->
+    gen:start(?MODULE, link, Module, Args, Opts).
 %%
 -spec start_link(
 	ServerName :: server_name(),
-	Module :: module(), Args :: term(), Options :: [start_opt()]) ->
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
 		   start_ret().
-start_link(ServerName, Module, Args, Options) ->
-    gen:start(?MODULE, link, ServerName, Module, Args, Options).
+start_link(ServerName, Module, Args, Opts) ->
+    gen:start(?MODULE, link, ServerName, Module, Args, Opts).
 
 %% Stop a state machine
 -spec stop(ServerRef :: server_ref()) -> ok.
@@ -389,7 +390,7 @@ call(ServerRef, Request, Timeout) ->
     end.
 
 %% Reply from a state machine callback to whom awaits in call/2
--spec reply([reply_operation()] | reply_operation()) -> ok.
+-spec reply([reply_action()] | reply_action()) -> ok.
 reply({reply,{_To,_Tag}=Client,Reply}) ->
     reply(Client, Reply);
 reply(Replies) when is_list(Replies) ->
@@ -411,39 +412,39 @@ reply({To,Tag}, Reply) ->
 %% started by proc_lib into a state machine using
 %% the same arguments as you would have returned from init/1
 -spec enter_loop(
-	Module :: module(), Options :: [debug_opt()],
-	State :: state(), StateData :: state_data()) ->
+	Module :: module(), Opts :: [debug_opt()],
+	State :: state(), Data :: data()) ->
 			no_return().
-enter_loop(Module, Options, State, StateData) ->
-    enter_loop(Module, Options, State, StateData, self()).
+enter_loop(Module, Opts, State, Data) ->
+    enter_loop(Module, Opts, State, Data, self()).
 %%
 -spec enter_loop(
-	Module :: module(), Options :: [debug_opt()],
-	State :: state(), StateData :: state_data(),
-	Server_or_StateOps ::
-	  server_name() | pid() | [state_op()|init_option()]) ->
+	Module :: module(), Opts :: [debug_opt()],
+	State :: state(), Data :: data(),
+	Server_or_Ops ::
+	  server_name() | pid() | [transition_op()|init_option()]) ->
 			no_return().
-enter_loop(Module, Options, State, StateData, Server_or_StateOps) ->
+enter_loop(Module, Opts, State, Data, Server_or_Ops) ->
     if
-	is_list(Server_or_StateOps) ->
+	is_list(Server_or_Ops) ->
 	    enter_loop(
-	      Module, Options, State, StateData,
-	      self(), Server_or_StateOps);
+	      Module, Opts, State, Data,
+	      self(), Server_or_Ops);
 	true ->
 	    enter_loop(
-	      Module, Options, State, StateData,
-	      Server_or_StateOps, [])
+	      Module, Opts, State, Data,
+	      Server_or_Ops, [])
     end.
 %%
 -spec enter_loop(
-	Module :: module(), Options :: [debug_opt()],
-	State :: state(), StateData :: state_data(),
+	Module :: module(), Opts :: [debug_opt()],
+	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
-	StateOps :: [state_op()|init_option()]) ->
+	Ops :: [transition_op()|init_option()]) ->
 			no_return().
-enter_loop(Module, Options, State, StateData, Server, StateOps) ->
+enter_loop(Module, Opts, State, Data, Server, Ops) ->
     Parent = gen:get_parent(),
-    enter(Module, Options, State, StateData, Server, StateOps, Parent).
+    enter(Module, Opts, State, Data, Server, Ops, Parent).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -465,29 +466,29 @@ do_send(Proc, Msg) ->
     end.
 
 %% Here init_it and all enter_loop functions converge
-enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
+enter(Module, Opts, State, Data, Server, InitOps, Parent) ->
     Name = gen:get_proc_name(Server),
-    Debug = gen:debug_options(Name, Options),
+    Debug = gen:debug_options(Name, Opts),
     PrevState = undefined,
     S = #{
       callback_mode => state_functions,
       module => Module,
       name => Name,
       prev_state => PrevState,
-      state => PrevState, % Will be discarded by loop_event_state_ops
-      state_data => StateData,
+      state => PrevState, % Will be discarded by loop_event_transition_ops
+      data => Data,
       timer => undefined,
       postponed => [],
       hibernate => false},
     case collect_init_options(InitOps) of
-	{CallbackMode,StateOps} ->
-	    loop_event_state_ops(
+	{CallbackMode,Ops} ->
+	    loop_event_transition_ops(
 	      Parent, Debug,
 	      S#{callback_mode := CallbackMode},
 	      [],
 	      {event,undefined}, % Will be discarded by {postpone,false}
-	      PrevState, State, StateData,
-	      StateOps++[{postpone,false}]);
+	      PrevState, State, Data,
+	      Ops++[{postpone,false}]);
 	[Reason] ->
 	    ?TERMINATE(Reason, Debug, S, [])
     end.
@@ -495,13 +496,13 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 %%%==========================================================================
 %%%  gen callbacks
 
-init_it(Starter, Parent, ServerRef, Module, Args, Options) ->
+init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
     try Module:init(Args) of
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Options)
+	    init_result(Starter, Parent, ServerRef, Module, Result, Opts)
     catch
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Options);
+	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
 	Class:Reason ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -511,18 +512,14 @@ init_it(Starter, Parent, ServerRef, Module, Args, Options) ->
 %%---------------------------------------------------------------------------
 %% gen callbacks helpers
 
-init_result(Starter, Parent, ServerRef, Module, Result, Options) ->
+init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
-	{ok,State,StateData} ->
+	{ok,State,Data} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(
-	      Module, Options, State, StateData, ServerRef,
-	      [], Parent);
-	{ok,State,StateData,StateOps} ->
+	    enter(Module, Opts, State, Data, ServerRef, [], Parent);
+	{ok,State,Data,Ops} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(
-	      Module, Options, State, StateData, ServerRef,
-	      StateOps, Parent);
+	    enter(Module, Opts, State, Data, ServerRef, Ops, Parent);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -549,32 +546,32 @@ system_terminate(Reason, _Parent, Debug, S) ->
 system_code_change(
   #{module := Module,
     state := State,
-    state_data := StateData} = S,
+    data := Data} = S,
   _Mod, OldVsn, Extra) ->
     case
-	try Module:code_change(OldVsn, State, StateData, Extra)
+	try Module:code_change(OldVsn, State, Data, Extra)
 	catch
 	    Result -> Result
 	end
     of
-	{ok,{NewState,NewStateData}} ->
+	{ok,{NewState,NewData}} ->
 	    {ok,
 	     S#{
 	       state := NewState,
-	       state_data := NewStateData}};
+	       data := NewData}};
 	Error ->
 	    Error
     end.
 
-system_get_state(#{state := State, state_data := StateData}) ->
-    {ok,{State,StateData}}.
+system_get_state(#{state := State, data := Data}) ->
+    {ok,{State,Data}}.
 
 system_replace_state(
   StateFun,
   #{state := State,
-    state_data := StateData} = S) ->
-    {NewState,NewStateData} = Result = StateFun({State,StateData}),
-    {ok,Result,S#{state := NewState, state_data := NewStateData}}.
+    data := Data} = S) ->
+    {NewState,NewData} = Result = StateFun({State,Data}),
+    {ok,Result,S#{state := NewState, data := NewData}}.
 
 format_status(
   Opt,
@@ -642,7 +639,7 @@ wakeup_from_hibernate(Parent, Debug, S) ->
     loop_receive(Parent, Debug, S).
 
 %%%==========================================================================
-%%% STate Machine engine implementation of proc_lib/gen server
+%%% State Machine engine implementation of proc_lib/gen server
 
 %% Server loop, consists of all loop* functions
 %% and some detours through sys and proc_lib
@@ -717,7 +714,7 @@ loop_events(
     module := Module,
     prev_state := PrevState,
     state := State,
-    state_data := StateData} = S,
+    data := Data} = S,
   [{Type,Content} = Event|Events] = Q, Timer) ->
     _ = (Timer =/= undefined) andalso
 	cancel_timer(Timer),
@@ -728,7 +725,7 @@ loop_events(
 	    state_functions ->
 		State
 	end,
-    try Module:Func(Type, Content, PrevState, State, StateData) of
+    try Module:Func(Type, Content, PrevState, State, Data) of
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, Event, Result)
@@ -741,7 +738,7 @@ loop_events(
 	    %% of calling a nonexistent state function
 	    case erlang:get_stacktrace() of
 		[{Module,Func,
-		  [Type,Content,PrevState,State,StateData]=Args,
+		  [Type,Content,PrevState,State,Data]=Args,
 		  _}
 		 |Stacktrace] ->
 		    terminate(
@@ -760,18 +757,18 @@ loop_events(
 %% Interpret all callback return value variants
 loop_event_result(
   Parent, Debug,
-  #{state := State, state_data := StateData} = S,
+  #{state := State, data := Data} = S,
   Events, Event, Result) ->
     case Result of
 	{stop,Reason} ->
 	    ?TERMINATE(Reason, Debug, S, [Event|Events]);
-	{stop,Reason,NewStateData} ->
+	{stop,Reason,NewData} ->
 	    ?TERMINATE(
 	      Reason, Debug,
-	      S#{state_data := NewStateData},
+	      S#{data := NewData},
 	      [Event|Events]);
-	{stop,Reason,Reply,NewStateData} ->
-	    NewS = S#{state_data := NewStateData},
+	{stop,Reason,Reply,NewData} ->
+	    NewS = S#{data := NewData},
 	    Q = [Event|Events],
 	    Replies =
 		if
@@ -785,43 +782,43 @@ loop_event_result(
 		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
 	    ?TERMINATE(
-	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
+	      {bad_return_value,{stop,Reason,BadReplies,NewData}},
 	      Debug, NewS, Q);
-	{next_state,NewState,NewStateData} ->
-	    loop_event_state_ops(
+	{next_state,NewState,NewData} ->
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewStateData, []);
-	{next_state,NewState,NewStateData,StateOps}
-	  when is_list(StateOps) ->
-	    loop_event_state_ops(
+	      State, NewState, NewData, []);
+	{next_state,NewState,NewData,Ops}
+	  when is_list(Ops) ->
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewStateData, StateOps);
-	{keep_state,NewStateData} ->
-	    loop_event_state_ops(
+	      State, NewState, NewData, Ops);
+	{keep_state,NewData} ->
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, State, NewStateData, []);
-	{keep_state,NewStateData,StateOps} ->
-	    loop_event_state_ops(
+	      State, State, NewData, []);
+	{keep_state,NewData,Ops} ->
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, State, NewStateData, StateOps);
+	      State, State, NewData, Ops);
 	{keep_state_and_data} ->
-	    loop_event_state_ops(
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, State, StateData, []);
-	{keep_state_and_data,StateOps} ->
-	    loop_event_state_ops(
+	      State, State, Data, []);
+	{keep_state_and_data,Ops} ->
+	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
-	      State, State, StateData, StateOps);
+	      State, State, Data, Ops);
 	_ ->
 	    ?TERMINATE(
 	      {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
-loop_event_state_ops(
+loop_event_transition_ops(
   Parent, Debug0, #{postponed := P0} = S, Events, Event,
-  State, NewState, NewStateData, StateOps) ->
-    case collect_state_options(StateOps) of
-	{Postpone,Hibernate,Timeout,Operations} ->
+  State, NewState, NewData, Ops) ->
+    case collect_transition_options(Ops) of
+	{Postpone,Hibernate,Timeout,Actions} ->
 	    P1 = % Move current event to postponed if Postpone
 		case Postpone of
 		    true ->
@@ -837,8 +834,8 @@ loop_event_state_ops(
 			{lists:reverse(P1, Events),[]}
 		end,
 	    %%
-	    case process_state_operations(
-		   Operations, Debug0, S, Q2, P2) of
+	    case process_transition_actions(
+		   Actions, Debug0, S, Q2, P2) of
 		{Debug,Q3,P} ->
 		    NewDebug =
 			sys_debug(
@@ -865,7 +862,7 @@ loop_event_state_ops(
 		      S#{
 			prev_state := State,
 			state := NewState,
-			state_data := NewStateData,
+			data := NewData,
 			timer := Timer,
 			hibernate := Hibernate,
 			postponed := P},
@@ -892,92 +889,96 @@ collect_init_options(InitOps) ->
 	    collect_init_options([InitOps], state_functions, [])
     end.
 %% Keep the last of each kind
-collect_init_options([], CallbackMode, StateOps) ->
-    {CallbackMode,lists:reverse(StateOps)};
-collect_init_options([InitOp|InitOps] = IOIOs, CallbackMode, StateOps) ->
+collect_init_options([], CallbackMode, Ops) ->
+    {CallbackMode,lists:reverse(Ops)};
+collect_init_options(
+  [InitOp|InitOps] = AllInitOps, CallbackMode, Ops) ->
     case InitOp of
 	{callback_mode,Mode}
 	  when Mode =:= state_functions;
 	       Mode =:= handle_event_function ->
-	    collect_init_options(InitOps, Mode, StateOps);
+	    collect_init_options(InitOps, Mode, Ops);
 	{callback_mode,_} ->
-	    [{bad_init_ops,IOIOs}];
-	_ -> % Collect others as StateOps
+	    [{bad_init_ops,AllInitOps}];
+	_ -> % Collect others as Ops
 	    collect_init_options(
-	      InitOps, CallbackMode, [InitOp|StateOps])
+	      InitOps, CallbackMode, [InitOp|Ops])
     end.
 
-collect_state_options(StateOps) ->
+collect_transition_options(Ops) ->
     if
-	is_list(StateOps) ->
-	    collect_state_options(StateOps, false, false, undefined, []);
+	is_list(Ops) ->
+	    collect_transition_options(
+	      Ops, false, false, undefined, []);
 	true ->
-	    collect_state_options([StateOps], false, false, undefined, [])
+	    collect_transition_options(
+	      [Ops], false, false, undefined, [])
     end.
 %% Keep the last of each kind
-collect_state_options(
-  [], Postpone, Hibernate, Timeout, Operations) ->
-    {Postpone,Hibernate,Timeout,lists:reverse(Operations)};
-collect_state_options(
-  [StateOp|StateOps] = SOSOs, Postpone, Hibernate, Timeout, Operations) ->
-    case StateOp of
+collect_transition_options(
+  [], Postpone, Hibernate, Timeout, Actions) ->
+    {Postpone,Hibernate,Timeout,lists:reverse(Actions)};
+collect_transition_options(
+  [Op|Ops] = AllOps, Postpone, Hibernate, Timeout, Actions) ->
+    case Op of
 	postpone ->
-	    collect_state_options(
-	      StateOps, true, Hibernate, Timeout, Operations);
+	    collect_transition_options(
+	      Ops, true, Hibernate, Timeout, Actions);
 	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
-	    collect_state_options(
-	      StateOps, NewPostpone, Hibernate, Timeout, Operations);
+	    collect_transition_options(
+	      Ops, NewPostpone, Hibernate, Timeout, Actions);
 	{postpone,_} ->
-	    [{bad_state_ops,SOSOs}];
+	    [{bad_ops,AllOps}];
 	hibernate ->
-	    collect_state_options(
-	      StateOps, Postpone, true, Timeout, Operations);
+	    collect_transition_options(
+	      Ops, Postpone, true, Timeout, Actions);
 	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
-	    collect_state_options(
-	      StateOps, Postpone, NewHibernate, Timeout, Operations);
+	    collect_transition_options(
+	      Ops, Postpone, NewHibernate, Timeout, Actions);
 	{hibernate,_} ->
-	    [{bad_state_ops,SOSOs}];
+	    [{bad_ops,AllOps}];
 	{timeout,infinity,_} -> % Ignore since it will never time out
-	    collect_state_options(
-	      StateOps, Postpone, Hibernate, undefined, Operations);
+	    collect_transition_options(
+	      Ops, Postpone, Hibernate, undefined, Actions);
 	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
-	    collect_state_options(
-	      StateOps, Postpone, Hibernate, NewTimeout, Operations);
+	    collect_transition_options(
+	      Ops, Postpone, Hibernate, NewTimeout, Actions);
 	{timeout,_,_} ->
-	    [{bad_state_ops,SOSOs}];
-	_ -> % Collect others as operations
-	    collect_state_options(
-	      StateOps, Postpone, Hibernate, Timeout, [StateOp|Operations])
+	    [{bad_ops,AllOps}];
+	_ -> % Collect others as actions
+	    collect_transition_options(
+	      Ops, Postpone, Hibernate, Timeout, [Op|Actions])
     end.
 
-process_state_operations([], Debug, _S, Q, P) ->
+process_transition_actions([], Debug, _S, Q, P) ->
     {Debug,Q,P};
-process_state_operations([Operation|Operations] = OOs, Debug, S, Q, P) ->
-    case Operation of
+process_transition_actions(
+  [Action|Actions] = AllActions, Debug, S, Q, P) ->
+    case Action of
 	{reply,{_To,_Tag}=Client,Reply} ->
 	    NewDebug = do_reply(Debug, S, Client, Reply),
-	    process_state_operations(Operations, NewDebug, S, Q, P);
+	    process_transition_actions(Actions, NewDebug, S, Q, P);
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
-		    process_state_operations(
-		      Operations, Debug, S, [{Type,Content}|Q], P);
+		    process_transition_actions(
+		      Actions, Debug, S, [{Type,Content}|Q], P);
 		false ->
-		    [{bad_state_ops,OOs},Debug]
+		    [{bad_ops,AllActions},Debug]
 	    end;
 	_ ->
-	    %% All others are remove operations
-	    case remove_fun(Operation) of
+	    %% All others are remove actions
+	    case remove_fun(Action) of
 		false ->
-		    process_state_operations(
-		      Operations, Debug, S, Q, P);
+		    process_transition_actions(
+		      Actions, Debug, S, Q, P);
 		undefined ->
-		    [{bad_state_ops,OOs},Debug];
+		    [{bad_ops,AllActions},Debug];
 		RemoveFun when is_function(RemoveFun, 2) ->
 		    case remove_event(RemoveFun, Q, P) of
 			{NewQ,NewP} ->
-			    process_state_operations(
-			      Operations, Debug, S, NewQ, NewP);
+			    process_transition_actions(
+			      Actions, Debug, S, NewQ, NewP);
 			Error ->
 			    Error ++ [Debug]
 		    end;
@@ -1023,7 +1024,8 @@ remove_event(RemoveFun, Q, P) ->
 	    [Class,Reason,erlang:get_stacktrace()]
     end.
 
-%% Do the given state operation and create an event removal predicate fun()
+%% Do the given transition action and create
+%% an event removal predicate fun()
 remove_fun({remove_event,Type,Content}) ->
     fun (T, C) when T =:= Type, C =:= Content -> true;
 	(_, _) -> false
@@ -1104,9 +1106,9 @@ cancel_timer(TimerRef) ->
 terminate(
   Class, Reason, Stacktrace, Debug,
   #{module := Module,
-    state := State, state_data := StateData} = S,
+    state := State, data := Data} = S,
   Q) ->
-    try Module:terminate(Reason, State, StateData) of
+    try Module:terminate(Reason, State, Data) of
 	_ -> ok
     catch
 	_ -> ok;
@@ -1137,7 +1139,7 @@ error_info(
   Class, Reason, Stacktrace, Debug,
   #{name := Name, callback_mode := CallbackMode,
     state := State, postponed := P},
-  Q, FmtStateData) ->
+  Q, FmtData) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1190,7 +1192,7 @@ error_info(
 	   [Event|_] ->
 	       [Event]
        end] ++
-	  [FmtStateData,Class,FixedReason,
+	  [FmtData,Class,FixedReason,
 	   State,CallbackMode,length(Q),length(P)] ++
 	  case FixedStacktrace of
 	      [] ->
@@ -1205,22 +1207,22 @@ error_info(
 %% Call Module:format_status/2 or return a default value
 format_status(
   Opt, PDict,
-  #{module := Module, state := State, state_data := StateData}) ->
+  #{module := Module, state := State, data := Data}) ->
     case erlang:function_exported(Module, format_status, 2) of
 	true ->
-	    try Module:format_status(Opt, [PDict,State,StateData])
+	    try Module:format_status(Opt, [PDict,State,Data])
 	    catch
 		Result -> Result;
 		_:_ ->
-		    format_status_default(Opt, State, StateData)
+		    format_status_default(Opt, State, Data)
 	    end;
 	false ->
-	    format_status_default(Opt, State, StateData)
+	    format_status_default(Opt, State, Data)
     end.
 
 %% The default Module:format_status/2
-format_status_default(Opt, State, StateData) ->
-    SSD = {State,StateData},
+format_status_default(Opt, State, Data) ->
+    SSD = {State,Data},
     case Opt of
 	terminate ->
 	    SSD;

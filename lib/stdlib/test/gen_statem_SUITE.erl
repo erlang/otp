@@ -573,10 +573,10 @@ call_format_status(Config) when is_list(Config) ->
 error_format_status(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
-    StateData = "called format_status",
+    Data = "called format_status",
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {state_data,StateData}), []),
+	  ?MODULE, start_arg(Config, {data,Data}), []),
     %% bad return value in the gen_statem loop
     {{bad_return_value,badreturn},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
@@ -585,7 +585,7 @@ error_format_status(Config) when is_list(Config) ->
 	 {Pid,
 	  "** State machine"++_,
 	  [Pid,{{call,_},badreturn},
-	   {formatted,idle,StateData},
+	   {formatted,idle,Data},
 	   exit,{bad_return_value,badreturn}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
@@ -609,10 +609,10 @@ error_format_status(Config) when is_list(Config) ->
 terminate_crash_format(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
-    StateData = crash_terminate,
+    Data = crash_terminate,
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {state_data,StateData}), []),
+	  ?MODULE, start_arg(Config, {data,Data}), []),
     stop_it(Pid),
     Self = self(),
     receive
@@ -621,7 +621,7 @@ terminate_crash_format(Config) when is_list(Config) ->
 	  "** State machine"++_,
 	  [Pid,
 	   {{call,{Self,_}},stop},
-	   {formatted,idle,StateData},
+	   {formatted,idle,Data},
 	   exit,{crash,terminate}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
@@ -647,7 +647,7 @@ get_state(Config) when is_list(Config) ->
     State = self(),
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {state_data,State}), []),
+	  ?MODULE, start_arg(Config, {data,State}), []),
     {idle,State} = sys:get_state(Pid),
     {idle,State} = sys:get_state(Pid, 5000),
     stop_it(Pid),
@@ -656,7 +656,7 @@ get_state(Config) when is_list(Config) ->
     %% already checked by the previous test)
     {ok,Pid2} =
 	gen_statem:start(
-	  {local,gstm}, ?MODULE, start_arg(Config, {state_data,State}), []),
+	  {local,gstm}, ?MODULE, start_arg(Config, {data,State}), []),
     {idle,State} = sys:get_state(gstm),
     {idle,State} = sys:get_state(gstm, 5000),
     stop_it(Pid2),
@@ -664,7 +664,7 @@ get_state(Config) when is_list(Config) ->
     %% check that get_state works when pid is sys suspended
     {ok,Pid3} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {state_data,State}), []),
+	  ?MODULE, start_arg(Config, {data,State}), []),
     {idle,State} = sys:get_state(Pid3),
     ok = sys:suspend(Pid3),
     {idle,State} = sys:get_state(Pid3, 5000),
@@ -676,7 +676,7 @@ replace_state(Config) when is_list(Config) ->
     State = self(),
     {ok, Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {state_data,State}), []),
+	  ?MODULE, start_arg(Config, {data,State}), []),
     {idle,State} = sys:get_state(Pid),
     NState1 = "replaced",
     Replace1 = fun({StateName, _}) -> {StateName,NState1} end,
@@ -1124,8 +1124,8 @@ init(hiber) ->
     {ok,hiber_idle,[]};
 init(hiber_now) ->
     {ok,hiber_idle,[],[hibernate]};
-init({state_data, StateData}) ->
-    {ok,idle,StateData};
+init({data, Data}) ->
+    {ok,idle,Data};
 init({init_ops,Arg,InitOps}) ->
     case init(Arg) of
 	{ok,State,Data,Ops} ->
@@ -1136,7 +1136,7 @@ init({init_ops,Arg,InitOps}) ->
 	    Other
     end;
 init([]) ->
-    {ok,idle,state_data}.
+    {ok,idle,data}.
 
 terminate(_, _State, crash_terminate) ->
     exit({crash,terminate});
@@ -1362,20 +1362,20 @@ unwrap_state(State) ->
 
 wrap_result(Result) ->
     case Result of
-	{next_state,NewState,NewStateData} ->
-	    {next_state,[NewState],NewStateData};
-	{next_state,NewState,NewStateData,StateOps} ->
-	    {next_state,[NewState],NewStateData,StateOps};
+	{next_state,NewState,NewData} ->
+	    {next_state,[NewState],NewData};
+	{next_state,NewState,NewData,StateOps} ->
+	    {next_state,[NewState],NewData,StateOps};
 	Other ->
 	    Other
     end.
 
 
 
-code_change(_OldVsn, State, StateData, _Extra) ->
-    {ok,State,StateData}.
+code_change(_OldVsn, State, Data, _Extra) ->
+    {ok,State,Data}.
 
-format_status(terminate, [_Pdict,State,StateData]) ->
-    {formatted,State,StateData};
-format_status(normal, [_Pdict,_State,_StateData]) ->
+format_status(terminate, [_Pdict,State,Data]) ->
+    {formatted,State,Data};
+format_status(normal, [_Pdict,_State,_Data]) ->
     [format_status_called].
