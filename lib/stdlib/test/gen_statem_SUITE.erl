@@ -1153,7 +1153,8 @@ idle(cast, {connect,Pid}, _, _, Data) ->
     Pid ! accept,
     {next_state,wfor_conf,Data};
 idle({call,From}, connect, _, _, Data) ->
-    {next_state,wfor_conf,Data,[{reply,From,accept}]};
+    gen_statem:reply(From, accept),
+    {next_state,wfor_conf,Data};
 idle(cast, badreturn, _, _, _Data) ->
     badreturn;
 idle({call,_From}, badreturn, _, _, _Data) ->
@@ -1161,7 +1162,8 @@ idle({call,_From}, badreturn, _, _, _Data) ->
 idle({call,From}, {delayed_answer,T}, _, _, Data) ->
     receive
     after T ->
-	    throw({keep_state,Data,{reply,From,delayed}})
+	    gen_statem:reply({reply,From,delayed}),
+	    throw({keep_state,Data})
     end;
 idle({call,From}, {timeout,Time}, _, State, _Data) ->
     {next_state,timeout,{From,Time},
@@ -1200,8 +1202,8 @@ timeout2(_, _, _, State, Data) ->
     {next_state,State,Data}.
 
 timeout3(info, {timeout,TRef2,Result}, _, _, {From,TRef2}) ->
-    {next_state,idle,state,
-     [{reply,From,Result}]};
+    gen_statem:reply([{reply,From,Result}]),
+    {next_state,idle,state};
 timeout3(_, _, _, State, Data) ->
     {next_state,State,Data}.
 

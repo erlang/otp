@@ -389,9 +389,12 @@ call(ServerRef, Request, Timeout) ->
     end.
 
 %% Reply from a state machine callback to whom awaits in call/2
--spec reply(ReplyOperation :: reply_operation()) -> ok.
+-spec reply([reply_operation()] | reply_operation()) -> ok.
 reply({reply,{_To,_Tag}=Client,Reply}) ->
-    reply(Client, Reply).
+    reply(Client, Reply);
+reply(Replies) when is_list(Replies) ->
+    [reply(Reply) || Reply <- Replies],
+    ok.
 %%
 -spec reply(Client :: client(), Reply :: term()) -> ok.
 reply({To,Tag}, Reply) ->

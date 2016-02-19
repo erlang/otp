@@ -892,7 +892,10 @@ erlang:'!'            -----> Module:StateName/5
 	  </seealso> argument to the
 	  <seealso marker="#state_function">state function</seealso>.
 	  <c><anno>Client</anno></c> and <c><anno>Reply</anno></c>
-	  an also be specified using <c><anno>ReplyOperation</anno></c>.
+	  can also be specified using a
+	  <seealso marker="#type-reply_operation">
+	    <c>reply_operation()</c>
+	  </seealso> and multiple replies with a list of them.
 	</p>
 	<note>
 	  <p>A reply sent with this function will not be visible
