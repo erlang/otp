@@ -475,8 +475,9 @@ erlang:'!'            -----> Module:StateName/5
 	 list order.  This matters for <c>next_event</c> where
 	 the last one in the list will become the next event to present
 	 to the state functions.  Regarding the other operations
-	 it is only for <c>{remove_event,<anno>EventPredicate</anno>}</c>
-	 that the order may matter.
+	 it is only for <c>remove_event</c> with
+	 <c><anno>EventPredicate</anno></c>
+	 and for <c>reply_operation()</c> that the order may matter.
 	</p>
 	<taglist>
 	  <tag>
@@ -583,19 +584,6 @@ erlang:'!'            -----> Module:StateName/5
 	  </item>
 	  <tag>
 	    <c>
-	      {next_state,<anno>StateOps</anno>}
-	    </c>
-	  </tag>
-	  <item>The same as
-	    <c>
-	      {next_state,State,StateData,<anno>StateOps</anno>}
-	    </c>but keeps the old <c>State</c> and <c>StateData</c>.
-	    Believe it or not, but this one has actually
-	    been proven useful to <c>throw/1</c> from deep down
-	    in the state logic.
-	  </item>
-	  <tag>
-	    <c>
 	      {next_state,<anno>NewState</anno>,<anno>NewStateData</anno>}
 	    </c>
 	  </tag>
@@ -614,8 +602,47 @@ erlang:'!'            -----> Module:StateName/5
 	  </tag>
 	  <item>The gen_statem will do a state transition to
 	    <c><anno>NewState</anno></c>
-	    (which may be the same as <c>State</c>)
-	    and execute all <c>StateOps</c>
+	    (which may be the same as the current state)
+	    and execute all <c><anno>StateOps</anno></c>
+	  </item>
+	  <tag>
+	    <c>
+	      {keep_state,<anno>NewStateData</anno>}}
+	    </c>
+	  </tag>
+	  <item>The same as
+	    <c>
+	      {keep_state,<anno>NewStateData</anno>,[]}
+	    </c>
+	  </item>
+	  <tag>
+	    <c>
+	      {keep_state,<anno>NewStateData</anno>,<anno>StateOps</anno>}
+	    </c>
+	  </tag>
+	  <item>The gen_statem will keep the current state, or
+	    do a state transition to the current state if you like,
+	    and execute all <c><anno>StateOps</anno></c>
+	  </item>
+	  <tag>
+	    <c>
+	      {keep_state_and_data}
+	    </c>
+	  </tag>
+	  <item>The same as
+	    <c>
+	      {keep_state_and_data,[]}
+	    </c>
+	  </item>
+	  <tag>
+	    <c>
+	      {keep_state_and_data,<anno>StateOps</anno>}
+	    </c>
+	  </tag>
+	  <item>The gen_statem will keep the current state, or
+	    do a state transition to the current state if you like,
+	    also keep the current state data,
+	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
 	</taglist>
       </desc>

@@ -114,14 +114,20 @@
      Reason :: term(),
      Replies :: [reply_operation()] | reply_operation(),
      NewStateData :: state_data()} |
-    {'next_state', % {next_state,State,StateData,StateOps} % Actually useful
-     StateOps :: [state_op()] | state_op()} |
     {'next_state', % {next_state,NewState,NewStateData,[]}
      NewState :: state(),
      NewStateData :: state_data()} |
     {'next_state', % State transition, maybe to the same state
      NewState :: state(),
      NewStateData :: state_data(),
+     StateOps :: [state_op()] | state_op()} |
+    {'keep_state', % {keep_state,NewStateData,[]}
+     NewStateData :: state_data()} |
+    {'keep_state',
+     NewStateData :: state_data(),
+     StateOps :: [state_op()] | state_op()} |
+    {'keep_state_and_data'} | % {keep_state_and_data,[]}
+    {'keep_state_and_data',
      StateOps :: [state_op()] | state_op()}.
 
 %% The state machine init function.  It is called only once and
@@ -477,7 +483,7 @@ enter(Module, Options, State, StateData, Server, InitOps, Parent) ->
 	      S#{callback_mode := CallbackMode},
 	      [],
 	      {event,undefined}, % Will be discarded by {postpone,false}
-	      State, StateData,
+	      PrevState, State, StateData,
 	      StateOps++[{postpone,false}]);
 	[Reason] ->
 	    ?TERMINATE(Reason, Debug, S, [])
@@ -749,7 +755,10 @@ loop_events(
     end.
 
 %% Interpret all callback return value variants
-loop_event_result(Parent, Debug, S, Events, Event, Result) ->
+loop_event_result(
+  Parent, Debug,
+  #{state := State, state_data := StateData} = S,
+  Events, Event, Result) ->
     case Result of
 	{stop,Reason} ->
 	    ?TERMINATE(Reason, Debug, S, [Event|Events]);
@@ -775,28 +784,39 @@ loop_event_result(Parent, Debug, S, Events, Event, Result) ->
 	    ?TERMINATE(
 	      {bad_return_value,{stop,Reason,BadReplies,NewStateData}},
 	      Debug, NewS, Q);
-	{next_state,StateOps} ->
-	    #{state := State, state_data := StateData} = S,
-	    loop_event_state_ops(
-	      Parent, Debug, S, Events, Event,
-	      State, StateData, StateOps);
 	{next_state,NewState,NewStateData} ->
 	    loop_event_state_ops(
 	      Parent, Debug, S, Events, Event,
-	      NewState, NewStateData, []);
+	      State, NewState, NewStateData, []);
 	{next_state,NewState,NewStateData,StateOps}
 	  when is_list(StateOps) ->
 	    loop_event_state_ops(
 	      Parent, Debug, S, Events, Event,
-	      NewState, NewStateData, StateOps);
+	      State, NewState, NewStateData, StateOps);
+	{keep_state,NewStateData} ->
+	    loop_event_state_ops(
+	      Parent, Debug, S, Events, Event,
+	      State, State, NewStateData, []);
+	{keep_state,NewStateData,StateOps} ->
+	    loop_event_state_ops(
+	      Parent, Debug, S, Events, Event,
+	      State, State, NewStateData, StateOps);
+	{keep_state_and_data} ->
+	    loop_event_state_ops(
+	      Parent, Debug, S, Events, Event,
+	      State, State, StateData, []);
+	{keep_state_and_data,StateOps} ->
+	    loop_event_state_ops(
+	      Parent, Debug, S, Events, Event,
+	      State, State, StateData, StateOps);
 	_ ->
 	    ?TERMINATE(
 	      {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
 loop_event_state_ops(
-  Parent, Debug0, #{state := State, postponed := P0} = S, Events, Event,
-  NewState, NewStateData, StateOps) ->
+  Parent, Debug0, #{postponed := P0} = S, Events, Event,
+  State, NewState, NewStateData, StateOps) ->
     case collect_state_options(StateOps) of
 	{Postpone,Hibernate,Timeout,Operations} ->
 	    P1 = % Move current event to postponed if Postpone

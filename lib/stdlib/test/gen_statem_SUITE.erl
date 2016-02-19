@@ -1158,10 +1158,10 @@ idle(cast, badreturn, _, _, _Data) ->
     badreturn;
 idle({call,_From}, badreturn, _, _, _Data) ->
     badreturn;
-idle({call,From}, {delayed_answer,T}, _, _, _) ->
+idle({call,From}, {delayed_answer,T}, _, _, Data) ->
     receive
     after T ->
-	    throw({next_state,{reply,From,delayed}})
+	    throw({keep_state,Data,{reply,From,delayed}})
     end;
 idle({call,From}, {timeout,Time}, _, State, _Data) ->
     {next_state,timeout,{From,Time},
@@ -1171,7 +1171,7 @@ idle(Type, Content, PrevState, State, Data) ->
 	undefined ->
 	    case Type of
 		{call,From} ->
-		    throw({next_state,[{reply,From,'eh?'}]});
+		    throw({keep_state,Data,[{reply,From,'eh?'}]});
 		_ ->
 		    throw(
 		      {stop,{unexpected,State,PrevState,Type,Content}})
@@ -1209,7 +1209,7 @@ wfor_conf({call,From}, confirm, _, _, Data) ->
     {next_state,connected,Data,
      [{reply,From,yes}]};
 wfor_conf(cast, {ping,_,_}, _, _, _) ->
-    {next_state,[postpone]};
+    {keep_state_and_data,[postpone]};
 wfor_conf(cast, confirm, _, _, Data) ->
     {next_state,connected,Data};
 wfor_conf(Type, Content, PrevState, State, Data) ->
@@ -1220,7 +1220,7 @@ wfor_conf(Type, Content, PrevState, State, Data) ->
 		    {next_state,idle,Data,
 		     [{reply,From,'eh?'}]};
 		_ ->
-		    throw({next_state,[]})
+		    throw({keep_state_and_data})
 	    end;
 	Result ->
 	    Result
@@ -1341,26 +1341,32 @@ handle_common_events(_, _, _, _, _) ->
 %% states.  Note that the state from init/1 is not wrapped
 %% so both atom and non-atom states are tested.
 handle_event(Type, Event, PrevState, State, Data) ->
-    PrevStateName = unwrap(PrevState),
-    StateName = unwrap(State),
-    case
-	?MODULE:StateName(
+    PrevStateName = unwrap_state(PrevState),
+    StateName = unwrap_state(State),
+    try ?MODULE:StateName(
 	   Type, Event, PrevStateName, StateName, Data) of
+	Result ->
+	    wrap_result(Result)
+    catch
+	throw:Result ->
+	    erlang:raise(
+	      throw, wrap_result(Result), erlang:get_stacktrace())
+    end.
+
+unwrap_state([State]) ->
+    State;
+unwrap_state(State) ->
+    State.
+
+wrap_result(Result) ->
+    case Result of
 	{next_state,NewState,NewStateData} ->
-	    {next_state,wrap(NewState),NewStateData};
+	    {next_state,[NewState],NewStateData};
 	{next_state,NewState,NewStateData,StateOps} ->
-	    {next_state,wrap(NewState),NewStateData,StateOps};
+	    {next_state,[NewState],NewStateData,StateOps};
 	Other ->
 	    Other
     end.
-
-unwrap([State]) ->
-    State;
-unwrap(State) ->
-    State.
-
-wrap(State) ->
-    [State].
 
 
 
