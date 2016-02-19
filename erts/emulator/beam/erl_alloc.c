@@ -774,9 +774,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #if HAVE_ERTS_MSEG
     init.mseg.nos = erts_no_schedulers;
     erts_mseg_init(&init.mseg);
-# if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-    erts_mmap_init(&erts_literal_mmapper, &init.mseg.literal_mmap);
-# endif
 #endif
 
     erts_alcu_init(&init.alloc_util);
