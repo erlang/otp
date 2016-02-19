@@ -182,6 +182,8 @@ cipher_tests() ->
      rc4_rsa_cipher_suites,
      rc4_ecdh_rsa_cipher_suites,
      rc4_ecdsa_cipher_suites,
+     des_rsa_cipher_suites,
+     des_ecdh_rsa_cipher_suites,
      default_reject_anonymous].
 
 cipher_tests_ec() ->
@@ -444,7 +446,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa,des_cbc,sha,no_export}]} | 
+			    [{ciphers,[{rsa, aes_128_cbc, sha}]} | 
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -453,7 +455,7 @@ connection_info(Config) when is_list(Config) ->
     Version = 
 	tls_record:protocol_version(tls_record:highest_protocol_version([])),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa, des_cbc, sha}}},
+    ServerMsg = ClientMsg = {ok, {Version, {rsa, aes_128_cbc, sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -1950,6 +1952,23 @@ rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
     Ciphers = ssl_test_lib:rc4_suites(NVersion),
     run_suites(Ciphers, Version, Config, rc4_ecdsa).
 
+%%-------------------------------------------------------------------
+des_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+des_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:des_suites(NVersion),
+    run_suites(Ciphers, Version, Config, des_rsa).
+%-------------------------------------------------------------------
+des_ecdh_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+des_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:des_suites(NVersion),
+    run_suites(Ciphers, Version, Config, des_dhe_rsa).
+
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
     [{doc,"Test that by default anonymous cipher suites are rejected "}].
@@ -2686,7 +2705,12 @@ defaults(Config) when is_list(Config)->
     true = lists:member(sslv3, Available),
     false = lists:member(sslv3, Supported),
     false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
-    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)).
+    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)),
+    false = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites()),
+    true = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites(all)),
+    false = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites()),
+    true = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites(all)).
+
 %%--------------------------------------------------------------------
 reuseaddr() ->
     [{doc,"Test reuseaddr option"}].
@@ -3974,7 +3998,15 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    rc4_ecdsa ->
 		{?config(client_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ?config(server_ecdsa_opts, Config)]}
+		  ?config(server_ecdsa_opts, Config)]};
+	    des_dhe_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_rsa_opts, Config)]};
+	    des_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_opts, Config)]}
 	end,
 
     Result =  lists:map(fun(Cipher) ->
