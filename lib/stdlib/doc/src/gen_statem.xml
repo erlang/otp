@@ -207,19 +207,19 @@ erlang:'!'            -----> Module:StateName/5
 	  </seealso> above.
 	</p>
 	<p>It can be:</p>
-	<list type="bulleted">
-          <item>the <c>pid()</c>,</item>
-          <item><c><anno>Name</anno></c>,
-	    if the gen_statem is locally registered,
+	<taglist>
+	  <tag><c>pid()</c></tag>
+	  <tag><c>LocalName</c></tag>
+	  <item>The gen_statem is locally registered.</item>
+	  <tag><c>Name, Node</c></tag>
+	  <item>The gen_statem is locally registered on another node.
 	  </item>
-          <item><c>{<anno>Name</anno>,<anno>Node</anno>}</c>,
-	    if the gen_statem is locally registered at another node, or
+	  <tag><c>GlobalName</c></tag>
+	  <item>The gen_statem is globally registered
+	    in <seealso marker="kernel:global"><c>global</c></seealso>.
 	  </item>
-          <item><c>{global,<anno>GlobalName</anno>}</c>,
-	    if the gen_statem is globally registered.
-	  </item>
-          <item><c>{via,<anno>RegMod</anno>,<anno>ViaName</anno>}</c>,
-	    if the gen_statem is registered through
+	  <tag><c>RegMod, ViaName</c></tag>
+	  <item>The gen_statem is registered through
 	    an alternative process registry.
 	    The registry callback module <c>RegMod</c>
 	    should export the functions
@@ -230,7 +230,7 @@ erlang:'!'            -----> Module:StateName/5
 	    Thus, <c>{via,global,GlobalName}</c> is the same as
 	    <c>{global,GlobalName}</c>.
 	  </item>
-        </list>
+	</taglist>
       </desc>
     </datatype>
     <datatype>
@@ -268,9 +268,10 @@ erlang:'!'            -----> Module:StateName/5
       <name name="client" />
       <desc>
 	<p>Client address to use when replying through for example the
-	  <seealso marker="#type-state_op">state_op()</seealso>
-	  <c>{reply,Client,Reply}</c> to a client
-	  that has called the gen_statem server using
+	  <seealso marker="#type-state_op">
+	    state_op() {reply,Client,Reply}
+	  </seealso>
+	  to a client that has called the gen_statem server using
 	  <seealso marker="#call/2">call/2</seealso>.
 	</p>
       </desc>
@@ -426,7 +427,6 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<taglist>
 	  <tag><c>postpone</c></tag>
-	  <tag><c>{postpone,<anno>Postpone</anno>}</c></tag>
 	  <item>If <c><anno>Postpone</anno> =:= true</c>
 	    or plain <c>postpone</c> postpone the current event
 	    to be retried after a state change.
@@ -437,7 +437,6 @@ erlang:'!'            -----> Module:StateName/5
 	    since there is no event to postpone in those cases.
 	  </item>
 	  <tag><c>hibernate</c></tag>
-	  <tag><c>{hibernate,<anno>Hibernate</anno>}</c></tag>
 	  <item>If <c><anno>Hibernate</anno> =:= true</c>
 	    or plain <c>hibernate</c> hibernate the gen_statem by calling
 	    <seealso marker="proc_lib#hibernate/3">
@@ -447,17 +446,16 @@ erlang:'!'            -----> Module:StateName/5
 	    is ignored as if an event just arrived and awakened
 	    the gen_statem.
 	  </item>
-	  <tag>
-	    <c>{timeout,<anno>Time</anno>,<anno>Msg</anno>}</c>
+	  <tag><c>timeout</c>
 	  </tag>
 	  <item>Generate an event of
 	    <seealso marker="#type-event_type">type <c>timeout</c></seealso>
 	    after <c><anno>Time</anno></c> milliseconds unless some other
 	    event is received before that time.  Note that a retried
 	    event counts just like a new in this respect.
-	    If <c>Time =:= infinity</c> or <c>Time =:= 0</c>
-	    no timer is started but for zero time the timeout
-	    event is immediately enqueued as the newest received.
+	    If <c>Time =:= infinity</c> no timer is started.
+	    If <c>Time =:= 0</c> the timeout event
+	    is immediately enqueued as the newest received.
 	    Also note that it is not possible nor needed
 	    to cancel this timeout using the
 	    <seealso marker="#type-state_operation">
@@ -480,58 +478,45 @@ erlang:'!'            -----> Module:StateName/5
 	 and for <c>reply_operation()</c> that the order may matter.
 	</p>
 	<taglist>
-	  <tag>
-	    <c>
-	      {next_event,<anno>EventType</anno>,<anno>EventContent</anno>}
-	    </c>
-	  </tag>
-	  <item>Insert the given event as the next to process.
+	  <tag><c>next_event</c></tag>
+	  <item>Insert the given <c><anno>EventType</anno></c>
+	    and <c><anno>EventContent</anno></c> the next to process.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
 	    </seealso> should be used when you want to reliably distinguish
 	    an event inserted this way from any external event.
 	  </item>
-	  <tag>
-	    <c>
-	      {remove_event,<anno>EventType</anno>,<anno>EventContent</anno>}
-	    </c>
-	  </tag>
+	  <tag><c>remove_event</c></tag>
 	  <item>Remove the oldest queued event
-	    that matches equal to the given event.
+	    that matches equal to <c><anno>EventType</anno></c>
+	    and <c><anno>EventContent</anno></c> or for which
+	    <c><anno>EventPredicate</anno></c> returns <c>true</c>.
 	  </item>
-	  <tag>
-	    <c>
-	      {remove_event,<anno>EventPredicate</anno>}
-	    </c>
-	  </tag>
-	  <item>Remove the oldest queued event for which
-	  the <c><anno>EventPredicate</anno></c> returns <c>true</c>.
-	  </item>
-	  <tag><c>{cancel_timer,<anno>TimerRef</anno>}</c></tag>
-	  <item>Uses <c><anno>TimerRef</anno></c> when calling
+	  <tag><c>cancel_timer</c></tag>
+	  <item>Cancel the timer by calling
 	    <seealso marker="erts:erlang#cancel_timer/2">
 	      <c>erlang:cancel_timer/2</c>
-	    </seealso> to cancel a timer, cleans the gen_statem's
-	    message queue from any late timeout message from
-	    the timer, and removes any late timeout message
-	    from the queued events using
+	    </seealso> with <c><anno>TimerRef</anno></c>,
+	    clean the process message queue from any late timeout message,
+	    and removes any late timeout message
+	    from the gen_statem event queue using
 	    <c>{remove_event,<anno>EventPredicate</anno>}</c> above.
 	    This is a convenience function that saves quite some
 	    lines of code and testing time over doing it from
 	    the primitives mentioned above.
 	  </item>
-	  <tag><c>{demonitor,<anno>MonitorRef</anno>}</c></tag>
-	  <item>Like <c>{cancel_timer,_}</c> above but for
+	  <tag><c>demonitor</c></tag>
+	  <item>Like <c>cancel_timer</c> above but for
 	    <seealso marker="erts:erlang#demonitor/2">
 	      <c>demonitor/2</c>
-	    </seealso>.
+	    </seealso> with <c><anno>MonitorRef</anno></c>.
 	  </item>
 	  <tag><c>{unlink,<anno>Id</anno>}</c></tag>
 	  <item>Like <c>{cancel_timer,_}</c> above but for
 	    <seealso marker="erts:erlang#unlink/1">
 	      <c>unlink/1</c>
-	    </seealso>.
+	    </seealso> with <c><anno>Id</anno></c>.
 	  </item>
 	</taglist>
       </desc>
@@ -539,109 +524,45 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="reply_operation" />
       <desc>
-	<taglist>
-	  <tag>
-	   <c>{reply,<anno>Client</anno>,<anno>Reply</anno>}</c>
-	  </tag>
-	  <item>Reply to a client that called
-	    <seealso marker="#call/2"><c>call/2</c></seealso>.
-            <c><anno>Client</anno></c> must be the term from the
-	    <seealso marker="#type-event_type">
-	      <c>{call,<anno>Client</anno>}</c>
-	    </seealso> argument to the
-	    <seealso marker="#state_function">state function</seealso>.
-	  </item>
-	</taglist>
+	<p>Reply to a client that called
+	  <seealso marker="#call/2"><c>call/2</c></seealso>.
+          <c><anno>Client</anno></c> must be the term from the
+	  <seealso marker="#type-event_type">
+	    <c>{call,<anno>Client</anno>}</c>
+	  </seealso> argument to the
+	  <seealso marker="#state_function">state function</seealso>.
+	</p>
       </desc>
     </datatype>
     <datatype>
       <name name="state_callback_result" />
       <desc>
 	<taglist>
-	  <tag>
-	   <c>{stop,<anno>Reason</anno>}</c>
-	  </tag>
-	  <item>The same as
-	    <c>{stop,<anno>Reason</anno>,[],StateData}</c>
-	    but keeps the old <c>StateData</c>.
-	  </item>
-	  <tag>
-	   <c>{stop,<anno>Reason</anno>,<anno>NewStateData</anno>}</c>
-	  </tag>
-	  <item>The same as
-	    <c>{stop,<anno>Reason</anno>,[],<anno>NewStateData</anno>}</c>
-	  </item>
-	  <tag><c>{stop,
-	    <anno>Reason</anno>,
-	    <anno>Replies</anno>,
-	    <anno>NewStateData</anno>}</c>
-	  </tag>
-	  <item>The gen_statem will first send all
-	    <c><anno>Replies</anno></c> and then terminate by calling
+	  <tag><c>stop</c></tag>
+	  <item>Send all <c><anno>Replies</anno></c> if given,
+	    then terminate the gen_statem by calling
 	    <seealso marker="#Module:terminate/3">
 	      <c>Module:terminate/3</c>
-	    </seealso> with <c>Reason</c>.
+	    </seealso> with <c>Reason</c> and
+	    <c><anno>NewStateData</anno></c>, if given.
 	  </item>
-	  <tag>
-	    <c>
-	      {next_state,<anno>NewState</anno>,<anno>NewStateData</anno>}
-	    </c>
-	  </tag>
-	  <item>The same as
-	    <c>
-	      {next_state,<anno>NewState</anno>,<anno>NewStateData</anno>,[]}
-	    </c>
-	  </item>
-	  <tag>
-	    <c>
-	      {next_state,
-	       <anno>NewState</anno>,
-	       <anno>NewStateData</anno>,
-	       <anno>StateOps</anno>}
-	    </c>
-	  </tag>
+	  <tag><c>next_state</c></tag>
 	  <item>The gen_statem will do a state transition to
 	    <c><anno>NewState</anno></c>
-	    (which may be the same as the current state)
+	    (which may be the same as the current state),
+	    set <c><anno>NewStateData</anno></c>
 	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
-	  <tag>
-	    <c>
-	      {keep_state,<anno>NewStateData</anno>}}
-	    </c>
-	  </tag>
-	  <item>The same as
-	    <c>
-	      {keep_state,<anno>NewStateData</anno>,[]}
-	    </c>
-	  </item>
-	  <tag>
-	    <c>
-	      {keep_state,<anno>NewStateData</anno>,<anno>StateOps</anno>}
-	    </c>
-	  </tag>
+	  <tag><c>keep_state</c></tag>
 	  <item>The gen_statem will keep the current state, or
 	    do a state transition to the current state if you like,
+	    set <c><anno>NewStateData</anno></c>
 	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
-	  <tag>
-	    <c>
-	      {keep_state_and_data}
-	    </c>
-	  </tag>
-	  <item>The same as
-	    <c>
-	      {keep_state_and_data,[]}
-	    </c>
-	  </item>
-	  <tag>
-	    <c>
-	      {keep_state_and_data,<anno>StateOps</anno>}
-	    </c>
-	  </tag>
+	  <tag><c>keep_state_and_data</c></tag>
 	  <item>The gen_statem will keep the current state, or
 	    do a state transition to the current state if you like,
-	    also keep the current state data,
+	    keep the current state data,
 	    and execute all <c><anno>StateOps</anno></c>
 	  </item>
 	</taglist>
