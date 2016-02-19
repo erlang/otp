@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2016</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+    <title>ssl_crl_hash_dir</title>
+    <file>ssl_crl_hash_dir.xml</file>
+  </header>
+
+  <module>ssl_crl_hash_dir</module>
+  <modulesummary>Access CRLs stored in a directory, named by issuer hashes</modulesummary>
+  <description>
+    <p>
+      The OpenSSL utility <c>c_rehash</c> operates in a directory
+      containing CRLs, and creates symlinks named by the hash of the
+      issuer of each CRL.  If you have such a directory, kept
+      up-to-date by an external process, <c>ssl_crl_hash_dir</c> lets
+      you access the CRLs in order to perform revocation checks for
+      TLS connections in an Erlang program.  This is equivalent to the
+      <c>SSLCARevocationPath</c> configuration directive in Apache's
+      mod_ssl.
+    </p>
+
+    <p>This module implements the <seealso
+    marker="ssl_crl_cache_api">ssl_crl_cache_api</seealso> behaviour.
+    There are no other exported functions.
+    </p>
+
+  </description>
+
+  <section>
+    <title>USAGE</title>
+
+    <p>To use this module, pass the <c>crl_cache</c> option to
+    <seealso marker="ssl:ssl#connect-2">ssl:connect/2</seealso> or
+    <seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>.  In the
+    argument list, pass a <c>dir</c> property specifying the directory
+    in which to find the CRLs.  The option should look like this:</p>
+
+    <code>{crl_cache, {ssl_crl_hash_dir, {internal, [{dir, "/path/to/crls"}]}}}</code>
+
+    <p>Don't forget to set the <c>crl_check</c> option according to
+    your requirements.</p>
+
+    <p>
+      The issuer name hashes are the ones returned by <seealso
+      marker="public_key:public_key#openssl_crl_issuer_hash-1">public_key:openssl_crl_issuer_hash/1</seealso>.
+      They consist of eight hexadecimal digits.  The file names
+      consist of the hash plus <c>.rN</c>, where <c>N</c> is an
+      integer, e.g. <c>1a2b3c4d.r0</c>.  For the first version of the
+      CRL, <c>N</c> starts at zero, and for each new version, <c>N</c>
+      is incremented by one.
+    </p>
+
+    <p>
+      For a given hash value, this module finds all consecutive
+      <c>.r*</c> files starting from zero, and those files taken
+      together make up the revocation list.  CRL files whose
+      <c>nextUpdate</c> fields are in the past, or that are issued by
+      a different CA that happens to have the same name hash, are
+      excluded.
+    </p>
+  </section>
+
+</erlref>

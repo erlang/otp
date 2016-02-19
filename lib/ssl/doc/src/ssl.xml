@@ -323,31 +323,36 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 
       <tag><c>{crl_check, boolean() | peer | best_effort }</c></tag>
       <item>
-	Perform CRL (Certificate Revocation List) verification
+	<p>Perform CRL (Certificate Revocation List) verification
 	<seealso marker="public_key:public_key#pkix_crls_validate-3">
 	(public_key:pkix_crls_validate/3)</seealso> on all the certificates during the path validation
 	<seealso
 	    marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
 	</seealso>
-	of the certificate chain. Defaults to false.
+	of the certificate chain. Defaults to <c>false</c>.</p>
 	
-	<p><c>peer</c> - check is only performed on
-	the peer certificate.</p>
+	<taglist>
+	  <tag><c>peer</c></tag>
+	  <item>check is only performed on the peer certificate.</item>
 
-	<p><c>best_effort</c> - if certificate revocation status can not be determined
-	it will be accepted as valid.</p>
+	  <tag><c>best_effort</c></tag>
+	  <item>if certificate revocation status can not be determined
+	  it will be accepted as valid.</item>
+	</taglist>
 
 	<p>The CA certificates specified for the connection will be used to 
 	construct the certificate chain validating the CRLs.</p>
  	
-	<p>The CRLs will be fetched from a local or external cache see
+	<p>The CRLs will be fetched from a local or external cache. See
 	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
       </item>
 
       <tag><c>{crl_cache, {Module :: atom(), {DbHandle :: internal | term(), Args :: list()}}}</c></tag>
       <item>
-	<p>Module defaults to ssl_crl_cache with <c> DbHandle </c> internal and an
-	empty argument list. The following arguments may be specified for the internal cache.</p>
+	<p>Specify how to perform lookup and caching of certificate revocation lists.
+	<c>Module</c> defaults to <seealso marker="ssl:ssl_crl_cache">ssl_crl_cache</seealso>
+	with <c> DbHandle </c> being <c>internal</c> and an
+	empty argument list. The following arguments may be specified for the internal cache:</p>
 	<taglist>
 	  <tag><c>{http, timeout()}</c></tag>
 	  <item><p>

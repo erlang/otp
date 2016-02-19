@@ -64,10 +64,10 @@
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
 	<v> DistributionPoint = dist_point() </v>
-	<v> CRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
-	<v> FreshCRL = [<seealso
-	marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
+	<v> CRL = <seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso> </v>
+	<v> FreshCRL = <seealso
+	marker="public_key:public_key">public_key:der_encoded()</seealso> </v>
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
@@ -76,10 +76,12 @@
     </func>
     
     <func>
-      <name>lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
+      <name>lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
         <v> DistributionPoint = dist_point() </v>
+        <v> Issuer = <seealso
+	marker="public_key:public_key">public_key:issuer_name()</seealso> </v>
 	<v> DbHandle  = cache_ref() </v>
 	<v> CRLs = [<seealso
 	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
@@ -87,6 +89,12 @@
 	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
 	links depending on how the cache is administrated. </p>
+
+	<p>The <c>Issuer</c> argument contains the issuer name of the
+	certificate to be checked.  Normally the returned CRL should
+	be issued by this issuer, except if the <c>cRLIssuer</c> field
+	of <c>DistributionPoint</c> has a value, in which case that
+	value should be used instead.</p>
 	</desc>
     </func>
     
