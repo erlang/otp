@@ -1081,12 +1081,16 @@ is_atom_or_var(_) -> false.
 clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
     {Ps1,Sub1} = pattern_list(Ps0, Sub0),
     Sub2 = update_types(Cexpr, Ps1, Sub1),
-    GSub = case {Cexpr,Ps1} of
-	       {#c_var{name='_'},_} ->
+    GSub = case {Cexpr,Ps1,G0} of
+	       {_,_,#c_literal{}} ->
+		   %% No need for substitution tricks when the guard
+		   %% does not contain any variables.
+		   Sub2;
+	       {#c_var{name='_'},_,_} ->
 		   %% In a 'receive', Cexpr is the variable '_', which represents the
 		   %% message being matched. We must NOT do any extra substiutions.
 		   Sub2;
-	       {#c_var{},[#c_var{}=Var]} ->
+	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
 		   %%
 		   %%   case A of A -> ...
