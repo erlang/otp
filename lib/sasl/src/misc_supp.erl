@@ -27,7 +27,7 @@
 %%% 2) Very generic functions such as, multi_map, is_string...
 %%%
 %%% This module is a part of the BOS.  (format_pdict is called from
-%%% init, memsup, disksup, overload (but not the fileserver since it
+%%% init, memsup, disksup (but not the fileserver since it
 %%% formats its pdict its own way).)
 %%%---------------------------------------------------------------------
 

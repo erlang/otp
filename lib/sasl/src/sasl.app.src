@@ -24,7 +24,6 @@
 	       alarm_handler, 
                format_lib_supp, 
                misc_supp, 
-               overload, 
                rb, 
                rb_format_supp, 
 	       release_handler, 
@@ -41,7 +40,7 @@
 	       systools_relup, 
 	       systools_lib
 	      ]},
-    {registered, [sasl_sup, alarm_handler, overload, release_handler]},
+    {registered, [sasl_sup, alarm_handler, release_handler]},
     {applications, [kernel, stdlib]},
     {env, [{sasl_error_logger, tty},
            {errlog_type, all}]},

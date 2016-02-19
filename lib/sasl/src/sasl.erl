@@ -170,7 +170,4 @@ init(safe) ->
     AlarmH = {alarm_handler,
 	      {alarm_handler, start_link, []},
 	      permanent, 2000, worker, dynamic},	      
-    Overload = {overload,
-		{overload, start_link, []},
-		permanent, 2000, worker, [overload]},	      
-    {ok, {SupFlags, [AlarmH, Overload]}}.
+    {ok, {SupFlags, [AlarmH]}}.
