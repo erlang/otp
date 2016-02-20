@@ -65,11 +65,11 @@
 
     <p>Breakpoints are specified on a line basis. When a process
       executing code in an interpreted module reaches a breakpoint, it
-      will stop. This means that that a breakpoint must be set at an
+      will stop. This means that a breakpoint must be set at an
       executable line, that is, a line of code containing an executable
       expression.</p>
 
-    <p>A breakpoint have a status, a trigger action and may have a
+    <p>A breakpoint has a status, a trigger action and may have a
       condition associated with it. The status is either <em>active</em>
       or <em>inactive</em>. An inactive breakpoint is ignored. When a
       breakpoint is reached, the trigger action specifies if
@@ -127,7 +127,7 @@
 	    <c>debug_info</c> set can be interpreted.</p>
 	</note>
 
-	<p>The functions returns <c>{module,Module}</c> if the module
+	<p>The function returns <c>{module,Module}</c> if the module
 	  was interpreted, or <c>error</c> if it was not.</p>
 
 	<p>The argument may also be a list of modules/file names, in
