@@ -836,15 +836,22 @@ handle_sync_event(session_info, _, StateName,
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
     {reply, [{session_id, Id}, 
-	     {cipher_suite, ssl:suite_definition(Suite)}],
+	     {cipher_suite, ssl_cipher:erl_suite_definition(Suite)}],
      StateName, State, get_timeout(State)};
 handle_sync_event(peer_certificate, _, StateName, 
 		  #state{session = #session{peer_certificate = Cert}} 
 		  = State) ->
     {reply, {ok, Cert}, StateName, State, get_timeout(State)};
-handle_sync_event(connection_information, _, StateName, #state{sni_hostname = SNIHostname, session = #session{cipher_suite = CipherSuite}, negotiated_version = Version} = State) ->
-    {reply, {ok, [{protocol, tls_record:protocol_version(Version)}, {cipher_suite, ssl:suite_definition(CipherSuite)}, {sni_hostname, SNIHostname}]}, StateName, State, get_timeout(State)}.
+handle_sync_event(connection_information, _, StateName, State) ->
+    Info = connection_info(State),
+    {reply, {ok, Info}, StateName, State, get_timeout(State)}.
 
+connection_info(#state{sni_hostname = SNIHostname, 
+		       session = #session{cipher_suite = CipherSuite}, 
+		       negotiated_version = Version, ssl_options = Opts}) ->
+    [{protocol, tls_record:protocol_version(Version)}, 
+     {cipher_suite, ssl_cipher:erl_suite_definition(CipherSuite)}, 
+     {sni_hostname, SNIHostname}] ++ ssl_options_list(Opts).
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, transport_cb = Transport,
@@ -1884,4 +1891,29 @@ negotiated_hashsign(undefined, Alg, Version) ->
     end;
 negotiated_hashsign(HashSign = {_, _}, _, _) ->
     HashSign.
+
+ssl_options_list(SslOptions) ->
+    Fileds = record_info(fields, ssl_options),
+    Values = tl(tuple_to_list(SslOptions)),
+    ssl_options_list(Fileds, Values, []).
+
+ssl_options_list([],[], Acc) ->
+    lists:reverse(Acc);
+%% Skip internal options, only return user options
+ssl_options_list([protocol | Keys], [_ | Values], Acc) ->
+    ssl_options_list(Keys, Values, Acc);
+ssl_options_list([erl_dist | Keys], [_ | Values], Acc) ->
+    ssl_options_list(Keys, Values, Acc);
+ssl_options_list([renegotiate_at | Keys], [_ | Values], Acc) ->
+    ssl_options_list(Keys, Values, Acc);
+ssl_options_list([ciphers = Key | Keys], [Value | Values], Acc) ->
+   ssl_options_list(Keys, Values, 
+		    [{Key, lists:map(
+			     fun(Suite) -> 
+				     ssl_cipher:erl_suite_definition(Suite) 
+			     end, Value)} 
+		     | Acc]);
+ssl_options_list([Key | Keys], [Value | Values], Acc) ->
+   ssl_options_list(Keys, Values, [{Key, Value} | Acc]).
+
 

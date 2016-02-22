@@ -825,7 +825,7 @@ common_ciphers(crypto) ->
 common_ciphers(openssl) ->
     OpenSslSuites =
         string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
-    [ssl:suite_definition(S)
+    [ssl_cipher:erl_suite_definition(S)
      || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
         lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
     ].
@@ -1224,7 +1224,7 @@ filter_suites(Ciphers0) ->
 	++ ssl_cipher:srp_suites() 
 	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
-    Supported2 = [ssl:suite_definition(S) || S <- Supported1],
+    Supported2 = [ssl_cipher:erl_suite_definition(S) || S <- Supported1],
     [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
 
 -define(OPENSSL_QUIT, "Q\n").

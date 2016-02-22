@@ -1268,8 +1268,12 @@ client_check_result(Port, DataExpected) ->
 
 send_and_hostname(SSLSocket) ->
     ssl:send(SSLSocket, "OK"),
-    {ok, [{sni_hostname, Hostname}]} = ssl:connection_information(SSLSocket, [sni_hostname]),
-    Hostname.
+    case ssl:connection_information(SSLSocket, [sni_hostname]) of
+	{ok, []} ->
+	    undefined;
+	{ok, [{sni_hostname, Hostname}]} ->
+	    Hostname
+    end.
 
 erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
