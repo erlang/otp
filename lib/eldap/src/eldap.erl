@@ -10,16 +10,21 @@
 %%% See MIT-LICENSE at the top dir for licensing information.
 %%% --------------------------------------------------------------------
 -vc('$Id$ ').
--export([open/1,open/2,simple_bind/3,controlling_process/2,
-	 start_tls/2, start_tls/3,
-         modify_password/3, modify_password/4,
+-export([open/1, open/2,
+	 simple_bind/3, simple_bind/4,
+	 controlling_process/2,
+	 start_tls/2, start_tls/3, start_tls/4,
+         modify_password/3, modify_password/4, modify_password/5,
 	 getopts/2,
 	 baseObject/0,singleLevel/0,wholeSubtree/0,close/1,
 	 equalityMatch/2,greaterOrEqual/2,lessOrEqual/2,
 	 extensibleMatch/2,
-	 approxMatch/2,search/2,substrings/2,present/1,
-	 'and'/1,'or'/1,'not'/1,modify/3, mod_add/2, mod_delete/2,
-	 mod_replace/2, add/3, 
+	 search/2, search/3,
+	 approxMatch/2,substrings/2,present/1,
+	 'and'/1,'or'/1,'not'/1,mod_add/2, mod_delete/2,
+	 mod_replace/2,
+	 modify/3, modify/4,
+	 add/3, add/4,
 	 delete/2, delete/3,
 	 modify_dn/5,parse_dn/1,
 	 parse_ldap_url/1]).
@@ -93,7 +98,10 @@ start_tls(Handle, TlsOptions) ->
     start_tls(Handle, TlsOptions, infinity).
 
 start_tls(Handle, TlsOptions, Timeout) ->
-    send(Handle, {start_tls,TlsOptions,Timeout}),
+    start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
+
+start_tls(Handle, TlsOptions, Timeout, Controls) ->
+    send(Handle, {start_tls,TlsOptions,Timeout,Controls}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -110,7 +118,11 @@ modify_password(Handle, Dn, NewPasswd) ->
 
 modify_password(Handle, Dn, NewPasswd, OldPasswd)
   when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
-    send(Handle, {passwd_modify,optional(Dn),optional(NewPasswd),optional(OldPasswd)}),
+    modify_password(Handle, Dn, NewPasswd, OldPasswd, asn1_NOVALUE).
+
+modify_password(Handle, Dn, NewPasswd, OldPasswd, Controls)
+  when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
+    send(Handle, {passwd_modify,optional(Dn),optional(NewPasswd),optional(OldPasswd),Controls}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -149,7 +161,10 @@ controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
 %%%  Returns: ok | {error, Error}
 %%% --------------------------------------------------------------------
 simple_bind(Handle, Dn, Passwd) when is_pid(Handle)  ->
-    send(Handle, {simple_bind, Dn, Passwd}),
+    simple_bind(Handle, Dn, Passwd, asn1_NOVALUE).
+
+simple_bind(Handle, Dn, Passwd, Controls) when is_pid(Handle)  ->
+    send(Handle, {simple_bind, Dn, Passwd, Controls}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -166,7 +181,10 @@ simple_bind(Handle, Dn, Passwd) when is_pid(Handle)  ->
 %%%     )
 %%% --------------------------------------------------------------------
 add(Handle, Entry, Attributes) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
-    send(Handle, {add, Entry, add_attrs(Attributes)}),
+    add(Handle, Entry, Attributes, asn1_NOVALUE).
+
+add(Handle, Entry, Attributes, Controls) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
+    send(Handle, {add, Entry, add_attrs(Attributes), Controls}),
     recv(Handle).
 
 %%% Do sanity check !
@@ -208,7 +226,10 @@ delete(Handle, Entry, Controls)  when is_pid(Handle), is_list(Entry) ->
 %%%        )
 %%% --------------------------------------------------------------------
 modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods) ->
-    send(Handle, {modify, Object, Mods}),
+    modify(Handle, Object, Mods, asn1_NOVALUE).
+
+modify(Handle, Object, Mods, Controls) when is_pid(Handle), is_list(Object), is_list(Mods) ->
+    send(Handle, {modify, Object, Mods, Controls}),
     recv(Handle).
 
 %%%
@@ -241,8 +262,12 @@ m(Operation, Type, Values) ->
 %%% --------------------------------------------------------------------
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup)
   when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
+    modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, asn1_NOVALUE).
+
+modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, Controls)
+  when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
     send(Handle, {modify_dn, Entry, NewRDN,
-		  bool_p(DelOldRDN), optional(NewSup)}),
+		  bool_p(DelOldRDN), optional(NewSup), Controls}),
     recv(Handle).
 
 %%% Sanity checks !
@@ -277,16 +302,19 @@ optional(Value) -> Value.
 %%%        []}}
 %%%
 %%% --------------------------------------------------------------------
-search(Handle, A) when is_pid(Handle), is_record(A, eldap_search) ->
-    call_search(Handle, A);
-search(Handle, L) when is_pid(Handle), is_list(L) ->
+search(Handle, X) when is_pid(Handle), is_record(X,eldap_search) ; is_list(X) ->
+    search(Handle, X, asn1_NOVALUE).
+    
+search(Handle, A, Controls) when is_pid(Handle), is_record(A, eldap_search) ->
+    call_search(Handle, A, Controls);
+search(Handle, L, Controls) when is_pid(Handle), is_list(L) ->
     case catch parse_search_args(L) of
 	{error, Emsg}                  -> {error, Emsg};
-	A when is_record(A, eldap_search) -> call_search(Handle, A)
+	A when is_record(A, eldap_search) -> call_search(Handle, A, Controls)
     end.
 
-call_search(Handle, A) ->
-    send(Handle, {search, A}),
+call_search(Handle, A, Controls) ->
+    send(Handle, {search, A, Controls}),
     recv(Handle).
 
 parse_search_args(Args) ->
@@ -489,23 +517,23 @@ do_connect(Host, Data, Opts) when Data#eldap.ldaps == true ->
 loop(Cpid, Data) ->
     receive
 
-	{From, {search, A}} ->
-	    {Res,NewData} = do_search(Data, A),
+	{From, {search, A, Controls}} ->
+	    {Res,NewData} = do_search(Data, A, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-	{From, {modify, Obj, Mod}} ->
-	    {Res,NewData} = do_modify(Data, Obj, Mod),
+	{From, {modify, Obj, Mod, Controls}} ->
+	    {Res,NewData} = do_modify(Data, Obj, Mod, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-	{From, {modify_dn, Obj, NewRDN, DelOldRDN, NewSup}} ->
-	    {Res,NewData} = do_modify_dn(Data, Obj, NewRDN, DelOldRDN, NewSup),
+	{From, {modify_dn, Obj, NewRDN, DelOldRDN, NewSup, Controls}} ->
+	    {Res,NewData} = do_modify_dn(Data, Obj, NewRDN, DelOldRDN, NewSup, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-	{From, {add, Entry, Attrs}} ->
-	    {Res,NewData} = do_add(Data, Entry, Attrs),
+	{From, {add, Entry, Attrs, Controls}} ->
+	    {Res,NewData} = do_add(Data, Entry, Attrs, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
@@ -514,8 +542,8 @@ loop(Cpid, Data) ->
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-	{From, {simple_bind, Dn, Passwd}} ->
-	    {Res,NewData} = do_simple_bind(Data, Dn, Passwd),
+	{From, {simple_bind, Dn, Passwd, Controls}} ->
+	    {Res,NewData} = do_simple_bind(Data, Dn, Passwd, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
@@ -525,13 +553,13 @@ loop(Cpid, Data) ->
 	    ?PRINT("New Cpid is: ~p~n",[NewCpid]),
 	    ?MODULE:loop(NewCpid, Data);
 
-	{From, {start_tls,TlsOptions,Timeout}} ->
-	    {Res,NewData} = do_start_tls(Data, TlsOptions, Timeout),
+	{From, {start_tls,TlsOptions,Timeout,Controls}} ->
+	    {Res,NewData} = do_start_tls(Data, TlsOptions, Timeout, Controls),
 	    send(From,Res),
 	    ?MODULE:loop(Cpid, NewData);
 
-        {From, {passwd_modify,Dn,NewPasswd,OldPasswd}} ->
-            {Res,NewData} = do_passwd_modify(Data, Dn, NewPasswd, OldPasswd),
+        {From, {passwd_modify,Dn,NewPasswd,OldPasswd,Controls}} ->
+            {Res,NewData} = do_passwd_modify(Data, Dn, NewPasswd, OldPasswd, Controls),
             send(From, Res),
             ?MODULE:loop(Cpid, NewData);
 
@@ -584,10 +612,10 @@ loop(Cpid, Data) ->
 %%% startTLS Request
 %%% --------------------------------------------------------------------
 
-do_start_tls(Data=#eldap{using_tls=true}, _, _) ->
+do_start_tls(Data=#eldap{using_tls=true}, _, _, _) ->
     {{error,tls_already_started}, Data};
-do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout) ->
-    case catch exec_start_tls(Data) of
+do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout, Controls) ->
+    case catch exec_start_tls(Data, Controls) of
 	{ok,NewData} ->
 	    case ssl:connect(FD,TlsOptions,Timeout) of
 		{ok, SslSocket} ->
@@ -605,9 +633,9 @@ do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout) ->
 
 -define(START_TLS_OID, "1.3.6.1.4.1.1466.20037").
 
-exec_start_tls(Data) ->
+exec_start_tls(Data, Controls) ->
     Req = #'ExtendedRequest'{requestName = ?START_TLS_OID},
-    Reply = request(Data#eldap.fd, Data, Data#eldap.id, {extendedReq, Req}),
+    Reply = request(Data#eldap.fd, Data, Data#eldap.id, {extendedReq, Req, Controls}),
     exec_extended_req_reply(Data, Reply).
 
 exec_extended_req_reply(Data, {ok,Msg}) when
@@ -634,31 +662,32 @@ exec_extended_req_reply(_, Error) ->
 %%% Authenticate ourselves to the directory using
 %%% simple authentication.
 
-do_simple_bind(Data, anon, anon) ->   %% For testing
-    do_the_simple_bind(Data, "", "");
-do_simple_bind(Data, Dn, _Passwd) when Dn=="",Data#eldap.anon_auth==false ->
+do_simple_bind(Data, anon, anon, Controls) ->   %% For testing
+    do_the_simple_bind(Data, "", "", Controls);
+do_simple_bind(Data, Dn, _Passwd,_) when Dn=="",Data#eldap.anon_auth==false ->
     {{error,anonymous_auth},Data};
-do_simple_bind(Data, _Dn, Passwd) when Passwd=="",Data#eldap.anon_auth==false ->
+do_simple_bind(Data, _Dn, Passwd,_) when Passwd=="",Data#eldap.anon_auth==false ->
     {{error,anonymous_auth},Data};
-do_simple_bind(Data, Dn, Passwd) ->
-    do_the_simple_bind(Data, Dn, Passwd).
+do_simple_bind(Data, Dn, Passwd, Controls) ->
+    do_the_simple_bind(Data, Dn, Passwd, Controls).
 
-do_the_simple_bind(Data, Dn, Passwd) ->
+do_the_simple_bind(Data, Dn, Passwd, Controls) ->
     case catch exec_simple_bind(Data#eldap{binddn = Dn,
 					   passwd = Passwd,
-					   id     = bump_id(Data)}) of
+					   id     = bump_id(Data)},
+			       Controls) of
 	{ok,NewData}       -> {ok,NewData};
 	{{ok,Val},NewData} -> {{ok,Val},NewData};
 	{error,Emsg}       -> {{error,Emsg},Data};
 	Else               -> {{error,Else},Data}
     end.
 
-exec_simple_bind(Data) ->
+exec_simple_bind(Data, Controls) ->
     Req = #'BindRequest'{version        = Data#eldap.version,
 			 name           = Data#eldap.binddn,
 			 authentication = {simple, Data#eldap.passwd}},
     log2(Data, "bind request = ~p~n", [Req]),
-    Reply = request(Data#eldap.fd, Data, Data#eldap.id, {bindRequest, Req}),
+    Reply = request(Data#eldap.fd, Data, Data#eldap.id, {bindRequest, Req, Controls}),
     log2(Data, "bind reply = ~p~n", [Reply]),
     exec_simple_bind_reply(Data, Reply).
 
@@ -681,8 +710,8 @@ exec_simple_bind_reply(_, Error) ->
 %%% searchRequest
 %%% --------------------------------------------------------------------
 
-do_search(Data, A) ->
-    case catch do_search_0(Data, A) of
+do_search(Data, A, Controls) ->
+    case catch do_search_0(Data, A, Controls) of
 	{error,Emsg}         -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}       -> {ldap_closed_p(Data, Error),Data};
 	{{ok,Val},NewData}   -> {{ok,Val},NewData};
@@ -711,7 +740,7 @@ polish_result([H|T]) when is_record(H, 'SearchResultEntry') ->
 polish_result([]) ->
     [].
 
-do_search_0(Data, A) ->
+do_search_0(Data, A, Controls) ->
     Req = #'SearchRequest'{baseObject = A#eldap_search.base,
 			   scope = v_scope(A#eldap_search.scope),
 			   derefAliases = v_deref(A#eldap_search.deref),
@@ -722,15 +751,15 @@ do_search_0(Data, A) ->
 			   attributes = v_attributes(A#eldap_search.attributes)
 			  },
     Id = bump_id(Data),
-    collect_search_responses(Data#eldap{id=Id}, Req, Id).
+    collect_search_responses(Data#eldap{id=Id}, Req, Id, Controls).
 
 %%% The returned answers cames in one packet per entry
 %%% mixed with possible referals
 
-collect_search_responses(Data, Req, ID) ->
+collect_search_responses(Data, Req, ID, Controls) ->
     S = Data#eldap.fd,
     log2(Data, "search request = ~p~n", [Req]),
-    send_request(S, Data, ID, {searchRequest, Req}),
+    send_request(S, Data, ID, {searchRequest, Req, Controls}),
     Resp = recv_response(S, Data),
     log2(Data, "search reply = ~p~n", [Resp]),
     collect_search_responses(Data, S, ID, Resp, [], []).
@@ -769,8 +798,8 @@ collect_search_responses(_, _, _, Else, _, _) ->
 %%% addRequest
 %%% --------------------------------------------------------------------
 
-do_add(Data, Entry, Attrs) ->
-    case catch do_add_0(Data, Entry, Attrs) of
+do_add(Data, Entry, Attrs, Controls) ->
+    case catch do_add_0(Data, Entry, Attrs, Controls) of
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
@@ -778,13 +807,13 @@ do_add(Data, Entry, Attrs) ->
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
-do_add_0(Data, Entry, Attrs) ->
+do_add_0(Data, Entry, Attrs, Controls) ->
     Req = #'AddRequest'{entry = Entry,
 			attributes = Attrs},
     S = Data#eldap.fd,
     Id = bump_id(Data),
     log2(Data, "add request = ~p~n", [Req]),
-    Resp = request(S, Data, Id, {addRequest, Req}),
+    Resp = request(S, Data, Id, {addRequest, Req, Controls}),
     log2(Data, "add reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, addResponse).
 
@@ -815,8 +844,8 @@ do_delete_0(Data, Entry, Controls) ->
 %%% modifyRequest
 %%% --------------------------------------------------------------------
 
-do_modify(Data, Obj, Mod) ->
-    case catch do_modify_0(Data, Obj, Mod) of
+do_modify(Data, Obj, Mod, Controls) ->
+    case catch do_modify_0(Data, Obj, Mod, Controls) of
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
@@ -824,14 +853,14 @@ do_modify(Data, Obj, Mod) ->
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
-do_modify_0(Data, Obj, Mod) ->
+do_modify_0(Data, Obj, Mod, Controls) ->
     v_modifications(Mod),
     Req = #'ModifyRequest'{object = Obj,
 			   changes = Mod},
     S = Data#eldap.fd,
     Id = bump_id(Data),
     log2(Data, "modify request = ~p~n", [Req]),
-    Resp = request(S, Data, Id, {modifyRequest, Req}),
+    Resp = request(S, Data, Id, {modifyRequest, Req, Controls}),
     log2(Data, "modify reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, modifyResponse).
 
@@ -841,8 +870,8 @@ do_modify_0(Data, Obj, Mod) ->
 
 -define(PASSWD_MODIFY_OID, "1.3.6.1.4.1.4203.1.11.1").
 
-do_passwd_modify(Data, Dn, NewPasswd, OldPasswd) ->
-    case catch do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd) of
+do_passwd_modify(Data, Dn, NewPasswd, OldPasswd, Controls) ->
+    case catch do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd, Controls) of
 	{error,Emsg}        -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}      -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}        -> {ok,NewData};
@@ -851,7 +880,7 @@ do_passwd_modify(Data, Dn, NewPasswd, OldPasswd) ->
 	Else                -> {ldap_closed_p(Data, Else),Data}
     end.
 
-do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd) ->
+do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd, Controls) ->
     Req = #'PasswdModifyRequestValue'{userIdentity = Dn,
                                       oldPasswd = OldPasswd,
                                       newPasswd = NewPasswd},
@@ -861,7 +890,7 @@ do_passwd_modify_0(Data, Dn, NewPasswd, OldPasswd) ->
                              requestValue = Bytes},
     Id = bump_id(Data),
     log2(Data, "extended request = ~p~n", [ExtReq]),
-    Reply = request(Data#eldap.fd, Data, Id, {extendedReq, ExtReq}),
+    Reply = request(Data#eldap.fd, Data, Id, {extendedReq, ExtReq, Controls}),
     log2(Data, "modify password reply = ~p~n", [Reply]),
     exec_passwd_modify_reply(Data#eldap{id = Id}, Reply).
 
@@ -896,8 +925,8 @@ exec_passwd_modify_reply(_, Error) ->
 %%% modifyDNRequest
 %%% --------------------------------------------------------------------
 
-do_modify_dn(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
-    case catch do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup) of
+do_modify_dn(Data, Entry, NewRDN, DelOldRDN, NewSup, Controls) ->
+    case catch do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup, Controls) of
 	{error,Emsg}   -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error} -> {ldap_closed_p(Data, Error),Data};
 	{ok,NewData}   -> {ok,NewData};
@@ -905,7 +934,7 @@ do_modify_dn(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
 	Else           -> {ldap_closed_p(Data, Else),Data}
     end.
 
-do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
+do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup, Controls) ->
     Req = #'ModifyDNRequest'{entry = Entry,
 			     newrdn = NewRDN,
 			     deleteoldrdn = DelOldRDN,
@@ -913,7 +942,7 @@ do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup) ->
     S = Data#eldap.fd,
     Id = bump_id(Data),
     log2(Data, "modify DN request = ~p~n", [Req]),
-    Resp = request(S, Data, Id, {modDNRequest, Req}),
+    Resp = request(S, Data, Id, {modDNRequest, Req, Controls}),
     log2(Data, "modify DN reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, modDNResponse).
 
