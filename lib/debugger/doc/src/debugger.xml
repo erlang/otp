@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev></rev>
   </header>
   <module>debugger</module>
-  <modulesummary>Erlang Debugger</modulesummary>
+  <modulesummary>Erlang Debugger.</modulesummary>
   <description>
     <p>Erlang Debugger for debugging and testing of Erlang programs.</p>
   </description>
@@ -48,14 +48,14 @@
       <desc>
 	<p>Starts Debugger.</p>
 	
-	<p>If given a file name as argument, Debugger will try to load
-	  its settings from this file. Refer to Debugger User's Guide
-	  for more information about settings.</p>
+	<p>If a filename is specified as argument, Debugger tries to load
+	  its settings from this file. For details about settings, see
+	  the User's Guide.</p>
 
-	<p>If given <c>local</c> as argument, Debugger will interpret
-	  code only at the current node. If given <c>global</c> as
-	  argument, Debugger will interpret code at all known nodes,
-	  this is the default.</p>
+	<p>If <c>local</c> is specified as argument, Debugger interprets
+	  code only at the current node. If <c>global</c> is specified as
+	  argument, Debugger interprets code at all known nodes, this
+	  is the default.</p>
       </desc>
     </func>
 
@@ -67,11 +67,9 @@
 	<v>Args = [term()]</v>
       </type>
       <desc>
-	<p>This function can be used to debug a single process.
-	  The module <c>Module</c> is interpreted and
-	  <c>apply(Module,Name,Args)</c> is called. This will open an
-	  Attach Process window, refer to Debugger User's Guide for
-	  more information.</p>
+	<p>Debugs a single process. The module <c>Module</c> is interpreted
+	  and <c>apply(Module,Name,Args)</c> is called. This opens an
+	  Attach Process window. For details, see the User's Guide.</p>
       </desc>
     </func>
   </funcs>

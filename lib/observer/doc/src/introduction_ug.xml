@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE application SYSTEM "application.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
 
-<application xmlns:xi="http://www.w3.org/2001/XInclude">
+<chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2016</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -19,23 +19,31 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
-    <title>Observer Reference Manual</title>
+    <title>Introduction</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>application.sgml</file>
+    <file>introduction_ug.xml</file>
   </header>
-  <description>
-     </description>
-  <xi:include href="observer_app.xml"/>
-  <xi:include href="observer.xml"/>
-  <xi:include href="ttb.xml"/>
-  <xi:include href="etop.xml"/>
-  <xi:include href="crashdump.xml"/>
-  <xi:include href="cdv.xml"/>
-</application>
+<section>
+    <title>Scope</title>
+    <p>The Observer application is a container including the following
+    tools for tracing and investigation of distributed systems:</p>
+      <list type="bulleted">
+       <item>Observer</item>
+       <item>Trace Tool Builder</item>
+       <item>Erlang Top</item>
+       <item>Crashdump Viewer</item>
+     </list>
+  </section>
 
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+      programming language.</p>
+  </section>
+</chapter>
