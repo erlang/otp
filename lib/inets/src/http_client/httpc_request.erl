@@ -189,7 +189,8 @@ is_client_closing(Headers) ->
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
     when (Method =:= post)
     orelse (Method =:= put)
-    orelse (Method =:= patch) ->
+    orelse (Method =:= patch)
+    orelse (Method =:= delete) ->
 
     NewBody = case Headers#http_request_h.expect of
           "100-continue" ->
