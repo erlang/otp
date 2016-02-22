@@ -523,6 +523,10 @@ erts_smp_proc_lock__(Process *p,
 
     ERTS_LC_ASSERT((locks & ~ERTS_PROC_LOCKS_ALL) == 0);
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_proc_lc_lock(p, locks, file, line);
+#endif
+
     old_lflgs = erts_smp_proc_raw_trylock__(p, locks);
 
     if (old_lflgs != 0) {
@@ -543,9 +547,6 @@ erts_smp_proc_lock__(Process *p,
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_proc_lock_post_x(&(p->lock), locks, file, line);
-#endif
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_proc_lc_lock(p, locks, file, line);
 #endif
 
 #ifdef ERTS_PROC_LOCK_DEBUG
