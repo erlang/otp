@@ -41,7 +41,8 @@
          files/1,effect/1,bin_opt_info/1,bin_construction/1,
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
-	 latin1_fallback/1,underscore/1,no_warnings/1]).
+	 latin1_fallback/1,underscore/1,no_warnings/1,
+	 bit_syntax/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -68,7 +69,7 @@ groups() ->
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
-       underscore,no_warnings]}].
+       underscore,no_warnings,bit_syntax]}].
 
 init_per_suite(Config) ->
     Config.
@@ -782,6 +783,50 @@ no_warnings(Config) when is_list(Config) ->
            []}],
     run(Config, Ts),
     ok.
+
+bit_syntax(Config) ->
+    Ts = [{?FUNCTION_NAME,
+	   <<"a(<<-1>>) -> ok;
+              a(<<1023>>) -> ok;
+              a(<<777/signed>>) -> ok;
+              a(<<a/binary>>) -> ok;
+              a(<<a/integer>>) -> ok;
+              a(<<a/float>>) -> ok;
+              a(<<a/utf8>>) -> ok;
+              a(<<a/utf16>>) -> ok;
+              a(<<a/utf32>>) -> ok;
+              a(<<a/utf32>>) -> ok.
+              b(Bin) -> Sz = bad, <<42:Sz>> = Bin.
+              c(Sz, Bin) ->
+                case Bin of
+                  <<-42:Sz/unsigned>> -> ok;
+                  <<42:Sz/float>> -> ok;
+                  <<42:Sz/binary>> -> ok
+                end.
+             ">>,
+	   [],
+	   {warnings,[{1,sys_core_fold,no_clause_match},
+		      {1,sys_core_fold,{nomatch_bit_syntax_unsigned,-1}},
+		      {2,sys_core_fold,{nomatch_bit_syntax_truncated,
+					unsigned,1023,8}},
+		      {3,sys_core_fold,{nomatch_bit_syntax_truncated,
+					signed,777,8}},
+		      {4,sys_core_fold,{nomatch_bit_syntax_type,a,binary}},
+		      {5,sys_core_fold,{nomatch_bit_syntax_type,a,integer}},
+		      {6,sys_core_fold,{nomatch_bit_syntax_type,a,float}},
+		      {7,sys_core_fold,{nomatch_bit_syntax_type,a,utf8}},
+		      {8,sys_core_fold,{nomatch_bit_syntax_type,a,utf16}},
+		      {9,sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
+		      {10,sys_core_fold,{nomatch_bit_syntax_type,a,utf32}},
+		      {11,sys_core_fold,no_clause_match},
+		      {11,sys_core_fold,{nomatch_bit_syntax_size,bad}},
+		      {14,sys_core_fold,{nomatch_bit_syntax_unsigned,-42}},
+		      {16,sys_core_fold,{nomatch_bit_syntax_type,42,binary}}
+		     ]}
+	  }],
+    run(Config, Ts),
+    ok.
+
 
 %%%
 %%% End of test cases.
