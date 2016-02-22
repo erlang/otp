@@ -36,7 +36,8 @@ all() ->
      {group, abnormal},
      {group, abnormal_handle_event},
      shutdown,
-     {group, sys}, hibernate, enter_loop].
+     {group, sys},
+     hibernate, enter_loop].
 
 groups() ->
     [{start, [],
@@ -73,7 +74,7 @@ init_per_group(GroupName, Config)
        GroupName =:= stop_handle_event;
        GroupName =:= abnormal_handle_event;
        GroupName =:= sys_handle_event ->
-    [{init_ops,[{callback_mode,handle_event_function}]}|Config];
+    [{callback_mode,handle_event_function}|Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -86,6 +87,8 @@ init_per_testcase(_CaseName, Config) ->
 %%%    dbg:tracer(),
 %%%    dbg:p(all, c),
 %%%    dbg:tpl(gen_statem, cx),
+%%%    dbg:tpl(proc_lib, cx),
+%%%    dbg:tpl(gen, cx),
 %%%    dbg:tpl(sys, cx),
     [{watchdog, Dog} | Config].
 
@@ -901,8 +904,11 @@ enter_loop(Config) when is_list(Config) ->
     end,
 
     %% Process not started using proc_lib
+    CallbackMode = state_functions,
     Pid4 =
-	spawn_link(gen_statem, enter_loop, [?MODULE,[],state0,[]]),
+	spawn_link(
+	  gen_statem, enter_loop,
+	  [?MODULE,[],CallbackMode,state0,[]]),
     receive
 	{'EXIT',Pid4,process_was_not_started_by_proc_lib} ->
 	    ok
@@ -976,16 +982,21 @@ enter_loop(Reg1, Reg2) ->
 	anon -> ignore
     end,
     proc_lib:init_ack({ok, self()}),
+    CallbackMode = state_functions,
     case Reg2 of
 	local ->
-	    gen_statem:enter_loop(?MODULE, [], state0, [], {local,armitage});
+	    gen_statem:enter_loop(
+	      ?MODULE, [], CallbackMode, state0, [], {local,armitage});
 	global ->
-	    gen_statem:enter_loop(?MODULE, [], state0, [], {global,armitage});
+	    gen_statem:enter_loop(
+	      ?MODULE, [], CallbackMode, state0, [], {global,armitage});
 	via ->
-	    gen_statem:enter_loop(?MODULE, [], state0, [],
-			       {via, dummy_via, armitage});
+	    gen_statem:enter_loop(
+	      ?MODULE, [], CallbackMode, state0, [],
+	      {via, dummy_via, armitage});
 	anon ->
-	    gen_statem:enter_loop(?MODULE, [], state0, [])
+	    gen_statem:enter_loop(
+	      ?MODULE, [], CallbackMode, state0, [])
     end.
 
 %%
@@ -1098,9 +1109,9 @@ verify_empty_msgq() ->
     ok.
 
 start_arg(Config, Arg) ->
-    case lists:keyfind(init_ops, 1, Config) of
-	{_,Ops} ->
-	    {init_ops,Arg,Ops};
+    case lists:keyfind(callback_mode, 1, Config) of
+	{_,CallbackMode} ->
+	    {callback_mode,CallbackMode,Arg};
 	false ->
 	    Arg
     end.
@@ -1119,24 +1130,24 @@ init(stop_shutdown) ->
     {stop,shutdown};
 init(sleep) ->
     ?t:sleep(1000),
-    {ok,idle,data};
+    {state_functions,idle,data};
 init(hiber) ->
-    {ok,hiber_idle,[]};
+    {state_functions,hiber_idle,[]};
 init(hiber_now) ->
-    {ok,hiber_idle,[],[hibernate]};
+    {state_functions,hiber_idle,[],[hibernate]};
 init({data, Data}) ->
-    {ok,idle,Data};
-init({init_ops,Arg,InitOps}) ->
+    {state_functions,idle,Data};
+init({callback_mode,CallbackMode,Arg}) ->
     case init(Arg) of
-	{ok,State,Data,Ops} ->
-	    {ok,State,Data,InitOps++Ops};
-	{ok,State,Data} ->
-	    {ok,State,Data,InitOps};
+	{_,State,Data,Ops} ->
+	    {CallbackMode,State,Data,Ops};
+	{_,State,Data} ->
+	    {CallbackMode,State,Data};
 	Other ->
 	    Other
     end;
 init([]) ->
-    {ok,idle,data}.
+    {state_functions,idle,data}.
 
 terminate(_, _State, crash_terminate) ->
     exit({crash,terminate});

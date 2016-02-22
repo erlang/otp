@@ -24,7 +24,7 @@
    [start/3,start/4,start_link/3,start_link/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
-    enter_loop/4,enter_loop/5,enter_loop/6,
+    enter_loop/5,enter_loop/6,enter_loop/7,
     reply/1,reply/2]).
 
 %% gen callbacks
@@ -63,8 +63,6 @@
 	'info' | 'timeout' | 'internal'.
 -type event_predicate() :: % Return true for the event in question
 	fun((event_type(), term()) -> boolean()).
--type init_option() ::
-	{'callback_mode', callback_mode()}.
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
 -type transition_op() ::
 	%% First NewState and NewData are set,
@@ -136,12 +134,12 @@
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
 -callback init(Args :: term()) ->
-    {'ok', state(), data()} |
-    {'ok', state(), data(), [transition_op()|init_option()]} |
+    {callback_mode(), state(), data()} |
+    {callback_mode(), state(), data(), [transition_op()]} |
     'ignore' |
     {'stop', Reason :: term()}.
 
-%% Example callback for callback_mode =:= state_functions
+%% Example state callback for callback_mode() =:= state_functions
 %% state name 'state_name'.
 %%
 %% In this mode all states has to be type state_name() i.e atom().
@@ -156,7 +154,7 @@
 	    Data :: data()) ->
     state_callback_result().
 %%
-%% Callback for callback_mode =:= handle_event_function.
+%% State callback for callback_mode() =:= handle_event_function.
 %%
 %% Note that state callbacks and only state callbacks have arity 5
 %% and that is intended.
@@ -199,7 +197,8 @@
       StatusOption :: 'normal' | 'terminate'.
 
 -optional_callbacks(
-   [format_status/2, % Has got a default implementation
+   [init/1, % One may use enter_loop/5,6,7 instead
+    format_status/2, % Has got a default implementation
     %%
     state_name/5, % Example for callback_mode =:= state_functions:
     %% there has to be a StateName/5 callback function for every StateName.
@@ -207,6 +206,16 @@
     handle_event/5]). % For callback_mode =:= handle_event_function
 
 %% Type validation functions
+callback_mode(CallbackMode) ->
+    case CallbackMode of
+	state_functions ->
+	    true;
+	handle_event_function ->
+	    true;
+	_ ->
+	    false
+    end.
+%%
 client({Pid,Tag}) when is_pid(Pid), is_reference(Tag) ->
     true;
 client(_) ->
@@ -413,38 +422,41 @@ reply({To,Tag}, Reply) ->
 %% the same arguments as you would have returned from init/1
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
+	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data()) ->
 			no_return().
-enter_loop(Module, Opts, State, Data) ->
-    enter_loop(Module, Opts, State, Data, self()).
+enter_loop(Module, Opts, CallbackMode, State, Data) ->
+    enter_loop(Module, Opts, CallbackMode, State, Data, self()).
 %%
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
+	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
 	Server_or_Ops ::
-	  server_name() | pid() | [transition_op()|init_option()]) ->
+	  server_name() | pid() | [transition_op()]) ->
 			no_return().
-enter_loop(Module, Opts, State, Data, Server_or_Ops) ->
+enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Ops) ->
     if
 	is_list(Server_or_Ops) ->
 	    enter_loop(
-	      Module, Opts, State, Data,
+	      Module, Opts, CallbackMode, State, Data,
 	      self(), Server_or_Ops);
 	true ->
 	    enter_loop(
-	      Module, Opts, State, Data,
+	      Module, Opts, CallbackMode, State, Data,
 	      Server_or_Ops, [])
     end.
 %%
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
+	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
-	Ops :: [transition_op()|init_option()]) ->
+	Ops :: [transition_op()]) ->
 			no_return().
-enter_loop(Module, Opts, State, Data, Server, Ops) ->
+enter_loop(Module, Opts, CallbackMode, State, Data, Server, Ops) ->
     Parent = gen:get_parent(),
-    enter(Module, Opts, State, Data, Server, Ops, Parent).
+    enter(Module, Opts, CallbackMode, State, Data, Server, Ops, Parent).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -465,37 +477,40 @@ do_send(Proc, Msg) ->
 	    ok
     end.
 
-%% Here init_it and all enter_loop functions converge
-enter(Module, Opts, State, Data, Server, InitOps, Parent) ->
-    Name = gen:get_proc_name(Server),
-    Debug = gen:debug_options(Name, Opts),
-    PrevState = undefined,
-    S = #{
-      callback_mode => state_functions,
-      module => Module,
-      name => Name,
-      prev_state => PrevState,
-      state => PrevState, % Will be discarded by loop_event_transition_ops
-      data => Data,
-      timer => undefined,
-      postponed => [],
-      hibernate => false},
-    case collect_init_options(InitOps) of
-	{CallbackMode,Ops} ->
+%% Here init_it/6 and enter_loop/5,6,7 functions converge
+enter(Module, Opts, CallbackMode, State, Data, Server, Ops, Parent)
+  when is_atom(Module), is_pid(Parent) ->
+    case callback_mode(CallbackMode) of
+	true ->
+	    Name = gen:get_proc_name(Server),
+	    Debug = gen:debug_options(Name, Opts),
+	    PrevState = undefined,
+	    S =	#{
+	      callback_mode => CallbackMode,
+	      module => Module,
+	      name => Name,
+	      prev_state => PrevState,
+	      state => PrevState, % Discarded by loop_event_transition_ops
+	      data => Data,
+	      timer => undefined,
+	      postponed => [],
+	      hibernate => false},
 	    loop_event_transition_ops(
-	      Parent, Debug,
-	      S#{callback_mode := CallbackMode},
-	      [],
-	      {event,undefined}, % Will be discarded by {postpone,false}
+	      Parent, Debug, S, [],
+	      {event,undefined}, % Discarded due to {postpone,false}
 	      PrevState, State, Data,
 	      Ops++[{postpone,false}]);
-	[Reason] ->
-	    ?TERMINATE(Reason, Debug, S, [])
+	false ->
+	    erlang:error(
+	      badarg,
+	      [Module,Opts,CallbackMode,State,Data,Server,Ops,Parent])
     end.
 
 %%%==========================================================================
 %%%  gen callbacks
 
+init_it(Starter, self, ServerRef, Module, Args, Opts) ->
+    init_it(Starter, self(), ServerRef, Module, Args, Opts);
 init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
     try Module:init(Args) of
 	Result ->
@@ -514,12 +529,16 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 
 init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
-	{ok,State,Data} ->
+	{CallbackMode,State,Data} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, [], Parent);
-	{ok,State,Data,Ops} ->
+	    enter(
+	      Module, Opts, CallbackMode, State, Data,
+	      ServerRef, [], Parent);
+	{CallbackMode,State,Data,Ops} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, Ops, Parent);
+	    enter(
+	      Module, Opts, CallbackMode, State, Data,
+	      ServerRef, Ops, Parent);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -880,30 +899,6 @@ loop_event_transition_ops(
 
 %%---------------------------------------------------------------------------
 %% Server helpers
-
-collect_init_options(InitOps) ->
-    if
-	is_list(InitOps) ->
-	    collect_init_options(InitOps, state_functions, []);
-	true ->
-	    collect_init_options([InitOps], state_functions, [])
-    end.
-%% Keep the last of each kind
-collect_init_options([], CallbackMode, Ops) ->
-    {CallbackMode,lists:reverse(Ops)};
-collect_init_options(
-  [InitOp|InitOps] = AllInitOps, CallbackMode, Ops) ->
-    case InitOp of
-	{callback_mode,Mode}
-	  when Mode =:= state_functions;
-	       Mode =:= handle_event_function ->
-	    collect_init_options(InitOps, Mode, Ops);
-	{callback_mode,_} ->
-	    [{bad_init_ops,AllInitOps}];
-	_ -> % Collect others as Ops
-	    collect_init_options(
-	      InitOps, CallbackMode, [InitOp|Ops])
-    end.
 
 collect_transition_options(Ops) ->
     if

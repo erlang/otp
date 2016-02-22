@@ -190,7 +190,7 @@ erlang:'!'            -----> Module:StateName/5
       <name name="server_name" />
       <desc>
 	<p>Name specification to use when starting
-	  a<c>gen_statem</c> server.
+	  a <c>gen_statem</c> server.
 	  See <seealso marker="#start_link/3">
 	    <c>start_link/3</c>
 	  </seealso> and
@@ -348,17 +348,6 @@ erlang:'!'            -----> Module:StateName/5
       </desc>
     </datatype>
     <datatype>
-      <name name="init_option" />
-      <desc>
-	<p>Option that only is valid when initializing
-	  the <c>gen_statem</c> that is it can be returned from
-	  <seealso marker="#Module:init/1">Module:init/1</seealso>
-	  or given to
-	  <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>.
-	</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="callback_mode" />
       <desc>
 	<taglist>
@@ -459,7 +448,7 @@ erlang:'!'            -----> Module:StateName/5
 	    <seealso marker="#type-event_type">type <c>timeout</c></seealso>
 	    after <c><anno>Time</anno></c> milliseconds unless some other
 	    event is received before that time.  Note that a retried
-	    event counts just like a new in this respect.
+	    or inserted event counts just like a new in this respect.
 	    If <c>Time =:= infinity</c> no timer is started.
 	    If <c>Time =:= 0</c> the timeout event
 	    is immediately enqueued as the newest received.
@@ -468,7 +457,7 @@ erlang:'!'            -----> Module:StateName/5
 	    <seealso marker="#type-transition_action">
 	      <c>transition_action()</c>
 	    </seealso> <c>cancel_timer</c>.
-	    This timeout is cancelled automatically by any event.
+	    This timeout is cancelled automatically by any other event.
 	  </item>
 	</taglist>
       </desc>
@@ -478,9 +467,9 @@ erlang:'!'            -----> Module:StateName/5
       <desc>
 	<p>The state transition actions are executed
 	  in the containing list order.  This matters
-	  for <c>next_event</c> where the last one in the list
-	  will become the next event to present
-	  to the state functions.  Regarding the other actions
+	  for <c>next_event</c> where the last such in the list
+	  will become the next event to process by
+	  the current state function.  Regarding the other actions
 	  it is only for <c>remove_event</c> with
 	  <c><anno>EventPredicate</anno></c>
 	  and for <c>reply_action()</c> that the order may matter.
@@ -490,7 +479,9 @@ erlang:'!'            -----> Module:StateName/5
 	  <item>Reply to a calling client.</item>
 	  <tag><c>next_event</c></tag>
 	  <item>Insert the given <c><anno>EventType</anno></c>
-	    and <c><anno>EventContent</anno></c> the next to process.
+	    and <c><anno>EventContent</anno></c> as the next to process.
+	    This will bypass any events in the process mailbox as well
+	    as any other queued events.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
@@ -841,11 +832,11 @@ erlang:'!'            -----> Module:StateName/5
     </func>
 
     <func>
-      <name name="enter_loop" arity="4" />
+      <name name="enter_loop" arity="5" />
       <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
 	<p>The same as
-	  <seealso marker="#enter_loop/6"><c>enter_loop/6</c></seealso>
+	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
 	  except that no
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
@@ -854,12 +845,12 @@ erlang:'!'            -----> Module:StateName/5
       </desc>
     </func>
     <func>
-      <name name="enter_loop" arity="5" />
+      <name name="enter_loop" arity="6" />
       <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
 	<p>If <c><anno>Server_or_Ops</anno></c> is a <c>list()</c>
 	  the same as
-	  <seealso marker="#enter_loop/6"><c>enter_loop/6</c></seealso>
+	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
 	  except that no
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
@@ -867,7 +858,7 @@ erlang:'!'            -----> Module:StateName/5
 	  <c>Ops = <anno>Server_or_Ops</anno></c>.
 	</p>
 	<p>Otherwise the same as
-	  <seealso marker="#enter_loop/6"><c>enter_loop/6</c></seealso>
+	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
 	  with
 	  <c>Server = <anno>Server_or_Ops</anno></c> and
 	  <c>Ops = []</c>.
@@ -875,7 +866,7 @@ erlang:'!'            -----> Module:StateName/5
       </desc>
     </func>
     <func>
-      <name name="enter_loop" arity="6" />
+      <name name="enter_loop" arity="7" />
       <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
         <p>Makes an the calling process become a <c>gen_statem</c>.
@@ -903,8 +894,8 @@ erlang:'!'            -----> Module:StateName/5
 	    <c>server_name()</c>
 	  </seealso> name must have been registered accordingly
 	  <em>before</em> this function is called.</p>
-        <p><c><anno>State</anno></c>, <c><anno>Data</anno></c>
-	  and <c><anno>Ops</anno></c>
+        <p><c><anno>CallbackMode</anno></c>, <c><anno>State</anno></c>,
+	  <c><anno>Data</anno></c> and <c><anno>Ops</anno></c>
 	  have the same meanings as in the return value of
           <seealso marker="#Module:init/1">Module:init/1</seealso>.
           Also, the callback module <c><anno>Module</anno></c>
@@ -938,15 +929,17 @@ erlang:'!'            -----> Module:StateName/5
       <fsummary>Initialize process and internal state</fsummary>
       <type>
         <v>Args = term()</v>
-        <v>Result = {ok,State,Data}</v>
-	<v>&nbsp;| {ok,State,Data,Ops}</v>
+        <v>Result = {CallbackMode,State,Data}</v>
+	<v>&nbsp;| {CallbackMode,State,Data,Ops}</v>
         <v>&nbsp;| {stop,Reason} | ignore</v>
+	<v>CallbackMode =
+	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
+	</v>
 	<v>State = <seealso marker="#type-state">state()</seealso></v>
 	<v>Data = <seealso marker="#type-data">data()</seealso>
 	</v>
 	<v>Ops =
-	  [<seealso marker="#type-transition_op">transition_op()</seealso>
-	   | <seealso marker="#type-init_option">init_option()</seealso>]
+	  [<seealso marker="#type-transition_op">transition_op()</seealso>]
 	</v>
 	<v>Reason = term()</v>
       </type>
@@ -962,20 +955,19 @@ erlang:'!'            -----> Module:StateName/5
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
         <p>If the initialization is successful, the function should
-          return <c>{ok,State,Data}</c> or
-	  <c>{ok,State,Data,Ops}</c>.
-	  <c>State</c> is the <seealso marker="#type-state">state</seealso>
+          return <c>{CallbackMode,State,Data}</c> or
+	  <c>{CallbackMode,State,Data,Ops}</c>.
+	  <c>CallbackMode</c> selects the
+	  <seealso marker="#type-callback_mode">callback_mode()</seealso>.
 	  of the <c>gen_statem</c>.
+	  <c>State</c> is the <seealso marker="#type-state">state()</seealso>
+	  of the <c>gen_statem</c> and
+	  <c>Data</c> the server <seealso marker="#type-data">data()</seealso>
 	</p>
 	<p>The <seealso marker="#type-transition_op"><c>Ops</c></seealso>
 	  are executed when entering the first
 	  <seealso marker="#type-state">state</seealso> just as for a
 	  <seealso marker="#state_function">state function</seealso>.
-	</p>
-	<p>This function allows an option to select the callback mode
-	  of the <c>gen_statem</c>.  See
-	  <seealso marker="#type-init_option">init_option</seealso>.
-	  This option is not allowed from the state function(s).
 	</p>
         <p>If something goes wrong during the initialization
           the function should return <c>{stop,Reason}</c>
@@ -984,7 +976,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>This function may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return its value.
+	  to return <c>Result</c>.
 	</p>
       </desc>
     </func>
@@ -1065,7 +1057,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>These functions may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return its value.
+	  to return <c>Result</c>.
 	</p>
       </desc>
     </func>
@@ -1130,7 +1122,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>This function may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return its value.
+	  to return <c>Ignored</c>, which is ignored anyway.
 	</p>
       </desc>
     </func>
@@ -1184,11 +1176,11 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>If the function returns <c>Reason</c>, the ongoing
 	  upgrade will fail and roll back to the old release.</p>
-      </desc>
 	<p>This function may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return its value.
+	  to return <c>Result</c> or <c>Reason</c>.
 	</p>
+      </desc>
     </func>
 
     <func>
@@ -1277,7 +1269,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<p>This function may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return its value.
+	  to return <c>Status</c>.
 	</p>
       </desc>
     </func>
