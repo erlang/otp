@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -734,7 +734,7 @@ backup_schema(B, Tabs) ->
 safe_apply(B, write, [_, Items]) when Items == [] ->
     B;
 safe_apply(B, What, Args) ->
-    Abort = fun(R) -> abort_write(B, What, Args, R) end,
+    Abort = abort_write_fun(B, What, Args),
     receive
 	{'EXIT', Pid, R} -> Abort({'EXIT', Pid, R})
     after 0 ->
@@ -745,6 +745,10 @@ safe_apply(B, What, Args) ->
 	    catch _:R -> Abort(R)
 	    end
     end.
+
+-spec abort_write_fun(_, _, _) -> fun((_) -> no_return()).
+abort_write_fun(B, What, Args) ->
+    fun(R) -> abort_write(B, What, Args, R) end.
 
 abort_write(B, What, Args, Reason) ->
     Mod = B#backup_args.module,

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,6 +107,7 @@ universal_time(OE_THIS, State) ->
 %% Arguments: 
 %% Returns  : {'EXCEPTION", #'CosTime_TimeUnavailable'{}}
 %%-----------------------------------------------------------
+-spec secure_universal_time(_, _) -> no_return().
 secure_universal_time(_OE_THIS, _State) ->
     corba:raise(#'CosTime_TimeUnavailable'{}).
 

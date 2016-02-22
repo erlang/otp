@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -240,6 +240,7 @@ check_context([_|Rest], Acc, Env) ->
 %%-----------------------------------------------------------------
 %% Func: call_interceptors
 %%-----------------------------------------------------------------
+-dialyzer({no_improper_lists, call_interceptors/7}).
 call_interceptors(SocketType, #giop_env{interceptors = {native, Ref, PIs},
 					ctx = Ctx} = Env, 
 		  ReqHdr, Rest, Len, ByteOrder, Msg) ->
@@ -276,6 +277,7 @@ call_interceptors(SocketType, #giop_env{interceptors = {portable, _PIs}} = Env,
 %%-----------------------------------------------------------------
 %% Func: call_interceptors_out
 %%-----------------------------------------------------------------
+-dialyzer({no_improper_lists, call_interceptors_out/7}).
 call_interceptors_out(#giop_env{interceptors = {native, Ref, PIs}, ctx = Ctx} = Env, 
 		      ReqId, Result, Obj, Type, Operation, TypeCodes) ->
     ReqHdr = #request_header{object_key = Obj,

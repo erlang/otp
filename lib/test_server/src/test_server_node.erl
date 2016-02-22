@@ -354,13 +354,16 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 	    I = "=== Not waiting for node",
 	    gen_server:reply(From,{{ok, Nodename}, HostStr, Cmd, I, []}),
 	    Self = self(),
-	    spawn_link(
-	      fun() -> 
-		      wait_for_node_started(LSock,Tmo,undefined,
-					    Cleanup,TI,Self),
-		      receive after infinity -> ok end
-	      end),
+	    spawn_link(wait_for_node_started_fun(LSock,Tmo,Cleanup,TI,Self)),
 	    ok
+    end.
+
+-spec wait_for_node_started_fun(_, _, _, _, _) -> fun(() -> no_return()).
+wait_for_node_started_fun(LSock, Tmo, Cleanup, TI, Self) ->
+    fun() ->
+            wait_for_node_started(LSock,Tmo,undefined,
+                                  Cleanup,TI,Self),
+            receive after infinity -> ok end
     end.
 
 %%
@@ -468,7 +471,11 @@ handle_start_node_return(Version,VsnStr,{started, Node, OVersion, OVsnStr}) ->
 node_started([Host,PortAtom]) ->
     %% Must spawn a new process because the boot process should not 
     %% hang forever!!
-    spawn(fun() -> node_started(Host,PortAtom) end).
+    spawn(node_started_fun(Host,PortAtom)).
+
+-spec node_started_fun(_, _) -> fun(() -> no_return()).
+node_started_fun(Host,PortAtom) ->
+    fun() -> node_started(Host,PortAtom) end.
 
 %% This process hangs forever, just waiting for the socket to be
 %% closed and terminating the node
