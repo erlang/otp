@@ -32,10 +32,10 @@
 
   <section>
     <title>Introduction</title>
-    <p>Observer, is a graphical tool for observing the characteristics of
-    erlang systems.  Observer displays system information, application
-    supervisor trees, process information, ets or mnesia tables and contains
-    a frontend for erlang tracing.
+    <p>Observer is a graphical tool for observing the characteristics of
+    Erlang systems.  Observer displays system information, application
+    supervisor trees, process information, ETS or Mnesia tables and contains
+    a frontend for Erlang tracing.
     </p>
   </section>
 
@@ -48,19 +48,19 @@
  > erl -sname observer -hidden -setcookie MyCookie -run observer
     </code>
     <p>
-      Choose which node to observe via <c>Nodes</c> menu. The <c>View/Refresh
-      Interval</c> controls how frequent the view should be updated.
+      Choose which node to observe via the <c>Nodes</c> menu. The <c>View/Refresh
+      Interval</c> controls how frequently the view should be updated.
       The refresh interval is set per viewer so you can
       have different settings for each viewer. To minimize the system
       impact only the active viewer is updated and the other
       views will be updated when activated.
     </p>
 
-    <p> In general the mouse buttons behaves as expected, use left click
-    to select objects, right click to pop up a menu with most used
+    <p> In general the mouse buttons behave as expected- use left click
+    to select objects, right click to pop up a menu with the most used
     choices and double click to bring up information about the
-    selected object. In most viewers with several columns you can change
-    sort order by left clicking on column header.
+    selected object. In most views with several columns you can change
+    sort order by left clicking on the column header.
     </p>
   </section>
 
@@ -71,17 +71,17 @@
     tree.
     </p>
     <p><c>Trace process</c> will add the selected process identifier
-    to <c>Trace Overview</c> view and the node the process resides on
+    to the <c>Trace Overview</c> view and the node the process resides on
     will be added as well.
     </p>
     <p><c>Trace named process</c> will add the
     registered name of the process. This can be useful when tracing on
-    several nodes, then processes with that name will be traced on all traced
+    several nodes- processes with that name will then be traced on all traced
     nodes.
     </p>
     <p><c>Trace process tree</c> and <c>Trace named process
-    tree</c> will add the selected process and all processes below,
-    right of, it to  the <c>Trace Overview</c> view.
+    tree</c> will add the selected process and all processes below and
+    to the right of it to the <c>Trace Overview</c> view.
     </p>
   </section>
 
@@ -105,7 +105,7 @@
     <note>
       <p><em>Reds</em> can be presented as accumulated values or as values since last update.</p>
     </note>
-    <p><c>Process info</c> open a detailed information window on the selected process.</p>
+    <p><c>Process info</c> opens a detailed information window on the selected process.</p>
     <taglist>
       <tag>Process Information</tag>
       <item>Shows the process information.</item>
@@ -116,30 +116,30 @@
       <tag>Stack Trace</tag>
       <item>Shows the process current stack trace.</item>
       <tag>State</tag>
-      <item>Show the process state.</item>
+      <item>Shows the process state.</item>
       <tag>Log</tag>
-      <item>If enabled and available, show the process SASL log entries.</item>
+      <item>If enabled and available, shows the process SASL log entries.</item>
     </taglist>
     <note>
-      <p><c>Log</c> needs SASL application to be started on the observed node, with log_mf_h as log handler.
+      <p><c>Log</c> needs the SASL application to be started on the observed node, with log_mf_h as log handler.
       The Observed node must be R16B02 or higher.
-      <c>rb</c> server must not be started on the observed node when clicking on menu 'Log/Toggle log view'.
-      <c>rb</c> server will be stopped on the observed node when exiting or changing observed node.
+      The <c>rb</c> server must not be started on the observed node when clicking on the menu 'Log/Toggle log view'.
+      <c>rb</c> server will be stopped on the observed node when exiting or changing the observed node.
       </p>
     </note>
     <p><c>Trace Processes</c> will add the selected process identifiers to the <c>Trace Overview</c> view and the
     node the processes reside on will be added as well.
     <c>Trace Named Processes</c> will add the registered name of processes. This can be useful
-    when tracing is done on several nodes, then processes with that name will be traced on all traced nodes.
+    when tracing is done on several nodes- processes with that name will then be traced on all traced nodes.
     </p>
   </section>
 
   <section>
     <title>Table Viewer</title>
-    <p>The <c>Table Viewer</c> view lists tables. By default ets tables
-    are visible and unreadable, private ets, tables and tables created by the OTP
-    applications are not visible.  Use <c>View</c> menu to view "system"
-    ets tables, unreadable ets tables or mnesia tables.
+    <p>The <c>Table Viewer</c> view lists tables. By default ETS tables
+    are visible and unreadable; private ETS tables and tables created by the OTP
+    applications are not visible.  Use the <c>View</c> menu to view "system"
+    ETS tables, unreadable ETS tables or Mnesia tables.
     </p>
     <p>Double click to view the content of the table. Select table and activate <c>View/Table Information</c>
     menu to view table information.
@@ -151,9 +151,9 @@
   <section>
     <title>Trace Overview</title>
     <p>The <c>Trace Overview</c> view handles tracing. Tracing is done
-    by selecting which processes to be traced and how to trace
-    them. You can trace messages, function calls and events, where
-    events are process related events such as <c>spawn</c>,
+    by selecting which processes are to be traced and how to trace
+    them. You can trace messages, function calls, and events, where
+    events are process-related events such as <c>spawn</c>,
     <c>exit</c> and several others.
     </p>
 
@@ -178,7 +178,7 @@
     </p>
     <p>
       Processes added by process identifiers will add the nodes these
-      processes resides on in the node list. Additional nodes can be added by the <c>Add
+      processes reside on in the node list. Additional nodes can be added by the <c>Add
       Nodes</c> button.
     </p>
     <p>
@@ -190,7 +190,7 @@
       specifications are described in the <seealso
       marker="erts:match_spec">ERTS User's Guide</seealso>.  To simplify
       the writing of a match specification they can also be written as
-      <c>fun/1</c> see <seealso marker="stdlib:ms_transform">ms_transform manual page</seealso> for
+      <c>fun/1</c>. See <seealso marker="stdlib:ms_transform">ms_transform manual page</seealso> for
       further information.
     </p>
 
