@@ -566,6 +566,16 @@
 	set to <c>false</c>, <c>sys_alloc</c> carriers will never be
 	created by allocators using the <c>alloc_util</c> framework.</item>
     </taglist>
+    <p>The following flag is special for <c>literal_alloc</c>:</p>
+    <taglist>
+      <tag><marker id="MIscs"/><c><![CDATA[+MIscs <size in MB>]]></c></tag>
+      <item>
+      <c>literal_alloc</c> super carrier size (in MB). The amount of
+      <em>virtual</em> address space reserved for literal terms in
+      Erlang code on 64-bit architectures. The default is 1024 (1GB)
+      and is usually sufficient. The flag is ignored on 32-bit
+      architectures.</item>
+    </taglist>
     <p>Instrumentation flags:</p>
     <taglist>
       <tag><marker id="Mim"/><c>+Mim true|false</c></tag>

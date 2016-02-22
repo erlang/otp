@@ -1489,8 +1489,15 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		case 'B':
 		    handle_au_arg(&init->binary_alloc, &argv[i][3], argv, &i, 0);
 		    break;
-		case 'I':
-                    handle_au_arg(&init->literal_alloc, &argv[i][3], argv, &i, 0);
+                case 'I':
+                    if (has_prefix("scs", argv[i]+3)) {
+#if HAVE_ERTS_MSEG
+			init->mseg.literal_mmap.scs =
+#endif
+			    get_mb_value(argv[i]+6, argv, &i);
+		    }
+                    else
+                        handle_au_arg(&init->literal_alloc, &argv[i][3], argv, &i, 0);
 		    break;
 		case 'D':
 		    handle_au_arg(&init->std_alloc, &argv[i][3], argv, &i, 0);
