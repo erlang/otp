@@ -230,7 +230,7 @@ sshc_simple_exec(Config) ->
     receive
 	{SshPort, {data,Expect}} ->
 	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
-	    port_close(SshPort),
+	    catch port_close(SshPort),
 	    ok
     after ?TIMEOUT ->
 	    ct:fail("Did not receive answer")
