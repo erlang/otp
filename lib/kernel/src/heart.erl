@@ -37,6 +37,7 @@
 -export([start/0, init/2,
          set_cmd/1, clear_cmd/0, get_cmd/0,
          set_callback/2, clear_callback/0, get_callback/0,
+         set_options/1, get_options/0,
          cycle/0]).
 
 -define(START_ACK, 1).
@@ -54,6 +55,7 @@
 
 -record(state,{port :: port(),
                cmd  :: [] | binary(),
+               options :: [atom()],
                callback :: 'undefined' | {atom(), atom()}}).
 
 %%---------------------------------------------------------------------
@@ -92,7 +94,7 @@ init(Starter, Parent) ->
     case catch start_portprogram() of
 	{ok, Port} ->
 	    Starter ! {ok, self()},
-	    loop(Parent, #state{port = Port, cmd = []});
+	    loop(Parent, #state{port=Port, cmd=[], options=[]});
 	no_heart ->
 	    Starter ! {no_heart, self()};
 	error ->
@@ -141,6 +143,19 @@ clear_callback() ->
     ?MODULE ! {self(), clear_callback},
     wait().
 
+-spec set_options(Options) -> 'ok' | {'error', {'bad_options', Options}} when
+      Options :: [atom()].
+
+set_options(Options) ->
+    ?MODULE ! {self(), set_options, Options},
+    wait().
+
+-spec get_options() -> {'ok', Options} | 'none' when
+      Options :: [atom()].
+
+get_options() ->
+    ?MODULE ! {self(), get_options},
+    wait().
 
 %%% Should be used solely by the release handler!!!!!!!
 -spec cycle() -> 'ok' | {'error', term()}.
@@ -253,6 +268,22 @@ loop(Parent, #state{port=Port}=S) ->
         {From, clear_callback} ->
             From ! {?MODULE, ok},
             loop(Parent, S#state{callback=undefined});
+	{From, set_options, Options} ->
+            case validate_options(Options) of
+                Validated when is_list(Validated) ->
+                    From ! {?MODULE, ok},
+                    loop(Parent, S#state{options=Validated});
+                _ ->
+		    From ! {?MODULE, {error, {bad_options, Options}}},
+                    loop(Parent, S)
+            end;
+        {From, get_options} ->
+            Res = case S#state.options of
+                      [] -> none;
+                      Cb -> {ok, Cb}
+                  end,
+            From ! {?MODULE, Res},
+            loop(Parent, S);
 	{From, cycle} ->
 	    %% Calls back to loop
 	    do_cycle_port_program(From, Parent, S);
@@ -280,6 +311,11 @@ no_reboot_shutdown(Port) ->
 	{'EXIT', Port, Reason} when Reason =/= badsig ->
 	    exit(normal)
     end.
+
+validate_options(Opts) -> validate_options(Opts,[]).
+validate_options([],Res) -> Res;
+validate_options([scheduler=Opt|Opts],Res) -> validate_options(Opts,[Opt|Res]);
+validate_options(_,_) -> error.
 
 do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
     unregister(?HEART_PORT_NAME),
@@ -310,7 +346,8 @@ do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
     
 
 %% "Beates" the heart once.
-send_heart_beat(#state{port=Port, callback=Cb}) ->
+send_heart_beat(#state{port=Port, callback=Cb, options=Opts}) ->
+    ok = check_system(Opts),
     ok = check_callback(Cb),
     Port ! {self(), {command, [?HEART_BEAT]}}.
 
@@ -327,6 +364,11 @@ get_heart_cmd(Port) ->
 	    {ok, Cmd}
     end.
 
+check_system([]) -> ok;
+check_system([scheduler|Opts]) ->
+    ok = erts_internal:system_check(schedulers),
+    check_system(Opts).
+
 %% validate system by performing a check before the heartbeat
 %% return 'ok' if everything is alright.
 %% Terminate if with reason if something is a miss.
@@ -334,7 +376,6 @@ get_heart_cmd(Port) ->
 %% if something goes wront -> no heartbeat.
 
 check_callback(Callback) ->
-    ok = erts_internal:system_check(schedulers),
     case Callback of
         undefined -> ok;
         {M,F} ->
