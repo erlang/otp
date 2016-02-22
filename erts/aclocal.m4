@@ -2157,8 +2157,8 @@ case "$GCC-$host_cpu" in
 	"lock; cmpxchg16b %0\n\t"
 #endif
 	"setz %3\n\t"
-	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new[1]), "b"(new[0])
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
 	: "cc", "memory");
 	],
 	[plain_cmpxchg=yes])
@@ -2217,8 +2217,8 @@ case "$GCC-$host_cpu" in
 	"lock; cmpxchg8b %0\n\t"
 	"setz %3\n\t"
 	"popl %%ebx\n\t"
-	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new[1]), "r"(new[0])
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
 	: "cc", "memory");
 	],
 	[gcc_pic_dw_cmpxchg_asm=yes
@@ -2238,14 +2238,14 @@ case "$GCC-$host_cpu" in
       char xchgd;
       long new[2], xchg[2], *p;
       __asm__ __volatile__(
-    	  "pushl %%ebx\n\t"
-	  "movl (%7), %%ebx\n\t"
-	  "movl 4(%7), %%ecx\n\t"
-	  "lock; cmpxchg8b %0\n\t"
-  	  "setz %3\n\t"
-	  "popl %%ebx\n\t"
-	  : "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	  : "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new)
+	"pushl %%ebx\n\t"
+	"movl (%7), %%ebx\n\t"
+	"movl 4(%7), %%ecx\n\t"
+	"lock; cmpxchg8b %0\n\t"
+	"setz %3\n\t"
+	"popl %%ebx\n\t"
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
 	: "cc", "memory");
 
 	],
