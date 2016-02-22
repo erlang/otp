@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -411,11 +411,9 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     Ref = make_ref(),
     Pid =
 	spawn_link(
-	  fun() ->
-		  run_test_case_eval(Mod, Func, Args, Name, Ref,
-				     RunInit, TimetrapData,
-				     LogOpts, TCCallback)
-	  end),
+          run_test_case_eval_fun(Mod, Func, Args, Name, Ref,
+                                 RunInit, TimetrapData,
+                                 LogOpts, TCCallback)),
     put(test_server_detected_fail, []),
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
 	     status=starting,ret_val=[],comment="",timeout=infinity,
@@ -906,6 +904,16 @@ job_proxy_msgloop() ->
 	    group_leader() ! Msg
     end,
     job_proxy_msgloop().
+
+-spec run_test_case_eval_fun(_, _, _, _, _, _, _, _, _) ->
+                                    fun(() -> no_return()).
+run_test_case_eval_fun(Mod, Func, Args, Name, Ref, RunInit,
+                       TimetrapData, LogOpts, TCCallback) ->
+    fun () ->
+            run_test_case_eval(Mod, Func, Args, Name, Ref,
+                               RunInit, TimetrapData,
+                               LogOpts, TCCallback)
+    end.
 
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
@@ -2408,15 +2416,7 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 	   end,
     Master = self(),
     Ref = make_ref(),
-    Slave = spawn(Node,
-		  fun () ->
-			  start_job_proxy(),
-			  receive
-			      Ref ->
-				  Master ! {Ref, Fun()}
-			  end,
-			  receive after infinity -> infinity end
-		  end),
+    Slave = spawn(Node, start_job_proxy_fun(Master, Fun)),
     MRef = erlang:monitor(process, Slave),
     Slave ! Ref,
     receive
@@ -2429,6 +2429,17 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 		{'DOWN', MRef, _, _, _} ->
 		    Res
 	    end
+    end.
+
+-spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
+start_job_proxy_fun(Master, Fun) ->
+    fun () ->
+            start_job_proxy(),
+            receive
+                Ref ->
+                    Master ! {Ref, Fun()}
+            end,
+            receive after infinity -> infinity end
     end.
 
 %% Return true if Name or node() is a shielded node

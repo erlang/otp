@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1552,9 +1552,11 @@ match_syntax_objset_1(_, {object,_,_}=Object, ClassDef) ->
 make_objset(ClassDef, Set) ->
     #typedef{typespec=#'ObjectSet'{class=ClassDef,set=Set}}.
 
+-spec syntax_match_error(_) -> no_return().
 syntax_match_error(S) ->
     asn1_error(S, syntax_nomatch).
 
+-spec syntax_match_error(_, _) -> no_return().
 syntax_match_error(S, What0) ->
     What = printable_string(What0),
     asn1_error(S, {syntax_nomatch,What}).
@@ -5745,6 +5747,7 @@ return_asn1_error(#state{mname=Where}, Item, Error) ->
     Pos = asn1ct:get_pos_of_def(Item),
     {structured_error,{Where,Pos},?MODULE,Error}.
 
+-spec asn1_error(_, _) -> no_return().
 asn1_error(S, Error) ->
     throw({error,return_asn1_error(S, Error)}).
 

@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -315,7 +315,7 @@ enodename(Host, Node) ->
 do_start(Host, Node, Options) ->
     ENode = enodename(Host, Node),
     Functions =
-	lists:concat([[{ct_slave, slave_started, [ENode, self()]}],
+	lists:append([[{ct_slave, slave_started, [ENode, self()]}],
 		      Options#options.startup_functions,
 		      [{ct_slave, slave_ready, [ENode, self()]}]]),
     Functions2 = if

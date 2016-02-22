@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1030,6 +1030,7 @@ receive_exception(CRI, Mod) ->
 %%            SlotId - ulong()
 %% Returns  : {'EXCEPTION', #'PortableInterceptor_InvalidSlot'{}}
 %%------------------------------------------------------------
+-spec get_slot(_, _) -> no_return().
 get_slot(_XRI, _SlotId) ->
     corba:raise(#'PortableInterceptor_InvalidSlot'{}).
 
@@ -1185,6 +1186,7 @@ get_server_policy(#'ServerRequestInfo'{contexts = Ctxs}, _PolicyType) ->
 %%            Data - #any{}
 %% Returns  : {'EXCEPTION', #'PortableInterceptor_InvalidSlot'{}}
 %%------------------------------------------------------------
+-spec set_slot(_, _, _) -> no_return().
 set_slot(_SRI, _SlotId, _Data) ->
     corba:raise(#'PortableInterceptor_InvalidSlot'{}).
 

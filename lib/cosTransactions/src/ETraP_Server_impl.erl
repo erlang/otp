@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -675,6 +675,7 @@ is_same_transaction(Self, {Env, Local}, Coordinator) ->
 %% Effect   :
 %%------------------------------------------------------------
 
+-spec is_related_transaction(_, _, _) -> no_return().
 is_related_transaction(_Self, {_Env, _Local}, _Coordinator) ->
     corba:raise(#'NO_IMPLEMENT'{completion_status=?COMPLETED_YES}).
 %    type_check(?tr_get_typeCheck(Env), ?tr_Coordinator,
@@ -689,6 +690,7 @@ is_related_transaction(_Self, {_Env, _Local}, _Coordinator) ->
 %% Effect   :
 %%------------------------------------------------------------
 
+-spec is_ancestor_transaction(_, _, _) -> no_return().
 is_ancestor_transaction(_Self, {_Env, _Local}, _Coordinator) ->
     corba:raise(#'NO_IMPLEMENT'{completion_status=?COMPLETED_YES}).
 %    type_check(?tr_get_typeCheck(Env), ?tr_Coordinator,
@@ -826,6 +828,7 @@ register_subtran_aware(Self, {Env, Local}, SubTrAwareResource) ->
 %% Effect   : 
 %%------------------------------------------------------------
 
+-spec register_synchronization(_, _, _) -> no_return().
 register_synchronization(_Self, {_Env, _Local}, _Synchronization) ->
     corba:raise(#'CosTransactions_SynchronizationUnavailable'{}).
 
@@ -950,6 +953,7 @@ create_subtransaction(Self, {Env, Local}) ->
 %% Effect   : 
 %%------------------------------------------------------------
 
+-spec get_txcontext(_, _) -> no_return().
 get_txcontext(_Self, {_Env, _Local}) ->
     corba:raise(#'CosTransactions_Unavailable'{}).
 
