@@ -182,6 +182,34 @@
       </desc>
     </func>
 
+    <func>
+        <name name="set_options" arity="1"/>
+        <fsummary>Set a list of options</fsummary>
+        <desc>
+            <p> Valid options <c>set_options</c> are: </p>
+            <taglist>
+                <tag><c>scheduler</c></tag>
+                <item>
+                    <p>If enabled, a message will be sent to each scheduler to check its
+                        responsiveness. The system check occurs before any heartbeat sent
+                        to the port program. If any scheduler is not responsive enough the
+                        heart program will not receive its heartpeat and terminate the node.
+                    </p>
+                </item>
+            </taglist>
+            <p> Returns with the value <c>ok</c> if the options are valid.</p>
+        </desc>
+    </func>
+    <func>
+      <name name="get_options" arity="0"/>
+      <fsummary>Get the temporary reboot command</fsummary>
+      <desc>
+          <p>Returns <c>{ok, Options}</c> where <c>Options</c> is a list of current options enabled for heart.
+              If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
+
   </funcs>
 </erlref>
 
