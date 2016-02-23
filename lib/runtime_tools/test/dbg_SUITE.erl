@@ -22,7 +22,7 @@
 %% Test functions
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 big/1, tiny/1, simple/1, message/1, distributed/1,
+	 big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
 	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
 	 with_seq_trace/1, dead_suspend/1, local_trace/1,
@@ -45,7 +45,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [big, tiny, simple, message, distributed, ip_port,
+    [big, tiny, simple, message, distributed, port, ip_port,
      file_port, file_port2, file_port_schedfix, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop].
@@ -269,6 +269,35 @@ local_trace(Config) when is_list(Config) ->
 		{error,badarith}}] = flush()
     after
 	?line stop()
+    end,
+    ok.
+
+port(suite) ->
+    [];
+port(doc) ->
+    ["Test that tracing on port works"];
+port(Config) when is_list(Config) ->
+    try
+        S = self(),
+	start(),
+        TestFile = filename:join(proplists:get_value(priv_dir, Config),"port_test"),
+        Fun = dbg:trace_port(file, TestFile),
+
+        %% Do a run to get rid of all extra port operations
+        port_close(Fun()),
+
+	dbg:p(new,ports),
+        Port = Fun(),
+        port_close(Port),
+	stop(),
+
+        TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
+	[{trace,Port,open,S,TraceFileDrv},
+         {trace,Port,getting_linked,S},
+         {trace,Port,closed,normal},
+         {trace,Port,unlink,S}] = flush()
+    after
+	dbg:stop()
     end,
     ok.
 
