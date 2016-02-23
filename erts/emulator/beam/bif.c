@@ -3938,10 +3938,10 @@ static char halt_msg[HALT_MSG_SIZE];
 /* ARGSUSED */
 BIF_RETTYPE halt_1(BIF_ALIST_1)
 {
-    Sint code;
+    Uint code;
     
-    if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
-	int pos_int_code = (int)code & INT_MAX;
+    if (term_to_Uint_mask(BIF_ARG_1, &code)) {
+	int pos_int_code = (int) (code & INT_MAX);
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
 	erts_halt(pos_int_code);
 	ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
@@ -3975,7 +3975,7 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
 /* ARGSUSED */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
-    Sint code;
+    Uint code;
     Eterm optlist = BIF_ARG_2;
     int flush = 1;
 
@@ -4002,8 +4002,8 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     if (is_not_nil(optlist))
 	goto error;
 
-    if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
-	int pos_int_code = (int)code & INT_MAX;
+    if (term_to_Uint_mask(BIF_ARG_1, &code)) {
+	int pos_int_code = (int) (code & INT_MAX);
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {

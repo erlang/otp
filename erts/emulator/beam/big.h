@@ -161,6 +161,7 @@ Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
+int term_to_Uint_mask(Eterm, Uint*);
 int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
 #if HAVE_INT64
