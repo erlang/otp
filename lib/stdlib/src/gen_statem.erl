@@ -109,7 +109,10 @@
     {'stop', % Stop the server
      Reason :: term(),
      NewData :: data()} |
-    {'stop', % Stop the server
+    {'stop_and_reply', % Reply then stop the server
+     Reason :: term(),
+     Replies :: [reply_action()] | reply_action()} |
+    {'stop_and_reply', % Reply then stop the server
      Reason :: term(),
      Replies :: [reply_action()] | reply_action(),
      NewData :: data()} |
@@ -244,9 +247,9 @@ event_type(Type) ->
    try throw(ok) catch _ -> erlang:get_stacktrace() end).
 
 -define(
-   TERMINATE(Reason, Debug, S, Q),
+   TERMINATE(Class, Reason, Debug, S, Q),
    terminate(
-     exit,
+     Class,
      begin Reason end,
      ?STACKTRACE(),
      begin Debug end,
@@ -560,7 +563,7 @@ system_continue(Parent, Debug, S) ->
     loop(Parent, Debug, S).
 
 system_terminate(Reason, _Parent, Debug, S) ->
-    ?TERMINATE(Reason, Debug, S, []).
+    ?TERMINATE(exit, Reason, Debug, S, []).
 
 system_code_change(
   #{module := Module,
@@ -696,7 +699,7 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    %% EXIT is not a 2-tuple and therefore
 		    %% not an event and has no event_type(),
 		    %% but this will stand out in the crash report...
-		    ?TERMINATE(Reason, Debug, S, [EXIT]);
+		    ?TERMINATE(exit, Reason, Debug, S, [EXIT]);
 		{timeout,Timer,Content} when Timer =/= undefined ->
 		    loop_receive(
 		      Parent, Debug, S, {timeout,Content}, undefined);
@@ -780,29 +783,26 @@ loop_event_result(
   Events, Event, Result) ->
     case Result of
 	{stop,Reason} ->
-	    ?TERMINATE(Reason, Debug, S, [Event|Events]);
+	    ?TERMINATE(exit, Reason, Debug, S, [Event|Events]);
 	{stop,Reason,NewData} ->
-	    ?TERMINATE(
-	      Reason, Debug,
-	      S#{data := NewData},
-	      [Event|Events]);
-	{stop,Reason,Reply,NewData} ->
 	    NewS = S#{data := NewData},
 	    Q = [Event|Events],
-	    Replies =
-		if
-		    is_list(Reply) ->
-			Reply;
-		    true ->
-			[Reply]
-		end,
-	    BadReplies =
+	    ?TERMINATE(exit, Reason, Debug, NewS, Q);
+	{stop_and_reply,Reason,Replies} ->
+	    Q = [Event|Events],
+	    [Class,NewReason,Stacktrace,NewDebug] =
+		reply_then_terminate(
+		  exit, Reason, ?STACKTRACE(), Debug, S, Q, Replies),
+	    %% Since we got back here Replies was bad
+	    terminate(Class, NewReason, Stacktrace, NewDebug, S, Q);
+	{stop_and_reply,Reason,Replies,NewData} ->
+	    NewS = S#{data := NewData},
+	    Q = [Event|Events],
+	    [Class,NewReason,Stacktrace,NewDebug] =
 		reply_then_terminate(
 		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
-	    ?TERMINATE(
-	      {bad_return_value,{stop,Reason,BadReplies,NewData}},
-	      Debug, NewS, Q);
+	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
 	{next_state,NewState,NewData} ->
 	    loop_event_transition_ops(
 	      Parent, Debug, S, Events, Event,
@@ -830,7 +830,7 @@ loop_event_result(
 	      State, State, Data, Ops);
 	_ ->
 	    ?TERMINATE(
-	      {bad_return_value,Result}, Debug, S, [Event|Events])
+	      error, {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
 loop_event_transition_ops(
@@ -886,15 +886,14 @@ loop_event_transition_ops(
 			hibernate := Hibernate,
 			postponed := P},
 		      Q, Timer);
-		[Reason,Debug] ->
-		    ?TERMINATE(Reason, Debug, S, [Event|Events]);
 		[Class,Reason,Stacktrace,Debug] ->
 		    terminate(
 		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
 	    end;
 	%%
-	[Reason] ->
-	    ?TERMINATE(Reason, Debug0, S, [Event|Events])
+	[Class,Reason,Stacktrace] ->
+	    terminate(
+	      Class, Reason, Stacktrace, Debug0, S, [Event|Events])
     end.
 
 %%---------------------------------------------------------------------------
@@ -923,7 +922,7 @@ collect_transition_options(
 	    collect_transition_options(
 	      Ops, NewPostpone, Hibernate, Timeout, Actions);
 	{postpone,_} ->
-	    [{bad_ops,AllOps}];
+	    [error,{bad_ops,AllOps},?STACKTRACE()];
 	hibernate ->
 	    collect_transition_options(
 	      Ops, Postpone, true, Timeout, Actions);
@@ -931,7 +930,7 @@ collect_transition_options(
 	    collect_transition_options(
 	      Ops, Postpone, NewHibernate, Timeout, Actions);
 	{hibernate,_} ->
-	    [{bad_ops,AllOps}];
+	    [error,{bad_ops,AllOps},?STACKTRACE()];
 	{timeout,infinity,_} -> % Ignore since it will never time out
 	    collect_transition_options(
 	      Ops, Postpone, Hibernate, undefined, Actions);
@@ -939,7 +938,7 @@ collect_transition_options(
 	    collect_transition_options(
 	      Ops, Postpone, Hibernate, NewTimeout, Actions);
 	{timeout,_,_} ->
-	    [{bad_ops,AllOps}];
+	    [error,{bad_ops,AllOps},?STACKTRACE()];
 	_ -> % Collect others as actions
 	    collect_transition_options(
 	      Ops, Postpone, Hibernate, Timeout, [Op|Actions])
@@ -959,7 +958,7 @@ process_transition_actions(
 		    process_transition_actions(
 		      Actions, Debug, S, [{Type,Content}|Q], P);
 		false ->
-		    [{bad_ops,AllActions},Debug]
+		    [error,{bad_ops,AllActions},?STACKTRACE(),Debug]
 	    end;
 	_ ->
 	    %% All others are remove actions
@@ -968,7 +967,7 @@ process_transition_actions(
 		    process_transition_actions(
 		      Actions, Debug, S, Q, P);
 		undefined ->
-		    [{bad_ops,AllActions},Debug];
+		    [error,{bad_ops,AllActions},?STACKTRACE(),Debug];
 		RemoveFun when is_function(RemoveFun, 2) ->
 		    case remove_event(RemoveFun, Q, P) of
 			{NewQ,NewP} ->
@@ -982,17 +981,27 @@ process_transition_actions(
 	    end
     end.
 
-reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
+reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, Replies) ->
+    if
+	is_list(Replies) ->
+	    do_reply_then_terminate(
+	      Class, Reason, Stacktrace, Debug, S, Q, Replies);
+	true ->
+	    do_reply_then_terminate(
+	      Class, Reason, Stacktrace, Debug, S, Q, [Replies])
+    end.
+%%
+do_reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
     terminate(Class, Reason, Stacktrace, Debug, S, Q);
-reply_then_terminate(
-  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs] = RRs) ->
+do_reply_then_terminate(
+  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs] = Replies) ->
     case R of
 	{reply,{_To,_Tag}=Caller,Reply} ->
 	    NewDebug = do_reply(Debug, S, Caller, Reply),
-	    reply_then_terminate(
+	    do_reply_then_terminate(
 	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
-	    RRs % bad_return_value
+	    [error,{bad_replies,Replies},?STACKTRACE(),Debug]
     end.
 
 do_reply(Debug, S, Caller, Reply) ->

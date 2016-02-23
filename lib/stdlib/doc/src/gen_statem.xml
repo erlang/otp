@@ -540,7 +540,14 @@ erlang:'!'            -----> Module:StateName/5
       <desc>
 	<taglist>
 	  <tag><c>stop</c></tag>
-	  <item>Send all <c><anno>Replies</anno></c> if given,
+	  <item>Terminate the <c>gen_statem</c> by calling
+	    <seealso marker="#Module:terminate/3">
+	      <c>Module:terminate/3</c>
+	    </seealso> with <c>Reason</c> and
+	    <c><anno>NewData</anno></c>, if given.
+	  </item>
+	  <tag><c>stop_and_reply</c></tag>
+	  <item>Send all <c><anno>Replies</anno></c>
 	    then terminate the <c>gen_statem</c> by calling
 	    <seealso marker="#Module:terminate/3">
 	      <c>Module:terminate/3</c>

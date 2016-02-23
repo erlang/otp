@@ -589,7 +589,7 @@ error_format_status(Config) when is_list(Config) ->
 	  "** State machine"++_,
 	  [Pid,{{call,_},badreturn},
 	   {formatted,idle,Data},
-	   exit,{bad_return_value,badreturn}|_]}} ->
+	   error,{bad_return_value,badreturn}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
 	    error_logger_forwarder:unregister(),
@@ -1268,7 +1268,7 @@ connected(Type, Content, PrevState, State, Data) ->
     end.
 
 state0({call,From}, stop, _, _, Data) ->
-    {stop,normal,[{reply,From,stopped}],Data};
+    {stop_and_reply,normal,[{reply,From,stopped}],Data};
 state0(Type, Content, PrevState, State, Data) ->
     case handle_common_events(Type, Content, PrevState, State, Data) of
 	undefined ->
@@ -1332,11 +1332,11 @@ handle_common_events(cast, {get,Pid}, _, State, Data) ->
     Pid ! {state,State,Data},
     {next_state,State,Data};
 handle_common_events({call,From}, stop, _, _, Data) ->
-    {stop,normal,[{reply,From,stopped}],Data};
+    {stop_and_reply,normal,[{reply,From,stopped}],Data};
 handle_common_events(cast, stop, _, _, _) ->
     {stop,normal};
 handle_common_events({call,From}, {stop,Reason}, _, _, Data) ->
-    {stop,Reason,{reply,From,stopped},Data};
+    {stop_and_reply,Reason,{reply,From,stopped},Data};
 handle_common_events(cast, {stop,Reason}, _, _, _) ->
      {stop,Reason};
 handle_common_events({call,From}, 'alive?', _, State, Data) ->
