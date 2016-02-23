@@ -75,12 +75,8 @@
 
 
 #ifdef DEBUG
-#ifndef __WIN32__
-#define ASSERT(X) do {if (!(X)) {erl_exit(1,"%s",#X);} } while(0)
-#else
 #include <assert.h>
 #define ASSERT(X) assert(X)
-#endif
 #else
 #define ASSERT(X)
 #endif

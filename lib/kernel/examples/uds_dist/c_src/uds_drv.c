@@ -957,28 +957,24 @@ static void put_packet_length(char *b, int len)
 
 /*
 ** Malloc wrappers
-** Note!
-** The function erl_exit is actually not a pert of the 
-** driver interface, but it is very nice to use if one wants to halt
-** with a core and an erlang crash dump.
 */
 static void *my_malloc(size_t size) 
 {
-    void erl_exit(int, char *, ...);
     void *ptr;
 
     if ((ptr = driver_alloc(size)) == NULL) {
-	erl_exit(1,"Could not allocate %lu bytes of memory",(unsigned long) size);
+	fprintf(stderr, "Could not allocate %lu bytes of memory",(unsigned long) size);
+	abort();
     }
     return ptr;
 }
 
 static void *my_realloc(void *ptr, size_t size)
 {
-    void erl_exit(int, char *, ...);
     void *nptr;
     if ((nptr = driver_realloc(ptr, size)) == NULL) {
-	erl_exit(1,"Could not reallocate %lu bytes of memory",(unsigned long) size);
+	fprintf(stderr, "Could not reallocate %lu bytes of memory",(unsigned long) size);
+	abort();
     }
     return nptr;
 }
