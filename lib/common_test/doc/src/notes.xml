@@ -33,6 +33,26 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a ssh package contained more than one netconf end tag,
+	    then the second end tag was never detected in
+	    ct_netconfc:handle_data. Instead it was included in the
+	    XML data given to the xmerl parser, which then failed.
+	    The problem was introduced by OTP-13007, and has now been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-13323</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
