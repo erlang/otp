@@ -120,7 +120,8 @@ std_simple_exec(Host, Port, Config, Opts) ->
 	Other ->
 	    ct:fail(Other)
     end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId).
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+    ssh:close(ConnectionRef).
 
 
 start_shell(Port, IOServer, UserDir) ->
@@ -154,14 +155,12 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
-%%ct:log("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
-%%ct:log("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
-	 {'EXIT',_, _} ->
-	     erlang:display('ssh_test_lib:loop_io_server/2 EXIT'),
+	 {'EXIT',_, _} = _Exit ->
+%%	     ct:log("ssh_test_lib:loop_io_server/2 got ~p",[_Exit]),
 	     ok
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
