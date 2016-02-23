@@ -38,6 +38,9 @@
 %%%
 %%% CommonTest callbacks
 %%% 
+suite() ->
+    [{timetrap,{minutes,5}}].
+
 all() -> 
     [
      minor_upgrade,
@@ -45,24 +48,17 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-        ok ->
-            case ct_release_test:init(Config0) of
-                {skip, Reason} ->
-                    {skip, Reason};
-                Config ->
-                    ssh:start(),
-                    Config
-            end
-    catch _:_ ->
-              {skip, "Crypto did not start"}
+    case ct_release_test:init(Config0) of
+	{skip, Reason} ->
+	    {skip, Reason};
+	Config ->
+	    ssh:start(),
+	    Config
     end.
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
     ssh:stop(),
-    crypto:stop(),
     UserDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(UserDir).
 

@@ -44,9 +44,7 @@ groups() ->
 
 init_per_suite(Config) ->
     catch ssh:stop(),
-    catch crypto:stop(),
     try 
-	ok = crypto:start(),
 	report_client_algorithms(),
 	ok = ssh:start(),
 	{ok,TracerPid} = erlang_trace(),
@@ -58,7 +56,6 @@ init_per_suite(Config) ->
     
 end_per_suite(_Config) ->
     catch ssh:stop(),
-    catch crypto:stop(),
     ok.
 
 
@@ -406,7 +403,7 @@ function_algs_times_sizes(EncDecs, L) ->
 	   end
 	   || EncDec <- EncDecs,
 	      C = #call{mfa = ED,
-			args = Args,  %%[S,Data],
+			% args = Args,  %%[S,Data],
 			t_call = T0,
 			t_return = T1} <- L,
 	      ED == EncDec

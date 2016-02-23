@@ -42,7 +42,8 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [{group,tool_tests},
@@ -579,23 +580,11 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 
 %%%---- init_suite and end_suite ---------------------------------------	
 start_apps(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    catch ssh:stop(),
-	    ok = ssh:start(),
-	    [{stop_apps, 
-	      fun() ->
-		      ssh:stop(),
-		      crypto:stop()
-	      end} | Config];
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
-    
+    catch ssh:stop(),
+    ok = ssh:start(),
+    Config.
 
-stop_apps(Config) ->
-    (?v(stop_apps, Config, fun()-> ok end))(),
+stop_apps(_Config) ->
     ssh:stop().
 
 
