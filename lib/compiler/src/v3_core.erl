@@ -1653,10 +1653,12 @@ pat_alias_map_pairs_1([]) -> [].
 
 pat_bin(Ps, St) -> [pat_segment(P, St) || P <- Ps].
 
-pat_segment({bin_element,_,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
+pat_segment({bin_element,L,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
+    Anno = lineno_anno(L, St),
     {Pval,[],St1} = pattern(Val,St),
     {Psize,[],_St2} = pattern(Size,St1),
-    #c_bitstr{val=Pval,size=Psize,
+    #c_bitstr{anno=Anno,
+	      val=Pval,size=Psize,
 	      unit=#c_literal{val=Unit},
 	      type=#c_literal{val=Type},
 	      flags=#c_literal{val=Flags}}.
