@@ -528,7 +528,7 @@
   </section>
 
   <section>
-    <title>Examples</title>
+    <title>ETS Examples</title>
     <p>Match an argument list of three where the first and third arguments 
       are equal:</p>
     <code type="none"><![CDATA[
@@ -618,6 +618,45 @@
     ]]></code>
     <p>The function <c><![CDATA[ets:test_ms/2]]></c> can be useful for testing
       complicated ets matches.</p>
+  </section>
+  <section>
+    <title>Tracing Examples</title>
+    <p>Only generate trace message if trace control word is set to 1:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{get_tcw},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Only generate trace message if there is a seq trace token:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{is_seq_trace},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Remove 'silent' trace flag when first argument is 'verbose'
+    and add it when it is 'silent':</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{hd, '$1'},verbose}],
+  [{trace, [silent],[]}]},
+ {'$1',
+  [{'==',{hd, '$1'},silent}],
+  [{trace, [],[silent]}]}]
+    ]]></code>
+    <p>Add return_trace message if function is of arity 3:</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{length, '$1'},3}],
+  [{return_trace}]},
+ {'_',[],[]}]
+    ]]></code>
+    <p>Only generate trace message if function is of arity 3 and first argument is 'trace':</p>
+    <code type="none"><![CDATA[
+[{['trace','$2','$3'],
+  [],
+  []},
+ {'_',[],[]}]
+    ]]></code>
   </section>
 </chapter>
 
