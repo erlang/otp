@@ -925,32 +925,38 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
     Where = [{Mod,Func}],
     put(test_server_loc, Where),
 
-    FWInitResult = test_server_sup:framework_call(init_tc,[Mod,Func,Args0],
-						  {ok,Args0}),
+    FWInitFunc = case RunInit of
+		     run_init -> {init_per_testcase,Func};
+		     _        -> Func
+		 end,
+
+    FWInitResult0 = do_init_tc_call(Mod,FWInitFunc,Args0,{ok,Args0}),
+
     set_tc_state(running),
     {{Time,Value},Loc,Opts} =
-	case FWInitResult of
+	case FWInitResult0 of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		NewResult = do_end_tc_call(Mod,Func, {Error,Args0},
+		NewResult = do_end_tc_call(Mod,FWInitFunc, {Error,Args0},
 					   {auto_skip,{failed,Error}}),
 		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
 		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
 		fw_error_notify(Mod, Func, Conf, Reason),
-		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
+		NewResult = do_end_tc_call(Mod,FWInitFunc,
+					   {{error,Reason},[Conf]},
 					   {fail,Reason}),
 		{{0,NewResult},Where,[]};
 	    Skip = {SkipType,_Reason} when SkipType == skip;
 					   SkipType == skipped ->
-		NewResult = do_end_tc_call(Mod,Func,
+		NewResult = do_end_tc_call(Mod,FWInitFunc,
 					   {Skip,Args0}, Skip),
 		{{0,NewResult},Where,[]};
 	    AutoSkip = {auto_skip,_Reason} ->
 		%% special case where a conf case "pretends" to be skipped
 		NewResult =
-		    do_end_tc_call(Mod,Func, {AutoSkip,Args0}, AutoSkip),
+		    do_end_tc_call(Mod,FWInitFunc, {AutoSkip,Args0}, AutoSkip),
 		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -965,31 +971,41 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 					      SkipType == skipped ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}|hd(Args)],
-		    NewRes = do_end_tc_call(Mod,Func,
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
 					    {Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},
 			    {save_config,SaveCfg}|hd(Args)],
-		    NewRes = do_end_tc_call(Mod,Func, {{skip,Reason},[Conf]},
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
+					    {{skip,Reason},[Conf]},
 					    {skip,Reason}),
 		    {{0,NewRes},Line,[]};
 		FailTC = {fail,Reason} ->       % user fails the testcase
 		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
 		    fw_error_notify(Mod, Func, EndConf, Reason),
-		    NewRes = do_end_tc_call(Mod,Func,
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
 					    {{error,Reason},[EndConf]},
 					    FailTC),
 		    {{0,NewRes},[{Mod,Func}],[]};
 		{ok,NewConf} ->
-		    %% call user callback function if defined
-		    NewConf1 =
-			user_callback(TCCallback, Mod, Func, init, NewConf),
-		    %% save current state in controller loop
-		    set_tc_state(tc, NewConf1),
-		    %% execute the test case
-		    {{T,Return},Loc} = {ts_tc(Mod,Func,[NewConf1]), get_loc()},
+		    IPTCEndRes = do_end_tc_call(Mod,{init_per_testcase,Func},
+						{ok,[NewConf]}, NewConf),
+		    {{T,Return},Loc,NewConf1} =
+			if not is_list(IPTCEndRes) ->
+				%% received skip or fail, not config
+				{{0,IPTCEndRes},undefined,NewConf};
+			   true ->
+				%% call user callback function if defined
+				NewConfUC =
+				    user_callback(TCCallback, Mod, Func,
+						  init, IPTCEndRes),
+				%% save current state in controller loop
+				set_tc_state(tc, NewConfUC),
+				%% execute the test case
+				{ts_tc(Mod,Func,[NewConfUC]),get_loc(),NewConfUC}
+			end,
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
@@ -1015,36 +1031,47 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    EndConf1 =
 			user_callback(TCCallback, Mod, Func, 'end', EndConf),
+
+		    %% We can't handle fails or skips here
+		    EndConf2 =
+			case do_init_tc_call(Mod,{end_per_testcase,Func},
+					     [EndConf1],{ok,[EndConf1]}) of
+			    {ok,[EPTCInitRes]} when is_list(EPTCInitRes) ->
+				EPTCInitRes;
+			    _ ->
+				EndConf1
+			end,
+
 		    %% update current state in controller loop
-		    {FWReturn1,TSReturn1,EndConf2} =
-			case end_per_testcase(Mod, Func, EndConf1) of
+		    {FWReturn1,TSReturn1,EndConf3} =
+			case end_per_testcase(Mod, Func, EndConf2) of
 			    SaveCfg1={save_config,_} ->
 				{FWReturn,TSReturn,
 				 [SaveCfg1|lists:keydelete(save_config,1,
-							   EndConf1)]};
+							   EndConf2)]};
 			    {fail,ReasonToFail} ->
 				%% user has failed the testcase
-				fw_error_notify(Mod, Func, EndConf1,
+				fw_error_notify(Mod, Func, EndConf2,
 						ReasonToFail),
 				{{error,ReasonToFail},
 				 {failed,ReasonToFail},
-				 EndConf1};
+				 EndConf2};
 			    {failed,{_,end_per_testcase,_}} = Failure when
 				  FWReturn == ok ->
 				%% unexpected termination in end_per_testcase
 				%% report this as the result to the framework
-				{Failure,TSReturn,EndConf1};
+				{Failure,TSReturn,EndConf2};
 			    _ ->
 				%% test case result should be reported to
 				%% framework no matter the status of
 				%% end_per_testcase
-				{FWReturn,TSReturn,EndConf1}
+				{FWReturn,TSReturn,EndConf2}
 			end,
 		    %% clear current state in controller loop
-		    case do_end_tc_call(Mod,Func,
-					{FWReturn1,[EndConf2]}, TSReturn1) of
+		    case do_end_tc_call(Mod,{end_per_testcase,Func},
+					{FWReturn1,[EndConf3]}, TSReturn1) of
 			{failed,Reason} = NewReturn ->
-			    fw_error_notify(Mod,Func,EndConf2, Reason),
+			    fw_error_notify(Mod,Func,EndConf3, Reason),
 			    {{T,NewReturn},[{Mod,Func}],[]};
 			NewReturn ->
 			    {{T,NewReturn},Loc,[]}
@@ -1070,7 +1097,37 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    {{T,Return2},Loc,Opts}
     end.
 
+do_init_tc_call(Mod, Func, Res, Return) ->
+    test_server_sup:framework_call(init_tc,[Mod,Func,Res],Return).
+
+do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
+     case Return of
+	 {NOk,_} when NOk == auto_skip; NOk == fail;
+		      NOk == skip ; NOk == skipped ->
+	     IPTCEndRes =
+		 case do_end_tc_call1(Mod, IPTC, Res, Return) of
+		     IPTCEndConfig when is_list(IPTCEndConfig) ->
+			 IPTCEndConfig;
+		     _ ->
+			 Res
+		 end,
+	     EPTCInitRes =
+		 case do_init_tc_call(Mod,{end_per_testcase,Func},
+				      IPTCEndRes,Return) of
+		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
+			 EPTCInitConfig;
+		     _ ->
+			 IPTCEndRes
+		 end,
+	     do_end_tc_call1(Mod, {end_per_testcase,Func},
+			     EPTCInitRes, Return);
+	 _Ok ->
+	     do_end_tc_call1(Mod, IPTC, Res, Return)
+     end;
 do_end_tc_call(Mod, Func, Res, Return) ->
+    do_end_tc_call1(Mod, Func, Res, Return).
+
+do_end_tc_call1(Mod, Func, Res, Return) ->
     FwMod = os:getenv("TEST_SERVER_FRAMEWORK"),
     Ref = make_ref(),
     if FwMod == "ct_framework" ; FwMod == "undefined"; FwMod == false ->

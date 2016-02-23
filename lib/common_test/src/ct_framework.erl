@@ -52,7 +52,13 @@
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a new test case is started.
-init_tc(Mod,Func,Config) ->
+init_tc(Mod,Func0,Config) ->
+    {TCCfgFunc,Func} = case Func0 of
+			      {init_per_testcase,_} -> Func0;
+			      {end_per_testcase,_}  -> Func0;
+			      _                     -> {undefined,Func0}
+			  end,
+
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Config),
 
@@ -86,7 +92,7 @@ init_tc(Mod,Func,Config) ->
 					    end, [create]),
 		    case ct_util:read_suite_data({seq,Suite,Func}) of
 			undefined ->
-			    init_tc1(Mod,Suite,Func,Config);
+			    init_tc1(Mod,Suite,Func,TCCfgFunc,Config);
 			Seq when is_atom(Seq) ->
 			    case ct_util:read_suite_data({seq,Suite,Seq}) of
 				[Func|TCs] -> % this is the 1st case in Seq
@@ -102,27 +108,27 @@ init_tc(Mod,Func,Config) ->
 				_ ->
 				    ok
 			    end,
-			    init_tc1(Mod,Suite,Func,Config);
+			    init_tc1(Mod,Suite,Func,TCCfgFunc,Config);
 			{failed,Seq,BadFunc} ->
 			    {auto_skip,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
     end.	    
 
-init_tc1(?MODULE,_,error_in_suite,[Config0]) when is_list(Config0) ->
+init_tc1(?MODULE,_,error_in_suite,_,[Config0]) when is_list(Config0) ->
     ct_logs:init_tc(false),
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={?MODULE,error_in_suite}}),
-    ct_suite_init(?MODULE, error_in_suite, [], Config0),
-    case ?val(error, Config0) of
+    ct_suite_init(?MODULE,error_in_suite,undefined,[], Config0),
+    case ?val(error,Config0) of
 	undefined ->
 	    {fail,"unknown_error_in_suite"};
 	Reason ->
 	    {fail,Reason}
     end;
 
-init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
+init_tc1(Mod,Suite,Func,TCCfgFunc,[Config0]) when is_list(Config0) ->
     Config1 = 
 	case ct_util:read_suite_data(last_saved_config) of
 	    {{Suite,LastFunc},SavedConfig} ->	% last testcase
@@ -184,14 +190,15 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
 		    Initialize(),
 		    {fail,Reason};
 		_ ->
-		    init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config)
+		    init_tc2(Mod,Suite,Func,TCCfgFunc,SuiteInfo,
+			     MergeResult,Config)
 	    end
     end;
 
-init_tc1(_Mod,_Suite,_Func,Args) ->
+init_tc1(_Mod,_Suite,_Func,_TCCfgFunc,Args) ->
     {ok,Args}.
 
-init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
+init_tc2(Mod,Suite,Func,TCCfgFunc,SuiteInfo,MergeResult,Config) ->
     %% timetrap must be handled before require
     MergedInfo = timetrap_first(MergeResult, [], []),
     %% tell logger to use specified style sheet
@@ -238,7 +245,8 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	{ok,PostInitHook,Config1} ->
 	    case get('$test_server_framework_test') of
 		undefined ->
-		    ct_suite_init(Suite, FuncSpec, PostInitHook, Config1);
+		    ct_suite_init(Suite,FuncSpec,TCCfgFunc,
+				  PostInitHook,Config1);
 		Fun ->
 		    PostInitHookResult = do_post_init_hook(PostInitHook,
 							   Config1),
@@ -251,16 +259,20 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    end
     end.
 
-ct_suite_init(Suite, FuncSpec, PostInitHook, Config) when is_list(Config) ->
-    case ct_hooks:init_tc(Suite, FuncSpec, Config) of
+ct_suite_init(Suite,FuncSpec,TCCfgFunc,
+	      PostInitHook,Config) when is_list(Config) ->
+    HookFunc = if TCCfgFunc /= undefined -> {TCCfgFunc,FuncSpec};
+		  true -> FuncSpec
+	       end,
+    case ct_hooks:init_tc(Suite,HookFunc,Config) of
 	NewConfig when is_list(NewConfig) ->
-	    PostInitHookResult = do_post_init_hook(PostInitHook, NewConfig),
+	    PostInitHookResult = do_post_init_hook(PostInitHook,NewConfig),
 	    {ok, [PostInitHookResult ++ NewConfig]};
 	Else ->
 	    Else
     end.
 
-do_post_init_hook(PostInitHook, Config) ->
+do_post_init_hook(PostInitHook,Config) ->
     lists:flatmap(fun({Tag,Fun}) ->
 			  case lists:keysearch(Tag,1,Config) of
 			      {value,_} ->
@@ -657,7 +669,12 @@ end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
 end_tc(Mod,Func,{Result,[Args]}, Return) ->
     end_tc(Mod,Func,self(),Result,Args,Return).
 
-end_tc(Mod,Func,TCPid,Result,Args,Return) ->
+end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
+    {TCCfgFunc,Func} = case Func0 of
+			      {init_per_testcase,_} -> Func0;
+			      {end_per_testcase,_}  -> Func0;
+			      _                     -> {undefined,Func0}
+			  end,
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
 
@@ -687,10 +704,11 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     ct_util:delete_suite_data(last_saved_config),
 
     FuncSpec = group_or_func(Func,Args),
-
+    HookFunc = if TCCfgFunc /= undefined -> Func0;
+		   true -> FuncSpec
+		end,
     {Result1,FinalNotify} =
-	case ct_hooks:end_tc(
-	       Suite, FuncSpec, Args, Result, Return) of
+	case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
 	    '$ct_no_change' ->
 		{ok,Result};
 	    HookResult ->
