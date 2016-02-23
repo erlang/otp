@@ -1114,7 +1114,7 @@ transform_flags([sos|Tail],Acc) -> transform_flags(Tail,[set_on_spawn|Acc]);
 transform_flags([sol|Tail],Acc) -> transform_flags(Tail,[set_on_link|Acc]);
 transform_flags([sofs|Tail],Acc) -> transform_flags(Tail,[set_on_first_spawn|Acc]);
 transform_flags([sofl|Tail],Acc) -> transform_flags(Tail,[set_on_first_link|Acc]);
-transform_flags([all|_],_Acc) -> all()--[silent];
+transform_flags([all|_],_Acc) -> all()--[silent,running];
 transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
     case lists:member(F, all()) of
 	true -> transform_flags(Tail,[F|Acc]);
@@ -1123,9 +1123,9 @@ transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
 transform_flags(Bad,_Acc) -> {error,{bad_flags,Bad}}.
 
 all() ->
-    [send,'receive',call,procs,garbage_collection,running,
+    [send,'receive',call,procs,ports,garbage_collection,running,
      set_on_spawn,set_on_first_spawn,set_on_link,set_on_first_link,
-     timestamp,arity,return_to,silent].
+     timestamp,arity,return_to,silent,running_procs,running_ports].
 
 display_info([Node|Nodes]) ->
     io:format("~nNode ~w:~n",[Node]),
@@ -1146,23 +1146,33 @@ display_info1([]) ->
     ok.
 
 get_info() ->
-    get_info(processes(),[]).
+    get_info(processes(),get_info(erlang:ports(),[])).
 
+get_info([Port|T], Acc) when is_port(Port) ->
+    case pinfo(Port, name) of
+        undefined ->
+            get_info(T,Acc);
+        {name, Name} ->
+            get_info(T,get_tinfo(Port, Name, Acc))
+    end;
 get_info([Pid|T],Acc) ->
     case pinfo(Pid, initial_call) of
         undefined ->
             get_info(T,Acc);
         {initial_call, Call} ->
-	    case tinfo(Pid, flags) of
-		undefined ->
-		    get_info(T,Acc);
-		{flags,[]} ->
-		    get_info(T,Acc);
-		{flags,Flags} ->
-		    get_info(T,[{Pid,Call,Flags}|Acc])
-	    end
+            get_info(T,get_tinfo(Pid, Call, Acc))
     end;
 get_info([],Acc) -> Acc.
+
+get_tinfo(P, Id, Acc) ->
+    case tinfo(P, flags) of
+        undefined ->
+            Acc;
+		{flags,[]} ->
+            Acc;
+        {flags,Flags} ->
+            [{P,Id,Flags}|Acc]
+    end.
 
 format_trace([]) -> [];
 format_trace([Item]) -> [ts(Item)];
@@ -1193,9 +1203,17 @@ to_pidspec(X) when is_port(X) ->
         undefined -> {badport, X};
         _ -> X
     end;
-to_pidspec(new) -> new;
-to_pidspec(all) -> all;
-to_pidspec(existing) -> existing;
+to_pidspec(Tag)
+  when Tag =:= all;
+       Tag =:= ports;
+       Tag =:= processes;
+       Tag =:= new;
+       Tag =:= new_ports;
+       Tag =:= new_processes;
+       Tag =:= existing;
+       Tag =:= existing_ports;
+       Tag =:= existing_processes ->
+    Tag;
 to_pidspec(X) when is_atom(X) ->
     case whereis(X) of
 	undefined -> {badpid,X};
@@ -1223,8 +1241,11 @@ to_pid(X) when is_list(X) ->
 to_pid(X) -> {badpid,X}.
 
 
+pinfo(P, X) when node(P) == node(), is_port(P) -> erlang:port_info(P, X);
 pinfo(P, X) when node(P) == node() -> erlang:process_info(P, X);
+pinfo(P, X) when is_port(P) -> check(rpc:call(node(P), erlang, port_info, [P, X]));
 pinfo(P, X) -> check(rpc:call(node(P), erlang, process_info, [P, X])).
+
 
 tinfo(P, X) when node(P) == node() -> erlang:trace_info(P, X);
 tinfo(P, X) -> check(rpc:call(node(P), erlang, trace_info, [P, X])).
