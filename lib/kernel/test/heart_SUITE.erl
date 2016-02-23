@@ -28,6 +28,7 @@
 	 node_start_soon_after_crash/1,
 	 set_cmd/1, clear_cmd/1, get_cmd/1,
 	 callback_api/1,
+         options_api/1,
 	 dont_drop/1, kill_pid/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -68,6 +69,7 @@ all() -> [
 	node_start_soon_after_crash,
 	set_cmd, clear_cmd, get_cmd,
 	callback_api,
+        options_api,
 	kill_pid
     ].
 
@@ -391,6 +393,34 @@ callback_api(Config) when is_list(Config) ->
     receive {nodedown, Node} -> ok
     after 5000 -> test_server:fail(node_not_killed)
     end,
+    stop_node(Node),
+    ok.
+
+options_api(Config) when is_list(Config) ->
+    {ok, Node} = start_check(slave, heart_test),
+    none = rpc:call(Node, heart, get_options, []),
+    M0 = self(),
+    F0 = ok,
+    {error, {bad_options, {M0,F0}}} = rpc:call(Node, heart, set_options, [{M0,F0}]),
+    none = rpc:call(Node, heart, get_options, []),
+    Ls = lists:duplicate(28, $b),
+    {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
+    none = rpc:call(Node, heart, get_options, []),
+
+    ok = rpc:call(Node, heart, set_options, [[scheduler]]),
+    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+    ok = rpc:call(Node, heart, set_options, [[]]),
+    none = rpc:call(Node, heart, get_options, []),
+
+    ok = rpc:call(Node, heart, set_options, [[scheduler]]),
+    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+    {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
+    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+
+    receive after 3000 -> ok end, %% wait 3 secs
+
+    ok = rpc:call(Node, heart, set_options, [[]]),
+    none = rpc:call(Node, heart, get_options, []),
     stop_node(Node),
     ok.
 
