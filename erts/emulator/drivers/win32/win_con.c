@@ -279,7 +279,7 @@ ConInit(void)
 }
 
 /*
-  ConNormalExit() is called from erl_exit() when the emulator
+  ConNormalExit() is called from erts_exit() when the emulator
   is stopping. If the exit has not been initiated by this 
   console thread (WM_DESTROY or ID_BREAK), the function must 
   invoke the console thread to save the user preferences.
@@ -529,7 +529,7 @@ ConThreadInit(LPVOID param)
     /*
        PostQuitMessage() results in WM_QUIT which makes GetMessage()
        return 0 (which stops the main loop). Before we return from
-       the console thread, the ctrl_handler is called to do erl_exit. 
+       the console thread, the ctrl_handler is called to do erts_exit.
     */
     (*ctrl_handler)(CTRL_CLOSE_EVENT);
     return msg.wParam;

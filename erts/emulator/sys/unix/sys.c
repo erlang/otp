@@ -638,14 +638,14 @@ erl_sys_init(void)
     res = erts_sys_getenv_raw("BINDIR", bindir, &bindirsz);
     if (res != 0) {
 	if (res < 0)
-	    erl_exit(-1,
+	    erts_exit(1,
 		     "Environment variable BINDIR is not set\n");
 	if (res > 0)
-	    erl_exit(-1,
+	    erts_exit(1,
 		     "Value of environment variable BINDIR is too large\n");
     }
     if (bindir[0] != DIR_SEPARATOR_CHAR)
-	erl_exit(-1,
+	erts_exit(1,
 		 "Environment variable BINDIR does not contain an"
 		 " absolute path\n");
     csp_path_sz = (strlen(bindir)
@@ -825,7 +825,7 @@ break_requested(void)
   fprintf(stderr,"break!\n");
 #endif
   if (ERTS_BREAK_REQUESTED)
-      erl_exit(ERTS_INTR_EXIT, "");
+      erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
   ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
@@ -864,7 +864,7 @@ sigusr1_exit(void)
     }
 
     prepare_crash_dump(secs);
-    erl_exit(1, "Received SIGUSR1\n");
+    erts_exit(ERTS_ERROR_EXIT, "Received SIGUSR1\n");
 }
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
@@ -920,7 +920,7 @@ static RETSIGTYPE suspend_signal(int signum)
 static void
 quit_requested(void)
 {
-    erl_exit(ERTS_INTR_EXIT, "");
+    erts_exit(ERTS_INTR_EXIT, "");
 }
 
 #if (defined(SIG_SIGSET) || defined(SIG_SIGNAL))
@@ -3165,7 +3165,7 @@ signal_dispatcher_thread_func(void *unused)
 	if (res < 0) {
 	    if (errno == EINTR)
 		continue;
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "signal-dispatcher thread got unexpected error: %s (%d)\n",
 		     erl_errno_id(errno),
 		     errno);
@@ -3214,7 +3214,7 @@ signal_dispatcher_thread_func(void *unused)
 		sigusr1_exit();
 		break;
 	    default:
-		erl_exit(ERTS_ABORT_EXIT,
+		erts_exit(ERTS_ABORT_EXIT,
 			 "signal-dispatcher thread received unknown "
 			 "signal notification: '%c'\n",
 			 buf[i]);
@@ -3233,7 +3233,7 @@ init_smp_sig_notify(void)
     thr_opts.name = "sys_sig_dispatcher";
 
     if (pipe(sig_notify_fds) < 0) {
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Failed to create signal-dispatcher pipe: %s (%d)\n",
 		 erl_errno_id(errno),
 		 errno);
@@ -3249,7 +3249,7 @@ init_smp_sig_notify(void)
 static void
 init_smp_sig_suspend(void) {
   if (pipe(sig_suspend_fds) < 0) {
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Failed to create sig_suspend pipe: %s (%d)\n",
 	     erl_errno_id(errno),
 	     errno);
@@ -3265,7 +3265,7 @@ static void initialize_darwin_main_thread_pipes(void)
 {
     if (pipe(erts_darwin_main_thread_pipe) < 0 || 
 	pipe(erts_darwin_main_thread_result_pipe) < 0) {
-	erl_exit(1,"Fatal error initializing Darwin main thread stealing");
+	erts_exit(ERTS_ERROR_EXIT,"Fatal error initializing Darwin main thread stealing");
     }
 }
 

@@ -81,7 +81,7 @@ BOOL WINAPI ctrl_handler_ignore_break(DWORD dwCtrlType)
 	    return TRUE;
 	/* else pour through... */
     case CTRL_CLOSE_EVENT:
-	erl_exit(0, "");
+	erts_exit(0, "");
 	break;
     }
     return TRUE;
@@ -106,7 +106,7 @@ BOOL WINAPI ctrl_handler_replace_intr(DWORD dwCtrlType)
 	/* else pour through... */
     case CTRL_CLOSE_EVENT:
     case CTRL_SHUTDOWN_EVENT:
-	erl_exit(0, "");
+	erts_exit(0, "");
 	break;
     }
     return TRUE;
@@ -133,7 +133,7 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType)
 	    return TRUE;
 	/* else pour through... */
     case CTRL_CLOSE_EVENT:
-	erl_exit(0, "");
+	erts_exit(0, "");
 	break;
     }
     return TRUE;

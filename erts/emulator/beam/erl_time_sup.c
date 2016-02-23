@@ -286,7 +286,7 @@ read_corrected_time(int os_drift_corrected)
 	ci = time_sup.inf.c.parmon.cdata.insts.curr;
     else {
 	if (os_mtime < time_sup.inf.c.parmon.cdata.insts.prev.os_mtime)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "OS monotonic time stepped backwards\n");
 	ci = time_sup.inf.c.parmon.cdata.insts.prev;
     }
@@ -378,7 +378,7 @@ check_time_correction(void *vesdp)
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
     if (os_mtime < ci.os_mtime)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
 
     erl_mtime = calc_corrected_erl_mtime(os_mtime, &ci, &mdiff,
@@ -795,7 +795,7 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
     if (os_mtime < ci.os_mtime)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
 
     return calc_corrected_erl_mtime(os_mtime, &ci, NULL,

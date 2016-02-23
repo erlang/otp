@@ -1959,7 +1959,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    goto done;
 	}
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "dsig_send invalid phase (%d)\n", (int)ctx->phase);
+	    erts_exit(ERTS_ABORT_EXIT, "dsig_send invalid phase (%d)\n", (int)ctx->phase);
 	}
     }
 
@@ -1980,7 +1980,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
 		 "(%beu bytes) passed.\n",
 		 size);
@@ -2020,7 +2020,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
 		 "(%beu bytes) passed.\n",
 		 size);
@@ -3382,7 +3382,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 		    continue;
 		break;
 	    default:
-		erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
+		erts_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 	    }
 	}
 
@@ -3691,7 +3691,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 		case ERTS_NODES_MON_OPT_TYPES:        type = am_all;     break;
 		case ERTS_NODES_MON_OPT_TYPE_VISIBLE: type = am_visible; break;
 		case ERTS_NODES_MON_OPT_TYPE_HIDDEN:  type = am_hidden;  break;
-		default: erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
+		default: erts_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 		}
 		olist = erts_bld_cons(hpp, szp, 
 				      erts_bld_tuple(hpp, szp, 2,

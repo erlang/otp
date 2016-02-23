@@ -611,15 +611,16 @@ static unsigned long zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
 
-/* Some special erl_exit() codes: */
-#define ERTS_INTR_EXIT	INT_MIN		/* called from signal handler */
-#define ERTS_ABORT_EXIT	(INT_MIN + 1)	/* no crash dump; only abort() */
-#define ERTS_DUMP_EXIT	(INT_MIN + 2)	/* crash dump; then exit() */
+/* Some special erts_exit() codes: */
+#define ERTS_INTR_EXIT	-1		/* called from signal handler */
+#define ERTS_ABORT_EXIT	-2	        /* no crash dump; only abort() */
+#define ERTS_DUMP_EXIT	-3              /* crash dump; then exit() */
+#define ERTS_ERROR_EXIT	-4              /* crash dump; then abort() */
 
 #define ERTS_INTERNAL_ERROR(What) \
-    erl_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s\n", \
+    erts_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s\n", \
 	     __FILE__, __LINE__, __func__, What)
 
 Eterm erts_check_io_info(void *p);
@@ -929,7 +930,7 @@ erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val)
 #ifdef ERTS_REFC_DEBUG
     erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_inc(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
@@ -943,7 +944,7 @@ erts_refc_inctest(erts_refc_t *refcp, erts_aint_t min_val)
     erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_inctest(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #endif
@@ -956,7 +957,7 @@ erts_refc_dec(erts_refc_t *refcp, erts_aint_t min_val)
 #ifdef ERTS_REFC_DEBUG
     erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_dec(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
@@ -970,7 +971,7 @@ erts_refc_dectest(erts_refc_t *refcp, erts_aint_t min_val)
     erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_dectest(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #endif
@@ -983,7 +984,7 @@ erts_refc_add(erts_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
 #ifdef ERTS_REFC_DEBUG
     erts_aint_t val = erts_smp_atomic_add_read_nob((erts_smp_atomic_t *) refcp, diff);
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_add(%ld): Bad refc found (refc=%ld < %ld)!\n",
 		 diff, val, min_val);
 #else
@@ -997,7 +998,7 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
     erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_read(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #endif

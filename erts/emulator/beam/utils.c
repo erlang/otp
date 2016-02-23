@@ -1055,7 +1055,7 @@ tail_recur:
 	}    
 	
     default:
-	erl_exit(1, "Invalid tag in make_hash(0x%X,0x%X)\n", term, op);
+	erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash(0x%X,0x%X)\n", term, op);
 	return 0;
       }
       if (WSTACK_ISEMPTY(stack)) break;
@@ -1328,7 +1328,7 @@ make_hash2(Eterm term)
                     i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                     break;
                 default:
-                    erl_exit(1, "bad header");
+                    erts_exit(ERTS_ERROR_EXIT, "bad header");
                 }
                 while (i) {
                     if (is_list(*ptr)) {
@@ -1491,7 +1491,7 @@ make_hash2(Eterm term)
 	    break;
 		    
 	    default:
-		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 	    }
 	}
 	break;
@@ -1522,7 +1522,7 @@ make_hash2(Eterm term)
 			UINT32_HASH(NIL_DEF, HCONST_2);
 		    goto hash2_common;
 		default:
-		    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+		    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 		}
 	    case _TAG_IMMED1_SMALL:
 	      {
@@ -1538,7 +1538,7 @@ make_hash2(Eterm term)
 	    }
 	    break;
 	default:
-	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 	hash2_common:
 
 	    /* Uint32 hash always has the hash value of the previous term,
@@ -1733,7 +1733,7 @@ make_internal_hash(Eterm term)
                     i = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                     break;
                 default:
-                    erl_exit(1, "bad header");
+                    erts_exit(ERTS_ERROR_EXIT, "bad header");
                 }
                 while (i) {
                     if (is_list(*ptr)) {
@@ -1909,7 +1909,7 @@ make_internal_hash(Eterm term)
 		goto pop_next;
 	    }
 	    default:
-		erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 	    }
 	}
 	break;
@@ -1922,7 +1922,7 @@ make_internal_hash(Eterm term)
             goto pop_next;
 
 	default:
-	    erl_exit(1, "Invalid tag in make_hash2(0x%X)\n", term);
+	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
 
 	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
@@ -2205,7 +2205,7 @@ tail_recur:
 	}
 
     default:
-	erl_exit(1, "Invalid tag in make_broken_hash\n");
+	erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_broken_hash\n");
 	return 0;
       }
       if (WSTACK_ISEMPTY(stack)) break;
@@ -2879,7 +2879,7 @@ tailrecur_ne:
 			ASSERT(sz > 0 && sz < 17);
 			break;
 		    default:
-			erl_exit(1, "Unknown hashmap subsubtag\n");
+			erts_exit(ERTS_ERROR_EXIT, "Unknown hashmap subsubtag\n");
 		    }
 		    goto term_array;
 		}

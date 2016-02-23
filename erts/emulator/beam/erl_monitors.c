@@ -356,7 +356,7 @@ void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
 	    tstack[tpos++] = this;
 	    this = &((*this)->right);
 	} else { /* Equal key is an error for monitors */
-	    erl_exit(1,"Insertion of already present monitor!");
+	    erts_exit(ERTS_ERROR_EXIT,"Insertion of already present monitor!");
 	    break;
 	}
     }

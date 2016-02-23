@@ -570,7 +570,7 @@ break_requested(void)
   fprintf(stderr,"break!\n");
 #endif
   if (ERTS_BREAK_REQUESTED)
-      erl_exit(ERTS_INTR_EXIT, "");
+      erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
   ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
