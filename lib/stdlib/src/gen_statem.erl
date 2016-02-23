@@ -51,7 +51,7 @@
 %%% Interface functions.
 %%%==========================================================================
 
--type client() ::
+-type caller() ::
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
 -type state() ::
 	state_name() | % For state callback function StateName/5
@@ -59,7 +59,7 @@
 -type state_name() :: atom().
 -type data() :: term().
 -type event_type() ::
-	{'call',Client :: client()} | 'cast' |
+	{'call',Caller :: caller()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
 -type event_predicate() :: % Return true for the event in question
 	fun((event_type(), term()) -> boolean()).
@@ -101,8 +101,8 @@
 	{'unlink', % Unlink and clean up mess(ages)
 	 Id :: pid() | port()}.
 -type reply_action() ::
-	{'reply', % Reply to a client
-	 Client :: client(), Reply :: term()}.
+	{'reply', % Reply to a caller
+	 Caller :: caller(), Reply :: term()}.
 -type state_callback_result() ::
     {'stop', % Stop the server
      Reason :: term()} |
@@ -216,13 +216,13 @@ callback_mode(CallbackMode) ->
 	    false
     end.
 %%
-client({Pid,Tag}) when is_pid(Pid), is_reference(Tag) ->
+caller({Pid,Tag}) when is_pid(Pid), is_reference(Tag) ->
     true;
-client(_) ->
+caller(_) ->
     false.
 %%
-event_type({call,Client}) ->
-    client(Client);
+event_type({call,Caller}) ->
+    caller(Caller);
 event_type(Type) ->
     case Type of
 	cast ->
@@ -341,7 +341,7 @@ cast(ServerRef, Msg) when is_pid(ServerRef) ->
     do_send(ServerRef, cast(Msg)).
 
 %% Call a state machine (synchronous; a reply is expected) that
-%% arrives with type {call,Client}
+%% arrives with type {call,Caller}
 -spec call(ServerRef :: server_ref(), Request :: term()) -> Reply :: term().
 call(ServerRef, Request) ->
     call(ServerRef, Request, infinity).
@@ -400,13 +400,13 @@ call(ServerRef, Request, Timeout) ->
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.
-reply({reply,{_To,_Tag}=Client,Reply}) ->
-    reply(Client, Reply);
+reply({reply,{_To,_Tag}=Caller,Reply}) ->
+    reply(Caller, Reply);
 reply(Replies) when is_list(Replies) ->
     [reply(Reply) || Reply <- Replies],
     ok.
 %%
--spec reply(Client :: client(), Reply :: term()) -> ok.
+-spec reply(Caller :: caller(), Reply :: term()) -> ok.
 reply({To,Tag}, Reply) ->
     Msg = {Tag,Reply},
     try To ! Msg of
@@ -703,8 +703,8 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		_ ->
 		    Event =
 			case Msg of
-			    {'$gen_call',Client,Request} ->
-				{{call,Client},Request};
+			    {'$gen_call',Caller,Request} ->
+				{{call,Caller},Request};
 			    {'$gen_cast',E} ->
 				{cast,E};
 			    _ ->
@@ -950,8 +950,8 @@ process_transition_actions([], Debug, _S, Q, P) ->
 process_transition_actions(
   [Action|Actions] = AllActions, Debug, S, Q, P) ->
     case Action of
-	{reply,{_To,_Tag}=Client,Reply} ->
-	    NewDebug = do_reply(Debug, S, Client, Reply),
+	{reply,{_To,_Tag}=Caller,Reply} ->
+	    NewDebug = do_reply(Debug, S, Caller, Reply),
 	    process_transition_actions(Actions, NewDebug, S, Q, P);
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
@@ -987,17 +987,17 @@ reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
 reply_then_terminate(
   Class, Reason, Stacktrace, Debug, S, Q, [R|Rs] = RRs) ->
     case R of
-	{reply,{_To,_Tag}=Client,Reply} ->
-	    NewDebug = do_reply(Debug, S, Client, Reply),
+	{reply,{_To,_Tag}=Caller,Reply} ->
+	    NewDebug = do_reply(Debug, S, Caller, Reply),
 	    reply_then_terminate(
 	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
 	    RRs % bad_return_value
     end.
 
-do_reply(Debug, S, Client, Reply) ->
-    reply(Client, Reply),
-    sys_debug(Debug, S, {out,Reply,Client}).
+do_reply(Debug, S, Caller, Reply) ->
+    reply(Caller, Reply),
+    sys_debug(Debug, S, {out,Reply,Caller}).
 
 
 %% Remove oldest matching event from the queue(s)

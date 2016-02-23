@@ -270,13 +270,13 @@ erlang:'!'            -----> Module:StateName/5
     </datatype>
 
     <datatype>
-      <name name="client" />
+      <name name="caller" />
       <desc>
-	<p>Client address to use when replying through for example the
+	<p>Destination to use when replying through for example the
 	  <seealso marker="#type-transition_op">
-	    transition_op() {reply,Client,Reply}
+	    transition_op() {reply,Caller,Reply}
 	  </seealso>
-	  to a client that has called the <c>gen_statem</c> server using
+	  to a process that has called the <c>gen_statem</c> server using
 	  <seealso marker="#call/2">call/2</seealso>.
 	</p>
       </desc>
@@ -318,7 +318,7 @@ erlang:'!'            -----> Module:StateName/5
       <name name="event_type" />
       <desc>
 	<p>External events are of 3 different type:
-	  <c>{call,<anno>Client</anno>}</c>, <c>cast</c> or <c>info</c>.
+	  <c>{call,<anno>Caller</anno>}</c>, <c>cast</c> or <c>info</c>.
 	  Calls (synchronous) and casts (asynchronous)
 	  originate from the corresponding API functions.
 	  For calls the event contain whom to reply to.
@@ -476,7 +476,7 @@ erlang:'!'            -----> Module:StateName/5
 	</p>
 	<taglist>
 	  <tag><c>reply_action()</c></tag>
-	  <item>Reply to a calling client.</item>
+	  <item>Reply to a caller.</item>
 	  <tag><c>next_event</c></tag>
 	  <item>Insert the given <c><anno>EventType</anno></c>
 	    and <c><anno>EventContent</anno></c> as the next to process.
@@ -525,11 +525,11 @@ erlang:'!'            -----> Module:StateName/5
     <datatype>
       <name name="reply_action" />
       <desc>
-	<p>Reply to a client that called
+	<p>Reply to a caller waiting for a reply in
 	  <seealso marker="#call/2"><c>call/2</c></seealso>.
-          <c><anno>Client</anno></c> must be the term from the
+          <c><anno>Caller</anno></c> must be the term from the
 	  <seealso marker="#type-event_type">
-	    <c>{call,<anno>Client</anno>}</c>
+	    <c>{call,<anno>Caller</anno>}</c>
 	  </seealso> argument to the
 	  <seealso marker="#state_function">state function</seealso>.
 	</p>
@@ -747,13 +747,13 @@ erlang:'!'            -----> Module:StateName/5
 	  The <c>gen_statem</c> will call the
 	  <seealso marker="#state_function">state function</seealso> with
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>{call,Client}</c> and event content
+	  <c>{call,Caller}</c> and event content
 	  <c><anno>Request</anno></c>.
 	</p>
 	<p>A <c><anno>Reply</anno></c> is generated when a
 	  <seealso marker="#state_function">state function</seealso>
 	  returns with
-	  <c>{reply,Client,<anno>Reply</anno>}</c> as one
+	  <c>{reply,Caller,<anno>Reply</anno>}</c> as one
 	  <seealso marker="#type-transition_op">
 	    <c>transition_op()</c>
 	  </seealso>,
@@ -803,21 +803,21 @@ erlang:'!'            -----> Module:StateName/5
     <func>
       <name name="reply" arity="1" />
       <name name="reply" arity="2" />
-      <fsummary>Send a reply to a client</fsummary>
+      <fsummary>Reply to a caller</fsummary>
       <desc>
         <p>This function can be used by a <c>gen_statem</c>
-	  to explicitly send a reply to a client that called
+	  to explicitly send a reply to a process that waits in
 	  <seealso marker="#call/2"><c>call/2</c></seealso>
           when the reply cannot be defined in
-          the return value of the
+          the return value of a
 	  <seealso marker="#state_function">state function</seealso>.
 	</p>
-        <p><c><anno>Client</anno></c> must be the term from the
+        <p><c><anno>Caller</anno></c> must be the term from the
 	  <seealso marker="#type-event_type">
-	    <c>{call,<anno>Client</anno>}</c>
+	    <c>{call,<anno>Caller</anno>}</c>
 	  </seealso> argument to the
 	  <seealso marker="#state_function">state function</seealso>.
-	  <c><anno>Client</anno></c> and <c><anno>Reply</anno></c>
+	  <c><anno>Caller</anno></c> and <c><anno>Reply</anno></c>
 	  can also be specified using a
 	  <seealso marker="#type-reply_action">
 	    <c>reply_action()</c>
@@ -975,7 +975,7 @@ erlang:'!'            -----> Module:StateName/5
           <seealso marker="#start_link/3">start_link/3,4</seealso>.
 	</p>
 	<p>This function may use
-	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
+	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return <c>Result</c>.
 	</p>
       </desc>
@@ -1024,16 +1024,16 @@ erlang:'!'            -----> Module:StateName/5
 	  then <c>Module:handle_event/5</c> is called.
 	</p>
 	<p>If <c>EventType</c> is
-	  <seealso marker="#type-event_type"><c>{call,Client}</c></seealso>
-	  the client is waiting for a reply.  The reply can be sent
+	  <seealso marker="#type-event_type"><c>{call,Caller}</c></seealso>
+	  the caller is waiting for a reply.  The reply can be sent
 	  from this or from any other
 	  <seealso marker="#state_function">state function</seealso>
-	  by returning with <c>{reply,Client,Reply}</c> in
+	  by returning with <c>{reply,Caller,Reply}</c> in
 	  <seealso marker="#type-transition_op">Ops</seealso>, in
 	  <seealso marker="#type-reply_action">Replies</seealso>
 	  or by calling
 	  <seealso marker="#reply/2">
-	    <c>reply(Client, Reply)</c>
+	    <c>reply(Caller, Reply)</c>
 	  </seealso>.
 	</p>
         <p><c>StateName</c> is useful in some odd cases for example
@@ -1121,7 +1121,7 @@ erlang:'!'            -----> Module:StateName/5
 	  </seealso>.
 	</p>
 	<p>This function may use
-	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
+	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return <c>Ignored</c>, which is ignored anyway.
 	</p>
       </desc>
@@ -1177,7 +1177,7 @@ erlang:'!'            -----> Module:StateName/5
 	<p>If the function returns <c>Reason</c>, the ongoing
 	  upgrade will fail and roll back to the old release.</p>
 	<p>This function may use
-	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
+	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return <c>Result</c> or <c>Reason</c>.
 	</p>
       </desc>
@@ -1268,7 +1268,7 @@ erlang:'!'            -----> Module:StateName/5
 	  being written to the error log.
 	</p>
 	<p>This function may use
-	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
+	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>
 	  to return <c>Status</c>.
 	</p>
       </desc>
