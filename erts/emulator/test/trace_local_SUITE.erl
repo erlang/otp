@@ -1224,18 +1224,22 @@ setup(ProcFlags) ->
 
 shutdown() ->
     trace_off(),
-    {Pid,Mref} = get(slave),
-    try erlang:is_process_alive(Pid) of
-        true ->
-            Pid ! die,
-            receive
-                {'DOWN',Mref,process,Pid,Reason} ->
-                    Reason
+    case get(slave) of
+        {Pid,Mref} ->
+            try erlang:is_process_alive(Pid) of
+                true ->
+                    Pid ! die,
+                    receive
+                        {'DOWN',Mref,process,Pid,Reason} ->
+                            Reason
+                    end;
+                _ ->
+                    not_alive
+            catch _:_ ->
+                    undefined
             end;
         _ ->
-            not_alive
-    catch _:_ ->
-              undefined
+            undefined
     end.
 
 trace_off() ->
