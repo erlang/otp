@@ -184,7 +184,6 @@
 -callback state_name(
 	    event_type(),
 	    EventContent :: term(),
-	    PrevStateName :: state_name(), % Previous state name
 	    Data :: data()) ->
     state_callback_result().
 %%
@@ -195,7 +194,6 @@
 -callback handle_event(
 	    event_type(),
 	    EventContent :: term(),
-	    PrevState :: state(), % Previous state
 	    State :: state(), % Current state
 	    Data :: data()) ->
     state_callback_result().
@@ -234,10 +232,10 @@
    [init/1, % One may use enter_loop/5,6,7 instead
     format_status/2, % Has got a default implementation
     %%
-    state_name/4, % Example for callback_mode =:= state_functions:
+    state_name/3, % Example for callback_mode =:= state_functions:
     %% there has to be a StateName/5 callback function for every StateName.
     %%
-    handle_event/5]). % For callback_mode =:= handle_event_function
+    handle_event/4]). % For callback_mode =:= handle_event_function
 
 %% Type validation functions
 callback_mode(CallbackMode) ->
@@ -518,7 +516,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent)
 	true ->
 	    Name = gen:get_proc_name(Server),
 	    Debug = gen:debug_options(Name, Opts),
-	    PrevState = undefined,
+	    OldState = make_ref(),
 	    NewActions =
 		if
 		    is_list(Actions) ->
@@ -530,8 +528,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent)
 	      callback_mode => CallbackMode,
 	      module => Module,
 	      name => Name,
-	      prev_state => PrevState,
-	      state => PrevState, % Discarded by loop_event_actions
+	      state => OldState, % Discarded by loop_event_actions
 	      data => Data,
 	      timer => undefined,
 	      postponed => [],
@@ -539,7 +536,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent)
 	    loop_event_actions(
 	      Parent, Debug, S, [],
 	      {event,undefined}, % Discarded due to {postpone,false}
-	      PrevState, State, Data, NewActions);
+	      OldState, State, Data, NewActions);
 	false ->
 	    erlang:error(
 	      badarg,
@@ -771,7 +768,6 @@ loop_events(
   Parent, Debug,
   #{callback_mode := CallbackMode,
     module := Module,
-    prev_state := PrevState,
     state := State,
     data := Data} = S,
   [{Type,Content} = Event|Events] = Q, Timer) ->
@@ -780,9 +776,9 @@ loop_events(
     try
 	case CallbackMode of
 	    state_functions ->
-		Module:State(Type, Content, PrevState, Data);
+		Module:State(Type, Content, Data);
 	    handle_event_function ->
-		Module:handle_event(Type, Content, PrevState, State, Data)
+		Module:handle_event(Type, Content, State, Data)
 	end of
 	Result ->
 	    loop_event_result(
@@ -796,7 +792,7 @@ loop_events(
 	    %% of calling a nonexistent state function
 	    case erlang:get_stacktrace() of
 		[{Module,State,
-		  [Type,Content,PrevState,Data]=Args,
+		  [Type,Content,Data]=Args,
 		  _}
 		 |Stacktrace]
 		when CallbackMode =:= state_functions ->
@@ -806,7 +802,7 @@ loop_events(
 		      Stacktrace,
 		      Debug, S, Q);
 		[{Module,handle_event,
-		  [Type,Content,PrevState,State,Data]=Args,
+		  [Type,Content,State,Data]=Args,
 		  _}
 		 |Stacktrace]
 		when CallbackMode =:= handle_event_function ->
@@ -932,7 +928,6 @@ loop_event_actions(
     loop_events(
       Parent, NewDebug,
       S#{
-	prev_state := State,
 	state := NewState,
 	data := NewData,
 	timer := Timer,

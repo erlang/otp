@@ -62,12 +62,12 @@ gen_statem:stop       -----> Module:terminate/2
 gen_statem:call
 gen_statem:cast
 erlang:send
-erlang:'!'            -----> Module:StateName/4
-                             Module:handle_event/5
+erlang:'!'            -----> Module:StateName/3
+                             Module:handle_event/4
 
 -                     -----> Module:terminate/3
 
--                     -----> Module:code_change/3</pre>
+-                     -----> Module:code_change/4</pre>
     <p>Events are of different
       <seealso marker="#type-event_type">types</seealso>
       so the callback functions can know the origin of an event
@@ -91,40 +91,28 @@ erlang:'!'            -----> Module:StateName/4
       is <c>state_functions</c> the state has to be an atom and
       is used as the state function name.
       See
-      <seealso marker="#Module:StateName/4">
-        <c>Module:StateName/4</c>
+      <seealso marker="#Module:StateName/3">
+        <c>Module:StateName/3</c>
       </seealso>.
       This gathers all code for a specific state
       in one function and hence dispatches on state first.
       Note that in this mode the callback function
-      <seealso marker="#Module:code_change/4">
-        <c>Module:code_change/4</c>
-      </seealso> makes the state name <c>code_change</c>
-      unusable.  Actually you might get away with using it
-      as a state name but you will have to find a way to separate
-      the two callback roles e.g by observing that you can force
-      argument 3 into having different types for the different roles.
-      This is a slippery slope, though.  It is easier
-      to simply not use <c>code_change</c> as a state name.
+      <seealso marker="#Module:terminate/3">
+        <c>Module:terminate/3</c>
+      </seealso> makes the state name <c>terminate</c> unusable.
     </p>
     <p>When
       <seealso marker="#type-callback_mode">callback_mode</seealso>
       is <c>handle_event_function</c> the state can be any term
       and the state function name is
-      <seealso marker="#Module:handle_event/5">
-        <c>Module:handle_event/5</c>
+      <seealso marker="#Module:handle_event/4">
+        <c>Module:handle_event/4</c>
       </seealso>.
       This makes it easy to dispatch on state or on event as
       you like but you will have to implement it.
       Also be careful about which events you handle in which
       states so you do not accidentally postpone one event
       forever creating an infinite busy loop.
-    </p>
-    <p>There is a small gotcha in both callback modes regarding
-      the state <c>undefined</c> that is used as the previous state
-      when the first state function is called.  So either do not
-      use <c>undefined</c> as a state, or figure out
-      the implications yourself.
     </p>
     <p>The <c>gen_statem</c> enqueues incoming events in order of arrival
       and presents these to the
@@ -378,14 +366,14 @@ erlang:'!'            -----> Module:StateName/4
 	  <item>The state has to be of type
 	    <seealso marker="#type-state_name"><c>state_name()</c></seealso>
 	    and one callback function per state that is
-	    <seealso marker="#Module:StateName/4">
-	      <c>Module:StateName/4</c>
-	    </seealso> is used.  This is the default.
+	    <seealso marker="#Module:StateName/3">
+	      <c>Module:StateName/3</c>
+	    </seealso> is used.
 	  </item>
 	  <tag><c>handle_event_function</c></tag>
 	  <item>The state can be any term and the callback function
-	    <seealso marker="#Module:handle_event/5">
-	      <c>Module:handle_event/5</c>
+	    <seealso marker="#Module:handle_event/4">
+	      <c>Module:handle_event/4</c>
 	    </seealso> is used for all states.
 	  </item>
 	</taglist>
@@ -1054,9 +1042,10 @@ erlang:'!'            -----> Module:StateName/4
 	  <c>CallbackMode</c> selects the
 	  <seealso marker="#type-callback_mode">callback_mode()</seealso>.
 	  of the <c>gen_statem</c>.
-	  <c>State</c> is the <seealso marker="#type-state">state()</seealso>
-	  of the <c>gen_statem</c> and
-	  <c>Data</c> the server <seealso marker="#type-data">data()</seealso>
+	  <c>State</c> is the initial
+	  <seealso marker="#type-state">state()</seealso>
+	  and <c>Data</c> the initial server
+	  <seealso marker="#type-data">data()</seealso>
 	</p>
 	<p>The <seealso marker="#type-action"><c>Actions</c></seealso>
 	  are executed when entering the first
@@ -1076,11 +1065,10 @@ erlang:'!'            -----> Module:StateName/4
     </func>
 
     <func>
-      <name>Module:StateName(EventType, EventContent,
-      PrevStateName, Data) -> Result
+      <name>Module:StateName(EventType, EventContent, Data) -> Result
       </name>
       <name>Module:handle_event(EventType, EventContent,
-        PrevState, State, Data) -> Result
+      State, Data) -> Result
       </name>
       <fsummary>Handle an event</fsummary>
       <type>
@@ -1088,10 +1076,7 @@ erlang:'!'            -----> Module:StateName/4
 	  <seealso marker="#type-event_type">event_type()</seealso>
 	</v>
 	<v>EventContent = term()</v>
-	<v>PrevStateName =
-	  <seealso marker="#type-state_name">state_name()</seealso>
-	</v>
-	<v>PrevState = State =
+	<v>State = NewState =
 	  <seealso marker="#type-state">state()</seealso>
 	</v>
 	<v>Data = NewData =
@@ -1109,9 +1094,9 @@ erlang:'!'            -----> Module:StateName/4
           <seealso marker="#cast/2">cast/2</seealso> or
 	  as a normal process message one of these functions is called.
 	  If <seealso marker="#type-callback_mode">callback_mode</seealso>
-	  is <c>state_functions</c> then <c>Module:StateName/4</c> is called,
+	  is <c>state_functions</c> then <c>Module:StateName/3</c> is called,
 	  and if it is <c>handle_event_function</c>
-	  then <c>Module:handle_event/5</c> is called.
+	  then <c>Module:handle_event/4</c> is called.
 	</p>
 	<p>If <c>EventType</c> is
 	  <seealso marker="#type-event_type"><c>{call,Caller}</c></seealso>
@@ -1125,13 +1110,6 @@ erlang:'!'            -----> Module:StateName/4
 	  <seealso marker="#reply/2">
 	    <c>reply(Caller, Reply)</c>
 	  </seealso>.
-	</p>
-	<p><c>PrevStateName</c> and <c>PrevState</c> are useful
-	  in some odd cases for example when you want to do something
-	  only at the first event in a state, or when you need to
-	  handle events differently depending on the previous state.
-	  Note that when <c>gen_statem</c> enters its first state
-	  this is set to <c>undefined</c>.
 	</p>
 	<p>If this function returns with a new state that
 	  does not match equal (<c>=/=</c>) to the current state

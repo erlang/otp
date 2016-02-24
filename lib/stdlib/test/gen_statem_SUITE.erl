@@ -1160,26 +1160,26 @@ terminate(_Reason, _State, _Data) ->
 
 %% State functions
 
-idle(cast, {connect,Pid}, _, Data) ->
+idle(cast, {connect,Pid}, Data) ->
     Pid ! accept,
     {next_state,wfor_conf,Data};
-idle({call,From}, connect, _, Data) ->
+idle({call,From}, connect, Data) ->
     gen_statem:reply(From, accept),
     {next_state,wfor_conf,Data};
-idle(cast, badreturn, _, _Data) ->
+idle(cast, badreturn, _Data) ->
     badreturn;
-idle({call,_From}, badreturn, _, _Data) ->
+idle({call,_From}, badreturn, _Data) ->
     badreturn;
-idle({call,From}, {delayed_answer,T}, _, Data) ->
+idle({call,From}, {delayed_answer,T}, Data) ->
     receive
     after T ->
 	    gen_statem:reply({reply,From,delayed}),
 	    throw({keep_state,Data})
     end;
-idle({call,From}, {timeout,Time}, _, _Data) ->
+idle({call,From}, {timeout,Time}, _Data) ->
     {next_state,timeout,{From,Time},
      [{timeout,Time,idle}]};
-idle(Type, Content, PrevState, Data) ->
+idle(Type, Content, Data) ->
     case handle_common_events(Type, Content, idle, Data) of
 	undefined ->
 	    case Type of
@@ -1187,45 +1187,45 @@ idle(Type, Content, PrevState, Data) ->
 		    throw({keep_state,Data,[{reply,From,'eh?'}]});
 		_ ->
 		    throw(
-		      {stop,{unexpected,idle,Type,Content,PrevState}})
+		      {stop,{unexpected,idle,Type,Content}})
 	    end;
 	Result ->
 	    Result
     end.
 
-timeout(timeout, idle, idle, {From,Time}) ->
+timeout(timeout, idle, {From,Time}) ->
     TRef2 = erlang:start_timer(Time, self(), ok),
     TRefC1 = erlang:start_timer(Time, self(), cancel1),
     TRefC2 = erlang:start_timer(Time, self(), cancel2),
     {next_state,timeout2,{From,Time,TRef2},
      [{cancel_timer, TRefC1},
       {next_event,internal,{cancel_timer,TRefC2}}]};
-timeout(_, _, _, Data) ->
+timeout(_, _, Data) ->
     {keep_state,Data}.
 
 timeout2(
-  internal, {cancel_timer,TRefC2}, timeout, {From,Time,TRef2}) ->
+  internal, {cancel_timer,TRefC2}, {From,Time,TRef2}) ->
     Time4 = Time * 4,
     receive after Time4 -> ok end,
     {next_state,timeout3,{From,TRef2},
      [{cancel_timer,TRefC2}]};
-timeout2(_, _, _, Data) ->
+timeout2(_, _, Data) ->
     {keep_state,Data}.
 
-timeout3(info, {timeout,TRef2,Result}, _, {From,TRef2}) ->
+timeout3(info, {timeout,TRef2,Result}, {From,TRef2}) ->
     gen_statem:reply([{reply,From,Result}]),
     {next_state,idle,state};
-timeout3(_, _, _, Data) ->
+timeout3(_, _, Data) ->
     {keep_state,Data}.
 
-wfor_conf({call,From}, confirm, _, Data) ->
+wfor_conf({call,From}, confirm, Data) ->
     {next_state,connected,Data,
      [{reply,From,yes}]};
-wfor_conf(cast, {ping,_,_}, _, _) ->
+wfor_conf(cast, {ping,_,_}, _) ->
     {keep_state_and_data,[postpone]};
-wfor_conf(cast, confirm, _, Data) ->
+wfor_conf(cast, confirm, Data) ->
     {next_state,connected,Data};
-wfor_conf(Type, Content, _, Data) ->
+wfor_conf(Type, Content, Data) ->
     case handle_common_events(Type, Content, wfor_conf, Data) of
 	undefined ->
 	    case Type of
@@ -1239,21 +1239,21 @@ wfor_conf(Type, Content, _, Data) ->
 	    Result
     end.
 
-connected({call,From}, {msg,Ref}, _, Data) ->
+connected({call,From}, {msg,Ref}, Data) ->
     {keep_state,Data,
      [{reply,From,{ack,Ref}}]};
-connected(cast, {msg,From,Ref}, _, Data) ->
+connected(cast, {msg,From,Ref}, Data) ->
     From ! {ack,Ref},
     {keep_state,Data};
-connected({call,From}, disconnect, _, Data) ->
+connected({call,From}, disconnect, Data) ->
     {next_state,idle,Data,
      [{reply,From,yes}]};
-connected(cast, disconnect, _, Data) ->
+connected(cast, disconnect, Data) ->
     {next_state,idle,Data};
-connected(cast, {ping,Pid,Tag}, _, Data) ->
+connected(cast, {ping,Pid,Tag}, Data) ->
     Pid ! {pong,Tag},
     {keep_state,Data};
-connected(Type, Content, _, Data) ->
+connected(Type, Content, Data) ->
     case handle_common_events(Type, Content, connected, Data) of
 	undefined ->
 	    case Type of
@@ -1267,9 +1267,9 @@ connected(Type, Content, _, Data) ->
 	    Result
     end.
 
-state0({call,From}, stop, _, Data) ->
+state0({call,From}, stop, Data) ->
     {stop_and_reply,normal,[{reply,From,stopped}],Data};
-state0(Type, Content, _, Data) ->
+state0(Type, Content, Data) ->
     case handle_common_events(Type, Content, state0, Data) of
 	undefined ->
 	    {keep_state,Data};
@@ -1277,26 +1277,26 @@ state0(Type, Content, _, Data) ->
 	    Result
     end.
 
-hiber_idle({call,From}, 'alive?', _, Data) ->
+hiber_idle({call,From}, 'alive?', Data) ->
     {keep_state,Data,
      [{reply,From,'alive!'}]};
-hiber_idle({call,From}, hibernate_sync, _, Data) ->
+hiber_idle({call,From}, hibernate_sync, Data) ->
     {next_state,hiber_wakeup,Data,
      [{reply,From,hibernating},
       hibernate]};
-hiber_idle(info, hibernate_later, _, _) ->
+hiber_idle(info, hibernate_later, _) ->
     Tref = erlang:start_timer(1000, self(), hibernate),
     {keep_state,Tref};
-hiber_idle(info, hibernate_now, _, Data) ->
+hiber_idle(info, hibernate_now, Data) ->
     {keep_state,Data,
      [hibernate]};
-hiber_idle(info, {timeout,Tref,hibernate}, _, Tref) ->
+hiber_idle(info, {timeout,Tref,hibernate}, Tref) ->
     {keep_state,[],
      [hibernate]};
-hiber_idle(cast, hibernate_async, _, Data) ->
+hiber_idle(cast, hibernate_async, Data) ->
     {next_state,hiber_wakeup,Data,
      [hibernate]};
-hiber_idle(Type, Content, _, Data) ->
+hiber_idle(Type, Content, Data) ->
     case handle_common_events(Type, Content, hiber_idle, Data) of
 	undefined ->
 	    {keep_state,Data};
@@ -1304,19 +1304,19 @@ hiber_idle(Type, Content, _, Data) ->
 	    Result
     end.
 
-hiber_wakeup({call,From}, wakeup_sync, _, Data) ->
+hiber_wakeup({call,From}, wakeup_sync, Data) ->
     {next_state,hiber_idle,Data,
      [{reply,From,good_morning}]};
-hiber_wakeup({call,From}, snooze_sync, _, Data) ->
+hiber_wakeup({call,From}, snooze_sync, Data) ->
     {keep_state,Data,
      [{reply,From,please_just_five_more},
       hibernate]};
-hiber_wakeup(cast, wakeup_async, _, Data) ->
+hiber_wakeup(cast, wakeup_async, Data) ->
     {next_state,hiber_idle,Data};
-hiber_wakeup(cast, snooze_async, _, Data) ->
+hiber_wakeup(cast, snooze_async, Data) ->
     {keep_state,Data,
      [hibernate]};
-hiber_wakeup(Type, Content, _, Data) ->
+hiber_wakeup(Type, Content, Data) ->
     case handle_common_events(Type, Content, hiber_wakeup, Data) of
 	undefined ->
 	    {keep_state,Data};
@@ -1353,10 +1353,9 @@ handle_common_events(_, _, _, _) ->
 %% Wrap the state in a 1 element list just to test non-atom
 %% states.  Note that the state from init/1 is not wrapped
 %% so both atom and non-atom states are tested.
-handle_event(Type, Event, PrevState, State, Data) ->
-    PrevStateName = unwrap_state(PrevState),
+handle_event(Type, Event, State, Data) ->
     StateName = unwrap_state(State),
-    try ?MODULE:StateName(Type, Event, PrevStateName, Data) of
+    try ?MODULE:StateName(Type, Event, Data) of
 	Result ->
 	    wrap_result(Result)
     catch
