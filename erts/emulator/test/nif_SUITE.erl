@@ -24,7 +24,7 @@
 -define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), ?line Exp = Got).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -42,7 +42,8 @@
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
 	 nif_exception/1, call_nif_exception/1,
-	 nif_nan_and_inf/1, nif_atom_too_long/1
+	 nif_nan_and_inf/1, nif_atom_too_long/1,
+	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1
 	]).
 
 -export([many_args_100/100]).
@@ -72,7 +73,8 @@ all() ->
      otp_9828,
      otp_9668, consume_timeslice,
      nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
-     nif_exception, nif_nan_and_inf, nif_atom_too_long
+     nif_exception, nif_nan_and_inf, nif_atom_too_long,
+     nif_monotonic_time, nif_time_offset, nif_convert_time_unit
     ].
 
 groups() -> 
@@ -615,7 +617,6 @@ resource_new_do2(Type) ->
     ?line {PtrA,BinA} = get_resource(Type, ResA),
     ?line {PtrB,BinB} = get_resource(Type, ResB),
     ?line true = (PtrA =/= PtrB),
-    ?line [] = last_resource_dtor_call(),
     %% forget ResA and make it garbage
     {{PtrA,BinA}, {ResB,PtrB,BinB}}.
 
@@ -1192,11 +1193,8 @@ send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
     %% number of workers running.
-    Seed = {erlang:monotonic_time(),
-	    erlang:time_offset(),
-	    erlang:unique_integer()},
-    io:format("seed: ~p\n",[Seed]), 
-    random:seed(Seed),    
+    rand:seed(exsplus),
+    io:format("seed: ~p\n",[rand:export_seed()]),
     ets:new(nif_SUITE,[named_table,public]),
     ?line true = ets:insert(nif_SUITE,{send3,0,0,0,0}),
     timer:send_after(10000, timeout), % Run for 10 seconds
@@ -1229,7 +1227,7 @@ send3_controller(SpawnCnt0, Mons0, Pids0, Tick) ->
     after Tick -> 
         Max = 20,
         N = length(Pids0),
-        PidN = random:uniform(Max),
+        PidN = rand:uniform(Max),
         %%io:format("N=~p PidN=~p Pids0=~p\n", [N,PidN,Pids0]), 
         case PidN > N of
             true ->
@@ -1293,7 +1291,7 @@ send3_proc(Pids0, Counters={Rcv,SndOk,SndFail}, State0) ->
     end.
 
 send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
-    To = lists:nth(random:uniform(length(Pids)),Pids),
+    To = lists:nth(rand:uniform(length(Pids)),Pids),
     Blob = send3_make_blob(),
     State1 = send3_new_state(State0,Blob), 
     case send3_send(To, Blob) of
@@ -1305,12 +1303,12 @@ send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
 
 
 send3_make_blob() ->    
-    case random:uniform(20)-1 of
+    case rand:uniform(20)-1 of
         0 -> {term,[]};
         N ->
             MsgEnv = alloc_msgenv(), 
             repeat(N bsr 1,
-                   fun(_) -> grow_blob(MsgEnv,other_term(),random:uniform(1 bsl 20))
+                   fun(_) -> grow_blob(MsgEnv,other_term(),rand:uniform(1 bsl 20))
                    end, void),
             case (N band 1) of
                 0 -> {term,copy_blob(MsgEnv)};
@@ -1320,7 +1318,7 @@ send3_make_blob() ->
 
 send3_send(Pid, Msg) ->
     %% 90% enif_send and 10% normal bang
-    case random:uniform(10) of
+    case rand:uniform(10) of
         1 -> send3_send_bang(Pid,Msg);
         _ -> send3_send_nif(Pid,Msg)
     end.
@@ -1341,7 +1339,7 @@ send3_send_bang(Pid, {msgenv,MsgEnv}) ->
     true.
 
 send3_new_state(State, Blob) ->
-    case random:uniform(5+2) of
+    case rand:uniform(5+2) of
         N when N =< 5-> setelement(N, State, Blob);
         _ -> State  % Don't store blob
     end.
@@ -1399,7 +1397,7 @@ is_checks(Config) when is_list(Config) ->
 get_length(doc) -> ["Test all enif_get_length functions"];
 get_length(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
-    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list).
+    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list, [1,2|3]).
 
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).
@@ -1783,6 +1781,148 @@ nif_raise_exceptions(NifFunc) ->
 			end
 		end, ok, ExcTerms).
 
+-define(ERL_NIF_TIME_ERROR, -9223372036854775808).
+-define(TIME_UNITS, [seconds, milli_seconds, micro_seconds, nano_seconds]).
+
+nif_monotonic_time(Config) ->
+    ?ERL_NIF_TIME_ERROR = monotonic_time(invalid_time_unit),
+    mtime_loop(1000000).
+
+mtime_loop(0) ->
+    ok;
+mtime_loop(N) ->
+    chk_mtime(?TIME_UNITS),
+    mtime_loop(N-1).
+
+chk_mtime([]) ->
+    ok;
+chk_mtime([TU|TUs]) ->
+    A = erlang:monotonic_time(TU),
+    B = monotonic_time(TU),
+    C = erlang:monotonic_time(TU),
+    try
+	true = A =< B,
+	true = B =< C
+    catch
+	_ : _ ->
+	    ?t:fail({monotonic_time_missmatch, TU, A, B, C})
+    end,
+    chk_mtime(TUs).
+
+nif_time_offset(Config) ->
+    ?ERL_NIF_TIME_ERROR = time_offset(invalid_time_unit),
+    toffs_loop(1000000).
+
+toffs_loop(0) ->
+    ok;
+toffs_loop(N) ->
+    chk_toffs(?TIME_UNITS),
+    toffs_loop(N-1).
+
+chk_toffs([]) ->
+    ok;
+chk_toffs([TU|TUs]) ->
+    TO = erlang:time_offset(TU),
+    NifTO = time_offset(TU),
+    case TO =:= NifTO of
+	true ->
+	    ok;
+	false ->
+	    case erlang:system_info(time_warp_mode) of
+		no_time_warp ->
+		    ?t:fail({time_offset_mismatch, TU, TO, NifTO});
+		_ ->
+		    %% Most frequent time offset change
+		    %% is currently only every 15:th
+		    %% second so this should currently
+		    %% work...
+		    NTO = erlang:time_offset(TU),
+		    case NifTO =:= NTO of
+			true ->
+			    ok;
+			false ->
+			    ?t:fail({time_offset_mismatch, TU, TO, NifTO, NTO})
+		    end
+	    end
+    end,
+    chk_toffs(TUs).
+
+nif_convert_time_unit(Config) ->
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, seconds, invalid_time_unit),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, seconds),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, invalid_time_unit),
+    lists:foreach(fun (Offset) ->
+			  lists:foreach(fun (Diff) ->
+						chk_ctu(Diff+(Offset*1000*1000*1000))
+					end,
+					[999999999999,
+					 99999999999,
+					 9999999999,
+					 999999999,
+					 99999999,
+					 9999999,
+					 999999,
+					 99999,
+					 999,
+					 99,
+					 9,
+					 1,
+					 11,
+					 101,
+					 1001,
+					 10001,
+					 100001,
+					 1000001,
+					 10000001,
+					 100000001,
+					 1000000001,
+					 100000000001,
+					 1000000000001,
+					 5,
+					 50,
+					 500,
+					 5000,
+					 50000,
+					 500000,
+					 5000000,
+					 50000000,
+					 500000000,
+					 5000000000,
+					 50000000000,
+					 500000000000])
+		  end,
+		  [-4711, -1000, -475, -5, -4, -3, -2, -1, 0,
+		   1, 2, 3, 4, 5, 475, 1000, 4711]),
+    ctu_loop(1000000).
+
+ctu_loop(0) ->
+    ok;
+ctu_loop(N) ->
+    chk_ctu(erlang:monotonic_time(nano_seconds)),
+    ctu_loop(N-1).
+
+chk_ctu(Time) ->
+    chk_ctu(Time, ?TIME_UNITS).
+
+chk_ctu(_Time, []) ->
+    ok;
+chk_ctu(Time, [FromTU|FromTUs]) ->
+    chk_ctu(Time, FromTU, ?TIME_UNITS),
+    chk_ctu(Time, FromTUs).
+
+chk_ctu(_Time, _FromTU, []) ->
+    ok;
+chk_ctu(Time, FromTU, [ToTU|ToTUs]) ->
+    T = erlang:convert_time_unit(Time, nano_seconds, FromTU),
+    TE = erlang:convert_time_unit(T, FromTU, ToTU),
+    TN = convert_time_unit(T, FromTU, ToTU),
+    case TE =:= TN of
+	false ->
+	    ?t:fail({conversion_mismatch, FromTU, T, ToTU, TE, TN});
+	true ->
+	    chk_ctu(Time, FromTU, ToTUs)
+    end.
+
 %% The NIFs:
 lib_version() -> undefined.
 call_history() -> ?nif_stub.
@@ -1810,7 +1950,7 @@ last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
-length_test(_,_,_,_,_) -> ?nif_stub.
+length_test(_,_,_,_,_,_) -> ?nif_stub.
 make_atoms() -> ?nif_stub.
 make_strings() -> ?nif_stub.
 make_new_resource_binary(_) -> ?nif_stub.
@@ -1852,6 +1992,11 @@ make_map_remove_nif(_,_) -> ?nif_stub.
 maps_from_list_nif(_) -> ?nif_stub.
 sorted_list_from_maps_nif(_) -> ?nif_stub.
 
+%% Time
+monotonic_time(_) -> ?nif_stub.
+time_offset(_) -> ?nif_stub.
+convert_time_unit(_,_,_) -> ?nif_stub.
+    
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

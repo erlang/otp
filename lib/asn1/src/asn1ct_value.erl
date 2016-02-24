@@ -353,10 +353,7 @@ random_unnamed_bit_string(M, C) ->
 %%     end.
 
 random(Upper) ->
-    _ = random:seed(erlang:phash2([erlang:node()]),
-		    erlang:monotonic_time(),
-		    erlang:unique_integer()),
-    random:uniform(Upper).
+    rand:uniform(Upper).
 
 size_random(C) ->
     case get_constraint(C,'SizeConstraint') of

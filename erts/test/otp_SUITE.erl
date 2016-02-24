@@ -27,7 +27,7 @@
          call_to_size_1/1,call_to_now_0/1,strong_components/1,
 	 erl_file_encoding/1,xml_file_encoding/1,runtime_dependencies/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
 
@@ -290,7 +290,7 @@ call_to_deprecated(Config) when is_list(Config) ->
 call_to_size_1(Config) when is_list(Config) ->
     %% Applications that do not call erlang:size/1:
     Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
-	    runtime_tools,stdlib,tools,webtool],
+	    runtime_tools,stdlib,tools],
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
@@ -298,11 +298,13 @@ call_to_now_0(Config) when is_list(Config) ->
     Apps = [asn1,common_test,compiler,debugger,dialyzer,
 	    gs,kernel,mnesia,observer,parsetools,reltool,
 	    runtime_tools,sasl,stdlib,syntax_tools,
-	    test_server,tools,webtool],
+	    test_server,tools],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
-not_recommended_calls(Config, Apps, MFA) ->
+not_recommended_calls(Config, Apps0, MFA) ->
     Server = ?config(xref_server, Config),
+
+    Apps = [App || App <- Apps0, is_present_application(App, Server)],
 
     Fs = [MFA],
 
@@ -337,9 +339,26 @@ not_recommended_calls(Config, Apps, MFA) ->
     end,
     case CallsToMFA of
 	[] -> 
-            ok;
+            SkippedApps = ordsets:subtract(ordsets:from_list(Apps0),
+                                           ordsets:from_list(Apps)),
+            case SkippedApps of
+                [] ->
+                    ok;
+                _ ->
+                    AppStrings = [atom_to_list(A) || A <- SkippedApps],
+                    Mess = io_lib:format("Application(s) not present: ~s\n",
+                                         [string:join(AppStrings, ", ")]),
+                    {comment, Mess}
+            end;
 	_ ->
 	    ?t:fail({length(CallsToMFA),calls_to_size_1})
+    end.
+
+is_present_application(Name, Server) ->
+    Q = io_lib:format("~w : App", [Name]),
+    case xref:q(Server, lists:flatten(Q)) of
+        {ok,[Name]} -> true;
+        {error,_,_} -> false
     end.
 
 strong_components(Config) when is_list(Config) ->

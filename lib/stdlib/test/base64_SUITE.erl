@@ -340,7 +340,7 @@ interleaved_ws_roundtrip_1([], Base64List, Bin, List) ->
 random_byte_list(0, Acc) ->
     Acc;
 random_byte_list(N, Acc) -> 
-    random_byte_list(N-1, [random:uniform(255)|Acc]).
+    random_byte_list(N-1, [rand:uniform(255)|Acc]).
 
 make_big_binary(N) ->
     list_to_binary(mbb(N, [])).

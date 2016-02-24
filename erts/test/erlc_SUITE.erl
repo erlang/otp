@@ -27,7 +27,7 @@
 	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1,
 	 make_dep_options/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

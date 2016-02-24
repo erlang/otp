@@ -337,6 +337,8 @@ script_elements(#mod{method = "GET"}, {PathInfo, QueryString}) ->
     [{query_string, QueryString}, {path_info, PathInfo}];
 script_elements(#mod{method = "POST", entity_body = Body}, _) ->
     [{entity_body, Body}];
+script_elements(#mod{method = "PATCH", entity_body = Body}, _) ->
+    [{entity_body, Body}];
 script_elements(#mod{method = "PUT", entity_body = Body}, _) ->
     [{entity_body, Body}];
 script_elements(_, _) ->

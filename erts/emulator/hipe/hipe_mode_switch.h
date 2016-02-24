@@ -95,7 +95,7 @@ ERTS_GLB_INLINE void hipe_reserve_beam_trap_frame(Process *p, Eterm reg[], unsig
 
     /* ensure that at least 2 words are available on the BEAM stack */
     if ((p->stop - 2) < p->htop) {
-	p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
+	erts_garbage_collect(p, 2, reg, arity);
 	ASSERT(!((p->stop - 2) < p->htop));
     }
     p->stop -= 2;

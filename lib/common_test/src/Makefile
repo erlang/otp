@@ -79,7 +79,15 @@ MODULES= \
 	cth_conn_log \
 	ct_groups \
 	ct_property_test \
-	ct_release_test
+	ct_release_test \
+	erl2html2 \
+	test_server_ctrl \
+	test_server_gl \
+	test_server_io \
+	test_server_node \
+	test_server \
+	test_server_sup
+
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -101,8 +109,7 @@ DTD_FILES = \
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
-	-I../../test_server/include -I../../xmerl/inc/ \
-	-I $(ERL_TOP)/lib/kernel/include -Werror
+	-I../../xmerl/inc/ -I $(ERL_TOP)/lib/kernel/include -Werror
 
 # ----------------------------------------------------
 # Targets

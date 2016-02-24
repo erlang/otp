@@ -71,7 +71,8 @@
       | 'milli_seconds'
       | 'micro_seconds'
       | 'nano_seconds'
-      | 'native'.
+      | 'native'
+      | 'perf_counter'.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -185,6 +186,8 @@
       'receive' |
       'print' |
       'timestamp' |
+      'monotonic_timestamp' |
+      'strict_monotonic_timestamp' |
       'label' |
       'serial'.
 
@@ -198,7 +201,10 @@
       'exclusive' |
       'runnable_ports' |
       'runnable_procs' |
-      'scheduler'.
+      'scheduler' |
+      'timestamp' |
+      'monotonic_timestamp' |
+      'strict_monotonic_timestamp'.
 
 -type system_monitor_option() ::
       'busy_port' |
@@ -230,6 +236,8 @@
       garbage_collection |
       timestamp |
       cpu_timestamp |
+      monotonic_timestamp |
+      strict_monotonic_timestamp |
       arity |
       set_on_spawn |
       set_on_first_spawn |
@@ -258,6 +266,8 @@
       running |
       garbage_collection |
       timestamp |
+      monotonic_timestamp |
+      strict_monotonic_timestamp |
       arity.
 
 -type trace_info_return() ::
@@ -460,7 +470,7 @@ check_old_code(_Module) ->
       CheckResult :: boolean().
 check_process_code(Pid, Module) ->
     try
-	erlang:check_process_code(Pid, Module, [{allow_gc, true}])
+	erts_internal:check_process_code(Pid, Module, [{allow_gc, true}])
     catch
 	error:Error -> erlang:error(Error, [Pid, Module])
     end.
@@ -475,50 +485,10 @@ check_process_code(Pid, Module) ->
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
     try
-	{Async, AllowGC} = get_cpc_opts(OptionList, sync, true),
-	case Async of
-	    {async, ReqId} ->
-		{priority, Prio} = erlang:process_info(erlang:self(),
-						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {check_process_code,
-						   ReqId,
-						   Module,
-						   AllowGC}),
-		async;
-	    sync ->
-		case Pid == erlang:self() of
-		    true ->
-			erts_internal:check_process_code(Module,
-							 [{allow_gc, AllowGC}]);
-		    false ->
-			{priority, Prio} = erlang:process_info(erlang:self(),
-							       priority),
-			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {check_process_code,
-							   ReqId,
-							   Module,
-							   AllowGC}),
-			receive
-			    {check_process_code, ReqId, CheckResult} ->
-				CheckResult
-			end
-		end
-	end
+	erts_internal:check_process_code(Pid, Module, OptionList)
     catch
 	error:Error -> erlang:error(Error, [Pid, Module, OptionList])
     end.
-
-% gets async and allow_gc opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, AllowGC) ->
-    get_cpc_opts(Options, AsyncTuple, AllowGC);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, _OldAllowGC) ->
-    get_cpc_opts(Options, Async, AllowGC);
-get_cpc_opts([], Async, AllowGC) ->
-    {Async, AllowGC}.
 
 %% crc32/1
 -spec erlang:crc32(Data) -> non_neg_integer() when
@@ -1378,6 +1348,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
     try
 	FU = case FromUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
@@ -1386,6 +1357,7 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	     end,
 	TU = case ToUnit of
 		 native -> erts_internal:time_unit();
+                 perf_counter -> erts_internal:perf_counter_unit();
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
@@ -1464,8 +1436,16 @@ processes() ->
 %% purge_module/1
 -spec purge_module(Module) -> true when
       Module :: atom().
-purge_module(_Module) ->
-    erlang:nif_error(undefined).
+purge_module(Module) when erlang:is_atom(Module) ->
+    case erts_code_purger:purge(Module) of
+	{false, _} ->
+	    erlang:error(badarg, [Module]);
+	{true, _} ->
+	    true
+    end;
+purge_module(Arg) ->
+    erlang:error(badarg, [Arg]).
+
 
 %% put/2
 -spec put(Key, Val) -> term() when
@@ -2027,11 +2007,20 @@ nodes(_Arg) ->
            | eof
 	   | {parallelism, Boolean :: boolean()}
 	   | hide.
-open_port(_PortName,_PortSettings) ->
-    erlang:nif_error(undefined).
+open_port(PortName, PortSettings) ->
+    case case erts_internal:open_port(PortName, PortSettings) of
+	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	Port when erlang:is_port(Port) -> Port;
+	Error -> erlang:error(Error, [PortName, PortSettings])
+    end.
 
 -type priority_level() ::
       low | normal | high | max.
+
+-type message_queue_data() ::
+	off_heap | on_heap | mixed.
 
 -spec process_flag(trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),
@@ -2045,6 +2034,9 @@ open_port(_PortName,_PortSettings) ->
                   (min_bin_vheap_size, MinBinVHeapSize) -> OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
+                  (message_queue_data, MQD) -> OldMQD when
+      MQD :: message_queue_data(),
+      OldMQD :: message_queue_data();
                   (priority, Level) -> OldLevel when
       Level :: priority_level(),
       OldLevel :: priority_level();
@@ -2071,6 +2063,7 @@ process_flag(_Flag, _Value) ->
       dictionary |
       error_handler |
       garbage_collection |
+      garbage_collection_info |
       group_leader |
       heap_size |
       initial_call |
@@ -2083,6 +2076,7 @@ process_flag(_Flag, _Value) ->
       min_bin_vheap_size |
       monitored_by |
       monitors |
+      message_queue_data |
       priority |
       reductions |
       registered_name |
@@ -2110,6 +2104,7 @@ process_flag(_Flag, _Value) ->
       {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
       {error_handler, Module :: module()} |
       {garbage_collection, GCInfo :: [{atom(),non_neg_integer()}]} |
+      {garbage_collection_info, GCInfo :: [{atom(),non_neg_integer()}]} |
       {group_leader, GroupLeader :: pid()} |
       {heap_size, Size :: non_neg_integer()} |
       {initial_call, mfa()} |
@@ -2124,6 +2119,7 @@ process_flag(_Flag, _Value) ->
       {monitors,
        Monitors :: [{process, Pid :: pid() |
                                      {RegName :: atom(), Node :: node()}}]} |
+      {message_queue_data, MQD :: message_queue_data()} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, Atom :: atom()} |
@@ -2178,6 +2174,8 @@ send(_Dest,_Msg,_Options) ->
                     ('receive') -> {'receive', boolean()};
                     (print) -> {print, boolean()};
                     (timestamp) -> {timestamp, boolean()};
+                    (monotonic_timestamp) -> {timestamp, boolean()};
+                    (strict_monotonic_timestamp) -> {strict_monotonic_timestamp, boolean()};
                     (label) -> [] | {label, non_neg_integer()};
                     (serial) -> [] | {serial, {non_neg_integer(), non_neg_integer()}}.
 seq_trace_info(_What) ->
@@ -2205,7 +2203,9 @@ setelement(_Index, _Tuple1, _Value) ->
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
 
--spec statistics(context_switches) -> {ContextSwitches,0} when
+-spec statistics(active_tasks) -> [ActiveTasks] when
+      ActiveTasks :: non_neg_integer();
+		(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
                                        Exact_Reductions_Since_Last_Call} when
@@ -2217,11 +2217,23 @@ spawn_opt(_Tuple) ->
                 (io) -> {{input, Input}, {output, Output}} when
       Input :: non_neg_integer(),
       Output :: non_neg_integer();
+                (microstate_accounting) -> [MSAcc_Thread] | undefined when
+      MSAcc_Thread :: #{ type => MSAcc_Thread_Type,
+                        id => MSAcc_Thread_Id,
+                        counters => MSAcc_Counters},
+      MSAcc_Thread_Type :: scheduler | async | aux,
+      MSAcc_Thread_Id :: non_neg_integer(),
+      MSAcc_Counters :: #{ MSAcc_Thread_State => non_neg_integer() },
+      MSAcc_Thread_State :: alloc | aux | bif | busy_wait | check_io |
+                            emulator | ets | gc | gc_fullsweep | nif |
+                            other | port | send | sleep | timers;
                 (reductions) -> {Total_Reductions,
                                  Reductions_Since_Last_Call} when
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLenght] when
+      RunQueueLenght :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2229,6 +2241,10 @@ spawn_opt(_Tuple) ->
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
+		(total_active_tasks) -> ActiveTasks when
+      ActiveTasks :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLenghts when
+      TotalRunQueueLenghts :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
@@ -2265,6 +2281,9 @@ subtract(_,_) ->
                         (fullsweep_after, Number) -> OldNumber when
       Number :: non_neg_integer(),
       OldNumber :: non_neg_integer();
+                        (microstate_accounting, Action) -> OldState when
+      Action :: true | false | reset,
+      OldState :: true | false;
                         (min_heap_size, MinHeapSize) -> OldMinHeapSize when
       MinHeapSize :: non_neg_integer(),
       OldMinHeapSize :: non_neg_integer();
@@ -2426,6 +2445,7 @@ tuple_to_list(_Tuple) ->
          (multi_scheduling) -> disabled | blocked | enabled;
          (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();
+         (message_queue_data) -> message_queue_data();
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
@@ -2553,14 +2573,19 @@ spawn_monitor(M, F, A) when erlang:is_atom(M),
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
+
+-type spawn_opt_option() ::
+	link
+      | monitor
+      | {priority, Level :: priority_level()}
+      | {fullsweep_after, Number :: non_neg_integer()}
+      | {min_heap_size, Size :: non_neg_integer()}
+      | {min_bin_vheap_size, VSize :: non_neg_integer()}
+      | {message_queue_data, MQD :: message_queue_data()}.
+
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(F, O) when erlang:is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
@@ -2573,12 +2598,7 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when erlang:is_function(F) ->
@@ -2665,12 +2685,7 @@ spawn_link(N,M,F,A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -2685,12 +2700,7 @@ spawn_opt(M, F, A, Opts) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Options :: [spawn_opt_option()].
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->

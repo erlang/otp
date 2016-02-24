@@ -30,7 +30,7 @@
 %% > ct_run -suite os_mon_mib_SUITE -config os_mon_mib_SUITE.cfg
 %%-----------------------------------------------------------------
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("os_mon/include/OTP-OS-MON-MIB.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 

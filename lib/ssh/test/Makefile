@@ -35,9 +35,8 @@ MODULES= \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
 	ssh_renegotiate_SUITE \
-	\
 	ssh_basic_SUITE \
-	\
+	ssh_benchmark_SUITE \
 	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
 	ssh_sftp_SUITE \
@@ -65,8 +64,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 DATA_DIRS = $(MODULES:%=%_data)
 
-INCLUDES = -I$(ERL_TOP)/lib/test_server/include \
-	   -I$(ERL_TOP)/lib/ssh/src \
+INCLUDES = -I$(ERL_TOP)/lib/ssh/src
 
 EMAKEFILE=Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -89,8 +87,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssh_test
 # The path to the test_server ebin dir is needed when
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
-	$(INCLUDES)
+ERL_COMPILE_FLAGS += $(INCLUDES)
 
 EBIN = .
 
@@ -129,7 +126,7 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) ssh.spec ssh.cover "$(RELSYSDIR)"
+	$(INSTALL_DATA) ssh.spec ssh_bench.spec ssh.cover "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

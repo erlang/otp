@@ -1707,18 +1707,19 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
     Eterm mess;
     Eterm r;
     Eterm *hp;
-    ErlHeapFragment *bp;
-    ErlOffHeap *ohp;
+    ErtsMessage *mp;
     ErtsProcLocks rp_locks = 0;
+    ErlOffHeap *ohp;
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     assert_drv_list_rwlocked();
     if (errcode != 0) {
 	int need = load_error_need(errcode);
 	Eterm e;
-	hp = erts_alloc_message_heap(6 /* tuple */ + 3 /* Error tuple */ + 
-				     REF_THING_SIZE + need, &bp, &ohp, 
-				     proc, &rp_locks);
+	mp = erts_alloc_message_heap(proc, &rp_locks,
+				     (6 /* tuple */ + 3 /* Error tuple */ + 
+				      REF_THING_SIZE + need),
+				     &hp, &ohp);
 	r = copy_ref(ref,hp);
 	hp += REF_THING_SIZE;
 	e = build_load_error_hp(hp, errcode);
@@ -1727,12 +1728,14 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
 	hp += 3;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,mess);
     } else {	
-	hp = erts_alloc_message_heap(6 /* tuple */ + REF_THING_SIZE, &bp, &ohp, proc, &rp_locks);
+	mp = erts_alloc_message_heap(proc, &rp_locks,
+				     6 /* tuple */ + REF_THING_SIZE,
+				     &hp, &ohp);
 	r = copy_ref(ref,hp);
 	hp += REF_THING_SIZE;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,tag);
     }
-    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined);
+    erts_queue_message(proc, &rp_locks, mp, mess, am_undefined);
     erts_smp_proc_unlock(proc, rp_locks);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 }

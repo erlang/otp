@@ -28,7 +28,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 %% cmp_element/2

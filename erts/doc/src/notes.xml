@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 7.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Revert "Fix erroneous splitting of emulator path"</p>
+          <p>
+	    Own Id: OTP-13202</p>
+        </item>
+        <item>
+          <p>
+	    Fix HiPE enabled emulator for FreeBSD.</p>
+          <p>
+	    Own Id: OTP-13204 Aux Id: pr926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

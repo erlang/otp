@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,15 +32,25 @@
 
   <section>
     <title>Introduction</title>
-    <p>Erlang Top, <c>etop</c> is a tool for presenting information
-      about erlang processes similar to the information presented by
+    <p>Erlang Top, <c>etop</c>, is a tool for presenting information
+      about Erlang processes similar to the information presented by
       <c>top</c> in UNIX.
       </p>
   </section>
 
+ <section>
+    <title>Getting Started</title>
+    <p>Start Erlang Top in either of the following ways:</p>
+      <list type="bulleted">
+	<item>Use script <c>etop</c>.</item>
+	<item>Use batch file <c>etop.bat</c>, for example, 
+	<c>etop -node tiger@durin</c>.</item>
+      </list>
+  </section>
+
   <section>
     <title>Output</title>
-    <p>The output from <c>etop</c> looks like this:</p>
+    <p>The output from Erlang Top is as follows:</p>
     <code type="none"><![CDATA[
 ========================================================================================
  tiger@durin                                                               13:40:32
@@ -65,59 +75,60 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
     <p>The header includes some system information:
       </p>
     <taglist>
-      <tag>Load</tag>
-      <item><c>cpu</c> is <c>Runtime/Wallclock</c>, i.e. the
-       percentage of time where the node has been
-       active, <c>procs</c> is the number of processes on the node,
-       and <c>runq</c> is the number of processes that are ready to
-       run.</item>
-      <tag>Memory</tag>
-      <item>This is the memory allocated by the node in kilo bytes.</item>
+      <tag><c>Load</c></tag>
+      <item>
+	<taglist>
+       <tag><c>cpu</c></tag>
+       <item><p><c>Runtime/Wallclock</c>, that is, the percentage of time 
+       where the node has been active.</p></item>
+       <tag><c>procs</c></tag>
+       <item><p>The number of processes on the node.</p></item>
+       <tag><c>runq</c></tag>
+       <item><p>The number of processes that are ready to run.</p></item>
+	</taglist>
+      </item>
+      <tag><c>Memory</c></tag>
+      <item><p>The memory allocated by the node in kilobytes.</p></item>
     </taglist>
     <p>For each process the following information is presented:
       </p>
     <taglist>
-      <tag>Time</tag>
-      <item>This is the runtime for the process, i.e. the actual
-       time the process has been scheduled in.</item>
-      <tag>Reds</tag>
-      <item>This is the number of reductions that has been executed
-       on the process</item>
-      <tag>Memory</tag>
-      <item>This is the size of the process in bytes, obtained by a
-       call to <c>process_info(Pid,memory)</c>.</item>
-      <tag>MsgQ</tag>
-      <item>This is the length of the message queue for the process.</item>
+      <tag><c>Time</c></tag>
+      <item><p>The runtime for the process, that is, the time that the process 
+      has been scheduled in.</p></item>
+      <tag><c>Reds</c></tag>
+      <item><p>The number of reductions executed on the process.</p></item>
+      <tag><c>Memory</c></tag>
+      <item><p>The size of the process in bytes, obtained by a
+       call to <c>process_info(Pid,memory)</c>.</p></item>
+      <tag><c>MsgQ</c></tag>
+      <item><p>The length of the message queue for the process.</p></item>
     </taglist>
     <note>
       <p><em>Time</em> and <em>Reds</em> can be presented as
-        accumulated values or as values since last update.</p>
+        accumulated values or as values since the last update.</p>
     </note>
   </section>
 
-  <section>
-    <title>Start</title>
-    <p>To start etop use the script
-      <c>etop</c> or the batch file <c>etop.bat</c>, e.g. <c>etop -node tiger@durin</c>,
-      </p>
-  </section>
-
-  <section>
+   <section>
     <title>Configuration</title>
     <p>All configuration parameters can be set at start by adding
-      <c>-OptName Value</c> to the command line, e.g. <c>etop -node tiger@durin -setcookie mycookie -lines 15</c>.
-      </p>
-    <p>The parameters <c>lines</c>, <c>interval</c>, <c>accumulate</c>
-      and <c>sort</c> can be changed during runtime by the
-      function <c>etop:config/2</c>.
-      </p>
-    <p>A list of all valid configuration parameters can be found in
-      the reference manual for <c>etop</c>.
+      <c>-OptName Value</c> to the command line, for example:</p> 
+      <pre>
+% <input>etop -node tiger@durin -setcookie mycookie -lines 15</input></pre>
+    
+    <p>A list of all valid Erlang Top configuration parameters is available in
+      module <seealso marker="etop"><c>etop</c></seealso>.
       </p>
 
-    <section>
-      <title>Example: Change configuration with text based presentation</title>
-      <code type="none"><![CDATA[
+      <p>The parameters <c>lines</c>, <c>interval</c>, <c>accumulate</c>,
+      and <c>sort</c> can be changed during runtime with function 
+      <seealso marker="etop#config/2"><c>etop:config/2</c></seealso>.
+      </p>
+      <p><em>Example:</em></p>
+      <p>Change configuration parameter <c>lines</c> with text-based presentation. 
+      Before the change, 10 lines are presented as follows:</p>
+         <code type="none"><![CDATA[
 ========================================================================================
  tiger@durin                                                               10:12:39
  Load:  cpu         0               Memory:  total        1858    binary         33
@@ -137,8 +148,14 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
 <127.43.0>     ddll_server                0     582    3744       0 gen_server:loop/6   
 <127.5.0>      application_controll       0     569    6756       0 gen_server:loop/6   
 ========================================================================================      ]]></code>
-      <p><em><c>etop:config(lines,5).</c></em>        <br></br>
-<em><c>ok</c></em></p>
+      <p>Function <c>etop:config/2</c> is called to change the number of showed 
+      lines to 5:</p>
+
+	 <pre>
+> <input>etop:config(lines,5).</input>
+ok</pre>
+
+      <p>After the change, 5 lines are presented as follows:</p>
       <code type="none"><![CDATA[
 (etop@durin)2> 
 ========================================================================================
@@ -156,19 +173,20 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
 <127.43.0>     ddll_server                0       0    3744       0 gen_server:loop/6   
 ========================================================================================
       ]]></code>
-    </section>
   </section>
 
   <section>
-    <title>Print to file</title>
-    <p>At any time, the current <c>etop</c> display can be dumped to a
-      text file with the function <c>etop:dump/1</c>.
+    <title>Print to File</title>
+    <p>At any time, the current Erlang Top display can be dumped to a
+      text file with function 
+      <seealso marker="etop#dump/1"><c>etop:dump/1</c></seealso>.
       </p>
   </section>
 
   <section>
     <title>Stop</title>
-    <p>Use the function <c>etop:stop/0</c> to stop <c>etop</c>.
+    <p>To stop Erlang Top, use function 
+    <seealso marker="etop#stop/0"><c>etop:stop/0</c></seealso>.
     </p>
   </section>
 </chapter>

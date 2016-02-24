@@ -397,6 +397,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
     erts_sys_time_data__.r.o.os_monotonic_time = os_mtime_func;
     erts_sys_time_data__.r.o.os_times = os_times_func;
+    erts_sys_time_data__.r.o.sys_hrtime = sys_hrtime_func;
     init_resp->os_monotonic_time_unit = time_unit;
     init_resp->have_os_monotonic_time = 1;
     init_resp->have_corrected_os_monotonic_time = 0;

@@ -25,7 +25,7 @@
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/1,override_bif/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% For the override_bif testcase.
 %% NB, no other testcases in this testsuite can use these without erlang:prefix!
@@ -38,7 +38,11 @@
 -compile({no_auto_import,[byte_size/1]}).
 -import(erlang,[byte_size/1]).
 
-
+%% Cover the code for callback handling.
+-callback must_define_this_one() -> 'ok'.
+-callback do_something_strange(atom()) -> 'ok'.
+-optional_callbacks([do_something_strange/1]).
+-optional_callbacks([ignore_me]).		%Invalid; ignored.
 
 %% Include an opaque declaration to cover the stripping of
 %% opaque types from attributes in v3_kernel.
@@ -192,6 +196,14 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_a:module(BeamAInput, []) end),
 
+    %% beam_reorder
+    BlockInput = {?MODULE,[{foo,0}],[],
+		  [{function,foo,0,2,
+		    [{label,1},
+		     {func_info,{atom,?MODULE},{atom,foo},0},
+		     {label,2}|non_proper_list]}],99},
+    expect_error(fun() -> beam_reorder:module(BlockInput, []) end),
+
     %% beam_block
     BlockInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -199,6 +211,10 @@ silly_coverage(Config) when is_list(Config) ->
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_block:module(BlockInput, []) end),
+
+    %% beam_bs
+    BsInput = BlockInput,
+    expect_error(fun() -> beam_bs:module(BsInput, []) end),
 
     %% beam_type
     TypeInput = {?MODULE,[{foo,0}],[],
@@ -373,9 +389,9 @@ integer_encoding_1(Config) ->
 
 do_integer_encoding(0, _, _, _) -> ok;
 do_integer_encoding(N, I0, Src, Data) ->
-    I1 = (I0 bsl 5) bor (random:uniform(32) - 1),
+    I1 = (I0 bsl 5) bor (rand:uniform(32) - 1),
     do_integer_encoding(I1, Src, Data),
-    I2 = -(I1 bxor (random:uniform(32) - 1)),
+    I2 = -(I1 bxor (rand:uniform(32) - 1)),
     do_integer_encoding(I2, Src, Data),
     do_integer_encoding(N-1, I1, Src, Data).
 

@@ -26,7 +26,7 @@
 	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 run_dialyzer() ->
     false.
@@ -58,7 +58,7 @@ dialyze(Files) ->
     Beams0 = [code:which(module(F)) || F <- Files],
     Beams = [code:which(asn1rt_nif)|Beams0],
     case dialyzer:run([{files,Beams},
-		       {warnings,[no_improper_lists]},
+		       {warnings,[]},
 		       {get_warnings,true}]) of
 	[] ->
 	    ok;

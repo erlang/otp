@@ -60,13 +60,15 @@
 	 del_path/1,
 	 replace_path/2,
 	 rehash/0,
-	 start_link/0, start_link/1,
+	 start_link/0,
 	 which/1,
 	 where_is_file/1,
 	 where_is_file/2,
 	 set_primary_archive/4,
 	 clash/0,
      get_mode/0]).
+
+-deprecated({rehash,0,next_major_release}).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 
@@ -77,10 +79,9 @@
 %%----------------------------------------------------------------------------
 
 -type load_error_rsn() :: 'badfile'
-                        | 'native_code'
                         | 'nofile'
                         | 'not_purged'
-                        | 'on_load'
+                        | 'on_load_failure'
                         | 'sticky_directory'.
 -type load_ret() :: {'error', What :: load_error_rsn()}
                   | {'module', Module :: module()}.
@@ -135,14 +136,16 @@ load_file(Mod) when is_atom(Mod) ->
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
       Module :: module(),
-      What :: embedded | badfile | native_code | nofile | on_load.
+      What :: embedded | badfile | nofile | on_load_failure.
 ensure_loaded(Mod) when is_atom(Mod) -> 
     call({ensure_loaded,Mod}).
 
 %% XXX File as an atom is allowed only for backwards compatibility.
 -spec load_abs(Filename) -> load_ret() when
       Filename :: file:filename().
-load_abs(File) when is_list(File); is_atom(File) -> call({load_abs,File,[]}).
+load_abs(File) when is_list(File); is_atom(File) ->
+    Mod = list_to_atom(filename:basename(File)),
+    call({load_abs,File,Mod}).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_abs(Filename :: loaded_filename(), Module :: module()) -> load_ret().
@@ -293,7 +296,9 @@ replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
     call({replace_path,Name,Dir}).
 
 -spec rehash() -> 'ok'.
-rehash() -> call(rehash).
+rehash() ->
+    cache_warning(),
+    ok.
 
 -spec get_mode() -> 'embedded' | 'interactive'.
 get_mode() -> call(get_mode).
@@ -301,15 +306,11 @@ get_mode() -> call(get_mode).
 %%-----------------------------------------------------------------
 
 call(Req) ->
-    code_server:call(code_server, Req).
+    code_server:call(Req).
 
 -spec start_link() -> {'ok', pid()} | {'error', 'crash'}.
 start_link() ->
-    start_link([stick]).
-
--spec start_link(Flags :: [atom()]) -> {'ok', pid()} | {'error', 'crash'}.
-start_link(Flags) ->
-    do_start(Flags).
+    do_start().
     
 %%-----------------------------------------------------------------
 %% In the init phase, code must not use any modules not yet loaded,
@@ -321,35 +322,21 @@ start_link(Flags) ->
 %% us, so the module is loaded.
 %%-----------------------------------------------------------------
 
-do_start(Flags) ->
+do_start() ->
+    maybe_warn_for_cache(),
     load_code_server_prerequisites(),
 
-    Mode = get_mode(Flags),
-    case init:get_argument(root) of 
-	{ok,[[Root0]]} ->
-	    Root = filename:join([Root0]), % Normalize.  Use filename
-	    case code_server:start_link([Root,Mode]) of
-		{ok,_Pid} = Ok2 ->
-		    if
-			Mode =:= interactive ->
-			    case lists:member(stick, Flags) of
-				true -> do_stick_dirs();
-				_    -> ok
-			    end;
-			true ->
-			    ok
-		    end,
-		    %% Quietly load native code for all modules loaded so far
-                    Architecture = erlang:system_info(hipe_architecture),
-		    load_native_code_for_all_loaded(Architecture),
-		    Ok2;
-		Other ->
-		    Other
-	    end;
-	Other ->
-	    error_logger:error_msg("Can not start code server ~w ~n", [Other]),
-	    {error, crash}
-    end.
+    {ok,[[Root0]]} = init:get_argument(root),
+    Mode = start_get_mode(),
+    Root = filename:join([Root0]),	    % Normalize.
+    Res = code_server:start_link([Root,Mode]),
+
+    maybe_stick_dirs(Mode),
+
+    %% Quietly load native code for all modules loaded so far.
+    Architecture = erlang:system_info(hipe_architecture),
+    load_native_code_for_all_loaded(Architecture),
+    Res.
 
 %% Make sure that all modules that the code_server process calls
 %% (directly or indirectly) are loaded. Otherwise the code_server
@@ -369,6 +356,16 @@ load_code_server_prerequisites() ->
     _ = [M = M:module_info(module) || M <- Needed],
     ok.
 
+maybe_stick_dirs(interactive) ->
+    case init:get_argument(nostick) of
+	{ok,[[]]} ->
+	    ok;
+	_ ->
+	    do_stick_dirs()
+    end;
+maybe_stick_dirs(_) ->
+    ok.
+
 do_stick_dirs() ->
     do_s(compiler),
     do_s(stdlib),
@@ -386,19 +383,12 @@ do_s(Lib) ->
 	    ok
     end.
 
-get_mode(Flags) ->
-    case lists:member(embedded, Flags) of
-	true ->
+start_get_mode() ->
+    case init:get_argument(mode) of
+	{ok,[["embedded"]]} ->
 	    embedded;
-	_Otherwise -> 
-	    case init:get_argument(mode) of
-		{ok,[["embedded"]]} ->
-		    embedded;
-		{ok,[["minimal"]]} ->
-		    minimal;
-		_Else ->
-		    interactive
-	    end
+	_ ->
+	    interactive
     end.
 
 %% Find out which version of a particular module we would
@@ -452,30 +442,14 @@ which(File, Base, [Directory|Tail]) ->
       Filename :: file:filename(),
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
-    case call({is_cached,File}) of
-	no ->
-	    Path = get_path(),
-	    which(File, ".", Path);
-	Dir ->
-	    filename:join(Dir, File)
-    end.
+    Path = get_path(),
+    which(File, ".", Path).
 
 -spec where_is_file(Path :: file:filename(), Filename :: file:filename()) ->
         file:filename() | 'non_existing'.
 
 where_is_file(Path, File) when is_list(Path), is_list(File) ->
-    CodePath = get_path(),
-    if
-	Path =:= CodePath ->
-	    case call({is_cached, File}) of
-		no ->
-		    which(File, ".", Path);
-		Dir ->
-		    filename:join(Dir, File)
-	    end;
-	true ->
-	    which(File, ".", Path)
-    end.
+    which(File, ".", Path).
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
@@ -551,6 +525,22 @@ has_ext(Ext, Extlen, File) ->
 	Ext -> true;
 	_ -> false
     end.
+
+%%%
+%%% Warning for deprecated code path cache.
+%%%
+
+maybe_warn_for_cache() ->
+    case init:get_argument(code_path_cache) of
+	{ok, _} ->
+	    cache_warning();
+	error ->
+	    ok
+    end.
+
+cache_warning() ->
+    W = "The code path cache functionality has been removed",
+    error_logger:warning_report(W).
 
 %%%
 %%% Silently load native code for all modules loaded so far.

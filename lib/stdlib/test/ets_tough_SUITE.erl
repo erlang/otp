@@ -23,7 +23,7 @@
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -92,7 +92,7 @@ ex1_sub(Config) ->
     ok.
 
 prep(Config) ->
-    random:seed(),
+    rand:seed(exsplus),
     put(dump_ticket,none),
     DumpDir = filename:join(?config(priv_dir,Config), "ets_tough"),
     file:make_dir(DumpDir),
@@ -221,19 +221,19 @@ random_class() ->
     random_element(Classes).
 
 random_key() ->
-    random:uniform(8).
+    rand:uniform(8).
 
 random_value() ->
-    case random:uniform(5) of
+    case rand:uniform(5) of
 	1 -> ok;
 	2 -> {data,random_key()};
 	3 -> {foo,bar,random_class()};
-	4 -> random:uniform(1000);
+	4 -> rand:uniform(1000);
 	5 -> {recursive,random_value()}
     end.
 
 random_element(T) ->
-    I = random:uniform(tuple_size(T)),
+    I = rand:uniform(tuple_size(T)),
     element(I,T).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

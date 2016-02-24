@@ -19,7 +19,7 @@
 %%
 -module(error_logger_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%-----------------------------------------------------------------
 %% We don't have to test the normal behaviour here, i.e. the tty

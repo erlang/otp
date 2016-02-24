@@ -314,6 +314,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     ErtsProcLocks rp_locks = 0;
     Process* rp;
     Process* c_p;
+    ErtsMessage *mp;
     ErlHeapFragment* frags;
     Eterm receiver = to_pid->pid;
     int flush_me = 0;
@@ -347,7 +348,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     ASSERT(frags == MBUF(&menv->phony_proc));
     if (frags != NULL) {
 	/* Move all offheap's from phony proc to the first fragment.
-	   Quick and dirty, but erts_move_msg_mbuf_to_heap doesn't care. */
+	   Quick and dirty... */
 	ASSERT(!is_offheap(&frags->off_heap));
 	frags->off_heap = MSO(&menv->phony_proc);
 	clear_offheap(&MSO(&menv->phony_proc));
@@ -359,7 +360,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
+    mp = erts_alloc_message(0, NULL);
+    mp->data.heap_frag = frags;
+    erts_queue_message(rp, &rp_locks, mp, msg, am_undefined);
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks)
@@ -376,9 +379,19 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;
     Eterm* hp;
+#ifdef SHCOPY
+    erts_shcopy_t info;
+    INITIALIZE_SHCOPY(info);
+    sz = copy_shared_calculate(src_term, &info);
+    hp = alloc_heap(dst_env, sz);
+    src_term = copy_shared_perform(src_term, sz, &info, &hp, &MSO(dst_env->proc));
+    DESTROY_SHCOPY(info);
+    return src_term;
+#else
     sz = size_object(src_term);
     hp = alloc_heap(dst_env, sz);
     return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
+#endif
 }
 
 
@@ -898,8 +911,13 @@ int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
 
 int enif_get_list_length(ErlNifEnv* env, Eterm term, unsigned* len)
 {
-    if (is_not_list(term) && is_not_nil(term)) return 0;
-    *len = erts_list_length(term);
+    Sint i;
+    Uint u;
+
+    if ((i = erts_list_length(term)) < 0) return 0;
+    u = (Uint)i;
+    if ((unsigned)u != u) return 0;
+    *len = u;
     return 1;
 }
 
@@ -1174,6 +1192,26 @@ int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2) { return erl_drv_equal_tids(
 void enif_thread_exit(void *resp) { erl_drv_thread_exit(resp); }
 int enif_thread_join(ErlNifTid tid, void **respp) { return erl_drv_thread_join(tid,respp); }
 int enif_getenv(const char *key, char *value, size_t *value_size) { return erl_drv_getenv(key, value, value_size); }
+
+ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit)
+{
+    return (ErlNifTime) erts_napi_monotonic_time((int) time_unit);
+}
+
+ErlNifTime enif_time_offset(ErlNifTimeUnit time_unit)
+{
+    return (ErlNifTime) erts_napi_time_offset((int) time_unit);
+}
+
+ErlNifTime
+enif_convert_time_unit(ErlNifTime val,
+		       ErlNifTimeUnit from,
+		       ErlNifTimeUnit to)
+{
+    return (ErlNifTime) erts_napi_convert_time_unit((ErtsMonotonicTime) val,
+						    (int) from,
+						    (int) to);
+}
 
 int enif_fprintf(void* filep, const char* format, ...) 
 { 
@@ -1772,12 +1810,10 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep);
     ep->fp = NULL;
+    erts_smp_atomic32_read_band_mb(&proc->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
+						   | ERTS_PSFLG_DIRTY_IO_PROC));
     result = (*fp)(env, argc, argv);
-    erts_smp_atomic32_read_band_mb(&proc->state,
-				   ~(ERTS_PSFLG_DIRTY_CPU_PROC
-				     |ERTS_PSFLG_DIRTY_IO_PROC
-				     |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q
-				     |ERTS_PSFLG_DIRTY_IO_PROC_IN_Q));
+
     if (erts_refc_dectest(&env->mod_nif->rt_dtor_cnt, 0) == 0 && env->mod_nif->mod == NULL)
 	close_lib(env->mod_nif);
     /*
@@ -1825,13 +1861,6 @@ schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[
     a = erts_smp_atomic32_read_acqb(&proc->state);
     while (1) {
 	n = state = a;
-	/*
-	 * clear any current dirty flags and dirty queue indicators,
-	 * in case the application is shifting a job from one type
-	 * of dirty scheduler to the other
-	 */
-	n &= ~(ERTS_PSFLG_DIRTY_CPU_PROC|ERTS_PSFLG_DIRTY_IO_PROC
-	       |ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q|ERTS_PSFLG_DIRTY_IO_PROC_IN_Q);
 	if (flags == ERL_NIF_DIRTY_JOB_CPU_BOUND)
 	    n |= ERTS_PSFLG_DIRTY_CPU_PROC;
 	else
@@ -2231,17 +2260,17 @@ int enif_map_iterator_get_pair(ErlNifEnv *env,
  ***************************************************************************/
 
 
-static BeamInstr** get_func_pp(BeamInstr* mod_code, Eterm f_atom, unsigned arity)
+static BeamInstr** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsigned arity)
 {
-    int n = (int) mod_code[MI_NUM_FUNCTIONS];
+    int n = (int) mod_code->num_functions;
     int j;
     for (j = 0; j < n; ++j) {
-	BeamInstr* code_ptr = (BeamInstr*) mod_code[MI_FUNCTIONS+j];
+	BeamInstr* code_ptr = (BeamInstr*) mod_code->functions[j];
 	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	if (f_atom == ((Eterm) code_ptr[3])
 	    && arity == ((unsigned) code_ptr[4])) {
 
-	    return (BeamInstr**) &mod_code[MI_FUNCTIONS+j];
+	    return (BeamInstr**) &mod_code->functions[j];
 	}
     }
     return NULL;
@@ -2424,8 +2453,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (init_func != NULL)
       handle = init_func;
 
-    if (!in_area(caller, mod->curr.code, mod->curr.code_length)) {
-	ASSERT(in_area(caller, mod->old.code, mod->old.code_length));
+    if (!in_area(caller, mod->curr.code_hdr, mod->curr.code_length)) {
+	ASSERT(in_area(caller, mod->old.code_hdr, mod->old.code_length));
 
 	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
 			     "module '%T' not allowed", mod_atom);
@@ -2479,7 +2508,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
 	    BeamInstr** code_pp;
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
+		|| (code_pp = get_func_pp(mod->curr.code_hdr, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
@@ -2622,7 +2651,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	{
 	    BeamInstr* code_ptr;
 	    erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
-	    code_ptr = *get_func_pp(mod->curr.code, f_atom, f->arity);
+	    code_ptr = *get_func_pp(mod->curr.code_hdr, f_atom, f->arity);
 
 	    if (code_ptr[1] == 0) {
 		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);

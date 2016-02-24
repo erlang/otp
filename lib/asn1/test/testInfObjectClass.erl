@@ -24,7 +24,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 main(Rule) ->
     %% this test is added for OTP-4591, to test that elements in decoded

@@ -44,6 +44,7 @@
 #include "erl_ptab.h"
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
+#include "erl_msacc.h"
 
 Export *erts_await_result;
 static Export* flush_monitor_messages_trap = NULL;
@@ -53,6 +54,9 @@ static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
 static Export dsend_continue_trap_export;
 Export *erts_convert_time_unit_trap = NULL;
+
+static Export *await_msacc_mod_trap = NULL;
+static erts_smp_atomic32_t msacc;
 
 static Export *await_sched_wall_time_mod_trap;
 static erts_smp_atomic32_t sched_wall_time;
@@ -72,7 +76,7 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
     ErlSpawnOpts so;
     Eterm pid;
 
-    so.flags = 0;
+    so.flags = erts_default_spo_flags;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -589,7 +593,7 @@ erts_queue_monitor_message(Process *p,
     Eterm reason_copy, ref_copy, item_copy;
     Uint reason_size, ref_size, item_size, heap_size;
     ErlOffHeap *ohp;
-    ErlHeapFragment *bp;
+    ErtsMessage *msgp;
 
     reason_size = IS_CONST(reason) ? 0 : size_object(reason);
     item_size   = IS_CONST(item) ? 0 : size_object(item);
@@ -597,11 +601,8 @@ erts_queue_monitor_message(Process *p,
 
     heap_size = 6+reason_size+ref_size+item_size;
 
-    hp = erts_alloc_message_heap(heap_size,
-				 &bp,
-				 &ohp,
-				 p,
-				 p_locksp);
+    msgp = erts_alloc_message_heap(p, p_locksp, heap_size,
+				   &hp, &ohp);
 
     reason_copy = (IS_CONST(reason)
 		   ? reason
@@ -612,7 +613,7 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, bp, tup, NIL);
+    erts_queue_message(p, p_locksp, msgp, tup, NIL);
 }
 
 static BIF_RETTYPE
@@ -841,7 +842,7 @@ BIF_RETTYPE spawn_link_3(BIF_ALIST_3)
     ErlSpawnOpts so;
     Eterm pid;
 
-    so.flags = SPO_LINK;
+    so.flags = erts_default_spo_flags|SPO_LINK;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -878,7 +879,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     /*
      * Store default values for options.
      */
-    so.flags          = SPO_USE_ARGS;
+    so.flags          = erts_default_spo_flags|SPO_USE_ARGS;
     so.min_heap_size  = H_MIN_SIZE;
     so.min_vheap_size = BIN_VH_MIN_SIZE;
     so.priority       = PRIORITY_NORMAL;
@@ -913,6 +914,22 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    so.priority = PRIORITY_LOW;
 		else
 		    goto error;
+	    } else if (arg == am_message_queue_data) {
+		switch (val) {
+		case am_mixed:
+		    so.flags &= ~(SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ);
+		    break;
+		case am_on_heap:
+		    so.flags &= ~SPO_OFF_HEAP_MSGQ;
+		    so.flags |= SPO_ON_HEAP_MSGQ;
+		    break;
+		case am_off_heap:
+		    so.flags &= ~SPO_ON_HEAP_MSGQ;
+		    so.flags |= SPO_OFF_HEAP_MSGQ;
+		    break;
+		default:
+		    goto error;
+		}
 	    } else if (arg == am_min_heap_size && is_small(val)) {
 		Sint min_heap_size = signed_val(val);
 		if (min_heap_size < 0) {
@@ -1691,6 +1708,12 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        }
        BIF_RET(old_value);
    }
+   else if (BIF_ARG_1 == am_message_queue_data) {
+       old_value = erts_change_message_queue_management(BIF_P, BIF_ARG_2);
+       if (is_non_value(old_value))
+	   goto error;
+       BIF_RET(old_value);
+   }
    else if (BIF_ARG_1 == am_sensitive) {
        Uint is_sensitive;
        if (BIF_ARG_2 == am_true) {
@@ -1931,7 +1954,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
     } else if (is_atom(to)) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
-	rp = erts_proc_lookup(id);
+	rp = erts_proc_lookup_raw(id);
 	if (rp) {
 	    if (IS_TRACED(p))
 		trace_send(p, to, msg);
@@ -2023,11 +2046,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext* ctx)
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
 	
-	if (SEQ_TRACE_TOKEN(p) != NIL
-#ifdef USE_VM_PROBES
-	    && SEQ_TRACE_TOKEN(p) != am_have_dt_utag
-#endif
-	    ) {
+        if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
 	    seq_trace_update_send(p);
 	    seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
 			     SEQ_TRACE_SEND, portid, p);
@@ -2128,7 +2147,11 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     int connect = !0;
     Eterm l = opts;
     Sint result;
+
     DeclareTypedTmpHeap(ErtsSendContext, ctx, BIF_P);
+
+    ERTS_MSACC_PUSH_STATE_M_X();
+
     UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
 
     ctx->suspend = !0;
@@ -2157,7 +2180,10 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     ref = NIL;
 #endif
 
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_SEND);
     result = do_send(p, to, msg, &ref, ctx);
+    ERTS_MSACC_POP_STATE_M_X();
+
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
@@ -2273,8 +2299,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     Eterm ref;
     Sint result;
     DeclareTypedTmpHeap(ErtsSendContext, ctx, p);
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_SEND);
     UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), p);
-
 #ifdef DEBUG
     ref = NIL;
 #endif
@@ -2285,7 +2311,9 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
 
     result = do_send(p, to, msg, &ref, ctx);
-    
+
+    ERTS_MSACC_POP_STATE_M_X();
+
     if (result > 0) {
 	ERTS_VBUMP_REDS(p, result);
 	if (ERTS_IS_PROC_OUT_OF_REDS(p))
@@ -2809,7 +2837,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
-    int i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
+    Sint i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
 
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -2829,7 +2857,7 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
  
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
-    int i;
+    Sint i;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_CHARACTERS);
 
     if ((i = intlist_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS)) < 0) {
@@ -2889,175 +2917,20 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
 
 /**********************************************************************/
 
-/* convert a list of ascii ascii integer value to an integer */
+/*
+ * Converts a list of ascii base10 digits to an integer fully or partially.
+ * Returns result and the remaining tail.
+ * On error returns: {error,not_a_list}, or {error, no_integer}
+ */
 
-
-#define LTI_BAD_STRUCTURE 0
-#define LTI_NO_INTEGER 1
-#define LTI_SOME_INTEGER 2
-#define LTI_ALL_INTEGER 3
-
-static int do_list_to_integer(Process *p, Eterm orig_list, 
-			      Eterm *integer, Eterm *rest)
-{
-     Sint i = 0;
-     Uint ui = 0;
-     int skip = 0;
-     int neg = 0;
-     Sint n = 0;
-     int m;
-     int lg2;
-     Eterm res;
-     Eterm* hp;
-     Eterm *hp_end;
-     Eterm lst = orig_list;
-     Eterm tail = lst;
-     int error_res = LTI_BAD_STRUCTURE;
-
-     if (is_nil(lst)) {
-       error_res = LTI_NO_INTEGER;
-     error:
-	 *rest = tail;
-	 *integer = make_small(0);
-	 return error_res;
-     }       
-     if (is_not_list(lst))
-       goto error;
-
-     /* if first char is a '-' then it is a negative integer */
-     if (CAR(list_val(lst)) == make_small('-')) {
-	  neg = 1;
-	  skip = 1;
-	  lst = CDR(list_val(lst));
-	  if (is_not_list(lst)) {
-	      tail = lst;
-	      error_res = LTI_NO_INTEGER;
-	      goto error;
-	  }
-     } else if (CAR(list_val(lst)) == make_small('+')) {
-	 /* ignore plus */
-	 skip = 1;
-	 lst = CDR(list_val(lst));
-	 if (is_not_list(lst)) {
-	     tail = lst;
-	     error_res = LTI_NO_INTEGER;
-	     goto error;
-	 }
-     }
-
-     /* Calculate size and do type check */
-
-     while(1) {
-	 if (is_not_small(CAR(list_val(lst)))) {
-	     break;
-	 }
-	 if (unsigned_val(CAR(list_val(lst))) < '0' ||
-	     unsigned_val(CAR(list_val(lst))) > '9') {
-	     break;
-	 }
-	 ui = ui * 10;
-	 ui = ui + unsigned_val(CAR(list_val(lst))) - '0';
-	 n++;
-	 lst = CDR(list_val(lst));
-	 if (is_nil(lst)) {
-	     break;
-	 }
-	 if (is_not_list(lst)) {
-	     break;
-	 }
-     }
-
-     tail = lst;
-     if (!n) {
-	 error_res = LTI_NO_INTEGER;
-	 goto error;
-     } 
-
-	 
-      /* If n <= 8 then we know it's a small int 
-      ** since 2^27 = 134217728. If n > 8 then we must
-      ** construct a bignum and let that routine do the checking
-      */
-
-     if (n <= SMALL_DIGITS) {  /* It must be small */
-	 if (neg) i = -(Sint)ui;
-         else i = (Sint)ui;
-	 res = make_small(i);
-     } else {
-	 /* Convert from log10 to log2 by multiplying with 1/log10(2)=3.3219
-	    which we round up to (3 + 1/3) */
-	 lg2 = (n+1)*3 + (n+1)/3 + 1;
-	 m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
-	 m  = BIG_NEED_SIZE(m);    /* number of words + thing */
-
-	 hp = HAlloc(p, m);
-	 hp_end = hp + m;
-	 
-	 lst = orig_list;
-	 if (skip)
-	     lst = CDR(list_val(lst));
-	 
-	 /* load first digits (at least one digit) */
-	 if ((i = (n % D_DECIMAL_EXP)) == 0)
-	     i = D_DECIMAL_EXP;
-	 n -= i;
-	 m = 0;
-	 while(i--) {
-	     m = 10*m + (unsigned_val(CAR(list_val(lst))) - '0');
-	     lst = CDR(list_val(lst));
-	 }
-	 res = small_to_big(m, hp);  /* load first digits */
-	 
-	 while(n) {
-	     i = D_DECIMAL_EXP;
-	     n -= D_DECIMAL_EXP;
-	     m = 0;
-	     while(i--) {
-		 m = 10*m + (unsigned_val(CAR(list_val(lst))) - '0');
-		 lst = CDR(list_val(lst));
-	     }
-	     if (is_small(res))
-		 res = small_to_big(signed_val(res), hp);
-	     res = big_times_small(res, D_DECIMAL_BASE, hp);
-	     if (is_small(res))
-		 res = small_to_big(signed_val(res), hp);
-	     res = big_plus_small(res, m, hp);
-	 }
-
-	 if (neg) {
-	     if (is_small(res))
-		 res = make_small(-signed_val(res));
-	     else {
-		 Uint *big = big_val(res); /* point to thing */
-		 *big = bignum_header_neg(*big);
-	     }
-	 }
-
-	 if (is_not_small(res)) {
-	     res = big_plus_small(res, 0, hp); /* includes conversion to small */
-
-	     if (is_not_small(res)) {
-		 hp += (big_arity(res)+1);
-	     }
-	 }
-	 HRelease(p,hp_end,hp);
-     }
-     *integer = res;
-     *rest = tail;
-     if (tail != NIL) {
-	 return LTI_SOME_INTEGER;
-     }
-     return LTI_ALL_INTEGER;
-}
 BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 {
      Eterm res;
      Eterm tail;
      Eterm *hp;
      /* must be a list */
-     switch (do_list_to_integer(BIF_P,BIF_ARG_1,&res,&tail)) {
-	 /* HAlloc after do_list_to_integer as it 
-	    might HAlloc itself (bignum) */
+     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &tail)) {
+     /* HAlloc after erts_list_to_integer as it might HAlloc itself (bignum) */
      case LTI_BAD_STRUCTURE:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, am_error, am_not_a_list));
@@ -3072,13 +2945,14 @@ BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
  {
-   /* Using do_list_to_integer is about twice as fast as using 
+   /* Using erts_list_to_integer is about twice as fast as using
       erts_chars_to_integer because we do not have to copy the 
       entire list */
      Eterm res;
      Eterm dummy;
      /* must be a list */
-     if (do_list_to_integer(BIF_P,BIF_ARG_1,&res,&dummy) != LTI_ALL_INTEGER) {
+     if (erts_list_to_integer(BIF_P, BIF_ARG_1, 10,
+                              &res, &dummy) != LTI_ALL_INTEGER) {
 	 BIF_ERROR(BIF_P,BADARG);
      }
      BIF_RET(res);
@@ -3086,14 +2960,12 @@ BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 {
-
   /* Bif implementation is about 50% faster than pure erlang,
      and since we have erts_chars_to_integer now it is simpler
      as well. This could be optmized further if we did not have to
      copy the list to buf. */
-    int i;
-    Eterm res;
-    char *buf = NULL;
+    Sint i;
+    Eterm res, dummy;
     int base;
 
     i = erts_list_length(BIF_ARG_1);
@@ -3101,31 +2973,16 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
       BIF_ERROR(BIF_P, BADARG);
     
     base = signed_val(BIF_ARG_2);
-  
+
     if (base < 2 || base > 36) 
       BIF_ERROR(BIF_P, BADARG);
 
-    /* Take fast path if base it 10 */
-    if (base == 10)
-      return list_to_integer_1(BIF_P,&BIF_ARG_1);
-    
-    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-    
-    if (intlist_to_buf(BIF_ARG_1, buf, i) < 0)
-      goto list_to_integer_1_error;
-    buf[i] = '\0';		/* null terminal */
-    
-    if ((res = erts_chars_to_integer(BIF_P,buf,i,base)) == THE_NON_VALUE)
-      goto list_to_integer_1_error;
-    
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
+                             &res, &dummy) != LTI_ALL_INTEGER) {
+        BIF_ERROR(BIF_P,BADARG);
+    }
     BIF_RET(res);
-    
- list_to_integer_1_error:
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    BIF_ERROR(BIF_P, BADARG);
-     
- }
+}
 
 /**********************************************************************/
 
@@ -3431,7 +3288,7 @@ static BIF_RETTYPE do_charbuf_to_float(Process *BIF_P,char *buf) {
 
 BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
 {
-    int i;
+    Sint i;
     Eterm res;
     char *buf = NULL;
 
@@ -3548,7 +3405,7 @@ BIF_RETTYPE list_to_tuple_1(BIF_ALIST_1)
     Eterm* cons;
     Eterm res;
     Eterm* hp;
-    int len;
+    Sint len;
 
     if ((len = erts_list_length(list)) < 0 || len > ERTS_MAX_TUPLE_SIZE) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -3824,11 +3681,9 @@ BIF_RETTYPE now_0(BIF_ALIST_0)
 
 BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
-    int reds;
-
     FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
-    reds = erts_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET2(am_true, reds);
+    erts_garbage_collect(BIF_P, 0, NULL, 0);
+    BIF_RET(am_true);
 }
 
 /**********************************************************************/
@@ -3897,7 +3752,7 @@ BIF_RETTYPE display_string_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm string = BIF_ARG_1;
-    int len = is_string(string);
+    Sint len = is_string(string);
     char *str;
 
     if (len <= 0) {
@@ -3952,7 +3807,7 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	int i;
+	Sint i;
 
 	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
 	    goto error;
@@ -4022,7 +3877,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	int i;
+	Sint i;
 
 	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
 	    goto error;
@@ -4119,16 +3974,9 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
-#if HALFWORD_HEAP
-    hp = HAlloc(BIF_P, 3);
-    hp[0] = HEADER_EXPORT;
-    /* Yes, May be misaligned, but X86_64 will fix it... */
-    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-#endif
     BIF_RET(make_export(hp));
 }
 
@@ -4172,7 +4020,7 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 {
     Uint a = 0, b = 0, c = 0;
     char* cp;
-    int i;
+    Sint i;
     DistEntry *dep = NULL;
     char *buf = (char *) erts_alloc(ERTS_ALC_T_TMP, 65);
     /*
@@ -4489,7 +4337,7 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	}
     } else if (BIF_ARG_1 == make_small(1)) {
 	int i, max;
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_smp_thr_progress_block();
 
@@ -4582,6 +4430,31 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	default:
 	    ERTS_INTERNAL_ERROR("Unknown state");
 	}
+#ifdef ERTS_ENABLE_MSACC
+    } else if (BIF_ARG_1 == am_microstate_accounting) {
+      Eterm threads;
+      if (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false) {
+        erts_aint32_t new = BIF_ARG_2 == am_true ? ERTS_MSACC_ENABLE : ERTS_MSACC_DISABLE;
+	erts_aint32_t old = erts_smp_atomic32_xchg_nob(&msacc, new);
+	Eterm ref = erts_msacc_request(BIF_P, new, &threads);
+        if (is_non_value(ref))
+            BIF_RET(old ? am_true : am_false);
+	BIF_TRAP3(await_msacc_mod_trap,
+		  BIF_P,
+		  ref,
+		  old ? am_true : am_false,
+		  threads);
+      } else if (BIF_ARG_2 == am_reset) {
+	Eterm ref = erts_msacc_request(BIF_P, ERTS_MSACC_RESET, &threads);
+	erts_aint32_t old = erts_smp_atomic32_read_nob(&msacc);
+	ASSERT(is_value(ref));
+	BIF_TRAP3(await_msacc_mod_trap,
+		  BIF_P,
+		  ref,
+		  old ? am_true : am_false,
+		  threads);
+      }
+#endif
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))
@@ -4634,7 +4507,7 @@ BIF_RETTYPE hash_2(BIF_ALIST_2)
     if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
 	BIF_ERROR(BIF_P, BADARG);
     }
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     if (range > ((1L << 27) - 1))
 	BIF_ERROR(BIF_P, BADARG);
 #endif
@@ -4706,7 +4579,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     BIF_RET(make_small(final_hash));
 #else
     if (IS_USMALL(0, final_hash)) {
@@ -4911,8 +4784,12 @@ void erts_init_bif(void)
     await_port_send_result_trap
 	= erts_export_put(am_erts_internal, am_await_port_send_result, 3);
     await_sched_wall_time_mod_trap
-	= erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+        = erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+    await_msacc_mod_trap
+	= erts_export_put(am_erts_internal, am_await_microstate_accounting_modifications, 3);
+
     erts_smp_atomic32_init_nob(&sched_wall_time, 0);
+    erts_smp_atomic32_init_nob(&msacc, ERTS_MSACC_IS_ENABLED());
 }
 
 #ifdef HARDDEBUG

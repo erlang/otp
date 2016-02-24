@@ -52,6 +52,14 @@
 -export([pack/3]).
 -export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
+-define(Estring(X), ?STRING((if is_binary(X) -> X;
+				is_list(X) -> list_to_binary(X);
+				X==undefined -> <<>>
+			     end))).
+-define(Empint(X),     (ssh_bits:mpint(X))/binary ).
+-define(Ebinary(X),    ?STRING(X) ).
+-define(Euint32(X),   ?UINT32(X) ).
+
 %%%----------------------------------------------------------------------------
 %%%
 %%% There is a difference between supported and default algorithms. The
@@ -1084,7 +1092,7 @@ sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
 sign(SigData, Hash, Key = #'ECPrivateKey'{}) ->
     DerEncodedSign =  public_key:sign(SigData, Hash, Key),
     #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
-    ssh_bits:encode([R,S], [mpint,mpint]);
+    <<?Empint(R),?Empint(S)>>;
 sign(SigData, Hash, Key) ->
     public_key:sign(SigData, Hash, Key).
 
@@ -1584,21 +1592,16 @@ hash(K, H, Ki, N, HASH) ->
 
 kex_h(SSH, Key, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
-			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 KeyBin, E,F,K],
-			[string,string,binary,binary,binary,
-			 mpint,mpint,mpint]),
+    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+	  ?Empint(E), ?Empint(F), ?Empint(K)>>,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
-%%  crypto:hash(sha,L).
 
 kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
-			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 KeyBin, Q_c, Q_s, K],
-			[string,string,binary,binary,binary,
-			 mpint,mpint,mpint]),
+    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+	  ?Empint(Q_c), ?Empint(Q_s), ?Empint(K)>>,
     crypto:hash(sha(Curve), L).
 
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
@@ -1607,21 +1610,14 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 		%% flag from 'ssh_msg_kex_dh_gex_request_old'
 		%% It was like this before that message was supported,
 		%% why?
-		Ts = [string,string,binary,binary,binary,
-		      uint32,
-		      mpint,mpint,mpint,mpint,mpint],
-		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
-				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 KeyBin, NBits, Prime, Gen, E,F,K],
-				Ts);
+		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+		  ?Empint(E), ?Empint(F), ?Empint(K)>>;
 	   true ->
-		Ts = [string,string,binary,binary,binary,
-		      uint32,uint32,uint32,
-		      mpint,mpint,mpint,mpint,mpint],
-		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
-				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 KeyBin, Min, NBits, Max,
-				 Prime, Gen, E,F,K], Ts)
+		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+		  ?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
+		  ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>
 	end,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
   

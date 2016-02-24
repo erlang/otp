@@ -156,6 +156,12 @@ static char *plusr_val_switches[] = {
     NULL
 };
 
+/* +x arguments with values */
+static char *plusx_val_switches[] = {
+    "mqd",
+    NULL
+};
+
 /* +z arguments with values */
 static char *plusz_val_switches[] = {
     "dbbl",
@@ -976,6 +982,20 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+		  case 'x':
+		      if (!is_one_of_strings(&argv[i][2], plusx_val_switches)) {
+			  goto the_default;
+		      } else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
 		  case 'z':
 		      if (!is_one_of_strings(&argv[i][2], plusz_val_switches)) {
 			  goto the_default;
@@ -1176,7 +1196,7 @@ usage_aux(void)
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
 	  "[+T LEVEL] [+V] [+v] "
-	  "[+W<i|w|e>] [+z MISC_OPTION] [args ...]\n");
+	  "[+W<i|w|e>]  [+x DEFAULT_PROC_FLAGS] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 

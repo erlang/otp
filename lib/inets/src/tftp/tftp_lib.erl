@@ -184,7 +184,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
         callback ->
             case Val of
                 {RegExp, Mod, State} when is_list(RegExp), is_atom(Mod) ->
-                    case inets_regexp:parse(RegExp) of
+                    case re:compile(RegExp) of
                         {ok, Internal} ->
                             Callback = #callback{regexp   = RegExp,
                                                  internal = Internal,
@@ -253,7 +253,7 @@ do_parse_config(Options, Config) when is_record(Config, config) ->
 
 add_default_callbacks(Callbacks) ->
     RegExp = "",
-    {ok, Internal} = inets_regexp:parse(RegExp),
+    {ok, Internal} = re:compile(RegExp),
     File = #callback{regexp   = RegExp,
 		     internal = Internal,
 		     module   = tftp_file,

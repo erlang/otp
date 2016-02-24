@@ -347,6 +347,16 @@
 	  the driver does not handle sizes that overflow an <c>int</c>
 	  all will work as before.</p>
       </item>
+      <tag><marker id="time_measurement"/>Time Measurement</tag>
+      <item><p>Support for time measurement in drivers:
+      <list>
+	<item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	<item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	<item><seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso></item>
+	<item><seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso></item>
+	<item><seealso marker="#erl_drv_convert_time_unit"><c>erl_drv_convert_time_unit()</c></seealso></item>
+      </list></p>
+      </item>
     </taglist>
   </section>
 
@@ -860,6 +870,24 @@ typedef struct ErlIOVec {
 	   <seealso marker="#erl_drv_tsd_get">erl_drv_tsd_get()</seealso>.
 	</p>
       </item>
+      <tag><marker id="ErlDrvTime"/>ErlDrvTime</tag>
+      <item>
+        <p>A signed 64-bit integer type for representation of time.</p>
+      </item>
+      <tag><marker id="ErlDrvTimeUnit"/>ErlDrvTimeUnit</tag>
+      <item>
+        <p>An enumeration of time units supported by the driver API:</p>
+	<taglist>
+	  <tag><c>ERL_DRV_SEC</c></tag>
+	  <item><p>Seconds</p></item>
+	  <tag><c>ERL_DRV_MSEC</c></tag>
+	  <item><p>Milliseconds</p></item>
+	  <tag><c>ERL_DRV_USEC</c></tag>
+	  <item><p>Microseconds</p></item>
+	  <tag><c>ERL_DRV_NSEC</c></tag>
+	  <item><p>Nanoseconds</p></item>
+	</taglist>
+      </item>
      </taglist>
    </section>
 
@@ -1023,6 +1051,11 @@ typedef struct ErlIOVec {
       <fsummary>Read a system timestamp</fsummary>
       <desc>
         <marker id="driver_get_now"></marker>
+	<warning><p><em>This function is deprecated! Do not use it!</em>
+	Use <seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso>
+	(perhaps in combination with
+	<seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso>)
+	instead.</p></warning>
         <p>This function reads a timestamp into the memory pointed to by
           the parameter <c>now</c>. See the description of <seealso marker="#ErlDrvNowData">ErlDrvNowData</seealso> for
           specification of its fields.  </p>
@@ -1044,9 +1077,7 @@ typedef struct ErlIOVec {
           <c>select</c>/<c>poll</c> can use).
           On windows, the Win32 API function <c>WaitForMultipleObjects</c>
           is used. This places other restrictions on the event object.
-          Refer to the Win32 SDK documentation.
-	  On Enea OSE, the receive function is used. See the <seealso
-	  marker="ose:ose_erl_driver"></seealso> for more details.</p>
+          Refer to the Win32 SDK documentation.</p>
         <p>The <c>on</c> parameter should be <c>1</c> for setting events
           and <c>0</c> for clearing them.</p>
         <p>The <c>mode</c> argument is a bitwise-or combination of
@@ -1058,7 +1089,7 @@ typedef struct ErlIOVec {
           <seealso marker="driver_entry#ready_output">ready_output</seealso>.
           </p>
     <note>
-      <p>Some OS (Windows and Enea OSE) do not differentiate between read and write events.
+      <p>Some OS (Windows) do not differentiate between read and write events.
          The call-back for a fired event then only depends on the value of <c>mode</c>.</p>
     </note>
         <p><c>ERL_DRV_USE</c> specifies if we are using the event object or if we want to close it.
@@ -2133,6 +2164,53 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
+      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port, ErlDrvData res)</nametext></name>
+      <fsummary>Acknowledge the start of the port</fsummary>
+      <desc>
+        <marker id="erl_drv_init_ack"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) creating
+           doing the acknowledgment.
+	  </item>
+          <tag><c>res</c></tag>
+          <item>The result of the port initialization. This can be the same values
+          as the return value of <seealso marker="driver_entry#start">start</seealso>,
+          i.e any of the error codes or the ErlDrvData that is to be used for this
+          port.
+          </item>
+        </taglist>
+        <p>
+          When this function is called the initiating erlang:open_port call is
+          returned as if the <seealso marker="driver_entry#start">start</seealso>
+          function had just been called. It can only be used when the
+          <seealso marker="driver_entry#driver_flags">ERL_DRV_FLAG_USE_INIT_ACK</seealso>
+          flag has been set on the linked-in driver.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port, ErlDrvSInt pid)</nametext></name>
+      <fsummary>Set the os_pid for the port</fsummary>
+      <desc>
+        <marker id="erl_drv_set_os_pid"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) to set the pid on.
+	  </item>
+          <tag><c>pid</c></tag>
+          <item>The pid to set.</item>
+        </taglist>
+        <p>
+          Set the os_pid seen when doing erlang:port_info/2 on this port.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret><nametext>erl_drv_thread_create(char *name,
 				      ErlDrvTid *tid,
 				      void * (*func)(void *),
@@ -2995,6 +3073,86 @@ ERL_DRV_MAP          int sz
 				<p>This function is intended for debugging purposes only.</p>
 			</note>
 		</desc>
+	</func>
+
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)</nametext></name>
+	  <fsummary>Get Erlang Monotonic Time</fsummary>
+	  <desc>
+	    <marker id="erl_drv_monotonic_time"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>time_unit</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>
+	      Returns
+	      <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	      monotonic time</seealso>. Note that it is not uncommon with
+	      negative values.
+	    </p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument, or if called from a thread that is not a
+	    scheduler thread.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
+	</func>
+
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit time_unit)</nametext></name>
+	  <fsummary>Get current Time Offset</fsummary>
+	  <desc>
+	    <marker id="erl_drv_time_offset"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>time_unit</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>Returns the current time offset between
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	    and
+	    <seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	    converted into the <c>time_unit</c> passed as argument.</p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument, or if called from a thread that is not a
+	    scheduler thread.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
+	</func>
+
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime val, ErlDrvTimeUnit from, ErlDrvTimeUnit to)</nametext></name>
+	  <fsummary>Convert time unit of a time value</fsummary>
+	  <desc>
+	    <marker id="erl_drv_convert_time_unit"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>val</c></tag>
+	      <item>Value to convert time unit for.</item>
+	      <tag><c>from</c></tag>
+	      <item>Time unit of <c>val</c>.</item>
+	      <tag><c>to</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>Converts the <c>val</c> value of time unit <c>from</c> to
+	    the corresponding value of time unit <c>to</c>. The result is
+	    rounded using the floor function.</p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
 	</func>
 
   </funcs>

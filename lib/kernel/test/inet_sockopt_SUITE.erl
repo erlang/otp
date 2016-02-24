@@ -19,7 +19,7 @@
 %%
 -module(inet_sockopt_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -define(C_GET_IPPROTO_TCP,1).

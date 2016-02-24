@@ -196,7 +196,7 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 	ASSERT(!(p->flags & F_DISABLE_GC));
 	if ((p->stop - 2) < p->htop) {
 	    DPRINTF("calling gc to increase BEAM stack size");
-	    p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
+	    erts_garbage_collect(p, 2, reg, arity);
 	    ASSERT(!((p->stop - 2) < p->htop));
 	}
 	p->stop -= 2;

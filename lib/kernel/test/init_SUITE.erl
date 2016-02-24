@@ -19,7 +19,7 @@
 %%
 -module(init_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -307,8 +307,8 @@ create_boot(Config) ->
 
 is_real_system(KernelVsn, StdlibVsn) ->
     LibDir = code:lib_dir(),
-    filelib:is_dir(filename:join(LibDir, "kernel"++KernelVsn)) andalso
-	filelib:is_dir(filename:join(LibDir, "stdlib"++StdlibVsn)).
+    filelib:is_dir(filename:join(LibDir, "kernel-"++KernelVsn)) andalso
+	filelib:is_dir(filename:join(LibDir, "stdlib-"++StdlibVsn)).
     
 %% ------------------------------------------------
 %% Slave executes erlang:halt() on master nodedown.
@@ -401,6 +401,7 @@ restart(Config) when is_list(Config) ->
     %% Ok, the node is up, now the real test test begins.
     ?line erlang:monitor_node(Node, true),
     ?line InitPid = rpc:call(Node, erlang, whereis, [init]),
+    ?line PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     ?line Procs = rpc:call(Node, erlang, processes, []),
     ?line MaxPid = lists:last(Procs),
     ?line ok = rpc:call(Node, init, restart, []),
@@ -418,8 +419,13 @@ restart(Config) when is_list(Config) ->
     InitP = pid_to_list(InitPid),
     ?line InitP = pid_to_list(InitPid1),
 
+    %% and same purger process!
+    ?line PurgerPid1 = rpc:call(Node, erlang, whereis, [erts_code_purger]),
+    PurgerP = pid_to_list(PurgerPid),
+    ?line PurgerP = pid_to_list(PurgerPid1),
+
     ?line NewProcs0 = rpc:call(Node, erlang, processes, []),
-    NewProcs = lists:delete(InitPid1, NewProcs0),
+    NewProcs = NewProcs0 -- [InitPid1, PurgerPid1],
     ?line case check_processes(NewProcs, MaxPid) of
 	      true ->
 		  ok;

@@ -146,6 +146,10 @@ bar(X) ->
       <item>The current line number.</item>
       <tag><c>?MACHINE</c>.</tag>
       <item>The machine name, <c>'BEAM'</c>.</item>
+      <tag><c>?FUNCTION_NAME</c></tag>
+      <item>The name of the current function.</item>
+      <tag><c>?FUNCTION_ARITY</c></tag>
+      <item>The arity (number of arguments) for the current function.</item>
     </taglist>
   </section>
 

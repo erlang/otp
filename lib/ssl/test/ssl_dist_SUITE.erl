@@ -41,7 +41,7 @@
 %%--------------------------------------------------------------------
 all() ->
     [basic, payload, plain_options, plain_verify_options, nodelay_option, 
-     listen_port_options, listen_options, use_interface].
+     listen_port_options, listen_options, connect_options, use_interface].
 
 groups() ->
     [].
@@ -312,22 +312,7 @@ listen_port_options(Config) when is_list(Config) ->
 listen_options() ->
     [{doc, "Test inet_dist_listen_options"}].
 listen_options(Config) when is_list(Config) ->
-    Prio = 1,
-    case gen_udp:open(0, [{priority,Prio}]) of
-	{ok,Socket} ->
-	    case inet:getopts(Socket, [priority]) of
-		{ok,[{priority,Prio}]} ->
-		    ok = gen_udp:close(Socket),
-		    do_listen_options(Prio, Config);
-		_ ->
-		    ok = gen_udp:close(Socket),
-		    {skip,
-		     "Can not set priority "++integer_to_list(Prio)++
-			 " on socket"}
-	    end;
-	{error,_} ->
-	    {skip, "Can not set priority on socket"}
-    end.
+    try_setting_priority(fun do_listen_options/2, Config).
 
 do_listen_options(Prio, Config) ->
     PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
@@ -359,6 +344,48 @@ do_listen_options(Prio, Config) ->
     ?t:format("Elevated2: ~p~n", [Elevated2]),
     [_|_] = Elevated1,
     [_|_] = Elevated2,
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+connect_options() ->
+    [{doc, "Test inet_dist_connect_options"}].
+connect_options(Config) when is_list(Config) ->
+    try_setting_priority(fun do_connect_options/2, Config).
+
+do_connect_options(Prio, Config) ->
+    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
+    PriorityString =
+	case os:cmd("echo [{a,1}]") of
+	    "[{a,1}]"++_ ->
+		PriorityString0;
+	    _ ->
+		%% Some shells need quoting of [{}]
+		"'"++PriorityString0++"'"
+	end,
+
+    Options = "-kernel inet_dist_connect_options " ++ PriorityString,
+
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    PrioritiesNode1 =
+	apply_on_ssl_node(NH1, fun get_socket_priorities/0),
+    PrioritiesNode2 =
+	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
+
+    Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
+    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
+    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    %% Node 1 will have a socket with elevated priority.
+    [_|_] = Elevated1,
+    %% Node 2 will not, since it only applies to outbound connections.
+    [] = Elevated2,
 
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
@@ -404,6 +431,24 @@ tstsrvr_format(Fmt, ArgList) ->
 
 send_to_tstcntrl(Message) ->
     send_to_tstsrvr({message, Message}).
+
+try_setting_priority(TestFun, Config) ->
+    Prio = 1,
+    case gen_udp:open(0, [{priority,Prio}]) of
+	{ok,Socket} ->
+	    case inet:getopts(Socket, [priority]) of
+		{ok,[{priority,Prio}]} ->
+		    ok = gen_udp:close(Socket),
+		    TestFun(Prio, Config);
+		_ ->
+		    ok = gen_udp:close(Socket),
+		    {skip,
+		     "Can not set priority "++integer_to_list(Prio)++
+			 " on socket"}
+	    end;
+	{error,_} ->
+	    {skip, "Can not set priority on socket"}
+    end.
 
 get_socket_priorities() ->
     [Priority ||
@@ -493,17 +538,13 @@ host_name() ->
     Host.
 
 mk_node_name(Config) ->
-    {A, B, C} = erlang:now(),
+    N = erlang:unique_integer([positive]),
     Case = ?config(testcase, Config),
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
 	++ "_"
-	++ integer_to_list(A)
-	++ "-"
-	++ integer_to_list(B)
-	++ "-"
-	++ integer_to_list(C).
+	++ integer_to_list(N).
 
 mk_node_cmdline(ListenPort, Name, Args) ->
     Static = "-detached -noinput",
@@ -732,12 +773,10 @@ rand_bin(N) ->
 rand_bin(0, Acc) ->
     Acc;
 rand_bin(N, Acc) ->
-    rand_bin(N-1, [random:uniform(256)-1|Acc]).
+    rand_bin(N-1, [rand:uniform(256)-1|Acc]).
 
 make_randfile(Dir) ->
     {ok, IoDev} = file:open(filename:join([Dir, "RAND"]), [write]),
-    {A, B, C} = erlang:now(),
-    random:seed(A, B, C),
     ok = file:write(IoDev, rand_bin(1024)),
     file:close(IoDev).
 

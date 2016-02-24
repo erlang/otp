@@ -144,7 +144,9 @@
       <p>According to old API.</p></item>
 
       <tag><c>ciphersuite() =</c></tag>
-      <item><p><c>{key_exchange(), cipher(), hash()}</c></p></item>
+
+      <item><p><c>{key_exchange(), cipher(), MAC::hash()} |
+      {key_exchange(), cipher(), MAC::hash(), PRF::hash()}</c></p></item>
 
       <tag><c>key_exchange()=</c></tag>
       <item><p><c>rsa | dhe_dss | dhe_rsa | dh_anon | psk | dhe_psk
@@ -156,7 +158,7 @@
       | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm</c></p></item>
 
       <tag><c>hash() =</c></tag>
-      <item><p><c>md5 | sha</c></p></item>
+      <item><p><c>md5 | sha | sha224 | sha256 | sha348 | sha512</c></p></item>
 
       <tag><c>prf_random() =</c></tag>
       <item><p><c>client_random | server_random</c></p></item>
@@ -221,7 +223,7 @@
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>. 
       By default <c>secure_renegotiate</c> is set to <c>false</c>, 
       that is, secure renegotiation is used if possible,
-      but it fallback to unsecure renegotiation if the peer
+      but it falls back to insecure renegotiation if the peer
       does not support 
       <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url>.</p>
       </item>
@@ -307,7 +309,7 @@ atom()}} |
 	<tag><c>unknown_ca</c></tag>
 	<item><p>No trusted CA was found in the trusted store. The trusted CA is
 	normally a so called ROOT CA, which is a self-signed certificate. Trust can
-	be claimed for an intermediat CA (trusted anchor does not have to be
+	be claimed for an intermediate CA (trusted anchor does not have to be
 	self-signed according to X-509) by using option <c>partial_chain</c>.</p>
 	</item>
 
@@ -352,7 +354,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	  <tag><c>{http, timeout()}</c></tag>
 	  <item><p>
 	    Enables fetching of CRLs specified as http URIs in<seealso 
-	    marker="public_key:public_key_records"> X509 cerificate extensions.</seealso>
+	    marker="public_key:public_key_records"> X509 certificate extensions.</seealso>
 	    Requires the OTP inets application.</p>
 	  </item>	    
 	</taglist>    
@@ -611,14 +613,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client
-      matching a host listed in the <c>sni_hosts</c> option, the speicific options for
+      matching a host listed in the <c>sni_hosts</c> option, the specific options for
       that host will override previously specified options.
 
       The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
 
       <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client,
-      the given function will be called to retrive <c>ssloptions()</c> for indicated server.
+      the given function will be called to retrieve <c>ssloptions()</c> for the indicated server.
       These options will be merged into predefined <c>ssloptions()</c>.
 
       The function should be defined as:
@@ -632,7 +634,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       of resources of such an operation is higher for the server than the
       client. This can act as a vector for denial of service attacks. The SSL
       application already takes measures to counter-act such attempts,
-      but client-initiated renegotiation can be stricly disabled by setting
+      but client-initiated renegotiation can be strictly disabled by setting
       this option to <c>false</c>. The default value is <c>true</c>.
       Note that disabling renegotiation can result in long-lived connections
       becoming unusable due to limits on the number of messages the underlying
@@ -748,26 +750,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <v>How =  timeout() | {NewController::pid(), timeout()} </v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Closes or downgrades an SSL connection, in the later case the transport
-      connection will be handed over to the <c>NewController</c> process after reciving
-      the TLS close alert from the peer. The retuned transport socket will have
-      the following options set [{active, false}, {packet, 0}, {mode, binary}].</p>
+      <desc><p>Closes or downgrades an SSL connection. In the latter case the transport
+      connection will be handed over to the <c>NewController</c> process after receiving
+      the TLS close alert from the peer. The returned transport socket will have
+      the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
       </desc>
     </func>
-
-    <func>
-	<name>connection_info(SslSocket) ->
-	  {ok, {ProtocolVersion, CipherSuite}} | {error, Reason}</name>
-      <fsummary>Returns the Negotiated Protocol version and cipher suite.
-      </fsummary>
-      <type>
-        <v>CipherSuite = ciphersuite()</v>
-        <v>ProtocolVersion = protocol()</v>
-      </type>
-      <desc><p>Returns the Negotiated Protocol version and cipher suite.</p> 
-      </desc>
-    </func>
-
+    
     <func>
       <name>controlling_process(SslSocket, NewOwner) ->
 	ok | {error, Reason}</name>
@@ -786,40 +775,36 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
     <func>
       <name>connection_information(SslSocket) ->
-        {ok, Info} |  {error, Reason} </name>
+        {ok, Result} |  {error, Reason} </name>
       <fsummary>Returns all the connection information.
       </fsummary>
       <type>
-        <v>Info = [InfoTuple]</v>
-        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
-        <v>CipherSuite = ciphersuite()</v>
-        <v>ProtocolVersion = protocol()</v>
-        <v>SNIHostname = string()</v>
+        <v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
+	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
+	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>
-      <desc><p>Return all the connection information containing negotiated protocol version, cipher suite, and the hostname of SNI extension.
-      Info will be a proplists containing all the connection information on success, otherwise <c>{error, Reason}</c> will be returned.</p> 
+      <desc><p>Returns all relevant information about the connection, ssl options that
+      are undefined will be filtered out.</p>
       </desc>
     </func>
 
     <func>
       <name>connection_information(SslSocket, Items) ->
-        {ok, Info} |  {error, Reason} </name>
+        {ok, Result} |  {error, Reason} </name>
       <fsummary>Returns the requested connection information.
       </fsummary>
       <type>
-        <v>Items = [Item]</v>
-        <v>Item = protocol | cipher_suite | sni_hostname</v>
-        <v>Info = [InfoTuple]</v>
-        <v>InfoTuple = {protocol, Protocol} | {cipher_suite, CipherSuite} | {sni_hostname, SNIHostname}</v>
-        <v>CipherSuite = ciphersuite()</v>
-        <v>ProtocolVersion = protocol()</v>
-        <v>SNIHostname = string()</v>
+	<v>Items = [Item]</v>
+	<v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
+	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
+	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>
-      <desc><p>Returns the connection information you requested. The connection information you can request contains protocol, cipher_suite, and sni_hostname.
-      <c>{ok, Info}</c> will be returned if it executes sucessfully. The Info is a proplists containing the information you requested.
-      Otherwise, <c>{error, Reason}</c> will be returned.</p>
+      <desc><p>Returns the requested information items about the connection,
+      if they are defined.</p>
+      <note><p>If only undefined options are requested the
+      resulting list can be empty.</p></note>
       </desc>
     </func>
 
@@ -1146,7 +1131,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
 	  For the negotiated TLS/SSL version, see <seealso
-	  marker="#connection_info-1">ssl:connection_info/1
+	  marker="#connection_information-1">ssl:connection_information/1
 	  </seealso>.</item>
   
 	  <tag><c>available</c></tag>

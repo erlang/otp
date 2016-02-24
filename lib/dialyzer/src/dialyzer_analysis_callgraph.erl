@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,14 +31,17 @@
 
 -export([start/3]).
 
+%%% Export for dialyzer_coordinator...
 -export([compile_init_result/0,
-	 add_to_result/4,
-	 start_compilation/2,
+	 add_to_result/4]).
+%%% ... and export for dialyzer_worker.
+-export([start_compilation/2,
 	 continue_compilation/2]).
 
 -export_type([compile_init_data/0,
-	      one_file_result/0,
-	      compile_result/0]).
+              one_file_mid_error/0,
+              one_file_result_ok/0,
+              compile_result/0]).
 
 -include("dialyzer.hrl").
 
@@ -93,30 +96,18 @@ loop(#server_state{parent = Parent} = State,
       send_log(Parent, LogMsg),
       loop(State, Analysis, ExtCalls);
     {AnalPid, warnings, Warnings} ->
-      case Warnings of
-	[] -> ok;
-	SendWarnings ->
-	  send_warnings(Parent, SendWarnings)
-      end,
+      send_warnings(Parent, Warnings),
       loop(State, Analysis, ExtCalls);
     {AnalPid, cserver, CServer, Plt} ->
       send_codeserver_plt(Parent, CServer, Plt),
       loop(State, Analysis, ExtCalls);
     {AnalPid, done, Plt, DocPlt} ->
-      case ExtCalls =:= none of
-	true ->
-	  send_analysis_done(Parent, Plt, DocPlt);
-	false ->
-	  send_ext_calls(Parent, ExtCalls),
-	  send_analysis_done(Parent, Plt, DocPlt)
-      end;
+      send_ext_calls(Parent, ExtCalls),
+      send_analysis_done(Parent, Plt, DocPlt);
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
     {AnalPid, ext_types, ExtTypes} ->
       send_ext_types(Parent, ExtTypes),
-      loop(State, Analysis, ExtCalls);
-    {AnalPid, unknown_behaviours, UnknownBehaviour} ->
-      send_unknown_behaviours(Parent, UnknownBehaviour),
       loop(State, Analysis, ExtCalls);
     {AnalPid, mod_deps, ModDeps} ->
       send_mod_deps(Parent, ModDeps),
@@ -165,8 +156,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
       MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
       TmpCServer2 =
-        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                       TmpCServer1),
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       ?timing(State#analysis_state.timing_server, "remote",
               begin
                 TmpCServer3 =
@@ -259,6 +249,10 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T1, _} = statistics(wall_clock),
   Callgraph = dialyzer_callgraph:new(),
   CompileInit = make_compile_init(State, Callgraph),
+  %% Spawn a worker per file - where each worker calls
+  %% start_compilation on its file, asks next label to coordinator and
+  %% calls continue_compilation - and let coordinator aggregate
+  %% results using (compile_init_result and) add_to_result.
   {{Failed, Modules}, NextLabel} =
     ?timing(Timing, "compile", _C1,
 	    dialyzer_coordinator:parallel_job(compile, Files,
@@ -290,16 +284,18 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   send_log(Parent, Msg2),
   {Callgraph, CServer2}.
 
--type compile_init_data() :: #compile_init{}.
--type error_reason()      :: string().
--type compile_result()    :: {[{file:filename(), error_reason()}],
-			      [module()]}. %%opaque
--type one_file_result()   :: {error, error_reason()} |
-			     {ok, [dialyzer_callgraph:callgraph_edge()],
-			      [mfa_or_funlbl()], module()}. %%opaque
--type compile_mid_data()  :: {module(), cerl:cerl(),
-			      dialyzer_callgraph:callgraph(),
-			      dialyzer_codeserver:codeserver()}.
+-opaque compile_init_data()  :: #compile_init{}.
+-type error_reason()         :: string().
+-opaque compile_result()     :: {[{file:filename(), error_reason()}],
+                                 [module()]}.
+-type one_file_mid_error()   :: {error, error_reason()}.
+-opaque one_file_result_ok() :: {ok, [dialyzer_callgraph:callgraph_edge()],
+                                 [mfa_or_funlbl()], module()}.
+-type one_file_result()      :: one_file_mid_error() |
+                                one_file_result_ok().
+-type compile_mid_data()     :: {module(), cerl:cerl(),
+                                 dialyzer_callgraph:callgraph(),
+                                 dialyzer_codeserver:codeserver()}.
 
 -spec compile_init_result() -> compile_result().
 
@@ -440,7 +436,8 @@ store_core(Mod, Core, Callgraph, CServer) ->
   CoreSize = cerl_trees:size(CoreTree),
   {ok, CoreSize, {Mod, CoreTree, Callgraph, CServer}}.
 
--spec continue_compilation(integer(), compile_mid_data()) -> one_file_result().
+-spec continue_compilation(integer(), compile_mid_data()) ->
+                              one_file_result_ok().
 
 continue_compilation(NextLabel, {Mod, CoreTree, Callgraph, CServer}) ->
   {LabeledTree, _NewNextLabel} = cerl_trees:label(CoreTree, NextLabel),
@@ -572,16 +569,14 @@ send_analysis_done(Parent, Plt, DocPlt) ->
   Parent ! {self(), done, Plt, DocPlt},
   ok.
 
+send_ext_calls(_Parent, none) ->
+  ok;
 send_ext_calls(Parent, ExtCalls) ->
   Parent ! {self(), ext_calls, ExtCalls},
   ok.
 
 send_ext_types(Parent, ExtTypes) ->
   Parent ! {self(), ext_types, ExtTypes},
-  ok.
-
-send_unknown_behaviours(Parent, UnknownBehaviours) ->
-  Parent ! {self(), unknown_behaviours, UnknownBehaviours},
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt ) ->
@@ -624,6 +619,28 @@ find_call_file_and_line(Tree, MFA) ->
 		  MFA ->
 		    Ann = cerl:get_ann(SubTree),
 		    [{get_file(Ann), get_line(Ann)}|Acc];
+		  {erlang, make_fun, 3} ->
+		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
+		    case
+		      cerl:is_c_atom(CA1) andalso
+		      cerl:is_c_atom(CA2) andalso
+		      cerl:is_c_int(CA3)
+		    of
+		      true ->
+			case
+			  {cerl:concrete(CA1),
+			   cerl:concrete(CA2),
+			   cerl:concrete(CA3)}
+			of
+			  MFA ->
+			    Ann = cerl:get_ann(SubTree),
+			    [{get_file(Ann), get_line(Ann)}|Acc];
+			  _ ->
+			    Acc
+			end;
+		      false ->
+			Acc
+		    end;
 		  _ -> Acc
 		end;
 	      false -> Acc

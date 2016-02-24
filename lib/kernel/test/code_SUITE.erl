@@ -19,7 +19,7 @@
 %%
 -module(code_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
@@ -30,8 +30,7 @@
 	 upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
-	 load_cached/1, start_node_with_cache/1, add_and_rehash/1,
-	 where_is_file_cached/1, where_is_file_no_cache/1,
+	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
@@ -56,9 +55,8 @@ all() ->
      load_binary, dir_req, object_code, set_path_file,
      upgrade,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
-     ext_mod_dep, clash, load_cached, start_node_with_cache,
-     add_and_rehash, where_is_file_no_cache,
-     where_is_file_cached, purge_stacktrace, mult_lib_roots,
+     ext_mod_dep, clash, where_is_file,
+     purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
      big_boot_embedded, native_early_modules, get_mode].
@@ -323,6 +321,7 @@ load_abs(Config) when is_list(Config) ->
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
     {error, badfile} = code:load_abs(TestDir ++ "/code_a_test"),
     {'EXIT', _} = (catch code:load_abs({})),
+    {'EXIT', _} = (catch code:load_abs("Non-latin-имя-файла")),
     {module, code_b_test} = code:load_abs(TestDir ++ "/code_b_test"),
     code:stick_dir(TestDir),
     {error, sticky_directory} = code:load_abs(TestDir ++ "/code_b_test"),
@@ -382,8 +381,23 @@ purge(Config) when is_list(Config) ->
 
 purge_many_exits(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
+
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:purge({})),
+
+    CodePurgeF = fun(M, Exp) -> Exp = code:purge(M) end,
+    purge_many_exits_do(CodePurgeF),
+
+    %% Let's repeat test for erlang:purge_module as it does the same thing
+    %% now in erts-8.0 (except for return value).
+    ErlangPurgeF = fun(M, _Exp) -> erlang:purge_module(M) end,
+    purge_many_exits_do(ErlangPurgeF),
+
+    process_flag(trap_exit, OldFlag),
+    ok.
+
+
+purge_many_exits_do(PurgeF) ->
     false = code:purge(code_b_test),
     TPids = lists:map(fun (_) ->
 			      {code_b_test:do_spawn(),
@@ -402,7 +416,7 @@ purge_many_exits(Config) when is_list(Config) ->
 			  false = code_b_test:check_exit(Pid1),
 			  true = erlang:is_process_alive(Pid2)
 		  end, TPids),
-    true = code:purge(code_b_test),
+    PurgeF(code_b_test, true),
     lists:foreach(fun ({Pid1, Pid2}) ->
 			  false = erlang:is_process_alive(Pid1),
 			  true = code_b_test:check_exit(Pid1),
@@ -411,9 +425,7 @@ purge_many_exits(Config) when is_list(Config) ->
 		  end, TPids),
     lists:foreach(fun ({_Pid1, Pid2}) ->
 			  receive {'EXIT', Pid2, _} -> ok end
-		  end, TPids),
-    process_flag(trap_exit, OldFlag),
-    ok.
+		  end, TPids).
 
 
 soft_purge(suite) -> [];
@@ -669,13 +681,9 @@ add_del_path(Config) when is_list(Config) ->
 clash(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config)++"clash/",
     P = code:get_path(),
-    [TestServerPath|_] = [Path || Path <- code:get_path(),
-				  re:run(Path,"test_server/?$",[unicode]) /= nomatch],
 
     %% test non-clashing entries
 
-    %% remove TestServerPath to prevent clash with test-server path
-    true = code:del_path(TestServerPath),
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"zork-0.8/ebin"),
     test_server:capture_start(),
@@ -687,8 +695,6 @@ clash(Config) when is_list(Config) ->
 
     %% test clashing entries
 
-    %% remove TestServerPath to prevent clash with test-server path
-    true = code:del_path(TestServerPath),
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
     test_server:capture_start(),
@@ -701,9 +707,7 @@ clash(Config) when is_list(Config) ->
 
     %% test "Bad path can't read"
 
-    %% remove TestServerPath to prevent clash with test-server path
     Priv = ?config(priv_dir, Config),
-    true = code:del_path(TestServerPath),
     TmpEzFile = Priv++"foobar-0.tmp.ez",
     {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
     true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
@@ -768,6 +772,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
 	  code_server, lists, lists_sort, unicode, binary, filename,
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
+	  erts_code_purger,
 	  prim_zip, zlib],
     ErrCnt1 =
 	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of
@@ -838,18 +843,7 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 	    {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,filter,2},
-	    {code_server,try_archive_subdirs,3},
-	    {code_server,all_archive_subdirs,1},
-	    {code_server,archive_subdirs,1},
-	    {code_server,insert_name,3},
-	    {code_server,replace_name,2},
-	    {code_server,update,2},
-	    {code_server,maybe_update,2},
-	    {code_server,do_add,4},
-	    {code_server,add_path,4},
-	    {code_server,handle_call,3},
-	    {code_server,loop,1},
-	    {code_server,system_continue,3}]) -> 0;
+	    {code_server,try_archive_subdirs,3}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{erlang,apply,2},
 	    {erlang,spawn_link,1},
@@ -904,140 +898,7 @@ uniq([H|T],A) ->
     uniq(T,[H|A]).
 
 
-load_cached(suite) ->
-    [];
-load_cached(doc) ->
-    [];
-load_cached(Config) when is_list(Config) ->
-    Priv = ?config(priv_dir, Config),
-    WD = filename:dirname(code:which(?MODULE)),
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-pa \"" ++ WD ++ "\""},
-					      {erl, [this]}]),
-    CCTabCreated = fun(Tab) ->
-			   case ets:info(Tab, name) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    Tabs = rpc:call(Node, ets, all, []),
-    case rpc:call(Node, lists, any, [CCTabCreated,Tabs]) of
-	true ->
-	    ?t:stop_node(Node),
-	    ?t:fail("Code cache should not be active!");
-	false ->
-	    ok
-    end,
-    rpc:call(Node, code, del_path, [Priv]),
-    rpc:call(Node, code, add_pathz, [Priv]),
-
-    FullModName = Priv ++ "/code_cache_test",
-    {ok,Dev} = file:open(FullModName ++ ".erl", [write]),
-    io:format(Dev, "-module(code_cache_test). -export([a/0]). a() -> ok.~n", []),
-    ok = file:close(Dev),
-    {ok,code_cache_test} = compile:file(FullModName, [{outdir,Priv}]),
-
-    F = fun load_loop/2,
-    N = 1000,
-    {T0,T1} = rpc:call(Node, erlang, apply, [F, [N,code_cache_test]]),
-    TNoCache = now_diff(T1, T0),
-    rpc:call(Node, code, rehash, []),
-    {T2,T3} = rpc:call(Node, erlang, apply, [F, [N,code_cache_test]]),
-    TCache = now_diff(T3, T2),
-    AvgNoCache = TNoCache/N,
-    AvgCache = TCache/N,
-    io:format("Avg. load time (no_cache/cache): ~w/~w~n", [AvgNoCache,AvgCache]),
-    ?t:stop_node(Node),
-    if AvgNoCache =< AvgCache ->
-	    ?t:fail("Cache not working properly.");
-       true ->
-	    ok
-    end.
-
-load_loop(N, M) ->
-    load_loop(N, M, now()).
-load_loop(0, _M, T0) ->
-    {T0,now()};
-load_loop(N, M, T0) ->
-    code:load_file(M),
-    code:delete(M),
-    code:purge(M),
-    load_loop(N-1, M, T0).
-
-now_diff({A2, B2, C2}, {A1, B1, C1}) ->
-    ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
-
-start_node_with_cache(suite) ->
-    [];
-start_node_with_cache(doc) ->
-    [];
-start_node_with_cache(Config) when is_list(Config) ->
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-code_path_cache"},
-					      {erl, [this]}]),
-    Tabs = rpc:call(Node, ets, all, []),
-    io:format("Tabs: ~w~n", [Tabs]),
-    CCTabCreated = fun(Tab) ->
-			   case rpc:call(Node, ets, info, [Tab,name]) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    true = lists:any(CCTabCreated, Tabs),
-    ?t:stop_node(Node),
-    ok.
-
-add_and_rehash(suite) ->
-    [];
-add_and_rehash(doc) ->
-    [];
-add_and_rehash(Config) when is_list(Config) ->
-    Priv = ?config(priv_dir, Config),
-    WD = filename:dirname(code:which(?MODULE)),
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-pa \"" ++ WD ++ "\""},
-					      {erl, [this]}]),
-    CCTabCreated = fun(Tab) ->
-			   case ets:info(Tab, name) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    Tabs0 = rpc:call(Node, ets, all, []),
-    case rpc:call(Node, lists, any, [CCTabCreated,Tabs0]) of
-	true ->
-	    ?t:stop_node(Node),
-	    ?t:fail("Code cache should not be active!");
-	false ->
-	    ok
-    end,
-    ok = rpc:call(Node, code, rehash, []),	             % create cache
-    Tabs1 = rpc:call(Node, ets, all, []),
-    true = rpc:call(Node, lists, any, [CCTabCreated,Tabs1]), % cache table created
-    ok = rpc:call(Node, code, rehash, []),
-    OkDir = filename:join(Priv, ""),
-    BadDir = filename:join(Priv, "guggemuffsussiputt"),
-    CP = [OkDir | rpc:call(Node, code, get_path, [])],
-    true = rpc:call(Node, code, set_path, [CP]),
-    CP1 = [BadDir | CP],
-    {error,_} = rpc:call(Node, code, set_path, [CP1]),
-    true = rpc:call(Node, code, del_path, [OkDir]),
-    true = rpc:call(Node, code, add_path, [OkDir]),
-    true = rpc:call(Node, code, add_path, [OkDir]),
-    {error,_} = rpc:call(Node, code, add_path, [BadDir]),
-    ok = rpc:call(Node, code, rehash, []),
-
-    ?t:stop_node(Node),
-    ok.
-
-where_is_file_no_cache(suite) ->
-    [];
-where_is_file_no_cache(doc) ->
-    [];
-where_is_file_no_cache(Config) when is_list(Config) ->
+where_is_file(Config) when is_list(Config) ->
     {T,KernelBeamFile} = timer:tc(code, where_is_file, ["kernel.beam"]),
     io:format("Load time: ~w ms~n", [T]),
     KernelEbinDir = filename:dirname(KernelBeamFile),
@@ -1045,35 +906,6 @@ where_is_file_no_cache(Config) when is_list(Config) ->
     AppFile = code:where_is_file("kernel.app"),
     non_existing = code:where_is_file("kernel"), % no such file
     ok.
-
-where_is_file_cached(suite) ->
-    [];
-where_is_file_cached(doc) ->
-    [];
-where_is_file_cached(Config) when is_list(Config) ->
-    {ok,Node} =
-	?t:start_node(code_cache_node, peer, [{args,
-					       "-code_path_cache"},
-					      {erl, [this]}]),
-    Tabs = rpc:call(Node, ets, all, []),
-    io:format("Tabs: ~w~n", [Tabs]),
-    CCTabCreated = fun(Tab) ->
-			   case rpc:call(Node, ets, info, [Tab,name]) of
-			       code_cache -> true;
-			       _ -> false
-			   end
-		   end,
-    true = lists:any(CCTabCreated, Tabs),
-    KernelBeamFile = rpc:call(Node, code, where_is_file, ["kernel.beam"]),
-    {T,KernelBeamFile} = rpc:call(Node, timer, tc, [code,where_is_file,["kernel.beam"]]),
-    io:format("Load time: ~w ms~n", [T]),
-    KernelEbinDir = rpc:call(Node, filename, dirname, [KernelBeamFile]),
-    AppFile = rpc:call(Node, filename, join, [KernelEbinDir,"kernel.app"]),
-    AppFile = rpc:call(Node, code, where_is_file, ["kernel.app"]),
-    non_existing = rpc:call(Node, code, where_is_file, ["kernel"]), % no such file
-    ?t:stop_node(Node),
-    ok.
-
 
 purge_stacktrace(suite) ->
     [];
@@ -1598,6 +1430,17 @@ on_load_errors(Config) when is_list(Config) ->
     after 10 ->
 	    ok
     end,
+
+    %% Make sure that the code loading functions return the correct
+    %% error code.
+    Simple = simple_on_load_error,
+    SimpleList = atom_to_list(Simple),
+    {error,on_load_failure} = code:load_file(Simple),
+    {error,on_load_failure} = code:ensure_loaded(Simple),
+    {ok,SimpleCode} = file:read_file("simple_on_load_error.beam"),
+    {error,on_load_failure} = code:load_binary(Simple, "", SimpleCode),
+    {error,on_load_failure} = code:load_abs(SimpleList),
+    {error,on_load_failure} = code:load_abs(SimpleList, Simple),
 
     ok.
 

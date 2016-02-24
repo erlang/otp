@@ -21,7 +21,7 @@
 -module(test_modified_x420).
 -export([test/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 test(Config) ->
     DataDir = ?config(data_dir,Config),

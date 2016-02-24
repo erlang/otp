@@ -178,7 +178,7 @@ erl_call -s -a 'erlang halt' -n madonna
     <code type="none"><![CDATA[
 erl_call -s -a 'lists map [{math,sqrt},[1,4,9,16,25]]' -n madonna
     ]]></code>
-    <p>Evaluates a couple of expressions. <b>The input ends with EOF (Control-D)</b>.</p>
+    <p>Evaluates a couple of expressions. <em>The input ends with EOF (Control-D)</em>.</p>
     <code type="none"><![CDATA[
 erl_call -s -e -n madonna
 statistics(runtime),
@@ -189,7 +189,7 @@ Y=2,
 ^D
 {ok,{3,0}}
     ]]></code>
-    <p>Compiles a module and runs it. <b>Again, the input ends with EOF (Control-D)</b>. (In the example shown, the output has been formatted afterwards).</p>
+    <p>Compiles a module and runs it. <em>Again, the input ends with EOF (Control-D)</em>. (In the example shown, the output has been formatted afterwards).</p>
     <code type="none"><![CDATA[
 erl_call -s -m -a lolita -n madonna
 -module(lolita).

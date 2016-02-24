@@ -48,6 +48,7 @@
 #define DEBUG_THREADS      0x0010    /* Thread-related stuff                 */
 #define DEBUG_PROCESSES    0x0020    /* Process creation and removal         */
 #define DEBUG_MEMORY       0x0040    /* Display results of memory checks     */
+#define DEBUG_SHCOPY       0x0080    /* Sharing-preserving copying of terms  */
 
 extern Uint32 verbose;
 
@@ -92,10 +93,4 @@ extern void print_tagged_memory(Eterm *start, Eterm *end);
 extern void print_untagged_memory(Eterm *start, Eterm *end);
 extern void print_memory(Process *p);
 extern void print_memory_info(Process *p);
-#if defined(DEBUG) && !HEAP_ON_C_STACK
-extern Eterm *erts_debug_allocate_tmp_heap(int, Process *);
-extern void erts_debug_use_tmp_heap(int, Process *);
-extern void erts_debug_unuse_tmp_heap(int, Process *);
-#endif
-
 #endif /* _ERL_DEBUG_H_ */

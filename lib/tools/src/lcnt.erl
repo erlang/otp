@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,12 +94,12 @@
 
 -record(stats, {
 	file  :: atom(),
-	line  :: non_neg_integer(),
+	line  :: non_neg_integer() | 'undefined',
 	tries :: non_neg_integer(),
 	colls :: non_neg_integer(),
 	time  :: non_neg_integer(), % us
 	nt    :: non_neg_integer(), % #timings collected
-	hist  :: tuple()            % histogram
+	hist  :: tuple() | 'undefined'  % histogram
     }).
 
 -record(lock, {
@@ -757,7 +757,7 @@ list2lock([F|Fs], Ls) ->
 
 stats2stats([]) -> [];
 stats2stats([Stat|Stats]) ->
-    Sz = tuple_size(#stats{}),
+    Sz = record_info(size, stats),
     [stat2stat(Stat,Sz)|stats2stats(Stats)].
 
 stat2stat(Stat,Sz) when tuple_size(Stat) =:= Sz -> Stat;
@@ -933,7 +933,6 @@ strings(Strings) -> strings(Strings, []).
 strings([], Out) -> Out;
 strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string("~~~ws", [N]), [S]));
 strings([{left,   N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string(" ~~s~~~ws", [N]), [S,""]));
-strings([{format, Format, S} | Ss], Out) -> strings(Ss, Out ++ term2string(Format, [S]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
 

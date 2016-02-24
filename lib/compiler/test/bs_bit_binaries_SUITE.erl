@@ -29,7 +29,7 @@
 	 big_binary_to_and_from_list/1,send_and_receive/1,
 	 send_and_receive_alot/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

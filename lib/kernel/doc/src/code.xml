@@ -101,30 +101,6 @@
   </section>
 
   <section>
-    <title>Code Path Cache</title>
-    <p>The code server incorporates a code path cache. The cache
-      functionality is disabled by default. To activate it, start
-      the emulator with the command line flag <c>-code_path_cache</c>
-      or call <c>code:rehash()</c>. When the cache is created (or
-      updated), the code server searches for modules in the code path
-      directories. This may take some time if the the code path is long.
-      After the cache creation, the time for loading modules in a large
-      system (one with a large directory structure) is significantly
-      reduced compared to having the cache disabled. The code server
-      is able to look up the location of a module from the cache in
-      constant time instead of having to search through the code path
-      directories.</p>
-    <p>Application resource files (<c>.app</c> files) are also stored
-      in the code path cache. This feature is used by the application
-      controller (see
-      <seealso marker="application">application(3)</seealso>) to load
-      applications efficiently in large systems.</p>
-    <p>Note that when the code path cache is created (or updated), any
-      relative directory names in the code path are converted to
-      absolute.</p>
-  </section>
-
-  <section>
     <title>Loading of Code From Archive Files</title>
 
     <warning><p>The support for loading of code from archive files is
@@ -287,6 +263,46 @@
     was given to <c>set_path/1</c>).</p>
   </section>
 
+  <section>
+    <marker id="error_reasons"></marker>
+    <title>Error Reasons for Code-Loading Functions</title>
+
+    <p>Functions that load code (such as <c>load_file/1</c>) will
+    return <c>{error,Reason}</c> if the load operation fails.
+    Here follows a description of the common reasons.</p>
+
+    <taglist>
+      <tag><c>badfile</c></tag>
+      <item>
+	<p>The object code has an incorrect format or the module
+	name in the object code is not the expected module name.</p>
+      </item>
+
+      <tag><c>nofile</c></tag>
+      <item>
+	<p>No file with object code was found.</p>
+      </item>
+
+      <tag><c>not_purged</c></tag>
+      <item>
+	<p>The object code could not be loaded because an old version
+	of the code already existed.</p>
+      </item>
+
+      <tag><c>on_load_failure</c></tag>
+      <item>
+	<p>The module has an
+	<seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>
+	that failed when it was called.</p>
+      </item>
+
+      <tag><c>sticky_directory</c></tag>
+      <item>
+	<p>The object code resides in a sticky directory.</p>
+      </item>
+
+    </taglist>
+    </section>
   <datatypes>
     <datatype>
       <name name="load_ret"/>
@@ -411,12 +427,8 @@
           be used to load object code with a module name that is
           different from the file name.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
-          <c>{error, nofile}</c> if no object code is found, or
-          <c>{error, sticky_directory}</c> if the object code resides in
-          a sticky directory. Also if the loading fails, an error tuple is
-          returned. See
-          <seealso marker="erts:erlang#load_module/2">erlang:load_module/2</seealso>
-          for possible values of <c><anno>What</anno></c>.</p>
+	<c>{error, Reason}</c> if loading fails.
+	See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of the possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -428,7 +440,7 @@
       <desc>
         <p>Does the same as <c>load_file(<anno>Module</anno>)</c>, but
           <c><anno>Filename</anno></c> is either an absolute file name, or a
-          relative file name. The code path is not searched. It returns
+           relative file name. The code path is not searched. It returns
           a value in the same way as
           <seealso marker="#load_file/1">load_file/1</seealso>. Note
           that <c><anno>Filename</anno></c> should not contain the extension (for
@@ -444,7 +456,8 @@
           <seealso marker="#load_file/1">load_file/1</seealso>,
 	  unless the module is already loaded.
           In embedded mode, however, it does not load a module which is not
-          already loaded, but returns <c>{error, embedded}</c> instead.</p>
+          already loaded, but returns <c>{error, embedded}</c> instead.
+	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -461,12 +474,8 @@
           comes. Accordingly, <c><anno>Filename</anno></c> is not opened and read by
           the code server.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
-          <c>{error, sticky_directory}</c> if the object code resides in
-          a sticky directory, or <c>{error, badarg}</c> if any argument
-          is invalid. Also if the loading fails, an error tuple is
-          returned. See
-          <seealso marker="erts:erlang#load_module/2">erlang:load_module/2</seealso>
-          for possible values of <c><anno>What</anno></c>.</p>
+	<c>{error, Reason}</c> if loading fails.
+	See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of the possible error reasons.</p>
       </desc>
     </func>
     <func>
@@ -700,13 +709,6 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="rehash" arity="0"/>
-      <fsummary>Rehash or create code path cache</fsummary>
-      <desc>
-        <p>This function creates or rehashes the code path cache.</p>
-      </desc>
-    </func>
-    <func>
       <name name="where_is_file" arity="1"/>
       <fsummary>Full name of a file located in the code path</fsummary>
       <desc>
@@ -714,10 +716,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
           arbitrary type. If found, the full name is returned.
           <c>non_existing</c> is returned if the file cannot be found.
           The function can be useful, for example, to locate
-          application resource files. If the code path cache is used,
-          the code server will efficiently read the full name from
-          the cache, provided that <c><anno>Filename</anno></c> is an object code
-          file or an <c>.app</c> file.</p>
+          application resource files.</p>
       </desc>
     </func>
     <func>

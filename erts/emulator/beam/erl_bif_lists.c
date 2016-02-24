@@ -42,7 +42,7 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
     Eterm last;
     size_t need;
     Eterm* hp;
-    int i;
+    Sint i;
 
     if ((i = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);
@@ -99,9 +99,9 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
     Eterm small_vec[SMALL_VEC_SIZE];	/* Preallocated memory for small lists */
     Eterm* vec_p;
     Eterm* vp;
-    int     i;
-    int     n;
-    int     m;
+    Sint i;
+    Sint n;
+    Sint m;
     
     if ((n = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);

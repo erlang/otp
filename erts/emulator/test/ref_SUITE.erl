@@ -27,7 +27,7 @@
 
 -export([loop_ref/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),

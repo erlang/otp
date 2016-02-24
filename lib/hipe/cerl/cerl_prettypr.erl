@@ -64,8 +64,8 @@
 	       seq_arg/1, seq_body/1, string_lit/1, try_arg/1,
 	       try_body/1, try_vars/1, try_evars/1, try_handler/1,
 	       tuple_es/1, type/1, values_es/1, var_name/1,
-	       c_map/1, map_arg/1, map_es/1, is_c_map_empty/1,
-	       c_map_pair/2, map_pair_key/1, map_pair_val/1, map_pair_op/1
+	       map_arg/1, map_es/1, is_c_map_empty/1,
+	       map_pair_key/1, map_pair_val/1, map_pair_op/1
 	   ]).
 
 -define(PAPER, 76).
@@ -499,12 +499,8 @@ lay_literal(Node, Ctxt) ->
 	    lay_cons(Node, Ctxt);
 	V when is_tuple(V) ->
 	    lay_tuple(Node, Ctxt);
-	M when is_map(M), map_size(M) =:= 0 ->
-	    text("~{}~");
 	M when is_map(M) ->
-	    lay_map(c_map([c_map_pair(abstract(K),abstract(V))
-			|| {K,V} <- maps:to_list(M)]),
-		       Ctxt)
+            lay_map(Node, Ctxt)
     end.
 
 lay_var(Node, Ctxt) ->
@@ -627,12 +623,10 @@ lay_map_pair(Node, Ctxt) ->
     K = map_pair_key(Node),
     V = map_pair_val(Node),
     OpTxt = case concrete(map_pair_op(Node)) of
-	assoc -> "::<";
-	exact -> "~<"
+	assoc -> "=>";
+	exact -> ":="
     end,
-    beside(floating(text(OpTxt)),
-	beside(lay(K,Ctxt),beside(floating(text(",")), beside(lay(V,Ctxt),
-		    floating(text(">")))))).
+    beside(lay(K,Ctxt),beside(floating(text(OpTxt)),lay(V,Ctxt))).
 
 lay_let(Node, Ctxt) ->
     V = lay_value_list(let_vars(Node), Ctxt),

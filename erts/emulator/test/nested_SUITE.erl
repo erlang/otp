@@ -24,7 +24,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 case_in_case/1, case_in_after/1, catch_in_catch/1, bif_in_bif/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

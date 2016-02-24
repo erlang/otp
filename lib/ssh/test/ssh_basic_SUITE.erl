@@ -78,7 +78,8 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [app_test,
@@ -129,16 +130,11 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    Config;
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    Config.
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
+
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
@@ -441,6 +437,7 @@ exec(Config) when is_list(Config) ->
 	    ct:fail(Other1)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1),
+    ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -474,6 +471,7 @@ exec_compressed(Config) when is_list(Config) ->
 		    ct:fail(Other)
 	    end,
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
     end.
 
@@ -601,10 +599,14 @@ cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-   
+    
+    TmpDir = filename:join(?config(priv_dir,Config), "tmp"),
+    ok = ssh_test_lib:del_dirs(TmpDir),
+    ok = file:make_dir(TmpDir),
+
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {password, "morot"},
-					       {ssh_cli, {ssh_test_cli, [cli]}}, 
+					       {ssh_cli, {ssh_test_cli, [cli,TmpDir]}}, 
 					       {subsystems, []},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
@@ -975,7 +977,10 @@ shell_no_unicode(Config) ->
     new_do_shell(?config(io,Config),
 		 [new_prompt,
 		  {type,"io:format(\"hej ~p~n\",[42])."},
-		  {expect,"hej 42"}
+		  {expect,"hej 42"},
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 	      
 %%--------------------------------------------------------------------
@@ -984,7 +989,9 @@ shell_unicode_string(Config) ->
 		 [new_prompt,
 		  {type,"io:format(\"こにちわ~ts~n\",[\"四二\"])."},
 		  {expect,"こにちわ四二"},
-		  {expect,"ok"}
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 
 %%--------------------------------------------------------------------

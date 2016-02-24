@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -811,7 +811,7 @@ gui_show_module(Win, Mod, Line, Mod, _Pid, How) ->
     dbg_wx_trace_win:mark_line(Win, Line, How);
 gui_show_module(Win, Mod, Line, _Cm, Pid, How) ->
     Win2 = case dbg_wx_trace_win:is_shown(Win, Mod) of
-	       {true, Win3} -> Win3;
+	       %% {true, Win3} -> Win3;
 	       false -> gui_load_module(Win, Mod, Pid)
 	   end,
     dbg_wx_trace_win:mark_line(Win2, Line, How).

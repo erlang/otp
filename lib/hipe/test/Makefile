@@ -10,8 +10,10 @@ MODULES= \
 
 # .erl files for these modules are automatically generated
 GEN_MODULES= \
+	basic_SUITE \
 	bs_SUITE \
-	maps_SUITE
+	maps_SUITE \
+	sanity_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -34,7 +36,7 @@ RELSYSDIR = $(RELEASE_PATH)/hipe_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 

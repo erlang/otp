@@ -19,7 +19,7 @@
 %%
 
 -module(egd_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
@@ -40,7 +40,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_suite(Config) when is_list(Config) ->
-    random:seed(now()),
+    rand:seed(exsplus),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -348,4 +348,4 @@ get_points(0, Out) ->
 get_points(N, Out) ->
     get_points(N - 1, [get_point() | Out]).
 
-random(N) -> trunc(random:uniform(trunc(N + 1)) - 1).
+random(N) -> trunc(rand:uniform(trunc(N + 1)) - 1).

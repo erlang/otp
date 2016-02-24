@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1269,12 +1269,14 @@ gen_reader(follow_file, Filename) ->
 
 %% Opens a file and returns a reader (lazy list).
 gen_reader_file(ReadFun, Filename) ->
-    case file:open(Filename, [read, raw, binary]) of
+    case file:open(Filename, [read, raw, binary, read_ahead]) of
 	{ok, File} ->
 	    mk_reader(ReadFun, File);
 	Error ->
 	    exit({client_cannot_open, Error})
     end.
+
+-dialyzer({no_improper_lists, mk_reader/2}).
 
 %% Creates and returns a reader (lazy list).
 mk_reader(ReadFun, Source) ->
@@ -1294,12 +1296,14 @@ mk_reader(ReadFun, Source) ->
 mk_reader_wrap([]) ->
     [];
 mk_reader_wrap([Hd | _] = WrapFiles) ->
-    case file:open(wrap_name(Hd), [read, raw, binary]) of
+    case file:open(wrap_name(Hd), [read, raw, binary, read_ahead]) of
 	{ok, File} ->
 	    mk_reader_wrap(WrapFiles, File);
 	Error ->
 	    exit({client_cannot_open, Error})
     end.
+
+-dialyzer({no_improper_lists, mk_reader_wrap/2}).
 
 mk_reader_wrap([_Hd | Tail] = WrapFiles, File) ->
     fun() ->

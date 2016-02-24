@@ -170,8 +170,9 @@
 
 -record(icode, {'fun'		:: mfa(),
 		params		:: [icode_var()],
+		%% TODO: merge is_closure and closure_arity into one field
 		is_closure	:: boolean(),
-		closure_arity	:: arity(),
+		closure_arity = none	:: 'none' | arity(),
 		is_leaf 	:: boolean(),
 		code = []	:: icode_instrs(),
 		data		:: hipe_consttab(),

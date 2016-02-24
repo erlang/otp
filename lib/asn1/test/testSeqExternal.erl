@@ -23,7 +23,7 @@
 -include("External.hrl").
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqXSet1',{set, bool, int}).
 -record('SeqXSet2',{bool, set, int}).

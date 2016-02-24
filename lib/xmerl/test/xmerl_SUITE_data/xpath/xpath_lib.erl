@@ -9,7 +9,7 @@
 
 -export([test/0,check_node_set/2,ticket_6873/0]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 test() ->

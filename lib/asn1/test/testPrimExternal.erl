@@ -22,7 +22,7 @@
 
 -export([external/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 external(_Rules) ->
     Types = ['NT',

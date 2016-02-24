@@ -20,15 +20,17 @@
 
 -module(float_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
+         t_mul_add_ops/1,
 	 bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
 -export([otp_7178/1]).
 -export([hidden_inf/1]).
+-export([arith/1]).
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -45,6 +47,7 @@ all() ->
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
      match, bad_float_unpack, write, {group, comparison}
      ,hidden_inf
+     ,arith, t_mul_add_ops
     ].
 
 groups() -> 
@@ -328,3 +331,124 @@ hidden_inf_1(A, B, Zero, Huge) ->
     {'EXIT',{badarith,_}} = (catch (B * (Huge + Huge))),
     {'EXIT',{badarith,_}} = (catch (B / (-Huge - Huge))),
     {'EXIT',{badarith,_}} = (catch (B * (-Huge - Huge))).
+
+%% Improve code coverage in our different arithmetic functions
+%% and make sure they yield consistent results.
+arith(_Config) ->
+    _TAG_IMMED1_SIZE = 4,
+
+    <<FLOAT_MAX/float>> = <<0:1, 16#7fe:11, -1:52>>,
+    <<FLOAT_MIN/float>> = <<0:1, 0:11, 1:52>>,
+    <<FloatNegZero/float>> = <<1:1, 0:11, 0:52>>,
+
+    WORD_BITS = erlang:system_info(wordsize) * 8,
+    SMALL_BITS = (WORD_BITS - _TAG_IMMED1_SIZE),
+    SMALL_MAX = (1 bsl (SMALL_BITS-1)) - 1,
+    SMALL_MIN = -(1 bsl (SMALL_BITS-1)),
+    BIG1_MAX = (1 bsl WORD_BITS) - 1,
+    BIG2_MAX = (1 bsl (WORD_BITS*2)) - 1,
+
+    fixnum = erts_internal:term_type(SMALL_MAX),
+    fixnum = erts_internal:term_type(SMALL_MIN),
+    bignum = erts_internal:term_type(SMALL_MAX + 1),
+    bignum = erts_internal:term_type(SMALL_MIN - 1),
+
+    L = [0, 0.0, FloatNegZero, 1, 1.0, 17, 17.0, 0.17,
+	 FLOAT_MIN, FLOAT_MAX,
+	 SMALL_MAX, SMALL_MAX+1,
+	 SMALL_MIN, SMALL_MIN-1,
+	 BIG1_MAX, BIG1_MAX+1,
+	 BIG2_MAX, BIG2_MAX+1,
+	 trunc(FLOAT_MAX), trunc(FLOAT_MAX)+1, trunc(FLOAT_MAX)*2,
+
+	 immed_badarg,
+	 "list badarg",
+	 {"boxed badarg"}
+	],
+
+    foreach_pair(fun(A,B) -> do_bin_ops(A,B) end, L).
+
+foreach_pair(F, L) ->
+    lists:foreach(
+      fun(A) -> lists:foreach(fun(B) -> F(A,B) end, L) end,
+      L).
+
+do_bin_ops(A, B) ->
+    Fun = fun(Op) ->
+		  Op(A,B),
+		  is_number(A) andalso Op(-A,B),
+		  is_number(B) andalso Op(A,-B),
+		  is_number(A) andalso is_number(B) andalso Op(-A,-B)
+	  end,
+    lists:foreach(Fun,
+		  [fun op_add/2, fun op_sub/2, fun op_mul/2, fun op_div/2]).
+
+op_add(A, B) ->
+    Info = [A,B],
+    R = unify(catch A + B, Info),
+    R = unify(my_apply(erlang,'+',[A,B]), Info),
+    case R of
+	_ when A + B =:= element(1,R) -> ok;
+	{{'EXIT',badarith}, Info} -> ok
+    end.
+
+op_sub(A, B) ->
+    Info = [A,B],
+    R = unify(catch A - B, Info),
+    R = unify(my_apply(erlang,'-',[A,B]), Info),
+    case R of
+	_ when A - B =:= element(1,R) -> ok;
+	{{'EXIT',badarith}, Info} -> ok
+    end.
+
+op_mul(A, B) ->
+    Info = [A,B],
+    R = unify(catch A * B, Info),
+    R = unify(my_apply(erlang,'*',[A,B]), Info),
+    case R of
+	_ when A * B =:= element(1,R) -> ok;
+	{{'EXIT',badarith}, Info} -> ok
+    end.
+
+op_div(A, B) ->
+    Info = [A,B],
+    R = unify(catch A / B, Info),
+    R = unify(my_apply(erlang,'/',[A,B]), Info),
+    case R of
+	_ when A / B =:= element(1,R) -> ok;
+	{{'EXIT',badarith}, Info} -> ok
+    end.
+
+my_apply(M, F, A) ->
+    catch apply(id(M), id(F), A).
+
+% Unify exceptions be removing stack traces.
+% and add argument info to make it easer to debug failed matches.
+unify({'EXIT',{Reason,_Stack}}, Info) ->
+    {{'EXIT', Reason}, Info};
+unify(Other, Info) ->
+    {Other, Info}.
+
+
+-define(epsilon, 1.0e-20).
+check_epsilon(R,Val) ->
+    if erlang:abs(R-Val) < ?epsilon -> ok;
+       true -> ?t:fail({R,Val})
+    end.
+
+t_mul_add_ops(Config) when is_list(Config) ->
+    check_epsilon(op_mul_add(1, 2.0, 1.0, 0.0), 1.0),
+    check_epsilon(op_mul_add(2, 2.0, 1.0, 0.0), 3.0),
+    check_epsilon(op_mul_add(3, 2.0, 1.0, 0.0), 7.0),
+    check_epsilon(op_mul_add(4, 2.0, 1.0, 0.0), 15.0),
+    check_epsilon(op_mul_add(5, 2.0, 1.0, 0.0), 31.0),
+    check_epsilon(op_mul_add(6, 2.0, 1.0, 0.0), 63.0),
+    check_epsilon(op_mul_add(6, 2.0, 1.3, 0.0), 81.9),
+    check_epsilon(op_mul_add(6, 2.03, 1.3, 0.0), 87.06260151458997),
+    ok.
+
+
+op_mul_add(0, _, _, R) -> R;
+op_mul_add(N, A, B, R) when is_float(A), is_float(B), is_float(R) ->
+    op_mul_add(N - 1, A, B, R * A + B).
+

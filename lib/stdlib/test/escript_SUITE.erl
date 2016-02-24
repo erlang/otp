@@ -40,7 +40,7 @@
          unicode/1
 	]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].

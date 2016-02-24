@@ -26,7 +26,7 @@
 	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
       coverage/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -449,7 +449,10 @@ do_map_vars_used(X, Y, Map) ->
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.
     ok = coverage_1(x, a),
-    ok = coverage_1(x, b).
+    ok = coverage_1(x, b),
+
+    %% Cover sys_pre_expand.
+    ok = coverage_3("abc").
 
 coverage_1(B, Tag) ->
     case Tag of
@@ -459,5 +462,7 @@ coverage_1(B, Tag) ->
 
 coverage_2(1, a, x) -> ok;
 coverage_2(2, b, x) -> ok.
+
+coverage_3([$a]++[]++"bc") -> ok.
 
 id(I) -> I.

@@ -42,12 +42,14 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [{group,tool_tests},
      {group,kex},
      {group,service_requests},
+     {group,authentication},
      {group,packet_size_error},
      {group,field_size_error}
     ].
@@ -78,7 +80,9 @@ groups() ->
 			     bad_very_long_service_name,
 			     empty_service_name,
 			     bad_service_name_then_correct
-			    ]}
+			    ]},
+     {authentication, [], [client_handles_keyboard_interactive_0_pwds
+			  ]}
     ].
 
 
@@ -277,12 +281,7 @@ no_common_alg_server_disconnects(Config) ->
 	   {send, hello},
 	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 	   {send, ssh_msg_kexinit},  % with server unsupported 'ssh-dss' !
-	   {match,
-	    {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-		   tcp_closed,
-		   {tcp_error,econnaborted}
-		  ]},
-	    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
 
@@ -309,7 +308,7 @@ no_common_alg_client_disconnects(Config) ->
 			  {send, hello},
 			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 			  {send,  #ssh_msg_kexinit{ % with unsupported "SOME-UNSUPPORTED"
-				     cookie = 247381486335508958743193106082599558706,
+				     cookie = <<80,158,95,51,174,35,73,130,246,141,200,49,180,190,82,234>>,
 				     kex_algorithms = ["diffie-hellman-group1-sha1"],
 				     server_host_key_algorithms = ["SOME-UNSUPPORTED"],  % SIC!
 				     encryption_algorithms_client_to_server = ["aes128-ctr"],
@@ -323,10 +322,7 @@ no_common_alg_client_disconnects(Config) ->
 				     first_kex_packet_follows = false,
 				     reserved = 0
 				    }},
-                     	 {match,
-                     	  {'or',[#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,  _='_'},
-                                tcp_closed]},
-                     	  receive_msg}
+			  {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}
 			 ],
 			 InitialState)
 		      }
@@ -437,10 +433,7 @@ bad_service_name_then_correct(Config) ->
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {send, #ssh_msg_service_request{name = "kdjglkfdjgkldfjglkdfjglkfdjglkj"}},
 	   {send, #ssh_msg_service_request{name = "ssh-connection"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	   ], InitialState).
 
 
@@ -450,10 +443,7 @@ bad_service_name(Config, Name) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {send, #ssh_msg_service_request{name = Name}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
@@ -476,11 +466,7 @@ bad_packet_length(Config, LengthExcess) ->
 		   PacketFun}},
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed,
-			  {tcp_error,econnaborted}
-			 ]},
-		    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
@@ -509,36 +495,96 @@ bad_service_name_length(Config, LengthExcess) ->
 		   PacketFun} },
 	   %% Prohibit remote decoder starvation:	   
 	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, {'or',[#ssh_msg_disconnect{_='_'},
-			  tcp_closed,
-			  {tcp_error,econnaborted}
-			 ]},
-	    receive_msg}
+	   {match, disconnect(), receive_msg}
 	  ], InitialState).
     
+%%%--------------------------------------------------------------------
+%%% This is due to a fault report (OTP-13255) with OpenSSH-6.6.1
+client_handles_keyboard_interactive_0_pwds(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      {ok,_} =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, system_dir(Config)},
+			       {user_dir, user_dir(Config)}]},
+		     receive_hello,
+		     {send, hello},
+
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_failure{authentications = "keyboard-interactive",
+						      partial_success = false}},
+		     
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="keyboard-interactive",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_info_request{name = "",
+							   instruction = "",
+							   language_tag = "",
+							   num_prompts = 1,
+							   data = <<0,0,0,10,80,97,115,115,119,111,114,100,58,32,0>>
+							  }},
+		     {match, #ssh_msg_userauth_info_response{num_responses = 1,
+							     _='_'}, receive_msg},
+		      
+		     %% the next is strange, but openssh 6.6.1 does this and this is what this testcase is about
+		     {send, #ssh_msg_userauth_info_request{name = "",
+							   instruction = "",
+							   language_tag = "",
+							   num_prompts = 0,
+							   data = <<>>
+							  }},
+		     {match, #ssh_msg_userauth_info_response{num_responses = 0,
+							     data = <<>>,
+							     _='_'}, receive_msg},
+		     %% Here we know that the tested fault is fixed
+		     {send, #ssh_msg_userauth_success{}},
+		     close_socket,
+		     print_state
+		    ],
+		    InitialState)
+      end),
+
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config, 
+			 [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]}]
+			).
+
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
 
 %%%---- init_suite and end_suite ---------------------------------------	
 start_apps(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    catch ssh:stop(),
-	    ok = ssh:start(),
-	    [{stop_apps, 
-	      fun() ->
-		      ssh:stop(),
-		      crypto:stop()
-	      end} | Config];
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
-    
+    catch ssh:stop(),
+    ok = ssh:start(),
+    Config.
 
-stop_apps(Config) ->
-    (?v(stop_apps, Config, fun()-> ok end))(),
+stop_apps(_Config) ->
     ssh:stop().
 
 
@@ -644,3 +690,16 @@ connect_and_kex(Config, InitialState) ->
        {match, #ssh_msg_newkeys{_='_'}, receive_msg}
       ],
       InitialState).
+
+%%%----------------------------------------------------------------
+
+%%% For matching peer disconnection
+disconnect() ->
+    disconnect('_').
+
+disconnect(Code) ->
+    {'or',[#ssh_msg_disconnect{code = Code,
+			       _='_'},
+	   tcp_closed,
+	   {tcp_error,econnaborted}
+	  ]}.

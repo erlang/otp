@@ -25,7 +25,7 @@
 	 test_heap_guards/1, guard_bifs/1,
 	 type_tests/1,guard_bif_binary_part/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init/3]).
 -import(lists, [member/2]).

@@ -469,7 +469,8 @@ unforce_tree([#iset{var=#c_var{name=V},arg=Arg0}|Es], D0) ->
     unforce_tree(Es, D);
 unforce_tree([#icall{}=Call], D) ->
     unforce_tree_subst(Call, D);
-unforce_tree([Top], _) -> Top.
+unforce_tree([#c_var{name=V}], D) ->
+    gb_trees:get(V, D).
 
 unforce_tree_subst(#icall{module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},
@@ -804,7 +805,7 @@ map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
 
 is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
-is_valid_map_src(#c_var{})  -> true;
+is_valid_map_src(#c_var{}=Var)  -> not cerl:is_c_fname(Var);
 is_valid_map_src(_)         -> false.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
@@ -1852,33 +1853,37 @@ uguard(Pg, Gs0, Ks, St0) ->
 %% uexprs([Kexpr], [KnownVar], State) -> {[Kexpr],State}.
 
 uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
-    %% Optimise for simple set of unbound variable.
-    case upattern(P0, Ks, St0) of
-	{#c_var{},[],_Pvs,_Pus,_} ->
-	    %% Throw our work away and just set to iset.
+    case upat_is_new_var(P0, Ks) of
+	true ->
+	    %% Assignment to a new variable.
 	    uexprs([#iset{var=P0,arg=Arg}|Les], Ks, St0);
-	_Other ->
-	    %% Throw our work away and set to icase.
-	    if
-		Les =:= [] ->
-		    %% Need to explicitly return match "value", make
-		    %% safe for efficiency.
-		    {La0,Lps,St1} = force_safe(Arg, St0),
-		    La = mark_compiler_generated(La0),
-		    Mc = #iclause{anno=A,pats=[P0],guard=[],body=[La]},
-		    uexprs(Lps ++ [#icase{anno=A,
-					  args=[La0],clauses=[Mc],fc=Fc}], Ks, St1);
-		true ->
-		    Mc = #iclause{anno=A,pats=[P0],guard=[],body=Les},
-		    uexprs([#icase{anno=A,args=[Arg],
-				   clauses=[Mc],fc=Fc}], Ks, St0)
-	    end
+	false when Les =:= [] ->
+	    %% Need to explicitly return match "value", make
+	    %% safe for efficiency.
+	    {La0,Lps,St1} = force_safe(Arg, St0),
+	    La = mark_compiler_generated(La0),
+	    Mc = #iclause{anno=A,pats=[P0],guard=[],body=[La]},
+	    uexprs(Lps ++ [#icase{anno=A,
+				  args=[La0],clauses=[Mc],fc=Fc}], Ks, St1);
+	false ->
+	    Mc = #iclause{anno=A,pats=[P0],guard=[],body=Les},
+	    uexprs([#icase{anno=A,args=[Arg],
+			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
     {[Le1|Les1],St2};
 uexprs([], _, St) -> {[],St}.
+
+%% upat_is_new_var(Pattern, [KnownVar]) -> true|false.
+%%  Test whether the pattern is a single, previously unknown
+%%  variable.
+
+upat_is_new_var(#c_var{name=V}, Ks) ->
+    not is_element(V, Ks);
+upat_is_new_var(_, _) ->
+    false.
 
 %% Mark a "safe" as compiler-generated.
 mark_compiler_generated(#c_cons{anno=A,hd=H,tl=T}) ->

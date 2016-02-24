@@ -71,6 +71,7 @@ atom absoluteURI
 atom ac
 atom accessor
 atom active
+atom active_tasks
 atom all
 atom all_but_first
 atom all_names
@@ -101,6 +102,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom await_microstate_accounting_modifications
 atom await_port_send_result
 atom await_proc_exit
 atom await_result
@@ -117,10 +119,9 @@ atom bif_timer_server
 atom binary
 atom binary_bin_to_list_trap
 atom binary_copy_trap
+atom binary_find_trap
 atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
-atom binary_match_trap
-atom binary_matches_trap
 atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
@@ -172,6 +173,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom counters
 atom cpu
 atom cpu_timestamp
 atom cr
@@ -210,6 +212,7 @@ atom dsend_continue_trap
 atom dunlink
 atom duplicate_bag
 atom dupnames
+atom einval
 atom elib_malloc
 atom emulator
 atom enable_trace
@@ -257,6 +260,7 @@ atom functions
 atom function_clause
 atom garbage_collecting
 atom garbage_collection
+atom garbage_collection_info
 atom gc_end
 atom gc_start
 atom Ge='>='
@@ -267,6 +271,7 @@ atom get_tcw
 atom getenv
 atom gather_gc_info_result
 atom gather_io_bytes
+atom gather_microstate_accounting_result
 atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked
@@ -351,17 +356,20 @@ atom memory_internal
 atom memory_types
 atom message
 atom message_binary
+atom message_queue_data
 atom message_queue_len
 atom messages
 atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microstate_accounting
 atom milli_seconds
 atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
 atom Minus='-'
+atom mixed
 atom module
 atom module_info
 atom monitored_by
@@ -369,6 +377,7 @@ atom monitor
 atom monitor_nodes
 atom monitors
 atom monotonic
+atom monotonic_timestamp
 atom more
 atom multi_scheduling
 atom multiline
@@ -424,10 +433,12 @@ atom notify
 atom notsup
 atom nouse_stdio
 atom objects
+atom off_heap
 atom offset
 atom ok
 atom old_heap_block_size
 atom old_heap_size
+atom on_heap
 atom on_load
 atom open
 atom open_error
@@ -438,13 +449,6 @@ atom orelse
 atom os_pid
 atom os_type
 atom os_version
-atom ose_bg_proc
-atom ose_int_proc
-atom ose_phantom
-atom ose_pri_proc
-atom ose_process_prio
-atom ose_process_type
-atom ose_ti_proc
 atom out
 atom out_exited
 atom out_exiting
@@ -512,6 +516,7 @@ atom return_from
 atom return_to
 atom return_trace
 atom run_queue
+atom run_queue_lengths
 atom runnable
 atom runnable_ports
 atom runnable_procs
@@ -557,6 +562,7 @@ atom static
 atom stderr_to_stdout
 atom stop
 atom stream
+atom strict_monotonic_timestamp
 atom sunrm
 atom suspend
 atom suspended
@@ -579,12 +585,16 @@ atom timeout_value
 atom Times='*'
 atom timestamp
 atom total
+atom total_active_tasks
 atom total_heap_size
+atom total_run_queue_lengths
 atom tpkt
 atom trace trace_ts traced 
 atom trace_control_word
 atom tracer
 atom trap_exit
+atom trim
+atom trim_all
 atom try_clause
 atom true
 atom tuple

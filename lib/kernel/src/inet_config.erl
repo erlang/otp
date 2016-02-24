@@ -188,9 +188,6 @@ do_load_resolv({win32,Type}, longnames) ->
     win32_load_from_registry(Type),
     inet_db:set_lookup([native]);
 
-do_load_resolv({ose,_}, _) ->
-    inet_db:set_lookup([file]);
-
 do_load_resolv(_, _) ->
     inet_db:set_lookup([native]).
 

@@ -38,7 +38,7 @@
 	 system_monitor_long_schedule/1,
 	 bad_flag/1, trace_delivered/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% Internal exports
 -export([process/1]).
@@ -933,7 +933,7 @@ suspend_exit(suite) ->
     [];
 suspend_exit(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
-    ?line random:seed(4711,17,4711),
+    rand:seed(exsplus, {4711,17,4711}),
     ?line do_suspend_exit(5000),
     ?line test_server:timetrap_cancel(Dog),
     ?line ok.
@@ -941,7 +941,7 @@ suspend_exit(Config) when is_list(Config) ->
 do_suspend_exit(0) ->
     ?line ok;
 do_suspend_exit(N) ->
-    ?line Work = random:uniform(50),
+    Work = rand:uniform(50),
     ?line Parent = self(),
     ?line {Suspendee, Mon2}
 	= spawn_monitor(fun () ->

@@ -28,7 +28,7 @@
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -compile([no_jopt,time]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].

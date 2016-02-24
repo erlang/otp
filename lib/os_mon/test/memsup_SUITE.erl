@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(memsup_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).

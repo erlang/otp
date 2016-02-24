@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,371 +39,390 @@
   <section>
     <title>Getting Started</title>
 
-    <p>The easiest way to start Crashdump Viewer is to use the
-    provided shell script named <c>cdv</c> with the full path to the
-    erlang crashdump as an argument. The script can be found in the
-    priv directory of the <c>observer</c> application. This starts the
-    Crashdump Viewer GUI and loads the given file. If no file name is
-    given, a file dialog will be opened where the file can be
+    <p>The easiest way to start Crashdump Viewer is to use
+    shell script <c>cdv</c> with the full path to the
+    Erlang crashdump as argument. The script is located in
+    directory <c>priv</c> of the Observer application. This starts the
+    Crashdump Viewer GUI and loads the specified file. If no filename is
+    specified, a file dialog is opened where the file can be
     selected.</p>
 
-    <p>Under Windows the batch file <c>cdv.bat</c> can be used.</p>
+    <p>Under Windows, the batch file <c>cdv.bat</c> can be used.</p>
 
-    <p>It is also possible to start the Crashdump Viewer from within
-    an erlang node by calling <seealso
+    <p>Crashdump Viewer can also be started from
+    an Erlang node by calling <seealso
     marker="crashdump_viewer#start/0">crashdump_viewer:start/0</seealso>
     or <seealso
     marker="crashdump_viewer#start/1">crashdump_viewer:start/1</seealso>.</p>
   </section>
 
   <section>
-    <title>The graphical interface</title>
+    <title>GUI</title>
 
-    <p>The main window is opened when Crashdump Viewer has loaded a
-    crashdump. It contains a title bar, a menu bar, a number of
-    information panels and a status bar.</p>
+    <p>The GUI main window is opened when Crashdump Viewer has loaded a
+    crashdump. It contains a title bar, a menu bar,
+    information tabs, and a status bar.</p>
 
     <p>The title bar shows the name of the currently loaded
     crashdump.</p>
 
     <p>The menu bar contains a <em>File</em> menu and a <em>Help</em>
-    menu. From the File menu a new crashdump can be loaded or the tool
-    can be terminated. From the Help menu this user's guide and the
-    chapter "How to interpret the Erlang crash dumps" from the user's
-    guide for Erlang runtime system can be opened. "How to interpret
+    menu. From the <em>File</em> menu, a new crashdump can be loaded or 
+    the tool can be terminated. From the <em>Help</em> menu, this User's Guide 
+    and section "How to interpret the Erlang crash dumps" from the
+    ERTS application can be opened. "How to interpret
     the Erlang crash dumps" describes the raw crashdumps in
-    detail. Here you will also find information about each single
-    field in the different information pages. This document can also
-    be found directly in the OTP online documentation, via the Erlang
-    runtime system user's guide.</p>
+    detail and includes information about each
+    field in the information pages."How to interpret the Erlang crash dumps" 
+    is also available in the OTP online documentation.</p>
 
-    <p>The status bar at the bottom of the window will show a warning
+    <p>The status bar at the bottom of the window shows a warning
     if the currently loaded dump is truncated.</p>
 
-    <p>The centre area of the main window contains the information
-    panels. Each panel displays information about a specific item or a
-    list of items. A panel is selected by clicking the title of the
-    tab.</p>
+    <p>The center area of the main window contains the information
+    tabs. Each tab displays information about a specific item or a
+    list of items. Select a tab by clicking the tab title.</p>
 
-    <p>From panels that display lists of items, for example the
-    Processes- or the Ports panel, a new window with further
-    information can be opened by double clicking a row or by right
-    clicking the row and selecting an item from the drop down
+    <p>From tabs displaying lists of items, for example, the
+    <em>Processes</em> tab or the <em>Ports</em> tab, a new window with 
+    more information can be opened by double-clicking a row or by right-
+    clicking the row and selecting an item from the drop-down
     menu. The new window is called a detail window. Detail windows can
-    be opened for processes, ports, nodes and modules.</p>
+    be opened for processes, ports, nodes, and modules.</p>
 
-    <p>The various information shown in a detail window might contain
-    links to processes or ports. Clicking one of these links will open
+    <p>The information shown in a detail window can contain
+    links to processes or ports. Clicking one of these links opens
     the detail window for the process or port in question. If the
-    process or port resided on a remote node, there will be no
-    information available. Clicking the link will then pop up a dialog
-    where you can choose whether to open the detail window for the
-    remote node or not.
+    process or port resides on a remote node, no
+    information is available. Clicking the link then displays a dialog
+    where you can choose to open the detail window for the
+    remote node.
     </p>
 
-    <p>Some of the panels contain a left hand menu where sub items of
-    the panel's information area can be selected. Click on one of the
-    rows, and the information will be displayed in the right hand
+    <p>Some tabs contain a left-hand menu where subitems of
+    the information area can be selected. Click one of the
+    rows, and the information is displayed in the right-hand
     information area.</p>
   </section>
 
   <section>
-    <title>Data content</title>
+    <title>Tab Content</title>
 
-    <p>Each panel in the main window contains an information
-    page. If no information is found for an item, the page will be
-    empty. The reason for not finding any information about an item
-    can be that the dump is truncated, that it is a dump from an old
-    OTP release in which this item was not written or that the item
-    simply wasn't present in the system at the point of failure.</p>
+    <p>Each tab in the main window contains an information
+    page. If no information is found for an item, the page is
+    empty. The reason for not finding information about an item
+    can be the following:</p>
+    <list type="bulleted">
+       <item>It is a dump from an old OTP release in which this item was not written.</item>
+       <item>The item was not present in the system at the point of failure.</item>
+       <item>The dump is truncated. In this case, a warning is displayed in the
+       status bar of the main window.</item>
+     </list>
 
-    <p>If the dump was truncated, a warning is displayed in the
-    status bar of the main window.</p>
+    <p></p>
 
-    <p>Even if some information about an item exists, there might be
+    <p>Even if some information about an item exists, there can be
     empty fields if the dump originates from an old OTP release.</p>
 
-    <p>The value "-1" in any field means "unknown", and in most
+    <p>The value <c>-1</c> in any field means "unknown", and in most
     cases it means that the dump was truncated somewhere around this
     field.</p>
 
-    <p>The sections below describe some of the fields in the
-    different information panels. These are fields that do not exist
+    <p>The following sections describe some of the fields in the
+    information tabs. These are fields that do not exist
     in the raw crashdump, or in some way differ from the fields in
-    the raw crashdump. Details about other fields can be found in
-    the user's guide for the Erlang runtime system, in the chapter
-    "How to interpret the Erlang crash dumps". That chapter can also
-    be opened from the Help menu in the Crashdump Viewer's main
-    window, and there are also direct links from the specific
-    sections below to related information in "How to interpret the
-    Erlang crash dumps".</p>
+    the raw crashdump. For details about other fields, see
+    the 
+    <seealso marker="erts:users_guide">ERTS User's Guide</seealso>, section
+    "How to interpret the Erlang crash dumps". That section can also
+    be opened from the <em>Help</em> menu in the main window.
+    There are also links from the following sections to related information 
+    in "How to interpret the Erlang crash dumps".</p>
   </section>
 
   <section>
     <marker id="general_info"/>
-    <title>General information</title>
+    <title>General Tab</title>
 
-    <p>The <em>General information</em> panel shows a short overview
+    <p>Tab <em>General</em> shows a short overview
     of the dump.</p>
 
-    <p>The following fields are not described in the Erlang runtime
-    system user's guide:</p>
+    <p>The following fields are not described in the ERTS
+    User's Guide:</p>
 
     <taglist>
-      <tag><em>Crashdump created on</em></tag>
-      <item>Time of failure.</item>
+      <tag><c>Crashdump created on</c></tag>
+      <item><p>Time of failure.</p></item>
 
-      <tag><em>Memory allocated</em></tag>
-      <item>The total number of bytes allocated, equivalent to
-      <c>c:memory(total)</c>.</item>
+      <tag><c>Memory allocated</c></tag>
+      <item><p>The total number of bytes allocated, equivalent to
+      <c>c:memory(total)</c>.</p></item>
 
-      <tag><em>Memory maximum</em></tag>
-      <item>The maximum number of bytes that has been allocated during
-      the lifetime of the originating node. This will only be shown if
-      the Erlang runtime system was run instrumented.</item>
+      <tag><c>Memory maximum</c></tag>
+      <item><p>The maximum number of bytes that has been allocated during
+      the lifetime of the originating node. This is only shown if
+      the Erlang runtime system is run instrumented.</p></item>
 
-      <tag><em>Atoms</em></tag>
-      <item>If available in the dump, this is the total number of
-      atoms in the atom table. If the size of the atom table is not
-      available, the number of atoms visible in the dump is
-      presented.</item>
+      <tag><c>Atoms</c></tag>
+      <item><p>If available in the dump, this is the total number of
+      atoms in the atom table. If the size of the atom table is
+      unavailable, the number of atoms visible in the dump is
+      displayed.</p></item>
 
-      <tag><em>Processes, ETS tables and Funs</em></tag>
-      <item>The number of processes, ETS tables and funs visible in
-      the dump.</item>
+      <tag><c>Processes</c></tag>
+      <item><p>The number of processes visible in the dump.</p></item>
+
+      <tag><c>ETS tables</c></tag>
+      <item><p>The number of ETS tables visible in the dump.</p></item>
+
+      <tag><c>Funs</c></tag>
+      <item><p>The number of funs visible in the dump.</p></item>
     </taglist>
 
-    <p>
-      <seealso marker="erts:crash_dump#general_info">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#general_info">General Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="processes"/>
-    <title>Processes</title>
+    <title>Processes Tab</title>
 
-    <p>The <em>Processes</em> panel shows a list of all processes
-    found in the crashdump, including some short information about
-    each process. By default the processes are sorted by their
-    pids. To sort by other topic, click the desired column
-    heading.</p>
+    <p>Tab <em>Processes</em> shows a list of all processes
+    found in the crashdump, including brief information about
+    each process. By default, the processes are sorted by their
+    pids. To sort by another topic, click the desired column heading.</p>
 
-    <p>The <em>Memory</em> column shows the 'Memory' field which was
-    added to crashdumps in R16B01. This is the total amount of memory
+    <p>Column <em>Memory</em> shows the 'Memory' field that was
+    added to crashdumps in Erlang/OTP R16B01. This is the total amount of memory
     used by the process. For crashdumps from earlier releases, this
-    column shows the 'Stack+heap' field. The value shown is always in
-    bytes.</p>
+    column shows the 'Stack+heap' field. The value is always in bytes.</p>
 
-    <p>To view detailed information about a specific process, double
-    click the row in the list or right click the row and select
-    "Properties for &lt;pid&gt;".</p>
+    <p>To view detailed information about a specific process, double-
+    click the row in the list, or right-click the row and select
+    <em>Properties for &lt;pid&gt;</em>.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#processes">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#processes">Process Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="ports"/>
-    <title>Ports</title>
+    <title>Ports Tab</title>
 
-    <p>The <em>Ports</em> panel is similar to the <em>Processes</em>
-    panel, except it lists all ports found in the crashdump.</p>
+    <p>Tab <em>Ports</em> is similar to the <em>Processes</em>
+    tab, except it lists all ports found in the crashdump.</p>
 
-    <p>To see more details about a specific port, dobule click the row
-    or right click it and select "Properties for &lt;port&gt;". From
-    the right click menu you can also select "Properties for
-    &lt;pid&gt;", where &lt;pid&gt; is the process connected to the
+    <p>To view more details about a specific port, double-click the row
+    or right-click it and select <em>Properties for &lt;port&gt;</em>. From
+    the right-click menu, you can also select <em>Properties for
+    &lt;pid&gt;</em>, where <c>&lt;pid&gt;</c> is the process connected to the
     port.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#ports">
-      More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#ports">Port Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="ets_tables"/><marker id="internal_ets_tables"/>
-    <title>ETS tables</title>
+    <title>ETS Tables Tab</title>
 
-    <p>The <em>ETS Tables</em> panel shows all ETS table information
-    found in the dump. The 'Id' is the same as the 'Table' field found
-    in the raw crashdump, and 'Memory' is the 'Words' field from the
-    raw crashdump translated into bytes. For tree tables there will
-    be no value in the 'Objects' field.</p>
+    <p>Tab <em>ETS Tables</em> shows all ETS table information
+    found in the dump. <em>Id</em> is the same as the 'Table' field
+    in the raw crashdump. <em>Memory</em> is the 'Words' field from the
+    raw crashdump translated into bytes. For tree tables, there is
+    no value in the 'Objects' field.</p>
 
-    <p>To open the detailed information page about the table, double
-    click or right click the row and select "Properties for
-    'Identifier'".</p>
+    <p>To open the detailed information page about the table, double-
+    click, or right-click the row and select <em>Properties for
+    'Identifier'</em>.</p>
 
     <p>To open the detailed information page about the owner process
-    of an ETS table, right click the row and select "Properties for
-    &lt;pid&gt;".</p>
+    of an ETS table, right-click the row and select <em>Properties for
+    &lt;pid&gt;</em>.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#ets_tables">
-      More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#ets_tables">ETS Tables</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="timers"/>
-    <title>Timers</title>
+    <title>Timers Tab</title>
 
-    <p>The <em>Timers</em> panel shows all timer information found in
+    <p>Tab <em>Timers</em> shows all timer information found in
     the dump.</p>
 
     <p>To open the detailed information page about the owner process
-    of a timer, right click the row and select "Properties for
-    &lt;pid&gt;".</p>
+    of a timer, right-click the row and select <em>Properties for
+    &lt;pid&gt;</em>.</p>
 
-    <p>Double clicking a row in the Timers panel has no effect.</p>
+    <p>Double-clicking a row in the <em>Timers</em> tab has no effect.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#timers">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#timers">Timers</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="schedulers"/>
-    <title>Schedulers</title>
+    <title>Schedulers Tab</title>
 
-    <p>The <em>Schedulers</em> panel shows all scheduler information
+    <p>Tab <em>Schedulers</em> shows all scheduler information
     found in the dump.</p>
 
     <p>To open the detailed information page about the scheduler,
-    double click or right click the row and select "Properties for
-    'Identifier'".</p>
+    double-click, or right-click the row and select <em>Properties for
+    'Identifier'</em>.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#scheduler">Scheduler Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="funs"/>
-    <title>Funs</title>
+    <title>Funs Tab</title>
 
-    <p>The <em>Funs</em> panel shows all Fun information found in the
+    <p>Tab <em>Funs</em> shows all fun information found in the
     dump.</p>
 
     <p>To open the detailed information page about the module to which
-    the fun belongs, right click the row and select "Properties for
-    &lt;mod&gt;".</p>
+    the fun belongs, right-click the row and select <em>Properties for
+    &lt;mod&gt;</em>.</p>
 
-    <p>Double clicking a row in the Funs panel has no effect.</p>
+    <p>Double-clicking a row in the <em>Funs</em> tab has no effect.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#funs">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#funs">Fun Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="atoms"/>
-    <title>Atoms</title>
+    <title>Atoms Tab</title>
 
-    <p>The <em>Atoms</em> panel lists all atoms found in the dump. By
+    <p>Tab <em>Atoms</em> lists all atoms found in the dump. By
     default the atoms are sorted in creation order from first to
     last. This is opposite of the raw crashdump where atoms are listed
     from last to first, meaning that if the dump was truncated in the
-    middle of the atom list only the last created atoms will be seen
-    in the <em>Atoms</em> panel.</p>
+    middle of the atom list, only the last created atoms are visible
+    in the <em>Atoms</em> tab.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#atoms">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#atoms">Atoms</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="distribution_info"/>
-    <title>Nodes</title>
+    <title>Nodes Tab</title>
 
-    <p>The <em>Nodes</em> panel shows a list of all external erlang
-    nodes which are referenced from the crashdump.</p>
+    <p>Tab <em>Nodes</em> shows a list of all external Erlang
+    nodes that are referenced from the crashdump.</p>
 
-    <p>If the page is empty it either means that the crashed node was
-    not distributed, that it was distributed but had no references to
-    other nodes or that the dump was truncated.</p>
+    <p>If the page is empty, it means either of the following:</p>
+    <list type="bulleted">
+       <item>The crashed node is not distributed.</item>
+       <item>The crashed node is distributed but has no references to other nodes.</item>
+       <item>The dump is truncated.</item>
+     </list>
 
-    <p>If the node was distributed, all referenced nodes are
-    shown. The column named <em>Connection type</em> shows if the node
-    is visible, hidden or not connected. Visible nodes are alive nodes
+    <p>If the node is distributed, all referenced nodes are
+    visible. Column <em>Connection type</em> shows if the node
+    is visible, hidden, or not connected. Visible nodes are alive nodes
     with a living connection to the originating node. Hidden nodes are
-    the same as visible nodes, except they are started with the
-    <c>-hidden</c> flag. Not connected nodes are nodes that are not
+    the same as visible nodes, except they are started with flag
+    <c>-hidden</c>. Not connected nodes are nodes that are not
     connected to the originating node anymore, but references
-    (i.e. process or port identifiers) exist.</p>
+    (that is, process or port identifiers) exist.</p>
 
-    <p>To see more detailed information about a node, double click the
-    row or right click the row and select "Properties for node
-    &lt;node&gt;". From the right click menu you can also select
-    "Properties for &lt;port&gt;", to open the detailed information
+    <p>To see more detailed information about a node, double-click the
+    row, or right-click the row and select <em>Properties for node
+    &lt;node&gt;</em>. From the right-click menu, you can also select
+    <em>Properties for &lt;port&gt;</em>, to open the detailed information
     window for the controlling port.</p>
 
-    <p>In the detailed information window for a node, any exsisting
+    <p>In the detailed information window for a node, any existing
     links and monitors between processes on the originating node and
-    the connected node are shown. <em>Extra Info</em> may contain
-    debug information (i.e. special information written if the
-    emulator is debug compiled) or error information.</p>
+    the connected node are displayed. <em>Extra Info</em> can contain
+    debug information (that is, special information written if the
+    emulator is debug-compiled) or error information.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#distribution_info">
-      More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#distribution_info">Distribution Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="loaded_modules"/>
-    <title>Loaded modules</title>
+    <title>Modules Tab</title>
 
-    <p>The <em>Modules</em> panel lists all modules that were loaded
-    on the originating node, and the current size of the code. If old
-    code exsits, the old size is also shown.</p>
+    <p>Tab <em>Modules</em> lists all modules loaded
+    on the originating node, and the current code size. If old
+    code exists, the old size is also shown.</p>
 
-    <p>To see detailed information about a specific module, double
-    click the row or right click it and select "Properties for
-    &lt;mod&gt;".</p>
+    <p>To view detailed information about a specific module, double-
+    click the row, or right-click it and select <em>Properties for
+    &lt;mod&gt;</em>.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#loaded_modules">
-      More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#loaded_modules">Loaded Module Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 
   <section>
     <marker id="memory"/>
-    <title>Memory</title>
+    <title>Memory Tab</title>
 
-    <p>The <em>Memory</em> panel shows memory and allocator
-    information. From the left hand menu you can select:</p>
+    <p>Tab <em>Memory</em> shows memory and allocator
+    information. From the left-hand menu you can select the following:</p>
 
-      <list>
+      <taglist>
+	<tag><em>Memory</em></tag>
+	<item><p>See
+	<seealso marker="erts:crash_dump#memory">Memory Information</seealso>
+	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
-	<item><em>Memory</em> <seealso
-	marker="erts:crash_dump#memory">More...</seealso></item>
+	<tag><em>Allocator Summary</em></tag>
+	<item><p>This page presents a summary of values from all allocators underneath it.</p></item>
 
-	<item><em>Allocator Summary</em> - this page presents a
-	summary of values from all allocators below.</item>
+	<tag><em>&lt;Allocator&gt;</em></tag>
+	<item><p>One entry per allocator. See
+	<seealso marker="erts:crash_dump#allocator">Allocator</seealso>
+	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
-	<item><em>&lt;Allocator&gt;</em> - one entry per allocator
-	<seealso
-	marker="erts:crash_dump#allocator">More...</seealso></item>
+	<tag><em>Allocated Areas</em></tag>
+	<item><p>See
+	<seealso marker="erts:crash_dump#allocated_areas">Allocated Areas</seealso>
+	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
-	<item><em>Allocated Areas</em> <seealso
-	marker="erts:crash_dump#allocated_areas">More...</seealso></item>
-
-      </list>
+      </taglist>
   </section>
 
   <section>
     <marker id="internal_tables"/>
-    <title>Internal tables</title>
+    <title>Internal Tables Tab</title>
 
-    <p>On the <em>Internal Tables</em> panel you can choose from the
-    left hand menu to see hash tables or index tables.</p>
+    <p>On tab <em>Internal Tables</em> you can from the
+    left-hand menu select <em>Hash Tables</em>, <em>Index Tables</em>, 
+    or <em>Internal ETS Tables</em>.</p>
 
-    <p>
-      <seealso marker="erts:crash_dump#internal_tables">More...</seealso>
+    <p>For details, see
+      <seealso marker="erts:crash_dump#internal_tables">Internal Table Information</seealso>
+      in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
 </chapter>

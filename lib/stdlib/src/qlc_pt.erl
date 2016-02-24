@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ exclude_integers_from_unique_line_numbers(Forms, NodeInfo) ->
 
 find_integers(Forms) ->
     F = fun(A) ->
-                Fs1 = erl_parse:map_anno(fun(_) -> A end, Forms),
+                Fs1 = map_anno(fun(_) -> A end, Forms),
                 ordsets:from_list(integers(Fs1, []))
         end,
     ordsets:to_list(ordsets:intersection(F(anno0()), F(anno1()))).
@@ -319,13 +319,13 @@ badarg(Forms, State) ->
     E0.
 
 lc_nodes(E, NodeInfo) ->
-    erl_parse:map_anno(fun(Anno) ->
-                               N = erl_anno:line(Anno),
-                               [{N, Data}] = ets:lookup(NodeInfo, N),
-                               NData = Data#{inside_lc => true},
-                               true = ets:insert(NodeInfo, {N, NData}),
-                               Anno
-                       end, E).
+    map_anno(fun(Anno) ->
+                     N = erl_anno:line(Anno),
+                     [{N, Data}] = ets:lookup(NodeInfo, N),
+                     NData = Data#{inside_lc => true},
+                     true = ets:insert(NodeInfo, {N, NData}),
+                     Anno
+             end, E).
 
 used_genvar_messages(MsL, S) ->
     [{File,[{Loc,?APIMOD,{used_generator_variable,V}}]}
@@ -416,7 +416,7 @@ intro_anno(LC, Where, QId, NodeInfo) ->
                   true = ets:insert(NodeInfo, {Location,Data}),
                   Anno
           end,
-    erl_parse:map_anno(Fun, save_anno(LC, NodeInfo)).
+    map_anno(Fun, save_anno(LC, NodeInfo)).
 
 compile_errors(FormsNoShadows) ->
     case compile_forms(FormsNoShadows, []) of
@@ -1650,7 +1650,7 @@ reset_anno(T) ->
     set_anno(T, anno0()).
 
 set_anno(T, A) ->
-    erl_parse:map_anno(fun(_L) -> A end, T).
+    map_anno(fun(_L) -> A end, T).
 
 -record(fstate, {state, bind_fun, imported}).
 
@@ -1914,9 +1914,9 @@ expand_pattern_records(P, State) ->
 expand_expr_records(E, State) ->
     RecordDefs = State#state.records,
     A = anno1(),
-    Forms = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[pe(E)]}]}],
-    [{function,_,foo,0,[{clause,_,[],[],[NE]}]}] = 
-        erl_expand_records:module(Forms, [no_strict_record_tests]),
+    Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[pe(E)]}]}],
+    Forms = erl_expand_records:module(Forms0, [no_strict_record_tests]),
+    {function,_,foo,0,[{clause,_,[],[],[NE]}]} = lists:last(Forms),
     NE.
 
 %% Partial evaluation.
@@ -2609,7 +2609,7 @@ save_anno(Abstr, NodeInfo) ->
                 true = ets:insert(NodeInfo, Data),
                 erl_anno:new(N)
         end,
-    erl_parse:map_anno(F, Abstr).
+    map_anno(F, Abstr).
 
 next_slot(T) ->
     I = ets:update_counter(T, var_n, 1),
@@ -2633,7 +2633,7 @@ restore_anno(Abstr, NodeInfo) ->
                         Anno
                 end
         end,
-    erl_parse:map_anno(F, Abstr).
+    map_anno(F, Abstr).
 
 restore_loc(Location, #state{node_info = NodeInfo}) ->
   case ets:lookup(NodeInfo, Location) of
@@ -2871,6 +2871,14 @@ var_mapfold(F, A0, [E0 | Es0]) ->
     {[E | Es], A};
 var_mapfold(_F, A, E) ->
     {E, A}.
+
+map_anno(F, AbstrList) when is_list(AbstrList) ->
+    [map_anno1(F, Abstr) || Abstr <- AbstrList];
+map_anno(F, Abstr) ->
+    map_anno1(F, Abstr).
+
+map_anno1(F, Abstr) ->
+    erl_parse:map_anno(F, Abstr).
 
 family_list(L) ->
     sofs:to_external(family(L)).

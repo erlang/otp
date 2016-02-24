@@ -54,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/system_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 # ----------------------------------------------------
 # Targets

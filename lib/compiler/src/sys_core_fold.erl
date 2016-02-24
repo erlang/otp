@@ -2793,12 +2793,18 @@ extract_type_1(Expr, Sub) ->
 	true -> bool
     end.
 
+returns_integer('band', [_,_]) -> true;
+returns_integer('bnot', [_]) -> true;
+returns_integer('bor', [_,_]) -> true;
+returns_integer('bxor', [_,_]) -> true;
 returns_integer(bit_size, [_]) -> true;
 returns_integer('bsl', [_,_]) -> true;
 returns_integer('bsr', [_,_]) -> true;
 returns_integer(byte_size, [_]) -> true;
+returns_integer('div', [_,_]) -> true;
 returns_integer(length, [_]) -> true;
 returns_integer('rem', [_,_]) -> true;
+returns_integer('round', [_]) -> true;
 returns_integer(size, [_]) -> true;
 returns_integer(tuple_size, [_]) -> true;
 returns_integer(trunc, [_]) -> true;

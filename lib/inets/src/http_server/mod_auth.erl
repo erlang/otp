@@ -168,38 +168,38 @@ load("AuthDBType " ++ Type,
     end;
 
 load("require " ++ Require,[{directory, {Directory, DirData}}|Rest]) ->
-    case inets_regexp:split(Require," ") of
-	{ok,["user"|Users]} ->
+    case re:split(Require," ", [{return, list}]) of
+	["user" | Users] ->
 	    {ok,[{directory, {Directory,
-		  [{require_user,Users}|DirData]}} | Rest]};
-	{ok,["group"|Groups]} ->
+			      [{require_user,Users}|DirData]}} | Rest]};
+	["group"|Groups] ->
 	    {ok,[{directory, {Directory,
-		  [{require_group,Groups}|DirData]}} | Rest]};
-	{ok,_} ->
+			      [{require_group,Groups}|DirData]}} | Rest]};
+	_ ->
 	    {error,?NICE(string:strip(Require) ++" is an invalid require")}
     end;
 
 load("allow " ++ Allow,[{directory, {Directory, DirData}}|Rest]) ->
-    case inets_regexp:split(Allow," ") of
-	{ok,["from","all"]} ->
+    case re:split(Allow," ", [{return, list}]) of
+	["from","all"] ->
 	    {ok,[{directory, {Directory,
 		  [{allow_from,all}|DirData]}} | Rest]};
-	{ok,["from"|Hosts]} ->
+	["from"|Hosts] ->
 	    {ok,[{directory, {Directory,
 		  [{allow_from,Hosts}|DirData]}} | Rest]};
-	{ok,_} ->
+	_ ->
 	    {error,?NICE(string:strip(Allow) ++" is an invalid allow")}
     end;
 
 load("deny " ++ Deny,[{directory, {Directory, DirData}}|Rest]) ->
-    case inets_regexp:split(Deny," ") of
-	{ok, ["from", "all"]} ->
+    case re:split(Deny," ", [{return, list}]) of
+	["from", "all"] ->
 	    {ok,[{{directory, Directory,
 		  [{deny_from, all}|DirData]}} | Rest]};
-	{ok, ["from"|Hosts]} ->
+	["from"|Hosts] ->
 	    {ok,[{{directory, Directory,
 		   [{deny_from, Hosts}|DirData]}} | Rest]};
-	{ok, _} ->
+	_ ->
 	    {error,?NICE(string:strip(Deny) ++" is an invalid deny")}
     end;
 
@@ -561,12 +561,12 @@ secret_path(_Path, [], to_be_found) ->
 secret_path(_Path, [], Directory) ->
     {yes, Directory};
 secret_path(Path, [[NewDirectory] | Rest], Directory) ->
-    case inets_regexp:match(Path, NewDirectory) of
-	{match, _, _} when Directory =:= to_be_found ->
+    case re:run(Path, NewDirectory, [{capture, first}]) of
+	{match, _} when Directory =:= to_be_found ->
 	    secret_path(Path, Rest, NewDirectory);
-	{match, _, Length} when Length > length(Directory)->
+	{match, [{_, Length}]} when Length > length(Directory)->
 	    secret_path(Path, Rest,NewDirectory);
-	{match, _, _Length} ->
+	{match, _} ->
 	    secret_path(Path, Rest, Directory);
 	nomatch ->
 	    secret_path(Path, Rest, Directory)
@@ -588,8 +588,8 @@ validate_addr(_RemoteAddr, none) ->           % When called from 'deny'
 validate_addr(_RemoteAddr, []) ->
     false;
 validate_addr(RemoteAddr, [HostRegExp | Rest]) ->
-    case inets_regexp:match(RemoteAddr, HostRegExp) of
-	{match,_,_} ->
+    case re:run(RemoteAddr, HostRegExp, [{capture, none}]) of
+	match ->
 	    true;
 	nomatch ->
 	    validate_addr(RemoteAddr,Rest)

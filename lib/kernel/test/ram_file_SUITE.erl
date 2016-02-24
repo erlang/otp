@@ -28,7 +28,7 @@
 	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
 	 large_file_errors/1, large_file_light/1, large_file_heavy/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(FILE_MODULE, file).         % Name of module to test

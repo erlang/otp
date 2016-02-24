@@ -52,7 +52,7 @@
 config(priv_dir,_) ->
     ".".
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(10)).
@@ -393,7 +393,9 @@ records(Config) when is_list(Config) ->
 
     Test = filename:join(?config(priv_dir, Config), "test.erl"),
     Contents = <<"-module(test).
-                  -record(state, {bin, reply, leader}).
+                  -record(state, {bin :: binary(),
+                                  reply = no,
+                                  leader = some :: atom()}).
 
                   -ifdef(test1).
                   -record(test1, {f}).

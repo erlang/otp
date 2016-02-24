@@ -219,4 +219,4 @@ redraw(DC, Bitmap) ->
     wxMemoryDC:destroy(MemoryDC).
 
 get_pos(W,H) ->
-    {random:uniform(W), random:uniform(H)}.
+    {rand:uniform(W), rand:uniform(H)}.

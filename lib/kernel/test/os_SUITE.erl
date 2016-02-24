@@ -20,17 +20,20 @@
 -module(os_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2]).
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
-	 find_executable/1, unix_comment_in_command/1, deep_list_command/1, evil/1]).
+	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
+         large_output_command/1, perf_counter_api/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
-     find_executable, unix_comment_in_command, deep_list_command, evil].
+     find_executable, unix_comment_in_command, deep_list_command,
+     large_output_command, perf_counter_api].
 
 groups() ->
     [].
@@ -47,6 +50,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_TC,Config) ->
+    Config.
+
+end_per_testcase(_,_Config) ->
+    ok.
 
 space_in_cwd(doc) ->
     "Test that executing a command in a current working directory "
@@ -267,50 +275,48 @@ deep_list_command(Config) when is_list(Config) ->
     %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
     ok.
 
+large_output_command(doc) ->
+    "Test to take sure that the correct data is"
+    "received when doing large commands";
+large_output_command(suite) -> [];
+large_output_command(Config) when is_list(Config) ->
+    %% Maximum allowed on windows is 8192, so we test well below that
+    AAA = lists:duplicate(7000, $a),
+    comp(AAA,os:cmd("echo " ++ AAA)).
 
--define(EVIL_PROCS, 100).
--define(EVIL_LOOPS, 100).
--define(PORT_CREATOR, os_cmd_port_creator).
-evil(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(5)),
-    Parent = self(),
-    Ps = lists:map(fun (N) ->
-			   spawn_link(fun () ->
-					      evil_loop(Parent, ?EVIL_LOOPS,N)
-				      end)
-		   end, lists:seq(1, ?EVIL_PROCS)),
-    Devil = spawn_link(fun () -> devil(hd(Ps), hd(lists:reverse(Ps))) end),
-    lists:foreach(fun (P) -> receive {P, done} -> ok end end, Ps),
-    unlink(Devil),
-    exit(Devil, kill),
-    test_server:timetrap_cancel(Dog),
-    ok.
+%% Test that the os:perf_counter api works as expected
+perf_counter_api(_Config) ->
 
-devil(P1, P2) ->
-    erlang:display({?PORT_CREATOR, whereis(?PORT_CREATOR)}),
-    (catch ?PORT_CREATOR ! lists:seq(1,1000000)),
-    (catch ?PORT_CREATOR ! lists:seq(1,666)),
-    (catch ?PORT_CREATOR ! grrrrrrrrrrrrrrrr),
-    (catch ?PORT_CREATOR ! {'EXIT', P1, buhuuu}),
-    (catch ?PORT_CREATOR ! {'EXIT', hd(erlang:ports()), buhuuu}),
-    (catch ?PORT_CREATOR ! {'EXIT', P2, arggggggg}),
-    receive after 500 -> ok end,
-    (catch exit(whereis(?PORT_CREATOR), kill)),
-    (catch ?PORT_CREATOR ! ">8|"),
-    receive after 500 -> ok end,
-    (catch exit(whereis(?PORT_CREATOR), diiiiiiiiiiiiiiiiiiiie)),
-    receive after 100 -> ok end,
-    devil(P1, P2).
+    true = is_integer(os:perf_counter()),
+    true = os:perf_counter() > 0,
 
-evil_loop(Parent, Loops, N) ->
-    Res = integer_to_list(N),
-    evil_loop(Parent, Loops, Res, "echo " ++ Res).
+    T1 = os:perf_counter(),
+    timer:sleep(100),
+    T2 = os:perf_counter(),
+    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nano_seconds),
+    ct:pal("T1: ~p~n"
+           "T2: ~p~n"
+           "TsDiff: ~p~n",
+           [T1,T2,TsDiff]),
 
-evil_loop(Parent, 0, _Res, _Cmd) ->
-    Parent ! {self(), done};
-evil_loop(Parent, Loops, Res, Cmd) ->
-    comp(Res, os:cmd(Cmd)),
-    evil_loop(Parent, Loops-1, Res, Cmd).
+    %% We allow a 15% diff
+    true = TsDiff < 115000000,
+    true = TsDiff > 85000000,
+
+    T1Ms = os:perf_counter(1000),
+    timer:sleep(100),
+    T2Ms = os:perf_counter(1000),
+    MsDiff = T2Ms - T1Ms,
+    ct:pal("T1Ms: ~p~n"
+           "T2Ms: ~p~n"
+           "MsDiff: ~p~n",
+           [T1Ms,T2Ms,MsDiff]),
+
+    %% We allow a 15% diff
+    true = MsDiff < 115,
+    true = MsDiff > 85.
+
+%% Util functions
 
 comp(Expected, Got) ->
     case strip_nl(Got) of

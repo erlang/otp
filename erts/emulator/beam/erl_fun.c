@@ -66,6 +66,9 @@ erts_init_fun_table(void)
     f.cmp  = (HCMP_FUN) fun_cmp;
     f.alloc = (HALLOC_FUN) fun_alloc;
     f.free = (HFREE_FUN) fun_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_FUN_TABLE, &erts_fun_table, "fun_table", 16, f);
 }

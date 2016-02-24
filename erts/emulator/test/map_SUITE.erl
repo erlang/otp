@@ -1511,11 +1511,8 @@ t_map_equal(Config) when is_list(Config) ->
 
 
 t_map_compare(Config) when is_list(Config) ->
-    Seed = {erlang:monotonic_time(),
-	    erlang:time_offset(),
-	    erlang:unique_integer()},
-    io:format("seed = ~p\n", [Seed]),
-    random:seed(Seed),
+    rand:seed(exsplus),
+    io:format("seed = ~p\n", [rand:export_seed()]),
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
     ok.
@@ -1533,7 +1530,7 @@ float_int_compare() ->
 
 numeric_keys(N) ->
     lists:foldl(fun(_,Acc) ->
-			Int = random:uniform(N*4) - N*2,
+			Int = rand:uniform(N*4) - N*2,
 			Float = float(Int),
 			[Int, Float, Float * 0.99, Float * 1.01 | Acc]
 		end,
@@ -1564,7 +1561,7 @@ do_compare([Gen1, Gen2]) ->
 
     %% Change one key from int to float (or vice versa) and check compare
     ML1 = maps:to_list(M1),
-    {K1,V1} = lists:nth(random:uniform(length(ML1)), ML1),
+    {K1,V1} = lists:nth(rand:uniform(length(ML1)), ML1),
     case K1 of
 	I when is_integer(I) ->
 	    case maps:find(float(I),M1) of
@@ -1655,9 +1652,9 @@ cmp_others(T1, T2, _) ->
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
-				KI = random:uniform(size(Keys)),
+				KI = rand:uniform(size(Keys)),
 				K = element(KI,Keys),
-				KV = element(random:uniform(size(K)), K),
+				KV = element(rand:uniform(size(K)), K),
 				{erlang:delete_element(KI,Keys), [KV | Acc]}
 			end,
 			{Pairs, []},
@@ -1697,15 +1694,15 @@ term_gen_recursive(Leafs, Flags, Depth) ->
     MaxDepth = 10,
     Rnd = case {Flags, Depth} of
 	      {_, MaxDepth} -> % Only leafs
-		  random:uniform(size(Leafs)) + 3;
+		  rand:uniform(size(Leafs)) + 3;
 	      {0, 0} ->        % Only containers
-		  random:uniform(3);
+		  rand:uniform(3);
 	      {0,_} ->         % Anything
-		  random:uniform(size(Leafs)+3)
+		  rand:uniform(size(Leafs)+3)
 	  end,
     case Rnd of
 	1 -> % Make map
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    lists:foldl(fun(_, {Acc1,Acc2}) ->
 				{K1,K2} = term_gen_recursive(Leafs, Flags,
 							     Depth+1),
@@ -1720,7 +1717,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	    {Cdr1,Cdr2} = term_gen_recursive(Leafs, Flags, Depth+1),
 	    {[Car1 | Cdr1], [Car2 | Cdr2]};
 	3 -> % Make tuple
-	    Size = random:uniform(size(Leafs)),
+	    Size = rand:uniform(size(Leafs)),
 	    L = lists:map(fun(_) -> term_gen_recursive(Leafs, Flags, Depth+1) end,
 			  lists:seq(1,Size)),
 	    {L1, L2} = lists:unzip(L),
@@ -1729,7 +1726,7 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	N -> % Make leaf
 	    case element(N-3, Leafs) of
 		I when is_integer(I) ->
-		    case random:uniform(4) of
+		    case rand:uniform(4) of
 			1 -> {I, float(I)};
 			2 -> {float(I), I};
 			_ -> {I,I}
@@ -2598,7 +2595,7 @@ hashmap_balance(KeyFun) ->
     F = fun(I, {M0,Max0}) ->
 		Key = KeyFun(I),
 		M1 = M0#{Key => Key},
-		Max1 = case erts_internal:map_type(M1) of
+		Max1 = case erts_internal:term_type(M1) of
 			   hashmap ->
 			       Nodes = hashmap_nodes(M1),
 			       Avg = maps:size(M1) * 0.4,
@@ -3006,7 +3003,7 @@ t_gc_rare_map_overflow(Config) ->
 					      Loop()
 				end),
 	FatMap = fatmap(34),
-	false = (flatmap =:= erts_internal:map_type(FatMap)),
+	false = (flatmap =:= erts_internal:term_type(FatMap)),
 
 	t_gc_rare_map_overflow_do(Echo, FatMap, fun() -> erlang:garbage_collect() end),
 

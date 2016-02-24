@@ -23,9 +23,6 @@
 
 -export(['check_record_names_OTP-5812'/1]).
 
-%-include("test_server.hrl").
-%-include_lib("test_server/include/test_server.hrl").
-
 -define(line,put(test_server_loc,{?MODULE,?LINE}),).
 
 -include("NBAP-PDU-Discriptions.hrl").

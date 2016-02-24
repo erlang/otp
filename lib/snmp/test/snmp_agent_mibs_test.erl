@@ -31,7 +31,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/SNMP-COMMUNITY-MIB.hrl").

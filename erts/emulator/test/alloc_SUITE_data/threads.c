@@ -96,16 +96,11 @@ static void fail(int t_no, char *frmt, ...)
     exit_thread(t_no, 0);
 }
 
-static Allctr_t *alloc_not_ts = NULL;
 static Allctr_t *alloc_ts_1 = NULL;
 static Allctr_t *alloc_ts_2 = NULL;
 
 static void stop_allocators(void)
 {
-    if (alloc_not_ts) {
-	STOP_ALC(alloc_not_ts);
-	alloc_not_ts = NULL;
-    }
     if (alloc_ts_1) {
 	STOP_ALC(alloc_ts_1);
 	alloc_ts_1 = NULL;
@@ -155,7 +150,6 @@ testcase_run(TestCaseState_t *tcs)
     if (!IS_THREADS_ENABLED)
 	testcase_skipped(tcs, "Threads not enabled");
 
-    alloc_not_ts = NULL;
     alloc_ts_1 = NULL;
     alloc_ts_2 = NULL;
 
@@ -164,16 +158,12 @@ testcase_run(TestCaseState_t *tcs)
     sprintf(sbct_buf, "%d", SBC_THRESHOLD/1024);
     
     memcpy((void *) argv, argv_org, sizeof(argv_org));
-    alloc_not_ts = START_ALC("threads_not_ts", 0, argv);
-    ASSERT(tcs, alloc_not_ts);
-    memcpy((void *) argv, argv_org, sizeof(argv_org));
     alloc_ts_1 = START_ALC("threads_ts_1", 1, argv);
     ASSERT(tcs, alloc_ts_1);
     memcpy((void *) argv, argv_org, sizeof(argv_org));
     alloc_ts_2 = START_ALC("threads_ts_2", 1, argv);
     ASSERT(tcs, alloc_ts_2);
 
-    ASSERT(tcs, !IS_ALLOC_THREAD_SAFE(alloc_not_ts));
     ASSERT(tcs, IS_ALLOC_THREAD_SAFE(alloc_ts_1));
     ASSERT(tcs, IS_ALLOC_THREAD_SAFE(alloc_ts_2));
 
@@ -190,12 +180,7 @@ testcase_run(TestCaseState_t *tcs)
 
 	threads[i].arg.no_ops_per_bl = NO_OF_OPS_PER_BL;
 
-	if (i == 1) {
-	    alc = "threads_not_ts";
-	    threads[i].arg.no_ops_per_bl *= 2;
-	    threads[i].arg.a = alloc_not_ts;
-	}
-	else if (i % 2 == 0) {
+	if (i % 2 == 0) {
 	    alc = "threads_ts_1";
 	    threads[i].arg.a = alloc_ts_1;
 	}
@@ -396,7 +381,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 	bp->p = (unsigned char *) ALLOC(a, bp->s);
 	if(!bp->p)
 	    fail(t_no, "ALLOC(%lu) failed [id=%d])\n", bp->s, id);
-	memset((void *) bp->p, id, (size_t) bp->s);
+	memset((void *) bp->p, (unsigned char)id, (size_t) bp->s);
     }
     else {
 	unsigned char *p = (unsigned char *) REALLOC(a, bp->p, bp->as[bp->i]);
@@ -406,7 +391,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 
 	if(bp->s < bp->as[bp->i]) {
 	    CHECK_BLOCK_DATA(t_no, p, bp->s, id);
-	    memset((void *) p, id, (size_t) bp->as[bp->i]);
+	    memset((void *) p, (unsigned char)id, (size_t) bp->as[bp->i]);
 	}
 	else
 	    CHECK_BLOCK_DATA(t_no, p, bp->as[bp->i], id);

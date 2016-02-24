@@ -21,7 +21,7 @@
 %%
 -module(ei_print_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("ei_print_SUITE_data/ei_print_test_cases.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

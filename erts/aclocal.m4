@@ -74,21 +74,6 @@ AC_ARG_VAR(erl_xcomp_clock_gettime_cpu_time, [clock_gettime() can be used for re
 AC_ARG_VAR(erl_xcomp_after_morecore_hook, [__after_morecore_hook can track malloc()s core memory usage: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_dlsym_brk_wrappers, [dlsym(RTLD_NEXT, _) brk wrappers can track malloc()s core memory usage: yes|no (only used when cross compiling)])
 
-dnl Cross compilation variables for OSE
-AC_ARG_VAR(erl_xcomp_ose_ldflags_pass1, [Linker flags for the OSE module (pass 1) (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_ldflags_pass2, [Linker flags for the OSE module (pass 2) (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_OSEROOT, [OSE installation root directory (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_STRIP, [Strip utility shipped with the OSE distribution(only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_LM_POST_LINK, [OSE postlink tool (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_LM_SET_CONF, [Sets the configuration for an OSE load module (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_LM_ELF_SIZE, [Prints the section size information for an OSE load module (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_LM_LCF, [OSE load module linker configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_BEAM_LM_CONF, [BEAM OSE load module default configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_EPMD_LM_CONF, [EPMD OSE load module default configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_RUN_ERL_LM_CONF, [run_erl_lm OSE load module default configuration file (only used when cross compiling for OSE)])
-AC_ARG_VAR(erl_xcomp_ose_CONFD, [OSE confd source file])
-AC_ARG_VAR(erl_xcomp_ose_CRT0_LM, [OSE crt0 lm source file])
-
 ])
 
 AC_DEFUN(ERL_XCOMP_SYSROOT_INIT,
@@ -503,8 +488,6 @@ AC_CACHE_VAL(ac_cv_sys_ipv6_support,
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#elif __OSE__
-#error "no ipv6"
 #else
 #include <netinet/in.h>
 #endif],
@@ -517,8 +500,6 @@ else
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#elif __OSE__
-#error "no ipv6"
 #else
 #include <netinet/in.h>
 #endif],
@@ -991,12 +972,6 @@ if test "X$host_os" = "Xwin32"; then
     THR_LIBS=
     THR_LIB_NAME=win32_threads
     THR_LIB_TYPE=win32_threads
-elif test "X$host_os" = "Xose"; then
-    AC_MSG_RESULT(yes)
-    THR_DEFS="-DOSE_THREADS"
-    THR_LIBS=
-    THR_LIB_NAME=ose_threads
-    THR_LIB_TYPE=ose_threads
 else
     AC_MSG_RESULT(no)
     THR_DEFS=
@@ -1583,22 +1558,9 @@ case "$THR_LIB_NAME" in
 	fi
 	;;
 
-    pthread|ose_threads)
-        case "$THR_LIB_NAME" in
-	     pthread)
-		ETHR_THR_LIB_BASE_DIR=pthread
-		AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
-		;;
-	     ose_threads)
-		AC_DEFINE(ETHR_OSE_THREADS, 1,
-		   [Define if you have OSE style threads])
-		ETHR_THR_LIB_BASE_DIR=ose
-		AC_CHECK_HEADER(ose_spi/ose_spi.h,
-		  AC_DEFINE(HAVE_OSE_SPI_H, 1,
-		    [Define if you have the "ose_spi/ose_spi.h" header file.]))
-		;;
-	esac
-	if test "x$THR_LIB_NAME" = "xpthread"; then
+    pthread)
+	ETHR_THR_LIB_BASE_DIR=pthread
+	AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
 	case $host_os in
 	    openbsd*)
 		# The default stack size is insufficient for our needs
@@ -1657,7 +1619,6 @@ case "$THR_LIB_NAME" in
 	    *) ;;
 	esac
 
-	fi
 	dnl We sometimes need ETHR_DEFS in order to find certain headers
 	dnl (at least for pthread.h on osf1).
 	saved_cppflags="$CPPFLAGS"
@@ -1702,7 +1663,6 @@ case "$THR_LIB_NAME" in
 	dnl
 	dnl Check for functions
 	dnl
-	if test "x$THR_LIB_NAME" = "xpthread"; then
 	AC_CHECK_FUNC(pthread_spin_lock, \
 			[ethr_have_native_spinlock=yes \
 			 AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
@@ -1922,8 +1882,6 @@ case "$THR_LIB_NAME" in
 	esac
 	CFLAGS=$old_CFLAGS
 
-        fi ## test "x$THR_LIB_NAME" = "xpthread"
-
 	if test "X$disable_native_ethr_impls" = "Xyes"; then
 	    ethr_have_native_atomics=no
 	else
@@ -2117,63 +2075,159 @@ esac
 
 case "$GCC-$host_cpu" in
   yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64)
+
+    if test $ac_cv_sizeof_void_p = 4; then
+       dw_cmpxchg="cmpxchg8b"
+    else
+       dw_cmpxchg="cmpxchg16b"
+    fi
+
     gcc_dw_cmpxchg_asm=no
-    AC_MSG_CHECKING([for gcc double word cmpxchg asm support])    
-    AC_TRY_COMPILE([],
+    gcc_pic_dw_cmpxchg_asm=no
+    gcc_cflags_pic=no
+    gcc_cmpxchg8b_pic_no_clobber_ebx=no
+    gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=no
+
+    save_CFLAGS="$CFLAGS"
+
+    # Check if it works out of the box using passed CFLAGS
+    # and with -fPIC added to CFLAGS if the passed CFLAGS
+    # doesn't trigger position independent code
+    pic_cmpxchg=unknown
+    while true; do
+
+        case $pic_cmpxchg in
+	  yes) pic_text="pic ";;
+	  *) pic_text="";;
+	esac
+
+	AC_MSG_CHECKING([for gcc $pic_text$dw_cmpxchg plain asm support])    
+
+	plain_cmpxchg=no
+    	AC_TRY_COMPILE([],
 	[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	"pushl %%ebx\n\t"
-	"movl %8, %%ebx\n\t"
-#endif
 #if ETHR_SIZEOF_PTR == 4
 	"lock; cmpxchg8b %0\n\t"
 #else
 	"lock; cmpxchg16b %0\n\t"
 #endif
 	"setz %3\n\t"
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	"popl %%ebx\n\t"
-#endif
-	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new[1]),
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	  "r"(new[0])
-#else
-	  "b"(new[0])
-#endif
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
 	: "cc", "memory");
-
 	],
-	[gcc_dw_cmpxchg_asm=yes])
-    if test $gcc_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+	[plain_cmpxchg=yes])
+
+	AC_MSG_RESULT([$plain_cmpxchg])
+
+	if test $pic_cmpxchg = yes; then
+	   gcc_pic_dw_cmpxchg_asm=$plain_cmpxchg
+	   break
+	fi
+
+	gcc_dw_cmpxchg_asm=$plain_cmpxchg
+
+    	# If not already compiling to position independent
+	# code add -fPIC to CFLAGS and do it again. This
+	# since we want also want to know how to compile
+	# to position independent code since this might
+	# cause problems with the use of the EBX register
+	# as input to the asm on 32-bit x86 and old gcc
+	# compilers (gcc vsn < 5).
+
+    	AC_TRY_COMPILE([],
+	[
+#if !defined(__PIC__) || !__PIC__
+#  error no pic
+#endif
+	],
+	[pic_cmpxchg=yes
+	 gcc_cflags_pic=yes],
+	[pic_cmpxchg=no])
+
+	if test $pic_cmpxchg = yes; then
+	   gcc_pic_dw_cmpxchg_asm=$gcc_dw_cmpxchg_asm
+	   break
+	fi
+
+	CFLAGS="$save_CFLAGS -fPIC"
+	pic_cmpxchg=yes
+
+    done
+
+    if test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+
+      AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX workaround])
+
+      # Check if we can work around it by managing the ebx
+      # register explicitly in the asm...
+
       AC_TRY_COMPILE([],
+	[
+    char xchgd;
+    long new[2], xchg[2], *p;		  
+    __asm__ __volatile__(
+	"pushl %%ebx\n\t"
+	"movl %8, %%ebx\n\t"
+	"lock; cmpxchg8b %0\n\t"
+	"setz %3\n\t"
+	"popl %%ebx\n\t"
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
+	: "cc", "memory");
+	],
+	[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes])     
+
+      AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
+
+      if test $gcc_pic_dw_cmpxchg_asm = no; then
+
+      	AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX and register shortage workarounds])
+        # If no optimization is enabled we sometimes get a
+	# register shortage. Check if we can work around
+	# this...
+
+      	AC_TRY_COMPILE([],
 	  [
       char xchgd;
       long new[2], xchg[2], *p;
-#if !defined(__PIC__) || !__PIC__
-#  error nope
-#endif
       __asm__ __volatile__(
-    	  "pushl %%ebx\n\t"
-	  "movl (%7), %%ebx\n\t"
-	  "movl 4(%7), %%ecx\n\t"
-	  "lock; cmpxchg8b %0\n\t"
-  	  "setz %3\n\t"
-	  "popl %%ebx\n\t"
-	  : "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	  : "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new)
+	"pushl %%ebx\n\t"
+	"movl (%7), %%ebx\n\t"
+	"movl 4(%7), %%ecx\n\t"
+	"lock; cmpxchg8b %0\n\t"
+	"setz %3\n\t"
+	"popl %%ebx\n\t"
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
 	: "cc", "memory");
 
 	],
-	[gcc_dw_cmpxchg_asm=yes])
-      if test "$gcc_dw_cmpxchg_asm" = "yes"; then
-        AC_DEFINE(ETHR_CMPXCHG8B_REGISTER_SHORTAGE, 1, [Define if you get a register shortage with cmpxchg8b and position independent code])
+	[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes])
+
+        AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
       fi
+
+      if test $gcc_cflags_pic = yes; then
+        gcc_dw_cmpxchg_asm=$gcc_pic_dw_cmpxchg_asm
+      fi
+ 
+   fi
+
+    CFLAGS="$save_CFLAGS"
+
+    if test "$gcc_cmpxchg8b_pic_no_clobber_ebx" = "yes"; then
+      AC_DEFINE(ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX, 1, [Define if gcc wont let you clobber ebx with cmpxchg8b and position independent code])
     fi
-    AC_MSG_RESULT([$gcc_dw_cmpxchg_asm])
+    if test "$gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage" = "yes"; then
+      AC_DEFINE(ETHR_CMPXCHG8B_REGISTER_SHORTAGE, 1, [Define if you get a register shortage with cmpxchg8b and position independent code])
+    fi
     if test "$gcc_dw_cmpxchg_asm" = "yes"; then
       AC_DEFINE(ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT, 1, [Define if you use a gcc that supports the double word cmpxchg instruction])
     fi;;

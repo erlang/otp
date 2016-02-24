@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2013</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,16 +33,16 @@
     <file>cdv.xml</file>
   </header>
   <com>cdv</com>
-  <comsummary>Script used for starting the Crashdump Viewer from the
+  <comsummary>Script to start the Crashdump Viewer from the
   OS command line.
   </comsummary>
 
   <description>
-    <p>The <c>cdv</c> shell script can be found under the <c>priv</c>
-    directory of the <c>observer</c> application. The script is used
+    <p>The <c>cdv</c> shell script is located in directory <c>priv</c>
+     of the Observer application. The script is used
     for starting the Crashdump Viewer tool from the OS command
     line.</p>
-    <p>For Windows users, <c>cdv.bat</c> can be found in the same
+    <p>For Windows users, <c>cdv.bat</c> is found in the same
     location.</p>
   </description>
 
@@ -51,8 +51,8 @@
       <name>cdv [file]</name>
       <fsummary>Start the Crashdump Viewer and load the given file.</fsummary>
       <desc>
-	<p>The <c>file</c> arguments is optional. If not given, a file
-	dialog will pop up allowing the user to select a crashdump
+	<p>Argument <c>file</c> is optional. If not specified, a file
+	dialog is displayed, allowing you to select a crashdump
 	from the file system.</p>
       </desc>
     </func>

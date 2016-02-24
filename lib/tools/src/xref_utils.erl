@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -245,6 +245,8 @@ select_last_application_version(AppVs) ->
     TL = to_external(partition(1, relation(AppVs))),
     [last(keysort(2, L)) || L <- TL].
 
+-record(scan, {collected = [], errors = [], seen = [], unreadable = []}).
+
 %% scan_directory(Directory, Recurse, Collect, Watch) -> 
 %%     {Collected, Errors, Seen, Unreadable}
 %%
@@ -261,8 +263,9 @@ select_last_application_version(AppVs) ->
 %% Unreadable.
 %%
 scan_directory(File, Recurse, Collect, Watch) ->
-    Init = [[] | {[],[],[]}],
-    [L | {E,J,U}] = find_files_dir(File, Recurse, Collect, Watch, Init),
+    Init = #scan{},
+    S = find_files_dir(File, Recurse, Collect, Watch, Init),
+    #scan{collected = L, errors = E, seen = J, unreadable = U} = S,
     {reverse(L), reverse(E), reverse(J), reverse(U)}.
 
 %% {Dir, Basename} | false
@@ -576,8 +579,7 @@ find_files_dir(Dir, Recurse, Collect, Watch, L) ->
 	{ok, Files} ->
 	    find_files(sort(Files), Dir, Recurse, Collect, Watch, L);
 	{error, Error} ->
-	    [B | {E,J,U}] = L,
-	    [B | {[file_error(Dir, Error)|E],J,U}]
+            L#scan{errors = [file_error(Dir, Error)|L#scan.errors]}
     end.
 
 find_files([F | Fs], Dir, Recurse, Collect, Watch, L) ->
@@ -588,22 +590,23 @@ find_files([F | Fs], Dir, Recurse, Collect, Watch, L) ->
              {ok, {_, directory, _, _}} ->
 		 L;
 	     Info ->
-		 [B | EJU = {E,J,U}] = L,
+                 #scan{collected = B, errors = E,
+                       seen = J, unreadable = U} = L,
 		 Ext = filename:extension(File),
 		 C = member(Ext, Collect),
 		 case C of
 		     true ->
 			 case Info of
 			     {ok, {_, file, readable, _}} ->
-				 [[{Dir,F} | B] | EJU];
+                                 L#scan{collected = [{Dir,F} | B]};
 			     {ok, {_, file, unreadable, _}} ->
-				 [B | {E,J,[File|U]}];
+                                 L#scan{unreadable = [File|U]};
 			     Error ->
-				 [B | {[Error|E],J,U}]
+                                 L#scan{errors = [Error|E]}
 			 end;
 		     false ->
 			 case member(Ext, Watch) of
-			     true -> [B | {E,[File|J],U}];
+                             true -> L#scan{seen = [File|J]};
 			     false -> L
 			 end
 		 end

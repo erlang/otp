@@ -21,7 +21,7 @@
 
 %% Tests compile:file/1 and compile:file/2 with various options.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -29,7 +29,7 @@
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
-	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
+	 strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1
@@ -48,13 +48,12 @@ all() ->
     [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
-     {group, bad_record_use}, strict_record,
+     strict_record,
      missing_testheap, cover, env, core, asm,
      sys_pre_attributes, dialyzer, warnings].
 
 groups() -> 
-    [{bad_record_use, [],
-      [bad_record_use1, bad_record_use2]}].
+    [].
 
 init_per_suite(Config) ->
     Config.
@@ -86,7 +85,7 @@ file_1(Config) when is_list(Config) ->
 
     process_flag(trap_exit, true),
 
-    ?line {Simple, Target} = files(Config, "file_1"),
+    {Simple, Target} = get_files(Config, simple, "file_1"),
     ?line {ok, Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
 
@@ -161,11 +160,8 @@ module_mismatch(Config) when is_list(Config) ->
 
 big_file(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(5)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Big = filename:join(DataDir, "big.erl"),
-    ?line Target = filename:join(PrivDir, "big.beam"),
-    ?line ok = file:set_cwd(PrivDir),
+    {Big,Target} = get_files(Config, big, "big_file"),
+    ok = file:set_cwd(filename:dirname(Target)),
     ?line compile_and_verify(Big, Target, []),
     ?line compile_and_verify(Big, Target, [debug_info]),
     ?line compile_and_verify(Big, Target, [no_postopt]),
@@ -179,7 +175,7 @@ big_file(Config) when is_list(Config) ->
 
 outdir(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "outdir"),
+    {Simple, Target} = get_files(Config, simple, "outdir"),
     ?line {ok, simple} = compile:file(Simple, [{outdir, filename:dirname(Target)}]),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
@@ -192,7 +188,7 @@ outdir(Config) when is_list(Config) ->
 
 binary(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "binary"),
+    {Simple, Target} = get_files(Config, simple, "binary"),
     ?line {ok, simple, Binary} = compile:file(Simple, [binary]),
     ?line code:load_binary(simple, Target, Binary),
     ?line passed = simple:test(),
@@ -206,7 +202,7 @@ binary(Config) when is_list(Config) ->
 
 makedep(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple,Target} = files(Config, "makedep"),
+    {Simple,Target} = get_files(Config, simple, "makedep"),
     ?line DataDir = ?config(data_dir, Config),
     ?line SimpleRootname = filename:rootname(Simple),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
@@ -282,7 +278,7 @@ makedep_modify_target(Mf, Target) ->
 
 cond_and_ifdef(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line {Simple, Target} = files(Config, "cond_and_ifdef"),
+    {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
     ?line Options = [{outdir, filename:dirname(Target)},
 		     {d, need_foo}, {d, foo_value, 42},
@@ -330,6 +326,8 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dlife, ".life"),
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
+    do_listing(Simple, TargetDir, dexcept, ".except"),
+    do_listing(Simple, TargetDir, dbs, ".bs"),
     do_listing(Simple, TargetDir, dbool, ".bool"),
     do_listing(Simple, TargetDir, dtype, ".type"),
     do_listing(Simple, TargetDir, ddead, ".dead"),
@@ -360,21 +358,18 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 
 listings_big(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(10)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Big = filename:join(DataDir, big),
-    ?line TargetDir = filename:join(PrivDir, listings_big),
-    ?line ok = file:make_dir(TargetDir),
+    {Big,Target} = get_files(Config, big, listings_big),
+    TargetDir = filename:dirname(Target),
     ?line do_listing(Big, TargetDir, 'S'),
     ?line do_listing(Big, TargetDir, 'E'),
     ?line do_listing(Big, TargetDir, 'P'),
     ?line do_listing(Big, TargetDir, dkern, ".kernel"),
 
-    ?line Target = filename:join(TargetDir, big),
-    {ok,big} = compile:file(Target, [from_asm,{outdir,TargetDir}]),
+    TargetNoext = filename:rootname(Target, code:objfile_extension()),
+    {ok,big} = compile:file(TargetNoext, [from_asm,{outdir,TargetDir}]),
 
     %% Cleanup.
-    ?line ok = file:delete(Target ++ ".beam"),
+    ok = file:delete(Target),
     ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
 			filelib:wildcard(filename:join(TargetDir, "*"))),
     ?line ok = file:del_dir(TargetDir),
@@ -383,11 +378,7 @@ listings_big(Config) when is_list(Config) ->
 
 other_output(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(8)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(DataDir, simple),
-    ?line TargetDir = filename:join(PrivDir, other_output),
-    ?line ok = file:make_dir(TargetDir),
+    {Simple,_Target} = get_files(Config, simple, "other_output"),
 
     io:put_chars("to_pp"),
     ?line {ok,[],PP} = compile:file(Simple, [to_pp,binary,time]),
@@ -432,7 +423,7 @@ other_output(Config) when is_list(Config) ->
 
 encrypted_abstr(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(10)),
-    ?line {Simple,Target} = files(Config, "encrypted_abstr"),
+    {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),
 
     Res = case has_crypto() of
 	      false ->
@@ -580,17 +571,17 @@ do_listing(Source, TargetDir, Type, Ext) ->
     Target = filename:join(TargetDir, SourceBase ++ Ext),
     true = exists(Target).
 
-files(Config, Name) ->
-    ?line code:delete(simple),
-    ?line code:purge(simple),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(DataDir, "simple"),
-    ?line TargetDir = filename:join(PrivDir, Name),
-    ?line ok = file:make_dir(TargetDir),
-    ?line Target = filename:join(TargetDir, "simple"++code:objfile_extension()),
-    {Simple, Target}.
-
+get_files(Config, Module, OutputName) ->
+    code:delete(Module),
+    code:purge(Module),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Src = filename:join(DataDir, atom_to_list(Module)),
+    TargetDir = filename:join(PrivDir, OutputName),
+    ok = file:make_dir(TargetDir),
+    File = atom_to_list(Module) ++ code:objfile_extension(),
+    Target = filename:join(TargetDir, File),
+    {Src, Target}.
 
 run(Target, Func, Args) ->
     ?line Module = list_to_atom(filename:rootname(filename:basename(Target))),
@@ -606,28 +597,6 @@ exists(Name) ->
 	{error, _} -> false
     end.
 
-
-%% Tests that the compiler does not accept
-%% bad use of records.
-bad_record_use1(Config) when is_list(Config) ->
-    ?line {ok, Cwd} = file:get_cwd(),
-    ?line file:set_cwd(?config(data_dir, Config)),
-    ?line true=exists("bad_record_use.erl"),
-    ?line Ret=c:c(bad_record_use),
-    ?line file:set_cwd(Cwd),
-    ?line error=Ret,
-    ok.
-
-%% Tests that the compiler does not accept
-%% bad use of records.
-bad_record_use2(Config) when is_list(Config) ->
-    ?line {ok, Cwd} = file:get_cwd(),
-    ?line file:set_cwd(?config(data_dir, Config)),
-    ?line true=exists("bad_record_use2.erl"),
-    ?line Ret=c:c(bad_record_use),
-    ?line file:set_cwd(Cwd),
-    ?line error=Ret,
-    ok.
 
 strict_record(Config) when is_list(Config) ->
     ?line Priv = ?config(priv_dir, Config),
@@ -713,7 +682,7 @@ init(ReplyTo, Fun, _Filler) ->
     ReplyTo ! {result, Fun()}.
 
 env(Config) when is_list(Config) ->
-    ?line {Simple,Target} = files(Config, "file_1"),
+    {Simple,Target} = get_files(Config, simple, env),
     ?line {ok,Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
 
@@ -722,9 +691,9 @@ env(Config) when is_list(Config) ->
 	env_1(Simple, Target)
     after
 	true = os:putenv("ERL_COMPILER_OPTIONS", "ignore_me"),
-      file:set_cwd(Cwd),
-      file:delete(Target),
-      file:del_dir(filename:dirname(Target))
+	file:set_cwd(Cwd),
+	file:delete(Target),
+	file:del_dir(filename:dirname(Target))
     end,
     ok.
 

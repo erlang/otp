@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -372,7 +372,7 @@ info(Tab) ->
       Item :: 'access' | 'auto_save' | 'bchunk_format'
             | 'hash' | 'file_size' | 'filename' | 'keypos' | 'memory'
             | 'no_keys' | 'no_objects' | 'no_slots' | 'owner' | 'ram_file'
-            | 'safe_fixed' | 'size' | 'type' | 'version',
+            | 'safe_fixed' | 'safe_fixed_monotonic_time' | 'size' | 'type' | 'version',
       Value :: term().
 
 info(Tab, owner) ->
@@ -1124,7 +1124,9 @@ repl({delayed_write, {Delay,Size} = C}, Defs)
     Defs#open_args{delayed_write = C};
 repl({estimated_no_objects, I}, Defs)  ->
     repl({min_no_slots, I}, Defs);
-repl({file, File}, Defs) ->
+repl({file, File}, Defs) when is_list(File) ->
+    Defs#open_args{file = File};
+repl({file, File}, Defs) when is_atom(File) ->
     Defs#open_args{file = to_list(File)};
 repl({keypos, P}, Defs) when is_integer(P), P > 0 ->
     Defs#open_args{keypos =P};
@@ -1289,7 +1291,15 @@ init(Parent, Server) ->
     open_file_loop(#head{parent = Parent, server = Server}).
 
 open_file_loop(Head) ->
-    open_file_loop(Head, 0).
+    %% The Dets server pretends the file is open before
+    %% internal_open() has been called, which means that unless the
+    %% internal_open message is applied first, other processes can
+    %% find the pid by calling dets_server:get_pid() and do things
+    %% before Head has been initialized properly.
+    receive
+        ?DETS_CALL(From, {internal_open, _Ref, _Args}=Op) ->
+            do_apply_op(Op, From, Head, 0)
+    end.
 
 open_file_loop(Head, N) when element(1, Head#head.update_mode) =:= error ->
     open_file_loop2(Head, N);
@@ -1964,7 +1974,9 @@ do_safe_fixtable(Head, Pid, true) ->
     case Head#head.fixed of 
 	false -> 
 	    link(Pid),
-	    Fixed = {utime_now(), [{Pid, 1}]},
+	    MonTime = erlang:monotonic_time(),
+	    TimeOffset = erlang:time_offset(),
+	    Fixed = {{MonTime, TimeOffset}, [{Pid, 1}]},
 	    Ftab = dets_utils:get_freelists(Head),
 	    Head#head{fixed = Fixed, freelists = {Ftab, Ftab}};
 	{TimeStamp, Counters} ->
@@ -2091,7 +2103,22 @@ finfo(H, no_keys) ->
 finfo(H, no_slots) -> {H, (H#head.mod):no_slots(H)};
 finfo(H, pid) -> {H, self()};
 finfo(H, ram_file) -> {H, H#head.ram_file};
-finfo(H, safe_fixed) -> {H, H#head.fixed};
+finfo(H, safe_fixed) ->
+    {H,
+     case H#head.fixed of
+	 false ->
+	     false;
+	 {{FixMonTime, TimeOffset}, RefList} ->
+	     {make_timestamp(FixMonTime, TimeOffset), RefList}
+     end};
+finfo(H, safe_fixed_monotonic_time) ->
+    {H,
+     case H#head.fixed of
+	 false ->
+	     false;
+	 {{FixMonTime, _TimeOffset}, RefList} ->
+	     {FixMonTime, RefList}
+     end};
 finfo(H, size) -> 
     case catch write_cache(H) of
 	{H2, []} ->
@@ -3275,11 +3302,14 @@ err(Error) ->
 time_now() ->
     erlang:monotonic_time(1000000).
 
--compile({inline, [utime_now/0]}).
-utime_now() ->
-    Time = time_now(),
-    UniqueCounter = erlang:unique_integer([monotonic]),
-    {Time, UniqueCounter}.
+make_timestamp(MonTime, TimeOffset) ->
+    ErlangSystemTime = erlang:convert_time_unit(MonTime+TimeOffset,
+						native,
+						micro_seconds),
+    MegaSecs = ErlangSystemTime div 1000000000000,
+    Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
+    MicroSecs = ErlangSystemTime rem 1000000,
+    {MegaSecs, Secs, MicroSecs}.
 
 %%%%%%%%%%%%%%%%%  DEBUG functions %%%%%%%%%%%%%%%%
 

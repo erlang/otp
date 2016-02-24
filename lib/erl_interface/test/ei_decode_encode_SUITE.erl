@@ -21,7 +21,7 @@
 %%
 -module(ei_decode_encode_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("ei_decode_encode_SUITE_data/ei_decode_encode_test_cases.hrl").
 
 -export(

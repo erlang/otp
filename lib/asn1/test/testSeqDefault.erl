@@ -23,7 +23,7 @@
 -include("External.hrl").
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqDef1',{bool1 = asn1_DEFAULT, int1, seq1 = asn1_DEFAULT}).
 -record('SeqDef1Imp',{bool1 = asn1_DEFAULT, int1, seq1 = asn1_DEFAULT}).

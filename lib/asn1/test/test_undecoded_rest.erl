@@ -22,7 +22,7 @@
 
 -export([test/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 %% testing OTP-5104

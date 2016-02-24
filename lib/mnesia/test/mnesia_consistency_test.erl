@@ -696,7 +696,7 @@ consistency_after_restore(ReplicaType, Op, Config) ->
     ?verify_mnesia(Nodes, []).
 
 change_tab(Father, Tab, Test) ->
-    Key = random:uniform(20),
+    Key = rand:uniform(20),
     Update = fun() ->
 		     case mnesia:read({Tab, Key}) of
 			 [{Tab, Key, 1}] -> 

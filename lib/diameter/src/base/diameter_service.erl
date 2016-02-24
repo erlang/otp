@@ -137,7 +137,7 @@
 %% Record representing an RFC 3539 watchdog process implemented by
 %% diameter_watchdog.
 -record(watchdog,
-        {pid  :: match(pid()),
+        {pid  :: match(pid()) | undefined,
          type :: match(connect | accept),
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport
@@ -208,7 +208,7 @@ stop_transport(SvcName, [_|_] = Refs) ->
 
 info(SvcName, Item) ->
     case lookup_state(SvcName) of
-        [#state{} = S] ->
+        [S] ->
             service_info(Item, S);
         [] ->
             undefined
@@ -217,7 +217,12 @@ info(SvcName, Item) ->
 %% lookup_state/1
 
 lookup_state(SvcName) ->
-    ets:lookup(?STATE_TABLE, SvcName).
+    case ets:lookup(?STATE_TABLE, SvcName) of
+        [#state{}] = L ->
+            L;
+        _ ->
+            []
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # subscribe/1

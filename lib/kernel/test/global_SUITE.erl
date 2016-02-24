@@ -51,7 +51,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(NODES, [node()|nodes()]).
 
@@ -1349,7 +1349,7 @@ stress_partition(Config) when is_list(Config) ->
 
 
 %% Use this one to test alot of connection tests
-%%  erl -sname ts -rsh ctrsh -pa /clearcase/otp/internal_tools/test_server/ebin/ -ring_line 10000 -s test_server run_test global_SUITE
+%%  erl -sname ts -ring_line 10000 -s test_server run_test global_SUITE
 
 ring_line(suite) -> [];
 ring_line(doc) -> [""];
@@ -2931,7 +2931,7 @@ sync_until(LogFile) ->
     timer:sleep(Time).
 
 shuffle(L) ->
-    [E || {_, E} <- lists:keysort(1, [{random:uniform(), E} || E <- L])].
+    [E || {_, E} <- lists:keysort(1, [{rand:uniform(), E} || E <- L])].
 
 sync_0(suite) -> [];
 sync_0(doc) ->

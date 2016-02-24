@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1565,6 +1565,8 @@ append_bins([_|_]=List, B) ->
     <<B/binary, (iolist_to_binary(List))/binary>>;
 append_bins([], B) ->
     B.
+
+-dialyzer({no_improper_lists, pwrite_iolist/3}).
 
 pwrite_iolist(B, Pos, Bin) ->
     {Left, Right} = split_binary(B, Pos),

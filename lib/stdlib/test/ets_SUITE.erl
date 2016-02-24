@@ -107,14 +107,13 @@
 
 -export([t_select_reverse/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(m(A,B), ?line assert_eq(A,B)).
 
 init_per_testcase(Case, Config) ->
-    Seed = {S1,S2,S3} = random:seed0(), %now(),
-    random:seed(S1,S2,S3),
-    io:format("*** SEED: ~p ***\n", [Seed]),
+    rand:seed(exsplus),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
     Dog=test_server:timetrap(test_server:minutes(20)),
@@ -731,10 +730,6 @@ chk_normal_tab_struct_size() ->
 %       	  ?line ok
 %         end.
 
--define(DB_TREE_STACK_NEED,50). % The static stack for a tree, in halfword pointers are two internal words
-                                % so the stack gets twice as big
--define(DB_HASH_SIZEOF_EXTSEG,260). % The segment size in words, in halfword this will be twice as large.
-
 adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
@@ -748,19 +743,7 @@ adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
 %          end,
 
     TabDiff = ?TAB_STRUCT_SZ,
-    Mem1 = {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff},
-
-    case {erlang:system_info({wordsize,internal}),erlang:system_info({wordsize,external})} of
-	%% Halfword, corrections for regular pointers occupying two internal words.
-	{4,8} ->
-	    {A1,B1,C1,D1} = Mem1,
-	    {A1+4*ets:info(T1, size)+?DB_TREE_STACK_NEED,
-	     B1+3*ets:info(T2, size)+?DB_HASH_SIZEOF_EXTSEG,
-	     C1+3*ets:info(T3, size)+?DB_HASH_SIZEOF_EXTSEG,
-	     D1+3*ets:info(T4, size)+?DB_HASH_SIZEOF_EXTSEG};
-	_ ->
-	    Mem1
-    end.
+    {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}.
 
 t_whitebox(doc) ->
     ["Diverse whitebox testes"];
@@ -1346,7 +1329,7 @@ drop_match() ->
 
 
 ets_match(Tab,Expr) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	    ets:match(Tab,Expr);
 	_ ->
@@ -1355,14 +1338,14 @@ ets_match(Tab,Expr) ->
 
 match_chunked(Tab,Expr) ->
     match_chunked_collect(ets:match(Tab,Expr,
-				    random:uniform(1999) + 1)).
+				    rand:uniform(1999) + 1)).
 match_chunked_collect('$end_of_table') ->
     [];
 match_chunked_collect({Results, Continuation}) ->
     Results ++ match_chunked_collect(ets:match(Continuation)).
 
 ets_match_object(Tab,Expr) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	    ets:match_object(Tab,Expr);
 	_ ->
@@ -1371,7 +1354,7 @@ ets_match_object(Tab,Expr) ->
 
 match_object_chunked(Tab,Expr) ->
     match_object_chunked_collect(ets:match_object(Tab,Expr,
-						  random:uniform(1999) + 1)).
+						  rand:uniform(1999) + 1)).
 match_object_chunked_collect('$end_of_table') ->
     [];
 match_object_chunked_collect({Results, Continuation}) ->
@@ -1383,19 +1366,15 @@ random_test() ->
     ?line ReadDir = get(where_to_read),
     ?line WriteDir = get(where_to_write),
     ?line (catch file:make_dir(WriteDir)),
-    ?line Seed = case file:consult(filename:join([ReadDir, 
-					    "preset_random_seed.txt"])) of
-	       {ok,[X]} ->
-		   X;
-	       _ ->
-		   {A,B,C} = erlang:timestamp(),
-		   random:seed(A,B,C),
-		   get(random_seed)
-	   end,
-    put(random_seed,Seed),
-    ?line {ok, F} = file:open(filename:join([WriteDir, 
-					     "last_random_seed.txt"]), 
-			      [write]),
+    case file:consult(filename:join([ReadDir,"preset_random_seed.txt"])) of
+	{ok,[X]} ->
+	    rand:seed(X);
+	_ ->
+	    rand:seed(exsplus)
+    end,
+    Seed = rand:export_seed(),
+    {ok,F} = file:open(filename:join([WriteDir,"last_random_seed.txt"]),
+			[write]),
     io:format(F,"~p. ~n",[Seed]),
     file:close(F),
     io:format("Random seed ~p written to ~s, copy to ~s to rerun with "
@@ -1417,7 +1396,7 @@ do_random_test() ->
 	       end, 5000),
     ?line io:format("~nData inserted~n"),
     ?line do_n_times(fun() ->
-		       ?line I = random:uniform(25),
+		       I = rand:uniform(25),
 		       ?line Key = create_random_string(I) ++ '_',
 		       ?line L1 = ets_match_object(OrdSet,{Key,'_'}),
 		       ?line L2 = lists:sort(ets_match_object(Set,{Key,'_'})),
@@ -1977,7 +1956,7 @@ evil_update_counter(Config) when is_list(Config) ->
     gb_sets:module_info(),
     math:module_info(),
     ordsets:module_info(),
-    random:module_info(),
+    rand:module_info(),
 
     repeat_for_opts(evil_update_counter_do).
 
@@ -2011,7 +1990,7 @@ evil_counter(I,Opts) ->
 		1 -> 16#12345678FFFFFFFF;
 		2 -> 16#7777777777FFFFFFFF863648726743
 	    end,
-    Start = Start0 + random:uniform(100000),
+    Start = Start0 + rand:uniform(100000),
     ets:insert(T, {dracula,Start}),
     Iter = 40000,
     End = Start + Iter,
@@ -3989,15 +3968,37 @@ safe_fixtable_do(Opts) ->
     ?line true = ets:safe_fixtable(Tab, true),
     ?line receive after 1 -> ok end,
     ?line true = ets:safe_fixtable(Tab, false),
-    ?line false = ets:info(Tab,safe_fixed),
-    ?line true = ets:safe_fixtable(Tab, true),
+    false = ets:info(Tab,safe_fixed_monotonic_time),
+    false = ets:info(Tab,safe_fixed),
+    SysBefore = erlang:timestamp(),
+    MonBefore = erlang:monotonic_time(),
+    true = ets:safe_fixtable(Tab, true),
+    MonAfter = erlang:monotonic_time(),
+    SysAfter = erlang:timestamp(),
     Self = self(),
-    ?line {{_,_,_},[{Self,1}]} = ets:info(Tab,safe_fixed),
+    {FixMonTime,[{Self,1}]} = ets:info(Tab,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = ets:info(Tab,safe_fixed),
+    true = is_integer(FixMonTime),
+    true = MonBefore =< FixMonTime,
+    true = FixMonTime =< MonAfter,
+    {FstMs,FstS,FstUs} = FixSysTime,
+    true = is_integer(FstMs),
+    true = is_integer(FstS),
+    true = is_integer(FstUs),
+    case erlang:system_info(time_warp_mode) of
+	no_time_warp ->
+	    true = timer:now_diff(FixSysTime, SysBefore) >= 0,
+	    true = timer:now_diff(SysAfter, FixSysTime) >= 0;
+	_ ->
+	    %% ets:info(Tab,safe_fixed) not timewarp safe...
+	    ignore
+    end,
     %% Test that an unjustified 'unfix' is a no-op.
     {Pid,MRef} = my_spawn_monitor(fun() -> true = ets:safe_fixtable(Tab,false) end),
     {'DOWN', MRef, process, Pid, normal} = receive M -> M end,
-    ?line true = ets:info(Tab,fixed),
-    ?line {{_,_,_},[{Self,1}]} = ets:info(Tab,safe_fixed),
+    true = ets:info(Tab,fixed),
+    {FixMonTime,[{Self,1}]} = ets:info(Tab,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = ets:info(Tab,safe_fixed),
     %% badarg's
     ?line {'EXIT', {badarg, _}} = (catch ets:safe_fixtable(Tab, foobar)),
     ?line true = ets:info(Tab,fixed),
@@ -4043,6 +4044,7 @@ info_do(Opts) ->
     ?line undefined = ets:info(non_existing_table_xxyy,type),
     ?line undefined = ets:info(non_existing_table_xxyy,node),
     ?line undefined = ets:info(non_existing_table_xxyy,named_table),
+    ?line undefined = ets:info(non_existing_table_xxyy,safe_fixed_monotonic_time),
     ?line undefined = ets:info(non_existing_table_xxyy,safe_fixed),
     ?line verify_etsmem(EtsMem).
 
@@ -4661,11 +4663,11 @@ create_random_string(0) ->
     [];
 
 create_random_string(OfLength) ->
-    C = case random:uniform(2) of
+    C = case rand:uniform(2) of
 	1 ->
-	    (random:uniform($Z - $A + 1) - 1) + $A;
+	    (rand:uniform($Z - $A + 1) - 1) + $A;
 	_ ->
-	    (random:uniform($z - $a + 1) - 1) + $a
+	    (rand:uniform($z - $a + 1) - 1) + $a
 	end,
     [C | create_random_string(OfLength - 1)].
 
@@ -4676,7 +4678,7 @@ create_random_tuple(OfLength) ->
 			    end,create_random_string(OfLength))).
 
 create_partly_bound_tuple(OfLength) ->
-    case random:uniform(2) of
+    case rand:uniform(2) of
 	1 ->
 	   create_partly_bound_tuple1(OfLength); 
 	_ ->
@@ -4685,14 +4687,14 @@ create_partly_bound_tuple(OfLength) ->
 
 create_partly_bound_tuple1(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength),
+    I = rand:uniform(OfLength),
     setelement(I,T0,'$1').
 
 
 set_n_random_elements(T0,0,_,_) ->
     T0;
 set_n_random_elements(T0,N,OfLength,GenFun) ->
-    I = random:uniform(OfLength),
+    I = rand:uniform(OfLength),
     What = GenFun(I),
     case element(I,T0) of
 	What ->
@@ -4706,12 +4708,12 @@ make_dollar_atom(I) ->
     list_to_atom([$$] ++ integer_to_list(I)).
 create_partly_bound_tuple2(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength - 1),
+    I = rand:uniform(OfLength - 1),
     set_n_random_elements(T0,I,OfLength,fun make_dollar_atom/1).
 
 create_partly_bound_tuple3(OfLength) ->
     T0 = create_random_tuple(OfLength),
-    I = random:uniform(OfLength - 1),
+    I = rand:uniform(OfLength - 1),
     set_n_random_elements(T0,I,OfLength,fun(_) -> '_' end).
 
 do_n_times(_,0) ->
@@ -5074,11 +5076,12 @@ meta_wb_do(Opts) ->
 
     io:format("Colliding names = ~p\n",[Names]),
     F = fun(0,_,_) -> ok;
-	   (N,Tabs,Me) -> Name1 = lists:nth(random:uniform(Len),Names), 
-			  Name2 = lists:nth(random:uniform(Len),Names), 
-			  Op = element(random:uniform(3),OpFuns),
-			  NTabs = Op(Name1, Name2, Tabs, Opts),
-			  Me(N-1,NTabs,Me) 
+	   (N,Tabs,Me) ->
+		Name1 = lists:nth(rand:uniform(Len), Names),
+		Name2 = lists:nth(rand:uniform(Len), Names),
+		Op = element(rand:uniform(3),OpFuns),
+		NTabs = Op(Name1, Name2, Tabs, Opts),
+		Me(N-1, NTabs, Me)
 	end,
     F(Len*100, [], F),
 
@@ -5344,7 +5347,7 @@ smp_insert(suite) -> [];
 smp_insert(Config) when is_list(Config) ->
     ets_new(smp_insert,[named_table,public,{write_concurrency,true}]),
     InitF = fun(_) -> ok end,
-    ExecF = fun(_) -> true = ets:insert(smp_insert,{random:uniform(10000)})
+    ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(10000)})
 	    end,
     FiniF = fun(_) -> ok end,
     run_workers(InitF,ExecF,FiniF,100000),
@@ -5532,7 +5535,7 @@ otp_8166_zombie_creator(T,Deleted) ->
 						  [{'=<','$1', Deleted}],
 						  [true]}]),
 	    Pid ! zombies_created,
-	    repeat_while(fun() -> case ets:info(T,safe_fixed) of
+	    repeat_while(fun() -> case ets:info(T,safe_fixed_monotonic_time) of
 				      {_,[_P1,_P2]} ->
 					  false;
 				      _ -> 
@@ -5595,10 +5598,10 @@ smp_select_delete(Config) when is_list(Config) ->
     Zeros = erlang:make_tuple(Mod,0),
     InitF = fun(_) -> Zeros end,
     ExecF = fun(Diffs0) -> 
-		    case random:uniform(20) of
+		    case rand:uniform(20) of
 			1 ->
 			    Mod = 17,
-			    Eq = random:uniform(Mod) - 1,
+			    Eq = rand:uniform(Mod) - 1,
 			    Deleted = ets:select_delete(T,
 							[{{'_', '$1'},
 							  [{'=:=', {'rem', '$1', Mod}, Eq}],
@@ -5607,7 +5610,7 @@ smp_select_delete(Config) when is_list(Config) ->
 						element(Eq+1,Diffs0) - Deleted),
 			    Diffs1;
 			_ ->
-			    Key = random:uniform(10000),
+			    Key = rand:uniform(10000),
 			    Eq = Key rem Mod,
 			    ?line case ets:insert_new(T,{Key,Key}) of
 				      true ->
@@ -5811,7 +5814,7 @@ run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
 			   N when (N > Exclude) -> N - Exclude
 		       end,
     io:format("smp starting ~p workers\n",[NumOfProcs]),
-    Seeds = [{ProcN,random:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
+    Seeds = [{ProcN,rand:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
     Pids = [my_spawn_link(fun()-> worker(Seed,InitF,ExecF,FiniF,Laps,Parent,NumOfProcs) end)
 	    || Seed <- Seeds],
@@ -5822,7 +5825,7 @@ run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
 	    
 worker({ProcN,Seed}, InitF, ExecF, FiniF, Laps, Parent, NumOfProcs) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
-    random:seed(Seed,Seed,Seed),
+    rand:seed(exsplus, {Seed,Seed,Seed}),
     State1 = InitF([ProcN, NumOfProcs]),
     State2 = worker_loop(Laps, ExecF, State1),
     Result = FiniF(State2),

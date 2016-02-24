@@ -209,10 +209,8 @@ ERL_LOCAL_FLAGS += -pa $(ERL_TOP)/lib/orber/ebin -pa $(ERL_TOP)/lib/ic/ebin
 
 ERL_COMPILE_FLAGS += \
 	$(ERL_LOCAL_FLAGS) \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
 	-pa $(ERL_TOP)/lib/orber/ebin \
-	-I$(ERL_TOP)/lib/orber \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/orber
 
 # ----------------------------------------------------
 # Targets

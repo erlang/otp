@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@
 -export([file_info/1, v_segments/1]).
 
 -export([cache_segps/3]).
+
+-dialyzer(no_improper_lists).
 
 -compile({inline, [{max_objsize,1},{maxobjsize,1}]}).
 -compile({inline, [{write_segment_file,6}]}). 

@@ -59,7 +59,7 @@
            first argument to run_erl on the command line.</item>
           <tag>pipe_dir</tag>
           <item>This is where to put the named pipe, usually
-          <c><![CDATA[/tmp/]]></c> on Unix or <c><![CDATA[/pipe/]]></c> on OSE. It shall be suffixed by a <c><![CDATA[/]]></c> (slash),
+          <c><![CDATA[/tmp/]]></c>. It shall be suffixed by a <c><![CDATA[/]]></c> (slash),
            i.e. not <c><![CDATA[/tmp/epipies]]></c>, but <c><![CDATA[/tmp/epipes/]]></c>. </item>
           <tag>log_dir</tag>
           <item>This is where the log files are written. There will be one

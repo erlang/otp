@@ -23,7 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ic_pp_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 

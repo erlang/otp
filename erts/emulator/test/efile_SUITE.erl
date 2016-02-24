@@ -24,7 +24,7 @@
 
 -export([do_iter_max_files/2, do_async_dist/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

@@ -19,7 +19,7 @@
 %%
 -module(num_bif_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Tests optimization of the BIFs:
 %% 	abs/1

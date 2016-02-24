@@ -39,7 +39,7 @@
 % This test suite assumes that tracing in general works. What we test is
 % the match spec functionality.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 

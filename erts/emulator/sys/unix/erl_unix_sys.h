@@ -30,9 +30,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef QNX
 #include <memory.h>
-#endif
 
 #if defined(__sun__) && defined(__SVR4) && !defined(__EXTENSIONS__)
 #   define __EXTENSIONS__
@@ -92,11 +90,6 @@
 #include <ieeefp.h>
 #endif
 
-#ifdef QNX
-#include <process.h>
-#include <sys/qnx_glob.h>
-#endif
-
 #include <pwd.h>
 
 #ifndef HZ
@@ -107,6 +100,10 @@
 #include <netinet/in.h>
 #endif
 #include <netdb.h>
+
+#ifdef HAVE_MACH_ABSOLUTE_TIME
+#include <mach/mach_time.h>
+#endif
 
 #ifdef HAVE_POSIX_MEMALIGN
 #  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
@@ -134,13 +131,6 @@
 #ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
-
-#ifndef ENABLE_CHILD_WAITER_THREAD
-#  ifdef ERTS_SMP
-#    define ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-void erts_check_children(void);
-#  endif
 #endif
 
 typedef void *GETENV_STATE;
@@ -171,6 +161,7 @@ typedef long long ErtsSysHrTime;
 #endif
 
 typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsSysHrTime ErtsSysPerfCounter;
 
 #define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
@@ -219,6 +210,7 @@ ErtsSystemTime erts_os_system_time(void);
  * It may or may not be monotonic.
  */
 ErtsSysHrTime erts_sys_hrtime(void);
+#define ERTS_HRTIME_UNIT (1000*1000*1000)
 
 struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
@@ -227,6 +219,8 @@ struct erts_sys_time_read_only_data__ {
 #ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
     void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
+    ErtsSysPerfCounter (*perf_counter)(void);
+    ErtsSysPerfCounter perf_counter_unit;
     int ticks_per_sec;
 };
 
@@ -280,7 +274,24 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 #endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
 
 /*
- *
+ * Functions for getting the performance counter
+ */
+
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
+#define erts_sys_perf_counter_unit() erts_sys_time_data__.r.o.perf_counter_unit
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter()
+{
+    return (*erts_sys_time_data__.r.o.perf_counter)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+/*
+ * Functions for measuring CPU time
  */
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
@@ -310,7 +321,6 @@ typedef void (*SIGFUNC)(int);
 extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
-extern void sys_stop_cat(void);
 
 /*
  * Handling of floating point exceptions.
@@ -424,19 +434,6 @@ void erts_sys_unblock_fpe(int);
 #define ERTS_FP_ERROR(p, f, A)		__ERTS_FP_ERROR(&(p)->fp_exception, f, A)
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
 
-
-#ifdef NEED_CHILD_SETUP_DEFINES
-/* The child setup argv[] */
-#define CS_ARGV_PROGNAME_IX	0		/* Program name		*/
-#define CS_ARGV_UNBIND_IX	1		/* Unbind from cpu	*/
-#define CS_ARGV_WD_IX		2		/* Working directory	*/
-#define CS_ARGV_CMD_IX		3		/* Command		*/
-#define CS_ARGV_FD_CR_IX	4		/* Fd close range	*/
-#define CS_ARGV_DUP2_OP_IX(N)	((N) + 5)	/* dup2 operations	*/
-
-#define CS_ARGV_NO_OF_DUP2_OPS	3		/* Number of dup2 ops	*/
-#define CS_ARGV_NO_OF_ARGS	8		/* Number of arguments	*/
-#endif /* #ifdef NEED_CHILD_SETUP_DEFINES */
 
 /* Threads */
 #ifdef USE_THREADS

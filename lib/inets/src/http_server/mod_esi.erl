@@ -96,26 +96,27 @@ do(ModData) ->
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
 load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
-    case inets_regexp:split(ErlScriptAlias," ") of
-	{ok, [ErlName | StrModules]} ->
+    try re:split(ErlScriptAlias," ", [{return, list}]) of
+	[ErlName | StrModules] ->
 	    Modules = lists:map(fun(Str) -> 
 					list_to_atom(string:strip(Str)) 
 				end, StrModules),
-	    {ok, [], {erl_script_alias, {ErlName, Modules}}};
-	{ok, _} ->
+	    {ok, [], {erl_script_alias, {ErlName, Modules}}}
+    catch _:_ ->
 	    {error, ?NICE(string:strip(ErlScriptAlias) ++
-			 " is an invalid ErlScriptAlias")}
+			      " is an invalid ErlScriptAlias")}
     end;
 load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
-    case inets_regexp:split(EvalScriptAlias, " ") of
-	{ok, [EvalName | StrModules]} ->
+    try re:split(EvalScriptAlias, " ",  [{return, list}]) of
+	[EvalName | StrModules] ->
 	    Modules = lists:map(fun(Str) -> 
 					list_to_atom(string:strip(Str)) 
 				end, StrModules),
-	    {ok, [], {eval_script_alias, {EvalName, Modules}}};
-	{ok, _} ->
+	    {ok, [], {eval_script_alias, {EvalName, Modules}}}
+    catch 
+	_:_ ->
 	    {error, ?NICE(string:strip(EvalScriptAlias) ++
-			  " is an invalid EvalScriptAlias")}
+			      " is an invalid EvalScriptAlias")}
     end;
 load("ErlScriptTimeout " ++ Timeout, [])->
     case catch list_to_integer(string:strip(Timeout)) of
@@ -224,8 +225,8 @@ match_esi_script(_, [], _) ->
     no_match;
 match_esi_script(RequestURI, [{Alias,Modules} | Rest], AliasType) ->
     AliasMatchStr = alias_match_str(Alias, AliasType),
-    case inets_regexp:first_match(RequestURI, AliasMatchStr) of
-	{match, 1, Length} ->
+    case re:run(RequestURI, AliasMatchStr, [{capture, first}]) of
+	{match, [{0, Length}]} ->
 	    {string:substr(RequestURI, Length + 1), Modules};
 	nomatch ->
 	    match_esi_script(RequestURI, Rest, AliasType)
@@ -280,6 +281,15 @@ erl(#mod{request_uri  = ReqUri,
     {proceed,[{status,{501,{"DELETE", ReqUri, Version},
 		       ?NICE("Erl mechanism doesn't support method DELETE")}}|
 	      Data]};
+
+erl(#mod{request_uri  = ReqUri, 
+	 method       = "PATCH",
+         http_version = Version, 
+	 data         = Data}, _ESIBody, _Modules) ->
+    ?hdrt("erl", [{method, patch}]),
+    {proceed, [{status,{501,{"PATCH", ReqUri, Version},
+			?NICE("Erl mechanism doesn't support method PATCH")}}|
+	       Data]};
 
 erl(#mod{method      = "POST", 
 	 entity_body = Body} = ModData, ESIBody, Modules) ->
@@ -584,9 +594,9 @@ generate_webpage(ESIBody) ->
 is_authorized(_ESIBody, [all]) ->
     true;
 is_authorized(ESIBody, Modules) ->
-    case inets_regexp:match(ESIBody, "^[^\:(%3A)]*") of
-	{match, Start, Length} ->
-	    lists:member(list_to_atom(string:substr(ESIBody, Start, Length)),
+    case re:run(ESIBody, "^[^\:(%3A)]*", [{capture, first}]) of
+	{match, [{Start, Length}]} ->
+	    lists:member(list_to_atom(string:substr(ESIBody, Start+1, Length)),
 			 Modules);
 	nomatch ->
 	    false

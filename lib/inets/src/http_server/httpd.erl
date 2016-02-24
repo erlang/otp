@@ -43,7 +43,7 @@
 %%%========================================================================
 
 parse_query(String) ->
-  {ok, SplitString} = inets_regexp:split(String,"[&;]"),
+  SplitString = re:split(String,"[&;]", [{return, list}]),
   foreach(SplitString).
 
 reload_config(Config = [Value| _], Mode) when is_tuple(Value) ->
@@ -239,14 +239,14 @@ unblock(Addr, Port, Profile) when is_integer(Port) ->
 foreach([]) ->
   [];
 foreach([KeyValue|Rest]) ->
-  {ok, Plus2Space, _} = inets_regexp:gsub(KeyValue,"[\+]"," "),
-  case inets_regexp:split(Plus2Space,"=") of
-    {ok,[Key|Value]} ->
-      [{http_uri:decode(Key),
-	http_uri:decode(lists:flatten(Value))}|foreach(Rest)];
-    {ok,_} ->
-      foreach(Rest)
-  end.
+    Plus2Space = re:replace(KeyValue,"[\+]"," ", [{return,list}, global]),
+    case re:split(Plus2Space,"=", [{return, list}]) of
+	[Key|Value] ->
+	    [{http_uri:decode(Key),
+	      http_uri:decode(lists:flatten(Value))}|foreach(Rest)];
+	_ ->
+	    foreach(Rest)
+    end.
 
 
 make_name(Addr, Port, Profile) ->

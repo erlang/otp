@@ -11,6 +11,8 @@ MODULES= \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
+	beam_reorder_SUITE \
+	beam_type_SUITE \
 	beam_utils_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
@@ -43,6 +45,8 @@ NO_OPT= \
 	andor \
 	apply \
 	beam_except \
+	beam_reorder \
+	beam_type \
 	beam_utils \
 	bs_construct \
         bs_match \
@@ -105,7 +109,7 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include +clint +clint0
+ERL_COMPILE_FLAGS += +clint +clint0
 
 EBIN = .
 

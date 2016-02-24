@@ -32,7 +32,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([foo/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 -define(OUTPUT, "handler_output").

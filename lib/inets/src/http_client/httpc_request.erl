@@ -187,7 +187,8 @@ is_client_closing(Headers) ->
 %%% Internal functions
 %%%========================================================================
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs) 
-  when (Method =:= post) orelse (Method =:= put) ->
+  when (Method =:= post) orelse (Method =:= put)
+       orelse (Method =:= patch) ->
     NewBody = case Headers#http_request_h.expect of
 		  "100-continue" ->
 		      "";

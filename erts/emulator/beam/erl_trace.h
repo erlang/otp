@@ -18,8 +18,38 @@
  * %CopyrightEnd%
  */
 
+#ifndef ERL_TRACE_H__FLAGS__
+#define ERL_TRACE_H__FLAGS__
+/*
+ * NOTE! The bits used for these flags matter. The flag with
+ * the least significant bit will take precedence!
+ *
+ * The "now timestamp" has highest precedence due to
+ * compatibility reasons.
+ */
+#define ERTS_TRACE_FLG_NOW_TIMESTAMP			(1 << 0)
+#define ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP	(1 << 1)
+#define ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP		(1 << 2)
 
-#ifndef ERL_TRACE_H__
+/*
+ * The bits used effects trace flags (of processes and ports)
+ * as well as sequential trace flags. If changed make sure
+ * these arn't messed up...
+ */
+#define ERTS_TRACE_TS_TYPE_BITS 			3
+#define ERTS_TRACE_TS_TYPE_MASK					\
+    ((1 << ERTS_TRACE_TS_TYPE_BITS) - 1)
+
+#define ERTS_TFLGS2TSTYPE(TFLGS)				\
+    ((int) (((TFLGS) >> ERTS_TRACE_FLAGS_TS_TYPE_SHIFT) 	\
+	    & ERTS_TRACE_TS_TYPE_MASK))
+#define ERTS_SEQTFLGS2TSTYPE(SEQTFLGS)				\
+    ((int) (((SEQTFLGS) >> ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)	\
+	    & ERTS_TRACE_TS_TYPE_MASK))
+
+#endif /* ERL_TRACE_H__FLAGS__ */
+
+#if !defined(ERL_TRACE_H__) && !defined(ERTS_ONLY_INCLUDE_TRACE_FLAGS)
 #define ERL_TRACE_H__
 
 struct binary;

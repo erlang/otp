@@ -33,7 +33,7 @@
 %	 same_time_yielding_with_cancel_other_accessor/1,
 	 auto_cancel_yielding/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(SHORT_TIMEOUT, 5000). %% Bif timers as short as this may be pre-allocated
 -define(TIMEOUT_YIELD_LIMIT, 100).

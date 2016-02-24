@@ -29,9 +29,8 @@
     <rev></rev>
   </header>
   <description>
-    <p>The <em>Observer</em> application contains tools for tracing
-      and investigation of distributed systems.</p>
   </description>
+  <xi:include href="introduction_ug.xml"/>
   <xi:include href="observer_ug.xml"/>
   <xi:include href="ttb_ug.xml"/>
   <xi:include href="etop_ug.xml"/>

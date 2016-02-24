@@ -21,7 +21,7 @@
 %%
 -module(ei_format_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("ei_format_SUITE_data/ei_format_test_cases.hrl").
 
 -export([

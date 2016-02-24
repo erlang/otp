@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -265,6 +265,7 @@ do_cycle_port_program(Caller, Parent, Port, Cmd) ->
 send_heart_beat(Port) -> Port ! {self(), {command, [?HEART_BEAT]}}.
 
 %% Set a new HEART_COMMAND.
+-dialyzer({no_improper_lists, send_heart_cmd/2}).
 send_heart_cmd(Port, []) ->
     Port ! {self(), {command, [?CLEAR_CMD]}};
 send_heart_cmd(Port, Cmd) ->

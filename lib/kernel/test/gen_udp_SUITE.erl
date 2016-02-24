@@ -22,7 +22,7 @@
 % because udp is not deterministic.
 %
 -module(gen_udp_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -define(default_timeout, ?t:minutes(1)).

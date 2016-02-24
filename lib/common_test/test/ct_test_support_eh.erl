@@ -27,7 +27,7 @@
 
 -behaviour(gen_event).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 %% gen_event callbacks

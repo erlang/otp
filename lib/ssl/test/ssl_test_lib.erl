@@ -818,7 +818,17 @@ rsa_suites(CounterPart) ->
 		    (_) ->
 			 false
 		 end,
-		 ssl:cipher_suites()).
+                 common_ciphers(CounterPart)).
+
+common_ciphers(crypto) ->
+    ssl:cipher_suites();
+common_ciphers(openssl) ->
+    OpenSslSuites =
+        string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
+    [ssl_cipher:erl_suite_definition(S)
+     || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
+        lists:member(ssl_cipher:openssl_suite_name(S), OpenSslSuites)
+    ].
 
 rsa_non_signed_suites() ->
     lists:filter(fun({rsa, _, _}) ->
@@ -969,6 +979,10 @@ srp_dss_suites() ->
 
 rc4_suites(Version) ->
     Suites = ssl_cipher:rc4_suites(Version),
+    ssl_cipher:filter_suites(Suites).
+
+des_suites(Version) ->
+    Suites = ssl_cipher:des_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
 pem_to_der(File) ->
@@ -1158,23 +1172,27 @@ cipher_restriction(Config0) ->
     end.
 
 check_sane_openssl_version(Version) ->
-    case {Version, os:cmd("openssl version")} of
-	{_, "OpenSSL 1.0.2" ++ _} ->
-	    true;
-	{_, "OpenSSL 1.0.1" ++ _} ->
-	    true;
-	{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
-	    false;
-	{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
-	    false;
-	{'tlsv1.2', "OpenSSL 0" ++ _} ->
-	    false;
-	{'tlsv1.1', "OpenSSL 0" ++ _} ->
-	    false;
-	{_, _} ->
-	    true
+    case supports_ssl_tls_version(Version) of 
+	true ->
+	    case {Version, os:cmd("openssl version")} of
+		{_, "OpenSSL 1.0.2" ++ _} ->
+		    true;
+		{_, "OpenSSL 1.0.1" ++ _} ->
+		    true;
+		{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
+		    false;
+		{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
+		    false;
+		{'tlsv1.2', "OpenSSL 0" ++ _} ->
+		    false;
+		{'tlsv1.1', "OpenSSL 0" ++ _} ->
+		    false;
+		{_, _} ->
+		    true
+	    end;
+	false ->
+	    false
     end.
-
 enough_openssl_crl_support("OpenSSL 0." ++ _) -> false;
 enough_openssl_crl_support(_) -> true.
 
@@ -1198,7 +1216,9 @@ version_flag('tlsv1.1') ->
 version_flag('tlsv1.2') ->
     "-tls1_2";
 version_flag(sslv3) ->
-    "-ssl3".
+    "-ssl3";
+version_flag(sslv2) ->
+    "-ssl2".
 
 filter_suites(Ciphers0) ->
     Version = tls_record:highest_protocol_version([]),
@@ -1208,7 +1228,7 @@ filter_suites(Ciphers0) ->
 	++ ssl_cipher:srp_suites() 
 	++ ssl_cipher:rc4_suites(Version),
     Supported1 = ssl_cipher:filter_suites(Supported0),
-    Supported2 = [ssl:suite_definition(S) || S <- Supported1],
+    Supported2 = [ssl_cipher:erl_suite_definition(S) || S <- Supported1],
     [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported2)].
 
 -define(OPENSSL_QUIT, "Q\n").
@@ -1249,3 +1269,25 @@ portable_open_port(Exe, Args) ->
     ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
     open_port({spawn_executable, AbsPath}, 
 	      [{args, Args}, stderr_to_stdout]). 
+
+supports_ssl_tls_version(Version) ->
+    VersionFlag = version_flag(Version),
+    Exe = "openssl",
+    Args = ["s_client", VersionFlag],
+    Port = ssl_test_lib:portable_open_port(Exe, Args),
+    do_supports_ssl_tls_version(Port).
+
+do_supports_ssl_tls_version(Port) ->
+    receive 
+	{Port, {data, "unknown option"  ++ _}} -> 
+	    false;
+	{Port, {data, Data}} ->
+	    case lists:member("error", string:tokens(Data, ":")) of
+		true ->
+		    false;
+		false ->
+		    do_supports_ssl_tls_version(Port)
+	    end
+    after 500 ->
+	    true
+    end.

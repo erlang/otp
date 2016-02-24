@@ -69,7 +69,7 @@
     <p>
       For integers and atoms, it is allowed for singleton types; for example,
       the integers
-      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>).
+      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>.
 
       All other types are built using unions of either predefined
       types or singleton types. In a type union between a type and one
@@ -495,7 +495,8 @@
     </p>
     <pre>  -spec id(X) -> X when X :: tuple().</pre>
     <p>
-      Currently, the <c>::</c> constraint (read as <c>is_subtype</c>) is
+      Currently, the <c>::</c> constraint
+      (read as &laquo;is a subtype of&raquo;) is
       the only guard constraint that can be used in the <c>'when'</c>
       part of a <c>'-spec'</c> attribute.
     </p>
@@ -529,16 +530,6 @@
     <pre>
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
-    <note>
-      <p>
-      For backwards compatibility the following form is also allowed:
-      </p>
-      <pre>  -spec id(X) -> X when is_subtype(X, tuple()).</pre>
-      <p>
-	but its use is discouraged. It will be removed in a future
-	Erlang/OTP release.
-      </p>
-    </note>
     <p>
       Some functions in Erlang are not meant to return; 
       either because they define servers or because they are used to 

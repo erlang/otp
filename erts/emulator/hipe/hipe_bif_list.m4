@@ -193,6 +193,7 @@ standard_bif_interface_2(nbif_rethrow, hipe_rethrow)
 standard_bif_interface_3(nbif_find_na_or_make_stub, hipe_find_na_or_make_stub)
 standard_bif_interface_2(nbif_nonclosure_address, hipe_nonclosure_address)
 nocons_nofail_primop_interface_0(nbif_fclearerror_error, hipe_fclearerror_error)
+standard_bif_interface_2(nbif_is_divisible, hipe_is_divisible)
 
 /*
  * Mbox primops with implicit P parameter.

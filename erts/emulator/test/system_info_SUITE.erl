@@ -31,7 +31,7 @@
 
 %-define(line_trace, 1).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %-compile(export_all).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -185,8 +185,6 @@ wordsize(Config) when is_list(Config) ->
 	    {comment, "True 32-bit emulator"};
 	{8,8} ->
 	    {comment, "True 64-bit emulator"};
-	{8,4} ->
-	    {comment, "Halfword 64-bit emulator"};
 	Other ->
 	    exit({unexpected_wordsizes,Other})
     end.

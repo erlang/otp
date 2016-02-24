@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@
 %% Exported to qlc_pt.erl only:
 -export([template_state/0, aux_name/3, name_suffix/2, vars/1,
          var_ufold/2, var_fold/3, all_selections/1]).
+
+-dialyzer(no_improper_lists).
 
 %% When cache=list lists bigger than ?MAX_LIST_SIZE bytes are put on
 %% file. Also used when merge join finds big equivalence classes.
@@ -808,21 +810,21 @@ options(Options0, [Key | Keys], L) when is_list(Options0) ->
                 {ok, U};
             {pre_fun, U=undefined} ->
                 {ok, U};
-            {info_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
+            {info_fun, Fun} when is_function(Fun, 1) ->
                 {ok, Fun};
-            {pre_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
+            {pre_fun, Fun} when is_function(Fun, 1) ->
                 {ok, Fun};
-            {post_fun, Fun} when is_function(Fun), is_function(Fun, 0) ->
+            {post_fun, Fun} when is_function(Fun, 0) ->
                 {ok, Fun};
-            {lookup_fun, Fun} when is_function(Fun), is_function(Fun, 2) ->
+            {lookup_fun, Fun} when is_function(Fun, 2) ->
                 {ok, Fun};
             {max_lookup, Max} when is_integer(Max), Max >= 0 ->
                 {ok, Max};
             {max_lookup, infinity} ->
                 {ok, -1};
-            {format_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
+            {format_fun, Fun} when is_function(Fun, 1) ->
                 {ok, Fun};
-            {parent_fun, Fun} when is_function(Fun), is_function(Fun, 0) ->
+            {parent_fun, Fun} when is_function(Fun, 0) ->
                 {ok, Fun};
             {key_equality, KE='=='} ->
                 {ok, KE};
@@ -885,7 +887,7 @@ options(Options0, [Key | Keys], L) when is_list(Options0) ->
             {depth, Depth} when Depth =:= infinity;
                                 is_integer(Depth), Depth >= 0 ->
                 {ok, Depth};
-            {order, Order} when is_function(Order), is_function(Order, 2);
+            {order, Order} when is_function(Order, 2);
                                 (Order =:= ascending);
                                 (Order =:= descending) ->
                 {ok, Order};

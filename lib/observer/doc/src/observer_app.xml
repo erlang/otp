@@ -4,8 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2002</year>
-      <year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -24,7 +23,7 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>observer</title>
+    <title>Observer</title>
     <prepared>Siri Hansen</prepared>
     <responsible>Siri Hansen</responsible>
     <docno></docno>
@@ -32,26 +31,21 @@
     <checked></checked>
     <date>2002-04-08</date>
     <rev>PA1</rev>
-    <file>observer_app.sgml</file>
+    <file>observer_app.xml</file>
   </header>
-  <app>observer</app>
+  <app>Observer</app>
   <appsummary>The Observer Application</appsummary>
   <description>
-    <p>This chapter describes the <em>OBSERVER</em> application in
-      OTP, which provides tools for tracing and investigation of
-      distributed systems.</p>
+    <p>The Observer application contains tools for tracing and
+    investigation of distributed systems.</p>
   </description>
 
   <section>
     <title>Configuration</title>
-    <p>There are currently no configuration parameters available for
+    <p>No configuration parameters are available for
       this application.
       </p>
   </section>
 
-  <section>
-    <title>SEE ALSO</title>
-    <p></p>
-  </section>
 </appref>
 

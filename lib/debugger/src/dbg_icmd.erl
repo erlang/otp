@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -267,7 +267,7 @@ handle_int_msg({old_code,Mod}, Status, Bs,
 	       #ieval{level=Le,module=M}=Ieval) ->
     if
 	Status =:= idle, Le =:= 1 ->
-	    erase([Mod|db]),
+	    erase(?DB_REF_KEY(Mod)),
 	    put(cache, []);
 	true ->
 	    case dbg_istk:in_use_p(Mod, M) of
@@ -277,7 +277,7 @@ handle_int_msg({old_code,Mod}, Status, Bs,
 		    exit(get(self), kill),
 		    dbg_ieval:exception(exit, old_code, Bs, Ieval);
 		false ->
-		    erase([Mod|db]),
+		    erase(?DB_REF_KEY(Mod)),
 		    put(cache, [])
 	    end
     end;

@@ -22,9 +22,7 @@
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,
-	 call/2,
-	 system_continue/3, 
-	 system_terminate/4,
+	 call/1,
 	 system_code_change/4,
 	 error_msg/2, info_msg/2
 	]).
@@ -35,16 +33,18 @@
 
 -define(ANY_NATIVE_CODE_LOADED, any_native_code_loaded).
 
--record(state, {supervisor,
-		root,
-		path,
-		moddb,
-		namedb,
-		cache = no_cache,
-		mode = interactive,
-		on_load = []}).
+-type on_load_item() :: {reference(),module(),file:name_all(),[pid()]}.
+
+-record(state, {supervisor :: pid(),
+		root :: file:name_all(),
+		path :: [file:name_all()],
+		moddb :: ets:tab(),
+		namedb :: ets:tab(),
+		mode = interactive :: 'interactive' | 'embedded',
+		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.
 
+-spec start_link([term()]) -> {'ok', pid()}.
 start_link(Args) ->
     Ref = make_ref(),
     Parent = self(),
@@ -59,7 +59,7 @@ start_link(Args) ->
 %% Init the code_server process.
 %% -----------------------------------------------------------
 
-init(Ref, Parent, [Root,Mode0]) ->
+init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
@@ -69,12 +69,6 @@ init(Ref, Parent, [Root,Mode0]) ->
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
 	    end, erlang:pre_loaded()),
     ets:insert(Db, init:fetch_loaded()),
-
-    Mode = 
-	case Mode0 of
-	    minimal -> interactive;
-	    _       -> Mode0
-	end,
 
     IPath =
 	case Mode of
@@ -89,24 +83,17 @@ init(Ref, Parent, [Root,Mode0]) ->
 	end,
 
     Path = add_loader_path(IPath, Mode),
-    State0 = #state{root = Root,
-		    path = Path,
-		    moddb = Db,
-		    namedb = init_namedb(Path),
-		    mode = Mode},
-
-    State =
-	case init:get_argument(code_path_cache) of
-	    {ok, _} -> 
-		create_cache(State0);
-	    error -> 
-		State0
-	end,
+    State = #state{supervisor = Parent,
+		   root = Root,
+		   path = Path,
+		   moddb = Db,
+		   namedb = init_namedb(Path),
+		   mode = Mode},
 
     put(?ANY_NATIVE_CODE_LOADED, false),
 
     Parent ! {Ref,{ok,self()}},
-    loop(State#state{supervisor = Parent}).
+    loop(State).
 
 get_user_lib_dirs() ->
     case os:getenv("ERL_LIBS") of
@@ -142,8 +129,9 @@ split_paths([C|T], S, Path, Paths) ->
 split_paths([], _S, Path, Paths) ->
     lists:reverse(Paths, [lists:reverse(Path)]).
 
-call(Name, Req) ->
-    Name ! {code_call, self(), Req},
+-spec call(term()) -> term().
+call(Req) ->
+    ?MODULE ! {code_call, self(), Req},
     receive 
 	{?MODULE, Reply} ->
 	    Reply
@@ -255,65 +243,39 @@ handle_call({dir,Dir}, {_From,_Tag}, S) ->
     Resp = do_dir(Root,Dir,S#state.namedb),
     {reply,Resp,S};
 
-handle_call({load_file,Mod}, Caller, St) ->
-    case modp(Mod) of
-	false ->
-	    {reply,{error,badarg},St};
-	true ->
-	    load_file(Mod, Caller, St)
-    end;
+handle_call({load_file,Mod}, Caller, St) when is_atom(Mod) ->
+    load_file(Mod, Caller, St);
 
 handle_call({add_path,Where,Dir0}, {_From,_Tag},
-	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
-    case Cache0 of
-	no_cache ->
-	    {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
-	    {reply,Resp,S#state{path=Path}};
-	_ ->
-	    Dir = absname(Dir0), %% Cache always expands the path 
-	    {Resp,Path} = add_path(Where, Dir, Path0, Namedb),
-	    Cache = update_cache([Dir], Where, Cache0),
-	    {reply,Resp,S#state{path=Path,cache=Cache}}
-    end;
+	    #state{namedb=Namedb,path=Path0}=S) ->
+    {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({add_paths,Where,Dirs0}, {_From,_Tag},
-	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
-    case Cache0 of
-	no_cache ->
-	    {Resp,Path} = add_paths(Where, Dirs0, Path0, Namedb),
-	    {reply,Resp,S#state{path=Path}};
-	_ ->
-	    %% Cache always expands the path 
-	    Dirs = [absname(Dir) || Dir <- Dirs0], 
-	    {Resp,Path} = add_paths(Where, Dirs, Path0, Namedb),
-	    Cache=update_cache(Dirs,Where,Cache0),
-	    {reply,Resp,S#state{cache=Cache,path=Path}}
-    end;
+	    #state{namedb=Namedb,path=Path0}=S) ->
+    {Resp,Path} = add_paths(Where, Dirs0, Path0, Namedb),
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({set_path,PathList}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path,namedb=NewDb})};
+    {reply,Resp,S#state{path=Path,namedb=NewDb}};
 
 handle_call({del_path,Name}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path} = del_path(Name, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path})};
+    {reply,Resp,S#state{path=Path}};
 
 handle_call({replace_path,Name,Dir}, {_From,_Tag},
 	    #state{path=Path0,namedb=Namedb}=S) ->
     {Resp,Path} = replace_path(Name, Dir, Path0, Namedb),
-    {reply,Resp,rehash_cache(S#state{path=Path})};
-
-handle_call(rehash, {_From,_Tag}, S0) ->
-    S = create_cache(S0),
-    {reply,ok,S};
+    {reply,Resp,S#state{path=Path}};
 
 handle_call(get_path, {_From,_Tag}, S) ->
     {reply,S#state.path,S};
 
 %% Messages to load, delete and purge modules/files.
-handle_call({load_abs,File,Mod}, Caller, S) ->
+handle_call({load_abs,File,Mod}, Caller, S) when is_atom(Mod) ->
     case modp(File) of
 	false ->
 	    {reply,{error,badarg},S};
@@ -321,7 +283,7 @@ handle_call({load_abs,File,Mod}, Caller, S) ->
 	    load_abs(File, Mod, Caller, S)
     end;
 
-handle_call({load_binary,Mod,File,Bin}, Caller, S) ->
+handle_call({load_binary,Mod,File,Bin}, Caller, S) when is_atom(Mod) ->
     do_load_binary(Mod, File, Bin, Caller, S);
 
 handle_call({load_native_partial,Mod,Bin}, {_From,_Tag}, S) ->
@@ -337,59 +299,44 @@ handle_call({load_native_sticky,Mod,Bin,WholeModule}, {_From,_Tag}, S) ->
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
-handle_call({ensure_loaded,Mod0}, Caller, St0) ->
-    Fun = fun (M, St) ->
-		  case erlang:module_loaded(M) of
-		      true ->
-			  {reply,{module,M},St};
-		      false when St#state.mode =:= interactive ->
-			  load_file(M, Caller, St);
-		      false -> 
-			  {reply,{error,embedded},St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, {error,badarg}, St0);
+handle_call({ensure_loaded,Mod}, Caller, St) when is_atom(Mod) ->
+    case erlang:module_loaded(Mod) of
+	true ->
+	    {reply,{module,Mod},St};
+	false when St#state.mode =:= interactive ->
+	    load_file(Mod, Caller, St);
+	false ->
+	    {reply,{error,embedded},St}
+    end;
 
-handle_call({delete,Mod0}, {_From,_Tag}, S) ->
-    Fun = fun (M, St) ->
-		  case catch erlang:delete_module(M) of
-		      true ->
-			  ets:delete(St#state.moddb, M),
-			  {reply,true,St};
-		      _ -> 
-			  {reply,false,St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, false, S);
+handle_call({delete,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    case catch erlang:delete_module(Mod) of
+	true ->
+	    ets:delete(St#state.moddb, Mod),
+	    {reply,true,St};
+	_ ->
+	    {reply,false,St}
+    end;
 
-handle_call({purge,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,do_purge(M),St}
-		end, Mod0, false, St0);
+handle_call({purge,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,do_purge(Mod),St};
 
-handle_call({soft_purge,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,do_soft_purge(M),St}
-		end, Mod0, true, St0);
+handle_call({soft_purge,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,do_soft_purge(Mod),St};
 
-handle_call({is_loaded,Mod0}, {_From,_Tag}, St0) ->
-    do_mod_call(fun (M, St) ->
-			{reply,is_loaded(M, St#state.moddb),St}
-		end, Mod0, false, St0);
+handle_call({is_loaded,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    {reply,is_loaded(Mod, St#state.moddb),St};
 
 handle_call(all_loaded, {_From,_Tag}, S) ->
     Db = S#state.moddb,
     {reply,all_loaded(Db),S};
 
-handle_call({get_object_code,Mod0}, {_From,_Tag}, St0) ->
-    Fun = fun(M, St) ->
-		  Path = St#state.path,
-		  case mod_to_bin(Path, atom_to_list(M)) of
-		      {_,Bin,FName} -> {reply,{M,Bin,FName},St};
-		      Error -> {reply,Error,St}
-		  end
-	  end,
-    do_mod_call(Fun, Mod0, error, St0);
+handle_call({get_object_code,Mod}, {_From,_Tag}, St) when is_atom(Mod) ->
+    Path = St#state.path,
+    case mod_to_bin(Path, Mod) of
+	{_,Bin,FName} -> {reply,{Mod,Bin,FName},St};
+	Error -> {reply,Error,St}
+    end;
 
 handle_call({is_sticky, Mod}, {_From,_Tag}, S) ->
     Db = S#state.moddb,
@@ -397,9 +344,6 @@ handle_call({is_sticky, Mod}, {_From,_Tag}, S) ->
 
 handle_call(stop,{_From,_Tag}, S) ->
     {stop,normal,stopped,S};
-
-handle_call({is_cached,_File}, {_From,_Tag}, S=#state{cache=no_cache}) ->
-    {reply, no, S};
 
 handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}, {_From,_Tag}, S=#state{mode=Mode}) ->
     case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo, ParserFun) of
@@ -409,106 +353,12 @@ handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}, {_From
 	    {reply, Error, S}
     end;
 
-handle_call({is_cached,File}, {_From,_Tag}, S=#state{cache=Cache}) ->
-    ObjExt = objfile_extension(),
-    Ext = filename:extension(File),
-    Type = case Ext of
-	       ObjExt -> obj;
-	       ".app" -> app;
-	       _ -> undef
-	   end,
-    if Type =:= undef -> 
-	    {reply, no, S};
-       true ->
-	    Key = {Type,list_to_atom(filename:rootname(File, Ext))},
-	    case ets:lookup(Cache, Key) of
-		[] -> 
-		    {reply, no, S};
-		[{Key,Dir}] ->
-		    {reply, Dir, S}
-	    end
-    end;
-
 handle_call(get_mode, {_From,_Tag}, S=#state{mode=Mode}) ->
     {reply, Mode, S};
 
 handle_call(Other,{_From,_Tag}, S) ->			
     error_msg(" ** Codeserver*** ignoring ~w~n ",[Other]),
     {noreply,S}.
-
-do_mod_call(Action, Module, _Error, St) when is_atom(Module) ->
-    Action(Module, St);
-do_mod_call(Action, Module, Error, St) ->
-    try list_to_atom(Module) of
-	Atom when is_atom(Atom) ->
-	    Action(Atom, St)
-    catch
-	error:badarg ->
-	    {reply,Error,St}
-    end.
-
-%% --------------------------------------------------------------
-%% Cache functions 
-%% --------------------------------------------------------------
-
-create_cache(St = #state{cache = no_cache}) ->
-    Cache = ets:new(code_cache, [protected]),
-    rehash_cache(Cache, St);
-create_cache(St) ->
-    rehash_cache(St).
-
-rehash_cache(St = #state{cache = no_cache}) ->
-    St;
-rehash_cache(St = #state{cache = OldCache}) ->
-    ets:delete(OldCache), 
-    Cache = ets:new(code_cache, [protected]),
-    rehash_cache(Cache, St).
-
-rehash_cache(Cache, St = #state{path = Path}) ->
-    Exts = [{obj,objfile_extension()}, {app,".app"}],
-    {Cache,NewPath} = locate_mods(lists:reverse(Path), first, Exts, Cache, []),
-    St#state{cache = Cache, path=NewPath}.
-
-update_cache(Dirs, Where, Cache0) ->
-    Exts = [{obj,objfile_extension()}, {app,".app"}],
-    {Cache, _} = locate_mods(Dirs, Where, Exts, Cache0, []),
-    Cache.
-
-locate_mods([Dir0|Path], Where, Exts, Cache, Acc) ->
-    Dir = absname(Dir0), %% Cache always expands the path 
-    case erl_prim_loader:list_dir(Dir) of
-	{ok, Files} -> 
-	    Cache = filter_mods(Files, Where, Exts, Dir, Cache),
-	    locate_mods(Path, Where, Exts, Cache, [Dir|Acc]);
-	error ->
-	    locate_mods(Path, Where, Exts, Cache, Acc)
-    end;
-locate_mods([], _, _, Cache, Path) ->
-    {Cache,Path}.
-
-filter_mods([File|Rest], Where, Exts, Dir, Cache) ->
-    Ext = filename:extension(File),
-    Root = list_to_atom(filename:rootname(File, Ext)),
-    case lists:keyfind(Ext, 2, Exts) of
-	{Type, _} ->
-	    Key = {Type,Root},
-	    case Where of
-		first ->
-		    true = ets:insert(Cache, {Key,Dir});
-		last ->
-		    case ets:lookup(Cache, Key) of
-			[] ->
-			    true = ets:insert(Cache, {Key,Dir});
-			_ ->
-			    ignore
-		    end
-	    end;
-	false ->
-	    ok
-    end,
-    filter_mods(Rest, Where, Exts, Dir, Cache);
-filter_mods([], _, _, _, Cache) ->
-    Cache.
 
 %% --------------------------------------------------------------
 %% Path handling functions.
@@ -1207,9 +1057,9 @@ add_paths(_,_,Path,_) ->
     {ok,Path}.
 
 do_load_binary(Module, File, Binary, Caller, St) ->
-    case modp(Module) andalso modp(File) andalso is_binary(Binary) of
+    case modp(File) andalso is_binary(Binary) of
 	true ->
-	    case erlang:module_loaded(to_atom(Module)) of
+	    case erlang:module_loaded(Module) of
 		true -> do_purge(Module);
 		false -> ok
 	    end,
@@ -1222,15 +1072,10 @@ modp(Atom) when is_atom(Atom) -> true;
 modp(List) when is_list(List) -> int_list(List);
 modp(_)                       -> false.
 
-load_abs(File, Mod0, Caller, St) ->
+load_abs(File, Mod, Caller, St) ->
     Ext = objfile_extension(),
     FileName0 = lists:concat([File, Ext]),
     FileName = absname(FileName0),
-    Mod = if Mod0 =:= [] ->
-		  list_to_atom(filename:basename(FileName0, Ext));
-	     true ->
-		  Mod0
-	  end,
     case erl_prim_loader:get_file(FileName) of
 	{ok,Bin,_} ->
 	    try_load_module(FileName, Mod, Bin, Caller, St);
@@ -1238,21 +1083,10 @@ load_abs(File, Mod0, Caller, St) ->
 	    {reply,{error,nofile},St}
     end.
 
-try_load_module(Mod, Dir, Caller, St) ->
-    File = filename:append(Dir, to_list(Mod) ++
-			   objfile_extension()),
-    case erl_prim_loader:get_file(File) of
-	error -> 
-	    {reply,error,St};
-	{ok,Binary,FName} ->
-	    try_load_module(absname(FName), Mod, Binary, Caller, St)
-    end.
-
 try_load_module(File, Mod, Bin, {From,_}=Caller, St0) ->
-    M = to_atom(Mod),
-    case pending_on_load(M, From, St0) of
+    case pending_on_load(Mod, From, St0) of
 	no ->
-	    try_load_module_1(File, M, Bin, Caller, St0);
+	    try_load_module_1(File, Mod, Bin, Caller, St0);
 	{yes,St} ->
 	    {noreply,St}
     end.
@@ -1271,9 +1105,10 @@ try_load_module_2(File, Mod, Bin, Caller, undefined, St) ->
     try_load_module_3(File, Mod, Bin, Caller, undefined, St);
 try_load_module_2(File, Mod, Bin, Caller, Architecture,
                   #state{moddb=Db}=St) ->
-    case catch load_native_code(Mod, Bin, Architecture) of
+    case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-            ets:insert(Db, {Mod,File}),
+	    put(?ANY_NATIVE_CODE_LOADED, true),
+	    ets:insert(Db, {Mod,File}),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, Caller, Architecture, St);
@@ -1294,26 +1129,6 @@ try_load_module_3(File, Mod, Bin, Caller, Architecture,
         {error,What} = Error ->
             error_msg("Loading of ~ts failed: ~p\n", [File, What]),
             {reply,Error,St}
-    end.
-
-load_native_code(Mod, Bin, Architecture) ->
-    %% During bootstrapping of Open Source Erlang, we don't have any hipe
-    %% loader modules, but the Erlang emulator might be hipe enabled.
-    %% Therefore we must test for that the loader modules are available
-    %% before trying to to load native code.
-    case erlang:module_loaded(hipe_unified_loader) of
-	false ->
-	    no_native;
-	true ->
-	    Result = hipe_unified_loader:load_native_code(Mod, Bin,
-                                                          Architecture),
-	    case Result of
-		{module,_} ->
-		    put(?ANY_NATIVE_CODE_LOADED, true);
-		_ ->
-		    ok
-	    end,
-	    Result
     end.
 
 hipe_result_to_status(Result) ->
@@ -1338,37 +1153,22 @@ int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
 int_list([])                       -> true.
 
-load_file(Mod0, {From,_}=Caller, St0) ->
-    Mod = to_atom(Mod0),
+load_file(Mod, {From,_}=Caller, St0) ->
     case pending_on_load(Mod, From, St0) of
 	no -> load_file_1(Mod, Caller, St0);
 	{yes,St} -> {noreply,St}
     end.
 
-load_file_1(Mod, Caller, #state{path=Path,cache=no_cache}=St) ->
+load_file_1(Mod, Caller, #state{path=Path}=St) ->
     case mod_to_bin(Path, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
-	    try_load_module(File, Mod, Binary, Caller, St)
-    end;
-load_file_1(Mod, Caller, #state{cache=Cache}=St0) ->
-    Key = {obj,Mod},
-    case ets:lookup(Cache, Key) of
-	[] -> 
-	    St = rehash_cache(St0),
-	    case ets:lookup(St#state.cache, Key) of
-		[] -> 
-		    {reply,{error,nofile},St};
-		[{Key,Dir}] ->
-		    try_load_module(Mod, Dir, Caller, St)
-	    end;
-	[{Key,Dir}] ->
-	    try_load_module(Mod, Dir, Caller, St0)
+	    try_load_module_1(File, Mod, Binary, Caller, St)
     end.
 
 mod_to_bin([Dir|Tail], Mod) ->
-    File = filename:append(Dir, to_list(Mod) ++ objfile_extension()),
+    File = filename:append(Dir, atom_to_list(Mod) ++ objfile_extension()),
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    mod_to_bin(Tail, Mod);
@@ -1421,249 +1221,20 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
     absname(filename:join(Name), Dcwd).
 
 
-%% do_purge(Module)
-%%  Kill all processes running code from *old* Module, and then purge the
-%%  module. Return true if any processes killed, else false.
-
-do_purge(Mod0) ->
-    Mod = to_atom(Mod0),
-    case erlang:check_old_code(Mod) of
-	false ->
-	    false;
-	true ->
-	    Res = check_proc_code(erlang:processes(), Mod, true),
-	    try
-		erlang:purge_module(Mod)
-	    catch
-		_:_ -> ignore
-	    end,
-	    Res
-    end.
-
-%% do_soft_purge(Module)
-%% Purge old code only if no procs remain that run old code.
-%% Return true in that case, false if procs remain (in this
-%% case old code is not purged)
-
-do_soft_purge(Mod0) ->
-    Mod = to_atom(Mod0),
-    case erlang:check_old_code(Mod) of
-	false ->
-	    true;
-	true ->
-	    case check_proc_code(erlang:processes(), Mod, false) of
-		false ->
-		    false;
-		true ->
-		    try
-			erlang:purge_module(Mod)
-		    catch
-			_:_ -> ignore
-		    end,
-		    true
-	    end
-    end.
-
-%%
-%% check_proc_code(Pids, Mod, Hard) - Send asynchronous
-%%   requests to all processes to perform a check_process_code
-%%   operation. Each process will check their own state and
-%%   reply with the result. If 'Hard' equals
-%%   - true, processes that refer 'Mod' will be killed. If
-%%     any processes were killed true is returned; otherwise,
-%%     false.
-%%   - false, and any processes refer 'Mod', false will
-%%     returned; otherwise, true.
-%%
-%%   Requests will be sent to all processes identified by
-%%   Pids at once, but without allowing GC to be performed.
-%%   Check process code operations that are aborted due to
-%%   GC need, will be restarted allowing GC. However, only
-%%   ?MAX_CPC_GC_PROCS outstanding operation allowing GC at
-%%   a time will be allowed. This in order not to blow up
-%%   memory wise.
-%%
-%%   We also only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
-%%   outstanding kills. This both in order to avoid flooding
-%%   our message queue with 'DOWN' messages and limiting the
-%%   amount of memory used to keep references to all
-%%   outstanding kills.
-%%
-
-%% We maybe should allow more than two outstanding
-%% GC requests, but for now we play it safe...
--define(MAX_CPC_GC_PROCS, 2).
--define(MAX_CPC_NO_OUTSTANDING_KILLS, 10).
-
--record(cpc_static, {hard, module, tag}).
-
--record(cpc_kill, {outstanding = [],
-		   no_outstanding = 0,
-		   waiting = [],
-		   killed = false}).
-
-check_proc_code(Pids, Mod, Hard) ->
-    Tag = erlang:make_ref(),
-    CpcS = #cpc_static{hard = Hard,
-		       module = Mod,
-		       tag = Tag},
-    check_proc_code(CpcS, cpc_init(CpcS, Pids, 0), 0, [], #cpc_kill{}, true).
-
-check_proc_code(#cpc_static{hard = true}, 0, 0, [],
-		#cpc_kill{outstanding = [], waiting = [], killed = Killed},
-		true) ->
-    %% No outstanding requests. We did a hard check, so result is whether or
-    %% not we killed any processes...
-    Killed;
-check_proc_code(#cpc_static{hard = false}, 0, 0, [], _KillState, Success) ->
-    %% No outstanding requests and we did a soft check...
-    Success;
-check_proc_code(#cpc_static{hard = false, tag = Tag} = CpcS, NoReq0, NoGcReq0,
-		[], _KillState, false) ->
-    %% Failed soft check; just cleanup the remaining replies corresponding
-    %% to the requests we've sent...
-    {NoReq1, NoGcReq1} = receive
-			     {check_process_code, {Tag, _P, GC}, _Res} ->
-				 case GC of
-				     false -> {NoReq0-1, NoGcReq0};
-				     true -> {NoReq0, NoGcReq0-1}
-				 end
-			 end,
-    check_proc_code(CpcS, NoReq1, NoGcReq1, [], _KillState, false);
-check_proc_code(#cpc_static{tag = Tag} = CpcS, NoReq0, NoGcReq0, NeedGC0,
-		KillState0, Success) ->
-
-    %% Check if we should request a GC operation
-    {NoGcReq1, NeedGC1} = case NoGcReq0 < ?MAX_CPC_GC_PROCS of
-			      GcOpAllowed when GcOpAllowed == false;
-					       NeedGC0 == [] ->
-				  {NoGcReq0, NeedGC0};
-			      _ ->
-				  {NoGcReq0+1, cpc_request_gc(CpcS,NeedGC0)}
-			  end,
-
-    %% Wait for a cpc reply or 'DOWN' message
-    {NoReq1, NoGcReq2, Pid, Result, KillState1} = cpc_recv(Tag,
-							   NoReq0,
-							   NoGcReq1,
-							   KillState0),
-
-    %% Check the result of the reply
-    case Result of
-	aborted ->
-	    %% Operation aborted due to the need to GC in order to
-	    %% determine if the process is referring the module.
-	    %% Schedule the operation for restart allowing GC...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, [Pid|NeedGC1], KillState1,
-			    Success);
-	false ->
-	    %% Process not referring the module; done with this process...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1, KillState1,
-			    Success);
-	true ->
-	    %% Process referring the module...
-	    case CpcS#cpc_static.hard of
-		false ->
-		    %% ... and soft check. The whole operation failed so
-		    %% no point continuing; clean up and fail...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, [], KillState1,
-				    false);
-		true ->
-		    %% ... and hard check; schedule kill of it...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-				    cpc_sched_kill(Pid, KillState1), Success)
-	    end;
-	'DOWN' ->
-	    %% Handled 'DOWN' message
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-			    KillState1, Success)
-    end.
-
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = []} = KillState) ->
-    receive
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq,
-	 #cpc_kill{outstanding = [R0, R1, R2, R3, R4 | _]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} when R == R0;
-					R == R1;
-					R == R2;
-					R == R3;
-					R == R4 ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState); 
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = [R|_]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState); 
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end.
-
-cpc_handle_down(NoReq, NoGcReq, R, #cpc_kill{outstanding = Rs,
-					     no_outstanding = N} = KillState) ->
-    {NoReq, NoGcReq, undefined, 'DOWN',
-     cpc_sched_kill_waiting(KillState#cpc_kill{outstanding = cpc_list_rm(R, Rs),
-					       no_outstanding = N-1})}.
-
-cpc_list_rm(R, [R|Rs]) ->
-    Rs;
-cpc_list_rm(R0, [R1|Rs]) ->
-    [R1|cpc_list_rm(R0, Rs)].
-
-cpc_handle_cpc(NoReq, NoGcReq, false, Pid, Res, KillState) ->
-    {NoReq-1, NoGcReq, Pid, Res, KillState};
-cpc_handle_cpc(NoReq, NoGcReq, true, Pid, Res, KillState) ->
-    {NoReq, NoGcReq-1, Pid, Res, KillState}.
-
-cpc_sched_kill_waiting(#cpc_kill{waiting = []} = KillState) ->
-    KillState;
-cpc_sched_kill_waiting(#cpc_kill{outstanding = Rs,
-				 no_outstanding = N,
-				 waiting = [P|Ps]} = KillState) ->
-    R = erlang:monitor(process, P),
-    exit(P, kill),
-    KillState#cpc_kill{outstanding = [R|Rs],
-		       no_outstanding = N+1,
-		       waiting = Ps,
-		       killed = true}.
-
-cpc_sched_kill(Pid, #cpc_kill{no_outstanding = N, waiting = Pids} = KillState)
-  when N >= ?MAX_CPC_NO_OUTSTANDING_KILLS ->
-    KillState#cpc_kill{waiting = [Pid|Pids]};
-cpc_sched_kill(Pid,
-	       #cpc_kill{outstanding = Rs, no_outstanding = N} = KillState) ->
-    R = erlang:monitor(process, Pid),
-    exit(Pid, kill),
-    KillState#cpc_kill{outstanding = [R|Rs],
-		       no_outstanding = N+1,
-		       killed = true}.
-
-cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
-    erlang:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-					 {allow_gc, AllowGc}]).
-
-cpc_request_gc(CpcS, [Pid|Pids]) ->
-    cpc_request(CpcS, Pid, true),
-    Pids.
-
-cpc_init(_CpcS, [], NoReqs) ->
-    NoReqs;
-cpc_init(CpcS, [Pid|Pids], NoReqs) ->
-    cpc_request(CpcS, Pid, false),
-    cpc_init(CpcS, Pids, NoReqs+1).
-
-% end of check_proc_code() implementation.
 
 is_loaded(M, Db) ->
     case ets:lookup(Db, M) of
 	[{M,File}] -> {file,File};
 	[] -> false
     end.
+
+do_purge(Mod) ->
+    {_WasOld, DidKill} = erts_code_purger:purge(Mod),
+    DidKill.
+
+do_soft_purge(Mod) ->
+    erts_code_purger:soft_purge(Mod).
+
 
 %% -------------------------------------------------------
 %% The on_load functionality.
@@ -1759,13 +1330,13 @@ strip_mod_info([{{sticky,_},_}|T], Acc) -> strip_mod_info(T, Acc);
 strip_mod_info([H|T], Acc)              -> strip_mod_info(T, [H|Acc]);
 strip_mod_info([], Acc)                 -> Acc.
 
-% error_msg(Format) ->
-%     error_msg(Format,[]).
+-spec error_msg(io:format(), [term()]) -> 'ok'.
 error_msg(Format, Args) ->
     Msg = {notify,{error, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,
     ok.
 
+-spec info_msg(io:format(), [term()]) -> 'ok'.
 info_msg(Format, Args) ->
     Msg = {notify,{info_msg, group_leader(), {self(), Format, Args}}},
     error_logger ! Msg,
@@ -1779,6 +1350,3 @@ archive_extension() ->
 
 to_list(X) when is_list(X) -> X;
 to_list(X) when is_atom(X) -> atom_to_list(X).
-
-to_atom(X) when is_atom(X) -> X;
-to_atom(X) when is_list(X) -> list_to_atom(X).

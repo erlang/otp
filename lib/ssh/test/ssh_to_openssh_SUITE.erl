@@ -33,6 +33,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() ->
+    [{timetrap,{minutes,5}}].
+
 all() -> 
     case os:find_executable("ssh") of
 	false -> 
@@ -57,21 +60,14 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    case gen_tcp:connect("localhost", 22, []) of
-		{error,econnrefused} ->
-		    {skip,"No openssh deamon"};
-		_ ->
-		    ssh_test_lib:openssh_sanity_check(Config)
-	    end;
-	_Else ->
-	    {skip,"Could not start crypto!"}
+    case gen_tcp:connect("localhost", 22, []) of
+	{error,econnrefused} ->
+	    {skip,"No openssh deamon"};
+	_ ->
+	    ssh_test_lib:openssh_sanity_check(Config)
     end.
 
 end_per_suite(_Config) ->
-    crypto:stop(),
     ok.
 
 init_per_group(erlang_server, Config) ->
@@ -110,9 +106,9 @@ end_per_testcase(_TestCase, _Config) ->
 
 chk_key(Pgm, Name, File, Config) ->
     case ssh_test_lib:openssh_supports(Pgm, public_key, Name) of
-	true ->
-	    {skip,lists:concat(["openssh client does not support ",Name])};
 	false ->
+	    {skip,lists:concat(["openssh client does not support ",Name])};
+	true ->
 	    {ok,[[Home]]} = init:get_argument(home),
 	    KeyFile =  filename:join(Home, File),
 	    case file:read_file(KeyFile) of

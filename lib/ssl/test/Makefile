@@ -81,7 +81,7 @@ HRL_FILES_NEEDED_IN_TEST = \
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INCLUDES = -I. -I$(ERL_TOP)/lib/test_server/include/
+INCLUDES = -I.
 
 DATADIRS = ssl_basic_SUITE_data
 
@@ -100,8 +100,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssl_test
 # The path to the test_server ebin dir is needed when 
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
-	             $(INCLUDES) 
+ERL_COMPILE_FLAGS += $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets

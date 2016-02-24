@@ -82,14 +82,12 @@ ERL_IDL_FLAGS += -pa $(ERL_TOP)/lib/cosProperty/ebin \
 ERL_COMPILE_FLAGS +=  \
 	$(ERL_IDL_FLAGS) \
 	-pa $(ERL_TOP)/lib/orber/include \
-	-pa $(ERL_TOP)/internal_tools/test_server/ebin \
 	-pa $(ERL_TOP)/lib/cosProperty/ebin \
 	-pa $(ERL_TOP)/lib/cosProperty/test/idl_output \
 	-I$(ERL_TOP)/lib/orber/include \
 	-I$(ERL_TOP)/lib/cosProperty/src \
 	-I$(ERL_TOP)/lib/cosProperty \
-	-I$(ERL_TOP)/lib/cosProperty/test/$(IDLOUTDIR) \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/cosProperty/test/$(IDLOUTDIR)
 
 # ----------------------------------------------------
 # Targets

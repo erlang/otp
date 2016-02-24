@@ -121,6 +121,7 @@ options_tests() ->
 
 api_tests() ->
     [connection_info,
+     connection_information,
      peername,
      peercert,
      peercert_with_client_cert,
@@ -182,6 +183,8 @@ cipher_tests() ->
      rc4_rsa_cipher_suites,
      rc4_ecdh_rsa_cipher_suites,
      rc4_ecdsa_cipher_suites,
+     des_rsa_cipher_suites,
+     des_ecdh_rsa_cipher_suites,
      default_reject_anonymous].
 
 cipher_tests_ec() ->
@@ -444,7 +447,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa,des_cbc,sha,no_export}]} | 
+			    [{ciphers,[{rsa, aes_128_cbc, sha}]} | 
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -453,12 +456,43 @@ connection_info(Config) when is_list(Config) ->
     Version = 
 	tls_record:protocol_version(tls_record:highest_protocol_version([])),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa, des_cbc, sha}}},
+    ServerMsg = ClientMsg = {ok, {Version, {rsa, aes_128_cbc, sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+connection_information() ->
+    [{doc,"Test the API function ssl:connection_information/1"}].
+connection_information(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, connection_information_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, connection_information_result, []}},
+			   {options, ClientOpts}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+    
+    ServerMsg = ClientMsg = ok,
+			   
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 protocol_versions() ->
@@ -1950,6 +1984,23 @@ rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
     Ciphers = ssl_test_lib:rc4_suites(NVersion),
     run_suites(Ciphers, Version, Config, rc4_ecdsa).
 
+%%-------------------------------------------------------------------
+des_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+des_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:des_suites(NVersion),
+    run_suites(Ciphers, Version, Config, des_rsa).
+%-------------------------------------------------------------------
+des_ecdh_rsa_cipher_suites()->
+    [{doc, "Test the RC4 ciphersuites"}].
+des_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
+    NVersion = tls_record:highest_protocol_version([]),
+    Version = tls_record:protocol_version(NVersion),
+    Ciphers = ssl_test_lib:des_suites(NVersion),
+    run_suites(Ciphers, Version, Config, des_dhe_rsa).
+
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
     [{doc,"Test that by default anonymous cipher suites are rejected "}].
@@ -2686,7 +2737,12 @@ defaults(Config) when is_list(Config)->
     true = lists:member(sslv3, Available),
     false = lists:member(sslv3, Supported),
     false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
-    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)).
+    true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)),
+    false = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites()),
+    true = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites(all)),
+    false = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites()),
+    true = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites(all)).
+
 %%--------------------------------------------------------------------
 reuseaddr() ->
     [{doc,"Test reuseaddr option"}].
@@ -3974,7 +4030,15 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    rc4_ecdsa ->
 		{?config(client_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ?config(server_ecdsa_opts, Config)]}
+		  ?config(server_ecdsa_opts, Config)]};
+	    des_dhe_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_rsa_opts, Config)]};
+	    des_rsa ->
+		{?config(client_opts, Config),
+		 [{ciphers, Ciphers} |
+		  ?config(server_opts, Config)]}
 	end,
 
     Result =  lists:map(fun(Cipher) ->
@@ -3989,7 +4053,7 @@ run_suites(Ciphers, Version, Config, Type) ->
     end.
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl:suite_definition(ssl_cipher:openssl_suite(Suite));
+    ssl_cipher:erl_suite_definition(ssl_cipher:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 
@@ -4010,11 +4074,11 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-			   {options,
-			    [{ciphers,[CipherSuite]} |
-			     ClientOpts]}]),
+					{from, self()},
+					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
+					{options,
+					 [{ciphers,[CipherSuite]} |
+					  ClientOpts]}]),
 
     Result = ssl_test_lib:wait_for_result(Server, ok, Client, ok),
 
@@ -4026,6 +4090,17 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 	    [];
 	Error ->
 	    [{ErlangCipherSuite, Error}]
+    end.
+
+connection_information_result(Socket) ->
+    {ok, Info = [_ | _]} = ssl:connection_information(Socket),
+    case  length(Info) > 3 of
+	true -> 
+	    %% Atleast one ssloption() is set
+	    ct:log("Info ~p", [Info]),
+	    ok;
+	false ->
+	    ct:fail(no_ssl_options_returned)
     end.
 
 connection_info_result(Socket) ->
@@ -4153,6 +4228,12 @@ first_rsa_suite([{ecdhe_rsa, _, _} = Suite | _]) ->
 first_rsa_suite([{dhe_rsa, _, _} = Suite| _]) ->
     Suite;
 first_rsa_suite([{rsa, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{ecdhe_rsa, _, _, _} = Suite | _]) ->
+    Suite;
+first_rsa_suite([{dhe_rsa, _, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{rsa, _, _, _} = Suite| _]) ->
     Suite;
 first_rsa_suite([_ | Rest]) ->
     first_rsa_suite(Rest).

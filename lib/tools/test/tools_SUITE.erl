@@ -19,7 +19,7 @@
 %%
 -module(tools_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).

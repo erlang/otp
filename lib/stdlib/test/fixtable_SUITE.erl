@@ -56,7 +56,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% I wrote this thinking I would use more than one temporary at a time, but 
 %%% I wasn't... Well, maybe in the future...

@@ -22,7 +22,7 @@
 
 -export([compile/2,test/2,compile_asn1config/2,test_asn1config/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Options) ->
     Files = ["Remote-Operations-Information-Objects",

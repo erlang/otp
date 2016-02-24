@@ -34,7 +34,7 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
@@ -107,13 +107,13 @@ xrange(Config) when is_list(Config) ->
 	  {{bif,'+',{f,0},[{x,-1},{x,1}],{x,0}},4,
 	   {uninitialized_reg,{x,-1}}}},
 	 {{t,sum_2,2},
-	  {{bif,'+',{f,0},[{x,0},{x,1024}],{x,0}},4,
-	   {uninitialized_reg,{x,1024}}}},
+	  {{bif,'+',{f,0},[{x,0},{x,1023}],{x,0}},4,
+	   {uninitialized_reg,{x,1023}}}},
 	 {{t,sum_3,2},
 	  {{bif,'+',{f,0},[{x,0},{x,1}],{x,-1}},4,
 	   {invalid_store,{x,-1},number}}},
 	 {{t,sum_4,2},
-	  {{bif,'+',{f,0},[{x,0},{x,1}],{x,1024}},4,limit}}] = Errors,
+	  {{bif,'+',{f,0},[{x,0},{x,1}],{x,1023}},4,limit}}] = Errors,
     ok.
 
 yrange(Config) when is_list(Config) ->

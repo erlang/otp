@@ -36,11 +36,12 @@
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
-	 match_string_opt/1,map_and_binary/1]).
+	 match_string_opt/1,select_on_integer/1,
+	 map_and_binary/1,unsafe_branch_caching/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -62,7 +63,8 @@ groups() ->
        otp_7498,match_string,zero_width,bad_size,haystack,
        cover_beam_bool,matched_out_size,follow_fail_branch,
        no_partition,calling_a_binary,binary_in_map,
-       match_string_opt,map_and_binary]}].
+       match_string_opt,select_on_integer,
+       map_and_binary,unsafe_branch_caching]}].
 
 
 init_per_suite(Config) ->
@@ -116,9 +118,16 @@ fun_shadow_4(L) ->
 
 int_float(Config) when is_list(Config) ->
     %% OTP-5323
-    ?line <<103133.0:64/float>> = <<103133:64/float>>,
-    ?line <<103133:64/float>> = <<103133:64/float>>,
-    ok.
+    <<103133.0:64/float>> = <<103133:64/float>>,
+    <<103133:64/float>> = <<103133:64/float>>,
+
+    %% Coverage of error cases in sys_pre_expand:coerce_to_float/2.
+    case id(default) of
+	<<(1 bsl 1024):64/float>> ->
+	    ?t:fail();
+	default ->
+	    ok
+    end.
 
 %% Stolen from erl_eval_SUITE and modified.
 %% OTP-5269. Bugs in the bit syntax.
@@ -1225,6 +1234,21 @@ match_string_opt(Config) when is_list(Config) ->
 do_match_string_opt({<<1>>,{v,V}}=T) ->
     {x,V,T}.
 
+select_on_integer(Config) when is_list(Config) ->
+    42 = do_select_on_integer(<<42>>),
+    <<"abc">> = do_select_on_integer(<<128,"abc">>),
+
+    {'EXIT',_} = (catch do_select_on_integer(<<0:1>>)),
+    {'EXIT',_} = (catch do_select_on_integer(<<1:1>>)),
+    {'EXIT',_} = (catch do_select_on_integer(<<0:1,0:15>>)),
+    ok.
+
+%% The ASN.1 compiler frequently generates code like this.
+do_select_on_integer(<<0:1,I:7>>) ->
+    I;
+do_select_on_integer(<<1:1,_:7,Bin/binary>>) ->
+    Bin.
+
 %% If 'bin_opt_info' was given the warning would lack filename
 %% and line number.
 
@@ -1242,6 +1266,32 @@ do_map_and_binary(#{time := _} = T) ->
     {ok, T};
 do_map_and_binary(#{hour := Hour, min := Min} = T) ->
     {Hour, Min, T}.
+
+%% Unsafe caching of branch outcomes in beam_bsm would cause the
+%% delayed creation of sub-binaries optimization to be applied even
+%% when it was unsafe.
+
+unsafe_branch_caching(_Config) ->
+    <<>> = do_unsafe_branch_caching(<<42,1>>),
+    <<>> = do_unsafe_branch_caching(<<42,2>>),
+    <<>> = do_unsafe_branch_caching(<<42,3>>),
+    <<17,18>> = do_unsafe_branch_caching(<<42,3,17,18>>),
+    <<>> = do_unsafe_branch_caching(<<1,3,42,2>>),
+
+    ok.
+
+do_unsafe_branch_caching(<<Code/integer, Bin/binary>>) ->
+    <<C1/integer, B1/binary>> = Bin,
+    case C1 of
+	X when X =:= 1 orelse X =:= 2 ->
+	    Bin2 = <<>>;
+	_ ->
+	    Bin2 = B1
+    end,
+    case Code of
+	1 -> do_unsafe_branch_caching(Bin2);
+	_ -> Bin2
+    end.
 
 
 check(F, R) ->

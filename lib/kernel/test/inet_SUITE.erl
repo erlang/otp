@@ -19,7 +19,7 @@
 %%
 -module(inet_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
@@ -868,7 +868,6 @@ gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts) ->
     ?line Lookupers = 
 	[spawn_link(
 	   fun () -> 
-		   random:seed(),
 		   lookup_loop(Hosts, Delay, Tag, Parent, Cnt, Hosts) 
 	   end)
 	 || _ <- lists:seq(1, N)],
@@ -929,7 +928,7 @@ lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
 	    Parent ! {Tag,Error}
     end,
     receive 
-    after random:uniform(Delay) -> 
+    after rand:uniform(Delay) ->
 	    lookup_loop(Hs, Delay, Tag, Parent, Cnt-1, Hosts) 
     end.
 

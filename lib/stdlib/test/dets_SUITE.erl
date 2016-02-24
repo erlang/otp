@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 -define(privdir(_), "./dets_SUITE_priv").
 -define(datadir(_), "./dets_SUITE_data").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -define(datadir(Conf), ?config(data_dir, Conf)).
@@ -53,7 +53,8 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1]).
+         otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1,
+         otp_13260/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -110,7 +111,8 @@ all() ->
 	many_clients, otp_4906, otp_5402, simultaneous_open,
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709
+	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709,
+        otp_13229, otp_13260
     ].
 
 groups() -> 
@@ -1876,9 +1878,33 @@ fixtable(Config, Version) when is_list(Config) ->
     {ok, _} = dets:open_file(T, [{type, duplicate_bag} | Args]),
     %% In a fixed table, delete and re-insert an object.
     ok = dets:insert(T, {1, a, b}),
+    SysBefore = erlang:timestamp(),
+    MonBefore = erlang:monotonic_time(),
     dets:safe_fixtable(T, true),
+    MonAfter = erlang:monotonic_time(),
+    SysAfter = erlang:timestamp(),
+    Self = self(),
+    {FixMonTime,[{Self,1}]} = dets:info(T,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = dets:info(T,safe_fixed),
+    true = is_integer(FixMonTime),
+    true = MonBefore =< FixMonTime,
+    true = FixMonTime =< MonAfter,
+    {FstMs,FstS,FstUs} = FixSysTime,
+    true = is_integer(FstMs),
+    true = is_integer(FstS),
+    true = is_integer(FstUs),
+    case erlang:system_info(time_warp_mode) of
+	no_time_warp ->
+	    true = timer:now_diff(FixSysTime, SysBefore) >= 0,
+	    true = timer:now_diff(SysAfter, FixSysTime) >= 0;
+	_ ->
+	    %% ets:info(Tab,safe_fixed) not timewarp safe...
+	    ignore
+    end,
     ok = dets:match_delete(T, {1, a, b}),
     ok = dets:insert(T, {1, a, b}),
+    {FixMonTime,[{Self,1}]} = dets:info(T,safe_fixed_monotonic_time),
+    {FixSysTime,[{Self,1}]} = dets:info(T,safe_fixed),
     dets:safe_fixtable(T, false),
     1 = length(dets:match_object(T, '_')),
 
@@ -3987,6 +4013,66 @@ otp_11709(Config) when is_list(Config) ->
 
     _ = file:delete(File),
     ok.
+
+otp_13229(doc) ->
+    ["OTP-13229. open_file() exits with badarg when given binary file name."];
+otp_13229(_Config) ->
+    F = <<"binfile.tab">>,
+    try dets:open_file(name, [{file, F}]) of
+        R ->
+            exit({open_succeeded, R})
+    catch
+        error:badarg ->
+            ok
+    end.
+
+otp_13260(doc) ->
+    ["OTP-13260. Race when opening a table."];
+otp_13260(Config) ->
+    [ok] = lists:usort([otp_13260_1(Config) || _ <- lists:seq(1, 3)]),
+    ok.
+
+otp_13260_1(Config) ->
+    Tab = otp_13260,
+    File = filename(Tab, Config),
+    N = 20,
+    P = self(),
+    Pids = [spawn_link(fun() -> counter(P, Tab, File) end) ||
+               _ <- lists:seq(1, N)],
+    Rs = rec(Pids),
+    true = lists:all(fun(R) -> is_integer(R) end, Rs),
+    wait_for_close(Tab).
+
+rec([]) ->
+    [];
+rec([Pid | Pids]) ->
+    receive {Pid, R} ->
+            [R | rec(Pids)]
+    end.
+
+%% One may have to run the test several times to trigger the bug.
+counter(P, Tab, File) ->
+    Key = key,
+    N = case catch dets:update_counter(Tab, Key, 1) of
+            {'EXIT', _} ->
+                {ok, Tab} = dets:open_file(Tab, [{file, File}]),
+                ok = dets:insert(Tab, {Key, 1}),
+                dets:update_counter(Tab, Key, 1);
+            N1 when is_integer(N1) ->
+                N1;
+            DetsBug ->
+                DetsBug
+        end,
+    P ! {self(), N}.
+
+wait_for_close(Tab) ->
+    case dets:info(Tab, owner) of
+        undefined ->
+            ok;
+        _ ->
+            timer:sleep(100),
+            wait_for_close(Tab)
+    end.
 
 %%
 %% Parts common to several test cases

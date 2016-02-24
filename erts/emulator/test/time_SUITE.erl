@@ -48,7 +48,7 @@
 
 -export([local_to_univ_utc/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([linear_time/1]).
 
@@ -69,7 +69,7 @@
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -320,7 +320,41 @@ timestamp(suite) ->
 timestamp(doc) ->
     ["Test that os:timestamp works."];
 timestamp(Config) when is_list(Config) ->
-    repeating_timestamp_check(100000).
+    try
+	repeating_timestamp_check(100000)
+    catch
+	throw : {fail, Failure} ->
+	    %%
+	    %% Our time warping test machines currently warps
+	    %% time every 6:th second. If we get a warp during
+	    %% 10 seconds, assume this is a time warping test
+	    %% and ignore the failure.
+	    %%
+	    case had_time_warp(10) of
+		true ->
+		    {skip, "Seems to be time warp test run..."};
+		false ->
+		    test_server:fail(Failure)
+	    end
+    end.
+
+os_system_time_offset() ->
+    erlang:convert_time_unit(os:system_time() - erlang:monotonic_time(),
+			     native, micro_seconds).
+
+had_time_warp(Secs) ->
+    had_time_warp(os_system_time_offset(), Secs).
+
+had_time_warp(OrigOffs, 0) ->
+    false;
+had_time_warp(OrigOffs, N) ->
+    receive after 1000 -> ok end,
+    case OrigOffs - os_system_time_offset() of
+	Diff when Diff > 500000; Diff < -500000 ->
+	    true;
+	_Diff ->
+	    had_time_warp(OrigOffs, N-1)
+    end.
 
 repeating_timestamp_check(0) ->
     ok;
@@ -346,15 +380,15 @@ repeating_timestamp_check(N) ->
     NSecs = NA*1000000+NB+round(NC/1000000),
     case Secs - NSecs of
 	TooLarge when TooLarge > 3600 ->
-	    test_server:fail(
-	      lists:flatten(
+	    throw({fail,
+	       lists:flatten(
 		io_lib:format("os:timestamp/0 is ~w s more than erlang:now/0",
-			     [TooLarge])));
+			     [TooLarge]))});
 	TooSmall when TooSmall < -3600 ->
-	     test_server:fail(
+	    throw({fail,
 	      lists:flatten(
 		io_lib:format("os:timestamp/0 is ~w s less than erlang:now/0",
-			     [-TooSmall])));
+			     [-TooSmall]))});
 	_ ->
 	    ok
     end,
@@ -742,25 +776,21 @@ chk_strc(Res0, Res1) ->
     ok.
 
 chk_random_values(FR, TR) ->
-%    case (FR rem TR == 0) orelse (TR rem FR == 0) of
-%	true ->
-	    io:format("rand values ~p -> ~p~n", [FR, TR]),
-	    random:seed(268438039, 268440479, 268439161),
-	    Values = lists:map(fun (_) -> random:uniform(1 bsl 65) - (1 bsl 64) end,
-			       lists:seq(1, 100000)),
-	    CheckFun = fun (V) ->
-			       CV = erlang:convert_time_unit(V, FR, TR),
-			       case {(FR*CV) div TR =< V,
-				     (FR*(CV+1)) div TR >= V} of
-				   {true, true} ->
-				       ok;
-				   Failure ->
-				       ?t:fail({Failure, CV, V, FR, TR})
-			       end
-		       end,
-	    lists:foreach(CheckFun, Values).%;
-%	false -> ok
-%    end.
+    io:format("rand values ~p -> ~p~n", [FR, TR]),
+    rand:seed(exsplus, {268438039,268440479,268439161}),
+    Values = lists:map(fun (_) -> rand:uniform(1 bsl 65) - (1 bsl 64) end,
+		       lists:seq(1, 100000)),
+    CheckFun = fun (V) ->
+		       CV = erlang:convert_time_unit(V, FR, TR),
+		       case {(FR*CV) div TR =< V,
+			     (FR*(CV+1)) div TR >= V} of
+			   {true, true} ->
+			       ok;
+			   Failure ->
+			       ?t:fail({Failure, CV, V, FR, TR})
+		       end
+	       end,
+    lists:foreach(CheckFun, Values).
 		       
 
 chk_values_per_value(_FromRes, _ToRes,

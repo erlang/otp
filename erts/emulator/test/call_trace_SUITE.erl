@@ -39,7 +39,7 @@
 -export([abbr/1,abbr/2]).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(P, 20).
 
