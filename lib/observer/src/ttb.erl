@@ -434,7 +434,9 @@ procs(Procs) when is_list(Procs) ->
 procs(Proc) ->
     proc(Proc).
 
-proc(Procs) when Procs=:=all; Procs=:=existing; Procs=:=new ->
+proc(Procs) when Procs=:=all; Procs=:=ports; Procs=:=processes;
+                 Procs=:=existing; Procs=:=existing_ports; Procs=:=existing_processes;
+                 Procs=:=new; Procs=:=new_ports; Procs=:=new_processes ->
     [Procs];
 proc(Name) when is_atom(Name) ->
     [Name]; % can be registered on this node or other node
