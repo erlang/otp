@@ -6462,9 +6462,6 @@ suspend_process(Process *c_p, Process *p)
 
     if (suspended) {
 
-	ASSERT(!(ERTS_PSFLG_RUNNING & state)
-	       || p == erts_get_current_process());
-
 	if (suspended > 0 && erts_system_profile_flags.runnable_procs) {
 
 	    /* 'state' is before our change... */
@@ -8411,9 +8408,8 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	    resume_process(rp, rp_locks);
     }
     else {
-
 	rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
-			   pid, pid_locks|ERTS_PROC_LOCK_STATUS);
+			   pid, ERTS_PROC_LOCK_STATUS);
 
 	if (!rp) {
 	    c_p->flags &= ~F_P2PNR_RESCHED;
@@ -8422,40 +8418,84 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 
 	ASSERT(!(c_p->flags & F_P2PNR_RESCHED));
 
-	if (suspend) {
-	    if (suspend_process(c_p, rp))
-		goto done;
+	/*
+	 * Suspend the other process in order to prevent
+	 * it from being selected for normal execution.
+	 * This will however not prevent it from being
+	 * selected for execution of a system task. If
+	 * it is selected for execution of a system task
+	 * we might be blocked for quite a while if the
+	 * try-lock below fails. That is, there is room
+	 * for improvement here...
+	 */
+
+	if (!suspend_process(c_p, rp)) {
+	    /* Other process running */
+
+	    ASSERT(ERTS_PSFLG_RUNNING
+		   & erts_smp_atomic32_read_nob(&rp->state));
+
+	running:
+
+	    /*
+	     * If we got pending suspenders and suspend ourselves waiting
+	     * to suspend another process we might deadlock.
+	     * In this case we have to yield, be suspended by
+	     * someone else and then do it all over again.
+	     */
+	    if (!c_p->pending_suspenders) {
+		/* Mark rp pending for suspend by c_p */
+		add_pend_suspend(rp, c_p->common.id, handle_pend_sync_suspend);
+		ASSERT(is_nil(c_p->suspendee));
+
+		/* Suspend c_p; when rp is suspended c_p will be resumed. */
+		suspend_process(c_p, c_p);
+		c_p->flags |= F_P2PNR_RESCHED;
+	    }
+	    /* Yield (caller is assumed to yield immediately in bif). */
+	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+	    rp = ERTS_PROC_LOCK_BUSY;
 	}
 	else {
-	    if (!((ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)
-		  & erts_smp_atomic32_read_acqb(&rp->state)))
-		goto done;
+	    ErtsProcLocks need_locks = pid_locks & ~ERTS_PROC_LOCK_STATUS;
+	    if (need_locks && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
+		if (ERTS_PSFLG_RUNNING_SYS
+		    & erts_smp_atomic32_read_nob(&rp->state)) {
+		    /* Executing system task... */
+		    resume_process(rp, ERTS_PROC_LOCK_STATUS);
+		    goto running;
+		}
+		erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+		/*
+		 * If we are unlucky, the process just got selected for
+		 * execution of a system task. In this case we may be
+		 * blocked here for quite a while... Execution of system
+		 * tasks are fortunately quite rare events. We try to
+		 * avoid this by checking if it is in a state executing
+		 * system tasks (above), but it will not prevent all
+		 * scenarios for a long block here...
+		 */
+		rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
+				   pid, pid_locks|ERTS_PROC_LOCK_STATUS);
+		if (!rp)
+		    goto done;
+	    }
 
+	    /*
+	     * The previous suspend has prevented the process
+	     * from being selected for normal execution regardless
+	     * of locks held or not held on it...
+	     */
+	    ASSERT(!(ERTS_PSFLG_RUNNING
+		     & erts_smp_atomic32_read_nob(&rp->state)));
+
+	    if (!suspend)
+		resume_process(rp, pid_locks|ERTS_PROC_LOCK_STATUS);
 	}
-
-	/* Other process running */
-
-	/*
-	 * If we got pending suspenders and suspend ourselves waiting
-	 * to suspend another process we might deadlock.
-	 * In this case we have to yield, be suspended by
-	 * someone else and then do it all over again.
-	 */
-	if (!c_p->pending_suspenders) {
-	    /* Mark rp pending for suspend by c_p */
-	    add_pend_suspend(rp, c_p->common.id, handle_pend_sync_suspend);
-	    ASSERT(is_nil(c_p->suspendee));
-
-	    /* Suspend c_p; when rp is suspended c_p will be resumed. */
-	    suspend_process(c_p, c_p);
-	    c_p->flags |= F_P2PNR_RESCHED;
-	}
-	/* Yield (caller is assumed to yield immediately in bif). */
-	erts_smp_proc_unlock(rp, pid_locks|ERTS_PROC_LOCK_STATUS);
-	rp = ERTS_PROC_LOCK_BUSY;
     }
 
  done:
+	
     if (rp && rp != ERTS_PROC_LOCK_BUSY && !(pid_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
     if (unlock_c_p_status)
