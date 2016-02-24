@@ -69,6 +69,11 @@ fact(N) when N>0 ->  % first clause head
 
 fact(0) ->           % second clause head
     1.               % second clause body</pre>
+    <p>Normally, all function clauses are kept together, but on
+      occasion, it may be useful to separate individual clauses or
+      groups of clauses. The <c>-discontiguous([Name/Arity]).</c>
+      directive allows this to be done for a function with the
+      specified name and arity.</p>
   </section>
 
   <section>

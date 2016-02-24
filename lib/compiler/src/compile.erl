@@ -418,7 +418,7 @@ passes(Type, Opts) ->
     {Ext,Passes0} = passes_1(Opts),
     Passes1 = case Type of
 		  file -> Passes0;
-		  forms -> tl(Passes0)
+		  forms -> [?pass(join_discontiguous_clauses) | tl(Passes0)]
 	      end,
     Passes = select_passes(Passes1, Opts),
 
@@ -722,6 +722,13 @@ binary_passes() ->
 remove_file(St) ->
     _ = file:delete(St#compile.ofile),
     {ok,St}.
+
+join_discontiguous_clauses(St) ->
+    Forms1 = St#compile.code,
+    Forms2 = if is_list(Forms1) -> epp:join_discontiguous_clauses(Forms1);
+		true -> Forms1 % eg core
+	     end,
+    {ok,St#compile{code=Forms2}}.
 
 -record(asm_module, {module,
 		     exports,

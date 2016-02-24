@@ -129,6 +129,13 @@ fact(0) ->           %  |
 	    <seealso marker="code_loading#on_load">
             Running a Function When a Module is Loaded</seealso>.</p>
         </item>
+        <tag><c>-discontiguous(Functions).</c></tag>
+        <item>
+          <p>Declare that the specified functions may be presented as
+            more than one group of clauses, possibly separated by other
+            directives and function clause groups.</p>
+          <p><c>Functions</c> is a list similar as for <c>export</c>.</p>
+        </item>
       </taglist>
     </section>
 

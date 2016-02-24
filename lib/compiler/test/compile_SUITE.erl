@@ -26,7 +26,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,
-	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
+	 file_1/1, forms_2/1, forms_with_discontiguous_functions/1,
+	 module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
@@ -45,7 +46,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
+    [app_test, appup_test, file_1, forms_2, forms_with_discontiguous_functions,
+     module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
      {group, bad_record_use}, strict_record,
@@ -145,6 +147,34 @@ forms_2(Config) when is_list(Config) ->
     true = code:delete(simple),
     false = code:purge(simple),
     ok.
+
+forms_with_discontiguous_functions(Config) when is_list(Config) ->
+    Src = "/foo/bar",
+    Forms = parse_forms(
+	      ["-module(simple).",
+	       "-discontiguous([f/1]).",
+	       "f(1) -> a.",
+	       "x() -> x.",
+	       "f(2) -> b."]),
+    {ok,simple,Binary} = compile:forms(Forms,
+				       [binary,export_all,{source,Src}]),
+    code:load_binary(simple, Src, Binary),
+    a = simple:f(1),
+    b = simple:f(2),
+    x = simple:x(),
+
+    %% Cleanup.
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ok.
+
+parse_forms(Texts) ->
+    lists:map(fun(Text) ->
+		      {ok,Tokens,_End} = erl_scan:string(Text),
+		      {ok,Form} = erl_parse:parse_form(Tokens),
+		      Form
+	      end,
+	      Texts).
 
 module_mismatch(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),

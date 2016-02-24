@@ -29,10 +29,12 @@
          set_encoding/1, set_encoding/2, read_encoding/1, read_encoding/2]).
 -export([interpret_file_attribute/1]).
 -export([normalize_typed_record_fields/1,restore_typed_record_fields/1]).
+-export([join_discontiguous_clauses/1]).
 
 %%------------------------------------------------------------------------
 
 -export_type([source_encoding/0]).
+-export_type([error_info/0]).
 
 -type macros() :: [atom() | {atom(), term()}].
 -type epp_handle() :: pid().
@@ -45,6 +47,9 @@
                  | non_neg_integer().           %Number of arguments
 -type tokens() :: [erl_scan:token()].
 -type used() :: {name(), argspec()}.
+
+-type error_description() :: term().
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
 
 -define(DEFAULT_ENCODING, utf8).
 
@@ -211,6 +216,11 @@ format_error({include,W,F}) ->
     io_lib:format("can't find include ~s \"~s\"", [W,F]);
 format_error({illegal,How,What}) ->
     io_lib:format("~s '-~s'", [How,What]);
+format_error(bad_discontiguous_function_arity) ->
+    "bad list of function/arity";
+format_error({missing_discontiguous, {Name,Arity}}) ->
+    io_lib:format("missing discontiguously declared function ~p/~w",
+		  [Name, Arity]);
 format_error({'NYI',What}) ->
     io_lib:format("not yet implemented '~s'", [What]);
 format_error(E) -> file:format_error(E).
@@ -262,6 +272,9 @@ parse_file(Ifile, Options) ->
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 parse_file(Epp) ->
+    join_discontiguous_clauses(parse_file2(Epp)).
+
+parse_file2(Epp) ->
     case parse_erl_form(Epp) of
 	{ok,Form} ->
 	    case Form of
@@ -271,18 +284,108 @@ parse_file(Epp) ->
 			    [{attribute, La, record, {Record, NewFields}},
 			     {attribute, La, type,
 			      {{record, Record}, Fields, []}}
-			     |parse_file(Epp)];
+			     |parse_file2(Epp)];
 			not_typed ->
-			    [Form|parse_file(Epp)]
+			    [Form|parse_file2(Epp)]
 		    end;
 		_ ->
-		    [Form|parse_file(Epp)]
+		    [Form|parse_file2(Epp)]
 	    end;
 	{error,E} ->
-	    [{error,E}|parse_file(Epp)];
+	    [{error,E}|parse_file2(Epp)];
 	{eof,Location} ->
 	    [{eof,erl_anno:new(Location)}]
     end.
+
+-spec join_discontiguous_clauses([Form]) -> [Form] when
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info() |
+		   error_info(),
+      Line :: erl_anno:line().
+
+join_discontiguous_clauses(Forms) ->
+    %% Run in two passes:
+    %%
+    %% First collect any discontiguous declarations, and the function clauses.
+    %% Use the fact that any -discontiguous must occur before the functions,
+    %% so we know what to collect. On the first occurrence of a discontiguous
+    %% function, temporarily insert a placeholder.
+    %%
+    %% Next step is to join all collected function clauses to the
+    %% first occurrence, replacing that temprary placeholder.
+    %% Remove the -discontiguous marker, checking it for missing functions.
+    %%
+    %% Return early if there are no -discontiguous directives.
+    join_discontiguous2(Forms, [], _DFs = #{}, _Ls = #{}).
+
+join_discontiguous2([{attribute,L,discontiguous,Fs}=A|Rest], Acc, DFs, Ls) ->
+    case verify_discontiguous_decl(Fs, L) of
+	ok ->
+	    DFs2 = maps:merge(DFs, maps:from_list([{F,[]} || F <- Fs])),
+	    Ls2  = maps:merge(Ls,  maps:from_list([{F,L} || F <- Fs])),
+	    join_discontiguous2(Rest, [A | Acc], DFs2, Ls2);
+	{error, Reason} ->
+	    join_discontiguous2(Rest, [{error,Reason} | Acc], DFs, Ls)
+    end;
+join_discontiguous2([{function,Lf,Nm,Arity,Clauses}=F | Rest], Acc, DFs, Ls) ->
+    Key = {Nm, Arity},
+    case maps:find(Key, DFs) of
+	{ok, []} ->
+	    Acc2 = [{placeholder,Lf,Key} | Acc],
+	    DFs2 = maps:put(Key, [Clauses], DFs),
+	    join_discontiguous2(Rest, Acc2, DFs2, Ls);
+	{ok,PrevClauses} ->
+	    DFs2 = maps:put(Key, [Clauses|PrevClauses], DFs),
+	    join_discontiguous2(Rest, Acc, DFs2, Ls);
+	error ->
+	    if DFs == #{} ->
+		    %% Optimization:
+		    %% No need to traverse the rest of the forms when
+		    %% when no discontiguous functions have been declared.
+		    lists:reverse(drop_noncontiguous(Acc), [F | Rest]);
+	       true ->
+		    join_discontiguous2(Rest, [F | Acc], DFs, Ls)
+	    end
+    end;
+join_discontiguous2([Form | Rest], Acc, DFs, Ls) ->
+    join_discontiguous2(Rest, [Form | Acc], DFs, Ls);
+join_discontiguous2([], Acc, DFs, Ls) ->
+    fin_discontiguous2(Acc, [], DFs, Ls).
+
+verify_discontiguous_decl(Fs, La) when is_list(Fs) ->
+    Ok = lists:all(fun({Name,A}) when is_atom(Name), is_integer(A) -> true;
+		      (_) -> false
+		   end,
+		   Fs),
+    if Ok -> ok;
+       not Ok -> {error, {La, ?MODULE, bad_discontiguous_function_arity}}
+    end;
+verify_discontiguous_decl(_, La) ->
+    {error, {La, ?MODULE, bad_discontiguous_function_arity}}.
+
+drop_noncontiguous(Forms) ->
+    lists:filter(fun({attribute,_L,discontiguous,_Fs}) -> false;
+		    (_) -> true
+		 end,
+		 Forms).
+
+fin_discontiguous2([{placeholder,Lf,{Nm,Arity}=Key} | Rest], Acc, DFs, Ls) ->
+    AllClauses = maps:get(Key, DFs),
+    Form = {function,Lf,Nm,Arity,lists:append(lists:reverse(AllClauses))},
+    fin_discontiguous2(Rest, [Form | Acc], maps:remove(Key, DFs), Ls);
+fin_discontiguous2([{attribute,_La,discontiguous,Fs} | Rest], Acc, DFs, Ls) ->
+    Acc2 = lists:reverse(check_for_missing_discontiguous_fns(Fs, DFs, Ls),
+                         Acc),
+    fin_discontiguous2(Rest, Acc2, DFs, Ls);
+fin_discontiguous2([Form | Rest], Acc, DFs, Ls) ->
+    fin_discontiguous2(Rest, [Form | Acc], DFs, Ls);
+fin_discontiguous2([], Acc, _DFs, _Ls) ->
+    Acc.
+
+check_for_missing_discontiguous_fns(Fs, DFs, Ls) ->
+    [{error, {maps:get(F, Ls), ?MODULE, {missing_discontiguous, F}}}
+     || F <- Fs,
+	maps:is_key(F, DFs)].
 
 -spec default_encoding() -> source_encoding().
 
