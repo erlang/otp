@@ -45,7 +45,7 @@
    [wakeup_from_hibernate/3]).
 
 %% Fix problem for doc build
--export_type([state_callback_result/0]).
+-export_type([transition_option/0,state_callback_result/0]).
 
 %%%==========================================================================
 %%% Interface functions.
@@ -53,47 +53,77 @@
 
 -type caller() ::
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
+
 -type state() ::
 	state_name() | % For state callback function StateName/5
 	term(). % For state callback function handle_event/5
+
 -type state_name() :: atom().
+
 -type data() :: term().
+
 -type event_type() ::
 	{'call',Caller :: caller()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
+
 -type event_predicate() :: % Return true for the event in question
 	fun((event_type(), term()) -> boolean()).
+
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
--type transition_op() ::
-	%% First NewState and NewData are set,
-	%% then all transition_action()s are executed in order of
-	%% apperance. Postponing the current event is performed
-	%% (iff transition_option() 'postpone' is 'true').
-	%% Lastly pending events are processed or if there are
-	%% no pending events the server goes into receive
-	%% or hibernate (iff transition_option() 'hibernate' is 'true')
-	transition_option() | transition_action().
+
 -type transition_option() ::
-	%% The last of each kind in the transition_op()
-	%% list takes precedence
-	'postpone' |  % Postpone the current event to a different (=/=) state
-	{'postpone', Postpone :: boolean()} |
-	'hibernate' | % Hibernate the server instead of going into receive
-	{'hibernate', Hibernate :: boolean()} |
-	(Timeout :: timeout()) | % {timeout,Timeout}
-	{'timeout', % Generate a ('timeout', Msg, ...) event after Time
-	 Time :: timeout(), Msg :: term()}.
--type transition_action() ::
-	%% These can occur multiple times and are executed in order
-	%% of appearence in the transition_op() list
+	postpone() | hibernate() | state_timeout().
+-type postpone() ::
+	%% If 'true' postpone the current event
+	%% and retry it when the state changes (=/=)
+	boolean().
+-type hibernate() ::
+	%% If 'true' hibernate the server instead of going into receive
+	boolean().
+-type state_timeout() ::
+	%% Generate a ('timeout', Msg, ...) event after Time
+	%% unless some other event is delivered
+	Time :: timeout().
+
+-type action() ::
+	%% During a state change:
+	%% * NewState and NewData are set.
+	%% * All action()s are executed in order of apperance.
+	%% * Postponing the current event is performed
+	%%   iff 'postpone' is 'true'.
+	%% * A state timer is started iff 'timeout' is set.
+	%% * Pending events are processed or if there are
+	%%   no pending events the server goes into receive
+	%%   or hibernate (iff 'hibernate' is 'true')
+	%%
+	%% These action()s are executed in order of appearence
+	%% in the containing list. The ones that set options
+	%% will override any previous so the last of each kind wins.
+	%%
+	'postpone' |  % Set the postpone option
+	{'postpone', Postpone :: postpone()} |
+	%%
+	'hibernate' | % Set the hibernate option
+	{'hibernate', Hibernate :: hibernate()} |
+	%%
+	(Timeout :: state_timeout()) | % {timeout,Timeout}
+	{'timeout', % Set the timeout option
+	 Time :: state_timeout(), Msg :: term()} |
+	%%
 	reply_action() |
+	%%
+	%% All 'next_event' events are kept in a list and then
+	%% inserted at state changes so the first in the
+	%% action() list is the first to be delivered.
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
+	%%
 	{'remove_event', % Remove the oldest matching (=:=) event
 	 EventType :: event_type(), EventContent :: term()} |
 	{'remove_event', % Remove the oldest event satisfying predicate
 	 EventPredicate :: event_predicate()} |
+	%%
 	{'cancel_timer', % Cancel timer and clean up mess(ages)
 	 TimerRef :: reference()} |
 	{'demonitor', % Demonitor and clean up mess(ages)
@@ -103,6 +133,7 @@
 -type reply_action() ::
 	{'reply', % Reply to a caller
 	 Caller :: caller(), Reply :: term()}.
+
 -type state_callback_result() ::
     {'stop', % Stop the server
      Reason :: term()} |
@@ -122,15 +153,16 @@
     {'next_state', % State transition, maybe to the same state
      NewState :: state(),
      NewData :: data(),
-     Ops :: [transition_op()] | transition_op()} |
+     Actions :: [action()] | action()} |
     {'keep_state', % {keep_state,NewData,[]}
      NewData :: data()} |
     {'keep_state',
      NewData :: data(),
-     Ops :: [transition_op()] | transition_op()} |
+     Actions :: [action()] | action()} |
     {'keep_state_and_data'} | % {keep_state_and_data,[]}
     {'keep_state_and_data',
-     Ops :: [transition_op()] | transition_op()}.
+     Actions :: [action()] | action()}.
+
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
@@ -138,7 +170,7 @@
 %% for all events to this server.
 -callback init(Args :: term()) ->
     {callback_mode(), state(), data()} |
-    {callback_mode(), state(), data(), [transition_op()]} |
+    {callback_mode(), state(), data(), [action()] | action()} |
     'ignore' |
     {'stop', Reason :: term()}.
 
@@ -434,19 +466,19 @@ enter_loop(Module, Opts, CallbackMode, State, Data) ->
 	Module :: module(), Opts :: [debug_opt()],
 	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
-	Server_or_Ops ::
-	  server_name() | pid() | [transition_op()]) ->
+	Server_or_Actions ::
+	  server_name() | pid() | [action()]) ->
 			no_return().
-enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Ops) ->
+enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Actions) ->
     if
-	is_list(Server_or_Ops) ->
+	is_list(Server_or_Actions) ->
 	    enter_loop(
 	      Module, Opts, CallbackMode, State, Data,
-	      self(), Server_or_Ops);
+	      self(), Server_or_Actions);
 	true ->
 	    enter_loop(
 	      Module, Opts, CallbackMode, State, Data,
-	      Server_or_Ops, [])
+	      Server_or_Actions, [])
     end.
 %%
 -spec enter_loop(
@@ -454,11 +486,11 @@ enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Ops) ->
 	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
-	Ops :: [transition_op()]) ->
+	Actions :: [action()] | action()) ->
 			no_return().
-enter_loop(Module, Opts, CallbackMode, State, Data, Server, Ops) ->
+enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
     Parent = gen:get_parent(),
-    enter(Module, Opts, CallbackMode, State, Data, Server, Ops, Parent).
+    enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -480,32 +512,38 @@ do_send(Proc, Msg) ->
     end.
 
 %% Here init_it/6 and enter_loop/5,6,7 functions converge
-enter(Module, Opts, CallbackMode, State, Data, Server, Ops, Parent)
+enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent)
   when is_atom(Module), is_pid(Parent) ->
     case callback_mode(CallbackMode) of
 	true ->
 	    Name = gen:get_proc_name(Server),
 	    Debug = gen:debug_options(Name, Opts),
 	    PrevState = undefined,
+	    NewActions =
+		if
+		    is_list(Actions) ->
+			Actions ++ [{postpone,false}];
+		    true ->
+			[Actions,{postpone,false}]
+		end,
 	    S =	#{
 	      callback_mode => CallbackMode,
 	      module => Module,
 	      name => Name,
 	      prev_state => PrevState,
-	      state => PrevState, % Discarded by loop_event_transition_ops
+	      state => PrevState, % Discarded by loop_event_actions
 	      data => Data,
 	      timer => undefined,
 	      postponed => [],
 	      hibernate => false},
-	    loop_event_transition_ops(
+	    loop_event_actions(
 	      Parent, Debug, S, [],
 	      {event,undefined}, % Discarded due to {postpone,false}
-	      PrevState, State, Data,
-	      Ops++[{postpone,false}]);
+	      PrevState, State, Data, NewActions);
 	false ->
 	    erlang:error(
 	      badarg,
-	      [Module,Opts,CallbackMode,State,Data,Server,Ops,Parent])
+	      [Module,Opts,CallbackMode,State,Data,Server,Actions,Parent])
     end.
 
 %%%==========================================================================
@@ -536,11 +574,11 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    enter(
 	      Module, Opts, CallbackMode, State, Data,
 	      ServerRef, [], Parent);
-	{CallbackMode,State,Data,Ops} ->
+	{CallbackMode,State,Data,Actions} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
 	    enter(
 	      Module, Opts, CallbackMode, State, Data,
-	      ServerRef, Ops, Parent);
+	      ServerRef, Actions, Parent);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -814,182 +852,208 @@ loop_event_result(
 	    %% Since we got back here Replies was bad
 	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
 	{next_state,NewState,NewData} ->
-	    loop_event_transition_ops(
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, []);
-	{next_state,NewState,NewData,Ops}
-	  when is_list(Ops) ->
-	    loop_event_transition_ops(
+	{next_state,NewState,NewData,Actions}
+	  when is_list(Actions) ->
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Ops);
+	      State, NewState, NewData, Actions);
 	{keep_state,NewData} ->
-	    loop_event_transition_ops(
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, State, NewData, []);
-	{keep_state,NewData,Ops} ->
-	    loop_event_transition_ops(
+	{keep_state,NewData,Actions} ->
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, State, NewData, Ops);
+	      State, State, NewData, Actions);
 	{keep_state_and_data} ->
-	    loop_event_transition_ops(
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, State, Data, []);
-	{keep_state_and_data,Ops} ->
-	    loop_event_transition_ops(
+	{keep_state_and_data,Actions} ->
+	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, State, Data, Ops);
+	      State, State, Data, Actions);
 	_ ->
 	    ?TERMINATE(
 	      error, {bad_return_value,Result}, Debug, S, [Event|Events])
     end.
 
-loop_event_transition_ops(
-  Parent, Debug0, #{postponed := P0} = S, Events, Event,
-  State, NewState, NewData, Ops) ->
-    case collect_transition_options(Ops) of
-	{Postpone,Hibernate,Timeout,Actions} ->
-	    P1 = % Move current event to postponed if Postpone
-		case Postpone of
-		    true ->
-			[Event|P0];
-		    false ->
-			P0
-		end,
-	    {Q2,P2} = % Move all postponed events to queue if state change
-		if
-		    NewState =:= State ->
-			{Events,P1};
-		    true ->
-			{lists:reverse(P1, Events),[]}
-		end,
-	    %%
-	    case process_transition_actions(
-		   Actions, Debug0, S, Q2, P2) of
-		{Debug,Q3,P} ->
-		    NewDebug =
-			sys_debug(
-			  Debug, S,
-			  case Postpone of
-			      true ->
-				  {postpone,Event,NewState};
-			      false ->
-				  {consume,Event,NewState}
-			  end),
-		    {Timer,Q} =
-			case Timeout of
-			    undefined ->
-				{undefined,Q3};
-			    {timeout,0,Msg} ->
-				%% Pretend the timeout has just been received
-				{undefined,Q3 ++ [{timeout,Msg}]};
-			    {timeout,Time,Msg} ->
-				{erlang:start_timer(Time, self(), Msg),
-				 Q3}
-			end,
-		    loop_events(
-		      Parent, NewDebug,
-		      S#{
-			prev_state := State,
-			state := NewState,
-			data := NewData,
-			timer := Timer,
-			hibernate := Hibernate,
-			postponed := P},
-		      Q, Timer);
-		[Class,Reason,Stacktrace,Debug] ->
-		    terminate(
-		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
-	    end;
-	%%
-	[Class,Reason,Stacktrace] ->
-	    terminate(
-	      Class, Reason, Stacktrace, Debug0, S, [Event|Events])
-    end.
-
-%%---------------------------------------------------------------------------
-%% Server helpers
-
-collect_transition_options(Ops) ->
-    if
-	is_list(Ops) ->
-	    collect_transition_options(
-	      Ops, false, false, undefined, []);
-	true ->
-	    collect_transition_options(
-	      [Ops], false, false, undefined, [])
-    end.
-%% Keep the last of each kind
-collect_transition_options(
-  [], Postpone, Hibernate, Timeout, Actions) ->
-    {Postpone,Hibernate,Timeout,lists:reverse(Actions)};
-collect_transition_options(
-  [Op|Ops] = AllOps, Postpone, Hibernate, Timeout, Actions) ->
-    case Op of
-	postpone ->
-	    collect_transition_options(
-	      Ops, true, Hibernate, Timeout, Actions);
-	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
-	    collect_transition_options(
-	      Ops, NewPostpone, Hibernate, Timeout, Actions);
-	{postpone,_} ->
-	    [error,{bad_ops,AllOps},?STACKTRACE()];
-	hibernate ->
-	    collect_transition_options(
-	      Ops, Postpone, true, Timeout, Actions);
-	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
-	    collect_transition_options(
-	      Ops, Postpone, NewHibernate, Timeout, Actions);
-	{hibernate,_} ->
-	    [error,{bad_ops,AllOps},?STACKTRACE()];
-	{timeout,infinity,_} -> % Ignore since it will never time out
-	    collect_transition_options(
-	      Ops, Postpone, Hibernate, undefined, Actions);
-	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
-	    collect_transition_options(
-	      Ops, Postpone, Hibernate, NewTimeout, Actions);
-	{timeout,_,_} ->
-	    [error,{bad_ops,AllOps},?STACKTRACE()];
-	_ -> % Collect others as actions
-	    collect_transition_options(
-	      Ops, Postpone, Hibernate, Timeout, [Op|Actions])
-    end.
-
-process_transition_actions([], Debug, _S, Q, P) ->
-    {Debug,Q,P};
-process_transition_actions(
-  [Action|Actions] = AllActions, Debug, S, Q, P) ->
+loop_event_actions(
+  Parent, Debug, S, Events, Event, State, NewState, NewData, Actions) ->
+    loop_event_actions(
+      Parent, Debug, S, Events, Event, State, NewState, NewData,
+      false, false, undefined, [], Actions).
+%%
+loop_event_actions(
+  Parent, Debug, #{postponed := P0} = S, Events, Event,
+  State, NewState, NewData,
+  Postpone, Hibernate, Timeout, NextEvents, []) ->
+    P1 = % Move current event to postponed if Postpone
+	case Postpone of
+	    true ->
+		[Event|P0];
+	    false ->
+		P0
+	end,
+    {Timer,Q1} =
+	case Timeout of
+	    undefined ->
+		{undefined,Events};
+	    {timeout,0,Msg} ->
+		%% Pretend the timeout has just been received
+		{undefined,Events ++ [{timeout,Msg}]};
+	    {timeout,Time,Msg} ->
+		{erlang:start_timer(Time, self(), Msg),
+		Events}
+	end,
+    {Q2,P} = % Move all postponed events to queue if state change
+	if
+	    NewState =:= State ->
+		{Q1,P1};
+	    true ->
+		{lists:reverse(P1, Q1),[]}
+	end,
+    %% Place next events first in queue
+    Q = lists:reverse(NextEvents, Q2),
+    %%
+    NewDebug =
+	sys_debug(
+	  Debug, S,
+	  case Postpone of
+	      true ->
+		  {postpone,Event,NewState};
+	      false ->
+		  {consume,Event,NewState}
+	  end),
+    %% Loop to top; process next event
+    loop_events(
+      Parent, NewDebug,
+      S#{
+	prev_state := State,
+	state := NewState,
+	data := NewData,
+	timer := Timer,
+	hibernate := Hibernate,
+	postponed := P},
+      Q, Timer);
+loop_event_actions(
+  Parent, Debug, S, Events, Event, State, NewState, NewData,
+  Postpone, Hibernate, Timeout, NextEvents, [Action|Actions]) ->
     case Action of
-	{reply,{_To,_Tag}=Caller,Reply} ->
-	    NewDebug = do_reply(Debug, S, Caller, Reply),
-	    process_transition_actions(Actions, NewDebug, S, Q, P);
+	%% Set options
+	postpone ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      true, Hibernate, Timeout, NextEvents, Actions);
+	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      NewPostpone, Hibernate, Timeout, NextEvents, Actions);
+	{postpone,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	hibernate ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      Postpone, true, Timeout, NextEvents, Actions);
+	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      Postpone, NewHibernate, Timeout, NextEvents, Actions);
+	{hibernate,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	{timeout,infinity,_} -> % Clear timer - it will never trigger
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      Postpone, Hibernate, undefined, NextEvents, Actions);
+	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData,
+	      Postpone, Hibernate, NewTimeout, NextEvents, Actions);
+	{timeout,_,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	%% Actual actions
+	{reply,Caller,Reply} ->
+	    case caller(Caller) of
+		true ->
+		    NewDebug = do_reply(Debug, S, Caller, Reply),
+		    loop_event_actions(
+		      Parent, NewDebug, S, Events, Event,
+		      State, NewState, NewData,
+		      Postpone, Hibernate, Timeout, NextEvents, Actions);
+		false ->
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events])
+	    end;
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
-		    process_transition_actions(
-		      Actions, Debug, S, [{Type,Content}|Q], P);
+		    loop_event_actions(
+		      Parent, Debug, S, Events, Event,
+		      State, NewState, NewData,
+		      Postpone, Hibernate, Timeout,
+		      [{Type,Content}|NextEvents], Actions);
 		false ->
-		    [error,{bad_ops,AllActions},?STACKTRACE(),Debug]
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events])
 	    end;
 	_ ->
 	    %% All others are remove actions
 	    case remove_fun(Action) of
 		false ->
-		    process_transition_actions(
-		      Actions, Debug, S, Q, P);
+		    loop_event_actions(
+		      Parent, Debug, S, Events, Event,
+		      State, NewState, NewData,
+		      Postpone, Hibernate, Timeout, NextEvents, Actions);
 		undefined ->
-		    [error,{bad_ops,AllActions},?STACKTRACE(),Debug];
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events]);
 		RemoveFun when is_function(RemoveFun, 2) ->
-		    case remove_event(RemoveFun, Q, P) of
-			{NewQ,NewP} ->
-			    process_transition_actions(
-			      Actions, Debug, S, NewQ, NewP);
-			Error ->
-			    Error ++ [Debug]
+		    #{postponed := P} = S,
+		    case remove_event(RemoveFun, Events, P) of
+			false ->
+			    loop_event_actions(
+			      Parent, Debug, S, Events, Event,
+			      State, NewState, NewData,
+			      Postpone, Hibernate, Timeout, NextEvents,
+			      Actions);
+			{NewEvents,false} ->
+			    loop_event_actions(
+			      Parent, Debug, S, NewEvents, Event,
+			      State, NewState, NewData,
+			      Postpone, Hibernate, Timeout, NextEvents,
+			      Actions);
+			{false,NewP} ->
+			    NewS = S#{postponed := NewP},
+			    loop_event_actions(
+			      Parent, Debug, NewS, Events, Event,
+			      State, NewState, NewData,
+			      Postpone, Hibernate, Timeout, NextEvents,
+			      Actions);
+			[Class,Reason,Stacktrace] ->
+			    terminate(
+			      Class, Reason, Stacktrace,
+			      Debug, S, [Event|Events])
 		    end;
-		Error ->
-		    Error ++ [Debug]
+		[Class,Reason,Stacktrace] ->
+		    terminate(
+		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
 	    end
     end.
+
+%%---------------------------------------------------------------------------
+%% Server helpers
 
 reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, Replies) ->
     if
@@ -1004,14 +1068,14 @@ reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, Replies) ->
 do_reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
     terminate(Class, Reason, Stacktrace, Debug, S, Q);
 do_reply_then_terminate(
-  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs] = Replies) ->
+  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
     case R of
 	{reply,{_To,_Tag}=Caller,Reply} ->
 	    NewDebug = do_reply(Debug, S, Caller, Reply),
 	    do_reply_then_terminate(
 	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
-	    [error,{bad_replies,Replies},?STACKTRACE(),Debug]
+	    [error,{bad_action,R},?STACKTRACE(),Debug]
     end.
 
 do_reply(Debug, S, Caller, Reply) ->
@@ -1026,20 +1090,19 @@ remove_event(RemoveFun, Q, P) ->
 	    false ->
 		case remove_head_event(RemoveFun, Q) of
 		    false ->
-			{P,Q};
+			false;
 		    NewQ ->
-			{P,NewQ}
+			{false,NewQ}
 		end;
 	    NewP ->
-		{NewP,Q}
+		{NewP,false}
 	end
     catch
 	Class:Reason ->
 	    [Class,Reason,erlang:get_stacktrace()]
     end.
 
-%% Do the given transition action and create
-%% an event removal predicate fun()
+%% Do the given action and create an event removal predicate fun()
 remove_fun({remove_event,Type,Content}) ->
     fun (T, C) when T =:= Type, C =:= Content -> true;
 	(_, _) -> false

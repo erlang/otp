@@ -143,8 +143,8 @@ erlang:'!'            -----> Module:StateName/4
     <p>The
       <seealso marker="#state_function">state function</seealso>
       can insert events using the
-      <seealso marker="#type-transition_action">
-	<c>transition_action()</c> <c>next_event</c>
+      <seealso marker="#type-action">
+	<c>action()</c> <c>next_event</c>
       </seealso>
       and such an event is inserted as the next to present
       to the state function.  That is: as if it is
@@ -158,11 +158,18 @@ erlang:'!'            -----> Module:StateName/4
     <p>Inserting an event replaces the trick of calling your own
       state handling functions that you often would have to
       resort to in e.g <seealso marker="gen_fsm">gen_fsm</seealso>
-      to force processing a faked event before others.
+      to force processing an inserted event before others.
       If you for example in <c>gen_statem</c> postpone an event
       in one state and then call some other state function of yours,
       you have not changed states and hence the postponed event
       will not be retried, which is logical but might be confusing.
+    </p>
+    <p>
+      See the type
+      <seealso marker="#type-transition_option">
+	<c>transition_option()</c>.
+      </seealso>
+      for the details of a state transition.
     </p>
     <p>A <c>gen_statem</c> handles system messages as documented in
        <seealso marker="sys">sys</seealso>.
@@ -184,7 +191,7 @@ erlang:'!'            -----> Module:StateName/4
       <seealso marker="#state_function">state function</seealso> or
       <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
       specifies <c>'hibernate'</c> in the returned
-      <seealso marker="#type-transition_op"><c>Ops</c></seealso>
+      <seealso marker="#type-action"><c>Actions</c></seealso>
       list. This might be useful if the server is expected to be idle
       for a long time. However use this feature with care
       since hibernation implies at least two garbage collections
@@ -281,8 +288,8 @@ erlang:'!'            -----> Module:StateName/4
       <name name="caller" />
       <desc>
 	<p>Destination to use when replying through for example the
-	  <seealso marker="#type-transition_op">
-	    transition_op() {reply,Caller,Reply}
+	  <seealso marker="#type-action">
+	    action() {reply,Caller,Reply}
 	  </seealso>
 	  to a process that has called the <c>gen_statem</c> server using
 	  <seealso marker="#call/2">call/2</seealso>.
@@ -344,10 +351,11 @@ erlang:'!'            -----> Module:StateName/4
       <desc>
 	<p>A <c>fun()</c> of arity 2 that takes an event
 	  and returns a boolean.
-	  When used in <c>{remove_event,RemoveEventPredicate}</c> from
-	  <seealso marker="#type-transition_op">transition_op()</seealso>.
-	  The event for which the predicate returns <c>true</c> will
-	  be removed.
+	  When used in the
+	  <seealso marker="#type-action">action()</seealso>
+	  <c>{remove_event,RemoveEventPredicate}</c>,
+	  the event for which the predicate returns <c>true</c>
+	  will be removed.
 	</p>
 	<p>
 	  The predicate may <em>not</em> use a throw exception
@@ -384,40 +392,45 @@ erlang:'!'            -----> Module:StateName/4
       </desc>
     </datatype>
     <datatype>
-      <name name="transition_op" />
+      <name name="transition_option" />
       <desc>
-	<p>Either a
-	  <seealso marker="#type-transition_option">
-	    <c>transition_option()</c>
-	  </seealso> of which the last occurence
-	  in the containing list takes precedence, or a
-	  <seealso marker="#type-transition_action">
-	    <c>transition_action()</c>
-	  </seealso> performed in the order of the containing list.
+	<p>
+	  Transition options may be set by
+	  <seealso marker="#type-action">actions</seealso>
+	  and they modify how the state transition is done:
 	</p>
-	<p>These may be returned from the
-	  <seealso marker="#state_function">state function</seealso>,
-	  from <seealso marker="#Module:init/1">Module:init/1</seealso>
-	  or given to
-	  <seealso marker="#enter_loop/6">enter_loop/6,7</seealso>.
-	</p>
-	<p>The processing order for a state change is:</p>
 	<list type="ordered">
-	  <item>If the option <c>postpone</c> is <c>true</c>
-	    the current event is postponed.
+	  <item>All
+          <seealso marker="#type-action"><c>actions</c></seealso>
+	  are processed in order of appearance.
 	  </item>
-	  <item>If the state changes the queue of incoming events
-	    is reset to start with the oldest postponed.
+	  <item>
+	    If the
+            <seealso marker="#type-postpone">
+	      <c>transition_option()</c>
+	    </seealso>
+            <seealso marker="#type-postpone"><c>postpone</c></seealso>
+	    is <c>true</c> the current event is postponed.
 	  </item>
-	  <item>All actions are processed in order of appearance.
+	  <item>
+	    If the state changes the queue of incoming events
+            is reset to start with the oldest postponed.
 	  </item>
-	  <item>The <c>timeout</c> option is processed if present,
-	    so a state timer may be started or a timeout zero event
+	  <item>
+	    If the
+            <seealso marker="#type-postpone">
+	      <c>transition_option()</c>
+	    </seealso>
+            <seealso marker="#type-state_timeout">
+	      <c>timeout</c>
+	    </seealso>
+	    is set a state timer may be started or a timeout zero event
 	    may be enqueued as the newest incoming.
 	  </item>
-	  <item>The (possibly new)
-	    <seealso marker="#state_function">state function</seealso>
-	    is called with the oldest enqueued event if there is any,
+	  <item>
+	    The (possibly new)
+            <seealso marker="#state_function">state function</seealso>
+            is called with the oldest enqueued event if there is any,
 	    otherwise the <c>gen_statem</c> goes into <c>receive</c>
 	    or hibernation (if the option <c>hibernate</c> is <c>true</c>)
 	    to wait for the next message.  In hibernation the next
@@ -429,91 +442,145 @@ erlang:'!'            -----> Module:StateName/4
       </desc>
     </datatype>
     <datatype>
-      <name name="transition_option" />
+      <name name="postpone" />
       <desc>
-	<p>If multiple state options of the same kind are present
-	  in the containing list these are set in the list order
-	  and the last value is kept.
+	<p>
+	  If <c>true</c> postpone the current event and retry
+	  it when the state changes that is:
+	  <c>NewState =/= State</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="hibernate" />
+      <desc>
+	<p>
+	  If <c>true</c> hibernate the <c>gen_statem</c>
+	  by calling
+	  <seealso marker="proc_lib#hibernate/3">
+	    <c>proc_lib:hibernate/3</c>
+	  </seealso>
+	  before going into <c>receive</c>
+	  to wait for a new external event.
+	  If there are enqueued events the <c>hibernate</c>
+	  is ignored as if an event just arrived and awakened
+	  the <c>gen_statem</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="state_timeout" />
+      <desc>
+	<p>
+	  Generate an event of
+	  <seealso marker="#type-event_type">type <c>timeout</c></seealso>
+	  after this time (in milliseconds) unless some other
+	  event arrives in which case this timeout is cancelled.
+	  Note that a retried or inserted event
+	  counts just like a new in this respect.
+	  If the value is <c>infinity</c> no timer is started.
+	  If it is <c>0</c> the timeout event
+	  is immediately enqueued as the newest received.
+	  Also note that it is not possible nor needed
+	  to cancel this timeout using the
+	  <seealso marker="#type-action">
+	    <c>action() cancel_timer</c>.
+	  </seealso>
+	  since this timeout is cancelled automatically by any other event.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="action" />
+      <desc>
+	<p>These state transition actions may be invoked by
+	  returning them from the
+	  <seealso marker="#state_function">state function</seealso>,
+	  from <seealso marker="#Module:init/1">Module:init/1</seealso>
+	  or by giving them to
+	  <seealso marker="#enter_loop/6">enter_loop/6,7</seealso>.
+	</p>
+	<p>Actions are executed in the containing list order.
+	  The order matters for some actions such as <c>next_event</c>
+	  and <c>reply_action()</c>.  The order can in peculiar cases
+	  matter for <c>remove_event</c> with
+	  <c><anno>EventPredicate</anno></c> versus other
+	  event removal actions.
+	</p>
+	<p>
+	  The order also matters for actions that set
+	  <seealso marker="#type-transition_option">
+	    transition options
+	  </seealso>
+	  since setting an option overrides any previous
+	  of the same kind, so the last in the containing list wins.
 	</p>
 	<taglist>
 	  <tag><c>postpone</c></tag>
-	  <item>If <c><anno>Postpone</anno> =:= true</c>
-	    or plain <c>postpone</c> postpone the current event
-	    to be retried after a state change.
-	    This option is ignored when returned from
+	  <item>
+	    Set the
+	    <seealso marker="#type-transition_option">
+	      <c>transition_option() postpone</c>
+	    </seealso>
+	    for this state transition.
+	    This action is ignored when returned from
 	    <seealso marker="#Module:init/1">Module:init/1</seealso>
 	    or given to
 	    <seealso marker="#enter_loop/5">enter_loop/5,6</seealso>
 	    since there is no event to postpone in those cases.
 	  </item>
 	  <tag><c>hibernate</c></tag>
-	  <item>If <c><anno>Hibernate</anno> =:= true</c>
-	    or plain <c>hibernate</c> hibernate the <c>gen_statem</c>
-	    by calling
-	    <seealso marker="proc_lib#hibernate/3">
-	      <c>proc_lib:hibernate/3</c>
-	    </seealso> before <c>receive</c> to wait for a new event.
-	    If there are enqueued events the <c>hibernate</c> action
-	    is ignored as if an event just arrived and awakened
-	    the <c>gen_statem</c>.
+	  <item>
+	    Set the
+	    <seealso marker="#type-transition_option">
+	      <c>transition_option() hibernate</c>
+	    </seealso>
+	    for this state transition.
 	  </item>
-	  <tag><c>timeout</c>
-	  </tag>
-	  <item>Generate an event of
-	    <seealso marker="#type-event_type">type <c>timeout</c></seealso>
-	    after <c><anno>Time</anno></c> milliseconds unless some other
-	    event is received before that time.  Note that a retried
-	    or inserted event counts just like a new in this respect.
-	    If <c>Time =:= infinity</c> no timer is started.
-	    If <c>Time =:= 0</c> the timeout event
-	    is immediately enqueued as the newest received.
-	    Also note that it is not possible nor needed
-	    to cancel this timeout using the
-	    <seealso marker="#type-transition_action">
-	      <c>transition_action()</c>
-	    </seealso> <c>cancel_timer</c>.
-	    This timeout is cancelled automatically by any other event.
+	  <tag><c>timeout</c></tag>
+	  <item>
+	    Set the
+	    <seealso marker="#type-transition_option">
+	      <c>transition_option() timeout</c>
+	    </seealso>
+	    to <c><anno>Time</anno></c> with the
+	    <c>EventContent</c> as <c><anno>Msg</anno></c>
+	    for the next state.
 	  </item>
-	</taglist>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="transition_action" />
-      <desc>
-	<p>The state transition actions are executed
-	  in the containing list order.  This matters
-	  for <c>next_event</c> where the last such in the list
-	  will become the next event to process by
-	  the current state function.  Regarding the other actions
-	  it is only for <c>remove_event</c> with
-	  <c><anno>EventPredicate</anno></c>
-	  and for <c>reply_action()</c> that the order may matter.
-	</p>
-	<taglist>
 	  <tag><c>reply_action()</c></tag>
 	  <item>Reply to a caller.</item>
 	  <tag><c>next_event</c></tag>
-	  <item>Insert the given <c><anno>EventType</anno></c>
+	  <item>
+	    Insert the given <c><anno>EventType</anno></c>
 	    and <c><anno>EventContent</anno></c> as the next to process.
 	    This will bypass any events in the process mailbox as well
 	    as any other queued events.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
-	    </seealso> should be used when you want to reliably distinguish
+	    </seealso>
+	    should be used when you want to reliably distinguish
 	    an event inserted this way from any external event.
+	    If there are multiple <c>next_event</c> actions
+	    in the containing list they are buffered and all are
+	    inserted so the first in the list will be the
+	    first to process.
 	  </item>
 	  <tag><c>remove_event</c></tag>
-	  <item>Remove the oldest queued event
+	  <item>
+	    Remove the oldest queued event
 	    that matches equal to <c><anno>EventType</anno></c>
 	    and <c><anno>EventContent</anno></c> or for which
-	    <c><anno>EventPredicate</anno></c> returns <c>true</c>.
+	    <c><anno>EventPredicate</anno></c>
+	    returns <c>true</c>.
 	  </item>
 	  <tag><c>cancel_timer</c></tag>
-	  <item>Cancel the timer by calling
+	  <item>
+	    Cancel the timer by calling
 	    <seealso marker="erts:erlang#cancel_timer/2">
 	      <c>erlang:cancel_timer/2</c>
-	    </seealso> with <c><anno>TimerRef</anno></c>,
+	    </seealso>
+	    with <c><anno>TimerRef</anno></c>,
 	    clean the process message queue from any late timeout message,
 	    and removes any late timeout message
 	    from the <c>gen_statem</c> event queue using
@@ -523,16 +590,20 @@ erlang:'!'            -----> Module:StateName/4
 	    the primitives mentioned above.
 	  </item>
 	  <tag><c>demonitor</c></tag>
-	  <item>Like <c>cancel_timer</c> above but for
+	  <item>
+	    Like <c>cancel_timer</c> above but for
 	    <seealso marker="erts:erlang#demonitor/2">
 	      <c>demonitor/2</c>
-	    </seealso> with <c><anno>MonitorRef</anno></c>.
+	    </seealso>
+	    with <c><anno>MonitorRef</anno></c>.
 	  </item>
 	  <tag><c>unlink</c></tag>
-	  <item>Like <c>{cancel_timer,_}</c> above but for
+	  <item>
+	    Like <c>{cancel_timer,_}</c> above but for
 	    <seealso marker="erts:erlang#unlink/1">
 	      <c>unlink/1</c>
-	    </seealso> with <c><anno>Id</anno></c>.
+	    </seealso>
+	    with <c><anno>Id</anno></c>.
 	  </item>
 	</taglist>
       </desc>
@@ -574,19 +645,19 @@ erlang:'!'            -----> Module:StateName/4
 	    <c><anno>NewState</anno></c>
 	    (which may be the same as the current state),
 	    set <c><anno>NewData</anno></c>
-	    and execute all <c><anno>Ops</anno></c>
+	    and execute all <c><anno>Actions</anno></c>
 	  </item>
 	  <tag><c>keep_state</c></tag>
 	  <item>The <c>gen_statem</c> will keep the current state, or
 	    do a state transition to the current state if you like,
 	    set <c><anno>NewData</anno></c>
-	    and execute all <c><anno>Ops</anno></c>
+	    and execute all <c><anno>Actions</anno></c>
 	  </item>
 	  <tag><c>keep_state_and_data</c></tag>
 	  <item>The <c>gen_statem</c> will keep the current state, or
 	    do a state transition to the current state if you like,
 	    keep the current server data,
-	    and execute all <c><anno>Ops</anno></c>
+	    and execute all <c><anno>Actions</anno></c>
 	  </item>
 	</taglist>
       </desc>
@@ -776,8 +847,8 @@ erlang:'!'            -----> Module:StateName/4
 	  <seealso marker="#state_function">state function</seealso>
 	  returns with
 	  <c>{reply,Caller,<anno>Reply</anno>}</c> as one
-	  <seealso marker="#type-transition_op">
-	    <c>transition_op()</c>
+	  <seealso marker="#type-action">
+	    <c>action()</c>
 	  </seealso>,
 	  and that <c><anno>Reply</anno></c> becomes the return value
 	  of this function.
@@ -870,20 +941,20 @@ erlang:'!'            -----> Module:StateName/4
       <name name="enter_loop" arity="6" />
       <fsummary>Enter the <c>gen_statem</c> receive loop</fsummary>
       <desc>
-	<p>If <c><anno>Server_or_Ops</anno></c> is a <c>list()</c>
+	<p>If <c><anno>Server_or_Actions</anno></c> is a <c>list()</c>
 	  the same as
 	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
 	  except that no
 	  <seealso marker="#type-server_name">
 	    <c>server_name()</c>
 	  </seealso> must have been registered and
-	  <c>Ops = <anno>Server_or_Ops</anno></c>.
+	  <c>Actions = <anno>Server_or_Actions</anno></c>.
 	</p>
 	<p>Otherwise the same as
 	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
 	  with
-	  <c>Server = <anno>Server_or_Ops</anno></c> and
-	  <c>Ops = []</c>.
+	  <c>Server = <anno>Server_or_Actions</anno></c> and
+	  <c>Actions = []</c>.
 	</p>
       </desc>
     </func>
@@ -917,7 +988,7 @@ erlang:'!'            -----> Module:StateName/4
 	  </seealso> name must have been registered accordingly
 	  <em>before</em> this function is called.</p>
         <p><c><anno>CallbackMode</anno></c>, <c><anno>State</anno></c>,
-	  <c><anno>Data</anno></c> and <c><anno>Ops</anno></c>
+	  <c><anno>Data</anno></c> and <c><anno>Actions</anno></c>
 	  have the same meanings as in the return value of
           <seealso marker="#Module:init/1">Module:init/1</seealso>.
           Also, the callback module <c><anno>Module</anno></c>
@@ -952,7 +1023,7 @@ erlang:'!'            -----> Module:StateName/4
       <type>
         <v>Args = term()</v>
         <v>Result = {CallbackMode,State,Data}</v>
-	<v>&nbsp;| {CallbackMode,State,Data,Ops}</v>
+	<v>&nbsp;| {CallbackMode,State,Data,Actions}</v>
         <v>&nbsp;| {stop,Reason} | ignore</v>
 	<v>CallbackMode =
 	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
@@ -960,8 +1031,9 @@ erlang:'!'            -----> Module:StateName/4
 	<v>State = <seealso marker="#type-state">state()</seealso></v>
 	<v>Data = <seealso marker="#type-data">data()</seealso>
 	</v>
-	<v>Ops =
-	  [<seealso marker="#type-transition_op">transition_op()</seealso>]
+	<v>Actions =
+	  [<seealso marker="#type-action">action()</seealso>] |
+	  <seealso marker="#type-action">action()</seealso>
 	</v>
 	<v>Reason = term()</v>
       </type>
@@ -978,7 +1050,7 @@ erlang:'!'            -----> Module:StateName/4
           function.</p>
         <p>If the initialization is successful, the function should
           return <c>{CallbackMode,State,Data}</c> or
-	  <c>{CallbackMode,State,Data,Ops}</c>.
+	  <c>{CallbackMode,State,Data,Actions}</c>.
 	  <c>CallbackMode</c> selects the
 	  <seealso marker="#type-callback_mode">callback_mode()</seealso>.
 	  of the <c>gen_statem</c>.
@@ -986,7 +1058,7 @@ erlang:'!'            -----> Module:StateName/4
 	  of the <c>gen_statem</c> and
 	  <c>Data</c> the server <seealso marker="#type-data">data()</seealso>
 	</p>
-	<p>The <seealso marker="#type-transition_op"><c>Ops</c></seealso>
+	<p>The <seealso marker="#type-action"><c>Actions</c></seealso>
 	  are executed when entering the first
 	  <seealso marker="#type-state">state</seealso> just as for a
 	  <seealso marker="#state_function">state function</seealso>.
@@ -1047,7 +1119,7 @@ erlang:'!'            -----> Module:StateName/4
 	  from this or from any other
 	  <seealso marker="#state_function">state function</seealso>
 	  by returning with <c>{reply,Caller,Reply}</c> in
-	  <seealso marker="#type-transition_op">Ops</seealso>, in
+	  <seealso marker="#type-action">Actions</seealso>, in
 	  <seealso marker="#type-reply_action">Replies</seealso>
 	  or by calling
 	  <seealso marker="#reply/2">
@@ -1066,7 +1138,7 @@ erlang:'!'            -----> Module:StateName/4
 	  all postponed events will be retried in the new state.
 	</p>
 	<p>See
-	  <seealso marker="#type-transition_op">transition_op()</seealso>
+	  <seealso marker="#type-action">action()</seealso>
 	  for options that can be set and actions that can be done
 	  by <c>gen_statem</c> after returning from this function.
 	</p>
@@ -1102,7 +1174,7 @@ erlang:'!'            -----> Module:StateName/4
 	  is terminating.
           If it is because another callback function has returned a
           stop tuple <c>{stop,Reason}</c> in
-	  <seealso marker="#type-transition_op">Ops</seealso>,
+	  <seealso marker="#type-action">Actions</seealso>,
 	  <c>Reason</c> will have the value specified in that tuple.
 	  If it is due to a failure, <c>Reason</c> is the error reason.
 	</p>
