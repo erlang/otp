@@ -138,9 +138,9 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins){
     wxGLCanvas * current = glc[caller];
     if(current) {
       if(current != glc[gl_active]) {
-	gl_active = caller;
 	current->SetCurrent();
       }
+      gl_active = caller;
     } else {
       ErlDrvTermData rt[] = // Error msg
 	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
