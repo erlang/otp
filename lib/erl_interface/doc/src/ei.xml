@@ -264,9 +264,9 @@ typedef enum {
       <fsummary>Encode an atom</fsummary>
       <desc>
         <p>Encodes an atom in the binary format with character encoding
-	<c><seealso marker="#erlang_char_encoding">to_enc</seealso></c> (latin1 or utf8).
+	<seealso marker="#erlang_char_encoding"><c>to_enc</c></seealso> (latin1 or utf8).
 	The <c>p</c> parameter is the name of the atom with character encoding
-	<c><seealso marker="#erlang_char_encoding">from_enc</seealso></c>  (ascii, latin1 or utf8).
+	<seealso marker="#erlang_char_encoding"><c>from_enc</c></seealso>  (ascii, latin1 or utf8).
 	The name must either be zero-terminated or a function variant with a <c>len</c>
 	parameter must be used. If <c>to_enc</c> is set to the bitwise-or'd combination
 	<c>(ERLANG_LATIN1|ERLANG_UTF8)</c>, utf8 encoding is only used if the atom string
@@ -569,8 +569,8 @@ ei_x_encode_string(&amp;x, "Banana");
         <p>This function decodes an atom from the binary format. The
 	null terminated name of the atom is placed in buffer at <c>p</c> of length
 	<c>plen</c> bytes.</p>
-	<p>The wanted string encoding is specified by <c><seealso marker="#erlang_char_encoding">
-	want</seealso></c>. The original encoding used in the
+	<p>The wanted string encoding is specified by <seealso marker="#erlang_char_encoding">
+	<c>want</c></seealso>. The original encoding used in the
 	binary format (latin1 or utf8) can be obtained from <c>*was</c>. The actual encoding of the resulting string
 	(7-bit ascii, latin1 or utf8) can be obtained from <c>*result</c>. Both <c>was</c> and <c>result</c> can be <c>NULL</c>.
 	
