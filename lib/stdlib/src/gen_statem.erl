@@ -487,8 +487,17 @@ enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Actions) ->
 	Actions :: [action()] | action()) ->
 			no_return().
 enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
-    Parent = gen:get_parent(),
-    enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent).
+    case is_atom(Module) andalso callback_mode(CallbackMode) of
+	true ->
+	    Parent = gen:get_parent(),
+	    enter(
+	      Module, Opts, CallbackMode, State, Data, Server,
+	      Actions, Parent);
+	false ->
+	    error(
+	      badarg,
+	      [Module,Opts,CallbackMode,State,Data,Server,Actions])
+    end.
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -510,38 +519,31 @@ do_send(Proc, Msg) ->
     end.
 
 %% Here init_it/6 and enter_loop/5,6,7 functions converge
-enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent)
-  when is_atom(Module), is_pid(Parent) ->
-    case callback_mode(CallbackMode) of
-	true ->
-	    Name = gen:get_proc_name(Server),
-	    Debug = gen:debug_options(Name, Opts),
-	    OldState = make_ref(),
-	    NewActions =
-		if
-		    is_list(Actions) ->
-			Actions ++ [{postpone,false}];
-		    true ->
-			[Actions,{postpone,false}]
-		end,
-	    S =	#{
-	      callback_mode => CallbackMode,
-	      module => Module,
-	      name => Name,
-	      state => OldState, % Discarded by loop_event_actions
-	      data => Data,
-	      timer => undefined,
-	      postponed => [],
-	      hibernate => false},
-	    loop_event_actions(
-	      Parent, Debug, S, [],
-	      {event,undefined}, % Discarded due to {postpone,false}
-	      OldState, State, Data, NewActions);
-	false ->
-	    erlang:error(
-	      badarg,
-	      [Module,Opts,CallbackMode,State,Data,Server,Actions,Parent])
-    end.
+enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
+    %% The values should already have been type checked
+    Name = gen:get_proc_name(Server),
+    Debug = gen:debug_options(Name, Opts),
+    OldState = make_ref(), % Will be discarded by loop_event_actions/9
+    NewActions =
+	if
+	    is_list(Actions) ->
+		Actions ++ [{postpone,false}];
+	    true ->
+		[Actions,{postpone,false}]
+	end,
+    S =	#{
+      callback_mode => CallbackMode,
+      module => Module,
+      name => Name,
+      state => OldState,
+      data => Data,
+      timer => undefined,
+      postponed => [],
+      hibernate => false},
+    loop_event_actions(
+      Parent, Debug, S, [],
+      {event,undefined}, % Will be discarded thanks to {postpone,false}
+      OldState, State, Data, NewActions).
 
 %%%==========================================================================
 %%%  gen callbacks
@@ -567,15 +569,29 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
 	{CallbackMode,State,Data} ->
-	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(
-	      Module, Opts, CallbackMode, State, Data,
-	      ServerRef, [], Parent);
+	    case callback_mode(CallbackMode) of
+		true ->
+		    proc_lib:init_ack(Starter, {ok,self()}),
+		    enter(
+		      Module, Opts, CallbackMode, State, Data,
+		      ServerRef, [], Parent);
+		false ->
+		    Error = {bad_return_value,Result},
+		    proc_lib:init_ack(Starter, {error,Error}),
+		    exit(Error)
+	    end;
 	{CallbackMode,State,Data,Actions} ->
-	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(
-	      Module, Opts, CallbackMode, State, Data,
-	      ServerRef, Actions, Parent);
+	    case callback_mode(CallbackMode) of
+		true ->
+		    proc_lib:init_ack(Starter, {ok,self()}),
+		    enter(
+		      Module, Opts, CallbackMode, State, Data,
+		      ServerRef, Actions, Parent);
+		false ->
+		    Error = {bad_return_value,Result},
+		    proc_lib:init_ack(Starter, {error,Error}),
+		    exit(Error)
+	    end;
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -584,8 +600,8 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
-	Other ->
-	    Error = {bad_return_value,Other},
+	_ ->
+	    Error = {bad_return_value,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    exit(Error)
     end.
