@@ -1160,73 +1160,73 @@ terminate(_Reason, _State, _Data) ->
 
 %% State functions
 
-idle(cast, {connect,Pid}, _, _, Data) ->
+idle(cast, {connect,Pid}, _, Data) ->
     Pid ! accept,
     {next_state,wfor_conf,Data};
-idle({call,From}, connect, _, _, Data) ->
+idle({call,From}, connect, _, Data) ->
     gen_statem:reply(From, accept),
     {next_state,wfor_conf,Data};
-idle(cast, badreturn, _, _, _Data) ->
+idle(cast, badreturn, _, _Data) ->
     badreturn;
-idle({call,_From}, badreturn, _, _, _Data) ->
+idle({call,_From}, badreturn, _, _Data) ->
     badreturn;
-idle({call,From}, {delayed_answer,T}, _, _, Data) ->
+idle({call,From}, {delayed_answer,T}, _, Data) ->
     receive
     after T ->
 	    gen_statem:reply({reply,From,delayed}),
 	    throw({keep_state,Data})
     end;
-idle({call,From}, {timeout,Time}, _, State, _Data) ->
+idle({call,From}, {timeout,Time}, _, _Data) ->
     {next_state,timeout,{From,Time},
-     [{timeout,Time,State}]};
-idle(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+     [{timeout,Time,idle}]};
+idle(Type, Content, PrevState, Data) ->
+    case handle_common_events(Type, Content, idle, Data) of
 	undefined ->
 	    case Type of
 		{call,From} ->
 		    throw({keep_state,Data,[{reply,From,'eh?'}]});
 		_ ->
 		    throw(
-		      {stop,{unexpected,State,PrevState,Type,Content}})
+		      {stop,{unexpected,idle,Type,Content,PrevState}})
 	    end;
 	Result ->
 	    Result
     end.
 
-timeout(timeout, idle, idle, timeout, {From,Time}) ->
+timeout(timeout, idle, idle, {From,Time}) ->
     TRef2 = erlang:start_timer(Time, self(), ok),
     TRefC1 = erlang:start_timer(Time, self(), cancel1),
     TRefC2 = erlang:start_timer(Time, self(), cancel2),
     {next_state,timeout2,{From,Time,TRef2},
      [{cancel_timer, TRefC1},
       {next_event,internal,{cancel_timer,TRefC2}}]};
-timeout(_, _, _, State, Data) ->
-    {next_state,State,Data}.
+timeout(_, _, _, Data) ->
+    {keep_state,Data}.
 
 timeout2(
-  internal, {cancel_timer,TRefC2}, timeout, _, {From,Time,TRef2}) ->
+  internal, {cancel_timer,TRefC2}, timeout, {From,Time,TRef2}) ->
     Time4 = Time * 4,
     receive after Time4 -> ok end,
     {next_state,timeout3,{From,TRef2},
      [{cancel_timer,TRefC2}]};
-timeout2(_, _, _, State, Data) ->
-    {next_state,State,Data}.
+timeout2(_, _, _, Data) ->
+    {keep_state,Data}.
 
-timeout3(info, {timeout,TRef2,Result}, _, _, {From,TRef2}) ->
+timeout3(info, {timeout,TRef2,Result}, _, {From,TRef2}) ->
     gen_statem:reply([{reply,From,Result}]),
     {next_state,idle,state};
-timeout3(_, _, _, State, Data) ->
-    {next_state,State,Data}.
+timeout3(_, _, _, Data) ->
+    {keep_state,Data}.
 
-wfor_conf({call,From}, confirm, _, _, Data) ->
+wfor_conf({call,From}, confirm, _, Data) ->
     {next_state,connected,Data,
      [{reply,From,yes}]};
-wfor_conf(cast, {ping,_,_}, _, _, _) ->
+wfor_conf(cast, {ping,_,_}, _, _) ->
     {keep_state_and_data,[postpone]};
-wfor_conf(cast, confirm, _, _, Data) ->
+wfor_conf(cast, confirm, _, Data) ->
     {next_state,connected,Data};
-wfor_conf(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+wfor_conf(Type, Content, _, Data) ->
+    case handle_common_events(Type, Content, wfor_conf, Data) of
 	undefined ->
 	    case Type of
 		{call,From} ->
@@ -1239,113 +1239,113 @@ wfor_conf(Type, Content, PrevState, State, Data) ->
 	    Result
     end.
 
-connected({call,From}, {msg,Ref}, _, State, Data) ->
-    {next_state,State,Data,
+connected({call,From}, {msg,Ref}, _, Data) ->
+    {keep_state,Data,
      [{reply,From,{ack,Ref}}]};
-connected(cast, {msg,From,Ref}, _, State, Data) ->
+connected(cast, {msg,From,Ref}, _, Data) ->
     From ! {ack,Ref},
-    {next_state,State,Data};
-connected({call,From}, disconnect, _, _, Data) ->
+    {keep_state,Data};
+connected({call,From}, disconnect, _, Data) ->
     {next_state,idle,Data,
      [{reply,From,yes}]};
-connected(cast, disconnect, _, _, Data) ->
+connected(cast, disconnect, _, Data) ->
     {next_state,idle,Data};
-connected(cast, {ping,Pid,Tag}, _, State, Data) ->
+connected(cast, {ping,Pid,Tag}, _, Data) ->
     Pid ! {pong,Tag},
-    {next_state,State,Data};
-connected(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+    {keep_state,Data};
+connected(Type, Content, _, Data) ->
+    case handle_common_events(Type, Content, connected, Data) of
 	undefined ->
 	    case Type of
 		{call,From} ->
-		    {next_state,State,Data,
+		    {keep_state,Data,
 		     [{reply,From,'eh?'}]};
 		_ ->
-		    {next_state,State,Data}
+		    {keep_state,Data}
 	    end;
 	Result ->
 	    Result
     end.
 
-state0({call,From}, stop, _, _, Data) ->
+state0({call,From}, stop, _, Data) ->
     {stop_and_reply,normal,[{reply,From,stopped}],Data};
-state0(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+state0(Type, Content, _, Data) ->
+    case handle_common_events(Type, Content, state0, Data) of
 	undefined ->
-	    {next_state,State,Data};
+	    {keep_state,Data};
 	Result ->
 	    Result
     end.
 
-hiber_idle({call,From}, 'alive?', _, State, Data) ->
-    {next_state,State,Data,
+hiber_idle({call,From}, 'alive?', _, Data) ->
+    {keep_state,Data,
      [{reply,From,'alive!'}]};
-hiber_idle({call,From}, hibernate_sync, _, _, Data) ->
+hiber_idle({call,From}, hibernate_sync, _, Data) ->
     {next_state,hiber_wakeup,Data,
      [{reply,From,hibernating},
       hibernate]};
-hiber_idle(info, hibernate_later, _, State, _) ->
+hiber_idle(info, hibernate_later, _, _) ->
     Tref = erlang:start_timer(1000, self(), hibernate),
-    {next_state,State,Tref};
-hiber_idle(info, hibernate_now, _, State, Data) ->
-    {next_state,State,Data,
+    {keep_state,Tref};
+hiber_idle(info, hibernate_now, _, Data) ->
+    {keep_state,Data,
      [hibernate]};
-hiber_idle(info, {timeout,Tref,hibernate}, _, State, Tref) ->
-    {next_state,State,[],
+hiber_idle(info, {timeout,Tref,hibernate}, _, Tref) ->
+    {keep_state,[],
      [hibernate]};
-hiber_idle(cast, hibernate_async, _, _, Data) ->
+hiber_idle(cast, hibernate_async, _, Data) ->
     {next_state,hiber_wakeup,Data,
      [hibernate]};
-hiber_idle(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+hiber_idle(Type, Content, _, Data) ->
+    case handle_common_events(Type, Content, hiber_idle, Data) of
 	undefined ->
-	    {next_state,State,Data};
+	    {keep_state,Data};
 	Result ->
 	    Result
     end.
 
-hiber_wakeup({call,From}, wakeup_sync, _, _, Data) ->
+hiber_wakeup({call,From}, wakeup_sync, _, Data) ->
     {next_state,hiber_idle,Data,
      [{reply,From,good_morning}]};
-hiber_wakeup({call,From}, snooze_sync, _, State, Data) ->
-    {next_state,State,Data,
+hiber_wakeup({call,From}, snooze_sync, _, Data) ->
+    {keep_state,Data,
      [{reply,From,please_just_five_more},
       hibernate]};
-hiber_wakeup(cast, wakeup_async, _, _, Data) ->
+hiber_wakeup(cast, wakeup_async, _, Data) ->
     {next_state,hiber_idle,Data};
-hiber_wakeup(cast, snooze_async, _, State, Data) ->
-    {next_state,State,Data,
+hiber_wakeup(cast, snooze_async, _, Data) ->
+    {keep_state,Data,
      [hibernate]};
-hiber_wakeup(Type, Content, PrevState, State, Data) ->
-    case handle_common_events(Type, Content, PrevState, State, Data) of
+hiber_wakeup(Type, Content, _, Data) ->
+    case handle_common_events(Type, Content, hiber_wakeup, Data) of
 	undefined ->
-	    {next_state,State,Data};
+	    {keep_state,Data};
 	Result ->
 	    Result
     end.
 
 
-handle_common_events({call,From}, get, _, State, Data) ->
-    {next_state,State,Data,
+handle_common_events({call,From}, get, State, Data) ->
+    {keep_state,Data,
      [{reply,From,{state,State,Data}}]};
-handle_common_events(cast, {get,Pid}, _, State, Data) ->
+handle_common_events(cast, {get,Pid}, State, Data) ->
     Pid ! {state,State,Data},
-    {next_state,State,Data};
-handle_common_events({call,From}, stop, _, _, Data) ->
+    {keep_state,Data};
+handle_common_events({call,From}, stop, _, Data) ->
     {stop_and_reply,normal,[{reply,From,stopped}],Data};
-handle_common_events(cast, stop, _, _, _) ->
+handle_common_events(cast, stop, _, _) ->
     {stop,normal};
-handle_common_events({call,From}, {stop,Reason}, _, _, Data) ->
+handle_common_events({call,From}, {stop,Reason}, _, Data) ->
     {stop_and_reply,Reason,{reply,From,stopped},Data};
-handle_common_events(cast, {stop,Reason}, _, _, _) ->
-     {stop,Reason};
-handle_common_events({call,From}, 'alive?', _, State, Data) ->
-    {next_state,State,Data,
+handle_common_events(cast, {stop,Reason}, _, _) ->
+    {stop,Reason};
+handle_common_events({call,From}, 'alive?', _, Data) ->
+    {keep_state,Data,
      [{reply,From,yes}]};
-handle_common_events(cast, {'alive?',Pid}, _, State, Data) ->
+handle_common_events(cast, {'alive?',Pid}, _, Data) ->
     Pid ! yes,
-    {next_state,State,Data};
-handle_common_events(_, _, _, _, _) ->
+    {keep_state,Data};
+handle_common_events(_, _, _, _) ->
     undefined.
 
 %% Dispatcher to test callback_mode handle_event_function
@@ -1356,8 +1356,7 @@ handle_common_events(_, _, _, _, _) ->
 handle_event(Type, Event, PrevState, State, Data) ->
     PrevStateName = unwrap_state(PrevState),
     StateName = unwrap_state(State),
-    try ?MODULE:StateName(
-	   Type, Event, PrevStateName, StateName, Data) of
+    try ?MODULE:StateName(Type, Event, PrevStateName, Data) of
 	Result ->
 	    wrap_result(Result)
     catch

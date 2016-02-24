@@ -152,8 +152,7 @@
 -callback state_name(
 	    event_type(),
 	    EventContent :: term(),
-	    PrevStateName :: state_name() | reference(),
-	    StateName :: state_name(), % Current state
+	    PrevStateName :: state_name(), % Previous state name
 	    Data :: data()) ->
     state_callback_result().
 %%
@@ -164,7 +163,7 @@
 -callback handle_event(
 	    event_type(),
 	    EventContent :: term(),
-	    PrevState :: state(),
+	    PrevState :: state(), % Previous state
 	    State :: state(), % Current state
 	    Data :: data()) ->
     state_callback_result().
@@ -203,7 +202,7 @@
    [init/1, % One may use enter_loop/5,6,7 instead
     format_status/2, % Has got a default implementation
     %%
-    state_name/5, % Example for callback_mode =:= state_functions:
+    state_name/4, % Example for callback_mode =:= state_functions:
     %% there has to be a StateName/5 callback function for every StateName.
     %%
     handle_event/5]). % For callback_mode =:= handle_event_function
@@ -740,14 +739,13 @@ loop_events(
   [{Type,Content} = Event|Events] = Q, Timer) ->
     _ = (Timer =/= undefined) andalso
 	cancel_timer(Timer),
-    Func =
+    try
 	case CallbackMode of
-	    handle_event_function ->
-		handle_event;
 	    state_functions ->
-		State
-	end,
-    try Module:Func(Type, Content, PrevState, State, Data) of
+		Module:State(Type, Content, PrevState, Data);
+	    handle_event_function ->
+		Module:handle_event(Type, Content, PrevState, State, Data)
+	end of
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, Event, Result)
@@ -759,13 +757,25 @@ loop_events(
 	    %% Process an undef to check for the simple mistake
 	    %% of calling a nonexistent state function
 	    case erlang:get_stacktrace() of
-		[{Module,Func,
-		  [Type,Content,PrevState,State,Data]=Args,
+		[{Module,State,
+		  [Type,Content,PrevState,Data]=Args,
 		  _}
-		 |Stacktrace] ->
+		 |Stacktrace]
+		when CallbackMode =:= state_functions ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
+		      Stacktrace,
+		      Debug, S, Q);
+		[{Module,handle_event,
+		  [Type,Content,PrevState,State,Data]=Args,
+		  _}
+		 |Stacktrace]
+		when CallbackMode =:= handle_event_function ->
+		    terminate(
+		      error,
+		      {undef_state_function,
+		       {Module,handle_event,Args}},
 		      Stacktrace,
 		      Debug, S, Q);
 		Stacktrace ->
