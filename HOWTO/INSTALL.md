@@ -381,7 +381,7 @@ Some of the available `configure` options are:
     if different than specified by `--with-ssl=PATH`
 *   `--with-ssl-rpath=yes|no|PATHS` - Runtime library path for OpenSSL.
     Default is `yes`, which equates to a number of standard locations. If
-    `no`, then no runtime library paths wil be used. Anything else should be
+    `no`, then no runtime library paths will be used. Anything else should be
     a comma separated list of paths.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
