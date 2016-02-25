@@ -63,7 +63,7 @@ space_in_cwd(doc) ->
 	"with space in its name works.";
 space_in_cwd(suite) -> [];
 space_in_cwd(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Dirname = filename:join(PrivDir, "cwd with space"),
     ?line ok = file:make_dir(Dirname),
     ?line ok = file:set_cwd(Dirname),
@@ -91,7 +91,7 @@ space_in_cwd(Config) when is_list(Config) ->
 quoting(doc) -> "Test that various ways of quoting arguments work.";
 quoting(suite) -> [];
 quoting(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line Echo = filename:join(DataDir, "my_echo"),
 
     ?line comp("one", os:cmd(Echo ++ " one")),
@@ -109,7 +109,7 @@ quoting(Config) when is_list(Config) ->
 cmd_unicode(doc) -> "Test that unicode arguments work.";
 cmd_unicode(suite) -> [];
 cmd_unicode(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line Echo = filename:join(DataDir, "my_echo"),
 
     ?line comp("one", os:cmd(Echo ++ " one")),
@@ -124,8 +124,8 @@ space_in_name(doc) ->
     "Test that program with a space in its name can be executed.";
 space_in_name(suite) -> [];
 space_in_name(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line Spacedir = filename:join(PrivDir, "program files"),
     Ext = case os:type() of
 	      {win32,_} -> ".exe";
@@ -180,7 +180,7 @@ find_executable(doc) -> [];
 find_executable(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
-	    ?line DataDir = filename:join(?config(data_dir, Config), "win32"),
+	    DataDir = filename:join(proplists:get_value(data_dir, Config), "win32"),
 	    ?line ok = file:set_cwd(filename:join([DataDir, "current"])),
 	    ?line Bin = filename:join(DataDir, "bin"),
 	    ?line Abin = filename:join(DataDir, "abin"),
@@ -213,7 +213,7 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Current, "my_batch", ".bat", Path),
 	    ok;
 	{unix, _}  ->
-	    DataDir = ?config(data_dir, Config),
+	    DataDir = proplists:get_value(data_dir, Config),
 
 	    %% Smoke test.
 	    case lib:progname() of
@@ -254,7 +254,7 @@ unix_comment_in_command(doc) ->
     "OTP-1805: Test that os:cmd(\"ls #\") works correctly (used to hang).";
 unix_comment_in_command(suite) -> [];
 unix_comment_in_command(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     ?line ok = file:set_cwd(Priv),
     ?line _ = os:cmd("ls #"),			% Any result is ok.
     ?t:sleep(5),

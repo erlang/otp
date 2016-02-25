@@ -40,7 +40,7 @@
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1]).
 
 -define(TESTCASE, testcase_name).
--define(testcase, ?config(?TESTCASE, Config)).
+-define(testcase, proplists:get_value(?TESTCASE, Config)).
 
 -export([init_per_testcase/2, end_per_testcase/2, start_type/0, 
 	 start_phase/0, conf_change/0]).
@@ -81,13 +81,13 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(otp_2973=Case, Config) ->
-    code:add_path(?config(data_dir,Config)),
+    code:add_path(proplists:get_value(data_dir,Config)),
     [{?TESTCASE, Case}|Config];
 init_per_testcase(Case, Config) ->
     [{?TESTCASE, Case}|Config].
 
 end_per_testcase(otp_2973, Config) ->
-    code:del_path(?config(data_dir,Config)),
+    code:del_path(proplists:get_value(data_dir,Config)),
     ok;
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -1067,7 +1067,7 @@ otp_1586(suite) -> [];
 otp_1586(doc) ->
     ["Test recursive load of applications."];
 otp_1586(Conf) when is_list(Conf) ->
-    Dir = ?config(priv_dir,Conf),
+    Dir = proplists:get_value(priv_dir,Conf),
     {ok, Fd} = file:open(filename:join(Dir, "app5.app"), [write]),
     w_app5(Fd),
     file:close(Fd),
@@ -1171,7 +1171,7 @@ otp_2718(suite) -> [];
 otp_2718(doc) ->
     ["Test fail of transient app at start."];
 otp_2718(Conf) when is_list(Conf) ->
-    {ok, Cp1} = start_node_args(cp1, "-pa " ++ ?config(data_dir,Conf)),
+    {ok, Cp1} = start_node_args(cp1, "-pa " ++ proplists:get_value(data_dir,Conf)),
     wait_for_ready_net(),
 
     %% normal exit from the application
@@ -1376,7 +1376,7 @@ otp_4066(Conf) when is_list(Conf) ->
     AllNodes = [Cp1, Cp2],
     App1Nodes = {app1, AllNodes},
 
-    Dir = ?config(priv_dir,Conf),
+    Dir = proplists:get_value(priv_dir,Conf),
     {ok, FdC} = file:open(filename:join(Dir, "otp_4066.config"), [write]),
     write_config(FdC, config_4066(AllNodes, 5000, [App1Nodes])),
     file:close(FdC),
@@ -1512,7 +1512,7 @@ otp_5363(Conf) when is_list(Conf) ->
     %% the code, but only that the correct processes ARE killed.
 
     OldPath = code:get_path(),
-    code:add_patha(?config(data_dir,Conf)),
+    code:add_patha(proplists:get_value(data_dir,Conf)),
     try
 	ok = application:load(app_group_leader()),
 	ok = application:start(group_leader),
@@ -1544,7 +1544,7 @@ otp_5606(doc) ->
 otp_5606(Conf) when is_list(Conf) ->
 
     %% Write a config file
-    Dir = ?config(priv_dir, Conf),
+    Dir = proplists:get_value(priv_dir, Conf),
     {ok, Fd} = file:open(filename:join(Dir, "sys.config"), [write]),
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     (config4(NodeNames))(Fd, 10000),
@@ -1941,7 +1941,7 @@ config_change(Conf) when is_list(Conf) ->
 
     %% Change to data_dir
     {ok, CWD} = file:get_cwd(),
-    DataDir = ?config(data_dir, Conf),
+    DataDir = proplists:get_value(data_dir, Conf),
     ok = file:set_cwd(DataDir),
 
     %% Find out application data from boot script
@@ -2092,7 +2092,7 @@ do_shutdown(Reason) ->
 %%% Tests the 'shutdown_timeout' kernel config parameter
 %%%-----------------------------------------------------------------
 shutdown_timeout(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     {ok,Cp1} = start_node(?MODULE_STRING++"_shutdown_timeout"),
     wait_for_ready_net(),
     ok = rpc:call(Cp1, application, set_env, [kernel, shutdown_timeout, 1000]),
@@ -2115,7 +2115,7 @@ shutdown_timeout(Config) when is_list(Config) ->
 %%% Provokes a (previous) application shutdown deadlock
 %%%-----------------------------------------------------------------
 shutdown_deadlock(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     code:add_path(filename:join([DataDir,deadlock])),
     %% ok = rpc:call(Cp1, application, start, [sasl]),
     ok = application:start(deadlock),
@@ -2679,11 +2679,11 @@ start_node_boot(Name, Config, Boot) ->
 
 start_node_config_sf(Name, SysConfigFun, Conf) ->
     ConfigFile = write_config_file(SysConfigFun, Conf),
-    DataDir = ?config(data_dir, Conf), % is it used?
+    DataDir = proplists:get_value(data_dir, Conf), % is it used?
     start_node(Name, ConfigFile, " -pa " ++ DataDir).
 
 write_config_file(SysConfigFun, Conf) ->
-    Dir = ?config(priv_dir, Conf),
+    Dir = proplists:get_value(priv_dir, Conf),
     {ok, Fd} = file:open(filename:join(Dir, "sys.config"), [write]),
     SysConfigFun(Fd),
     file:close(Fd),
@@ -2927,7 +2927,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config_dc(NodeNames)),
     WithSyncTime = config_fun(config_dc(NodeNames)),
 
-    Dir = ?config(priv_dir,Conf),
+    Dir = proplists:get_value(priv_dir,Conf),
     {ok, Fd_dc2} = file:open(filename:join(Dir, "sys2.config"), [write]),
     (config_dc2(NodeNames))(Fd_dc2),
     file:close(Fd_dc2),

@@ -31,7 +31,7 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(privdir(Conf), ?config(priv_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -82,7 +82,7 @@ end_per_testcase(_Func, _Config) ->
 no_file(suite) -> [];
 no_file(doc) -> ["No log file exists"];
 no_file(Conf) when is_list(Conf) ->
-    ?line code:add_path(?config(data_dir,Conf)),
+    code:add_path(proplists:get_value(data_dir,Conf)),
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),

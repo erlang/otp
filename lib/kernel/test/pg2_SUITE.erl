@@ -22,8 +22,8 @@
 -module(pg2_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--define(datadir, ?config(data_dir, Config)).
--define(privdir, ?config(priv_dir, Config)).
+-define(datadir, proplists:get_value(data_dir, Config)).
+-define(privdir, proplists:get_value(priv_dir, Config)).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -34,7 +34,7 @@
          compat/1, basic/1]).
 
 -define(TESTCASE, testcase_name).
--define(testcase, ?config(?TESTCASE, Config)).
+-define(testcase, proplists:get_value(?TESTCASE, Config)).
 
 %% Internal export.
 -export([mk_part_node_and_group/3, part2/4,
@@ -658,7 +658,7 @@ make_partition(Config, Part1, Part2) ->
     make_partition(Config, Part1, Part2, mk_part_node).
 
 make_partition(Config, Part1, Part2, Function) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     Ns = [begin
               Name = lists:concat([atom_to_list(N),"_",msec(),".part"]),
               File = filename:join([Dir, Name]),
@@ -774,7 +774,7 @@ file_contents(File, ContentsList, Config, LogFile) ->
            end).
 
 make_partition_file(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     filename:join([Dir, atom_to_list(make_partition_done)]).
 
 msec() ->

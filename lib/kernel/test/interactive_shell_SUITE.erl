@@ -54,7 +54,7 @@ init_per_suite(Config) ->
     [{default_shell,DefShell},{term,Term}|Config].
 
 end_per_suite(Config) ->
-    Term = ?config(term,Config),
+    Term = proplists:get_value(term,Config),
     os:putenv("TERM",Term),
     ok.
 

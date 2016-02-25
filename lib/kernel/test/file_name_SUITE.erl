@@ -113,7 +113,7 @@ home_dir(doc) ->
 home_dir(Config) when is_list(Config) ->
     try
 	Name=[960,945,964,961,953,954],
-	Priv = ?config(priv_dir, Config),
+	Priv = proplists:get_value(priv_dir, Config),
 	UniMode = file:native_name_encoding() =/= latin1,
 	if 
 	    not UniMode ->
@@ -192,7 +192,7 @@ normal(doc) ->
 normal(Config) when is_list(Config) ->
     {ok,Dir} = file:get_cwd(),
     try
-	Priv = ?config(priv_dir, Config),
+	Priv = proplists:get_value(priv_dir, Config),
 	file:set_cwd(Priv),
 	put(file_module,prim_file),
 	ok = check_normal(prim_file),
@@ -217,7 +217,7 @@ icky(Config) when is_list(Config) ->
 	false ->
 	    {ok,Dir} = file:get_cwd(),
 	    try
-		Priv = ?config(priv_dir, Config),
+		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
 		put(file_module,prim_file),
 		ok = check_icky(prim_file),
@@ -241,7 +241,7 @@ very_icky(Config) when is_list(Config) ->
 	false ->
 	    {ok,Dir} = file:get_cwd(),
 	    try
-		Priv = ?config(priv_dir, Config),
+		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
 		put(file_module,prim_file),
 		case check_very_icky(prim_file) of

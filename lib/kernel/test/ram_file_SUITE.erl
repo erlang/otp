@@ -401,7 +401,7 @@ compress(suite) ->
 compress(doc) ->
     ["Test that compress/1 and uncompress/1 works."];
 compress(Config) when is_list(Config) ->
-    ?line Data   = ?config(data_dir, Config),
+    Data   = proplists:get_value(data_dir, Config),
     ?line Real   = filename:join(Data, "realmen.html"),
     ?line RealGz = filename:join(Data, "realmen.html.gz"),
     %%
@@ -466,7 +466,7 @@ uuencode(suite) ->
 uuencode(doc) ->
     ["Test that uuencode/1 and uudecode/1 works."];
 uuencode(Config) when is_list(Config) ->
-    ?line Data   = ?config(data_dir, Config),
+    Data   = proplists:get_value(data_dir, Config),
     ?line Real   = filename:join(Data, "realmen.html"),
     ?line RealUu = filename:join(Data, "realmen.html.uu"),
     %%
@@ -541,7 +541,7 @@ large_file_light(suite) ->
 large_file_light(doc) ->
     ["Test light operations on a \"large\" ram_file."];
 large_file_light(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     %% Marker for next test case that is to heavy to run in a suite.
     ?line ok = ?FILE_MODULE:write_file(
 		  filename:join(PrivDir, "large_file_light"),
@@ -574,7 +574,7 @@ large_file_heavy(suite) ->
 large_file_heavy(doc) ->
     ["Test operations on a maximum size (2 GByte - 1) ram_file."];
 large_file_heavy(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     %% Check previous test case marker.
     case ?FILE_MODULE:read_file_info(
 	    filename:join(PrivDir, "large_file_light")) of

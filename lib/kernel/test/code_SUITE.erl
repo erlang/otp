@@ -108,7 +108,7 @@ end_per_testcase(_Func, Config) ->
 
 end_per_testcase(Config) ->
     code:purge(code_b_test),
-    P=?config(code_path, Config),
+    P=proplists:get_value(code_path, Config),
     true=code:set_path(P),
     P=code:get_path(),
     ok.
@@ -117,7 +117,7 @@ set_path(suite) -> [];
 set_path(doc) -> [];
 set_path(Config) when is_list(Config) ->
     P = code:get_path(),
-    NonExDir = filename:join(?config(priv_dir, Config), ?t:temp_name("hej")),
+    NonExDir = filename:join(proplists:get_value(priv_dir, Config), ?t:temp_name("hej")),
     {'EXIT',_} = (catch code:set_path({a})),
     {error, bad_directory} = (catch code:set_path([{a}])),
     {error, bad_directory} = code:set_path(NonExDir),
@@ -250,7 +250,7 @@ del_path_1(P) ->
 replace_path(suite) -> [];
 replace_path(doc) -> [];
 replace_path(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     P = code:get_path(),
     {'EXIT',_} = (catch code:replace_path(3,"")),
     {error, bad_name} = code:replace_path(dummy_name,""),
@@ -288,7 +288,7 @@ replace_path(Config) when is_list(Config) ->
 dir_disappeared(suite) -> [];
 dir_disappeared(doc) -> ["OTP-3977"];
 dir_disappeared(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "temp"),
     ok = file:make_dir(Dir),
     true = code:add_path(Dir),
@@ -508,7 +508,7 @@ load_binary(Config) when is_list(Config) ->
     ok.
 
 upgrade(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     %%T = [beam, hipe],
     T = [beam],
@@ -589,7 +589,7 @@ set_path_file(suite) -> [];
 set_path_file(doc) -> ["Test that set_path does not accept ",
 		       "files as pathnames (known previous bug)"];
 set_path_file(Config) when is_list(Config) ->
-    File=filename:join(?config(priv_dir, Config), "testfil"),
+    File=filename:join(proplists:get_value(priv_dir, Config), "testfil"),
     ok=file:write_file(File, list_to_binary("lite data")),
     {error, bad_directory}=code:set_path([File]).
 
@@ -600,7 +600,7 @@ sticky_dir(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok,Node} = ?t:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
     Mods = [code,lists,erlang,init],
-    OutDir = filename:join(?config(priv_dir, Config), sticky_dir),
+    OutDir = filename:join(proplists:get_value(priv_dir, Config), sticky_dir),
     _ = file:make_dir(OutDir),
     Ret = rpc:call(Node, erlang, apply,
 		   [fun sticky_compiler/2,[Mods,OutDir]]),
@@ -639,7 +639,7 @@ do_sticky_compile(Mod, Dir) ->
 pa_pz_option(suite) -> [];
 pa_pz_option(doc) -> ["Test that the -pa and -pz options work as expected"];
 pa_pz_option(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config),
+    DDir = proplists:get_value(data_dir,Config),
     PaDir = filename:join(DDir,"pa"),
     PzDir = filename:join(DDir,"pz"),
     {ok, Node}=?t:start_node(pa_pz1, slave,
@@ -663,7 +663,7 @@ add_del_path(suite) ->
     [];
 add_del_path(doc) -> ["add_path, del_path should not cause priv_dir(App) to fail"];
 add_del_path(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config),
+    DDir = proplists:get_value(data_dir,Config),
     Dir1 = filename:join(DDir,"dummy_app-1.0/ebin"),
     Dir2 = filename:join(DDir,"dummy_app-2.0/ebin"),
     code:add_patha(Dir1),
@@ -677,7 +677,7 @@ add_del_path(Config) when is_list(Config) ->
 
 
 clash(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config)++"clash/",
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
     P = code:get_path(),
 
     %% test non-clashing entries
@@ -705,7 +705,7 @@ clash(Config) when is_list(Config) ->
 
     %% test "Bad path can't read"
 
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     TmpEzFile = Priv++"foobar-0.tmp.ez",
     {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
     true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
@@ -951,7 +951,7 @@ purge_stacktrace(Config) when is_list(Config) ->
     ok.
 
 mult_lib_roots(Config) when is_list(Config) ->
-    DataDir = filename:join(?config(data_dir, Config), "mult_lib_roots"),
+    DataDir = filename:join(proplists:get_value(data_dir, Config), "mult_lib_roots"),
     mult_lib_compile(DataDir, "my_dummy_app-b/ebin/lists"),
     mult_lib_compile(DataDir,
 			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
@@ -1036,8 +1036,8 @@ code_archive2(Config) when is_list(Config) ->
 
 do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     %% Copy the orig files to priv_dir
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     App = code_archive_dict,
     VsnBase = atom_to_list(App) ++ "-1.0",
     Base =
@@ -1148,7 +1148,7 @@ big_boot_embedded(Config) when is_list(Config) ->
 on_load(Config) when is_list(Config) ->
     Master = on_load_test_case_process,
 
-    Data = filename:join([?config(data_dir, Config),"on_load"]),
+    Data = filename:join([proplists:get_value(data_dir, Config),"on_load"]),
     ok = file:set_cwd(Data),
     up_to_date = make:all([{d,'MASTER',Master}]),
 
@@ -1260,7 +1260,7 @@ on_load_embedded(Config) when is_list(Config) ->
     end.
 
 on_load_embedded_1(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     %% Link the on_load_app application into the lib directory.
     LibRoot = code:lib_dir(),
@@ -1315,7 +1315,7 @@ create_boot(Config, Options) ->
     filename:join(LatestDir, LatestName).
 
 create_script(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = PrivDir ++ "on_load_test",
     Apps = application_controller:which_applications(),
     {value,{_,_,KernelVer}} = lists:keysearch(kernel, 1, Apps),
@@ -1368,7 +1368,7 @@ filter_app("erts",_) -> false;
 % Other apps should be OK.
 filter_app(_,_) -> true.
 create_big_script(Config,Local) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = filename:join(PrivDir,"full_script_test"),
     InitialApplications=application:loaded_applications(),
     %% Applications left loaded by the application suite, unload them!
@@ -1402,7 +1402,7 @@ on_load_errors(Config) when is_list(Config) ->
     Master = on_load_error_test_case_process,
     register(Master, self()),
 
-    Data = filename:join([?config(data_dir, Config),"on_load_errors"]),
+    Data = filename:join([proplists:get_value(data_dir, Config),"on_load_errors"]),
     ok = file:set_cwd(Data),
     up_to_date = make:all([{d,'MASTER',Master}]),
 

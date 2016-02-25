@@ -1020,7 +1020,7 @@ otp_9981(Config) when is_list(Config) ->
 %%% Helps with testing directly %%%%%%%%%%%%%
 
 conf(What,Config) ->
-    try ?config(What,Config) of
+    try proplists:get_value(What,Config) of
 	undefined ->
 	    "./zlib_SUITE_data";
 	Dir ->

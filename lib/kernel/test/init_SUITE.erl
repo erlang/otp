@@ -618,7 +618,7 @@ long_args(A) ->
 		    [A])).
 
 create_script(Config) ->
-    ?line PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     ?line Name = PrivDir ++ "boot_var_test",
     ?line Apps = application_controller:which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),

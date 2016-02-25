@@ -454,7 +454,7 @@ do_dont_drop(Config,N) ->
     Env = [{"HEART_COMMAND", FirstCmd}],
     Func = "start_heart_stress",
     Arg = NN3 ++ "@" ++ Host ++ " " ++
-	filename:join(?config(data_dir, Config), "simple_echo"),
+	filename:join(proplists:get_value(data_dir, Config), "simple_echo"),
     start_node_run(Name,Env,Func,Arg),
     case wait_for_any_of(list_to_atom(NN2 ++ "@" ++ Host),
 	    list_to_atom(NN3 ++ "@" ++ Host)) of

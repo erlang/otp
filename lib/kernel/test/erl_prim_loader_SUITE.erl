@@ -151,7 +151,7 @@ normalize_and_backslash(Config) ->
 	    test_normalize_and_backslash(Config)
     end.
 test_normalize_and_backslash(Config) ->
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     Dir = filename:join(PrivDir,"\\"),
     File = filename:join(Dir,"file-OTP-11170"),
     ok = file:make_dir(Dir),
@@ -336,7 +336,7 @@ file_requests(Config) when is_list(Config) ->
     ?line {ok,Info} = rpc:call(Node, erl_prim_loader, read_file_info,
 			       [code:which(test_server)]),
 
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     Dir = filename:join(PrivDir,?MODULE_STRING++"_file_requests"),
     ok = file:make_dir(Dir),
     Alias = filename:join(Dir,"symlink"),
@@ -378,7 +378,7 @@ local_archive(suite) ->
 local_archive(doc) ->
     ["Read files from local archive."];
 local_archive(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     KernelDir = filename:basename(code:lib_dir(kernel)),
     Archive = filename:join([PrivDir, KernelDir ++ init:archive_extension()]),
     file:delete(Archive),
@@ -398,7 +398,7 @@ remote_archive(suite) ->
 remote_archive(doc) ->
     ["Read files from remote archive."];
 remote_archive(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     KernelDir = filename:basename(code:lib_dir(kernel)),
     Archive = filename:join([PrivDir, KernelDir ++ init:archive_extension()]),
     file:delete(Archive),
@@ -421,10 +421,10 @@ primary_archive(doc) ->
     ["Read files from primary archive."];
 primary_archive(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Archive = filename:join([PrivDir, "primary_archive.zip"]),
     file:delete(Archive),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line {ok, _} = zip:create(Archive, ["primary_archive"],
 			       [{compress, []}, {cwd, DataDir}]),
     ?line {ok, _} = zip:extract(Archive, [{cwd, PrivDir}]),
@@ -517,7 +517,7 @@ virtual_dir_in_archive(suite) ->
 virtual_dir_in_archive(doc) ->
     ["Read virtual directories from archive."];
 virtual_dir_in_archive(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Data = <<"A little piece of data.">>,
     ArchiveBase = "archive_with_virtual_dirs",
     Archive = filename:join([PrivDir, ArchiveBase ++ init:archive_extension()]),

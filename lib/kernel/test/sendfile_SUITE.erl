@@ -53,7 +53,7 @@ init_per_suite(Config) ->
 	{{unix,sunos}, {5,8,_}} ->
 	    {skip, "Solaris 8 not supported for now"};
 	_ ->
-	    Priv = ?config(priv_dir, Config),
+	    Priv = proplists:get_value(priv_dir, Config),
 	    SFilename = filename:join(Priv, "sendfile_small.html"),
 	    {ok, DS} = file:open(SFilename,[write,raw]),
 	    file:write(DS,"yo baby yo"),

@@ -155,7 +155,7 @@ echo_test(SockOpts, EchoFun, Config0) ->
     echo_test_1([{delay_send,true}|SockOpts], EchoFun, Config0).
 
 echo_test_1(SockOpts, EchoFun, Config0) ->
-    ?line EchoSrvFun = ?config(echo, Config0),
+    EchoSrvFun = proplists:get_value(echo, Config0),
     ?line {ok, EchoPort} = EchoSrvFun(),
     ?line Config = [{echo_port, EchoPort}|Config0],
     
@@ -201,7 +201,7 @@ echo_packet(SockOpts, EchoFun, Opts) ->
     end,
 
     %% Connect to the echo server.
-    EchoPort = ?config(echo_port, Opts),
+    EchoPort = proplists:get_value(echo_port, Opts),
     {ok, Echo} = gen_tcp:connect(localhost, EchoPort, SockOpts),
 
     SlowEcho = lists:member(slow_echo, Opts),

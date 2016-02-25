@@ -79,8 +79,8 @@ zone_dir(TC) ->
     end.
 
 init_per_testcase(Func, Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
 	    Lookup = inet_db:res_option(lookup),
@@ -97,20 +97,20 @@ init_per_testcase(Func, Config) ->
     end.
 
 end_per_testcase(_Func, Config) ->
-    inet_db:set_lookup(?config(res_lookup, Config)),
-    NsSpec = ?config(nameserver, Config),
+    inet_db:set_lookup(proplists:get_value(res_lookup, Config)),
+    NsSpec = proplists:get_value(nameserver, Config),
     case NsSpec of
 	{_,{IP,Port},_} ->
 	    inet_db:del_alt_ns(IP, Port);
 	_ -> ok
     end,
-    ns_end(NsSpec, ?config(priv_dir, Config)).
+    ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
 
 ns(Config) ->
-    {_ZoneDir,NS,_P} = ?config(nameserver, Config),
+    {_ZoneDir,NS,_P} = proplists:get_value(nameserver, Config),
     NS.
 
 ns_init(ZoneDir, PrivDir, DataDir) ->
@@ -573,7 +573,7 @@ files_monitor(Config) when is_list(Config) ->
     end.
 
 do_files_monitor(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
     io:format("Hostname = ~p.~n", [Hostname]),
     FQDN =

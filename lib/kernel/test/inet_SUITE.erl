@@ -107,7 +107,7 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(lookup_bad_search_option, Config) ->
     Db = inet_db,
     Key = res_lookup,
-    Prev = ?config(Key, Config),
+    Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
     ?t:format("Restored resolver lookup order", []);
@@ -437,7 +437,7 @@ get_hosts([], _, _, Result) ->
     
 
 parse_hosts(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     ?line HostFile = filename:join(DataDir, "hosts"),
     ?line inet_parse:hosts(HostFile),
     ?line HostFileErr1 = filename:join(DataDir, "hosts_err1"),

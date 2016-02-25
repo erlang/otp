@@ -899,7 +899,7 @@ create_socketpair(ListenOptions,ConnectOptions) ->
 
 
 start_helper(Config) ->
-    Progname = filename:join(?config(data_dir, Config), "sockopt_helper"),
+    Progname = filename:join(proplists:get_value(data_dir, Config), "sockopt_helper"),
     Port = open_port({spawn,Progname},[eof,line]),
     Port.
 

@@ -174,7 +174,7 @@ init_per_suite(Config) when is_list(Config) ->
 
     case os:type() of
 	{win32, _} ->
-	    Priv = ?config(priv_dir, Config),
+	    Priv = proplists:get_value(priv_dir, Config),
 	    HasAccessTime =
 		case ?FILE_MODULE:read_file_info(Priv) of
 		    {ok, #file_info{atime={_, {0, 0, 0}}}} ->
@@ -328,7 +328,7 @@ old_io_protocol(suite) ->
 old_io_protocol(doc) ->
     ["Test that the old file IO protocol =< R16B still works"];
 old_io_protocol(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     Name = filename:join(RootDir,
 			 atom_to_list(?MODULE)
 			 ++"old_io_protocol.fil"),
@@ -347,7 +347,7 @@ old_io_protocol(Config) when is_list(Config) ->
 unicode_mode(suite) -> [];
 unicode_mode(doc) -> [""];
 unicode_mode(Config) ->
-    Dir = {dir, ?config(priv_dir,Config)},
+    Dir = {dir, proplists:get_value(priv_dir,Config)},
     OptVariants = [[Dir],
 		   [Dir, {encoding, utf8}],
 		   [Dir, binary],
@@ -496,7 +496,7 @@ um_filename(Str = [_|_], Dir, Options) ->
 read_write_file(suite) -> [];
 read_write_file(doc) -> [];
 read_write_file(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_read_write_file"),
@@ -554,7 +554,7 @@ read_write_file(Config) when is_list(Config) ->
 make_del_dir(suite) -> [];
 make_del_dir(doc) -> [];
 make_del_dir(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_mk-dir"),
@@ -623,7 +623,7 @@ cur_dir_0(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:set_cwd(Dir1),
 
     %% Make a new dir, and cd to that
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_curdir"),
@@ -714,7 +714,7 @@ win_cur_dir_1(_Config) ->
 %%%
 
 list_dir_error(Config) ->
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     NonExisting = filename:join(Priv, "non-existing-dir"),
     {error,enoent} = ?FILE_MODULE:list_dir(NonExisting),
     ok.
@@ -724,7 +724,7 @@ list_dir_error(Config) ->
 %%%
 
 list_dir(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     TestDir = filename:join(RootDir, ?MODULE_STRING++"_list_dir"),
     ?FILE_MODULE:make_dir(TestDir),
     list_dir_1(TestDir, 42, []).
@@ -754,7 +754,7 @@ untranslatable_names(Config) ->
 
 untranslatable_names_1(Config) ->
     {ok,OldCwd} = file:get_cwd(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "untranslatable_names"),
     ok = file:make_dir(Dir),
     Node = start_node(untranslatable_names, "+fnu"),
@@ -795,7 +795,7 @@ untranslatable_names_error(Config) ->
 
 untranslatable_names_error_1(Config) ->
     {ok,OldCwd} = file:get_cwd(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "untranslatable_names_error"),
     ok = file:make_dir(Dir),
     Node = start_node(untranslatable_names, "+fnue"),
@@ -857,7 +857,7 @@ start_node(Name, Args) ->
 open1(suite) -> [];
 open1(doc) -> [];
 open1(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_files"),
@@ -886,7 +886,7 @@ open1(Config) when is_list(Config) ->
 old_modes(suite) -> [];
 old_modes(doc) -> [];
 old_modes(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_old_open_modes"),
@@ -918,7 +918,7 @@ old_modes(Config) when is_list(Config) ->
 new_modes(suite) -> [];
 new_modes(doc) -> [];
 new_modes(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_new_open_modes"),
@@ -978,7 +978,7 @@ new_modes(Config) when is_list(Config) ->
 path_open(suite) -> [];
 path_open(doc) -> [];
 path_open(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_path_open"),
@@ -1021,7 +1021,7 @@ path_open(Config) when is_list(Config) ->
 close(suite) -> [];
 close(doc) -> [];
 close(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_close.fil"),
@@ -1043,7 +1043,7 @@ close(Config) when is_list(Config) ->
 access(suite) -> [];
 access(doc) -> [];
 access(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_access.fil"),
@@ -1072,7 +1072,7 @@ access(Config) when is_list(Config) ->
 read_write(suite) -> [];
 read_write(doc) -> [];
 read_write(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_read_write"),
@@ -1119,7 +1119,7 @@ read_write_test(File, Marker, Empty) ->
 pread_write(suite) -> [];
 pread_write(doc) -> [];
 pread_write(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_pread_write"),
@@ -1175,7 +1175,7 @@ pread_write_test(File, Data) ->
 append(doc) -> "Test appending to a file.";
 append(suite) -> [];
 append(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_append"),
@@ -1209,7 +1209,7 @@ open_errors(doc) -> [];
 open_errors(Config) when is_list(Config) ->
     ?line DataDir = 
 	filename:dirname(
-	  filename:join(?config(data_dir, Config), "x")),
+	  filename:join(proplists:get_value(data_dir, Config), "x")),
     ?line DataDirSlash = DataDir++"/",
     ?line {error, E1} = ?FILE_MODULE:open(DataDir, [read]),
     ?line {error, E2} = ?FILE_MODULE:open(DataDirSlash, [read]),
@@ -1223,7 +1223,7 @@ open_errors(Config) when is_list(Config) ->
 exclusive(suite) -> [];
 exclusive(doc) -> "Test exclusive access to a file.";
 exclusive(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir,
 				 atom_to_list(?MODULE)
 				 ++"_exclusive"),
@@ -1240,7 +1240,7 @@ exclusive(Config) when is_list(Config) ->
 pos1(suite) -> [];
 pos1(doc) -> [];
 pos1(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_pos1.fil"),
@@ -1304,7 +1304,7 @@ pos1(Config) when is_list(Config) ->
 pos2(suite) -> [];
 pos2(doc) -> [];
 pos2(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_pos2.fil"),
@@ -1326,7 +1326,7 @@ pos2(Config) when is_list(Config) ->
 pos3(suite) -> [];
 pos3(doc) -> ["When it does not use raw mode, file:position had a bug."];
 pos3(Config) when is_list(Config) ->
-    ?line RootDir = ?config(data_dir, Config),
+    RootDir = proplists:get_value(data_dir, Config),
     ?line Name = filename:join(RootDir, "realmen.html.gz"),
 
     ?line {ok, Fd} = ?FILE_MODULE:open(Name, [read, binary]),
@@ -1346,7 +1346,7 @@ pos3(Config) when is_list(Config) ->
 file_info_basic_file(suite) -> [];
 file_info_basic_file(doc) -> [];
 file_info_basic_file(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
 
     %% Create a short file.
     ?line Name = filename:join(RootDir, 
@@ -1380,7 +1380,7 @@ file_info_basic_directory(Config) when is_list(Config) ->
     %% Note: filename:join/1 removes any trailing slash,
     %% which is essential for ?FILE_MODULE:file_info/1 to work on
     %% platforms such as Windows95.
-    RootDir = filename:join([?config(priv_dir, Config)]),
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
 
     %% Test that the RootDir directory has the expected attributes.
     test_directory(RootDir, read_write),
@@ -1426,7 +1426,7 @@ all_integers([]) -> ok.
 file_info_bad(suite) -> [];
 file_info_bad(doc) -> [];
 file_info_bad(Config) when is_list(Config) ->
-    ?line RootDir = filename:join([?config(priv_dir, Config)]),
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
     FileName = filename:join(RootDir, atom_to_list(?MODULE) ++ "_nonexistent"),
     {error,enoent} = ?FILE_MODULE:read_file_info(FileName),
     {error,enoent} = ?FILE_MODULE:read_file_info(FileName, [raw]),
@@ -1453,7 +1453,7 @@ file_info_int(Config) ->
     %% which is essential for ?FILE_MODULE:file_info/1 to work on
     %% platforms such as Windows95.
 
-    ?line RootDir = filename:join([?config(priv_dir, Config)]),
+    RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
     ?line test_server:format("RootDir = ~p", [RootDir]),
 
     ?line Name = filename:join(RootDir, 
@@ -1610,13 +1610,13 @@ file_write_file_info(Config) when is_list(Config) ->
 %% Returns a directory on a file system that has correct file times.
 
 get_good_directory(Config) ->
-    ?line ?config(priv_dir, Config).
+    proplists:get_value(priv_dir, Config).
 
 
 consult1(suite) -> [];
 consult1(doc) -> [];
 consult1(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_consult.fil"),
@@ -1645,7 +1645,7 @@ consult1(Config) when is_list(Config) ->
 path_consult(suite) -> [];
 path_consult(doc) -> [];
 path_consult(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_consult.fil",
     ?line Name = filename:join(RootDir, FileName),
     ?line {ok,Fd1} = ?FILE_MODULE:open(Name,write),
@@ -1672,7 +1672,7 @@ path_consult(Config) when is_list(Config) ->
 eval1(suite) -> [];
 eval1(doc) -> [];
 eval1(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_eval.fil"),
     ?line {ok,Fd1} = ?FILE_MODULE:open(Name,write),
@@ -1706,7 +1706,7 @@ eval1(Config) when is_list(Config) ->
 path_eval(suite) -> [];
 path_eval(doc) -> [];
 path_eval(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_eval.fil",
     ?line Name = filename:join(RootDir, FileName),
     ?line {ok,Fd1} = ?FILE_MODULE:open(Name,write),
@@ -1740,7 +1740,7 @@ path_eval(Config) when is_list(Config) ->
 script1(suite) -> [];
 script1(doc) -> "";
 script1(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_script.fil"),
     ?line {ok,Fd1} = ?FILE_MODULE:open(Name,write),
@@ -1771,7 +1771,7 @@ script1(Config) when is_list(Config) ->
 path_script(suite) -> [];
 path_script(doc) -> [];
 path_script(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_script.fil",
     ?line Name = filename:join(RootDir, FileName),
     ?line {ok,Fd1} = ?FILE_MODULE:open(Name,write),
@@ -1806,7 +1806,7 @@ path_script(Config) when is_list(Config) ->
 truncate(suite) -> [];
 truncate(doc) -> [];
 truncate(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_truncate.fil"),
@@ -1838,7 +1838,7 @@ truncate(Config) when is_list(Config) ->
 datasync(suite) -> [];
 datasync(doc) -> "Tests that ?FILE_MODULE:datasync/1 at least doesn't crash.";
 datasync(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Sync = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
 			       ++"_sync.fil"),
@@ -1860,7 +1860,7 @@ datasync(Config) when is_list(Config) ->
 sync(suite) -> [];
 sync(doc) -> "Tests that ?FILE_MODULE:sync/1 at least doesn't crash.";
 sync(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Sync = filename:join(PrivDir, 
 			       atom_to_list(?MODULE)
 			       ++"_sync.fil"),
@@ -1881,7 +1881,7 @@ sync(Config) when is_list(Config) ->
 advise(suite) -> [];
 advise(doc) -> "Tests that ?FILE_MODULE:advise/4 at least doesn't crash.";
 advise(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Advise = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
 			       ++"_advise.fil"),
@@ -1950,7 +1950,7 @@ advise(Config) when is_list(Config) ->
 allocate(suite) -> [];
 allocate(doc) -> "Tests that ?FILE_MODULE:allocate/3 at least doesn't crash.";
 allocate(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Allocate = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
 			       ++"_allocate.fil"),
@@ -2019,7 +2019,7 @@ allocate_and_assert(Fd, Offset, Length) ->
 delete(suite) -> [];
 delete(doc) -> [];
 delete(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
 			       ++"_delete.fil"),
@@ -2040,7 +2040,7 @@ delete(Config) when is_list(Config) ->
 rename(suite) ->[];
 rename(doc) ->[];
 rename(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line FileName1 = atom_to_list(?MODULE)++"_rename.fil",
     ?line FileName2 = atom_to_list(?MODULE)++"_rename.ful",
     ?line Name1 = filename:join(RootDir, FileName1),
@@ -2094,7 +2094,7 @@ rename(Config) when is_list(Config) ->
 names(suite) -> [];
 names(doc) -> [];
 names(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir,Config),
+    RootDir = proplists:get_value(priv_dir,Config),
     ?line FileName = "foo1.fil",
     ?line Name1 = filename:join(RootDir, FileName),
     ?line Name2 = [RootDir,"/","foo1",".","fil"],
@@ -2147,7 +2147,7 @@ names(Config) when is_list(Config) ->
 e_delete(suite) -> [];
 e_delete(doc) -> [];
 e_delete(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_e_delete"),
     ?line ok = ?FILE_MODULE:make_dir(Base),
@@ -2191,7 +2191,7 @@ e_delete(Config) when is_list(Config) ->
 e_rename(suite) -> [];
 e_rename(doc) -> [];
 e_rename(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     Base = filename:join(RootDir,
 	atom_to_list(?MODULE)++"_e_rename"),
     ok = ?FILE_MODULE:make_dir(Base),
@@ -2287,7 +2287,7 @@ e_rename(Config) when is_list(Config) ->
 e_make_dir(suite) -> [];
 e_make_dir(doc) -> [];
 e_make_dir(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     Base = filename:join(RootDir, 
           	       atom_to_list(?MODULE)++"_e_make_dir"),
     ok = ?FILE_MODULE:make_dir(Base),
@@ -2321,7 +2321,7 @@ e_make_dir(Config) when is_list(Config) ->
 e_del_dir(suite) -> [];
 e_del_dir(doc) -> [];
 e_del_dir(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     Base = test_server:temp_name(filename:join(RootDir, "e_del_dir")),
     io:format("Base: ~p", [Base]),
     ok = ?FILE_MODULE:make_dir(Base),
@@ -2371,13 +2371,13 @@ e_del_dir(Config) when is_list(Config) ->
 %% Trying reading and positioning from a compressed file.
 
 read_compressed_cooked(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     ?line Real = filename:join(Data, "realmen.html.gz"),
     ?line {ok, Fd} = ?FILE_MODULE:open(Real, [read,compressed]),
     ?line try_read_file_list(Fd).
 
 read_compressed_cooked_binary(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     ?line Real = filename:join(Data, "realmen.html.gz"),
     ?line {ok, Fd} = ?FILE_MODULE:open(Real, [read,compressed,binary]),
     ?line try_read_file_binary(Fd).
@@ -2386,8 +2386,8 @@ read_compressed_cooked_binary(Config) when is_list(Config) ->
 %% but with the compressed flag given.
 
 read_not_really_compressed(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
-    ?line Priv = ?config(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
 
     %% The file realmen.html might have got CRs added (by WinZip).
     %% Remove them, or the file positions will not be correct.
@@ -2491,7 +2491,7 @@ try_read_file_binary(Fd) ->
     ok.
 
 read_cooked_tar_problem(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     ?line ProblemFile = filename:join(Data, "cooked_tar_problem.tar.gz"),
     ?line {ok,Fd} = ?FILE_MODULE:open(ProblemFile, [read,compressed,binary]),
 
@@ -2511,7 +2511,7 @@ read_cooked_tar_problem(Config) when is_list(Config) ->
 write_compressed(suite) -> [];
 write_compressed(doc) -> [];
 write_compressed(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     ?line MyFile = filename:join(Priv, 
 				 atom_to_list(?MODULE)++"_test.gz"),
 
@@ -2568,7 +2568,7 @@ write_compressed(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 catenated_gzips(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     ?line MyFile = filename:join(Priv, ?MODULE_STRING++"_test.gz"),
 
     First = "Hello, all good men going to search parties. ",
@@ -2592,7 +2592,7 @@ compress_errors(doc) -> [];
 compress_errors(Config) when is_list(Config) ->
     ?line DataDir = 
 	filename:dirname(
-	  filename:join(?config(data_dir, Config), "x")),
+	  filename:join(proplists:get_value(data_dir, Config), "x")),
     ?line DataDirSlash = DataDir++"/",
     ?line {error, enoent} = ?FILE_MODULE:open("non_existing__",
 					      [compressed, read]),
@@ -2623,7 +2623,7 @@ compress_errors(Config) when is_list(Config) ->
 compress_async_crash(suite) -> [];
 compress_async_crash(doc) -> [];
 compress_async_crash(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line Path = filename:join(DataDir, "test.gz"),
     ExpectedData = <<"qwerty">>,
 
@@ -2672,7 +2672,7 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 unicode(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     Name = filename:join(Dir, "data-utf8.txt"),
     Txt = lists:seq(128, 255),
     D = unicode:characters_to_binary(Txt, latin1, latin1),
@@ -2710,7 +2710,7 @@ altname(doc) ->
 altname(suite) ->
     [];
 altname(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 "long alternative path name with spaces"),
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
@@ -2738,7 +2738,7 @@ altname(Config) when is_list(Config) ->
 make_link(doc) -> "Test creating a hard link.";
 make_link(suite) -> [];
 make_link(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_make_link"),
@@ -2789,7 +2789,7 @@ symlinks(suite) -> [];
 symlinks(Config) when is_list(Config) ->
     ?line {error, _} = ?FILE_MODULE:read_link(lists:duplicate(10000,$a)),
     {error, _} = ?FILE_MODULE:read_link_all(lists:duplicate(10000,$a)),
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
 				 ++"_symlinks"),
@@ -2833,7 +2833,7 @@ symlinks(Config) when is_list(Config) ->
 copy(doc) -> [];
 copy(suite) -> [];
 copy(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     %% Create a text file.
     ?line Name1 = filename:join(RootDir, atom_to_list(?MODULE)++"_copy_1.txt"),
     ?line Line = "The quick brown fox jumps over a lazy dog. 0123456789\n",
@@ -3001,7 +3001,7 @@ delayed_write(doc) ->
     ["Tests the file open option {delayed_write, Size, Delay}"];
 
 delayed_write(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     File = filename:join(RootDir, 
           	       atom_to_list(?MODULE)++"_delayed_write.txt"),
     Data1 = "asdfghjkl",
@@ -3120,7 +3120,7 @@ delayed_write(Config) when is_list(Config) ->
 pid2name(doc) -> "Tests file:pid2name/1.";
 pid2name(suite) -> [];
 pid2name(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = test_server:temp_name(
 		   filename:join(RootDir, "pid2name_")),
     ?line Name1 = [Base, '.txt'],
@@ -3144,7 +3144,7 @@ read_ahead(doc) ->
     ["Tests the file open option {read_ahead, Size}"];
 
 read_ahead(Config) when is_list(Config) ->
-    ?line RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_read_ahead.txt"),
     ?line Data1 = "asdfghjkl", % Must be
@@ -3207,7 +3207,7 @@ segment_read(suite) ->
 segment_read(doc) ->
     ["Tests the segmenting of large reads"];
 segment_read(Config) when is_list(Config) ->
-    ?line Name = filename:join(?config(priv_dir, Config),
+    Name = filename:join(proplists:get_value(priv_dir, Config),
 			       ?MODULE_STRING ++ "_segment_read"),
     ?line SegSize = 256*1024,
     ?line SegCnt = SegSize div 4,
@@ -3343,7 +3343,7 @@ segment_write(suite) ->
 segment_write(doc) ->
     ["Tests the segmenting of large writes"];
 segment_write(Config) when is_list(Config) ->
-    ?line Name = filename:join(?config(priv_dir, Config),
+    Name = filename:join(proplists:get_value(priv_dir, Config),
 			       ?MODULE_STRING ++ "_segment_write"),
     ?line SegSize = 256*1024,
     ?line SegCnt = SegSize div 4,
@@ -3531,7 +3531,7 @@ ipread(suite) ->
 ipread(doc) ->
     ["Test Dets special indirect pread"];
 ipread(Config) when is_list(Config) ->
-    ?line Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     ?line ok = ipread_int(Dir, [raw, binary]),
     ?line ok = ipread_int(Dir, [raw]),
     ?line ok = ipread_int(Dir, [binary]),
@@ -3628,7 +3628,7 @@ interleaved_read_write(suite) ->
 interleaved_read_write(doc) ->
     ["Tests interleaved read and writes"];
 interleaved_read_write(Config) when is_list(Config) ->
-    ?line Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     ?line File = 
 	filename:join(Dir, ?MODULE_STRING++"interleaved_read_write.txt"),
     ?line {ok,F1} = ?FILE_MODULE:open(File, [write]),
@@ -3657,7 +3657,7 @@ otp_5814(suite) ->
 otp_5814(doc) ->
     ["OTP-5814. eval/consult/script return correct line numbers"];
 otp_5814(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, "otp_5814"),
     Path = [PrivDir],
     ?line ok = file:write_file(File, <<"{a,b,c}.
@@ -3696,7 +3696,7 @@ otp_10852(doc) ->
     ["OTP-10852. +fnu and latin1 filenames"];
 otp_10852(Config) when is_list(Config) ->
     Node = start_node(erl_pp_helper, "+fnu"),
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     B = filename:join(Dir, <<"\xE4">>),
     ok = rpc_call(Node, get_cwd, [B]),
     {error, no_translation} = rpc_call(Node, set_cwd, [B]),
@@ -4054,7 +4054,7 @@ read_line_1(suite) ->
 read_line_1(doc) ->
     ["read_line with prim_file"];
 read_line_1(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line All = read_line_testdata(PrivDir),
     ?line read_line_create_files(All),
     ?line [ begin 
@@ -4079,7 +4079,7 @@ read_line_2(suite) ->
 read_line_2(doc) ->
     ["read_line with file"];
 read_line_2(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line All = read_line_testdata(PrivDir),
     ?line read_line_create_files(All),
     ?line [ begin 
@@ -4104,7 +4104,7 @@ read_line_3(suite) ->
 read_line_3(doc) ->
     ["read_line with raw file"];
 read_line_3(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line All = read_line_testdata(PrivDir),
     ?line read_line_create_files(All),
     ?line [ begin 
@@ -4129,7 +4129,7 @@ read_line_4(suite) ->
 read_line_4(doc) ->
     ["read_line with raw buffered file"];
 read_line_4(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line All = read_line_testdata(PrivDir),
     ?line read_line_create_files(All),
     ?line [ begin 
@@ -4402,7 +4402,7 @@ run_large_file_test(Config, Run, Name) ->
 	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
 	{{unix,_},_} ->
-	    N = disc_free(?config(priv_dir, Config)),
+	    N = disc_free(proplists:get_value(priv_dir, Config)),
 	    io:format("Free disk: ~w KByte~n", [N]),
 	    if N < 5 * (1 bsl 20) ->
 		    %% Less than 5 GByte free
@@ -4416,7 +4416,7 @@ run_large_file_test(Config, Run, Name) ->
 
 
 do_run_large_file_test(Config, Run, Name0) ->
-    Name = filename:join(?config(priv_dir, Config),
+    Name = filename:join(proplists:get_value(priv_dir, Config),
 			 ?MODULE_STRING ++ Name0),
     
     %% Set up a process that will delete this file.

@@ -239,7 +239,7 @@ t_fdconnect(Config) when is_list(Config) ->
                        ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
     Answer = "there was a shoemaker, Schumacher was his name.",
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Lib = "gen_tcp_api_SUITE",
     ok = erlang:load_nif(filename:join(Path,Lib), []),
     {ok, L} = gen_tcp:listen(0, [{active, false}]),

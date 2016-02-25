@@ -291,14 +291,14 @@ lines(File) ->
 %directories anf filenames
 ld() ->
     Config = get(elw_config),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     filename:absname(PrivDir).
 
 lf() ->
     filename:join([ld(),"logfile.txt"]).
 rd() ->
     Config = get(elw_config),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir,"log"),
     file:make_dir(LogDir),
     filename:absname(LogDir).

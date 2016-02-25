@@ -73,7 +73,7 @@ sync(doc) -> [];
 sync(suite) -> [];
 sync(Conf) when is_list(Conf) ->
     % Write a config file
-    Dir = ?config(priv_dir,Conf),
+    Dir = proplists:get_value(priv_dir,Conf),
     {ok, Fd} = file:open(Dir ++ "sys.config", [write]),
     config(Fd),
     file:close(Fd),

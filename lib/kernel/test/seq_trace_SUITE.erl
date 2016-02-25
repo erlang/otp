@@ -871,7 +871,7 @@ stop_node(Node) ->
     test_server:stop_node(Node).
 
 load_tracer(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = erl_ddll:load_driver(Path, echo_drv),
     open_port({spawn,echo_drv}, [eof,binary]).
 

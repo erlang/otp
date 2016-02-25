@@ -100,9 +100,9 @@ end_per_suite(_Config) ->
 
 
 -define(TESTCASE, testcase_name).
--define(testcase, ?config(?TESTCASE, Config)).
+-define(testcase, proplists:get_value(?TESTCASE, Config)).
 -define(nodes_tag, '$global_nodes').
--define(registered, ?config(registered, Config)).
+-define(registered, proplists:get_value(registered, Config)).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
@@ -396,7 +396,7 @@ write_high_level_trace(Nodes, Config) ->
     %% 'info' returns more than the trace, which is nice.
     Data = [{Node, {info, rpc:call(Node, global, info, [])}} ||
                Node <- Nodes],
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join([Dir, lists:concat(["global_", ?testcase])]),
     file:write_file(DataFile, term_to_binary({high_level_trace, When, Data})).
 
@@ -980,7 +980,7 @@ name_die(Config) when is_list(Config) ->
     %% Killing the pid will not remove the name from the current
     %% partition, unless monitors are used.
     ?line Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     KillFile = filename:join([Dir, "kill.txt"]),
     file:delete(KillFile),
     ?line erlang:spawn(Cp1, fun() -> kill_pid(Pid2, KillFile, Config) end),
@@ -2820,7 +2820,7 @@ many_nodes(Config) when is_list(Config) ->
     Nodes = lists:sort(?NODES),
     ?line wait_for_ready_net(Nodes, Config),
 
-    ?line Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     GoFile = filename:join([Dir, "go.txt"]),
     file:delete(GoFile),
 
@@ -3001,7 +3001,7 @@ global_groups_change(Config) ->
         node_names([cp1,cp2,cp3,cp4,cp5,cpA,cpB,cpC,cpD,cpE], Config),
 
     % Write config files
-    ?line Dir = ?config(priv_dir,Config),
+    Dir = proplists:get_value(priv_dir,Config),
     ?line {ok, Fd_dc} = file:open(filename:join(Dir, "sys.config"), [write]),
     ?line config_dc1(Fd_dc, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE),
     ?line file:close(Fd_dc),
@@ -3452,7 +3452,7 @@ w(X,Y) ->
 %% this one runs on one node in Part2
 %% The partition is ready when is_ready_partition(Config) returns (true).
 make_partition(Config, Part1, Part2) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     Ns = [begin 
               Name = lists:concat([atom_to_list(N),"_",msec(),".part"]),
               File = filename:join([Dir, Name]),
@@ -3504,7 +3504,7 @@ is_ready_partition(Config) ->
     true.
 
 make_partition_file(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     filename:join([Dir, atom_to_list(make_partition_done)]).
 
 %% this one runs at cp3
