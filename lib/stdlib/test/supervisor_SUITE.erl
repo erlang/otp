@@ -702,7 +702,7 @@ permanent_normal(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail({permanent_child_not_restarted, Child1})
+	    ct:fail({permanent_child_not_restarted, Child1})
     end,
     [1,1,0,1] = get_child_counts(sup_test).
 
@@ -751,7 +751,7 @@ permanent_shutdown(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail({permanent_child_not_restarted, Child1})
+	    ct:fail({permanent_child_not_restarted, Child1})
     end,
     [1,1,0,1] = get_child_counts(sup_test),
 
@@ -762,7 +762,7 @@ permanent_shutdown(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail({permanent_child_not_restarted, Child1})
+	    ct:fail({permanent_child_not_restarted, Child1})
     end,
 
     [1,1,0,1] = get_child_counts(sup_test).
@@ -858,7 +858,7 @@ permanent_abnormal(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail({permanent_child_not_restarted, Child1})
+	    ct:fail({permanent_child_not_restarted, Child1})
     end,
     [1,1,0,1] = get_child_counts(sup_test).
 
@@ -877,7 +877,7 @@ transient_abnormal(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail({transient_child_not_restarted, Child1})
+	    ct:fail({transient_child_not_restarted, Child1})
     end,
     [1,1,0,1] = get_child_counts(sup_test).
 
@@ -973,9 +973,9 @@ one_for_one(Config) when is_list(Config) ->
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ ->  test_server:fail(bad_child)
+		_ ->  ct:fail(bad_child)
 	    end;
-       true ->  test_server:fail({bad_child_list, Children})
+       true ->  ct:fail({bad_child_list, Children})
     end,
     [2,2,0,2] = get_child_counts(sup_test),
 
@@ -1026,7 +1026,7 @@ one_for_all(Config) when is_list(Config) ->
     Children = supervisor:which_children(sup_test),
     if length(Children) == 2 -> ok;
        true ->
-	    test_server:fail({bad_child_list, Children})
+	    ct:fail({bad_child_list, Children})
     end,
 
     %% Test that no old children is still alive
@@ -1101,7 +1101,7 @@ one_for_all_other_child_fails_restart(Config) when is_list(Config) ->
 	{_childName, _Pid} ->
 	    exit(SupPid, kill),
 	    check_exit([StarterPid, SupPid]),
-	    test_server:fail({restarting_child_not_terminated, Child1Pid2})
+	    ct:fail({restarting_child_not_terminated, Child1Pid2})
     end,
     %% Let the restart complete.
     Child1Pid3 = receive {child1, Pid5} -> Pid5 end,
@@ -1128,9 +1128,9 @@ simple_one_for_one(Config) when is_list(Config) ->
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ ->  test_server:fail(bad_child)
+		_ ->  ct:fail(bad_child)
 	    end;
-       true ->  test_server:fail({bad_child_list, Children})
+       true ->  ct:fail({bad_child_list, Children})
     end,
     [1,2,0,2] = get_child_counts(sup_test),
 
@@ -1164,9 +1164,9 @@ simple_one_for_one_shutdown(Config) when is_list(Config) ->
     if T < 1000*ShutdownTime ->
             %% Because supervisor's children wait before exiting, it can't
             %% terminate quickly
-            test_server:fail({shutdown_too_short, T});
+            ct:fail({shutdown_too_short, T});
        T >= 1000*5*ShutdownTime ->
-            test_server:fail({shutdown_too_long, T});
+            ct:fail({shutdown_too_long, T});
        true ->
             check_exit([SupPid])
     end.
@@ -1188,9 +1188,9 @@ simple_one_for_one_extra(Config) when is_list(Config) ->
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ ->  test_server:fail(bad_child)
+		_ ->  ct:fail(bad_child)
 	    end;
-       true ->  test_server:fail({bad_child_list, Children})
+       true ->  ct:fail({bad_child_list, Children})
     end,
     [1,2,0,2] = get_child_counts(sup_test),
     terminate(SupPid, CPid2, child2, abnormal),
@@ -1242,7 +1242,7 @@ rest_for_one(Config) when is_list(Config) ->
     if length(Children) == 3 ->
 	    ok;
        true ->
-	    test_server:fail({bad_child_list, Children})
+	    ct:fail({bad_child_list, Children})
     end,
     [3,3,0,3] = get_child_counts(sup_test),
 
@@ -1318,7 +1318,7 @@ rest_for_one_other_child_fails_restart(Config) when is_list(Config) ->
 	{child1, _Child1Pid3} ->
 	    exit(SupPid, kill),
 	    check_exit([StarterPid, SupPid]),
-	    test_server:fail({restarting_started_child, Child1Pid2})
+	    ct:fail({restarting_started_child, Child1Pid2})
     end,
     StarterPid ! {stop, Self},
     check_exit([StarterPid, SupPid]).
@@ -1348,7 +1348,7 @@ child_unlink(Config) when is_list(Config) ->
 	    ok;
 	_ ->
 	    exit(Pid, kill),
-	    test_server:fail(supervisor_hangs)
+	    ct:fail(supervisor_hangs)
     end.
 %%-------------------------------------------------------------------------
 %% Test a basic supervison tree.
@@ -1687,7 +1687,7 @@ simple_one_for_one_scale_many_temporary_children(_Config) ->
 		    %% The scaling shoul be linear (i.e.10, really), but we
 		    %% give some extra here to avoid failing the test
 		    %% unecessarily.
-		    ?t:fail({bad_scaling,Scaling});
+		    ct:fail({bad_scaling,Scaling});
 	       true ->
 		    ok
 	    end;
@@ -2116,14 +2116,14 @@ in_child_list([Pid | Rest], Pids) ->
 	true ->
 	    in_child_list(Rest, Pids);
 	false ->
-	    test_server:fail(child_should_be_alive)
+	    ct:fail(child_should_be_alive)
     end.
 not_in_child_list([], _) ->
     true;
 not_in_child_list([Pid | Rest], Pids) ->
     case is_in_child_list(Pid, Pids) of
 	true ->
-	    test_server:fail(child_should_not_be_alive);
+	    ct:fail(child_should_not_be_alive);
 	false ->
 	    not_in_child_list(Rest, Pids)
     end.
@@ -2144,7 +2144,7 @@ check_exit_reason(Reason) ->
 	{'EXIT', _, Reason} ->
 	    ok;
 	{'EXIT', _, Else} ->
-	    test_server:fail({bad_exit_reason, Else})
+	    ct:fail({bad_exit_reason, Else})
     end.
 
 check_exit_reason(Pid, Reason) ->
@@ -2152,5 +2152,5 @@ check_exit_reason(Pid, Reason) ->
 	{'EXIT', Pid, Reason} ->
 	    ok;
 	{'EXIT', Pid, Else} ->
-	    test_server:fail({bad_exit_reason, Else})
+	    ct:fail({bad_exit_reason, Else})
     end.

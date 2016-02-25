@@ -967,7 +967,7 @@ do_run(Dir, Cmd, Expected0) ->
 		Actual ->
 		    io:format("Expected: ~p\n", [Expected]),
 		    io:format("Actual:   ~p\n", [Actual]),
-		    ?t:fail()
+		    ct:fail(failed)
 	    end
     end.
 

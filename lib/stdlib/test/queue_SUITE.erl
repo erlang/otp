@@ -95,7 +95,7 @@ to_list(Config) when is_list(Config) ->
 	      [2,3,4,5] ->
 		  ok;
 	      Other1 ->
-		  test_server:fail(Other1)
+		  ct:fail(Other1)
 	  end,
     ok.
 
@@ -111,7 +111,7 @@ do_queue_1({out, E}, Q) ->
 	{E, Q1} ->
 	    Q1;
 	Other ->
-	    test_server:fail({"out failed", E, Q, Other})
+	    ct:fail({"out failed", E, Q, Other})
     end.
 
 
@@ -266,7 +266,7 @@ io([peek_r | Tail], Q, Q0, X) ->
 io([drop | Tail], Q, [], X) ->
     try queue:drop(Q) of
 	V ->
-	    test_server:fail({?MODULE,?LINE,V})
+	    ct:fail({?MODULE,?LINE,V})
     catch
 	error:empty ->
 	    io(Tail, Q, [], X)
@@ -277,7 +277,7 @@ io([drop | Tail], Q, [_ | T], X) ->
 io([drop_r | Tail], Q, [], X) ->
     try queue:drop_r(Q) of
 	V ->
-	    test_server:fail({?MODULE,?LINE,V})
+	    ct:fail({?MODULE,?LINE,V})
     catch
 	error:empty ->
 	    io(Tail, Q, [], X)

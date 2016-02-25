@@ -211,7 +211,7 @@ end_per_group(_GroupName, Config) ->
 memory_check_summary(_Config) ->
     case whereis(ets_test_spawn_logger) of
 	undefined ->
-	    ?t:fail("No spawn logger exist");
+	    ct:fail("No spawn logger exist");
 	_ ->
 	    ets_test_spawn_logger ! {self(), get_failed_memchecks},
 	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
@@ -377,7 +377,7 @@ t_match_spec_run_test(List, MS, Result) ->
 	_ ->
 	    io:format("TRACE MATCH FAILED\n"),
 	    io:format("Input = ~p\nMST = ~p\nExpected = ~p\nGot = ~p\n", [List, MST, SRes, TRes]),
-	    ?t:fail("TRACE MATCH FAILED")
+	    ct:fail("TRACE MATCH FAILED")
     end,
     ok.
 
@@ -400,7 +400,7 @@ ms_tracer_collect(Tracee, Ref, Acc) ->
 
 	Other ->
 	    io:format("Unexpected message = ~p\n", [Other]),
-	    ?t:fail("Unexpected tracer msg")
+	    ct:fail("Unexpected tracer msg")
     end.
 
 
@@ -426,7 +426,7 @@ ms_clause_ets_to_trace({Head, Guard, Body}) ->
 assert_eq(A,A) -> ok;
 assert_eq(A,B) ->
     io:format("FAILED MATCH:\n~p\n =/=\n~p\n",[A,B]),
-    ?t:fail("assert_eq failed").
+    ct:fail("assert_eq failed").
 
 
 t_repair_continuation(suite) -> 
@@ -1974,7 +1974,7 @@ wait_for_all(Pids0) ->
 		    wait_for_all(Pids);
 		Other ->
 		    io:format("unexpected: ~p\n", [Other]),
-		    ?line ?t:fail()
+		    ct:fail(failed)
 	    end
     end.
 
@@ -3134,7 +3134,7 @@ check_check(S={T,List,Key}) ->
     case lists:reverse(ets:lookup(T,Key)) of
 	List -> ok;
         ETS -> io:format("check failed:\nETS: ~p\nCHK: ~p\n", [ETS,List]),
-	       ?t:fail("Invalid return value from ets:lookup")
+	       ct:fail("Invalid return value from ets:lookup")
     end,
     ?line Items = ets:info(T,size),
     ?line Items = length(List),
@@ -3293,7 +3293,7 @@ delete_large_tab_1(Name, Flags, Data, Fix) ->
 		  ?line io:format("~s: context switches: ~p", [Name,N]),
 		  if
 		      N >= 5 -> ?line ok;
-		      true -> ?line ?t:fail()
+		      true -> ct:fail(failed)
 		  end
 	  end,
     receive {'DOWN',SchedTracerMon,process,SchedTracer,_} -> ok end,
@@ -3781,7 +3781,7 @@ match2_do(Opts) ->
 			    {value2_1, key2_wannabe}]),
     ?line case length(ets:match(Tab, '$1')) of
 	      6 -> ok;
-	      _ -> ?t:fail("Length of matched list is wrong.")
+	      _ -> ct:fail("Length of matched list is wrong.")
 	  end,
     ?line [[value3_1],[value3_2]] = ets:match(Tab, {'$1', key3}),
     ?line [[key1]] = ets:match(Tab, {value1, '$1'}),
@@ -3818,22 +3818,22 @@ match_object_do(Opts) ->
     case ets:match_object(Tab, {{one, '_'}, '$0'}) of
 	[{{one,5},5},{{one,4},4}] -> ok;
 	[{{one,4},4},{{one,5},5}] -> ok;
-	_ -> ?t:fail("ets:match_object() returned something funny.")
+	_ -> ct:fail("ets:match_object() returned something funny.")
     end,
     case ets:match_object(Tab, {{two, '$1'}, '$0'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
-	_ -> ?t:fail("ets:match_object() returned something funny.")
+	_ -> ct:fail("ets:match_object() returned something funny.")
     end,
     case ets:match_object(Tab, {{two, '$9'}, '$4'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
-	_ -> ?t:fail("ets:match_object() returned something funny.")
+	_ -> ct:fail("ets:match_object() returned something funny.")
     end,
     case ets:match_object(Tab, {{two, '$9'}, '$22'}) of
 	[{{two,5},6},{{two,4},4}] -> ok;
 	[{{two,4},4},{{two,5},6}] -> ok;
-	_ -> ?t:fail("ets:match_object() returned something funny.")
+	_ -> ct:fail("ets:match_object() returned something funny.")
     end,
 
     % Check that maps are inspected for variables.
@@ -3855,13 +3855,13 @@ match_object_do(Opts) ->
          {#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10}] -> ok;
         [{#{"1337" := "42","hi" := "hello","wazzup" := #{"awesome" := 3}},10},
          {#{"1337" := "42","hi" := "hello","wazzup" := "awesome"},8}] -> ok;
-        _ -> ?t:fail("ets:match_object() returned something funny.")
+        _ -> ct:fail("ets:match_object() returned something funny.")
     end,
     case ets:match_object(Tab, {#{"hi"=>'_'},'_'}) of
         [{#{"1337":="42", "hi":="hello"},_},
          {#{"1337":="42", "hi":="hello"},_},
          {#{"1337":="42", "hi":="hello"},_}] -> ok;
-        _ -> ?t:fail("ets:match_object() returned something funny.")
+        _ -> ct:fail("ets:match_object() returned something funny.")
     end,
 
     %% match large maps
@@ -3871,13 +3871,13 @@ match_object_do(Opts) ->
         %% only match a part of the map
         [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
         [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
-        _ -> ?t:fail("ets:match_object() returned something funny.")
+        _ -> ct:fail("ets:match_object() returned something funny.")
     end,
     case ets:match_object(Tab, {maps:from_list([{I,'_'}||I<-Is]),'_'}) of
         %% only match a part of the map
         [{#{1:=1,5:=5,99:=99,100:=100},11},{#{1:="hi",6:="hi",99:="hi"},12}] -> ok;
         [{#{1:="hi",2:="hi",59:="hi"},12},{#{1:=1,2:=2,39:=39,100:=100},11}] -> ok;
-        _ -> ?t:fail("ets:match_object() returned something funny.")
+        _ -> ct:fail("ets:match_object() returned something funny.")
     end,
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {#{'$1'=>'_'},7})),
     Mve = maps:from_list([{list_to_atom([$$|integer_to_list(I)]),'_'}||I<-Is]),
@@ -3908,7 +3908,7 @@ match_object2_do(Opts) ->
     ?line case catch ets:match_object(Tab, {hej, '$1'}) of
 	      {'EXIT', _} ->
 		  ets:delete(Tab),
-		  ?t:fail("match_object EXIT:ed");
+		  ct:fail("match_object EXIT:ed");
 	      [] ->
 		  io:format("Nothing matched.");
 	      List ->
@@ -3947,7 +3947,7 @@ misc1_do(Opts) ->
 	      {'EXIT',_Reason} ->
 		       ?line verify_etsmem(EtsMem);
 	      true ->
-		  ?t:fail("Delete of nonexisting table returned `true'.")
+		  ct:fail("Delete of nonexisting table returned `true'.")
 	  end,
     ok.
 
@@ -4006,7 +4006,7 @@ safe_fixtable_do(Opts) ->
 	      {'EXIT', _Reason} ->
 		       ?line verify_etsmem(EtsMem);
 	      _ ->
-		  ?t:fail("Fixtable on nonexisting table returned `true'")
+		  ct:fail("Fixtable on nonexisting table returned `true'")
 	  end,
     ok.
 
@@ -4435,7 +4435,7 @@ do_lookup_element(Tab, N, M) ->
     ?line case catch ets:lookup_element(Tab, N, M) of
 	      {'EXIT', {badarg, _}} ->
 		  case M of
-		      1 -> ?t:fail("Set #~p reported as empty. Not valid.",
+		      1 -> ct:fail("Set #~p reported as empty. Not valid.",
 				   [N]),
 			   exit('Invalid lookup_element');
 		      _ -> ?line do_lookup_element(Tab, N-1, 1)
@@ -5011,7 +5011,7 @@ verify(T, Ids) ->
 	    ok;
 	_ ->
 	    io:format("Failed:\n~p\n", [Errors]),
-	    ?t:fail()
+	    ct:fail(failed)
     end.
 
 verify2([{_N,Id}|RL], [Id|R]) ->

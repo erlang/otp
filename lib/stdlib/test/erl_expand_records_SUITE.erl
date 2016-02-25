@@ -756,7 +756,7 @@ otp_7101(Config) when is_list(Config) ->
 	4 ->
 	    ok;
 	Other ->
-	    ?line ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     end.
 
 otp_7101_tracer(Parent, N) ->
@@ -833,5 +833,4 @@ warnings(File, Ws) ->
     end.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

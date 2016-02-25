@@ -395,12 +395,12 @@ wait(Pids, ResList, N, M) ->
 	{Pid, ok, Res, T} ->
 	    wait(lists:delete(Pid, Pids), [{T, Res} | ResList], N, M);
 	{Pid, Error}->
-	    ?line test_server:fail(Error),
+	    ct:fail(Error),
 	    wait(lists:delete(Pid, Pids), ResList, N+1, M);
 	{'EXIT', Pid, normal} ->
 	    wait(lists:delete(Pid, Pids), ResList, N, M);
 	{'EXIT', Pid, Reason} ->
-    	    ?line test_server:fail({Pid,Reason})
+	    ct:fail({Pid,Reason})
     end.
 
 spawn_timers(0, _, _, _) ->
@@ -497,7 +497,7 @@ report_result({Res, 0}) ->
 
 report_result({Head, N}) ->
     io:format("Test Failed: Number of internal tmo ~w~n", [N]),
-    ?line test_server:fail({Head, N}).
+    ct:fail({Head, N}).
 
 split_list([], AL, IL) ->
     {AL, IL};

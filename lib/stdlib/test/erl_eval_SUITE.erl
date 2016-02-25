@@ -1523,7 +1523,7 @@ check1(F, String, Result) ->
         {value, Result, _} ->
             ok;
         Other ->
-            test_server:fail({eval, Other, Result})
+            ct:fail({eval, Other, Result})
     end.
 
 check(F, String, Result, BoundVars, LFH, EFH) ->
@@ -1536,11 +1536,11 @@ check(F, String, Result, BoundVars, LFH, EFH) ->
                 true -> 
                     ok;
                 false -> 
-                    test_server:fail({check, BoundVars, Keys})
+                    ct:fail({check, BoundVars, Keys})
             end,
             ok;
         Other ->
-            test_server:fail({check, Other, Result})
+            ct:fail({check, Other, Result})
     end.
 
 error_check(String, Result) ->
@@ -1548,7 +1548,7 @@ error_check(String, Result) ->
         {'EXIT', {Result,_}} ->
             ok;
         Other ->
-            test_server:fail({eval, Other, Result})
+            ct:fail({eval, Other, Result})
     end.
 
 error_check(String, Result, LFH, EFH) ->
@@ -1556,7 +1556,7 @@ error_check(String, Result, LFH, EFH) ->
         {'EXIT', {Result,_}} ->
             ok;
         Other ->
-            test_server:fail({eval, Other, Result})
+            ct:fail({eval, Other, Result})
     end.
 
 eval_string(String) ->

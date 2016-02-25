@@ -73,7 +73,7 @@ do_big_test(TConfig) when is_list(TConfig) ->
     report_result(Result).
 
 report_result(ok) -> ok;
-report_result(Error) -> ?line test_server:fail(Error).
+report_result(Error) -> ct:fail(Error).
 
 %% ------------------------------------------------------- %%
 

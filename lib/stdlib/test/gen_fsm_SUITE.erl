@@ -433,7 +433,7 @@ shutdown(Config) when is_list(Config) ->
     receive
 	Any ->
 	    ?line io:format("Unexpected: ~p", [Any]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 500 ->
 	    ok
     end,
@@ -515,7 +515,7 @@ error_format_status(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -534,10 +534,10 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
-	    ?t:fail()
+	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
     _ = ?t:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -687,7 +687,7 @@ is_in_erlang_hibernate(Pid) ->
 
 is_in_erlang_hibernate_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:fail(not_in_erlang_hibernate_3);
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -704,7 +704,7 @@ is_not_in_erlang_hibernate(Pid) ->
 
 is_not_in_erlang_hibernate_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:fail(not_in_erlang_hibernate_3);
 is_not_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -736,7 +736,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid1a, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Unregistered process + {local, Name}
@@ -746,7 +746,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid1b, process_not_registered} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Globally registered process + {global, Name}
@@ -758,7 +758,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid2a, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Unregistered process + {global, Name}
@@ -768,7 +768,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid2b, process_not_registered_globally} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Unregistered process + no name
@@ -780,7 +780,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid3, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Process not started using proc_lib
@@ -790,7 +790,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid4, process_was_not_started_by_proc_lib} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Make sure I am the parent, ie that ordering a shutdown will
@@ -803,7 +803,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid5, shutdown} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ct:fail(gen_fsm_did_not_die)
     end,
 
     %% Make sure gen_fsm:enter_loop does not accept {local,Name}
@@ -816,7 +816,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6a, process_not_registered} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_fsm_started)
+	    ct:fail(gen_fsm_started)
     end,
     unregister(armitage),
 
@@ -830,7 +830,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6b, process_not_registered_globally} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_fsm_started)
+	    ct:fail(gen_fsm_started)
     end,
     global:unregister_name(armitage),
 
@@ -841,8 +841,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6c, {process_not_registered_via, dummy_via}} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail({gen_fsm_started, process_info(self(),
-								 messages)})
+	    ct:fail({gen_fsm_started, process_info(self(), messages)})
     end,
     dummy_via:unregister_name(armitage),
 

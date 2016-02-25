@@ -152,9 +152,9 @@ analyse_crash(Pid, Expected0, ExpLinks) ->
 	    analyse_links(ExpLinks, Links);
 	Unexpected ->
 	    io:format("~p\n", [Unexpected]),
-	    test_server:fail(unexpected_message)
+	    ct:fail(unexpected_message)
     after 5000 ->
-	    test_server:fail(no_crash_report)
+	    ct:fail(no_crash_report)
     end.
 
 analyse_links([H|Es], [{neighbour,N}|Links]) ->
@@ -170,7 +170,7 @@ analyse_crash_1([{Key,Pattern}|T], Report) ->
     case lists:keyfind(Key, 1, Report) of
 	false ->
 	    io:format("~p", [Report]),
-	    test_server:fail({missing_key,Key});
+	    ct:fail({missing_key,Key});
 	{Key,Info} ->
 	    try
 		match_info(Pattern, Info)
@@ -179,7 +179,7 @@ analyse_crash_1([{Key,Pattern}|T], Report) ->
 		    io:format("key: ~p", [Key]),
 		    io:format("pattern: ~p", [Pattern]),
 		    io:format("actual: ~p", [Report]),
-		    test_server:fail(no_match)
+		    ct:fail(no_match)
 	    end,
 	    analyse_crash_1(T, Report)
     end;
@@ -203,7 +203,7 @@ sync_start_nolink(Config) when is_list(Config) ->
     receive
 	{sync_started, F} -> 
 	    exit(F, kill),
-	    test_server:fail(async_start)
+	    ct:fail(async_start)
     after 1000 -> ok
     end,
     receive
@@ -214,14 +214,14 @@ sync_start_nolink(Config) when is_list(Config) ->
 	{sync_started, _} -> ok
     after 1000 ->
 	    exit(Pid2, kill),
-	    test_server:fail(no_sync_start)
+	    ct:fail(no_sync_start)
     end,
     ok.
     
 sync_start_link(Config) when is_list(Config) ->
     _Pid = spawn_link(?MODULE, sp3, [self()]),
     receive
-	{sync_started, _} -> test_server:fail(async_start)
+	{sync_started, _} -> ct:fail(async_start)
     after 1000 -> ok
     end,
     receive
@@ -230,7 +230,7 @@ sync_start_link(Config) when is_list(Config) ->
     end,
     receive
 	{sync_started, _} -> ok
-    after 1000 -> test_server:fail(no_sync_start)
+    after 1000 -> ct:fail(no_sync_start)
     end,
     ok.
     
@@ -291,10 +291,10 @@ hibernate(Config) when is_list(Config) ->
 	{loop_data,LoopData} -> ok;
 	Unexpected0 ->
 	    ?line io:format("Unexpected: ~p\n", [Unexpected0]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 1000 ->
 	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
 
     %% Hibernate the process.
@@ -312,10 +312,10 @@ hibernate(Config) when is_list(Config) ->
 	{awaken,LoopData} -> ok;
 	Unexpected1 ->
 	    ?line io:format("Unexpected: ~p\n", [Unexpected1]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 1000 ->
 	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
 
     %% ... followed by the answer to the actual request.
@@ -323,10 +323,10 @@ hibernate(Config) when is_list(Config) ->
 	{loop_data,LoopData} -> ok;
 	Unexpected2 ->
 	    ?line io:format("Unexpected: ~p\n", [Unexpected2]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 1000 ->
 	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
 
     %% Test that errors are handled correctly after wake up from hibernation...
@@ -522,7 +522,7 @@ t_format() ->
 
     if
 	Tsz >= Usz ->
-	    ?t:fail();
+	    ct:fail(failed);
 	true ->
 	    ok
     end,

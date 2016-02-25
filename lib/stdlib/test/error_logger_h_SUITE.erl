@@ -335,7 +335,7 @@ start_node(Name, Args) ->
 	{ok,Node} ->
 	    {ok,Node};
 	Error  ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 cleanup(File) ->

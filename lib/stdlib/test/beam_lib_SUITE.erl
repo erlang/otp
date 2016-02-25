@@ -771,7 +771,7 @@ ver(S, {error, beam_lib, R}) ->
     [S|_] = tuple_to_list(R),
     case lists:flatten(beam_lib:format_error(R)) of
 	[${ | _] ->
-	    test_server:fail({bad_format_error, R});
+	    ct:fail({bad_format_error, R});
 	_ ->
 	    ok
     end.

@@ -144,7 +144,7 @@ start(Config) when is_list(Config) ->
 	      {'EXIT', Pid1, stopped} ->
 		  ok
 	  after 5000 ->
-		  test_server:fail(not_stopped)
+		  ct:fail(not_stopped)
 	  end,
 
     %% local register
@@ -174,7 +174,7 @@ start(Config) when is_list(Config) ->
 	      {'EXIT', Pid3, stopped} ->
 		  ok
 	  after 5000 ->
-		  test_server:fail(not_stopped)
+		  ct:fail(not_stopped)
 	  end,
 
     %% global register
@@ -202,7 +202,7 @@ start(Config) when is_list(Config) ->
 	      {'EXIT', Pid5, stopped} ->
 		  ok
 	  after 5000 ->
-		  test_server:fail(not_stopped)
+		  ct:fail(not_stopped)
 	  end,
 
     %% via register
@@ -232,7 +232,7 @@ start(Config) when is_list(Config) ->
 	      {'EXIT', Pid7, stopped} ->
 		  ok
 	  after 5000 ->
-		  test_server:fail(not_stopped)
+		  ct:fail(not_stopped)
 	  end,
     test_server:messages_get(),
 
@@ -382,7 +382,7 @@ crash(Config) when is_list(Config) ->
 	    ok;
 	Other4a ->
  	    ?line io:format("Unexpected: ~p", [Other4a]),
- 	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     receive
 	{error_report,_,{Pid4,crash_report,[List4|_]}} ->
@@ -390,13 +390,13 @@ crash(Config) when is_list(Config) ->
 	    Pid4 = proplists:get_value(pid, List4);
 	Other4 ->
 	    ?line io:format("Unexpected: ~p", [Other4]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
 
     receive
 	Any ->
 	    ?line io:format("Unexpected: ~p", [Any]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 500 ->
 	    ok
     end,
@@ -553,7 +553,7 @@ cast(Config) when is_list(Config) ->
 	      {Pid, handled_cast} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(handle_cast)
+		  ct:fail(handle_cast)
 	  end,
     
     ?line ok = gen_server:cast(my_test_name, {self(),delayed_cast,1}),
@@ -561,7 +561,7 @@ cast(Config) when is_list(Config) ->
 	      {Pid, delayed} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(delayed_cast)
+		  ct:fail(delayed_cast)
 	  end,
     
     ?line ok = gen_server:cast(my_test_name, {self(),stop}),
@@ -569,7 +569,7 @@ cast(Config) when is_list(Config) ->
 	      {Pid, stopped} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(stop)
+		  ct:fail(stop)
 	  end,
     ok.
 
@@ -588,7 +588,7 @@ cast_fast(Config) when is_list(Config) ->
 					   [{hopp,FalseNode},hopp]),
     ?line true = test_server:stop_node(Node),
     ?line if Time > 1.0 -> % Default listen timeout is about 7.0 s
-		  test_server:fail(hanging_cast);
+		  ct:fail(hanging_cast);
 	     true -> 
 		  ok
 	  end.
@@ -619,7 +619,7 @@ info(Config) when is_list(Config) ->
 	      {Pid, handled_info} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(handle_info)
+		  ct:fail(handle_info)
 	  end,
     
     ?line Pid ! {self(),delayed_info,1},
@@ -627,7 +627,7 @@ info(Config) when is_list(Config) ->
 	      {Pid, delayed_info} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(delayed_info)
+		  ct:fail(delayed_info)
 	  end,
     
     ?line Pid ! {self(),stop},
@@ -635,7 +635,7 @@ info(Config) when is_list(Config) ->
 	      {Pid, stopped_info} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(stop_info)
+		  ct:fail(stop_info)
 	  end,
     ok.
 
@@ -650,7 +650,7 @@ hibernate(Config) when is_list(Config) ->
 	{'EXIT', Pid0, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
 
     {ok, Pid} =
@@ -717,7 +717,7 @@ hibernate(Config) when is_list(Config) ->
 	{'EXIT', Pid, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     process_flag(trap_exit, OldFl),
     ok.
@@ -728,7 +728,7 @@ is_in_erlang_hibernate(Pid) ->
 
 is_in_erlang_hibernate_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:fail(not_in_erlang_hibernate_3);
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -758,7 +758,7 @@ abcast(Config) when is_list(Config) ->
 	      {Pid, handled_cast} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(abcast)
+		  ct:fail(abcast)
 	  end,
     
     ?line abcast = gen_server:abcast([node()], my_test_name,
@@ -767,7 +767,7 @@ abcast(Config) when is_list(Config) ->
 	      {Pid, delayed} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(delayed_abcast)
+		  ct:fail(delayed_abcast)
 	  end,
     
     ?line abcast = gen_server:abcast(my_test_name, {self(),stop}),
@@ -775,7 +775,7 @@ abcast(Config) when is_list(Config) ->
 	      {Pid, stopped} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(abcast_stop)
+		  ct:fail(abcast_stop)
 	  end,
     ok.
 
@@ -817,7 +817,7 @@ multicall(Config) when is_list(Config) ->
     receive
 	{'EXIT', Pid, stopped} -> ok
     after 1000 ->
-	    test_server:fail(multicall_stop)
+	    ct:fail(multicall_stop)
     end,
     
     process_flag(trap_exit, OldFl),
@@ -867,7 +867,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid0, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid01} = start_link(spec_init_local, [{not_ok, my_server}, []]),
@@ -875,7 +875,7 @@ spec_init(Config) when is_list(Config) ->
  	{'EXIT', Pid01, process_not_registered} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid1} = start_link(spec_init_global, [{ok, my_server}, []]),
@@ -885,7 +885,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid1, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid11} = 
@@ -895,7 +895,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid11, process_not_registered_globally} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid2} = start_link(spec_init_anonymous, [[]]),
@@ -905,7 +905,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid2, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid3} = start_link(spec_init_anonymous_default_timeout, [[]]),
@@ -915,7 +915,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid3, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     
     ?line {ok, Pid4} = 
@@ -926,7 +926,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid4, stopped} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
 
     %% Before the OTP-10130 fix this failed because a timeout message
@@ -943,7 +943,7 @@ spec_init(Config) when is_list(Config) ->
 	{'EXIT', Pid5, process_was_not_started_by_proc_lib} ->
  	    ok
     after 5000 ->
-	    test_server:fail(gen_server_did_not_die)
+	    ct:fail(gen_server_did_not_die)
     end,
     process_flag(trap_exit, OldFlag),
     ok.
@@ -965,7 +965,7 @@ spec_init_local_registered_parent(Config) when is_list(Config) ->
 	      {Pid, stopped} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(stop)
+		  ct:fail(stop)
 	  end,
     unregister(foobar),
     ok.
@@ -988,7 +988,7 @@ spec_init_global_registered_parent(Config) when is_list(Config) ->
 	      {Pid, stopped} ->
 		  ok
 	  after 1000 ->
-		  test_server:fail(stop)
+		  ct:fail(stop)
 	  end,
     global:unregister_name(foobar),
     ok.
@@ -1012,7 +1012,7 @@ otp_5854(Config) when is_list(Config) ->
 	{'EXIT', Pid1, process_not_registered} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_server_started)
+	    ct:fail(gen_server_started)
     end,
     unregister(armitage),
 
@@ -1026,7 +1026,7 @@ otp_5854(Config) when is_list(Config) ->
 	{'EXIT', Pid2, process_not_registered_globally} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_server_started)
+	    ct:fail(gen_server_started)
     end,
     global:unregister_name(armitage),
 
@@ -1038,7 +1038,7 @@ otp_5854(Config) when is_list(Config) ->
 	{'EXIT', Pid3, {process_not_registered_via, dummy_via}} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_server_started)
+	    ct:fail(gen_server_started)
     end,
     dummy_via:unregister_name(armitage),
 
@@ -1146,7 +1146,7 @@ error_format_status(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -1170,10 +1170,10 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
-	    ?t:fail()
+	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -1266,7 +1266,7 @@ do_call_with_huge_message_queue() ->
 	    ok;
 	Q ->
 	    io:format("Q = ~p", [Q]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ok.
 

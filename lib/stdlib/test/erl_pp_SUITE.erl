@@ -1359,8 +1359,7 @@ filename(Name, Config) ->
     filename:join(?privdir, Name).
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).
 
 %% +fnu means a peer node has to be started; slave will not do
 start_node(Name, Xargs) ->

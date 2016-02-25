@@ -116,9 +116,9 @@ check_interval(N, Top) ->
     X = random:uniform(Top),
     if
 	X < 1 ->
-	    test_server:fail(too_small);
+	    ct:fail(too_small);
 	X > Top ->
-	    test_server:fail(too_large);
+	    ct:fail(too_large);
 	true ->
 	    ok
     end,

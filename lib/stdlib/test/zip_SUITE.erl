@@ -178,7 +178,7 @@ match_output(eof, Expect, Port) ->
 kill_port_and_fail(Port, Reason) ->
     unlink(Port),
     exit(Port, die),
-    test_server:fail(Reason).
+    ct:fail(Reason).
 
 make_cmd(Cmd) ->
     Cmd.
@@ -547,7 +547,7 @@ try_bad(Name0, Reason, What, Config) ->
             io:format("Result: ~p\n", [Expected]);
         Other ->
             io:format("unzip/2 returned ~p (expected ~p)\n", [Other, Expected]),
-            test_server:fail({bad_return_value, Other})
+            ct:fail({bad_return_value, Other})
     end.
 
 unzip_to_binary(doc) ->

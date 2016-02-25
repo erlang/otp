@@ -229,7 +229,7 @@ wait_alive(Node) ->
     wait_alive_1(10, Node).
 
 wait_alive_1(0, Node) ->
-    ?t:fail({still_not_alive,Node});
+    ct:fail({still_not_alive,Node});
 wait_alive_1(N, Node) ->
     case rpc:call(Node, init, get_status, []) of
 	{started,_} ->

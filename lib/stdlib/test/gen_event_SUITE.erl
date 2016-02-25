@@ -111,7 +111,7 @@ start(Config) when is_list(Config) ->
     receive
 	{'EXIT', Pid6, shutdown} -> ok
     after 10000 ->
-	    ?t:fail(exit_gen_event)
+	    ct:fail(exit_gen_event)
     end,
 
     ?line {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
@@ -124,7 +124,7 @@ start(Config) when is_list(Config) ->
     receive
 	{'EXIT', Pid7, shutdown} -> ok
     after 10000 ->
-	    ?t:fail(exit_gen_event)
+	    ct:fail(exit_gen_event)
     end,
 
     ?t:messages_get(),
@@ -204,7 +204,7 @@ is_in_erlang_hibernate(Pid) ->
 
 is_in_erlang_hibernate_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:fail(not_in_erlang_hibernate_3);
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -221,7 +221,7 @@ is_not_in_erlang_hibernate(Pid) ->
 
 is_not_in_erlang_hibernate_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:fail(not_in_erlang_hibernate_3);
 is_not_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -284,14 +284,14 @@ add_sup_handler(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy_h, shutdown} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no,{gen_event_EXIT, dummy_h, shutdown}})
+		  ct:fail({no,{gen_event_EXIT, dummy_h, shutdown}})
 	  end,
 
     ?line receive
 	      {gen_event_EXIT, {dummy_h,Self}, shutdown} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no,{gen_event_EXIT, {dummy_h,Self},
+		  ct:fail({no,{gen_event_EXIT, {dummy_h,Self},
 					shutdown}})
 	  end,
     ok.
@@ -375,7 +375,7 @@ swap_sup_handler(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy1_h, normal} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no,{gen_event_EXIT, dummy1_h, normal}})
+		  ct:fail({no,{gen_event_EXIT, dummy1_h, normal}})
 	  end,
 
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, {dummy_h,3},
@@ -393,7 +393,7 @@ swap_sup_handler(Config) when is_list(Config) ->
 	      {gen_event_EXIT, {dummy1_h,4}, normal} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no,{gen_event_EXIT, {dummy1_h,4}, normal}})
+		  ct:fail({no,{gen_event_EXIT, {dummy1_h,4}, normal}})
 	  end,
 
     ?line ok = gen_event:stop(my_dummy_handler),
@@ -744,7 +744,7 @@ call(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy_h, {return,faulty}} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no, {gen_event_EXIT, dummy_h, {return,faulty}}})
+		  ct:fail({no, {gen_event_EXIT, dummy_h, {return,faulty}}})
 	  end,
 
     ?line [] = gen_event:which_handlers(my_dummy_handler),
@@ -757,7 +757,7 @@ call(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy_h, {'EXIT',_}} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no, {gen_event_EXIT, dummy_h, {'EXIT','_'}}})
+		  ct:fail({no, {gen_event_EXIT, dummy_h, {'EXIT','_'}}})
 	  end,
 
     ?line [] = gen_event:which_handlers(my_dummy_handler),
@@ -859,7 +859,7 @@ info(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy1_h, normal} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no, {gen_event_EXIT, dummy1_h, normal}})
+		  ct:fail({no, {gen_event_EXIT, dummy1_h, normal}})
 	  end,
 
     ?line [] = gen_event:which_handlers(my_dummy_handler),
@@ -876,7 +876,7 @@ info(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy_h, {return,faulty}} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no, {gen_event_EXIT, dummy_h, {return,faulty}}})
+		  ct:fail({no, {gen_event_EXIT, dummy_h, {return,faulty}}})
 	  end,
 
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
@@ -886,7 +886,7 @@ info(Config) when is_list(Config) ->
 	      {gen_event_EXIT, dummy_h, {'EXIT',_}} ->
 		  ok
 	  after 1000 ->
-		  ?t:fail({no, {gen_event_EXIT, dummy_h, {'EXIT','_'}}})
+		  ct:fail({no, {gen_event_EXIT, dummy_h, {'EXIT','_'}}})
 	  end,
 
     ?line [] = gen_event:which_handlers(my_dummy_handler),
@@ -945,7 +945,7 @@ error_format_status(Config) when is_list(Config) ->
     ?line receive
 	      {gen_event_EXIT,dummy1_h,{'EXIT',_}} -> ok
 	  after 5000 ->
-		  ?t:fail(exit_gen_event)
+		  ct:fail(exit_gen_event)
 	  end,
     FmtState = "dummy1_h handler state",
     receive
@@ -956,7 +956,7 @@ error_format_status(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ?t:messages_get(),
     ?line ok = gen_event:stop(Pid),

@@ -8171,8 +8171,7 @@ expected(Expected, Got, File) ->
     fail(File).
 
 fail(Source) ->
-    io:format("failed~n"),
-    ?t:fail({failed,testcase,on,Source}).
+    ct:fail({failed,testcase,on,Source}).
 
 %% Copied from global_SUITE.erl.
 
@@ -8194,7 +8193,7 @@ read_error_logger() ->
             {error, Pid, Tuple}
     after 1000 ->
 	    ?line io:format("No reply after 1 s\n", []),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end.
 
 %%-----------------------------------------------------------------

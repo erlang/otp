@@ -92,7 +92,7 @@ seed(Config) when is_list(Config) ->
     Test = fun(Alg) ->
 		   try seed_1(Alg)
 		   catch _:Reason ->
-			   test_server:fail({Alg, Reason, erlang:get_stacktrace()})
+			   ct:fail({Alg, Reason, erlang:get_stacktrace()})
 		   end
 	   end,
     [Test(Alg) || Alg <- Algs],
@@ -265,7 +265,6 @@ reference_1(Alg) ->
 	    io:format("Failed: ~p~n",[Alg]),
 	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
 	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    %% test_server:fail({Alg, Refval -- Testval}),
 	    ok
     end.
 
@@ -328,9 +327,9 @@ basic_uniform_1(0, {#{type:=Alg}, _}, Sum, A) ->
 
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(0.5 - AverN) < 0.005 orelse test_server:fail({average, Alg, AverN}),
-    abs(?LOOP div 100 - Min) < 1000 orelse test_server:fail({min, Alg, Min}),
-    abs(?LOOP div 100 - Max) < 1000 orelse test_server:fail({max, Alg, Max}),
+    abs(0.5 - AverN) < 0.005 orelse ct:fail({average, Alg, AverN}),
+    abs(?LOOP div 100 - Min) < 1000 orelse ct:fail({min, Alg, Min}),
+    abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
     ok.
 
 basic_uniform_2(N, S0, Sum, A0) when N > 0 ->
@@ -347,9 +346,9 @@ basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
 
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(50.5 - AverN) < 0.5 orelse test_server:fail({average, Alg, AverN}),
-    abs(?LOOP div 100 - Min) < 1000 orelse test_server:fail({min, Alg, Min}),
-    abs(?LOOP div 100 - Max) < 1000 orelse test_server:fail({max, Alg, Max}),
+    abs(50.5 - AverN) < 0.5 orelse ct:fail({average, Alg, AverN}),
+    abs(?LOOP div 100 - Min) < 1000 orelse ct:fail({min, Alg, Min}),
+    abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
     ok.
 
 basic_normal_1(N, S0, Sum, Sq) when N > 0 ->
@@ -361,8 +360,8 @@ basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
     io:format("~.10w: Average: ~7.4f StdDev ~6.4f~n", [Alg, Mean, StdDev]),
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(Mean) < 0.005 orelse test_server:fail({average, Alg, Mean}),
-    abs(StdDev - 1.0) < 0.005 orelse test_server:fail({stddev, Alg, StdDev}),
+    abs(Mean) < 0.005 orelse ct:fail({average, Alg, Mean}),
+    abs(StdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StdDev}),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -3988,5 +3988,4 @@ call_format_error(L) ->
     L.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

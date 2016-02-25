@@ -2295,7 +2295,7 @@ do_io_with_huge_message_queue(Config) ->
 	    ok;
 	Q ->
 	    io:format("Q = ~p", [Q]),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
     ok.
 
@@ -2368,7 +2368,7 @@ re_fmt(Pattern, Format, Args) ->
 	nomatch ->
 	    io:format("Pattern: ~s", [Pattern]),
 	    io:format("Result:  ~s", [S]),
-	    ?t:fail();
+	    ct:fail(failed);
 	match ->
 	    ok
     end.

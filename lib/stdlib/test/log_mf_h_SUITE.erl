@@ -77,14 +77,14 @@ test(Config) when is_list(Config) ->
     ?line false = lists:member("4", Files2),
     ?line true = lists:member("index", Files2),
     ?line {ok, #file_info{size=Size1,type=regular}} = file:read_file_info(Log1 ++ "/1"),
-    ?line if Size1 > 500 -> test_server:fail({too_big, Size1});
-	     true -> ok end,
+    if Size1 > 500 -> ct:fail({too_big, Size1});
+       true -> ok end,
     ?line {ok, #file_info{size=Size2,type=regular}} = file:read_file_info(Log1 ++ "/2"),
-    ?line if Size2 > 500 -> test_server:fail({too_big, Size2});
-	     true -> ok end,
+    if Size2 > 500 -> ct:fail({too_big, Size2});
+       true -> ok end,
     ?line {ok, #file_info{size=Size3,type=regular}} = file:read_file_info(Log1 ++ "/3"),
-    ?line if Size3 > 500 -> test_server:fail({too_big, Size3});
-	     true -> ok end,
+    if Size3 > 500 -> ct:fail({too_big, Size3});
+       true -> ok end,
     gen_event:delete_handler(Pid, log_mf_h, []),
     ?line {ok, Index} = read_index_file(Log1),
     gen_event:add_handler(Pid, log_mf_h, Args1),    

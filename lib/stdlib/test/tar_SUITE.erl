@@ -162,7 +162,7 @@ match_output(eof, _Expect, Port) ->
 kill_port_and_fail(Port, Reason) ->
     unlink(Port),
     exit(Port, die),
-    test_server:fail(Reason).
+    ct:fail(Reason).
 
 make_cmd(Cmd) ->
     case os:type() of
@@ -383,16 +383,16 @@ try_bad(Name0, Reason, Config) ->
 	    io:format("Result: ~p", [Expected]),
 	    case catch erl_tar:format_error(Reason) of
 		{'EXIT', CrashReason} ->
-		    test_server:fail({format_error, crashed, CrashReason});
+		    ct:fail({format_error, crashed, CrashReason});
 		String when is_list(String) ->
 		    io:format("format_error(~p) -> ~s", [Reason, String]);
 		Other ->
-		    test_server:fail({format_error, returned, Other})
+		    ct:fail({format_error, returned, Other})
 	    end;
 	{Other1, Other2} ->
 	    io:format("table/2 returned ~p", [Other1]),
 	    io:format("extract/2 returned ~p", [Other2]),
-	    test_server:fail({bad_return_value, Other1, Other2})
+	    ct:fail({bad_return_value, Other1, Other2})
     end.
 
 errors(doc) ->
@@ -423,18 +423,18 @@ try_error(M, F, A, Error) ->
 	{'EXIT', Reason} ->
 	    exit(Reason);
 	ok ->
-	    test_server:fail(unexpected_success);
+	    ct:fail(unexpected_success);
 	{error, Error} ->
 	    case catch erl_tar:format_error(Error) of
 		{'EXIT', FReason} ->
-		    test_server:fail({format_error, crashed, FReason});
+		    ct:fail({format_error, crashed, FReason});
 		String when is_list(String) ->
 		    io:format("format_error(~p) -> ~s", [Error, String]);
 		Other ->
-		    test_server:fail({format_error, returned, Other})
+		    ct:fail({format_error, returned, Other})
 	    end;
 	Other ->
-	    test_server:fail({expected, {error, Error}, actual, Other})
+	    ct:fail({expected, {error, Error}, actual, Other})
     end.
 
 %% remove_prefix(Prefix, List) -> ListWithoutPrefix.
@@ -850,7 +850,7 @@ start_node(Name, Args) ->
     ct:log("Trying to start ~w@~s~n", [Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->
-	    test_server:fail(Reason);
+	    ct:fail(Reason);
 	{ok,Node} ->
 	    ct:log("Node ~p started~n", [Node]),
 	    Node

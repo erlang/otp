@@ -2547,7 +2547,7 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({sets,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({sets,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -2711,7 +2711,7 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({bags,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({bags,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -2869,7 +2869,7 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({dup_bags,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({dup_bags,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -4489,7 +4489,7 @@ check_pps({Ports0,Procs0} = P0) ->
 			    show("New port", PortsDiff),
 			    show("Old proc", Procs0 -- Procs1),
 			    show("New proc", ProcsDiff),
-			    ?t:fail()
+			    ct:fail(failed)
 		    end
 	    end
     end.

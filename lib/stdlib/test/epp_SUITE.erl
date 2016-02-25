@@ -1680,8 +1680,7 @@ run_test(Config, Test0) ->
     Reply.
 
 fail() ->
-    io:format("failed~n"),
-    test_server:fail().
+    ct:fail(failed).
 
 message_compare(T, T) ->
     true;

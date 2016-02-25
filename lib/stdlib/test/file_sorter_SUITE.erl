@@ -1329,9 +1329,9 @@ c(Fd, Bin0, Size0, NoBytes, HL, L) ->
 	eof when Size0 =:= 0 ->
 	    lists:reverse(L);
         eof ->
-	    test_server:fail({error, premature_eof});
+	    ct:fail({error, premature_eof});
 	Error ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 c1(Fd, B, BinSize, HL, L) -> 
@@ -1346,7 +1346,7 @@ c1(Fd, B, BinSize, HL, L) ->
 		    <<BinTerm:Size/binary, R/binary>> = Bin,	    
 		    E = case catch binary_to_term(BinTerm) of
                             {'EXIT', _} ->
-				test_server:fail({error, bad_object});
+				ct:fail({error, bad_object});
 			    Term ->
 				Term
 			end,
