@@ -1169,7 +1169,7 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 
 const_value(V,_,_) when is_integer(V) -> integer_to_list(V);
 const_value(V = "16#" ++ IntList,_,_) ->
-    _ = http_util:hexlist_to_integer(IntList), %% ASSERT
+    _ = list_to_integer(IntList, 16), %% ASSERT
     V;
 const_value(V0, EnumClass, Ignore) ->
     try
