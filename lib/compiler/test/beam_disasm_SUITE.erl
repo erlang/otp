@@ -46,8 +46,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-stripped(doc) ->
-    ["Check that stripped beam files can be disassembled"];
+%% Check that stripped beam files can be disassembled.
 stripped(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line SrcName = filename:join(PrivDir, "tmp.erl"),

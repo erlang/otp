@@ -91,12 +91,7 @@ abs(_N) ->
 binary_part(_,_,_) ->
     dummy_bp.
 
-% Make sure that auto-imported BIF's are overridden correctly
-
-override_bif(suite) ->
-    [];
-override_bif(doc) ->
-    ["Test dat local functions and imports override auto-imported BIFs."];
+%% Test that local functions and imports override auto-imported BIFs.
 override_bif(Config) when is_list(Config) ->
     ?line dummy_abs = abs(1),
     ?line dummy_bp = binary_part(<<"hello">>,1,1),

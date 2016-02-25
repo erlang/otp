@@ -166,9 +166,7 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(on_load).
 ?comp(on_load_inline).
 
-beam_compiler_7(doc) ->
-    "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
-beam_compiler_7(suite) -> [];
+%% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
     ?line done = empty(2, false).
 
@@ -339,9 +337,7 @@ from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
 
 
-vsn_1(doc) ->
-    "Test generation of 'vsn' attribute";
-vsn_1(suite) -> [];
+%% Test generation of 'vsn' attribute.
 vsn_1(Conf) when is_list(Conf) ->
     ?line M = vsn_1,
 
@@ -364,9 +360,7 @@ vsn_1(Conf) when is_list(Conf) ->
 	  end,
     ok.
 
-vsn_2(doc) ->
-    "Test overriding of generation of 'vsn' attribute";
-vsn_2(suite) -> [];
+%% Test overriding of generation of 'vsn' attribute.
 vsn_2(Conf) when is_list(Conf) ->
     ?line M = vsn_2,
 
@@ -380,9 +374,7 @@ vsn_2(Conf) when is_list(Conf) ->
 	  end,
     ok.
 
-vsn_3(doc) ->
-    "Test that different code yields different generated 'vsn'";
-vsn_3(suite) -> [];
+%% Test that different code yields different generated 'vsn'.
 vsn_3(Conf) when is_list(Conf) ->
     ?line M = vsn_3,
 
@@ -463,9 +455,9 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
     %% node. Use a shielded node to prevent the cover server from
     %% being started.
     test_server:run_on_shielded_node(
-       fun() ->
-	       compile_compiler(Files, OutDir, Version, Opts)
-       end, Pa),
+      fun() ->
+	      compile_compiler(Files, OutDir, Version, Opts)
+      end, Pa),
 
     ok.
 

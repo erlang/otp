@@ -1647,8 +1647,7 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-binary_part(doc) ->
-    ["Tests the binary_part/2,3 guard (GC) bif's"];
+%% Test the binary_part/2,3 guard (GC) BIFs.
 binary_part(Config) when is_list(Config) ->
     %% This is more or less a copy of what the guard_SUITE in emulator
     %% does to cover the guard bif's

@@ -60,7 +60,6 @@ l1() ->
      ?T((begin G = fun(1=0) -> ok end, {'EXIT',_} = (catch G(2)), ok end), ok)
     ].
 
-test1(suite) -> [];
 test1(Config) when is_list(Config) ->
     ?line lists:foreach(fun one_test/1, eval_list(l1(), [])),
     ok.
