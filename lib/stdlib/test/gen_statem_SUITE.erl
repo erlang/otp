@@ -1233,7 +1233,7 @@ wfor_conf(Type, Content, Data) ->
 		    {next_state,idle,Data,
 		     [{reply,From,'eh?'}]};
 		_ ->
-		    throw({keep_state_and_data})
+		    throw({keep_state_and_data,[]})
 	    end;
 	Result ->
 	    Result

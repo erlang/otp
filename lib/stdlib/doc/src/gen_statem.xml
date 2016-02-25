@@ -61,7 +61,7 @@ gen_statem module            Callback module
 gen_statem:start
 gen_statem:start_link -----> Module:init/1
 
-gen_statem:stop       -----> Module:terminate/2
+gen_statem:stop       -----> Module:terminate/3
 
 gen_statem:call
 gen_statem:cast

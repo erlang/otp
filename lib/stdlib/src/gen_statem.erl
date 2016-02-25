@@ -156,11 +156,10 @@
      Actions :: [action()] | action()} |
     {'keep_state', % {keep_state,NewData,[]}
      NewData :: data()} |
-    {'keep_state',
+    {'keep_state', % Keep state, change data
      NewData :: data(),
      Actions :: [action()] | action()} |
-    {'keep_state_and_data'} | % {keep_state_and_data,[]}
-    {'keep_state_and_data',
+    {'keep_state_and_data', % Keep state and data -> only actions
      Actions :: [action()] | action()}.
 
 
@@ -880,10 +879,6 @@ loop_event_result(
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, State, NewData, Actions);
-	{keep_state_and_data} ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, State, Data, []);
 	{keep_state_and_data,Actions} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
