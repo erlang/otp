@@ -48,7 +48,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     Node = proplists:get_value(testing_node, Config),
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 init_per_group(_GroupName, Config) ->

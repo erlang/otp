@@ -52,7 +52,7 @@ smoke_disasm(File) when is_list(File) ->
 %% be slower than running them sequentially.
 
 parallel() ->
-    case ?t:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
+    case test_server:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
 	true -> [];
 	false -> [parallel]
     end.
@@ -96,7 +96,7 @@ get_data_dir(Config) ->
 
 p_run(Test, List) ->
     S = erlang:system_info(schedulers),
-    N = case ?t:is_cover() of
+    N = case test_server:is_cover() of
 	    false ->
 		S + 1;
 	    true ->

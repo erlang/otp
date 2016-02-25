@@ -71,11 +71,11 @@ end_per_group(_GroupName, Config) ->
 
 %% Test that the Application file has no `basic' errors.";
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(compiler).
+    test_server:app_test(compiler).
 
 %% Test that the Application upgrade file has no `basic' errors.";
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(compiler).
+    ok = test_server:appup_test(compiler).
 
 %% Tests that we can compile and run a simple Erlang program,
 %% using compile:file/1.

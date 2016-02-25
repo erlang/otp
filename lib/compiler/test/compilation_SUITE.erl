@@ -462,7 +462,7 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
     %% because it will load the same cover-compiled code as on this
     %% node. Use a shielded node to prevent the cover server from
     %% being started.
-    ?t:run_on_shielded_node(
+    test_server:run_on_shielded_node(
        fun() ->
 	       compile_compiler(Files, OutDir, Version, Opts)
        end, Pa),
