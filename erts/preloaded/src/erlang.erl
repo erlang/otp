@@ -105,7 +105,9 @@
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
--export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
+-export([group_leader/2]).
+-export([halt/0, halt/1, halt/2, hash/2,
+	 has_prepared_code_on_load/1, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1]).
@@ -995,6 +997,12 @@ halt(_Status, _Options) ->
       Term :: term(),
       Range :: pos_integer().
 hash(_Term, _Range) ->
+    erlang:nif_error(undefined).
+
+%% has_prepared_code_on_load/1
+-spec erlang:has_prepared_code_on_load(PreparedCode) -> boolean() when
+      PreparedCode :: binary().
+has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
 
 %% hibernate/3

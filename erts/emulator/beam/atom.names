@@ -211,6 +211,7 @@ atom dsend
 atom dsend_continue_trap
 atom dunlink
 atom duplicate_bag
+atom duplicated
 atom dupnames
 atom einval
 atom elib_malloc

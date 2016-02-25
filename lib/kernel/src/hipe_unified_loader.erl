@@ -44,7 +44,7 @@
 -export([chunk_name/1,
 	 %% Only the code and code_server modules may call the entries below!
 	 load_native_code/3,
-	 post_beam_load/2,
+	 post_beam_load/1,
 	 load_module/4,
 	 load/3]).
 
@@ -120,15 +120,15 @@ load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
 
 %%========================================================================
 
--spec post_beam_load(atom(), hipe_architecture()) -> 'ok'.
+-spec post_beam_load([module()]) -> 'ok'.
 
-%% does nothing on a hipe-disabled system
-post_beam_load(_Mod, undefined) ->
+post_beam_load([])->
   ok;
-post_beam_load(Mod, _) when is_atom(Mod) ->
+post_beam_load([_|_]=Mods) ->
   erlang:system_flag(multi_scheduling, block),
   try
-    patch_to_emu(Mod)
+    _ = [patch_to_emu(Mod) || Mod <- Mods],
+    ok
   after
     erlang:system_flag(multi_scheduling, unblock)
   end,

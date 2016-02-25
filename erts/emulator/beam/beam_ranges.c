@@ -53,6 +53,7 @@ struct ranges {
 };
 static struct ranges r[ERTS_NUM_CODE_IX];
 static erts_smp_atomic_t mem_used;
+static Range* write_ptr;
 
 #ifdef HARD_DEBUG
 static void check_consistency(struct ranges* p)
@@ -72,6 +73,17 @@ static void check_consistency(struct ranges* p)
 #  define CHECK(r)
 #endif /* HARD_DEBUG */
 
+static int
+rangecompare(Range* a, Range* b)
+{
+    if (a->start < b->start) {
+	return -1;
+    } else if (a->start == b->start) {
+	return 0;
+    } else {
+	return 1;
+    }
+}
 
 void
 erts_init_ranges(void)
@@ -88,45 +100,70 @@ erts_init_ranges(void)
 }
 
 void
-erts_start_staging_ranges(void)
+erts_start_staging_ranges(int num_new)
 {
+    ErtsCodeIndex src = erts_active_code_ix();
     ErtsCodeIndex dst = erts_staging_code_ix();
+    Sint need;
 
     if (r[dst].modules) {
 	erts_smp_atomic_add_nob(&mem_used, -r[dst].allocated);
 	erts_free(ERTS_ALC_T_MODULE_REFS, r[dst].modules);
-	r[dst].modules = NULL;
     }
+
+    need = r[dst].allocated = r[src].n + num_new;
+    erts_smp_atomic_add_nob(&mem_used, need);
+    write_ptr = erts_alloc(ERTS_ALC_T_MODULE_REFS,
+			   need * sizeof(Range));
+    r[dst].modules = write_ptr;
 }
 
 void
 erts_end_staging_ranges(int commit)
 {
-    ErtsCodeIndex dst = erts_staging_code_ix();
-
-    if (commit && r[dst].modules == NULL) {
+    if (commit) {
 	Sint i;
-	Sint n;
-
-	/* No modules added, just clone src and remove purged code. */
 	ErtsCodeIndex src = erts_active_code_ix();
+	ErtsCodeIndex dst = erts_staging_code_ix();
+	Range* mp;
+	Sint num_inserted;
 
-	erts_smp_atomic_add_nob(&mem_used, r[src].n);
-	r[dst].modules = erts_alloc(ERTS_ALC_T_MODULE_REFS,
-				    r[src].n * sizeof(Range));
-	r[dst].allocated = r[src].n;
-	n = 0;
+	mp = r[dst].modules;
+	num_inserted = write_ptr - mp;
 	for (i = 0; i < r[src].n; i++) {
 	    Range* rp = r[src].modules+i;
 	    if (rp->start < RANGE_END(rp)) {
 		/* Only insert a module that has not been purged. */
-		r[dst].modules[n] = *rp;
-		n++;
+		write_ptr->start = rp->start;
+		erts_smp_atomic_init_nob(&write_ptr->end,
+					 (erts_aint_t)(RANGE_END(rp)));
+		write_ptr++;
 	    }
 	}
-	r[dst].n = n;
+
+	/*
+	 * There are num_inserted new range entries (unsorted) at the
+	 * beginning of the modules array, followed by the old entries
+	 * (sorted). We must now sort the entire array.
+	 */
+
+	r[dst].n = write_ptr - mp;
+	if (num_inserted > 1) {
+	    qsort(mp, r[dst].n, sizeof(Range),
+		  (int (*)(const void *, const void *)) rangecompare);
+	} else if (num_inserted == 1) {
+	    /* Sift the new range into place. This is faster than qsort(). */
+	    Range t = mp[0];
+	    for (i = 0; i < r[dst].n-1 && t.start > mp[i+1].start; i++) {
+		mp[i] = mp[i+1];
+	    }
+	    mp[i] = t;
+	}
+	r[dst].modules = mp;
+	CHECK(&r[dst]);
 	erts_smp_atomic_set_nob(&r[dst].mid,
-				(erts_aint_t) (r[dst].modules + n / 2));
+				(erts_aint_t) (r[dst].modules +
+					       r[dst].n / 2));
     }
 }
 
@@ -135,82 +172,29 @@ erts_update_ranges(BeamInstr* code, Uint size)
 {
     ErtsCodeIndex dst = erts_staging_code_ix();
     ErtsCodeIndex src = erts_active_code_ix();
-    Sint i;
-    Sint n;
-    Sint need;
 
     if (src == dst) {
 	ASSERT(!erts_initialized);
 
 	/*
-	 * During start-up of system, the indices are the same.
-	 * Handle this by faking a source area.
+	 * During start-up of system, the indices are the same
+	 * and erts_start_staging_ranges() has not been called.
 	 */
-	src = (src+1) % ERTS_NUM_CODE_IX;
-	if (r[src].modules) {
-	    erts_smp_atomic_add_nob(&mem_used, -r[src].allocated);
-	    erts_free(ERTS_ALC_T_MODULE_REFS, r[src].modules);
-	}
-	r[src] = r[dst];
-	r[dst].modules = 0;
-    }
-
-    CHECK(&r[src]);
-
-    ASSERT(r[dst].modules == NULL);
-    need = r[dst].allocated = r[src].n + 1;
-    erts_smp_atomic_add_nob(&mem_used, need);
-    r[dst].modules = (Range *) erts_alloc(ERTS_ALC_T_MODULE_REFS,
-					  need * sizeof(Range));
-    n = 0;
-    for (i = 0; i < r[src].n; i++) {
-	Range* rp = r[src].modules+i;
-	if (code < rp->start) {
-	    r[dst].modules[n].start = code;
-	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
-				     (erts_aint_t)(((byte *)code) + size));
-	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < code);
-	    n++;
-	    break;
-	}
-	if (rp->start < RANGE_END(rp)) {
-	    /* Only insert a module that has not been purged. */
-	    r[dst].modules[n].start = rp->start;
-	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
-				     (erts_aint_t)(RANGE_END(rp)));
-	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < rp->start);
-	    n++;
+	if (r[dst].modules == NULL) {
+	    Sint need = 128;
+	    erts_smp_atomic_add_nob(&mem_used, need);
+	    r[dst].modules = erts_alloc(ERTS_ALC_T_MODULE_REFS,
+					need * sizeof(Range));
+	    r[dst].allocated = need;
+	    write_ptr = r[dst].modules;
 	}
     }
 
-    while (i < r[src].n) {
-	Range* rp = r[src].modules+i;
-	if (rp->start < RANGE_END(rp)) {
-	    /* Only insert a module that has not been purged. */
-	    r[dst].modules[n].start = rp->start;
-	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
-				     (erts_aint_t)(RANGE_END(rp)));
-	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < rp->start);
-	    n++;
-	}
-	i++;
-    }
-
-    if (n == 0 || code > r[dst].modules[n-1].start) {
-	r[dst].modules[n].start = code;
-	erts_smp_atomic_init_nob(&r[dst].modules[n].end,
-				 (erts_aint_t)(((byte *)code) + size));
-	ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < code);
-	n++;
-    }
-
-    ASSERT(n <= r[src].n+1);
-    r[dst].n = n;
-    erts_smp_atomic_set_nob(&r[dst].mid,
-			    (erts_aint_t) (r[dst].modules + n / 2));
-
-    CHECK(&r[dst]);
-    CHECK(&r[src]);
+    ASSERT(r[dst].modules);
+    write_ptr->start = code;
+    erts_smp_atomic_init_nob(&(write_ptr->end),
+			     (erts_aint_t)(((byte *)code) + size));
+    write_ptr++;
 }
 
 void

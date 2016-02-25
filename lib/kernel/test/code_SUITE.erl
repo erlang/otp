@@ -798,7 +798,7 @@ analyse2(MFA={_,_,_}, Path, Visited0) ->
     analyse(FL, [MFA|Path], my_usort([MFA|Visited0]), 0).
 
 %%%% We need to check these manually...
-% fun's are ok as long as they are defined locally.
+%% fun's are ok as long as they are defined locally.
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{unicode,characters_to_binary_int,3},
 	    {unicode,characters_to_binary,3},
@@ -870,6 +870,8 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 	    {hipe_unified_loader,get_refs_from,2}| _]) -> 0;
 check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',1},
+	   [{code_server,run,2}|_]) -> 0;
 %% This is cheating! /raimo
 %%
 %% check_funs(This = {M,_,_}, Path) ->

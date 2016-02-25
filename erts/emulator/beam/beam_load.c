@@ -888,6 +888,23 @@ erts_module_for_prepared_code(Binary* magic)
     }
 }
 
+/*
+ * Return a non-zero value if the module has an on_load function,
+ * or 0 if it does not.
+ */
+
+Eterm
+erts_has_code_on_load(Binary* magic)
+{
+    LoaderState* stp;
+
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(magic) != loader_state_dtor) {
+	return NIL;
+    }
+    stp = ERTS_MAGIC_BIN_DATA(magic);
+    return stp->on_load ? am_true : am_false;
+}
+
 static void
 free_loader_state(Binary* magic)
 {
