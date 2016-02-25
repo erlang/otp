@@ -91,7 +91,7 @@ erlang:'!'            -----> Module:StateName/3
       in a <c>gen_statem</c> is the callback function that is called
       for all events in this state, and is selected depending on
       <seealso marker="#type-callback_mode">callback_mode</seealso>
-      that the implementation specifies during <c>gen_statem</c> init.
+      that the implementation specifies when the the server starts.
     </p>
     <p>
       When
@@ -103,7 +103,8 @@ erlang:'!'            -----> Module:StateName/3
       </seealso>.
       This gathers all code for a specific state
       in one function and hence dispatches on state first.
-      Note that in this mode the callback function
+      Note that in this mode the fact that there is
+      a mandatory callback function
       <seealso marker="#Module:terminate/3">
         <c>Module:terminate/3</c>
       </seealso> makes the state name <c>terminate</c> unusable.
@@ -115,9 +116,8 @@ erlang:'!'            -----> Module:StateName/3
       <seealso marker="#Module:handle_event/4">
         <c>Module:handle_event/4</c>
       </seealso>.
-      This makes it easy to dispatch on state or on event as
-      you like but you will have to implement it.
-      Also be careful about which events you handle in which
+      This makes it easy to dispatch on state or on event as you desire.
+      Be careful about which events you handle in which
       states so you do not accidentally postpone one event
       forever creating an infinite busy loop.
     </p>
@@ -132,9 +132,9 @@ erlang:'!'            -----> Module:StateName/3
     </p>
     <p>
       The <c>gen_statem</c> event queue model is sufficient
-      to emulate the normal process message queue and selective receive
-      with postponing an event corresponding to not matching
-      it in a receive statement and changing states corresponding
+      to emulate the normal process message queue with selective receive.
+      Postponing an event corresponds to not matching it
+      in a receive statement and changing states corresponds
       to entering a new receive statement.
     </p>
     <p>
@@ -149,8 +149,8 @@ erlang:'!'            -----> Module:StateName/3
       <seealso marker="#type-event_type">
         <c>event_type()</c> <c>internal</c>
       </seealso>
-      that can be used for such events making it impossible
-      to mistake for an external event.
+      that can be used for such events making them impossible
+      to mistake for external events.
     </p>
     <p>
       Inserting an event replaces the trick of calling your own
@@ -165,7 +165,7 @@ erlang:'!'            -----> Module:StateName/3
     <p>
       See the type
       <seealso marker="#type-transition_option">
-	<c>transition_option()</c>.
+	<c>transition_option()</c>
       </seealso>
       for the details of a state transition.
     </p>
@@ -192,7 +192,7 @@ erlang:'!'            -----> Module:StateName/3
       </seealso>) if a
       <seealso marker="#state_function">state function</seealso> or
       <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
-      specifies <c>'hibernate'</c> in the returned
+      specifies <c>hibernate</c> in the returned
       <seealso marker="#type-action"><c>Actions</c></seealso>
       list. This might be useful if the server is expected to be idle
       for a long time. However use this feature with care
@@ -201,6 +201,99 @@ erlang:'!'            -----> Module:StateName/3
       something you would want to do between each event on a busy server.
     </p>
   </description>
+
+  <section>
+    <title>EXAMPLE</title>
+    <p>
+      This example shows a simple pushbutton model
+      for a toggling pushbutton implemented with
+      <seealso marker="#type-callback_mode">
+	callback_mode()
+      </seealso>
+      <c>state_functions</c>.
+      You can push the button and it replies if it went on or off,
+      and you can ask for a count of how many times it has been
+      pushed to on.
+    </p>
+    <p>This is the complete callback module file <c>pushbutton.erl</c>:</p>
+    <code type="erl">
+-module(pushbutton).
+-behaviour(gen_statem).
+
+-export([start/0,push/0,get_count/0,stop/0]).
+-export([terminate/3,code_change/4,init/1]).
+-export([on/3,off/3]).
+
+name() -> pushbutton_statem. % The registered server name
+
+%% API.  This example uses a registered name name()
+%% and does not link to the caller.
+start() ->
+    gen_statem:start({local,name()}, ?MODULE, [], []).
+push() ->
+    gen_statem:call(name(), push).
+get_count() ->
+    gen_statem:call(name(), get_count).
+stop() ->
+    gen_statem:stop(name()).
+
+%% Mandatory callback functions
+terminate(_Reason, _State, _Data) ->
+    void.
+code_change(_Vsn, State, Data, _Extra) ->
+    {ok,{State,Data}}.
+init([]) ->
+    %% Set the callback mode and initial state + data.
+    %% Data is used only as a counter.
+    State = off, Data = 0,
+    {state_functions,State,Data}.
+
+
+%%% State functions
+
+off({call,Caller}, push, Data) ->
+    %% Go to 'on', increment count and reply
+    %% that the resulting status is 'on'
+    {next_state,on,Data+1,[{reply,Caller,on}]};
+off(EventType, EventContent, Data) ->
+    handle_event(EventType, EventContent, Data).
+
+on({call,Caller}, push, Data) ->
+    %% Go to 'off' and reply that the resulting status is 'off'
+    {next_state,off,Data,[{reply,Caller,off}]};
+on(EventType, EventContent, Data) ->
+    handle_event(EventType, EventContent, Data).
+
+%% Handle events common to all states
+handle_event({call,Caller}, get_count, Data) ->
+    %% Reply with the current count
+    {keep_state,Data,[{reply,Caller,Data}]};
+handle_event(_, _, Data) ->
+    %% Ignore all other events
+    {keep_state,Data}.
+    </code>
+    <p>And this is a shell session when running it:</p>
+    <pre>
+1> pushbutton:start().
+{ok,&lt;0.36.0>}
+2> pushbutton:get_count().
+0
+3> pushbutton:push().
+on
+4> pushbutton:get_count().
+1
+5> pushbutton:push().
+off
+6> pushbutton:get_count().
+1
+7> pushbutton:stop().
+ok
+8> pushbutton:push().
+** exception exit: {noproc,{gen_statem,call,[pushbutton_statem,push,infinity]}}
+     in function  gen:do_for_proc/2 (gen.erl, line 261)
+     in call from gen_statem:call/3 (gen_statem.erl, line 386)
+    </pre>
+  </section>
 
   <datatypes>
     <datatype>
@@ -327,7 +420,7 @@ erlang:'!'            -----> Module:StateName/3
 	  <seealso marker="#type-callback_mode">
 	    callback_mode
 	  </seealso>
-	  is <c>state_functions</c>, which is the default,
+	  is <c>state_functions</c>,
 	  the state has to be of this type.
 	</p>
       </desc>
@@ -353,11 +446,14 @@ erlang:'!'            -----> Module:StateName/3
 	<p>
 	  External events are of 3 different type:
 	  <c>{call,<anno>Caller</anno>}</c>, <c>cast</c> or <c>info</c>.
-	  Calls (synchronous) and casts (asynchronous)
+	  <seealso marker="#call/2">Calls</seealso>
+	  (synchronous) and
+	  <seealso marker="#cast/2">casts</seealso>
 	  originate from the corresponding API functions.
 	  For calls the event contain whom to reply to.
-	  Type <c>info</c> originates from normal messages sent
-	  to the <c>gen_statem</c> process.
+	  Type <c>info</c> originates from
+	  regular process messages sent
+	  to the <c>gen_statem</c>.
 	  It is also possible for the state machine
 	  implementation to insert events to itself,
 	  in particular of types
@@ -421,7 +517,8 @@ erlang:'!'            -----> Module:StateName/3
 	<p>
 	  Transition options may be set by
 	  <seealso marker="#type-action">actions</seealso>
-	  and they modify how the state transition is done:
+	  and they modify some details below in how
+	  the state transition is done:
 	</p>
 	<list type="ordered">
 	  <item>
@@ -430,12 +527,12 @@ erlang:'!'            -----> Module:StateName/3
 	    are processed in order of appearance.
 	  </item>
 	  <item>
-	    If the
+	    If
             <seealso marker="#type-postpone">
-	      <c>transition_option()</c>
+	      <c>postpone()</c>
 	    </seealso>
-            <seealso marker="#type-postpone"><c>postpone</c></seealso>
-	    is <c>true</c> the current event is postponed.
+	    is <c>true</c>
+	    the current event is postponed.
 	  </item>
 	  <item>
 	    If the state changes the queue of incoming events
@@ -450,15 +547,16 @@ erlang:'!'            -----> Module:StateName/3
 	    all other events.
 	  </item>
 	  <item>
-	    If the
-            <seealso marker="#type-postpone">
-	      <c>transition_option()</c>
-	    </seealso>
+	    If a
             <seealso marker="#type-state_timeout">
-	      <c>timeout</c>
+	      <em><c>state_timeout()</c></em>
 	    </seealso>
-	    is set a state timer may be started or a timeout zero event
-	    may be enqueued as the newest incoming that is the last
+	    is set through
+            <seealso marker="#type-action">
+	      <c>action() timeout</c>
+	    </seealso>
+	    a state timer may be started or a timeout zero event
+	    may be enqueued as the newest incoming, that is the last
 	    to process before going into <c>receive</c> for new events.
 	  </item>
 	  <item>
@@ -466,7 +564,12 @@ erlang:'!'            -----> Module:StateName/3
             <seealso marker="#state_function">state function</seealso>
             is called with the oldest enqueued event if there is any,
 	    otherwise the <c>gen_statem</c> goes into <c>receive</c>
-	    or hibernation (if the option <c>hibernate</c> is <c>true</c>)
+	    or hibernation
+	    (if
+            <seealso marker="#type-hibernate">
+	      <c>hibernate()</c>
+	    </seealso>
+	    is <c>true</c>)
 	    to wait for the next message.  In hibernation the next
 	    non-system event awakens the <c>gen_statem</c>, or rather
 	    the next incoming message awakens the <c>gen_statem</c>
@@ -518,7 +621,7 @@ erlang:'!'            -----> Module:StateName/3
 	  Also note that it is not possible nor needed
 	  to cancel this timeout using the
 	  <seealso marker="#type-action">
-	    <c>action() cancel_timer</c>.
+	    <c>action() cancel_timer</c>
 	  </seealso>
 	  since this timeout is cancelled automatically by any other event.
 	</p>
@@ -538,25 +641,22 @@ erlang:'!'            -----> Module:StateName/3
 	<p>
 	  Actions are executed in the containing list order.
 	  The order matters for some actions such as <c>next_event</c>
-	  and <c>reply_action()</c>.  The order can in peculiar cases
-	  matter for <c>remove_event</c> with
-	  <c><anno>EventPredicate</anno></c> versus other
-	  event removal actions.
+	  and <c>reply_action()</c>.
 	</p>
 	<p>
-	  The order also matters for actions that set
+	  Actions that set
 	  <seealso marker="#type-transition_option">
 	    transition options
 	  </seealso>
-	  since setting an option overrides any previous
-	  of the same kind, so the last in the containing list wins.
+	  overrides any previous of the same kind,
+	  so the last in the containing list wins.
 	</p>
 	<taglist>
 	  <tag><c>postpone</c></tag>
 	  <item>
 	    Set the
 	    <seealso marker="#type-transition_option">
-	      <c>transition_option() postpone</c>
+	      <c>transition_option() postpone()</c>
 	    </seealso>
 	    for this state transition.
 	    This action is ignored when returned from
@@ -569,7 +669,7 @@ erlang:'!'            -----> Module:StateName/3
 	  <item>
 	    Set the
 	    <seealso marker="#type-transition_option">
-	      <c>transition_option() hibernate</c>
+	      <c>transition_option() hibernate()</c>
 	    </seealso>
 	    for this state transition.
 	  </item>
@@ -577,7 +677,7 @@ erlang:'!'            -----> Module:StateName/3
 	  <item>
 	    Set the
 	    <seealso marker="#type-transition_option">
-	      <c>transition_option() timeout</c>
+	      <c>transition_option() state_timeout()</c>
 	    </seealso>
 	    to <c><anno>Time</anno></c> with the
 	    <c>EventContent</c> as <c><anno>Msg</anno></c>
@@ -594,7 +694,7 @@ erlang:'!'            -----> Module:StateName/3
 	    All <c>next_event</c> actions
 	    in the containing list are buffered and inserted
 	    after the actions have been done
-	    so the first in the list will be the first to process.
+	    so that the first in the list will be the first to process.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
@@ -612,7 +712,7 @@ erlang:'!'            -----> Module:StateName/3
 	    and <c>postpone</c> events in the same actions list
 	    does not get into the event queue until after all actions
 	    has been done so you can not remove an event that you insert
-	    in the same actions list.  Make up your mind!
+	    with the same actions list.  Make up your mind!
 	  </item>
 	  <tag><c>cancel_timer</c></tag>
 	  <item>
@@ -622,7 +722,7 @@ erlang:'!'            -----> Module:StateName/3
 	    </seealso>
 	    with <c><anno>TimerRef</anno></c>,
 	    clean the process message queue from any late timeout message,
-	    and removes any late timeout message
+	    and remove any late timeout message
 	    from the <c>gen_statem</c> event queue using
 	    <c>{remove_event,<anno>EventPredicate</anno>}</c> above.
 	    This is a convenience function that saves quite some
@@ -639,7 +739,7 @@ erlang:'!'            -----> Module:StateName/3
 	  </item>
 	  <tag><c>unlink</c></tag>
 	  <item>
-	    Like <c>{cancel_timer,_}</c> above but for
+	    Like <c>cancel_timer</c> above but for
 	    <seealso marker="erts:erlang#unlink/1">
 	      <c>unlink/1</c>
 	    </seealso>
