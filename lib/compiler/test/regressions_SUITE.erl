@@ -59,7 +59,8 @@ run(Config, Tests) ->
                 io:format("Compiling test for: ~w~n", [N]),
                 case catch run_test(Config, P) of
                     {'EXIT', Reason} -> 
-                        ?t:format("~nTest ~p failed.~nReason: ~p~n", [N, Reason]),
+                        io:format("~nTest ~p failed.~nReason: ~p~n",
+				  [N, Reason]),
                         fail();
                     _ -> ok
                 end

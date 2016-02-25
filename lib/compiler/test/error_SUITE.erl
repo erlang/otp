@@ -304,7 +304,7 @@ run(Tests, File, WriteBeam) ->
                     E -> 
                         BadL;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -321,7 +321,7 @@ run2(Tests, File, WriteBeam) ->
                     E ->
                         BadL;
                     Bad ->
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
