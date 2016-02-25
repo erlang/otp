@@ -380,7 +380,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_remote_failure),
 
     % unknown nodes
-    test_server:format("Testing unknown nodes~n", []),
+    io:format("Testing unknown nodes~n", []),
     ?line CrashPid1 = (catch spawn_opt('unknown@node',
 				       erlang,
 				       nodes,
@@ -436,7 +436,7 @@ spawn_failures(Config) when is_list(Config) ->
     end,
 
     % bad node
-    test_server:format("Testing bad nodes~n", []),
+    io:format("Testing bad nodes~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("Node",erlang,nodes,[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("Node",
 						   fun () ->
@@ -454,7 +454,7 @@ spawn_failures(Config) when is_list(Config) ->
 					       end)),
 
     % bad module
-    test_server:format("Testing bad modules~n", []),
+    io:format("Testing bad modules~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,"erlang",nodes,[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("erlang",nodes,[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_link(Node,"erlang",nodes,[])),
@@ -463,7 +463,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch spawn("erlang",nodes,[])),
 
     % bad function
-    test_server:format("Testing bad functions~n", []),
+    io:format("Testing bad functions~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,"nodes",[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,not_a_fun,[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,"nodes",[],[])),
@@ -479,7 +479,7 @@ spawn_failures(Config) when is_list(Config) ->
 
 
     % bad argument
-    test_server:format("Testing bad arguments~n", []),
+    io:format("Testing bad arguments~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,nodes,[a|b],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,nodes,[a|b],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_link(Node,erlang,nodes,[a|b])),
@@ -488,7 +488,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch spawn(erlang,nodes,[a|b])),
 
     % bad option
-    test_server:format("Testing bad options~n", []),
+    io:format("Testing bad options~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,nodes,[],[a|b])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,nodes,[],[a|b])),
 
@@ -532,7 +532,7 @@ wilderness(suite) ->
 wilderness(Config) when is_list(Config) ->
     ?line OKParams = {512, 8},
     ?line Alloc = erlang:system_info(allocator),
-    ?line test_server:format("Test server allocator info:~n~p", [Alloc]),
+    io:format("Test server allocator info:~n~p", [Alloc]),
     Result = case Alloc of
 		 {Allocator, _, _, _} when Allocator == glibc;
 					   Allocator == dlmalloc ->
@@ -566,7 +566,7 @@ run_wilderness_test({Set_tt, Set_tp}, {Exp_tt, Exp_tp}) ->
 	{Ref, {A, V, F, S}} ->
 	    Ett = Exp_tt*1024,
 	    Etp = Exp_tp*1024,
-	    ?line test_server:format("Test allocator info:~n~p",
+	    io:format("Test allocator info:~n~p",
 				     [{A, V, F, S}]),
 	    ?line {value, {sys_alloc, SA_Opts}}
 		= lists:keysearch(sys_alloc, 1, S),

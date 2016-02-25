@@ -1338,8 +1338,8 @@ otp_3002(Conf) when is_list(Conf) ->
     % Create the boot script
     {{KernelVer,StdlibVer}, {LatestDir, LatestName}} =
 	create_script_3002("script_3002"),
-    ?t:format(0, "LatestDir = ~p~n", [LatestDir]),
-    ?t:format(0, "LatestName = ~p~n", [LatestName]),
+    ct:pal(?HI_VERBOSITY, "LatestDir = ~p~n", [LatestDir]),
+    ct:pal(?HI_VERBOSITY, "LatestName = ~p~n", [LatestName]),
 
     case is_real_system(KernelVer, StdlibVer) of
 	      true ->
@@ -1396,29 +1396,29 @@ otp_4066(Conf) when is_list(Conf) ->
 
     ok = rpc:call(Cp1, application, start, [app1]),
     wait_until_started(app1, [Cp1]),
-    test_server:format("--- App1 started at Cp1 ---~n", []),
+    io:format("--- App1 started at Cp1 ---~n", []),
     print_dac_state(AllNodes),
 
     % Cp2 previously crashed on this stop
     ok = rpc:call(Cp1, application, stop, [app1]),
     wait_until_stopped(app1, [Cp1]),
-    test_server:format("--- App1 stopped at Cp1 ---~n", []),
+    io:format("--- App1 stopped at Cp1 ---~n", []),
     print_dac_state(AllNodes),
 
     ok = rpc:call(Cp1, application, start, [app1]),
     wait_until_started(app1, [Cp1]),
-    test_server:format("--- App1 started at Cp1 ---~n", []),
+    io:format("--- App1 started at Cp1 ---~n", []),
     print_dac_state(AllNodes),
 
     ok = rpc:call(Cp2, application, load, [app1, App1Nodes]),
     ok = rpc:call(Cp2, application, start, [app1]),
-    test_server:format("--- App1 started at Cp2 ---~n", []),
+    io:format("--- App1 started at Cp2 ---~n", []),
     print_dac_state(AllNodes),
 
 
     stop_node_nice(Cp1),
     wait_until_started(app1, [Cp2]),
-    test_server:format("--- Cp1 crashed; failover to Cp2  ---~n", []),
+    io:format("--- Cp1 crashed; failover to Cp2  ---~n", []),
     print_dac_state(Cp2),
 
     stop_node_nice(Cp2),
@@ -1434,7 +1434,7 @@ write_config(Fd, Config) ->
 
 print_dac_state(Node) when is_atom(Node) ->
     State = gen_server:call({dist_ac, Node}, info),
-    test_server:format(" * dist_ac state on node ~p:~n    ~p~n",
+    io:format(" * dist_ac state on node ~p:~n    ~p~n",
                        [Node, State]);
 print_dac_state(Nodes) when is_list(Nodes) ->
     lists:foreach(fun (N) -> print_dac_state(N) end, Nodes).
@@ -1844,7 +1844,6 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 %    _DcInfo1 = rpc:call(Cp1, dist_ac, info, []),
     _DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
     _DcInfo3 = rpc:call(Cp3, dist_ac, info, []),
-%    ?t:format(0,"#### DcInfo1 ~n~p~n",[_DcInfo1]),
 
 %    DcWa1 = which_applications(Cp1),
     DcWa2 = which_applications(Cp2),
@@ -2656,13 +2655,13 @@ start_node_args(Name, Args) ->
 
 start_node_boot_3002(Name, Boot) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:format(0, "start_node_boot ~p~n",
-	      [" -pa " ++ Pa ++ " -env ERL_CRASH_DUMP erl_crash_dump." ++ 
-	       atom_to_list(Name) ++ " -boot " ++ Boot ++ 
-	       " -sasl dummy \"missing "]),
+    ct:pal(?HI_VERBOSITY, "start_node_boot ~p~n",
+	   [" -pa " ++ Pa ++ " -env ERL_CRASH_DUMP erl_crash_dump." ++
+		atom_to_list(Name) ++ " -boot " ++ Boot ++
+		" -sasl dummy \"missing "]),
     test_server:start_node(Name, slave, 
                            [{args, " -pa " ++ Pa ++
-                             " -env ERL_CRASH_DUMP erl_crash_dump." ++ 
+                             " -env ERL_CRASH_DUMP erl_crash_dump." ++
                              atom_to_list(Name) ++ " -boot " ++ Boot ++ 
                              " -sasl dummy \"missing "}]).
 
@@ -2672,10 +2671,12 @@ start_node_boot_config(Name, SysConfigFun, Conf, Boot) ->
 
 start_node_boot(Name, Config, Boot) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:format(0, "start_node_boot ~p~n",[" -pa " ++ Pa ++ " -config " ++ Config ++
-						" -boot " ++ atom_to_list(Boot)]),
-    test_server:start_node(Name, slave, [{args, " -pa " ++ Pa ++ " -config " ++ Config ++
-						" -boot " ++ atom_to_list(Boot)}]).
+    ct:pal(?HI_VERBOSITY,
+	   "start_node_boot ~p~n",[" -pa " ++ Pa ++ " -config " ++ Config ++
+				       " -boot " ++ atom_to_list(Boot)]),
+    test_server:start_node(Name, slave,
+			   [{args, " -pa " ++ Pa ++ " -config " ++ Config ++
+				 " -boot " ++ atom_to_list(Boot)}]).
 
 start_node_config_sf(Name, SysConfigFun, Conf) ->
     ConfigFile = write_config_file(SysConfigFun, Conf),
@@ -2707,7 +2708,7 @@ get_start_type(Expected) ->
     get_start_type(Expected, 30*5, #st{}).
 
 get_start_type(_Expected, 0, Ack) ->
-    test_server:format("====== ~p ======~n", [Ack]),
+    io:format("====== ~p ======~n", [Ack]),
     ct:fail(not_valid_start_type);
 get_start_type(Expected, Times, Ack0) ->
     #st{normal = N0, local = L0, takeover = T0, failover = F0} = Ack0,
@@ -2754,10 +2755,10 @@ get_start_phase(Expected) ->
 	Expected ->
 	    ok;
 	{sp, T1, I1, So1, Sp1, G1} ->
-           test_server:format("=============== {sp,T,I,So,Sp,G} ~p ~n",[" "]),
-           test_server:format("=========== got ~p ~n",
+           io:format("=============== {sp,T,I,So,Sp,G} ~p ~n",[" "]),
+           io:format("=========== got ~p ~n",
                               [{sp, T1, I1, So1, Sp1, G1}]),
-           test_server:format("====== expected ~p ~n", [Expected]),
+           io:format("====== expected ~p ~n", [Expected]),
            ct:fail(not_valid_start_phase)
     after 5000 ->
            ct:fail(not_valid_start_phase)
@@ -2791,7 +2792,7 @@ get_conf_change(Expected) ->
 	{cc, Expected} ->
 	    ok;
 	{cc, List} ->
-	    test_server:format("====== ~p ======~n",[{cc, List}]),
+	    io:format("====== ~p ======~n",[{cc, List}]),
 	    ct:fail(not_valid_conf_change)
     after 5000 ->
 	    ct:fail(not_valid_conf_change_to)

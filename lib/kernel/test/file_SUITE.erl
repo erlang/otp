@@ -1454,7 +1454,7 @@ file_info_int(Config) ->
     %% platforms such as Windows95.
 
     RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
-    ?line test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1535,7 +1535,7 @@ file_write_file_info(suite) -> [];
 file_write_file_info(doc) -> [];
 file_write_file_info(Config) when is_list(Config) ->
     ?line RootDir = get_good_directory(Config),
-    ?line test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     %% Set the file to read only AND update the file times at the same time.
     %% (This used to fail on Windows NT/95 for a local filesystem.)

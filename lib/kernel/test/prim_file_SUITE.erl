@@ -904,7 +904,7 @@ file_info_int(Config, Handle, Suffix) ->
     %% platforms such as Windows95.
 
     RootDir = filename:join([proplists:get_value(priv_dir, Config)]),
-    ?line test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -987,7 +987,7 @@ file_write_file_info_b(Config) when is_list(Config) ->
 
 file_write_file_info(Config, Handle, Suffix) ->
     ?line RootDir = get_good_directory(Config),
-    ?line test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     %% Set the file to read only AND update the file times at the same time.
     %% (This used to fail on Windows NT/95 for a local filesystem.)
@@ -1063,7 +1063,7 @@ file_write_file_info_opts(doc) -> [];
 file_write_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
-    test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_write_file_info_opts"),
     ok   = ?PRIM_FILE:write_file(Name, "hello_opts"),
@@ -1102,7 +1102,7 @@ file_read_file_info_opts(doc) -> [];
 file_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
-    test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_read_file_info_opts"),
     ok   = ?PRIM_FILE:write_file(Name, "hello_opts"),
@@ -1121,7 +1121,7 @@ file_write_read_file_info_opts(doc) -> [];
 file_write_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
-    test_server:format("RootDir = ~p", [RootDir]),
+    io:format("RootDir = ~p", [RootDir]),
 
     Name = filename:join(RootDir, atom_to_list(?MODULE) ++"_read_write_file_info_opts"),
     ok   = ?PRIM_FILE:write_file(Name, "hello_opts2"),

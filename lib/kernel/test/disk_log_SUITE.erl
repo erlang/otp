@@ -927,7 +927,7 @@ mk_bytes(N) when N > 4 ->
     end.
 
 get_list(File, Log) ->
-    ?t:format(0, "File ~p~n",[File]),
+    ct:pal(?HI_VERBOSITY, "File ~p~n", [File]),
     ok = disk_log:sync(Log),
     {ok, B} = file:read_file(File),
     binary_to_list(B).
@@ -3497,7 +3497,6 @@ change_size_before(Conf) when is_list(Conf) ->
     ?line {ok,Log11_12} = file:read(Fd1, 200),
     ?line ok = file:close(Fd1),
     ?line {ok, Fd2} = file:open(File ++ ".2", [read]),
-%    ?t:format(0, "~p~n",[file:read(Fd2, 200)]),
     ?line Log21_22 = Log_2_1 ++ Log_2_2,
     ?line {ok,Log21_22} = file:read(Fd2, 200),
     ?line ok = file:close(Fd2),
@@ -4959,7 +4958,7 @@ copy_wrap_log(FromName, ToName, N, FromDir, ToDir) ->
 -define(BUFSIZE, 8192).
 
 copy_file(Src, Dest) ->
-    % ?t:format("copying from ~p to ~p~n", [Src, Dest]),
+    % io:format("copying from ~p to ~p~n", [Src, Dest]),
     {ok, InFd} = file:open(Src, [raw, binary, read]),
     {ok, OutFd} = file:open(Dest, [raw, binary, write]),
     ok = copy_file1(InFd, OutFd),

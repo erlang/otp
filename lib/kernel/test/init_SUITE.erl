@@ -268,7 +268,7 @@ boot_var(Config) when is_list(Config) ->
 	    %% What we need is not so much version numbers on the directories, but
 	    %% for the boot var TEST_VAR to appear in the boot script, and it doesn't
 	    %% if we give the 'local' option to systools:make_script.
-	    ?t:format(
+	    io:format(
 		"Test case not complete as we are not~n"
 		"running in a real system!~n"
 		"Probably this test is performed in a "

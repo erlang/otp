@@ -1362,7 +1362,7 @@ loop_it(N, Config) -> loop_it(N,N, Config).
 
 loop_it(0,_, _Config) -> ok;
 loop_it(N,M, Config) ->
-    test_server:format(1, "Round: ~w", [M-N]),
+    ct:pal(?HI_VERBOSITY, "Round: ~w", [M-N]),
     ring(Config),
     line(Config),
     loop_it(N-1,M, Config).
@@ -2283,12 +2283,12 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
     %% Note: there are no links anymore, but monitors.
     #cf{link = LinkedNode, ping = PingNode, n1 = Res1, n2 = OtherNode,
         nodes = Nodes0, n_res = NRes, config = Config} = Cf,
-    ?t:format("~n~nResolver: ~p", [Res]),
-    ?t:format(" Registered on partition 1:  ~p", [Res1]),
-    ?t:format(" Registered on partition 2:  ~p", [OtherNode]),
-    ?t:format(" Pinged node:                ~p", [PingNode]),
-    ?t:format(" Linked node:                ~p", [LinkedNode]),
-    ?t:format(" Expected # resolvers:       ~p", [NRes]),
+    io:format("~n~nResolver: ~p", [Res]),
+    io:format(" Registered on partition 1:  ~p", [Res1]),
+    io:format(" Registered on partition 2:  ~p", [OtherNode]),
+    io:format(" Pinged node:                ~p", [PingNode]),
+    io:format(" Linked node:                ~p", [LinkedNode]),
+    io:format(" Expected # resolvers:       ~p", [NRes]),
     Nodes = lists:sort(Nodes0),
     T1 = node(),
     Part1 = [T1, N1],
@@ -2349,7 +2349,7 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
               [] when LinkedNode =:= none -> ok;
               Gs -> ok;
               _ when LengthGs < 4, X =:= [] -> ok;
-              _ -> ?t:format("ERROR:~nMonitoredBy ~p~n"
+              _ -> io:format("ERROR:~nMonitoredBy ~p~n"
                              "global_name_servers ~p~n", 
                              [MonitoredByNode, Gs]),
                    ct:fail(monitor_mismatch)
@@ -2592,7 +2592,7 @@ name_exit(Config) when is_list(Config) ->
                        {ok, N2} = start_node_rel(n_2, this, Config),
                        [N1, N2]
                end,
-    ?t:format("Test of current release~n"),    
+    io:format("Test of current release~n"),
     do_name_exit(StartFun, current, Config).
 
 do_name_exit(StartFun, Version, Config) ->
@@ -2858,7 +2858,7 @@ many_nodes(Config) when is_list(Config) ->
     Return = lists:flatten(io_lib:format("~w nodes took ~w ms", 
                                          [N_cps, Diff])),
     erlang:display({{nodes,N_cps},{time,Diff}}),
-    ?t:format("~s~n", [Return]),
+    io:format("~s~n", [Return]),
     {comment, Return}.
 
 node_rel(From, To, Rel) ->
@@ -2971,7 +2971,7 @@ start_and_sync([]) ->
 start_and_sync([Name | Names]) ->
     ?line {ok, N} = start_node(Name, slave, []),
     ?line {Time, _Void} = rpc:call(N, timer, tc, [global, sync, []]),
-    ?t:format("~p: ~p~n", [Name, Time]),
+    io:format("~p: ~p~n", [Name, Time]),
     [N | start_and_sync(Names)].
 
 %%%-----------------------------------------------------------------
@@ -3051,14 +3051,14 @@ global_groups_change(Config) ->
                (TestGG5_2 =:= TestGG5)
            end),
 
-    ?line ?t:format( "#### nodes() ~p~n",[nodes()]),
+    io:format( "#### nodes() ~p~n",[nodes()]),
 
     ?line XDcWa1 = rpc:call(Cp1, global_group, info, []),
     ?line XDcWa2 = rpc:call(Cp2, global_group, info, []),
     ?line XDcWa3 = rpc:call(Cp3, global_group, info, []),
-    ?line ?t:format( "#### XDcWa1 ~p~n",[XDcWa1]),
-    ?line ?t:format( "#### XDcWa2 ~p~n",[XDcWa2]),
-    ?line ?t:format( "#### XDcWa3 ~p~n",[XDcWa3]),
+    io:format( "#### XDcWa1 ~p~n",[XDcWa1]),
+    io:format( "#### XDcWa2 ~p~n",[XDcWa2]),
+    io:format( "#### XDcWa3 ~p~n",[XDcWa3]),
 
     ?line stop_node(CpC),
  
@@ -3098,8 +3098,8 @@ global_groups_change(Config) ->
     ?line ok = rpc:call(CpE, application_controller, test_change_apps, 
 			[[kernel], [NewKernel]]),
     
-    ?line ?t:format("####  ~p~n",[multicall]),
-    ?line ?t:format( "####  ~p~n",[multicall]),
+    io:format("####  ~p~n",[multicall]),
+    io:format( "####  ~p~n",[multicall]),
     %% no idea to check the result from the rpc because the other
     %% nodes will disconnect test server, and thus the result will
     %% always be {badrpc, nodedown}
@@ -3157,14 +3157,14 @@ global_groups_change(Config) ->
     ?line InfoC = rpc:call(CpC, global_group, info, []),
     ?line InfoD = rpc:call(CpD, global_group, info, []),
     ?line InfoE = rpc:call(CpE, global_group, info, []),
-    ?line ?t:format( "#### Info1 ~p~n",[Info1]),
-    ?line ?t:format( "#### Info2 ~p~n",[Info2]),
-    ?line ?t:format( "#### Info3 ~p~n",[Info3]),
-    ?line ?t:format( "#### InfoA ~p~n",[InfoA]),
-    ?line ?t:format( "#### InfoB ~p~n",[InfoB]),
-    ?line ?t:format( "#### InfoC ~p~n",[InfoC]),
-    ?line ?t:format( "#### InfoD ~p~n",[InfoD]),
-    ?line ?t:format( "#### InfoE ~p~n",[InfoE]),
+    io:format( "#### Info1 ~p~n",[Info1]),
+    io:format( "#### Info2 ~p~n",[Info2]),
+    io:format( "#### Info3 ~p~n",[Info3]),
+    io:format( "#### InfoA ~p~n",[InfoA]),
+    io:format( "#### InfoB ~p~n",[InfoB]),
+    io:format( "#### InfoC ~p~n",[InfoC]),
+    io:format( "#### InfoD ~p~n",[InfoD]),
+    io:format( "#### InfoE ~p~n",[InfoE]),
 
     ?line {global_groups, GGNodes} = NewNG,
 
@@ -3751,10 +3751,10 @@ pr_diff(Str, T0, T1) ->
 	       {_, {H,M,S}} = calendar:time_difference(T0, T1),
 	       ((H*60+M)*60)+S
 	   end,
-    test_server:format(1,"~13s: ~w (diff: ~w)",[Str, T1, Diff]),
+    ct:pal(?HI_VERBOSITY,"~13s: ~w (diff: ~w)",[Str, T1, Diff]),
     if
 	Diff > 100 ->
-	    test_server:format(1,"~s: ** LARGE DIFF ~w~n", [Str, Diff]);
+	    io:format(1,"~s: ** LARGE DIFF ~w~n", [Str, Diff]);
 	true -> 
 	    ok
     end.
@@ -4189,7 +4189,7 @@ wait_for_ready_net(Config) ->
 
 wait_for_ready_net(Nodes0, Config) ->
     Nodes = lists:sort(Nodes0),
-    ?t:format("wait_for_ready_net ~p~n", [Nodes]),
+    io:format("wait_for_ready_net ~p~n", [Nodes]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
                lists:all(fun(N) -> 

@@ -46,7 +46,7 @@ end_per_testcase(_Func, _Config) ->
 		NNam = list_to_atom(hd(string:tokens(atom_to_list(X),"@"))),
 		case NNam of
 		    heart_test ->
-			?t:format(1, "WARNING: Killed ~p~n", [X]),
+			ct:pal(?HI_VERBOSITY, "WARNING: Killed ~p~n", [X]),
 			rpc:cast(X, erlang, halt, []);
 		    _ ->
 			ok
@@ -228,7 +228,7 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
     T0 = now(),
 
     receive {nodedown, Node} ->
-	    test_server:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
+	    io:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
 	    ok
     %% timeout is very liberal here. nodedown is received in about 1 s. on linux (palantir)
     %% and in about 10 s. on solaris (carcharoth)

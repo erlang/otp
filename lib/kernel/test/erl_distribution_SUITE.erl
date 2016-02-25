@@ -356,7 +356,7 @@ tick_change(Config) when is_list(Config) ->
 wait_for_nodedowns(Tester, Ref) ->
     receive
 	{nodedown, Node} ->
-	    ?t:format("~p~n", [{node(), {nodedown, Node}}]),
+	    io:format("~p~n", [{node(), {nodedown, Node}}]),
 	    ?line Tester ! {Ref, {node(), {nodedown, Node}}}
     end,
     wait_for_nodedowns(Tester, Ref).
@@ -600,8 +600,8 @@ do_inet_dist_options_options(Prio) ->
 	rpc:call(Node1, ?MODULE, get_socket_priorities, []),
     ?line PrioritiesNode2 =
 	rpc:call(Node2, ?MODULE, get_socket_priorities, []),
-    ?line ?t:format("PrioritiesNode1 = ~p", [PrioritiesNode1]),
-    ?line ?t:format("PrioritiesNode2 = ~p", [PrioritiesNode2]),
+    io:format("PrioritiesNode1 = ~p", [PrioritiesNode1]),
+    io:format("PrioritiesNode2 = ~p", [PrioritiesNode2]),
     ?line Elevated = [P || P <- PrioritiesNode1, P =:= Prio],
     ?line Elevated = [P || P <- PrioritiesNode2, P =:= Prio],
     ?line [_|_] = Elevated,
@@ -731,7 +731,7 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
     ?line ok = net_kernel:monitor_nodes(true),
     ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}]),
     ?line Names = get_numbered_nodenames(9, node),
-%    ?line ?t:format("Names: ~p~n", [Names]),
+%    io:format("Names: ~p~n", [Names]),
     ?line [NN1, NN2, NN3, NN4, NN5, NN6, NN7, NN8, NN9] = Names,
 
     ?line {ok, N1} = start_node(NN1),
@@ -812,7 +812,7 @@ monitor_nodes_misc(Config) when is_list(Config) ->
     ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
     ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
     ?line Names = get_numbered_nodenames(3, node),
-%    ?line ?t:format("Names: ~p~n", [Names]),
+%    io:format("Names: ~p~n", [Names]),
     ?line [NN1, NN2, NN3] = Names,
 
     ?line {ok, N1} = start_node(NN1),
@@ -860,12 +860,12 @@ monitor_nodes_otp_6481(doc) ->
 monitor_nodes_otp_6481(suite) ->
     [];
 monitor_nodes_otp_6481(Config) when is_list(Config) ->
-    ?line ?t:format("Testing nodedown...~n"),
+    io:format("Testing nodedown...~n"),
     ?line monitor_nodes_otp_6481_test(Config, nodedown),
-    ?line ?t:format("ok~n"),
-    ?line ?t:format("Testing nodeup...~n"),
+    io:format("ok~n"),
+    io:format("Testing nodeup...~n"),
     ?line monitor_nodes_otp_6481_test(Config, nodeup),
-    ?line ?t:format("ok~n"),
+    io:format("ok~n"),
     ?line ok.
 
 monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
@@ -904,7 +904,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify the monitor_nodes order expected
     ?line TestMonNodeState = monitor_node_state(),
-    %?line ?t:format("~p~n", [TestMonNodeState]),
+    %io:format("~p~n", [TestMonNodeState]),
     ?line TestMonNodeState = 
 	MonNodeState
 	++ case TestType of
@@ -1055,18 +1055,18 @@ monitor_nodes_all_comb(Flag) ->
 
 
 receive_all_comb_nodeup_msgs(visible, Node) ->
-    ?t:format("Receive nodeup visible...~n"),
+    io:format("Receive nodeup visible...~n"),
     Exp = [{nodeup, Node},
 	   {nodeup, Node, []}]
 	++ mk_exp_mn_all_comb_nodeup_msgs_common(visible, Node),
     receive_mn_msgs(Exp),
-    ?t:format("ok~n"),
+    io:format("ok~n"),
     ok;
 receive_all_comb_nodeup_msgs(hidden, Node) ->
-    ?t:format("Receive nodeup hidden...~n"),
+    io:format("Receive nodeup hidden...~n"),
     Exp = mk_exp_mn_all_comb_nodeup_msgs_common(hidden, Node),
     receive_mn_msgs(Exp),
-    ?t:format("ok~n"),
+    io:format("ok~n"),
     ok.
 
 mk_exp_mn_all_comb_nodeup_msgs_common(Type, Node) ->
@@ -1077,20 +1077,20 @@ mk_exp_mn_all_comb_nodeup_msgs_common(Type, Node) ->
      {nodeup, Node, InfoNt}].
 
 receive_all_comb_nodedown_msgs(visible, Node, Reason) ->
-    ?t:format("Receive nodedown visible...~n"),
+    io:format("Receive nodedown visible...~n"),
     Exp = [{nodedown, Node},
 	   {nodedown, Node, [{nodedown_reason, Reason}]}]
 	++ mk_exp_mn_all_comb_nodedown_msgs_common(visible,
 						   Node,
 						   Reason),
     receive_mn_msgs(Exp),
-    ?t:format("ok~n"),
+    io:format("ok~n"),
     ok;
 receive_all_comb_nodedown_msgs(hidden, Node, Reason) ->
-    ?t:format("Receive nodedown hidden...~n"),
+    io:format("Receive nodedown hidden...~n"),
     Exp = mk_exp_mn_all_comb_nodedown_msgs_common(hidden, Node, Reason),
     receive_mn_msgs(Exp),
-    ?t:format("ok~n"),
+    io:format("ok~n"),
     ok.
 
 mk_exp_mn_all_comb_nodedown_msgs_common(Type, Node, Reason) ->
@@ -1104,10 +1104,10 @@ mk_exp_mn_all_comb_nodedown_msgs_common(Type, Node, Reason) ->
 receive_mn_msgs([]) ->
     ok;
 receive_mn_msgs(Msgs) ->
-    ?t:format("Expecting msgs: ~p~n", [Msgs]),
+    io:format("Expecting msgs: ~p~n", [Msgs]),
     receive
 	{_Dir, _Node} = Msg ->
-	    ?t:format("received ~p~n", [Msg]),
+	    io:format("received ~p~n", [Msg]),
 	    case lists:member(Msg, Msgs) of
 		true -> receive_mn_msgs(lists:delete(Msg, Msgs));
 		false -> ct:fail({unexpected_message, Msg,
@@ -1115,14 +1115,14 @@ receive_mn_msgs(Msgs) ->
 	    end;
 	{Dir, Node, Info} ->
 	    Msg = {Dir, Node, lists:sort(Info)},
-	    ?t:format("received ~p~n", [Msg]),
+	    io:format("received ~p~n", [Msg]),
 	    case lists:member(Msg, Msgs) of
 		true -> receive_mn_msgs(lists:delete(Msg, Msgs));
 		false -> ct:fail({unexpected_message, Msg,
 				  expected_messages, Msgs})
 	    end;
 	Msg ->
-	    ?t:format("received ~p~n", [Msg]),
+	    io:format("received ~p~n", [Msg]),
 	    ct:fail({unexpected_message, Msg,
 		     expected_messages, Msgs})
     end.
@@ -1201,7 +1201,7 @@ check_no_nodedown_nodeup(TimeOut) ->
 
 print_my_messages() ->
     ?line {messages, Messages} = process_info(self(), messages),
-    ?line ?t:format("Messages: ~p~n", [Messages]),
+    io:format("Messages: ~p~n", [Messages]),
     ?line ok.
 
 

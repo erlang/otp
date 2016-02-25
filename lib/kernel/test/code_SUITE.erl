@@ -222,18 +222,18 @@ del_path(Config) when is_list(Config) ->
     end.
 
 del_path_1(P) ->
-    test_server:format("Initial code:get_path()=~p~n",[P]),
+    io:format("Initial code:get_path()=~p~n",[P]),
     {'EXIT',_} = (catch code:del_path(3)),
     false = code:del_path(my_dummy_name),
     false = code:del_path("/kdlk/my_dummy_dir"),
     Dir = filename:join([code:lib_dir(kernel),"ebin"]),
-    test_server:format("kernel dir: ~p~n",[Dir]),
+    io:format("kernel dir: ~p~n",[Dir]),
 
     true = code:del_path(kernel),
     NewP = code:get_path(),
-    test_server:format("Path after removing 'kernel':~p~n",[NewP]),
+    io:format("Path after removing 'kernel':~p~n",[NewP]),
     ReferenceP = lists:delete(Dir,P),
-    test_server:format("Reference path:~p~n",[ReferenceP]),
+    io:format("Reference path:~p~n",[ReferenceP]),
     NewP = ReferenceP, % check that dir is deleted
     code:set_path(P),
 
@@ -875,14 +875,14 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 %% check_funs(This = {M,_,_}, Path) ->
 %%     case catch atom_to_list(M) of
 %% 	[$h,$i,$p,$e | _] ->
-%% 	    test_server:format("hipe_module_ignored(~p, ~p)~n", [This, Path]),
+%% 	    io:format("hipe_module_ignored(~p, ~p)~n", [This, Path]),
 %% 	    0;
 %% 	_ ->
-%% 	    test_server:format("not_verified(~p, ~p)~n", [This, Path]),
+%% 	    io:format("not_verified(~p, ~p)~n", [This, Path]),
 %% 	    1
 %%     end;
 check_funs(This, Path) ->
-    test_server:format("not_verified(~p, ~p)~n", [This, Path]),
+    io:format("not_verified(~p, ~p)~n", [This, Path]),
     1.
 
 my_usort(List) ->

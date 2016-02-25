@@ -99,7 +99,7 @@ init_per_testcase(lookup_bad_search_option, Config) ->
     Prev = ets:lookup(Db, Key),
     ets:delete(Db, Key),
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
-    ?t:format("Misconfigured resolver lookup order", []),
+    io:format("Misconfigured resolver lookup order", []),
     [{Key,Prev}|Config];
 init_per_testcase(_Func, Config) ->
     Config.
@@ -110,7 +110,7 @@ end_per_testcase(lookup_bad_search_option, Config) ->
     Prev = proplists:get_value(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
-    ?t:format("Restored resolver lookup order", []);
+    io:format("Restored resolver lookup order", []);
 end_per_testcase(_Func, _Config) ->
     ok.
 
@@ -845,13 +845,13 @@ gethostnative_control_1(Config,
     %% I repeatedly do inet_gethost_native:control/1.
     ?line TrapExit = process_flag(trap_exit, true),
     ?line gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
-    ?line test_server:format(
+    io:format(
 	    "First intermission: now starting control sequence ~w\n",
 	    [Seq]),
     ?line erlang:display(first_intermission),
     ?line gethostnative_control_2(Seq, Interval, Delay, Cnt, N, Hosts),
     ?line erlang:display(second_intermission),
-    ?line test_server:format(
+    io:format(
 	    "Second intermission:  now stopping control sequence ~w\n",
 	    [Seq]),
     ?line gethostnative_control_2([undefined], Interval, Delay, Cnt, N, Hosts),
@@ -1013,7 +1013,7 @@ getifaddrs(doc) ->
     "Test inet:gifaddrs/0";
 getifaddrs(Config) when is_list (Config) ->
     ?line {ok,IfAddrs} = inet:getifaddrs(),
-    ?line ?t:format("IfAddrs = ~p.~n", [IfAddrs]),
+    io:format("IfAddrs = ~p.~n", [IfAddrs]),
     ?line
 	case
 	    {os:type(),
@@ -1027,17 +1027,17 @@ getifaddrs(Config) when is_list (Config) ->
 	end,
     ?line Addrs =
 	[element(1, A) || A <- ifaddrs(IfAddrs)],
-    ?line ?t:format("Addrs = ~p.~n", [Addrs]),
+    io:format("Addrs = ~p.~n", [Addrs]),
     ?line [check_addr(Addr) || Addr <- Addrs],
     ok.
 
 check_addr(Addr)
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
-    ?line ?t:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
+    io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
 check_addr(Addr) ->
-    ?line ?t:format("Addr: ~p.~n", [Addr]),
+    io:format("Addr: ~p.~n", [Addr]),
     ?line Ping = "ping",
     ?line Pong = "pong",
     ?line {ok,L} = gen_tcp:listen(0, [{ip,Addr},{active,false}]),
@@ -1069,7 +1069,7 @@ ifaddrs([{If,Opts}|IOs]) ->
 check_ifopts([], #ifopts{name=If,flags=Flags,addrs=Raddrs}=Ifopts) ->
     Addrs = lists:reverse(Raddrs),
     R = Ifopts#ifopts{addrs=Addrs},
-    ?t:format("~p.~n", [R]),
+    io:format("~p.~n", [R]),
     %% See how we did...
     if  is_list(Flags) -> ok;
 	true ->

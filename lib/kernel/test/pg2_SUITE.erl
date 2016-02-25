@@ -359,7 +359,7 @@ ts() ->
     ].
 
 do(Cs, T, Config) ->
-    ?t:format("*** Test ~p ***~n", [T]),
+    io:format("*** Test ~p ***~n", [T]),
     {ok,T} = (catch {do(Cs, [], [], Config),T}).
 
 do([{nodeup,N} | Cs], Ps, Ns, Config) ->
@@ -411,7 +411,7 @@ doit(N, C, Ps, Ns) ->
         Result when Result =:= R orelse R =:= ignore ->
             sane(Ns);
         Else ->
-            ?t:format("~p and ~p: expected ~p, but got ~p~n",
+            io:format("~p and ~p: expected ~p, but got ~p~n",
                       [F, As, R, Else]),
             throw({error,{F, As, R, Else}})
     end.
@@ -432,8 +432,8 @@ killit(N, P, Ps, Ns) ->
     lists:keydelete(P, 1, Ps).
 
 pr(Node, C) ->
-    _ = [?t:format("~p: ", [Node]) || Node =/= node()],
-    ?t:format("do ~p~n", [C]).
+    _ = [io:format("~p: ", [Node]) || Node =/= node()],
+    io:format("do ~p~n", [C]).
 
 get_node(N, Ns) ->
     if
@@ -461,7 +461,7 @@ replace_pids(A, Ps) ->
 
 sane(Ns) ->
     Nodes = [node()] ++ [NN || {_,NN} <- Ns],
-    _ = [?t:format("~p, pg2_table:~n   ~p~n",  % debug
+    _ = [io:format("~p, pg2_table:~n   ~p~n",  % debug
                    [N, rpc:call(N, ets, tab2list, [pg2_table])]) ||
             N <- Nodes],
     R = [case rpc:call(Node, ?MODULE, sane, []) of
@@ -712,7 +712,7 @@ wait_for_ready_net(Config) ->
 
 wait_for_ready_net(Nodes0, Config) ->
     Nodes = lists:sort(Nodes0),
-    ?t:format("wait_for_ready_net ~p~n", [Nodes]),
+    io:format("wait_for_ready_net ~p~n", [Nodes]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
                lists:all(fun(N) ->
