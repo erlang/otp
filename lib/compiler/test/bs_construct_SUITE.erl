@@ -199,7 +199,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, bitstring_to_list(C_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end,
     if
 	E_bin == Bin ->
@@ -207,7 +207,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, bitstring_to_list(E_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end;
 one_test({C_bin, E_bin, Str, Result}) ->
     io:format("  ~s ~p~n", [Str, C_bin]),
@@ -228,7 +228,7 @@ one_test({C_bin, E_bin, Str, Result}) ->
 		    io:format("ERROR: Compiled not equal to interpreted:"
 			      "~n ~p, ~p.~n",
 			      [bitstring_to_list(C_bin), bitstring_to_list(E_bin)]),
-		    test_server:fail(comp);
+		    ct:fail(comp);
 		0 ->
 		    ok;
 		%% For situations where the final bits may not matter, like

@@ -140,13 +140,13 @@ compare([{X,Y,RGB1}|T1], [{X,Y,RGB2}|T2]) ->
     compare(T1, T2);
 compare([H1|_], [H2|_]) ->
     io:format("Normal = ~p, Inlined = ~p\n", [H1,H2]),
-    ?t:fail();
+    ct:fail(different);
 compare([], []) -> ok.
 
 start_node(Name, Args) ->
     case test_server:start_node(Name, slave, [{args,Args}]) of
 	{ok,Node} -> {ok, Node};
-	Error  -> ?line test_server:fail(Error)
+	Error  -> ct:fail(Error)
     end.
 
 load_and_call(Out, Module) ->

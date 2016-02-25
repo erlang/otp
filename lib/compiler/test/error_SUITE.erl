@@ -389,5 +389,4 @@ run_test(Test0, File, Warnings, WriteBeam) ->
     Res.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

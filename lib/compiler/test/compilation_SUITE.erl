@@ -205,7 +205,7 @@ failure(Module, Conf) ->
     ?line case CompRc of
 	      error -> ok;
 	      {error,Errors,_} -> check_errors(Errors);
-	      _ -> test_server:fail({no_error, CompRc})
+	      _ -> ct:fail({no_error, CompRc})
 	  end,
     ok.
 
@@ -227,7 +227,7 @@ check_error_1(Str0) ->
     io:format("~s\n", [Str]),
     case Str of
 	"internal"++_=Str ->
-	    ?t:fail(internal_compiler_error);
+	    ct:fail(internal_compiler_error);
 	_ ->
 	    ok
     end.
@@ -331,7 +331,7 @@ start_node(Name, Args) ->
 	{ok, Node} ->
 	    {ok, Node};
 	Error  ->
-	    ?line test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 from(H, [H | T]) -> T;
@@ -360,7 +360,7 @@ vsn_1(Conf) when is_list(Conf) ->
 	      Vsn1 == Vsn2, Vsn2 == Vsn3 ->
 		  ok;
 	      true ->
-		  test_server:fail({vsn, Vsn1, Vsn2, Vsn3})
+		  ct:fail({vsn, Vsn1, Vsn2, Vsn3})
 	  end,
     ok.
 
@@ -376,7 +376,7 @@ vsn_2(Conf) when is_list(Conf) ->
 	      [34] ->
 		  ok;
 	      _ ->
-		  test_server:fail({vsn, Vsn})
+		  ct:fail({vsn, Vsn})
 	  end,
     ok.
 
@@ -397,7 +397,7 @@ vsn_3(Conf) when is_list(Conf) ->
 	      Vsn1 /= Vsn2 ->
 		  ok;
 	      true ->
-		  test_server:fail({vsn, Vsn1, Vsn2})
+		  ct:fail({vsn, Vsn1, Vsn2})
 	  end,
     ok.
 

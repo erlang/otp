@@ -340,7 +340,7 @@ bad_apply(Config) when is_list(Config) ->
 
     %% Also verify that the generated code generates the correct error.
     ?line try erlang:42() of
-	      _ -> ?line ?t:fail()
+	      _ -> ct:fail(should_fail)
 	  catch
 	      error:badarg -> ok
 	  end,
@@ -830,5 +830,4 @@ run_test(Conf, Test0, Warnings) ->
     Res.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

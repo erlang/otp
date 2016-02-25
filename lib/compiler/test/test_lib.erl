@@ -118,7 +118,8 @@ p_run_loop(_, [], _, [], Errors, Ws) ->
 		1 -> {comment,"1 warning"};
 		N -> {comment,integer_to_list(N)++" warnings"}
 	    end;
-	N -> ?t:fail({N,errors})
+	N ->
+	    ct:fail({N,errors})
     end;
 p_run_loop(Test, [H|T], N, Refs, Errors, Ws) when length(Refs) < N ->
     {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),

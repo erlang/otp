@@ -93,7 +93,7 @@ one_test({C, E, Str, Correct}) ->
 	true ->
 	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Correct, C]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end,
     if
 	E == Correct ->
@@ -101,7 +101,7 @@ one_test({C, E, Str, Correct}) ->
 	true ->
 	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Correct, E]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end.
 
 -record(b, {c}).

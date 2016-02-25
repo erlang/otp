@@ -123,7 +123,7 @@ int_float(Config) when is_list(Config) ->
     %% Coverage of error cases in sys_pre_expand:coerce_to_float/2.
     case id(default) of
 	<<(1 bsl 1024):64/float>> ->
-	    ?t:fail();
+	    ct:fail(should_not_match);
 	default ->
 	    ok
     end.
@@ -305,7 +305,7 @@ save_restore(Config) when is_list(Config) ->
     Bin = <<-1:64>>,
     case bad_float_unpack_match(Bin) of
 	-1 -> ok;
-	_Other -> ?line ?t:fail(bad_return_value_probably_NaN)
+	_Other -> ct:fail(bad_return_value_probably_NaN)
     end.
 
 save_restore_1(Bin) ->
@@ -1033,7 +1033,7 @@ zero_width(Config) when is_list(Config) ->
 
     %% Match sure that values that cannot fit in a segment will not match.
     case id(<<0:8>>) of
-	<<256:8>> -> ?line ?t:fail();
+	<<256:8>> -> ct:fail(should_not_match);
 	_ -> ok
     end,
     ok.

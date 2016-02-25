@@ -93,7 +93,7 @@ compiler_bug(Config) when is_list(Config) ->
 stupid_but_valid(Config) when is_list(Config) ->
     AnAtom = nisse,
     ?line try setelement(5, setelement(6, AnAtom, value), another_value) of
-	      Term -> ?line ?t:fail({what_happened,Term})
+	      Term -> ct:fail({what_happened,Term})
 	  catch
 	      error:badarg -> ok
 	  end,

@@ -70,14 +70,14 @@ recv(Config) when is_list(Config) ->
 	{ok,test} -> ok;
 	{error,Other} ->
 	    io:format("Got unpexected ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(unexpected)
     after 10000 ->
-	    ?line ?t:fail(no_answer)
+	    ct:fail(no_answer)
     end,
     receive
 	X ->
 	    io:format("Unexpected extra message: ~p", [X]),
-	    ?line ?t:fail()
+	    ct:fail(unexpected)
     after 10 ->
 	    ok
     end,

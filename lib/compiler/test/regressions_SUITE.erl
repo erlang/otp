@@ -91,5 +91,4 @@ run_test(Conf, Test0) ->
     ok.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

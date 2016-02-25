@@ -1778,11 +1778,11 @@ bptest(_,_,_) ->
 
 -define(FAILING(C),
 	if
-	    C -> ?t:fail(should_fail);
+	    C -> ct:fail(should_fail);
 	    true -> ok
 	end,
 	if
-	    true, C -> ?t:fail(should_fail);
+	    true, C -> ct:fail(should_fail);
 	    true -> ok
 	end).
 
@@ -1915,7 +1915,7 @@ check(F, Result) ->
 	Other ->
 	    io:format("Expected: ~p\n", [Result]),
 	    io:format("     Got: ~p\n", [Other]),
-	    test_server:fail()
+	    ct:fail(check_failed)
     end.
 
 fc({'EXIT',{function_clause,_}}) -> ok;

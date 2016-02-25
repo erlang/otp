@@ -53,7 +53,7 @@ end_per_group(_GroupName, Config) ->
 pending(Config) when is_list(Config) ->
     ?line case catch float_mul(1, 1.1e300, 3.14e300) of
 	      {'EXIT',{badarith,_}} -> ok;
-	      Other -> ?t:fail({expected_exception,Other})
+	      Other -> ct:fail({expected_exception,Other})
 	  end,
     ?line 0.0 = float_sub(2.0).
 

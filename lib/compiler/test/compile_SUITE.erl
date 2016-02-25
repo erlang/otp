@@ -115,7 +115,7 @@ file_1(Config) when is_list(Config) ->
     %% There should not be any messages in the messages.
     receive
 	Any ->
-	    ?t:fail({unexpected,Any})
+	    ct:fail({unexpected,Any})
     after 10 ->
 	    ok
     end,
@@ -543,7 +543,7 @@ do_listing(Source, TargetDir, Type, Ext) ->
 	      [Source, TargetDir, Type, Ext]),
     case compile:file(Source, [Type, time, {outdir, TargetDir}]) of
 	{ok, _} -> ok;
-	Other -> test_server:fail({unexpected_result, Other})
+	Other -> ct:fail({unexpected_result, Other})
     end,
     SourceBase = filename:rootname(filename:basename(Source)),
 
@@ -654,7 +654,7 @@ test(Iter, Fun, Result, Filler) ->
 	    test(Iter-1, Fun, Result, [0|Filler]);
 	{result, Other} ->
 	    io:format("Expected ~p; got ~p~n", [Result, Other]),
-	    test_server:fail()
+	    ct:fail(failed)
     end.
 
 init(ReplyTo, Fun, _Filler) ->
