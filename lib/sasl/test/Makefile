@@ -33,7 +33,6 @@ MODULES= \
 	sasl_report_suite_supervisor \
 	systools_SUITE \
 	systools_rc_SUITE \
-	overload_SUITE \
 	rb_SUITE \
 	rh_test_lib \
 

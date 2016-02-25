@@ -36,7 +36,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = alarm_handler.xml \
-	overload.xml \
 	rb.xml \
 	release_handler.xml \
 	systools.xml
