@@ -455,8 +455,8 @@ encrypted_abstr_1(Simple, Target) ->
 
     ?line {ok,{simple,[{compile_info,CInfo}]}} = 
 	beam_lib:chunks(Target, [compile_info]),
-    ?line {value,{_,Opts}} = lists:keysearch(options, 1, CInfo),
-    ?line {value,{_,'********'}} = lists:keysearch(debug_info_key, 1, Opts),
+    {_,Opts} = lists:keyfind(options, 1, CInfo),
+    {_,'********'} = lists:keyfind(debug_info_key, 1, Opts),
 
     %% Try some illegal forms of crypto keys.
     ?line error = compile:file(Simple,

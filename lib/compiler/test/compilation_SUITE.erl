@@ -394,7 +394,7 @@ vsn_3(Conf) when is_list(Conf) ->
     ok.
 
 get_vsn(M) ->
-    {value, {vsn, V}} = lists:keysearch(vsn, 1, M:module_info(attributes)),
+    {vsn,V} = lists:keyfind(vsn, 1, M:module_info(attributes)),
     V.
 
 long_string(Config) when is_list(Config) ->

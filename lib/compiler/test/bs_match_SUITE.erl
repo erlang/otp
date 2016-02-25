@@ -909,9 +909,11 @@ otp_7233_1(Rec) ->
     case K of
 	<<"XX">> ->
 	    Value = Rec#rec_otp_7233.val,
-	    case lists:keysearch("xxxxxxxx", 1, Value) of
-		{value,T} -> put(io_format, [Rec#rec_otp_7233.key,T]);
-		false -> ok
+	    case lists:keyfind("xxxxxxxx", 1, Value) of
+		false ->
+		    ok;
+		T ->
+		    put(io_format, [Rec#rec_otp_7233.key,T])
 	    end;
 	_ -> ok
     end.

@@ -66,7 +66,7 @@ uniq() ->
 
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
-    {value,{options,Opts}} = lists:keysearch(options, 1, Comp),
+    {options,Opts} = lists:keyfind(options, 1, Comp),
     lists:filter(fun(no_copt) -> true;
 		    (no_postopt) -> true;
 		    (no_float_opt) -> true;
