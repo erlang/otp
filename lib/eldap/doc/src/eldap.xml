@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2013</year>
+      <year>2012</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,7 @@
     <rev>B</rev>
   </header>
   <module>eldap</module>
-  <modulesummary>Eldap Functions</modulesummary>
+  <modulesummary>LDAP Client</modulesummary>
   <description>
     <p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
     </p>
@@ -40,20 +40,67 @@
     </list>
     <p>The above publications can be found at <url href="http://www.ietf.org">IETF</url>.
     </p>
-    <p><em>Types</em></p>
-    <pre>
-handle()    Connection handle
-attribute() {Type = string(), Values=[string()]}
-modify_op() See mod_add/2, mod_delete/2, mod_replace/2
-scope()     See baseObject/0, singleLevel/0, wholeSubtree/0
-dereference() See neverDerefAliases/0, derefInSearching/0, derefFindingBaseObj/0, derefAlways/0
-filter()    See present/1, substrings/2,
-                equalityMatch/2, greaterOrEqual/2, lessOrEqual/2,
-                approxMatch/2, extensibleMatch/2,
-                'and'/1, 'or'/1, 'not'/1.
-    </pre>
-    <p></p>
   </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <p>Type definitions that are used more than once in this module:
+    </p>
+    <taglist>
+      <tag><c>handle()</c></tag>
+      <item><p>Connection handle</p></item>
+
+      <tag><c>attribute() =</c></tag>
+      <item><p><c>{Type = string(), Values=[string()]}</c></p></item>
+
+      <tag><c>modify_op()</c></tag>
+      <item><p>See 
+        <seealso marker="#mod_add/2">mod_add/2</seealso>, 
+        <seealso marker="#mod_delete/2">mod_delete/2</seealso>,
+        <seealso marker="#mod_replace/2">mod_replace/2</seealso>
+      </p></item>
+
+      <tag><c>scope()</c></tag>
+      <item><p>See 
+        <seealso marker="#baseObject/0">baseObject/0</seealso>, 
+        <seealso marker="#singleLevel/0">singleLevel/0</seealso>, 
+        <seealso marker="#wholeSubtree/0">wholeSubtree/0</seealso>
+      </p></item>
+
+      <tag><c>dereference()</c></tag>
+      <item><p>See 
+        <seealso marker="#neverDerefAliases/0">neverDerefAliases/0</seealso>, 
+        <seealso marker="#derefInSearching/0">derefInSearching/0</seealso>, 
+        <seealso marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seealso>, 
+        <seealso marker="#derefAlways/0">derefAlways/0</seealso>
+      </p></item>
+
+      <tag><c>filter()</c></tag>
+      <item><p>See 
+        <seealso marker="#present/1">present/1</seealso>, 
+        <seealso marker="#substrings/2">substrings/2</seealso>, 
+        <seealso marker="#equalityMatch/2">equalityMatch/2</seealso>, 
+        <seealso marker="#greaterOrEqual/2">greaterOrEqual/2</seealso>, 
+        <seealso marker="#lessOrEqual/2">lessOrEqual/2</seealso>, 
+        <seealso marker="#approxMatch/2">approxMatch/2</seealso>, 
+        <seealso marker="#extensibleMatch/2">extensibleMatch/2</seealso>, 
+        <seealso marker="#'and'/1">'and'/1</seealso>, 
+        <seealso marker="#'or'/1">'or'/1</seealso>, 
+        <seealso marker="#'not'/1">'not'/1</seealso>
+      </p></item>
+
+      <tag><c>return_value() = </c></tag>
+      <item><p><c>ok | {ok, {referral,referrals()}} | {error,Error}</c>
+      </p></item>
+
+      <tag><c>referrals() =</c></tag>
+      <item><p><c>[Address = string()]</c> The contents of <c>Address</c> is server dependent.
+      </p></item>
+
+    </taglist>
+  </section>
+
+
   <funcs>
     <func>
       <name>open([Host]) -> {ok, Handle} | {error, Reason}</name>
@@ -88,18 +135,19 @@ filter()    See present/1, substrings/2,
 	<v>Handle = handle()</v>
       </type>
       <desc>
-        <p>Shutdown the connection.</p>
+        <p>Shutdown the connection after sending an unbindRequest to the server. If the connection is tls the connection
+	will be closed with <c>ssl:close/1</c>, otherwise with <c>gen_tcp:close/1</c>.</p>
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options) -> ok | {error,Error}</name>
+      <name>start_tls(Handle, Options) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <desc>
         <p>Same as start_tls(Handle, Options, infinity)</p>
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options, Timeout) -> ok | {error,Error}</name>
+      <name>start_tls(Handle, Options, Timeout) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -128,7 +176,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>simple_bind(Handle, Dn, Password) -> ok | {error, Reason}</name>
+      <name>simple_bind(Handle, Dn, Password) -> return_value()</name>
       <fsummary>Authenticate the connection.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -140,7 +188,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>add(Handle, Dn, [Attribute]) -> ok | {error, Reason}</name>
+      <name>add(Handle, Dn, [Attribute]) -> return_value()</name>
       <fsummary>Add an entry.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -161,7 +209,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>delete(Handle, Dn) -> ok | {error, Reason}</name>
+      <name>delete(Handle, Dn) -> return_value()</name>
       <fsummary>Delete an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -203,7 +251,7 @@ filter()    See present/1, substrings/2,
     </func>
 
     <func>
-      <name>modify(Handle, Dn, [ModifyOp]) -> ok | {error, Reason}</name>
+      <name>modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
       <fsummary>Modify an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -219,7 +267,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd) -> ok | {ok, GenPasswd} | {error, Reason}</name>
+      <name>modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -230,7 +278,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd, OldPasswd) -> ok | {ok, GenPasswd} | {error, Reason}</name>
+      <name>modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -259,7 +307,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> ok | {error, Reason}</name>
+      <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
       <fsummary>Modify the DN of an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -279,7 +327,7 @@ filter()    See present/1, substrings/2,
       </desc>
     </func>
     <func>
-      <name>search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {error, Reason}</name>
+      <name>search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
       <fsummary>Search the Directory</fsummary>
       <type>
         <v>SearchOptions = #eldap_search{} | [SearchOption]</v>
