@@ -286,7 +286,7 @@ reported(Tag, Type, Report) ->
 	    test_server:messages_get(),
 	    ok
     after 1000 ->
-	    test_server:fail(no_report_received)
+	    ct:fail(no_report_received)
     end.
 
 %%-----------------------------------------------------------------

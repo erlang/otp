@@ -122,7 +122,7 @@ api_open_close(Config) when is_list(Config) ->
     ?line Fd3 = zlib:open(),
     ?m(ok,zlib:close(Fd3)),
     receive
-	Any -> ?line ?t:fail({unexpected_message,Any})
+	Any -> ct:fail({unexpected_message,Any})
     after 10 -> ok
     end.
 

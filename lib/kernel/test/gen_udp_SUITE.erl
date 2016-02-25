@@ -167,7 +167,7 @@ buffer_size_client(Server, IP, Port,
 			    true -> ok;
 			    false ->
 				?line 
-				    ?t:fail({reply_mismatch,Cnt,Reply,Replies,
+				    ct:fail({reply_mismatch,Cnt,Reply,Replies,
 					     byte_size(B),
 					     inet:getopts(Socket,
 							  [sndbuf,recbuf])})
@@ -418,7 +418,7 @@ read_packets_verify(R, SP, [Msg|Msgs],
 read_packets_verify(_R, _SP, [], [], M) ->
     push(M, []);
 read_packets_verify(_R, _SP, Msgs, Trace, M) ->
-    ?t:fail({read_packets_verify,mismatch,Msgs,Trace,M}).
+    ct:fail({read_packets_verify,mismatch,Msgs,Trace,M}).
 
 push(0, Vs) ->
     Vs;
@@ -457,10 +457,10 @@ open_fd(Config) when is_list(Config) ->
 		{udp,S3,Addr,P2,Msg} ->
 		    ok
 	    after 1000 ->
-		    ?t:fail(io_lib:format("~w", [flush()]))
+		    ct:fail(io_lib:format("~w", [flush()]))
 	    end
     after 1000 ->
-	    ?t:fail(io_lib:format("~w", [flush()]))
+	    ct:fail(io_lib:format("~w", [flush()]))
     end.
 
 active_n(Config) when is_list(Config) ->

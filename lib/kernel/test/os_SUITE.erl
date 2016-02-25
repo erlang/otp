@@ -81,7 +81,7 @@ space_in_cwd(Config) when is_list(Config) ->
 	      [] -> ok;				% Unix.
 	      "\r\n" -> ok;			% Windows.
 	      Other ->
-		  ?line test_server:fail({unexpected, Other})
+		  ct:fail({unexpected, Other})
 	  end,
 
     ?t:sleep(5),
@@ -243,11 +243,11 @@ find_exe(Where, Name, Ext, Path) ->
 		Other ->
 		    io:format("Expected ~p; got (converted to absolute) ~p",
 			      [Expected, Other]),
-		    test_server:fail()
+		    ct:fail(failed)
 	    end;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Expected, Other]),
-	    test_server:fail()
+	    ct:fail(failed)
     end.
 
 unix_comment_in_command(doc) ->
@@ -325,7 +325,7 @@ comp(Expected, Got) ->
 	Other ->
 	    ok = io:format("Expected: ~ts\n", [Expected]),
 	    ok = io:format("Got:      ~ts\n", [Other]),
-	    test_server:fail()
+	    ct:fail(failed)
     end.
 
 %% Like lib:nonl/1, but strips \r as well as \n.

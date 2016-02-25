@@ -203,19 +203,19 @@ no_gg_proc(Config) when is_list(Config) ->
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout2)
+				     2000 -> ct:fail(timeout2)
 				 end,
     ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout3)
+				     2000 -> ct:fail(timeout3)
 				 end,
     ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout4)
+				     2000 -> ct:fail(timeout4)
 				 end,
 
 
@@ -375,19 +375,19 @@ no_gg_proc_sync(Config) when is_list(Config) ->
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout2)
+				     2000 -> ct:fail(timeout2)
 				 end,
     ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout3)
+				     2000 -> ct:fail(timeout3)
 				 end,
     ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout4)
+				     2000 -> ct:fail(timeout4)
 				 end,
 
 
@@ -546,19 +546,19 @@ compatible(Config) when is_list(Config) ->
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout2)
+				     2000 -> ct:fail(timeout2)
 				 end,
     ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout3)
+				     2000 -> ct:fail(timeout3)
 				 end,
     ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
     ?line receive
 	      {pong, Cp2} -> ok
 				 after
-				     2000 -> test_server:fail(timeout4)
+				     2000 -> ct:fail(timeout4)
 				 end,
 
 
@@ -684,14 +684,14 @@ one_grp(Config) when is_list(Config) ->
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout1)
+	2000 -> ct:fail(timeout1)
     end,
 
     rpc:call(Cp3, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line rpc:call(Cp3, global, unregister_name, [test]),    
@@ -902,38 +902,38 @@ two_grp(Config) when is_list(Config) ->
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line Pid2 = rpc:call(Cp3, global_group, send, [test2, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line PidX = rpc:call(Cpx, global_group, send, [test, {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line PidX = rpc:call(Cpy, global_group, send, [test, {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line PidX = rpc:call(Cpz, global_group, send, [test, {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line Pid2 = rpc:call(Cpx, global_group, send, [{node, Cp1nn}, test2, 
@@ -941,21 +941,21 @@ two_grp(Config) when is_list(Config) ->
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line Pid2 = rpc:call(Cpy, global_group, send, [{node, Cp2nn}, test2, 
                                                     {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line Pid2 = rpc:call(Cpz, global_group, send, [{node, Cp3nn}, test2, 
                                                     {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpznn}, test, 
@@ -963,21 +963,21 @@ two_grp(Config) when is_list(Config) ->
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line PidX = rpc:call(Cpy, global_group, send, [{node, Cpxnn}, test, 
                                                     {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line PidX = rpc:call(Cpz, global_group, send, [{node, Cpynn}, test, 
                                                     {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line Pid2 = rpc:call(Cpx, global_group, send, [{group, nc1}, test2, 
@@ -985,14 +985,14 @@ two_grp(Config) when is_list(Config) ->
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
     ?line PidX = rpc:call(Cpy, global_group, send, [{group, nc2}, test, 
                                                     {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     %%------------------------------------
@@ -1410,9 +1410,9 @@ assert_loop(Cp, CpName, Name, NamePid, Loop) ->
         Loop ->
             ok;
         Other1 ->
-            test_server:fail(Other1)
+            ct:fail(Other1)
     after 5000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end.
 
 loop_until_true(Fun) ->

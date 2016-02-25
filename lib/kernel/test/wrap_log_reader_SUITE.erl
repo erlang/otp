@@ -542,23 +542,23 @@ blog_terms(File, Terms) ->
 rec1(M, Where) ->
     receive 
         {M, C} -> C;
-        Else -> test_server:fail({error, {Where, Else}})
-    after 1000  -> test_server:fail({error, {Where, time_out}})
+        Else -> ct:fail({error, {Where, Else}})
+    after 1000  -> ct:fail({error, {Where, time_out}})
     end.
 
 rec2(M, Where) ->
     receive 
         {C, M} -> C;
-        Else -> test_server:fail({error, {Where, Else}})
-    after 1000  -> test_server:fail({error, {Where, time_out}})
+        Else -> ct:fail({error, {Where, Else}})
+    after 1000  -> ct:fail({error, {Where, time_out}})
     end.
 
 rec(M, Where) ->
     receive 
         M ->
             ok;
-        Else -> ?t:fail({error, {Where, Else}})
-    after 5000 -> ?t:fail({error, {Where, time_out}})
+        Else -> ct:fail({error, {Where, Else}})
+    after 5000 -> ct:fail({error, {Where, time_out}})
     end.
 	    
 pps() ->

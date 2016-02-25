@@ -208,7 +208,7 @@ xfer_min(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sb),
 
     ?line receive
-	      Msg -> test_server:fail({received,Msg})
+	      Msg -> ct:fail({received,Msg})
 	  after 17 -> ok
 	  end,
     ok.
@@ -283,7 +283,7 @@ xfer_active(Config) when is_list(Config) ->
 				  assoc_id=SbAssocId}],
 		Data}} -> ok
 	  after Timeout ->
-		  ?line test_server:fail({timeout,flush()})
+		  ct:fail({timeout,flush()})
 	  end,
     ?line ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
     ?line receive
@@ -292,7 +292,7 @@ xfer_active(Config) when is_list(Config) ->
 				  assoc_id=SaAssocId}],
 		Data}} -> ok
 	  after Timeout ->
-		  ?line test_server:fail({timeout,flush()})
+		  ct:fail({timeout,flush()})
 	  end,
     %%
     ?line ok = gen_sctp:abort(Sa, SaAssocChange),
@@ -300,7 +300,7 @@ xfer_active(Config) when is_list(Config) ->
 	      #sctp_assoc_change{state=comm_lost,
 				 assoc_id=SbAssocId} -> ok;
 	      timeout ->
-		  ?line test_server:fail({timeout,flush()})
+		  ct:fail({timeout,flush()})
 	  end,
     ?line ok = gen_sctp:close(Sb),
     ?line case recv_assoc_change(Sa, Loopback, Pb, Timeout) of
@@ -317,7 +317,7 @@ xfer_active(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sa),
     %%
     ?line receive
-	      Msg -> test_server:fail({unexpected,[Msg]++flush()})
+	      Msg -> ct:fail({unexpected,[Msg]++flush()})
 	  after 17 -> ok
 	  end,
     ok.
@@ -502,7 +502,7 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 	gen_sctp:close(S2),
     ?line receive
 	      Msg ->
-		  test_server:fail({received,Msg})
+		  ct:fail({received,Msg})
 	  after 17 -> ok
 	  end,
     ok.
@@ -1024,7 +1024,7 @@ xfer_stream_min(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sb),
 
     ?line receive
-	      Msg -> test_server:fail({received,Msg})
+	      Msg -> ct:fail({received,Msg})
 	  after 17 -> ok
 	  end,
     ok.
@@ -1609,7 +1609,7 @@ socket_bailout([S|Ss]) ->
     socket_bailout(Ss);
 socket_bailout([]) ->
     io:format("flush: ~p.~n", [flush()]),
-    test_server:fail(socket_bailout).
+    ct:fail(socket_bailout).
 
 socket_history({State,Flush}) ->
     {lists:keysort(

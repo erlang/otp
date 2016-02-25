@@ -130,7 +130,7 @@ stop(Config) when is_list(Config) ->
 	      [] ->
 		  ok;
 	      NotKilled ->
-		  test_server:fail({not_killed, NotKilled})
+		  ct:fail({not_killed, NotKilled})
 	  end,
     ok.
 
@@ -243,7 +243,7 @@ responses(Config) when is_list(Config) ->
     receive
 	What ->
 	    ?line close_udp(S1),
-	    ?line ?t:fail({"got unexpected response",What})
+	    ct:fail({"got unexpected response",What})
     after 100 ->
 	    ok
     end,
@@ -259,7 +259,7 @@ responses(Config) when is_list(Config) ->
 	    ?line [_,_,_ | ThisVer] = Rest1
     after 2000 ->
 	    ?line close_udp(S2),
-	    ?line ?t:fail("no boot server response; same vsn")
+	    ct:fail("no boot server response; same vsn")
     end,
     
     %% Req from a slave with other erlang vsn.
@@ -268,7 +268,7 @@ responses(Config) when is_list(Config) ->
     receive
 	Anything ->
 	    ?line close_udp(S3),
-	    ?line ?t:fail({"got unexpected response",Anything})
+	    ct:fail({"got unexpected response",Anything})
     after 100 ->
 	    ok
     end,
@@ -295,7 +295,7 @@ responses(Config) when is_list(Config) ->
 		receive
 		    Huh ->
 			?line close_udp(S4),
-			?line ?t:fail({"got unexpected response",Huh})
+			ct:fail({"got unexpected response",Huh})
 		after 100 ->
 			ok
 		end
@@ -307,7 +307,7 @@ responses(Config) when is_list(Config) ->
     %% Now wait for any late unexpected messages.
     receive
 	Whatever ->
-	    ?line ?t:fail({unexpected_message,Whatever})
+	    ct:fail({unexpected_message,Whatever})
     after 4000 ->
 	    ?line close_udp(S1),
 	    ?line close_udp(S3),
@@ -325,7 +325,7 @@ shutdown(Pid) ->
     after 1000 ->
 	    %% The timeout used to be 1 ms, which could be too short time for the
 	    %% SMP emulator on a slow computer with one CPU.
-	    test_server:fail(shutdown)
+	    ct:fail(shutdown)
     end.
 
 good_hosts(_Config) ->

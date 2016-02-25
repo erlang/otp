@@ -284,7 +284,7 @@ check_elem(Val, [Val|_], _) -> ok;
 check_elem(Val, [_|Tests], Tests0) ->
     check_elem(Val, Tests, Tests0);
 check_elem(Val, [], Tests0) ->
-    ?t:fail({no_match,Val,Tests0}).
+    ct:fail({no_match,Val,Tests0}).
 
 
 t_getaddr() -> required(v4).
@@ -359,7 +359,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 		io:format("IPv6->IPv4: eafnosupport~n"),
 		E;
 	    Other ->
-		?line ?t:fail({ipv4_to_ipv6_lookup_failed,Other})
+		ct:fail({ipv4_to_ipv6_lookup_failed,Other})
 	end,
     ?line case {IP4to6Res,inet:gethostbyname(IPStr, inet6)} of
 	      {true,{ok,HEnt}} ->
@@ -899,7 +899,7 @@ control_loop_1(Op, Interval, Tag, Lookupers) ->
 			  _ ->
 			      ?line io:format("Lookuper ~p died: ~p",
 					      [Pid,Reason]),
-			      ?line test_server:fail("Lookuper died")
+			      ct:fail("Lookuper died")
 		      end
 	after Interval ->
 		?line if Op =/= undefined -> 
@@ -971,7 +971,7 @@ do_getif(Osname) ->
 	    end, [], Interfaces)),
     ?line io:format("HWAs = ~p~n", [HWAs]),
     ?line (Osname =/= sunos)
-	andalso ((length(HWAs) > 0) orelse (?t:fail(no_HWAs))),
+	andalso ((length(HWAs) > 0) orelse (ct:fail(no_HWAs))),
     ?line Addresses = 
 	lists:sort(
 	  lists:foldl(
@@ -1022,7 +1022,7 @@ getifaddrs(Config) when is_list (Config) ->
 		 lists:keymember(hwaddr, 1, Opts)]} of
 	    {{unix,sunos},[]} -> ok;
 	    {OT,[]} ->
-		?t:fail({should_have_hwaddr,OT});
+		ct:fail({should_have_hwaddr,OT});
 	    _ -> ok
 	end,
     ?line Addrs =
@@ -1073,7 +1073,7 @@ check_ifopts([], #ifopts{name=If,flags=Flags,addrs=Raddrs}=Ifopts) ->
     %% See how we did...
     if  is_list(Flags) -> ok;
 	true ->
-	    ?t:fail({flags_undefined,If})
+	    ct:fail({flags_undefined,If})
     end,
     case lists:member(broadcast, Flags) of
 	true ->
@@ -1081,12 +1081,12 @@ check_ifopts([], #ifopts{name=If,flags=Flags,addrs=Raddrs}=Ifopts) ->
 		 {_,_,_} -> A;
 		 {T,_} when tuple_size(T) =:= 8 -> A;
 		 _ ->
-		     ?t:fail({broaddr_missing,If,A})
+		     ct:fail({broaddr_missing,If,A})
 	     end || A <- Addrs];
 	false ->
 	    [case A of {_,_} -> A;
 		 _ ->
-		     ?t:fail({should_have_netmask,If,A})
+		     ct:fail({should_have_netmask,If,A})
 	     end || A <- Addrs]
     end,
     R;
@@ -1097,7 +1097,7 @@ check_ifopts([{flags,Fs}|Opts], #ifopts{flags=Flags}=Ifopts) ->
 	Flags ->
 	    check_ifopts(Opts, Ifopts#ifopts{});
 	_ ->
-	    ?t:fail({multiple_flags,Fs,Ifopts})
+	    ct:fail({multiple_flags,Fs,Ifopts})
     end;
 check_ifopts(
   [{addr,Addr},{netmask,Netmask},{broadaddr,Broadaddr}|Opts],
@@ -1113,7 +1113,7 @@ check_ifopts([{hwaddr,Hwaddr}|Opts], #ifopts{hwaddr=undefined}=Ifopts)
   when is_list(Hwaddr) ->
     check_ifopts(Opts, Ifopts#ifopts{hwaddr=Hwaddr});
 check_ifopts([{hwaddr,HwAddr}|_], #ifopts{}=Ifopts) ->
-    ?t:fail({multiple_hwaddrs,HwAddr,Ifopts}).
+    ct:fail({multiple_hwaddrs,HwAddr,Ifopts}).
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems

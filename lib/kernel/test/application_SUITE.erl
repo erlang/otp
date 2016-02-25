@@ -1216,14 +1216,14 @@ otp_2973(Conf) when is_list(Conf) ->
 				     {Pid2, res, Res2x} ->
 					 {Res1x, Res2x}
 				   after 2000 ->
-					   test_server:fail(timeout_pid2)
+					   ct:fail(timeout_pid2)
 				   end;
 			     {Pid2, res, Res2x} ->
 				 receive 
 				     {Pid1, res, Res1x} ->
 					 {Res1x, Res2x}
 				 after 2000 ->
-					 test_server:fail(timeout_pid1)
+					 ct:fail(timeout_pid1)
 				 end
 			 end,
 
@@ -1237,7 +1237,7 @@ otp_2973(Conf) when is_list(Conf) ->
 	_ ->
 	    Txt = io_lib:format("Illegal results from start: ~p ~p ",
 				      [Res1, Res2]),
-	    test_server:fail(lists:flatten(Txt))
+	    ct:fail(lists:flatten(Txt))
     end,
 
 
@@ -1255,14 +1255,14 @@ otp_2973(Conf) when is_list(Conf) ->
 				       {Pid2, res, Res2y} ->
 					   {Res1y, Res2y}
 				   after 2000 ->
-					   test_server:fail(timeout_pid2)
+					   ct:fail(timeout_pid2)
 				   end;
 			       {Pid2, res, Res2y} ->
 				   receive 
 				       {Pid1, res, Res1y} ->
 					   {Res1y, Res2y}
 				   after 2000 ->
-					   test_server:fail(timeout_pid1)
+					   ct:fail(timeout_pid1)
 				   end
 			   end,
 
@@ -1272,7 +1272,7 @@ otp_2973(Conf) when is_list(Conf) ->
 	    ok;
 	_ ->
 	    Txta = io_lib:format("Illegal results from start ~p ~p ",[Res1a, Res2a]),
-	    test_server:fail(lists:flatten(Txta))
+	    ct:fail(lists:flatten(Txta))
     end,
 
     ok.
@@ -1526,7 +1526,7 @@ otp_5363(Conf) when is_list(Conf) ->
 		      undefined = whereis(nisse);
 		  Bad ->
 		      io:format("~p\n", [Bad]),
-		      ?t:fail()
+		      ct:fail(failed)
 	      end
     after
         code:set_path(OldPath)
@@ -1580,7 +1580,7 @@ otp_5606(Conf) when is_list(Conf) ->
 	[Res1, Res2, Res3, Res4] ->
 	    Txt = io_lib:format("Illegal results from start ~p ~p ~p ~p",
 				[Res1, Res2, Res3, Res4]),
-	    test_server:fail(lists:flatten(Txt))
+	    ct:fail(lists:flatten(Txt))
     end,
 
     {error, {already_started, app1}} = 
@@ -1595,7 +1595,7 @@ otp_5606_loop(ResL) when length(ResL)<4 ->
 	{_Pid, Res} ->
 	    otp_5606_loop([Res|ResL])
     after 5000 ->
-	    test_server:fail(timeout_waiting_for_res)
+	    ct:fail(timeout_waiting_for_res)
     end;
 otp_5606_loop(ResL) ->
     ResL.
@@ -1772,7 +1772,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa1 ->
 		  X1 = io_lib:format("distribution error: Cp1 ~p ",[EWa1]),
-		  test_server:fail(lists:flatten(X1))
+		  ct:fail(lists:flatten(X1))
 	  end,
 		  
     case lists:sort(Wa2) of
@@ -1780,7 +1780,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa2 ->
 		  X2 = io_lib:format("distribution error: Cp2 ~p ",[EWa2]),
-		  test_server:fail(lists:flatten(X2))
+		  ct:fail(lists:flatten(X2))
 	  end,
 		  
     case lists:sort(Wa3) of
@@ -1788,7 +1788,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa3 ->
 		  X3 = io_lib:format("distribution error: Cp3 ~p ",[EWa3]),
-		  test_server:fail(lists:flatten(X3))
+		  ct:fail(lists:flatten(X3))
 	  end,
 		  
     DcInfo1n = rpc:call(Cp1, dist_ac, info, []),
@@ -1863,7 +1863,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa2 ->
 		  X2 = io_lib:format("distribution error: Cp2 ~p ",[EWa2]),
-		  test_server:fail(lists:flatten(X2))
+		  ct:fail(lists:flatten(X2))
 	  end,
 		  
     case lists:sort(Wa3) of
@@ -1871,7 +1871,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa3 ->
 		  X3 = io_lib:format("distribution error: Cp3 ~p ",[EWa3]),
-		  test_server:fail(lists:flatten(X3))
+		  ct:fail(lists:flatten(X3))
 	  end,
 
 
@@ -1898,7 +1898,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa1rs ->
 		  X1rs = io_lib:format("distribution error: Cp1 ~p ",[EWa1rs]),
-		  test_server:fail(lists:flatten(X1rs))
+		  ct:fail(lists:flatten(X1rs))
 	  end,
 		  
     case lists:sort(Wa2rs) of
@@ -1906,7 +1906,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa2rs ->
 		  X2rs = io_lib:format("distribution error: Cp2 ~p ",[EWa2rs]),
-		  test_server:fail(lists:flatten(X2rs))
+		  ct:fail(lists:flatten(X2rs))
 	  end,
 		  
     case lists:sort(Wa3rs) of
@@ -1914,7 +1914,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 		  ok;
 	      EWa3rs ->
 		  X3rs = io_lib:format("distribution error: Cp3 ~p ",[EWa3rs]),
-		  test_server:fail(lists:flatten(X3rs))
+		  ct:fail(lists:flatten(X3rs))
 	  end,
 
 
@@ -2071,10 +2071,10 @@ shutdown_func(Config) when is_list(Config) ->
 		      {'DOWN', Mref, _, Pid, noconnection} ->
 			  ok
 		  after 10000 ->
-			  test_server:fail(timeout)
+			  ct:fail(timeout)
 		  end
 	  after 10000 ->
-		  test_server:fail(timeout)
+		  ct:fail(timeout)
 	  end.
 
 
@@ -2708,7 +2708,7 @@ get_start_type(Expected) ->
 
 get_start_type(_Expected, 0, Ack) ->
     test_server:format("====== ~p ======~n", [Ack]),
-    test_server:fail(not_valid_start_type);
+    ct:fail(not_valid_start_type);
 get_start_type(Expected, Times, Ack0) ->
     #st{normal = N0, local = L0, takeover = T0, failover = F0} = Ack0,
     global:send(st_type, {st, read, self()}),
@@ -2758,9 +2758,9 @@ get_start_phase(Expected) ->
            test_server:format("=========== got ~p ~n",
                               [{sp, T1, I1, So1, Sp1, G1}]),
            test_server:format("====== expected ~p ~n", [Expected]),
-           test_server:fail(not_valid_start_phase)
+           ct:fail(not_valid_start_phase)
     after 5000 ->
-           test_server:fail(not_valid_start_phase)
+           ct:fail(not_valid_start_phase)
     end.
 
 start_phase() ->
@@ -2792,9 +2792,9 @@ get_conf_change(Expected) ->
 	    ok;
 	{cc, List} ->
 	    test_server:format("====== ~p ======~n",[{cc, List}]),
-	    test_server:fail(not_valid_conf_change)
+	    ct:fail(not_valid_conf_change)
     after 5000 ->
-	    test_server:fail(not_valid_conf_change_to)
+	    ct:fail(not_valid_conf_change_to)
     end.
 
 conf_change() ->

@@ -78,7 +78,7 @@ get_path(Config) when is_list(Config) ->
 	      {ok, Path} when is_list(Path) ->
 		  ok;
 	      _ ->
-		  test_server:fail(get_path)
+		  ct:fail(get_path)
 	  end,
     ok.
 
@@ -104,7 +104,7 @@ get_file(Config) when is_list(Config) ->
 	      {ok,Bin,File} when is_binary(Bin), is_list(File) ->
 		  ok;
 	      _ ->
-		  test_server:fail(get_valid_file)
+		  ct:fail(get_valid_file)
 	  end,
     ?line error = erl_prim_loader:get_file("duuuuuuummmy_file"),
     ?line error = erl_prim_loader:get_file(duuuuuuummmy_file),
@@ -193,7 +193,7 @@ inet_coming_up(Config) when is_list(Config) ->
     ok.
 
 wait_really_started(Node, 0) ->
-    test_server:fail({not_booted,Node});
+    ct:fail({not_booted,Node});
 wait_really_started(Node, N) ->
     case rpc:call(Node, init, get_status, []) of
  	{started, _} ->
@@ -230,9 +230,9 @@ inet_disconnects(Config) when is_list(Config) ->
 		{Stopper,ok} -> 
 		    ok;
 		{Stopper,{error,Reason}} ->
-		    ?line ?t:fail(Reason)
+		    ct:fail(Reason)
 	    after 60000 -> 
-		    ?line ?t:fail(stopper_died)
+		    ct:fail(stopper_died)
 	    end,
 
 	    %% Start new boot server to see that loading is continued.

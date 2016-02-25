@@ -4885,7 +4885,7 @@ otp_6278(Conf) when is_list(Conf) ->
     receive
 	{crash_report,_Pid,Report} ->
 	    ?line io:format("Unexpected: ~p\n", [Report]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     after 1000 ->
             ok
     end,

@@ -362,7 +362,7 @@ no_accept(Config) when is_list(Config) ->
         {tcp_closed, Client} ->
             ok
     after 5000 ->
-            test_server:fail(never_closed)
+            ct:fail(never_closed)
     
     end.
 
@@ -385,16 +385,16 @@ close_with_pending_output(Config) when is_list(Config) ->
 			  gen_tcp:close(A),
 			  gen_tcp:close(L);
 		      {ok, Bin} ->
-			  test_server:fail({small_packet,
+			  ct:fail({small_packet,
                                                   byte_size(Bin)});
 		      Error ->
-			  test_server:fail({unexpected, Error})
+			  ct:fail({unexpected, Error})
 		  end,
 	    ok;
 	{error, no_remote_hosts} ->
 	    {skipped,"No remote hosts"};
 	{error, Other} ->
-	    ?t:fail({failed_to_start_slave_node, Other})
+	    ct:fail({failed_to_start_slave_node, Other})
     end.
 
 sender(Port, Packets, Host) ->
@@ -584,17 +584,17 @@ otp_3924_receive_data(LSock, Sender, MaxDelay, Len, N) ->
     process_flag(priority, OP),
     receive
 	{'EXIT', _, TimeoutRef} ->
-	    test_server:fail({close_not_fast_enough,MaxDelay,N});
+	    ct:fail({close_not_fast_enough,MaxDelay,N});
 	{'EXIT', Sender, Reason} ->
-	    test_server:fail({sender_exited, Reason});
+	    ct:fail({sender_exited, Reason});
 	{'EXIT', _Other, Reason} ->
-	    test_server:fail({linked_process_exited, Reason})
+	    ct:fail({linked_process_exited, Reason})
     after 0 ->
 	    case Data of
 		{'EXIT', {A,B}} ->
-		    test_server:fail({A,B,N});
+		    ct:fail({A,B,N});
 		{'EXIT', Failure} ->
-		    test_server:fail(Failure);
+		    ct:fail(Failure);
 		_ ->
 		    Data
 	    end
@@ -666,7 +666,7 @@ data_before_close(Config) when is_list(Config) ->
             io:format("Result: ~p", [Result]);
         {Wrong, Result} ->
             io:format("Result: ~p", [Result]),
-            test_server:fail({wrong_count, Wrong})
+            ct:fail({wrong_count, Wrong})
     end,
     ok.
 
@@ -758,7 +758,7 @@ all_equal(_, [_ | _]) ->
     ?t:sleep(?RECOVER_SLEEP), % Wait a while and *hope* that we'll
                                     % recover so other tests won't be
                                     % affected.
-    ?t:fail(max_socket_mismatch);
+    ct:fail(max_socket_mismatch);
 all_equal(_Rule, []) ->
     ok.
 
@@ -814,7 +814,7 @@ passive_sockets(Config) when is_list(Config) ->
         {ok, Sock} ->
             passive_sockets_read(Sock);
         Error ->
-            ?t:fail({"Could not connect to server", Error})
+            ct:fail({"Could not connect to server", Error})
     end.
 
 %%
@@ -830,7 +830,7 @@ passive_sockets_read(Sock) ->
 	    gen_tcp:close(Sock);
 	Error ->
 	    gen_tcp:close(Sock),
-	    ?t:fail({"Did not get {error, closed} before other error", Error})
+	    ct:fail({"Did not get {error, closed} before other error", Error})
     end.
 
 passive_sockets_server(Opts, Parent) ->
@@ -840,7 +840,7 @@ passive_sockets_server(Opts, Parent) ->
             Parent ! {socket,Port},
             passive_sockets_server_accept(LSock);
         Error ->
-            ?t:fail({"Could not create listen socket", Error})
+            ct:fail({"Could not create listen socket", Error})
     end.
 
 passive_sockets_server_accept(Sock) ->
@@ -850,7 +850,7 @@ passive_sockets_server_accept(Sock) ->
             passive_sockets_server_send(Socket, 5),
             passive_sockets_server_accept(Sock);
         Error ->
-            ?t:fail({"Could not accept connection", Error})
+            ct:fail({"Could not accept connection", Error})
     end.
 
 passive_sockets_server_send(Socket, 0) ->
@@ -863,7 +863,7 @@ passive_sockets_server_send(Socket, X) ->
             ?t:sleep(50),   % Simulate some processing.
             passive_sockets_server_send(Socket, X-1);
         {error, _Reason} ->
-            ?t:fail("Failed to send data")
+            ct:fail("Failed to send data")
     end.
 
 
@@ -884,7 +884,7 @@ accept_closed_by_other_process(Config) when is_list(Config) ->
         {Child, {error, closed}} ->
             ok;
         {Child, Other} ->
-            ?t:fail({"Wrong result of gen_tcp:accept", Other})
+            ct:fail({"Wrong result of gen_tcp:accept", Other})
     end.
 
 repeat(N, Fun) ->
@@ -954,7 +954,7 @@ shutdown_common(Active) ->
     do_sort(P, []),
     receive
 	Any ->
-	    ?t:fail({unexpected_message,Any})
+	    ct:fail({unexpected_message,Any})
     after 0 -> ok
     end.
 
@@ -1035,7 +1035,7 @@ shutdown_pending(Config) when is_list(Config) ->
             io:format("~p\n", [Msg]),
             N = list_to_integer(Msg) - 5;
         Other ->
-            ?t:fail({unexpected,Other})
+            ct:fail({unexpected,Other})
     end,
     ok.
 
@@ -1087,9 +1087,9 @@ show_econnreset_active(Config) when is_list(Config) ->
        {tcp_closed, S} ->
 	   ok;
        Other ->
-	   ?t:fail({unexpected1, Other})
+	   ct:fail({unexpected1, Other})
     after 1000 ->
-	?t:fail({timeout, {server, no_tcp_closed}})
+	ct:fail({timeout, {server, no_tcp_closed}})
     end,
 
     %% Now test with option switched on.
@@ -1108,14 +1108,14 @@ show_econnreset_active(Config) when is_list(Config) ->
 		{tcp_closed, S1} ->
 		    ok;
 		Other1 ->
-		    ?t:fail({unexpected2, Other1})
+		    ct:fail({unexpected2, Other1})
 	    after 1 ->
-		?t:fail({timeout, {server, no_tcp_closed}})
+		ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
 	Other2 ->
-	    ?t:fail({unexpected3, Other2})
+	    ct:fail({unexpected3, Other2})
     after 1000 ->
-	?t:fail({timeout, {server, no_tcp_error}})
+	ct:fail({timeout, {server, no_tcp_error}})
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
@@ -1138,14 +1138,14 @@ show_econnreset_active_once(Config) when is_list(Config) ->
 		{tcp_closed, S} ->
 		    ok;
 		Other1 ->
-		    ?t:fail({unexpected1, Other1})
+		    ct:fail({unexpected1, Other1})
 	    after 1 ->
-		?t:fail({timeout, {server, no_tcp_closed}})
+		ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
 	Other2 ->
-	    ?t:fail({unexpected2, Other2})
+	    ct:fail({unexpected2, Other2})
     after 1000 ->
-	?t:fail({timeout, {server, no_tcp_error}})
+	ct:fail({timeout, {server, no_tcp_error}})
     end.
 
 show_econnreset_passive(Config) when is_list(Config) ->
@@ -1212,7 +1212,7 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T -> ?t:fail(T)
+	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:send(S, "Whatever"),
     ok = ?t:sleep(20),
@@ -1225,10 +1225,10 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 		{tcp_closed, Client} ->
 		    ok;
 		Other1 ->
-		    ?t:fail({unexpected1, Other1})
+		    ct:fail({unexpected1, Other1})
 	    end;
 	Other2 ->
-	    ?t:fail({unexpected2, Other2})
+	    ct:fail({unexpected2, Other2})
     end,
 
     %% Now test with option switched on.
@@ -1243,7 +1243,7 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
     case erlang:port_info(Client1, queue_size) of
 	{queue_size, N1} when N1 > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T1 -> ?t:fail(T1)
+	{queue_size, 0} = T1 -> ct:fail(T1)
     end,
     ok = gen_tcp:send(S1, "Whatever"),
     ok = ?t:sleep(20),
@@ -1258,13 +1258,13 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 			{tcp_closed, Client1} ->
 			    ok;
 			Other3 ->
-			    ?t:fail({unexpected3, Other3})
+			    ct:fail({unexpected3, Other3})
 		    end;
 		Other4 ->
-		    ?t:fail({unexpected4, Other4})
+		    ct:fail({unexpected4, Other4})
 	    end;
 	Other5 ->
-	    ?t:fail({unexpected5, Other5})
+	    ct:fail({unexpected5, Other5})
     end.
 
 econnreset_after_async_send_active_once(Config) when is_list(Config) ->
@@ -1282,7 +1282,7 @@ econnreset_after_async_send_active_once(Config) when is_list(Config) ->
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T -> ?t:fail(T)
+	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:send(S, "Whatever"),
     ok = ?t:sleep(20),
@@ -1297,10 +1297,10 @@ econnreset_after_async_send_active_once(Config) when is_list(Config) ->
 		{tcp_closed, Client} ->
 		    ok;
 		Other ->
-		    ?t:fail({unexpected1, Other})
+		    ct:fail({unexpected1, Other})
 	    end;
 	Other ->
-	    ?t:fail({unexpected2, Other})
+	    ct:fail({unexpected2, Other})
     end.
 
 econnreset_after_async_send_passive(Config) when is_list(Config) ->
@@ -1321,7 +1321,7 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T -> ?t:fail(T)
+	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:close(S),
     ok = ?t:sleep(20),
@@ -1367,7 +1367,7 @@ linger_zero(Config) when is_list(Config) ->
     case erlang:port_info(Client, queue_size) of
 	{queue_size, N} when N > 0 -> ok;
 	{queue_size, 0} when OS =:= win32 -> ok;
-	{queue_size, 0} = T -> ?t:fail(T)
+	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ok = gen_tcp:close(Client),
@@ -1446,7 +1446,7 @@ busy_send_loop(Server, Client, N) ->
                           busy_send_2(Server, Client, N+1)
                   after 10000 ->
                             %% If this happens, see busy_send_srv
-                            ?t:fail({timeout,{server,not_send,flush([])}})
+                            ct:fail({timeout,{server,not_send,flush([])}})
                   end
     end.
 
@@ -1457,7 +1457,7 @@ busy_send_2(Server, Client, _N) ->
         {Server,[closed]} ->
             receive {Client,[0,{error,closed}]} -> ok end
     after 10000 ->
-              ?t:fail({timeout,{server,not_closed,flush([])}})
+              ct:fail({timeout,{server,not_closed,flush([])}})
     end.
 
 busy_send_srv(L, Master, Msg) ->
@@ -1547,7 +1547,7 @@ busy_disconnect_active_send(S, Data) ->
 	{error,closed} ->
 	    receive
 		{tcp_closed,S} -> ok;
-		_Other -> ?t:fail()
+		_Other -> ct:fail(failed)
 	    end
     end.
 
@@ -1626,7 +1626,7 @@ fill_sendq_loop(Server, Client, Reader) ->
 						("Got reader closed.~n"),
 					ok
 				after 3000 ->
-					?t:fail({timeout,{closed,reader}})
+					ct:fail({timeout,{closed,reader}})
 				end;
 			  {Reader,[{error,closed}]} ->
 			  io:format("Got reader closed.~n"),
@@ -1634,10 +1634,10 @@ fill_sendq_loop(Server, Client, Reader) ->
 					io:format("Got server closed~n"),
 					ok
 				after 3000 ->
-					?t:fail({timeout,{closed,server}})
+					ct:fail({timeout,{closed,server}})
 				end
 		  after 3000 ->
-			  ?t:fail({timeout,{closed,[server,reader]}})
+			  ct:fail({timeout,{closed,[server,reader]}})
 		  end
     end.
 
@@ -1845,7 +1845,7 @@ test_prio_accept_async() ->
     spawn(?MODULE,priority_server,[{self(),Ref}]),
     Port = receive
                {Ref,P} -> P
-           after 5000 -> ?t:fail({error,"helper process timeout"})
+           after 5000 -> ct:fail({error,"helper process timeout"})
            end,
     receive
     after 3000 -> ok
@@ -1859,15 +1859,15 @@ test_prio_accept_async() ->
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
         {Ref,Error} ->
-            ?t:fail({missmatch,Error})
-    after 5000 -> ?t:fail({error,"helper process timeout"})
+            ct:fail({missmatch,Error})
+    after 5000 -> ct:fail({error,"helper process timeout"})
     end,
     receive
         {Ref,{ok,[{priority,4},{tos,Tos1}]}} ->
             ok;
         {Ref,Error2} ->
-            ?t:fail({missmatch,Error2})
-    after 5000 -> ?t:fail({error,"helper process timeout"})
+            ct:fail({missmatch,Error2})
+    after 5000 -> ct:fail({error,"helper process timeout"})
     end,
 
     {ok,[{priority,4},{tos,Tos2}]} = inet:getopts(Sock2,[priority,tos]),
@@ -1927,7 +1927,7 @@ so_priority(Config) when is_list(Config) ->
 		{unix,linux} ->
 		    case os:version() of
 			{X,Y,_} when (X > 2) or ((X =:= 2) and (Y >= 4)) ->
-			    ?t:fail({error,
+			    ct:fail({error,
 					   "so_priority should work on this "
 					   "OS, but does not"});
 			_ ->
@@ -2716,7 +2716,7 @@ otp_7731(Config) when is_list(Config) ->
 
     %% Now make sure inet_drv does not leak any internal messages.
     receive Msg ->
-	    test_server:fail({unexpected, Msg})
+	    ct:fail({unexpected, Msg})
     after 1000 ->
 	    ok
     end,

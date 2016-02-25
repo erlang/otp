@@ -113,7 +113,7 @@ start_check(Type, Name, Envs) ->
 	Pid when is_pid(Pid) ->
 	    ok;
 	_ ->
-	    test_server:fail(heart_not_started)
+	    ct:fail(heart_not_started)
     end,
     {ok, Node}.
 
@@ -124,14 +124,14 @@ start(Config) when is_list(Config) ->
     rpc:call(Node, init, reboot, []),
     receive
 	{nodedown, Node} -> ok
-    after 2000 -> test_server:fail(node_not_closed)
+    after 2000 -> ct:fail(node_not_closed)
     end,
     test_server:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;
 	_ -> 
-	    test_server:fail(node_rebooted)
+	    ct:fail(node_rebooted)
     end,
     test_server:stop_node(Node).
 
@@ -159,7 +159,7 @@ restart(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
     test_server:sleep(5000),
     node_check_up_down(Node, 2000),
@@ -181,7 +181,7 @@ reboot(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
     test_server:sleep(5000),
     node_check_up_down(Node, 2000),
@@ -232,7 +232,7 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
 	    ok
     %% timeout is very liberal here. nodedown is received in about 1 s. on linux (palantir)
     %% and in about 10 s. on solaris (carcharoth)
-    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
+    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
     test_server:sleep(3000),
     node_check_up_down(Node, 2000),
@@ -277,7 +277,7 @@ node_start_soon_after_crash_test(Config) when is_list(Config) ->
     rpc:cast(Node, Mod, do, []),
 
     receive {nodedown, Node} -> ok
-    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
+    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
     test_server:sleep(20000),
     node_check_up_down(Node, 15000),
@@ -292,10 +292,10 @@ node_check_up_down(Node, Tmo) ->
 	    receive
 		{nodedown, Node} -> ok
 	    after Tmo ->
-		    test_server:fail(node_not_closed2)
+		    ct:fail(node_not_closed2)
 	    end;
 	_ ->
-	    test_server:fail(node_not_rebooted)
+	    ct:fail(node_not_rebooted)
     end.
 
 %% Only tests bad command, correct behaviour is tested in reboot/1.
@@ -324,14 +324,14 @@ clear_cmd(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
     test_server:sleep(5000),
     case net_adm:ping(Node) of
 	pong ->
 	    erlang:monitor_node(Node, true);
 	_ ->
-	    test_server:fail(node_not_rebooted)
+	    ct:fail(node_not_rebooted)
     end,
     ok = rpc:call(Node, heart, set_cmd,
 			["erl -noshell -heart " ++ name(Node) ++ "&"]),
@@ -341,14 +341,14 @@ clear_cmd(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
     test_server:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;
 	_ ->
-	    test_server:fail(node_rebooted)
+	    ct:fail(node_rebooted)
     end,
     ok.
 
@@ -390,7 +390,7 @@ callback_api(Config) when is_list(Config) ->
     {ok, {M2,F2}} = rpc:call(Node, heart, get_callback, []),
     ok = rpc:call(Node, heart, set_callback, [M2,F3]),
     receive {nodedown, Node} -> ok
-    after 5000 -> test_server:fail(node_not_killed)
+    after 5000 -> ct:fail(node_not_killed)
     end,
     stop_node(Node),
     ok.

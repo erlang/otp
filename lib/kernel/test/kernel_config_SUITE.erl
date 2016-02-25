@@ -100,7 +100,7 @@ sync(Conf) when is_list(Conf) ->
     io:format("~p~n", [{t2, {TT, T}}]),
     ?line stop_node(cp1),
     if
-	TT-T1 < 15000 -> ?line ?t:fail({too_short_time, TT-T1});
+	TT-T1 < 15000 -> ct:fail({too_short_time, TT-T1});
 	true -> ok
     end,
     ok.
@@ -108,7 +108,7 @@ sync(Conf) when is_list(Conf) ->
 wait_for_node(Node) ->
     case rpc:call(Node, init, get_status, []) of
 	{started,_} -> ok;
-	{badrpc, R} -> ?line ?t:fail({rpc_failed, R});
+	{badrpc, R} -> ct:fail({rpc_failed, R});
 	_Other -> wait_for_node(Node)
     end.
 

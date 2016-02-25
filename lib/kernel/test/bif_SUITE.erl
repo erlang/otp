@@ -427,7 +427,7 @@ spawn_failures(Config) when is_list(Config) ->
 	false ->
 	    receive
 		{'EXIT', P, R} ->
-		    ?line test_server:fail({'EXIT', P, R})
+		    ct:fail({'EXIT', P, R})
 	    after 0 ->
 		    ok
 	    end;

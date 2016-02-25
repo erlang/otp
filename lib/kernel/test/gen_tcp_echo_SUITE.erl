@@ -280,7 +280,7 @@ echo_packet1(EchoSock, Type, EchoFun, Size) ->
 				  case Size of
 				      {N, Max} when N > Max -> 
 					  ?line 
-					      test_server:fail(
+					      ct:fail(
 						{packet_through, {N, Max}});
 				      _ -> ok
 				  end;
@@ -291,11 +291,11 @@ echo_packet1(EchoSock, Type, EchoFun, Size) ->
 					  io:format(" Blocked!");
 				      _ -> 
 					  ?line
-					      test_server:fail(
+					      ct:fail(
 						{packet_blocked, Size})
 				  end;
 			  Error ->
-			      ?line test_server:fail(Error)
+			      ct:fail(Error)
 		      end
 	  end.
 
@@ -317,11 +317,11 @@ active_recv(Sock, Type, [PacketEcho|Tail]) ->
 	      {Tag, Sock, PacketEcho} ->
 		  active_recv(Sock, Type, Tail);
 	      {Tag, Sock, Bad} ->
-		  ?line test_server:fail({wrong_data, Bad, expected, PacketEcho});
+		  ct:fail({wrong_data, Bad, expected, PacketEcho});
 	      {tcp_error, Sock, Reason} ->
 		  {error, Reason};
 	      Other ->
-		  ?line test_server:fail({unexpected_message, Other, Tag})
+		  ct:fail({unexpected_message, Other, Tag})
 	  end.
 
 passive_echo(Sock, _Type, Packet, PacketEchos) ->
@@ -338,13 +338,13 @@ passive_recv(Sock, [PacketEcho | Tail]) ->
 		  passive_recv(Sock, Tail);
 	      {ok, Bad} ->
 		  io:format("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
-		  ?line test_server:fail({wrong_data, Bad});
+		  ct:fail({wrong_data, Bad});
 	      {error,PacketEcho} ->
 		  passive_recv(Sock, Tail); % expected error
 	      {error, _}=Error ->
 		  Error;
 	      Other ->
-		  ?line test_server:fail({unexpected_message, Other})
+		  ct:fail({unexpected_message, Other})
 	  end.
 
 active_once_echo(Sock, Type, Packet, PacketEchos) ->
@@ -364,11 +364,11 @@ active_once_recv(Sock, Type, [PacketEcho | Tail]) ->
 		  inet:setopts(Sock, [{active, once}]),
 		  active_once_recv(Sock, Type, Tail);
 	      {Tag, Sock, Bad} ->
-		  ?line test_server:fail({wrong_data, Bad});
+		  ct:fail({wrong_data, Bad});
 	      {tcp_error, Sock, Reason} ->
 		  {error, Reason};
 	      Other ->
-		  ?line test_server:fail({unexpected_message, Other, expected, {Tag, Sock, PacketEcho}})
+		  ct:fail({unexpected_message, Other, expected, {Tag, Sock, PacketEcho}})
 	  end.
 
 %%% Building of random packets.

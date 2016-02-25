@@ -843,7 +843,7 @@ start_node(Name, Args) ->
     ct:log("Trying to start ~w@~s~n", [Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->
-	    test_server:fail(Reason);
+	    ct:fail(Reason);
 	{ok,Node} ->
 	    ct:log("Node ~p started~n", [Node]),
 	    Node
@@ -1055,7 +1055,7 @@ access(Config) when is_list(Config) ->
     ?line {ok,Fd2} = ?FILE_MODULE:open(Name,read),
     ?line case catch io:format(Fd2,"XXXX",[]) of
 	      ok ->
-		  test_server:fail({format,write});
+		  ct:fail({format,write});
 	      _ ->
 		  ok
 	  end,
@@ -2547,7 +2547,7 @@ write_compressed(Config) when is_list(Config) ->
 	{ok, #file_info{size=Size}} when Size < TotalSize ->
 	    ok;
 	{ok, #file_info{size=Size}} when Size == TotalSize ->
-	    test_server:fail(file_not_compressed)
+	    ct:fail(file_not_compressed)
     end,
 
     %% Write again to ensure that the file is truncated.
@@ -2661,11 +2661,11 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
                     ?line shutdown = Reason
             end;
         {'DOWN', Ref, _, _, Reason2} ->
-            test_server:fail({worker_exited, Reason2})
+            ct:fail({worker_exited, Reason2})
     after 60000 ->
             exit(Pid, shutdown),
             erlang:demonitor(Ref, [flush]),
-            test_server:fail(worker_timeout)
+            ct:fail(worker_timeout)
     end,
     compress_async_crash_loop(N - 1, Path, ExpectedData).
 
@@ -3061,7 +3061,7 @@ delayed_write(Config) when is_list(Config) ->
         {Child1, wrote} -> 
             ok;
         {'DOWN', Mref1, _, _, _} = Down1a ->
-            ?t:fail(Down1a)
+            ct:fail(Down1a)
     end,
     ?t:sleep(1000), % Just in case the file system is slow
     {ok, Fd3} = ?FILE_MODULE:open(File, [read]),
@@ -3071,7 +3071,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref1, process, Child1, normal} -> 
             ok;
         {'DOWN', Mref1, _, _, _} = Down1b ->
-            ?t:fail(Down1b)
+            ct:fail(Down1b)
     end,
     ?t:sleep(1000), % Just in case the file system is slow
     {ok, Data1} = ?FILE_MODULE:pread(Fd3, bof, Size+1),
@@ -3084,7 +3084,7 @@ delayed_write(Config) when is_list(Config) ->
         {Child2, wrote} -> 
             ok;
         {'DOWN', Mref2, _, _, _} = Down2a ->
-            ?t:fail(Down2a)
+            ct:fail(Down2a)
     end,
     ?t:sleep(1000), % Just in case the file system is slow
     {ok, Fd4} = ?FILE_MODULE:open(File, [read]),
@@ -3094,7 +3094,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref2, process, Child2, kill} -> 
             ok;
         {'DOWN', Mref2, _, _, _} = Down2b ->
-            ?t:fail(Down2b)
+            ct:fail(Down2b)
     end,
     ?t:sleep(1000), % Just in case the file system is slow
     eof = ?FILE_MODULE:pread(Fd4, bof, 1),

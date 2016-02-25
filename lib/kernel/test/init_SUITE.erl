@@ -100,7 +100,7 @@ get_arguments(Config) when is_list(Config) ->
 		  check_d(Arguments);
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail(get_arguments)
+		  ct:fail(get_arguments)
 	  end,
     ok.
 
@@ -112,10 +112,10 @@ check_a(Args) ->
 		false ->
 		    ok;
 		_ ->
-		    ?t:fail(check_a1)
+		    ct:fail(check_a1)
 	    end;
 	_ ->
-	    ?t:fail(check_a2)
+	    ct:fail(check_a2)
     end.
 
 check_b(Args) ->
@@ -129,13 +129,13 @@ check_b(Args) ->
 			false ->
 			    ok;
 			_ ->
-			    ?t:fail(check_b1)
+			    ct:fail(check_b1)
 		    end;
 		_ ->
-		    ?t:fail(check_b2)
+		    ct:fail(check_b2)
 	    end;
 	_ ->
-	    ?t:fail(check_b3)
+	    ct:fail(check_b3)
     end.
 
 check_c(Args) ->
@@ -149,13 +149,13 @@ check_c(Args) ->
 			false ->
 			    ok;
 			_ ->
-			    ?t:fail(check_c1)
+			    ct:fail(check_c1)
 		    end;
 		_ ->
-		    ?t:fail(check_c2)
+		    ct:fail(check_c2)
 	    end;
 	_ ->
-	    ?t:fail(check_c3)
+	    ct:fail(check_c3)
     end.
 
 check_d(Args) ->
@@ -166,10 +166,10 @@ check_d(Args) ->
 		false ->
 		    ok;
 		_ ->
-		    ?t:fail(check_d1)
+		    ct:fail(check_d1)
 	    end;
 	_ ->
-	    ?t:fail(check_d2)
+	    ct:fail(check_d2)
     end.
 
 get_argument(doc) ->[];
@@ -182,35 +182,35 @@ get_argument(Config) when is_list(Config) ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, b})
+		  ct:fail({get_argument, b})
 	  end,
     ?line case rpc:call(Node, init, get_argument, [a]) of
 	      {ok, [["kalle"]]} ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, a})
+		  ct:fail({get_argument, a})
 	  end,
     ?line case rpc:call(Node, init, get_argument, [c]) of
 	      {ok, [["4", "5", "6"], ["7", "8", "9"]]} ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, c})
+		  ct:fail({get_argument, c})
 	  end,
     ?line case rpc:call(Node, init, get_argument, [d]) of
 	      {ok, [[]]} ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, d})
+		  ct:fail({get_argument, d})
 	  end,
     ?line case rpc:call(Node, init, get_argument, [e]) of
 	      error ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, e})
+		  ct:fail({get_argument, e})
 	  end,
     stop_node(Node),
     ok.
@@ -236,7 +236,7 @@ get_plain_arguments(Config) when is_list(Config) ->
 		  ok;
 	      As ->
 		  stop_node(Node),
-		  ?t:fail({get_argument, As})
+		  ct:fail({get_argument, As})
 	  end,
     stop_node(Node),
 
@@ -332,7 +332,7 @@ loop_restart(N,Node,EHPid) ->
 		  ok
 	  after 10000 ->
 		  loose_node:stop(Node),
-		  ?t:fail(not_stopping)
+		  ct:fail(not_stopping)
 	  end,
     ?line ok = wait_for(30, Node, EHPid),
     ?line loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[error_logger])).
@@ -399,7 +399,7 @@ restart(Config) when is_list(Config) ->
 		  ok
 	  after 10000 ->
 		  loose_node:stop(Node),
-		  ?t:fail(not_stopping)
+		  ct:fail(not_stopping)
 	  end,
     ?line ok = wait_restart(30, Node),
 
@@ -420,7 +420,7 @@ restart(Config) when is_list(Config) ->
 		  ok;
 	      _ ->
 		  loose_node:stop(Node),
-		  ?t:fail(processes_not_greater)
+		  ct:fail(processes_not_greater)
 	  end,
 
     %% Test that, for instance, the same argument still exists.
@@ -429,13 +429,13 @@ restart(Config) when is_list(Config) ->
 		  ok;
 	      _ ->
 		  loose_node:stop(Node),
-		  ?t:fail({get_argument, restart_fail})
+		  ct:fail({get_argument, restart_fail})
 	  end,
     loose_node:stop(Node),
     ok.
 
 wait_restart(0, _Node) ->
-    ?t:fail(not_restarted);
+    ct:fail(not_restarted);
 wait_restart(N, Node) ->
     case net_adm:ping(Node) of
 	pong -> ok;
@@ -480,7 +480,7 @@ reboot(Config) when is_list(Config) ->
 		  ok
 	  after 10000 ->
 		  stop_node(Node),
-		  ?t:fail(not_stopping)
+		  ct:fail(not_stopping)
 	  end,
     ?t:sleep(5000),
     ?line case net_adm:ping(Node) of
@@ -488,7 +488,7 @@ reboot(Config) when is_list(Config) ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail(system_rebooted)
+		  ct:fail(system_rebooted)
 	  end,
     ok.
 
@@ -507,7 +507,7 @@ stop(Config) when is_list(Config) ->
 		  ok
 	  after 10000 ->
 		  stop_node(Node),
-		  ?t:fail(not_stopping)
+		  ct:fail(not_stopping)
 	  end,
     ?t:sleep(5000),
     ?line case net_adm:ping(Node) of
@@ -515,7 +515,7 @@ stop(Config) when is_list(Config) ->
 		  ok;
 	      _ ->
 		  stop_node(Node),
-		  ?t:fail(system_rebooted)
+		  ct:fail(system_rebooted)
 	  end,
     ok.
 
@@ -534,7 +534,7 @@ get_status(Config) when is_list(Config) ->
 	      true ->
 		  ok;
 	      _ ->
-		  ?t:fail(get_status)
+		  ct:fail(get_status)
 	  end.
 
 %% ------------------------------------------------
@@ -548,7 +548,7 @@ script_id(Config) when is_list(Config) ->
 	      is_list(Name), is_list(Vsn) ->
 		  ok;
 	      true ->
-		  ?t:fail(not_standard_script)
+		  ct:fail(not_standard_script)
 	  end,
     ok.
 

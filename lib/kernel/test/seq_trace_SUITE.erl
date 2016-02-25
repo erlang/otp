@@ -265,7 +265,7 @@ do_trace_exit(TsType) ->
 		  seq_trace:set_token([]);
 	      Other ->
 		  seq_trace:set_token([]),
-		  ?t:fail({received, Other})
+		  ct:fail({received, Other})
 	  end,
     ?line Self = self(),
     ?line Result = stop_tracer(2),
@@ -299,7 +299,7 @@ do_distributed_exit(TsType) ->
 		  seq_trace:set_token([]);
 	      Other ->
 		  seq_trace:set_token([]),
-		  ?t:fail({received, Other})
+		  ct:fail({received, Other})
 	  end,
     ?line Self = self(),
     ?line Result = rpc:call(Node, ?MODULE, stop_tracer, [1]),
@@ -424,7 +424,7 @@ do_port(TsType, Config) ->
 		  ok;
 	      Other ->
 		  ?line seq_trace:reset_trace(),
-		  ?line ?t:fail({unexpected,Other})
+		  ct:fail({unexpected,Other})
 	  end,
     %% OTP-4218 Messages from ports should not affect seq trace token.
     %%
@@ -440,7 +440,7 @@ do_port(TsType, Config) ->
 		  check_ts(TsType, Ts1),
 		  ok;
 	      Other1 ->
-		  ?line ?t:fail({unexpected,Other1})
+		  ct:fail({unexpected,Other1})
 	  end,
 
 
@@ -452,7 +452,7 @@ do_port(TsType, Config) ->
 	      {seq_trace,0,{print,_,_,[],Huge}} ->
 		  ok;
 	      Other2 ->
-		  ?line ?t:fail({unexpected,Other2})
+		  ct:fail({unexpected,Other2})
 	  end,
     unlink(Port),
     exit(Port,kill),
@@ -463,9 +463,9 @@ get_port_message(Port) ->
 	{Port,{data,Bin}} when is_binary(Bin) ->
 	    binary_to_term(Bin);
 	Other ->
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
-	    ?t:fail(timeout)
+	    ct:fail(timeout)
     end.
 
 
@@ -831,7 +831,7 @@ check_ts(no_timestamp, Ts) ->
 	no_timestamp = Ts
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(timestamp, Ts) ->
@@ -842,7 +842,7 @@ check_ts(timestamp, Ts) ->
 	true = is_integer(Us)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(monotonic_timestamp, Ts) ->
@@ -850,7 +850,7 @@ check_ts(monotonic_timestamp, Ts) ->
 	true = is_integer(Ts)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(strict_monotonic_timestamp, Ts) ->
@@ -860,7 +860,7 @@ check_ts(strict_monotonic_timestamp, Ts) ->
 	true = is_integer(UMI)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok.
 	

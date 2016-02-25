@@ -546,7 +546,7 @@ access(Config) when is_list(Config) ->
     ?line {ok,Fd2} = ?PRIM_FILE:open(Name, [read]),
     ?line case catch ?PRIM_FILE:write(Fd2,"XXXX") of
 	      ok ->
-		  test_server:fail({access,write});
+		  ct:fail({access,write});
 	      _ ->
 		  ok
 	  end,
@@ -1833,7 +1833,7 @@ write_compressed(Config) when is_list(Config) ->
 	{ok, #file_info{size=Size}} when Size < TotalSize ->
 	    ok;
 	{ok, #file_info{size=Size}} when Size == TotalSize ->
-	    test_server:fail(file_not_compressed)
+	    ct:fail(file_not_compressed)
     end,
 
     %% Write again to ensure that the file is truncated.

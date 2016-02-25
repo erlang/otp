@@ -173,7 +173,7 @@ register_1(Config) when is_list(Config) ->
 	I =:= I2 ->
 	    ok;
 	true ->
-	    test_server:fail({notsync, I, I2})
+	    ct:fail({notsync, I, I2})
     end,
     ?line _ = global:unregister_name(foo),
     write_high_level_trace(Config),
@@ -477,14 +477,14 @@ names(Config) when is_list(Config) ->
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout1)
+	2000 -> ct:fail(timeout1)
     end,
 
     rpc:call(Cp1, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line _ = global:unregister_name(test),
@@ -582,14 +582,14 @@ names_hidden(Config) when is_list(Config) ->
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout1)
+	2000 -> ct:fail(timeout1)
     end,
 
     rpc:call(Cp1, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
     ?line _ = rpc:call(Cp3, global, unregister_name, [test]),
@@ -650,7 +650,7 @@ locks(Config) when is_list(Config) ->
     Pid2 ! {set_lock_loop, test_lock, self()},
     % make sure we don't have the msg
     receive
-	{got_lock, Pid2} -> test_server:fail(got_lock)
+	{got_lock, Pid2} -> ct:fail(got_lock)
     after
 	1000 -> ok
     end,
@@ -661,7 +661,7 @@ locks(Config) when is_list(Config) ->
     after
 	% 12000 >> 5000, which is the max time before a new retry for
         % set_lock
-	12000 -> test_server:fail(got_lock2)
+	12000 -> ct:fail(got_lock2)
     end,
 
     % let proc set the same lock
@@ -772,7 +772,7 @@ locks_hidden(Config) when is_list(Config) ->
     Pid2 ! {set_lock_loop, test_lock, self()},
     % make sure we don't have the msg
     receive
-	{got_lock, Pid2} -> test_server:fail(got_lock)
+	{got_lock, Pid2} -> ct:fail(got_lock)
     after
 	1000 -> ok
     end,
@@ -783,7 +783,7 @@ locks_hidden(Config) when is_list(Config) ->
     after
 	% 12000 >> 5000, which is the max time before a new retry for
         % set_lock
-	12000 -> test_server:fail(got_lock2)
+	12000 -> ct:fail(got_lock2)
     end,
     ?line true = req(HPid, {del_lock_sync, test_lock, self()}),     
 
@@ -1291,7 +1291,7 @@ stress_partition(Config) when is_list(Config) ->
     receive
 	{nodedown, Cp5} -> ok
     after
-	20000 -> test_server:fail({no_nodedown, Cp5})
+	20000 -> ct:fail({no_nodedown, Cp5})
     end,
     monitor_node(Cp5, false),    
 
@@ -1973,7 +1973,7 @@ otp_6931(Config) when is_list(Config) ->
     ?line {global_name_server,CAf} ! {nodeup, fake_node},
     timer:sleep(100),
     stop_node(CAf),
-    receive {nodeup,fake_node} -> test_server:fail({info_report, was, sent})
+    receive {nodeup,fake_node} -> ct:fail({info_report, was, sent})
     after 1000 -> ok
     end,
     ok.
@@ -2352,7 +2352,7 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
               _ -> ?t:format("ERROR:~nMonitoredBy ~p~n"
                              "global_name_servers ~p~n", 
                              [MonitoredByNode, Gs]),
-                   ?t:fail(monitor_mismatch)
+                   ct:fail(monitor_mismatch)
           end,
     ok.
 
@@ -3254,7 +3254,7 @@ global_groups_change(Config) ->
 	      Info1ok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", Cp1}, {Info1, Info1ok}})
 	  end,
 
@@ -3262,7 +3262,7 @@ global_groups_change(Config) ->
 	      Info2ok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", Cp2}, {Info2, Info2ok}})
 	  end,
 
@@ -3270,7 +3270,7 @@ global_groups_change(Config) ->
 	      Info3ok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", Cp3}, {Info3, Info3ok}})
 	  end,
 
@@ -3278,7 +3278,7 @@ global_groups_change(Config) ->
 	      InfoAok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", CpA}, {InfoA, InfoAok}})
 	  end,
 
@@ -3286,7 +3286,7 @@ global_groups_change(Config) ->
 	      InfoBok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", CpB}, {InfoB, InfoBok}})
 	  end,
 
@@ -3295,7 +3295,7 @@ global_groups_change(Config) ->
 	      InfoCok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", CpC}, {InfoC, InfoCok}})
 	  end,
 
@@ -3303,7 +3303,7 @@ global_groups_change(Config) ->
 	      InfoDok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", CpD}, {InfoD, InfoDok}})
 	  end,
 
@@ -3311,7 +3311,7 @@ global_groups_change(Config) ->
 	      InfoEok -> 
 		  ok;
 	      _ ->
-		  test_server:fail({{"could not change the global groups"
+		  ct:fail({{"could not change the global groups"
                                      " in node", CpE}, {InfoE, InfoEok}})
 	  end,
 
@@ -3928,7 +3928,7 @@ lost_nodes_waiter(N1, N2) ->
     receive
 	{nodedown, Node} when Node =:= N1 ; Node =:= N2 ->
 	    io:format("~p went down!",[Node]),
-	    ?line ?t:fail("Node went down.")
+	    ct:fail("Node went down.")
     after 10000 ->
 	    ok
     end,
@@ -4265,7 +4265,7 @@ start_tracer() ->
     Pid = spawn(fun() -> tracer([]) end),
     case catch register(my_tracer, Pid) of
         {'EXIT', _} ->
-            ?t:fail(re_register_my_tracer);
+            ct:fail(re_register_my_tracer);
         _ ->
             ok
     end.
@@ -4306,7 +4306,7 @@ collect_tracers(Nodes) ->
 trace_message(M) ->
     case catch my_tracer ! M of
         {'EXIT', _} ->
-            ?t:fail(my_tracer_not_registered);
+            ct:fail(my_tracer_not_registered);
         _ ->
             ok
     end.

@@ -110,7 +110,7 @@ tick(Config) when is_list(Config) ->
     erlang:monitor_node(Node, true),
     receive
 	{nodedown, Node} ->
-	    test_server:fail("nodedown from other node")
+	    ct:fail("nodedown from other node")
     after 30000 ->
 	    erlang:monitor_node(Node, false),
 	    stop_node(Node)
@@ -153,13 +153,13 @@ tick(Config) when is_list(Config) ->
 	{tick_test, Error} ->
 	    stop_node(ServNode),
 	    stop_node(Node),
-	    test_server:fail(Error);
+	    ct:fail(Error);
 	{nodedown, Node} ->
 	    stop_node(ServNode),
-	    test_server:fail("client node died");
+	    ct:fail("client node died");
 	{nodedown, ServNode} ->
 	    stop_node(Node),
-	    test_server:fail("server node died")
+	    ct:fail("server node died")
     end,
     ok.
 
@@ -197,7 +197,7 @@ illegal_nodenames(Config) when is_list(Config) ->
 	{RPid, pinged} ->
 	    ok;
 	{nodedown, Node} ->
-	    ?t:fail("Remote node died.")
+	    ct:fail("Remote node died.")
     end,
     stop_node(Node),
     ok.
@@ -301,7 +301,7 @@ tick_change(Config) when is_list(Config) ->
     ?line unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
     ?line case DefaultTT of
 	      I when is_integer(I) -> ?line ok;
-	      _                 -> ?line ?t:fail(DefaultTT)
+	      _                 -> ct:fail(DefaultTT)
 	  end,
 
     % In case other nodes are connected
@@ -334,7 +334,7 @@ tick_change(Config) when is_list(Config) ->
 				     DefaultTT == net_kernel:get_net_ticktime()
 			     end),
 	    ?line process_flag(trap_exit, OTE),
-	    ?t:fail(Reason);
+	    ct:fail(Reason);
 	_ ->
 	    ok
     end,
@@ -1110,7 +1110,7 @@ receive_mn_msgs(Msgs) ->
 	    ?t:format("received ~p~n", [Msg]),
 	    case lists:member(Msg, Msgs) of
 		true -> receive_mn_msgs(lists:delete(Msg, Msgs));
-		false -> ?t:fail({unexpected_message, Msg,
+		false -> ct:fail({unexpected_message, Msg,
 				  expected_messages, Msgs})
 	    end;
 	{Dir, Node, Info} ->
@@ -1118,12 +1118,12 @@ receive_mn_msgs(Msgs) ->
 	    ?t:format("received ~p~n", [Msg]),
 	    case lists:member(Msg, Msgs) of
 		true -> receive_mn_msgs(lists:delete(Msg, Msgs));
-		false -> ?t:fail({unexpected_message, Msg,
+		false -> ct:fail({unexpected_message, Msg,
 				  expected_messages, Msgs})
 	    end;
 	Msg ->
 	    ?t:format("received ~p~n", [Msg]),
-	    ?t:fail({unexpected_message, Msg,
+	    ct:fail({unexpected_message, Msg,
 		     expected_messages, Msgs})
     end.
 
@@ -1191,10 +1191,10 @@ monitor_node_state() ->
 
 check_no_nodedown_nodeup(TimeOut) ->
     ?line receive
-	      {nodeup, _, _} = Msg -> ?line ?t:fail({unexpected_nodeup, Msg});
-	      {nodeup, _} = Msg -> ?line ?t:fail({unexpected_nodeup, Msg});
-	      {nodedown, _, _} = Msg -> ?line ?t:fail({unexpected_nodedown, Msg});
-	      {nodedown, _} = Msg -> ?line ?t:fail({unexpected_nodedown, Msg})
+	      {nodeup, _, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
+	      {nodeup, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
+	      {nodedown, _, _} = Msg -> ct:fail({unexpected_nodedown, Msg});
+	      {nodedown, _} = Msg -> ct:fail({unexpected_nodedown, Msg})
 	  after TimeOut ->
 		  ok
 	  end.
@@ -1237,7 +1237,7 @@ stop_node(Node) ->
 %	{nodedown, Node} ->
 %	    ok
 %    after 10000 ->
-%	    test_server:fail({stop_node, Node})
+%	    ct:fail({stop_node, Node})
 %    end.
 
 % from(H, [H | T]) -> T;

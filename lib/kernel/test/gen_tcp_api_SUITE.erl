@@ -188,7 +188,7 @@ t_shutdown_async(Config) when is_list(Config) ->
     ?line case erlang:port_info(S, queue_size) of
 	      {queue_size, N} when N > 0 -> ok;
 	      {queue_size, 0} when OS =:= win32 -> ok;
-	      {queue_size, 0} = T -> ?t:fail({unexpected, T})
+	      {queue_size, 0} = T -> ct:fail({unexpected, T})
 	  end,
 
     ?line ok = gen_tcp:shutdown(S, write),
@@ -196,7 +196,7 @@ t_shutdown_async(Config) when is_list(Config) ->
     ?line {error, closed} = gen_tcp:recv(Client, 0),
     ?line case length(Buf) of
 	      PayloadSize -> ok;
-	      Sz -> ?t:fail({payload_size,
+	      Sz -> ct:fail({payload_size,
 			     {expected, PayloadSize},
 			     {received, Sz}})
 	  end.
@@ -324,13 +324,13 @@ implicit_inet6(S, Addr) ->
 timeout({M,F,A}, Lower, Upper) ->
     case test_server:timecall(M, F, A) of
 	{Time, Result} when Time < Lower ->
-	    test_server:fail({too_short_time, Time, Result});
+	    ct:fail({too_short_time, Time, Result});
 	{Time, Result} when Time > Upper ->
-	    test_server:fail({too_long_time, Time, Result});
+	    ct:fail({too_long_time, Time, Result});
 	{_, {error, timeout}} ->
 	    ok;
 	{_, Result} ->
-	    test_server:fail({unexpected_result, Result})
+	    ct:fail({unexpected_result, Result})
     end.
 
 connect_timeout({M,F,A}, Lower, Upper) ->
@@ -345,17 +345,17 @@ connect_timeout({M,F,A}, Lower, Upper) ->
 		    Pinfo = erlang:port_info(Socket),
 		    Db = inet_db:lookup_socket(Socket),
 		    Peer = inet:peername(Socket),
-		    test_server:fail({too_short_time, Time, 
+		    ct:fail({too_short_time, Time,
 				      [Result,Pinfo,Db,Peer]});
 		_ ->
-		    test_server:fail({too_short_time, Time, Result})
+		    ct:fail({too_short_time, Time, Result})
 	    end;
 	{Time, Result} when Time > Upper ->
-	    test_server:fail({too_long_time, Time, Result});
+	    ct:fail({too_long_time, Time, Result});
 	{_, {error, timeout}} ->
 	    ok;
 	{_, Result} ->
-	    test_server:fail({unexpected_result, Result})
+	    ct:fail({unexpected_result, Result})
     end.
 
 %% Try to obtain an unused IP address in the local network.

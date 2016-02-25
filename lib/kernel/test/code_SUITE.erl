@@ -609,7 +609,7 @@ sticky_dir(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    io:format("~p\n", [Other]),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
     ?t:stop_node(Node),
     ok.
@@ -746,7 +746,7 @@ ext_mod_dep(Config) when is_list(Config) ->
     	    xref:stop(s),
 	    case Else of
 		ok -> ok;
-		_ -> test_server:fail(Else)
+		_ -> ct:fail(Else)
 	    end
     end.
 
@@ -1192,7 +1192,7 @@ on_load(Config) when is_list(Config) ->
     on_load_wait_for_all(Refs),
     receive
 	Any ->
-	    ?t:fail({unexpected,Any})
+	    ct:fail({unexpected,Any})
     after 10 ->
 	    ok
     end.
@@ -1428,7 +1428,7 @@ on_load_errors(Config) when is_list(Config) ->
     %% There should be no more messages.
     receive
 	Unexpected ->
-	    ?t:fail({unexpected,Unexpected})
+	    ct:fail({unexpected,Unexpected})
     after 10 ->
 	    ok
     end,
