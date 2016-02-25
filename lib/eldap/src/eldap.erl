@@ -564,6 +564,7 @@ loop(Cpid, Data) ->
             ?MODULE:loop(Cpid, NewData);
 
 	{_From, close} ->
+	    {no_reply,_NewData} = do_unbind(Data),
 	    unlink(Cpid),
 	    exit(closed);
 
@@ -611,7 +612,6 @@ loop(Cpid, Data) ->
 %%% --------------------------------------------------------------------
 %%% startTLS Request
 %%% --------------------------------------------------------------------
-
 do_start_tls(Data=#eldap{using_tls=true}, _, _, _) ->
     {{error,tls_already_started}, Data};
 do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout, Controls) ->
@@ -945,6 +945,24 @@ do_modify_dn_0(Data, Entry, NewRDN, DelOldRDN, NewSup, Controls) ->
     Resp = request(S, Data, Id, {modDNRequest, Req, Controls}),
     log2(Data, "modify DN reply = ~p~n", [Resp]),
     check_reply(Data#eldap{id = Id}, Resp, modDNResponse).
+
+%%%--------------------------------------------------------------------
+%%% unbindRequest
+%%%--------------------------------------------------------------------
+do_unbind(Data) ->
+    Req = "",
+    log2(Data, "unbind request = ~p (has no reply)~n", [Req]),
+    send_request(Data#eldap.fd, Data, Data#eldap.id, {unbindRequest, Req}),
+    case Data#eldap.using_tls of
+	true -> ssl:close(Data#eldap.fd);
+	false -> gen_tcp:close(Data#eldap.fd)
+    end,
+    {no_reply, Data#eldap{binddn = (#eldap{})#eldap.binddn,
+			  passwd = (#eldap{})#eldap.passwd,
+			  fd     = (#eldap{})#eldap.fd,
+			  using_tls = false
+			 }}.
+
 
 %%% --------------------------------------------------------------------
 %%% Send an LDAP request and receive the answer

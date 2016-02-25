@@ -135,7 +135,8 @@
 	<v>Handle = handle()</v>
       </type>
       <desc>
-        <p>Shutdown the connection.</p>
+        <p>Shutdown the connection after sending an unbindRequest to the server. If the connection is tls the connection
+	will be closed with <c>ssl:close/1</c>, otherwise with <c>gen_tcp:close/1</c>.</p>
       </desc>
     </func>
     <func>
