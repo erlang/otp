@@ -793,10 +793,9 @@ run(Config, Tests, Opts) ->
                 AbsFile = filename:rootname(SourceFile, ".erl"),
                 code:purge(Mod),
                 code:load_abs(AbsFile, Mod),
-%io:format("run~n"),
                 case catch Mod:t() of
                     {'EXIT', _Reason} = Error ->
-                        ?t:format("failed, got ~p~n", [Error]),
+                        io:format("failed, got ~p~n", [Error]),
                         fail();
                     ok ->
                         ok

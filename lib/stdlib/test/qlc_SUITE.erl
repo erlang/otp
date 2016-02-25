@@ -7951,7 +7951,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
 
     R = case catch Mod:function() of
             {'EXIT', _Reason} = Error ->
-                ?t:format("failed, got ~p~n", [Error]),
+                io:format("failed, got ~p~n", [Error]),
                 fail(SourceFile);
             Reply ->
                 Reply
@@ -7962,7 +7962,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
         {file, cover_compiled} ->
             ok;
         {file, _} ->
-            ?t:format("qlc_pt was loaded in runtime~n", []),
+            io:format("qlc_pt was loaded in runtime~n", []),
             fail(SourceFile);
         false ->
             ok
@@ -8163,11 +8163,11 @@ warnings(File, Ws) ->
     end.
 
 expected(Test, Expected, Got, File) ->
-    ?t:format("~nTest ~p failed. ", [Test]),
+    io:format("~nTest ~p failed. ", [Test]),
     expected(Expected, Got, File).
 
 expected(Expected, Got, File) ->
-    ?t:format("Expected~n  ~p~n, but got~n  ~p~n", [Expected, Got]),
+    io:format("Expected~n  ~p~n, but got~n  ~p~n", [Expected, Got]),
     fail(File).
 
 fail(Source) ->

@@ -3467,7 +3467,7 @@ format_level(Level, Count, Config) ->
               Count ->
                   ok;
               Other ->
-                  ?t:format("Expected ~w warning(s); got ~w", [Count,Other]),
+                  io:format("Expected ~w warning(s); got ~w", [Count,Other]),
                   fail()
           end,
     ok.
@@ -3913,7 +3913,7 @@ run(Config, Tests) ->
                     E -> 
                         BadL;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end

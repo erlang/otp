@@ -717,9 +717,8 @@ chk_normal_tab_struct_size() ->
 		    erlang:system_info(wordsize),
 		    erlang:system_info(smp_support),
 		    erlang:system_info(heap_type)},
-    ?line ?t:format("System = ~p~n", [System]),
-    %%?line ?t:format("?NORMAL_TAB_STRUCT_SZ=~p~n", [?NORMAL_TAB_STRUCT_SZ]),
-    ?line ?t:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
+    io:format("System = ~p~n", [System]),
+    io:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
     ok.
 %   ?line case System of
 %             {{unix, sunos}, {5, 8, 0}, 4, false, private} ->
@@ -3563,8 +3562,8 @@ verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
 			TPs),
     ?line lists:foreach(fun (TP) ->
 				?line XScheds = count_exit_sched(TP),
-				?line ?t:format("~p XScheds=~p~n",
-						[TP, XScheds]),
+				io:format("~p XScheds=~p~n",
+					  [TP, XScheds]),
 				?line true = XScheds >= 5
 			end,
 			TPs),
@@ -4409,10 +4408,12 @@ heavy_lookup_do(Opts) ->
 do_lookup(_Tab, 0) -> ok;
 do_lookup(Tab, N) ->
     case ets:lookup(Tab, N) of
-	[] -> ?t:format("Set #~p was reported as empty. Not valid.",
-				 [N]),
-	      exit('Invalid lookup');
-	_ ->  do_lookup(Tab, N-1)
+	[] ->
+	    io:format("Set #~p was reported as empty. Not valid.",
+		      [N]),
+	    exit('Invalid lookup');
+	_ ->
+	    do_lookup(Tab, N-1)
     end.
 
 heavy_lookup_element(doc) -> ["Performs multiple lookups for ",

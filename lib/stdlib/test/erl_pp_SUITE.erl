@@ -1189,11 +1189,11 @@ compile(Config, Tests) ->
                             ok ->
                                 BadL;
                             not_ok ->
-                                ?t:format("~nTest ~p failed.~n", [N]),
+                                io:format("~nTest ~p failed.~n", [N]),
                                 fail()
                         end;
                     Bad ->
-                        ?t:format("~nTest ~p failed. got~n  ~p~n",
+                        io:format("~nTest ~p failed. got~n  ~p~n",
                                   [N, Bad]),
                         fail()
                 end

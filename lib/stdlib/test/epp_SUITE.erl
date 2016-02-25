@@ -1589,7 +1589,7 @@ eval_tests(Config, Fun, Tests) ->
                     true ->
                         BadL;
                     false ->
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Return]),
 			fail()
                 end

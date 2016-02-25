@@ -741,7 +741,6 @@ set_byte(File, Pos, Byte) ->
     ?line file:close(Fd).
 
 copy_file(Src, Dest) ->
-    % ?t:format("copying from ~p to ~p~n", [Src, Dest]),
     ?line {ok, _} = file:copy(Src, Dest),
     ?line ok = file:change_mode(Dest, 8#0666).
 
