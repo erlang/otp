@@ -168,7 +168,7 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 
 %% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
-    ?line done = empty(2, false).
+    done = empty(2, false).
 
 empty(N, Toggle) when N > 0 ->
     %% R3 Beam copies the second argument to the first before call.
@@ -197,14 +197,14 @@ failure(Module, Conf) ->
     Src = filename:join(proplists:get_value(data_dir, Conf),
 			atom_to_list(Module)),
     Out = proplists:get_value(priv_dir, Conf),
-    ?line io:format("Compiling: ~ts\n", [Src]),
-    ?line CompRc = compile:file(Src, [{outdir,Out},return,time]),
-    ?line io:format("Result: ~p\n",[CompRc]),
-    ?line case CompRc of
-	      error -> ok;
-	      {error,Errors,_} -> check_errors(Errors);
-	      _ -> ct:fail({no_error, CompRc})
-	  end,
+    io:format("Compiling: ~ts\n", [Src]),
+    CompRc = compile:file(Src, [{outdir,Out},return,time]),
+    io:format("Result: ~p\n",[CompRc]),
+    case CompRc of
+	error -> ok;
+	{error,Errors,_} -> check_errors(Errors);
+	_ -> ct:fail({no_error, CompRc})
+    end,
     ok.
 
 check_errors([{_,Eds}|T]) ->
@@ -240,44 +240,44 @@ try_it(StartNode, Module, Conf) ->
     try_it(StartNode, Module, {minutes,10}, Conf).
 
 try_it(StartNode, Module, Timetrap, Conf) ->
-    ?line OtherOpts = [],			%Can be changed to [time] if needed
+    OtherOpts = [],			%Can be changed to [time] if needed
     Src = filename:join(proplists:get_value(data_dir, Conf),
 			atom_to_list(Module)),
     Out = proplists:get_value(priv_dir,Conf),
-    ?line io:format("Compiling: ~s\n", [Src]),
-    ?line CompRc0 = compile:file(Src, [clint,{outdir,Out},report,
+    io:format("Compiling: ~s\n", [Src]),
+    CompRc0 = compile:file(Src, [clint,{outdir,Out},report,
 				       bin_opt_info|OtherOpts]),
-    ?line io:format("Result: ~p\n",[CompRc0]),
-    ?line {ok,_Mod} = CompRc0,
+    io:format("Result: ~p\n",[CompRc0]),
+    {ok,_Mod} = CompRc0,
 
     Node = case StartNode of
 	       false ->
 		   node();
 	       true ->
-		   ?line Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-		   ?line {ok,Node0} = start_node(compiler, Pa),
+		   Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
+		   {ok,Node0} = start_node(compiler, Pa),
 		   Node0
 	   end,
 		   
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line load_and_call(Out, Module),
+    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
-    ?line io:format("Compiling (without optimization): ~s\n", [Src]),
-    ?line CompRc1 = compile:file(Src,
+    io:format("Compiling (without optimization): ~s\n", [Src]),
+    CompRc1 = compile:file(Src,
 				 [no_copt,no_postopt,{outdir,Out},report|OtherOpts]),
 
-    ?line io:format("Result: ~p\n",[CompRc1]),
-    ?line {ok,_Mod} = CompRc1,
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    io:format("Result: ~p\n",[CompRc1]),
+    {ok,_Mod} = CompRc1,
+    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
 
     ct:timetrap(Timetrap),
-    ?line io:format("Compiling (with old inliner): ~s\n", [Src]),
-    ?line CompRc2 = compile:file(Src, [{outdir,Out},report,bin_opt_info,
+    io:format("Compiling (with old inliner): ~s\n", [Src]),
+    CompRc2 = compile:file(Src, [{outdir,Out},report,bin_opt_info,
 				       {inline,1000}|OtherOpts]),
-    ?line io:format("Result: ~p\n",[CompRc2]),
-    ?line {ok,_Mod} = CompRc2,
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    io:format("Result: ~p\n",[CompRc2]),
+    {ok,_Mod} = CompRc2,
+    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
 
     ct:timetrap(Timetrap),
     io:format("Compiling (from assembly): ~s\n", [Src]),
@@ -290,23 +290,23 @@ try_it(StartNode, Module, Timetrap, Conf) ->
 
     case StartNode of
 	false -> ok;
-	true -> ?line test_server:stop_node(Node)
+	true -> test_server:stop_node(Node)
     end,
     ok.
 
 load_and_call(Out, Module) ->
-    ?line io:format("Loading...\n",[]),
-    ?line {module,Module} = code:load_abs(filename:join(Out, Module)),
+    io:format("Loading...\n",[]),
+    {module,Module} = code:load_abs(filename:join(Out, Module)),
 
-    ?line io:format("Calling...\n",[]),
+    io:format("Calling...\n",[]),
     %% Call M:M, and expect ok back, that's our interface
-    ?line CallRc = Module:Module(),
-    ?line io:format("Got value: ~p\n",[CallRc]),
+    CallRc = Module:Module(),
+    io:format("Got value: ~p\n",[CallRc]),
 
-    ?line ok = CallRc,
+    ok = CallRc,
 
     %% Smoke-test of beam disassembler.
-    ?line test_lib:smoke_disasm(Module),
+    test_lib:smoke_disasm(Module),
 
     _ = code:delete(Module),
     _ = code:purge(Module),
@@ -339,58 +339,58 @@ from(_, []) -> [].
 
 %% Test generation of 'vsn' attribute.
 vsn_1(Conf) when is_list(Conf) ->
-    ?line M = vsn_1,
+    M = vsn_1,
 
     compile_load(M, proplists:get_value(data_dir, Conf), Conf),
-    ?line Vsn1 = get_vsn(M),
-    ?line timer:sleep(1000),
+    Vsn1 = get_vsn(M),
+    timer:sleep(1000),
 
     compile_load(M, proplists:get_value(data_dir, Conf), Conf),
-    ?line Vsn2 = get_vsn(M),
+    Vsn2 = get_vsn(M),
 
     compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
 				  "other"),
 		 Conf),
-    ?line Vsn3 = get_vsn(M),
-    ?line if
-	      Vsn1 == Vsn2, Vsn2 == Vsn3 ->
-		  ok;
-	      true ->
-		  ct:fail({vsn, Vsn1, Vsn2, Vsn3})
-	  end,
+    Vsn3 = get_vsn(M),
+    if
+	Vsn1 == Vsn2, Vsn2 == Vsn3 ->
+	    ok;
+	true ->
+	    ct:fail({vsn, Vsn1, Vsn2, Vsn3})
+    end,
     ok.
 
 %% Test overriding of generation of 'vsn' attribute.
 vsn_2(Conf) when is_list(Conf) ->
-    ?line M = vsn_2,
+    M = vsn_2,
 
     compile_load(M, proplists:get_value(data_dir, Conf), Conf),
-    ?line Vsn = get_vsn(M),
-    ?line case Vsn of
-	      [34] ->
-		  ok;
-	      _ ->
-		  ct:fail({vsn, Vsn})
-	  end,
+    Vsn = get_vsn(M),
+    case Vsn of
+	[34] ->
+	    ok;
+	_ ->
+	    ct:fail({vsn, Vsn})
+    end,
     ok.
 
 %% Test that different code yields different generated 'vsn'.
 vsn_3(Conf) when is_list(Conf) ->
-    ?line M = vsn_3,
+    M = vsn_3,
 
     compile_load(M, proplists:get_value(data_dir, Conf), Conf),
-    ?line Vsn1 = get_vsn(M),
+    Vsn1 = get_vsn(M),
 
     compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
 				  "other"),
 		 Conf),
-    ?line Vsn2 = get_vsn(M),
-    ?line if
-	      Vsn1 /= Vsn2 ->
-		  ok;
-	      true ->
-		  ct:fail({vsn, Vsn1, Vsn2})
-	  end,
+    Vsn2 = get_vsn(M),
+    if
+	Vsn1 /= Vsn2 ->
+	    ok;
+	true ->
+	    ct:fail({vsn, Vsn1, Vsn2})
+    end,
     ok.
 
 get_vsn(M) ->
@@ -403,12 +403,12 @@ long_string(Config) when is_list(Config) ->
     ok.
 
 compile_load(Module, Dir, Conf) ->
-    ?line Src = filename:join(Dir, atom_to_list(Module)),
+    Src = filename:join(Dir, atom_to_list(Module)),
     Out = proplists:get_value(priv_dir,Conf),
-    ?line CompRc = compile:file(Src, [{outdir,Out}]),
-    ?line {ok, Module} = CompRc,
-    ?line code:purge(Module),
-    ?line {module, Module} =
+    CompRc = compile:file(Src, [{outdir,Out}]),
+    {ok, Module} = CompRc,
+    code:purge(Module),
+    {module, Module} =
 	code:load_abs(filename:join(Out, atom_to_list(Module))),
     ok.
 
@@ -612,10 +612,10 @@ otp_7345(ObjRef, _RdEnv, Args) ->
 
 string_table(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    ?line File = filename:join(DataDir, "string_table.erl"),
-    ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
-    ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    ?line {"StrT", <<"stringtable">>} = StringTableChunk,
+    File = filename:join(DataDir, "string_table.erl"),
+    {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
+    {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
+    {"StrT", <<"stringtable">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->
@@ -642,8 +642,8 @@ do_otp_8949_a() ->
     
 otp_8949_b(Config) when is_list(Config) ->
     self() ! something,
-    ?line value = otp_8949_b([], false),
-    ?line {'EXIT',_} = (catch otp_8949_b([], true)),
+    value = otp_8949_b([], false),
+    {'EXIT',_} = (catch otp_8949_b([], true)),
     ok.
 
 %% Would cause an endless loop in beam_utils.

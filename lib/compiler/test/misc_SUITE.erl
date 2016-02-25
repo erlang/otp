@@ -93,25 +93,25 @@ binary_part(_,_,_) ->
 
 %% Test that local functions and imports override auto-imported BIFs.
 override_bif(Config) when is_list(Config) ->
-    ?line dummy_abs = abs(1),
-    ?line dummy_bp = binary_part(<<"hello">>,1,1),
-    ?line dummy = binary_part(<<"hello">>,{1,1}),
-    ?line 1 = erlang:abs(1),
-    ?line <<"e">> = erlang:binary_part(<<"hello">>,1,1),
-    ?line <<"e">> = erlang:binary_part(<<"hello">>,{1,1}),
+    dummy_abs = abs(1),
+    dummy_bp = binary_part(<<"hello">>,1,1),
+    dummy = binary_part(<<"hello">>,{1,1}),
+    1 = erlang:abs(1),
+    <<"e">> = erlang:binary_part(<<"hello">>,1,1),
+    <<"e">> = erlang:binary_part(<<"hello">>,{1,1}),
     F = fun(X) when byte_size(X) =:= 4 ->
 		four;
 	   (X) ->
 		byte_size(X)
 	end,
-    ?line four = F(<<1,2,3,4>>),
-    ?line 5 = F(<<1,2,3,4,5>>),
+    four = F(<<1,2,3,4>>),
+    5 = F(<<1,2,3,4,5>>),
     ok.
 
 %% A bug reported by Tobias Lindahl for a development version of R11B.
 
 tobias(Config) when is_list(Config) ->
-    ?line 1 = tobias_1([1,2,3]),
+    1 = tobias_1([1,2,3]),
     ok.
 
 tobias_1([H|_T]) ->
@@ -132,7 +132,7 @@ tobias_2(_, _) ->
 -record(r, {s = ""}).
 
 empty_string(Config) when is_list(Config) ->
-    ?line #r{s="x"} = empty_string_1(#r{}),
+    #r{s="x"} = empty_string_1(#r{}),
     ok.
 
 empty_string_1(T) ->
@@ -147,15 +147,15 @@ md5(Config) when is_list(Config) ->
     end.
 
 md5() ->
-    ?line Dir = filename:dirname(code:which(?MODULE)),
-    ?line Beams = filelib:wildcard(filename:join(Dir, "*.beam")),
-    ?line io:format("Found ~w beam files", [length(Beams)]),
-    ?line lists:foreach(fun md5_1/1, Beams).
+    Dir = filename:dirname(code:which(?MODULE)),
+    Beams = filelib:wildcard(filename:join(Dir, "*.beam")),
+    io:format("Found ~w beam files", [length(Beams)]),
+    lists:foreach(fun md5_1/1, Beams).
 
 md5_1(Beam) ->
-    ?line {ok,{Mod,[Vsn]}} = beam_lib:version(Beam),
-    ?line {ok,Code} = file:read_file(Beam),
-    ?line {Mod,<<Vsn:128>>} = {Mod,code:module_md5(Code)}.
+    {ok,{Mod,[Vsn]}} = beam_lib:version(Beam),
+    {ok,Code} = file:read_file(Beam),
+    {Mod,<<Vsn:128>>} = {Mod,code:module_md5(Code)}.
 
 %% Cover some code that handles internal errors.
 
@@ -164,9 +164,9 @@ silly_coverage(Config) when is_list(Config) ->
     BadCoreErlang = {c_module,[],
 		     name,[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
-    ?line expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
-    ?line expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
-    ?line expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
+    expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
+    expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
+    expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
     %% v3_life
     BadKernel = {k_mdef,[],?MODULE,
@@ -176,11 +176,11 @@ silly_coverage(Config) when is_list(Config) ->
 		   {k,[],[],[]},
 		   f,0,[],
 		   seriously_bad_body}]},
-    ?line expect_error(fun() -> v3_life:module(BadKernel, []) end),
+    expect_error(fun() -> v3_life:module(BadKernel, []) end),
 
     %% v3_codegen
     CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b,[]}]},
-    ?line expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
+    expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
 
     %% beam_a
     BeamAInput = {?MODULE,[{foo,0}],[],
@@ -204,7 +204,7 @@ silly_coverage(Config) when is_list(Config) ->
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
-    ?line expect_error(fun() -> beam_block:module(BlockInput, []) end),
+    expect_error(fun() -> beam_block:module(BlockInput, []) end),
 
     %% beam_bs
     BsInput = BlockInput,
@@ -234,7 +234,7 @@ silly_coverage(Config) when is_list(Config) ->
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2}|non_proper_list]}],99},
-    ?line expect_error(fun() -> beam_bool:module(BoolInput, []) end),
+    expect_error(fun() -> beam_bool:module(BoolInput, []) end),
 
     %% beam_dead. This is tricky. Our function must look OK to
     %% beam_utils:clean_labels/1, but must crash beam_dead.
@@ -253,7 +253,7 @@ silly_coverage(Config) when is_list(Config) ->
 		     {func_info,{atom,?MODULE},{atom,foo},0},
 		     {label,2},
 		     {jump,{f,42}}]}],99},
-    ?line expect_error(fun() -> beam_clean:module(CleanInput, []) end),
+    expect_error(fun() -> beam_clean:module(CleanInput, []) end),
 
     %% beam_peep
     PeepInput = {?MODULE,[{foo,0}],[],
@@ -261,7 +261,7 @@ silly_coverage(Config) when is_list(Config) ->
 		   [{label,1},
 		    {func_info,{atom,?MODULE},{atom,foo},0},
 		    {label,2}|non_proper_list]}],99},
-    ?line expect_error(fun() -> beam_peep:module(PeepInput, []) end),
+    expect_error(fun() -> beam_peep:module(PeepInput, []) end),
 
     %% beam_bsm. This is tricky. Our function must be sane enough to not crash
     %% btb_index/1, but must crash the main optimization pass.
@@ -272,7 +272,7 @@ silly_coverage(Config) when is_list(Config) ->
 		   {label,2},
 		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
 		   {block,[a|b]}]}],0},
-    ?line expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
+    expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
 
     %% beam_receive.
     ReceiveInput = {?MODULE,[{foo,0}],[],
@@ -282,7 +282,7 @@ silly_coverage(Config) when is_list(Config) ->
 		       {label,2},
 		       {call_ext,0,{extfunc,erlang,make_ref,0}},
 		       {block,[a|b]}]}],0},
-    ?line expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
+    expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
 
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -319,8 +319,8 @@ expect_error(Fun) ->
     end.
 
 confused_literals(Config) when is_list(Config) ->
-    ?line {0,infinity} = confused_literals_1(int),
-    ?line {0.0,infinity} = confused_literals_1(float),
+    {0,infinity} = confused_literals_1(int),
+    {0.0,infinity} = confused_literals_1(float),
     ok.
 
 confused_literals_1(int) -> {0,infinity};
@@ -337,20 +337,20 @@ integer_encoding(Config) when is_list(Config) ->
 
 integer_encoding_1(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ?line SrcFile = filename:join(PrivDir, "misc_SUITE_integer_encoding.erl"),
-    ?line DataFile = filename:join(PrivDir, "integer_encoding.data"),
+    SrcFile = filename:join(PrivDir, "misc_SUITE_integer_encoding.erl"),
+    DataFile = filename:join(PrivDir, "integer_encoding.data"),
     Mod = misc_SUITE_integer_encoding,
 
     %% Create files.
-    ?line {ok,Src} = file:open(SrcFile, [write]),
-    ?line {ok,Data} = file:open(DataFile, [write]),
+    {ok,Src} = file:open(SrcFile, [write]),
+    {ok,Data} = file:open(DataFile, [write]),
     io:format(Src, "-module(~s).\n", [Mod]),
     io:put_chars(Src, "-export([t/1]).\n"),
     io:put_chars(Src, "t(Last) ->[\n"),
     io:put_chars(Data, "[\n"),
 
-    ?line do_integer_encoding(-(id(1) bsl 10000), Src, Data),
-    ?line do_integer_encoding(id(1) bsl 10000, Src, Data),
+    do_integer_encoding(-(id(1) bsl 10000), Src, Data),
+    do_integer_encoding(id(1) bsl 10000, Src, Data),
     do_integer_encoding(1024, 0, Src, Data),
     _ = [begin
 	     B = 1 bsl I,
@@ -362,24 +362,24 @@ integer_encoding_1(Config) ->
 	     do_integer_encoding(B+1, Src, Data)
 	 end || I <- lists:seq(1, 128)],
     io:put_chars(Src, "Last].\n\n"),
-    ?line ok = file:close(Src),
+    ok = file:close(Src),
     io:put_chars(Data, "0].\n\n"),
-    ?line ok = file:close(Data),
+    ok = file:close(Data),
 
     %% Compile and load Erlang module.
-    ?line SrcRoot = filename:rootname(SrcFile),
-    ?line {ok,Mod,Binary} = compile:file(SrcRoot, [binary,report]),
-    ?line {module,Mod} = code:load_binary(Mod, SrcRoot, Binary),
+    SrcRoot = filename:rootname(SrcFile),
+    {ok,Mod,Binary} = compile:file(SrcRoot, [binary,report]),
+    {module,Mod} = code:load_binary(Mod, SrcRoot, Binary),
 
     %% Compare lists.
-    ?line List = Mod:t(0),
-    ?line {ok,[List]} = file:consult(DataFile),
+    List = Mod:t(0),
+    {ok,[List]} = file:consult(DataFile),
     OneBsl10000 = id(1) bsl 10000,
-    ?line [-(1 bsl 10000),OneBsl10000|_] = List,
+    [-(1 bsl 10000),OneBsl10000|_] = List,
 
     %% Cleanup.
-    ?line file:delete(SrcFile),
-    ?line file:delete(DataFile),
+    file:delete(SrcFile),
+    file:delete(DataFile),
     ok.
 
 do_integer_encoding(0, _, _, _) -> ok;

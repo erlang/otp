@@ -61,7 +61,7 @@ l1() ->
     ].
 
 test1(Config) when is_list(Config) ->
-    ?line lists:foreach(fun one_test/1, eval_list(l1(), [])),
+    lists:foreach(fun one_test/1, eval_list(l1(), [])),
     ok.
 
 evaluate(Str, Vars) ->
@@ -108,9 +108,9 @@ one_test({C, E, Str, Correct}) ->
 %% OTP-7102. (Thanks to Simon Cornish.)
 
 overwritten_fun(Config) when is_list(Config) ->
-    ?line {a2,a} = overwritten_fun_1(a),
-    ?line {a2,{b,c}} = overwritten_fun_1(#b{c=c}),
-    ?line one = overwritten_fun_1(#b{c=[]}),
+    {a2,a} = overwritten_fun_1(a),
+    {a2,{b,c}} = overwritten_fun_1(#b{c=c}),
+    one = overwritten_fun_1(#b{c=[]}),
     ok.
 
 overwritten_fun_1(A) ->
@@ -152,8 +152,8 @@ otp_7202_func() ->
     no_value.
     
 bif_fun(Config) when is_list(Config) ->
-    ?line F = fun abs/1,
-    ?line 5 = F(-5),
+    F = fun abs/1,
+    5 = F(-5),
     ok.
 
 -define(APPLY(M, F, A), (fun(Fun) -> {ok,{a,b}} = Fun({a,b}) end)(fun M:F/A)).

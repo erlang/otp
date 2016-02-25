@@ -63,13 +63,13 @@ attribute(Config) when is_list(Config) ->
     Src = filename:join(proplists:get_value(data_dir, Config), Name),
     Out = proplists:get_value(priv_dir,Config),
 
-    ?line {ok,attribute=Mod} = compile:file(Src, [{outdir,Out},report,time]),
-    ?line Outfile = filename:join(Out, Name++".beam"),
-    ?line {ok,{Mod,[{locals,Locals}]}} = beam_lib:chunks(Outfile, [locals]),
-    ?line io:format("locals: ~p\n", [Locals]),
+    {ok,attribute=Mod} = compile:file(Src, [{outdir,Out},report,time]),
+    Outfile = filename:join(Out, Name++".beam"),
+    {ok,{Mod,[{locals,Locals}]}} = beam_lib:chunks(Outfile, [locals]),
+    io:format("locals: ~p\n", [Locals]),
 
     %% The inliner should have removed all local functions.
-    ?line [] = Locals,
+    [] = Locals,
 
     ok.
 
@@ -95,40 +95,40 @@ try_inline(Mod, Config) ->
     Out = proplists:get_value(priv_dir,Config),
 
     %% Normal compilation.
-    ?line io:format("Compiling: ~s\n", [Src]),
-    ?line {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,clint]),
+    io:format("Compiling: ~s\n", [Src]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,clint]),
 
     ct:timetrap({minutes,10}),
-    ?line NormalResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    NormalResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
 
     %% Inlining.
-    ?line io:format("Compiling with old inliner: ~s\n", [Src]),
-    ?line {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
+    io:format("Compiling with old inliner: ~s\n", [Src]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,
 					{inline,1000},clint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
-    ?line OldInlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    OldInlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
 
     %% Compare results.
-    ?line compare(NormalResult, OldInlinedResult),
-    ?line NormalResult = OldInlinedResult,
+    compare(NormalResult, OldInlinedResult),
+    NormalResult = OldInlinedResult,
 
     %% Inlining.
-    ?line io:format("Compiling with new inliner: ~s\n", [Src]),
-    ?line {ok,Mod} = compile:file(Src, [{outdir,Out},report,
+    io:format("Compiling with new inliner: ~s\n", [Src]),
+    {ok,Mod} = compile:file(Src, [{outdir,Out},report,
 					bin_opt_info,inline,clint]),
 
     %% Run inlined code.
     ct:timetrap({minutes,10}),
-    ?line InlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
+    InlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
 
     %% Compare results.
-    ?line compare(NormalResult, InlinedResult),
-    ?line NormalResult = InlinedResult,
+    compare(NormalResult, InlinedResult),
+    NormalResult = InlinedResult,
 
     %% Delete Beam file.
-    ?line ok = file:delete(filename:join(Out, atom_to_list(Mod)++code:objfile_extension())),
+    ok = file:delete(filename:join(Out, atom_to_list(Mod)++code:objfile_extension())),
 
     ok.
 
@@ -150,14 +150,14 @@ start_node(Name, Args) ->
     end.
 
 load_and_call(Out, Module) ->
-    ?line io:format("Loading...\n",[]),
-    ?line code:purge(Module),
-    ?line LoadRc = code:load_abs(filename:join(Out, Module)),
-    ?line {module,Module} = LoadRc,
+    io:format("Loading...\n",[]),
+    code:purge(Module),
+    LoadRc = code:load_abs(filename:join(Out, Module)),
+    {module,Module} = LoadRc,
 
-    ?line io:format("Calling...\n",[]),
-    ?line {Time,CallResult} = timer:tc(Module, Module, []),
-    ?line io:format("Time: ~p\n", [Time]),
+    io:format("Calling...\n",[]),
+    {Time,CallResult} = timer:tc(Module, Module, []),
+    io:format("Time: ~p\n", [Time]),
     CallResult.
 
 %% Macros used by lists/1 below.
@@ -193,69 +193,78 @@ load_and_call(Out, Module) ->
 %% Note: This module must be compiled with the inline_lists_funcs option.
 
 lists(Config) when is_list(Config) ->
-    ?line List = lists:seq(1, 20),
+    List = lists:seq(1, 20),
 
     %% lists:map/2
-    ?line ?TestHighOrder_2(map, (fun(E) ->
-        R = E band 16#ff,
-	put(?MODULE, [E|get(?MODULE)]),
-        R
-	end), List),
+    ?TestHighOrder_2(map,
+		     (fun(E) ->
+			      R = E band 16#ff,
+			      put(?MODULE, [E|get(?MODULE)]),
+			      R
+		      end), List),
 
     %% lists:flatmap/2
-    ?line ?TestHighOrder_2(flatmap, (fun(E) ->
-        R = lists:duplicate(E, E),
-	put(?MODULE, [E|get(?MODULE)]),
-        R
-     end), List),
+    ?TestHighOrder_2(flatmap,
+		     (fun(E) ->
+			      R = lists:duplicate(E, E),
+			      put(?MODULE, [E|get(?MODULE)]),
+			      R
+		      end), List),
 
     %% lists:foreach/2
-    ?line ?TestHighOrder_2(foreach,
-			   (fun(E) ->
-				    put(?MODULE, [E bor 7|get(?MODULE)])
-			    end), List),
+    ?TestHighOrder_2(foreach,
+		     (fun(E) ->
+			      put(?MODULE, [E bor 7|get(?MODULE)])
+		      end), List),
 
     %% lists:filter/2
-    ?line ?TestHighOrder_2(filter, (fun(E) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        (E bsr 1) band 1 =/= 0
-	end), List),
+    ?TestHighOrder_2(filter,
+		     (fun(E) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      (E bsr 1) band 1 =/= 0
+		      end), List),
 
     %% lists:any/2
-    ?line ?TestHighOrder_2(any, (fun(E) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        false					%Force it to go through all.
-	end), List),
+    ?TestHighOrder_2(any,
+		     (fun(E) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      false	  %Force it to go through all.
+		      end), List),
 
     %% lists:all/2
-    ?line ?TestHighOrder_2(all, (fun(E) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        true					%Force it to go through all.
-	end), List),
+    ?TestHighOrder_2(all,
+		     (fun(E) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      true	  %Force it to go through all.
+		      end), List),
 
     %% lists:foldl/3
-    ?line ?TestHighOrder_3(foldl, (fun(E, A) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        A bxor E
-	end), 0, List),
+    ?TestHighOrder_3(foldl,
+		     (fun(E, A) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      A bxor E
+		      end), 0, List),
 
     %% lists:foldr/3
-    ?line ?TestHighOrder_3(foldr, (fun(E, A) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        A bxor (bnot E)
-	end), 0, List),
+    ?TestHighOrder_3(foldr,
+		     (fun(E, A) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      A bxor (bnot E)
+		      end), 0, List),
 
     %% lists:mapfoldl/3
-    ?line ?TestHighOrder_3(mapfoldl, (fun(E, A) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        {bnot E,A bxor (bnot E)}
-	end), 0, List),
+    ?TestHighOrder_3(mapfoldl,
+		     (fun(E, A) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      {bnot E,A bxor (bnot E)}
+		      end), 0, List),
 
     %% lists:mapfoldr/3
-    ?line ?TestHighOrder_3(mapfoldr, (fun(E, A) ->
-	put(?MODULE, [E|get(?MODULE)]),
-        {bnot E,A bxor (bnot E)}
-	end), 0, List),
+    ?TestHighOrder_3(mapfoldr,
+		     (fun(E, A) ->
+			      put(?MODULE, [E|get(?MODULE)]),
+			      {bnot E,A bxor (bnot E)}
+		      end), 0, List),
 
     %% Cleanup.
     erase(?MODULE),
@@ -328,7 +337,7 @@ badarg(Reply, _A) ->
     Reply.
 
 otp_7223(Config) when is_list(Config) ->
-    ?line {'EXIT', {{case_clause,{1}},_}} = (catch otp_7223_1(1)),
+    {'EXIT', {{case_clause,{1}},_}} = (catch otp_7223_1(1)),
     ok.
 
 -compile({inline,[{otp_7223_1,1}]}).

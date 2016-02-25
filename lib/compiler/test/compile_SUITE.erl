@@ -84,33 +84,33 @@ file_1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
 
     {Simple, Target} = get_files(Config, simple, "file_1"),
-    ?line {ok, Cwd} = file:get_cwd(),
-    ?line ok = file:set_cwd(filename:dirname(Target)),
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(filename:dirname(Target)),
 
     %% Native from BEAM without compilation info.
-    ?line {ok,simple} = compile:file(Simple, [slim]), %Smoke test only.
-    ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
+    {ok,simple} = compile:file(Simple, [slim]), %Smoke test only.
+    {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
 
     %% Native from BEAM with compilation info.
-    ?line {ok,simple} = compile:file(Simple),	%Smoke test only.
-    ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
+    {ok,simple} = compile:file(Simple),	%Smoke test only.
+    {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
 
-    ?line {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
+    {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
 
-    ?line compile_and_verify(Simple, Target, []),
-    ?line compile_and_verify(Simple, Target, [native]),
-    ?line compile_and_verify(Simple, Target, [debug_info]),
-    ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
+    compile_and_verify(Simple, Target, []),
+    compile_and_verify(Simple, Target, [native]),
+    compile_and_verify(Simple, Target, [debug_info]),
+    {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
 
-    ?line ok = file:set_cwd(Cwd),
-    ?line true = exists(Target),
-    ?line passed = run(Target, test, []),
+    ok = file:set_cwd(Cwd),
+    true = exists(Target),
+    passed = run(Target, test, []),
 
     %% Cleanup.
-    ?line ok = file:delete(Target),
-    ?line ok = file:del_dir(filename:dirname(Target)),
+    ok = file:delete(Target),
+    ok = file:del_dir(filename:dirname(Target)),
 
     %% There should not be any messages in the messages.
     receive
@@ -144,13 +144,13 @@ forms_2(Config) when is_list(Config) ->
 
 module_mismatch(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    ?line File = filename:join(DataDir, "wrong_module_name.erl"),
+    File = filename:join(DataDir, "wrong_module_name.erl"),
     {error,[{"wrong_module_name.beam",
 	     [{none,compile,{module_name,arne,"wrong_module_name"}}]}],
 	   []} = compile:file(File, [return]),
-    ?line error = compile:file(File, [report]),
+    error = compile:file(File, [report]),
 
-    ?line {ok,arne,[]} = compile:file(File,
+    {ok,arne,[]} = compile:file(File,
 				      [return,no_error_module_mismatch]),
 
     ok.
@@ -158,35 +158,35 @@ module_mismatch(Config) when is_list(Config) ->
 big_file(Config) when is_list(Config) ->
     {Big,Target} = get_files(Config, big, "big_file"),
     ok = file:set_cwd(filename:dirname(Target)),
-    ?line compile_and_verify(Big, Target, []),
-    ?line compile_and_verify(Big, Target, [debug_info]),
-    ?line compile_and_verify(Big, Target, [no_postopt]),
+    compile_and_verify(Big, Target, []),
+    compile_and_verify(Big, Target, [debug_info]),
+    compile_and_verify(Big, Target, [no_postopt]),
 
     %% Cleanup.
-    ?line ok = file:delete(Target),
+    ok = file:delete(Target),
     ok.
 
 %% Tests that the {outdir, Dir} option works.
 
 outdir(Config) when is_list(Config) ->
     {Simple, Target} = get_files(Config, simple, "outdir"),
-    ?line {ok, simple} = compile:file(Simple, [{outdir, filename:dirname(Target)}]),
-    ?line true = exists(Target),
-    ?line passed = run(Target, test, []),
-    ?line ok = file:delete(Target),
-    ?line ok = file:del_dir(filename:dirname(Target)),
+    {ok, simple} = compile:file(Simple, [{outdir, filename:dirname(Target)}]),
+    true = exists(Target),
+    passed = run(Target, test, []),
+    ok = file:delete(Target),
+    ok = file:del_dir(filename:dirname(Target)),
     ok.
 
 %% Tests that the binary option works.
 
 binary(Config) when is_list(Config) ->
     {Simple, Target} = get_files(Config, simple, "binary"),
-    ?line {ok, simple, Binary} = compile:file(Simple, [binary]),
-    ?line code:load_binary(simple, Target, Binary),
-    ?line passed = simple:test(),
-    ?line true = code:delete(simple),
-    ?line false = code:purge(simple),
-    ?line ok = file:del_dir(filename:dirname(Target)),
+    {ok, simple, Binary} = compile:file(Simple, [binary]),
+    code:load_binary(simple, Target, Binary),
+    passed = simple:test(),
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ok = file:del_dir(filename:dirname(Target)),
     ok.
 
 %% Tests that the dependencies-Makefile-related options work.
@@ -194,59 +194,59 @@ binary(Config) when is_list(Config) ->
 makedep(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, "makedep"),
     DataDir = proplists:get_value(data_dir, Config),
-    ?line SimpleRootname = filename:rootname(Simple),
-    ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
-    ?line IncludeOptions = [
-      {d,need_foo},
-      {d,foo_value,42},
-      {d,include_generated},
-      {i,IncludeDir}
-    ],
+    SimpleRootname = filename:rootname(Simple),
+    IncludeDir = filename:join(filename:dirname(Simple), "include"),
+    IncludeOptions = [
+		      {d,need_foo},
+		      {d,foo_value,42},
+		      {d,include_generated},
+		      {i,IncludeDir}
+		     ],
     %% Basic rule.
-    ?line BasicMf1Name = SimpleRootname ++ "-basic1.mk",
-    ?line {ok,BasicMf1} = file:read_file(BasicMf1Name),
-    ?line {ok,_,Mf1} = compile:file(Simple, [binary,makedep]),
-    ?line BasicMf1 = makedep_canonicalize_result(Mf1, DataDir),
+    BasicMf1Name = SimpleRootname ++ "-basic1.mk",
+    {ok,BasicMf1} = file:read_file(BasicMf1Name),
+    {ok,_,Mf1} = compile:file(Simple, [binary,makedep]),
+    BasicMf1 = makedep_canonicalize_result(Mf1, DataDir),
     %% Basic rule with one existing header.
-    ?line BasicMf2Name = SimpleRootname ++ "-basic2.mk",
-    ?line {ok,BasicMf2} = file:read_file(BasicMf2Name),
-    ?line {ok,_,Mf2} = compile:file(Simple, [binary,makedep|IncludeOptions]),
-    ?line BasicMf2 = makedep_canonicalize_result(Mf2, DataDir),
+    BasicMf2Name = SimpleRootname ++ "-basic2.mk",
+    {ok,BasicMf2} = file:read_file(BasicMf2Name),
+    {ok,_,Mf2} = compile:file(Simple, [binary,makedep|IncludeOptions]),
+    BasicMf2 = makedep_canonicalize_result(Mf2, DataDir),
     %% Rule with one existing header and one missing header.
-    ?line MissingMfName = SimpleRootname ++ "-missing.mk",
-    ?line {ok,MissingMf} = file:read_file(MissingMfName),
-    ?line {ok,_,Mf3} = compile:file(Simple,
+    MissingMfName = SimpleRootname ++ "-missing.mk",
+    {ok,MissingMf} = file:read_file(MissingMfName),
+    {ok,_,Mf3} = compile:file(Simple,
       [binary,makedep,makedep_add_missing|IncludeOptions]),
-    ?line MissingMf = makedep_canonicalize_result(Mf3, DataDir),
+    MissingMf = makedep_canonicalize_result(Mf3, DataDir),
     %% Rule with modified target.
-    ?line TargetMf1Name = SimpleRootname ++ "-target1.mk",
-    ?line {ok,TargetMf1} = file:read_file(TargetMf1Name),
-    ?line {ok,_,Mf4} = compile:file(Simple,
+    TargetMf1Name = SimpleRootname ++ "-target1.mk",
+    {ok,TargetMf1} = file:read_file(TargetMf1Name),
+    {ok,_,Mf4} = compile:file(Simple,
       [binary,makedep,{makedep_target,"$target"}|IncludeOptions]),
-    ?line TargetMf1 = makedep_modify_target(
+    TargetMf1 = makedep_modify_target(
       makedep_canonicalize_result(Mf4, DataDir), "$$target"),
     %% Rule with quoted modified target.
-    ?line TargetMf2Name = SimpleRootname ++ "-target2.mk",
-    ?line {ok,TargetMf2} = file:read_file(TargetMf2Name),
-    ?line {ok,_,Mf5} = compile:file(Simple,
+    TargetMf2Name = SimpleRootname ++ "-target2.mk",
+    {ok,TargetMf2} = file:read_file(TargetMf2Name),
+    {ok,_,Mf5} = compile:file(Simple,
       [binary,makedep,{makedep_target,"$target"},makedep_quote_target|
         IncludeOptions]),
-    ?line TargetMf2 = makedep_modify_target(
+    TargetMf2 = makedep_modify_target(
       makedep_canonicalize_result(Mf5, DataDir), "$$target"),
     %% Basic rule written to some file.
-    ?line {ok,_} = compile:file(Simple,
+    {ok,_} = compile:file(Simple,
       [makedep,{makedep_output,Target}|IncludeOptions]),
-    ?line {ok,Mf6} = file:read_file(Target),
-    ?line BasicMf2 = makedep_canonicalize_result(Mf6, DataDir),
+    {ok,Mf6} = file:read_file(Target),
+    BasicMf2 = makedep_canonicalize_result(Mf6, DataDir),
     %% Rule with creating phony target.
-    ?line PhonyMfName = SimpleRootname ++ "-phony.mk",
-    ?line {ok,PhonyMf} = file:read_file(PhonyMfName),
-    ?line {ok,_,Mf7} = compile:file(Simple,
+    PhonyMfName = SimpleRootname ++ "-phony.mk",
+    {ok,PhonyMf} = file:read_file(PhonyMfName),
+    {ok,_,Mf7} = compile:file(Simple,
       [binary,makedep,makedep_phony|IncludeOptions]),
-    ?line PhonyMf = makedep_canonicalize_result(Mf7, DataDir),
+    PhonyMf = makedep_canonicalize_result(Mf7, DataDir),
 
-    ?line ok = file:delete(Target),
-    ?line ok = file:del_dir(filename:dirname(Target)),
+    ok = file:delete(Target),
+    ok = file:del_dir(filename:dirname(Target)),
     ok.
 
 makedep_canonicalize_result(Mf, DataDir) ->
@@ -267,15 +267,15 @@ makedep_modify_target(Mf, Target) ->
 
 cond_and_ifdef(Config) when is_list(Config) ->
     {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
-    ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
-    ?line Options = [{outdir, filename:dirname(Target)},
+    IncludeDir = filename:join(filename:dirname(Simple), "include"),
+    Options = [{outdir, filename:dirname(Target)},
 		     {d, need_foo}, {d, foo_value, 42},
 		     {i, IncludeDir}, report],
-    ?line {ok, simple} = compile:file(Simple, Options),
-    ?line true = exists(Target),
-    ?line {hiker, 42} = run(Target, foo, []),
-    ?line ok = file:delete(Target),
-    ?line ok = file:del_dir(filename:dirname(Target)),
+    {ok, simple} = compile:file(Simple, Options),
+    true = exists(Target),
+    {hiker, 42} = run(Target, foo, []),
+    ok = file:delete(Target),
+    ok = file:del_dir(filename:dirname(Target)),
     ok.
 
 listings(Config) when is_list(Config) ->
@@ -344,61 +344,61 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 listings_big(Config) when is_list(Config) ->
     {Big,Target} = get_files(Config, big, listings_big),
     TargetDir = filename:dirname(Target),
-    ?line do_listing(Big, TargetDir, 'S'),
-    ?line do_listing(Big, TargetDir, 'E'),
-    ?line do_listing(Big, TargetDir, 'P'),
-    ?line do_listing(Big, TargetDir, dkern, ".kernel"),
+    do_listing(Big, TargetDir, 'S'),
+    do_listing(Big, TargetDir, 'E'),
+    do_listing(Big, TargetDir, 'P'),
+    do_listing(Big, TargetDir, dkern, ".kernel"),
 
     TargetNoext = filename:rootname(Target, code:objfile_extension()),
     {ok,big} = compile:file(TargetNoext, [from_asm,{outdir,TargetDir}]),
 
     %% Cleanup.
     ok = file:delete(Target),
-    ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
-			filelib:wildcard(filename:join(TargetDir, "*"))),
-    ?line ok = file:del_dir(TargetDir),
+    lists:foreach(fun(F) -> ok = file:delete(F) end,
+		  filelib:wildcard(filename:join(TargetDir, "*"))),
+    ok = file:del_dir(TargetDir),
     ok.
 
 other_output(Config) when is_list(Config) ->
     {Simple,_Target} = get_files(Config, simple, "other_output"),
 
     io:put_chars("to_pp"),
-    ?line {ok,[],PP} = compile:file(Simple, [to_pp,binary,time]),
-    ?line [] = [E || E <- PP,
-		     begin
-			 case element(1, E) of
-			     attribute -> false;
-			     function -> false;
-			     eof -> false
-			 end
-		     end],
+    {ok,[],PP} = compile:file(Simple, [to_pp,binary,time]),
+    [] = [E || E <- PP,
+	       begin
+		   case element(1, E) of
+		       attribute -> false;
+		       function -> false;
+		       eof -> false
+		   end
+	       end],
 
     io:put_chars("to_exp (file)"),
-    ?line {ok,simple,Expand} = compile:file(Simple, [to_exp,binary,time]),
-    ?line case Expand of
-	      {simple,Exports,Forms} when is_list(Exports), is_list(Forms) -> ok
-	  end,
+    {ok,simple,Expand} = compile:file(Simple, [to_exp,binary,time]),
+    case Expand of
+	{simple,Exports,Forms} when is_list(Exports), is_list(Forms) -> ok
+    end,
     io:put_chars("to_exp (forms)"),
-    ?line {ok,simple,Expand} = compile:forms(PP, [to_exp,binary,time]),
+    {ok,simple,Expand} = compile:forms(PP, [to_exp,binary,time]),
 
     io:put_chars("to_core (file)"),
-    ?line {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
-    ?line c_module = element(1, Core),
-    ?line {ok,_} = core_lint:module(Core),
+    {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
+    c_module = element(1, Core),
+    {ok,_} = core_lint:module(Core),
     io:put_chars("to_core (forms)"),
-    ?line {ok,simple,Core} = compile:forms(PP, [to_core,binary,time]),
+    {ok,simple,Core} = compile:forms(PP, [to_core,binary,time]),
 
     io:put_chars("to_kernel (file)"),
-    ?line {ok,simple,Kernel} = compile:file(Simple, [to_kernel,binary,time]),
-    ?line k_mdef = element(1, Kernel),
+    {ok,simple,Kernel} = compile:file(Simple, [to_kernel,binary,time]),
+    k_mdef = element(1, Kernel),
     io:put_chars("to_kernel (forms)"),
-    ?line {ok,simple,Kernel} = compile:forms(PP, [to_kernel,binary,time]),
+    {ok,simple,Kernel} = compile:forms(PP, [to_kernel,binary,time]),
 
     io:put_chars("to_asm (file)"),
-    ?line {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
-    ?line {simple,_,_,_,_} = Asm,
+    {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
+    {simple,_,_,_,_} = Asm,
     io:put_chars("to_asm (forms)"),
-    ?line {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
+    {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
     ok.
 
@@ -408,80 +408,80 @@ encrypted_abstr(Config) when is_list(Config) ->
     Res = case has_crypto() of
 	      false ->
 		  %% No crypto.
-		  ?line encrypted_abstr_no_crypto(Simple, Target),
+		  encrypted_abstr_no_crypto(Simple, Target),
 		  {comment,"The crypto application is missing or broken"};
 	      true ->
 		  %% Simulate not having crypto by removing
 		  %% the crypto application from the path.
-		  ?line OldPath = code:get_path(),
+		  OldPath = code:get_path(),
 		  try
-		      ?line NewPath = OldPath -- [filename:dirname(code:which(crypto))],
-		      ?line (catch crypto:stop()),
-		      ?line code:delete(crypto),
-		      ?line code:purge(crypto),
-		      ?line code:set_path(NewPath),
-		      ?line encrypted_abstr_no_crypto(Simple, Target)
+		      NewPath = OldPath -- [filename:dirname(code:which(crypto))],
+		      (catch crypto:stop()),
+		      code:delete(crypto),
+		      code:purge(crypto),
+		      code:set_path(NewPath),
+		      encrypted_abstr_no_crypto(Simple, Target)
 		      after
 			  code:set_path(OldPath)
 		      end,
 
 		  %% Now run the tests that require crypto.
-		  ?line encrypted_abstr_1(Simple, Target),
-		  ?line ok = file:delete(Target),
-		  ?line ok = file:del_dir(filename:dirname(Target))
+		  encrypted_abstr_1(Simple, Target),
+		  ok = file:delete(Target),
+		  ok = file:del_dir(filename:dirname(Target))
 	  end,
     
     %% Cleanup.
     Res.
 
 encrypted_abstr_1(Simple, Target) ->
-    ?line TargetDir = filename:dirname(Target),
-    ?line Key = "ablurf123BX#$;3",
-    ?line install_crypto_key(Key),
-    ?line {ok,simple} = compile:file(Simple,
+    TargetDir = filename:dirname(Target),
+    Key = "ablurf123BX#$;3",
+    install_crypto_key(Key),
+    {ok,simple} = compile:file(Simple,
 				     [debug_info,{debug_info_key,Key},
 				      {outdir,TargetDir}]),
-    ?line verify_abstract(Target),
+    verify_abstract(Target),
 
-    ?line {ok,simple} = compile:file(Simple,
+    {ok,simple} = compile:file(Simple,
 				     [{debug_info_key,Key},
 				      {outdir,TargetDir}]),
-    ?line verify_abstract(Target),
+    verify_abstract(Target),
 
-    ?line {ok,simple} = compile:file(Simple,
+    {ok,simple} = compile:file(Simple,
 				     [debug_info,{debug_info_key,{des3_cbc,Key}},
 				      {outdir,TargetDir}]),
-    ?line verify_abstract(Target),
+    verify_abstract(Target),
 
-    ?line {ok,{simple,[{compile_info,CInfo}]}} = 
+    {ok,{simple,[{compile_info,CInfo}]}} =
 	beam_lib:chunks(Target, [compile_info]),
     {_,Opts} = lists:keyfind(options, 1, CInfo),
     {_,'********'} = lists:keyfind(debug_info_key, 1, Opts),
 
     %% Try some illegal forms of crypto keys.
-    ?line error = compile:file(Simple,
+    error = compile:file(Simple,
 			       [debug_info,{debug_info_key,{blurf,"ss"}},report]),
-    ?line error = compile:file(Simple,
+    error = compile:file(Simple,
 			       [debug_info,{debug_info_key,{blurf,1,"ss"}},report]),
-    ?line error = compile:file(Simple,
+    error = compile:file(Simple,
 			       [debug_info,{debug_info_key,42},report]),
 
     %% Place the crypto key in .erlang.crypt.
-    ?line beam_lib:clear_crypto_key_fun(),
-    ?line {ok,OldCwd} = file:get_cwd(),
-    ?line ok = file:set_cwd(TargetDir),
+    beam_lib:clear_crypto_key_fun(),
+    {ok,OldCwd} = file:get_cwd(),
+    ok = file:set_cwd(TargetDir),
 
-    ?line error = compile:file(Simple, [encrypt_debug_info,report]),
+    error = compile:file(Simple, [encrypt_debug_info,report]),
 
-    ?line NewKey = "better use another key here",
-    ?line write_crypt_file(["[{debug_info,des3_cbc,simple,\"",NewKey,"\"}].\n"]),
-    ?line {ok,simple} = compile:file(Simple, [encrypt_debug_info,report]),
-    ?line verify_abstract("simple.beam"),
-    ?line ok = file:delete(".erlang.crypt"),
-    ?line beam_lib:clear_crypto_key_fun(),
-    ?line {error,beam_lib,{key_missing_or_invalid,"simple.beam",abstract_code}} =
+    NewKey = "better use another key here",
+    write_crypt_file(["[{debug_info,des3_cbc,simple,\"",NewKey,"\"}].\n"]),
+    {ok,simple} = compile:file(Simple, [encrypt_debug_info,report]),
+    verify_abstract("simple.beam"),
+    ok = file:delete(".erlang.crypt"),
+    beam_lib:clear_crypto_key_fun(),
+    {error,beam_lib,{key_missing_or_invalid,"simple.beam",abstract_code}} =
 	beam_lib:chunks("simple.beam", [abstract_code]),
-    ?line ok = file:set_cwd(OldCwd),
+    ok = file:set_cwd(OldCwd),
 
     %% Test key compatibility by reading a BEAM file produced before
     %% the update to the new crypto functions.
@@ -502,9 +502,9 @@ write_crypt_file(Contents0) ->
 
 encrypted_abstr_no_crypto(Simple, Target) ->
     io:format("simpe: ~p~n", [Simple]),
-    ?line TargetDir = filename:dirname(Target),
-    ?line Key = "ablurf123BX#$;3",
-    ?line error = compile:file(Simple,
+    TargetDir = filename:dirname(Target),
+    Key = "ablurf123BX#$;3",
+    error = compile:file(Simple,
 			       [debug_info,{debug_info_key,Key},
 				{outdir,TargetDir},report]),
     ok.
@@ -532,7 +532,7 @@ install_crypto_key(Key) ->
 
 %% Miscellanous tests, mainly to get better coverage.
 cover(Config) when is_list(Config) ->
-    ?line io:format("~p\n", [compile:options()]),
+    io:format("~p\n", [compile:options()]),
     ok.
 
 do_listing(Source, TargetDir, Type) ->
@@ -563,11 +563,11 @@ get_files(Config, Module, OutputName) ->
     {Src, Target}.
 
 run(Target, Func, Args) ->
-    ?line Module = list_to_atom(filename:rootname(filename:basename(Target))),
-    ?line {module, Module} = code:load_abs(filename:rootname(Target)),
-    ?line Result = (catch apply(Module, Func, Args)),
-    ?line true = code:delete(Module),
-    ?line false = code:purge(Module),
+    Module = list_to_atom(filename:rootname(filename:basename(Target))),
+    {module, Module} = code:load_abs(filename:rootname(Target)),
+    Result = (catch apply(Module, Func, Args)),
+    true = code:delete(Module),
+    false = code:purge(Module),
     Result.
 
 exists(Name) ->
@@ -580,24 +580,24 @@ exists(Name) ->
 strict_record(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
-    ?line Opts = [{outdir,Priv},report_errors],
+    Opts = [{outdir,Priv},report_errors],
     M = record_access,
  
-    ?line {ok,M} = c:c(M, [strict_record_tests|Opts]),
-    ?line Turtle = test_strict(),
+    {ok,M} = c:c(M, [strict_record_tests|Opts]),
+    Turtle = test_strict(),
 
-    ?line {ok,M} = c:c(M, [no_strict_record_tests|Opts]),
-    ?line Turtle = test_sloppy(),
+    {ok,M} = c:c(M, [no_strict_record_tests|Opts]),
+    Turtle = test_sloppy(),
 
     %% The option first given wins.
-    ?line {ok,M} = c:c(M, [no_strict_record_tests,strict_record_tests|Opts]),
-    ?line Turtle = test_sloppy(),
-    ?line {ok,M} = c:c(M, [strict_record_tests,no_strict_record_tests|Opts]),
-    ?line Turtle = test_strict(),
+    {ok,M} = c:c(M, [no_strict_record_tests,strict_record_tests|Opts]),
+    Turtle = test_sloppy(),
+    {ok,M} = c:c(M, [strict_record_tests,no_strict_record_tests|Opts]),
+    Turtle = test_strict(),
 
     %% Default (possibly influenced by ERL_COMPILER_OPTIONS).
-    ?line {ok,M} = c:c(M, [{outdir,Priv},report_errors]),
-    ?line try
+    {ok,M} = c:c(M, [{outdir,Priv},report_errors]),
+    try
 	      {1,2} = record_access:test(Turtle),
 	      {comment,"Default: no_strict_record_tests"}
 	  catch
@@ -607,7 +607,7 @@ strict_record(Config) when is_list(Config) ->
 
 test_strict() ->
     Turtle = record_access:turtle(),
-    ?line try
+    try
 	      record_access:test(Turtle)
 	  catch
 	      error:{badrecord,tortoise} ->
@@ -629,11 +629,11 @@ missing_testheap(Config) when is_list(Config) ->
 	code:add_patha(PrivDir),
 	c:c(filename:join(DataDir, "missing_testheap1"), Opts),
 	c:c(filename:join(DataDir, "missing_testheap2"), Opts),
-	?line ok = test(fun() ->
-				missing_testheap1:f({a,self()},{state,true,b})
-			end, {a,b}),
-	?line ok = test(fun() ->
-				missing_testheap2:f({a,self()},16#80000000) end,
+	ok = test(fun() ->
+			  missing_testheap1:f({a,self()},{state,true,b})
+		  end, {a,b}),
+	ok = test(fun() ->
+			  missing_testheap2:f({a,self()},16#80000000) end,
 			bigger)
 	after
 	    code:set_path(OldPath),
@@ -662,8 +662,8 @@ init(ReplyTo, Fun, _Filler) ->
 
 env(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, env),
-    ?line {ok,Cwd} = file:get_cwd(),
-    ?line ok = file:set_cwd(filename:dirname(Target)),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(filename:dirname(Target)),
 
     true = os:putenv("ERL_COMPILER_OPTIONS", "binary"),
     try
@@ -678,23 +678,23 @@ env(Config) when is_list(Config) ->
 
 env_1(Simple, Target) ->
     %% file
-    ?line {ok,simple,<<_/binary>>} = compile:file(Simple),
-    ?line {ok,simple} = compile:noenv_file(Simple, [debug_info]),
-    ?line true = exists(Target),
-    ?line {ok,{simple,[{abstract_code,Abstr0}]}} =
+    {ok,simple,<<_/binary>>} = compile:file(Simple),
+    {ok,simple} = compile:noenv_file(Simple, [debug_info]),
+    true = exists(Target),
+    {ok,{simple,[{abstract_code,Abstr0}]}} =
 	beam_lib:chunks(Target, [abstract_code]),
-    ?line {raw_abstract_v1,Forms} = Abstr0,
+    {raw_abstract_v1,Forms} = Abstr0,
 
     %% forms
-    ?line true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
-    ?line {ok,simple} = compile:forms(Forms),
-    ?line {ok,simple,<<"FOR1",_/binary>>} = compile:noenv_forms(Forms, []),
+    true = os:putenv("ERL_COMPILER_OPTIONS", "strong_validation"),
+    {ok,simple} = compile:forms(Forms),
+    {ok,simple,<<"FOR1",_/binary>>} = compile:noenv_forms(Forms, []),
 
     %% output_generated
-    ?line false = compile:output_generated([]),
-    ?line true = compile:noenv_output_generated([]),
+    false = compile:output_generated([]),
+    true = compile:noenv_output_generated([]),
 
-    ?line ok = file:delete(Target),
+    ok = file:delete(Target),
 
     ok.
 
@@ -766,12 +766,12 @@ compile_forms(Forms, Opts) ->
 
 asm(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ?line Outdir = filename:join(PrivDir, "asm"),
-    ?line ok = file:make_dir(Outdir),
+    Outdir = filename:join(PrivDir, "asm"),
+    ok = file:make_dir(Outdir),
 
-    ?line Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    ?line TestBeams = filelib:wildcard(Wc),
-    ?line Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
+    TestBeams = filelib:wildcard(Wc),
+    Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
     Res.
 
     

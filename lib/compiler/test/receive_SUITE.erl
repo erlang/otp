@@ -63,9 +63,9 @@ end_per_group(_GroupName, Config) ->
 -record(state, {ena = true}).
 
 recv(Config) when is_list(Config) ->
-    ?line Pid = spawn_link(fun() -> loop(#state{}) end),
+    Pid = spawn_link(fun() -> loop(#state{}) end),
     Self = self(),
-    ?line Pid ! {Self,test},
+    Pid ! {Self,test},
     receive
 	{ok,test} -> ok;
 	{error,Other} ->
@@ -115,9 +115,9 @@ coverage(Config) when is_list(Config) ->
 
     self() ! 17,
     self() ! 19,
-    ?line 59 = tuple_to_values(infinity, x),
-    ?line 61 = tuple_to_values(999999, x),
-    ?line 0 = tuple_to_values(1, x),
+    59 = tuple_to_values(infinity, x),
+    61 = tuple_to_values(999999, x),
+    0 = tuple_to_values(1, x),
     ok.
 
 receive_all() ->
@@ -256,9 +256,9 @@ cover_recv_instructions() ->
 
 export(Config) when is_list(Config) ->
     Ref = make_ref(),
-    ?line self() ! {result,Ref,42},
-    ?line 42 = export_1(Ref),
-    ?line {error,timeout} = export_1(Ref),
+    self() ! {result,Ref,42},
+    42 = export_1(Ref),
+    {error,timeout} = export_1(Ref),
     ok.
 
 export_1(Reference) ->
