@@ -60,22 +60,19 @@
 -spec start() -> ok  | {error, reason()}.
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
 %%
-%% Description: Utility function that starts the ssl, 
-%% crypto and public_key applications. Default type
-%% is temporary. see application(3)
+%% Description: Utility function that starts the ssl and applications
+%% that it depends on.
+%% see application(3)
 %%--------------------------------------------------------------------
 start() ->
-    application:start(crypto),
-    application:start(asn1),
-    application:start(public_key),
-    application:start(ssl).
-
+    start(temporary).
 start(Type) ->
-    application:start(crypto, Type),
-    application:start(asn1),
-    application:start(public_key, Type),
-    application:start(ssl, Type).
-
+    case application:ensure_all_started(ssl, Type) of
+	{ok, _} ->
+	    ok;
+	Other ->
+	    Other
+    end.
 %%--------------------------------------------------------------------
 -spec stop() -> ok.
 %%

@@ -26,9 +26,7 @@
 
 start() ->
     %% Start ssl application
-    application:start(crypto),
-    application:start(public_key),
-    application:start(ssl),
+    {ok, StartedApps} = application:ensure_all_started(ssl),
 
     %% Let the current process be the server that listens and accepts
     %% Listen
@@ -52,7 +50,8 @@ start() ->
     ssl:close(ASock),
     io:fwrite("Listen: closing and terminating.~n"),
     ssl:close(LSock),
-    application:stop(ssl).
+
+    lists:foreach(fun application:stop/1, lists:reverse(StartedApps)).
 
 
 %% Client connect
