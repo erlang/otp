@@ -108,11 +108,10 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-switch_options(doc) ->
-    ["Tests switching of options for the tcp port, as this is done"
-     " when the distribution port is to be shortcut into the emulator."
-     " Maybe this should be in the inet test suite, but only the distribution"
-     " does such horrible things..."];
+%% Tests switching of options for the tcp port, as this is done
+%% when the distribution port is to be shortcut into the emulator.
+%% Maybe this should be in the inet test suite, but only the distribution
+%% does such horrible things...
 switch_options(Config) when is_list(Config) ->
     ok = test_switch_active(),
     ok = test_switch_active_partial() ,
@@ -120,10 +119,7 @@ switch_options(Config) when is_list(Config) ->
     ok.
     
 
-whitebox(doc) ->
-    ["Whitebox testing of distribution handshakes. Tests both BC with R5 and "
-     "the md5 version. Note that after R6B, this should be revised to "
-     "remove BC code."];
+%% Whitebox testing of distribution handshakes.
 whitebox(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(?MODULE,""),
     ?line Cookie = erlang:get_cookie(),
@@ -360,7 +356,6 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
     ?line gen_tcp:close(EpmdSocket),
     ok.
 
-missing_compulsory_dflags(doc) -> [];
 missing_compulsory_dflags(Config) when is_list(Config) ->
     ?line [Name1, Name2] = get_nodenames(2, missing_compulsory_dflags),
     ?line {ok, Node} = start_node(Name1,""),

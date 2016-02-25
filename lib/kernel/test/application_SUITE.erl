@@ -114,10 +114,8 @@ loop_until_true(Fun) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-failover(suite) -> [];
-failover(doc) ->
-    ["Tests failover and takeover for distributed applications.  Tests",
-     "start, load etc implicitly."];
+%% Tests failover and takeover for distributed applications.  Tests
+%% start, load etc implicitly.
 failover(Conf) when is_list(Conf) ->
     %% start a help process to check the start type
     StPid = spawn_link(?MODULE, start_type, []),
@@ -219,11 +217,9 @@ failover(Conf) when is_list(Conf) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-failover_comp(suite) -> [];
-failover_comp(doc) ->
-    ["Tests failover and takeover for distributed applications.  Tests",
-     "start, load etc implicitly. The applications do not use start_phases,"
-     "i.e the failover should be trasfered to normal start type."];
+%% Tests failover and takeover for distributed applications.  Tests
+%% start, load etc implicitly. The applications do not use start_phases
+%% i.e. the failover should be transfered to normal start type.
 failover_comp(Conf) when is_list(Conf) ->
     %% start a help process to check the start type
     StPid = spawn_link(?MODULE, start_type, []),
@@ -329,9 +325,7 @@ failover_comp(Conf) when is_list(Conf) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-permissions(suite) -> [];
-permissions(doc) ->
-    ["Tests permissions for distributed applications."];
+%% Tests permissions for distributed applications.
 permissions(Conf) when is_list(Conf) ->
 
     NodeNames = [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
@@ -409,9 +403,7 @@ permissions(Conf) when is_list(Conf) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-load(suite) -> [];
-load(doc) ->
-    ["Tests loading of distributed applications."];
+%% Tests loading of distributed applications.
 load(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
     NoSyncTime = config_fun_fast(config3(NodeNames)),
@@ -446,9 +438,7 @@ load(Conf) when is_list(Conf) ->
 %%-----------------------------------------------------------------
 %% Same test as load/1, only with code path cache enabled.
 %%-----------------------------------------------------------------
-load_use_cache(suite) -> [];
-load_use_cache(doc) ->
-    ["Tests loading of distributed applications. Code path cache enabled."];
+%% Tests loading of distributed applications. Code path cache enabled.
 load_use_cache(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
     NoSyncTime = config_fun_fast(config3(NodeNames)),
@@ -483,9 +473,7 @@ load_use_cache(Conf) when is_list(Conf) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-start_phases(suite) -> [];
-start_phases(doc) ->
-    ["Tests new start phases and failover."];
+%% Tests new start phases and failover.
 start_phases(Conf) when is_list(Conf) ->
     %% start a help process to check the start type
     SpPid = spawn_link(?MODULE, start_phase, []),
@@ -547,10 +535,8 @@ start_phases(Conf) when is_list(Conf) ->
     ok.
 
 
-script_start(doc) ->
-    ["Start distributed applications from within a boot script.  Test ",
-     "same as failover."];
-script_start(suite) -> [];
+%% Start distributed applications from within a boot script.  Test
+%%  same as failover.
 script_start(Conf) when is_list(Conf) ->
     %% start a help process to check the start type
     StPid = spawn_link(?MODULE, start_type, []),
@@ -662,10 +648,8 @@ script_start(Conf) when is_list(Conf) ->
 
     ok.
 
-permit_false_start_local(doc) ->
-    ["Start local applications with permission false.  Set",
-     "permit true on different nodes."];
-permit_false_start_local(suite) -> [];
+%% Start local applications with permission false.  Set
+%% permit true on different nodes.
 permit_false_start_local(Conf) when is_list(Conf) ->
     %% This configuration does not start dist_ac.
     Config = write_config_file(fun config_perm/1, Conf),
@@ -792,10 +776,8 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     ok.
     
 
-permit_false_start_dist(doc) ->
-    ["Start distributed applications with permission false.  Set",
-     "permit true on different nodes."];
-permit_false_start_dist(suite) -> [];
+%% Start distributed applications with permission false.  Set
+%% permit true on different nodes.
 permit_false_start_dist(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
     NoSyncTime = config_fun_fast(config_perm2(NodeNames)),
@@ -927,10 +909,8 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     stop_node_nice(Cp3),
     ok.
 
-nodedown_start(doc) ->
-    ["app1 distributed as [cp1, cp2].  Call application:start(app1) on",
-     "cp2, but not on cp1.  Kill cp1.  Make sure app1 is started on cp2."];
-nodedown_start(suite) -> [];
+%% app1 distributed as [cp1, cp2].  Call application:start(app1) on
+%% cp2, but not on cp1.  Kill cp1.  Make sure app1 is started on cp2.
 nodedown_start(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     NoSyncTime = config_fun_fast(config4(NodeNames)),
@@ -955,8 +935,7 @@ nodedown_start(Conf) when is_list(Conf) ->
     ok.
 
 
-ensure_started(suite) -> [];
-ensure_started(doc) -> ["Test application:ensure_started/1."];
+%% Test application:ensure_started/1.
 ensure_started(_Conf) ->
 
     {ok, Fd} = file:open("app1.app", [write]),
@@ -975,8 +954,7 @@ ensure_started(_Conf) ->
     ok = application:unload(app1),
     ok.
 
-ensure_all_started(suite) -> [];
-ensure_all_started(doc) -> ["Test application:ensure_all_started/1-2."];
+%% Test application:ensure_all_started/1-2.
 ensure_all_started(_Conf) ->
 
     {ok, Fd1} = file:open("app1.app", [write]),
@@ -1063,9 +1041,7 @@ ensure_all_started(_Conf) ->
 %% Ticket: OTP-1586
 %% Slogan: recursive load of applications fails
 %%-----------------------------------------------------------------
-otp_1586(suite) -> [];
-otp_1586(doc) ->
-    ["Test recursive load of applications."];
+%% Test recursive load of applications.
 otp_1586(Conf) when is_list(Conf) ->
     Dir = proplists:get_value(priv_dir,Conf),
     {ok, Fd} = file:open(filename:join(Dir, "app5.app"), [write]),
@@ -1084,9 +1060,7 @@ otp_1586(Conf) when is_list(Conf) ->
 %% Slogan: start of distrib apps fails when the nodes start
 %%         simultaneously
 %%-----------------------------------------------------------------
-otp_2078(suite) -> [];
-otp_2078(doc) ->
-    ["Test start of distrib apps fails when the nodes start simultaneously."];
+%% Test start of distrib apps fails when the nodes start simultaneously.
 otp_2078(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     NoSyncTime = config_fun_fast(config4(NodeNames)),
@@ -1116,9 +1090,7 @@ otp_2078(Conf) when is_list(Conf) ->
     stop_node_nice(Cp2),
     ok.
 
-otp_2012(suite) -> [];
-otp_2012(doc) ->
-    ["Test change of configuration parameters without changing code."];
+%% Test change of configuration parameters without changing code.
 otp_2012(Conf) when is_list(Conf) ->
     %% start a help process to check the config change
     CcPid = spawn_link(?MODULE, conf_change, []),
@@ -1167,9 +1139,7 @@ otp_2012(Conf) when is_list(Conf) ->
 %% Ticket: OTP-2718
 %% Slogan: transient app which fails during start is ignored
 %%-----------------------------------------------------------------
-otp_2718(suite) -> [];
-otp_2718(doc) ->
-    ["Test fail of transient app at start."];
+%% Test fail of transient app at start.
 otp_2718(Conf) when is_list(Conf) ->
     {ok, Cp1} = start_node_args(cp1, "-pa " ++ proplists:get_value(data_dir,Conf)),
     wait_for_ready_net(),
@@ -1195,9 +1165,7 @@ otp_2718(Conf) when is_list(Conf) ->
 %% Ticket: OTP-2973
 %% Slogan: application:start does not test if an appl is already starting...
 %%-----------------------------------------------------------------
-otp_2973(suite) -> [];
-otp_2973(doc) ->
-    ["Test of two processes simultanously starting the same application."];
+%% Test of two processes simultanously starting the same application.
 otp_2973(Conf) when is_list(Conf) ->
     % Write a .app file
     {ok, Fd} = file:open("app0.app", [write]),
@@ -1283,11 +1251,9 @@ otp_2973(Conf) when is_list(Conf) ->
 %% Ticket: OTP-3184
 %% Slogan: crash the node if permanent appl has illegal env parameter values
 %%-----------------------------------------------------------------
-otp_3184(suite) -> [];
-otp_3184(doc) ->
-    ["When a distributed application is started the permit flag is checked "
-     "that the permit flag is not changed during the start. "
-     "Te check must only be made if the application is started on the own node"];
+%% When a distributed application is started the permit flag is checked
+%% that the permit flag is not changed during the start.
+%% The check must only be made if the application is started on the own node.
 otp_3184(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     NoSyncTime = config_fun_fast(config3184(NodeNames)),
@@ -1331,9 +1297,7 @@ otp_3184(Conf) when is_list(Conf) ->
 %% Ticket: OTP-3002
 %% Slogan: crash the node if permanent appl has illegal env parameter values
 %%-----------------------------------------------------------------
-otp_3002(suite) -> [];
-otp_3002(doc) ->
-    ["crash the node if permanent appl has illegal env parameter values."];
+%% crash the node if permanent appl has illegal env parameter values.
 otp_3002(Conf) when is_list(Conf) ->
     % Create the boot script
     {{KernelVer,StdlibVer}, {LatestDir, LatestName}} =
@@ -1365,8 +1329,7 @@ otp_3002(Conf) when is_list(Conf) ->
 %%         when it received dist_ac_app_stopped).
 %%-----------------------------------------------------------------
 
-otp_4066(suite) -> [];
-otp_4066(doc) -> ["Check that application stop don't cause dist_ac crash"];
+%% Check that application stop don't cause dist_ac crash.
 otp_4066(Conf) when is_list(Conf) ->
     % Write config files
     [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
@@ -1444,9 +1407,7 @@ print_dac_state(Nodes) when is_list(Nodes) ->
 %% Ticket: OTP-4227
 %% Slogan: Bad return value from application.
 %%-----------------------------------------------------------------
-otp_4227(suite) -> [];
-otp_4227(doc) ->
-    ["Test start of depending app when required app crashed."];
+%% Test start of depending app when required app crashed.
 otp_4227(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     NoSyncTime = config_fun_fast(config_4227(NodeNames)),
@@ -1537,10 +1498,8 @@ otp_5363(Conf) when is_list(Conf) ->
 %% Ticket: OTP-5606
 %% Slogan: Problems with starting a distributed application
 %%-----------------------------------------------------------------
-otp_5606(suite) -> [];
-otp_5606(doc) ->
-    ["Test of several processes simultanously starting the same "
-     "distributed application."];
+%% Test of several processes simultanously starting the same
+%% distributed application.
 otp_5606(Conf) when is_list(Conf) ->
 
     %% Write a config file
@@ -1607,9 +1566,7 @@ loop5606(Pid) ->
 	    Pid ! {self(), Res}
     end.
 	    
-get_env(suite) -> [];
-get_env(doc) ->
-    ["Tests get_env/* functions"];
+%% Tests get_env/* functions.
 get_env(Conf) when is_list(Conf) ->
     {ok, _}   = application:get_env(kernel, error_logger),
     undefined = application:get_env(undefined_app, a),
@@ -1621,9 +1578,7 @@ get_env(Conf) when is_list(Conf) ->
 %% Should be started in a CC view with:
 %% erl -sname XXX -rsh ctrsh where XX not in [cp1, cp2, cp3]
 %%-----------------------------------------------------------------
-get_key(suite) -> [];
-get_key(doc) ->
-    ["Tests read the .app keys."];
+%% Tests read the .app keys.
 get_key(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, _Ncp2, _Ncp3] = node_names([cp1, cp2, cp3], Conf),
     WithSyncTime = config_fun(config_inc(NodeNames)),
@@ -1725,8 +1680,7 @@ get_key(Conf) when is_list(Conf) ->
 %%% Testing of change of distributed parameter.
 %%%-----------------------------------------------------------------
 
-distr_changed_tc1(suite) -> [];
-distr_changed_tc1(doc) -> ["Test change of distributed parameter."];
+%% Test change of distributed parameter.
 distr_changed_tc1(Conf) when is_list(Conf) ->
 
     {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {_Ncp1, _Ncp2, _Ncp3}, _Config2} = 
@@ -1810,9 +1764,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 
     ok.
 
-distr_changed_tc2(suite) -> [];
-distr_changed_tc2(doc) -> ["Test change of distributed parameter, "
-			   "move appls by crashing a node."];
+%% Test change of distributed parameter, move appls by crashing a node.
 distr_changed_tc2(Conf) when is_list(Conf) ->
 
     {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {Ncp1, _Ncp2, _Ncp3}, Config2} = 
@@ -1932,10 +1884,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 %%%-----------------------------------------------------------------
 %%% Testing of application configuration change
 %%%-----------------------------------------------------------------
-config_change(suite) ->
-    [];
-config_change(doc) ->
-    ["Test change of application configuration"];
+%% Test change of application configuration.
 config_change(Conf) when is_list(Conf) ->
 
     %% Change to data_dir
@@ -2002,10 +1951,7 @@ get_appls([], Res) ->
     Res.
 
 
-persistent_env(suite) ->
-    [];
-persistent_env(doc) ->
-    ["Test set_env/4 and unset_env/3 with persistent true"];
+%% Test set_env/4 and unset_env/3 with persistent true.
 persistent_env(Conf) when is_list(Conf) ->
     ok = application:set_env(appinc, own2, persist, [{persistent, true}]),
     ok = application:set_env(appinc, key1, persist, [{persistent, true}]),
@@ -2049,10 +1995,7 @@ persistent_env(Conf) when is_list(Conf) ->
 %%%-----------------------------------------------------------------
 %%% Tests the 'shutdown_func' kernel config parameter
 %%%-----------------------------------------------------------------
-shutdown_func(suite) ->
-    [];
-shutdown_func(doc) ->
-    ["Tests the 'shutdown_func' kernel config parameter"];
+%% Tests the 'shutdown_func' kernel config parameter.
 shutdown_func(Config) when is_list(Config) ->
     {ok,Cp1} = start_node(?MODULE_STRING++"_shutdown_func"),
     wait_for_ready_net(),

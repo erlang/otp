@@ -67,10 +67,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-simple(doc) ->
-    ["Tests simple functionality in process dictionary."];
-simple(suite) ->
-    [];
+%% Tests simple functionality in process dictionary.
 simple(Config) when is_list(Config) ->
     XX = get(),
     ok = match_keys(XX),
@@ -145,10 +142,7 @@ comp_4([{{key,_}=K,{value,_}=Val}|T]) ->
     comp_4(T);
 comp_4([]) -> ok.
 
-heavy(doc) ->
-    ["Tests heavy usage of the process dictionary"];
-heavy(suite) ->
-    [];
+%% Tests heavy usage of the process dictionary.
 heavy(Config) when is_list(Config) ->
     XX = get(),
     erase(),
@@ -187,10 +181,7 @@ simple_all_keys_del_loop([K|Ks]) ->
     ok = match_keys(get()),
     simple_all_keys_del_loop(Ks).
 
-info(doc) ->
-    ["Tests process_info(Pid, dictionary)"];
-info(suite) ->
-    [];
+%% Tests process_info(Pid, dictionary).
 info(Config) when is_list(Config) ->
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],

@@ -201,8 +201,7 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 
-halt_int_inf(suite) -> [];
-halt_int_inf(doc) -> ["Test simple halt disk log, size infinity"];
+%% Test simple halt disk log, size infinity.
 halt_int_inf(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     ?line ok = disk_log:start(),
@@ -215,8 +214,7 @@ halt_int_inf(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File).
 
 
-halt_int_sz_1(suite) -> [];
-halt_int_sz_1(doc) -> ["Test simple halt disk log, size defined"];
+%% Test simple halt disk log, size defined.
 halt_int_sz_1(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -247,8 +245,7 @@ halt_int_sz_1(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_int_sz_2(suite) -> [];
-halt_int_sz_2(doc) -> ["Test simple halt disk log, size ~8192"];
+%% Test simple halt disk log, size ~8192.
 halt_int_sz_2(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
@@ -302,8 +299,7 @@ halt_int_sz_2(Conf) when is_list(Conf) ->
     ok.
 
 
-halt_int_ro(suite) -> [];
-halt_int_ro(doc) -> ["Test simple halt disk log, read only, internal"];
+%% Test simple halt disk log, read only, internal.
 halt_int_ro(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -321,8 +317,7 @@ halt_int_ro(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_ext_ro(suite) -> [];
-halt_ext_ro(doc) -> ["Test simple halt disk log, read only, external"];
+%% Test simple halt disk log, read only, external.
 halt_ext_ro(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -338,8 +333,7 @@ halt_ext_ro(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-wrap_int_ro(suite) -> [];
-wrap_int_ro(doc) -> ["Test simple wrap disk log, read only, internal"];
+%% Test simple wrap disk log, read only, internal.
 wrap_int_ro(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -354,8 +348,7 @@ wrap_int_ro(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line del(File, 4).
 
-wrap_ext_ro(suite) -> [];
-wrap_ext_ro(doc) -> ["Test simple wrap disk log, read only, external"];
+%% Test simple wrap disk log, read only, external.
 wrap_ext_ro(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -372,8 +365,7 @@ wrap_ext_ro(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     del(File, 4).
 
-halt_trunc(suite) -> [];
-halt_trunc(doc) -> ["Test truncation of halt disk log"];
+%% Test truncation of halt disk log.
 halt_trunc(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -387,8 +379,7 @@ halt_trunc(Conf) when is_list(Conf) ->
 		       {file, File}, {mode,read_only}]),
     ?line ok = file:delete(File).
 
-halt_misc(suite) -> [];
-halt_misc(doc) -> ["Test truncation of halt disk log"];
+%% Test truncation of halt disk log.
 halt_misc(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -410,8 +401,7 @@ halt_misc(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_ro_alog(suite) -> [];
-halt_ro_alog(doc) -> ["Test truncation of halt disk log, read only"];
+%% Test truncation of halt disk log, read only.
 halt_ro_alog(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -439,8 +429,7 @@ halt_ro_alog_wait_notify(Log, T) ->
 	    failed
     end.
 
-halt_ro_balog(suite) -> [];
-halt_ro_balog(doc) -> ["Test truncation of halt disk log, read only"];
+%% Test truncation of halt disk log, read only.
 halt_ro_balog(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -468,8 +457,7 @@ halt_ro_balog_wait_notify(Log, T) ->
 	    failed
     end.
 
-halt_ro_crash(suite) -> [];
-halt_ro_crash(doc) -> ["Test truncation of halt disk log, read only, repair"];
+%% Test truncation of halt disk log, read only, repair.
 halt_ro_crash(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -503,8 +491,7 @@ halt_ro_crash(Conf) when is_list(Conf) ->
 
 
 
-wrap_int_1(suite) -> [];
-wrap_int_1(doc) -> ["Test wrap disk log, internal"];
+%% Test wrap disk log, internal.
 wrap_int_1(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -540,8 +527,7 @@ wrap_int_1(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     del(File, 4).
 
-wrap_int_2(suite) -> [];
-wrap_int_2(doc) -> ["Test wrap disk log, internal"];
+%% Test wrap disk log, internal.
 wrap_int_2(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
@@ -587,8 +573,7 @@ wrap_int_2(Conf) when is_list(Conf) ->
     del(File2, 3),
     del(File3, 3).
 
-inc_wrap_file(suite) -> [];
-inc_wrap_file(doc) -> ["Test disk log, force a change to next file"];
+%% Test disk log, force a change to next file.
 inc_wrap_file(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
@@ -650,8 +635,7 @@ inc_wrap_file(Conf) when is_list(Conf) ->
 
 
 
-halt_ext_inf(suite) -> [];
-halt_ext_inf(doc) -> ["Test halt disk log, external, infinity"];
+%% Test halt disk log, external, infinity.
 halt_ext_inf(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -663,8 +647,7 @@ halt_ext_inf(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File).
 
 
-halt_ext_sz_1(suite) -> [];
-halt_ext_sz_1(doc) -> ["Test halt disk log, external, size defined"];
+%% Test halt disk log, external, size defined.
 halt_ext_sz_1(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -697,8 +680,7 @@ halt_ext_sz_1(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_ext_sz_2(suite) -> [];
-halt_ext_sz_2(doc) -> ["Test halt disk log, external, size defined"];
+%% Test halt disk log, external, size defined.
 halt_ext_sz_2(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
@@ -754,8 +736,7 @@ halt_ext_sz_2(Conf) when is_list(Conf) ->
     ok.
 
 
-wrap_ext_1(suite) -> [];
-wrap_ext_1(doc) -> ["Test wrap disk log, external, size defined"];
+%% Test wrap disk log, external, size defined.
 wrap_ext_1(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -806,8 +787,7 @@ wrap_ext_1(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     del(File, 4).
 
-wrap_ext_2(suite) -> [];
-wrap_ext_2(doc) -> ["Test wrap disk log, external, size defined"];
+%% Test wrap disk log, external, size defined.
 wrap_ext_2(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File1 = filename:join(Dir, "a.LOG"),
@@ -1166,8 +1146,7 @@ end_times({T1,W1}) ->
     {T2-T1, W2-W1}.
 
 
-head_func(suite) -> [];
-head_func(doc) -> ["Test head parameter"];
+%% Test head parameter.
 head_func(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1243,8 +1222,7 @@ hf() ->
     ets:update_counter(xxx, wrapc, 1),
     {ok, [1,2,3]}.
 
-plain_head(suite) -> [];
-plain_head(doc) -> ["Test head parameter"];
+%% Test head parameter.
 plain_head(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1273,8 +1251,7 @@ plain_head(Conf) when is_list(Conf) ->
 
 
 
-one_header(suite) -> [];
-one_header(doc) -> ["Test that a header is just printed once in a log file"];
+%% Test that a header is just printed once in a log file.
 one_header(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1345,8 +1322,7 @@ one_header(Conf) when is_list(Conf) ->
 
 
 
-wrap_notif(suite) -> [];
-wrap_notif(doc) -> ["Test notify parameter, wrap"];
+%% Test notify parameter, wrap.
 wrap_notif(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1363,8 +1339,7 @@ wrap_notif(Conf) when is_list(Conf) ->
     disk_log:close(a),
     del(File, 4).
 
-full_notif(suite) -> [];
-full_notif(doc) -> ["Test notify parameter, wrap, filled file"];
+%% Test notify parameter, wrap, filled file.
 full_notif(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1379,8 +1354,7 @@ full_notif(Conf) when is_list(Conf) ->
     disk_log:close(a),
     file:delete(File).
 
-trunc_notif(suite) -> [];
-trunc_notif(doc) -> ["Test notify parameter, wrap, truncated file"];
+%% Test notify parameter, wrap, truncated file.
 trunc_notif(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "a.LOG"),
@@ -1398,9 +1372,7 @@ trunc_notif(Conf) when is_list(Conf) ->
     file:delete(File),
     file:delete(File2).
 
-blocked_notif(suite) -> [];
-blocked_notif(doc) -> 
-    ["Test notify parameters 'format_external' and 'blocked_log"];
+%% Test notify parameters 'format_external' and 'blocked_log.
 blocked_notif(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "n.LOG"),
@@ -1429,8 +1401,7 @@ blocked_notif(Conf) when is_list(Conf) ->
     ?line del(File, No).
 
 
-new_idx_vsn(suite) -> [];
-new_idx_vsn(doc) -> ["Test the new version of the .idx file"];
+%% Test the new version of the .idx file.
 new_idx_vsn(Conf) when is_list(Conf) ->
     DataDir = ?datadir(Conf),
     PrivDir = ?privdir(Conf),
@@ -1477,9 +1448,7 @@ new_idx_vsn(Conf) when is_list(Conf) ->
 
     ok.
 
-reopen(suite) -> [];
-reopen(doc) -> 
-    ["Test reopen/1 on halt and wrap logs."];
+%% Test reopen/1 on halt and wrap logs.
 reopen(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -1569,9 +1538,7 @@ reopen(Conf) when is_list(Conf) ->
     ok.
 
 
-block_blocked(suite) -> [];
-block_blocked(doc) -> 
-    ["Test block/1 on external and internal logs."];
+%% Test block/1 on external and internal logs.
 block_blocked(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -1645,9 +1612,7 @@ block_blocked(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(halt),
     ?line del(File, No).
 
-block_queue(suite) -> [];
-block_queue(doc) -> 
-    ["Run commands from the queue by unblocking."];
+%% Run commands from the queue by unblocking.
 block_queue(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -1790,9 +1755,7 @@ block_queue(Conf) when is_list(Conf) ->
     ?line true = (P0 == pps()),
     ok.
 
-block_queue2(suite) -> [];
-block_queue2(doc) -> 
-    ["OTP-4880. Blocked processes did not get disk_log_stopped message."];
+%% OTP-4880. Blocked processes did not get disk_log_stopped message.
 block_queue2(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ?line P0 = pps(),
@@ -1825,9 +1788,7 @@ block_queue2(Conf) when is_list(Conf) ->
     ok.
 
 
-unblock(suite) -> [];
-unblock(doc) -> 
-    ["Test unblock/1."];
+%% Test unblock/1.
 unblock(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "n.LOG"),
@@ -1846,9 +1807,7 @@ try_unblock(Log) ->
     ?line "The disk log" ++ _ = format_error(Error).
 
 
-open_overwrite(suite) -> [];
-open_overwrite(doc) -> 
-    ["Test open/1 when old files exist."];
+%% Test open/1 when old files exist.
 open_overwrite(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -1933,9 +1892,7 @@ make_file(Dir, File, N) ->
     end,
     ok = file:close(F).
 
-open_size(suite) -> [];
-open_size(doc) -> 
-    ["Test open/1 option size."];
+%% Test open/1 option size.
 open_size(Conf) when is_list(Conf) ->
 
     ?line Dir = ?privdir(Conf),
@@ -1986,9 +1943,7 @@ open_size(Conf) when is_list(Conf) ->
     ok.
 
 
-open_truncate(suite) -> [];
-open_truncate(doc) -> 
-    ["Test open/1 with {repair, truncate}."];
+%% Test open/1 with {repair, truncate}.
 open_truncate(Conf) when is_list(Conf) ->
 
     ?line Dir = ?privdir(Conf),
@@ -2010,9 +1965,7 @@ open_truncate(Conf) when is_list(Conf) ->
     ok.
     
 
-open_error(suite) -> [];
-open_error(doc) -> 
-    ["Try some invalid open/1 options."];
+%% Try some invalid open/1 options.
 open_error(Conf) when is_list(Conf) ->
     ?line Dir = ?privdir(Conf),
 
@@ -2093,9 +2046,7 @@ open_error(Conf) when is_list(Conf) ->
     ?line del(File, No).    
 
 
-close_race(suite) -> [];
-close_race(doc) -> 
-    ["Do something quickly after close/1"];
+%% Do something quickly after close/1.
 close_race(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     ?line File = filename:join(Dir, "n.LOG"),
@@ -2147,9 +2098,7 @@ close_race(Conf) when is_list(Conf) ->
     ?line del(File, No),  % cleanup
     ok.
 
-close_block(suite) -> [];
-close_block(doc) -> 
-    ["Block, unblock, close, terminate."];
+%% Block, unblock, close, terminate.
 close_block(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -2341,9 +2290,7 @@ close_block(Conf) when is_list(Conf) ->
     del(File, No),	% cleanup
     ok.
 
-close_deadlock(suite) -> [];
-close_deadlock(doc) -> 
-    ["OTP-4745. Deadlock with just an ordinary log could happen."];
+%% OTP-4745. Deadlock with just an ordinary log could happen.
 close_deadlock(Conf) when is_list(Conf) ->
     ?line true = is_alive(),
 
@@ -2514,9 +2461,7 @@ lserv(Log) ->
     lserv(Log).
 
 
-error_repair(suite) -> [];
-error_repair(doc) -> 
-    ["Error while repairing."];
+%% Error while repairing.
 error_repair(Conf) when is_list(Conf) ->
     % not all error situations are covered by this test
 
@@ -2642,9 +2587,7 @@ set_opened(File) ->
     ok = file:write(Fd, [?LOGMAGIC, ?OPENED]),
     ok = file:close(Fd).
 
-error_log(suite) -> [];
-error_log(doc) -> 
-    ["Error while repairing."];
+%% Error while repairing.
 error_log(Conf) when is_list(Conf) ->
     ?line Dir = ?privdir(Conf),
 
@@ -2737,9 +2680,7 @@ error_log(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ok.
     
-chunk(suite) -> [];
-chunk(doc) -> 
-    ["Test chunk and chunk_step."];
+%% Test chunk and chunk_step.
 chunk(Conf) when is_list(Conf) ->
     %% See also halt_ro_crash/1 above.
 
@@ -3033,9 +2974,7 @@ chunk(Conf) when is_list(Conf) ->
 
     ok.
 
-error_index(suite) -> [];
-error_index(doc) -> 
-    ["OTP-5558. Keep the contents of index files after disk crash."];
+%% OTP-5558. Keep the contents of index files after disk crash.
 error_index(Conf) when is_list(Conf) ->
     ?line Dir = ?privdir(Conf),
 
@@ -3060,9 +2999,7 @@ error_index(Conf) when is_list(Conf) ->
     ?line true = (Q == qlen()),
     ok.
     
-truncate(suite) -> [];
-truncate(doc) -> 
-    ["Test truncate/1 on halt and wrap logs."];
+%% Test truncate/1 on halt and wrap logs.
 truncate(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
 
@@ -3169,9 +3106,7 @@ truncate(Conf) when is_list(Conf) ->
     ok.
 
 
-many_users(suite) -> [];
-many_users(doc) -> 
-    ["Test many users logging and sync:ing at the same time."];
+%% Test many users logging and sync:ing at the same time.
 many_users(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     N = 100,
@@ -3231,9 +3166,7 @@ del_files(_Size, File) ->
 
 
 
-info_current(suite) -> [];
-info_current(doc) -> 
-    ["Test no_current_{bytes, items} as returned by info/0."];
+%% Test no_current_{bytes, items} as returned by info/0.
 info_current(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -3435,7 +3368,6 @@ info_current(Conf) when is_list(Conf) ->
 
 
 
-change_size_before(suite) -> [];
 change_size_before(doc) -> 
     ["Change size of a wrap log file before we have reached "
      "to the file index corresponding to the new size"];
@@ -3586,9 +3518,8 @@ change_size_before(Conf) when is_list(Conf) ->
 
 
 
-change_size_during(suite) -> [];
-change_size_during(doc) -> ["Change size of a wrap log file while logging  "
-			    "to a file index between the old and the new size"];
+%% Change size of a wrap log file while logging to a file index
+%% between the old and the new size.
 change_size_during(Conf) when is_list(Conf) ->
 
     Log_1_1 = "first log  first message",
@@ -3715,11 +3646,8 @@ change_size_during(Conf) when is_list(Conf) ->
     del(File, 5).
 
 
-change_size_after(suite) -> [];
-change_size_after(doc) -> 
-    ["Change size of a wrap log file before we have reached "
-     "(on the second round) "
-     "to the file index corresponding to the new size"];
+%% Change size of a wrap log file before we have reached (on the
+%% second round) to the file index corresponding to the new size.
 change_size_after(Conf) when is_list(Conf) ->
 
     Log_1_1 = "first log  first message",
@@ -3815,8 +3743,7 @@ change_size_after(Conf) when is_list(Conf) ->
 
 
 
-default_size(suite) -> [];
-default_size(doc) -> ["Open an existing wrap log without size option "];
+%% Open an existing wrap log without size option .
 default_size(Conf) when is_list(Conf) ->
     ?line Dir = ?privdir(Conf),
     ?line File = filename:join(Dir, "a.LOG"),
@@ -3832,8 +3759,7 @@ default_size(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line del(File, 5).
 
-change_size2(suite) -> [];
-change_size2(doc) -> ["Testing change_size/2 a bit more..."];
+%% Testing change_size/2 a bit more...
 change_size2(Conf) when is_list(Conf) ->
     
     Dir = ?privdir(Conf),
@@ -3895,8 +3821,7 @@ change_size2(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(n),
     ?line del(File, No).
 
-change_size_truncate(suite) -> [];
-change_size_truncate(doc) -> ["OTP-3484: truncating index file"];
+%% OTP-3484: truncating index file.
 change_size_truncate(Conf) when is_list(Conf) ->
     
     Dir = ?privdir(Conf),
@@ -4029,9 +3954,7 @@ change_size_truncate(Conf) when is_list(Conf) ->
     ?line del(File, No),
     ok.
 
-change_attribute(suite) -> [];
-change_attribute(doc) -> 
-    ["Change notify and head"];
+%% Change notify and head.
 change_attribute(Conf) when is_list(Conf) ->
 
     Dir = ?privdir(Conf),
@@ -4103,9 +4026,7 @@ change_attribute(Conf) when is_list(Conf) ->
     ?line del(File, No).
     
 
-dist_open(suite) -> [];
-dist_open(doc) -> 
-    ["Open a distributed log"];
+%% Open a distributed log.
 dist_open(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir(Conf),
     ?line true = is_alive(),
@@ -4208,9 +4129,7 @@ dist_open(Conf) when is_list(Conf) ->
     ?line stop_node(Node),
     ok.
     
-dist_error_open(suite) -> [];
-dist_error_open(doc) -> 
-    ["Open a log distributed and not distributed"];
+%% Open a log distributed and not distributed.
 dist_error_open(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir(Conf),
     ?line true = is_alive(),
@@ -4261,9 +4180,7 @@ dist_error_open(Conf) when is_list(Conf) ->
     ?line stop_node(Node),
     ok.
 
-dist_notify(suite) -> [];
-dist_notify(doc) -> 
-    ["Notification from other node"];
+%% Notification from other node.
 dist_notify(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir(Conf),
     ?line true = is_alive(),
@@ -4303,9 +4220,7 @@ dist_notify(Conf) when is_list(Conf) ->
     ?line stop_node(Node),
     ok.
 
-dist_terminate(suite) -> [];
-dist_terminate(doc) -> 
-    ["Terminating nodes with distributed logs"];
+%% Terminating nodes with distributed logs.
 dist_terminate(Conf) when is_list(Conf) ->
     ?line Dir = ?privdir(Conf),
     ?line true = is_alive(),
@@ -4360,9 +4275,7 @@ dist_terminate(Conf) when is_list(Conf) ->
     ?line stop_node(Node),
     ok.
 
-dist_accessible(suite) -> [];
-dist_accessible(doc) -> 
-    ["Accessible logs on nodes"];
+%% Accessible logs on nodes.
 dist_accessible(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir(Conf),
 
@@ -4430,9 +4343,7 @@ dist_accessible(Conf) when is_list(Conf) ->
     ?line stop_node(Node),
     ok.
 
-dist_deadlock(suite) -> [];
-dist_deadlock(doc) -> 
-    ["OTP-4405. Deadlock between two nodes could happen."];
+%% OTP-4405. Deadlock between two nodes could happen.
 dist_deadlock(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir(Conf),
 
@@ -4471,9 +4382,7 @@ dist_dl(Node, Name, File, Pid) ->
     Pid ! {self(), Name},
     ok.
 
-dist_open2(suite) -> [];
-dist_open2(doc) -> 
-    ["OTP-4480. Opening several logs simultaneously."];
+%% OTP-4480. Opening several logs simultaneously.
 dist_open2(Conf) when is_list(Conf) ->
     ?line true = is_alive(),
     ?line {ok, _Pg2} = pg2:start(),
@@ -4730,9 +4639,7 @@ log_terms(Log, N) ->
     ok = disk_log:log(Log, {term, N}),
     log_terms(Log, N-1).
 
-other_groups(suite) -> [];
-other_groups(doc) -> 
-    ["OTP-5810. Cope with pg2 groups that are not disk logs."];
+%% OTP-5810. Cope with pg2 groups that are not disk logs.
 other_groups(Conf) when is_list(Conf) ->
     ?line true = is_alive(),
     ?line PrivDir = ?privdir(Conf),
@@ -4760,8 +4667,7 @@ other_groups(Conf) when is_list(Conf) ->
     ok.
 
 -define(MAX, 16384). % MAX in disk_log_1.erl
-evil(suite) -> [];
-evil(doc) -> ["Evil cases such as closed file descriptor port."];
+%% Evil cases such as closed file descriptor port.
 evil(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "n.LOG"),
@@ -4873,8 +4779,7 @@ setup_evil_filled_cache(Log, Args, Dir) ->
     exit(Fd, kill),
     ok.
 
-otp_6278(suite) -> [];
-otp_6278(doc) -> ["OTP-6278. open/1 creates no status or crash report."];
+%% OTP-6278. open/1 creates no status or crash report.
 otp_6278(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = filename:join(Dir, "no_such_dir/no_such_file"),
@@ -4890,8 +4795,7 @@ otp_6278(Conf) when is_list(Conf) ->
     end,
     ?line error_logger:delete_report_handler(?MODULE).
 
-otp_10131(suite) -> [];
-otp_10131(doc) -> ["OTP-10131. head_func type."];
+%% OTP-10131. head_func type.
 otp_10131(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     Log = otp_10131,

@@ -74,9 +74,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-spawn1(doc) -> ["Test spawn/1"];
-spawn1(suite) ->
-    [];
+%% Test spawn/1.
 spawn1(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
@@ -91,9 +89,7 @@ spawn1(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn2(doc) -> ["Test spawn/2"];
-spawn2(suite) ->
-    [];
+%% Test spawn/2.
 spawn2(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn2),
 
@@ -113,9 +109,7 @@ spawn2(Config) when is_list(Config) ->
     ok.
 
 
-spawn3(doc) -> ["Test spawn/3"];
-spawn3(suite) ->
-    [];
+%% Test spawn/3.
 spawn3(Config) when is_list(Config) ->
     ?line Node = node(),
 
@@ -135,9 +129,7 @@ spawn3(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn4(doc) -> ["Test spawn/4"];
-spawn4(suite) ->
-    [];
+%% Test spawn/4.
 spawn4(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn4),
 
@@ -162,9 +154,7 @@ spawn4(Config) when is_list(Config) ->
 
 
 
-spawn_link1(doc) -> ["Test spawn_link/1"];
-spawn_link1(suite) ->
-    [];
+%% Test spawn_link/1.
 spawn_link1(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
@@ -179,9 +169,7 @@ spawn_link1(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn_link2(doc) -> ["Test spawn_link/2"];
-spawn_link2(suite) ->
-    [];
+%% Test spawn_link/2.
 spawn_link2(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_link2),
 
@@ -200,9 +188,7 @@ spawn_link2(Config) when is_list(Config) ->
     ?line true = stop_node(Node),
     ok.
 
-spawn_link3(doc) -> ["Test spawn_link/3"];
-spawn_link3(suite) ->
-    [];
+%% Test spawn_link/3.
 spawn_link3(Config) when is_list(Config) ->
     ?line Node = node(),
 
@@ -222,9 +208,7 @@ spawn_link3(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn_link4(doc) -> ["Test spawn_link/4"];
-spawn_link4(suite) ->
-    [];
+%% Test spawn_link/4.
 spawn_link4(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_link4),
 
@@ -248,9 +232,7 @@ spawn_link4(Config) when is_list(Config) ->
     ok.
 
 
-spawn_opt2(doc) -> ["Test spawn_opt/2"];
-spawn_opt2(suite) ->
-    [];
+%% Test spawn_opt/2.
 spawn_opt2(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
@@ -275,9 +257,7 @@ spawn_opt2(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn_opt3(doc) -> ["Test spawn_opt/3"];
-spawn_opt3(suite) ->
-    [];
+%% Test spawn_opt/3.
 spawn_opt3(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_opt3),
     ?line Parent = self(),
@@ -304,9 +284,7 @@ spawn_opt3(Config) when is_list(Config) ->
     ?line true = stop_node(Node),
     ok.
 
-spawn_opt4(doc) -> ["Test spawn_opt/4"];
-spawn_opt4(suite) ->
-    [];
+%% Test spawn_opt/4.
 spawn_opt4(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
@@ -336,9 +314,7 @@ spawn_opt4(Config) when is_list(Config) ->
 	  end,
     ok.
 
-spawn_opt5(doc) -> ["Test spawn_opt/5"];
-spawn_opt5(suite) ->
-    [];
+%% Test spawn_opt/5.
 spawn_opt5(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_opt5),
     ?line Parent = self(),
@@ -371,10 +347,7 @@ spawn_opt5(Config) when is_list(Config) ->
     ?line true = stop_node(Node),
     ok.
 
-spawn_failures(doc) ->
-    ["Test failure behavior of spawn bifs"];
-spawn_failures(suite) ->
-    [];
+%% Test failure behavior of spawn bifs.
 spawn_failures(Config) when is_list(Config) ->
     ?line ThisNode = node(),
     ?line {ok, Node} = start_node(spawn_remote_failure),
@@ -514,21 +487,16 @@ fetch_proc_vals(Pid) ->
     {value,{heap_size,HS}} = lists:keysearch(heap_size, 1, PI),
     ?line {Ls, P, FA, HS}.
      
-decode_packet_delim(doc) ->
-    ["Test erlang:packet_delim/3 with {line_delimiter,0} option"];
-decode_packet_delim(suite) ->
-    [];
+%% Test erlang:packet_delim/3 with {line_delimiter,0} option.
 decode_packet_delim(Config) when is_list(Config) ->
     {ok,<<"abc",0>>,<<"efg",0>>} =
         erlang:decode_packet(line, <<"abc",0,"efg",0>>, [{line_delimiter, 0}]),
     {more, undefined} = erlang:decode_packet(line, <<"abc",0,"efg",0>>, []).
 
 % This testcase should probably be moved somewhere else
-wilderness(doc) ->
-    ["Test that memory allocation command line options affecting the"
-     "wilderness of the heap are interpreted correct by the emulator "];
-wilderness(suite) ->
-    [];
+
+%% Test that memory allocation command line options affecting the
+%% wilderness of the heap are interpreted correct by the emulator.
 wilderness(Config) when is_list(Config) ->
     ?line OKParams = {512, 8},
     ?line Alloc = erlang:system_info(allocator),

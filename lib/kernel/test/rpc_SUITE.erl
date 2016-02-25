@@ -57,7 +57,7 @@ end_per_group(_GroupName, Config) ->
 
 
 
-call(doc) -> "Test different rpc calls";
+%% Test different rpc calls.
 call(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
@@ -82,7 +82,7 @@ call(Config) when is_list(Config) ->
     ?line ?t:stop_node(N4),
     ok.
 
-block_call(doc) -> "Test different rpc calls";
+%% Test different rpc calls.
 block_call(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
@@ -108,8 +108,7 @@ block_call(Config) when is_list(Config) ->
     ok.
 
 
-multicall(doc) ->
-    "OTP-3449";
+%% OTP-3449.
 multicall(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
@@ -197,8 +196,6 @@ do_multicall(Nodes, Mod, Func, Args) ->
 
 
 
-multicall_node_dies(doc) ->    
-    "";
 multicall_node_dies(Config) when is_list(Config) ->
     do_multicall_2_nodes_dies(?MODULE, suicide, [erlang, halt, []]),
     do_multicall_2_nodes_dies(?MODULE, suicide, [init, stop, []]),
@@ -220,8 +217,7 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
 
 
 
-called_dies(doc) ->
-    "OTP-3766";
+%% OTP-3766.
 called_dies(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     ?line {ok, N} = ?t:start_node(rpc_SUITE_called_dies, slave, 
@@ -350,9 +346,6 @@ suicide(Mod, Func, Args) ->
 
 
 
-called_node_dies(doc) ->
-    "";
-called_node_dies(suite) -> [];
 called_node_dies(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %%
@@ -415,8 +408,7 @@ node_rep(Fun, Name, PA, M, F, A) ->
 
 
 
-called_throws(doc) ->
-    "OTP-3766";
+%% OTP-3766.
 called_throws(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %%

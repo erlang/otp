@@ -73,21 +73,15 @@ init_per_testcase(Func, Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-init(doc) -> [];
-init(suite) -> [];
 init(Config) when is_list(Config) ->
     Config.
 
-fini(doc) -> [];
-fini(suite) -> [];
 fini(Config) when is_list(Config) ->
     Host = list_to_atom(from($@, atom_to_list(node()))),
     Node = list_to_atom(lists:concat([init_test, "@", Host])),
     stop_node(Node),
     Config.
 
-get_arguments(doc) ->[];
-get_arguments(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_arguments(Config) when is_list(Config) ->
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
@@ -172,8 +166,6 @@ check_d(Args) ->
 	    ct:fail(check_d2)
     end.
 
-get_argument(doc) ->[];
-get_argument(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_argument(Config) when is_list(Config) ->
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
@@ -215,8 +207,6 @@ get_argument(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
-get_plain_arguments(doc) ->[];
-get_plain_arguments(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_plain_arguments(Config) when is_list(Config) ->
     Longstring = 
 	"fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2"
@@ -246,8 +236,6 @@ get_plain_arguments(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %% Use -boot_var flag to set $TEST_VAR in boot script.
 %% ------------------------------------------------
-boot_var(doc) -> [];
-boot_var(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 boot_var(Config) when is_list(Config) ->
     {BootScript, TEST_VAR, KernelVsn, StdlibVsn} = create_boot(Config),
 
@@ -307,15 +295,6 @@ is_real_system(KernelVsn, StdlibVsn) ->
 many_restarts() ->
     [{timetrap,{minutes,8}}].
 
-many_restarts(doc) -> [];
-many_restarts(suite) ->
-    case ?t:os_type() of
-	{Fam, _} when Fam == unix; Fam == win32 ->
-	    {req, [distribution, {local_slave_nodes, 1}, {time, 5}]};
-	_ ->
-	    {skip, "Only run on unix and win32"}
-    end;
-
 many_restarts(Config) when is_list(Config) ->
     ?line {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
     ?line loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
@@ -372,14 +351,6 @@ wait_for(N,Node,EHPid) ->
 %% Therefore the slave process must be killed
 %% before restart.
 %% ------------------------------------------------
-restart(doc) -> [];
-restart(suite) ->
-    case ?t:os_type() of
-	{Fam, _} when Fam == unix; Fam == win32 ->
-	    {req, [distribution, {local_slave_nodes, 1}, {time, 5}]};
-	_ ->
-	    {skip, "Only run on unix and win32"}
-    end;
 restart(Config) when is_list(Config) ->
     ?line Args = args(),
 
@@ -468,8 +439,6 @@ apid(Pid) ->
 %% The reboot facility using heart is tested
 %% in the heart_SUITE.
 %% ------------------------------------------------
-reboot(doc) -> [];
-reboot(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 reboot(Config) when is_list(Config) ->
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
@@ -495,8 +464,6 @@ reboot(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %%
 %% ------------------------------------------------
-stop(doc) -> [];
-stop(suite) -> [];
 stop(Config) when is_list(Config) ->
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
@@ -522,8 +489,6 @@ stop(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %% 
 %% ------------------------------------------------
-get_status(doc) -> [];
-get_status(suite) -> [];
 get_status(Config) when is_list(Config) ->
     ?line {Start, _} = init:get_status(),
 
@@ -540,8 +505,6 @@ get_status(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %% 
 %% ------------------------------------------------
-script_id(doc) -> [];
-script_id(suite) -> [];
 script_id(Config) when is_list(Config) ->
     ?line {Name, Vsn} = init:script_id(),
     ?line if
@@ -556,8 +519,6 @@ script_id(Config) when is_list(Config) ->
 %% Start the slave system with -boot flag.
 %% ------------------------------------------------
 
-boot1(doc) -> [];
-boot1(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot1(Config) when is_list(Config) ->
     Args = args() ++ " -boot start_sasl",
     ?line {ok, Node} = start_node(init_test, Args),
@@ -569,8 +530,6 @@ boot1(Config) when is_list(Config) ->
 
     ok.
 
-boot2(doc) -> [];
-boot2(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot2(Config) when is_list(Config) ->
     %% Absolute boot file name
     Boot = filename:join([code:root_dir(), "bin", "start_sasl"]),

@@ -66,83 +66,65 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-active_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in active mode)."];
-active_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in active mode).
 active_echo(Config) when is_list(Config) ->
     ?line echo_test([], fun active_echo/4, [{echo, fun echo_server/0}]).
 
-passive_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in passive mode)."];
-passive_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in passive mode).
 passive_echo(Config) when is_list(Config) ->
     ?line echo_test([{active, false}], fun passive_echo/4,
 		    [{echo, fun echo_server/0}]).
 
-active_once_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in active once mode)."];
-active_once_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in active once mode).
 active_once_echo(Config) when is_list(Config) ->
     ?line echo_test([{active, once}], fun active_once_echo/4,
 		    [{echo, fun echo_server/0}]).
 
-slow_active_echo(doc) ->
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in active mode). ",
-     "The echo server is a special one that delays between every character."];
-slow_active_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in active mode).
+%% The echo server is a special one that delays between every character.
 slow_active_echo(Config) when is_list(Config) ->
     ?line echo_test([], fun active_echo/4, 
 		    [slow_echo, {echo, fun slow_echo_server/0}]).
 
-slow_passive_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to an echo server and receiving them again (socket in passive mode).",
-     "The echo server is a special one that delays between every character."];
-slow_passive_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to an echo server and receiving them again (socket in passive mode).
+%% The echo server is a special one that delays between every character.
 slow_passive_echo(Config) when is_list(Config) ->
     ?line echo_test([{active, false}], fun passive_echo/4,
 		    [slow_echo, {echo, fun slow_echo_server/0}]).
 
-limit_active_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in active mode) "
-     "with packet_size limitation."];
-limit_active_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in active mode)
+%% with packet_size limitation.
 limit_active_echo(Config) when is_list(Config) ->
     ?line echo_test([{packet_size, 10}], 
 		    fun active_echo/4, 
 		    [{packet_size, 10}, {echo, fun echo_server/0}]).
 
-limit_passive_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in passive mode) ",
-     "with packet_size limitation."];
-limit_passive_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in passive mode)
+%% with packet_size limitation.
 limit_passive_echo(Config) when is_list(Config) ->
     ?line echo_test([{packet_size, 10},{active, false}], 
 		    fun passive_echo/4,
 		    [{packet_size, 10}, {echo, fun echo_server/0}]).
 
-large_limit_active_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in active mode) "
-     "with large packet_size limitation."];
-large_limit_active_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in active mode)
+%% with large packet_size limitation.
 large_limit_active_echo(Config) when is_list(Config) ->
     ?line echo_test([{packet_size, 10}], 
 		    fun active_echo/4, 
 		    [{packet_size, (1 bsl 32)-1}, 
 		     {echo, fun echo_server/0}]).
 
-large_limit_passive_echo(doc) -> 
-    ["Test sending packets of various sizes and various packet types ",
-     "to the echo port and receiving them again (socket in passive mode) ",
-     "with large packet_size limitation."];
-large_limit_passive_echo(suite) -> [];
+%% Test sending packets of various sizes and various packet types
+%% to the echo port and receiving them again (socket in passive mode)
+%% with large packet_size limitation.
 large_limit_passive_echo(Config) when is_list(Config) ->
     ?line echo_test([{packet_size, 10},{active, false}], 
 		    fun passive_echo/4,

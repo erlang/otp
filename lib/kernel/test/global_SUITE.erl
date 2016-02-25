@@ -148,7 +148,6 @@ end_per_testcase(_Case, Config) ->
 %%% and releases the lock. Now the name should exist on both our own node
 %%% and on the slave node (we wait until that is true; it seems that we
 %%% can do rpc calls to another node before the connection is really up).
-register_1(suite) -> [];
 register_1(Config) when is_list(Config) ->
     Timeout = 15,
     ct:timetrap({seconds,Timeout}),
@@ -217,7 +216,6 @@ lock_global(Parent, Config) ->
 %%% 'try_again_locker' would be called, and this time cause both 1 and 2
 %%% to obtain a lock for 'global' on node 3, which would keep the
 %%% name registry from ever becoming consistent again.
-both_known_1(suite) -> [];
 both_known_1(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -300,9 +298,7 @@ both_known_1(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-lost_unregister(suite) -> [];
-lost_unregister(doc) ->
-    ["OTP-6428. An unregistered name reappears."];
+%% OTP-6428. An unregistered name reappears.
 lost_unregister(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -425,7 +421,6 @@ lock_global2(Id, Parent) ->
 %register it as 'test', stop cp1 - cp3 and check that 'test' disappeared.
 %Kill Pid2 and check that 'test' isn't registered.
 
-names(suite) -> [];
 names(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -514,10 +509,8 @@ names(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-names_hidden(suite) -> [];
-names_hidden(doc) ->
-    ["Tests that names on a hidden node doesn't interfere with names on "
-     "visible nodes."];
+%% Tests that names on a hidden node doesn't interfere with names on
+%% visible nodes.
 names_hidden(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -620,7 +613,6 @@ names_hidden(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-locks(suite) -> [];
 locks(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -731,10 +723,8 @@ locks(Config) when is_list(Config) ->
     ok.
     
 
-locks_hidden(suite) -> [];
-locks_hidden(doc) ->
-    ["Tests that locks on a hidden node doesn't interere with locks on "
-     "visible nodes."];
+%% Tests that locks on a hidden node doesn't interere with locks on
+%% visible nodes.
 locks_hidden(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -813,7 +803,6 @@ locks_hidden(Config) when is_list(Config) ->
     ok.
     
 
-bad_input(suite) -> [];
 bad_input(Config) when is_list(Config) ->
     Timeout = 15,
     ct:timetrap({seconds,Timeout}),
@@ -832,7 +821,6 @@ bad_input(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-names_and_locks(suite) -> [];
 names_and_locks(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -899,9 +887,7 @@ names_and_locks(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
     
-lock_die(suite) -> [];
-lock_die(doc) ->
-    ["OTP-6341. Remove locks using monitors."];
+%% OTP-6341. Remove locks using monitors.
 lock_die(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -940,9 +926,7 @@ lock_die(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-name_die(suite) -> [];
-name_die(doc) ->
-    ["OTP-6341. Remove names using monitors."];
+%% OTP-6341. Remove names using monitors.
 name_die(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -1007,9 +991,7 @@ kill_pid(Pid, File, Config) ->
     exit_p(Pid),
     touch(File, "done").
 
-basic_partition(suite) -> [];
-basic_partition(doc) ->
-    ["Tests that two partitioned networks exchange correct info."];
+%% Tests that two partitioned networks exchange correct info.
 basic_partition(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -1062,12 +1044,9 @@ basic_partition(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-basic_name_partition(suite) ->
-    [];
-basic_name_partition(doc) ->
-    ["Creates two partitions with two nodes in each partition.",
-     "Tests that names are exchanged correctly, and that EXITs",
-     "during connect phase are handled correctly."];
+%% Creates two partitions with two nodes in each partition.
+%% Tests that names are exchanged correctly, and that EXITs
+%% during connect phase are handled correctly.
 basic_name_partition(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1153,11 +1132,8 @@ basic_name_partition(Config) when is_list(Config) ->
 %Check that the values for the registered names are the expected ones, and
 %that the messages from test4 arrive.
 
-advanced_partition(suite) ->
-    [];
-advanced_partition(doc) ->
-    ["Test that names are resolved correctly when two",
-     "partitioned networks connect."];
+%% Test that names are resolved correctly when two
+%% partitioned networks connect.
 advanced_partition(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1259,11 +1235,8 @@ advanced_partition(Config) when is_list(Config) ->
 %Now, expect all nodes to be connected and have the same picture of all
 %registered names.
 
-stress_partition(suite) ->
-    [];
-stress_partition(doc) ->
-    ["Stress global, make a partitioned net, make some nodes",
-     "go up/down a bit."];
+%% Stress global, make a partitioned net, make some nodes
+%% go up/down a bit.
 stress_partition(Config) when is_list(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
@@ -1352,8 +1325,6 @@ stress_partition(Config) when is_list(Config) ->
 %% Use this one to test alot of connection tests
 %%  erl -sname ts -ring_line 10000 -s test_server run_test global_SUITE
 
-ring_line(suite) -> [];
-ring_line(doc) -> [""];
 ring_line(Config) when is_list(Config) ->
     {ok, [[N]]} = init:get_argument(ring_line),
     loop_it(list_to_integer(N), Config).
@@ -1368,12 +1339,9 @@ loop_it(N,M, Config) ->
     loop_it(N-1,M, Config).
 
 
-ring(suite) ->
-    [];
-ring(doc) ->
-    ["Make 10 single nodes, all having the same name.",
-     "Make all ping its predecessor, pinging in a ring.",
-     "Make sure that there's just one winner."];
+%% Make 10 single nodes, all having the same name.
+%% Make all ping its predecessor, pinging in a ring.
+%% Make sure that there's just one winner.
 ring(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1456,14 +1424,11 @@ ring(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-simple_ring(suite) ->
-    [];
-simple_ring(doc) ->
-    ["Simpler version of the ring case.  Used because there are some",
-     "distribution problems with many nodes.",
-     "Make 6 single nodes, all having the same name.",
-     "Make all ping its predecessor, pinging in a ring.",
-     "Make sure that there's just one winner."];
+%% Simpler version of the ring case.  Used because there are some
+%% distribution problems with many nodes.
+%% Make 6 single nodes, all having the same name.
+%% Make all ping its predecessor, pinging in a ring.
+%% Make sure that there's just one winner.
 simple_ring(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1534,12 +1499,9 @@ simple_ring(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-line(suite) ->
-    [];
-line(doc) ->
-    ["Make 6 single nodes, all having the same name.",
-     "Make all ping its predecessor, pinging in a line.",
-     "Make sure that there's just one winner."];
+%% Make 6 single nodes, all having the same name.
+%% Make all ping its predecessor, pinging in a line.
+%% Make sure that there's just one winner.
 line(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1624,14 +1586,11 @@ line(Config) when is_list(Config) ->
     ok.
 
 
-simple_line(suite) ->
-    [];
-simple_line(doc) ->
-    ["Simpler version of the line case.  Used because there are some",
-     "distribution problems with many nodes.",
-     "Make 6 single nodes, all having the same name.",
-     "Make all ping its predecessor, pinging in a line.",
-     "Make sure that there's just one winner."];
+%% Simpler version of the line case.  Used because there are some
+%% distribution problems with many nodes.
+%% Make 6 single nodes, all having the same name.
+%% Make all ping its predecessor, pinging in a line.
+%% Make sure that there's just one winner.
 simple_line(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -1702,9 +1661,7 @@ simple_line(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
     
-otp_1849(suite) -> [];
-otp_1849(doc) ->
-    ["Test ticket: Global should keep track of all pids that set the same lock."];
+%% Test ticket: Global should keep track of all pids that set the same lock.
 otp_1849(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -1789,9 +1746,7 @@ otp_1849(Config) when is_list(Config) ->
     ok.
     
 
-otp_3162(suite) -> [];
-otp_3162(doc) ->
-    ["Test ticket: Deadlock in global"];
+%% Test ticket: Deadlock in global.
 otp_3162(Config) when is_list(Config) ->
     StartFun = fun() ->
                        {ok, Cp1} = start_node(cp1, Config),
@@ -1864,9 +1819,7 @@ do_otp_3162(StartFun, Config) ->
     ok.
     
 
-otp_5640(suite) -> [];
-otp_5640(doc) ->
-    ["OTP-5640. 'allow' multiple names for registered processes."];
+%% OTP-5640. 'allow' multiple names for registered processes.
 otp_5640(Config) when is_list(Config) ->
     Timeout = 25,
     ct:timetrap({seconds,Timeout}),
@@ -1935,9 +1888,7 @@ otp_5640_proc(_Parent) ->
             exit(normal)
     end.
 
-otp_5737(suite) -> [];
-otp_5737(doc) ->
-    ["OTP-5737. set_lock/3 and trans/4 accept Retries = 0."];
+%% OTP-5737. set_lock/3 and trans/4 accept Retries = 0.
 otp_5737(Config) when is_list(Config) ->
     Timeout = 25,
     ct:timetrap({seconds,Timeout}),
@@ -1963,8 +1914,7 @@ otp_5737(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-otp_6931(suite) -> [];
-otp_6931(doc) -> ["OTP-6931. Ignore nodeup when connect_all=false."];
+%% OTP-6931. Ignore nodeup when connect_all=false.
 otp_6931(Config) when is_list(Config) ->
     Me = self(),
     ?line {ok, CAf} = start_non_connecting_node(ca_false, Config),
@@ -1981,8 +1931,7 @@ otp_6931(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%% Testing a disconnected node. Not two partitions.
 %%%-----------------------------------------------------------------
-simple_disconnect(suite) -> [];
-simple_disconnect(doc) -> ["OTP-5563. Disconnected nodes (not partitions)"];
+%% OTP-5563. Disconnected nodes (not partitions).
 simple_disconnect(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -2073,8 +2022,7 @@ simple_dis_node(_Node, DisNodes, _Name, _Resolver, Config) ->
 
 -define(RES(F), {F, fun ?MODULE:F/3}).
 
-simple_resolve(suite) -> [];
-simple_resolve(doc) -> ["OTP-5563. Partitions and names."];
+%% OTP-5563. Partitions and names.
 simple_resolve(Config) when is_list(Config) ->
     Timeout = 360,
     ct:timetrap({seconds,Timeout}),
@@ -2206,8 +2154,7 @@ simple_resolve(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-simple_resolve2(suite) -> [];
-simple_resolve2(doc) -> ["OTP-5563. Partitions and names."];
+%% OTP-5563. Partitions and names.
 simple_resolve2(Config) when is_list(Config) ->
     %% Continuation of simple_resolve. Of some reason it did not
     %% always work to re-start z_2. "Cannot be a global bug."
@@ -2243,8 +2190,7 @@ simple_resolve2(Config) when is_list(Config) ->
     ?line init_condition(Config),
     ok.
 
-simple_resolve3(suite) -> [];
-simple_resolve3(doc) -> ["OTP-5563. Partitions and names."];
+%% OTP-5563. Partitions and names.
 simple_resolve3(Config) when is_list(Config) ->
     %% Continuation of simple_resolve.
 
@@ -2456,8 +2402,7 @@ mon_by_servers(Proc) ->
 
 -define(REGNAME, contact_a_2).
 
-leftover_name(suite) -> [];
-leftover_name(doc) -> ["OTP-5563. Bug: nodedown while synching."];
+%% OTP-5563. Bug: nodedown while synching.
 leftover_name(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -2551,8 +2496,7 @@ halt_node(Node) ->
 %%%-----------------------------------------------------------------
 %%% Testing re-registration of a name.
 %%%-----------------------------------------------------------------
-re_register_name(suite) -> [];
-re_register_name(doc) -> ["OTP-5563. Name is re-registered."];
+%% OTP-5563. Name is re-registered.
 re_register_name(Config) when is_list(Config) ->
     %% When re-registering a name the link to the old pid used to
     %% linger on. Don't think is was a serious bug though--some memory
@@ -2584,8 +2528,7 @@ proc(Parent) ->
 %%%-----------------------------------------------------------------
 %%% 
 %%%-----------------------------------------------------------------
-name_exit(suite) -> [];
-name_exit(doc) -> ["OTP-5563. Registered process dies."];
+%% OTP-5563. Registered process dies.
 name_exit(Config) when is_list(Config) ->
     StartFun = fun() ->
                        {ok, N1} = start_node_rel(n_1, this, Config),
@@ -2658,8 +2601,7 @@ long_lock(Parent) ->
 %%%-----------------------------------------------------------------
 %%% Testing the support for external nodes (cnodes)
 %%%-----------------------------------------------------------------
-external_nodes(suite) -> [];
-external_nodes(doc) -> ["OTP-5563. External nodes (cnodes)."];
+%% OTP-5563. External nodes (cnodes).
 external_nodes(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
@@ -2792,10 +2734,7 @@ cnode_proc(E) ->
     cnode_proc(E).
 
 
-many_nodes(suite) ->
-    [];
-many_nodes(doc) ->
-    ["OTP-5770. Start many nodes. Make them connect at the same time."];
+%% OTP-5770. Start many nodes. Make them connect at the same time.
 many_nodes(Config) when is_list(Config) ->
     Timeout = 240,
     ct:timetrap({seconds,Timeout}),
@@ -2934,9 +2873,7 @@ sync_until(LogFile) ->
 shuffle(L) ->
     [E || {_, E} <- lists:keysort(1, [{rand:uniform(), E} || E <- L])].
 
-sync_0(suite) -> [];
-sync_0(doc) ->
-    ["OTP-5770. sync/0."];
+%% OTP-5770. sync/0.
 sync_0(Config) when is_list(Config) ->
     Timeout = 180,
     ct:timetrap({seconds,Timeout}),
@@ -2977,8 +2914,7 @@ start_and_sync([Name | Names]) ->
 %%%-----------------------------------------------------------------
 %%% Testing of change of global_groups parameter.
 %%%-----------------------------------------------------------------
-global_groups_change(suite) -> [];
-global_groups_change(doc) -> ["Test change of global_groups parameter."];
+%% Test change of global_groups parameter.
 global_groups_change(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
@@ -3864,10 +3800,7 @@ dbg_logs(Name, Nodes) ->
 		  end, Nodes).
 
 
-global_lost_nodes(suite) ->
-    [];
-global_lost_nodes(doc) ->
-    ["Tests that locally loaded nodes do not loose contact with other nodes."];
+%% Tests that locally loaded nodes do not loose contact with other nodes.
 global_lost_nodes(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
@@ -3938,10 +3871,7 @@ lost_nodes_waiter(N1, N2) ->
 
 
 
-mass_death(suite) ->
-    [];
-mass_death(doc) ->
-    ["Tests the simultaneous death of many processes with registered names"];
+%% Tests the simultaneous death of many processes with registered names.
 mass_death(Config) when is_list(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
@@ -4158,8 +4088,6 @@ remove_gg_pub_type([{GG, _, Nodes}|Rest]) ->
 %% Better do this in a slave node.
 %% (The transition from links to monitors does not affect this case.)
 
-garbage_messages(suite) ->
-    [];
 garbage_messages(Config) when is_list(Config) ->
     Timeout = 25,
     ct:timetrap({seconds,Timeout}),

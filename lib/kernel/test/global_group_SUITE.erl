@@ -94,8 +94,7 @@ end_per_testcase(_Func, _Config) ->
 %%-----------------------------------------------------------------
 
 
-start_gg_proc(suite) -> [];
-start_gg_proc(doc) -> ["Check that the global_group processes are started automatically. "];
+%% Check that the global_group processes are started automatically. .
 start_gg_proc(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
@@ -125,9 +124,8 @@ start_gg_proc(Config) when is_list(Config) ->
     
 
 
-no_gg_proc(suite) -> [];
-no_gg_proc(doc) -> ["Start a system without global groups. Nodes are not "
-		    "synced at start (sync_nodes_optional is not defined)"];
+%% Start a system without global groups. Nodes are not
+%% synced at start (sync_nodes_optional is not defined).
 no_gg_proc(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group.config"),
@@ -294,10 +292,8 @@ no_gg_proc(Config) when is_list(Config) ->
 
 
 
-no_gg_proc_sync(suite) -> [];
-no_gg_proc_sync(doc) -> 
-    ["Start a system without global groups, but syncing the nodes by using " 
-     "sync_nodes_optional."];
+%% Start a system without global groups, but syncing the nodes by using
+%% sync_nodes_optional.
 no_gg_proc_sync(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group_sync.config"),
@@ -466,9 +462,7 @@ no_gg_proc_sync(Config) when is_list(Config) ->
 
 
 
-compatible(suite) -> [];
-compatible(doc) -> 
-    ["Check that a system without global groups is compatible with the old R4 system."];
+%% Check that a system without global groups is compatible with the old R4 system.
 compatible(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group_comp.config"),
@@ -637,8 +631,7 @@ compatible(Config) when is_list(Config) ->
 
 
 
-one_grp(suite) -> [];
-one_grp(doc) -> ["Test a system with only one global group. "];
+%% Test a system with only one global group. .
 one_grp(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
@@ -720,9 +713,8 @@ one_grp(Config) when is_list(Config) ->
 
 
 
-one_grp_x(suite) -> [];
-one_grp_x(doc) -> ["Check a system with only one global group. "
-		   "Start the nodes with different time intervals. "];
+%% Check a system with only one global group.
+%% Start the nodes with different time intervals.
 one_grp_x(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
@@ -780,8 +772,7 @@ one_grp_x(Config) when is_list(Config) ->
 
 
 
-two_grp(suite) -> [];
-two_grp(doc) -> ["Test a two global group system. "];
+%% Test a two global group system. .
 two_grp(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
@@ -1077,8 +1068,7 @@ two_grp(Config) when is_list(Config) ->
     
 
 
-hidden_groups(suite) -> [];
-hidden_groups(doc) -> ["Test hidden global groups."];
+%% Test hidden global groups.
 hidden_groups(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
@@ -1149,8 +1139,7 @@ hidden_groups(Config) when is_list(Config) ->
     ok.
     
 
-test_exit(suite) -> [];
-test_exit(doc) -> ["Checks when the search process exits. "];
+%% Checks when the search process exits. .
 test_exit(Config) when is_list(Config) ->
     ?line NN = node_name(atom_to_list(node())),
     ?line Cp1nn = list_to_atom("cp1@" ++ NN),

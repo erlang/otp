@@ -98,8 +98,6 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-tick(suite) -> [];
-tick(doc) -> [];
 tick(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     
@@ -163,10 +161,7 @@ tick(Config) when is_list(Config) ->
     end,
     ok.
 
-table_waste(doc) ->
-    ["Checks that pinging nonexistyent nodes does not waste space in distribution table"];
-table_waste(suite) ->
-    [];
+%% Checks that pinging nonexistyent nodes does not waste space in distribution table.
 table_waste(Config) when is_list(Config) ->
     ?line {ok, HName} = inet:gethostname(), 
     F = fun(0,_F) -> [];
@@ -183,10 +178,7 @@ table_waste(Config) when is_list(Config) ->
     
     
 
-illegal_nodenames(doc) ->
-    ["Test that pinging an illegal nodename does not kill the node"];
-illegal_nodenames(suite) ->
-    [];
+%% Test that pinging an illegal nodename does not kill the node.
 illegal_nodenames(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     ?line {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
@@ -209,7 +201,7 @@ pinger(Starter) ->
     ok.
 
 
-net_setuptime(doc) -> ["Test that you can set the net_setuptime properly"];
+%% Test that you can set the net_setuptime properly.
 net_setuptime(Config) when is_list(Config) ->
     %% In this test case, we reluctantly accept shorter times than the given
     %% setup time, because the connection attempt can end in a
@@ -292,8 +284,7 @@ tick_cli_test1(Node) ->
     end.
 
 
-tick_change(doc) -> ["OTP-4255"];
-tick_change(suite) -> [];
+%% OTP-4255.
 tick_change(Config) when is_list(Config) ->
     ?line PaDir = filename:dirname(code:which(?MODULE)),
     ?line [BN, CN] = get_nodenames(2, tick_change),
@@ -468,10 +459,7 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
 %%
 %% Basic tests of hidden node.
 %%
-hidden_node(doc) ->
-    ["Basic test of hidden node"];
-hidden_node(suite) ->
-    [];
+%% Basic test of hidden node.
 hidden_node(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(?MODULE)),
     VArgs = "-pa " ++ PaDir,
@@ -554,9 +542,7 @@ check_monitor_nodes_res(Pid, Node) ->
 
 
 
-inet_dist_options_options(suite) -> [];
-inet_dist_options_options(doc) ->
-    ["Check the kernel inet_dist_{listen,connect}_options options"];
+%% Check the kernel inet_dist_{listen,connect}_options options.
 inet_dist_options_options(Config) when is_list(Config) ->
     Prio = 1,
     case gen_udp:open(0, [{priority,Prio}]) of
@@ -624,8 +610,6 @@ get_socket_priorities() ->
 %%   monitor_nodes_nodedown_reason
 %%
 
-monitor_nodes_nodedown_reason(doc) -> [];
-monitor_nodes_nodedown_reason(suite) -> [];
 monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line ok = net_kernel:monitor_nodes(true),
@@ -679,8 +663,6 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     ?line ok.
 
 
-monitor_nodes_complex_nodedown_reason(doc) -> [];
-monitor_nodes_complex_nodedown_reason(suite) -> [];
 monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line Me = self(),
@@ -724,8 +706,6 @@ monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
 %%   monitor_nodes_node_type
 %%
 
-monitor_nodes_node_type(doc) -> [];
-monitor_nodes_node_type(suite) -> [];
 monitor_nodes_node_type(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line ok = net_kernel:monitor_nodes(true),
@@ -804,8 +784,6 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
 %%   monitor_nodes
 %%
 
-monitor_nodes_misc(doc) -> [];
-monitor_nodes_misc(suite) -> [];
 monitor_nodes_misc(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line ok = net_kernel:monitor_nodes(true),
@@ -853,12 +831,9 @@ monitor_nodes_misc(Config) when is_list(Config) ->
     ?line ok.
 
 
-monitor_nodes_otp_6481(doc) ->
-    ["Tests that {nodeup, Node} messages are received before "
-     "messages from Node and that {nodedown, Node} messages are"
-     "received after messages from Node"];
-monitor_nodes_otp_6481(suite) ->
-    [];
+%% Tests that {nodeup, Node} messages are received before
+%% messages from Node and that {nodedown, Node} messages are
+%% received after messages from Node.
 monitor_nodes_otp_6481(Config) when is_list(Config) ->
     io:format("Testing nodedown...~n"),
     ?line monitor_nodes_otp_6481_test(Config, nodedown),
@@ -968,10 +943,6 @@ node_loop_send(Pid, Msg, No) ->
     Pid ! {Msg, No},
     node_loop_send(Pid, Msg, No + 1).
 
-monitor_nodes_errors(doc) ->
-    [];
-monitor_nodes_errors(suite) ->
-    [];
 monitor_nodes_errors(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line error = net_kernel:monitor_nodes(asdf),
@@ -1005,10 +976,6 @@ monitor_nodes_errors(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line ok.
 
-monitor_nodes_combinations(doc) ->
-    [];
-monitor_nodes_combinations(suite) ->
-    [];
 monitor_nodes_combinations(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line monitor_nodes_all_comb(true),
@@ -1127,10 +1094,6 @@ receive_mn_msgs(Msgs) ->
 		     expected_messages, Msgs})
     end.
 
-monitor_nodes_cleanup(doc) ->
-    [];
-monitor_nodes_cleanup(suite) ->
-    [];
 monitor_nodes_cleanup(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line Me = self(),
@@ -1159,10 +1122,6 @@ monitor_nodes_cleanup(Config) when is_list(Config) ->
     ?line no_msgs(),
     ?line ok.
 
-monitor_nodes_many(doc) ->
-    [];
-monitor_nodes_many(suite) ->
-    [];
 monitor_nodes_many(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line [Name] = get_nodenames(1, monitor_nodes_many),

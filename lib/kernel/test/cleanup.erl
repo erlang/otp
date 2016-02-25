@@ -36,7 +36,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-cleanup(suite) -> [];
 cleanup(_) ->
     ?line Localhost = list_to_atom(net_adm:localhost()),
     ?line net_adm:world_list([Localhost]),

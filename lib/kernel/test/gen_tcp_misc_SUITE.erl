@@ -113,11 +113,8 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-default_options(doc) ->
-    ["Tests kernel application variables inet_default_listen_options and "
-     "inet_default_connect_options"];
-default_options(suite) ->
-    [];
+%% Tests kernel application variables inet_default_listen_options and
+%% inet_default_connect_options.
 default_options(Config) when is_list(Config) ->
     %% First check the delay_send option
     {true,true,true}=do_delay_send_1(),
@@ -289,11 +286,9 @@ do_delay_send_7() ->
     gen_tcp:close(LS),
     {B1,B2,B3}.
 
-controlling_process(doc) ->
-    ["Open a listen port and change controlling_process for it",
-     "The result should be ok of done by the owner process,"
-     "Otherwise is should return {error,not_owner} or similar"];
-controlling_process(suite) -> [];
+%% Open a listen port and change controlling_process for it
+%% The result should be ok of done by the owner process,
+%% Otherwise is should return {error,not_owner} or similar.
 controlling_process(Config) when is_list(Config) ->
     {ok,S} = gen_tcp:listen(0,[]),
     Pid2 = spawn(?MODULE,not_owner,[S]),
@@ -322,9 +317,8 @@ not_owner(S) ->
 	    ok
     end.
 
-controlling_process_self(doc) ->
-    ["Open a listen port and assign the controlling process to "
-     "it self, then exit and make sure the port is closed properly."];
+%% Open a listen port and assign the controlling process to
+%% it self, then exit and make sure the port is closed properly.
 controlling_process_self(Config) when is_list(Config) ->
     S = self(),
     process_flag(trap_exit,true),
@@ -348,11 +342,9 @@ controlling_process_self(Config) when is_list(Config) ->
     end.
     
 
-no_accept(doc) ->
-    ["Open a listen port and connect to it, then close the listen port ",
-     "without doing any accept.  The connected socket should receive ",
-     "a tcp_closed message."];
-no_accept(suite) -> [];
+%% Open a listen port and connect to it, then close the listen port
+%% without doing any accept.  The connected socket should receive
+%% a tcp_closed message.
 no_accept(Config) when is_list(Config) ->
     {ok, L} = gen_tcp:listen(0, []),
     {ok, {_, Port}} = inet:sockname(L),
@@ -366,10 +358,8 @@ no_accept(Config) when is_list(Config) ->
     
     end.
 
-close_with_pending_output(doc) ->
-    ["Send several packets to a socket and close it.  All packets should arrive ",
-     "to the other end."];
-close_with_pending_output(suite) -> [];
+%% Send several packets to a socket and close it.  All packets should
+%% arrive to the other end.
 close_with_pending_output(Config) when is_list(Config) ->
     {ok, L} = gen_tcp:listen(0, [binary, {active, false}]),
     {ok, {_, Port}} = inet:sockname(L),
@@ -412,9 +402,7 @@ send_loop(Sock, Data, Left) ->
     send_loop(Sock, Data, Left-1).
 
 %% Test {active,N} option
-active_n(doc) ->
-    ["Verify operation of the {active,N} option."];
-active_n(suite) -> [];
+%% Verify operation of the {active,N} option.
 active_n(Config) when is_list(Config) ->
     N = 3,
     LS = ok(gen_tcp:listen(0, [{active,N}])),
@@ -524,9 +512,7 @@ active_n(Config) when is_list(Config) ->
 %% I expect propagation of a close to be quite fast
 %% so 100 ms seems reasonable.
 
-otp_3924(doc) ->
-    ["Tests that a socket can be closed fast enough."];
-otp_3924(suite) -> [];
+%% Tests that a socket can be closed fast enough.
 otp_3924(Config) when is_list(Config) ->
     MaxDelay = (case has_superfluous_schedulers() of
 	    true -> 4;
@@ -653,8 +639,7 @@ otp_3924_sender(Receiver, Host, Port, Data) ->
     end.
 
 
-data_before_close(doc) ->
-    ["Tests that a huge amount of data can be received before a close."];
+%% Tests that a huge amount of data can be received before a close.
 data_before_close(Config) when is_list(Config) ->
     {ok, L} = gen_tcp:listen(0, [binary]),
     {ok, {_, TcpPort}} = inet:sockname(L),
@@ -691,11 +676,9 @@ make_zero_packet(N) when N rem 2 == 0 ->
 make_zero_packet(N) ->
     P = make_zero_packet(N div 2),
     [0, P|P].
-get_status(doc) ->    
-    ["OTP-2924",
-     "test that the socket process does not crash when sys:get_status(Pid)",
-     "is called."];
-get_status(suite) -> [];
+
+%% OTP-2924. Test that the socket process does not crash when
+%% sys:get_status(Pid) is called.
 get_status(Config) when is_list(Config) ->
     {ok,{socket,Pid,_,_}} = gen_tcp:listen(5678,[]),
     {status,Pid,_,_} = sys:get_status(Pid).
@@ -706,9 +689,8 @@ get_status(Config) when is_list(Config) ->
 iter_max_socks() ->
     [{timetrap,{minutes,30}}].
 
-iter_max_socks(doc) ->
-    ["Open as many sockets as possible. Do this several times and check ",
-     "that we get the same number of sockets every time."];
+%% Open as many sockets as possible. Do this several times and check
+%% that we get the same number of sockets every time.
 iter_max_socks(Config) when is_list(Config) ->
     N = case os:type() of {win32,_} -> 10; _ -> 20 end,
     %% Run on a different node in order to limit the effect if this test fails.
@@ -800,9 +782,8 @@ start_remote(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{remote, true}, {args, "-pa " ++ Pa}]).
 
-passive_sockets(doc) ->
-    ["Tests that when 'the other side' on a passive socket closes, the connecting",
-     "side still can read until the end of data."];
+%% Tests that when 'the other side' on a passive socket closes, the
+%% connecting, side still can read until the end of data.
 passive_sockets(Config) when is_list(Config) ->
     spawn_link(?MODULE, passive_sockets_server,
                [[{active,false}],self()]),
@@ -867,9 +848,8 @@ passive_sockets_server_send(Socket, X) ->
     end.
 
 
-accept_closed_by_other_process(doc) ->
-    ["Tests the return value from gen_tcp:accept when ",
-     "the socket is closed from another process. (OTP-3817)"];
+%% Tests the return value from gen_tcp:accept when
+%% the socket is closed from another process. (OTP-3817)
 accept_closed_by_other_process(Config) when is_list(Config) ->
     Parent = self(),
     {ok, ListenSocket} = gen_tcp:listen(0, []),
@@ -897,10 +877,7 @@ repeat(_, _, _) ->
     ok.
 
 
-closed_socket(suite) ->
-    [];
-closed_socket(doc) ->
-    ["Tests the response when using a closed socket as argument"];
+%% Tests the response when using a closed socket as argument.
 closed_socket(Config) when is_list(Config) ->
     {ok, LS1} = gen_tcp:listen(0, []),
     erlang:yield(),
@@ -1904,10 +1881,7 @@ test_prio_udp() ->
     gen_udp:close(S),
     ok.
 
-so_priority(doc) ->
-    ["Tests the so_priority and ip_tos options on sockets when applicable."];
-so_priority(suite) ->
-    [];
+%% Tests the so_priority and ip_tos options on sockets when applicable.
 so_priority(Config) when is_list(Config) ->
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     ok = inet:setopts(L,[{priority,1}]),
@@ -1986,10 +1960,7 @@ mktmofun(Tmo,Parent,LS) ->
     fun() -> Parent ! {accepted,self(), catch gen_tcp:accept(LS,Tmo)} end.
 
 %% Accept tests
-primitive_accept(suite) ->
-    [];
-primitive_accept(doc) ->
-    ["Test singular accept"];
+%% Test singular accept.
 primitive_accept(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     {ok,PortNo}=inet:port(LS),
@@ -2007,10 +1978,7 @@ primitive_accept(Config) when is_list(Config) ->
     end.
 
 	
-multi_accept_close_listen(suite) ->
-    [];
-multi_accept_close_listen(doc) ->
-    ["Closing listen socket when multi-accepting"];
+%% Closing listen socket when multi-accepting.
 multi_accept_close_listen(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2023,10 +1991,7 @@ multi_accept_close_listen(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
                           {_,{error,closed}},{_,{error,closed}}],4,500).
 	
-accept_timeout(suite) ->
-    [];
-accept_timeout(doc) ->
-    ["Single accept with timeout"];
+%% Single accept with timeout.
 accept_timeout(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2034,10 +1999,7 @@ accept_timeout(Config) when is_list(Config) ->
     P = spawn(F),
     ok = ?EXPECT_ACCEPTS([{P,{error,timeout}}],1,2000).
 
-accept_timeouts_in_order(suite) ->
-    [];
-accept_timeouts_in_order(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order"];
+%% Check that multi-accept timeouts happen in the correct order.
 accept_timeouts_in_order(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2048,10 +2010,7 @@ accept_timeouts_in_order(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
                           {P3,{error,timeout}},{P4,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order2(suite) ->
-    [];
-accept_timeouts_in_order2(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order (more)"];
+%% Check that multi-accept timeouts happen in the correct order (more).
 accept_timeouts_in_order2(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2062,10 +2021,7 @@ accept_timeouts_in_order2(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P3,{error,timeout}},
                           {P2,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order3(suite) ->
-    [];
-accept_timeouts_in_order3(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order (even more)"];
+%% Check that multi-accept timeouts happen in the correct order (even more).
 accept_timeouts_in_order3(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2076,11 +2032,8 @@ accept_timeouts_in_order3(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
                           {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order4(suite) ->
-    [];
-accept_timeouts_in_order4(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order after "
-     "mixing millsec and sec timeouts"];
+%% Check that multi-accept timeouts happen in the correct order after
+%% mixing millsec and sec timeouts.
 accept_timeouts_in_order4(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2091,11 +2044,8 @@ accept_timeouts_in_order4(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
 			  {P4,{error,timeout}},{P3,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order5(suite) ->
-    [];
-accept_timeouts_in_order5(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order after "
-     "mixing millsec and sec timeouts (more)"];
+%% Check that multi-accept timeouts happen in the correct order after
+%% mixing millsec and sec timeouts (more).
 accept_timeouts_in_order5(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2106,11 +2056,8 @@ accept_timeouts_in_order5(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
 			  {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order6(suite) ->
-    [];
-accept_timeouts_in_order6(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order after "
-     "mixing millsec and sec timeouts (even more)"];
+%% Check that multi-accept timeouts happen in the correct order after
+%% mixing millsec and sec timeouts (even more).
 accept_timeouts_in_order6(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2121,11 +2068,8 @@ accept_timeouts_in_order6(Config) when is_list(Config) ->
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P2,{error,timeout}},
 			  {P3,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
 
-accept_timeouts_in_order7(suite) ->
-    [];
-accept_timeouts_in_order7(doc) ->
-    ["Check that multi-accept timeouts happen in the correct order after "
-     "mixing millsec and sec timeouts (even more++)"];
+%% Check that multi-accept timeouts happen in the correct order after
+%% mixing millsec and sec timeouts (even more++).
 accept_timeouts_in_order7(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2142,10 +2086,7 @@ accept_timeouts_in_order7(Config) when is_list(Config) ->
 			  {P1,{error,timeout}},{P3,{error,timeout}},
 			  {P8,{error,timeout}},{P7,{error,timeout}}],infinity,2000).
 
-accept_timeouts_mixed(suite) ->
-    [];
-accept_timeouts_mixed(doc) ->
-    ["Check that multi-accept timeouts behave correctly when mixed with successful timeouts"];
+%% Check that multi-accept timeouts behave correctly when mixed with successful timeouts.
 accept_timeouts_mixed(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2165,10 +2106,7 @@ accept_timeouts_mixed(Config) when is_list(Config) ->
     gen_tcp:connect("localhost",PortNo,[]),
     ok = ?EXPECT_ACCEPTS([{P4,{ok,Port1}}] when is_port(Port1),infinity,100).
 
-killing_acceptor(suite) ->
-    [];
-killing_acceptor(doc) ->
-    ["Check that single acceptor behaves as expected when killed"];
+%% Check that single acceptor behaves as expected when killed.
 killing_acceptor(Config) when is_list(Config) ->    
     {ok,LS}=gen_tcp:listen(0,[]),
     Pid = spawn(fun() -> erlang:display({accepted,self(),gen_tcp:accept(LS)}) end),
@@ -2183,10 +2121,7 @@ killing_acceptor(Config) when is_list(Config) ->
     false  = lists:member(accepting, L2),
     ok.
 
-killing_multi_acceptors(suite) ->
-    [];
-killing_multi_acceptors(doc) ->
-    ["Check that multi acceptors behaves as expected when killed"];
+%% Check that multi acceptors behaves as expected when killed.
 killing_multi_acceptors(Config) when is_list(Config) ->    
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2208,10 +2143,7 @@ killing_multi_acceptors(Config) when is_list(Config) ->
     false  = lists:member(accepting, L3),
     ok.
 
-killing_multi_acceptors2(suite) ->
-    [];
-killing_multi_acceptors2(doc) ->
-    ["Check that multi acceptors behaves as expected when killed (more)"];
+%% Check that multi acceptors behaves as expected when killed (more).
 killing_multi_acceptors2(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2245,11 +2177,8 @@ killing_multi_acceptors2(Config) when is_list(Config) ->
     false  = lists:member(accepting, L5),
     ok.
     
-several_accepts_in_one_go(suite) ->
-    [];
-several_accepts_in_one_go(doc) ->
-    ["checks that multi-accept works when more than one accept can be "
-     "done at once (wb test of inet_driver)"];
+%% Checks that multi-accept works when more than one accept can be
+%% done at once (wb test of inet_driver).
 several_accepts_in_one_go(Config) when is_list(Config) ->
     {ok,LS}=gen_tcp:listen(0,[]),
     Parent = self(),
@@ -2292,11 +2221,8 @@ wait_until_accepting(Proc,N) ->
     end.
 
 
-accept_system_limit(suite) ->
-    [];
-accept_system_limit(doc) ->
-    ["Check that accept returns {error, system_limit} "
-     "(and not {error, enfile}) when running out of ports"];
+%% Check that accept returns {error, system_limit}
+%% (and not {error, enfile}) when running out of ports.
 accept_system_limit(Config) when is_list(Config) ->
     {ok, LS} = gen_tcp:listen(0, []),
     {ok, TcpPort} = inet:port(LS),
@@ -2345,10 +2271,7 @@ open_ports(L) ->
     end.
 
 
-active_once_closed(suite) ->
-    [];
-active_once_closed(doc) ->
-    ["Check that active once and tcp_close messages behave as expected"];
+%% Check that active once and tcp_close messages behave as expected.
 active_once_closed(Config) when is_list(Config) ->
     (fun() ->
 	     {Loop,A} = setup_closed_ao(),
@@ -2396,10 +2319,7 @@ active_once_closed(Config) when is_list(Config) ->
 	     ok = receive {tcp_closed, A} -> ok after 1000 -> error end
      end)().
    
-send_timeout(suite) ->
-    [];
-send_timeout(doc) ->
-    ["Test the send_timeout socket option"];
+%% Test the send_timeout socket option.
 send_timeout(Config) when is_list(Config) ->
     %% Basic
     BasicFun =
@@ -2486,10 +2406,7 @@ flush() ->
 	    ok
     end.
 
-send_timeout_active(suite) ->
-    [];
-send_timeout_active(doc) ->
-    ["Test the send_timeout socket option for active sockets"];
+%% Test the send_timeout socket option for active sockets.
 send_timeout_active(Config) when is_list(Config) ->
     %% Basic
     BasicFun = 
@@ -2696,10 +2613,8 @@ has_superfluous_schedulers() ->
     end.
 
 
-otp_7731(suite) -> [];    
-otp_7731(doc) -> 
-    "Leaking message from inet_drv {inet_reply,P,ok} "
-    "when a socket sending resumes working after a send_timeout";
+%% Leaking message from inet_drv {inet_reply,P,ok}
+%% when a socket sending resumes working after a send_timeout.
 otp_7731(Config) when is_list(Config) ->
     ServerPid = spawn_link(?MODULE, otp_7731_server, [self()]),
     receive {ServerPid, ready, PortNum} -> ok end,
@@ -2769,8 +2684,7 @@ otp_7731_recv(Socket) ->
 %% OTP-7615: TCP-ports hanging in CLOSING state when sending large
 %% buffer followed by a recv() that returns error due to closed
 %% connection.
-zombie_sockets(suite) -> [];
-zombie_sockets(doc) -> ["OTP-7615 Leaking closed ports."];
+%% OTP-7615 Leaking closed ports.
 zombie_sockets(Config) when is_list(Config) ->
     register(zombie_collector,self()),
     Calls = 10,
@@ -2850,9 +2764,7 @@ zombie_serve_client(Socket, Bin) ->
     gen_tcp:close(Socket),
     zombie_collector ! {closed, Socket}.
 
-otp_7816(suite) -> [];    
-otp_7816(doc) -> 
-    "Hanging send on windows when sending iolist with more than 16 binaries.";
+%% Hanging send on windows when sending iolist with more than 16 binaries.
 otp_7816(Config) when is_list(Config) ->
     Client = self(),
     Server = spawn_link(fun()-> otp_7816_server(Client) end),
@@ -2941,8 +2853,7 @@ otp_7816_recv(CSocket, BytesLeft) ->
 		  error
 	  end.
 
-otp_8102(doc) -> ["Receive a packet with a faulty packet header"];
-otp_8102(suite) -> [];
+%% Receive a packet with a faulty packet header.
 otp_8102(Config) when is_list(Config) ->
     {ok, LSocket} = gen_tcp:listen(0, []),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
@@ -2982,8 +2893,7 @@ otp_8102_do(LSocket, PortNum, {Bin,PType}) ->
     gen_tcp:close(SSocket),    
     gen_tcp:close(RSocket).
 
-otp_9389(doc) -> ["Verify packet_size handles long HTTP header lines"];
-otp_9389(suite) -> [];
+%% Verify packet_size handles long HTTP header lines.
 otp_9389(Config) when is_list(Config) ->
     {ok, LS} = gen_tcp:listen(0, [{active,false}]),
     {ok, {_, PortNum}} = inet:sockname(LS),
@@ -3045,10 +2955,7 @@ otp_9389_loop(S, OrigLinkHdr, State) ->
 wrapping_oct() ->
     [{timetrap,{minutes,10}}].
 
-wrapping_oct(doc) ->
-    "Check that 64bit octet counters work."; 
-wrapping_oct(suite) ->
-    [];
+%% Check that 64bit octet counters work.
 wrapping_oct(Config) when is_list(Config) ->
     {ok,Sock} = gen_tcp:listen(0,[{active,false},{mode,binary}]),
     {ok,Port} = inet:port(Sock),

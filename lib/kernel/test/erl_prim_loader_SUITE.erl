@@ -72,7 +72,6 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-get_path(doc) -> [];
 get_path(Config) when is_list(Config) ->
     ?line case erl_prim_loader:get_path() of
 	      {ok, Path} when is_list(Path) ->
@@ -82,7 +81,6 @@ get_path(Config) when is_list(Config) ->
 	  end,
     ok.
 
-set_path(doc) -> [];
 set_path(Config) when is_list(Config) ->
     ?line {ok, Path} = erl_prim_loader:get_path(),
     ?line ok = erl_prim_loader:set_path(Path),
@@ -98,7 +96,6 @@ set_path(Config) when is_list(Config) ->
     ?line {ok, Path} = erl_prim_loader:get_path(),
     ok.
 
-get_file(doc) -> [];
 get_file(Config) when is_list(Config) ->
     ?line case erl_prim_loader:get_file("lists" ++ code:objfile_extension()) of
 	      {ok,Bin,File} when is_binary(Bin), is_list(File) ->
@@ -162,8 +159,8 @@ test_normalize_and_backslash(Config) ->
     ok = file:del_dir(Dir),
     ok.
 
-inet_existing(doc) -> ["Start a node using the 'inet' loading method, ",
-		       "from an already started boot server."];
+%% Start a node using the 'inet' loading method,
+%% from an already started boot server.
 inet_existing(Config) when is_list(Config) ->
     Name = erl_prim_test_inet_existing,
     BootPid = start_boot_server(),
@@ -174,8 +171,8 @@ inet_existing(Config) when is_list(Config) ->
     exit(BootPid, kill),
     ok.
 
-inet_coming_up(doc) -> ["Start a node using the 'inet' loading method, ",
-			"but start the boot server afterwards."];
+%% Start a node using the 'inet' loading method,
+%% but start the boot server afterwards.
 inet_coming_up(Config) when is_list(Config) ->
     Name = erl_prim_test_inet_coming_up,
     Node = start_node_using_inet(Name, [{wait,false}]),
@@ -203,8 +200,8 @@ wait_really_started(Node, N) ->
  	    wait_really_started(Node, N - 1)
     end.
 
-inet_disconnects(doc) -> ["Start a node using the 'inet' loading method, ",
-			  "then lose the connection."];
+%% Start a node using the 'inet' loading method,
+%% then lose the connection.
 inet_disconnects(Config) when is_list(Config) ->
     case test_server:is_native(erl_boot_server) of
 	true ->
@@ -270,9 +267,8 @@ get_calls(Count, Pid) ->
 	    {error,{trace_msg_timeout,Count}}
     end.	
 
-multiple_slaves(doc) ->
-    ["Start nodes in parallell, all using the 'inet' loading method, ",
-     "verify that the boot server manages"];
+%% Start nodes in parallel, all using the 'inet' loading method;
+%% verify that the boot server manages.
 multiple_slaves(Config) when is_list(Config) ->
     ?line Name = erl_prim_test_multiple_slaves,
     ?line Host = host(),
@@ -322,8 +318,8 @@ wait_and_shutdown([], _) ->
     ok.
 
 
-file_requests(doc) -> ["Start a node using the 'inet' loading method, ",
-		       "verify that the boot server responds to file requests."];
+%% Start a node using the 'inet' loading method,
+%% verify that the boot server responds to file requests.
 file_requests(Config) when is_list(Config) ->
     ?line {ok, Node, BootPid} = complete_start_node(erl_prim_test_file_req),
 
@@ -373,10 +369,7 @@ file_requests(Config) when is_list(Config) ->
     ?line exit(BootPid, kill),
     ok.
 
-local_archive(suite) ->
-    [];
-local_archive(doc) ->
-    ["Read files from local archive."];
+%% Read files from local archive.
 local_archive(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     KernelDir = filename:basename(code:lib_dir(kernel)),
@@ -393,10 +386,7 @@ local_archive(Config) when is_list(Config) ->
     ?line ok = file:delete(Archive),
     ok.
 
-remote_archive(suite) ->
-    {req, [{local_slave_nodes, 1}, {time, 10}]};
-remote_archive(doc) ->
-    ["Read files from remote archive."];
+%% Read files from remote archive.
 remote_archive(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     KernelDir = filename:basename(code:lib_dir(kernel)),
@@ -415,10 +405,7 @@ remote_archive(Config) when is_list(Config) ->
     ?line exit(BootPid, kill),
     ok.
 
-primary_archive(suite) ->
-    {req, [{local_slave_nodes, 1}, {time, 10}]};
-primary_archive(doc) ->
-    ["Read files from primary archive."];
+%% Read files from primary archive.
 primary_archive(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -512,10 +499,7 @@ create_archive(Archive, AppDirs) ->
     zip:create(Archive, AppDirs, Opts).
 
 
-virtual_dir_in_archive(suite) ->
-    [];
-virtual_dir_in_archive(doc) ->
-    ["Read virtual directories from archive."];
+%% Read virtual directories from archive.
 virtual_dir_in_archive(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Data = <<"A little piece of data.">>,

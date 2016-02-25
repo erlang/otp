@@ -113,8 +113,6 @@ end_per_testcase(Config) ->
     P=code:get_path(),
     ok.
 
-set_path(suite) -> [];
-set_path(doc) -> [];
 set_path(Config) when is_list(Config) ->
     P = code:get_path(),
     NonExDir = filename:join(proplists:get_value(priv_dir, Config), ?t:temp_name("hej")),
@@ -131,8 +129,6 @@ set_path(Config) when is_list(Config) ->
     [LibDir] = code:get_path(),
     ok.
 
-get_path(suite) -> [];
-get_path(doc) -> [];
 get_path(Config) when is_list(Config) ->
     P = code:get_path(),
     % test that all directories are strings (lists).
@@ -142,8 +138,6 @@ get_path(Config) when is_list(Config) ->
 	end, P),
     ok.
 
-add_path(suite) -> [];
-add_path(doc) -> [];
 add_path(Config) when is_list(Config) ->
     P = code:get_path(),
     {'EXIT',_} = (catch code:add_path({})),
@@ -164,8 +158,6 @@ add_path(Config) when is_list(Config) ->
     code:set_path(P),
     ok.
 
-add_paths(suite) -> [];
-add_paths(doc) -> [];
 add_paths(Config) when is_list(Config) ->
     P = code:get_path(),
     ok = code:add_paths([{}]),
@@ -211,8 +203,6 @@ add_paths(Config) when is_list(Config) ->
     code:set_path(P),
     ok.
 
-del_path(suite) -> [];
-del_path(doc) -> [];
 del_path(Config) when is_list(Config) ->
     P = code:get_path(),
     try
@@ -247,8 +237,6 @@ del_path_1(P) ->
     NewP1 = lists:delete(Dir,P), % check that dir is deleted
     ok.
 
-replace_path(suite) -> [];
-replace_path(doc) -> [];
 replace_path(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     P = code:get_path(),
@@ -285,8 +273,7 @@ replace_path(Config) when is_list(Config) ->
 
     ok.
 
-dir_disappeared(suite) -> [];
-dir_disappeared(doc) -> ["OTP-3977"];
+%% OTP-3977.
 dir_disappeared(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "temp"),
@@ -296,8 +283,6 @@ dir_disappeared(Config) when is_list(Config) ->
     non_existing = code:which(bubbelskrammel),
     ok.
 
-load_file(suite) -> [];
-load_file(doc) -> [];
 load_file(Config) when is_list(Config) ->
     {error, nofile} = code:load_file(duuuumy_mod),
     {error, badfile} = code:load_file(code_a_test),
@@ -312,8 +297,6 @@ load_file(Config) when is_list(Config) ->
 test_dir() ->
     filename:dirname(code:which(?MODULE)).
 
-load_abs(suite) -> [];
-load_abs(doc) -> [];
 load_abs(Config) when is_list(Config) ->
     TestDir = test_dir(),
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
@@ -326,8 +309,6 @@ load_abs(Config) when is_list(Config) ->
     code:unstick_dir(TestDir),
     ok.
 
-ensure_loaded(suite) -> [];
-ensure_loaded(doc) -> [];
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
@@ -344,8 +325,6 @@ ensure_loaded(Config) when is_list(Config) ->
 	    ok
     end.
 
-delete(suite) -> [];
-delete(doc) -> [];
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -362,8 +341,6 @@ delete(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     ok.
 
-purge(suite) -> [];
-purge(doc) -> [];
 purge(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -426,8 +403,6 @@ purge_many_exits_do(PurgeF) ->
 		  end, TPids).
 
 
-soft_purge(suite) -> [];
-soft_purge(doc) -> [];
 soft_purge(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -444,8 +419,6 @@ soft_purge(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     ok.
 
-is_loaded(suite) -> [];
-is_loaded(doc) -> [];
 is_loaded(Config) when is_list(Config) ->
     code:purge(code_b_test),
     code:delete(code_b_test),
@@ -459,8 +432,6 @@ is_loaded(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
-all_loaded(suite) -> [];
-all_loaded(doc) -> [];
 all_loaded(Config) when is_list(Config) ->
     case ?t:is_cover() of
 	true -> {skip,"Cover is running"};
@@ -490,8 +461,6 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
-load_binary(suite) -> [];
-load_binary(doc) -> [];
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -547,8 +516,6 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     %IsNative = code:is_module_native(Mod),
     ok.
 
-dir_req(suite) -> [];
-dir_req(doc) -> [];
 dir_req(Config) when is_list(Config) ->
     {ok,[[Root0]]} = init:get_argument(root),
     Root = filename:join([Root0]),	% Normalised form.
@@ -563,8 +530,6 @@ dir_req(Config) when is_list(Config) ->
     {error, bad_name} = code:priv_dir(duuumy),
     ok.
 
-object_code(suite) -> [];
-object_code(doc) -> [];
 object_code(Config) when is_list(Config) ->
     TestDir = test_dir(),
     P = code:get_path(),
@@ -585,17 +550,15 @@ object_code(Config) when is_list(Config) ->
     P=code:get_path(),
     ok.
 
-set_path_file(suite) -> [];
-set_path_file(doc) -> ["Test that set_path does not accept ",
-		       "files as pathnames (known previous bug)"];
+%% Test that set_path does not accept
+%% files as pathnames (known previous bug)
 set_path_file(Config) when is_list(Config) ->
     File=filename:join(proplists:get_value(priv_dir, Config), "testfil"),
     ok=file:write_file(File, list_to_binary("lite data")),
     {error, bad_directory}=code:set_path([File]).
 
-sticky_dir(suite) -> [];
-sticky_dir(doc) -> ["Test that a module with the same name as a module in ",
-		    "a sticky directory cannot be loaded."];
+%% Test that a module with the same name as a module in
+%% a sticky directory cannot be loaded.
 sticky_dir(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok,Node} = ?t:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
@@ -636,8 +599,7 @@ do_sticky_compile(Mod, Dir) ->
 	    ok
     end.
 
-pa_pz_option(suite) -> [];
-pa_pz_option(doc) -> ["Test that the -pa and -pz options work as expected"];
+%% Test that the -pa and -pz options work as expected.
 pa_pz_option(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
     PaDir = filename:join(DDir,"pa"),
@@ -659,9 +621,7 @@ pa_pz_option(Config) when is_list(Config) ->
     [PzDir|_] = lists:reverse(Paths2),
     ?t:stop_node(Node2).
 
-add_del_path(suite) ->
-    [];
-add_del_path(doc) -> ["add_path, del_path should not cause priv_dir(App) to fail"];
+%% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
     Dir1 = filename:join(DDir,"dummy_app-1.0/ebin"),
@@ -726,11 +686,8 @@ clash(Config) when is_list(Config) ->
     file:delete(TmpEzFile++".moved"), %% Only effect on windows
     ok.
 
-ext_mod_dep(suite) ->
-    [];
-ext_mod_dep(doc) ->
-    ["Every module that the code_server uses should be preloaded, "
-     "this test case verifies that"];
+%% Every module that the code_server uses should be preloaded,
+%% this test case verifies that.
 ext_mod_dep(Config) when is_list(Config) ->
     xref:start(s),
     xref:set_default(s, [{verbose,false},{warnings,false},
@@ -907,10 +864,7 @@ where_is_file(Config) when is_list(Config) ->
     non_existing = code:where_is_file("kernel"), % no such file
     ok.
 
-purge_stacktrace(suite) ->
-    [];
-purge_stacktrace(doc) ->
-    ["Test that stacktrace is deleted when purging a referred module"];
+%% Test that stacktrace is deleted when purging a referred module.
 purge_stacktrace(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
@@ -1129,11 +1083,8 @@ compile_files([File | Files], SrcDir, OutDir) ->
 compile_files([], _, _) ->
     ok.
 
-big_boot_embedded(suite) ->
-    [];
-big_boot_embedded(doc) ->
-    ["Test that a boot file with (almost) all of OTP can be used to start an"
-     " embeddedd system."];
+%% Test that a boot file with (almost) all of OTP can be used to start an
+%% embeddedd system.
 big_boot_embedded(Config) when is_list(Config) ->
     {BootArg,AppsInBoot} = create_big_boot(Config),
     {ok, Node} =
@@ -1457,8 +1408,7 @@ do_on_load_error(ReturnValue) ->
 	    {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
 
-native_early_modules(suite) -> [];
-native_early_modules(doc) -> ["Test that the native code of early loaded modules is loaded"];
+%% Test that the native code of early loaded modules is loaded.
 native_early_modules(Config) when is_list(Config) ->
     case erlang:system_info(hipe_architecture) of
 	undefined ->
@@ -1486,8 +1436,7 @@ native_early_modules_1(Architecture) ->
             ok
     end.
 
-get_mode(suite) -> [];
-get_mode(doc) -> ["Test that the mode of the code server is properly retrieved"];
+%% Test that the mode of the code server is properly retrieved.
 get_mode(Config) when is_list(Config) ->
     interactive = code:get_mode().
 

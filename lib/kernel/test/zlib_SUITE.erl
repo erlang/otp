@@ -107,8 +107,7 @@ end_per_group(_GroupName, Config) ->
 
 
 
-api_open_close(doc) -> "Test open/0 and close/1";
-api_open_close(suite) -> [];
+%% Test open/0 and close/1.
 api_open_close(Config) when is_list(Config) ->
     ?line Fd1 = zlib:open(),
     ?line Fd2 = zlib:open(),
@@ -126,8 +125,7 @@ api_open_close(Config) when is_list(Config) ->
     after 10 -> ok
     end.
 
-api_deflateInit(doc) -> "Test deflateInit/2 and /6";
-api_deflateInit(suite) -> [];
+%% Test deflateInit/2 and /6.
 api_deflateInit(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(?BARG, zlib:deflateInit(gurka, none)),
@@ -188,8 +186,7 @@ api_deflateInit(Config) when is_list(Config) ->
     ?m({'EXIT',_}, zlib:deflateInit(Z1,none,deflated,-15,8,default)), %% ?? 
     ?m(ok, zlib:close(Z1)).
 
-api_deflateSetDictionary(doc) -> "Test deflateSetDictionary";
-api_deflateSetDictionary(suite) -> [];
+%% Test deflateSetDictionary.
 api_deflateSetDictionary(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
@@ -201,8 +198,7 @@ api_deflateSetDictionary(Config) when is_list(Config) ->
     ?m({'EXIT',{stream_error,_}},zlib:deflateSetDictionary(Z1,<<1,1,2,3,4,5,1>>)),
     ?m(ok, zlib:close(Z1)).
 
-api_deflateReset(doc) -> "Test deflateReset";
-api_deflateReset(suite) -> [];
+%% Test deflateReset.
 api_deflateReset(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
@@ -212,8 +208,7 @@ api_deflateReset(Config) when is_list(Config) ->
     %% FIXME how do I make this go wrong??
     ?m(ok, zlib:close(Z1)).
 
-api_deflateParams(doc) -> "Test deflateParams";
-api_deflateParams(suite) -> [];
+%% Test deflateParams.
 api_deflateParams(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
@@ -222,8 +217,7 @@ api_deflateParams(Config) when is_list(Config) ->
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
     ?m(ok, zlib:close(Z1)).
 
-api_deflate(doc) -> "Test deflate";
-api_deflate(suite) -> [];
+%% Test deflate.
 api_deflate(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
@@ -245,8 +239,7 @@ api_deflate(Config) when is_list(Config) ->
     
     ?m(ok, zlib:close(Z1)).
 
-api_deflateEnd(doc) -> "Test deflateEnd";
-api_deflateEnd(suite) -> [];
+%% Test deflateEnd.
 api_deflateEnd(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
@@ -263,8 +256,7 @@ api_deflateEnd(Config) when is_list(Config) ->
     
     ?m(ok, zlib:close(Z1)).
 
-api_inflateInit(doc) -> "Test inflateInit /1 and /2";
-api_inflateInit(suite) -> [];
+%% Test inflateInit /1 and /2.
 api_inflateInit(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(?BARG, zlib:inflateInit(gurka)),
@@ -285,8 +277,7 @@ api_inflateInit(Config) when is_list(Config) ->
     ?m(?BARG, zlib:inflateInit(Z1, -16)),
     ?m(ok, zlib:close(Z1)).
 
-api_inflateSetDictionary(doc) -> "Test inflateSetDictionary";
-api_inflateSetDictionary(suite) -> [];
+%% Test inflateSetDictionary.
 api_inflateSetDictionary(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z1)),
@@ -297,8 +288,7 @@ api_inflateSetDictionary(Config) when is_list(Config) ->
     ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z1,Dict)),
     ?m(ok, zlib:close(Z1)).
 
-api_inflateSync(doc) -> "Test inflateSync";
-api_inflateSync(suite) -> [];
+%% Test inflateSync.
 api_inflateSync(Config) when is_list(Config) ->
     {skip,"inflateSync/1 sucks"}.
 %%     ?line Z1 = zlib:open(),
@@ -328,8 +318,7 @@ clobber(N, Bin) when is_binary(Bin) ->
 	   end,
     list_to_binary(tuple_to_list(setelement(N, T, Byte))).
 
-api_inflateReset(doc) -> "Test inflateReset";
-api_inflateReset(suite) -> [];
+%% Test inflateReset.
 api_inflateReset(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z1)),
@@ -337,8 +326,7 @@ api_inflateReset(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateReset(Z1)),
     ?m(ok, zlib:close(Z1)).
 
-api_inflate(doc) -> "Test inflate";
-api_inflate(suite) -> [];
+%% Test inflate.
 api_inflate(Config) when is_list(Config) ->
     Data = [<<1,2,2,3,3,3,4,4,4,4>>],
     ?line Compressed = zlib:compress(Data),
@@ -357,8 +345,7 @@ api_inflate(Config) when is_list(Config) ->
     ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>)), 
     ?m(ok, zlib:close(Z1)).
 
-api_inflateChunk(doc) -> "Test inflateChunk";
-api_inflateChunk(suite) -> [];
+%% Test inflateChunk.
 api_inflateChunk(Config) when is_list(Config) ->
     ChunkSize = 1024,
     Data = << <<(I rem 150)>> || I <- lists:seq(1, 3 * ChunkSize) >>,
@@ -390,8 +377,7 @@ api_inflateChunk(Config) when is_list(Config) ->
     ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).
 
-api_inflateEnd(doc) -> "Test inflateEnd";
-api_inflateEnd(suite) -> [];
+%% Test inflateEnd.
 api_inflateEnd(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m({'EXIT',{einval,_}}, zlib:inflateEnd(Z1)), 
@@ -404,16 +390,14 @@ api_inflateEnd(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).
 
-api_getBufsz(doc) -> "Test getBufsz";
-api_getBufsz(suite) -> [];
+%% Test getBufsz.
 api_getBufsz(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(Val when is_integer(Val), zlib:getBufSize(Z1)),
     ?m(?BARG, zlib:getBufSize(gurka)),
     ?m(ok, zlib:close(Z1)).
 
-api_setBufsz(doc) -> "Test setBufsz";
-api_setBufsz(suite) -> [];
+%% Test setBufsz.
 api_setBufsz(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(?BARG, zlib:setBufSize(Z1, gurka)),
@@ -425,8 +409,7 @@ api_setBufsz(Config) when is_list(Config) ->
     ?m(ok, zlib:close(Z1)).
 
 %%% Debug function ??
-api_getQSize(doc) -> "Test getQSize";
-api_getQSize(suite) -> [];
+%% Test getQSize.
 api_getQSize(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     Q = ?m(Val when is_integer(Val), zlib:getQSize(Z1)),
@@ -434,8 +417,7 @@ api_getQSize(Config) when is_list(Config) ->
     ?m(?BARG, zlib:getQSize(gurka)),
     ?m(ok, zlib:close(Z1)).
 
-api_crc32(doc) -> "Test crc32";
-api_crc32(suite) -> [];
+%% Test crc32.
 api_crc32(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1,best_speed,deflated,-15,8,default)),
@@ -461,8 +443,7 @@ api_crc32(Config) when is_list(Config) ->
     ?m(ok, zlib:deflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).    
 
-api_adler32(doc) -> "Test adler32";
-api_adler32(suite) -> [];
+%% Test adler32.
 api_adler32(Config) when is_list(Config) ->
     ?line Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1,best_speed,deflated,-15,8,default)),
@@ -485,8 +466,7 @@ api_adler32(Config) when is_list(Config) ->
     ?m(ok, zlib:deflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).    
 
-api_un_compress(doc) -> "Test compress";
-api_un_compress(suite) -> [];
+%% Test compress.
 api_un_compress(Config) when is_list(Config) ->
     ?m(?BARG,zlib:compress(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
@@ -502,8 +482,7 @@ api_un_compress(Config) when is_list(Config) ->
     ?m(Bin, zlib:uncompress(binary_to_list(Comp))),
     ?m(Bin, zlib:uncompress(Comp)).
 
-api_un_zip(doc) -> "Test zip";
-api_un_zip(suite) -> [];
+%% Test zip.
 api_un_zip(Config) when is_list(Config) ->
     ?m(?BARG,zlib:zip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
@@ -520,24 +499,7 @@ api_un_zip(Config) when is_list(Config) ->
     Z = zlib:zip(B),
     ?m(B, zlib:unzip(Z)).
 
-%% api_g_un_zip_file(doc) -> "Test gunzip_file";
-%% api_g_un_zip_file(suite) -> [];
-%% api_g_un_zip_file(Config) when is_list(Config) ->
-%%     ?line Out = conf(data_dir,Config), 
-%%     io:format("Using OutDir ~p ~n", [Out]),
-%%     F = filename:join(Out,"testing1"),
-%%     Data = <<1,1,255,255,255,1,1>>,
-%%     ?m(ok, file:write_file(F,Data)),
-%%     ?line Compressed = zlib:gzip_file(F),
-%%     ?m(ok, file:write_file(F++".gz",Compressed)),
-%%     ?m(Data, zlib:gunzip_file(F++".gz")),
-%%     ?m({error,enoent}, zlib:gunzip_file(gurka)),
-%%     ?m({error,enoent}, zlib:gzip_file(gurka)),
-%%     ?m({error,what}, zlib:gunzip_file(F)),
-%%     ?line ok.
-
-api_g_un_zip(doc) -> "Test gunzip";
-api_g_un_zip(suite) -> [];
+%% Test gunzip.
 api_g_un_zip(Config) when is_list(Config) ->
     ?m(?BARG,zlib:gzip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
@@ -565,8 +527,6 @@ bad_len_data() ->
     <<31,139,8,0,0,0,0,0,0,3,211,2,0,91,38,185,9,2,0,0,0>>.
 
 
-intro(suite) -> [];
-intro(doc) -> "";
 intro(Config) when is_list(Config) ->
     D = <<"This is a binary">>,
     [put({ex, N}, <<"This is a binary">>) || N <- [0,1,2,3,4]],
@@ -594,8 +554,7 @@ intro(Config) when is_list(Config) ->
     ?m(Orig, zlib:uncompress(Res)).
 
 
-large_deflate(doc) -> "Test deflate large file, which had a bug reported on erlang-bugs";
-large_deflate(suite) -> [];
+%% Test deflate large file, which had a bug reported on erlang-bugs.
 large_deflate(Config) when is_list(Config) ->
     large_deflate_do().
 large_deflate_do() ->
@@ -618,8 +577,7 @@ rand_bytes(Bin, Sz) ->
     rand_bytes(<<(erlang:md5(Bin))/binary, Bin/binary>>, Sz).
 
 
-zip_usage(doc) -> "Test a standard compressed zip file";
-zip_usage(suite) -> [];
+%% Test a standard compressed zip file.
 zip_usage(Config) when is_list(Config) ->
     zip_usage(zip_usage({get_arg,Config}));
 zip_usage({get_arg,Config}) ->
@@ -690,8 +648,7 @@ zip_usage({run,ZIP,ORIG}) ->
     ?line ok = zlib:close(Z),
     ?line ok.
 
-gz_usage(doc) -> "Test a standard compressed gzipped file";
-gz_usage(suite) -> [];
+%% Test a standard compressed gzipped file.
 gz_usage(Config) when is_list(Config) ->
     gz_usage(gz_usage({get_arg,Config}));
 gz_usage({get_arg,Config}) ->
@@ -711,8 +668,7 @@ gz_usage({run,GZIP,ORIG,GZIP2}) ->
     ?m(true,zlib:crc32(Z,UC5) == zlib:crc32(Z,ORIG)),
     ?line ok = zlib:close(Z).
 
-gz_usage2(doc) -> "Test more of a standard compressed gzipped file";
-gz_usage2(suite) -> [];
+%% Test more of a standard compressed gzipped file.
 gz_usage2(Config) ->
     case os:find_executable("gzip") of
 	Name when is_list(Name) ->
@@ -740,10 +696,8 @@ gz_usage2(Config) ->
     
 
 
-compress_usage(doc) -> 
-    "Test that (de)compress funcs work with" 
-	" standard tools, for example a chunk from a png file";
-compress_usage(suite) -> [];
+%% Test that (de)compress funcs work with standard tools, for example
+%% a chunk from a png file.
 compress_usage(Config) when is_list(Config) ->
     compress_usage(compress_usage({get_arg,Config}));
 compress_usage({get_arg,Config}) ->
@@ -798,8 +752,7 @@ compress_usage({run,C1}) ->
     ?line ok = zlib:close(ZU).
 
 
-crc(doc) -> "Check that crc works as expected";
-crc(suite) -> [];
+%% Check that crc works as expected.
 crc(Config) when is_list(Config) ->
     crc(crc({get_arg,Config}));
 crc({get_arg,Config}) ->
@@ -828,8 +781,7 @@ crc({run,C1}) ->
     ?m(Crc,Comb),
     ?line ok = zlib:close(Z).
 
-adler(doc) -> "Check that adler works as expected";
-adler(suite) -> [];
+%% Check that adler works as expected.
 adler(Config) when is_list(Config) ->
     adler(adler({get_arg,Config}));
 adler({get_arg,Config}) ->
@@ -859,8 +811,7 @@ adler({run,C1}) ->
     ?m(Crc,Comb),
     ?line ok = zlib:close(Z).
 
-dictionary_usage(doc) -> "Test dictionary usage";
-dictionary_usage(suite) -> [];
+%% Test dictionary usage.
 dictionary_usage(Config) when is_list(Config) ->
     dictionary_usage(dictionary_usage({get_arg,Config}));
 dictionary_usage({get_arg,_Config}) ->
@@ -896,8 +847,7 @@ split_bin(Last,Acc) ->
     lists:reverse([Last|Acc]).
 
 
-smp(doc) -> "Check concurrent access to zlib driver";
-smp(suite) -> [];
+%% Check concurrent access to zlib driver.
 smp(Config) ->
     case erlang:system_info(smp_support) of
 	true ->
@@ -950,8 +900,7 @@ wait_pids(Pids) ->
     end.
 
 
-otp_7359(doc) -> "Deflate/inflate data with size close to multiple of internal buffer size";
-otp_7359(suite) -> [];
+%% Deflate/inflate data with size close to multiple of internal buffer size.
 otp_7359(_Config) ->
     %% Find compressed size
     ZTry = zlib:open(),

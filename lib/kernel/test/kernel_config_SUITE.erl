@@ -42,13 +42,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_suite(doc) -> [];
-init_per_suite(suite) -> [];
 init_per_suite(Config) when is_list(Config) ->
     Config.
 
-end_per_suite(doc) -> [];
-end_per_suite(suite) -> [];
 end_per_suite(Config) when is_list(Config) ->
     stop_node(init_test),
     Config.
@@ -69,8 +65,6 @@ from(_, []) -> [].
 %% Should be started in a CC view with:
 %% erl -sname XXX where XX not in [cp1, cp2]
 %%-----------------------------------------------------------------
-sync(doc) -> [];
-sync(suite) -> [];
 sync(Conf) when is_list(Conf) ->
     % Write a config file
     Dir = proplists:get_value(priv_dir,Conf),

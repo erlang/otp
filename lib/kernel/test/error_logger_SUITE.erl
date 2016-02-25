@@ -66,8 +66,6 @@ end_per_group(_GroupName, Config) ->
 
 %%-----------------------------------------------------------------
 
-error_report(suite) -> [];
-error_report(doc) -> [];
 error_report(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
     Rep1 = [{tag1,"data1"},{tag2,data2},{tag3,3}],
@@ -106,8 +104,6 @@ error_report(Config) when is_list(Config) ->
 
 %%-----------------------------------------------------------------
 
-info_report(suite) -> [];
-info_report(doc) -> [];
 info_report(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
     Rep1 = [{tag1,"data1"},{tag2,data2},{tag3,3}],
@@ -146,8 +142,6 @@ info_report(Config) when is_list(Config) ->
 
 %%-----------------------------------------------------------------
 
-error(suite) -> [];
-error(doc) -> [];
 error(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
     Msg1 = "This is a plain text string~n",
@@ -181,8 +175,6 @@ error(Config) when is_list(Config) ->
 
 %%-----------------------------------------------------------------
 
-info(suite) -> [];
-info(doc) -> [];
 info(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
     Msg1 = "This is a plain text string~n",
@@ -209,8 +201,6 @@ info(Config) when is_list(Config) ->
 
 %%-----------------------------------------------------------------
 
-emulator(suite) -> [];
-emulator(doc) -> [];
 emulator(Config) when is_list(Config) ->
     ?line error_logger:add_report_handler(?MODULE, self()),
     Msg = "Error in process ~p on node ~p with exit value:~n~p~n",
@@ -229,8 +219,6 @@ generate_error(Error, Stack) ->
 %% want to interact with the test run.
 %%-----------------------------------------------------------------
 
-tty(suite) -> [];
-tty(doc) -> [];
 tty(Config) when is_list(Config) ->
     ?line {'EXIT', _Reason} = (catch error_logger:tty(dummy)),
     ok.
@@ -239,8 +227,6 @@ tty(Config) when is_list(Config) ->
 %% If where already exists a logfile we skip this test case !!
 %%-----------------------------------------------------------------
 
-logfile(suite) -> [];
-logfile(doc) -> [];
 logfile(Config) when is_list(Config) ->
     ?line case error_logger:logfile(filename) of
 	      {error, no_log_file} -> % Ok, we continues.
@@ -260,8 +246,6 @@ do_logfile() ->
 
 %%-----------------------------------------------------------------
 
-add(suite) -> [];
-add(doc) -> [];
 add(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch error_logger:add_report_handler("dummy")),
     ?line {'EXIT',_} = error_logger:add_report_handler(non_existing),
@@ -270,8 +254,6 @@ add(Config) when is_list(Config) ->
 
 %%-----------------------------------------------------------------
 
-delete(suite) -> [];
-delete(doc) -> [];
 delete(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch error_logger:delete_report_handler("dummy")),
     ?line {error,_} = error_logger:delete_report_handler(non_existing),

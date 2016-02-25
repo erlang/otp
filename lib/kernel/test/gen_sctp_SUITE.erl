@@ -93,19 +93,13 @@ end_per_testcase(_Func, _Config) ->
 
 
 
-basic(doc) ->
-    "Hello world";
-basic(suite) ->
-    [];
+%% Hello world.
 basic(Config) when is_list(Config) ->
     ?line {ok,S} = gen_sctp:open(),
     ?line ok = gen_sctp:close(S),
     ok.
 
-xfer_min(doc) ->
-    "Minimal data transfer";
-xfer_min(suite) ->
-    [];
+%% Minimal data transfer.
 xfer_min(Config) when is_list(Config) ->
     ?line Stream = 0,
     ?line Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
@@ -213,10 +207,7 @@ xfer_min(Config) when is_list(Config) ->
 	  end,
     ok.
 
-xfer_active(doc) ->
-    "Minimal data transfer in active mode";
-xfer_active(suite) ->
-    [];
+%% Minimal data transfer in active mode.
 xfer_active(Config) when is_list(Config) ->
     ?line Timeout = 2000,
     ?line Stream = 0,
@@ -346,11 +337,8 @@ recv_paddr_change(S, Addr, Port, Timeout) ->
 	    timeout
     end.
 
-def_sndrcvinfo(doc) ->
-    "Test that #sctp_sndrcvinfo{} parameters set on a socket "
-	"are used by gen_sctp:send/4";
-def_sndrcvinfo(suite) ->
-    [];
+%% Test that #sctp_sndrcvinfo{} parameters set on a socket
+%% are used by gen_sctp:send/4.
 def_sndrcvinfo(Config) when is_list(Config) ->
     ?line Loopback = {127,0,0,1},
     ?line Data = <<"What goes up, must come down.">>,
@@ -541,10 +529,7 @@ flush() ->
 	    []
     end.
 
-api_open_close(doc) ->
-    "Test the API function open/1,2 and close/1";
-api_open_close(suite) ->
-    [];
+%% Test the API function open/1,2 and close/1.
 api_open_close(Config) when is_list(Config) ->
     ?line {ok,S1} = gen_sctp:open(0),
     ?line {ok,P}  = inet:port(S1),
@@ -605,10 +590,7 @@ api_open_close(Config) when is_list(Config) ->
 	  end,
     ok.
 
-api_listen(doc) ->
-    "Test the API function listen/2";
-api_listen(suite) ->
-    [];
+%% Test the API function listen/2.
 api_listen(Config) when is_list(Config) ->
     ?line Localhost = {127,0,0,1},
 
@@ -646,10 +628,7 @@ api_listen(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sb),
     ok.
 
-api_connect_init(doc) ->
-    "Test the API function connect_init/4";
-api_connect_init(suite) ->
-    [];
+%% Test the API function connect_init/4.
 api_connect_init(Config) when is_list(Config) ->
     ?line Localhost = {127,0,0,1},
 
@@ -703,10 +682,7 @@ recv_event({Addr,Port,
 	    #sctp_shutdown_event{assoc_id=Assoc}=ShutdownEvent}) ->
     {Addr,Port,ShutdownEvent}.
 
-api_opts(doc) ->
-    "Test socket options";
-api_opts(suite) ->
-    [];
+%% Test socket options.
 api_opts(Config) when is_list(Config) ->
     ?line Sndbuf = 32768,
     ?line Recbuf = 65536,
@@ -787,10 +763,7 @@ implicit_inet6(S1, Addr) ->
 	  end,
     ?line ok = gen_sctp:close(S2).
 
-active_n(doc) ->
-    "Verify {active,N} socket management";
-active_n(suite) ->
-    [];
+%% Verify {active,N} socket management.
 active_n(Config) when is_list(Config) ->
     N = 3,
     S1 = ok(gen_sctp:open([{active,N}])),
@@ -887,10 +860,7 @@ active_n(Config) when is_list(Config) ->
     ok = gen_sctp:close(S1),
     ok.
 
-basic_stream(doc) ->
-    "Hello world stream socket";
-basic_stream(suite) ->
-    [];
+%% Hello world stream socket.
 basic_stream(Config) when is_list(Config) ->
     ?line {ok,S} = gen_sctp:open([{type,stream}]),
     ?line ok = gen_sctp:listen(S, true),
@@ -900,10 +870,7 @@ basic_stream(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(S),
     ok.
 
-xfer_stream_min(doc) ->
-    "Minimal data transfer";
-xfer_stream_min(suite) ->
-    [];
+%% Minimal data transfer.
 xfer_stream_min(Config) when is_list(Config) ->
     ?line Stream = 0,
     ?line Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
@@ -1058,26 +1025,17 @@ do_from_other_process(Fun) ->
     end.
 
 
-peeloff_active_once(doc) ->
-    "Peel off an SCTP stream socket ({active,once})";
-peeloff_active_once(suite) ->
-    [];
+%% Peel off an SCTP stream socket ({active,once}).
 
 peeloff_active_once(Config) ->
     peeloff(Config, [{active,once}]).
 
-peeloff_active_true(doc) ->
-    "Peel off an SCTP stream socket ({active,true})";
-peeloff_active_true(suite) ->
-    [];
+%% Peel off an SCTP stream socket ({active,true}).
 
 peeloff_active_true(Config) ->
     peeloff(Config, [{active,true}]).
 
-peeloff_active_n(doc) ->
-    "Peel off an SCTP stream socket ({active,N})";
-peeloff_active_n(suite) ->
-    [];
+%% Peel off an SCTP stream socket ({active,N}).
 
 peeloff_active_n(Config) ->
     peeloff(Config, [{active,1}]).
@@ -1187,10 +1145,7 @@ peeloff(Config, SockOpts) when is_list(Config) ->
 
 
 
-buffers(doc) ->
-    ["Check sndbuf and recbuf behaviour"];
-buffers(suite) ->
-    [];
+%% Check sndbuf and recbuf behaviour.
 buffers(Config) when is_list(Config) ->
     ?line Limit = 4096,
     ?line Addr = {127,0,0,1},
@@ -1269,10 +1224,7 @@ mk_data(_, _, Bin) ->
 
 
 
-open_multihoming_ipv4_socket(doc) ->
-    "Test opening a multihoming ipv4 socket";
-open_multihoming_ipv4_socket(suite) ->
-    [];
+%% Test opening a multihoming ipv4 socket.
 open_multihoming_ipv4_socket(Config) when is_list(Config) ->
     ?line case get_addrs_by_family(inet, 2) of
 	      {ok, [Addr1, Addr2]} ->
@@ -1281,12 +1233,9 @@ open_multihoming_ipv4_socket(Config) when is_list(Config) ->
 		  {skip, Reason}
 	  end.
 
-open_unihoming_ipv6_socket(doc) ->
-    %% This test is mostly aimed to indicate
-    %% whether host has a non-working ipv6 setup
-    "Test opening a unihoming (non-multihoming) ipv6 socket";
-open_unihoming_ipv6_socket(suite) ->
-    [];
+%% This test is mostly aimed to indicate whether host has a
+%% non-working ipv6 setup.  Test opening a unihoming (non-multihoming)
+%% ipv6 socket.
 open_unihoming_ipv6_socket(Config) when is_list(Config) ->
     ?line case get_addrs_by_family(inet6, 1) of
 	      {ok, [Addr]} ->
@@ -1296,10 +1245,7 @@ open_unihoming_ipv6_socket(Config) when is_list(Config) ->
 	  end.
 
 
-open_multihoming_ipv6_socket(doc) ->
-    "Test opening a multihoming ipv6 socket";
-open_multihoming_ipv6_socket(suite) ->
-    [];
+%% Test opening a multihoming ipv6 socket.
 open_multihoming_ipv6_socket(Config) when is_list(Config) ->
     ?line case get_addrs_by_family(inet6, 2) of
 	      {ok, [Addr1, Addr2]} ->
@@ -1308,10 +1254,7 @@ open_multihoming_ipv6_socket(Config) when is_list(Config) ->
 		  {skip, Reason}
 	  end.
 
-open_multihoming_ipv4_and_ipv6_socket(doc) ->
-    "Test opening a multihoming ipv6 socket with ipv4 and ipv6 addresses";
-open_multihoming_ipv4_and_ipv6_socket(suite) ->
-    [];
+%% Test opening a multihoming ipv6 socket with ipv4 and ipv6 addresses.
 open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
     ?line case get_addrs_by_family(inet_and_inet6, 2) of
 	      {ok, [[InetAddr1, InetAddr2], [Inet6Addr1, Inet6Addr2]]} ->
@@ -1331,31 +1274,19 @@ open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
 		  {skip, Reason}
 	  end.
 
-names_unihoming_ipv4(doc) ->
-    "Test inet:socknames/peernames on unihoming IPv4 sockets";
-names_unihoming_ipv4(suite) ->
-    [];
+%% Test inet:socknames/peernames on unihoming IPv4 sockets.
 names_unihoming_ipv4(Config) when is_list(Config) ->
     ?line do_names(Config, inet, 1).
 
-names_unihoming_ipv6(doc) ->
-    "Test inet:socknames/peernames on unihoming IPv6 sockets";
-names_unihoming_ipv6(suite) ->
-    [];
+%% Test inet:socknames/peernames on unihoming IPv6 sockets.
 names_unihoming_ipv6(Config) when is_list(Config) ->
     ?line do_names(Config, inet6, 1).
 
-names_multihoming_ipv4(doc) ->
-    "Test inet:socknames/peernames on multihoming IPv4 sockets";
-names_multihoming_ipv4(suite) ->
-    [];
+%% Test inet:socknames/peernames on multihoming IPv4 sockets.
 names_multihoming_ipv4(Config) when is_list(Config) ->
     ?line do_names(Config, inet, 2).
 
-names_multihoming_ipv6(doc) ->
-    "Test inet:socknames/peernames on multihoming IPv6 sockets";
-names_multihoming_ipv6(suite) ->
-    [];
+%% Test inet:socknames/peernames on multihoming IPv6 sockets.
 names_multihoming_ipv6(Config) when is_list(Config) ->
     ?line do_names(Config, inet6, 2).
 

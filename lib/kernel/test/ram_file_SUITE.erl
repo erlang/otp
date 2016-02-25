@@ -71,10 +71,7 @@ end_per_testcase(_Func, Config) ->
 %%--------------------------------------------------------------------------
 %% Test suites
 
-open_modes(suite) ->
-    [];
-open_modes(doc) ->
-    ["Test that the basic read, write and binary options works for open/2."];
+%% Test that the basic read, write and binary options works for open/2.
 open_modes(Config) when is_list(Config) ->
     ?line Str1 = "The quick brown fox ",
     ?line Str2 = "jumps over a lazy dog ",
@@ -90,11 +87,8 @@ open_modes(Config) when is_list(Config) ->
     %%
     ok.
 
-open_old_modes(suite) ->
-    [];
-open_old_modes(doc) ->
-    ["Test that the old style read, write and binary options ", 
-     "works for open/2."];
+%% Test that the old style read, write and binary options
+%% works for open/2.
 open_old_modes(Config) when is_list(Config) ->
     ?line Str1 = "The quick brown fox ",
     ?line Str2 = "jumps over a lazy dog ",
@@ -155,10 +149,7 @@ open_read(Module, Data, Options) ->
 
 
 
-pread_pwrite(suite) ->
-    [];
-pread_pwrite(doc) ->
-    ["Test that pread/2,3 and pwrite/2,3 works."];
+%% Test that pread/2,3 and pwrite/2,3 works.
 pread_pwrite(Config) when is_list(Config) ->
     ?line Str = "Flygande bäckaziner söka hwila på mjuqa tuvor x",
     ?line Bin = list_to_binary(Str),
@@ -194,10 +185,7 @@ pread_pwrite_test(Module, Data, Options) ->
     %%
     ?line ok.
 
-position(suite) ->
-    [];
-position(doc) ->
-    ["Test that position/2 works."];
+%% Test that position/2 works.
 position(Config) when is_list(Config) ->
     ?line Str = "Att vara eller icke vara, det är frågan. ",
     ?line Bin = list_to_binary(Str),
@@ -275,10 +263,7 @@ position_test(Module, Data, Options) ->
 
 
 
-truncate(suite) ->
-    [];
-truncate(doc) ->
-    ["Test that truncate/1 works."];
+%% Test that truncate/1 works.
 truncate(Config) when is_list(Config) ->
     ?line Str = "Mån ädlare att lida och fördraga "
 	++ "ett bittert ödes stygn av pilar, ",
@@ -319,10 +304,7 @@ truncate_test(Module, Data, Options) ->
 
 
 
-sync(suite) ->
-    [];
-sync(doc) ->
-    ["Test that sync/1 at least does not crash."];
+%% Test that sync/1 at least does not crash.
 sync(Config) when is_list(Config) ->
     ?line Str = "än att ta till vapen mot ett hav av kval. ",
     ?line Bin = list_to_binary(Str),
@@ -352,10 +334,7 @@ sync_test(Module, Data, Options) ->
 
 
 
-get_set_file(suite) ->
-    [];
-get_set_file(doc) ->
-    ["Tests get_file/1, set_file/2, get_file_close/1 and get_size/1."];
+%% Tests get_file/1, set_file/2, get_file_close/1 and get_size/1.
 get_set_file(Config) when is_list(Config) ->
     %% These two strings should not be of equal length.
     ?line Str  = "När högan nord blir snöbetäckt, ",
@@ -396,10 +375,7 @@ get_set_file_test(Data, Options, Data2) ->
     
 
     
-compress(suite) ->
-    [];
-compress(doc) ->
-    ["Test that compress/1 and uncompress/1 works."];
+%% Test that compress/1 and uncompress/1 works.
 compress(Config) when is_list(Config) ->
     Data   = proplists:get_value(data_dir, Config),
     ?line Real   = filename:join(Data, "realmen.html"),
@@ -461,10 +437,7 @@ mk_42(N) ->
     B = mk_42(N-1),
     [B|B].
 
-uuencode(suite) ->
-    [];
-uuencode(doc) ->
-    ["Test that uuencode/1 and uudecode/1 works."];
+%% Test that uuencode/1 and uudecode/1 works.
 uuencode(Config) when is_list(Config) ->
     Data   = proplists:get_value(data_dir, Config),
     ?line Real   = filename:join(Data, "realmen.html"),
@@ -506,10 +479,7 @@ uuencode(Config) when is_list(Config) ->
     ok.
 
 
-large_file_errors(suite) ->
-    [];
-large_file_errors(doc) ->
-    ["Test error checking of large file offsets."];
+%% Test error checking of large file offsets.
 large_file_errors(Config) when is_list(Config) ->
     ?line TwoGig = 1 bsl 31,
     ?line {ok,Fd}         = ?RAM_FILE_MODULE:open("1234567890", [read,write]),
@@ -536,10 +506,7 @@ large_file_errors(Config) when is_list(Config) ->
 
 
 
-large_file_light(suite) ->
-    [];
-large_file_light(doc) ->
-    ["Test light operations on a \"large\" ram_file."];
+%% Test light operations on a \large\ ram_file.
 large_file_light(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     %% Marker for next test case that is to heavy to run in a suite.
@@ -569,10 +536,7 @@ large_file_light(Config) when is_list(Config) ->
 large_file_heavy() ->
     [{timetrap,{minutes,5}}].
 
-large_file_heavy(suite) ->
-    [];
-large_file_heavy(doc) ->
-    ["Test operations on a maximum size (2 GByte - 1) ram_file."];
+%% Test operations on a maximum size (2 GByte - 1) ram_file.
 large_file_heavy(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     %% Check previous test case marker.

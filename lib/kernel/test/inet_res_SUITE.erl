@@ -277,8 +277,7 @@ proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-basic(doc) ->
-    ["Lookup an A record with different API functions"];
+%% Lookup an A record with different API functions.
 basic(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",
@@ -340,8 +339,7 @@ basic(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-resolve(doc) ->
-    ["Lookup different records using resolve/2..4"];
+%% Lookup different records using resolve/2..4.
 resolve(Config) when is_list(Config) ->
     Class = in,
     NS = ns(Config),
@@ -471,8 +469,7 @@ check_msg(Class, Type, Msg, AnList, NsList) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-edns0(doc) ->
-    ["Test EDNS and truncation"];
+%% Test EDNS and truncation.
 edns0(Config) when is_list(Config) ->
     NS = ns(Config),
     Domain = "otptest",
@@ -533,10 +530,7 @@ inet_res_filter(Anlist, Class, Type) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-txt_record(suite) ->
-    [];
-txt_record(doc) ->
-    ["Tests TXT records"];
+%% Tests TXT records.
 txt_record(Config) when is_list(Config) ->
     D1 = "cslab.ericsson.net",
     D2 = "mail1.cslab.ericsson.net",
@@ -555,10 +549,7 @@ txt_record(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files_monitor(suite) ->
-    [];
-files_monitor(doc) ->
-    ["Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them"];
+%% Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them.
 files_monitor(Config) when is_list(Config) ->
     Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
@@ -647,8 +638,7 @@ do_files_monitor(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-last_ms_answer(doc) ->
-    ["Answer just when timeout is triggered (OTP-9221)"];
+%% Answer just when timeout is triggered (OTP-9221).
 last_ms_answer(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",

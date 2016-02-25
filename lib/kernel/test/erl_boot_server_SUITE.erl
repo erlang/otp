@@ -59,7 +59,7 @@ end_per_group(_GroupName, Config) ->
 
 -define(all_ones, {255, 255, 255, 255}).
 
-start(doc) -> "Tests the erl_boot_server:start/1 function.";
+%% Tests the erl_boot_server:start/1 function.
 start(Config) when is_list(Config) ->
     ?line [Host1, Host2|_] = good_hosts(Config),
 
@@ -88,7 +88,7 @@ start(Config) when is_list(Config) ->
 
     ok.
 
-start_link(doc) -> "Tests the erl_boot_server:start_link/1 function.";
+%% Tests the erl_boot_server:start_link/1 function.
 start_link(Config) when is_list(Config) ->
     ?line [Host1, Host2|_] = good_hosts(Config),
 
@@ -112,7 +112,7 @@ start_link(Config) when is_list(Config) ->
 
     ok.
 
-stop(doc) -> "Tests that no processes are left if a boot server is killed.";
+%% Tests that no processes are left if a boot server is killed.
 stop(Config) when is_list(Config) ->
     ?line [Host1|_] = good_hosts(Config),
 
@@ -134,7 +134,7 @@ stop(Config) when is_list(Config) ->
 	  end,
     ok.
 
-add(doc) -> "Tests the erl_boot_server:add/1 function.";
+%% Tests the erl_boot_server:add/1 function.
 add(Config) when is_list(Config) ->
     ?line OldFlag = process_flag(trap_exit, true),
     ?line {ok, Pid1} = erl_boot_server:start_link([]),
@@ -177,7 +177,7 @@ add(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, OldFlag),
     ok.
 
-delete(doc) -> "Tests the erl_boot_server:delete/1 function.";
+%% Tests the erl_boot_server:delete/1 function.
 delete(Config) when is_list(Config) ->
     ?line OldFlag = process_flag(trap_exit, true),
 
@@ -222,7 +222,7 @@ delete(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, OldFlag),
     ok.
 
-responses(doc) -> "Tests erl_boot_server responses to slave requests.";
+%% Tests erl_boot_server responses to slave requests.
 responses(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     %% Copy from inet_boot.hrl

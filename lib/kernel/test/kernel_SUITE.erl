@@ -63,10 +63,7 @@ end_per_testcase(_Case, _Config) ->
 %
 % Test cases starts here.
 %
-app_test(doc) ->
-    ["Tests the applications consistency."];
-app_test(suite) ->
-    [];
+%% Tests the applications consistency.
 app_test(Config) when is_list(Config) ->
     ?line ok=?t:app_test(kernel),
     ok.

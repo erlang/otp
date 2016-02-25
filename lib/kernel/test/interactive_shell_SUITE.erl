@@ -72,8 +72,7 @@ end_per_group(_GroupName, Config) ->
 -define(dbg(Data),noop).
 -endif.
 
-get_columns_and_rows(suite) -> [];
-get_columns_and_rows(doc) -> ["Test that the shell can access columns and rows"];
+%% Test that the shell can access columns and rows.
 get_columns_and_rows(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
@@ -125,8 +124,7 @@ get_columns_and_rows(Config) when is_list(Config) ->
     
     
 
-exit_initial(suite) -> [];
-exit_initial(doc) -> ["Tests that exit of initial shell restarts shell"];
+%% Tests that exit of initial shell restarts shell.
 exit_initial(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
@@ -151,9 +149,7 @@ exit_initial(Config) when is_list(Config) ->
 		    {getline_re,"35"}],[])
     end.
 
-job_control_local(suite) -> [];
-job_control_local(doc) -> [ "Tests that local shell can be "
-			    "started by means of job control" ];
+%% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
@@ -178,7 +174,6 @@ job_control_local(Config) when is_list(Config) ->
 			  {getline,"35"}],[])
     end.
 
-job_control_remote(suite) -> [];
 job_control_remote(doc) -> [ "Tests that remote shell can be "
 			     "started by means of job control" ];
 job_control_remote(Config) when is_list(Config) ->
@@ -230,10 +225,9 @@ job_control_remote(Config) when is_list(Config) ->
 	    ?line Pid ! die,
 	    ?line Res
     end.
-job_control_remote_noshell(suite) -> [];
-job_control_remote_noshell(doc) -> 
-    [ "Tests that remote shell can be "
-      "started by means of job control to -noshell node" ];
+
+%% Tests that remote shell can be
+%% started by means of job control to -noshell node.
 job_control_remote_noshell(Config) when is_list(Config) ->
     case {node(),proplists:get_value(default_shell,Config)} of
 	{nonode@nohost,_} ->
@@ -286,8 +280,7 @@ job_control_remote_noshell(Config) when is_list(Config) ->
 	    ?line Res
     end.
 
-ctrl_keys(suite) -> [];
-ctrl_keys(doc) -> ["Tests various control keys"];
+%% Tests various control keys.
 ctrl_keys(_Conf) when is_list(_Conf) ->
     Cu=[$\^u],
     Cw=[$\^w],

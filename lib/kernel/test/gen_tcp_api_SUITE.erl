@@ -75,8 +75,7 @@ end_per_testcase(_Func, _Config) ->
 %%% gen_tcp:accept/1,2
 
 
-t_accept_timeout(doc) -> "Test that gen_tcp:accept/2 (with timeout) works.";
-t_accept_timeout(suite) -> [];
+%% Test that gen_tcp:accept/2 (with timeout) works.
 t_accept_timeout(Config) when is_list(Config) ->
     ?line {ok, L} = gen_tcp:listen(0, []),
     ?line timeout({gen_tcp, accept, [L, 200]}, 0.2, 1.0).
@@ -84,7 +83,7 @@ t_accept_timeout(Config) when is_list(Config) ->
 %%% gen_tcp:connect/X
 
 
-t_connect_timeout(doc) -> "Test that gen_tcp:connect/4 (with timeout) works.";
+%% Test that gen_tcp:connect/4 (with timeout) works.
 t_connect_timeout(Config) when is_list(Config) ->
     %%?line BadAddr = {134,138,177,16},
     %%?line TcpPort = 80,
@@ -93,10 +92,8 @@ t_connect_timeout(Config) when is_list(Config) ->
     ?line ok = io:format("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
     ?line connect_timeout({gen_tcp,connect,[BadAddr,TcpPort,[],200]}, 0.2, 5.0).
 
-t_connect_bad(doc) ->
-    ["Test that gen_tcp:connect/3 handles non-existings hosts, and other ",
-     "invalid things."];
-t_connect_bad(suite) -> [];
+%% Test that gen_tcp:connect/3 handles non-existings hosts, and other
+%% invalid things.
 t_connect_bad(Config) when is_list(Config) ->
     ?line NonExistingPort = 45638,		% Not in use, I hope.
     ?line {error, Reason1} = gen_tcp:connect(localhost, NonExistingPort, []),
@@ -112,8 +109,7 @@ t_connect_bad(Config) when is_list(Config) ->
 %%% gen_tcp:recv/X
 
 
-t_recv_timeout(doc) -> "Test that gen_tcp:recv/3 (with timeout works).";
-t_recv_timeout(suite) -> [];
+%% Test that gen_tcp:recv/3 (with timeout works).
 t_recv_timeout(Config) when is_list(Config) ->
     ?line {ok, L} = gen_tcp:listen(0, []),
     ?line {ok, Port} = inet:port(L),
@@ -121,8 +117,7 @@ t_recv_timeout(Config) when is_list(Config) ->
     ?line {ok, _A} = gen_tcp:accept(L),
     ?line timeout({gen_tcp, recv, [Client, 0, 200]}, 0.2, 5.0).
 
-t_recv_eof(doc) -> "Test that end of file on a socket is reported correctly.";
-t_recv_eof(suite) -> [];
+%% Test that end of file on a socket is reported correctly.
 t_recv_eof(Config) when is_list(Config) ->
     ?line {ok, L} = gen_tcp:listen(0, []),
     ?line {ok, Port} = inet:port(L),
@@ -132,8 +127,7 @@ t_recv_eof(Config) when is_list(Config) ->
     ?line {error, closed} = gen_tcp:recv(Client, 0),
     ok.
 
-t_recv_delim(doc) -> "Test using message delimiter $X";
-t_recv_delim(suite) -> [];
+%% Test using message delimiter $X.
 t_recv_delim(Config) when is_list(Config) ->
     {ok, L} = gen_tcp:listen(0, []),
     {ok, Port} = inet:port(L),

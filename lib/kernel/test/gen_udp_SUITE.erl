@@ -71,10 +71,7 @@ end_per_testcase(_Case, Config) ->
 %% Send two packets to a closed port (on some systems this causes the socket
 %% to be closed).
 
-send_to_closed(doc) ->
-    ["Tests core functionality."];
-send_to_closed(suite) ->
-    [];
+%% Tests core functionality.
 send_to_closed(Config) when is_list(Config) ->
     ?line {ok, Sock} = gen_udp:open(0),
     ?line ok = gen_udp:send(Sock, {127,0,0,1}, ?CLOSED_PORT, "foo"),
@@ -88,10 +85,7 @@ send_to_closed(Config) when is_list(Config) ->
 %%-------------------------------------------------------------
 %% Test that the UDP socket buffer sizes are settable
 
-buffer_size(suite) ->
-    [];
-buffer_size(doc) ->
-    ["Test UDP buffer size setting."];
+%% Test UDP buffer size setting.
 buffer_size(Config) when is_list(Config) ->
     ?line Len = 256,
     ?line Bin = list_to_binary(lists:seq(0, Len-1)),
@@ -233,10 +227,7 @@ buffer_size_server_recv(Socket, IP, Port, Cnt) ->
 %% OTP-3823 gen_udp:recv does not return address in binary mode
 %%
 
-binary_passive_recv(suite) ->
-    [];
-binary_passive_recv(doc) ->
-    ["OTP-3823 gen_udp:recv does not return address in binary mode"];
+%% OTP-3823 gen_udp:recv does not return address in binary mode.
 binary_passive_recv(Config) when is_list(Config) ->
     ?line D1       = "The quick brown fox jumps over a lazy dog",
     ?line D2       = list_to_binary(D1),
@@ -262,10 +253,7 @@ binary_passive_recv(Config) when is_list(Config) ->
 %%-------------------------------------------------------------
 %% OTP-3836 inet_udp crashes when IP-address is larger than 255.
 
-bad_address(suite) ->
-    [];
-bad_address(doc) ->
-    ["OTP-3836 inet_udp crashes when IP-address is larger than 255."];
+%% OTP-3836 inet_udp crashes when IP-address is larger than 255.
 bad_address(Config) when is_list(Config) ->
     ?line {ok, R}  = gen_udp:open(0),
     ?line {ok, RP} = inet:port(R),
@@ -295,8 +283,7 @@ bad_address(Config) when is_list(Config) ->
 %% What happens on the SMP emulator remains to be seen...
 %%
 
-read_packets(doc) ->
-    ["OTP-6249 UDP option for number of packet reads."];
+%% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
     case erlang:system_info(smp_support) of
 	false ->
@@ -435,10 +422,7 @@ flush() ->
 
 
 
-open_fd(suite) ->
-    [];
-open_fd(doc) ->
-    ["Test that the 'fd' option works"];
+%% Test that the 'fd' option works.
 open_fd(Config) when is_list(Config) ->
     Msg = "Det gör ont när knoppar brista. Varför skulle annars våren tveka?",
     Addr = {127,0,0,1},
@@ -577,10 +561,7 @@ stop_node(Node) ->
     ?t:stop_node(Node).
 
 
-connect(suite) ->
-    [];
-connect(doc) ->
-    ["Test that connect/3 has effect"];
+%% Test that connect/3 has effect.
 connect(Config) when is_list(Config) ->
     ?line Addr = {127,0,0,1},
     ?line {ok,S1} = gen_udp:open(0),

@@ -97,8 +97,7 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-simple(suite) -> [];
-simple(doc) -> "Test inet:setopt/getopt simple functionality.";
+%% Test inet:setopt/getopt simple functionality.
 simple(Config) when is_list(Config) ->
     ?line XOpt = case os:type() of
 		     {unix,_} -> [{reuseaddr,true}];
@@ -119,8 +118,7 @@ simple(Config) when is_list(Config) ->
     ?line gen_tcp:close(S2),
     ok.
 
-loop_all(suite) -> [];
-loop_all(doc) -> "Loop through all socket options and check that they work";
+%% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
     ?line ListenFailures = 
 	lists:foldr(make_check_fun(listen,1),[],all_listen_options()),
@@ -137,13 +135,11 @@ loop_all(Config) when is_list(Config) ->
 
 
 
-simple_raw(suite) -> [];
-simple_raw(doc) -> "Test simple setopt/getopt of raw options.";
+%% Test simple setopt/getopt of raw options.
 simple_raw(Config) when is_list(Config) ->
     do_simple_raw(Config,false).
-simple_raw_getbin(suite) -> [];
-simple_raw_getbin(doc) -> "Test simple setopt/getopt of raw options, "
-			      "with binaries in getopt.";
+
+%% Test simple setopt/getopt of raw options, with binaries in getopt.
 simple_raw_getbin(Config) when is_list(Config) ->
     do_simple_raw(Config,true).
 
@@ -189,13 +185,12 @@ nintbin2int(<<>>) -> 0.
 
 
 
-multiple_raw(suite) -> [];
-multiple_raw(doc) -> "Test setopt/getopt of multiple raw options.";
+%% Test setopt/getopt of multiple raw options.
 multiple_raw(Config) when is_list(Config) ->
     do_multiple_raw(Config,false).
-multiple_raw_getbin(suite) -> [];
-multiple_raw_getbin(doc) -> "Test setopt/getopt of multiple raw options, "
-			      "with binaries in getopt.";
+
+%% Test setopt/getopt of multiple raw options, with binaries in
+%% getopt.
 multiple_raw_getbin(Config) when is_list(Config) ->
     do_multiple_raw(Config,true).
 
@@ -265,17 +260,15 @@ do_multiple_raw(Config, Binary) ->
 
 
 
-doc_examples_raw(suite) -> [];
-doc_examples_raw(doc) -> "Test that the example code from the documentation "
-			     "works";
+%% Test that the example code from the documentation works.
 doc_examples_raw(Config) when is_list(Config) ->
     do_doc_examples_raw(Config,false).
-doc_examples_raw_getbin(suite) -> [];
-doc_examples_raw_getbin(doc) -> "Test that the example code from the "
-				    "documentation works when getopt uses "
-				    "binaries";
+
+%% Test that the example code from the documentation works when getopt
+%% uses binaries.
 doc_examples_raw_getbin(Config) when is_list(Config) ->
     do_doc_examples_raw(Config,true).
+
 do_doc_examples_raw(Config,Binary) when is_list(Config) ->
     ?line Port = start_helper(Config),
     ?line Proto = ask_helper(Port,?C_GET_IPPROTO_TCP),
@@ -323,15 +316,15 @@ do_doc_examples_raw(Config,Binary) when is_list(Config) ->
 	    ok
     end.
 	    
-large_raw(suite) -> [];
-large_raw(doc) -> "Test structs and large/too large buffers when raw";
+%% Test structs and large/too large buffers when raw.
 large_raw(Config) when is_list(Config) ->
     do_large_raw(Config,false).
-large_raw_getbin(suite) -> [];
-large_raw_getbin(doc) -> "Test structs and large/too large buffers when raw"
-			 "using binaries to getopts";
+
+%% Test structs and large/too large buffers when raw
+%% using binaries to getopts.
 large_raw_getbin(Config) when is_list(Config) ->
     do_large_raw(Config,true).
+
 do_large_raw(Config,Binary) when is_list(Config) ->
     ?line Port = start_helper(Config),
     ?line Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
@@ -377,15 +370,15 @@ do_large_raw(Config,Binary) when is_list(Config) ->
 	    ok
     end.
 
-combined(suite) -> [];
-combined(doc) -> "Test raw structs combined w/ other options ";
+%% Test raw structs combined w/ other options .
 combined(Config) when is_list(Config) ->
     do_combined(Config,false).
-combined_getbin(suite) -> [];
-combined_getbin(doc) -> "Test raw structs combined w/ other options and "
-			"binarise in getopts";
+
+%% Test raw structs combined w/ other options and
+%% binarise in getopts.
 combined_getbin(Config) when is_list(Config) ->
     do_combined(Config,true).
+
 do_combined(Config,Binary) when is_list(Config) ->
     ?line Port = start_helper(Config),
     ?line Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
@@ -548,18 +541,15 @@ do_combined(Config,Binary) when is_list(Config) ->
 
 
 
-ipv6_v6only_udp(suite) -> [];
-ipv6_v6only_udp(doc) -> "Test socket option ipv6_v6only for UDP";
+%% Test socket option ipv6_v6only for UDP.
 ipv6_v6only_udp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_udp).
 
-ipv6_v6only_tcp(suite) -> [];
-ipv6_v6only_tcp(doc) -> "Test socket option ipv6_v6only for TCP";
+%% Test socket option ipv6_v6only for TCP.
 ipv6_v6only_tcp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_tcp).
 
-ipv6_v6only_sctp(suite) -> [];
-ipv6_v6only_sctp(doc) -> "Test socket option ipv6_v6only for SCTP";
+%% Test socket option ipv6_v6only for SCTP.
 ipv6_v6only_sctp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_sctp).
 
@@ -628,8 +618,7 @@ ipv6_v6only_close(Module, Socket) ->
     Module:close(Socket).
 
 
-use_ipv6_v6only_udp(suite) -> [];
-use_ipv6_v6only_udp(doc) -> "Test using socket option ipv6_v6only for UDP";
+%% Test using socket option ipv6_v6only for UDP.
 use_ipv6_v6only_udp(Config) when is_list(Config) ->
     ?line case gen_udp:open(0, [inet6,{ipv6_v6only,true}]) of
 	      {ok,S6} ->
@@ -693,10 +682,7 @@ sndrcv(Ip, Port, Opts, Data) ->
 
 
 
-type_errors(suite) ->
-    [];
-type_errors(doc) ->
-    "Test that raw data requests are not executed for bad types";
+%% Test that raw data requests are not executed for bad types.
 type_errors(Config) when is_list(Config) ->
     ?line BadSetOptions =
 	[

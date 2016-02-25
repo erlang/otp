@@ -181,8 +181,6 @@ time_dist({_D1, _T1} = DT1, {_D2, _T2} = DT2) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-read_write_file(suite) -> [];
-read_write_file(doc) -> [];
 read_write_file(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -237,13 +235,9 @@ read_write_file(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-make_del_dir_a(suite) -> [];
-make_del_dir_a(doc) -> [];
 make_del_dir_a(Config) when is_list(Config) ->
     make_del_dir(Config, [], "_a").
 
-make_del_dir_b(suite) -> [];
-make_del_dir_b(doc) -> [];
 make_del_dir_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = make_del_dir(Config, Handle, "_b"),
@@ -312,13 +306,9 @@ make_del_dir(Config, Handle, Suffix) ->
     end,
     ok.
 
-cur_dir_0a(suite) -> [];
-cur_dir_0a(doc) -> [];
 cur_dir_0a(Config) when is_list(Config) ->
     cur_dir_0(Config, []).
 
-cur_dir_0b(suite) -> [];
-cur_dir_0b(doc) -> [];
 cur_dir_0b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = cur_dir_0(Config, Handle),
@@ -396,13 +386,9 @@ cur_dir_0(Config, Handle) ->
 
 %% Tests ?PRIM_FILE:get_cwd/1.
 
-cur_dir_1a(suite) -> [];
-cur_dir_1a(doc) -> [];
 cur_dir_1a(Config) when is_list(Config) ->
     cur_dir_1(Config, []).
 
-cur_dir_1b(suite) -> [];
-cur_dir_1b(doc) -> [];
 cur_dir_1b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = cur_dir_1(Config, Handle),
@@ -439,8 +425,6 @@ win_cur_dir_1(_Config, Handle) ->
 
 
 
-open1(suite) -> [];
-open1(doc) -> [];
 open1(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
@@ -468,8 +452,6 @@ open1(Config) when is_list(Config) ->
 
 %% Tests all open modes.
 
-modes(suite) -> [];
-modes(doc) -> [];
 modes(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
@@ -510,8 +492,6 @@ modes(Config) when is_list(Config) ->
 
     ok.
 
-close(suite) -> [];
-close(doc) -> [];
 close(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -531,8 +511,6 @@ close(Config) when is_list(Config) ->
 
     ok.
 
-access(suite) -> [];
-access(doc) -> [];
 access(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -559,8 +537,6 @@ access(Config) when is_list(Config) ->
 
 %% Tests ?PRIM_FILE:read/2 and ?PRIM_FILE:write/2.
 
-read_write(suite) -> [];
-read_write(doc) -> [];
 read_write(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
@@ -587,8 +563,6 @@ read_write_test(File) ->
 
 %% Tests ?PRIM_FILE:pread/2 and ?PRIM_FILE:pwrite/2.
 
-pread_write(suite) -> [];
-pread_write(doc) -> [];
 pread_write(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
@@ -617,8 +591,7 @@ pread_write_test(File) ->
     ?line ok = ?PRIM_FILE:close(File),
     ok.
 
-append(doc) -> "Test appending to a file.";
-append(suite) -> [];
+%% Test appending to a file.
 append(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
@@ -648,8 +621,7 @@ append(Config) when is_list(Config) ->
 
     ok.
 
-exclusive(suite) -> [];
-exclusive(doc) -> "Test exclusive access to a file.";
+%% Test exclusive access to a file.
 exclusive(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line NewDir = filename:join(RootDir,
@@ -665,8 +637,6 @@ exclusive(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-pos1(suite) -> [];
-pos1(doc) -> [];
 pos1(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -726,8 +696,6 @@ pos1(Config) when is_list(Config) ->
     ?line {error, einval} = ?PRIM_FILE:position(Fd2,{eof,-9}),
     ok.
 
-pos2(suite) -> [];
-pos2(doc) -> [];
 pos2(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -748,13 +716,9 @@ pos2(Config) when is_list(Config) ->
     ok.
 
 
-file_info_basic_file_a(suite) -> [];
-file_info_basic_file_a(doc) -> [];
 file_info_basic_file_a(Config) when is_list(Config) ->
     file_info_basic_file(Config, [], "_a").
 
-file_info_basic_file_b(suite) -> [];
-file_info_basic_file_b(doc) -> [];
 file_info_basic_file_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = file_info_basic_file(Config, Handle, "_b"),
@@ -792,13 +756,9 @@ file_info_basic_file(Config, Handle, Suffix) ->
 
     ok.
 
-file_info_basic_directory_a(suite) -> [];
-file_info_basic_directory_a(doc) -> [];
 file_info_basic_directory_a(Config) when is_list(Config) ->
     file_info_basic_directory(Config, []).
 
-file_info_basic_directory_b(suite) -> [];
-file_info_basic_directory_b(doc) -> [];
 file_info_basic_directory_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = file_info_basic_directory(Config, Handle),
@@ -852,13 +812,9 @@ all_integers([]) ->
 
 %% Try something nonexistent.
 
-file_info_bad_a(suite) -> [];
-file_info_bad_a(doc) -> [];
 file_info_bad_a(Config) when is_list(Config) ->
     file_info_bad(Config, []).
 
-file_info_bad_b(suite) -> [];
-file_info_bad_b(doc) -> [];
 file_info_bad_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = file_info_bad(Config, Handle),
@@ -876,13 +832,9 @@ file_info_bad(Config, Handle) ->
 
 %% Test that the file times behave as they should.
 
-file_info_times_a(suite) -> [];
-file_info_times_a(doc) -> [];
 file_info_times_a(Config) when is_list(Config) ->
     file_info_times(Config, [], "_a").
 
-file_info_times_b(suite) -> [];
-file_info_times_b(doc) -> [];
 file_info_times_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = file_info_times(Config, Handle, "_b"),
@@ -972,13 +924,9 @@ filter_atime(Atime, Config) ->
 
 %% Test the write_file_info/2 function.
 
-file_write_file_info_a(suite) -> [];
-file_write_file_info_a(doc) -> [];
 file_write_file_info_a(Config) when is_list(Config) ->
     file_write_file_info(Config, [], "_a").
 
-file_write_file_info_b(suite) -> [];
-file_write_file_info_b(doc) -> [];
 file_write_file_info_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = file_write_file_info(Config, Handle, "_b"),
@@ -1058,8 +1006,6 @@ file_write_file_info(Config, Handle, Suffix) ->
 
 %% Test the write_file_info/3 function.
 
-file_write_file_info_opts(suite) -> [];
-file_write_file_info_opts(doc) -> [];
 file_write_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
@@ -1097,8 +1043,6 @@ file_write_file_info_opts(Config) when is_list(Config) ->
     ok   = ?PRIM_FILE:stop(Handle),
     ok.
 
-file_read_file_info_opts(suite) -> [];
-file_read_file_info_opts(doc) -> [];
 file_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
@@ -1116,8 +1060,6 @@ file_read_file_info_opts(Config) when is_list(Config) ->
 
 %% Test the write and read back *_file_info/3 functions.
 
-file_write_read_file_info_opts(suite) -> [];
-file_write_read_file_info_opts(doc) -> [];
 file_write_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
     RootDir = get_good_directory(Config),
@@ -1153,8 +1095,6 @@ file_write_read_file_info_opts(Handle, Name, Mtime, Opts) ->
 get_good_directory(Config) ->
     proplists:get_value(priv_dir, Config).
 
-truncate(suite) -> [];
-truncate(doc) -> [];
 truncate(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
@@ -1184,8 +1124,7 @@ truncate(Config) when is_list(Config) ->
     ok.
 
 
-datasync(suite) -> [];
-datasync(doc) -> "Tests that ?PRIM_FILE:datasync/1 at least doesn't crash.";
+%% Tests that ?PRIM_FILE:datasync/1 at least doesn't crash.
 datasync(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line Sync = filename:join(PrivDir,
@@ -1200,8 +1139,7 @@ datasync(Config) when is_list(Config) ->
     ok.
 
 
-sync(suite) -> [];
-sync(doc) -> "Tests that ?PRIM_FILE:sync/1 at least doesn't crash.";
+%% Tests that ?PRIM_FILE:sync/1 at least doesn't crash.
 sync(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line Sync = filename:join(PrivDir, 
@@ -1216,8 +1154,7 @@ sync(Config) when is_list(Config) ->
     ok.
 
 
-advise(suite) -> [];
-advise(doc) -> "Tests that ?PRIM_FILE:advise/4 at least doesn't crash.";
+%% Tests that ?PRIM_FILE:advise/4 at least doesn't crash.
 advise(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line Advise = filename:join(PrivDir,
@@ -1320,8 +1257,7 @@ check_large_write(Fd, _, _, []) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-allocate(suite) -> [];
-allocate(doc) -> "Tests that ?PRIM_FILE:allocate/3 at least doesn't crash.";
+%% Tests that ?PRIM_FILE:allocate/3 at least doesn't crash.
 allocate(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line Allocate = filename:join(PrivDir,
@@ -1388,13 +1324,9 @@ allocate_and_assert(Fd, Offset, Length) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-delete_a(suite) -> [];
-delete_a(doc) -> [];
 delete_a(Config) when is_list(Config) ->
     delete(Config, [], "_a").
 
-delete_b(suite) -> [];
-delete_b(doc) -> [];
 delete_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = delete(Config, Handle, "_b"),
@@ -1419,13 +1351,9 @@ delete(Config, Handle, Suffix) ->
     ?line {error, enoent} = ?PRIM_FILE_call(delete, Handle, [Name]),
     ok.
 
-rename_a(suite) ->[];
-rename_a(doc) ->[];
 rename_a(Config) when is_list(Config) ->
     rename(Config, [], "_a").
 
-rename_b(suite) ->[];
-rename_b(doc) ->[];
 rename_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = rename(Config, Handle, "_b"),
@@ -1492,8 +1420,6 @@ rename(Config, Handle, Suffix) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-e_delete(suite) -> [];
-e_delete(doc) -> [];
 e_delete(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
@@ -1536,8 +1462,6 @@ e_delete(Config) when is_list(Config) ->
 %%% (What about FreeBSD? We store our nightly build results on a FreeBSD
 %%% file system, that's what.)
 
-e_rename(suite) -> [];
-e_rename(doc) -> [];
 e_rename(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = filename:join(RootDir,
@@ -1637,8 +1561,6 @@ e_rename(Config) when is_list(Config) ->
     end,
     Comment.
 
-e_make_dir(suite) -> [];
-e_make_dir(doc) -> [];
 e_make_dir(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
@@ -1671,8 +1593,6 @@ e_make_dir(Config) when is_list(Config) ->
     end,
     ok.
 
-e_del_dir(suite) -> [];
-e_del_dir(doc) -> [];
 e_del_dir(Config) when is_list(Config) ->
     RootDir = proplists:get_value(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
@@ -1726,8 +1646,6 @@ e_del_dir(Config) when is_list(Config) ->
 
 %% Trying reading and positioning from a compressed file.
 
-read_compressed(suite) -> [];
-read_compressed(doc) -> [];
 read_compressed(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     ?line Real = filename:join(Data, "realmen.html.gz"),
@@ -1737,8 +1655,6 @@ read_compressed(Config) when is_list(Config) ->
 %% Trying reading and positioning from an uncompressed file,
 %% but with the compressed flag given.
 
-read_not_really_compressed(suite) -> [];
-read_not_really_compressed(doc) -> [];
 read_not_really_compressed(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     Priv = proplists:get_value(priv_dir, Config),
@@ -1800,8 +1716,6 @@ try_read_file(Fd) ->
     ?line ?PRIM_FILE:close(Fd),
     ok.
 
-write_compressed(suite) -> [];
-write_compressed(doc) -> [];
 write_compressed(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     ?line MyFile = filename:join(Priv, 
@@ -1848,8 +1762,6 @@ write_compressed(Config) when is_list(Config) ->
 
     ok.
 
-compress_errors(suite) -> [];
-compress_errors(doc) -> [];
 compress_errors(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     ?line {error, enoent} = ?PRIM_FILE:open("non_existing__",
@@ -1867,13 +1779,11 @@ compress_errors(Config) when is_list(Config) ->
     ok.
 
 
-make_link_a(doc) -> "Test creating a hard link.";
-make_link_a(suite) -> [];
+%% Test creating a hard link.
 make_link_a(Config) when is_list(Config) ->
     make_link(Config, [], "_a").
 
-make_link_b(doc) -> "Test creating a hard link.";
-make_link_b(suite) -> [];
+%% Test creating a hard link.
 make_link_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = make_link(Config, Handle, "_b"),
@@ -1914,21 +1824,17 @@ make_link(Config, Handle, Suffix) ->
     
     Result.
 
-read_link_info_for_non_link(doc) ->
-    "Test that reading link info for an ordinary file or directory works "
-	"(on all platforms).";
-read_link_info_for_non_link(suite) -> [];
+%% Test that reading link info for an ordinary file or directory works
+%% (on all platforms).
 read_link_info_for_non_link(Config) when is_list(Config) ->
     ?line {ok, #file_info{type=directory}} = ?PRIM_FILE:read_link_info("."),
     ok.
     
-symlinks_a(doc) -> "Test operations on symbolic links (for Unix).";
-symlinks_a(suite) -> [];
+%% Test operations on symbolic links (for Unix).
 symlinks_a(Config) when is_list(Config) ->
     symlinks(Config, [], "_a").
 
-symlinks_b(doc) -> "Test operations on symbolic links (for Unix).";
-symlinks_b(suite) -> [];
+%% Test operations on symbolic links (for Unix).
 symlinks_b(Config) when is_list(Config) ->
     ?line {ok, Handle} = ?PRIM_FILE:start(),
     Result = symlinks(Config, Handle, "_b"),
@@ -1980,10 +1886,7 @@ symlinks(Config, Handle, Suffix) ->
 %% periodically calls list_dir/2 to check if it works,
 %% then deletes all files.
 
-list_dir_limit(doc) ->
-    "Tests if large directories can be read";
-list_dir_limit(suite) ->
-    [];
+%% Tests if large directories can be read.
 list_dir_limit(Config) when is_list(Config) ->
     ?line MaxTime = 120, 
     ?line MaxNumber = 20000, 

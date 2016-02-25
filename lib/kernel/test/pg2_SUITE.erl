@@ -72,9 +72,7 @@ end_per_group(_GroupName, Config) ->
 
 
 
-otp_7277(doc) ->
-    "OTP-7277. Bugfix leave().";
-otp_7277(suite) -> [];
+%% OTP-7277. Bugfix leave().
 otp_7277(Config) when is_list(Config) ->
     ?line ok = pg2:create(a),
     ?line ok = pg2:create(b),
@@ -97,9 +95,7 @@ otp_7277(Config) when is_list(Config) ->
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end, Config)).
 -define(UNTIL_LOOP, 300).
 
-otp_8653(suite) -> [];
-otp_8653(doc) ->
-    ["OTP-8259. Member was not removed after being killed."];
+%% OTP-8259. Member was not removed after being killed.
 otp_8653(Config) when is_list(Config) ->
     ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
 
@@ -150,9 +146,7 @@ mk_part_node_and_group(File, MyPart0, Config) ->
     _ = [ok = pg2:join(G, Pid) || _ <- [1,1]],
     touch(File, "done").
 
-otp_8259(suite) -> [];
-otp_8259(doc) ->
-    ["OTP-8259. Member was not removed after being killed."];
+%% OTP-8259. Member was not removed after being killed.
 otp_8259(Config) when is_list(Config) ->
     ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
 
@@ -224,9 +218,7 @@ loop() ->
 	    exit(normal)
     end.
 
-compat(suite) -> [];
-compat(doc) ->
-    ["OTP-8259. Check that 'exchange' and 'del_member' work."];
+%% OTP-8259. Check that 'exchange' and 'del_member' work.
 compat(Config) when is_list(Config) ->
     case ?t:is_release_available("r13b") of
         true ->
@@ -249,9 +241,7 @@ compat(Config) when is_list(Config) ->
 	    {skipped, "No support for old node"}
     end.
 
-basic(suite) -> [];
-basic(doc) ->
-    ["OTP-8259. Some basic tests."];
+%% OTP-8259. Some basic tests.
 basic(Config) when is_list(Config) ->
     _ = [pg2:delete(G) || G <- pg2:which_groups()],
     ?line _ = [do(Cs, T, Config) || {T,Cs} <- ts()],

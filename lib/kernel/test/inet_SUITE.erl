@@ -116,7 +116,7 @@ end_per_testcase(_Func, _Config) ->
 
 t_gethostbyaddr() ->
     required(v4).
-t_gethostbyaddr(doc) -> "Test the inet:gethostbyaddr/1 function.";
+%% Test the inet:gethostbyaddr/1 function.
 t_gethostbyaddr(Config) when is_list(Config) ->
     {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} = ct:get_config(test_host_ipv4_only),
     Rname = integer_to_list(D) ++ "." ++
@@ -152,7 +152,7 @@ t_gethostbyaddr(Config) when is_list(Config) ->
     ok.
 
 t_gethostbyaddr_v6() -> required(v6).
-t_gethostbyaddr_v6(doc) -> "Test the inet:gethostbyaddr/1 inet6 function.";
+%% Test the inet:gethostbyaddr/1 inet6 function.
 t_gethostbyaddr_v6(Config) when is_list(Config) ->
     ?line {Name6, FullName6, IPStr6, IP6, Aliases6} =
 	ct:get_config(test_host_ipv6_only),
@@ -182,8 +182,7 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
     end.
 
 t_gethostbyname() -> required(v4).
-t_gethostbyname(doc) -> "Test the inet:gethostbyname/1 function.";
-t_gethostbyname(suite) -> [];
+%% Test the inet:gethostbyname/1 function.
 t_gethostbyname(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,IP,Aliases,IP_46_Str,_} =
 	ct:get_config(test_host_ipv4_only),
@@ -223,8 +222,7 @@ t_gethostbyname(Config) when is_list(Config) ->
     ok.
 
 t_gethostbyname_v6() -> required(v6).
-t_gethostbyname_v6(doc) -> "Test the inet:gethostbyname/1 inet6 function.";
-t_gethostbyname_v6(suite) -> [];
+%% Test the inet:gethostbyname/1 inet6 function.
 t_gethostbyname_v6(Config) when is_list(Config) ->
     {Name, FullName, IPStr, IP, Aliases} =
 	ct:get_config(test_host_ipv6_only),
@@ -288,8 +286,7 @@ check_elem(Val, [], Tests0) ->
 
 
 t_getaddr() -> required(v4).
-t_getaddr(doc) -> "Test the inet:getaddr/2 function.";
-t_getaddr(suite) -> [];
+%% Test the inet:getaddr/2 function.
 t_getaddr(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,IP,_,IP_46_Str,IP46} =
 	ct:get_config(test_host_ipv4_only),
@@ -309,8 +306,7 @@ t_getaddr(Config) when is_list(Config) ->
     ok.
 
 t_getaddr_v6() -> required(v4) ++ required(v6).
-t_getaddr_v6(doc) -> "Test the inet:getaddr/2 function.";
-t_getaddr_v6(suite) -> [];
+%% Test the inet:getaddr/2 function.
 t_getaddr_v6(Config) when is_list(Config) ->
     {Name,FullName,IPStr,IP,_} =
 	ct:get_config(test_host_ipv6_only),
@@ -338,8 +334,7 @@ t_getaddr_v6(Config) when is_list(Config) ->
     end.
 
 ipv4_to_ipv6() -> required(v4).
-ipv4_to_ipv6(doc) -> "Test if IPv4 address is converted to IPv6 address.";
-ipv4_to_ipv6(suite) -> [];
+%% Test if IPv4 address is converted to IPv6 address.
 ipv4_to_ipv6(Config) when is_list(Config) ->
     %% Test what happens if an IPv4 address is looked up in an IPv6 context.
     %% If the native resolver succeeds to look it up, an IPv4 compatible
@@ -376,9 +371,8 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 host_and_addr() ->
     [{timetrap,{minutes,5}}|required(hosts)].
 
-host_and_addr(doc) -> ["Test looking up hosts and addresses. Use 'ypcat hosts' ",
-		       "or the local eqivalent to find all hosts."];
-host_and_addr(suite) -> [];
+%% Test looking up hosts and addresses. Use 'ypcat hosts'
+%% or the local eqivalent to find all hosts.
 host_and_addr(Config) when is_list(Config) ->
     ?line lists:foreach(fun try_host/1, get_hosts(Config)),
     ok.
@@ -620,8 +614,6 @@ parse_strict_address(Config) when is_list(Config) ->
     {ok, {3089,3106,23603,50240,0,0,119,136}} =
 	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
 
-t_gethostnative(suite) ->[];
-t_gethostnative(doc) ->[];
 t_gethostnative(Config) when is_list(Config) ->
 %% this will result in 26 bytes sent which causes problem in Windows
 %% if the port-program has not assured stdin to be read in BINARY mode
@@ -634,10 +626,7 @@ t_gethostnative(Config) when is_list(Config) ->
 	    ?line ok
     end.
 
-gethostnative_parallell(suite) ->    
-    [];
-gethostnative_parallell(doc) ->
-    ["Check that the emulator survives crashes in gethost_native"];
+%% Check that the emulator survives crashes in gethost_native.
 gethostnative_parallell(Config) when is_list(Config) ->
     ?line {ok,Hostname} = inet:gethostname(),
     ?line {ok,_} = inet:gethostbyname(Hostname),
@@ -761,10 +750,7 @@ wait_for_gethost(N) ->
 	    wait_for_gethost(N-1)
     end.
 	    
-cname_loop(suite) ->
-    [];
-cname_loop(doc) ->
-    ["Check that the resolver handles a CNAME loop"];
+%% Check that the resolver handles a CNAME loop.
 cname_loop(Config) when is_list(Config) ->
     %% getbyname (hostent_by_domain)
     ?line ok = inet_db:add_rr("mydomain.com", in, ?S_CNAME, ttl, "mydomain.com"),
@@ -791,11 +777,9 @@ cname_loop(Config) when is_list(Config) ->
 				lookup_processes=20}).
 
 gethostnative_soft_restart() -> required(hosts).
-gethostnative_soft_restart(suite) ->    
-    [];
-gethostnative_soft_restart(doc) ->
-    ["Check that no name lookups fails during soft restart "
-     "of inet_gethost_native"];
+
+%% Check that no name lookups fails during soft restart
+%% of inet_gethost_native.
 gethostnative_soft_restart(Config) when is_list(Config) ->
     ?line gethostnative_control(Config, 
 				#gethostnative_control{
@@ -803,11 +787,9 @@ gethostnative_soft_restart(Config) when is_list(Config) ->
 
 
 gethostnative_debug_level() -> required(hosts).
-gethostnative_debug_level(suite) ->    
-    [];
-gethostnative_debug_level(doc) ->
-    ["Check that no name lookups fails during debug level change "
-     "of inet_gethost_native"];
+
+%% Check that no name lookups fails during debug level change
+%% of inet_gethost_native.
 gethostnative_debug_level(Config) when is_list(Config) ->
     ?line gethostnative_control(Config, 
 				#gethostnative_control{
@@ -930,10 +912,7 @@ lookup_loop([H|Hs], Delay, Tag, Parent, Cnt, Hosts) ->
 
 
 
-lookup_bad_search_option(suite) ->
-    [];
-lookup_bad_search_option(doc) ->
-    ["Test lookup with erroneously configured lookup option (OTP-12133)"];
+%% Test lookup with erroneously configured lookup option (OTP-12133).
 lookup_bad_search_option(Config) when is_list(Config) ->
     %% Manipulation of resolver config is done in init_per_testcase
     %% and end_per_testcase to ensure cleanup.
@@ -943,10 +922,7 @@ lookup_bad_search_option(Config) when is_list(Config) ->
 
 
 
-getif(suite) ->
-    [];
-getif(doc) ->
-    ["Tests basic functionality of getiflist, getif, and ifget"];
+%% Tests basic functionality of getiflist, getif, and ifget.
 getif(Config) when is_list(Config) ->
     ?line case os:type() of
 	      {unix,Osname} ->
@@ -987,8 +963,7 @@ do_getif(Osname) ->
     ?line true = ip_member(Loopback, Addresses),
     ?line ok.
 
-getif_ifr_name_overflow(doc) ->
-    "Test long interface names do not overrun buffer";
+%% Test long interface names do not overrun buffer.
 getif_ifr_name_overflow(Config) when is_list(Config) ->
     ?line case os:type() of
 	      {unix,Osname} ->
@@ -1002,15 +977,13 @@ do_getif_ifr_name_overflow(_) ->
     ?line {ok,[]} = inet:ifget(lists:duplicate(128, "x"), [addr]),
     ok.
 
-getservbyname_overflow(doc) ->
-    "Test long service names do not overrun buffer";
+%% Test long service names do not overrun buffer.
 getservbyname_overflow(Config) when is_list(Config) ->
     %% emulator should not crash
     ?line {error,einval} = inet:getservbyname(list_to_atom(lists:flatten(lists:duplicate(128, "x"))), tcp),
     ok.
 
-getifaddrs(doc) ->
-    "Test inet:gifaddrs/0";
+%% Test inet:gifaddrs/0.
 getifaddrs(Config) when is_list (Config) ->
     ?line {ok,IfAddrs} = inet:getifaddrs(),
     io:format("IfAddrs = ~p.~n", [IfAddrs]),

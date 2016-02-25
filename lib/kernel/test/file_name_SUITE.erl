@@ -106,10 +106,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
 	Config.
 
-home_dir(suite) ->
-    [];
-home_dir(doc) ->
-    ["Check that Erlang can be started with unicode named home directory"];
+%% Check that Erlang can be started with unicode named home directory.
 home_dir(Config) when is_list(Config) ->
     try
 	Name=[960,945,964,961,953,954],
@@ -154,10 +151,7 @@ home_dir(Config) when is_list(Config) ->
 	    {skipped,"Runs only on Unix/Windows"}
     end.
 
-normalize(suite) ->
-    [];
-normalize(doc) ->
-    ["Check that filename normalization works"];
+%% Check that filename normalization works.
 normalize(Config) when is_list(Config) ->
     rand:seed(exsplus, {1290,431421,830412}),
     try
@@ -185,10 +179,7 @@ normalize(Config) when is_list(Config) ->
 	    {skipped,"VM needs to be started in Unicode filename mode"}
     end.
     
-normal(suite) ->
-    [];
-normal(doc) ->
-    "Check file operations on normal file names regardless of unicode mode";
+%% Check file operations on normal file names regardless of unicode mode.
 normal(Config) when is_list(Config) ->
     {ok,Dir} = file:get_cwd(),
     try
@@ -206,10 +197,7 @@ normal(Config) when is_list(Config) ->
     end.
     
 
-icky(suite) ->
-    [];
-icky(doc) ->
-    "Check file operations on normal file names regardless of unicode mode";
+%% Check file operations on normal file names regardless of unicode mode.
 icky(Config) when is_list(Config) ->
     case hopeless_darwin() of
 	true ->
@@ -230,10 +218,7 @@ icky(Config) when is_list(Config) ->
 		file:set_cwd(Dir)
 	    end
     end.
-very_icky(suite) ->
-    [];
-very_icky(doc) ->
-    "Check file operations on normal file names regardless of unicode mode";
+%% Check file operations on normal file names regardless of unicode mode.
 very_icky(Config) when is_list(Config) ->
     case hopeless_darwin() of
 	true ->

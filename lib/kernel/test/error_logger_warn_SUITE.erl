@@ -74,56 +74,47 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-basic(doc) ->
-    ["Tests basic error logger functionality"];
+%% Tests basic error logger functionality.
 basic(Config) when is_list(Config) ->
     put(elw_config,Config),
     basic().
 
-warnings_info(doc) ->
-    ["Tests mapping warnings to info functionality"];
+%% Tests mapping warnings to info functionality.
 warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     warnings_info().
 
-warnings_errors(doc) ->
-    ["Tests mapping warnings to errors functionality"];
+%% Tests mapping warnings to errors functionality.
 warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
     warnings_errors().
 
-rb_basic(doc) ->
-    ["Tests basic rb functionality"];
+%% Tests basic rb functionality.
 rb_basic(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_basic().
 
-rb_warnings_info(doc) ->
-    ["Tests warnings as info rb functionality"];
+%% Tests warnings as info rb functionality.
 rb_warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_warnings_info().
 
-rb_warnings_errors(doc) ->
-    ["Tests warnings as errors rb functionality"];
+%% Tests warnings as errors rb functionality.
 rb_warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_warnings_errors().
 
-rb_trunc(doc) ->
-    ["Tests rb functionality on truncated data"];
+%% Tests rb functionality on truncated data.
 rb_trunc(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_trunc().
 
-rb_utc(doc) ->
-    ["Tests UTC mapping in rb (-sasl utc_log true)"];
+%% Tests UTC mapping in rb (-sasl utc_log true).
 rb_utc(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_utc().
 
-file_utc(doc) ->
-    ["Tests UTC mapping in file logger (-stdlib utc_log true)"];
+%% Tests UTC mapping in file logger (-stdlib utc_log true).
 file_utc(Config) when is_list(Config) ->
     put(elw_config,Config),
     file_utc().

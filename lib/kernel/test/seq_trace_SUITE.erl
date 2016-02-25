@@ -74,8 +74,6 @@ end_per_testcase(_Case, _Config) ->
 
 %% Verifies that the set_token and get_token functions work as expected
 
-token_set_get(doc) -> [];
-token_set_get(suite) -> [];
 token_set_get(Config) when is_list(Config) ->
     do_token_set_get(timestamp),
     do_token_set_get(monotonic_timestamp),
@@ -131,8 +129,6 @@ do_token_set_get(TsType) ->
     ?line seq_trace:reset_trace(),
     ok.
 
-tracer_set_get(doc) -> [];
-tracer_set_get(suite) -> [];
 tracer_set_get(Config) when is_list(Config) ->
     ?line Self = self(),
     ?line seq_trace:set_system_tracer(self()),
@@ -149,8 +145,6 @@ tracer_set_get(Config) when is_list(Config) ->
     ?line false = seq_trace:get_system_tracer(),
     ok.
 
-print(doc) -> [];
-print(suite) -> [];
 print(Config) when is_list(Config) ->
     lists:foreach(fun do_print/1, ?TIMESTAMP_MODES).
     
@@ -166,8 +160,6 @@ do_print(TsType) ->
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
     
-send(doc) -> [];
-send(suite) -> [];
 send(Config) when is_list(Config) ->
     lists:foreach(fun do_send/1, ?TIMESTAMP_MODES).
 
@@ -182,8 +174,6 @@ do_send(TsType) ->
     ?line [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
 
-distributed_send(doc) -> [];
-distributed_send(suite) -> [];
 distributed_send(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_send/1, ?TIMESTAMP_MODES).
 
@@ -204,8 +194,6 @@ do_distributed_send(TsType) ->
     check_ts(TsType, Ts).
     
 
-recv(doc) -> [];
-recv(suite) -> [];
 recv(Config) when is_list(Config) ->
     lists:foreach(fun do_recv/1, ?TIMESTAMP_MODES).
 
@@ -222,8 +210,6 @@ do_recv(TsType) ->
     ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
 
-distributed_recv(doc) -> [];
-distributed_recv(suite) -> [];
 distributed_recv(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_recv/1, ?TIMESTAMP_MODES).
 
@@ -247,8 +233,6 @@ do_distributed_recv(TsType) ->
     ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
     check_ts(TsType, Ts).
 
-trace_exit(doc) -> [];
-trace_exit(suite) -> [];
 trace_exit(Config) when is_list(Config) ->
     lists:foreach(fun do_trace_exit/1, ?TIMESTAMP_MODES).
 
@@ -277,8 +261,6 @@ do_trace_exit(TsType) ->
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
 
-distributed_exit(doc) -> [];
-distributed_exit(suite) -> [];
 distributed_exit(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_exit/1, ?TIMESTAMP_MODES).
 
@@ -313,8 +295,6 @@ do_distributed_exit(TsType) ->
 call(doc) -> 
     "Tests special forms {is_seq_trace} and {get_seq_token} "
 	"in trace match specs.";
-call(suite) -> 
-    [];
 call(Config) when is_list(Config) ->
     ?line Self = self(),
     ?line seq_trace:reset_trace(),
@@ -401,9 +381,7 @@ call(Config) when is_list(Config) ->
     ?line seq_trace:reset_trace(),
     ok.
 
-port(doc) ->
-    "Send trace messages to a port.";
-port(suite) -> [];
+%% Send trace messages to a port.
 port(Config) when is_list(Config) ->
     lists:foreach(fun (TsType) -> do_port(TsType, Config) end,
 		  ?TIMESTAMP_MODES).
@@ -470,8 +448,6 @@ get_port_message(Port) ->
 
 
 
-match_set_seq_token(suite) ->
-    [];
 match_set_seq_token(doc) ->
     ["Tests that match spec function set_seq_token does not "
      "corrupt the heap"];
@@ -617,8 +593,6 @@ bounce(Ref) ->
 
 
 
-gc_seq_token(suite) ->
-    [];
 gc_seq_token(doc) ->
     ["Tests that a seq_trace token on a message in the inqueue ",
      "can be garbage collected."];

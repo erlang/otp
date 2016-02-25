@@ -58,10 +58,8 @@ init_per_testcase(_TC,Config) ->
 end_per_testcase(_,_Config) ->
     ok.
 
-space_in_cwd(doc) ->
-    "Test that executing a command in a current working directory "
-	"with space in its name works.";
-space_in_cwd(suite) -> [];
+%% Test that executing a command in a current working directory
+%% with space in its name works.
 space_in_cwd(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ?line Dirname = filename:join(PrivDir, "cwd with space"),
@@ -88,8 +86,7 @@ space_in_cwd(Config) when is_list(Config) ->
     ?line [] = receive_all(),
     ok.
 
-quoting(doc) -> "Test that various ways of quoting arguments work.";
-quoting(suite) -> [];
+%% Test that various ways of quoting arguments work.
 quoting(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ?line Echo = filename:join(DataDir, "my_echo"),
@@ -106,8 +103,7 @@ quoting(Config) when is_list(Config) ->
     ok.
 
 
-cmd_unicode(doc) -> "Test that unicode arguments work.";
-cmd_unicode(suite) -> [];
+%% Test that unicode arguments work.
 cmd_unicode(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ?line Echo = filename:join(DataDir, "my_echo"),
@@ -120,9 +116,7 @@ cmd_unicode(Config) when is_list(Config) ->
     ok.
 
 
-space_in_name(doc) ->
-    "Test that program with a space in its name can be executed.";
-space_in_name(suite) -> [];
+%% Test that program with a space in its name can be executed.
 space_in_name(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
@@ -162,9 +156,7 @@ space_in_name(Config) when is_list(Config) ->
     ?line [] = receive_all(),
     ok.
 
-bad_command(doc) ->
-    "Check that a bad command doesn't crasch the server or the emulator (it used to).";
-bad_command(suite) -> [];
+%% Check that a bad command doesn't crasch the server or the emulator (it used to).
 bad_command(Config) when is_list(Config) ->
     ?line catch os:cmd([a|b]),
     ?line catch os:cmd({bad, thing}),
@@ -175,8 +167,6 @@ bad_command(Config) when is_list(Config) ->
 
     ok.
 
-find_executable(suite) -> [];
-find_executable(doc) -> [];
 find_executable(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -250,9 +240,7 @@ find_exe(Where, Name, Ext, Path) ->
 	    ct:fail(failed)
     end.
 
-unix_comment_in_command(doc) ->
-    "OTP-1805: Test that os:cmd(\"ls #\") works correctly (used to hang).";
-unix_comment_in_command(suite) -> [];
+%% OTP-1805: Test that os:cmd(\ls #\) works correctly (used to hang).
 unix_comment_in_command(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     ?line ok = file:set_cwd(Priv),
@@ -261,9 +249,7 @@ unix_comment_in_command(Config) when is_list(Config) ->
     ?line [] = receive_all(),
     ok.
 
-deep_list_command(doc) ->
-    "Check that a deep list in command works equally on unix and on windows.";
-deep_list_command(suite) -> [];
+%% Check that a deep list in command works equally on unix and on windows.
 deep_list_command(Config) when is_list(Config) ->
     %% As a 'io_lib' module description says: "There is no guarantee that the
     %% character lists returned from some of the functions are flat, they can
@@ -275,10 +261,8 @@ deep_list_command(Config) when is_list(Config) ->
     %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
     ok.
 
-large_output_command(doc) ->
-    "Test to take sure that the correct data is"
-    "received when doing large commands";
-large_output_command(suite) -> [];
+%% Test to take sure that the correct data is
+%% received when doing large commands.
 large_output_command(Config) when is_list(Config) ->
     %% Maximum allowed on windows is 8192, so we test well below that
     AAA = lists:duplicate(7000, $a),

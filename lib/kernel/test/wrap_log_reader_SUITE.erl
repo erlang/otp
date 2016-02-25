@@ -79,8 +79,7 @@ init_per_testcase(Func, Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-no_file(suite) -> [];
-no_file(doc) -> ["No log file exists"];
+%% No log file exists.
 no_file(Conf) when is_list(Conf) ->
     code:add_path(proplists:get_value(data_dir,Conf)),
     Dir = ?privdir(Conf),
@@ -100,8 +99,7 @@ no_file(Conf) when is_list(Conf) ->
     ok.
 
 
-one_empty(suite) -> [];
-one_empty(doc) -> ["One empty index file"];
+%% One empty index file.
 one_empty(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -126,8 +124,7 @@ one_empty(Conf) when is_list(Conf) ->
     delete_files(File),
     ok.
 
-one_filled(suite) -> [];
-one_filled(doc) -> ["One filled index file"];
+%% One filled index file.
 one_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -161,8 +158,7 @@ test_one(File) ->
     ok.
 
 
-two_filled(suite) -> [];
-two_filled(doc) -> ["Two filled index files"];
+%% Two filled index files.
 two_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = list_to_atom(join(Dir, "sune.LOG")),
@@ -201,8 +197,7 @@ test_two(File) ->
     ok.
 
 
-four_filled(suite) -> [];
-four_filled(doc) -> ["Four filled index files"];
+%% Four filled index files.
 four_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -244,8 +239,7 @@ test_four(File) ->
     ok.
 
 
-wrap_filled(suite) -> [];
-wrap_filled(doc) -> ["First wrap, open, filled index file"];
+%% First wrap, open, filled index file.
 wrap_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -287,8 +281,7 @@ test_wrap(File) ->
 		    {chunk, 2, ["first round, 42"]}, eof], wlt, ?LINE),
     ok.
 
-wrapping(suite) -> [];
-wrapping(doc) -> ["Wrapping at the same time as reading"];
+%% Wrapping at the same time as reading.
 wrapping(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -342,8 +335,7 @@ wrapping(Conf) when is_list(Conf) ->
     delete_files(File),
     ok.
 
-external(suite) -> [];
-external(doc) -> ["External format"];
+%% External format.
 external(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -362,8 +354,7 @@ external(Conf) when is_list(Conf) ->
     delete_files(File),
     ok.
 
-error(suite) -> [];
-error(doc) -> ["Error situations"];
+%% Error situations.
 error(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
