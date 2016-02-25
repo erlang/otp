@@ -255,7 +255,7 @@ t_andalso_1({X,Y}) ->
 	     X andalso Y -> true;
 	     true -> false
 	 end,
-    check(V1, X and Y).
+    V1 = id(X and Y).
 
 t_orelse_1({X,Y}) ->
     io:fwrite("~w orelse ~w: ",[X,Y]),
@@ -264,7 +264,7 @@ t_orelse_1({X,Y}) ->
 	     X orelse Y -> true;
 	     true -> false
 	 end,
-    check(V1, X or Y).
+    V1 = id(X or Y).
 
 inside(Config) when is_list(Config) ->
     ?line true = inside(-8, 1),
@@ -538,14 +538,6 @@ slow_compilation_1(T, _) when element(1, T) == a ->
     ok.
 
 %% Utilities.
-
-check(V1, V0) ->
-    if V1 /= V0 ->
-	    io:fwrite("error: ~w.\n", [V1]),
-	    ?t:fail();
-       true ->
-	    io:fwrite("ok: ~w.\n", [V1])
-    end.
 
 echo(X) ->	    
     io:fwrite("eval(~w); ",[X]),
