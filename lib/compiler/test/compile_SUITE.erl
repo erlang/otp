@@ -81,8 +81,6 @@ appup_test(Config) when is_list(Config) ->
 %% using compile:file/1.
 
 file_1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
-
     process_flag(trap_exit, true),
 
     {Simple, Target} = get_files(Config, simple, "file_1"),
@@ -122,7 +120,6 @@ file_1(Config) when is_list(Config) ->
 	    ok
     end,
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 forms_2(Config) when is_list(Config) ->
@@ -159,7 +156,6 @@ module_mismatch(Config) when is_list(Config) ->
     ok.
 
 big_file(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
     {Big,Target} = get_files(Config, big, "big_file"),
     ok = file:set_cwd(filename:dirname(Target)),
     ?line compile_and_verify(Big, Target, []),
@@ -168,26 +164,22 @@ big_file(Config) when is_list(Config) ->
 
     %% Cleanup.
     ?line ok = file:delete(Target),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the {outdir, Dir} option works.
 
 outdir(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     {Simple, Target} = get_files(Config, simple, "outdir"),
     ?line {ok, simple} = compile:file(Simple, [{outdir, filename:dirname(Target)}]),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the binary option works.
 
 binary(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     {Simple, Target} = get_files(Config, simple, "binary"),
     ?line {ok, simple, Binary} = compile:file(Simple, [binary]),
     ?line code:load_binary(simple, Target, Binary),
@@ -195,13 +187,11 @@ binary(Config) when is_list(Config) ->
     ?line true = code:delete(simple),
     ?line false = code:purge(simple),
     ?line ok = file:del_dir(filename:dirname(Target)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the dependencies-Makefile-related options work.
 
 makedep(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     {Simple,Target} = get_files(Config, simple, "makedep"),
     ?line DataDir = ?config(data_dir, Config),
     ?line SimpleRootname = filename:rootname(Simple),
@@ -257,7 +247,6 @@ makedep(Config) when is_list(Config) ->
 
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 makedep_canonicalize_result(Mf, DataDir) ->
@@ -277,7 +266,6 @@ makedep_modify_target(Mf, Target) ->
 %% Tests that conditional compilation, defining values, including files work.
 
 cond_and_ifdef(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
     ?line Options = [{outdir, filename:dirname(Target)},
@@ -288,11 +276,9 @@ cond_and_ifdef(Config) when is_list(Config) ->
     ?line {hiker, 42} = run(Target, foo, []),
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 listings(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(8)),
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     ok = do_file_listings(DataDir, PrivDir, [
@@ -300,7 +286,6 @@ listings(Config) when is_list(Config) ->
 	    "small",
 	    "small_maps"
 	]),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 do_file_listings(_, _, []) -> ok;
@@ -357,7 +342,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_file_listings(DataDir,PrivDir,Files).
 
 listings_big(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
     {Big,Target} = get_files(Config, big, listings_big),
     TargetDir = filename:dirname(Target),
     ?line do_listing(Big, TargetDir, 'S'),
@@ -373,11 +357,9 @@ listings_big(Config) when is_list(Config) ->
     ?line lists:foreach(fun(F) -> ok = file:delete(F) end,
 			filelib:wildcard(filename:join(TargetDir, "*"))),
     ?line ok = file:del_dir(TargetDir),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 other_output(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(8)),
     {Simple,_Target} = get_files(Config, simple, "other_output"),
 
     io:put_chars("to_pp"),
@@ -418,11 +400,9 @@ other_output(Config) when is_list(Config) ->
     io:put_chars("to_asm (forms)"),
     ?line {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 encrypted_abstr(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
     {Simple,Target} = get_files(Config, simple, "encrypted_abstr"),
 
     Res = case has_crypto() of
@@ -452,7 +432,6 @@ encrypted_abstr(Config) when is_list(Config) ->
 	  end,
     
     %% Cleanup.
-    ?line test_server:timetrap_cancel(Dog),
     Res.
 
 encrypted_abstr_1(Simple, Target) ->
@@ -786,7 +765,6 @@ compile_forms(Forms, Opts) ->
 %% run .S through the compiler again.
 
 asm(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(20)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Outdir = filename:join(PrivDir, "asm"),
     ?line ok = file:make_dir(Outdir),
@@ -794,7 +772,6 @@ asm(Config) when is_list(Config) ->
     ?line Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
     ?line TestBeams = filelib:wildcard(Wc),
     ?line Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
-    ?line test_server:timetrap_cancel(Dog),
     Res.
 
     

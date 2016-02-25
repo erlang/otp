@@ -24,7 +24,9 @@
 
 -compile(export_all).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -234,8 +236,11 @@ check_error_1(Str0) ->
 try_it(Module, Conf) ->
     %% Change 'false' to 'true' to start a new node for every module.
     try_it(false, Module, Conf).
-		       
+
 try_it(StartNode, Module, Conf) ->
+    try_it(StartNode, Module, {minutes,10}, Conf).
+
+try_it(StartNode, Module, Timetrap, Conf) ->
     ?line OtherOpts = [],			%Can be changed to [time] if needed
     ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
     ?line Out = ?config(priv_dir,Conf),
@@ -245,7 +250,6 @@ try_it(StartNode, Module, Conf) ->
     ?line io:format("Result: ~p\n",[CompRc0]),
     ?line {ok,_Mod} = CompRc0,
 
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
     Node = case StartNode of
 	       false ->
 		   node();
@@ -257,9 +261,8 @@ try_it(StartNode, Module, Conf) ->
 		   
     ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
     ?line load_and_call(Out, Module),
-    ?line test_server:timetrap_cancel(Dog),
 
-    ?line NewDog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap(Timetrap),
     ?line io:format("Compiling (without optimization): ~s\n", [Src]),
     ?line CompRc1 = compile:file(Src,
 				 [no_copt,no_postopt,{outdir,Out},report|OtherOpts]),
@@ -267,18 +270,16 @@ try_it(StartNode, Module, Conf) ->
     ?line io:format("Result: ~p\n",[CompRc1]),
     ?line {ok,_Mod} = CompRc1,
     ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line test_server:timetrap_cancel(NewDog),
 
-    ?line LastDog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap(Timetrap),
     ?line io:format("Compiling (with old inliner): ~s\n", [Src]),
     ?line CompRc2 = compile:file(Src, [{outdir,Out},report,bin_opt_info,
 				       {inline,1000}|OtherOpts]),
     ?line io:format("Result: ~p\n",[CompRc2]),
     ?line {ok,_Mod} = CompRc2,
     ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line test_server:timetrap_cancel(LastDog),
 
-    AsmDog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap(Timetrap),
     io:format("Compiling (from assembly): ~s\n", [Src]),
     {ok,_} = compile:file(Src, [to_asm,{outdir,Out},report|OtherOpts]),
     Asm = filename:join(Out, lists:concat([Module, ".S"])),
@@ -286,13 +287,11 @@ try_it(StartNode, Module, Conf) ->
     io:format("Result: ~p\n",[CompRc3]),
     {ok,_} = CompRc3,
     ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    test_server:timetrap_cancel(AsmDog),
 
     case StartNode of
 	false -> ok;
 	true -> ?line test_server:stop_node(Node)
     end,
-    ?line test_server:timetrap_cancel(LastDog),
     ok.
 
 load_and_call(Out, Module) ->
@@ -404,9 +403,7 @@ get_vsn(M) ->
 
 long_string(Config) when is_list(Config) ->
     %% The test must complete in one minute - it should be plenty of time.
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
-    ?line try_it(long_string, Config),
-    ?line test_server:timetrap_cancel(Dog),
+    try_it(false, long_string, {minutes,1}, Config),
     ok.
 
 compile_load(Module, Dir, Conf) ->
@@ -428,7 +425,7 @@ self_compile_old_inliner(Config) when is_list(Config) ->
     self_compile_1(Config, "old", [verbose,{inline,500}]).
 
 self_compile_1(Config, Prefix, Opts) ->
-    Dog = test_server:timetrap(test_server:minutes(40)),
+    ct:timetrap({minutes,40}),
 
     Priv = ?config(priv_dir,Config),
     Version = compiler_version(),
@@ -449,11 +446,10 @@ self_compile_1(Config, Prefix, Opts) ->
     %% be equal (except for beam_asm that contains the compiler version).
     compare_compilers(CompA, CompB),
 
-    test_server:timetrap_cancel(Dog),
     ok.
 
 self_compile_node(CompilerDir, OutDir, Version, Opts) ->
-    Dog = test_server:timetrap(test_server:minutes(15)),
+    ct:timetrap({minutes,15}),
     Pa = "-pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -pa " ++ CompilerDir,
     Files = compiler_src(),
@@ -466,7 +462,7 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
        fun() ->
 	       compile_compiler(Files, OutDir, Version, Opts)
        end, Pa),
-    test_server:timetrap_cancel(Dog),
+
     ok.
 
 compile_compiler(Files, OutDir, Version, InlineOpts) ->

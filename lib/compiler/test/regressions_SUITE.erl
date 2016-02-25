@@ -21,25 +21,22 @@
 -module(regressions_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, groups/0, init_per_testcase/2,end_per_testcase/2]).
-
+-export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,suite/0]).
 -export([maps/1]).
 
 groups() -> 
     [{p,test_lib:parallel(),
       [maps]}].
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     test_lib:recompile(?MODULE),

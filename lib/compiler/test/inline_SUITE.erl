@@ -97,9 +97,8 @@ try_inline(Mod, Config) ->
     ?line io:format("Compiling: ~s\n", [Src]),
     ?line {ok,Mod} = compile:file(Src, [{outdir,Out},report,bin_opt_info,clint]),
 
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap({minutes,10}),
     ?line NormalResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
-    ?line test_server:timetrap_cancel(Dog),
 
     %% Inlining.
     ?line io:format("Compiling with old inliner: ~s\n", [Src]),
@@ -107,9 +106,8 @@ try_inline(Mod, Config) ->
 					{inline,1000},clint]),
 
     %% Run inlined code.
-    ?line Dog3 = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap({minutes,10}),
     ?line OldInlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
-    ?line test_server:timetrap_cancel(Dog3),
 
     %% Compare results.
     ?line compare(NormalResult, OldInlinedResult),
@@ -121,9 +119,8 @@ try_inline(Mod, Config) ->
 					bin_opt_info,inline,clint]),
 
     %% Run inlined code.
-    ?line Dog4 = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap({minutes,10}),
     ?line InlinedResult = rpc:call(Node, ?MODULE, load_and_call, [Out,Mod]),
-    ?line test_server:timetrap_cancel(Dog4),
 
     %% Compare results.
     ?line compare(NormalResult, InlinedResult),

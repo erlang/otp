@@ -37,15 +37,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(10)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     test_lib:recompile(?MODULE),

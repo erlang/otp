@@ -49,15 +49,14 @@
 -opaque misc_SUITE_test_cases() :: [atom()].
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(10)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
@@ -332,6 +331,9 @@ confused_literals(Config) when is_list(Config) ->
 confused_literals_1(int) -> {0,infinity};
 confused_literals_1(float) -> {0.0,infinity}.
 
+integer_encoding() ->
+    [{timetrap,{minutes,4}}].
+
 integer_encoding(Config) when is_list(Config) ->
     case ?MODULE of
 	misc_SUITE -> integer_encoding_1(Config);
@@ -339,7 +341,6 @@ integer_encoding(Config) when is_list(Config) ->
     end.
 
 integer_encoding_1(Config) ->
-    Dog = test_server:timetrap(?t:minutes(4)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line SrcFile = filename:join(PrivDir, "misc_SUITE_integer_encoding.erl"),
     ?line DataFile = filename:join(PrivDir, "integer_encoding.data"),
@@ -384,7 +385,6 @@ integer_encoding_1(Config) ->
     %% Cleanup.
     ?line file:delete(SrcFile),
     ?line file:delete(DataFile),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 do_integer_encoding(0, _, _, _) -> ok;
