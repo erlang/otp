@@ -31,7 +31,7 @@
 %%--------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{minutes,15}}].
+	    {timetrap,{minutes,12}}].
 
 
 all() -> [{group,default_algs},

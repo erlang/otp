@@ -37,7 +37,7 @@
 %%     [{ct_hooks,[ts_install_cth]}].
 
 suite() ->
-    [{timetrap,{minutes,5}}].
+    [{timetrap,{minutes,2}}].
 
 all() ->
     [
