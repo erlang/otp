@@ -374,7 +374,7 @@ erlang:'!'            -----> Module:StateName/3
 	  When used in the
 	  <seealso marker="#type-action">action()</seealso>
 	  <c>{remove_event,RemoveEventPredicate}</c>,
-	  the event for which the predicate returns <c>true</c>
+	  the oldest event for which the predicate returns <c>true</c>
 	  will be removed.
 	</p>
 	<p>
@@ -442,6 +442,14 @@ erlang:'!'            -----> Module:StateName/3
             is reset to start with the oldest postponed.
 	  </item>
 	  <item>
+	    All events inserted with
+	    <seealso marker="#type-action">
+	      <c>action() next_event</c>
+	    </seealso>
+	    are inserted in the queue to be processed before
+	    all other events.
+	  </item>
+	  <item>
 	    If the
             <seealso marker="#type-postpone">
 	      <c>transition_option()</c>
@@ -450,7 +458,8 @@ erlang:'!'            -----> Module:StateName/3
 	      <c>timeout</c>
 	    </seealso>
 	    is set a state timer may be started or a timeout zero event
-	    may be enqueued as the newest incoming.
+	    may be enqueued as the newest incoming that is the last
+	    to process before going into <c>receive</c> for new events.
 	  </item>
 	  <item>
 	    The (possibly new)
@@ -582,16 +591,16 @@ erlang:'!'            -----> Module:StateName/3
 	    and <c><anno>EventContent</anno></c> as the next to process.
 	    This will bypass any events in the process mailbox as well
 	    as any other queued events.
+	    All <c>next_event</c> actions
+	    in the containing list are buffered and inserted
+	    after the actions have been done
+	    so the first in the list will be the first to process.
 	    An event of type
 	    <seealso marker="#type-event_type">
 	      <c>internal</c>
 	    </seealso>
 	    should be used when you want to reliably distinguish
 	    an event inserted this way from any external event.
-	    If there are multiple <c>next_event</c> actions
-	    in the containing list they are buffered and all are
-	    inserted so the first in the list will be the
-	    first to process.
 	  </item>
 	  <tag><c>remove_event</c></tag>
 	  <item>
@@ -599,7 +608,11 @@ erlang:'!'            -----> Module:StateName/3
 	    that matches equal to <c><anno>EventType</anno></c>
 	    and <c><anno>EventContent</anno></c> or for which
 	    <c><anno>EventPredicate</anno></c>
-	    returns <c>true</c>.
+	    returns <c>true</c>.  Note that <c>next_event</c>
+	    and <c>postpone</c> events in the same actions list
+	    does not get into the event queue until after all actions
+	    has been done so you can not remove an event that you insert
+	    in the same actions list.  Make up your mind!
 	  </item>
 	  <tag><c>cancel_timer</c></tag>
 	  <item>
