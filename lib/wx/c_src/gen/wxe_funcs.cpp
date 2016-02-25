@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1668,6 +1668,24 @@ case wxWindow_WarpPointer: { // wxWindow::WarpPointer
  This->WarpPointer(*x,*y);
  break;
 }
+#if wxCHECK_VERSION(3,0,0)
+case wxWindow_IsDoubleBuffered: { // wxWindow::IsDoubleBuffered
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsDoubleBuffered();
+ rt.addBool(Result);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0) && !defined(__WXMAC__)
+case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ bool * on = (bool *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetDoubleBuffered(*on);
+ break;
+}
+#endif
 case wxTopLevelWindow_GetIcon: { // wxTopLevelWindow::GetIcon
  wxTopLevelWindow *This = (wxTopLevelWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);

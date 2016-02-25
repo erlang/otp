@@ -32,3 +32,10 @@ class wxToolBar {
     wxToolBarToolBase * AddStretchableSpace();
     wxToolBarToolBase * InsertStretchableSpace(size_t pos);
 };
+
+
+class wxWindow {
+ public:
+    bool IsDoubleBuffered();
+    void SetDoubleBuffered(bool on);
+};
