@@ -77,7 +77,7 @@ end_per_group(_GroupName, Config) ->
 compiler_bug(Config) when is_list(Config) ->
     %% Check that the compiler returns an error if we try to
     %% assemble one of the bad '.S' files.
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "compiler_bug"),
     error = compile:file(File, [from_asm,report_errors,time]),
 
@@ -420,7 +420,7 @@ map_field_lists(Config) ->
 %%%-------------------------------------------------------------------------
 
 do_val(Mod, Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Base = atom_to_list(Mod),
     File = filename:join(Data, Base),
     case compile:file(File, [from_asm,no_postopt,return_errors]) of

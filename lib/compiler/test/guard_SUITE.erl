@@ -1427,7 +1427,7 @@ test(T, L1, L2) ->
     {match,Anno,{atom,Anno,Val},hd(E)}.
 
 smoke_disasm(Config, Mod, Bin) ->
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     File = filename:join(Priv, atom_to_list(Mod)++".beam"),
     ok = file:write_file(File, Bin),
     test_lib:smoke_disasm(File).

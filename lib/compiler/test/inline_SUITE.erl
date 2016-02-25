@@ -47,7 +47,7 @@ init_per_suite(Config) ->
     [{testing_node,Node}|Config].
 
 end_per_suite(Config) ->
-    Node = ?config(testing_node, Config),
+    Node = proplists:get_value(testing_node, Config),
     ?t:stop_node(Node),
     ok.
 
@@ -60,8 +60,8 @@ end_per_group(_GroupName, Config) ->
 
 attribute(Config) when is_list(Config) ->
     Name = "attribute",
-    ?line Src = filename:join(?config(data_dir, Config), Name),
-    ?line Out = ?config(priv_dir,Config),
+    Src = filename:join(proplists:get_value(data_dir, Config), Name),
+    Out = proplists:get_value(priv_dir,Config),
 
     ?line {ok,attribute=Mod} = compile:file(Src, [{outdir,Out},report,time]),
     ?line Outfile = filename:join(Out, Name++".beam"),
@@ -89,9 +89,10 @@ attribute(Config) when is_list(Config) ->
 ?comp(maps_inline_test).
 
 try_inline(Mod, Config) ->
-    Node = ?config(testing_node, Config),
-    ?line Src = filename:join(?config(data_dir, Config), atom_to_list(Mod)),
-    ?line Out = ?config(priv_dir,Config),
+    Node = proplists:get_value(testing_node, Config),
+    Src = filename:join(proplists:get_value(data_dir, Config),
+			atom_to_list(Mod)),
+    Out = proplists:get_value(priv_dir,Config),
 
     %% Normal compilation.
     ?line io:format("Compiling: ~s\n", [Src]),
@@ -340,7 +341,7 @@ otp_7223_2({a}) ->
 
 coverage(Config) when is_list(Config) ->
     Mod = bsdecode,
-    Src = filename:join(?config(data_dir, Config), Mod),
+    Src = filename:join(proplists:get_value(data_dir, Config), Mod),
     {ok,Mod,_} = compile:file(Src, [binary,report,{inline,0},clint]),
     {ok,Mod,_} = compile:file(Src, [binary,report,{inline,20},
 				    verbose,clint]),

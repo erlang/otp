@@ -85,7 +85,8 @@ end_per_group(_GroupName, Config) ->
 
 
 try_it(Mod, Conf) ->
-    Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Mod)),
     compile_and_load(Src, []),
     compile_and_load(Src, [no_copt]).
 

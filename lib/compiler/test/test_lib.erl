@@ -85,7 +85,7 @@ opt_opts(Mod) ->
 %% This function retrieves the path to the original data directory.
 
 get_data_dir(Config) ->
-    Data0 = ?config(data_dir, Config),
+    Data0 = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
     Data = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),

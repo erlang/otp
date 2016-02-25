@@ -341,7 +341,7 @@ integer_encoding(Config) when is_list(Config) ->
     end.
 
 integer_encoding_1(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line SrcFile = filename:join(PrivDir, "misc_SUITE_integer_encoding.erl"),
     ?line DataFile = filename:join(PrivDir, "integer_encoding.data"),
     Mod = misc_SUITE_integer_encoding,

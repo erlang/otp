@@ -183,7 +183,7 @@ head_mismatch_line(Config) when is_list(Config) ->
 %% Compiles a test file and returns the list of errors.
 
 get_compilation_errors(Config, Filename) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line File = filename:join(DataDir, Filename),
     ?line {error, [{_Name, E}|_], []} = compile:file(File, [return_errors]),
     E.
@@ -191,7 +191,7 @@ get_compilation_errors(Config, Filename) ->
 warnings_as_errors(Config) when is_list(Config) ->
     ?line TestFile = test_filename(Config),
     ?line BeamFile = filename:rootname(TestFile, ".erl") ++ ".beam",
-    ?line OutDir = ?config(priv_dir, Config),
+    OutDir = proplists:get_value(priv_dir, Config),
 
     Ts1 = [{warnings_as_errors,
            <<"
@@ -338,7 +338,7 @@ filter(X) ->
 
 test_filename(Conf) ->
     Filename = ["errors_test_",test_lib:uniq(),".erl"],
-    DataDir = ?config(priv_dir, Conf),
+    DataDir = proplists:get_value(priv_dir, Conf),
     filename:join(DataDir, Filename).
 
 run_test(Test0, File, Warnings, WriteBeam) ->

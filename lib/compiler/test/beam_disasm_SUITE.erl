@@ -49,7 +49,7 @@ end_per_group(_GroupName, Config) ->
 stripped(doc) ->
     ["Check that stripped beam files can be disassembled"];
 stripped(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line SrcName = filename:join(PrivDir, "tmp.erl"),
     ?line BeamName = filename:join(PrivDir, "tmp.beam"),
     Prog = <<"-module(tmp).\n-export([tmp/0]).\ntmp()->ok.\n">>,

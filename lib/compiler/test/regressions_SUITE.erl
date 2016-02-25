@@ -70,7 +70,7 @@ run(Config, Tests) ->
 run_test(Conf, Test0) ->
     Module = "regressions_"++test_lib:uniq(),
     Filename = Module ++ ".erl",
-    DataDir = ?config(priv_dir, Conf),
+    DataDir = proplists:get_value(priv_dir, Conf),
     Test = ["-module(", Module, "). ", Test0],
     File = filename:join(DataDir, Filename),
     Def = [binary,export_all,return],

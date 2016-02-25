@@ -196,8 +196,9 @@ redundant_case_1(4) -> d;
 redundant_case_1(_) -> d.
 
 failure(Module, Conf) ->
-    ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Module)),
+    Out = proplists:get_value(priv_dir, Conf),
     ?line io:format("Compiling: ~ts\n", [Src]),
     ?line CompRc = compile:file(Src, [{outdir,Out},return,time]),
     ?line io:format("Result: ~p\n",[CompRc]),
@@ -242,8 +243,9 @@ try_it(StartNode, Module, Conf) ->
 
 try_it(StartNode, Module, Timetrap, Conf) ->
     ?line OtherOpts = [],			%Can be changed to [time] if needed
-    ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Module)),
+    Out = proplists:get_value(priv_dir,Conf),
     ?line io:format("Compiling: ~s\n", [Src]),
     ?line CompRc0 = compile:file(Src, [clint,{outdir,Out},report,
 				       bin_opt_info|OtherOpts]),
@@ -343,15 +345,16 @@ vsn_1(suite) -> [];
 vsn_1(Conf) when is_list(Conf) ->
     ?line M = vsn_1,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
     ?line Vsn1 = get_vsn(M),
     ?line timer:sleep(1000),
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
     ?line Vsn2 = get_vsn(M),
 
-    ?line compile_load(M, filename:join(?config(data_dir, Conf), "other"),
-		       Conf),
+    compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
+				  "other"),
+		 Conf),
     ?line Vsn3 = get_vsn(M),
     ?line if
 	      Vsn1 == Vsn2, Vsn2 == Vsn3 ->
@@ -367,7 +370,7 @@ vsn_2(suite) -> [];
 vsn_2(Conf) when is_list(Conf) ->
     ?line M = vsn_2,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
     ?line Vsn = get_vsn(M),
     ?line case Vsn of
 	      [34] ->
@@ -383,11 +386,12 @@ vsn_3(suite) -> [];
 vsn_3(Conf) when is_list(Conf) ->
     ?line M = vsn_3,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
     ?line Vsn1 = get_vsn(M),
 
-    ?line compile_load(M, filename:join(?config(data_dir, Conf), "other"),
-		       Conf),
+    compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
+				  "other"),
+		 Conf),
     ?line Vsn2 = get_vsn(M),
     ?line if
 	      Vsn1 /= Vsn2 ->
@@ -408,7 +412,7 @@ long_string(Config) when is_list(Config) ->
 
 compile_load(Module, Dir, Conf) ->
     ?line Src = filename:join(Dir, atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
+    Out = proplists:get_value(priv_dir,Conf),
     ?line CompRc = compile:file(Src, [{outdir,Out}]),
     ?line {ok, Module} = CompRc,
     ?line code:purge(Module),
@@ -427,7 +431,7 @@ self_compile_old_inliner(Config) when is_list(Config) ->
 self_compile_1(Config, Prefix, Opts) ->
     ct:timetrap({minutes,40}),
 
-    Priv = ?config(priv_dir,Config),
+    Priv = proplists:get_value(priv_dir,Config),
     Version = compiler_version(),
 
     %% Compile the compiler. (In this node to get better coverage.)
@@ -615,7 +619,7 @@ otp_7345(ObjRef, _RdEnv, Args) ->
 %% Check the generation of the string table.
 
 string_table(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line File = filename:join(DataDir, "string_table.erl"),
     ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
     ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),

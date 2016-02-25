@@ -388,7 +388,7 @@ record_test_3(Config) when is_list(Config) ->
     ok.
 
 record_access_in_guards(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     ?line file:set_cwd(test_lib:get_data_dir(Config)),
     ?line Opts0 = [{outdir,Priv},report_errors|test_lib:opt_opts(?MODULE)],
     M = record_access_in_guards,

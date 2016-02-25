@@ -187,8 +187,8 @@ ref_opt(Config) when is_list(Config) ->
     end.
 
 ref_opt_1(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.{erl,S}"])),
     test_lib:p_run(fun(Src) ->
 			   do_ref_opt(Src, PrivDir)

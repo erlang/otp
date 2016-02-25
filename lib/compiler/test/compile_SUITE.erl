@@ -143,7 +143,7 @@ forms_2(Config) when is_list(Config) ->
     ok.
 
 module_mismatch(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line File = filename:join(DataDir, "wrong_module_name.erl"),
     {error,[{"wrong_module_name.beam",
 	     [{none,compile,{module_name,arne,"wrong_module_name"}}]}],
@@ -193,7 +193,7 @@ binary(Config) when is_list(Config) ->
 
 makedep(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, "makedep"),
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line SimpleRootname = filename:rootname(Simple),
     ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
     ?line IncludeOptions = [
@@ -279,8 +279,8 @@ cond_and_ifdef(Config) when is_list(Config) ->
     ok.
 
 listings(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = do_file_listings(DataDir, PrivDir, [
 	    "simple",
 	    "small",
@@ -553,8 +553,8 @@ do_listing(Source, TargetDir, Type, Ext) ->
 get_files(Config, Module, OutputName) ->
     code:delete(Module),
     code:purge(Module),
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Src = filename:join(DataDir, atom_to_list(Module)),
     TargetDir = filename:join(PrivDir, OutputName),
     ok = file:make_dir(TargetDir),
@@ -578,8 +578,8 @@ exists(Name) ->
 
 
 strict_record(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line file:set_cwd(?config(data_dir, Config)),
+    Priv = proplists:get_value(priv_dir, Config),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
     ?line Opts = [{outdir,Priv},report_errors],
     M = record_access,
  
@@ -621,8 +621,8 @@ test_sloppy() ->
     Turtle.
 
 missing_testheap(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Opts = [{outdir,PrivDir}],
     OldPath = code:get_path(),
     try
@@ -702,7 +702,7 @@ env_1(Simple, Target) ->
 %% compile the generated Core Erlang files.
 
 core(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Outdir = filename:join(PrivDir, "core"),
     ok = file:make_dir(Outdir),
 
@@ -765,7 +765,7 @@ compile_forms(Forms, Opts) ->
 %% run .S through the compiler again.
 
 asm(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Outdir = filename:join(PrivDir, "asm"),
     ?line ok = file:make_dir(Outdir),
 
@@ -799,7 +799,7 @@ do_asm(Beam, Outdir) ->
     end.
 
 sys_pre_attributes(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "attributes.erl"),
     Mod = attributes,
     CommonOpts = [binary,report,verbose,
@@ -831,8 +831,8 @@ sys_pre_attributes(Config) ->
 
 %% Test the dialyzer option to cover more code.
 dialyzer(Config) ->
-    Priv = ?config(priv_dir, Config),
-    file:set_cwd(?config(data_dir, Config)),
+    Priv = proplists:get_value(priv_dir, Config),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
     Opts = [{outdir,Priv},report_errors],
     M = dialyzer_test,
     {ok,M} = c:c(M, [dialyzer|Opts]),
