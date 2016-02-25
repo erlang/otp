@@ -407,15 +407,15 @@ options_api(Config) when is_list(Config) ->
     {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
     none = rpc:call(Node, heart, get_options, []),
 
-    ok = rpc:call(Node, heart, set_options, [[scheduler]]),
-    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+    ok = rpc:call(Node, heart, set_options, [[check_schedulers]]),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
     ok = rpc:call(Node, heart, set_options, [[]]),
     none = rpc:call(Node, heart, get_options, []),
 
-    ok = rpc:call(Node, heart, set_options, [[scheduler]]),
-    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+    ok = rpc:call(Node, heart, set_options, [[check_schedulers]]),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
     {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
-    {ok, [scheduler]} = rpc:call(Node, heart, get_options, []),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
 
     receive after 3000 -> ok end, %% wait 3 secs
 

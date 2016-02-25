@@ -53,9 +53,14 @@
 -define(CYCLE_TIMEOUT, 10000).
 -define(HEART_PORT_NAME, heart_port).
 
+%% valid heart options
+-define(SCHEDULER_CHECK_OPT, check_schedulers).
+
+-type heart_option() :: ?SCHEDULER_CHECK_OPT.
+
 -record(state,{port :: port(),
                cmd  :: [] | binary(),
-               options :: [atom()],
+               options :: [heart_option()],
                callback :: 'undefined' | {atom(), atom()}}).
 
 %%---------------------------------------------------------------------
@@ -144,7 +149,7 @@ clear_callback() ->
     wait().
 
 -spec set_options(Options) -> 'ok' | {'error', {'bad_options', Options}} when
-      Options :: [atom()].
+      Options :: [heart_option()].
 
 set_options(Options) ->
     ?MODULE ! {self(), set_options, Options},
@@ -314,7 +319,7 @@ no_reboot_shutdown(Port) ->
 
 validate_options(Opts) -> validate_options(Opts,[]).
 validate_options([],Res) -> Res;
-validate_options([scheduler=Opt|Opts],Res) -> validate_options(Opts,[Opt|Res]);
+validate_options([?SCHEDULER_CHECK_OPT=Opt|Opts],Res) -> validate_options(Opts,[Opt|Res]);
 validate_options(_,_) -> error.
 
 do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
@@ -365,7 +370,7 @@ get_heart_cmd(Port) ->
     end.
 
 check_system([]) -> ok;
-check_system([scheduler|Opts]) ->
+check_system([?SCHEDULER_CHECK_OPT|Opts]) ->
     ok = erts_internal:system_check(schedulers),
     check_system(Opts).
 

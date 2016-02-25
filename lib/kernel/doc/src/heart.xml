@@ -118,6 +118,13 @@
     <p>In the following descriptions, all function fails with reason
       <c>badarg</c> if <c>heart</c> is not started.</p>
   </description>
+
+  <datatypes>
+      <datatype>
+          <name name="heart_option"/>
+      </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name name="set_cmd" arity="1"/>
@@ -188,12 +195,12 @@
         <desc>
             <p> Valid options <c>set_options</c> are: </p>
             <taglist>
-                <tag><c>scheduler</c></tag>
+                <tag><c>check_schedulers</c></tag>
                 <item>
-                    <p>If enabled, a message will be sent to each scheduler to check its
+                    <p>If enabled, a signal will be sent to each scheduler to check its
                         responsiveness. The system check occurs before any heartbeat sent
                         to the port program. If any scheduler is not responsive enough the
-                        heart program will not receive its heartpeat and terminate the node.
+                        heart program will not receive its heartbeat and thus eventually terminate the node.
                     </p>
                 </item>
             </taglist>
