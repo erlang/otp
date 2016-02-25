@@ -333,7 +333,7 @@
 
     <func>
       <name>position(ChannelPid, Handle, Location) -></name>
-      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, Error}</name>
+      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition} | {error, Reason}</name>
       <fsummary>Sets the file position of a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -399,7 +399,7 @@
 
     <func>
       <name>pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
-      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Error}</name>
+      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -592,7 +592,7 @@
 
     <func>
       <name>write(ChannelPid, Handle, Data) -></name>
-      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
+      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
