@@ -65,6 +65,7 @@ static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
 static Export *gather_gc_info_res_trap;
+static Export *gather_system_check_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -3784,6 +3785,18 @@ BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE erts_internal_system_check_1(BIF_ALIST_1)
+{
+    Eterm res;
+    if (ERTS_IS_ATOM_STR("schedulers", BIF_ARG_1)) {
+	res = erts_system_check_request(BIF_P);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_system_check_res_trap, BIF_P, res);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 static erts_smp_atomic_t hipe_test_reschedule_flag;
 
@@ -4391,6 +4404,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     gather_io_bytes_trap
 	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
+    gather_system_check_res_trap
+	= erts_export_put(am_erts_internal, am_gather_system_check_result, 1);
     process_info_init();
     os_info_init();
 }
