@@ -332,7 +332,8 @@ invalid_opt(Config) ->
     Opts1 = ?DEFAULT_SSH_OPTS(DataDir) ++ [{timeout,invalidvalue}],
     {error,{invalid_option,{timeout,invalidvalue}}} = ct_netconfc:open(Opts1),
     Opts2 = ?DEFAULT_SSH_OPTS(DataDir) ++ [{some_other_opt,true}],
-    {error,{invalid_option,{some_other_opt,true}}} = ct_netconfc:open(Opts2),
+    {error,{ssh,could_not_connect_to_server,{options,_}}} =
+	ct_netconfc:open(Opts2),
     ok.
 
 timeout_close_session(Config) ->
