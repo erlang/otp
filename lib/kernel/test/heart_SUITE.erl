@@ -27,6 +27,8 @@
 	 node_start_immediately_after_crash/1,
 	 node_start_soon_after_crash/1,
 	 set_cmd/1, clear_cmd/1, get_cmd/1,
+	 callback_api/1,
+         options_api/1,
 	 dont_drop/1, kill_pid/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -66,6 +68,8 @@ all() -> [
 	node_start_immediately_after_crash,
 	node_start_soon_after_crash,
 	set_cmd, clear_cmd, get_cmd,
+	callback_api,
+        options_api,
 	kill_pid
     ].
 
@@ -357,6 +361,69 @@ get_cmd(Config) when is_list(Config) ->
     {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
     stop_node(Node),
     ok.
+
+callback_api(Config) when is_list(Config) ->
+    {ok, Node} = start_check(slave, heart_test),
+    none = rpc:call(Node, heart, get_callback, []),
+    M0 = self(),
+    F0 = ok,
+    {error, {bad_callback, {M0,F0}}} = rpc:call(Node, heart, set_callback, [M0,F0]),
+    none = rpc:call(Node, heart, get_callback, []),
+    M1 = lists:duplicate(28, $a),
+    F1 = lists:duplicate(28, $b),
+    {error, {bad_callback, {M1,F1}}} = rpc:call(Node, heart, set_callback, [M1,F1]),
+    none = rpc:call(Node, heart, get_callback, []),
+
+    M2 = heart_check_module,
+    F2 = cb_ok,
+    F3 = cb_error,
+    Code0 = generate(M2, [], [
+	    atom_to_list(F2) ++ "() -> ok.",
+            atom_to_list(F3) ++ "() -> exit(\"callback_error (as intended)\")."
+	]),
+    {module, M2} = rpc:call(Node, erlang, load_module, [M2, Code0]),
+    ok = rpc:call(Node, M2, F2, []),
+    ok = rpc:call(Node, heart, set_callback, [M2,F2]),
+    {ok, {M2,F2}} = rpc:call(Node, heart, get_callback, []),
+    ok = rpc:call(Node, heart, clear_callback, []),
+    none = rpc:call(Node, heart, get_callback, []),
+    ok = rpc:call(Node, heart, set_callback, [M2,F2]),
+    {ok, {M2,F2}} = rpc:call(Node, heart, get_callback, []),
+    ok = rpc:call(Node, heart, set_callback, [M2,F3]),
+    receive {nodedown, Node} -> ok
+    after 5000 -> test_server:fail(node_not_killed)
+    end,
+    stop_node(Node),
+    ok.
+
+options_api(Config) when is_list(Config) ->
+    {ok, Node} = start_check(slave, heart_test),
+    none = rpc:call(Node, heart, get_options, []),
+    M0 = self(),
+    F0 = ok,
+    {error, {bad_options, {M0,F0}}} = rpc:call(Node, heart, set_options, [{M0,F0}]),
+    none = rpc:call(Node, heart, get_options, []),
+    Ls = lists:duplicate(28, $b),
+    {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
+    none = rpc:call(Node, heart, get_options, []),
+
+    ok = rpc:call(Node, heart, set_options, [[check_schedulers]]),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
+    ok = rpc:call(Node, heart, set_options, [[]]),
+    none = rpc:call(Node, heart, get_options, []),
+
+    ok = rpc:call(Node, heart, set_options, [[check_schedulers]]),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
+    {error, {bad_options, Ls}} = rpc:call(Node, heart, set_options, [Ls]),
+    {ok, [check_schedulers]} = rpc:call(Node, heart, get_options, []),
+
+    receive after 3000 -> ok end, %% wait 3 secs
+
+    ok = rpc:call(Node, heart, set_options, [[]]),
+    none = rpc:call(Node, heart, get_options, []),
+    stop_node(Node),
+    ok.
+
 
 dont_drop(suite) -> 
 %%% Removed as it may crash epmd/distribution in colourful

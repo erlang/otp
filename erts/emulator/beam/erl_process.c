@@ -959,10 +959,24 @@ typedef struct {
     erts_smp_atomic32_t refc;
 } ErtsSchedWallTimeReq;
 
+typedef struct {
+    Process *proc;
+    Eterm ref;
+    Eterm ref_heap[REF_THING_SIZE];
+    Uint req_sched;
+    erts_smp_atomic32_t refc;
+} ErtsSystemCheckReq;
+
+
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(swtreq,
-                                 ErtsSchedWallTimeReq,
-                                 5,
-                                 ERTS_ALC_T_SCHED_WTIME_REQ)
+				 ErtsSchedWallTimeReq,
+				 5,
+				 ERTS_ALC_T_SCHED_WTIME_REQ)
+
+ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(screq,
+				 ErtsSystemCheckReq,
+				 5,
+				 ERTS_ALC_T_SYS_CHECK_REQ)
 
 static void
 reply_sched_wall_time(void *vswtrp)
@@ -1091,6 +1105,75 @@ erts_sched_wall_time_request(Process *c_p, int set, int enable)
 #endif
 
     reply_sched_wall_time((void *) swtrp);
+
+    return ref;
+}
+
+static void
+reply_system_check(void *vscrp)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsSystemCheckReq *scrp = (ErtsSystemCheckReq *) vscrp;
+    ErtsProcLocks rp_locks = (scrp->req_sched == esdp->no ? ERTS_PROC_LOCK_MAIN : 0);
+    Process *rp = scrp->proc;
+    Eterm msg;
+    Eterm *hp = NULL;
+    Eterm **hpp;
+    Uint sz;
+    ErlOffHeap *ohp = NULL;
+    ErtsMessage *mp = NULL;
+
+    ASSERT(esdp);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+#endif
+
+    sz = REF_THING_SIZE;
+    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
+    hpp = &hp;
+    msg = STORE_NC(hpp, ohp, scrp->ref);
+
+    erts_queue_message(rp, &rp_locks, mp, msg, NIL);
+
+    if (scrp->req_sched == esdp->no)
+	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+
+    erts_proc_dec_refc(rp);
+
+    if (erts_smp_atomic32_dec_read_nob(&scrp->refc) == 0)
+	screq_free(vscrp);
+}
+
+
+Eterm erts_system_check_request(Process *c_p) {
+    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    Eterm ref;
+    ErtsSystemCheckReq *scrp;
+    Eterm *hp;
+
+    scrp = screq_alloc();
+    ref = erts_make_ref(c_p);
+    hp = &scrp->ref_heap[0];
+
+    scrp->proc = c_p;
+    scrp->ref = STORE_NC(&hp, NULL, ref);
+    scrp->req_sched = esdp->no;
+    erts_smp_atomic32_init_nob(&scrp->refc, (erts_aint32_t) erts_no_schedulers);
+
+    erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
+
+#ifdef ERTS_SMP
+    if (erts_no_schedulers > 1)
+	erts_schedule_multi_misc_aux_work(1,
+					  erts_no_schedulers,
+					  reply_system_check,
+					  (void *) scrp);
+#endif
+
+    reply_system_check((void *) scrp);
 
     return ref;
 }
@@ -5775,6 +5858,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
 
     init_misc_aux_work();
     init_swtreq_alloc();
+    init_screq_alloc();
 
     erts_atomic32_init_nob(&debug_wait_completed_count, 0); /* debug only */
     debug_wait_completed_flags = 0;

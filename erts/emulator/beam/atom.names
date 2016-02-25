@@ -273,6 +273,7 @@ atom gather_gc_info_result
 atom gather_io_bytes
 atom gather_microstate_accounting_result
 atom gather_sched_wall_time_result
+atom gather_system_check_result
 atom getting_linked
 atom getting_unlinked
 atom global
