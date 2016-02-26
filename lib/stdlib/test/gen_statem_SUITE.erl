@@ -26,7 +26,9 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [{group, start},
@@ -82,27 +84,24 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_CaseName, Config) ->
-    ?t:messages_get(),
-    Dog = ?t:timetrap(?t:minutes(1)),
+    flush(),
 %%%    dbg:tracer(),
 %%%    dbg:p(all, c),
 %%%    dbg:tpl(gen_statem, cx),
 %%%    dbg:tpl(proc_lib, cx),
 %%%    dbg:tpl(gen, cx),
 %%%    dbg:tpl(sys, cx),
-    [{watchdog, Dog} | Config].
+    Config.
 
 end_per_testcase(_CaseName, Config) ->
 %%%    dbg:stop(),
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(EXPECT_FAILURE(Code, Reason),
 	try begin Code end of
-	    _ ->
-		?t:fail()
+	    Reason ->
+		ct:fail({unexpected,Reason})
 	catch
 	    error:Reason -> Reason;
 	    exit:Reason -> Reason
@@ -110,7 +109,7 @@ end_per_testcase(_CaseName, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% anonymous
-start1(Config) when is_list(Config) ->
+start1(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
     {ok,Pid0} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
@@ -125,7 +124,7 @@ start1(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous w. shutdown
-start2(Config) when is_list(Config) ->
+start2(Config) ->
     %% Dont link when shutdown
     {ok,Pid0} = gen_statem:start(?MODULE, start_arg(Config, []), []),
     ok = do_func_test(Pid0),
@@ -135,7 +134,7 @@ start2(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with timeout
-start3(Config) when is_list(Config) ->
+start3(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
     {ok,Pid0} =
@@ -152,7 +151,7 @@ start3(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with ignore
-start4(Config) when is_list(Config) ->
+start4(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     ignore = gen_statem:start(?MODULE, start_arg(Config, ignore), []),
@@ -161,8 +160,7 @@ start4(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with stop
-start5(suite) -> [];
-start5(Config) when is_list(Config) ->
+start5(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
@@ -171,7 +169,7 @@ start5(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous linked
-start6(Config) when is_list(Config) ->
+start6(Config) ->
     {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -180,7 +178,7 @@ start6(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% global register linked
-start7(Config) when is_list(Config) ->
+start7(Config) ->
     STM = {global,my_stm},
 
     {ok,Pid} =
@@ -200,7 +198,7 @@ start7(Config) when is_list(Config) ->
 
 
 %% local register
-start8(Config) when is_list(Config) ->
+start8(Config) ->
     %%OldFl = process_flag(trap_exit, true),
     Name = my_stm,
     STM = {local,Name},
@@ -220,7 +218,7 @@ start8(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% local register linked
-start9(Config) when is_list(Config) ->
+start9(Config) ->
     %%OldFl = process_flag(trap_exit, true),
     Name = my_stm,
     STM = {local,Name},
@@ -240,7 +238,7 @@ start9(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% global register
-start10(Config) when is_list(Config) ->
+start10(Config) ->
     STM = {global,my_stm},
 
     {ok,Pid} =
@@ -259,7 +257,7 @@ start10(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% Stop registered processes
-start11(Config) when is_list(Config) ->
+start11(Config) ->
     Name = my_stm,
     LocalSTM = {local,Name},
     GlobalSTM = {global,Name},
@@ -278,14 +276,14 @@ start11(Config) when is_list(Config) ->
     receive after 1 -> true end,
     Result =
 	gen_statem:start(GlobalSTM, ?MODULE, start_arg(Config, []), []),
-    io:format("Result = ~p~n",[Result]),
+    ct:log("Result = ~p~n",[Result]),
     {ok,_Pid3} = Result,
     stop_it(GlobalSTM),
 
     ok = verify_empty_msgq().
 
 %% Via register linked
-start12(Config) when is_list(Config) ->
+start12(Config) ->
     dummy_via:reset(),
     VIA = {via,dummy_via,my_stm},
 
@@ -378,19 +376,20 @@ stop7(Config) ->
 
 %% Anonymous on remote node
 stop8(Config) ->
-    {ok,Node} = ?t:start_node(gen_statem_stop8, slave, []),
+    Node = gen_statem_stop8,
+    {ok,NodeName} = ct_slave:start(Node),
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(Node, code, add_path, [Dir]),
+    rpc:call(NodeName, code, add_path, [Dir]),
     {ok,Pid} =
 	rpc:call(
-	  Node, gen_statem,start,
+	  NodeName, gen_statem,start,
 	  [?MODULE,start_arg(Config, []),[]]),
     ok = gen_statem:stop(Pid),
-    false = rpc:call(Node, erlang, is_process_alive, [Pid]),
+    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason1),
-    true = ?t:stop_node(Node),
-    {{nodedown,Node},{sys,terminate,_}} =
+    {ok,NodeName} = ct_slave:stop(Node),
+    {{nodedown,NodeName},{sys,terminate,_}} =
 	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason2),
     ok.
 
@@ -398,46 +397,48 @@ stop8(Config) ->
 stop9(Config) ->
     Name = to_stop,
     LocalSTM = {local,Name},
-    {ok,Node} = ?t:start_node(gen_statem__stop9, slave, []),
-    STM = {Name,Node},
+    Node = gen_statem__stop9,
+    {ok,NodeName} = ct_slave:start(Node),
+    STM = {Name,NodeName},
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(Node, code, add_path, [Dir]),
+    rpc:call(NodeName, code, add_path, [Dir]),
     {ok,Pid} =
 	rpc:call(
-	  Node, gen_statem, start,
+	  NodeName, gen_statem, start,
 	  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
     ok = gen_statem:stop(STM),
-    undefined = rpc:call(Node,erlang,whereis,[Name]),
-    false = rpc:call(Node,erlang,is_process_alive,[Pid]),
+    undefined = rpc:call(NodeName,erlang,whereis,[Name]),
+    false = rpc:call(NodeName,erlang,is_process_alive,[Pid]),
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    true = ?t:stop_node(Node),
-    {{nodedown,Node},{sys,terminate,_}} =
+    {ok,NodeName} = ct_slave:stop(Node),
+    {{nodedown,NodeName},{sys,terminate,_}} =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
 
 %% Globally registered name on remote node
 stop10(Config) ->
+    Node = gen_statem_stop10,
     STM = {global,to_stop},
-    {ok,Node} = ?t:start_node(gen_statem_stop10, slave, []),
+    {ok,NodeName} = ct_slave:start(Node),
     Dir = filename:dirname(code:which(?MODULE)),
-    rpc:call(Node,code,add_path,[Dir]),
+    rpc:call(NodeName,code,add_path,[Dir]),
     {ok,Pid} =
 	rpc:call(
-	  Node, gen_statem, start,
+	  NodeName, gen_statem, start,
 	  [STM,?MODULE,start_arg(Config, []),[]]),
     global:sync(),
     ok = gen_statem:stop(STM),
-    false = rpc:call(Node, erlang, is_process_alive, [Pid]),
+    false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason1),
-    true = ?t:stop_node(Node),
+    {ok,NodeName} = ct_slave:stop(Node),
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(STM), Reason2),
     ok.
 
 %% Check that time outs in calls work
-abnormal1(Config) when is_list(Config) ->
+abnormal1(Config) ->
     Name = abnormal1,
     LocalSTM = {local,Name},
 
@@ -455,7 +456,7 @@ abnormal1(Config) when is_list(Config) ->
 
 %% Check that bad return values makes the stm crash. Note that we must
 %% trap exit since we must link to get the real bad_return_ error
-abnormal2(Config) when is_list(Config) ->
+abnormal2(Config) ->
     OldFl = process_flag(trap_exit, true),
     {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
 
@@ -465,13 +466,13 @@ abnormal2(Config) when is_list(Config) ->
     receive
 	{'EXIT',Pid,{bad_return_value,badreturn}} -> ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
 
-shutdown(Config) when is_list(Config) ->
+shutdown(Config) ->
     process_flag(trap_exit, true),
 
     {ok,Pid0} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
@@ -486,15 +487,15 @@ shutdown(Config) when is_list(Config) ->
 
     receive
 	Any ->
-	    io:format("Unexpected: ~p", [Any]),
-	    ?t:fail()
+	    ct:log("Unexpected: ~p", [Any]),
+	    ct:fail({unexpected,Any})
     after 500 ->
 	    ok
     end.
 
 
 
-sys1(Config) when is_list(Config) ->
+sys1(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
     {status, Pid, {module,gen_statem}, _} = sys:get_status(Pid),
     sys:suspend(Pid),
@@ -507,7 +508,7 @@ sys1(Config) when is_list(Config) ->
 	  end),
     receive
 	{Tag,_} ->
-	    ?t:fail()
+	    ct:fail(should_be_suspended)
     after 3000 ->
 	    exit(Caller, ok)
     end,
@@ -517,7 +518,7 @@ sys1(Config) when is_list(Config) ->
     sys:resume(Pid),
     stop_it(Pid).
 
-call_format_status(Config) when is_list(Config) ->
+call_format_status(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
     Status = sys:get_status(Pid),
     {status,Pid,_Mod,[_PDict,running,_,_, Data]} = Status,
@@ -573,7 +574,7 @@ call_format_status(Config) when is_list(Config) ->
 
 
 
-error_format_status(Config) when is_list(Config) ->
+error_format_status(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     Data = "called format_status",
@@ -593,10 +594,10 @@ error_format_status(Config) when is_list(Config) ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
 	    error_logger_forwarder:unregister(),
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 1000 ->
 	    error_logger_forwarder:unregister(),
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
     process_flag(trap_exit, OldFl),
     error_logger_forwarder:unregister(),
@@ -609,7 +610,7 @@ error_format_status(Config) when is_list(Config) ->
     end,
     ok = verify_empty_msgq().
 
-terminate_crash_format(Config) when is_list(Config) ->
+terminate_crash_format(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     Data = crash_terminate,
@@ -629,10 +630,10 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
 	    error_logger_forwarder:unregister(),
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 1000 ->
 	    error_logger_forwarder:unregister(),
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
     process_flag(trap_exit, OldFl),
     error_logger_forwarder:unregister(),
@@ -646,7 +647,7 @@ terminate_crash_format(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 
-get_state(Config) when is_list(Config) ->
+get_state(Config) ->
     State = self(),
     {ok,Pid} =
 	gen_statem:start(
@@ -675,7 +676,7 @@ get_state(Config) when is_list(Config) ->
     stop_it(Pid3),
     ok = verify_empty_msgq().
 
-replace_state(Config) when is_list(Config) ->
+replace_state(Config) ->
     State = self(),
     {ok, Pid} =
 	gen_statem:start(
@@ -707,7 +708,7 @@ replace_state(Config) when is_list(Config) ->
     ok = verify_empty_msgq().
 
 %% Hibernation
-hibernate(Config) when is_list(Config) ->
+hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {ok,Pid0} =
@@ -718,7 +719,7 @@ hibernate(Config) when is_list(Config) ->
     receive
 	{'EXIT',Pid0,normal} -> ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     {ok,Pid} =
@@ -801,7 +802,7 @@ hibernate(Config) when is_list(Config) ->
     receive
 	{'EXIT',Pid,normal} -> ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
     ok = verify_empty_msgq().
 
@@ -810,8 +811,8 @@ is_in_erlang_hibernate(Pid) ->
     is_in_erlang_hibernate_1(200, Pid).
 
 is_in_erlang_hibernate_1(0, Pid) ->
-    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -827,8 +828,8 @@ is_not_in_erlang_hibernate(Pid) ->
     is_not_in_erlang_hibernate_1(200, Pid).
 
 is_not_in_erlang_hibernate_1(0, Pid) ->
-    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ?t:fail(not_in_erlang_hibernate_3);
+    ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
 is_not_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
@@ -839,10 +840,8 @@ is_not_in_erlang_hibernate_1(N, Pid) ->
 	    ok
     end.
 
-%%sys1(suite) -> [];
-%%sys1(_) ->
 
-enter_loop(Config) when is_list(Config) ->
+enter_loop(_Config) ->
     OldFlag = process_flag(trap_exit, true),
 
     dummy_via:reset(),
@@ -856,7 +855,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid1a,normal} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Unregistered process + {local,Name}
@@ -866,7 +865,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid1b,process_not_registered} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Globally registered process + {global,Name}
@@ -878,7 +877,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid2a,normal} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Unregistered process + {global,Name}
@@ -888,7 +887,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid2b,process_not_registered_globally} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Unregistered process + no name
@@ -900,7 +899,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid3,normal} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Process not started using proc_lib
@@ -913,7 +912,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid4,process_was_not_started_by_proc_lib} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Make sure I am the parent, ie that ordering a shutdown will
@@ -926,7 +925,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid5,shutdown} ->
 	    ok
     after 5000 ->
-	    ?t:fail(gen_statem_did_not_die)
+	    ct:fail(gen_statem_did_not_die)
     end,
 
     %% Make sure gen_statem:enter_loop does not accept {local,Name}
@@ -939,7 +938,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid6a,process_not_registered} ->
 	    ok
     after 1000 ->
-	    ?t:fail(gen_statem_started)
+	    ct:fail(gen_statem_started)
     end,
     unregister(armitage),
 
@@ -953,7 +952,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid6b,process_not_registered_globally} ->
 	    ok
     after 1000 ->
-	    ?t:fail(gen_statem_started)
+	    ct:fail(gen_statem_started)
     end,
     global:unregister_name(armitage),
 
@@ -964,7 +963,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT',Pid6c,{process_not_registered_via,dummy_via}} ->
 	    ok
     after 1000 ->
-	    ?t:fail(
+	    ct:fail(
 	      {gen_statem_started,
 	       process_info(self(), messages)})
     end,
@@ -1105,7 +1104,7 @@ do_sync_disconnect(STM) ->
 
 verify_empty_msgq() ->
     receive after 500 -> ok end,
-    [] = ?t:messages_get(),
+    [] = flush(),
     ok.
 
 start_arg(Config, Arg) ->
@@ -1388,3 +1387,11 @@ format_status(terminate, [_Pdict,State,Data]) ->
     {formatted,State,Data};
 format_status(normal, [_Pdict,_State,_Data]) ->
     [format_status_called].
+
+flush() ->
+    receive
+	Msg ->
+	    [Msg|flush()]
+    after 0 ->
+	    []
+    end.
