@@ -37,11 +37,13 @@
 	 cover_beam_bool/1,matched_out_size/1,follow_fail_branch/1,
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
-	 map_and_binary/1,unsafe_branch_caching/1]).
+	 map_and_binary/1,unsafe_branch_caching/1,
+	 bad_literals/1,good_literals/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -64,7 +66,8 @@ groups() ->
        cover_beam_bool,matched_out_size,follow_fail_branch,
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
-       map_and_binary,unsafe_branch_caching]}].
+       map_and_binary,unsafe_branch_caching,
+       bad_literals,good_literals]}].
 
 
 init_per_suite(Config) ->
@@ -1292,6 +1295,96 @@ do_unsafe_branch_caching(<<Code/integer, Bin/binary>>) ->
 	1 -> do_unsafe_branch_caching(Bin2);
 	_ -> Bin2
     end.
+
+bad_literals(_Config) ->
+    Mod = list_to_atom(?MODULE_STRING ++ "_" ++
+			   atom_to_list(?FUNCTION_NAME)),
+    S = [signed_lit_match(V, Sz) || V <- lists:seq(-8, 8),
+				    Sz <- [0,1,2,3]] ++
+	[unsigned_lit_match(V, Sz) || V <- lists:seq(-2, 8),
+				      Sz <- [0,1,2]] ++
+	[unicode_match(V) ||
+	    V <- [-100,-1,0,1,2|lists:seq(16#10FFFC, 16#110004)]],
+    Code = ?Q(["-module('@Mod@').\n"
+	       "-export([f/0]).\n"
+	       "f() ->\n"
+	       "_@S,\n"
+	       "ok.\n"]),
+    merl:print(Code),
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok,_} = merl:compile_and_load(Code, Opts),
+    Mod:f(),
+
+    {'EXIT',<<42>>} = (catch bad_literals_1()),
+
+    Sz = id(8),
+    {'EXIT',{{badmatch,_},_}} = (catch <<-1:Sz>> = <<-1>>),
+    ok.
+
+bad_literals_1() ->
+    BadSz = bad,
+    case case <<42>> of
+	     <<42:BadSz>> -> ok;
+	     Val -> exit(Val)
+	 end of
+	ok -> ok;
+	error -> error
+    end.
+
+signed_lit_match(V, Sz) ->
+    case <<V:Sz>> of
+	<<V:Sz/signed>> ->
+	    ?Q("<<_@V@:_@Sz@/signed>> = <<_@V@:_@Sz@>>");
+	_ ->
+	    ?Q(["case <<_@V@:_@Sz@>> of\n",
+		" <<_@V@:_@Sz@/signed>> ->\n",
+		"  ct:fail(should_not_match);\n",
+		" _ ->\n",
+		"  ok\n",
+		"end\n"])
+    end.
+
+unsigned_lit_match(V, Sz) ->
+    case <<V:Sz>> of
+	<<V:Sz/unsigned>> ->
+	    ?Q("<<_@V@:_@Sz@>> = <<_@V@:_@Sz@>>");
+	_ ->
+	    ?Q(["case <<_@V@:_@Sz@>> of\n",
+		" <<_@V@:_@Sz@/unsigned>> ->\n",
+		"  ct:fail(should_not_match);\n",
+		" _ ->\n",
+		"  ok\n",
+		"end\n"])
+    end.
+
+unicode_match(V) ->
+    try <<V/utf8>> of
+	<<V/utf8>> ->
+	    ?Q(["<<_@V@/utf8>> = <<_@V@/utf8>>,\n",
+		"<<_@V@/utf16>> = <<_@V@/utf16>>,\n",
+		"<<_@V@/utf32>> = <<_@V@/utf32>>\n"])
+    catch
+	error:badarg ->
+	    ?Q(["case <<_@V@:32>> of\n",
+		" <<_@V@/utf32>> ->\n",
+		"  ct:fail(should_not_match);\n",
+		" _ ->\n",
+		"  ok\n",
+		"end\n"])
+    end.
+
+%% Test a few legal but rare cases.
+
+good_literals(_Config) ->
+    Sz = id(64),
+
+    %% Variable size.
+    <<42:Sz>> = id(<<42:Sz>>),
+    <<42.0:Sz/float>> = id(<<42:Sz/float>>),
+
+    %% unit > 1
+    <<16#cafebeef:4/unit:8>> = id(<<16#cafebeef:32>>),
+    ok.
 
 
 check(F, R) ->
