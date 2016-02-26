@@ -31,7 +31,9 @@
 	 app_test/1,appup_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [app_test, appup_test, erts_debug, no_abstract_code,
@@ -54,11 +56,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?t:minutes(0.5)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->

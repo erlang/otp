@@ -19,6 +19,7 @@
 
 -module(erl_eval_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
 -export([guard_1/1, guard_2/1,
@@ -43,38 +44,23 @@
 	 eval_expr_5/1,
          eep37/1]).
 
-%%
-%% Define to run outside of test server
-%%
-%%-define(STANDALONE,1).
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists,[concat/1, sort/1]).
 
 -export([count_down/2, count_down_fun/0, do_apply/2,
          local_func/3, local_func_value/2]).
 
--ifdef(STANDALONE).
--define(config(A,B),config(A,B)).
--export([config/2]).
--define(line, noop, ).
-config(priv_dir,_) ->
-    ".".
--else.
--include_lib("common_test/include/ct.hrl").
--export([init_per_testcase/2, end_per_testcase/2]).
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
--endif.
+    Config.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+end_per_testcase(_Case, _Config) ->
+    ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,

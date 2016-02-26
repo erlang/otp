@@ -31,7 +31,9 @@
 
 -export([auto_attach/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, cleanup].
@@ -57,13 +59,10 @@ init_per_testcase(_Case, Config) ->
     ?line Mod = ordsets1,
     ?line {module,Mod} = int:i(filename:join(DataDir, Mod)),
     ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
-    ?line Dog = test_server:timetrap(?t:minutes(0.5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
-    ?line Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 basic(doc) -> "Tests setting a few break points.";

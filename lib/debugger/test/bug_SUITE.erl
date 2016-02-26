@@ -28,7 +28,9 @@
 
 -export([otp2163/1, otp4845/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, ticket_tests}].

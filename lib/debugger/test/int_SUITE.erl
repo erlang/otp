@@ -31,12 +31,8 @@
 -export([interpret/1, guards/1, interpretable/1]).
 -export([ append_1/1, append_2/1, member/1, reverse/1]).
 
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(interpretable, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config];
+    Config;
 init_per_testcase(_Case, Config) ->
 
     %% Interpret some existing and non-existing modules
@@ -44,12 +40,9 @@ init_per_testcase(_Case, Config) ->
     ?line {module, lists1} = int:i(filename:join([DataDir,lists1])),
     ?line {module, guards} = int:i(filename:join([DataDir,guards])),
 
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(interpretable, Config) ->
-    ?line Dog=?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
+end_per_testcase(interpretable, _Config) ->
     ok;
 end_per_testcase(_Case, Config) ->
 
@@ -57,11 +50,11 @@ end_per_testcase(_Case, Config) ->
     ?line ok = int:n(lists1),
     ?line ok = int:n(guards),
 
-    ?line Dog=?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [interpret, guards, {group, list_suite}, interpretable].
