@@ -41,7 +41,9 @@
 %% reasonable on different machines; therefore the test can sometimes
 %% fail, even though the timer module is ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [do_big_test].
@@ -65,11 +67,9 @@ end_per_group(_GroupName, Config) ->
 %% ------------------------------------------------------- %%
 
 do_big_test(TConfig) when is_list(TConfig) ->
-    Dog = ?t:timetrap(?t:minutes(20)),
     Save = process_flag(trap_exit, true),
     Result = big_test(200),
     process_flag(trap_exit, Save),
-    ?t:timetrap_cancel(Dog),
     report_result(Result).
 
 report_result(ok) -> ok;

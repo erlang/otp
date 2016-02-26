@@ -49,15 +49,14 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [basic, badarg, term_sort, term_keysort,

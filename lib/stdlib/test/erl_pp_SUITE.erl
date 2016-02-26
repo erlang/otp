@@ -55,19 +55,15 @@
 %% Internal export.
 -export([ehook/6]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [{group, expr}, {group, attributes}, hook, neg_indent,

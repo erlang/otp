@@ -33,15 +33,14 @@
 -include_lib("kernel/include/file.hrl").
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,

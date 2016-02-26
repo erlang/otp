@@ -64,16 +64,15 @@ config(priv_dir,_) ->
 	 init_per_testcase/2, end_per_testcase/2, 
 	 return_values/1]).
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    ?line Dog=test_server:timetrap(test_server:seconds(1200)),
-    [{watchdog, Dog}|Config].
+init_per_testcase(_Case, Config) ->
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [return_values, select_test].

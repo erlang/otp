@@ -50,19 +50,16 @@ config(data_dir, _) ->
 -include_lib("common_test/include/ct.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_, _Config) ->
     ok.
 -endif.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [rec_1, {group, upcase_mac}, include_local, predef_mac,

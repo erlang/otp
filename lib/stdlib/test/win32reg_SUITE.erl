@@ -24,7 +24,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,10}}].
 
 all() -> 
     [long, evil_write].
@@ -52,8 +54,6 @@ end_per_suite(Config) when is_list(Config) ->
 
 long(doc) -> "Test long keys and entries (OTP-3446).";
 long(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
-
     LongKey = "software\\" ++
 	lists:flatten(lists:duplicate(10, "..\\software\\")) ++
 	"Ericsson\\Erlang",
@@ -76,12 +76,9 @@ long(Config) when is_list(Config) ->
     %% Done.
 
     ok = win32reg:close(Reg),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 evil_write(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
-
     Key = "Software\\Ericsson\\Erlang",
     {ok,Reg} = win32reg:open([read,write]),
     ok = win32reg:change_key(Reg, "\\hkcu"),
@@ -95,7 +92,6 @@ evil_write(Config) when is_list(Config) ->
 
     %% Done.
     ok = win32reg:close(Reg),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 evil_write_1(Reg, [_|[_|_]=Key]=Key0) ->

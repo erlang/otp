@@ -25,8 +25,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
-
 % Test server specific exports
 -export([all/0]).
 -export([suite/0]).
@@ -46,7 +44,8 @@
 -define(badarg(F,_Args), {'EXIT', {badarg, [{maps,F,_,_}|_]}}).
 
 suite() ->
-    [{ct_hooks, [ts_install_cth]}].
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [t_get_3,t_filter_2,
@@ -60,12 +59,9 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 t_get_3(Config) when is_list(Config) ->

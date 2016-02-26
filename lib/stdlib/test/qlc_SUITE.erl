@@ -107,19 +107,15 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(5)).
-
 init_per_testcase(Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{?TESTCASE, Case}, {watchdog, Dog} | Config].
+    [{?TESTCASE, Case} | Config].
 
 end_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [{group, parse_transform}, {group, evaluation},

@@ -22,11 +22,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%% Default timetrap timeout (set in init_per_testcase).
-%% This should be set relatively high (10-15 times the expected
-%% max testcasetime).
--define(default_timeout, ?t:seconds(60)).
-
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -66,7 +61,9 @@
 %%
 %% all/1
 %%
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [new_test, fix_test, relax_test, resize_test,
@@ -93,12 +90,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 -define(LEAFSIZE,10).

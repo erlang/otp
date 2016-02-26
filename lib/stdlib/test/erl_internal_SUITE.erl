@@ -28,7 +28,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [behav].
@@ -49,15 +51,10 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
--define(default_timeout, ?t:minutes(2)).
-
 init_per_testcase(_Case, Config) ->
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 behav(suite) -> [];

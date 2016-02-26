@@ -43,7 +43,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [basic, errors, strange_name, emulator_flags,
@@ -68,12 +70,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

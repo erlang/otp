@@ -19,6 +19,7 @@
 
 -module(erl_eval_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
 -export([guard_1/1, guard_2/1,
@@ -65,19 +66,17 @@ config(priv_dir,_) ->
     ".".
 -else.
 -include_lib("common_test/include/ct.hrl").
--export([init_per_testcase/2, end_per_testcase/2]).
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 -endif.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(_Case, _Config) ->
+    ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,

@@ -30,7 +30,9 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [starting, mini_terminate, mini_die, badstart, simple_global_supervisor].
@@ -77,9 +79,9 @@ miniappl(N) ->
     process_flag(trap_exit,true),
     ?line {ok,Server} = start(3),
     ?line Client = spawn_link(?MODULE,client,[N]),
-    ?line Handle = test_server:timetrap(2000),
-    ?line miniappl_loop(Client,Server),
-    ?line test_server:timetrap_cancel(Handle).
+    ct:timetrap({seconds,2}),
+    miniappl_loop(Client, Server).
+
 
 miniappl_loop([],[]) ->
     ok;
@@ -173,8 +175,6 @@ terminate(_Reason, _State) ->
 badstart(suite) -> [];
 badstart(doc) -> "Test various bad ways of starting a supervisor bridge.";
 badstart(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
-
     %% Various bad arguments.
 
     ?line {'EXIT',_} =
@@ -199,7 +199,6 @@ badstart(Config) when is_list(Config) ->
     ?line receive
 	      {'EXIT', Pid, killed} -> ok
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -208,7 +207,6 @@ badstart(Config) when is_list(Config) ->
 simple_global_supervisor(suite) -> [];
 simple_global_supervisor(doc) -> "Globally registered supervisor.";
 simple_global_supervisor(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap({seconds,10}),
 
     Child = {child, {?MODULE,server9212,[]}, permanent, 2000, worker, []},
     InitResult = {ok, {{one_for_all,3,60}, [Child]}},
@@ -225,7 +223,6 @@ simple_global_supervisor(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     exit(Sup, kill),
     ?line receive {'EXIT', Sup, killed} -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 server9212() ->

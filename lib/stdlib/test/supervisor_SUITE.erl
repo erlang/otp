@@ -22,7 +22,6 @@
 -module(supervisor_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--define(TIMEOUT, ?t:minutes(1)).
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -78,7 +77,8 @@
 %%-------------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
@@ -144,11 +144,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?TIMEOUT),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    ?t:timetrap_cancel(?config(watchdog,Config)),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 start_link(InitResult) ->

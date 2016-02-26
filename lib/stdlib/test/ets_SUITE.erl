@@ -116,19 +116,18 @@ init_per_testcase(Case, Config) ->
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     start_spawn_logger(),
     wait_for_test_procs(), %% Ensure previous case cleaned up
-    Dog=test_server:timetrap(test_server:minutes(20)),
     put('__ETS_TEST_CASE__', Case),
-    [{watchdog, Dog}, {test_case, Case} | Config].
+    [{test_case, Case} | Config].
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    wait_for_test_procs(true),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    wait_for_test_procs(true).
    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [{group, new}, {group, insert}, {group, lookup},
@@ -1308,13 +1307,9 @@ match_heavy(Config) when is_list(Config) ->
     %% running the test function.
     put(where_to_read,DataDir),
     put(where_to_write,PrivDir),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),    
-    NewDog=test_server:timetrap(test_server:seconds(1000)),
-    NewConfig = [{watchdog, NewDog} | lists:keydelete(watchdog,1,Config)],
     random_test(),
     drop_match(),
-    NewConfig.
+    ok.
 
 %%% Extra safety for the very low probability that this is not
 %%% caught by the random test (Statistically impossible???) 

@@ -33,7 +33,9 @@
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [multiple_fixes, multiple_processes,
@@ -70,12 +72,9 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(_Func, Config) ->
     PrivDir = ?config(priv_dir,Config),    
     file:make_dir(PrivDir),
-    Dog=test_server:timetrap(test_server:seconds(60)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     lists:foreach(fun(X) ->
 			  (catch dets:close(X)),
 			  (catch file:delete(dets_filename(X,Config)))

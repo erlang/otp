@@ -32,7 +32,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [absname, absname_2,
@@ -181,7 +183,6 @@ absname_2(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 basename_1(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     "." = filename:basename("."),
     "foo" = filename:basename("foo"),
     "foo" = filename:basename("/usr/foo"),
@@ -202,11 +203,9 @@ basename_1(Config) when is_list(Config) ->
             "strange\\but\\true" =
                 filename:basename("strange\\but\\true")
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 basename_2(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     "." = filename:basename(".", ".erl"),
     "foo" = filename:basename("foo.erl", ".erl"),
     "foo" = filename:basename('foo.erl', ".erl"),
@@ -232,7 +231,6 @@ basename_2(Config) when is_list(Config) ->
             "strange\\but\\true" =
                 filename:basename("strange\\but\\true", ".erl")
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -553,7 +551,6 @@ absname_bin_2(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 basename_bin_1(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     <<".">> = filename:basename(<<".">>),
     <<"foo">> = filename:basename(<<"foo">>),
     <<"foo">> = filename:basename(<<"/usr/foo">>),
@@ -565,11 +562,9 @@ basename_bin_1(Config) when is_list(Config) ->
         _ ->
             <<"strange\\but\\true">> = filename:basename(<<"strange\\but\\true">>)
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 basename_bin_2(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     <<".">> = filename:basename(<<".">>, <<".erl">>),
     <<"foo">> = filename:basename(<<"foo.erl">>, <<".erl">>),
     <<"foo.erl">> = filename:basename(<<"/usr/foo.erl">>, <<".hrl">>),
@@ -589,7 +584,6 @@ basename_bin_2(Config) when is_list(Config) ->
             <<"strange\\but\\true">> =
                 filename:basename(<<"strange\\but\\true">>, <<".erl">>)
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

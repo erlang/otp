@@ -34,19 +34,17 @@
 	 roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1]).
 
 init_per_testcase(_, Config) ->
-    Dog = test_server:timetrap(?t:minutes(4)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    [{watchdog, Dog} | NewConfig].
+    Config.
 
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_, _Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
 all() -> 
     [base64_encode, base64_decode, base64_otp_5635,

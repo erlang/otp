@@ -25,7 +25,9 @@
 -compile([export_all]).
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [ex1].
@@ -52,12 +54,9 @@ end_per_group(_GroupName, Config) ->
 -define(GLOBAL_PARAMS,ets_tough_SUITE_global_params).
 
 init_per_testcase(_Func, Config) ->
-    Dog=test_server:timetrap(test_server:seconds(300)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func, _Config) ->
     ets:delete(?GLOBAL_PARAMS).
 
 

@@ -38,15 +38,15 @@
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1]).
 	 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(20)),
-    [{watchdog, Dog}|Config].
+init_per_testcase(_Case, Config) ->
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Case, _Config) ->
+    ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [utf8_illegal_sequences_bif,

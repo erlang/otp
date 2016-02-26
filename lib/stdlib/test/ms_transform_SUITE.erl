@@ -23,6 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
 -export([basic_dbg/1]).
@@ -42,17 +43,16 @@
 -export([warnings/1]).
 -export([no_warnings/1]).
 -export([eep37/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
-    Dog=test_server:timetrap(test_server:seconds(360)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,6}}].
 
 all() -> 
     [from_shell, basic_ets, basic_dbg, records,

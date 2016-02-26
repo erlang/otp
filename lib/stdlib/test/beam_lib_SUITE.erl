@@ -40,7 +40,9 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [error, normal, cmp, cmp_literals, strip, otp_6711,
@@ -63,12 +65,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 normal(suite) -> [];

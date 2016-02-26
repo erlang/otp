@@ -56,7 +56,9 @@
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [apply_after, send_after1, send_after2, send_after3,
@@ -356,12 +358,10 @@ forever() ->
 % Testing for performance (on different implementations) of timers 
 % 
 
+
 timer_perf(suite) -> [];
 timer_perf(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(10)),
-    Res = performance(timer),
-    ?t:timetrap_cancel(Dog),
-    Res.
+    performance(timer).
 
 performance(Mod) ->
     process_flag(trap_exit, true),    

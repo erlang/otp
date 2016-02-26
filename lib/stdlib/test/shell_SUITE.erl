@@ -54,17 +54,12 @@ config(priv_dir,_) ->
 -else.
 -include_lib("common_test/include/ct.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(10)).
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
     ?line OrigPath = code:get_path(),
     ?line code:add_patha(?config(priv_dir,Config)),
-    [{orig_path,OrigPath}, {watchdog, Dog} | Config].
+    [{orig_path,OrigPath} | Config].
 
 end_per_testcase(_Case, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
     ?line OrigPath = ?config(orig_path,Config),
     ?line code:set_path(OrigPath),
     ?line application:unset_env(stdlib, restricted_shell),
@@ -73,7 +68,9 @@ end_per_testcase(_Case, Config) ->
     ok.
 -endif.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [forget, records, known_bugs, otp_5226, otp_5327,

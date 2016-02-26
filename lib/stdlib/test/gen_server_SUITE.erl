@@ -52,7 +52,9 @@
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, format_status/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [start, {group,stop}, crash, call, cast, cast_fast, info, abcast,
@@ -83,8 +85,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
--define(default_timeout, ?t:minutes(1)).
- 
 init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote2;
 				     Case == call_remote3;
@@ -92,11 +92,10 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote_n2;
 				     Case == call_remote_n3 ->
     {ok,N} = start_node(hubba),
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{node,N},{watchdog, Dog} | Config];
+    [{node,N} | Config];
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
+
 end_per_testcase(_Case, Config) ->
     case proplists:get_value(node, Config) of
 	undefined ->
@@ -104,8 +103,6 @@ end_per_testcase(_Case, Config) ->
 	N ->
 	    test_server:stop_node(N)
     end,
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 

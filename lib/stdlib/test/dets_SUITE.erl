@@ -83,15 +83,14 @@
 -define(CLOSED_PROPERLY,1).
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(15)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog=?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,15}}].
 
 all() -> 
     [

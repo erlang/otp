@@ -19,26 +19,21 @@
 %%
 -module(edlin_expand_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
-
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
-
--export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
-%% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [normal, quoted_fun, quoted_module, quoted_both].

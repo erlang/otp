@@ -29,7 +29,9 @@
 -export([fun_init/1, test_errors/1]).
 -export([timeout_test/1, auth_test/1, rsh_test/1, start_a_slave/3]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [t_start_link, start_link_nodedown, t_start, errors].
@@ -52,8 +54,6 @@ end_per_group(_GroupName, Config) ->
 
 t_start_link(suite) -> [];
 t_start_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-
     %% Define useful variables.
 
     ?line Host = host(),
@@ -95,15 +95,12 @@ t_start_link(Config) when is_list(Config) ->
     ?line is_dead(Slave1),
     ?line is_dead(Slave2),
 		  
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that slave:start_link() works when the master exits.
 
 start_link_nodedown(suite) -> [];
 start_link_nodedown(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-
     %% Define useful variables.
 
     ?line Host = host(),
@@ -119,7 +116,6 @@ start_link_nodedown(Config) when is_list(Config) ->
     ?line receive after 200 -> ok end,
     ?line pang = net_adm:ping(Slave),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 start_a_slave(ReplyTo, Host, Name) ->
@@ -130,8 +126,6 @@ start_a_slave(ReplyTo, Host, Name) ->
 
 t_start(suite) -> [];
 t_start(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    
     %% Define useful variables.
 
     ?line Host = host(),
@@ -173,7 +167,6 @@ t_start(Config) when is_list(Config) ->
     ?line is_dead(Slave1),
     ?line is_dead(Slave2),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test the various error conditions in parallell (since the timeout
@@ -181,8 +174,6 @@ t_start(Config) when is_list(Config) ->
 
 errors(suite) -> [];
 errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(50)),
-
     ?line process_flag(trap_exit, true),
     ?line Pa = filename:dirname(code:which(?MODULE)),
     ?line {ok, Master} = slave_start_link(host(), master,
@@ -191,7 +182,6 @@ errors(Config) when is_list(Config) ->
     ?line Pids = rpc:call(Master, ?MODULE, test_errors, [self()]),
     ?line wait_for_result(Pids),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for_result([]) ->

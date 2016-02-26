@@ -20,6 +20,7 @@
 -module(binary_module_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2, 
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
@@ -27,45 +28,17 @@
 
 -export([random_number/1, make_unaligned/1]).
 
-
-
-%%-define(STANDALONE,1).
-
--ifdef(STANDALONE).
-
--define(line,erlang:display({?MODULE,?LINE}),).
-
--else.
-
 -include_lib("common_test/include/ct.hrl").
--export([init_per_testcase/2, end_per_testcase/2]).
-% Default timetrap timeout (set in init_per_testcase).
-% Some of these testcases are really heavy...
--define(default_timeout, ?t:minutes(30)).
-
--endif.
-
-
-
--ifdef(STANDALONE).
--export([run/0]).
-
-run() ->
-    [ apply(?MODULE,X,[[]]) || X <- all(suite) ].
-
--else.
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
--endif.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,30}}].
 
 all() -> 
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,

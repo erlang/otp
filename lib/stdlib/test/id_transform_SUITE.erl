@@ -33,7 +33,8 @@
 -hej(hopp).
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [id_transform].
@@ -62,10 +63,8 @@ id_transform(Config) when is_list(Config) ->
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
     case test_server:purify_is_running() of
 	false ->
-	    Dog = ct:timetrap(?t:hours(1)),
-	    Res = run_in_test_suite(),
-	    ?t:timetrap_cancel(Dog),
-	    Res;
+	    ct:timetrap({hours,1}),
+	    run_in_test_suite();
 	true ->
 	    {skip,"Valgrind (too slow)"}
     end.

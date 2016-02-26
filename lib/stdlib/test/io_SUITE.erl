@@ -26,7 +26,7 @@
 
 -export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
-         manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
+         manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1, bad_printable_range/1,
@@ -51,19 +51,15 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
-
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
+
 end_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [error_1, float_g, otp_5403, otp_5813, otp_6230,
@@ -1239,15 +1235,15 @@ otp_6708(Config) when is_list(Config) ->
 -define(ONE(N), ((1 bsl N) - 1)).
 -define(ALL_ONES, ((1 bsl 52) - 1)).
 
+
+otp_7084() ->
+    [{timetrap,{minutes,3}}].
+
 otp_7084(doc) ->
     ["OTP-7084. Printing floating point numbers nicely."];
 otp_7084(suite) ->
     [];
 otp_7084(Config) when is_list(Config) ->
-    OldDog=?config(watchdog, Config),
-    test_server:timetrap_cancel(OldDog),
-    Timeout = 180,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
     L = [{g_warm_up, fun g_warm_up/0},
          {g_big_pos_float, fun g_big_pos_float/0},
          {g_small_neg_float, fun g_small_neg_float/0},
@@ -1263,7 +1259,6 @@ otp_7084(Config) when is_list(Config) ->
         catch throw:Reason -> 
             Reason
         end,
-    ?line test_server:timetrap_cancel(Dog),
     R.
 
 g_warm_up() ->

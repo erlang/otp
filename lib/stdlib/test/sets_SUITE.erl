@@ -36,15 +36,14 @@
 -import(lists, [foldl/3,reverse/1]).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [create, add_element, del_element, subtract,

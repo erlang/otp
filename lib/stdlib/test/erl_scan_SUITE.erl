@@ -18,11 +18,12 @@
 %% %CopyrightEnd%
 
 -module(erl_scan_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
--export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-          otp_10990/1, otp_10992/1, otp_11807/1]).
+-export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
+	 otp_10990/1, otp_10992/1, otp_11807/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -43,22 +44,17 @@
 %%     ".".
 -else.
 -include_lib("common_test/include/ct.hrl").
--export([init_per_testcase/2, end_per_testcase/2]).
-
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    ?line Dog=test_server:timetrap(test_server:seconds(1200)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 -endif.
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+init_per_testcase(_Case, Config) ->
+    Config.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+end_per_testcase(_Case, _Config) ->
+    ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,

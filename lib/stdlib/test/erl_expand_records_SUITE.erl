@@ -41,19 +41,15 @@
 	 otp_5915/1, otp_7931/1, otp_5990/1,
 	 otp_7078/1, otp_7101/1, maps/1]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [attributes, expr, guard, init,

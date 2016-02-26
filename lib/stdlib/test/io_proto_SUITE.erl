@@ -64,23 +64,18 @@
 -define(RM_RF(Dir),rm_rf(Dir)).
 -endif.
 
-
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(20)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
     Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
-    [{watchdog, Dog}, {term, Term} | Config].
+    [{term, Term} | Config].
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
     Term = ?config(term,Config),
     os:putenv("TERM",Term),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
