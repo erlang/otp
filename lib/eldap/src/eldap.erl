@@ -697,7 +697,7 @@ exec_simple_bind_reply(Data, {ok,Msg}) when
 	{bindResponse, Result} ->
 	    case Result#'BindResponse'.resultCode of
 		success -> {ok,Data};
-		referral -> {{ok, {referral,Msg#'BindResponse'.referral}}, Data};
+		referral -> {{ok, {referral,Result#'BindResponse'.referral}}, Data};
 		Error   -> {error, Error}
 	    end;
 	Other -> {error, Other}
