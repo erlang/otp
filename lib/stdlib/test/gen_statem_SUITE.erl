@@ -1178,7 +1178,7 @@ idle({call,From}, {delayed_answer,T}, Data) ->
     end;
 idle({call,From}, {timeout,Time}, _Data) ->
     {next_state,timeout,{From,Time},
-     [{timeout,Time,idle}]};
+     {timeout,Time,idle}};
 idle(Type, Content, Data) ->
     case handle_common_events(Type, Content, idle, Data) of
 	undefined ->
@@ -1220,7 +1220,7 @@ timeout3(_, _, Data) ->
 
 wfor_conf({call,From}, confirm, Data) ->
     {next_state,connected,Data,
-     [{reply,From,yes}]};
+     {reply,From,yes}};
 wfor_conf(cast, {ping,_,_}, _) ->
     {keep_state_and_data,[postpone]};
 wfor_conf(cast, confirm, Data) ->
@@ -1241,7 +1241,7 @@ wfor_conf(Type, Content, Data) ->
 
 connected({call,From}, {msg,Ref}, Data) ->
     {keep_state,Data,
-     [{reply,From,{ack,Ref}}]};
+     {reply,From,{ack,Ref}}};
 connected(cast, {msg,From,Ref}, Data) ->
     From ! {ack,Ref},
     {keep_state,Data};

@@ -571,7 +571,9 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
 	{CallbackMode,State,Data} ->
 	    case callback_mode(CallbackMode) of
-		true ->
+		true
+		  when CallbackMode =:= state_functions, is_atom(State);
+		       CallbackMode =/= state_functions ->
 		    proc_lib:init_ack(Starter, {ok,self()}),
 		    enter(
 		      Module, Opts, CallbackMode, State, Data,
@@ -840,7 +842,7 @@ loop_events(
 %% Interpret all callback return value variants
 loop_event_result(
   Parent, Debug,
-  #{state := State, data := Data} = S,
+  #{callback_mode := CallbackMode, state := State, data := Data} = S,
   Events, Event, Result) ->
     case Result of
 	stop ->
@@ -866,12 +868,15 @@ loop_event_result(
 		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
 	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
-	{next_state,NewState,NewData} ->
+	{next_state,NewState,NewData}
+	  when CallbackMode =:= state_functions, is_atom(NewState);
+	       CallbackMode =/= state_functions ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, []);
 	{next_state,NewState,NewData,Actions}
-	  when is_list(Actions) ->
+	  when CallbackMode =:= state_functions, is_atom(NewState);
+	       CallbackMode =/= state_functions ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions);
@@ -900,7 +905,13 @@ loop_event_actions(
   Parent, Debug, S, Events, Event, State, NewState, NewData, Actions) ->
     loop_event_actions(
       Parent, Debug, S, Events, Event, State, NewState, NewData,
-      false, false, undefined, [], Actions).
+      false, false, undefined, [],
+      if
+	  is_list(Actions) ->
+	      Actions;
+	  true ->
+	      [Actions]
+      end).
 %%
 loop_event_actions(
   Parent, Debug, #{postponed := P0} = S, Events, Event,
