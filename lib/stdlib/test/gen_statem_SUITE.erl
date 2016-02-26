@@ -1233,7 +1233,7 @@ wfor_conf(Type, Content, Data) ->
 		    {next_state,idle,Data,
 		     [{reply,From,'eh?'}]};
 		_ ->
-		    throw({keep_state_and_data,[]})
+		    throw(keep_state_and_data)
 	    end;
 	Result ->
 	    Result
@@ -1334,7 +1334,7 @@ handle_common_events(cast, {get,Pid}, State, Data) ->
 handle_common_events({call,From}, stop, _, Data) ->
     {stop_and_reply,normal,[{reply,From,stopped}],Data};
 handle_common_events(cast, stop, _, _) ->
-    {stop,normal};
+    stop;
 handle_common_events({call,From}, {stop,Reason}, _, Data) ->
     {stop_and_reply,Reason,{reply,From,stopped},Data};
 handle_common_events(cast, {stop,Reason}, _, _) ->

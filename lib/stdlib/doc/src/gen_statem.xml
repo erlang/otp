@@ -803,12 +803,17 @@ ok
 	  </item>
 	  <tag><c>keep_state_and_data</c></tag>
 	  <item>
-	    The <c>gen_statem</c> will keep the current state, or
+	    The <c>gen_statem</c> will keep the current state or
 	    do a state transition to the current state if you like,
 	    keep the current server data,
 	    and execute all <c><anno>Actions</anno></c>
 	  </item>
 	</taglist>
+	<p>
+	  All these terms are tuples or atoms and this property
+	  will hold in any future version of <c>gen_statem</c>,
+	  just in case you need such a promise.
+	</p>
       </desc>
     </datatype>
   </datatypes>

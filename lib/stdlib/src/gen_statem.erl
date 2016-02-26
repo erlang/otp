@@ -135,32 +135,34 @@
 	 Caller :: caller(), Reply :: term()}.
 
 -type state_callback_result() ::
-    {'stop', % Stop the server
-     Reason :: term()} |
-    {'stop', % Stop the server
-     Reason :: term(),
-     NewData :: data()} |
-    {'stop_and_reply', % Reply then stop the server
-     Reason :: term(),
-     Replies :: [reply_action()] | reply_action()} |
-    {'stop_and_reply', % Reply then stop the server
-     Reason :: term(),
-     Replies :: [reply_action()] | reply_action(),
-     NewData :: data()} |
-    {'next_state', % {next_state,NewState,NewData,[]}
-     NewState :: state(),
-     NewData :: data()} |
-    {'next_state', % State transition, maybe to the same state
-     NewState :: state(),
-     NewData :: data(),
-     Actions :: [action()] | action()} |
-    {'keep_state', % {keep_state,NewData,[]}
-     NewData :: data()} |
-    {'keep_state', % Keep state, change data
-     NewData :: data(),
-     Actions :: [action()] | action()} |
-    {'keep_state_and_data', % Keep state and data -> only actions
-     Actions :: [action()] | action()}.
+	'stop' | % {stop,normal}
+	{'stop', % Stop the server
+	 Reason :: term()} |
+	{'stop', % Stop the server
+	 Reason :: term(),
+	 NewData :: data()} |
+	{'stop_and_reply', % Reply then stop the server
+	 Reason :: term(),
+	 Replies :: [reply_action()] | reply_action()} |
+	{'stop_and_reply', % Reply then stop the server
+	 Reason :: term(),
+	 Replies :: [reply_action()] | reply_action(),
+	 NewData :: data()} |
+	{'next_state', % {next_state,NewState,NewData,[]}
+	 NewState :: state(),
+	 NewData :: data()} |
+	{'next_state', % State transition, maybe to the same state
+	 NewState :: state(),
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	{'keep_state', % {keep_state,NewData,[]}
+	 NewData :: data()} |
+	{'keep_state', % Keep state, change data
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	'keep_state_and_data' | % {keep_state_and_data,[]}
+	{'keep_state_and_data', % Keep state and data -> only actions
+	 Actions :: [action()] | action()}.
 
 
 %% The state machine init function.  It is called only once and
@@ -841,6 +843,8 @@ loop_event_result(
   #{state := State, data := Data} = S,
   Events, Event, Result) ->
     case Result of
+	stop ->
+	    ?TERMINATE(exit, normal, Debug, S, [Event|Events]);
 	{stop,Reason} ->
 	    ?TERMINATE(exit, Reason, Debug, S, [Event|Events]);
 	{stop,Reason,NewData} ->
@@ -879,6 +883,10 @@ loop_event_result(
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, State, NewData, Actions);
+	keep_state_and_data ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, State, Data, []);
 	{keep_state_and_data,Actions} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
