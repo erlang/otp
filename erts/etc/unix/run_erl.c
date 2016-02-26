@@ -41,7 +41,7 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#ifdef HAVE_WORKING_POSIX_OPENPT
+#if defined(HAVE_WORKING_POSIX_OPENPT) && !(defined(__FreeBSD__) || defined(__DragonFly__))
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 600 
 #endif
@@ -64,10 +64,6 @@
 #include <termios.h>
 #include <time.h>
 
-#ifdef __ANDROID__
-#  include <termios.h>
-#endif
-
 #ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
@@ -76,6 +72,9 @@
 #endif
 #ifdef HAVE_UTMP_H
 #  include <utmp.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#  include <libutil.h>
 #endif
 #ifdef HAVE_UTIL_H
 #  include <util.h>
