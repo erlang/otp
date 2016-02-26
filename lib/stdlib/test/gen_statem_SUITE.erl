@@ -44,10 +44,10 @@ all() ->
 groups() ->
     [{start, [],
       [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12]},
+       start8, start9, start10, start11, start12, next_events]},
      {start_handle_event, [],
       [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12]},
+       start8, start9, start10, start11, start12, next_events]},
      {stop, [],
       [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
      {stop_handle_event, [],
@@ -998,6 +998,18 @@ enter_loop(Reg1, Reg2) ->
 	      ?MODULE, [], CallbackMode, state0, [])
     end.
 
+
+%% Test the order for multiple {next_event,T,C}
+next_events(Config) ->
+    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    ok = gen_statem:cast(Pid, next_event),
+    {state,next_events,[]} = gen_statem:call(Pid, get),
+    ok = gen_statem:stop(Pid),
+    false = erlang:is_process_alive(Pid),
+    noproc =
+	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason).
+
+
 %%
 %% Functionality check
 %%
@@ -1178,6 +1190,11 @@ idle({call,From}, {delayed_answer,T}, Data) ->
 idle({call,From}, {timeout,Time}, _Data) ->
     {next_state,timeout,{From,Time},
      {timeout,Time,idle}};
+idle(cast, next_event, _Data) ->
+    {next_state,next_events,[a,b,c],
+     [{next_event,internal,a},
+      {next_event,internal,b},
+      {next_event,internal,c}]};
 idle(Type, Content, Data) ->
     case handle_common_events(Type, Content, idle, Data) of
 	undefined ->
@@ -1317,6 +1334,16 @@ hiber_wakeup(cast, snooze_async, Data) ->
      [hibernate]};
 hiber_wakeup(Type, Content, Data) ->
     case handle_common_events(Type, Content, hiber_wakeup, Data) of
+	undefined ->
+	    {keep_state,Data};
+	Result ->
+	    Result
+    end.
+
+next_events(internal, Msg, [Msg|Msgs]) ->
+    {keep_state,Msgs};
+next_events(Type, Content, Data) ->
+    case handle_common_events(Type, Content, next_events, Data) of
 	undefined ->
 	    {keep_state,Data};
 	Result ->
