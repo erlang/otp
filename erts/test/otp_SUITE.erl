@@ -298,7 +298,7 @@ call_to_now_0(Config) when is_list(Config) ->
     Apps = [asn1,common_test,compiler,debugger,dialyzer,
 	    gs,kernel,mnesia,observer,parsetools,reltool,
 	    runtime_tools,sasl,stdlib,syntax_tools,
-	    test_server,tools],
+	    tools],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->
@@ -459,24 +459,7 @@ runtime_dependencies(Config) ->
 				    end,
 				    {undefined, []},
 				    SAE),
-    [] = lists:filter(fun ({missing_runtime_dependency,
-			    AppFile,
-			    common_test}) ->
-			      %% The test_server app is contaminated by
-			      %% common_test when run in a source tree. It
-			      %% should however *not* be contaminated
-			      %% when run in an installation.
-			      case {filename:basename(AppFile),
-				    is_run_in_src_tree()} of
-				  {"test_server.app", true} ->
-				      false;
-				  _ ->
-				      true
-			      end;
-			  (_) ->
-			      true
-		      end,
-		      check_apps_deps([AppDep|AppDeps], IgnoreApps)),
+    check_apps_deps([AppDep|AppDeps], IgnoreApps),
     case IgnoreApps of
 	[] ->
 	    ok;
@@ -486,17 +469,6 @@ runtime_dependencies(Config) ->
 						  [IgnoreApps,
 						   get(ignored_failures)])),
 	    {comment, Comment}
-    end.
-
-is_run_in_src_tree() ->
-    %% At least currently run_erl is not present in <code-root>/bin
-    %% in the source tree, but present in <code-root>/bin of an
-    %% ordinary installation.
-    case file:read_file_info(filename:join([code:root_dir(),
-					    "bin",
-					    "run_erl"])) of
-	{ok, _} -> false;
-	{error, _} -> true
     end.
 
 have_rdep(_App, [], _Dep) ->
