@@ -903,20 +903,147 @@ loop_event_result(
 
 loop_event_actions(
   Parent, Debug, S, Events, Event, State, NewState, NewData, Actions) ->
+    Postpone = false, % Shall we postpone this event, true or false
+    Hibernate = false,
+    Timeout = undefined,
+    NextEvents = [],
+    P = false, % The postponed list or false if unchanged
     loop_event_actions(
       Parent, Debug, S, Events, Event, State, NewState, NewData,
-      false, false, undefined, [],
       if
 	  is_list(Actions) ->
 	      Actions;
 	  true ->
 	      [Actions]
-      end).
+      end,
+      Postpone, Hibernate, Timeout, NextEvents, P).
 %%
 loop_event_actions(
-  Parent, Debug, #{postponed := P0} = S, Events, Event,
-  State, NewState, NewData,
-  Postpone, Hibernate, Timeout, NextEvents, []) ->
+  Parent, Debug, S, Events, Event,
+  State, NewState, NewData, [Action|Actions],
+  Postpone, Hibernate, Timeout, NextEvents, P) ->
+    case Action of
+	%% Set options
+	postpone ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      true, Hibernate, Timeout, NextEvents, P);
+	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      NewPostpone, Hibernate, Timeout, NextEvents, P);
+	{postpone,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	hibernate ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      Postpone, true, Timeout, NextEvents, P);
+	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      Postpone, NewHibernate, Timeout, NextEvents, P);
+	{hibernate,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	{timeout,infinity,_} -> % Clear timer - it will never trigger
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      Postpone, Hibernate, undefined, NextEvents, P);
+	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NewState, NewData, Actions,
+	      Postpone, Hibernate, NewTimeout, NextEvents, P);
+	{timeout,_,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	%% Actual actions
+	{reply,Caller,Reply} ->
+	    case caller(Caller) of
+		true ->
+		    NewDebug = do_reply(Debug, S, Caller, Reply),
+		    loop_event_actions(
+		      Parent, NewDebug, S, Events, Event,
+		      State, NewState, NewData, Actions,
+		      Postpone, Hibernate, Timeout, NextEvents, P);
+		false ->
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events])
+	    end;
+	{next_event,Type,Content} ->
+	    case event_type(Type) of
+		true ->
+		    loop_event_actions(
+		      Parent, Debug, S, Events, Event,
+		      State, NewState, NewData, Actions,
+		      Postpone, Hibernate, Timeout,
+		      [{Type,Content}|NextEvents], P);
+		false ->
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events])
+	    end;
+	_ ->
+	    %% All others are remove actions
+	    case remove_fun(Action) of
+		false ->
+		    loop_event_actions(
+		      Parent, Debug, S, Events, Event,
+		      State, NewState, NewData, Actions,
+		      Postpone, Hibernate, Timeout, NextEvents, P);
+		undefined ->
+		    ?TERMINATE(
+		       error, {bad_action,Action}, Debug, S, [Event|Events]);
+		RemoveFun when is_function(RemoveFun, 2) ->
+		    P0 =
+			case P of
+			    false ->
+				maps:get(postponed, S);
+			    _ ->
+				P
+			end,
+		    case remove_event(RemoveFun, Events, P0) of
+			false ->
+			    loop_event_actions(
+			      Parent, Debug, S, Events, Event,
+			      State, NewState, NewData, Actions,
+			      Postpone, Hibernate, Timeout, NextEvents, P);
+			{NewEvents,false} ->
+			    loop_event_actions(
+			      Parent, Debug, S, NewEvents, Event,
+			      State, NewState, NewData, Actions,
+			      Postpone, Hibernate, Timeout, NextEvents, P);
+			{false,NewP} ->
+			    loop_event_actions(
+			      Parent, Debug, S, Events, Event,
+			      State, NewState, NewData, Actions,
+			      Postpone, Hibernate, Timeout, NextEvents,
+			      NewP);
+			[Class,Reason,Stacktrace] ->
+			    terminate(
+			      Class, Reason, Stacktrace,
+			      Debug, S, [Event|Events])
+		    end;
+		[Class,Reason,Stacktrace] ->
+		    terminate(
+		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
+	    end
+    end;
+loop_event_actions(
+  Parent, Debug, S, Events, Event, State, NewState, NewData, [],
+  Postpone, Hibernate, Timeout, NextEvents, P) ->
+    P0 =
+	case P of
+	    false ->
+		maps:get(postponed, S);
+	    _ ->
+		P
+	end,
     P1 = % Move current event to postponed if Postpone
 	case Postpone of
 	    true ->
@@ -935,7 +1062,7 @@ loop_event_actions(
 		{erlang:start_timer(Time, self(), Msg),
 		Events}
 	end,
-    {Q2,P} = % Move all postponed events to queue if state change
+    {Q2,P2} = % Move all postponed events to queue if state change
 	if
 	    NewState =:= State ->
 		{Q1,P1};
@@ -943,7 +1070,7 @@ loop_event_actions(
 		{lists:reverse(P1, Q1),[]}
 	end,
     %% Place next events first in queue
-    Q = lists:reverse(NextEvents, Q2),
+    Q3 = lists:reverse(NextEvents, Q2),
     %%
     NewDebug =
 	sys_debug(
@@ -962,120 +1089,8 @@ loop_event_actions(
 	data := NewData,
 	timer := Timer,
 	hibernate := Hibernate,
-	postponed := P},
-      Q, Timer);
-loop_event_actions(
-  Parent, Debug, S, Events, Event, State, NewState, NewData,
-  Postpone, Hibernate, Timeout, NextEvents, [Action|Actions]) ->
-    case Action of
-	%% Set options
-	postpone ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      true, Hibernate, Timeout, NextEvents, Actions);
-	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      NewPostpone, Hibernate, Timeout, NextEvents, Actions);
-	{postpone,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
-	hibernate ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      Postpone, true, Timeout, NextEvents, Actions);
-	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      Postpone, NewHibernate, Timeout, NextEvents, Actions);
-	{hibernate,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
-	{timeout,infinity,_} -> % Clear timer - it will never trigger
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      Postpone, Hibernate, undefined, NextEvents, Actions);
-	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData,
-	      Postpone, Hibernate, NewTimeout, NextEvents, Actions);
-	{timeout,_,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
-	%% Actual actions
-	{reply,Caller,Reply} ->
-	    case caller(Caller) of
-		true ->
-		    NewDebug = do_reply(Debug, S, Caller, Reply),
-		    loop_event_actions(
-		      Parent, NewDebug, S, Events, Event,
-		      State, NewState, NewData,
-		      Postpone, Hibernate, Timeout, NextEvents, Actions);
-		false ->
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, S, [Event|Events])
-	    end;
-	{next_event,Type,Content} ->
-	    case event_type(Type) of
-		true ->
-		    loop_event_actions(
-		      Parent, Debug, S, Events, Event,
-		      State, NewState, NewData,
-		      Postpone, Hibernate, Timeout,
-		      [{Type,Content}|NextEvents], Actions);
-		false ->
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, S, [Event|Events])
-	    end;
-	_ ->
-	    %% All others are remove actions
-	    case remove_fun(Action) of
-		false ->
-		    loop_event_actions(
-		      Parent, Debug, S, Events, Event,
-		      State, NewState, NewData,
-		      Postpone, Hibernate, Timeout, NextEvents, Actions);
-		undefined ->
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, S, [Event|Events]);
-		RemoveFun when is_function(RemoveFun, 2) ->
-		    #{postponed := P} = S,
-		    case remove_event(RemoveFun, Events, P) of
-			false ->
-			    loop_event_actions(
-			      Parent, Debug, S, Events, Event,
-			      State, NewState, NewData,
-			      Postpone, Hibernate, Timeout, NextEvents,
-			      Actions);
-			{NewEvents,false} ->
-			    loop_event_actions(
-			      Parent, Debug, S, NewEvents, Event,
-			      State, NewState, NewData,
-			      Postpone, Hibernate, Timeout, NextEvents,
-			      Actions);
-			{false,NewP} ->
-			    NewS = S#{postponed := NewP},
-			    loop_event_actions(
-			      Parent, Debug, NewS, Events, Event,
-			      State, NewState, NewData,
-			      Postpone, Hibernate, Timeout, NextEvents,
-			      Actions);
-			[Class,Reason,Stacktrace] ->
-			    terminate(
-			      Class, Reason, Stacktrace,
-			      Debug, S, [Event|Events])
-		    end;
-		[Class,Reason,Stacktrace] ->
-		    terminate(
-		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
-	    end
-    end.
+	postponed := P2},
+      Q3, Timer).
 
 %%---------------------------------------------------------------------------
 %% Server helpers
