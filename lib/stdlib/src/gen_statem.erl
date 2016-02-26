@@ -249,7 +249,7 @@ callback_mode(CallbackMode) ->
 	    false
     end.
 %%
-caller({Pid,Tag}) when is_pid(Pid), is_reference(Tag) ->
+caller({Pid,_}) when is_pid(Pid) ->
     true;
 caller(_) ->
     false.
@@ -279,7 +279,7 @@ event_type(Type) ->
 -define(
    TERMINATE(Class, Reason, Debug, S, Q),
    terminate(
-     Class,
+     begin Class end,
      begin Reason end,
      ?STACKTRACE(),
      begin Debug end,
@@ -355,23 +355,23 @@ stop(ServerRef, Reason, Timeout) ->
 %% Send an event to a state machine that arrives with type 'event'
 -spec cast(ServerRef :: server_ref(), Msg :: term()) -> ok.
 cast({global,Name}, Msg) ->
-    try	global:send(Name, cast(Msg)) of
+    try	global:send(Name, wrap_cast(Msg)) of
 	_ -> ok
     catch
 	_:_ -> ok
     end;
 cast({via,RegMod,Name}, Msg) ->
-    try	RegMod:send(Name, cast(Msg)) of
+    try	RegMod:send(Name, wrap_cast(Msg)) of
 	_ -> ok
     catch
 	_:_ -> ok
     end;
 cast({Name,Node} = ServerRef, Msg) when is_atom(Name), is_atom(Node) ->
-    do_send(ServerRef, cast(Msg));
+    send(ServerRef, wrap_cast(Msg));
 cast(ServerRef, Msg) when is_atom(ServerRef) ->
-    do_send(ServerRef, cast(Msg));
+    send(ServerRef, wrap_cast(Msg));
 cast(ServerRef, Msg) when is_pid(ServerRef) ->
-    do_send(ServerRef, cast(Msg)).
+    send(ServerRef, wrap_cast(Msg)).
 
 %% Call a state machine (synchronous; a reply is expected) that
 %% arrives with type {call,Caller}
@@ -425,7 +425,7 @@ call(ServerRef, Request, Timeout) ->
 	      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
 	      Stacktrace);
 	{'DOWN',Mref,_,_,Reason} ->
-	    %% There is just a theoretical possibility that the
+	    %% There is a theoretical possibility that the
 	    %% proxy process gets killed between try--of and !
 	    %% so this clause is in case of that
 	    exit(Reason)
@@ -433,14 +433,13 @@ call(ServerRef, Request, Timeout) ->
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.
-reply({reply,{_To,_Tag}=Caller,Reply}) ->
+reply({reply,Caller,Reply}) ->
     reply(Caller, Reply);
 reply(Replies) when is_list(Replies) ->
-    [reply(Reply) || Reply <- Replies],
-    ok.
+    replies(Replies).
 %%
 -spec reply(Caller :: caller(), Reply :: term()) -> ok.
-reply({To,Tag}, Reply) ->
+reply({To,Tag}, Reply) when is_pid(To) ->
     Msg = {Tag,Reply},
     try To ! Msg of
 	_ ->
@@ -503,11 +502,17 @@ enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
 %%---------------------------------------------------------------------------
 %% API helpers
 
-cast(Event) ->
+wrap_cast(Event) ->
     {'$gen_cast',Event}.
 
+replies([{reply,Caller,Reply}|Replies]) ->
+    reply(Caller, Reply),
+    replies(Replies);
+replies([]) ->
+    ok.
+
 %% Might actually not send the message in case of caught exception
-do_send(Proc, Msg) ->
+send(Proc, Msg) ->
     try erlang:send(Proc, Msg, [noconnect]) of
 	noconnect ->
 	    _ = spawn(erlang, send, [Proc,Msg]),
@@ -723,19 +728,16 @@ wakeup_from_hibernate(Parent, Debug, S) ->
 loop(Parent, Debug, #{hibernate := Hib} = S) ->
     case Hib of
 	true ->
-	    loop_hibernate(Parent, Debug, S);
+	    %% Does not return but restarts process at
+	    %% wakeup_from_hibernate/3 that jumps to loop_receive/3
+	    proc_lib:hibernate(
+	      ?MODULE, wakeup_from_hibernate, [Parent,Debug,S]),
+	    error(
+	      {should_not_have_arrived_here_but_instead_in,
+	       {wakeup_from_hibernate,3}});
 	false ->
 	    loop_receive(Parent, Debug, S)
     end.
-
-loop_hibernate(Parent, Debug, S) ->
-    %% Does not return but restarts process at
-    %% wakeup_from_hibernate/3 that jumps to loop_receive/3
-    proc_lib:hibernate(
-      ?MODULE, wakeup_from_hibernate, [Parent,Debug,S]),
-    error(
-      {should_not_have_arrived_here_but_instead_in,
-       {wakeup_from_hibernate,3}}).
 
 %% Entry point for wakeup_from_hibernate/3
 loop_receive(Parent, Debug, #{timer := Timer} = S) ->
@@ -754,7 +756,7 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    %% but this will stand out in the crash report...
 		    ?TERMINATE(exit, Reason, Debug, S, [EXIT]);
 		{timeout,Timer,Content} when Timer =/= undefined ->
-		    loop_receive(
+		    loop_event(
 		      Parent, Debug, S, {timeout,Content}, undefined);
 		_ ->
 		    Event =
@@ -766,11 +768,11 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 			    _ ->
 				{info,Msg}
 			end,
-		    loop_receive(Parent, Debug, S, Event, Timer)
+		    loop_event(Parent, Debug, S, Event, Timer)
 	    end
     end.
 
-loop_receive(Parent, Debug, S, Event, Timer) ->
+loop_event(Parent, Debug, S, Event, Timer) ->
     NewDebug = sys_debug(Debug, S, {in,Event}),
     %% Here the queue of not yet processed events is created
     loop_events(Parent, NewDebug, S, [Event], Timer).
