@@ -1051,16 +1051,34 @@ handle_trace({trace_ts,Pid,spawn,NewPid,{M,F,Args},TS},P) ->
     MFA = {M,F,length(Args)},
     ?dbg("~p",[{{spawn,Pid,NewPid,MFA},get(Pid)}]),
     T = ts_sub(TS,get({Pid,last_ts})),
-    put({NewPid,last_ts},TS),
-    put(NewPid,[suspend,MFA]),
-    insert(NewPid,suspend),
-    insert(NewPid,MFA),
+    case get(NewPid) of
+        undefined ->
+            put({NewPid,last_ts},TS),
+            put(NewPid,[suspend,MFA]),
+            insert(NewPid,suspend),
+            insert(NewPid,MFA);
+        _Else ->
+            ok
+    end,
     case get(Pid) of
 	[SpawningMFA|_] = Stack ->
 	    update_own(Pid,SpawningMFA,T),
 	    update_acc(Pid,Stack,T)
     end,
     put({Pid,last_ts},TS),
+    P;
+handle_trace({trace_ts,NewPid,spawned,Pid,{M,F,Args},TS},P) ->
+    MFA = {M,F,length(Args)},
+    ?dbg("~p",[{{spawned,NewPid,Pid,MFA},get(NewPid)}]),
+    case get(NewPid) of
+        undefined ->
+            put({NewPid,last_ts},TS),
+            put(NewPid,[suspend,MFA]),
+            insert(NewPid,suspend),
+            insert(NewPid,MFA);
+        _Else ->
+            ok
+    end,
     P;
 handle_trace({trace_ts,Pid,exit,_Reason,TS},P) ->
     ?dbg("~p",[{{exit,Pid,_Reason},get(Pid)}]),
@@ -1089,6 +1107,7 @@ handle_trace(end_of_trace,P) ->
     P ! {result,[{totals,TotAcc,TotOwn}|ProcOwns]++Result},
     P;
 handle_trace(Other,_P) ->
+    ct:log("Got unexpected trace message: ~p",[Other]),
     exit({unexpected,Other}).
 
 find_return_to(MFA,[MFA|_]=Stack) ->
