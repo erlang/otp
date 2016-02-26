@@ -35,15 +35,14 @@
 	N(Config) when is_list(Config) -> try_it(N, Config)).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -86,7 +85,8 @@ end_per_group(_GroupName, Config) ->
 
 
 try_it(Mod, Conf) ->
-    Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Mod)),
     compile_and_load(Src, []),
     compile_and_load(Src, [no_copt]).
 

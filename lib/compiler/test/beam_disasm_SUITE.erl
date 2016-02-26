@@ -46,21 +46,20 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-stripped(doc) ->
-    ["Check that stripped beam files can be disassembled"];
+%% Check that stripped beam files can be disassembled.
 stripped(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line SrcName = filename:join(PrivDir, "tmp.erl"),
-    ?line BeamName = filename:join(PrivDir, "tmp.beam"),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SrcName = filename:join(PrivDir, "tmp.erl"),
+    BeamName = filename:join(PrivDir, "tmp.beam"),
     Prog = <<"-module(tmp).\n-export([tmp/0]).\ntmp()->ok.\n">>,
-    ?line ok = file:write_file(SrcName, Prog),
-    ?line {ok, tmp} =
+    ok = file:write_file(SrcName, Prog),
+    {ok, tmp} =
 	compile:file(SrcName, [{outdir, PrivDir}]),
-    ?line {beam_file, tmp, _, Attr, CompileInfo, [_|_]} =
+    {beam_file, tmp, _, Attr, CompileInfo, [_|_]} =
 	beam_disasm:file(BeamName),
-    ?line true = is_list(Attr),
-    ?line true = is_list(CompileInfo),
-    ?line {ok, {tmp, _}} = beam_lib:strip(BeamName),
-    ?line {beam_file, tmp, _, [], [], [_|_]} =
+    true = is_list(Attr),
+    true = is_list(CompileInfo),
+    {ok, {tmp, _}} = beam_lib:strip(BeamName),
+    {beam_file, tmp, _, [], [], [_|_]} =
 	beam_disasm:file(BeamName),
     ok.

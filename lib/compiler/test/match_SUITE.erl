@@ -55,10 +55,10 @@ end_per_group(_GroupName, Config) ->
 
 
 pmatch(Config) when is_list(Config) ->
-    ?line ok = doit(1),
-    ?line ok = doit(2),
-    ?line {error,baz} = doit(3),
-    ?line {error,foobar} = doit(4),
+    ok = doit(1),
+    ok = doit(2),
+    {error,baz} = doit(3),
+    {error,foobar} = doit(4),
     ok.
 
 %% Thanks to Tobias Lindahl (HiPE).
@@ -78,13 +78,13 @@ doit(X) ->
     end.
 
 mixed(Config) when is_list(Config) ->
-    ?line glufs = mixit(1),
-    ?line klafs = mixit(2),
-    ?line fnurra = mixit(3),
-    ?line usch = mixit(4),
-    ?line {error,blurf} = mixit(5),
-    ?line {error,87987987} = mixit(6),
-    ?line {error,{a,b,c}} = mixit(7),
+    glufs = mixit(1),
+    klafs = mixit(2),
+    fnurra = mixit(3),
+    usch = mixit(4),
+    {error,blurf} = mixit(5),
+    {error,87987987} = mixit(6),
+    {error,{a,b,c}} = mixit(7),
     ok.
 
 mixit(X) ->
@@ -106,41 +106,41 @@ mixit(X) ->
 
 aliases(Config) when is_list(Config) ->
     %% Lists/strings.
-    ?line ok = str_alias("abc"),
-    ?line ok = str_alias("def"),
-    ?line ok = str_alias("ghi"),
-    ?line ok = str_alias("klm"),
-    ?line ok = str_alias("qrs"),
-    ?line ok = str_alias("xy"),
-    ?line ok = str_alias(""),
-    ?line ok = str_alias([]),
-    ?line error = str_alias("blurf"),
+    ok = str_alias("abc"),
+    ok = str_alias("def"),
+    ok = str_alias("ghi"),
+    ok = str_alias("klm"),
+    ok = str_alias("qrs"),
+    ok = str_alias("xy"),
+    ok = str_alias(""),
+    ok = str_alias([]),
+    error = str_alias("blurf"),
 
     %% Characters/integers.
-    ?line ok = char_alias($v),
-    ?line ok = char_alias(118),
-    ?line ok = char_alias($w),
-    ?line ok = char_alias(119),
-    ?line ok = char_alias(42),
-    ?line ok = char_alias(3.0),
-    ?line error = char_alias($_),
-    ?line error = char_alias(0),
+    ok = char_alias($v),
+    ok = char_alias(118),
+    ok = char_alias($w),
+    ok = char_alias(119),
+    ok = char_alias(42),
+    ok = char_alias(3.0),
+    error = char_alias($_),
+    error = char_alias(0),
 
-    ?line {42,42,42} = three(42),
+    {42,42,42} = three(42),
 
-    ?line {1,42,99,1,42,99} = tuple_alias({1,42,99}),
-    ?line {-10,20,-10,20,-10,20} = tuple_alias({-10,20}),
-    ?line 6 = tup_lit_alias({1,2,3}),
-    ?line 6 = tup_lit_alias_rev({1,2,3}),
+    {1,42,99,1,42,99} = tuple_alias({1,42,99}),
+    {-10,20,-10,20,-10,20} = tuple_alias({-10,20}),
+    6 = tup_lit_alias({1,2,3}),
+    6 = tup_lit_alias_rev({1,2,3}),
 
-    ?line {42,42,42,42} = multiple_aliases_1(42),
-    ?line {7,7,7} = multiple_aliases_2(7),
-    ?line {{a,b},{a,b},{a,b}} = multiple_aliases_3({a,b}),
+    {42,42,42,42} = multiple_aliases_1(42),
+    {7,7,7} = multiple_aliases_2(7),
+    {{a,b},{a,b},{a,b}} = multiple_aliases_3({a,b}),
 
     %% Lists/literals.
-    ?line {a,b} = list_alias1([a,b]),
-    ?line {a,b} = list_alias2([a,b]),
-    ?line {a,b} = list_alias3([a,b]),
+    {a,b} = list_alias1([a,b]),
+    {a,b} = list_alias2([a,b]),
+    {a,b} = list_alias3([a,b]),
 
     %% Non-matching aliases.
     none = mixed_aliases(<<42>>),
@@ -261,14 +261,14 @@ mixed_aliases(_) -> none.
 %% OTP-7018.
 
 match_in_call(Config) when is_list(Config) ->
-    ?line mac_a(0),
-    ?line mac_b(1),
-    ?line mac_c(42),
-    ?line mac_d(42),
-    ?line mac_e({gurka,42}),
+    mac_a(0),
+    mac_b(1),
+    mac_c(42),
+    mac_d(42),
+    mac_e({gurka,42}),
 
-    ?line [{2,2},{2,2}] = mac_lc([{2,any},{2,2}]),
-    ?line {'EXIT',_} = (catch mac_lc([{1,1}])),
+    [{2,2},{2,2}] = mac_lc([{2,any},{2,2}]),
+    {'EXIT',_} = (catch mac_lc([{1,1}])),
 
     ok.
 
@@ -313,8 +313,8 @@ gurka({gurka,X}, X) -> ok.
 
 untuplify(Config) when is_list(Config) ->
     %% We do this to cover sys_core_fold:unalias_pat/1.
-    ?line {1,2,3,4,alias,{[1,2],{3,4},alias}} = untuplify_1([1,2], {3,4}, alias),
-    ?line error = untuplify_1([1,2], {3,4}, 42),
+    {1,2,3,4,alias,{[1,2],{3,4},alias}} = untuplify_1([1,2], {3,4}, alias),
+    error = untuplify_1([1,2], {3,4}, 42),
     ok.
 
 untuplify_1(A, B, C) ->
@@ -329,11 +329,11 @@ untuplify_1(A, B, C) ->
 
 %% Coverage of beam_dead:shortcut_boolean_label/4.
 shortcut_boolean(Config) when is_list(Config) ->
-    ?line false = shortcut_boolean_1([0]),
-    ?line true = shortcut_boolean_1({42}),
-    ?line maybe = shortcut_boolean_1(self()),
-    ?line {'EXIT',_} = (catch shortcut_boolean_1([a,b])),
-    ?line {'EXIT',_} = (catch shortcut_boolean_1({a,b})),
+    false = shortcut_boolean_1([0]),
+    true = shortcut_boolean_1({42}),
+    maybe = shortcut_boolean_1(self()),
+    {'EXIT',_} = (catch shortcut_boolean_1([a,b])),
+    {'EXIT',_} = (catch shortcut_boolean_1({a,b})),
     ok.
 
 shortcut_boolean_1(X) ->
@@ -352,8 +352,8 @@ shortcut_boolean_1(X) ->
 
 %% Test sys_core_fold:letify_guard/3.
 letify_guard(Config) when is_list(Config) ->
-    ?line {-15,a} = letify_guard(-15, a),
-    ?line 5 = letify_guard(2, 3),
+    {-15,a} = letify_guard(-15, a),
+    5 = letify_guard(2, 3),
     ok.
 
 letify_guard(A, B) ->
@@ -369,18 +369,18 @@ letify_guard(A, B) ->
 %% instructions in beam_dead and beam_peep.
 
 selectify(Config) when is_list(Config) ->
-    ?line integer = sel_different_types({r,42}),
-    ?line atom = sel_different_types({r,forty_two}),
-    ?line none = sel_different_types({r,18}),
-    ?line {'EXIT',_} = (catch sel_different_types([a,b,c])),
+    integer = sel_different_types({r,42}),
+    atom = sel_different_types({r,forty_two}),
+    none = sel_different_types({r,18}),
+    {'EXIT',_} = (catch sel_different_types([a,b,c])),
 
-    ?line integer = sel_same_value({r,42}),
-    ?line error = sel_same_value({r,100}),
-    ?line error = sel_same_value(a),
+    integer = sel_same_value({r,42}),
+    error = sel_same_value({r,100}),
+    error = sel_same_value(a),
 
-    ?line integer42 = sel_same_value2(42),
-    ?line integer43 = sel_same_value2(43),
-    ?line error = sel_same_value2(44),
+    integer42 = sel_same_value2(42),
+    integer43 = sel_same_value2(43),
+    error = sel_same_value2(44),
     ok.
 
 sel_different_types({r,_}=T) when element(2, T) =:= forty_two ->

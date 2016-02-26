@@ -28,8 +28,8 @@
 -define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
--define(datadir, ?config(data_dir, Conf)).
--define(privdir, ?config(priv_dir, Conf)).
+-define(datadir, proplists:get_value(data_dir, Conf)).
+-define(privdir, proplists:get_value(priv_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -44,19 +44,15 @@
 	 latin1_fallback/1,underscore/1,no_warnings/1,
 	 bit_syntax/1]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -104,7 +100,7 @@ pattern(Config) when is_list(Config) ->
 	    [{2,v3_core,nomatch},
 	     {6,v3_core,nomatch},
 	     {11,v3_core,nomatch} ] }}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 pattern2(Config) when is_list(Config) ->
@@ -128,7 +124,7 @@ pattern2(Config) when is_list(Config) ->
 		      {4,sys_core_fold,no_clause_match},
 		      {5,sys_core_fold,nomatch_clause_type},
 		      {6,sys_core_fold,nomatch_clause_type}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     %% Disable Core Erlang optimizations. v3_kernel should produce
     %% a warning for the clause that didn't match.
@@ -137,7 +133,7 @@ pattern2(Config) when is_list(Config) ->
 	    [nowarn_unused_vars,no_copt],
 	    {warnings,
 	     [{2,v3_kernel,{nomatch_shadow,1}}]}}],
-    ?line [] = run(Config, Ts2),
+    [] = run(Config, Ts2),
     ok.
 
 pattern3(Config) when is_list(Config) ->
@@ -153,7 +149,7 @@ pattern3(Config) when is_list(Config) ->
 	   [nowarn_unused_vars],
 	   {warnings,
 	    [{4,v3_kernel,{nomatch_shadow,2}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     ok.
 
@@ -214,7 +210,7 @@ pattern4(Config) when is_list(Config) ->
 	     {23,sys_core_fold,no_clause_match},
 	     {33,sys_core_fold,no_clause_match}
 	    ]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     ok.
 
@@ -257,7 +253,7 @@ guard(Config) when is_list(Config) ->
 	     {11,sys_core_fold,nomatch_guard},
 	     {11,sys_core_fold,{eval_failure,badarg}}
 	    ]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     ok.
 
@@ -322,7 +318,7 @@ bool_cases(Config) when is_list(Config) ->
 	    [{6,sys_core_fold,nomatch_shadow},
 	     {13,sys_core_fold,nomatch_shadow},
 	     {18,sys_core_fold,nomatch_clause_type} ]} }],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 bad_apply(Config) when is_list(Config) ->
@@ -341,11 +337,11 @@ bad_apply(Config) when is_list(Config) ->
 	     {4,v3_kernel,bad_call},
 	     {5,v3_kernel,bad_call},
 	     {6,v3_kernel,bad_call}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     %% Also verify that the generated code generates the correct error.
-    ?line try erlang:42() of
-	      _ -> ?line ?t:fail()
+    try erlang:42() of
+	      _ -> ct:fail(should_fail)
 	  catch
 	      error:badarg -> ok
 	  end,
@@ -369,7 +365,7 @@ files(Config) when is_list(Config) ->
             [{"file1",[{17,sys_core_fold,{eval_failure,badarith}}]},
              {"file2",[{10,sys_core_fold,{eval_failure,badarith}}]}]}}],
 
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Test warnings for term construction and BIF calls in effect context.
@@ -515,7 +511,7 @@ effect(Config) when is_list(Config) ->
 		      {28,sys_core_fold,useless_building},
 		      {36,sys_core_fold,{no_effect,{erlang,'=:=',2}}},
 		      {38,sys_core_fold,{no_effect,{erlang,get_cookie,0}}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 bin_opt_info(Config) when is_list(Config) ->
@@ -538,14 +534,14 @@ bin_opt_info(Config) when is_list(Config) ->
 	      {5,beam_bsm,{no_bin_opt,{{t1,1},no_suitable_bs_start_match}}},
 	      {9,beam_bsm,{no_bin_opt,
 			   {binary_used_in,{extfunc,erlang,split_binary,2}}}} ]}}],
-    ?line [] = run(Config, Ts1),
+    [] = run(Config, Ts1),
 
     %% For coverage: don't give the bin_opt_info option.
     Ts2 = [{bsm2,
 	    Code,
 	    [],
 	    []}],
-    ?line [] = run(Config, Ts2),
+    [] = run(Config, Ts2),
     ok.
 
 bin_construction(Config) when is_list(Config) ->
@@ -562,7 +558,7 @@ bin_construction(Config) when is_list(Config) ->
 	   [],
 	   {warnings,[{4,sys_core_fold,embedded_binary_size},
 		      {8,sys_core_fold,{embedded_unit,8,28}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     
     ok.
 
@@ -838,7 +834,7 @@ run(Config, Tests) ->
                     E -> 
                         BadL;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -851,33 +847,32 @@ run(Config, Tests) ->
 run_test(Conf, Test0, Warnings) ->
     Module = "warnings_"++test_lib:uniq(),
     Filename = Module ++ ".erl",
-    ?line DataDir = ?privdir,
+    DataDir = ?privdir,
     Test = ["-module(", Module, "). ", Test0],
-    ?line File = filename:join(DataDir, Filename),
-    ?line Opts = [binary,export_all,return|Warnings],
-    ?line ok = file:write_file(File, Test),
+    File = filename:join(DataDir, Filename),
+    Opts = [binary,export_all,return|Warnings],
+    ok = file:write_file(File, Test),
 
     %% Compile once just to print all warnings.
-    ?line compile:file(File, [binary,export_all,report|Warnings]),
+    compile:file(File, [binary,export_all,report|Warnings]),
 
     %% Test result of compilation.
-    ?line Res = case compile:file(File, Opts) of
-		    {ok, _M, Bin, []} when is_binary(Bin) ->
-			[];
-		    {ok, _M, Bin, Ws0} when is_binary(Bin) ->
-			%% We are not interested in warnings from
-			%% erl_lint here.
-			WsL = [{F,[W || {_,Mod,_}=W <- Ws, 
-					Mod =/= erl_lint]} ||
-				  {F,Ws} <- Ws0],
-                        case WsL of 
-                            [{_File,Ws}] -> {warnings, Ws};
-                            _ -> list_to_tuple([warnings, WsL])
-                        end
-		end,
+    Res = case compile:file(File, Opts) of
+	      {ok, _M, Bin, []} when is_binary(Bin) ->
+		  [];
+	      {ok, _M, Bin, Ws0} when is_binary(Bin) ->
+		  %% We are not interested in warnings from
+		  %% erl_lint here.
+		  WsL = [{F,[W || {_,Mod,_}=W <- Ws,
+				  Mod =/= erl_lint]} ||
+			    {F,Ws} <- Ws0],
+		  case WsL of
+		      [{_File,Ws}] -> {warnings, Ws};
+		      _ -> list_to_tuple([warnings, WsL])
+		  end
+	  end,
     file:delete(File),
     Res.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

@@ -52,7 +52,7 @@ smoke_disasm(File) when is_list(File) ->
 %% be slower than running them sequentially.
 
 parallel() ->
-    case ?t:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
+    case test_server:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
 	true -> [];
 	false -> [parallel]
     end.
@@ -66,7 +66,7 @@ uniq() ->
 
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
-    {value,{options,Opts}} = lists:keysearch(options, 1, Comp),
+    {options,Opts} = lists:keyfind(options, 1, Comp),
     lists:filter(fun(no_copt) -> true;
 		    (no_postopt) -> true;
 		    (no_float_opt) -> true;
@@ -85,7 +85,7 @@ opt_opts(Mod) ->
 %% This function retrieves the path to the original data directory.
 
 get_data_dir(Config) ->
-    Data0 = ?config(data_dir, Config),
+    Data0 = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
     Data = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
@@ -96,7 +96,7 @@ get_data_dir(Config) ->
 
 p_run(Test, List) ->
     S = erlang:system_info(schedulers),
-    N = case ?t:is_cover() of
+    N = case test_server:is_cover() of
 	    false ->
 		S + 1;
 	    true ->
@@ -118,7 +118,8 @@ p_run_loop(_, [], _, [], Errors, Ws) ->
 		1 -> {comment,"1 warning"};
 		N -> {comment,integer_to_list(N)++" warnings"}
 	    end;
-	N -> ?t:fail({N,errors})
+	N ->
+	    ct:fail({N,errors})
     end;
 p_run_loop(Test, [H|T], N, Refs, Errors, Ws) when length(Refs) < N ->
     {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
