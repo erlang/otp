@@ -29,7 +29,8 @@
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
 	 multiple_slaves/1, file_requests/1,
 	 local_archive/1, remote_archive/1,
-	 primary_archive/1, virtual_dir_in_archive/1]).
+	 primary_archive/1, virtual_dir_in_archive/1,
+	 get_modules/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -44,7 +45,8 @@ all() ->
      normalize_and_backslash, inet_existing,
      inet_coming_up, inet_disconnects, multiple_slaves,
      file_requests, local_archive, remote_archive,
-     primary_archive, virtual_dir_in_archive].
+     primary_archive, virtual_dir_in_archive,
+     get_modules].
 
 groups() -> 
     [].
@@ -108,6 +110,37 @@ get_file(Config) when is_list(Config) ->
     ?line error = erl_prim_loader:get_file(duuuuuuummmy_file),
     ?line error = erl_prim_loader:get_file({dummy}),
     ok.
+
+get_modules(_Config) ->
+    MsGood = lists:sort([lists,gen_server,gb_trees,code_server]),
+    Ms = [certainly_not_existing|MsGood],
+    SuccExp = [begin
+		   F = code:which(M),
+		   {ok,Code} = file:read_file(F),
+		   {M,{F,erlang:md5(Code)}}
+	       end || M <- MsGood],
+    FailExp = [{certainly_not_existing,enoent}],
+
+    Path = code:get_path(),
+    Process = fun(_, F, Code) -> {ok,{F,erlang:md5(Code)}} end,
+    {ok,{Succ,FailExp}} = erl_prim_loader:get_modules(Ms, Process, Path),
+    SuccExp = lists:sort(Succ),
+
+    Name = inet_get_modules,
+    {ok, Node, BootPid} = complete_start_node(Name),
+    ThisDir = filename:dirname(code:which(?MODULE)),
+    true = rpc:call(Node, code, add_patha, [ThisDir]),
+    _ = rpc:call(Node, code, ensure_loaded, [?MODULE]),
+    {ok,{InetSucc,FailExp}} = rpc:call(Node, erl_prim_loader,
+					get_modules, [Ms,Process,Path]),
+    SuccExp = lists:sort(InetSucc),
+
+    stop_node(Node),
+    unlink(BootPid),
+    exit(BootPid, kill),
+
+    ok.
+
 
 normalize_and_backslash(Config) ->
     %% Test OTP-11170

@@ -651,6 +651,7 @@ bif binary:split/2
 bif binary:split/3
 bif erts_debug:size_shared/1
 bif erts_debug:copy_shared/1
+bif erlang:has_prepared_code_on_load/1
 
 #
 # Obsolete

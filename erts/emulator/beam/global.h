@@ -1008,6 +1008,7 @@ typedef struct {
 
 Binary* erts_alloc_loader_state(void);
 Eterm erts_module_for_prepared_code(Binary* magic);
+Eterm erts_has_code_on_load(Binary* magic);
 Eterm erts_prepare_loading(Binary* loader_state,  Process *c_p,
 			   Eterm group_leader, Eterm* modp,
 			   byte* code, Uint size);
@@ -1026,7 +1027,7 @@ Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);
-void erts_start_staging_ranges(void);
+void erts_start_staging_ranges(int num_new);
 void erts_end_staging_ranges(int commit);
 void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
