@@ -23,7 +23,6 @@
 
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 
 %% Test server specific exports
