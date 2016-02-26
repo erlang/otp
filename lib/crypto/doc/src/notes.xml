@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.2.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use EVP interface for AES-CBC encryption. This enables
+	    OpenSSL 1.0.1 the use of hardware acceleration on newer
+	    Intel CPUs (AES-NI), among other platforms.</p>
+          <p>
+	    This is a backport from OTP 18.0 to R16B03.</p>
+          <p>
+	    Own Id: OTP-13384</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
