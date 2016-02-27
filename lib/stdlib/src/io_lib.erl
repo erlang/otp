@@ -112,14 +112,14 @@
 
 -type format_spec() ::
         #{
-           control_char => char(),
-           args         => [any()],
-           width        => 'none' | integer(),
-           adjust       => 'left' | 'right',
-           precision    => 'none' | integer(),
-           pad_char     => char(),
-           encoding     => 'unicode' | 'latin1',
-           strings      => boolean()
+           control_char := char(),
+           args         := [any()],
+           width        := 'none' | integer(),
+           adjust       := 'left' | 'right',
+           precision    := 'none' | integer(),
+           pad_char     := char(),
+           encoding     := 'unicode' | 'latin1',
+           strings      := boolean()
          }.
 
 %%----------------------------------------------------------------------
