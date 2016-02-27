@@ -3131,13 +3131,24 @@ mk_constraint_ref(Id, Deps) ->
 
 mk_constraint_list(Type, List) ->
   List1 = ordsets:from_list(lift_lists(Type, List)),
-  List2 = ordsets:filter(fun(X) -> get_deps(X) =/= [] end, List1),
-  Deps = calculate_deps(List2),
+  case Type of
+    conj ->
+      List2 = ordsets:filter(fun(X) -> get_deps(X) =/= [] end, List1),
+      mk_constraint_list_cont(Type, List2);
+    disj ->
+      case lists:any(fun(X) -> get_deps(X) =:= [] end, List1) of
+	true -> mk_constraint_list_cont(Type, [mk_constraint_any(eq)]);
+	false -> mk_constraint_list_cont(Type, List1)
+      end
+  end.
+
+mk_constraint_list_cont(Type, List) ->
+  Deps = calculate_deps(List),
   case Deps =:= [] of
     true -> #constraint_list{type = conj,
 			     list = [mk_constraint_any(eq)],
 			     deps = []};
-    false -> #constraint_list{type = Type, list = List2, deps = Deps}
+    false -> #constraint_list{type = Type, list = List, deps = Deps}
   end.
 
 lift_lists(Type, List) ->
