@@ -2421,7 +2421,9 @@ filter_fail_clauses([Clause|Left]) ->
   case (cerl:clause_pats(Clause) =:= []) of
     true ->
       Body = cerl:clause_body(Clause),
-      case cerl:is_literal(Body) andalso (cerl:concrete(Body) =:= fail) of
+      case cerl:is_literal(Body) andalso (cerl:concrete(Body) =:= fail) orelse
+	cerl:is_c_primop(Body) andalso
+	(cerl:atom_val(cerl:primop_name(Body)) =:= match_fail) of
 	true -> filter_fail_clauses(Left);
 	false -> [Clause|filter_fail_clauses(Left)]
       end;
