@@ -1482,7 +1482,9 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
   {NewMap, TypeOut} =
     case cerl:type(Pat) of
       alias ->
-	AliasPat = cerl:alias_pat(Pat),
+	%% Map patterns are more allowing than the type of their literal. We
+	%% must unfold AliasPat if it is a literal.
+	AliasPat = dialyzer_utils:refold_pattern(cerl:alias_pat(Pat)),
 	Var = cerl:alias_var(Pat),
 	Map1 = enter_subst(Var, AliasPat, Map),
 	{Map2, [PatType]} = bind_pat_vars([AliasPat], [Type], [],
@@ -1523,11 +1525,20 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	    {Map1, t_cons(HdType, TlType)}
 	end;
       literal ->
-	Literal = literal_type(Pat),
-	case t_is_none(t_inf(Literal, Type, Opaques)) of
+	Pat0 = dialyzer_utils:refold_pattern(Pat),
+	case cerl:is_literal(Pat0) of
 	  true ->
-	    bind_opaque_pats(Literal, Type, Pat, State);
-	  false -> {Map, Literal}
+	    Literal = literal_type(Pat),
+	    case t_is_none(t_inf(Literal, Type, Opaques)) of
+	      true ->
+		bind_opaque_pats(Literal, Type, Pat, State);
+	      false -> {Map, Literal}
+	    end;
+	  false ->
+	    %% Retry with the unfolded pattern
+	    {Map1, [PatType]}
+	      = bind_pat_vars([Pat0], [Type], [], Map, State, Rev),
+	    {Map1, PatType}
 	end;
       map ->
 	MapT = t_inf(Type, t_map(), Opaques),
@@ -2742,8 +2753,9 @@ store_map(Key, Val, #map{dict = Dict, ref = undefined} = Map) ->
 store_map(Key, Val, #map{dict = Dict, modified = Mod} = Map) ->
   Map#map{dict = dict:store(Key, Val, Dict), modified = [Key | Mod]}.
 
-enter_subst(Key, Val, #map{subst = Subst} = MS) ->
+enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
+  Val = dialyzer_utils:refold_pattern(Val0),
   case cerl:is_literal(Val) of
     true ->
       store_map(KeyLabel, literal_type(Val), MS);
