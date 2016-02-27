@@ -60,6 +60,7 @@
 -define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
+-define(WARN_MAP_CONSTRUCTION, warn_map_construction).
 
 %%
 %% The following type has double role:
@@ -75,7 +76,8 @@
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CALLGRAPH
                        | ?WARN_UNMATCHED_RETURN | ?WARN_RACE_CONDITION
                        | ?WARN_BEHAVIOUR | ?WARN_CONTRACT_RANGE
-		       | ?WARN_UNDEFINED_CALLBACK | ?WARN_UNKNOWN.
+		       | ?WARN_UNDEFINED_CALLBACK | ?WARN_UNKNOWN
+		       | ?WARN_MAP_CONSTRUCTION.
 
 %%
 %% This is the representation of each warning as they will be returned

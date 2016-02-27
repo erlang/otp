@@ -14,3 +14,4 @@ literals.erl:26: Matching of pattern {'r', 'a'} tagged with a record name violat
 literals.erl:29: Function m3/1 has no local return
 literals.erl:29: The pattern {{'r', 'a'}} can never match the type any()
 literals.erl:32: Function m4/1 has no local return
+literals.erl:32: Matching of pattern {'r', 'a'} tagged with a record name violates the declared type of #r{id::'integer'}

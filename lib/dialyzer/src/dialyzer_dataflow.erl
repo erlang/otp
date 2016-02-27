@@ -72,7 +72,7 @@
 	 t_tuple/0, t_tuple/1, t_tuple_args/1, t_tuple_args/2,
          t_tuple_subtypes/2,
 	 t_unit/0, t_unopaque/2,
-	 t_map/1
+	 t_map/0, t_map/1, t_is_singleton/2
      ]).
 
 %%-define(DEBUG, true).
@@ -342,8 +342,6 @@ traverse(Tree, Map, State) ->
       handle_tuple(Tree, Map, State);
     map ->
       handle_map(Tree, Map, State);
-    map_pair ->
-      handle_map_pair(Tree, Map, State);
     values ->
       Elements = cerl:values_es(Tree),
       {State1, Map1, EsType} = traverse_list(Elements, Map, State),
@@ -1102,15 +1100,54 @@ handle_try(Tree, Map, State) ->
 %%----------------------------------------
 
 handle_map(Tree,Map,State) ->
-    Pairs = cerl:map_es(Tree),
-    {State1, Map1, TypePairs} = traverse_list(Pairs,Map,State),
-    {State1, Map1, t_map(TypePairs)}.
+  Pairs = cerl:map_es(Tree),
+  Arg = cerl:map_arg(Tree),
+  {State1, Map1, ArgType} = traverse(Arg, Map, State),
+  ArgType1 = t_inf(t_map(), ArgType),
+  case t_is_none_or_unit(ArgType1) of
+    true ->
+      {State1, Map1, ArgType1};
+    false ->
+      {State2, Map2, TypePairs, ExactKeys} =
+	traverse_map_pairs(Pairs, Map1, State1, t_none(), [], []),
+      InsertPair = fun({KV,assoc,_},Acc) -> erl_types:t_map_put(KV,Acc);
+		      ({KV,exact,KVTree},Acc) ->
+		       case t_is_none(T=erl_types:t_map_update(KV,Acc)) of
+			 true -> throw({none, Acc, KV, KVTree});
+			 false -> T
+		       end
+		   end,
+      try lists:foldl(InsertPair, ArgType1, TypePairs)
+      of ResT ->
+	  BindT = t_map([{K, t_any()} || K <- ExactKeys]),
+	  case bind_pat_vars_reverse([Arg], [BindT], [], Map2, State2) of
+	    {error, _, _, _, _} -> {State2, Map2, ResT};
+	    {Map3, _} ->           {State2, Map3, ResT}
+	  end
+      catch {none, MapType, {K,_}, KVTree} ->
+	  Msg2 = {map_update, [format_type(MapType, State2),
+			       format_type(K, State2)]},
+	  {state__add_warning(State2, ?WARN_MAP_CONSTRUCTION, KVTree, Msg2),
+	   Map2, t_none()}
+      end
+  end.
 
-handle_map_pair(Tree,Map,State) ->
-  Key = cerl:map_pair_key(Tree),
-  Val = cerl:map_pair_val(Tree),
+traverse_map_pairs([], Map, State, _ShadowKeys, PairAcc, KeyAcc) ->
+  {State, Map, lists:reverse(PairAcc), KeyAcc};
+traverse_map_pairs([Pair|Pairs], Map, State, ShadowKeys, PairAcc, KeyAcc) ->
+  Key = cerl:map_pair_key(Pair),
+  Val = cerl:map_pair_val(Pair),
+  Op = cerl:map_pair_op(Pair),
   {State1, Map1, [K,V]} = traverse_list([Key,Val],Map,State),
-  {State1, Map1, {K,V}}.
+  KeyAcc1 =
+    case cerl:is_literal(Op) andalso cerl:concrete(Op) =:= exact andalso
+      t_is_singleton(K, State#state.opaques) andalso
+      t_is_none(t_inf(ShadowKeys, K)) of
+      true -> [K|KeyAcc];
+      false -> KeyAcc
+  end,
+  traverse_map_pairs(Pairs, Map1, State1, t_sup(K, ShadowKeys),
+		     [{{K,V},cerl:concrete(Op),Pair}|PairAcc], KeyAcc1).
 
 %%----------------------------------------
 
@@ -1493,7 +1530,43 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	  false -> {Map, Literal}
 	end;
       map ->
-	  {Map, t_map([])};
+	MapT = t_inf(Type, t_map(), Opaques),
+	case t_is_none(MapT) of
+	  true ->
+	    bind_opaque_pats(t_map(), Type, Pat, State);
+	  false ->
+	    case Rev of
+	      %% TODO: Reverse matching (propagating a matched subset back to a value)
+	      true -> {Map, MapT};
+	      false ->
+		FoldFun =
+		  fun(Pair, {MapAcc, ListAcc}) ->
+		      %% Only exact (:=) can appear in patterns
+		      exact = cerl:concrete(cerl:map_pair_op(Pair)),
+		      Key = cerl:map_pair_key(Pair),
+		      KeyType =
+			case cerl:type(Key) of
+			  var ->
+			    case state__lookup_type_for_letrec(Key, State) of
+			      error -> lookup_type(Key, MapAcc);
+			      {ok, RecType} -> RecType
+			    end;
+			  literal ->
+			    literal_type(Key)
+			end,
+		      Bind = erl_types:t_map_get(KeyType, MapT),
+		      {MapAcc1, [ValType]} =
+			bind_pat_vars([cerl:map_pair_val(Pair)],
+				      [Bind], [], MapAcc, State, Rev),
+		      case t_is_singleton(KeyType, Opaques) of
+			true  -> {MapAcc1, [{KeyType, ValType}|ListAcc]};
+			false -> {MapAcc1, ListAcc}
+		      end
+		  end,
+		{Map1, Pairs} = lists:foldl(FoldFun, {Map, []}, cerl:map_es(Pat)),
+		{Map1, t_inf(MapT, t_map(Pairs))}
+	    end
+	end;
       tuple ->
 	Es = cerl:tuple_es(Pat),
 	{TypedRecord, Prototype} =
@@ -1718,7 +1791,10 @@ bind_guard(Guard, Map, Env, Eval, State) ->
       {Map1, Es} = bind_guard_list(Es0, Map, Env, dont_know, State),
       {Map1, t_tuple(Es)};
     map ->
-      {Map, t_map([])};
+      case Eval of
+	dont_know -> handle_guard_map(Guard, Map, Env, State);
+	_PosOrNeg -> {Map, t_none()}  %% Map exprs do not produce bools
+      end;
     'let' ->
       Arg = cerl:let_arg(Guard),
       [Var] = cerl:let_vars(Guard),
@@ -1761,7 +1837,7 @@ handle_guard_call(Guard, Map, Env, Eval, State) ->
     {erlang, F, 1} when F =:= is_atom; F =:= is_boolean;
 			F =:= is_binary; F =:= is_bitstring;
 			F =:= is_float; F =:= is_function;
-			F =:= is_integer; F =:= is_list;
+			F =:= is_integer; F =:= is_list; F =:= is_map;
 			F =:= is_number; F =:= is_pid; F =:= is_port;
 			F =:= is_reference; F =:= is_tuple ->
       handle_guard_type_test(Guard, F, Map, Env, Eval, State);
@@ -1841,6 +1917,7 @@ bind_type_test(Eval, TypeTest, ArgType, State) ->
 	   is_function -> t_fun();
 	   is_integer -> t_integer();
 	   is_list -> t_maybe_improper_list();
+	   is_map -> t_map();
 	   is_number -> t_number();
 	   is_pid -> t_pid();
 	   is_port -> t_port();
@@ -2349,6 +2426,30 @@ bind_guard_list([G|Gs], Map, Env, Eval, State, Acc) ->
 bind_guard_list([], Map, _Env, _Eval, _State, Acc) ->
   {Map, lists:reverse(Acc)}.
 
+handle_guard_map(Guard, Map, Env, State) ->
+  Pairs = cerl:map_es(Guard),
+  Arg = cerl:map_arg(Guard),
+  {Map1, ArgType0} = bind_guard(Arg, Map, Env, dont_know, State),
+  ArgType1 = t_inf(t_map(), ArgType0),
+  case t_is_none_or_unit(ArgType1) of
+    true -> {Map1, t_none()};
+    false ->
+      {Map2, TypePairs} = bind_guard_map_pairs(Pairs, Map1, Env, State, []),
+      {Map2, lists:foldl(fun({KV,assoc},Acc) -> erl_types:t_map_put(KV,Acc);
+			    ({KV,exact},Acc) -> erl_types:t_map_update(KV,Acc)
+			 end, ArgType1, TypePairs)}
+  end.
+
+bind_guard_map_pairs([], Map, _Env, _State, PairAcc) ->
+  {Map, lists:reverse(PairAcc)};
+bind_guard_map_pairs([Pair|Pairs], Map, Env, State, PairAcc) ->
+  Key = cerl:map_pair_key(Pair),
+  Val = cerl:map_pair_val(Pair),
+  Op = cerl:map_pair_op(Pair),
+  {Map1, [K,V]} = bind_guard_list([Key,Val],Map,Env,dont_know,State),
+  bind_guard_map_pairs(Pairs, Map1, Env, State,
+		       [{{K,V},cerl:concrete(Op)}|PairAcc]).
+
 -type eval() :: 'pos' | 'neg' | 'dont_know'.
 
 -spec signal_guard_fail(eval(), cerl:c_call(), [type()],
@@ -2705,6 +2806,9 @@ mark_as_fresh([Tree|Left], Map) ->
       bitstr ->
 	%% The Size field is not fresh.
 	{SubTrees1 -- [cerl:bitstr_size(Tree)], Map};
+      map_pair ->
+	%% The keys are not fresh
+	{SubTrees1 -- [cerl:map_pair_key(Tree)], Map};
       var ->
 	{SubTrees1, enter_type(Tree, t_any(), Map)};
       _ ->
