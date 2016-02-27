@@ -1,0 +1,6 @@
+
+typeflow.erl:12: Function a_is_integer/1 has no local return
+typeflow.erl:14: Function t2/1 has no local return
+typeflow.erl:19: Function t3/1 has no local return
+typeflow.erl:20: The call maps:get('a',M::#{}) will never return since the success typing arguments are (any(),map())
+typeflow.erl:5: Function t1/1 has no local return
