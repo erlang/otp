@@ -132,15 +132,18 @@
         | nonempty_list(Type)                  %% Proper non-empty list
 
   Map :: map()                                 %% stands for a map of any size
-       | #{}                                   %% stands for a map of any size
+       | #{}                                   %% stands for the empty map
        | #{PairList}
 
   Tuple :: tuple()                             %% stands for a tuple of any size
          | {}
          | {TList}
 
-  PairList :: Type => Type
-            | Type => Type, PairList
+  PairList :: Pair
+            | Pair, PairList
+
+  Pair :: Type := Type                         %% notes a pair that must be present
+        | Type => Type
 
   TList :: Type
          | Type, TList
@@ -168,6 +171,23 @@
     Notice that the shorthand for <c>list()</c>, that is, the list of
     elements of unknown type, is <c>[_]</c> (or <c>[any()]</c>), not <c>[]</c>. 
     The notation <c>[]</c> specifies the singleton type for the empty list.
+  </p>
+  <p>
+    The general form of maps is <c>#{PairList}</c>. The key types in
+    <c>PairList</c> are allowed to overlap, and if they do, the leftmost pair
+    takes precedence. A map value does not belong to this type if contains a key
+    that is not in <c>PairList</c>.
+  </p>
+  <p>
+    Because it is common to end a map type with <c>any() =&gt; any()</c> to denote
+    that keys that do not belong to any other pair in <c>PairList</c> are
+    allowed, and may map to any value, the shorhand notation <c>...</c> is
+    allowed as the last pair of a map type.
+  </p>
+  <p>
+    Notice that the syntactic representation of <c>map()</c> is <c>#{...}</c>
+    (or <c>#{_ =&gt; _}</c>, or <c>#{any() =&gt; any()}</c>), not <c>#{}</c>.
+    The notation <c>#{}</c> specifies the singleton type for the empty map.
   </p>
   <p>
     For convenience, the following types are also built-in. 
@@ -302,12 +322,6 @@
     This is described in <seealso marker="#typeinrecords">
     Type Information in Record Declarations</seealso>.
   </p>
-  <note>
-    <p>Map types, both <c>map()</c> and <c>#{...}</c>,
-      are considered experimental during OTP 17.</p>
-    <p>No type information of maps pairs, only the containing map types,
-      are used by Dialyzer in OTP 17.</p>
-  </note>
   </section>
 
   <section>
