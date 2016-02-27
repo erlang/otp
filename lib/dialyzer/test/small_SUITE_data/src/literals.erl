@@ -18,7 +18,7 @@ t3() ->
     {#r{id = a}}. % violation
 
 t4() ->
-    #{a => #r{id = a}}. % violation found, but t4() returns... (bug)
+    #{a => #r{id = a}}. % violation
 
 m1(#r{id = a}) -> % violation
     ok.

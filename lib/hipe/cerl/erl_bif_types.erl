@@ -115,7 +115,16 @@
 		    t_tuple_size/2,
 		    t_tuple_subtypes/2,
 		    t_is_map/2,
-		    t_map/0
+		    t_map/0,
+		    t_map/3,
+		    t_map_def_key/2,
+		    t_map_def_val/2,
+		    t_map_get/3,
+		    t_map_is_key/3,
+		    t_map_entries/2,
+		    t_map_put/3,
+		    t_map_update/3,
+		    map_pairwise_merge/3
 		   ]).
 
 -ifdef(DO_ERL_BIF_TYPES_TEST).
@@ -755,7 +764,7 @@ type(erlang, length, 1, Xs, Opaques) ->
   strict(erlang, length, 1, Xs, fun (_) -> t_non_neg_fixnum() end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
-  strict(erlang, map_size, 1, Xs, fun (_) -> t_non_neg_integer() end, Opaques);
+  type(maps, size, 1, Xs, Opaques);
 type(erlang, make_fun, 3, Xs, Opaques) ->
   strict(erlang, make_fun, 3, Xs,
          fun ([_, _, Arity]) ->
@@ -1644,6 +1653,89 @@ type(lists, zipwith3, 4, Xs, Opaques) ->
   strict(lists, zipwith3, 4, Xs,
 	 fun ([F,_As,_Bs,_Cs]) -> t_sup(t_list(t_fun_range(F, Opaques)),
                                         t_nil()) end, Opaques);
+
+%%-- maps ---------------------------------------------------------------------
+type(maps, from_list, 1, Xs, Opaques) ->
+  strict(maps, from_list, 1, Xs,
+	 fun ([List]) ->
+	     case t_is_nil(List, Opaques) of
+	       true -> t_from_term(#{});
+	       false ->
+		 T = t_list_elements(List, Opaques),
+		 case t_tuple_subtypes(T, Opaques) of
+		   unknown -> t_map();
+		   Stypes when length(Stypes) >= 1 ->
+		     t_sup([begin
+			      [K, V] = t_tuple_args(Args, Opaques),
+			      t_map([], K, V)
+			    end || Args <- Stypes])
+		 end
+	     end
+	 end, Opaques);
+type(maps, get, 2, Xs, Opaques) ->
+  strict(maps, get, 2, Xs,
+	 fun ([Key, Map]) ->
+	     t_map_get(Key, Map, Opaques)
+	 end, Opaques);
+type(maps, is_key, 2, Xs, Opaques) ->
+  strict(maps, is_key, 2, Xs,
+	 fun ([Key, Map]) ->
+	     t_map_is_key(Key, Map, Opaques)
+	 end, Opaques);
+type(maps, merge, 2, Xs, Opaques) ->
+  strict(maps, merge, 2, Xs,
+	 fun ([MapA, MapB]) ->
+	     ADefK = t_map_def_key(MapA, Opaques),
+	     BDefK = t_map_def_key(MapB, Opaques),
+	     ADefV = t_map_def_val(MapA, Opaques),
+	     BDefV = t_map_def_val(MapB, Opaques),
+	     t_map(map_pairwise_merge(
+		     fun(K, _,     _,  mandatory, V) -> {K, mandatory, V};
+			(K, MNess, VA, optional, VB) -> {K, MNess, t_sup(VA,VB)}
+		     end, MapA, MapB),
+		   t_sup(ADefK, BDefK), t_sup(ADefV, BDefV))
+	 end, Opaques);
+type(maps, put, 3, Xs, Opaques) ->
+  strict(maps, put, 3, Xs,
+	 fun ([Key, Value, Map]) ->
+	     t_map_put({Key, Value}, Map, Opaques)
+	 end, Opaques);
+type(maps, size, 1, Xs, Opaques) ->
+  strict(maps, size, 1, Xs,
+	 fun ([Map]) ->
+	     Mand = [E || E={_,mandatory,_} <- t_map_entries(Map, Opaques)],
+	     LowerBound = length(Mand),
+	     case t_is_none(t_map_def_key(Map, Opaques)) of
+	       false -> t_from_range(LowerBound, pos_inf);
+	       true ->
+		 Opt = [E || E={_,optional,_} <- t_map_entries(Map, Opaques)],
+		 UpperBound = LowerBound + length(Opt),
+		 t_from_range(LowerBound, UpperBound)
+	     end
+	 end, Opaques);
+type(maps, to_list, 1, Xs, Opaques) ->
+  strict(maps, to_list, 1, Xs,
+	 fun ([Map]) ->
+	     DefK = t_map_def_key(Map, Opaques),
+	     DefV = t_map_def_val(Map, Opaques),
+	     Pairs = t_map_entries(Map, Opaques),
+	     EType = lists:foldl(
+		       fun({K,_,V},EType0) ->
+			   case t_is_none(V) of
+			     true -> t_subtract(EType0, t_tuple([K,t_any()]));
+			     false -> t_sup(EType0, t_tuple([K,V]))
+			   end
+		       end, t_tuple([DefK, DefV]), Pairs),
+	     case t_is_none(EType) of
+	       true -> t_nil();
+	       false -> t_list(EType)
+	     end
+	 end, Opaques);
+type(maps, update, 3, Xs, Opaques) ->
+  strict(maps, update, 3, Xs,
+	 fun ([Key, Value, Map]) ->
+	     t_map_update({Key, Value}, Map, Opaques)
+	 end, Opaques);
 
 %%-----------------------------------------------------------------------------
 type(M, F, A, Xs, _O) when is_atom(M), is_atom(F),
@@ -2556,6 +2648,23 @@ arg_types(lists, zipwith, 3) ->
   [t_fun([t_any(), t_any()], t_any()), t_list(), t_list()];
 arg_types(lists, zipwith3, 4) ->
   [t_fun([t_any(), t_any(), t_any()], t_any()), t_list(), t_list(), t_list()];
+%%------- maps ----------------------------------------------------------------
+arg_types(maps, from_list, 1) ->
+  [t_list(t_tuple(2))];
+arg_types(maps, get, 2) ->
+  [t_any(), t_map()];
+arg_types(maps, is_key, 2) ->
+  [t_any(), t_map()];
+arg_types(maps, merge, 2) ->
+  [t_map(), t_map()];
+arg_types(maps, put, 3) ->
+  [t_any(), t_any(), t_map()];
+arg_types(maps, size, 1) ->
+  [t_map()];
+arg_types(maps, to_list, 1) ->
+  [t_map()];
+arg_types(maps, update, 3) ->
+  [t_any(), t_any(), t_map()];
 arg_types(M, F, A) when is_atom(M), is_atom(F),
 			is_integer(A), 0 =< A, A =< 255 ->
   unknown.                     % safe approximation for all functions.
