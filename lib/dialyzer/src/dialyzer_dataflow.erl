@@ -1794,9 +1794,49 @@ bind_guard(Guard, Map, Env, Eval, State) ->
     'try' ->
       Arg = cerl:try_arg(Guard),
       [Var] = cerl:try_vars(Guard),
+      EVars = cerl:try_evars(Guard),
       %%?debug("Storing: ~w\n", [Var]),
-      NewEnv = dict:store(get_label(Var), Arg, Env),
-      bind_guard(cerl:try_body(Guard), Map, NewEnv, Eval, State);
+      Map1 = join_maps_begin(Map),
+      Map2 = mark_as_fresh(EVars, Map1),
+      %% Visit handler first so we know if it should be ignored
+      {{HandlerMap, HandlerType}, HandlerE} =
+	try {bind_guard(cerl:try_handler(Guard), Map2, Env, Eval, State), none}
+	catch throw:HE ->
+	    {{Map2, t_none()}, HE}
+	end,
+      BodyEnv = dict:store(get_label(Var), Arg, Env),
+      Wanted = case Eval of pos -> t_atom(true); neg -> t_atom(false);
+		 dont_know -> t_any() end,
+      case t_is_none(t_inf(HandlerType, Wanted)) of
+	%% Handler won't save us; pretend it does not exist
+	true -> bind_guard(cerl:try_body(Guard), Map, BodyEnv, Eval, State);
+	false ->
+	  {{BodyMap, BodyType}, BodyE} =
+	    try {bind_guard(cerl:try_body(Guard), Map1, BodyEnv,
+			    Eval, State), none}
+	    catch throw:BE ->
+		{{Map1, t_none()}, BE}
+	    end,
+	  Map3 = join_maps_end([BodyMap, HandlerMap], Map1),
+	  case t_is_none(Sup = t_sup(BodyType, HandlerType)) of
+	    true ->
+	      %% Pick a reason. N.B. We assume that the handler is always
+	      %% compiler-generated if the body is; that way, we won't need to
+	      %% check.
+	      Fatality = case {BodyE, HandlerE} of
+			   {{fatal_fail, _}, _} -> fatal_fail;
+			   {_, {fatal_fail, _}} -> fatal_fail;
+			   _ -> fail
+			 end,
+	      throw({Fatality,
+		     case {BodyE, HandlerE} of
+		       {{_, Rsn}, _} when Rsn =/= none -> Rsn;
+		       {_, {_,Rsn}} -> Rsn;
+		       _ -> none
+		     end});
+	    false -> {Map3, Sup}
+	  end
+      end;
     tuple ->
       Es0 = cerl:tuple_es(Guard),
       {Map1, Es} = bind_guard_list(Es0, Map, Env, dont_know, State),
