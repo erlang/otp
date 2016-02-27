@@ -1,4 +1,5 @@
 
 maps1.erl:43: Function t3/0 has no local return
 maps1.erl:46: Function foo/2 has no local return
+maps1.erl:47: A key of type 'beta' cannot exist in a map of type #{'alfa':=42}
 maps1.erl:52: The call Mod:'function'(~{'literal'=>'map'}~,'another_arg') requires that Mod is of type atom() not #{}
