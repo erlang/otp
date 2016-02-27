@@ -57,8 +57,8 @@
                   | {'global', Name :: atom()}
                   | {'via', Module :: module(), Name :: any()}
                   | pid().
--type child_spec() :: #{id => child_id(),       % mandatory
-			start => mfargs(),      % mandatory
+-type child_spec() :: #{id := child_id(),       % mandatory
+			start := mfargs(),      % mandatory
 			restart => restart(),   % optional
 			shutdown => shutdown(), % optional
 			type => worker(),       % optional
