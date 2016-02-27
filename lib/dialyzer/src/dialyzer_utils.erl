@@ -753,6 +753,13 @@ pp_hook(Node, Ctxt, Cont) ->
       pp_binary(Node, Ctxt, Cont);
     bitstr ->
       pp_segment(Node, Ctxt, Cont);
+    map ->
+      pp_map(Node, Ctxt, Cont);
+    literal ->
+      case is_map(cerl:concrete(Node)) of
+	true -> pp_map(Node, Ctxt, Cont);
+	false -> Cont(Node, Ctxt)
+      end;
     _ ->
       Cont(Node, Ctxt)
   end.
@@ -832,6 +839,30 @@ pp_unit(Unit, Ctxt, Cont) ->
 pp_atom(Atom) ->
   String = atom_to_list(cerl:atom_val(Atom)),
   prettypr:text(String).
+
+pp_map(Node, Ctxt, Cont) ->
+  Arg = cerl:map_arg(Node),
+  Before = case cerl:is_c_map_empty(Arg) of
+	     true -> prettypr:floating(prettypr:text("#{"));
+	     false ->
+	       prettypr:beside(Cont(Arg,Ctxt),
+			       prettypr:floating(prettypr:text("#{")))
+	   end,
+  prettypr:beside(
+    Before, prettypr:beside(
+	      prettypr:par(seq(cerl:map_es(Node),
+			       prettypr:floating(prettypr:text(",")),
+			       Ctxt, Cont)),
+	      prettypr:floating(prettypr:text("}")))).
+
+seq([H | T], Separator, Ctxt, Fun) ->
+  case T of
+    [] -> [Fun(H, Ctxt)];
+    _  -> [prettypr:beside(Fun(H, Ctxt), Separator)
+	   | seq(T, Separator, Ctxt, Fun)]
+  end;
+seq([], _, _, _) ->
+  [prettypr:empty()].
 
 %%------------------------------------------------------------------------------
 
