@@ -173,6 +173,10 @@ fun_type -> '(' top_types ')' '->' top_type
 map_pair_types -> map_pair_type                    : ['$1'].
 map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
 map_pair_type  -> top_type '=>' top_type           : {type, ?anno('$2'), map_field_assoc,['$1','$3']}.
+map_pair_type  -> top_type ':=' top_type           : {type, ?anno('$2'), map_field_exact,['$1','$3']}.
+map_pair_type  -> '...'                            : {type, ?anno('$1'), map_field_assoc,
+                                                      [{type, ?anno('$1'), any, []},
+                                                       {type, ?anno('$1'), any, []}]}.
 
 field_types -> field_type                 : ['$1'].
 field_types -> field_type ',' field_types : ['$1'|'$3'].
