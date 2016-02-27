@@ -393,8 +393,18 @@ traverse(Tree, DefinedVars, State) ->
       {State2, _} = traverse_list(Funs, DefinedVars1, State1),
       traverse(Body, DefinedVars1, State2);
     literal ->
-      Type = t_from_term(cerl:concrete(Tree)),
-      {State, Type};
+      %% Maps are special; a literal pattern matches more than just the value
+      %% constructed by the literal. For example #{} constructs the empty map,
+      %% but matches every map.
+      case state__is_in_match(State) of
+	true ->
+	  Tree1 = dialyzer_utils:refold_pattern(Tree),
+	  case cerl:is_literal(Tree1) of
+	    false -> traverse(Tree1, DefinedVars, State);
+	    true -> {State, t_from_term(cerl:concrete(Tree))}
+	  end;
+	_ -> {State, t_from_term(cerl:concrete(Tree))}
+      end;
     module ->
       Defs = cerl:module_defs(Tree),
       Funs = [Fun || {_Var, Fun} <- Defs],
@@ -1110,7 +1120,9 @@ bitstr_val_constr(SizeType, UnitVal, Flags) ->
       end
   end.
 
-get_safe_underapprox_1([Pat|Left], Acc, Map) ->
+get_safe_underapprox_1([Pat0|Left], Acc, Map) ->
+  %% Maps should be treated as patterns, not as literals
+  Pat = dialyzer_utils:refold_pattern(Pat0),
   case cerl:type(Pat) of
     alias ->
       APat = cerl:alias_pat(Pat),

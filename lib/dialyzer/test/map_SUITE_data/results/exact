@@ -1,6 +1,3 @@
 
 exact.erl:15: Function t2/1 has no local return
-exact.erl:16: The call exact:has_a(M::#{}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':=_, ...})
-exact.erl:22: Function has_a/1 has no local return
-exact.erl:23: A key of type 'a' cannot exist in a map of type #{}
-exact.erl:8: The pattern ~{'a':=_}~ can never match the type #{}
+exact.erl:19: The variable _ can never match since previous clauses completely covered the type #{'a':=_, ...}

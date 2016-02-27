@@ -1,9 +1,4 @@
 
-typeflow.erl:12: Function a_is_integer/1 has no local return
-typeflow.erl:12: The pattern ~{'a':=X}~ can never match the type #{}
 typeflow.erl:14: Function t2/1 has no local return
-typeflow.erl:15: The call typeflow:a_is_integer(M::#{}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':=integer(), ...})
-typeflow.erl:19: Function t3/1 has no local return
-typeflow.erl:20: The call maps:get('a',M::#{}) will never return since the success typing arguments are (any(),map())
-typeflow.erl:5: Function t1/1 has no local return
-typeflow.erl:6: The call typeflow:a_is_integer(M::#{}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':=integer(), ...})
+typeflow.erl:16: The call lists:sort(integer()) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
+typeflow.erl:9: The variable _ can never match since previous clauses completely covered the type #{'a':=integer(), ...}
