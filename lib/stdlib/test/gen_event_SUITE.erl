@@ -264,7 +264,7 @@ add_sup_handler(Config) when is_list(Config) ->
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line [dummy_h] = gen_event:which_handlers(my_dummy_handler),
     ?line exit(Pid, sup_died),
-    ?t:sleep(1000),
+    ct:sleep(1000),
     ?line [] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),

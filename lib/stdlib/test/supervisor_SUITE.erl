@@ -1484,18 +1484,18 @@ count_restarting_children(Config) when is_list(Config) ->
     supervisor_deadlock:restart_child(Ch1_1),
     supervisor_deadlock:restart_child(Ch1_2),
     supervisor_deadlock:restart_child(Ch1_3),
-    test_server:sleep(400),
+    ct:sleep(400),
     [1,3,0,3] = get_child_counts(SupPid),
     [Ch2_1, Ch2_2, Ch2_3] = [C || {_,C,_,_} <- supervisor:which_children(SupPid)],
 
     ets:insert(supervisor_deadlock,{fail_start,true}),
     supervisor_deadlock:restart_child(Ch2_1),
     supervisor_deadlock:restart_child(Ch2_2),
-    test_server:sleep(4000), % allow restart to happen before proceeding
+    ct:sleep(4000),	   % allow restart to happen before proceeding
     [1,1,0,3] = get_child_counts(SupPid),
 
     ets:insert(supervisor_deadlock,{fail_start,false}),
-    test_server:sleep(4000), % allow restart to happen before proceeding
+    ct:sleep(4000),	   % allow restart to happen before proceeding
     [1,3,0,3] = get_child_counts(SupPid),
 
     ok = supervisor:terminate_child(SupPid, Ch2_3),

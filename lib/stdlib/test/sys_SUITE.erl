@@ -98,12 +98,12 @@ stats(Config) when is_list(Config) ->
 trace(suite) -> [];
 trace(Config) when is_list(Config) ->
     {ok,_Server} = start(),
-    test_server:sleep(2000),
+    ct:sleep(2000),
     test_server:capture_start(),
     sys:trace(?server,true),
     {ok,-44} = public_call(44),
     %% ho, hum, allow for the io to reach us..
-    test_server:sleep(1000),
+    ct:sleep(1000),
     test_server:capture_stop(),
     [Msg1,Msg2] = test_server:capture_get(),
     lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),

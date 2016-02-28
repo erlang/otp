@@ -91,7 +91,7 @@ t_start_link(Config) when is_list(Config) ->
     ?line wait_alive(Slave2),
     ?line exit(Pid, kill),
     ?line receive {'EXIT', Pid, killed} -> ok end,
-    ?line test_server:sleep(250),
+    ct:sleep(250),
     ?line is_dead(Slave1),
     ?line is_dead(Slave2),
 		  

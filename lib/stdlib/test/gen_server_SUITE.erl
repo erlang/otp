@@ -186,7 +186,7 @@ start(Config) when is_list(Config) ->
 	gen_server:start({global, my_test_name},
 			 gen_server_SUITE, [], []),
     ?line ok = gen_server:call({global, my_test_name}, stop),
-    test_server:sleep(1),
+    ct:sleep(1),
     ?line {'EXIT', {noproc,_}} = (catch gen_server:call(Pid4, started_p, 10)),
 
     %% global register linked
@@ -215,7 +215,7 @@ start(Config) when is_list(Config) ->
 	gen_server:start({via, dummy_via, my_test_name},
 			 gen_server_SUITE, [], []),
     ?line ok = gen_server:call({via, dummy_via, my_test_name}, stop),
-    test_server:sleep(1),
+    ct:sleep(1),
     ?line {'EXIT', {noproc,_}} = (catch gen_server:call(Pid6, started_p, 10)),
 
     %% via register linked
@@ -422,10 +422,10 @@ call(Config) when is_list(Config) ->
 
     %% two requests within a specified time.
     ?line ok = gen_server:call(my_test_name, {call_within, 1000}),
-    test_server:sleep(500),
+    timer:sleep(500),
     ?line ok = gen_server:call(my_test_name, next_call),
     ?line ok = gen_server:call(my_test_name, {call_within, 1000}),
-    test_server:sleep(1500),
+    timer:sleep(1500),
     ?line false = gen_server:call(my_test_name, next_call),
     
     %% timeout call.
@@ -582,7 +582,7 @@ cast_fast(Config) when is_list(Config) ->
     ?line FalseNode = list_to_atom("hopp@"++Host),
     ?line true = rpc:cast(Node, ?MODULE, cast_fast_messup, []),
 %    ?line io:format("Nodes ~p~n", [rpc:call(N, ?MODULE, cast_fast_messup, [])]),
-    ?line test_server:sleep(1000),
+    ct:sleep(1000),
     ?line [Node] = nodes(),
     ?line {Time,ok} = test_server:timecall(gen_server, cast, 
 					   [{hopp,FalseNode},hopp]),
@@ -802,12 +802,12 @@ multicall(Config) when is_list(Config) ->
     %% two requests within a specified time.
     ?line {[{Node,ok}],[]} =
 	   gen_server:multi_call([Node], my_test_name, {call_within, 1000}),
-    test_server:sleep(500),
+    timer:sleep(500),
     ?line {[{Node,ok}],[]} =
 	   gen_server:multi_call([Node], my_test_name, next_call),
     ?line  {[{Node,ok}],[]} =
 	    gen_server:multi_call([Node], my_test_name, {call_within, 1000}),
-    test_server:sleep(1500),
+    timer:sleep(1500),
     ?line {[{Node,false}],[]} =
 	   gen_server:multi_call([Node],my_test_name, next_call),
 
@@ -1384,7 +1384,7 @@ init(stop) ->
 init(hibernate) ->
     {ok,[],hibernate};
 init(sleep) ->
-    test_server:sleep(1000),
+    ct:sleep(1000),
     {ok, []};
 init({state,State}) ->
     {ok, State}.

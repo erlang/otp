@@ -115,7 +115,7 @@ crash(Config) when is_list(Config) ->
 
     %% Spawn function with neighbour.
     Pid4 = proc_lib:spawn(?MODULE, sp2, []),
-    test_server:sleep(100),
+    ct:sleep(100),
     {?MODULE,sp2,[]} = proc_lib:initial_call(Pid4),
     {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid4),
     Pid4 ! die,
@@ -241,7 +241,7 @@ spawn_opt(Config) when is_list(Config) ->
     FunMFArity = {?MODULE,Fname,0},
     ?line Pid1 = proc_lib:spawn_opt(node(), F, [{priority,low}]),
     ?line Pid = proc_lib:spawn_opt(F, [{priority,low}]),
-    ?line test_server:sleep(100),
+    ct:sleep(100),
     ?line FunMFArgs = proc_lib:initial_call(Pid),
     ?line FunMFArity = proc_lib:translate_initial_call(Pid),
     ?line Pid ! die,
