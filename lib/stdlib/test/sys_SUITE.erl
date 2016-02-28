@@ -99,13 +99,13 @@ trace(suite) -> [];
 trace(Config) when is_list(Config) ->
     {ok,_Server} = start(),
     ct:sleep(2000),
-    test_server:capture_start(),
+    ct:capture_start(),
     sys:trace(?server,true),
     {ok,-44} = public_call(44),
     %% ho, hum, allow for the io to reach us..
     ct:sleep(1000),
-    test_server:capture_stop(),
-    [Msg1,Msg2] = test_server:capture_get(),
+    ct:capture_stop(),
+    [Msg1,Msg2] = ct:capture_get(),
     "*DBG* sys_SUITE_server got call {req,44} from " ++ _ = Msg1,
     "*DBG* sys_SUITE_server sent {ok,-44} to " ++ _ = Msg2,
     stop(),
