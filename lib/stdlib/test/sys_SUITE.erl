@@ -74,8 +74,8 @@ log_to_file(Config) when is_list(Config) ->
     Msg1 = io:get_line(Fd,''),
     Msg2 = io:get_line(Fd,''),
     file:close(Fd),
-    lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
-    lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
+    "*DBG* sys_SUITE_server got call {req,44} from " ++ _ = Msg1,
+    "*DBG* sys_SUITE_server sent {ok,-44} to " ++ _ = Msg2,
     stop(),
     ok.
 
@@ -86,8 +86,8 @@ stats(Config) when is_list(Config) ->
     ok = sys:statistics(?server,true),
     {ok,-44} = public_call(44),
     {ok,Stats} = sys:statistics(?server,get),
-    lists:member({messages_in,1},Stats),
-    lists:member({messages_out,1},Stats),
+    true = lists:member({messages_in,1}, Stats),
+    true = lists:member({messages_out,0}, Stats),
     ok = sys:statistics(?server,false),
     {status,_Pid,{module,_Mod},[_PDict,running,Self,_,_]} =
 	sys:get_status(?server),
@@ -106,8 +106,8 @@ trace(Config) when is_list(Config) ->
     ct:sleep(1000),
     test_server:capture_stop(),
     [Msg1,Msg2] = test_server:capture_get(),
-    lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
-    lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
+    "*DBG* sys_SUITE_server got call {req,44} from " ++ _ = Msg1,
+    "*DBG* sys_SUITE_server sent {ok,-44} to " ++ _ = Msg2,
     stop(),
     ok.
 
