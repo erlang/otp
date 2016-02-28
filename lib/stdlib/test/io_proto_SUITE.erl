@@ -763,7 +763,7 @@ bc_with_r12(suite) ->
 bc_with_r12(doc) ->
     ["Test io protocol compatibility with R12 nodes"];
 bc_with_r12(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> bc_with_r12_1(Config);
 	false -> {skip,"No R12B found"}
     end.
@@ -772,7 +772,8 @@ bc_with_r12_1(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_1,
     ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
+    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
+					 {erl,[{release,"r12b"}]}]),
     DataDir = ?config(data_dir,Config),
     %PrivDir = ?config(priv_dir,Config),
     FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
@@ -899,7 +900,7 @@ bc_with_r12_1(Config) ->
     ?line eof = rpc:call(N1,file,read,[F4,1]),
     
     file:close(F4),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 hold_the_line(Parent,Filename,Options) ->
@@ -915,7 +916,7 @@ bc_with_r12_gl(suite) ->
 bc_with_r12_gl(doc) ->
     ["Test io protocol compatibility with R12 nodes (terminals)"];
 bc_with_r12_gl(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> 
 	    case  get_progs() of
 		{error,Reason} ->
@@ -932,7 +933,7 @@ bc_with_r12_ogl(suite) ->
 bc_with_r12_ogl(doc) ->
     ["Test io protocol compatibility with R12 nodes (oldshell)"];
 bc_with_r12_ogl(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> 
 	    case  get_progs() of
 		{error,Reason} ->
@@ -948,7 +949,8 @@ bc_with_r12_gl_1(_Config,Machine) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_gl_1,
     ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
+    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
+					 {erl,[{release,"r12b"}]}]),
     TestDataLine1 = [229,228,246],
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
@@ -1022,7 +1024,7 @@ bc_with_r12_gl_1(_Config,Machine) ->
 	  after 5000 ->
 		  exit(timeout)
 	  end,
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
  
 

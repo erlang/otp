@@ -1186,7 +1186,7 @@ evaluator(Config) when is_list(Config) ->
     evaluator_2(Config, []),
     ?line {ok, Node} = start_node(qlc_SUITE_evaluator),
     ?line ok = rpc:call(Node, ?MODULE, evaluator_2, [Config, [compiler]]),
-    ?line ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 evaluator_2(Config, Apps) ->
@@ -1214,7 +1214,7 @@ evaluator_2(Config, Apps) ->
 
 start_node(Name) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args, "-pa " ++ PA}]).
+    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 string_to_handle(doc) ->
     "string_to_handle/1,2.";

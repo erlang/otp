@@ -608,12 +608,12 @@ otp_5435(Config) when is_list(Config) ->
     ?line true = is_alive(),
     ?line {ok, Node} = start_node(shell_SUITE_otp_5435),
     ?line ok = rpc:call(Node, ?MODULE, otp_5435_2, []),
-    ?line ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
              
 start_node(Name) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args, "-pa " ++ PA}]).
+    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 otp_5435_2() ->
     ?line true = code:del_path(compiler),

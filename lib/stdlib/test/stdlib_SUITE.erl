@@ -59,7 +59,7 @@ app_test(suite) ->
 app_test(doc) ->
     ["Application consistency test."];
 app_test(Config) when is_list(Config) ->
-    ?t:app_test(stdlib),
+    test_server:app_test(stdlib),
     ok.
 
 %% Test that appup allows upgrade from/downgrade to a maximum of one
