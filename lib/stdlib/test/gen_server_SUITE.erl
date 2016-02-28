@@ -587,14 +587,15 @@ cast_fast(Config) when is_list(Config) ->
 %    ?line io:format("Nodes ~p~n", [rpc:call(N, ?MODULE, cast_fast_messup, [])]),
     ct:sleep(1000),
     ?line [Node] = nodes(),
-    ?line {Time,ok} = test_server:timecall(gen_server, cast, 
-					   [{hopp,FalseNode},hopp]),
-    ?line true = test_server:stop_node(Node),
-    ?line if Time > 1.0 -> % Default listen timeout is about 7.0 s
-		  ct:fail(hanging_cast);
-	     true -> 
-		  ok
-	  end.
+    {Time,ok} = timer:tc(fun() ->
+				 gen_server:cast({hopp,FalseNode}, hopp)
+			 end),
+    true = test_server:stop_node(Node),
+    if Time > 1000000 ->       % Default listen timeout is about 7.0 s
+	    ct:fail(hanging_cast);
+       true ->
+	    ok
+    end.
 
 cast_fast_messup() ->
     %% Register a false node: hopp@hostname
