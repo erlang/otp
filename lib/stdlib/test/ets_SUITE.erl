@@ -43,8 +43,6 @@
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
 	 t_select_delete/1,t_ets_dets/1]).
 
--export([do_lookup/2, do_lookup_element/3]).
-
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
@@ -3040,10 +3038,17 @@ time_lookup_do(Opts) ->
     Tab = ets_new(foo,Opts),
     fill_tab(Tab,foo),
     ets:insert(Tab,{{a,key},foo}),
-    {Time,_} = ?t:timecall(test_server,do_times,
-          		    [100000,ets,lookup,[Tab,{a,key}]]),
+    N = 100000,
+    {Time,_} = timer:tc(fun() -> time_lookup_many(N, Tab) end),
+    Seconds = Time / 1000000,
     true = ets:delete(Tab),
-    round(100000 / Time). % lookups/s
+    round(N / Seconds).				% lookups/s
+
+time_lookup_many(0, _Tab) ->
+    ok;
+time_lookup_many(N, Tab) ->
+    ets:lookup(Tab, {a,key}),
+    time_lookup_many(N-1, Tab).
 
 badlookup(doc) ->
     ["Check proper return values from bad lookups in existing/non existing "
@@ -4401,7 +4406,7 @@ heavy_lookup_do(Opts) ->
     ?line EtsMem = etsmem(),
     ?line Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
     ?line ok = fill_tab2(Tab, 0, 7000),
-    ?line ?t:do_times(50, ?MODULE, do_lookup, [Tab, 6999]),
+    _ = [do_lookup(Tab, 6999) || _ <- lists:seq(1, 50)],
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
@@ -4426,8 +4431,8 @@ heavy_lookup_element_do(Opts) ->
     EtsMem = etsmem(),
     Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
     ok = fill_tab2(Tab, 0, 7000),
-    % lookup ALL elements 50 times
-    ?t:do_times(50, ?MODULE, do_lookup_element, [Tab, 6999, 1]),
+    %% lookup ALL elements 50 times
+    _ = [do_lookup_element(Tab, 6999, 1) || _ <- lists:seq(1, 50)],
     true = ets:delete(Tab),
     verify_etsmem(EtsMem).
 

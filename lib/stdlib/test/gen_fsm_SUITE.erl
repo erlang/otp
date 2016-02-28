@@ -44,7 +44,6 @@
 -export([enter_loop/1]).
 
 %% Exports for apply
--export([do_msg/1, do_sync_msg/1]).
 -export([enter_loop/2]).
 
 % The gen_fsm behaviour
@@ -894,7 +893,7 @@ do_func_test(FSM) ->
     ok = do_connect(FSM),
     ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
-    test_server:do_times(3, ?MODULE, do_msg, [FSM]),
+    _ = [do_msg(FSM) || _ <- lists:seq(1, 3)],
     ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
     ok = do_disconnect(FSM),
@@ -932,7 +931,7 @@ do_sync_func_test(FSM) ->
     yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
     ok = do_sync_connect(FSM),
     yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
-    test_server:do_times(3, ?MODULE, do_sync_msg, [FSM]),
+    _ = [do_sync_msg(FSM) || _ <- lists:seq(1, 3)],
     yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
     ok = do_sync_disconnect(FSM),
     yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),

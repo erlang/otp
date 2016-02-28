@@ -1050,10 +1050,16 @@ otp_5854(Config) when is_list(Config) ->
 %% returns.
 
 otp_7669(Config) when is_list(Config) ->
-    ?line ?t:do_times(100, fun do_otp_7669_local_ignore/0),
-    ?line ?t:do_times(100, fun do_otp_7669_global_ignore/0),
-    ?line ?t:do_times(10, fun do_otp_7669_stop/0),
+    do_times(100, fun do_otp_7669_local_ignore/0),
+    do_times(100, fun do_otp_7669_global_ignore/0),
+    do_times(10, fun do_otp_7669_stop/0),
     ok.    
+
+do_times(0, _) ->
+    ok;
+do_times(N, Fun) ->
+    Fun(),
+    do_times(N-1, Fun).
 
 do_otp_7669_local_ignore() ->
     %% The name should never be registered after the return
