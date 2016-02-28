@@ -70,8 +70,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-normal(suite) -> [];
-normal(doc) -> ["Read correct beam file"];
+%% Read correct beam file.
 normal(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
     ?line Simple = filename:join(PrivDir, "simple"),
@@ -146,8 +145,7 @@ verify_simple([{"Atom", AtomBin},
        is_binary(ImpBin), is_binary(ExpBin) ->
     ok.
 
-error(suite) -> [];
-error(doc) -> ["Read invalid beam files"];
+%% Read invalid beam files.
 error(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
     ?line Simple = filename:join(PrivDir, "simple"),
@@ -244,8 +242,7 @@ do_error(BeamFile, ACopy) ->
     ?line verify(invalid_chunk, beam_lib:chunks(BF9, [compile_info])).
     
 
-cmp(suite) -> [];
-cmp(doc) -> ["Compare contents of BEAM files and directories"];
+%% Compare contents of BEAM files and directories.
 cmp(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
@@ -294,8 +291,7 @@ cmp(Conf) when is_list(Conf) ->
     file:del_dir(Dir2),
     ok.
 
-cmp_literals(suite) -> [];
-cmp_literals(doc) -> ["Compare contents of BEAM files having literals"];
+%% Compare contents of BEAM files having literals.
 cmp_literals(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
@@ -329,8 +325,7 @@ cmp_literals(Conf) when is_list(Conf) ->
     file:del_dir(Dir2),
     ok.
 
-strip(suite) -> [];
-strip(doc) -> ["Strip BEAM files"];
+%% Strip BEAM files.
 strip(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
     ?line {SourceD1, BeamFileD1} = make_beam(PrivDir, simple, member),
@@ -433,7 +428,7 @@ unwritable(Fname) ->
     Mode = Info#file_info.mode - 8#00200,
     file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
-building(doc) -> "Testing building of BEAM files.";
+%% Testing building of BEAM files.
 building(Conf) when is_list(Conf) ->
     ?line PrivDir = ?privdir,
 
@@ -482,8 +477,7 @@ building(Conf) when is_list(Conf) ->
     file:del_dir(Dir2),
     ok.
 
-md5(suite) -> [];
-md5(doc) -> ["Compare beam_lib:md5/1 and code:module_md5/1."];
+%% Compare beam_lib:md5/1 and code:module_md5/1.
 md5(Conf) when is_list(Conf) ->
     ?line Beams = collect_beams(),
     io:format("Found ~w beam files", [length(Beams)]),
@@ -510,8 +504,7 @@ collect_beams_1([]) -> [].
 maybe_uncompress(<<"FOR1",_/binary>>=Beam) -> Beam;
 maybe_uncompress(Beam) -> zlib:gunzip(Beam).
 
-encrypted_abstr(suite) -> [];
-encrypted_abstr(doc) -> ["Test encrypted abstract format"];
+%% Test encrypted abstract format.
 encrypted_abstr(Conf) when is_list(Conf) ->
     run_if_crypto_works(fun() -> encrypted_abstr_1(Conf) end).
 
@@ -634,9 +627,7 @@ ets_crypto_fun(Key) ->
 		end}
     end.
 
-encrypted_abstr_file(suite) -> [];
-encrypted_abstr_file(doc) ->
-    ["Test encrypted abstract format with the key in .erlang.crypt"];
+%% Test encrypted abstract format with the key in .erlang.crypt.
 encrypted_abstr_file(Conf) when is_list(Conf) ->
     run_if_crypto_works(fun() -> encrypted_abstr_file_1(Conf) end).
 

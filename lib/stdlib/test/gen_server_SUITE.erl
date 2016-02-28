@@ -110,7 +110,6 @@ end_per_testcase(_Case, Config) ->
 %% Start and stop a gen_server.
 %% --------------------------------------
 
-start(suite) -> [];
 start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -412,7 +411,6 @@ crash(Config) when is_list(Config) ->
 %% handle_call.
 %% --------------------------------------
 
-call(suite) -> [];
 call(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -456,7 +454,6 @@ start_node(Name) ->
     global:sync(),
     N.
 
-call_remote1(suite) -> [];
 call_remote1(Config) when is_list(Config) ->
     N = hubba,
     ?line Node = proplists:get_value(node,Config),
@@ -469,7 +466,6 @@ call_remote1(Config) when is_list(Config) ->
     ?line true = (Reason == noproc) orelse (Reason == boom),
     ok.
 
-call_remote2(suite) -> [];
 call_remote2(Config) when is_list(Config) ->
     ?line N = hubba,
     ?line Node = proplists:get_value(node,Config),
@@ -483,7 +479,6 @@ call_remote2(Config) when is_list(Config) ->
     ?line true = (Reason == noproc) orelse (Reason == boom),
     ok.
 
-call_remote3(suite) -> [];
 call_remote3(Config) when is_list(Config) ->
     ?line Node = proplists:get_value(node,Config),
 
@@ -500,7 +495,6 @@ call_remote3(Config) when is_list(Config) ->
 %% Test call to nonexisting node
 %% --------------------------------------
 
-call_remote_n1(suite) -> [];
 call_remote_n1(Config) when is_list(Config) ->
     ?line N = hubba,
     ?line Node = proplists:get_value(node,Config),    
@@ -512,7 +506,6 @@ call_remote_n1(Config) when is_list(Config) ->
 
     ok.
 
-call_remote_n2(suite) -> [];
 call_remote_n2(Config) when is_list(Config) ->
     ?line N = hubba,
     ?line Node = proplists:get_value(node,Config),
@@ -525,7 +518,6 @@ call_remote_n2(Config) when is_list(Config) ->
 
     ok.
 
-call_remote_n3(suite) -> [];
 call_remote_n3(Config) when is_list(Config) ->
     ?line Node = proplists:get_value(node,Config),
 
@@ -543,7 +535,6 @@ call_remote_n3(Config) when is_list(Config) ->
 %% handle_cast.
 %% --------------------------------------
 
-cast(suite) -> [];
 cast(Config) when is_list(Config) ->
     ?line {ok, Pid} =
 	gen_server:start({local, my_test_name},
@@ -576,8 +567,7 @@ cast(Config) when is_list(Config) ->
 	  end,
     ok.
 
-cast_fast(suite) -> [];
-cast_fast(doc) -> ["Test that cast really return immediately"];
+%% Test that cast really return immediately.
 cast_fast(Config) when is_list(Config) ->
     ?line {ok,Node} = start_node(hubba),
     ?line {_,"@"++Host} = lists:splitwith(fun ($@) -> false; (_) -> true end,
@@ -610,7 +600,6 @@ cast_fast_messup() ->
 %% Test handle_info.
 %% --------------------------------------
 
-info(suite) -> [];
 info(Config) when is_list(Config) ->
     ?line {ok, Pid} =
 	gen_server:start({local, my_test_name},
@@ -749,7 +738,6 @@ is_in_erlang_hibernate_1(N, Pid) ->
 %% handle_cast.
 %% --------------------------------------
 
-abcast(suite) -> [];
 abcast(Config) when is_list(Config) ->
     ?line {ok, Pid} =
 	gen_server:start({local, my_test_name},
@@ -789,7 +777,6 @@ abcast(Config) when is_list(Config) ->
 %% handle_call.
 %% --------------------------------------
 
-multicall(suite) -> [];
 multicall(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -829,7 +816,6 @@ multicall(Config) when is_list(Config) ->
     ok.
 
 %% OTP-3587
-multicall_down(suite) -> [];
 multicall_down(Config) when is_list(Config) ->
     %% We need a named host which is inaccessible.
     ?line Name = node@test01,
@@ -855,11 +841,8 @@ busy_wait_for_process(Pid,N) ->
 	    ok
     end.
 %%--------------------------------------------------------------
-spec_init(doc) ->
-    ["Test gen_server:enter_loop/[3,4,5]. Used when you want to write " 
-     "your own special init-phase."];
-spec_init(suite) ->
-    [];
+%% Test gen_server:enter_loop/[3,4,5]. Used when you want to write
+%% your own special init-phase.
 spec_init(Config) when is_list(Config) ->
     
     OldFlag = process_flag(trap_exit, true),
@@ -953,10 +936,8 @@ spec_init(Config) when is_list(Config) ->
     ok.
 
 %%--------------------------------------------------------------
-spec_init_local_registered_parent(doc) ->
-    ["Test that terminate is run when the parent is a locally registered "
-     "process OTP-4820"];
-spec_init_local_registered_parent(suite) -> [];
+%% OTP-4820. Test that terminate is run when the parent is a locally
+%% registered process.
 spec_init_local_registered_parent(Config) when is_list(Config) ->
 
     register(foobar, self()),
@@ -973,11 +954,10 @@ spec_init_local_registered_parent(Config) when is_list(Config) ->
 	  end,
     unregister(foobar),
     ok.
+
 %%--------------------------------------------------------------
-spec_init_global_registered_parent(doc) ->
-    ["Test that terminate is run when the parent is a global registered "
-     "process OTP-4820"];
-spec_init_global_registered_parent(suite) -> [];
+%% OTP-4820. Test that terminate is run when the parent is a global registered
+%% process.
 spec_init_global_registered_parent(Config) when is_list(Config) ->
 
     global:register_name(foobar, self()),
@@ -996,11 +976,10 @@ spec_init_global_registered_parent(Config) when is_list(Config) ->
 	  end,
     global:unregister_name(foobar),
     ok.
+
 %%--------------------------------------------------------------
-otp_5854(suite) ->
-    [];
-otp_5854(doc) ->
-    ["Test check for registered name in enter_loop/3,4,5"];
+
+%% Test check for registered name in enter_loop/3,4,5.
 otp_5854(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
@@ -1092,12 +1071,7 @@ do_otp_7669_stop() ->
 					     ?MODULE, stop, []),
     ?line undefined = global:whereis_name(?MODULE).
 
-%% Verify that sys:get_status correctly calls our format_status/2 fun
-%%
-call_format_status(suite) ->
-    [];
-call_format_status(doc) ->
-    ["Test that sys:get_status/1,2 calls format_status/2"];
+%% Verify that sys:get_status correctly calls our format_status/2 fun.
 call_format_status(Config) when is_list(Config) ->
     ?line {ok, Pid} = gen_server:start_link({local, call_format_status},
 					    ?MODULE, [], []),
@@ -1131,12 +1105,7 @@ call_format_status(Config) when is_list(Config) ->
     ?line [format_status_called | _] = lists:reverse(Data5),
     ok.
 
-%% Verify that error termination correctly calls our format_status/2 fun
-%%
-error_format_status(suite) ->
-    [];
-error_format_status(doc) ->
-    ["Test that an error termination calls format_status/2"];
+%% Verify that error termination correctly calls our format_status/2 fun.
 error_format_status(Config) when is_list(Config) ->
     ?line error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
@@ -1188,11 +1157,6 @@ terminate_crash_format(Config) when is_list(Config) ->
     ok.
 
 %% Verify that sys:get_state correctly returns gen_server state
-%%
-get_state(suite) ->
-    [];
-get_state(doc) ->
-    ["Test that sys:get_state/1,2 return the gen_server state"];
 get_state(Config) when is_list(Config) ->
     State = self(),
     {ok, _Pid} = gen_server:start_link({local, get_state},
@@ -1208,11 +1172,6 @@ get_state(Config) when is_list(Config) ->
     ok.
 
 %% Verify that sys:replace_state correctly replaces gen_server state
-%%
-replace_state(suite) ->
-    [];
-replace_state(doc) ->
-    ["Test that sys:replace_state/1,2 replace the gen_server state"];
 replace_state(Config) when is_list(Config) ->
     State = self(),
     {ok, _Pid} = gen_server:start_link({local, replace_state},

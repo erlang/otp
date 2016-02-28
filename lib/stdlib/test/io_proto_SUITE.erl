@@ -110,10 +110,7 @@ end_per_group(_GroupName, Config) ->
 uprompt(_L) ->
     [1050,1072,1082,1074,1086,32,1077,32,85,110,105,99,111,100,101,32,63].
 
-unicode_prompt(suite) ->
-    [];
-unicode_prompt(doc) ->
-    ["Test that an Unicode prompt does not crash the shell"];
+%% Test that an Unicode prompt does not crash the shell.
 unicode_prompt(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     case proplists:get_value(default_shell,Config) of
@@ -153,10 +150,7 @@ unicode_prompt(Config) when is_list(Config) ->
     ok.
     
 
-setopts_getopts(suite) ->
-    [];
-setopts_getopts(doc) ->
-    ["Check io:setopts and io:getopts functions"];
+%% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->
     ?line FileName = filename:join([?config(priv_dir,Config),
 				    "io_proto_SUITE_setopts_getopts.dat"]),
@@ -276,10 +270,7 @@ get_lc_ctype() ->
 			"ISO-8859-1"
 	end.
     
-unicode_options(suite) ->
-    [];
-unicode_options(doc) ->
-    ["Tests various unicode options"];
+%% Test various unicode options.
 unicode_options(Config) when is_list(Config) ->
     DataDir = ?config(data_dir,Config),
     PrivDir = ?config(priv_dir,Config),
@@ -669,10 +660,7 @@ random_unicode(N) ->
     end.
 	    
 
-binary_options(suite) ->
-    [];
-binary_options(doc) ->
-    ["Tests variants with binary option"];
+%% Test variants with binary option.
 binary_options(Config) when is_list(Config) ->
     DataDir = ?config(data_dir,Config),
     PrivDir = ?config(priv_dir,Config),
@@ -758,10 +746,7 @@ binary_options(Config) when is_list(Config) ->
 		  ],[],[],"-oldshell"),
     ok.
 
-bc_with_r12(suite) ->
-    [];
-bc_with_r12(doc) ->
-    ["Test io protocol compatibility with R12 nodes"];
+%% Test io protocol compatibility with R12 nodes.
 bc_with_r12(Config) when is_list(Config) ->
     case test_server:is_release_available("r12b") of
 	true -> bc_with_r12_1(Config);
@@ -911,10 +896,7 @@ hold_the_line(Parent,Filename,Options) ->
     end.
     
 
-bc_with_r12_gl(suite) ->
-    [];
-bc_with_r12_gl(doc) ->
-    ["Test io protocol compatibility with R12 nodes (terminals)"];
+%% Test io protocol compatibility with R12 nodes (terminals).
 bc_with_r12_gl(Config) when is_list(Config) ->
     case test_server:is_release_available("r12b") of
 	true -> 
@@ -928,10 +910,7 @@ bc_with_r12_gl(Config) when is_list(Config) ->
 	    {skip,"No R12B found"}
     end.
 
-bc_with_r12_ogl(suite) ->
-    [];
-bc_with_r12_ogl(doc) ->
-    ["Test io protocol compatibility with R12 nodes (oldshell)"];
+%% Test io protocol compatibility with R12 nodes (oldshell).
 bc_with_r12_ogl(Config) when is_list(Config) ->
     case test_server:is_release_available("r12b") of
 	true -> 
@@ -1171,10 +1150,7 @@ answering_machine2(OthNode,OthReg,Me) ->
     ok.
     
 
-read_modes_ogl(suite) ->
-    [];
-read_modes_ogl(doc) ->
-    ["Test various modes when reading from the group leade from another machine"];
+%% Test various modes when reading from the group leade from another machine.
 read_modes_ogl(Config) when is_list(Config) -> 
     case get_progs() of
 	{error,Reason} ->
@@ -1183,10 +1159,7 @@ read_modes_ogl(Config) when is_list(Config) ->
 	    read_modes_gl_1(Config,answering_machine2)
     end.
 
-read_modes_gl(suite) ->
-    [];
-read_modes_gl(doc) ->
-    ["Test various modes when reading from the group leade from another machine"];
+%% Test various modes when reading from the group leade from another machine.
 read_modes_gl(Config) when is_list(Config) -> 
     case {get_progs(),proplists:get_value(default_shell,Config)} of
 	{{error,Reason},_} ->
@@ -1276,10 +1249,7 @@ read_modes_gl_1(_Config,Machine) ->
     ok.
 
 
-broken_unicode(suite) ->
-    [];
-broken_unicode(doc) ->
-    ["Test behaviour when reading broken Unicode files"];
+%% Test behaviour when reading broken Unicode files
 broken_unicode(Config) when is_list(Config) ->
     Dir = ?config(priv_dir,Config),
     Latin1Name = filename:join([Dir,"latin1_data_file.dat"]),
@@ -1311,10 +1281,7 @@ loop_through_file2(F,Bin,Chunk,Enc) when is_binary(Bin) ->
 
 
 
-eof_on_pipe(suite) ->
-    [];
-eof_on_pipe(doc) ->
-    ["tests eof before newline on stdin when erlang is in pipe"];
+%% Test eof before newline on stdin when erlang is in pipe.
 eof_on_pipe(Config) when is_list(Config) ->
     case {get_progs(),os:type()} of
 	{{error,Reason},_} ->

@@ -57,9 +57,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-behav(suite) -> [];
-behav(doc) ->
-    ["Check that the behaviour callbacks are correctly defined"];
+%% Check that the behaviour callbacks are correctly defined.
 behav(_) ->
     Modules = [application, gen_server, gen_fsm, gen_event,
                supervisor_bridge, supervisor],

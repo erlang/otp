@@ -54,10 +54,7 @@ end_per_testcase(_Case, _Config) ->
 %
 % Test cases starts here.
 %
-app_test(suite) ->
-    [];
-app_test(doc) ->
-    ["Application consistency test."];
+%% Application consistency test.
 app_test(Config) when is_list(Config) ->
     test_server:app_test(stdlib),
     ok.
@@ -160,10 +157,8 @@ check_appup([],_,_) ->
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("stdlib/include/assert.hrl"). % test repeated inclusion
-assert_test(suite) ->
-    [];
-assert_test(doc) ->
-    ["Assert macros test."];
+
+%% Assert macros test.
 assert_test(_Config) ->
     ok = ?assert(true),
     {'EXIT',{{assert, _},_}} = (catch ?assert(false)),

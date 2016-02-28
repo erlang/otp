@@ -56,10 +56,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-seed0(doc) ->
-    ["Test that seed is set implicitly, and always the same."];
-seed0(suite) ->
-    [];
+%% Test that seed is set implicitly, and always the same.
 seed0(Config) when is_list(Config) ->
     ?line Self = self(),
     ?line _ = spawn(fun() -> Self ! random:uniform() end),
@@ -74,10 +71,7 @@ seed0(Config) when is_list(Config) ->
     ?line F1 = F2,
     ok.
 
-seed(doc) ->
-    ["Test that seed/1 and seed/3 is equivalent."];
-seed(suite) ->
-    [];
+%% Test that seed/1 and seed/3 are equivalent.
 seed(Config) when is_list(Config) ->
     ?line Self = self(),
     Seed = {S1, S2, S3} = erlang:timestamp(),
@@ -101,10 +95,7 @@ seed(Config) when is_list(Config) ->
     ok.
 
 
-interval_1(doc) ->
-    ["Check that uniform/1 returns values within the proper interval."];
-interval_1(suite) ->
-    [];
+%% Check that uniform/1 returns values within the proper interval.
 interval_1(Config) when is_list(Config) ->
     ?line Top = 7,
     ?line N = 10,

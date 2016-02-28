@@ -135,7 +135,6 @@ start3(Config) when is_list(Config) ->
     ok.
 
 %% anonymous with ignore
-start4(suite) -> [];
 start4(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -146,7 +145,6 @@ start4(Config) when is_list(Config) ->
     ok.
 
 %% anonymous with stop
-start5(suite) -> [];
 start5(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -386,7 +384,6 @@ stop10(_Config) ->
     ok.
 
 %% Check that time outs in calls work
-abnormal1(suite) -> [];
 abnormal1(Config) when is_list(Config) ->
     {ok, _Pid} = gen_fsm:start({local, my_fsm}, gen_fsm_SUITE, [], []),
 
@@ -399,7 +396,6 @@ abnormal1(Config) when is_list(Config) ->
 
 %% Check that bad return values makes the fsm crash. Note that we must
 %% trap exit since we must link to get the real bad_return_ error
-abnormal2(suite) -> [];
 abnormal2(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
     ?line {ok, Pid} = 
@@ -718,13 +714,7 @@ is_not_in_erlang_hibernate_1(N, Pid) ->
 	    ok
     end.
 
-%%sys1(suite) -> [];
-%%sys1(_) ->
-
-enter_loop(suite) ->
-    [];
-enter_loop(doc) ->
-    ["Test gen_fsm:enter_loop/4,5,6"];
+%% Test gen_fsm:enter_loop/4,5,6.
 enter_loop(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 

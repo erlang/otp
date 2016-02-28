@@ -225,10 +225,7 @@ memory_check_summary(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-t_bucket_disappears(suite) ->
-    [];
-t_bucket_disappears(doc) ->
-    ["Test that a disappearing bucket during select of a non-fixed table works."];
+%% Test that a disappearing bucket during select of a non-fixed table works.
 t_bucket_disappears(Config) when is_list(Config) ->
     repeat_for_opts(t_bucket_disappears_do).
 
@@ -247,10 +244,7 @@ t_bucket_disappears_do(Opts) ->
     ?line verify_etsmem(EtsMem).
     
 
-t_match_spec_run(suite) -> 
-    [];
-t_match_spec_run(doc) ->
-    ["Check ets:match_spec_run/2."];
+%% Check ets:match_spec_run/2.
 t_match_spec_run(Config) when is_list(Config) ->
     init_externals(),
     ?line EtsMem = etsmem(),
@@ -427,10 +421,7 @@ assert_eq(A,B) ->
     ct:fail("assert_eq failed").
 
 
-t_repair_continuation(suite) -> 
-    [];
-t_repair_continuation(doc) ->
-    ["Check ets:repair_continuation/2."];
+%% Test ets:repair_continuation/2.
 t_repair_continuation(Config) when is_list(Config) ->
     repeat_for_opts(t_repair_continuation_do).
 
@@ -559,9 +550,7 @@ t_repair_continuation_do(Opts) ->
     ?line verify_etsmem(EtsMem).
 
 
-default(doc) ->
-    ["Check correct default vaules of a new ets table"];
-default(suite) -> [];
+%% Test correct default vaules of a new ets table.
 default(Config) when is_list(Config) ->
     %% Default should be set,protected
     ?line EtsMem = etsmem(),
@@ -577,10 +566,7 @@ default(Config) when is_list(Config) ->
     ?line ets:delete(Def),
     ?line verify_etsmem(EtsMem).
 
-select_fail(doc) ->
-    ["Test that select fails even if nothing can match"];
-select_fail(suite) ->
-    [];
+%% Test that select fails even if nothing can match.
 select_fail(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(select_fail_do, [all_types,write_concurrency]),
@@ -615,8 +601,8 @@ select_fail_do(Opts) ->
 %% The hardcoded expected memory sizes (in words) are the ones we expect on:
 %%   SunOS5.8, 32-bit, non smp, private heap
 %%
-memory(doc) -> ["Whitebox test of ets:info(X,memory)"];
-memory(suite) -> [];
+
+%% Whitebox test of ets:info(X, memory).
 memory(Config) when is_list(Config) ->
     ?line ok = chk_normal_tab_struct_size(),
     repeat_for_opts(memory_do,[compressed]),
@@ -741,10 +727,7 @@ adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
     TabDiff = ?TAB_STRUCT_SZ,
     {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}.
 
-t_whitebox(doc) ->
-    ["Diverse whitebox testes"];
-t_whitebox(suite) ->
-    [];
+%% Misc. whitebox tests
 t_whitebox(Config) when is_list(Config) ->    
     ?line EtsMem = etsmem(),
     repeat_for_opts(whitebox_1),
@@ -777,10 +760,7 @@ whitebox_2(Opts) ->
     ok.
     
     
-t_ets_dets(doc) ->
-    ["Test ets:to/from_dets"];
-t_ets_dets(suite) ->
-    [];
+%% Test ets:to/from_dets.
 t_ets_dets(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> t_ets_dets(Config,Opts) end).
 
@@ -817,10 +797,7 @@ check_badarg({'EXIT', {badarg, [{M,F,Args,_} | _]}}, M, F, Args) ->
 check_badarg({'EXIT', {badarg, [{M,F,A,_} | _]}}, M, F, Args)  ->
     true = test_server:is_native(M) andalso length(Args) =:= A.
 
-t_delete_all_objects(doc) ->
-    ["Test ets:delete_all_objects/1"];
-t_delete_all_objects(suite) ->
-    [];
+%% Test ets:delete_all_objects/1.
 t_delete_all_objects(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(t_delete_all_objects_do),
@@ -854,10 +831,7 @@ t_delete_all_objects_do(Opts) ->
     ?line ets:delete(T).
 
 
-t_delete_object(doc) ->
-    ["Test ets:delete_object/2"];
-t_delete_object(suite) ->
-    [];
+%% Test ets:delete_object/2.
 t_delete_object(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(t_delete_object_do),
@@ -930,10 +904,7 @@ make_init_fun(N) ->
 	    exit(close_not_expected)
     end.
 
-t_init_table(doc) ->
-    ["Test ets:init_table/2"];
-t_init_table(suite) ->
-    [];
+%% Test ets:init_table/2.
 t_init_table(Config) when is_list(Config)->
     ?line EtsMem = etsmem(),
     repeat_for_opts(t_init_table_do),
@@ -955,10 +926,7 @@ do_fill_dbag_using_lists(T,N) ->
     do_fill_dbag_using_lists(T,N - 1). 
 
 
-t_insert_new(doc) ->
-    ["Test the insert_new function"];
-t_insert_new(suite) ->
-    [];
+%% Test the insert_new function.
 t_insert_new(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line L = fill_sets_int(1000) ++ fill_sets_int(1000,[{write_concurrency,true}]),
@@ -1012,10 +980,7 @@ t_insert_new(Config) when is_list(Config) ->
 		  L),
     ?line verify_etsmem(EtsMem).
 
-t_insert_list(doc) ->
-    ["Test ets:insert/2 with list of objects."];
-t_insert_list(suite) ->
-    [];
+%% Test ets:insert/2 with list of objects.
 t_insert_list(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(t_insert_list_do),
@@ -1028,10 +993,7 @@ t_insert_list_do(Opts) ->
     ?line ets:delete(T).
 
 
-t_test_ms(doc) ->
-    ["Test interface of ets:test_ms/2"];
-t_test_ms(suite) ->
-    [];
+%% Test interface of ets:test_ms/2.
 t_test_ms(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line {ok,[a,b]} = ets:test_ms({a,b},
@@ -1047,10 +1009,7 @@ t_test_ms(Config) when is_list(Config) ->
     ?line true = (if is_list(String) -> true; true -> false end),
     ?line verify_etsmem(EtsMem).
 
-t_select_reverse(doc) ->
-    ["Test the select reverse BIF's"];
-t_select_reverse(suite) ->
-    [];
+%% Test the select reverse BIFs.
 t_select_reverse(Config) when is_list(Config) ->
     ?line Table = ets_new(xxx, [ordered_set]),
     ?line filltabint(Table,1000),
@@ -1108,10 +1067,7 @@ do_reverse_chunked({L,C},Acc) ->
     do_reverse_chunked(ets:select_reverse(C), NewAcc).
 
 
-t_select_delete(doc) ->
-    ["Test the ets:select_delete/2 and ets:select_count/2 BIF's"];
-t_select_delete(suite) ->
-    [];
+%% Test the ets:select_delete/2 and ets:select_count/2 BIFs.
 t_select_delete(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line Tables = fill_sets_int(10000) ++ fill_sets_int(10000,[{write_concurrency,true}]),
@@ -1243,10 +1199,7 @@ t_select_delete(Config) when is_list(Config) ->
     lists:foreach(fun(Tab) -> ets:delete(Tab) end,Tables),
     ?line verify_etsmem(EtsMem).
 
-partly_bound(doc) ->
-    ["Test that partly bound keys gives faster matches"];
-partly_bound(suite) ->
-    [];
+%% Test that partly bound keys gives faster matches.
 partly_bound(Config) when is_list(Config) ->
     case os:type() of
 	{win32,_} ->
@@ -1293,10 +1246,7 @@ make_better_sub2() ->
     ok.
 
 
-match_heavy(doc) ->
-    ["Heavy random matching, comparing set with ordered_set."];
-match_heavy(suite) ->
-    [];
+%% Heavy random matching, comparing set with ordered_set.
 match_heavy(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir,Config),
     DataDir = ?config(data_dir, Config),
@@ -1557,10 +1507,7 @@ do_random_test() ->
     ets:delete(Set),
     ?line verify_etsmem(EtsMem).
 
-update_element(doc) ->
-    ["test various variants of update_element"];
-update_element(suite) ->
-    [];
+%% Ttest various variants of update_element.
 update_element(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(update_element_opts),
@@ -1723,10 +1670,7 @@ update_element_neg_do(T) ->
     ok.
 
 
-update_counter(doc) ->
-    ["test various variants of update_counter"];
-update_counter(suite) ->
-    [];
+%% test various variants of update_counter.
 update_counter(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(update_counter_do),
@@ -2034,10 +1978,7 @@ update_counter_with_default_do(Opts) ->
 
     ok.
 
-fixtable_next(doc) ->
-    ["Check that a first-next sequence always works on a fixed table"];
-fixtable_next(suite) ->
-    [];
+%% Check that a first-next sequence always works on a fixed table.
 fixtable_next(Config) when is_list(Config) ->
     repeat_for_opts(fixtable_next_do, [write_concurrency,all_types]).
 
@@ -2068,10 +2009,7 @@ do_fixtable_next(Tab) ->
     ?line false = ets:info(Tab, fixed),
     ?line ets:delete(Tab).
 
-fixtable_insert(doc) ->    
-    ["Check inserts of deleted keys in fixed bags"];
-fixtable_insert(suite) ->
-    [];
+%% Check inserts of deleted keys in fixed bags.
 fixtable_insert(Config) when is_list(Config) ->
     Combos = [[Type,{write_concurrency,WC}] || Type<- [bag,duplicate_bag], 
 					       WC <- [false,true]],
@@ -2120,8 +2058,7 @@ fixtable_insert_do(Opts) ->
     {'EXIT',{badarg,_}} = (catch ets:next(Ets,First)),
     ok.
 
-write_concurrency(doc) -> ["The 'write_concurrency' option"];
-write_concurrency(suite) -> [];
+%% Test the 'write_concurrency' option.
 write_concurrency(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     Yes1 = ets_new(foo,[public,{write_concurrency,true}]),
@@ -2180,8 +2117,7 @@ write_concurrency(Config) when is_list(Config) ->
     ok.
     
     
-heir(doc) ->   ["The 'heir' option"];
-heir(suite) -> [];
+%% The 'heir' option.
 heir(Config) when is_list(Config) ->
     repeat_for_opts(heir_do).
 
@@ -2321,8 +2257,7 @@ heir_1(HeirData,Mode,Opts) ->
     ?line Founder ! {go, Heir},
     ?line {'DOWN', Mref, process, Heir, normal} = receive_any().
 
-give_away(doc) -> ["ets:give_way/3"];    
-give_away(suite) -> [];
+%% Test ets:give_way/3.
 give_away(Config) when is_list(Config) ->    
     repeat_for_opts(give_away_do).
 
@@ -2403,8 +2338,7 @@ give_away_receiver(T, Giver) ->
 	  end.
 
 
-setopts(doc) -> ["ets:setopts/2"];
-setopts(suite) -> [];
+%% Test ets:setopts/2.
 setopts(Config) when is_list(Config) ->
     repeat_for_opts(setopts_do,[write_concurrency,all_types]).
 
@@ -2445,8 +2379,7 @@ setopts_do(Opts) ->
     exit(Heir, bang),
     ok.
 
-bad_table(doc) -> ["All kinds of operations with bad table argument"];
-bad_table(suite) -> [];
+%% All kinds of operations with bad table argument.
 bad_table(Config) when is_list(Config) ->
 
     %% Open and close disk_log to stabilize etsmem.
@@ -2555,10 +2488,7 @@ bad_table_call(T,{F,Args,_,{return,Return}}) ->
     end.
 
 
-rename(doc) ->
-    ["Check rename of ets tables"];
-rename(suite) ->
-    [];
+%% Check rename of ets tables.
 rename(Config) when is_list(Config) ->
     repeat_for_opts(rename_do, [write_concurrency, all_types]).
 
@@ -2573,10 +2503,7 @@ rename_do(Opts) ->
     ets:delete(ungermanbazz),
     ?line verify_etsmem(EtsMem).
 
-rename_unnamed(doc) ->
-    ["Check rename of unnamed ets table"];
-rename_unnamed(suite) ->
-    [];
+%% Check rename of unnamed ets table.
 rename_unnamed(Config) when is_list(Config) ->
     repeat_for_opts(rename_unnamed_do,[write_concurrency,all_types]).
 
@@ -2591,8 +2518,7 @@ rename_unnamed_do(Opts) ->
     ?line ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-evil_rename(doc) ->
-    "Rename a table with many fixations, and at the same time delete it.";
+%% Rename a table with many fixations, and at the same time delete it.
 evil_rename(Config) when is_list(Config) ->
     ?line evil_rename_1(old_hash, new_hash, [public,named_table]),
     ?line EtsMem = etsmem(),
@@ -2649,11 +2575,8 @@ evil_create_fixed_tab() ->
     ets:safe_fixtable(T, true),
     T.
 
-interface_equality(doc) ->
-    ["Tests that the return values and errors are equal for set's and"
-     " ordered_set's where applicable"];
-interface_equality(suite) ->
-    [];
+%% Tests that the return values and errors are equal for set's and
+%% ordered_set's where applicable.
 interface_equality(Config) when is_list(Config) ->
     repeat_for_opts(interface_equality_do).
 
@@ -2719,10 +2642,7 @@ maybe_sort({'EXIT',{Reason, List}}) when is_list(List) ->
 maybe_sort(Any) ->
     Any.
 
-ordered_match(doc) ->
-    ["Test match, match_object and match_delete in ordered set's"];
-ordered_match(suite) ->
-    [];
+%% Test match, match_object and match_delete in ordered set's.
 ordered_match(Config) when is_list(Config)->
     repeat_for_opts(ordered_match_do).
 
@@ -2768,10 +2688,7 @@ ordered_match_do(Opts) ->
     ?line verify_etsmem(EtsMem).
     
 
-ordered(doc) ->
-    ["Test basic functionality in ordered_set's."];
-ordered(suite) ->
-    [];
+%% Test basic functionality in ordered_set's.
 ordered(Config) when is_list(Config) ->
     repeat_for_opts(ordered_do).
 
@@ -2836,8 +2753,7 @@ pick_all_backwards(T) ->
     
     
 
-setbag(doc) ->   ["Small test case for both set and bag type ets tables."];
-setbag(suite) -> [];
+%% Small test case for both set and bag type ets tables.
 setbag(Config) when is_list(Config) ->    
     ?line EtsMem = etsmem(),
     ?line Set = ets_new(set,[set]),
@@ -2860,9 +2776,7 @@ setbag(Config) when is_list(Config) ->
     true = ets:delete(Bag),
     ?line verify_etsmem(EtsMem).
 
-badnew(doc) ->
-    ["Test case to check proper return values for illegal ets_new() calls."];
-badnew(suite) -> [];
+%% Test case to check proper return values for illegal ets_new() calls.
 badnew(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line {'EXIT',{badarg,_}} = (catch ets_new(12,[])),
@@ -2872,17 +2786,14 @@ badnew(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch ets_new(name,bag)),
     ?line verify_etsmem(EtsMem).
 
-verybadnew(doc) ->
-    ["Test case to check that a not well formed list does not crash the "
-     "emulator. OTP-2314 "];
-verybadnew(suite) -> [];
+%% OTP-2314. Test case to check that a non-proper list does not
+%% crash the emulator.
 verybadnew(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line {'EXIT',{badarg,_}} = (catch ets_new(verybad,[set|protected])),
     ?line verify_etsmem(EtsMem).
 
-named(doc) ->   ["Small check to see if named tables work."];
-named(suite) -> [];
+%% Small check to see if named tables work.
 named(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line Tab = make_table(foo,
@@ -2892,8 +2803,7 @@ named(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-keypos2(doc) ->   ["Test case to check if specified keypos works."];
-keypos2(suite) -> [];
+%% Test case to check if specified keypos works.
 keypos2(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line Tab = make_table(foo,
@@ -2903,11 +2813,8 @@ keypos2(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-privacy(doc) ->
-    ["Privacy check. Check that a named(public/private/protected) table "
-     "cannot be read by",
-     "the wrong process(es)."];
-privacy(suite) -> [];
+%% Privacy check. Check that a named(public/private/protected) table
+%% cannot be read by the wrong process(es).
 privacy(Config) when is_list(Config) ->
     repeat_for_opts(privacy_do).
 
@@ -2985,9 +2892,7 @@ rotate_tuple(Tuple, N) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-empty(doc) ->
-    ["Check lookup in an empty table and lookup of a non-existing key"];
-empty(suite) -> [];
+%% Check lookup in an empty table and lookup of a non-existing key.
 empty(Config) when is_list(Config) ->
     repeat_for_opts(empty_do).
 
@@ -3000,9 +2905,7 @@ empty_do(Opts) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-badinsert(doc) ->
-    ["Check proper return values for illegal insert operations."];
-badinsert(suite) -> [];
+%% Check proper return values for illegal insert operations.
 badinsert(Config) when is_list(Config) ->
     repeat_for_opts(badinsert_do).
 
@@ -3024,8 +2927,7 @@ badinsert_do(Opts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-time_lookup(doc) ->   ["Lookup timing."];
-time_lookup(suite) -> [];
+%% Test lookup timing.
 time_lookup(Config) when is_list(Config) ->
     %% just for timing, really
     ?line EtsMem = etsmem(),
@@ -3050,10 +2952,8 @@ time_lookup_many(N, Tab) ->
     ets:lookup(Tab, {a,key}),
     time_lookup_many(N-1, Tab).
 
-badlookup(doc) ->
-    ["Check proper return values from bad lookups in existing/non existing "
-     " ets tables"];
-badlookup(suite) -> [];
+%% Check proper return values from bad lookups in existing/non existing
+%% ets tables.
 badlookup(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line {'EXIT',{badarg,_}} = (catch ets:lookup(foo,key)),
@@ -3062,8 +2962,7 @@ badlookup(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch ets:lookup(Tab,key)),
     ?line verify_etsmem(EtsMem).
 
-lookup_order(doc) ->   ["Test that lookup returns objects in order of insertion for bag and dbag."];
-lookup_order(suite) -> [];
+%% Test that lookup returns objects in order of insertion for bag and dbag.
 lookup_order(Config) when is_list(Config) ->  
     EtsMem = etsmem(),
     repeat_for_opts(lookup_order_do, [write_concurrency,[bag,duplicate_bag]]),
@@ -3157,8 +3056,7 @@ fill_tab(Tab,Val) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-lookup_element_mult(doc) ->   ["Multiple return elements (OTP-2386)"];
-lookup_element_mult(suite) -> [];
+%% OTP-2386. Multiple return elements.
 lookup_element_mult(Config) when is_list(Config) ->
     repeat_for_opts(lookup_element_mult_do).
 
@@ -3198,9 +3096,7 @@ lem_crash_3(T) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-delete_elem(doc) ->
-    ["Check delete of an element inserted in a `filled' table."];
-delete_elem(suite) -> [];
+%% Check delete of an element inserted in a `filled' table.
 delete_elem(Config) when is_list(Config) ->
     repeat_for_opts(delete_elem_do, [write_concurrency, all_types]).
 
@@ -3216,10 +3112,8 @@ delete_elem_do(Opts) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
     
-delete_tab(doc) ->
-    ["Check that ets:delete() works and releases the name of the deleted "
-     "table."];
-delete_tab(suite) -> [];
+%% Check that ets:delete() works and releases the name of the
+%% deleted table.
 delete_tab(Config) when is_list(Config) ->
     repeat_for_opts(delete_tab_do,[write_concurrency,all_types]).
 
@@ -3233,8 +3127,7 @@ delete_tab_do(Opts) ->
     ?line true = ets:delete(Name),
     ?line verify_etsmem(EtsMem).
 
-delete_large_tab(doc) ->
-    "Check that ets:delete/1 works and that other processes can run.";
+%% Check that ets:delete/1 works and that other processes can run.
 delete_large_tab(Config) when is_list(Config) ->
     ?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 200000)],
     ?line EtsMem = etsmem(),
@@ -3303,8 +3196,8 @@ delete_large_tab_1(Name, Flags, Data, Fix) ->
     receive {'DOWN',SchedTracerMon,process,SchedTracer,_} -> ok end,
     ok.
 
-delete_large_named_table(doc) ->
-    "Delete a large name table and try to create a new table with the same name in another process.";
+%% Delete a large name table and try to create a new table with
+%% the same name in another process.
 delete_large_named_table(Config) when is_list(Config) ->    
     ?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 200000)],
     ?line EtsMem = etsmem(),
@@ -3340,8 +3233,7 @@ delete_large_named_table_1(Name, Flags, Data, Fix) ->
     receive {'DOWN',MRef,process,Pid,_} -> ok end,
     ok.
 
-evil_delete(doc) ->
-    "Delete a large table, and kill the process during the delete.";
+%% Delete a large table, and kill the process during the delete.
 evil_delete(Config) when is_list(Config) ->
     ?line Data = [{I,I*I} || I <- lists:seq(1, 100000)],
     repeat_for_opts(fun(Opts) -> evil_delete_do(Opts,Data) end).
@@ -3412,10 +3304,6 @@ evil_delete_owner(Name, Flags, Data, Fix) ->
     ?line receive {'DOWN',Ref,_,_,_} -> ok end.
 
 
-exit_large_table_owner(doc) ->
-    [];
-exit_large_table_owner(suite) ->
-    [];
 exit_large_table_owner(Config) when is_list(Config) ->
     %%?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
     ?line FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
@@ -3431,8 +3319,6 @@ exit_large_table_owner_do(Opts,{FEData,Config}) ->
     ?line verify_rescheduling_exit(Config, FEData, [named_table | Opts], true, 1, 1),
     ?line verify_rescheduling_exit(Config, FEData, Opts, false, 1, 1).
 
-exit_many_large_table_owner(doc) -> [];
-exit_many_large_table_owner(suite) -> [];
 exit_many_large_table_owner(Config) when is_list(Config) ->
     %%?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
     ?line FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
@@ -3448,8 +3334,6 @@ exit_many_large_table_owner_do(Opts,FEData,Config) ->
     ?line verify_rescheduling_exit(Config, FEData, Opts, true, 1, 4),
     ?line verify_rescheduling_exit(Config, FEData, [named_table | Opts], false, 1, 4).
 
-exit_many_tables_owner(doc) -> [];
-exit_many_tables_owner(suite) -> [];
 exit_many_tables_owner(Config) when is_list(Config) ->
     NoData = fun(_Do) -> ok end,
     ?line EtsMem = etsmem(),
@@ -3457,8 +3341,6 @@ exit_many_tables_owner(Config) when is_list(Config) ->
     ?line verify_rescheduling_exit(Config, NoData, [named_table,{write_concurrency,true}], false, 1000, 1),
     ?line verify_etsmem(EtsMem).
 
-exit_many_many_tables_owner(doc) -> [];
-exit_many_many_tables_owner(suite) -> [];
 exit_many_many_tables_owner(Config) when is_list(Config) ->
     ?line Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 50)],
     ?line FEData = fun(Do) -> lists:foreach(Do, Data) end,
@@ -3577,8 +3459,7 @@ verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
 
 			    
 
-table_leak(doc) ->
-    "Make sure that slots for ets tables are cleared properly.";
+%% Make sure that slots for ets tables are cleared properly.
 table_leak(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> table_leak_1(Opts,20000) end).
 
@@ -3588,9 +3469,7 @@ table_leak_1(Opts,N) ->
     ?line true = ets:delete(T),
     table_leak_1(Opts,N-1).
 
-baddelete(doc) ->
-    ["Check proper return values for illegal delete operations."];
-baddelete(suite) -> [];
+%% Check proper return values for illegal delete operations.
 baddelete(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line {'EXIT',{badarg,_}} = (catch ets:delete(foo)),
@@ -3599,9 +3478,7 @@ baddelete(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch ets:delete(Tab)),
     ?line verify_etsmem(EtsMem).
 
-match_delete(doc) ->
-    ["Check that match_delete works. Also tests tab2list function."];
-match_delete(suite) -> [];    
+%% Check that match_delete works. Also tests tab2list function.
 match_delete(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     repeat_for_opts(match_delete_do,[write_concurrency,all_types]),
@@ -3619,9 +3496,7 @@ match_delete_do(Opts) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-match_delete3(doc) ->
-    ["OTP-3005: check match_delete with constant argument."];
-match_delete3(suite) -> [];    
+%% OTP-3005: check match_delete with constant argument.
 match_delete3(Config) when is_list(Config) ->
     repeat_for_opts(match_delete3_do).
 
@@ -3646,8 +3521,7 @@ match_delete3_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-firstnext(doc) -> ["Tests ets:first/1 & ets:next/2."];
-firstnext(suite) -> [];
+%% Test ets:first/1 & ets:next/2.
 firstnext(Config) when is_list(Config) ->
     repeat_for_opts(firstnext_do).
 
@@ -3669,7 +3543,7 @@ firstnext_collect(Tab,Key,List) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-firstnext_concurrent(doc) -> "Tests ets:first/1 & ets:next/2.";
+%% Tests ets:first/1 & ets:next/2.
 firstnext_concurrent(Config) when is_list(Config) ->
     register(master, self()),
     ets_init(?MODULE, 20),
@@ -3706,7 +3580,6 @@ dyn_lookup(T, K) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-slot(suite) -> [];
 slot(Config) when is_list(Config) ->
     repeat_for_opts(slot_do).
 
@@ -3732,7 +3605,6 @@ slot_loop(Tab,SlotNo,EltsSoFar) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-match1(suite) -> [];
 match1(Config) when is_list(Config) ->
     repeat_for_opts(match1_do).
 
@@ -3768,8 +3640,7 @@ match1_do(Opts) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-match2(doc) -> ["Tests match with specified keypos bag table."];
-match2(suite) -> [];
+%% Test match with specified keypos bag table.
 match2(Config) when is_list(Config) ->
     repeat_for_opts(match2_do).
 
@@ -3796,8 +3667,7 @@ match2_do(Opts) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-match_object(doc) -> ["Some ets:match_object test."];
-match_object(suite) -> [];    
+%% Some ets:match_object tests.
 match_object(Config) when is_list(Config) ->
     repeat_for_opts(match_object_do).
 
@@ -3896,10 +3766,8 @@ match_object_do(Opts) ->
     true = ets:delete(Tab),
     verify_etsmem(EtsMem).
 
-match_object2(suite) -> [];
-match_object2(doc) -> ["Tests that db_match_object does not generate "
-		       "a `badarg' when resuming a search with no "
-		       "previous matches."];
+%% Tests that db_match_object does not generate a `badarg' when
+%% resuming a search with no previous matches.
 match_object2(Config) when is_list(Config) ->
     repeat_for_opts(match_object2_do).
 
@@ -3924,8 +3792,7 @@ match_object2_do(Opts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-tab2list(doc) -> ["Tests tab2list (OTP-3319)"];
-tab2list(suite) -> [];
+%% OTP-3319. Test tab2list.
 tab2list(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line Tab = make_table(foo,
@@ -3935,9 +3802,8 @@ tab2list(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-misc1(doc) -> ["Simple general small test. ",
-	      "If this fails, ets is in really bad shape."];
-misc1(suite) -> [];
+%% Simple general small test.  If this fails, ets is in really bad
+%% shape.
 misc1(Config) when is_list(Config) ->
     repeat_for_opts(misc1_do).
 
@@ -3955,8 +3821,7 @@ misc1_do(Opts) ->
 	  end,
     ok.
 
-safe_fixtable(doc) ->  ["Check the safe_fixtable function."];
-safe_fixtable(suite) -> [];
+%% Check the safe_fixtable function.
 safe_fixtable(Config) when is_list(Config) ->
     repeat_for_opts(safe_fixtable_do).
 
@@ -4014,8 +3879,7 @@ safe_fixtable_do(Opts) ->
 	  end,
     ok.
 
-info(doc) -> ["Tests ets:info result for required tuples."];
-info(suite) -> [];
+%% Tests ets:info result for required tuples.
 info(Config) when is_list(Config) ->
     repeat_for_opts(info_do).
 
@@ -4047,8 +3911,7 @@ info_do(Opts) ->
     ?line undefined = ets:info(non_existing_table_xxyy,safe_fixed),
     ?line verify_etsmem(EtsMem).
 
-dups(doc) -> ["Test various duplicate_bags stuff"];
-dups(suite) -> [];
+%% Test various duplicate_bags stuff.
 dups(Config) when is_list(Config) ->
     repeat_for_opts(dups_do).
 
@@ -4078,9 +3941,7 @@ dups_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-tab2file(doc) -> ["Check the ets:tab2file function on an empty "
-		  "ets table."];
-tab2file(suite) -> [];
+%% Test the ets:tab2file function on an empty ets table.
 tab2file(Config) when is_list(Config) ->
     ?line FName = filename:join([?config(priv_dir, Config),"tab2file_case"]),
     tab2file_do(FName, []),
@@ -4116,9 +3977,7 @@ tab2file_do(FName, Opts) ->
     ?line verify_etsmem(EtsMem).
 
     
-tab2file2(doc) -> ["Check the ets:tab2file function on a ",
-		   "filled set/bag type ets table."];
-tab2file2(suite) -> [];
+%% Check the ets:tab2file function on a filled set/bag type ets table.
 tab2file2(Config) when is_list(Config) ->
     repeat_for_opts({tab2file2_do,Config}, [[set,bag],compressed]).
 
@@ -4179,10 +4038,7 @@ fill_tab2(Tab, Val, Num) ->
     ?line fill_tab2(Tab, Val+1, Num-1),
     ok.
 
-tabfile_ext1(suite) ->
-    [];
-tabfile_ext1(doc) ->
-    ["Tests verification of tables with object count extended_info"];
+%% Test verification of tables with object count extended_info.
 tabfile_ext1(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> tabfile_ext1_do(Opts, Config) end).
 
@@ -4219,10 +4075,8 @@ tabfile_ext1_do(Opts,Config) ->
     file:delete(FName2),
     ok.
 
-tabfile_ext2(suite) ->
-    [];
-tabfile_ext2(doc) ->
-    ["Tests verification of tables with md5sum extended_info"];
+
+%% Test verification of tables with md5sum extended_info.
 tabfile_ext2(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> tabfile_ext2_do(Opts,Config) end).
 
@@ -4259,10 +4113,7 @@ tabfile_ext2_do(Opts,Config) ->
     file:delete(FName2),
     ok.
 
-tabfile_ext3(suite) ->
-    [];
-tabfile_ext3(doc) ->
-    ["Tests verification of (named) tables without extended info"];
+%% Test verification of (named) tables without extended info.
 tabfile_ext3(Config) when is_list(Config) ->
     ?line FName = filename:join([?config(priv_dir, Config),"namn.dat"]),
     ?line FName2 = filename:join([?config(priv_dir, Config),"ncountflip.dat"]),
@@ -4293,10 +4144,7 @@ tabfile_ext3(Config) when is_list(Config) ->
     file:delete(FName2),
     ok.
 
-tabfile_ext4(suite) ->
-    [];
-tabfile_ext4(doc) ->
-    ["Tests verification of large table with md5 sum"];
+%% Tests verification of large table with md5 sum.
 tabfile_ext4(Config) when is_list(Config) ->
     ?line FName = filename:join([?config(priv_dir, Config),"bauta.dat"]),
     LL = lists:seq(1,10000),
@@ -4335,10 +4183,7 @@ tabfile_ext4(Config) when is_list(Config) ->
     file:delete(FName),
     ok.
 
-badfile(suite) ->
-    [];
-badfile(doc) ->
-    ["Tests that no disk_log is left open when file has been corrupted"];
+%% Test that no disk_log is left open when file has been corrupted.
 badfile(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir,Config),
     File = filename:join(PrivDir, "badfile"),
@@ -4396,9 +4241,8 @@ make_sub_binary(List, Num) when is_list(List) ->
 
 
 %% Lookup stuff like crazy...
-heavy_lookup(doc) -> ["Performs multiple lookups for every key ",
-		      "in a large table."];
-heavy_lookup(suite) -> [];
+
+%% Perform multiple lookups for every key in a large table.
 heavy_lookup(Config) when is_list(Config) ->
     repeat_for_opts(heavy_lookup_do).
 
@@ -4421,9 +4265,7 @@ do_lookup(Tab, N) ->
 	    do_lookup(Tab, N-1)
     end.
 
-heavy_lookup_element(doc) -> ["Performs multiple lookups for ",
-			      "every element in a large table."];
-heavy_lookup_element(suite) -> [];
+%% Perform multiple lookups for every element in a large table.
 heavy_lookup_element(Config) when is_list(Config) ->
     repeat_for_opts(heavy_lookup_element_do).
 
@@ -4489,9 +4331,6 @@ do_heavy_concurrent_proc(Tab, N, Offs) ->
     do_heavy_concurrent_proc(Tab, N-1, Offs).
 
 
-fold_empty(doc) ->
-    [];
-fold_empty(suite) -> [];
 fold_empty(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line Tab = make_table(a, [], []),
@@ -4500,9 +4339,6 @@ fold_empty(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-foldl(doc) ->
-    [];
-foldl(suite) -> [];
 foldl(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line L = [{a,1}, {c,3}, {b,2}],
@@ -4512,9 +4348,6 @@ foldl(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-foldr(doc) ->
-    [];
-foldr(suite) -> [];
 foldr(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line L = [{a,1}, {c,3}, {b,2}],
@@ -4524,9 +4357,6 @@ foldr(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-foldl_ordered(doc) ->
-    [];
-foldl_ordered(suite) -> [];
 foldl_ordered(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line L = [{a,1}, {c,3}, {b,2}],
@@ -4536,9 +4366,6 @@ foldl_ordered(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-foldr_ordered(doc) ->
-    [];
-foldr_ordered(suite) -> [];
 foldr_ordered(Config) when is_list(Config) ->
     ?line EtsMem = etsmem(),
     ?line L = [{a,1}, {c,3}, {b,2}],
@@ -4548,10 +4375,7 @@ foldr_ordered(Config) when is_list(Config) ->
     ?line true = ets:delete(Tab),
     ?line verify_etsmem(EtsMem).
 
-member(suite) ->
-    [];
-member(doc) ->
-    ["Tests ets:member BIF"];
+%% Test ets:member BIF.
 member(Config) when is_list(Config) ->
     repeat_for_opts(member_do, [write_concurrency, all_types]).
 
@@ -5026,8 +4850,7 @@ verify2([],[]) -> false;
 verify2(_Err, _) ->
     true.
 
-otp_7665(doc) -> ["delete_object followed by delete on fixed bag failed to delete objects."];
-otp_7665(suite) -> [];
+%% delete_object followed by delete on fixed bag failed to delete objects.
 otp_7665(Config) when is_list(Config) ->
     repeat_for_opts(otp_7665_do).
 
@@ -5164,8 +4987,7 @@ grow_shrink_3(N, ShrinkTo, T) ->
     true = ets:delete(T, N),
     grow_shrink_3(N-1, ShrinkTo, T).
     
-grow_pseudo_deleted(doc) -> ["Grow a table that still contains pseudo-deleted objects"];
-grow_pseudo_deleted(suite) -> [];
+%% Grow a table that still contains pseudo-deleted objects.
 grow_pseudo_deleted(Config) when is_list(Config) ->
     only_if_smp(fun() -> grow_pseudo_deleted_do() end).
 
@@ -5218,8 +5040,7 @@ grow_pseudo_deleted_do(Type) ->
     ets:delete(T),
     process_flag(scheduler,0).
 
-shrink_pseudo_deleted(doc) -> ["Shrink a table that still contains pseudo-deleted objects"];
-shrink_pseudo_deleted(suite) -> [];
+%% Shrink a table that still contains pseudo-deleted objects.
 shrink_pseudo_deleted(Config) when is_list(Config) ->
     only_if_smp(fun()->shrink_pseudo_deleted_do() end).
 
@@ -5271,7 +5092,6 @@ shrink_pseudo_deleted_do(Type) ->
 
     
 
-meta_lookup_unnamed_read(suite) -> [];
 meta_lookup_unnamed_read(Config) when is_list(Config) ->
     InitF = fun(_) -> Tab = ets_new(unnamed,[]),
 		     true = ets:insert(Tab,{key,data}),
@@ -5284,7 +5104,6 @@ meta_lookup_unnamed_read(Config) when is_list(Config) ->
 	    end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-meta_lookup_unnamed_write(suite) -> [];
 meta_lookup_unnamed_write(Config) when is_list(Config) ->
     InitF = fun(_) -> Tab = ets_new(unnamed,[]),
 			  {Tab,0}
@@ -5296,7 +5115,6 @@ meta_lookup_unnamed_write(Config) when is_list(Config) ->
 	    end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-meta_lookup_named_read(suite) -> [];
 meta_lookup_named_read(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> Name = list_to_atom(integer_to_list(ProcN)),
 			      Tab = ets_new(Name,[named_table]),
@@ -5310,7 +5128,6 @@ meta_lookup_named_read(Config) when is_list(Config) ->
 	    end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-meta_lookup_named_write(suite) -> [];
 meta_lookup_named_write(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> Name = list_to_atom(integer_to_list(ProcN)),
 			  Tab = ets_new(Name,[named_table]),
@@ -5323,7 +5140,6 @@ meta_lookup_named_write(Config) when is_list(Config) ->
 	    end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-meta_newdel_unnamed(suite) -> [];
 meta_newdel_unnamed(Config) when is_list(Config) ->
     InitF = fun(_) -> ok end,
     ExecF = fun(_) -> Tab = ets_new(unnamed,[]),
@@ -5332,7 +5148,6 @@ meta_newdel_unnamed(Config) when is_list(Config) ->
     FiniF = fun(_) -> ok end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-meta_newdel_named(suite) -> [];
 meta_newdel_named(Config) when is_list(Config) ->
     InitF = fun([ProcN|_]) -> list_to_atom(integer_to_list(ProcN))
 	    end,
@@ -5343,8 +5158,7 @@ meta_newdel_named(Config) when is_list(Config) ->
     FiniF = fun(_) -> ok end,
     run_workers(InitF,ExecF,FiniF,10000).
 
-smp_insert(doc) -> ["Concurrent insert's on same table"];
-smp_insert(suite) -> [];
+%% Concurrent insert's on same table.
 smp_insert(Config) when is_list(Config) ->
     ets_new(smp_insert,[named_table,public,{write_concurrency,true}]),
     InitF = fun(_) -> ok end,
@@ -5355,8 +5169,7 @@ smp_insert(Config) when is_list(Config) ->
     verify_table_load(smp_insert),
     ets:delete(smp_insert).
 
-smp_fixed_delete(doc) -> ["Concurrent delete's on same fixated table"];
-smp_fixed_delete(suite) -> [];
+%% Concurrent deletes on same fixated table.
 smp_fixed_delete(Config) when is_list(Config) ->
     only_if_smp(fun()->smp_fixed_delete_do() end).
 
@@ -5389,8 +5202,7 @@ smp_fixed_delete_do() ->
 num_of_buckets(T) ->
     ?line element(1,ets:info(T,stats)).
 
-smp_unfix_fix(doc) -> ["Fixate hash table while other process is busy doing unfix"];
-smp_unfix_fix(suite) -> [];
+%% Fixate hash table while other process is busy doing unfix.
 smp_unfix_fix(Config) when is_list(Config) ->
     only_if_smp(fun()-> smp_unfix_fix_do() end).
 
@@ -5458,8 +5270,7 @@ smp_unfix_fix_do() ->
     ets:delete(T),
     process_flag(scheduler,0).
 
-otp_8166(doc) -> ["Unsafe unfix was done by trapping select/match"];
-otp_8166(suite) -> [];
+%% Unsafe unfix was done by trapping select/match.
 otp_8166(Config) when is_list(Config) ->
     only_if_smp(3, fun()-> otp_8166_do(false),
 			   otp_8166_do(true)
@@ -5581,7 +5392,7 @@ verify_table_load(T) ->
 	       end.
     
 		  
-otp_8732(doc) -> ["ets:select on a tree with NIL key object"];
+%% ets:select on a tree with NIL key object.
 otp_8732(Config) when is_list(Config) ->
     Tab = ets_new(noname,[ordered_set]),
     filltabstr(Tab,999),
@@ -5590,9 +5401,7 @@ otp_8732(Config) when is_list(Config) ->
     ok.
 
 
-smp_select_delete(suite) -> [];
-smp_select_delete(doc) ->
-    ["Run concurrent select_delete (and inserts) on same table."];
+%% Run concurrent select_delete (and inserts) on same table.
 smp_select_delete(Config) when is_list(Config) ->
     T = ets_new(smp_select_delete,[named_table,public,{write_concurrency,true}]),
     Mod = 17,
@@ -5647,7 +5456,7 @@ smp_select_delete(Config) when is_list(Config) ->
     ?line false = ets:info(T,fixed),
     ets:delete(T).
 
-types(doc) -> ["Test different types"];
+%% Test different types.
 types(Config) when is_list(Config) ->
     init_externals(),
     repeat_for_opts(types_do,[[set,ordered_set],compressed]).
@@ -5690,7 +5499,8 @@ otp_9932(Config) when is_list(Config) ->
     ets:delete(T).
     
 
-otp_9423(doc) -> ["vm-deadlock caused by race between ets:delete and others on write_concurrency table"];
+%% vm-deadlock caused by race between ets:delete and others on
+%% write_concurrency table.
 otp_9423(Config) when is_list(Config) ->
     InitF = fun(_) -> {0,0} end,
     ExecF = fun({S,F}) -> 

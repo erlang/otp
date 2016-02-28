@@ -59,8 +59,6 @@ end_per_group(_GroupName, Config) ->
 %% Start an event manager.
 %% --------------------------------------
 
-start(doc) -> [];
-start(suite) -> [];
 start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -232,8 +230,6 @@ is_not_in_erlang_hibernate_1(N, Pid) ->
     end.
 
 
-add_handler(doc) -> [];
-add_handler(suite) -> [];
 add_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line {error, my_error} =
@@ -253,8 +249,6 @@ add_handler(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 
-add_sup_handler(doc) -> [];
-add_sup_handler(suite) -> [];
 add_sup_handler(Config) when is_list(Config) ->
     ?line {ok,Pid} = gen_event:start({local, my_dummy_handler}),
     ?line {error, my_error} =
@@ -295,8 +289,6 @@ add_sup_handler(Config) when is_list(Config) ->
 	  end,
     ok.
 
-delete_handler(doc) -> [];
-delete_handler(suite) -> [];
 delete_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -327,8 +319,6 @@ delete_handler(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 
-swap_handler(doc) -> [];
-swap_handler(suite) -> [];
 swap_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -356,8 +346,6 @@ swap_handler(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 	
-swap_sup_handler(doc) -> [];
-swap_sup_handler(suite) -> [];
 swap_sup_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
@@ -398,8 +386,6 @@ swap_sup_handler(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 	
-notify(doc) -> [];
-notify(suite) -> [];
 notify(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -510,8 +496,6 @@ notify(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 
-sync_notify(doc) -> [];
-sync_notify(suite) -> [];
 sync_notify(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -625,8 +609,6 @@ sync_notify(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 
-call(doc) -> [];
-call(suite) -> [];
 call(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -767,8 +749,6 @@ call(Config) when is_list(Config) ->
 flush() ->
     receive _ -> flush() after 0 -> ok end.
 
-info(doc) -> [];
-info(suite) -> [];
 info(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
@@ -893,10 +873,7 @@ info(Config) when is_list(Config) ->
     ?line ok = gen_event:stop(my_dummy_handler),
     ok.
 
-call_format_status(suite) ->
-    [];
-call_format_status(doc) ->
-    ["Test that sys:get_status/1,2 calls format_status/2"];
+%% Test that sys:get_status/1,2 calls format_status/2.
 call_format_status(Config) when is_list(Config) ->
     ?line {ok, Pid} = gen_event:start({local, my_dummy_handler}),
     %% State here intentionally differs from what we expect from format_status
@@ -914,10 +891,8 @@ call_format_status(Config) when is_list(Config) ->
     ?line {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo2,
     ok.
 
-call_format_status_anon(suite) ->
-    [];
-call_format_status_anon(doc) ->
-    ["Test that sys:get_status/1,2 calls format_status/2 for anonymous gen_event processes"];
+%% Test that sys:get_status/1,2 calls format_status/2 for anonymous
+%% gen_event processes.
 call_format_status_anon(Config) when is_list(Config) ->
     ?line {ok, Pid} = gen_event:start(),
     %% The 'Name' of the gen_event process will be a pid() here, so
@@ -930,10 +905,7 @@ call_format_status_anon(Config) when is_list(Config) ->
     ok.
 
 
-error_format_status(suite) ->
-    [];
-error_format_status(doc) ->
-    ["Test that a handler error calls format_status/2"];
+%% Test that a handler error calls format_status/2.
 error_format_status(Config) when is_list(Config) ->
     ?line error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
@@ -961,10 +933,7 @@ error_format_status(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
-get_state(suite) ->
-    [];
-get_state(doc) ->
-    ["Test that sys:get_state/1,2 return the gen_event state"];
+%% Test that sys:get_state/1,2 return the gen_event state.
 get_state(Config) when is_list(Config) ->
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
     State1 = self(),
@@ -984,10 +953,7 @@ get_state(Config) when is_list(Config) ->
     ok = gen_event:stop(Pid),
     ok.
 
-replace_state(suite) ->
-    [];
-replace_state(doc) ->
-    ["Test that replace_state/2,3 replace the gen_event state"];
+%% Test that replace_state/2,3 replace the gen_event state.
 replace_state(Config) when is_list(Config) ->
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
     State1 = self(),

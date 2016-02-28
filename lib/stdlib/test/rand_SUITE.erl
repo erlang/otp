@@ -83,10 +83,7 @@ algs() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-seed(doc) ->
-    ["Test that seed and seed_s and export_seed/0 is working."];
-seed(suite) ->
-    [];
+%% Test that seed and seed_s and export_seed/0 is working.
 seed(Config) when is_list(Config) ->
     Algs = algs(),
     Test = fun(Alg) ->
@@ -137,10 +134,7 @@ seed_1(Alg) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_eq(doc) ->
-    ["Check that both api's are consistent with each other."];
-api_eq(suite) ->
-    [];
+%% Check that both APIs are consistent with each other.
 api_eq(_Config) ->
     Algs = algs(),
     Small = fun(Alg) ->
@@ -186,10 +180,7 @@ api_eq_1(S00) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-interval_int(doc) ->
-    ["Check that uniform/1 returns values within the proper interval."];
-interval_int(suite) ->
-    [];
+%% Check that uniform/1 returns values within the proper interval.
 interval_int(Config) when is_list(Config) ->
     Algs = algs(),
     Small = fun(Alg) ->
@@ -223,10 +214,7 @@ interval_int_1(N, Top, Max) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-interval_float(doc) ->
-    ["Check that uniform/0 returns values within the proper interval."];
-interval_float(suite) ->
-    [];
+%% Check that uniform/0 returns values within the proper interval.
 interval_float(Config) when is_list(Config) ->
     Algs = algs(),
     Test = fun(Alg) ->
@@ -250,8 +238,7 @@ interval_float_1(N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-reference(doc) -> ["Check if exs64 algorithm generates the proper sequence."];
-reference(suite) -> [];
+%% Check if exs64 algorithm generates the proper sequence.
 reference(Config) when is_list(Config) ->
     [reference_1(Alg) || Alg <- algs()],
     ok.
@@ -366,8 +353,7 @@ basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-plugin(doc) ->   ["Test that the user can write algorithms"];
-plugin(suite) -> [];
+%% Test that the user can write algorithms.
 plugin(Config) when is_list(Config) ->
     _ = lists:foldl(fun(_, S0) ->
 			    {V1, S1} = rand:uniform_s(10000, S0),

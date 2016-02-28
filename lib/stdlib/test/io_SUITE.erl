@@ -88,10 +88,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-error_1(doc) ->
-    ["Error cases for output"];
-error_1(suite) ->
-    [];
+%% Error cases for output.
 error_1(Config) when is_list(Config) ->
     %% We don't do erroneous output on stdout - the test server
     %% seems to catch that somehow.
@@ -195,10 +192,7 @@ float_g(Config) when is_list(Config) ->
 float_g_1(Fmt, V, Min, Max) ->
     [fmt(Fmt, [V*math:pow(10, E)]) || E <- lists:seq(Min, Max)].
 
-otp_5403(doc) ->
-    ["OTP-5403. ~s formats I/O lists and a single binary."];
-otp_5403(suite) ->
-    [];
+%% OTP-5403. ~s formats I/O lists and a single binary.
 otp_5403(Config) when is_list(Config) ->
     ?line "atom" = fmt("~s", [atom]),
     ?line "binary" = fmt("~s", [<<"binary">>]),
@@ -207,10 +201,7 @@ otp_5403(Config) when is_list(Config) ->
     ?line "somebinaries" = fmt("~s", [[<<"some">>,[<<"binaries">>]]]),
     ok.
 
-otp_5813(doc) ->
-    ["OTP-5813. read/3 is new."];
-otp_5813(suite) ->
-    [];
+%% OTP-5813. read/3 is new.
 otp_5813(Config) when is_list(Config) ->
     ?line PrivDir = ?privdir(Config),
     ?line File = filename:join(PrivDir, "test"),
@@ -229,10 +220,7 @@ otp_5813(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_6230(doc) ->
-    ["OTP-6230. ~p and ~P with (huge) binaries."];
-otp_6230(suite) ->
-    [];
+%% OTP-6230. ~p and ~P with (huge) binaries.
 otp_6230(Config) when is_list(Config) ->
     %% The problem is actually huge binaries, but the small tests here
     %% just run through most of the modified code.
@@ -254,10 +242,7 @@ otp_6230(Config) when is_list(Config) ->
     ?line "<<\"aaaa"++_ = fmt("~P", [B, 20000]),
     ok.
 
-otp_6282(doc) ->
-    ["OTP-6282. ~p truncates strings (like binaries) depending on depth."];
-otp_6282(suite) ->
-    [];
+%% OTP-6282. ~p truncates strings (like binaries) depending on depth.
 otp_6282(Config) when is_list(Config) ->
     ?line "[]" = p("", 1, 20, 1),
     ?line "[]" = p("", 1, 20, -1),
@@ -301,10 +286,7 @@ otp_6282(Config) when is_list(Config) ->
 
     ok.
 
-otp_6354(doc) ->
-    ["OTP-6354. io_lib_pretty rewritten."];
-otp_6354(suite) ->
-    [];
+%% OTP-6354. io_lib_pretty rewritten.
 otp_6354(Config) when is_list(Config) ->
     %% A few tuples:
     ?line "{}" = p({}, 1, 20, -1),
@@ -960,28 +942,19 @@ otp_6354(Config) when is_list(Config) ->
     ?line "{a,b,...}" = fmt("~W", [{a,b,c,d,e}, 3]),
     ok.
 
-otp_6495(doc) ->
-    ["OTP-6495. io_lib_pretty bugfix."];
-otp_6495(suite) ->
-    [];
+%% OTP-6495. io_lib_pretty bugfix.
 otp_6495(Config) when is_list(Config) ->
     ?line bt(<<"[120,120,120,120,120,120,120,120,120,120,120,120,120,120,"
                "120,120,120,120,120]<<1>>">>,
              fmt("~w~p", ["xxxxxxxxxxxxxxxxxxx", <<1>>])),
     ok.
 
-otp_6517(doc) ->
-    ["OTP-6517. The Format argument of fwrite can be a binary."];
-otp_6517(suite) ->
-    [];
+%% OTP-6517. The Format argument of fwrite can be a binary.
 otp_6517(Config) when is_list(Config) ->
     ?line "string" = fmt(<<"~s">>, [<<"string">>]),
     ok.
 
-otp_6502(doc) ->
-    ["OTP-6502. Bits."];
-otp_6502(suite) ->
-    [];
+%% OTP-6502. Bits.
 otp_6502(Config) when is_list(Config) ->
     ?line bt(<<
      "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]"
@@ -991,10 +964,7 @@ otp_6502(Config) when is_list(Config) ->
              fmt("~w~p", [lists:seq(0, 25), <<17:25>>])),
     ok.
 
-otp_7421(doc) ->
-    ["OTP-7421. Soft limit of 60 chars removed when pretty printing."];
-otp_7421(suite) ->
-    [];
+%% OTP-7421. Soft limit of 60 chars removed when pretty printing.
 otp_7421(Config) when is_list(Config) ->
     bt(<<"{aa,bb,\n"
          "    c,dd,\n"
@@ -1062,10 +1032,7 @@ rfd(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, 0) ->
 rfd(_, _) ->
     no.
 
-manpage(doc) ->
-    ["The examples in io(3) and io_lib(3)."];
-manpage(suite) ->
-    [];
+%% The examples in io(3) and io_lib(3).
 manpage(Config) when is_list(Config) ->
     %% The examples that write or print only, not the ones that read...
 
@@ -1131,10 +1098,7 @@ manpage(Config) when is_list(Config) ->
              lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5))),
     ok.
 
-otp_6708(doc) ->
-    ["OTP-6708. Fewer newlines when pretty-printing."];
-otp_6708(suite) ->
-    [];
+%% OTP-6708. Fewer newlines when pretty-printing.
 otp_6708(Config) when is_list(Config) ->
     ?line bt(<<"[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,\n"
                " 23,24,25,26,27,28,29|...]">>,
@@ -1239,10 +1203,7 @@ otp_6708(Config) when is_list(Config) ->
 otp_7084() ->
     [{timetrap,{minutes,3}}].
 
-otp_7084(doc) ->
-    ["OTP-7084. Printing floating point numbers nicely."];
-otp_7084(suite) ->
-    [];
+%% OTP-7084. Printing floating point numbers nicely.
 otp_7084(Config) when is_list(Config) ->
     L = [{g_warm_up, fun g_warm_up/0},
          {g_big_pos_float, fun g_big_pos_float/0},
@@ -1934,8 +1895,7 @@ read_newlines(Fd, Acc, N0) ->
 
 
 
-otp_8989(doc) ->
-    "OTP-8989 io:format for ~F.Ps ignores P in some cases";
+%% OTP-8989 io:format for ~F.Ps ignores P in some cases.
 otp_8989(Suite) when is_list(Suite) ->
     Hello = "Hello",
     ?line " Hello" = fmt("~6.6s", [Hello]),
@@ -2010,8 +1970,7 @@ otp_8989(Suite) when is_list(Suite) ->
     ?line "Hel " = fmt("~*.*s", [-4,3,Hello]),
     ok.
 
-io_lib_fread_literal(doc) ->
-    "OTP-9439 io_lib:fread bug for literate at end";
+%% OTP-9439 io_lib:fread bug for literate at end.
 io_lib_fread_literal(Suite) when is_list(Suite) ->
     ?line {more,"~d",0,""} = io_lib:fread("~d", ""),
     ?line {error,{fread,integer}} = io_lib:fread("~d", " "),
@@ -2037,8 +1996,7 @@ io_lib_fread_literal(Suite) when is_list(Suite) ->
     ok.
 
 
-printable_range(doc) ->
-    "Check that the printable range set by the user actually works";
+%% Check that the printable range set by the user actually works.
 printable_range(Suite) when is_list(Suite) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
@@ -2140,8 +2098,7 @@ flush_from_port(P) ->
 	    ok
     end.
 
-io_lib_print_binary_depth_one(doc) ->
-    "Test binaries printed with a depth of one behave correctly";
+%% Test binaries printed with a depth of one behave correctly.
 io_lib_print_binary_depth_one(Suite) when is_list(Suite) ->
     ?line "<<>>" = fmt("~W", [<<>>, 1]),
     ?line "<<>>" = fmt("~P", [<<>>, 1]),
@@ -2151,8 +2108,7 @@ io_lib_print_binary_depth_one(Suite) when is_list(Suite) ->
     ?line "<<...>>" = fmt("~P", [<<1:7>>, 1]),
     ok.
 
-otp_10302(doc) ->
-    "OTP-10302. Unicode";
+%% OTP-10302. Unicode.
 otp_10302(Suite) when is_list(Suite) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
@@ -2208,15 +2164,13 @@ pretty(Term, Opts) when is_list(Opts) ->
 is_latin1(S) ->
     S >= 0 andalso S =< 255.
 
-otp_10836(doc) ->
-    "OTP-10836. ~ts extended to latin1";
+%% OTP-10836. ~ts extended to latin1.
 otp_10836(Suite) when is_list(Suite) ->
     S = io_lib:format("~ts", [[<<"äpple"/utf8>>, <<"äpple">>]]),
     "äppleäpple" = lists:flatten(S),
     ok.
 
-otp_10755(doc) ->
-    "OTP-10755. The 'l' modifier";
+%% OTP-10755. The 'l' modifier
 otp_10755(Suite) when is_list(Suite) ->
     S = "string",
     "\"string\"" = fmt("~p", [S]),

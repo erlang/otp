@@ -327,10 +327,7 @@ del([H|T]) ->
     del(T);
 del([]) -> ok.
 
-otp_5960(suite) ->
-    [];
-otp_5960(doc) ->
-    ["Test that filelib:ensure_dir/1 returns ok or {error,Reason}"];
+%% Test that filelib:ensure_dir/1 returns ok or {error,Reason}.
 otp_5960(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Dir = filename:join(PrivDir, "otp_5960_dir"),

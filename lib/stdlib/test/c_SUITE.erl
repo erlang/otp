@@ -50,20 +50,14 @@ end_per_group(_GroupName, Config) ->
 
 %%% Write output to a directory other than current directory:
 
-c_1(doc) ->
-    ["Checks that c:c works also with option 'outdir' [ticket OTP-1209]."];
-c_1(suite) ->
-    [];
+%% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_1(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
     ?line Result = c(R,[{outdir,W}]),
     ?line {ok, m} = Result.
 
-c_2(doc) ->
-    ["Checks that c:c works also with option 'outdir' [ticket OTP-1209]."];
-c_2(suite) ->
-    [];
+%% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_2(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
@@ -74,11 +68,8 @@ c_2(Config) when is_list(Config) ->
 %%% Put results in current directory (or rather, change current dir
 %%% to the output dir):
 
-c_3(doc) ->
-    ["Checks that c:c works also with option 'outdir' (same as current"
-     "directory). [ticket OTP-1209]."];
-c_3(suite) ->
-    [];
+%% OTP-1209: Check that c:c/2 works also with option 'outdir'
+%% (same as current directory).
 c_3(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
@@ -86,11 +77,8 @@ c_3(Config) when is_list(Config) ->
     ?line Result = c(R,[{outdir,W}]),
     ?line {ok, m} = Result.
 
-c_4(doc) ->
-    ["Checks that c:c works also with option 'outdir' (same as current"
-     "directory). [ticket OTP-1209]."];
-c_4(suite) ->
-    [];
+%% OTP-1209: Check that c:c/2 works also with option 'outdir'
+%% (same as current directory).
 c_4(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
@@ -100,20 +88,14 @@ c_4(Config) when is_list(Config) ->
 
 %%% Write output to a directory other than current directory:
 
-nc_1(doc) ->
-    ["Checks that c:nc works also with option 'outdir'."];
-nc_1(suite) ->
-    [];
+%% Check that c:nc/2 works also with option 'outdir'.
 nc_1(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
     ?line Result = nc(R,[{outdir,W}]),
     ?line {ok, m} = Result.
 
-nc_2(doc) ->
-    ["Checks that c:nc works also with option 'outdir'."];
-nc_2(suite) ->
-    [];
+%% Check that c:nc/2 works also with option 'outdir'.
 nc_2(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
@@ -124,11 +106,8 @@ nc_2(Config) when is_list(Config) ->
 %%% Put results in current directory (or rather, change current dir
 %%% to the output dir):
 
-nc_3(doc) ->
-    ["Checks that c:nc works also with option 'outdir' (same as current"
-     "directory)."];
-nc_3(suite) ->
-    [];
+%% Check that c:nc/2 works also with option 'outdir'
+%% (same as current directory).
 nc_3(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
@@ -136,11 +115,8 @@ nc_3(Config) when is_list(Config) ->
     ?line Result = nc(R,[{outdir,W}]),
     ?line {ok, m} = Result.
 
-nc_4(doc) ->
-    ["Checks that c:nc works also with option 'outdir' (same as current"
-     "directory)."];
-nc_4(suite) ->
-    [];
+%% Check that c:nc/2 works also with option 'outdir'
+%% (same as current directory).
 nc_4(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
@@ -155,10 +131,7 @@ ls(Config) when is_list(Config) ->
     ok = c:ls(File),
     ok = c:ls("no_such_file").
 
-memory(doc) ->
-    ["Checks that c:memory/[0,1] returns consistent results."];
-memory(suite) ->
-    [];
+%% Check that c:memory/[0,1] returns consistent results.
 memory(Config) when is_list(Config) ->
     try
 	?line ML = c:memory(),

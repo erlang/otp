@@ -102,10 +102,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-guard_1(doc) ->
-    ["(OTP-2405)"];
-guard_1(suite) ->
-    [];
+%% OTP-2405
 guard_1(Config) when is_list(Config) ->
     ?line {ok,Tokens ,_} =
 	erl_scan:string("if a+4 == 4 -> yes; true -> no end. "),
@@ -117,10 +114,7 @@ guard_1(Config) when is_list(Config) ->
 guard_1_compiled() ->
     if a+4 == 4 -> yes; true -> no end.
 
-guard_2(doc) ->
-    ["Similar to guard_1, but type-correct"];
-guard_2(suite) ->
-    [];
+%% Similar to guard_1, but type-correct.
 guard_2(Config) when is_list(Config) ->
     ?line {ok,Tokens ,_} =
 	erl_scan:string("if 6+4 == 4 -> yes; true -> no end. "),
@@ -132,10 +126,7 @@ guard_2(Config) when is_list(Config) ->
 guard_2_compiled() ->
     if 6+4 == 4 -> yes; true -> no end.
 
-string_plusplus(doc) ->
-    ["OTP-3069: syntactic sugar string ++ ..."];
-string_plusplus(suite) ->
-    [];
+%% OTP-3069: syntactic sugar string ++ ...
 string_plusplus(Config) when is_list(Config) ->
     ?line check(fun() -> case "abc" of "ab" ++ L -> L end end,
 		"case \"abc\" of \"ab\" ++ L -> L end. ",
@@ -148,10 +139,7 @@ string_plusplus(Config) when is_list(Config) ->
 		"c"),
     ok.
 
-match_pattern(doc) ->
-    ["OTP-2983: match operator in pattern"];
-match_pattern(suite) ->
-    [];
+%% OTP-2983: match operator in pattern.
 match_pattern(Config) when is_list(Config) ->
     ?line check(fun() -> case {a, b} of {a, _X}=Y -> {x,Y} end end,
 		"case {a, b} of {a, X}=Y -> {x,Y} end. ",
@@ -167,10 +155,7 @@ match_pattern(Config) when is_list(Config) ->
                 28),
     ok.
 
-match_bin(doc) ->
-    ["binary match problems"];
-match_bin(suite) ->
-    [];
+%% Binary match problems.
 match_bin(Config) when is_list(Config) ->
     ?line check(fun() -> <<"abc">> = <<"abc">> end,
 		"<<\"abc\">> = <<\"abc\">>. ",
@@ -184,10 +169,7 @@ match_bin(Config) when is_list(Config) ->
 		{2,<<"AB">>,<<"CD">>}),
     ok.
 
-pattern_expr(doc) ->
-    ["OTP-3144: compile-time expressions in pattern"];
-pattern_expr(suite) ->
-    [];
+%% OTP-3144: compile-time expressions in pattern.
 pattern_expr(Config) when is_list(Config) ->
     ?line check(fun() -> case 4 of 2+2 -> ok end end,
 		"case 4 of 2+2 -> ok end. ",
@@ -197,10 +179,7 @@ pattern_expr(Config) when is_list(Config) ->
 		ok),
     ok.
 
-guard_3(doc) ->
-    ["OTP-4518."];
-guard_3(suite) ->
-    [];
+%% OTP-4518.
 guard_3(Config) when is_list(Config) ->
     ?line check(fun() -> if false -> false; true -> true end end,
                 "if false -> false; true -> true end.",
@@ -217,10 +196,7 @@ guard_3(Config) when is_list(Config) ->
                 true),
     ok.
 
-guard_4(doc) ->
-    ["OTP-4885."];
-guard_4(suite) ->
-    [];
+%% OTP-4885.
 guard_4(Config) when is_list(Config) ->
     check(fun() -> if erlang:'+'(3,a) -> true ; true -> false end end,
 	  "if erlang:'+'(3,a) -> true ; true -> false end.",
@@ -250,10 +226,7 @@ guard_4(Config) when is_list(Config) ->
                 false),
     ok.
 
-guard_5(doc) ->
-    ["Guards with erlang:'=='/2"];
-guard_5(suite) ->
-    [];
+%% Guards with erlang:'=='/2.
 guard_5(Config) when is_list(Config) ->
     {ok,Tokens ,_} =
 	erl_scan:string("case 1 of A when erlang:'=='(A, 1) -> true end."),
@@ -265,10 +238,7 @@ guard_5(Config) when is_list(Config) ->
 guard_5_compiled() ->
     case 1 of A when erlang:'=='(A, 1) -> true end.
 
-lc(doc) ->
-    ["OTP-4518."];
-lc(suite) ->
-    [];
+%% OTP-4518.
 lc(Config) when is_list(Config) ->
     ?line check(fun() -> X = 32, [X || X <- [1,2,3]] end,
                 "begin X = 32, [X || X <- [1,2,3]] end.",
@@ -296,10 +266,7 @@ lc(Config) when is_list(Config) ->
                 "[X || X <- [true,false], X].", [true]),
     ok.
 
-simple_cases(doc) ->
-    ["Simple cases, just to cover some code."];
-simple_cases(suite) ->
-    [];
+%% Simple cases, just to cover some code.
 simple_cases(Config) when is_list(Config) ->
     ?line check(fun() -> A = $C end, "A = $C.", $C),
     %% ?line check(fun() -> A = 3.14 end, "A = 3.14.", 3.14),
@@ -524,10 +491,7 @@ simple_cases(Config) when is_list(Config) ->
     ?line check(fun() -> (bnot 1) < -0 end, "(bnot (+1)) < -0.", true),
     ok.
 
-unary_plus(doc) ->
-    ["OTP-4929. Unary plus rejects non-numbers."];
-unary_plus(suite) ->
-    [];
+%% OTP-4929. Unary plus rejects non-numbers.
 unary_plus(Config) when is_list(Config) ->
     ?line check(fun() -> F = fun(X) -> + X end, 
                          true = -1 == F(-1) end,
@@ -536,20 +500,14 @@ unary_plus(Config) when is_list(Config) ->
     ?line error_check("+a.", badarith),
     ok.
 
-apply_atom(doc) ->
-    ["OTP-5064. Can no longer apply atoms."];
-apply_atom(suite) ->
-    [];
+%% OTP-5064. Can no longer apply atoms.
 apply_atom(Config) when is_list(Config) ->
     ?line error_check("[X || X <- [[1],[2]], 
                              begin L = length, L(X) =:= 1 end].", 
                       {badfun,length}),
     ok.
 
-otp_5269(doc) ->
-    ["OTP-5269. Bugs in the bit syntax."];
-otp_5269(suite) ->
-    [];
+%% OTP-5269. Bugs in the bit syntax.
 otp_5269(Config) when is_list(Config) ->
     ?line check(fun() -> L = 8,
                          F = fun(<<A:L,B:A>>) -> B end,
@@ -604,10 +562,7 @@ otp_5269(Config) when is_list(Config) ->
 		ok),
     ok.
 
-otp_6539(doc) ->
-    ["OTP-6539. try/catch bugs."];
-otp_6539(suite) ->
-    [];
+%% OTP-6539. try/catch bugs.
 otp_6539(Config) when is_list(Config) ->
     ?line check(fun() -> 
                         F = fun(A,B) -> 
@@ -628,10 +583,7 @@ otp_6539(Config) when is_list(Config) ->
                 [3, 5]),
     ok.
 
-otp_6543(doc) ->
-    ["OTP-6543. bitlevel binaries."];
-otp_6543(suite) ->
-    [];
+%% OTP-6543. bitlevel binaries.
 otp_6543(Config) when is_list(Config) ->
     ?line check(fun() ->
                         << <<X>> || <<X>> <- [1,2,3] >>
@@ -850,10 +802,7 @@ otp_6543(Config) when is_list(Config) ->
     ?line error_check("[X || <<X>> <= [a,b]].",{bad_generator,[a,b]}),
     ok.
 
-otp_6787(doc) ->
-    ["OTP-6787. bitlevel binaries."];
-otp_6787(suite) ->
-    [];
+%% OTP-6787. bitlevel binaries.
 otp_6787(Config) when is_list(Config) ->
     ?line check(
             fun() -> <<16:(1024*1024)>> = <<16:(1024*1024)>> end,
@@ -861,10 +810,7 @@ otp_6787(Config) when is_list(Config) ->
             <<16:1048576>>),
     ok.
 
-otp_6977(doc) ->
-    ["OTP-6977. ++ bug."];
-otp_6977(suite) ->
-    [];
+%% OTP-6977. ++ bug.
 otp_6977(Config) when is_list(Config) ->
     ?line check(
             fun() -> (fun([$X] ++ _) -> ok end)("X") end,
@@ -872,8 +818,7 @@ otp_6977(Config) when is_list(Config) ->
             ok),
     ok.
 
-otp_7550(doc) ->
-    ["OTP-7550. Support for UTF-8, UTF-16, UTF-32."];
+%% OTP-7550. Support for UTF-8, UTF-16, UTF-32.
 otp_7550(Config) when is_list(Config) ->
 
     %% UTF-8.
@@ -947,10 +892,7 @@ otp_7550(Config) when is_list(Config) ->
     ok.
 
 
-otp_8133(doc) ->
-    ["OTP-8133. Bit comprehension bug."];
-otp_8133(suite) ->
-    [];
+%% OTP-8133. Bit comprehension bug.
 otp_8133(Config) when is_list(Config) ->
     ?line check(
             fun() ->
@@ -1001,10 +943,7 @@ otp_8133(Config) when is_list(Config) ->
             ok),
     ok.
 
-otp_10622(doc) ->
-    ["OTP-10622. Bugs."];
-otp_10622(suite) ->
-    [];
+%% OTP-10622. Bugs.
 otp_10622(Config) when is_list(Config) ->
     check(fun() -> <<0>> = <<"\x{400}">> end,
           "<<0>> = <<\"\\x{400}\">>. ",
@@ -1043,17 +982,13 @@ otp_10622(Config) when is_list(Config) ->
 
     ok.
 
-otp_13228(doc) ->
-    ["OTP-13228. ERL-32: non-local function handler bug."];
+%% OTP-13228. ERL-32: non-local function handler bug.
 otp_13228(_Config) ->
     LFH = {value, fun(foo, [io_fwrite]) -> worked end},
     EFH = {value, fun({io, fwrite}, [atom]) -> io_fwrite end},
     {value, worked, []} = parse_and_run("foo(io:fwrite(atom)).", LFH, EFH).
 
-funs(doc) ->
-    ["Simple cases, just to cover some code."];
-funs(suite) ->
-    [];
+%% Simple cases, just to cover some code.
 funs(Config) when is_list(Config) ->
     do_funs(none, none),
     do_funs(lfh(), none),
@@ -1288,10 +1223,7 @@ external_func({M,F}, As) ->
 
 
 
-try_catch(doc) ->
-    ["Test try-of-catch-after-end statement"];
-try_catch(suite) -> 
-    [];
+%% Test try-of-catch-after-end statement.
 try_catch(Config) when is_list(Config) ->
     %% Match in of with catch
     ?line check(fun() -> try 1 of 1 -> 2 catch _:_ -> 3 end end,
@@ -1401,10 +1333,7 @@ try_catch(Config) when is_list(Config) ->
     ok.
 
 
-eval_expr_5(doc) ->
-    ["(OTP-7933)"];
-eval_expr_5(suite) ->
-    [];
+%% OTP-7933.
 eval_expr_5(Config) when is_list(Config) ->
     ?line {ok,Tokens ,_} =
 	erl_scan:string("if a+4 == 4 -> yes; true -> no end. "),

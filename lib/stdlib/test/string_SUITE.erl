@@ -72,10 +72,6 @@ end_per_testcase(_Case, _Config) ->
 % Test cases starts here.
 %
 
-len(suite) ->
-    [];
-len(doc) ->
-    [];
 len(Config) when is_list(Config) ->
     ?line 0 = string:len(""),
     ?line L = tuple_size(list_to_tuple(atom_to_list(?MODULE))),
@@ -84,10 +80,6 @@ len(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:len({})),
     ok.
 
-equal(suite) ->
-    [];
-equal(doc) ->
-    [];
 equal(Config) when is_list(Config) ->
     ?line true = string:equal("", ""),
     ?line false = string:equal("", " "),
@@ -97,10 +89,6 @@ equal(Config) when is_list(Config) ->
     ?line true = string:equal(2, 2),			% not good, should crash
     ok.
 
-concat(suite) ->
-    [];
-concat(doc) ->
-    [];
 concat(Config) when is_list(Config) ->
     ?line "erlang rules" = string:concat("erlang ", "rules"),
     ?line "" = string:concat("", ""),
@@ -110,10 +98,6 @@ concat(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:concat(hello, please)),
     ok.
 
-chr_rchr(suite) ->
-    [];
-chr_rchr(doc) ->
-    [];
 chr_rchr(Config) when is_list(Config) ->
     {_,_,X} = erlang:timestamp(),
     ?line 0 = string:chr("", (X rem (255-32)) + 32),
@@ -134,10 +118,6 @@ chr_rchr(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:rchr("hello", h)),
     ok.
 
-str_rstr(suite) ->
-    [];
-str_rstr(doc) ->
-    [];
 str_rstr(Config) when is_list(Config) ->
     {_,_,X} = erlang:timestamp(),
     ?line 0 = string:str("", [(X rem (255-32)) + 32]),
@@ -160,10 +140,6 @@ str_rstr(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:rstr("hello", he)),
     ok.
 
-span_cspan(suite) ->
-    [];
-span_cspan(doc) ->
-    [];
 span_cspan(Config) when is_list(Config) ->
     ?line 0 = string:span("", "1"),
     ?line 0 = string:span("1", ""),
@@ -186,10 +162,6 @@ span_cspan(Config) when is_list(Config) ->
     ok.
 
 
-substr(suite) ->
-    [];
-substr(doc) ->
-    [];
 substr(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:substr("", 0)), 
     ?line [] = string:substr("", 1), 
@@ -246,10 +218,6 @@ replace_sep(C, Seps, New) ->
 	false -> C
     end.
 
-chars(suite) ->
-    [];
-chars(doc) ->
-    [];
 chars(Config) when is_list(Config) ->
     ?line [] = string:chars($., 0),
     ?line [] = string:chars($., 0, []),
@@ -259,10 +227,6 @@ chars(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:chars($x, [])),
     ok.
 
-copies(suite) ->
-    [];
-copies(doc) ->
-    [];
 copies(Config) when is_list(Config) ->
     ?line "" = string:copies("", 10),
     ?line "" = string:copies(".", 0),
@@ -273,10 +237,6 @@ copies(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:copies("hej", 2.0)),
     ok.
 
-words(suite) ->
-    [];
-words(doc) ->
-    [];
 words(Config) when is_list(Config) ->
     ?line 1 = string:words(""),
     ?line 1 = string:words("", $,),
@@ -292,10 +252,6 @@ words(Config) when is_list(Config) ->
     ok.
 
 
-strip(suite) ->
-    [];
-strip(doc) ->
-    [];
 strip(Config) when is_list(Config) ->
     ?line "" = string:strip(""),
     ?line "" = string:strip("", both),  
@@ -313,10 +269,6 @@ strip(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:strip(" hej", left, " ")),	% not good
     ok.
 
-sub_word(suite) ->
-    [];
-sub_word(doc) ->
-    [];
 sub_word(Config) when is_list(Config) ->
     ?line "" = string:sub_word("", 1),
     ?line "" = string:sub_word("", 1, $,),
@@ -329,10 +281,6 @@ sub_word(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:sub_word("hello there", 1, "e")),
     ok.
 
-left_right(suite) ->
-    [];
-left_right(doc) ->
-    [];
 left_right(Config) when is_list(Config) ->
     ?line "" = string:left("", 0),
     ?line "" = string:left("hej", 0),
@@ -356,10 +304,6 @@ left_right(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:right("hello", 5, ".")),
     ok.
 
-sub_string(suite) ->
-    [];
-sub_string(doc) ->
-    [];
 sub_string(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:sub_string("", 0)), 
     ?line [] = string:sub_string("", 1), 
@@ -382,10 +326,6 @@ sub_string(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:sub_string("1234", "1")),
     ok.
 
-centre(suite) ->
-    [];
-centre(doc) ->
-    [];
 centre(Config) when is_list(Config) ->
     ?line "" = string:centre("", 0),
     ?line "" = string:centre("1", 0),
@@ -401,10 +341,6 @@ centre(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch string:centre(hello, 10)),
     ok.
 
-to_integer(suite) ->
-    [];
-to_integer(doc) ->
-    [];
 to_integer(Config) when is_list(Config) ->
     ?line {1,""} = test_to_integer("1"),
     ?line {1,""} = test_to_integer("+1"),
@@ -434,10 +370,6 @@ test_to_integer(Str) ->
 	    Res
     end.
 
-to_float(suite) ->
-    [];
-to_float(doc) ->
-    [];
 to_float(Config) when is_list(Config) ->
     ?line {1.2,""} = test_to_float("1.2"),
     ?line {1.2,""} = test_to_float("1,2"),
@@ -481,10 +413,6 @@ test_to_float(Str) ->
 	    Res
     end.
 	    
-to_upper_to_lower(suite) ->
-    [];
-to_upper_to_lower(doc) ->
-    [];
 to_upper_to_lower(Config) when is_list(Config) ->
     ?line "1234ABCDEFÅÄÖ=" = string:to_upper("1234abcdefåäö="),
     ?line "éèíúùòóåäöabc()" = string:to_lower("ÉÈÍÚÙÒÓÅÄÖabc()"),
@@ -527,10 +455,6 @@ all_lower_latin1([H|T], C) when $A =< C, C =< $Z;
     all_lower_latin1(T, C+1);
 all_lower_latin1([], 256) -> ok.
 
-join(suite) ->
-    [];
-join(doc) ->
-    [];
 join(Config) when is_list(Config) ->
     ?line "erlang rules" = string:join(["erlang", "rules"], " "),
     ?line "a,-,b,-,c" = string:join(["a", "b", "c"], ",-,"),

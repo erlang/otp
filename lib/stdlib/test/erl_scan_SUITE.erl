@@ -77,18 +77,12 @@ end_per_group(_GroupName, Config) ->
 
 
 
-error_1(doc) ->
-    ["(OTP-2347)"];
-error_1(suite) ->
-    [];
+%% (OTP-2347)
 error_1(Config) when is_list(Config) ->
     ?line {error, _, _} = erl_scan:string("'a"),
     ok.
 
-error_2(doc) ->
-    ["Checks that format_error works on the error cases."];
-error_2(suite) ->
-    [];
+%% Checks that format_error works on the error cases.
 error_2(Config) when is_list(Config) ->
     ?line lists:foreach(fun check/1, error_cases()),
     ok.
@@ -124,8 +118,7 @@ check_error({error, Info, EndLine}, Module0) ->
     String = lists:flatten(Module0:format_error(Desc)),
     true = io_lib:printable_list(String).
 
-iso88591(doc) -> ["Tests the support for ISO-8859-1 i.e Latin-1"];
-iso88591(suite) -> [];
+%% Tests the support for ISO-8859-1 i.e Latin-1.
 iso88591(Config) when is_list(Config) ->
     ?line ok =
      case catch begin
@@ -158,10 +151,7 @@ iso88591(Config) when is_list(Config) ->
 	ok -> ok				%Aok
     end.
 
-otp_7810(doc) ->
-    ["OTP-7810. White spaces, comments, and more.."];
-otp_7810(suite) ->
-    [];
+%% OTP-7810. White spaces, comments, and more...
 otp_7810(Config) when is_list(Config) ->
     ?line ok = reserved_words(),
     ?line ok = atoms(),
@@ -911,10 +901,7 @@ more_chars() ->
         erl_scan:string("$\\xg", {1,1}),
     ok.
 
-otp_10302(doc) ->
-    "OTP-10302. Unicode characters scanner/parser.";
-otp_10302(suite) ->
-    [];
+%% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     %% From unicode():
     {error,{1,erl_scan,{illegal,atom}},1} =
@@ -1084,18 +1071,12 @@ otp_10302(Config) when is_list(Config) ->
         erl_parse_abstract("a"++[1024]++"c", [{encoding,latin1}]),
     ok.
 
-otp_10990(doc) ->
-    "OTP-10990. Floating point number in input string.";
-otp_10990(suite) ->
-    [];
+%% OTP-10990. Floating point number in input string.
 otp_10990(Config) when is_list(Config) ->
     {'EXIT',_} = (catch {foo, erl_scan:string([$",42.0,$"],1)}),
     ok.
 
-otp_10992(doc) ->
-    "OTP-10992. List of floats to abstract format.";
-otp_10992(suite) ->
-    [];
+%% OTP-10992. List of floats to abstract format.
 otp_10992(Config) when is_list(Config) ->
     {cons,0,{float,0,42.0},{nil,0}} =
         erl_parse_abstract([42.0], [{encoding,unicode}]),
@@ -1107,10 +1088,7 @@ otp_10992(Config) when is_list(Config) ->
         erl_parse_abstract([$A,42.0], [{encoding,utf8}]),
     ok.
 
-otp_11807(doc) ->
-    "OTP-11807. Generalize erl_parse:abstract/2.";
-otp_11807(suite) ->
-    [];
+%% OTP-11807. Generalize erl_parse:abstract/2.
 otp_11807(Config) when is_list(Config) ->
     {cons,0,{integer,0,97},{cons,0,{integer,0,98},{nil,0}}} =
         erl_parse_abstract("ab", [{encoding,none}]),

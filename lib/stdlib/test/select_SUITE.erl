@@ -93,17 +93,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-select_test(suite) ->
-    [];
-select_test(doc) ->
-    ["Tests select in numerous ways"];
+%% Test select in numerous ways.
 select_test(Config) when is_list(Config) ->
     do_test(Config).
 
-return_values(suite) ->
-    [];
-return_values(doc) ->
-    ["Tests return values in specific situations for select/3 and select/1"];
+%% Test return values in specific situations for select/3 and select/1.
 return_values(Config) when is_list(Config) ->
     do_return_values().
 

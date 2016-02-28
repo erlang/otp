@@ -62,8 +62,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-opts(doc) -> [];
-opts(suite) -> [];
 opts(Config) when is_list(Config) ->
     %% OTP-5985: the 'public' option has been removed
     ?line {'EXIT',{badarg,_}} = (catch digraph:new([public])),
@@ -89,8 +87,6 @@ opts(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-degree(doc) -> [];
-degree(suite) -> [];
 degree(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x1,[]}, {x2,[x1]}, {x3,[x1,x2]},
 			       {x4,[x1,x2,x3]}, {x5,[x1,x2,x3,x4]}]),
@@ -124,8 +120,6 @@ degree(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-path(doc) -> [];
-path(suite) -> [];
 path(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
 			       {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7]}]),
@@ -148,8 +142,6 @@ path(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-cycle(doc) -> [];
-cycle(suite) -> [];
 cycle(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
 			       {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7,x8]},
@@ -171,8 +163,6 @@ cycle(Config) when is_list(Config) ->
 
 
 
-vertices(doc) -> [];
-vertices(suite) -> [];
 vertices(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x,[]}, {y,[]}]),
     ?line [] = check(digraph:vertices(G), [x,y]),
@@ -181,8 +171,6 @@ vertices(Config) when is_list(Config) ->
     ?line digraph:delete(G),
     ok.
 
-edges(doc) -> [];
-edges(suite) -> [];
 edges(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x, [{exy,y},{exx,x}]},
 			       {y, [{eyx,x}]}
@@ -204,8 +192,6 @@ edges(Config) when is_list(Config) ->
     ?line digraph:delete(G),
     ok.
 
-data(doc) -> [];
-data(suite) -> [];
 data(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x, [{exy, y}]}, {y, []}]),
     
@@ -233,8 +219,6 @@ data(Config) when is_list(Config) ->
 
 
 
-otp_3522(doc) -> [];
-otp_3522(suite) -> [];
 otp_3522(Config) when is_list(Config) ->
     ?line G1 = build_graph([acyclic], [{x, []}]),
     ?line {error, {bad_edge,_}} = digraph:add_edge(G1, x, x),
@@ -261,8 +245,6 @@ otp_3522(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-otp_3630(doc) -> [];
-otp_3630(suite) -> [];
 otp_3630(Config) when is_list(Config) ->
     ?line G = build_graph([], [{x, [{exy,y},{exx,x}]},
 			       {y, [{eyy,y},{eyx,x}]}
@@ -299,8 +281,6 @@ otp_3630(Config) when is_list(Config) ->
 
     ok.
 
-otp_8066(doc) -> [];
-otp_8066(suite) -> [];
 otp_8066(Config) when is_list(Config) ->
     fun() ->
             D = digraph:new(),

@@ -95,8 +95,6 @@ end_per_group(_GroupName, Config) ->
 
 
 
-func(suite) ->
-    [];
 func(Config) when is_list(Config) ->
     Ts = [{func_1,
            <<"-record(r1, {a,b}).
@@ -153,8 +151,6 @@ func(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-call(suite) ->
-    [];
 call(Config) when is_list(Config) ->
     Ts = [{call_1,
            <<"t() ->
@@ -166,8 +162,6 @@ call(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-recs(suite) ->
-    [];
 recs(Config) when is_list(Config) ->
     %% Evolved while testing strict record tests in guards...
     Ts = [{recs_1,
@@ -334,8 +328,6 @@ recs(Config) when is_list(Config) ->
                           sdafjsd,sdf,sdafsd,sdfdsf,sdfdsf,dsfds}}">>),
     ok.
 
-try_catch(suite) ->
-    [];
 try_catch(Config) when is_list(Config) ->
     Ts = [{try_1, % copied from erl_eval_SUITE
            <<"t() -> try 1 of 1 -> 2 catch _:_ -> 3 end.">>},
@@ -388,8 +380,6 @@ try_catch(Config) when is_list(Config) ->
                           after foo end">>),
     ok.
 
-if_then(suite) ->
-    [];
 if_then(Config) when is_list(Config) ->
     Ts = [{if_1,
            <<"t() -> if 1 > 2 -> 1; true -> b end.">>},
@@ -401,8 +391,6 @@ if_then(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-receive_after(suite) ->
-    [];
 receive_after(Config) when is_list(Config) ->
     Ts = [{rec_1,
            <<"t() -> receive foo -> bar; bar -> foo end.">>},
@@ -426,8 +414,6 @@ receive_after(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-bits(suite) ->
-    [];
 bits(Config) when is_list(Config) ->
     Ts = [{bit_1, % copied from shell_SUITE
            <<"t() -> <<(<<\"abc\">>):3/binary>>.">>},
@@ -461,8 +447,6 @@ bits(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"<<(foo:bar()):(foo:bar())/binary>>">>),
     ok.
 
-head_tail(suite) ->
-    [];
 head_tail(Config) when is_list(Config) ->
     Ts = [{list_1,
            <<"t() -> [a | b].">>},
@@ -480,8 +464,6 @@ head_tail(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-cond1(suite) ->
-    [];
 cond1(Config) when is_list(Config) ->
     C = {'cond',1,[{clause,2,[],[[{tuple,2,[{atom,2,foo},{atom,2,bar}]}]],
                     [{cons,3,{atom,3,a},{cons,3,{atom,3,b},{nil,3}}}]},
@@ -503,8 +485,6 @@ cond1(Config) when is_list(Config) ->
 %                           end">>),
     ok.
 
-block(suite) ->
-    [];
 block(Config) when is_list(Config) ->
     Ts = [{block_1,
            <<"t() -> begin a,{c,d} end.">>}
@@ -512,8 +492,6 @@ block(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-case1(suite) ->
-    [];
 case1(Config) when is_list(Config) ->
     Ts = [{case_1,
            <<"t() -> case {foo,bar} of
@@ -534,8 +512,6 @@ case1(Config) when is_list(Config) ->
                           end">>),
     ok.
 
-ops(suite) ->
-    [];
 ops(Config) when is_list(Config) ->
     Ts = [{ops_1,
            <<"t() -> {a,b} + (3 - 2) + 4.">>},
@@ -547,8 +523,6 @@ ops(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-messages(suite) ->
-    [];
 messages(Config) when is_list(Config) ->
     ?line true = "{error,{some,\"error\"}}\n" =:=
         lists:flatten(erl_pp:form({error,{some,"error"}})),
@@ -557,8 +531,6 @@ messages(Config) when is_list(Config) ->
     "\n" = flat_form({eof,0}),
     ok.
 
-import_export(suite) ->
-    [];
 import_export(Config) when is_list(Config) ->
     Ts = [{import_1,
            <<"-import(lists, [max/1, reverse/1]).
@@ -576,8 +548,6 @@ import_export(Config) when is_list(Config) ->
     ?line compile(Config, Ts),
     ok.
 
-misc_attrs(suite) ->
-    [];
 misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-module(m). ">>),
     ok = pp_forms(<<"-module(m, [Aafjlksfjdlsjflsdfjlsdjflkdsfjlk,"
@@ -595,8 +565,6 @@ misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-custom1(#{test1 => init/2, test2 => [val/1, val/2]}). ">>),
     ok.
 
-dialyzer_attrs(suite) ->
-    [];
 dialyzer_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-type foo() :: #bar{}. ">>),
     ok = pp_forms(<<"-opaque foo() :: {bar, fun((X, [42,...]) -> X)}. ">>),
@@ -604,8 +572,6 @@ dialyzer_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-callback foo(<<_:32,_:_*4>>, T) -> T. ">>),
     ok.
 
-hook(suite) ->
-    [];
 hook(Config) when is_list(Config) ->
     F = fun(H) -> H end,
     do_hook(F).
@@ -693,8 +659,6 @@ hook({foo,E}, I, P, H) ->
     A = erl_anno:new(0),
     erl_pp:expr({call,A,{atom,A,foo},[E]}, I, P, H).
 
-neg_indent(suite) ->
-    [];
 neg_indent(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"begin a end">>),
     ?line ok = pp_expr(<<"begin a,b end">>),
@@ -752,9 +716,7 @@ neg_indent(Config) when is_list(Config) ->
     ok.
 
 
-otp_6321(doc) ->
-    "OTP_6321. Bug fix of exprs().";
-otp_6321(suite) -> [];
+%% OTP_6321. Bug fix of exprs().
 otp_6321(Config) when is_list(Config) ->
     Str = "S = hopp, {hej, S}. ",
     {done, {ok, Tokens, _EndLine}, ""} = erl_scan:tokens("", Str, _L=1),
@@ -762,9 +724,7 @@ otp_6321(Config) when is_list(Config) ->
     "S = hopp, {hej,S}" = lists:flatten(erl_pp:exprs(Exprs)),
     ok.
 
-otp_6911(doc) ->
-    "OTP_6911. More newlines.";
-otp_6911(suite) -> [];
+%% OTP_6911. More newlines.
 otp_6911(Config) when is_list(Config) ->
     F = {function,5,thomas,1,
          [{clause,5,
@@ -786,27 +746,21 @@ otp_6911(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"receive after 1 -> ok end">>),
     ok.
 
-otp_6914(doc) ->
-    "OTP_6914. Binary comprehensions.";
-otp_6914(suite) -> [];
+%% OTP_6914. Binary comprehensions.
 otp_6914(Config) when is_list(Config) ->
     ?line ok = pp_expr(<<"<< <<B:1>> || B <- [0,1,1] >>">>),
     ?line ok = pp_expr(<<"[ B || <<B:1>> <= <<\"hi\">>]">>),
     ?line ok = pp_expr(<<"<< <<1:1>> || true >>">>),
     ok.
 
-otp_8150(doc) ->
-    "OTP_8150. Types.";
-otp_8150(suite) -> [];
+%% OTP_8150. Types.
 otp_8150(Config) when is_list(Config) ->
     ?line _ = [{N,ok} = {N,pp_forms(B)} ||
                   {N,B} <- type_examples()
                      ],
     ok.
 
-otp_8238(doc) ->
-    "OTP_8238. Bugfix 'E'.";
-otp_8238(suite) -> [];
+%% OTP_8238. Bugfix 'E'.
 otp_8238(Config) when is_list(Config) ->
     Ex = [<<"-record(rec1, {}).\n"
             "-record(rec2, {a, b}).\n"
@@ -902,9 +856,7 @@ type_examples() ->
            "f19 = 3 :: integer()|undefined,"
            "f5 = 3 :: undefined|integer()}). ">>}].
 
-otp_8473(doc) ->
-    "OTP_8473. Bugfix abstract type 'fun'.";
-otp_8473(suite) -> [];
+%% OTP_8473. Bugfix abstract type 'fun'.
 otp_8473(Config) when is_list(Config) ->
     Ex = [{ex1,<<"-type 'fun'(A) :: A.\n"
                  "-type funkar() :: 'fun'(fun((integer()) -> atom())).\n">>}],
@@ -912,9 +864,7 @@ otp_8473(Config) when is_list(Config) ->
                   {N,B} <- Ex],
     ok.
 
-otp_8522(doc) ->
-    "OTP_8522. Avoid duplicated 'undefined' in record field types.";
-otp_8522(suite) -> [];
+%% OTP_8522. Avoid duplicated 'undefined' in record field types.
 otp_8522(Config) when is_list(Config) ->
     FileName = filename('otp_8522.erl', Config),
     C = <<"-module(otp_8522).\n"
@@ -941,8 +891,6 @@ count_atom(L, A) when is_list(L) ->
 count_atom(_, _) ->
     0.
 
-maps_syntax(doc) -> "Maps syntax";
-maps_syntax(suite) -> [];
 maps_syntax(Config) when is_list(Config) ->
     Ts = [{map_fun_1,
             <<"t() ->\n"
@@ -973,9 +921,7 @@ maps_syntax(Config) when is_list(Config) ->
     ok.
 
 
-otp_8567(doc) ->
-    "OTP_8567. Avoid duplicated 'undefined' in record field types.";
-otp_8567(suite) -> [];
+%% OTP_8567. Avoid duplicated 'undefined' in record field types.
 otp_8567(Config) when is_list(Config) ->
     FileName = filename('otp_8567.erl', Config),
     C = <<"-module otp_8567.\n"
@@ -1010,9 +956,7 @@ otp_8567(Config) when is_list(Config) ->
 
     ok.
 
-otp_8664(doc) ->
-    "OTP_8664. Types with integer expressions.";
-otp_8664(suite) -> [];
+%% OTP_8664. Types with integer expressions.
 otp_8664(Config) when is_list(Config) ->
     FileName = filename('otp_8664.erl', Config),
     C1 = <<"-module(otp_8664).\n"
@@ -1042,9 +986,7 @@ otp_8664(Config) when is_list(Config) ->
 
     ok.
 
-otp_9147(doc) ->
-    "OTP_9147. Create well-formed types when adding 'undefined'.";
-otp_9147(suite) -> [];
+%% OTP-9147. Create well-formed types when adding 'undefined'.
 otp_9147(Config) when is_list(Config) ->
     FileName = filename('otp_9147.erl', Config),
     C1 = <<"-module(otp_9147).\n"
@@ -1062,9 +1004,7 @@ otp_9147(Config) when is_list(Config) ->
                      string:tokens(binary_to_list(Bin), "\n")),
     ok.
 
-otp_10302(doc) ->
-    "OTP-10302. Unicode characters scanner/parser.";
-otp_10302(suite) -> [];
+%% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     Ts = [{uni_1,
            <<"t() -> <<(<<\"abc\\x{aaa}\">>):3/binary>>.">>}
@@ -1101,9 +1041,7 @@ unicode_hook({foo,E}, I, P, H) ->
     A = erl_anno:new(0),
     erl_pp:expr({call,A,{atom,A,foo},[E]}, I, P, H).
 
-otp_10820(doc) ->
-    "OTP-10820. Unicode filenames.";
-otp_10820(suite) -> [];
+%% OTP-10820. Unicode filenames.
 otp_10820(Config) when is_list(Config) ->
     C1 = <<"%% coding: utf-8\n -module(any).">>,
     ok = do_otp_10820(Config, C1, "+pc latin1"),
@@ -1129,9 +1067,7 @@ file_attr_is_string("-file(\"" ++ _) -> true;
 file_attr_is_string([_ | L]) ->
     file_attr_is_string(L).
 
-otp_11100(doc) ->
-    "OTP-11100. Fix printing of invalid forms.";
-otp_11100(suite) -> [];
+%% OTP-11100. Fix printing of invalid forms.
 otp_11100(Config) when is_list(Config) ->
     %% There are a few places where the added code ("options(none)")
     %% doesn't make a difference (pp:bit_elem_type/1 is an example).
@@ -1166,9 +1102,7 @@ otp_11100(Config) when is_list(Config) ->
              []}}),
     ok.
 
-otp_11861(doc) ->
-    "OTP-11861. behaviour_info() and -callback.";
-otp_11861(suite) -> [];
+%% OTP-11861. behaviour_info() and -callback.
 otp_11861(Config) when is_list(Config) ->
     "-optional_callbacks([bar/0]).\n" =
         pf({attribute,3,optional_callbacks,[{bar,0}]}),

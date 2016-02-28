@@ -71,15 +71,13 @@ end_per_testcase(_Case, _Config) ->
 -define(INFO(T, V), {T, V}).
 
 -dialyzer({no_fail_call, new/1}).
-new(doc) ->
-    ["Test erl_anno:new/1"];
+%% Test erl_anno:new/1.
 new(_Config) ->
     {'EXIT', {badarg, _}} =
         (catch erl_anno:new([{location,1},{text, "text"}])), % badarg
     ok.
 
-is_anno(doc) ->
-    ["Test erl_anno:is_anno/1"];
+%% Test erl_anno:is_anno/1.
 is_anno(_Config) ->
     false = erl_anno:is_anno(a),
     false = erl_anno:is_anno({a}),
@@ -105,8 +103,7 @@ is_anno(_Config) ->
     true = erl_anno:is_anno(A5),
     ok.
 
-generated(doc) ->
-    ["Test 'generated'"];
+%% Test 'generated'.
 generated(_Config) ->
     test(1, [{generated, true}, {generated, false}]),
     test(1, [{generated, false}, {generated, true}, {generated, false}]),
@@ -126,8 +123,7 @@ generated(_Config) ->
              {generated, false}]),
     ok.
 
-end_location(doc) ->
-    ["Test 'end_location'"];
+%% Test 'end_location'.
 end_location(_Config) ->
     test({1, 17}, [{text, "TEXT", [{end_location, {1, 21}}, {length, 4}]},
                    {text, "TEXT\n", [{end_location, {2, 1}}, {length, 5}]},
@@ -137,23 +133,20 @@ end_location(_Config) ->
              {text, "TEXT\ntxt", [{end_location, 2}, {length, 8}]}]),
     ok.
 
-file(doc) ->
-    ["Test 'file'"];
+%% Test 'file'.
 file(_Config) ->
     test(1, [{file, "name"}, {file, ""}]),
     test({1, 17}, [{file, "name"}, {file, ""}]),
     ok.
 
-line(doc) ->
-    ["Test 'line'"];
+%% Test 'line'.
 line(_Config) ->
     test(1, [{line, 17, [{location, 17}]},
              {location, {9, 8}, [{line, 9}, {column, 8}]},
              {line, 14, [{location, {14, 8}}]}]),
     ok.
 
-location(doc) ->
-    ["Test 'location'"];
+%% Test 'location'.
 location(_Config) ->
     test(1, [{location, 2, [{line,2}]},
              {location, {1, 17}, [{line, 1}, {column, 17}]},
@@ -171,8 +164,7 @@ location(_Config) ->
              {location, 9, [{column, undefined}]}]),
     ok.
 
-record(doc) ->
-    ["Test 'record'"];
+%% Test 'record'.
 record(_Config) ->
     test({1, 17}, [{record, true}, {record, false}]),
     test(1, [{record, true}, {record, false}]),
@@ -192,8 +184,7 @@ record(_Config) ->
              {generated, false}]),
     ok.
 
-text(doc) ->
-    ["Test 'text'"];
+%% Test 'text'.
 text(_Config) ->
     test(1, [{text, "text", [{end_location, 1}, {length, 4}]},
              {text, "", [{end_location, 1}, {length, 0}]}]),
@@ -202,8 +193,7 @@ text(_Config) ->
     ok.
 
 -dialyzer({[no_opaque, no_fail_call], bad/1}).
-bad(doc) ->
-    ["Test bad annotations"];
+%% Test bad annotations.
 bad(_Config) ->
     Line = erl_anno:new(1),
     LineColumn = erl_anno:new({1, 17}),
@@ -228,9 +218,8 @@ bad(_Config) ->
         (catch erl_anno:record(bad)), % 1st arg not opaque
     ok.
 
-parse_abstract(doc) ->
-    ["Test erl_parse:new_anno/1, erl_parse:anno_to_term/1"
-     ", and erl_parse:anno_from_term/1"];
+%% Test erl_parse:new_anno/1, erl_parse:anno_to_term/1,
+%% and erl_parse:anno_from_term/1.
 parse_abstract(_Config) ->
     T = sample_term(),
     A = erl_parse:abstract(T, [{line,17}]),
@@ -241,8 +230,7 @@ parse_abstract(_Config) ->
     T = erl_parse:normalise(Abstr2),
     ok.
 
-mapfold_anno(doc) ->
-    ["Test erl_parse:{map_anno/2,fold_anno/3, and mapfold_anno/3}"];
+%% Test erl_parse:{map_anno/2,fold_anno/3, and mapfold_anno/3}.
 mapfold_anno(_Config) ->
     T = sample_term(),
     Abstr = erl_parse:abstract(T),

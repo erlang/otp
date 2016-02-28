@@ -72,9 +72,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-attributes(doc) ->
-    "Import module and functions.";
-attributes(suite) -> [];
+%% Import module and functions.
 attributes(Config) when is_list(Config) ->
     Ts = [
       <<"-import(lists, [append/2, reverse/1]).
@@ -86,16 +84,14 @@ attributes(Config) when is_list(Config) ->
              3 = length([1,2,3]),
              3 = record_info(size, r),
              [a, b] = record_info(fields, r),
-             [] = erl_expand_records_SUITE:attributes(suite),
+             [_|_] = erl_expand_records_SUITE:all(),
              ok.
       ">>
       ],
     ?line run(Config, Ts),
     ok.
     
-expr(doc) ->
-    "Some expressions.";
-expr(suite) -> [];
+%% Some expressions.
 expr(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -160,9 +156,7 @@ expr(Config) when is_list(Config) ->
     
     ok.
     
-guard(doc) ->
-    "is_record in guards.";
-guard(suite) -> [];
+%% is_record in guards.
 guard(Config) when is_list(Config) ->
     File = filename("guard.erl", Config),
     Beam = filename("guard.beam", Config),
@@ -207,9 +201,7 @@ guard(Config) when is_list(Config) ->
     ?line ok = file:delete(Beam),
     ok.
 
-init(doc) ->
-    "Wildcard initialisation.";
-init(suite) -> [];
+%% Wildcard initialisation.
 init(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -227,9 +219,7 @@ init(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
     
-pattern(doc) ->
-    "Some patterns.";
-pattern(suite) -> [];
+%% Some patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [
       <<"-import(lists, [append/2, reverse/1]).
@@ -316,9 +306,6 @@ pattern(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
     
-strict(doc) ->
-    "";
-strict(suite) -> [];
 strict(Config) when is_list(Config) ->
     Ts1 = [
       <<"-record(r1, {a,b}).
@@ -360,9 +347,7 @@ strict(Config) when is_list(Config) ->
     ?line run(Config, Ts2, [no_strict_record_tests]),
     ok.
     
-update(doc) ->
-    "Record updates.";
-update(suite) -> [];
+%% Record updates.
 update(Config) when is_list(Config) ->
     Ts = [
       <<"-record(r, {a,b,c,d,e,f}).
@@ -416,9 +401,7 @@ maps(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
-otp_5915(doc) ->
-    "Strict record tests in guards.";
-otp_5915(suite) -> [];
+%% Strict record tests in guards.
 otp_5915(Config) when is_list(Config) ->
     %% These tests are also run by the compiler's record_SUITE.
     Ts = [
@@ -564,9 +547,7 @@ otp_5915(Config) when is_list(Config) ->
     ?line run(Config, Ts, [strict_record_tests]),
     ok.
 
-otp_7931(doc) ->
-    "Test optimization of record accesses and is_record/3 tests in guards";
-otp_7931(suite) -> [];
+%% Test optimization of record accesses and is_record/3 tests in guards.
 otp_7931(Config) when is_list(Config) ->
     Ts = [
       <<"-record(r, {a = 4,b}).
@@ -653,9 +634,7 @@ otp_7931(Config) when is_list(Config) ->
     ?line run(Config, Ts, [strict_record_tests]),
     ok.
 
-otp_5990(doc) ->
-    "OTP-5990. {erlang,is_record}.";
-otp_5990(suite) -> [];
+%% OTP-5990. {erlang,is_record}.
 otp_5990(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -690,9 +669,7 @@ otp_5990(Config) when is_list(Config) ->
     ok.
         
 
-otp_7078(doc) ->
-    "OTP-7078. Record update: missing test.";
-otp_7078(suite) -> [];
+%% OTP-7078. Record update: missing test.
 otp_7078(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -725,9 +702,7 @@ otp_7078(Config) when is_list(Config) ->
 
 -record(otp_7101, {a,b,c=[],d=[],e=[]}).
 
-otp_7101(doc) ->
-    "OTP-7101. Record update: more than one call to setelement/3.";
-otp_7101(suite) -> [];
+%% OTP-7101. Record update: more than one call to setelement/3.
 otp_7101(Config) when is_list(Config) ->
     Rec = #otp_7101{},
 

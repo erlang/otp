@@ -57,24 +57,18 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-gregorian_days(doc) ->
-    "Tests that date_to_gregorian_days and gregorian_days_to_date "
-    "are each others inverses from ?START_YEAR-01-01 up to ?END_YEAR-01-01. "
-    "At the same time valid_date is tested.";
-gregorian_days(suite) ->
-    [];
+%% Tests that date_to_gregorian_days and gregorian_days_to_date
+%% are each others inverses from ?START_YEAR-01-01 up to ?END_YEAR-01-01.
+%% At the same time valid_date is tested.
 gregorian_days(Config) when is_list(Config) ->
     ?line Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     ?line MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
     ?line check_gregorian_days(Days, MaxDays).
 
-gregorian_seconds(doc) ->
-    "Tests that datetime_to_gregorian_seconds and "
-    "gregorian_seconds_to_date are each others inverses for a sampled "
-    "number of seconds from ?START_YEAR-01-01 up to ?END_YEAR-01-01: We check "
-    "every 2 days + 1 second.";
-gregorian_seconds(suite) ->
-    [];
+%% Tests that datetime_to_gregorian_seconds and
+%% gregorian_seconds_to_date are each others inverses for a sampled
+%% number of seconds from ?START_YEAR-01-01 up to ?END_YEAR-01-01: We check
+%% every 2 days + 1 second.
 gregorian_seconds(Config) when is_list(Config) ->
     ?line Secs = calendar:datetime_to_gregorian_seconds({{?START_YEAR, 1, 1},
 							 {0, 0, 0}}),
@@ -82,44 +76,29 @@ gregorian_seconds(Config) when is_list(Config) ->
 							    {0, 0, 0}}),
     ?line check_gregorian_seconds(Secs, MaxSecs).
 
-day_of_the_week(doc) ->
-    "Tests that day_of_the_week reports correctly the day of the week from "
-    "year ?START_YEAR up to ?END_YEAR.";
-day_of_the_week(suite) ->
-    [];
+%% Tests that day_of_the_week reports correctly the day of the week from
+%% year ?START_YEAR up to ?END_YEAR.
 day_of_the_week(Config) when is_list(Config) ->
     ?line Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     ?line MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
     ?line DayNumber = calendar:day_of_the_week({?START_YEAR, 1, 1}),
     ?line check_day_of_the_week(Days, MaxDays, DayNumber).
 
-day_of_the_week_calibrate(doc) ->
-    "Tests that day_of_the_week for 1997-11-11 is Tuesday (2)";
-day_of_the_week_calibrate(suite) ->
-    [];
+%% Tests that day_of_the_week for 1997-11-11 is Tuesday (2).
 day_of_the_week_calibrate(Config) when is_list(Config) ->
     ?line 2 = calendar:day_of_the_week({1997, 11, 11}).
 
-leap_years(doc) ->
-    "Tests that is_leap_year reports correctly the leap years from "
-    "year ?START_YEAR up to ?END_YEAR.";
-leap_years(suite) ->
-    [];
+%% Tests that is_leap_year reports correctly the leap years from
+%% year ?START_YEAR up to ?END_YEAR.
 leap_years(Config) when is_list(Config) ->
     ?line check_leap_years(?START_YEAR, ?END_YEAR).
 
-last_day_of_the_month(doc) ->
-    "Tests that last_day_of_the_month reports correctly from "
-    "year ?START_YEAR up to ?END_YEAR.";
-last_day_of_the_month(suite) ->
-    [];
+%% Tests that last_day_of_the_month reports correctly from
+%% year ?START_YEAR up to ?END_YEAR.
 last_day_of_the_month(Config) when is_list(Config) ->
     ?line check_last_day_of_the_month({?START_YEAR, 1}, {?END_YEAR, 1}).
 
-local_time_to_universal_time_dst(doc) ->
-    "Tests local_time_to_universal_time_dst for MET";
-local_time_to_universal_time_dst(suite) ->
-    [];
+%% Tests local_time_to_universal_time_dst for MET.
 local_time_to_universal_time_dst(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
@@ -171,13 +150,10 @@ local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
 	    {comment,"Bug in mktime() in this OS"}
     end.
 
-iso_week_number(doc) ->
-	"Test the iso week number calculation for all three possibilities."
-	" When the date falls on the last week of the previous year,"
-	" when the date falls on a week within the given year and finally,"
-	" when the date falls on the first week of the next year.";
-iso_week_number(suite) ->
-	[];
+%% Test the iso week number calculation for all three possibilities:
+%%  When the date falls on the last week of the previous year,
+%%  when the date falls on a week within the given year and finally,
+%%  when the date falls on the first week of the next year.
 iso_week_number(Config) when is_list(Config) ->
 	?line check_iso_week_number().
 

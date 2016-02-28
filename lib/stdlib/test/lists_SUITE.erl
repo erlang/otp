@@ -146,8 +146,6 @@ end_per_testcase(_Case, _Config) ->
 % Test cases starts here.
 %
 
-append_1(doc) ->   [];
-append_1(suite) -> [];
 append_1(Config) when is_list(Config) ->
     ?line "abcdef"=lists:append(["abc","def"]),
     ?line [hej, du,[glade, [bagare]]]=
@@ -155,20 +153,15 @@ append_1(Config) when is_list(Config) ->
     ?line [10, [elem]]=lists:append([[10], [[elem]]]),
     ok.
 
-append_2(doc) ->   [];
-append_2(suite) -> [];
 append_2(Config) when is_list(Config) ->
     ?line "abcdef"=lists:append("abc", "def"),
     ?line [hej, du]=lists:append([hej], [du]),
     ?line [10, [elem]]=lists:append([10], [[elem]]),
     ok.
 
-reverse(suite) ->
-    [];
-reverse(doc) ->
-    ["Tests the lists:reverse() implementation. The function is "
-     "`non-blocking', and only processes a fixed number of elements "
-     "at a time."];
+%% Tests the lists:reverse() implementation. The function is
+%% `non-blocking', and only processes a fixed number of elements at a
+%% time.
 reverse(Config) when is_list(Config) ->
     ?line reverse_test(0),
     ?line reverse_test(1),
@@ -203,10 +196,8 @@ reverse_test(Num) ->
     List0 = lists:reverse(List),
     ok.
 
-member(doc) ->
-    ["Tests the lists:member() implementation."
-     "This test case depends on lists:reverse() to work, "
-     "wich is tested in a separate test case."];
+%% Test the lists:member() implementation.  This test case depends on
+%% lists:reverse() to work, wich is tested in a separate test case.
 member(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch lists:member(45, {a,b,c})),
     ?line {'EXIT',{badarg,_}} = (catch lists:member(45, [0|non_list_tail])),
@@ -379,9 +370,6 @@ takewhile(Config) when is_list(Config) ->
 
     ok.
 
-keystore(doc) ->
-    ["OTP-XXX."];
-keystore(suite) -> [];
 keystore(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch lists:keystore(key, 0, [], {1})),
     ?line {'EXIT',_} = (catch lists:keystore(key, 1, {}, {})),
@@ -398,9 +386,6 @@ keystore(Config) when is_list(Config) ->
     ?line [{1,a}] = lists:keystore(foo, 1, [], {1,a}),
     ok.
 
-keytake(doc) ->
-    ["OTP-XXX."];
-keytake(suite) -> [];
 keytake(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch lists:keytake(key, 0, [])),
     ?line {'EXIT',_} = (catch lists:keytake(key, 1, {})),
@@ -427,8 +412,6 @@ keyreplace(Config) when is_list(Config) ->
     {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
     ok.
 
-merge(doc) ->   ["merge functions"];
-merge(suite) -> [];
 merge(Config) when is_list(Config) ->
 
     %% merge list of lists
@@ -490,8 +473,7 @@ merge(Config) when is_list(Config) ->
 
     ok.
 
-rmerge(doc) ->   ["reverse merge functions"];
-rmerge(suite) -> [];
+%% reverse merge functions
 rmerge(Config) when is_list(Config) ->
 
     Two = [2,1],
@@ -533,8 +515,6 @@ rmerge(Config) when is_list(Config) ->
 
     ok.
 
-sort_1(doc) ->   ["sort/1"];
-sort_1(suite) -> [];
 sort_1(Config) when is_list(Config) ->
     ?line [] = lists:sort([]),
     ?line [a] = lists:sort([a]),
@@ -552,8 +532,7 @@ sort_1(Config) when is_list(Config) ->
     ?line lists:foreach(fun check/1, perms([1,2,3,4,5,6,7,8])),
     ok.
 
-sort_rand(doc) ->   ["sort/1 on big randomized lists"];
-sort_rand(suite) -> [];
+%% sort/1 on big randomized lists
 sort_rand(Config) when is_list(Config) ->
     ?line ok = check(biglist(10)),
     ?line ok = check(biglist(100)),
@@ -564,8 +543,8 @@ sort_rand(Config) when is_list(Config) ->
 %% sort/1 was really stable for a while - the order of equal elements
 %% was kept - but since the performance suffered a bit, this "feature"
 %% was removed.
-sort_stable(doc) ->   ["sort/1 should be stable for equal terms."];
-sort_stable(suite) -> [];
+
+%% sort/1 should be stable for equal terms.
 sort_stable(Config) when is_list(Config) ->
     ?line ok = check_stability(bigfunlist(10)),
     ?line ok = check_stability(bigfunlist(100)),
@@ -612,8 +591,6 @@ expl_pid([], L) ->
     L.
 
 
-usort_1(suite) -> [];
-usort_1(doc) -> [""];
 usort_1(Conf) when is_list(Conf) ->
     ?line [] = lists:usort([]),
     ?line [1] = lists:usort([1]), 
@@ -635,8 +612,6 @@ usort_1(Conf) when is_list(Conf) ->
 
     ok.
 
-umerge(suite) -> [];
-umerge(doc) -> [""];
 umerge(Conf) when is_list(Conf) ->
     %% merge list of lists
     ?line [] = lists:umerge([]),
@@ -710,8 +685,6 @@ umerge(Conf) when is_list(Conf) ->
 
     ok.
 
-rumerge(suite) -> [];
-rumerge(doc) -> [""];
 rumerge(Conf) when is_list(Conf) ->
     Two = [2,1],
     Six = [6,5,4,3,2,1],
@@ -769,8 +742,7 @@ rumerge(Conf) when is_list(Conf) ->
 	lists:reverse(lists:rumerge(lists:reverse(L1), lists:reverse(L2))),
     ok.
 
-usort_rand(doc) ->   ["usort/1 on big randomized lists"];
-usort_rand(suite) -> [];
+%% usort/1 on big randomized lists.
 usort_rand(Config) when is_list(Config) ->
     ?line ok = ucheck(biglist(10)),
     ?line ok = ucheck(biglist(100)),
@@ -783,8 +755,7 @@ usort_rand(Config) when is_list(Config) ->
     ?line ok = ucheck(ubiglist(10000)),
     ok.
 
-usort_stable(doc) ->   ["usort/1 should keep the first duplicate."];
-usort_stable(suite) -> [];
+%% usort/1 should keep the first duplicate.
 usort_stable(Config) when is_list(Config) ->
     ?line ok = ucheck_stability(bigfunlist(3)),
     ?line ok = ucheck_stability(bigfunlist(10)),
@@ -822,8 +793,7 @@ ucheck_stability(L) ->
     check_stab(L, U, S, "usort/1", "ukeysort/2").
 
 
-keymerge(doc) -> ["Key merge two lists."];
-keymerge(suite) -> [];
+%% Key merge two lists.
 keymerge(Config) when is_list(Config) ->
 
     Two = [{1,a},{2,b}],
@@ -856,8 +826,7 @@ keymerge(Config) when is_list(Config) ->
 
     ok.
 
-rkeymerge(doc) -> ["Reverse key merge two lists."];
-rkeymerge(suite) -> [];
+%% Reverse key merge two lists.
 rkeymerge(Config) when is_list(Config) ->
 
     Two = [{2,b},{1,a}],
@@ -894,8 +863,6 @@ rkeymerge(Config) when is_list(Config) ->
 
     ok.
 
-keysort_1(doc) ->   ["keysort"];
-keysort_1(suite) -> [];
 keysort_1(Config) when is_list(Config) ->
     ?line ok = keysort_check(1, [], []),
     ?line ok = keysort_check(1, [{a,b}], [{a,b}]),
@@ -929,8 +896,7 @@ keysort_1(Config) when is_list(Config) ->
 
     ok.
 
-keysort_stable(doc) ->   ["keysort should be stable"];
-keysort_stable(suite) -> [];
+%% keysort should be stable
 keysort_stable(Config) when is_list(Config) ->
     ?line ok = keysort_check(1, [{1,b},{1,c}], [{1,b},{1,c}]),
     ?line ok = keysort_check(1, [{1,c},{1,b}], [{1,c},{1,b}]),
@@ -942,8 +908,7 @@ keysort_stable(Config) when is_list(Config) ->
 			     [{1,a},{1,b},{1,a},{1,a}]),
     ok.
 
-keysort_error(doc) ->   ["keysort should exit when given bad arguments"];
-keysort_error(suite) -> [];
+%% keysort should exit when given bad arguments
 keysort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:keysort(0, [{1,b},{1,c}])),
     ?line {'EXIT', _} = (catch lists:keysort(3, [{1,b},{1,c}])),
@@ -955,14 +920,12 @@ keysort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:keysort(1, [{1,b} | {1,c}])),
     ok.
 
-keysort_i(doc) ->   ["keysort with other key than first element"];
-keysort_i(suite) -> [];
+%% keysort with other key than first element
 keysort_i(Config) when is_list(Config) ->
     ?line ok = keysort_check(2, [{a,2},{b,1},{c,3}], [{b,1},{a,2},{c,3}]),
     ok.
 
-keysort_rand(doc) ->   ["keysort on big randomized lists"];
-keysort_rand(suite) -> [];
+%% keysort on big randomized lists
 keysort_rand(Config) when is_list(Config) ->
     ?line ok = keysort_check3(1, biglist(10)),
     ?line ok = keysort_check3(1, biglist(100)),
@@ -1013,8 +976,7 @@ keycompare(I, J, A, B) when element(I, A) == element(I, B),
     ok.
 
 
-ukeymerge(suite) -> [];
-ukeymerge(doc) -> ["Merge two lists while removing duplicates."];
+%% Merge two lists while removing duplicates.
 ukeymerge(Conf) when is_list(Conf) ->
 
     Two = [{1,a},{2,b}],
@@ -1068,9 +1030,7 @@ ukeymerge(Conf) when is_list(Conf) ->
 
     ok.
 
-rukeymerge(suite) -> [];
-rukeymerge(doc) -> 
-    ["Reverse merge two lists while removing duplicates."];
+%% Reverse merge two lists while removing duplicates.
 rukeymerge(Conf) when is_list(Conf) ->
 
     Two = [{2,b},{1,a}],
@@ -1124,8 +1084,6 @@ rukeymerge(Conf) when is_list(Conf) ->
 
     ok.
 
-ukeysort_1(doc) ->   ["ukeysort"];
-ukeysort_1(suite) -> [];
 ukeysort_1(Config) when is_list(Config) ->
     ?line ok = ukeysort_check(1, [], []),
     ?line ok = ukeysort_check(1, [{a,b}], [{a,b}]),
@@ -1186,8 +1144,7 @@ ukeysort_1(Config) when is_list(Config) ->
 
     ok.
 
-ukeysort_stable(doc) ->   ["ukeysort should keep the first duplicate"];
-ukeysort_stable(suite) -> [];
+%% ukeysort should keep the first duplicate.
 ukeysort_stable(Config) when is_list(Config) ->
     ?line ok = ukeysort_check(1, [{1,b},{1,c}], [{1,b}]),
     ?line ok = ukeysort_check(1, [{1,c},{1,b}], [{1,c}]),
@@ -1208,8 +1165,7 @@ ukeysort_stable(Config) when is_list(Config) ->
           end,
     ok.
 
-ukeysort_error(doc) ->   ["ukeysort should exit when given bad arguments"];
-ukeysort_error(suite) -> [];
+%% ukeysort should exit when given bad arguments.
 ukeysort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:ukeysort(0, [{1,b},{1,c}])),
     ?line {'EXIT', _} = (catch lists:ukeysort(3, [{1,b},{1,c}])),
@@ -1221,14 +1177,12 @@ ukeysort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:ukeysort(1, [{1,b} | {1,c}])),
     ok.
 
-ukeysort_i(doc) ->   ["ukeysort with other key than first element"];
-ukeysort_i(suite) -> [];
+%% ukeysort with other key than first element.
 ukeysort_i(Config) when is_list(Config) ->
     ?line ok = ukeysort_check(2, [{a,2},{b,1},{c,3}], [{b,1},{a,2},{c,3}]),
     ok.
 
-ukeysort_rand(doc) ->   ["ukeysort on big randomized lists"];
-ukeysort_rand(suite) -> [];
+%% ukeysort on big randomized lists.
 ukeysort_rand(Config) when is_list(Config) ->
     ?line ok = ukeysort_check3(2, biglist(10)),
     ?line ok = ukeysort_check3(2, biglist(100)),
@@ -1302,8 +1256,7 @@ ukeycompare(I, J, A, B) when A =/= B,
 
 
 
-funmerge(doc) -> ["Merge two lists using a fun."];
-funmerge(suite) -> [];
+%% Merge two lists using a fun.
 funmerge(Config) when is_list(Config) ->
 
     Two = [1,2],
@@ -1332,8 +1285,7 @@ funmerge(Config) when is_list(Config) ->
 
     ok.
 
-rfunmerge(doc) -> ["Reverse merge two lists using a fun."];
-rfunmerge(suite) -> [];
+%% Reverse merge two lists using a fun.
 rfunmerge(Config) when is_list(Config) ->
 
     Two = [2,1],
@@ -1366,8 +1318,6 @@ rfunmerge(Config) when is_list(Config) ->
     ok.
 
 
-funsort_1(doc) ->   ["sort/2"];
-funsort_1(suite) -> [];
 funsort_1(Config) when is_list(Config) ->
     ?line ok = funsort_check(1, [], []),
     ?line ok = funsort_check(1, [{a,b}], [{a,b}]),
@@ -1393,8 +1343,7 @@ funsort_1(Config) when is_list(Config) ->
 
     ok.
 
-funsort_stable(doc) ->   ["sort/2 should be stable"];
-funsort_stable(suite) -> [];
+%% sort/2 should be stable.
 funsort_stable(Config) when is_list(Config) ->
     ?line ok = funsort_check(1, [{1,b},{1,c}], [{1,b},{1,c}]),
     ?line ok = funsort_check(1, [{1,c},{1,b}], [{1,c},{1,b}]),
@@ -1403,16 +1352,14 @@ funsort_stable(Config) when is_list(Config) ->
 			     [{1,c},{1,b},{2,x},{2,a},{3,p}]),
     ok.
 
-funsort_error(doc) ->   ["sort/2 should exit when given bad arguments"];
-funsort_error(suite) -> [];
+%% sort/2 should exit when given bad arguments.
 funsort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:sort(1, [{1,b} , {1,c}])),
     ?line {'EXIT', _} = (catch lists:sort(fun(X,Y) -> X =< Y end, 
 					  [{1,b} | {1,c}])),
     ok.
 
-funsort_rand(doc) ->   ["sort/2 on big randomized lists"];
-funsort_rand(suite) -> [];
+%% sort/2 on big randomized lists.
 funsort_rand(Config) when is_list(Config) ->
     ?line ok = funsort_check3(1, biglist(10)),
     ?line ok = funsort_check3(1, biglist(100)),
@@ -1434,8 +1381,7 @@ funsort_check(I, Input, Expected) ->
     check_sorted(I, Input, Expected).
 
 
-ufunmerge(suite) -> [];
-ufunmerge(doc) -> ["Merge two lists while removing duplicates using a fun."];
+%% Merge two lists while removing duplicates using a fun.
 ufunmerge(Conf) when is_list(Conf) ->
 
     Two = [1,2],
@@ -1474,9 +1420,7 @@ ufunmerge(Conf) when is_list(Conf) ->
 
     ok.
 
-rufunmerge(suite) -> [];
-rufunmerge(doc) -> 
-    ["Reverse merge two lists while removing duplicates using a fun."];
+%% Reverse merge two lists while removing duplicates using a fun.
 rufunmerge(Conf) when is_list(Conf) ->
     Two = [2,1],
     Six = [6,5,4,3,2,1],
@@ -1519,8 +1463,6 @@ rufunmerge(Conf) when is_list(Conf) ->
 
     ok.
 
-ufunsort_1(doc) ->   ["usort/2"];
-ufunsort_1(suite) -> [];
 ufunsort_1(Config) when is_list(Config) ->
     ?line ok = ufunsort_check(1, [], []),
     ?line ok = ufunsort_check(1, [{a,b}], [{a,b}]),
@@ -1575,8 +1517,7 @@ ufunsort_1(Config) when is_list(Config) ->
 
     ok.
 
-ufunsort_stable(doc) ->   ["usort/2 should be stable"];
-ufunsort_stable(suite) -> [];
+%% usort/2 should be stable.
 ufunsort_stable(Config) when is_list(Config) ->
     ?line ok = ufunsort_check(1, [{1,b},{1,c}], [{1,b}]),
     ?line ok = ufunsort_check(1, [{1,c},{1,b}], [{1,c}]),
@@ -1593,16 +1534,14 @@ ufunsort_stable(Config) when is_list(Config) ->
           end,
     ok.
 
-ufunsort_error(doc) ->   ["usort/2 should exit when given bad arguments"];
-ufunsort_error(suite) -> [];
+%% usort/2 should exit when given bad arguments.
 ufunsort_error(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:usort(1, [{1,b} , {1,c}])),
     ?line {'EXIT', _} = (catch lists:usort(fun(X,Y) -> X =< Y end, 
 					   [{1,b} | {1,c}])),
     ok.
 
-ufunsort_rand(doc) ->   ["usort/2 on big randomized lists"];
-ufunsort_rand(suite) -> [];
+%% usort/2 on big randomized lists.
 ufunsort_rand(Config) when is_list(Config) ->
     ?line ok = ufunsort_check3(1, biglist(10)),
     ?line ok = ufunsort_check3(1, biglist(100)),
@@ -2116,18 +2055,12 @@ rkeymerge2_2(_I, T1, _E1, [], M, H1) ->
 %%%------------------------------------------------------------
 
 
-seq_loop(doc) ->
-    ["Test for infinite loop (OTP-2404)."];
-seq_loop(suite) ->
-    [];
+%% Test for infinite loop (OTP-2404).
 seq_loop(Config) when is_list(Config) ->
     ?line _ = (catch lists:seq(1, 5, -1)),
     ok.
 
-seq_2(doc) ->
-    ["Non-error cases for seq/2"];
-seq_2(suite) ->
-    [];
+%% Non-error cases for seq/2.
 seq_2(Config) when is_list(Config) ->
     ?line [1,2,3] = lists:seq(1,3),
     ?line [1] = lists:seq(1,1),
@@ -2137,10 +2070,7 @@ seq_2(Config) when is_list(Config) ->
     ?line [Big, Big1, Big2] = lists:seq(Big, Big+2),
     ok.
 
-seq_2_e(doc) ->
-    ["Error cases for seq/2"];
-seq_2_e(suite) ->
-    [];
+%% Error cases for seq/2.
 seq_2_e(Config) when is_list(Config) ->
     ?line seq_error([4, 2]),
     ?line seq_error([1, a]),
@@ -2150,10 +2080,7 @@ seq_2_e(Config) when is_list(Config) ->
 seq_error(Args) ->
     {'EXIT', _} = (catch apply(lists, seq, Args)).
 
-seq_3(doc) ->
-    ["Non-error cases for seq/3"];
-seq_3(suite) ->
-    [];
+%% Non-error cases for seq/3.
 seq_3(Config) when is_list(Config) ->
     ?line [1,2,3] = lists:seq(1,3,1),
     ?line [1] = lists:seq(1,1,1),
@@ -2174,10 +2101,7 @@ seq_3(Config) when is_list(Config) ->
     ?line [1] = lists:seq(1, 1, 0),		%OTP-2613
     ok.
 
-seq_3_e(doc) ->
-    ["Error cases for seq/3"];
-seq_3_e(suite) ->
-    [];
+%% Error cases for seq/3.
 seq_3_e(Config) when is_list(Config) ->
     ?line seq_error([4, 2, 1]),
     ?line seq_error([3, 5, -1]),
@@ -2191,10 +2115,7 @@ seq_3_e(Config) when is_list(Config) ->
     ?line seq_error([a, a, 0]),
     ok.
 
-otp_7230(doc) -> 
-    ["OTP-7230. seq/1,2 returns the empty list"];
-otp_7230(suite) ->
-    [];
+%% OTP-7230. seq/1,2 returns the empty list.
 otp_7230(Config) when is_list(Config) ->
     From = -10,
     To = 10,
@@ -2266,8 +2187,6 @@ property(From, To, Step) ->
 -define(sublist_error2(X,Y), ?line {'EXIT', _} = (catch lists:sublist(X,Y))).
 -define(sublist_error3(X,Y,Z), ?line {'EXIT', _} = (catch lists:sublist(X,Y,Z))).
 
-sublist_2(doc) ->   ["sublist/2"];
-sublist_2(suite) -> [];
 sublist_2(Config) when is_list(Config) ->
     ?line [] = lists:sublist([], 0),
     ?line [] = lists:sublist([], 1),
@@ -2280,8 +2199,7 @@ sublist_2(Config) when is_list(Config) ->
 
     ok.
 
-sublist_2_e(doc) ->   ["sublist/2 error cases"];
-sublist_2_e(suite) -> [];
+%% sublist/2 error cases.
 sublist_2_e(Config) when is_list(Config) ->
     ?sublist_error2([], -1),
     ?sublist_error2(a, -1),
@@ -2293,8 +2211,6 @@ sublist_2_e(Config) when is_list(Config) ->
     ?sublist_error2([], 1.5),
     ok.
 
-sublist_3(doc) ->   ["sublist/3"];
-sublist_3(suite) -> [];
 sublist_3(Config) when is_list(Config) ->
     ?line [] = lists:sublist([], 1, 0),
     ?line [] = lists:sublist([], 1, 1),
@@ -2321,8 +2237,7 @@ sublist_3(Config) when is_list(Config) ->
 
     ok.
 
-sublist_3_e(doc) ->   ["sublist/3 error cases"];
-sublist_3_e(suite) -> [];
+%% sublist/3 error cases
 sublist_3_e(Config) when is_list(Config) ->
     ?sublist_error3([], 1, -1),
     ?sublist_error3(a, 1, -1),
@@ -2378,8 +2293,7 @@ lists_flatten(List) ->
     Len = length(Flat),
     Flat.
 
-flatten_1_e(doc) ->   ["flatten/1 error cases"];
-flatten_1_e(suite) -> [];
+%% flatten/1 error cases
 flatten_1_e(Config) when is_list(Config) ->
     ?flatten_error1(a),
     ?flatten_error1([a|b]),
@@ -2397,8 +2311,7 @@ flatten_2(Config) when is_list(Config) ->
     [a,b,c,[no,flatten]] = lists:flatten([[a,[b,c]]], [[no,flatten]]),
     ok.
 
-flatten_2_e(doc) ->   ["flatten/2 error cases"];
-flatten_2_e(suite) -> [];
+%% flatten/2 error cases.
 flatten_2_e(Config) when is_list(Config) ->
     ok.
 
@@ -2521,8 +2434,7 @@ filpart(F, All, Exp) ->
     {Exp,Other} = lists:partition(F, All).
 
 
-otp_5939(doc) ->   ["OTP-5939. Guard tests added."];
-otp_5939(suite) -> [];
+%% OTP-5939. Guard tests added.
 otp_5939(Config) when is_list(Config) ->
     Fun1 = fun(A) -> A end,
     Fun2 = fun(A, B) -> {A,B} end,
@@ -2589,16 +2501,14 @@ otp_5939(Config) when is_list(Config) ->
 
     ok.
 
-otp_6023(doc) ->   ["OTP-6023. lists:keyreplace/4, a typecheck."];
-otp_6023(suite) -> [];
+%% OTP-6023. lists:keyreplace/4, a typecheck.
 otp_6023(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch lists:keyreplace(a, 2, [{1,a}], b)),
     ?line [{2,b}] = lists:keyreplace(a, 2, [{1,a}], {2,b}),
 
     ok.
 
-otp_6606(doc) ->   ["OTP-6606. sort and keysort bug"];
-otp_6606(suite) -> [];
+%% OTP-6606. sort and keysort bug.
 otp_6606(Config) when is_list(Config) ->
     I = 1,
     F = float(1),

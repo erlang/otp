@@ -51,8 +51,7 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
-
-long(doc) -> "Test long keys and entries (OTP-3446).";
+%% Test long keys and entries (OTP-3446).
 long(Config) when is_list(Config) ->
     LongKey = "software\\" ++
 	lists:flatten(lists:duplicate(10, "..\\software\\")) ++

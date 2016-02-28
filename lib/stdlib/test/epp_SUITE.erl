@@ -85,10 +85,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-rec_1(doc) ->
-    ["Recursive macros hang or crash epp (OTP-1398)."];
-rec_1(suite) ->
-    [];
+%% Recursive macros hang or crash epp (OTP-1398).
 rec_1(Config) when is_list(Config) ->
     ?line File = filename:join(?config(data_dir, Config), "mac.erl"),
     ?line {ok, List} = epp_parse_file(File, [], []),
@@ -97,10 +94,6 @@ rec_1(Config) when is_list(Config) ->
     ?line check_errors(List),
     ok.
 
-include_local(doc) ->
-    [];
-include_local(suite) ->
-    [];
 include_local(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line File = filename:join(DataDir, "include_local.erl"),
@@ -179,10 +172,6 @@ check_errors([_ | Rest]) ->
     check_errors(Rest).
 
 
-upcase_mac_1(doc) ->
-    [];
-upcase_mac_1(suite) ->
-    [];
 upcase_mac_1(Config) when is_list(Config) ->
     ?line File = filename:join(?config(data_dir, Config), "mac2.erl"),
     ?line {ok, List} = epp:parse_file(File, [], []),
@@ -190,10 +179,6 @@ upcase_mac_1(Config) when is_list(Config) ->
     ?line Tuple = {1, 1, 3, 3},
     ok.
 
-upcase_mac_2(doc) ->
-    [];
-upcase_mac_2(suite) ->
-    [];
 upcase_mac_2(Config) when is_list(Config) ->
     ?line File = filename:join(?config(data_dir, Config), "mac2.erl"),
     ?line {ok, List} = epp:parse_file(File, [], [{p, 5}, {'P', 6}]),
@@ -201,10 +186,6 @@ upcase_mac_2(Config) when is_list(Config) ->
     ?line Tuple = {5, 5, 6, 6},
     ok.
 
-predef_mac(doc) ->
-    [];
-predef_mac(suite) ->
-    [];
 predef_mac(Config) when is_list(Config) ->
     ?line File = filename:join(?config(data_dir, Config), "mac3.erl"),
     ?line {ok, List} = epp:parse_file(File, [], []),
@@ -220,10 +201,6 @@ predef_mac(Config) when is_list(Config) ->
     Line1 = erl_anno:line(Anno),
     ok.
 
-variable_1(doc) ->
-    [];
-variable_1(suite) ->
-    [];
 variable_1(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line File = filename:join(DataDir, "variable_1.erl"),
@@ -235,10 +212,7 @@ variable_1(Config) when is_list(Config) ->
 	lists:keysearch(a,3,List),
     ok.
 
-otp_4870(doc) ->
-    ["undef without module declaration"];
-otp_4870(suite) ->
-    [];
+%% undef without module declaration.
 otp_4870(Config) when is_list(Config) ->
     Ts = [{otp_4870,
            <<"-undef(foo).
@@ -247,10 +221,7 @@ otp_4870(Config) when is_list(Config) ->
     ?line [] = check(Config, Ts),
     ok.
 
-otp_4871(doc) ->
-    ["crashing erl_scan"];
-otp_4871(suite) ->
-    [];
+%% crashing erl_scan
 otp_4871(Config) when is_list(Config) ->
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "otp_4871.erl"),
@@ -285,10 +256,7 @@ otp_4871_parse_file(Epp) ->
 	Other -> Other
     end.
 
-otp_5362(doc) ->
-    ["OTP-5362. The -file attribute is recognized."];
-otp_5362(suite) ->
-    [];
+%% OTP-5362. The -file attribute is recognized.
 otp_5362(Config) when is_list(Config) ->
     Dir = ?config(priv_dir, Config),
 
@@ -474,10 +442,7 @@ not_circular(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-skip_header(doc) ->
-    ["Skip some bytes in the beginning of the file."];
-skip_header(suite) ->
-    [];
+%% Skip some bytes in the beginning of the file.
 skip_header(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line File = filename:join([PrivDir, "epp_test_skip_header.erl"]),
@@ -504,10 +469,7 @@ skip_header(Config) when is_list(Config) ->
 
     ok.
 
-otp_6277(doc) ->
-    ["?MODULE before module declaration."];
-otp_6277(suite) ->
-    [];
+%% ?MODULE before module declaration.
 otp_6277(Config) when is_list(Config) ->
     Ts = [{otp_6277,
            <<"-undef(ASSERT).
@@ -518,10 +480,7 @@ otp_6277(Config) when is_list(Config) ->
     ?line [] = check(Config, Ts),
     ok.
 
-otp_7702(doc) ->
-    ["OTP-7702. Wrong line number in stringifying macro expansion."];
-otp_7702(suite) ->
-    [];
+%% OTP-7702. Wrong line number in stringifying macro expansion.
 otp_7702(Config) when is_list(Config) ->
     Dir = ?config(priv_dir, Config),
     File = filename:join(Dir, "file_7702.erl"),
@@ -583,10 +542,7 @@ otp_7702(Config) when is_list(Config) ->
 
     ok.
 
-otp_8130(doc) ->
-    ["OTP-8130. Misc tests."];
-otp_8130(suite) ->
-    [];
+%% OTP-8130. Misc tests.
 otp_8130(Config) when is_list(Config) ->
     true = os:putenv("epp_inc1", "stdlib"),
     Ts = [{otp_8130_1,
@@ -1102,10 +1058,7 @@ ifdef(Config) ->
 
 
 
-overload_mac(doc) ->
-    ["Advanced test on overloading macros."];
-overload_mac(suite) ->
-    [];
+%% Advanced test on overloading macros.
 overload_mac(Config) when is_list(Config) ->
     Cs = [
           %% '-undef' removes all definitions of a macro
@@ -1163,10 +1116,7 @@ overload_mac(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts).
 
 
-otp_8388(doc) ->
-    ["OTP-8388. More tests on overloaded macros."];
-otp_8388(suite) ->
-    [];
+%% OTP-8388. More tests on overloaded macros.
 otp_8388(Config) when is_list(Config) ->
     Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "otp_8388.erl"),
@@ -1213,10 +1163,7 @@ otp_8388(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-otp_8470(doc) ->
-    ["OTP-8470. Bugfix (one request - two replies)."];
-otp_8470(suite) ->
-    [];
+%% OTP-8470. Bugfix (one request - two replies).
 otp_8470(Config) when is_list(Config) ->
     Dir = ?config(priv_dir, Config),
     C = <<"-file(\"erl_parse.yrl\", 486).\n"
@@ -1228,10 +1175,7 @@ otp_8470(Config) when is_list(Config) ->
     ?line receive _ -> fail() after 0 -> ok end,
     ok.
 
-otp_8562(doc) ->
-    ["OTP-8562. Record with no fields is considered typed."];
-otp_8562(suite) ->
-    [];
+%% OTP-8562. Record with no fields is considered typed.
 otp_8562(Config) when is_list(Config) ->
     Cs = [{otp_8562,
            <<"-define(P(), {a,b}.\n"
@@ -1242,10 +1186,7 @@ otp_8562(Config) when is_list(Config) ->
     ?line [] = compile(Config, Cs),
     ok.
 
-otp_8911(doc) ->
-    ["OTP-8911. -file and file inclusion bug"];
-otp_8911(suite) ->
-    [];
+%% OTP-8911. -file and file inclusion bug.
 otp_8911(Config) when is_list(Config) ->
     case test_server:is_cover() of
 	true ->
@@ -1283,10 +1224,7 @@ do_otp_8911(Config) ->
     ?line file:set_cwd(CWD),
     ok.
 
-otp_8665(doc) ->
-    ["OTP-8665. Bugfix premature end."];
-otp_8665(suite) ->
-    [];
+%% OTP-8665. Bugfix premature end.
 otp_8665(Config) when is_list(Config) ->
     Cs = [{otp_8562,
            <<"-define(A, a)\n">>,
@@ -1295,10 +1233,7 @@ otp_8665(Config) when is_list(Config) ->
     ?line [] = compile(Config, Cs),
     ok.
 
-otp_10302(doc) ->
-    "OTP-10302. Unicode characters scanner/parser.";
-otp_10302(suite) ->
-    [];
+%% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     %% Two messages (one too many). Keeps otp_4871 happy.
     Cs = [{otp_8562,
@@ -1369,10 +1304,7 @@ encoding_nocom(Enc, File) ->
     ok = file:close(Fd),
     E = epp:read_encoding(File, Options).
 
-otp_10820(doc) ->
-    "OTP-10820. Unicode filenames.";
-otp_10820(suite) ->
-    [];
+%% OTP-10820. Unicode filenames.
 otp_10820(Config) when is_list(Config) ->
     L = [915,953,959,973,957,953,954,959,957,964],
     Dir = ?config(priv_dir, Config),
@@ -1394,10 +1326,7 @@ do_otp_10820(File, C, PC) ->
     true = test_server:stop_node(Node),
     ok.
 
-otp_11728(doc) ->
-    ["OTP-11728. Bugfix circular macro."];
-otp_11728(suite) ->
-    [];
+%% OTP-11728. Bugfix circular macro.
 otp_11728(Config) when is_list(Config) ->
     Dir = ?config(priv_dir, Config),
     H = <<"-define(MACRO,[[]++?MACRO]).">>,

@@ -55,10 +55,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-date_1999_01_01(doc) ->
-    "#1 : 1999-01-01: test roll-over from 1998-12-31 to 1999-01-01.";
-date_1999_01_01(suite) ->
-    [];
+%% #1 : 1999-01-01: test roll-over from 1998-12-31 to 1999-01-01.
 date_1999_01_01(Config) when is_list(Config) ->
     ?line Date = {1998, 12, 31}, NextDate = {1999, 1, 1},
     ?line match(next_date(Date), NextDate),
@@ -78,29 +75,20 @@ date_1999_01_01(Config) when is_list(Config) ->
 	    ok
     end.
     
-date_1999_02_28(doc) ->
-    "#2 : 1999-02-28: test roll-over from 1999-02-28 to 1999-03-01.";
-date_1999_02_28(suite) ->
-    [];
+%% #2 : 1999-02-28: test roll-over from 1999-02-28 to 1999-03-01.
 date_1999_02_28(Config) when is_list(Config) ->
     ?line Date = {1999, 2, 28}, NextDate = {1999, 3, 1},
     ?line match(next_date(Date), NextDate),
     ?line match(tz_next_date(Date), NextDate).
 
-date_1999_09_09(doc) ->
-    "#3 : 1999-09-09: test roll-over from 1999-09-08 to 1999-09-09.";
-date_1999_09_09(suite) ->
-    [];
+%% #3 : 1999-09-09: test roll-over from 1999-09-08 to 1999-09-09.
 date_1999_09_09(Config) when is_list(Config) ->
     ?line Date = {1999, 9, 8}, NextDate = {1999, 9, 9},
     ?line match(next_date(Date), NextDate),
     ?line match(tz_next_date(Date), NextDate).
 
-date_2000_01_01(doc) ->
-    "#4 : 2000-01-01: test roll-over from 1999-12-31 to 2000-01-01 to "
-    "2000-01-02.";
-date_2000_01_01(suite) ->
-    [];
+%% #4 : 2000-01-01: test roll-over from 1999-12-31 to 2000-01-01 to
+%% 2000-01-02.;
 date_2000_01_01(Config) when is_list(Config) ->
     ?line Date = {1999, 12, 31}, NextDate = {2000, 1, 1},
     ?line match(next_date(Date), NextDate),
@@ -109,11 +97,8 @@ date_2000_01_01(Config) when is_list(Config) ->
     ?line match(next_date(NextDate), NextDate1),
     ?line match(tz_next_date(NextDate), NextDate1).
 
-date_2000_02_29(doc) ->
-    "#5 : 2000-02-29: test roll-over from 2000-02-28 to 2000-02-29 to "
-    "2000-03-01.";
-date_2000_02_29(suite) ->
-    [];
+%% #5 : 2000-02-29: test roll-over from 2000-02-28 to 2000-02-29 to
+%% 2000-03-01.
 date_2000_02_29(Config) when is_list(Config) ->
     ?line Date = {2000, 2, 28}, NextDate = {2000, 2, 29},
     ?line match(next_date(Date), NextDate),
@@ -122,29 +107,20 @@ date_2000_02_29(Config) when is_list(Config) ->
     ?line match(next_date(NextDate), NextDate1),
     ?line match(tz_next_date(NextDate), NextDate1).
 
-date_2001_01_01(doc) ->
-    "#6 : 2001-01-01: test roll-over from 2000-12-31 to 2001-01-01.";
-date_2001_01_01(suite) ->
-    [];
+%% #6 : 2001-01-01: test roll-over from 2000-12-31 to 2001-01-01.
 date_2001_01_01(Config) when is_list(Config) ->
     ?line Date = {2000, 12, 31}, NextDate = {2001, 1, 1},
     ?line match(next_date(Date), NextDate),
     ?line match(tz_next_date(Date), NextDate).
 
-date_2001_02_29(doc) ->
-    "#7 : 2001-02-29: test roll-over from 2001-02-28 to 2001-03-01.";
-date_2001_02_29(suite) ->
-    [];
+%% #7 : 2001-02-29: test roll-over from 2001-02-28 to 2001-03-01.
 date_2001_02_29(Config) when is_list(Config) ->
     ?line Date = {2001, 2, 28}, NextDate = {2001, 3, 1},
     ?line match(next_date(Date), NextDate),
     ?line match(tz_next_date(Date), NextDate).
 
-date_2004_02_29(doc) ->
-    "#8 : 2004-02-29: test roll-over from 2004-02-28 to 2004-02-29 to "
-    "2004-03-01.";
-date_2004_02_29(suite) ->
-    [];
+%% #8 : 2004-02-29: test roll-over from 2004-02-28 to 2004-02-29 to
+%% 2004-03-01.
 date_2004_02_29(Config) when is_list(Config) ->
     ?line Date = {2004, 2, 28}, NextDate = {2004, 2, 29},
     ?line match(next_date(Date), NextDate),

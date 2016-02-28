@@ -146,18 +146,7 @@ t(What) ->
 				  io:format("Failed ~p:~p ~p ~p~n   ~p~n", 
 					    [T,Line,_E,_R, erlang:get_stacktrace()])
 			  end
-		  end, expand(What)).
-
-expand(All) ->
-    lists:reverse(expand(All,[])).
-expand([H|T], Acc)  -> 
-    case ?MODULE:H(suite) of
-	[] -> expand(T,[H|Acc]);
-	Cs -> 
-	    R = expand(Cs, Acc),
-	    expand(T, R)
-    end;
-expand([], Acc) -> Acc.
+		  end, What).
 
 %%%%% extract tests 
 
@@ -167,8 +156,6 @@ extract_tests() ->
     try 
 	Tests = extract_tests(In,Out,[]),
 	Call = fun(Test) ->
-		       io:format(Out, "~s(doc) -> [];~n", [Test]),
-		       io:format(Out, "~s(suite) -> [];~n", [Test]),
 		       io:format(Out, "~s(Config) when is_list(Config) -> ~s_(), ok.~n",
 				 [Test, Test])
 	       end,
@@ -769,54 +756,20 @@ sparse_foldr_test_() ->
 				   set(0,0,new())))))     
     ].
 
-new_test(doc) -> [];
-new_test(suite) -> [];
 new_test(Config) when is_list(Config) -> new_test_(), ok.
-fix_test(doc) -> [];
-fix_test(suite) -> [];
 fix_test(Config) when is_list(Config) -> fix_test_(), ok.
-relax_test(doc) -> [];
-relax_test(suite) -> [];
 relax_test(Config) when is_list(Config) -> relax_test_(), ok.
-resize_test(doc) -> [];
-resize_test(suite) -> [];
 resize_test(Config) when is_list(Config) -> resize_test_(), ok.
-set_get_test(doc) -> [];
-set_get_test(suite) -> [];
 set_get_test(Config) when is_list(Config) -> set_get_test_(), ok.
-to_list_test(doc) -> [];
-to_list_test(suite) -> [];
 to_list_test(Config) when is_list(Config) -> to_list_test_(), ok.
-sparse_to_list_test(doc) -> [];
-sparse_to_list_test(suite) -> [];
 sparse_to_list_test(Config) when is_list(Config) -> sparse_to_list_test_(), ok.
-from_list_test(doc) -> [];
-from_list_test(suite) -> [];
 from_list_test(Config) when is_list(Config) -> from_list_test_(), ok.
-to_orddict_test(doc) -> [];
-to_orddict_test(suite) -> [];
 to_orddict_test(Config) when is_list(Config) -> to_orddict_test_(), ok.
-sparse_to_orddict_test(doc) -> [];
-sparse_to_orddict_test(suite) -> [];
 sparse_to_orddict_test(Config) when is_list(Config) -> sparse_to_orddict_test_(), ok.
-from_orddict_test(doc) -> [];
-from_orddict_test(suite) -> [];
 from_orddict_test(Config) when is_list(Config) -> from_orddict_test_(), ok.
-map_test(doc) -> [];
-map_test(suite) -> [];
 map_test(Config) when is_list(Config) -> map_test_(), ok.
-sparse_map_test(doc) -> [];
-sparse_map_test(suite) -> [];
 sparse_map_test(Config) when is_list(Config) -> sparse_map_test_(), ok.
-foldl_test(doc) -> [];
-foldl_test(suite) -> [];
 foldl_test(Config) when is_list(Config) -> foldl_test_(), ok.
-sparse_foldl_test(doc) -> [];
-sparse_foldl_test(suite) -> [];
 sparse_foldl_test(Config) when is_list(Config) -> sparse_foldl_test_(), ok.
-foldr_test(doc) -> [];
-foldr_test(suite) -> [];
 foldr_test(Config) when is_list(Config) -> foldr_test_(), ok.
-sparse_foldr_test(doc) -> [];
-sparse_foldr_test(suite) -> [];
 sparse_foldr_test(Config) when is_list(Config) -> sparse_foldr_test_(), ok.

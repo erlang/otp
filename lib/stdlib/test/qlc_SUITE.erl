@@ -155,9 +155,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-badarg(doc) ->
-    "Badarg.";
-badarg(suite) -> [];
 badarg(Config) when is_list(Config) ->
     Ts =
       [{badarg,
@@ -181,9 +178,7 @@ badarg(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-nested_qlc(doc) ->
-    "Nested qlc expressions.";
-nested_qlc(suite) -> [];
+%% Nested qlc expressions.
 nested_qlc(Config) when is_list(Config) ->
     %% Nested QLC expressions. X is bound before the first one; Z and X
     %% before the second one.
@@ -226,9 +221,7 @@ nested_qlc(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-unused_var(doc) ->
-    "Unused variable with a name that should not be introduced.";
-unused_var(suite) -> [];
+%% Unused variable with a name that should not be introduced.
 unused_var(Config) when is_list(Config) ->
     Ts = 
      [{unused_var,
@@ -243,9 +236,7 @@ unused_var(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-lc(doc) ->
-    "Ordinary LC expression.";
-lc(suite) -> [];
+%% Ordinary LC expression.
 lc(Config) when is_list(Config) ->
     Ts = 
      [{lc,
@@ -257,9 +248,7 @@ lc(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
            
-fun_clauses(doc) ->
-    "Fun with several clauses.";
-fun_clauses(suite) -> [];
+%% Fun with several clauses.
 fun_clauses(Config) when is_list(Config) ->
     Ts = 
      [{fun_clauses,
@@ -278,9 +267,7 @@ fun_clauses(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-filter_var(doc) ->
-    "Variable introduced in filter.";
-filter_var(suite) -> [];
+%% Variable introduced in filter.
 filter_var(Config) when is_list(Config) ->
     Ts = 
      [{filter_var,
@@ -309,9 +296,7 @@ filter_var(Config) when is_list(Config) ->
     ok.
 
 
-single(doc) ->
-    "Unused pattern variable.";
-single(suite) -> [];
+%% Unused pattern variable.
 single(Config) when is_list(Config) ->
     Ts = 
      [{single,
@@ -324,9 +309,7 @@ single(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-exported_var(doc) ->
-    "Exported variable in list expression (rhs of generator).";
-exported_var(suite) -> [];
+%% Exported variable in list expression (rhs of generator).
 exported_var(Config) when is_list(Config) ->
     Ts = 
      [{exported_var,
@@ -346,9 +329,7 @@ exported_var(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-generator_vars(doc) ->
-    "Errors for generator variable used in list expression.";
-generator_vars(suite) -> [];
+%% Errors for generator variable used in list expression.
 generator_vars(Config) when is_list(Config) ->
     Ts = 
       [{generator_vars,
@@ -373,9 +354,7 @@ generator_vars(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-nomatch(doc) ->
-    "Unreachable clauses also found when compiling.";
-nomatch(suite) -> [];
+%% Unreachable clauses also found when compiling.
 nomatch(Config) when is_list(Config) ->
     Ts =
       [{unreachable1,
@@ -451,9 +430,7 @@ nomatch(Config) when is_list(Config) ->
     ok.
     
 
-errors(doc) ->
-    "Errors within qlc expressions also found when compiling.";
-errors(suite) -> [];
+%% Errors within qlc expressions also found when compiling.
 errors(Config) when is_list(Config) ->
     Ts =
       [{errors1,
@@ -465,9 +442,7 @@ errors(Config) when is_list(Config) ->
     ?line [] = compile(Config, Ts),
     ok.
 
-pattern(doc) ->
-    "Patterns.";
-pattern(suite) -> [];
+%% Patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [
       <<"%% Records in patterns. No lookup.
@@ -494,9 +469,7 @@ pattern(Config) when is_list(Config) ->
     ok.
 
 
-eval(doc) ->
-    "eval/2";
-eval(suite) -> [];
+%% eval/2
 eval(Config) when is_list(Config) ->
     ScratchDir = filename:join([?privdir, "scratch","."]),
 
@@ -615,9 +588,7 @@ eval(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-cursor(doc) ->
-    "cursor/2";
-cursor(suite) -> [];
+%% cursor/2
 cursor(Config) when is_list(Config) ->
     ScratchDir = filename:join([?privdir, "scratch","."]),
     Ts = [<<"{'EXIT',{badarg,_}} = 
@@ -729,9 +700,7 @@ cursor(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-fold(doc) ->
-    "fold/4";
-fold(suite) -> [];
+%% fold/4
 fold(Config) when is_list(Config) ->
     ScratchDir = filename:join([?privdir, "scratch","."]),
     Ts = [<<"Q = qlc:q([X || X <- [1,2,1,2,1]]),
@@ -824,9 +793,7 @@ fold(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-eval_unique(doc) ->
-    "Test the unique_all option of eval.";
-eval_unique(suite) -> [];
+%% Test the unique_all option of eval.
 eval_unique(Config) when is_list(Config) ->
     Ts = [<<"QLC1 = qlc:q([X || X <- qlc:append([[1,1,2], [1,2,3,2,3]])]),
              [1,2,3] = qlc:eval(QLC1, {unique_all,true}),
@@ -921,9 +888,7 @@ eval_unique(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-eval_cache(doc) ->
-    "Test the cache_all and unique_all options of eval.";
-eval_cache(suite) -> [];
+%% Test the cache_all and unique_all options of eval.
 eval_cache(Config) when is_list(Config) ->
     Ts = [
        <<"E = ets:new(apa, [ordered_set]),
@@ -1055,9 +1020,7 @@ eval_cache(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-append(doc) ->
-    "Test the append function.";
-append(suite) -> [];
+%% Test the append function.
 append(Config) when is_list(Config) ->
     Ts = [<<"C = qlc:cursor(qlc:q([X || X <- [0,1,2,3], begin 10/X > 0.0 end])),
              R = (catch qlc:next_answers(C)),
@@ -1178,9 +1141,7 @@ append(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-evaluator(doc) ->
-    "Simple call from evaluator.";
-evaluator(suite) -> [];
+%% Simple call from evaluator.
 evaluator(Config) when is_list(Config) ->
     ?line true = is_alive(),
     evaluator_2(Config, []),
@@ -1216,9 +1177,7 @@ start_node(Name) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
-string_to_handle(doc) ->
-    "string_to_handle/1,2.";
-string_to_handle(suite) -> [];
+%% string_to_handle/1,2.
 string_to_handle(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch qlc:string_to_handle(14)),
     ?line {'EXIT',{badarg,_}} = 
@@ -1265,9 +1224,7 @@ string_to_handle(Config) when is_list(Config) ->
     ?line ets:delete(Ets),
     ok.
 
-table(doc) ->
-    "table";
-table(suite) -> [];
+%% table
 table(Config) when is_list(Config) ->
     dets:start(),
     Ts = [
@@ -1484,9 +1441,7 @@ table(Config) when is_list(Config) ->
 
     ok.
 
-process_dies(doc) ->
-    "Caller or cursor process dies.";
-process_dies(suite) -> [];
+%% Caller or cursor process dies.
 process_dies(Config) when is_list(Config) ->
     Ts = [
        <<"E = ets:new(test, []),
@@ -1628,9 +1583,7 @@ process_dies(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-sort(doc) ->
-    "The sort option.";
-sort(suite) -> [];
+%% The sort option.
 sort(Config) when is_list(Config) ->
     Ts = [
        <<"H = qlc:q([X || X <- qlc:sort([1,2,3,2], {unique,true})]),
@@ -1740,9 +1693,7 @@ sort(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-keysort(doc) ->
-    "The sort option.";
-keysort(suite) -> [];
+%% The sort option.
 keysort(Config) when is_list(Config) ->
 
     Ts = [
@@ -1865,9 +1816,7 @@ keysort(Config) when is_list(Config) ->
 
     ok.
 
-filesort(doc) ->
-    "keysort/1,2, using a file.";
-filesort(suite) -> [];
+%% keysort/1,2, using a file.
 filesort(Config) when is_list(Config) ->
     Ts = [
        <<"Q = qlc:q([X || X <- [{3},{1},{2}]]),
@@ -1879,9 +1828,7 @@ filesort(Config) when is_list(Config) ->
     ok.
 
 
-cache(doc) ->
-    "The cache option.";
-cache(suite) -> [];
+%% The cache option.
 cache(Config) when is_list(Config) ->
     Ts = [
        <<"{'EXIT', {badarg, _}} = (catch qlc:q([X || X <- [1,2]], badarg))">>,
@@ -2042,9 +1989,7 @@ cache(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-cache_list(doc) ->
-    "OTP-6038. The {cache,list} option.";
-cache_list(suite) -> [];
+%% OTP-6038. The {cache,list} option.
 cache_list(Config) when is_list(Config) ->
     Ts = [
        begin
@@ -2333,9 +2278,7 @@ cache_list(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-filter(doc) ->
-    "Filters and match specs.";
-filter(suite) -> [];
+%% Filters and match specs.
 filter(Config) when is_list(Config) ->
     Ts = [
        <<"L = [1,2,3,4,5],
@@ -2460,9 +2403,7 @@ filter(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-info(doc) ->
-    "info/2.";
-info(suite) -> [];
+%% info/2.
 info(Config) when is_list(Config) ->
     Ts = [
        <<"{list, [1,2]} = i(qlc:q([X || X <- [1,2]])),
@@ -2685,9 +2626,7 @@ info(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-nested_info(doc) ->
-    "Nested QLC expressions. QLC expressions in filter and template.";
-nested_info(suite) -> [];
+%% Nested QLC expressions. QLC expressions in filter and template.
 nested_info(Config) when is_list(Config) ->
     Ts = [
        <<"L = [{1,a},{2,b},{3,c}],
@@ -2792,9 +2731,7 @@ nested_info(Config) when is_list(Config) ->
     ok.
 
 
-lookup1(doc) ->
-    "Lookup keys. Mostly test of patterns.";
-lookup1(suite) -> [];
+%% Lookup keys. Mostly test of patterns.
 lookup1(Config) when is_list(Config) ->
     Ts = [
        <<"etsc(fun(E) ->
@@ -3002,9 +2939,7 @@ lookup1(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-lookup2(doc) ->
-    "Lookup keys. Mostly test of filters.";
-lookup2(suite) -> [];
+%% Lookup keys. Mostly test of filters.
 lookup2(Config) when is_list(Config) ->
     Ts = [
        <<"%% Only guards are inspected. No lookup.
@@ -3704,9 +3639,7 @@ lookup2(Config) when is_list(Config) ->
 
     ok.
 
-lookup_rec(doc) ->
-    "Lookup keys. With records.";
-lookup_rec(suite) -> [];
+%% Lookup keys. With records.
 lookup_rec(Config) when is_list(Config) ->
     Ts = [
        <<"etsc(fun(E) ->
@@ -3777,9 +3710,7 @@ lookup_rec(Config) when is_list(Config) ->
     ?line run(Config, <<"-record(r, {a}).\n">>, Ts),
     ok.
 
-indices(doc) ->
-    "Using indices for lookup.";
-indices(suite) -> [];
+%% Using indices for lookup.
 indices(Config) when is_list(Config) ->
     Ts = [
        <<"L = [{1,a},{2,b},{3,c}],
@@ -3844,9 +3775,7 @@ indices(Config) when is_list(Config) ->
     ?line run(Config, <<"-record(r, {a}).\n">>, Ts),
     ok.
 
-pre_fun(doc) ->
-    "Test the table/2 callback functions parent_fun and stop_fun.";
-pre_fun(suite) -> [];
+%% Test the table/2 callback functions parent_fun and stop_fun.
 pre_fun(Config) when is_list(Config) ->
     Ts = [
        <<"PF = process_flag(trap_exit, true),
@@ -3925,9 +3854,7 @@ pre_fun(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-skip_filters(doc) ->
-    "Lookup keys. With records.";
-skip_filters(suite) -> [];
+%% Lookup keys. With records.
 skip_filters(Config) when is_list(Config) ->
     %% Skipped filters
     TsS = [
@@ -4330,9 +4257,7 @@ skip_filters(Config) when is_list(Config) ->
     ok.
 
 
-ets(doc) ->
-    "ets:table/1,2.";
-ets(suite) -> [];
+%% ets:table/1,2.
 ets(Config) when is_list(Config) ->
     Ts = [
        <<"E = ets:new(t, [ordered_set]),
@@ -4376,9 +4301,7 @@ ets(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-dets(doc) ->
-    "dets:table/1,2.";
-dets(suite) -> [];
+%% dets:table/1,2.
 dets(Config) when is_list(Config) ->
     dets:start(),
     T = t,
@@ -4476,9 +4399,7 @@ dets(Config) when is_list(Config) ->
     ok.
 
 
-join_option(doc) ->
-    "The 'join' option (any, lookup, merge, nested_loop). Also cache/unique.";
-join_option(suite) -> [];
+%% The 'join' option (any, lookup, merge, nested_loop). Also cache/unique.
 join_option(Config) when is_list(Config) ->
     Ts = [
        <<"Q1 = qlc:q([X || X <- [1,2,3]],{join,merge}),
@@ -4655,9 +4576,7 @@ join_option(Config) when is_list(Config) ->
 
     ok.
 
-join_filter(doc) ->
-    "Various aspects of filters and join.";
-join_filter(suite) -> [];
+%% Various aspects of filters and join.
 join_filter(Config) when is_list(Config) ->
     Ts = [
       <<"E1 = create_ets(1, 10),
@@ -4697,9 +4616,7 @@ join_filter(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-join_lookup(doc) ->
-    "Lookup join.";
-join_lookup(suite) -> [];
+%% Lookup join.
 join_lookup(Config) when is_list(Config) ->
     Ts = [
        <<"E1 = create_ets(1, 10),
@@ -4792,9 +4709,7 @@ join_lookup(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-join_merge(doc) ->
-    "Merge join.";
-join_merge(suite) -> [];
+%% Merge join.
 join_merge(Config) when is_list(Config) ->
     Ts = [
        <<"Q = qlc:q([{X,Y} || {X} <- [], {Y} <- [{1}], X =:= Y], 
@@ -5408,9 +5323,7 @@ join_merge(Config) when is_list(Config) ->
     
     ok.
 
-join_sort(doc) ->
-    "Merge join optimizations (avoid unnecessary sorting).";
-join_sort(suite) -> [];
+%% Merge join optimizations (avoid unnecessary sorting).
 join_sort(Config) when is_list(Config) ->
     Ts = [
        <<"H1_1 = qlc:keysort(1, [{1,2,3},{4,5,6}]),
@@ -5693,9 +5606,7 @@ join_sort(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-join_complex(doc) ->
-    "Join of more than two columns.";
-join_complex(suite) -> [];
+%% Join of more than two columns.
 join_complex(Config) when is_list(Config) ->
     Ts = [{three,
            <<"three() ->
@@ -5757,9 +5668,7 @@ join_complex(Config) when is_list(Config) ->
     ok.
 
 
-otp_5644(doc) ->
-    "OTP-5644. Handle the new language element M:F/A.";
-otp_5644(suite) -> [];
+%% OTP-5644. Handle the new language element M:F/A.
 otp_5644(Config) when is_list(Config) ->
     Ts = [
        <<"Q = qlc:q([fun modul:mfa/0 || _ <- [1,2], 
@@ -5770,9 +5679,7 @@ otp_5644(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-otp_5195(doc) ->
-    "OTP-5195. Allow traverse functions returning terms.";
-otp_5195(suite) -> [];
+%% OTP-5195. Allow traverse functions returning terms.
 otp_5195(Config) when is_list(Config) ->
     %% Several minor improvements have been implemented in OTP-5195.
     %% The test cases are spread all over... except these.
@@ -5863,9 +5770,7 @@ otp_5195(Config) when is_list(Config) ->
 
     ok.
 
-otp_6038_bug(doc) ->
-    "OTP-6038. Bug fixes: unique and keysort; cache.";
-otp_6038_bug(suite) -> [];
+%% OTP-6038. Bug fixes: unique and keysort; cache.
 otp_6038_bug(Config) when is_list(Config) ->
     %% The 'unique' option can no longer be merged with the keysort options.
     %% This used to return [{1,a},{1,c},{2,b},{2,d}], but since 
@@ -5908,9 +5813,7 @@ otp_6038_bug(Config) when is_list(Config) ->
 
     ok.
 
-otp_6359(doc) ->
-    "OTP-6359. dets:select() never returns the empty list.";
-otp_6359(suite) -> [];
+%% OTP-6359. dets:select() never returns the empty list.
 otp_6359(Config) when is_list(Config) ->
     dets:start(),
     T = luna,
@@ -5932,9 +5835,7 @@ otp_6359(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-otp_6562(doc) ->
-    "OTP-6562. compressed = false (should be []) when sorting before join.";
-otp_6562(suite) -> [];
+%% OTP-6562. compressed = false (should be []) when sorting before join.
 otp_6562(Config) when is_list(Config) ->
     Bug = [
       %% This example uses a file to sort E2 on the second column. It is
@@ -5974,9 +5875,7 @@ otp_6562(Config) when is_list(Config) ->
 
     ok.
 
-otp_6590(doc) ->
-    "OTP-6590. Bug fix (join info).";
-otp_6590(suite) -> [];
+%% OTP-6590. Bug fix (join info).
 otp_6590(Config) when is_list(Config) ->
     Ts = [<<"fun(Tab1Value) -> 
                     Q = qlc:q([T1#tab1.id || T1 <- [#tab1{id = id1,
@@ -5992,9 +5891,7 @@ otp_6590(Config) when is_list(Config) ->
                          -record(tab2, {id, value}).\n">>, Ts),
     ok.
 
-otp_6673(doc) ->
-    "OTP-6673. Optimizations and fixes.";
-otp_6673(suite) -> [];
+%% OTP-6673. Optimizations and fixes.
 otp_6673(Config) when is_list(Config) ->
     Ts_PT = 
         [<<"etsc(fun(E1) ->
@@ -6091,9 +5988,7 @@ otp_6673(Config) when is_list(Config) ->
 
     ok.
 
-otp_6964(doc) ->
-    "OTP-6964. New option 'tmpdir_usage'.";
-otp_6964(suite) -> [];
+%% OTP-6964. New option 'tmpdir_usage'.
 otp_6964(Config) when is_list(Config) ->
     T1 = [
        <<"Q1 = qlc:q([{X} || X <- [1,2]]),
@@ -6224,9 +6119,7 @@ otp_6964(Config) when is_list(Config) ->
     ?line run(Config, T4),
     ok.
 
-otp_7238(doc) ->
-    "OTP-7238. info-option 'depth', &c.";
-otp_7238(suite) -> [];
+%% OTP-7238. info-option 'depth', &c.
 otp_7238(Config) when is_list(Config) ->
     dets:start(),
     T = otp_7238, 
@@ -6615,9 +6508,7 @@ otp_7238(Config) when is_list(Config) ->
 
     ok.
     
-otp_7114(doc) ->
-    "OTP-7114. Match spec, table and duplicated objects..";
-otp_7114(suite) -> [];
+%% OTP-7114. Match spec, table and duplicated objects...
 otp_7114(Config) when is_list(Config) ->
     Ts = [<<"T = ets:new(t, [bag]),
              [ets:insert(T, {t, I, I div 2}) || I <- lists:seq(1,10)],
@@ -6630,9 +6521,7 @@ otp_7114(Config) when is_list(Config) ->
              ok">>],
     ?line run(Config, Ts).
 
-otp_7232(doc) ->
-    "OTP-7232. qlc:info() bug (pids, ports, refs, funs).";
-otp_7232(suite) -> [];
+%% OTP-7232. qlc:info() bug (pids, ports, refs, funs).
 otp_7232(Config) when is_list(Config) ->
     Ts = [<<"L = [fun math:sqrt/1, list_to_pid(\"<0.4.1>\"),
                   erlang:make_ref()],
@@ -6662,9 +6551,7 @@ otp_7232(Config) when is_list(Config) ->
          ],
     ?line run(Config, Ts).
 
-otp_7552(doc) ->
-    "OTP-7552. Merge join bug.";
-otp_7552(suite) -> [];
+%% OTP-7552. Merge join bug.
 otp_7552(Config) when is_list(Config) ->
     %% The poor performance cannot be observed unless the 
     %% (redundant) join filter is skipped. 
@@ -6689,9 +6576,7 @@ otp_7552(Config) when is_list(Config) ->
                           lists:sort(qlc:e(Qn))">>],
     ?line run(Config, Ts).
 
-otp_7714(doc) ->
-    "OTP-7714. Merge join bug.";
-otp_7714(suite) -> [];
+%% OTP-7714. Merge join bug.
 otp_7714(Config) when is_list(Config) ->
     %% The original example uses Mnesia. This one does not.
     Ts = [<<"E1 = ets:new(set,[]),
@@ -6708,9 +6593,7 @@ otp_7714(Config) when is_list(Config) ->
              ets:delete(E2)">>],
     ?line run(Config, Ts).
 
-otp_11758(doc) ->
-    "OTP-11758. Bug.";
-otp_11758(suite) -> [];
+%% OTP-11758. Bug.
 otp_11758(Config) when is_list(Config) ->
     Ts = [<<"T = ets:new(r, [{keypos, 2}]),
              L = [{rrr, xxx, aaa}, {rrr, yyy, bbb}],
@@ -6721,9 +6604,7 @@ otp_11758(Config) when is_list(Config) ->
              ets:delete(T)">>],
     run(Config, Ts).
 
-otp_6674(doc) ->
-    "OTP-6674. match/comparison.";
-otp_6674(suite) -> [];
+%% OTP-6674. match/comparison.
 otp_6674(Config) when is_list(Config) ->
 
     ?line ok = compile_gb_table(Config),
@@ -7151,9 +7032,7 @@ otp_6674(Config) when is_list(Config) ->
 
     ?line run(Config, Ts).
 
-otp_12946(doc) ->
-    ["Syntax error."];
-otp_12946(suite) -> [];
+%% Syntax error.
 otp_12946(Config) when is_list(Config) ->
     Text =
         <<"-export([init/0]).
@@ -7163,9 +7042,7 @@ otp_12946(Config) when is_list(Config) ->
     {errors,[{4,erl_parse,_}],[]} = compile_file(Config, Text, []),
     ok.
 
-manpage(doc) ->
-    "Examples from qlc(3).";
-manpage(suite) -> [];
+%% Examples from qlc(3).
 manpage(Config) when is_list(Config) ->
 
     ?line ok = compile_gb_table(Config),
@@ -7429,9 +7306,7 @@ gb_iter(I0, N, EFun) ->
     ">>.
 
 
-backward(doc) ->
-    "OTP-6674. Join info and extra constants.";
-backward(suite) -> [];
+%% OTP-6674. Join info and extra constants.
 backward(Config) when is_list(Config) ->
     try_old_join_info(Config),
     ok.
@@ -7466,9 +7341,6 @@ try_old_join_info(Config) ->
         qlc:info(H2, {format,debug}),
     [{1,1},{2,2}] = qlc:e(H2).
 
-forward(doc) ->
-    "";
-forward(suite) -> [];
 forward(Config) when is_list(Config) ->
     Ts = [
       %% LC_fun() returns something unknown.

@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-id_transform(doc) -> "Test erl_id_trans.";
+%% Test erl_id_trans.
 id_transform(Config) when is_list(Config) ->
     File = filename:join([code:lib_dir(stdlib),"examples",
 			"erl_id_trans.erl"]),

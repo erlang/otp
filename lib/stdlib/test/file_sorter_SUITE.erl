@@ -82,10 +82,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-basic(doc) ->
-    ["Basic test case."];
-basic(suite) -> 
-    [];
+%% Basic test case.
 basic(Config) when is_list(Config) ->
     Fmt = binary,
     Arg = {format,Fmt},
@@ -136,10 +133,7 @@ basic(Config) when is_list(Config) ->
 
     ok.
 
-badarg(doc) ->
-    ["Call functions with bad arguments."];
-badarg(suite) -> 
-    [];
+%% Call functions with bad arguments.
 badarg(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
     BadFile = filename:join(PrivDir, "not_a_file"),
@@ -300,10 +294,7 @@ do_badarg_opt(F, KF) ->
     ?line {'EXIT', {{badarg, kp}, _}} = (catch KF([1 | kp], [], foo, [])),
     ok.
 
-term_sort(doc) ->
-    ["Sort terms on files."];
-term_sort(suite) ->
-    [];
+%% Sort terms on files.
 term_sort(Config) when is_list(Config) ->
     ?line sort(term, [{compressed,false}], Config),
     ?line sort(term, [{order, fun compare/2}], Config),
@@ -311,19 +302,13 @@ term_sort(Config) when is_list(Config) ->
     ?line sort(term, [{order, descending}], Config),
     ok.
 
-term_keysort(doc) ->
-    ["Keysort terms on files."];
-term_keysort(suite) ->
-    [];
+%% Keysort terms on files.
 term_keysort(Config) when is_list(Config) ->
     ?line keysort(term, [{tmpdir, ""}], Config),
     ?line keysort(term, [{order,descending}], Config),
     ok.
 
-binary_term_sort(doc) ->
-    ["Sort binary terms on files."];
-binary_term_sort(suite) ->
-    [];
+%% Sort binary terms on files.
 binary_term_sort(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
     ?line sort({2, binary_term}, [], Config),
@@ -334,20 +319,14 @@ binary_term_sort(Config) when is_list(Config) ->
     ?line sort(binary_term, [{order,descending}], Config),
     ok.
 
-binary_term_keysort(doc) ->
-    ["Keysort binary terms on files."];
-binary_term_keysort(suite) ->
-    [];
+%% Keysort binary terms on files.
 binary_term_keysort(Config) when is_list(Config) ->
     ?line keysort({3, binary_term}, [], Config),
     ?line keysort(binary_term, [], Config),
     ?line keysort(binary_term, [{order,descending}], Config),
     ok.
 
-binary_sort(doc) ->
-    ["Sort binaries on files."];
-binary_sort(suite) ->
-    [];
+%% Sort binaries on files.
 binary_sort(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
     ?line sort({2, binary}, [], Config),
@@ -358,40 +337,28 @@ binary_sort(Config) when is_list(Config) ->
     ?line sort(binary, [{order,descending}], Config),
     ok.
 
-term_merge(doc) ->
-    ["Merge terms on files."];
-term_merge(suite) ->
-    [];
+%% Merge terms on files.
 term_merge(Config) when is_list(Config) ->
     ?line merge(term, [{order, fun compare/2}], Config),
     ?line merge(term, [{order, ascending}, {compressed,true}], Config),
     ?line merge(term, [{order, descending}, {compressed,false}], Config),
     ok.
 
-term_keymerge(doc) ->
-    ["Keymerge terms on files."];
-term_keymerge(suite) ->
-    [];
+%% Keymerge terms on files.
 term_keymerge(Config) when is_list(Config) ->
     ?line keymerge(term, [], Config),
     ?line keymerge(term, [{order, descending}], Config),
     ?line funmerge(term, [], Config),
     ok.
 
-binary_term_merge(doc) ->
-    ["Merge binary terms on files."];
-binary_term_merge(suite) ->
-    [];
+%% Merge binary terms on files.
 binary_term_merge(Config) when is_list(Config) ->
     ?line merge(binary_term, [], Config),
     ?line merge({7, binary_term}, [], Config),
     ?line merge({3, binary_term}, [{order, fun compare/2}], Config),
     ok.
 
-binary_term_keymerge(doc) ->
-    ["Keymerge binary terms on files."];
-binary_term_keymerge(suite) ->
-    [];
+%% Keymerge binary terms on files.
 binary_term_keymerge(Config) when is_list(Config) ->
     ?line keymerge({3, binary_term}, [], Config),
     ?line keymerge(binary_term, [], Config),
@@ -399,60 +366,39 @@ binary_term_keymerge(Config) when is_list(Config) ->
     ?line funmerge(binary_term, [], Config),
     ok.
 
-binary_merge(doc) ->
-    ["Merge binaries on files."];
-binary_merge(suite) ->
-    [];
+%% Merge binaries on files.
 binary_merge(Config) when is_list(Config) ->
     ?line merge(binary, [], Config),
     ?line merge({7, binary}, [], Config),
     ?line merge({3, binary}, [{order, fun compare/2}], Config),
     ok.
 
-term_check(doc) ->
-    ["Check terms on files."];
-term_check(suite) ->
-    [];
+%% Check terms on files.
 term_check(Config) when is_list(Config) ->
     ?line check(term, Config),
     ok.
 
-binary_term_check(doc) ->
-    ["Check binary terms on files."];
-binary_term_check(suite) ->
-    [];
+%% Check binary terms on files.
 binary_term_check(Config) when is_list(Config) ->
     ?line check(binary_term, Config),
     ok.
 
-term_keycheck(doc) ->
-    ["Keycheck terms on files."];
-term_keycheck(suite) ->
-    [];
+%% Keycheck terms on files.
 term_keycheck(Config) when is_list(Config) ->
     ?line keycheck(term, Config),
     ok.
 
-binary_term_keycheck(doc) ->
-    ["Keycheck binary terms on files."];
-binary_term_keycheck(suite) ->
-    [];
+%% Keycheck binary terms on files.
 binary_term_keycheck(Config) when is_list(Config) ->
     ?line keycheck(binary_term, Config),
     ok.
 
-binary_check(doc) ->
-    ["Check binary terms on files."];
-binary_check(suite) ->
-    [];
+%% Check binary terms on files.
 binary_check(Config) when is_list(Config) ->
     ?line check(binary, Config),
     ok.
 
-inout(doc) ->
-    ["Funs as input or output."];
-inout(suite) ->
-    [];
+%% Funs as input or output.
 inout(Config) when is_list(Config) ->
     BTF = {format, binary_term},
     Foo = outfile("foo", Config),
@@ -517,10 +463,7 @@ ofv(Value, A) ->
 	    ofv(Value, [L | A])
     end.
 
-many(doc) ->
-    ["Many temporary files."];
-many(suite) ->
-    [];
+%% Many temporary files.
 many(Config) when is_list(Config) ->
     Foo = outfile("foo", Config),
     PrivDir = ?privdir(Config),
@@ -581,10 +524,7 @@ many(Config) when is_list(Config) ->
     ?line true = P0 =:= pps(),
     ok.
 
-misc(doc) ->
-    ["Some other tests."];
-misc(suite) ->
-    [];
+%% Some other tests.
 misc(Config) when is_list(Config) ->
     BTF = {format, binary_term},
     Foo = outfile("foo", Config),

@@ -371,10 +371,7 @@ hib_receive_messages(N) ->
 	Any -> [Any|hib_receive_messages(N-1)]
     end.
 
-otp_6345(suite) ->
-    [];
-otp_6345(doc) ->
-    ["'monitor' spawn_opt option"];
+%% 'monitor' spawn_opt option.
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
     {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
@@ -392,11 +389,8 @@ otp_6345_loop() ->
 	    otp_6345_loop()
     end.
 
-%% OTP-9803
-init_dont_hang(suite) ->
-    [];
-init_dont_hang(doc) ->
-    ["Check that proc_lib:start don't hang if spawned process crashes before proc_lib:init_ack/2"];
+%% OTP-9803. Check that proc_lib:start() doesn't hang if spawned process
+%% crashes before proc_lib:init_ack/2.
 init_dont_hang(Config) when is_list(Config) ->
     %% Start should behave as start_link
     process_flag(trap_exit, true),

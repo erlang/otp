@@ -89,27 +89,23 @@ init_per_testcase(_, Config) when is_list(Config) ->
 
 %% Testing timer interface!!
 
-apply_after(doc) -> "Test of apply_after, with sending of message.";
-apply_after(suite) -> [];
+%% Test of apply_after, with sending of message.
 apply_after(Config) when is_list(Config) ->
     ?line timer:apply_after(500, ?MODULE, send, [self(), ok_apply]),
     ?line ok = get_mess(1000, ok_apply).
 
-send_after1(doc) -> "Test of send_after with time = 0.";
-send_after1(suite) -> [];
+%% Test of send_after with time = 0.
 send_after1(Config) when is_list(Config) ->
     ?line timer:send_after(0, ok_send1),
     ?line ok = get_mess(1000, ok_send1).
 
-send_after2(doc) -> "Test of send_after with time = 500.";
-send_after2(suite) -> [];
+%% Test of send_after with time = 500.
 send_after2(Config) when is_list(Config) ->
     ?line timer:send_after(500, self(), ok_send2),
     ?line ok = get_mess(2000, ok_send2).
 
-send_after3(doc) -> "Test of send_after with time = 500, with receiver "
-			"a registered process. [OTP-2735]";
-send_after3(suite) -> [];
+%% Test of send_after with time = 500, with receiver a registered
+%% process. [OTP-2735]
 send_after3(Config) when is_list(Config) ->
     ?line Name = list_to_atom(pid_to_list(self())),
     ?line register(Name, self()),
@@ -117,18 +113,15 @@ send_after3(Config) when is_list(Config) ->
     ?line ok = get_mess(2000, ok_send3),
     ?line unregister(Name).
 
-exit_after1(doc) -> "Test of exit_after with time = 1000.";
-exit_after1(suite) -> [];
+%% Test of exit_after with time = 1000.
 exit_after1(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Pid = spawn_link(?MODULE, forever, []),
     ?line timer:exit_after(1000, Pid, exit_test1),
     ?line ok = get_mess(5000, {'EXIT', Pid, exit_test1}).
 
-exit_after2(doc) -> "Test of exit_after with time = 1000. The process to "
-			"exit is the name of a registered process. "
-			"[OTP-2735]";
-exit_after2(suite) -> [];
+%% Test of exit_after with time = 1000. The process to exit is the
+%% name of a registered process.  [OTP-2735]
 exit_after2(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Pid = spawn_link(?MODULE, forever, []),
@@ -137,18 +130,15 @@ exit_after2(Config) when is_list(Config) ->
     ?line timer:exit_after(1000, Name, exit_test2),
     ?line ok = get_mess(2000, {'EXIT', Pid, exit_test2}).
 
-kill_after1(doc) -> "Test of kill_after with time = 1000.";
-kill_after1(suite) -> [];
+%% Test of kill_after with time = 1000.
 kill_after1(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Pid = spawn_link(?MODULE, forever, []),
     ?line timer:kill_after(1000, Pid),
     ?line ok = get_mess(2000, {'EXIT', Pid, killed}).
 
-kill_after2(doc) -> "Test of kill_after with time = 1000. The process to "
-			"exit is the name of a registered process. "
-			"[OTP-2735]";
-kill_after2(suite) -> [];
+%% Test of kill_after with time = 1000. The process to exit is the
+%% name of a registered process.  [OTP-2735]
 kill_after2(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Pid = spawn_link(?MODULE, forever, []),
@@ -157,10 +147,9 @@ kill_after2(Config) when is_list(Config) ->
     ?line timer:kill_after(1000, Name),
     ?line ok = get_mess(2000, {'EXIT', Pid, killed}).
 
-apply_interval(doc) -> "Test of apply_interval by sending messages. Receive "
-                       "3 messages, cancel the timer, and check that we do "
-		       "not get any more messages.";
-apply_interval(suite) -> [];
+%% Test of apply_interval by sending messages. Receive
+%% 3 messages, cancel the timer, and check that we do
+%% not get any more messages.
 apply_interval(Config) when is_list(Config) ->
     ?line {ok, Ref} = timer:apply_interval(1000, ?MODULE, send, 
 				     [self(), apply_int]),
@@ -168,31 +157,25 @@ apply_interval(Config) when is_list(Config) ->
     ?line timer:cancel(Ref),
     ?line nor = get_mess(1000, apply_int).
 
-send_interval1(doc) -> "Test of send_interval/2. Receive 5 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages.";
-send_interval1(suite) -> [];
+%% Test of send_interval/2. Receive 5 messages, cancel the timer, and
+%% check that we do not get any more messages.
 send_interval1(Config) when is_list(Config) ->
     {ok, Ref} = timer:send_interval(1000, send_int),
     ?line ok = get_mess(1500, send_int, 5),
     timer:cancel(Ref),
     ?line nor = get_mess(1000, send_int). % We should receive only five
 
-send_interval2(doc) -> "Test of send_interval/3. Receive 2 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages.";
-send_interval2(suite) -> [];
+%% Test of send_interval/3. Receive 2 messages, cancel the timer, and
+%% check that we do not get any more messages.
 send_interval2(Config) when is_list(Config) ->
     {ok, Ref} = timer:send_interval(1000, self(), send_int2),
     ?line ok = get_mess(1500, send_int2, 2),
     timer:cancel(Ref),
     ?line nor = get_mess(1000, send_int2).  % We should receive only two
 
-send_interval3(doc) -> "Test of send_interval/3. Receive 2 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages. The receiver is the name of a registered "
-			   "process. [OTP-2735]";
-send_interval3(suite) -> [];
+%% Test of send_interval/3. Receive 2 messages, cancel the timer, and
+%% check that we do not get any more messages. The receiver is the
+%% name of a registered process. [OTP-2735]
 send_interval3(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Name = list_to_atom(pid_to_list(self())),
@@ -203,9 +186,8 @@ send_interval3(Config) when is_list(Config) ->
     ?line nor = get_mess(1000, send_int3),  % We should receive only two
     ?line unregister(Name).
 
-send_interval4(doc) -> "Test that send interval stops sending msg when the "
-			   "receiving process terminates.";
-send_interval4(suite) -> [];
+%% Test that send interval stops sending msg when the receiving
+%% process terminates.
 send_interval4(Config) when is_list(Config) ->
     ?line timer:send_interval(500, one_time_only),
     receive 
@@ -217,20 +199,17 @@ send_interval4(Config) when is_list(Config) ->
 			     Msg -> Msg
 			 end.
 
-cancel1(doc) -> "Test that we can cancel a timer.";
-cancel1(suite) -> [];
+%% Test that we can cancel a timer.
 cancel1(Config) when is_list(Config) ->
     ?line {ok, Ref} = timer:send_after(1000, this_should_be_canceled),
     ?line timer:cancel(Ref),
     ?line nor = get_mess(2000, this_should_be_canceled). % We should rec 0 msgs
 
-cancel2(doc) -> "Test cancel/1 with bad argument.";
-cancel2(suite) -> [];
+%% Test cancel/1 with bad argument.
 cancel2(Config) when is_list(Config) ->
     ?line {error, badarg} = timer:cancel(no_reference). 
 
-tc(doc) -> "Test sleep/1 and tc/3.";
-tc(suite) -> [];
+%% Test sleep/1 and tc/3.
 tc(Config) when is_list(Config) ->
     %% This should test both sleep and tc/3
     ?line {Res1, ok} = timer:tc(timer, sleep, [500]),
@@ -284,11 +263,8 @@ tc(Config) when is_list(Config) ->
     ?line if MyRes == TimerRes -> ok end,
     ok.
 
-unique_refs(doc) ->
-    "Tests that cancellations of one-shot timers do not accidentally "
-	"cancel interval timers [OTP-2771].";
-unique_refs(suite) ->
-    [];
+%% Test that cancellations of one-shot timers do not accidentally
+%% cancel interval timers. [OTP-2771].
 unique_refs(Config) when is_list(Config) ->
     ?line ITimers = repeat_send_interval(10),		% 10 interval timers
     ?line eat_refs(?MAXREF - ?REFMARG),
@@ -359,7 +335,6 @@ forever() ->
 % 
 
 
-timer_perf(suite) -> [];
 timer_perf(Config) when is_list(Config) ->
     performance(timer).
 

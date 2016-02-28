@@ -58,10 +58,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-normal(doc) ->
-    [""];
-normal(suite) ->
-    [];
 normal(Config) when is_list(Config) ->
     {module,expand_test} = c:l(expand_test),
     %% These tests might fail if another module with the prefix
@@ -80,10 +76,7 @@ normal(Config) when is_list(Config) ->
     {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
     ok.
 
-quoted_fun(doc) ->
-    ["Normal module name, some function names using quoted atoms"];
-quoted_fun(suite) ->
-    [];
+%% Normal module name, some function names using quoted atoms.
 quoted_fun(Config) when is_list(Config) ->
     {module,expand_test} = c:l(expand_test),
     {module,expand_test1} = c:l(expand_test1),
@@ -116,10 +109,6 @@ quoted_fun(Config) when is_list(Config) ->
     {yes,"(",[]} = do_expand("expand_test:module_info"),
     ok.
 
-quoted_module(doc) ->
-    [""];
-quoted_module(suite) ->
-    [];
 quoted_module(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
     {yes, "Caps':", []} = do_expand("'ExpandTest"),
@@ -133,8 +122,6 @@ quoted_module(Config) when is_list(Config) ->
 	     {"a_less_fun_name",1}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 
-quoted_both(suite) ->
-    [];
 quoted_both(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
     {module,'ExpandTestCaps1'} = c:l('ExpandTestCaps1'),

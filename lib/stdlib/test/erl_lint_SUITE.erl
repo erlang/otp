@@ -115,9 +115,7 @@ end_per_group(_GroupName, Config) ->
 
 
 
-unused_vars_warn_basic(doc) ->
-    "Warnings for unused variables in some simple cases.";
-unused_vars_warn_basic(suite) -> [];
+%% Warnings for unused variables in some simple cases.
 unused_vars_warn_basic(Config) when is_list(Config) ->
     Ts = [{basic1,
            <<"f(F) -> % F unused.
@@ -171,9 +169,7 @@ unused_vars_warn_basic(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unused_vars_warn_lc(doc) ->
-    "Warnings for unused variables in list comprehensions.";
-unused_vars_warn_lc(suite) -> [];
+%% Warnings for unused variables in list comprehensions.
 unused_vars_warn_lc(Config) when is_list(Config) ->
     Ts = [{lc1, 
            <<"bin([X]) ->
@@ -522,9 +518,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
     ok.
 
 
-unused_vars_warn_rec(doc) ->
-    "Warnings for unused variables in records.";
-unused_vars_warn_rec(suite) -> [];
+%% Warnings for unused variables in records.
 unused_vars_warn_rec(Config) when is_list(Config) ->
     Ts = [{rec1, % An example provided by Bjorn.
            <<"-record(edge,
@@ -579,9 +573,7 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unused_vars_warn_fun(doc) ->
-    "Warnings for unused variables in funs.";
-unused_vars_warn_fun(suite) -> [];
+%% Warnings for unused variables in funs.
 unused_vars_warn_fun(Config) when is_list(Config) ->
     Ts = [{fun1,
            <<"a({A,B}) -> % A unused.
@@ -706,9 +698,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unused_vars_OTP_4858(doc) ->
-    "Bit syntax, binsize variable used in the same matching.";
-unused_vars_OTP_4858(suite) -> [];
+%% Bit syntax, binsize variable used in the same matching.
 unused_vars_OTP_4858(Config) when is_list(Config) ->
     Ts = [{otp_4858,
            <<"objs(<<Size:4/unit:8, B:Size/binary>>) ->
@@ -772,9 +762,7 @@ unused_unsafe_vars_warn(Config) when is_list(Config) ->
     run(Config, Ts),
     ok.
 
-export_vars_warn(doc) ->
-    "Warnings for exported variables";
-export_vars_warn(suite) -> [];
+%% Warnings for exported variables.
 export_vars_warn(Config) when is_list(Config) ->
     Ts = [{exp1,
            <<"u() ->
@@ -867,10 +855,8 @@ export_vars_warn(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-shadow_vars(doc) ->
-    "Shadowed variables are tested in other places, but here we test "
-	"that the warning can be turned off.";
-shadow_vars(suite) -> [];
+%% Shadowed variables are tested in other places, but here we test
+%% that the warning can be turned off.
 shadow_vars(Config) when is_list(Config) ->
     Ts = [{shadow1,
 	   <<"bin(A) ->
@@ -898,9 +884,7 @@ shadow_vars(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unused_import(doc) ->
-    "Test that the 'warn_unused_import' option works.";
-unused_import(suite) -> [];
+%% Test that the 'warn_unused_import' option works.
 unused_import(Config) when is_list(Config) ->
     Ts = [{imp1,
 	   <<"-import(lists, [map/2,foldl/3]).
@@ -912,9 +896,7 @@ unused_import(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unused_function(doc) ->
-    "Test warnings for unused functions.";
-unused_function(suite) -> [];
+%% Test warnings for unused functions.
 unused_function(Config) when is_list(Config) ->
     Ts = [{func1,
 	   <<"-export([t/1]).
@@ -960,9 +942,7 @@ unused_function(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
     
-unsafe_vars(doc) ->
-    "OTP-4671. Errors for unsafe variables";
-unsafe_vars(suite) -> [];
+%% OTP-4671. Errors for unsafe variables.
 unsafe_vars(Config) when is_list(Config) ->
     Ts = [{unsafe1,
            <<"t() ->
@@ -1063,9 +1043,7 @@ unsafe_vars(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unsafe_vars2(doc) ->
-    "OTP-4831, seq8202. No warn_unused_vars and unsafe variables";
-unsafe_vars2(suite) -> [];
+%% OTP-4831, seq8202. No warn_unused_vars and unsafe variables.
 unsafe_vars2(Config) when is_list(Config) ->
     Ts = [{unsafe2_1,
            <<"foo(State) ->
@@ -1097,9 +1075,7 @@ unsafe_vars2(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-unsafe_vars_try(doc) ->
-    "Errors for unsafe variables in try/catch constructs.";
-unsafe_vars_try(suite) -> [];
+%% Errors for unsafe variables in try/catch constructs.
 unsafe_vars_try(Config) when is_list(Config) ->
     Ts = [{unsafe_try1,
 	   <<"foo2() ->
@@ -1287,9 +1263,7 @@ unsafe_vars_try(Config) when is_list(Config) ->
         ?line [] = run(Config, Ts),
     ok.
 
-unsized_binary_in_bin_gen_pattern(doc) ->
-    "Unsized binary fields are forbidden in patterns of bit string generators";
-unsized_binary_in_bin_gen_pattern(suite) -> [];
+%% Unsized binary fields are forbidden in patterns of bit string generators.
 unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
     Ts = [{unsized_binary_in_bin_gen_pattern,
 	   <<"t({bc,binary,Bin}) ->
@@ -1322,9 +1296,7 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-guard(doc) ->
-    "OTP-4670. Guards, is_record in particular.";
-guard(suite) -> [];
+%% OTP-4670. Guards, is_record in particular.
 guard(Config) when is_list(Config) ->
     %% Well, these could be plain code...
     Ts = [{guard1,
@@ -1613,9 +1585,7 @@ guard(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts1),
     ok.
 
-otp_4886(doc) ->
-    "OTP-4886. Calling is_record with given record name.";
-otp_4886(suite) -> [];
+%% OTP-4886. Calling is_record with given record name.
 otp_4886(Config) when is_list(Config) ->
     Ts = [{otp_4886,
            <<"t() ->
@@ -1637,9 +1607,7 @@ otp_4886(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_4988(doc) ->
-    "OTP-4988. Error when in-lining non-existent functions.";
-otp_4988(suite) -> [];
+%% OTP-4988. Error when in-lining non-existent functions.
 otp_4988(Config) when is_list(Config) ->
     Ts = [{otp_4988,
            <<"-compile({inline, [{f,3},{f,4},{f,2},{f,a},{1,foo}]}).
@@ -1664,9 +1632,7 @@ otp_4988(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5091(doc) ->
-    "OTP-5091. Patterns and the bit syntax: invalid warnings.";
-otp_5091(suite) -> [];
+%% OTP-5091. Patterns and the bit syntax: invalid warnings.
 otp_5091(Config) when is_list(Config) ->
     Ts = [{otp_5091_1,
            <<"t() ->
@@ -1882,9 +1848,7 @@ otp_5091(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5276(doc) ->
-    "OTP-5276. Check the 'deprecated' attributed.";
-otp_5276(suite) -> [];
+%% OTP-5276. Check the 'deprecated' attributed.
 otp_5276(Config) when is_list(Config) ->
     Ts = [{otp_5276_1,
           <<"-deprecated([{frutt,0,next_version}]).
@@ -1914,9 +1878,7 @@ otp_5276(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5917(doc) ->
-    "OTP-5917. Check the 'deprecated' attributed.";
-otp_5917(suite) -> [];
+%% OTP-5917. Check the 'deprecated' attributed.
 otp_5917(Config) when is_list(Config) ->
     Ts = [{otp_5917_1,
           <<"-compile(export_all).
@@ -1931,9 +1893,7 @@ otp_5917(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_6585(doc) ->
-    "OTP-6585. Check the deprecated guards list/1, pid/1, ....";
-otp_6585(suite) -> [];
+%% OTP-6585. Check the deprecated guards list/1, pid/1, ....
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
           <<"-compile(export_all).
@@ -1954,9 +1914,7 @@ otp_6585(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5338(doc) ->
-    "OTP-5338. Bad warning in record initialization.";
-otp_5338(suite) -> [];
+%% OTP-5338. Bad warning in record initialization.
 otp_5338(Config) when is_list(Config) ->
     %% OTP-5878: variables like X are no longer allowed in initialisations
     Ts = [{otp_5338,
@@ -1971,10 +1929,8 @@ otp_5338(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5362(doc) ->
-    "OTP-5362. deprecated_function, "
-    "{nowarn_unused_funtion,FAs}, 'better' line numbers.";
-otp_5362(suite) -> [];
+%% OTP-5362. deprecated_function,
+%% {nowarn_unused_funtion,FAs}, 'better' line numbers.
 otp_5362(Config) when is_list(Config) ->
     Ts = [{otp_5362_1,
           <<"-include_lib(\"stdlib/include/qlc.hrl\").
@@ -2177,9 +2133,7 @@ otp_5362(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5371(doc) ->
-    "OTP-5371. Aliases for bit syntax expressions are no longer allowed.";
-otp_5371(suite) -> [];
+%% OTP-5371. Aliases for bit syntax expressions are no longer allowed.
 otp_5371(Config) when is_list(Config) ->
     Ts = [{otp_5371_1,
            <<"t(<<A:8>> = <<B:8>>) ->
@@ -2236,7 +2190,7 @@ otp_5371(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_7227(doc) -> "OTP_7227. Some aliases for bit syntax expressions were still allowed.";
+%% OTP_7227. Some aliases for bit syntax expressions were still allowed.
 otp_7227(Config) when is_list(Config) ->
     Ts = [{otp_7227_1,
            <<"t([<<A:8>> = {C,D} = <<B:8>>]) ->
@@ -2306,9 +2260,7 @@ otp_7227(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5494(doc) ->
-    "OTP-5494. Warnings for functions exported more than once.";
-otp_5494(suite) -> [];
+%% OTP-5494. Warnings for functions exported more than once.
 otp_5494(Config) when is_list(Config) ->
     Ts = [{otp_5494_1,
            <<"-export([t/0]).
@@ -2320,9 +2272,7 @@ otp_5494(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5644(doc) ->
-    "OTP-5644. M:F/A in record initialization.";
-otp_5644(suite) -> [];
+%% OTP-5644. M:F/A in record initialization.
 otp_5644(Config) when is_list(Config) ->
     %% This test is a no-op. Although {function,mfa,i,1} was
     %% transformed into {function,Line,i,1} by copy_expr, the module
@@ -2341,9 +2291,7 @@ otp_5644(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_5878(doc) ->
-    "OTP-5878. Record declaration: forward references, introduced variables.";
-otp_5878(suite) -> [];
+%% OTP-5878. Record declaration: forward references, introduced variables.
 otp_5878(Config) when is_list(Config) ->
     Ts = [{otp_5878_10,
           <<"-record(rec1, {a = #rec2{}}).
@@ -2622,9 +2570,8 @@ otp_5878(Config) when is_list(Config) ->
 
     ok.
 
-otp_6885(doc) ->
-    "OTP-6885. Binary fields in bit syntax matching is now only allowed at the end.";
-otp_6885(suite) -> [];
+%% OTP-6885. Binary fields in bit syntax matching is now only
+%% allowed at the end.
 otp_6885(Config) when is_list(Config) ->
     Ts = <<"-module(otp_6885).
             -export([t/1]).
@@ -2661,9 +2608,7 @@ otp_6885(Config) when is_list(Config) ->
 	   []} = run_test2(Config, Ts, []),
     ok.
 
-otp_10436(doc) ->
-    "OTP-6885. Warnings for opaque types.";
-otp_10436(suite) -> [];
+%% OTP-6885. Warnings for opaque types.
 otp_10436(Config) when is_list(Config) ->
     Ts = <<"-module(otp_10436).
             -export_type([t1/0]).
@@ -2683,9 +2628,7 @@ otp_10436(Config) when is_list(Config) ->
         run_test2(Config, Ts2, []),
     ok.
 
-otp_11254(doc) ->
-    "OTP-11254. M:F/A could crash the linter.";
-otp_11254(suite) -> [];
+%% OTP-11254. M:F/A could crash the linter.
 otp_11254(Config) when is_list(Config) ->
     Ts = <<"-module(p2).
             -export([manifest/2]).
@@ -2697,9 +2640,7 @@ otp_11254(Config) when is_list(Config) ->
         run_test2(Config, Ts, []),
     ok.
 
-otp_11772(doc) ->
-    "OTP-11772. Reintroduce errors for redefined builtin types.";
-otp_11772(suite) -> [];
+%% OTP-11772. Reintroduce errors for redefined builtin types.
 otp_11772(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
@@ -2724,9 +2665,7 @@ otp_11772(Config) when is_list(Config) ->
      []} = run_test2(Config, Ts, []),
     ok.
 
-otp_11771(doc) ->
-    "OTP-11771. Do not allow redefinition of the types arity(_) &c..";
-otp_11771(suite) -> [];
+%% OTP-11771. Do not allow redefinition of the types arity(_) &c..
 otp_11771(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
@@ -2753,9 +2692,7 @@ otp_11771(Config) when is_list(Config) ->
      []} = run_test2(Config, Ts, []),
     ok.
 
-otp_11872(doc) ->
-    "OTP-11872. The type map() undefined when exported.";
-otp_11872(suite) -> [];
+%% OTP-11872. The type map() undefined when exported.
 otp_11872(Config) when is_list(Config) ->
     Ts = <<"
             -module(map).
@@ -2777,8 +2714,7 @@ otp_11872(Config) when is_list(Config) ->
         run_test2(Config, Ts, []),
     ok.
 
-export_all(doc) ->
-    "OTP-7392. Warning for export_all.";
+%% OTP-7392. Warning for export_all.
 export_all(Config) when is_list(Config) ->
     Ts = <<"-module(export_all_module).
             -compile([export_all]).
@@ -2790,9 +2726,7 @@ export_all(Config) when is_list(Config) ->
 	run_test2(Config, Ts, [warn_export_all]),
     ok.
 
-bif_clash(doc) ->
-    "Test warnings for functions that clash with BIFs.";
-bif_clash(suite) -> [];
+%% Test warnings for functions that clash with BIFs.
 bif_clash(Config) when is_list(Config) ->
     Ts = [{clash1,
            <<"t(X) ->
@@ -3062,9 +2996,7 @@ bif_clash(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-behaviour_basic(doc) ->
-    "Basic tests with one behaviour.";
-behaviour_basic(suite) -> [];
+%% Basic tests with one behaviour.
 behaviour_basic(Config) when is_list(Config) ->
     Ts = [{behaviour1,
            <<"-behaviour(application).
@@ -3101,9 +3033,7 @@ behaviour_basic(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-behaviour_multiple(doc) ->
-    "Basic tests with multiple behaviours.";
-behaviour_multiple(suite) -> [];
+%% Basic tests with multiple behaviours.
 behaviour_multiple(Config) when is_list(Config) ->
     Ts = [{behaviour1,
            <<"-behaviour(application).
@@ -3204,9 +3134,7 @@ behaviour_multiple(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-otp_11861(doc) ->
-    "OTP-11861. behaviour_info() and -callback.";
-otp_11861(suite) -> [];
+%% OTP-11861. behaviour_info() and -callback.
 otp_11861(Conf) when is_list(Conf) ->
     CallbackFiles = [callback1, callback2, callback3,
                      bad_behaviour1, bad_behaviour2],
@@ -3391,8 +3319,8 @@ otp_11861(Conf) when is_list(Conf) ->
     true = code:set_path(CodePath),
     ok.
 
-otp_7550(doc) ->
-    "Test that the new utf8/utf16/utf32 types do not allow size or unit specifiers.";
+%% Test that the new utf8/utf16/utf32 types do not allow size or
+%% unit specifiers.
 otp_7550(Config) when is_list(Config) ->
     Ts = [{otp_7550,
            <<"f8(A) ->
@@ -3432,8 +3360,7 @@ otp_7550(Config) when is_list(Config) ->
     ok.
     
 
-otp_8051(doc) ->
-    "Bugfix: -opaque with invalid type.";
+%% Bugfix: -opaque with invalid type.
 otp_8051(Config) when is_list(Config) ->
     Ts = [{otp_8051,
            <<"-opaque foo() :: bar().
@@ -3444,9 +3371,7 @@ otp_8051(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-format_warn(doc) ->
-    "Check that format warnings are generated.";
-format_warn(suite) -> [];
+%% Check that format warnings are generated.
 format_warn(Config) when is_list(Config) ->
     L1 = 14,
     L2 = 4,
@@ -3554,9 +3479,7 @@ on_load_failing(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
-too_many_arguments(doc) ->
-    "Test that too many arguments is not accepted.";
-too_many_arguments(suite) -> [];
+%% Test that too many arguments is not accepted.
 too_many_arguments(Config) when is_list(Config) ->
     Ts = [{too_many_1,
 	   <<"f(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ok.">>,
@@ -3648,9 +3571,7 @@ bin_syntax_errors(Config) ->
     [] = run(Config, Ts),
     ok.
 
-predef(doc) ->
-    "OTP-10342: No longer predefined types: array(), digraph(), and so on";
-predef(suite) -> [];
+%% OTP-10342: No longer predefined types: array(), digraph(), and so on.
 predef(Config) when is_list(Config) ->
     W = get_compilation_result(Config, "predef", []),
     [] = W,
@@ -3777,8 +3698,7 @@ maps_type(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-otp_11851(doc) ->
-    "OTP-11851: More atoms can be used as type names + bug fixes.";
+%% OTP-11851: More atoms can be used as type names + bug fixes.
 otp_11851(Config) when is_list(Config) ->
     Ts = [
 	{otp_11851_1,
@@ -3864,9 +3784,8 @@ otp_11851(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-otp_11879(doc) ->
-    "OTP-11879: The -spec f/a :: (As) -> B; syntax removed, "
-    "and is_subtype/2 deprecated";
+%% OTP-11879: The -spec f/a :: (As) -> B; syntax removed,
+%% and is_subtype/2 deprecated.
 otp_11879(_Config) ->
     Fs = [{attribute,0,file,{"file.erl",0}},
           {attribute,0,module,m},
@@ -3887,8 +3806,7 @@ otp_11879(_Config) ->
      []} = compile:forms(Fs, [return,report]),
     ok.
 
-otp_13230(doc) ->
-    "OTP-13230: -deprecated without -module";
+%% OTP-13230: -deprecated without -module.
 otp_13230(Config) when is_list(Config) ->
     Abstr = <<"-deprecated([{frutt,0,next_version}]).">>,
     {errors,[{1,erl_lint,undefined_module},

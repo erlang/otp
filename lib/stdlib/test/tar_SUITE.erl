@@ -53,10 +53,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-borderline(doc) ->
-    ["Test creating, listing and extracting one file from an archive",
-     "multiple times with different file sizes. ",
-     "Also check that the file attributes of the extracted file has survived."];
+%% Test creating, listing and extracting one file from an archive,
+%% multiple times with different file sizes.  Also check that the file
+%% attributes of the extracted file has survived.
 borderline(Config) when is_list(Config) ->
 
     %% Note: We cannot use absolute paths, because the pathnames will be
@@ -198,11 +197,9 @@ random_byte_list(_X, 0, Result) ->
 next_random(X) ->
     (X*17059465+1) band 16#fffffffff.
 
-atomic(doc) ->
-    ["Test the 'atomic' operations: create/extract/table, on compressed "
-     "and uncompressed archives."
-     "Also test the 'cooked' option."];
-atomic(suite) -> [];
+%% Test the 'atomic' operations: create/extract/table, on compressed
+%% and uncompressed archives.
+%% Also test the 'cooked' option.
 atomic(Config) when is_list(Config) ->
     ?line ok = file:set_cwd(?config(priv_dir, Config)),
     ?line DataFiles = data_files(),
@@ -279,9 +276,8 @@ create_files([{Name, Size, First}|Rest]) ->
 create_files([]) ->
     ok.
 
-long_names(doc) ->
-    ["Test to extract an Unix tar file containing filenames longer than 100 ",
-    "characters and empty directories."];
+%% Test to extract an Unix tar file containing filenames longer than
+%% 100 characters and empty directories.
 long_names(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line Long = filename:join(DataDir, "long_names.tar"),
@@ -315,9 +311,8 @@ do_long_names(Long) ->
 
     ok.
 
-create_long_names(doc) ->
-    ["Creates a tar file from a deep directory structure (filenames are ",
-     "longer than 100 characters)."];
+%% Creates a tar file from a deep directory structure (filenames are
+%% longer than 100 characters).
 create_long_names(Config) when is_list(Config) ->
     run_in_short_tempdir(Config, fun create_long_names/0).
     
@@ -359,8 +354,7 @@ make_dirs([Dir|Rest], Parent) ->
 make_dirs([], Dir) ->
     Dir.
 
-bad_tar(doc) ->
-    ["Try erl_tar:table/2 and erl_tar:extract/2 on some corrupted tar files."];
+%% Try erl_tar:table/2 and erl_tar:extract/2 on some corrupted tar files.
 bad_tar(Config) when is_list(Config) ->
     ?line try_bad("bad_checksum", bad_header, Config),
     ?line try_bad("bad_octal",    bad_header, Config),
@@ -395,9 +389,8 @@ try_bad(Name0, Reason, Config) ->
 	    ct:fail({bad_return_value, Other1, Other2})
     end.
 
-errors(doc) ->
-    ["Tests that some common errors return correct error codes ",
-     "and that format_error/1 handles them correctly."];
+%% Tests that some common errors return correct error codes
+%% and that format_error/1 handles them correctly.
 errors(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
 
@@ -444,8 +437,7 @@ remove_prefix([C|Rest1], [C|Rest2]) ->
 remove_prefix(_, Result) ->
     Result.
 
-extract_from_binary(doc) ->
-    "Test extracting a tar archive from a binary.";
+%% Test extracting a tar archive from a binary.
 extract_from_binary(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line PrivDir = ?config(priv_dir, Config),
@@ -501,8 +493,7 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
 
     ok.
 
-extract_from_open_file(doc) ->
-    "Test extracting a tar archive from an open file.";
+%% Test extracting a tar archive from an open file.
 extract_from_open_file(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line PrivDir = ?config(priv_dir, Config),
@@ -527,8 +518,7 @@ extract_from_open_file(Config) when is_list(Config) ->
 
     ok.
 
-symlinks(doc) ->
-    "Test that archives containing symlinks can be created and extracted.";
+%% Test that archives containing symlinks can be created and extracted.
 symlinks(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Dir = filename:join(PrivDir, "symlinks"),
@@ -700,9 +690,8 @@ cooked_compressed(Config) when is_list(Config) ->
     ?line delete_files([filename:join(PrivDir, "ddll_SUITE_data")]),
     ok.
 
-memory(doc) ->
-    ["Test that an archive can be created directly from binaries and "
-     "that an archive can be extracted into binaries."];
+%% Test that an archive can be created directly from binaries and
+%% that an archive can be extracted into binaries.
 memory(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
 

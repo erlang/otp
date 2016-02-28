@@ -59,8 +59,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-simple(doc) -> [];
-simple(suite) -> [];
 simple(Config) when is_list(Config) ->
     ?line G = digraph:new(),
     ?line add_vertices(G, [a]),
@@ -97,8 +95,6 @@ simple(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-loop(doc) -> [];
-loop(suite) -> [];
 loop(Config) when is_list(Config) ->
     ?line G = digraph:new(),
     ?line add_vertices(G, [a,b]),
@@ -119,8 +115,6 @@ loop(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-isolated(doc) -> [];
-isolated(suite) -> [];
 isolated(Config) when is_list(Config) ->
     ?line G = digraph:new(),
     ?line add_vertices(G, [a,b]),
@@ -140,8 +134,6 @@ isolated(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-topsort(doc) -> [];
-topsort(suite) -> [];
 topsort(Config) when is_list(Config) ->
     ?line G = digraph:new(),
     ?line add_edges(G, [{a,b},{b,c},{c,d},{d,e},{e,f}]),
@@ -149,8 +141,6 @@ topsort(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-subgraph(doc) -> [];
-subgraph(suite) -> [];
 subgraph(Config) when is_list(Config) ->
     ?line G = digraph:new([acyclic]),
     ?line add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
@@ -197,8 +187,6 @@ subgraph(Config) when is_list(Config) ->
 
     ok.
 
-condensation(doc) -> [];
-condensation(suite) -> [];
 condensation(Config) when is_list(Config) ->
     ?line G = digraph:new([]),
     ?line add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
@@ -217,8 +205,7 @@ condensation(Config) when is_list(Config) ->
     ?line true = digraph:delete(G),
     ok.
 
-tree(doc) -> ["OTP-7081"];
-tree(suite) -> [];
+%% OTP-7081
 tree(Config) when is_list(Config) ->
     ?line false = is_tree([], []),
     ?line true = is_tree([a], []),

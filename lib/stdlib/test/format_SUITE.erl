@@ -56,10 +56,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-hang_1(doc) ->
-    ["Bad args can hang (OTP-2400)"];
-hang_1(suite) ->
-    [];
+%% OTP-2400. Bad args can hang.
 hang_1(Config) when is_list(Config) ->
     ?line _ = (catch io:format(a, "", [])),
     ?line _ = (catch io:format({}, "", [])),

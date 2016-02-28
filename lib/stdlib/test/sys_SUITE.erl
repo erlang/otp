@@ -53,7 +53,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-log(suite) -> [];
 log(Config) when is_list(Config) ->
     {ok,_Server} = start(),
     ok = sys:log(?server,true),
@@ -63,7 +62,6 @@ log(Config) when is_list(Config) ->
     stop(),
     ok.
 
-log_to_file(suite) -> [];
 log_to_file(Config) when is_list(Config) ->
     TempName = test_server:temp_name(?config(priv_dir,Config) ++ "sys."),
     {ok,_Server} = start(),
@@ -79,7 +77,6 @@ log_to_file(Config) when is_list(Config) ->
     stop(),
     ok.
 
-stats(suite) -> [];
 stats(Config) when is_list(Config) ->
     Self = self(),
     {ok,_Server} = start(),
@@ -95,7 +92,6 @@ stats(Config) when is_list(Config) ->
     stop(),
     ok.
 
-trace(suite) -> [];
 trace(Config) when is_list(Config) ->
     {ok,_Server} = start(),
     ct:sleep(2000),
@@ -111,7 +107,6 @@ trace(Config) when is_list(Config) ->
     stop(),
     ok.
 
-suspend(suite) -> [];
 suspend(Config) when is_list(Config) ->
     ?line {ok,_Server} = start(),
     ?line sys:suspend(?server,1000),
@@ -127,7 +122,6 @@ suspend(Config) when is_list(Config) ->
     ?line stop(),
     ok.
 
-install(suite) -> [];
 install(Config) when is_list(Config) ->
     ?line {ok,_Server} = start(),
     ?line Master = self(),
@@ -161,7 +155,6 @@ get_messages() ->
     after 1 -> []
     end.
 
-special_process(suite) -> [];
 special_process(Config) when is_list(Config) ->
     ok = spec_proc(sys_sp1),
     ok = spec_proc(sys_sp2).

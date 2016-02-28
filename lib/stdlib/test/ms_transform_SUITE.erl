@@ -79,10 +79,8 @@ end_per_group(_GroupName, Config) ->
 
 %% This may be subject to change
 -define(WARN_NUMBER_SHADOW,50).
-warnings(suite) ->
-    [];
-warnings(doc) ->
-    ["Check that shadowed variables in fun head generate warning"];
+
+%% Check that shadowed variables in fun head generate warning.
 warnings(Config) when is_list(Config) ->
     ?line setup(Config),
     Prog = <<"A=5, "
@@ -160,11 +158,8 @@ warnings(Config) when is_list(Config) ->
 	compile_ww(Prog7),
     ok.
 
-no_warnings(suite) ->
-    [];
-no_warnings(doc) ->
-    ["Check that variables bound in other function clauses don't generate "
-     "warning"];
+%% Check that variables bound in other function clauses don't generate
+%% warning.
 no_warnings(Config) when is_list(Config) ->
     ?line setup(Config),
     Prog = <<"tmp(X) when X > 100 ->\n",
@@ -188,10 +183,7 @@ no_warnings(Config) when is_list(Config) ->
     ?line [] = compile_no_ww(Prog2),
     ok.
 
-andalso_orelse(suite) ->
-    [];
-andalso_orelse(doc) ->
-    ["Tests that andalso and orelse are allowed in guards."];
+%% Test that andalso and orelse are allowed in guards.
 andalso_orelse(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{{'$1','$2'},
@@ -225,10 +217,7 @@ andalso_orelse(Config) when is_list(Config) ->
     ok.
     
     
-bitsyntax(suite) ->
-    [];
-bitsyntax(doc) ->
-    ["Tests that bitsyntax works and does not work where appropriate"];
+%% Test that bitsyntax works and does not work where appropriate.
 bitsyntax(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{'_',[],
@@ -263,10 +252,7 @@ bitsyntax(Config) when is_list(Config) ->
 	     "            end)">>),
     ok.
 
-record_defaults(suite) ->
-    [];
-record_defaults(doc) ->
-    ["Tests that record defaults works"];
+%% Test that record defaults works.
 record_defaults(Config) when is_list(Config) ->
     ?line setup(Config),    
     ?line [{{<<27>>,{a,5,'$1',hej,hej}},
@@ -278,10 +264,7 @@ record_defaults(Config) when is_list(Config) ->
 	                              "end)">>),
     ok.
 
-basic_ets(suite) ->
-    [];
-basic_ets(doc) ->
-    ["Tests basic ets:fun2ms"];
+%% Test basic ets:fun2ms.
 basic_ets(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{{a,b},[],[true]}] = compile_and_run(
@@ -299,10 +282,7 @@ basic_ets(Config) when is_list(Config) ->
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
     ok.
 
-basic_dbg(suite) ->
-    [];
-basic_dbg(doc) ->
-    ["Tests basic ets:fun2ms"];
+%% Tests basic ets:fun2ms.
 basic_dbg(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{[a,b],[],[{message,banan},{return_trace}]}] =
@@ -318,10 +298,7 @@ basic_dbg(Config) when is_list(Config) ->
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> object() end)">>),
     ok.
 
-from_shell(suite) ->
-    [];
-from_shell(doc) ->
-    ["Test calling of ets/dbg:fun2ms from the shell"]; 
+%% Test calling of ets/dbg:fun2ms from the shell.
 from_shell(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line Fun = do_eval("fun({a,b}) -> true end"),
@@ -335,10 +312,7 @@ from_shell(Config) when is_list(Config) ->
 	  "dbg:fun2ms(fun([a,b]) -> message(banan), return_trace() end)"),
     ok.
 
-records(suite) ->
-    [];
-records(doc) ->
-    ["Tests expansion of records in fun2ms"];
+%% Tests expansion of records in fun2ms.
 records(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(t, {"
@@ -385,10 +359,7 @@ records(Config) when is_list(Config) ->
     ok.
 
 
-record_index(suite) ->
-    [];
-record_index(doc) ->
-    ["Tests expansion of records in fun2ms, part 2"];
+%% Test expansion of records in fun2ms, part 2.
 record_index(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
@@ -400,10 +371,7 @@ record_index(Config) when is_list(Config) ->
 		    <<"ets:fun2ms(fun({#a.a,A}) when A > #a.a -> #a.a end)">>),
     ok.
 
-top_match(suite) ->
-    [];
-top_match(doc) ->
-    ["Tests matching on top level in head to give alias for object()"];
+%% Tests matching on top level in head to give alias for object().
 top_match(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
@@ -427,10 +395,7 @@ top_match(Config) when is_list(Config) ->
 			 <<"ets:fun2ms(fun(A#a{a = 2}) -> A end)">>),
     ok.
 
-multipass(suite) ->
-    [];
-multipass(doc) ->
-    ["Tests that multi-defined fields in records give errors."];
+%% Tests that multi-defined fields in records give errors.
 multipass(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
@@ -451,10 +416,7 @@ multipass(Config) when is_list(Config) ->
     ok.
 
 
-old_guards(suite) ->
-    [];
-old_guards(doc) ->
-    ["Tests that old type tests in guards are translated"];
+%% Test that old type tests in guards are translated.
 old_guards(Config) when is_list(Config) ->
     ?line setup(Config),
     Tests = [
@@ -511,11 +473,8 @@ old_guards(Config) when is_list(Config) ->
 			     >>),
     ok.
     
-autoimported(suite) ->
-    [];
-autoimported(doc) ->
-    ["Tests use of autoimported bif's used like erlang:'+'(A,B) in guards"
-     " and body."];
+%% Test use of autoimported BIFs used like erlang:'+'(A,B) in guards
+%% and body.
 autoimported(Config) when is_list(Config) ->
     ?line setup(Config),
     Allowed = [
@@ -687,10 +646,7 @@ autoimported(Config) when is_list(Config) ->
 	    Allowed),
     ok.
 
-semicolon(suite) ->
-    [];
-semicolon(doc) ->
-    ["Tests semicolon in guards of match_specs."];
+%% Test semicolon in guards of match_specs.
 semicolon(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line Res01 = compile_and_run
@@ -711,10 +667,7 @@ semicolon(Config) when is_list(Config) ->
     ok.
     
     
-float_1_function(suite) ->
-    [];
-float_1_function(doc) ->
-    ["OTP-5297. The function float/1."];
+%% OTP-5297. The function float/1.
 float_1_function(Config) when is_list(Config) ->
     ?line setup(Config),
     RunMS = fun(L, MS) -> 
@@ -759,10 +712,7 @@ float_1_function(Config) when is_list(Config) ->
     ok.
 
 
-action_function(suite) ->
-    [];
-action_function(doc) ->
-    ["Test all 'action functions'."];
+%% Test all 'action functions'.
 action_function(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{['$1','$2'],[],

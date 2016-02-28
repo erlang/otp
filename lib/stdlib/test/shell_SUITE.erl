@@ -109,10 +109,7 @@ end_per_group(_GroupName, Config) ->
 -record(state, {bin, reply, leader, unic = latin1}).
 
 
-start_restricted_from_shell(doc) ->
-    ["Test that a restricted shell can be started from the normal shell"];
-start_restricted_from_shell(suite) ->
-    [];
+%% Test that a restricted shell can be started from the normal shell.
 start_restricted_from_shell(Config) when is_list(Config) ->
     ?line [{error,nofile}] = scan(<<"begin shell:start_restricted("
 				    "nonexisting_module) end.">>),
@@ -188,10 +185,7 @@ start_restricted_from_shell(Config) when is_list(Config) ->
 	application:get_env(stdlib, restricted_shell),
     ok.
 
-start_restricted_on_command_line(doc) ->
-    ["Check restricted shell when started from the command line"];
-start_restricted_on_command_line(suite) ->
-    [];
+%% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
     ?line {ok,Node} = start_node(shell_suite_helper_1,
 				 "-pa "++?config(priv_dir,Config)++ 
@@ -241,10 +235,8 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
     ?line test_server:stop_node(Node2),
     ok.
 
-restricted_local(suite) ->
-    [];
-restricted_local(doc) ->
-    ["Tests calling local shell functions with spectacular arguments in restricted shell"];
+%% Tests calling local shell functions with spectacular arguments in
+%% restricted shell.
 restricted_local(Config) when is_list(Config) ->
     ?line [{error,nofile}] = scan(<<"begin shell:start_restricted("
 				    "nonexisting_module) end.">>),
@@ -308,10 +300,7 @@ restricted_local(Config) when is_list(Config) ->
     ok.
     
 
-forget(doc) ->
-    ["f/0 and f/1"];
-forget(suite) ->
-    [];
+%% f/0 and f/1.
 forget(Config) when is_list(Config) ->
     %% f/0
     ?line [ok] = scan(<<"begin f() end.">>),
@@ -328,10 +317,7 @@ forget(Config) when is_list(Config) ->
         comm_err(<<"f(a).">>),
     ok.
 
-records(doc) ->
-    ["Test of the record support. OTP-5063."];
-records(suite) ->
-    [];
+%% Test of the record support. OTP-5063.
 records(Config) when is_list(Config) ->
     %% rd/2
     ?line [{attribute,_,record,{bar,_}},ok] = 
@@ -490,19 +476,13 @@ records(Config) when is_list(Config) ->
 
     ok.
 
-known_bugs(doc) ->
-    ["Known bugs."];
-known_bugs(suite) ->
-    [];
+%% Known bugs.
 known_bugs(Config) when is_list(Config) ->
     %% erl_eval:merge_bindings/2 cannot handle _removal_ of bindings.
     ?line [3] = scan(<<"A = 3, length(begin f(A), [3] end), A.">>),
     ok.
 
-otp_5226(doc) ->
-    ["OTP-5226. Wildcards accepted when reading BEAM files using rr/1,2,3."];
-otp_5226(suite) ->
-    [];
+%% OTP-5226. Wildcards accepted when reading BEAM files using rr/1,2,3.
 otp_5226(Config) when is_list(Config) ->
     Test1 = <<"-module(test1).
                -record('_test1', {a,b}).">>,
@@ -523,10 +503,7 @@ otp_5226(Config) when is_list(Config) ->
     file:delete(File2),
     ok.
 
-otp_5327(doc) ->
-    ["OTP-5226. Test of eval_bits, mostly."];
-otp_5327(suite) ->
-    [];
+%% OTP-5226. Test of eval_bits, mostly.
 otp_5327(Config) when is_list(Config) ->
     ?line "exception error: bad argument" = 
         comm_err(<<"<<\"hej\":default>>.">>),
@@ -596,10 +573,7 @@ otp_5327(Config) when is_list(Config) ->
         (catch evaluate(<<"<<32/unit:8>>.">>, [])),
     ok.
 
-otp_5435(doc) ->
-    ["OTP-5435. sys_pre_expand not in the path."];
-otp_5435(suite) ->
-    [];
+%% OTP-5435. sys_pre_expand not in the path.
 otp_5435(Config) when is_list(Config) ->
     ?line true = <<103133:64/float>> =:= 
         evaluate(<<"<<103133:64/float>> = <<103133:64/float>>.">>, []),
@@ -625,10 +599,7 @@ otp_5435_2() ->
                 rl(bar).">>),
     ok.
 
-otp_5195(doc) ->
-    ["OTP-5195. QLC, mostly."];
-otp_5195(suite) ->
-    [];
+%% OTP-5195. QLC, mostly.
 otp_5195(Config) when is_list(Config) ->
     %% QLC. It was easier to put these cases here than in qlc_SUITE.
     ?line "[#a{b = undefined}].\n" = 
@@ -661,10 +632,7 @@ otp_5195(Config) when is_list(Config) ->
 
     ok.
 
-otp_5915(doc) ->
-    ["OTP-5915. Strict record tests in guards."];
-otp_5915(suite) ->
-    [];
+%% OTP-5915. Strict record tests in guards.
 otp_5915(Config) when is_list(Config) ->
     C = <<"
         rd(r, {a = 4,b}),
@@ -806,10 +774,7 @@ otp_5915(Config) when is_list(Config) ->
     [ok] = scan(C),
     ok.
 
-otp_5916(doc) ->
-    ["OTP-5916. erlang:is_record/3 allowed in guards."];
-otp_5916(suite) ->
-    [];
+%% OTP-5916. erlang:is_record/3 allowed in guards.
 otp_5916(Config) when is_list(Config) ->
     C = <<"
         rd(r1, {a,b}),
@@ -826,10 +791,7 @@ otp_5916(Config) when is_list(Config) ->
     ok.
 
 
-bs_match_misc_SUITE(doc) ->
-    ["OTP-5327. Adopted from parts of emulator/test/bs_match_misc_SUITE.erl."];
-bs_match_misc_SUITE(suite) -> 
-    [];
+%% OTP-5327. Adopted from parts of emulator/test/bs_match_misc_SUITE.erl.
 bs_match_misc_SUITE(Config) when is_list(Config) ->
     C = <<"
       F1 = fun() -> 3.1415 end,
@@ -979,10 +941,8 @@ bs_match_misc_SUITE(Config) when is_list(Config) ->
     ok = evaluate(C, []).
 
 %% This one is not run during night builds since it takes several minutes.
-bs_match_int_SUITE(doc) ->
-    ["OTP-5327. Adopted from emulator/test/bs_match_int_SUITE.erl."];
-bs_match_int_SUITE(suite) -> 
-    [];
+
+%% OTP-5327. Adopted from emulator/test/bs_match_int_SUITE.erl.
 bs_match_int_SUITE(Config) when is_list(Config) ->
     C = <<"
        FunClause = fun({'EXIT',{function_clause,_}}) -> ok end,
@@ -1199,10 +1159,7 @@ bs_match_int_SUITE(Config) when is_list(Config) ->
     [ok] = scan(C),
     ok = evaluate(C, []).
 
-bs_match_tail_SUITE(doc) ->
-    ["OTP-5327. Adopted from emulator/test/bs_match_tail_SUITE.erl."];
-bs_match_tail_SUITE(suite) -> 
-    [];
+%% OTP-5327. Adopted from emulator/test/bs_match_tail_SUITE.erl.
 bs_match_tail_SUITE(Config) when is_list(Config) ->
     C = <<"
           GetTailUsed = fun(<<A:1,T/binary>>) -> {A,T} end,
@@ -1274,10 +1231,7 @@ bs_match_tail_SUITE(Config) when is_list(Config) ->
     [ok] = scan(C),
     ok = evaluate(C, []).
 
-bs_match_bin_SUITE(doc) ->
-    ["OTP-5327. Adopted from emulator/test/bs_match_bin_SUITE.erl."];
-bs_match_bin_SUITE(suite) -> 
-    [];
+%% OTP-5327. Adopted from emulator/test/bs_match_bin_SUITE.erl.
 bs_match_bin_SUITE(Config) when is_list(Config) ->
     ByteSplitBinary = 
         <<"ByteSplit = 
@@ -1392,10 +1346,7 @@ bs_match_bin_SUITE(Config) when is_list(Config) ->
                    end)(Nonliteral(" ??Int0 ")),
         true = <<" ??Int0 ":64/float>> =:= <<(float("??Int0")):64/float>>").
 
-bs_construct_SUITE(doc) ->
-    ["OTP-5327. Adopted from parts of emulator/test/bs_construct_SUITE.erl."];
-bs_construct_SUITE(suite) -> 
-    [];
+%% OTP-5327. Adopted from parts of emulator/test/bs_construct_SUITE.erl.
 bs_construct_SUITE(Config) when is_list(Config) ->
     C1 = <<"
 
@@ -1546,10 +1497,7 @@ evaluate(Str, Vars) ->
     end.
 
 
-refman_bit_syntax(doc) ->
-    ["Bit syntax examples from the Reference Manual. OTP-5237."];
-refman_bit_syntax(suite) ->
-    [];
+%% Bit syntax examples from the Reference Manual. OTP-5237.
 refman_bit_syntax(Config) when is_list(Config) ->
     %% Reference Manual "Bit Syntax Expressions"
     ?line Bin1 = <<1,17,42>>,
@@ -1590,10 +1538,8 @@ refman_bit_syntax(Config) when is_list(Config) ->
 
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
-progex_bit_syntax(doc) ->
-    ["Bit syntax examples from Programming Examples. OTP-5237."];
-progex_bit_syntax(suite) ->
-    [];
+
+%% Bit syntax examples from Programming Examples. OTP-5237.
 progex_bit_syntax(Config) when is_list(Config) ->
     Bin11 = <<1, 17, 42>>,
     true = [1, 17, 42] =:= binary_to_list(Bin11),
@@ -1723,10 +1669,7 @@ triples_to_bin2([{X,Y,Z} | T], Acc) ->
 triples_to_bin2([], Acc) -> 
     list_to_binary(lists:reverse(Acc)).
 
-progex_records(doc) ->
-    ["Record examples from Programming Examples. OTP-5237."];
-progex_records(suite) ->
-    [];
+%% Record examples from Programming Examples. OTP-5237.
 progex_records(Config) when is_list(Config) ->
     Test1 = 
        <<"-module(recs).
@@ -1879,10 +1822,7 @@ progex_records(Config) when is_list(Config) ->
     ?line ok = run_file(Config, recs, Test2),
     ok.
 
-progex_lc(doc) ->
-    ["List comprehension examples from Programming Examples. OTP-5237."];
-progex_lc(suite) ->
-    [];
+%% List comprehension examples from Programming Examples. OTP-5237.
 progex_lc(Config) when is_list(Config) ->
     Test1 = 
        <<"-module(lc).
@@ -2016,10 +1956,7 @@ progex_lc(Config) when is_list(Config) ->
     ?line [ok] = scan(Test1_shell),
     ok.
 
-progex_funs(doc) ->
-    ["Funs examples from Programming Examples. OTP-5237."];
-progex_funs(suite) ->
-    [];
+%% Funs examples from Programming Examples. OTP-5237.
 progex_funs(Config) when is_list(Config) ->
     Test1 = 
        <<"-module(funs).
@@ -2278,9 +2215,7 @@ progex_funs(Config) when is_list(Config) ->
     ok.
 
 
-otp_5990(doc) ->
-    "OTP-5990. {erlang,is_record}.";
-otp_5990(suite) -> [];
+%% OTP-5990. {erlang,is_record}.
 otp_5990(Config) when is_list(Config) ->
     ?line [true] = 
         scan(<<"rd('OrdSet', {orddata = {},ordtype = type}), "
@@ -2288,9 +2223,7 @@ otp_5990(Config) when is_list(Config) ->
                "if tuple(S#'OrdSet'.ordtype) -> true; true -> false end.">>),
     ok.
 
-otp_6166(doc) ->
-    "OTP-6166. Order of record definitions.";
-otp_6166(suite) -> [];
+%% OTP-6166. Order of record definitions.
 otp_6166(Config) when is_list(Config) ->
     Test1 = filename:join(?config(priv_dir, Config), "test1.hrl"),
     Contents1 = <<"-module(test1).
@@ -2320,9 +2253,7 @@ otp_6166(Config) when is_list(Config) ->
     file:delete(Test2),
     ok.
 
-otp_6554(doc) ->
-    "OTP-6554. Formatted exits and error messages.";
-otp_6554(suite) -> [];
+%% OTP-6554. Formatted exits and error messages.
 otp_6554(Config) when is_list(Config) ->
     %% Should check the stacktrace as well...
     ?line "exception error: bad argument" = 
@@ -2549,9 +2480,7 @@ otp_6554(Config) when is_list(Config) ->
 
     ok.
 
-otp_7184(doc) ->
-    "OTP-7184. Propagate exit signals from dying evaluator process.";
-otp_7184(suite) -> [];
+%% OTP-7184. Propagate exit signals from dying evaluator process.
 otp_7184(Config) when is_list(Config) ->
     register(otp_7184, self()),
     ?line catch 
@@ -2602,9 +2531,7 @@ otp_7184(Config) when is_list(Config) ->
 
     ok.
 
-otp_7232(doc) ->
-    "OTP-7232. qlc:info() bug.";
-otp_7232(suite) -> [];
+%% OTP-7232. qlc:info() bug.
 otp_7232(Config) when is_list(Config) ->
     Info = <<"qlc:info(qlc:sort(qlc:q([X || X <- [55296,56296]]), "
              "{order, fun(A,B)-> A>B end})).">>,
@@ -2615,9 +2542,7 @@ otp_7232(Config) when is_list(Config) ->
     "           end}])" = evaluate(Info, []),
     ok.
 
-otp_8393(doc) ->
-    "OTP-8393. Prompt string.";
-otp_8393(suite) -> [];
+%% OTP-8393. Prompt string.
 otp_8393(Config) when is_list(Config) ->
     ?line _ = shell:prompt_func(default),
     ?line "Bad prompt function: '> '" =
@@ -2744,9 +2669,7 @@ prompt_err(B) ->
     S = string:strip(S2, both, $"),
     string:strip(S, right, $.).
 
-otp_10302(doc) ->
-    "OTP-10302. Unicode.";
-otp_10302(suite) -> [];
+%% OTP-10302. Unicode.
 otp_10302(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_2,
 			   "-pa "++?config(priv_dir,Config)++

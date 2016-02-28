@@ -55,7 +55,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-starting(suite) -> [];
 starting(Config) when is_list(Config) ->
     process_flag(trap_exit,true),
 
@@ -65,12 +64,10 @@ starting(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mini_terminate(suite) -> [];
 mini_terminate(Config) when is_list(Config) ->
     miniappl(1),
     ok.
 
-mini_die(suite) -> [];
 mini_die(Config) when is_list(Config) ->
     miniappl(2),
     ok.
@@ -172,8 +169,7 @@ terminate(_Reason, _State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-badstart(suite) -> [];
-badstart(doc) -> "Test various bad ways of starting a supervisor bridge.";
+%% Test various bad ways of starting a supervisor bridge.
 badstart(Config) when is_list(Config) ->
     %% Various bad arguments.
 
@@ -209,8 +205,7 @@ badstart(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OTP-9212. Restart of global supervisor.
 
-simple_global_supervisor(suite) -> [];
-simple_global_supervisor(doc) -> "Globally registered supervisor.";
+%% Globally registered supervisor.
 simple_global_supervisor(Config) when is_list(Config) ->
 
     Child = {child, {?MODULE,server9212,[]}, permanent, 2000, worker, []},

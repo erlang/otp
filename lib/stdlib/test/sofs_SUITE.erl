@@ -140,8 +140,6 @@ end_per_testcase(_Case, _Config) ->
 %% [{1,a,b},{2,b}] == lists:keysort(1,[{2,b},{1,a,b}])
 
 
-from_term_1(suite) -> [];
-from_term_1(doc) -> [""];
 from_term_1(Conf) when is_list(Conf) ->
     %% would go wrong: projection(1,from_term([{2,b},{1,a,b}])),
 
@@ -228,8 +226,6 @@ from_term_1(Conf) when is_list(Conf) ->
 
     ok.
 
-set_1(suite) -> [];
-set_1(doc) -> [""];
 set_1(Conf) when is_list(Conf) ->
     %% set/1
     ?line {'EXIT', {badarg, _}} = (catch set(a)),
@@ -260,8 +256,6 @@ set_1(Conf) when is_list(Conf) ->
 
     ok.
 
-from_sets_1(suite) -> [];
-from_sets_1(doc) -> [""];
 from_sets_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
 
@@ -297,8 +291,6 @@ from_sets_1(Conf) when is_list(Conf) ->
     ?line eval(from_sets({from_term({a}),E}), from_term({{a},[]})),
     ok.
 
-relation_1(suite) -> [];
-relation_1(doc) -> [""];
 relation_1(Conf) when is_list(Conf) ->
     %% relation/1
     ?line eval(relation([]), from_term([], [{atom,atom}])),
@@ -330,8 +322,6 @@ relation_1(Conf) when is_list(Conf) ->
 	       from_term([{[a,b,a],[[d,e,d]]}], [{atom,[[atom]]}])),
     ok.
 
-a_function_1(suite) -> [];
-a_function_1(doc) -> [""];
 a_function_1(Conf) when is_list(Conf) ->
     %% a_function/1
     ?line eval(a_function([]), from_term([], [{atom,atom}])),
@@ -377,8 +367,6 @@ a_function_1(Conf) when is_list(Conf) ->
 	       from_term([{[a,b],c}])),
     ok.
 
-family_1(suite) -> [];
-family_1(doc) -> [""];
 family_1(Conf) when is_list(Conf) ->
     %% family/1
     ?line eval(family([]), from_term([],[{atom,[atom]}])),
@@ -438,8 +426,6 @@ family_1(Conf) when is_list(Conf) ->
 	       from_term([{[a,b],[a]},{[b,a],[a,a]}])),
     ok.
 
-projection(suite) -> [];
-projection(doc) -> [""];
 projection(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -560,8 +546,6 @@ projection(Conf) when is_list(Conf) ->
 
     ok.
 
-substitution(suite) -> [];
-substitution(doc) -> [""];
 substitution(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -658,8 +642,6 @@ substitution(Conf) when is_list(Conf) ->
 
     ok.
 
-restriction(suite) -> [];
-restriction(doc) -> [""];
 restriction(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -777,8 +759,6 @@ restriction(Conf) when is_list(Conf) ->
                            from_term([], [atom]))),
     ok.
 
-drestriction(suite) -> [];
-drestriction(doc) -> [""];
 drestriction(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -894,8 +874,6 @@ drestriction(Conf) when is_list(Conf) ->
 			    from_term([], [atom]))),
     ok.
 
-strict_relation_1(suite) -> [];
-strict_relation_1(doc) -> [""];
 strict_relation_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -915,8 +893,6 @@ strict_relation_1(Conf) when is_list(Conf) ->
     end,
     ok.
 
-extension(suite) -> [];
-extension(doc) -> [""];
 extension(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -958,8 +934,6 @@ extension(Conf) when is_list(Conf) ->
 lextension(R, S, C) ->
     union(R, drestriction(1, constant_function(S, C), domain(R))).
 
-weak_relation_1(suite) -> [];
-weak_relation_1(doc) -> [""];
 weak_relation_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -991,8 +965,6 @@ weak_relation_1(Conf) when is_list(Conf) ->
     end,
     ok.
 
-to_sets_1(suite) ->  [];
-to_sets_1(doc) -> [""];
 to_sets_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch to_sets(from_term(a))),
     ?line {'EXIT', {function_clause, _}} = (catch to_sets(a)),
@@ -1013,8 +985,6 @@ to_sets_1(Conf) when is_list(Conf) ->
     ok.
 
 
-specification(suite) -> [];
-specification(doc) -> [""];
 specification(Conf) when is_list(Conf) ->
     Fun = {external, fun(I) when is_integer(I) -> true; (_) -> false end},
     ?line [1,2,3] = to_external(specification(Fun, set([a,1,b,2,c,3]))),
@@ -1039,8 +1009,6 @@ specification(Conf) when is_list(Conf) ->
 	(catch specification(Fun, a)),
     ok.
 
-union_1(suite) -> [];
-union_1(doc) -> [""];
 union_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -1069,8 +1037,6 @@ union_1(Conf) when is_list(Conf) ->
     ?line eval(union(from_term([[a,b]])), from_term([a,b])),
     ok.
 
-intersection_1(suite) -> [];
-intersection_1(doc) -> [""];
 intersection_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line {'EXIT', {badarg, _}} = (catch intersection(from_term([a,b]))),
@@ -1093,8 +1059,6 @@ intersection_1(Conf) when is_list(Conf) ->
                set([d])),
     ok.
 
-difference(suite) -> [];
-difference(doc) -> [""];
 difference(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line {'EXIT', {type_mismatch, _}} =
@@ -1114,8 +1078,6 @@ difference(Conf) when is_list(Conf) ->
                set([a,b,d,e,f])),
     ok.
 
-symdiff(suite) -> [];
-symdiff(doc) -> [""];
 symdiff(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line {'EXIT', {type_mismatch, _}} =
@@ -1139,8 +1101,6 @@ symdiff(Conf) when is_list(Conf) ->
                union(set([c,g,k]), set([e,i,m,n,o,p]))),
     ok.
 
-symmetric_partition(suite) -> [];
-symmetric_partition(doc) -> [""];
 symmetric_partition(Conf) when is_list(Conf) ->
     ?line E = set([]),
     ?line S1 = set([1,2,3,4]),
@@ -1173,8 +1133,6 @@ symmetric_partition(Conf) when is_list(Conf) ->
 
     ok.
 
-is_sofs_set_1(suite) -> [];
-is_sofs_set_1(doc) -> [""];
 is_sofs_set_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line true = is_sofs_set(E),
@@ -1184,8 +1142,6 @@ is_sofs_set_1(Conf) when is_list(Conf) ->
     ?line false = is_sofs_set(a),
     ok.
 
-is_set_1(suite) -> [];
-is_set_1(doc) -> [""];
 is_set_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line true = is_set(E),
@@ -1202,8 +1158,6 @@ is_set_1(Conf) when is_list(Conf) ->
 
     ok.
 
-is_equal(suite) -> [];
-is_equal(doc) -> [""];
 is_equal(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line true = is_equal(E, E),
@@ -1237,8 +1191,6 @@ is_equal(Conf) when is_list(Conf) ->
 
     ok.
 
-is_subset(suite) -> [];
-is_subset(doc) -> [""];
 is_subset(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line true = is_subset(E, E),
@@ -1255,8 +1207,6 @@ is_subset(Conf) when is_list(Conf) ->
         (catch is_subset(set([a]), from_term([a,b], [at]))),
     ok.
 
-is_a_function_1(suite) -> [];
-is_a_function_1(doc) -> [""];
 is_a_function_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([], 2),
@@ -1279,8 +1229,6 @@ is_a_function_1(Conf) when is_list(Conf) ->
     end,
     ok.
 
-is_disjoint(suite) -> [];
-is_disjoint(doc) -> [""];
 is_disjoint(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line {'EXIT', {type_mismatch, _}} = 
@@ -1293,8 +1241,6 @@ is_disjoint(Conf) when is_list(Conf) ->
     ?line true = is_disjoint(set([a,c,e]),set([b,d,f])),
     ok.
 
-join(suite) -> [];
-join(doc) -> [""];
 join(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
 
@@ -1331,8 +1277,6 @@ join(Conf) when is_list(Conf) ->
 	       from_term([{a,b,1},{b,c,3},{b,c,4}])),
     ok.
 
-canonical(suite) -> [];
-canonical(doc) -> [""];
 canonical(Conf) when is_list(Conf) ->
     ?line E = empty_set(),    
     ?line {'EXIT', {badarg, _}} = 
@@ -1343,8 +1287,6 @@ canonical(Conf) when is_list(Conf) ->
                from_term([{a,[a,b,c]},{b,[a,b,c]},{c,[a,b,c]}])),
     ok.
 
-relation_to_family_1(suite) -> [];
-relation_to_family_1(doc) -> [""];
 relation_to_family_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -1358,8 +1300,6 @@ relation_to_family_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch relation_to_family(set([a]))),
     ok.
 
-domain_1(suite) -> [];
-domain_1(doc) -> [""];
 domain_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1380,8 +1320,6 @@ domain_1(Conf) when is_list(Conf) ->
     end,
     ok.
 
-range_1(suite) -> [];
-range_1(doc) -> [""];
 range_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1392,8 +1330,6 @@ range_1(Conf) when is_list(Conf) ->
     ?line eval(range(relation([{a,1},{b,2},{c,3}])), set([1,2,3])),
     ok.
     
-inverse_1(suite) -> [];
-inverse_1(doc) -> [""];
 inverse_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1416,8 +1352,6 @@ inverse_1(Conf) when is_list(Conf) ->
     end,
     ok.
     
-converse_1(suite) -> [];
-converse_1(doc) -> [""];
 converse_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1432,8 +1366,6 @@ converse_1(Conf) when is_list(Conf) ->
 	       relation([{a,1},{a,2}])),
     ok.
     
-no_elements_1(suite) -> [];
-no_elements_1(doc) -> [""];
 no_elements_1(Conf) when is_list(Conf) ->
     ?line 0 = no_elements(empty_set()),
     ?line 0 = no_elements(set([])),
@@ -1444,8 +1376,6 @@ no_elements_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {function_clause, _}} = (catch no_elements(a)),
     ok.
 
-image(suite) -> [];
-image(doc) -> [""];
 image(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1466,8 +1396,6 @@ image(Conf) when is_list(Conf) ->
 	(catch image(from_term([{[a],1}]), set([[a]]))),
     ok.
 
-inverse_image(suite) -> [];
-inverse_image(doc) -> [""];
 inverse_image(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1493,8 +1421,6 @@ inverse_image(Conf) when is_list(Conf) ->
 	(catch inverse_image(converse(from_term([{[a],1}])), set([[a]]))),
     ok.
 
-composite_1(suite) -> [];
-composite_1(doc) -> [""];
 composite_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = a_function([]),
@@ -1545,8 +1471,6 @@ composite_1(Conf) when is_list(Conf) ->
     end,
     ok.
 
-relative_product_1(suite) -> [];
-relative_product_1(doc) -> [""];
 relative_product_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1573,8 +1497,6 @@ relative_product_1(Conf) when is_list(Conf) ->
 				 from_term([{b,c}], [{d,r}]))),
     ok.
 
-relative_product_2(suite) -> [];
-relative_product_2(doc) -> [""];
 relative_product_2(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1623,8 +1545,6 @@ relprod2(A1T, A2, R) ->
     eval(relative_product(A1T, A2), R),
     eval(relative_product(tuple_to_list(A1T), A2), R).
 
-product_1(suite) -> [];
-product_1(doc) -> [""];
 product_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line eval(product(E, E), E),
@@ -1651,8 +1571,6 @@ product_1(Conf) when is_list(Conf) ->
     ?line eval(product({relation([]), E}), E),
     ok.
 
-partition_1(suite) -> [];
-partition_1(doc) -> [""];
 partition_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1697,8 +1615,6 @@ partition_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch partition(from_term([a]))),
     ok.
 
-partition_3(suite) -> [];
-partition_3(doc) -> [""];
 partition_3(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1844,8 +1760,6 @@ partition_3(Conf) when is_list(Conf) ->
 lpartition(F, S1, S2) ->
     {restriction(F, S1, S2), drestriction(F, S1, S2)}.
 
-multiple_relative_product(suite) -> [];
-multiple_relative_product(doc) -> [""];
 multiple_relative_product(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -1868,8 +1782,6 @@ multiple_relative_product(Conf) when is_list(Conf) ->
 	(catch multiple_relative_product({T}, from_term([{{a}}]))), 
     ok.
 
-digraph(suite) -> [];
-digraph(doc) -> [""];
 digraph(Conf) when is_list(Conf) ->
     ?line T0 = ets:all(),
     ?line E = empty_set(),
@@ -1931,8 +1843,6 @@ digraph_fail(ExitReason, Fail) ->
 	{true,2} -> ok
     end.
 
-constant_function(suite) -> [];
-constant_function(doc) -> [""];
 constant_function(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line C = from_term(3),
@@ -1943,8 +1853,6 @@ constant_function(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch constant_function(set([]), foo)),
     ok.
 
-misc(suite) -> [];
-misc(doc) -> [""];
 misc(Conf) when is_list(Conf) ->
     % find "relational" part of relation:
     ?line S = relation([{a,b},{b,c},{b,d},{c,d}]),
@@ -1965,8 +1873,6 @@ relational_restriction(R) ->
     family_to_relation(family_specification(Fun, relation_to_family(R))).
 
 
-family_specification(suite) -> [];
-family_specification(doc) -> [""];
 family_specification(Conf) when is_list(Conf) ->
     E = empty_set(),
     %% internal
@@ -1997,8 +1903,6 @@ family_specification(Conf) when is_list(Conf) ->
 	(catch family_specification({external, Fun3}, F3)),
     ok.
 
-family_domain_1(suite) -> [];
-family_domain_1(doc) -> [""];
 family_domain_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = from_term([{a,[]},{b,[]}],[{atom,[{atom,atom}]}]),
@@ -2023,8 +1927,6 @@ family_domain_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch family_domain(set([{a,[b]}]))),
     ok.
 
-family_range_1(suite) -> [];
-family_range_1(doc) -> [""];
 family_range_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = from_term([{a,[]},{b,[]}],[{atom,[{atom,atom}]}]),
@@ -2045,8 +1947,6 @@ family_range_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch family_range(set([{a,[b]}]))),
     ok.
 
-family_to_relation_1(suite) -> [];
-family_to_relation_1(doc) -> [""];
 family_to_relation_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line ER = relation([]),
@@ -2059,8 +1959,6 @@ family_to_relation_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch family_to_relation(set([a]))),
     ok.
 
-union_of_family_1(suite) -> [];
-union_of_family_1(doc) -> [""];
 union_of_family_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = from_term([{a,[]},{b,[]}],[{atom,[atom]}]),
@@ -2074,8 +1972,6 @@ union_of_family_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch union_of_family(set([a]))),
     ok.
 
-intersection_of_family_1(suite) -> [];
-intersection_of_family_1(doc) -> [""];
 intersection_of_family_1(Conf) when is_list(Conf) ->
     ?line EF = from_term([{a,[]},{b,[]}],[{atom,[atom]}]),
     ?line eval(intersection_of_family(EF), set([])),
@@ -2088,8 +1984,6 @@ intersection_of_family_1(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = (catch intersection_of_family(set([a]))),
     ok.
 
-family_projection(suite) -> [];
-family_projection(doc) -> [""];
 family_projection(Conf) when is_list(Conf) ->
     SSType = [{atom,[[atom]]}],
     SRType = [{atom,[{atom,atom}]}],
@@ -2149,8 +2043,6 @@ family_projection(Conf) when is_list(Conf) ->
 	       from_term([{1,a}])),
     ok.
 
-family_difference(suite) -> [];
-family_difference(doc) -> [""];
 family_difference(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -2186,8 +2078,6 @@ family_difference(Conf) when is_list(Conf) ->
                                  from_term([{c,[d]}], [{i,[s]}]))),
     ok.
 
-family_intersection_1(suite) -> [];
-family_intersection_1(doc) -> [""];
 family_intersection_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -2206,8 +2096,6 @@ family_intersection_1(Conf) when is_list(Conf) ->
     ?line eval(family_intersection(F3), family([{a,[2]},{c,[5,6]}])),
     ok.
 
-family_intersection_2(suite) -> [];
-family_intersection_2(doc) -> [""];
 family_intersection_2(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -2237,8 +2125,6 @@ family_intersection_2(Conf) when is_list(Conf) ->
     ?line eval(intersection_of_family(F12), set([2,4])),
     ok.
 
-family_union_1(suite) -> [];
-family_union_1(doc) -> [""];
 family_union_1(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -2252,8 +2138,6 @@ family_union_1(Conf) when is_list(Conf) ->
                family([{a,[1,2,3]},{b,[]},{c,[4]}])),
     ok.
 
-family_union_2(suite) -> [];
-family_union_2(doc) -> [""];
 family_union_2(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
     ?line EF = family([]),
@@ -2281,8 +2165,6 @@ family_union_2(Conf) when is_list(Conf) ->
                             from_term([{e,[{f}]}]))),
     ok.
 
-partition_family(suite) -> [];
-partition_family(doc) -> [""];
 partition_family(Conf) when is_list(Conf) ->
     ?line E = empty_set(),
 

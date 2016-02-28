@@ -56,10 +56,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-do(doc) ->
-    [""];
-do(suite) ->
-    [];
 do(Config) when is_list(Config) ->
     ?line L = [{in, 1},
 	       {in, 2},
@@ -77,10 +73,7 @@ do(Config) when is_list(Config) ->
     ?line 0 = queue:len(Q),
     ok.
 
-to_list(doc) ->
-    ["OTP-2701"];
-to_list(suite) ->
-    [];
+%% OTP-2701
 to_list(Config) when is_list(Config) ->
     ?line E = queue:new(),
     ?line Q = do_queue(E, [{in, 1},
@@ -115,10 +108,7 @@ do_queue_1({out, E}, Q) ->
     end.
 
 
-io_test(doc) ->
-    "Test input and output";
-io_test(suite) ->
-    [];
+%% Test input and output.
 io_test(Config) when is_list(Config) ->
     E = queue:new(),
     do_io_test(E),
@@ -295,10 +285,7 @@ io([], Q, QQ, _X) ->
     QQ.
 
 
-op_test(doc) ->
-    "Test operations on whole queues";
-op_test(suite) ->
-    [];
+%% Test operations on whole queues.
 op_test(Config) when is_list(Config) ->
     do_op_test(fun id/1),
     ok.
@@ -393,10 +380,7 @@ do_op_test(F) ->
     %%
     ok.
 
-error(doc) ->
-    "Test queue errors";
-error(suite) ->
-    [];
+%% Test queue errors.
 error(Config) when is_list(Config) ->
     do_error(fun id/1, illegal_queue),
     do_error(fun id/1, {[],illegal_queue}),
@@ -460,10 +444,7 @@ do_error(F, IQ) ->
 id(X) ->
     X.
 
-oops(doc) ->
-    "Test queue errors";
-oops(suite) ->
-    [];
+%% Test queue errors.
 oops(Config) when is_list(Config) ->
     ?line N = 3142,
     ?line Optab = optab(),

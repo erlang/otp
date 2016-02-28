@@ -65,8 +65,7 @@ end_per_group(_GroupName, Config) ->
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
 
-badargs(doc) ->
-    ["Tests various badarg exceptions in the module"];
+%% Test various badarg exceptions in the module.
 badargs(Config) when is_list(Config) ->
     ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3:3>>])),
     ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3>>|<<1,2>>])),
@@ -262,8 +261,8 @@ badargs(Config) when is_list(Config) ->
 	   binary:at([1,2,4],2)),
     ok.
 
-longest_common_trap(doc) ->
-    ["Whitebox test to force special trap conditions in longest_common_{prefix,suffix}"];
+%% Whitebox test to force special trap conditions in
+%% longest_common_{prefix,suffix}.
 longest_common_trap(Config) when is_list(Config) ->
     ?line erts_debug:set_internal_state(available_internal_state,true),
     ?line io:format("oldlimit: ~p~n",
@@ -357,8 +356,7 @@ subj() ->
   Subject.
 
 
-scope_return(doc) ->
-    ["Test correct return values for scopes (OTP-9701)."];
+%% Test correct return values for scopes (OTP-9701).
 scope_return(Config) when is_list(Config) ->
     N=10000,
     Bin=binary:copy(<<"a">>,N),
@@ -371,8 +369,7 @@ scope_loop(Bin,N,M) ->
     ?line {N,1} = binary:match(Bin,[<<"a">>,<<"b">>],[{scope,{N,1}}]),
     scope_loop(Bin,N+1,M).
 
-interesting(doc) ->
-    ["Try some interesting patterns"];
+%% Try some interesting patterns.
 interesting(Config) when is_list(Config) ->
     X = do_interesting(binary),
     X = do_interesting(binref).
@@ -686,8 +683,7 @@ do_interesting(Module) ->
     ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,big)),
     ok.
 
-encode_decode(doc) ->
-    ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
+%% Test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2.
 encode_decode(Config) when is_list(Config) ->
     rand:seed(exsplus, {1271,769940,559934}),
     ?line ok = encode_decode_loop({1,200},1000), % Need to be long enough
@@ -733,13 +729,11 @@ encode_decode_loop(Range, X) ->
 	    exit(mismatch)
     end.
 
-guard(doc) ->
-    ["Smoke test of the guard BIFs binary_part/2,3"];
+%% Smoke test of the guard BIFs binary_part/2,3.
 guard(Config) when is_list(Config) ->
     {comment, "Guard tests are run in emulator test suite"}.
 
-referenced(doc) ->
-    ["Test refernced_byte_size/1 bif."];
+%% Test referenced_byte_size/1 bif.
 referenced(Config) when is_list(Config) ->
     ?line badarg = ?MASK_ERROR(binary:referenced_byte_size([])),
     ?line badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
@@ -765,8 +759,7 @@ referenced(Config) when is_list(Config) ->
 
 
 
-list_to_bin(doc) ->
-    ["Test list_to_bin/1 bif"];
+%% Test list_to_bin/1 BIF.
 list_to_bin(Config) when is_list(Config) ->
     %% Just some smoke_tests first, then go nuts with random cases
     ?line badarg = ?MASK_ERROR(binary:list_to_bin({})),
@@ -781,8 +774,7 @@ list_to_bin(Config) when is_list(Config) ->
     ?line random_iolist:run(1000,F1,F2),
     ok.
 
-copy(doc) ->
-    ["Test copy/1,2 bif's"];
+%% Test copy/1,2 BIFs.
 copy(Config) when is_list(Config) ->
     ?line <<1,2,3>> = binary:copy(<<1,2,3>>),
     ?line RS = random_string({1,10000}),
@@ -849,8 +841,7 @@ random_copy(N) ->
 	    exit(mismatch)
     end.
 
-bin_to_list(doc) ->
-    ["Test bin_to_list/1,2,3 bif's"];
+%% Test bin_to_list/1,2,3 BIFs.
 bin_to_list(Config) when is_list(Config) ->
     %% Just some smoke_tests first, then go nuts with random cases
     ?line X = <<1,2,3,4,0:1000000,5>>,
@@ -913,8 +904,7 @@ random_bin_to_list(N) ->
       end || {A,B} <- Parts1 ],
     random_bin_to_list(N-1).
 
-parts(doc) ->
-    ["Test the part/2,3 bif's"];
+%% Test the part/2,3 BIFs.
 parts(Config) when is_list(Config) ->
     %% Some simple smoke tests to begin with
     ?line Simple = <<1,2,3,4,5,6,7,8>>,
@@ -970,8 +960,7 @@ random_parts(X,N) ->
     Len = rand:uniform((Pos * 12) div 10),
     [{Pos,Len} | random_parts(X-1,N)].
 
-random_ref_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation"];
+%% Test pseudorandomly generated cases against reference implementation.
 random_ref_comp(Config) when is_list(Config) ->
     put(success_counter,0),
     rand:seed(exsplus, {1271,769940,559934}),
@@ -1000,8 +989,8 @@ random_ref_comp(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state,false),
     ok.
 
-random_ref_sr_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+%% Test pseudorandomly generated cases against reference implementation
+%% of split and replace.
 random_ref_sr_comp(Config) when is_list(Config) ->
     put(success_counter,0),
     rand:seed(exsplus, {1271,769940,559934}),
@@ -1018,8 +1007,8 @@ random_ref_sr_comp(Config) when is_list(Config) ->
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
 
-random_ref_fla_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+%% Test pseudorandomly generated cases against reference implementation
+%% of split and replace.
 random_ref_fla_comp(Config) when is_list(Config) ->
     ?line put(success_counter,0),
     rand:seed(exsplus, {1271,769940,559934}),

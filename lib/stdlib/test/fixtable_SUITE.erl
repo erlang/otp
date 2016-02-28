@@ -97,11 +97,8 @@ show(Term, Line) ->
 -endif.
 
 
-fixbag(doc) ->
-    ["Check for bug OTP-5087, safe_fixtable for bags could give "
-     "incorrect lookups"];
-fixbag(suite) ->
-    [];
+%% Check for bug OTP-5087; safe_fixtable for bags could give incorrect
+%% lookups.
 fixbag(Config) when is_list(Config) ->
     ?line T = ets:new(x,[bag]),
     ?line ets:insert(T,{a,1}),
@@ -116,10 +113,8 @@ fixbag(Config) when is_list(Config) ->
 
 
 
-insert_same_key(doc) ->
-    ["Check correct behaviour if a key is deleted and reinserted during fixation."];
-insert_same_key(suite) ->
-    [];
+%% Check correct behaviour if a key is deleted and reinserted during
+%% fixation.
 insert_same_key(Config) when is_list(Config) ->
     ?line {ok,Dets1} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(?DETS_TMP1,Config)}]),
@@ -195,10 +190,7 @@ insert_same_key(Tab,Mod,_Config) ->
     
 
 
-owner_dies(doc) ->
-    ["Check correct behaviour if the table owner dies."];
-owner_dies(suite) ->
-    [];
+%% Check correct behaviour if the table owner dies.
 owner_dies(Config) when is_list(Config) ->
     ?line P1 = start_commander(),
     ?line Ets1 = command(P1,{ets,new,[ets,[]]}),
@@ -248,13 +240,8 @@ owner_dies(Config) when is_list(Config) ->
     ok.
    
 
-other_process_closes(doc) ->
-    ["When another process closes an dets table, different "
-     "things should happen depending on if it has opened it before."];
-
-other_process_closes(suite) ->
-    [];
-
+%% When another process closes an dets table, different things should
+%% happen depending on if it has opened it before.
 other_process_closes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(tmp1,Config)}]),
@@ -279,11 +266,8 @@ other_process_closes(Config) when is_list(Config) ->
     ?line undefined = dets:info(Dets, safe_fixed),
     ok.
     
-other_process_deletes(doc) ->
-    ["Check that fixtable structures are cleaned up if another process "
-     "deletes an ets table"];
-other_process_deletes(suite) ->
-    [];
+%% Check that fixtable structures are cleaned up if another process
+%% deletes an ets table.
 other_process_deletes(Config) when is_list(Config) ->
     ?line Ets = ets:new(ets,[public]),
     ?line P = start_commander(),
@@ -297,10 +281,7 @@ other_process_deletes(Config) when is_list(Config) ->
     ?line undefined = ets:info(Ets, safe_fixed),
     ok.
 
-multiple_fixes(doc) ->
-    ["Check that multiple safe_fixtable keeps the reference counter."];
-multiple_fixes(suite) ->
-    [];
+%% Check that multiple safe_fixtable keeps the reference counter.
 multiple_fixes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(?DETS_TMP1,Config)}]),
@@ -331,11 +312,8 @@ multiple_fixes(Tab, Mod) ->
     ?line false = Mod:info(Tab, safe_fixed),
     ?line false = Mod:info(Tab,fixed).
 
-multiple_processes(doc) ->
-    ["Check that multiple safe_fixtable across processes are reference "
-     "counted OK"];
-multiple_processes(suite) ->
-    [];
+%% Check that multiple safe_fixtable across processes are reference
+%% counted OK.
 multiple_processes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,[{file, 
 					    dets_filename(?DETS_TMP1,

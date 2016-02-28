@@ -52,7 +52,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-t_start_link(suite) -> [];
 t_start_link(Config) when is_list(Config) ->
     %% Define useful variables.
 
@@ -99,7 +98,6 @@ t_start_link(Config) when is_list(Config) ->
 
 %% Test that slave:start_link() works when the master exits.
 
-start_link_nodedown(suite) -> [];
 start_link_nodedown(Config) when is_list(Config) ->
     %% Define useful variables.
 
@@ -124,7 +122,6 @@ start_a_slave(ReplyTo, Host, Name) ->
 
 %% Test slave:start().
 
-t_start(suite) -> [];
 t_start(Config) when is_list(Config) ->
     %% Define useful variables.
 
@@ -172,7 +169,6 @@ t_start(Config) when is_list(Config) ->
 %% Test the various error conditions in parallell (since the timeout
 %% in slave is 32 seconds).
 
-errors(suite) -> [];
 errors(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Pa = filename:dirname(code:which(?MODULE)),
