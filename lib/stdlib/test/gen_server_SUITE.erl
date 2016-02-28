@@ -234,7 +234,10 @@ start(Config) when is_list(Config) ->
 	  after 5000 ->
 		  ct:fail(not_stopped)
 	  end,
-    test_server:messages_get(),
+    receive
+	Msg -> ct:fail({unexpected,Msg})
+    after 1 -> ok
+    end,
 
     process_flag(trap_exit, OldFl),
     ok.
@@ -1154,7 +1157,6 @@ error_format_status(Config) when is_list(Config) ->
 	    ?line io:format("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     end,
-    ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -1181,7 +1183,6 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    io:format("Timeout: expected error logger msg", []),
 	    ct:fail(failed)
     end,
-    ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 

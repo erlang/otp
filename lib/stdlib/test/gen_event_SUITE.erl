@@ -127,7 +127,6 @@ start(Config) when is_list(Config) ->
 	    ct:fail(exit_gen_event)
     end,
 
-    ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -958,7 +957,6 @@ error_format_status(Config) when is_list(Config) ->
 	    ?line io:format("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     end,
-    ?t:messages_get(),
     ?line ok = gen_event:stop(Pid),
     process_flag(trap_exit, OldFl),
     ok.

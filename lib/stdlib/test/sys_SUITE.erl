@@ -150,11 +150,16 @@ install(Config) when is_list(Config) ->
     ?line {ok,-3} = (catch public_call(3)),
     ?line sys:remove(?server,SpyFun),
     ?line {ok,-4} = (catch public_call(4)),
-    ?line Msgs = test_server:messages_get(),
-    ?line [{spy_got,{request,1},sys_SUITE_server},
-	   {spy_got,{request,3},sys_SUITE_server}] = Msgs,
+    [{spy_got,{request,1},sys_SUITE_server},
+     {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
     ?line stop(),
     ok.
+
+get_messages() ->
+    receive
+	Msg -> [Msg|get_messages()]
+    after 1 -> []
+    end.
 
 special_process(suite) -> [];
 special_process(Config) when is_list(Config) ->

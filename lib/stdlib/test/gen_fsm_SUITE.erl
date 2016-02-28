@@ -100,7 +100,7 @@ start1(Config) when is_list(Config) ->
 %%    ?line {'EXIT', {timeout,_}} = 
 %%	(catch gen_fsm:sync_send_event(Pid0, hej)),
 
-    ?line test_server:messages_get(),
+    [] = get_messages(),
     %%process_flag(trap_exit, OldFl),
    ok.
 
@@ -115,7 +115,7 @@ start2(Config) when is_list(Config) ->
     ?line {'EXIT', {noproc,_}} = 
 	(catch gen_fsm:sync_send_event(Pid0, hej)),
 
-    ?line test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 %% anonymous with timeout
@@ -130,7 +130,7 @@ start3(Config) when is_list(Config) ->
     ?line {error, timeout} = gen_fsm:start(gen_fsm_SUITE, sleep,
 					   [{timeout,5}]),
 
-    test_server:messages_get(),
+    [] = get_messages(),
     %%process_flag(trap_exit, OldFl),
     ok.
 
@@ -141,7 +141,7 @@ start4(Config) when is_list(Config) ->
 
     ?line ignore = gen_fsm:start(gen_fsm_SUITE, ignore, []),
 
-    test_server:messages_get(),
+    [] = get_messages(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -152,7 +152,7 @@ start5(Config) when is_list(Config) ->
 
     ?line {error, stopped} = gen_fsm:start(gen_fsm_SUITE, stop, []),
 
-    test_server:messages_get(),
+    [] = get_messages(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -163,7 +163,7 @@ start6(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test(Pid),
     ?line stop_it(Pid),
 
-    test_server:messages_get(),
+    [] = get_messages(),
 
     ok.
 
@@ -182,7 +182,7 @@ start7(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test({global, my_fsm}),
     ?line stop_it({global, my_fsm}),
     
-    test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 
@@ -201,7 +201,7 @@ start8(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test(my_fsm),
     ?line stop_it(Pid),
     
-    test_server:messages_get(),
+    [] = get_messages(),
     %%process_flag(trap_exit, OldFl),
     ok.
 
@@ -220,7 +220,7 @@ start9(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test(my_fsm),
     ?line stop_it(Pid),
     
-    test_server:messages_get(),
+    [] = get_messages(),
     %%process_flag(trap_exit, OldFl),
     ok.
 
@@ -239,7 +239,7 @@ start10(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test({global, my_fsm}),
     ?line stop_it({global, my_fsm}),
     
-    test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 
@@ -263,7 +263,7 @@ start11(Config) when is_list(Config) ->
     ?line {ok, _Pid3} = Result, 
     ?line stop_it({global, my_fsm}),
 
-    test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 %% Via register linked
@@ -282,7 +282,7 @@ start12(Config) when is_list(Config) ->
     ?line ok = do_sync_func_test({via, dummy_via, my_fsm}),
     ?line stop_it({via, dummy_via, my_fsm}),
 
-    test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 
@@ -394,7 +394,7 @@ abnormal1(Config) when is_list(Config) ->
     delayed = gen_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
     {'EXIT',{timeout,_}} =
     (catch gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
-    test_server:messages_get(),
+    [] = get_messages(),
     ok.
 
 %% Check that bad return values makes the fsm crash. Note that we must
@@ -409,7 +409,7 @@ abnormal2(Config) when is_list(Config) ->
     ?line {'EXIT',{{bad_return_value, badreturn},_}} =
 	(catch gen_fsm:sync_send_event(Pid, badreturn)),
     
-    test_server:messages_get(),
+    [{'EXIT',Pid,{bad_return_value,badreturn}}] = get_messages(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -516,7 +516,6 @@ error_format_status(Config) when is_list(Config) ->
 	    ?line io:format("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     end,
-    ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -538,7 +537,6 @@ terminate_crash_format(Config) when is_list(Config) ->
 	    io:format("Timeout: expected error logger msg", []),
 	    ct:fail(failed)
     end,
-    _ = ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -602,7 +600,9 @@ hibernate(Config) when is_list(Config) ->
     {ok, Pid0} = gen_fsm:start_link(?MODULE, hiber_now, []),
     is_in_erlang_hibernate(Pid0),
     stop_it(Pid0),
-    test_server:messages_get(),
+    receive
+	{'EXIT',Pid0,normal} -> ok
+    end,
 
     {ok, Pid} = gen_fsm:start_link(?MODULE, hiber, []),
     true = ({current_function,{erlang,hibernate,3}} =/=
@@ -676,7 +676,11 @@ hibernate(Config) when is_list(Config) ->
     good_morning  = gen_fsm:sync_send_all_state_event(Pid, wakeup_sync),
     is_not_in_erlang_hibernate(Pid),
     stop_it(Pid),
-    test_server:messages_get(),
+    receive
+	{'EXIT',Pid,normal} -> ok
+    end,
+
+    [] = get_messages(),
     process_flag(trap_exit, OldFl),
     ok.
 
@@ -1132,3 +1136,9 @@ format_status(terminate, [_Pdict, StateData]) ->
     {formatted, StateData};
 format_status(normal, [_Pdict, _StateData]) ->
     [format_status_called].
+
+get_messages() ->
+    receive
+	Msg -> [Msg|get_messages()]
+    after 1 -> []
+    end.

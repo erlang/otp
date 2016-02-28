@@ -183,7 +183,12 @@ badstart(Config) when is_list(Config) ->
 	(catch supervisor_bridge:start_link({local,"foo"},?MODULE,1)),
     ?line {'EXIT',_} =
 	(catch supervisor_bridge:start_link(?bridge_name,?MODULE,1)),
-    ?line [] = test_server:messages_get(),	% No messages waiting
+    receive
+	Msg ->
+	    ct:fail({unexpected,Msg})
+    after 1 ->
+	    ok
+    end,
 
     %% Already started.
 
