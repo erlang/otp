@@ -36,7 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{minutes,2}}].
 
 
 all() -> 
