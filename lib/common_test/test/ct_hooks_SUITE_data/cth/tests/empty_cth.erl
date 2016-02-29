@@ -50,6 +50,8 @@
 -export([post_end_per_group/4]).
 
 -export([pre_init_per_testcase/3]).
+-export([post_init_per_testcase/4]).
+-export([pre_end_per_testcase/3]).
 -export([post_end_per_testcase/4]).
 
 -export([on_tc_fail/3]).
@@ -208,7 +210,7 @@ post_end_per_group(Group,Config,Return,State) ->
     ct:log("~w:post_end_per_group(~w) called", [?MODULE,Group]),
     {Return, State}.
 
-%% @doc Called before each test case.
+%% @doc Called before init_per_testcase/2 for each test case.
 %% You can change the config in this function.
 -spec pre_init_per_testcase(TC :: atom(),
 		  Config :: config(),
@@ -222,8 +224,36 @@ pre_init_per_testcase(TC,Config,State) ->
     ct:log("~w:pre_init_per_testcase(~w) called", [?MODULE,TC]),
     {Config, State}.
 
-%% @doc Called after each test case. Note that the config cannot be
-%% changed here, only the status of the test case.
+%% @doc Called after init_per_testcase/2, and before the test case.
+-spec post_init_per_testcase(TC :: atom(),
+			     Config :: config(),
+			     Return :: config() | skip_or_fail(),
+			     State :: #state{}) ->
+				    {config() | skip_or_fail(), NewState :: #state{}}.
+post_init_per_testcase(TC,Config,Return,State) ->
+    gen_event:notify(
+      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+			     data = {?MODULE, post_init_per_testcase,
+				     [TC,Config,Return,State]}}),
+    ct:log("~w:post_init_per_testcase(~w) called", [?MODULE,TC]),
+    {Return, State}.
+
+%% @doc Called before end_per_testacse/2. No skip or fail allowed here,
+%% only config additions.
+-spec pre_end_per_testcase(TC :: atom(),
+		  Config :: config(),
+		  State :: #state{}) ->
+    {config(), NewState :: #state{}}.
+pre_end_per_testcase(TC,Config,State) ->
+    gen_event:notify(
+      ?CT_EVMGR_REF, #event{ name = cth, node = node(),
+			     data = {?MODULE, pre_end_per_testcase,
+				     [TC,Config,State]}}),
+    ct:log("~w:pre_end_per_testcase(~w) called", [?MODULE,TC]),
+    {Config, State}.
+
+%% @doc Called after end_per_testcase/2 for each test case. Note that
+%% the config cannot be changed here, only the status of the test case.
 -spec post_end_per_testcase(TC :: atom(),
 			    Config :: config(),
 			    Return :: term(),
