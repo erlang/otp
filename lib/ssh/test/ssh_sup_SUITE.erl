@@ -34,6 +34,10 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
+
 all() -> 
     [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile].
 
