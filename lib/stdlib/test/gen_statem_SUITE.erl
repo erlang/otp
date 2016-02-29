@@ -1210,29 +1210,22 @@ idle(Type, Content, Data) ->
     end.
 
 timeout(timeout, idle, {From,Time}) ->
-    TRef2 = erlang:start_timer(Time, self(), ok),
-    TRefC1 = erlang:start_timer(Time, self(), cancel1),
-    TRefC2 = erlang:start_timer(Time, self(), cancel2),
-    {next_state,timeout2,{From,Time,TRef2},
-     [{cancel_timer, TRefC1},
-      {next_event,internal,{cancel_timer,TRefC2}}]};
-timeout(_, _, Data) ->
-    {keep_state,Data}.
+    TRef = erlang:start_timer(Time, self(), ok),
+    {next_state,timeout2,{From,TRef},
+     [{timeout,1,should_be_cancelled},
+      postpone]}; % Should cancel state timeout
+timeout(_, _, _) ->
+    keep_state_and_data.
 
-timeout2(
-  internal, {cancel_timer,TRefC2}, {From,Time,TRef2}) ->
-    Time4 = Time * 4,
-    receive after Time4 -> ok end,
-    {next_state,timeout3,{From,TRef2},
-     [{cancel_timer,TRefC2}]};
-timeout2(_, _, Data) ->
-    {keep_state,Data}.
-
-timeout3(info, {timeout,TRef2,Result}, {From,TRef2}) ->
+timeout2(timeout, idle, _) ->
+    keep_state_and_data;
+timeout2(timeout, Reason, _) ->
+    {stop,Reason};
+timeout2(info, {timeout,TRef,Result}, {From,TRef}) ->
     gen_statem:reply([{reply,From,Result}]),
     {next_state,idle,state};
-timeout3(_, _, Data) ->
-    {keep_state,Data}.
+timeout2(_, _, _) ->
+    {keep_state_and_data,[]}.
 
 wfor_conf({call,From}, confirm, Data) ->
     {next_state,connected,Data,

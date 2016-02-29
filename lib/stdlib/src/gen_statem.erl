@@ -66,9 +66,6 @@
 	{'call',Caller :: caller()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
 
--type event_predicate() :: % Return true for the event in question
-	fun((event_type(), term()) -> boolean()).
-
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
 
 -type transition_option() ::
@@ -117,19 +114,7 @@
 	%% action() list is the first to be delivered.
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
-	 EventContent :: term()} |
-	%%
-	{'remove_event', % Remove the oldest matching (=:=) event
-	 EventType :: event_type(), EventContent :: term()} |
-	{'remove_event', % Remove the oldest event satisfying predicate
-	 EventPredicate :: event_predicate()} |
-	%%
-	{'cancel_timer', % Cancel timer and clean up mess(ages)
-	 TimerRef :: reference()} |
-	{'demonitor', % Demonitor and clean up mess(ages)
-	 MonitorRef :: reference()} |
-	{'unlink', % Unlink and clean up mess(ages)
-	 Id :: pid() | port()}.
+	 EventContent :: term()}.
 -type reply_action() ::
 	{'reply', % Reply to a caller
 	 Caller :: caller(), Reply :: term()}.
@@ -745,11 +730,11 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 	Msg ->
 	    case Msg of
 		{system,Pid,Req} ->
+		    #{hibernate := Hibernate} = S,
 		    %% Does not return but tail recursively calls
 		    %% system_continue/3 that jumps to loop/3
 		    sys:handle_system_msg(
-		      Req, Pid, Parent, ?MODULE, Debug, S,
-		      maps:get(hibernate, S));
+		      Req, Pid, Parent, ?MODULE, Debug, S, Hibernate);
 		{'EXIT',Parent,Reason} = EXIT ->
 		    %% EXIT is not a 2-tuple and therefore
 		    %% not an event and has no event_type(),
@@ -757,8 +742,25 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    ?TERMINATE(exit, Reason, Debug, S, [EXIT]);
 		{timeout,Timer,Content} when Timer =/= undefined ->
 		    loop_event(
-		      Parent, Debug, S, {timeout,Content}, undefined);
+		      Parent, Debug, S, {timeout,Content});
 		_ ->
+		    %% Cancel Timer if running
+		    case Timer of
+			undefined ->
+			    ok;
+			_ ->
+			    case erlang:cancel_timer(Timer) of
+				TimeLeft when is_integer(TimeLeft) ->
+				    ok;
+				false ->
+				    receive
+					{timeout,Timer,_} ->
+					    ok
+				    after 0 ->
+					    ok
+				    end
+			    end
+		    end,
 		    Event =
 			case Msg of
 			    {'$gen_call',Caller,Request} ->
@@ -768,22 +770,20 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 			    _ ->
 				{info,Msg}
 			end,
-		    loop_event(Parent, Debug, S, Event, Timer)
+		    loop_event(Parent, Debug, S, Event)
 	    end
     end.
 
-loop_event(Parent, Debug, S, Event, Timer) ->
+loop_event(Parent, Debug, S, Event) ->
+    %% The timer field in S is now invalid and ignored
+    %% until we get back to loop/3
     NewDebug = sys_debug(Debug, S, {in,Event}),
     %% Here the queue of not yet processed events is created
-    loop_events(Parent, NewDebug, S, [Event], Timer).
+    loop_events(Parent, NewDebug, S, [Event]).
 
-%% Process first event in queue, or if there is none receive a new
-%%
-%% The loop_event* functions optimize S map handling by dismantling it,
-%% passing the parts in arguments to avoid map lookups and construct the
-%% new S map in one go on exit.  Premature optimization, I know, but
-%% there were quite some map lookups repeated in different functions.
-loop_events(Parent, Debug, S, [], _Timer) ->
+%% Process first the event queue, or if it is empty
+%% loop back to receive a new event
+loop_events(Parent, Debug, S, []) ->
     loop(Parent, Debug, S);
 loop_events(
   Parent, Debug,
@@ -791,9 +791,7 @@ loop_events(
     module := Module,
     state := State,
     data := Data} = S,
-  [{Type,Content} = Event|Events] = Q, Timer) ->
-    _ = (Timer =/= undefined) andalso
-	cancel_timer(Timer),
+  [{Type,Content} = Event|Events] = Q) ->
     try
 	case CallbackMode of
 	    state_functions ->
@@ -841,7 +839,7 @@ loop_events(
 	    terminate(Class, Reason, Stacktrace, Debug, S, Q)
     end.
 
-%% Interpret all callback return value variants
+%% Interpret all callback return variants
 loop_event_result(
   Parent, Debug,
   #{callback_mode := CallbackMode, state := State, data := Data} = S,
@@ -909,7 +907,6 @@ loop_event_actions(
     Hibernate = false,
     Timeout = undefined,
     NextEvents = [],
-    P = false, % The postponed list or false if unchanged
     loop_event_actions(
       Parent, Debug, S, Events, Event, State, NewState, NewData,
       if
@@ -918,24 +915,25 @@ loop_event_actions(
 	  true ->
 	      [Actions]
       end,
-      Postpone, Hibernate, Timeout, NextEvents, P).
+      Postpone, Hibernate, Timeout, NextEvents).
 %%
+%% Process all action()s
 loop_event_actions(
   Parent, Debug, S, Events, Event,
   State, NewState, NewData, [Action|Actions],
-  Postpone, Hibernate, Timeout, NextEvents, P) ->
+  Postpone, Hibernate, Timeout, NextEvents) ->
     case Action of
-	%% Set options
+	%% Actions that set options
 	postpone ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      true, Hibernate, Timeout, NextEvents, P);
+	      true, Hibernate, Timeout, NextEvents);
 	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      NewPostpone, Hibernate, Timeout, NextEvents, P);
+	      NewPostpone, Hibernate, Timeout, NextEvents);
 	{postpone,_} ->
 	    ?TERMINATE(
 	       error, {bad_action,Action}, Debug, S, [Event|Events]);
@@ -943,12 +941,12 @@ loop_event_actions(
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      Postpone, true, Timeout, NextEvents, P);
+	      Postpone, true, Timeout, NextEvents);
 	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      Postpone, NewHibernate, Timeout, NextEvents, P);
+	      Postpone, NewHibernate, Timeout, NextEvents);
 	{hibernate,_} ->
 	    ?TERMINATE(
 	       error, {bad_action,Action}, Debug, S, [Event|Events]);
@@ -956,12 +954,12 @@ loop_event_actions(
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      Postpone, Hibernate, undefined, NextEvents, P);
+	      Postpone, Hibernate, undefined, NextEvents);
 	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NewState, NewData, Actions,
-	      Postpone, Hibernate, NewTimeout, NextEvents, P);
+	      Postpone, Hibernate, NewTimeout, NextEvents);
 	{timeout,_,_} ->
 	    ?TERMINATE(
 	       error, {bad_action,Action}, Debug, S, [Event|Events]);
@@ -973,7 +971,7 @@ loop_event_actions(
 		    loop_event_actions(
 		      Parent, NewDebug, S, Events, Event,
 		      State, NewState, NewData, Actions,
-		      Postpone, Hibernate, Timeout, NextEvents, P);
+		      Postpone, Hibernate, Timeout, NextEvents);
 		false ->
 		    ?TERMINATE(
 		       error, {bad_action,Action}, Debug, S, [Event|Events])
@@ -985,67 +983,25 @@ loop_event_actions(
 		      Parent, Debug, S, Events, Event,
 		      State, NewState, NewData, Actions,
 		      Postpone, Hibernate, Timeout,
-		      [{Type,Content}|NextEvents], P);
+		      [{Type,Content}|NextEvents]);
 		false ->
 		    ?TERMINATE(
 		       error, {bad_action,Action}, Debug, S, [Event|Events])
 	    end;
 	_ ->
-	    %% All others are remove actions
-	    case remove_fun(Action) of
-		false ->
-		    loop_event_actions(
-		      Parent, Debug, S, Events, Event,
-		      State, NewState, NewData, Actions,
-		      Postpone, Hibernate, Timeout, NextEvents, P);
-		undefined ->
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, S, [Event|Events]);
-		RemoveFun when is_function(RemoveFun, 2) ->
-		    P0 =
-			case P of
-			    false ->
-				maps:get(postponed, S);
-			    _ ->
-				P
-			end,
-		    case remove_event(RemoveFun, Events, P0) of
-			false ->
-			    loop_event_actions(
-			      Parent, Debug, S, Events, Event,
-			      State, NewState, NewData, Actions,
-			      Postpone, Hibernate, Timeout, NextEvents, P);
-			{NewEvents,false} ->
-			    loop_event_actions(
-			      Parent, Debug, S, NewEvents, Event,
-			      State, NewState, NewData, Actions,
-			      Postpone, Hibernate, Timeout, NextEvents, P);
-			{false,NewP} ->
-			    loop_event_actions(
-			      Parent, Debug, S, Events, Event,
-			      State, NewState, NewData, Actions,
-			      Postpone, Hibernate, Timeout, NextEvents,
-			      NewP);
-			[Class,Reason,Stacktrace] ->
-			    terminate(
-			      Class, Reason, Stacktrace,
-			      Debug, S, [Event|Events])
-		    end;
-		[Class,Reason,Stacktrace] ->
-		    terminate(
-		      Class, Reason, Stacktrace, Debug, S, [Event|Events])
-	    end
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events])
     end;
+%%
+%% End of actions list
 loop_event_actions(
-  Parent, Debug, S, Events, Event, State, NewState, NewData, [],
-  Postpone, Hibernate, Timeout, NextEvents, P) ->
-    P0 =
-	case P of
-	    false ->
-		maps:get(postponed, S);
-	    _ ->
-		P
-	end,
+  Parent, Debug, #{postponed := P0} = S, Events, Event,
+  State, NewState, NewData, [],
+  Postpone, Hibernate, Timeout, NextEvents) ->
+    %%
+    %% All options have been collected and next_events are buffered.
+    %% Do the actual state transition.
+    %%
     P1 = % Move current event to postponed if Postpone
 	case Postpone of
 	    true ->
@@ -1053,23 +1009,12 @@ loop_event_actions(
 	    false ->
 		P0
 	end,
-    {Timer,Q1} =
-	case Timeout of
-	    undefined ->
-		{undefined,Events};
-	    {timeout,0,Msg} ->
-		%% Pretend the timeout has just been received
-		{undefined,Events ++ [{timeout,Msg}]};
-	    {timeout,Time,Msg} ->
-		{erlang:start_timer(Time, self(), Msg),
-		Events}
-	end,
-    {Q2,P2} = % Move all postponed events to queue if state change
+    {Q2,P} = % Move all postponed events to queue if state change
 	if
 	    NewState =:= State ->
-		{Q1,P1};
+		{Events,P1};
 	    true ->
-		{lists:reverse(P1, Q1),[]}
+		{lists:reverse(P1, Events),[]}
 	end,
     %% Place next events first in queue
     Q3 = lists:reverse(NextEvents, Q2),
@@ -1083,16 +1028,41 @@ loop_event_actions(
 	      false ->
 		  {consume,Event,NewState}
 	  end),
-    %% Loop to top; process next event
+    %% Have a peek on the event queue so we can avoid starting
+    %% the state timer unless we have to
+    {Q,Timer} =
+	case Timeout of
+	    undefined ->
+		%% No state timeout has been requested
+		{Q3,undefined};
+	    {timeout,Time,Msg} ->
+		%% A state timeout has been requested
+		case Q3 of
+		    [] when Time =:= 0 ->
+			%% Immediate timeout - simulate it
+			%% so we do not get the timeout message
+			%% after any received event
+			{[{timeout,Msg}],undefined};
+		    [] ->
+			%% Actually start a timer
+			{Q3,erlang:start_timer(Time, self(), Msg)};
+		    _ ->
+			%% Do not start a timer since any queued
+			%% event cancels the state timer so we pretend
+			%% that the timer has been started and cancelled
+			{Q3,undefined}
+		end
+	end,
+    %% Loop to top of event queue loop; process next event
     loop_events(
       Parent, NewDebug,
       S#{
 	state := NewState,
 	data := NewData,
 	timer := Timer,
-	hibernate := Hibernate,
-	postponed := P2},
-      Q3, Timer).
+	postponed := P,
+	hibernate := Hibernate},
+      Q).
 
 %%---------------------------------------------------------------------------
 %% Server helpers
@@ -1123,103 +1093,6 @@ do_reply_then_terminate(
 do_reply(Debug, S, Caller, Reply) ->
     reply(Caller, Reply),
     sys_debug(Debug, S, {out,Reply,Caller}).
-
-
-%% Remove oldest matching event from the queue(s)
-remove_event(RemoveFun, Q, P) ->
-    try
-	case remove_tail_event(RemoveFun, P) of
-	    false ->
-		case remove_head_event(RemoveFun, Q) of
-		    false ->
-			false;
-		    NewQ ->
-			{false,NewQ}
-		end;
-	    NewP ->
-		{NewP,false}
-	end
-    catch
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
-    end.
-
-%% Do the given action and create an event removal predicate fun()
-remove_fun({remove_event,Type,Content}) ->
-    fun (T, C) when T =:= Type, C =:= Content -> true;
-	(_, _) -> false
-    end;
-remove_fun({remove_event,RemoveFun}) when is_function(RemoveFun, 2) ->
-    RemoveFun;
-remove_fun({cancel_timer,TimerRef}) ->
-    try cancel_timer(TimerRef) of
-	false ->
-	    false;
-	true ->
-	    fun
-		(info, {timeout,TRef,_})
-		  when TRef =:= TimerRef ->
-		    true;
-		(_, _) ->
-		    false
-	    end
-    catch
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
-    end;
-remove_fun({demonitor,MonitorRef}) ->
-    try erlang:demonitor(MonitorRef, [flush,info]) of
-	false ->
-	    false;
-	true ->
-	    fun (info, {'DOWN',MRef,_,_,_})
-		  when MRef =:= MonitorRef->
-		    true;
-		(_, _) ->
-		    false
-	    end
-    catch
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
-    end;
-remove_fun({unlink,Id}) ->
-    try unlink(Id) of
-	true ->
-	    receive
-		{'EXIT',Id,_} ->
-		    ok
-	    after 0 ->
-		    ok
-	    end,
-	    fun (info, {'EXIT',I,_})
-		  when I =:= Id ->
-		    true;
-		(_, _) ->
-		    false
-	    end
-    catch
-	Class:Reason ->
-	    [Class,Reason,erlang:get_stacktrace()]
-    end;
-remove_fun(_) ->
-    undefined.
-
-
-%% Cancel a timer and clense the process mailbox returning
-%% false if no such timer message can arrive after this or
-%% true otherwise
-cancel_timer(TimerRef) ->
-    case erlang:cancel_timer(TimerRef) of
-	TimeLeft when is_integer(TimeLeft) ->
-	    false;
-	false ->
-	    receive
-		{timeout,TimerRef,_} ->
-		    false
-	    after 0 ->
-		    true
-	    end
-    end.
 
 
 terminate(
@@ -1349,31 +1222,4 @@ format_status_default(Opt, State, Data) ->
 	    SSD;
 	_ ->
 	    [{data,[{"State",SSD}]}]
-    end.
-
-%%---------------------------------------------------------------------------
-%% Farily general helpers
-
-%% Return the modified list where the first element that satisfies
-%% the RemoveFun predicate is removed, or false if no such element exists.
-remove_head_event(_RemoveFun, []) ->
-    false;
-remove_head_event(RemoveFun, [{Tag,Content}|Events]) ->
-    case RemoveFun(Tag, Content) of
-	false ->
-	    remove_head_event(RemoveFun, Events);
-	true ->
-	    Events
-    end.
-
-%% Return the modified list where the last element that satisfies
-%% the RemoveFun predicate is removed, or false if no such element exists.
-remove_tail_event(_RemoveFun, []) ->
-    false;
-remove_tail_event(RemoveFun, [{Tag,Content} = Event|Events]) ->
-    case remove_tail_event(RemoveFun, Events) of
-	false ->
-	    RemoveFun(Tag, Content) andalso Events;
-	NewEvents ->
-	    [Event|NewEvents]
     end.

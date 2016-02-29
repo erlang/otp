@@ -462,24 +462,6 @@ ok
       </desc>
     </datatype>
     <datatype>
-      <name name="event_predicate" />
-      <desc>
-	<p>
-	  A <c>fun()</c> of arity 2 that takes an event
-	  and returns a boolean.
-	  When used in the
-	  <seealso marker="#type-action">action()</seealso>
-	  <c>{remove_event,RemoveEventPredicate}</c>,
-	  the oldest event for which the predicate returns <c>true</c>
-	  will be removed.
-	</p>
-	<p>
-	  The predicate may <em>not</em> use a throw exception
-	  to return its result.
-	</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="callback_mode" />
       <desc>
 	<p>
@@ -617,13 +599,11 @@ ok
 	  counts just like a new in this respect.
 	  If the value is <c>infinity</c> no timer is started.
 	  If it is <c>0</c> the timeout event
-	  is immediately enqueued as the newest received.
+	  is immediately enqueued as the newest received
+	  (unless there are retried or inserted events to process).
 	  Also note that it is not possible nor needed
-	  to cancel this timeout using the
-	  <seealso marker="#type-action">
-	    <c>action() cancel_timer</c>
-	  </seealso>
-	  since this timeout is cancelled automatically by any other event.
+	  to cancel this timeout since it is cancelled automatically
+	  by any other event.
 	</p>
       </desc>
     </datatype>
@@ -701,49 +681,6 @@ ok
 	    </seealso>
 	    should be used when you want to reliably distinguish
 	    an event inserted this way from any external event.
-	  </item>
-	  <tag><c>remove_event</c></tag>
-	  <item>
-	    Remove the oldest queued event
-	    that matches equal to <c><anno>EventType</anno></c>
-	    and <c><anno>EventContent</anno></c> or for which
-	    <c><anno>EventPredicate</anno></c>
-	    returns <c>true</c>.  Note that <c>next_event</c>
-	    and <c>postpone</c> events in the same actions list
-	    does not get into the event queue until after all actions
-	    has been done so you can not remove an event that you insert
-	    with the same actions list.  Make up your mind!
-	  </item>
-	  <tag><c>cancel_timer</c></tag>
-	  <item>
-	    Cancel the timer by calling
-	    <seealso marker="erts:erlang#cancel_timer/2">
-	      <c>erlang:cancel_timer/2</c>
-	    </seealso>
-	    with <c><anno>TimerRef</anno></c>,
-	    clean the process message queue from any late timeout message,
-	    and remove any late timeout message
-	    from the <c>gen_statem</c> event queue using
-	    <c>{remove_event,<anno>EventPredicate</anno>}</c> above.
-	    This is a convenience function that saves quite some
-	    lines of code and testing time over doing it from
-	    the primitives mentioned above.
-	  </item>
-	  <tag><c>demonitor</c></tag>
-	  <item>
-	    Like <c>cancel_timer</c> above but for
-	    <seealso marker="erts:erlang#demonitor/2">
-	      <c>demonitor/2</c>
-	    </seealso>
-	    with <c><anno>MonitorRef</anno></c>.
-	  </item>
-	  <tag><c>unlink</c></tag>
-	  <item>
-	    Like <c>cancel_timer</c> above but for
-	    <seealso marker="erts:erlang#unlink/1">
-	      <c>unlink/1</c>
-	    </seealso>
-	    with <c><anno>Id</anno></c>.
 	  </item>
 	</taglist>
       </desc>
