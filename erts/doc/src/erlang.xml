@@ -8464,6 +8464,7 @@ timestamp() ->
           <item>
             <p>Traces process-related events.</p>
             <p>Message tags: <c><seealso marker="#trace_3_trace_messages_spawn">spawn</seealso></c>,
+            <c><seealso marker="#trace_3_trace_messages_spawned">spawned</seealso></c>,
             <c><seealso marker="#trace_3_trace_messages_exit">exit</seealso></c>,
             <c><seealso marker="#trace_3_trace_messages_register">register</seealso></c>,
             <c><seealso marker="#trace_3_trace_messages_unregister">unregister</seealso></c>,
@@ -8700,6 +8701,16 @@ timestamp() ->
           </tag>
           <item>
             <p>When <c>Pid</c> spawns a new process <c>Pid2</c> with
+              the specified function call as entry point.</p>
+            <p><c>Args</c> is supposed to be the argument list,
+              but can be any term if the spawn is erroneous.</p>
+          </item>
+          <tag>
+            <marker id="trace_3_trace_messages_spawned"></marker>
+            <c>{trace, Pid, spawned, Pid2, {M, F, Args}}</c>
+          </tag>
+          <item>
+            <p>When <c>Pid</c> is spawned by process <c>Pid2</c> with
               the specified function call as entry point.</p>
             <p><c>Args</c> is supposed to be the argument list,
               but can be any term if the spawn is erroneous.</p>

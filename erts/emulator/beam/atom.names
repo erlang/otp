@@ -571,6 +571,7 @@ atom size
 atom sl_alloc
 atom spawn_executable
 atom spawn_driver
+atom spawned
 atom ssl_tls
 atom stack_size
 atom start

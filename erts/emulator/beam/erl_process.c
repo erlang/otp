@@ -11176,10 +11176,21 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
             locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
             erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
             erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            trace_proc_spawn(parent, p->common.id, mod, func, args);
+            trace_proc_spawn(parent, am_spawn, p->common.id, mod, func, args);
             if (so->flags & SPO_LINK)
                 trace_proc(parent, locks, parent, am_link, p->common.id);
         }
+    }
+
+    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
+        if (locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
+            locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_smp_proc_unlock(p, locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE));
+            erts_smp_proc_unlock(parent, locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE));
+        }
+        trace_proc_spawn(p, am_spawned, parent->common.id, mod, func, args);
+        if (so->flags & SPO_LINK)
+            trace_proc(p, locks, p, am_getting_linked, parent->common.id);
     }
 
     /*

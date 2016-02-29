@@ -100,7 +100,7 @@ void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
 void erts_trace_return_to(Process *p, BeamInstr *pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);
-void trace_proc_spawn(Process*, Eterm pid, Eterm mod, Eterm func, Eterm args);
+void trace_proc_spawn(Process*, Eterm what, Eterm pid, Eterm mod, Eterm func, Eterm args);
 void save_calls(Process *p, Export *);
 void trace_gc(Process *p, Eterm what);
 /* port tracing */
