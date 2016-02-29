@@ -1668,6 +1668,25 @@ case wxWindow_WarpPointer: { // wxWindow::WarpPointer
  This->WarpPointer(*x,*y);
  break;
 }
+#if wxCHECK_VERSION(2,8,12)
+case wxWindow_SetTransparent: { // wxWindow::SetTransparent
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int * alpha = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->SetTransparent(*alpha);
+ rt.addBool(Result);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(2,8,12)
+case wxWindow_CanSetTransparent: { // wxWindow::CanSetTransparent
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->CanSetTransparent();
+ rt.addBool(Result);
+ break;
+}
+#endif
 #if wxCHECK_VERSION(3,0,0)
 case wxWindow_IsDoubleBuffered: { // wxWindow::IsDoubleBuffered
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;

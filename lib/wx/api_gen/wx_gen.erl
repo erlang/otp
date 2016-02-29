@@ -705,6 +705,8 @@ parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) ->
     parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]});
 parse_type2(["int"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int});
+parse_type2(["wxByte"|R],Info,Opts,  T) ->
+    parse_type2(R,Info,Opts,T#type{name=int,base=int});
 parse_type2(["char"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name="char",base=int});
 parse_type2([N="size_t"|R], Info, Opts,  T) -> 

@@ -37,18 +37,19 @@
   setSelection/2,setSelection/3,setValue/2,undo/1]).
 
 %% inherited exports
--export([append/2,append/3,appendStrings/2,cacheBestSize/2,captureMouse/1,center/1,
-  center/2,centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
-  centreOnParent/2,clear/1,clearBackground/1,clientToScreen/2,clientToScreen/3,
-  close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
-  delete/2,destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
-  enable/1,enable/2,findString/2,findString/3,findWindow/2,fit/1,fitInside/1,
-  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
-  getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
-  getClientData/2,getClientSize/1,getContainingSizer/1,getCount/1,getCursor/1,
-  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
-  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
-  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
+-export([append/2,append/3,appendStrings/2,cacheBestSize/2,canSetTransparent/1,
+  captureMouse/1,center/1,center/2,centerOnParent/1,centerOnParent/2,
+  centre/1,centre/2,centreOnParent/1,centreOnParent/2,clear/1,clearBackground/1,
+  clientToScreen/2,clientToScreen/3,close/1,close/2,connect/2,connect/3,
+  convertDialogToPixels/2,convertPixelsToDialog/2,delete/2,destroyChildren/1,
+  disable/1,disconnect/1,disconnect/2,disconnect/3,enable/1,enable/2,
+  findString/2,findString/3,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
+  getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCaret/1,
+  getCharHeight/1,getCharWidth/1,getChildren/1,getClientData/2,getClientSize/1,
+  getContainingSizer/1,getCount/1,getCursor/1,getDropTarget/1,getEventHandler/1,
+  getExtraStyle/1,getFont/1,getForegroundColour/1,getGrandParent/1,
+  getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,getMinSize/1,
+  getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
   getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
   getSelection/1,getSize/1,getSizer/1,getString/2,getStringSelection/1,
   getTextExtent/2,getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,
@@ -71,11 +72,12 @@
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
   setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
-  setString/3,setStringSelection/2,setThemeEnabled/2,setToolTip/2,setVirtualSize/2,
-  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
-  setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
-  show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
-  update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
+  setString/3,setStringSelection/2,setThemeEnabled/2,setToolTip/2,setTransparent/2,
+  setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,
+  setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,
+  shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
+  transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
+  validate/1,warpPointer/3]).
 
 -export_type([wxComboBox/0]).
 %% @hidden
@@ -373,6 +375,10 @@ getLabel(This) -> wxControl:getLabel(This).
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
+%% @hidden
+canSetTransparent(This) -> wxWindow:canSetTransparent(This).
+%% @hidden
+setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden

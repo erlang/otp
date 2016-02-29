@@ -86,10 +86,10 @@
 
 %% inherited exports
 -export([cacheBestSize/2,calcScrolledPosition/2,calcScrolledPosition/3,calcUnscrolledPosition/2,
-  calcUnscrolledPosition/3,captureMouse/1,center/1,center/2,centerOnParent/1,
-  centerOnParent/2,centre/1,centre/2,centreOnParent/1,centreOnParent/2,
-  clearBackground/1,clientToScreen/2,clientToScreen/3,close/1,close/2,
-  connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
+  calcUnscrolledPosition/3,canSetTransparent/1,captureMouse/1,center/1,
+  center/2,centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
+  centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
+  close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   doPrepareDC/2,enable/1,enable/2,enableScrolling/3,findWindow/2,fitInside/1,
   freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
@@ -121,9 +121,9 @@
   setScrollbars/6,setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,
   setSizeHints/3,setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,
   setSizerAndFit/3,setTargetWindow/2,setThemeEnabled/2,setToolTip/2,
-  setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,
-  setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,
-  shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
+  setTransparent/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
+  setVirtualSizeHints/3,setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,
+  setWindowVariant/2,shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
@@ -2161,6 +2161,10 @@ initDialog(This) -> wxPanel:initDialog(This).
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
+%% @hidden
+canSetTransparent(This) -> wxWindow:canSetTransparent(This).
+%% @hidden
+setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden

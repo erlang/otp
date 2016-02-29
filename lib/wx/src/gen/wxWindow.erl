@@ -28,13 +28,13 @@
 
 -module(wxWindow).
 -include("wxe.hrl").
--export(['Destroy'/1,cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
-  centerOnParent/2,centre/1,centre/2,centreOnParent/1,centreOnParent/2,
-  clearBackground/1,clientToScreen/2,clientToScreen/3,close/1,close/2,
-  convertDialogToPixels/2,convertPixelsToDialog/2,destroy/1,destroyChildren/1,
-  disable/1,enable/1,enable/2,findFocus/0,findWindow/2,findWindowById/1,
-  findWindowById/2,findWindowByLabel/1,findWindowByLabel/2,findWindowByName/1,
-  findWindowByName/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
+-export(['Destroy'/1,cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,
+  center/2,centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
+  centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
+  close/1,close/2,convertDialogToPixels/2,convertPixelsToDialog/2,destroy/1,
+  destroyChildren/1,disable/1,enable/1,enable/2,findFocus/0,findWindow/2,
+  findWindowById/1,findWindowById/2,findWindowByLabel/1,findWindowByLabel/2,
+  findWindowByName/1,findWindowByName/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
   getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCapture/0,
   getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,getClientSize/1,
   getContainingSizer/1,getCursor/1,getDropTarget/1,getEventHandler/1,
@@ -61,8 +61,8 @@
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
   setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
-  setThemeEnabled/2,setToolTip/2,setVirtualSize/2,setVirtualSize/3,
-  setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
+  setThemeEnabled/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
+  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
   setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
@@ -1909,6 +1909,23 @@ warpPointer(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   ?CLASS(ThisT,wxWindow),
   wxe_util:cast(?wxWindow_WarpPointer,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowsettransparent">external documentation</a>.
+-spec setTransparent(This, Alpha) -> boolean() when
+	This::wxWindow(), Alpha::integer().
+setTransparent(#wx_ref{type=ThisT,ref=ThisRef},Alpha)
+ when is_integer(Alpha) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_SetTransparent,
+  <<ThisRef:32/?UI,Alpha:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowcansettransparent">external documentation</a>.
+-spec canSetTransparent(This) -> boolean() when
+	This::wxWindow().
+canSetTransparent(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_CanSetTransparent,
+  <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowisdoublebuffered">external documentation</a>.
 -spec isDoubleBuffered(This) -> boolean() when
