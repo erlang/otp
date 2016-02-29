@@ -53,16 +53,18 @@
 	  section 9.1.
 	</p>
 	<p>
-	  The codes are named as SSH_FX_* which are transformed into lowercase(*), e.g. the error code ?SSH_FX_NO_SUCH_FILE
+	  The codes are named as <c>SSH_FX_*</c> which are transformed into lowercase of the star-part.
+	  E.g. the error code <c>SSH_FX_NO_SUCH_FILE</c>
 	  will cause the <c>reason()</c> to be <c>no_such_file</c>.
 	</p>
       </item>
 
       <tag><c>ssh_connection_ref() =</c></tag>
-      <item><p>opaque() - as returned by <c>ssh:connect/3</c></p></item>
+      <item><p><c>opaque()</c> - as returned by 
+      <seealso marker="ssh#connect-3"><c>ssh:connect/3</c></seealso></p></item>
 
       <tag><c>timeout()</c></tag>
-      <item><p>= <c>infinity | integer() in milliseconds. Default infinity.</c></p></item>
+      <item><p>= <c>infinity | integer()</c> in milliseconds. Default infinity.</p></item>
     </taglist>
    </section>
 
@@ -85,14 +87,14 @@
          <v>Len = integer()</v>
          <v>N = term()</v>
        </type>
-       
-       <desc><p>The <c><![CDATA[apread]]></c> function reads from a specified position,
-       combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
-	<p><seealso marker="#apread-4">ssh_sftp:apread/4</seealso></p> </desc>
+       <desc><p>The <c><![CDATA[apread/4]]></c> function reads from a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#aread-3"><c>aread/3</c></seealso> functions.</p>
+       </desc>
      </func>
      
      <func>
-	<name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, reason()}</name>
+	<name>apwrite(ChannelPid, Handle, Position, Data) -> {async, N} | {error, reason()}</name>
 	<fsummary>Writes asynchronously to an open file.</fsummary>
 	<type>
 	  <v>ChannelPid = pid()</v>
@@ -101,11 +103,12 @@
 	  <v>Len = integer()</v>
 	  <v>Data = binary()</v>
 	  <v>Timeout = timeout()</v>
+          <v>N = term()</v>
 	</type>
-	<desc>
-	  <p><c><![CDATA[apwrite]]></c> writes on a specified position, combining
-          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
-	<p><seealso marker="#awrite-3">ssh_sftp:awrite/3</seealso> </p></desc>
+       <desc><p>The <c><![CDATA[apwrite/4]]></c> function writes to a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#awrite-3"><c>awrite/3</c></seealso> functions.</p>
+       </desc>
       </func>
       
       <func>
@@ -129,10 +132,8 @@
       </desc>
     </func>
 
-  
-
     <func>
-      <name>awrite(ChannelPid, Handle, Data) -> ok | {error, reason()}</name>
+      <name>awrite(ChannelPid, Handle, Data) -> {async, N} | {error, reason()}</name>
       <fsummary>Writes asynchronously to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -390,12 +391,11 @@
 	<v>Timeout = timeout()</v>
         <v>Data = string() | binary()</v>
       </type>
-      <desc>
-	<p>The <c><![CDATA[pread]]></c> function reads from a specified position,
-	combining the <c><![CDATA[position]]></c> and <c><![CDATA[read]]></c> functions.</p>
-	<p><seealso marker="#read-4">ssh_sftp:read/4</seealso></p>
-      </desc>
-    </func>
+       <desc><p>The <c><![CDATA[pread/3,4]]></c> function reads from a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#read-3"><c>read/3,4</c></seealso> functions.</p>
+       </desc>
+     </func>
 
     <func>
       <name>pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
@@ -408,15 +408,13 @@
         <v>Data = iolist()</v>
 	<v>Timeout = timeout()</v>
       </type>
-      <desc>
-	<p>The <c><![CDATA[pread]]></c> function writes to a specified position,
-	combining the <c><![CDATA[position]]></c> and <c><![CDATA[write]]></c> functions.</p>
-	<p><seealso marker="#write-3">ssh_sftp:write/3</seealso></p>
-      </desc>
+       <desc><p>The <c><![CDATA[pwrite/3,4]]></c> function writes to a specified position,
+       combining the <seealso marker="#position-3"><c>position/3</c></seealso> and 
+       <seealso marker="#write-3"><c>write/3,4</c></seealso> functions.</p>
+       </desc>
     </func>
 
-
-     <func>
+    <func>
       <name>read(ChannelPid, Handle, Len) -></name>
       <name>read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, reason()}</name>
       <fsummary>Reads from an open file.</fsummary>
