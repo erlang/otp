@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown,
+     shutdown, stop_and_reply, postpone_and_next_event,
      {group, sys},
      hibernate, enter_loop].
 
@@ -491,6 +491,113 @@ shutdown(Config) ->
 	    ct:fail({unexpected,Any})
     after 500 ->
 	    ok
+    end.
+
+
+
+stop_and_reply(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun (cast, {echo,From1,Reply1}, _) ->
+		      {next_state,wait,{reply,From1,Reply1}}
+	      end,
+	  wait =>
+	      fun (cast, {stop_and_reply,Reason,From2,Reply2},R1) ->
+		      {stop_and_reply,Reason,
+		       [R1,{reply,From2,Reply2}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE,
+	  {map_statem,Machine,init,undefined,[]},
+	  []),
+
+    Self = self(),
+    Tag1 = make_ref(),
+    gen_statem:cast(STM, {echo,{Self,Tag1},reply1}),
+    Tag2 = make_ref(),
+    gen_statem:cast(STM, {stop_and_reply,reason,{Self,Tag2},reply2}),
+    case flush() of
+	[{Tag1,reply1},{Tag2,reply2},{'EXIT',STM,reason}] ->
+	    ok;
+	Other1 ->
+	    ct:fail({unexpected,Other1})
+    end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
+
+
+
+postpone_and_next_event(_Config) ->
+    process_flag(trap_exit, true),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun (cast, _, _) ->
+		      {keep_state_and_data,postpone};
+		  ({call,From}, {buffer,Pid,[Tag3,Tag4]}, _) ->
+		      {next_state,buffer,[],
+		       [{next_event,internal,{reply,{Pid,Tag3},ok3}},
+			{next_event,internal,{reply,{Pid,Tag4},ok4}},
+			{reply,From,ok}]}
+	      end,
+	  buffer =>
+	      fun (internal, Reply, Replies) ->
+		      {keep_state,[Reply|Replies]};
+		  (cast, Reply, Replies) ->
+		      {keep_state,[Reply|Replies]};
+		  ({call,From}, {stop,Reason}, Replies) ->
+		      {next_state,stop,Replies,
+		       lists:reverse(
+			 Replies,
+			 [{reply,From,ok},
+			  {next_event,internal,{stop,Reason}}])}
+	      end,
+	  stop =>
+	      fun (internal, Result, _) ->
+		      Result
+	      end},
+
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE,
+	  {map_statem,Machine,init,undefined,[]},
+	  []),
+    Self = self(),
+    Tag1 = make_ref(),
+    gen_statem:cast(STM, {reply,{Self,Tag1},ok1}),
+    Tag2 = make_ref(),
+    gen_statem:cast(STM, {reply,{Self,Tag2},ok2}),
+    Tag3 = make_ref(),
+    Tag4 = make_ref(),
+    ok = gen_statem:call(STM, {buffer,Self,[Tag3,Tag4]}),
+    ok = gen_statem:call(STM, {stop,reason}),
+    case flush() of
+	[{Tag3,ok3},{Tag4,ok4},{Tag1,ok1},{Tag2,ok2},
+	 {'EXIT',STM,reason}] ->
+	    ok;
+	Other1 ->
+	    ct:fail({unexpected,Other1})
+    end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
     end.
 
 
@@ -1115,7 +1222,6 @@ do_sync_disconnect(STM) ->
 
 
 verify_empty_msgq() ->
-    receive after 500 -> ok end,
     [] = flush(),
     ok.
 
@@ -1157,6 +1263,8 @@ init({callback_mode,CallbackMode,Arg}) ->
 	Other ->
 	    Other
     end;
+init({map_statem,Machine,State,Data,Ops}) when is_map(Machine) ->
+    {handle_event_function,State,[Data|Machine],Ops};
 init([]) ->
     {state_functions,idle,data}.
 
@@ -1367,6 +1475,33 @@ handle_common_events(cast, {'alive?',Pid}, _, Data) ->
 handle_common_events(_, _, _, _) ->
     undefined.
 
+%% Wrapper state machine that uses a map state machine spec
+handle_event(
+  Type, Event, State, [Data|Machine])
+  when is_map(Machine) ->
+    #{State := HandleEvent} = Machine,
+    case
+	try HandleEvent(Type, Event, Data) of
+	    Result ->
+		Result
+	catch
+	    Result ->
+		Result
+	end of
+	{stop,Reason,NewData} ->
+	    {stop,Reason,[NewData|Machine]};
+	{next_state,NewState,NewData} ->
+	    {next_state,NewState,[NewData|Machine]};
+	{next_state,NewState,NewData,Ops} ->
+	    {next_state,NewState,[NewData|Machine],Ops};
+	{keep_state,NewData} ->
+	    {keep_state,[NewData|Machine]};
+	{keep_state,NewData,Ops} ->
+	    {keep_state,[NewData|Machine],Ops};
+	Other ->
+	    Other
+    end;
+%%
 %% Dispatcher to test callback_mode handle_event_function
 %%
 %% Wrap the state in a 1 element list just to test non-atom
@@ -1412,6 +1547,6 @@ flush() ->
     receive
 	Msg ->
 	    [Msg|flush()]
-    after 0 ->
+    after 500 ->
 	    []
     end.

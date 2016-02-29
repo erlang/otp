@@ -1169,7 +1169,7 @@ error_info(
 	  "** Reason for termination = ~w:~p~n" ++
 	  "** State = ~p~n" ++
 	  "** Callback mode = ~p~n" ++
-	  "** Queued/Posponed = ~w/~w~n" ++
+	  "** Queued/Postponed = ~w/~w~n" ++
 	  case FixedStacktrace of
 	      [] ->
 		  "";
