@@ -102,8 +102,8 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
     
     case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
-	{error, _Error} ->
-	    exit(shutdown); %% Can be 'normal'.
+	{error, Error} ->
+	    exit({shutdown, Error}); %% Can be 'normal'.
 	ok ->
 	    continue_init(Manager, ConfigDB, SocketType, Socket, KeepAliveTimeOut)
     end.
@@ -294,7 +294,10 @@ handle_info(Info, #state{mod = ModData} = State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(normal, State) ->
+terminate(Reason, State) when Reason == normal;
+			      Reason == shutdown ->
+    do_terminate(State);
+terminate({shutdown,_}, State) ->
     do_terminate(State);
 terminate(Reason, #state{response_sent = false, mod = ModData} = State) ->
     httpd_response:send_status(ModData, 500, none),
