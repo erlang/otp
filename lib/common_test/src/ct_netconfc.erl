@@ -234,7 +234,6 @@
 %% Internal defines
 %%----------------------------------------------------------------------
 -define(APPLICATION,?MODULE).
--define(VALID_SSH_OPTS,[user, password, user_dir]).
 -define(DEFAULT_STREAM,"NETCONF").
 
 -define(error(ConnName,Report),
@@ -1257,13 +1256,11 @@ check_options([{port,Port}|T], Host, _, #options{} = Options) ->
 check_options([{timeout, Timeout}|T], Host, Port, Options)
   when is_integer(Timeout); Timeout==infinity ->
     check_options(T, Host, Port, Options#options{timeout = Timeout});
-check_options([{X,_}=Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
-    case lists:member(X,?VALID_SSH_OPTS) of
-	true ->
-	    check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]});
-	false ->
-	    {error, {invalid_option, Opt}}
-    end.
+check_options([{timeout, _} = Opt|_T], _Host, _Port, _Options) ->
+    {error, {invalid_option, Opt}};
+check_options([Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
+    %% Option verified by ssh
+    check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]}).
 
 %%%-----------------------------------------------------------------
 set_request_timer(infinity) ->
