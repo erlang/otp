@@ -61,6 +61,7 @@
 #include "erl_driver.h"
 #include "sys_uds.h"
 #include "hash.h"
+#include "erl_term.h"
 #include "erl_child_setup.h"
 
 #define SET_CLOEXEC(fd) fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC)
