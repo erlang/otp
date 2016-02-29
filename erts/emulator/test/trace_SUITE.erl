@@ -312,12 +312,14 @@ procs_trace(Config) when is_list(Config) ->
     Proc2 = spawn(?MODULE, process, [Self]),
     io:format("Proc2 = ~p ~n", [Proc2]),
     %%
-    1 = erlang:trace(Proc1, true, [procs]),
+    1 = erlang:trace(Proc1, true, [procs, set_on_first_spawn]),
     MFA = {?MODULE, process, [Self]},
     %%
     %% spawn, link
     Proc1 ! {spawn_link_please, Self, MFA},
     Proc3 = receive {spawned, Proc1, P3} -> P3 end,
+    receive {trace, Proc3, spawned, Proc1, MFA} -> ok end,
+    receive {trace, Proc3, getting_linked, Proc1} -> ok end,
     {trace, Proc1, spawn, Proc3, MFA} = receive_first_trace(),
     io:format("Proc3 = ~p ~n", [Proc3]),
     {trace, Proc1, link, Proc3} = receive_first_trace(),
@@ -328,6 +330,7 @@ procs_trace(Config) when is_list(Config) ->
     Reason3 = make_ref(),
     Proc1 ! {send_please, Proc3, {exit_please, Reason3}},
     receive {Proc1, {'EXIT', Proc3, Reason3}} -> ok end,
+    receive {trace, Proc3, exit, Reason3} -> ok end,
     {trace, Proc1, getting_unlinked, Proc3} = receive_first_trace(),
     Proc1 ! {trap_exit_please, false},
     receive_nothing(),

@@ -5,7 +5,7 @@
 -type tracee() :: port() | pid() | undefined.
 -type trace_tag() :: send | send_to_non_existing_process | 'receive' |
                      call | return_to | return_from | exception_from |
-                     spawn | exit | link | unlink | getting_linked |
+                     spawn | spawned | exit | link | unlink | getting_linked |
                      getting_unlinked | register | unregister | in | out |
                      in_exiting | out_exiting | out_exited |
                      open | closed | gc_start | gc_end.

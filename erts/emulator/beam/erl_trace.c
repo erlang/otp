@@ -1249,20 +1249,20 @@ trace_proc(Process *c_p, ErtsProcLocks c_p_locks,
  * and 'args' may be a deep term.
  */
 void
-trace_proc_spawn(Process *p, Eterm pid,
+trace_proc_spawn(Process *p, Eterm what, Eterm pid,
 		 Eterm mod, Eterm func, Eterm args)
 {
     ErtsTracerNif *tnif = NULL;
     if (is_tracer_proc_enabled(p, ERTS_PROC_LOCKS_ALL &
                                ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE),
-                               &p->common, &tnif, am_spawn)) {
+                               &p->common, &tnif, what)) {
         Eterm mfa;
         Eterm* hp;
 
         hp = HAlloc(p, 4);
         mfa = TUPLE3(hp, mod, func, args);
         hp += 4;
-        send_to_tracer_nif(p, &p->common, p->common.id, tnif, am_spawn, pid, mfa);
+        send_to_tracer_nif(p, &p->common, p->common.id, tnif, what, pid, mfa);
     }
 }
 
