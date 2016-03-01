@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, postpone_and_next_event,
+     shutdown, stop_and_reply, event_order,
      {group, sys},
      hibernate, enter_loop].
 
@@ -501,7 +501,11 @@ stop_and_reply(_Config) ->
     Machine =
 	%% Abusing the internal format of From...
 	#{init =>
-	      fun (cast, {echo,From1,Reply1}, _) ->
+	      fun () ->
+		      {ok,start,undefined}
+	      end,
+	  start =>
+	      fun (cast, {echo,From1,Reply1}, undefined) ->
 		      {next_state,wait,{reply,From1,Reply1}}
 	      end,
 	  wait =>
@@ -509,11 +513,7 @@ stop_and_reply(_Config) ->
 		      {stop_and_reply,Reason,
 		       [R1,{reply,From2,Reply2}]}
 	      end},
-    {ok,STM} =
-	gen_statem:start_link(
-	  ?MODULE,
-	  {map_statem,Machine,init,undefined,[]},
-	  []),
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
 
     Self = self(),
     Tag1 = make_ref(),
@@ -538,42 +538,49 @@ stop_and_reply(_Config) ->
 
 
 
-postpone_and_next_event(_Config) ->
+event_order(_Config) ->
     process_flag(trap_exit, true),
 
     Machine =
 	%% Abusing the internal format of From...
 	#{init =>
+	      fun () ->
+		      {ok,start,undefined}
+	      end,
+	  start =>
 	      fun (cast, _, _) ->
-		      {keep_state_and_data,postpone};
-		  ({call,From}, {buffer,Pid,[Tag3,Tag4]}, _) ->
+		      {keep_state_and_data,postpone}; %% Handled in 'buffer'
+		  ({call,From}, {buffer,Pid,[Tag3,Tag4,Tag5]},
+		   undefined) ->
 		      {next_state,buffer,[],
 		       [{next_event,internal,{reply,{Pid,Tag3},ok3}},
 			{next_event,internal,{reply,{Pid,Tag4},ok4}},
+			{timeout,0,{reply,{Pid,Tag5},ok5}},
+			%% The timeout should not happen since there
+			%% are events that cancel it i.e next_event
+			%% and postponed
 			{reply,From,ok}]}
 	      end,
 	  buffer =>
 	      fun (internal, Reply, Replies) ->
 		      {keep_state,[Reply|Replies]};
+		  (timeout, Reply, Replies) ->
+		      {keep_state,[Reply|Replies]};
 		  (cast, Reply, Replies) ->
 		      {keep_state,[Reply|Replies]};
 		  ({call,From}, {stop,Reason}, Replies) ->
-		      {next_state,stop,Replies,
+		      {next_state,stop,undefined,
 		       lists:reverse(
 			 Replies,
 			 [{reply,From,ok},
 			  {next_event,internal,{stop,Reason}}])}
 	      end,
 	  stop =>
-	      fun (internal, Result, _) ->
+	      fun (internal, Result, undefined) ->
 		      Result
 	      end},
 
-    {ok,STM} =
-	gen_statem:start_link(
-	  ?MODULE,
-	  {map_statem,Machine,init,undefined,[]},
-	  []),
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
     Self = self(),
     Tag1 = make_ref(),
     gen_statem:cast(STM, {reply,{Self,Tag1},ok1}),
@@ -581,7 +588,8 @@ postpone_and_next_event(_Config) ->
     gen_statem:cast(STM, {reply,{Self,Tag2},ok2}),
     Tag3 = make_ref(),
     Tag4 = make_ref(),
-    ok = gen_statem:call(STM, {buffer,Self,[Tag3,Tag4]}),
+    Tag5 = make_ref(),
+    ok = gen_statem:call(STM, {buffer,Self,[Tag3,Tag4,Tag5]}),
     ok = gen_statem:call(STM, {stop,reason}),
     case flush() of
 	[{Tag3,ok3},{Tag4,ok4},{Tag1,ok1},{Tag2,ok2},
@@ -1263,8 +1271,15 @@ init({callback_mode,CallbackMode,Arg}) ->
 	Other ->
 	    Other
     end;
-init({map_statem,Machine,State,Data,Ops}) when is_map(Machine) ->
-    {handle_event_function,State,[Data|Machine],Ops};
+init({map_statem,#{init := Init}=Machine}) ->
+    case Init() of
+	{ok,State,Data,Ops} ->
+	    {handle_event_function,State,[Data|Machine],Ops};
+	{ok,State,Data} ->
+	    {handle_event_function,State,[Data|Machine]};
+	Other ->
+	    Other
+    end;
 init([]) ->
     {state_functions,idle,data}.
 
