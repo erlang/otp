@@ -1080,13 +1080,39 @@ bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
-    {E,Pre,St} = expr({bin,Bl,[{bin_element,Bl,
-				{var,Bl,AccVar#c_var.name},
-				{atom,Bl,all},
-				[binary,{unit,1}]}|Elements]}, St0),
+    bc_tq_build(Bl, [], AccVar, Elements, St0);
+bc_tq1(Line, E0, [], AccVar, St0) ->
+    BsFlags = [binary,{unit,1}],
+    BsSize = {atom,Line,all},
+    {E1,Pre0,St1} = safe(E0, St0),
+    case E1 of
+	#c_var{name=VarName} ->
+	    Var = {var,Line,VarName},
+	    Els = [{bin_element,Line,Var,BsSize,BsFlags}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1);
+	#c_literal{val=Val} when is_bitstring(Val) ->
+	    Bits = bit_size(Val),
+	    <<Int0:Bits>> = Val,
+	    Int = {integer,Line,Int0},
+	    Sz = {integer,Line,Bits},
+	    Els = [{bin_element,Line,Int,Sz,[integer,{unit,1},big]}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1);
+	_ ->
+	    %% Any other safe (cons, tuple, literal) is not a
+	    %% bitstring. Force the evaluation to fail (and
+	    %% generate a warning).
+	    Els = [{bin_element,Line,{atom,Line,bad_value},BsSize,BsFlags}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1)
+    end.
+
+bc_tq_build(Line, Pre0, #c_var{name=AccVar}, Elements0, St0) ->
+    Elements = [{bin_element,Line,{var,Line,AccVar},{atom,Line,all},
+		 [binary,{unit,1}]}|Elements0],
+    {E,Pre,St} = expr({bin,Line,Elements}, St0),
     #a{anno=A} = Anno0 = get_anno(E),
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
-    {set_anno(E, Anno),Pre,St}.
+    {set_anno(E, Anno),Pre0++Pre,St}.
+
 
 %% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
 %%     {Case,[PreExpr],State}.
@@ -1307,7 +1333,9 @@ bc_elem_size({bin,_,El}, St0) ->
 	    Vs = [V || {_,#c_var{name=V}} <- Vars0],
 	    {E,Pre,St} = bc_mul_pairs(F, #c_literal{val=Bits}, [], St0),
 	    {E,Pre,Vs,St}
-    end.
+    end;
+bc_elem_size(_, _) ->
+    throw(impossible).
 
 bc_elem_size_1([{bin_element,_,_,{integer,_,N},Flags}|Es], Bits, Vars) ->
     {unit,U} = keyfind(unit, 1, Flags),

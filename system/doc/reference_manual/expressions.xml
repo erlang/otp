@@ -1556,9 +1556,11 @@ end</pre>
     <p>Bit string comprehensions are written with
     the following syntax:</p>
     <pre>
-&lt;&lt; BitString || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p>Here, <c>BitString</c> is a bit string expression and each
-      <c>Qualifier</c> is either a generator, a bit string generator or a filter.</p>
+&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
+    <p><c>BitStringExpr</c> is an expression that evalutes to a bit
+    string. If <c>BitStringExpr</c> is a function call, it must be
+    enclosed in parentheses.  Each <c>Qualifier</c> is either a
+    generator, a bit string generator or a filter.</p>
     <list type="bulleted">
  <item>A <em>generator</em> is written as:      <br></br>
       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>

@@ -311,7 +311,7 @@ bit_size_expr -> expr_max : '$1'.
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
 	{lc,?anno('$1'),'$2','$4'}.
-binary_comprehension -> '<<' binary '||' lc_exprs '>>' :
+binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
 	{bc,?anno('$1'),'$2','$4'}.
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].

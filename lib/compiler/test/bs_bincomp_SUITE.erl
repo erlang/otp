@@ -26,7 +26,7 @@
 	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
-	 nomatch/1,sizes/1]).
+	 nomatch/1,sizes/1,general_expressions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,7 @@ all() ->
     test_lib:recompile(?MODULE),
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
-     nomatch, sizes].
+     nomatch, sizes, general_expressions].
 
 groups() -> 
     [].
@@ -294,6 +294,48 @@ sizes(Config) when is_list(Config) ->
 
     cs_end(),
     ok.
+
+-define(BAD(E),   {'EXIT',{badarg,_}} = (catch << (E) || _ <- [1,2,3] >>)).
+-define(BAD_V(E), {'EXIT',{badarg,_}} = (catch << (E) || I <- [1,2,3] >>)).
+
+general_expressions(_) ->
+    <<1,2,3>> = << begin <<1,2,3>> end || _ <- [1] >>,
+    <<"abc">> = << begin <<"abc">> end || _ <- [1] >>,
+    <<1,2,3>> = << begin
+		       I = <<(I0+1)>>,
+		       id(I)
+		   end || <<I0>> <= <<0,1,2>> >>,
+    <<1,2,3>> = << I || I <- [<<1,2>>,<<3>>] >>,
+    <<1,2,3>> = << (id(<<I>>)) || I <- [1,2,3] >>,
+    <<2,4>> = << case I rem 2 of
+		     0 -> <<I>>;
+		     1 -> <<>>
+		 end || I <- [1,2,3,4,5] >>,
+    <<2,3,4,5,6,7>> = << << (id(<<J>>)) || J <- [2*I,2*I+1] >> ||
+			  I <- [1,2,3] >>,
+    <<1,2,2,3,4,4>> = << if
+			     I rem 2 =:= 0 -> <<I,I>>;
+			     true -> <<I>>
+			 end || I <- [1,2,3,4] >>,
+    self() ! <<42>>,
+    <<42>> = << receive B -> B end || _ <- [1] >>,
+    <<10,5,3>> = << try
+			<<(10 div I)>>
+		    catch _:_ ->
+			    <<>>
+		    end || I <- [0,1,2,3] >>,
+
+    %% Failing expressions.
+    ?BAD(bad_atom),
+    ?BAD(42),
+    ?BAD(42.0),
+    ?BAD_V({ok,I}),
+    ?BAD_V([I]),
+    ?BAD_V(fun() -> I end),
+
+    ok.
+
+-undef(BAD).
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
