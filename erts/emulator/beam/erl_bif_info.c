@@ -915,7 +915,7 @@ BIF_RETTYPE process_info_1(BIF_ALIST_1)
 	case ERTS_PI_FAIL_TYPE_AWAIT_EXIT:
 	    ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error", __FILE__, __LINE__);
+	    erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error", __FILE__, __LINE__);
 	}
     }
 
@@ -955,7 +955,7 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 	    case ERTS_PI_FAIL_TYPE_AWAIT_EXIT:
 		ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
 	    default:
-		erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error",
+		erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error",
 			 __FILE__, __LINE__);
 	    }
 	}
@@ -1760,7 +1760,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		return res;
 	    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
 	    if (intlist_to_buf(*tp, buf, len) != len)
-		erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+		erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
 	    buf[len] = '\0';
 	    res = erts_instr_dump_memory_map(buf) ? am_true : am_false;
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -1779,7 +1779,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		    return res;
 		buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
 		if (intlist_to_buf(tp[1], buf, len) != len)
-		    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+		    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
 		buf[len] = '\0';
 		res = erts_instr_dump_stat(buf, 1) ? am_true : am_false;
 		erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3811,7 +3811,7 @@ static void broken_halt_test(Eterm bif_arg_2)
 #if defined(ERTS_HAVE_TRY_CATCH)
     erts_get_scheduler_data()->run_queue = NULL;
 #endif
-    erl_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
+    erts_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
 }
 
 
@@ -4058,7 +4058,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_true);
 	}
 	else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
-	    erl_exit(ERTS_ABORT_EXIT, "%T\n", BIF_ARG_2);
+	    erts_exit(ERTS_ABORT_EXIT, "%T\n", BIF_ARG_2);
 	}
 	else if (ERTS_IS_ATOM_STR("kill_dist_connection", BIF_ARG_1)) {
 	    DistEntry *dep = erts_sysname_to_connected_dist_entry(BIF_ARG_2);

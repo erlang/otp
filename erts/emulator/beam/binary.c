@@ -47,7 +47,7 @@ erts_init_binary(void)
     if ((((UWord) &((Binary *) 0)->orig_bytes[0]) % ((UWord) 8)) != 0) {
 	/* I assume that any compiler should be able to optimize this
 	   away. If not, this test is not very expensive... */
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Internal error: Address of orig_bytes[0] of a Binary"
 		 " is *not* 8-byte aligned\n");
     }

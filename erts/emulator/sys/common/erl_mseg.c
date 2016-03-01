@@ -1490,7 +1490,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
 #if HALFWORD_HEAP
     if (sizeof(void *) != 8)
-	erl_exit(-1,"Halfword emulator cannot be run in 32bit mode");
+	erts_exit(1,"Halfword emulator cannot be run in 32bit mode");
 
     init->mmap.virtual_range.start = (char *) sbrk(0);
     init->mmap.virtual_range.end = (char *) 0x100000000UL;
@@ -1500,7 +1500,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
     erts_mmap_init(&init->mmap);
 
     if (!IS_2POW(GET_PAGE_SIZE))
-	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
+	erts_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
 
     ASSERT((MSEG_ALIGNED_SIZE % GET_PAGE_SIZE) == 0);
 

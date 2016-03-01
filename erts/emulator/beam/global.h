@@ -428,7 +428,7 @@ void erl_grow_estack(ErtsEStack*, Uint need);
 #define ESTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
     if ((s).start != ESTK_DEF_STACK(s)) {				\
-	erl_exit(1, "Internal error - trying to change allocator "	\
+	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
 		 "type of active estack\n");				\
     }									\
     (s).alloc_type = (t);						\
@@ -589,7 +589,7 @@ do {	 	                                                  \
 #define WSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
     if (s.wstart != WSTK_DEF_STACK(s)) {				\
-	erl_exit(1, "Internal error - trying to change allocator "	\
+	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
 		 "type of active wstack\n");				\
     }									\
     s.alloc_type = (t);							\
@@ -781,7 +781,7 @@ ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
 #define PSTACK_CHANGE_ALLOCATOR(s,t)					\
 do {									\
     if (s.pstart != (byte*)PSTK_DEF_STACK(s)) {				\
-	erl_exit(1, "Internal error - trying to change allocator "	\
+	erts_exit(ERTS_ERROR_EXIT, "Internal error - trying to change allocator "	\
 		 "type of active pstack\n");				\
     }									\
     s.alloc_type = (t);							\
@@ -952,8 +952,8 @@ double erts_get_positive_zero_float(void);
 
 /* config.c */
 
-__decl_noreturn void __noreturn erl_exit(int n, char*, ...);
-__decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
+__decl_noreturn void __noreturn erts_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
 void erl_error(char*, va_list);
 
 /* copy.c */
@@ -1398,7 +1398,7 @@ erts_alloc_message_heap_state(Uint size,
 #endif
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT, "HUGE size (%beu)\n", size);
+	erts_exit(ERTS_ABORT_EXIT, "HUGE size (%beu)\n", size);
 
     if (
 #if defined(ERTS_SMP)

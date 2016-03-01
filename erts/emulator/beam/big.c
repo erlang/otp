@@ -2028,6 +2028,32 @@ term_to_Uint(Eterm term, Uint *up)
     }
 }
 
+/* same as term_to_Uint()
+   but also accept larger bignums by masking
+ */
+int
+term_to_Uint_mask(Eterm term, Uint *up)
+{
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i < 0) {
+	    *up = BADARG;
+	    return 0;
+	}
+	*up = (Uint) i;
+	return 1;
+    } else if (is_big(term) && !big_sign(term)) {
+	ErtsDigit* xr = big_v(term);
+
+	ERTS_CT_ASSERT(sizeof(ErtsDigit) == sizeof(Uint));
+	*up = (Uint)*xr;  /* just pick first word */
+	return 1;
+    } else {
+	*up = BADARG;
+	return 0;
+    }
+}
+
 int
 term_to_UWord(Eterm term, UWord *up)
 {

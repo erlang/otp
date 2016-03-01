@@ -653,11 +653,11 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0) {
 	    int err = errno;
 	    char *errstr = err ? strerror(err) : "unknown";
-	    erl_exit(-1, "Failed to lock physical memory: %s (%d)\n",
+	    erts_exit(1, "Failed to lock physical memory: %s (%d)\n",
 		     errstr, err);
 	}
 #else
-	erl_exit(-1, "Failed to lock physical memory: Not supported\n");
+	erts_exit(1, "Failed to lock physical memory: Not supported\n");
 #endif
     }
 
@@ -806,13 +806,13 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
 	if (!erts_allctrs[i].alloc)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing alloc function for %s\n", ERTS_ALC_A2AD(i));
 	if (!erts_allctrs[i].realloc)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing realloc function for %s\n", ERTS_ALC_A2AD(i));
 	if (!erts_allctrs[i].free)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing free function for %s\n", ERTS_ALC_A2AD(i));
     }
 
@@ -890,7 +890,7 @@ erts_alloc_late_init(void)
 static void *
 erts_realloc_fixed_size(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Attempt to reallocate a block of the fixed size type %s\n",
 	     ERTS_ALC_T2TD(type));
 }
@@ -1012,7 +1012,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 					  * tspec->size)
 				       + ERTS_CACHE_LINE_SIZE - 1));
 	if (!states)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to allocate allocator states for %salloc\n",
 		     init->init.util.name_prefix);
 	tspec->allctr = (Allctr_t **) states;
@@ -1040,7 +1040,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 				   (tot_fix_list_size
 				    + ERTS_CACHE_LINE_SIZE - 1));
 	if (!fix_lists)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to allocate fix lists for %salloc\n",
 		     init->init.util.name_prefix);
 
@@ -1114,7 +1114,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 	}
 
 	if (!as)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to start %salloc\n", init->init.util.name_prefix);
 
 	ASSERT(as == (void *) as0);
@@ -1909,7 +1909,7 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	case ERTS_ALC_O_FREE:		op_str = "free";	break;
 	default:			op_str = "UNKNOWN";	break;
 	}
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s: %s operation not supported (memory type: \"%s\")\n",
 		 allctr_str, op_str, t_str);
 	break;
@@ -1923,18 +1923,18 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	va_start(argp, n);
 	size = va_arg(argp, Uint);
 	va_end(argp);
-	erl_exit(-1,
+	erts_exit(1,
 		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
 		 allctr_str, op, size, t_str);
 	break;
     }
     case ERTS_ALC_E_NOALLCTR:
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_alloc: Unknown allocator type: %d\n",
 		 ERTS_ALC_T2A(ERTS_ALC_N2T(n)));
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "erts_alloc: Unknown error: %d\n", error);
+	erts_exit(ERTS_ABORT_EXIT, "erts_alloc: Unknown error: %d\n", error);
 	break;
     }
 }
@@ -3189,7 +3189,7 @@ reply_alloc_info(void *vair)
 					       make_small(0), ainfo);
 		    }
 		    else {
-			erl_exit(ERTS_ABORT_EXIT, "%s:%d: internal error\n",
+			erts_exit(ERTS_ABORT_EXIT, "%s:%d: internal error\n",
 				 __FILE__, __LINE__);
 		    }
 		}
@@ -3426,7 +3426,7 @@ void *safe_realloc(void *ptr, Uint sz)
  * Keep alloc_SUITE_data/allocator_test.h updated if changes are made        *
  * to erts_alc_test()                                                        *
 \*                                                                           */
-#define ERTS_ALC_TEST_ABORT erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
+#define ERTS_ALC_TEST_ABORT erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
 
 UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 {
@@ -3888,7 +3888,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
     found_type = GET_TYPE_OF_PATTERN(pre_pattern);
     if (pre_pattern != MK_PATTERN(n)) {
 	if ((FIXED_FENCE_PATTERN_MASK & pre_pattern) != FIXED_FENCE_PATTERN)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at beginning of memory block (p=0x%u) "
 		     "clobbered.\n",
 		     (UWord) ptr);
@@ -3905,12 +3905,12 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	char *op_str;
 
 	if ((FIXED_FENCE_PATTERN_MASK & post_pattern) != FIXED_FENCE_PATTERN)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at end of memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
 		     (UWord) ptr, (UWord) sz);
 	if (found_type != GET_TYPE_OF_PATTERN(post_pattern))
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence around memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
 		     (UWord) ptr, (UWord) sz);
@@ -3933,7 +3933,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	default:			op_str = "???";		break;
 	}
 
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "ERROR: Memory block (p=0x%u, sz=%u) allocated as type \"%s\","
 		 " but %s as type \"%s\".\n",
 		 (UWord) ptr, (UWord) sz, ftype, op_str, otype);

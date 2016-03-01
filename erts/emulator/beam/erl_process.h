@@ -2351,6 +2351,6 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 #endif
 
 
-void erl_halt(int code);
+void erts_halt(int code);
 extern erts_smp_atomic32_t erts_halt_progress;
 extern int erts_halt_code;

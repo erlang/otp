@@ -1050,7 +1050,7 @@ insert_dist_entry(DistEntry *dist, int type, Eterm id, Uint creation)
     }
 
     if(!rdp)
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "Reference to non-existing distribution table entry found!\n");
 
     insert_dist_referrer(rdp, type, id, creation);
@@ -1111,7 +1111,7 @@ insert_node(ErlNode *node, int type, Eterm id)
     }
 
     if (!rnp)
-	erl_exit(1, "Reference to non-existing node table entry found!\n");
+	erts_exit(ERTS_ERROR_EXIT, "Reference to non-existing node table entry found!\n");
 
     insert_node_referrer(rnp, type, id);
 }

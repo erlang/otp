@@ -516,7 +516,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED;
 
     if (~valid & value)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Invalid aux_work value found: 0x%x\n",
 		 ~valid & value);
 }
@@ -1308,7 +1308,7 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flags)
     case 0:
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n",
+	erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n",
 		 __FILE__, __LINE__);
 	break;
     }
@@ -2292,7 +2292,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 	    erts_port_release(prt);
 	}
 	if (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
-	    erl_exit_flush_async(erts_halt_code, "");
+	    erts_flush_async_exit(erts_halt_code, "");
 	}
     }
     return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
@@ -3811,7 +3811,7 @@ immigrate(ErtsRunQueue *c_rq, ErtsMigrationPath *mp)
 	    prio = ERTS_PORT_PRIO_LEVEL;
 	    break;
 	default:
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "%s:%d:%s(): Invalid immigrate queue mask",
 		     __FILE__, __LINE__, __func__);
 	    prio = 0;
@@ -3835,7 +3835,7 @@ immigrate(ErtsRunQueue *c_rq, ErtsMigrationPath *mp)
 		    rq = erts_port_runq(prt);
 		    if (rq) {
 			if (rq != c_rq)
-			    erl_exit(ERTS_ABORT_EXIT,
+			    erts_exit(ERTS_ABORT_EXIT,
 				     "%s:%d:%s(): Internal error",
 				     __FILE__, __LINE__, __func__);
 			erts_enqueue_port(c_rq, prt);
@@ -4026,7 +4026,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    prt_rq = erts_port_runq(prt);
 	    if (prt_rq) {
 		if (prt_rq != to_rq)
-		    erl_exit(ERTS_ABORT_EXIT,
+		    erts_exit(ERTS_ABORT_EXIT,
 			     "%s:%d:%s() internal error\n",
 			     __FILE__, __LINE__, __func__);
 		erts_enqueue_port(to_rq, prt);
@@ -4227,7 +4227,7 @@ no_procs:
 	    return 0;
 	else {
 	    if (prt_rq != rq)
-		erl_exit(ERTS_ABORT_EXIT,
+		erts_exit(ERTS_ABORT_EXIT,
 			 "%s:%d:%s() internal error\n",
 			 __FILE__, __LINE__, __func__);
 	    *rq_lockedp = 1;
@@ -8117,7 +8117,7 @@ sched_thread_func(void *vesdp)
 
     process_main();
     /* No schedulers should *ever* terminate */
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Scheduler thread number %beu terminated\n",
 	     no);
     return NULL;
@@ -8182,7 +8182,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     process_main();
     /* No schedulers should *ever* terminate */
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty CPU scheduler thread number %beu terminated\n",
 	     no);
     return NULL;
@@ -8245,7 +8245,7 @@ sched_dirty_io_thread_func(void *vesdp)
 
     process_main();
     /* No schedulers should *ever* terminate */
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty I/O scheduler thread number %beu terminated\n",
 	     no);
     return NULL;
@@ -8275,12 +8275,12 @@ erts_start_schedulers(void)
         erts_snprintf(opts.name, 16, "runq_supervisor");
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
-	    erl_exit(1, "Failed to create run-queue supervision event\n");
+	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision event\n");
 	if (0 != ethr_thr_create(&runq_supervisor_tid,
 				 runq_supervisor,
 				 NULL,
 				 &opts))
-	    erl_exit(1, "Failed to create run-queue supervision thread\n");
+	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision thread\n");
 
     }
 #endif
@@ -8324,14 +8324,14 @@ erts_start_schedulers(void)
 	    erts_snprintf(opts.name, 16, "%d_dirty_cpu_scheduler", ix + 1);
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erl_exit(1, "Failed to create dirty cpu scheduler thread %d\n", ix);
+		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty cpu scheduler thread %d\n", ix);
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
 	    erts_snprintf(opts.name, 16, "%d_dirty_io_scheduler", ix + 1);
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erl_exit(1, "Failed to create dirty io scheduler thread %d\n", ix);
+		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty io scheduler thread %d\n", ix);
 	}
     }
 #endif
@@ -8347,10 +8347,10 @@ erts_start_schedulers(void)
 
     res = ethr_thr_create(&aux_tid, aux_thread, NULL, &opts);
     if (res != 0)
-	erl_exit(1, "Failed to create aux thread\n");
+	erts_exit(ERTS_ERROR_EXIT, "Failed to create aux thread\n");
 
     if (actual < 1)
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "Failed to create any scheduler-threads: %s (%d)\n",
 		 erl_errno_id(res),
 		 res);
@@ -12252,7 +12252,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	break;
 	
     default:
-	erl_exit(1, "bad type in link list\n");
+	erts_exit(ERTS_ERROR_EXIT, "bad type in link list\n");
 	break;
     }
     erts_destroy_link(lnk);
@@ -12293,7 +12293,7 @@ erts_do_exit_process(Process* p, Eterm reason)
 #endif
 
     if (p->static_flags & ERTS_STC_FLG_SYSTEM_PROC)
-	erl_exit(ERTS_DUMP_EXIT, "System process %T terminated: %T\n",
+	erts_exit(ERTS_DUMP_EXIT, "System process %T terminated: %T\n",
                  p->common.id, reason);
 
 #ifdef ERTS_SMP
@@ -12411,7 +12411,7 @@ erts_continue_exit_process(Process *p)
 	    break;
 	case ERTS_SCHDLR_SSPND_EINVAL:
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
+	    erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
 		     __FILE__, __LINE__, (int) ssr);
 	}
     }
@@ -12908,10 +12908,10 @@ erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp) {
  *    The same global atomic is used as refcount.
  *
  * A BIF that calls this should make sure to schedule out to never come back:
- *    erl_halt((int)(- code));
+ *    erts_halt(code);
  *    ERTS_BIF_YIELD1(bif_export[BIF_erlang_halt_1], BIF_P, NIL);
  */
-void erl_halt(int code)
+void erts_halt(int code)
 {
     if (-1 == erts_smp_atomic32_cmpxchg_acqb(&erts_halt_progress,
 					     erts_no_schedulers,

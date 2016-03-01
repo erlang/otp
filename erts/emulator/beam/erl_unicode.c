@@ -2507,7 +2507,7 @@ void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
 		((Uint) (bytes[3] & ((byte) 0x3F)));
 	    bytes += 4;
 	} else {
-	    erl_exit(1,"Internal unicode error in prim_file:internal_name2native/1");
+	    erts_exit(ERTS_ERROR_EXIT,"Internal unicode error in prim_file:internal_name2native/1");
 	}
 	*target++ = (byte) (unipoint & 0xFF);
 	*target++ = (byte) ((unipoint >> 8) & 0xFF);

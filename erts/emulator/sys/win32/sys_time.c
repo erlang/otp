@@ -147,7 +147,7 @@ os_monotonic_time_qpc(void)
     LARGE_INTEGER pc;
 
     if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
-	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+	erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
 
     return (ErtsMonotonicTime) pc.QuadPart;
 }
@@ -164,7 +164,7 @@ os_times_qpc(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
     GetSystemTime(&st);
 
     if (!qpcr)
-	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+	erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
 
     *mtimep = (ErtsMonotonicTime) pc.QuadPart;
 
@@ -251,7 +251,7 @@ sys_hrtime_qpc(void)
     LARGE_INTEGER pc;
 
     if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
-	erl_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
+	erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
 
     ASSERT(pc.QuadPart > 0);
 

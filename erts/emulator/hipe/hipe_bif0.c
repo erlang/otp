@@ -406,7 +406,7 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
 	    nrcallees = arityval(tuple_val(BIF_ARG_2)[0]);
 	else
 	    nrcallees = 0;
-	erl_exit(1, "%s: failed to allocate %lu bytes and %lu trampolines\r\n",
+	erts_exit(ERTS_ERROR_EXIT, "%s: failed to allocate %lu bytes and %lu trampolines\r\n",
 		 __func__, (unsigned long)nrbytes, (unsigned long)nrcallees);
     }
     memcpy(address, bytes, nrbytes);
@@ -1311,7 +1311,7 @@ static void *hipe_make_stub(Eterm m, Eterm f, unsigned int arity, int is_remote)
     export_entry = erts_export_get_or_make_stub(m, f, arity);
     StubAddress = hipe_make_native_stub(export_entry, arity);
     if (!StubAddress)
-	erl_exit(1, "hipe_make_stub: code allocation failed\r\n");
+	erts_exit(ERTS_ERROR_EXIT, "hipe_make_stub: code allocation failed\r\n");
     return StubAddress;
 }
 

@@ -570,7 +570,7 @@ void erts_encode_ext(Eterm term, byte **ext)
     *ep++ = VERSION_MAGIC;
     ep = enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS, NULL);
     if (!ep)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s:%d:erts_encode_ext(): Internal data structure error\n",
 		 __FILE__, __LINE__);
     *ext = ep;
@@ -1559,7 +1559,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binar
             b2t_destroy_context(ctx);
 
             if (ctx->u.dc.factory.hp > ctx->u.dc.factory.hp_end) {
-                erl_exit(1, ":%s, line %d: heap overrun by %d words(s)\n",
+                erts_exit(ERTS_ERROR_EXIT, ":%s, line %d: heap overrun by %d words(s)\n",
                          __FILE__, __LINE__, ctx->u.dc.factory.hp - ctx->u.dc.factory.hp_end);
             }
 	    erts_factory_close(&ctx->u.dc.factory);
@@ -1708,12 +1708,12 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 
 	if ((endp = enc_term(NULL, Term, bytes, flags, NULL))
 	    == NULL) {
-	    erl_exit(1, "%s, line %d: bad term: %x\n",
+	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: bad term: %x\n",
 		     __FILE__, __LINE__, Term);
 	}
 	real_size = endp - bytes;
 	if (real_size > size) {
-	    erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
+	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: buffer overflow: %d word(s)\n",
 		     __FILE__, __LINE__, real_size - size);
 	}
 
@@ -1753,12 +1753,12 @@ erts_term_to_binary_simple(Process* p, Eterm Term, Uint size, int level, Uint fl
 	bytes[0] = VERSION_MAGIC;
 	if ((endp = enc_term(NULL, Term, bytes+1, flags, NULL))
 	    == NULL) {
-	    erl_exit(1, "%s, line %d: bad term: %x\n",
+	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: bad term: %x\n",
 		     __FILE__, __LINE__, Term);
 	}
 	real_size = endp - bytes;
 	if (real_size > size) {
-	    erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
+	    erts_exit(ERTS_ERROR_EXIT, "%s, line %d: buffer overflow: %d word(s)\n",
 		     __FILE__, __LINE__, endp - (bytes + size));
 	}
 	return erts_realloc_binary(bin, real_size);
@@ -2650,7 +2650,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		    ASSERT(node_sz < 17);
 		    break;
 		default:
-		    erl_exit(1, "bad header\r\n");
+		    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 		}
 
 		ptr++;
@@ -4110,7 +4110,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		    ASSERT(node_sz < 17);
 		    break;
 		default:
-		    erl_exit(1, "bad header\r\n");
+		    erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 		}
 
 		ptr++;
@@ -4202,7 +4202,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    break;
 
 	default:
-	    erl_exit(1,"Internal data structure error (in encode_size_struct2)%x\n",
+	    erts_exit(ERTS_ERROR_EXIT,"Internal data structure error (in encode_size_struct2)%x\n",
 		     obj);
 	}
 

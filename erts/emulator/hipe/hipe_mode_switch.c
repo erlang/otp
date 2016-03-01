@@ -108,7 +108,7 @@ static const char *code_str(unsigned code)
 static void __noreturn
 hipe_abort(const char *expr, const char *file, unsigned line)
 {
-    erl_exit(1, "ASSERTION FAILED, file %s, line %u: %s\r\n", file, line, expr);
+    erts_exit(ERTS_ERROR_EXIT, "ASSERTION FAILED, file %s, line %u: %s\r\n", file, line, expr);
 }
 
 #define HIPE_ASSERT3(expr, file, line) \
@@ -316,7 +316,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  break;
       }
       default:
-	erl_exit(1, "hipe_mode_switch: cmd %#x\r\n", cmd);
+	erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: cmd %#x\r\n", cmd);
     }
  do_return_from_native:
     DPRINTF("result == %#x (%s)", result, code_str(result));
@@ -560,7 +560,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  goto do_throw_to_native;
       }
       default:
-	erl_exit(1, "hipe_mode_switch: result %#x\r\n", result);
+	erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %#x\r\n", result);
     }
     HIPE_CHECK_PCB(p);
     p->def_arg_reg[3] = result;

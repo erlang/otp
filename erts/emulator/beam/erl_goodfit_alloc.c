@@ -571,8 +571,8 @@ info_options(Allctr_t *allctr,
     if (hpp || szp) {
 	
 	if (!atoms_initialized)
-	    erl_exit(1, "%s:%d: Internal error: Atoms not initialized",
-		     __FILE__, __LINE__);;
+	    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error: Atoms not initialized",
+		     __FILE__, __LINE__);
 
 	res = NIL;
 	add_2tup(hpp, szp, &res, am.as, am.gf);
