@@ -104,7 +104,7 @@ process_killer(void)
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
 	    while(1) {
 		if ((j = sys_get_key(0)) <= 0)
-		    erl_exit(0, "");
+		    erts_exit(0, "");
 		switch(j) {
 		case 'k': {
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
@@ -493,7 +493,7 @@ do_break(void)
        halt immediately if break is called */
     mode = erts_read_env("ERL_CONSOLE_MODE");
     if (mode && strcmp(mode, "window") != 0)
-	erl_exit(0, "");
+	erts_exit(0, "");
     erts_free_read_env(mode);
 #endif /* __WIN32__ */
 
@@ -503,7 +503,7 @@ do_break(void)
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
-	    erl_exit(0, "");
+	    erts_exit(0, "");
 	switch (i) {
 	case 'q':
 	case 'a': 
@@ -513,9 +513,9 @@ do_break(void)
 		   * The usual reason for a read error is Ctrl-C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
-	    erl_exit(0, "");
+	    erts_exit(0, "");
 	case 'A':		/* Halt generating crash dump */
-	    erl_exit(1, "Crash dump requested by user");
+	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user");
 	case 'c':
 	    return;
 	case 'p':
@@ -785,7 +785,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
 
 #ifdef USE_THREADS
-    /* We want to note which thread it was that called erl_exit */
+    /* We want to note which thread it was that called erts_exit */
     if (erts_get_scheduler_data()) {
         erts_fdprintf(fd, "Calling Thread: scheduler:%d\n",
                       erts_get_scheduler_data()->no);

@@ -180,7 +180,7 @@ void hipe_fclearerror_error(Process *p)
 #if !defined(NO_FPE_SIGNALS)
     erts_fp_check_init_error(&p->fp_exception);
 #else
-    erl_exit(ERTS_ABORT_EXIT, "Emulated FPE not cleared by HiPE");
+    erts_exit(ERTS_ABORT_EXIT, "Emulated FPE not cleared by HiPE");
 #endif
 }
 

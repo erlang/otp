@@ -44,7 +44,7 @@ static void *os_monotonic_time_extender(void *vstatep)
 	erts_milli_sleep(sleep_time);
     }
 
-    erl_exit(ERTS_ABORT_EXIT, "os_monotonic_time_extender thread terminating");
+    erts_exit(ERTS_ABORT_EXIT, "os_monotonic_time_extender thread terminating");
     return NULL;
 }
 

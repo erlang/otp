@@ -1270,7 +1270,7 @@ recurse:
                 break;
             }
             default:
-                erl_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrA);
+                erts_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrA);
             }
         }
 
@@ -1297,7 +1297,7 @@ recurse:
                 break;
             }
             default:
-                erl_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrB);
+                erts_exit(ERTS_ABORT_EXIT, "bad header %ld\r\n", hdrB);
             }
         }
     }
@@ -1387,7 +1387,7 @@ resume_from_trap:
             res = make_boxed(nhp);
             break;
         default:
-            erl_exit(ERTS_ABORT_EXIT, "strange mix %d\r\n", sp->mix);
+            erts_exit(ERTS_ABORT_EXIT, "strange mix %d\r\n", sp->mix);
         }
     }
 
@@ -1882,7 +1882,7 @@ void hashmap_iterator_init(ErtsWStack* s, Eterm node, int reverse) {
         sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "bad header");
+	erts_exit(ERTS_ABORT_EXIT, "bad header");
     }
 
     WSTACK_PUSH3((*s), (UWord)THE_NON_VALUE,  /* end marker */
@@ -1919,7 +1919,7 @@ Eterm* hashmap_iterator_next(ErtsWStack* s) {
 		ASSERT(sz < 17);
 		break;
 	    default:
-		erl_exit(ERTS_ABORT_EXIT, "bad header");
+		erts_exit(ERTS_ABORT_EXIT, "bad header");
 	    }
 
 	    idx++;
@@ -1969,7 +1969,7 @@ Eterm* hashmap_iterator_prev(ErtsWStack* s) {
 		ASSERT(sz < 17);
 		break;
 	    default:
-		erl_exit(1, "bad header");
+		erts_exit(ERTS_ERROR_EXIT, "bad header");
 	    }
 
             if (idx > sz)
@@ -2153,12 +2153,12 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm node, Uint *sz,
 			size += HAMT_HEAD_BITMAP_SZ(n+1);
 			goto unroll;
 		    default:
-			erl_exit(1, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+			erts_exit(ERTS_ERROR_EXIT, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
 			break;
 		}
 		break;
 	    default:
-		erl_exit(1, "bad primary tag %p\r\n", node);
+		erts_exit(ERTS_ERROR_EXIT, "bad primary tag %p\r\n", node);
 		break;
 	}
     }
@@ -2273,12 +2273,12 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 			res = make_hashmap(nhp);
 			break;
 		    default:
-			erl_exit(1, "bad header tag %x\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+			erts_exit(ERTS_ERROR_EXIT, "bad header tag %x\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
 			break;
 		}
 		break;
 	    default:
-		erl_exit(1, "bad primary tag %x\r\n", primary_tag(node));
+		erts_exit(ERTS_ERROR_EXIT, "bad primary tag %x\r\n", primary_tag(node));
 		break;
 	}
 
@@ -2396,12 +2396,12 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 			/* not occupied */
 			goto not_found;
 		    default:
-			erl_exit(1, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+			erts_exit(ERTS_ERROR_EXIT, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
 			break;
 		}
 		break;
 	    default:
-		erl_exit(1, "bad primary tag %p\r\n", node);
+		erts_exit(ERTS_ERROR_EXIT, "bad primary tag %p\r\n", node);
 		break;
 	}
     }
@@ -2578,7 +2578,7 @@ unroll:
 		res = make_hashmap(nhp);
 		break;
 	    default:
-		erl_exit(1, "bad header tag %x\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
+		erts_exit(ERTS_ERROR_EXIT, "bad header tag %x\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
 		break;
 	}
     } while(!ESTACK_ISEMPTY(stack));
@@ -2728,7 +2728,7 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                         case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
                             BIF_RET(ERTS_MAKE_AM("hashmap_node"));
                         default:
-                            erl_exit(ERTS_ABORT_EXIT, "term_type: bad map header type %d\n", MAP_HEADER_TYPE(hdr));
+                            erts_exit(ERTS_ABORT_EXIT, "term_type: bad map header type %d\n", MAP_HEADER_TYPE(hdr));
                     }
                 case REFC_BINARY_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("refc_binary"));
@@ -2752,7 +2752,7 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                 case FLOAT_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("hfloat"));
                 default:
-                    erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", hdr);
+                    erts_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", hdr);
             }
         }
         case TAG_PRIMARY_IMMED1:
@@ -2772,13 +2772,13 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
                         case _TAG_IMMED2_NIL:
                             BIF_RET(ERTS_MAKE_AM("nil"));
                         default:
-                            erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
+                            erts_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
                     }
                 default:
-                    erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
+                    erts_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
             }
         default:
-            erl_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
+            erts_exit(ERTS_ABORT_EXIT, "term_type: Invalid tag (0x%X)\n", obj);
     }
 }
 
@@ -2811,7 +2811,7 @@ BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
                 ptr += 2;
                 break;
             default:
-                erl_exit(1, "bad header\r\n");
+                erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
                 break;
         }
         ASSERT(sz < 17);
@@ -2889,7 +2889,7 @@ static Eterm hashmap_info(Process *p, Eterm node) {
 			}
 			break;
 		    default:
-			erl_exit(1, "bad header\r\n");
+			erts_exit(ERTS_ERROR_EXIT, "bad header\r\n");
 			break;
 		}
 	}

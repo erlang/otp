@@ -119,8 +119,6 @@
 #include "dtrace-wrapper.h" 
 
 
-void erl_exit(int n, char *fmt, ...);
-
 static ErlDrvSysInfo sys_info;
 
 /* For explanation of this var, see comment for same var in erl_async.c */
@@ -509,20 +507,9 @@ struct t_data
 static void *ef_safe_alloc(Uint s)
 {
     void *p = EF_ALLOC(s);
-    if (!p) erl_exit(1, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
+    if (!p) erts_exit(ERTS_ERROR_EXIT, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
     return p;
 }
-
-#if 0 /* Currently not used */
-
-static void *ef_safe_realloc(void *op, Uint s)
-{
-    void *p = EF_REALLOC(op, s);
-    if (!p) erl_exit(1, "efile drv: Can't reallocate %lu bytes of memory\n", (unsigned long)s);
-    return p;
-}
-
-#endif
 
 /*********************************************************************
  * ErlIOVec manipulation functions.

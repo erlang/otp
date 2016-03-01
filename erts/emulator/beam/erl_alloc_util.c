@@ -4718,7 +4718,7 @@ make_name_atoms(Allctr_t *allctr)
     size_t prefix_len = strlen(allctr->name_prefix);
 
     if (prefix_len > MAX_ATOM_CHARACTERS + sizeof(realloc) - 1)
-	erl_exit(1,"Too long allocator name: %salloc\n",allctr->name_prefix);
+	erts_exit(ERTS_ERROR_EXIT,"Too long allocator name: %salloc\n",allctr->name_prefix);
 
     memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);
 
@@ -5912,7 +5912,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     /* erts_alcu_start assumes that allctr has been zeroed */
 
     if (((UWord)allctr & ERTS_CRR_ALCTR_FLG_MASK) != 0) {
-        erl_exit(ERTS_ABORT_EXIT, "%s:%d:erts_alcu_start: Alignment error\n",
+        erts_exit(ERTS_ABORT_EXIT, "%s:%d:erts_alcu_start: Alignment error\n",
                  __FILE__, __LINE__);
     }
 
@@ -6128,7 +6128,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	  if (allctr->thread_safe)
 	    erts_mtx_destroy(&allctr->mutex);
 #endif
-	  erl_exit(ERTS_ABORT_EXIT,
+	  erts_exit(ERTS_ABORT_EXIT,
 	    "Failed to create main carrier for %salloc\n",
 	    init->name_prefix);
 	}
@@ -6344,7 +6344,7 @@ erts_alcu_verify_unused(Allctr_t *allctr)
     if (no) {
 	UWord sz = allctr->sbcs.blocks.curr.size;
 	sz += allctr->mbcs.blocks.curr.size;
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%salloc() used when expected to be unused!\n"
 		 "Total amount of blocks allocated: %bpu\n"
 		 "Total amount of bytes allocated: %bpu\n",

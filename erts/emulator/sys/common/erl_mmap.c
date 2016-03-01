@@ -1341,7 +1341,7 @@ os_unreserve_physical(char *ptr, UWord size)
     void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_UNRESERVE_PROT,
 		     ERTS_MMAP_UNRESERVE_FLAGS, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
-	erl_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
+	erts_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
 }
 
 static void *
@@ -2136,7 +2136,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 #endif
     erts_page_inv_mask = pagesize - 1;
     if (pagesize & erts_page_inv_mask)
-	erl_exit(-1, "erts_mmap: Invalid pagesize: %bpu\n",
+	erts_exit(1, "erts_mmap: Invalid pagesize: %bpu\n",
 		 pagesize);
 
     ERTS_MMAP_OP_RINGBUF_INIT();
@@ -2148,7 +2148,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 #if HAVE_MMAP && !defined(MAP_ANON)
     mm->mmap_fd = open("/dev/zero", O_RDWR);
     if (mm->mmap_fd < 0)
-	erl_exit(-1, "erts_mmap: Failed to open /dev/zero\n");
+	erts_exit(1, "erts_mmap: Failed to open /dev/zero\n");
 #endif
 
     erts_smp_mtx_init(&mm->mtx, "erts_mmap");
@@ -2165,7 +2165,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 	sz = end - ptr;
 	start = os_mmap_virtual(ptr, sz);
 	if (!start || start > ptr || start >= end)
-	    erl_exit(-1,
+	    erts_exit(1,
 		     "erts_mmap: Failed to create virtual range for super carrier\n");
 	sz = start - ptr;
 	if (sz)
@@ -2203,7 +2203,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 	    start = os_mmap(NULL, sz, 1);
 	}
 	if (!start)
-	    erl_exit(-1,
+	    erts_exit(1,
 		     "erts_mmap: Failed to create super carrier of size %bpu MB\n",
 		     init->scs/1024/1024);
 	end = start + sz;
@@ -2250,7 +2250,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 	if ((desc_size
 	     + ERTS_SUPERALIGNED_SIZE
 	     + ERTS_PAGEALIGNED_SIZE) > end - start)
-	    erl_exit(-1, "erts_mmap: No space for segments in super carrier\n");
+	    erts_exit(1, "erts_mmap: No space for segments in super carrier\n");
 
 	mm->sa.bot = start;
 	mm->sa.bot += desc_size;
@@ -2288,7 +2288,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 	 */
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
 	if (virtual_map && !os_reserve_physical(start, mm->sa.bot - start))
-	    erl_exit(-1, "erts_mmap: Failed to reserve physical memory for descriptors\n");
+	    erts_exit(1, "erts_mmap: Failed to reserve physical memory for descriptors\n");
 #endif
 	mm->desc.unused_start = start;
 	mm->desc.unused_end = mm->sa.bot;

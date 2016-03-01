@@ -392,7 +392,7 @@ static void pd_hash_erase(Process *p, Eterm id, Eterm *ret)
 		     "display term found in line %d:\n"
 		     "%T\n", p->common.id, __LINE__, old);
 #endif
-	erl_exit(1, "Damaged process dictionary found during erase/1.");
+	erts_exit(ERTS_ERROR_EXIT, "Damaged process dictionary found during erase/1.");
     }
     if ((range = HASH_RANGE(p->dictionary)) > INITIAL_SIZE && 
 	range / 2  > (p->dictionary->numElements)) {
@@ -452,7 +452,7 @@ Eterm pd_hash_get_with_hval(Process *p, Eterm bucket, Eterm id)
 		     "display term found in line %d:\n"
 		     "%T\n", p->common.id, __LINE__, bucket);
 #endif
-	erl_exit(1, "Damaged process dictionary found during get/1.");
+	erts_exit(ERTS_ERROR_EXIT, "Damaged process dictionary found during get/1.");
     }
     return am_undefined;
 }
@@ -707,7 +707,7 @@ static Eterm pd_hash_put(Process *p, Eterm id, Eterm value)
 		     "%T\n", p->common.id, __LINE__, old);
 #endif
 
-	erl_exit(1, "Damaged process dictionary found during put/2.");
+	erts_exit(ERTS_ERROR_EXIT, "Damaged process dictionary found during put/2.");
     }
     if (HASH_RANGE(p->dictionary) <= p->dictionary->numElements) {
 	grow(p);
@@ -1061,7 +1061,7 @@ static void pd_check(ProcDict *pd)
 	    }
 	    continue;
 	} else {
-	    erl_exit(1, 
+	    erts_exit(ERTS_ERROR_EXIT,
 		     "Found tag 0x%08x in process dictionary at position %d",
 		     (unsigned long) t, (int) i);
 	}

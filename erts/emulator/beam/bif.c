@@ -2242,7 +2242,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 			    erts_dsend_export_trap_context(p, ctx));
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
+	erts_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
 	break;
     }
 
@@ -2286,7 +2286,7 @@ static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
 	BIF_TRAP1(&dsend_continue_trap_export, BIF_P, BIF_ARG_1);
     }
     default:
-	erl_exit(ERTS_ABORT_EXIT, "dsend_continue_trap invalid result %d\n", (int)result);
+	erts_exit(ERTS_ABORT_EXIT, "dsend_continue_trap invalid result %d\n", (int)result);
 	break;
     }
     ASSERT(! "Can not arrive here");
@@ -2360,7 +2360,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 			    erts_dsend_export_trap_context(p, ctx));
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
+	erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
 	break;
     }
 
@@ -3738,7 +3738,7 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to string: %d (%s)\n",
+	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to string: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
@@ -3760,7 +3760,7 @@ BIF_RETTYPE display_string_1(BIF_ALIST_1)
     }
     str = (char *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
     if (intlist_to_buf(string, str, len) != len)
-	erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
     str[len] = '\0';
     erts_fprintf(stderr, "%s", str);
     erts_free(ERTS_ALC_T_TMP, (void *) str);
@@ -3780,7 +3780,7 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 BIF_RETTYPE halt_0(BIF_ALIST_0)
 {
     VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt()\n"));
-    erl_halt(0);
+    erts_halt(0);
     ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
 }
 
@@ -3793,17 +3793,18 @@ static char halt_msg[HALT_MSG_SIZE];
 /* ARGSUSED */
 BIF_RETTYPE halt_1(BIF_ALIST_1)
 {
-    Sint code;
+    Uint code;
     
-    if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
+    if (term_to_Uint_mask(BIF_ARG_1, &code)) {
+	int pos_int_code = (int) (code & INT_MAX);
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
-	erl_halt((int)(- code));
+	erts_halt(pos_int_code);
 	ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
     }
     else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(ERTS_ABORT_EXIT, "");
+	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
 	Sint i;
@@ -3814,11 +3815,11 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
 	halt_msg[i] = '\0';
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
+	erts_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
     }
     else
 	goto error;
-    return NIL;  /* Pedantic (lint does not know about erl_exit) */
+    return NIL;  /* Pedantic (lint does not know about erts_exit) */
  error:
 	BIF_ERROR(BIF_P, BADARG);
 }
@@ -3829,7 +3830,7 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
 /* ARGSUSED */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
-    Sint code;
+    Uint code;
     Eterm optlist = BIF_ARG_2;
     int flush = 1;
 
@@ -3856,23 +3857,24 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     if (is_not_nil(optlist))
 	goto error;
 
-    if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
+    if (term_to_Uint_mask(BIF_ARG_1, &code)) {
+	int pos_int_code = (int) (code & INT_MAX);
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
-	    erl_halt((int)(- code));
+	    erts_halt(pos_int_code);
 	    ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
 	}
 	else {
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erl_exit((int)(- code), "");
+            erts_exit(pos_int_code, "");
 	}
     }
     else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(ERTS_ABORT_EXIT, "");
+	erts_exit(ERTS_ABORT_EXIT, "");
     }
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
 	Sint i;
@@ -3884,11 +3886,11 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
+	erts_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
     }
     else
 	goto error;
-    return NIL;  /* Pedantic (lint does not know about erl_exit) */
+    return NIL;  /* Pedantic (lint does not know about erts_exit) */
  error:
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -3944,7 +3946,7 @@ term2list_dsprintf(Process *p, Eterm term)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%T", term);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to list: %d (%s)\n",
+	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to list: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(p, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);

@@ -1665,14 +1665,14 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
     res = erts_sys_getenv_raw("BINDIR", bindir, &bindirsz);
     if (res != 0) {
         if (res < 0)
-            erl_exit(-1,
+            erts_exit(1,
                      "Environment variable BINDIR is not set\n");
         if (res > 0)
-            erl_exit(-1,
+            erts_exit(1,
                      "Value of environment variable BINDIR is too large\n");
     }
     if (bindir[0] != DIR_SEPARATOR_CHAR)
-        erl_exit(-1,
+        erts_exit(1,
                  "Environment variable BINDIR does not contain an"
                  " absolute path\n");
     csp_path_sz = (strlen(bindir)
@@ -1686,7 +1686,7 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
                   DIR_SEPARATOR_CHAR,
                   CHILD_SETUP_PROG_NAME);
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
-        erl_exit(ERTS_ABORT_EXIT,
+        erts_exit(ERTS_ABORT_EXIT,
                  "Could not open unix domain socket in spawn_init: %d\n",
                  errno);
     }
@@ -1754,11 +1754,11 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
     if ((res = read(fd, proto, sizeof(*proto))) < 0) {
         if (errno == ERRNO_BLOCK)
             return;
-        erl_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
+        erts_exit(ERTS_DUMP_EXIT, "Failed to read from erl_child_setup: %d\n", errno);
     }
 
     if (res == 0)
-        erl_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
+        erts_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
 
     ASSERT(res == sizeof(*proto));
 
@@ -1814,7 +1814,7 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
                           proto->u.start.fds, 3, 0) < 0) {
             if (errno == ERRNO_BLOCK)
                 return;
-            erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+            erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
         }
 #ifndef FORKER_PROTO_START_ACK
         close(proto->u.start.fds[0]);
@@ -1846,7 +1846,7 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
             return 0;
         }
-        erl_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+        erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
     }
 
 #ifndef FORKER_PROTO_START_ACK

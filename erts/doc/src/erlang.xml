@@ -1811,7 +1811,8 @@ os_prompt% </pre>
 	  </item>
 	</taglist>
         <note><p>On many platforms, the OS supports only status
-        codes 0-255.</p></note>
+        codes 0-255. A too large status code will be truncated by clearing
+	the high bits.</p></note>
 	<p>For integer <c><anno>Status</anno></c>, the Erlang runtime system
           closes all ports and allows async threads to finish their
           operations before exiting. To exit without such flushing, use

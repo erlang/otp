@@ -1309,7 +1309,7 @@ static Eterm notify_when_loaded(Process *p, Eterm name_term, char *name, ErtsPro
     case ERL_DE_FORCE_RELOAD:
 	break;
     default:
-	erl_exit(1,"Internal error, unknown state %u in dynamic driver.", drv->handle->status);
+	erts_exit(ERTS_ERROR_EXIT,"Internal error, unknown state %u in dynamic driver.", drv->handle->status);
     }
     p->flags |= F_USING_DDLL;
     r = add_monitor(p, drv->handle, ERL_DE_PROC_AWAIT_LOAD);
