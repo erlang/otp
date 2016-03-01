@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,9 +66,11 @@
 %%-----------------------------------------------------------------------------
 
 -type dep()      :: integer().  %% type variable names used as constraint ids
+-type deps()     :: ordsets:ordset(dep()).
+
 -type type_var() :: erl_types:erl_type(). %% actually: {'c','var',_,_}
 
--record(fun_var, {'fun' :: fun((_) -> erl_types:erl_type()), deps :: [dep()],
+-record(fun_var, {'fun' :: fun((_) -> erl_types:erl_type()), deps :: deps(),
 		  origin :: integer() | 'undefined'}).
 
 -type constr_op()    :: 'eq' | 'sub'.
@@ -77,20 +79,22 @@
 -record(constraint, {lhs  :: erl_types:erl_type(),
 		     op   :: constr_op(),
 		     rhs  :: fvar_or_type(),
-		     deps :: [dep()]}).
+		     deps :: deps()}).
 
 -type constraint() :: #constraint{}.
 
+-type mask() :: ordsets:ordset(non_neg_integer()).
+
 -record(constraint_list, {type :: 'conj' | 'disj',
 			  list :: [constr()],
-			  deps :: [dep()],
-                          masks = [] :: [{dep(),[non_neg_integer()]}] |
-                                  {'d',dict:dict(dep(), [non_neg_integer()])},
+                          deps :: deps(),
+                          masks = [] :: [{dep(),mask()}] |
+                                  {'d',dict:dict(dep(), mask())},
 			  id   :: {'list', dep()} | 'undefined'}).
 
 -type constraint_list() :: #constraint_list{}.
 
--record(constraint_ref, {id :: type_var(), deps :: [dep()]}).
+-record(constraint_ref, {id :: type_var(), deps :: deps()}).
 
 -type constraint_ref() :: #constraint_ref{}.
 
@@ -99,32 +103,29 @@
 -type types() :: erl_types:type_table().
 
 -type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, types()}].
--type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
+-type typesig_funmap() :: #{type_var() => type_var()}.
 
 -type prop_types() :: dict:dict(label(), types()).
 
--type dict_or_ets() :: {'d', prop_types()} | {'e', ets:tid()}.
-
--record(state, {callgraph                    :: dialyzer_callgraph:callgraph()
-                                              | 'undefined',
-		cs          = []                :: [constr()],
-		cmap        = {'d', dict:new()} :: dict_or_ets(),
-		fun_map     = []                :: typesig_funmap(),
-		fun_arities = dict:new()        :: dict:dict(type_var(), arity()),
-		in_match    = false             :: boolean(),
-		in_guard    = false             :: boolean(),
-		module                          :: module(),
-		name_map    = dict:new()        :: dict:dict(mfa(),
-                                                             cerl:c_fun()),
-		next_label  = 0                 :: label(),
-		self_rec                        :: 'false' | erl_types:erl_type(),
-		plt                             :: dialyzer_plt:plt()
-                                                 | 'undefined',
-		prop_types  = {'d', dict:new()} :: dict_or_ets(),
-		records     = dict:new()        :: types(),
-		scc         = []                :: [type_var()],
-		mfas                            :: [tuple()],
-                solvers     = []                :: [solver()]
+-record(state, {callgraph                :: dialyzer_callgraph:callgraph()
+                                          | 'undefined',
+		cs          = []         :: [constr()],
+		cmap        = dict:new() :: dict:dict(), % FIXME
+		fun_map     = maps:new() :: typesig_funmap(),
+		fun_arities = dict:new() :: dict:dict(type_var(), arity()),
+		in_match    = false      :: boolean(),
+		in_guard    = false      :: boolean(),
+		module                   :: module(),
+		name_map    = dict:new() :: dict:dict(mfa(), cerl:c_fun()),
+		next_label  = 0          :: label(),
+		self_rec                 :: 'false' | erl_types:erl_type(),
+		plt                      :: dialyzer_plt:plt()
+                                          | 'undefined',
+		prop_types  = dict:new() :: dict:dict(), % FIXME
+		records     = dict:new() :: types(),
+		scc         = []         :: ordsets:ordset(type_var()),
+		mfas                     :: [tuple()], % FIXME?
+                solvers     = []         :: [solver()]
 	       }).
 
 -type state() :: #state{}.
@@ -1802,12 +1803,16 @@ solve([Fun], State) ->
 solve([_|_] = SCC, State) ->
   ?debug("============ Analyzing SCC: ~w ===========\n",
 	 [[debug_lookup_name(F) || F <- SCC]]),
-  {Parallel, NewState} =
-    case parallel_split(SCC) of
-      false -> {false, State};
-      SplitSCC -> {SplitSCC, minimize_state(State)}
-    end,
-  solve_scc(SCC, Parallel, map_new(), NewState, false).
+  Users = comp_users(SCC, State),
+  solve_scc(SCC, map_new(), State, Users, _ToSolve=SCC, false).
+
+comp_users(SCC, State) ->
+  Vars0 = [{Fun, state__get_rec_var(Fun, State)} || Fun <- SCC],
+  Vars = lists:sort([t_var_name(Var) || {_, {ok, Var}} <- Vars0]),
+  family([{t_var(V), F} ||
+           F <- SCC,
+           V <- ordsets:intersection(get_deps(state__get_cs(F, State)),
+                                     Vars)]).
 
 solve_fun(Fun, FunMap, State) ->
   Cs = state__get_cs(Fun, State),
@@ -1822,7 +1827,7 @@ solve_fun(Fun, FunMap, State) ->
 	       end,
   enter_type(Fun, NewType, NewFunMap1).
 
-solve_scc(SCC, Parallel, Map, State, TryingUnit) ->
+solve_scc(SCC, Map, State, Users, ToSolve, TryingUnit) ->
   Vars0 = [{Fun, state__get_rec_var(Fun, State)} || Fun <- SCC],
   Vars = [Var || {_, {ok, Var}} <- Vars0],
   Funs = [Fun || {Fun, {ok, _}} <- Vars0],
@@ -1830,16 +1835,13 @@ solve_scc(SCC, Parallel, Map, State, TryingUnit) ->
   RecTypes = [t_limit(Type, ?TYPE_LIMIT) || Type <- Types],
   CleanMap = lists:foldl(fun(Fun, AccFunMap) ->
 			     erase_type(t_var_name(Fun), AccFunMap)
-			 end, Map, SCC),
+			 end, Map, ToSolve),
   Map1 = enter_type_lists(Vars, RecTypes, CleanMap),
   ?debug("Checking SCC: ~w\n", [[debug_lookup_name(F) || F <- SCC]]),
-  FunSet = ordsets:from_list([t_var_name(F) || F <- SCC]),
-  Map2 =
-    case Parallel of
-      false -> solve_whole_scc(SCC, Map1, State);
-      SplitSCC -> solve_whole_scc_parallel(SplitSCC, Map1, State)
-    end,
-  case maps_are_equal(Map2, Map, FunSet) of
+  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State) end,
+  Map2 = lists:foldl(SolveFun, Map1, ToSolve),
+  Updated = updated_vars_only(Vars, Map, Map2),
+  case Updated =:= [] of
     true ->
       ?debug("SCC ~w reached fixpoint\n", [SCC]),
       NewTypes = unsafe_lookup_type_list(Funs, Map2),
@@ -1852,130 +1854,21 @@ solve_scc(SCC, Parallel, Map, State, TryingUnit) ->
 	       true -> t_fun(t_fun_args(T), t_unit())
 	     end || T <- NewTypes],
 	  Map3 = enter_type_lists(Funs, UnitTypes, Map2),
-	  solve_scc(SCC, Parallel, Map3, State, true);
+	  solve_scc(SCC, Map3, State, Users, SCC, true);
 	false ->
-	  case Parallel of
-	    false -> true;
-	    _ -> dispose_state(State)
-	  end,
 	  Map2
       end;
     false ->
       ?debug("SCC ~w did not reach fixpoint\n", [SCC]),
-      solve_scc(SCC, Parallel, Map2, State, TryingUnit)
+      ToSolve1 = affected(Updated, Users),
+      solve_scc(SCC, Map2, State, Users, ToSolve1, TryingUnit)
   end.
 
-solve_whole_scc(SCC, Map, State) ->
-  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State) end,
-  lists:foldl(SolveFun, Map, SCC).
-
-%%------------------------------------------------------------------------------
-
--define(worth_it, 42).
-
-parallel_split(SCC) ->
-  Length = length(SCC),
-  case Length > 2*?worth_it of
-    false -> false;
-    true ->
-      case min(dialyzer_utils:parallelism(), 8) of
-	1 -> false;
-	CPUs ->
-	  FullShare = Length div CPUs + 1,
-	  Unit = max(FullShare, ?worth_it),
-	  split(SCC, Unit, [])
-      end
-  end.
-
-minimize_state(#state{
-		  cmap        = {d, CMap},
-		  fun_map     = FunMap,
-		  fun_arities = FunArities,
-		  self_rec    = SelfRec,
-		  prop_types  = {d, PropTypes},
-                  solvers     = Solvers
-		 }) ->
-  Opts = [{read_concurrency, true}],
-  ETSCMap = ets:new(cmap, Opts),
-  ETSPropTypes = ets:new(prop_types, Opts),
-  true = ets:insert(ETSCMap, dict:to_list(CMap)),
-  true = ets:insert(ETSPropTypes, dict:to_list(PropTypes)),
-  #state
-    {cmap        = {e, ETSCMap},
-     fun_map     = FunMap,
-     fun_arities = FunArities,
-     self_rec    = SelfRec,
-     prop_types  = {e, ETSPropTypes},
-     solvers     = Solvers,
-     callgraph   = undefined,
-     plt         = undefined,
-     mfas        = []
-    }.
-
-dispose_state(#state{cmap = {e, ETSCMap},
-		     prop_types = {e, ETSPropTypes}}) ->
-  true = ets:delete(ETSCMap),
-  true = ets:delete(ETSPropTypes).
-
-solve_whole_scc_parallel(SplitSCC, Map, State) ->
-  Workers = spawn_workers(SplitSCC, Map, State),
-  wait_results(Workers, Map, fold_res_fun(State)).
-
-spawn_workers(SplitSCC, Map, State) ->
-  Spawner = solve_scc_spawner(self(), Map, State),
-  lists:foreach(Spawner, SplitSCC),
-  length(SplitSCC).
-
-wait_results(0, Map, _FoldResFun) ->
-  Map;
-wait_results(Pending, Map, FoldResFun) ->
-  Res = receive_scc_result(),
-  NewMap = lists:foldl(FoldResFun, Map, Res),
-  wait_results(Pending-1, NewMap, FoldResFun).
-
-solve_scc_spawner(Parent, Map, State) ->
-  fun(SCCPart) ->
-      spawn_link(fun() -> solve_scc_worker(Parent, SCCPart, Map, State) end)
-  end.
-
-split([], _Unit, Acc) ->
-  Acc;
-split(List, Unit, Acc) ->
-  {Taken, Rest} =
-    try
-      lists:split(Unit, List)
-    catch
-      _:_ -> {List, []}
-    end,
-  split(Rest, Unit, [Taken|Acc]).
-
-solve_scc_worker(Parent, SCCPart, Map, State) ->
-  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State) end,
-  FinalMap = lists:foldl(SolveFun, Map, SCCPart),
-  Res =
-    [{F, t_limit(unsafe_lookup_type(F, FinalMap), ?TYPE_LIMIT)} ||
-      F <- SCCPart],
-  send_scc_result(Parent, Res).
-
-fold_res_fun(State) ->
-  fun({F, Type}, Map) ->
-      case state__get_rec_var(F, State) of
-	{ok, R} ->
-	  enter_type(R, Type, enter_type(F, Type, Map));
-	error ->
-	  enter_type(F, Type, Map)
-      end
-  end.
-
-receive_scc_result() ->
-    receive
-      {scc_fun, Res} -> Res
-    end.
-
-send_scc_result(Parent, Res) ->
-  Parent ! {scc_fun, Res}.
-
-%%------------------------------------------------------------------------------
+affected(Updated, Users) ->
+  lists:umerge([case lists:keyfind(V, 1, Users) of
+                  {V, Vs} -> Vs;
+                  false -> []
+                end || V <- Updated]).
 
 scc_fold_fun(F, FunMap, State) ->
   Deps = get_deps(state__get_cs(F, State)),
@@ -2322,7 +2215,7 @@ report_detected_loop(_) ->
 add_mask_to_flags(Flags, [Im|M], I, L) when I > Im ->
   add_mask_to_flags(Flags, M, I, [Im|L]);
 add_mask_to_flags(Flags, [_|M], _I, L) ->
-  {lists:umerge(Flags, M), lists:reverse(L)}.
+  {lists:umerge(M, Flags), lists:reverse(L)}.
 
 get_mask(V, {d, Masks}) ->
   case dict:find(V, Masks) of
@@ -2830,7 +2723,7 @@ new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes, Solvers) ->
       _Many -> false
     end,
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
-	 prop_types = {d, PropTypes}, plt = Plt, scc = ordsets:from_list(SCC),
+	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers}.
 
 state__set_rec_dict(State, RecDict) ->
@@ -2926,21 +2819,14 @@ state__plt(#state{plt = PLT}) ->
 state__new_constraint_context(State) ->
   State#state{cs = []}.
 
-state__prop_domain(FunLabel, #state{prop_types = {e, ETSPropTypes}}) ->
-  try ets:lookup_element(ETSPropTypes, FunLabel, 2) of
-      {_Range_Fun, Dom} -> {ok, Dom};
-      FunType -> {ok, t_fun_args(FunType)}
-  catch
-    _:_ -> error
-  end;
-state__prop_domain(FunLabel, #state{prop_types = {d, PropTypes}}) ->
+state__prop_domain(FunLabel, #state{prop_types = PropTypes}) ->
  case dict:find(FunLabel, PropTypes) of
     error -> error;
     {ok, {_Range_Fun, Dom}} -> {ok, Dom};
     {ok, FunType} -> {ok, t_fun_args(FunType)}
   end.
 
-state__add_prop_constrs(Tree, #state{prop_types = {d, PropTypes}} = State) ->
+state__add_prop_constrs(Tree, #state{prop_types = PropTypes} = State) ->
   Label = cerl_trees:get_label(Tree),
   case dict:find(Label, PropTypes) of
     error -> State;
@@ -3003,13 +2889,11 @@ state__mk_vars(N, #state{next_label = NL} = State) ->
   Vars = [t_var(X) || X <- lists:seq(NL, NewLabel-1)],
   {State#state{next_label = NewLabel}, Vars}.
 
-state__store_constrs(Id, Cs, #state{cmap = {d, Dict}} = State) ->
+state__store_constrs(Id, Cs, #state{cmap =  Dict} = State) ->
   NewDict = dict:store(Id, Cs, Dict),
-  State#state{cmap = {d, NewDict}}.
+  State#state{cmap = NewDict}.
 
-state__get_cs(Var, #state{cmap = {e, ETSDict}}) ->
-  ets:lookup_element(ETSDict, Var, 2);
-state__get_cs(Var, #state{cmap = {d, Dict}}) ->
+state__get_cs(Var, #state{cmap = Dict}) ->
   dict:fetch(Var, Dict).
 
 state__is_self_rec(Fun, #state{self_rec = SelfRec}) ->
@@ -3019,15 +2903,12 @@ state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),
   Vars = mk_var_list(Vars0),
   Funs = mk_var_list(Funs0),
-  NewMap = lists:foldl(fun({Var, Fun}, MP) -> orddict:store(Var, Fun, MP) end,
+  NewMap = lists:foldl(fun({Var, Fun}, MP) -> maps:put(Fun, Var, MP) end,
 		       Map, lists:zip(Vars, Funs)),
   State#state{fun_map = NewMap}.
 
 state__get_rec_var(Fun, #state{fun_map = Map}) ->
-  case [V || {V, FV} <- Map, FV =:= Fun] of
-    [Var] -> {ok, Var};
-    [] -> error
-  end.
+  maps:find(Fun, Map).
 
 state__finalize(State) ->
   State1 = enumerate_constraints(State),
@@ -3094,13 +2975,13 @@ mk_fun_var(Fun, Types) ->
 
 -endif.
 
--spec get_deps(constr()) -> [dep()].
+-spec get_deps(constr()) -> deps().
 
 get_deps(#constraint{deps = D}) -> D;
 get_deps(#constraint_list{deps = D}) -> D;
 get_deps(#constraint_ref{deps = D}) -> D.
 
--spec find_constraint_deps([fvar_or_type()]) -> [dep()].
+-spec find_constraint_deps([fvar_or_type()]) -> deps().
 
 find_constraint_deps(List) ->
   ordsets:from_list(find_constraint_deps(List, [])).
