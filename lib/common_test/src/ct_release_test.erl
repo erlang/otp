@@ -753,7 +753,7 @@ create_relfile(AppsVsns,CreateDir,RelName0,RelVsn) ->
     %% Should test tools really be included? Some library functions
     %% here could be used by callback, but not everything since
     %% processes of these applications will not be running.
-    TestToolAppsVsns0 = get_vsns([test_server,common_test]),
+    TestToolAppsVsns0 = get_vsns([common_test]),
     TestToolAppsVsns =
 	[{A,V,none} || {A,V} <- TestToolAppsVsns0,
 		       false == lists:keymember(A,1,AllAppsVsns0)],
