@@ -96,7 +96,9 @@ init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
 init_tc(_Mod, {init_per_testcase,TC}, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_testcase, TC]);
 init_tc(_Mod, {end_per_testcase,TC}, Config) ->
-    call(fun call_generic/3, Config, [pre_end_per_testcase, TC]).
+    call(fun call_generic/3, Config, [pre_end_per_testcase, TC]);
+init_tc(_Mod, TC = error_in_suite, Config) ->
+    call(fun call_generic/3, Config, [pre_init_per_testcase, TC]).
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
@@ -133,7 +135,11 @@ end_tc(_Mod, {init_per_testcase,TC}, Config, Result, _Return) ->
 	'$ct_no_change');
 end_tc(_Mod, {end_per_testcase,TC}, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
+	 '$ct_no_change');
+end_tc(_Mod, TC = error_in_suite, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
 	'$ct_no_change').
+
 
 %% Case = TestCase | {TestCase,GroupName}
 on_tc_skip(How, {Suite, Case, Reason}) ->
