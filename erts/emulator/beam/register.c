@@ -560,7 +560,7 @@ int erts_unregister_name(Process *c_p,
 #endif
 	    rp->p->common.u.alive.reg = NULL;
 	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
-		trace_proc(c_p, current_c_p_locks,
+                trace_proc(rp->p, (c_p == rp->p) ? c_p_locks : ERTS_PROC_LOCK_MAIN,
                            rp->p, am_unregister, r.name);
 	    }
 #ifdef ERTS_SMP
