@@ -272,7 +272,7 @@ invoke_callback(Pid, Ev, Ref) ->
 		 wx:set_env(Env),
 		 wxe_util:cast(?WXE_CB_START, <<>>),
 		 try
-		     case get_wx_object_state(Pid) of
+		     case get_wx_object_state(Pid, 5) of
 			 ignore ->
 			     %% Ignore early events
 			     wxEvent:skip(Ref);
@@ -307,16 +307,24 @@ invoke_callback_fun(Fun) ->
     wxe_util:cast(?WXE_CB_RETURN, Res).
 
 
-get_wx_object_state(Pid) ->
+get_wx_object_state(Pid, N) when N > 0 ->
     case process_info(Pid, dictionary) of
 	{dictionary, Dict} ->
 	    case lists:keysearch('_wx_object_',1,Dict) of
-		{value, {'_wx_object_', {_Mod, '_wx_init_'}}} -> ignore;
-		{value, {'_wx_object_', Value}} -> Value;
-		_ -> ignore
+		{value, {'_wx_object_', {_Mod, '_wx_init_'}}} ->
+		    timer:sleep(50),
+		    get_wx_object_state(Pid, N-1);
+		{value, {'_wx_object_', Value}} ->
+		    Value;
+		_ ->
+		    ignore
 	    end;
-	_ -> ignore
-    end.
+	_ ->
+	    ignore
+    end;
+get_wx_object_state(_, _) ->
+    ignore.
+
 
 attach_fun(Fun, S = #state{cb=CB,cb_cnt=Next}) ->
     case gb_trees:lookup(Fun,CB) of
