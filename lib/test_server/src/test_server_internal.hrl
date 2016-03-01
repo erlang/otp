@@ -30,7 +30,6 @@
 		      version,         % string()
 		      system_version,  % string()
 		      root_dir,        % string()
-		      test_server_dir, % string()
 		      emulator,        % string()
 		      otp_release,     % string()
 		      username,        % string()

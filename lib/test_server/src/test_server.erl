@@ -63,13 +63,11 @@
 init_target_info() ->
     [$.|Emu] = code:objfile_extension(),
     {_, OTPRel} = init:script_id(),
-    TestServerDir = filename:absname(filename:dirname(code:which(?MODULE))),
     #target_info{os_family=test_server_sup:get_os_family(),
 		 os_type=os:type(),
 		 version=erlang:system_info(version),
 		 system_version=erlang:system_info(system_version),
 		 root_dir=code:root_dir(),
-		 test_server_dir=TestServerDir,
 		 emulator=Emu,
 		 otp_release=OTPRel,
 		 username=test_server_sup:get_username(),
