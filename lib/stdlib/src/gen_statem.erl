@@ -200,7 +200,7 @@
 	    OldState :: state(),
 	    OldData :: data(),
 	    Extra :: term()) ->
-    {ok, {NewState :: state(), NewData :: data()}}.
+    {ok, NewState :: state(), NewData :: data()}.
 
 %% Format the callback module state in some sensible that is
 %% often condensed way.  For StatusOption =:= 'normal' the perferred
@@ -619,7 +619,7 @@ system_code_change(
 	    Result -> Result
 	end
     of
-	{ok,{NewState,NewData}} ->
+	{ok,NewState,NewData} ->
 	    {ok,
 	     S#{
 	       state := NewState,

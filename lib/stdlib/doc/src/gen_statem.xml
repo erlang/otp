@@ -241,7 +241,7 @@ stop() ->
 terminate(_Reason, _State, _Data) ->
     void.
 code_change(_Vsn, State, Data, _Extra) ->
-    {ok,{State,Data}}.
+    {ok,State,Data}.
 init([]) ->
     %% Set the callback mode and initial state + data.
     %% Data is used only as a counter.
@@ -1359,7 +1359,7 @@ ok
         <v>&nbsp;&nbsp;Vsn = term()</v>
         <v>OldState = NewState = term()</v>
         <v>Extra = term()</v>
-	<v>Result = {ok,{NewState,NewData}} | Reason</v>
+	<v>Result = {ok,NewState,NewData} | Reason</v>
 	<v>
 	  OldState = NewState =
 	  <seealso marker="#type-state">state()</seealso>

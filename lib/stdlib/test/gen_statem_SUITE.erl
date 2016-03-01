@@ -55,7 +55,7 @@ groups() ->
      {abnormal, [], [abnormal1, abnormal2]},
      {abnormal_handle_event, [], [abnormal1, abnormal2]},
      {sys, [],
-      [sys1,
+      [sys1, code_change,
        call_format_status,
        error_format_status, terminate_crash_format,
        get_state, replace_state]},
@@ -631,6 +631,15 @@ sys1(Config) ->
     %% {timeout,_} =
     %% 	?EXPECT_FAILURE(gen_statem:call(Pid, hej), Reason),
     sys:resume(Pid),
+    stop_it(Pid).
+
+code_change(Config) ->
+    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {idle,data} = sys:get_state(Pid),
+    sys:suspend(Pid),
+    sys:change_code(Pid, ?MODULE, old_vsn, extra),
+    sys:resume(Pid),
+    {idle,{old_vsn,data,extra}} = sys:get_state(Pid),
     stop_it(Pid).
 
 call_format_status(Config) ->
@@ -1550,8 +1559,8 @@ wrap_result(Result) ->
 
 
 
-code_change(_OldVsn, State, Data, _Extra) ->
-    {ok,State,Data}.
+code_change(OldVsn, State, Data, Extra) ->
+    {ok,State,{OldVsn,Data,Extra}}.
 
 format_status(terminate, [_Pdict,State,Data]) ->
     {formatted,State,Data};
