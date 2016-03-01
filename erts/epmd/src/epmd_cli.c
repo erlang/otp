@@ -136,19 +136,33 @@ void epmd_call(EpmdVars *g,int what)
 static int conn_to_epmd(EpmdVars *g)
 {
     struct EPMD_SOCKADDR_IN address;
+    size_t salen = 0;
     int connect_sock;
-    
-    connect_sock = socket(FAMILY, SOCK_STREAM, 0);
+    unsigned short sport = g->port;
+
+#if defined(EPMD6)
+    SET_ADDR6(address, in6addr_loopback, sport);
+    salen = sizeof(struct sockaddr_in6);
+
+    connect_sock = socket(AF_INET6, SOCK_STREAM, 0);
+    if (connect_sock>=0) {
+
+    if (connect(connect_sock, (struct sockaddr*)&address, salen) == 0)
+	return connect_sock;
+
+    close(connect_sock);
+    }
+#endif
+    SET_ADDR(address, htonl(INADDR_LOOPBACK), sport);
+    salen = sizeof(struct sockaddr_in);
+
+    connect_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (connect_sock<0)
 	goto error;
 
-    { /* store port number in unsigned short */
-      unsigned short sport = g->port;
-      SET_ADDR(address, EPMD_ADDR_LOOPBACK, sport);
-    }
-
-    if (connect(connect_sock, (struct sockaddr*)&address, sizeof address) < 0) 
+    if (connect(connect_sock, (struct sockaddr*)&address, salen) < 0)
 	goto error;
+
     return connect_sock;
 
  error:
