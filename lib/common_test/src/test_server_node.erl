@@ -307,11 +307,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 				      HostStr, " ", WaitPort]),
 
     % Support for erl_crash_dump files..
-    CrashFile = filename:join([TI#target_info.test_server_dir,
+    CrashDir = test_server_sup:crash_dump_dir(),
+    CrashFile = filename:join([CrashDir,
 			       "erl_crash_dump."++cast_to_list(SlaveName)]),
     CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
     FailOnError = start_node_get_option_value(fail_on_error, OptList, true),
-    Pa = TI#target_info.test_server_dir,
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = quote_progname(pick_erl_program(Prog0)),
     Args = 
@@ -322,7 +322,6 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     Cmd = lists:concat([Prog,
 			" -detached ",
 			TI#target_info.naming, " ", SlaveName,
-			" -pa \"", Pa,"\"",
 			NodeStarted,
 			CrashArgs,
 			" ", Args]),
@@ -370,15 +369,15 @@ wait_for_node_started_fun(LSock, Tmo, Cleanup, TI, Self) ->
 %% Slave nodes are started on a remote host if
 %% - the option remote is given when calling test_server:start_node/3
 %%
-start_node_slave(SlaveName, OptList, From, TI) ->
+start_node_slave(SlaveName, OptList, From, _TI) ->
     SuppliedArgs = start_node_get_option_value(args, OptList, []),
     Cleanup = start_node_get_option_value(cleanup, OptList, true),
 
-    CrashFile = filename:join([TI#target_info.test_server_dir,
+    CrashDir = test_server_sup:crash_dump_dir(),
+    CrashFile = filename:join([CrashDir,
 			       "erl_crash_dump."++cast_to_list(SlaveName)]),
     CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
-    Pa = TI#target_info.test_server_dir,
-    Args = lists:concat([" -pa \"", Pa, "\" ", SuppliedArgs, CrashArgs]),
+    Args = lists:concat([" ", SuppliedArgs, CrashArgs]),
 
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = pick_erl_program(Prog0),
