@@ -25,14 +25,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export ([dbg_ui/1]).
 
-% Manual test suites/cases exports
+%% Manual test suites/cases exports
 -export([start1/1, interpret1/1, quit1/1,
 	 start2/1, interpret2/1, break2/1, options2/1, quit2/1,
 	 interpret3/1, all_step3/1,all_next3/1,save3/1,restore3/1,finish3/1,
@@ -83,11 +83,11 @@ dbg_ui (_Config) ->
 	false ->
 	    {skipped,"No display"};
 	Other when is_list(Other) ->
-%	    ?line {ok, Pid} = debugger:start (),
-%	    ?line ok = is_pid (Pid),
-%	    ?line true = erlang:is_process_alive(Pid),
-%	    ?line ok = debugger:stop(),
-%	    ?line false = erlang:is_process_alive(Pid)
+%%	    ?line {ok, Pid} = debugger:start (),
+%%	    ?line ok = is_pid (Pid),
+%%	    ?line true = erlang:is_process_alive(Pid),
+%%	    ?line ok = debugger:stop(),
+%%	    ?line false = erlang:is_process_alive(Pid)
 	    {skipped,"Gunilla: Workaround"}
     end.
 

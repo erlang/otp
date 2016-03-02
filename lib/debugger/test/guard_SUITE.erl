@@ -1532,51 +1532,51 @@ binary_part(Config) when is_list(Config) ->
     ?line error = bptest(<<>>),
     ?line error = bptest(apa),
     ?line 3 = bptest(<<2,3,3>>),
-    % With one variable (pos)
+    %% With one variable (pos)
     ?line 1 = bptest(<<1,2,3>>,1),
     ?line 2 = bptest(<<2,1,3>>,1),
     ?line error = bptest(<<1>>,1),
     ?line error = bptest(<<>>,1),
     ?line error = bptest(apa,1),
     ?line 3 = bptest(<<2,3,3>>,1),
-    % With one variable (length)
+    %% With one variable (length)
     ?line 1 = bptesty(<<1,2,3>>,1),
     ?line 2 = bptesty(<<2,1,3>>,1),
     ?line error = bptesty(<<1>>,1),
     ?line error = bptesty(<<>>,1),
     ?line error = bptesty(apa,1),
     ?line 3 = bptesty(<<2,3,3>>,2),
-    % With one variable (whole tuple)
+    %% With one variable (whole tuple)
     ?line 1 = bptestx(<<1,2,3>>,{1,1}),
     ?line 2 = bptestx(<<2,1,3>>,{1,1}),
     ?line error = bptestx(<<1>>,{1,1}),
     ?line error = bptestx(<<>>,{1,1}),
     ?line error = bptestx(apa,{1,1}),
     ?line 3 = bptestx(<<2,3,3>>,{1,2}),
-    % With two variables
+    %% With two variables
     ?line 1 = bptest(<<1,2,3>>,1,1),
     ?line 2 = bptest(<<2,1,3>>,1,1),
     ?line error = bptest(<<1>>,1,1),
     ?line error = bptest(<<>>,1,1),
     ?line error = bptest(apa,1,1),
     ?line 3 = bptest(<<2,3,3>>,1,2),
-    % Direct (autoimported) call, these will be evaluated by the compiler...
+    %% Direct (autoimported) call, these will be evaluated by the compiler...
     ?line <<2>> = binary_part(<<1,2,3>>,1,1),
     ?line <<1>> = binary_part(<<2,1,3>>,1,1),
-    % Compiler warnings due to constant evaluation expected (3)
+    %% Compiler warnings due to constant evaluation expected (3)
     ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
     ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
     ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
     ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
-    % Direct call through apply
+    %% Direct call through apply
     ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
     ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
-    % Compiler warnings due to constant evaluation expected (3)
+    %% Compiler warnings due to constant evaluation expected (3)
     ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
     ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
     ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
     ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
-    % Constant propagation
+    %% Constant propagation
     ?line  Bin = <<1,2,3>>,
     ?line  ok = if
 		    binary_part(Bin,1,1) =:= <<2>> ->

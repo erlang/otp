@@ -134,7 +134,7 @@ dynamic(Bin, S1) when S1 >= 0 ->
 dynamic(_, _) -> ok.
 
 dynamic(Bin, S1, S2, A, B) ->
-%    io:format("~p ~p ~p ~p\n", [S1,S2,A,B]),
+%%    io:format("~p ~p ~p ~p\n", [S1,S2,A,B]),
     case Bin of
 	<<A:S1,B:S2>> ->
 	    io:format("~p ~p ~p ~p\n", [S1,S2,A,B]),
@@ -145,7 +145,7 @@ dynamic(Bin, S1, S2, A, B) ->
 %% Extract integers at different alignments and of different sizes.
 more_dynamic(Config) when is_list(Config) ->
 
-    % Unsigned big-endian numbers.
+    %% Unsigned big-endian numbers.
     Unsigned  = fun(Bin, List, SkipBef, N) ->
 			SkipAft = 8*size(Bin) - N - SkipBef,
 			<<_:SkipBef,Int:N,_:SkipAft>> = Bin,

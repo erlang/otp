@@ -296,9 +296,9 @@ getBase64Char(62) -> "+";
 getBase64Char(63) -> "/";
 getBase64Char(_Else) ->
     %% This is an illegal input.
-%    cgLogEM:log(error, ?MODULE, getBase64Char, [Else],
-%		"illegal input",
-%		?LINE, version()),
+%%    cgLogEM:log(error, ?MODULE, getBase64Char, [Else],
+%%		"illegal input",
+%%		?LINE, version()),
     "**".
 
 -define(M(F), <<F>> = <<F>>).
