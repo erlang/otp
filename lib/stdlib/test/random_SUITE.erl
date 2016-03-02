@@ -58,48 +58,48 @@ end_per_group(_GroupName, Config) ->
 
 %% Test that seed is set implicitly, and always the same.
 seed0(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line _ = spawn(fun() -> Self ! random:uniform() end),
-    ?line F1 = receive
-		   Fa -> Fa
-	  end,
-    ?line _ = spawn(fun() -> random:seed(),
-			     Self ! random:uniform() end),
-    ?line F2 = receive
-		   Fb -> Fb
-	       end,
-    ?line F1 = F2,
+    Self = self(),
+    _ = spawn(fun() -> Self ! random:uniform() end),
+    F1 = receive
+	     Fa -> Fa
+	 end,
+    _ = spawn(fun() -> random:seed(),
+		       Self ! random:uniform() end),
+    F2 = receive
+	     Fb -> Fb
+	 end,
+    F1 = F2,
     ok.
 
 %% Test that seed/1 and seed/3 are equivalent.
 seed(Config) when is_list(Config) ->
-    ?line Self = self(),
+    Self = self(),
     Seed = {S1, S2, S3} = erlang:timestamp(),
-    ?line _ = spawn(fun() ->
-    	random:seed(S1,S2,S3),
-    	Rands = lists:foldl(fun
-	    (_, Out) -> [random:uniform(10000)|Out]
-	end, [], lists:seq(1,100)),
-    	Self ! {seed_test, Rands}
-    end),
-    ?line Rands1 = receive {seed_test, R1s} -> R1s end,
-    ?line _ = spawn(fun() ->
-    	random:seed(Seed),
-    	Rands = lists:foldl(fun
-	    (_, Out) -> [random:uniform(10000)|Out]
-	end, [], lists:seq(1,100)),
-    	Self ! {seed_test, Rands}
-    end),
-    ?line Rands2 = receive {seed_test, R2s} -> R2s end,
-    ?line Rands1 = Rands2,
+    _ = spawn(fun() ->
+		      random:seed(S1,S2,S3),
+		      Rands = lists:foldl(fun
+					      (_, Out) -> [random:uniform(10000)|Out]
+					 end, [], lists:seq(1,100)),
+		      Self ! {seed_test, Rands}
+	      end),
+    Rands1 = receive {seed_test, R1s} -> R1s end,
+    _ = spawn(fun() ->
+		      random:seed(Seed),
+		      Rands = lists:foldl(fun
+					      (_, Out) -> [random:uniform(10000)|Out]
+					 end, [], lists:seq(1,100)),
+		      Self ! {seed_test, Rands}
+	      end),
+    Rands2 = receive {seed_test, R2s} -> R2s end,
+    Rands1 = Rands2,
     ok.
 
 
 %% Check that uniform/1 returns values within the proper interval.
 interval_1(Config) when is_list(Config) ->
-    ?line Top = 7,
-    ?line N = 10,
-    ?line check_interval(N, Top),
+    Top = 7,
+    N = 10,
+    check_interval(N, Top),
     ok.
 
 check_interval(0, _) -> ok;

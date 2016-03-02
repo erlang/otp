@@ -61,18 +61,18 @@ end_per_testcase(_Func, _Config) ->
 
 
 ex1(Config) when is_list(Config) ->
-    ?line ets:new(?GLOBAL_PARAMS,[named_table,public]),
-    ?line ets:insert(?GLOBAL_PARAMS,{a,set}),
-    ?line ets:insert(?GLOBAL_PARAMS,{b,set}),
-    ?line ex1_sub(Config),
-    ?line ets:insert(?GLOBAL_PARAMS,{a,ordered_set}),
-    ?line ets:insert(?GLOBAL_PARAMS,{b,set}),
-    ?line ex1_sub(Config),
-    ?line ets:insert(?GLOBAL_PARAMS,{a,ordered_set}),
-    ?line ets:insert(?GLOBAL_PARAMS,{b,ordered_set}),
-    ?line ex1_sub(Config).    
-    
-    
+    ets:new(?GLOBAL_PARAMS,[named_table,public]),
+    ets:insert(?GLOBAL_PARAMS,{a,set}),
+    ets:insert(?GLOBAL_PARAMS,{b,set}),
+    ex1_sub(Config),
+    ets:insert(?GLOBAL_PARAMS,{a,ordered_set}),
+    ets:insert(?GLOBAL_PARAMS,{b,set}),
+    ex1_sub(Config),
+    ets:insert(?GLOBAL_PARAMS,{a,ordered_set}),
+    ets:insert(?GLOBAL_PARAMS,{b,ordered_set}),
+    ex1_sub(Config).
+
+
 
 
 ex1_sub(Config) ->
@@ -187,9 +187,9 @@ operate(dump,A,_B) ->
 	    NewTicket = ddump_next(A,Units,Ticket),
 	    put(dump_ticket,NewTicket),
 	    _Result = case NewTicket of
-			 done -> done;
-			 _ ->    dump_more
-		     end,
+			  done -> done;
+			  _ ->    dump_more
+		      end,
 	    ?DEBUG(io:format("dump ~w (~w)\n",[Units,_Result]));
 	_ ->
 	    DumpDir = get(dump_dir),
@@ -210,7 +210,7 @@ operate(dump,A,_B) ->
 		    ok
 	    end
     end.
-    
+
 random_operation() ->
     Ops = {get,put,erase,dirty_get,dump},
     random_element(Ops).
@@ -245,7 +245,7 @@ show_table(N) ->
 	_ ->
 	    error
     end.
-	    
+
 show_entries(Fd) ->
     case phys_read_len(Fd) of
 	{ok,Len} ->
@@ -369,7 +369,7 @@ derase(ServerPid,Class,Key) ->
 
 dget_class(ServerPid,Class,Condition) ->
     gen_server:call(ServerPid,
-		       {handle_get_class,Class,Condition},infinity).
+		    {handle_get_class,Class,Condition},infinity).
 
 %%% derase_class(ServerPid,Class) -> ok
 %%%
@@ -827,7 +827,7 @@ table_lookup_batch([],_Class,_Cond) ->
     [];
 table_lookup_batch([Table|Tables],Class,Cond) ->
     table_lookup_batch([],Tables,Table,ets:first(Table),Class,Cond,[]).
-    
+
 table_lookup_batch(_Passed,[],_,'$end_of_table',_Class,_Cond,Ack) ->
     Ack;
 table_lookup_batch(Passed,[NewTable|Tables],Table,'$end_of_table',
@@ -837,7 +837,7 @@ table_lookup_batch(Passed,[NewTable|Tables],Table,'$end_of_table',
 table_lookup_batch(Passed,Tables,Table,?ERASE_MARK(Key),Class,Cond,Ack) ->
     table_lookup_batch(Passed,Tables,Table,?ets_next(Table,?ERASE_MARK(Key)),
 		       Class,Cond,Ack);
-    
+
 table_lookup_batch(Passed,Tables,Table,Key,Class,Cond,Ack) ->
     NewAck =
 	case table_lookup(Passed,Key) of
@@ -1068,7 +1068,7 @@ phys_load_table(DumpDir,N,Tab) ->
 	Other ->
 	    {error,{open_error,Other}}
     end.
-	    
+
 phys_load_entries(Fd,Tab) ->
     case phys_read_len(Fd) of
 	{ok,Len} ->

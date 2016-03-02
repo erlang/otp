@@ -217,7 +217,7 @@ sync_start_nolink(Config) when is_list(Config) ->
 	    ct:fail(no_sync_start)
     end,
     ok.
-    
+
 sync_start_link(Config) when is_list(Config) ->
     _Pid = spawn_link(?MODULE, sp3, [self()]),
     receive
@@ -233,21 +233,21 @@ sync_start_link(Config) when is_list(Config) ->
     after 1000 -> ct:fail(no_sync_start)
     end,
     ok.
-    
+
 spawn_opt(Config) when is_list(Config) ->
     F = fun sp1/0,
     {name,Fname} = erlang:fun_info(F, name),
     FunMFArgs = {?MODULE,Fname,[]},
     FunMFArity = {?MODULE,Fname,0},
-    ?line Pid1 = proc_lib:spawn_opt(node(), F, [{priority,low}]),
-    ?line Pid = proc_lib:spawn_opt(F, [{priority,low}]),
+    Pid1 = proc_lib:spawn_opt(node(), F, [{priority,low}]),
+    Pid = proc_lib:spawn_opt(F, [{priority,low}]),
     ct:sleep(100),
-    ?line FunMFArgs = proc_lib:initial_call(Pid),
-    ?line FunMFArity = proc_lib:translate_initial_call(Pid),
-    ?line Pid ! die,
-    ?line FunMFArgs = proc_lib:initial_call(Pid1),
-    ?line FunMFArity = proc_lib:translate_initial_call(Pid1),
-    ?line Pid1 ! die,
+    FunMFArgs = proc_lib:initial_call(Pid),
+    FunMFArity = proc_lib:translate_initial_call(Pid),
+    Pid ! die,
+    FunMFArgs = proc_lib:initial_call(Pid1),
+    FunMFArity = proc_lib:translate_initial_call(Pid1),
+    Pid1 ! die,
     ok.
 
 
@@ -283,38 +283,38 @@ hibernate(Config) when is_list(Config) ->
     Ref = make_ref(),
     Self = self(),
     LoopData = {Ref,Self},
-    ?line Pid = proc_lib:spawn_link(?MODULE, hib_loop, [LoopData]),
+    Pid = proc_lib:spawn_link(?MODULE, hib_loop, [LoopData]),
 
     %% Just check that the child process can process and answer messages.
-    ?line Pid ! {Self,loop_data},
+    Pid ! {Self,loop_data},
     receive
 	{loop_data,LoopData} -> ok;
 	Unexpected0 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected0]),
+	    io:format("Unexpected: ~p\n", [Unexpected0]),
 	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
+	    io:format("Timeout"),
 	    ct:fail(failed)
     end,
 
     %% Hibernate the process.
-    ?line Pid ! hibernate,
+    Pid ! hibernate,
     erlang:yield(),
     io:format("~p\n", [process_info(Pid, heap_size)]),
 
 
     %% Send a message to the process...
 
-    ?line Pid ! {Self,loop_data},
+    Pid ! {Self,loop_data},
 
     %% ... expect first a wake up message from the process...
     receive
 	{awaken,LoopData} -> ok;
 	Unexpected1 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected1]),
+	    io:format("Unexpected: ~p\n", [Unexpected1]),
 	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
+	    io:format("Timeout"),
 	    ct:fail(failed)
     end,
 
@@ -322,18 +322,18 @@ hibernate(Config) when is_list(Config) ->
     receive
 	{loop_data,LoopData} -> ok;
 	Unexpected2 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected2]),
+	    io:format("Unexpected: ~p\n", [Unexpected2]),
 	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
+	    io:format("Timeout"),
 	    ct:fail(failed)
     end,
 
     %% Test that errors are handled correctly after wake up from hibernation...
 
-    ?line process_flag(trap_exit, true),
-    ?line error_logger:add_report_handler(?MODULE, self()),
-    ?line Pid ! crash,
+    process_flag(trap_exit, true),
+    error_logger:add_report_handler(?MODULE, self()),
+    Pid ! crash,
 
     %% We should receive two messages. Especially in the SMP emulator,
     %% we can't be sure of the message order, so sort the messages before
@@ -341,10 +341,10 @@ hibernate(Config) when is_list(Config) ->
 
     Messages = lists:sort(hib_receive_messages(2)),
     io:format("~p", [Messages]),
-    ?line [{'EXIT',Pid,i_crashed},{crash_report,Pid,[Report,[]]}] = Messages,
+    [{'EXIT',Pid,i_crashed},{crash_report,Pid,[Report,[]]}] = Messages,
 
     %% Check that the initial_call has the expected format.
-    ?line {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
+    {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
 	lists:keysearch(initial_call, 1, Report),
 
     error_logger:delete_report_handler(?MODULE),
@@ -483,7 +483,7 @@ stop(_Config) ->
     {'EXIT',noproc} = (catch proc_lib:stop({to_stop,Node})),
 
     true = test_server:stop_node(Node),
-    
+
     %% Remote registered name, but non-existing node
     {'EXIT',{{nodedown,Node},_}} = (catch proc_lib:stop({to_stop,Node})),
     ok.
@@ -543,7 +543,7 @@ t_format_looper() ->
 %%-----------------------------------------------------------------
 init(Tester) ->
     {ok, Tester}.
-    
+
 handle_event({error_report, _GL, {Pid, crash_report, Report}}, Tester) ->
     io:format("~s\n", [proc_lib:format(Report)]),
     Tester ! {crash_report, Pid, Report},

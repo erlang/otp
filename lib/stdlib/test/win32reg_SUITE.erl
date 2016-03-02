@@ -94,9 +94,9 @@ evil_write(Config) when is_list(Config) ->
     ok.
 
 evil_write_1(Reg, [_|[_|_]=Key]=Key0) ->
-    ?line io:format("Key = ~p\n", [Key0]),
-    ?line ok = win32reg:set_value(Reg, Key0, "A good value for me"),
-    ?line {ok,_Val} = win32reg:value(Reg, Key0),
-    ?line ok = win32reg:delete_value(Reg, Key0),
+    io:format("Key = ~p\n", [Key0]),
+    ok = win32reg:set_value(Reg, Key0, "A good value for me"),
+    {ok,_Val} = win32reg:value(Reg, Key0),
+    ok = win32reg:delete_value(Reg, Key0),
     evil_write_1(Reg, Key);
 evil_write_1(_, [_]) -> ok.

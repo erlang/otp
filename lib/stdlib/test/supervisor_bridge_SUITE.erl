@@ -58,8 +58,8 @@ end_per_group(_GroupName, Config) ->
 starting(Config) when is_list(Config) ->
     process_flag(trap_exit,true),
 
-    ?line ignore = start(1),
-    ?line {error,testing} = start(2),
+    ignore = start(1),
+    {error,testing} = start(2),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -74,8 +74,8 @@ mini_die(Config) when is_list(Config) ->
 
 miniappl(N) ->
     process_flag(trap_exit,true),
-    ?line {ok,Server} = start(3),
-    ?line Client = spawn_link(?MODULE,client,[N]),
+    {ok,Server} = start(3),
+    Client = spawn_link(?MODULE,client,[N]),
     ct:timetrap({seconds,2}),
     miniappl_loop(Client, Server).
 
@@ -86,15 +86,15 @@ miniappl_loop(Client,Server) ->
     io:format("Client ~p, Server ~p\n",[Client,Server]),
     receive
 	{'EXIT',Client,_} ->
-	    ?line miniappl_loop([],Server);
+	    miniappl_loop([],Server);
 	{'EXIT',Server,killed} -> %% terminate
-	    ?line miniappl_loop(Client,[]);
+	    miniappl_loop(Client,[]);
 	{'EXIT',Server,died} -> %% die
-	    ?line miniappl_loop(Client,[]);
+	    miniappl_loop(Client,[]);
 	{dying,_Reason} ->
-	    ?line miniappl_loop(Client, Server);
+	    miniappl_loop(Client, Server);
 	Other ->
-	    ?line exit({failed,Other})
+	    exit({failed,Other})
     end.
 
 %%%%%%%%%%%%%%%%%%%%
@@ -173,11 +173,11 @@ terminate(_Reason, _State) ->
 badstart(Config) when is_list(Config) ->
     %% Various bad arguments.
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch supervisor_bridge:start_link({xxx,?bridge_name},?MODULE,1)),
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch supervisor_bridge:start_link({local,"foo"},?MODULE,1)),
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch supervisor_bridge:start_link(?bridge_name,?MODULE,1)),
     receive
 	Msg ->
@@ -188,18 +188,18 @@ badstart(Config) when is_list(Config) ->
 
     %% Already started.
 
-    ?line process_flag(trap_exit, true),
-    ?line {ok,Pid} =
+    process_flag(trap_exit, true),
+    {ok,Pid} =
 	supervisor_bridge:start_link({local,?bridge_name},?MODULE,3),
-    ?line {error,{already_started,Pid}} =
+    {error,{already_started,Pid}} =
 	supervisor_bridge:start_link({local,?bridge_name},?MODULE,3),
-    ?line public_kill(),
+    public_kill(),
 
     %% We used to wait 1 ms before retrieving the message queue,
     %% but that might not always be enough if the machine is overloaded.
-    ?line receive
-	      {'EXIT', Pid, killed} -> ok
-	  end,
+    receive
+	{'EXIT', Pid, killed} -> ok
+    end,
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -214,15 +214,15 @@ simple_global_supervisor(Config) when is_list(Config) ->
         supervisor:start_link({local,bridge9212}, ?MODULE, {4,InitResult}),
 
     BN_1 = global:whereis_name(?bridge_name),
-    ?line exit(BN_1, kill),
+    exit(BN_1, kill),
     timer:sleep(200),
     BN_2 = global:whereis_name(?bridge_name),
-    ?line true = is_pid(BN_2),
-    ?line true = BN_1 =/= BN_2,
+    true = is_pid(BN_2),
+    true = BN_1 =/= BN_2,
 
-    ?line process_flag(trap_exit, true),
+    process_flag(trap_exit, true),
     exit(Sup, kill),
-    ?line receive {'EXIT', Sup, killed} -> ok end,
+    receive {'EXIT', Sup, killed} -> ok end,
     ok.
 
 server9212() ->

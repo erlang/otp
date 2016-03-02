@@ -52,17 +52,17 @@ end_per_group(_GroupName, Config) ->
 
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_1(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
-    ?line W = ?config(priv_dir, Config),
-    ?line Result = c(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m.erl"),
+    W = ?config(priv_dir, Config),
+    Result = c(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_2(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m"),
-    ?line W = ?config(priv_dir, Config),
-    ?line Result = c(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m"),
+    W = ?config(priv_dir, Config),
+    Result = c(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 
 %%% Put results in current directory (or rather, change current dir
@@ -71,36 +71,36 @@ c_2(Config) when is_list(Config) ->
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'
 %% (same as current directory).
 c_3(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
-    ?line W = ?config(priv_dir, Config),
-    ?line file:set_cwd(W),
-    ?line Result = c(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m.erl"),
+    W = ?config(priv_dir, Config),
+    file:set_cwd(W),
+    Result = c(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'
 %% (same as current directory).
 c_4(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m"),
-    ?line W = ?config(priv_dir, Config),
-    ?line file:set_cwd(W),
-    ?line Result = c(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m"),
+    W = ?config(priv_dir, Config),
+    file:set_cwd(W),
+    Result = c(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 %%% Write output to a directory other than current directory:
 
 %% Check that c:nc/2 works also with option 'outdir'.
 nc_1(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
-    ?line W = ?config(priv_dir, Config),
-    ?line Result = nc(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m.erl"),
+    W = ?config(priv_dir, Config),
+    Result = nc(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 %% Check that c:nc/2 works also with option 'outdir'.
 nc_2(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m"),
-    ?line W = ?config(priv_dir, Config),
-    ?line Result = nc(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m"),
+    W = ?config(priv_dir, Config),
+    Result = nc(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 
 %%% Put results in current directory (or rather, change current dir
@@ -109,20 +109,20 @@ nc_2(Config) when is_list(Config) ->
 %% Check that c:nc/2 works also with option 'outdir'
 %% (same as current directory).
 nc_3(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
-    ?line W = ?config(priv_dir, Config),
-    ?line file:set_cwd(W),
-    ?line Result = nc(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m.erl"),
+    W = ?config(priv_dir, Config),
+    file:set_cwd(W),
+    Result = nc(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 %% Check that c:nc/2 works also with option 'outdir'
 %% (same as current directory).
 nc_4(Config) when is_list(Config) ->
-    ?line R = filename:join(?config(data_dir, Config), "m"),
-    ?line W = ?config(priv_dir, Config),
-    ?line file:set_cwd(W),
-    ?line Result = nc(R,[{outdir,W}]),
-    ?line {ok, m} = Result.
+    R = filename:join(?config(data_dir, Config), "m"),
+    W = ?config(priv_dir, Config),
+    file:set_cwd(W),
+    Result = nc(R,[{outdir,W}]),
+    {ok, m} = Result.
 
 ls(Config) when is_list(Config) ->
     Directory = ?config(data_dir, Config),
@@ -134,33 +134,33 @@ ls(Config) when is_list(Config) ->
 %% Check that c:memory/[0,1] returns consistent results.
 memory(Config) when is_list(Config) ->
     try
-	?line ML = c:memory(),
-	?line T =  mget(total, ML),
-	?line P =  mget(processes, ML),
-	?line S =  mget(system, ML),
-	?line A =  mget(atom, ML),
-	?line AU = mget(atom_used, ML),
-	?line B =  mget(binary, ML),
-	?line C =  mget(code, ML),
-	?line E =  mget(ets, ML),
-	?line T = P + S,
-	?line if S >= A + B + C + E -> ok end,
-	?line if A >= AU -> ok end,
-	?line ok
+	ML = c:memory(),
+	T =  mget(total, ML),
+	P =  mget(processes, ML),
+	S =  mget(system, ML),
+	A =  mget(atom, ML),
+	AU = mget(atom_used, ML),
+	B =  mget(binary, ML),
+	C =  mget(code, ML),
+	E =  mget(ets, ML),
+	T = P + S,
+	if S >= A + B + C + E -> ok end,
+	if A >= AU -> ok end,
+	ok
     catch
 	error:notsup ->
-	    ?line {skipped,
-		   "erlang:memory/[0,1] and c:memory/[0,1] not supported"}
+	    {skipped,
+	     "erlang:memory/[0,1] and c:memory/[0,1] not supported"}
     end.
 
 %% Help function for c_SUITE:memory/1
 mget(K, L) ->
-    ?line {value,{K,V}} = lists:keysearch(K, 1, L),
-    ?line test_v(c:memory(K)), % Check that c:memory/1 also accept this
-                               % argument and returns an integer (usally
-                               % *not* the same as V).
-    ?line test_v(V).
+    {value,{K,V}} = lists:keysearch(K, 1, L),
+    test_v(c:memory(K)), % Check that c:memory/1 also accept this
+						% argument and returns an integer (usally
+						% *not* the same as V).
+    test_v(V).
 
 %% Help function for c_SUITE:memory/1
 test_v(V) when is_integer(V) ->
-    ?line V.
+    V.

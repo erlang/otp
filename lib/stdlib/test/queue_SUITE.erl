@@ -57,39 +57,39 @@ end_per_group(_GroupName, Config) ->
 
 
 do(Config) when is_list(Config) ->
-    ?line L = [{in, 1},
-	       {in, 2},
-	       {out, {value, 1}},
-	       {in, 3},
-	       {out, {value, 2}},
-	       {out, {value, 3}},
-	       {out, empty}
-	      ],
-    
-    ?line E = queue:new(),
-    ?line [] = queue:to_list(E),
-    ?line Q = do_queue(E, L),
-    ?line true = queue:is_empty(Q),
-    ?line 0 = queue:len(Q),
+    L = [{in, 1},
+	 {in, 2},
+	 {out, {value, 1}},
+	 {in, 3},
+	 {out, {value, 2}},
+	 {out, {value, 3}},
+	 {out, empty}
+	],
+
+    E = queue:new(),
+    [] = queue:to_list(E),
+    Q = do_queue(E, L),
+    true = queue:is_empty(Q),
+    0 = queue:len(Q),
     ok.
 
 %% OTP-2701
 to_list(Config) when is_list(Config) ->
-    ?line E = queue:new(),
-    ?line Q = do_queue(E, [{in, 1},
-			   {in, 2},
-			   {in, 3},
-			   {out, {value, 1}},
-			   {in, 4},
-			   {in, 5}]),
-    ?line true = queue:is_queue(Q),
-    ?line 4 = queue:len(Q),
-    ?line case queue:to_list(Q) of
-	      [2,3,4,5] ->
-		  ok;
-	      Other1 ->
-		  ct:fail(Other1)
-	  end,
+    E = queue:new(),
+    Q = do_queue(E, [{in, 1},
+		     {in, 2},
+		     {in, 3},
+		     {out, {value, 1}},
+		     {in, 4},
+		     {in, 5}]),
+    true = queue:is_queue(Q),
+    4 = queue:len(Q),
+    case queue:to_list(Q) of
+	[2,3,4,5] ->
+	    ok;
+	Other1 ->
+	    ct:fail(Other1)
+    end,
     ok.
 
 do_queue(Q, []) ->
@@ -115,75 +115,75 @@ io_test(Config) when is_list(Config) ->
     ok.
 
 do_io_test(E) ->
-    ?line [4,3,5] = 
+    [4,3,5] =
 	io([snoc,snoc,head,head,head,cons,cons,snoc], E, 1),
-    ?line [5,3,4] = 
+    [5,3,4] =
 	io([cons,cons,daeh,daeh,daeh,snoc,snoc,cons], E, 1),
-    ?line [4,3,5] = 
+    [4,3,5] =
 	io([in,in,out,out,out,in_r,in_r,in], E, 1),
-    ?line [5,3,4] = 
+    [5,3,4] =
 	io([in_r,in_r,out_r,out_r,out_r,in,in,in_r], E, 1),
     %%
-    ?line [] = 
+    [] =
 	io([snoc,snoc,head,snoc,snoc,head,head,snoc,head,head], E, 1),
-    ?line [] = 
+    [] =
 	io([cons,cons,daeh,cons,cons,daeh,daeh,cons,daeh,daeh], E, 1),
-    ?line [] = 
+    [] =
 	io([in,in,out,in,in,out,out,in,out,out], E, 1),
-    ?line [] = 
+    [] =
 	io([in_r,in_r,out_r,in_r,in_r,out_r,out_r,in_r,out_r,out_r], 
 	   E, 1),
     %%
-    ?line [5,6] = 
+    [5,6] =
 	io([snoc,snoc,snoc,head,head,snoc,snoc,snoc,head,head], E, 1),
-    ?line [6,5] = 
+    [6,5] =
 	io([cons,cons,cons,daeh,daeh,cons,cons,cons,daeh,daeh], E, 1),
-    ?line [5,6] = 
+    [5,6] =
 	io([in,in,in,out,out,in,in,in,out,out], E, 1),
-    ?line [6,5] = 
+    [6,5] =
 	io([in_r,in_r,in_r,out_r,out_r,in_r,in_r,in_r,out_r,out_r], 
 	   E, 1),
     %%
-    ?line [5] = 
+    [5] =
 	io([snoc,head,head,snoc,head,snoc,head,snoc,head,snoc], E, 1),
-    ?line [5] = 
+    [5] =
 	io([cons,daeh,daeh,cons,daeh,cons,daeh,cons,daeh,cons], E, 1),
-    ?line [5] = 
+    [5] =
 	io([in,out,out,in,out,in,out,in,out,in], E, 1),
-    ?line [5] = 
+    [5] =
 	io([in_r,out_r,out_r,in_r,out_r,in_r,out_r,in_r,out_r,in_r], 
 	   E, 1),
     %%
-    ?line [] =
+    [] =
 	io([snoc,head,snoc,snoc,head,head,snoc,snoc,snoc,head,head,head], 
 	   E, 1),
-    ?line [] =
+    [] =
 	io([cons,daeh,cons,cons,daeh,daeh,cons,cons,cons,daeh,daeh,daeh],
-	  E, 1),
-    ?line [] =
+	   E, 1),
+    [] =
 	io([in,out,in,in,out,out,in,in,in,out,out,out], 
 	   E, 1),
-    ?line [] =
+    [] =
 	io([in_r,out_r,in_r,in_r,out_r,out_r,in_r,in_r,in_r,out_r,out_r,out_r],
-	  E, 1),
+	   E, 1),
     %%
-    ?line [3] =	io([cons,cons,cons,snoc,daeh,daeh,daeh], E, 1),
-    ?line [3] =	io([snoc,snoc,snoc,cons,head,head,head], E, 1),
-    ?line [3] =	io([in,in,in,in_r,out,out,out], E, 1),
-    ?line [3] =	io([in_r,in_r,in_r,in,out_r,out_r,out_r], E, 1),
+    [3] =	io([cons,cons,cons,snoc,daeh,daeh,daeh], E, 1),
+    [3] =	io([snoc,snoc,snoc,cons,head,head,head], E, 1),
+    [3] =	io([in,in,in,in_r,out,out,out], E, 1),
+    [3] =	io([in_r,in_r,in_r,in,out_r,out_r,out_r], E, 1),
     %%
-    ?line Q2 = queue:join(queue:cons(1, E),queue:cons(2, E)),
-    ?line Q1 = queue:reverse(Q2),
-    ?line [1] = io([head],  Q1, 3),
-    ?line [1] = io([out],   Q1, 3),
-    ?line [1] = io([daeh],  Q2, 3),
-    ?line [1] = io([out_r], Q2, 3),
+    Q2 = queue:join(queue:cons(1, E),queue:cons(2, E)),
+    Q1 = queue:reverse(Q2),
+    [1] = io([head],  Q1, 3),
+    [1] = io([out],   Q1, 3),
+    [1] = io([daeh],  Q2, 3),
+    [1] = io([out_r], Q2, 3),
     %%
-    ?line [2] =
+    [2] =
 	io([in,peek,peek_r,drop,in_r,peek,peek_r,in,peek,peek_r,drop_r], E, 1),
     %% Malformed queues UGLY-GUTS-ALL-OVER-THE-PLACE
-    ?line [2,1] = io([peek], {[1,2],[]}, 1),
-    ?line [1,2] = io([peek_r], {[],[1,2]}, 1),
+    [2,1] = io([peek], {[1,2],[]}, 1),
+    [1,2] = io([peek_r], {[],[1,2]}, 1),
     %%
     ok.
 
@@ -287,92 +287,92 @@ op_test(Config) when is_list(Config) ->
     ok.
 
 do_op_test(F) ->
-    ?line Len = 50,
-    ?line Len2 = 2*Len,
-    ?line L1 = lists:seq(1, Len),
-    ?line L1r = lists:reverse(L1),
-    ?line L2 = lists:seq(Len+1, Len2),
-    ?line L2r = lists:reverse(L2),
-    ?line L3 = L1++L2,
-    ?line L3r = L2r++L1r,
-    ?line Q0 = F(queue:new()),
-    ?line [] = queue:to_list(Q0),
-    ?line Q0 = F(queue:from_list([])),
-    ?line Q1 = F(queue:from_list(L1)),
-    ?line Q2 = F(queue:from_list(L2)),
-    ?line Q3 = F(queue:from_list(L3)),
-    ?line Len = queue:len(Q1),
-    ?line Len = queue:len(Q2),
-    ?line Len2 = queue:len(Q3),
-    ?line L1 = queue:to_list(Q1),
-    ?line L2 = queue:to_list(Q2),
-    ?line L3 = queue:to_list(Q3),
-    ?line Q3b = queue:join(Q0, queue:join(queue:join(Q1, Q2), Q0)),
-    ?line L3 = queue:to_list(Q3b),
-    ?line {Q0, Q3New1} = queue:split(0, Q3),
-    ?line L3 = queue:to_list(Q3New1),
-    ?line {Q3New2, Q0} = queue:split(Len2, Q3),
-    ?line L3 = queue:to_list(Q3New2),
-    ?line {Q1a, Q2a} = queue:split(Len, Q3),
-    ?line L1 = queue:to_list(Q1a),
-    ?line L2 = queue:to_list(Q2a),
-    ?line {Q3c, Q3d} = queue:split(2, Q3),
-    ?line L3 = queue:to_list(Q3c) ++ queue:to_list(Q3d),
-    ?line {Q1b, Q2b} = queue:split(Len, Q3b),
-    ?line L1 = queue:to_list(Q1b),
-    ?line L2 = queue:to_list(Q2b),
-    ?line Len = queue:len(Q1b),
-    ?line Len = queue:len(Q2b),
-    ?line Len2 = queue:len(Q3b),
-    ?line Q1r = queue:reverse(Q1),
-    ?line Q2r = queue:reverse(Q2),
-    ?line Q1ar = queue:reverse(Q1a),
-    ?line Q2ar = queue:reverse(Q2a),
-    ?line Q1br = queue:reverse(Q1b),
-    ?line Q2br = queue:reverse(Q2b),
-    ?line Q3br = queue:reverse(Q3b),
-    ?line L1r = queue:to_list(Q1r),
-    ?line L1r = queue:to_list(Q1ar),
-    ?line L1r = queue:to_list(Q1br),
-    ?line L2r = queue:to_list(Q2r),
-    ?line L2r = queue:to_list(Q2ar),
-    ?line L2r = queue:to_list(Q2br),
-    ?line L3r = queue:to_list(Q3br),
-    ?line Len = queue:len(Q1br),
-    ?line Len = queue:len(Q2br),
-    ?line Len2 = queue:len(Q3br),
-    ?line false = queue:member([], Q0),
-    ?line false = queue:member(0, Q0),
-    ?line false = queue:member(0, Q1),
-    ?line false = queue:member([], Q1),
-    ?line true = queue:member(1, Q1),
-    ?line false = queue:member(1.0, Q1),
-    ?line true = queue:member(Len, Q1),
+    Len = 50,
+    Len2 = 2*Len,
+    L1 = lists:seq(1, Len),
+    L1r = lists:reverse(L1),
+    L2 = lists:seq(Len+1, Len2),
+    L2r = lists:reverse(L2),
+    L3 = L1++L2,
+    L3r = L2r++L1r,
+    Q0 = F(queue:new()),
+    [] = queue:to_list(Q0),
+    Q0 = F(queue:from_list([])),
+    Q1 = F(queue:from_list(L1)),
+    Q2 = F(queue:from_list(L2)),
+    Q3 = F(queue:from_list(L3)),
+    Len = queue:len(Q1),
+    Len = queue:len(Q2),
+    Len2 = queue:len(Q3),
+    L1 = queue:to_list(Q1),
+    L2 = queue:to_list(Q2),
+    L3 = queue:to_list(Q3),
+    Q3b = queue:join(Q0, queue:join(queue:join(Q1, Q2), Q0)),
+    L3 = queue:to_list(Q3b),
+    {Q0, Q3New1} = queue:split(0, Q3),
+    L3 = queue:to_list(Q3New1),
+    {Q3New2, Q0} = queue:split(Len2, Q3),
+    L3 = queue:to_list(Q3New2),
+    {Q1a, Q2a} = queue:split(Len, Q3),
+    L1 = queue:to_list(Q1a),
+    L2 = queue:to_list(Q2a),
+    {Q3c, Q3d} = queue:split(2, Q3),
+    L3 = queue:to_list(Q3c) ++ queue:to_list(Q3d),
+    {Q1b, Q2b} = queue:split(Len, Q3b),
+    L1 = queue:to_list(Q1b),
+    L2 = queue:to_list(Q2b),
+    Len = queue:len(Q1b),
+    Len = queue:len(Q2b),
+    Len2 = queue:len(Q3b),
+    Q1r = queue:reverse(Q1),
+    Q2r = queue:reverse(Q2),
+    Q1ar = queue:reverse(Q1a),
+    Q2ar = queue:reverse(Q2a),
+    Q1br = queue:reverse(Q1b),
+    Q2br = queue:reverse(Q2b),
+    Q3br = queue:reverse(Q3b),
+    L1r = queue:to_list(Q1r),
+    L1r = queue:to_list(Q1ar),
+    L1r = queue:to_list(Q1br),
+    L2r = queue:to_list(Q2r),
+    L2r = queue:to_list(Q2ar),
+    L2r = queue:to_list(Q2br),
+    L3r = queue:to_list(Q3br),
+    Len = queue:len(Q1br),
+    Len = queue:len(Q2br),
+    Len2 = queue:len(Q3br),
+    false = queue:member([], Q0),
+    false = queue:member(0, Q0),
+    false = queue:member(0, Q1),
+    false = queue:member([], Q1),
+    true = queue:member(1, Q1),
+    false = queue:member(1.0, Q1),
+    true = queue:member(Len, Q1),
     %%
     %% Additional coverage.
-    ?line {MyL1r,MyL2r} = lists:split(Len-2, L1r),
-    ?line MyQ0r = queue:reverse(F(queue:from_list(L1))),
-    ?line {MyQ1r,MyQ2r} = queue:split(Len-2, MyQ0r),
-    ?line MyL1r = queue:to_list(MyQ1r),
-    ?line MyL2r = queue:to_list(MyQ2r),
-    ?line MyQ3r = queue:filter(
-		   fun (X) when X rem 4 >= 2 -> false;
-		       (X) when X rem 8 == 0 -> [float(X),{X}];
-		       (X) when X rem 2 >= 1 -> [{X}];
-		       (_)                   -> true
-		   end, MyQ1r),
-    ?line MyL3r = lists:flatten(
-		    [if X rem 8 == 0 -> [float(X),{X}];
-			X rem 2 >= 1 -> {X};
-			true         -> X
-		     end || X <- MyL1r,
-			    X rem 4 < 2]),
-    ?line MyL3r = queue:to_list(MyQ3r),
-    ?line MyQ4 = F(queue:from_list([11,22,33,44])),
-    ?line [11,22] = queue:to_list(queue:filter(fun(X) when X < 27 -> true;
-						  (_) -> [] end, MyQ4)),
-    ?line [33,44] = queue:to_list(queue:filter(fun(X) when X < 27 -> false;
-						  (X) -> [X] end, MyQ4)),
+    {MyL1r,MyL2r} = lists:split(Len-2, L1r),
+    MyQ0r = queue:reverse(F(queue:from_list(L1))),
+    {MyQ1r,MyQ2r} = queue:split(Len-2, MyQ0r),
+    MyL1r = queue:to_list(MyQ1r),
+    MyL2r = queue:to_list(MyQ2r),
+    MyQ3r = queue:filter(
+	      fun (X) when X rem 4 >= 2 -> false;
+		  (X) when X rem 8 == 0 -> [float(X),{X}];
+		  (X) when X rem 2 >= 1 -> [{X}];
+		  (_)                   -> true
+	      end, MyQ1r),
+    MyL3r = lists:flatten(
+	      [if X rem 8 == 0 -> [float(X),{X}];
+		  X rem 2 >= 1 -> {X};
+		  true         -> X
+	       end || X <- MyL1r,
+		      X rem 4 < 2]),
+    MyL3r = queue:to_list(MyQ3r),
+    MyQ4 = F(queue:from_list([11,22,33,44])),
+    [11,22] = queue:to_list(queue:filter(fun(X) when X < 27 -> true;
+					    (_) -> [] end, MyQ4)),
+    [33,44] = queue:to_list(queue:filter(fun(X) when X < 27 -> false;
+					    (X) -> [X] end, MyQ4)),
     %%
     ok.
 
@@ -394,47 +394,47 @@ trycatch(M, F, Args) ->
     end.
 
 do_error(F, IQ) ->
-    ?line io:format("Illegal Queue: ~p~n", [IQ]),
+    io:format("Illegal Queue: ~p~n", [IQ]),
     %%
-    ?line {error,badarg} = trycatch(in, [1, IQ]),
-    ?line {error,badarg} = trycatch(out, [IQ]),
-    ?line {error,badarg} = trycatch(in_r ,[1, IQ]),
-    ?line {error,badarg} = trycatch(out_r ,[IQ]),
-    ?line {error,badarg} = trycatch(to_list ,[IQ]),
+    {error,badarg} = trycatch(in, [1, IQ]),
+    {error,badarg} = trycatch(out, [IQ]),
+    {error,badarg} = trycatch(in_r ,[1, IQ]),
+    {error,badarg} = trycatch(out_r ,[IQ]),
+    {error,badarg} = trycatch(to_list ,[IQ]),
     %%
-    ?line {error,badarg} = trycatch(from_list, [no_list]),
-    ?line {error,badarg} = trycatch(is_empty, [IQ]),
-    ?line {error,badarg} = trycatch(len, [IQ]),
+    {error,badarg} = trycatch(from_list, [no_list]),
+    {error,badarg} = trycatch(is_empty, [IQ]),
+    {error,badarg} = trycatch(len, [IQ]),
     %%
-    ?line {error,badarg} = trycatch(cons, [1, IQ]),
-    ?line {error,badarg} = trycatch(head, [IQ]),
-    ?line {error,badarg} = trycatch(tail, [IQ]),
+    {error,badarg} = trycatch(cons, [1, IQ]),
+    {error,badarg} = trycatch(head, [IQ]),
+    {error,badarg} = trycatch(tail, [IQ]),
     %%
-    ?line {error,badarg} = trycatch(snoc, [IQ, 1]),
-    ?line {error,badarg} = trycatch(last, [IQ]),
-    ?line {error,badarg} = trycatch(daeh, [IQ]),
-    ?line {error,badarg} = trycatch(liat, [IQ]),
-    ?line {error,badarg} = trycatch(lait, [IQ]),
-    ?line {error,badarg} = trycatch(init, [IQ]),
+    {error,badarg} = trycatch(snoc, [IQ, 1]),
+    {error,badarg} = trycatch(last, [IQ]),
+    {error,badarg} = trycatch(daeh, [IQ]),
+    {error,badarg} = trycatch(liat, [IQ]),
+    {error,badarg} = trycatch(lait, [IQ]),
+    {error,badarg} = trycatch(init, [IQ]),
     %%
-    ?line {error,badarg} = trycatch(reverse, [IQ]),
-    ?line {error,badarg} = trycatch(join, [F(queue:new()), IQ]),
-    ?line {error,badarg} = trycatch(join, [IQ, F(queue:new())]),
-    ?line {error,badarg} = trycatch(split, [17, IQ]),
-    ?line {error,badarg} = trycatch(head, [IQ]),
+    {error,badarg} = trycatch(reverse, [IQ]),
+    {error,badarg} = trycatch(join, [F(queue:new()), IQ]),
+    {error,badarg} = trycatch(join, [IQ, F(queue:new())]),
+    {error,badarg} = trycatch(split, [17, IQ]),
+    {error,badarg} = trycatch(head, [IQ]),
     %%
-    ?line Q0 = F(queue:new()),
-    ?line {error,badarg} = trycatch(split, [1, Q0]),
-    ?line {error,badarg} = trycatch(split, [2, queue:snoc(Q0, 1)]),
+    Q0 = F(queue:new()),
+    {error,badarg} = trycatch(split, [1, Q0]),
+    {error,badarg} = trycatch(split, [2, queue:snoc(Q0, 1)]),
     %%
-    ?line {value,false}  = trycatch(is_queue, [IQ]),
-    ?line {error,badarg} = trycatch(get, [IQ]),
-    ?line {error,badarg} = trycatch(peek, [IQ]),
-    ?line {error,badarg} = trycatch(peek_r, [IQ]),
-    ?line {error,badarg} = trycatch(filter, [fun id/1, IQ]),
-    ?line {error,badarg} = trycatch(filter, [no_fun, Q0]),
+    {value,false}  = trycatch(is_queue, [IQ]),
+    {error,badarg} = trycatch(get, [IQ]),
+    {error,badarg} = trycatch(peek, [IQ]),
+    {error,badarg} = trycatch(peek_r, [IQ]),
+    {error,badarg} = trycatch(filter, [fun id/1, IQ]),
+    {error,badarg} = trycatch(filter, [no_fun, Q0]),
     %%
-    ?line {error,badarg} = trycatch(member, [1, IQ]),
+    {error,badarg} = trycatch(member, [1, IQ]),
     ok.
 
 id(X) ->
@@ -442,14 +442,14 @@ id(X) ->
 
 %% Test queue errors.
 oops(Config) when is_list(Config) ->
-    ?line N = 3142,
-    ?line Optab = optab(),
-    ?line Seed0 = rand:seed(exsplus, {1,2,4}),
-    ?line {Is,Seed} = random_list(N, tuple_size(Optab), Seed0, []),
-    ?line io:format("~p ", [Is]),
-    ?line QA = queue:new(),
-    ?line QB = {[]},
-    ?line emul([QA], [QB], Seed, [element(I, Optab) || I <- Is]).
+    N = 3142,
+    Optab = optab(),
+    Seed0 = rand:seed(exsplus, {1,2,4}),
+    {Is,Seed} = random_list(N, tuple_size(Optab), Seed0, []),
+    io:format("~p ", [Is]),
+    QA = queue:new(),
+    QB = {[]},
+    emul([QA], [QB], Seed, [element(I, Optab) || I <- Is]).
 
 optab() ->
     {{new,[],        q,     fun ()     -> {[]} end},

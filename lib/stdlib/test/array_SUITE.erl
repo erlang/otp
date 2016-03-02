@@ -105,19 +105,19 @@ end_per_testcase(_Case, _Config) ->
 		}).
 
 -define(_assert(What), 
-	begin ?line true = What end
+	begin true = What end
        ).
 -define(_assertNot(What), 
-	begin ?line false = What end
+	begin false = What end
        ).
 
 -define(_assertMatch(Res,What), 
 	begin 
-	    ?line case What of Res -> ok end
+	    case What of Res -> ok end
 	end
        ).
 -define(_assertError(Reas,What), 
-	begin ?line fun() ->
+	begin fun() ->
 			    try What of
 				A_Success -> exit({test_error, A_Success})
 			    catch error:Reas -> ok end
@@ -125,9 +125,9 @@ end_per_testcase(_Case, _Config) ->
 	end
        ).
 
--define(LET(Var,Expr, Test), begin ?line fun() -> Var = Expr, Test end() end).
+-define(LET(Var,Expr, Test), begin fun() -> Var = Expr, Test end() end).
 
--define(_test(Expr), begin ?line Expr end).
+-define(_test(Expr), begin Expr end).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some helpers to be able to run the tests without testserver

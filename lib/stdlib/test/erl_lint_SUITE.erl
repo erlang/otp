@@ -121,42 +121,42 @@ unused_vars_warn_basic(Config) when is_list(Config) ->
            <<"f(F) -> % F unused.
                 ok.
 
-            f(F, F) ->
-                ok.
+f(F, F) ->
+    ok.
 
-            g(_X) ->
-                y.
+g(_X) ->
+    y.
 
-            h(P) ->
-                P.
+h(P) ->
+    P.
 
-            x(N) ->
-                case a:b() of
-                    [N|Y] -> % Y unused.
-                        ok
-                end.
+x(N) ->
+    case a:b() of
+	[N|Y] -> % Y unused.
+	    ok
+    end.
 
-            y(N, L) ->
-                lists:map(fun(T) -> T*N end, L).
+y(N, L) ->
+    lists:map(fun(T) -> T*N end, L).
 
-            z(N, L) -> % N unused
-                lists:map(fun(N, T) -> T*N end, L).  % N shadowed.
+z(N, L) -> % N unused
+    lists:map(fun(N, T) -> T*N end, L).  % N shadowed.
 
 
-            c(A) ->
-                case A of
-                    1 -> B = []; % B unused.
-                    2 -> B = []; % B unused.
-                    3 -> B = f, B
-                end.
-           ">>,
+c(A) ->
+    case A of
+	1 -> B = []; % B unused.
+	2 -> B = []; % B unused.
+	3 -> B = f, B
+    end.
+">>,
 	   [warn_unused_vars],
-	   {warnings,[{1,erl_lint,{unused_var,'F'}},
-             {15,erl_lint,{unused_var,'Y'}},
-             {22,erl_lint,{unused_var,'N'}},
-             {23,erl_lint,{shadowed_var,'N','fun'}},
-             {28,erl_lint,{unused_var,'B'}},
-             {29,erl_lint,{unused_var,'B'}}]}},
+{warnings,[{1,erl_lint,{unused_var,'F'}},
+	   {15,erl_lint,{unused_var,'Y'}},
+	   {22,erl_lint,{unused_var,'N'}},
+	   {23,erl_lint,{shadowed_var,'N','fun'}},
+	   {28,erl_lint,{unused_var,'B'}},
+	   {29,erl_lint,{unused_var,'B'}}]}},
           {basic2,
            <<"-record(r, {x,y}).
               f({X,Y}) -> {Z=X,Z=Y};
@@ -166,7 +166,7 @@ unused_vars_warn_basic(Config) when is_list(Config) ->
               g({M, F, Arg}) -> (Z=M):F(Z=Arg).
               h(X, Y) -> (Z=X) + (Z=Y).">>,
            [warn_unused_vars], []}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Warnings for unused variables in list comprehensions.
@@ -509,7 +509,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                   [{14,erl_lint,{unused_var,'Q'}}]}}
 
           ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 
@@ -565,7 +565,7 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
            {error,[{2,erl_lint,{redefine_field,r,a}},
                    {2,erl_lint,{redefine_field,r,a}}],
                   [{2,erl_lint,{unused_var,'X'}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Warnings for unused variables in funs.
@@ -690,7 +690,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                    {33,erl_lint,{unused_var,'U'}},
                    {33,erl_lint,{shadowed_var,'U','fun'}}]}}
           ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Bit syntax, binsize variable used in the same matching.
@@ -712,7 +712,7 @@ unused_vars_OTP_4858(Config) when is_list(Config) ->
                {8,erl_lint,{unused_var,'B'}},
                {8,erl_lint,{unused_var,'Rest'}}]}}
          ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 unused_unsafe_vars_warn(Config) when is_list(Config) ->
@@ -847,7 +847,7 @@ export_vars_warn(Config) when is_list(Config) ->
            [],
            {warnings,[{7,erl_lint,{exported_var,'Z',{'if',2}}}]}}
          ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Shadowed variables are tested in other places, but here we test
@@ -876,7 +876,7 @@ shadow_vars(Config) when is_list(Config) ->
            ">>,
            [],
            []}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Test that the 'warn_unused_import' option works.
@@ -888,7 +888,7 @@ unused_import(Config) when is_list(Config) ->
            ">>,
 	   [warn_unused_import],
 	   {warnings,[{1,erl_lint,{unused_import,{{foldl,3},lists}}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Test warnings for unused functions.
@@ -934,7 +934,7 @@ unused_function(Config) when is_list(Config) ->
 	   {[]},		     %Tuple indicates no 'export_all'.
 	   []}],
 
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
     
 %% OTP-4671. Errors for unsafe variables.
@@ -1035,7 +1035,7 @@ unsafe_vars(Config) when is_list(Config) ->
                     {24,erl_lint,{unsafe_var,'D',{'case',2}}}],
             []}}
          ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-4831, seq8202. No warn_unused_vars and unsafe variables.
@@ -1067,7 +1067,7 @@ unsafe_vars2(Config) when is_list(Config) ->
            [],
            {errors,[{9,erl_lint,{unsafe_var,'State1',{'if',4}}}],[]}}
          ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Errors for unsafe variables in try/catch constructs.
@@ -1255,7 +1255,7 @@ unsafe_vars_try(Config) when is_list(Config) ->
            ">>,
            [],
            {errors,[{13,erl_lint,{unsafe_var,'Acc',{'try',6}}}],[]}}],
-        ?line [] = run(Config, Ts),
+        [] = run(Config, Ts),
     ok.
 
 %% Unsized binary fields are forbidden in patterns of bit string generators.
@@ -1506,7 +1506,7 @@ guard(Config) when is_list(Config) ->
            ">>,
            [nowarn_obsolete_guard],
            []}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     Ts1 = [{guard5,
             <<"-record(apa, {}).
                t3(A) when record(A, {apa}) ->
@@ -1577,7 +1577,7 @@ guard(Config) when is_list(Config) ->
                      {2,erl_lint,illegal_guard_expr}],
              []}}
 	  ],
-    ?line [] = run(Config, Ts1),
+    [] = run(Config, Ts1),
     ok.
 
 %% OTP-4886. Calling is_record with given record name.
@@ -1599,7 +1599,7 @@ otp_4886(Config) when is_list(Config) ->
                     {4,erl_lint,{undefined_record,foo}},
                     {5,erl_lint,{undefined_record,foo}}],
             []}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-4988. Error when in-lining non-existent functions.
@@ -1624,7 +1624,7 @@ otp_4988(Config) when is_list(Config) ->
                     {1,erl_lint,{bad_inline,{f,a}}},
                     {3,erl_lint,{bad_inline,{g,12}}}],
             []}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5091. Patterns and the bit syntax: invalid warnings.
@@ -1840,7 +1840,7 @@ otp_5091(Config) when is_list(Config) ->
            <<"-record(r, {f1,f2}).
               t(#r{f1 = A, f2 = A}) -> a.">>, [], []}],
 
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5276. Check the 'deprecated' attributed.
@@ -1870,7 +1870,7 @@ otp_5276(Config) when is_list(Config) ->
                    {9,erl_lint,{invalid_deprecated,{{badly,formed},1}}},
 		   {11,erl_lint,{bad_deprecated,{atom_to_list,1}}}],
             [{13,erl_lint,{unused_function,{frutt,0}}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5917. Check the 'deprecated' attributed.
@@ -1885,7 +1885,7 @@ otp_5917(Config) when is_list(Config) ->
             ">>,
            {[]},
            []}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-6585. Check the deprecated guards list/1, pid/1, ....
@@ -1906,7 +1906,7 @@ otp_6585(Config) when is_list(Config) ->
            {warnings,[{5,erl_lint,{obsolete_guard,{list,1}}},
                       {6,erl_lint,{obsolete_guard,{record,2}}},
                       {7,erl_lint,{obsolete_guard,{pid,1}}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5338. Bad warning in record initialization.
@@ -1921,7 +1921,7 @@ otp_5338(Config) when is_list(Config) ->
            [],
            {error,[{1,erl_lint,{unbound_var,'X'}}],
                   [{3,erl_lint,{unused_var,'X'}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5362. deprecated_function,
@@ -2125,7 +2125,7 @@ otp_5362(Config) when is_list(Config) ->
 
 	 ],
 
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5371. Aliases for bit syntax expressions are no longer allowed.
@@ -2182,7 +2182,7 @@ otp_5371(Config) when is_list(Config) ->
 		      {6,v3_core,nomatch},
 		      {8,v3_core,nomatch}]}}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP_7227. Some aliases for bit syntax expressions were still allowed.
@@ -2252,7 +2252,7 @@ otp_7227(Config) when is_list(Config) ->
 	   [],
 	   {errors,[{2,erl_lint,illegal_bin_pattern}],[]}}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5494. Warnings for functions exported more than once.
@@ -2264,7 +2264,7 @@ otp_5494(Config) when is_list(Config) ->
              ">>,
            [],
            {warnings,[{2,erl_lint,{duplicated_export,{t,0}}}]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5644. M:F/A in record initialization.
@@ -2283,7 +2283,7 @@ otp_5644(Config) when is_list(Config) ->
             ">>,
            [],
            []}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-5878. Record declaration: forward references, introduced variables.
@@ -2402,7 +2402,7 @@ otp_5878(Config) when is_list(Config) ->
             [{1,erl_lint,{unused_record,r}}]}}
 
          ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
 
     Abstr = <<"-module(lint_test, [A, B]).
             ">>,
@@ -2419,7 +2419,7 @@ otp_5878(Config) when is_list(Config) ->
                                            X <- Z ++ [A,Y]])}).
               t() -> {#r1{},#r2{},#r3{}}.
              ">>,
-    ?line {error,[{8,qlc,{used_generator_variable,'A'}},
+    {error,[{8,qlc,{used_generator_variable,'A'}},
                   {8,qlc,{used_generator_variable,'Y'}},
                   {8,qlc,{used_generator_variable,'Z'}}],
            [{6,erl_lint,{unused_var,'V'}}]} = 
@@ -2460,7 +2460,7 @@ otp_5878(Config) when is_list(Config) ->
                   bar.
               ">>,
    
-    ?line {errors,[{6,erl_lint,{unbound_var,'A'}},
+    {errors,[{6,erl_lint,{unbound_var,'A'}},
                    {13,erl_lint,illegal_guard_expr},
                    {15,erl_lint,{undefined_field,r3,q}},
                    {17,erl_lint,{undefined_field,r,q}},
@@ -2479,14 +2479,14 @@ otp_5878(Config) when is_list(Config) ->
                           foo
                   end.
              ">>,
-    ?line {errors,[{4,erl_lint,{undefined_function,{x,0}}},
+    {errors,[{4,erl_lint,{undefined_function,{x,0}}},
                    {5,erl_lint,illegal_guard_expr},
                    {7,erl_lint,illegal_guard_expr}],
            []} = 
         run_test2(Config, Ill2, [warn_unused_record]),
     
     Ill3 = <<"t() -> ok.">>,
-    ?line {errors,[{1,erl_lint,undefined_module}],[]} = 
+    {errors,[{1,erl_lint,undefined_module}],[]} =
         run_test2(Config, Ill3, [warn_unused_record]),
 
     Usage1 = <<"-module(lint_test).
@@ -2499,7 +2499,7 @@ otp_5878(Config) when is_list(Config) ->
                 t() ->
                     {#u2{}}.
                ">>,
-    ?line {warnings,[{5,erl_lint,{unused_record,u3}},
+    {warnings,[{5,erl_lint,{unused_record,u3}},
                      {6,erl_lint,{unused_record,u4}}]} = 
         run_test2(Config, Usage1, [warn_unused_record]),
 
@@ -2514,7 +2514,7 @@ otp_5878(Config) when is_list(Config) ->
                 t() ->
                     {#u2{}}.
                ">>,
-    ?line [] = run_test2(Config, Usage2, [warn_unused_record]),
+    [] = run_test2(Config, Usage2, [warn_unused_record]),
 
     %% This a completely different story...
     %% The linter checks if qlc.hrl hasn't been included
@@ -2528,7 +2528,7 @@ otp_5878(Config) when is_list(Config) ->
                   H3 = q([X || X <- [1,2]], []),
                   {H1,H2,H3}.
              ">>,
-    ?line {warnings,[{6,erl_lint,{missing_qlc_hrl,1}},
+    {warnings,[{6,erl_lint,{missing_qlc_hrl,1}},
                      {7,erl_lint,{missing_qlc_hrl,2}},
                      {8,erl_lint,{missing_qlc_hrl,2}}]} = 
         run_test2(Config, QLC2, [warn_unused_record]),
@@ -2544,7 +2544,7 @@ otp_5878(Config) when is_list(Config) ->
 
                     foo(#request{}) -> ok.
                   ">>,
-    ?line [] = run_test2(Config, UsedByType, [warn_unused_record]),
+    [] = run_test2(Config, UsedByType, [warn_unused_record]),
 
     %% Abstract code generated by OTP 18. Note that the type info for
     %% record fields has been put in a separate form.
@@ -2593,7 +2593,7 @@ otp_6885(Config) when is_list(Config) ->
                ok.
 
            ">>,
-    ?line {errors,[{3,erl_lint,unsized_binary_not_at_end},
+    {errors,[{3,erl_lint,unsized_binary_not_at_end},
 		   {4,erl_lint,unsized_binary_not_at_end},
 		   {5,erl_lint,unsized_binary_not_at_end},
 		   {10,erl_lint,typed_literal_string},
@@ -2716,8 +2716,8 @@ export_all(Config) when is_list(Config) ->
 
             id(I) -> I.
            ">>,
-    ?line [] = run_test2(Config, Ts, []),
-    ?line {warnings,[{2,erl_lint,export_all}]} =
+    [] = run_test2(Config, Ts, []),
+    {warnings,[{2,erl_lint,export_all}]} =
 	run_test2(Config, Ts, [warn_export_all]),
     ok.
 
@@ -2988,7 +2988,7 @@ bif_clash(Config) when is_list(Config) ->
 	   []}
 	 ],
 
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Basic tests with one behaviour.
@@ -3025,7 +3025,7 @@ behaviour_basic(Config) when is_list(Config) ->
            [],
            {warnings,[{1,erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Basic tests with multiple behaviours.
@@ -3126,7 +3126,7 @@ behaviour_multiple(Config) when is_list(Config) ->
 		       erl_lint,
 		       {conflicting_behaviours,{init,1},supervisor,1,gen_server}}]}}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% OTP-11861. behaviour_info() and -callback.
@@ -3310,7 +3310,7 @@ otp_11861(Conf) when is_list(Conf) ->
            [],
            []}
 	 ],
-    ?line [] = run(Conf, Ts),
+    [] = run(Conf, Ts),
     true = code:set_path(CodePath),
     ok.
 
@@ -3351,7 +3351,7 @@ otp_7550(Config) when is_list(Config) ->
 		    {20,erl_lint,utf_bittype_size_or_unit}
 		   ],
             []}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
     
 
@@ -3363,7 +3363,7 @@ otp_8051(Config) when is_list(Config) ->
              ">>,
            [],
            {errors,[{1,erl_lint,{undefined_type,{bar,0}}}],[]}}],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Check that format warnings are generated.
@@ -3376,14 +3376,14 @@ format_warn(Config) when is_list(Config) ->
     ok.
 
 format_level(Level, Count, Config) ->
-    ?line W = get_compilation_result(Config, "format",
+    W = get_compilation_result(Config, "format",
                                      [{warn_format, Level}]),
     %% Pick out the 'format' warnings.
-    ?line FW = lists:filter(fun({_Line, erl_lint, {format_error, _}}) -> true;
+    FW = lists:filter(fun({_Line, erl_lint, {format_error, _}}) -> true;
                                (_) -> false
                             end,
                             W),
-    ?line case length(FW) of
+    case length(FW) of
               Count ->
                   ok;
               Other ->
@@ -3423,7 +3423,7 @@ on_load_successful(Config) when is_list(Config) ->
 	   {[]},				%Tuple indicates no 'export_all'.
 	   []}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 on_load_failing(Config) when is_list(Config) ->
@@ -3471,7 +3471,7 @@ on_load_failing(Config) when is_list(Config) ->
 	   {errors,
 	    [{1,erl_lint,{undefined_on_load,{non_existing,0}}}],[]}}
 	 ],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 %% Test that too many arguments is not accepted.
@@ -3483,7 +3483,7 @@ too_many_arguments(Config) when is_list(Config) ->
 	    [{1,erl_lint,{too_many_arguments,256}}],[]}}
 	 ],
 	  
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     ok.
 
 
@@ -3836,8 +3836,8 @@ run(Config, Tests) ->
 %% Compiles a test file and returns the list of warnings/errors.
 
 get_compilation_result(Conf, Filename, Warnings) ->
-    ?line DataDir = ?datadir,
-    ?line File = filename:join(DataDir, Filename),
+    DataDir = ?datadir,
+    File = filename:join(DataDir, Filename),
     {ok,Bin} = file:read_file(File++".erl"),
     FileS = binary_to_list(Bin),
     {match,[{Start,Length}|_]} = re:run(FileS, "-module.*\\n"),

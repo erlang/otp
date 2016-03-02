@@ -58,6 +58,6 @@ end_per_group(_GroupName, Config) ->
 
 %% OTP-2400. Bad args can hang.
 hang_1(Config) when is_list(Config) ->
-    ?line _ = (catch io:format(a, "", [])),
-    ?line _ = (catch io:format({}, "", [])),
+    _ = (catch io:format(a, "", [])),
+    _ = (catch io:format({}, "", [])),
     ok.

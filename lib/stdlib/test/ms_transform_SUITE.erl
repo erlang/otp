@@ -82,86 +82,86 @@ end_per_group(_GroupName, Config) ->
 
 %% Check that shadowed variables in fun head generate warning.
 warnings(Config) when is_list(Config) ->
-    ?line setup(Config),
+    setup(Config),
     Prog = <<"A=5, "
-	    "ets:fun2ms(fun({A,B}) "
-	    "            when is_integer(A) and (A+5 > B) -> "
-	    "              A andalso B "
-	    "            end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
+	     "ets:fun2ms(fun({A,B}) "
+	     "            when is_integer(A) and (A+5 > B) -> "
+	     "              A andalso B "
+	     "            end)">>,
+    [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
 	compile_ww(Prog),
     Prog2 = <<"C = 5,
                ets:fun2ms(fun ({A,B} =
-                                       C) when is_integer(A) and (A+5 > B) ->
+				   C) when is_integer(A) and (A+5 > B) ->
                                   {A andalso B,C}
                           end)">>,
     [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
-	compile_ww(Prog2),
-    Rec3 = <<"-record(a,{a,b,c,d=foppa}).">>,
-    Prog3 = <<"A = 3,
+	      compile_ww(Prog2),
+	      Rec3 = <<"-record(a,{a,b,c,d=foppa}).">>,
+	      Prog3 = <<"A = 3,
                C = 5,
-               ets:fun2ms(fun (C
-                                 = #a{a = A, b = B})
-                              when is_integer(A) and (A+5 > B) ->
-                                  {A andalso B,C}
-                          end)">>,
+			ets:fun2ms(fun (C
+					= #a{a = A, b = B})
+					 when is_integer(A) and (A+5 > B) ->
+					   {A andalso B,C}
+				   end)">>,
     [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}},
          {4,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
-	compile_ww(Rec3,Prog3),
-    Rec4 = <<"-record(a,{a,b,c,d=foppa}).">>,
-    Prog4 = <<"A=3,C=5, "
-	     "F = fun(B) -> B*3 end,"
-	     "erlang:display(F(A)),"
-	     "ets:fun2ms(fun(#a{a = A, b = B} = C) "
-	     "            when is_integer(A) and (A+5 > B) -> "
-	     "              {A andalso B,C} "
-	     "            end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
-	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
-	compile_ww(Rec4,Prog4),
-    Rec5 = <<"-record(a,{a,b,c,d=foppa}).">>,
-    Prog5 = <<"A=3,C=5, "
-	     "F = fun(B) -> B*3 end,"
-	     "erlang:display(F(A)),"
-	     "B = ets:fun2ms(fun(#a{a = A, b = B} = C) "
-	     "            when is_integer(A) and (A+5 > B) -> "
-	     "              {A andalso B,C} "
-	     "            end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
-	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
-	compile_ww(Rec5,Prog5),
-    Prog6 = <<"   X=bar, "
-	     "    A = case X of"
-	     "       foo ->"
-	     "          foo;"
-	     "       Y ->"
-	     "          ets:fun2ms(fun(Y) ->" % This is a warning
-	     "                         3*Y"
-	     "                     end)"
-	     "   end,"
-	     "   ets:fun2ms(fun(Y) ->" % Y out of "scope" here, so no warning
-	     "                  {3*Y,A}"
-	     "              end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
-	compile_ww(Prog6),
-    Prog7 = <<"   X=bar, "
-	     "    A = case X of"
-	     "       foo ->"
-	     "          Y = foo;"
-	     "       Y ->"
-	     "          bar"
-	     "   end,"
-	     "   ets:fun2ms(fun(Y) ->" % Y exported from case and safe, so warn
-	     "                  {3*Y,A}"
-	     "              end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
-	compile_ww(Prog7),
-    ok.
+			compile_ww(Rec3,Prog3),
+			Rec4 = <<"-record(a,{a,b,c,d=foppa}).">>,
+			Prog4 = <<"A=3,C=5, "
+				  "F = fun(B) -> B*3 end,"
+				  "erlang:display(F(A)),"
+				  "ets:fun2ms(fun(#a{a = A, b = B} = C) "
+				  "            when is_integer(A) and (A+5 > B) -> "
+				  "              {A andalso B,C} "
+				  "            end)">>,
+			[{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
+			     {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+			compile_ww(Rec4,Prog4),
+			Rec5 = <<"-record(a,{a,b,c,d=foppa}).">>,
+			Prog5 = <<"A=3,C=5, "
+				  "F = fun(B) -> B*3 end,"
+				  "erlang:display(F(A)),"
+				  "B = ets:fun2ms(fun(#a{a = A, b = B} = C) "
+				  "            when is_integer(A) and (A+5 > B) -> "
+				  "              {A andalso B,C} "
+				  "            end)">>,
+			[{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
+			     {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+			compile_ww(Rec5,Prog5),
+			Prog6 = <<"   X=bar, "
+				  "    A = case X of"
+				  "       foo ->"
+				  "          foo;"
+				  "       Y ->"
+				  "          ets:fun2ms(fun(Y) ->" % This is a warning
+				  "                         3*Y"
+				  "                     end)"
+				  "   end,"
+				  "   ets:fun2ms(fun(Y) ->" % Y out of "scope" here, so no warning
+				  "                  {3*Y,A}"
+				  "              end)">>,
+			[{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
+			compile_ww(Prog6),
+			Prog7 = <<"   X=bar, "
+				  "    A = case X of"
+				  "       foo ->"
+				  "          Y = foo;"
+				  "       Y ->"
+				  "          bar"
+				  "   end,"
+				  "   ets:fun2ms(fun(Y) ->" % Y exported from case and safe, so warn
+				  "                  {3*Y,A}"
+				  "              end)">>,
+			[{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'Y'}}]}] =
+			compile_ww(Prog7),
+			ok.
 
 %% Check that variables bound in other function clauses don't generate
 %% warning.
 no_warnings(Config) when is_list(Config) ->
-    ?line setup(Config),
+    setup(Config),
     Prog = <<"tmp(X) when X > 100 ->\n",
 	     "   Y=X,\n"
 	     "   Y;\n"
@@ -169,167 +169,167 @@ no_warnings(Config) when is_list(Config) ->
 	     "   ets:fun2ms(fun(Y) ->\n"
 	     "                  {X, 3*Y}\n"
 	     "              end)">>,
-    ?line [] = compile_no_ww(Prog),
+    [] = compile_no_ww(Prog),
 
     Prog2 = <<"tmp(X) when X > 100 ->\n",
-	     "   Y=X,\n"
-	     "   Y;\n"
-	     "tmp(X) when X < 200 ->\n"
-	     "   ok;\n"
-	     "tmp(X) ->\n"
-	     "   ets:fun2ms(fun(Y) ->\n"
-	     "                  {X, 3*Y}\n"
-	     "              end)">>,
-    ?line [] = compile_no_ww(Prog2),
+	      "   Y=X,\n"
+	      "   Y;\n"
+	      "tmp(X) when X < 200 ->\n"
+	      "   ok;\n"
+	      "tmp(X) ->\n"
+	      "   ets:fun2ms(fun(Y) ->\n"
+	      "                  {X, 3*Y}\n"
+	      "              end)">>,
+    [] = compile_no_ww(Prog2),
     ok.
 
 %% Test that andalso and orelse are allowed in guards.
 andalso_orelse(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line [{{'$1','$2'},
-	    [{'and',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
-	    [{'andalso','$1','$2'}]}] = 
+    setup(Config),
+    [{{'$1','$2'},
+      [{'and',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
+      [{'andalso','$1','$2'}]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) "
-			 "            when is_integer(A) and (A+5 > B) -> "
-			 "              A andalso B "
-			 "            end)">>),
-    ?line [{{'$1','$2'},
-	    [{'or',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
-	    [{'orelse','$1','$2'}]}] = 
+			  "            when is_integer(A) and (A+5 > B) -> "
+			  "              A andalso B "
+			  "            end)">>),
+    [{{'$1','$2'},
+      [{'or',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
+      [{'orelse','$1','$2'}]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) "
-			 "            when is_atom(A) or (A+5 > B) -> "
-			 "              A orelse B "
-			 "            end)">>),
-    ?line [{{'$1','$2'},
-            [{'andalso',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
-            ['$1']}] = 
+			  "            when is_atom(A) or (A+5 > B) -> "
+			  "              A orelse B "
+			  "            end)">>),
+    [{{'$1','$2'},
+      [{'andalso',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
+      ['$1']}] =
         compile_and_run(
-	    <<"ets:fun2ms(fun({A,B}) when is_integer(A) andalso (A+5 > B) ->"
-	     "			 A "
-	     "		 end)">>),
-    ?line [{{'$1','$2'},
-            [{'orelse',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
-            ['$1']}] =
+	  <<"ets:fun2ms(fun({A,B}) when is_integer(A) andalso (A+5 > B) ->"
+	    "			 A "
+	    "		 end)">>),
+    [{{'$1','$2'},
+      [{'orelse',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
+      ['$1']}] =
         compile_and_run(
-	    <<"ets:fun2ms(fun({A,B}) when is_atom(A) orelse (A+5 > B) -> "
-	     "			 A "
-	     "		 end)">>),
+	  <<"ets:fun2ms(fun({A,B}) when is_atom(A) orelse (A+5 > B) -> "
+	    "			 A "
+	    "		 end)">>),
     ok.
-    
-    
+
+
 %% Test that bitsyntax works and does not work where appropriate.
 bitsyntax(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line [{'_',[],
-	    [<<0,27,0,27>>]}] =
+    setup(Config),
+    [{'_',[],
+      [<<0,27,0,27>>]}] =
 	compile_and_run(<<"A = 27, "
 			  "ets:fun2ms(fun(_) -> <<A:16,27:16>> end)">>),
-    ?line  [{{<<15,47>>,
-	      '$1',
-	      '$2'},
-	     [{'=:=','$1',
-	       <<0,27>>},
-	      {'=:=','$2',
-	       <<27,28,19>>}],
-	     [<<188,0,13>>]}] =
+    [{{<<15,47>>,
+       '$1',
+       '$2'},
+      [{'=:=','$1',
+	<<0,27>>},
+       {'=:=','$2',
+	<<27,28,19>>}],
+      [<<188,0,13>>]}] =
 	compile_and_run(<<"A = 27, "
 			  "ets:fun2ms("
                           "  fun({<<15,47>>,B,C}) "
 			  "  when B =:= <<A:16>>, C =:= <<27,28,19>> -> "
 			  "    <<A:4,12:4,13:16>> "
 			  "  end)">>),
-    ?line expect_failure(
-	    <<>>,
-	    <<"ets:fun2ms(fun({<<15,47>>,B,C}) "
-	     "            when B =:= <<16>>, C =:= <<27,28,19>> -> "
-	     "              <<B:4,12:4,13:16>> "
-	     "            end)">>),
-    ?line expect_failure(
-	    <<>>,
-	    <<"ets:fun2ms(fun({<<A:15,47>>,B,C}) "
-	     "            when B =:= <<16>>, C =:= <<27,28,19>> -> "
-	     "              <<B:4,12:4,13:16>> "
-	     "            end)">>),
+    expect_failure(
+      <<>>,
+      <<"ets:fun2ms(fun({<<15,47>>,B,C}) "
+	"            when B =:= <<16>>, C =:= <<27,28,19>> -> "
+	"              <<B:4,12:4,13:16>> "
+	"            end)">>),
+    expect_failure(
+      <<>>,
+      <<"ets:fun2ms(fun({<<A:15,47>>,B,C}) "
+	"            when B =:= <<16>>, C =:= <<27,28,19>> -> "
+	"              <<B:4,12:4,13:16>> "
+	"            end)">>),
     ok.
 
 %% Test that record defaults works.
 record_defaults(Config) when is_list(Config) ->
-    ?line setup(Config),    
-    ?line [{{<<27>>,{a,5,'$1',hej,hej}},
-	    [],
-	    [{{a,hej,{'*','$1',2},flurp,flurp}}]}] = 
+    setup(Config),
+    [{{<<27>>,{a,5,'$1',hej,hej}},
+      [],
+      [{{a,hej,{'*','$1',2},flurp,flurp}}]}] =
 	compile_and_run(<<"-record(a,{a,b,c,d=foppa}).">>,
 			<<"ets:fun2ms(fun({<<27>>,#a{a=5, b=B,_=hej}}) -> "
-		                        "#a{a=hej,b=B*2,_=flurp} "
-	                              "end)">>),
+			  "#a{a=hej,b=B*2,_=flurp} "
+			  "end)">>),
     ok.
 
 %% Test basic ets:fun2ms.
 basic_ets(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line [{{a,b},[],[true]}] = compile_and_run(
-				  <<"ets:fun2ms(fun({a,b}) -> true end)">>),
-    ?line [{{'$1',foo},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
+    setup(Config),
+    [{{a,b},[],[true]}] = compile_and_run(
+			    <<"ets:fun2ms(fun({a,b}) -> true end)">>),
+    [{{'$1',foo},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
      {{'$1','$1'},[{is_tuple,'$1'}],[{{{element,1,'$1'},'$*'}}]}] =
 	compile_and_run(<<"ets:fun2ms(fun({X,foo}) when is_list(X) -> ",
-			                     "{hd(X),object()};",
-			                "({X,X}) when is_tuple(X) ->",
-			                     "{element(1,X),bindings()}",
-			             "end)">>),
-    ?line [{{'$1','$2'},[],[{{'$2','$1'}}]}] =
+			  "{hd(X),object()};",
+			  "({X,X}) when is_tuple(X) ->",
+			  "{element(1,X),bindings()}",
+			  "end)">>),
+    [{{'$1','$2'},[],[{{'$2','$1'}}]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>),
-    ?line [{{'$1','$2'},[],[['$2','$1']]}] =
+    [{{'$1','$2'},[],[['$2','$1']]}] =
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
     ok.
 
 %% Tests basic ets:fun2ms.
 basic_dbg(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line [{[a,b],[],[{message,banan},{return_trace}]}] =
+    setup(Config),
+    [{[a,b],[],[{message,banan},{return_trace}]}] =
 	compile_and_run(<<"dbg:fun2ms(fun([a,b]) -> message(banan), ",
-			"return_trace() end)">>),
-    ?line [{['$1','$2'],[],[{{'$2','$1'}}]}] = 
+			  "return_trace() end)">>),
+    [{['$1','$2'],[],[{{'$2','$1'}}]}] =
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> {B,A} end)">>),
-    ?line [{['$1','$2'],[],[['$2','$1']]}] =
+    [{['$1','$2'],[],[['$2','$1']]}] =
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> [B,A] end)">>),
-    ?line [{['$1','$2'],[],['$*']}] =
+    [{['$1','$2'],[],['$*']}] =
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> bindings() end)">>),
-    ?line [{['$1','$2'],[],['$_']}] =
+    [{['$1','$2'],[],['$_']}] =
 	compile_and_run(<<"dbg:fun2ms(fun([A,B]) -> object() end)">>),
     ok.
 
 %% Test calling of ets/dbg:fun2ms from the shell.
 from_shell(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line Fun = do_eval("fun({a,b}) -> true end"),
-    ?line [{{a,b},[],[true]}] = apply(ets,fun2ms,[Fun]),
-    ?line [{{a,b},[],[true]}] = do_eval("ets:fun2ms(fun({a,b}) -> true end)"),
-    ?line Fun2 = do_eval("fun([a,b]) -> message(banan), return_trace() end"),
-    ?line [{[a,b],[],[{message,banan},{return_trace}]}]
+    setup(Config),
+    Fun = do_eval("fun({a,b}) -> true end"),
+    [{{a,b},[],[true]}] = apply(ets,fun2ms,[Fun]),
+    [{{a,b},[],[true]}] = do_eval("ets:fun2ms(fun({a,b}) -> true end)"),
+    Fun2 = do_eval("fun([a,b]) -> message(banan), return_trace() end"),
+    [{[a,b],[],[{message,banan},{return_trace}]}]
 	= apply(dbg,fun2ms,[Fun2]),
-    ?line [{[a,b],[],[{message,banan},{return_trace}]}] =
+    [{[a,b],[],[{message,banan},{return_trace}]}] =
 	do_eval(
 	  "dbg:fun2ms(fun([a,b]) -> message(banan), return_trace() end)"),
     ok.
 
 %% Tests expansion of records in fun2ms.
 records(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line RD = <<"-record(t, {"
-	             "t1 = [] :: list(),"
-	             "t2 = foo :: atom(),"
-	             "t3,"
-	             "t4"
-	            "}).">>,
-    ?line [{{t,'$1','$2',foo,'_'},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
+    setup(Config),
+    RD = <<"-record(t, {"
+	   "t1 = [] :: list(),"
+	   "t2 = foo :: atom(),"
+	   "t3,"
+	   "t4"
+	   "}).">>,
+    [{{t,'$1','$2',foo,'_'},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
      {{t,'_','_','_','_'},[{'==',{element,2,'$_'},nisse}],[{{'$*'}}]}] =
 	compile_and_run(RD,<<
-   "ets:fun2ms(fun(#t{t1 = X, t2 = Y, t3 = foo}) when is_list(X) -> 
+			     "ets:fun2ms(fun(#t{t1 = X, t2 = Y, t3 = foo}) when is_list(X) ->
  		       {hd(X),object()}; 
- 		  (#t{}) when (object())#t.t1 == nisse -> 
- 		       {bindings()}  
- 	       end)">>),
-    ?line [{{t,'$1','$2','_',foo},
+			     (#t{}) when (object())#t.t1 == nisse ->
+				   {bindings()}
+			   end)">>),
+    [{{t,'$1','$2','_',foo},
       [{'==',{element,4,'$_'},7},{is_list,'$1'}],
       [{{{hd,'$1'},'$_'}}]},
      {'$1',[{is_record,'$1',t,5}],
@@ -347,7 +347,7 @@ records(Config) when is_list(Config) ->
 		       }  
  	       end)"
 			>>),
-    ?line [{[{t,'$1','$2',foo,'_'}],[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
+    [{[{t,'$1','$2',foo,'_'}],[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
      {[{t,'_','_','_','_'}],[{'==',{element,2,{hd,'$_'}},nisse}],[{{'$*'}}]}]=
 	compile_and_run(RD,<<
     "dbg:fun2ms(fun([#t{t1 = X, t2 = Y, t3 = foo}]) when is_list(X) -> 
@@ -361,64 +361,64 @@ records(Config) when is_list(Config) ->
 
 %% Test expansion of records in fun2ms, part 2.
 record_index(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line RD = <<"-record(a,{a,b}).">>,
-    ?line [{{2},[],[true]}] = compile_and_run(RD,
+    setup(Config),
+    RD = <<"-record(a,{a,b}).">>,
+    [{{2},[],[true]}] = compile_and_run(RD,
 			  <<"ets:fun2ms(fun({#a.a}) -> true end)">>),
-    ?line [{{2},[],[2]}] = compile_and_run(RD,
+    [{{2},[],[2]}] = compile_and_run(RD,
 			  <<"ets:fun2ms(fun({#a.a}) -> #a.a end)">>),
-    ?line [{{2,'$1'},[{'>','$1',2}],[2]}] = compile_and_run(RD,
+    [{{2,'$1'},[{'>','$1',2}],[2]}] = compile_and_run(RD,
 		    <<"ets:fun2ms(fun({#a.a,A}) when A > #a.a -> #a.a end)">>),
     ok.
 
 %% Tests matching on top level in head to give alias for object().
 top_match(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line RD = <<"-record(a,{a,b}).">>,
-    ?line [{{a,3,'_'},[],['$_']}] = 
+    setup(Config),
+    RD = <<"-record(a,{a,b}).">>,
+    [{{a,3,'_'},[],['$_']}] =
 	compile_and_run(RD,
 			<<"ets:fun2ms(fun(A = #a{a=3}) -> A end)">>),
-    ?line [{{a,3,'_'},[],['$_']}] = 
+    [{{a,3,'_'},[],['$_']}] =
 	compile_and_run(RD,
 			<<"ets:fun2ms(fun(#a{a=3} = A) -> A end)">>),
-    ?line [{[a,b],[],['$_']}] = 
+    [{[a,b],[],['$_']}] =
 	compile_and_run(RD,
 			<<"dbg:fun2ms(fun(A = [a,b]) -> A end)">>),
-    ?line [{[a,b],[],['$_']}] = 
+    [{[a,b],[],['$_']}] =
 	compile_and_run(RD,
 			<<"dbg:fun2ms(fun([a,b] = A) -> A end)">>),
-    ?line expect_failure(RD,
+    expect_failure(RD,
 			 <<"ets:fun2ms(fun({a,A = {_,b}}) -> A end)">>),
-    ?line expect_failure(RD,
+    expect_failure(RD,
 			 <<"dbg:fun2ms(fun([a,A = {_,b}]) -> A end)">>),
-    ?line expect_failure(RD,
+    expect_failure(RD,
 			 <<"ets:fun2ms(fun(A#a{a = 2}) -> A end)">>),
     ok.
 
 %% Tests that multi-defined fields in records give errors.
 multipass(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line RD = <<"-record(a,{a,b}).">>,
-    ?line expect_failure(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,a=3} end)">>), 
-    ?line expect_failure(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,a=3} end)">>),
-    ?line expect_failure(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,a=3} ->",
+    setup(Config),
+    RD = <<"-record(a,{a,b}).">>,
+    expect_failure(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,a=3} end)">>),
+    expect_failure(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,a=3} end)">>),
+    expect_failure(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,a=3} ->",
 			 " true end)">>), 
-    ?line expect_failure(RD,<<"ets:fun2ms(fun({A,B})when A =:= B#a{a=2,a=3}->",
+    expect_failure(RD,<<"ets:fun2ms(fun({A,B})when A =:= B#a{a=2,a=3}->",
 			 "true end)">>),
-    ?line expect_failure(RD,<<"ets:fun2ms(fun(#a{a=3,a=3}) -> true end)">>),
-    ?line compile_and_run(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,b=3} end)">>), 
-    ?line compile_and_run(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,b=3} end)">>),
-    ?line compile_and_run(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,b=3} ->",
+    expect_failure(RD,<<"ets:fun2ms(fun(#a{a=3,a=3}) -> true end)">>),
+    compile_and_run(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,b=3} end)">>),
+    compile_and_run(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,b=3} end)">>),
+    compile_and_run(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,b=3} ->",
 			 " true end)">>), 
-    ?line compile_and_run(RD,<<"ets:fun2ms(fun({A,B})when A=:= B#a{a=2,b=3}->",
+    compile_and_run(RD,<<"ets:fun2ms(fun({A,B})when A=:= B#a{a=2,b=3}->",
 			 "true end)">>),
-    ?line compile_and_run(RD,<<"ets:fun2ms(fun(#a{a=3,b=3}) -> true end)">>),
+    compile_and_run(RD,<<"ets:fun2ms(fun(#a{a=3,b=3}) -> true end)">>),
     ok.
 
 
 %% Test that old type tests in guards are translated.
 old_guards(Config) when is_list(Config) ->
-    ?line setup(Config),
+    setup(Config),
     Tests = [
 	     {atom,is_atom},
 	     {float,is_float},
@@ -431,7 +431,7 @@ old_guards(Config) when is_list(Config) ->
 	     {tuple,is_tuple},
 	     {binary,is_binary},
 	     {function,is_function}],
-    ?line lists:foreach(
+    lists:foreach(
 	    fun({Old,New}) ->
 		    Bin = list_to_binary([<<"ets:fun2ms(fun(X) when ">>,
 					  atom_to_list(Old),
@@ -444,15 +444,15 @@ old_guards(Config) when is_list(Config) ->
 		    end
 	    end,
 	    Tests),
-    ?line RD = <<"-record(a,{a,b}).">>,
-    ?line [{'$1',[{is_record,'$1',a,3}],[true]}] =
+    RD = <<"-record(a,{a,b}).">>,
+    [{'$1',[{is_record,'$1',a,3}],[true]}] =
 	compile_and_run(RD,
 			<<"ets:fun2ms(fun(X) when record(X,a) -> true end)">>),
-    ?line expect_failure
+    expect_failure
 	    (RD,
 	     <<"ets:fun2ms(fun(X) when integer(X) and constant(X) -> "
 	      "true end)">>),
-    ?line [{'$1',[{is_integer,'$1'},
+    [{'$1',[{is_integer,'$1'},
 		  {is_float,'$1'},
 		  {is_atom,'$1'},
 		  {is_list,'$1'},
@@ -476,7 +476,7 @@ old_guards(Config) when is_list(Config) ->
 %% Test use of autoimported BIFs used like erlang:'+'(A,B) in guards
 %% and body.
 autoimported(Config) when is_list(Config) ->
-    ?line setup(Config),
+    setup(Config),
     Allowed = [
 	       {abs,1},
 	       {element,2},
@@ -530,8 +530,8 @@ autoimported(Config) when is_list(Config) ->
 	       {'=:=',2,infix},
 	       {'/=',2,infix},
 	       {'=/=',2,infix}],
-    ?line RD = <<"-record(a,{a,b}).">>,
-    ?line lists:foreach(
+    RD = <<"-record(a,{a,b}).">>,
+    lists:foreach(
 	    fun({A,0}) ->
 		    L = atom_to_list(A),
 		    Bin1 = list_to_binary(
@@ -648,64 +648,64 @@ autoimported(Config) when is_list(Config) ->
 
 %% Test semicolon in guards of match_specs.
 semicolon(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line Res01 = compile_and_run
+    setup(Config),
+    Res01 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X); "
 		     "is_float(X) -> true end)">>),
-    ?line Res02 = compile_and_run
+    Res02 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
 		     "(X) when is_float(X) -> true end)">>),
-    ?line Res01 = Res02,
-    ?line Res11 = compile_and_run
+    Res01 = Res02,
+    Res11 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X); "
 		     "is_float(X); atom(X) -> true end)">>),
-    ?line Res12 = compile_and_run
+    Res12 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
 		     "(X) when is_float(X) -> true; "
 		     "(X) when is_atom(X) -> true end)">>),
-    ?line Res11 = Res12,
+    Res11 = Res12,
     ok.
     
     
 %% OTP-5297. The function float/1.
 float_1_function(Config) when is_list(Config) ->
-    ?line setup(Config),
+    setup(Config),
     RunMS = fun(L, MS) -> 
                     ets:match_spec_run(L, ets:match_spec_compile(MS)) 
             end,
-    ?line MS1 = compile_and_run
+    MS1 = compile_and_run
                   (<<"ets:fun2ms(fun(X) -> float(X) end)">>),
-    ?line [F1] = RunMS([3], MS1),
-    ?line true = is_float(F1) and (F1 == 3),
+    [F1] = RunMS([3], MS1),
+    true = is_float(F1) and (F1 == 3),
                   
-    ?line MS1b = compile_and_run
+    MS1b = compile_and_run
                   (<<"dbg:fun2ms(fun(X) -> float(X) end)">>),
-    ?line [F2] = RunMS([3], MS1b),
-    ?line true = is_float(F2) and (F2 == 3),
+    [F2] = RunMS([3], MS1b),
+    true = is_float(F2) and (F2 == 3),
                   
-    ?line MS2 = compile_and_run
+    MS2 = compile_and_run
             (<<"ets:fun2ms(fun(X) when is_pid(X) or float(X) -> true end)">>),
-    ?line [] = RunMS([3.0], MS2),
+    [] = RunMS([3.0], MS2),
 
-    ?line MS3 = compile_and_run
+    MS3 = compile_and_run
             (<<"dbg:fun2ms(fun(X) when is_pid(X); float(X) -> true end)">>),
-    ?line [true] = RunMS([3.0], MS3),
+    [true] = RunMS([3.0], MS3),
 
-    ?line MS4 = compile_and_run
+    MS4 = compile_and_run
             (<<"ets:fun2ms(fun(X) when erlang:float(X) > 1 -> big;"
                "              (_) -> small end)">>),
-    ?line [small,big] = RunMS([1.0, 3.0], MS4),
+    [small,big] = RunMS([1.0, 3.0], MS4),
 
-    ?line MS5 = compile_and_run
+    MS5 = compile_and_run
             (<<"ets:fun2ms(fun(X) when float(X) > 1 -> big;"
                "              (_) -> small end)">>),
-    ?line [small,big] = RunMS([1.0, 3.0], MS5),
+    [small,big] = RunMS([1.0, 3.0], MS5),
 
     %% This is the test from autoimported/1.
-    ?line [{'$1',[{is_float,'$1'}],[{float,'$1'}]}] = 
+    [{'$1',[{is_float,'$1'}],[{float,'$1'}]}] =
         compile_and_run
             (<<"ets:fun2ms(fun(X) when float(X) -> float(X) end)">>),
-    ?line [{'$1',[{float,'$1'}],[{float,'$1'}]}] =
+    [{'$1',[{float,'$1'}],[{float,'$1'}]}] =
         compile_and_run
            (<<"ets:fun2ms(fun(X) when erlang:'float'(X) -> "
               "erlang:'float'(X) end)">>),
@@ -714,8 +714,8 @@ float_1_function(Config) when is_list(Config) ->
 
 %% Test all 'action functions'.
 action_function(Config) when is_list(Config) ->
-    ?line setup(Config),
-    ?line [{['$1','$2'],[],
+    setup(Config),
+    [{['$1','$2'],[],
 	    [{set_seq_token,label,0},
 	     {get_seq_token},
 	     {message,'$1'},
@@ -728,7 +728,7 @@ action_function(Config) when is_list(Config) ->
 	    "message(X), "
 	    "return_trace(), "
 	    "exception_trace() end)">>),
-    ?line [{['$1','$2'],[],
+    [{['$1','$2'],[],
 	    [{process_dump},
 	     {enable_trace,send},
 	     {enable_trace,'$2',send},
@@ -741,7 +741,7 @@ action_function(Config) when is_list(Config) ->
 	    "enable_trace(Y, send), "
 	    "disable_trace(procs), "
 	    "disable_trace(Y, procs) end)">>),
-    ?line [{['$1','$2'],
+    [{['$1','$2'],
 	    [],
 	    [{display,'$1'},
 	     {caller},

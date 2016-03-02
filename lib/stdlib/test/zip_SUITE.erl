@@ -311,7 +311,7 @@ zip_api(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([Names]),
 
-   ok.
+    ok.
 
 %% Test that zip doesn't leak processes and ports where the
 %% controlling process dies without closing an zip opened with
@@ -362,19 +362,19 @@ unzip_options(Config) when is_list(Config) ->
     FList = ["quotes/rain.txt","wikipedia.txt"],
 
     %% Unzip a zip file in Subdir
-    ?line {ok, RetList} = zip:unzip(Long, [{cwd, Subdir},
-                                           {file_list, FList}]),
+    {ok, RetList} = zip:unzip(Long, [{cwd, Subdir},
+				     {file_list, FList}]),
 
     %% Verify.
-    ?line true = (length(FList) =:= length(RetList)),
-    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
-                                 {ok,B} = file:read_file(filename:join(Subdir, F)) end,
-                        FList),
-    ?line lists:foreach(fun(F)-> ok = file:delete(F) end,
-                        RetList),
+    true = (length(FList) =:= length(RetList)),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList),
+    lists:foreach(fun(F)-> ok = file:delete(F) end,
+		  RetList),
 
     %% Clean up and verify no more files.
-    ?line 0 = delete_files([Subdir]),
+    0 = delete_files([Subdir]),
     ok.
 
 %% Test unzip a jar file (OTP-7382).
@@ -393,14 +393,14 @@ unzip_jar(Config) when is_list(Config) ->
     {ok, RetList} = zip:unzip(JarFile),
 
     %% Verify.
-    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
-                                 {ok,B} = file:read_file(filename:join(Subdir, F)) end,
-                        FList),
-    ?line lists:foreach(fun(F)-> ok = file:delete(F) end,
-                        RetList),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList),
+    lists:foreach(fun(F)-> ok = file:delete(F) end,
+		  RetList),
 
     %% Clean up and verify no more files.
-    ?line 0 = delete_files([Subdir]),
+    0 = delete_files([Subdir]),
     ok.
 
 %% Test the options for unzip, only cwd currently.
@@ -811,26 +811,26 @@ foldl(Config) ->
     FooBin = <<"FOO">>,
     BarBin = <<"BAR">>,
     Files = [{"foo", FooBin}, {"bar", BarBin}],
-    ?line {ok, {File, Bin}} = zip:create(File, Files, [memory]),
+    {ok, {File, Bin}} = zip:create(File, Files, [memory]),
     ZipFun = fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end,
-    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
-    ?line [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
-    ?line {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
-    ?line {foo_bin, FooBin} =
+    {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
+    [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
+    {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
+    {foo_bin, FooBin} =
 	try
 	    zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {File, Bin})
 	catch
 	    throw:FooBin ->
 		{foo_bin, FooBin}
 	end,
-    ?line ok = file:write_file(File, Bin),
-    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], File),
+    ok = file:write_file(File, Bin),
+    {ok, FileSpec} = zip:foldl(ZipFun, [], File),
 
-    ?line {error, einval} = zip:foldl(fun() -> ok end, [], File),
-    ?line {error, einval} = zip:foldl(ZipFun, [], 42),
-    ?line {error, einval} = zip:foldl(ZipFun, [], {File, 42}),
+    {error, einval} = zip:foldl(fun() -> ok end, [], File),
+    {error, einval} = zip:foldl(ZipFun, [], 42),
+    {error, einval} = zip:foldl(ZipFun, [], {File, 42}),
 
-    ?line ok = file:delete(File),
-    ?line {error, enoent} = zip:foldl(ZipFun, [], File),
+    ok = file:delete(File),
+    {error, enoent} = zip:foldl(ZipFun, [], File),
 
     ok.

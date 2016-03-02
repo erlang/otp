@@ -108,24 +108,24 @@ trace(Config) when is_list(Config) ->
     ok.
 
 suspend(Config) when is_list(Config) ->
-    ?line {ok,_Server} = start(),
-    ?line sys:suspend(?server,1000),
-    ?line {'EXIT',_} = (catch public_call(48)),
-    ?line {status,_,_,[_,suspended,_,_,_]} = sys:get_status(?server),
-    ?line sys:suspend(?server,1000), %% doing it twice is no error
-    ?line {'EXIT',_} = (catch public_call(48)),
-    ?line sys:resume(?server),
-    ?line {status,_,_,[_,running,_,_,_]} = sys:get_status(?server),
-    ?line {ok,-48} = (catch public_call(48)),
-    ?line sys:resume(?server), %% doing it twice is no error
-    ?line {ok,-48} = (catch public_call(48)),
-    ?line stop(),
+    {ok,_Server} = start(),
+    sys:suspend(?server,1000),
+    {'EXIT',_} = (catch public_call(48)),
+    {status,_,_,[_,suspended,_,_,_]} = sys:get_status(?server),
+    sys:suspend(?server,1000), %% doing it twice is no error
+    {'EXIT',_} = (catch public_call(48)),
+    sys:resume(?server),
+    {status,_,_,[_,running,_,_,_]} = sys:get_status(?server),
+    {ok,-48} = (catch public_call(48)),
+    sys:resume(?server), %% doing it twice is no error
+    {ok,-48} = (catch public_call(48)),
+    stop(),
     ok.
 
 install(Config) when is_list(Config) ->
-    ?line {ok,_Server} = start(),
-    ?line Master = self(),
-    ?line SpyFun = 
+    {ok,_Server} = start(),
+    Master = self(),
+    SpyFun =
 	fun(func_state,Event,ProcState) ->
 		case Event of
 		    {in,{'$gen_call',_From,{req,Arg}}} ->
@@ -135,18 +135,18 @@ install(Config) when is_list(Config) ->
 			io:format("Trigged other=~p\n",[Other])
 		end
 	end,
-    ?line sys:install(?server,{SpyFun,func_state}),
-    ?line {ok,-1} = (catch public_call(1)),
-    ?line sys:no_debug(?server),
-    ?line {ok,-2} = (catch public_call(2)),
-    ?line sys:install(?server,{SpyFun,func_state}),
-    ?line sys:install(?server,{SpyFun,func_state}),
-    ?line {ok,-3} = (catch public_call(3)),
-    ?line sys:remove(?server,SpyFun),
-    ?line {ok,-4} = (catch public_call(4)),
+    sys:install(?server,{SpyFun,func_state}),
+    {ok,-1} = (catch public_call(1)),
+    sys:no_debug(?server),
+    {ok,-2} = (catch public_call(2)),
+    sys:install(?server,{SpyFun,func_state}),
+    sys:install(?server,{SpyFun,func_state}),
+    {ok,-3} = (catch public_call(3)),
+    sys:remove(?server,SpyFun),
+    {ok,-4} = (catch public_call(4)),
     [{spy_got,{request,1},sys_SUITE_server},
      {spy_got,{request,3},sys_SUITE_server}] = get_messages(),
-    ?line stop(),
+    stop(),
     ok.
 
 get_messages() ->

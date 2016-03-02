@@ -148,7 +148,7 @@ func(Config) when is_list(Config) ->
                            true
                    end)().">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 call(Config) when is_list(Config) ->
@@ -159,7 +159,7 @@ call(Config) when is_list(Config) ->
                       sfds,sdfsdf,sfds).
              ">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 recs(Config) when is_list(Config) ->
@@ -318,13 +318,13 @@ recs(Config) when is_list(Config) ->
                   R = #r2{},
                   R#r2{c = R, d = #r1{}}.">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
 
-    ?line ok = pp_expr(<<"case #r{a={1,2},b=#r{}} of
+    ok = pp_expr(<<"case #r{a={1,2},b=#r{}} of
                               X=Y=#r{a=foo,b=bar} ->
                                   {(foooo:baaaar(X))#r{a = rep},Y,#r.b}
                           end">>),
-    ?line ok = pp_expr(<<"R#r{a = {kljasdklf,sdkfjsdl,sdafjkllsdf,sdfkjsd,
+    ok = pp_expr(<<"R#r{a = {kljasdklf,sdkfjsdl,sdafjkllsdf,sdfkjsd,
                           sdafjsd,sdf,sdafsd,sdfdsf,sdfdsf,dsfds}}">>),
     ok.
 
@@ -369,8 +369,8 @@ try_catch(Config) when is_list(Config) ->
            <<"t() -> catch begin begin foo, bar, foo:bar(kljsldkfjdls,kljsdl),
                            (catch bar:foo(foo)) end end.">>}
           ],
-    ?line compile(Config, Ts),
-    ?line ok = pp_expr(<<"try
+    compile(Config, Ts),
+    ok = pp_expr(<<"try
                               erl_internal:bif(M,F,length(Args))
                           of
                               true ->
@@ -388,7 +388,7 @@ if_then(Config) when is_list(Config) ->
           {if_3,
            <<"t() -> if 1 == 2 -> a; 1 > 2 -> b; 1 < 2 -> c end.">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 receive_after(Config) when is_list(Config) ->
@@ -411,7 +411,7 @@ receive_after(Config) when is_list(Config) ->
                              {3,4}
                      end.">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 bits(Config) when is_list(Config) ->
@@ -434,17 +434,17 @@ bits(Config) when is_list(Config) ->
           {bit_9,
            <<"">>}
           ],
-    ?line compile(Config, Ts),
-    ?line ok = pp_expr(<<"<<(list_to_binary([1,2]))/binary>>">>),
-    ?line ok = pp_expr(
+    compile(Config, Ts),
+    ok = pp_expr(<<"<<(list_to_binary([1,2]))/binary>>">>),
+    ok = pp_expr(
           <<"<<(list_to_binary([1,2])):all/binary-unit:8-unsigned-big>>">>),
-    ?line ok = pp_expr(<<"<<<<\"hej\">>/binary>>">>),
-    ?line ok = pp_expr(<<"<<(foo:bar())/binary>>">>),
-    ?line ok = pp_expr(<<"<<(a)/binary>>">>),
-    ?line ok = pp_expr(<<"<<a/binary>>">>),
-    ?line ok = pp_expr(<<"<<{a,b}/binary>>">>),
-    ?line ok = pp_expr(<<"<<{foo:bar(),b}/binary>>">>),
-    ?line ok = pp_expr(<<"<<(foo:bar()):(foo:bar())/binary>>">>),
+    ok = pp_expr(<<"<<<<\"hej\">>/binary>>">>),
+    ok = pp_expr(<<"<<(foo:bar())/binary>>">>),
+    ok = pp_expr(<<"<<(a)/binary>>">>),
+    ok = pp_expr(<<"<<a/binary>>">>),
+    ok = pp_expr(<<"<<{a,b}/binary>>">>),
+    ok = pp_expr(<<"<<{foo:bar(),b}/binary>>">>),
+    ok = pp_expr(<<"<<(foo:bar()):(foo:bar())/binary>>">>),
     ok.
 
 head_tail(Config) when is_list(Config) ->
@@ -461,7 +461,7 @@ head_tail(Config) when is_list(Config) ->
                [foo:bar(lkjljlskdfj, klsdajflds, sdafkljsdlfkjdas, kjlsdadjl),
                bar:foo(kljlkjsdf, lkjsdlfj, [kljsfj, sdfdsfsad])].">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 cond1(Config) when is_list(Config) ->
@@ -470,7 +470,7 @@ cond1(Config) when is_list(Config) ->
                    {clause,4,[],[[{atom,4,true}]],
                     [{tuple,5,[{atom,5,x},{atom,5,y}]}]}]},
     CChars = flat_expr1(C),
-    ?line "cond\n"
+    "cond\n"
           "    {foo,bar} ->\n"
           "        [a,b];\n"
           "    true ->\n"
@@ -482,7 +482,7 @@ block(Config) when is_list(Config) ->
     Ts = [{block_1,
            <<"t() -> begin a,{c,d} end.">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 case1(Config) when is_list(Config) ->
@@ -494,8 +494,8 @@ case1(Config) when is_list(Config) ->
                              foo
                      end.">>}
           ],
-    ?line compile(Config, Ts),
-    ?line ok = pp_expr(<<"case
+    compile(Config, Ts),
+    ok = pp_expr(<<"case
                               erl_internal:bif(M,F,length(Args))
                           of
                               true ->
@@ -513,13 +513,13 @@ ops(Config) when is_list(Config) ->
           {ops_3,
            <<"t() -> - (- (- (- (- 3)))).">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 messages(Config) when is_list(Config) ->
-    ?line true = "{error,{some,\"error\"}}\n" =:=
+    true = "{error,{some,\"error\"}}\n" =:=
         lists:flatten(erl_pp:form({error,{some,"error"}})),
-    ?line true = "{warning,{some,\"warning\"}}\n" =:=
+    true = "{warning,{some,\"warning\"}}\n" =:=
         lists:flatten(erl_pp:form({warning,{some,"warning"}})),
     "\n" = flat_form({eof,0}),
     ok.
@@ -538,7 +538,7 @@ import_export(Config) when is_list(Config) ->
            <<"-include_lib(\"stdlib/include/qlc.hrl\").
               t() -> qlc:q([X || X <- []]).">>}
           ],
-    ?line compile(Config, Ts),
+    compile(Config, Ts),
     ok.
 
 misc_attrs(Config) when is_list(Config) ->
@@ -578,29 +578,29 @@ do_hook(HookFun) ->
     Call = {call,A0,{atom,A0,foo},[Lc]},
     Expr2 = {call,A0,{atom,A0,fff},[Call,Call,Call]},
     EChars2 = erl_pp:exprs([Expr2]),
-    ?line true = EChars =:= lists:flatten(EChars2),
+    true = EChars =:= lists:flatten(EChars2),
 
     EsChars = erl_pp:exprs([Expr], H),
-    ?line true = EChars =:= lists:flatten(EsChars),
+    true = EChars =:= lists:flatten(EsChars),
 
     A1 = erl_anno:new(1),
     F = {function,A1,ffff,0,[{clause,A1,[],[],[Expr]}]},
     FuncChars = lists:flatten(erl_pp:function(F, H)),
     F2 = {function,A1,ffff,0,[{clause,A1,[],[],[Expr2]}]},
     FuncChars2 = erl_pp:function(F2),
-    ?line true = FuncChars =:= lists:flatten(FuncChars2),
+    true = FuncChars =:= lists:flatten(FuncChars2),
     FFormChars = erl_pp:form(F, H),
-    ?line true = FuncChars =:= lists:flatten(FFormChars),
+    true = FuncChars =:= lists:flatten(FFormChars),
 
     A = {attribute,A1,record,{r,[{record_field,A1,{atom,A1,a},Expr}]}},
     AChars = lists:flatten(erl_pp:attribute(A, H)),
     A2 = {attribute,A1,record,{r,[{record_field,A1,{atom,A1,a},Expr2}]}},
     AChars2 = erl_pp:attribute(A2),
-    ?line true = AChars =:= lists:flatten(AChars2),
+    true = AChars =:= lists:flatten(AChars2),
     AFormChars = erl_pp:form(A, H),
-    ?line true = AChars =:= lists:flatten(AFormChars),
+    true = AChars =:= lists:flatten(AFormChars),
 
-    ?line "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
+    "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
 
     %% A list (as before R6), not a list of lists.
     G = [{op,A1,'>',{atom,A1,a},{foo,{atom,A1,b}}}], % not a proper guard
@@ -608,26 +608,26 @@ do_hook(HookFun) ->
     G2 = [{op,A1,'>',{atom,A1,a},
            {call,A0,{atom,A0,foo},[{atom,A1,b}]}}], % not a proper guard
     GChars2 = erl_pp:guard(G2),
-    ?line true = GChars =:= lists:flatten(GChars2),
+    true = GChars =:= lists:flatten(GChars2),
 
     EH = HookFun({?MODULE, ehook, [foo,bar]}),
     XEChars = erl_pp:expr(Expr, -1, EH),
-    ?line true = remove_indentation(EChars) =:= lists:flatten(XEChars),
+    true = remove_indentation(EChars) =:= lists:flatten(XEChars),
     XEChars2 = erl_pp:expr(Expr, EH),
-    ?line true = EChars =:= lists:flatten(XEChars2),
+    true = EChars =:= lists:flatten(XEChars2),
 
     %% Note: no leading spaces before "begin".
     Block = {block,A0,[{match,A0,{var,A0,'A'},{integer,A0,3}},
                       {atom,A0,true}]},
-    ?line "begin\n                     A =" ++ _ =
+    "begin\n                     A =" ++ _ =
                lists:flatten(erl_pp:expr(Block, 17, none)),
 
     %% Special...
-    ?line true =
+    true =
         "{some,value}" =:= lists:flatten(erl_pp:expr({value,A0,{some,value}})),
 
     %% Silly...
-    ?line true =
+    true =
         "if true -> 0 end" =:=
               flat_expr({'if',0,[{clause,0,[],[],[{atom,0,0}]}]}),
 
@@ -636,7 +636,7 @@ do_hook(HookFun) ->
     NewIf = {'if',A0,[{clause,A0,[],[[{atom,A0,true}]],[{atom,A0,b}]}]},
     OldIfChars = lists:flatten(erl_pp:expr(OldIf)),
     NewIfChars = lists:flatten(erl_pp:expr(NewIf)),
-    ?line true = OldIfChars =:= NewIfChars,
+    true = OldIfChars =:= NewIfChars,
 
     ok.
 
@@ -653,15 +653,15 @@ hook({foo,E}, I, P, H) ->
     erl_pp:expr({call,A,{atom,A,foo},[E]}, I, P, H).
 
 neg_indent(Config) when is_list(Config) ->
-    ?line ok = pp_expr(<<"begin a end">>),
-    ?line ok = pp_expr(<<"begin a,b end">>),
-    ?line ok = pp_expr(<<"try a,b,c
+    ok = pp_expr(<<"begin a end">>),
+    ok = pp_expr(<<"begin a,b end">>),
+    ok = pp_expr(<<"try a,b,c
                               catch exit:_ -> d;
                                     throw:_ -> t;
                                     error:{foo,bar} -> foo,
                                                        bar
                               end">>),
-    ?line ok = pp_expr(
+    ok = pp_expr(
             <<"fun() ->
                   F = fun(A, B) when ((A#r1.a) orelse (B#r2.a))
                                      or (B#r2.b) or (A#r1.b) ->
@@ -675,36 +675,36 @@ neg_indent(Config) when is_list(Config) ->
                   ok
                        end()">>),
 
-    ?line ok = pp_expr(<<"[X || X <- a, true]">>),
-    ?line ok = pp_expr(<<"{[a,b,c],[d,e|f]}">>),
-    ?line ok = pp_expr(<<"f(a,b,c)">>),
-    ?line ok = pp_expr(<<"fun() when a,b;c,d -> a end">>),
-    ?line ok = pp_expr(<<"fun A() when a,b;c,d -> a end">>),
-    ?line ok = pp_expr(<<"<<34:32,17:32>>">>),
-    ?line ok = pp_expr(<<"if a,b,c -> d; e,f,g -> h,i end">>),
-    ?line ok = pp_expr(<<"if a -> d; c -> d end">>),
-    ?line ok = pp_expr(<<"receive after 1 -> 2 end">>),
-    ?line ok = pp_expr(<<"begin a,b,c end">>),
+    ok = pp_expr(<<"[X || X <- a, true]">>),
+    ok = pp_expr(<<"{[a,b,c],[d,e|f]}">>),
+    ok = pp_expr(<<"f(a,b,c)">>),
+    ok = pp_expr(<<"fun() when a,b;c,d -> a end">>),
+    ok = pp_expr(<<"fun A() when a,b;c,d -> a end">>),
+    ok = pp_expr(<<"<<34:32,17:32>>">>),
+    ok = pp_expr(<<"if a,b,c -> d; e,f,g -> h,i end">>),
+    ok = pp_expr(<<"if a -> d; c -> d end">>),
+    ok = pp_expr(<<"receive after 1 -> 2 end">>),
+    ok = pp_expr(<<"begin a,b,c end">>),
 
-    ?line "\"\"" = flat_expr({string,0,""}),
-    ?line ok = pp_expr(<<"\"abc\"">>),
-    ?line ok = pp_expr(<<"\"abc\n\n\n\n\nkjsd\n\n\n\n\nkljsddf\n\n\n\n\n"
-                         "klafd\n\n\n\n\nkljsdf\n\n\n\n\nsdf\n\n\n\n\n\"">>),
-    ?line ok = pp_expr(<<"fkjlskljklkkljlkjlkjkljlkjsljklf"
-                          "lsdjlfdsjlfjsdlfjdslfjdlsjfsdjfklsdkfjsdf("
-                          "\"abc\n\n\n\n\nkjsd\n\n\n\n\nkljsddf\n\n\n\n\n"
-                          "kljsafd\n\n\n\n\nkljsdf\n\n\n\n\nkjsdf"
-                          "\n\n\n\n\n\")">>),
+    "\"\"" = flat_expr({string,0,""}),
+    ok = pp_expr(<<"\"abc\"">>),
+    ok = pp_expr(<<"\"abc\n\n\n\n\nkjsd\n\n\n\n\nkljsddf\n\n\n\n\n"
+		   "klafd\n\n\n\n\nkljsdf\n\n\n\n\nsdf\n\n\n\n\n\"">>),
+    ok = pp_expr(<<"fkjlskljklkkljlkjlkjkljlkjsljklf"
+		   "lsdjlfdsjlfjsdlfjdslfjdlsjfsdjfklsdkfjsdf("
+		   "\"abc\n\n\n\n\nkjsd\n\n\n\n\nkljsddf\n\n\n\n\n"
+		   "kljsafd\n\n\n\n\nkljsdf\n\n\n\n\nkjsdf"
+		   "\n\n\n\n\n\")">>),
 
     %% fun-info is skipped when everything is to fit on one single line
     Fun1 = {'fun',1,{function,t,0},{0,45353021,'-t/0-fun-0-'}},
-    ?line "fun t/0" = flat_expr(Fun1),
+    "fun t/0" = flat_expr(Fun1),
     Fun2 = {'fun',2,{clauses,[{clause,2,[],[],[{atom,3,true}]}]},
             {0,108059557,'-t/0-fun-0-'}},
-    ?line "fun() -> true end" = flat_expr(Fun2),
+    "fun() -> true end" = flat_expr(Fun2),
     Fun3 = {named_fun,3,'True',[{clause,3,[],[],[{atom,3,true}]}],
             {0,424242424,'-t/0-True-0-'}},
-    ?line "fun True() -> true end" = flat_expr(Fun3),
+    "fun True() -> true end" = flat_expr(Fun3),
 
     ok.
 
@@ -728,27 +728,27 @@ otp_6911(Config) when is_list(Config) ->
              [{clause,7,[{atom,7,true}],[],[{integer,7,12}]},
               {clause,8,[{atom,8,false}],[],[{integer,8,14}]}]}]}]},
     Chars = flat_form(F),
-    ?line "thomas(X) ->\n"
+    "thomas(X) ->\n"
           "    case X of\n"
           "        true ->\n"
           "            12;\n"
           "        false ->\n"
           "            14\n"
           "    end.\n" = Chars,
-    ?line ok = pp_expr(<<"case X of true -> 12; false -> 14 end">>),
-    ?line ok = pp_expr(<<"receive after 1 -> ok end">>),
+    ok = pp_expr(<<"case X of true -> 12; false -> 14 end">>),
+    ok = pp_expr(<<"receive after 1 -> ok end">>),
     ok.
 
 %% OTP_6914. Binary comprehensions.
 otp_6914(Config) when is_list(Config) ->
-    ?line ok = pp_expr(<<"<< <<B:1>> || B <- [0,1,1] >>">>),
-    ?line ok = pp_expr(<<"[ B || <<B:1>> <= <<\"hi\">>]">>),
-    ?line ok = pp_expr(<<"<< <<1:1>> || true >>">>),
+    ok = pp_expr(<<"<< <<B:1>> || B <- [0,1,1] >>">>),
+    ok = pp_expr(<<"[ B || <<B:1>> <= <<\"hi\">>]">>),
+    ok = pp_expr(<<"<< <<1:1>> || true >>">>),
     ok.
 
 %% OTP_8150. Types.
 otp_8150(Config) when is_list(Config) ->
-    ?line _ = [{N,ok} = {N,pp_forms(B)} ||
+    _ = [{N,ok} = {N,pp_forms(B)} ||
                   {N,B} <- type_examples()
                      ],
     ok.
@@ -768,7 +768,7 @@ otp_8238(Config) when is_list(Config) ->
             "t2() ->\n"
             "    #r{}.\n">>
          ],
-    ?line compile(Config, [{otp_8238,iolist_to_binary(Ex)}]),
+    compile(Config, [{otp_8238,iolist_to_binary(Ex)}]),
     ok.
 
 type_examples() ->
@@ -823,13 +823,13 @@ type_examples() ->
      %% Erlang/OTP 19.0, but as long as the parser recognizes the
      %% is_subtype(V, T) syntax, we need a few examples of the syntax.
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
-                          "(t2()) -> t2();"
-                          "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
-                          "(t23()) -> t23() when is_subtype(t23(), atom()),"
-                          "                      is_subtype(t23(), t14());"
-                          "(t24()) -> t24() when is_subtype(t24(), atom()),"
-                          "                      is_subtype(t24(), t14()),"
-                          "                      is_subtype(t24(), '\\'t::4'()).">>},
+	     "(t2()) -> t2();"
+	     "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
+	     "(t23()) -> t23() when is_subtype(t23(), atom()),"
+	     "                      is_subtype(t23(), t14());"
+	     "(t24()) -> t24() when is_subtype(t24(), atom()),"
+	     "                      is_subtype(t24(), t14()),"
+	     "                      is_subtype(t24(), '\\'t::4'()).">>},
      {ex32,<<"-spec mod:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
@@ -853,7 +853,7 @@ type_examples() ->
 otp_8473(Config) when is_list(Config) ->
     Ex = [{ex1,<<"-type 'fun'(A) :: A.\n"
                  "-type funkar() :: 'fun'(fun((integer()) -> atom())).\n">>}],
-    ?line _ = [{N,ok} = {N,pp_forms(B)} ||
+    _ = [{N,ok} = {N,pp_forms(B)} ||
                   {N,B} <- Ex],
     ok.
 
@@ -866,13 +866,13 @@ otp_8522(Config) when is_list(Config) ->
           "            f3 :: (undefined),\n"
           "            f4 :: x | y | undefined | z,\n"
           "            f5 :: a}).\n">>,
-    ?line ok = file:write_file(FileName, C),
-    ?line {ok, _} = compile:file(FileName, [{outdir,?privdir},debug_info]),
+    ok = file:write_file(FileName, C),
+    {ok, _} = compile:file(FileName, [{outdir,?privdir},debug_info]),
     BF = filename("otp_8522", Config),
-    ?line {ok, A} = beam_lib:chunks(BF, [abstract_code]),
+    {ok, A} = beam_lib:chunks(BF, [abstract_code]),
     %% OTP-12719: Since 'undefined' is no longer added by the Erlang
     %% Parser, the number of 'undefined' is 4. It used to be 5.
-    ?line 4 = count_atom(A, undefined),
+    4 = count_atom(A, undefined),
     ok.
 
 count_atom(A, A) ->
@@ -923,8 +923,8 @@ otp_8567(Config) when is_list(Config) ->
           "-record r, {a}.\n"
           "-record s, {a :: integer()}.\n"
           "-type t() :: {#r{},#s{}}.\n">>,
-    ?line ok = file:write_file(FileName, C),
-    ?line {error,[{_,[{3,erl_parse,["syntax error before: ","')'"]}]}],_} =
+    ok = file:write_file(FileName, C),
+    {error,[{_,[{3,erl_parse,["syntax error before: ","')'"]}]}],_} =
         compile:file(FileName, [return]),
 
     F = <<"-module(otp_8567).\n"
@@ -945,7 +945,7 @@ otp_8567(Config) when is_list(Config) ->
           "-spec(otp_8567:t4 (ot()) -> ot1()).\n"
           "t4(A) ->\n"
           "    A.\n">>,
-    ?line ok = pp_forms(F),
+    ok = pp_forms(F),
 
     ok.
 
@@ -966,15 +966,15 @@ otp_8664(Config) when is_list(Config) ->
            "-type t() :: t1() | t2() | t3() | b1() | u().\n"
            "-spec t() -> t().\n"
            "t() -> 3.\n">>,
-    ?line ok = file:write_file(FileName, C1),
-    ?line {ok, _, []} = compile:file(FileName, [return]),
+    ok = file:write_file(FileName, C1),
+    {ok, _, []} = compile:file(FileName, [return]),
 
     C2 = <<"-module(otp_8664).\n"
            "-export([t/0]).\n"
            "-spec t() -> 9 and 4.\n"
            "t() -> 0.\n">>,
-    ?line ok = file:write_file(FileName, C2),
-    ?line {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
+    ok = file:write_file(FileName, C2),
+    {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
@@ -986,13 +986,13 @@ otp_9147(Config) when is_list(Config) ->
            "-export_type([undef/0]).\n"
            "-record(undef, {f1 :: F1 :: a | b}).\n"
            "-type undef() :: #undef{}.\n">>,
-    ?line ok = file:write_file(FileName, C1),
-    ?line {ok, _, []} = 
+    ok = file:write_file(FileName, C1),
+    {ok, _, []} =
        compile:file(FileName, [return,'P',{outdir,?privdir}]),
     PFileName = filename('otp_9147.P', Config),
-    ?line {ok, Bin} = file:read_file(PFileName),
+    {ok, Bin} = file:read_file(PFileName),
     %% The parentheses around "F1 :: a | b" are new (bugfix).
-    ?line true = 
+    true =
         lists:member("-record(undef,{f1 :: F1 :: a | b}).",
                      string:tokens(binary_to_list(Bin), "\n")),
     ok.
@@ -1290,5 +1290,5 @@ fail() ->
 
 %% +fnu means a peer node has to be started; slave will not do
 start_node(Name, Xargs) ->
-    ?line PA = filename:dirname(code:which(?MODULE)),
+    PA = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, peer, [{args, "-pa " ++ PA ++ " " ++ Xargs}]).
