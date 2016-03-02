@@ -69,6 +69,7 @@ static ERL_NIF_TERM user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -82,6 +83,7 @@ static ErlNifFunc nif_funcs[] = {
     {"trace", 5, trace},
     {"trace", 6, trace},
     {"trace_procs", 6, trace_procs},
+    {"trace_running", 6, trace_running},
     {"trace_send", 6, trace_send},
     {"trace_receive", 6, trace_receive},
     {"trace_garbage_collection", 6, trace_garbage_collection}
@@ -105,7 +107,7 @@ static ERL_NIF_TERM atom_discard;
 static ERL_NIF_TERM atom_gc_start;
 static ERL_NIF_TERM atom_gc_end;
 
-/* process atoms */
+/* process 'procs' */
 
 static ERL_NIF_TERM atom_spawn;
 static ERL_NIF_TERM atom_exit;
@@ -115,6 +117,14 @@ static ERL_NIF_TERM atom_link;
 static ERL_NIF_TERM atom_unlink;
 static ERL_NIF_TERM atom_getting_linked;
 static ERL_NIF_TERM atom_getting_unlinked;
+
+/* process 'running' and 'exiting' */
+
+static ERL_NIF_TERM atom_in;
+static ERL_NIF_TERM atom_out;
+static ERL_NIF_TERM atom_in_exiting;
+static ERL_NIF_TERM atom_out_exiting;
+static ERL_NIF_TERM atom_out_exited;
 
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
@@ -145,6 +155,14 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_unlink = enif_make_atom(env,"unlink");
     atom_getting_unlinked = enif_make_atom(env,"getting_unlinked");
     atom_getting_linked = enif_make_atom(env,"getting_linked");
+
+    /* process 'running' and 'exiting' */
+
+    atom_in = enif_make_atom(env,"in");
+    atom_out = enif_make_atom(env,"out");
+    atom_in_exiting = enif_make_atom(env,"in_exiting");
+    atom_out_exiting = enif_make_atom(env,"out_exiting");
+    atom_out_exited = enif_make_atom(env,"out_exited");
 
     return 0;
 }
@@ -326,7 +344,7 @@ static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 #elif HAVE_USE_LTTNG
     int i;
-    erts_fprintf(stderr, "trace:\r\n");
+    erts_fprintf(stderr, "receive trace:\r\n");
     for (i = 0; i < argc; i++) {
         erts_fprintf(stderr, "  %T\r\n", argv[i]);
     }
@@ -466,7 +484,6 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     } else if (argv[0] == atom_link) {
         lttng_pid_to_str(argv[3], to);
         LTTNG3(process_link, pid, to, "link");
-    /* link */
     } else if (argv[0] == atom_unlink) {
         lttng_pid_to_str(argv[3], to);
         LTTNG3(process_link, pid, to, "unlink");
@@ -483,7 +500,7 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         LTTNG2(process_exit, pid, reason);
     } else {
         int i;
-        erts_fprintf(stderr, "trace:\r\n");
+        erts_fprintf(stderr, "proc trace:\r\n");
         for (i = 0; i < argc; i++) {
             erts_fprintf(stderr, "  %T\r\n", argv[i]);
         }
@@ -492,3 +509,38 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return atom_ok;
 }
 
+static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HAVE_USE_DTRACE
+#elif HAVE_USE_LTTNG
+    lttng_decl_procbuf(pid);
+    const ERL_NIF_TERM* tuple;
+    char *mfastr = "undefined";
+    int arity;
+
+    lttng_pid_to_str(argv[2], pid);
+    lttng_decl_mfabuf(mfa);
+
+    if (enif_get_tuple(env, argv[3], &arity, &tuple)) {
+        int val;
+        enif_get_int(env, tuple[2], &val);
+        lttng_mfa_to_str(tuple[0], tuple[1], val, mfa);
+        mfastr = mfa;
+    }
+
+    /* running */
+    if (argv[0] == atom_in) {
+        LTTNG3(process_scheduled, pid, mfastr, "in");
+    } else if (argv[0] == atom_out) {
+        LTTNG3(process_scheduled, pid, mfastr, "out");
+    /* exiting */
+    } else if (argv[0] == atom_in_exiting) {
+        LTTNG3(process_scheduled, pid, mfastr, "in_exiting");
+    } else if (argv[0] == atom_out_exiting) {
+        LTTNG3(process_scheduled, pid, mfastr, "out_exiting");
+    } else if (argv[0] == atom_out_exited) {
+        LTTNG3(process_scheduled, pid, mfastr, "out_exited");
+    }
+#endif
+    return atom_ok;
+}

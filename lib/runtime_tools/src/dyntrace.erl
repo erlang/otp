@@ -45,6 +45,7 @@
          trace/5,
          trace/6,
          trace_procs/6,
+         trace_running/6,
          trace_send/6,
          trace_receive/6,
          trace_garbage_collection/6
@@ -145,6 +146,10 @@ trace(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts
 
 trace_procs(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
+
+trace_running(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
 trace_send(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 trace_receive(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->

@@ -130,6 +130,23 @@ TRACEPOINT_EVENT(
     )
 )
 
+/* Scheduled */
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    process_scheduled,
+    TP_ARGS(
+        char*, p,
+        char*, mfa,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(pid, p)
+        ctf_string(entry, mfa)
+        ctf_string(type, type)
+    )
+)
+
 /* Process Memory */
 
 TRACEPOINT_EVENT(
