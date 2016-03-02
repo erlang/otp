@@ -117,7 +117,7 @@ write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
 	    ok;
 	{LogType,Fd} ->
 	    case format_data(ConnMod,LogType,Data) of
-		[] ->
+		[] when Info#conn_log.action==send; Info#conn_log.action==recv ->
 		    ok;
 		FormattedData ->
 		    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
