@@ -195,25 +195,8 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Case, Config) ->
-    case should_skip(Case,Config) of
-	true ->
-	    CS = check_nfs(Config),
-	    {skipped, lists:flatten
-	     (io_lib:format
-	      ("The test does not work "
-	       "with current NFS cache size (~w),"
-	       " to get this test to run, "
-	       "~s the NFS cache size~n",  
-	       [CS, case CS of
-			0 ->
-			    "enlarge";
-			_ ->
-			    "zero"
-		    end]))};
-	_ ->
-	    Dog=?t:timetrap(?t:minutes(2)),
-	    [{watchdog, Dog}|Config]
-    end.
+    Dog=?t:timetrap(?t:minutes(2)),
+    [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -5113,41 +5096,6 @@ stop_node(Node) ->
 %from(H, [_ | T]) -> from(H, T);
 %from(_H, []) -> [].
 
-
-%% Check for NFS cache size, this is called from init_per_testcase() and
-%% makes different tests run depending on the size of the NFS cache on 
-%% VxWorks. Possibly this could be adopted to Windows too, but we seldom use
-%% NFS when testing on windows, so I can find better things to do.
-%% The port program used simply reads the nfsCacheSize variable on the board.
-%% If the board is configured without NFS, the port program will fail to load
-%% and this will return 0, which may or may not be the wrong thing to do.
-
-check_nfs(_Config) ->
-    0.
-
-skip_expand([]) ->
-    [];
-skip_expand([Case | T]) ->
-    case (catch apply(?MODULE, Case, [suite])) of
-	{'EXIT', _} ->
-	    [Case | skip_expand(T)];
-	[] ->
-	    [Case | skip_expand(T)];
-	Res ->
-	    skip_expand(Res) ++ skip_expand(T)
-    end.
-	    
-    
-skip_list(Config) ->
-    case check_nfs(Config) of
-	0 ->
-	    skip_expand(?SKIP_NO_CACHE);
-	_ ->
-	    skip_expand(?SKIP_LARGE_CACHE)
-    end.
-
-should_skip(_Test,_Config) ->
-    false.
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.
