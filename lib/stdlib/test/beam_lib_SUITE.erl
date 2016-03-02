@@ -19,7 +19,7 @@
 %%
 -module(beam_lib_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -193,8 +193,6 @@ error(Conf) when is_list(Conf) ->
     %% such as sed and clearcasediff don't like zero bytes in text files,
     %% we have eliminated them.
     ?line ok = file:write_file(BeamFile, <<"FOR1",5:32,"BEAMfel">>),
-%   ?line verify(invalid_beam_file, beam_lib:info(BeamFile)),
-%   ?line verify(invalid_beam_file, beam_lib:info(<<"FOR1",5:32,"BEAMfel">>)),
 
     ?line NoOfTables = length(ets:all()),
     ?line true = (P0 == pps()),    
@@ -211,7 +209,7 @@ last_chunk(Bin) ->
     Last.
 
 do_error(BeamFile, ACopy) ->
-    % evil tests
+    %% evil tests
     ?line Chunks = chunk_info(BeamFile),
     ?line {value, {_, AtomStart, _}} = lists:keysearch("Atom", 1, Chunks),
     ?line {value, {_, ImportStart, _}} = lists:keysearch("ImpT", 1, Chunks),

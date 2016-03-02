@@ -25,7 +25,7 @@
 -define(QLC, qlc).
 -define(QLCs, "qlc").
 
-%-define(debug, true).
+%%-define(debug, true).
 
 %% There are often many tests per testcase. Most tests are copied to a
 %% module, a file. The file is compiled and the test run. Should the
@@ -1080,12 +1080,12 @@ append(Config) when is_list(Config) ->
              foo() -> bar">>,
 
           %% Used to work up to R11B.
-          % <<"apa = qlc:e(qlc:q([X || X <- qlc:append([[1,2,3], ugly()])])),
-          %   ok.
-          %
-          %   ugly() ->
-          %       [a | apa].
-          %   foo() -> bar">>,
+          %% <<"apa = qlc:e(qlc:q([X || X <- qlc:append([[1,2,3], ugly()])])),
+          %%   ok.
+          %%
+          %%   ugly() ->
+          %%       [a | apa].
+          %%   foo() -> bar">>,
 
           
           %% Maybe this one should fail.
@@ -1306,11 +1306,11 @@ table(Config) when is_list(Config) ->
           ets:delete(E)">>,
 
        %% The info tag num_of_objects is currently not used.
-%        <<"E = ets:new(test, [ordered_set]),
-%           true = ets:insert(E, [{1,a},{2,b},{3,c}]),
-%           H = qlc:q([X || X <- qlc_SUITE:bad_table_info_fun_n_objects(E)]),
-%           {'EXIT', finito} = (catch {any_term,qlc:e(H)}),
-%           ets:delete(E)">>,
+%%        <<"E = ets:new(test, [ordered_set]),
+%%           true = ets:insert(E, [{1,a},{2,b},{3,c}]),
+%%           H = qlc:q([X || X <- qlc_SUITE:bad_table_info_fun_n_objects(E)]),
+%%           {'EXIT', finito} = (catch {any_term,qlc:e(H)}),
+%%           ets:delete(E)">>,
 
        <<"E = ets:new(test, [ordered_set]),
           true = ets:insert(E, [{1,a},{2,b},{3,c}]),
@@ -7349,12 +7349,12 @@ forward(Config) when is_list(Config) ->
          {'EXIT', {{unsupported_qlc_handle,_},_}} = (catch qlc:e(FakeH))">>,
 
 %% 'f1' should be used for new stuff that does not interfer with old behavior
-%       %% The unused element 'f1' of #qlc_table seems to be used.
-%       <<"DF = fun() -> foo end,
-%          FakeH = {qlc_handle,{qlc_table,DF,
-%                        true,DF,DF,DF,DF,DF,
-%                        undefined,not_undefined,undefined,no_match_spec}},
-%          {'EXIT', {{unsupported_qlc_handle,_},_}} = (catch qlc:e(FakeH))">>,
+%%       %% The unused element 'f1' of #qlc_table seems to be used.
+%%       <<"DF = fun() -> foo end,
+%%          FakeH = {qlc_handle,{qlc_table,DF,
+%%                        true,DF,DF,DF,DF,DF,
+%%                        undefined,not_undefined,undefined,no_match_spec}},
+%%          {'EXIT', {{unsupported_qlc_handle,_},_}} = (catch qlc:e(FakeH))">>,
 
       %% #qlc_opt has changed.
       <<"H = qlc:q([X || X <- []]),

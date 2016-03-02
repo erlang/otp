@@ -19,7 +19,7 @@
 %%
 -module(digraph_utils_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
 -else.

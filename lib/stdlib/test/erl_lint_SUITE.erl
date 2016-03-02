@@ -19,7 +19,7 @@
 %%
 -module(erl_lint_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
@@ -396,9 +396,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
            {error,[{22,erl_lint,{unsafe_var,'U',{'case',2}}},
                    {27,erl_lint,{unsafe_var,'U',{'case',2}}}],
             [{16,erl_lint,{unused_var,'Y'}},
-     %  {24,erl_lint,{exported_var,'X',{'case',8}}},
              {24,erl_lint,{unused_var,'U'}},
-     %  {26,erl_lint,{exported_var,'X',{'case',8}}},
              {26,erl_lint,{unused_var,'U'}}]}},
 
           {lc17,
@@ -428,7 +426,6 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
            [warn_unused_vars],
            {error,[{22,erl_lint,{unsafe_var,'U',{'case',3}}}],
             [{17,erl_lint,{unused_var,'Y'}},
-     %  {21,erl_lint,{exported_var,'X',{'case',9}}},
              {21,erl_lint,{unused_var,'U'}}]}},
 
           {lc18,
@@ -453,14 +450,12 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                   end,
                   [B || <<U: % U unused
                           U>> <- X, <<B:Y>> <- Z]. % U unsafe. Y unsafe. 
-                                                   % U shadowed. (X exported.)
+						% U shadowed. (X exported.)
            ">>,
            [warn_unused_vars],
            {error,[{21,erl_lint,{unsafe_var,'U',{'case',2}}},
                    {21,erl_lint,{unsafe_var,'Y',{'case',14}}}],
             [{20,erl_lint,{unused_var,'U'}}
-     %       ,{21,erl_lint,{exported_var,'X',{'case',8}}}
-     %       ,{21,erl_lint,{shadowed_var,'U',generate}}
             ]}},
 
           {lc19,
@@ -1018,7 +1013,7 @@ unsafe_vars(Config) when is_list(Config) ->
                           D = 1;
                       2 ->
                           A = 2,
-                          % B not bound here
+                          %% B not bound here
                           C = 2,
                           catch D = 2; % unsafe in two clauses
                       3 ->

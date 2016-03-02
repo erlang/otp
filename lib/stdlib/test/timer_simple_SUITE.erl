@@ -330,9 +330,9 @@ forever() ->
     forever().
 
 
-%
-% Testing for performance (on different implementations) of timers 
-% 
+%%
+%% Testing for performance (on different implementations) of timers
+%%
 
 
 timer_perf(Config) when is_list(Config) ->
@@ -415,7 +415,6 @@ timer_irec(Start, T, {N, Max}, Res, {Pid, Mod, Ref}) ->
 	done ->
 	    Now = system_time(),
 	    Elapsed = (Now - (Start + (N*T*1000))) div 1000,
-%	    io:format("~w Now ~w Started ~w Elap ~w~n", [T,Now,Start,Elapsed]),
 	    timer_irec(Start, T,
 		       {N+1, Max},
 		       [Elapsed | Res],
@@ -463,7 +462,6 @@ system_time() ->
 %% ------------------------------------------------------- %%
 
 report_result({Res, 0}) ->
-%    io:format("DEBUG0 all ~p ~n", [Res]),
     {A_List, I_List} = split_list(Res, [], []),
     A_val = calc_a_val(A_List),
     I_val = calc_i_val(I_List),

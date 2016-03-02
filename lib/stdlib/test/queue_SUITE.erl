@@ -178,10 +178,6 @@ do_io_test(E) ->
     ?line [1] = io([out],   Q1, 3),
     ?line [1] = io([daeh],  Q2, 3),
     ?line [1] = io([out_r], Q2, 3),
-%    ?line [2] =	io([cons,cons,snoc,daeh,daeh], [], 1),
-%    ?line [2] =	io([snoc,snoc,cons,head,head], [], 1),
-%    ?line [2] =	io([in,in,in_r,out,out], [], 1),
-%    ?line [2] =	io([in_r,in_r,in,out_r,out_r], [], 1),
     %%
     ?line [2] =
 	io([in,peek,peek_r,drop,in_r,peek,peek_r,in,peek,peek_r,drop_r], E, 1),

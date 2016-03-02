@@ -83,7 +83,7 @@
 %% Convenience for manual testing
 -export([random_test/0]).
 
-% internal exports
+%% internal exports
 -export([dont_make_worse_sub/0, make_better_sub1/0, make_better_sub2/0]).
 -export([t_repair_continuation_do/1, t_bucket_disappears_do/1,
 	 select_fail_do/1, whitebox_1/1, whitebox_2/1, t_delete_all_objects_do/1,
@@ -362,8 +362,6 @@ t_match_spec_run_test(List, MS, Result) ->
     erlang:trace(Tracee, true, [call]),
     Tracee ! start,
     TRes = ms_tracer_collect(Tracee, MonRef, []),
-    %erlang:trace(Tracee, false, [call]),
-    %Tracee ! stop,
     case TRes of
 	SRes -> ok;
 	_ ->
@@ -378,16 +376,13 @@ t_match_spec_run_test(List, MS, Result) ->
 ms_tracer_collect(Tracee, Ref, Acc) ->
     receive
 	{trace, Tracee, call, _Args, [Msg]} ->
-	    %io:format("trace Args=~p  Msg=~p\n", [_Args, Msg]),
 	    ms_tracer_collect(Tracee, Ref, [Msg | Acc]);
 
 	{'DOWN', Ref, process, Tracee, _} ->
-	    %io:format("monitor DOWN for ~p\n", [Tracee]),
 	    TDRef = erlang:trace_delivered(Tracee),
 	    ms_tracer_collect(Tracee, TDRef, Acc);
 
 	{trace_delivered, Tracee, Ref} ->
-	    %%io:format("trace delivered for ~p\n", [Tracee]),
 	    lists:sort(Acc);
 
 	Other ->
@@ -397,13 +392,11 @@ ms_tracer_collect(Tracee, Ref, Acc) ->
 
 
 ms_tracee(Parent, CallArgList) ->
-    %io:format("ms_tracee ~p started with ArgList = ~p\n", [self(), CallArgList]),
     Parent ! {self(), ready},
     receive start -> ok end,
     lists:foreach(fun(Args) ->
 			  erlang:apply(?MODULE, ms_tracee_dummy, tuple_to_list(Args))
 		  end, CallArgList).
-    %%receive stop -> ok end.
 
 
 
@@ -704,25 +697,10 @@ chk_normal_tab_struct_size() ->
     io:format("System = ~p~n", [System]),
     io:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
     ok.
-%   ?line case System of
-%             {{unix, sunos}, {5, 8, 0}, 4, false, private} ->
-%       	  ?line ?NORMAL_TAB_STRUCT_SZ = ?TAB_STRUCT_SZ,
-%       	  ?line ok;
-%             _ ->
-%       	  ?line ok
-%         end.
 
 adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
-
-%   Mem1 = case ?TAB_STRUCT_SZ of
-%              ?NORMAL_TAB_STRUCT_SZ ->
-%       	   Mem0;
-%              TabStructSz ->
-%       	   TabDiff = TabStructSz - ?NORMAL_TAB_STRUCT_SZ,
-%       	   {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}
-%          end,
 
     TabDiff = ?TAB_STRUCT_SZ,
     {A0+TabDiff, B0+TabDiff, C0+TabDiff, D0+TabDiff}.
@@ -1031,8 +1009,8 @@ t_select_reverse(Config) when is_list(Config) ->
 				      '$1', 5},
 				     2}],
 				   ['$_']}],3),
-    % A set/bag/duplicate_bag should get the same result regardless
-    % of select or select_reverse
+    %% A set/bag/duplicate_bag should get the same result regardless
+    %% of select or select_reverse
     ?line Table2 = ets_new(xxx, [set]),
     ?line filltabint(Table2,1000),
     ?line Table3 = ets_new(xxx, [bag]),
@@ -1548,13 +1526,12 @@ update_element(T,Tuple,KeyPos,UpdPos) ->
 		    
 update_element_do(Tab,Tuple,Key,UpdPos) ->
 
-    % Strategy: Step around in Values array and call ets:update_element for the values.
-    % Take Length number of steps of size 1, then of size 2, ..., Length-1.
-    % This will try all combinations of {fromValue,toValue}
-    %
-    % IMPORTANT: size(Values) must be a prime number for this to work!!!
+    %% Strategy: Step around in Values array and call ets:update_element for the values.
+    %% Take Length number of steps of size 1, then of size 2, ..., Length-1.
+    %% This will try all combinations of {fromValue,toValue}
+    %%
+    %% IMPORTANT: size(Values) must be a prime number for this to work!!!
 
-    %io:format("update_element_do for key=~p\n",[Key]),
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
     Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
@@ -2632,8 +2609,6 @@ equal_results(M, F, FirstArg1, FirstArg2 ,ACommon) ->
 
 maybe_sort(L) when is_list(L) ->
     lists:sort(L);
-%maybe_sort({'EXIT',{Reason, [{Module, Function, _}|_]}}) ->
-%    {'EXIT',{Reason, [{Module, Function, '_'}]}};
 maybe_sort({'EXIT',{Reason, List}}) when is_list(List) ->
     {'EXIT',{Reason, lists:map(fun({Module, Function, _, _}) ->
 				       {Module, Function, '_'}
@@ -3710,7 +3685,7 @@ match_object_do(Opts) ->
 	_ -> ct:fail("ets:match_object() returned something funny.")
     end,
 
-    % Check that maps are inspected for variables.
+    %% Check that maps are inspected for variables.
     [{#{camembert:=cabécou},7}] = ets:match_object(Tab, {#{camembert=>'_'},7}),
 
     [{#{"hi":="hello",#{"wazzup"=>3}:="awesome","1337":="42"},9}] =
@@ -3757,9 +3732,9 @@ match_object_do(Opts) ->
     Mve = maps:from_list([{list_to_atom([$$|integer_to_list(I)]),'_'}||I<-Is]),
     {'EXIT',{badarg,_}} = (catch ets:match_object(Tab, {Mve,11})),
 
-    % Check that unsuccessful match returns an empty list.
+    %% Check that unsuccessful match returns an empty list.
     [] = ets:match_object(Tab, {{three,'$0'}, '$92'}),
-    % Check that '$0' equals '_'.
+    %% Check that '$0' equals '_'.
     Len = length(ets:match_object(Tab, '$0')),
     Len = length(ets:match_object(Tab, '_')),
     if Len > 4 -> ok end,
@@ -3962,7 +3937,7 @@ tab2file_do(FName, Opts) ->
     Res = ets:tab2file(Tab, FName, Opts),
     true = ets:delete(Tab),
     ok = Res,
-    %
+    %%
     ?line EtsMem = etsmem(),
     ?line {ok, Tab2} = ets:file2tab(FName),
     public = ets:info(Tab2, protection),
@@ -4753,7 +4728,7 @@ successive_delete(Table,From,To,Type,TType) ->
 	 end,
     case TType of
 	X when X == bag; X == duplicate_bag ->
-	    %erlang:display(From),
+	    %%erlang:display(From),
 	    case From rem 2 of
 		0 ->
 		    2 = ets:select_delete(Table,MS);
@@ -4909,7 +4884,7 @@ meta_wb_do(Opts) ->
 	end,
     F(Len*100, [], F),
 
-    % cleanup
+    %% cleanup
     lists:foreach(fun(Name)->catch ets:delete(Name) end,
 		  Names).
     
@@ -4957,10 +4932,6 @@ grow_shrink(Config) when is_list(Config) ->
     grow_shrink_0(0, 3071, 3000, 5000, Set),
     ets:delete(Set),
 
-    %OrdSet = ets_new(a, [ordered_set]),
-    %grow_shrink_0(0, lists:seq(3071, 5000), OrdSet),
-    %ets:delete(OrdSet),
-
     ?line verify_etsmem(EtsMem).
 
 grow_shrink_0(N, _, _, Max, _) when N >= Max ->
@@ -4974,14 +4945,12 @@ grow_shrink_1(N0, GrowN, ShrinkN, T) ->
     grow_shrink_3(N1, N1 - ShrinkN, T).
 
 grow_shrink_2(N, GrowTo, _) when N > GrowTo ->
-    %io:format("Grown to ~p\n", [GrowTo]),
     GrowTo;
 grow_shrink_2(N, GrowTo, T) ->
     true = ets:insert(T, {N,a}),
     grow_shrink_2(N+1, GrowTo, T).
 
 grow_shrink_3(N, ShrinkTo, _) when N =< ShrinkTo ->
-    %io:format("Shrunk to ~p\n", [ShrinkTo]),
     ShrinkTo;
 grow_shrink_3(N, ShrinkTo, T) ->
     true = ets:delete(T, N),
@@ -5597,9 +5566,9 @@ take(Config) when is_list(Config) ->
     ok.
 
 
-%
-% Utility functions:
-%
+%%
+%% Utility functions:
+%%
 
 add_lists(L1,L2) ->     
     add_lists(L1,L2,[]).

@@ -153,7 +153,7 @@ memory(Config) when is_list(Config) ->
 		   "erlang:memory/[0,1] and c:memory/[0,1] not supported"}
     end.
 
-% Help function for c_SUITE:memory/1    
+%% Help function for c_SUITE:memory/1
 mget(K, L) ->
     ?line {value,{K,V}} = lists:keysearch(K, 1, L),
     ?line test_v(c:memory(K)), % Check that c:memory/1 also accept this
@@ -161,6 +161,6 @@ mget(K, L) ->
                                % *not* the same as V).
     ?line test_v(V).
 
-% Help function for c_SUITE:memory/1    
+%% Help function for c_SUITE:memory/1
 test_v(V) when is_integer(V) ->
     ?line V.

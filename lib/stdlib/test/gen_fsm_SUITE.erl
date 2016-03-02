@@ -46,7 +46,7 @@
 %% Exports for apply
 -export([enter_loop/2]).
 
-% The gen_fsm behaviour
+%% The gen_fsm behaviour
 -export([init/1, handle_event/3, handle_sync_event/4, terminate/3,
 	 handle_info/3, format_status/2]).
 -export([idle/2,	idle/3,
@@ -1062,8 +1062,8 @@ hiber_idle('alive?', _From, Data) ->
     {reply, 'alive!', hiber_idle, Data};
 hiber_idle(hibernate_sync, _From, Data) ->
     {reply, hibernating, hiber_wakeup, Data,hibernate}.
-hiber_idle(timeout, hibernate_me) ->  % Arrive here from 
-				              % handle_info(hibernate_later,...)
+hiber_idle(timeout, hibernate_me) ->
+    %% Arrive here from handle_info(hibernate_later,...)
     {next_state, hiber_idle, [], hibernate};
 hiber_idle(hibernate_async, Data) ->
     {next_state,hiber_wakeup, Data, hibernate}.
@@ -1078,7 +1078,8 @@ hiber_wakeup(snooze_async,Data) ->
     {next_state,hiber_wakeup,Data,hibernate}.
     
 
-handle_info(hibernate_now, _SName, _State) ->  % Arrive here from by direct ! from testcase
+handle_info(hibernate_now, _SName, _State) ->
+    %% Arrive here from by direct ! from testcase
     {next_state, hiber_idle, [], hibernate};
 handle_info(hibernate_later, _SName, _State) ->
     {next_state, hiber_idle, hibernate_me, 1000};

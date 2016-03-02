@@ -19,7 +19,7 @@
 %%
 -module(digraph_SUITE).
 
-%-define(STANDALONE,1).
+%%-define(STANDALONE,1).
 
 -ifdef(STANDALONE).
 -define(line, put(line, ?LINE), ).

@@ -31,7 +31,7 @@
 %%
 %% Define to run outside of test server
 %%
-%-define(STANDALONE,1).
+%%-define(STANDALONE,1).
 
 -ifdef(STANDALONE).
 -compile(export_all).

@@ -29,7 +29,7 @@
 -export([check/2,check2/1,g/0,f/1,t/1,t1/1,t2/1,t3/1,t4/1,
 	 t5/1,apa/1,new_fun/0]).
 
-						% Serves as test...
+%% Serves as test...
 -hej(hopp).
 -include_lib("common_test/include/ct.hrl").
 
@@ -138,9 +138,9 @@ do_trans_1(File, Tree0) ->
 	    {failed,{File,{transform,{unknown,Else}}}}
     end.
 
-% From here on there's only fake code to serve as test cases 
-% for the id_transform.
-% They need to be exported.
+%% From here on there's only fake code to serve as test cases
+%% for the id_transform.
+%% They need to be exported.
 
 check(X,_Y) when X ->   
     true;
@@ -191,7 +191,7 @@ f(X) ->
 	    nok
     end.
 
-% Stolen from erl_lint_SUITE.erl
+%% Stolen from erl_lint_SUITE.erl
 -record(apa, {}).
 
 t(A) when atom(A) ->

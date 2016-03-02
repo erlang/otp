@@ -20,7 +20,7 @@
 
 -module(erl_expand_records_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).

@@ -22,7 +22,7 @@
 %%%-----------------------------------------------------------------
 -module(erl_pp_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
@@ -470,19 +470,12 @@ cond1(Config) when is_list(Config) ->
                    {clause,4,[],[[{atom,4,true}]],
                     [{tuple,5,[{atom,5,x},{atom,5,y}]}]}]},
     CChars = flat_expr1(C),
-%    ?line "cond {foo,bar} -> [a,b]; true -> {x,y} end" = CChars,
     ?line "cond\n"
           "    {foo,bar} ->\n"
           "        [a,b];\n"
           "    true ->\n"
           "        {x,y}\n"
           "end" = CChars,
-%     ?line ok = pp_expr(<<"cond
-%                               {foo,bar} ->
-%                                   [a,b];
-%                               true ->
-%                                   {x,y}
-%                           end">>),
     ok.
 
 block(Config) when is_list(Config) ->

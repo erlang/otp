@@ -51,9 +51,9 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
+%%
+%% Test cases starts here.
+%%
 %% Application consistency test.
 app_test(Config) when is_list(Config) ->
     test_server:app_test(stdlib),

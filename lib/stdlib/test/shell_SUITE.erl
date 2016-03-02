@@ -1021,7 +1021,7 @@ bs_match_int_SUITE(Config) when is_list(Config) ->
        Dynamic5 = fun(Bin, S1, S2, A, B) ->
                       case Bin of
                           <<A:S1,B:S2>> ->
-                              % io:format(\"~p ~p ~p ~p~n\", [S1,S2,A,B]),
+                              %% io:format(\"~p ~p ~p ~p~n\", [S1,S2,A,B]),
                               ok;
                           _Other -> erlang:error(badmatch, [Bin,S1,S2,A,B])
                       end
@@ -1110,7 +1110,7 @@ bs_match_int_SUITE(Config) when is_list(Config) ->
             end,
 
        MoreDynamic = fun() ->
-           % Unsigned big-endian numbers.
+           %% Unsigned big-endian numbers.
            Unsigned  = fun(Bin, List, SkipBef, N) ->
                                SkipAft = 8*size(Bin) - N - SkipBef,
                                <<_:SkipBef,Int:N,_:SkipAft>> = Bin,
@@ -1812,8 +1812,8 @@ progex_records(Config) when is_list(Config) ->
           register_two_hackers() ->
              Hacker1 = make_hacker_without_phone(\"Joe\", 29),
              OldHacker = birthday(Hacker1),
-             % The central_register_server should have 
-             % an interface function for this.
+             %% The central_register_server should have
+             %% an interface function for this.
              central_register_server ! {register_person, Hacker1},
              central_register_server ! {register_person, 
                        OldHacker#person{name = \"Robert\", 
@@ -1921,9 +1921,9 @@ progex_lc(Config) when is_list(Config) ->
 
           [] = Pyth(11),
           [{3,4,5},{4,3,5}] = Pyth(12),
-          %[{3,4,5},{4,3,5},{5,12,13},{6,8,10},{8,6,10},{8,15,17},
-          % {9,12,15},{12,5,13},{12,9,15},{12,16,20},{15,8,17},
-          % {16,12,20}] = Pyth(50),
+          %%[{3,4,5},{4,3,5},{5,12,13},{6,8,10},{8,6,10},{8,15,17},
+          %% {9,12,15},{12,5,13},{12,9,15},{12,16,20},{15,8,17},
+          %% {16,12,20}] = Pyth(50),
 
           Pyth1 = fun(N) ->
                       [{A,B,C} ||

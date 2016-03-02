@@ -453,8 +453,6 @@ ex_roundtrips(Config) when is_list(Config) ->
 		      erlang:system_info(context_reductions) * 11),
     ?line L2 = ranges(16#DFFF + 1, 16#10000 - 1,
 		      erlang:system_info(context_reductions) * 11),
-    %?line L3 = ranges(16#FFFF + 1, 16#10FFFF, 
-    %		      erlang:system_info(context_reductions) * 11),
     ?line L3 = ranges(16#FFFFF, 16#10FFFF, 
 		      erlang:system_info(context_reductions) * 11),
     ?line L = L1 ++ L2 ++ L3,
@@ -608,7 +606,6 @@ ex_random_lists(Config) when is_list(Config) ->
 						Uni16BigFlatten4 = fun(L) ->
 									   unicode:characters_to_binary(unicode:characters_to_list(L,InEnc1),InEnc1,OutEnc1)
 								   end,
-						%erlang:display({InEnc1,OutEnc1}),
 						?line random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten2,InEnc1),
 						?line random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten3,InEnc1),
 						?line random_unicode_list:run(150, Uni16BigFlatten2,Uni16BigFlatten4,InEnc1),
@@ -797,7 +794,6 @@ fail_range_bif(_, _) -> ok.
 
 short_sequences_bif(Char, End) ->
     Step = (End - Char) div erlang:system_info(schedulers) + 1,
-%    Step = (End - Char) + 1,
     PidRefs = short_sequences_bif_1(Char, Step, End),
     [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
 	{Pid,Ref} <- PidRefs],
@@ -1298,7 +1294,6 @@ list_to_x_bsyntax({utf32,little},L,Enc) ->
     
 
 make_unaligned(Bin0) when is_binary(Bin0) ->
-%    put(c_count,get(c_count)+1),    
     Bin1 = <<0:3,Bin0/binary,31:5>>,
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
@@ -1310,80 +1305,3 @@ setlimit(X) ->
     erts_debug:set_internal_state(available_internal_state,true),
     io:format("Setting loop limit, old: ~p, now set to ~p~n",
 	      [erts_debug:set_internal_state(unicode_loop_limit,X),X]).
-
-
-%%
-%% Tracing utility
-%%
-
-%% tr_dump() ->
-%%     erlang:display(lists:sort(ets:tab2list(values))).
-
-%% tr_off(Pid) ->
-%%     receive after 10000 -> ok end,
-%%     tr_dump(),
-%%     Ref = erlang:monitor(process,Pid),
-%%     exit(Pid,kill),
-%%     receive
-%% 	{'DOWN',Ref,_,_,_} -> ok
-%%     end,
-%%     ok.
-
-%% tr_on() ->   
-%%     catch ets:delete(values),
-%%     ets:new(values,[named_table,public]),
-%%     ets:insert(values,{traps,0}),
-%%     catch ets:delete(state),
-%%     ets:new(state,[named_table,public]),
-%%     Pid = spawn(?MODULE,trace_recv,[values,state]),
-%%     erlang:trace(new,true,[garbage_collection,{tracer,Pid},timestamp,call]),
-%%     erlang:trace_pattern({erlang,list_to_utf8,2},[{'_',[],[{return_trace}]}],[global]),
-%%     Pid.
-
-%% ts_to_int({Mega,Sec,Micro}) ->
-%%     ((Mega * 1000000) + Sec) * 1000000 + Micro.
-
-%% trace_recv(Values,State) ->
-%%     receive
-%% 	{trace_ts,Pid,call,_,TS} ->
-%% 	    case ets:lookup(State,{call,Pid}) of
-%% 		[{{call,Pid},_}] ->
-%% 		    ets:update_counter(values,traps,1);
-%% 		_ ->
-%% 		    ok
-%% 	    end,
-%% 	    ets:insert(State,{{call,Pid},ts_to_int(TS)});
-%% 	{trace_ts,Pid,return_from,_,_,TS} ->
-%% 	    case ets:lookup(State,{call,Pid}) of
-%% 		[{{call,Pid},TS2}] ->
-%% 		    ets:delete(State,{call,Pid}),
-%% 		    Elapsed = ts_to_int(TS) - TS2,
-%% 		    case ets:lookup(Values,Pid) of
-%% 			[{Pid,GCNum,CallNum,GCTime,CallTime}] ->
-%% 			    ets:insert(Values,{Pid,GCNum,CallNum+1,GCTime,CallTime+Elapsed});
-%% 			[] ->
-%% 			     ets:insert(Values,{Pid,0,1,0,Elapsed})
-%% 		    end;
-%% 		_Other ->
-%% 		    erlang:display({what2,Pid})
-%% 	    end;
-%% 	{trace_ts,Pid,gc_start,_,TS} ->
-%% 	    ets:insert(State,{{gc,Pid},ts_to_int(TS)});
-%% 	{trace_ts,Pid,gc_end,_,TS} ->
-%% 	    case ets:lookup(State,{gc,Pid}) of
-%% 		[{{gc,Pid},TS2}] ->
-%% 		    ets:delete(State,{gc,Pid}),
-%% 		    Elapsed = ts_to_int(TS) - TS2,
-%% 		    case ets:lookup(Values,Pid) of
-%% 			[{Pid,Num,CNum,Time,CTime}] ->
-%% 			    ets:insert(Values,{Pid,Num+1,CNum,Time+Elapsed,CTime});
-%% 			[] ->
-%% 			     ets:insert(Values,{Pid,1,0,Elapsed,0})
-%% 		    end;
-%% 		_Other ->
-%% 		    erlang:display({what,Pid})
-%% 	    end;
-%% 	X ->
-%% 	    erlang:display({trace_recv,X})
-%%     end,
-%%     trace_recv(Values,State).

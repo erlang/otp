@@ -24,12 +24,12 @@
 -module(lists_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
          keystore/1, keytake/1, keyreplace/1,
@@ -142,9 +142,9 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
+%%
+%% Test cases starts here.
+%%
 
 append_1(Config) when is_list(Config) ->
     ?line "abcdef"=lists:append(["abc","def"]),
@@ -1367,7 +1367,7 @@ funsort_rand(Config) when is_list(Config) ->
     ?line ok = funsort_check3(1, biglist(10000)),
     ok.
 
-% Do a keysort
+%% Do a keysort
 funsort(I, L) ->
     lists:sort(funsort_fun(I), L).
 
@@ -1581,7 +1581,7 @@ ufunsort_check(I, Input, Expected) ->
     ?line Expected = ufunsort(I, Input),
     ucheck_sorted(I, Input, Expected).
 
-% Do a keysort
+%% Do a keysort
 ufunsort(I, L) ->
     lists:usort(funsort_fun(I), L).
 

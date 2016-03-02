@@ -40,7 +40,7 @@
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
 	 stop8/1, stop9/1, stop10/1]).
 
-% spawn export
+%% spawn export
 -export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
 	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
          spec_init_anonymous/1,
@@ -48,7 +48,7 @@
 	 spec_init_not_proc_lib/1, cast_fast_messup/0]).
 
 
-% The gen_server behaviour
+%% The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, format_status/2]).
 
@@ -574,7 +574,6 @@ cast_fast(Config) when is_list(Config) ->
 					   atom_to_list(Node)),
     ?line FalseNode = list_to_atom("hopp@"++Host),
     ?line true = rpc:cast(Node, ?MODULE, cast_fast_messup, []),
-%    ?line io:format("Nodes ~p~n", [rpc:call(N, ?MODULE, cast_fast_messup, [])]),
     ct:sleep(1000),
     ?line [Node] = nodes(),
     {Time,ok} = timer:tc(fun() ->

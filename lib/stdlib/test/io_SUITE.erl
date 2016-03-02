@@ -37,7 +37,7 @@
 
 -export([pretty/2]).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -103,7 +103,7 @@ error_1(Config) when is_list(Config) ->
 
     %% This causes the file process to die, and it is linked to us,
     %% so we can't catch the error this easily.
-%    ?line {'EXIT', _} = (catch io:put_chars(F1, 666)),
+%%    ?line {'EXIT', _} = (catch io:put_chars(F1, 666)),
 
     ?line file:close(F1),
     ?line {'EXIT', _} = (catch io:format(F1, "~p", ["hej"])),
@@ -251,16 +251,10 @@ otp_6282(Config) when is_list(Config) ->
     ?line "\"aa\"" = p("aa", 1, 20, 2),
     ?line "\"aaa\"" = p("aaa", 1, 20, 2),
     ?line "\"aaaa\"" = p("aaaa", 1, 20, 2),
-    % ?line "\"aaaa\"..." = p("aaaaaa", 1, 20, 2),
     ?line "\"a\"" = p("a", 1, 20, -1),
-    % ?line "\"aa\"..." = p([$a,$a,1000], 1, 20, 2),
-    % ?line "\"aa\"..." = p([$a,$a,1000], 1, 20, 3),
     ?line "[97,97,1000]" = p([$a,$a,1000], 1, 20, 4),
     S1 = lists:duplicate(200,$a),
     ?line "[...]" = p(S1, 1, 20, 1),
-    % ?line "\"aaaaaaaaaaaaaaaa\"\n \"aaaaaaaaaaaaaaaa\"\n \"aaaa\"..." = 
-    % ?line "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"..." = 
-    %          p(S1, 1, 20, 10),
     ?line true = "\"" ++ S1 ++ "\"" =:= p(S1, 1, 205, -1),
     ?line "[97,97,1000|...]" = p([$a,$a,1000,1000], 1, 20, 4),
 
@@ -271,17 +265,11 @@ otp_6282(Config) when is_list(Config) ->
     ?line "[\"aa\"]" = p(["aa"], 1, 20, 3),
     ?line "[\"aaa\"]" = p(["aaa"], 1, 20, 3),
     ?line "[\"a\"]" = p(["a"], 1, 20, -1),
-    % ?line "[\"aa\"...]" = p([[$a,$a,1000]], 1, 20, 3),
-    % ?line "[\"aa\"...]" = p([[$a,$a,1000]], 1, 20, 4),
     ?line "[[97,97,1000]]" = p([[$a,$a,1000]], 1, 20, 5),
     ?line "[[...]]" = p([S1], 1, 20, 2),
-    % ?line "[\"aaaaaaaaaaaaaa\"\n  \"aaaaaaaaaaaaaa\"\n  \"aaaaaaaa\"...]" = 
-    % ?line "[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"...]" = 
-    %            p([S1], 1, 20, 11),
     ?line true = "[\"" ++ S1 ++ "\"]" =:= p([S1], 1, 210, -1),
     ?line "[[97,97,1000|...]]" = p([[$a,$a,1000,1000]], 1, 20, 5),
 
-    % ?line "[\"aaaa\"...]" = p(["aaaaa"], 1, 10, 3),
     ?line "[\"aaaaa\"]" = p(["aaaaa"], 1, 10, 6),
 
     ok.
@@ -324,17 +312,6 @@ otp_6354(Config) when is_list(Config) ->
              p({abcd,ddddd,ddddd}, 1,16, -1)),
     ?line bt(<<"{1,2,a,b,\n {sfdsf,sdfdsfs},\n [sfsdf,sdfsdf]}">>,
              p({1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]}, 1, 35, 100)),
-    % With other terms than atomic ones on the same line:
-%     ?line bt(<<"{1,2,a,b,{sfdsf,sdfdsfs},\n [sfsdf,sdfsdf]}">>,
-%              p({1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]}, 1, 35, 100)),
-    % With line breaks:
-%     ?line bt(<<"{1,\n"
-%                " 2,\n"
-%                " a,\n"
-%                " b,\n"
-%                " {sfdsf,sdfdsfs},\n"
-%                " [sfsdf,sdfsdf]}">>,
-%              p({1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]}, 1, 35, 100)),
     ?line "{1,{1,{2,3}}}" = p({1,{1,{2,3}}}, 1, 80, 100),
 
     ?line bt(<<"{wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,klsdjfjklds,\n"
@@ -342,21 +319,6 @@ otp_6354(Config) when is_list(Config) ->
              p({wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,klsdjfjklds,
                               sdkfjdsl,sdakfjdsklj,sdkljfsdj}}}}}, -1)),
 
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"{wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,klsdjfjklds,"
-%                "sdkfjdsl,sdakfjdsklj,\n"
-%                "                                   sdkljfsdj}}}}}">>,
-%              p({wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,klsdjfjklds,
-%                               sdkfjdsl,sdakfjdsklj,sdkljfsdj}}}}}, -1)),
-
-    % With line breaks:
-%     ?line bt(<<"{wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,\n"
-%               "                                   klsdjfjklds,\n"
-%               "                                   sdkfjdsl,\n"
-%               "                                   sdakfjdsklj,\n"
-%               "                                   sdkljfsdj}}}}}">>,
-%              p({wwwww,{wwwww,{wwwww,{wwwww,{wwwww,lkjsldfj,klsdjfjklds,
-%                               sdkfjdsl,sdakfjdsklj,sdkljfsdj}}}}}, -1)),
     ?line bt(<<"{wwwww,\n"
               "    {wwwww,\n"
               "        {wwwww,\n"
@@ -374,14 +336,11 @@ otp_6354(Config) when is_list(Config) ->
     ?line "{{...},...}" = p({{a,b},{a,b,c},{d,e,f}},1,8,2),
     %% Closing brackets and parentheses count:
     ?line "{{a,b,c},\n {{1,2,\n   3}}}" = p({{a,b,c},{{1,2,3}}},1,11,-1),
-    % With line breaks:
-%     ?line "{{a,b,c},\n {{1,\n   2,\n   3}}}" = p({{a,b,c},{{1,2,3}}},1,11,-1),
+    %% With line breaks:
     ?line "{{a,b,c},\n [1,2,\n  3]}" = p({{a,b,c},[1,2,3]},1,10,-1),
-    % With line breaks:
-%     ?line "{{a,b,c},\n [1,\n  2,\n  3]}" = p({{a,b,c},[1,2,3]},1,10,-1),
+    %% With line breaks:
     ?line "[{{a,b,c},\n  {1,2,\n   3}}]" = p([{{a,b,c},{1,2,3}}],1,12,-1),
-    % With line breaks:
-%     ?line "[{{a,b,c},\n  {1,\n   2,\n   3}}]" = p([{{a,b,c},{1,2,3}}],1,12,-1),
+    %% With line breaks:
 
     %% A few lists:
     ?line "[]" = p([], 1, 20, -1),
@@ -426,20 +385,9 @@ otp_6354(Config) when is_list(Config) ->
              p([1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]], -1)),
     ?line bt(<<"[1,2,a,b,\n {sfdsf,sdfdsfs},\n [sfsdf,sdfsdf]]">>,
              p([1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]], 1, 35, 100)),
-    % With other terms than atomic ones on the same line:
-%     ?line bt(<<"[1,2,a,b,{sfdsf,sdfdsfs},\n [sfsdf,sdfsdf]]">>,
-%              p([1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]], 1, 35, 100)),
-    % With line breaks:
-%     ?line bt(<<"[1,\n"
-%                " 2,\n"
-%                " a,\n"
-%                " b,\n"
-%                " {sfdsf,sdfdsfs},\n"
-%                " [sfsdf,sdfsdf]]">>,
-%              p([1,2,a,b,{sfdsf,sdfdsfs},[sfsdf,sdfsdf]], 1, 35, 100)),
     %% Element #8 is not printable:
     ?line "[49," ++ _ = p("1234567"++[3,4,5,6,7], 1, 100, 9),
-    % ?line "\"1234567\"..." = p("1234567"++[3,4,5,6,7], 1, 100, 8),
+    %% ?line "\"1234567\"..." = p("1234567"++[3,4,5,6,7], 1, 100, 8),
 
     %% A few records:
     %% -record(a, {}).
@@ -476,18 +424,6 @@ otp_6354(Config) when is_list(Config) ->
                "   cccccccccccccccccccc = 3,dddddddddddddddddddd = 4,\n"
                "   eeeeeeeeeeeeeeeeeeee = 5}">>,
              p({d,1,2,3,4,5}, -1)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,"
-%                "cccccccccccccccccccc = 3,\n   dddddddddddddddddddd = 4,"
-%                "eeeeeeeeeeeeeeeeeeee = 5}">>,
-%              p({d,1,2,3,4,5}, -1)),
-    % With line breaks:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "   bbbbbbbbbbbbbbbbbbbb = 2,\n"
-%               "   cccccccccccccccccccc = 3,\n"
-%               "   dddddddddddddddddddd = 4,\n"
-%               "   eeeeeeeeeeeeeeeeeeee = 5}">>,
-%              p({d,1,2,3,4,5}, -1)),
     ?line "..." = p({d,1,2,3,4,5}, 0),
     ?line "{...}" = p({d,1,2,3,4,5}, 1),
     ?line "#d{...}" = p({d,1,2,3,4,5}, 2),
@@ -497,44 +433,13 @@ otp_6354(Config) when is_list(Config) ->
     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,\n"
                "   cccccccccccccccccccc = 3,...}">>,
              p({d,1,2,3,4,5}, 5)), % longer than 80 characters...
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,"
-%                "cccccccccccccccccccc = 3,...}">>,
-%              p({d,1,2,3,4,5}, 5)), % longer than 80 characters...
-    % With line breaks:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "   bbbbbbbbbbbbbbbbbbbb = 2,\n"
-%               "   cccccccccccccccccccc = 3,...}">>,
-%              p({d,1,2,3,4,5}, 5)),
     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,\n"
                "   cccccccccccccccccccc = 3,dddddddddddddddddddd = 4,...}">>,
              p({d,1,2,3,4,5}, 6)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,"
-%                "cccccccccccccccccccc = 3,\n   dddddddddddddddddddd = 4,...}">>,
-%              p({d,1,2,3,4,5}, 6)),
-    % With line breaks:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "   bbbbbbbbbbbbbbbbbbbb = 2,\n"
-%               "   cccccccccccccccccccc = 3,\n"
-%               "   dddddddddddddddddddd = 4,...}">>,
-%              p({d,1,2,3,4,5}, 6)),
     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,\n"
                "   cccccccccccccccccccc = 3,dddddddddddddddddddd = 4,\n"
                "   eeeeeeeeeeeeeeeeeeee = 5}">>,
              p({d,1,2,3,4,5}, 7)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,bbbbbbbbbbbbbbbbbbbb = 2,"
-%                "cccccccccccccccccccc = 3,\n   dddddddddddddddddddd = 4,"
-%                "eeeeeeeeeeeeeeeeeeee = 5}">>,
-%              p({d,1,2,3,4,5}, 7)),
-    % With line breaks:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "   bbbbbbbbbbbbbbbbbbbb = 2,\n"
-%               "   cccccccccccccccccccc = 3,\n"
-%               "   dddddddddddddddddddd = 4,\n"
-%               "   eeeeeeeeeeeeeeeeeeee = 5}">>,
-%              p({d,1,2,3,4,5}, 7)),
     ?line bt(<<"#rrrrr{\n"
               "    f1 = 1,\n"
               "    f2 = #rrrrr{f1 = a,f2 = b,f3 = c},\n"
@@ -553,46 +458,6 @@ otp_6354(Config) when is_list(Config) ->
                                        {rrrrr,aa,{rrrrr,{rrrrr,a,b,c},
                                                   2,3},bb}}}, 
                -1)),
-    % With other terms than atomic ones on the same line:
-%     ?line bt(<<"#rrrrr{\n"
-%               "    f1 = 1,f2 = #rrrrr{f1 = a,f2 = b,f3 = c},\n"
-%               "    f3 = \n"
-%               "        #rrrrr{\n"
-%               "            f1 = h,f2 = i,\n"
-%               "            f3 = \n"
-%               "                #rrrrr{\n"
-%               "                    f1 = aa,\n"
-%               "                    f2 = \n"
-%               "                        #rrrrr{\n"
-%               "                            f1 = #rrrrr{f1 = a,f2 = b,"
-%                                                "f3 = c},f2 = 2,f3 = 3},\n"
-%               "                    f3 = bb}}}">>,
-%              p({rrrrr,1,{rrrrr,a,b,c},{rrrrr,h,i,
-%                                        {rrrrr,aa,{rrrrr,{rrrrr,a,b,c},
-%                                                   2,3},bb}}}, 
-%                -1)),
-    % With line breaks:
-%     ?line bt(<<"#rrrrr{\n"
-%               "    f1 = 1,\n"
-%               "    f2 = #rrrrr{f1 = a,f2 = b,f3 = c},\n"
-%               "    f3 = \n"
-%               "        #rrrrr{\n"
-%               "            f1 = h,\n"
-%               "            f2 = i,\n"
-%               "            f3 = \n"
-%               "                #rrrrr{\n"
-%               "                    f1 = aa,\n"
-%               "                    f2 = \n"
-%               "                        #rrrrr{\n"
-%               "                            f1 = #rrrrr{f1 = a,f2 = b,"
-%                                                "f3 = c},\n"
-%               "                            f2 = 2,\n"
-%               "                            f3 = 3},\n"
-%               "                    f3 = bb}}}">>,
-%              p({rrrrr,1,{rrrrr,a,b,c},{rrrrr,h,i,
-%                                        {rrrrr,aa,{rrrrr,{rrrrr,a,b,c},
-%                                                   2,3},bb}}}, 
-%                -1)),
     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
               "   bbbbbbbbbbbbbbbbbbbb = \n"
               "       #d{aaaaaaaaaaaaaaaaaaaa = a,bbbbbbbbbbbbbbbbbbbb = b,\n"
@@ -617,34 +482,6 @@ otp_6354(Config) when is_list(Config) ->
               "   eeeeeeeeeeeeeeeeeeee = 5}">>,
              p({d,1,{d,a,b,c,d,e},3,{d,h,i,{d,aa,bb,{d,1,2,3,4,5},dd,ee},
                                      k,l},5}, -1)),
-    % With line breaks:
-%     ?line bt(<<"#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "   bbbbbbbbbbbbbbbbbbbb = \n"
-%               "       #d{aaaaaaaaaaaaaaaaaaaa = a,\n"
-%               "          bbbbbbbbbbbbbbbbbbbb = b,\n"
-%               "          cccccccccccccccccccc = c,\n"
-%               "          dddddddddddddddddddd = d,\n"
-%               "          eeeeeeeeeeeeeeeeeeee = e},\n"
-%               "   cccccccccccccccccccc = 3,\n"
-%               "   dddddddddddddddddddd = \n"
-%               "       #d{aaaaaaaaaaaaaaaaaaaa = h,\n"
-%               "          bbbbbbbbbbbbbbbbbbbb = i,\n"
-%               "          cccccccccccccccccccc = \n"
-%               "              #d{aaaaaaaaaaaaaaaaaaaa = aa,\n"
-%               "                 bbbbbbbbbbbbbbbbbbbb = bb,\n"
-%               "                 cccccccccccccccccccc = \n"
-%               "                     #d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-%               "                        bbbbbbbbbbbbbbbbbbbb = 2,\n"
-%               "                        cccccccccccccccccccc = 3,\n"
-%               "                        dddddddddddddddddddd = 4,\n"
-%               "                        eeeeeeeeeeeeeeeeeeee = 5},\n"
-%               "                 dddddddddddddddddddd = dd,\n"
-%               "                 eeeeeeeeeeeeeeeeeeee = ee},\n"
-%               "          dddddddddddddddddddd = k,\n"
-%               "          eeeeeeeeeeeeeeeeeeee = l},\n"
-%               "   eeeeeeeeeeeeeeeeeeee = 5}">>,
-%              p({d,1,{d,a,b,c,d,e},3,{d,h,i,{d,aa,bb,{d,1,2,3,4,5},dd,ee},
-%                                      k,l},5}, -1)),
 
     A = aaaaaaaaaaaaa,
     %% Print the record with dots at the end of the line (Ll = 80).
@@ -689,19 +526,10 @@ otp_6354(Config) when is_list(Config) ->
     ?line bt(<<"{aaaaaaaaaaaaa,\n"
                "    {aaaaaaaaaaaaa,{aaaaaaaaaaaaa,{aaaaaaaaaaaaa,...}}}}">>, 
              p({A,{A,{A,{A,{b}}}}}, 8)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"{aaaaaaaaaaaaa,{aaaaaaaaaaaaa,{aaaaaaaaaaaaa,"
-%               "{aaaaaaaaaaaaa,...}}}}">>, 
-%              p({A,{A,{A,{A,{b}}}}}, 8)),
     ?line bt(<<"{aaaaaaaaaaaaa,\n"
             "    {aaaaaaaaaaaaa,\n"
             "        {aaaaaaaaaaaaa,{aaaaaaaaaaaaa,{aaaaaaaaaaaaa,...}}}}}">>,
              p({A,{A,{A,{A,{A,{b}}}}}}, 10)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"{aaaaaaaaaaaaa,\n"
-%                "    {aaaaaaaaaaaaa,{aaaaaaaaaaaaa,{aaaaaaaaaaaaa,"
-%                          "{aaaaaaaaaaaaa,...}}}}}">>,
-%              p({A,{A,{A,{A,{A,{b}}}}}}, 10)),
     ?line bt(<<"{aaaaaaaaaaaaa,\n"
               "    {aaaaaaaaaaaaa,\n"
               "        {aaaaaaaaaaaaa,\n"
@@ -722,15 +550,6 @@ otp_6354(Config) when is_list(Config) ->
              p({A,{A,{A,{rrrrr, kljlkjlksfdgkljlsdkjf, 
                          kljkljsdaflkjlkjsdf, 
                          asdfkldsjfklkljsdklfds}}}}, 10)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"{aaaaaaaaaaaaa,\n"
-%                "    {aaaaaaaaaaaaa,\n"
-%                "        {aaaaaaaaaaaaa,\n",
-%                "            #rrrrr{f1 = kljlkjlksfdgkljlsdkjf,f2 = "
-%                              "kljkljsdaflkjlkjsdf,...}}}}">>,
-%              p({A,{A,{A,{rrrrr, kljlkjlksfdgkljlsdkjf, 
-%                          kljkljsdaflkjlkjsdf, 
-%                          asdfkldsjfklkljsdklfds}}}}, 10)),
     ?line bt(<<"{aaaaaaaaaaaaa,\n"
               "    {aaaaaaaaaaaaa,\n"
               "        {aaaaaaaaaaaaa,\n"
@@ -790,62 +609,6 @@ otp_6354(Config) when is_list(Config) ->
              p({rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,a,{rrrrr,
                               {rrrrr,1,2},a,b}},b},{rrrrr,c,d},{rrrrr,1,2}},
                               1,2},3,4},5,6}, -1)),
-    % With other terms than atomic ones on the same line:
-%     ?line bt(<<"#rrrrr{\n"
-%               " f1 = \n"
-%               "  #rrrrr{\n"
-%               "   f1 = \n"
-%               "    #rrrrr{\n"
-%               "     f1 = \n"
-%               "      #rrrrr{\n"
-%               "       f1 = \n"
-%               "        {rrrrr,{rrrrr,a,#rrrrr{f1 = {rrrrr,1,2},f2 = a,"
-%                                  "f3 = b}},b},\n"
-%               "       f2 = {rrrrr,c,d},f3 = {rrrrr,1,2}},\n"
-%               "     f2 = 1,f3 = 2},\n"
-%               "   f2 = 3,f3 = 4},\n"
-%               " f2 = 5,f3 = 6}">>,
-%              p({rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,a,{rrrrr,
-%                               {rrrrr,1,2},a,b}},b},{rrrrr,c,d},{rrrrr,1,2}},
-%                               1,2},3,4},5,6}, -1)),
-    % With no restriction on number of characters per line:
-%     ?line bt(<<"#rrrrr{\n"
-%               " f1 = \n"
-%               "  #rrrrr{\n"
-%               "   f1 = \n"
-%               "    #rrrrr{\n"
-%               "     f1 = \n"
-%               "      #rrrrr{\n"
-%               "       f1 = {rrrrr,{rrrrr,a,#rrrrr{f1 = {rrrrr,1,2},f2 = a,"
-%                                  "f3 = b}},b},\n"
-%               "       f2 = {rrrrr,c,d},f3 = {rrrrr,1,2}},\n"
-%               "     f2 = 1,f3 = 2},\n"
-%               "   f2 = 3,f3 = 4},\n"
-%               " f2 = 5,f3 = 6}">>,
-%              p({rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,a,{rrrrr,
-%                               {rrrrr,1,2},a,b}},b},{rrrrr,c,d},{rrrrr,1,2}},
-%                               1,2},3,4},5,6}, -1)),
-    % With line breaks:
-%     ?line bt(<<"#rrrrr{\n"
-%               " f1 = \n"
-%               "  #rrrrr{\n"
-%               "   f1 = \n"
-%               "    #rrrrr{\n"
-%               "     f1 = \n"
-%               "      #rrrrr{\n"
-%               "       f1 = {rrrrr,{rrrrr,a,#rrrrr{f1 = {rrrrr,1,2},f2 = a,"
-%                                  "f3 = b}},b},\n"
-%               "       f2 = {rrrrr,c,d},\n"
-%               "       f3 = {rrrrr,1,2}},\n"
-%               "     f2 = 1,\n"
-%               "     f3 = 2},\n"
-%               "   f2 = 3,\n"
-%               "   f3 = 4},\n"
-%               " f2 = 5,\n"
-%               " f3 = 6}">>,
-%              p({rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,{rrrrr,a,{rrrrr,
-%                               {rrrrr,1,2},a,b}},b},{rrrrr,c,d},{rrrrr,1,2}},
-%                               1,2},3,4},5,6}, -1)),
     ?line "{aaa,\n {aaa," ++ _ = 
         p({aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,
            {aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,{aaa,
@@ -857,8 +620,6 @@ otp_6354(Config) when is_list(Config) ->
     %% A few other cases...
     ?line "{a,#Fun<" ++ _ = lists:flatten(io_lib_pretty:print({a,fun fmt/2})),
     ?line "#Fun<" ++ _ = io_lib_pretty:print(fun() -> foo end),
-    % ?line "[<<\"foobar\">>|<<\"barf\"...>>]" = 
-    %             p([<<"foobar">>|<<"barfoo">>], 1, 30, 4),
     %% No support for negative columns any more:
     ?line "[a,\n [b,\n  c,\n  d,\n  [e,\n   f]],\n c]" = 
           p([a,[b,c,d,[e,f]],c], -1, 2, 10),
@@ -866,27 +627,20 @@ otp_6354(Config) when is_list(Config) ->
           p([a,[b,c,d,[e,f]],c], 0, 2, 10),
     %% 20 bytes are tried first, then the rest. Try 21 bytes:
     L = lists:duplicate(20, $a),
-    % ?line bt(<<"<<\"aaaaaa\"\n  \"aaaaaa\"\n  \"aaaaaa\"\n  \"aaa\">>">>,
+    %% ?line bt(<<"<<\"aaaaaa\"\n  \"aaaaaa\"\n  \"aaaaaa\"\n  \"aaa\">>">>,
     ?line bt(<<"<<\"aaaaaaaaaaaaaaaaaaaaa\">>">>,
              p(list_to_binary([$a | L]), 1, 10, -1)),
     ?line "<<97," ++ _ = p(list_to_binary(L ++ [3]), 1, 10, -1),
-    % ?line "<<\"aaaa\"...>>" = p(list_to_binary(L ++ [3]), 1, 10, 2),
-    % ?line "<<\"aaaaaa\"\n  \"aa\"...>>" = 
-    % ?line "<<\"aaaaaaaa\"...>>" =
-    %               p(list_to_binary(L ++ [3]), 1, 10, 3),
-    % ?line "<<\"aaaaaa\"\n  \"aaaaaa\"\n  \"aaaaaa\"\n  \"aa\"...>>" = 
-    % ?line "<<\"aaaaaaaaaaaaaaaaaaaa\"...>>" =
-    %        p(list_to_binary(L ++ [3]), 1, 10, 21),
     ?line "<<97," ++ _ = p(list_to_binary(L ++ [3]), 1, 10, 22),
 
     ?line "\"\\b\\t\\n\\v\\f\\r\\e\250\"" = 
               p([8,9,10,11,12,13,27,168], 1, 40, -1),
-    % ?line "\"\\b\\t\\n\"\n \"\\v\\f\\r\"\n \"\\e\250\"" =
+    %% ?line "\"\\b\\t\\n\"\n \"\\v\\f\\r\"\n \"\\e\250\"" =
     ?line "\"\\b\\t\\n\\v\\f\\r\\e¨\"" =
               p([8,9,10,11,12,13,27,168], 1, 10, -1),
     ?line "\"\\b\\t\\n\\v\\f\\r\\e\250\"" = 
               p([8,9,10,11,12,13,27,168], 1, 40, 100),
-    % ?line "\"\\e\\t\\nab\"\n \"cd\"" = 
+    %% ?line "\"\\e\\t\\nab\"\n \"cd\"" =
     ?line "\"\\e\\t\\nabcd\"" = 
               p("\e\t\nabcd", 1, 12, -1),
 
@@ -1091,7 +845,7 @@ manpage(Config) when is_list(Config) ->
     ?line "abc def 'abc def'  {foo,1} A \n" = 
            fmt("~s ~w ~i ~w ~c ~n",
                ['abc def', 'abc def', {foo, 1},{foo, 1}, 65]),
-    % fmt("~s", [65]),
+    %% fmt("~s", [65]),
 
     %% io_lib(3)
     ?line bt(<<"{1,[2],[3],[...],...}">>,
@@ -1251,7 +1005,7 @@ g_close_to_zero() ->
 
 g_denormalized() ->
     %% Denormalized floats (mantissa carry):
-%    D = 5,
+%%    D = 5,
     %% Faster:
     D = 1,
     [ft({{S,0,?ONE(N)},D,D}) || S <- [0,1], N <- lists:seq(0, 52)],
@@ -1259,7 +1013,7 @@ g_denormalized() ->
 
 g_normalized() -> 
     %% Normalized floats (exponent carry):
-%    D = 5,
+%%    D = 5,
     %% Faster:
     D = 1,
     [ft({{S,E,?ONE(52)},D,D}) || S <- [0,1], E <- lists:seq(0, 2045)],
@@ -1278,8 +1032,7 @@ g_choice() ->
 g_misc() -> 
     L_0_308 = lists:seq(0, 308),
     L_0_307 = lists:seq(0, 307),
-%    L_1_9 = lists:seq(1, 9),
-%    L_0_9 = lists:seq(0, 9),
+
     %% Faster:
     L_1_9 = [1,5,9],
     L_0_9 = [0,1,5,9],

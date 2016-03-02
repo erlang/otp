@@ -19,7 +19,7 @@
 %%
 -module(dets_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -2158,7 +2158,6 @@ badarg(Config) when is_list(Config) ->
 
     Args = [{file,Fname},{keypos,3}],
     {ok, _} = dets:open_file(T, [{type,set} | Args]),
-    % dets:verbose(),
 
     %% badargs are tested in match, select and fixtable too.
 
@@ -3768,7 +3767,7 @@ otp_11245(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-% OTP-11709. Bugfixes.
+%% OTP-11709. Bugfixes.
 otp_11709(Config) when is_list(Config) ->
     Short = <<"foo">>,
     Long = <<"a sufficiently long text">>,

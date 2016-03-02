@@ -113,7 +113,7 @@ compile_options(Config) when is_list(Config) ->
 run_options(Config) when is_list(Config) ->
     ?line rtest("ABCabcdABC","abc",[],[],true),
     ?line rtest("ABCabcdABC","abc",[anchored],[],false),
-    % Anchored in run overrides unanchored in compilation
+    %% Anchored in run overrides unanchored in compilation
     ?line rtest("ABCabcdABC","abc",[],[anchored],false), 
     
     ?line rtest("","a?b?",[],[],true),
@@ -243,7 +243,7 @@ combined_options(Config) when is_list(Config) ->
     ?line ok = crtest("abcdABCabcd\r","abcd$",[{newline,anycrlf},{capture,all,binary}],true,{match,[<<"abcd">>]}),
     ?line ok = crtest("abcdABCabcd\n","abcd$",[{newline,anycrlf},{capture,all,binary}],true,{match,[<<"abcd">>]}),
     
-    % Check that unique run-options fail in compile only case:
+    %% Check that unique run-options fail in compile only case:
     ?line {'EXIT',{badarg,_}} = (catch re:compile("abcd$",[{newline,anycrlf},{capture,all,binary}])),
     ?line {'EXIT',{badarg,_}} = (catch re:compile("abcd$",[{newline,anycrlf},{offset,3}])),
     ?line {'EXIT',{badarg,_}} = (catch re:compile("abcd$",[{newline,anycrlf},notempty])),
@@ -418,7 +418,7 @@ split_options(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{parts,banan}])),
     {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{capture,all}])),
     {'EXIT',{badarg,_}} = (catch re:split("a b c d","( +)",[{capture,[],binary}])),
-    % Parts 0 is equal to no parts specification (implicit strip)
+    %% Parts 0 is equal to no parts specification (implicit strip)
     ok = splittest("a b c d","( *)",[{parts,0},{return,list}],["a"," ","b"," ","c"," ","d"]),
     ok.
     
@@ -447,24 +447,24 @@ error_handling(_Config) ->
     end.
 	    
 error_handling() ->
-    % This test checks the exception tuples manufactured in the erlang
-    % code to hide the trapping from the user at least when it comes to errors
+    %% This test checks the exception tuples manufactured in the erlang
+    %% code to hide the trapping from the user at least when it comes to errors
 
-    % The malformed precomiled RE is detected after 
-    % the trap to re:grun from grun, in the grun function clause
-    % that handles precompiled expressions
+    %% The malformed precomiled RE is detected after
+    %% the trap to re:grun from grun, in the grun function clause
+    %% that handles precompiled expressions
     {'EXIT',{badarg,[{re,run,["apa",{1,2,3,4},[global]],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa",{1,2,3,4},[global])),
-    % An invalid capture list will also cause a badarg late, 
-    % but with a non pre compiled RE, the exception should be thrown by the
-    % grun function clause that handles RE's compiled implicitly by
-    % the run/3 BIF before trapping.
+    %% An invalid capture list will also cause a badarg late,
+    %% but with a non pre compiled RE, the exception should be thrown by the
+    %% grun function clause that handles RE's compiled implicitly by
+    %% the run/3 BIF before trapping.
     {'EXIT',{badarg,[{re,run,["apa","p",[{capture,[1,{a}]},global]],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:run("apa","p",[{capture,[1,{a}]},global])),
-    % And so the case of a precompiled expression together with
-    % a compile-option (binary and list subject):
+    %% And so the case of a precompiled expression together with
+    %% a compile-option (binary and list subject):
     {ok,RE} = re:compile("(p)"),
     {match,[[{1,1},{1,1}]]} = re:run(<<"apa">>,RE,[global]),
     {match,[[{1,1},{1,1}]]} = re:run("apa",RE,[global]),
@@ -484,7 +484,7 @@ error_handling() ->
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors]),
     {'EXIT',{badarg,_}} = (catch re:run("apa","(p",[global])),
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
-    % Badly formed options
+    %% Badly formed options
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,["global"])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,-1}])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,ett}])),
@@ -511,7 +511,7 @@ error_handling() ->
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa",2:2>>,<<"(p)">>,[{capture,[0,1],binary}])), 
     <<_:4,Temp:3/binary,_:4>> = <<38,23,6,18>>,
     {match,[{1,1},{1,1}]} = re:run(Temp,<<"(p)">>,[]), % Unaligned works 
-    % The replace errors:
+    %% The replace errors:
     {'EXIT',{badarg,[{re,replace,["apa",{1,2,3,4},"X",[]],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:replace("apa",{1,2,3,4},"X",[])),
@@ -547,13 +547,13 @@ error_handling() ->
 	(catch iolist_to_binary(re:replace("apa","p","X",
 					   [{return,banana}]))),
     {'EXIT',{badarg,_}} = (catch re:replace("apa","(p","X",[])),
-    % Badarg, not compile error.
+    %% Badarg, not compile error.
     {'EXIT',{badarg,[{re,replace,
 		      ["apa","(p","X",[{return,banana}]],_},
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch iolist_to_binary(re:replace("apa","(p","X",
 					   [{return,banana}]))),
-    % And the split errors:
+    %% And the split errors:
     [<<"a">>,<<"a">>] = (catch re:split("apa","p",[])),
     [<<"a">>,<<"p">>,<<"a">>] = (catch re:split("apa",RE,[])),
     {'EXIT',{badarg,[{re,split,["apa","p",[report_errors]],_},
@@ -593,7 +593,7 @@ error_handling() ->
 		     {?MODULE,error_handling,0,_} | _]}} =
 	(catch re:split("apa",RE,[banana])),
     {'EXIT',{badarg,_}} = (catch re:split("apa","(p")),
-    %Exception on bad argument, not compilation error
+    %%Exception on bad argument, not compilation error
     {'EXIT',{badarg,[{re,split,
 		      ["apa",
 		       "(p",
@@ -837,7 +837,7 @@ opt_never_utf(Config) when is_list(Config) ->
 opt_ucp(Config) when is_list(Config) ->
     {match,[{0,1}]} = re:run([$a],"\\w",[unicode]),
     {match,[{0,2}]} = re:run([229],"\\w",[unicode]), % Latin1 works without UCP, as we have a default 
-						     % Latin1 table
+						     %% Latin1 table
     nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
     {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
     ok.

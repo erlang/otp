@@ -23,12 +23,12 @@
 -module(string_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([len/1,equal/1,concat/1,chr_rchr/1,str_rstr/1]).
 -export([span_cspan/1,substr/1,tokens/1,chars/1]).
 -export([copies/1,words/1,strip/1,sub_word/1,left_right/1]).
@@ -68,9 +68,9 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
+%%
+%% Test cases starts here.
+%%
 
 len(Config) when is_list(Config) ->
     ?line 0 = string:len(""),

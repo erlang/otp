@@ -19,7 +19,7 @@
 %%
 -module(erl_anno_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -include_lib("common_test/include/ct.hrl").

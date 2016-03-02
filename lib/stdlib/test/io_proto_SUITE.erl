@@ -39,7 +39,7 @@
 
 -export([uprompt/1]).
 
-%-define(without_test_server, true).
+%%-define(without_test_server, true).
 
 -ifdef(without_test_server).
 -define(line, put(line, ?LINE), ).
@@ -308,12 +308,10 @@ unicode_options(Config) when is_list(Config) ->
 			"external_utf16_little_bom.dat",
 			"external_utf16_big_bom.dat"],
     ReadBomFile = fun(File,Dir) ->
-			  %io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),			  
 			  {ok,F} = file:open(filename:join([Dir,File]),
 					     [read,binary]),
 			  {ok,Bin} = file:read(F,4),
 			  {Type,Bytes} = unicode:bom_to_encoding(Bin),
-			  %io:format(standard_error,"~p\r\n",[{Type,Bytes}]),			  
 			  
 			  file:position(F,Bytes),
 			  io:setopts(F,[{encoding,Type}]),
@@ -383,7 +381,7 @@ unicode_options(Config) when is_list(Config) ->
     ?line [TestData = ReadBomlessFileListLine(F,BomlessDir) || F <- AllNoBom ],
     
     CannotReadFile = fun({Enc,File},Dir) ->
-			     %io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),
+			     %%io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),
 			     {ok,F} = file:open(
 					filename:join([Dir,File]),
 					[read,binary,{encoding,Enc}]),
@@ -642,7 +640,7 @@ enc2str({A1,A2}) when is_atom(A1), is_atom(A2) ->
 random_unicode(0) ->
     [];
 random_unicode(N) ->
-    % Favour large unicode and make linebreaks
+    %% Favour large unicode and make linebreaks
     X = case random:uniform(20) of
 	   A when A =< 1 -> $\n;
 	   A0 when A0 =< 3 -> random:uniform(16#10FFFF);
@@ -684,7 +682,6 @@ binary_options(Config) when is_list(Config) ->
     ?line io:setopts(F2,[list]),
     ?line {ok, Second10List} = file:read(F2,10),
     ?line file:position(F2,0),
-    %dbg:tracer(),dbg:p(F2,call),dbg:tpl(file_io_server,x),
     ?line First10List = io:get_chars(F2,'',10),
     ?line io:setopts(F2,[binary]),
     ?line Second10 = unicode:characters_to_binary(io:get_chars(F2,'',10),unicode,latin1),
@@ -700,12 +697,10 @@ binary_options(Config) when is_list(Config) ->
     ?line io:setopts(F3,[list]),
     ?line LineBreakTestDataList = io:get_line(F3,''),
     ?line io:setopts(F3,[binary]), 
-    %ok = io:format(standard_error,"TestData = ~w~n",[TestData]),
     ?line TestData = unicode:characters_to_binary(io:get_line(F3,''),unicode,latin1),
     ?line eof = io:get_line(F3,''),
     ?line file:close(F3),
     %% OK, time for the group_leaders...
-    %% io:format(standard_error,"Hmmm:~w~n",["<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\">>"]),
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    ok;
@@ -760,7 +755,6 @@ bc_with_r12_1(Config) ->
     test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
 					 {erl,[{release,"r12b"}]}]),
     DataDir = ?config(data_dir,Config),
-    %PrivDir = ?config(priv_dir,Config),
     FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
     TestDataLine1 = [229,228,246],
     TestDataLine2 = [197,196,214],
@@ -787,9 +781,9 @@ bc_with_r12_1(Config) ->
     TestDataLine2BinLatin = list_to_binary(TestDataLine2),
     ?line TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
     ?line TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
-    %io:format(standard_error,"Exec:~s\r\n",[rpc:call(N1,os,find_executable,["erl"])]),
-    %io:format(standard_error,"Io:~s\r\n",[rpc:call(N1,code,which,[io])]),
-    %io:format(standard_error,"File_io_server:~s\r\n",[rpc:call(N1,code,which,[file_io_server])]),
+    %%io:format(standard_error,"Exec:~s\r\n",[rpc:call(N1,os,find_executable,["erl"])]),
+    %%io:format(standard_error,"Io:~s\r\n",[rpc:call(N1,code,which,[io])]),
+    %%io:format(standard_error,"File_io_server:~s\r\n",[rpc:call(N1,code,which,[file_io_server])]),
     ?line file:position(F2,0),
     ?line TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
     ?line TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
@@ -850,7 +844,6 @@ bc_with_r12_1(Config) ->
     ?line TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
     ?line TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
     ?line file:position(F4,0),
-    %dbg:tracer(),dbg:p(F4,[call,m]),dbg:tpl(file_io_server,x),dbg:tpl(io_lib,x),
     ?line TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
     ?line TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
     ?line file:position(F4,0),
@@ -1015,7 +1008,7 @@ answering_machine1(OthNode,OthReg,Me) ->
 		  {getline, "2"},
 		  {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
 		  {getline, "<"},
-		  % get_line
+		  %% get_line
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1034,7 +1027,7 @@ answering_machine1(OthNode,OthReg,Me) ->
 		  {getline_re, ".*Prompt"},
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"},
-		  % get_chars
+		  %% get_chars
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1053,7 +1046,7 @@ answering_machine1(OthNode,OthReg,Me) ->
 		  {getline_re, ".*Prompt"},
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"},
-		  % fread
+		  %% fread
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1086,7 +1079,7 @@ answering_machine2(OthNode,OthReg,Me) ->
 		  {getline, "2"},
 		  {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
 		  {getline_re, ".*<[0-9].*"},
-		  % get_line
+		  %% get_line
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1105,7 +1098,7 @@ answering_machine2(OthNode,OthReg,Me) ->
 		  {getline_re, ".*Prompt"},
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"},
-		  % get_chars
+		  %% get_chars
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1124,7 +1117,7 @@ answering_machine2(OthNode,OthReg,Me) ->
 		  {getline_re, ".*Prompt"},
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"},
-		  % fread
+		  %% fread
 		  {getline_re, ".*Prompt"},
 		  {putline, "Hej"},
 		  {getline_re, ".*Okej"},
@@ -1560,7 +1553,7 @@ create_tempdir(Dir,X) when X > $z ->
 				   [Dir++[$z]])),
     {error, Estr};
 create_tempdir(Dir0, Ch) ->
-    % Expect fairly standard unix.
+    %% Expect fairly standard unix.
     Dir = Dir0++[Ch],
     case file:make_dir(Dir) of
 	{error, eexist} ->

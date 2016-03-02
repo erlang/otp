@@ -344,7 +344,6 @@ subj() ->
   spawn(fun() ->
     X0 = iolist_to_binary([
       "1234567890",
-      %lists:seq(16#21, 16#7e),
       lists:duplicate(100, $x)
     ]),
     Me ! X0,

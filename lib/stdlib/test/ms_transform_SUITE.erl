@@ -489,7 +489,7 @@ autoimported(Config) when is_list(Config) ->
 	       {tl,1},
 	       {trunc,1},
 	       {self,0},
-               %{float,1}, see float_1_function/1
+               %%{float,1}, see float_1_function/1
 	       {is_atom,1},
 	       {is_float,1},
 	       {is_integer,1},
@@ -506,8 +506,8 @@ autoimported(Config) when is_list(Config) ->
 	       {'or',2,infix},
 	       {'xor',2,infix},
 	       {'not',1},
-	       %{'andalso',2,infix},
-	       %{'orelse',2,infix},
+	       %%{'andalso',2,infix},
+	       %%{'orelse',2,infix},
 	       {'+',1},
 	       {'+',2,infix},
 	       {'-',1},
@@ -771,7 +771,7 @@ eep37(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Helpers
+%% Helpers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 setup(Config) ->
@@ -789,7 +789,6 @@ temp_name() ->
 expect_failure(Recs,Code) ->
     case (catch compile_and_run(Recs,Code)) of
 	      {'EXIT',_Foo} ->
-		  %erlang:display(_Foo),
 		  ok;
 	      Other ->
 		  exit({expected,failure,got,Other})

@@ -19,7 +19,7 @@
 %%
 -module(sofs_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -1854,14 +1854,14 @@ constant_function(Conf) when is_list(Conf) ->
     ok.
 
 misc(Conf) when is_list(Conf) ->
-    % find "relational" part of relation:
+    %% find "relational" part of relation:
     ?line S = relation([{a,b},{b,c},{b,d},{c,d}]),
     Id = fun(A) -> A end,
     ?line RR = relational_restriction(S),
     ?line eval(union(difference(partition(Id,S), partition(1,S))), RR),
     ?line eval(union(difference(partition(1,S), partition(Id,S))), RR),
 
-    % the "functional" part:
+    %% the "functional" part:
     ?line eval(union(intersection(partition(1,S), partition(Id,S))),
                difference(S, RR)),
     ?line {'EXIT', {undef, _}} =    

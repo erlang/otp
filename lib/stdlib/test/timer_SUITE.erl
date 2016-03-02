@@ -289,13 +289,6 @@ update(New, Stat) when New < Stat#stat.min ->
 update(New, Stat) ->
     Stat#stat{n=Stat#stat.n + 1, avg=(New+Stat#stat.avg) div 2}.
 
-%update(New, {N,Max,Min,Avg}) when New>Max ->
-%    {N+1,New,Min,(New+Avg) div 2};
-%update(New, {N,Max,Min,Avg}) when New<Min ->
-%    {N+1,Max,New,(New+Avg) div 2};
-%update(New, {N,Max,Min,Avg}) ->
-%    {N+1,Max,Min,(New+Avg) div 2}.
-
 print_report({E,LateS,EarlyS,I}) ->
     Early = EarlyS#stat.n, Late = LateS#stat.n,
     Total = E + Early + Late,

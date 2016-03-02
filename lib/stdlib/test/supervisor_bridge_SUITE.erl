@@ -98,7 +98,7 @@ miniappl_loop(Client,Server) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%
-% Client
+%% Client
 
 client(N) ->
     io:format("Client starting...\n"),
@@ -111,7 +111,7 @@ client(N) ->
     exit(fine).
 
 %%%%%%%%%%%%%%%%%%%%
-% Non compliant server
+%% Non compliant server
 
 start(N) ->
     supervisor_bridge:start_link({local,?bridge_name},?MODULE,N).
