@@ -738,8 +738,16 @@ filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
     true ->
       case all_args_equal(Bindings) of
 	true ->
-	  {_, FVar} = hd(Bindings),
-	  filter_map(Left, NofPreds, gb_trees:update(Var, FVar, Map));
+	  NewBinding =
+	    case hd(Bindings) of
+	      {Pred, {assigned, FVar0}} when is_integer(Pred) ->
+		case bindings_all_assigned(Bindings) of
+		  true -> {assigned, FVar0};
+		  false -> FVar0
+		end;
+	      {Pred, FVar0} when is_integer(Pred) -> FVar0
+	    end,
+	  filter_map(Left, NofPreds, gb_trees:update(Var, NewBinding, Map));
 	false ->
 	  PhiDst = hipe_icode:mk_new_fvar(),
 	  PhiArgs = strip_of_assigned(Bindings),
@@ -751,7 +759,7 @@ filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
 		gb_trees:update(phi, [{PhiDst, PhiArgs}|Val], Map)
 	    end,
 	  NewBinding =
-	    case bindings_are_assigned(Bindings) of
+	    case bindings_all_assigned(Bindings) of
 	      true -> {assigned, PhiDst};
 	      false -> PhiDst
 	    end,
@@ -763,30 +771,25 @@ filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
 filter_map([], _NofPreds, Map) ->
   Map.
 
-bindings_are_assigned([{_, {assigned, _}}|Left]) ->
-  assert_assigned(Left),
-  true;
-bindings_are_assigned(Bindings) ->
-  assert_not_assigned(Bindings),
-  false.
-
-assert_assigned([{_, {assigned, _}}|Left]) ->
-  assert_assigned(Left);
-assert_assigned([]) ->
-  ok.
-
-assert_not_assigned([{_, FVar}|Left]) ->
-  true = hipe_icode:is_fvar(FVar),
-  assert_not_assigned(Left);
-assert_not_assigned([]) ->
-  ok.
+bindings_all_assigned([]) -> true;
+bindings_all_assigned([{_, {assigned, _}}|Left]) ->
+  bindings_all_assigned(Left);
+bindings_all_assigned(_) -> false.
 
 %% all_args_equal returns true if the mapping for a variable is the
 %% same from all predecessors, i.e., we do not need a phi-node.
 
+%% During the fixpoint loop, a mapping might become assigned, without that
+%% information having propagated into all predecessors. We take care to answer
+%% true even if FVar is only assigned in some predecessors.
+
+all_args_equal([{_, {assigned, FVar}}|Left]) ->
+  all_args_equal(Left, FVar);
 all_args_equal([{_, FVar}|Left]) ->
   all_args_equal(Left, FVar).
 
+all_args_equal([{_, {assigned, FVar1}}|Left], FVar1) ->
+  all_args_equal(Left, FVar1);
 all_args_equal([{_, FVar1}|Left], FVar1) ->
   all_args_equal(Left, FVar1);
 all_args_equal([], _) ->
