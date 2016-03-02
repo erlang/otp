@@ -594,7 +594,8 @@ cleanup_crash_dumps() ->
     delete_files(Dumps).
 
 crash_dump_dir() ->
-    filename:dirname(code:which(?MODULE)).
+    {ok,Dir} = test_server_sup:framework_call(get_log_dir,[]),
+    Dir.
 
 tar_crash_dumps() ->
     Dir = crash_dump_dir(),
