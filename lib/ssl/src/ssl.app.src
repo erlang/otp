@@ -31,6 +31,7 @@
 	       ssl_listen_tracker_sup,	
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
+	       inet6_tls_dist,
 	       ssl_tls_dist_proxy,
 	       ssl_dist_sup,
 	       %% SSL/TLS session handling
