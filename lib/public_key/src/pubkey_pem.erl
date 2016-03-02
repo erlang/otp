@@ -103,7 +103,7 @@ encode_pem_entry({'PrivateKeyInfo', Der, EncParams}) ->
     [StartStr, "\n", b64encode_and_split(EncDer), "\n", pem_end(StartStr) ,"\n\n"];
 encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
     StartStr = pem_start(Type),
-    [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n",
+    [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n\n",
      b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
 
 decode_pem_entries([], Entries) ->
