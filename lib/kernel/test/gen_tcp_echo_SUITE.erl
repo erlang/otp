@@ -69,67 +69,67 @@ end_per_testcase(_Func, _Config) ->
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode).
 active_echo(Config) when is_list(Config) ->
-    ?line echo_test([], fun active_echo/4, [{echo, fun echo_server/0}]).
+    echo_test([], fun active_echo/4, [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode).
 passive_echo(Config) when is_list(Config) ->
-    ?line echo_test([{active, false}], fun passive_echo/4,
-		    [{echo, fun echo_server/0}]).
+    echo_test([{active, false}], fun passive_echo/4,
+	      [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active once mode).
 active_once_echo(Config) when is_list(Config) ->
-    ?line echo_test([{active, once}], fun active_once_echo/4,
-		    [{echo, fun echo_server/0}]).
+    echo_test([{active, once}], fun active_once_echo/4,
+	      [{echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode).
 %% The echo server is a special one that delays between every character.
 slow_active_echo(Config) when is_list(Config) ->
-    ?line echo_test([], fun active_echo/4, 
-		    [slow_echo, {echo, fun slow_echo_server/0}]).
+    echo_test([], fun active_echo/4,
+	      [slow_echo, {echo, fun slow_echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to an echo server and receiving them again (socket in passive mode).
 %% The echo server is a special one that delays between every character.
 slow_passive_echo(Config) when is_list(Config) ->
-    ?line echo_test([{active, false}], fun passive_echo/4,
-		    [slow_echo, {echo, fun slow_echo_server/0}]).
+    echo_test([{active, false}], fun passive_echo/4,
+	      [slow_echo, {echo, fun slow_echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode)
 %% with packet_size limitation.
 limit_active_echo(Config) when is_list(Config) ->
-    ?line echo_test([{packet_size, 10}], 
-		    fun active_echo/4, 
-		    [{packet_size, 10}, {echo, fun echo_server/0}]).
+    echo_test([{packet_size, 10}],
+	      fun active_echo/4,
+	      [{packet_size, 10}, {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode)
 %% with packet_size limitation.
 limit_passive_echo(Config) when is_list(Config) ->
-    ?line echo_test([{packet_size, 10},{active, false}], 
-		    fun passive_echo/4,
-		    [{packet_size, 10}, {echo, fun echo_server/0}]).
+    echo_test([{packet_size, 10},{active, false}],
+	      fun passive_echo/4,
+	      [{packet_size, 10}, {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in active mode)
 %% with large packet_size limitation.
 large_limit_active_echo(Config) when is_list(Config) ->
-    ?line echo_test([{packet_size, 10}], 
-		    fun active_echo/4, 
-		    [{packet_size, (1 bsl 32)-1}, 
-		     {echo, fun echo_server/0}]).
+    echo_test([{packet_size, 10}],
+	      fun active_echo/4,
+	      [{packet_size, (1 bsl 32)-1},
+	       {echo, fun echo_server/0}]).
 
 %% Test sending packets of various sizes and various packet types
 %% to the echo port and receiving them again (socket in passive mode)
 %% with large packet_size limitation.
 large_limit_passive_echo(Config) when is_list(Config) ->
-    ?line echo_test([{packet_size, 10},{active, false}], 
-		    fun passive_echo/4,
-		    [{packet_size, (1 bsl 32) -1}, 
-		     {echo, fun echo_server/0}]).
+    echo_test([{packet_size, 10},{active, false}],
+	      fun passive_echo/4,
+	      [{packet_size, (1 bsl 32) -1},
+	       {echo, fun echo_server/0}]).
 
 echo_test(SockOpts, EchoFun, Config0) ->
     echo_test_1(SockOpts, EchoFun, Config0),
@@ -138,49 +138,49 @@ echo_test(SockOpts, EchoFun, Config0) ->
 
 echo_test_1(SockOpts, EchoFun, Config0) ->
     EchoSrvFun = proplists:get_value(echo, Config0),
-    ?line {ok, EchoPort} = EchoSrvFun(),
-    ?line Config = [{echo_port, EchoPort}|Config0],
-    
-    ?line echo_packet([{packet, 1}|SockOpts], EchoFun, Config),
-    ?line echo_packet([{packet, 2}|SockOpts], EchoFun, Config),
-    ?line echo_packet([{packet, 4}|SockOpts], EchoFun, Config),
-    ?line echo_packet([{packet, sunrm}|SockOpts], EchoFun, Config),
-    ?line echo_packet([{packet, cdr}|SockOpts], EchoFun,
-		      [{type, {cdr, big}}|Config]),
-    ?line echo_packet([{packet, cdr}|SockOpts], EchoFun,
-		      [{type, {cdr, little}}|Config]),
-    ?line case lists:keymember(packet_size, 1, SockOpts) of
-	      false ->
-		  %% This is cheating, we should test that packet_size
-		  %% also works for line and http.
-		  echo_packet([{packet, line}|SockOpts], EchoFun, Config),
-		  echo_packet([{packet, http}|SockOpts], EchoFun, Config),
-		  echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config);
+    {ok, EchoPort} = EchoSrvFun(),
+    Config = [{echo_port, EchoPort}|Config0],
 
-	      true -> ok
-	  end,
-    ?line echo_packet([{packet, tpkt}|SockOpts], EchoFun, Config),
-    
-    ?line ShortTag = [16#E0],
-    ?line LongTag = [16#1F, 16#83, 16#27],
-    ?line echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		      [{type, {asn1, short, ShortTag}}|Config]),
-    ?line echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		      [{type, {asn1, long, ShortTag}}|Config]),
-    ?line echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		      [{type, {asn1, short, LongTag}}|Config]),
-    ?line echo_packet([{packet, asn1}|SockOpts], EchoFun,
-		      [{type, {asn1, long, LongTag}}|Config]),
+    echo_packet([{packet, 1}|SockOpts], EchoFun, Config),
+    echo_packet([{packet, 2}|SockOpts], EchoFun, Config),
+    echo_packet([{packet, 4}|SockOpts], EchoFun, Config),
+    echo_packet([{packet, sunrm}|SockOpts], EchoFun, Config),
+    echo_packet([{packet, cdr}|SockOpts], EchoFun,
+		[{type, {cdr, big}}|Config]),
+    echo_packet([{packet, cdr}|SockOpts], EchoFun,
+		[{type, {cdr, little}}|Config]),
+    case lists:keymember(packet_size, 1, SockOpts) of
+	false ->
+	    %% This is cheating, we should test that packet_size
+	    %% also works for line and http.
+	    echo_packet([{packet, line}|SockOpts], EchoFun, Config),
+	    echo_packet([{packet, http}|SockOpts], EchoFun, Config),
+	    echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config);
+
+	true -> ok
+    end,
+    echo_packet([{packet, tpkt}|SockOpts], EchoFun, Config),
+
+    ShortTag = [16#E0],
+    LongTag = [16#1F, 16#83, 16#27],
+    echo_packet([{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, short, ShortTag}}|Config]),
+    echo_packet([{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, long, ShortTag}}|Config]),
+    echo_packet([{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, short, LongTag}}|Config]),
+    echo_packet([{packet, asn1}|SockOpts], EchoFun,
+		[{type, {asn1, long, LongTag}}|Config]),
     ok.
 
 echo_packet(SockOpts, EchoFun, Opts) ->
     Type = case lists:keysearch(type, 1, Opts) of
-	{value, {type, T}} ->
-	    T;
-	_ ->
-	    {value, {packet, T}} = lists:keysearch(packet, 1, SockOpts),
-	    T
-    end,
+	       {value, {type, T}} ->
+		   T;
+	       _ ->
+		   {value, {packet, T}} = lists:keysearch(packet, 1, SockOpts),
+		   T
+	   end,
 
     %% Connect to the echo server.
     EchoPort = proplists:get_value(echo_port, Opts),
@@ -206,83 +206,78 @@ echo_packet_http(Echo, Type, EchoFun) ->
     EchoFun(Echo, Type, P2, http_reply(P2, Type)).
 
 echo_packet0(Echo, Type, EchoFun, SlowEcho, Opts) ->
-    ?line PacketSize =
+    PacketSize =
 	case lists:keysearch(packet_size, 1, Opts) of
 	    {value,{packet_size,Sz}} when Sz < 10 -> Sz;
 	    {value,{packet_size,_}} -> 10;
 	    false -> 0
 	end,
     %% Echo small packets first.
-    ?line echo_packet1(Echo, Type, EchoFun, 0),
-    ?line echo_packet1(Echo, Type, EchoFun, 1),
-    ?line echo_packet1(Echo, Type, EchoFun, 2),
-    ?line echo_packet1(Echo, Type, EchoFun, 3),
-    ?line echo_packet1(Echo, Type, EchoFun, 4),
-    ?line echo_packet1(Echo, Type, EchoFun, 7),
+    echo_packet1(Echo, Type, EchoFun, 0),
+    echo_packet1(Echo, Type, EchoFun, 1),
+    echo_packet1(Echo, Type, EchoFun, 2),
+    echo_packet1(Echo, Type, EchoFun, 3),
+    echo_packet1(Echo, Type, EchoFun, 4),
+    echo_packet1(Echo, Type, EchoFun, 7),
     if PacketSize =/= 0 ->
-	    ?line echo_packet1(Echo, Type, EchoFun, 
-			       {PacketSize-1, PacketSize}),
-	    ?line echo_packet1(Echo, Type, EchoFun, 
-			       {PacketSize, PacketSize}),
-	    ?line echo_packet1(Echo, Type, EchoFun, 
-			       {PacketSize+1, PacketSize});
+	    echo_packet1(Echo, Type, EchoFun,
+			 {PacketSize-1, PacketSize}),
+	    echo_packet1(Echo, Type, EchoFun,
+			 {PacketSize, PacketSize}),
+	    echo_packet1(Echo, Type, EchoFun,
+			 {PacketSize+1, PacketSize});
        not SlowEcho -> % Go on with bigger packets if not slow echo server.
-	    ?line echo_packet1(Echo, Type, EchoFun, 10),
-	    ?line echo_packet1(Echo, Type, EchoFun, 13),
-	    ?line echo_packet1(Echo, Type, EchoFun, 126),
-	    ?line echo_packet1(Echo, Type, EchoFun, 127),
-	    ?line echo_packet1(Echo, Type, EchoFun, 128),
-	    ?line echo_packet1(Echo, Type, EchoFun, 255),
-	    ?line echo_packet1(Echo, Type, EchoFun, 256),
-	    ?line echo_packet1(Echo, Type, EchoFun, 1023),
-	    ?line echo_packet1(Echo, Type, EchoFun, 3747),
-	    ?line echo_packet1(Echo, Type, EchoFun, 32767),
-	    ?line echo_packet1(Echo, Type, EchoFun, 32768),
-	    ?line echo_packet1(Echo, Type, EchoFun, 65531),
-	    ?line echo_packet1(Echo, Type, EchoFun, 65535),
-	    ?line echo_packet1(Echo, Type, EchoFun, 65536),
-	    ?line echo_packet1(Echo, Type, EchoFun, 70000),
-	    ?line echo_packet1(Echo, Type, EchoFun, infinite);
+	    echo_packet1(Echo, Type, EchoFun, 10),
+	    echo_packet1(Echo, Type, EchoFun, 13),
+	    echo_packet1(Echo, Type, EchoFun, 126),
+	    echo_packet1(Echo, Type, EchoFun, 127),
+	    echo_packet1(Echo, Type, EchoFun, 128),
+	    echo_packet1(Echo, Type, EchoFun, 255),
+	    echo_packet1(Echo, Type, EchoFun, 256),
+	    echo_packet1(Echo, Type, EchoFun, 1023),
+	    echo_packet1(Echo, Type, EchoFun, 3747),
+	    echo_packet1(Echo, Type, EchoFun, 32767),
+	    echo_packet1(Echo, Type, EchoFun, 32768),
+	    echo_packet1(Echo, Type, EchoFun, 65531),
+	    echo_packet1(Echo, Type, EchoFun, 65535),
+	    echo_packet1(Echo, Type, EchoFun, 65536),
+	    echo_packet1(Echo, Type, EchoFun, 70000),
+	    echo_packet1(Echo, Type, EchoFun, infinite);
        true -> ok
     end,
-    ?line gen_tcp:close(Echo),
+    gen_tcp:close(Echo),
     ok.
 
 echo_packet1(EchoSock, Type, EchoFun, Size) ->
-    ?line case packet(Size, Type) of
-	      false ->
-		  ok;
-	      Packet ->
-		  ?line io:format("Type ~p, size ~p, time ~p", 
-				  [Type, Size, time()]),
-		  ?line 
-		      case EchoFun(EchoSock, Type, Packet, [Packet]) of
-			  ok -> 
-			      ?line 
-				  case Size of
-				      {N, Max} when N > Max -> 
-					  ?line 
-					      ct:fail(
-						{packet_through, {N, Max}});
-				      _ -> ok
-				  end;
-			  {error, emsgsize} ->
-			      ?line
-				  case Size of
-				      {N, Max} when N > Max -> 
-					  io:format(" Blocked!");
-				      _ -> 
-					  ?line
-					      ct:fail(
-						{packet_blocked, Size})
-				  end;
-			  Error ->
-			      ct:fail(Error)
-		      end
-	  end.
+    case packet(Size, Type) of
+	false ->
+	    ok;
+	Packet ->
+	    io:format("Type ~p, size ~p, time ~p",
+		      [Type, Size, time()]),
+	    case EchoFun(EchoSock, Type, Packet, [Packet]) of
+		ok ->
+		    case Size of
+			{N, Max} when N > Max ->
+			    ct:fail(
+			      {packet_through, {N, Max}});
+			_ -> ok
+		    end;
+		{error, emsgsize} ->
+		    case Size of
+			{N, Max} when N > Max ->
+			    io:format(" Blocked!");
+			_ ->
+			    ct:fail(
+			      {packet_blocked, Size})
+		    end;
+		Error ->
+		    ct:fail(Error)
+	    end
+    end.
 
 active_echo(Sock, Type, Packet, PacketEchos) ->
-    ?line ok = gen_tcp:send(Sock, Packet),
+    ok = gen_tcp:send(Sock, Packet),
     active_recv(Sock, Type, PacketEchos).
 
 active_recv(_, _, []) ->
@@ -293,21 +288,21 @@ active_recv(Sock, Type, [PacketEcho|Tail]) ->
 	      http_bin -> http;
 	      _ -> tcp
 	  end,
-    ?line receive Recv->Recv end,
+    receive Recv->Recv end,
     %%io:format("Active received: ~p\n",[Recv]),
-    ?line case Recv of
-	      {Tag, Sock, PacketEcho} ->
-		  active_recv(Sock, Type, Tail);
-	      {Tag, Sock, Bad} ->
-		  ct:fail({wrong_data, Bad, expected, PacketEcho});
-	      {tcp_error, Sock, Reason} ->
-		  {error, Reason};
-	      Other ->
-		  ct:fail({unexpected_message, Other, Tag})
-	  end.
+    case Recv of
+	{Tag, Sock, PacketEcho} ->
+	    active_recv(Sock, Type, Tail);
+	{Tag, Sock, Bad} ->
+	    ct:fail({wrong_data, Bad, expected, PacketEcho});
+	{tcp_error, Sock, Reason} ->
+	    {error, Reason};
+	Other ->
+	    ct:fail({unexpected_message, Other, Tag})
+    end.
 
 passive_echo(Sock, _Type, Packet, PacketEchos) ->
-    ?line ok = gen_tcp:send(Sock, Packet),
+    ok = gen_tcp:send(Sock, Packet),
     passive_recv(Sock, PacketEchos).
 
 passive_recv(_, []) ->
@@ -315,22 +310,22 @@ passive_recv(_, []) ->
 passive_recv(Sock, [PacketEcho | Tail]) ->
     Recv = gen_tcp:recv(Sock, 0),
     %%io:format("Passive received: ~p\n",[Recv]),
-    ?line case Recv of
-	      {ok, PacketEcho} ->
-		  passive_recv(Sock, Tail);
-	      {ok, Bad} ->
-		  io:format("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
-		  ct:fail({wrong_data, Bad});
-	      {error,PacketEcho} ->
-		  passive_recv(Sock, Tail); % expected error
-	      {error, _}=Error ->
-		  Error;
-	      Other ->
-		  ct:fail({unexpected_message, Other})
-	  end.
+    case Recv of
+	{ok, PacketEcho} ->
+	    passive_recv(Sock, Tail);
+	{ok, Bad} ->
+	    io:format("Expected: ~p\nGot: ~p\n",[PacketEcho,Bad]),
+	    ct:fail({wrong_data, Bad});
+	{error,PacketEcho} ->
+	    passive_recv(Sock, Tail); % expected error
+	{error, _}=Error ->
+	    Error;
+	Other ->
+	    ct:fail({unexpected_message, Other})
+    end.
 
 active_once_echo(Sock, Type, Packet, PacketEchos) ->
-    ?line ok = gen_tcp:send(Sock, Packet),
+    ok = gen_tcp:send(Sock, Packet),
     active_once_recv(Sock, Type, PacketEchos).
 
 active_once_recv(_, _, []) ->
@@ -341,17 +336,17 @@ active_once_recv(Sock, Type, [PacketEcho | Tail]) ->
 	      http_bin -> http;
 	      _ -> tcp
 	  end,
-    ?line receive
-	      {Tag, Sock, PacketEcho} ->
-		  inet:setopts(Sock, [{active, once}]),
-		  active_once_recv(Sock, Type, Tail);
-	      {Tag, Sock, Bad} ->
-		  ct:fail({wrong_data, Bad});
-	      {tcp_error, Sock, Reason} ->
-		  {error, Reason};
-	      Other ->
-		  ct:fail({unexpected_message, Other, expected, {Tag, Sock, PacketEcho}})
-	  end.
+    receive
+	{Tag, Sock, PacketEcho} ->
+	    inet:setopts(Sock, [{active, once}]),
+	    active_once_recv(Sock, Type, Tail);
+	{Tag, Sock, Bad} ->
+	    ct:fail({wrong_data, Bad});
+	{tcp_error, Sock, Reason} ->
+	    {error, Reason};
+	Other ->
+	    ct:fail({unexpected_message, Other, expected, {Tag, Sock, PacketEcho}})
+    end.
 
 %%% Building of random packets.
 
@@ -434,9 +429,9 @@ put_int32(X, big, List) ->
       (X) band 16#ff | List ];
 put_int32(X, little, List) ->
     [ (X) band 16#ff,
-     (X bsr 8) band 16#ff,
-     (X bsr 16) band 16#ff,
-     (X bsr 24) band 16#ff | List].
+      (X bsr 8) band 16#ff,
+      (X bsr 16) band 16#ff,
+      (X bsr 24) band 16#ff | List].
 
 put_int16(X, ByteOrder) ->
     put_int16(X, ByteOrder, []).
@@ -446,16 +441,16 @@ put_int16(X, big, List) ->
       (X) band 16#ff | List ];
 put_int16(X, little, List) ->
     [ (X) band 16#ff,
-     (X bsr 8) band 16#ff | List ].
+      (X bsr 8) band 16#ff | List ].
 
 %%% A normal echo server, for systems that don't have one.
 
 echo_server() ->
     Self = self(),
-    ?line spawn_link(fun() -> echo_server(Self) end),
-    ?line receive
-	      {echo_port, Port} ->
-		  {ok, Port}
+    spawn_link(fun() -> echo_server(Self) end),
+    receive
+	{echo_port, Port} ->
+	    {ok, Port}
     end.
 
 echo_server(ReplyTo) ->
@@ -488,11 +483,11 @@ echoer_loop(Sock) ->
 
 slow_echo_server() ->
     Self = self(),
-    ?line spawn_link(fun() -> slow_echo_server(Self) end),
-    ?line receive
-	      {echo_port, Port} ->
-		  {ok, Port}
-	  end.
+    spawn_link(fun() -> slow_echo_server(Self) end),
+    receive
+	{echo_port, Port} ->
+	    {ok, Port}
+    end.
 
 slow_echo_server(ReplyTo) ->
     {ok, S} = gen_tcp:listen(0, [{active, false}, {nodelay, true}]),
@@ -528,17 +523,17 @@ slow_send(_, []) ->
 
 http_request(Uri) ->
     list_to_binary(["POST ", Uri, <<" HTTP/1.1\r\n"
-     "Connection: close\r\n"
-     "Host: localhost:8000\r\n"
-     "User-Agent: perl post\r\n"
-     "Content-Length: 4\r\n"
-     "Content-Type: text/xml; charset=utf-8\r\n"
-     "Other-Field: with some text\r\n"
-     "Multi-Line: Once upon a time in a land far far away,\r\n"
-     " there lived a princess imprisoned in the highest tower\r\n"
-     " of the most haunted castle.\r\n"
-     "Invalid line without a colon\r\n"
-     "\r\n">>]).
+				    "Connection: close\r\n"
+				    "Host: localhost:8000\r\n"
+				    "User-Agent: perl post\r\n"
+				    "Content-Length: 4\r\n"
+				    "Content-Type: text/xml; charset=utf-8\r\n"
+				    "Other-Field: with some text\r\n"
+				    "Multi-Line: Once upon a time in a land far far away,\r\n"
+				    " there lived a princess imprisoned in the highest tower\r\n"
+				    " of the most haunted castle.\r\n"
+				    "Invalid line without a colon\r\n"
+				    "\r\n">>]).
 
 http_uri_variants() ->
     ["*",
@@ -551,11 +546,11 @@ http_uri_variants() ->
 
 http_response() ->
     <<"HTTP/1.0 404 Object Not Found\r\n"
-     "Server: inets/4.7.16\r\n"
-     "Date: Fri, 04 Jul 2008 17:16:22 GMT\r\n"
-     "Content-Type: text/html\r\n"
-     "Content-Length: 207\r\n"
-     "\r\n">>.
+      "Server: inets/4.7.16\r\n"
+      "Date: Fri, 04 Jul 2008 17:16:22 GMT\r\n"
+      "Content-Type: text/html\r\n"
+      "Content-Length: 207\r\n"
+      "\r\n">>.
 
 http_reply(Bin, Type) ->
     {ok, Line, Rest} = erlang:decode_packet(Type,Bin,[]),
@@ -572,7 +567,3 @@ http_reply(<<>>, Acc, _) ->
 http_reply(Bin, Acc, HType) ->
     {ok, Line, Rest} = erlang:decode_packet(HType,Bin,[]),	
     http_reply(Rest, [Line | Acc], HType).
-
-
-
-

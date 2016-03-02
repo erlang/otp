@@ -85,10 +85,10 @@ groups() ->
        ring]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 init_per_suite(Config) ->
     Config.
@@ -114,16 +114,16 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(_Case, Config) ->
     ct:log("Calling end_per_testcase!",[]),
-    ?line write_high_level_trace(Config),
-    ?line _ = 
+    write_high_level_trace(Config),
+    _ =
         gen_server:call(global_name_server, high_level_trace_stop, infinity),
     [global:unregister_name(N) || N <- global:registered_names()],
-    ?line InitRegistered = ?registered,
-    ?line Registered = registered(),
-    ?line [io:format("~s local names: ~p~n", [What, N]) ||
-              {What, N} <- [{"Added", Registered -- InitRegistered},
-                            {"Removed", InitRegistered -- Registered}],
-              N =/= []],
+    InitRegistered = ?registered,
+    Registered = registered(),
+    [io:format("~s local names: ~p~n", [What, N]) ||
+	{What, N} <- [{"Added", Registered -- InitRegistered},
+		      {"Removed", InitRegistered -- Registered}],
+	N =/= []],
 
     ok.
 
@@ -150,7 +150,7 @@ register_1(Config) when is_list(Config) ->
     Timeout = 15,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),
+    init_condition(Config),
     P = spawn_link(?MODULE, lock_global, [self(), Config]),
     receive
 	{P, ok} ->
@@ -159,7 +159,7 @@ register_1(Config) when is_list(Config) ->
     end,
     P ! step2,
     io:format("p1: sent step2~n"),
-    ?line yes = global:register_name(foo, self()),
+    yes = global:register_name(foo, self()),
     io:format("p1: registered~n"),
     P ! step3,
     receive
@@ -172,9 +172,9 @@ register_1(Config) when is_list(Config) ->
 	true ->
 	    ct:fail({notsync, I, I2})
     end,
-    ?line _ = global:unregister_name(foo),
+    _ = global:unregister_name(foo),
     write_high_level_trace(Config),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 lock_global(Parent, Config) ->
@@ -201,7 +201,7 @@ lock_global(Parent, Config) ->
     io:format("p2: received step3~n"),
     I = global:whereis_name(foo),
     io:format("p2: name ~p~n", [I]),
-    ?line ?UNTIL(I =:= rpc:call(N1, global, whereis_name, [foo])),
+    ?UNTIL(I =:= rpc:call(N1, global, whereis_name, [foo])),
     I2 = I,
     slave:stop(N1),
     io:format("p2: name2 ~p~n", [I2]),
@@ -218,70 +218,69 @@ both_known_1(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),
+    init_condition(Config),
 
-    ?line OrigNames = global:registered_names(),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], slave, Config),
+    [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], slave, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
-    ?line rpc_disconnect_node(Cp1, Cp2, Config),
+    rpc_disconnect_node(Cp1, Cp2, Config),
 
-    ?line {_Pid1, yes} = rpc:call(Cp1, ?MODULE, start_proc, [p1]),
-    ?line {_Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [p2]),
+    {_Pid1, yes} = rpc:call(Cp1, ?MODULE, start_proc, [p1]),
+    {_Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [p2]),
 
-    ?line Names10 = rpc:call(Cp1, global, registered_names, []),
-    ?line Names20 = rpc:call(Cp2, global, registered_names, []),
-    ?line Names30 = rpc:call(Cp3, global, registered_names, []),
+    Names10 = rpc:call(Cp1, global, registered_names, []),
+    Names20 = rpc:call(Cp2, global, registered_names, []),
+    Names30 = rpc:call(Cp3, global, registered_names, []),
 
     Names1 = Names10 -- OrigNames,
     Names2 = Names20 -- OrigNames,
     Names3 = Names30 -- OrigNames,
 
-    ?line [p1] = lists:sort(Names1),
-    ?line [p2] = lists:sort(Names2),
-    ?line [p1, p2] = lists:sort(Names3),
+    [p1] = lists:sort(Names1),
+    [p2] = lists:sort(Names2),
+    [p1, p2] = lists:sort(Names3),
 
-    ?line Locker = spawn(Cp3, ?MODULE, lock_global2, [{global, l3},
-					     self()]),
+    Locker = spawn(Cp3, ?MODULE, lock_global2, [{global, l3},
+						self()]),
 
-    ?line receive
-	      {locked, S} ->
-		  true = S
-	  end,
+    receive
+	{locked, S} ->
+	    true = S
+    end,
 
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp2]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp2]),
 
     %% Bring cp1 and cp2 together, while someone has locked global.
     %% They will now loop in 'loop_locker'.
 
-    ?line Names10_2 = rpc:call(Cp1, global, registered_names, []),
-    ?line Names20_2 = rpc:call(Cp2, global, registered_names, []),
-    ?line Names30_2 = rpc:call(Cp3, global, registered_names, []),
+    Names10_2 = rpc:call(Cp1, global, registered_names, []),
+    Names20_2 = rpc:call(Cp2, global, registered_names, []),
+    Names30_2 = rpc:call(Cp3, global, registered_names, []),
 
     Names1_2 = Names10_2 -- OrigNames,
     Names2_2 = Names20_2 -- OrigNames,
     Names3_2 = Names30_2 -- OrigNames,
 
-    ?line [p1] = lists:sort(Names1_2),
-    ?line [p2] = lists:sort(Names2_2),
-    ?line [p1, p2] = lists:sort(Names3_2),
+    [p1] = lists:sort(Names1_2),
+    [p2] = lists:sort(Names2_2),
+    [p1, p2] = lists:sort(Names3_2),
 
     %% Let go of the lock, and expect the lockers to resolve the name
     %% registry.
     Locker ! {ok, self()},
 
-    ?line 
     ?UNTIL(begin
-	       ?line Names10_3 = rpc:call(Cp1, global, registered_names, []),
-	       ?line Names20_3 = rpc:call(Cp2, global, registered_names, []),
-	       ?line Names30_3 = rpc:call(Cp3, global, registered_names, []),
-	       
+	       Names10_3 = rpc:call(Cp1, global, registered_names, []),
+	       Names20_3 = rpc:call(Cp2, global, registered_names, []),
+	       Names30_3 = rpc:call(Cp3, global, registered_names, []),
+
 	       Names1_3 = Names10_3 -- OrigNames,
 	       Names2_3 = Names20_3 -- OrigNames,
 	       Names3_3 = Names30_3 -- OrigNames,
-	       
+
 	       N1 = lists:sort(Names1_3),
 	       N2 = lists:sort(Names2_3),
 	       N3 = lists:sort(Names3_3),
@@ -293,7 +292,7 @@ both_known_1(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% OTP-6428. An unregistered name reappears.
@@ -301,41 +300,41 @@ lost_unregister(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),
+    init_condition(Config),
 
-    ?line {ok, B} = start_node(b, Config),
-    ?line {ok, C} = start_node(c, Config),
+    {ok, B} = start_node(b, Config),
+    {ok, C} = start_node(c, Config),
     Nodes = [node(), B, C],
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% start a proc and register it
-    ?line {Pid, yes} = start_proc(test),
+    {Pid, yes} = start_proc(test),
 
-    ?line ?UNTIL(Pid =:= global:whereis_name(test)),
-    ?line check_everywhere(Nodes, test, Config),
+    ?UNTIL(Pid =:= global:whereis_name(test)),
+    check_everywhere(Nodes, test, Config),
 
-    ?line rpc_disconnect_node(B, C, Config),
-    ?line check_everywhere(Nodes, test, Config),
-    ?line _ = rpc:call(B, global, unregister_name, [test]),
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line Pid = rpc:call(C, global, whereis_name, [test]),
-    ?line check_everywhere(Nodes--[C], test, Config),
-    ?line pong = rpc:call(B, net_adm, ping, [C]),
+    rpc_disconnect_node(B, C, Config),
+    check_everywhere(Nodes, test, Config),
+    _ = rpc:call(B, global, unregister_name, [test]),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
+    Pid = rpc:call(C, global, whereis_name, [test]),
+    check_everywhere(Nodes--[C], test, Config),
+    pong = rpc:call(B, net_adm, ping, [C]),
 
     %% Now the name has reappeared on node B.
-    ?line ?UNTIL(Pid =:= global:whereis_name(test)),
-    ?line check_everywhere(Nodes, test, Config),
+    ?UNTIL(Pid =:= global:whereis_name(test)),
+    check_everywhere(Nodes, test, Config),
 
     exit_p(Pid),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line check_everywhere(Nodes, test, Config),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
+    check_everywhere(Nodes, test, Config),
 
     write_high_level_trace(Config),
     stop_node(B),
     stop_node(C),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 -define(UNTIL_LOOP, 300).
@@ -345,7 +344,7 @@ lost_unregister(Config) when is_list(Config) ->
 init_high_level_trace(Time) ->
     Mul = try 
               test_server:timetrap_scale_factor()
-              catch _:_ -> 1 
+	  catch _:_ -> 1
           end,
     put(?end_tag, msec() + Time * Mul * 1000),
     %% Assures that started nodes start the high level trace automatically.
@@ -423,21 +422,20 @@ names(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_node(cp3, Config),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_node(cp3, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% start a proc and register it
-    ?line {Pid, yes} = start_proc(test),
+    {Pid, yes} = start_proc(test),
 
     %% test that it is registered at all nodes
-    ?line 
-    ?UNTIL(begin 
+        ?UNTIL(begin
             (Pid =:= global:whereis_name(test)) and
             (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
             (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
@@ -446,23 +444,22 @@ names(Config) when is_list(Config) ->
            end),
     
     %% try to register the same name
-    ?line no = global:register_name(test, self()),
-    ?line no = rpc:call(Cp1, global, register_name, [test, self()]),
+    no = global:register_name(test, self()),
+    no = rpc:call(Cp1, global, register_name, [test, self()]),
     
     %% let process exit, check that it is unregistered automatically
     exit_p(Pid),
 
-    ?line
-    ?UNTIL((undefined =:= global:whereis_name(test)) and
+        ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
     
     %% test re_register
-    ?line {Pid2, yes} = start_proc(test),
-    ?line ?UNTIL(Pid2 =:= rpc:call(Cp3, global, whereis_name, [test])),
+    {Pid2, yes} = start_proc(test),
+    ?UNTIL(Pid2 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = rpc:call(Cp3, ?MODULE, start_proc2, [test]),
-    ?line ?UNTIL(Pid3 =:= rpc:call(Cp3, global, whereis_name, [test])),
+    ?UNTIL(Pid3 =:= rpc:call(Cp3, global, whereis_name, [test])),
     Pid3 = global:whereis_name(test),
 
     %% test sending
@@ -480,19 +477,18 @@ names(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout2)
     end,
 
-    ?line _ = global:unregister_name(test),
-    ?line
-    ?UNTIL((undefined =:= global:whereis_name(test)) and
+    _ = global:unregister_name(test),
+        ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
 
     exit_p(Pid3),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
 
     %% register a proc
-    ?line {_Pid6, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
+    {_Pid6, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
 
     write_high_level_trace(Config),
 
@@ -501,11 +497,11 @@ names(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
     exit_p(Pid2),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line init_condition(Config),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
+    init_condition(Config),
     ok.
 
 %% Tests that names on a hidden node doesn't interfere with names on
@@ -514,63 +510,60 @@ names_hidden(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
-    ?line OrigNodes = nodes(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
+    OrigNodes = nodes(),
 
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_hidden_node(cp3, Config),
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cp2]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [node()]),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_hidden_node(cp3, Config),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cp2]),
+    pong = rpc:call(Cp3, net_adm, ping, [node()]),
 
-    ?line [] = [Cp1, Cp2 | OrigNodes] -- nodes(),
+    [] = [Cp1, Cp2 | OrigNodes] -- nodes(),
 
     %% start a proc on hidden node and register it
-    ?line {HPid, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
-    ?line Cp3 = node(HPid),
+    {HPid, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
+    Cp3 = node(HPid),
 
     %% Check that it didn't get registered on visible nodes
-    ?line
-    ?UNTIL((undefined =:= global:whereis_name(test)) and
+        ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test]))),
 
     %% start a proc on visible node and register it
-    ?line {Pid, yes} = start_proc(test),
-    ?line true = (Pid =/= HPid),
+    {Pid, yes} = start_proc(test),
+    true = (Pid =/= HPid),
 
     %% test that it is registered at all nodes
-    ?line
-    ?UNTIL((Pid =:= global:whereis_name(test)) and
+        ?UNTIL((Pid =:= global:whereis_name(test)) and
            (Pid =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (Pid =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (HPid =:= rpc:call(Cp3, global, whereis_name, [test])) and
            ([test] =:= global:registered_names() -- OrigNames)),
     
     %% try to register the same name
-    ?line no = global:register_name(test, self()),
-    ?line no = rpc:call(Cp1, global, register_name, [test, self()]),
+    no = global:register_name(test, self()),
+    no = rpc:call(Cp1, global, register_name, [test, self()]),
     
     %% let process exit, check that it is unregistered automatically
     exit_p(Pid),
 
-    ?line 
-    ?UNTIL((undefined =:= global:whereis_name(test)) and
+        ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (HPid      =:= rpc:call(Cp3, global, whereis_name, [test]))),
     
     %% test re_register
-    ?line {Pid2, yes} = start_proc(test),
-    ?line ?UNTIL(Pid2 =:= rpc:call(Cp2, global, whereis_name, [test])),
+    {Pid2, yes} = start_proc(test),
+    ?UNTIL(Pid2 =:= rpc:call(Cp2, global, whereis_name, [test])),
     Pid3 = rpc:call(Cp2, ?MODULE, start_proc2, [test]),
-    ?line ?UNTIL(Pid3 =:= rpc:call(Cp2, global, whereis_name, [test])),
-    ?line Pid3 = global:whereis_name(test),
+    ?UNTIL(Pid3 =:= rpc:call(Cp2, global, whereis_name, [test])),
+    Pid3 = global:whereis_name(test),
 
     %% test sending
-    ?line Pid3 = global:send(test, {ping, self()}),
+    Pid3 = global:send(test, {ping, self()}),
     receive
 	{pong, Cp2} -> ok
     after
@@ -584,16 +577,14 @@ names_hidden(Config) when is_list(Config) ->
 	2000 -> ct:fail(timeout2)
     end,
 
-    ?line _ = rpc:call(Cp3, global, unregister_name, [test]),
-    ?line
-    ?UNTIL((Pid3      =:= global:whereis_name(test)) and
+    _ = rpc:call(Cp3, global, unregister_name, [test]),
+        ?UNTIL((Pid3      =:= global:whereis_name(test)) and
            (Pid3      =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (Pid3      =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
 
-    ?line _ = global:unregister_name(test),
-    ?line
-    ?UNTIL((undefined =:= global:whereis_name(test)) and
+    _ = global:unregister_name(test),
+        ?UNTIL((undefined =:= global:whereis_name(test)) and
            (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
            (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))),
@@ -601,7 +592,7 @@ names_hidden(Config) when is_list(Config) ->
     exit_p(Pid3),
     exit_p(HPid),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
 
     write_high_level_trace(Config),
 
@@ -610,34 +601,34 @@ names_hidden(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 locks(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_node(cp3, Config),
+    init_condition(Config),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_node(cp3, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% start two procs
-    ?line Pid = start_proc(),
-    ?line Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    Pid = start_proc(),
+    Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
 
     %% set a lock, and make sure noone else can set the same lock
-    ?line true = global:set_lock({test_lock, self()}, ?NODES, 1),
-    ?line false = req(Pid, {set_lock, test_lock, self()}),
-    ?line false = req(Pid2, {set_lock, test_lock, self()}),
+    true = global:set_lock({test_lock, self()}, ?NODES, 1),
+    false = req(Pid, {set_lock, test_lock, self()}),
+    false = req(Pid2, {set_lock, test_lock, self()}),
 
     %% delete, and let another proc set the lock
     global:del_lock({test_lock, self()}),
-    ?line true = req(Pid, {set_lock, test_lock, self()}),
-    ?line false = req(Pid2, {set_lock, test_lock, self()}),
-    ?line false = global:set_lock({test_lock, self()}, ?NODES,1),
+    true = req(Pid, {set_lock, test_lock, self()}),
+    false = req(Pid2, {set_lock, test_lock, self()}),
+    false = global:set_lock({test_lock, self()}, ?NODES,1),
 
     %% kill lock-holding proc, make sure the lock is released
     exit_p(Pid),
@@ -662,65 +653,65 @@ locks(Config) when is_list(Config) ->
     end,
 
     %% let proc set the same lock
-    ?line true = req(Pid2, {set_lock, test_lock, self()}),
+    true = req(Pid2, {set_lock, test_lock, self()}),
 
     %% let proc set new lock
-    ?line true = req(Pid2, {set_lock, test_lock2, self()}),
-    ?line false = global:set_lock({test_lock, self()},?NODES,1),    
-    ?line false = global:set_lock({test_lock2, self()}, ?NODES,1),    
+    true = req(Pid2, {set_lock, test_lock2, self()}),
+    false = global:set_lock({test_lock, self()},?NODES,1),
+    false = global:set_lock({test_lock2, self()}, ?NODES,1),
     exit_p(Pid2),
     ?UNTIL(true =:= global:set_lock({test_lock, self()}, ?NODES, 1)),
     ?UNTIL(true =:= global:set_lock({test_lock2, self()}, ?NODES, 1)),
-    ?line global:del_lock({test_lock, self()}),
-    ?line global:del_lock({test_lock2, self()}),
+    global:del_lock({test_lock, self()}),
+    global:del_lock({test_lock2, self()}),
 
     %% let proc set two locks
-    ?line Pid3 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    ?line true = req(Pid3, {set_lock, test_lock, self()}),
-    ?line true = req(Pid3, {set_lock, test_lock2, self()}),
+    Pid3 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    true = req(Pid3, {set_lock, test_lock, self()}),
+    true = req(Pid3, {set_lock, test_lock2, self()}),
 
     %% del one lock
-    ?line Pid3 ! {del_lock, test_lock2},
+    Pid3 ! {del_lock, test_lock2},
     ct:sleep(100),
 
     %% check that one lock is still set, but not the other
-    ?line false = global:set_lock({test_lock, self()}, ?NODES, 1),    
-    ?line true = global:set_lock({test_lock2, self()}, ?NODES, 1),    
-    ?line global:del_lock({test_lock2, self()}),
+    false = global:set_lock({test_lock, self()}, ?NODES, 1),
+    true = global:set_lock({test_lock2, self()}, ?NODES, 1),
+    global:del_lock({test_lock2, self()}),
 
     %% kill lock-holder
     exit_p(Pid3),
 
     ?UNTIL(true =:= global:set_lock({test_lock, self()}, ?NODES, 1)),
-    ?line global:del_lock({test_lock, self()}),
+    global:del_lock({test_lock, self()}),
     ?UNTIL(true =:= global:set_lock({test_lock2, self()}, ?NODES, 1)),
-    ?line global:del_lock({test_lock2, self()}),
+    global:del_lock({test_lock2, self()}),
 
     %% start one proc on each node
-    ?line Pid4 = start_proc(),
-    ?line Pid5 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    ?line Pid6 = rpc:call(Cp2, ?MODULE, start_proc, []),
-    ?line Pid7 = rpc:call(Cp3, ?MODULE, start_proc, []),
+    Pid4 = start_proc(),
+    Pid5 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    Pid6 = rpc:call(Cp2, ?MODULE, start_proc, []),
+    Pid7 = rpc:call(Cp3, ?MODULE, start_proc, []),
 
     %% set lock on two nodes
-    ?line true = req(Pid4, {set_lock, test_lock, self(), [node(), Cp1]}),
-    ?line false = req(Pid5, {set_lock, test_lock, self(), [node(), Cp1]}),
+    true = req(Pid4, {set_lock, test_lock, self(), [node(), Cp1]}),
+    false = req(Pid5, {set_lock, test_lock, self(), [node(), Cp1]}),
 
     %% set same lock on other two nodes
-    ?line true = req(Pid6, {set_lock, test_lock, self(), [Cp2, Cp3]}),
-    ?line false = req(Pid7, {set_lock, test_lock, self(), [Cp2, Cp3]}),
+    true = req(Pid6, {set_lock, test_lock, self(), [Cp2, Cp3]}),
+    false = req(Pid7, {set_lock, test_lock, self(), [Cp2, Cp3]}),
 
     %% release lock
     Pid6 ! {del_lock, test_lock, [Cp2, Cp3]},
 
     %% try to set lock on a node that already has the lock
-    ?line false = req(Pid6, {set_lock, test_lock, self(), [Cp1, Cp2, Cp3]}),
+    false = req(Pid6, {set_lock, test_lock, self(), [Cp1, Cp2, Cp3]}),
 
     %% set lock on a node
     exit_p(Pid4),
     ?UNTIL(true =:= req(Pid5, {set_lock, test_lock, self(), [node(), Cp1]})),
-    ?line Pid8 = start_proc(),
-    ?line false = req(Pid8, {set_lock, test_lock, self()}),
+    Pid8 = start_proc(),
+    false = req(Pid8, {set_lock, test_lock, self()}),
     write_high_level_trace(Config),
 
     %% stop the nodes, and make sure locks are released.
@@ -728,13 +719,13 @@ locks(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
     ct:sleep(100),
-    ?line true = req(Pid8, {set_lock, test_lock, self()}),
+    true = req(Pid8, {set_lock, test_lock, self()}),
     exit_p(Pid8),
     ct:sleep(10),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 
 %% Tests that locks on a hidden node doesn't interere with locks on
 %% visible nodes.
@@ -742,34 +733,34 @@ locks_hidden(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNodes = nodes(),
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_hidden_node(cp3, Config),
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cp2]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [node()]),
+    init_condition(Config),
+    OrigNodes = nodes(),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_hidden_node(cp3, Config),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cp2]),
+    pong = rpc:call(Cp3, net_adm, ping, [node()]),
 
-    ?line [] = [Cp1, Cp2 | OrigNodes] -- nodes(),
+    [] = [Cp1, Cp2 | OrigNodes] -- nodes(),
 
     %% start two procs
-    ?line Pid = start_proc(),
-    ?line Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    ?line HPid = rpc:call(Cp3, ?MODULE, start_proc, []),
+    Pid = start_proc(),
+    Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    HPid = rpc:call(Cp3, ?MODULE, start_proc, []),
 
     %% Make sure hidden node doesn't interfere with visible nodes lock
-    ?line true = req(HPid, {set_lock, test_lock, self()}), 
-    ?line true = global:set_lock({test_lock, self()}, ?NODES, 1),
-    ?line false = req(Pid, {set_lock, test_lock, self()}),
-    ?line true = req(HPid, {del_lock_sync, test_lock, self()}),     
-    ?line false = req(Pid2, {set_lock, test_lock, self()}),
+    true = req(HPid, {set_lock, test_lock, self()}),
+    true = global:set_lock({test_lock, self()}, ?NODES, 1),
+    false = req(Pid, {set_lock, test_lock, self()}),
+    true = req(HPid, {del_lock_sync, test_lock, self()}),
+    false = req(Pid2, {set_lock, test_lock, self()}),
 
     %% delete, and let another proc set the lock
     global:del_lock({test_lock, self()}),
-    ?line true = req(Pid, {set_lock, test_lock, self()}),
-    ?line false = req(Pid2, {set_lock, test_lock, self()}),
-    ?line false = global:set_lock({test_lock, self()}, ?NODES,1),
+    true = req(Pid, {set_lock, test_lock, self()}),
+    false = req(Pid2, {set_lock, test_lock, self()}),
+    false = global:set_lock({test_lock, self()}, ?NODES,1),
 
     %% kill lock-holding proc, make sure the lock is released
     exit_p(Pid),
@@ -793,24 +784,24 @@ locks_hidden(Config) when is_list(Config) ->
         %% set_lock
 	12000 -> ct:fail(got_lock2)
     end,
-    ?line true = req(HPid, {del_lock_sync, test_lock, self()}),     
+    true = req(HPid, {del_lock_sync, test_lock, self()}),
 
     %% let proc set the same lock
-    ?line true = req(Pid2, {set_lock, test_lock, self()}),
+    true = req(Pid2, {set_lock, test_lock, self()}),
 
     %% let proc set new lock
-    ?line true = req(Pid2, {set_lock, test_lock2, self()}),
-    ?line true = req(HPid, {set_lock, test_lock, self()}), 
-    ?line true = req(HPid, {set_lock, test_lock2, self()}), 
+    true = req(Pid2, {set_lock, test_lock2, self()}),
+    true = req(HPid, {set_lock, test_lock, self()}),
+    true = req(HPid, {set_lock, test_lock2, self()}),
     exit_p(HPid),
-    ?line false = global:set_lock({test_lock, self()},?NODES,1),    
-    ?line false = global:set_lock({test_lock2, self()}, ?NODES,1),    
+    false = global:set_lock({test_lock, self()},?NODES,1),
+    false = global:set_lock({test_lock2, self()}, ?NODES,1),
 
     exit_p(Pid2),
     ?UNTIL(true =:= global:set_lock({test_lock, self()}, ?NODES, 1)),
     ?UNTIL(true =:= global:set_lock({test_lock2, self()}, ?NODES, 1)),
-    ?line global:del_lock({test_lock, self()}),
-    ?line global:del_lock({test_lock2, self()}),
+    global:del_lock({test_lock, self()}),
+    global:del_lock({test_lock2, self()}),
 
     write_high_level_trace(Config),
 
@@ -819,80 +810,79 @@ locks_hidden(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 
 bad_input(Config) when is_list(Config) ->
     Timeout = 15,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
+    init_condition(Config),
     Pid = whereis(global_name_server),
-    ?line {'EXIT', _} = (catch global:set_lock(bad_id)),
-    ?line {'EXIT', _} = (catch global:set_lock({id, self()}, bad_nodes)),
-    ?line {'EXIT', _} = (catch global:del_lock(bad_id)),
-    ?line {'EXIT', _} = (catch global:del_lock({id, self()}, bad_nodes)),
-    ?line {'EXIT', _} = (catch global:register_name(name, bad_pid)),
-    ?line {'EXIT', _} = (catch global:reregister_name(name, bad_pid)),
-    ?line {'EXIT', _} = (catch global:trans(bad_id, {m,f})),
-    ?line {'EXIT', _} = (catch global:trans({id, self()}, {m,f}, [node()], -1)),
-    ?line Pid = whereis(global_name_server),
-    ?line init_condition(Config),
+    {'EXIT', _} = (catch global:set_lock(bad_id)),
+    {'EXIT', _} = (catch global:set_lock({id, self()}, bad_nodes)),
+    {'EXIT', _} = (catch global:del_lock(bad_id)),
+    {'EXIT', _} = (catch global:del_lock({id, self()}, bad_nodes)),
+    {'EXIT', _} = (catch global:register_name(name, bad_pid)),
+    {'EXIT', _} = (catch global:reregister_name(name, bad_pid)),
+    {'EXIT', _} = (catch global:trans(bad_id, {m,f})),
+    {'EXIT', _} = (catch global:trans({id, self()}, {m,f}, [node()], -1)),
+    Pid = whereis(global_name_server),
+    init_condition(Config),
     ok.
 
 names_and_locks(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_node(cp3, Config),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_node(cp3, Config),
 
     %% start one proc on each node
-    ?line PidTS = start_proc(),
-    ?line Pid1 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    ?line Pid2 = rpc:call(Cp2, ?MODULE, start_proc, []),
-    ?line Pid3 = rpc:call(Cp3, ?MODULE, start_proc, []),
+    PidTS = start_proc(),
+    Pid1 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    Pid2 = rpc:call(Cp2, ?MODULE, start_proc, []),
+    Pid3 = rpc:call(Cp3, ?MODULE, start_proc, []),
 
     %% register some of them
-    ?line yes = global:register_name(test1, Pid1),
-    ?line yes = global:register_name(test2, Pid2),
-    ?line yes = global:register_name(test3, Pid3),
-    ?line no = global:register_name(test3, PidTS),
-    ?line yes = global:register_name(test4, PidTS),
-    
+    yes = global:register_name(test1, Pid1),
+    yes = global:register_name(test2, Pid2),
+    yes = global:register_name(test3, Pid3),
+    no = global:register_name(test3, PidTS),
+    yes = global:register_name(test4, PidTS),
+
     %% set lock on two nodes
-    ?line true = req(PidTS, {set_lock, test_lock, self(), [node(), Cp1]}),
-    ?line false = req(Pid1, {set_lock, test_lock, self(), [node(), Cp1]}),
+    true = req(PidTS, {set_lock, test_lock, self(), [node(), Cp1]}),
+    false = req(Pid1, {set_lock, test_lock, self(), [node(), Cp1]}),
 
     %% set same lock on other two nodes
-    ?line true = req(Pid2, {set_lock, test_lock, self(), [Cp2, Cp3]}),
-    ?line false = req(Pid3, {set_lock, test_lock, self(), [Cp2, Cp3]}),
+    true = req(Pid2, {set_lock, test_lock, self(), [Cp2, Cp3]}),
+    false = req(Pid3, {set_lock, test_lock, self(), [Cp2, Cp3]}),
 
     %% release lock
     Pid2 ! {del_lock, test_lock, [Cp2, Cp3]},
     ct:sleep(100),
 
     %% try to set lock on a node that already has the lock
-    ?line false = req(Pid2, {set_lock, test_lock, self(), [Cp1, Cp2, Cp3]}),
+    false = req(Pid2, {set_lock, test_lock, self(), [Cp1, Cp2, Cp3]}),
 
     %% set two locks
-    ?line true = req(Pid2, {set_lock, test_lock, self(), [Cp2, Cp3]}),
-    ?line true = req(Pid2, {set_lock, test_lock2, self(), [Cp2, Cp3]}),
+    true = req(Pid2, {set_lock, test_lock, self(), [Cp2, Cp3]}),
+    true = req(Pid2, {set_lock, test_lock2, self(), [Cp2, Cp3]}),
 
     %% kill some processes, make sure all locks/names are released
     exit_p(PidTS),
-    ?line ?UNTIL(undefined =:= global:whereis_name(test4)),
-    ?line true = global:set_lock({test_lock, self()}, [node(), Cp1], 1),    
+    ?UNTIL(undefined =:= global:whereis_name(test4)),
+    true = global:set_lock({test_lock, self()}, [node(), Cp1], 1),
     global:del_lock({test_lock, self()}, [node(), Cp1]),
     
     exit_p(Pid2),
-    ?line
-    ?UNTIL((undefined =:= global:whereis_name(test2)) and
+        ?UNTIL((undefined =:= global:whereis_name(test2)) and
            (true =:= global:set_lock({test_lock, self()}, [Cp2, Cp3], 1)) and
            (true =:= global:set_lock({test_lock2, self()}, [Cp2, Cp3], 1))),
 
@@ -902,53 +892,53 @@ names_and_locks(Config) when is_list(Config) ->
     exit_p(Pid1),
     exit_p(Pid3),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 %% OTP-6341. Remove locks using monitors.
 lock_die(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
 
     %% First test.
     LockId = {id, self()},
-    ?line Pid2 = start_proc(),
-    ?line true = req(Pid2, {set_lock2, LockId, self()}),
+    Pid2 = start_proc(),
+    true = req(Pid2, {set_lock2, LockId, self()}),
 
-    ?line true = global:set_lock(LockId, [Cp1]),
+    true = global:set_lock(LockId, [Cp1]),
     %% Id is locked on Cp1 and Cp2 (by Pid2) but not by self(): 
     %% (there is no mon. ref)
-    ?line _ = global:del_lock(LockId, [node(), Cp1, Cp2]),
+    _ = global:del_lock(LockId, [node(), Cp1, Cp2]),
 
-    ?line exit_p(Pid2),
-    
+    exit_p(Pid2),
+
     %% Second test.
-    ?line Pid3 = start_proc(),
-    ?line true = req(Pid3, {set_lock, id, self(), [Cp1]}),
+    Pid3 = start_proc(),
+    true = req(Pid3, {set_lock, id, self(), [Cp1]}),
     %% The lock is removed from Cp1 thanks to monitors.
-    ?line exit_p(Pid3),
-    
-    ?line true = global:set_lock(LockId, [node(), Cp1]),
-    ?line _ = global:del_lock(LockId, [node(), Cp1]),
+    exit_p(Pid3),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    true = global:set_lock(LockId, [node(), Cp1]),
+    _ = global:del_lock(LockId, [node(), Cp1]),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
     write_high_level_trace(Config),
     stop_node(Cp1),
     stop_node(Cp2),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% OTP-6341. Remove names using monitors.
@@ -956,59 +946,59 @@ name_die(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
-    ?line [Cp1] = Cps = start_nodes([z], peer,  Config), % z > test_server
+    init_condition(Config),
+    OrigNames = global:registered_names(),
+    [Cp1] = Cps = start_nodes([z], peer,  Config), % z > test_server
     Nodes = lists:sort([node() | Cps]),
-    ?line wait_for_ready_net(Config),
-    
+    wait_for_ready_net(Config),
+
     Name = name_die,
-    ?line Pid = rpc:call(Cp1, ?MODULE, start_proc, []),
+    Pid = rpc:call(Cp1, ?MODULE, start_proc, []),
 
     %% Test 1. No resolver is called if the same pid is registered on
     %% both partitions.
     T1 = node(),
     Part1 = [T1],
     Part2 = [Cp1],
-    ?line rpc_cast(Cp1, 
-                   ?MODULE, part_2_2, [Config,
-                                       Part1, 
-                                       Part2, 
-                                       []]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    ?line ?UNTIL(undefined =:= global:whereis_name(Name)),
-    ?line yes = global:register_name(Name, Pid),
+    rpc_cast(Cp1,
+	     ?MODULE, part_2_2, [Config,
+				 Part1,
+				 Part2,
+				 []]),
+    ?UNTIL(is_ready_partition(Config)),
+    ?UNTIL(undefined =:= global:whereis_name(Name)),
+    yes = global:register_name(Name, Pid),
 
-    ?line pong = net_adm:ping(Cp1),
-    ?line wait_for_ready_net(Nodes, Config),
-    ?line assert_pid(global:whereis_name(Name)),
+    pong = net_adm:ping(Cp1),
+    wait_for_ready_net(Nodes, Config),
+    assert_pid(global:whereis_name(Name)),
     exit_p(Pid),
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     %% Test 2. Register a name running outside the current partition.
     %% Killing the pid will not remove the name from the current
     %% partition, unless monitors are used.
-    ?line Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    Pid2 = rpc:call(Cp1, ?MODULE, start_proc, []),
     Dir = proplists:get_value(priv_dir, Config),
     KillFile = filename:join([Dir, "kill.txt"]),
     file:delete(KillFile),
-    ?line erlang:spawn(Cp1, fun() -> kill_pid(Pid2, KillFile, Config) end),
-    ?line rpc_cast(Cp1, 
-                   ?MODULE, part_2_2, [Config,
-                                       Part1, 
-                                       Part2, 
-                                       []]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    ?line ?UNTIL(undefined =:= global:whereis_name(Name)),
-    ?line yes = global:register_name(Name, Pid2),
-    ?line touch(KillFile, "kill"),    
-    ?line file_contents(KillFile, "done", Config),
+    erlang:spawn(Cp1, fun() -> kill_pid(Pid2, KillFile, Config) end),
+    rpc_cast(Cp1,
+	     ?MODULE, part_2_2, [Config,
+				 Part1,
+				 Part2,
+				 []]),
+    ?UNTIL(is_ready_partition(Config)),
+    ?UNTIL(undefined =:= global:whereis_name(Name)),
+    yes = global:register_name(Name, Pid2),
+    touch(KillFile, "kill"),
+    file_contents(KillFile, "done", Config),
     file:delete(KillFile),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
     write_high_level_trace(Config),
     stop_nodes(Cps),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 kill_pid(Pid, File, Config) ->
@@ -1021,52 +1011,52 @@ basic_partition(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], peer, Config),
-    ?line [Cp1, Cp2, Cp3] = lists:sort(nodes()),
+    [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], peer, Config),
+    [Cp1, Cp2, Cp3] = lists:sort(nodes()),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% make cp2 and cp3 connected, partitioned from us and cp1
-    ?line rpc_cast(Cp2, ?MODULE, part1, [Config, node(), Cp1, Cp3]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-   
+    rpc_cast(Cp2, ?MODULE, part1, [Config, node(), Cp1, Cp3]),
+    ?UNTIL(is_ready_partition(Config)),
+
     %% start different processes in both partitions
-    ?line {Pid, yes} = start_proc(test),
+    {Pid, yes} = start_proc(test),
 
     %% connect to other partition
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line [Cp1, Cp2, Cp3] = lists:sort(nodes()),
-    
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    [Cp1, Cp2, Cp3] = lists:sort(nodes()),
+
     %% check names
-    ?line ?UNTIL(Pid =:= rpc:call(Cp2, global, whereis_name, [test])),
-    ?line ?UNTIL(undefined =/= global:whereis_name(test2)),
-    ?line Pid2 = global:whereis_name(test2),
-    ?line Pid2 = rpc:call(Cp2, global, whereis_name, [test2]),
-    ?line assert_pid(Pid2),
-    ?line Pid3 = global:whereis_name(test4),
-    ?line ?UNTIL(Pid3 =:= rpc:call(Cp1, global, whereis_name, [test4])),
-    ?line assert_pid(Pid3),
+    ?UNTIL(Pid =:= rpc:call(Cp2, global, whereis_name, [test])),
+    ?UNTIL(undefined =/= global:whereis_name(test2)),
+    Pid2 = global:whereis_name(test2),
+    Pid2 = rpc:call(Cp2, global, whereis_name, [test2]),
+    assert_pid(Pid2),
+    Pid3 = global:whereis_name(test4),
+    ?UNTIL(Pid3 =:= rpc:call(Cp1, global, whereis_name, [test4])),
+    assert_pid(Pid3),
 
     %% kill all procs
-    ?line Pid3 = global:send(test4, die),
+    Pid3 = global:send(test4, die),
     %% sleep to let the proc die
     wait_for_exit(Pid3),
-    ?line ?UNTIL(undefined =:= global:whereis_name(test4)),
-    
+    ?UNTIL(undefined =:= global:whereis_name(test4)),
+
     exit_p(Pid),
     exit_p(Pid2),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Creates two partitions with two nodes in each partition.
@@ -1076,14 +1066,14 @@ basic_name_partition(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], peer, Config),
-    ?line [Cp1, Cp2, Cp3] = lists:sort(nodes()),
+    [Cp1, Cp2, Cp3] = start_nodes([cp1, cp2, cp3], peer, Config),
+    [Cp1, Cp2, Cp3] = lists:sort(nodes()),
     Nodes = ?NODES,
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% There used to be more than one name registered for some
     %% processes. That was a mistake; there is no support for more than
@@ -1097,53 +1087,52 @@ basic_name_partition(Config) when is_list(Config) ->
     %% cp1: register name12
     %% cp2: register name12
     %% cp3: register name03
-    
-    ?line rpc_cast(Cp2, ?MODULE, part1_5, [Config, node(), Cp1, Cp3]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    
+
+    rpc_cast(Cp2, ?MODULE, part1_5, [Config, node(), Cp1, Cp3]),
+    ?UNTIL(is_ready_partition(Config)),
+
     %% start different processes in both partitions
-    ?line {_, yes} = start_proc_basic(name03),
-    ?line {_, yes} = rpc:call(Cp1, ?MODULE, start_proc_basic, [name12]),
+    {_, yes} = start_proc_basic(name03),
+    {_, yes} = rpc:call(Cp1, ?MODULE, start_proc_basic, [name12]),
     ct:sleep(1000),
 
     %% connect to other partition
-    ?line pong = net_adm:ping(Cp3),
-    
-    ?line ?UNTIL([Cp1, Cp2, Cp3] =:= lists:sort(nodes())),
-    ?line wait_for_ready_net(Config),
+    pong = net_adm:ping(Cp3),
+
+    ?UNTIL([Cp1, Cp2, Cp3] =:= lists:sort(nodes())),
+    wait_for_ready_net(Config),
 
     %% check names
-    ?line Pid03 = global:whereis_name(name03),
-    ?line assert_pid(Pid03),
-    ?line true = lists:member(node(Pid03), [node(), Cp3]),
-    ?line check_everywhere(Nodes, name03, Config),
-   
-    ?line Pid12 = global:whereis_name(name12),
-    ?line assert_pid(Pid12),
-    ?line true = lists:member(node(Pid12), [Cp1, Cp2]),
-    ?line check_everywhere(Nodes, name12, Config),
+    Pid03 = global:whereis_name(name03),
+    assert_pid(Pid03),
+    true = lists:member(node(Pid03), [node(), Cp3]),
+    check_everywhere(Nodes, name03, Config),
+
+    Pid12 = global:whereis_name(name12),
+    assert_pid(Pid12),
+    true = lists:member(node(Pid12), [Cp1, Cp2]),
+    check_everywhere(Nodes, name12, Config),
 
     %% kill all procs
-    ?line Pid12 = global:send(name12, die),
-    ?line Pid03 = global:send(name03, die),
+    Pid12 = global:send(name12, die),
+    Pid03 = global:send(name03, die),
 
     %% sleep to let the procs die
     wait_for_exit(Pid12),
     wait_for_exit(Pid03),
-    ?line 
     ?UNTIL(begin
 	       Names = [name03, name12],
 	       lists:duplicate(length(Names), undefined)
 		   =:= [global:whereis_name(Name) || Name <- Names]
 	   end),
-    
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Peer nodes cp0 - cp6 are started. Break apart the connections from
@@ -1165,31 +1154,30 @@ advanced_partition(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]
 	= start_nodes([cp0, cp1, cp2, cp3, cp4, cp5, cp6], peer, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]),
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% make cp3-cp6 connected, partitioned from us and cp0-cp2
-    ?line rpc_cast(Cp3, ?MODULE, part2,
-                   [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    
+    rpc_cast(Cp3, ?MODULE, part2,
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+    ?UNTIL(is_ready_partition(Config)),
+
     %% start different processes in this partition
-    ?line start_procs(self(), Cp0, Cp1, Cp2, Config),
+    start_procs(self(), Cp0, Cp1, Cp2, Config),
 
     %% connect to other partition
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
-    ?line pong = net_adm:ping(Cp6),
-    
-    ?line wait_for_ready_net(Config),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp6),
 
-    ?line 
+    wait_for_ready_net(Config),
+
     ?UNTIL(lists:member(undefined,
 			[rpc:call(Cp3, erlang, whereis, [test1]),
 			 rpc:call(node(), erlang, whereis, [test1])])),
@@ -1205,41 +1193,41 @@ advanced_partition(Config) when is_list(Config) ->
     _Mt4 = rpc:call(Cp2, erlang, whereis, [test4]),
 
     %% check names
-    ?line Pid1 = global:whereis_name(test1),
-    ?line Pid1 = rpc:call(Cp3, global, whereis_name, [test1]),
-    ?line assert_pid(Pid1),
-    ?line true = lists:member(Pid1, [Nt1, Mt1]),
-    ?line true = lists:member(undefined, [Nt1, Mt1]),
-    ?line check_everywhere(Nodes, test1, Config),
-    
-    ?line undefined = global:whereis_name(test2),
-    ?line undefined = rpc:call(Cp3, global, whereis_name, [test2]),
-    ?line yes = sreq(Nt2, {got_notify, self()}),
-    ?line yes = sreq(Mt2, {got_notify, self()}),
-    ?line check_everywhere(Nodes, test2, Config),
+    Pid1 = global:whereis_name(test1),
+    Pid1 = rpc:call(Cp3, global, whereis_name, [test1]),
+    assert_pid(Pid1),
+    true = lists:member(Pid1, [Nt1, Mt1]),
+    true = lists:member(undefined, [Nt1, Mt1]),
+    check_everywhere(Nodes, test1, Config),
 
-    ?line Pid3 = global:whereis_name(test3),
-    ?line Pid3 = rpc:call(Cp3, global, whereis_name, [test3]),
-    ?line assert_pid(Pid3),
-    ?line true = lists:member(Pid3, [Nt3, Mt3]),
-    ?line no = sreq(Pid3, {got_notify, self()}),
-    ?line yes = sreq(other(Pid3, [Nt2, Nt3]), {got_notify, self()}),
-    ?line check_everywhere(Nodes, test3, Config),
+    undefined = global:whereis_name(test2),
+    undefined = rpc:call(Cp3, global, whereis_name, [test2]),
+    yes = sreq(Nt2, {got_notify, self()}),
+    yes = sreq(Mt2, {got_notify, self()}),
+    check_everywhere(Nodes, test2, Config),
 
-    ?line Pid4 = global:whereis_name(test4),
-    ?line Pid4 = rpc:call(Cp3, global, whereis_name, [test4]),
-    ?line assert_pid(Pid4),
-    ?line Pid4 = Nt4,
-    ?line check_everywhere(Nodes, test4, Config),
-    
-    ?line 1 = collect_resolves(),
+    Pid3 = global:whereis_name(test3),
+    Pid3 = rpc:call(Cp3, global, whereis_name, [test3]),
+    assert_pid(Pid3),
+    true = lists:member(Pid3, [Nt3, Mt3]),
+    no = sreq(Pid3, {got_notify, self()}),
+    yes = sreq(other(Pid3, [Nt2, Nt3]), {got_notify, self()}),
+    check_everywhere(Nodes, test3, Config),
 
-    ?line Pid1 = global:send(test1, die),
+    Pid4 = global:whereis_name(test4),
+    Pid4 = rpc:call(Cp3, global, whereis_name, [test4]),
+    assert_pid(Pid4),
+    Pid4 = Nt4,
+    check_everywhere(Nodes, test4, Config),
+
+    1 = collect_resolves(),
+
+    Pid1 = global:send(test1, die),
     exit_p(Pid3),
     exit_p(Pid4),
     wait_for_exit(Pid1),
     wait_for_exit(Pid3),
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1249,9 +1237,9 @@ advanced_partition(Config) when is_list(Config) ->
     stop_node(Cp4),
     stop_node(Cp5),
     stop_node(Cp6),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 %% Peer nodes cp0 - cp6 are started, and partitioned just like in
 %% advanced_partition. Start cp8, only connected to test_server. Let cp6
 %% break apart from the rest, and 12 s later, ping cp0 and cp3, and
@@ -1267,25 +1255,25 @@ stress_partition(Config) when is_list(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6]
 	= start_nodes([cp0, cp1, cp2, cp3, cp4, cp5, cp6], peer, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% make cp3-cp5 connected, partitioned from us and cp0-cp2
     %% cp6 is alone (single node).  cp6 pings cp0 and cp3 in 12 secs...
-    ?line rpc_cast(Cp3, ?MODULE, part3,
-                   [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    
-    %% start different processes in this partition
-    ?line start_procs(self(), Cp0, Cp1, Cp2, Config),
+    rpc_cast(Cp3, ?MODULE, part3,
+	     [Config, self(), node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5,Cp6]),
+    ?UNTIL(is_ready_partition(Config)),
 
-    ?line {ok, Cp8} = start_peer_node(cp8, Config),
-    
+    %% start different processes in this partition
+    start_procs(self(), Cp0, Cp1, Cp2, Config),
+
+    {ok, Cp8} = start_peer_node(cp8, Config),
+
     monitor_node(Cp5, true),
     receive
 	{nodedown, Cp5} -> ok
@@ -1295,44 +1283,44 @@ stress_partition(Config) when is_list(Config) ->
     monitor_node(Cp5, false),    
 
     %% Ok, now cp6 pings us, and cp5 will go down.
-    
+
     %% connect to other partition
-    ?line pong = net_adm:ping(Cp3),
-    ?line rpc_cast(Cp2, ?MODULE, crash, [0]),
-    
+    pong = net_adm:ping(Cp3),
+    rpc_cast(Cp2, ?MODULE, crash, [0]),
+
     %% Start new nodes
-    ?line {ok, Cp7} = start_peer_node(cp7, Config),
-    ?line {ok, Cp2_2} = start_peer_node(cp2, Config),
+    {ok, Cp7} = start_peer_node(cp7, Config),
+    {ok, Cp2_2} = start_peer_node(cp2, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2_2, Cp3, Cp4, Cp6, Cp7, Cp8]),
     put(?nodes_tag, Nodes),
 
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp6),
-    ?line pong = net_adm:ping(Cp8),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp6),
+    pong = net_adm:ping(Cp8),
 
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     %% Make sure that all nodes have the same picture of all names
-    ?line check_everywhere(Nodes, test1, Config),
-    ?line assert_pid(global:whereis_name(test1)),
-    
-    ?line check_everywhere(Nodes, test2, Config),
-    ?line undefined = global:whereis_name(test2),
+    check_everywhere(Nodes, test1, Config),
+    assert_pid(global:whereis_name(test1)),
 
-    ?line check_everywhere(Nodes, test3, Config),
-    ?line assert_pid(global:whereis_name(test3)),
+    check_everywhere(Nodes, test2, Config),
+    undefined = global:whereis_name(test2),
 
-    ?line check_everywhere(Nodes, test4, Config),
-    ?line assert_pid(global:whereis_name(test4)),
+    check_everywhere(Nodes, test3, Config),
+    assert_pid(global:whereis_name(test3)),
 
-    ?line check_everywhere(Nodes, test5, Config),
-    ?line ?UNTIL(undefined =:= global:whereis_name(test5)),
-    
-    ?line assert_pid(global:send(test1, die)),
-    ?line assert_pid(global:send(test3, die)),
-    ?line assert_pid(global:send(test4, die)),
+    check_everywhere(Nodes, test4, Config),
+    assert_pid(global:whereis_name(test4)),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    check_everywhere(Nodes, test5, Config),
+    ?UNTIL(undefined =:= global:whereis_name(test5)),
+
+    assert_pid(global:send(test1, die)),
+    assert_pid(global:send(test3, die)),
+    assert_pid(global:send(test4, die)),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1344,7 +1332,7 @@ stress_partition(Config) when is_list(Config) ->
     stop_node(Cp6),
     stop_node(Cp7),
     stop_node(Cp8),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 
@@ -1372,58 +1360,57 @@ ring(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]
 	= start_nodes([cp0, cp1, cp2, cp3, cp4, cp5, cp6, cp7, cp8], 
                       peer, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     Time = msec() + 7000,
 
-    ?line rpc_cast(Cp0, ?MODULE, single_node, [Time, Cp8, Config]),
-    ?line rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
-    ?line rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
-    ?line rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
-    ?line rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
-    ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
-    ?line rpc_cast(Cp6, ?MODULE, single_node, [Time, Cp5, Config]),
-    ?line rpc_cast(Cp7, ?MODULE, single_node, [Time, Cp6, Config]),
-    ?line rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
-    
+    rpc_cast(Cp0, ?MODULE, single_node, [Time, Cp8, Config]),
+    rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
+    rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
+    rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
+    rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
+    rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
+    rpc_cast(Cp6, ?MODULE, single_node, [Time, Cp5, Config]),
+    rpc_cast(Cp7, ?MODULE, single_node, [Time, Cp6, Config]),
+    rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
+
     %% sleep to make the partitioned net ready
     ct:sleep(Time - msec()),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
-    ?line pong = net_adm:ping(Cp6),
-    ?line pong = net_adm:ping(Cp7),
-    ?line pong = net_adm:ping(Cp8),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp6),
+    pong = net_adm:ping(Cp7),
+    pong = net_adm:ping(Cp8),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
-    ?line pong = net_adm:ping(Cp6),
-    ?line pong = net_adm:ping(Cp7),
-    ?line pong = net_adm:ping(Cp8),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp6),
+    pong = net_adm:ping(Cp7),
+    pong = net_adm:ping(Cp8),
 
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     %% Just make sure that all nodes have the same picture of all names
-    ?line check_everywhere(Nodes, single_name, Config),
-    ?line assert_pid(global:whereis_name(single_name)),
+    check_everywhere(Nodes, single_name, Config),
+    assert_pid(global:whereis_name(single_name)),
 
-    ?line 
     ?UNTIL(begin
                {Ns2, []} = rpc:multicall(Nodes, erlang, whereis, 
                                          [single_name]),
@@ -1432,10 +1419,10 @@ ring(Config) when is_list(Config) ->
                                  end,
                                  0, Ns2)
            end),
-    
-    ?line assert_pid(global:send(single_name, die)),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    assert_pid(global:send(single_name, die)),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1447,7 +1434,7 @@ ring(Config) when is_list(Config) ->
     stop_node(Cp6),
     stop_node(Cp7),
     stop_node(Cp8),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Simpler version of the ring case.  Used because there are some
@@ -1459,49 +1446,48 @@ simple_ring(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
     Names = [cp0, cp1, cp2, cp3, cp4, cp5],
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]
 	= start_nodes(Names, peer, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     Time = msec() + 5000,
 
-    ?line rpc_cast(Cp0, ?MODULE, single_node, [Time, Cp5, Config]),
-    ?line rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
-    ?line rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
-    ?line rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
-    ?line rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
-    ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
-    
+    rpc_cast(Cp0, ?MODULE, single_node, [Time, Cp5, Config]),
+    rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
+    rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
+    rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
+    rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
+    rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
+
     %% sleep to make the partitioned net ready
     ct:sleep(Time - msec()),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
 
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     %% Just make sure that all nodes have the same picture of all names
-    ?line check_everywhere(Nodes, single_name, Config),
-    ?line assert_pid(global:whereis_name(single_name)),
+    check_everywhere(Nodes, single_name, Config),
+    assert_pid(global:whereis_name(single_name)),
 
-    ?line 
     ?UNTIL(begin
                {Ns2, []} = rpc:multicall(Nodes, erlang, whereis, 
                                          [single_name]),
@@ -1510,10 +1496,10 @@ simple_ring(Config) when is_list(Config) ->
                                  end,
                                  0, Ns2)
            end),
-    
-    ?line assert_pid(global:send(single_name, die)),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    assert_pid(global:send(single_name, die)),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1522,7 +1508,7 @@ simple_ring(Config) when is_list(Config) ->
     stop_node(Cp3),
     stop_node(Cp4),
     stop_node(Cp5),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Make 6 single nodes, all having the same name.
@@ -1532,59 +1518,58 @@ line(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]
 	= start_nodes([cp0, cp1, cp2, cp3, cp4, cp5, cp6, cp7, cp8], 
                       peer, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6, Cp7, Cp8]),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     Time = msec() + 7000,
 
-    ?line rpc_cast(Cp0, ?MODULE, single_node, 
-                   [Time, Cp0, Config]), % ping ourself!
-    ?line rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
-    ?line rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
-    ?line rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
-    ?line rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
-    ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
-    ?line rpc_cast(Cp6, ?MODULE, single_node, [Time, Cp5, Config]),
-    ?line rpc_cast(Cp7, ?MODULE, single_node, [Time, Cp6, Config]),
-    ?line rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
+    rpc_cast(Cp0, ?MODULE, single_node,
+	     [Time, Cp0, Config]), % ping ourself!
+    rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
+    rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
+    rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
+    rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
+    rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
+    rpc_cast(Cp6, ?MODULE, single_node, [Time, Cp5, Config]),
+    rpc_cast(Cp7, ?MODULE, single_node, [Time, Cp6, Config]),
+    rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     %% Sleep to make the partitioned net ready
     ct:sleep(Time - msec()),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
-    ?line pong = net_adm:ping(Cp6),
-    ?line pong = net_adm:ping(Cp7),
-    ?line pong = net_adm:ping(Cp8),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp6),
+    pong = net_adm:ping(Cp7),
+    pong = net_adm:ping(Cp8),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
-    ?line pong = net_adm:ping(Cp6),
-    ?line pong = net_adm:ping(Cp7),
-    ?line pong = net_adm:ping(Cp8),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp6),
+    pong = net_adm:ping(Cp7),
+    pong = net_adm:ping(Cp8),
 
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     %% Just make sure that all nodes have the same picture of all names
-    ?line check_everywhere(Nodes, single_name, Config),
-    ?line assert_pid(global:whereis_name(single_name)),
+    check_everywhere(Nodes, single_name, Config),
+    assert_pid(global:whereis_name(single_name)),
 
-    ?line 
     ?UNTIL(begin
 	       {Ns2, []} = rpc:multicall(Nodes, erlang, whereis,
 					 [single_name]),
@@ -1593,10 +1578,10 @@ line(Config) when is_list(Config) ->
                                  end,
                                  0, Ns2)
 	   end),
-    
-    ?line assert_pid(global:send(single_name, die)),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    assert_pid(global:send(single_name, die)),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1608,7 +1593,7 @@ line(Config) when is_list(Config) ->
     stop_node(Cp6),
     stop_node(Cp7),
     stop_node(Cp8),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 
@@ -1621,49 +1606,48 @@ simple_line(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]
+    [Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]
 	= start_nodes([cp0, cp1, cp2, cp3, cp4, cp5], peer, Config),
     Nodes = lists:sort([node(), Cp0, Cp1, Cp2, Cp3, Cp4, Cp5]),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     Time = msec() + 5000,
 
-    ?line rpc_cast(Cp0, ?MODULE, single_node, 
-                   [Time, Cp0, Config]), % ping ourself!
-    ?line rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
-    ?line rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
-    ?line rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
-    ?line rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
-    ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
-    
+    rpc_cast(Cp0, ?MODULE, single_node,
+	     [Time, Cp0, Config]), % ping ourself!
+    rpc_cast(Cp1, ?MODULE, single_node, [Time, Cp0, Config]),
+    rpc_cast(Cp2, ?MODULE, single_node, [Time, Cp1, Config]),
+    rpc_cast(Cp3, ?MODULE, single_node, [Time, Cp2, Config]),
+    rpc_cast(Cp4, ?MODULE, single_node, [Time, Cp3, Config]),
+    rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
+
     %% sleep to make the partitioned net ready
     ct:sleep(Time - msec()),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
 
-    ?line pong = net_adm:ping(Cp0),
-    ?line pong = net_adm:ping(Cp1),
-    ?line pong = net_adm:ping(Cp2),
-    ?line pong = net_adm:ping(Cp3),
-    ?line pong = net_adm:ping(Cp4),
-    ?line pong = net_adm:ping(Cp5),
+    pong = net_adm:ping(Cp0),
+    pong = net_adm:ping(Cp1),
+    pong = net_adm:ping(Cp2),
+    pong = net_adm:ping(Cp3),
+    pong = net_adm:ping(Cp4),
+    pong = net_adm:ping(Cp5),
 
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     %% Just make sure that all nodes have the same picture of all names
-    ?line check_everywhere(Nodes, single_name, Config),
-    ?line assert_pid(global:whereis_name(single_name)),
+    check_everywhere(Nodes, single_name, Config),
+    assert_pid(global:whereis_name(single_name)),
 
-    ?line 
     ?UNTIL(begin
 	       {Ns2, []} = rpc:multicall(Nodes, erlang, whereis,
 					 [single_name]),
@@ -1672,10 +1656,10 @@ simple_line(Config) when is_list(Config) ->
                                  end,
                                  0, Ns2)
 	   end),
-    
-    ?line assert_pid(global:send(single_name, die)),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    assert_pid(global:send(single_name, die)),
+
+    ?UNTIL(OrigNames =:= global:registered_names()),
 
     write_high_level_trace(Config),
     stop_node(Cp0),
@@ -1684,80 +1668,74 @@ simple_line(Config) when is_list(Config) ->
     stop_node(Cp3),
     stop_node(Cp4),
     stop_node(Cp5),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 %% Test ticket: Global should keep track of all pids that set the same lock.
 otp_1849(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_node(cp3, Config),
+    init_condition(Config),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_node(cp3, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% start procs on each node
-    ?line Pid1 = rpc:call(Cp1, ?MODULE, start_proc, []),
-    ?line assert_pid(Pid1),
-    ?line Pid2 = rpc:call(Cp2, ?MODULE, start_proc, []),
-    ?line assert_pid(Pid2),
-    ?line Pid3 = rpc:call(Cp3, ?MODULE, start_proc, []),
-    ?line assert_pid(Pid3),
+    Pid1 = rpc:call(Cp1, ?MODULE, start_proc, []),
+    assert_pid(Pid1),
+    Pid2 = rpc:call(Cp2, ?MODULE, start_proc, []),
+    assert_pid(Pid2),
+    Pid3 = rpc:call(Cp3, ?MODULE, start_proc, []),
+    assert_pid(Pid3),
 
     %% set a lock on every node
-    ?line true = req(Pid1, {set_lock2, {test_lock, ?MODULE}, self()}),
-    ?line true = req(Pid2, {set_lock2, {test_lock, ?MODULE}, self()}),
-    ?line true = req(Pid3, {set_lock2, {test_lock, ?MODULE}, self()}),
+    true = req(Pid1, {set_lock2, {test_lock, ?MODULE}, self()}),
+    true = req(Pid2, {set_lock2, {test_lock, ?MODULE}, self()}),
+    true = req(Pid3, {set_lock2, {test_lock, ?MODULE}, self()}),
 
-    ?line
-    ?UNTIL(begin 
+    ?UNTIL(begin
                [{test_lock, ?MODULE, Lock1}] = 
                    rpc:call(Cp1, ets, tab2list, [global_locks]),
                3 =:= length(Lock1)
            end),
 
-    ?line true = req(Pid3, {del_lock2, {test_lock, ?MODULE}, self()}),
-    ?line
+    true = req(Pid3, {del_lock2, {test_lock, ?MODULE}, self()}),
     ?UNTIL(begin
                [{test_lock, ?MODULE, Lock2}] = 
                    rpc:call(Cp1, ets, tab2list, [global_locks]),
                2 =:= length(Lock2)
            end),
 
-    ?line true = req(Pid2, {del_lock2, {test_lock, ?MODULE}, self()}),
-    ?line
+    true = req(Pid2, {del_lock2, {test_lock, ?MODULE}, self()}),
     ?UNTIL(begin
                [{test_lock, ?MODULE, Lock3}] = 
                    rpc:call(Cp1, ets, tab2list, [global_locks]),
                1 =:= length(Lock3)
            end),
 
-    ?line true = req(Pid1, {del_lock2, {test_lock, ?MODULE}, self()}),
-    ?line ?UNTIL([] =:= rpc:call(Cp1, ets, tab2list, [global_locks])),
+    true = req(Pid1, {del_lock2, {test_lock, ?MODULE}, self()}),
+    ?UNTIL([] =:= rpc:call(Cp1, ets, tab2list, [global_locks])),
 
 
-    ?line true = req(Pid1, {set_lock2, {test_lock, ?MODULE}, self()}),
-    ?line true = req(Pid2, {set_lock2, {test_lock, ?MODULE}, self()}),
-    ?line true = req(Pid3, {set_lock2, {test_lock, ?MODULE}, self()}),
-    ?line false = req(Pid2, {set_lock2, {test_lock, not_valid}, self()}),
+    true = req(Pid1, {set_lock2, {test_lock, ?MODULE}, self()}),
+    true = req(Pid2, {set_lock2, {test_lock, ?MODULE}, self()}),
+    true = req(Pid3, {set_lock2, {test_lock, ?MODULE}, self()}),
+    false = req(Pid2, {set_lock2, {test_lock, not_valid}, self()}),
 
     exit_p(Pid1),
-    ?line
     ?UNTIL(begin
                [{test_lock, ?MODULE, Lock10}] = 
                    rpc:call(Cp1, ets, tab2list, [global_locks]),
                2 =:= length(Lock10)
            end),
-    ?line
     ?UNTIL(begin
                [{test_lock, ?MODULE, Lock11}] = 
                    rpc:call(Cp2, ets, tab2list, [global_locks]),
                2 =:= length(Lock11)
            end),
-    ?line
     ?UNTIL(begin
                [{test_lock, ?MODULE, Lock12}] = 
                    rpc:call(Cp3, ets, tab2list, [global_locks]),
@@ -1768,9 +1746,9 @@ otp_1849(Config) when is_list(Config) ->
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 
 %% Test ticket: Deadlock in global.
 otp_3162(Config) when is_list(Config) ->
@@ -1786,64 +1764,63 @@ do_otp_3162(StartFun, Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line [Cp1, Cp2, Cp3] = StartFun(),
+    init_condition(Config),
+    [Cp1, Cp2, Cp3] = StartFun(),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% start procs on each node
-    ?line Pid1 = rpc:call(Cp1, ?MODULE, start_proc4, [kalle]),
-    ?line assert_pid(Pid1),
-    ?line Pid2 = rpc:call(Cp2, ?MODULE, start_proc4, [stina]),
-    ?line assert_pid(Pid2),
-    ?line Pid3 = rpc:call(Cp3, ?MODULE, start_proc4, [vera]),
-    ?line assert_pid(Pid3),
+    Pid1 = rpc:call(Cp1, ?MODULE, start_proc4, [kalle]),
+    assert_pid(Pid1),
+    Pid2 = rpc:call(Cp2, ?MODULE, start_proc4, [stina]),
+    assert_pid(Pid2),
+    Pid3 = rpc:call(Cp3, ?MODULE, start_proc4, [vera]),
+    assert_pid(Pid3),
 
-    ?line rpc_disconnect_node(Cp1, Cp2, Config),
+    rpc_disconnect_node(Cp1, Cp2, Config),
 
-    ?line ?UNTIL
+    ?UNTIL
        ([Cp3] =:= lists:sort(rpc:call(Cp1, erlang, nodes, [])) -- [node()]),
 
     ?UNTIL([kalle, vera] =:=
-	   lists:sort(rpc:call(Cp1, global, registered_names, []))),
-    ?line ?UNTIL
+	       lists:sort(rpc:call(Cp1, global, registered_names, []))),
+    ?UNTIL
        ([Cp3] =:= lists:sort(rpc:call(Cp2, erlang, nodes, [])) -- [node()]),
     ?UNTIL([stina, vera] =:=
-           lists:sort(rpc:call(Cp2, global, registered_names, []))),
-    ?line ?UNTIL
+	       lists:sort(rpc:call(Cp2, global, registered_names, []))),
+    ?UNTIL
        ([Cp1, Cp2] =:= 
-        lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
+	    lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
     ?UNTIL([kalle, stina, vera] =:=
-  	   lists:sort(rpc:call(Cp3, global, registered_names, []))),
+	       lists:sort(rpc:call(Cp3, global, registered_names, []))),
 
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp1]),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp1]),
 
-    ?line ?UNTIL
+    ?UNTIL
        ([Cp2, Cp3] =:=
-        lists:sort(rpc:call(Cp1, erlang, nodes, [])) -- [node()]),
-    ?line 
+	    lists:sort(rpc:call(Cp1, erlang, nodes, [])) -- [node()]),
     ?UNTIL(begin
 	       NN = lists:sort(rpc:call(Cp1, global, registered_names, [])),
 	       [kalle, stina, vera] =:= NN
 	   end),
-    ?line ?UNTIL
+    ?UNTIL
        ([Cp1, Cp3] =:=
-        lists:sort(rpc:call(Cp2, erlang, nodes, [])) -- [node()]),
+	    lists:sort(rpc:call(Cp2, erlang, nodes, [])) -- [node()]),
     ?UNTIL([kalle, stina, vera] =:=
-	lists:sort(rpc:call(Cp2, global, registered_names, []))),
-    ?line ?UNTIL
+	       lists:sort(rpc:call(Cp2, global, registered_names, []))),
+    ?UNTIL
        ([Cp1, Cp2] =:=
-        lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
+	    lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
     ?UNTIL([kalle, stina, vera] =:=
- 	lists:sort(rpc:call(Cp3, global, registered_names, []))),
+	       lists:sort(rpc:call(Cp3, global, registered_names, []))),
 
     write_high_level_trace(Config),
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
-    
+
 
 %% OTP-5640. 'allow' multiple names for registered processes.
 otp_5640(Config) when is_list(Config) ->
@@ -1851,10 +1828,10 @@ otp_5640(Config) when is_list(Config) ->
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     init_condition(Config),
-    ?line {ok, B} = start_node(b, Config),
+    {ok, B} = start_node(b, Config),
 
-    ?line Nodes = lists:sort([node(), B]),
-    ?line wait_for_ready_net(Nodes, Config),
+    Nodes = lists:sort([node(), B]),
+    wait_for_ready_net(Nodes, Config),
 
     Server = whereis(global_name_server),
     ServerB = rpc:call(B, erlang, whereis, [global_name_server]),
@@ -1862,50 +1839,50 @@ otp_5640(Config) when is_list(Config) ->
     Me = self(),
     Proc = spawn(fun() -> otp_5640_proc(Me) end),
 
-    ?line yes = global:register_name(name1, Proc),
-    ?line no = global:register_name(name2, Proc),
+    yes = global:register_name(name1, Proc),
+    no = global:register_name(name2, Proc),
 
-    ?line ok = application:set_env(kernel, global_multi_name_action, allow),
-    ?line yes = global:register_name(name2, Proc),
-
-    ct:sleep(100),
-    ?line Proc = global:whereis_name(name1),
-    ?line Proc = global:whereis_name(name2),
-    ?line check_everywhere(Nodes, name1, Config),
-    ?line check_everywhere(Nodes, name2, Config),
-
-    ?line {monitors_2levels, MonBy1} = mon_by_servers(Proc),
-    ?line [] = ([Server,Server,ServerB,ServerB] -- MonBy1),
-    ?line {links,[]} = process_info(Proc, links),
-    ?line _ = global:unregister_name(name1),
+    ok = application:set_env(kernel, global_multi_name_action, allow),
+    yes = global:register_name(name2, Proc),
 
     ct:sleep(100),
-    ?line undefined = global:whereis_name(name1),
-    ?line Proc = global:whereis_name(name2),
-    ?line check_everywhere(Nodes, name1, Config),
-    ?line check_everywhere(Nodes, name2, Config),
+    Proc = global:whereis_name(name1),
+    Proc = global:whereis_name(name2),
+    check_everywhere(Nodes, name1, Config),
+    check_everywhere(Nodes, name2, Config),
 
-    ?line {monitors_2levels, MonBy2} = mon_by_servers(Proc),
-    ?line [] = ([Server,ServerB] -- MonBy2),
+    {monitors_2levels, MonBy1} = mon_by_servers(Proc),
+    [] = ([Server,Server,ServerB,ServerB] -- MonBy1),
+    {links,[]} = process_info(Proc, links),
+    _ = global:unregister_name(name1),
+
+    ct:sleep(100),
+    undefined = global:whereis_name(name1),
+    Proc = global:whereis_name(name2),
+    check_everywhere(Nodes, name1, Config),
+    check_everywhere(Nodes, name2, Config),
+
+    {monitors_2levels, MonBy2} = mon_by_servers(Proc),
+    [] = ([Server,ServerB] -- MonBy2),
     TmpMonBy2 = MonBy2 -- [Server,ServerB],
-    ?line TmpMonBy2 = TmpMonBy2 -- [Server,ServerB],
-    ?line {links,[]} = process_info(Proc, links),
+    TmpMonBy2 = TmpMonBy2 -- [Server,ServerB],
+    {links,[]} = process_info(Proc, links),
 
-    ?line yes = global:register_name(name1, Proc),
+    yes = global:register_name(name1, Proc),
 
     Proc ! die,
 
     ct:sleep(100),
-    ?line undefined = global:whereis_name(name1),
-    ?line undefined = global:whereis_name(name2),
-    ?line check_everywhere(Nodes, name1, Config),
-    ?line check_everywhere(Nodes, name2, Config),
-    ?line {monitors, GMonitors} = process_info(Server, monitors),
-    ?line false = lists:member({process, Proc}, GMonitors),
+    undefined = global:whereis_name(name1),
+    undefined = global:whereis_name(name2),
+    check_everywhere(Nodes, name1, Config),
+    check_everywhere(Nodes, name2, Config),
+    {monitors, GMonitors} = process_info(Server, monitors),
+    false = lists:member({process, Proc}, GMonitors),
 
     write_high_level_trace(Config),
     stop_node(B),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 otp_5640_proc(_Parent) ->
@@ -1919,34 +1896,34 @@ otp_5737(Config) when is_list(Config) ->
     Timeout = 25,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
+    init_condition(Config),
 
     LockId = {?MODULE,self()},
     Nodes = [node()],
-    ?line {'EXIT', _} = (catch global:set_lock(LockId, Nodes, -1)),
-    ?line {'EXIT', _} = (catch global:set_lock(LockId, Nodes, a)),
-    ?line true = global:set_lock(LockId, Nodes, 0),
+    {'EXIT', _} = (catch global:set_lock(LockId, Nodes, -1)),
+    {'EXIT', _} = (catch global:set_lock(LockId, Nodes, a)),
+    true = global:set_lock(LockId, Nodes, 0),
     Time1 = now(),
-    ?line false = global:set_lock({?MODULE,not_me}, Nodes, 0),
-    ?line true = timer:now_diff(now(), Time1) < 5000,
-    ?line _ = global:del_lock(LockId, Nodes),
+    false = global:set_lock({?MODULE,not_me}, Nodes, 0),
+    true = timer:now_diff(now(), Time1) < 5000,
+    _ = global:del_lock(LockId, Nodes),
 
     Fun = fun() -> ok end,
-    ?line {'EXIT', _} = (catch global:trans(LockId, Fun, Nodes, -1)),
-    ?line {'EXIT', _} = (catch global:trans(LockId, Fun, Nodes, a)),
-    ?line ok = global:trans(LockId, Fun, Nodes, 0),
+    {'EXIT', _} = (catch global:trans(LockId, Fun, Nodes, -1)),
+    {'EXIT', _} = (catch global:trans(LockId, Fun, Nodes, a)),
+    ok = global:trans(LockId, Fun, Nodes, 0),
 
     write_high_level_trace(Config),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% OTP-6931. Ignore nodeup when connect_all=false.
 otp_6931(Config) when is_list(Config) ->
     Me = self(),
-    ?line {ok, CAf} = start_non_connecting_node(ca_false, Config),
-    ?line ok = rpc:call(CAf, error_logger, add_report_handler, [?MODULE, Me]),
-    ?line info = rpc:call(CAf, error_logger, warning_map, []),
-    ?line {global_name_server,CAf} ! {nodeup, fake_node},
+    {ok, CAf} = start_non_connecting_node(ca_false, Config),
+    ok = rpc:call(CAf, error_logger, add_report_handler, [?MODULE, Me]),
+    info = rpc:call(CAf, error_logger, warning_map, []),
+    {global_name_server,CAf} ! {nodeup, fake_node},
     timer:sleep(100),
     stop_node(CAf),
     receive {nodeup,fake_node} -> ct:fail({info_report, was, sent})
@@ -1962,12 +1939,12 @@ simple_disconnect(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
     %% Three nodes (test_server, n_1, n_2). 
-    ?line [Cp1, Cp2] = Cps = start_nodes([n_1, n_2], peer, Config),
-    ?line wait_for_ready_net(Config),
+    [Cp1, Cp2] = Cps = start_nodes([n_1, n_2], peer, Config),
+    wait_for_ready_net(Config),
 
     Nodes = lists:sort([node() | Cps]),
 
@@ -1977,39 +1954,39 @@ simple_disconnect(Config) when is_list(Config) ->
     Resolver = {no_module, resolve_none}, % will never be called
     PingNode = Cp2,
 
-    ?line {_Pid1, yes} = 
+    {_Pid1, yes} =
         rpc:call(Cp1, ?MODULE, start_resolver, [Name, Resolver]),
     ct:sleep(100),
 
     %% Disconnect test_server and Cp2. 
-    ?line true = erlang:disconnect_node(Cp2),
+    true = erlang:disconnect_node(Cp2),
     ct:sleep(500),
 
     %% _Pid is registered on Cp1. The exchange of names between Cp2 and
     %% test_server sees two identical pids.
-    ?line pong = net_adm:ping(PingNode),
-    ?line ?UNTIL(Cps =:= lists:sort(nodes())),
+    pong = net_adm:ping(PingNode),
+    ?UNTIL(Cps =:= lists:sort(nodes())),
 
-    ?line {_, Trace0} = collect_tracers(Nodes),
-    ?line Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
-    ?line lists:foreach(fun(P) -> P ! die end, Resolvers),
-    ?line lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
-    ?line check_everywhere(Nodes, Name, Config),
-    ?line undefined = global:whereis_name(Name),
+    {_, Trace0} = collect_tracers(Nodes),
+    Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
+    lists:foreach(fun(P) -> P ! die end, Resolvers),
+    lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
+    check_everywhere(Nodes, Name, Config),
+    undefined = global:whereis_name(Name),
 
-    ?line {_, Trace1} = collect_tracers(Nodes),
+    {_, Trace1} = collect_tracers(Nodes),
     Trace = Trace0 ++ Trace1, 
-    ?line [] = [foo || {_, resolve_none, _, _} <- Trace],
+    [] = [foo || {_, resolve_none, _, _} <- Trace],
 
-    ?line Gs = name_servers(Nodes),
-    ?line [_, _, _] = monitored_by_node(Trace, Gs),
+    Gs = name_servers(Nodes),
+    [_, _, _] = monitored_by_node(Trace, Gs),
 
     lists:foreach(fun(N) -> rpc:call(N, ?MODULE, stop_tracer, []) end, Nodes),
 
-    ?line OrigNames = global:registered_names(),
+    OrigNames = global:registered_names(),
     write_high_level_trace(Config),
     stop_nodes(Cps),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Not used right now.
@@ -2028,7 +2005,7 @@ simple_dis(Nodes0, Name, Resolver, Config) ->
 simple_dis_node(_Node, DisNodes, _Name, _Resolver, Config) ->
     lists:foreach(
       fun(OtherNode) -> _ = erlang:disconnect_node(OtherNode) end, DisNodes),
-    ?line ?UNTIL(DisNodes -- nodes() =:= DisNodes),
+    ?UNTIL(DisNodes -- nodes() =:= DisNodes),
     ok.
 
 
@@ -2053,13 +2030,13 @@ simple_resolve(Config) when is_list(Config) ->
     Timeout = 360,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
+    [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
     Nodes = lists:sort([node() | Cps]),
-    ?line wait_for_ready_net(Config),
-    
+    wait_for_ready_net(Config),
+
     lists:foreach(fun(N) -> 
                           rpc:call(N, ?MODULE, start_tracer, [])
                   end, Nodes),
@@ -2168,16 +2145,16 @@ simple_resolve(Config) when is_list(Config) ->
     %% then a new attempt (nodeup etc.) is made. This time the
     %% resolver does not disconnect any node.
     res(?RES(disconnect_first), Cps, Cf#cf{link = Z2, n2 = Z2,
-                                     nodes = [node(), N1, A2, Z2]}),
+					   nodes = [node(), N1, A2, Z2]}),
 
-    ?line lists:foreach(fun(N) -> 
-                                rpc:call(N, ?MODULE, stop_tracer, [])
-                        end, Nodes),
+    lists:foreach(fun(N) ->
+			  rpc:call(N, ?MODULE, stop_tracer, [])
+		  end, Nodes),
 
-    ?line OrigNames = global:registered_names(),
+    OrigNames = global:registered_names(),
     write_high_level_trace(Config),
     stop_nodes(Cps),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% OTP-5563. Partitions and names.
@@ -2188,13 +2165,13 @@ simple_resolve2(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
-    ?line wait_for_ready_net(Config),
+    [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
+    wait_for_ready_net(Config),
     Nodes = lists:sort([node() | Cps]),
-    
+
     lists:foreach(fun(N) -> 
                           rpc:call(N, ?MODULE, start_tracer, [])
                   end, Nodes),
@@ -2204,16 +2181,16 @@ simple_resolve2(Config) when is_list(Config) ->
 
     %% Halt z_2. 
     res(?RES(halt_second), Cps, Cf#cf{link = N1, n1 = N1, n2 = Z2, ping  = A2,
-                                nodes = [node(), N1, A2], n_res = 1}),
+				      nodes = [node(), N1, A2], n_res = 1}),
 
-    ?line lists:foreach(fun(N) -> 
-                                rpc:call(N, ?MODULE, stop_tracer, [])
-                        end, Nodes),
+    lists:foreach(fun(N) ->
+			  rpc:call(N, ?MODULE, stop_tracer, [])
+		  end, Nodes),
 
-    ?line OrigNames = global:registered_names(),
+    OrigNames = global:registered_names(),
     write_high_level_trace(Config),
     stop_nodes(Cps), % Not all nodes may be present, but it works anyway.
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% OTP-5563. Partitions and names.
@@ -2223,13 +2200,13 @@ simple_resolve3(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
-    ?line wait_for_ready_net(Config),
+    [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer, Config),
+    wait_for_ready_net(Config),
     Nodes = lists:sort([node() | Cps]),
-    
+
     lists:foreach(fun(N) -> 
                           rpc:call(N, ?MODULE, start_tracer, [])
                   end, Nodes),
@@ -2240,15 +2217,15 @@ simple_resolve3(Config) when is_list(Config) ->
     %% Halt a_2. 
     res(?RES(halt_second), Cps, Cf#cf{link = node(), n2 = A2, 
                                       nodes = [node(), N1], n_res = 1}),
-    
-    ?line lists:foreach(fun(N) -> 
-                                rpc:call(N, ?MODULE, stop_tracer, [])
-                        end, Nodes),
 
-    ?line OrigNames = global:registered_names(),
+    lists:foreach(fun(N) ->
+			  rpc:call(N, ?MODULE, stop_tracer, [])
+		  end, Nodes),
+
+    OrigNames = global:registered_names(),
     write_high_level_trace(Config),
     stop_nodes(Cps), % Not all nodes may be present, but it works anyway.
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 res({Res,Resolver}, [N1, A2, Z2], Cf) ->
@@ -2272,67 +2249,67 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
     %% expected monitors remain between registered processes and the
     %% global_name_server.
 
-    ?line rpc_cast(OtherNode, 
-                   ?MODULE, 
-                   part_2_2, 
-                   [Config, Part1, Part2, [{Name, Resolver}]]),
-    ?line ?UNTIL(is_ready_partition(Config)),
-    ?line {_Pid1, yes} = 
+    rpc_cast(OtherNode,
+	     ?MODULE,
+	     part_2_2,
+	     [Config, Part1, Part2, [{Name, Resolver}]]),
+    ?UNTIL(is_ready_partition(Config)),
+    {_Pid1, yes} =
         rpc:call(Res1, ?MODULE, start_resolver, [Name, Resolver]),
 
-    ?line pong = net_adm:ping(PingNode),
-    ?line wait_for_ready_net(Nodes, Config),
+    pong = net_adm:ping(PingNode),
+    wait_for_ready_net(Nodes, Config),
 
-    ?line check_everywhere(Nodes, Name, Config),
-    ?line case global:whereis_name(Name) of
-              undefined when LinkedNode =:= none -> ok;
-              Pid -> assert_pid(Pid)
-          end,
+    check_everywhere(Nodes, Name, Config),
+    case global:whereis_name(Name) of
+	undefined when LinkedNode =:= none -> ok;
+	Pid -> assert_pid(Pid)
+    end,
 
-    ?line {_, Trace0} = collect_tracers(Nodes),
-    ?line Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
+    {_, Trace0} = collect_tracers(Nodes),
+    Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
 
-    ?line NRes = length(Resolvers),
+    NRes = length(Resolvers),
 
     %% Wait for extra monitor processes to be created.
     %% This applies as long as global:do_monitor/1 spawns processes.
     %% (Some day monitor() will be truly synchronous.)
     ct:sleep(100),
 
-    ?line lists:foreach(fun(P) -> P ! die end, Resolvers),
-    ?line lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
+    lists:foreach(fun(P) -> P ! die end, Resolvers),
+    lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
 
-    ?line check_everywhere(Nodes, Name, Config),
-    ?line undefined = global:whereis_name(Name),
+    check_everywhere(Nodes, Name, Config),
+    undefined = global:whereis_name(Name),
 
     %% Wait for monitors to remove names.
     ct:sleep(100),
 
-    ?line {_, Trace1} = collect_tracers(Nodes),
+    {_, Trace1} = collect_tracers(Nodes),
     Trace = Trace0 ++ Trace1, 
 
-    ?line Gs = name_servers([T1, N1, A2, Z2]),
-    ?line MonitoredByNode = monitored_by_node(Trace, Gs),
-    ?line MonitoredBy = [M || {_N,M} <- MonitoredByNode],
-  
+    Gs = name_servers([T1, N1, A2, Z2]),
+    MonitoredByNode = monitored_by_node(Trace, Gs),
+    MonitoredBy = [M || {_N,M} <- MonitoredByNode],
+
     X = MonitoredBy -- Gs,
     LengthGs = length(Gs),
-    ?line case MonitoredBy of
-              [] when LinkedNode =:= none -> ok;
-              Gs -> ok;
-              _ when LengthGs < 4, X =:= [] -> ok;
-              _ -> io:format("ERROR:~nMonitoredBy ~p~n"
-                             "global_name_servers ~p~n", 
-                             [MonitoredByNode, Gs]),
-                   ct:fail(monitor_mismatch)
-          end,
+    case MonitoredBy of
+	[] when LinkedNode =:= none -> ok;
+	Gs -> ok;
+	_ when LengthGs < 4, X =:= [] -> ok;
+	_ -> io:format("ERROR:~nMonitoredBy ~p~n"
+		       "global_name_servers ~p~n",
+		       [MonitoredByNode, Gs]),
+	     ct:fail(monitor_mismatch)
+    end,
     ok.
 
 name_servers(Nodes) ->
     lists:sort([rpc:call(N, erlang, whereis, [global_name_server]) || 
                    N <- Nodes,
                    pong =:= net_adm:ping(N)]).
-    
+
 monitored_by_node(Trace, Servers) ->
     lists:sort([{node(M),M} || 
                    {_Node,_P,died,{monitors_2levels,ML}} <- Trace, 
@@ -2344,7 +2321,7 @@ part_2_2(Config, Part1, Part2, NameResolvers) ->
     make_partition(Config, Part1, Part2),
     lists:foreach
       (fun({Name, Resolver}) ->
-               ?line {Pid2, yes} = start_resolver(Name, Resolver),
+               {Pid2, yes} = start_resolver(Name, Resolver),
                trace_message({node(), part_2_2, nodes(), {pid2,Pid2}})
        end, NameResolvers).
 
@@ -2369,7 +2346,7 @@ exit_resolver(name, _Pid1, _Pid2) ->
 lock_resolver(name, Pid1, _Pid2) ->
     Id = {?MODULE, self()},
     Nodes = [node()],
-    ?line true = global:set_lock(Id, Nodes),
+    true = global:set_lock(Id, Nodes),
     _ = global:del_lock(Id, Nodes),
     Pid1.
 
@@ -2399,7 +2376,7 @@ start_resolver(Name, Resolver) ->
     receive
 	{Pid, Res} -> {Pid, Res}
     end.
-    
+
 init_resolver(Parent, Name, Resolver) ->
     X = global:register_name(Name, self(), Resolver),
     Parent ! {self(), X},
@@ -2433,12 +2410,12 @@ leftover_name(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
-    ?line [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer,  Config),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
+    [N1, A2, Z2] = Cps = start_nodes([n_1, a_2, z_2], peer,  Config),
     Nodes = lists:sort([node() | Cps]),
-    ?line wait_for_ready_net(Config),
-    
+    wait_for_ready_net(Config),
+
     lists:foreach(fun(N) -> 
                           rpc:call(N, ?MODULE, start_tracer, [])
                   end, Nodes),
@@ -2446,20 +2423,20 @@ leftover_name(Config) when is_list(Config) ->
     Name = name, % registered on a_2
     ResName = resolved_name, % registered on n_1 and a_2
     %% 
-    ?line _Pid = ping_a_2_fun(?REGNAME, N1, A2),
+    _Pid = ping_a_2_fun(?REGNAME, N1, A2),
 
     T1 = node(),
     Part1 = [T1, N1],
     Part2 = [A2, Z2],
     NoResolver = {no_module, resolve_none},
     Resolver = fun contact_a_2/3,
-    ?line rpc_cast(A2, 
-                   ?MODULE, part_2_2, [Config,
-                                       Part1, 
-                                       Part2, 
-                                       [{Name, NoResolver},
-                                        {ResName, Resolver}]]),
-    ?line ?UNTIL(is_ready_partition(Config)),
+    rpc_cast(A2,
+	     ?MODULE, part_2_2, [Config,
+				 Part1,
+				 Part2,
+				 [{Name, NoResolver},
+				  {ResName, Resolver}]]),
+    ?UNTIL(is_ready_partition(Config)),
 
     %% resolved_name is resolved to run on a_2, an insert operation is
     %% sent to n_1. The resolver function halts a_2, but the nodedown
@@ -2468,36 +2445,36 @@ leftover_name(Config) when is_list(Config) ->
     %% delayed). Unless "artificial" nodedown messages are sent the
     %% name would linger on indefinitely. [There is no test case for
     %% the situation that no nodedown message at all is sent.]
-    ?line {_Pid1, yes} = 
+    {_Pid1, yes} =
         rpc:call(N1, ?MODULE, start_resolver, 
                  [ResName, fun contact_a_2/3]),
     ct:sleep(1000),
 
-    ?line trace_message({node(), pinging, z_2}),
-    ?line pong = net_adm:ping(Z2),
-    ?line ?UNTIL((Nodes -- [A2]) =:= lists:sort(?NODES)),
+    trace_message({node(), pinging, z_2}),
+    pong = net_adm:ping(Z2),
+    ?UNTIL((Nodes -- [A2]) =:= lists:sort(?NODES)),
     ct:sleep(1000),
 
-    ?line {_,Trace0} = collect_tracers(Nodes),
+    {_,Trace0} = collect_tracers(Nodes),
 
-    ?line Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
-    ?line lists:foreach(fun(P) -> P ! die end, Resolvers),
-    ?line lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
+    Resolvers = [P || {_Node,new_resolver,{pid,P}} <- Trace0],
+    lists:foreach(fun(P) -> P ! die end, Resolvers),
+    lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
 
-    ?line lists:foreach(fun(N) -> 
-                                rpc:call(N, ?MODULE, stop_tracer, [])
-                        end, Nodes),
+    lists:foreach(fun(N) ->
+			  rpc:call(N, ?MODULE, stop_tracer, [])
+		  end, Nodes),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
     write_high_level_trace(Config),
     stop_nodes(Cps),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 %% Runs on n_1
 contact_a_2(resolved_name, Pid1, Pid2) ->
     trace_message({node(), ?REGNAME, {pid1,Pid1}, {pid2,Pid2}, 
-                  {node1,node(Pid1)}, {node2,node(Pid2)}}),
+		   {node1,node(Pid1)}, {node2,node(Pid2)}}),
     ?REGNAME ! doit,
     Pid2.
 
@@ -2515,7 +2492,7 @@ ping_a_2(RegName, N1, A2) ->
                 {nodedown, A2} -> ok
             end
     end.
-                     
+
 halt_node(Node) ->
     rpc:call(Node, erlang, halt, []).
 
@@ -2531,18 +2508,18 @@ re_register_name(Config) when is_list(Config) ->
     Timeout = 15,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
+    init_condition(Config),
     Me = self(),
     Pid1 = spawn(fun() -> proc(Me) end),
-    ?line yes = global:register_name(name, Pid1),
+    yes = global:register_name(name, Pid1),
     Pid2 = spawn(fun() -> proc(Me) end),
-    ?line _ = global:re_register_name(name, Pid2),
+    _ = global:re_register_name(name, Pid2),
     Pid2 ! die,
     Pid1 ! die,
     receive {Pid1, MonitoredBy1} -> [] = MonitoredBy1 end,
     receive {Pid2, MonitoredBy2} -> [_] = MonitoredBy2 end,
-    ?line _ = global:unregister_name(name),
-    ?line init_condition(Config),
+    _ = global:unregister_name(name),
+    init_condition(Config),
     ok.
 
 proc(Parent) ->
@@ -2577,17 +2554,17 @@ do_name_exit(StartFun, Version, Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
     %% Three nodes (test_server, n_1, n_2). 
-    ?line Cps = StartFun(),
+    Cps = StartFun(),
     Nodes = lists:sort([node() | Cps]),
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
     lists:foreach(fun(N) -> rpc:call(N, ?MODULE, start_tracer, []) end,Nodes),
 
     Name = name,
-    ?line {Pid, yes} = start_proc(Name),
+    {Pid, yes} = start_proc(Name),
 
     Me = self(),
     LL = spawn(fun() -> long_lock(Me) end),
@@ -2602,19 +2579,19 @@ do_name_exit(StartFun, Version, Config) ->
     %% Name has been removed from node()'s table, but nowhere else
     %% since there is a lock on 'global'.
     {R1,[]} = rpc:multicall(Nodes, global, whereis_name, [Name]),
-    ?line case Version of
-              old -> [_,_] = lists:usort(R1);
-              current -> [undefined, undefined, undefined] = R1
-          end,
+    case Version of
+	old -> [_,_] = lists:usort(R1);
+	current -> [undefined, undefined, undefined] = R1
+    end,
     ct:sleep(3000),
-    ?line check_everywhere(Nodes, Name, Config),
+    check_everywhere(Nodes, Name, Config),
 
     lists:foreach(fun(N) -> rpc:call(N, ?MODULE, stop_tracer, []) end, Nodes),
-    ?line OrigNames = global:registered_names(),
+    OrigNames = global:registered_names(),
     exit(LL, kill),
     write_high_level_trace(Config),
     stop_nodes(Cps),
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 long_lock(Parent) ->
@@ -2632,11 +2609,11 @@ external_nodes(Config) when is_list(Config) ->
     Timeout = 30,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
-    ?line [NodeB, NodeC] = start_nodes([b, c], peer, Config),
-    ?line wait_for_ready_net(Config),
+    [NodeB, NodeC] = start_nodes([b, c], peer, Config),
+    wait_for_ready_net(Config),
 
     %% Nodes = ?NODES,
     %% lists:foreach(fun(N) -> rpc:call(N, ?MODULE, start_tracer, []) end,
@@ -2645,75 +2622,75 @@ external_nodes(Config) when is_list(Config) ->
 
     %% Two partitions: [test_server] and [b, c].
     %% c registers an external name on b
-    ?line rpc_cast(NodeB, ?MODULE, part_ext, 
-                   [Config, node(), NodeC, Name]),
-    ?line ?UNTIL(is_ready_partition(Config)),
+    rpc_cast(NodeB, ?MODULE, part_ext,
+	     [Config, node(), NodeC, Name]),
+    ?UNTIL(is_ready_partition(Config)),
 
-    ?line pong = net_adm:ping(NodeB),
-    ?line ?UNTIL([NodeB, NodeC] =:= lists:sort(nodes())),
-    ?line wait_for_ready_net(Config),
+    pong = net_adm:ping(NodeB),
+    ?UNTIL([NodeB, NodeC] =:= lists:sort(nodes())),
+    wait_for_ready_net(Config),
 
-    ?line Cpid = rpc:call(NodeC, erlang, whereis, [Name]),
+    Cpid = rpc:call(NodeC, erlang, whereis, [Name]),
     ExternalName = [{name,Cpid,NodeB}],
-    ?line ExternalName = get_ext_names(),
-    ?line ExternalName = rpc:call(NodeB, gen_server, call, 
-                                  [global_name_server, get_names_ext]),
-    ?line ExternalName = rpc:call(NodeC, gen_server, call, 
-                                  [global_name_server, get_names_ext]),
+    ExternalName = get_ext_names(),
+    ExternalName = rpc:call(NodeB, gen_server, call,
+			    [global_name_server, get_names_ext]),
+    ExternalName = rpc:call(NodeC, gen_server, call,
+			    [global_name_server, get_names_ext]),
 
-    ?line [_] = cnode_links(Cpid),
-    ?line [_,_,_] = cnode_monitored_by(Cpid),
-    ?line no = global:register_name(Name, self()),
-    ?line yes = global:re_register_name(Name, self()),
-    ?line ?UNTIL([] =:= cnode_monitored_by(Cpid)),
-    ?line ?UNTIL([] =:= cnode_links(Cpid)),
-    ?line [] = gen_server:call(global_name_server, get_names_ext, infinity),
+    [_] = cnode_links(Cpid),
+    [_,_,_] = cnode_monitored_by(Cpid),
+    no = global:register_name(Name, self()),
+    yes = global:re_register_name(Name, self()),
+    ?UNTIL([] =:= cnode_monitored_by(Cpid)),
+    ?UNTIL([] =:= cnode_links(Cpid)),
+    [] = gen_server:call(global_name_server, get_names_ext, infinity),
 
-    ?line Cpid ! {register, self(), Name},
-    ?line receive {Cpid, Reply1} -> no = Reply1 end,
-    ?line _ = global:unregister_name(Name),
+    Cpid ! {register, self(), Name},
+    receive {Cpid, Reply1} -> no = Reply1 end,
+    _ = global:unregister_name(Name),
     ct:sleep(1000),
-    ?line Cpid ! {register, self(), Name},
-    ?line ?UNTIL(length(get_ext_names()) =:= 1),
-    ?line receive {Cpid, Reply2} -> yes = Reply2 end,
+    Cpid ! {register, self(), Name},
+    ?UNTIL(length(get_ext_names()) =:= 1),
+    receive {Cpid, Reply2} -> yes = Reply2 end,
 
-    ?line Cpid ! {unregister, self(), Name},
-    ?line ?UNTIL(length(get_ext_names()) =:= 0),
-    ?line receive {Cpid, Reply3} -> ok = Reply3 end,
+    Cpid ! {unregister, self(), Name},
+    ?UNTIL(length(get_ext_names()) =:= 0),
+    receive {Cpid, Reply3} -> ok = Reply3 end,
 
     Cpid ! die,
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
-    ?line [] = get_ext_names(),
-    ?line [] = rpc:call(NodeB, gen_server, call, 
-                        [global_name_server, get_names_ext]),
-    ?line [] = rpc:call(NodeC, gen_server, call, 
-                        [global_name_server, get_names_ext]),
+    ?UNTIL(OrigNames =:= global:registered_names()),
+    [] = get_ext_names(),
+    [] = rpc:call(NodeB, gen_server, call,
+		  [global_name_server, get_names_ext]),
+    [] = rpc:call(NodeC, gen_server, call,
+		  [global_name_server, get_names_ext]),
 
-    ?line Cpid2 = erlang:spawn(NodeC, fun() -> cnode_proc(NodeB) end),
-    ?line Cpid2 ! {register, self(), Name},
-    ?line receive {Cpid2, Reply4} -> yes = Reply4 end,
+    Cpid2 = erlang:spawn(NodeC, fun() -> cnode_proc(NodeB) end),
+    Cpid2 ! {register, self(), Name},
+    receive {Cpid2, Reply4} -> yes = Reply4 end,
 
     %% It could be a bug that Cpid2 is linked to 'global_name_server'
     %% at node 'b'. The effect: Cpid2 dies when node 'b' crashes.
     stop_node(NodeB),
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
-    ?line [] = get_ext_names(),
-    ?line [] = rpc:call(NodeC, gen_server, call, 
-                        [global_name_server, get_names_ext]),
+    ?UNTIL(OrigNames =:= global:registered_names()),
+    [] = get_ext_names(),
+    [] = rpc:call(NodeC, gen_server, call,
+		  [global_name_server, get_names_ext]),
 
-    %% ?line {_, Trace} = collect_tracers(Nodes),
+    %% {_, Trace} = collect_tracers(Nodes),
     %% lists:foreach(fun(M) -> erlang:display(M) end, Trace),
 
     ThisNode = node(),
-    ?line Cpid3 = erlang:spawn(NodeC, fun() -> cnode_proc(ThisNode) end),
-    ?line Cpid3 ! {register, self(), Name},
-    ?line receive {Cpid3, Reply5} -> yes = Reply5 end,
+    Cpid3 = erlang:spawn(NodeC, fun() -> cnode_proc(ThisNode) end),
+    Cpid3 ! {register, self(), Name},
+    receive {Cpid3, Reply5} -> yes = Reply5 end,
 
-    ?line ?UNTIL(length(get_ext_names()) =:= 1),
+    ?UNTIL(length(get_ext_names()) =:= 1),
     stop_node(NodeC),
-    ?line ?UNTIL(length(get_ext_names()) =:= 0),
+    ?UNTIL(length(get_ext_names()) =:= 0),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 get_ext_names() ->
@@ -2765,8 +2742,8 @@ many_nodes(Config) when is_list(Config) ->
     Timeout = 240,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
 
     {Rels, N_cps} = 
         case test_server:os_type() of
@@ -2780,10 +2757,10 @@ many_nodes(Config) when is_list(Config) ->
             _ -> 
                 {node_rel(1, 32, this), 32}
         end,
-    ?line Cps = [begin {ok, Cp} = start_node_rel(Name, Rel, Config), Cp end ||
-                    {Name,Rel} <- Rels],
+    Cps = [begin {ok, Cp} = start_node_rel(Name, Rel, Config), Cp end ||
+	      {Name,Rel} <- Rels],
     Nodes = lists:sort(?NODES),
-    ?line wait_for_ready_net(Nodes, Config),
+    wait_for_ready_net(Nodes, Config),
 
     Dir = proplists:get_value(priv_dir, Config),
     GoFile = filename:join([Dir, "go.txt"]),
@@ -2796,29 +2773,29 @@ many_nodes(Config) when is_list(Config) ->
                 file:delete(File),
                 rpc_cast(N, ?MODULE, isolated_node, [File, GoFile, Cps, Config])
         end,
-    ?line lists:foreach(IsoFun, CpsFiles),
-    
-    ?line all_nodes_files(CpsFiles, "isolated", Config),
-    ?line Time = msec(),
-    ?line sync_until(),
+    lists:foreach(IsoFun, CpsFiles),
+
+    all_nodes_files(CpsFiles, "isolated", Config),
+    Time = msec(),
+    sync_until(),
     erlang:display(ready_to_go),
-    ?line touch(GoFile, "go"),
-    ?line all_nodes_files(CpsFiles, "done", Config),
-    ?line Time2 = msec(),
+    touch(GoFile, "go"),
+    all_nodes_files(CpsFiles, "done", Config),
+    Time2 = msec(),
 
-    ?line lists:foreach(fun(N) -> pong = net_adm:ping(N) end, Cps),
+    lists:foreach(fun(N) -> pong = net_adm:ping(N) end, Cps),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     write_high_level_trace(Config), % The test succeeded, but was it slow?
 
-    ?line lists:foreach(fun({_N, File}) -> file:delete(File) end, CpsFiles),
-    ?line file:delete(GoFile),
+    lists:foreach(fun({_N, File}) -> file:delete(File) end, CpsFiles),
+    file:delete(GoFile),
 
-    ?line ?UNTIL(OrigNames =:= global:registered_names()),
+    ?UNTIL(OrigNames =:= global:registered_names()),
     write_high_level_trace(Config),
-    ?line stop_nodes(Cps),
-    ?line init_condition(Config),
+    stop_nodes(Cps),
+    init_condition(Config),
     Diff = Time2 - Time,
     Return = lists:flatten(io_lib:format("~w nodes took ~w ms", 
                                          [N_cps, Diff])),
@@ -2849,7 +2826,7 @@ isolated_node(File, GoFile, Nodes, Config) ->
     touch(File, "got_go"),
     lists:foreach(fun(N) -> _ = net_adm:ping(N) end, shuffle(Nodes)),
     touch(File, "pinged"),
-    ?line ?UNTIL((Ns -- get_known(node())) =:= []),
+    ?UNTIL((Ns -- get_known(node())) =:= []),
     touch(File, "done").
 
 touch(File, List) ->
@@ -2904,7 +2881,7 @@ sync_0(Config) when is_list(Config) ->
     Timeout = 180,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
+    init_condition(Config),
 
     N_cps = 
         case test_server:os_type() of
@@ -2922,18 +2899,18 @@ sync_0(Config) when is_list(Config) ->
 
     Names = [lists:concat([cp,N]) || N <- lists:seq(1, N_cps)],
     Cps = start_and_sync(Names),
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
     write_high_level_trace(Config),
     stop_nodes(Cps),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 start_and_sync([]) ->
     [];
 start_and_sync([Name | Names]) ->
-    ?line {ok, N} = start_node(Name, slave, []),
-    ?line {Time, _Void} = rpc:call(N, timer, tc, [global, sync, []]),
+    {ok, N} = start_node(Name, slave, []),
+    {Time, _Void} = rpc:call(N, timer, tc, [global, sync, []]),
     io:format("~p: ~p~n", [Name, Time]),
     [N | start_and_sync(Names)].
 
@@ -2945,58 +2922,57 @@ global_groups_change(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),
-    ?line M = from($@, atom_to_list(node())),
+    init_condition(Config),
+    M = from($@, atom_to_list(node())),
 
     %% Create the .app files and the boot script
-    ?line {KernelVer, StdlibVer} = create_script_dc("dc"),
-    ?line case is_real_system(KernelVer, StdlibVer) of
-	      true ->
-		  Options = [];
-	      false  ->
-		  Options = [local]
-	  end,
+    {KernelVer, StdlibVer} = create_script_dc("dc"),
+    case is_real_system(KernelVer, StdlibVer) of
+	true ->
+	    Options = [];
+	false  ->
+	    Options = [local]
+    end,
 
-    ?line ok = systools:make_script("dc", Options),
-    
+    ok = systools:make_script("dc", Options),
+
     [Ncp1,Ncp2,Ncp3,Ncp4,Ncp5,NcpA,NcpB,NcpC,NcpD,NcpE] = 
         node_names([cp1,cp2,cp3,cp4,cp5,cpA,cpB,cpC,cpD,cpE], Config),
 
     %% Write config files
     Dir = proplists:get_value(priv_dir,Config),
-    ?line {ok, Fd_dc} = file:open(filename:join(Dir, "sys.config"), [write]),
-    ?line config_dc1(Fd_dc, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE),
-    ?line file:close(Fd_dc),
-    ?line Config1 = filename:join(Dir, "sys"),
-    
+    {ok, Fd_dc} = file:open(filename:join(Dir, "sys.config"), [write]),
+    config_dc1(Fd_dc, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE),
+    file:close(Fd_dc),
+    Config1 = filename:join(Dir, "sys"),
+
     %% Test [cp1, cp2, cp3]
-    ?line {ok, Cp1} = start_node_boot(Ncp1, Config1, dc),
-    ?line {ok, Cp2} = start_node_boot(Ncp2, Config1, dc),
-    ?line {ok, Cp3} = start_node_boot(Ncp3, Config1, dc),
-    ?line {ok, CpA} = start_node_boot(NcpA, Config1, dc),
-    ?line {ok, CpB} = start_node_boot(NcpB, Config1, dc),
-    ?line {ok, CpC} = start_node_boot(NcpC, Config1, dc),
-    ?line {ok, CpD} = start_node_boot(NcpD, Config1, dc),
-    ?line {ok, CpE} = start_node_boot(NcpE, Config1, dc),
+    {ok, Cp1} = start_node_boot(Ncp1, Config1, dc),
+    {ok, Cp2} = start_node_boot(Ncp2, Config1, dc),
+    {ok, Cp3} = start_node_boot(Ncp3, Config1, dc),
+    {ok, CpA} = start_node_boot(NcpA, Config1, dc),
+    {ok, CpB} = start_node_boot(NcpB, Config1, dc),
+    {ok, CpC} = start_node_boot(NcpC, Config1, dc),
+    {ok, CpD} = start_node_boot(NcpD, Config1, dc),
+    {ok, CpE} = start_node_boot(NcpE, Config1, dc),
 
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp2]),
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
-    ?line pang = rpc:call(Cp1, net_adm, ping,
-                          [list_to_atom(lists:concat(["cp5@", M]))]),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp3]),
-    ?line pang = rpc:call(Cp2, net_adm, ping,
-                          [list_to_atom(lists:concat(["cp5@", M]))]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp2]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp3]),
+    pang = rpc:call(Cp1, net_adm, ping,
+		    [list_to_atom(lists:concat(["cp5@", M]))]),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp3]),
+    pang = rpc:call(Cp2, net_adm, ping,
+		    [list_to_atom(lists:concat(["cp5@", M]))]),
 
-    ?line {TestGG4, yes} = rpc:call(CpB, ?MODULE, start_proc, [test]),
-    ?line {TestGG5, yes} = rpc:call(CpE, ?MODULE, start_proc, [test]),
+    {TestGG4, yes} = rpc:call(CpB, ?MODULE, start_proc, [test]),
+    {TestGG5, yes} = rpc:call(CpE, ?MODULE, start_proc, [test]),
 
 
-    ?line pong = rpc:call(CpA, net_adm, ping, [CpC]),
-    ?line pong = rpc:call(CpC, net_adm, ping, [CpB]),
-    ?line pong = rpc:call(CpD, net_adm, ping, [CpC]),
-    ?line pong = rpc:call(CpE, net_adm, ping, [CpD]),
+    pong = rpc:call(CpA, net_adm, ping, [CpC]),
+    pong = rpc:call(CpC, net_adm, ping, [CpB]),
+    pong = rpc:call(CpD, net_adm, ping, [CpC]),
+    pong = rpc:call(CpE, net_adm, ping, [CpD]),
 
-    ?line
     ?UNTIL(begin
                TestGG4_1 = rpc:call(CpA, global, whereis_name, [test]),
                TestGG4_2 = rpc:call(CpB, global, whereis_name, [test]),
@@ -3015,86 +2991,85 @@ global_groups_change(Config) ->
 
     io:format( "#### nodes() ~p~n",[nodes()]),
 
-    ?line XDcWa1 = rpc:call(Cp1, global_group, info, []),
-    ?line XDcWa2 = rpc:call(Cp2, global_group, info, []),
-    ?line XDcWa3 = rpc:call(Cp3, global_group, info, []),
+    XDcWa1 = rpc:call(Cp1, global_group, info, []),
+    XDcWa2 = rpc:call(Cp2, global_group, info, []),
+    XDcWa3 = rpc:call(Cp3, global_group, info, []),
     io:format( "#### XDcWa1 ~p~n",[XDcWa1]),
     io:format( "#### XDcWa2 ~p~n",[XDcWa2]),
     io:format( "#### XDcWa3 ~p~n",[XDcWa3]),
 
-    ?line stop_node(CpC),
- 
-    %% Read the current configuration parameters, and change them
-    ?line OldEnv = 
-        rpc:call(Cp1, application_controller, prep_config_change, []),
-    ?line {value, {kernel, OldKernel}} = lists:keysearch(kernel, 1, OldEnv),
+    stop_node(CpC),
 
-    ?line GG1 = 
+    %% Read the current configuration parameters, and change them
+    OldEnv =
+        rpc:call(Cp1, application_controller, prep_config_change, []),
+    {value, {kernel, OldKernel}} = lists:keysearch(kernel, 1, OldEnv),
+
+    GG1 =
         lists:sort([mk_node(Ncp1, M), mk_node(Ncp2, M), mk_node(Ncp5, M)]),
-    ?line GG2 = lists:sort([mk_node(Ncp3, M)]),
-    ?line GG3 = lists:sort([mk_node(Ncp4, M)]),
-    ?line GG4 = lists:sort([mk_node(NcpA, M), mk_node(NcpB, M)]),
-    ?line GG5 = 
+    GG2 = lists:sort([mk_node(Ncp3, M)]),
+    GG3 = lists:sort([mk_node(Ncp4, M)]),
+    GG4 = lists:sort([mk_node(NcpA, M), mk_node(NcpB, M)]),
+    GG5 =
         lists:sort([mk_node(NcpC, M), mk_node(NcpD, M), mk_node(NcpE, M)]),
 
-    ?line NewNG = {global_groups,[{gg1, normal, GG1},
-				  {gg2, normal, GG2},
-				  {gg3, normal, GG3},
-				  {gg4, normal, GG4},
-				  {gg5, hidden, GG5}]},
-    
-    ?line NewKernel = 
+    NewNG = {global_groups,[{gg1, normal, GG1},
+			    {gg2, normal, GG2},
+			    {gg3, normal, GG3},
+			    {gg4, normal, GG4},
+			    {gg5, hidden, GG5}]},
+
+    NewKernel =
         [{kernel, lists:keyreplace(global_groups, 1, OldKernel, NewNG)}],
-    ?line ok = rpc:call(Cp1, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(Cp2, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(Cp3, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(CpA, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(CpB, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(CpD, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    ?line ok = rpc:call(CpE, application_controller, test_change_apps, 
-			[[kernel], [NewKernel]]),
-    
+    ok = rpc:call(Cp1, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(Cp2, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(Cp3, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(CpA, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(CpB, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(CpD, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+    ok = rpc:call(CpE, application_controller, test_change_apps,
+		  [[kernel], [NewKernel]]),
+
     io:format("####  ~p~n",[multicall]),
     io:format( "####  ~p~n",[multicall]),
     %% no idea to check the result from the rpc because the other
     %% nodes will disconnect test server, and thus the result will
     %% always be {badrpc, nodedown}
-    ?line rpc:multicall([Cp1, Cp2, Cp3, CpA, CpB, CpD, CpE], 
-                        application_controller, config_change, [OldEnv]),
+    rpc:multicall([Cp1, Cp2, Cp3, CpA, CpB, CpD, CpE],
+		  application_controller, config_change, [OldEnv]),
 
-    ?line {ok, Fd_dc2} = file:open(filename:join(Dir, "sys2.config"), [write]),
-    ?line config_dc2(Fd_dc2, NewNG, Ncp1, Ncp2, Ncp3),
-    ?line file:close(Fd_dc2),
-    ?line Config2 = filename:join(Dir, "sys2"),
-    ?line {ok, CpC} = start_node_boot(NcpC, Config2, dc),
+    {ok, Fd_dc2} = file:open(filename:join(Dir, "sys2.config"), [write]),
+    config_dc2(Fd_dc2, NewNG, Ncp1, Ncp2, Ncp3),
+    file:close(Fd_dc2),
+    Config2 = filename:join(Dir, "sys2"),
+    {ok, CpC} = start_node_boot(NcpC, Config2, dc),
 
-    ?line sync_and_wait(CpA),
-    ?line sync_and_wait(CpD),
-    
-    ?line pong = rpc:call(CpA, net_adm, ping, [CpC]),
-    ?line pong = rpc:call(CpC, net_adm, ping, [CpB]),
-    ?line pong = rpc:call(CpD, net_adm, ping, [CpC]),
-    ?line pong = rpc:call(CpE, net_adm, ping, [CpD]),
-    
-    ?line GG5 = 
+    sync_and_wait(CpA),
+    sync_and_wait(CpD),
+
+    pong = rpc:call(CpA, net_adm, ping, [CpC]),
+    pong = rpc:call(CpC, net_adm, ping, [CpB]),
+    pong = rpc:call(CpD, net_adm, ping, [CpC]),
+    pong = rpc:call(CpE, net_adm, ping, [CpD]),
+
+    GG5 =
         lists:sort([mk_node(NcpC, M)|rpc:call(CpC, erlang, nodes, [])]),
-    ?line GG5 = 
+    GG5 =
         lists:sort([mk_node(NcpD, M)|rpc:call(CpD, erlang, nodes, [])]),
-    ?line GG5 = 
+    GG5 =
         lists:sort([mk_node(NcpE, M)|rpc:call(CpE, erlang, nodes, [])]),
 
-    ?line false = 
+    false =
         lists:member(mk_node(NcpC, M), rpc:call(CpA, erlang, nodes, [])),
-    ?line false = 
+    false =
         lists:member(mk_node(NcpC, M), rpc:call(CpB, erlang, nodes, [])),
 
-    ?line
     ?UNTIL(begin
                TestGG4a = rpc:call(CpA, global, whereis_name, [test]),
                TestGG4b = rpc:call(CpB, global, whereis_name, [test]),
@@ -3111,14 +3086,14 @@ global_groups_change(Config) ->
                (TestGG5 =:= TestGG5e)
            end),
 
-    ?line Info1 = rpc:call(Cp1, global_group, info, []),
-    ?line Info2 = rpc:call(Cp2, global_group, info, []),
-    ?line Info3 = rpc:call(Cp3, global_group, info, []),
-    ?line InfoA = rpc:call(CpA, global_group, info, []),
-    ?line InfoB = rpc:call(CpB, global_group, info, []),
-    ?line InfoC = rpc:call(CpC, global_group, info, []),
-    ?line InfoD = rpc:call(CpD, global_group, info, []),
-    ?line InfoE = rpc:call(CpE, global_group, info, []),
+    Info1 = rpc:call(Cp1, global_group, info, []),
+    Info2 = rpc:call(Cp2, global_group, info, []),
+    Info3 = rpc:call(Cp3, global_group, info, []),
+    InfoA = rpc:call(CpA, global_group, info, []),
+    InfoB = rpc:call(CpB, global_group, info, []),
+    InfoC = rpc:call(CpC, global_group, info, []),
+    InfoD = rpc:call(CpD, global_group, info, []),
+    InfoE = rpc:call(CpE, global_group, info, []),
     io:format( "#### Info1 ~p~n",[Info1]),
     io:format( "#### Info2 ~p~n",[Info2]),
     io:format( "#### Info3 ~p~n",[Info3]),
@@ -3128,154 +3103,154 @@ global_groups_change(Config) ->
     io:format( "#### InfoD ~p~n",[InfoD]),
     io:format( "#### InfoE ~p~n",[InfoE]),
 
-    ?line {global_groups, GGNodes} = NewNG,
+    {global_groups, GGNodes} = NewNG,
 
-    ?line Info1ok = [{state, synced},
-		     {own_group_name, gg1},
-		     {own_group_nodes, GG1},
-		     {synced_nodes, [mk_node(Ncp2, M)]},
-		     {sync_error, []},
-		     {no_contact, [mk_node(Ncp5, M)]},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg1, 1, GGNodes))},
-		     {monitoring, []}],
-    
-    
-    ?line Info2ok = [{state, synced},
-		     {own_group_name, gg1},
-		     {own_group_nodes, GG1},
-		     {synced_nodes, [mk_node(Ncp1, M)]},
-		     {sync_error, []},
-		     {no_contact, [mk_node(Ncp5, M)]},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg1, 1, GGNodes))},
-		     {monitoring, []}],
-    
-    ?line Info3ok = [{state, synced},
-		     {own_group_name, gg2},
-		     {own_group_nodes, GG2},
-		     {synced_nodes, []},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg2, 1, GGNodes))},
-		     {monitoring, []}],
-
-    ?line InfoAok = [{state, synced},
-		     {own_group_name, gg4},
-		     {own_group_nodes, GG4},
-		     {synced_nodes, lists:delete(mk_node(NcpA, M), GG4)},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg4, 1, GGNodes))},
-		     {monitoring, []}],
-
-    ?line InfoBok = [{state, synced},
-		     {own_group_name, gg4},
-		     {own_group_nodes, GG4},
-		     {synced_nodes, lists:delete(mk_node(NcpB, M), GG4)},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg4, 1, GGNodes))},
-		     {monitoring, []}],
-
-    ?line InfoCok = [{state, synced},
-		     {own_group_name, gg5},
-		     {own_group_nodes, GG5},
-		     {synced_nodes, lists:delete(mk_node(NcpC, M), GG5)},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg5, 1, GGNodes))},
-		     {monitoring, []}],
-
-    ?line InfoDok = [{state, synced},
-		     {own_group_name, gg5},
-		     {own_group_nodes, GG5},
-		     {synced_nodes, lists:delete(mk_node(NcpD, M), GG5)},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg5, 1, GGNodes))},
-		     {monitoring, []}],
-
-    ?line InfoEok = [{state, synced},
-		     {own_group_name, gg5},
-		     {own_group_nodes, GG5},
-		     {synced_nodes, lists:delete(mk_node(NcpE, M), GG5)},
-		     {sync_error, []},
-		     {no_contact, []},
-		     {other_groups, remove_gg_pub_type(lists:keydelete
-                                                          (gg5, 1, GGNodes))},
-		     {monitoring, []}],
-    
-
-    ?line case Info1 of
-	      Info1ok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", Cp1}, {Info1, Info1ok}})
-	  end,
-
-    ?line case Info2 of
-	      Info2ok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", Cp2}, {Info2, Info2ok}})
-	  end,
-
-    ?line case Info3 of
-	      Info3ok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", Cp3}, {Info3, Info3ok}})
-	  end,
-
-    ?line case InfoA of
-	      InfoAok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", CpA}, {InfoA, InfoAok}})
-	  end,
-
-    ?line case InfoB of
-	      InfoBok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", CpB}, {InfoB, InfoBok}})
-	  end,
+    Info1ok = [{state, synced},
+	       {own_group_name, gg1},
+	       {own_group_nodes, GG1},
+	       {synced_nodes, [mk_node(Ncp2, M)]},
+	       {sync_error, []},
+	       {no_contact, [mk_node(Ncp5, M)]},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg1, 1, GGNodes))},
+	       {monitoring, []}],
 
 
-    ?line case InfoC of
-	      InfoCok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", CpC}, {InfoC, InfoCok}})
-	  end,
+    Info2ok = [{state, synced},
+	       {own_group_name, gg1},
+	       {own_group_nodes, GG1},
+	       {synced_nodes, [mk_node(Ncp1, M)]},
+	       {sync_error, []},
+	       {no_contact, [mk_node(Ncp5, M)]},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg1, 1, GGNodes))},
+	       {monitoring, []}],
 
-    ?line case InfoD of
-	      InfoDok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", CpD}, {InfoD, InfoDok}})
-	  end,
+    Info3ok = [{state, synced},
+	       {own_group_name, gg2},
+	       {own_group_nodes, GG2},
+	       {synced_nodes, []},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg2, 1, GGNodes))},
+	       {monitoring, []}],
 
-    ?line case InfoE of
-	      InfoEok -> 
-		  ok;
-	      _ ->
-		  ct:fail({{"could not change the global groups"
-                                     " in node", CpE}, {InfoE, InfoEok}})
-	  end,
+    InfoAok = [{state, synced},
+	       {own_group_name, gg4},
+	       {own_group_nodes, GG4},
+	       {synced_nodes, lists:delete(mk_node(NcpA, M), GG4)},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg4, 1, GGNodes))},
+	       {monitoring, []}],
+
+    InfoBok = [{state, synced},
+	       {own_group_name, gg4},
+	       {own_group_nodes, GG4},
+	       {synced_nodes, lists:delete(mk_node(NcpB, M), GG4)},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg4, 1, GGNodes))},
+	       {monitoring, []}],
+
+    InfoCok = [{state, synced},
+	       {own_group_name, gg5},
+	       {own_group_nodes, GG5},
+	       {synced_nodes, lists:delete(mk_node(NcpC, M), GG5)},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg5, 1, GGNodes))},
+	       {monitoring, []}],
+
+    InfoDok = [{state, synced},
+	       {own_group_name, gg5},
+	       {own_group_nodes, GG5},
+	       {synced_nodes, lists:delete(mk_node(NcpD, M), GG5)},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg5, 1, GGNodes))},
+	       {monitoring, []}],
+
+    InfoEok = [{state, synced},
+	       {own_group_name, gg5},
+	       {own_group_nodes, GG5},
+	       {synced_nodes, lists:delete(mk_node(NcpE, M), GG5)},
+	       {sync_error, []},
+	       {no_contact, []},
+	       {other_groups, remove_gg_pub_type(lists:keydelete
+						   (gg5, 1, GGNodes))},
+	       {monitoring, []}],
+
+
+    case Info1 of
+	Info1ok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", Cp1}, {Info1, Info1ok}})
+    end,
+
+    case Info2 of
+	Info2ok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", Cp2}, {Info2, Info2ok}})
+    end,
+
+    case Info3 of
+	Info3ok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", Cp3}, {Info3, Info3ok}})
+    end,
+
+    case InfoA of
+	InfoAok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", CpA}, {InfoA, InfoAok}})
+    end,
+
+    case InfoB of
+	InfoBok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", CpB}, {InfoB, InfoBok}})
+    end,
+
+
+    case InfoC of
+	InfoCok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", CpC}, {InfoC, InfoCok}})
+    end,
+
+    case InfoD of
+	InfoDok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", CpD}, {InfoD, InfoDok}})
+    end,
+
+    case InfoE of
+	InfoEok ->
+	    ok;
+	_ ->
+	    ct:fail({{"could not change the global groups"
+		      " in node", CpE}, {InfoE, InfoEok}})
+    end,
 
     write_high_level_trace(Config), % no good since CpC was restarted
     stop_node(Cp1),   
@@ -3287,7 +3262,7 @@ global_groups_change(Config) ->
     stop_node(CpD),
     stop_node(CpE),
 
-    ?line init_condition(Config),
+    init_condition(Config),
     ok.
 
 sync_and_wait(Node) ->
@@ -3317,43 +3292,43 @@ sync_and_wait(Node) ->
 is_real_system(KernelVsn, StdlibVsn) ->
     LibDir = code:lib_dir(),
     filelib:is_dir(filename:join(LibDir,  "kernel-" ++ KernelVsn))
-      andalso
-    filelib:is_dir(filename:join(LibDir,  "stdlib-" ++ StdlibVsn)).
+	andalso
+	filelib:is_dir(filename:join(LibDir,  "stdlib-" ++ StdlibVsn)).
 
 create_script_dc(ScriptName) ->
-    ?line Name = filename:join(".", ScriptName),
-    ?line Apps = application_controller:which_applications(),
-    ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
-    ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name ++ ".rel", [write]),
-    ?line {_, Version} = init:script_id(),
-    ?line io:format(Fd,
-		    "{release, {\"Test release 3\", \"~s\"}, \n"
-		    " {erts, \"4.4\"}, \n"
-		    " [{kernel, \"~s\"}, {stdlib, \"~s\"}]}.\n",
-		    [Version, KernelVer, StdlibVer]),
-    ?line file:close(Fd),
+    Name = filename:join(".", ScriptName),
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+    {ok,Fd} = file:open(Name ++ ".rel", [write]),
+    {_, Version} = init:script_id(),
+    io:format(Fd,
+	      "{release, {\"Test release 3\", \"~s\"}, \n"
+	      " {erts, \"4.4\"}, \n"
+	      " [{kernel, \"~s\"}, {stdlib, \"~s\"}]}.\n",
+	      [Version, KernelVer, StdlibVer]),
+    file:close(Fd),
     {KernelVer, StdlibVer}.
 
 %% Not used?
 config_dc(Fd, Ncp1, Ncp2, Ncp3) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000},"
-                  "{global_groups, [{gg1, ['~s@~s', '~s@~s']},"
-	          "               {gg2, ['~s@~s']}]}"
-	          "              ]}].~n",
+	      "{sync_nodes_timeout, 1000},"
+	      "{global_groups, [{gg1, ['~s@~s', '~s@~s']},"
+	      "               {gg2, ['~s@~s']}]}"
+	      "              ]}].~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  Ncp1, M, Ncp2, M, Ncp3, M]).
 
 
 config_dc1(Fd, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000},"
-                  "{global_groups, [{gg1, ['~s@~s', '~s@~s']},"
-	          "                 {gg2, ['~s@~s']},"
-	          "                 {gg4, normal, ['~s@~s','~s@~s','~s@~s']},"
-	          "                 {gg5, hidden, ['~s@~s','~s@~s']}]}]}].~n",
+	      "{sync_nodes_timeout, 1000},"
+	      "{global_groups, [{gg1, ['~s@~s', '~s@~s']},"
+	      "                 {gg2, ['~s@~s']},"
+	      "                 {gg4, normal, ['~s@~s','~s@~s','~s@~s']},"
+	      "                 {gg5, hidden, ['~s@~s','~s@~s']}]}]}].~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  
                NcpA, M, NcpB, M, NcpC, M, NcpD, M, NcpE, M, 
                Ncp1, M, Ncp2, M, 
@@ -3364,8 +3339,8 @@ config_dc1(Fd, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE) ->
 config_dc2(Fd, NewGG, Ncp1, Ncp2, Ncp3) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000},"
-                  "~p]}].~n",
+	      "{sync_nodes_timeout, 1000},"
+	      "~p]}].~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M, NewGG]).
 
 
@@ -3377,14 +3352,14 @@ from(_H, []) -> [].
 
 other(A, [A, _B]) -> A;
 other(_, [_A, B]) -> B.
-     
+
 
 %% this one runs at cp2
 part1(Config, Main, Cp1, Cp3) ->
     case catch begin
 		   make_partition(Config, [Main, Cp1], [node(), Cp3]),
-		   ?line {_Pid, yes} = start_proc(test2),
-		   ?line {_Pid2, yes} = start_proc(test4)
+		   {_Pid, yes} = start_proc(test2),
+		   {_Pid2, yes} = start_proc(test4)
 	       end of
 	{_, yes} -> ok; % w("ok", []);
 	{'EXIT', _R} ->
@@ -3396,8 +3371,8 @@ part1(Config, Main, Cp1, Cp3) ->
 part1_5(Config, Main, Cp1, Cp3) ->
     case catch begin
 		   make_partition(Config, [Main, Cp1], [node(), Cp3]),
-		   ?line {_Pid1, yes} = start_proc_basic(name12),
-		   ?line {_Pid2, yes} = 
+		   {_Pid1, yes} = start_proc_basic(name12),
+		   {_Pid2, yes} =
                        rpc:call(Cp3, ?MODULE, start_proc_basic, [name03])
 	       end of
 	{_, yes} -> ok; % w("ok", []);
@@ -3478,36 +3453,35 @@ part3(Config, Parent, Main, Cp0, Cp1, Cp2, Cp3, Cp4, Cp5, Cp6) ->
     make_partition(Config, [Main, Cp0, Cp1, Cp2], [Cp3, Cp4, Cp5, Cp6]),
     start_procs(Parent, Cp4, Cp5, Cp6, Config),
     %% Make Cp6 alone
-    ?line rpc_cast(Cp5, ?MODULE, crash, [12000]),
-    ?line rpc_cast(Cp6, ?MODULE, alone, [Cp0, Cp3]).
+    rpc_cast(Cp5, ?MODULE, crash, [12000]),
+    rpc_cast(Cp6, ?MODULE, alone, [Cp0, Cp3]).
 
 start_procs(Parent, N1, N2, N3, Config) ->
     S1 = lists:sort([N1, N2, N3]),
-    ?line 
     ?UNTIL(begin
 	       NN = lists:sort(nodes()),
 	       S1 =:= NN
 	   end),
-    ?line Pid3 = start_proc3(test1),
-    ?line Pid4 = rpc:call(N1, ?MODULE, start_proc3, [test2]),
-    ?line assert_pid(Pid4),
-    ?line Pid5 = rpc:call(N2, ?MODULE, start_proc3, [test3]),
-    ?line assert_pid(Pid5),
-    ?line Pid6 = rpc:call(N3, ?MODULE, start_proc3, [test4]),
-    ?line assert_pid(Pid6),
-    ?line yes = global:register_name(test1, Pid3),
-    ?line yes = global:register_name(test2, Pid4, {global, notify_all_name}),
-    ?line yes = global:register_name(test3, Pid5, {global, random_notify_name}),
+    Pid3 = start_proc3(test1),
+    Pid4 = rpc:call(N1, ?MODULE, start_proc3, [test2]),
+    assert_pid(Pid4),
+    Pid5 = rpc:call(N2, ?MODULE, start_proc3, [test3]),
+    assert_pid(Pid5),
+    Pid6 = rpc:call(N3, ?MODULE, start_proc3, [test4]),
+    assert_pid(Pid6),
+    yes = global:register_name(test1, Pid3),
+    yes = global:register_name(test2, Pid4, {global, notify_all_name}),
+    yes = global:register_name(test3, Pid5, {global, random_notify_name}),
     Resolve = fun(Name, Pid1, Pid2) ->
 		      Parent ! {resolve_called, Name, node()},
 		      {Min, Max} = minmax(Pid1, Pid2),
 		      exit(Min, kill),
 		      Max
 	      end,
-    ?line yes = global:register_name(test4, Pid6, Resolve).
+    yes = global:register_name(test4, Pid6, Resolve).
 
 
-    
+
 collect_resolves() -> cr(0).
 cr(Res) ->
     receive
@@ -3537,7 +3511,7 @@ start_proc() ->
     receive
 	Pid -> Pid
     end.
-    
+
 
 start_proc(Name) ->
     Pid = spawn(?MODULE, p_init, [self(), Name]),
@@ -3593,12 +3567,12 @@ loop_2() ->
     receive
 	die -> ok
     end.
-    
+
 msec() ->
     msec(now()).
 
 msec(T) ->
-     element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
+    element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
 
 assert_pid(Pid) ->
     if
@@ -3723,13 +3697,13 @@ pr_diff(Str, T0, T1) ->
 -endif.	    
 
 now_diff({A1,B1,C1},{A2,B2,C2}) ->
-     C1-C2 + 1000000*((B1-B2) + 1000000*(A1-A2)).
+    C1-C2 + 1000000*((B1-B2) + 1000000*(A1-A2)).
 
 start_node_boot(Name, Config, Boot) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Res = test_server:start_node(Name, peer, [{args, " -pa " ++ Pa ++ 
-						     " -config " ++ Config ++
-						     " -boot " ++ atom_to_list(Boot)}]),
+						   " -config " ++ Config ++
+						   " -boot " ++ atom_to_list(Boot)}]),
     record_started_node(Res).
 
 %% Increase the timeout for when an upcoming connection is teared down
@@ -3755,13 +3729,13 @@ start_node(Name0, How, Args, Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     R = test_server:start_node(Name, How, [{args,
 					    Args ++ " " ++
-					    "-kernel net_setuptime 100 "
-%%					    "-noshell "
+						"-kernel net_setuptime 100 "
+					    %%					    "-noshell "
 					    "-pa " ++ Pa},
 					   {linked, false}
-]),
+					  ]),
     %% {linked,false} only seems to work for slave nodes.
-%%    ct:sleep(1000),
+    %%    ct:sleep(1000),
     record_started_node(R).
 
 start_node_rel(Name0, Rel, Config) ->
@@ -3772,14 +3746,14 @@ start_node_rel(Name0, Rel, Config) ->
                             Rel when is_atom(Rel) ->
                                 {[{release, atom_to_list(Rel)}], ""};
                             RelList ->
-			       {RelList, ""}
-		       end,
+				{RelList, ""}
+			end,
     Env = [],
     Pa = filename:dirname(code:which(?MODULE)),
     Res = test_server:start_node(Name, peer, 
                                  [{args,
                                    Compat ++ 
-                                   " -kernel net_setuptime 100 "
+				       " -kernel net_setuptime 100 "
                                    " -pa " ++ Pa},
                                   {erl, Release}] ++ Env),
     record_started_node(Res).
@@ -3822,7 +3796,7 @@ dbg_logs(Name) -> dbg_logs(Name, ?NODES).
 dbg_logs(Name, Nodes) ->
     lists:foreach(fun(N) ->
 			  F = lists:concat([Name, ".log.", N, ".txt"]),
-			  ?line ok = sys:log_to_file({global_name_server, N}, F)
+			  ok = sys:log_to_file({global_name_server, N}, F)
 		  end, Nodes).
 
 
@@ -3831,32 +3805,32 @@ global_lost_nodes(Config) when is_list(Config) ->
     Timeout = 60,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    
-    ?line {ok, Node1} = start_node(node1, Config),
-    ?line {ok, Node2} = start_node(node2, Config),
+    init_condition(Config),
 
-    ?line wait_for_ready_net(Config),
+    {ok, Node1} = start_node(node1, Config),
+    {ok, Node2} = start_node(node2, Config),
 
-    ?line io:format("Nodes: ~p", [nodes()]),
-    ?line io:format("Nodes at node1: ~p",
-		    [rpc:call(Node1, erlang, nodes, [])]),
-    ?line io:format("Nodes at node2: ~p",
-		    [rpc:call(Node2, erlang, nodes, [])]),
+    wait_for_ready_net(Config),
 
-    ?line rpc_cast(Node1, ?MODULE, global_load, [node_1,Node2,node_2]),
-    ?line rpc_cast(Node2, ?MODULE, global_load, [node_2,Node1,node_1]),
+    io:format("Nodes: ~p", [nodes()]),
+    io:format("Nodes at node1: ~p",
+	      [rpc:call(Node1, erlang, nodes, [])]),
+    io:format("Nodes at node2: ~p",
+	      [rpc:call(Node2, erlang, nodes, [])]),
+
+    rpc_cast(Node1, ?MODULE, global_load, [node_1,Node2,node_2]),
+    rpc_cast(Node2, ?MODULE, global_load, [node_2,Node1,node_1]),
 
     lost_nodes_waiter(Node1, Node2),
 
     write_high_level_trace(Config),
-    ?line stop_node(Node1),
-    ?line stop_node(Node2),
-    ?line init_condition(Config),
+    stop_node(Node1),
+    stop_node(Node2),
+    init_condition(Config),
     ok.    
 
 global_load(MyName, OtherNode, OtherName) ->
-    ?line yes = global:register_name(MyName, self()),
+    yes = global:register_name(MyName, self()),
     io:format("Registered ~p",[MyName]),
     global_load1(OtherNode, OtherName, 0).
 
@@ -3865,27 +3839,27 @@ global_load1(_OtherNode, _OtherName, 2) ->
     init:stop();
 global_load1(OtherNode, OtherName, Fails) ->	
     ct:sleep(1000),
-    ?line case catch global:whereis_name(OtherName) of
-	      Pid when is_pid(Pid) ->
-		  io:format("~p says: ~p is still there.",
-			    [node(),OtherName]),
-		  global_load1(OtherNode, OtherName, Fails);
-	      Other ->
-		  io:format("~p says: ~p is lost (~p) Pinging.",
-			    [ node(), OtherName, Other]),
-		  case net_adm:ping(OtherNode) of
-		      pong ->
-			  io:format("Re-established contact to ~p",
-				    [OtherName]);
-		      pang ->
-			  io:format("PANIC! Other node is DEAD.", []),
-			  init:stop()
-		  end,
- 		  global_load1(OtherNode, OtherName, Fails+1)
-	  end.
+    case catch global:whereis_name(OtherName) of
+	Pid when is_pid(Pid) ->
+	    io:format("~p says: ~p is still there.",
+		      [node(),OtherName]),
+	    global_load1(OtherNode, OtherName, Fails);
+	Other ->
+	    io:format("~p says: ~p is lost (~p) Pinging.",
+		      [ node(), OtherName, Other]),
+	    case net_adm:ping(OtherNode) of
+		pong ->
+		    io:format("Re-established contact to ~p",
+			      [OtherName]);
+		pang ->
+		    io:format("PANIC! Other node is DEAD.", []),
+		    init:stop()
+	    end,
+	    global_load1(OtherNode, OtherName, Fails+1)
+    end.
 
 lost_nodes_waiter(N1, N2) ->
-    ?line net_kernel:monitor_nodes(true),
+    net_kernel:monitor_nodes(true),
     receive
 	{nodedown, Node} when Node =:= N1 ; Node =:= N2 ->
 	    io:format("~p went down!",[Node]),
@@ -3902,28 +3876,28 @@ mass_death(Config) when is_list(Config) ->
     Timeout = 90,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line OrigNames = global:registered_names(),
+    init_condition(Config),
+    OrigNames = global:registered_names(),
     %% Start nodes
-    ?line Cps = [cp1,cp2,cp3,cp4,cp5],
-    ?line Nodes = [begin {ok, Node} = start_node(Cp, Config), Node end ||
-                      Cp <- Cps],
-    ?line io:format("Nodes: ~p~n", [Nodes]),
-    ?line Ns = lists:seq(1, 40),
+    Cps = [cp1,cp2,cp3,cp4,cp5],
+    Nodes = [begin {ok, Node} = start_node(Cp, Config), Node end ||
+		Cp <- Cps],
+    io:format("Nodes: ~p~n", [Nodes]),
+    Ns = lists:seq(1, 40),
     %% Start processes with globally registered names on the nodes
-    ?line {Pids,[]} = rpc:multicall(Nodes, ?MODULE, mass_spawn, [Ns]),
-    ?line io:format("Pids: ~p~n", [Pids]),
+    {Pids,[]} = rpc:multicall(Nodes, ?MODULE, mass_spawn, [Ns]),
+    io:format("Pids: ~p~n", [Pids]),
     %% Wait...
     ct:sleep(10000),
     %% Check the globally registered names
-    ?line NewNames = global:registered_names(),
-    ?line io:format("NewNames: ~p~n", [NewNames]),
-    ?line Ndiff = lists:sort(NewNames--OrigNames),
-    ?line io:format("Ndiff: ~p~n", [Ndiff]),
-    ?line Ndiff = lists:sort(mass_names(Nodes, Ns)),
+    NewNames = global:registered_names(),
+    io:format("NewNames: ~p~n", [NewNames]),
+    Ndiff = lists:sort(NewNames--OrigNames),
+    io:format("Ndiff: ~p~n", [Ndiff]),
+    Ndiff = lists:sort(mass_names(Nodes, Ns)),
     %%
     %% Kill the root pids
-    ?line lists:foreach(fun (Pid) -> Pid ! drop_dead end, Pids),
+    lists:foreach(fun (Pid) -> Pid ! drop_dead end, Pids),
     %% Start probing and wait for all registered names to disappear
     {YYYY,MM,DD} = date(),
     {H,M,S} = time(),
@@ -3932,22 +3906,21 @@ mass_death(Config) when is_list(Config) ->
     wait_mass_death(Nodes, OrigNames, erlang:now(), Config).
 
 wait_mass_death(Nodes, OrigNames, Then, Config) ->
-    ?line Names = global:registered_names(),
-    ?line 
-	case Names--OrigNames of
-	    [] ->
- 		?line T = now_diff(erlang:now(), Then) div 1000,
-		?line lists:foreach(
-			fun (Node) ->
-				stop_node(Node)
-			end, Nodes),
-                ?line init_condition(Config),
- 		{comment,lists:flatten(io_lib:format("~.3f s~n", [T/1000.0]))};
-	    Ndiff ->
-		?line io:format("Ndiff: ~p~n", [Ndiff]),
-		ct:sleep(1000),
-		?line wait_mass_death(Nodes, OrigNames, Then, Config)
-	end.
+    Names = global:registered_names(),
+    case Names--OrigNames of
+	[] ->
+	    T = now_diff(erlang:now(), Then) div 1000,
+	    lists:foreach(
+	      fun (Node) ->
+		      stop_node(Node)
+	      end, Nodes),
+	    init_condition(Config),
+	    {comment,lists:flatten(io_lib:format("~.3f s~n", [T/1000.0]))};
+	Ndiff ->
+	    io:format("Ndiff: ~p~n", [Ndiff]),
+	    ct:sleep(1000),
+	    wait_mass_death(Nodes, OrigNames, Then, Config)
+    end.
 
 mass_spawn([]) ->
     ok;
@@ -3977,7 +3950,7 @@ mass_name(Node, N) ->
 start_nodes(L, How, Config) ->
     start_nodes2(L, How, 0, Config),
     Nodes = collect_nodes(0, length(L)),
-    ?line ?UNTIL([] =:= Nodes -- nodes()),
+    ?UNTIL([] =:= Nodes -- nodes()),
     put(?nodes_tag, Nodes),
     %% Pinging doesn't help, we have to wait too, for nodes() to become
     %% correct on the other node.
@@ -4001,7 +3974,7 @@ verify_nodes(Nodes, Config) ->
 verify_nodes([], _N, _Config) ->
     [];
 verify_nodes([Node | Rest], N, Config) ->
-    ?line ?UNTIL(
+    ?UNTIL(
        case rpc:call(Node, erlang, nodes, []) of
 	   Nodes when is_list(Nodes) ->
 	       case N =:= lists:sort([Node | Nodes]) of
@@ -4118,8 +4091,8 @@ garbage_messages(Config) when is_list(Config) ->
     Timeout = 25,
     ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
-    ?line init_condition(Config),    
-    ?line [Slave] = start_nodes([garbage_messages], slave, Config),
+    init_condition(Config),
+    [Slave] = start_nodes([garbage_messages], slave, Config),
     Fun = fun() ->
 		  {links,L} = process_info(whereis(global_name_server), links),
 		  lists:foreach(fun(Pid) -> Pid ! {garbage,to,you} end, L),
@@ -4127,15 +4100,15 @@ garbage_messages(Config) when is_list(Config) ->
 		      _Any -> ok
 		  end
 	  end,
-    ?line Pid = spawn_link(Slave, erlang, apply, [Fun,[]]),
+    Pid = spawn_link(Slave, erlang, apply, [Fun,[]]),
     ct:sleep(2000),
-    ?line Global = rpc:call(Slave, erlang, whereis, [global_name_server]),
-    ?line {registered_name,global_name_server} =
+    Global = rpc:call(Slave, erlang, whereis, [global_name_server]),
+    {registered_name,global_name_server} =
 	rpc:call(Slave, erlang, process_info, [Global,registered_name]),
-    ?line true = unlink(Pid),
+    true = unlink(Pid),
     write_high_level_trace(Config),
-    ?line stop_node(Slave),
-    ?line init_condition(Config),
+    stop_node(Slave),
+    init_condition(Config),
     ok.
 
 wait_for_ready_net(Config) ->
@@ -4146,10 +4119,10 @@ wait_for_ready_net(Nodes0, Config) ->
     io:format("wait_for_ready_net ~p~n", [Nodes]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) -> 
-                                 LNs = rpc:call(N, erlang, nodes, []),
-                                 Nodes =:= lists:sort([N | LNs])
-                         end, Nodes)
+		   lists:all(fun(N) ->
+				     LNs = rpc:call(N, erlang, nodes, []),
+				     Nodes =:= lists:sort([N | LNs])
+			     end, Nodes)
            end).
 
 get_known(Node) ->
@@ -4164,7 +4137,7 @@ quite_a_few_nodes(Max) ->
     N = try 
             ulimit("ulimit -u")
         catch _:_ ->
-            ulimit("ulimit -p") % can fail...
+		ulimit("ulimit -p") % can fail...
         end,
     lists:min([(N - 40) div 3, Max]).
 

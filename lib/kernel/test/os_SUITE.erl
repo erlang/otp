@@ -62,9 +62,9 @@ end_per_testcase(_,_Config) ->
 %% with space in its name works.
 space_in_cwd(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ?line Dirname = filename:join(PrivDir, "cwd with space"),
-    ?line ok = file:make_dir(Dirname),
-    ?line ok = file:set_cwd(Dirname),
+    Dirname = filename:join(PrivDir, "cwd with space"),
+    ok = file:make_dir(Dirname),
+    ok = file:set_cwd(Dirname),
 
     %% Using `more' gives the almost the same result on both Unix and Windows.
 
@@ -75,44 +75,44 @@ space_in_cwd(Config) when is_list(Config) ->
 		  "more </dev/null"
 	  end,
 
-    ?line case os:cmd(Cmd) of
-	      [] -> ok;				% Unix.
-	      "\r\n" -> ok;			% Windows.
-	      Other ->
-		  ct:fail({unexpected, Other})
-	  end,
+    case os:cmd(Cmd) of
+	[] -> ok;				% Unix.
+	"\r\n" -> ok;			% Windows.
+	Other ->
+	    ct:fail({unexpected, Other})
+    end,
 
     ct:sleep(5),
-    ?line [] = receive_all(),
+    [] = receive_all(),
     ok.
 
 %% Test that various ways of quoting arguments work.
 quoting(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    ?line Echo = filename:join(DataDir, "my_echo"),
+    Echo = filename:join(DataDir, "my_echo"),
 
-    ?line comp("one", os:cmd(Echo ++ " one")),
-    ?line comp("one::two", os:cmd(Echo ++ " one two")),
-    ?line comp("one two", os:cmd(Echo ++ " \"one two\"")),
-    ?line comp("x::one two::y", os:cmd(Echo ++ " x \"one two\" y")),
-    ?line comp("x::one two", os:cmd(Echo ++ " x \"one two\"")),
-    ?line comp("one two::y", os:cmd(Echo ++ " \"one two\" y")),
-    ?line comp("x::::y", os:cmd(Echo ++ " x \"\" y")),
+    comp("one", os:cmd(Echo ++ " one")),
+    comp("one::two", os:cmd(Echo ++ " one two")),
+    comp("one two", os:cmd(Echo ++ " \"one two\"")),
+    comp("x::one two::y", os:cmd(Echo ++ " x \"one two\" y")),
+    comp("x::one two", os:cmd(Echo ++ " x \"one two\"")),
+    comp("one two::y", os:cmd(Echo ++ " \"one two\" y")),
+    comp("x::::y", os:cmd(Echo ++ " x \"\" y")),
     ct:sleep(5),
-    ?line [] = receive_all(),
+    [] = receive_all(),
     ok.
 
 
 %% Test that unicode arguments work.
 cmd_unicode(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    ?line Echo = filename:join(DataDir, "my_echo"),
+    Echo = filename:join(DataDir, "my_echo"),
 
-    ?line comp("one", os:cmd(Echo ++ " one")),
-    ?line comp("one::two", os:cmd(Echo ++ " one two")),
-    ?line comp("åäö::ϼΩ", os:cmd(Echo ++ " åäö " ++ [1020, 937])),
+    comp("one", os:cmd(Echo ++ " one")),
+    comp("one::two", os:cmd(Echo ++ " one two")),
+    comp("åäö::ϼΩ", os:cmd(Echo ++ " åäö " ++ [1020, 937])),
     ct:sleep(5),
-    ?line [] = receive_all(),
+    [] = receive_all(),
     ok.
 
 
@@ -120,21 +120,21 @@ cmd_unicode(Config) when is_list(Config) ->
 space_in_name(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
-    ?line Spacedir = filename:join(PrivDir, "program files"),
+    Spacedir = filename:join(PrivDir, "program files"),
     Ext = case os:type() of
 	      {win32,_} -> ".exe";
 	      _ -> ""
 	  end,
-    ?line OrigEcho = filename:join(DataDir, "my_echo" ++ Ext),
-    ?line Echo0 = filename:join(Spacedir, "my_echo" ++ Ext),
+    OrigEcho = filename:join(DataDir, "my_echo" ++ Ext),
+    Echo0 = filename:join(Spacedir, "my_echo" ++ Ext),
 
     %% Copy the `my_echo' program to a directory whose name contains a space.
 
-    ?line ok = file:make_dir(Spacedir),
-    ?line {ok, Bin} = file:read_file(OrigEcho),
-    ?line ok = file:write_file(Echo0, Bin),
-    ?line Echo = filename:nativename(Echo0),
-    ?line ok = file:change_mode(Echo, 8#777),	% Make it executable on Unix.
+    ok = file:make_dir(Spacedir),
+    {ok, Bin} = file:read_file(OrigEcho),
+    ok = file:write_file(Echo0, Bin),
+    Echo = filename:nativename(Echo0),
+    ok = file:change_mode(Echo, 8#777),	% Make it executable on Unix.
 
     %% Run the echo program.
     %% Quoting on windows depends on if the full path of the executable
@@ -150,20 +150,20 @@ space_in_name(Config) when is_list(Config) ->
 		_ ->
 		    "\""
 	    end,
-    ?line comp("", os:cmd(Quote ++ Echo ++ Quote)),
-    ?line comp("a::b::c", os:cmd(Quote ++ Echo ++ Quote ++ " a b c")),
+    comp("", os:cmd(Quote ++ Echo ++ Quote)),
+    comp("a::b::c", os:cmd(Quote ++ Echo ++ Quote ++ " a b c")),
     ct:sleep(5),
-    ?line [] = receive_all(),
+    [] = receive_all(),
     ok.
 
 %% Check that a bad command doesn't crasch the server or the emulator (it used to).
 bad_command(Config) when is_list(Config) ->
-    ?line catch os:cmd([a|b]),
-    ?line catch os:cmd({bad, thing}),
+    catch os:cmd([a|b]),
+    catch os:cmd({bad, thing}),
 
     %% This should at least not crash (on Unix it typically returns
     %% a message from the shell).
-    ?line os:cmd("xxxxx"),
+    os:cmd("xxxxx"),
 
     ok.
 
@@ -171,36 +171,36 @@ find_executable(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    DataDir = filename:join(proplists:get_value(data_dir, Config), "win32"),
-	    ?line ok = file:set_cwd(filename:join([DataDir, "current"])),
-	    ?line Bin = filename:join(DataDir, "bin"),
-	    ?line Abin = filename:join(DataDir, "abin"),
-	    ?line UsrBin = filename:join([DataDir, "usr", "bin"]),
-	    ?line {ok, Current} = file:get_cwd(),
+	    ok = file:set_cwd(filename:join([DataDir, "current"])),
+	    Bin = filename:join(DataDir, "bin"),
+	    Abin = filename:join(DataDir, "abin"),
+	    UsrBin = filename:join([DataDir, "usr", "bin"]),
+	    {ok, Current} = file:get_cwd(),
 
-	    ?line Path = lists:concat([Bin, ";", Abin, ";", UsrBin]),
-	    ?line io:format("Path = ~s", [Path]),
+	    Path = lists:concat([Bin, ";", Abin, ";", UsrBin]),
+	    io:format("Path = ~s", [Path]),
 
 	    %% Search for programs in Bin (second element in PATH).
-	    ?line find_exe(Abin, "my_ar", ".exe", Path),
-	    ?line find_exe(Abin, "my_ascii", ".com", Path),
-	    ?line find_exe(Abin, "my_adb", ".bat", Path),
+	    find_exe(Abin, "my_ar", ".exe", Path),
+	    find_exe(Abin, "my_ascii", ".com", Path),
+	    find_exe(Abin, "my_adb", ".bat", Path),
 	    %% OTP-3626 find names of executables given with extension
-	    ?line find_exe(Abin, "my_ar.exe", "", Path),
-	    ?line find_exe(Abin, "my_ascii.com", "", Path),
-	    ?line find_exe(Abin, "my_adb.bat", "", Path),
-	    ?line find_exe(Abin, "my_ar.EXE", "", Path),
-	    ?line find_exe(Abin, "my_ascii.COM", "", Path),
-	    ?line find_exe(Abin, "MY_ADB.BAT", "", Path),
+	    find_exe(Abin, "my_ar.exe", "", Path),
+	    find_exe(Abin, "my_ascii.com", "", Path),
+	    find_exe(Abin, "my_adb.bat", "", Path),
+	    find_exe(Abin, "my_ar.EXE", "", Path),
+	    find_exe(Abin, "my_ascii.COM", "", Path),
+	    find_exe(Abin, "MY_ADB.BAT", "", Path),
 
 	    %% Search for programs in Abin (second element in PATH).
-	    ?line find_exe(Abin, "my_ar", ".exe", Path),
-	    ?line find_exe(Abin, "my_ascii", ".com", Path),
-	    ?line find_exe(Abin, "my_adb", ".bat", Path),
+	    find_exe(Abin, "my_ar", ".exe", Path),
+	    find_exe(Abin, "my_ascii", ".com", Path),
+	    find_exe(Abin, "my_adb", ".bat", Path),
 
 	    %% Search for programs in the current working directory.
-	    ?line find_exe(Current, "my_program", ".exe", Path),
-	    ?line find_exe(Current, "my_command", ".com", Path),
-	    ?line find_exe(Current, "my_batch", ".bat", Path),
+	    find_exe(Current, "my_program", ".exe", Path),
+	    find_exe(Current, "my_command", ".com", Path),
+	    find_exe(Current, "my_batch", ".bat", Path),
 	    ok;
 	{unix, _}  ->
 	    DataDir = proplists:get_value(data_dir, Config),
@@ -208,16 +208,16 @@ find_executable(Config) when is_list(Config) ->
 	    %% Smoke test.
 	    case lib:progname() of
 		erl ->
-		    ?line ErlPath = os:find_executable("erl"),
-		    ?line true = is_list(ErlPath),
-		    ?line true = filelib:is_regular(ErlPath);
+		    ErlPath = os:find_executable("erl"),
+		    true = is_list(ErlPath),
+		    true = filelib:is_regular(ErlPath);
 		_ ->
 		    %% Don't bother -- the progname could include options.
 		    ok
 	    end,
 
 	    %% Never return a directory name.
-	    ?line false = os:find_executable("unix", [DataDir]),
+	    false = os:find_executable("unix", [DataDir]),
 	    ok
     end.
 
@@ -243,10 +243,10 @@ find_exe(Where, Name, Ext, Path) ->
 %% OTP-1805: Test that os:cmd(\ls #\) works correctly (used to hang).
 unix_comment_in_command(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
-    ?line ok = file:set_cwd(Priv),
-    ?line _ = os:cmd("ls #"),			% Any result is ok.
+    ok = file:set_cwd(Priv),
+    _ = os:cmd("ls #"),			% Any result is ok.
     ct:sleep(5),
-    ?line [] = receive_all(),
+    [] = receive_all(),
     ok.
 
 %% Check that a deep list in command works equally on unix and on windows.

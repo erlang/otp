@@ -77,32 +77,32 @@ end_per_testcase(_Func, _Config) ->
 
 %% Test that gen_tcp:accept/2 (with timeout) works.
 t_accept_timeout(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line timeout({gen_tcp, accept, [L, 200]}, 0.2, 1.0).
+    {ok, L} = gen_tcp:listen(0, []),
+    timeout({gen_tcp, accept, [L, 200]}, 0.2, 1.0).
 
 %%% gen_tcp:connect/X
 
 
 %% Test that gen_tcp:connect/4 (with timeout) works.
 t_connect_timeout(Config) when is_list(Config) ->
-    %%?line BadAddr = {134,138,177,16},
-    %%?line TcpPort = 80,
-    ?line {ok, BadAddr} =  unused_ip(),
-    ?line TcpPort = 45638,
-    ?line ok = io:format("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
-    ?line connect_timeout({gen_tcp,connect,[BadAddr,TcpPort,[],200]}, 0.2, 5.0).
+    %%BadAddr = {134,138,177,16},
+    %%TcpPort = 80,
+    {ok, BadAddr} =  unused_ip(),
+    TcpPort = 45638,
+    ok = io:format("Connecting to ~p, port ~p", [BadAddr, TcpPort]),
+    connect_timeout({gen_tcp,connect,[BadAddr,TcpPort,[],200]}, 0.2, 5.0).
 
 %% Test that gen_tcp:connect/3 handles non-existings hosts, and other
 %% invalid things.
 t_connect_bad(Config) when is_list(Config) ->
-    ?line NonExistingPort = 45638,		% Not in use, I hope.
-    ?line {error, Reason1} = gen_tcp:connect(localhost, NonExistingPort, []),
-    ?line io:format("Error for connection attempt to port not in use: ~p",
-		    [Reason1]),
+    NonExistingPort = 45638,		% Not in use, I hope.
+    {error, Reason1} = gen_tcp:connect(localhost, NonExistingPort, []),
+    io:format("Error for connection attempt to port not in use: ~p",
+	      [Reason1]),
 
-    ?line {error, Reason2} = gen_tcp:connect("non-existing-host-xxx", 7, []),
-    ?line io:format("Error for connection attempt to non-existing host: ~p",
-		    [Reason2]),
+    {error, Reason2} = gen_tcp:connect("non-existing-host-xxx", 7, []),
+    io:format("Error for connection attempt to non-existing host: ~p",
+	      [Reason2]),
     ok.
 
 
@@ -111,20 +111,20 @@ t_connect_bad(Config) when is_list(Config) ->
 
 %% Test that gen_tcp:recv/3 (with timeout works).
 t_recv_timeout(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    ?line {ok, _A} = gen_tcp:accept(L),
-    ?line timeout({gen_tcp, recv, [Client, 0, 200]}, 0.2, 5.0).
+    {ok, L} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    {ok, _A} = gen_tcp:accept(L),
+    timeout({gen_tcp, recv, [Client, 0, 200]}, 0.2, 5.0).
 
 %% Test that end of file on a socket is reported correctly.
 t_recv_eof(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    ?line {ok, A} = gen_tcp:accept(L),
-    ?line ok = gen_tcp:close(A),
-    ?line {error, closed} = gen_tcp:recv(Client, 0),
+    {ok, L} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:close(A),
+    {error, closed} = gen_tcp:recv(Client, 0),
     ok.
 
 %% Test using message delimiter $X.
@@ -144,93 +144,93 @@ t_recv_delim(Config) when is_list(Config) ->
 %%% gen_tcp:shutdown/2
 
 t_shutdown_write(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    ?line {ok, A} = gen_tcp:accept(L),
-    ?line ok = gen_tcp:shutdown(A, write),
-    ?line {error, closed} = gen_tcp:recv(Client, 0),
+    {ok, L} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:shutdown(A, write),
+    {error, closed} = gen_tcp:recv(Client, 0),
     ok.
 
 t_shutdown_both(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    ?line {ok, A} = gen_tcp:accept(L),
-    ?line ok = gen_tcp:shutdown(A, read_write),
-    ?line {error, closed} = gen_tcp:recv(Client, 0),
+    {ok, L} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    {ok, A} = gen_tcp:accept(L),
+    ok = gen_tcp:shutdown(A, read_write),
+    {error, closed} = gen_tcp:recv(Client, 0),
     ok.
 
 t_shutdown_error(Config) when is_list(Config) ->
-    ?line {ok, L} = gen_tcp:listen(0, []),
-    ?line {error, enotconn} = gen_tcp:shutdown(L, read_write),
-    ?line ok = gen_tcp:close(L),
-    ?line {error, closed} = gen_tcp:shutdown(L, read_write),
+    {ok, L} = gen_tcp:listen(0, []),
+    {error, enotconn} = gen_tcp:shutdown(L, read_write),
+    ok = gen_tcp:close(L),
+    {error, closed} = gen_tcp:shutdown(L, read_write),
     ok.
 
 t_shutdown_async(Config) when is_list(Config) ->
-    ?line {OS, _} = os:type(),
-    ?line {ok, L} = gen_tcp:listen(0, [{sndbuf, 4096}]),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port,
-					 [{recbuf, 4096},
-					  {active, false}]),
-    ?line {ok, S} = gen_tcp:accept(L),
-    ?line PayloadSize = 1024 * 1024,
-    ?line Payload = lists:duplicate(PayloadSize, $.),
-    ?line ok = gen_tcp:send(S, Payload),
-    ?line case erlang:port_info(S, queue_size) of
-	      {queue_size, N} when N > 0 -> ok;
-	      {queue_size, 0} when OS =:= win32 -> ok;
-	      {queue_size, 0} = T -> ct:fail({unexpected, T})
-	  end,
+    {OS, _} = os:type(),
+    {ok, L} = gen_tcp:listen(0, [{sndbuf, 4096}]),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port,
+				   [{recbuf, 4096},
+				    {active, false}]),
+    {ok, S} = gen_tcp:accept(L),
+    PayloadSize = 1024 * 1024,
+    Payload = lists:duplicate(PayloadSize, $.),
+    ok = gen_tcp:send(S, Payload),
+    case erlang:port_info(S, queue_size) of
+	{queue_size, N} when N > 0 -> ok;
+	{queue_size, 0} when OS =:= win32 -> ok;
+	{queue_size, 0} = T -> ct:fail({unexpected, T})
+    end,
 
-    ?line ok = gen_tcp:shutdown(S, write),
-    ?line {ok, Buf} = gen_tcp:recv(Client, PayloadSize),
-    ?line {error, closed} = gen_tcp:recv(Client, 0),
-    ?line case length(Buf) of
-	      PayloadSize -> ok;
-	      Sz -> ct:fail({payload_size,
-			     {expected, PayloadSize},
-			     {received, Sz}})
-	  end.
+    ok = gen_tcp:shutdown(S, write),
+    {ok, Buf} = gen_tcp:recv(Client, PayloadSize),
+    {error, closed} = gen_tcp:recv(Client, 0),
+    case length(Buf) of
+	PayloadSize -> ok;
+	Sz -> ct:fail({payload_size,
+		       {expected, PayloadSize},
+		       {received, Sz}})
+    end.
 
 
 %%% gen_tcp:fdopen/2
 
 t_fdopen(Config) when is_list(Config) ->
-    ?line Question = "Aaaa... Long time ago in a small town in Germany,",
-    ?line Question1 = list_to_binary(Question),
-    ?line Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
-                       ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
-    ?line Question1 = iolist_to_binary(Question2),
-    ?line Answer = "there was a shoemaker, Schumacher was his name.",
-    ?line {ok, L} = gen_tcp:listen(0, [{active, false}]),
-    ?line {ok, Port} = inet:port(L),
-    ?line {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
-    ?line {ok, A} = gen_tcp:accept(L),
-    ?line {ok, FD} = prim_inet:getfd(A),
-    ?line {ok, Server} = gen_tcp:fdopen(FD, []),
-    ?line ok = gen_tcp:send(Client, Question),
-    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ?line ok = gen_tcp:send(Client, Question1),
-    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ?line ok = gen_tcp:send(Client, Question2),
-    ?line {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
-    ?line ok = gen_tcp:send(Server, Answer),
-    ?line {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
-    ?line ok = gen_tcp:close(Client),
-    ?line {error,closed} = gen_tcp:recv(A, 1, 2000),
-    ?line ok = gen_tcp:close(Server),
-    ?line ok = gen_tcp:close(A),
-    ?line ok = gen_tcp:close(L),
+    Question = "Aaaa... Long time ago in a small town in Germany,",
+    Question1 = list_to_binary(Question),
+    Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
+		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
+    Question1 = iolist_to_binary(Question2),
+    Answer = "there was a shoemaker, Schumacher was his name.",
+    {ok, L} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(L),
+    {ok, Client} = gen_tcp:connect(localhost, Port, [{active, false}]),
+    {ok, A} = gen_tcp:accept(L),
+    {ok, FD} = prim_inet:getfd(A),
+    {ok, Server} = gen_tcp:fdopen(FD, []),
+    ok = gen_tcp:send(Client, Question),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Client, Question1),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Client, Question2),
+    {ok, Question} = gen_tcp:recv(Server, length(Question), 2000),
+    ok = gen_tcp:send(Server, Answer),
+    {ok, Answer} = gen_tcp:recv(Client, length(Answer), 2000),
+    ok = gen_tcp:close(Client),
+    {error,closed} = gen_tcp:recv(A, 1, 2000),
+    ok = gen_tcp:close(Server),
+    ok = gen_tcp:close(A),
+    ok = gen_tcp:close(L),
     ok.
 
 t_fdconnect(Config) when is_list(Config) ->
     Question = "Aaaa... Long time ago in a small town in Germany,",
     Question1 = list_to_binary(Question),
     Question2 = [<<"Aaaa">>, "... ", $L, <<>>, $o, "ng time ago ",
-                       ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
+		 ["in ", [], <<"a small town">>, [" in Germany,", <<>>]]],
     Question1 = iolist_to_binary(Question2),
     Answer = "there was a shoemaker, Schumacher was his name.",
     Path = proplists:get_value(data_dir, Config),
@@ -261,53 +261,51 @@ t_fdconnect(Config) when is_list(Config) ->
 %%% implicit inet6 option to api functions
 
 t_implicit_inet6(Config) when is_list(Config) ->
-    ?line Host = ok(inet:gethostname()),
-    ?line
-	case inet:getaddr(Host, inet6) of
-	    {ok,Addr} ->
-		?line t_implicit_inet6(Host, Addr);
-	    {error,Reason} ->
-		{skip,
-		 "Can not look up IPv6 address: "
-		 ++atom_to_list(Reason)}
-	end.
+    Host = ok(inet:gethostname()),
+    case inet:getaddr(Host, inet6) of
+	{ok,Addr} ->
+	    t_implicit_inet6(Host, Addr);
+	{error,Reason} ->
+	    {skip,
+	     "Can not look up IPv6 address: "
+	     ++atom_to_list(Reason)}
+    end.
 
 t_implicit_inet6(Host, Addr) ->
-    ?line
-	case gen_tcp:listen(0, [inet6]) of
-	    {ok,S1} ->
-		?line Loopback = {0,0,0,0,0,0,0,1},
-		?line io:format("~s ~p~n", ["::1",Loopback]),
-		?line implicit_inet6(S1, Loopback),
-		?line ok = gen_tcp:close(S1),
-		%%
-		?line Localhost = "localhost",
-		?line Localaddr = ok(inet:getaddr(Localhost, inet6)),
-		?line io:format("~s ~p~n", [Localhost,Localaddr]),
-		?line S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
-		?line implicit_inet6(S2, Localaddr),
-		?line ok = gen_tcp:close(S2),
-		%%
-		?line io:format("~s ~p~n", [Host,Addr]),
-		?line S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
-		?line implicit_inet6(S3, Addr),
-		?line ok = gen_tcp:close(S3);
-	    {error,_} ->
-		{skip,"IPv6 not supported"}
-	end.
+    case gen_tcp:listen(0, [inet6]) of
+	{ok,S1} ->
+	    Loopback = {0,0,0,0,0,0,0,1},
+	    io:format("~s ~p~n", ["::1",Loopback]),
+	    implicit_inet6(S1, Loopback),
+	    ok = gen_tcp:close(S1),
+	    %%
+	    Localhost = "localhost",
+	    Localaddr = ok(inet:getaddr(Localhost, inet6)),
+	    io:format("~s ~p~n", [Localhost,Localaddr]),
+	    S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
+	    implicit_inet6(S2, Localaddr),
+	    ok = gen_tcp:close(S2),
+	    %%
+	    io:format("~s ~p~n", [Host,Addr]),
+	    S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
+	    implicit_inet6(S3, Addr),
+	    ok = gen_tcp:close(S3);
+	{error,_} ->
+	    {skip,"IPv6 not supported"}
+    end.
 
 implicit_inet6(S, Addr) ->
-    ?line P = ok(inet:port(S)),
-    ?line S2 = ok(gen_tcp:connect(Addr, P, [])),
-    ?line P2 = ok(inet:port(S2)),
-    ?line S1 = ok(gen_tcp:accept(S)),
-    ?line P1 = P = ok(inet:port(S1)),
-    ?line {Addr,P2} = ok(inet:peername(S1)),
-    ?line {Addr,P1} = ok(inet:peername(S2)),
-    ?line {Addr,P1} = ok(inet:sockname(S1)),
-    ?line {Addr,P2} = ok(inet:sockname(S2)),
-    ?line ok = gen_tcp:close(S2),
-    ?line ok = gen_tcp:close(S1).
+    P = ok(inet:port(S)),
+    S2 = ok(gen_tcp:connect(Addr, P, [])),
+    P2 = ok(inet:port(S2)),
+    S1 = ok(gen_tcp:accept(S)),
+    P1 = P = ok(inet:port(S1)),
+    {Addr,P2} = ok(inet:peername(S1)),
+    {Addr,P1} = ok(inet:peername(S2)),
+    {Addr,P1} = ok(inet:sockname(S1)),
+    {Addr,P2} = ok(inet:sockname(S2)),
+    ok = gen_tcp:close(S2),
+    ok = gen_tcp:close(S1).
 
 
 %%% Utilities
@@ -340,7 +338,7 @@ connect_timeout({M,F,A}, Lower, Upper) ->
 		    Db = inet_db:lookup_socket(Socket),
 		    Peer = inet:peername(Socket),
 		    ct:fail({too_short_time, Time,
-				      [Result,Pinfo,Db,Peer]});
+			     [Result,Pinfo,Db,Peer]});
 		_ ->
 		    ct:fail({too_short_time, Time, Result})
 	    end;
@@ -355,12 +353,12 @@ connect_timeout({M,F,A}, Lower, Upper) ->
 %% Try to obtain an unused IP address in the local network.
 
 unused_ip() ->
-    ?line {ok, Host} = inet:gethostname(),
-    ?line {ok, Hent} = inet:gethostbyname(Host),
-    ?line #hostent{h_addr_list=[{A, B, C, _D}|_]} = Hent,
+    {ok, Host} = inet:gethostname(),
+    {ok, Hent} = inet:gethostbyname(Host),
+    #hostent{h_addr_list=[{A, B, C, _D}|_]} = Hent,
     %% Note: In our net, addresses below 16 are reserved for routers and
     %% other strange creatures.
-    ?line IP = unused_ip(A, B, C, 16),
+    IP = unused_ip(A, B, C, 16),
     io:format("we = ~p, unused_ip = ~p~n", [Hent, IP]),
     IP.
 

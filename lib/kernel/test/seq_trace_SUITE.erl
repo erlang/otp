@@ -85,76 +85,76 @@ do_token_set_get(TsType) ->
 		strict_monotonic_timestamp -> 23;
 		monotonic_timestamp -> 39
 	    end,
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
+    Self = self(),
+    seq_trace:reset_trace(),
     %% Test that initial seq_trace is disabled
-    ?line [] = seq_trace:get_token(),
+    [] = seq_trace:get_token(),
     %% Test setting and reading the different fields
-    ?line 0 = seq_trace:set_token(label,17),
-    ?line {label,17} = seq_trace:get_token(label),
-    ?line false = seq_trace:set_token(print,true),
-    ?line {print,true} = seq_trace:get_token(print),
-    ?line false = seq_trace:set_token(send,true),
-    ?line {send,true} = seq_trace:get_token(send),
-    ?line false = seq_trace:set_token('receive',true),
-    ?line {'receive',true} = seq_trace:get_token('receive'),
-    ?line false = seq_trace:set_token(TsType,true),
-    ?line {TsType,true} = seq_trace:get_token(TsType),
+    0 = seq_trace:set_token(label,17),
+    {label,17} = seq_trace:get_token(label),
+    false = seq_trace:set_token(print,true),
+    {print,true} = seq_trace:get_token(print),
+    false = seq_trace:set_token(send,true),
+    {send,true} = seq_trace:get_token(send),
+    false = seq_trace:set_token('receive',true),
+    {'receive',true} = seq_trace:get_token('receive'),
+    false = seq_trace:set_token(TsType,true),
+    {TsType,true} = seq_trace:get_token(TsType),
     %% Check the whole token
-    ?line {Flags,17,0,Self,0} = seq_trace:get_token(), % all flags are set
+    {Flags,17,0,Self,0} = seq_trace:get_token(), % all flags are set
     %% Test setting and reading the 'serial' field
-    ?line {0,0} = seq_trace:set_token(serial,{3,5}),
-    ?line {serial,{3,5}} = seq_trace:get_token(serial),
+    {0,0} = seq_trace:set_token(serial,{3,5}),
+    {serial,{3,5}} = seq_trace:get_token(serial),
     %% Check the whole token, test that a whole token can be set and get
-    ?line {Flags,17,5,Self,3} = seq_trace:get_token(),
-    ?line seq_trace:set_token({Flags,19,7,Self,5}),
-    ?line {Flags,19,7,Self,5} = seq_trace:get_token(),
+    {Flags,17,5,Self,3} = seq_trace:get_token(),
+    seq_trace:set_token({Flags,19,7,Self,5}),
+    {Flags,19,7,Self,5} = seq_trace:get_token(),
     %% Check that receive timeout does not reset token
-    ?line receive after 0 -> ok end,
-    ?line {Flags,19,7,Self,5} = seq_trace:get_token(),
+    receive after 0 -> ok end,
+    {Flags,19,7,Self,5} = seq_trace:get_token(),
     %% Check that token can be unset
-    ?line {Flags,19,7,Self,5} = seq_trace:set_token([]),
-    ?line [] = seq_trace:get_token(),
+    {Flags,19,7,Self,5} = seq_trace:set_token([]),
+    [] = seq_trace:get_token(),
     %% Check that Previous serial counter survived unset token
-    ?line 0 = seq_trace:set_token(label, 17),
-    ?line {0,17,0,Self,5} = seq_trace:get_token(),
+    0 = seq_trace:set_token(label, 17),
+    {0,17,0,Self,5} = seq_trace:get_token(),
     %% Check that reset_trace resets the token and clears
     %% the Previous serial counter
-    ?line seq_trace:reset_trace(),
-    ?line [] = seq_trace:get_token(),
-    ?line 0 = seq_trace:set_token(label, 19),
-    ?line {0,19,0,Self,0} = seq_trace:get_token(),
+    seq_trace:reset_trace(),
+    [] = seq_trace:get_token(),
+    0 = seq_trace:set_token(label, 19),
+    {0,19,0,Self,0} = seq_trace:get_token(),
     %% Cleanup
-    ?line seq_trace:reset_trace(),
+    seq_trace:reset_trace(),
     ok.
 
 tracer_set_get(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line seq_trace:set_system_tracer(self()),
-    ?line Self = seq_trace:get_system_tracer(),
-    ?line Self = seq_trace:set_system_tracer(false),
-    ?line false = seq_trace:get_system_tracer(),
+    Self = self(),
+    seq_trace:set_system_tracer(self()),
+    Self = seq_trace:get_system_tracer(),
+    Self = seq_trace:set_system_tracer(false),
+    false = seq_trace:get_system_tracer(),
 
     %% Set the system tracer to a port.
 
-    ?line Port = load_tracer(Config),
-    ?line seq_trace:set_system_tracer(Port),
-    ?line Port = seq_trace:get_system_tracer(),
-    ?line Port = seq_trace:set_system_tracer(false),
-    ?line false = seq_trace:get_system_tracer(),
+    Port = load_tracer(Config),
+    seq_trace:set_system_tracer(Port),
+    Port = seq_trace:get_system_tracer(),
+    Port = seq_trace:set_system_tracer(false),
+    false = seq_trace:get_system_tracer(),
     ok.
 
 print(Config) when is_list(Config) ->
     lists:foreach(fun do_print/1, ?TIMESTAMP_MODES).
     
 do_print(TsType) ->
-    ?line start_tracer(),
-    ?line set_token_flags([print, TsType]),
-    ?line seq_trace:print(0,print1),
-    ?line seq_trace:print(1,print2),
-    ?line seq_trace:print(print3),
-    ?line seq_trace:reset_trace(),
-    ?line [{0,{print,_,_,[],print1}, Ts0},
+    start_tracer(),
+    set_token_flags([print, TsType]),
+    seq_trace:print(0,print1),
+    seq_trace:print(1,print2),
+    seq_trace:print(print3),
+    seq_trace:reset_trace(),
+    [{0,{print,_,_,[],print1}, Ts0},
 	   {0,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
@@ -163,33 +163,33 @@ send(Config) when is_list(Config) ->
     lists:foreach(fun do_send/1, ?TIMESTAMP_MODES).
 
 do_send(TsType) ->
-    ?line seq_trace:reset_trace(),
-    ?line start_tracer(),
-    ?line Receiver = spawn(?MODULE,one_time_receiver,[]),
-    ?line set_token_flags([send, TsType]),
-    ?line Receiver ! send,
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
-    ?line [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    seq_trace:reset_trace(),
+    start_tracer(),
+    Receiver = spawn(?MODULE,one_time_receiver,[]),
+    set_token_flags([send, TsType]),
+    Receiver ! send,
+    Self = self(),
+    seq_trace:reset_trace(),
+    [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
 
 distributed_send(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_send/1, ?TIMESTAMP_MODES).
 
 do_distributed_send(TsType) ->
-    ?line {ok,Node} = start_node(seq_trace_other,[]),
-    ?line {_,Dir} = code:is_loaded(?MODULE),
-    ?line Mdir = filename:dirname(Dir),
-    ?line true = rpc:call(Node,code,add_patha,[Mdir]),
-    ?line seq_trace:reset_trace(),
-    ?line start_tracer(),
-    ?line Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-    ?line set_token_flags([send,TsType]),
-    ?line Receiver ! send,
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
-    ?line stop_node(Node),
-    ?line [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    {ok,Node} = start_node(seq_trace_other,[]),
+    {_,Dir} = code:is_loaded(?MODULE),
+    Mdir = filename:dirname(Dir),
+    true = rpc:call(Node,code,add_patha,[Mdir]),
+    seq_trace:reset_trace(),
+    start_tracer(),
+    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+    set_token_flags([send,TsType]),
+    Receiver ! send,
+    Self = self(),
+    seq_trace:reset_trace(),
+    stop_node(Node),
+    [{0,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
     
 
@@ -197,64 +197,64 @@ recv(Config) when is_list(Config) ->
     lists:foreach(fun do_recv/1, ?TIMESTAMP_MODES).
 
 do_recv(TsType) ->
-    ?line seq_trace:reset_trace(),
-    ?line start_tracer(),
-    ?line Receiver = spawn(?MODULE,one_time_receiver,[]),
-    ?line set_token_flags(['receive',TsType]),
-    ?line Receiver ! 'receive',
+    seq_trace:reset_trace(),
+    start_tracer(),
+    Receiver = spawn(?MODULE,one_time_receiver,[]),
+    set_token_flags(['receive',TsType]),
+    Receiver ! 'receive',
     %% let the other process receive the message:
-    ?line receive after 1 -> ok end,
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
-    ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = stop_tracer(1),
+    receive after 1 -> ok end,
+    Self = self(),
+    seq_trace:reset_trace(),
+    [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
 
 distributed_recv(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_recv/1, ?TIMESTAMP_MODES).
 
 do_distributed_recv(TsType) ->
-    ?line {ok,Node} = start_node(seq_trace_other,[]),
-    ?line {_,Dir} = code:is_loaded(?MODULE),
-    ?line Mdir = filename:dirname(Dir),
-    ?line true = rpc:call(Node,code,add_patha,[Mdir]),
-    ?line seq_trace:reset_trace(),
-    ?line rpc:call(Node,?MODULE,start_tracer,[]),
-    ?line Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
-    ?line set_token_flags(['receive',TsType]),
-    ?line Receiver ! 'receive',
+    {ok,Node} = start_node(seq_trace_other,[]),
+    {_,Dir} = code:is_loaded(?MODULE),
+    Mdir = filename:dirname(Dir),
+    true = rpc:call(Node,code,add_patha,[Mdir]),
+    seq_trace:reset_trace(),
+    rpc:call(Node,?MODULE,start_tracer,[]),
+    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+    set_token_flags(['receive',TsType]),
+    Receiver ! 'receive',
     %% let the other process receive the message:
-    ?line receive after 1 -> ok end,
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
-    ?line Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
-    ?line stop_node(Node),
-    ?line ok = io:format("~p~n",[Result]),
-    ?line [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
+    receive after 1 -> ok end,
+    Self = self(),
+    seq_trace:reset_trace(),
+    Result = rpc:call(Node,?MODULE,stop_tracer,[1]),
+    stop_node(Node),
+    ok = io:format("~p~n",[Result]),
+    [{0,{'receive',_,Self,Receiver,'receive'}, Ts}] = Result,
     check_ts(TsType, Ts).
 
 trace_exit(Config) when is_list(Config) ->
     lists:foreach(fun do_trace_exit/1, ?TIMESTAMP_MODES).
 
 do_trace_exit(TsType) ->
-    ?line seq_trace:reset_trace(),
-    ?line start_tracer(),
-    ?line Receiver = spawn_link(?MODULE, one_time_receiver, [exit]),
-    ?line process_flag(trap_exit, true),
-    ?line set_token_flags([send, TsType]),
-    ?line Receiver ! {before, exit},
+    seq_trace:reset_trace(),
+    start_tracer(),
+    Receiver = spawn_link(?MODULE, one_time_receiver, [exit]),
+    process_flag(trap_exit, true),
+    set_token_flags([send, TsType]),
+    Receiver ! {before, exit},
     %% let the other process receive the message:
-    ?line receive
+    receive
 	      {'EXIT', Receiver, {exit, {before, exit}}} ->
 		  seq_trace:set_token([]);
 	      Other ->
 		  seq_trace:set_token([]),
 		  ct:fail({received, Other})
 	  end,
-    ?line Self = self(),
-    ?line Result = stop_tracer(2),
-    ?line seq_trace:reset_trace(),
-    ?line ok = io:format("~p~n", [Result]),
-    ?line [{0, {send, {0,1}, Self, Receiver, {before, exit}}, Ts0}, 
+    Self = self(),
+    Result = stop_tracer(2),
+    seq_trace:reset_trace(),
+    ok = io:format("~p~n", [Result]),
+    [{0, {send, {0,1}, Self, Receiver, {before, exit}}, Ts0},
 	   {0, {send, {1,2}, Receiver, Self,
 	       {'EXIT', Receiver, {exit, {before, exit}}}}, Ts1}] = Result,
     check_ts(TsType, Ts0),
@@ -264,30 +264,30 @@ distributed_exit(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_exit/1, ?TIMESTAMP_MODES).
 
 do_distributed_exit(TsType) ->
-    ?line {ok, Node} = start_node(seq_trace_other, []),
-    ?line {_, Dir} = code:is_loaded(?MODULE),
-    ?line Mdir = filename:dirname(Dir),
-    ?line true = rpc:call(Node, code, add_patha, [Mdir]),
-    ?line seq_trace:reset_trace(),
-    ?line rpc:call(Node, ?MODULE, start_tracer,[]),
-    ?line Receiver = spawn_link(Node, ?MODULE, one_time_receiver, [exit]),
-    ?line process_flag(trap_exit, true),
-    ?line set_token_flags([send, TsType]),
-    ?line Receiver ! {before, exit},
+    {ok, Node} = start_node(seq_trace_other, []),
+    {_, Dir} = code:is_loaded(?MODULE),
+    Mdir = filename:dirname(Dir),
+    true = rpc:call(Node, code, add_patha, [Mdir]),
+    seq_trace:reset_trace(),
+    rpc:call(Node, ?MODULE, start_tracer,[]),
+    Receiver = spawn_link(Node, ?MODULE, one_time_receiver, [exit]),
+    process_flag(trap_exit, true),
+    set_token_flags([send, TsType]),
+    Receiver ! {before, exit},
     %% let the other process receive the message:
-    ?line receive
+    receive
 	      {'EXIT', Receiver, {exit, {before, exit}}} ->
 		  seq_trace:set_token([]);
 	      Other ->
 		  seq_trace:set_token([]),
 		  ct:fail({received, Other})
 	  end,
-    ?line Self = self(),
-    ?line Result = rpc:call(Node, ?MODULE, stop_tracer, [1]),
-    ?line seq_trace:reset_trace(),
-    ?line stop_node(Node),
-    ?line ok = io:format("~p~n", [Result]),
-    ?line [{0, {send, {1, 2}, Receiver, Self, 
+    Self = self(),
+    Result = rpc:call(Node, ?MODULE, stop_tracer, [1]),
+    seq_trace:reset_trace(),
+    stop_node(Node),
+    ok = io:format("~p~n", [Result]),
+    [{0, {send, {1, 2}, Receiver, Self,
 		{'EXIT', Receiver, {exit, {before, exit}}}}, Ts}] = Result,
     check_ts(TsType, Ts).
 
@@ -295,89 +295,89 @@ call(doc) ->
     "Tests special forms {is_seq_trace} and {get_seq_token} "
 	"in trace match specs.";
 call(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line seq_trace:reset_trace(),
-    ?line TrA = transparent_tracer(),
-    ?line 1 = 
+    Self = self(),
+    seq_trace:reset_trace(),
+    TrA = transparent_tracer(),
+    1 =
 	erlang:trace(Self, true, 
 		     [call, set_on_spawn, {tracer, TrA(pid)}]),
-    ?line 1 = 
+    1 =
 	erlang:trace_pattern({?MODULE, call_tracee_1, 1},
 			     [{'_',
 			       [],
 			       [{message, {{{self}, {get_seq_token}}}}]}],
 			     [local]),
-    ?line 1 =
+    1 =
 	erlang:trace_pattern({?MODULE, call_tracee_2, 1},
 			     [{'_',
 			      [{is_seq_trace}],
 			      [{message, {{{self}, {get_seq_token}}}}]}],
 			     [local]),
-    ?line RefA = make_ref(),
-    ?line Pid2A = spawn_link(
+    RefA = make_ref(),
+    Pid2A = spawn_link(
 		    fun() ->
 			    receive {_, msg, RefA} -> ok end,
 			    RefA = call_tracee_2(RefA),
 			    Self ! {self(), msg, RefA}
 		   end),
-    ?line Pid1A = spawn_link(
+    Pid1A = spawn_link(
 		    fun() ->
 			    receive {_, msg, RefA} -> ok end,
 			    RefA = call_tracee_1(RefA),
 			    Pid2A ! {self(), msg, RefA}
 		    end),
-    ?line Pid1A ! {Self, msg, RefA},
+    Pid1A ! {Self, msg, RefA},
     %% The message is passed Self -> Pid1B -> Pid2B -> Self.
     %% Traced functions are called in Pid1B and Pid2B. 
-    ?line receive {Pid2A, msg, RefA} -> ok end,
+    receive {Pid2A, msg, RefA} -> ok end,
     %% Only call_tracee1 will be traced since the guard for 
     %% call_tracee2 requires a sequential trace. The trace
     %% token is undefined.
-    ?line Token2A = [],
-    ?line {ok, [{trace, Pid1A, call, 
+    Token2A = [],
+    {ok, [{trace, Pid1A, call,
 		 {?MODULE, call_tracee_1, [RefA]},
 		 {Pid1A, Token2A}}]} = 
 	TrA({stop, 1}),
 
-    ?line seq_trace:reset_trace(),
+    seq_trace:reset_trace(),
 
-    ?line TrB = transparent_tracer(),
-    ?line 1 = 
+    TrB = transparent_tracer(),
+    1 =
 	erlang:trace(Self, true, 
 		     [call, set_on_spawn, {tracer, TrB(pid)}]),
-    ?line Label = 17,
-    ?line seq_trace:set_token(label, Label), % Token enters here!!
-    ?line RefB = make_ref(),
-    ?line Pid2B = spawn_link(
+    Label = 17,
+    seq_trace:set_token(label, Label), % Token enters here!!
+    RefB = make_ref(),
+    Pid2B = spawn_link(
 		    fun() ->
 			    receive {_, msg, RefB} -> ok end,
 			    RefB = call_tracee_2(RefB),
 			    Self ! {self(), msg, RefB}
 		   end),
-    ?line Pid1B = spawn_link(
+    Pid1B = spawn_link(
 		    fun() ->
 			    receive {_, msg, RefB} -> ok end,
 			    RefB = call_tracee_1(RefB),
 			    Pid2B ! {self(), msg, RefB}
 		    end),
-    ?line Pid1B ! {Self, msg, RefB},
+    Pid1B ! {Self, msg, RefB},
     %% The message is passed Self -> Pid1B -> Pid2B -> Self, and the 
     %% seq_trace token follows invisibly. Traced functions are 
     %% called in Pid1B and Pid2B. Seq_trace flags == 0 so no
     %% seq_trace messages are generated.
-    ?line receive {Pid2B, msg, RefB} -> ok end,
+    receive {Pid2B, msg, RefB} -> ok end,
     %% The values of these counters {.., 1, _, 0}, {.., 2, _, 1}
     %% depend on that seq_trace has been reset just before this test.
-    ?line Token1B = {0, Label, 1, Self, 0},
-    ?line Token2B = {0, Label, 2, Pid1B, 1},
-    ?line {ok, [{trace, Pid1B, call, 
+    Token1B = {0, Label, 1, Self, 0},
+    Token2B = {0, Label, 2, Pid1B, 1},
+    {ok, [{trace, Pid1B, call,
 		 {?MODULE, call_tracee_1, [RefB]},
 		 {Pid1B, Token1B}},
 		{trace, Pid2B, call, 
 		 {?MODULE, call_tracee_2, [RefB]},
 		 {Pid2B, Token2B}}]} =
 	TrB({stop,2}),
-    ?line seq_trace:reset_trace(),
+    seq_trace:reset_trace(),
     ok.
 
 %% Send trace messages to a port.
@@ -387,30 +387,30 @@ port(Config) when is_list(Config) ->
 
 do_port(TsType, Config) ->
     io:format("Testing ~p~n",[TsType]),
-    ?line Port = load_tracer(Config),
-    ?line seq_trace:set_system_tracer(Port),
+    Port = load_tracer(Config),
+    seq_trace:set_system_tracer(Port),
 
-    ?line set_token_flags([print, TsType]),
-    ?line Small = [small,term],
-    ?line seq_trace:print(0, Small),
-    ?line case get_port_message(Port) of
+    set_token_flags([print, TsType]),
+    Small = [small,term],
+    seq_trace:print(0, Small),
+    case get_port_message(Port) of
 	      {seq_trace,0,{print,_,_,[],Small}} when TsType == no_timestamp ->
 		  ok;
 	      {seq_trace,0,{print,_,_,[],Small},Ts0} when TsType /= no_timestamp ->
 		  check_ts(TsType, Ts0),
 		  ok;
 	      Other ->
-		  ?line seq_trace:reset_trace(),
+		  seq_trace:reset_trace(),
 		  ct:fail({unexpected,Other})
 	  end,
     %% OTP-4218 Messages from ports should not affect seq trace token.
     %%
     %% Check if trace token still is active on this process after
     %% the get_port_message/1 above that receives from a port.
-    ?line OtherSmall = [other | Small],
-    ?line seq_trace:print(0, OtherSmall),
-    ?line seq_trace:reset_trace(),
-    ?line case get_port_message(Port) of
+    OtherSmall = [other | Small],
+    seq_trace:print(0, OtherSmall),
+    seq_trace:reset_trace(),
+    case get_port_message(Port) of
 	      {seq_trace,0,{print,_,_,[],OtherSmall}} when TsType == no_timestamp ->
 		  ok;
 	      {seq_trace,0,{print,_,_,[],OtherSmall}, Ts1} when TsType /= no_timestamp ->
@@ -421,11 +421,11 @@ do_port(TsType, Config) ->
 	  end,
 
 
-    ?line seq_trace:set_token(print, true),
-    ?line Huge = huge_data(),
-    ?line seq_trace:print(0, Huge),
-    ?line seq_trace:reset_trace(),
-    ?line case get_port_message(Port) of
+    seq_trace:set_token(print, true),
+    Huge = huge_data(),
+    seq_trace:print(0, Huge),
+    seq_trace:reset_trace(),
+    case get_port_message(Port) of
 	      {seq_trace,0,{print,_,_,[],Huge}} ->
 		  ok;
 	      Other2 ->
@@ -451,7 +451,7 @@ match_set_seq_token(doc) ->
     ["Tests that match spec function set_seq_token does not "
      "corrupt the heap"];
 match_set_seq_token(Config) when is_list(Config) ->
-    ?line Parent = self(),
+    Parent = self(),
 
     %% OTP-4222 Match spec 'set_seq_token' corrupts heap
     %%
@@ -461,12 +461,12 @@ match_set_seq_token(Config) when is_list(Config) ->
     %% All the timeout stuff is here to get decent accuracy of the error
     %% return value, instead of just 'timeout'.
     %%
-    ?line {ok, Sandbox} = start_node(seq_trace_other, []),
-    ?line true = rpc:call(Sandbox, code, add_patha, 
+    {ok, Sandbox} = start_node(seq_trace_other, []),
+    true = rpc:call(Sandbox, code, add_patha,
 			  [filename:dirname(code:which(?MODULE))]),
-    ?line Lbl = 4711,
+    Lbl = 4711,
     %% Do the possibly crashing test
-    ?line P1 =
+    P1 =
 	spawn(
 	  fun () ->
 		  Parent ! {self(),
@@ -474,16 +474,16 @@ match_set_seq_token(Config) when is_list(Config) ->
 				     ?MODULE, do_match_set_seq_token, [Lbl])}
 	  end),
     %% Probe the node with a simple rpc request, to see if it is alive.
-    ?line P2 =
+    P2 =
 	spawn(
 	  fun () ->
 		  receive after 4000 -> ok end,
 		  Parent ! {self(), rpc:call(Sandbox, erlang, abs, [-1])}
 	  end),
     %% If the test node hangs completely, this timer expires.
-    ?line R3 = erlang:start_timer(8000, self(), void),
+    R3 = erlang:start_timer(8000, self(), void),
     %%
-    ?line {ok, Log} = 
+    {ok, Log} =
 	receive
 	    {P1, Result} ->
 		exit(P2, done),
@@ -498,9 +498,9 @@ match_set_seq_token(Config) when is_list(Config) ->
 		exit(P2, timeout),
 		{error, "Test node hung"}
 	end,
-    ?line ok = check_match_set_seq_token_log(Lbl, Log),
+    ok = check_match_set_seq_token_log(Lbl, Log),
     %%
-    ?line stop_node(Sandbox),
+    stop_node(Sandbox),
     ok.
 
 %% OTP-4222 Match spec 'set_seq_token' corrupts heap
@@ -596,7 +596,7 @@ gc_seq_token(doc) ->
     ["Tests that a seq_trace token on a message in the inqueue ",
      "can be garbage collected."];
 gc_seq_token(Config) when is_list(Config) ->
-    ?line Parent = self(),
+    Parent = self(),
 
     %% OTP-4555 Seq trace token causes free mem read in gc
     %%
@@ -606,12 +606,12 @@ gc_seq_token(Config) when is_list(Config) ->
     %% All the timeout stuff is here to get decent accuracy of the error
     %% return value, instead of just 'timeout'.
     %%
-    ?line {ok, Sandbox} = start_node(seq_trace_other, []),
-    ?line true = rpc:call(Sandbox, code, add_patha, 
+    {ok, Sandbox} = start_node(seq_trace_other, []),
+    true = rpc:call(Sandbox, code, add_patha,
 			  [filename:dirname(code:which(?MODULE))]),
-    ?line Label = 4711,
+    Label = 4711,
     %% Do the possibly crashing test
-    ?line P1 =
+    P1 =
 	spawn(
 	  fun () ->
  		  Parent ! {self(),
@@ -619,16 +619,16 @@ gc_seq_token(Config) when is_list(Config) ->
 				     ?MODULE, do_gc_seq_token, [Label])}
 	  end),
     %% Probe the node with a simple rpc request, to see if it is alive.
-    ?line P2 =
+    P2 =
 	spawn(
 	  fun () ->
 		  receive after 4000 -> ok end,
 		  Parent ! {self(), rpc:call(Sandbox, erlang, abs, [-1])}
 	  end),
     %% If the test node hangs completely, this timer expires.
-    ?line R3 = erlang:start_timer(8000, self(), void),
+    R3 = erlang:start_timer(8000, self(), void),
     %%
-    ?line ok = 
+    ok =
 	receive
 	    {P1, Result} ->
 		exit(P2, done),
@@ -644,7 +644,7 @@ gc_seq_token(Config) when is_list(Config) ->
 		{error, "Test node hung"}
 	end,
     %%
-    ?line stop_node(Sandbox),
+    stop_node(Sandbox),
     ok.
 
 do_gc_seq_token(Label) ->

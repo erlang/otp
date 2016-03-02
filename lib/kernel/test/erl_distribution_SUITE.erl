@@ -99,11 +99,11 @@ end_per_testcase(_Func, _Config) ->
 
 tick(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
-    
+
     %% First check that the normal case is OK!
-    ?line {ok, Node} = start_node(dist_test, "-pa " ++ PaDir),
+    {ok, Node} = start_node(dist_test, "-pa " ++ PaDir),
     rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [node()]),
-    
+
     erlang:monitor_node(Node, true),
     receive
 	{nodedown, Node} ->
@@ -125,20 +125,20 @@ tick(Config) when is_list(Config) ->
     %% Set the ticktime on the server node to 100 secs so the server
     %% node doesn't tick the client node within the interval ...
 
-    ?line {ok, ServNode} = start_node(dist_test_server,
-				      "-kernel net_ticktime 100 "
-				      "-pa " ++ PaDir),
+    {ok, ServNode} = start_node(dist_test_server,
+				"-kernel net_ticktime 100 "
+				"-pa " ++ PaDir),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
-    ?line {ok, _} = start_node(dist_test,
-			       "-kernel net_ticktime 12 "
-			       "-pa " ++ PaDir),
+    {ok, _} = start_node(dist_test,
+			 "-kernel net_ticktime 12 "
+			 "-pa " ++ PaDir),
     rpc:call(Node, erl_distribution_SUITE, tick_cli_test, [ServNode]),
-    
+
     spawn_link(erl_distribution_SUITE, keep_conn, [Node]),
 
     {tick_serv, ServNode} ! {i_want_the_result, self()},
-    
+
     monitor_node(ServNode, true),
     monitor_node(Node, true),
 
@@ -162,28 +162,28 @@ tick(Config) when is_list(Config) ->
 
 %% Checks that pinging nonexistyent nodes does not waste space in distribution table.
 table_waste(Config) when is_list(Config) ->
-    ?line {ok, HName} = inet:gethostname(), 
+    {ok, HName} = inet:gethostname(),
     F = fun(0,_F) -> [];
 	   (N,F) -> 
-		?line Name = list_to_atom("erl_distribution_"++integer_to_list(N)++
-				    "@"++HName), 
-		?line pang = net_adm:ping(Name), 
-		?line F(N-1,F) 
+		Name = list_to_atom("erl_distribution_"++integer_to_list(N)++
+					"@"++HName),
+		pang = net_adm:ping(Name),
+		F(N-1,F)
 	end,
-    ?line F(256,F),
-    ?line {ok, N} = start_node(erl_distribution_300,""),
-    ?line stop_node(N),
+    F(256,F),
+    {ok, N} = start_node(erl_distribution_300,""),
+    stop_node(N),
     ok.
-    
-    
+
+
 
 %% Test that pinging an illegal nodename does not kill the node.
 illegal_nodenames(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
-    ?line {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
+    {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
     monitor_node(Node, true),
-    ?line RPid=rpc:call(Node, erlang, spawn,
-	     [?MODULE, pinger, [self()]]),
+    RPid=rpc:call(Node, erlang, spawn,
+		  [?MODULE, pinger, [self()]]),
     receive
 	{RPid, pinged} ->
 	    ok;
@@ -208,18 +208,18 @@ net_setuptime(Config) when is_list(Config) ->
 
     Res0 = do_test_setuptime("2"),
     io:format("Res0 = ~p", [Res0]),
-    ?line true = (Res0 =< 4000),
+    true = (Res0 =< 4000),
     Res1 = do_test_setuptime("0.3"),
     io:format("Res1 = ~p", [Res1]),
-    ?line true = (Res1 =< 500),
+    true = (Res1 =< 500),
     ok.
 
 do_test_setuptime(Setuptime) when is_list(Setuptime) ->
-    ?line PaDir = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Node} = start_node(dist_setuptime_test, "-pa " ++ PaDir ++ 
-				  " -kernel net_setuptime " ++ Setuptime),
-    ?line Res = rpc:call(Node,?MODULE,time_ping,[?DUMMY_NODE]),
-    ?line stop_node(Node),
+    PaDir = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = start_node(dist_setuptime_test, "-pa " ++ PaDir ++
+				" -kernel net_setuptime " ++ Setuptime),
+    Res = rpc:call(Node,?MODULE,time_ping,[?DUMMY_NODE]),
+    stop_node(Node),
     Res.
 
 time_ping(Node) ->
@@ -285,157 +285,157 @@ tick_cli_test1(Node) ->
 
 %% OTP-4255.
 tick_change(Config) when is_list(Config) ->
-    ?line PaDir = filename:dirname(code:which(?MODULE)),
-    ?line [BN, CN] = get_nodenames(2, tick_change),
-    ?line DefaultTT = net_kernel:get_net_ticktime(),
-    ?line unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
-    ?line case DefaultTT of
-	      I when is_integer(I) -> ?line ok;
-	      _                 -> ct:fail(DefaultTT)
-	  end,
+    PaDir = filename:dirname(code:which(?MODULE)),
+    [BN, CN] = get_nodenames(2, tick_change),
+    DefaultTT = net_kernel:get_net_ticktime(),
+    unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
+    case DefaultTT of
+	I when is_integer(I) -> ok;
+	_                 -> ct:fail(DefaultTT)
+    end,
 
     %% In case other nodes are connected
     case nodes(connected) of
-	[] -> ?line net_kernel:set_net_ticktime(10, 0);
-	_ ->  ?line rpc:multicall(nodes([this, connected]), net_kernel,
-				  set_net_ticktime, [10, 5])
+	[] -> net_kernel:set_net_ticktime(10, 0);
+	_ ->  rpc:multicall(nodes([this, connected]), net_kernel,
+			    set_net_ticktime, [10, 5])
     end,
 
-    ?line wait_until(fun () -> 10 == net_kernel:get_net_ticktime() end),
-    ?line {ok, B} = start_node(BN, "-kernel net_ticktime 10 -pa " ++ PaDir),
-    ?line {ok, C} = start_node(CN, "-kernel net_ticktime 10 -hidden -pa "
-			       ++ PaDir),
+    wait_until(fun () -> 10 == net_kernel:get_net_ticktime() end),
+    {ok, B} = start_node(BN, "-kernel net_ticktime 10 -pa " ++ PaDir),
+    {ok, C} = start_node(CN, "-kernel net_ticktime 10 -hidden -pa "
+			 ++ PaDir),
 
-    ?line OTE = process_flag(trap_exit, true),
+    OTE = process_flag(trap_exit, true),
     case catch begin
-		   ?line run_tick_change_test(B, C, 10, 1, PaDir),
-		   ?line run_tick_change_test(B, C, 1, 10, PaDir)
+		   run_tick_change_test(B, C, 10, 1, PaDir),
+		   run_tick_change_test(B, C, 1, 10, PaDir)
 	       end of
 	{'EXIT', Reason} ->
-	    ?line stop_node(B),
-	    ?line stop_node(C),
+	    stop_node(B),
+	    stop_node(C),
 	    %% In case other nodes are connected
 	    case nodes(connected) of
-		[] -> ?line net_kernel:set_net_ticktime(DefaultTT, 0);
-		_ ->  ?line rpc:multicall(nodes([this, connected]), net_kernel,
-					  set_net_ticktime, [DefaultTT, 10])
+		[] -> net_kernel:set_net_ticktime(DefaultTT, 0);
+		_ ->  rpc:multicall(nodes([this, connected]), net_kernel,
+				    set_net_ticktime, [DefaultTT, 10])
 	    end,
-	    ?line wait_until(fun () -> 
-				     DefaultTT == net_kernel:get_net_ticktime()
-			     end),
-	    ?line process_flag(trap_exit, OTE),
+	    wait_until(fun () ->
+			       DefaultTT == net_kernel:get_net_ticktime()
+		       end),
+	    process_flag(trap_exit, OTE),
 	    ct:fail(Reason);
 	_ ->
 	    ok
     end,
-    ?line process_flag(trap_exit, OTE),
-    ?line stop_node(B),
-    ?line stop_node(C),
+    process_flag(trap_exit, OTE),
+    stop_node(B),
+    stop_node(C),
 
     %% In case other nodes are connected
     case nodes(connected) of
-	[] -> ?line net_kernel:set_net_ticktime(DefaultTT, 0);
-	_ ->  ?line rpc:multicall(nodes([this, connected]), net_kernel,
-				  set_net_ticktime, [DefaultTT, 5])
+	[] -> net_kernel:set_net_ticktime(DefaultTT, 0);
+	_ ->  rpc:multicall(nodes([this, connected]), net_kernel,
+			    set_net_ticktime, [DefaultTT, 5])
     end,
 
-    ?line wait_until(fun () -> DefaultTT == net_kernel:get_net_ticktime() end),
-    ?line ok.
+    wait_until(fun () -> DefaultTT == net_kernel:get_net_ticktime() end),
+    ok.
 
 
 wait_for_nodedowns(Tester, Ref) ->
     receive
 	{nodedown, Node} ->
 	    io:format("~p~n", [{node(), {nodedown, Node}}]),
-	    ?line Tester ! {Ref, {node(), {nodedown, Node}}}
+	    Tester ! {Ref, {node(), {nodedown, Node}}}
     end,
     wait_for_nodedowns(Tester, Ref).
 
 run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
-    ?line [DN, EN] = get_nodenames(2, tick_change),
+    [DN, EN] = get_nodenames(2, tick_change),
 
-    ?line Tester = self(),
-    ?line Ref = make_ref(),
-    ?line MonitorNodes = fun (Nodes) ->
-				 ?line lists:foreach(
-					 fun (N) ->
-						 ?line monitor_node(N,true)
-					 end,
-					 Nodes),
-				 wait_for_nodedowns(Tester, Ref)
-			 end,
+    Tester = self(),
+    Ref = make_ref(),
+    MonitorNodes = fun (Nodes) ->
+			   lists:foreach(
+			     fun (N) ->
+				     monitor_node(N,true)
+			     end,
+			     Nodes),
+			   wait_for_nodedowns(Tester, Ref)
+		   end,
 
-    ?line {ok, D} = start_node(DN, "-kernel net_ticktime "
-			       ++ integer_to_list(PrevTT) ++ " -pa " ++ PaDir),
+    {ok, D} = start_node(DN, "-kernel net_ticktime "
+			 ++ integer_to_list(PrevTT) ++ " -pa " ++ PaDir),
 
-    ?line NMA = spawn_link(fun () -> MonitorNodes([B, C, D]) end),
-    ?line NMB = spawn_link(B, fun () -> MonitorNodes([node(), C, D]) end),
-    ?line NMC = spawn_link(C, fun () -> MonitorNodes([node(), B, D]) end),
+    NMA = spawn_link(fun () -> MonitorNodes([B, C, D]) end),
+    NMB = spawn_link(B, fun () -> MonitorNodes([node(), C, D]) end),
+    NMC = spawn_link(C, fun () -> MonitorNodes([node(), B, D]) end),
 
-    ?line MaxTT = case PrevTT > TT of
-		      true  -> ?line PrevTT;
-		      false -> ?line TT
-		  end,
+    MaxTT = case PrevTT > TT of
+		true  -> PrevTT;
+		false -> TT
+	    end,
 
-    ?line CheckResult = make_ref(),
-    ?line spawn_link(fun () ->
-			     receive
-			     after (25 + MaxTT)*1000 ->
-				     Tester ! CheckResult
-			     end
-		     end),
+    CheckResult = make_ref(),
+    spawn_link(fun () ->
+		       receive
+		       after (25 + MaxTT)*1000 ->
+			       Tester ! CheckResult
+		       end
+	       end),
 
     %% In case other nodes than these are connected
     case nodes(connected) -- [B, C, D] of
-	[] -> ?line ok;
-	OtherNodes -> ?line rpc:multicall(OtherNodes, net_kernel,
-					  set_net_ticktime, [TT, 20])
+	[] -> ok;
+	OtherNodes -> rpc:multicall(OtherNodes, net_kernel,
+				    set_net_ticktime, [TT, 20])
     end,
 
-    ?line change_initiated = net_kernel:set_net_ticktime(TT,20),
-    ?line {ongoing_change_to,_} = net_kernel:set_net_ticktime(TT,20),
-    ?line sleep(3),
-    ?line change_initiated = rpc:call(B,net_kernel,set_net_ticktime,[TT,15]),
-    ?line sleep(7),
-    ?line change_initiated = rpc:call(C,net_kernel,set_net_ticktime,[TT,10]),
+    change_initiated = net_kernel:set_net_ticktime(TT,20),
+    {ongoing_change_to,_} = net_kernel:set_net_ticktime(TT,20),
+    sleep(3),
+    change_initiated = rpc:call(B,net_kernel,set_net_ticktime,[TT,15]),
+    sleep(7),
+    change_initiated = rpc:call(C,net_kernel,set_net_ticktime,[TT,10]),
 
-    ?line {ok, E} = start_node(EN, "-kernel net_ticktime "
-			       ++ integer_to_list(TT) ++ " -pa " ++ PaDir),
-    ?line NME  = spawn_link(E, fun () -> MonitorNodes([node(), B, C, D]) end),
-    ?line NMA2 = spawn_link(fun () -> MonitorNodes([E]) end),
-    ?line NMB2 = spawn_link(B, fun () -> MonitorNodes([E]) end),
-    ?line NMC2 = spawn_link(C, fun () -> MonitorNodes([E]) end),
+    {ok, E} = start_node(EN, "-kernel net_ticktime "
+			 ++ integer_to_list(TT) ++ " -pa " ++ PaDir),
+    NME  = spawn_link(E, fun () -> MonitorNodes([node(), B, C, D]) end),
+    NMA2 = spawn_link(fun () -> MonitorNodes([E]) end),
+    NMB2 = spawn_link(B, fun () -> MonitorNodes([E]) end),
+    NMC2 = spawn_link(C, fun () -> MonitorNodes([E]) end),
 
-    receive CheckResult -> ?line ok end,
+    receive CheckResult -> ok end,
 
-    ?line unlink(NMA),  exit(NMA, kill),
-    ?line unlink(NMB),  exit(NMB, kill),
-    ?line unlink(NMC),  exit(NMC, kill),
-    ?line unlink(NME),  exit(NME, kill),
-    ?line unlink(NMA2), exit(NMA2, kill),
-    ?line unlink(NMB2), exit(NMB2, kill),
-    ?line unlink(NMC2), exit(NMC2, kill),
+    unlink(NMA),  exit(NMA, kill),
+    unlink(NMB),  exit(NMB, kill),
+    unlink(NMC),  exit(NMC, kill),
+    unlink(NME),  exit(NME, kill),
+    unlink(NMA2), exit(NMA2, kill),
+    unlink(NMB2), exit(NMB2, kill),
+    unlink(NMC2), exit(NMC2, kill),
 
     %% The node not changing ticktime should have been disconnected from the
     %% other nodes
-    receive {Ref, {Node, {nodedown, D}}} when Node == node() -> ?line ok
-    after 0 -> ?line exit({?LINE, no_nodedown})
+    receive {Ref, {Node, {nodedown, D}}} when Node == node() -> ok
+    after 0 -> exit({?LINE, no_nodedown})
     end,
-    receive {Ref, {B, {nodedown, D}}} -> ?line ok
-    after 0 -> ?line exit({?LINE, no_nodedown})
+    receive {Ref, {B, {nodedown, D}}} -> ok
+    after 0 -> exit({?LINE, no_nodedown})
     end,
-    receive {Ref, {C, {nodedown, D}}} -> ?line ok
-    after 0 -> ?line exit({?LINE, no_nodedown})
+    receive {Ref, {C, {nodedown, D}}} -> ok
+    after 0 -> exit({?LINE, no_nodedown})
     end,
-    receive {Ref, {E, {nodedown, D}}} -> ?line ok
-    after 0 -> ?line exit({?LINE, no_nodedown})
+    receive {Ref, {E, {nodedown, D}}} -> ok
+    after 0 -> exit({?LINE, no_nodedown})
     end,
 
     %% No other connections should have been broken
     receive
 	{Ref, Reason} ->
-	    ?line stop_node(E),
-	    ?line exit({?LINE, Reason});
+	    stop_node(E),
+	    exit({?LINE, Reason});
 	{'EXIT', Pid, Reason} when Pid == NMA;
 				   Pid == NMB;
 				   Pid == NMC;
@@ -443,16 +443,16 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
 				   Pid == NMA2;
 				   Pid == NMB2;
 				   Pid == NMC2 ->
-	    ?line stop_node(E),
+	    stop_node(E),
 
-	    ?line exit({?LINE, {node(Pid), Reason}})
+	    exit({?LINE, {node(Pid), Reason}})
     after 0 ->
-	    ?line TT = net_kernel:get_net_ticktime(),
-	    ?line TT = rpc:call(B, net_kernel, get_net_ticktime, []),
-	    ?line TT = rpc:call(C, net_kernel, get_net_ticktime, []),
-	    ?line TT = rpc:call(E, net_kernel, get_net_ticktime, []),
-	    ?line stop_node(E),
-	    ?line ok
+	    TT = net_kernel:get_net_ticktime(),
+	    TT = rpc:call(B, net_kernel, get_net_ticktime, []),
+	    TT = rpc:call(C, net_kernel, get_net_ticktime, []),
+	    TT = rpc:call(E, net_kernel, get_net_ticktime, []),
+	    stop_node(E),
+	    ok
     end.
 
 %%
@@ -463,9 +463,9 @@ hidden_node(Config) when is_list(Config) ->
     PaDir = filename:dirname(code:which(?MODULE)),
     VArgs = "-pa " ++ PaDir,
     HArgs = "-hidden -pa " ++ PaDir,
-    ?line {ok, V} = start_node(visible_node, VArgs),
+    {ok, V} = start_node(visible_node, VArgs),
     VMN = start_monitor_nodes_proc(V),
-    ?line {ok, H} = start_node(hidden_node, HArgs),
+    {ok, H} = start_node(hidden_node, HArgs),
     %% Connect visible_node -> hidden_node
     connect_nodes(V, H),
     test_nodes(V, H),
@@ -473,9 +473,9 @@ hidden_node(Config) when is_list(Config) ->
     sleep(5),
     check_monitor_nodes_res(VMN, H),
     stop_node(V),
-    ?line {ok, H} = start_node(hidden_node, HArgs),
+    {ok, H} = start_node(hidden_node, HArgs),
     HMN = start_monitor_nodes_proc(H),
-    ?line {ok, V} = start_node(visible_node, VArgs),
+    {ok, V} = start_node(visible_node, VArgs),
     %% Connect hidden_node -> visible_node
     connect_nodes(H, V),
     test_nodes(V, H),
@@ -487,21 +487,21 @@ hidden_node(Config) when is_list(Config) ->
 
 connect_nodes(A, B) ->
     %% Check that they haven't already connected.
-    ?line false = lists:member(A, rpc:call(B, erlang, nodes, [connected])),
-    ?line false = lists:member(B, rpc:call(A, erlang, nodes, [connected])),
+    false = lists:member(A, rpc:call(B, erlang, nodes, [connected])),
+    false = lists:member(B, rpc:call(A, erlang, nodes, [connected])),
     %% Connect them.
-    ?line pong = rpc:call(A, net_adm, ping, [B]).
-    
+    pong = rpc:call(A, net_adm, ping, [B]).
+
 
 test_nodes(V, H) ->
     %% No nodes should be visible on hidden_node
-    ?line [] = rpc:call(H, erlang, nodes, []),
+    [] = rpc:call(H, erlang, nodes, []),
     %% visible_node should be hidden on hidden_node
-    ?line true = lists:member(V, rpc:call(H, erlang, nodes, [hidden])),
+    true = lists:member(V, rpc:call(H, erlang, nodes, [hidden])),
     %% hidden_node node shouldn't be visible on visible_node
-    ?line false = lists:member(H, rpc:call(V, erlang, nodes, [])),
+    false = lists:member(H, rpc:call(V, erlang, nodes, [])),
     %% hidden_node should be hidden on visible_node
-    ?line true = lists:member(H, rpc:call(V, erlang, nodes, [hidden])).
+    true = lists:member(H, rpc:call(V, erlang, nodes, [hidden])).
 
 mn_loop(MNs) ->
     receive
@@ -529,14 +529,14 @@ start_monitor_nodes_proc(Node) ->
 	    ok
     end,
     Pid.
-	    
+
 
 check_monitor_nodes_res(Pid, Node) ->
     Ref = make_ref(),
     Pid ! {monitor_nodes_result, Ref, self()},
     receive
 	{Ref, MNs} ->
-	    ?line false = lists:keysearch(Node, 2, MNs)
+	    false = lists:keysearch(Node, 2, MNs)
     end.
 
 
@@ -550,7 +550,7 @@ inet_dist_options_options(Config) when is_list(Config) ->
 		{ok,[{priority,Prio}]} ->
 		    ok = gen_udp:close(Socket),
 		    do_inet_dist_options_options(Prio);
-		      _ ->
+		_ ->
 		    ok = gen_udp:close(Socket),
 		    {skip,
 		     "Can not set priority "++integer_to_list(Prio)++
@@ -574,25 +574,25 @@ do_inet_dist_options_options(Prio) ->
 	"-hidden "
 	"-kernel inet_dist_connect_options "++PriorityString++" "
 	"-kernel inet_dist_listen_options "++PriorityString,
-    ?line {ok,Node1} =
+    {ok,Node1} =
 	start_node(inet_dist_options_1, InetDistOptions),
-    ?line {ok,Node2} =
+    {ok,Node2} =
 	start_node(inet_dist_options_2, InetDistOptions),
     %%
-    ?line pong =
+    pong =
 	rpc:call(Node1, net_adm, ping, [Node2]),
-    ?line PrioritiesNode1 =
+    PrioritiesNode1 =
 	rpc:call(Node1, ?MODULE, get_socket_priorities, []),
-    ?line PrioritiesNode2 =
+    PrioritiesNode2 =
 	rpc:call(Node2, ?MODULE, get_socket_priorities, []),
     io:format("PrioritiesNode1 = ~p", [PrioritiesNode1]),
     io:format("PrioritiesNode2 = ~p", [PrioritiesNode2]),
-    ?line Elevated = [P || P <- PrioritiesNode1, P =:= Prio],
-    ?line Elevated = [P || P <- PrioritiesNode2, P =:= Prio],
-    ?line [_|_] = Elevated,
+    Elevated = [P || P <- PrioritiesNode1, P =:= Prio],
+    Elevated = [P || P <- PrioritiesNode2, P =:= Prio],
+    [_|_] = Elevated,
     %%
-    ?line stop_node(Node2),
-    ?line stop_node(Node1),
+    stop_node(Node2),
+    stop_node(Node1),
     ok.
 
 get_socket_priorities() ->
@@ -603,102 +603,102 @@ get_socket_priorities() ->
 		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
 
 
-	    
+
 %%
 %% Testcase:
 %%   monitor_nodes_nodedown_reason
 %%
 
 monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok = net_kernel:monitor_nodes(true),
-    ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+    MonNodeState = monitor_node_state(),
+    ok = net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
 
-    ?line Names = get_numbered_nodenames(5, node),
-    ?line [NN1, NN2, NN3, NN4, NN5] = Names,
+    Names = get_numbered_nodenames(5, node),
+    [NN1, NN2, NN3, NN4, NN5] = Names,
 
-    ?line {ok, N1} = start_node(NN1),
-    ?line {ok, N2} = start_node(NN2),
-    ?line {ok, N3} = start_node(NN3),
-    ?line {ok, N4} = start_node(NN4, "-hidden"),
-    
-    ?line receive {nodeup, N1} -> ok end,
-    ?line receive {nodeup, N2} -> ok end,
-    ?line receive {nodeup, N3} -> ok end,
+    {ok, N1} = start_node(NN1),
+    {ok, N2} = start_node(NN2),
+    {ok, N3} = start_node(NN3),
+    {ok, N4} = start_node(NN4, "-hidden"),
 
-    ?line receive {nodeup, N1, []} -> ok end,
-    ?line receive {nodeup, N2, []} -> ok end,
-    ?line receive {nodeup, N3, []} -> ok end,
+    receive {nodeup, N1} -> ok end,
+    receive {nodeup, N2} -> ok end,
+    receive {nodeup, N3} -> ok end,
 
-    ?line stop_node(N1),
-    ?line stop_node(N4),
-    ?line true = net_kernel:disconnect(N2),
-    ?line TickTime = net_kernel:get_net_ticktime(),
-    ?line SleepTime = TickTime + (TickTime div 4),
-    ?line spawn(N3, fun () ->
-			    block_emu(SleepTime*1000),
-			    halt()
-		    end),
+    receive {nodeup, N1, []} -> ok end,
+    receive {nodeup, N2, []} -> ok end,
+    receive {nodeup, N3, []} -> ok end,
 
-    ?line receive {nodedown, N1} -> ok end,
-    ?line receive {nodedown, N2} -> ok end,
-    ?line receive {nodedown, N3} -> ok end,
+    stop_node(N1),
+    stop_node(N4),
+    true = net_kernel:disconnect(N2),
+    TickTime = net_kernel:get_net_ticktime(),
+    SleepTime = TickTime + (TickTime div 4),
+    spawn(N3, fun () ->
+		      block_emu(SleepTime*1000),
+		      halt()
+	      end),
 
-    ?line receive {nodedown, N1, [{nodedown_reason, R1}]} -> connection_closed = R1 end,
-    ?line receive {nodedown, N2, [{nodedown_reason, R2}]} -> disconnect = R2 end,
-    ?line receive {nodedown, N3, [{nodedown_reason, R3}]} -> net_tick_timeout = R3 end,
+    receive {nodedown, N1} -> ok end,
+    receive {nodedown, N2} -> ok end,
+    receive {nodedown, N3} -> ok end,
 
-    ?line ok = net_kernel:monitor_nodes(false, [nodedown_reason]),
+    receive {nodedown, N1, [{nodedown_reason, R1}]} -> connection_closed = R1 end,
+    receive {nodedown, N2, [{nodedown_reason, R2}]} -> disconnect = R2 end,
+    receive {nodedown, N3, [{nodedown_reason, R3}]} -> net_tick_timeout = R3 end,
 
-    ?line {ok, N5} = start_node(NN5),
-    ?line stop_node(N5),
+    ok = net_kernel:monitor_nodes(false, [nodedown_reason]),
 
-    ?line receive {nodeup, N5} -> ok end,
-    ?line receive {nodedown, N5} -> ok end,
-    ?line print_my_messages(),
-    ?line ok = check_no_nodedown_nodeup(1000),
-    ?line ok = net_kernel:monitor_nodes(false),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    {ok, N5} = start_node(NN5),
+    stop_node(N5),
+
+    receive {nodeup, N5} -> ok end,
+    receive {nodedown, N5} -> ok end,
+    print_my_messages(),
+    ok = check_no_nodedown_nodeup(1000),
+    ok = net_kernel:monitor_nodes(false),
+    MonNodeState = monitor_node_state(),
+    ok.
 
 
 monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line Me = self(),
-    ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
-    ?line [Name] = get_nodenames(1, monitor_nodes_complex_nodedown_reason),
-    ?line {ok, Node} = start_node(Name, ""),
-    ?line Pid = spawn(Node,
-		      fun() ->
-			      Me ! {stuff,
-				    self(),
-				    [make_ref(),
-				     {processes(), erlang:ports()}]}
-		      end),
-    ?line receive {nodeup, Node, []} -> ok end,
-    ?line {ok, NodeInfo} = net_kernel:node_info(Node),
-    ?line {value,{owner, Owner}} = lists:keysearch(owner, 1, NodeInfo),
-    ?line ComplexTerm = receive {stuff, Pid, _} = Msg ->
-				{Msg, term_to_binary(Msg)}
-			end,
-    ?line exit(Owner, ComplexTerm),
-    ?line receive
-	      {nodedown, Node, [{nodedown_reason, NodeDownReason}]} ->
-		  ?line ok
-	  end,
+    MonNodeState = monitor_node_state(),
+    Me = self(),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+    [Name] = get_nodenames(1, monitor_nodes_complex_nodedown_reason),
+    {ok, Node} = start_node(Name, ""),
+    Pid = spawn(Node,
+		fun() ->
+			Me ! {stuff,
+			      self(),
+			      [make_ref(),
+			       {processes(), erlang:ports()}]}
+		end),
+    receive {nodeup, Node, []} -> ok end,
+    {ok, NodeInfo} = net_kernel:node_info(Node),
+    {value,{owner, Owner}} = lists:keysearch(owner, 1, NodeInfo),
+    ComplexTerm = receive {stuff, Pid, _} = Msg ->
+			  {Msg, term_to_binary(Msg)}
+		  end,
+    exit(Owner, ComplexTerm),
+    receive
+	{nodedown, Node, [{nodedown_reason, NodeDownReason}]} ->
+	    ok
+    end,
     %% If the complex nodedown_reason messed something up garbage collections
     %% are likely to dump core
-    ?line garbage_collect(),
-    ?line garbage_collect(),
-    ?line garbage_collect(),
-    ?line ComplexTerm = NodeDownReason,
-    ?line ok = net_kernel:monitor_nodes(false, [nodedown_reason]),
-    ?line no_msgs(),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
-    
+    garbage_collect(),
+    garbage_collect(),
+    garbage_collect(),
+    ComplexTerm = NodeDownReason,
+    ok = net_kernel:monitor_nodes(false, [nodedown_reason]),
+    no_msgs(),
+    MonNodeState = monitor_node_state(),
+    ok.
 
-    
+
+
 
 %%
 %% Testcase:
@@ -706,75 +706,75 @@ monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
 %%
 
 monitor_nodes_node_type(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok = net_kernel:monitor_nodes(true),
-    ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}]),
-    ?line Names = get_numbered_nodenames(9, node),
-    ?line [NN1, NN2, NN3, NN4, NN5, NN6, NN7, NN8, NN9] = Names,
+    MonNodeState = monitor_node_state(),
+    ok = net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true, [{node_type, all}]),
+    Names = get_numbered_nodenames(9, node),
+    [NN1, NN2, NN3, NN4, NN5, NN6, NN7, NN8, NN9] = Names,
 
-    ?line {ok, N1} = start_node(NN1),
-    ?line {ok, N2} = start_node(NN2),
-    ?line {ok, N3} = start_node(NN3, "-hidden"),
-    ?line {ok, N4} = start_node(NN4, "-hidden"),
+    {ok, N1} = start_node(NN1),
+    {ok, N2} = start_node(NN2),
+    {ok, N3} = start_node(NN3, "-hidden"),
+    {ok, N4} = start_node(NN4, "-hidden"),
 
-    ?line receive {nodeup, N1} -> ok end,
-    ?line receive {nodeup, N2} -> ok end,
-    
-    ?line receive {nodeup, N1, [{node_type, visible}]} -> ok end,
-    ?line receive {nodeup, N2, [{node_type, visible}]} -> ok end,
-    ?line receive {nodeup, N3, [{node_type, hidden}]} -> ok end,
-    ?line receive {nodeup, N4, [{node_type, hidden}]} -> ok end,
+    receive {nodeup, N1} -> ok end,
+    receive {nodeup, N2} -> ok end,
 
-    ?line stop_node(N1),
-    ?line stop_node(N2),
-    ?line stop_node(N3),
-    ?line stop_node(N4),
+    receive {nodeup, N1, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N2, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N3, [{node_type, hidden}]} -> ok end,
+    receive {nodeup, N4, [{node_type, hidden}]} -> ok end,
 
-    ?line receive {nodedown, N1} -> ok end,
-    ?line receive {nodedown, N2} -> ok end,
+    stop_node(N1),
+    stop_node(N2),
+    stop_node(N3),
+    stop_node(N4),
 
-    ?line receive {nodedown, N1, [{node_type, visible}]} -> ok end,
-    ?line receive {nodedown, N2, [{node_type, visible}]} -> ok end,
-    ?line receive {nodedown, N3, [{node_type, hidden}]} -> ok end,
-    ?line receive {nodedown, N4, [{node_type, hidden}]} -> ok end,
+    receive {nodedown, N1} -> ok end,
+    receive {nodedown, N2} -> ok end,
 
-    ?line ok = net_kernel:monitor_nodes(false, [{node_type, all}]),
-    ?line {ok, N5} = start_node(NN5),
+    receive {nodedown, N1, [{node_type, visible}]} -> ok end,
+    receive {nodedown, N2, [{node_type, visible}]} -> ok end,
+    receive {nodedown, N3, [{node_type, hidden}]} -> ok end,
+    receive {nodedown, N4, [{node_type, hidden}]} -> ok end,
 
-    ?line receive {nodeup, N5} -> ok end,
-    ?line stop_node(N5),
-    ?line receive {nodedown, N5} -> ok end,
+    ok = net_kernel:monitor_nodes(false, [{node_type, all}]),
+    {ok, N5} = start_node(NN5),
 
-    ?line ok = net_kernel:monitor_nodes(true, [{node_type, hidden}]),
-    ?line {ok, N6} = start_node(NN6),
-    ?line {ok, N7} = start_node(NN7, "-hidden"),
+    receive {nodeup, N5} -> ok end,
+    stop_node(N5),
+    receive {nodedown, N5} -> ok end,
+
+    ok = net_kernel:monitor_nodes(true, [{node_type, hidden}]),
+    {ok, N6} = start_node(NN6),
+    {ok, N7} = start_node(NN7, "-hidden"),
 
 
-    ?line receive {nodeup, N6} -> ok end,
-    ?line receive {nodeup, N7, [{node_type, hidden}]} -> ok end,
-    ?line stop_node(N6),
-    ?line stop_node(N7),
+    receive {nodeup, N6} -> ok end,
+    receive {nodeup, N7, [{node_type, hidden}]} -> ok end,
+    stop_node(N6),
+    stop_node(N7),
 
-    ?line receive {nodedown, N6} -> ok end,
-    ?line receive {nodedown, N7, [{node_type, hidden}]} -> ok end,
+    receive {nodedown, N6} -> ok end,
+    receive {nodedown, N7, [{node_type, hidden}]} -> ok end,
 
-    ?line ok = net_kernel:monitor_nodes(true, [{node_type, visible}]),
-    ?line ok = net_kernel:monitor_nodes(false, [{node_type, hidden}]),
-    ?line ok = net_kernel:monitor_nodes(false),
+    ok = net_kernel:monitor_nodes(true, [{node_type, visible}]),
+    ok = net_kernel:monitor_nodes(false, [{node_type, hidden}]),
+    ok = net_kernel:monitor_nodes(false),
 
-    ?line {ok, N8} = start_node(NN8),
-    ?line {ok, N9} = start_node(NN9, "-hidden"),
+    {ok, N8} = start_node(NN8),
+    {ok, N9} = start_node(NN9, "-hidden"),
 
-    ?line receive {nodeup, N8, [{node_type, visible}]} -> ok end,
-    ?line stop_node(N8),
-    ?line stop_node(N9),
+    receive {nodeup, N8, [{node_type, visible}]} -> ok end,
+    stop_node(N8),
+    stop_node(N9),
 
-    ?line receive {nodedown, N8, [{node_type, visible}]} -> ok end,
-    ?line print_my_messages(),
-    ?line ok = check_no_nodedown_nodeup(1000),
-    ?line ok = net_kernel:monitor_nodes(false, [{node_type, visible}]),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    receive {nodedown, N8, [{node_type, visible}]} -> ok end,
+    print_my_messages(),
+    ok = check_no_nodedown_nodeup(1000),
+    ok = net_kernel:monitor_nodes(false, [{node_type, visible}]),
+    MonNodeState = monitor_node_state(),
+    ok.
 
 
 %%
@@ -783,49 +783,49 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
 %%
 
 monitor_nodes_misc(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok = net_kernel:monitor_nodes(true),
-    ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
-    ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
-    ?line Names = get_numbered_nodenames(3, node),
-    ?line [NN1, NN2, NN3] = Names,
+    MonNodeState = monitor_node_state(),
+    ok = net_kernel:monitor_nodes(true),
+    ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
+    Names = get_numbered_nodenames(3, node),
+    [NN1, NN2, NN3] = Names,
 
-    ?line {ok, N1} = start_node(NN1),
-    ?line {ok, N2} = start_node(NN2, "-hidden"),
+    {ok, N1} = start_node(NN1),
+    {ok, N2} = start_node(NN2, "-hidden"),
 
-    ?line receive {nodeup, N1} -> ok end,
+    receive {nodeup, N1} -> ok end,
 
-    ?line receive {nodeup, N1, [{node_type, visible}]} -> ok end,
-    ?line receive {nodeup, N1, [{node_type, visible}]} -> ok end,
-    ?line receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
-    ?line receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
+    receive {nodeup, N1, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N1, [{node_type, visible}]} -> ok end,
+    receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
+    receive {nodeup, N2, [{node_type, hidden}]} -> ok end,
 
-    ?line stop_node(N1),
-    ?line stop_node(N2),
+    stop_node(N1),
+    stop_node(N2),
 
-    ?line VisbleDownInfo = lists:sort([{node_type, visible},
-				       {nodedown_reason, connection_closed}]),
-    ?line HiddenDownInfo = lists:sort([{node_type, hidden},
-				       {nodedown_reason, connection_closed}]),
+    VisbleDownInfo = lists:sort([{node_type, visible},
+				 {nodedown_reason, connection_closed}]),
+    HiddenDownInfo = lists:sort([{node_type, hidden},
+				 {nodedown_reason, connection_closed}]),
 
-    ?line receive {nodedown, N1} -> ok end,
+    receive {nodedown, N1} -> ok end,
 
-    ?line receive {nodedown, N1, Info1A} -> VisbleDownInfo = lists:sort(Info1A) end,
-    ?line receive {nodedown, N1, Info1B} -> VisbleDownInfo = lists:sort(Info1B) end,
-    ?line receive {nodedown, N2, Info2A} -> HiddenDownInfo = lists:sort(Info2A) end,
-    ?line receive {nodedown, N2, Info2B} -> HiddenDownInfo = lists:sort(Info2B) end,
+    receive {nodedown, N1, Info1A} -> VisbleDownInfo = lists:sort(Info1A) end,
+    receive {nodedown, N1, Info1B} -> VisbleDownInfo = lists:sort(Info1B) end,
+    receive {nodedown, N2, Info2A} -> HiddenDownInfo = lists:sort(Info2A) end,
+    receive {nodedown, N2, Info2B} -> HiddenDownInfo = lists:sort(Info2B) end,
 
-    ?line ok = net_kernel:monitor_nodes(false, [{node_type, all}, nodedown_reason]),
+    ok = net_kernel:monitor_nodes(false, [{node_type, all}, nodedown_reason]),
 
-    ?line {ok, N3} = start_node(NN3),
-    ?line receive {nodeup, N3} -> ok end,
-    ?line stop_node(N3),
-    ?line receive {nodedown, N3} -> ok end,
-    ?line print_my_messages(),
-    ?line ok = check_no_nodedown_nodeup(1000),
-    ?line ok = net_kernel:monitor_nodes(false),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    {ok, N3} = start_node(NN3),
+    receive {nodeup, N3} -> ok end,
+    stop_node(N3),
+    receive {nodedown, N3} -> ok end,
+    print_my_messages(),
+    ok = check_no_nodedown_nodeup(1000),
+    ok = net_kernel:monitor_nodes(false),
+    MonNodeState = monitor_node_state(),
+    ok.
 
 
 %% Tests that {nodeup, Node} messages are received before
@@ -833,38 +833,38 @@ monitor_nodes_misc(Config) when is_list(Config) ->
 %% received after messages from Node.
 monitor_nodes_otp_6481(Config) when is_list(Config) ->
     io:format("Testing nodedown...~n"),
-    ?line monitor_nodes_otp_6481_test(Config, nodedown),
+    monitor_nodes_otp_6481_test(Config, nodedown),
     io:format("ok~n"),
     io:format("Testing nodeup...~n"),
-    ?line monitor_nodes_otp_6481_test(Config, nodeup),
+    monitor_nodes_otp_6481_test(Config, nodeup),
     io:format("ok~n"),
-    ?line ok.
+    ok.
 
 monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line NodeMsg = make_ref(),
-    ?line Me = self(),
-    ?line [Name] = get_nodenames(1, monitor_nodes_otp_6481),
-    ?line case TestType of
-	      nodedown -> ?line ok = net_kernel:monitor_nodes(true);
-	      nodeup -> ?line ok
-	  end,
-    ?line Seq = lists:seq(1,10000),
-    ?line MN = spawn_link(
-		 fun () ->
-			 ?line lists:foreach(
-				 fun (_) ->
-					 ?line ok = net_kernel:monitor_nodes(true)
-				 end,
-				 Seq),
-			 ?line Me ! {mon_set, self()},
-			 ?line receive after infinity -> ok end
-		 end),
-    ?line receive {mon_set, MN} -> ok end,
-    ?line case TestType of
-	      nodedown -> ?line ok;
-	      nodeup -> ?line ok = net_kernel:monitor_nodes(true)
-	  end,
+    MonNodeState = monitor_node_state(),
+    NodeMsg = make_ref(),
+    Me = self(),
+    [Name] = get_nodenames(1, monitor_nodes_otp_6481),
+    case TestType of
+	nodedown -> ok = net_kernel:monitor_nodes(true);
+	nodeup -> ok
+    end,
+    Seq = lists:seq(1,10000),
+    MN = spawn_link(
+	   fun () ->
+		   lists:foreach(
+		     fun (_) ->
+			     ok = net_kernel:monitor_nodes(true)
+		     end,
+		     Seq),
+		   Me ! {mon_set, self()},
+		   receive after infinity -> ok end
+	   end),
+    receive {mon_set, MN} -> ok end,
+    case TestType of
+	nodedown -> ok;
+	nodeup -> ok = net_kernel:monitor_nodes(true)
+    end,
 
     %% Whitebox:
     %% nodedown test: Since this process was the first one monitoring
@@ -875,60 +875,60 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     %%                on nodeup
 
     %% Verify the monitor_nodes order expected
-    ?line TestMonNodeState = monitor_node_state(),
+    TestMonNodeState = monitor_node_state(),
     %% io:format("~p~n", [TestMonNodeState]),
-    ?line TestMonNodeState = 
+    TestMonNodeState =
 	MonNodeState
 	++ case TestType of
-	      nodedown -> [{self(), []}];
-	      nodeup -> []
+	       nodedown -> [{self(), []}];
+	       nodeup -> []
 	   end
 	++ lists:map(fun (_) -> {MN, []} end, Seq)
 	++ case TestType of
-	      nodedown -> [];
-	      nodeup -> [{self(), []}]
+	       nodedown -> [];
+	       nodeup -> [{self(), []}]
 	   end,
 
 
-    ?line {ok, Node} = start_node(Name, "", this),
-    ?line receive {nodeup, Node} -> ok end,
+    {ok, Node} = start_node(Name, "", this),
+    receive {nodeup, Node} -> ok end,
 
-    ?line RemotePid = spawn(Node,
-		fun () ->
-			receive after 1500 -> ok end,
-			%% infinit loop of msgs
-			%% we want an endless stream of messages and the kill
-			%% the node mercilessly.
-			%% We then want to ensure that the nodedown message arrives
-			%% last ... without garbage after it.
-			_ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
-			receive {Me, kill_it} -> ok end, 
-			halt()
-		end),
+    RemotePid = spawn(Node,
+		      fun () ->
+			      receive after 1500 -> ok end,
+			      %% infinit loop of msgs
+			      %% we want an endless stream of messages and the kill
+			      %% the node mercilessly.
+			      %% We then want to ensure that the nodedown message arrives
+			      %% last ... without garbage after it.
+			      _ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
+			      receive {Me, kill_it} -> ok end,
+			      halt()
+		      end),
 
-    ?line net_kernel:disconnect(Node),
-    ?line receive {nodedown, Node} -> ok end,
+    net_kernel:disconnect(Node),
+    receive {nodedown, Node} -> ok end,
 
     %% Verify that '{nodeup, Node}' comes before '{NodeMsg, 1}' (the message
     %% bringing up the connection).
-    ?line no_msgs(500),
-    ?line {nodeup, Node} = receive Msg1 -> Msg1 end,
-    ?line {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
+    no_msgs(500),
+    {nodeup, Node} = receive Msg1 -> Msg1 end,
+    {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
     %% msg stream has begun, kill the node
-    ?line RemotePid ! {self(), kill_it},
+    RemotePid ! {self(), kill_it},
 
     %% Verify that '{nodedown, Node}' comes after the last '{NodeMsg, N}'
     %% message.
-    ?line {nodedown, Node} = flush_node_msgs(NodeMsg, 2),
-    ?line no_msgs(500),
+    {nodedown, Node} = flush_node_msgs(NodeMsg, 2),
+    no_msgs(500),
 
-    ?line Mon = erlang:monitor(process, MN),
-    ?line unlink(MN),
-    ?line exit(MN, bang),
-    ?line receive {'DOWN', Mon, process, MN, bang} -> ok end,
-    ?line ok = net_kernel:monitor_nodes(false),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    Mon = erlang:monitor(process, MN),
+    unlink(MN),
+    exit(MN, bang),
+    receive {'DOWN', Mon, process, MN, bang} -> ok end,
+    ok = net_kernel:monitor_nodes(false),
+    MonNodeState = monitor_node_state(),
+    ok.
 
 flush_node_msgs(NodeMsg, No) ->
     case receive Msg -> Msg end of
@@ -941,81 +941,81 @@ node_loop_send(Pid, Msg, No) ->
     node_loop_send(Pid, Msg, No + 1).
 
 monitor_nodes_errors(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line error = net_kernel:monitor_nodes(asdf),
-    ?line {error,
-	   {unknown_options,
-	    [gurka]}} = net_kernel:monitor_nodes(true,
-						 [gurka]),
-    ?line {error,
-	   {options_not_a_list,
-	    gurka}} = net_kernel:monitor_nodes(true,
-					       gurka),
-    ?line {error,
-	   {option_value_mismatch,
-	    [{node_type,visible},
-	     {node_type,hidden}]}}
+    MonNodeState = monitor_node_state(),
+    error = net_kernel:monitor_nodes(asdf),
+    {error,
+     {unknown_options,
+      [gurka]}} = net_kernel:monitor_nodes(true,
+					   [gurka]),
+    {error,
+     {options_not_a_list,
+      gurka}} = net_kernel:monitor_nodes(true,
+					 gurka),
+    {error,
+     {option_value_mismatch,
+      [{node_type,visible},
+       {node_type,hidden}]}}
 	= net_kernel:monitor_nodes(true,
 				   [{node_type,hidden},
 				    {node_type,visible}]),
-    ?line {error,
-	   {option_value_mismatch,
-	    [{node_type,visible},
-	     {node_type,all}]}}
+    {error,
+     {option_value_mismatch,
+      [{node_type,visible},
+       {node_type,all}]}}
 	= net_kernel:monitor_nodes(true,
 				   [{node_type,all},
 				    {node_type,visible}]),
-    ?line {error,
-	   {bad_option_value,
-	    {node_type,
-	     blaha}}}
+    {error,
+     {bad_option_value,
+      {node_type,
+       blaha}}}
 	= net_kernel:monitor_nodes(true, [{node_type, blaha}]),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    MonNodeState = monitor_node_state(),
+    ok.
 
 monitor_nodes_combinations(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line monitor_nodes_all_comb(true),
-    ?line [VisibleName, HiddenName] = get_nodenames(2,
-						    monitor_nodes_combinations),
-    ?line {ok, Visible} = start_node(VisibleName, ""),
-    ?line receive_all_comb_nodeup_msgs(visible, Visible),
-    ?line no_msgs(),
-    ?line stop_node(Visible),
-    ?line receive_all_comb_nodedown_msgs(visible, Visible, connection_closed),
-    ?line no_msgs(),
-    ?line {ok, Hidden} = start_node(HiddenName, "-hidden"),
-    ?line receive_all_comb_nodeup_msgs(hidden, Hidden),
-    ?line no_msgs(),
-    ?line stop_node(Hidden),
-    ?line receive_all_comb_nodedown_msgs(hidden, Hidden, connection_closed),
-    ?line no_msgs(),
-    ?line monitor_nodes_all_comb(false),
-    ?line MonNodeState = monitor_node_state(),
-    ?line no_msgs(),
-    ?line ok.
+    MonNodeState = monitor_node_state(),
+    monitor_nodes_all_comb(true),
+    [VisibleName, HiddenName] = get_nodenames(2,
+					      monitor_nodes_combinations),
+    {ok, Visible} = start_node(VisibleName, ""),
+    receive_all_comb_nodeup_msgs(visible, Visible),
+    no_msgs(),
+    stop_node(Visible),
+    receive_all_comb_nodedown_msgs(visible, Visible, connection_closed),
+    no_msgs(),
+    {ok, Hidden} = start_node(HiddenName, "-hidden"),
+    receive_all_comb_nodeup_msgs(hidden, Hidden),
+    no_msgs(),
+    stop_node(Hidden),
+    receive_all_comb_nodedown_msgs(hidden, Hidden, connection_closed),
+    no_msgs(),
+    monitor_nodes_all_comb(false),
+    MonNodeState = monitor_node_state(),
+    no_msgs(),
+    ok.
 
 monitor_nodes_all_comb(Flag) ->
-    ?line ok = net_kernel:monitor_nodes(Flag),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[nodedown_reason]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[{node_type, hidden}]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[{node_type, visible}]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[{node_type, all}]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[nodedown_reason,
-					 {node_type, hidden}]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[nodedown_reason,
-					 {node_type, visible}]),
-    ?line ok = net_kernel:monitor_nodes(Flag,
-					[nodedown_reason,
-					 {node_type, all}]),
+    ok = net_kernel:monitor_nodes(Flag),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [nodedown_reason]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [{node_type, hidden}]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [{node_type, visible}]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [{node_type, all}]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [nodedown_reason,
+				   {node_type, hidden}]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [nodedown_reason,
+				   {node_type, visible}]),
+    ok = net_kernel:monitor_nodes(Flag,
+				  [nodedown_reason,
+				   {node_type, all}]),
     %% There currently are 8 different combinations
-    ?line 8.
+    8.
 
 
 receive_all_comb_nodeup_msgs(visible, Node) ->
@@ -1092,49 +1092,49 @@ receive_mn_msgs(Msgs) ->
     end.
 
 monitor_nodes_cleanup(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line Me = self(),
-    ?line No = monitor_nodes_all_comb(true),
-    ?line Inf = spawn(fun () ->
-			      monitor_nodes_all_comb(true),
-			      Me ! {mons_set, self()},
-			      receive after infinity -> ok end
-		      end),
-    ?line TO = spawn(fun () ->
-			     monitor_nodes_all_comb(true),
-			     Me ! {mons_set, self()},
-			     receive after 500 -> ok end
-		     end),
-    ?line receive {mons_set, Inf} -> ok end,
-    ?line receive {mons_set, TO} -> ok end,
-    ?line MNLen = length(MonNodeState) + No*3,
-    ?line MNLen = length(monitor_node_state()),
-    ?line MonInf = erlang:monitor(process, Inf),
-    ?line MonTO = erlang:monitor(process, TO),
-    ?line exit(Inf, bang),
-    ?line No = monitor_nodes_all_comb(false),
-    ?line receive {'DOWN', MonInf, process, Inf, bang} -> ok end,
-    ?line receive {'DOWN', MonTO, process, TO, normal} -> ok end,
-    ?line MonNodeState = monitor_node_state(),
-    ?line no_msgs(),
-    ?line ok.
+    MonNodeState = monitor_node_state(),
+    Me = self(),
+    No = monitor_nodes_all_comb(true),
+    Inf = spawn(fun () ->
+			monitor_nodes_all_comb(true),
+			Me ! {mons_set, self()},
+			receive after infinity -> ok end
+		end),
+    TO = spawn(fun () ->
+		       monitor_nodes_all_comb(true),
+		       Me ! {mons_set, self()},
+		       receive after 500 -> ok end
+	       end),
+    receive {mons_set, Inf} -> ok end,
+    receive {mons_set, TO} -> ok end,
+    MNLen = length(MonNodeState) + No*3,
+    MNLen = length(monitor_node_state()),
+    MonInf = erlang:monitor(process, Inf),
+    MonTO = erlang:monitor(process, TO),
+    exit(Inf, bang),
+    No = monitor_nodes_all_comb(false),
+    receive {'DOWN', MonInf, process, Inf, bang} -> ok end,
+    receive {'DOWN', MonTO, process, TO, normal} -> ok end,
+    MonNodeState = monitor_node_state(),
+    no_msgs(),
+    ok.
 
 monitor_nodes_many(Config) when is_list(Config) ->
-    ?line MonNodeState = monitor_node_state(),
-    ?line [Name] = get_nodenames(1, monitor_nodes_many),
+    MonNodeState = monitor_node_state(),
+    [Name] = get_nodenames(1, monitor_nodes_many),
     %% We want to perform more than 2^16 net_kernel:monitor_nodes
     %% since this will wrap an internal counter
-    ?line No = (1 bsl 16) + 17,
-    ?line repeat(fun () -> ok = net_kernel:monitor_nodes(true) end, No),
-    ?line No = length(monitor_node_state()) - length(MonNodeState),
-    ?line {ok, Node} = start_node(Name),
-    ?line repeat(fun () -> receive {nodeup, Node} -> ok end end, No),
-    ?line stop_node(Node),
-    ?line repeat(fun () -> receive {nodedown, Node} -> ok end end, No),
-    ?line ok = net_kernel:monitor_nodes(false),
-    ?line no_msgs(10),
-    ?line MonNodeState = monitor_node_state(),
-    ?line ok.
+    No = (1 bsl 16) + 17,
+    repeat(fun () -> ok = net_kernel:monitor_nodes(true) end, No),
+    No = length(monitor_node_state()) - length(MonNodeState),
+    {ok, Node} = start_node(Name),
+    repeat(fun () -> receive {nodeup, Node} -> ok end end, No),
+    stop_node(Node),
+    repeat(fun () -> receive {nodedown, Node} -> ok end end, No),
+    ok = net_kernel:monitor_nodes(false),
+    no_msgs(10),
+    MonNodeState = monitor_node_state(),
+    ok.
 
 %% Misc. functions
 
@@ -1146,19 +1146,19 @@ monitor_node_state() ->
 
 
 check_no_nodedown_nodeup(TimeOut) ->
-    ?line receive
-	      {nodeup, _, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
-	      {nodeup, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
-	      {nodedown, _, _} = Msg -> ct:fail({unexpected_nodedown, Msg});
-	      {nodedown, _} = Msg -> ct:fail({unexpected_nodedown, Msg})
-	  after TimeOut ->
-		  ok
-	  end.
+    receive
+	{nodeup, _, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
+	{nodeup, _} = Msg -> ct:fail({unexpected_nodeup, Msg});
+	{nodedown, _, _} = Msg -> ct:fail({unexpected_nodedown, Msg});
+	{nodedown, _} = Msg -> ct:fail({unexpected_nodedown, Msg})
+    after TimeOut ->
+	    ok
+    end.
 
 print_my_messages() ->
-    ?line {messages, Messages} = process_info(self(), messages),
+    {messages, Messages} = process_info(self(), messages),
     io:format("Messages: ~p~n", [Messages]),
-    ?line ok.
+    ok.
 
 
 sleep(T) -> receive after T * 1000 -> ok end.	

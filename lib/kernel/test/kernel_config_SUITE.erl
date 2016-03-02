@@ -52,7 +52,7 @@ end_per_suite(Config) when is_list(Config) ->
 config(Fd) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['cp1@~s','cp2@~s']},"
-	          "{sync_nodes_timeout, 15000}]}].~n",
+	      "{sync_nodes_timeout, 15000}]}].~n",
 	      [M, M]).
 
 from(H, [H | T]) -> T;
@@ -76,23 +76,23 @@ sync(Conf) when is_list(Conf) ->
     %% Reset wall_clock
     {T1,_} = erlang:statistics(wall_clock),
     io:format("~p~n", [{t1, T1}]),
-    ?line Command = lists:concat([lib:progname(),
-				  " -detached -sname cp1 ",
-				  "-config ", Config,
-				  " -env ERL_CRASH_DUMP erl_crash_dump.cp1"]),
+    Command = lists:concat([lib:progname(),
+			    " -detached -sname cp1 ",
+			    "-config ", Config,
+			    " -env ERL_CRASH_DUMP erl_crash_dump.cp1"]),
     io:format("Command: ~s", [Command]),
-    ?line open_port({spawn, Command}, [stream]),
+    open_port({spawn, Command}, [stream]),
     io:format("started~n"),
     ct:sleep(12000),
     io:format("waited12~n"),
-    ?line Host = from($@, atom_to_list(node())),
-    ?line Cp1 = list_to_atom("cp1@"++Host),
-    ?line wait_for_node(Cp1),
+    Host = from($@, atom_to_list(node())),
+    Cp1 = list_to_atom("cp1@"++Host),
+    wait_for_node(Cp1),
     io:format("waitednode~n"),
     %% Check time since last call
-    ?line {TT, T} = erlang:statistics(wall_clock),
+    {TT, T} = erlang:statistics(wall_clock),
     io:format("~p~n", [{t2, {TT, T}}]),
-    ?line stop_node(cp1),
+    stop_node(cp1),
     if
 	TT-T1 < 15000 -> ct:fail({too_short_time, TT-T1});
 	true -> ok

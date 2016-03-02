@@ -74,22 +74,22 @@ end_per_group(_GroupName, Config) ->
 
 %% OTP-7277. Bugfix leave().
 otp_7277(Config) when is_list(Config) ->
-    ?line ok = pg2:create(a),
-    ?line ok = pg2:create(b),
+    ok = pg2:create(a),
+    ok = pg2:create(b),
     P = spawn(forever()),
-    ?line ok = pg2:join(a, P),
-    ?line ok = pg2:leave(b, P),
-    ?line true = exit(P, kill),
+    ok = pg2:join(a, P),
+    ok = pg2:leave(b, P),
+    true = exit(P, kill),
     case {pg2:get_members(a), pg2:get_local_members(a)} of
         {[], []} ->
             ok;
         _ ->
             timer:sleep(100),
-            ?line [] = pg2:get_members(a),
-            ?line [] = pg2:get_local_members(a)
+            [] = pg2:get_members(a),
+            [] = pg2:get_local_members(a)
     end,
-    ?line _ = pg2:delete(a),
-    ?line _ = pg2:delete(b),
+    _ = pg2:delete(a),
+    _ = pg2:delete(b),
     ok.
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end, Config)).
@@ -97,34 +97,34 @@ otp_7277(Config) when is_list(Config) ->
 
 %% OTP-8259. Member was not removed after being killed.
 otp_8653(Config) when is_list(Config) ->
-    ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
+    [A, B, C] = start_nodes([a, b, c], peer, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     %% make b and c connected, partitioned from node() and a
-    ?line rpc_cast(B, ?MODULE, part2, [Config, node(), A, C]),
-    ?line ?UNTIL(is_ready_partition(Config)),
+    rpc_cast(B, ?MODULE, part2, [Config, node(), A, C]),
+    ?UNTIL(is_ready_partition(Config)),
 
     %% Connect to the other partition.
-    ?line pong = net_adm:ping(B),
+    pong = net_adm:ping(B),
     timer:sleep(100),
-    ?line pong = net_adm:ping(C),
-    ?line _ = global:sync(),
-    ?line [A, B, C] = lists:sort(nodes()),
+    pong = net_adm:ping(C),
+    _ = global:sync(),
+    [A, B, C] = lists:sort(nodes()),
 
     G = pg2_otp_8653,
-    ?line ?UNTIL(begin
-                     GA = lists:sort(rpc:call(A, pg2, get_members, [G])),
-                     GB = lists:sort(rpc:call(B, pg2, get_members, [G])),
-                     GC = lists:sort(rpc:call(C, pg2, get_members, [G])),
-                     GT = lists:sort(pg2:get_members(G)),
-                     GA =:= GB andalso
-                     GB =:= GC andalso
-                     GC =:= GT andalso
-                     8 =:= length(GA)
-                 end),
-    ?line ok = pg2:delete(G),
-    ?line stop_nodes([A,B,C]),
+    ?UNTIL(begin
+	       GA = lists:sort(rpc:call(A, pg2, get_members, [G])),
+	       GB = lists:sort(rpc:call(B, pg2, get_members, [G])),
+	       GC = lists:sort(rpc:call(C, pg2, get_members, [G])),
+	       GT = lists:sort(pg2:get_members(G)),
+	       GA =:= GB andalso
+		   GB =:= GC andalso
+		   GC =:= GT andalso
+		   8 =:= length(GA)
+	   end),
+    ok = pg2:delete(G),
+    stop_nodes([A,B,C]),
     ok.
 
 part2(Config, Main, A, C) ->
@@ -148,46 +148,46 @@ mk_part_node_and_group(File, MyPart0, Config) ->
 
 %% OTP-8259. Member was not removed after being killed.
 otp_8259(Config) when is_list(Config) ->
-    ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
+    [A, B, C] = start_nodes([a, b, c], peer, Config),
 
-    ?line wait_for_ready_net(Config),
+    wait_for_ready_net(Config),
 
     G = pg2_otp_8259,
     Name = otp_8259_a_global_name,
 
     %% start different processes in both partitions
-    ?line {Pid, yes} = rpc:call(A, ?MODULE, start_proc, [Name]),
+    {Pid, yes} = rpc:call(A, ?MODULE, start_proc, [Name]),
 
-    ?line ok = pg2:create(G),
-    ?line ok = pg2:join(G, Pid),
+    ok = pg2:create(G),
+    ok = pg2:join(G, Pid),
 
     %% make b and c connected, partitioned from node() and a
-    ?line rpc_cast(B, ?MODULE, part1, [Config, node(), A, C, Name]),
-    ?line ?UNTIL(is_ready_partition(Config)),
+    rpc_cast(B, ?MODULE, part1, [Config, node(), A, C, Name]),
+    ?UNTIL(is_ready_partition(Config)),
 
     %% Connect to the other partition.
     %% The resolver on node b will be called.
-    ?line pong = net_adm:ping(B),
+    pong = net_adm:ping(B),
     timer:sleep(100),
-    ?line pong = net_adm:ping(C),
-    ?line _ = global:sync(),
-    ?line [A, B, C] = lists:sort(nodes()),
+    pong = net_adm:ping(C),
+    _ = global:sync(),
+    [A, B, C] = lists:sort(nodes()),
 
     %% Pid has been killed by the resolver.
     %% Pid has been removed from pg2 on all nodes, in particular node B.
-    ?line ?UNTIL([] =:= rpc:call(B, pg2, get_members, [G])),
-    ?line ?UNTIL([] =:= pg2:get_members(G)),
-    ?line ?UNTIL([] =:= rpc:call(A, pg2, get_members, [G])),
-    ?line ?UNTIL([] =:= rpc:call(C, pg2, get_members, [G])),
+    ?UNTIL([] =:= rpc:call(B, pg2, get_members, [G])),
+    ?UNTIL([] =:= pg2:get_members(G)),
+    ?UNTIL([] =:= rpc:call(A, pg2, get_members, [G])),
+    ?UNTIL([] =:= rpc:call(C, pg2, get_members, [G])),
 
-    ?line ok = pg2:delete(G),
-    ?line stop_nodes([A,B,C]),
+    ok = pg2:delete(G),
+    stop_nodes([A,B,C]),
     ok.
 
 part1(Config, Main, A, C, Name) ->
     case catch begin
 		   make_partition(Config, [Main, A], [node(), C]),
-		   ?line {_Pid, yes} = start_proc(Name)
+		   {_Pid, yes} = start_proc(Name)
 	       end of
 	{_, yes} -> ok
     end.
@@ -224,17 +224,17 @@ compat(Config) when is_list(Config) ->
         true ->
             Pid = spawn(forever()),
             G = a,
-            ?line ok = pg2:create(G),
-            ?line ok = pg2:join(G, Pid),
-            ?line ok = pg2:join(G, Pid),
-            ?line {ok, A} = start_node_rel(r13, r13b, slave),
-            ?line pong = net_adm:ping(A),
-            ?line wait_for_ready_net(Config),
-            ?line {ok, _} = rpc:call(A, pg2, start, []),
-            ?line ?UNTIL([Pid,Pid] =:= rpc:call(A, pg2, get_members, [a])),
-            ?line true = exit(Pid, kill),
-            ?line ?UNTIL([] =:= pg2:get_members(a)),
-            ?line ?UNTIL([] =:= rpc:call(A, pg2, get_members, [a])),
+            ok = pg2:create(G),
+            ok = pg2:join(G, Pid),
+            ok = pg2:join(G, Pid),
+            {ok, A} = start_node_rel(r13, r13b, slave),
+            pong = net_adm:ping(A),
+            wait_for_ready_net(Config),
+            {ok, _} = rpc:call(A, pg2, start, []),
+            ?UNTIL([Pid,Pid] =:= rpc:call(A, pg2, get_members, [a])),
+            true = exit(Pid, kill),
+            ?UNTIL([] =:= pg2:get_members(a)),
+            ?UNTIL([] =:= rpc:call(A, pg2, get_members, [a])),
             test_server:stop_node(A),
 	    ok;
         false ->
@@ -244,7 +244,7 @@ compat(Config) when is_list(Config) ->
 %% OTP-8259. Some basic tests.
 basic(Config) when is_list(Config) ->
     _ = [pg2:delete(G) || G <- pg2:which_groups()],
-    ?line _ = [do(Cs, T, Config) || {T,Cs} <- ts()],
+    _ = [do(Cs, T, Config) || {T,Cs} <- ts()],
     ok.
 
 ts() ->
@@ -485,7 +485,7 @@ wsane(Ns) ->
           Pid when is_pid(Pid), node(Pid) =:= N ->
               true =
                   lists:member(Pid, rpc:call(N, pg2, get_local_members, [G]));
-%% FIXME. Om annan nod: member, local = [].
+	  %% FIXME. Om annan nod: member, local = [].
           _ -> [] = rpc:call(N, pg2, get_local_members, [G])
       end || N <- Ns]
      || G <- pg2:which_groups()].
@@ -534,21 +534,21 @@ start_node_rel(Name, Rel, How) ->
                             Rel when is_atom(Rel) ->
                                 {[{release, atom_to_list(Rel)}], ""};
                             RelList ->
-			       {RelList, ""}
-		       end,
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Res = test_server:start_node(Name, How,
-                                       [{args,
-                                         Compat ++
-                                         " -kernel net_setuptime 100 "
-                                         " -pa " ++ Pa},
-                                        {erl, Release}]),
+				{RelList, ""}
+			end,
+    Pa = filename:dirname(code:which(?MODULE)),
+    Res = test_server:start_node(Name, How,
+				 [{args,
+				   Compat ++
+				       " -kernel net_setuptime 100 "
+				   " -pa " ++ Pa},
+				  {erl, Release}]),
     Res.
 
 start_nodes(L, How, Config) ->
     start_nodes2(L, How, 0, Config),
     Nodes = collect_nodes(0, length(L)),
-    ?line ?UNTIL([] =:= Nodes -- nodes()),
+    ?UNTIL([] =:= Nodes -- nodes()),
     %% Pinging doesn't help, we have to wait too, for nodes() to become
     %% correct on the other node.
     lists:foreach(fun(E) ->
@@ -564,7 +564,7 @@ verify_nodes(Nodes, Config) ->
 verify_nodes([], _N, _Config) ->
     [];
 verify_nodes([Node | Rest], N, Config) ->
-    ?line ?UNTIL(
+    ?UNTIL(
        case rpc:call(Node, erlang, nodes, []) of
 	   Nodes when is_list(Nodes) ->
 	       case N =:= lists:sort([Node | Nodes]) of
@@ -616,7 +616,7 @@ start_node(Name0, How, Args, Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, How, [{args,
                                         Args ++ " " ++
-                                        "-kernel net_setuptime 100 "
+					    "-kernel net_setuptime 100 "
                                         "-noshell "
                                         "-pa " ++ Pa},
                                        {linked, false}]).
@@ -705,10 +705,10 @@ wait_for_ready_net(Nodes0, Config) ->
     io:format("wait_for_ready_net ~p~n", [Nodes]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) ->
-                                 LNs = rpc:call(N, erlang, nodes, []),
-                                 Nodes =:= lists:sort([N | LNs])
-                         end, Nodes)
+		   lists:all(fun(N) ->
+				     LNs = rpc:call(N, erlang, nodes, []),
+				     Nodes =:= lists:sort([N | LNs])
+			     end, Nodes)
            end).
 
 %% To make it less probable that some low-level problem causes
@@ -771,4 +771,4 @@ msec() ->
     msec(now()).
 
 msec(T) ->
-     element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
+    element(1,T)*1000000000 + element(2,T)*1000 + element(3,T) div 1000.
