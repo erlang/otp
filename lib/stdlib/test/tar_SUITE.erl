@@ -64,7 +64,7 @@ borderline(Config) when is_list(Config) ->
     %% of the private directory path.
 
     {ok, Cwd} = file:get_cwd(),
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     TempDir = remove_prefix(Cwd++"/", filename:join(RootDir, "borderline")),
     ok = file:make_dir(TempDir),
 
@@ -201,7 +201,7 @@ next_random(X) ->
 %% and uncompressed archives.
 %% Also test the 'cooked' option.
 atomic(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name,_,_} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -279,7 +279,7 @@ create_files([]) ->
 %% Test to extract an Unix tar file containing filenames longer than
 %% 100 characters and empty directories.
 long_names(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Long = filename:join(DataDir, "long_names.tar"),
     run_in_short_tempdir(Config,
 			 fun() -> do_long_names(Long) end).
@@ -365,8 +365,8 @@ bad_tar(Config) when is_list(Config) ->
 try_bad(Name0, Reason, Config) ->
     %% Intentionally no macros here.
 
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = Name0 ++ ".tar",
     io:format("~nTrying ~s", [Name]),
     Full = filename:join(DataDir, Name),
@@ -392,7 +392,7 @@ try_bad(Name0, Reason, Config) ->
 %% Tests that some common errors return correct error codes
 %% and that format_error/1 handles them correctly.
 errors(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Give the tar file the same name as a directory.
     BadTar = filename:join(PrivDir, "bad_tarfile.tar"),
@@ -439,8 +439,8 @@ remove_prefix(_, Result) ->
 
 %% Test extracting a tar archive from a binary.
 extract_from_binary(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Long = filename:join(DataDir, "no_fancy_stuff.tar"),
     ExtractDir = filename:join(PrivDir, "extract_from_binary"),
     ok = file:make_dir(ExtractDir),
@@ -462,8 +462,8 @@ extract_from_binary(Config) when is_list(Config) ->
 
 extract_from_binary_compressed(Config) when is_list(Config) ->
     %% Test extracting a compressed tar archive from a binary.
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = filename:join(DataDir, "cooked_tar_problem.tar.gz"),
     ExtractDir = filename:join(PrivDir, "extract_from_binary_compressed"),
     ok = file:make_dir(ExtractDir),
@@ -495,8 +495,8 @@ extract_from_binary_compressed(Config) when is_list(Config) ->
 
 %% Test extracting a tar archive from an open file.
 extract_from_open_file(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Long = filename:join(DataDir, "no_fancy_stuff.tar"),
     ExtractDir = filename:join(PrivDir, "extract_from_open_file"),
     ok = file:make_dir(ExtractDir),
@@ -520,7 +520,7 @@ extract_from_open_file(Config) when is_list(Config) ->
 
 %% Test that archives containing symlinks can be created and extracted.
 symlinks(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "symlinks"),
     ok = file:make_dir(Dir),
     ABadSymlink = filename:join(Dir, "bad_symlink"),
@@ -627,7 +627,7 @@ long_symlink(Dir) ->
     ok.
 
 open_add_close(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     Dir = filename:join(PrivDir, "open_add_close"),
     ok = file:make_dir(Dir),
@@ -668,8 +668,8 @@ oac_files() ->
 
 cooked_compressed(Config) when is_list(Config) ->
     %% Test that a compressed archive can be read in cooked mode.
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = filename:join(DataDir, "cooked_tar_problem.tar.gz"),
 
     %% Try table/2 and extract/2.
@@ -693,7 +693,7 @@ cooked_compressed(Config) when is_list(Config) ->
 %% Test that an archive can be created directly from binaries and
 %% that an archive can be extracted into binaries.
 memory(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     FileBins = [{"bar/fum", <<"BARFUM">>},{"foo", <<"FOO">>}],
     Name1 = filename:join(DataDir, "memory.tar"),
@@ -720,7 +720,7 @@ memory(Config) when is_list(Config) ->
 
 %% Test filenames with characters outside the US ASCII range.
 unicode(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     do_unicode(PrivDir),
     case has_transparent_naming() of
 	true ->
@@ -800,7 +800,7 @@ delete_files([Item|Rest]) ->
 %% 260 characters.
 run_in_short_tempdir(Config, Fun) ->
     {ok,Cwd} = file:get_cwd(),
-    PrivDir0 = ?config(priv_dir, Config),
+    PrivDir0 = proplists:get_value(priv_dir, Config),
 
     %% Normalize name to make sure that there is no slash at the end.
     PrivDir = filename:absname(PrivDir0),

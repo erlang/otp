@@ -815,7 +815,7 @@ temporary_shutdown(Config) when is_list(Config) ->
 faulty_application_shutdown(Config) when is_list(Config) ->
 
     %% Set some paths
-    AppDir  = filename:join(?config(data_dir, Config), "app_faulty"),
+    AppDir  = filename:join(proplists:get_value(data_dir, Config), "app_faulty"),
     EbinDir = filename:join(AppDir, "ebin"),
 
     %% Start faulty app

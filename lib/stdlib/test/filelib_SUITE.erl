@@ -65,7 +65,7 @@ end_per_group(_GroupName, Config) ->
 
 wildcard_one(Config) when is_list(Config) ->
     {ok,OldCwd} = file:get_cwd(),
-    Dir = filename:join(?config(priv_dir, Config), "wildcard_one"),
+    Dir = filename:join(proplists:get_value(priv_dir, Config), "wildcard_one"),
     ok = file:make_dir(Dir),
     do_wildcard_1(Dir,
 		  fun(Wc) ->
@@ -85,7 +85,7 @@ wildcard_one(Config) when is_list(Config) ->
     ok.
 
 wildcard_two(Config) when is_list(Config) ->
-    Dir = filename:join(?config(priv_dir, Config), "wildcard_two"),
+    Dir = filename:join(proplists:get_value(priv_dir, Config), "wildcard_two"),
     ok = file:make_dir(Dir),
     do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,Dir, X = filelib:wildcard(Wc, Dir)}]),X  end),
     do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir++"/") end),
@@ -270,7 +270,7 @@ do_wildcard_9(Dir, Wcf) ->
 
 
 fold_files(Config) when is_list(Config) ->
-    Dir = filename:join(?config(priv_dir, Config), "fold_files"),
+    Dir = filename:join(proplists:get_value(priv_dir, Config), "fold_files"),
     ok = file:make_dir(Dir),
     Dirs = [filename:join(Dir, D) || D <- ["blurf","blurf/blarf"]],
     foreach(fun(D) -> ok = file:make_dir(D) end, Dirs),
@@ -329,7 +329,7 @@ del([]) -> ok.
 
 %% Test that filelib:ensure_dir/1 returns ok or {error,Reason}.
 otp_5960(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "otp_5960_dir"),
     Name1 = filename:join(Dir, name1),
     Name2 = filename:join(Dir, name2),
@@ -354,7 +354,7 @@ otp_5960(Config) when is_list(Config) ->
     end.
 
 ensure_dir_eexist(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "ensure_dir_eexist"),
     Name = filename:join(Dir, "same_name_as_file_and_dir"),
     ok = filelib:ensure_dir(Name),
@@ -369,7 +369,7 @@ ensure_dir_eexist(Config) when is_list(Config) ->
     ok.
 
 ensure_dir_symlink(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "ensure_dir_symlink"),
     Name = filename:join(Dir, "same_name_as_file_and_dir"),
     ok = filelib:ensure_dir(Name),
@@ -388,7 +388,7 @@ ensure_dir_symlink(Config) when is_list(Config) ->
     end.
 
 wildcard_symlink(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, ?MODULE_STRING++"_wildcard_symlink"),
     SubDir = filename:join(Dir, "sub"),
     AFile = filename:join(SubDir, "a_file"),
@@ -448,7 +448,7 @@ basenames(Dir, Files) ->
      end || F <- Files].
 
 is_file_symlink(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, ?MODULE_STRING++"_is_file_symlink"),
     SubDir = filename:join(Dir, "sub"),
     AFile = filename:join(SubDir, "a_file"),
@@ -481,7 +481,7 @@ is_file_symlink(Config) ->
     end.
 
 file_props_symlink(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, ?MODULE_STRING++"_file_props_symlink"),
     AFile = filename:join(Dir, "a_file"),
     Alias = filename:join(Dir, "symlink"),

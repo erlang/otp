@@ -78,7 +78,7 @@ ex1(Config) when is_list(Config) ->
 ex1_sub(Config) ->
     {A,B} = prep(Config),
     N = 
-	case ?config(ets_tough_SUITE_iters,Config) of
+	case proplists:get_value(ets_tough_SUITE_iters,Config) of
 	    undefined ->
 		5000;
 	    Other -> 
@@ -93,7 +93,7 @@ ex1_sub(Config) ->
 prep(Config) ->
     rand:seed(exsplus),
     put(dump_ticket,none),
-    DumpDir = filename:join(?config(priv_dir,Config), "ets_tough"),
+    DumpDir = filename:join(proplists:get_value(priv_dir,Config), "ets_tough"),
     file:make_dir(DumpDir),
     put(dump_dir,DumpDir),
     process_flag(trap_exit,true),

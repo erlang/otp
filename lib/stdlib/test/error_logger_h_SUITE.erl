@@ -48,7 +48,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 logfile(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "logfile.log"),
     ok = filelib:ensure_dir(Log),
@@ -77,7 +77,7 @@ logfile(Config) ->
     ok.
 
 logfile_truncated(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "logfile_truncated.log"),
     ok = filelib:ensure_dir(Log),
@@ -102,7 +102,7 @@ do_one_logfile(Log, Ev, Depth) ->
     analyse_events(Log, Ev, [], Depth).
 
 tty(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "tty.log"),
     ok = filelib:ensure_dir(Log),
@@ -125,7 +125,7 @@ tty(Config) ->
     ok.
 
 tty_truncated(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "tty_truncated.log"),
     ok = filelib:ensure_dir(Log),

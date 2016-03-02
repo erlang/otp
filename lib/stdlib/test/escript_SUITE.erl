@@ -78,7 +78,7 @@ end_per_testcase(_Case, _Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 basic(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "factorial 5",
 	<<"factorial 5 = 120\nExitCode:0">>),
@@ -95,7 +95,7 @@ basic(Config) when is_list(Config) ->
 		  [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
     run_with_opts(Dir, "-c -s", "factorial_warning",
 		  [data_dir,<<"factorial_warning:12: Warning: function bar/0 is unused\nExitCode:0">>]),
-    run(Dir, "filesize "++filename:join(?config(data_dir, Config),"filesize"),
+    run(Dir, "filesize "++filename:join(proplists:get_value(data_dir, Config),"filesize"),
 	[data_dir,<<"filesize:11: Warning: function id/1 is unused\n324\nExitCode:0">>]),
     run(Dir, "test_script_name",
 	[data_dir,<<"test_script_name\nExitCode:0">>]),
@@ -111,7 +111,7 @@ basic(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 errors(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "compile_error",
 	[data_dir,<<"compile_error:5: syntax error before: '*'\n">>,
@@ -130,7 +130,7 @@ errors(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 strange_name(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "strange.name -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
@@ -140,7 +140,7 @@ strange_name(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 emulator_flags(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "emulator_flags -arg1 arg2 arg3",
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
@@ -154,7 +154,7 @@ emulator_flags(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 emulator_flags_no_shebang(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     %% Need run_with_opts, to always use "escript" explicitly
     run_with_opts(Dir, "", "emulator_flags_no_shebang -arg1 arg2 arg3",
@@ -172,14 +172,14 @@ emulator_flags_no_shebang(Config) when is_list(Config) ->
 
 module_script(Config) when is_list(Config) ->
     %% Read orig file
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
     [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
     {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     Dir = filename:absname(Priv), % Get rid of trailing slash.
     Base = "module_script",
     ErlFile = filename:join([Priv, Base ++ ".erl"]),
@@ -274,14 +274,14 @@ module_script(Config) when is_list(Config) ->
 %% Generate a new escript containing the beam code and the escript header
 beam_script(Config) when is_list(Config) ->
     %% Read orig file
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     OrigFile = filename:join([Data,"emulator_flags"]),
     {ok, OrigBin} = file:read_file(OrigFile),
     [Shebang, Mode, Flags | Source] = string:tokens(binary_to_list(OrigBin), "\n"),
     {ok, OrigFI} = file:read_file_info(OrigFile),
 
     %% Write source file
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     Dir = filename:absname(Priv), % Get rid of trailing slash.
     Base = "beam_script",
     ErlFile = filename:join([Priv, Base ++ ".erl"]),
@@ -380,8 +380,8 @@ beam_script(Config) when is_list(Config) ->
 
 archive_script(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Archive = filename:join([PrivDir, "archive_script.zip"]),
     {ok, _} = zip:create(Archive, ["archive_script"],
 			 [{compress, []}, {cwd, DataDir}]),
@@ -507,8 +507,8 @@ archive_script(Config) when is_list(Config) ->
 %%
 archive_script_file_access(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     MainMod = "archive_script_file_access",
     MainSrc = MainMod ++ ".erl",
@@ -651,7 +651,7 @@ compile_files([], _, _) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 epp(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "factorial_epp 5",
 	<<"factorial 5 = 120\nExitCode:0">>),
@@ -708,8 +708,8 @@ create_and_extract(Config) when is_list(Config) ->
 
 prepare_creation(Base, Config) ->
     %% Read the source
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OrigFile = filename:join([DataDir,"emulator_flags"]),
     {ok, FileInfo} = file:read_file_info(OrigFile),
     NewFile = filename:join([PrivDir, Base]),
@@ -908,7 +908,7 @@ emulate_escript_foldl(Fun, Acc, File) ->
     end.
 
 unicode(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "unicode1",
         [<<"escript: exception error: an error occurred when evaluating"
@@ -927,7 +927,7 @@ unicode(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 overflow(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Dir = filename:absname(Data),		%Get rid of trailing slash.
     run(Dir, "arg_overflow",
 	[<<"ExitCode:0">>]),

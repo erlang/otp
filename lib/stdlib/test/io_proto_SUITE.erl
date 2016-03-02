@@ -48,7 +48,7 @@
 -define(privdir(_), "./io_SUITE_priv").
 -else.
 -include_lib("common_test/include/ct.hrl").
--define(privdir(Conf), ?config(priv_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
 %%-define(debug, true).
@@ -69,7 +69,7 @@ init_per_testcase(_Case, Config) ->
     os:putenv("TERM","vt100"),
     [{term, Term} | Config].
 end_per_testcase(_Case, Config) ->
-    Term = ?config(term,Config),
+    Term = proplists:get_value(term,Config),
     os:putenv("TERM",Term),
     ok.
 
@@ -152,7 +152,7 @@ unicode_prompt(Config) when is_list(Config) ->
 
 %% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->
-    FileName = filename:join([?config(priv_dir,Config),
+    FileName = filename:join([proplists:get_value(priv_dir,Config),
 			      "io_proto_SUITE_setopts_getopts.dat"]),
     {ok,WFile} = file:open(FileName,[write]),
     Server = start_io_server_proxy(),
@@ -272,8 +272,8 @@ get_lc_ctype() ->
 
 %% Test various unicode options.
 unicode_options(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
-    PrivDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     %% A string in both russian and greek characters, which is present
     %% in all the internal test files (but in different formats of course)...
     TestData = [1090,1093,1077,32,1073,1080,1075,32,
@@ -463,7 +463,7 @@ unicode_options(Config) when is_list(Config) ->
 %% Tests various unicode options on random generated files.
 unicode_options_gen(Config) when is_list(Config) ->
     random:seed(1240, 900586, 553728),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     AllModes = [utf8,utf16,{utf16,big},{utf16,little},
 		utf32,{utf32,big},{utf32,little}],
     FSize = 9*1024,
@@ -659,8 +659,8 @@ random_unicode(N) ->
 
 %% Test variants with binary option.
 binary_options(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
-    PrivDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     TestData = unicode:characters_to_binary(
 		 [1090,1093,1077,32,1073,1080,1075,32,
 		  1088,1077,1076,32,1092,1086,1100,32,1093,
@@ -754,7 +754,7 @@ bc_with_r12_1(Config) ->
     N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
     test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
 					 {erl,[{release,"r12b"}]}]),
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
     TestDataLine1 = [229,228,246],
     TestDataLine2 = [197,196,214],
@@ -1244,7 +1244,7 @@ read_modes_gl_1(_Config,Machine) ->
 
 %% Test behaviour when reading broken Unicode files
 broken_unicode(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir,Config),
+    Dir = proplists:get_value(priv_dir,Config),
     Latin1Name = filename:join([Dir,"latin1_data_file.dat"]),
     Utf8Name = filename:join([Dir,"utf8_data_file.dat"]),
     Latin1Data = iolist_to_binary(lists:duplicate(10,lists:seq(0,255)++[255,255,255])),

@@ -52,15 +52,15 @@ end_per_group(_GroupName, Config) ->
 
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_1(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m.erl"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
     Result = c(R,[{outdir,W}]),
     {ok, m} = Result.
 
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'.
 c_2(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
     Result = c(R,[{outdir,W}]),
     {ok, m} = Result.
 
@@ -71,8 +71,8 @@ c_2(Config) when is_list(Config) ->
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'
 %% (same as current directory).
 c_3(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m.erl"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
     file:set_cwd(W),
     Result = c(R,[{outdir,W}]),
     {ok, m} = Result.
@@ -80,8 +80,8 @@ c_3(Config) when is_list(Config) ->
 %% OTP-1209: Check that c:c/2 works also with option 'outdir'
 %% (same as current directory).
 c_4(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
     file:set_cwd(W),
     Result = c(R,[{outdir,W}]),
     {ok, m} = Result.
@@ -90,15 +90,15 @@ c_4(Config) when is_list(Config) ->
 
 %% Check that c:nc/2 works also with option 'outdir'.
 nc_1(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m.erl"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
     Result = nc(R,[{outdir,W}]),
     {ok, m} = Result.
 
 %% Check that c:nc/2 works also with option 'outdir'.
 nc_2(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
     Result = nc(R,[{outdir,W}]),
     {ok, m} = Result.
 
@@ -109,8 +109,8 @@ nc_2(Config) when is_list(Config) ->
 %% Check that c:nc/2 works also with option 'outdir'
 %% (same as current directory).
 nc_3(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m.erl"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m.erl"),
+    W = proplists:get_value(priv_dir, Config),
     file:set_cwd(W),
     Result = nc(R,[{outdir,W}]),
     {ok, m} = Result.
@@ -118,14 +118,14 @@ nc_3(Config) when is_list(Config) ->
 %% Check that c:nc/2 works also with option 'outdir'
 %% (same as current directory).
 nc_4(Config) when is_list(Config) ->
-    R = filename:join(?config(data_dir, Config), "m"),
-    W = ?config(priv_dir, Config),
+    R = filename:join(proplists:get_value(data_dir, Config), "m"),
+    W = proplists:get_value(priv_dir, Config),
     file:set_cwd(W),
     Result = nc(R,[{outdir,W}]),
     {ok, m} = Result.
 
 ls(Config) when is_list(Config) ->
-    Directory = ?config(data_dir, Config),
+    Directory = proplists:get_value(data_dir, Config),
     ok = c:ls(Directory),
     File = filename:join(Directory, "m.erl"),
     ok = c:ls(File),

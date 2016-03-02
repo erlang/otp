@@ -54,7 +54,7 @@ end_per_group(_GroupName, Config) ->
 
 test(Config) when is_list(Config) ->
     {ok, Pid} = gen_event:start_link(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Log1 = PrivDir ++ "/log1",
     ok = file:make_dir(Log1),
     Args1 = log_mf_h:init(Log1, 500, 3),

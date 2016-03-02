@@ -63,7 +63,7 @@ log(Config) when is_list(Config) ->
     ok.
 
 log_to_file(Config) when is_list(Config) ->
-    TempName = test_server:temp_name(?config(priv_dir,Config) ++ "sys."),
+    TempName = test_server:temp_name(proplists:get_value(priv_dir,Config) ++ "sys."),
     {ok,_Server} = start(),
     ok = sys:log_to_file(?server,TempName),
     {ok,-44} = public_call(44),

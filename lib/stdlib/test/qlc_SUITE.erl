@@ -44,9 +44,9 @@
 -define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
--define(datadir, ?config(data_dir, Config)).
--define(privdir, ?config(priv_dir, Config)).
--define(testcase, ?config(?TESTCASE, Config)).
+-define(datadir, proplists:get_value(data_dir, Config)).
+-define(privdir, proplists:get_value(priv_dir, Config)).
+-define(testcase, proplists:get_value(?TESTCASE, Config)).
 -endif.
 
 -include_lib("stdlib/include/ms_transform.hrl").

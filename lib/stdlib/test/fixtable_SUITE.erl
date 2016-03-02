@@ -70,7 +70,7 @@ end_per_group(_GroupName, Config) ->
 -define(HELPER_NODE, (atom_to_list(?MODULE) ++ "_helper1")).
 
 init_per_testcase(_Func, Config) ->
-    PrivDir = ?config(priv_dir,Config),    
+    PrivDir = proplists:get_value(priv_dir,Config),
     file:make_dir(PrivDir),
     Config.
 
@@ -370,7 +370,7 @@ multiple_processes(Tab, Mod) ->
 dets_filename(Base, Config) when is_atom(Base) ->
     dets_filename(atom_to_list(Base) ++ ".dat", Config);
 dets_filename(Basename, Config) ->
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     filename:join(PrivDir, Basename).
 
 command_loop() ->

@@ -782,7 +782,7 @@ temp_name() ->
     Conf = get(mts_config),
     C = get(mts_tf_counter),
     put(mts_tf_counter,C+1),
-    filename:join([?config(priv_dir,Conf),
+    filename:join([proplists:get_value(priv_dir,Conf),
 		   "tempfile"++integer_to_list(C)++".tmp"]).
 
 

@@ -30,8 +30,8 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(privdir(Conf), ?config(priv_dir, Conf)).
--define(datadir(Conf), ?config(data_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
+-define(datadir(Conf), proplists:get_value(data_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

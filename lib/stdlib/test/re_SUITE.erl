@@ -65,7 +65,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Run all applicable tests from the PCRE testsuites.
 pcre(Config) when is_list(Config) ->
-    RootDir = ?config(data_dir, Config),
+    RootDir = proplists:get_value(data_dir, Config),
     Res = run_pcre_tests:test(RootDir),
     0 = lists:sum([ X || {X,_,_} <- Res ]),
     {comment,Res}.

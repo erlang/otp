@@ -48,7 +48,7 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(privdir(Conf), ?config(priv_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
 init_per_testcase(_Case, Config) ->

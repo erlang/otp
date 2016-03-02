@@ -110,7 +110,7 @@ table_factor({ets,_}) ->
     100.
 
 gen_dets_filename(Config,N) ->
-    filename:join(?config(priv_dir,Config),
+    filename:join(proplists:get_value(priv_dir,Config),
 		  "testdets_" ++ integer_to_list(N) ++ ".dets").
 
 create_tables(Config) ->
@@ -198,7 +198,7 @@ destroy_tables([{dets,Tab}|T]) ->
 
 
 init_random(Config) ->
-    WriteDir = ReadDir = ?config(priv_dir,Config),
+    WriteDir = ReadDir = proplists:get_value(priv_dir,Config),
     (catch file:make_dir(WriteDir)),
     Seed = case file:consult(filename:join([ReadDir, 
 					    "preset_random_seed2.txt"])) of

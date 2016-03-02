@@ -87,7 +87,7 @@ end_per_group(_GroupName, Config) ->
 
 %% Recursive macros hang or crash epp (OTP-1398).
 rec_1(Config) when is_list(Config) ->
-    File = filename:join(?config(data_dir, Config), "mac.erl"),
+    File = filename:join(proplists:get_value(data_dir, Config), "mac.erl"),
     {ok, List} = epp_parse_file(File, [], []),
     %% we should encounter errors
     {value, _} = lists:keysearch(error, 1, List),
@@ -95,7 +95,7 @@ rec_1(Config) when is_list(Config) ->
     ok.
 
 include_local(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "include_local.erl"),
     FooHrl = filename:join([DataDir,"include","foo.hrl"]),
     BarHrl = filename:join([DataDir,"include","bar.hrl"]),
@@ -173,21 +173,21 @@ check_errors([_ | Rest]) ->
 
 
 upcase_mac_1(Config) when is_list(Config) ->
-    File = filename:join(?config(data_dir, Config), "mac2.erl"),
+    File = filename:join(proplists:get_value(data_dir, Config), "mac2.erl"),
     {ok, List} = epp:parse_file(File, [], []),
     [_, {attribute, _, plupp, Tuple} | _] = List,
     Tuple = {1, 1, 3, 3},
     ok.
 
 upcase_mac_2(Config) when is_list(Config) ->
-    File = filename:join(?config(data_dir, Config), "mac2.erl"),
+    File = filename:join(proplists:get_value(data_dir, Config), "mac2.erl"),
     {ok, List} = epp:parse_file(File, [], [{p, 5}, {'P', 6}]),
     [_, {attribute, _, plupp, Tuple} | _] = List,
     Tuple = {5, 5, 6, 6},
     ok.
 
 predef_mac(Config) when is_list(Config) ->
-    File = filename:join(?config(data_dir, Config), "mac3.erl"),
+    File = filename:join(proplists:get_value(data_dir, Config), "mac3.erl"),
     {ok, List} = epp:parse_file(File, [], []),
     [_,
      {attribute, Anno, l, Line1},
@@ -202,7 +202,7 @@ predef_mac(Config) when is_list(Config) ->
     ok.
 
 variable_1(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "variable_1.erl"),
     true = os:putenv("VAR", DataDir),
     %% variable_1.erl includes variable_1_include.hrl and
@@ -223,7 +223,7 @@ otp_4870(Config) when is_list(Config) ->
 
 %% crashing erl_scan
 otp_4871(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, "otp_4871.erl"),
     ok = file:write_file(File, "-module(otp_4871)."),
     %% Testing crash in erl_scan. Unfortunately there currently is
@@ -258,7 +258,7 @@ otp_4871_parse_file(Epp) ->
 
 %% OTP-5362. The -file attribute is recognized.
 otp_5362(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
 
     Copts = [return, strong_validation,{i,Dir}],
 
@@ -421,7 +421,7 @@ otp_5362(Config) when is_list(Config) ->
     ok.
 
 pmod(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Pmod = filename:join(DataDir, "pmod.erl"),
     case epp:parse_file([Pmod], [], []) of
 	      {ok,Forms} ->
@@ -444,7 +444,7 @@ not_circular(Config) when is_list(Config) ->
 
 %% Skip some bytes in the beginning of the file.
 skip_header(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join([PrivDir, "epp_test_skip_header.erl"]),
     ok = file:write_file(File,
 			       <<"some bytes
@@ -482,7 +482,7 @@ otp_6277(Config) when is_list(Config) ->
 
 %% OTP-7702. Wrong line number in stringifying macro expansion.
 otp_7702(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, "file_7702.erl"),
     Contents = <<"-module(file_7702).
 
@@ -787,7 +787,7 @@ otp_8130(Config) when is_list(Config) ->
            ],
     [] = check(Config, Cks),
 
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, "otp_8130.erl"),
     ok = file:write_file(File,
                                "-module(otp_8130).\n"
@@ -1117,7 +1117,7 @@ overload_mac(Config) when is_list(Config) ->
 
 %% OTP-8388. More tests on overloaded macros.
 otp_8388(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, "otp_8388.erl"),
     ok = file:write_file(File, <<"-module(otp_8388)."
                                        "-define(LINE, a).">>),
@@ -1164,7 +1164,7 @@ otp_8388(Config) when is_list(Config) ->
 
 %% OTP-8470. Bugfix (one request - two replies).
 otp_8470(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     C = <<"-file(\"erl_parse.yrl\", 486).\n"
           "-file(\"erl_parse.yrl\", 488).\n">>,
     File = filename:join(Dir, "otp_8470.erl"),
@@ -1195,7 +1195,7 @@ otp_8911(Config) when is_list(Config) ->
     end.
 do_otp_8911(Config) ->
     {ok, CWD} = file:get_cwd(),
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
     File = "i.erl",
     Cont = <<"-module(i).
@@ -1241,7 +1241,7 @@ otp_10302(Config) when is_list(Config) ->
                     {3,file_io_server,invalid_unicode}],[]}}
          ],
     [] = compile(Config, Cs),
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, "otp_10302.erl"),
     utf8 = encoding("coding: utf-8", File),
     utf8 = encoding("coding: UTF-8", File),
@@ -1306,7 +1306,7 @@ encoding_nocom(Enc, File) ->
 %% OTP-10820. Unicode filenames.
 otp_10820(Config) when is_list(Config) ->
     L = [915,953,959,973,957,953,954,959,957,964],
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     File = filename:join(Dir, L++".erl"),
     C1 = <<"%% coding: utf-8\n -module(any).">>,
     ok = do_otp_10820(File, C1, "+pc latin1"),
@@ -1327,7 +1327,7 @@ do_otp_10820(File, C, PC) ->
 
 %% OTP-11728. Bugfix circular macro.
 otp_11728(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     H = <<"-define(MACRO,[[]++?MACRO]).">>,
     HrlFile = filename:join(Dir, "otp_11728.hrl"),
     ok = file:write_file(HrlFile, H),
@@ -1349,7 +1349,7 @@ otp_11728(Config) when is_list(Config) ->
 
 %% Check the new API for setting the default encoding.
 encoding(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     ErlFile = filename:join(Dir, "encoding.erl"),
 
     %% Try a latin-1 file with no encoding given.
@@ -1527,7 +1527,7 @@ eval_tests(Config, Fun, Tests) ->
 
 check_test(Config, Test) ->
     Filename = "epp_test.erl",
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
     case epp:parse_file(File, [PrivDir], []) of
@@ -1542,7 +1542,7 @@ check_test(Config, Test) ->
 compile_test(Config, Test0) ->
     Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
     Filename = "epp_test.erl",
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
     Opts = [export_all,return,nowarn_unused_record,{outdir,PrivDir}],
@@ -1596,7 +1596,7 @@ unopaque_forms(Forms) ->
 run_test(Config, Test0) ->
     Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
     Filename = "epp_test.erl",
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
     Opts = [return, {i,PrivDir},{outdir,PrivDir}],

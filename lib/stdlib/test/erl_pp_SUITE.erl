@@ -32,8 +32,8 @@
 -define(t, test_server).
 -else.
 -include_lib("common_test/include/ct.hrl").
--define(datadir, ?config(data_dir, Config)).
--define(privdir, ?config(priv_dir, Config)).
+-define(datadir, proplists:get_value(data_dir, Config)).
+-define(privdir, proplists:get_value(priv_dir, Config)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

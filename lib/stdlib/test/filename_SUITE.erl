@@ -72,7 +72,7 @@ end_per_group(_GroupName, Config) ->
 absname(Config) when is_list(Config) ->
     case os:type() of
         {win32, _} -> 
-            [Drive|_] = ?config(priv_dir, Config),
+            [Drive|_] = proplists:get_value(priv_dir, Config),
             Temp = filename:join([Drive|":/"], "temp"),
             case file:make_dir(Temp) of
                 ok -> ok;
@@ -132,7 +132,7 @@ absname(Config) when is_list(Config) ->
 absname_2(Config) when is_list(Config) ->
     case os:type() of
         {win32, _} ->
-            [Drive|_] = ?config(priv_dir, Config),
+            [Drive|_] = proplists:get_value(priv_dir, Config),
             [Drive|":/temp/foo"] = filename:absname(foo, [Drive|":/temp"]),
             [Drive|":/temp/foo"] = filename:absname("foo", [Drive|":/temp"]),
             [Drive|":/temp/../ebin"] = filename:absname("../ebin",
@@ -429,7 +429,7 @@ find_src(Config) when is_list(Config) ->
     %% Make sure that find_src works for a slim BEAM file.
     OldPath = code:get_path(),
     try
-        PrivDir = ?config(priv_dir, Config),
+        PrivDir = proplists:get_value(priv_dir, Config),
         code:add_patha(PrivDir),
         Src = "simple",
         SrcPath = filename:join(PrivDir, Src) ++ ".erl",
@@ -452,7 +452,7 @@ find_src(Config) when is_list(Config) ->
 absname_bin(Config) when is_list(Config) ->
     case os:type() of
         {win32, _} -> 
-            [Drive|_] = ?config(priv_dir, Config),
+            [Drive|_] = proplists:get_value(priv_dir, Config),
             Temp = filename:join([Drive|":/"], "temp"),
             case file:make_dir(Temp) of
                 ok -> ok;
@@ -504,7 +504,7 @@ absname_bin(Config) when is_list(Config) ->
 absname_bin_2(Config) when is_list(Config) ->
     case os:type() of
         {win32, _} ->
-            [Drive|_] = ?config(priv_dir, Config),
+            [Drive|_] = proplists:get_value(priv_dir, Config),
             <<Drive:8,":/temp/foo">> = filename:absname(<<"foo">>, <<Drive:8,":/temp">>),
             <<Drive:8,":/temp/../ebin">> = filename:absname(<<"../ebin">>,
                                                             <<Drive:8,":/temp">>),

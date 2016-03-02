@@ -1226,8 +1226,8 @@ make_better_sub2() ->
 
 %% Heavy random matching, comparing set with ordered_set.
 match_heavy(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir, Config),
     %% Easier to have in process dictionary when manually
     %% running the test function.
     put(where_to_read,DataDir),
@@ -2361,7 +2361,7 @@ bad_table(Config) when is_list(Config) ->
 
     %% Open and close disk_log to stabilize etsmem.
     Name = make_ref(),
-    File = filename:join([?config(priv_dir, Config),"bad_table.dummy"]),
+    File = filename:join([proplists:get_value(priv_dir, Config),"bad_table.dummy"]),
     {ok, Name} = disk_log:open([{name, Name}, {file, File}]),
     disk_log:close(Name),
     file:delete(File),
@@ -3372,7 +3372,7 @@ vre_fix_tables(Tab) ->
 
 verify_rescheduling_exit(Config, ForEachData, Flags, Fix, NOTabs, NOProcs) ->
     NoFix = 5,
-    TestCase = atom_to_list(?config(test_case, Config)),
+    TestCase = atom_to_list(proplists:get_value(test_case, Config)),
     Parent = self(),
     KillMe = make_ref(),
     PFun =
@@ -3918,7 +3918,7 @@ dups_do(Opts) ->
 
 %% Test the ets:tab2file function on an empty ets table.
 tab2file(Config) when is_list(Config) ->
-    FName = filename:join([?config(priv_dir, Config),"tab2file_case"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"tab2file_case"]),
     tab2file_do(FName, []),
     tab2file_do(FName, [{sync,true}]),
     tab2file_do(FName, [{sync,false}]),
@@ -3960,7 +3960,7 @@ tab2file2_do(Opts, Config) ->
     EtsMem = etsmem(),
     Tab = ets_new(ets_SUITE_foo_tab, [named_table, private,
 				      {keypos, 2} | Opts]),
-    FName = filename:join([?config(priv_dir, Config),"tab2file2_case"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"tab2file2_case"]),
     ok = fill_tab2(Tab, 0, 10000),   % Fill up the table (grucho mucho!)
     Len = length(ets:tab2list(Tab)),
     Mem = ets:info(Tab, memory),
@@ -4018,8 +4018,8 @@ tabfile_ext1(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> tabfile_ext1_do(Opts, Config) end).
 
 tabfile_ext1_do(Opts,Config) ->
-    FName = filename:join([?config(priv_dir, Config),"nisse.dat"]),
-    FName2 = filename:join([?config(priv_dir, Config),"countflip.dat"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"nisse.dat"]),
+    FName2 = filename:join([proplists:get_value(priv_dir, Config),"countflip.dat"]),
     L = lists:seq(1,10),
     T = ets_new(x,Opts),
     Name = make_ref(),
@@ -4056,8 +4056,8 @@ tabfile_ext2(Config) when is_list(Config) ->
     repeat_for_opts(fun(Opts) -> tabfile_ext2_do(Opts,Config) end).
 
 tabfile_ext2_do(Opts,Config) ->
-    FName = filename:join([?config(priv_dir, Config),"olle.dat"]),
-    FName2 = filename:join([?config(priv_dir, Config),"bitflip.dat"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"olle.dat"]),
+    FName2 = filename:join([proplists:get_value(priv_dir, Config),"bitflip.dat"]),
     L = lists:seq(1,10),
     T = ets_new(x,Opts),
     Name = make_ref(),
@@ -4090,8 +4090,8 @@ tabfile_ext2_do(Opts,Config) ->
 
 %% Test verification of (named) tables without extended info.
 tabfile_ext3(Config) when is_list(Config) ->
-    FName = filename:join([?config(priv_dir, Config),"namn.dat"]),
-    FName2 = filename:join([?config(priv_dir, Config),"ncountflip.dat"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"namn.dat"]),
+    FName2 = filename:join([proplists:get_value(priv_dir, Config),"ncountflip.dat"]),
     L = lists:seq(1,10),
     Name = make_ref(),
     ?MODULE = ets_new(?MODULE,[named_table]),
@@ -4121,7 +4121,7 @@ tabfile_ext3(Config) when is_list(Config) ->
 
 %% Tests verification of large table with md5 sum.
 tabfile_ext4(Config) when is_list(Config) ->
-    FName = filename:join([?config(priv_dir, Config),"bauta.dat"]),
+    FName = filename:join([proplists:get_value(priv_dir, Config),"bauta.dat"]),
     LL = lists:seq(1,10000),
     TL = ets_new(x,[]),
     Name2 = make_ref(),
@@ -4160,7 +4160,7 @@ tabfile_ext4(Config) when is_list(Config) ->
 
 %% Test that no disk_log is left open when file has been corrupted.
 badfile(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     File = filename:join(PrivDir, "badfile"),
     _ = file:delete(File),
     T = ets:new(table, []),
@@ -4747,7 +4747,7 @@ successive_delete(Table,From,To,Type,TType) ->
     successive_delete(Table, Next, To, Type,TType).
 
 gen_dets_filename(Config,N) ->
-    filename:join(?config(priv_dir,Config),
+    filename:join(proplists:get_value(priv_dir,Config),
 		  "testdets_" ++ integer_to_list(N) ++ ".dets").
 
 otp_6842_select_1000(Config) when is_list(Config) -> 

@@ -56,11 +56,11 @@ config(priv_dir,_) ->
 -export([init_per_testcase/2, end_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     OrigPath = code:get_path(),
-    code:add_patha(?config(priv_dir,Config)),
+    code:add_patha(proplists:get_value(priv_dir,Config)),
     [{orig_path,OrigPath} | Config].
 
 end_per_testcase(_Case, Config) ->
-    OrigPath = ?config(orig_path,Config),
+    OrigPath = proplists:get_value(orig_path,Config),
     code:set_path(OrigPath),
     application:unset_env(stdlib, restricted_shell),
     (catch code:purge(user_default)),
@@ -113,7 +113,7 @@ end_per_group(_GroupName, Config) ->
 start_restricted_from_shell(Config) when is_list(Config) ->
     [{error,nofile}] = scan(<<"begin shell:start_restricted("
 			      "nonexisting_module) end.">>),
-    Test = filename:join(?config(priv_dir, Config),
+    Test = filename:join(proplists:get_value(priv_dir, Config),
 			 "test_restricted.erl"),
     Contents = <<"-module(test_restricted).
                   -export([local_allowed/3, non_local_allowed/3]).
@@ -188,7 +188,7 @@ ok.
 %% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_1,
-			   "-pa "++?config(priv_dir,Config)++
+			   "-pa "++proplists:get_value(priv_dir,Config)++
 			       " -stdlib restricted_shell foo"),
     "Warning! Restricted shell module foo not found: nofile"++_ =
 	t({Node, <<"begin m() end.">>}),
@@ -197,7 +197,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
     [ok] =
 	(catch scan({Node, <<"begin q() end.">>})),
     test_server:stop_node(Node),
-    Test = filename:join(?config(priv_dir, Config),
+    Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted2.erl"),
     Contents = <<"-module(test_restricted2).
                   -export([local_allowed/3, non_local_allowed/3]).
@@ -215,7 +215,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
                  ">>,
     ok = compile_file(Config, Test, Contents, []),
     {ok,Node2} = start_node(shell_suite_helper_2,
-				 "-pa "++?config(priv_dir,Config)++ 
+				 "-pa "++proplists:get_value(priv_dir,Config)++
 				 " -stdlib restricted_shell test_restricted2"),
     "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     "exception exit: restricted shell does not allow c(foo)" =
@@ -240,7 +240,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
 restricted_local(Config) when is_list(Config) ->
     [{error,nofile}] = scan(<<"begin shell:start_restricted("
 				    "nonexisting_module) end.">>),
-    Test = filename:join(?config(priv_dir, Config),
+    Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted_local.erl"),
     Contents = <<"-module(test_restricted_local).
                   -export([local_allowed/3, non_local_allowed/3]).
@@ -261,7 +261,7 @@ restricted_local(Config) when is_list(Config) ->
                       {false,State}.
                  ">>,
     ok = compile_file(Config, Test, Contents, []),
-    Test2 = filename:join(?config(priv_dir, Config),
+    Test2 = filename:join(proplists:get_value(priv_dir, Config),
 			       "user_default.erl"),
     Contents2 = <<"-module(user_default).
                   -export([funkis/1,apple/1]).
@@ -374,7 +374,7 @@ records(Config) when is_list(Config) ->
     RR4 = "rr(" ++ MS ++ ", '_', {d,test1}).",
     [[state]] = scan(RR4),
 
-    Test = filename:join(?config(priv_dir, Config), "test.erl"),
+    Test = filename:join(proplists:get_value(priv_dir, Config), "test.erl"),
     Contents = <<"-module(test).
                   -record(state, {bin :: binary(),
                                   reply = no,
@@ -400,7 +400,7 @@ records(Config) when is_list(Config) ->
         scan(RR7),
     PreReply = scan(<<"rr(prim_file).">>), % preloaded...
     true = is_list(PreReply),
-    Dir = filename:join(?config(priv_dir, Config), "*.erl"),
+    Dir = filename:join(proplists:get_value(priv_dir, Config), "*.erl"),
     RR8 = "rp(rr(\"" ++ Dir ++ "\")).",
     [_,ok] = scan(RR8),
     file:delete(Test),
@@ -2225,14 +2225,14 @@ otp_5990(Config) when is_list(Config) ->
 
 %% OTP-6166. Order of record definitions.
 otp_6166(Config) when is_list(Config) ->
-    Test1 = filename:join(?config(priv_dir, Config), "test1.hrl"),
+    Test1 = filename:join(proplists:get_value(priv_dir, Config), "test1.hrl"),
     Contents1 = <<"-module(test1).
                    -record(r5, {f}). -record(r3, {f = #r5{}}). "
                   "-record(r1, {f = #r3{}}). -record(r4, {f = #r1{}}). "
 "-record(r2, {f = #r4{}}).">>,
     ok = file:write_file(Test1, Contents1),
 
-    Test2 = filename:join(?config(priv_dir, Config), "test2.hrl"),
+    Test2 = filename:join(proplists:get_value(priv_dir, Config), "test2.hrl"),
     Contents2 = <<"-module(test2).
                    -record(r5, {f}). -record(r3, {f = #r5{}}). "
                   "-record(r1, {f = #r3{}}). -record(r4, {f = #r1{}}). "
@@ -2434,7 +2434,7 @@ otp_6554(Config) when is_list(Config) ->
     "exception error: no function clause matching call to results/1" =
         comm_err(<<"results(foo).">>),
 
-    Test = filename:join(?config(priv_dir, Config),
+    Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "otp_6554.erl"),
     Contents = <<"-module(otp_6554).
                   -export([local_allowed/3, non_local_allowed/3]).
@@ -2585,7 +2585,7 @@ otp_8393(Config) when is_list(Config) ->
                   non_local_allowed(_,_,State) ->
                       {false,State}.
                  ">>,
-    Test = filename:join(?config(priv_dir, Config),
+    Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted_shell.erl"),
     ok = compile_file(Config, Test, Contents, []),
     _ = shell:prompt_func(default),
@@ -2672,7 +2672,7 @@ prompt_err(B) ->
 %% OTP-10302. Unicode.
 otp_10302(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_2,
-			   "-pa "++?config(priv_dir,Config)++
+			   "-pa "++proplists:get_value(priv_dir,Config)++
 			   " +pc unicode"),
     Test1 =
         <<"begin
@@ -3017,7 +3017,7 @@ run_file(Config, Module, Test) ->
     ok.
 
 compile_file(Config, File, Test, Opts0) ->
-    Opts = [export_all,return,{outdir,?config(priv_dir, Config)}|Opts0],
+    Opts = [export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
               {ok, _M, _Ws} -> ok;
@@ -3027,7 +3027,7 @@ compile_file(Config, File, Test, Opts0) ->
 filename(Name, Config) when is_atom(Name) ->
     filename(atom_to_list(Name), Config);
 filename(Name, Config) ->
-    filename:join(?config(priv_dir, Config), Name).
+    filename:join(proplists:get_value(priv_dir, Config), Name).
 
 start_node(Name, Xargs) ->
     N = test_server:start_node(Name, slave, [{args, " " ++ Xargs}]),
