@@ -71,9 +71,9 @@
  <section>
     <title>Time-outs</title>
     <p>If the request functions for the SFTP channel return <c>{error, timeout}</c>,
-    it does not guarantee that the request never reached the server and was
-    not performed. It only means that no answer was received from the
-    server within the expected time.</p>
+     no answer was received from the server within the expected time.</p>
+     <p>The request may have reached the server and may have been performed.
+     However, no answer was received from the server within the expected time.</p>
    </section>
 
   <funcs>
