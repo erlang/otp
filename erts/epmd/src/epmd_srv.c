@@ -375,7 +375,7 @@ void run(EpmdVars *g)
 	          epmd_cleanup_exit(g,1);
 	  }
 	}
-      g->listenfd[i] = listensock[i];
+      g->listenfd[bound++] = listensock[i];
 
 #if HAVE_DECL_IPV6_V6ONLY
       opt = 1;
@@ -434,8 +434,6 @@ void run(EpmdVars *g)
 	    }
 	}
 
-      bound++;
-
       if(listen(listensock[i], SOMAXCONN) < 0) {
           dbg_perror(g,"failed to listen on socket");
           epmd_cleanup_exit(g,1);
@@ -446,6 +444,7 @@ void run(EpmdVars *g)
       dbg_perror(g,"unable to bind any address");
       epmd_cleanup_exit(g,1);
   }
+  num_sockets = bound;
 #ifdef HAVE_SYSTEMD_DAEMON
     }
     sd_notifyf(0, "READY=1\n"
@@ -490,8 +489,8 @@ void run(EpmdVars *g)
 	}
 
 	for (i = 0; i < num_sockets; i++)
-	  if (FD_ISSET(listensock[i],&read_mask)) {
-	    if (do_accept(g, listensock[i]) && g->active_conn < g->max_conn) {
+	  if (FD_ISSET(g->listenfd[i],&read_mask)) {
+	    if (do_accept(g, g->listenfd[i]) && g->active_conn < g->max_conn) {
 	      /*
 	       * The accept() succeeded, and we have at least one file
 	       * descriptor still free, which means that another accept()
