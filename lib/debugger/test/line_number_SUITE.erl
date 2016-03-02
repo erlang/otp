@@ -55,8 +55,8 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->

@@ -53,8 +53,8 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -62,32 +62,32 @@ end_per_suite(Config) when is_list(Config) ->
 
 %% Tries to split a binary at all byte-aligned positions.
 byte_split_binary(Config) when is_list(Config) ->
-    ?line L = lists:seq(0, 57),
-    ?line B = mkbin(L),
-    ?line byte_split(L, B, size(B)),
-    ?line Unaligned = make_unaligned_sub_binary(B),
-    ?line byte_split(L, Unaligned, size(Unaligned)).
+    L = lists:seq(0, 57),
+    B = mkbin(L),
+    byte_split(L, B, size(B)),
+    Unaligned = make_unaligned_sub_binary(B),
+    byte_split(L, Unaligned, size(Unaligned)).
 
 byte_split(L, B, Pos) when Pos >= 0 ->
-    ?line Sz1 = Pos,
-    ?line Sz2 = size(B) - Pos,
-    ?line <<B1:Sz1/binary,B2:Sz2/binary>> = B,
-    ?line B1 = list_to_binary(lists:sublist(L, 1, Pos)),
-    ?line B2 = list_to_binary(lists:nthtail(Pos, L)),
-    ?line byte_split(L, B, Pos-1);
+    Sz1 = Pos,
+    Sz2 = size(B) - Pos,
+    <<B1:Sz1/binary,B2:Sz2/binary>> = B,
+    B1 = list_to_binary(lists:sublist(L, 1, Pos)),
+    B2 = list_to_binary(lists:nthtail(Pos, L)),
+    byte_split(L, B, Pos-1);
 byte_split(_, _, _) -> ok.
 
 %% Tries to split a binary at all positions.
 bit_split_binary(Config) when is_list(Config) ->
     Fun = fun(Bin, List, SkipBef, N) ->
-		  ?line SkipAft = 8*size(Bin) - N - SkipBef,
+		  SkipAft = 8*size(Bin) - N - SkipBef,
 		  %%io:format("~p, ~p, ~p", [SkipBef,N,SkipAft]),
-		  ?line <<_:SkipBef,OutBin:N/binary-unit:1,_:SkipAft>> = Bin,
-		  ?line OutBin = make_bin_from_list(List, N)
+		  <<_:SkipBef,OutBin:N/binary-unit:1,_:SkipAft>> = Bin,
+		  OutBin = make_bin_from_list(List, N)
 	  end,
-    ?line bit_split_binary1(Fun, erlang:md5(<<1,2,3>>)),
-    ?line bit_split_binary1(Fun,
-			    make_unaligned_sub_binary(erlang:md5(<<1,2,3>>))),
+    bit_split_binary1(Fun, erlang:md5(<<1,2,3>>)),
+    bit_split_binary1(Fun,
+		      make_unaligned_sub_binary(erlang:md5(<<1,2,3>>))),
     ok.
 
 bit_split_binary1(Action, Bin) ->
@@ -132,19 +132,19 @@ make_unaligned_sub_binary(Bin0) ->
 id(I) -> I.
 
 match_huge_bin(Config) when is_list(Config) ->
-    ?line Bin = <<0:(1 bsl 27),13:8>>,
-    ?line skip_huge_bin_1(1 bsl 27, Bin),
-    ?line 16777216 = match_huge_bin_1(1 bsl 27, Bin),
+    Bin = <<0:(1 bsl 27),13:8>>,
+    skip_huge_bin_1(1 bsl 27, Bin),
+    16777216 = match_huge_bin_1(1 bsl 27, Bin),
 
     %% Test overflowing the size of a binary field.
-    ?line nomatch = overflow_huge_bin_skip_32(Bin),
-    ?line nomatch = overflow_huge_bin_32(Bin),
-    ?line nomatch = overflow_huge_bin_skip_64(Bin),
-    ?line nomatch = overflow_huge_bin_64(Bin),
+    nomatch = overflow_huge_bin_skip_32(Bin),
+    nomatch = overflow_huge_bin_32(Bin),
+    nomatch = overflow_huge_bin_skip_64(Bin),
+    nomatch = overflow_huge_bin_64(Bin),
 
     %% Size in variable
-    ?line ok = overflow_huge_bin(Bin, lists:seq(25, 32)++lists:seq(50, 64)),
-    ?line ok = overflow_huge_bin_unit128(Bin, lists:seq(25, 32)++lists:seq(50, 64)),
+    ok = overflow_huge_bin(Bin, lists:seq(25, 32)++lists:seq(50, 64)),
+    ok = overflow_huge_bin_unit128(Bin, lists:seq(25, 32)++lists:seq(50, 64)),
 
     ok.
 

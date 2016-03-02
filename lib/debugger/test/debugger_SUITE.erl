@@ -74,19 +74,19 @@ erts_debug(Config) when is_list(Config) ->
 
 no_abstract_code(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ?line Simple = filename:join(PrivDir, "simple"),
-    ?line Source = Simple ++ ".erl",
-    ?line BeamFile = Simple ++ ".beam",
-    ?line simple_file(Source),
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
 
     %% Compile module without abstract code.
     CompileFlags = [{outdir,PrivDir}],
-    ?line {ok,_} = compile:file(Source, CompileFlags),
-    ?line error = int:i(Simple),
+    {ok,_} = compile:file(Source, CompileFlags),
+    error = int:i(Simple),
 
     %% Cleanup.
-    ?line ok = file:delete(Source),
-    ?line ok = file:delete(BeamFile),
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
 
     ok.
 
@@ -101,27 +101,27 @@ encrypted_debug_info(Config) when is_list(Config) ->
 
 encrypted_debug_info_1(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ?line Simple = filename:join(PrivDir, "simple"),
-    ?line Source = Simple ++ ".erl",
-    ?line BeamFile = Simple ++ ".beam",
-    ?line simple_file(Source),
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
 
     %% Compile module.
     Key = "_This a Crypto Key_",
     CompileFlags = [{outdir,PrivDir},debug_info,{debug_info_key,Key}],
-    ?line {ok,_} = compile:file(Source, CompileFlags),
+    {ok,_} = compile:file(Source, CompileFlags),
 
     %% Interpret module
-    ?line ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
-    ?line {module,simple} = int:i(Simple),
+    ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
+    {module,simple} = int:i(Simple),
 
     %% Remove key.
-    ?line {ok,_} = beam_lib:clear_crypto_key_fun(),
-    ?line error = int:i(Simple),
+    {ok,_} = beam_lib:clear_crypto_key_fun(),
+    error = int:i(Simple),
 
     %% Cleanup.
-    ?line ok = file:delete(Source),
-    ?line ok = file:delete(BeamFile),
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
 
     ok.
 

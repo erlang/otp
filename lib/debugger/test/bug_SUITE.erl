@@ -45,10 +45,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
@@ -58,19 +58,19 @@ otp2163(Config) when is_list(Config) ->
 
     %% First compile and get the expected results:
 
-    ?line FileName = filename:join(DataDir, "otp2163"),
-    ?line {module,otp2163} = code:load_abs(FileName),
+    FileName = filename:join(DataDir, "otp2163"),
+    {module,otp2163} = code:load_abs(FileName),
 
-    ?line {'EXIT',{badarg,[ApplyRes|_]}} = (catch otp2163:apply_test()),
-    ?line {'EXIT',{badarg,[ListRes|_]}} = (catch otp2163:list_to_atom_test()),
+    {'EXIT',{badarg,[ApplyRes|_]}} = (catch otp2163:apply_test()),
+    {'EXIT',{badarg,[ListRes|_]}} = (catch otp2163:list_to_atom_test()),
 
     %% Then interpret, and check if the results are OK.
-    ?line {module,otp2163} = int:i(FileName),
+    {module,otp2163} = int:i(FileName),
 
-    ?line ok = io:format("Expecting ~p", [ApplyRes]),
-    ?line {'EXIT',{badarg,[ApplyRes|_]}} = (catch otp2163:apply_test()),
-    ?line ok = io:format("Expecting ~p", [ListRes]),
-    ?line {'EXIT',{badarg,[ListRes|_]}} = (catch otp2163:list_to_atom_test()),
+    ok = io:format("Expecting ~p", [ApplyRes]),
+    {'EXIT',{badarg,[ApplyRes|_]}} = (catch otp2163:apply_test()),
+    ok = io:format("Expecting ~p", [ListRes]),
+    {'EXIT',{badarg,[ListRes|_]}} = (catch otp2163:list_to_atom_test()),
     ok.
 
 
@@ -80,17 +80,17 @@ otp4845(Config) when is_list(Config) ->
 
     %% First compile and get the expected results:
 
-    ?line FileName = filename:join(DataDir, "otp4845"),
-    ?line {module,otp4845} = code:load_abs(FileName),
+    FileName = filename:join(DataDir, "otp4845"),
+    {module,otp4845} = code:load_abs(FileName),
 
-    ?line CompiledRes = (catch otp4845:test()),
-    ?line ok = io:format("Compiled ~p", [CompiledRes]),
+    CompiledRes = (catch otp4845:test()),
+    ok = io:format("Compiled ~p", [CompiledRes]),
 
     %% Then interpret, and check if the results are OK.
-    ?line {module,otp4845} = int:i(FileName),
+    {module,otp4845} = int:i(FileName),
 
-    ?line IntRes = (catch otp4845:test()),
-    ?line ok = io:format("Interpreted ~p", [IntRes]),
+    IntRes = (catch otp4845:test()),
+    ok = io:format("Interpreted ~p", [IntRes]),
 
-    ?line CompiledRes = IntRes,
+    CompiledRes = IntRes,
     ok.
