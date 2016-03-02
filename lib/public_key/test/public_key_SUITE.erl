@@ -189,6 +189,8 @@ encrypted_pem(Config) when is_list(Config) ->
     erl_make_certs:der_to_pem(DesKeyFile, [Entry1]),
     [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry2] =
 	erl_make_certs:pem_to_der(DesKeyFile),
+    {ok, Pem} = file:read_file(DesKeyFile),
+    check_encapsulated_header(Pem),
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "4567efgh"),
 			     'RSAPrivateKey').
     
@@ -824,6 +826,15 @@ check_entry_type(#'DHParameter'{}, 'DHParameter') ->
 check_entry_type(#'Certificate'{}, 'Certificate') ->
     true;
 check_entry_type(_,_) ->
+    false.
+
+check_encapsulated_header(Pem) when is_binary(Pem)->
+    check_encapsulated_header( binary:split(Pem, <<"\n">>, [global]));
+check_encapsulated_header([<<"DEK-Info: DES-CBC,FB7577791A9056A1">>, <<>> | _]) ->
+    true;
+check_encapsulated_header([ _ | Rest]) ->
+    check_encapsulated_header(Rest);
+check_encapsulated_header([]) ->
     false.
 
 strip_ending_newlines(Bin) ->
