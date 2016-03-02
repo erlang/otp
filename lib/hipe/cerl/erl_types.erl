@@ -380,7 +380,7 @@
 -type type_table() :: dict:dict(record_key() | type_key(),
                                 record_value() | type_value()).
 
--type var_table() :: dict:dict(atom(), erl_type()).
+-opaque var_table() :: #{atom() => erl_type()}.
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -3305,7 +3305,7 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 %% from within this module. This code duplication needs to be eliminated at
 %% some point.
 
--spec t_subst(erl_type(), dict:dict(atom(), erl_type())) -> erl_type().
+-spec t_subst(erl_type(), #{atom() => erl_type()}) -> erl_type().
 
 t_subst(T, Dict) ->
   case t_has_var(T) of
@@ -3314,7 +3314,7 @@ t_subst(T, Dict) ->
   end.
 
 t_subst_dict(?var(Id), Dict) ->
-  case dict:find(Id, Dict) of
+  case maps:find(Id, Dict) of
     error -> ?any;
     {ok, Type} -> Type
   end;
@@ -4472,7 +4472,7 @@ mod_name(Mod, Name) ->
                   site(), mod_records()) -> erl_type().
 
 t_from_form(Form, ExpTypes, Site, RecDict) ->
-  t_from_form(Form, ExpTypes, Site, RecDict, dict:new()).
+  t_from_form(Form, ExpTypes, Site, RecDict, maps:new()).
 
 -spec t_from_form(parse_form(), sets:set(mfa()),
                   site(), mod_records(), var_table()) -> erl_type().
@@ -4489,7 +4489,7 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, dict:new()),
+  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, maps:new()),
   T.
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
@@ -4545,7 +4545,7 @@ t_from_form(_, _TypeNames, _ET, _S, _MR, _V, D, L) when D =< 0 ; L =< 0 ->
 t_from_form({var, _L, '_'}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
   {t_any(), L};
 t_from_form({var, _L, Name}, _TypeNames, _ET, _S, _MR, V, _D, L) ->
-  case dict:find(Name, V) of
+  case maps:find(Name, V) of
     error -> {t_var(Name), L};
     {ok, Val} -> {Val, L}
   end;
@@ -4764,7 +4764,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
           {ArgTypes, L1} =
             list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
-          TmpV = dict:from_list(List),
+          TmpV = maps:from_list(List),
           Site = TypeName,
           t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1);
         false ->
@@ -4777,7 +4777,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
           {ArgTypes, L1} =
             list_from_form(Args, NewTypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
-          TmpV = dict:from_list(List),
+          TmpV = maps:from_list(List),
           Site = TypeName,
           {Rep, L2} =
             t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1),
@@ -4819,7 +4819,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                       {ArgTypes, L1} = list_from_form(Args, TypeNames,
                                                       ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = dict:from_list(List),
+                      TmpVarDict = maps:from_list(List),
                       Site = RemType,
                       t_from_form(Form, NewTypeNames, ET,
                                   Site, MR, TmpVarDict, D, L1);
@@ -4833,7 +4833,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                       {ArgTypes, L1} = list_from_form(Args, NewTypeNames,
                                                       ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = dict:from_list(List),
+                      TmpVarDict = maps:from_list(List),
                       Site = RemType,
                       {NewRep, L2} =
                         t_from_form(Form, NewTypeNames, ET, Site, MR,
@@ -4904,7 +4904,7 @@ record_from_form({atom, _, Name}, ModFields, TypeNames, ET, S, MR, V, D, L) ->
             {ok, NewFields} ->
               {NewFields1, L2} =
                 fields_from_form(NewFields, NewTypeNames, ET, S1, MR,
-                                 dict:new(), D, L1),
+                                 maps:new(), D, L1),
               Rec = t_tuple(
                       [t_atom(Name)|[Type
                                      || {_FieldName, Type} <- NewFields1]]),
@@ -5023,7 +5023,7 @@ promote_to_mand(MKs, [E={K,_,V}|T]) ->
                             mod_records()) -> ok.
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict) ->
-  t_check_record_fields(Form, ExpTypes, Site, RecDict, dict:new()).
+  t_check_record_fields(Form, ExpTypes, Site, RecDict, maps:new()).
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
                             mod_records(), var_table()) -> ok.
@@ -5192,8 +5192,9 @@ t_form_to_string({type, _L, Name, []} = T) ->
      D0 = dict:new(),
      MR = dict:from_list([{M, D0}]),
      S = {type, {M,Name,0}},
+     V = #{},
      {T1, _} =
-       t_from_form(T, [], sets:new(), S, MR, D0, _Deep=1000, _ALot=100000),
+       t_from_form(T, [], sets:new(), S, MR, V, _Deep=1000, _ALot=100000),
      t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
