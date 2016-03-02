@@ -105,6 +105,17 @@ static ERL_NIF_TERM atom_discard;
 static ERL_NIF_TERM atom_gc_start;
 static ERL_NIF_TERM atom_gc_end;
 
+/* process atoms */
+
+static ERL_NIF_TERM atom_spawn;
+static ERL_NIF_TERM atom_exit;
+static ERL_NIF_TERM atom_register;
+static ERL_NIF_TERM atom_unregister;
+static ERL_NIF_TERM atom_link;
+static ERL_NIF_TERM atom_unlink;
+static ERL_NIF_TERM atom_getting_linked;
+static ERL_NIF_TERM atom_getting_unlinked;
+
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -119,8 +130,21 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_remove = enif_make_atom(env,"remove");
     atom_discard = enif_make_atom(env,"discard");
 
+    /* gc */
+
     atom_gc_start = enif_make_atom(env,"gc_start");
     atom_gc_end = enif_make_atom(env,"gc_end");
+
+    /* process 'proc' */
+
+    atom_spawn = enif_make_atom(env,"spawn");
+    atom_exit = enif_make_atom(env,"exit");
+    atom_register = enif_make_atom(env,"register");
+    atom_unregister = enif_make_atom(env,"unregister");
+    atom_link = enif_make_atom(env,"link");
+    atom_unlink = enif_make_atom(env,"unlink");
+    atom_getting_unlinked = enif_make_atom(env,"getting_unlinked");
+    atom_getting_linked = enif_make_atom(env,"getting_linked");
 
     return 0;
 }
@@ -176,13 +200,6 @@ static ERL_NIF_TERM enabled(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     return atom_trace;
 #elif HAVE_USE_LTTNG
-    /*
-    int i;
-    erts_fprintf(stderr, "enabled:\r\n");
-    for (i = 0; i < argc; i++) {
-        erts_fprintf(stderr, "  %T\r\n", argv[i]);
-    }
-    */
     return atom_trace;
 #endif
     return atom_remove;
@@ -239,6 +256,8 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #endif
     return atom_ok;
 }
+
+
 static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef HAVE_USE_DTRACE
@@ -411,10 +430,63 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     }
 #elif HAVE_USE_LTTNG
-    int i;
-    erts_fprintf(stderr, "trace:\r\n");
-    for (i = 0; i < argc; i++) {
-        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    lttng_decl_procbuf(pid);
+    lttng_decl_procbuf(to);
+
+    lttng_pid_to_str(argv[2], pid);
+
+    /* spawn */
+    if (argv[0] == atom_spawn) {
+        char undef[] = "undefined";
+        const ERL_NIF_TERM* tuple;
+        int arity;
+        unsigned int len;
+        lttng_decl_mfabuf(mfa);
+
+        lttng_pid_to_str(argv[3], to);
+
+        if (enif_get_tuple(env, argv[4], &arity, &tuple)) {
+            enif_get_list_length(env, tuple[2], &len);
+            lttng_mfa_to_str(tuple[0], tuple[1], len, mfa);
+            LTTNG3(process_spawn, to, pid, mfa);
+        } else {
+            LTTNG3(process_spawn, to, pid, undef);
+        }
+
+    /* register */
+    } else if (argv[0] == atom_register) {
+        char name[LTTNG_BUFFER_SZ];
+        erts_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        LTTNG3(process_register, pid, name, "register");
+    } else if (argv[0] == atom_unregister) {
+        char name[LTTNG_BUFFER_SZ];
+        erts_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        LTTNG3(process_register, pid, name, "unregister");
+    /* link */
+    } else if (argv[0] == atom_link) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(process_link, pid, to, "link");
+    /* link */
+    } else if (argv[0] == atom_unlink) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(process_link, pid, to, "unlink");
+    } else if (argv[0] == atom_getting_linked) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(process_link, to, pid, "link");
+    } else if (argv[0] == atom_getting_unlinked) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(process_link, to, pid, "unlink");
+    /* exit */
+    } else if (argv[0] == atom_exit) {
+        char reason[LTTNG_BUFFER_SZ];
+        erts_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        LTTNG2(process_exit, pid, reason);
+    } else {
+        int i;
+        erts_fprintf(stderr, "trace:\r\n");
+        for (i = 0; i < argc; i++) {
+            erts_fprintf(stderr, "  %T\r\n", argv[i]);
+        }
     }
 #endif
     return atom_ok;

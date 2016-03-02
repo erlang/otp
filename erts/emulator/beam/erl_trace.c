@@ -1294,7 +1294,7 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
         mfa = TUPLE3(hp, mod, func, args);
         hp += 4;
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_PROCS,
-                am_spawn, pid, mfa);
+                           what, pid, mfa);
     }
 }
 

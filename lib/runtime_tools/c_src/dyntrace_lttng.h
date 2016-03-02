@@ -26,7 +26,6 @@
 
 #include <lttng/tracepoint.h>
 
-/* include a special LTTNG_DO for do_tracepoint ? */
 #define LTTNG1(Name, Arg1) \
     tracepoint(com_ericsson_dyntrace, Name, (Arg1))
 
@@ -42,6 +41,94 @@
 #define LTTNG5(Name, Arg1, Arg2, Arg3, Arg4, Arg5) \
     tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
 
+#define LTTNG_BUFFER_SZ      (256)
+#define LTTNG_PROC_BUFFER_SZ (16)
+#define LTTNG_PORT_BUFFER_SZ (20)
+#define LTTNG_MFA_BUFFER_SZ  (256)
+
+#define lttng_decl_procbuf(Name) \
+    char Name[LTTNG_PROC_BUFFER_SZ]
+
+#define lttng_decl_portbuf(Name) \
+    char Name[LTTNG_PORT_BUFFER_SZ]
+
+#define lttng_decl_mfabuf(Name) \
+    char Name[LTTNG_MFA_BUFFER_SZ]
+
+#define lttng_pid_to_str(pid, name) \
+    erts_snprintf(name, LTTNG_PROC_BUFFER_SZ, "%T", (pid))
+
+#define lttng_portid_to_str(pid, name) \
+    erts_snprintf(name, LTTNG_PORT_BUFFER_SZ, "%T", (pid))
+
+#define lttng_proc_to_str(p, name) \
+    lttng_pid_to_str(((p) ? (p)->common.id : ERTS_INVALID_PID), name)
+
+#define lttng_port_to_str(p, name) \
+    lttng_portid_to_str(((p) ? (p)->common.id : ERTS_INVALID_PORT), name)
+
+#define lttng_mfa_to_str(m,f,a, Name) \
+    erts_snprintf(Name, LTTNG_MFA_BUFFER_SZ, "%T:%T/%lu", (Eterm)(m), (Eterm)(f), (Uint)(a))
+
+/* Process scheduling */
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    process_spawn,
+    TP_ARGS(
+        char*, p,
+        char*, parent,
+        char*, mfa
+    ),
+    TP_FIELDS(
+        ctf_string(pid, p)
+        ctf_string(parent, parent)
+        ctf_string(entry, mfa)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    process_link,
+    TP_ARGS(
+        char*, from,
+        char*, to,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(from, from)
+        ctf_string(to, to)
+        ctf_string(type, type)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    process_exit,
+    TP_ARGS(
+        char*, p,
+        char*, reason
+    ),
+    TP_FIELDS(
+        ctf_string(pid, p)
+        ctf_string(reason, reason)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    process_register,
+    TP_ARGS(
+        char*, pid,
+        char*, name,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(name, name)
+        ctf_string(type, type)
+    )
+)
 
 /* Process Memory */
 
