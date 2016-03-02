@@ -38,10 +38,9 @@
 -define(DEFAULT_TIMEOUT_SECS, 120).
 
 init_per_testcase(_Func, Config) ->
-    Dog=test_server:timetrap(test_server:seconds(?DEFAULT_TIMEOUT_SECS)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     Nodes = nodes(),
     lists:foreach(fun(X) ->
 		NNam = list_to_atom(hd(string:tokens(atom_to_list(X),"@"))),
@@ -52,16 +51,16 @@ end_per_testcase(_Func, Config) ->
 		    _ ->
 			ok
 		end
-	end, Nodes),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+	end, Nodes).
 
 %%-----------------------------------------------------------------
 %% Test suite for heart.
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> [
 	start, restart, reboot,

@@ -32,10 +32,9 @@
 % Test cases must be exported.
 -export([app_test/1, appup_test/1]).
 
-%%
-%% all/1
-%%
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [app_test, appup_test].

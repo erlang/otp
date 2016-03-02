@@ -61,7 +61,9 @@
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
 all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,
@@ -91,17 +93,14 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(4)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 tick(suite) -> [];
 tick(doc) -> [];
 tick(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     
     %% First check that the normal case is OK!
@@ -162,7 +161,6 @@ tick(Config) when is_list(Config) ->
 	    stop_node(Node),
 	    test_server:fail("server node died")
     end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 table_waste(doc) ->
@@ -190,7 +188,6 @@ illegal_nodenames(doc) ->
 illegal_nodenames(suite) ->
     [];
 illegal_nodenames(Config) when is_list(Config) ->
-    ?line Dog=?t:timetrap(?t:minutes(2)),
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     ?line {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
     monitor_node(Node, true),
@@ -203,7 +200,6 @@ illegal_nodenames(Config) when is_list(Config) ->
 	    ?t:fail("Remote node died.")
     end,
     stop_node(Node),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 pinger(Starter) ->
@@ -477,7 +473,6 @@ hidden_node(doc) ->
 hidden_node(suite) ->
     [];
 hidden_node(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(40)),
     PaDir = filename:dirname(code:which(?MODULE)),
     VArgs = "-pa " ++ PaDir,
     HArgs = "-hidden -pa " ++ PaDir,
@@ -501,7 +496,6 @@ hidden_node(Config) when is_list(Config) ->
     sleep(5),
     check_monitor_nodes_res(HMN, V),
     stop_node(H),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 connect_nodes(A, B) ->

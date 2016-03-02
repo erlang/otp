@@ -30,15 +30,14 @@
 -export([toerl_server/3]).
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:minutes(3)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,3}}].
 
 all() -> 
     [get_columns_and_rows, exit_initial, job_control_local,

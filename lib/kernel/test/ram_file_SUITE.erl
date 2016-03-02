@@ -26,7 +26,8 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
 	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
-	 large_file_errors/1, large_file_light/1, large_file_heavy/1]).
+	 large_file_errors/1, large_file_light/1,
+	 large_file_heavy/0, large_file_heavy/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -36,7 +37,9 @@
 
 %%--------------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [open_modes, open_old_modes, pread_pwrite, position,
@@ -59,22 +62,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Time = 
-	case Func of
-	    large_file_heavy -> 
-		?t:minutes(5);
-	    _ ->
-		?t:seconds(10)
-	end,
-    Dog = ?t:timetrap(Time),
-    %% error_logger:info_msg("~p:~p *****~n", [?MODULE, Func]),
-    [{watchdog, Dog} | Config].
+init_per_testcase(Func, Config) ->
+    Config.
 
 end_per_testcase(_Func, Config) ->
-    %% error_logger:info_msg("~p:~p END *****~n", [?MODULE, Func]),
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+    Config.
 
 %%--------------------------------------------------------------------------
 %% Test suites
@@ -514,7 +506,6 @@ uuencode(Config) when is_list(Config) ->
     ok.
 
 
-
 large_file_errors(suite) ->
     [];
 large_file_errors(doc) ->
@@ -574,6 +565,9 @@ large_file_light(Config) when is_list(Config) ->
     ok.
 
 
+
+large_file_heavy() ->
+    [{timetrap,{minutes,5}}].
 
 large_file_heavy(suite) ->
     [];

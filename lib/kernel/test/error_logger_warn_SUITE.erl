@@ -42,11 +42,10 @@
 		 end
 	 end)()).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, warnings_info, warnings_errors, rb_basic,
@@ -70,11 +69,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
 basic(doc) ->

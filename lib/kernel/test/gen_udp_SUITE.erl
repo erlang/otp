@@ -25,8 +25,6 @@
 -include_lib("common_test/include/ct.hrl").
 
 
--define(default_timeout, ?t:minutes(1)).
-
 % XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
@@ -38,7 +36,9 @@
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [send_to_closed, buffer_size, binary_passive_recv,
@@ -62,12 +62,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%-------------------------------------------------------------

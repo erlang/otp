@@ -47,7 +47,9 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [no_file, {group, one}, {group, two}, {group, four},
@@ -71,13 +73,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:seconds(60)),
-    [{watchdog, Dog} | Config].
+init_per_testcase(Func, Config) ->
+    Config.
 
 end_per_testcase(_Func, _Config) ->
-    Dog=?config(watchdog, _Config),
-    ?t:timetrap_cancel(Dog).
+    ok.
 
 no_file(suite) -> [];
 no_file(doc) -> ["No log file exists"];

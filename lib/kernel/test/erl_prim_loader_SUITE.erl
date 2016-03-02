@@ -23,6 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
 -export([get_path/1, set_path/1, get_file/1, normalize_and_backslash/1,
@@ -32,13 +33,14 @@
 	 primary_archive/1, virtual_dir_in_archive/1,
 	 get_modules/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_prim_loader. (Most code is run during system start/stop.)
 %%-----------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,3}}].
 
 all() -> 
     [get_path, set_path, get_file,
@@ -64,13 +66,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
+init_per_testcase(_Func, Config) ->
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 get_path(doc) -> [];
 get_path(Config) when is_list(Config) ->

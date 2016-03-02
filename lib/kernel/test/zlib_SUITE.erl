@@ -47,11 +47,10 @@
 -define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_,_}|_]}}).
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 error(Format, Args, File, Line) ->
     io:format("~p:~p: ERROR: " ++ Format, [File,Line|Args]),
@@ -70,7 +69,9 @@ error(Format, Args, File, Line) ->
 %%     end,
 %%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, api}, {group, examples}, {group, func}, smp,

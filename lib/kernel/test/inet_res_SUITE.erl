@@ -42,7 +42,9 @@
 
 -define(RUN_NAMED, "run-named").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
@@ -88,15 +90,13 @@ init_per_testcase(Func, Config) ->
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
-	    Dog = test_server:timetrap(test_server:seconds(20)),
-	    [{nameserver,NsSpec},{res_lookup,Lookup},{watchdog,Dog}|Config]
+	    [{nameserver,NsSpec},{res_lookup,Lookup}|Config]
     catch
 	SkipReason ->
 	    {skip,SkipReason}
     end.
 
 end_per_testcase(_Func, Config) ->
-    test_server:timetrap_cancel(?config(watchdog, Config)),
     inet_db:set_lookup(?config(res_lookup, Config)),
     NsSpec = ?config(nameserver, Config),
     case NsSpec of

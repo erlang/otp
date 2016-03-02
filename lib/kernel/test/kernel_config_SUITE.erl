@@ -25,7 +25,9 @@
 
 -export([init_per_suite/1, end_per_suite/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [sync].
@@ -70,7 +72,6 @@ from(_, []) -> [].
 sync(doc) -> [];
 sync(suite) -> [];
 sync(Conf) when is_list(Conf) ->
-    ?line Dog = ?t:timetrap(?t:seconds(120)),
     % Write a config file
     Dir = ?config(priv_dir,Conf),
     {ok, Fd} = file:open(Dir ++ "sys.config", [write]),
@@ -102,7 +103,6 @@ sync(Conf) when is_list(Conf) ->
 	TT-T1 < 15000 -> ?line ?t:fail({too_short_time, TT-T1});
 	true -> ok
     end,
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 wait_for_node(Node) ->

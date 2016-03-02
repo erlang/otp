@@ -38,7 +38,9 @@
 
 -export([getsockfd/0,closesockfd/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
@@ -65,11 +67,10 @@ end_per_group(_,_Config) ->
     ok.
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 %%% gen_tcp:accept/1,2
 

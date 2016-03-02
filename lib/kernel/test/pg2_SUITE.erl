@@ -33,9 +33,6 @@
 	 otp_7277/1, otp_8259/1, otp_8653/1,
          compat/1, basic/1]).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
 
@@ -44,16 +41,15 @@
          mk_part_node/3, part1/5, p_init/3, start_proc/1, sane/0]).
 
 init_per_testcase(Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{?TESTCASE, Case}, {watchdog, Dog} | Config].
+    [{?TESTCASE, Case}| Config].
 
 end_per_testcase(_Case, _Config) ->
     test_server_ctrl:kill_slavenodes(),
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, tickets}].
@@ -105,9 +101,6 @@ otp_8653(suite) -> [];
 otp_8653(doc) ->
     ["OTP-8259. Member was not removed after being killed."];
 otp_8653(Config) when is_list(Config) ->
-    Timeout = 15,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
-
     ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
 
     ?line wait_for_ready_net(Config),
@@ -136,7 +129,6 @@ otp_8653(Config) when is_list(Config) ->
                  end),
     ?line ok = pg2:delete(G),
     ?line stop_nodes([A,B,C]),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 part2(Config, Main, A, C) ->
@@ -162,9 +154,6 @@ otp_8259(suite) -> [];
 otp_8259(doc) ->
     ["OTP-8259. Member was not removed after being killed."];
 otp_8259(Config) when is_list(Config) ->
-    Timeout = 15,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
-
     ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
 
     ?line wait_for_ready_net(Config),
@@ -199,7 +188,6 @@ otp_8259(Config) when is_list(Config) ->
 
     ?line ok = pg2:delete(G),
     ?line stop_nodes([A,B,C]),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 part1(Config, Main, A, C, Name) ->
@@ -242,8 +230,6 @@ compat(doc) ->
 compat(Config) when is_list(Config) ->
     case ?t:is_release_available("r13b") of
         true ->
-            Timeout = 15,
-            ?line Dog = test_server:timetrap({seconds,Timeout}),
             Pid = spawn(forever()),
             G = a,
             ?line ok = pg2:create(G),
@@ -258,7 +244,7 @@ compat(Config) when is_list(Config) ->
             ?line ?UNTIL([] =:= pg2:get_members(a)),
             ?line ?UNTIL([] =:= rpc:call(A, pg2, get_members, [a])),
             ?t:stop_node(A),
-            ?line test_server:timetrap_cancel(Dog);
+	    ok;
         false ->
 	    {skipped, "No support for old node"}
     end.

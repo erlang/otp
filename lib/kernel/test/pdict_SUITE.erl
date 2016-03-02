@@ -38,14 +38,14 @@
 -export([other_process/2]).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [simple, complicated, heavy, simple_all_keys, info,

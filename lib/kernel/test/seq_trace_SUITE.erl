@@ -40,9 +40,9 @@
 			  monotonic_timestamp,
 			  strict_monotonic_timestamp]).
 
--define(default_timeout, ?t:minutes(1)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [token_set_get, tracer_set_get, print, send,
@@ -67,12 +67,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 %% Verifies that the set_token and get_token functions work as expected
@@ -480,7 +477,7 @@ match_set_seq_token(doc) ->
      "corrupt the heap"];
 match_set_seq_token(Config) when is_list(Config) ->
     ?line Parent = self(),
-    ?line Timetrap = test_server:timetrap(test_server:seconds(20)),
+
     %% OTP-4222 Match spec 'set_seq_token' corrupts heap
     %%
     %% This test crashes the emulator if the bug in question is present,
@@ -529,7 +526,6 @@ match_set_seq_token(Config) when is_list(Config) ->
     ?line ok = check_match_set_seq_token_log(Lbl, Log),
     %%
     ?line stop_node(Sandbox),
-    ?line test_server:timetrap_cancel(Timetrap),
     ok.
 
 %% OTP-4222 Match spec 'set_seq_token' corrupts heap
@@ -628,7 +624,7 @@ gc_seq_token(doc) ->
      "can be garbage collected."];
 gc_seq_token(Config) when is_list(Config) ->
     ?line Parent = self(),
-    ?line Timetrap = test_server:timetrap(test_server:seconds(20)),
+
     %% OTP-4555 Seq trace token causes free mem read in gc
     %%
     %% This test crashes the emulator if the bug in question is present,
@@ -676,7 +672,6 @@ gc_seq_token(Config) when is_list(Config) ->
 	end,
     %%
     ?line stop_node(Sandbox),
-    ?line test_server:timetrap_cancel(Timetrap),
     ok.
 
 do_gc_seq_token(Label) ->

@@ -46,7 +46,9 @@
 	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [t_gethostbyaddr, t_gethostbyname, t_getaddr,
@@ -98,24 +100,19 @@ init_per_testcase(lookup_bad_search_option, Config) ->
     ets:delete(Db, Key),
     ets:insert(Db, {Key,[lookup_bad_search_option]}),
     ?t:format("Misconfigured resolver lookup order", []),
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{Key,Prev},{watchdog,Dog}|Config];
+    [{Key,Prev}|Config];
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(lookup_bad_search_option, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     Db = inet_db,
     Key = res_lookup,
     Prev = ?config(Key, Config),
     ets:delete(Db, Key),
     ets:insert(Db, Prev),
     ?t:format("Restored resolver lookup order", []);
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 t_gethostbyaddr() ->
     required(v4).
@@ -376,15 +373,14 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 	  end,
     ok.
 
-host_and_addr() -> required(hosts).
+host_and_addr() ->
+    [{timetrap,{minutes,5}}|required(hosts)].
+
 host_and_addr(doc) -> ["Test looking up hosts and addresses. Use 'ypcat hosts' ",
 		       "or the local eqivalent to find all hosts."];
 host_and_addr(suite) -> [];
 host_and_addr(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
-
     ?line lists:foreach(fun try_host/1, get_hosts(Config)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 try_host({Ip0, Host}) ->

@@ -62,7 +62,9 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [simple, loop_all, simple_raw, simple_raw_getbin,
@@ -90,12 +92,10 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 simple(suite) -> [];
 simple(doc) -> "Test inet:setopt/getopt simple functionality.";

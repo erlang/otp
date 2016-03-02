@@ -34,7 +34,9 @@
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [active_echo, passive_echo, active_once_echo,
@@ -59,11 +61,10 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:minutes(5)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 active_echo(doc) -> 
     ["Test sending packets of various sizes and various packet types ",

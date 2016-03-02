@@ -40,18 +40,15 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [{group, spawn_tests}, {group, spawn_link_tests},
@@ -533,7 +530,6 @@ wilderness(doc) ->
 wilderness(suite) ->
     [];
 wilderness(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
     ?line OKParams = {512, 8},
     ?line Alloc = erlang:system_info(allocator),
     ?line test_server:format("Test server allocator info:~n~p", [Alloc]),
@@ -549,7 +545,6 @@ wilderness(Config) when is_list(Config) ->
 			    "Allocator used: "
 			    ++ atom_to_list(OtherAllocator)}
 	     end,
-    ?line test_server:timetrap_cancel(Dog),
     Result.
     
 run_wilderness_test({Set_tt, Set_tp}, {Exp_tt, Exp_tp}) ->

@@ -27,7 +27,9 @@
 	 init_per_group/2,end_per_group/2, 
 	 controlling_process/1, controlling_process_self/1,
 	 no_accept/1, close_with_pending_output/1, active_n/1,
-	 data_before_close/1, iter_max_socks/1, get_status/1,
+	 data_before_close/1,
+	 iter_max_socks/0, iter_max_socks/1,
+	 get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 otp_3924/1, otp_3924_sender/4, closed_socket/1,
@@ -50,7 +52,8 @@
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
 	 several_accepts_in_one_go/1, accept_system_limit/1,
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
-	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1, wrapping_oct/1,
+	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
+	 wrapping_oct/0, wrapping_oct/1,
          otp_9389/1]).
 
 %% Internal exports.
@@ -58,25 +61,15 @@
 	 oct_acceptor/1,
 	 otp_7731_server/1, zombie_server/2, do_iter_max_socks/2]).
 
-init_per_testcase(iter_max_socks, Config) when is_list(Config) ->
-    Dog = case os:type() of
-              {win32,_} ->
-                  test_server:timetrap(test_server:minutes(30));
-              _Else ->
-                  test_server:timetrap(test_server:seconds(240))
-          end,
-    [{watchdog, Dog}|Config];
-init_per_testcase(wrapping_oct, Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(600)),
-    [{watchdog, Dog}|Config];
-init_per_testcase(_Func, Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(240)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+init_per_testcase(_Func, Config) ->
+    Config.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+end_per_testcase(_Func, _Config) ->
+    ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
 all() -> 
     [controlling_process, controlling_process_self, no_accept,
@@ -709,6 +702,9 @@ get_status(Config) when is_list(Config) ->
 
 -define(RECOVER_SLEEP, 60000).
 -define(RETRY_SLEEP, 15000).
+
+iter_max_socks() ->
+    [{timetrap,{minutes,30}}].
 
 iter_max_socks(doc) ->
     ["Open as many sockets as possible. Do this several times and check ",
@@ -2495,7 +2491,6 @@ send_timeout_active(suite) ->
 send_timeout_active(doc) ->
     ["Test the send_timeout socket option for active sockets"];
 send_timeout_active(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(20)),
     %% Basic
     BasicFun = 
 	fun(AutoClose) ->
@@ -2523,7 +2518,6 @@ send_timeout_active(Config) when is_list(Config) ->
     flush(),
     BasicFun(true),
     flush(),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 after_send_timeout(AutoClose) ->
@@ -3047,6 +3041,9 @@ otp_9389_loop(S, OrigLinkHdr, State) ->
         3000 ->
             error({timeout,header})
     end.
+
+wrapping_oct() ->
+    [{timetrap,{minutes,10}}].
 
 wrapping_oct(doc) ->
     "Check that 64bit octet counters work."; 

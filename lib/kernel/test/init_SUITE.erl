@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
-	 many_restarts/1,
+	 many_restarts/0, many_restarts/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop/1, get_status/1, script_id/1]).
 -export([boot1/1, boot2/1]).
@@ -41,7 +41,9 @@
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [get_arguments, get_argument, boot_var,
@@ -65,13 +67,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SEC)),
-    [{watchdog, Dog}|Config].
+init_per_testcase(Func, Config) ->
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 init(doc) -> [];
 init(suite) -> [];
@@ -89,8 +89,6 @@ fini(Config) when is_list(Config) ->
 get_arguments(doc) ->[];
 get_arguments(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_arguments(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
-
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
     ?line case rpc:call(Node, init, get_arguments, []) of
@@ -104,7 +102,6 @@ get_arguments(Config) when is_list(Config) ->
 		  stop_node(Node),
 		  ?t:fail(get_arguments)
 	  end,
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 check_a(Args) ->
@@ -178,8 +175,6 @@ check_d(Args) ->
 get_argument(doc) ->[];
 get_argument(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_argument(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
-
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
     ?line case rpc:call(Node, init, get_argument, [b]) of
@@ -218,13 +213,11 @@ get_argument(Config) when is_list(Config) ->
 		  ?t:fail({get_argument, e})
 	  end,
     stop_node(Node),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 get_plain_arguments(doc) ->[];
 get_plain_arguments(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 get_plain_arguments(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
     Longstring = 
 	"fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2"
 	"fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2fjdkfjdkfjfdaa2"
@@ -246,7 +239,6 @@ get_plain_arguments(Config) when is_list(Config) ->
 		  ?t:fail({get_argument, As})
 	  end,
     stop_node(Node),
-    ?line ?t:timetrap_cancel(Dog),
 
     ok.
 
@@ -257,8 +249,6 @@ get_plain_arguments(Config) when is_list(Config) ->
 boot_var(doc) -> [];
 boot_var(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 boot_var(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(100)),
-
     {BootScript, TEST_VAR, KernelVsn, StdlibVsn} = create_boot(Config),
 
     %% Should fail as we have not given -boot_var TEST_VAR
@@ -291,7 +281,6 @@ boot_var(Config) when is_list(Config) ->
 		"in a clearcase view or in a source tree. "
 		"Need an installed system to complete this test."}
     end,
-    ?line ?t:timetrap_cancel(Dog),
     Res.
 
 create_boot(Config) ->
@@ -315,6 +304,9 @@ is_real_system(KernelVsn, StdlibVsn) ->
 %% Therefore the slave process must be killed
 %% before restart.
 %% ------------------------------------------------
+many_restarts() ->
+    [{timetrap,{minutes,8}}].
+
 many_restarts(doc) -> [];
 many_restarts(suite) ->
     case ?t:os_type() of
@@ -325,11 +317,9 @@ many_restarts(suite) ->
     end;
 
 many_restarts(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(480)),
     ?line {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
     ?line loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
     ?line loose_node:stop(Node),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 loop_restart(0,_,_) ->
@@ -391,7 +381,6 @@ restart(suite) ->
 	    {skip, "Only run on unix and win32"}
     end;
 restart(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(40)),
     ?line Args = args(),
 
     %% Currently test_server:start_node cannot be used. The restarted
@@ -443,7 +432,6 @@ restart(Config) when is_list(Config) ->
 		  ?t:fail({get_argument, restart_fail})
 	  end,
     loose_node:stop(Node),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 wait_restart(0, _Node) ->
@@ -483,8 +471,6 @@ apid(Pid) ->
 reboot(doc) -> [];
 reboot(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 reboot(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(40)),
-
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
     erlang:monitor_node(Node, true),
@@ -504,7 +490,6 @@ reboot(Config) when is_list(Config) ->
 		  stop_node(Node),
 		  ?t:fail(system_rebooted)
 	  end,
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 %% ------------------------------------------------
@@ -513,7 +498,6 @@ reboot(Config) when is_list(Config) ->
 stop(doc) -> [];
 stop(suite) -> [];
 stop(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(20)),
     Args = args(),
     ?line {ok, Node} = start_node(init_test, Args),
     erlang:monitor_node(Node, true),
@@ -533,7 +517,6 @@ stop(Config) when is_list(Config) ->
 		  stop_node(Node),
 		  ?t:fail(system_rebooted)
 	  end,
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 %% ------------------------------------------------
@@ -542,10 +525,8 @@ stop(Config) when is_list(Config) ->
 get_status(doc) -> [];
 get_status(suite) -> [];
 get_status(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
-    ?line ?t:timetrap_cancel(Dog),
-
     ?line {Start, _} = init:get_status(),
+
     %% Depending on how the test_server is started Start has
     %% different values. staring if test_server started with
     %% -s flag.
@@ -562,8 +543,6 @@ get_status(Config) when is_list(Config) ->
 script_id(doc) -> [];
 script_id(suite) -> [];
 script_id(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
-
     ?line {Name, Vsn} = init:script_id(),
     ?line if
 	      is_list(Name), is_list(Vsn) ->
@@ -571,7 +550,6 @@ script_id(Config) when is_list(Config) ->
 	      true ->
 		  ?t:fail(not_standard_script)
 	  end,
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 %% ------------------------------------------------
@@ -581,7 +559,6 @@ script_id(Config) when is_list(Config) ->
 boot1(doc) -> [];
 boot1(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot1(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(80)),
     Args = args() ++ " -boot start_sasl",
     ?line {ok, Node} = start_node(init_test, Args),
     ?line stop_node(Node),
@@ -590,14 +567,11 @@ boot1(Config) when is_list(Config) ->
     Args1 = args() ++ " -boot dummy_script",
     ?line {error, timeout} = start_node(init_test, Args1),
 
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 boot2(doc) -> [];
 boot2(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot2(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(80)),
-
     %% Absolute boot file name
     Boot = filename:join([code:root_dir(), "bin", "start_sasl"]),
 
@@ -620,7 +594,6 @@ boot2(Config) when is_list(Config) ->
 	    ok
     end,
 
-    ?t:timetrap_cancel(Dog),
     ok.
 
 %% Misc. functions    

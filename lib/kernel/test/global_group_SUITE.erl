@@ -36,7 +36,9 @@
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
@@ -79,13 +81,11 @@ end_per_suite(_Config) ->
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(5)),
-    [{?TESTCASE, Case}, {watchdog, Dog}|Config].
+init_per_testcase(Case, Config) ->
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 %%-----------------------------------------------------------------
 %% Test suites for global groups.
@@ -97,8 +97,6 @@ end_per_testcase(_Func, Config) ->
 start_gg_proc(suite) -> [];
 start_gg_proc(doc) -> ["Check that the global_group processes are started automatically. "];
 start_gg_proc(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
     ?line {ok, Fd}=file:open(File, [write]),
@@ -123,7 +121,6 @@ start_gg_proc(Config) when is_list(Config) ->
     stop_node(Cp3),
 
     ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -132,8 +129,6 @@ no_gg_proc(suite) -> [];
 no_gg_proc(doc) -> ["Start a system without global groups. Nodes are not "
 		    "synced at start (sync_nodes_optional is not defined)"];
 no_gg_proc(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -294,7 +289,6 @@ no_gg_proc(Config) when is_list(Config) ->
     stop_node(Cpz),
 
     ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -305,8 +299,6 @@ no_gg_proc_sync(doc) ->
     ["Start a system without global groups, but syncing the nodes by using " 
      "sync_nodes_optional."];
 no_gg_proc_sync(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "no_global_group_sync.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -469,7 +461,6 @@ no_gg_proc_sync(Config) when is_list(Config) ->
     stop_node(Cpz),
 
     ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -479,8 +470,6 @@ compatible(suite) -> [];
 compatible(doc) -> 
     ["Check that a system without global groups is compatible with the old R4 system."];
 compatible(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group_comp.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -643,7 +632,6 @@ compatible(Config) when is_list(Config) ->
     stop_node(Cpz),
 
     ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -652,8 +640,6 @@ compatible(Config) when is_list(Config) ->
 one_grp(suite) -> [];
 one_grp(doc) -> ["Test a system with only one global group. "];
 one_grp(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -728,7 +714,6 @@ one_grp(Config) when is_list(Config) ->
     stop_node(Cp1),
     stop_node(Cp2),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -739,8 +724,6 @@ one_grp_x(suite) -> [];
 one_grp_x(doc) -> ["Check a system with only one global group. "
 		   "Start the nodes with different time intervals. "];
 one_grp_x(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -790,7 +773,6 @@ one_grp_x(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -801,8 +783,6 @@ one_grp_x(Config) when is_list(Config) ->
 two_grp(suite) -> [];
 two_grp(doc) -> ["Test a two global group system. "];
 two_grp(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -1093,7 +1073,6 @@ two_grp(Config) when is_list(Config) ->
     stop_node(Cpy),
     stop_node(Cpz),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -1101,8 +1080,6 @@ two_grp(Config) when is_list(Config) ->
 hidden_groups(suite) -> [];
 hidden_groups(doc) -> ["Test hidden global groups."];
 hidden_groups(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "global_group.config"),
     ?line {ok, Fd} = file:open(File, [write]),
@@ -1169,15 +1146,12 @@ hidden_groups(Config) when is_list(Config) ->
     stop_node(Cpz),
     stop_node(Cpq),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
 test_exit(suite) -> [];
 test_exit(doc) -> ["Checks when the search process exits. "];
 test_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
     ?line NN = node_name(atom_to_list(node())),
     ?line Cp1nn = list_to_atom("cp1@" ++ NN),
 
@@ -1201,7 +1175,6 @@ test_exit(Config) when is_list(Config) ->
     % sleep to let the nodes die
     test_server:sleep(1000),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 

@@ -28,7 +28,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [basic_atomic_load,basic_errors,sticky_dir,on_load_failing,

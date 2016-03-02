@@ -102,8 +102,6 @@
 
 -export([client/4]).
 
--define(default_timeout, ?t:minutes(1)).
-
 %% error_logger
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
@@ -139,7 +137,9 @@
 			  change_size_after, default_size]).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [{group, halt_int}, {group, wrap_int},
@@ -194,13 +194,10 @@ end_per_group(_GroupName, Config) ->
 
 
 
-init_per_testcase(Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
+init_per_testcase(_Case, Config) ->
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 

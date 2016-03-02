@@ -40,7 +40,9 @@
 	 terminate/2]).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [error_report, info_report, error, info, emulator, tty,

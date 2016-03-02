@@ -28,7 +28,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
@@ -252,13 +254,11 @@ unix_comment_in_command(doc) ->
     "OTP-1805: Test that os:cmd(\"ls #\") works correctly (used to hang).";
 unix_comment_in_command(suite) -> [];
 unix_comment_in_command(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
     ?line Priv = ?config(priv_dir, Config),
     ?line ok = file:set_cwd(Priv),
     ?line _ = os:cmd("ls #"),			% Any result is ok.
     ?t:sleep(5),
     ?line [] = receive_all(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 deep_list_command(doc) ->

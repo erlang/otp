@@ -79,7 +79,9 @@
 -define(u32(X3,X2,X1,X0),
         (((X3) bsl 24) bor ((X2) bsl 16) bor ((X1) bsl 8) bor (X0))).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [whitebox, switch_options, missing_compulsory_dflags].
@@ -101,12 +103,10 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 switch_options(doc) ->
     ["Tests switching of options for the tcp port, as this is done"

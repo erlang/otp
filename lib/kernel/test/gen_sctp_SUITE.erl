@@ -42,7 +42,9 @@
     names_unihoming_ipv4/1, names_unihoming_ipv6/1,
     names_multihoming_ipv4/1, names_multihoming_ipv6/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
@@ -81,12 +83,10 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(15)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+    Config.
 
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 
 -define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).

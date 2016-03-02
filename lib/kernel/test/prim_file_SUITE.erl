@@ -471,7 +471,6 @@ open1(Config) when is_list(Config) ->
 modes(suite) -> [];
 modes(doc) -> [];
 modes(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -509,7 +508,6 @@ modes(Config) when is_list(Config) ->
     ?line {ok, BinaryMarker} = ?PRIM_FILE:read(Fd5, Length),
     ?line ok = ?PRIM_FILE:close(Fd5),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 close(suite) -> [];
@@ -892,14 +890,12 @@ file_info_times_b(Config) when is_list(Config) ->
     Result.
 
 file_info_times(Config, Handle, Suffix) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     %% We have to try this twice, since if the test runs across the change
     %% of a month the time diff calculations will fail. But it won't happen
     %% if you run it twice in succession.
     ?line test_server:m_out_of_n(
 	    1,2,
 	    fun() -> ?line file_info_int(Config, Handle, Suffix) end),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 file_info_int(Config, Handle, Suffix) ->
@@ -990,7 +986,6 @@ file_write_file_info_b(Config) when is_list(Config) ->
     Result.
 
 file_write_file_info(Config, Handle, Suffix) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = get_good_directory(Config),
     ?line test_server:format("RootDir = ~p", [RootDir]),
 
@@ -1059,7 +1054,6 @@ file_write_file_info(Config, Handle, Suffix) ->
     %% test suites ... :-)
     ?line ?PRIM_FILE_call(write_file_info, Handle, 
 			  [Name, #file_info{mode=8#600}]),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test the write_file_info/3 function.
@@ -1068,7 +1062,6 @@ file_write_file_info_opts(suite) -> [];
 file_write_file_info_opts(doc) -> [];
 file_write_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = get_good_directory(Config),
     test_server:format("RootDir = ~p", [RootDir]),
 
@@ -1102,14 +1095,12 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 		erlang:localtime()
 	    ]]),
     ok   = ?PRIM_FILE:stop(Handle),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 file_read_file_info_opts(suite) -> [];
 file_read_file_info_opts(doc) -> [];
 file_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = get_good_directory(Config),
     test_server:format("RootDir = ~p", [RootDir]),
 
@@ -1121,7 +1112,6 @@ file_read_file_info_opts(Config) when is_list(Config) ->
 		{ok,_} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts])
     end, [[{time, Type}] || Type <- [local, universal, posix]]),
     ok   = ?PRIM_FILE:stop(Handle),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test the write and read back *_file_info/3 functions.
@@ -1130,7 +1120,6 @@ file_write_read_file_info_opts(suite) -> [];
 file_write_read_file_info_opts(doc) -> [];
 file_write_read_file_info_opts(Config) when is_list(Config) ->
     {ok, Handle} = ?PRIM_FILE:start(),
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = get_good_directory(Config),
     test_server:format("RootDir = ~p", [RootDir]),
 
@@ -1148,7 +1137,6 @@ file_write_read_file_info_opts(Config) when is_list(Config) ->
     ok = file_write_read_file_info_opts(Handle, Name, 0, [{time, posix}]),
 
     ok = ?PRIM_FILE:stop(Handle),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 file_write_read_file_info_opts(Handle, Name, Mtime, Opts) ->
@@ -1304,7 +1292,6 @@ large_write(Config) when is_list(Config) ->
 			"_large_write").
 
 do_large_write(Name) ->
-    Dog = test_server:timetrap(test_server:minutes(60)),
     ChunkSize = (256 bsl 20) + 1,	% 256 M + 1
     Chunks = 16,			% times 16 -> 4 G + 16
     Base = 100,
@@ -1317,19 +1304,18 @@ do_large_write(Name) ->
 	ok when Wordsize =:= 8 ->
 	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
 	    {ok,Fd} = prim_file:open(Name, [read]),
-	    check_large_write(Dog, Fd, ChunkSize, 0, Interleave);
+	    check_large_write(Fd, ChunkSize, 0, Interleave);
 	{error,einval} when Wordsize =:= 4 ->
 	    ok
     end.
 
-check_large_write(Dog, Fd, ChunkSize, Pos, [X|Interleave]) ->
+check_large_write(Fd, ChunkSize, Pos, [X|Interleave]) ->
     Pos1 = Pos + ChunkSize,
     {ok,Pos1} = prim_file:position(Fd, {cur,ChunkSize}),
     {ok,[X]} = prim_file:read(Fd, 1),
-    check_large_write(Dog, Fd, ChunkSize, Pos1+1, Interleave);
-check_large_write(Dog, Fd, _, _, []) ->
+    check_large_write(Fd, ChunkSize, Pos1+1, Interleave);
+check_large_write(Fd, _, _, []) ->
     eof = prim_file:read(Fd, 1),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1509,7 +1495,6 @@ rename(Config, Handle, Suffix) ->
 e_delete(suite) -> [];
 e_delete(doc) -> [];
 e_delete(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_e_delete"),
@@ -1544,7 +1529,6 @@ e_delete(Config) when is_list(Config) ->
 			   Base, #file_info {mode=8#600})
 	  end,
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%% FreeBSD gives EEXIST when renaming a file to an empty dir, although the
@@ -1555,7 +1539,6 @@ e_delete(Config) when is_list(Config) ->
 e_rename(suite) -> [];
 e_rename(doc) -> [];
 e_rename(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = filename:join(RootDir,
 	atom_to_list(?MODULE)++"_e_rename"),
@@ -1652,13 +1635,11 @@ e_rename(Config) when is_list(Config) ->
 	    end,
 	    Com
     end,
-    ?line test_server:timetrap_cancel(Dog),
     Comment.
 
 e_make_dir(suite) -> [];
 e_make_dir(doc) -> [];
 e_make_dir(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_e_make_dir"),
@@ -1688,13 +1669,11 @@ e_make_dir(Config) when is_list(Config) ->
 	    ?line 
 		?PRIM_FILE:write_file_info(Base, #file_info {mode=8#600})
     end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 e_del_dir(suite) -> [];
 e_del_dir(doc) -> [];
 e_del_dir(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_e_del_dir"),
@@ -1742,7 +1721,6 @@ e_del_dir(Config) when is_list(Config) ->
 	    ?line ?PRIM_FILE:write_file_info(
 		     Base, #file_info {mode=8#600})
     end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -1785,8 +1763,6 @@ remove_crs([], Result) ->
     lists:reverse(Result).
 
 try_read_file(Fd) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     %% Seek to the current position (nothing should happen).
 
     ?line {ok, 0} = ?PRIM_FILE:position(Fd, 0),
@@ -1822,13 +1798,11 @@ try_read_file(Fd) ->
     %% Done.
 
     ?line ?PRIM_FILE:close(Fd),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 write_compressed(suite) -> [];
 write_compressed(doc) -> [];
 write_compressed(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Priv = ?config(priv_dir, Config),
     ?line MyFile = filename:join(Priv, 
 				 atom_to_list(?MODULE)++"_test.gz"),
@@ -1872,15 +1846,11 @@ write_compressed(Config) when is_list(Config) ->
     ?line {ok, NewString} = ?PRIM_FILE:read(Fd3, 1024),
     ?line ok = ?PRIM_FILE:close(Fd3),
 
-    %% Done.
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 compress_errors(suite) -> [];
 compress_errors(doc) -> [];
 compress_errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Data = ?config(data_dir, Config),
     ?line {error, enoent} = ?PRIM_FILE:open("non_existing__",
 				      [compressed, read]),
@@ -1894,7 +1864,6 @@ compress_errors(Config) when is_list(Config) ->
     ?line {error, eio} = ?PRIM_FILE:read(Fd, 100),
     ?line ?PRIM_FILE:close(Fd),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -1912,7 +1881,6 @@ make_link_b(Config) when is_list(Config) ->
     Result.
 
 make_link(Config, Handle, Suffix) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -1944,7 +1912,6 @@ make_link(Config, Handle, Suffix) ->
 		ok
 	end,
     
-    ?line test_server:timetrap_cancel(Dog),
     Result.
 
 read_link_info_for_non_link(doc) ->
@@ -1952,11 +1919,7 @@ read_link_info_for_non_link(doc) ->
 	"(on all platforms).";
 read_link_info_for_non_link(suite) -> [];
 read_link_info_for_non_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     ?line {ok, #file_info{type=directory}} = ?PRIM_FILE:read_link_info("."),
-		  
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 symlinks_a(doc) -> "Test operations on symbolic links (for Unix).";
@@ -1973,7 +1936,6 @@ symlinks_b(Config) when is_list(Config) ->
     Result.
 
 symlinks(Config, Handle, Suffix) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -2012,7 +1974,6 @@ symlinks(Config, Handle, Suffix) ->
 		ok
 	end,
     
-    ?line test_server:timetrap_cancel(Dog),
     Result.
 
 %% Creates as many files as possible during a certain time, 
@@ -2026,8 +1987,7 @@ list_dir_limit(suite) ->
 list_dir_limit(Config) when is_list(Config) ->
     ?line MaxTime = 120, 
     ?line MaxNumber = 20000, 
-    ?line Dog = test_server:timetrap(
-		  test_server:seconds(2*MaxTime + MaxTime)),
+    ct:timetrap({seconds,2*MaxTime + MaxTime}),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir,
 				 atom_to_list(?MODULE)++"_list_dir_limit"),
@@ -2049,7 +2009,6 @@ list_dir_limit(Config) when is_list(Config) ->
     ?line ok = ?PRIM_FILE:stop(Handle1),
     ?line ok = ?PRIM_FILE:stop(Handle2),
     ?line {ok, Number} = Result,
-    ?line test_server:timetrap_cancel(Dog),
     {comment, 
      "Created " ++ integer_to_list(Number) ++ " files in " 
      ++ integer_to_list(Time) ++ " seconds."}.

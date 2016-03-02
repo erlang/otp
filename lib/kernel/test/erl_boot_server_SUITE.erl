@@ -34,7 +34,9 @@
 %% Changed for the new erl_boot_server for R3A by Bjorn Gustavsson.
 %%-----------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [start, start_link, stop, add, delete, responses].
@@ -59,7 +61,6 @@ end_per_group(_GroupName, Config) ->
 
 start(doc) -> "Tests the erl_boot_server:start/1 function.";
 start(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(50)),
     ?line [Host1, Host2|_] = good_hosts(Config),
 
     %% Bad arguments.
@@ -85,12 +86,10 @@ start(Config) when is_list(Config) ->
     ?line exit(Pid2, kill),
     test_server:sleep(1),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 start_link(doc) -> "Tests the erl_boot_server:start_link/1 function.";
 start_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line [Host1, Host2|_] = good_hosts(Config),
 
     OldFlag = process_flag(trap_exit, true),
@@ -111,12 +110,10 @@ start_link(Config) when is_list(Config) ->
     ?line shutdown(Pid2),
     process_flag(trap_exit, OldFlag),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 stop(doc) -> "Tests that no processes are left if a boot server is killed.";
 stop(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(50)),
     ?line [Host1|_] = good_hosts(Config),
 
     %% Start a boot server and kill it.  Make sure that any helper processes
@@ -135,12 +132,10 @@ stop(Config) when is_list(Config) ->
 	      NotKilled ->
 		  test_server:fail({not_killed, NotKilled})
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 add(doc) -> "Tests the erl_boot_server:add/1 function.";
 add(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line OldFlag = process_flag(trap_exit, true),
     ?line {ok, Pid1} = erl_boot_server:start_link([]),
     ?line [] = erl_boot_server:which_slaves(),
@@ -180,12 +175,10 @@ add(Config) when is_list(Config) ->
     %% Cleanup.
     ?line shutdown(Pid1),
     ?line process_flag(trap_exit, OldFlag),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 delete(doc) -> "Tests the erl_boot_server:delete/1 function.";
 delete(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line OldFlag = process_flag(trap_exit, true),
 
     ?line [Host1, Host2, Host3|_] = good_hosts(Config),
@@ -227,12 +220,10 @@ delete(Config) when is_list(Config) ->
 
     ?line shutdown(Pid1),
     ?line process_flag(trap_exit, OldFlag),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 responses(doc) -> "Tests erl_boot_server responses to slave requests.";
 responses(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
     ?line process_flag(trap_exit, true),
     %% Copy from inet_boot.hrl
     EBOOT_PORT = 4368,
@@ -324,7 +315,6 @@ responses(Config) when is_list(Config) ->
 	    ok
     end,
 
-    ?line test_server:timetrap_cancel(Dog),
     Ret.
 
 shutdown(Pid) ->

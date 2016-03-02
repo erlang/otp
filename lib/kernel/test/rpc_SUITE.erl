@@ -30,7 +30,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [call, block_call, multicall, multicall_timeout,
@@ -57,7 +59,6 @@ end_per_group(_GroupName, Config) ->
 
 call(doc) -> "Test different rpc calls";
 call(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(30)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_call', slave, 
@@ -79,12 +80,10 @@ call(Config) when is_list(Config) ->
     ?line ?t:stop_node(N2),
     ?line ?t:stop_node(N3),
     ?line ?t:stop_node(N4),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 block_call(doc) -> "Test different rpc calls";
 block_call(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(30)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_block_call', slave, 
@@ -106,14 +105,12 @@ block_call(Config) when is_list(Config) ->
     ?line ?t:stop_node(N2),
     ?line ?t:stop_node(N3),
     ?line ?t:stop_node(N4),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 
 multicall(doc) ->
     "OTP-3449";
 multicall(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(20)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_multicall', slave, 
@@ -127,11 +124,9 @@ multicall(Config) when is_list(Config) ->
     ?line [] = Msgs,
     ?line ?t:stop_node(N1),
     ?line ?t:stop_node(N2),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 multicall_timeout(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(30)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
     ?line {ok, N1} = ?t:start_node('11_rpc_SUITE_multicall', slave, 
@@ -152,11 +147,9 @@ multicall_timeout(Config) when is_list(Config) ->
     ?line ?t:stop_node(N2),
     ?line ?t:stop_node(N3),
     ?line ?t:stop_node(N4),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 multicall_dies(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(30)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     ?line {ok, N1} = ?t:start_node('rpc_SUITE_multicall_dies_1', slave, 
 				   [{args, "-pa " ++ PA}]),
@@ -193,7 +186,6 @@ multicall_dies(Config) when is_list(Config) ->
     %%
     ?line ?t:stop_node(N1),
     ?line ?t:stop_node(N2),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 do_multicall(Nodes, Mod, Func, Args) ->
@@ -208,13 +200,9 @@ do_multicall(Nodes, Mod, Func, Args) ->
 multicall_node_dies(doc) ->    
     "";
 multicall_node_dies(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(60)),
-    %%
     do_multicall_2_nodes_dies(?MODULE, suicide, [erlang, halt, []]),
     do_multicall_2_nodes_dies(?MODULE, suicide, [init, stop, []]),
     do_multicall_2_nodes_dies(?MODULE, suicide, [rpc, stop, []]),
-    %%
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
@@ -235,7 +223,6 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
 called_dies(doc) ->
     "OTP-3766";
 called_dies(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(210)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     ?line {ok, N} = ?t:start_node(rpc_SUITE_called_dies, slave, 
 				  [{args, "-pa " ++ PA}]),
@@ -320,7 +307,6 @@ called_dies(Config) when is_list(Config) ->
     %%
     ?line [] = flush([]),
     ?line ?t:stop_node(N),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 rep(Fun, N, M, F, A) ->
@@ -368,7 +354,6 @@ called_node_dies(doc) ->
     "";
 called_node_dies(suite) -> [];
 called_node_dies(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:minutes(2)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %%
     ?line node_rep(
@@ -398,7 +383,6 @@ called_node_dies(Config) when is_list(Config) ->
 	    end, "rpc_SUITE_called_node_dies_4", 
 	    PA, ?MODULE, suicide, [rpc,stop,[]]),
     %%
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 node_rep(Fun, Name, PA, M, F, A) ->
@@ -434,7 +418,6 @@ node_rep(Fun, Name, PA, M, F, A) ->
 called_throws(doc) ->
     "OTP-3766";
 called_throws(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(10)),
     ?line PA = filename:dirname(code:which(?MODULE)),
     %%
     ?line {ok, N} = ?t:start_node(rpc_SUITE_called_throws, slave, 
@@ -450,13 +433,11 @@ called_throws(Config) when is_list(Config) ->
 	      end, N, erlang, throw, [{'EXIT',reason}]),
     %%
     ?line ?t:stop_node(N),
-    ?t:timetrap_cancel(Timetrap),
     ok.
 
 
 
 call_benchmark(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(120)),
     PA = filename:dirname(code:which(?MODULE)),
     {ok, Node} = ?t:start_node(rpc_SUITE_call_benchmark, slave,
 			       [{args, "-pa " ++ PA}]),
@@ -466,7 +447,6 @@ call_benchmark(Config) when is_list(Config) ->
 	   end,
     Res = do_call_benchmark(Node, Iter),
     ?t:stop_node(Node),
-    ?t:timetrap_cancel(Timetrap),
     Res.
 
 do_call_benchmark(Node, M) when is_integer(M), M > 0 ->
@@ -486,8 +466,6 @@ do_call_benchmark(Node, I, M) ->
     do_call_benchmark(Node, I+1, M).
 
 async_call(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(120)),
-
     %% Note: First part of nodename sets response delay in seconds.
     ?line PA = filename:dirname(code:which(?MODULE)),
     ?line NodeArgs = [{args,"-pa "++ PA}],
@@ -510,7 +488,6 @@ async_call(Config) when is_list(Config) ->
     ?line {value,{hej,_,Node2}} = rpc:nb_yield(Promise2, infinity),
     ?line {hej,_,Node3} = rpc:yield(Promise3),
 
-    ?t:timetrap_cancel(Dog),
     ok.
 
 %%%

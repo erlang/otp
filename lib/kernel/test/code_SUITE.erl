@@ -46,7 +46,9 @@
 
 -export([compile_load/4]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
@@ -92,10 +94,8 @@ init_per_testcase(big_boot_embedded, Config) ->
 	    {skip, "Needs crypto!"}
     end;
 init_per_testcase(_Func, Config) ->
-    Dog=?t:timetrap(?t:minutes(5)),
-    P=code:get_path(),
-    P=code:get_path(),
-    [{watchdog, Dog}, {code_path, P}|Config].
+    P = code:get_path(),
+    [{code_path, P}|Config].
 
 end_per_testcase(TC, Config) when TC == mult_lib_roots;
 				  TC == big_boot_embedded ->
@@ -108,8 +108,6 @@ end_per_testcase(_Func, Config) ->
 
 end_per_testcase(Config) ->
     code:purge(code_b_test),
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     P=?config(code_path, Config),
     true=code:set_path(P),
     P=code:get_path(),

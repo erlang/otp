@@ -83,7 +83,7 @@
 -export([unicode/1]).
 -export([altname/1]).
 
--export([large_file/1, large_write/1]).
+-export([large_file/0, large_file/1, large_write/1]).
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
@@ -112,7 +112,9 @@
 -define(THROW_ERROR(RES), throw({fail, ?LINE, RES})).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [unicode, altname, read_write_file, {group, dirs},
@@ -326,7 +328,6 @@ old_io_protocol(suite) ->
 old_io_protocol(doc) ->
     ["Test that the old file IO protocol =< R16B still works"];
 old_io_protocol(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(5)),
     RootDir = ?config(priv_dir,Config),
     Name = filename:join(RootDir,
 			 atom_to_list(?MODULE)
@@ -340,7 +341,6 @@ old_io_protocol(Config) when is_list(Config) ->
     end,
     ok = ?FILE_MODULE:close(Fd),
     {ok, <<>>} = ?FILE_MODULE:read_file(Name),
-    test_server:timetrap_cancel(Dog),
     [] = flush(),
     ok.
 
@@ -496,7 +496,6 @@ um_filename(Str = [_|_], Dir, Options) ->
 read_write_file(suite) -> [];
 read_write_file(doc) -> [];
 read_write_file(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -547,7 +546,6 @@ read_write_file(Config) when is_list(Config) ->
     ?line {Bin1,Bin2} = split_binary(Bin5,byte_size(Bin1)),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -556,7 +554,6 @@ read_write_file(Config) when is_list(Config) ->
 make_del_dir(suite) -> [];
 make_del_dir(doc) -> [];
 make_del_dir(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -611,8 +608,7 @@ make_del_dir(Config) when is_list(Config) ->
 	?line {error, enoent} = ?FILE_MODULE:del_dir(""),
 	?line {error, badarg} = ?FILE_MODULE:del_dir([3,2,1,{}]),
 	
-	?line [] = flush(),
-	?line test_server:timetrap_cancel(Dog)
+	?line [] = flush()
     after
 	 ?FILE_MODULE:set_cwd(CurrentDir)
     end,
@@ -621,7 +617,6 @@ make_del_dir(Config) when is_list(Config) ->
 cur_dir_0(suite) -> [];
 cur_dir_0(doc) -> [];
 cur_dir_0(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     %% Find out the current dir, and cd to it ;-)
     ?line {ok,BaseDir} = ?FILE_MODULE:get_cwd(),
     ?line Dir1 = BaseDir ++ "", %% Check that it's a string
@@ -681,7 +676,6 @@ cur_dir_0(Config) when is_list(Config) ->
     ?line false = lists:member($\\, BaseDir),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests ?FILE_MODULE:get_cwd/1.
@@ -689,8 +683,6 @@ cur_dir_0(Config) when is_list(Config) ->
 cur_dir_1(suite) -> [];
 cur_dir_1(doc) -> [];
 cur_dir_1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-
     ?line case os:type() of
 	   {win32, _} ->
 		  win_cur_dir_1(Config);
@@ -698,7 +690,6 @@ cur_dir_1(Config) when is_list(Config) ->
 		  ?line {error, enotsup} = ?FILE_MODULE:get_cwd("d:")
       end,
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 	
 win_cur_dir_1(_Config) ->
@@ -866,7 +857,6 @@ start_node(Name, Args) ->
 open1(suite) -> [];
 open1(doc) -> [];
 open1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -889,7 +879,6 @@ open1(Config) when is_list(Config) ->
     ?line eof = io:get_line(Fd3,''),
     ?line ok = ?FILE_MODULE:close(Fd3),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests all open modes.
@@ -897,7 +886,6 @@ open1(Config) when is_list(Config) ->
 old_modes(suite) -> [];
 old_modes(doc) -> [];
 old_modes(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -924,14 +912,12 @@ old_modes(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd3),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 new_modes(suite) -> [];
 new_modes(doc) -> [];
 new_modes(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -987,13 +973,11 @@ new_modes(Config) when is_list(Config) ->
     end,
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 path_open(suite) -> [];
 path_open(doc) -> [];
 path_open(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -1032,13 +1016,11 @@ path_open(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd3),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 close(suite) -> [];
 close(doc) -> [];
 close(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1056,13 +1038,11 @@ close(Config) when is_list(Config) ->
     ?line io:format("Second close gave: ~p",[Val]),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 access(suite) -> [];
 access(doc) -> [];
 access(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1085,7 +1065,6 @@ access(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd3),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests ?FILE_MODULE:read/2 and ?FILE_MODULE:write/2.
@@ -1093,7 +1072,6 @@ access(Config) when is_list(Config) ->
 read_write(suite) -> [];
 read_write(doc) -> [];
 read_write(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -1122,7 +1100,6 @@ read_write(Config) when is_list(Config) ->
     ?line {ok, Fd4} = ?FILE_MODULE:open(Name4, [read, write, raw, binary]),
     ?line read_write_test(Fd4, MarkerB, <<>>),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 read_write_test(File, Marker, Empty) ->
@@ -1142,7 +1119,6 @@ read_write_test(File, Marker, Empty) ->
 pread_write(suite) -> [];
 pread_write(doc) -> [];
 pread_write(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -1171,7 +1147,6 @@ pread_write(Config) when is_list(Config) ->
     ?line {ok, Fd4} = ?FILE_MODULE:open(Name4, [binary, read, write, raw]),
     ?line pread_write_test(Fd4, Bin),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 pread_write_test(File, Data) ->
@@ -1200,7 +1175,6 @@ pread_write_test(File, Data) ->
 append(doc) -> "Test appending to a file.";
 append(suite) -> [];
 append(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -1228,13 +1202,11 @@ append(Config) when is_list(Config) ->
     ?line {ok, Expected} = ?FILE_MODULE:read_file(Name1),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 open_errors(suite) -> [];
 open_errors(doc) -> [];
 open_errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line DataDir = 
 	filename:dirname(
 	  filename:join(?config(data_dir, Config), "x")),
@@ -1246,13 +1218,11 @@ open_errors(Config) when is_list(Config) ->
     ?line {eisdir,eisdir,eisdir,eisdir} = {E1,E2,E3,E4},
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 exclusive(suite) -> [];
 exclusive(doc) -> "Test exclusive access to a file.";
 exclusive(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line NewDir = filename:join(RootDir,
 				 atom_to_list(?MODULE)
@@ -1262,7 +1232,6 @@ exclusive(Config) when is_list(Config) ->
     ?line {ok, Fd} = ?FILE_MODULE:open(Name, [write, exclusive]),
     ?line {error, eexist} = ?FILE_MODULE:open(Name, [write, exclusive]),
     ?line ok = ?FILE_MODULE:close(Fd),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1271,7 +1240,6 @@ exclusive(Config) when is_list(Config) ->
 pos1(suite) -> [];
 pos1(doc) -> [];
 pos1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1331,13 +1299,11 @@ pos1(Config) when is_list(Config) ->
     ?line {error, einval} = ?FILE_MODULE:position(Fd2,{eof,-9}),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 pos2(suite) -> [];
 pos2(doc) -> [];
 pos2(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1355,13 +1321,11 @@ pos2(Config) when is_list(Config) ->
 
     ?line [] = flush(),
     ?line io:format("DONE"),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 pos3(suite) -> [];
 pos3(doc) -> ["When it does not use raw mode, file:position had a bug."];
 pos3(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(data_dir, Config),
     ?line Name = filename:join(RootDir, "realmen.html.gz"),
 
@@ -1377,13 +1341,11 @@ pos3(Config) when is_list(Config) ->
     %% is guaranteed to be unchanged after an error return.  On e.g
     %% Windows there is nothing stated about this in the documentation.
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 file_info_basic_file(suite) -> [];
 file_info_basic_file(doc) -> [];
 file_info_basic_file(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir, Config),
 
     %% Create a short file.
@@ -1410,14 +1372,11 @@ file_info_basic_file(Config) when is_list(Config) ->
     ?line all_integers(tuple_to_list(AccessTime) ++ tuple_to_list(ModifyTime)),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 file_info_basic_directory(suite) -> [];
 file_info_basic_directory(doc) -> [];
 file_info_basic_directory(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(5)),
-
     %% Note: filename:join/1 removes any trailing slash,
     %% which is essential for ?FILE_MODULE:file_info/1 to work on
     %% platforms such as Windows95.
@@ -1438,7 +1397,7 @@ file_info_basic_directory(Config) when is_list(Config) ->
         _ ->
             ?line test_directory("/", read)
     end,
-    test_server:timetrap_cancel(Dog).
+    ok.
 
 test_directory(Name, ExpectedAccess) ->
     {ok,FileInfo} = ?FILE_MODULE:read_file_info(Name),
@@ -1467,7 +1426,6 @@ all_integers([]) -> ok.
 file_info_bad(suite) -> [];
 file_info_bad(doc) -> [];
 file_info_bad(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = filename:join([?config(priv_dir, Config)]),
     FileName = filename:join(RootDir, atom_to_list(?MODULE) ++ "_nonexistent"),
     {error,enoent} = ?FILE_MODULE:read_file_info(FileName),
@@ -1475,7 +1433,6 @@ file_info_bad(Config) when is_list(Config) ->
     ?line {error, enoent} = ?FILE_MODULE:read_file_info(""),
     {error, enoent} = ?FILE_MODULE:read_file_info("", [raw]),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that the file times behave as they should.
@@ -1483,14 +1440,12 @@ file_info_bad(Config) when is_list(Config) ->
 file_info_times(suite) -> [];
 file_info_times(doc) -> [];
 file_info_times(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     %% We have to try this twice, since if the test runs across the change
     %% of a month the time diff calculations will fail. But it won't happen
     %% if you run it twice in succession.
     ?line test_server:m_out_of_n(
 	    1,2,
 	    fun() -> ?line file_info_int(Config) end),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 file_info_int(Config) ->
@@ -1579,7 +1534,6 @@ filter_atime(Atime, Config) ->
 file_write_file_info(suite) -> [];
 file_write_file_info(doc) -> [];
 file_write_file_info(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = get_good_directory(Config),
     ?line test_server:format("RootDir = ~p", [RootDir]),
 
@@ -1651,7 +1605,6 @@ file_write_file_info(Config) when is_list(Config) ->
     ?line ?FILE_MODULE:write_file_info(Name1, #file_info{mode=8#600}),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Returns a directory on a file system that has correct file times.
@@ -1663,7 +1616,6 @@ get_good_directory(Config) ->
 consult1(suite) -> [];
 consult1(doc) -> [];
 consult1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1688,13 +1640,11 @@ consult1(Config) when is_list(Config) ->
     ?line {error, enoent} = ?FILE_MODULE:consult(Name ++ ".nonexistent"),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 path_consult(suite) -> [];
 path_consult(doc) -> [];
 path_consult(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_consult.fil",
     ?line Name = filename:join(RootDir, FileName),
@@ -1716,14 +1666,12 @@ path_consult(Config) when is_list(Config) ->
     ?line {ok,_,_} = ?FILE_MODULE:path_consult(["nosuch1","nosuch2"],Name),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 eval1(suite) -> [];
 eval1(doc) -> [];
 eval1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_eval.fil"),
@@ -1753,13 +1701,11 @@ eval1(Config) when is_list(Config) ->
     ?line {error, enoent} = ?FILE_MODULE:eval(Name ++ ".nonexistent"),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 path_eval(suite) -> [];
 path_eval(doc) -> [];
 path_eval(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_eval.fil",
     ?line Name = filename:join(RootDir, FileName),
@@ -1788,14 +1734,12 @@ path_eval(Config) when is_list(Config) ->
 		      erl_eval:add_binding('R', true, erl_eval:new_bindings())),
     
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 script1(suite) -> [];
 script1(doc) -> "";
 script1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_script.fil"),
@@ -1822,13 +1766,11 @@ script1(Config) when is_list(Config) ->
     ?line {error, enoent} = ?FILE_MODULE:script(Name ++ ".nonexistent"),
     
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 path_script(suite) -> [];
 path_script(doc) -> [];
 path_script(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line FileName = atom_to_list(?MODULE)++"_path_script.fil",
     ?line Name = filename:join(RootDir, FileName),
@@ -1857,7 +1799,6 @@ path_script(Config) when is_list(Config) ->
 	   erl_eval:add_binding('B', 6, erl_eval:new_bindings())),
     
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
     
@@ -1865,7 +1806,6 @@ path_script(Config) when is_list(Config) ->
 truncate(suite) -> [];
 truncate(doc) -> [];
 truncate(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -1892,14 +1832,12 @@ truncate(Config) when is_list(Config) ->
     ?line {error, _} = ?FILE_MODULE:truncate(Fd2),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 datasync(suite) -> [];
 datasync(doc) -> "Tests that ?FILE_MODULE:datasync/1 at least doesn't crash.";
 datasync(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Sync = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
@@ -1916,14 +1854,12 @@ datasync(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd2),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 sync(suite) -> [];
 sync(doc) -> "Tests that ?FILE_MODULE:sync/1 at least doesn't crash.";
 sync(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Sync = filename:join(PrivDir, 
 			       atom_to_list(?MODULE)
@@ -1940,13 +1876,11 @@ sync(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd2),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 advise(suite) -> [];
 advise(doc) -> "Tests that ?FILE_MODULE:advise/4 at least doesn't crash.";
 advise(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Advise = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
@@ -2011,13 +1945,11 @@ advise(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd9),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 allocate(suite) -> [];
 allocate(doc) -> "Tests that ?FILE_MODULE:allocate/3 at least doesn't crash.";
 allocate(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Allocate = filename:join(PrivDir,
 			       atom_to_list(?MODULE)
@@ -2051,7 +1983,6 @@ allocate(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd4),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 allocate_and_assert(Fd, Offset, Length) ->
@@ -2088,7 +2019,6 @@ allocate_and_assert(Fd, Offset, Length) ->
 delete(suite) -> [];
 delete(doc) -> [];
 delete(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line Name = filename:join(RootDir, 
 			       atom_to_list(?MODULE)
@@ -2105,13 +2035,11 @@ delete(Config) when is_list(Config) ->
     %% Try deleting a nonexistent file
     ?line {error, enoent} = ?FILE_MODULE:delete(Name),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 rename(suite) ->[];
 rename(doc) ->[];
 rename(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line FileName1 = atom_to_list(?MODULE)++"_rename.fil",
     ?line FileName2 = atom_to_list(?MODULE)++"_rename.ful",
@@ -2159,7 +2087,6 @@ rename(Config) when is_list(Config) ->
     ?line io:format("Errmsg2: ~p",[Msg2]),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2167,7 +2094,6 @@ rename(Config) when is_list(Config) ->
 names(suite) -> [];
 names(doc) -> [];
 names(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line RootDir = ?config(priv_dir,Config),
     ?line FileName = "foo1.fil",
     ?line Name1 = filename:join(RootDir, FileName),
@@ -2213,7 +2139,6 @@ names(Config) when is_list(Config) ->
 			ok = ?FILE_MODULE:close(Fd14)
 	end,
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2222,7 +2147,6 @@ names(Config) when is_list(Config) ->
 e_delete(suite) -> [];
 e_delete(doc) -> [];
 e_delete(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_e_delete"),
@@ -2257,7 +2181,6 @@ e_delete(Config) when is_list(Config) ->
 	  end,
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%% FreeBSD gives EEXIST when renaming a file to an empty dir, although the
@@ -2268,7 +2191,6 @@ e_delete(Config) when is_list(Config) ->
 e_rename(suite) -> [];
 e_rename(doc) -> [];
 e_rename(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = ?config(priv_dir, Config),
     Base = filename:join(RootDir,
 	atom_to_list(?MODULE)++"_e_rename"),
@@ -2358,7 +2280,6 @@ e_rename(Config) when is_list(Config) ->
 	    ok
     end,
     [] = flush(),
-    test_server:timetrap_cancel(Dog),
     Comment.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2366,7 +2287,6 @@ e_rename(Config) when is_list(Config) ->
 e_make_dir(suite) -> [];
 e_make_dir(doc) -> [];
 e_make_dir(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = ?config(priv_dir, Config),
     Base = filename:join(RootDir, 
           	       atom_to_list(?MODULE)++"_e_make_dir"),
@@ -2394,7 +2314,6 @@ e_make_dir(Config) when is_list(Config) ->
 	    ?FILE_MODULE:write_file_info(
 		     Base, #file_info {mode=8#600})
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2402,7 +2321,6 @@ e_make_dir(Config) when is_list(Config) ->
 e_del_dir(suite) -> [];
 e_del_dir(doc) -> [];
 e_del_dir(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     RootDir = ?config(priv_dir, Config),
     Base = test_server:temp_name(filename:join(RootDir, "e_del_dir")),
     io:format("Base: ~p", [Base]),
@@ -2445,7 +2363,6 @@ e_del_dir(Config) when is_list(Config) ->
 	    ?FILE_MODULE:write_file_info( Base, #file_info {mode=8#600})
     end,
     [] = flush(),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2492,8 +2409,6 @@ remove_crs([], Result) ->
     lists:reverse(Result).
 
 try_read_file_list(Fd) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     %% Seek to the current position (nothing should happen).
 
     ?line {ok, 0} = ?FILE_MODULE:position(Fd, 0),
@@ -2534,12 +2449,9 @@ try_read_file_list(Fd) ->
 
     ?line ?FILE_MODULE:close(Fd),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 try_read_file_binary(Fd) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     %% Seek to the current position (nothing should happen).
 
     ?line {ok, 0} = ?FILE_MODULE:position(Fd, 0),
@@ -2576,12 +2488,9 @@ try_read_file_binary(Fd) ->
 
     ?line ?FILE_MODULE:close(Fd),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 read_cooked_tar_problem(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     ?line Data = ?config(data_dir, Config),
     ?line ProblemFile = filename:join(Data, "cooked_tar_problem.tar.gz"),
     ?line {ok,Fd} = ?FILE_MODULE:open(ProblemFile, [read,compressed,binary]),
@@ -2594,7 +2503,6 @@ read_cooked_tar_problem(Config) when is_list(Config) ->
     
     ?line ok = file:close(Fd),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -2603,7 +2511,6 @@ read_cooked_tar_problem(Config) when is_list(Config) ->
 write_compressed(suite) -> [];
 write_compressed(doc) -> [];
 write_compressed(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Priv = ?config(priv_dir, Config),
     ?line MyFile = filename:join(Priv, 
 				 atom_to_list(?MODULE)++"_test.gz"),
@@ -2656,7 +2563,6 @@ write_compressed(Config) when is_list(Config) ->
     %% Done.
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2684,7 +2590,6 @@ catenated_gzips(Config) when is_list(Config) ->
 compress_errors(suite) -> [];
 compress_errors(doc) -> [];
 compress_errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line DataDir = 
 	filename:dirname(
 	  filename:join(?config(data_dir, Config), "x")),
@@ -2711,7 +2616,6 @@ compress_errors(Config) when is_list(Config) ->
     ?line ?FILE_MODULE:close(Fd),
 
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2806,7 +2710,6 @@ altname(doc) ->
 altname(suite) ->
     [];
 altname(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 "long alternative path name with spaces"),
@@ -2829,14 +2732,12 @@ altname(Config) when is_list(Config) ->
 		ok
 	end,
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     Result.
 
 
 make_link(doc) -> "Test creating a hard link.";
 make_link(suite) -> [];
 make_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
@@ -2869,7 +2770,6 @@ make_link(Config) when is_list(Config) ->
 	end,
     
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     Result.
 
 read_link_info_for_non_link(doc) ->
@@ -2877,20 +2777,16 @@ read_link_info_for_non_link(doc) ->
 	"(on all platforms).";
 read_link_info_for_non_link(suite) -> [];
 read_link_info_for_non_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-
     ?line {ok, #file_info{type=directory}} = 
 	?FILE_MODULE:read_link_info("."),
     {ok, #file_info{type=directory}} = ?FILE_MODULE:read_link_info(".", [raw]),
 		  
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 symlinks(doc) -> "Test operations on symbolic links (for Unix).";
 symlinks(suite) -> [];
 symlinks(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line {error, _} = ?FILE_MODULE:read_link(lists:duplicate(10000,$a)),
     {error, _} = ?FILE_MODULE:read_link_all(lists:duplicate(10000,$a)),
     ?line RootDir = ?config(priv_dir, Config),
@@ -2930,7 +2826,6 @@ symlinks(Config) when is_list(Config) ->
 	  end,
     
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     Result.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2938,7 +2833,6 @@ symlinks(Config) when is_list(Config) ->
 copy(doc) -> [];
 copy(suite) -> [];
 copy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     %% Create a text file.
     ?line Name1 = filename:join(RootDir, atom_to_list(?MODULE)++"_copy_1.txt"),
@@ -2993,7 +2887,6 @@ copy(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Handle2a),
     ?line ok = ?FILE_MODULE:close(Handle3a),
     ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -3108,8 +3001,6 @@ delayed_write(doc) ->
     ["Tests the file open option {delayed_write, Size, Delay}"];
 
 delayed_write(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(20)),
-    
     RootDir = ?config(priv_dir, Config),
     File = filename:join(RootDir, 
           	       atom_to_list(?MODULE)++"_delayed_write.txt"),
@@ -3223,14 +3114,12 @@ delayed_write(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:close(Fd5),
     %%
     [] = flush(),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 
 pid2name(doc) -> "Tests file:pid2name/1.";
 pid2name(suite) -> [];
 pid2name(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line Base = test_server:temp_name(
 		   filename:join(RootDir, "pid2name_")),
@@ -3244,8 +3133,6 @@ pid2name(Config) when is_list(Config) ->
     ?line test_server:sleep(1000),
     ?line false = is_process_alive(Pid),
     ?line undefined = file:pid2name(Pid),
-    %%
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -3257,8 +3144,6 @@ read_ahead(doc) ->
     ["Tests the file open option {read_ahead, Size}"];
 
 read_ahead(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(20)),
-    %%
     ?line RootDir = ?config(priv_dir, Config),
     ?line File = filename:join(RootDir, 
 			       atom_to_list(?MODULE)++"_read_ahead.txt"),
@@ -3309,7 +3194,6 @@ read_ahead(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(Fd5),
     %%
     ?line [] = flush(),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 
@@ -3323,8 +3207,6 @@ segment_read(suite) ->
 segment_read(doc) ->
     ["Tests the segmenting of large reads"];
 segment_read(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(60)),
-    %%
     ?line Name = filename:join(?config(priv_dir, Config),
 			       ?MODULE_STRING ++ "_segment_read"),
     ?line SegSize = 256*1024,
@@ -3448,7 +3330,6 @@ segment_read(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(FD5),
     %%
     ?line [] = flush(),
-    ?line ?t:timetrap_cancel(Dog),
     {comment, Comment}.
 
 
@@ -3462,8 +3343,6 @@ segment_write(suite) ->
 segment_write(doc) ->
     ["Tests the segmenting of large writes"];
 segment_write(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(60)),
-    %%
     ?line Name = filename:join(?config(priv_dir, Config),
 			       ?MODULE_STRING ++ "_segment_write"),
     ?line SegSize = 256*1024,
@@ -3642,7 +3521,6 @@ segment_write(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(FD7),
     %%
     ?line [] = flush(),
-    ?line ?t:timetrap_cancel(Dog),
     {comment, Comment}.
 
 
@@ -3653,8 +3531,6 @@ ipread(suite) ->
 ipread(doc) ->
     ["Test Dets special indirect pread"];
 ipread(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(30)),
-    %%
     ?line Dir = ?config(priv_dir, Config),
     ?line ok = ipread_int(Dir, [raw, binary]),
     ?line ok = ipread_int(Dir, [raw]),
@@ -3664,7 +3540,6 @@ ipread(Config) when is_list(Config) ->
     ?line ok = ipread_int(Dir, [ram]),
     %%
     ?line [] = flush(),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 ipread_int(Dir, ModeList) ->
@@ -3753,8 +3628,6 @@ interleaved_read_write(suite) ->
 interleaved_read_write(doc) ->
     ["Tests interleaved read and writes"];
 interleaved_read_write(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(30)),
-    %%
     ?line Dir = ?config(priv_dir, Config),
     ?line File = 
 	filename:join(Dir, ?MODULE_STRING++"interleaved_read_write.txt"),
@@ -3775,7 +3648,6 @@ interleaved_read_write(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:close(F2),
     %%
     ?line [] = flush(),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3785,7 +3657,6 @@ otp_5814(suite) ->
 otp_5814(doc) ->
     ["OTP-5814. eval/consult/script return correct line numbers"];
 otp_5814(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(10)),
     PrivDir = ?config(priv_dir, Config),
     File = filename:join(PrivDir, "otp_5814"),
     Path = [PrivDir],
@@ -3815,7 +3686,6 @@ otp_5814(Config) when is_list(Config) ->
     ?line {error, {1, file, {throw, apa, _}}} = file:eval(File),
 
     file:delete(File),
-    ?line ?t:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3867,6 +3737,9 @@ rpc_call(N, F, As) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+large_file() ->
+    [{timetrap,{minutes,20}}].
+
 large_file(suite) ->
     [];
 large_file(doc) ->
@@ -3877,8 +3750,6 @@ large_file(Config) when is_list(Config) ->
 			"_large_file").
 
 do_large_file(Name) ->
-    ?line Watchdog = ?t:timetrap(?t:minutes(20)),
-
     ?line S = "1234567890",
     L = length(S),
     R = lists:reverse(S),
@@ -3913,8 +3784,7 @@ do_large_file(Name) ->
     ?line {ok,PL}  = ?FILE_MODULE:position(F1, {eof,-L}),
     ?line {ok,R}   = ?FILE_MODULE:read(F1, L+1),
     ?line ok       = ?FILE_MODULE:close(F1),
-    %%
-    ?line ?t:timetrap_cancel(Watchdog),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
