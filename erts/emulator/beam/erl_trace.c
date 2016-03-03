@@ -1000,7 +1000,7 @@ erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, ErtsTracer *tracer)
     mfa = TUPLE3(hp, mod, name, make_small(arity));
     hp += 4;
     send_to_tracer_nif_raw(p, NULL, *tracer, *tracee_flags, p->common.id,
-                           NULL, TRACE_FUN_DEFAULT, am_return_from, mfa, retval, am_true);
+                           NULL, TRACE_FUN_CALL, am_return_from, mfa, retval, am_true);
 }
 
 /* Send {trace_ts, Pid, exception_from, {Mod, Name, Arity}, {Class,Value}, 
@@ -1055,7 +1055,7 @@ erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
     cv = TUPLE2(hp, class, value);
     hp += 3;
     send_to_tracer_nif_raw(p, NULL, *tracer, *tracee_flags, p->common.id,
-                           NULL, TRACE_FUN_DEFAULT, am_exception_from, mfa_tuple, cv, am_true);
+                           NULL, TRACE_FUN_CALL, am_exception_from, mfa_tuple, cv, am_true);
 }
 
 /*

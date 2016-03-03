@@ -193,6 +193,52 @@ TRACEPOINT_EVENT(
     )
 )
 
+/* Call tracing */
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    function_call,
+    TP_ARGS(
+        char*, pid,
+        char*, mfa,
+        unsigned int, depth
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(entry, mfa)
+        ctf_integer(unsigned int, depth, depth)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    function_return,
+    TP_ARGS(
+        char*, pid,
+        char*, mfa,
+        unsigned int, depth
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(entry, mfa)
+        ctf_integer(unsigned int, depth, depth)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    function_exception,
+    TP_ARGS(
+        char*, pid,
+        char*, mfa,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(entry, mfa)
+        ctf_string(class, type)
+    )
+)
 
 /* Process messages */
 
