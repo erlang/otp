@@ -186,7 +186,7 @@ prefix_arg(N) -> N.
 key_map(A, _) when is_atom(A) -> A;		% so we can push keywords
 key_map($\^A, none) -> beginning_of_line;
 key_map($\^B, none) -> backward_char;
-key_map($\^D, none) -> forward_delete_char;
+key_map($\^D, none) -> forward_delete_char_with_halt_on_empty;
 key_map($\^E, none) -> end_of_line;
 key_map($\^F, none) -> forward_char;
 key_map($\^H, none) -> backward_delete_char;
@@ -361,6 +361,11 @@ do_op(auto_blink, Bef, Aft, Rs) ->
 	N -> {blink,N+1,{Bef,Aft},
 	      [{move_rel,-(N+1)}|Rs]}
     end;
+
+do_op(forward_delete_char_with_halt_on_empty, [], [], Rs) ->
+    {{[], []}, [{halt, 0}, {put_chars, unicode, [$\n]}|Rs]};
+do_op(forward_delete_char_with_halt_on_empty, Bef, [_|Aft], Rs) ->
+    {{Bef,Aft},[{delete_chars,1}|Rs]};
 do_op(forward_delete_char, Bef, [_|Aft], Rs) ->
     {{Bef,Aft},[{delete_chars,1}|Rs]};
 do_op(backward_delete_char, [_|Bef], Aft, Rs) ->

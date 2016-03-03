@@ -572,6 +572,8 @@ io_command({delete_chars,N}) ->
     {command,[?OP_DELC|put_int16(N, [])]};
 io_command(beep) ->
     {command,[?OP_BEEP]};
+io_command({halt, Status}) ->
+    erlang:halt(Status);
 io_command(Else) ->
     throw(Else).
 
