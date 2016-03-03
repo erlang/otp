@@ -3892,9 +3892,13 @@ error:
      * Must unlink all off-heap objects that may have been
      * linked into the process. 
      */
-    if (factory->hp < hp) { /* Sometimes we used hp and sometimes factory->hp */
-	factory->hp = hp;   /* the largest must be the freshest */
+    if (factory->mode != FACTORY_CLOSED) {
+	if (factory->hp < hp) { /* Sometimes we used hp and sometimes factory->hp */
+	    factory->hp = hp;   /* the largest must be the freshest */
+	}
     }
+    else ASSERT(factory->hp == hp);
+
 error_hamt:
     erts_factory_undo(factory);
     PSTACK_DESTROY(hamt_array);
