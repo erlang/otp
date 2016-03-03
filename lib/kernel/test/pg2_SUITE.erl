@@ -606,7 +606,7 @@ start_nodes2([Name | Rest], How, N, Config) ->
 		  Self ! {N, R},
 		  %% sleeping is necessary, or with peer nodes, they will
 		  %% go down again, despite {linked, false}.
-		  test_server:sleep(100000)
+		  ct:sleep(100000)
 	  end),
     start_nodes2(Rest, How, N+1, Config).
 

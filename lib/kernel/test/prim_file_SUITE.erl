@@ -927,7 +927,7 @@ file_info_int(Config, Handle, Suffix) ->
     %% Sleep until we can be sure the seconds value has changed.
     %% Note: FAT-based filesystem (like on Windows 95) have
     %% a resolution of 2 seconds.
-    ?line test_server:sleep(test_server:seconds(2.2)),
+    ct:sleep({seconds,2.2}),
 
     %% close the file, and watch the modify date change
     ?line ok = ?PRIM_FILE:close(Fd1),

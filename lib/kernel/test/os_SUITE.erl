@@ -84,7 +84,7 @@ space_in_cwd(Config) when is_list(Config) ->
 		  ct:fail({unexpected, Other})
 	  end,
 
-    ?t:sleep(5),
+    ct:sleep(5),
     ?line [] = receive_all(),
     ok.
 
@@ -101,7 +101,7 @@ quoting(Config) when is_list(Config) ->
     ?line comp("x::one two", os:cmd(Echo ++ " x \"one two\"")),
     ?line comp("one two::y", os:cmd(Echo ++ " \"one two\" y")),
     ?line comp("x::::y", os:cmd(Echo ++ " x \"\" y")),
-    ?t:sleep(5),
+    ct:sleep(5),
     ?line [] = receive_all(),
     ok.
 
@@ -115,7 +115,7 @@ cmd_unicode(Config) when is_list(Config) ->
     ?line comp("one", os:cmd(Echo ++ " one")),
     ?line comp("one::two", os:cmd(Echo ++ " one two")),
     ?line comp("åäö::ϼΩ", os:cmd(Echo ++ " åäö " ++ [1020, 937])),
-    ?t:sleep(5),
+    ct:sleep(5),
     ?line [] = receive_all(),
     ok.
 
@@ -158,7 +158,7 @@ space_in_name(Config) when is_list(Config) ->
 	    end,
     ?line comp("", os:cmd(Quote ++ Echo ++ Quote)),
     ?line comp("a::b::c", os:cmd(Quote ++ Echo ++ Quote ++ " a b c")),
-    ?t:sleep(5),
+    ct:sleep(5),
     ?line [] = receive_all(),
     ok.
 
@@ -257,7 +257,7 @@ unix_comment_in_command(Config) when is_list(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     ?line ok = file:set_cwd(Priv),
     ?line _ = os:cmd("ls #"),			% Any result is ok.
-    ?t:sleep(5),
+    ct:sleep(5),
     ?line [] = receive_all(),
     ok.
 

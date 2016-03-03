@@ -138,9 +138,9 @@ multicall_timeout(Config) when is_list(Config) ->
     ?line {ok, N4} = ?t:start_node('2_rcp_SUITE_multicall', slave, 
 				   [{args, "-pa " ++ PA}]),
     ?line ok = io:format("~p~n", [[N1, N2]]),
-    ?line {[{hej,_,N3},{hej,_,N4}],[N1, N2]} = 
-	   rpc:multicall([N3, N1, N2, N4], ?MODULE, f, [], ?t:seconds(6)),
-    ?t:sleep(?t:seconds(8)), %% Wait for late answers
+    {[{hej,_,N3},{hej,_,N4}],[N1, N2]} =
+	rpc:multicall([N3, N1, N2, N4], ?MODULE, f, [], 6000),
+    ct:sleep({seconds,8}),			%Wait for late answers
     ?line Msgs = flush([]),
     ?line [] = Msgs,
     ?line ?t:stop_node(N1),
@@ -481,7 +481,7 @@ async_call(Config) when is_list(Config) ->
     ?line timeout = rpc:nb_yield(Promise2, 10),
 
     %% Let Node1 finish its work before yielding.
-    ?t:sleep(?t:seconds(2)),
+    ct:sleep({seconds,2}),
     ?line {hej,_,Node1} = rpc:yield(Promise1),
 
     %% Wait for the Node2 and Node3.

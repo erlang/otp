@@ -89,7 +89,7 @@ sync(Conf) when is_list(Conf) ->
     io:format("Command: ~s", [Command]),
     ?line open_port({spawn, Command}, [stream]),
     io:format("started~n"),
-    ?line ?t:sleep(12000),
+    ct:sleep(12000),
     io:format("waited12~n"),
     ?line Host = from($@, atom_to_list(node())),
     ?line Cp1 = list_to_atom("cp1@"++Host),

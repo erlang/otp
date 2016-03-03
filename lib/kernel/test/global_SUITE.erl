@@ -683,7 +683,7 @@ locks(Config) when is_list(Config) ->
     ?line true = req(Pid3, {set_lock, test_lock2, self()}),
     % del one lock
     ?line Pid3 ! {del_lock, test_lock2},
-    ?line test_server:sleep(100),
+    ct:sleep(100),
     % check that one lock is still set, but not the other
     ?line false = global:set_lock({test_lock, self()}, ?NODES, 1),    
     ?line true = global:set_lock({test_lock2, self()}, ?NODES, 1),    
@@ -722,10 +722,10 @@ locks(Config) when is_list(Config) ->
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
-    ?line test_server:sleep(100),
+    ct:sleep(100),
     ?line true = req(Pid8, {set_lock, test_lock, self()}),
     exit_p(Pid8),
-    ?line test_server:sleep(10),
+    ct:sleep(10),
 
     ?line init_condition(Config),
     ok.
@@ -864,7 +864,7 @@ names_and_locks(Config) when is_list(Config) ->
     ?line false = req(Pid3, {set_lock, test_lock, self(), [Cp2, Cp3]}),
     % release lock
     Pid2 ! {del_lock, test_lock, [Cp2, Cp3]},
-    ?line test_server:sleep(100),
+    ct:sleep(100),
     % try to set lock on a node that already has the lock
     ?line false = req(Pid2, {set_lock, test_lock, self(), [Cp1, Cp2, Cp3]}),
     % set two locks
@@ -1100,7 +1100,7 @@ basic_name_partition(Config) when is_list(Config) ->
     % start different processes in both partitions
     ?line {_, yes} = start_proc_basic(name03),
     ?line {_, yes} = rpc:call(Cp1, ?MODULE, start_proc_basic, [name12]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
 
     % connect to other partition
     ?line pong = net_adm:ping(Cp3),
@@ -1401,7 +1401,7 @@ ring(Config) when is_list(Config) ->
     ?line rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
     
     % sleep to make the partitioned net ready
-    test_server:sleep(Time - msec()),
+    ct:sleep(Time - msec()),
 
     ?line pong = net_adm:ping(Cp0),
     ?line pong = net_adm:ping(Cp1),
@@ -1488,7 +1488,7 @@ simple_ring(Config) when is_list(Config) ->
     ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
     
     % sleep to make the partitioned net ready
-    test_server:sleep(Time - msec()),
+    ct:sleep(Time - msec()),
 
     ?line pong = net_adm:ping(Cp0),
     ?line pong = net_adm:ping(Cp1),
@@ -1568,7 +1568,7 @@ line(Config) when is_list(Config) ->
     ?line rpc_cast(Cp8, ?MODULE, single_node, [Time, Cp7, Config]),
 
     % sleep to make the partitioned net ready
-    test_server:sleep(Time - msec()),
+    ct:sleep(Time - msec()),
 
     ?line pong = net_adm:ping(Cp0),
     ?line pong = net_adm:ping(Cp1),
@@ -1656,7 +1656,7 @@ simple_line(Config) when is_list(Config) ->
     ?line rpc_cast(Cp5, ?MODULE, single_node, [Time, Cp4, Config]),
     
     % sleep to make the partitioned net ready
-    test_server:sleep(Time - msec()),
+    ct:sleep(Time - msec()),
 
     ?line pong = net_adm:ping(Cp0),
     ?line pong = net_adm:ping(Cp1),
@@ -1889,7 +1889,7 @@ otp_5640(Config) when is_list(Config) ->
     ?line ok = application:set_env(kernel, global_multi_name_action, allow),
     ?line yes = global:register_name(name2, Proc),
 
-    test_server:sleep(100),
+    ct:sleep(100),
     ?line Proc = global:whereis_name(name1),
     ?line Proc = global:whereis_name(name2),
     ?line check_everywhere(Nodes, name1, Config),
@@ -1900,7 +1900,7 @@ otp_5640(Config) when is_list(Config) ->
     ?line {links,[]} = process_info(Proc, links),
     ?line _ = global:unregister_name(name1),
 
-    test_server:sleep(100),
+    ct:sleep(100),
     ?line undefined = global:whereis_name(name1),
     ?line Proc = global:whereis_name(name2),
     ?line check_everywhere(Nodes, name1, Config),
@@ -1916,7 +1916,7 @@ otp_5640(Config) when is_list(Config) ->
 
     Proc ! die,
 
-    test_server:sleep(100),
+    ct:sleep(100),
     ?line undefined = global:whereis_name(name1),
     ?line undefined = global:whereis_name(name2),
     ?line check_everywhere(Nodes, name1, Config),
@@ -2004,11 +2004,11 @@ simple_disconnect(Config) when is_list(Config) ->
 
     ?line {_Pid1, yes} = 
         rpc:call(Cp1, ?MODULE, start_resolver, [Name, Resolver]),
-    test_server:sleep(100),
+    ct:sleep(100),
 
     %% Disconnect test_server and Cp2. 
     ?line true = erlang:disconnect_node(Cp2),
-    test_server:sleep(500),
+    ct:sleep(500),
 
     %% _Pid is registered on Cp1. The exchange of names between Cp2 and
     %% test_server sees two identical pids.
@@ -2325,7 +2325,7 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
     %% Wait for extra monitor processes to be created.
     %% This applies as long as global:do_monitor/1 spawns processes.
     %% (Some day monitor() will be truly synchronous.)
-    test_server:sleep(100),
+    ct:sleep(100),
 
     ?line lists:foreach(fun(P) -> P ! die end, Resolvers),
     ?line lists:foreach(fun(P) -> wait_for_exit(P) end, Resolvers),
@@ -2334,7 +2334,7 @@ res({Res,Resolver}, [N1, A2, Z2], Cf) ->
     ?line undefined = global:whereis_name(Name),
 
     %% Wait for monitors to remove names.
-    test_server:sleep(100),
+    ct:sleep(100),
 
     ?line {_, Trace1} = collect_tracers(Nodes),
     Trace = Trace0 ++ Trace1, 
@@ -2500,12 +2500,12 @@ leftover_name(Config) when is_list(Config) ->
     ?line {_Pid1, yes} = 
         rpc:call(N1, ?MODULE, start_resolver, 
                  [ResName, fun contact_a_2/3]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
 
     ?line trace_message({node(), pinging, z_2}),
     ?line pong = net_adm:ping(Z2),
     ?line ?UNTIL((Nodes -- [A2]) =:= lists:sort(?NODES)),
-    ?t:sleep(1000),
+    ct:sleep(1000),
 
     ?line {_,Trace0} = collect_tracers(Nodes),
 
@@ -2629,7 +2629,7 @@ do_name_exit(StartFun, Version, Config) ->
     Pid ! die,                    
     wait_for_exit_fast(Pid),
 
-    ?t:sleep(100),
+    ct:sleep(100),
     %% Name has been removed from node()'s table, but nowhere else
     %% since there is a lock on 'global'.
     {R1,[]} = rpc:multicall(Nodes, global, whereis_name, [Name]),
@@ -2637,7 +2637,7 @@ do_name_exit(StartFun, Version, Config) ->
               old -> [_,_] = lists:usort(R1);
               current -> [undefined, undefined, undefined] = R1
           end,
-    ?t:sleep(3000),
+    ct:sleep(3000),
     ?line check_everywhere(Nodes, Name, Config),
 
     lists:foreach(fun(N) -> rpc:call(N, ?MODULE, stop_tracer, []) end, Nodes),
@@ -2704,7 +2704,7 @@ external_nodes(Config) when is_list(Config) ->
     ?line Cpid ! {register, self(), Name},
     ?line receive {Cpid, Reply1} -> no = Reply1 end,
     ?line _ = global:unregister_name(Name),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     ?line Cpid ! {register, self(), Name},
     ?line ?UNTIL(length(get_ext_names()) =:= 1),
     ?line receive {Cpid, Reply2} -> yes = Reply2 end,
@@ -3619,7 +3619,7 @@ single_node(Time, Node, Config) ->
     lists:foreach(fun(N) -> _ = erlang:disconnect_node(N) end, nodes()),
     ?UNTIL(get_known(node()) =:= [node()]),
     spawn(?MODULE, init_2, []),
-    test_server:sleep(Time - msec()),
+    ct:sleep(Time - msec()),
     net_adm:ping(Node).
 
 init_2() ->
@@ -3681,13 +3681,15 @@ sreq(Pid, Msg) ->
 alone(N1, N2) ->
     lists:foreach(fun(Node) -> true = erlang:disconnect_node(Node) end,
                   nodes()),
-    test_server:sleep(12000),
+    ct:sleep(12000),
     net_adm:ping(N1),
     net_adm:ping(N2),
     yes = global:register_name(test5, self()).
 
 crash(Time) ->
-    test_server:sleep(Time),
+    %% ct:sleep/1 will not work because it calls a server process
+    %% that does not run on other nodes.
+    timer:sleep(Time),
     erlang:halt().
 
 loop() ->
@@ -3797,7 +3799,7 @@ start_node(Name0, How, Args, Config) ->
 					   {linked, false}
 ]),
     %% {linked,false} only seems to work for slave nodes.
-%    test_server:sleep(1000),
+%    ct:sleep(1000),
     record_started_node(R).
 
 start_node_rel(Name0, Rel, Config) ->
@@ -3903,7 +3905,7 @@ global_load1(_OtherNode, _OtherName, 2) ->
     io:format("*** ~p giving up. No use.", [node()]),
     init:stop();
 global_load1(OtherNode, OtherName, Fails) ->	
-    test_server:sleep(1000),
+    ct:sleep(1000),
     ?line case catch global:whereis_name(OtherName) of
 	      Pid when is_pid(Pid) ->
 		  io:format("~p says: ~p is still there.",
@@ -3956,7 +3958,7 @@ mass_death(Config) when is_list(Config) ->
     ?line {Pids,[]} = rpc:multicall(Nodes, ?MODULE, mass_spawn, [Ns]),
     ?line io:format("Pids: ~p~n", [Pids]),
     %% Wait...
-    ?line test_server:sleep(10000),
+    ct:sleep(10000),
     %% Check the globally registered names
     ?line NewNames = global:registered_names(),
     ?line io:format("NewNames: ~p~n", [NewNames]),
@@ -3987,7 +3989,7 @@ wait_mass_death(Nodes, OrigNames, Then, Config) ->
  		{comment,lists:flatten(io_lib:format("~.3f s~n", [T/1000.0]))};
 	    Ndiff ->
 		?line io:format("Ndiff: ~p~n", [Ndiff]),
-		?line test_server:sleep(1000),
+		ct:sleep(1000),
 		?line wait_mass_death(Nodes, OrigNames, Then, Config)
 	end.
 
@@ -4075,7 +4077,7 @@ start_nodes2([Name | Rest], How, N, Config) ->
 		  Self ! {N, R},
 		  %% sleeping is necessary, or with peer nodes, they will
 		  %% go down again, despite {linked, false}.
-		  test_server:sleep(100000)
+		  ct:sleep(100000)
 	  end),
     start_nodes2(Rest, How, N+1, Config).
 
@@ -4172,7 +4174,7 @@ garbage_messages(Config) when is_list(Config) ->
 		  end
 	  end,
     ?line Pid = spawn_link(Slave, erlang, apply, [Fun,[]]),
-    ?t:sleep(2000),
+    ct:sleep(2000),
     ?line Global = rpc:call(Slave, erlang, whereis, [global_name_server]),
     ?line {registered_name,global_name_server} =
 	rpc:call(Slave, erlang, process_info, [Global,registered_name]),

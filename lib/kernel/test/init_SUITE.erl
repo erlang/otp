@@ -440,7 +440,7 @@ wait_restart(N, Node) ->
     case net_adm:ping(Node) of
 	pong -> ok;
 	_ -> 
-	    ?t:sleep(1000),
+	    ct:sleep(1000),
 	    wait_restart(N - 1, Node)
     end.
 
@@ -482,7 +482,7 @@ reboot(Config) when is_list(Config) ->
 		  stop_node(Node),
 		  ct:fail(not_stopping)
 	  end,
-    ?t:sleep(5000),
+    ct:sleep(5000),
     ?line case net_adm:ping(Node) of
 	      pang ->
 		  ok;
@@ -509,7 +509,7 @@ stop(Config) when is_list(Config) ->
 		  stop_node(Node),
 		  ct:fail(not_stopping)
 	  end,
-    ?t:sleep(5000),
+    ct:sleep(5000),
     ?line case net_adm:ping(Node) of
 	      pang ->
 		  ok;

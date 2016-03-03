@@ -193,7 +193,7 @@ failover(Conf) when is_list(Conf) ->
     global:sync(),
     ok = rpc:call(Cp1_3, application, load, [app_sp()]),
     ok = rpc:call(Cp1_3, application, start, [app_sp, permanent]),
-    test_server:sleep(500),
+    ct:sleep(500),
     false = is_started(app_sp, Cp1_3),
     true = is_started(app_sp, Cp2_2),
 
@@ -303,7 +303,7 @@ failover_comp(Conf) when is_list(Conf) ->
     ok = rpc:call(Cp1_3, application, load, [app3()]),
     true = is_loaded(app3, Cp1_3),
     ok = rpc:call(Cp1_3, application, start, [app3, permanent]),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     false = is_started(app3, Cp1_3),
     true = is_started(app3, Cp2_2),
 
@@ -377,7 +377,7 @@ permissions(Conf) when is_list(Conf) ->
     ?UNTIL(is_loaded(app3, Cps)),
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, start, [app3, permanent]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
@@ -688,14 +688,14 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     {[ok,ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2, Cp3], application, load, [app3()]),
 
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
     %Permit a not started application
     ok = rpc:call(Cp1, application, permit, [app3, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
@@ -703,14 +703,14 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     %Permit a not loaded application
     {error,{not_loaded,app_notloaded}} = 
 	rpc:call(Cp1, application, permit, [app_notloaded, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app_notloaded, Cp1),
     false = is_started(app_notloaded, Cp2),
     false = is_started(app_notloaded, Cp3),
 
     %Unpermit a not started application
     ok = rpc:call(Cp1, application, permit, [app3, false]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
@@ -718,7 +718,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     %Unpermit a not loaded application
     {error,{not_loaded,app_notloaded}} = 
 	rpc:call(Cp1, application, permit, [app_notloaded, false]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app_notloaded, Cp1),
     false = is_started(app_notloaded, Cp2),
     false = is_started(app_notloaded, Cp3),
@@ -731,7 +731,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
 
     % Permit it again
     ok = rpc:call(Cp1, application, permit, [app1, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
@@ -756,7 +756,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
 
     % Unpermit it agin
     ok = rpc:call(Cp1, application, permit, [app1, false]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app1, Cp1),
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
@@ -775,7 +775,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
 
     % Unpermit app1 on CP2 and make sure it is stopped
     ok = rpc:call(Cp2, application, permit, [app1, false]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     ?UNTIL(false =:= is_started(app1, Cp2)),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp3),
@@ -816,14 +816,14 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app2()]),
 
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
     %Permit a not started application
     ok = rpc:call(Cp1, application, permit, [app2, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app2, Cp1),
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
@@ -831,7 +831,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     %Permit a not loaded application
     {error,{not_loaded,app3}} = 
 	rpc:call(Cp1, application, permit, [app3, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
@@ -840,7 +840,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     ok = rpc:call(Cp1, application, permit, [app2, false]),
     {[ok,ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2, Cp3], application, start, [app2, permanent]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app2, Cp1),
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
@@ -853,7 +853,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     ?UNTIL(is_loaded(app3, Cps)),
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, start, [app3, permanent]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
@@ -878,7 +878,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
 
     % Permit app1 on CP2 and make sure it is not started
     ok = rpc:call(Cp2, application, permit, [app1, true]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
@@ -945,7 +945,7 @@ nodedown_start(Conf) when is_list(Conf) ->
     {[ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
     _ = rpc:cast(Cp2, application, start, [app1, permanent]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
 
     % Crash CP1 and make sure app1 is started on CP2
     stop_node_nice(Cp1),
@@ -1179,7 +1179,7 @@ otp_2718(Conf) when is_list(Conf) ->
     ?UNTIL(is_loaded(trans_normal, Cp1)),
     {error, {{'EXIT',normal},_}} =
 	rpc:call(Cp1, application, start, [trans_normal, transient]),
-    test_server:sleep(2000),
+    ct:sleep(2000),
     false = is_started(trans_normal, Cp1),
 
     %% abnormal exit from the application
@@ -1187,7 +1187,7 @@ otp_2718(Conf) when is_list(Conf) ->
     {error, {bad_return,{{trans_abnormal_sup,start,[normal,[]]},
 			       {'EXIT',abnormal}}}} =
 	rpc:call(Cp1, application, start, [trans_abnormal, transient]),
-    test_server:sleep(3000),
+    ct:sleep(3000),
     {badrpc,nodedown} = which_applications(Cp1),
     ok.
 
@@ -1301,7 +1301,7 @@ otp_3184(Conf) when is_list(Conf) ->
     % Start app1 and make sure it is not started
     {[ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
-    test_server:sleep(3000),
+    ct:sleep(3000),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
 
@@ -1469,11 +1469,11 @@ otp_4227(Conf) when is_list(Conf) ->
 
     %% Start app9 and brutally kill it, then try to start app10
     ok = rpc:call(Cp1, application, start, [app9]),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     Pid9 = rpc:call(Cp1, erlang, whereis, [ch_sup19]),
     true = erlang:is_pid(Pid9),
     true = erlang:exit(Pid9, kill),
-    test_server:sleep(1000),
+    ct:sleep(1000),
 
     %% This gave {error, no_report} before the patch
     {error, {not_running, app9}} = 
@@ -1751,7 +1751,7 @@ distr_changed_tc1(Conf) when is_list(Conf) ->
 	rpc:multicall([Cp1, Cp2, Cp3], 
 		      application_controller, config_change, [OldEnv]),
     
-    test_server:sleep(7000),
+    ct:sleep(7000),
     
     DcInfo1 = rpc:call(Cp1, dist_ac, info, []),
     DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
@@ -1837,9 +1837,9 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 	rpc:multicall([Cp1, Cp2, Cp3], 
 		      application_controller, config_change, [OldEnv]),
     
-    test_server:sleep(4000),
+    ct:sleep(4000),
     stop_node_nice(Cp1),   
-    test_server:sleep(10000),
+    ct:sleep(10000),
 
 %    _DcInfo1 = rpc:call(Cp1, dist_ac, info, []),
     _DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
@@ -1876,7 +1876,7 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
 
 
     {ok, Cp1} = start_node_boot(Ncp1, Config2, dc),
-    test_server:sleep(10000),
+    ct:sleep(10000),
 
     _DcInfo1rs = rpc:call(Cp1, dist_ac, info, []),
     _DcInfo2rs = rpc:call(Cp2, dist_ac, info, []),
@@ -2600,7 +2600,7 @@ wait_until_started(Name, Nodes) ->
 	true ->
 	    true;
 	false ->
-	    test_server:sleep(500),
+	    ct:sleep(500),
 	    wait_until_started(Name, Nodes)
     end.
 
@@ -2614,7 +2614,7 @@ wait_until_stopped(Name, Nodes) ->
 	false ->
 	    true;
 	true ->
-	    test_server:sleep(500),
+	    ct:sleep(500),
 	    wait_until_stopped(Name, Nodes)
     end.
 

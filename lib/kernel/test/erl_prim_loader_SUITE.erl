@@ -181,7 +181,7 @@ inet_coming_up(Config) when is_list(Config) ->
     Node = start_node_using_inet(Name, [{wait,false}]),
 
     %% Wait a while, then start boot server, and wait for node to start.
-    test_server:sleep(test_server:seconds(6)),
+    ct:sleep({seconds,6}),
     BootPid = start_boot_server(),
     wait_really_started(Node, 25),
 
@@ -199,7 +199,7 @@ wait_really_started(Node, N) ->
  	{started, _} ->
  	    ok;
 	_ ->
-	    test_server:sleep(1000),
+	    ct:sleep(1000),
  	    wait_really_started(Node, N - 1)
     end.
 
@@ -295,11 +295,11 @@ multiple_slaves(Config) when is_list(Config) ->
     %% (note: test_server supervises each node start by accept()
     %% on a socket, the timeout value for the accept has to be quite 
     %% long for this test to work).
-    ?line test_server:sleep(test_server:seconds(5)),
+    ct:sleep({seconds,5}),
     %% start the code loading circus!
     BootPid = start_boot_server(),
     %% give the nodes a chance to boot up before attempting to stop them
-    ?line test_server:sleep(test_server:seconds(10)),
+    ct:sleep({seconds,10}),
 
     ?line wait_and_shutdown(lists:reverse(Nodes), 30),
 

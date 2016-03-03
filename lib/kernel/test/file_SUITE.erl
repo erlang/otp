@@ -1484,7 +1484,7 @@ file_info_int(Config) ->
     %% Sleep until we can be sure the seconds value has changed.
     %% Note: FAT-based filesystem (like on Windows 95) have
     %% a resolution of 2 seconds.
-    ?line test_server:sleep(test_server:seconds(2.2)),
+    timer:sleep(2200),
 
     %% close the file, and watch the modify date change
     ?line ok = ?FILE_MODULE:close(Fd1),
@@ -3018,18 +3018,18 @@ delayed_write(Config) when is_list(Config) ->
     {ok, Fd1} = 
 	?FILE_MODULE:open(File, [write, {delayed_write, Size+1, 2000}]),
     ok = ?FILE_MODULE:write(Fd1, Data1),
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Fd2} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd2, 1),
     ok = ?FILE_MODULE:write(Fd1, Data1), % Data flush on size
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 2*Size+1),
     ok = ?FILE_MODULE:write(Fd1, Data1),
-    ?t:sleep(3000), % Wait until data flush on timeout
+    timer:sleep(3000), % Wait until data flush on timeout
     {ok, Data1Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 3*Size+1),
     ok = ?FILE_MODULE:write(Fd1, Data1),
     ok = ?FILE_MODULE:close(Fd1), % Data flush on close
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Data1Data1Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 4*Size+1),
     ok = ?FILE_MODULE:close(Fd2),
     %%
@@ -3063,7 +3063,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref1, _, _, _} = Down1a ->
             ct:fail(Down1a)
     end,
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Fd3} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd3, 1),
     Child1 ! {Parent, continue, normal},
@@ -3073,7 +3073,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref1, _, _, _} = Down1b ->
             ct:fail(Down1b)
     end,
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Data1} = ?FILE_MODULE:pread(Fd3, bof, Size+1),
     ok = ?FILE_MODULE:close(Fd3),
     %%
@@ -3086,7 +3086,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref2, _, _, _} = Down2a ->
             ct:fail(Down2a)
     end,
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     {ok, Fd4} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd4, 1),
     Child2 ! {Parent, continue, kill},
@@ -3096,7 +3096,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref2, _, _, _} = Down2b ->
             ct:fail(Down2b)
     end,
-    ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     eof = ?FILE_MODULE:pread(Fd4, bof, 1),
     ok  = ?FILE_MODULE:close(Fd4),
     %%
@@ -3130,7 +3130,7 @@ pid2name(Config) when is_list(Config) ->
     ?line {ok, Name2} = file:pid2name(Pid),
     ?line undefined = file:pid2name(self()),
     ?line ok = file:close(Pid),
-    ?line test_server:sleep(1000),
+    ct:sleep(1000),
     ?line false = is_process_alive(Pid),
     ?line undefined = file:pid2name(Pid),
     ok.
@@ -3157,15 +3157,15 @@ read_ahead(Config) when is_list(Config) ->
     %% Test caching of normal non-raw file
     ?line {ok, Fd1} = ?FILE_MODULE:open(File, [write]),
     ?line ok = ?FILE_MODULE:write(Fd1, [Data1|Data1]),
-    ?line ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     ?line {ok, Fd2} = ?FILE_MODULE:open(File, [read, {read_ahead, 2*Size}]),
     ?line {ok, Data1} = ?FILE_MODULE:read(Fd2, Size),
     ?line ok = ?FILE_MODULE:pwrite(Fd1, Size, Data2),
-    ?line ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     ?line {ok, Data1} = ?FILE_MODULE:read(Fd2, Size), % Will read cached data
     ?line Data2Data2Data2 = Data2++Data2++Data2,
     ?line ok = ?FILE_MODULE:pwrite(Fd1, eof, Data2Data2Data2),
-    ?line ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     ?line {ok, Data2Data2Data2} = 
 	?FILE_MODULE:read(Fd2, 3*Size), % Read more than cache buffer
     ?line ok = ?FILE_MODULE:close(Fd1),
@@ -3173,11 +3173,11 @@ read_ahead(Config) when is_list(Config) ->
     %% Test caching of raw file and default parameters
     ?line {ok, Fd3} = ?FILE_MODULE:open(File, [raw, write]),
     ?line ok = ?FILE_MODULE:write(Fd3, [Data1|Data1]),
-    ?line ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     ?line {ok, Fd4} = ?FILE_MODULE:open(File, [raw, read, read_ahead]),
     ?line {ok, Data1} = ?FILE_MODULE:read(Fd4, Size),
     ?line ok = ?FILE_MODULE:pwrite(Fd3, Size, Data2),
-    ?line ?t:sleep(1000), % Just in case the file system is slow
+    timer:sleep(1000), % Just in case the file system is slow
     ?line {ok, Data1} = ?FILE_MODULE:read(Fd4, Size), % Will read cached data
     ?line ok = ?FILE_MODULE:close(Fd3),
     ?line ok = ?FILE_MODULE:close(Fd4),

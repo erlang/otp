@@ -126,7 +126,7 @@ start(Config) when is_list(Config) ->
 	{nodedown, Node} -> ok
     after 2000 -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;
@@ -161,7 +161,7 @@ restart(Config) when is_list(Config) ->
     after 2000 ->
 	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     node_check_up_down(Node, 2000),
     loose_node:stop(Node).
 
@@ -183,7 +183,7 @@ reboot(Config) when is_list(Config) ->
     after 2000 ->
 	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     node_check_up_down(Node, 2000),
     ok.
 
@@ -234,7 +234,7 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
     %% and in about 10 s. on solaris (carcharoth)
     after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(3000),
+    timer:sleep(3000),
     node_check_up_down(Node, 2000),
     loose_node:stop(Node).
 
@@ -279,7 +279,7 @@ node_start_soon_after_crash_test(Config) when is_list(Config) ->
     receive {nodedown, Node} -> ok
     after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(20000),
+    timer:sleep(20000),
     node_check_up_down(Node, 15000),
     loose_node:stop(Node).
 
@@ -326,7 +326,7 @@ clear_cmd(Config) when is_list(Config) ->
     after 2000 ->
 	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pong ->
 	    erlang:monitor_node(Node, true);
@@ -343,7 +343,7 @@ clear_cmd(Config) when is_list(Config) ->
     after 2000 ->
 	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;

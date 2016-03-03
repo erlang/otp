@@ -79,12 +79,12 @@ start(Config) when is_list(Config) ->
     ?line exit(Pid1, kill),
 
     %% Test again.
-    test_server:sleep(1),
+    ct:sleep(1),
     ?line {ok, Pid2} = erl_boot_server:start([Host1, Host2]),
     ?line {error, {already_started, Pid2}} =
 	erl_boot_server:start([Host1, Host2]),
     ?line exit(Pid2, kill),
-    test_server:sleep(1),
+    ct:sleep(1),
 
     ok.
 

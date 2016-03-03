@@ -737,7 +737,7 @@ do_iter_max_socks(N, First) when is_integer(First) ->
        true ->
 	    io:format("Sleeping for ~p seconds...~n",
 			    [?RETRY_SLEEP/1000]), 
-	    ?t:sleep(?RETRY_SLEEP),
+	    ct:sleep(?RETRY_SLEEP),
 	    io:format("Trying again...~n", []),
 	    RetryMS = max_socks(),
 	    if RetryMS == First ->
@@ -755,7 +755,7 @@ all_equal([Rule | T]) ->
 all_equal(Rule, [Rule | T]) ->
     all_equal(Rule, T);
 all_equal(_, [_ | _]) ->
-    ?t:sleep(?RECOVER_SLEEP), % Wait a while and *hope* that we'll
+    ct:sleep(?RECOVER_SLEEP), % Wait a while and *hope* that we'll
                                     % recover so other tests won't be
                                     % affected.
     ct:fail(max_socket_mismatch);
@@ -809,7 +809,7 @@ passive_sockets(Config) when is_list(Config) ->
     receive
         {socket,Port} -> ok
     end,
-    ?t:sleep(500),
+    ct:sleep(500),
     case gen_tcp:connect("localhost", Port, [{active, false}]) of
         {ok, Sock} ->
             passive_sockets_read(Sock);
@@ -846,7 +846,7 @@ passive_sockets_server(Opts, Parent) ->
 passive_sockets_server_accept(Sock) ->
     case gen_tcp:accept(Sock) of
         {ok, Socket} ->
-            ?t:sleep(500),   % Simulate latency
+            timer:sleep(500),			% Simulate latency
             passive_sockets_server_send(Socket, 5),
             passive_sockets_server_accept(Sock);
         Error ->
@@ -860,7 +860,7 @@ passive_sockets_server_send(Socket, X) ->
     Data = lists:duplicate(1024*X, $a),
     case gen_tcp:send(Socket, Data) of
         ok ->
-            ?t:sleep(50),   % Simulate some processing.
+            ct:sleep(50),   % Simulate some processing.
             passive_sockets_server_send(Socket, X-1);
         {error, _Reason} ->
             ct:fail("Failed to send data")
@@ -912,7 +912,7 @@ closed_socket(Config) when is_list(Config) ->
     %% in inet_db processes the 'EXIT' message from the port,
     %% the socket is unregistered.
     %%
-    %% test_server:sleep(test_server:seconds(2)),
+    %% ct:sleep({seconds,2})
     %%
     {error, R_send} = gen_tcp:send(LS1, "data"),
     {error, R_recv} = gen_tcp:recv(LS1, 17),
@@ -1129,7 +1129,7 @@ show_econnreset_active_once(Config) when is_list(Config) ->
     ok = gen_tcp:close(L),
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ok = gen_tcp:close(Client),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
     ok = inet:setopts(S, [{active, once}]),
     receive
@@ -1157,7 +1157,7 @@ show_econnreset_passive(Config) when is_list(Config) ->
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S),
-    ok = ?t:sleep(1),
+    ok = ct:sleep(1),
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
@@ -1170,7 +1170,7 @@ show_econnreset_passive(Config) when is_list(Config) ->
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S1),
-    ok = ?t:sleep(1),
+    ok = ct:sleep(1),
     {error, econnreset} = gen_tcp:recv(Client1, 0).
 
 econnreset_after_sync_send(Config) when is_list(Config) ->
@@ -1182,7 +1182,7 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
     ok = gen_tcp:close(L),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     {error, closed} = gen_tcp:send(Client, "Whatever"),
 
     %% Now test with option switched on.
@@ -1195,7 +1195,7 @@ econnreset_after_sync_send(Config) when is_list(Config) ->
     ok = gen_tcp:close(L1),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S1),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     {error, econnreset} = gen_tcp:send(Client1, "Whatever").
 
 econnreset_after_async_send_active(Config) when is_list(Config) ->
@@ -1215,10 +1215,10 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:send(S, "Whatever"),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     receive
 	{tcp, Client, "Whatever"} ->
 	    receive
@@ -1246,10 +1246,10 @@ econnreset_after_async_send_active(Config) when is_list(Config) ->
 	{queue_size, 0} = T1 -> ct:fail(T1)
     end,
     ok = gen_tcp:send(S1, "Whatever"),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S1),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     receive
 	{tcp, Client1, "Whatever"} ->
 	    receive
@@ -1285,10 +1285,10 @@ econnreset_after_async_send_active_once(Config) when is_list(Config) ->
 	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:send(S, "Whatever"),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     ok = inet:setopts(S, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
     ok = inet:setopts(Client, [{active, once}]),
     receive
@@ -1324,7 +1324,7 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
 	{queue_size, 0} = T -> ct:fail(T)
     end,
     ok = gen_tcp:close(S),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     {error, closed} = gen_tcp:recv(Client, 0),
 
     %% Now test with option switched on.
@@ -1340,7 +1340,7 @@ econnreset_after_async_send_passive(Config) when is_list(Config) ->
     ok = gen_tcp:send(S1, "Whatever"),
     ok = gen_tcp:send(Client1, Payload),
     ok = gen_tcp:close(S1),
-    ok = ?t:sleep(20),
+    ok = ct:sleep(20),
     {error, econnreset} = gen_tcp:recv(Client1, 0).
 
 %%
@@ -1371,7 +1371,7 @@ linger_zero(Config) when is_list(Config) ->
     end,
     ok = inet:setopts(Client, [{linger, {true, 0}}]),
     ok = gen_tcp:close(Client),
-    ok = ?t:sleep(1),
+    ok = ct:sleep(1),
     undefined = erlang:port_info(Client, connected),
     {error, econnreset} = gen_tcp:recv(S, PayloadSize).
 
