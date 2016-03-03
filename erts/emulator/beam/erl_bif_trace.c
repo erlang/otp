@@ -68,6 +68,9 @@ static struct {			/* Protected by code write permission */
 
 static Eterm
 trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist);
+static void
+erts_set_trace_send_pattern(Process*, Binary*, int on);
+
 #ifdef ERTS_SMP
 static void smp_bp_finisher(void* arg);
 #endif
@@ -85,14 +88,23 @@ static void install_exp_breakpoints(BpFunctions* f);
 static void uninstall_exp_breakpoints(BpFunctions* f);
 static void clean_export_entries(BpFunctions* f);
 
+ErtsTracingEvent erts_send_tracing[ERTS_NUM_BP_IX];
+
 void
 erts_bif_trace_init(void)
 {
+    int i;
+
     erts_default_trace_pattern_is_on = 0;
     erts_default_match_spec = NULL;
     erts_default_meta_match_spec = NULL;
     erts_default_trace_pattern_flags = erts_trace_pattern_flags_off;
     erts_default_meta_tracer = erts_tracer_nil;
+
+    for (i=0; i<ERTS_NUM_BP_IX; i++) {
+        erts_send_tracing[i].on = 1;
+        erts_send_tracing[i].match_spec = NULL;
+    }
 }
 
 /*
@@ -314,7 +326,14 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	matches = erts_set_trace_pattern(p, mfa, specified,
 					 match_prog_set, match_prog_set,
 					 on, flags, meta_tracer, 0);
+    } else if (MFA == am_send) {
+        if (is_global || flags.breakpoint || on > ERTS_BREAK_SET) {
+            goto error;
+        }
+        erts_set_trace_send_pattern(p, match_prog_set, on);
+        matches = 1;
     }
+
 
  error:
     MatchSetUnref(match_prog_set);
@@ -1467,6 +1486,43 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
     return matches;
 }
 
+void
+erts_set_trace_send_pattern(Process*p, Binary* match_spec, int on)
+{
+    ErtsTracingEvent* st = &erts_send_tracing[erts_staging_bp_ix()];
+
+    MatchSetUnref(st->match_spec);
+
+    st->on = on;
+    st->match_spec = match_spec;
+    MatchSetRef(match_spec);
+
+    finish_bp.current = 1;  /* prepare phase not needed for send trace */
+    finish_bp.install = on;
+    finish_bp.e.matched = 0;
+    finish_bp.e.matching = NULL;
+    finish_bp.f.matched = 0;
+    finish_bp.f.matching = NULL;
+
+#ifndef ERTS_SMP
+    while (erts_finish_breakpointing()) {
+        /* Empty loop body */
+    }
+#endif
+}
+
+static void
+consolidate_send_tracing(void)
+{
+    ErtsTracingEvent* src = &erts_send_tracing[erts_active_bp_ix()];
+    ErtsTracingEvent* dst = &erts_send_tracing[erts_staging_bp_ix()];
+
+    MatchSetUnref(dst->match_spec);
+    dst->on = src->on;
+    dst->match_spec = src->match_spec;
+    MatchSetRef(dst->match_spec);
+}
+
 int
 erts_finish_breakpointing(void)
 {
@@ -1542,6 +1598,7 @@ erts_finish_breakpointing(void)
 	erts_consolidate_bp_data(&finish_bp.f, 1);
 	erts_bp_free_matched_functions(&finish_bp.e);
 	erts_bp_free_matched_functions(&finish_bp.f);
+        consolidate_send_tracing();
 	return 0;
     default:
 	ASSERT(0);

@@ -394,7 +394,8 @@ static ERTS_INLINE int
 send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
                    Eterm t_p_id, ErtsTracerNif *tnif,
                    enum ErtsTracerOpt topt,
-                   Eterm tag, Eterm msg, Eterm extra);
+                   Eterm tag, Eterm msg, Eterm extra,
+                   Eterm pam_result);
 static ERTS_INLINE Eterm
 call_enabled_tracer(Process *c_p, const ErtsTracer tracer,
                     ErtsTracerNif **tnif_ref,
@@ -786,7 +787,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
     }
 
     send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_SCHED_PROC,
-                       what, tmp, THE_NON_VALUE);
+                       what, tmp, THE_NON_VALUE, am_true);
 }
 
 /* Send {trace_ts, Pid, What, {Mod, Func, Arity}, Timestamp}
@@ -811,8 +812,30 @@ trace_send(Process *p, Eterm to, Eterm msg)
 {
     Eterm operation = am_send;
     ErtsTracerNif *tnif = NULL;
+    ErtsTracingEvent* te;
+    Eterm pam_result;
 
     ASSERT(ARE_TRACE_FLAGS_ON(p, F_TRACE_SEND));
+
+    te = &erts_send_tracing[erts_active_bp_ix()];
+    if (!te->on) {
+	return;
+    }
+    if (te->match_spec) {
+	Eterm args[2];
+	Uint32 return_flags;
+	args[0] = to;
+	args[1] = msg;
+	pam_result = erts_match_set_run(p, te->match_spec, args, 2,
+					ERTS_PAM_TMP_RESULT, &return_flags);
+	if (is_non_value(pam_result)
+	    || pam_result == am_false
+	    || (ERTS_TRACE_FLAGS(p) & F_TRACE_SILENT)) {
+            erts_match_set_release_result(p);
+	    return;
+	}
+    } else
+        pam_result = am_true;
 
     if (is_internal_pid(to)) {
 	if (!erts_proc_lookup(to))
@@ -825,9 +848,11 @@ trace_send(Process *p, Eterm to, Eterm msg)
     }
 
     if (is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
-                TRACE_FUN_E_SEND, operation))
+                          TRACE_FUN_E_SEND, operation)) {
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_SEND,
-                operation, msg, to);
+                operation, msg, to, pam_result);
+    }
+    erts_match_set_release_result(p);
 }
 
 /* Send {trace_ts, Pid, receive, Msg, Timestamp}
@@ -841,7 +866,7 @@ trace_receive(Process *c_p, Eterm msg)
                 TRACE_FUN_E_RECEIVE, am_receive))
         send_to_tracer_nif(NULL, &c_p->common, c_p->common.id,
                            tnif, TRACE_FUN_T_RECEIVE,
-                           am_receive, msg, THE_NON_VALUE);
+                           am_receive, msg, THE_NON_VALUE, am_true);
 }
 
 int
@@ -963,7 +988,7 @@ erts_trace_return_to(Process *p, BeamInstr *pc)
     }
 
     send_to_tracer_nif(p, &p->common, p->common.id, NULL, TRACE_FUN_T_CALL,
-                       am_return_to, mfa, THE_NON_VALUE);
+                       am_return_to, mfa, THE_NON_VALUE, am_true);
 }
 
 
@@ -1289,7 +1314,7 @@ trace_proc(Process *c_p, ErtsProcLocks c_p_locks,
     if (is_tracer_enabled(c_p, c_p_locks, &t_p->common, &tnif,
                 TRACE_FUN_E_PROCS, what))
         send_to_tracer_nif(c_p, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_PROCS,
-                           what, data, THE_NON_VALUE);
+                           what, data, THE_NON_VALUE, am_true);
 }
 
 
@@ -1315,7 +1340,7 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
         mfa = TUPLE3(hp, mod, func, args);
         hp += 4;
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_PROCS,
-                           what, pid, mfa);
+                           what, pid, mfa, am_true);
     }
 }
 
@@ -1365,7 +1390,7 @@ trace_gc(Process *p, Eterm what, Uint size)
         msg = CONS(hp, tup, msg); hp += 2;
 
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_GC,
-                what, msg, am_undefined);
+                what, msg, am_undefined, am_true);
     }
 }
 
@@ -1780,7 +1805,7 @@ trace_port_open(Port *p, Eterm calling_pid, Eterm drv_name) {
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &p->common, &tnif, TRACE_FUN_E_PORTS, am_open))
         send_to_tracer_nif(NULL, &p->common, p->common.id, tnif, TRACE_FUN_T_PORTS,
-                am_open, calling_pid, drv_name);
+                am_open, calling_pid, drv_name, am_true);
 }
 
 /* Sends trace message:
@@ -1799,7 +1824,7 @@ trace_port(Port *t_p, Eterm what, Eterm data) {
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_PORTS, what))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_PORTS,
-                           what, data, THE_NON_VALUE);
+                           what, data, THE_NON_VALUE, am_true);
 }
 
 
@@ -1936,7 +1961,7 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
 
         data = TUPLE2(hp, caller, data);
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_RECEIVE,
-                           am_receive, data, THE_NON_VALUE);
+                           am_receive, data, THE_NON_VALUE, am_true);
 
         if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
             erts_bin_free(bptr);
@@ -1959,7 +1984,7 @@ trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SEND, op))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_SEND,
-                           op, msg, receiver);
+                           op, msg, receiver, am_true);
 }
 
 void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
@@ -1988,7 +2013,7 @@ void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
         hp += 3;
 
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_SEND,
-                           am_send, msg, to);
+                           am_send, msg, to, am_true);
         if (bptr && erts_refc_dectest(&bptr->refc, 1) == 0)
             erts_bin_free(bptr);
 
@@ -2019,7 +2044,7 @@ trace_sched_ports_where(Port *t_p, Eterm what, Eterm where) {
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SCHED_PORT, what))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id,
                            tnif, TRACE_FUN_T_SCHED_PORT,
-                           what, where, THE_NON_VALUE);
+                           what, where, THE_NON_VALUE, am_true);
 }
 
 /* Port profiling */
@@ -2842,7 +2867,7 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
 static ERTS_INLINE int
 send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
                    Eterm t_p_id, ErtsTracerNif *tnif, enum ErtsTracerOpt topt,
-                   Eterm tag, Eterm msg, Eterm extra)
+                   Eterm tag, Eterm msg, Eterm extra, Eterm pam_result)
 {
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p) {
@@ -2862,7 +2887,7 @@ send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
                                   is_internal_pid(t_p->id) ? (Process*)t_p : NULL,
                                   t_p->tracer, t_p->trace_flags,
                                   t_p_id, tnif, topt, tag, msg, extra,
-                                  am_true);
+                                  pam_result);
 }
 
 static ERTS_INLINE Eterm

@@ -248,7 +248,10 @@ erts_bp_match_export(BpFunctions* f, Eterm mfa[3], int specified)
 void
 erts_bp_free_matched_functions(BpFunctions* f)
 {
-    Free(f->matching);
+    if (f->matching) {
+	Free(f->matching);
+    }
+    else ASSERT(f->matched == 0);
 }
 
 void

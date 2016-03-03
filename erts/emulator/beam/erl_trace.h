@@ -220,4 +220,12 @@ ERTS_DECLARE_DUMMY(erts_tracer_nil) = NIL;
      && erts_is_tracer_proc_enabled(PROC, ERTS_PROC_LOCK_MAIN,          \
                                     &(PROC)->common, am_trace_status))
 
+typedef struct
+{
+    int on;
+    struct binary* match_spec;
+} ErtsTracingEvent;
+
+extern ErtsTracingEvent erts_send_tracing[];
+
 #endif /* ERL_TRACE_H__ */
