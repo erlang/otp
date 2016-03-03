@@ -77,7 +77,7 @@
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
 
 -type transition_option() ::
-	postpone() | hibernate() | state_timeout().
+	postpone() | hibernate() | event_timeout().
 -type postpone() ::
 	%% If 'true' postpone the current event
 	%% and retry it when the state changes (=/=)
@@ -85,7 +85,7 @@
 -type hibernate() ::
 	%% If 'true' hibernate the server instead of going into receive
 	boolean().
--type state_timeout() ::
+-type event_timeout() ::
 	%% Generate a ('timeout', Msg, ...) event after Time
 	%% unless some other event is delivered
 	Time :: timeout().
@@ -111,9 +111,9 @@
 	'hibernate' | % Set the hibernate option
 	{'hibernate', Hibernate :: hibernate()} |
 	%%
-	(Timeout :: state_timeout()) | % {timeout,Timeout}
-	{'timeout', % Set the timeout option
-	 Time :: state_timeout(), Msg :: term()} |
+	(Timeout :: event_timeout()) | % {timeout,Timeout}
+	{'timeout', % Set the event timeout option
+	 Time :: event_timeout(), Msg :: term()} |
 	%%
 	reply_action() |
 	%%

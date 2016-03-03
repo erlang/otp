@@ -155,7 +155,7 @@ erlang:'!'            -----> Module:StateName/3
     <p>
       Inserting an event replaces the trick of calling your own
       state handling functions that you often would have to
-      resort to in e.g <seealso marker="gen_fsm">gen_fsm</seealso>
+      resort to in for example <seealso marker="gen_fsm">gen_fsm</seealso>
       to force processing an inserted event before others.
       If you for example in <c>gen_statem</c> postpone an event
       in one state and then call some other state function of yours,
@@ -529,17 +529,16 @@ ok
 	    all other events.
 	  </item>
 	  <item>
-	    If a
-            <seealso marker="#type-state_timeout">
-	      <em><c>state_timeout()</c></em>
+	    If an
+            <seealso marker="#type-event_timeout">
+	      <em><c>event_timeout()</c></em>
 	    </seealso>
 	    is set through
             <seealso marker="#type-action">
 	      <c>action() timeout</c>
 	    </seealso>
-	    a state timer may be started or a timeout zero event
-	    may be enqueued as the newest incoming, that is the last
-	    to process before going into <c>receive</c> for new events.
+	    an event timer may be started or a timeout zero event
+	    may be enqueued.
 	  </item>
 	  <item>
 	    The (possibly new)
@@ -588,7 +587,7 @@ ok
       </desc>
     </datatype>
     <datatype>
-      <name name="state_timeout" />
+      <name name="event_timeout" />
       <desc>
 	<p>
 	  Generate an event of
@@ -600,7 +599,8 @@ ok
 	  If the value is <c>infinity</c> no timer is started.
 	  If it is <c>0</c> the timeout event
 	  is immediately enqueued as the newest received
-	  (unless there are retried or inserted events to process).
+	  (unless there are retried or inserted events to process
+	  since then the timeout is cancelled).
 	  Also note that it is not possible nor needed
 	  to cancel this timeout since it is cancelled automatically
 	  by any other event.
@@ -653,15 +653,25 @@ ok
 	    </seealso>
 	    for this state transition.
 	  </item>
+	  <tag><c>Timeout</c></tag>
+	  <item>
+	    Short for <c>{timeout,Timeout}</c> that is
+	    the timeout message is the timeout time.
+	    This form exists to make the
+	    <seealso marker="#state_function">state function</seealso>
+	    return value <c>{next_state,NextState,NewData,Timeout}</c>
+	    allowed like for
+	    <seealso marker="gen_fsm#Module:StateName/2">
+	      gen_fsm Module:StateName/2</seealso>.
+	  </item>
 	  <tag><c>timeout</c></tag>
 	  <item>
 	    Set the
 	    <seealso marker="#type-transition_option">
-	      <c>transition_option() state_timeout()</c>
+	      <c>transition_option() event_timeout()</c>
 	    </seealso>
 	    to <c><anno>Time</anno></c> with the
-	    <c>EventContent</c> as <c><anno>Msg</anno></c>
-	    for the next state.
+	    <c>EventContent</c> as <c><anno>Msg</anno></c>.
 	  </item>
 	  <tag><c>reply_action()</c></tag>
 	  <item>Reply to a caller.</item>
@@ -1419,7 +1429,7 @@ ok
         <p>
 	  This function is called by a <c>gen_statem</c> when it should
           update its internal state during a release upgrade/downgrade,
-          i.e. when the instruction <c>{update,Module,Change,...}</c>
+          that is when the instruction <c>{update,Module,Change,...}</c>
           where <c>Change={advanced,Extra}</c> is given in
           the <c>appup</c> file. See
           <seealso marker="doc/design_principles:release_handling#instr">
