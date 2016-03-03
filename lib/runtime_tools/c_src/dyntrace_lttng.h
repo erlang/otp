@@ -147,6 +147,36 @@ TRACEPOINT_EVENT(
     )
 )
 
+/* Process messages */
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    message_send,
+    TP_ARGS(
+        char*, sender,
+        char*, receiver,
+        char*, msg
+    ),
+    TP_FIELDS(
+        ctf_string(from, sender)
+        ctf_string(to, receiver)
+        ctf_string(message, msg)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    message_receive,
+    TP_ARGS(
+        char*, receiver,
+        char*, msg
+    ),
+    TP_FIELDS(
+        ctf_string(to, receiver)
+        ctf_string(message, msg)
+    )
+)
+
 /* Process Memory */
 
 TRACEPOINT_EVENT(

@@ -126,6 +126,12 @@ static ERL_NIF_TERM atom_in_exiting;
 static ERL_NIF_TERM atom_out_exiting;
 static ERL_NIF_TERM atom_out_exited;
 
+/* process messages 'send' and 'receive' */
+
+static ERL_NIF_TERM atom_send;
+static ERL_NIF_TERM atom_receive;
+static ERL_NIF_TERM atom_send_to_non_existing_process;
+
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -163,6 +169,12 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_in_exiting = enif_make_atom(env,"in_exiting");
     atom_out_exiting = enif_make_atom(env,"out_exiting");
     atom_out_exited = enif_make_atom(env,"out_exited");
+
+    /* process messages 'send' and 'receive' */
+
+    atom_send = enif_make_atom(env,"send");
+    atom_receive = enif_make_atom(env,"receive");
+    atom_send_to_non_existing_process = enif_make_atom(env,"send_to_non_existing_process");
 
     return 0;
 }
@@ -300,106 +312,60 @@ static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL
 }
 
 
-static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef HAVE_USE_DTRACE
-#define BUFF_SIZE 1024
-    size_t sz = BUFF_SIZE;
-    char buff[BUFF_SIZE];
-    ASSERT(argc == 6);
-
-    if (argv[0] == atom_seq_trace) {
-        if (erlang_trace_seq_enabled()) {
-            char *label = buff,
-                *seq_info = buff + BUFF_SIZE/4;
-            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
-            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
-            erlang_trace_seq(label, seq_info);
-        }
-    } else {
-        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
-
-        event = buff + BUFF_SIZE - sz;
-        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
-
-        state = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(state, sz, "%T", argv[1]);
-
-        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
-            dtrace_pid_str(argv[2], p);
-        else
-            p = NULL;
-
-        arg1 = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
-
-        if (argc == 6) {
-            arg2 = buff + BUFF_SIZE - sz;
-            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
-        } else
-            args2 = NULL;
-
-        erlang_trace(p, event, state, arg1, arg2);
-
-    }
 #elif HAVE_USE_LTTNG
-    int i;
-    erts_fprintf(stderr, "receive trace:\r\n");
-    for (i = 0; i < argc; i++) {
-        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    lttng_decl_procbuf(pid);
+    lttng_pid_to_str(argv[2], pid);
+
+    if (argv[0] == atom_send) {
+        lttng_decl_procbuf(to);
+        char msg[LTTNG_BUFFER_SZ];
+
+        lttng_pid_to_str(argv[4], to);
+        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+
+        LTTNG3(message_send, pid, to, msg);
+    } else if (argv[0] == atom_send_to_non_existing_process) {
+        lttng_decl_procbuf(to);
+        char msg[LTTNG_BUFFER_SZ];
+
+        lttng_pid_to_str(argv[4], to);
+        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        /* mark it as non existing ? */
+
+        LTTNG3(message_send, pid, to, msg);
+    } else {
+        int i;
+        erts_fprintf(stderr, "trace send:\r\n");
+        for (i = 0; i < argc; i++) {
+            erts_fprintf(stderr, "  %T\r\n", argv[i]);
+        }
     }
 #endif
     return atom_ok;
 }
 
 
-static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef HAVE_USE_DTRACE
-#define BUFF_SIZE 1024
-    size_t sz = BUFF_SIZE;
-    char buff[BUFF_SIZE];
-    ASSERT(argc == 6);
-
-    if (argv[0] == atom_seq_trace) {
-        if (erlang_trace_seq_enabled()) {
-            char *label = buff,
-                *seq_info = buff + BUFF_SIZE/4;
-            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
-            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
-            erlang_trace_seq(label, seq_info);
-        }
-    } else {
-        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
-
-        event = buff + BUFF_SIZE - sz;
-        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
-
-        state = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(state, sz, "%T", argv[1]);
-
-        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
-            dtrace_pid_str(argv[2], p);
-        else
-            p = NULL;
-
-        arg1 = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
-
-        if (argc == 6) {
-            arg2 = buff + BUFF_SIZE - sz;
-            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
-        } else
-            args2 = NULL;
-
-        erlang_trace(p, event, state, arg1, arg2);
-
-    }
 #elif HAVE_USE_LTTNG
-    int i;
-    erts_fprintf(stderr, "trace:\r\n");
-    for (i = 0; i < argc; i++) {
-        erts_fprintf(stderr, "  %T\r\n", argv[i]);
+    if (argv[0] == atom_receive) {
+        lttng_decl_procbuf(pid);
+        char msg[LTTNG_BUFFER_SZ];
+
+        lttng_pid_to_str(argv[2], pid);
+        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+
+        LTTNG2(message_receive, pid, msg);
+    } else {
+        int i;
+        erts_fprintf(stderr, "trace receive:\r\n");
+        for (i = 0; i < argc; i++) {
+            erts_fprintf(stderr, "  %T\r\n", argv[i]);
+        }
     }
 #endif
     return atom_ok;
