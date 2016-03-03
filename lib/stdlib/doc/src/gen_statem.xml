@@ -407,7 +407,7 @@ ok
       <name name="state" />
       <desc>
 	<p>
-	  After a state change (<c>NewState =/= State</c>)
+	  After a state change (<c>NextState =/= State</c>)
 	  all postponed events are retried.
 	</p>
       </desc>
@@ -566,7 +566,7 @@ ok
 	<p>
 	  If <c>true</c> postpone the current event and retry
 	  it when the state changes that is:
-	  <c>NewState =/= State</c>.
+	  <c>NextState =/= State</c>.
 	</p>
       </desc>
     </datatype>
@@ -701,7 +701,47 @@ ok
       </desc>
     </datatype>
     <datatype>
-      <name name="state_callback_result" />
+      <name name="state_function_result" />
+      <desc>
+	<taglist>
+	  <tag><c>next_state</c></tag>
+	  <item>
+	    The <c>gen_statem</c> will do a state transition to
+	    <c><anno>NextStateName</anno></c>
+	    (which may be the same as the current state),
+	    set <c><anno>NewData</anno></c>
+	    and execute all <c><anno>Actions</anno></c>
+	  </item>
+	</taglist>
+	<p>
+	  All these terms are tuples or atoms and this property
+	  will hold in any future version of <c>gen_statem</c>,
+	  just in case you need such a promise.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="handle_event_result" />
+      <desc>
+	<taglist>
+	  <tag><c>next_state</c></tag>
+	  <item>
+	    The <c>gen_statem</c> will do a state transition to
+	    <c><anno>NextState</anno></c>
+	    (which may be the same as the current state),
+	    set <c><anno>NewData</anno></c>
+	    and execute all <c><anno>Actions</anno></c>
+	  </item>
+	</taglist>
+	<p>
+	  All these terms are tuples or atoms and this property
+	  will hold in any future version of <c>gen_statem</c>,
+	  just in case you need such a promise.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="common_state_callback_result" />
       <desc>
 	<taglist>
 	  <tag><c>stop</c></tag>
@@ -722,14 +762,6 @@ ok
 	    </seealso>
 	    with <c>Reason</c> and
 	    <c><anno>NewData</anno></c>, if given.
-	  </item>
-	  <tag><c>next_state</c></tag>
-	  <item>
-	    The <c>gen_statem</c> will do a state transition to
-	    <c><anno>NewState</anno></c>
-	    (which may be the same as the current state),
-	    set <c><anno>NewData</anno></c>
-	    and execute all <c><anno>Actions</anno></c>
 	  </item>
 	  <tag><c>keep_state</c></tag>
 	  <item>
@@ -1209,10 +1241,11 @@ ok
     </func>
 
     <func>
-      <name>Module:StateName(EventType, EventContent, Data) -> Result
+      <name>Module:StateName(EventType, EventContent, Data) ->
+      StateFunctionResult
       </name>
       <name>Module:handle_event(EventType, EventContent,
-      State, Data) -> Result
+      State, Data) -> HandleEventResult
       </name>
       <fsummary>Handle an event</fsummary>
       <type>
@@ -1222,7 +1255,7 @@ ok
 	</v>
 	<v>EventContent = term()</v>
 	<v>
-	  State = NewState =
+	  State =
 	  <seealso marker="#type-state">state()</seealso>
 	</v>
 	<v>
@@ -1230,9 +1263,15 @@ ok
 	  <seealso marker="#type-data">data()</seealso>
 	</v>
 	<v>
-	  Result =
-	  <seealso marker="#type-state_callback_result">
-	    state_callback_result()
+	  StateFunctionResult =
+	  <seealso marker="#type-state_function_result">
+	    state_function_result()
+	  </seealso>
+	</v>
+	<v>
+	  HandleEventResult =
+	  <seealso marker="#type-handle_event_result">
+	    handle_event_result()
 	  </seealso>
 	</v>
       </type>
@@ -1260,9 +1299,15 @@ ok
 	  <seealso marker="#reply/2"><c>reply(Caller, Reply)</c></seealso>.
 	</p>
 	<p>
-	  If this function returns with a new state that
+	  If this function returns with a next state that
 	  does not match equal (<c>=/=</c>) to the current state
-	  all postponed events will be retried in the new state.
+	  all postponed events will be retried in the next state.
+	</p>
+	<p>
+	  The only difference between <c>StateFunctionResult</c> and
+	  <c>HandleEventResult</c> is that for <c>StateFunctionResult</c>
+	  the next state has to be an atom but for <c>HandleEventResult</c>
+	  there is no restriction on the next state.
 	</p>
 	<p>
 	  See <seealso marker="#type-action">action()</seealso>
@@ -1272,7 +1317,7 @@ ok
 	<p>
 	  These functions may use
 	  <seealso marker="erts:erlang#throw/1"><c>throw</c></seealso>,
-	  to return <c>Result</c>.
+	  to return the result.
 	</p>
       </desc>
     </func>
@@ -1401,7 +1446,7 @@ ok
         <p>
 	  If successful, the function shall return the updated
           internal state in an
-	  <c>{ok,{NewState,NewData}}</c> tuple.
+	  <c>{ok,NewState,NewData}</c> tuple.
 	</p>
 	<p>
 	  If the function returns <c>Reason</c>, the ongoing

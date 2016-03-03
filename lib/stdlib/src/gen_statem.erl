@@ -44,8 +44,16 @@
 -export(
    [wakeup_from_hibernate/3]).
 
+%% Type exports for templates
+-export_type(
+   [event_type/0,
+    callback_mode/0,
+    state_function_result/0,
+    handle_event_result/0,
+    action/0]).
+
 %% Fix problem for doc build
--export_type([transition_option/0,state_callback_result/0]).
+-export_type([transition_option/0]).
 
 %%%==========================================================================
 %%% Interface functions.
@@ -84,7 +92,7 @@
 
 -type action() ::
 	%% During a state change:
-	%% * NewState and NewData are set.
+	%% * NextState and NewData are set.
 	%% * All action()s are executed in order of apperance.
 	%% * Postponing the current event is performed
 	%%   iff 'postpone' is 'true'.
@@ -119,7 +127,25 @@
 	{'reply', % Reply to a caller
 	 Caller :: caller(), Reply :: term()}.
 
--type state_callback_result() ::
+-type state_function_result() ::
+	{'next_state', % {next_state,NextStateName,NewData,[]}
+	 NextStateName :: state_name(),
+	 NewData :: data()} |
+	{'next_state', % State transition, maybe to the same state
+	 NextStateName :: state_name(),
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	common_state_callback_result().
+-type handle_event_result() ::
+	{'next_state', % {next_state,NextState,NewData,[]}
+	 NextState :: state(),
+	 NewData :: data()} |
+	{'next_state', % State transition, maybe to the same state
+	 NextState :: state(),
+	 NewData :: data(),
+	 Actions :: [action()] | action()} |
+	common_state_callback_result().
+-type common_state_callback_result() ::
 	'stop' | % {stop,normal}
 	{'stop', % Stop the server
 	 Reason :: term()} |
@@ -133,13 +159,6 @@
 	 Reason :: term(),
 	 Replies :: [reply_action()] | reply_action(),
 	 NewData :: data()} |
-	{'next_state', % {next_state,NewState,NewData,[]}
-	 NewState :: state(),
-	 NewData :: data()} |
-	{'next_state', % State transition, maybe to the same state
-	 NewState :: state(),
-	 NewData :: data(),
-	 Actions :: [action()] | action()} |
 	{'keep_state', % {keep_state,NewData,[]}
 	 NewData :: data()} |
 	{'keep_state', % Keep state, change data
@@ -171,7 +190,7 @@
 	    event_type(),
 	    EventContent :: term(),
 	    Data :: data()) ->
-    state_callback_result().
+    state_function_result().
 %%
 %% State callback for callback_mode() =:= handle_event_function.
 %%
@@ -182,7 +201,7 @@
 	    EventContent :: term(),
 	    State :: state(), % Current state
 	    Data :: data()) ->
-    state_callback_result().
+    handle_event_result().
 
 %% Clean up before the server terminates.
 -callback terminate(
@@ -514,7 +533,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
     %% The values should already have been type checked
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Opts),
-    OldState = make_ref(), % Will be discarded by loop_event_actions/9
+    PrevState = make_ref(), % Will be discarded by loop_event_actions/9
     NewActions =
 	if
 	    is_list(Actions) ->
@@ -526,7 +545,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
       callback_mode => CallbackMode,
       module => Module,
       name => Name,
-      state => OldState,
+      state => PrevState,
       data => Data,
       timer => undefined,
       postponed => [],
@@ -534,7 +553,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
     loop_event_actions(
       Parent, Debug, S, [],
       {event,undefined}, % Will be discarded thanks to {postpone,false}
-      OldState, State, Data, NewActions).
+      PrevState, State, Data, NewActions).
 
 %%%==========================================================================
 %%%  gen callbacks
@@ -868,18 +887,18 @@ loop_event_result(
 		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
 	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
-	{next_state,NewState,NewData}
-	  when CallbackMode =:= state_functions, is_atom(NewState);
+	{next_state,NextState,NewData}
+	  when CallbackMode =:= state_functions, is_atom(NextState);
 	       CallbackMode =/= state_functions ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, []);
-	{next_state,NewState,NewData,Actions}
-	  when CallbackMode =:= state_functions, is_atom(NewState);
+	      State, NextState, NewData, []);
+	{next_state,NextState,NewData,Actions}
+	  when CallbackMode =:= state_functions, is_atom(NextState);
 	       CallbackMode =/= state_functions ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions);
+	      State, NextState, NewData, Actions);
 	{keep_state,NewData} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
@@ -902,13 +921,13 @@ loop_event_result(
     end.
 
 loop_event_actions(
-  Parent, Debug, S, Events, Event, State, NewState, NewData, Actions) ->
+  Parent, Debug, S, Events, Event, State, NextState, NewData, Actions) ->
     Postpone = false, % Shall we postpone this event, true or false
     Hibernate = false,
     Timeout = undefined,
     NextEvents = [],
     loop_event_actions(
-      Parent, Debug, S, Events, Event, State, NewState, NewData,
+      Parent, Debug, S, Events, Event, State, NextState, NewData,
       if
 	  is_list(Actions) ->
 	      Actions;
@@ -920,19 +939,19 @@ loop_event_actions(
 %% Process all action()s
 loop_event_actions(
   Parent, Debug, S, Events, Event,
-  State, NewState, NewData, [Action|Actions],
+  State, NextState, NewData, [Action|Actions],
   Postpone, Hibernate, Timeout, NextEvents) ->
     case Action of
 	%% Actions that set options
 	postpone ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      true, Hibernate, Timeout, NextEvents);
 	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      NewPostpone, Hibernate, Timeout, NextEvents);
 	{postpone,_} ->
 	    ?TERMINATE(
@@ -940,12 +959,12 @@ loop_event_actions(
 	hibernate ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      Postpone, true, Timeout, NextEvents);
 	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      Postpone, NewHibernate, Timeout, NextEvents);
 	{hibernate,_} ->
 	    ?TERMINATE(
@@ -953,12 +972,12 @@ loop_event_actions(
 	{timeout,infinity,_} -> % Clear timer - it will never trigger
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      Postpone, Hibernate, undefined, NextEvents);
 	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
-	      State, NewState, NewData, Actions,
+	      State, NextState, NewData, Actions,
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	{timeout,_,_} ->
 	    ?TERMINATE(
@@ -970,7 +989,7 @@ loop_event_actions(
 		    NewDebug = do_reply(Debug, S, Caller, Reply),
 		    loop_event_actions(
 		      Parent, NewDebug, S, Events, Event,
-		      State, NewState, NewData, Actions,
+		      State, NextState, NewData, Actions,
 		      Postpone, Hibernate, Timeout, NextEvents);
 		false ->
 		    ?TERMINATE(
@@ -981,7 +1000,7 @@ loop_event_actions(
 		true ->
 		    loop_event_actions(
 		      Parent, Debug, S, Events, Event,
-		      State, NewState, NewData, Actions,
+		      State, NextState, NewData, Actions,
 		      Postpone, Hibernate, Timeout,
 		      [{Type,Content}|NextEvents]);
 		false ->
@@ -996,7 +1015,7 @@ loop_event_actions(
 %% End of actions list
 loop_event_actions(
   Parent, Debug, #{postponed := P0} = S, Events, Event,
-  State, NewState, NewData, [],
+  State, NextState, NewData, [],
   Postpone, Hibernate, Timeout, NextEvents) ->
     %%
     %% All options have been collected and next_events are buffered.
@@ -1011,7 +1030,7 @@ loop_event_actions(
 	end,
     {Q2,P} = % Move all postponed events to queue if state change
 	if
-	    NewState =:= State ->
+	    NextState =:= State ->
 		{Events,P1};
 	    true ->
 		{lists:reverse(P1, Events),[]}
@@ -1024,9 +1043,9 @@ loop_event_actions(
 	  Debug, S,
 	  case Postpone of
 	      true ->
-		  {postpone,Event,NewState};
+		  {postpone,Event,NextState};
 	      false ->
-		  {consume,Event,NewState}
+		  {consume,Event,NextState}
 	  end),
     %% Have a peek on the event queue so we can avoid starting
     %% the state timer unless we have to
@@ -1057,7 +1076,7 @@ loop_event_actions(
     loop_events(
       Parent, NewDebug,
       S#{
-	state := NewState,
+	state := NextState,
 	data := NewData,
 	timer := Timer,
 	postponed := P,
