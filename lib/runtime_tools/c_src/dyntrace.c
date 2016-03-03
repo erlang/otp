@@ -69,6 +69,7 @@ static ERL_NIF_TERM user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -83,6 +84,7 @@ static ErlNifFunc nif_funcs[] = {
     {"trace", 5, trace},
     {"trace", 6, trace},
     {"trace_procs", 6, trace_procs},
+    {"trace_ports", 6, trace_ports},
     {"trace_running", 6, trace_running},
     {"trace_send", 6, trace_send},
     {"trace_receive", 6, trace_receive},
@@ -132,6 +134,10 @@ static ERL_NIF_TERM atom_send;
 static ERL_NIF_TERM atom_receive;
 static ERL_NIF_TERM atom_send_to_non_existing_process;
 
+/* ports 'ports' */
+
+static ERL_NIF_TERM atom_open;
+static ERL_NIF_TERM atom_closed;
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -175,6 +181,11 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_send = enif_make_atom(env,"send");
     atom_receive = enif_make_atom(env,"receive");
     atom_send_to_non_existing_process = enif_make_atom(env,"send_to_non_existing_process");
+
+    /* ports 'ports' */
+
+    atom_open = enif_make_atom(env,"open");
+    atom_closed = enif_make_atom(env,"closed");
 
     return 0;
 }
@@ -474,6 +485,53 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 #endif
     return atom_ok;
 }
+
+static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HAVE_USE_DTRACE
+#elif HAVE_USE_LTTNG
+    lttng_decl_portbuf(port);
+    lttng_decl_procbuf(to);
+
+    lttng_portid_to_str(argv[2], port);
+
+    /* open and closed */
+    if (argv[0] == atom_open) {
+        char driver[LTTNG_BUFFER_SZ];
+        lttng_decl_procbuf(pid);
+        lttng_pid_to_str(argv[3], pid);
+
+        erts_snprintf(driver, LTTNG_BUFFER_SZ, "%T", argv[4]);
+        LTTNG3(port_open, pid, driver, port);
+    } else if (argv[0] == atom_closed) {
+        char reason[LTTNG_BUFFER_SZ];
+        erts_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
+
+        LTTNG2(port_exit, port, reason);
+    /* link */
+    } else if (argv[0] == atom_link) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(port_link, port, to, "link");
+    } else if (argv[0] == atom_unlink) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(port_link, port, to, "unlink");
+    } else if (argv[0] == atom_getting_linked) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(port_link, to, port, "link");
+    } else if (argv[0] == atom_getting_unlinked) {
+        lttng_pid_to_str(argv[3], to);
+        LTTNG3(port_link, to, port, "unlink");
+    } else {
+        int i;
+        erts_fprintf(stderr, "ports trace:\r\n");
+        for (i = 0; i < argc; i++) {
+            erts_fprintf(stderr, "  %T\r\n", argv[i]);
+        }
+    }
+#endif
+    return atom_ok;
+}
+
 
 static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

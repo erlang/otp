@@ -147,6 +147,53 @@ TRACEPOINT_EVENT(
     )
 )
 
+/* Ports */
+
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    port_open,
+    TP_ARGS(
+        char*, pid,
+        char*, driver,
+        char*, port
+    ),
+    TP_FIELDS(
+        ctf_string(pid, pid)
+        ctf_string(driver, driver)
+        ctf_string(port, port)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    port_exit,
+    TP_ARGS(
+        char*, port,
+        char*, reason
+    ),
+    TP_FIELDS(
+        ctf_string(port, port)
+        ctf_string(reason, reason)
+    )
+)
+
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    port_link,
+    TP_ARGS(
+        char*, from,
+        char*, to,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(from, from)
+        ctf_string(to, to)
+        ctf_string(type, type)
+    )
+)
+
+
 /* Process messages */
 
 TRACEPOINT_EVENT(
