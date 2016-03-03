@@ -55,11 +55,16 @@
 
 -record(state, {edge_map   = #{} :: edge_map(),
 		fp_ebb_map = #{} :: fp_ebb_map(),
-		cfg              :: #cfg{}}).
+		cfg              :: cfg()}).
+-type state() :: #state{}.
+
+-type icode_phi()      :: #icode_phi{}.
+-type icode_variable() :: #icode_variable{}.
+-type icode_const()    :: #icode_const{}.
 
 %%--------------------------------------------------------------------
 
--spec cfg(#cfg{}) -> #cfg{}.
+-spec cfg(cfg()) -> cfg().
 
 cfg(Cfg) ->
   %%hipe_icode_cfg:pp(Cfg),
@@ -78,13 +83,13 @@ cfg(Cfg) ->
 %% corresponding fcheckerror.
 %%--------------------------------------------------------------------
 
--spec annotate_fclearerror(#cfg{}) -> #cfg{}.
+-spec annotate_fclearerror(cfg()) -> cfg().
 
 annotate_fclearerror(Cfg) ->
   Labels = hipe_icode_cfg:reverse_postorder(Cfg),
   annotate_fclearerror(Labels, Cfg).
 
--spec annotate_fclearerror([icode_lbl()], #cfg{}) -> #cfg{}.
+-spec annotate_fclearerror([icode_lbl()], cfg()) -> cfg().
 
 annotate_fclearerror([Label|Left], Cfg) ->
   BB = hipe_icode_cfg:bb(Cfg, Label),
@@ -96,7 +101,7 @@ annotate_fclearerror([Label|Left], Cfg) ->
 annotate_fclearerror([], Cfg) ->
   Cfg.
 
--spec annotate_fclearerror1(icode_instrs(), icode_lbl(), #cfg{}, icode_instrs())
+-spec annotate_fclearerror1(icode_instrs(), icode_lbl(), cfg(), icode_instrs())
 			   -> icode_instrs().
 
 annotate_fclearerror1([I|Left], Label, Cfg, Acc) ->
@@ -116,7 +121,7 @@ annotate_fclearerror1([I|Left], Label, Cfg, Acc) ->
 annotate_fclearerror1([], _Label, _Cfg, Acc) ->
   lists:reverse(Acc).
 
--spec lookahead_for_fcheckerror(icode_instrs(), icode_lbl(), #cfg{}) ->
+-spec lookahead_for_fcheckerror(icode_instrs(), icode_lbl(), cfg()) ->
 				   fail_lbl().
 
 lookahead_for_fcheckerror([I|Left], Label, Cfg) ->
@@ -140,13 +145,13 @@ lookahead_for_fcheckerror([], Label, Cfg) ->
       lookahead_for_fcheckerror(Code, Succ, Cfg)
   end.
 
--spec unannotate_fclearerror(#cfg{}) -> #cfg{}.
+-spec unannotate_fclearerror(cfg()) -> cfg().
 
 unannotate_fclearerror(Cfg) ->
   Labels = hipe_icode_cfg:reverse_postorder(Cfg),
   unannotate_fclearerror(Labels, Cfg).
 
--spec unannotate_fclearerror([icode_lbl()], #cfg{}) -> #cfg{}.
+-spec unannotate_fclearerror([icode_lbl()], cfg()) -> cfg().
 
 unannotate_fclearerror([Label|Left], Cfg) ->
   BB = hipe_icode_cfg:bb(Cfg, Label),
@@ -181,13 +186,13 @@ unannotate_fclearerror1([], Acc) ->
 %% Make float EBBs
 %%--------------------------------------------------------------------
 
--spec place_fp_blocks(#state{}) -> #state{}.
+-spec place_fp_blocks(state()) -> state().
 
 place_fp_blocks(State) ->
   WorkList = new_worklist(State),
   transform_block(WorkList, State).
 
--spec transform_block(worklist(), #state{}) -> #state{}.
+-spec transform_block(worklist(), state()) -> state().
 
 transform_block(WorkList, State) ->
   case get_work(WorkList) of
@@ -222,9 +227,9 @@ transform_block(WorkList, State) ->
       end
   end.
 
--spec update_maps(#state{}, icode_lbl(), ordsets:ordset(icode_lbl()),
+-spec update_maps(state(), icode_lbl(), ordsets:ordset(icode_lbl()),
 		  var_map(), ordsets:ordset(icode_lbl()), var_map())
-		 -> fixpoint | {#state{}, [icode_lbl()]}.
+		 -> fixpoint | {state(), [icode_lbl()]}.
 
 update_maps(State, Label, SuccSet, SuccMap, FailSet, FailMap) ->
   {NewState, Add1} = update_maps(State, Label, SuccSet, SuccMap, []),
@@ -233,9 +238,9 @@ update_maps(State, Label, SuccSet, SuccMap, FailSet, FailMap) ->
     {_NewState1, _Add} = Ret -> Ret
   end.
 
--spec update_maps(#state{}, icode_lbl(), ordsets:ordset(icode_lbl()),
+-spec update_maps(state(), icode_lbl(), ordsets:ordset(icode_lbl()),
 		  var_map(), [icode_lbl()])
-		 -> {#state{}, [icode_lbl()]}.
+		 -> {state(), [icode_lbl()]}.
 
 update_maps(State, From, [To|Left], Map, Acc) ->
   case state__map_update(State, From, To, Map) of
@@ -382,7 +387,7 @@ handle_untagged_arguments(I, Map) ->
       [I|TagIntrs]
   end.
 
--spec do_prelude(var_map_phi()) -> {[#icode_phi{}], var_map()}.
+-spec do_prelude(var_map_phi()) -> {[icode_phi()], var_map()}.
 
 %% Add phi nodes for untagged fp values.
 
@@ -406,7 +411,7 @@ split_code([I|Left], Acc) ->
   split_code(Left, [I|Acc]).
 
 
--spec finalize(#state{}) -> #state{}.
+-spec finalize(state()) -> state().
 
 %% When all code is mapped to fp instructions we must make sure that
 %% the fp ebb information going into each block is the same as the
@@ -419,7 +424,7 @@ finalize(State) ->
   Edges = needs_fcheckerror(NewState),
   finalize(Edges, NewState).
 
--spec finalize([edge()], #state{}) -> #state{}.
+-spec finalize([edge()], state()) -> state().
 
 finalize([{From, To}|Left], State) ->
   NewState = add_fp_ebb_fixup(From, To, State),
@@ -427,14 +432,14 @@ finalize([{From, To}|Left], State) ->
 finalize([], State) ->
   State.
 
--spec needs_fcheckerror(#state{}) -> [{none | icode_lbl(), icode_lbl()}].
+-spec needs_fcheckerror(state()) -> [{none | icode_lbl(), icode_lbl()}].
 
 needs_fcheckerror(State) ->
   Cfg = state__cfg(State),
   Labels = hipe_icode_cfg:labels(Cfg),
   needs_fcheckerror(Labels, State, []).
 
--spec needs_fcheckerror([icode_lbl()], #state{},
+-spec needs_fcheckerror([icode_lbl()], state(),
 			[{none | icode_lbl(), icode_lbl()}])
 		       -> [{none | icode_lbl(), icode_lbl()}].
 
@@ -462,7 +467,7 @@ needs_fcheckerror([Label|Left], State, Acc) ->
 needs_fcheckerror([], _State, Acc) ->
   Acc.
 
--spec add_fp_ebb_fixup(none | icode_lbl(), icode_lbl(), #state{}) -> #state{}.
+-spec add_fp_ebb_fixup(none | icode_lbl(), icode_lbl(), state()) -> state().
 
 add_fp_ebb_fixup('none', To, State) ->
   %% Add the fcheckerror to the start of the block.
@@ -505,16 +510,16 @@ redirect_phis([I|Is] = Code, OldFrom, NewFrom, Acc) ->
 redirect_phis([], _OldFrom, _NewFrom, Acc) ->
   lists:reverse(Acc).
 
--spec subst_phi(#icode_phi{}, #icode_variable{}, edge_map())
-	       -> #icode_phi{}.
+-spec subst_phi(icode_phi(), icode_variable(), edge_map())
+	       -> icode_phi().
 
 subst_phi(I, Dst, Map) ->
   ArgList = subst_phi_uses0(hipe_icode:phi_arglist(I), Map, []),
   hipe_icode:mk_phi(Dst, ArgList).
 
--spec subst_phi_uses0([{icode_lbl(), #icode_variable{}}], edge_map(),
-		      [{icode_lbl(), #icode_variable{}}])
-		     -> [{icode_lbl(), #icode_variable{}}].
+-spec subst_phi_uses0([{icode_lbl(), icode_variable()}], edge_map(),
+		      [{icode_lbl(), icode_variable()}])
+		     -> [{icode_lbl(), icode_variable()}].
 
 subst_phi_uses0([{Pred, Var}|Left], Map, Acc) ->
   case Map of
@@ -537,16 +542,16 @@ subst_phi_uses0([{Pred, Var}|Left], Map, Acc) ->
 subst_phi_uses0([], _Map, Acc) ->
   Acc.
 
--spec subst_phi_uncond(#icode_phi{}, #icode_variable{}, edge_map())
-		      -> #icode_phi{}.
+-spec subst_phi_uncond(icode_phi(), icode_variable(), edge_map())
+		      -> icode_phi().
 
 subst_phi_uncond(I, Dst, Map) ->
   ArgList = subst_phi_uses_uncond0(hipe_icode:phi_arglist(I), Map, []),
   hipe_icode:mk_phi(Dst, ArgList).
 
--spec subst_phi_uses_uncond0([{icode_lbl(), #icode_variable{}}], edge_map(),
-			     [{icode_lbl(), #icode_variable{}}])
-			    -> [{icode_lbl(), #icode_variable{}}].
+-spec subst_phi_uses_uncond0([{icode_lbl(), icode_variable()}], edge_map(),
+			     [{icode_lbl(), icode_variable()}])
+			    -> [{icode_lbl(), icode_variable()}].
 
 subst_phi_uses_uncond0([{Pred, Var}|Left], Map, Acc) ->
   case Map of
@@ -569,7 +574,7 @@ subst_phi_uses_uncond0([{Pred, Var}|Left], Map, Acc) ->
 subst_phi_uses_uncond0([], _Map, Acc) ->
   Acc.
 
--spec place_error_handling(worklist(), #state{}) -> #state{}.
+-spec place_error_handling(worklist(), state()) -> state().
 
 place_error_handling(WorkList, State) ->
   case get_work(WorkList) of
@@ -734,7 +739,7 @@ instr_allowed_in_fp_ebb(Instr) ->
 %% ------------------------------------------------------------ 
 %% Handling the variable map
 
--spec lookup_list([icode_var() | #icode_const{}], var_map())
+-spec lookup_list([icode_var() | icode_const()], var_map())
 		 -> [none | icode_fvar()].
 
 lookup_list(List, Info) ->
@@ -745,7 +750,7 @@ lookup_list([H|T], Fun, Info, Acc) ->
 lookup_list([], _,  _, Acc) ->
   lists:reverse(Acc).
 
--spec lookup(icode_var() | #icode_const{}, var_map()) -> none | icode_fvar().
+-spec lookup(icode_var() | icode_const(), var_map()) -> none | icode_fvar().
 
 lookup(Key, Tree) ->
   case hipe_icode:is_const(Key) of
@@ -760,14 +765,14 @@ lookup(Key, Tree) ->
       end
   end.
 
--spec lookup_list_keep_consts([icode_var() | #icode_const{}], var_map())
-			     -> [none | icode_fvar() | #icode_const{}].
+-spec lookup_list_keep_consts([icode_var() | icode_const()], var_map())
+			     -> [none | icode_fvar() | icode_const()].
 
 lookup_list_keep_consts(List, Info) ->
   lookup_list(List, fun lookup_keep_consts/2, Info, []).
 
--spec lookup_keep_consts(icode_var() | #icode_const{}, var_map())
-			-> none | icode_fvar() | #icode_const{}.
+-spec lookup_keep_consts(icode_var() | icode_const(), var_map())
+			-> none | icode_fvar() | icode_const().
 
 lookup_keep_consts(Key, Tree) ->
   case hipe_icode:is_const(Key) of
@@ -1029,7 +1034,7 @@ get_conv_instrs([], _, Acc) ->
   Acc.
 
 
--spec conv_consts([#icode_const{}], icode_instr()) -> icode_instr().
+-spec conv_consts([icode_const()], icode_instr()) -> icode_instr().
 
 conv_consts(ConstArgs, I) ->
   conv_consts(ConstArgs, I, []).
@@ -1069,13 +1074,13 @@ state__bb_add(S = #state{cfg = Cfg}, Label, BB) ->
   NewCfg = hipe_icode_cfg:bb_add(Cfg, Label, BB),
   S#state{cfg = NewCfg}.
 
--spec state__map(#state{}, icode_lbl()) -> initial_var_map().
+-spec state__map(state(), icode_lbl()) -> initial_var_map().
 
 state__map(S = #state{edge_map = EM}, To) ->
   join_maps([{From, To} || From <- state__pred(S, To)], EM).
 
--spec state__map_update(#state{}, icode_lbl(), icode_lbl(), var_map()) ->
-			   fixpoint | #state{}.
+-spec state__map_update(state(), icode_lbl(), icode_lbl(), var_map()) ->
+			   fixpoint | state().
 
 state__map_update(S = #state{edge_map = EM}, From, To, Map) ->
   FromTo = {From, To},
@@ -1092,8 +1097,8 @@ state__map_update(S = #state{edge_map = EM}, From, To, Map) ->
       fixpoint
   end.
 
--spec state__join_in_block(#state{}, icode_lbl())
-			  -> fixpoint | {#state{}, in_block()}.
+-spec state__join_in_block(state(), icode_lbl())
+			  -> fixpoint | {state(), in_block()}.
 
 state__join_in_block(S = #state{fp_ebb_map = Map}, Label) ->
   Pred = state__pred(S, Label),
@@ -1108,8 +1113,8 @@ state__join_in_block(S = #state{fp_ebb_map = Map}, Label) ->
       {S#state{fp_ebb_map = NewMap}, NewInBlock}
   end.
 
--spec state__in_block_out_update(#state{}, icode_lbl(), in_block())
-				-> #state{}.
+-spec state__in_block_out_update(state(), icode_lbl(), in_block())
+				-> state().
 
 state__in_block_out_update(S = #state{fp_ebb_map = Map}, Label, NewInBlock) ->
   Succ = state__succ(S, Label),
@@ -1151,7 +1156,7 @@ join_in_block([], Current) ->
   Current.
 
 
--spec state__get_in_block_in(#state{}, icode_lbl()) -> in_block().
+-spec state__get_in_block_in(state(), icode_lbl()) -> in_block().
 
 state__get_in_block_in(#state{fp_ebb_map = Map}, Label) ->
   maps:get({inblock_in, Label}, Map).
@@ -1160,7 +1165,7 @@ state__get_in_block_out(#state{fp_ebb_map = Map}, Label) ->
   maps:get({inblock_out, Label}, Map).
 
 
--spec new_worklist(#state{}) -> worklist().
+-spec new_worklist(state()) -> worklist().
 
 new_worklist(#state{cfg = Cfg}) ->
   Start = hipe_icode_cfg:start_label(Cfg),
