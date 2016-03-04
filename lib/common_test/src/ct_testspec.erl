@@ -76,7 +76,8 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
 
     %% Get all Run tests sorted per node basis.
     NodeList1 = run_per_node(Run,NodeList, 
-			     TestSpec#testspec.merge_tests),    
+			     TestSpec#testspec.merge_tests),
+    
     %% Get all Skip entries sorted per node basis.
     NodeList2 = skip_per_node(Skip,NodeList1),
 
@@ -1399,7 +1400,7 @@ skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,true) when is_list(Cases) ->
     {Tests1,Done} =
 	lists:foldr(fun({{N,D},Suites0},{Merged,_}) when N == Node,
-							   D == Dir ->
+							 D == Dir ->
 			    Suites1 = skip_cases1(Suite,Cases,Cmt,Suites0),
 			    {[{{N,D},Suites1}|Merged],true};
 		       (T,{Merged,Match}) ->
@@ -1422,7 +1423,12 @@ skip_cases1(Suite,Cases,Cmt,Suites0) ->
 	    Cases1 = Cases0 ++ SkipCases,
 	    insert_in_order({Suite,Cases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipCases},Suites0,replace)
+	    case Suites0 of
+		[{all,_}=All|Skips]->
+		    [All|Skips++[{Suite,SkipCases}]];
+		_ ->
+		    insert_in_order({Suite,SkipCases},Suites0,replace)
+	    end
     end.
 
 append(Elem, List) ->
@@ -1455,7 +1461,7 @@ insert_elem(E,[E|Rest],SoFar,true) ->
 
 insert_elem({all,_}=E,_,SoFar,_Replace) ->
     lists:reverse([E|SoFar]);
-insert_elem(_E,[all],SoFar,_Replace) ->
+insert_elem(_E,[all|_],SoFar,_Replace) ->
     lists:reverse(SoFar);
 insert_elem(_E,[{all,_}],SoFar,_Replace) ->
     lists:reverse(SoFar);
