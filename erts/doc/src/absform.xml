@@ -182,7 +182,7 @@
     <p>Individual patterns are represented as follows:</p>
     <list type="bulleted">
       <item>If P is an atomic literal <c>L</c>, then Rep(P) = Rep(L).</item>
-      <item>If P is a binary pattern
+      <item>If P is a bit string pattern
        <c>&lt;&lt;P_1:Size_1/TSL_1, ..., P_k:Size_k/TSL_k>></c>, where each
        <c>Size_i</c> is an expression that can be evaluated to an integer
        and each <c>TSL_i</c> is a type specificer list, then
@@ -241,12 +241,13 @@
     <p>An expression E is one of the following alternatives:</p>
     <list type="bulleted">
       <item>If E is an atomic literal <c>L</c>, then Rep(E) = Rep(L).</item>
-      <item>If E is a binary comprehension
+      <item>If E is a bit string comprehension
        <c>&lt;&lt;E_0 || Q_1, ..., Q_k>></c>,
        where each <c>Q_i</c> is a qualifier, then
        Rep(E) = <c>{bc,LINE,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
        For Rep(Q), see below.</item>
-      <item>If E is a binary constructor <c>&lt;&lt;E_1:Size_1/TSL_1, ..., E_k:Size_k/TSL_k>></c>,
+      <item>If E is a bit string constructor
+       <c>&lt;&lt;E_1:Size_1/TSL_1, ..., E_k:Size_k/TSL_k>></c>,
        where each <c>Size_i</c> is an expression and each
        <c>TSL_i</c> is a type specificer list, then Rep(E) =
        <c>{bin,LINE,[{bin_element,LINE,Rep(E_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(E_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
@@ -386,16 +387,17 @@
         <item>If Q is a generator <c>P &lt;- E</c>, where <c>P</c> is
 	 a pattern and <c>E</c> is an expression, then
          Rep(Q) = <c>{generate,LINE,Rep(P),Rep(E)}</c>.</item>
-        <item>If Q is a generator <c>P &lt;= E</c>, where <c>P</c> is
+        <item>If Q is a bit string generator
+	 <c>P &lt;= E</c>, where <c>P</c> is
 	 a pattern and <c>E</c> is an expression, then
          Rep(Q) = <c>{b_generate,LINE,Rep(P),Rep(E)}</c>.</item>
       </list>
     </section>
 
     <section>
-      <title>Binary Element Type Specifiers</title>
-      <p>A type specifier list TSL for a binary element is a sequence of type
-        specifiers <c>TS_1 - ... - TS_k</c>, and
+      <title>Bit String Element Type Specifiers</title>
+      <p>A type specifier list TSL for a bit string element is a sequence
+        of type specifiers <c>TS_1 - ... - TS_k</c>, and
         Rep(TSL) = <c>[Rep(TS_1), ..., Rep(TS_k)]</c>.</p>
       <list type="bulleted">
         <item>If TS is a type specifier <c>A</c>, where <c>A</c> is an atom,
@@ -473,7 +475,7 @@
     <p>A guard test <c>Gt</c> is one of the following alternatives:</p>
     <list type="bulleted">
       <item>If Gt is an atomic literal <c>L</c>, then Rep(Gt) = Rep(L).</item>
-      <item>If Gt is a binary constructor
+      <item>If Gt is a bit string constructor
        <c>&lt;&lt;Gt_1:Size_1/TSL_1, ..., Gt_k:Size_k/TSL_k>></c>,
        where each <c>Size_i</c> is a guard test and each
        <c>TSL_i</c> is a type specificer list, then
@@ -540,7 +542,7 @@
        <c>{ann_type,LINE,[Rep(A),Rep(T_0)]}</c>.</item>
       <item>If T is an atom or integer literal L, then Rep(T) = Rep(L).
       </item>
-      <item>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
+      <item>If T is a bit string type <c>&lt;&lt;_:M,_:_*N>></c>,
        where <c>M</c> and <c>N</c> are singleton integer types, then Rep(T) =
        <c>{type,LINE,binary,[Rep(M),Rep(N)]}</c>.</item>
       <item>If T is the empty list type <c>[]</c>, then Rep(T) =
