@@ -76,7 +76,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [simple, extra, reuse_connection, resend_client,
-     resend_server].
+     resend_server, large_file].
 
 groups() -> 
     [].
@@ -899,6 +899,41 @@ reuse_connection(Config) when is_list(Config) ->
     %% Cleanup
     unlink(DaemonPid),
     exit(DaemonPid, kill),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Large file: transfer > 65535 blocks
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+large_file(doc) ->
+    ["Start the daemon and test transfer of files greater than 32M."];
+large_file(suite) ->
+    [];
+large_file(Config) when is_list(Config) ->
+    ?VERIFY(ok, application:start(inets)),
+
+    {Port, DaemonPid} = ?IGNORE(?START_DAEMON(0, [{debug, brief}])),
+
+    %% Read fail
+    RemoteFilename = "tftp_temporary_large_file_remote_test_file.txt",
+    LocalFilename = "tftp_temporary_large_file_local_test_file.txt",
+
+    {ok, FH} = file:open(LocalFilename, [write,exclusive]),
+    {ok, Size} = file:position(FH, {eof, 2*512*65535}),
+    ok = file:truncate(FH),
+    ?IGNORE(file:close(FH)),
+
+    %% Write and read
+    ?VERIFY({ok, Size}, tftp:write_file(RemoteFilename, LocalFilename, [{port, Port}])),
+    ?IGNORE(file:delete(LocalFilename)),
+    ?VERIFY({ok, Size}, tftp:read_file(RemoteFilename, LocalFilename, [{port, Port}])),
+
+    %% Cleanup
+    unlink(DaemonPid),
+    exit(DaemonPid, kill),
+    ?VERIFY(ok, file:delete(LocalFilename)),
+    ?VERIFY(ok, file:delete(RemoteFilename)),
+    ?VERIFY(ok, application:stop(inets)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
