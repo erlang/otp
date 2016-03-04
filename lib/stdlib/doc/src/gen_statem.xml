@@ -361,7 +361,7 @@ ok
 	<p>
 	  Debug option that can be used when starting
 	  a <c>gen_statem</c> server through for example
-	  <seealso marker="#enter_loop/4">enter_loop/4</seealso>.
+	  <seealso marker="#enter_loop/5">enter_loop/5</seealso>.
 	</p>
 	<p>
 	  For every entry in <c><anno>Dbgs</anno></c>
