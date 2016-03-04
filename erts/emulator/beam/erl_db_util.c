@@ -1758,7 +1758,6 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     Eterm (*bif)(Process*, ...);
     Eterm bif_args[3];
     int fail_label;
-    int atomic_trace;
 #ifdef DMC_DEBUG
     Uint *heap_fence;
     Uint *stack_fence;
@@ -1775,28 +1774,6 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     ASSERT(esdp != NULL);
     current_scheduled = esdp->current_process;
     /* SMP: psp->scheduler_data is set by get_match_pseudo_process */
-
-    atomic_trace = 0;
-#define BEGIN_ATOMIC_TRACE(p)                               \
-    do {                                                    \
-	if (! atomic_trace) {                               \
-            erts_refc_inc(&bprog->refc, 2);                 \
-	    erts_smp_proc_unlock((p), ERTS_PROC_LOCK_MAIN); \
-	    erts_smp_thr_progress_block();                  \
-            atomic_trace = !0;                              \
-	}                                                   \
-    } while (0)
-#define END_ATOMIC_TRACE(p)                               \
-    do {                                                  \
-	if (atomic_trace) {                               \
-            erts_smp_thr_progress_unblock();              \
-            erts_smp_proc_lock((p), ERTS_PROC_LOCK_MAIN); \
-            if (erts_refc_dectest(&bprog->refc, 0) == 0) {\
-                erts_bin_free(bprog);                     \
-	    }                                             \
-            atomic_trace = 0;                             \
-	}                                                 \
-    } while (0)
 
 #ifdef DMC_DEBUG
     save_op = 0;
@@ -2334,8 +2311,9 @@ restart:
 	    break;
 	case matchEnableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
-		BEGIN_ATOMIC_TRACE(c_p);
+                erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), 0, n);
+                erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2345,18 +2323,22 @@ restart:
 	    n = erts_trace_flag2bit((--esp)[-1]);
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
-		BEGIN_ATOMIC_TRACE(c_p);
-		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
+		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
 		    /* Always take over the tracer of the current process */
 		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), 0, n);
-		    esp[-1] = am_true;
+                    if (tmpp == c_p)
+                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
+                    else
+                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
+                    esp[-1] = am_true;
 		}
 	    }
 	    break;
 	case matchDisableTrace:
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
-		BEGIN_ATOMIC_TRACE(c_p);
+                erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), n, 0);
+                erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2366,11 +2348,14 @@ restart:
 	    n = erts_trace_flag2bit((--esp)[-1]);
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
-		BEGIN_ATOMIC_TRACE(c_p);
-		if ( (tmpp = get_proc(c_p, 0, esp[0], 0))) {
+		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
 		    /* Always take over the tracer of the current process */
 		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), n, 0);
-		    esp[-1] = am_true;
+                    if (tmpp == c_p)
+                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
+                    else
+                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
+                    esp[-1] = am_true;
 		}
 	    }
 	    break;
@@ -2508,13 +2493,9 @@ success:
 
     esdp->current_process = current_scheduled;
 
-    END_ATOMIC_TRACE(c_p);
-
     return ret;
 #undef FAIL
 #undef FAIL_TERM
-#undef BEGIN_ATOMIC_TRACE
-#undef END_ATOMIC_TRACE
 }
 
 
