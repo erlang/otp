@@ -30,7 +30,8 @@
 	 pre_init_per_suite/3, pre_end_per_suite/3, post_end_per_suite/4,
 	 pre_init_per_group/3, post_init_per_group/4,
 	 pre_end_per_group/3, post_end_per_group/4,
-	 pre_init_per_testcase/3, post_end_per_testcase/4]).
+	 pre_init_per_testcase/3, post_init_per_testcase/4,
+	 pre_end_per_testcase/3, post_end_per_testcase/4]).
 
 %% Event handler Callbacks
 -export([init/1,
@@ -87,6 +88,12 @@ post_init_per_group(_Group, _Config, Result, State) ->
 
 pre_init_per_testcase(TC, Config, State) ->
     set_curr_func(TC, Config),
+    {Config, State}.
+
+post_init_per_testcase(_TC, _Config, Return, State) ->
+    {Return, State}.
+
+pre_end_per_testcase(_TC, Config, State) ->
     {Config, State}.
 
 post_end_per_testcase(_TC, _Config, Result, State) ->
