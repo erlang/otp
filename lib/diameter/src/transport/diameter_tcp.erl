@@ -878,6 +878,20 @@ throttle(ok, #transport{parent = Pid, throttled = Msg} = S) ->
 throttle({ok = T, F}, S) ->
     throttle(T, S#transport{throttle_cb = F});
 
+%% Callback says to accept a received message and acknowledged the
+%% returned pid with a {request, Pid} message if a request pid is
+%% spawned, a discard message otherwise. The latter does not mean that
+%% the message was necessarily discarded: it could have been an
+%% answer.
+throttle(NPid, #transport{parent = Pid, throttled = Msg} = S)
+  when is_pid(NPid), is_binary(Msg) ->
+    diameter_peer:recv(Pid, {Msg, NPid}),
+    throttle(S#transport{throttled = true});
+
+throttle({NPid, F}, #transport{throttled = Msg} = S)
+  when is_pid(NPid), is_binary(Msg) ->
+    throttle(NPid, S#transport{throttle_cb = F});
+
 %% Callback says to ask again in the specified number of milliseconds.
 throttle({timeout, Tmo}, #transport{} = S) ->
     erlang:send_after(Tmo, self(), throttle),

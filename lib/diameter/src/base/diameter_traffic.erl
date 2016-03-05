@@ -232,7 +232,20 @@ pending(TPids) ->
 %% used to come through the service process but this avoids that
 %% becoming a bottleneck.
 
-receive_message(TPid, Pkt, Dict0, RecvData)
+receive_message(TPid, {Pkt, NPid}, Dict0, RecvData) ->
+    NPid ! {diameter, case incoming(TPid, Pkt, Dict0, RecvData) of
+                          Pid when is_pid(Pid) ->
+                              {request, Pid};
+                          _ ->
+                              discard
+                      end};
+
+receive_message(TPid, Pkt, Dict0, RecvData) ->
+    incoming(TPid, Pkt, Dict0, RecvData).
+
+%% incoming/4
+
+incoming(TPid, Pkt, Dict0, RecvData)
   when is_pid(TPid) ->
     #diameter_packet{header = #diameter_header{is_request = R}} = Pkt,
     recv(R,
@@ -246,7 +259,13 @@ receive_message(TPid, Pkt, Dict0, RecvData)
 
 %% Incoming request ...
 recv(true, false, TPid, Pkt, Dict0, T) ->
-    spawn_request(TPid, Pkt, Dict0, T);
+    try
+        spawn_request(TPid, Pkt, Dict0, T)
+    catch
+        error: system_limit = E ->  %% discard
+            ?LOG(error, E),
+            {error, E}
+    end;
 
 %% ... answer to known request ...
 recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
@@ -275,12 +294,7 @@ spawn_request(TPid, Pkt, Dict0, RecvData) ->
     spawn_request(TPid, Pkt, Dict0, ?DEFAULT_SPAWN_OPTS, RecvData).
 
 spawn_request(TPid, Pkt, Dict0, Opts, RecvData) ->
-    try
-        spawn_opt(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end, Opts)
-    catch
-        error: system_limit = E ->  %% discard
-            ?LOG(error, E)
-    end.
+    spawn_opt(fun() -> recv_request(TPid, Pkt, Dict0, RecvData) end, Opts).
 
 %% ---------------------------------------------------------------------------
 %% recv_request/4
