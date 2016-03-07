@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1573,6 +1573,8 @@ answer(Pkt,
                      options = [{answer_errors, AE} | _]},
        Req) ->
     a(Pkt, SvcName, ModX, AE, Req).
+
+-spec a(_, _, _) -> no_return().  %% silence dialyzer
 
 a(#diameter_packet{errors = Es}
   = Pkt,
