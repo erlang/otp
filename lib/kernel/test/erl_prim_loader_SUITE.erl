@@ -112,6 +112,12 @@ get_file(Config) when is_list(Config) ->
     ok.
 
 get_modules(_Config) ->
+    case test_server:is_cover() of
+	false -> do_get_modules();
+	true -> {skip,"Cover"}
+    end.
+
+do_get_modules() ->
     MsGood = lists:sort([lists,gen_server,gb_trees,code_server]),
     Ms = [certainly_not_existing|MsGood],
     SuccExp = [begin
