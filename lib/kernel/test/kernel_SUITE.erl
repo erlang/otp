@@ -65,7 +65,7 @@ end_per_testcase(_Case, _Config) ->
 %
 %% Tests the applications consistency.
 app_test(Config) when is_list(Config) ->
-    ?line ok=?t:app_test(kernel),
+    ok=test_server:app_test(kernel),
     ok.
 
 

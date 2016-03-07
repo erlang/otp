@@ -101,7 +101,7 @@ end_per_testcase(TC, Config) when TC == mult_lib_roots;
 				  TC == big_boot_embedded ->
     {ok, HostName} = inet:gethostname(),
     NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
-    ?t:stop_node(NodeName),
+    test_server:stop_node(NodeName),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
@@ -115,7 +115,7 @@ end_per_testcase(Config) ->
 
 set_path(Config) when is_list(Config) ->
     P = code:get_path(),
-    NonExDir = filename:join(proplists:get_value(priv_dir, Config), ?t:temp_name("hej")),
+    NonExDir = filename:join(proplists:get_value(priv_dir, Config), test_server:temp_name("hej")),
     {'EXIT',_} = (catch code:set_path({a})),
     {error, bad_directory} = (catch code:set_path([{a}])),
     {error, bad_directory} = code:set_path(NonExDir),
@@ -433,7 +433,7 @@ is_loaded(Config) when is_list(Config) ->
     ok.
 
 all_loaded(Config) when is_list(Config) ->
-    case ?t:is_cover() of
+    case test_server:is_cover() of
 	true -> {skip,"Cover is running"};
 	false -> all_loaded_1()
     end.
@@ -561,7 +561,7 @@ set_path_file(Config) when is_list(Config) ->
 %% a sticky directory cannot be loaded.
 sticky_dir(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
+    {ok,Node} = test_server:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
     Mods = [code,lists,erlang,init],
     OutDir = filename:join(proplists:get_value(priv_dir, Config), sticky_dir),
     _ = file:make_dir(OutDir),
@@ -574,7 +574,7 @@ sticky_dir(Config) when is_list(Config) ->
 	    io:format("~p\n", [Other]),
 	    ct:fail(failed)
     end,
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 sticky_compiler(Files, PrivDir) ->
@@ -604,22 +604,22 @@ pa_pz_option(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
     PaDir = filename:join(DDir,"pa"),
     PzDir = filename:join(DDir,"pz"),
-    {ok, Node}=?t:start_node(pa_pz1, slave,
+    {ok, Node}=test_server:start_node(pa_pz1, slave,
 	[{args,
 		"-pa " ++ PaDir
 		++ " -pz " ++ PzDir}]),
     Ret=rpc:call(Node, code, get_path, []),
     [PaDir|Paths] = Ret,
     [PzDir|_] = lists:reverse(Paths),
-    ?t:stop_node(Node),
-    {ok, Node2}=?t:start_node(pa_pz2, slave,
+    test_server:stop_node(Node),
+    {ok, Node2}=test_server:start_node(pa_pz2, slave,
 	[{args,
 		"-mode embedded " ++ "-pa "
 		++ PaDir ++ " -pz " ++ PzDir}]),
     Ret2=rpc:call(Node2, code, get_path, []),
     [PaDir|Paths2] = Ret2,
     [PzDir|_] = lists:reverse(Paths2),
-    ?t:stop_node(Node2).
+    test_server:stop_node(Node2).
 
 %% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
@@ -915,7 +915,7 @@ mult_lib_roots(Config) when is_list(Config) ->
 	filename:join(DataDir, "second_root"),
 
     {ok,Node} =
-	?t:start_node(mult_lib_roots, slave,
+	test_server:start_node(mult_lib_roots, slave,
 		      [{args,"-env ERL_LIBS "++ErlLibs}]),
 
     Path0 = rpc:call(Node, code, get_path, []),
@@ -963,19 +963,18 @@ mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
     {ok,Node} =
-	?t:start_node(bad_erl_libs, slave, []),
+	test_server:start_node(bad_erl_libs, slave, []),
     Code = rpc:call(Node,code,get_path,[]),
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
 
     {ok,Node2} =
-	?t:start_node(bad_erl_libs, slave,
-		      [{args,"-env ERL_LIBS /no/such/dir"}]),
+	test_server:start_node(bad_erl_libs, slave,
+			       [{args,"-env ERL_LIBS /no/such/dir"}]),
     Code2 = rpc:call(Node,code,get_path,[]),
-    ?t:stop_node(Node2),
+    test_server:stop_node(Node2),
 
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code == Code2,
-
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1026,7 +1025,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
 
     %% Set up ERL_LIBS and start a slave node.
     {ok, Node} =
-	?t:start_node(code_archive, slave,
+	test_server:start_node(code_archive, slave,
 		      [{args,"-env ERL_LIBS " ++ RootDir}]),
     CodePath = rpc:call(Node, code, get_path, []),
     AppEbin = filename:join([Archive, Base, "ebin"]),
@@ -1057,7 +1056,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     error =  rpc:call(Node, App, find, [Tab, Key]),
     ok =  rpc:call(Node, App, erase, [Tab]),
 
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 compile_app(TopDir, AppName) ->
@@ -1088,7 +1087,7 @@ compile_files([], _, _) ->
 big_boot_embedded(Config) when is_list(Config) ->
     {BootArg,AppsInBoot} = create_big_boot(Config),
     {ok, Node} =
-	?t:start_node(big_boot_embedded, slave,
+	test_server:start_node(big_boot_embedded, slave,
 		      [{args,"-boot "++BootArg++" -mode embedded"}]),
     RemoteNodeApps =
 	[ {X,Y} || {X,_,Y} <-
@@ -1466,7 +1465,7 @@ terminate(_Reason, State) ->
 %%%
 
 start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, slave, [{args, Param}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).

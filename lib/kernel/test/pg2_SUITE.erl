@@ -220,7 +220,7 @@ loop() ->
 
 %% OTP-8259. Check that 'exchange' and 'del_member' work.
 compat(Config) when is_list(Config) ->
-    case ?t:is_release_available("r13b") of
+    case test_server:is_release_available("r13b") of
         true ->
             Pid = spawn(forever()),
             G = a,
@@ -235,7 +235,7 @@ compat(Config) when is_list(Config) ->
             ?line true = exit(Pid, kill),
             ?line ?UNTIL([] =:= pg2:get_members(a)),
             ?line ?UNTIL([] =:= rpc:call(A, pg2, get_members, [a])),
-            ?t:stop_node(A),
+            test_server:stop_node(A),
 	    ok;
         false ->
 	    {skipped, "No support for old node"}
@@ -624,7 +624,7 @@ stop_nodes(Nodes) ->
     lists:foreach(fun(Node) -> stop_node(Node) end, Nodes).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 get_known(Node) ->
     case catch gen_server:call({global_name_server,Node},get_known,infinity) of

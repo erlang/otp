@@ -555,10 +555,10 @@ active_n(Config) when is_list(Config) ->
 %
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
+    test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 %% Test that connect/3 has effect.

@@ -693,10 +693,10 @@ join(Name,Host) ->
 
 %% start/stop slave.
 start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, slave, [{args, Param}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 get_nodenames(N, T) ->

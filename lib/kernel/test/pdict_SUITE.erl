@@ -108,7 +108,7 @@ complicated(Config) when is_list(Config) ->
     Previous = get(),
     ok = match_keys(Previous),
     Previous = erase(),
-    N = case ?t:is_debug() of
+    N = case test_server:is_debug() of
 	    false -> 500000;
 	    true -> 5000
 	end,
@@ -152,7 +152,7 @@ heavy(Config) when is_list(Config) ->
     ?M([],get()),
     time(5000),
     ?M([],get()),
-    case {os:type(),?t:is_debug()} of
+    case {os:type(),test_server:is_debug()} of
 	{_,true} -> ok;	    
 	_ ->
 	    time(50000),

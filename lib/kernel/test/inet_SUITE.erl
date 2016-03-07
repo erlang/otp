@@ -639,12 +639,12 @@ gethostnative_parallell(Config) when is_list(Config) ->
 
 do_gethostnative_parallell() ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line {ok,Node} = ?t:start_node(gethost_parallell, slave, 
+    {ok,Node} = test_server:start_node(gethost_parallell, slave,
 				     [{args, "-pa " ++ PA}]),
     ?line ok = rpc:call(Node, ?MODULE, parallell_gethost, []),
     ?line receive after 10000 -> ok end,
     ?line pong = net_adm:ping(Node),
-    ?line ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 parallell_gethost() ->

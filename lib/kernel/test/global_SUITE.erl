@@ -2743,7 +2743,7 @@ many_nodes(Config) when is_list(Config) ->
     ?line OrigNames = global:registered_names(),
 
     {Rels, N_cps} = 
-        case ?t:os_type() of
+        case test_server:os_type() of
             {unix, Osname} when Osname =:= linux; 
                                 Osname =:= openbsd; 
                                 Osname =:= darwin ->
@@ -2881,7 +2881,7 @@ sync_0(Config) when is_list(Config) ->
     ?line init_condition(Config),    
 
     N_cps = 
-        case ?t:os_type() of
+        case test_server:os_type() of
             {unix, Osname} when Osname =:= linux; 
                                 Osname =:= openbsd; 
                                 Osname =:= darwin ->
@@ -3783,12 +3783,12 @@ stop_nodes(Nodes) ->
     lists:foreach(fun(Node) -> stop_node(Node) end, Nodes).
 
 stop_node(Node) ->
-    ?line ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 stop() ->
     lists:foreach(fun(Node) ->
-			  ?t:stop_node(Node)
+			  test_server:stop_node(Node)
 		  end, nodes()).
 
 dbg_logs(Name) -> dbg_logs(Name, ?NODES).

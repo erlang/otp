@@ -96,7 +96,7 @@ end_per_suite(Config) when is_list(Config) ->
 start_check(Type, Name) ->
     start_check(Type, Name, []).
 start_check(Type, Name, Envs) ->
-    Args = case ?t:os_type() of
+    Args = case test_server:os_type() of
 	{win32,_} ->
 	    "+t50000 -heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
 	_ ->
@@ -106,7 +106,7 @@ start_check(Type, Name, Envs) ->
 	loose ->
 	    loose_node:start(Name, Args, ?DEFAULT_TIMEOUT_SECS);
 	_ ->
-	    ?t:start_node(Name, Type, [{args, Args}])
+	    test_server:start_node(Name, Type, [{args, Args}])
     end,
     erlang:monitor_node(Node, true),
     case rpc:call(Node, erlang, whereis, [heart]) of

@@ -558,10 +558,10 @@ boot2(Config) when is_list(Config) ->
 %% Misc. functions    
 
 start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, slave, [{args, Param}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);

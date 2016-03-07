@@ -61,13 +61,13 @@ end_per_group(_GroupName, Config) ->
 call(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
-    ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_call', slave, 
+    {ok, N1} = test_server:start_node('3_rpc_SUITE_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('1_rcp_SUITE_call', slave, 
+    {ok, N2} = test_server:start_node('1_rcp_SUITE_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N3} = ?t:start_node('4_rcp_SUITE_call', slave, 
+    {ok, N3} = test_server:start_node('4_rcp_SUITE_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N4} = ?t:start_node('8_rcp_SUITE_call', slave, 
+    {ok, N4} = test_server:start_node('8_rcp_SUITE_call', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line ok = io:format("~p~n", [[N1, N2, N3]]),
     ?line {hej,_,N1} = rpc:call(N1, ?MODULE, f, []),
@@ -76,23 +76,23 @@ call(Config) when is_list(Config) ->
     ?line receive after 6000 -> ok end,
     ?line [] = flush([]),
     ?line {hej,_,N4} = rpc:call(N4, ?MODULE, f, []),
-    ?line ?t:stop_node(N1),
-    ?line ?t:stop_node(N2),
-    ?line ?t:stop_node(N3),
-    ?line ?t:stop_node(N4),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
+    test_server:stop_node(N3),
+    test_server:stop_node(N4),
     ok.
 
 %% Test different rpc calls.
 block_call(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
-    ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_block_call', slave, 
+    {ok, N1} = test_server:start_node('3_rpc_SUITE_block_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('1_rcp_SUITE_block_call', slave, 
+    {ok, N2} = test_server:start_node('1_rcp_SUITE_block_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N3} = ?t:start_node('4_rcp_SUITE_block_call', slave, 
+    {ok, N3} = test_server:start_node('4_rcp_SUITE_block_call', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N4} = ?t:start_node('8_rcp_SUITE_block_call', slave, 
+    {ok, N4} = test_server:start_node('8_rcp_SUITE_block_call', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line ok = io:format("~p~n", [[N1, N2, N3]]),
     ?line {hej,_,N1} = rpc:block_call(N1, ?MODULE, f, []),
@@ -101,10 +101,10 @@ block_call(Config) when is_list(Config) ->
     ?line receive after 6000 -> ok end,
     ?line [] = flush([]),
     ?line {hej,_,N4} = rpc:block_call(N4, ?MODULE, f, []),
-    ?line ?t:stop_node(N1),
-    ?line ?t:stop_node(N2),
-    ?line ?t:stop_node(N3),
-    ?line ?t:stop_node(N4),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
+    test_server:stop_node(N3),
+    test_server:stop_node(N4),
     ok.
 
 
@@ -112,29 +112,29 @@ block_call(Config) when is_list(Config) ->
 multicall(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
-    ?line {ok, N1} = ?t:start_node('3_rpc_SUITE_multicall', slave, 
+    {ok, N1} = test_server:start_node('3_rpc_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('1_rcp_SUITE_multicall', slave, 
+    {ok, N2} = test_server:start_node('1_rcp_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line ok = io:format("~p~n", [[N1, N2]]),
     ?line {[{hej,_,N1},{hej,_,N2}],[]} = 
 	   rpc:multicall([N1, N2], ?MODULE, f, []),
     ?line Msgs = flush([]),
     ?line [] = Msgs,
-    ?line ?t:stop_node(N1),
-    ?line ?t:stop_node(N2),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
     ok.
 
 multicall_timeout(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %% Note. First part of nodename sets response delay in seconds
-    ?line {ok, N1} = ?t:start_node('11_rpc_SUITE_multicall', slave, 
+    {ok, N1} = test_server:start_node('11_rpc_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('8_rpc_SUITE_multicall', slave, 
+    {ok, N2} = test_server:start_node('8_rpc_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N3} = ?t:start_node('5_rpc_SUITE_multicall', slave, 
+    {ok, N3} = test_server:start_node('5_rpc_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N4} = ?t:start_node('2_rcp_SUITE_multicall', slave, 
+    {ok, N4} = test_server:start_node('2_rcp_SUITE_multicall', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line ok = io:format("~p~n", [[N1, N2]]),
     {[{hej,_,N3},{hej,_,N4}],[N1, N2]} =
@@ -142,17 +142,17 @@ multicall_timeout(Config) when is_list(Config) ->
     ct:sleep({seconds,8}),			%Wait for late answers
     ?line Msgs = flush([]),
     ?line [] = Msgs,
-    ?line ?t:stop_node(N1),
-    ?line ?t:stop_node(N2),
-    ?line ?t:stop_node(N3),
-    ?line ?t:stop_node(N4),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
+    test_server:stop_node(N3),
+    test_server:stop_node(N4),
     ok.
 
 multicall_dies(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line {ok, N1} = ?t:start_node('rpc_SUITE_multicall_dies_1', slave, 
+    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_dies_1', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('rcp_SUITE_multicall_dies_2', slave, 
+    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_dies_2', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line Nodes = [N1, N2],
     %%
@@ -183,8 +183,8 @@ multicall_dies(Config) when is_list(Config) ->
     ?line {[{badrpc, {'EXIT', killed}}, {badrpc, {'EXIT', killed}}], []} = 
 	do_multicall(Nodes, ?MODULE, suicide, [exit, kill]),
     %%
-    ?line ?t:stop_node(N1),
-    ?line ?t:stop_node(N2),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
     ok.
 
 do_multicall(Nodes, Mod, Func, Args) ->
@@ -205,9 +205,9 @@ multicall_node_dies(Config) when is_list(Config) ->
 do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ?line ok = io:format("~p:~p~p~n", [Mod, Func, Args]),
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line {ok, N1} = ?t:start_node('rpc_SUITE_multicall_node_dies_1', slave, 
+    {ok, N1} = test_server:start_node('rpc_SUITE_multicall_node_dies_1', slave,
 				   [{args, "-pa " ++ PA}]),
-    ?line {ok, N2} = ?t:start_node('rcp_SUITE_multicall_node_dies_2', slave, 
+    {ok, N2} = test_server:start_node('rcp_SUITE_multicall_node_dies_2', slave,
 				   [{args, "-pa " ++ PA}]),
     ?line Nodes = [N1, N2],
     ?line {[], Nodes} = rpc:multicall(Nodes, Mod, Func, Args),
@@ -220,7 +220,7 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
 %% OTP-3766.
 called_dies(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line {ok, N} = ?t:start_node(rpc_SUITE_called_dies, slave, 
+    {ok, N} = test_server:start_node(rpc_SUITE_called_dies, slave,
 				  [{args, "-pa " ++ PA}]),
     %%
     ?line rep(fun (Tag, Call, Args) ->
@@ -302,7 +302,7 @@ called_dies(Config) when is_list(Config) ->
 	      end, N, ?MODULE, suicide, [exit,kill]),
     %%
     ?line [] = flush([]),
-    ?line ?t:stop_node(N),
+    test_server:stop_node(N),
     ok.
 
 rep(Fun, N, M, F, A) ->
@@ -379,31 +379,31 @@ called_node_dies(Config) when is_list(Config) ->
     ok.
 
 node_rep(Fun, Name, PA, M, F, A) ->
-    {ok, Na} = ?t:start_node(list_to_atom(Name++"_a"), slave, 
+    {ok, Na} = test_server:start_node(list_to_atom(Name++"_a"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(a, call, [Na, M, F, A]),
-    catch ?t:stop_node(Na),
-    {ok, Nb} = ?t:start_node(list_to_atom(Name++"_b"), slave, 
+    catch test_server:stop_node(Na),
+    {ok, Nb} = test_server:start_node(list_to_atom(Name++"_b"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(b, call, [Nb, M, F, A, infinity]),
-    catch ?t:stop_node(Nb),
-    {ok, Nc} = ?t:start_node(list_to_atom(Name++"_c"), slave, 
+    catch test_server:stop_node(Nb),
+    {ok, Nc} = test_server:start_node(list_to_atom(Name++"_c"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(c, call, [Nc, M, F, A, infinity]),
-    catch ?t:stop_node(Nc),
+    catch test_server:stop_node(Nc),
     %%
-    {ok, Nd} = ?t:start_node(list_to_atom(Name++"_d"), slave, 
+    {ok, Nd} = test_server:start_node(list_to_atom(Name++"_d"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(d, block_call, [Nd, M, F, A]),
-    catch ?t:stop_node(Nd),
-    {ok, Ne} = ?t:start_node(list_to_atom(Name++"_e"), slave, 
+    catch test_server:stop_node(Nd),
+    {ok, Ne} = test_server:start_node(list_to_atom(Name++"_e"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(e, block_call, [Ne, M, F, A, infinity]),
-    catch ?t:stop_node(Ne),
-    {ok, Nf} = ?t:start_node(list_to_atom(Name++"_f"), slave, 
+    catch test_server:stop_node(Ne),
+    {ok, Nf} = test_server:start_node(list_to_atom(Name++"_f"), slave,
 			      [{args, "-pa " ++ PA}]),
     Fun(f, block_call, [Nf, M, F, A, infinity]),
-    catch ?t:stop_node(Nf),
+    catch test_server:stop_node(Nf),
     ok.
 
 
@@ -412,7 +412,7 @@ node_rep(Fun, Name, PA, M, F, A) ->
 called_throws(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
     %%
-    ?line {ok, N} = ?t:start_node(rpc_SUITE_called_throws, slave, 
+    {ok, N} = test_server:start_node(rpc_SUITE_called_throws, slave,
 				  [{args, "-pa " ++ PA}]),
     %%
     ?line rep(fun (Tag, Call, Args) ->
@@ -424,21 +424,21 @@ called_throws(Config) when is_list(Config) ->
 			  {Tag,apply(rpc, Call, Args)}
 	      end, N, erlang, throw, [{'EXIT',reason}]),
     %%
-    ?line ?t:stop_node(N),
+    test_server:stop_node(N),
     ok.
 
 
 
 call_benchmark(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = ?t:start_node(rpc_SUITE_call_benchmark, slave,
+    {ok, Node} = test_server:start_node(rpc_SUITE_call_benchmark, slave,
 			       [{args, "-pa " ++ PA}]),
     Iter = case erlang:system_info(modified_timing_level) of
 	       undefined -> 10000;
 	       _ -> 500		     %Modified timing - spawn is slower
 	   end,
     Res = do_call_benchmark(Node, Iter),
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     Res.
 
 do_call_benchmark(Node, M) when is_integer(M), M > 0 ->
@@ -461,9 +461,9 @@ async_call(Config) when is_list(Config) ->
     %% Note: First part of nodename sets response delay in seconds.
     ?line PA = filename:dirname(code:which(?MODULE)),
     ?line NodeArgs = [{args,"-pa "++ PA}],
-    ?line {ok,Node1} = ?t:start_node('1_rpc_SUITE_call', slave, NodeArgs),
-    ?line {ok,Node2} = ?t:start_node('10_rpc_SUITE_call', slave, NodeArgs),
-    ?line {ok,Node3} = ?t:start_node('20_rpc_SUITE_call', slave, NodeArgs),
+    {ok,Node1} = test_server:start_node('1_rpc_SUITE_call', slave, NodeArgs),
+    {ok,Node2} = test_server:start_node('10_rpc_SUITE_call', slave, NodeArgs),
+    {ok,Node3} = test_server:start_node('20_rpc_SUITE_call', slave, NodeArgs),
     ?line Promise1 = rpc:async_call(Node1, ?MODULE, f, []),
     ?line Promise2 = rpc:async_call(Node2, ?MODULE, f, []),
     ?line Promise3 = rpc:async_call(Node3, ?MODULE, f, []),

@@ -1204,7 +1204,7 @@ node_name(Name, Config) ->
     lists:concat([Name,U,?testcase,U,Pid,U,U,L]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 wait_for_ready_net() ->

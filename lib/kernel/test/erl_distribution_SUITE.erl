@@ -1168,20 +1168,20 @@ sleep(T) -> receive after T * 1000 -> ok end.
 
 start_node(Name, Param, this) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
+    test_server:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
 start_node(Name, Param, "this") ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
+    test_server:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
 start_node(Name, Param, Rel) when is_atom(Rel) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, peer, [{args, NewParam}, {erl, [{release, atom_to_list(Rel)}]}]);
+    test_server:start_node(Name, peer, [{args, NewParam}, {erl, [{release, atom_to_list(Rel)}]}]);
 start_node(Name, Param, Rel) when is_list(Rel) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, peer, [{args, NewParam}, {erl, [{release, Rel}]}]).
+    test_server:start_node(Name, peer, [{args, NewParam}, {erl, [{release, Rel}]}]).
 
 start_node(Name, Param) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args, NewParam}]).
+    test_server:start_node(Name, slave, [{args, NewParam}]).
 %    M = list_to_atom(from($@, atom_to_list(node()))),
 %    slave:start_link(M, Name, Param).
 
@@ -1189,7 +1189,7 @@ start_node(Name) ->
     start_node(Name, "").
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 %    erlang:monitor_node(Node, true),
 %    rpc:cast(Node, init, stop, []),
 %    receive
