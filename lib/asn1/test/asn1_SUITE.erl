@@ -628,12 +628,22 @@ ber_other(Config, Rule, Opts) ->
 der(Config) ->
     asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
-module_test(M, Config, Rule, Opts) ->
-    asn1_test_lib:compile(M, Config, [Rule|Opts]),
-    case asn1ct:test(list_to_atom(M), [{i, ?config(case_dir, Config)}]) of
-        ok    -> ok;
-        Error ->
-            erlang:error({test_failed, M, Opts, Error})
+module_test(M0, Config, Rule, Opts) ->
+    asn1_test_lib:compile(M0, Config, [Rule|Opts]),
+    case list_to_atom(M0) of
+	'LDAP' ->
+	    %% Because of the recursive definition of 'Filter' in
+	    %% the LDAP module, the construction of a sample
+	    %% value for 'Filter' is not guaranteed to terminate.
+	    ok;
+	M ->
+	    TestOpts = [{i, ?config(case_dir, Config)}],
+	    case asn1ct:test(M, TestOpts) of
+		ok ->
+		    ok;
+		Error ->
+		    erlang:error({test_failed, M, Opts, Error})
+	    end
     end.
 
 
