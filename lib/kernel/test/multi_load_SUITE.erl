@@ -362,9 +362,9 @@ atomic_load_error(Modules, ErrorInFinishLoading) ->
 	{B,B} ->
 	    Errors;
 	{false,true} ->
-	    ct:fail("LastAction fun must not be called");
+	    ct:fail("code:prepare_loading/1 should have failed");
 	{true,false} ->
-	    ct:fail("LastAction fun was not called")
+	    ct:fail("code:prepare_loading/1 should have succeeded")
     end.
 
 is_loaded(Mod) ->
