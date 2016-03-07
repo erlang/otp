@@ -127,6 +127,9 @@ do_get_modules() ->
 	       end || M <- MsGood],
     FailExp = [{certainly_not_existing,enoent}],
 
+    io:format("SuccExp = ~p\n", [SuccExp]),
+    io:format("FailExp = ~p\n", [FailExp]),
+
     Path = code:get_path(),
     Process = fun(_, F, Code) -> {ok,{F,erlang:md5(Code)}} end,
     {ok,{Succ,FailExp}} = erl_prim_loader:get_modules(Ms, Process, Path),
