@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -487,6 +487,9 @@ transition({service, Pid}, S) ->
 %% Remote service is communicating a shared peer.
 transition({peer, TPid, Aliases, Caps}, S) ->
     remote_peer_up(TPid, Aliases, Caps, S),
+    ok;
+transition({peer, TPid}, S) ->
+    remote_peer_down(TPid, S),
     ok;
 
 %% Remote peer process has died.
@@ -1422,8 +1425,9 @@ share_peer(up, Caps, Apps, TPid, #state{options = [_, {_,T} | _],
                                         service_name = Svc}) ->
     notify(T, Svc, {peer, TPid, [A || {_,A} <- Apps], Caps});
 
-share_peer(_, _, _, _, _) ->
-    ok.
+share_peer(down, _Caps, _Apps, TPid, #state{options = [_, {_,T} | _],
+                                            service_name = Svc}) ->
+    notify(T, Svc, {peer, TPid}).
 
 %% ---------------------------------------------------------------------------
 %% # share_peers/2
