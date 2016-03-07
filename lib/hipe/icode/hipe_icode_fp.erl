@@ -850,12 +850,15 @@ filter_map(Map, NofPreds) ->
 filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
   case length(Bindings) =:= NofPreds of
     true ->
+      BindingsAllAssigned = lists:all(fun({_, {assigned, _}}) -> true;
+					 ({_, _}) -> false
+				      end, Bindings),
       case all_args_equal(Bindings) of
 	true ->
 	  NewBinding =
 	    case hd(Bindings) of
 	      {Pred, {assigned, FVar0}} when is_integer(Pred) ->
-		case bindings_all_assigned(Bindings) of
+		case BindingsAllAssigned of
 		  true -> {assigned, FVar0};
 		  false -> FVar0
 		end;
@@ -873,7 +876,7 @@ filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
 		Map#{phi => [{PhiDst, PhiArgs}]}
 	    end,
 	  NewBinding =
-	    case bindings_all_assigned(Bindings) of
+	    case BindingsAllAssigned of
 	      true -> {assigned, PhiDst};
 	      false -> PhiDst
 	    end,
@@ -884,13 +887,6 @@ filter_map([{Var, Bindings}|Left], NofPreds, Map) ->
   end;
 filter_map([], _NofPreds, Map) ->
   Map.
-
--spec bindings_all_assigned(incoming_fvars()) -> boolean().
-
-bindings_all_assigned([]) -> true;
-bindings_all_assigned([{_, {assigned, _}}|Left]) ->
-  bindings_all_assigned(Left);
-bindings_all_assigned(_) -> false.
 
 -spec all_args_equal(incoming_fvars()) -> boolean().
 
