@@ -272,7 +272,12 @@ do_ensure_modules_loaded(Dir) ->
     true = is_loaded(Mod),
     true = is_loaded(OLMod),
     true = is_loaded(NativeMod),
-    true = NativeMod:module_info(native),
+
+    ModuleNative = case erlang:system_info(hipe_architecture) of
+		       undefined -> false;
+		       _ -> true
+		   end,
+    ModuleNative = NativeMod:module_info(native),
 
     ok.
 
