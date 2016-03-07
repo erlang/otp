@@ -72,6 +72,12 @@ ERL_NIF_INIT(erl_tracer, nif_funcs, load, NULL, upgrade, unload)
     ATOM_DECL(trace);                              \
     ATOM_DECL(trace_ts);                           \
     ATOM_DECL(true);                               \
+    ATOM_DECL(gc_start);                           \
+    ATOM_DECL(gc_end);                             \
+    ATOM_DECL(gc_minor_start);                     \
+    ATOM_DECL(gc_minor_end);                       \
+    ATOM_DECL(gc_major_start);                     \
+    ATOM_DECL(gc_major_end);                       \
     ATOM_DECL(undefined);
 
 #define ATOM_DECL(A) static ERL_NIF_TERM atom_##A

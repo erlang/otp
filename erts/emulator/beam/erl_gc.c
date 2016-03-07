@@ -593,10 +593,6 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     esdp = erts_get_scheduler_data();
 
-    if (IS_TRACED_FL(p, F_TRACE_GC)) {
-        trace_gc(p, am_gc_start);
-    }
-
     erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0)
 	start_time = erts_get_monotonic_time(esdp);
@@ -619,18 +615,29 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
      */
 
     if (GEN_GCS(p) < MAX_GEN_GCS(p) && !(FLAGS(p) & F_NEED_FULLSWEEP)) {
-	DTRACE2(gc_minor_start, pidbuf, need);
-	reds = minor_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
-	DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
-	if (reds < 0)
-	    goto do_major_collection;
-    }
-    else {
-    do_major_collection:
+        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+            trace_gc(p, am_gc_minor_start, need);
+        }
+        DTRACE2(gc_minor_start, pidbuf, need);
+        reds = minor_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
+        DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
+        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+            trace_gc(p, am_gc_minor_end, reclaimed_now);
+        }
+        if (reds < 0)
+            goto do_major_collection;
+    } else {
+do_major_collection:
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC_FULL);
-	DTRACE2(gc_major_start, pidbuf, need);
-	reds = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
-	DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+            trace_gc(p, am_gc_major_start, need);
+        }
+        DTRACE2(gc_major_start, pidbuf, need);
+        reds = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
+        DTRACE2(gc_major_end, pidbuf, reclaimed_now);
+        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+            trace_gc(p, am_gc_major_end, reclaimed_now);
+        }
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC);
     }
 
@@ -645,10 +652,6 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ErtsGcQuickSanityCheck(p);
 
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
-
-    if (IS_TRACED_FL(p, F_TRACE_GC)) {
-        trace_gc(p, am_gc_end);
-    }
 
     if (erts_system_monitor_long_gc != 0) {
 	ErtsMonotonicTime end_time;

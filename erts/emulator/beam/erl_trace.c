@@ -1326,23 +1326,26 @@ void save_calls(Process *p, Export *e)
  * are all small (atomic) integers.
  */
 void
-trace_gc(Process *p, Eterm what)
+trace_gc(Process *p, Eterm what, Uint size)
 {
     ErtsTracerNif *tnif = NULL;
     Eterm* hp;
     Eterm msg = NIL;
-    Uint size = 0;
+    Uint sz = 0;
+    Eterm tup;
 
     if (is_tracer_proc_enabled(
             p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif, what)) {
 
-        (void) erts_process_gc_info(p, &size, NULL);
-        hp = HAlloc(p, size);
+        (void) erts_process_gc_info(p, &sz, NULL);
+        hp = HAlloc(p, sz + 3 + 2);
 
         msg = erts_process_gc_info(p, NULL, &hp);
+	tup = TUPLE2(hp, am_wordsize, make_small(size)); hp += 3;
+        msg = CONS(hp, tup, msg); hp += 2;
 
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_GC,
-                what, msg, THE_NON_VALUE);
+                what, msg, am_undefined);
     }
 }
 
