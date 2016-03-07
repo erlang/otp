@@ -210,42 +210,41 @@ f(A, B, C) ->
       Y * Z
   end.
 
-%%%-------------------------------------------------------------------
-%%% Contains another case that crashes hipe_icode_fp.  This sample was
-%%% sent by Mattias Jansson.  Compiles alright with the option
-%%% 'no_icode_type' but that defeats the purpose of the test.
+%%--------------------------------------------------------------------
+%% Contains another case that crashed hipe_icode_fp. This sample was
+%% sent by Mattias Jansson (25 Nov 2015). It compiled alright with the
+%% option 'no_icode_type' but that defeats the purpose of the test.
+%% Unfortunately, the execution of this code goes into an infinite
+%% loop, even if the map in the second argument of eat_what/2 gets the
+%% appropriate key-value pairs. Still, it is retained as a test
+%% because it exposed a different crash than test_icode_type_crash/0.
 
 test_icode_type_crash_2() ->
-    {'EXIT', {function_clause, _}} = (catch eat()),
-    ok.
+  {'EXIT', {function_clause, _}} = (catch eat()),
+  ok.
 
 eat() ->
-    eat_what(1.0, #{}).
+  eat_what(1.0, #{}).
 
 eat_what(Factor, #{rat_type := LT} = Rat) ->
-    #{ cheese := Cheese } = Rat,
-    UnitCheese = Cheese / 2,
-    RetA = case eat() of
-               {full, RetA1} ->
-                   CheeseB2 = min(RetA1, UnitCheese) * Factor,
-                   case eat() of
-                       full ->
-                           {win, RetA1};
-                       hungry ->
-                           {partial, RetA1 - CheeseB2}
-                   end;
-               AOther ->
-                   AOther
-           end,
-    RetB = case eat() of
-	       {full, RetB1} ->
-                   CheeseA2 = min(RetB1, UnitCheese) * Factor,
-                   rat:init(single, LT, CheeseA2),
-                   case eat() of
-                       full ->
-                           {full, RetB1};
-                       hungry ->
-                           {hungry, RetB1 - CheeseA2}
-                   end
-           end,
-    {RetA, RetB}.
+  #{cheese := Cheese} = Rat,
+  UnitCheese = Cheese / 2,
+  RetA = case eat() of
+	   {full, RetA1} ->
+	     CheeseB2 = min(RetA1, UnitCheese) * Factor,
+	     case eat() of
+	       full -> {win, RetA1};
+	       hungry -> {partial, RetA1 - CheeseB2}
+	     end;
+	   AOther -> AOther
+	 end,
+  RetB = case eat() of
+	   {full, RetB1} ->
+	     CheeseA2 = min(RetB1, UnitCheese) * Factor,
+	     rat:init(single, LT, CheeseA2),
+	     case eat() of
+	       full -> {full, RetB1};
+	       hungry -> {hungry, RetB1 - CheeseA2}
+	     end
+	 end,
+  {RetA, RetB}.
