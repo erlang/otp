@@ -684,10 +684,10 @@ clash(Config) when is_list(Config) ->
 
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"zork-0.8/ebin"),
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [OKMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [OKMsg|_] = ct:capture_get(),
     true = lists:prefix("** Found 0 name clashes", OKMsg),
     true = code:set_path(P),
 
@@ -695,10 +695,10 @@ clash(Config) when is_list(Config) ->
 
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [ClashMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [ClashMsg|_] = ct:capture_get(),
     {match, [" hides "]} = re:run(ClashMsg, "\\*\\* .*( hides ).*",
 					[{capture,all_but_first,list}]),
     true = code:set_path(P),
@@ -717,10 +717,10 @@ clash(Config) when is_list(Config) ->
 	 _ ->
     	    ok = file:delete(TmpEzFile)
     end,
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [BadPathMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [BadPathMsg|_] = ct:capture_get(),
     true = lists:prefix("** Bad path can't read", BadPathMsg),
     true = code:set_path(P),
     file:delete(TmpEzFile++".moved"), %% Only effect on windows
