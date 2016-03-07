@@ -108,8 +108,13 @@ static ERL_NIF_TERM atom_discard;
 
 /* gc atoms */
 
-static ERL_NIF_TERM atom_gc_start;
-static ERL_NIF_TERM atom_gc_end;
+static ERL_NIF_TERM atom_gc_minor_start;
+static ERL_NIF_TERM atom_gc_minor_end;
+static ERL_NIF_TERM atom_gc_major_start;
+static ERL_NIF_TERM atom_gc_major_end;
+
+static ERL_NIF_TERM atom_old_heap_block_size; /* for debug */
+static ERL_NIF_TERM atom_heap_block_size;     /* for debug */
 
 /* process 'procs' */
 
@@ -162,8 +167,13 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     /* gc */
 
-    atom_gc_start = enif_make_atom(env,"gc_start");
-    atom_gc_end = enif_make_atom(env,"gc_end");
+    atom_gc_minor_start = enif_make_atom(env,"gc_minor_start");
+    atom_gc_minor_end   = enif_make_atom(env,"gc_minor_end");
+    atom_gc_major_start = enif_make_atom(env,"gc_major_start");
+    atom_gc_major_end   = enif_make_atom(env,"gc_major_end");
+
+    atom_old_heap_block_size = enif_make_atom(env,"old_heap_block_size"); 
+    atom_heap_block_size     = enif_make_atom(env,"heap_block_size");
 
     /* process 'proc' */
 
@@ -318,19 +328,46 @@ static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL
 #ifdef HAVE_USE_DTRACE
 #elif HAVE_USE_LTTNG
     lttng_decl_procbuf(pid);
+    ERL_NIF_TERM gci, tup;
+    const ERL_NIF_TERM *vals;
+    int arity;
+    unsigned long ohbsz, nhbsz, size;
+
+    ASSERT(argc == 6);
+
+    /* Assume gc info order does not change */
+    gci = argv[3];
+
+    /* get reclaimed or need */
+    enif_get_list_cell(env, gci, &tup, &gci);
+    enif_get_tuple(env, tup, &arity, &vals);
+    ASSERT(arity == 2);
+    enif_get_ulong(env, vals[1], &size);
+
+    /* get old heap block size */
+    enif_get_list_cell(env, gci, &tup, &gci);
+    enif_get_tuple(env, tup, &arity, &vals);
+    ASSERT(arity == 2);
+    ASSERT(vals[0] == atom_old_heap_block_size);
+    enif_get_ulong(env, vals[1], &ohbsz);
+
+    /* get new heap block size */
+    enif_get_list_cell(env, gci, &tup, &gci);
+    enif_get_tuple(env, tup, &arity, &vals);
+    ASSERT(arity == 2);
+    ASSERT(vals[0] == atom_heap_block_size);
+    enif_get_ulong(env, vals[1], &nhbsz);
 
     lttng_pid_to_str(argv[2], pid);
 
-    if (argv[0] == atom_gc_start) {
-        LTTNG2(gc_minor_start, pid, 0);
-    } else if (argv[0] == atom_gc_end) {
-        LTTNG2(gc_minor_end, pid, 0);
-    } else {
-        int i;
-        erts_fprintf(stderr, "trace send:\r\n");
-        for (i = 0; i < argc; i++) {
-            erts_fprintf(stderr, "  %T\r\n", argv[i]);
-        }
+    if (argv[0] == atom_gc_minor_start) {
+        LTTNG4(gc_minor_start, pid, size, nhbsz, ohbsz);
+    } else if (argv[0] == atom_gc_minor_end) {
+        LTTNG4(gc_minor_end, pid, size, nhbsz, ohbsz);
+    } else if (argv[0] == atom_gc_major_start) {
+        LTTNG4(gc_major_start, pid, size, nhbsz, ohbsz);
+    } else if (argv[0] == atom_gc_major_end) {
+        LTTNG4(gc_major_end, pid, size, nhbsz, ohbsz);
     }
 #endif
     return atom_ok;

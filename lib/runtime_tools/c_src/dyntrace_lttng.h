@@ -277,11 +277,15 @@ TRACEPOINT_EVENT(
     gc_minor_start,
     TP_ARGS(
         char*, p,
-        int, need
+        unsigned long, need,
+        unsigned long, nh,
+        unsigned long, oh
     ),
     TP_FIELDS(
         ctf_string(pid, p)
-        ctf_integer(int, need, need)
+        ctf_integer(unsigned long, need, need)
+        ctf_integer(unsigned long, heap, nh)
+        ctf_integer(unsigned long, old_heap, oh)
     )
 )
 
@@ -290,11 +294,15 @@ TRACEPOINT_EVENT(
     gc_minor_end,
     TP_ARGS(
         char*, p,
-        int, reclaimed
+        unsigned long, reclaimed,
+        unsigned long, nh,
+        unsigned long, oh
     ),
     TP_FIELDS(
         ctf_string(pid, p)
-        ctf_integer(int, reclaimed, reclaimed)
+        ctf_integer(unsigned long, reclaimed, reclaimed)
+        ctf_integer(unsigned long, heap, nh)
+        ctf_integer(unsigned long, old_heap, oh)
     )
 )
 
@@ -303,11 +311,15 @@ TRACEPOINT_EVENT(
     gc_major_start,
     TP_ARGS(
         char*, p,
-        int, need
+        unsigned long, need,
+        unsigned long, nh,
+        unsigned long, oh
     ),
     TP_FIELDS(
         ctf_string(pid, p)
-        ctf_integer(int, need, need)
+        ctf_integer(unsigned long, need, need)
+        ctf_integer(unsigned long, heap, nh)
+        ctf_integer(unsigned long, old_heap, oh)
     )
 )
 
@@ -316,11 +328,15 @@ TRACEPOINT_EVENT(
     gc_major_end,
     TP_ARGS(
         char*, p,
-        int, reclaimed
+        unsigned long, reclaimed,
+        unsigned long, nh,
+        unsigned long, oh
     ),
     TP_FIELDS(
         ctf_string(pid, p)
-        ctf_integer(int, reclaimed, reclaimed)
+        ctf_integer(unsigned long, reclaimed, reclaimed)
+        ctf_integer(unsigned long, heap, nh)
+        ctf_integer(unsigned long, old_heap, oh)
     )
 )
 
