@@ -41,6 +41,8 @@
 -export([post_end_per_group/4]).
 
 -export([pre_init_per_testcase/3]).
+-export([post_init_per_testcase/4]).
+-export([pre_end_per_testcase/3]).
 -export([post_end_per_testcase/4]).
 
 -export([on_tc_fail/3]).
@@ -181,7 +183,22 @@ post_end_per_group(_Group,_Config,Return,State) ->
 pre_init_per_testcase(_TC,Config,State) ->
     {add_node_name(Config, State), State}.
 
+-spec post_init_per_testcase(TC :: atom(),
+			    Config :: config(),
+			    Return :: term(),
+			    State :: #state{}) ->
+	{ok | skip_or_fail(), NewState :: #state{}}.
+post_init_per_testcase(_TC,_Config,Return,State) ->
+    {Return, State}.
+
 %% @doc Called after each test case. 
+-spec pre_end_per_testcase(TC :: atom(),
+			   Config :: config(),
+			   State :: #state{}) ->
+	{config() | skip_or_fail(), NewState :: #state{}}.
+pre_end_per_testcase(_TC,Config,State) ->
+    {Config, State}.
+
 -spec post_end_per_testcase(TC :: atom(),
 			    Config :: config(),
 			    Return :: term(),

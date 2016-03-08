@@ -2055,6 +2055,13 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		     ({skipped,Group,TCs}) ->
 			  [ct_groups:make_conf(TestDir, Suite,
 					       Group, [skipped], TCs)];
+		     ({skipped,TC}) ->
+			  case lists:member(TC, GrsOrCs) of
+			      true ->
+				  [];
+			      false ->
+				  [TC]
+			  end;
 		     ({GrSpec = {GroupName,_},TCs}) ->
 			  Props = [{override,GrSpec}],
 			  [ct_groups:make_conf(TestDir, Suite,

@@ -82,6 +82,14 @@ pre_init_per_testcase(TC,Config,State) ->
     check_dirs(State,Config),
     empty_cth:pre_init_per_testcase(TC,Config,State).
 
+post_init_per_testcase(TC,Config,Return,State) ->
+    check_dirs(State,Config),
+    empty_cth:post_init_per_testcase(TC,Config,Return,State).
+
+pre_end_per_testcase(TC,Config,State) ->
+    check_dirs(State,Config),
+    empty_cth:pre_end_per_testcase(TC,Config,State).
+
 post_end_per_testcase(TC,Config,Return,State) ->
     check_dirs(State,Config),
     empty_cth:post_end_per_testcase(TC,Config,Return,State).

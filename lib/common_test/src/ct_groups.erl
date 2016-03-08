@@ -81,7 +81,7 @@ find(Mod, all, all, [{Name,Props,Tests} | Gs], Known, Defs, _)
 find(Mod, all, TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) 
   when is_atom(Name), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name, Known),
-    Tests1 = rm_unwanted_tcs(Tests, TCs, []),
+    Tests1 = modify_tc_list(Tests, TCs, []),
     trim(make_conf(Mod, Name, Props,
 		   find(Mod, all, TCs, Tests1, [Name | Known],
 			Defs, true))) ++
@@ -91,7 +91,7 @@ find(Mod, all, TCs, [{Name,Props,Tests} | Gs], Known, Defs, _)
 find(Mod, [Name|GrNames]=SPath, TCs, [{Name,Props,Tests} | Gs], Known,
      Defs, FindAll) when is_atom(Name), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name, Known),
-    Tests1 = rm_unwanted_tcs(Tests, TCs, GrNames),
+    Tests1 = modify_tc_list(Tests, TCs, GrNames),
     trim(make_conf(Mod, Name, Props,
 		   find(Mod, GrNames, TCs, Tests1, [Name|Known],
 			Defs, FindAll))) ++
@@ -133,7 +133,7 @@ find(_Mod, [_|_], _TCs, [], _Known, _Defs, _) ->
 find(Mod, GrNames, TCs, [{Name,Props,Tests} | Gs], Known,
      Defs, FindAll) when is_atom(Name), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name, Known),
-    Tests1 = rm_unwanted_tcs(Tests, TCs, GrNames),
+    Tests1 = modify_tc_list(Tests, TCs, GrNames),
     trim(make_conf(Mod, Name, Props,
 		   find(Mod, GrNames, TCs, Tests1, [Name|Known],
 			Defs, FindAll))) ++
@@ -284,70 +284,57 @@ trim_test(Test) ->
 %% GrNames is [] if the terminating group has been found. From
 %% that point, all specified test should be included (as well as
 %% sub groups for deeper search).
-rm_unwanted_tcs(Tests, all, []) ->
-    Tests;
+modify_tc_list(GrSpecTs, all, []) ->
+    GrSpecTs;
 
-rm_unwanted_tcs(Tests, TCs, []) ->
-    sort_tests(lists:flatmap(fun(Test) when is_tuple(Test),
-					    (size(Test) > 2) ->
-				     [Test];
-				(Test={group,_}) ->
-				     [Test];
-				(Test={_M,TC}) ->
-				     case lists:member(TC, TCs) of
-					 true  -> [Test];
-					 false -> []
-				     end;
-				(Test) when is_atom(Test) ->
-				     case lists:keysearch(Test, 2, TCs) of
-					 {value,_} ->
-					     [Test];
-					 _ ->
-					     case lists:member(Test, TCs) of
-						 true  -> [Test];
-						 false -> []
-					     end
-				     end;
-				(Test) -> [Test]
-			     end, Tests), TCs);
-					  
-rm_unwanted_tcs(Tests, _TCs, _) ->
-    [Test || Test <- Tests, not is_atom(Test)].
+modify_tc_list(GrSpecTs, TSCs, []) ->
+    modify_tc_list1(GrSpecTs, TSCs);
+    
+modify_tc_list(GrSpecTs, _TSCs, _) ->
+    [Test || Test <- GrSpecTs, not is_atom(Test)].
 
-%% make sure the order of tests is according to the order in TCs
-sort_tests(Tests, TCs) when is_list(TCs)->
-    lists:sort(fun(T1, T2) ->
-		       case {is_tc(T1),is_tc(T2)} of
-			   {true,true} ->
-			       (position(T1, TCs) =<
-				position(T2, TCs));
-			   {false,true} ->
-			       (position(T2, TCs) == (length(TCs)+1));
-			   _ -> true
-				   
-		       end
-	       end, Tests);
-sort_tests(Tests, _) ->
-    Tests.
-
-is_tc(T) when is_atom(T)      -> true;
-is_tc({group,_})              -> false;
-is_tc({_M,T}) when is_atom(T) -> true;
-is_tc(_)                      -> false.
-
-position(T, TCs) ->
-    position(T, TCs, 1).
-
-position(T, [T|_TCs], Pos) ->
-    Pos;
-position(T, [{_,T}|_TCs], Pos) ->
-    Pos;
-position({M,T}, [T|_TCs], Pos) when M /= group ->
-    Pos;
-position(T, [_|TCs], Pos) ->
-    position(T, TCs, Pos+1);
-position(_, [], Pos) ->
-    Pos.
+modify_tc_list1(GrSpecTs, TSCs) ->
+    %% remove all cases in group tc list that should not be executed
+    GrSpecTs1 =
+	lists:flatmap(fun(Test) when is_tuple(Test),
+				     (size(Test) > 2) ->
+			      [Test];
+			 (Test={group,_}) ->
+			      [Test];
+			 (Test={_M,TC}) ->
+			      case lists:member(TC, TSCs) of
+				  true  -> [Test];
+				  false -> []
+			      end;
+			 (Test) when is_atom(Test) ->
+			      case lists:keysearch(Test, 2, TSCs) of
+				  {value,_} ->
+				      [Test];
+				  _ ->
+				      case lists:member(Test, TSCs) of
+					  true  -> [Test];
+					  false -> []
+				      end
+			      end;
+			 (Test) -> [Test]
+		      end, GrSpecTs),
+    {TSCs2,GrSpecTs3} =
+	lists:foldr(
+	  fun(TC, {TSCs1,GrSpecTs2}) ->
+		  case lists:member(TC,GrSpecTs1) of
+		      true ->
+			  {[TC|TSCs1],lists:delete(TC,GrSpecTs2)};
+		      false ->
+			  case lists:keymember(TC, 2, GrSpecTs) of
+			      {value,Test} ->
+				  {[Test|TSCs1],
+				   lists:keydelete(TC, 2, GrSpecTs2)};
+			      false ->
+				  {TSCs1,GrSpecTs2}
+			  end
+		  end
+	  end, {[],GrSpecTs1}, TSCs),
+    TSCs2 ++ GrSpecTs3.
 
 %%%-----------------------------------------------------------------
 
