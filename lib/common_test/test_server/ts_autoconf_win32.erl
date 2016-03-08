@@ -139,15 +139,15 @@ visual_cxx(Vars) ->
 			{"-MTd ",
 			 "-MDd ",
 			 "-LDd ",
-			 "-debug -pdb:none ",
+			 "-link -debug -pdb:none ",
 			 "-Z7 -DDEBUG",
 			 " "};
 		    false ->
 			{"-MT ",
 			 "-MD ",
 			 "-LD ",
-			 " ",
-			 " ",
+			 "-Zi -link ",
+			 "-Zi ",
 			 "-Ox "}
 		end,
 	    WIN32 = "-D__WIN32__ ",
@@ -158,7 +158,7 @@ visual_cxx(Vars) ->
 			  {'LD', CC},
 			  {'SHLIB_LD', CC},
 			  {'SHLIB_LDFLAGS', ERTS_THR_LIB ++ DLL},
-			  {'SHLIB_LDLIBS', "-link " ++ DBG_LINK ++ "kernel32.lib"},
+			  {'SHLIB_LDLIBS', DBG_LINK ++ "kernel32.lib"},
 			  {'SHLIB_EXTRACT_ALL', ""},
 			  {'CFLAGS', DEFAULT_THR_LIB ++ WIN32 ++ DBG_COMP},
 			  {'EI_CFLAGS', DEFAULT_THR_LIB ++ WIN32 ++ DBG_COMP},
@@ -168,7 +168,7 @@ visual_cxx(Vars) ->
 			  {'DEFS', common_c_defs()},
 			  {'SHLIB_SUFFIX', ".dll"},
 			  {'ERTS_LIBS', ERTS_THR_LIB ++ LIBS},
-			  {'LIBS', DEFAULT_THR_LIB ++ "-link " ++ DBG_LINK ++ LIBS},
+			  {'LIBS', DEFAULT_THR_LIB ++ DBG_LINK ++ LIBS},
 			  {obj,".obj"},
 			  {exe, ".exe"},
 			  {test_c_compiler, "{msc, undefined}"}
