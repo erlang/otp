@@ -130,10 +130,9 @@ a_receive() ->
 	{'EXIT', Pid, {result, Result}} ->
 	    ?line 'try'(Iter-1, Fun, Args, Result, [0|Filler]);
 	{result, Other} ->
-	    ?line io:format("Expected ~p; got ~p~n", [Result, Other]),
-	    ?line test_server:fail();
+	    ct:fail("Expected ~p; got ~p~n", [Result, Other]);
 	Other ->
-	    ?line test_server:fail({unexpected_message, Other})
+	    ct:fail({unexpected_message, Other})
     end.
 
 init(Fun, Args, Filler) ->
@@ -400,9 +399,7 @@ try_gbif(Id, X, Y) ->
 	{Id, X, Y} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id, X, Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+            ct:fail("guard_bif(~p, ~p, ~p) -- bad result: ~p\n", [Id, X, Y, Other])
     end.
 
 try_fail_gbif(Id, X, Y) ->
@@ -410,9 +407,7 @@ try_fail_gbif(Id, X, Y) ->
 	{'EXIT',{function_clause,[{?MODULE,guard_bif,[Id,X,Y],_}|_]}} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id,X,Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+            ct:fail("guard_bif(~p, ~p, ~p) -- bad result: ~p\n", [Id, X, Y, Other])
     end.
 
 guard_bif('abs/1', X, Y) when abs(X) == Y ->
@@ -455,9 +450,7 @@ type_tests(Config) when is_list(Config) ->
 	      {0, N} ->
 		  {comment, integer_to_list(N) ++ " standard violation(s)"};
 	      {Errors, Violations} ->
-		  io:format("~p sub test(s) failed, ~p violation(s)",
-			    [Errors, Violations]),
-		  ?line test_server:fail()
+		  ct:fail("~p sub test(s) failed, ~p violation(s)", [Errors, Violations])
 	  end.
 
 type_tests([{Test, AllowedTypes}| T], AllTypes) ->
@@ -484,7 +477,7 @@ type_tests(Test, [Type|T], Allowed) ->
 		when is_list(Loc) ->
 		    ok;
 		{'EXIT',Other} ->
-		    ?line test_server:fail({unexpected_error_reason,Other});
+		    ct:fail({unexpected_error_reason,Other});
 		tuple when is_function(Value) ->
 		    io:format("Standard violation: Test ~p(~p) should fail",
 			      [Test, Value]),

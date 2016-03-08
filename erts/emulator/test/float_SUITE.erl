@@ -411,7 +411,7 @@ unify(Other, Info) ->
 -define(epsilon, 1.0e-20).
 check_epsilon(R,Val) ->
     if erlang:abs(R-Val) < ?epsilon -> ok;
-       true -> ?t:fail({R,Val})
+       true -> ct:fail({R,Val})
     end.
 
 t_mul_add_ops(Config) when is_list(Config) ->

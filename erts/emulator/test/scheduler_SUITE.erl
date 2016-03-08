@@ -821,7 +821,7 @@ update_cpu_info(Config) when is_list(Config) ->
 					    ?line unchanged = adjust_schedulers_online(),
 					    ?line ok;
 					Fail ->
-					    ?line ?t:fail(Fail)
+					    ?line ct:fail(Fail)
 				    end
 		      end
 		  after
@@ -1896,7 +1896,7 @@ chk_result([{low, L, Lmin, _Lmax},
 chk_lim(Min, V, Max, _What) when Min =< V, V =< Max ->
     ok;
 chk_lim(_Min, V, _Max, What) ->
-    ?t:fail({bad, What, V}).
+    ct:fail({bad, What, V}).
 
 snd(_Msg, []) ->
     [];
@@ -2259,7 +2259,7 @@ cmp_aux(T0, T1) when is_tuple(T0), is_tuple(T1), size(T0) == size(T1) ->
 cmp_aux(X, X) ->
     ok;
 cmp_aux(F0, F1) ->
-    ?t:fail({no_match, F0, F1}).
+    ct:fail({no_match, F0, F1}).
 
 cmp_tuple(_T0, _T1, N, Sz) when N > Sz ->
     ok;

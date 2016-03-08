@@ -117,7 +117,7 @@ equal(Config) when is_list(Config) ->
 
     %% runtime ratio between normal and low should be ~8
     if Ratio < 7.5 ; Ratio > 8.5 ->	
-	    ?t:fail({bad_ratio,Ratio});
+	    ct:fail({bad_ratio,Ratio});
        true ->
 	    ok(Config)
     end.
@@ -148,7 +148,7 @@ many_low(Config) when is_list(Config) ->
     io:format("Reports: ~w normal (~w/proc), ~w low (~w/proc). Ratio: ~w~n", 
 	      [NRs,NAvg,LRs,LAvg,Ratio]),
     if Ratio < 7.5 ; Ratio > 8.5 ->
-	    ?t:fail({bad_ratio,Ratio});
+	    ct:fail({bad_ratio,Ratio});
        true ->
 	    ok(Config)
     end.
@@ -179,7 +179,7 @@ few_low(Config) when is_list(Config) ->
     io:format("Reports: ~w normal (~w/proc), ~w low (~w/proc). Ratio: ~w~n", 
 	      [NRs,NAvg,LRs,LAvg,Ratio]),
     if Ratio < 7.0 ; Ratio > 8.5 ->
-	    ?t:fail({bad_ratio,Ratio});
+	    ct:fail({bad_ratio,Ratio});
        true ->
 	    ok(Config)
     end.
@@ -214,7 +214,7 @@ max(Config) when is_list(Config) ->
     io:format("Reports: ~w max (~w/proc), ~w high (~w/proc). Ratio: ~w~n", 
 	      [M1Rs,M1Avg,HRs,HAvg,Ratio1]),
     if Ratio1 < 1.0 ->
-	    ?t:fail({bad_ratio,Ratio1});
+	    ct:fail({bad_ratio,Ratio1});
        true ->
 	    ok(Config)
     end,
@@ -232,7 +232,7 @@ max(Config) when is_list(Config) ->
     io:format("Reports: ~w max (~w/proc), ~w normal (~w/proc). Ratio: ~w~n", 
 	      [M2Rs,M2Avg,NRs,NAvg,Ratio2]),
     if Ratio2 < 1.0 ->
-	    ?t:fail({bad_ratio,Ratio2});
+	    ct:fail({bad_ratio,Ratio2});
        true ->
 	    ok
     end,
@@ -250,7 +250,7 @@ max(Config) when is_list(Config) ->
     io:format("Reports: ~w max (~w/proc), ~w low (~w/proc). Ratio: ~w~n", 
 	      [M3Rs,M3Avg,LRs,LAvg,Ratio3]),
     if Ratio3 < 1.0 ->
-	    ?t:fail({bad_ratio,Ratio3});
+	    ct:fail({bad_ratio,Ratio3});
        true ->
 	    ok(Config)
     end.
@@ -284,7 +284,7 @@ high(Config) when is_list(Config) ->
     io:format("Reports: ~w high (~w/proc), ~w normal (~w/proc). Ratio: ~w~n", 
 	      [H1Rs,H1Avg,NRs,NAvg,Ratio1]),
     if Ratio1 < 1.0 ->
-	    ?t:fail({bad_ratio,Ratio1});
+	    ct:fail({bad_ratio,Ratio1});
        true ->
 	    ok
     end,
@@ -302,7 +302,7 @@ high(Config) when is_list(Config) ->
     io:format("Reports: ~w high (~w/proc), ~w low (~w/proc). Ratio: ~w~n", 
 	      [H2Rs,H2Avg,LRs,LAvg,Ratio2]),
     if Ratio2 < 1.0 ->
-	    ?t:fail({bad_ratio,Ratio2});
+	    ct:fail({bad_ratio,Ratio2});
        true ->
 	    ok(Config)
     end.

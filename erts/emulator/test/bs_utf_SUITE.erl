@@ -204,9 +204,9 @@ overlong(_, _, _) -> ok.
 overlong(Char, NumBytes) when NumBytes < 5 ->
     case int_to_utf8(Char, NumBytes) of
 	<<Char/utf8>>=Bin ->
-	    ?t:fail({illegal_encoding_accepted,Bin,Char});
+	    ct:fail({illegal_encoding_accepted,Bin,Char});
 	<<OtherChar/utf8>>=Bin ->
-	    ?t:fail({illegal_encoding_accepted,Bin,Char,OtherChar});
+	    ct:fail({illegal_encoding_accepted,Bin,Char,OtherChar});
 	_ -> ok
     end,
     overlong(Char, NumBytes+1);
@@ -217,7 +217,7 @@ fail(Bin) ->
     fail_1(make_unaligned(Bin)).
 
 fail_1(<<Char/utf8>>=Bin) ->
-    ?t:fail({illegal_encoding_accepted,Bin,Char});
+    ct:fail({illegal_encoding_accepted,Bin,Char});
 fail_1(_) -> ok.
 
 
@@ -241,9 +241,9 @@ lonely_hi_surrogate(Char, End) when Char =< End ->
     BinLittle = <<Char:16/little>>,
     case {BinBig,BinLittle} of
 	{<<Bad/big-utf16>>,_} ->
-	    ?t:fail({lonely_hi_surrogate_accepted,Bad});
+	    ct:fail({lonely_hi_surrogate_accepted,Bad});
 	{_,<<Bad/little-utf16>>} ->
-	    ?t:fail({lonely_hi_surrogate_accepted,Bad});
+	    ct:fail({lonely_hi_surrogate_accepted,Bad});
 	{_,_} ->
 	    ok
     end,
@@ -260,9 +260,9 @@ leading_lo_surrogate(HiSurr, LoSurr, End) when LoSurr =< End ->
     BinLittle = <<HiSurr:16/little,LoSurr:16/little>>,
     case {BinBig,BinLittle} of
 	{<<Bad/big-utf16,_/bits>>,_} ->
-	    ?t:fail({leading_lo_surrogate_accepted,Bad});
+	    ct:fail({leading_lo_surrogate_accepted,Bad});
 	{_,<<Bad/little-utf16,_/bits>>} ->
-	    ?t:fail({leading_lo_surrogate_accepted,Bad});
+	    ct:fail({leading_lo_surrogate_accepted,Bad});
 	{_,_} ->
 	    ok
     end,
@@ -280,9 +280,9 @@ utf32_fail_range(Char, End) when Char =< End ->
     {'EXIT',_} = (catch <<Char/little-utf32>>),
     case {<<Char:32>>,<<Char:32/little>>} of
 	{<<Unexpected/utf32>>,_} ->
-	    ?line ?t:fail(Unexpected);
+	    ?line ct:fail(Unexpected);
 	{_,<<Unexpected/little-utf32>>} ->
-	    ?line ?t:fail(Unexpected);
+	    ?line ct:fail(Unexpected);
 	{_,_} -> ok
     end,
     utf32_fail_range(Char+1, End);
@@ -363,14 +363,14 @@ fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of
 	Res ->
 	    io:format("Interpreted result: ~p", [Res]),
-	    ?t:fail(did_not_fail_in_intepreted_code)
+	    ct:fail(did_not_fail_in_intepreted_code)
     catch
 	error:badarg ->
 	    ok
     end;
 fail_check(Res, _, _) ->
     io:format("Compiled result: ~p", [Res]),
-    ?t:fail(did_not_fail_in_compiled_code).
+    ct:fail(did_not_fail_in_compiled_code).
 
 evaluate(Str, Vars) ->
     {ok,Tokens,_} =

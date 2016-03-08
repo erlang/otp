@@ -39,7 +39,7 @@ wrap_1(Config) when is_list(Config) ->
     ?line spawn_link(?MODULE, loop_ref, [self()]),
     ?line receive
 	      done ->
-		  test_server:fail(wrapfast)
+		  ct:fail(wrapfast)
 	  after 30000 ->
 		  ok
 	  end,

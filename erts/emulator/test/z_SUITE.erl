@@ -63,7 +63,7 @@ schedulers_alive(Config) when is_list(Config) ->
 	    ?line ?t:format("Number of schedulers configured: ~p~n", [NoSchedulers]),
 	    ?line case erlang:system_info(multi_scheduling) of
 		      blocked ->
-			  ?line ?t:fail(multi_scheduling_blocked);
+			  ?line ct:fail(multi_scheduling_blocked);
 		      disabled ->
 			  ?line ok;
 		      enabled ->
@@ -90,7 +90,7 @@ schedulers_alive(Config) when is_list(Config) ->
 	    ?line erlang:system_flag(multi_scheduling, block),
 	    ?line case erlang:system_info(multi_scheduling) of
 		      enabled ->
-			  ?line ?t:fail(multi_scheduling_enabled);
+			  ?line ct:fail(multi_scheduling_enabled);
 		      blocked ->
 			  ?line [Master] = erlang:system_info(multi_scheduling_blockers);
 		      disabled -> ?line ok
@@ -112,7 +112,7 @@ schedulers_alive(Config) when is_list(Config) ->
 				end,
 				Ps),
 	    ?line case erlang:system_flag(multi_scheduling, unblock) of
-		      blocked -> ?line ?t:fail(multi_scheduling_blocked);
+		      blocked -> ?line ct:fail(multi_scheduling_blocked);
 		      disabled -> ?line ok;
 		      enabled -> ?line ok
 		  end,
@@ -180,7 +180,7 @@ verify_all_schedulers_used({UsedSIDs, UsedSIDsLen} = State, NoSchedulers) ->
 	      UsedSIDsLen ->
 		  ?line State;
 	      NoSchdlrs when NoSchdlrs < UsedSIDsLen ->
-		  ?line ?t:fail({more_schedulers_used_than_exist,
+		  ?line ct:fail({more_schedulers_used_than_exist,
 				 {existing_schedulers, NoSchdlrs},
 				 {used_schedulers, UsedSIDsLen},
 				 {used_scheduler_ids, UsedSIDs}});
@@ -215,7 +215,7 @@ pollset_size(Config) when is_list(Config) ->
 			      ?line erlang:demonitor(Mon, [flush]),
 			      ?line ICIO;
 			  {'DOWN', Mon, _, _, Reason} ->
-			      ?line ?t:fail({non_existing, Name, Reason})
+			      ?line ct:fail({non_existing, Name, Reason})
 		      end,
     ?line FinChkIo = get_check_io_info(),
     ?line io:format("Initial: ~p~nFinal: ~p~n", [InitChkIo, FinChkIo]),

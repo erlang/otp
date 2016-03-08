@@ -67,7 +67,7 @@ unique_monotonic_integer_white_box(Config) when is_list(Config) ->
     Mon = erlang:monitor(process, Test),
     receive
 	{'DOWN', Mon, process, Test, Error} ->
-	    ?t:fail(Error);
+	    ct:fail(Error);
 	Success ->
 	    ok
     end,

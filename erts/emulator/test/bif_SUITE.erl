@@ -93,7 +93,7 @@ erl_bif_types_2(List) ->
 	[_|_] ->
 	    io:put_chars("Bifs with bad arity\n"),
 	    io:format("~p\n", [BadArity]),
-	    ?line ?t:fail({length(BadArity),bad_arity})
+	    ?line ct:fail({length(BadArity),bad_arity})
     end.
 
 erl_bif_types_3(List) ->
@@ -117,7 +117,7 @@ erl_bif_types_3(List) ->
 	    io:put_chars("Bifs with failing calls to erlang_bif_types:type/3 "
 			 "(or with bogus return values):\n"),
 	    io:format("~p\n", [BadSmokeTest]),
-	    ?line ?t:fail({length(BadSmokeTest),bad_smoke_test})
+	    ?line ct:fail({length(BadSmokeTest),bad_smoke_test})
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
@@ -138,7 +138,7 @@ guard_bifs_in_erl_bif_types(_Config) ->
 	       "The following guard BIFs have no type information "
 	       "in erl_bif_types:\n\n",
 	       [io_lib:format("  ~p/~p\n", [F,A]) || {F,A} <- Not]]),
-	    ?t:fail()
+	    ct:fail(erl_bif_types)
     end.
 
 shadow_comments(_Config) ->
@@ -178,7 +178,7 @@ shadow_comments(_Config) ->
 	       "obvious.\n\nThe following comments are missing:\n\n",
 	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
 			      [M,F,A]) || {M,F,A} <- NoComments]]),
-	    ?t:fail()
+	    ct:fail(bif_stub)
     end,
 
     case NoBifSpecs of
@@ -192,7 +192,7 @@ shadow_comments(_Config) ->
 	       "Therefore, the following comments should be removed:\n\n",
 	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
 			      [M,F,A]) || {M,F,A} <- NoBifSpecs]]),
-	    ?t:fail()
+	    ct:fail(erl_bif_types)
     end.
 
 extract_comments(Mod, Path) ->
@@ -214,7 +214,7 @@ ensure_erl_bif_types_compiled() ->
     case erlang:function_exported(erl_bif_types, module_info, 0) of
 	false ->
 	    %% Fail cleanly.
-	    ?t:fail("erl_bif_types not compiled");
+	    ct:fail("erl_bif_types not compiled");
 	true ->
 	    ok
     end.
@@ -252,7 +252,7 @@ specs(_) ->
 	[_|_] ->
 	    io:put_chars("The following BIFs don't have specs:\n"),
 	    [print_mfa(MFA) || MFA <- NoSpecs],
-	    ?t:fail()
+	    ct:fail(no_spec)
     end.
 
 is_operator({erlang,F,A}) ->
@@ -312,7 +312,7 @@ auto_imports([{erlang,F,A}|T], Errors) ->
 auto_imports([], 0) ->
     ok;
 auto_imports([], Errors) ->
-    ?t:fail({Errors,inconsistencies}).
+    ct:fail({Errors,inconsistencies}).
 
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
@@ -331,7 +331,7 @@ check_stub({_,F,A}, B) ->
 	    io:put_chars(erl_pp:function(Func)),
 	    io:nl(),
 	    io:put_chars("The body should be: erlang:nif_error(undef)"),
-	    ?t:fail()
+	    ct:fail(invalid_body)
     end.
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
@@ -340,7 +340,7 @@ t_list_to_existing_atom(Config) when is_list(Config) ->
     ?line UnlikelyStr = "dsfj923874390867er869fds9864y97jhg3973qerueoru",
     try
 	?line list_to_existing_atom(UnlikelyStr),
-	?line ?t:fail()
+	?line ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
@@ -364,7 +364,7 @@ os_env(Config) when is_list(Config) ->
     ?line case os:getenv(EnvVar1) of
 	      "" -> ?line ok;
 	      false -> ?line ok;
-	      BadVal -> ?line ?t:fail(BadVal)
+	      BadVal -> ?line ct:fail(BadVal)
 	  end,
     true = os:putenv(EnvVar1, "mors"),
     true = os:unsetenv(EnvVar1),
@@ -523,14 +523,14 @@ binary_to_existing_atom(Config) when is_list(Config) ->
     ?line UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
     try
 	?line binary_to_existing_atom(UnlikelyBin, latin1),
-	?line ?t:fail()
+	?line ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
     try
 	?line binary_to_existing_atom(UnlikelyBin, utf8),
-	?line ?t:fail()
+	?line ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
@@ -626,31 +626,31 @@ min_max(Config) when is_list(Config) ->
 
 erlang_halt(Config) when is_list(Config) ->
     try erlang:halt(undefined) of
-	_-> ?t:fail({erlang,halt,{undefined}})
+	_-> ct:fail({erlang,halt,{undefined}})
     catch error:badarg -> ok end,
     try halt(undefined) of
-	_-> ?t:fail({halt,{undefined}})
+	_-> ct:fail({halt,{undefined}})
     catch error:badarg -> ok end,
     try erlang:halt(undefined, []) of
-	_-> ?t:fail({erlang,halt,{undefined,[]}})
+	_-> ct:fail({erlang,halt,{undefined,[]}})
     catch error:badarg -> ok end,
     try halt(undefined, []) of
-	_-> ?t:fail({halt,{undefined,[]}})
+	_-> ct:fail({halt,{undefined,[]}})
     catch error:badarg -> ok end,
     try halt(0, undefined) of
-	_-> ?t:fail({halt,{0,undefined}})
+	_-> ct:fail({halt,{0,undefined}})
     catch error:badarg -> ok end,
     try halt(0, [undefined]) of
-	_-> ?t:fail({halt,{0,[undefined]}})
+	_-> ct:fail({halt,{0,[undefined]}})
     catch error:badarg -> ok end,
     try halt(0, [{undefined,true}]) of
-	_-> ?t:fail({halt,{0,[{undefined,true}]}})
+	_-> ct:fail({halt,{0,[{undefined,true}]}})
     catch error:badarg -> ok end,
     try halt(0, [{flush,undefined}]) of
-	_-> ?t:fail({halt,{0,[{flush,undefined}]}})
+	_-> ct:fail({halt,{0,[{flush,undefined}]}})
     catch error:badarg -> ok end,
     try halt(0, [{flush,true,undefined}]) of
-	_-> ?t:fail({halt,{0,[{flush,true,undefined}]}})
+	_-> ct:fail({halt,{0,[{flush,true,undefined}]}})
     catch error:badarg -> ok end,
     H = hostname(),
     {ok,N1} = slave:start(H, halt_node1),

@@ -104,7 +104,7 @@ test(File, Nodes) ->
     file:close(Fd),
     case Res of
 	{0,Cases} -> {comment, integer_to_list(Cases) ++ " cases"};
-	{_,_} -> test_server:fail()
+	{_,_} -> ct:fail("failed")
     end.
 
 test(File, Fd, Ns) ->
@@ -245,8 +245,7 @@ t_div(Config) when is_list(Config) ->
 	{result, Result} ->
 	    'try'(Iter-1, Fun, Result, [0|Filler]);
 	{result, Other} ->
-	    io:format("Expected ~p; got ~p~n", [Result, Other]),
-	    test_server:fail()
+	    ct:fail("Expected ~p; got ~p~n", [Result, Other])
     end.
 
 init(ReplyTo, Fun, _Filler) ->

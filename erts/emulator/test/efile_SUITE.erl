@@ -145,7 +145,7 @@ iter_max_files(Config) when is_list(Config) ->
     all_equal(L),
     Head = hd(L),
     if  Head >= 2 -> ok;
-	true -> ?line test_server:fail(too_few_files)
+	true -> ct:fail(too_few_files)
     end,
     {comment, "Max files: " ++ integer_to_list(hd(L))}.
 

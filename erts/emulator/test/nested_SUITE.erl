@@ -52,7 +52,7 @@ search_any([Key|Rest], List) ->
 	      false ->
 		  error;
 	      Other ->
-		  test_server:fail({other_result, Other})
+		  ct:fail({other_result, Other})
 	  end,
     ?line search_any(Rest, List);
 search_any([], _) ->

@@ -151,7 +151,7 @@ more_dynamic(Config) when is_list(Config) ->
 			      io:format("Bin = ~p,", [Bin]),
 			      io:format("SkipBef = ~p, N = ~p", [SkipBef,N]),
 			      io:format("Expected ~p, got ~p", [Int,Other]),
-			      ?t:fail()
+			      ct:fail(signed_big_endian_fail)
 		      end
 	      end,
     ?line more_dynamic1(Signed, erlang:md5(mkbin([43]))),

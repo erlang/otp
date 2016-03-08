@@ -55,8 +55,7 @@ call_with_huge_message_queue(Config) when is_list(Config) ->
 	Q when Q < 10 ->
 	    ok;
 	Q ->
-	    io:format("Best Q = ~p", [Q]),
-	    ?t:fail()
+	    ct:fail("Best Q = ~p", [Q])
     end,
     ok.
 

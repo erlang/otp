@@ -1519,7 +1519,7 @@ consume_timeslice(Config) when is_list(Config) ->
 	    io:format("Reductions = ~p~n", [Reductions]),
 	    ok;
 	{RedDiff, Reductions} ->
-	    ?t:fail({unexpected_reduction_count, Reductions})
+	    ct:fail({unexpected_reduction_count, Reductions})
     end,
     
     none = next_msg(P),
@@ -1583,7 +1583,7 @@ dirty_nif_exception(Config) when is_list(Config) ->
 		%% dirty NIF returns the result of enif_make_badarg
 		%% directly
 	        call_dirty_nif_exception(1),
-	        ?t:fail(expected_badarg)
+	        ct:fail(expected_badarg)
 	    catch
 	        error:badarg ->
 		    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
@@ -1595,7 +1595,7 @@ dirty_nif_exception(Config) when is_list(Config) ->
 		%% dirty NIF calls enif_make_badarg at some point but then
 		%% returns a value that isn't an exception
 	        call_dirty_nif_exception(0),
-	        ?t:fail(expected_badarg)
+	        ct:fail(expected_badarg)
 	    catch
 	        error:badarg ->
 		    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
@@ -1617,7 +1617,7 @@ nif_exception(Config) when is_list(Config) ->
 	%% calls enif_make_badarg at some point but then tries to return a
 	%% value that isn't an exception
 	call_nif_exception(0),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
@@ -1630,21 +1630,21 @@ nif_nan_and_inf(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     try
 	call_nif_nan_or_inf(nan),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
     end,
     try
 	call_nif_nan_or_inf(inf),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
     end,
     try
 	call_nif_nan_or_inf(tuple),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
@@ -1654,14 +1654,14 @@ nif_atom_too_long(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     try
 	call_nif_atom_too_long(all),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
     end,
     try
 	call_nif_atom_too_long(len),
-	?t:fail(expected_badarg)
+	ct:fail(expected_badarg)
     catch
 	error:badarg ->
 	    ok
@@ -1721,9 +1721,7 @@ verify_tmpmem(MemInfo) ->
 		    ok
 	    end;
 	Other ->
-	    io:format("Expected: ~p", [MemInfo]),
-	    io:format("Actual:   ~p", [Other]),
-	    ?t:fail()
+            ct:fail("Expected: ~p\nActual:   ~p", [MemInfo, Other])
     end.
 
 call(Pid,Cmd) ->
@@ -1755,7 +1753,7 @@ nif_raise_exceptions(NifFunc) ->
     lists:foldl(fun(Term, ok) ->
 			try
 			    erlang:apply(?MODULE,NifFunc,[Term]),
-			    ?t:fail({expected,Term})
+			    ct:fail({expected,Term})
 			catch
 			    error:Term ->
 				[{?MODULE,NifFunc,[Term],_}|_] = erlang:get_stacktrace(),
@@ -1787,7 +1785,7 @@ chk_mtime([TU|TUs]) ->
 	true = B =< C
     catch
 	_ : _ ->
-	    ?t:fail({monotonic_time_missmatch, TU, A, B, C})
+	    ct:fail({monotonic_time_missmatch, TU, A, B, C})
     end,
     chk_mtime(TUs).
 
@@ -1812,7 +1810,7 @@ chk_toffs([TU|TUs]) ->
 	false ->
 	    case erlang:system_info(time_warp_mode) of
 		no_time_warp ->
-		    ?t:fail({time_offset_mismatch, TU, TO, NifTO});
+		    ct:fail({time_offset_mismatch, TU, TO, NifTO});
 		_ ->
 		    %% Most frequent time offset change
 		    %% is currently only every 15:th
@@ -1823,7 +1821,7 @@ chk_toffs([TU|TUs]) ->
 			true ->
 			    ok;
 			false ->
-			    ?t:fail({time_offset_mismatch, TU, TO, NifTO, NTO})
+			    ct:fail({time_offset_mismatch, TU, TO, NifTO, NTO})
 		    end
 	    end
     end,
@@ -1900,7 +1898,7 @@ chk_ctu(Time, FromTU, [ToTU|ToTUs]) ->
     TN = convert_time_unit(T, FromTU, ToTU),
     case TE =:= TN of
 	false ->
-	    ?t:fail({conversion_mismatch, FromTU, T, ToTU, TE, TN});
+	    ct:fail({conversion_mismatch, FromTU, T, ToTU, TE, TN});
 	true ->
 	    chk_ctu(Time, FromTU, ToTUs)
     end.

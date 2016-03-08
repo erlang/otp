@@ -953,7 +953,7 @@ nc_refc_check(Node) when is_atom(Node) ->
     receive
 	{Ref, ErrorMsg, failed} ->
 	    ?t:format("~s~n", [ErrorMsg]),
-	    ?t:fail(reference_count_check_failed);
+	    ct:fail(reference_count_check_failed);
 	{Ref, succeded} ->
 	    ?t:format("Reference count check of node ~w succeded!~n", [Node]),
 	    ok
@@ -1035,7 +1035,7 @@ get_node_references({NodeName, Creation} = Node) when is_atom(NodeName),
 			DistRefs,
 			fun (ErrMsg) ->
 				?t:format("~s", [ErrMsg]),
-				?t:fail(reference_count_check_failed)
+				ct:fail(reference_count_check_failed)
 			end),
     find_references(Node, NodeRefs).
 
@@ -1047,7 +1047,7 @@ get_dist_references(NodeName) when is_atom(NodeName) ->
 			DistRefs,
 			fun (ErrMsg) ->
 				?line ?t:format("~s", [ErrMsg]),
-				?line ?t:fail(reference_count_check_failed)
+				?line ct:fail(reference_count_check_failed)
 			end),
     ?line find_references(NodeName, DistRefs).
 

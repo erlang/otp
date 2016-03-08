@@ -65,7 +65,7 @@ do_dist_old(Config) when is_list(Config) ->
 	      {ok,Fun,R12BFun} ->
 		  ?line [a,b,c] = R12BFun(a);
 	      Other ->
-		  ?line ?t:fail({bad_message,Other})
+		  ?line ct:fail({bad_message,Other})
 	  end,
     ok.
 

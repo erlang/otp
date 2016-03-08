@@ -52,7 +52,7 @@ heap_frag(Config) when is_list(Config) ->
 	    ?line Res = my_appender(N);
 	Garbage ->
 	    io:format("Garbage: ~p\n", [Garbage]),
-	    ?line ?t:fail(got_garbage)
+            ct:fail(got_garbage)
     end.
 
 

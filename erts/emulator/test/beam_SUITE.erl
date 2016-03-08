@@ -61,7 +61,7 @@ apply_last(Config) when is_list(Config) ->
 	    {Pid, finished} ->
 		stack_size(Pid)
 	after 30000 ->
-		?t:fail("applied/2 timed out.")
+		ct:fail("applied/2 timed out.")
 	end,
     Pid ! die,
     ?t:format("Size: ~p~n", [Size]),
@@ -69,7 +69,7 @@ apply_last(Config) when is_list(Config) ->
 	Size < 700 ->
 	    ok;
 	true ->
-	    ?t:fail("10000 apply() grew stack too much.")
+	    ct:fail("10000 apply() grew stack too much.")
     end,
     ok.
 
@@ -132,8 +132,7 @@ verify_packed_regs([], _, -1) -> ok;
 verify_packed_regs([{Term, N}| T], Term, N) ->
     verify_packed_regs(T, Term, N-1);
 verify_packed_regs(L, Term, N) ->
-    ok = io:format("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]),
-    test_server:fail().
+    ct:fail("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]).
 
 buildo_mucho(Config) when is_list(Config) ->
     buildo_mucho_1(),
@@ -319,7 +318,7 @@ fconv(Config) when is_list(Config) ->
 do_fconv(Type) ->
     try
 	do_fconv(Type, 1.0),
-	test_server:fail()
+	ct:fail(no_badarith)
     catch
 	error:badarith ->
 	    ok

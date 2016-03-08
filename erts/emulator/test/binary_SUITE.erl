@@ -113,7 +113,7 @@ copy_terms(Config) when is_list(Config) ->
 		    Term -> ok;
 		    Other ->
 			io:format("Sent: ~P\nGot back:~P", [Term,12,Other,12]),
-			?t:fail(bad_term)
+			ct:fail(bad_term)
 		end
 	end,
     ?line test_terms(F),
@@ -236,7 +236,7 @@ going_center(_List, _Bin, _From, _To) ->
 compare([X|Rest1], [X|Rest2], Left) when Left > 0 ->
     ?line compare(Rest1, Rest2, Left-1);
 compare([_X|_], [_Y|_], _Left) ->
-    ?line test_server:fail();
+    ct:fail("compare fail");
 compare(_List, [], 0) ->
     ok.
 
@@ -405,8 +405,7 @@ test_hash_1(Bin, Sbin, Unaligned, Hash) when is_function(Hash, 2) ->
     case {Hash(Bin, N),Hash(Sbin, N),Hash(Unaligned, N)} of
 	{H,H,H} -> ok;
 	{H1,H2,H3} ->
-	    io:format("Different hash values: ~p, ~p, ~p\n", [H1,H2,H3]),
-	    ?t:fail()
+	    ct:fail("Different hash values: ~p, ~p, ~p\n", [H1,H2,H3])
     end.
 
 bad_size(doc) -> "Try bad arguments to size/1.";
@@ -505,9 +504,8 @@ external_size(Config) when is_list(Config) ->
     case {erlang:external_size(Bin),erlang:external_size(Unaligned)} of
 	{X,X} -> ok;
 	{Sz1,Sz2} ->
-	    io:format("  Aligned size: ~p\n", [Sz1]),
-	    io:format("Unaligned size: ~p\n", [Sz2]),
-	    ?line ?t:fail()
+	    ct:fail("  Aligned size: ~p\n"
+                    "Unaligned size: ~p\n", [Sz1,Sz2])
     end,
     true = (erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}])),
     true = (erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}])).
@@ -591,7 +589,7 @@ bad_binary_to_term_2(Config) when is_list(Config) ->
 	      {badrpc, {'EXIT', _}} ->
 		  ok;
 	      _Other ->
-		  test_server:fail({rpcresult, R})
+		  ct:fail({rpcresult, R})
 	  end,
     ?line test_server:stop_node(N),
     ok.
@@ -707,7 +705,7 @@ more_bad_terms(Config) when is_list(Config) ->
 		  ?line {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin)),
 		  ok;
 	      Other ->
-		  ?line ?t:fail(Other)
+		  ?line ct:fail(Other)
 	  end.
 
 otp_5484(Config) when is_list(Config) ->
@@ -1217,7 +1215,7 @@ gc_test1(Pid) ->
     receive
 	{Pid,done} -> ok
     after 10000 ->
-	    ?line ?t:fail()
+	    ct:fail("timeout")
     end.
 
 %% Like split binary, but returns REFC binaries. Only useful for gc_test/1.

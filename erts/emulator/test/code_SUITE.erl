@@ -288,9 +288,9 @@ do_check_process_code_ets(Config) ->
 
     receive
 	funs_dropped -> ok;
-	Other -> ?t:fail({unexpected,Other})
+	Other -> ct:fail({unexpected,Other})
     after 10000 ->
-	    ?line ?t:fail(no_funs_dropped_answer)
+	    ?line ct:fail(no_funs_dropped_answer)
     end,
 
     ?line false = erlang:check_process_code(Pid, my_code_test),
@@ -477,7 +477,7 @@ constant_pools(Config) when is_list(Config) ->
 	      {'EXIT',NoOldHeap,{A,B,C}} ->
 		  ok;
 	      Other ->
-		  ?line ?t:fail({unexpected,Other})
+		  ?line ct:fail({unexpected,Other})
 	  end,
     ?line {module,literals} = erlang:load_module(literals, Code),
 
@@ -567,7 +567,7 @@ constant_refc_binaries(Config) when is_list(Config) ->
     %% the size of allocated binaries.
     if
 	Diff > 64*1024 ->
-	    ?t:fail(binary_leak);
+	    ct:fail(binary_leak);
 	true ->
 	    ok
     end.

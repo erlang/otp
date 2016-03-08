@@ -325,11 +325,11 @@ handle_result(_State, Result0) ->
     flush_log(),
     case Result0 of
 	{'EXIT', Error} ->
-	    ?line ?t:fail(Error);
+	    ct:fail(Error);
 	{'EXIT', error, Error} ->
-	    ?line ?t:fail(Error);
+	    ct:fail(Error);
 	{failed, Comment} ->
-	    ?line ?t:fail(Comment);
+	    ct:fail(Comment);
 	{skipped, Comment} ->
 	    ?line {skipped, Comment};
 	{succeeded, ""} ->
@@ -378,6 +378,6 @@ free_memory() ->
 	TotFree div (1024*1024)
     catch
 	error : undef ->
-	    ?t:fail({"os_mon not built"})
+	    ct:fail({"os_mon not built"})
     end.
 

@@ -524,7 +524,7 @@ do_system_monitor_long_schedule() ->
 	{Self,L} when is_list(L) ->
 	    ok
     after 1000 ->
-	    ?t:fail(no_trace_of_pid)
+	    ct:fail(no_trace_of_pid)
     end,
     "ok" = erlang:port_control(Port,1,[]),
     "ok" = erlang:port_control(Port,2,[]),
@@ -532,7 +532,7 @@ do_system_monitor_long_schedule() ->
 	{Port,LL} when is_list(LL) ->
 	    ok
     after 1000 ->
-	    ?t:fail(no_trace_of_port)
+	    ct:fail(no_trace_of_port)
     end,
     port_close(Port),
     erlang:system_monitor(undefined),
@@ -613,11 +613,11 @@ long_gc(LoadFun, ExpectMonMsg) ->
 	      {ok, true} when Pid =/= Self ->
 		  ok;
 	      {ok, false} ->
-		  ?line ?t:fail(unexpected_system_monitor_message_received);
+		  ?line ct:fail(unexpected_system_monitor_message_received);
 	      {undefined, false} ->
 		  ok;
 	      {undefined, true} ->
-		  ?line ?t:fail(no_system_monitor_message_received)
+		  ?line ct:fail(no_system_monitor_message_received)
 	  end.
 
 long_gc_check(Pid, Time, Result) ->
@@ -707,11 +707,11 @@ large_heap(LoadFun, ExpectMonMsg) ->
 	      {ok, true} when Pid =/= Self ->
 		  ?line ok;
 	      {ok, false} ->
-		  ?line ?t:fail(unexpected_system_monitor_message_received);
+		  ?line ct:fail(unexpected_system_monitor_message_received);
 	      {undefined, false} ->
 		  ?line ok;
 	      {undefined, true} ->
-		  ?line ?t:fail(no_system_monitor_message_received)
+		  ?line ct:fail(no_system_monitor_message_received)
 	  end,
     ok.
 
@@ -808,7 +808,7 @@ do_suspend(Pid, N) ->
 	      {status, runnable} -> ?line ok;
 	      {status, running} -> ?line ok;
 	      {status, garbage_collecting} -> ?line ok;
-	      ST -> ?line ?t:fail(ST)
+	      ST -> ?line ct:fail(ST)
 	  end,
     ?line erlang:yield(),
     ?line do_suspend(Pid, N-1).
@@ -1070,7 +1070,7 @@ suspend_until_system_limit(P, N, M) ->
 		  ?line ?t:format("system limit at ~p~n", [N]),
 		  ?line resume_from_system_limit(P, N, 0);
 	      Error ->
-		  ?line ?t:fail(Error)
+		  ?line ct:fail(Error)
 	  end.
 
 resume_from_system_limit(P, 0, _) ->
@@ -1221,7 +1221,7 @@ suspend_count(Suspender, Suspendee) ->
     
     case lists:keysearch(Suspendee, 1, SList) of
 	{value, {_Suspendee, 0, 0}} ->
-	    ?line ?t:fail({bad_suspendee_list, SList});
+	    ?line ct:fail({bad_suspendee_list, SList});
 	{value, {Suspendee, Count, 0}} when is_integer(Count), Count > 0 ->
 	    {status, suspended} = process_info(Suspendee, status),
 	    Count;
@@ -1231,7 +1231,7 @@ suspend_count(Suspender, Suspendee) ->
 	false ->
 	    0;
 	Error ->
-	    ?line ?t:fail({bad_suspendee_list, Error, SList})
+	    ?line ct:fail({bad_suspendee_list, Error, SList})
     end.
     
 repeat_acc(Fun, N, Acc) ->
@@ -1318,7 +1318,7 @@ trace_delivered(Config) when is_list(Config) ->
     ?line NoOfTraceMessages = drop_trace_until_down(Tok, Mon),
     ?line receive
 	      Msg ->
-		  ?line ?t:fail({unexpected_message, Msg})
+		  ?line ct:fail({unexpected_message, Msg})
 	  after 1000 ->
 		  ?line ok
 	  end.
@@ -1363,7 +1363,7 @@ receive_first() ->
 receive_nothing() ->
     receive
 	Any ->
-	    test_server:fail({unexpected_message, Any})
+	    ct:fail({unexpected_message, Any})
     after 200 ->
 	    ok
     end.

@@ -151,7 +151,7 @@ save_calls_1() ->
 	       {?MODULE,do_bepp,0}] ->
 		  ok;
 	      X ->
-		  test_server:fail({l21, X})
+		  ct:fail({l21, X})
 	  end,
 
     ?line erlang:process_flag(self(), save_calls, 10),

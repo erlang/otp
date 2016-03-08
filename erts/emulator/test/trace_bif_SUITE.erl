@@ -256,59 +256,49 @@ do_trace_bif_return(TsType, TsFlags) ->
     
 receive_trace_msg(Mess) ->
     receive
-	Mess ->
-	    ok;
-	Other ->
-	    io:format("Expected: ~p,~nGot: ~p~n", [Mess, Other]),
-	    ?t:fail()
+        Mess ->
+            ok;
+        Other ->
+            ct:fail("Expected: ~p,~nGot: ~p~n", [Mess, Other])
     after 5000 ->
-	    io:format("Expected: ~p,~nGot: timeout~n", [Mess]),
-	    ?t:fail()
+              ct:fail("Expected: ~p,~nGot: timeout~n", [Mess])
     end.
 
 receive_trace_msg_ts({trace_ts, Pid, call, {erlang,F,A}}, PrevTs, TsType) ->
     receive
-	{trace_ts, Pid, call, {erlang, F, A}, Ts} ->
-	    check_ts(TsType, PrevTs, Ts),
-	    Ts;
-	Other ->
-	    io:format("Expected: {trace, ~p, call, {~p, ~p, ~p}, TimeStamp}},~n"
-		      "Got: ~p~n",
-		      [Pid, erlang, F, A, Other]),
-	    ?t:fail()
-	after 5000 ->
-	    io:format("Got timeout~n", []),
-	    ?t:fail()
+        {trace_ts, Pid, call, {erlang, F, A}, Ts} ->
+            check_ts(TsType, PrevTs, Ts),
+            Ts;
+        Other ->
+            ct:fail("Expected: {trace, ~p, call, {~p, ~p, ~p}, TimeStamp}},~n"
+                    "Got: ~p~n",
+                    [Pid, erlang, F, A, Other])
+    after 5000 ->
+              ct:fail("Got timeout~n", [])
     end.
 
 receive_trace_msg_ts_return_from({trace_ts, Pid, return_from, {erlang,F,A}}, PrevTs, TsType) ->
     receive
-	{trace_ts, Pid, return_from, {erlang, F, A}, _Value, Ts} ->
-	    check_ts(TsType, PrevTs, Ts),
-	    Ts;
-	Other ->
-	    io:format("Expected: {trace_ts, ~p, return_from, {~p, ~p, ~p}, Value, TimeStamp}},~n"
-		      "Got: ~p~n",
-		      [Pid, erlang, F, A, Other]),
-	    ?t:fail()
-	after 5000 ->
-	    io:format("Got timeout~n", []),
-	    ?t:fail()
+        {trace_ts, Pid, return_from, {erlang, F, A}, _Value, Ts} ->
+            check_ts(TsType, PrevTs, Ts),
+            Ts;
+        Other ->
+            ct:fail("Expected: {trace_ts, ~p, return_from, {~p, ~p, ~p}, Value, TimeStamp}},~n"
+                    "Got: ~p~n", [Pid, erlang, F, A, Other])
+    after 5000 ->
+              ct:fail("Got timeout~n", [])
     end.
 
 receive_trace_msg_ts_return_to({trace_ts, Pid, return_to, {M,F,A}}, PrevTs, TsType) ->
     receive
-	{trace_ts, Pid, return_to, {M, F, A}, Ts} ->
-	    check_ts(TsType, PrevTs, Ts),
-	    Ts;
-	Other ->
-	    io:format("Expected: {trace_ts, ~p, return_to, {~p, ~p, ~p}, TimeStamp}},~n"
-		      "Got: ~p~n",
-		      [Pid, M, F, A, Other]),
-	    ?t:fail()
-	after 5000 ->
-	    io:format("Got timeout~n", []),
-	    ?t:fail()
+        {trace_ts, Pid, return_to, {M, F, A}, Ts} ->
+            check_ts(TsType, PrevTs, Ts),
+            Ts;
+        Other ->
+            ct:fail("Expected: {trace_ts, ~p, return_to, {~p, ~p, ~p}, TimeStamp}},~n"
+                    "Got: ~p~n", [Pid, M, F, A, Other])
+    after 5000 ->
+              ct:fail("Got timeout~n", [])
     end.
 
 make_ts(timestamp) ->

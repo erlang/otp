@@ -452,7 +452,7 @@ check_ts(no_timestamp, Ts) ->
 	no_timestamp = Ts
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(timestamp, Ts) ->
@@ -463,7 +463,7 @@ check_ts(timestamp, Ts) ->
 	true = is_integer(Us)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(monotonic_timestamp, Ts) ->
@@ -471,7 +471,7 @@ check_ts(monotonic_timestamp, Ts) ->
 	true = is_integer(Ts)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(strict_monotonic_timestamp, Ts) ->
@@ -481,7 +481,7 @@ check_ts(strict_monotonic_timestamp, Ts) ->
 	true = is_integer(UMI)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok.
 

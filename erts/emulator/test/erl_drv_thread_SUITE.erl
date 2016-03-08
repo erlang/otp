@@ -86,8 +86,7 @@ run_drv_case(Config, CaseName, Command, TimeTrap) ->
     case erl_ddll:load_driver(DataDir, CaseName) of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end,
     ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
     ?line true = is_port(Port),
@@ -107,11 +106,11 @@ receive_drv_result(Port, CaseName) ->
 		  ?line ?t:format("~s", [Str]),
 		  ?line receive_drv_result(Port, CaseName);
 	      {'EXIT', Port, Error} ->
-		  ?line ?t:fail(Error);
+		  ?line ct:fail(Error);
 	      {'EXIT', error, Error} ->
-		  ?line ?t:fail(Error);
+		  ?line ct:fail(Error);
 	      {failed, Port, CaseName, Comment} ->
-		  ?line ?t:fail(Comment);
+		  ?line ct:fail(Comment);
 	      {skipped, Port, CaseName, Comment} ->
 		  ?line {skipped, Comment};
 	      {succeeded, Port, CaseName, ""} ->

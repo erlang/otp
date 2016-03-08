@@ -140,7 +140,7 @@ call_worker(Pid, Arg) ->
     receive
 	{result,Res} -> Res
     after 5000 ->
-	    ?line ?t:fail(no_answer_from_worker)
+	    ?line ct:fail(no_answer_from_worker)
     end.
 
 worker_loop() ->
@@ -228,7 +228,7 @@ basic() ->
     ?line ?MODULE:expect({trace,Self,call,{erlang,list_to_integer,["777"]}}),
     receive
 	Any ->
-	    ?line ?t:fail({unexpected_message,Any})
+	    ?line ct:fail({unexpected_message,Any})
     after 1 ->
 	    ok
     end,
@@ -444,9 +444,7 @@ flag_test(Test) ->
 	    ok;
 	_Diff ->
 	    %% Too large difference.
-	    io:format("Now = ~p\n", [Now]),
-	    io:format("Ts = ~p\n", [Ts]),
-	    ?line ?t:fail()
+	    ct:fail("Now = ~p, Ts = ~p", [Now, Ts])
     end,
     flag_test_cpu_timestamp(Test).
 
@@ -465,8 +463,7 @@ flag_test_cpu_timestamp(Test) ->
 		    %% test that all CPU timestamps should pass.
 		    ok;
 		_Time ->
-		    io:format("Strange CPU timestamp: ~p", [Ts]),
-		    ?line ?t:fail()
+		    ct:fail("Strange CPU timestamp: ~p", [Ts])
 	    end,
 	    io:format("Turned off CPU timestamps")
     catch
@@ -493,7 +490,7 @@ expect_badarg_pid(What, How, Flags) ->
 	Other ->
 	    io:format("trace(~p, ~p, ~p) -> ~p",
 		      [What,How,Flags,Other]),
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     end.
 
 expect_badarg_func(MFA, Pattern) ->
@@ -505,7 +502,7 @@ expect_badarg_func(MFA, Pattern) ->
 	Other ->
 	    io:format("trace_pattern(~p, ~p) -> ~p",
 		      [MFA, Pattern, Other]),
-	    ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     end.
 
 pam(doc) -> "Basic test of PAM.";
@@ -825,7 +822,7 @@ deep_exception() ->
     %%
     ?line io:format("== Subtest: ~w", [?LINE]),
     ?line try lists:reverse(LongImproperList, []) of
-	      R1 -> test_server:fail({returned,abbr(R1)})
+	      R1 -> ct:fail({returned,abbr(R1)})
 	  catch error:badarg -> ok
 	  end,
     ?line expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
@@ -889,7 +886,7 @@ deep_exception() ->
 	    exception_from, {error,badarg}),
     ?line io:format("== Subtest: ~w", [?LINE]),
     ?line try apply(lists, reverse, [LongImproperList, []]) of
-	      R2 -> test_server:fail({returned,abbr(R2)})
+	      R2 -> ct:fail({returned,abbr(R2)})
 	  catch error:badarg -> ok
 	  end,
     ?line expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
@@ -968,7 +965,7 @@ deep_exception() ->
 			 exception_from, {error,{badmatch,2}}),
     ?line io:format("== Subtest: ~w", [?LINE]),
     ?line try apply(fun() -> lists:reverse(LongImproperList, []) end, []) of
-	      R3 -> test_server:fail({returned,abbr(R3)})
+	      R3 -> ct:fail({returned,abbr(R3)})
 	  catch error:badarg -> ok
 	  end,
     ?line expect(fun ({trace,S,call,{lists,reverse,[L1,L2]}})
@@ -1113,7 +1110,7 @@ exception_nocatch() ->
 get_deep_4_loc(Arg) ->
     try
 	deep_4(Arg),
-	?t:fail(should_not_return_to_here)
+	ct:fail(should_not_return_to_here)
     catch
 	_:_ ->
 	    [{?MODULE,deep_4,1,Loc0}|_] = erlang:get_stacktrace(),
@@ -1182,7 +1179,7 @@ expect() ->
     case flush() of
 	[] -> ok;
 	Msgs ->
-	    test_server:fail({unexpected,abbr(Msgs)})
+	    ct:fail({unexpected,abbr(Msgs)})
     end.
 
 expect({trace_ts,Pid,Type,MFA,Term,ts}=Message) ->
@@ -1194,11 +1191,11 @@ expect({trace_ts,Pid,Type,MFA,Term,ts}=Message) ->
 		    Ts;
 		_ ->
 		    io:format("Expected ~p; got ~p", [abbr(Message),abbr(M)]),
-		    test_server:fail({unexpected,abbr([M|flush()])})
+		    ct:fail({unexpected,abbr([M|flush()])})
 	    end
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [abbr(Message)]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect({trace_ts,Pid,Type,MFA,ts}=Message) ->
     receive
@@ -1209,11 +1206,11 @@ expect({trace_ts,Pid,Type,MFA,ts}=Message) ->
 		    Ts;
 		_ ->
 		    io:format("Expected ~p; got ~p", [abbr(Message),abbr(M)]),
-		    test_server:fail({unexpected,abbr([M|flush()])})
+		    ct:fail({unexpected,abbr([M|flush()])})
 	    end
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [abbr(Message)]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect(Validator) when is_function(Validator) ->
     receive
@@ -1226,11 +1223,11 @@ expect(Validator) when is_function(Validator) ->
  		    expect(Validator);
  		{unexpected,Message} ->
  		    io:format("Expected ~p; got ~p", [abbr(Message),abbr(M)]),
- 		    test_server:fail({unexpected,abbr([M|flush()])})
+                    ct:fail({unexpected,abbr([M|flush()])})
 	    end
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [abbr(Validator('_'))]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect(Message) ->
     receive
@@ -1241,11 +1238,11 @@ expect(Message) ->
 		Other ->
 		    io:format("Expected ~p; got ~p", 
 			      [abbr(Message),abbr(Other)]),
-		    test_server:fail({unexpected,abbr([Other|flush()])})
+		    ct:fail({unexpected,abbr([Other|flush()])})
 	    end
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [abbr(Message)]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end.
 
 trace_info(What, Key) ->

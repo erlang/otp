@@ -530,7 +530,7 @@ combo_test() ->
 	      {?RT(Slave,{?MODULE,receiver,1}),
 	       ?RF(Slave,{erlang,phash2,2},0)} ->
 		ok;
-	      Error1 -> ?t:fail({unexpected_message, Error1})
+	      Error1 -> ct:fail({unexpected_message, Error1})
 	end,
     case {receive_next_bytag(LocalTracer),
 		receive_next_bytag(LocalTracer)} of
@@ -540,7 +540,7 @@ combo_test() ->
 	      {?RT(Slave,{?MODULE,slave,1}),
 	       ?RF(Slave,{?MODULE,receiver,1},Ref)} ->
 		  ok;
-	      Error2 -> ?t:fail({unexpected_message, Error2})
+	      Error2 -> ct:fail({unexpected_message, Error2})
 	  end,
     shutdown(),
     ?NM,
@@ -729,13 +729,13 @@ receive_next(TO) ->
 	M ->
 	    M
     after TO ->
-	    ?t:fail(timeout)
+	    ct:fail(timeout)
     end.
 
 receive_no_next(TO) ->
     receive
 	M ->
-	    ?t:fail({unexpected_message, M})
+	    ct:fail({unexpected_message, M})
     after
 	TO ->
 	    ok

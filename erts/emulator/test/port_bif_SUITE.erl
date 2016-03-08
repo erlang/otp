@@ -66,10 +66,10 @@ do_command(P, Data) ->
 	{P,{data,Data0}} ->
 	    case {list_to_binary(Data0),list_to_binary([Data])} of
 		{B,B} -> ok;
-		_ -> test_server:fail({unexpected_data,Data0})
+		_ -> ct:fail({unexpected_data,Data0})
 	    end;
 	Other ->
-	    test_server:fail({unexpected_message,Other})
+	    ct:fail({unexpected_message,Other})
     end.
 
 
@@ -85,9 +85,9 @@ command_e_1(Config) when is_list(Config) ->
         {'EXIT', Pid, {badarg, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -107,9 +107,9 @@ command_e_2(Config) when is_list(Config) ->
         {'EXIT', Pid, {badarg, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -131,9 +131,9 @@ command_e_3(Config) when is_list(Config) ->
         {'EXIT', Port, einval} when is_port(Port) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -148,9 +148,9 @@ command_e_4(Config) when is_list(Config) ->
         {'EXIT', Pid, {einval, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -227,7 +227,7 @@ do_port_info_os_pid() ->
     {os_pid, InfoOSPid} = erlang:port_info(P, os_pid),
     EchoPidStr = receive
 	    {P, {data, EchoPidStr0}} -> EchoPidStr0
-	    after 10000 -> test_server:fail(timeout)
+	    after 10000 -> ct:fail(timeout)
     end,
     {ok, [EchoPid], []} = io_lib:fread("~u\n", EchoPidStr),
     {value,{os_pid, InfoOSPid}}=lists:keysearch(os_pid, 1, A),
@@ -262,10 +262,9 @@ output_test(_, _, Input, Output) when Output > 16#1fffffff ->
 output_test(P, Bin, Input0, Output0) ->
     erlang:port_command(P, Bin),
     receive
-	{P,{data,Bin}} -> ok;
-	Other ->
-	    io:format("~p", [Other]),
-	    ?t:fail()
+        {P,{data,Bin}} -> ok;
+        Other ->
+            ct:fail("~p", [Other])
     end,
     Input = Input0 + size(Bin),
     Output = Output0 + size(Bin),
@@ -275,8 +274,8 @@ output_test(P, Bin, Input0, Output0) ->
     %% We can't test much here, but hopefully a debug-built emulator will crasch
     %% if there is something wrong with the heap allocation.
     case erlang:statistics(io) of
-	{{input,In},{output,Out}} when is_integer(In), is_integer(Out) ->
-	    ok
+        {{input,In},{output,Out}} when is_integer(In), is_integer(Out) ->
+            ok
     end,
     output_test(P, Bin, Input, Output).
 
@@ -324,7 +323,7 @@ connect(Config) when is_list(Config) ->
     exit(P, you_should_die),
     receive
         {'EXIT',RecPid,you_should_die} -> ok;
-        Other -> ?line ?t:fail({bad_message,Other})
+        Other -> ct:fail({bad_message,Other})
     end,
 
     %% Done.
@@ -401,9 +400,9 @@ echo_to_busy(Config) when is_list(Config) ->
         {Echoer, done} ->
             ok;
         {Echoer, Other} ->
-            test_server:fail(Other);
+            ct:fail(Other);
         Other ->
-            test_server:fail({unexpected_message, Other})
+            ct:fail({unexpected_message, Other})
     end,
     ok.
 

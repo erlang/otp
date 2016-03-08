@@ -127,8 +127,7 @@ basic(Config) when is_list(Config) ->
     ?line [] = term(P, 127),
     ?line receive
 	      Any ->
-		  ?line io:format("Unexpected: ~p\n", [Any]),
-		  ?line ?t:fail()
+		  ct:fail("Unexpected: ~p\n", [Any])
 	  after 0 ->
 		  ok
 	  end,
@@ -198,7 +197,7 @@ stop_driver(Port, Name) ->
     ?line true = erlang:port_close(Port),
     receive
 	{Port,Message} ->
-	    ?t:fail({strange_message_from_port,Message})
+	    ct:fail({strange_message_from_port,Message})
     after 0 ->
 	    ok
     end,

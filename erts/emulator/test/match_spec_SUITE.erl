@@ -731,7 +731,7 @@ errchk(Pat) ->
 	{'EXIT', {badarg, _}} ->
 	    ok;
 	Other ->
-	    test_server:fail({noerror, Other})
+	    ct:fail({noerror, Other})
     end.
 
 unary_minus(suite) ->
@@ -870,8 +870,7 @@ fpe(Config) when is_list(Config) ->
     MS = [{{'$1'},[],[{'/','$1',0}]}],
     case catch (['EXIT','EXIT'] = 
 		ets:match_spec_run([{1},{2}],ets:match_spec_compile(MS))) of 
-	{'EXIT',_} -> test_server:fail({error, 
-					"Floating point exceptions faulty"});
+	{'EXIT',_} -> ct:fail({error, "Floating point exceptions faulty"});
 	_ -> ok 
     end.
 
@@ -1034,7 +1033,7 @@ flush(Reason) ->
 	    ?t:format("In queue:       ~p~n", [M]),
 	    flush(Reason)
     after 17 ->
-	    ?t:fail(Reason)
+	    ct:fail(Reason)
     end.
 
 start_collect(P) ->

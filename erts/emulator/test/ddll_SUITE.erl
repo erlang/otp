@@ -846,7 +846,7 @@ reference_count(Config) when is_list(Config) ->
     Pid1=spawn_link(?MODULE, echo_loader, [Path, self()]),
     receive
 	{Pid1, echo_loaded} -> ok
-    after 2000 -> test_server:fail("echo_loader failed to start.")
+    after 2000 -> ct:fail("echo_loader failed to start.")
     end,
 
     Pid1 ! {self(), die},
@@ -891,7 +891,7 @@ kill_port(Config) when is_list(Config) ->
 		  ok
 	  after 3000 ->
 		  ?line exit(Pid1, kill),
-		  ?line test_server:fail("echo_loader failed to start.")
+		  ?line ct:fail("echo_loader failed to start.")
 	  end,
 
     % Spawn off a port that uses the driver.
@@ -908,7 +908,7 @@ kill_port(Config) when is_list(Config) ->
 	{'EXIT', Port, Reason} ->
 	    io:format("Port exited with reason ~w", [Reason])
     after 5000 ->
-	    ?line test_server:fail("Echo port did not terminate.")
+	    ?line ct:fail("Echo port did not terminate.")
     end,
     ok.
 
@@ -926,7 +926,7 @@ dont_kill_port(Config) when is_list(Config) ->
 		  ok
 	  after 3000 ->
 		  ?line exit(Pid1, kill),
-		  ?line test_server:fail("echo_loader failed to start.")
+		  ?line ct:fail("echo_loader failed to start.")
 	  end,
 
     % Spawn off a port that uses the driver.
@@ -947,7 +947,7 @@ dont_kill_port(Config) when is_list(Config) ->
 	{'EXIT', Port, Reason} ->
 	    io:format("Port exited with reason ~w", [Reason])
     after 5000 ->
-	    ?line test_server:fail("Echo port did not terminate.")
+	    ?line ct:fail("Echo port did not terminate.")
     end,
     ok.
 
@@ -960,7 +960,7 @@ properties(Config) when is_list(Config) ->
     Pid=spawn_link(?MODULE, echo_loader, [Path, self()]),
     receive
 	{Pid, echo_loaded} -> ok
-    after 2000 -> test_server:fail("echo_loader failed to start.")
+    after 2000 -> ct:fail("echo_loader failed to start.")
     end,
 
     % Try to unload the driver from this process (the wrong one).
@@ -970,8 +970,7 @@ properties(Config) when is_list(Config) ->
 	      true ->
 		  ok;
 	      false ->
-		  test_server:fail("Unload from wrong process "
-				   "succeeded.")
+		  ct:fail("Unload from wrong process succeeded.")
 	  end,
 
     % Unload the driver and terminate dummy process.

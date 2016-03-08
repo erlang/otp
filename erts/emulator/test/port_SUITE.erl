@@ -261,7 +261,7 @@ bad_packet(PortTest, HeaderSize, PacketSize) ->
     P ! {self(), {command, make_zero_packet(PacketSize)}},
     receive
 	{'EXIT', P, einval} -> ok;
-	Other -> test_server:fail({unexpected_message, Other})
+	Other -> ct:fail({unexpected_message, Other})
     end.
 
 make_zero_packet(0) -> [];
@@ -288,7 +288,7 @@ bad_message(PortTest, Message) ->
     P ! Message,
     receive
 	{'EXIT',P,badsig} -> ok;
-	Other -> test_server:fail({unexpected_message, Other})
+	Other -> ct:fail({unexpected_message, Other})
     end.
 
 %% Tests various options (stream and {packet, Number} are implicitly
@@ -448,7 +448,7 @@ wait_for(Pids) ->
 	{'EXIT', Pid, normal} ->
 	    wait_for(lists:delete(Pid, Pids));
 	Other ->
-	    test_server:fail({bad_exit, Other})
+	    ct:fail({bad_exit, Other})
     end.
 
 %% Tests starting port programs that terminate by themselves.
@@ -708,10 +708,10 @@ open_ports(Name, Settings) ->
 		enomem ->
 		    [];
 		Other ->
-		    test_server:fail({open_ports, Other})
+		    ct:fail({open_ports, Other})
 	    end;
 	Other ->
-	    test_server:fail({open_ports, Other})
+	    ct:fail({open_ports, Other})
     end.
 
 %% Tests that exit(Port, Term) works (has been known to crash the emulator).
@@ -724,7 +724,7 @@ t_exit(Config) when is_list(Config) ->
 	{'EXIT', Pid, die} ->
 	    ok;
 	Other ->
-	    test_server:fail({bad_message, Other})
+	    ct:fail({bad_message, Other})
     end.
 
 suicide_port(Config) when is_list(Config) ->
@@ -760,7 +760,7 @@ tps(Port, Packet, N) ->
 	{Port, {data, Packet}} ->
 	    tps(Port, Packet, N-1);
 	Other ->
-	    test_server:fail({bad_message, Other})
+	    ct:fail({bad_message, Other})
     end.
 
 %% Line I/O test
@@ -893,10 +893,9 @@ env_slave(File, Env, Body) ->
 	{Port,{data,{eol,"ok"}}} ->
 	    ok;
 	{Port,{data,{eol,Error}}} ->
-	    io:format("~p\n", [Error]),
-	    test_server:fail();
+	    ct:fail("eol error ~p\n", [Error]);
 	Other ->
-	    test_server:fail(Other)
+	    ct:fail(Other)
     end.
 
 env_slave_main([File]) ->
@@ -989,10 +988,10 @@ cd(Config)  when is_list(Config) ->
 		true ->
 		    ok;
 		false ->
-		    test_server:fail({cd, String})
+		    ct:fail({cd, String})
 	    end;
 	Other2 ->
-	    test_server:fail({env, Other2})
+	    ct:fail({env, Other2})
     end,
     _ = open_port({spawn, Cmd},
 		  [{cd, unicode:characters_to_binary(TestDir)},
@@ -1003,10 +1002,10 @@ cd(Config)  when is_list(Config) ->
 		true ->
 		    ok;
 		false ->
-		    test_server:fail({cd, String2})
+		    ct:fail({cd, String2})
 	    end;
 	Other3 ->
-	    test_server:fail({env, Other3})
+	    ct:fail({env, Other3})
     end,
     ok.
 
@@ -1104,7 +1103,7 @@ otp_3906(Config, OSName) ->
 		succeded ->
 		    ok;
 		_ ->
-		    test_server:fail(Result)
+		    ct:fail(Result)
 	    end;
 	_ ->
 	    {skipped, "No C compiler found"}
@@ -1253,7 +1252,7 @@ otp_4389(Config)  when is_list(Config) ->
 			    fun (P) ->
 				    receive
 					      {P, ok} ->  ok;
-					      {P, Err} -> ?t:fail(Err)
+					      {P, Err} -> ct:fail(Err)
 					  end
 			    end,
 			    lists:map(
@@ -1340,7 +1339,7 @@ spawn_driver(Config) when is_list(Config) ->
 		  io:format("~p~n", [Msg1]),
 		  ok; 
 	      Other ->
-		  test_server:fail({unexpected, Other})
+		  ct:fail({unexpected, Other})
 	  end,
     Port ! {self(), close},
     receive {Port, closed} -> ok end,
@@ -1352,7 +1351,7 @@ spawn_driver(Config) when is_list(Config) ->
 		  io:format("~p~n", [Msg2]),
 		  ok; 
 	      Other2 ->
-		  test_server:fail({unexpected2, Other2})
+		  ct:fail({unexpected2, Other2})
 	  end,
     Port2 ! {self(), close},
     receive {Port2, closed} -> ok end,
@@ -1377,7 +1376,7 @@ parallelism_option(Config) when is_list(Config) ->
 		  io:format("~p~n", [Msg1]),
 		  ok; 
 	      Other ->
-		  test_server:fail({unexpected, Other})
+		  ct:fail({unexpected, Other})
 	  end,
     ?line Port ! {self(), close},
     ?line receive {Port, closed} -> ok end,
@@ -1390,7 +1389,7 @@ parallelism_option(Config) when is_list(Config) ->
 		  io:format("~p~n", [Msg2]),
 		  ok; 
 	      Other2 ->
-		  test_server:fail({unexpected2, Other2})
+		  ct:fail({unexpected2, Other2})
 	  end,
     ?line Port2 ! {self(), close},
     ?line receive {Port2, closed} -> ok end,
@@ -1650,7 +1649,7 @@ mix_up_ports(Config) when is_list(Config) ->
 		  io:format("~p~n", [Msg1]),
 		  ok; 
 	      Other ->
-		  test_server:fail({unexpected, Other})
+		  ct:fail({unexpected, Other})
 	  end,
     Port ! {self(), close},
     receive {Port, closed} -> ok end,
@@ -1669,7 +1668,7 @@ mix_up_ports(Config) when is_list(Config) ->
     Port ! {self(), {command, "Hello again port!"}},
     receive 
 	      Msg2 ->
-		  test_server:fail({unexpected, Msg2})
+		  ct:fail({unexpected, Msg2})
 	  after 1000 ->
 		  ok
 	  end,
@@ -1794,7 +1793,7 @@ otp_6224(Config) when is_list(Config) ->
 		  case Reason of
 			    {driver_failed, _} -> ok;
 			    driver_failed -> ok;
-			    _ -> ?t:fail({unexpected_exit_reason,
+			    _ -> ct:fail({unexpected_exit_reason,
 						Reason})
 			end
 	  end,
@@ -1873,7 +1872,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
                                                              Err == enomem ->
 					      noop;
 					  Error ->
-					      ?t:fail(Error)
+					      ct:fail(Error)
 				      end
 			      end,
 			      lists:seq(1, NoPortsPerProc)),
@@ -1904,17 +1903,17 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 		    PrtSIds),
 		  Parent ! {self(), done}
 	  end,
-    Procs = lists:map(fun (N) ->
-				    spawn_opt(ProcFun,
-					      [link,
-					       {scheduler,
-						(N rem NoSchedsOnln)+1}])
-			    end,
-			    lists:seq(1, NoProcs)),
+        Procs = lists:map(fun (N) ->
+                                  spawn_opt(ProcFun,
+                                            [link,
+                                             {scheduler,
+                                              (N rem NoSchedsOnln)+1}])
+                          end,
+                          lists:seq(1, NoProcs)),
     SIds = lists:map(fun (P) ->
-				   receive {P, started, SIds} -> SIds end
-			   end,
-			   Procs),
+                             receive {P, started, SIds} -> SIds end
+                     end,
+                     Procs),
     StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
     ?t:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
@@ -1929,10 +1928,8 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 	      {N, N} ->
 		  ok;
 	      {N, M} ->
-		  ?t:fail("Failed to create ports on all"
-				++ integer_to_list(M) ++ " available"
-				"schedulers. Only created ports on "
-				++ integer_to_list(N) ++ " schedulers.")
+		  ct:fail("Failed to create ports on all ~w available"
+                          "schedulers. Only created ports on ~w schedulers.", [M, N])
 	  end.
 
 save_sid(SIds) ->
@@ -1953,15 +1950,15 @@ sid_proc(SIds) ->
 
 verify_multi_scheduling_blocked() ->
     Procs = lists:map(fun (_) ->
-				    spawn_link(fun () -> sid_proc([]) end)
-			    end,
-			    lists:seq(1, 3*erlang:system_info(schedulers_online))),
+                              spawn_link(fun () -> sid_proc([]) end)
+                      end,
+                      lists:seq(1, 3*erlang:system_info(schedulers_online))),
     receive after 1000 -> ok end,
     SIds = lists:map(fun (P) ->
-				   P ! {self(), want_sids},
-				   receive {P, sids, PSIds} -> PSIds end
-			   end,
-			   Procs),
+                             P ! {self(), want_sids},
+                             receive {P, sids, PSIds} -> PSIds end
+                     end,
+                     Procs),
     1 = length(lists:usort(lists:flatten(SIds))),
     ok.
 		      
@@ -2085,7 +2082,7 @@ receive_all(Port, [Expect|Rest]) ->
 	{Port, {data, Other}} ->
 	    io:format("Received ~s; expected ~s",
 		      [format(Other), format(Expect)]),
-	    test_server:fail(bad_message);
+	    ct:fail(bad_message);
 	Other ->
 	    %% (We're not yet prepared for receiving both 'eol' and
 	    %% 'exit_status'; remember that they may appear in any order.)
@@ -2099,7 +2096,7 @@ receive_all(Port, [Expect|Rest]) ->
 		_ ->
 %%%	            io:format("Unexpected message: ~s", [format(Other)]),
 		    io:format("Unexpected message: ~w", [Other]),
-		    test_server:fail(unexpected_message)
+		    ct:fail(unexpected_message)
 	    end
     end,
     receive_all(Port, Rest);
@@ -2119,7 +2116,7 @@ stream_receive_all1(Port, Expect) ->
 	    Remaining = compare(Data, Expect),
 	    stream_receive_all1(Port, Remaining);
 	Other ->
-	    test_server:fail({bad_message, Other})
+	    ct:fail({bad_message, Other})
     end.
 
 compare(B1, B2) when is_binary(B1), is_binary(B2), byte_size(B1) =< byte_size(B2) ->
@@ -2127,18 +2124,18 @@ compare(B1, B2) when is_binary(B1), is_binary(B2), byte_size(B1) =< byte_size(B2
 	{B1,Remaining} ->
 	    Remaining;
 	_Other ->
-	    test_server:fail(nomatch)
+	    ct:fail(nomatch)
     end;
 compare(B1, B2) when is_binary(B1), is_binary(B2) ->
-    test_server:fail(too_much_data);
+    ct:fail(too_much_data);
 compare([X|Rest1], [X|Rest2]) ->
     compare(Rest1, Rest2);
 compare([_|_], [_|_]) ->
-    test_server:fail(nomatch);
+    ct:fail(nomatch);
 compare([], Remaining) ->
     Remaining;
 compare(_Data, []) ->
-    test_server:fail(too_much_data).
+    ct:fail(too_much_data).
 
 maybe_to_list(Bin) when is_binary(Bin) ->
     binary_to_list(Bin);
@@ -2324,7 +2321,7 @@ ports_verify(Ports, PortsAfter, EventList) ->
 		    ports_verify(Ports, [P | PortsAfter], Tail);		    
 
 		[] ->
-		    test_server:fail("Inconsistent snapshot from erlang:ports()")
+		    ct:fail("Inconsistent snapshot from erlang:ports()")
 	    end
     end.
 

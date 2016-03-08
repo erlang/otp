@@ -477,7 +477,7 @@ tracer_port_crash(Config) when is_list(Config) ->
 		Id ->
 %		    erts_debug:set_internal_state(available_internal_state, true),
 %		    erts_debug:set_internal_state(abort, {trace_port_linker, Id})
-		    ?t:fail({trace_port_linker, Id})
+		    ct:fail({trace_port_linker, Id})
 	    end,
 	    undefined = process_info(Tracee),
 	    ok
@@ -498,7 +498,7 @@ expect() ->
     receive
 	Other ->
 	    ok = io:format("Unexpected; got ~p", [Other]),
-	    test_server:fail({unexpected, Other})
+	    ct:fail({unexpected, Other})
     after 200 ->
 	    ok
     end.
@@ -510,10 +510,10 @@ expect({trace_ts,E1,E2,info,ts}=Message) ->
 	    MessageTs;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Message,Other]),
-	    test_server:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [Message]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect({trace,E1,E2,info}=Message) ->
     receive
@@ -522,10 +522,10 @@ expect({trace,E1,E2,info}=Message) ->
 	    MessageTs;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Message,Other]),
-	    test_server:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [Message]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect({trace_ts,E1,E2,E3,ts}=Message) ->
     receive
@@ -534,10 +534,10 @@ expect({trace_ts,E1,E2,E3,ts}=Message) ->
 	    MessageTs;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Message,Other]),
-	    test_server:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [Message]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect({trace_ts,E1,E2,E3,E4,ts}=Message) ->
     receive
@@ -546,10 +546,10 @@ expect({trace_ts,E1,E2,E3,E4,ts}=Message) ->
 	    MessageTs;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Message,Other]),
-	    test_server:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [Message]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end;
 expect(Message) ->
     receive
@@ -558,10 +558,10 @@ expect(Message) ->
 	    Message;
 	Other ->
 	    io:format("Expected ~p; got ~p", [Message,Other]),
-	    test_server:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     after 5000 ->
 	    io:format("Expected ~p; got nothing", [Message]),
-	    test_server:fail(no_trace_message)
+	    ct:fail(no_trace_message)
     end.
 
 trac(What, On, Flags0) ->

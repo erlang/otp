@@ -65,7 +65,7 @@ stickiness(Config) when is_list(Config) ->
     
     case process_info(self(), dictionary) of
 	{dictionary,[]} -> ok;
-	{dictionary,_} -> ?line ?t:fail(sensitive_flag_cleared)
+	{dictionary,_} -> ?line ct:fail(sensitive_flag_cleared)
     end,
 
     NewTracer = spawn_link(fun() -> receive after infinity -> ok end end),

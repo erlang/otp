@@ -91,7 +91,7 @@ case_2(Config) when is_list(Config) ->
     ?line receive
 	      {'EXIT', _} -> ok;
 	      Other ->
-		  test_server:fail({rec, Other})
+		  ct:fail({rec, Other})
 	  end,
     ?line expect_down(R, B, normal),
     ok.
@@ -104,7 +104,7 @@ case_2a(Config) when is_list(Config) ->
     ?line receive
 	      {'EXIT', _} -> ok;
 	      Other ->
-		  test_server:fail({rec, Other})
+		  ct:fail({rec, Other})
 	  end,
     ?line expect_down(R, B, normal),
     ok.
@@ -119,7 +119,7 @@ expect_down(Ref, P) ->
 	{'DOWN', Ref, process, P, Reason} -> 
 	    Reason;
 	Other ->
-	    test_server:fail({rec, Other})
+	    ct:fail({rec, Other})
     end.
 
 expect_down(Ref, P, Reason) ->
@@ -127,13 +127,13 @@ expect_down(Ref, P, Reason) ->
 	{'DOWN', Ref, process, P, Reason} -> 
 	    ok;
 	Other ->
-	    test_server:fail({rec, Other})
+	    ct:fail({rec, Other})
     end.
 
 expect_no_msg() ->
     receive
 	Msg ->
-	    test_server:fail({msg, Msg})
+	    ct:fail({msg, Msg})
     after 0 ->
 	    ok
     end.
@@ -166,7 +166,7 @@ mon_error(Type, Item) ->
 	{'EXIT', _} ->
 	    ok;
 	Other ->
-	    test_server:fail({err, Other})
+	    ct:fail({err, Other})
     end.
 
 %%% Error cases for demonitor/1
@@ -195,7 +195,7 @@ demon_e_1(Config) when is_list(Config) ->
 		  ?line demon_error(R2, badarg),
 		  ?line P2 ! {self(), stop};
 	      Other2 ->
-		  test_server:fail({rec, Other2})
+		  ct:fail({rec, Other2})
 	  end,
 
     ?line true = test_server:stop_node(N),
@@ -206,7 +206,7 @@ demon_error(Ref, Reason) ->
 	{'EXIT', {Reason, _}} ->
 	    ok;
 	Other ->
-	    test_server:fail({err, Other})
+	    ct:fail({err, Other})
     end.
 
 %%% No-op cases for demonitor/1
@@ -237,7 +237,7 @@ demon_2(Config) when is_list(Config) ->
     ?line case expect_down(R2, P2) of
 	      normal -> ?line ok;
 	      noproc -> ?line ok;
-	      BadReason -> ?line ?t:fail({bad_reason, BadReason})
+	      BadReason -> ?line ct:fail({bad_reason, BadReason})
 	  end,
 
 %% OTP-5772
@@ -308,7 +308,7 @@ demonitor_flush_test(Node) ->
     ?line receive
 	      {'DOWN', M, _, _, _} =DM when M == M1,
 					    M == M3 ->
-		  ?line ?t:fail({unexpected_down_message, DM})
+		  ?line ct:fail({unexpected_down_message, DM})
 	  after 100 ->
 		  ?line ok
 	  end.
@@ -395,7 +395,7 @@ mon_1(Config) when is_list(Config) ->
     ?line case expect_down(R2, P2) of
 	      normal -> ?line ok;
 	      noproc -> ?line ok;
-	      BadReason -> ?line ?t:fail({bad_reason, BadReason})
+	      BadReason -> ?line ct:fail({bad_reason, BadReason})
 	  end,
     ?line {P2A,R2A} = spawn_monitor(timer, sleep, [1]),
     ?line expect_down(R2A, P2A, normal),
@@ -529,7 +529,7 @@ f() ->
 		X == S ->
 		    ok;
 		true ->
-		    test_server:fail({X, S})
+		    ct:fail({X, S})
 	    end;
 	Other ->
 	    ?line io:format(" -> ~p~n", [Other]),
@@ -801,7 +801,7 @@ otp_5827(Config) when is_list(Config) ->
 	      Ok ->
 		  ?line ok
 	  after 1000 ->
-		  ?line ?t:fail("erlang:monitor/2 hangs")
+		  ?line ct:fail("erlang:monitor/2 hangs")
 	  end.
 
 monitor_time_offset(Config) when is_list(Config) ->
@@ -823,7 +823,7 @@ monitor_time_offset(Config) when is_list(Config) ->
 			      {no_change_message_received, P} ->
 				  ok;
 			      {'DOWN', M, process, P, Reason} ->
-				  ?t:fail(Reason)
+				  ct:fail(Reason)
 			  end
 		  end, PMs),
     preliminary = rpc:call(Node, erlang, system_flag, [time_offset, finalize]),
@@ -832,7 +832,7 @@ monitor_time_offset(Config) when is_list(Config) ->
 			      {change_messages_received, P} ->
 				  erlang:demonitor(M, [flush]);
 			      {'DOWN', M, process, P, Reason} ->
-				  ?t:fail(Reason)
+				  ct:fail(Reason)
 			  end
 		  end, PMs),
     stop_node(Node),
@@ -966,7 +966,7 @@ start_jeeves({Name, Node})
 	{Pid, Ref} -> 
 	    ok;
 	Other ->
-	    test_server:fail({rec, Other})
+	    ct:fail({rec, Other})
     end,
     Pid;
 start_jeeves(Name) when is_atom(Name) ->
@@ -983,7 +983,7 @@ ask_jeeves(Pid, Request) when is_pid(Pid) ->
 	{Pid, Response} ->
 	    Response;
 	Other ->
-	    test_server:fail({rec, Other})
+	    ct:fail({rec, Other})
     end.
 
 
@@ -993,7 +993,7 @@ expect_jeeves(Pid, Request, Response) when is_pid(Pid) ->
 	{Pid, Response} -> 
 	    ok;
 	Other ->
-	    test_server:fail({rec, Other})
+	    ct:fail({rec, Other})
     end.
 
 

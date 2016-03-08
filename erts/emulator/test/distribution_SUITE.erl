@@ -159,7 +159,7 @@ bulk_sendsend(Terms, BinSize) ->
 	    {comment,Comment};
 	true ->
 	    io:put_chars(Comment),
-	    ?line ?t:fail(ratio_too_low)
+	    ?line ct:fail(ratio_too_low)
     end.
 
 bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
@@ -294,7 +294,7 @@ local_send_legal(Config) when is_list(Config) ->
 	{Times, TotalSize} ->
 	    ok;
 	_ ->
-	    test_server:fail("Wrong number of msgs received.")
+	    ct:fail("Wrong number of msgs received.")
     end,
     ok.
 
@@ -469,7 +469,7 @@ do_busy_test(Node, Fun) ->
 		{'DOWN', M, process, P, Reason} ->
 		    ?t:format("~p died with exit reason ~p~n", [P, Reason])
 	    end,
-	    ?t:fail(premature_death);
+	    ct:fail(premature_death);
 	_ ->
 	    %% Don't match arity; it is different in debug and
 	    %% optimized emulator
@@ -592,9 +592,9 @@ link_to_dead(Config) when is_list(Config) ->
 	      {'EXIT', Pid, noproc} ->
 		  ok;
 	      Other ->
-		  ?line test_server:fail({unexpected_message, Other})
+		  ?line ct:fail({unexpected_message, Other})
 	  after 5000 ->
-		  ?line test_server:fail(nothing_received)
+		  ?line ct:fail(nothing_received)
 	  end,
     ?line {links, Links} = process_info(self(), links),
     ?line io:format("Pid=~p, links=~p", [Pid, Links]),
@@ -602,7 +602,7 @@ link_to_dead(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line receive
 	      Message ->
-		  ?line test_server:fail({unexpected_message, Message})
+		  ?line ct:fail({unexpected_message, Message})
 	  after 3000 ->
 		  ok
 	  end,
@@ -629,9 +629,9 @@ link_to_dead_new_node(Config) when is_list(Config) ->
 	      {'EXIT', Pid, noproc} ->
 		  ok;
 	      Other ->
-		  ?line test_server:fail({unexpected_message, Other})
+		  ?line ct:fail({unexpected_message, Other})
 	  after 5000 ->
-		  ?line test_server:fail(nothing_received)
+		  ?line ct:fail(nothing_received)
 	  end,
 
     %% Make sure that the link wasn't created.
@@ -641,7 +641,7 @@ link_to_dead_new_node(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line receive
 	      Message ->
-		  ?line test_server:fail({unexpected_message, Message})
+		  ?line ct:fail({unexpected_message, Message})
 	  after 3000 ->
 		  ok
 	  end,
@@ -688,9 +688,9 @@ ref_port_roundtrip(Config) when is_list(Config) ->
 		  ok;
 	      Other ->
 		  ?line io:format("Term after: ~p", [show_term(Term)]),
-		  ?line test_server:fail({unexpected, Other})
+		  ?line ct:fail({unexpected, Other})
 	  after 10000 ->
-		  ?line test_server:fail(timeout)
+		  ?line ct:fail(timeout)
 	  end,
     ok.
 
@@ -2116,13 +2116,13 @@ verify_still_up(A, B) ->
 verify_no_down(A, B) ->
     receive
 	{nodedown, A, B, _} = Msg0 ->
-	    ?t:fail(Msg0)
+	    ct:fail(Msg0)
     after 0 ->
 	    ok
     end,
     receive
 	{nodedown, B, A, _} = Msg1 ->
-	    ?t:fail(Msg1)
+	    ct:fail(Msg1)
     after 0 ->
 	    ok
     end.

@@ -131,7 +131,7 @@ message_order(Config) when is_list(Config) ->
 	      {Busy, first} ->
 		  ok;
 	      Other ->
-		  test_server:fail({unexpected_message, Other})
+		  ct:fail({unexpected_message, Other})
 	  end,
     ok.
 
@@ -233,13 +233,13 @@ no_trap_exit(Config) when is_list(Config) ->
 		  io:format("Process ~w created port ~w", [Pid, Port]),
 		  ?line exit(Port, die);
 	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
+		  ct:fail({unexpected_message, Other1})
 	  end,
     ?line receive
 	      {'EXIT', Pid, die} ->
 		  ok;
 	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
+		  ct:fail({unexpected_message, Other2})
 	  end,
     ok.
 
@@ -257,13 +257,13 @@ no_trap_exit_unlinked(Config) when is_list(Config) ->
 		  io:format("Process ~w created port ~w", [Pid, Port]),
 		  ?line exit(Port, die);
 	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
+		  ct:fail({unexpected_message, Other1})
 	  end,
     ?line receive
 	      {'EXIT', Pid, normal} ->
 		  ok;
 	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
+		  ct:fail({unexpected_message, Other2})
 	  end,
     ok.
 
@@ -302,13 +302,13 @@ trap_exit(Config) when is_list(Config) ->
 		  ?line {status, suspended} = process_info(Pid, status),
 		  ?line exit(Port, die);
 	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
+		  ct:fail({unexpected_message, Other1})
 	  end,
     ?line receive
 	      {Pid, ok} ->
 		  ok;
 	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
+		  ct:fail({unexpected_message, Other2})
 	  end,
     ok.
 
@@ -379,8 +379,7 @@ hs_test(Config, HardBusy) when is_list(Config) ->
     case erl_ddll:load_driver(Path, DrvName) of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end,
 
     ?line Port = open_port({spawn, DrvName}, []),
@@ -721,8 +720,7 @@ port_scheduling(Scenario,Validation,Path) ->
     case erl_ddll:load_driver(Path, DrvName) of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end,
 
     Data = run_scenario(lists:flatten(Scenario),[{drvname,DrvName}]),
@@ -828,7 +826,7 @@ wait_for(Pids) ->
 	{'EXIT', Pid, normal} ->
 	    wait_for(lists:delete(Pid, Pids));
 	Other ->
-	    test_server:fail({bad_exit, Other})
+	    ct:fail({bad_exit, Other})
     end.
 
 fun_spawn(Fun) ->
@@ -869,8 +867,7 @@ load_busy_driver(Config) when is_list(Config) ->
     case erl_ddll:load_driver(DataDir, "busy_drv") of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end.
 
 %%% Interface functions.
@@ -881,7 +878,7 @@ start_busy_driver(Config) when is_list(Config) ->
 	      {Pid, started} ->
 		  ok;
 	      Other ->
-		  test_server:fail({unexpected_message, Other})
+		  ct:fail({unexpected_message, Other})
 	  end.
 
 unlock_slave() ->

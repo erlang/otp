@@ -91,7 +91,7 @@ wall_clock_zero_diff1(N) when N > 0 ->
 	      _ -> wall_clock_zero_diff1(N-1)
     end;
 wall_clock_zero_diff1(0) ->
-    ?line test_server:fail("Difference never zero.").
+    ct:fail("Difference never zero.").
 
 wall_clock_update(doc) ->
     "Test that the time differences returned by two calls to "
@@ -136,7 +136,7 @@ runtime_zero_diff1(N) when N > 0 ->
 	      _ -> runtime_zero_diff1(N-1)
 	  end;
 runtime_zero_diff1(0) ->
-    ?line test_server:fail("statistics(runtime) never returned zero difference").
+    ct:fail("statistics(runtime) never returned zero difference").
 
 runtime_update(doc) ->
     "Test that the statistics(runtime) returns a substanstially "
@@ -272,7 +272,7 @@ run_queue_one_test(Config) when is_list(Config) ->
     ?line receive after 100 -> ok end,		% Give hog a head start.
     ?line case statistics(run_queue) of
 	      N when N >= 1 -> ok;
-	      Other -> ?line ?t:fail({unexpected,Other})
+	      Other -> ct:fail({unexpected,Other})
 	  end,
     ok.
 

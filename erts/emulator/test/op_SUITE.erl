@@ -296,7 +296,7 @@ run_function(Mod, Name) ->
     case catch Mod:Name() of
 	{'EXIT',Reason} ->
 	    io:format("~p", [get(last)]),
-	    ?t:fail({'EXIT',Reason});
+	    ct:fail({'EXIT',Reason});
 	_Other ->
 	    ok
     end.

@@ -357,17 +357,16 @@ ov_send_and_test(Port, Data, ExpectedResult) ->
 	    io:format("~p returned ~P", [Port,ReturnData,12]),
 	    compare(ReturnData, ExpectedResult);
 	{Port,{data,OtherData}} ->
-	    io:format("~p returned WRONG data ~p", [Port,OtherData]),
-	    ?line test_server:fail();
+            ct:fail("~p returned WRONG data ~p", [Port,OtherData]);
 	Wrong ->
-	    ?line test_server:fail({unexpected_port_or_data,Wrong})
+            ct:fail({unexpected_port_or_data,Wrong})
     end.
 
 compare(Got, Expected) ->
     case {list_to_binary([Got]),list_to_binary([Expected])} of
 	{B,B} -> ok;
 	{_Gb,_Eb} ->
-	    ?t:fail(got_bad_data)
+	    ct:fail(got_bad_data)
     end.
 
 
@@ -396,14 +395,14 @@ try_timeouts(Port, Timeout) ->
 	    io:format("Elapsed: ~p Timeout: ~p\n", [Elapsed, Timeout]),
 	    if
 		Elapsed < Timeout ->
-		    ?line ?t:fail(too_short);
+		    ?line ct:fail(too_short);
 		Elapsed > Timeout + ?delay ->
-		    ?line ?t:fail(too_long);
+		    ?line ct:fail(too_long);
 		true ->
 		    try_timeouts(Port, Timeout div 2)
 	    end
     after Timeout + ?delay ->
-	    ?line test_server:fail("driver failed to timeout")
+	    ?line ct:fail("driver failed to timeout")
     end.
 
 timer_cancel(doc) -> ["Try cancelling timers set in a driver."];
@@ -421,12 +420,12 @@ try_cancel(Port, Timeout) ->
     Port ! {self(),{command,<<?START_TIMER,(Timeout + ?delay):32>>}},
     receive
 	{Port, {data, [?TIMER]}} ->
-	    ?line test_server:fail("driver timed out before cancelling it")
+	    ?line ct:fail("driver timed out before cancelling it")
     after Timeout -> 
 	    Port ! {self(), {command, [?CANCEL_TIMER]}},
 	    receive 
 		{Port, {data, [?TIMER]}} ->
-		    ?line test_server:fail("driver timed out after cancelling it");
+		    ?line ct:fail("driver timed out after cancelling it");
 		{Port, {data, [?CANCELLED]}} ->
 		    ?line Time_milli_secs = erl_millisecs() - T_before,
 
@@ -434,12 +433,12 @@ try_cancel(Port, Timeout) ->
 			      [Time_milli_secs, Timeout]), 
 		    if
 			Time_milli_secs > (Timeout + ?delay) ->
-			    ?line test_server:fail("too long real time");
+			    ?line ct:fail("too long real time");
 			Timeout == 0 -> ok;
 			true -> try_cancel(Port, Timeout div 2)
 		    end
 	    after ?delay ->
-		    test_server:fail("No message from driver")
+		    ct:fail("No message from driver")
 	    end
     end.
 
@@ -465,9 +464,9 @@ timer_delay(Config) when is_list(Config) ->
 		      [Elapsed,Timeout]), 
 	    if
 		Elapsed < Timeout ->
-		    ?line ?t:fail(too_short);
+		    ?line ct:fail(too_short);
 		Elapsed > Timeout + ?delay ->
-		    ?line ?t:fail(too_long);
+		    ?line ct:fail(too_long);
 		true ->
 		    ok
 	    end
@@ -500,14 +499,14 @@ try_change_timer(Port, Timeout) ->
 	    io:format("Elapsed: ~p Timeout: ~p\n", [Elapsed,Timeout]),
 	    if
 		Elapsed < Timeout ->
-		    ?line ?t:fail(too_short);
+		    ?line ct:fail(too_short);
 		Elapsed > Timeout + ?delay ->
-		    ?line ?t:fail(too_long);
+		    ?line ct:fail(too_long);
 		true ->
 		    try_timeouts(Port, Timeout div 2)
 	    end
     after Timeout + ?delay ->
-	    ?line test_server:fail("driver failed to timeout")
+              ct:fail("driver failed to timeout")
     end.
 
 
@@ -635,11 +634,10 @@ feed_driver(Port, [{Method0,Data}|T], Expected_return, Qb_before) ->
     case Qb_before + Size of
 	Qb_in_driver -> ok;
 	Sum ->
-	    io:format("Qb_before: ~p\n"
-		      "Qb_before+Size: ~p\n"
-		      "Qb_in_driver: ~p",
-		      [Qb_before,Sum,Qb_in_driver]),
-	    ?t:fail()
+            ct:fail("Qb_before: ~p\n"
+                    "Qb_before+Size: ~p\n"
+                    "Qb_in_driver: ~p",
+                    [Qb_before,Sum,Qb_in_driver])
     end,
     X_return = case Method of
 		   ?ENQ -> list_to_binary([Expected_return,Data]);
@@ -668,9 +666,7 @@ compare_return(Port, QueuedInPort0, Len_to_get, DeqSize) ->
     case bytes_queued(Port) of
 	Len_to_get -> ok;
 	BytesInQueue ->
-	    io:format("Len_to_get: ~p", [Len_to_get]),
-	    io:format("Bytes in queue: ~p", [BytesInQueue]),
-	    ?line test_server:fail()
+            ct:fail("Len_to_get: ~p\nBytes in queue: ~p", [Len_to_get,BytesInQueue])
     end,
     BytesToDequeue = if (DeqSize > Len_to_get) -> Len_to_get;
 			true -> DeqSize
@@ -682,10 +678,8 @@ compare_return(Port, QueuedInPort0, Len_to_get, DeqSize) ->
 	    <<_:BytesToDequeue/binary,QueuedInPort/binary>> = QueuedInPort0,
 	    compare_return(Port, QueuedInPort, Len_to_get - BytesToDequeue, DeqSize);
 	false ->
-	    io:format("Bytes to dequeue: ~p", [BytesToDequeue]),
-	    io:format("Dequeued: ~p", [Dequeued]),
-	    io:format("Queued in port: ~P", [QueuedInPort0,12]),
-	    ?t:fail()
+            ct:fail("Bytes to dequeue: ~p\nDequeued: ~p\nQueued in port: ~P",
+                    [BytesToDequeue, Dequeued, QueuedInPort0,12])
     end.
 
 %% bin_prefix(PrefixBinary, Binary)
@@ -704,7 +698,7 @@ queue_op(Port, Method, Data) ->
 bytes_queued(Port) ->
     case erlang:port_control(Port, ?BYTES_QUEUED, []) of
 	<<I:32>> -> I;
-	Bad -> ?t:fail({bad_result,Bad})
+	Bad -> ct:fail({bad_result,Bad})
     end.
 
 deq(Port, Size) ->
@@ -774,7 +768,7 @@ io_ready_exit(Config) when is_list(Config) ->
 				    ready_input_driver_failure ->
 					?t:format("Exited in input_ready()~n"),
 					?line ok;
-				    Error -> ?line ?t:fail(Error)
+				    Error -> ?line ct:fail(Error)
 				end
 		  end,
 		  receive after 2000 -> ok end,
@@ -788,7 +782,7 @@ io_ready_exit(Config) when is_list(Config) ->
 		  ?line {skipped, "Not yet implemented for this OS"};
 	      Error ->
 		  ?line process_flag(trap_exit, OTE),
-		  ?line ?t:fail({unexpected_control_result, Error})
+		  ?line ct:fail({unexpected_control_result, Error})
 	  end.
     
 
@@ -814,7 +808,7 @@ use_fallback_pollset(Config) when is_list(Config) ->
 			   {fallback_poll_set_size, N}} when N > 0 ->
 			      ?line ok;
 			  Error ->
-			      ?line ?t:fail({failed_to_use_fallback, Error})
+			      ?line ct:fail({failed_to_use_fallback, Error})
 		      end
 	      end,
     ?line {BckupTest, Handel, OkRes}
@@ -895,7 +889,7 @@ steal_control_test(Hndl = {erts_poll_info, Before}) ->
 				?line ok;
 			    StopErr ->
 				?line chk_chkio_port(Port),
-				?line ?t:fail({stop_error, StopErr})
+				?line ct:fail({stop_error, StopErr})
 			end,
 		  ?line close_chkio_port(Port),
 		  ?line Res;
@@ -907,7 +901,7 @@ steal_control_test(Hndl = {erts_poll_info, Before}) ->
 		   Before};
 	      StartErr ->
 		  ?line chk_chkio_port(Port),
-		  ?line ?t:fail({start_error, StartErr})
+		  ?line ct:fail({start_error, StartErr})
 	  end.
 
 chkio_test_init(Config) when is_list(Config) ->
@@ -944,15 +938,15 @@ close_chkio_port(Port) when is_port(Port) ->
 	{'EXIT', Port, normal} ->
 	    ok;
 	{'EXIT', Port, Reason} ->
-	    ?t:fail({abnormal_port_exit, Port, Reason});
+	    ct:fail({abnormal_port_exit, Port, Reason});
 	{Port, Message} ->
-	    ?t:fail({strange_message_from_port, Message})
+	    ct:fail({strange_message_from_port, Message})
     end.
 
 chk_chkio_port(Port) ->
     receive
 	{'EXIT', Port, Reason} when Reason /= normal ->
-	    ?t:fail({port_exited, Port, Reason})
+	    ct:fail({port_exited, Port, Reason})
     after 0 ->
 	    ok
     end.
@@ -998,7 +992,7 @@ chkio_test({erts_poll_info, Before},
 				      end;
 			    StopErr ->
 				?line chk_chkio_port(Port),
-				?line ?t:fail({stop_error, StopErr})
+				?line ct:fail({stop_error, StopErr})
 			end;
 	      [$s,$k,$i,$p,$:,$\ |Skip] ->
 		  ?line chk_chkio_port(Port),
@@ -1008,7 +1002,7 @@ chkio_test({erts_poll_info, Before},
 		   Before};
 	      StartErr ->
 		  ?line chk_chkio_port(Port),
-		  ?line ?t:fail({start_error, StartErr})
+		  ?line ct:fail({start_error, StartErr})
 	  end.
 
 verify_chkio_state(Before, After) ->
@@ -1117,9 +1111,9 @@ driver_system_info_test(Config, Name) ->
 	      [$o,$k,$:,_ | Result] ->
 		  ?line check_driver_system_info_result(Result);
 	      [$e,$r,$r,$o,$r,$:,_ | Error] ->
-		  ?line ?t:fail(Error);
+		  ?line ct:fail(Error);
 	      Unexpected ->
-		  ?line ?t:fail({unexpected_result, Unexpected})
+		  ?line ct:fail({unexpected_result, Unexpected})
 	  end,
     ?line stop_driver(Port, Name),
     ?line ok.
@@ -1203,7 +1197,7 @@ check_si_res(["dirty_sched", _Value]) ->
     true;
 
 check_si_res(Unexpected) ->
-    ?line ?t:fail({unexpected_result, Unexpected}).
+    ?line ct:fail({unexpected_result, Unexpected}).
 
 -define(MON_OP_I_AM_IPID,1).
 -define(MON_OP_MONITOR_ME,2).
@@ -1396,7 +1390,7 @@ ioq_exit_test(Config, TestNo) ->
 						  Drv) of
 			    ok -> ?line ok;
 			    {error, permanent} -> ?line ok;
-			    LoadError -> ?line ?t:fail({load_error, LoadError})
+			    LoadError -> ?line ct:fail({load_error, LoadError})
 			end,
 		  case open_port({spawn, Drv}, []) of
 		      Port when is_port(Port) ->
@@ -1410,7 +1404,7 @@ ioq_exit_test(Config, TestNo) ->
 				  [$s,$k,$i,$p,$:,$ | Comment] ->
 				      ?line throw({skipped, Comment});
 				  [$e,$r,$r,$o,$r,$:,$ | Error] ->
-				      ?line ?t:fail(Error)
+				      ?line ct:fail(Error)
 			      after
 				  Port ! {self(), close},
 				receive {Port, closed} -> ok end,
@@ -1418,7 +1412,7 @@ ioq_exit_test(Config, TestNo) ->
 				ok
 			      end;
 		      Error ->
-			  ?line ?t:fail({open_port_failed, Error})
+			  ?line ct:fail({open_port_failed, Error})
 		  end
 	      end
 	  catch
@@ -1539,7 +1533,7 @@ peek_non_existing_queue(Config) when is_list(Config) ->
 						  Drv) of
 			    ok -> ?line ok;
 			    {error, permanent} -> ?line ok;
-			    LoadError -> ?line ?t:fail({load_error, LoadError})
+			    LoadError -> ?line ct:fail({load_error, LoadError})
 			end,
 		  case open_port({spawn, Drv}, []) of
 		      Port1 when is_port(Port1) ->
@@ -1549,13 +1543,13 @@ peek_non_existing_queue(Config) when is_list(Config) ->
 			      [$s,$k,$i,$p,$p,$e,$d,$:,$ | SkipReason] ->
 				  ?line throw({skipped, SkipReason});
 			      [$e,$r,$r,$o,$r,$:,$ | Error1] ->
-				  ?line ?t:fail(Error1)
+				  ?line ct:fail(Error1)
 			  after
 			      exit(Port1, kill),
 			    receive {'EXIT', Port1, _} -> ok end
 			  end;
 		      Error1 ->
-			  ?line ?t:fail({open_port1_failed, Error1})
+			  ?line ct:fail({open_port1_failed, Error1})
 		  end,
 		  case open_port({spawn, Drv}, []) of
 		      Port2 when is_port(Port2) ->
@@ -1563,14 +1557,14 @@ peek_non_existing_queue(Config) when is_list(Config) ->
 			      "ok" ->
 				  ?line ok;
 			      [$e,$r,$r,$o,$r,$:,$ | Error2] ->
-				  ?line ?t:fail(Error2)
+				  ?line ct:fail(Error2)
 			  after
 			      receive {Port2, test_successful} -> ok end,
 			    Port2 ! {self(), close},
 			    receive {Port2, closed} -> ok end
 			  end;
 		      Error2 ->
-			  ?line ?t:fail({open_port2_failed, Error2})
+			  ?line ct:fail({open_port2_failed, Error2})
 		  end
 	      end
 	  catch
@@ -1609,7 +1603,7 @@ otp_6879(Config) when is_list(Config) ->
 					  {P, ok} ->
 					      ?line ok;
 					  {P, Error} ->
-					      ?line ?t:fail({P, Error})
+					      ?line ct:fail({P, Error})
 				      end
 			end,
 			Procs),
@@ -1620,7 +1614,7 @@ otp_6879(Config) when is_list(Config) ->
 		  ?line ok = otp_6879_call(Port, Data, 10),
 		  ?line erlang:port_close(Port);
 	      _ ->
-		  ?line ?t:fail(open_port_failed)
+		  ?line ct:fail(open_port_failed)
 	  end,
     ?line erl_ddll:unload_driver(Drv),
     ?line ok.
@@ -2071,7 +2065,7 @@ thr_msg_blast(Config) when is_list(Config) ->
 	    End = os:timestamp(),
 	    receive
 		Garbage ->
-		    ?t:fail({received_garbage, Port, Garbage})
+		    ct:fail({received_garbage, Port, Garbage})
 	    after 2000 ->
 		    ok
 	    end,
@@ -2096,7 +2090,7 @@ thr_msg_blast(Config) when is_list(Config) ->
 				  "lock checking~n",
 				  [?MODULE,?LINE]);
 		    false ->
-			?t:fail({unexpected_sched_counts, VaLuE_})
+			ct:fail({unexpected_sched_counts, VaLuE_})
 		end
 	end).
 
@@ -2542,7 +2536,7 @@ stop_driver(Port, Name) ->
     ?line true = erlang:port_close(Port),
     receive
 	{Port,Message} ->
-	    ?t:fail({strange_message_from_port,Message})
+	    ct:fail({strange_message_from_port,Message})
     after 0 ->
 	    ok
     end,

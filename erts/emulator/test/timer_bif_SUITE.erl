@@ -108,7 +108,7 @@ start_timer_big(Config) when is_list(Config) ->
 	      Diff when Diff >= 200, Diff < 10000 ->
 		  ok;
 	      _Diff ->
-		  test_server:fail({big, Big, Left})
+		  ct:fail({big, Big, Left})
 	  end,
     ok.
 
@@ -122,7 +122,7 @@ send_after_big(Config) when is_list(Config) ->
 	      Diff when Diff >= 200, Diff < 10000 ->
 		  ok;
 	      _Diff ->
-		  test_server:fail({big, Big, Left})
+		  ct:fail({big, Big, Left})
 	  end,
     ok.
 
@@ -232,7 +232,7 @@ read_timer(Config) when is_list(Config) ->
 	Diff when Diff >= 200, Diff < 10000 ->
 	    ok;
 	_Diff ->
-	    test_server:fail({big, Big, Left})
+	    ct:fail({big, Big, Left})
     end,
     process_flag(scheduler, 0),
     ok.
@@ -264,7 +264,7 @@ read_timer_async(Config) when is_list(Config) ->
 	Diff when Diff >= 200, Diff < 10000 ->
 	    ok;
 	_Diff ->
-	    test_server:fail({big, Big, Left})
+	    ct:fail({big, Big, Left})
     end,
     process_flag(scheduler, 0),
     ok.

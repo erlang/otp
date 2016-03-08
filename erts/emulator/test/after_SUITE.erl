@@ -57,9 +57,9 @@ t_after(Config) when is_list(Config) ->
 report(Period, Before, After) ->
     case erlang:convert_time_unit(After - Before, native, 100*1000) / Period of
 	Percent when Percent > 100.10 ->
-	    test_server:fail({too_inaccurate, Percent});
+	    ct:fail({too_inaccurate, Percent});
 	Percent when Percent < 100.0 ->
-	    test_server:fail({too_early, Percent});
+	    ct:fail({too_early, Percent});
 	Percent ->
 	    Comment = io_lib:format("Elapsed/expected: ~.2f %", [Percent]),
 	    {comment, lists:flatten(Comment)}
@@ -153,7 +153,7 @@ receive_var_zero(Config) when is_list(Config) ->
     receive
 	x -> ok;
 	Other ->
-	    ?line ?t:fail({bad_message,Other})
+	    ct:fail({bad_message,Other})
     end.
 
 zero() -> 0.
@@ -174,7 +174,7 @@ receive_zero(Config) when is_list(Config) ->
     receive
 	x -> ok;
 	Other ->
-	    ?line ?t:fail({bad_message,Other})
+	    ct:fail({bad_message,Other})
     end.
 
 multi_timeout(doc) ->

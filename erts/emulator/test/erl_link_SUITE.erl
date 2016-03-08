@@ -223,7 +223,7 @@ monitor_nodes(Config) when is_list(Config) ->
     ?line check_monitor_node(self(), B, 0),
     ?line receive
 	      {nodedown, X} ->
-		  ?line ?t:fail({unexpected_nodedown, X})
+		  ?line ct:fail({unexpected_nodedown, X})
 	  after 0 ->
 		  ?line ok
 	  end,
@@ -242,9 +242,9 @@ process_monitors(Config) when is_list(Config) ->
     ?line [] = find_erl_monitor(self(), Mon2),
     ?line receive
 	      {'DOWN', Mon1, _, _, _} = Msg ->
-		  ?line ?t:fail({unexpected_down_msg, Msg});
+		  ?line ct:fail({unexpected_down_msg, Msg});
 	      {'DOWN', Mon2, _, _, _} = Msg ->
-		  ?line ?t:fail({unexpected_down_msg, Msg})
+		  ?line ct:fail({unexpected_down_msg, Msg})
 	  after 500 ->
 		  ?line true = erlang:demonitor(Mon1),
 		  ?line true = erlang:demonitor(Mon2),
@@ -449,7 +449,7 @@ otp_5772_link_test(Node) ->
 	  end,
     ?line receive
 	      {'EXIT', TP1, _} = Exit ->
-		  ?line ?t:fail({got_late_exit_message, Exit})
+		  ?line ct:fail({got_late_exit_message, Exit})
 	  after 1000 ->
 		  ?line ok
 	  end,
@@ -485,7 +485,7 @@ otp_5772_monitor_test(Node) ->
 	  end,
     ?line receive
 	      {'DOWN', M1, _, _, _} = Down ->
-		  ?line ?t:fail({got_late_down_message, Down})
+		  ?line ct:fail({got_late_down_message, Down})
 	  after 1000 ->
 		  ?line ok
 	  end,

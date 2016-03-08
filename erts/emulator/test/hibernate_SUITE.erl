@@ -84,13 +84,13 @@ hibernate_wake_up(N, ExpectedHeapSz, Child) ->
 		  if
 		      size(Bin) > 1000 ->
 			  io:format("~s\n", [binary_to_list(Bin)]),
-			  ?line ?t:fail(stack_is_growing);
+			  ?line ct:fail(stack_is_growing);
 		      true ->
 			  hibernate_wake_up(N-1, ExpectedHeapSz, Child)
 		  end;
 	      Other ->
 		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
+		  ?line ct:fail(unexpected_message)
 	  end.
 
 basic_hibernator(Info) ->
@@ -199,8 +199,7 @@ min_heap_size_1(Config) when is_list(Config) ->
 		    AfterSize >= 15000 -> ok
 		end;
 	Other ->
-	    io:format("Unexpected: ~p\n", [Other]),
-	    ?line ?t:fail()
+	    ct:fail("Unexpected: ~p\n", [Other])
     end.
 
 min_hibernator({Parent,_Ref}) ->
@@ -244,7 +243,7 @@ bad_args(Mod, Name, Args) ->
 	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]);
 	Other ->
 	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 
@@ -262,7 +261,7 @@ messages_in_queue(Config) when is_list(Config) ->
 	done -> ok;
 	Other ->
 	    ?line io:format("~p\n", [Other]),
-	    ?line ?t:fail(unexpected_message)
+	    ?line ct:fail(unexpected_message)
     end.
 
 messages_in_queue_1(Parent, ExpectedMsg) ->
@@ -279,7 +278,7 @@ messages_in_queue_restart(Parent, ExpectedMessage) ->
 		  Parent ! done;
 	      Other ->
 		  io:format("~p\n", [Other]),
-		  ?t:fail(unexpected_message)
+		  ct:fail(unexpected_message)
 	  end,
     ok.
 
@@ -301,7 +300,7 @@ undefined_mfa(Config) when is_list(Config) ->
 		  ok;
 	      Other ->
 		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
+		  ?line ct:fail(unexpected_message)
 	  end,
     undefined_mfa_1().
 
@@ -319,7 +318,7 @@ undefined_mfa_1() ->
 		  ok;
 	      Other ->
 		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
+		  ?line ct:fail(unexpected_message)
 	  end,
     ok.
 
@@ -369,7 +368,7 @@ wake_up_and_bif_trap(Config) when is_list(Config) ->
     ?line receive
         {ok, Pid0} when Pid0 =:= Pid -> ok
     after 5000 ->
-        ?line ?t:fail(process_blocked)
+        ?line ct:fail(process_blocked)
     end,
     ?line unlink(Pid),
     ?line exit(Pid, bye).

@@ -200,7 +200,7 @@ pending_exit_test(From, Type) ->
 						   {Pid, Ref, Type} ->
 						       ?line ok
 					       after 0 ->
-						       ?line ?t:fail(premature_exit)
+						       ?line ct:fail(premature_exit)
 					       end,
 					 ?line case Type of
 						   exit ->
@@ -275,7 +275,7 @@ exit_before_pending_exit(Config) when is_list(Config) ->
 		  ?line process_flag(trap_exit, OTE),
 		  ?line ok;
 	      Msg ->
-		  ?line ?t:fail({unexpected_message, Msg})
+		  ?line ct:fail({unexpected_message, Msg})
 	  end,
     NoScheds = integer_to_list(erlang:system_info(schedulers_online)),
     {comment,

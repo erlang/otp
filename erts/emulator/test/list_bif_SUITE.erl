@@ -61,9 +61,7 @@ hd_test(Config) when is_list(Config) ->
     ?line case catch hd(id($h)) of
 	      {'EXIT', {badarg, _}} -> ok;
 	      Res ->
-		  Str=io_lib:format("hd/1 with incorrect args "++
-				    "succeeded.~nResult: ~p", [Res]),
-		  test_server:fail(Str)
+		  ct:fail("hd/1 with incorrect args succeeded.~nResult: ~p", [Res])
 	  end,
     ok.
 
@@ -75,9 +73,7 @@ tl_test(Config) when is_list(Config) ->
 	      {'EXIT', {badarg, _}} ->
 		  ok;
 	      Res ->
-		  Str=io_lib:format("tl/1 with incorrect args "++
-				   "succeeded.~nResult: ~p", [Res]),
-		  test_server:fail(Str)
+		  ct:fail("tl/1 with incorrect args succeeded.~nResult: ~p", [Res])
 	  end,
     ok.
 
@@ -98,9 +94,7 @@ t_length(Config) when is_list(Config) ->
 	      {'EXIT', {badarg, _}} ->
 		  ok;
 	      Res ->
-		  Str = io_lib:format("length/1 with incorrect args "++
-				      "succeeded.~nResult: ~p", [Res]),
-		  ?line test_server:fail(Str)
+		  ct:fail("length/1 with incorrect args succeeded.~nResult: ~p", [Res])
 	  end,
     ok.
 	      
@@ -115,10 +109,7 @@ t_list_to_pid(Config) when is_list(Config) ->
 	      {'EXIT', {badarg, _}} ->
 		  ok;
 	      Res ->
-		  Str=io_lib:format("list_to_pid/1 with incorrect "++
-				   "arg succeeded.~nResult: ~p",
-				    [Res]),
-		  test_server:fail(Str)
+		  ct:fail("list_to_pid/1 with incorrect arg succeeded.~nResult: ~p", [Res])
 	  end,
     ok.
 
@@ -131,10 +122,7 @@ t_list_to_float(Config) when is_list(Config) ->
     ?line case catch list_to_float(id("58")) of
 	      {'EXIT', {badarg, _}} -> ok;
 	      Res ->
-		  Str=io_lib:format("list_to_float with incorrect "++
-				   "arg succeeded.~nResult: ~p",
-				    [Res]),
-		  test_server:fail(Str)
+		  ct:fail("list_to_float with incorrect arg succeeded.~nResult: ~p", [Res])
 	  end,
     ok.
 

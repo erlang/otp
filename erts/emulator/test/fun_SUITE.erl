@@ -70,7 +70,7 @@ bad_apply_fc(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 bad_apply_badarg(Fun, Args) ->
@@ -82,7 +82,7 @@ bad_apply_badarg(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result, Other})
+	    ct:fail({bad_result, Other})
     end.
 
 bad_fun_call(doc) ->
@@ -109,7 +109,7 @@ bad_call_fc(Fun) ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 %% Call and apply valid funs with wrong number of arguments.
@@ -129,7 +129,7 @@ badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ?line ct:fail({bad_result,Res})
     end,
 
     %% Apply.
@@ -142,7 +142,7 @@ badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ?line ct:fail({bad_result,Res2})
     end,
     ok.
 
@@ -163,7 +163,7 @@ ext_badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ?line ct:fail({bad_result,Res})
     end,
 
     %% Apply.
@@ -176,7 +176,7 @@ ext_badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ?line ct:fail({bad_result,Res2})
     end,
     ok.
 
@@ -405,7 +405,7 @@ fun_to_port(Config, IoList) ->
     Port = open_port(AFile, [out]),
     case catch port_command(Port, IoList) of
 	{'EXIT',{badarg,_}} -> ok;
-	Other -> ?t:fail({unexpected_retval,Other})
+	Other -> ct:fail({unexpected_retval,Other})
     end.
 
 build_io_list(0) -> [];
@@ -534,7 +534,7 @@ refc(Config) when is_list(Config) ->
     ?line Pid = spawn_link(fun() -> {refc,4} = erlang:fun_info(F1, refc) end),
     receive
 	{'EXIT',Pid,normal} -> ok;
-	Other -> ?line ?t:fail({unexpected,Other})
+	Other -> ?line ct:fail({unexpected,Other})
     end,
     ?line process_flag(trap_exit, false),
     ?line {refc,3} = erlang:fun_info(F1, refc),
@@ -609,7 +609,7 @@ refc_dist(Config) when is_list(Config) ->
     ?line Pid ! F,
     F2 = receive
 	     {'EXIT',Pid,{normal,Fun}} -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ?line ct:fail({unexpected,Other})
 	 end,
     %% dist.c:net_mess2 have a reference to Fun for a while since
     %% Fun is passed in an exit signal. Wait until it is gone.
@@ -633,7 +633,7 @@ refc_dist_send(Node, F) ->
     Pid ! {self(),F},
     F2 = receive
 	     Fun when is_function(Fun) -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ?line ct:fail({unexpected,Other})
 	 end,
     receive {'EXIT',Pid,normal} -> ok end,
     %% No reference from dist.c:net_mess2 since Fun is passed
@@ -663,7 +663,7 @@ refc_dist_reg_send(Node, F) ->
     {my_fun_tester,Node} ! {self(),F},
     F2 = receive
 	     Fun when is_function(Fun) -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ?line ct:fail({unexpected,Other})
 	 end,
     receive {'EXIT',Pid,normal} -> ok end,
 
@@ -691,7 +691,7 @@ my_cmp({Fun,Fun}) -> ok;
 my_cmp({Fun1,Fun2}) ->
     io:format("Fun1: ~p", [erlang:fun_info(Fun1)]),
     io:format("Fun2: ~p", [erlang:fun_info(Fun2)]),
-    ?t:fail().
+    ct:fail(no_match).
 
 t_arity(Config) when is_list(Config) ->
     ?line 0 = fun_arity(fun() -> ok end),
@@ -748,15 +748,14 @@ t_fun_info(Config) when is_list(Config) ->
     ?line F = fun t_fun_info/1,
     ?line try F(blurf) of
 	      FAny ->
-		  io:format("should fail; returned ~p\n", [FAny]),
-		  ?line ?t:fail()
+		  ct:fail("should fail; returned ~p\n", [FAny])
 	  catch
 	      error:function_clause -> ok
 	  end,
     ?line {module,?MODULE} = erlang:fun_info(F, module),
     ?line case erlang:fun_info(F, name) of
 	      undefined ->
-		  ?line ?t:fail();
+		  ct:fail(no_fun_info);
 	      _ -> ok
 	  end,
     ?line {arity,1} = erlang:fun_info(F, arity),
@@ -772,8 +771,7 @@ t_fun_info(Config) when is_list(Config) ->
     ?line FF = fun ?MODULE:t_fun_info/1,
     ?line try FF(blurf) of
 	      FFAny ->
-		  io:format("should fail; returned ~p\n", [FFAny]),
-		  ?line ?t:fail()
+		  ct:fail("should fail; returned ~p\n", [FFAny])
 	  catch
 	      error:function_clause -> ok
 	  end,
@@ -821,8 +819,7 @@ t_fun_info_mfa(Config) when is_list(Config) ->
 bad_info(Term) ->
     try	erlang:fun_info(Term, module) of
 	Any ->
-	    io:format("should fail; returned ~p\n", [Any]),
-	    ?t:fail()
+	    ict:fail("should fail; returned ~p\n", [Any])
     catch
 	error:badarg -> ok
     end.
@@ -833,7 +830,7 @@ verify_undef(Fun, Tag) ->
 verify_not_undef(Fun, Tag) ->
     case erlang:fun_info(Fun, Tag) of
 	{Tag,undefined} ->
-	    ?t:fail();
+	    ct:fail("tag ~w not defined in fun_info", [Tag]);
 	{Tag,_} -> ok
     end.
 	    
@@ -858,15 +855,15 @@ spawn_call(Node, AFun) ->
     Pid ! {AFun,AFun,AFun},
     Res = receive
 	      {result,R} -> R;
-	      Other -> ?t:fail({bad_message,Other})
+	      Other -> ct:fail({bad_message,Other})
 	  after 10000 ->
-		  ?t:fail(timeout_waiting_for_result)
+		  ct:fail(timeout_waiting_for_result)
 	  end,
     receive
 	{'EXIT',Pid,normal} -> ok;
-	Other2 -> ?t:fail({bad_message_waiting_for_exit,Other2})
+	Other2 -> ct:fail({bad_message_waiting_for_exit,Other2})
     after 10000 ->
-	    ?t:fail(timeout_waiting_for_exit)
+	    ct:fail(timeout_waiting_for_exit)
     end,
     Res.
 

@@ -97,7 +97,7 @@ native_atomics(Config) when is_list(Config) ->
     {value,{DWNAKey, DWNA, _}} = lists:keysearch(DWNAKey, 1, EthreadInfo),
     case {erlang:system_info(build_type), erlang:system_info(smp_support), NA32, NA64, DWNA} of
 	{opt, true, "no", "no", _} ->
-	    ?t:fail(optimized_smp_runtime_without_native_atomics);
+	    ct:fail(optimized_smp_runtime_without_native_atomics);
 	{_, false, "no", "no", _} ->
 	    {comment, "No native atomics"};
 	_ ->
@@ -114,7 +114,7 @@ jump_table(Config) when is_list(Config) ->
 	false ->
 	    case erlang:system_info(build_type) of
 		opt ->
-		    ?t:fail(optimized_without_beam_jump_table);
+		    ct:fail(optimized_without_beam_jump_table);
 		BT ->
 		    {comment, "No beam jump table, but build type is " ++ atom_to_list(BT)}
 	    end

@@ -611,9 +611,7 @@ verify_trace_info({LocalFlag,Bool}, _, Local) when is_boolean(Bool) ->
 	Bool = lists:member(LocalFlag, Local)
     catch
 	error:_ ->
-	    io:format("Line ~p: {~p,~p}, false, ~p\n",
-		      [?LINE,LocalFlag,Bool,Local]),
-	    ?t:fail()
+            ct:fail("Line ~p: {~p,~p}, false, ~p\n", [?LINE,LocalFlag,Bool,Local])
     end;
 verify_trace_info({meta,Pid}, false, Local) when is_pid(Pid) ->
     true = lists:member(meta, Local);
@@ -1323,12 +1321,12 @@ receive_next(TO) ->
 	M ->
 	    M
     after TO ->
-	    ?t:fail(timeout)
+	    ct:fail(timeout)
     end.
 
 receive_no_next(TO) ->
     receive M ->
-	    ?t:fail({unexpected_message,[M|flush(TO)]})
+	    ct:fail({unexpected_message,[M|flush(TO)]})
     after TO ->
 	    ok
     end.

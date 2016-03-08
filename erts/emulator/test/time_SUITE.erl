@@ -334,7 +334,7 @@ timestamp(Config) when is_list(Config) ->
 		true ->
 		    {skip, "Seems to be time warp test run..."};
 		false ->
-		    test_server:fail(Failure)
+		    ct:fail(Failure)
 	    end
     end.
 
@@ -368,9 +368,7 @@ repeating_timestamp_check(N) ->
 	C < 1000000 ->
 	    ok;
 	true ->
-	    test_server:fail(
-	      lists:flatten(
-		io_lib:format("Strange return from os:timestamp/0 ~w~n",[TS])))
+	    ct:fail("Strange return from os:timestamp/0 ~w~n",[TS])
     end,
     %% I assume the now and timestamp should not differ more than 1 hour,
     %% which is safe assuming the system has not had a large time-warp
@@ -409,7 +407,7 @@ now_unique(Config) when is_list(Config) ->
 now_unique(N, Previous, Result) when N > 0 ->
     ?line case now() of
 	      Previous ->
-		  test_server:fail("now/0 returned the same value twice");
+		  ct:fail("now/0 returned the same value twice");
 	      New ->
 		  now_unique(N-1, New, [New|Result])
 	  end;
@@ -426,7 +424,7 @@ fast_now_unique(0, _) -> ok;
 fast_now_unique(N, Then) ->
     case now() of
 	Then ->
-	    ?line ?t:fail("now/0 returned the same value twice");
+	    ?line ct:fail("now/0 returned the same value twice");
 	Now ->
 	    fast_now_unique(N-1, Now)
     end.
@@ -474,7 +472,7 @@ now_update1(N) when N > 0 ->
 	      _ -> now_update1(N-1)
 	  end;
 now_update1(0) ->
-    ?line test_server:fail().
+    ct:fail("now_update zero").
 
 time_warp_modes(Config) when is_list(Config) ->
     %% All time warp modes always supported in
@@ -551,14 +549,14 @@ check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
 	    io:format("Uptime inconsistency", []),
 	    case {TimeCorrection, erlang:system_info(time_correction)} of
 		{true, true} ->
-		    ?t:fail(uptime_inconsistency);
+		    ct:fail(uptime_inconsistency);
 		{true, false} ->
 		    _ = erlang:time_offset(),
 		    receive
 			{'CHANGE', Mon, time_offset, clock_service, _} ->
 			    ignore
 		    after 1000 ->
-			    ?t:fail(uptime_inconsistency)
+			    ct:fail(uptime_inconsistency)
 		    end;
 		_ ->
 		    ignore
@@ -728,7 +726,7 @@ check_time_offset_res_conv(Mon, Res) ->
 	TORes2 ->
 	    case check_time_offset_change(Mon, TO, 1000) of
 		{TO, false} ->
-		    ?t:fail({time_unit_conversion_inconsistency,
+		    ct:fail({time_unit_conversion_inconsistency,
 			     TO, TORes, TORes2});
 		{_NewTO, true} ->
 		    ?t:format("time_offset changed", []),
@@ -787,7 +785,7 @@ chk_random_values(FR, TR) ->
 			   {true, true} ->
 			       ok;
 			   Failure ->
-			       ?t:fail({Failure, CV, V, FR, TR})
+			       ct:fail({Failure, CV, V, FR, TR})
 		       end
 	       end,
     lists:foreach(CheckFun, Values).
@@ -801,7 +799,7 @@ chk_values_per_value(_FromRes, _ToRes,
     case ((MinFromValuesPerToValue =< FromValueCount)
 	  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
 	false ->
-	    ?t:fail({MinFromValuesPerToValue,
+	    ct:fail({MinFromValuesPerToValue,
 		     FromValueCount,
 		     MaxFromValuesPerToValue});
 	true ->
@@ -821,7 +819,7 @@ chk_values_per_value(FromRes, ToRes, Value, EndValue,
 	    case ((MinFromValuesPerToValue =< FromValueCount)
 		  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
 		false ->
-		    ?t:fail({MinFromValuesPerToValue,
+		    ct:fail({MinFromValuesPerToValue,
 			     FromValueCount,
 			     MaxFromValuesPerToValue});
 		true ->
@@ -878,7 +876,7 @@ do_check_erlang_timestamp(Done, Mon, TO) ->
 		      "checking for time_offset change...", []),
 	    case check_time_offset_change(Mon, TO, 1000) of
 		{TO, false} ->
-		    ?t:fail(timestamp_inconsistency);
+		    ct:fail(timestamp_inconsistency);
 		{NewTO, true} ->
 		    ?t:format("time_offset changed", []),
 		    check_erlang_timestamp(Done, Mon, NewTO)
