@@ -73,7 +73,6 @@ MODULES = \
 	mod_get \
 	mod_head \
 	mod_htaccess \
-	mod_include \
 	mod_log \
 	mod_range \
 	mod_responsecontrol \

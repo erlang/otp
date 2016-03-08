@@ -583,7 +583,6 @@ rest_of_standard_data() ->
 	       mod_esi,
 	       mod_actions,
 	       mod_cgi,
-	       mod_include,
 	       mod_dir,
 	       mod_get,
 	       mod_head,

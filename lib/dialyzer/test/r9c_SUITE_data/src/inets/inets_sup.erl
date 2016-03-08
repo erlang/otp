@@ -147,7 +147,6 @@ httpd_child_spec(ConfigFile, Addr, Port, Verbosity) ->
       mod_esi,
       mod_get,
       mod_head,
-      mod_include,
       mod_log,
       mod_auth_mnesia,
       mod_auth_plain,
