@@ -269,7 +269,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
-    io:format(xhtml("", "<br />")),
+    io:format(["$tc_html",xhtml("", "<br />")]),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -919,7 +919,7 @@ print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
     if FromPid /= TCGL ->
 	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 	    IoList = lists:foldl(IoFun, [], Content),
-	    io:format(TCGL,"~ts", [IoList]);
+	    io:format(TCGL,["$tc_html","~ts"], [IoList]);
        true ->
 	    unexpected_io(FromPid, Category, ?MAX_IMPORTANCE, Content,
 			  CtLogFd, EscChars)
@@ -945,7 +945,7 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 
 			case erlang:is_process_alive(TCGL) of
 			    true ->
-				try io:format(TCGL, "~ts",
+				try io:format(TCGL, ["$tc_html","~ts"],
 					      [lists:foldl(IoFun,[],Content)]) of
 				    _ -> ok
 				catch
