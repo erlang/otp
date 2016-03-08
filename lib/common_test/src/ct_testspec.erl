@@ -70,13 +70,17 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
     Tests = TestSpec#testspec.tests,
     %% Sort Tests into "flat" Run and Skip lists (not sorted per node).
     {Run,Skip} = get_run_and_skip(Tests,[],[]),
+
     %% Create initial list of {Node,{Run,Skip}} tuples
     NodeList = lists:map(fun(N) -> {N,{[],[]}} end, list_nodes(TestSpec)),
+
     %% Get all Run tests sorted per node basis.
     NodeList1 = run_per_node(Run,NodeList, 
-			     TestSpec#testspec.merge_tests),    
+			     TestSpec#testspec.merge_tests),
+    
     %% Get all Skip entries sorted per node basis.
     NodeList2 = skip_per_node(Skip,NodeList1),
+
     %% Change representation.
     Result=
 	lists:map(fun({Node,{Run1,Skip1}}) ->
@@ -103,7 +107,7 @@ run_per_node([{{Node,Dir},Test}|Ts],Result,MergeTests) ->
 	       true ->
 		   merge_tests(Dir,Test,Run)
 	   end,
-    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result), 
+    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result,replace), 
 		 MergeTests);
 run_per_node([],Result,_) ->
     Result.
@@ -140,7 +144,7 @@ merge_suites(Dir,Test,[]) ->
 skip_per_node([{{Node,Dir},Test}|Ts],Result) ->
     {value,{Node,{Run,Skip}}} = lists:keysearch(Node,1,Result),
     Skip1 = [{Dir,Test}|Skip],
-    skip_per_node(Ts,insert_in_order({Node,{Run,Skip1}},Result));
+    skip_per_node(Ts,insert_in_order({Node,{Run,Skip1}},Result,replace));
 skip_per_node([],Result) -> 
     Result.
 
@@ -156,7 +160,7 @@ skip_per_node([],Result) ->
 %%
 %%   Skip entry: {Suites,Comment} or {Suite,Cases,Comment}
 %%
-get_run_and_skip([{{Node,Dir},Suites}|Tests],Run,Skip) ->    
+get_run_and_skip([{{Node,Dir},Suites}|Tests],Run,Skip) ->
     TestDir = ct_util:get_testdir(Dir,catch element(1,hd(Suites))),
     case lists:keysearch(all,1,Suites) of
 	{value,_} ->				% all Suites in Dir
@@ -183,18 +187,33 @@ prepare_suites(Node,Dir,[{Suite,Cases}|Suites],Run,Skip) ->
 			   [[{{Node,Dir},{Suite,all}}]|Run],
 			   [Skipped|Skip]);
 	false ->
-	    {RL,SL} = prepare_cases(Node,Dir,Suite,Cases),
-	    prepare_suites(Node,Dir,Suites,[RL|Run],[SL|Skip])
+	    {Run1,Skip1} = prepare_cases(Node,Dir,Suite,Cases,Run,Skip),
+	    prepare_suites(Node,Dir,Suites,Run1,Skip1)
     end;
 prepare_suites(_Node,_Dir,[],Run,Skip) ->
     {lists:flatten(lists:reverse(Run)),
      lists:flatten(lists:reverse(Skip))}.
 
-prepare_cases(Node,Dir,Suite,Cases) ->
+prepare_cases(Node,Dir,Suite,Cases,Run,Skip) ->
     case get_skipped_cases(Node,Dir,Suite,Cases) of
-	SkipAll=[{{Node,Dir},{Suite,_Cmt}}] ->	      % all cases to be skipped
-	    %% note: this adds an 'all' test even if only skip is specified
-	    {[{{Node,Dir},{Suite,all}}],SkipAll};
+	[SkipAll={{Node,Dir},{Suite,_Cmt}}] ->	      % all cases to be skipped
+	    case lists:any(fun({{N,D},{S,all}}) when N == Node,
+						     D == Dir,
+						     S == Suite ->
+				   true;
+			      ({{N,D},{S,Cs}}) when N == Node,
+						    D == Dir,
+						    S == Suite ->
+				   lists:member(all,Cs);
+			      (_) -> false
+			   end, lists:flatten(Run)) of
+		true ->
+		    {Run,[SkipAll|Skip]};
+		false ->
+		    %% note: this adds an 'all' test even if
+		    %% only skip is specified		    
+		    {[{{Node,Dir},{Suite,all}}|Run],[SkipAll|Skip]}
+	    end;
 	Skipped ->
 	    %% note: this adds a test even if only skip is specified
 	    PrepC = lists:foldr(fun({{G,Cs},{skip,_Cmt}}, Acc) when
@@ -210,11 +229,11 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 					    true ->
 						Acc;
 					    false ->
-						[C|Acc]
+						[{skipped,C}|Acc]
 					end;
 				   (C,Acc) -> [C|Acc]
 				end, [], Cases),
-    {{{Node,Dir},{Suite,PrepC}},Skipped}
+	    {[{{Node,Dir},{Suite,PrepC}}|Run],[Skipped|Skip]}
     end.
 
 get_skipped_suites(Node,Dir,Suites) ->
@@ -431,6 +450,7 @@ collect_tests({Replace,Terms},TestSpec=#testspec{alias=As,nodes=Ns},Relaxed) ->
 						    merge_tests = MergeTestsDef}),
     TestSpec2 = get_all_nodes(Terms2,TestSpec1),
     {Terms3, TestSpec3} = filter_init_terms(Terms2, [], TestSpec2),
+
     add_tests(Terms3,TestSpec3).
 
 %% replace names (atoms) in the testspec matching those in 'define' terms by
@@ -1257,7 +1277,7 @@ insert_groups1(Suite,Groups,Suites0) ->
 	    Suites0;
 	{value,{Suite,GrAndCases0}} ->
 	    GrAndCases = insert_groups2(Groups,GrAndCases0),
-	    insert_in_order({Suite,GrAndCases},Suites0);
+	    insert_in_order({Suite,GrAndCases},Suites0,replace);
 	false ->
 	    insert_in_order({Suite,Groups},Suites0)
     end.
@@ -1282,7 +1302,7 @@ insert_cases(Node,Dir,Suite,Cases,Tests,false) when is_list(Cases) ->
 insert_cases(Node,Dir,Suite,Cases,Tests,true) when is_list(Cases) ->
     {Tests1,Done} =
 	lists:foldr(fun(All={{N,D},[{all,_}]},{Merged,_}) when N == Node,
-								 D == Dir ->
+							       D == Dir ->
 			    {[All|Merged],true};
 		       ({{N,D},Suites0},{Merged,_}) when N == Node,
 							   D == Dir ->
@@ -1312,7 +1332,7 @@ insert_cases1(Suite,Cases,Suites0) ->
 	    Suites0;
 	{value,{Suite,Cases0}} ->
 	    Cases1 = insert_in_order(Cases,Cases0),
-	    insert_in_order({Suite,Cases1},Suites0);
+	    insert_in_order({Suite,Cases1},Suites0,replace);
 	false ->
 	    insert_in_order({Suite,Cases},Suites0)
     end.
@@ -1369,9 +1389,9 @@ skip_groups1(Suite,Groups,Cmt,Suites0) ->
     case lists:keysearch(Suite,1,Suites0) of
 	{value,{Suite,GrAndCases0}} ->
 	    GrAndCases1 = GrAndCases0 ++ SkipGroups,
-	    insert_in_order({Suite,GrAndCases1},Suites0);
+	    insert_in_order({Suite,GrAndCases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipGroups},Suites0)
+	    insert_in_order({Suite,SkipGroups},Suites0,replace)
     end.
 
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
@@ -1380,7 +1400,7 @@ skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,true) when is_list(Cases) ->
     {Tests1,Done} =
 	lists:foldr(fun({{N,D},Suites0},{Merged,_}) when N == Node,
-							   D == Dir ->
+							 D == Dir ->
 			    Suites1 = skip_cases1(Suite,Cases,Cmt,Suites0),
 			    {[{{N,D},Suites1}|Merged],true};
 		       (T,{Merged,Match}) ->
@@ -1401,32 +1421,55 @@ skip_cases1(Suite,Cases,Cmt,Suites0) ->
     case lists:keysearch(Suite,1,Suites0) of
 	{value,{Suite,Cases0}} ->
 	    Cases1 = Cases0 ++ SkipCases,
-	    insert_in_order({Suite,Cases1},Suites0);
+	    insert_in_order({Suite,Cases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipCases},Suites0)
+	    case Suites0 of
+		[{all,_}=All|Skips]->
+		    [All|Skips++[{Suite,SkipCases}]];
+		_ ->
+		    insert_in_order({Suite,SkipCases},Suites0,replace)
+	    end
     end.
 
 append(Elem, List) ->
     List ++ [Elem].
 
-insert_in_order([E|Es],List) ->
-    List1 = insert_elem(E,List,[]),
-    insert_in_order(Es,List1);
-insert_in_order([],List) ->
-    List;
-insert_in_order(E,List) ->
-    insert_elem(E,List,[]).
+insert_in_order(Elems,Dest) ->
+        insert_in_order1(Elems,Dest,false).
 
-%% replace an existing entry (same key) or add last in list
-insert_elem({Key,_}=E,[{Key,_}|Rest],SoFar) ->
+insert_in_order(Elems,Dest,replace) ->
+    insert_in_order1(Elems,Dest,true).
+
+insert_in_order1([_E|Es],all,Replace) ->
+    insert_in_order1(Es,all,Replace);
+
+insert_in_order1([E|Es],List,Replace) ->
+    List1 = insert_elem(E,List,[],Replace),
+    insert_in_order1(Es,List1,Replace);
+insert_in_order1([],List,_Replace) ->
+    List;
+insert_in_order1(E,List,Replace) ->
+    insert_elem(E,List,[],Replace).
+
+
+insert_elem({Key,_}=E,[{Key,_}|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem({E,_},[E|Rest],SoFar) ->
+insert_elem({E,_},[E|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem(E,[E|Rest],SoFar) ->
+insert_elem(E,[E|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem(E,[E1|Rest],SoFar) ->
-    insert_elem(E,Rest,[E1|SoFar]);
-insert_elem(E,[],SoFar) ->
+
+insert_elem({all,_}=E,_,SoFar,_Replace) ->
+    lists:reverse([E|SoFar]);
+insert_elem(_E,[all|_],SoFar,_Replace) ->
+    lists:reverse(SoFar);
+insert_elem(_E,[{all,_}],SoFar,_Replace) ->
+    lists:reverse(SoFar);
+insert_elem({Key,_}=E,[{Key,[]}|Rest],SoFar,_Replace) ->
+    lists:reverse([E|SoFar]) ++ Rest;
+insert_elem(E,[E1|Rest],SoFar,Replace) ->
+    insert_elem(E,Rest,[E1|SoFar],Replace);
+insert_elem(E,[],SoFar,_Replace) ->
     lists:reverse([E|SoFar]).
 
 ref2node(all_nodes,_Refs) ->
