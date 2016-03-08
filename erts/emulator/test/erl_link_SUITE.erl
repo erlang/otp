@@ -31,8 +31,7 @@
 %-define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 % Test cases
 -export([links/1,
@@ -78,8 +77,9 @@
           }).
 
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [links, dist_links, monitor_nodes, process_monitors,
@@ -87,20 +87,21 @@ all() ->
      busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
      otp_5772_monitor, otp_5772_dist_monitor, otp_7946].
 
-groups() -> 
-    [].
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    case catch erts_debug:get_internal_state(available_internal_state) of
+	true -> ok;
+	_ -> erts_debug:set_internal_state(available_internal_state, true)
+    end,
+    Config.
+
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 links(doc) -> ["Tests node local links"];
@@ -689,18 +690,6 @@ wait_until(Fun) ->
 forever(Fun) ->
     Fun(),
     forever(Fun).
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(1)),
-    case catch erts_debug:get_internal_state(available_internal_state) of
-	true -> ok;
-	_ -> erts_debug:set_internal_state(available_internal_state, true)
-    end,
-    ?line [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line ?t:timetrap_cancel(Dog).
 
 tp_call(Tp, Fun) ->
     ?line R = make_ref(),

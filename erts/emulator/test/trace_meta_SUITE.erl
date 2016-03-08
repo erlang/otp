@@ -66,22 +66,21 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(test_server:minutes(5)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, Config) ->
     shutdown(),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
-suite() -> [{ct_hooks,[ts_install_cth]}].
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
 case test_server:is_native(trace_meta_SUITE) of
@@ -90,21 +89,6 @@ case test_server:is_native(trace_meta_SUITE) of
       [basic, return, on_and_off, stack_grow, info, tracer,
        combo, nosilent]
 end.
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
 
 
 not_run(Config) when is_list(Config) -> 

@@ -32,10 +32,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, init_per_testcase/2, 
-	 end_per_testcase/2,
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2,
 	 node_container_refc_check/1]).
 
 -export([term_to_binary_to_term_eq/1,
@@ -56,9 +54,10 @@
 	 unique_pid/1,
 	 iter_max_procs/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(10)).
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
@@ -67,9 +66,6 @@ all() ->
      timer_refc, otp_4715, pid_wrap, port_wrap, bad_nc,
      unique_pid, iter_max_procs].
 
-groups() -> 
-    [].
-
 init_per_suite(Config) ->
     Config.
 
@@ -77,13 +73,6 @@ end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
     available_internal_state(false).
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 available_internal_state(Bool) when Bool == true; Bool == false ->
     case {Bool,
@@ -101,13 +90,10 @@ available_internal_state(Bool) when Bool == true; Bool == false ->
     end.
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     available_internal_state(true),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 %%%

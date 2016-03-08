@@ -20,8 +20,7 @@
 
 -module(exception_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 badmatch/1, pending_errors/1, nil_arith/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
 	 exception_with_heap_frag/1, line_numbers/1]).
@@ -32,28 +31,14 @@
 -include_lib("common_test/include/ct.hrl").
 -import(lists, [foreach/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 10}}].
 
 all() -> 
     [badmatch, pending_errors, nil_arith, stacktrace,
      nested_stacktrace, raise, gunilla, per,
      exception_with_heap_frag, line_numbers].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 -define(try_match(E),
 	catch ?MODULE:bar(),

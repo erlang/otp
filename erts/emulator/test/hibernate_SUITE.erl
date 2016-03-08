@@ -22,44 +22,22 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
-	 messages_in_queue/1,undefined_mfa/1,no_heap/1,wake_up_and_bif_trap/1]).
+	 messages_in_queue/1,undefined_mfa/1,no_heap/1,
+         wake_up_and_bif_trap/1]).
 
 %% Used by test cases.
--export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0,characters_to_list_trap/1]).
+-export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2,
+         no_heap_loop/0,characters_to_list_trap/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
      undefined_mfa, no_heap, wake_up_and_bif_trap].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(3)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %%%
 %%% Testing the basic functionality of erlang:hibernate/3.

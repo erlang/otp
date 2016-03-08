@@ -34,9 +34,9 @@
 -include_lib("common_test/include/ct.hrl").
 
 %-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2, end_per_suite/1]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([equal/1,
 	 few_low/1,
@@ -60,11 +60,9 @@
 	 dirty_scheduler_exit/1,
 	 reader_groups/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(15)).
-
--define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 15}}].
 
 all() -> 
     [equal, few_low, many_low, equal_with_part_time_high,
@@ -89,12 +87,6 @@ end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 init_per_testcase(update_cpu_info, Config) ->
     case os:find_executable("taskset") of
 	false ->
@@ -106,15 +98,12 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     init_per_tc(Case, Config).
 
 init_per_tc(Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     process_flag(priority, max),
     erlang:display({'------------', ?MODULE, Case, '------------'}),
     OkRes = ok,
-    [{watchdog, Dog}, {testcase, Case}, {ok_res, OkRes} |Config].
+    [{testcase, Case}, {ok_res, OkRes} |Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 -define(ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED, (2000*2000)).
@@ -1328,10 +1317,9 @@ scheduler_suspend_basic_test() ->
     
 
 scheduler_suspend(Config) when is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(5)),
+    ct:timetrap({minutes, 5}),
     ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
 			[64, 32, 16, default]),
-    ?line ?t:timetrap_cancel(Dog),
     ?line ok.
 scheduler_suspend_test(Config, Schedulers) ->
     ?line Cmd = case Schedulers of
@@ -2044,8 +2032,8 @@ do_it(Tracer, Low, Normal, High, Max, RedsPerSchedLimit) ->
     EndWait = erlang:monotonic_time(milli_seconds),
     BalanceWait = EndWait-StartWait,
     erlang:display({balance_wait, BalanceWait}),
-    Timeout = ?DEFAULT_TIMEOUT - ?t:minutes(4) - BalanceWait,
-    Res = case Timeout < ?MIN_SCHEDULER_TEST_TIMEOUT of
+    Timeout = (15 - 4)*60*1000 - BalanceWait,
+    Res = case Timeout < 60*1000 of
 	      true ->
 		  stop_work(Low, Normal, High, Max),
 		  too_slow;

@@ -19,8 +19,7 @@
 
 -module(alloc_SUITE).
 -author('rickard.green@uab.ericsson.se').
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([basic/1,
 	 coalesce/1,
@@ -34,42 +33,20 @@
 	 cpool/1,
 	 migration/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -include_lib("common_test/include/ct.hrl").
 
--define(DEFAULT_TIMETRAP_SECS, 240).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
      bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-
 init_per_testcase(Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog}, {testcase, Case}, {debug,false} | Config].
+    [{testcase, Case},{debug,false}|Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

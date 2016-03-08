@@ -28,12 +28,10 @@
 -module(signal_SUITE).
 -author('rickard.s.green@ericsson.com').
 
--define(DEFAULT_TIMEOUT_SECONDS, 120).
-
 %-define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases
 -export([xm_sig_order/1,
@@ -51,16 +49,12 @@
 	 pending_exit_group_leader/1,
 	 exit_before_pending_exit/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SECONDS)),
     available_internal_state(true),
-    ?line [{testcase, Func},{watchdog, Dog}|Config].
+    [{testcase, Func}|Config].
 
 end_per_testcase(_Func, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line ?t:timetrap_cancel(Dog).
+    ok.
 
 init_per_suite(Config) ->
     Config.
@@ -70,7 +64,9 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(not_running_optimization, true),
     available_internal_state(false).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [xm_sig_order, pending_exit_unlink_process,
@@ -82,16 +78,6 @@ all() ->
      pending_exit_process_info_1,
      pending_exit_process_info_2, pending_exit_group_leader,
      exit_before_pending_exit].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 xm_sig_order(doc) -> ["Test that exit signals and messages are received "
 		      "in correct order"];

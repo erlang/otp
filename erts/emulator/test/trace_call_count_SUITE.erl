@@ -70,18 +70,17 @@ config(priv_dir,_) ->
 	 pause_and_restart/1, combo/1]).
 	 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:seconds(30)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_count]),
     erlang:trace_pattern(on_load, false, [local,meta,call_count]),
     erlang:trace(all, false, [all]),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     case test_server:is_native(trace_call_count_SUITE) of

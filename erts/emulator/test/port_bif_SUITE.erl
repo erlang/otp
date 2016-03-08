@@ -21,8 +21,8 @@
 -module(port_bif_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, command/1,
+-export([all/0, suite/0, groups/0,
+         command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 port_info_os_pid/1, port_info_race/1,
@@ -30,11 +30,11 @@
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [command, {group, port_info}, connect, control,
@@ -45,27 +45,6 @@ groups() ->
       [command_e_1, command_e_2, command_e_3, command_e_4]},
      {port_info, [],
       [port_info1, port_info2, port_info_os_pid, port_info_race]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-
-init_per_testcase(_Func, Config) when is_list(Config) ->
-    Dog=test_server:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) when is_list(Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
 
 command(Config) when is_list(Config) ->
     load_control_drv(Config),
@@ -410,7 +389,7 @@ test_op(P, Op) ->
     <<Op:32>> = list_to_binary(R).
 
 echo_to_busy(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     load_control_drv(Config),
     P = open_port({spawn, control_drv}, []),
     erlang:port_control(P, $b, [1]),	% Set to busy.
@@ -426,7 +405,6 @@ echo_to_busy(Config) when is_list(Config) ->
         Other ->
             test_server:fail({unexpected_message, Other})
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 echoer(P, ReplyTo) ->

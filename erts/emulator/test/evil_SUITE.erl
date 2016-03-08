@@ -19,9 +19,7 @@
 
 -module(evil_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 heap_frag/1,
 	 encode_decode_ext/1,
 	 decode_integer_ext/1,
@@ -35,38 +33,15 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 30}}].
 
 all() -> 
     [heap_frag, encode_decode_ext, decode_integer_ext,
      decode_small_big_ext, decode_large_big_ext,
      decode_small_big_ext_neg, decode_large_big_ext_neg,
      decode_too_small, decode_pos_neg_zero].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?t:minutes(0.5)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 heap_frag(Config) when is_list(Config) ->
     N = 512,
@@ -109,7 +84,6 @@ encode_decode_ext(Config) when is_list(Config) ->
     ?line enc_dec(11, 16#7fffffffffffffff), % largest  i64
     ?line enc_dec(11,-16#8000000000000000), % smallest i64
     ?line enc_dec(11, 16#ffffffffffffffff), % largest  u64
-
     ok.
 
 
@@ -388,4 +362,3 @@ rnd_term() ->
     U0 = rand:uniform(),
     B = <<U0/float>>,
     {U0,U0 * 2.5 + 3.14,[U0*2.3,B]}.
-

@@ -32,47 +32,19 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, init_per_testcase/2, 
-	 end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
 	 check_io_debug/1, get_check_io_info/0]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(5)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [schedulers_alive, node_container_refc_check,
      long_timers, pollset_size, check_io_debug].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
 
 %%%
 %%% The test cases -------------------------------------------------------------

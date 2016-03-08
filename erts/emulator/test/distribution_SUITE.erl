@@ -35,8 +35,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0,
 	 ping/1, bulk_send_small/1,
 	 bulk_send_big/1, bulk_send_bigbig/1,
 	 local_send_small/1, local_send_big/1,
@@ -58,8 +57,6 @@
 	 bad_dist_ext_control/1,
 	 bad_dist_ext_connection_id/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
 	 roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
@@ -67,7 +64,9 @@
 	 dist_evil_parallel_receiver/0,
          sendersender/4, sendersender2/4]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [ping, {group, bulk_send}, {group, local_send},
@@ -89,28 +88,6 @@ groups() ->
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_control, bad_dist_ext_connection_id]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
--define(DEFAULT_TIMETRAP, 4*60*1000).
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?DEFAULT_TIMETRAP),
-    [{watchdog, Dog},{testcase, Func}|Config].
-
-end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 ping(doc) ->
     ["Tests pinging a node in different ways."];
@@ -151,7 +128,7 @@ bulk_send_bigbig(Config) when is_list(Config) ->
     ?line bulk_sendsend(32*5, 4).
 
 bulk_send(Terms, BinSize) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ct:timetrap({seconds, 30}),
 
     ?line io:format("Sending ~w binaries, each of size ~w K",
 		    [Terms, BinSize]),
@@ -162,8 +139,6 @@ bulk_send(Terms, BinSize) ->
     ?line {Elapsed, {Terms, Size}} = test_server:timecall(?MODULE, sender,
 							  [Recv, Bin, Terms]),
     ?line stop_node(Node),
-
-    ?line test_server:timetrap_cancel(Dog),
     {comment, integer_to_list(trunc(Size/1024/max(1,Elapsed)+0.5)) ++ " K/s"}.
 
 bulk_sendsend(Terms, BinSize) ->
@@ -188,7 +163,7 @@ bulk_sendsend(Terms, BinSize) ->
     end.
 
 bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ct:timetrap({seconds, 30}),
 
     ?line io:format("Sending ~w binaries, each of size ~w K",
 		    [Terms, BinSize]),
@@ -214,8 +189,6 @@ bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
         end,
     ?line stop_node(NodeRecv),
     ?line stop_node(NodeSend),
-
-    ?line test_server:timetrap_cancel(Dog),
     {trunc(SizeN/1024/Elapsed+0.5), MonitorCount}.
 
 sender(To, _Bin, 0) ->
@@ -335,7 +308,7 @@ receiver2(Num, TotSize) ->
 
 link_to_busy(doc) -> "Test that link/1 to a busy distribution port works.";
 link_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({seconds, 60}),
     ?line {ok, Node} = start_node(link_to_busy),
     ?line Recv = spawn(Node, erlang, apply, [fun sink/1, [link_to_busy_sink]]),
 
@@ -364,7 +337,6 @@ link_to_busy(Config) when is_list(Config) ->
     %% Done.
     ?line stop_node(Node),
     ?line stop_busy_dist_port_tracer(Tracer),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 linker(Pid) ->
@@ -382,7 +354,7 @@ tail_applied_linker(Pid) ->
     
 exit_to_busy(doc) -> "Test that exit/2 to a busy distribution port works.";
 exit_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({seconds, 60}),
     ?line {ok, Node} = start_node(exit_to_busy),
 
     Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of
@@ -435,7 +407,6 @@ exit_to_busy(Config) when is_list(Config) ->
     %% Done.
     ?line stop_node(Node),
     ?line stop_busy_dist_port_tracer(Tracer),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 make_busy_data() ->
@@ -1002,8 +973,7 @@ dist_parallel_send(Config) when is_list(Config) ->
     ?line {ok, SNode} = start_node(dist_parallel_sender),
     ?line WatchDog = spawn_link(
 		       fun () ->
-			       TRef = erlang:start_timer((?DEFAULT_TIMETRAP
-							  div 2),
+			       TRef = erlang:start_timer((2*60*1000),
 							 self(),
 							 oops),
 			       receive
@@ -1419,10 +1389,7 @@ bad_dist_structure(doc) ->
     ["Test dist messages with valid structure (binary to term ok) but malformed"
      "control content"];
 bad_dist_structure(Config) when is_list(Config) ->
-    %process_flag(trap_exit,true),
-    ODog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(ODog),
-    Dog = ?t:timetrap(?t:seconds(15)),
+    ct:timetrap({seconds, 15}),
 
     ?line {ok, Offender} = start_node(bad_dist_structure_offender),
     ?line {ok, Victim} = start_node(bad_dist_structure_victim),
@@ -1535,7 +1502,6 @@ bad_dist_structure(Config) when is_list(Config) ->
     ?line P ! done,
     ?line stop_node(Offender),
     ?line stop_node(Victim),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 

@@ -21,42 +21,17 @@
 -module(fun_r13_SUITE).
 -compile(r13).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,dist_old_release/1]).
+-export([all/0, suite/0,
+	 dist_old_release/1]).
 
--define(default_timeout, ?t:minutes(1)).
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() ->
     [dist_old_release].
-
-groups() ->
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 dist_old_release(Config) when is_list(Config) ->
     case ?t:is_release_available("r12b") of

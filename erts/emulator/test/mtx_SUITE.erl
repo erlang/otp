@@ -29,9 +29,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0,suite/0,groups/0,
-	 init_per_group/2,end_per_group/2, init_per_suite/1, 
-	 end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,suite/0, init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([long_rwlock/1,
 	 hammer_ets_rwlock/1,
@@ -56,43 +55,11 @@
 	 hammer_sched_freqread_tryrwlock/1,
 	 hammer_sched_freqread_tryrwlock_check/1]).
 
-init_per_suite(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Lib = filename:join([DataDir, atom_to_list(?MODULE)]),
-    case {erlang:load_nif(Lib, none),erlang:system_info(threads)} of
-	{{error,_},false} ->
-	    {skip, "No thread support"};
-	_ ->
-	    Config
-    end.
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 15}}].
 
-end_per_suite(Config) when is_list(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    Config.
-
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(15)),
-    %% Wait for deallocations to complete since we measure
-    %% runtime in test cases.
-    wait_deallocations(),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-wait_deallocations() ->
-    try
-	erts_debug:set_internal_state(wait, deallocations)
-    catch
-	error:undef ->
-	    erts_debug:set_internal_state(available_internal_state, true),
-	    wait_deallocations()
-    end.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
-all() -> 
+all() ->
     [long_rwlock, hammer_rwlock_check, hammer_rwlock,
      hammer_tryrwlock_check, hammer_tryrwlock,
      hammer_ets_rwlock, hammer_sched_long_rwlock_check,
@@ -110,15 +77,37 @@ all() ->
      hammer_sched_freqread_tryrwlock_check,
      hammer_sched_freqread_tryrwlock].
 
-groups() -> 
-    [].
+init_per_suite(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Lib = filename:join([DataDir, atom_to_list(?MODULE)]),
+    case {erlang:load_nif(Lib, none),erlang:system_info(threads)} of
+	{{error,_},false} ->
+	    {skip, "No thread support"};
+	_ ->
+	    Config
+    end.
 
-init_per_group(_GroupName, Config) ->
-	Config.
+end_per_suite(Config) when is_list(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    Config.
 
-end_per_group(_GroupName, Config) ->
-	Config.
+init_per_testcase(_Case, Config) ->
+    %% Wait for deallocations to complete since we measure
+    %% runtime in test cases.
+    wait_deallocations(),
+    Config.
 
+end_per_testcase(_Func, Config) ->
+    ok.
+
+wait_deallocations() ->
+    try
+	erts_debug:set_internal_state(wait, deallocations)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    wait_deallocations()
+    end.
 
 long_rwlock(Config) when is_list(Config) ->
     statistics(runtime),

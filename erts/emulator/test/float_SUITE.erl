@@ -22,9 +22,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0, groups/0,
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
          t_mul_add_ops/1,
 	 bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
@@ -32,16 +30,9 @@
 -export([hidden_inf/1]).
 -export([arith/1]).
 
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog},{testcase,Func}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
@@ -52,19 +43,6 @@ all() ->
 
 groups() -> 
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %%
 %% OTP-7178, list_to_float on very small numbers should give 0.0

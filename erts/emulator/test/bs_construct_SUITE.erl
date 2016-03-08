@@ -22,8 +22,7 @@
 
 -module(bs_construct_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
@@ -33,7 +32,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 10}}].
 
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
@@ -41,21 +42,6 @@ all() ->
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_add_overflow].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 big(1) ->
     57285702734876389752897683.

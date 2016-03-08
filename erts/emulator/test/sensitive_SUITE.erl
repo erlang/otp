@@ -22,9 +22,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 stickiness/1,send_trace/1,recv_trace/1,proc_trace/1,call_trace/1,
 	 meta_trace/1,running_trace/1,gc_trace/1,seq_trace/1,
 	 t_process_info/1,t_process_display/1,save_calls/1]).
@@ -33,15 +31,9 @@
 
 -import(lists, [keysearch/3,foreach/2,sort/1]).
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [stickiness, send_trace, recv_trace, proc_trace,
@@ -49,22 +41,6 @@ all() ->
      seq_trace, t_process_info, t_process_display,
      save_calls].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-    
 stickiness(Config) when is_list(Config) ->
     ?line {Tracer,Mref} = spawn_monitor(fun() ->
 						receive after infinity -> ok end

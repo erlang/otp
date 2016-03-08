@@ -22,9 +22,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 exports/1,functions/1,deleted/1,native/1,info/1]).
 
 %%-compile(native).
@@ -32,36 +30,15 @@
 %% Helper.
 -export([native_proj/1,native_filter/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     modules().
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 modules() ->
     [exports, functions, deleted, native, info].
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(3)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %% Should return all functions exported from this module. (local)
 all_exported() ->

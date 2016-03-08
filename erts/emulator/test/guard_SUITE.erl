@@ -20,8 +20,8 @@
 
 -module(guard_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, bad_arith/1, bad_tuple/1, 
+-export([all/0, suite/0,
+         bad_arith/1, bad_tuple/1,
 	 test_heap_guards/1, guard_bifs/1,
 	 type_tests/1,guard_bif_binary_part/1]).
 
@@ -35,21 +35,6 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [bad_arith, bad_tuple, test_heap_guards, guard_bifs,
      type_tests, guard_bif_binary_part].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
@@ -81,7 +66,7 @@ bad_tuple1(_) ->
 
 test_heap_guards(doc) -> "";
 test_heap_guards(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
+    ct:timetrap({minutes, 2}),
     
     ?line process_flag(trap_exit, true),
     ?line Tuple = {a, tuple, is, built, here, xxx},
@@ -98,7 +83,7 @@ test_heap_guards(Config) when is_list(Config) ->
     ?line 'try'(fun receive_test/1, [Tuple], [Tuple]),
     ?line 'try'(fun receive_test/1, [List], [List, List]),
     ?line 'try'(fun receive_test/1, [a], [a]),
-    ?line test_server:timetrap_cancel(Dog).
+    ok.
 
 a_case(V) ->
     case V of

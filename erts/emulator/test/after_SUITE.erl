@@ -24,49 +24,24 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 t_after/1, receive_after/1, receive_after_big/1,
 	 receive_after_errors/1, receive_var_zero/1, receive_zero/1,
 	 multi_timeout/1, receive_after_32bit/1,
 	 receive_after_blast/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 %% Internal exports.
 
 -export([timeout_g/0]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [t_after, receive_after, receive_after_big,
      receive_after_errors, receive_var_zero, receive_zero,
      multi_timeout, receive_after_32bit, receive_after_blast].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %% Tests for an old round-off error in 'receive after'."
 t_after(Config) when is_list(Config) ->

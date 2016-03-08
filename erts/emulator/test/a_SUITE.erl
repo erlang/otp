@@ -29,29 +29,14 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, long_timers/1, pollset_size/1]).
+-export([all/0, suite/0,
+	 long_timers/1, pollset_size/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [long_timers, pollset_size].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 long_timers(doc) ->
     [];
@@ -106,5 +91,3 @@ display_check_io(ChkIo) ->
 
 get_check_io_info() ->
     z_SUITE:get_check_io_info().
-
-

@@ -20,8 +20,7 @@
 
 -module(match_spec_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0, not_run/1]).
 -export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
@@ -41,18 +40,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:seconds(30)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 30}}].
 
 all() -> 
     case test_server:is_native(match_spec_SUITE) of
@@ -68,22 +58,6 @@ all() ->
              maps];
 	true -> [not_run]
     end.
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
-
 
 not_run(Config) when is_list(Config) ->
     {skipped, "Native Code"}.

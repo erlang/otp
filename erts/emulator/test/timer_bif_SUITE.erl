@@ -20,8 +20,7 @@
 
 -module(timer_bif_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([start_timer_1/1, send_after_1/1, send_after_2/1, send_after_3/1,
 	 cancel_timer_1/1,
@@ -40,16 +39,13 @@
 -define(AUTO_CANCEL_YIELD_LIMIT, 100).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:seconds(30)),
     case catch erts_debug:get_internal_state(available_internal_state) of
 	true -> ok;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
@@ -59,7 +55,9 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [start_timer_1, send_after_1, send_after_2,
@@ -71,15 +69,6 @@ all() ->
      same_time_yielding_with_cancel_other,
 %     same_time_yielding_with_cancel_other_accessor,
      auto_cancel_yielding].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 start_timer_1(doc) -> ["Basic start_timer/3 functionality"];

@@ -29,48 +29,25 @@
 -export([exported/1, exported_wrap/1, loop/4, apply_slave_async/5,
 	 match/2, clause/2, id/1, undef/1, lists_reverse/2]).
 
-%%
-%% Define to run outside of test server
-%%
-%% (rotten feature)
-%%
-%%-define(STANDALONE,1).
- 
+
 %%
 %% Define for debug output
 %%
 %%-define(debug,1).
  
--ifdef(STANDALONE).
--define(config(A,B),config(A,B)).
--export([config/2]).
--define(DEFAULT_RECEIVE_TIMEOUT, 1000).
--else.
 -include_lib("common_test/include/ct.hrl").
 -define(DEFAULT_RECEIVE_TIMEOUT, infinity).
--endif.
  
 -ifdef(debug).
--ifdef(STANDALONE).
--define(line, erlang:display({?MODULE,?LINE}), ).
--endif.
 -define(dbgformat(A,B),io:format(A,B)).
 -else.
--ifdef(STANDALONE).
--define(line, noop, ).
--endif.
 -define(dbgformat(A,B),noop).
 -endif.
  
--ifdef(STANDALONE).
-config(priv_dir,_) ->
-    ".".
--else.
-
 %%% When run in test server %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
+-export([all/0, suite/0,
+	 basic/1, bit_syntax/1,
 	 return/1, on_and_off/1, systematic_on_off/1,
 	 stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
@@ -84,14 +61,12 @@ config(priv_dir,_) ->
 	 exception_meta_nocatch_apply_function/1,
 	 concurrency/1,
 	 init_per_testcase/2, end_per_testcase/2]).
+
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, Config) ->
     shutdown(),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
 
     %% Reloading the module will clear all trace patterns, and
     %% in a debug-compiled emulator run assertions of the counters
@@ -99,9 +74,9 @@ end_per_testcase(_Case, Config) ->
 
     c:l(?MODULE).
 
-
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     case test_server:is_native(trace_local_SUITE) of
@@ -121,21 +96,6 @@ all() ->
 	     exception_meta_nocatch_apply_function,
 	     concurrency]
     end.
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 not_run(Config) when is_list(Config) -> 
@@ -257,9 +217,6 @@ exception_meta_nocatch_apply_function(doc) ->
     ["Tests meta exception_trace"];
 exception_meta_nocatch_apply_function(Config) when is_list(Config) ->
     exception_test([meta,nocatch,apply,function]).
-
--endif.
-
 
 
 %%% Message patterns and expect functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

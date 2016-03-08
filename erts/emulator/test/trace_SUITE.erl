@@ -24,8 +24,8 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
+-export([all/0, suite/0,
+	 receive_trace/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
@@ -43,7 +43,9 @@
 %%% Internal exports
 -export([process/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 5}}].
 
 all() -> 
     [cpu_timestamp, receive_trace, self_send, timeout_trace,
@@ -54,31 +56,13 @@ all() ->
      set_on_first_spawn, system_monitor_args,
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
-      system_monitor_long_schedule,
+     system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.
 cpu_timestamp(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-
     %% Test whether cpu_timestamp is implemented on this platform.
     ?line Works = try erlang:trace(all, true, [cpu_timestamp]) of
 		      _ ->
@@ -87,8 +71,6 @@ cpu_timestamp(Config) when is_list(Config) ->
 		  catch
 		      error:badarg -> false
 		  end,
-
-    ?line test_server:timetrap_cancel(Dog),
     {comment,case Works of
 		 false -> "cpu_timestamp is NOT implemented/does not work";
 		 true -> "cpu_timestamp works"
@@ -98,7 +80,6 @@ cpu_timestamp(Config) when is_list(Config) ->
 %% Tests that trace(Pid, How, ['receive']) works.
 
 receive_trace(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Receiver = fun_spawn(fun receiver/0),
     ?line process_flag(trap_exit, true),
 
@@ -121,15 +102,11 @@ receive_trace(Config) when is_list(Config) ->
     ?line Receiver ! {hello, there},
     ?line Receiver ! any_garbage,
     ?line receive_nothing(),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 self_send(doc) -> ["Test that traces are generated for messages sent ",
 		    "and received to/from self()."];
 self_send(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Fun =
 	fun(Self, Parent) -> receive
 			   go_ahead ->
@@ -150,28 +127,21 @@ self_send(Config) when is_list(Config) ->
 	  end,
     ?line receive {trace,SelfSender,send,done,Self} -> ok end,
     ?line receive done -> ok end,
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that we can receive timeout traces.
 timeout_trace(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-
     ?line Process = fun_spawn(fun process/0),
     ?line 1 = erlang:trace(Process, true, ['receive']),
     ?line Process ! timeout_please,
     ?line {trace, Process, 'receive', timeout_please} = receive_first(),
     ?line {trace, Process, 'receive', timeout} = receive_first(),
     ?line receive_nothing(),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that trace(Pid, How, [send]) works.
 
 send_trace(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line process_flag(trap_exit, true),
     ?line Sender = fun_spawn(fun sender/0),
     ?line Receiver = fun_spawn(fun receiver/0),
@@ -222,14 +192,10 @@ send_trace(Config) when is_list(Config) ->
     ?line Sender ! {send_please, self(), to_myself_again},
     ?line receive to_myself_again -> ok end,
     ?line receive_nothing(),
-    
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test trace(Pid, How, [procs]).
 procs_trace(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Name = list_to_atom(atom_to_list(?MODULE)++"_procs_trace"),
     ?line Self = self(),
     ?line process_flag(trap_exit, true),
@@ -310,14 +276,11 @@ procs_trace(Config) when is_list(Config) ->
     ?line Proc2 ! {exit_please, Reason2},
     ?line {trace, Proc2, exit, Reason2} = receive_first(),
     ?line receive_nothing(),
-    %%
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 dist_procs_trace(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(15)),
+    ct:timetrap({seconds, 15}),
     ?line OtherName = atom_to_list(?MODULE)++"_dist_procs_trace",
     ?line {ok, OtherNode} = start_node(OtherName),
     ?line Self = self(),
@@ -379,7 +342,6 @@ dist_procs_trace(Config) when is_list(Config) ->
     %%
     %% Done.
     ?line true = stop_node(OtherNode),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -388,7 +350,6 @@ dist_procs_trace(Config) when is_list(Config) ->
 %% Tests trace(Pid, How, [set_on_spawn]).
 
 set_on_spawn(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Listener = fun_spawn(fun process/0),
 
     %% Create and trace a process with the set_on_spawn flag.
@@ -407,15 +368,12 @@ set_on_spawn(Config) when is_list(Config) ->
     [Child11, Child12] = spawn_children(Child1, 2),
     ?line true = is_send_traced(Child11, Listener, child11),
     ?line true = is_send_traced(Child12, Listener, child12),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests trace(Pid, How, [set_on_first_spawn]).
 
 set_on_first_spawn(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line Listener = fun_spawn(fun process/0),
 
     %% Create and trace a process with the set_on_first_spawn flag.
@@ -431,16 +389,12 @@ set_on_first_spawn(Config) when is_list(Config) ->
     ?line false = is_send_traced(Child2, Listener, child2),
     ?line false = is_send_traced(Child3, Listener, child3),
     ?line receive_nothing(),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 system_monitor_args(doc) ->
     ["Tests arguments to erlang:system_monitor/0-2)"];
 system_monitor_args(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Self = self(),
     %%
     ?line OldMonitor = erlang:system_monitor(undefined),
@@ -498,24 +452,17 @@ system_monitor_args(Config) when is_list(Config) ->
 	(catch erlang:system_monitor(Self,[{large_heap,-1}])),
     ?line {'EXIT',{badarg,_}} = 
 	(catch erlang:system_monitor({Self,[{large_heap,atom}]})),
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 more_system_monitor_args(doc) ->
     ["Tests arguments to erlang:system_monitor/0-2)"];
 more_system_monitor_args(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-    
     ?line try_l(64000),
     ?line try_l(16#7ffffff),
     ?line try_l(16#3fffffff),
     ?line try_l(16#7fffffff),
     ?line try_l(16#ffffffff),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 try_l(Val) ->
@@ -746,7 +693,7 @@ system_monitor_large_heap_2(Config) when is_list(Config) ->
     ?line large_heap(LoadFun, true).
 
 large_heap(LoadFun, ExpectMonMsg) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
+    ct:timetrap({seconds, 20}),
     %%
     ?line Size = 65535,
     ?line Self = self(),
@@ -766,8 +713,6 @@ large_heap(LoadFun, ExpectMonMsg) ->
 	      {undefined, true} ->
 		  ?line ?t:fail(no_system_monitor_message_received)
 	  end,
-    %%
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 large_heap_check(Pid, Size, Result) ->
@@ -844,14 +789,10 @@ spawn_children(Parent, Number, Result) ->
 
 suspend(doc) -> "Test erlang:suspend/1 and erlang:resume/1.";
 suspend(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
-
+    ct:timetrap({minutes,2}),
     ?line Worker = fun_spawn(fun worker/0),
     %% Suspend a process and test that it is suspended.
     ?line ok = do_suspend(Worker, 10000),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 do_suspend(_Pid, 0) ->
@@ -880,7 +821,7 @@ mutual_suspend(suite) ->
     [];
 mutual_suspend(Config) when is_list(Config) ->
     ?line TimeoutSecs = 5*60,
-    ?line Dog = test_server:timetrap(test_server:minutes(TimeoutSecs)),
+    ct:timetrap({seconds, TimeoutSecs}),
     ?line Parent = self(),
     ?line Fun = fun () ->
 			receive
@@ -913,8 +854,6 @@ mutual_suspend(Config) when is_list(Config) ->
     ?line unlink(P2), exit(P2, bang),
     ?line done = Res1,
     ?line done = Res2,
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ?line ok.
     
 do_mutual_suspend(_Pid, 0) ->
@@ -932,10 +871,9 @@ suspend_exit(doc) ->
 suspend_exit(suite) ->
     [];
 suspend_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
+    ct:timetrap({minutes, 2}),
     rand:seed(exsplus, {4711,17,4711}),
     ?line do_suspend_exit(5000),
-    ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 
 do_suspend_exit(0) ->
@@ -990,7 +928,7 @@ suspender_exit(doc) ->
 suspender_exit(suite) ->
     [];
 suspender_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(3)),
+    ct:timetrap({minutes, 3}),
     ?line P1 = spawn_link(fun () -> receive after infinity -> ok end end),
     ?line {'EXIT', _} = (catch erlang:resume_process(P1)),
     ?line {P2, M2} = spawn_monitor(
@@ -1093,7 +1031,6 @@ suspender_exit(Config) when is_list(Config) ->
 	  end,
     ?line unlink(P1),
     ?line exit(P1, bong),
-    ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 			 
 suspend_system_limit(doc) ->			 
@@ -1103,12 +1040,11 @@ suspend_system_limit(suite) ->
 suspend_system_limit(Config) when is_list(Config) ->
     case os:getenv("ERL_EXTREME_TESTING") of
 	"true" ->
-	    ?line Dog = test_server:timetrap(test_server:minutes(3*60)),
+            ct:timetrap({minutes, 3*60}),
 	    ?line P = spawn_link(fun () -> receive after infinity -> ok end end),
 	    ?line suspend_until_system_limit(P),
 	    ?line unlink(P),
 	    ?line exit(P, bye),
-	    ?line test_server:timetrap_cancel(Dog),
 	    ?line ok;
 	_ ->
 	    {skip, "Takes too long time for normal testing"}
@@ -1163,7 +1099,7 @@ suspend_opts(doc) ->
 suspend_opts(suite) ->
     [];
 suspend_opts(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(3)),
+    ct:timetrap({minutes, 3}),
     ?line Self = self(),
     ?line wait_for_empty_runq(10),
     ?line Tok = spawn_link(fun () ->
@@ -1275,7 +1211,6 @@ suspend_opts(Config) when is_list(Config) ->
 	  end,
     ?line unlink(Tok),
     ?line exit(Tok, bang),
-    ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 
 suspend_count(Suspendee) ->
@@ -1312,24 +1247,16 @@ repeat_acc(Fun, N, M, Acc) ->
 
 suspend_waiting(doc) -> "Test that a waiting process can be suspended.";
 suspend_waiting(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-
     ?line Process = fun_spawn(fun process/0),
     ?line receive after 1 -> ok end,
     ?line true = erlang:suspend_process(Process),
     ?line {status, suspended} = process_info(Process, status),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-
 
 
 new_clear(doc) ->
     "Test that erlang:trace(new, true, ...) is cleared when tracer dies.";
 new_clear(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
-
     ?line Tracer = spawn(fun receiver/0),
     ?line 0 = erlang:trace(new, true, [send, {tracer, Tracer}]),
     ?line {flags, [send]} = erlang:trace_info(new, flags),
@@ -1341,10 +1268,6 @@ new_clear(Config) when is_list(Config) ->
     end,
     ?line {flags, []} = erlang:trace_info(new, flags),
     ?line {tracer, []} = erlang:trace_info(new, tracer),
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
-
     ok.
 
 
@@ -1352,7 +1275,6 @@ new_clear(Config) when is_list(Config) ->
 existing_clear(doc) ->
     "Test that erlang:trace(all, false, ...) works without tracer.";
 existing_clear(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(5)),
     ?line Self = self(),
 
     ?line Tracer = fun_spawn(fun receiver/0),
@@ -1365,9 +1287,6 @@ existing_clear(Config) when is_list(Config) ->
     ?line {flags, []} = erlang:trace_info(Self, flags),
     ?line {tracer, []} = erlang:trace_info(Self, tracer),
     ?line M = N + 1, % Since trace could not be enabled on the tracer.
-
-    %% Done.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 bad_flag(doc) -> "Test that an invalid flag cause badarg";
@@ -1382,7 +1301,7 @@ bad_flag(Config) when is_list(Config) ->
 trace_delivered(doc) -> "Test erlang:trace_delivered/1";
 trace_delivered(suite) -> [];
 trace_delivered(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({minutes, 1}),
     ?line TokLoops = 10000,
     ?line Go = make_ref(),
     ?line Parent = self(),
@@ -1401,7 +1320,6 @@ trace_delivered(Config) when is_list(Config) ->
 	      Msg ->
 		  ?line ?t:fail({unexpected_message, Msg})
 	  after 1000 ->
-		  ?line test_server:timetrap_cancel(Dog),
 		  ?line ok
 	  end.
 

@@ -20,8 +20,7 @@
 
 -module(busy_port_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,end_per_testcase/2,
+-export([all/0, suite/0, end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
@@ -34,7 +33,9 @@
 %% Internal exports.
 -export([init/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [io_to_busy, message_order, send_3, system_monitor,
@@ -42,21 +43,6 @@ all() ->
      multiple_writers, hard_busy_driver, soft_busy_driver,
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
      scheduling_busy_link].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     case whereis(busy_drv_server) of
@@ -78,15 +64,13 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 
 io_to_busy(suite) -> [];
 io_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ct:timetrap({seconds, 30}),
 
     ?line start_busy_driver(Config),
     ?line process_flag(trap_exit, true),
     ?line Writer = fun_spawn(fun writer/0),
     ?line Generator = fun_spawn(fun() -> generator(100, Writer) end),
     ?line wait_for([Writer, Generator]),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 generator(N, Writer) ->
@@ -132,7 +116,7 @@ forget(_) ->
 
 message_order(suite) -> {req, dynamic_loading};
 message_order(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
 
     ?line start_busy_driver(Config),
     ?line Self = self(),
@@ -149,8 +133,6 @@ message_order(Config) when is_list(Config) ->
 	      Other ->
 		  test_server:fail({unexpected_message, Other})
 	  end,
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 send_to_busy_1(Parent) ->
@@ -167,7 +149,7 @@ send_to_busy_1(Parent) ->
 send_3(suite) -> {req,dynamic_loading};
 send_3(doc) -> ["Test the BIF send/3"];
 send_3(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     %%
     ?line start_busy_driver(Config),
     ?line {Owner,Slave} = get_slave(),
@@ -180,15 +162,13 @@ send_3(Config) when is_list(Config) ->
     ?line ok = erlang:send(Slave, {Owner,{command,"not busy"}}, 
 			   [nosuspend]),
     ?line ok = command(stop),
-    %%
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test the erlang:system_monitor(Pid, [busy_port])
 system_monitor(suite) -> {req,dynamic_loading};
 system_monitor(doc) -> ["Test erlang:system_monitor({Pid,[busy_port]})."];
 system_monitor(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line Self = self(),
     %%
     ?line OldMonitor = erlang:system_monitor(Self, [busy_port]),
@@ -226,16 +206,10 @@ system_monitor(Config) when is_list(Config) ->
     ?line _NewMonitor = erlang:system_monitor(OldMonitor),
     ?line OldMonitor = erlang:system_monitor(),
     ?line OldMonitor = erlang:system_monitor(OldMonitor),
-    %%
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-
-
 
 rec(Tag) ->
     receive X -> X after 1000 -> Tag end.
-
-
 
 
 %% Assuming the following scenario,
@@ -250,7 +224,7 @@ rec(Tag) ->
 
 no_trap_exit(suite) -> [];
 no_trap_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line process_flag(trap_exit, true),
     ?line Pid = fun_spawn(fun no_trap_exit_process/3,
 			  [self(), linked, Config]),
@@ -267,8 +241,6 @@ no_trap_exit(Config) when is_list(Config) ->
 	      Other2 ->
 		  test_server:fail({unexpected_message, Other2})
 	  end,
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% The same scenario as above, but the port has been explicitly
@@ -276,7 +248,7 @@ no_trap_exit(Config) when is_list(Config) ->
 
 no_trap_exit_unlinked(suite) -> [];
 no_trap_exit_unlinked(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line process_flag(trap_exit, true),
     ?line Pid = fun_spawn(fun no_trap_exit_process/3,
 			  [self(), unlink, Config]),
@@ -293,7 +265,6 @@ no_trap_exit_unlinked(Config) when is_list(Config) ->
 	      Other2 ->
 		  test_server:fail({unexpected_message, Other2})
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 no_trap_exit_process(ResultTo, Link, Config) ->
@@ -322,7 +293,7 @@ no_trap_exit_process(ResultTo, Link, Config) ->
 
 trap_exit(suite) -> [];
 trap_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line Pid = fun_spawn(fun busy_port_exit_process/2, [self(), Config]),
     ?line receive
 	      {Pid, port_created, Port} ->
@@ -339,7 +310,6 @@ trap_exit(Config) when is_list(Config) ->
 	      Other2 ->
 		  test_server:fail({unexpected_message, Other2})
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 busy_port_exit_process(ResultTo, Config) ->
@@ -364,7 +334,7 @@ busy_port_exit_process(ResultTo, Config) ->
 
 multiple_writers(suite) -> [];
 multiple_writers(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     ?line start_busy_driver(Config),
     ?line process_flag(trap_exit, true),
 
@@ -385,8 +355,6 @@ multiple_writers(Config) when is_list(Config) ->
     %% Unlock the port.  The surviving processes should be become runnable.
     ?line unlock_slave(),
     ?line wait_for([W2, W4, W5]),
-    
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 quick_writer() ->

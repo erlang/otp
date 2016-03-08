@@ -23,9 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 display/1, display_huge/0,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,
@@ -35,7 +33,9 @@
 	 atom_to_binary/1,min_max/1, erlang_halt/1,
 	 is_builtin/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
@@ -44,31 +44,6 @@ all() ->
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      min_max, erlang_halt, is_builtin].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
 
 display(suite) ->
     [];

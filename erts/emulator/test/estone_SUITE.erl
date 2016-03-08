@@ -19,9 +19,8 @@
 
 -module(estone_SUITE).
 %% Test functions
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,estone/1,estone_bench/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+	 estone/1, estone_bench/1]).
 
 %% Internal exports for EStone tests
 -export([lists/1,
@@ -49,9 +48,6 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
-%% Test suite defines
--define(default_timeout, ?t:minutes(10)).
-
 %% EStone defines
 -define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
 -define(BIGPROCS, 2).
@@ -66,35 +62,15 @@
 	 str}).    %% Header string
 
 
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [estone].
 
 groups() -> 
     [{estone_bench, [{repeat,50}],[estone_bench]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 estone(suite) ->

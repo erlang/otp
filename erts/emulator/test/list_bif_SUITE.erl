@@ -21,43 +21,19 @@
 -module(list_bif_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
 	 t_list_to_float/1,t_list_to_integer/1]).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
+
 
 all() -> 
     [hd_test, tl_test, t_length, t_list_to_pid,
      t_list_to_float, t_list_to_integer].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 t_list_to_integer(suite) ->
     [];

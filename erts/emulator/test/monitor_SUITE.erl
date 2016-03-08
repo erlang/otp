@@ -22,19 +22,18 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0, groups/0,
 	 case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
 	 demon_2/1, demon_3/1, demonitor_flush/1,
 	 local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
 	 large_exit/1, list_cleanup/1, mixer/1, named_down/1, otp_5827/1,
 	 monitor_time_offset/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 15}}].
 
 all() -> 
     [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,
@@ -46,27 +45,6 @@ all() ->
 groups() -> 
     [{remove_monitor, [],
       [local_remove_monitor, remote_remove_monitor]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(15)),
-    [{watchdog, Dog},{testcase, Func}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 case_1(doc) ->
     "A monitors B, B kills A and then exits (yielded core dump)";

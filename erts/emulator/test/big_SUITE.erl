@@ -20,8 +20,8 @@
 -module(big_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0, groups/0]).
+
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
 	 borders/1, negative/1, big_float_1/1, big_float_2/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, toobig/1, otp_6692/1]).
@@ -32,11 +32,12 @@
 
 -export([fac/1, fib/1, pow/2, gcd/2, lcm/2]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,
@@ -45,27 +46,6 @@ all() ->
 
 groups() -> 
     [{big_float, [], [big_float_1, big_float_2]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %%
 %% Syntax of data files:

@@ -31,9 +31,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
-	 reference_count/1,
+-export([all/0, suite/0,
+         ddll_test/1, errors/1, reference_count/1,
 	 kill_port/1, dont_kill_port/1]).
 -export([unload_on_process_exit/1, delayed_unload_with_ports/1, 
 	 unload_due_to_process_exit/1,
@@ -54,7 +53,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 10}}].
 
 all() -> 
     [ddll_test, errors, reference_count, kill_port,
@@ -70,28 +71,11 @@ all() ->
      no_trap_exit_and_kill_ports, monitor_demonitor,
      monitor_demonitor_load, new_interface, lock_driver].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 unload_on_process_exit(suite) ->
     [];
 unload_on_process_exit(doc) ->
     ["Check that the driver is unloaded on process exit"];
 unload_on_process_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line false = lists:member("echo_drv",element(2,erl_ddll:loaded_drivers())),
     Parent = self(),
@@ -117,7 +101,6 @@ unload_on_process_exit(Config) when is_list(Config) ->
     end,
     receive after 500 -> ok end,
     ?line false = lists:member("echo_drv",element(2,erl_ddll:loaded_drivers())),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 delayed_unload_with_ports(suite) ->
@@ -125,7 +108,6 @@ delayed_unload_with_ports(suite) ->
 delayed_unload_with_ports(doc) ->
     ["Check that the driver is unloaded when the last port is closed"];
 delayed_unload_with_ports(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:try_load(Path, echo_drv, []),
     ?line erl_ddll:try_load(Path, echo_drv, []),
@@ -142,7 +124,6 @@ delayed_unload_with_ports(Config) when is_list(Config) ->
     ?line Port2 ! {self(), close},
     ?line ok = receive {Port2,closed} -> ok after 1000 -> false end,
     ?line ok = receive {'DOWN', Ref, driver, echo_drv, unloaded} -> ok after 1000 -> false end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 unload_due_to_process_exit(suite) ->
@@ -150,7 +131,6 @@ unload_due_to_process_exit(suite) ->
 unload_due_to_process_exit(doc) ->
     ["Check that the driver with ports is unloaded on process exit"];
 unload_due_to_process_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
@@ -176,7 +156,6 @@ unload_due_to_process_exit(Config) when is_list(Config) ->
     Pid ! go,
     ?line ok = receive {'DOWN', Ref, process, Pid, banan} -> ok after 300 -> error end,
     ?line ok = receive {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok after 300 -> error end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 no_unload_due_to_process_exit(suite) ->
@@ -184,7 +163,6 @@ no_unload_due_to_process_exit(suite) ->
 no_unload_due_to_process_exit(doc) ->
     ["Check that a driver with driver loaded in another process is not unloaded on process exit"];
 no_unload_due_to_process_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
@@ -213,7 +191,6 @@ no_unload_due_to_process_exit(Config) when is_list(Config) ->
     ?line ok = receive X -> {error, X} after 300 -> ok end,
     ?line ok = unload_expect_fast(echo_drv,[]),
     ?line ok = receive {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok after 300 -> error end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 no_unload_due_to_process_exit_2(suite) ->
@@ -221,7 +198,6 @@ no_unload_due_to_process_exit_2(suite) ->
 no_unload_due_to_process_exit_2(doc) ->
     ["Check that a driver with open ports in another process is not unloaded on process exit"];
 no_unload_due_to_process_exit_2(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
@@ -250,7 +226,6 @@ no_unload_due_to_process_exit_2(Config) when is_list(Config) ->
     ?line ok = receive X -> {error, X} after 300 -> ok end,
     ?line erlang:port_close(Port),
     ?line ok = receive {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok after 300 -> error end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 unload_reload_thingie(suite) ->
@@ -258,7 +233,6 @@ unload_reload_thingie(suite) ->
 unload_reload_thingie(doc) ->
     ["Check delayed unload and reload"];
 unload_reload_thingie(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
@@ -295,7 +269,6 @@ unload_reload_thingie(Config) when is_list(Config) ->
 	       after 300 -> error 
 	       end,
     ?line ok = receive X -> {error, X} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 unload_reload_thingie_2(suite) ->
@@ -303,7 +276,6 @@ unload_reload_thingie_2(suite) ->
 unload_reload_thingie_2(doc) ->
     ["Check delayed unload and reload"];
 unload_reload_thingie_2(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
@@ -339,7 +311,6 @@ unload_reload_thingie_2(Config) when is_list(Config) ->
 	       end,
     ?line ok = unload_expect_fast(echo_drv,[{monitor,pending}]),
     ?line ok = receive X -> {error, X} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 unload_reload_thingie_3(suite) ->
@@ -347,7 +318,6 @@ unload_reload_thingie_3(suite) ->
 unload_reload_thingie_3(doc) ->
     ["Check delayed unload and reload failure"];
 unload_reload_thingie_3(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
@@ -385,13 +355,11 @@ unload_reload_thingie_3(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch erl_ddll:info(echo_drv, port_count)),
     ?line {error, not_loaded} = erl_ddll:try_unload(echo_drv,[{monitor,pending}]),
     ?line ok = receive X -> {error, X} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 reload_pending(suite) -> [];
 reload_pending(doc) -> ["Reload a driver that is pending on a user"];
 reload_pending(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
@@ -437,13 +405,11 @@ reload_pending(Config) when is_list(Config) ->
     ?line ok = receive {'UP', Ref3, driver, echo_drv, loaded} -> ok after 300 -> error end,
     [{Parent,1}] = erl_ddll:info(echo_drv,processes),
     ?line ok = receive Z -> {error, Z} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 load_fail_init(suite) -> [];
 load_fail_init(doc) -> ["Tests failure in the init in driver struct."];
 load_fail_init(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line PathFailing = ?config(priv_dir, Config),
     ?line [_|_] = AllFailInits = filelib:wildcard("echo_drv_fail_init.*",Path),
@@ -464,14 +430,12 @@ load_fail_init(Config) when is_list(Config) ->
 	       after 300 ->
 		       ok
 	       end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
 reload_pending_fail_init(suite) -> [];
 reload_pending_fail_init(doc) -> ["Reload a driver that is pending but init fails"];
 reload_pending_fail_init(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line PathFailing = ?config(priv_dir, Config),
     ?line [_|_] = AllFailInits = filelib:wildcard("echo_drv_fail_init.*",Path),
@@ -525,14 +489,12 @@ reload_pending_fail_init(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch erl_ddll:info(echo_drv,processes)),
 
     ?line ok = receive Z -> {error, Z} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 reload_pending_kill(suite) -> [];
 reload_pending_kill(doc) -> ["Reload a driver with kill_ports option "
 			     "that is pending on a user"];
 reload_pending_kill(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line OldFlag = process_flag(trap_exit,true),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
@@ -619,7 +581,6 @@ reload_pending_kill(Config) when is_list(Config) ->
     io:format("Port = ~w, Port2 = ~w, Port3 = ~w~n",[Port,Port2,Port3]),
     ?line ok = receive Z -> {error, Z} after 300 -> ok end,
     ?line process_flag(trap_exit,OldFlag),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -638,7 +599,6 @@ forced_port_killing(suite) ->
 forced_port_killing(doc) ->
     ["Check kill_ports option to try_unload "];
 forced_port_killing(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line OldFlag=process_flag(trap_exit,true),
     ?line Parent = self(),
@@ -666,7 +626,6 @@ forced_port_killing(Config) when is_list(Config) ->
     ?line ok = receive {'DOWN',Ref1, driver, echo_drv, unloaded} -> ok after 300 -> false end,
     ?line process_flag(trap_exit,OldFlag),
     ?line ok = receive X -> {error, X} after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 no_trap_exit_and_kill_ports(suite) ->
@@ -674,7 +633,6 @@ no_trap_exit_and_kill_ports(suite) ->
 no_trap_exit_and_kill_ports(doc) ->
     ["Check delayed unload and reload with no trap_exit"];
 no_trap_exit_and_kill_ports(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line Parent = self(),
     ?line OldFlag=process_flag(trap_exit,true),
@@ -707,7 +665,6 @@ no_trap_exit_and_kill_ports(Config) when is_list(Config) ->
     ?line ok = receive {got,{'DOWN', Ref2, driver, echo_drv, unloaded}} -> ok after 300 -> error end,
     ?line ok = receive {'EXIT',MyPort,driver_unloaded} -> ok after 300 -> error end,
     ?line process_flag(trap_exit,OldFlag),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 monitor_demonitor(suite) ->
@@ -715,7 +672,6 @@ monitor_demonitor(suite) ->
 monitor_demonitor(doc) ->
     ["Check monitor and demonitor of drivers"];
 monitor_demonitor(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:try_load(Path, echo_drv, []),
     ?line Ref = erl_ddll:monitor(driver,{echo_drv,unloaded}),
@@ -725,7 +681,6 @@ monitor_demonitor(Config) when is_list(Config) ->
     ?line [] = erl_ddll:info(echo_drv,awaiting_unload),
     ?line erl_ddll:try_unload(echo_drv,[]),
     ?line ok = receive _ -> error after 300 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 monitor_demonitor_load(suite) ->
@@ -733,7 +688,6 @@ monitor_demonitor_load(suite) ->
 monitor_demonitor_load(doc) ->
     ["Check monitor/demonitor of driver loading"];
 monitor_demonitor_load(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line {ok,loaded} = erl_ddll:try_load(Path, echo_drv, []),
     ?line Port = open_port({spawn, echo_drv}, [eof]),
@@ -756,7 +710,6 @@ monitor_demonitor_load(Config) when is_list(Config) ->
     ?line ok = receive {'DOWN',Ref4,driver,echo_drv,unloaded} -> ok after 300 -> error end,
     ?line ok = receive _ -> error after 300 -> ok end,
     ?line ok = unload_expect_fast(echo_drv,[]),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 new_interface(suite) ->
@@ -764,7 +717,6 @@ new_interface(suite) ->
 new_interface(doc) ->
     ["Test the new load/unload/reload interface"];
 new_interface(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     % Typical scenario
     ?line ok = erl_ddll:load(Path, echo_drv),
@@ -819,14 +771,12 @@ new_interface(Config) when is_list(Config) ->
     ?line ok = receive X3 -> {error, X3} after 300 -> ok end,
     ?line ok = erl_ddll:unload(echo_drv),
     ?line ok = receive {'DOWN', Ref3, driver, echo_drv, unloaded} -> ok after 300 -> error end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
     
 
 
 ddll_test(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     %?line {error,{already_started,ErlDdllPid}} = erl_ddll:start(),
@@ -856,14 +806,11 @@ ddll_test(Config) when is_list(Config) ->
      ok = unload_echo_driver(L1,L2),
 
 %%     %?line {error, {already_started, _}} = erl_ddll:start(),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests errors having to do with bad drivers.
 
 errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     ?line {ok, L1} = erl_ddll:loaded_drivers(),
@@ -885,8 +832,6 @@ errors(Config) when is_list(Config) ->
     end,
 
     ?line {ok, L1} = erl_ddll:loaded_drivers(),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 reference_count(doc) ->
@@ -894,7 +839,6 @@ reference_count(doc) ->
      "reaches zero, and that they cannot be unloaded while ",
      "they are still referenced."];
 reference_count(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
@@ -910,8 +854,6 @@ reference_count(Config) when is_list(Config) ->
     % Verify that the driver was automaticly unloaded when the
     % process died.
     ?line {error, not_loaded}=erl_ddll:unload_driver(echo_drv),
-    
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 % Loads the echo driver, send msg to started, sits and waits to
@@ -939,7 +881,6 @@ kill_port(doc) ->
     ["Test that a port that uses a driver is killed when the ",
      "process that loaded the driver dies."];
 kill_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
@@ -969,16 +910,12 @@ kill_port(Config) when is_list(Config) ->
     after 5000 ->
 	    ?line test_server:fail("Echo port did not terminate.")
     end,
-
-    %% Cleanup and exit.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 dont_kill_port(doc) ->
     ["Test that a port that uses a driver is not killed when the ",
      "process that loaded the driver dies and it's nicely opened."];
 dont_kill_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
@@ -1012,15 +949,11 @@ dont_kill_port(Config) when is_list(Config) ->
     after 5000 ->
 	    ?line test_server:fail("Echo port did not terminate.")
     end,
-
-    %% Cleanup and exit.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 properties(doc) -> ["Test that a process that loaded a driver ",
 		    "is the only process that can unload it."];
 properties(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
 
     % Let another process load the echo driver.
@@ -1044,12 +977,10 @@ properties(Config) when is_list(Config) ->
     % Unload the driver and terminate dummy process.
     ?line Pid ! {self(), die},
     ?line test_server:sleep(200),   % Give time to unload.
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 load_and_unload(doc) -> ["Load two drivers and unload them in load order."];
 load_and_unload(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
     ?line Path = ?config(data_dir, Config),
     ?line {ok, Loaded_drivers1} = erl_ddll:loaded_drivers(),
     ?line ok = erl_ddll:load_driver(Path, echo_drv),
@@ -1061,8 +992,6 @@ load_and_unload(Config) when is_list(Config) ->
     ?line Set2 = ordsets:from_list(Loaded_drivers2),
     ?line io:format("~p == ~p\n", [Loaded_drivers1, Loaded_drivers2]),
     ?line [] = ordsets:to_list(ordsets:subtract(Set2, Set1)),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.    
 
 lock_driver(suite) ->
@@ -1070,7 +999,6 @@ lock_driver(suite) ->
 lock_driver(doc) ->
     ["Check multiple calls to driver_lock_driver"];
 lock_driver(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line {ok, _} = erl_ddll:try_load(Path, lock_drv, []),
     ?line Port1 = open_port({spawn, lock_drv}, [eof]),
@@ -1078,7 +1006,6 @@ lock_driver(Config) when is_list(Config) ->
     ?line true = erl_ddll:info(lock_drv,permanent),
     ?line erlang:port_close(Port1),
     ?line erlang:port_close(Port2),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 

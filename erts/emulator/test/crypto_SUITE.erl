@@ -22,40 +22,23 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	 t_md5/1,t_md5_update/1,error/1,unaligned_context/1,random_lists/1,
 	 misc_errors/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [t_md5, t_md5_update, error, unaligned_context,
      random_lists, misc_errors].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 
 misc_errors(doc) ->
     ["Test crc32, adler32 and md5 error cases not covered by other tests"];
 misc_errors(suite) ->
     [];
 misc_errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
+    ct:timetrap({minutes, 2}),
     ?line 1 = erlang:adler32([]),
     ?line L = lists:duplicate(600,3),
     ?line 1135871753 = erlang:adler32(L),
@@ -78,7 +61,6 @@ misc_errors(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg,_}} = (catch erlang:adler32_combine(3,3,Big)),
     ?line {'EXIT', {badarg,_}} = (catch erlang:md5_update(<<"hej">>,<<"hej">>)),
     ?line {'EXIT', {badarg,_}} = (catch erlang:md5_final(<<"hej">>)),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -132,7 +114,7 @@ random_lists(doc) ->
 random_lists(suite) ->
     [];
 random_lists(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(5)),
+    ct:timetrap({minutes, 5}),
     ?line Num = erlang:system_info(schedulers_online),
     ?line B = list_to_binary(
 		lists:duplicate(
@@ -232,7 +214,6 @@ random_lists(Config) when is_list(Config) ->
 	  fun() -> random_iolist:run2(150,ADLER32_1_L_2,ADLER32_3_L_2) end},
 	 {?LINE, fun() -> random_iolist:run2(150,MD5_1_L_2,MD5_2_L_2) end}],
     ?line run_in_para(Wlist1,Num),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %%

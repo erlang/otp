@@ -20,8 +20,7 @@
 
 -module(erl_drv_thread_SUITE).
 -author('rickard.s.green@ericsson.com').
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 
 -export([basic/1, rwlock/1, tsd/1]).
 
@@ -33,21 +32,6 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, rwlock, tsd].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -97,7 +81,7 @@ drv_case(Config, CaseName, Command, TimeTrap) when is_list(Config),
     end.
 
 run_drv_case(Config, CaseName, Command, TimeTrap) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(TimeTrap)),
+    ct:timetrap({seconds, TimeTrap}),
     ?line DataDir = ?config(data_dir,Config),
     case erl_ddll:load_driver(DataDir, CaseName) of
 	ok -> ok;
@@ -115,7 +99,6 @@ run_drv_case(Config, CaseName, Command, TimeTrap) ->
 		  ok
 	  end,
     ?line ok = erl_ddll:unload_driver(CaseName),
-    ?line test_server:timetrap_cancel(Dog),
     ?line Result.
 
 receive_drv_result(Port, CaseName) ->

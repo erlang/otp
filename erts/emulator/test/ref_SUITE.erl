@@ -20,44 +20,19 @@
 
 -module(ref_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0]).
 -export([wrap_1/1]).
 
 -export([loop_ref/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(_, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(2)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [wrap_1].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 wrap_1(doc) -> "Check that refs don't wrap around easily.";
 wrap_1(Config) when is_list(Config) ->

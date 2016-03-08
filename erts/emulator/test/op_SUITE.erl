@@ -22,43 +22,19 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,complex_relop/1]).
 
 -export([]).
 -import(lists, [foldl/3,flatmap/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     [bsl_bsr, logical, t_not, relop_simple, relop,
      complex_relop].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->

@@ -26,10 +26,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, 
-	 end_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
+-export([all/0, suite/0,
+	 init_per_testcase/2, end_per_testcase/2,
+         basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
@@ -77,29 +76,10 @@ all() ->
      nif_monotonic_time, nif_time_offset, nif_convert_time_unit
     ].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 init_per_testcase(_Case, Config) ->
-%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
     Config.
 
 end_per_testcase(_Func, _Config) ->
-    %%Dog = ?config(watchdog, Config),
-    %%?t:timetrap_cancel(Dog),
     P1 = code:purge(nif_mod),
     Del = code:delete(nif_mod),
     P2 = code:purge(nif_mod),

@@ -21,8 +21,7 @@
 
 -module(call_trace_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	 init_per_testcase/2,end_per_testcase/2,
 	 hipe/1,process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
 	 return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
@@ -43,7 +42,9 @@
 
 -define(P, 20).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 30}}].
 
 all() -> 
     Common = [errors, on_load],
@@ -57,30 +58,10 @@ all() ->
 	false -> NotHipe ++ Common
     end.
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(30)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-
     %% Reloading the module will clear all trace patterns, and
     %% in a debug-compiled emulator run assertions of the counters
     %% for the number of traced exported functions in this module.

@@ -23,44 +23,26 @@
 -module(gc_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
-
--define(default_timeout, ?t:minutes(10)).
+-export([all/0, suite/0]).
 
 -export([grow_heap/1, grow_stack/1, grow_stack_heap/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [grow_heap, grow_stack, grow_stack_heap].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 grow_heap(doc) -> ["Produce a growing list of elements, ",
 		   "for X calls, then drop one item per call",
 		   "until the list is empty."];
 grow_heap(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(40)),
+    ct:timetrap({minutes, 40}),
     ok  = grow_heap1(256),
     ok  = grow_heap1(512),
     ok  = grow_heap1(1024),
     ok  = grow_heap1(2048),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 grow_heap1(Len) ->
@@ -89,11 +71,10 @@ grow_heap1([_|List], MaxLen, CurLen, down) ->
 grow_stack(doc) -> ["Increase and decrease stack size, and ",
 		    "drop off some garbage from time to time."];
 grow_stack(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(80)),
+    ct:timetrap({minutes, 80}),
     show_heap("before:"),
     grow_stack1(200, 0),
     show_heap("after:"),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 grow_stack1(0, _) ->
@@ -114,10 +95,9 @@ grow_stack_heap(doc) -> ["While growing the heap, bounces the size ",
 			 "of the stack, and while reducing the heap",
 			 "bounces the stack usage."];
 grow_stack_heap(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(40)),
+    ct:timetrap({minutes, 40}),
     grow_stack_heap1(16),
     grow_stack_heap1(32),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 grow_stack_heap1(MaxLen) ->

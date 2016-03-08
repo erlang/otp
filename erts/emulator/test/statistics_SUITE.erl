@@ -41,15 +41,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_, Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
@@ -77,11 +76,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-
 %%% Testing statistics(wall_clock).
-
-
 
 wall_clock_zero_diff(doc) ->
     "Tests that the 'Wall clock since last call' element of the result "

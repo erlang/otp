@@ -22,14 +22,13 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([equal/1, many_low/1, few_low/1, max/1, high/1]).
 
--define(default_timeout, ?t:minutes(11)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 11}}].
 
 all() -> 
     case catch erlang:system_info(modified_timing_level) of
@@ -41,21 +40,6 @@ all() ->
 	     "up by modfied timing."};
 	_ -> [equal, many_low, few_low, max, high]
     end.
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 %%-----------------------------------------------------------------------------------
@@ -78,18 +62,15 @@ end_per_group(_GroupName, Config) ->
 %%-----------------------------------------------------------------------------------
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
     %% main test process needs max prio
     ?line Prio = process_flag(priority, max),
     ?line MS = erlang:system_flag(multi_scheduling, block),
-    [{prio,Prio},{watchdog,Dog},{multi_scheduling, MS}|Config].
+    [{prio,Prio},{multi_scheduling, MS}|Config].
 
 end_per_testcase(_Case, Config) ->
     erlang:system_flag(multi_scheduling, unblock),
-    Dog=?config(watchdog, Config),
     Prio=?config(prio, Config),
     process_flag(priority, Prio),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 ok(Config) when is_list(Config) ->

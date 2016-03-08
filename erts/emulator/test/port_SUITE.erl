@@ -105,7 +105,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 10}}].
 
 all() -> 
     [otp_6224, {group, stream}, basic_ping, slow_writes,
@@ -133,9 +135,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
--define(DEFAULT_TIMEOUT, ?t:minutes(5)).
-
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
@@ -162,7 +161,7 @@ win_massive(Config) when is_list(Config) ->
     end.
 
 do_win_massive() ->
-    Dog = test_server:timetrap(test_server:seconds(360)),
+    ct:timetrap({minutes, 6}),
     SuiteDir = filename:dirname(code:which(?MODULE)),
     Ports = " +Q 8192",
     {ok, Node} = 
@@ -171,7 +170,6 @@ do_win_massive() ->
 			       [{args, " -pa " ++ SuiteDir ++ Ports}]),
     ok = rpc:call(Node,?MODULE,win_massive_client,[3000]),
     test_server:stop_node(Node),
-    test_server:timetrap_cancel(Dog),
     ok.
     
 win_massive_client(N) ->
@@ -205,19 +203,14 @@ win_massive_loop(P,N) ->
 	    []
     end.
 	    
-    
-
-
 
 %% Test that we can send a stream of bytes and get it back.
 %% We will send only a small amount of data, to avoid deadlock.
 
 stream_small(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     stream_ping(Config, 512, "", []),
     stream_ping(Config, 1777, "", []),
     stream_ping(Config, 1777, "-s512", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Send big amounts of data (much bigger than the buffer size in port test).
@@ -225,22 +218,20 @@ stream_small(Config) when is_list(Config) ->
 %% non-blocking reads and writes.
 
 stream_big(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(180)),
+    ct:timetrap({seconds, 180}),
     stream_ping(Config, 43755, "", []),
     stream_ping(Config, 100000, "", []),
     stream_ping(Config, 77777, " -s40000", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Sends packet with header size of 1, 2, and 4, with packets of various
 %% sizes.
 
 basic_ping(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(120)),
+    ct:timetrap({minutes, 2}),
     ping(Config, sizes(1), 1, "", []),
     ping(Config, sizes(2), 2, "", []),
     ping(Config, sizes(4), 4, "", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Let the port program insert delays between characters sent back to
@@ -248,17 +239,14 @@ basic_ping(Config) when is_list(Config) ->
 %% small chunks rather than all at once.
 
 slow_writes(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(20)),
     ping(Config, [8], 4, "-s1", []),
     ping(Config, [10], 2, "-s2", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_packet(doc) ->
     ["Test that we get {'EXIT', Port, einval} if we try to send a bigger "
      "packet than the packet header allows."];
 bad_packet(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     PortTest = port_test(Config),
     process_flag(trap_exit, true),
 
@@ -266,8 +254,6 @@ bad_packet(Config) when is_list(Config) ->
     bad_packet(PortTest, 1, 257),
     bad_packet(PortTest, 2, 65536),
     bad_packet(PortTest, 2, 65537),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_packet(PortTest, HeaderSize, PacketSize) ->
@@ -288,7 +274,6 @@ make_zero_packet(N) ->
 
 %% Test sending bad messages to a port.
 bad_port_messages(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     PortTest = port_test(Config),
     process_flag(trap_exit, true),
 
@@ -296,8 +281,6 @@ bad_port_messages(Config) when is_list(Config) ->
     bad_message(PortTest, {a}),
     bad_message(PortTest, {self(),{command,bad_command}}),
     bad_message(PortTest, {self(),{connect,no_pid}}),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_message(PortTest, Message) ->    
@@ -315,7 +298,7 @@ bad_message(PortTest, Message) ->
 %% Tests the 'binary' option for a port.
 
 t_binary(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(300)),
+    ct:timetrap({seconds, 300}),
 
     %% Packet mode.
     ping(Config, sizes(1), 1, "", [binary]),
@@ -326,12 +309,10 @@ t_binary(Config) when is_list(Config) ->
     stream_ping(Config, 435, "", [binary]),
     stream_ping(Config, 43755, "", [binary]),
     stream_ping(Config, 100000, "", [binary]),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 name1(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({seconds, 100}),
     PortTest = port_test(Config),
     Command = lists:concat([PortTest, " "]),
     P = open_port({spawn, Command}, []),
@@ -348,13 +329,12 @@ name1(Config) when is_list(Config) ->
         {P, closed} -> ok
     end,
     undefined = whereis(myport),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that the 'eof' option works.
 
 eof(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({seconds, 100}),
     PortTest = port_test(Config),
     Command = lists:concat([PortTest, " -h0 -q"]),
     P = open_port({spawn, Command}, [eof]),
@@ -366,25 +346,23 @@ eof(Config) when is_list(Config) ->
     receive
         {P, closed} -> ok
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the 'in' option for a port works.
 
 input_only(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(300)),
+    ct:timetrap({seconds, 300}),
     expect_input(Config, [0, 1, 10, 13, 127, 128, 255], 1, "", [in]),
     expect_input(Config, [0, 1, 255, 2048], 2, "", [in]),
     expect_input(Config, [0, 1, 255, 2048], 4, "", [in]),
     expect_input(Config, [0, 1, 10, 13, 127, 128, 255],
                  1, "", [in, binary]),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the 'out' option for a port works.
 
 output_only(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({seconds, 100}),
     Dir = ?config(priv_dir, Config),
 
     %% First we test that the port program gets the data
@@ -399,8 +377,6 @@ output_only(Config) when is_list(Config) ->
     %% Then we test that any writes to stdout from
     %% the port program is not sent to erlang
     output_and_verify(Config, ["-h0"], Data),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 output_and_verify(Config, Options, Data) ->
@@ -421,11 +397,10 @@ output_and_verify(Config, Options, Data) ->
 %% Basic test of receiving multiple packages, written in
 %% one operation by the other end.
 mul_basic(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(600)),
+    ct:timetrap({minutes, 10}),
     expect_input(Config, [0, 1, 255, 10, 13], 1, "", []),
     expect_input(Config, [0, 10, 13, 1600, 32767, 65535], 2, "", []),
     expect_input(Config, [10, 70000], 4, "", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test reading a buffer consisting of several packets, some
@@ -434,9 +409,8 @@ mul_basic(Config) when is_list(Config) ->
 %% delays in between.)
 
 mul_slow_writes(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(250)),
+    ct:timetrap({minutes, 4}),
     expect_input(Config, [0, 20, 255, 10, 1], 1, "-s64", []),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Runs several port tests in parallell.  Each individual test
@@ -444,7 +418,7 @@ mul_slow_writes(Config) when is_list(Config) ->
 %% should also finish in about 5 seconds.
 
 parallell(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(300)),
+    ct:timetrap({minutes, 5}),
     Testers = [
 	fun() -> stream_ping(Config, 1007, "-s100", []) end,
 	fun() -> stream_ping(Config, 10007, "-s1000", []) end,
@@ -464,7 +438,6 @@ parallell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pids = lists:map(fun fun_spawn/1, Testers),
     wait_for(Pids),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for([]) ->
@@ -483,7 +456,7 @@ wait_for(Pids) ->
 
 dying_port(suite) -> [];
 dying_port(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(150)),
+    ct:timetrap({minutes, 2}),
     process_flag(trap_exit, true),
 
     P1 = make_dying_port(Config),
@@ -504,8 +477,6 @@ dying_port(Config) when is_list(Config) ->
     wait_for_port_exit(P3),
     wait_for_port_exit(P4),
     wait_for_port_exit(P5),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for_port_exit(Port) ->
@@ -532,7 +503,7 @@ make_dying_port(Config) when is_list(Config) ->
 
 port_program_with_path(suite) -> [];
 port_program_with_path(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({minutes, 2}),
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     
@@ -567,7 +538,6 @@ port_program_with_path(Config) when is_list(Config) ->
         {P, {data, Message}} ->
             ok
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -575,7 +545,6 @@ port_program_with_path(Config) when is_list(Config) ->
 %% This used to fail on Windows.
 open_input_file_port(suite) -> [];
 open_input_file_port(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     PrivDir = ?config(priv_dir, Config),
     
     %% Create a file with the file driver and read it back using
@@ -591,13 +560,12 @@ open_input_file_port(Config) when is_list(Config) ->
 		    ok
 	    end
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that files can be written using open_port(Filename, [out]).
 open_output_file_port(suite) -> [];
 open_output_file_port(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({minutes, 2}),
     PrivDir = ?config(priv_dir, Config),
 
     %% Create a file with open_port/2 and read it back with
@@ -613,8 +581,6 @@ open_output_file_port(Config) when is_list(Config) ->
     OutputPort ! {self(), close},
     {ok, Bin} = file:read_file(MyFile2),
     FileData2 = binary_to_list(Bin),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that all appropriate fd's have been closed in the port program
@@ -670,7 +636,7 @@ iter_max_ports(Config) when is_list(Config) ->
     
     
 iter_max_ports_test(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(30)),
+    ct:timetrap({minutes, 30}),
     PortTest = port_test(Config),
     Command = lists:concat([PortTest, " -h0 -q"]),
     Iters = case os:type() of
@@ -687,7 +653,6 @@ iter_max_ports_test(Config) ->
     io:format("Result: ~p",[L]),
     all_equal(L),
     all_equal(L),
-    test_server:timetrap_cancel(Dog),
     {comment, "Max ports: " ++ integer_to_list(hd(L))}.
 
 do_iter_max_ports(N, Command) when N > 0 ->
@@ -779,14 +744,13 @@ tps_1K(Config) when is_list(Config) ->
     tps(1024, Config).
 
 tps(Size, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(300)),
+    ct:timetrap({minutes, 5}),
     PortTest = port_test(Config),
     Packet = list_to_binary(random_packet(Size, "e")),
     Port = open_port({spawn, PortTest}, [binary, {packet, 2}]),
     Transactions = 10000,
     {Elapsed, ok} = test_server:timecall(?MODULE, tps,
 					       [Port, Packet, Transactions]),
-    test_server:timetrap_cancel(Dog),
     {comment, integer_to_list(trunc(Transactions/Elapsed+0.5)) ++ " transactions/s"}.
 
 tps(_Port, _Packet, 0) -> ok;
@@ -801,8 +765,8 @@ tps(Port, Packet, N) ->
 
 %% Line I/O test
 line(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
     Siz = 110,
-    Dog = test_server:timetrap(test_server:seconds(300)),
     Packet1 = random_packet(Siz),
     Packet2 = random_packet(Siz div 2),
     %% Test that packets are split into lines
@@ -841,7 +805,6 @@ line(Config) when is_list(Config) ->
 				{eol, Packet1}]}], 0, "-d", [{line,Siz}]),
     %% Test that we get badarg if trying both packet and line
     bad_argument(Config, [{packet, 5}, {line, 5}]),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %%% Redirection of stderr test
@@ -850,7 +813,7 @@ stderr_to_stdout(suite) ->
 stderr_to_stdout(doc) ->
     "Test that redirection of standard error to standard output works.";
 stderr_to_stdout(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({minutes, 1}),
     %% See that it works
     Packet = random_packet(10),
     port_expect(Config,[{Packet,[Packet]}], 0, "-e -l10",
@@ -858,7 +821,6 @@ stderr_to_stdout(Config) when is_list(Config) ->
     %% stream_ping(Config, 10, "-e", [stderr_to_stdout]),
     %% See that it doesn't always happen (will generate garbage on stderr)
     port_expect(Config,[{Packet,[eof]}], 0, "-e -l10", [line,eof]),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -878,7 +840,7 @@ env(suite) ->
 env(doc) ->
     ["Test that the 'env' option works"];
 env(Config)  when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({minutes, 1}),
     Priv = ?config(priv_dir, Config),
     Temp = filename:join(Priv, "env_fun.bin"),
 
@@ -909,8 +871,6 @@ env(Config)  when is_list(Config) ->
     ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"} 
                         ||  X <- lists:seq(1,150)],
     env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 env_slave(File, Env) ->
@@ -1013,7 +973,7 @@ cd(suite) ->
 cd(doc) ->
     ["Test that the 'cd' option works"];
 cd(Config)  when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
+    ct:timetrap({minutes, 1}),
 
     Program = atom_to_list(lib:progname()),
     DataDir = ?config(data_dir, Config),
@@ -1048,8 +1008,6 @@ cd(Config)  when is_list(Config) ->
 	Other3 ->
 	    test_server:fail({env, Other3})
     end,
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 filename_equal(A, B) ->
@@ -1287,7 +1245,7 @@ otp_4389(doc) -> [];
 otp_4389(Config)  when is_list(Config) ->
     case os:type() of
 	{unix, _} ->
-	    Dog = test_server:timetrap(test_server:seconds(240)),
+            ct:timetrap({minutes, 4}),
 	    TCR = self(),
 	    case get_true_cmd() of
 		True when is_list(True) ->
@@ -1326,7 +1284,6 @@ otp_4389(Config)  when is_list(Config) ->
 					end)
 			      end,
 			      lists:duplicate(1000,[]))),
-		    test_server:timetrap_cancel(Dog),
 		    {comment,
 		     "This test case doesn't always fail when the bug that "
 		     "it tests for is present (it is most likely to fail on"
@@ -1363,11 +1320,10 @@ exit_status(suite) ->
 exit_status(doc) ->
     ["Test that the 'exit_status' option works"];
 exit_status(Config)  when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    port_expect(Config,[{"x",
-			       [{exit_status, 5}]}],
-		      1, "", [exit_status]),
-    test_server:timetrap_cancel(Dog),
+    ct:timetrap({minutes, 1}),
+    port_expect(Config,
+                [{"x", [{exit_status, 5}]}],
+                1, "", [exit_status]),
     ok.
 
 spawn_driver(suite) ->
@@ -1375,7 +1331,6 @@ spawn_driver(suite) ->
 spawn_driver(doc) ->
     ["Test spawning a driver specifically"];
 spawn_driver(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
@@ -1404,7 +1359,6 @@ spawn_driver(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "ls"}, [])),
     {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "cmd"}, [])),
     {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 parallelism_option(suite) ->
@@ -1412,7 +1366,6 @@ parallelism_option(suite) ->
 parallelism_option(doc) ->
     ["Test parallelism option of open_port"];
 parallelism_option(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
     ?line Path = ?config(data_dir, Config),
     ?line ok = load_driver(Path, "echo_drv"),
     ?line Port = erlang:open_port({spawn_driver, "echo_drv"},
@@ -1441,7 +1394,6 @@ parallelism_option(Config) when is_list(Config) ->
 	  end,
     ?line Port2 ! {self(), close},
     ?line receive {Port2, closed} -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 spawn_executable(suite) ->
@@ -1449,7 +1401,6 @@ spawn_executable(suite) ->
 spawn_executable(doc) ->
     ["Test spawning an executable specifically"];
 spawn_executable(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     DataDir = ?config(data_dir, Config),
     EchoArgs1 = filename:join([DataDir,"echo_args"]),
     ExactFile1 = filename:nativename(os:find_executable(EchoArgs1)),
@@ -1555,7 +1506,6 @@ spawn_executable(Config) when is_list(Config) ->
 	{unix,_} ->
 	    test_sh_file(SpaceDir)
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 unregister_name(Config) when is_list(Config) ->
@@ -1691,7 +1641,6 @@ mix_up_ports(suite) ->
 mix_up_ports(doc) ->
     ["Test that the emulator does not mix up ports when the port table wraps"];
 mix_up_ports(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn, "echo_drv"}, []),
@@ -1724,7 +1673,6 @@ mix_up_ports(Config) when is_list(Config) ->
 	  after 1000 ->
 		  ok
 	  end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 loop(Stop, Stop, Fun) when is_function(Fun) ->
@@ -1739,7 +1687,6 @@ otp_5112(doc) ->
     ["Test that link to connected process is taken away when port calls",
      "driver_exit() also when the port index has wrapped"];
 otp_5112(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     Port = otp_5112_get_wrapped_port(),
@@ -1753,7 +1700,6 @@ otp_5112(Config) when is_list(Config) ->
     {links, Links2} = process_info(self(),links),
     ?t:format("Links2: ~p~n",[Links2]),
     false = lists:member(Port, Links2), %% This used to fail
-    test_server:timetrap_cancel(Dog),
     ok.
 
 otp_5112_get_wrapped_port() ->
@@ -1787,7 +1733,6 @@ otp_5119(suite) ->
 otp_5119(doc) ->
     ["Test that port index is not unnecessarily wrapped"];
 otp_5119(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     PI1 = port_ix(otp_5119_fill_empty_port_tab([])),
@@ -1806,7 +1751,6 @@ otp_5119(Config) when is_list(Config) ->
     ?t:format("MaxPorts = ~p~n", [MaxPorts]),
     true = PortIx2 > PortIx1,
     true = PortIx2 =< PortIx1 + MaxPorts,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 otp_5119_fill_empty_port_tab(Ports) ->
@@ -1833,7 +1777,6 @@ port_ix(Port) when is_port(Port) ->
 otp_6224(doc) -> ["Check that port command failure doesn't crash the emulator"];
 otp_6224(suite) -> [];
 otp_6224(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "failure_drv"),
     Go = make_ref(),
@@ -1855,7 +1798,6 @@ otp_6224(Config) when is_list(Config) ->
 						Reason})
 			end
 	  end,
-    test_server:timetrap_cancel(Dog),
     ok.
     
 otp_6224_loop() ->
@@ -1872,7 +1814,7 @@ exit_status_multi_scheduling_block(Config) when is_list(Config) ->
     Repeat = 3,
     case ?t:os_type() of
 	      {unix, _} ->
-		  Dog = ?t:timetrap(test_server:minutes(2*Repeat)),
+                  ct:timetrap({minutes, 2*Repeat}),
 		  SleepSecs = 6,
 		  try
 		      lists:foreach(fun (_) ->
@@ -1884,7 +1826,6 @@ exit_status_multi_scheduling_block(Config) when is_list(Config) ->
 		      %% Wait for the system to recover (regardless
 		      %% of success or not) otherwise later testcases
 		      %% may unnecessarily fail.
-		      ?t:timetrap_cancel(Dog),
 		      receive after SleepSecs+500 -> ok end
 		  end;
 	      _ -> {skip, "Not implemented for this OS"}
@@ -2400,7 +2341,7 @@ close_deaf_port(doc) -> ["Send data to port program that does not read it, then 
 			 "Primary targeting Windows to test threaded_handle_closer in sys.c"];
 close_deaf_port(suite) -> [];
 close_deaf_port(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(100)),
+    ct:timetrap({minutes, 2}),
     DataDir = ?config(data_dir, Config),
     DeadPort = os:find_executable("dead_port", DataDir),
     Port = open_port({spawn,DeadPort++" 60"},[]),
@@ -2410,7 +2351,6 @@ close_deaf_port(Config) when is_list(Config) ->
     Res = close_deaf_port_1(0, DeadPort),
     io:format("Waiting for OS procs to terminate...\n"),
     receive after 5*1000 -> ok end,
-    test_server:timetrap_cancel(Dog),
     Res.
 
 close_deaf_port_1(200, _) ->

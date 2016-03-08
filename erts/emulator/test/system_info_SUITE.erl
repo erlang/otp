@@ -33,46 +33,18 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0]).
 
--export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1, memory/1,
-         ets_limit/1]).
+-export([process_count/1, system_version/1, misc_smoke_tests/1,
+         heap_size/1, wordsize/1, memory/1, ets_limit/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(2)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
      heap_size, wordsize, memory, ets_limit].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
 
 %%%
 %%% The test cases -------------------------------------------------------------

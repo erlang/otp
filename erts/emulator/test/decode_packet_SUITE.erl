@@ -24,13 +24,14 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
          otp_9389/1, otp_9389_line/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [basic, packet_size, neg, http, line, ssl, otp_8536,
@@ -39,28 +40,13 @@ all() ->
 groups() -> 
     [].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     rand:seed(exsplus),
     io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 basic(doc) -> [];
 basic(suite) -> [];

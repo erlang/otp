@@ -119,22 +119,22 @@
 -define(heap_binary_size, 64).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
     case catch erts_debug:get_internal_state(available_internal_state) of
 	true -> ok;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
     erlang:display({init_per_testcase, Case}),
     ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
-    [{watchdog, Dog},{testcase, Case}|Config].
+    [{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) ->
-    Dog = ?config(watchdog, Config),
     erlang:display({end_per_testcase, Case}),
     ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
-    ?t:timetrap_cancel(Dog).
+    ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
     [a_test, outputv_errors, outputv_echo, queue_echo, {group, timer},
@@ -264,7 +264,7 @@ build_iolist(N0, Base) ->
 
 outputv_echo(doc) -> ["Test echoing data with a driver that supports outputv."];
 outputv_echo(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap({minutes, 10}),
     Name = 'outputv_drv',
     P = start_driver(Config, Name, true),
 
@@ -304,7 +304,6 @@ outputv_echo(Config) when is_list(Config) ->
     ?line ov_test(P, [int,{bin,17},int,{bin,?heap_binary_size+1}|{bin,3}]),
 
     stop_driver(P, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 ov_test(Port, Template) ->
@@ -379,14 +378,12 @@ compare(Got, Expected) ->
 
 timer_measure(doc) -> ["Check that timers time out in good time."];
 timer_measure(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
 
     ?line try_timeouts(Port, 8997),
 
     ?line stop_driver(Port, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 try_timeouts(_, 0) -> ok;
@@ -411,14 +408,12 @@ try_timeouts(Port, Timeout) ->
 
 timer_cancel(doc) -> ["Try cancelling timers set in a driver."];
 timer_cancel(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
 
     ?line try_cancel(Port, 10000),
 
     ?line stop_driver(Port, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 try_cancel(Port, Timeout) ->
@@ -452,7 +447,6 @@ try_cancel(Port, Timeout) ->
 %% before setting a timer.
 
 timer_delay(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
 
@@ -480,21 +474,18 @@ timer_delay(Config) when is_list(Config) ->
     end,
 
     ?line stop_driver(Port, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that driver_set_timer with new timout really changes
 %% the timer (ticket OTP-5942), it didn't work before
 
 timer_change(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
 
     ?line try_change_timer(Port, 10000),
 
     ?line stop_driver(Port, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 try_change_timer(_Port, 0) -> ok;
@@ -534,7 +525,7 @@ queue_echo(Config) when is_list(Config) ->
     end.
 
 queue_echo_1(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap({minutes, 10}),
     Name = 'queue_drv',
     ?line P = start_driver(Config, Name, true),
 
@@ -566,7 +557,6 @@ queue_echo_1(Config) ->
 		     {?PUSHQV, [{bin,0},{list,1},{bin,1},{bin,319}]}]),
 
     ?line stop_driver(P, Name),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 q_echo(Port, SpecList) ->

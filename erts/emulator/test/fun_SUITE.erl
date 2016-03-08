@@ -21,11 +21,7 @@
 -module(fun_SUITE).
 -compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
--define(default_timeout, ?t:minutes(1)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
 	 equality/1,ordering/1,
 	 fun_to_port/1,t_hash/1,t_phash/1,t_phash2/1,md5/1,
@@ -37,7 +33,10 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
+
 
 all() -> 
     [bad_apply, bad_fun_call, badarity, ext_badarity,
@@ -45,31 +44,6 @@ all() ->
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 bad_apply(doc) ->
     "Test that the correct EXIT code is returned for all types of bad funs.";
