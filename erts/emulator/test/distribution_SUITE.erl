@@ -164,7 +164,7 @@ bulk_send(Terms, BinSize) ->
     ?line stop_node(Node),
 
     ?line test_server:timetrap_cancel(Dog),
-    {comment, integer_to_list(trunc(Size/1024/Elapsed+0.5)) ++ " K/s"}.
+    {comment, integer_to_list(trunc(Size/1024/max(1,Elapsed)+0.5)) ++ " K/s"}.
 
 bulk_sendsend(Terms, BinSize) ->
     {Rate1, MonitorCount1} = bulk_sendsend2(Terms, BinSize,   5),
