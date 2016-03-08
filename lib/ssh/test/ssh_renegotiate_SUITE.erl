@@ -31,7 +31,7 @@
 %%--------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{minutes,12}}].
+	    {timetrap,{seconds,40}}].
 
 
 all() -> [{group,default_algs},
@@ -83,7 +83,8 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 
 %%% Idle timeout test
-
+rekey() -> [{timetrap,{seconds,90}}].
+    
 rekey(Config) ->
     {Pid, Host, Port} = 
 	ssh_test_lib:std_daemon(Config,
@@ -104,6 +105,8 @@ rekey(Config) ->
 %%--------------------------------------------------------------------
 
 %%% Test rekeying by data volume
+
+rekey_limit() -> [{timetrap,{seconds,400}}].
 
 rekey_limit(Config) ->
     UserDir = ?config(priv_dir, Config),

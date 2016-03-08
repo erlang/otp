@@ -51,8 +51,10 @@
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
-	 ssh_connect_nonegtimeout_connected_parallel/1, 
-	 ssh_connect_nonegtimeout_connected_sequential/1, 
+	 ssh_connect_nonegtimeout_connected_parallel/0, 
+	 ssh_connect_nonegtimeout_connected_parallel/1,
+	 ssh_connect_nonegtimeout_connected_sequential/0,
+	 ssh_connect_nonegtimeout_connected_sequential/1,
 	 ssh_connect_timeout/1, connect/4,
 	 ssh_daemon_minimal_remote_max_packet_size_option/1, 
 	 ssh_msg_debug_fun_option_client/1, 
@@ -80,7 +82,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,6}}].
+     {timetrap,{seconds,40}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -980,10 +982,16 @@ ssh_connect_negtimeout(Config, Parallel) ->
 
 %%--------------------------------------------------------------------
 %%% Test that ssh connection does not timeout if the connection is established (parallel)
+
+ssh_connect_nonegtimeout_connected_parallel() -> [{timetrap,{seconds,90}}].
+
 ssh_connect_nonegtimeout_connected_parallel(Config) ->
     ssh_connect_nonegtimeout_connected(Config, true).
 
 %%% Test that ssh connection does not timeout if the connection is established (non-parallel)
+
+ssh_connect_nonegtimeout_connected_sequential() -> [{timetrap,{seconds,90}}].
+
 ssh_connect_nonegtimeout_connected_sequential(Config) ->
     ssh_connect_nonegtimeout_connected(Config, false).
 

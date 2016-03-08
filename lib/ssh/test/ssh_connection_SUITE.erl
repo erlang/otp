@@ -37,7 +37,7 @@
 %%     [{ct_hooks,[ts_install_cth]}].
 
 suite() ->
-    [{timetrap,{minutes,2}}].
+    [{timetrap,{seconds,40}}].
 
 all() ->
     [
@@ -314,11 +314,7 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
-
-interrupted_send() ->
-    [{doc, "Use a subsystem that echos n char and then sends eof to cause a channel exit partway through a large send."}].
-
-interrupted_send(Config) when is_list(Config) ->
+interrupted_send(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
