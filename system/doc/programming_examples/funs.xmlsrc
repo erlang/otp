@@ -212,7 +212,7 @@ f(...) ->
              ...
         end, ...)
     ...</code>
-    <p>instead of writng the following code:</p>
+    <p>instead of writing the following code:</p>
     <code type="none">
 f(...) ->
     Y = ...
