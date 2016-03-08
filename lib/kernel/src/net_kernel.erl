@@ -53,18 +53,25 @@
 -define(tckr_dbg(X), ok).
 -endif.
 
-%% User Interface Exports
--export([start/1, start_link/1, stop/0,
-	 kernel_apply/3,
+%% Documented API functions.
+
+-export([allow/1,
+	 connect_node/1,
 	 monitor_nodes/1,
 	 monitor_nodes/2,
+	 start/1,
+	 stop/0]).
+
+%% Exports for internal use.
+
+-export([start_link/1,
+	 kernel_apply/3,
 	 longnames/0,
-	 allow/1,
 	 protocol_childspecs/0,
 	 epmd_module/0]).
 
 -export([connect/1, disconnect/1, hidden_connect/1, passive_cnct/1]).
--export([connect_node/1, hidden_connect_node/1]). %% explicit connect
+-export([hidden_connect_node/1]). %% explicit connect
 -export([set_net_ticktime/1, set_net_ticktime/2, get_net_ticktime/0]).
 
 -export([node_info/1, node_info/2, nodes_info/0,
@@ -73,7 +80,8 @@
 
 -export([publish_on_node/1, update_publish_nodes/1]).
 
-%% Internal Exports
+%% Internal exports for spawning processes.
+
 -export([do_spawn/3,
 	 spawn_func/6,
 	 ticker/2,
