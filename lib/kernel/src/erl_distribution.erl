@@ -28,12 +28,7 @@
 %% Called during system start-up.
 
 start_link() ->
-    case catch start_p() of
-	{ok,Args} ->
-	    start_link(Args);
-	_ ->
-	    ignore
-    end.
+    do_start_link([{sname,shortnames},{name,longnames}]).
 
 %% Called from net_kernel:start/1 to start distribution after the
 %% system has already started.
@@ -84,26 +79,15 @@ init(NetArgs) ->
     EarlySpecs = net_kernel:protocol_childspecs(),
     {ok,{{one_for_all,0,1}, EarlySpecs ++ Epmd ++ [Auth,Kernel]}}.
 
-start_p() ->
-    sname(),
-    lname(),
-    false.
-
-sname() ->
-    case init:get_argument(sname) of
+do_start_link([{Arg,Flag}|T]) ->
+    case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    throw({ok,[list_to_atom(Name),shortnames|ticktime()]});
+	    start_link([list_to_atom(Name),Flag|ticktime()]);
 	_ ->
-	    false
-    end.
-
-lname() ->
-    case init:get_argument(name) of
-	{ok,[[Name]]} ->
-	    throw({ok,[list_to_atom(Name),longnames|ticktime()]});
-	_ ->
-	    false
-    end.
+	    do_start_link(T)
+    end;
+do_start_link([]) ->
+    ignore.
 
 ticktime() ->
     %% catch, in case the system was started with boot file start_old,
