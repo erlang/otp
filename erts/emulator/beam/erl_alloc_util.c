@@ -6273,7 +6273,7 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x019:	return (UWord) PREV_BLK((Block_t *) a1);
     case 0x01a: return (UWord) IS_MBC_FIRST_BLK((Allctr_t*)a1, (Block_t *) a2);
     case 0x01b: return (UWord) sizeof(Unit_t);
-    case 0x01c: return (unsigned long) BLK_TO_MBC((Block_t*) a1);
+    case 0x01c: return (UWord) BLK_TO_MBC((Block_t*) a1);
     case 0x01d: ((Allctr_t*) a1)->add_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
     case 0x01e: ((Allctr_t*) a1)->remove_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
 #ifdef ERTS_SMP
