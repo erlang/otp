@@ -25,6 +25,8 @@
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
+%% Called during system start-up.
+
 start_link() ->
     case catch start_p() of
 	{ok,Args} ->
@@ -33,8 +35,38 @@ start_link() ->
 	    ignore
     end.
 
+%% Called from net_kernel:start/1 to start distribution after the
+%% system has already started.
+
+start(Args) ->
+    C = {net_sup_dynamic, {?MODULE,start_link,[Args]}, permanent,
+	 1000, supervisor, [erl_distribution]},
+    supervisor:start_child(kernel_sup, C).
+
+%% Stop distribution.
+
+stop() ->
+    case supervisor:terminate_child(kernel_sup, net_sup_dynamic) of
+	ok ->
+	    supervisor:delete_child(kernel_sup, net_sup_dynamic);
+	Error ->
+	    case whereis(net_sup) of
+		Pid when is_pid(Pid) ->
+		    %% Dist. started through -sname | -name flags
+		    {error, not_allowed};
+		_ ->
+		    Error
+	    end
+    end.
+
+%%%
+%%% Internal helper functions.
+%%%
+
+%% Helper start function.
+
 start_link(Args) ->
-    supervisor:start_link({local,net_sup},erl_distribution,Args).
+    supervisor:start_link({local,net_sup}, ?MODULE, Args).
 
 init(NetArgs) ->
     Epmd = 
@@ -84,23 +116,3 @@ ticktime() ->
 	_ ->
 	    []
     end.
-
-start(Args) ->
-    C = {net_sup_dynamic, {erl_distribution, start_link, [Args]}, permanent,
-	 1000, supervisor, [erl_distribution]},
-    supervisor:start_child(kernel_sup, C).
-
-stop() ->
-    case supervisor:terminate_child(kernel_sup, net_sup_dynamic) of
-	ok ->
-	    supervisor:delete_child(kernel_sup, net_sup_dynamic);
-	Error ->
-	    case whereis(net_sup) of
-		Pid when is_pid(Pid) ->
-		    %% Dist. started through -sname | -name flags
-		    {error, not_allowed};
-		_ ->
-		    Error
-	    end
-    end.
-
