@@ -191,7 +191,7 @@ parse_define([#xmlElement{name=initializer,content=Contents}|_R],Def,_Os) ->
     try
 	case Val0 of
 	    "0x" ++ Val1 ->
-		_ = http_util:hexlist_to_integer(Val1),
+		_ = list_to_integer(Val1, 16),
 		Def#def{val=Val1, type=hex};
 	    _ ->
 		Val = list_to_integer(Val0),

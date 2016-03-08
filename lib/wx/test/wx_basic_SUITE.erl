@@ -338,6 +338,20 @@ data_types(_Config) ->
     ?m(true, is_boolean(wxCalendarCtrl:setDate(Cal,DateTime))),
     ?m({Date,_}, wxCalendarCtrl:getDate(Cal)),
 
+    %% Images, test sending and reading binaries
+    Colors = << <<200:8, 199:8, 198:8 >> || _ <- lists:seq(1, 128*64) >>,
+    Alpha  = << <<255:8>> || _ <- lists:seq(1, 128*64) >>,
+    ImgRGB = ?mt(wxImage, wxImage:new(128, 64, Colors)),
+    ?m(true, wxImage:ok(ImgRGB)),
+    ?m(false, wxImage:hasAlpha(ImgRGB)),
+    ?m(Colors, wxImage:getData(ImgRGB)),
+
+    ImgRGBA = ?mt(wxImage, wxImage:new(128, 64, Colors, Alpha)),
+    ?m(true, wxImage:ok(ImgRGBA)),
+    ?m(true, wxImage:hasAlpha(ImgRGBA)),
+    ?m(Colors, wxImage:getData(ImgRGBA)),
+    ?m(Alpha, wxImage:getAlpha(ImgRGBA)),
+
     wxClientDC:destroy(CDC),
     %%wx_test_lib:wx_destroy(Frame,Config).
     wx:destroy().

@@ -241,12 +241,10 @@ standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
       bin = ev->binv[1];
       driver_binary_inc_refc(bin); /* Otherwise it could get deallocated */
       binref->bin = bin;
-      sd->bin = binref;
    } else { /* Empty binary (becomes NULL) */
       binref->base = NULL;
       binref->size = 0;
       binref->from = driver_caller(sd->port_handle);
       binref->bin = NULL;
-      sd->bin = binref;
    }
 }

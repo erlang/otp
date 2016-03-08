@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@
 -export([destroy/1,getSelection/1,getStringSelection/1,new/0,new/4,new/5,setSelection/2]).
 
 %% inherited exports
--export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
-  centerOnParent/2,centerOnScreen/1,centerOnScreen/2,centre/1,centre/2,
-  centreOnParent/1,centreOnParent/2,centreOnScreen/1,centreOnScreen/2,
-  clearBackground/1,clientToScreen/2,clientToScreen/3,close/1,close/2,
-  connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
+-export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
+  centerOnParent/1,centerOnParent/2,centerOnScreen/1,centerOnScreen/2,
+  centre/1,centre/2,centreOnParent/1,centreOnParent/2,centreOnScreen/1,
+  centreOnScreen/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
+  close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   createButtonSizer/2,createStdDialogButtonSizer/2,destroyChildren/1,
   disable/1,disconnect/1,disconnect/2,disconnect/3,enable/1,enable/2,
   endModal/2,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
@@ -53,25 +53,26 @@
   getTitle/1,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
   getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
   hide/1,iconize/1,iconize/2,inheritAttributes/1,initDialog/1,invalidateBestSize/1,
-  isActive/1,isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isFullScreen/1,
-  isIconized/1,isMaximized/1,isModal/1,isRetained/1,isShown/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,maximize/1,
-  maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
-  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
-  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
-  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
-  setAcceleratorTable/2,setAffirmativeId/2,setAutoLayout/2,setBackgroundColour/2,
-  setBackgroundStyle/2,setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,
-  setCursor/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
-  setFont/2,setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,
-  setId/2,setLabel/2,setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,
-  setOwnFont/2,setOwnForegroundColour/2,setPalette/2,setReturnCode/2,
-  setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,setShape/2,
-  setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
-  setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
-  setThemeEnabled/2,setTitle/2,setToolTip/2,setVirtualSize/2,setVirtualSize/3,
+  isActive/1,isDoubleBuffered/1,isEnabled/1,isExposed/2,isExposed/3,
+  isExposed/5,isFullScreen/1,isIconized/1,isMaximized/1,isModal/1,isRetained/1,
+  isShown/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,
+  makeModal/2,maximize/1,maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
+  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
+  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
+  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
+  removeChild/2,reparent/2,requestUserAttention/1,requestUserAttention/2,
+  screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,
+  scrollWindow/4,setAcceleratorTable/2,setAffirmativeId/2,setAutoLayout/2,
+  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
+  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
+  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
+  setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,setId/2,setLabel/2,
+  setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,
+  setOwnForegroundColour/2,setPalette/2,setReturnCode/2,setScrollPos/3,
+  setScrollPos/4,setScrollbar/5,setScrollbar/6,setShape/2,setSize/2,
+  setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,
+  setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setThemeEnabled/2,
+  setTitle/2,setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,
   setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
   setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
   show/1,show/2,showFullScreen/2,showFullScreen/3,showModal/1,thaw/1,
@@ -222,6 +223,14 @@ getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
+%% @hidden
+setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
+%% @hidden
+isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
+%% @hidden
+canSetTransparent(This) -> wxWindow:canSetTransparent(This).
+%% @hidden
+setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden

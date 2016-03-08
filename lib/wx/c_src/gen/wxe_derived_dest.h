@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -180,6 +180,7 @@ class EwxBitmap : public wxBitmap {
  EwxBitmap(const wxString& filename,wxBitmapType type) : wxBitmap(filename,type) {};
  EwxBitmap(const wxImage& image,int depth) : wxBitmap(image,depth) {};
  EwxBitmap() : wxBitmap() {};
+ EwxBitmap(wxBitmap copy) : wxBitmap(copy) {};
 };
 
 class EwxIcon : public wxIcon {
@@ -187,6 +188,7 @@ class EwxIcon : public wxIcon {
  EwxIcon(const wxString& filename,wxBitmapType type,int desiredWidth,int desiredHeight) : wxIcon(filename,type,desiredWidth,desiredHeight) {};
  EwxIcon(const wxIconLocation& loc) : wxIcon(loc) {};
  EwxIcon() : wxIcon() {};
+ EwxIcon(wxIcon copy) : wxIcon(copy) {};
 };
 
 class EwxCursor : public wxCursor {
@@ -215,6 +217,7 @@ class EwxImage : public wxImage {
  EwxImage(const wxString& name,const wxString& mimetype,int index) : wxImage(name,mimetype,index) {};
  EwxImage(const wxString& name,long type,int index) : wxImage(name,type,index) {};
  EwxImage() : wxImage() {};
+ EwxImage(wxImage copy) : wxImage(copy) {};
 };
 
 class EwxBrush : public wxBrush {
@@ -300,6 +303,7 @@ class EwxFont : public wxFont {
  EwxFont(int size,wxFontFamily family,wxFontStyle style,int weight,bool underlined,const wxString& face,wxFontEncoding encoding) : wxFont(size,family,style,weight,underlined,face,encoding) {};
  EwxFont(const wxString& fontname) : wxFont(fontname) {};
  EwxFont() : wxFont() {};
+ EwxFont(wxFont copy) : wxFont(copy) {};
 };
 
 class EwxToolTip : public wxToolTip {
