@@ -382,11 +382,11 @@ apply_micro(M) ->
      {weight_percentage, M#micro.weight},
      {loops, M#micro.loops},
      {microsecs,MicroSecs},
-     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div MicroSecs},
+     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div max(1,MicroSecs)},
      {gcs, GC1 - GC0},
      {kilo_word_reclaimed, (Words1 - Words0) div 1000},
      {kilo_reductions, Reds div 1000},
-     {gc_intensity, gci(Elapsed, GC1 - GC0, Words1 - Words0)}].
+     {gc_intensity, gci(max(1,Elapsed), GC1 - GC0, Words1 - Words0)}].
 
 monotonic_time() ->
     try erlang:monotonic_time() catch error:undef -> erlang:now() end.

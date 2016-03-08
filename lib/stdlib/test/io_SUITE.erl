@@ -2125,12 +2125,24 @@ rpc_call_max(Node, M, F, Args) ->
 %% Make sure that a bad specification for a printable range is rejected.
 bad_printable_range(Config) when is_list(Config) ->
     Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
-    case os:cmd(Cmd) of
-	"bad range of printable characters" ++ _ ->
-	    ok;
-	String ->
-	    io:format("~s\n", [String]),
-	    ?t:fail()
+    P = open_port({spawn, Cmd}, [stderr_to_stdout, {line, 200}]),
+    ok = receive
+	     {P, {data, {eol , "bad range of printable characters" ++ _}}} ->
+		 ok;
+	     Other ->
+		 Other
+	 after 1000 ->
+		 timeout
+	 end,
+    catch port_close(P),
+    flush_from_port(P),
+    ok.
+
+flush_from_port(P) ->
+    receive {P, _} ->
+	    flush_from_port(P)
+    after 0 ->
+	    ok
     end.
 
 io_lib_print_binary_depth_one(doc) ->
