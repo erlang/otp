@@ -21,7 +21,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0,start_link/1,init/1,start/1,stop/0]).
+-export([start_link/0,start_link/2,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -34,7 +34,7 @@ start_link() ->
 %% system has already started.
 
 start(Args) ->
-    C = {net_sup_dynamic, {?MODULE,start_link,[Args]}, permanent,
+    C = {net_sup_dynamic, {?MODULE,start_link,[Args,false]}, permanent,
 	 1000, supervisor, [erl_distribution]},
     supervisor:start_child(kernel_sup, C).
 
@@ -60,8 +60,8 @@ stop() ->
 
 %% Helper start function.
 
-start_link(Args) ->
-    supervisor:start_link({local,net_sup}, ?MODULE, Args).
+start_link(Args, CleanHalt) ->
+    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt]).
 
 init(NetArgs) ->
     Epmd = 
@@ -74,7 +74,7 @@ init(NetArgs) ->
 		  permanent,2000,worker,[EpmdMod]}]
 	end,
     Auth = {auth,{auth,start_link,[]},permanent,2000,worker,[auth]},
-    Kernel = {net_kernel,{net_kernel,start_link,[NetArgs]},
+    Kernel = {net_kernel,{net_kernel,start_link,NetArgs},
 	      permanent,2000,worker,[net_kernel]},
     EarlySpecs = net_kernel:protocol_childspecs(),
     {ok,{{one_for_all,0,1}, EarlySpecs ++ Epmd ++ [Auth,Kernel]}}.
@@ -82,7 +82,7 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()]);
+	    start_link([list_to_atom(Name),Flag|ticktime()], true);
 	_ ->
 	    do_start_link(T)
     end;

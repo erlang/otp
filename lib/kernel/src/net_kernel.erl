@@ -64,7 +64,7 @@
 
 %% Exports for internal use.
 
--export([start_link/1,
+-export([start_link/2,
 	 kernel_apply/3,
 	 longnames/0,
 	 protocol_childspecs/0,
@@ -349,18 +349,18 @@ request(Req) ->
 start(Args) ->
     erl_distribution:start(Args).
 
-%% This is the main startup routine for net_kernel
-%% The defaults are longnames and a ticktime of 15 secs to the tcp_drv.
+%% This is the main startup routine for net_kernel (only for internal
+%% use by the Kernel application.
 
-start_link([Name]) ->
-    start_link([Name, longnames]);
+start_link([Name], CleanHalt) ->
+    start_link([Name, longnames], CleanHalt);
+start_link([Name, LongOrShortNames], CleanHalt) ->
+    start_link([Name, LongOrShortNames, 15000], CleanHalt);
 
-start_link([Name, LongOrShortNames]) ->
-    start_link([Name, LongOrShortNames, 15000]);
-
-start_link([Name, LongOrShortNames, Ticktime]) ->
-    case gen_server:start_link({local, net_kernel}, net_kernel,
-			       {Name, LongOrShortNames, Ticktime}, []) of
+start_link([Name, LongOrShortNames, Ticktime], CleanHalt) ->
+    Args = {Name, LongOrShortNames, Ticktime, CleanHalt},
+    case gen_server:start_link({local, net_kernel}, ?MODULE,
+			       Args, []) of
 	{ok, Pid} ->
 	    {ok, Pid};
 	{error, {already_started, Pid}} ->
@@ -369,12 +369,9 @@ start_link([Name, LongOrShortNames, Ticktime]) ->
 	    exit(nodistribution)
     end.
 
-%% auth:get_cookie should only be able to return an atom
-%% tuple cookies are unknowns
-
-init({Name, LongOrShortNames, TickT}) ->
+init({Name, LongOrShortNames, TickT, CleanHalt}) ->
     process_flag(trap_exit,true),
-    case init_node(Name, LongOrShortNames) of
+    case init_node(Name, LongOrShortNames, CleanHalt) of
 	{ok, Node, Listeners} ->
 	    process_flag(priority, max),
 	    Ticktime = to_integer(TickT),
@@ -1209,11 +1206,12 @@ get_proto_mod(_Family, _Protocol, []) ->
 
 %% -------- Initialisation functions ------------------------
 
-init_node(Name, LongOrShortNames) ->
-    {NameWithoutHost,_Host} = split_node(Name),
+init_node(Name, LongOrShortNames, CleanHalt) ->
+    {NameWithoutHost0,_Host} = split_node(Name),
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
-	    case start_protos(list_to_atom(NameWithoutHost),Node) of
+	    NameWithoutHost = list_to_atom(NameWithoutHost0),
+	    case start_protos(NameWithoutHost, Node, CleanHalt) of
 		{ok, Ls} ->
 		    {ok, Node, Ls};
 		Error ->
@@ -1316,21 +1314,26 @@ epmd_module() ->
 %% Start all protocols
 %%
 
-start_protos(Name,Node) ->
+start_protos(Name, Node, CleanHalt) ->
     case init:get_argument(proto_dist) of
 	{ok, [Protos]} ->
-	    start_protos(Name,Protos, Node);
+	    start_protos(Name, Protos, Node, CleanHalt);
 	_ ->
-	    start_protos(Name,["inet_tcp"], Node)
+	    start_protos(Name, ["inet_tcp"], Node, CleanHalt)
     end.
 
-start_protos(Name,Ps, Node) ->
-    case start_protos(Name, Ps, Node, []) of
-	[] -> {error, badarg};
-	Ls -> {ok, Ls}
+start_protos(Name, Ps, Node, CleanHalt) ->
+    case start_protos(Name, Ps, Node, [], CleanHalt) of
+	[] ->
+	    case CleanHalt of
+		true -> halt(1);
+		false -> {error, badarg}
+	    end;
+	Ls ->
+	    {ok, Ls}
     end.
 
-start_protos(Name, [Proto | Ps], Node, Ls) ->
+start_protos(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
     Mod = list_to_atom(Proto ++ "_dist"),
     case catch Mod:listen(Name) of
 	{ok, {Socket, Address, Creation}} ->
@@ -1343,32 +1346,47 @@ start_protos(Name, [Proto | Ps], Node, Ls) ->
 		      address = Address,
 		      accept = AcceptPid,
 		      module = Mod },
-		    start_protos(Name,Ps, Node, [L|Ls]);
+		    start_protos(Name,Ps, Node, [L|Ls], CleanHalt);
 		_ ->
 		    Mod:close(Socket),
-		    error_logger:info_msg("Invalid node name: ~p~n", [Node]),
-		    start_protos(Name, Ps, Node, Ls)
+		    S = "invalid node name: " ++ atom_to_list(Node),
+		    proto_error(CleanHalt, Proto, S),
+		    start_protos(Name, Ps, Node, Ls, CleanHalt)
 	    end;
 	{'EXIT', {undef,_}} ->
-	    error_logger:info_msg("Protocol: ~tp: not supported~n", [Proto]),
-	    start_protos(Name,Ps, Node, Ls);
+	    proto_error(CleanHalt, Proto, "not supported"),
+	    start_protos(Name, Ps, Node, Ls, CleanHalt);
 	{'EXIT', Reason} ->
-	    error_logger:info_msg("Protocol: ~tp: register error: ~tp~n",
-				  [Proto, Reason]),
-	    start_protos(Name,Ps, Node, Ls);
+	    register_error(CleanHalt, Proto, Reason),
+	    start_protos(Name, Ps, Node, Ls, CleanHalt);
 	{error, duplicate_name} ->
-	    error_logger:info_msg("Protocol: ~tp: the name " ++
-				  atom_to_list(Node) ++
-				  " seems to be in use by another Erlang node",
-				  [Proto]),
-	    start_protos(Name,Ps, Node, Ls);
+	    S = "the name " ++ atom_to_list(Node) ++
+		" seems to be in use by another Erlang node",
+	    proto_error(CleanHalt, Proto, S),
+	    start_protos(Name, Ps, Node, Ls, CleanHalt);
 	{error, Reason} ->
-	    error_logger:info_msg("Protocol: ~tp: register/listen error: ~tp~n",
-				  [Proto, Reason]),
-	    start_protos(Name,Ps, Node, Ls)
+	    register_error(CleanHalt, Proto, Reason),
+	    start_protos(Name, Ps, Node, Ls, CleanHalt)
     end;
-start_protos(_,[], _Node, Ls) ->
+start_protos(_, [], _Node, Ls, _CleanHalt) ->
     Ls.
+
+register_error(false, Proto, Reason) ->
+    S = io_lib:format("register/listen error: ~p", [Reason]),
+    proto_error(false, Proto, lists:flatten(S));
+register_error(true, Proto, Reason) ->
+    S = "Protocol '" ++ Proto ++ "': register/listen error: ",
+    erlang:display_string(S),
+    erlang:display(Reason).
+
+proto_error(CleanHalt, Proto, String) ->
+    S = "Protocol '" ++ Proto ++ "': " ++ String ++ "\n",
+    case CleanHalt of
+	false ->
+	    error_logger:info_msg(S);
+	true ->
+	    erlang:display_string(S)
+    end.
 
 set_node(Node, Creation) when node() =:= nonode@nohost ->
     case catch erlang:setnode(Node, Creation) of
