@@ -52,6 +52,8 @@
       <item>Allocator used for ETS data.</item>
       <tag><c>driver_alloc</c></tag>
       <item>Allocator used for driver data.</item>
+      <tag><c>literal_alloc</c></tag>
+      <item>Allocator used for constant terms in Erlang code.</item>
       <tag><c>sl_alloc</c></tag>
       <item>Allocator used for memory blocks that are expected to be
        short-lived.</item>
@@ -77,7 +79,7 @@
        instead of creating new segments.  This in order to reduce
        the number of system calls made.</item>
     </taglist>
-    <p><c>sys_alloc</c> is always enabled and
+    <p><c>sys_alloc</c> and <c>literal_alloc</c> are always enabled and
       cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
@@ -246,6 +248,7 @@
       the currently present allocators:</p>
     <list type="bulleted">
       <item><c>B: binary_alloc</c></item>
+      <item><c>I: literal_alloc</c></item>
       <item><c>D: std_alloc</c></item>
       <item><c>E: ets_alloc</c></item>
       <item><c>F: fix_alloc</c></item>
@@ -562,6 +565,16 @@
 	Allow <c>sys_alloc</c> carriers. By default <c>true</c>. If
 	set to <c>false</c>, <c>sys_alloc</c> carriers will never be
 	created by allocators using the <c>alloc_util</c> framework.</item>
+    </taglist>
+    <p>The following flag is special for <c>literal_alloc</c>:</p>
+    <taglist>
+      <tag><marker id="MIscs"/><c><![CDATA[+MIscs <size in MB>]]></c></tag>
+      <item>
+      <c>literal_alloc</c> super carrier size (in MB). The amount of
+      <em>virtual</em> address space reserved for literal terms in
+      Erlang code on 64-bit architectures. The default is 1024 (1GB)
+      and is usually sufficient. The flag is ignored on 32-bit
+      architectures.</item>
     </taglist>
     <p>Instrumentation flags:</p>
     <taglist>

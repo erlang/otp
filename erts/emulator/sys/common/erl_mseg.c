@@ -1403,6 +1403,9 @@ erts_mseg_init(ErtsMsegInit_t *init)
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
     erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap);
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+    erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap);
+#endif
 
     if (!IS_2POW(GET_PAGE_SIZE))
 	erts_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
