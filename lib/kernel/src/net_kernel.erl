@@ -1202,8 +1202,7 @@ get_proto_mod(_Family, _Protocol, []) ->
 %% -------- Initialisation functions ------------------------
 
 init_node(Name, LongOrShortNames) ->
-    {NameWithoutHost,_Host} = lists:splitwith(fun($@)->false;(_)->true end,
-				  atom_to_list(Name)),
+    {NameWithoutHost,_Host} = split_node(Name),
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
 	    case start_protos(list_to_atom(NameWithoutHost),Node) of
@@ -1240,8 +1239,7 @@ create_name(Name, LongOrShortNames, Try) ->
     end.
 
 create_hostpart(Name, LongOrShortNames) ->
-    {Head,Host} = lists:splitwith(fun($@)->false;(_)->true end,
-				  atom_to_list(Name)),
+    {Head,Host} = split_node(Name),
     Host1 = case {Host,LongOrShortNames} of
 		{[$@,_|_],longnames} ->
 		    {ok,Host};
@@ -1267,6 +1265,9 @@ create_hostpart(Name, LongOrShortNames) ->
 		    end
 	    end,
     {Head,Host1}.
+
+split_node(Name) ->
+    lists:splitwith(fun(C) -> C =/= $@ end, atom_to_list(Name)).
 
 %%
 %%
