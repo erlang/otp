@@ -52,9 +52,23 @@
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a new test case is started.
-init_tc(Mod,Func,Config) ->
+init_tc(Mod,EPTC={end_per_testcase,_},[Config]) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Config),
+    case ct_hooks:init_tc(Suite,EPTC,Config) of
+	NewConfig when is_list(NewConfig) ->
+	    {ok,[NewConfig]};
+	Other->
+	    Other
+    end;
+
+init_tc(Mod,Func0,Args) ->    
+    %% in case Mod == ct_framework, lookup the suite name
+    Suite = get_suite_name(Mod, Args),
+    {Func,HookFunc} = case Func0 of
+			  {init_per_testcase,F} -> {F,Func0};
+			  _                     -> {Func0,Func0}
+		      end,
 
     %% check if previous testcase was interpreted and has left
     %% a "dead" trace window behind - if so, kill it
@@ -86,7 +100,7 @@ init_tc(Mod,Func,Config) ->
 					    end, [create]),
 		    case ct_util:read_suite_data({seq,Suite,Func}) of
 			undefined ->
-			    init_tc1(Mod,Suite,Func,Config);
+			    init_tc1(Mod,Suite,Func,HookFunc,Args);
 			Seq when is_atom(Seq) ->
 			    case ct_util:read_suite_data({seq,Suite,Seq}) of
 				[Func|TCs] -> % this is the 1st case in Seq
@@ -102,27 +116,27 @@ init_tc(Mod,Func,Config) ->
 				_ ->
 				    ok
 			    end,
-			    init_tc1(Mod,Suite,Func,Config);
+			    init_tc1(Mod,Suite,Func,HookFunc,Args);
 			{failed,Seq,BadFunc} ->
 			    {auto_skip,{sequence_failed,Seq,BadFunc}}
 		    end
 	    end
-    end.	    
+    end.
 
-init_tc1(?MODULE,_,error_in_suite,[Config0]) when is_list(Config0) ->
+init_tc1(?MODULE,_,error_in_suite,_,[Config0]) when is_list(Config0) ->
     ct_logs:init_tc(false),
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={?MODULE,error_in_suite}}),
-    ct_suite_init(?MODULE, error_in_suite, [], Config0),
-    case ?val(error, Config0) of
+    ct_suite_init(?MODULE,error_in_suite,[],Config0),
+    case ?val(error,Config0) of
 	undefined ->
 	    {fail,"unknown_error_in_suite"};
 	Reason ->
 	    {fail,Reason}
     end;
 
-init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
+init_tc1(Mod,Suite,Func,HookFunc,[Config0]) when is_list(Config0) ->
     Config1 = 
 	case ct_util:read_suite_data(last_saved_config) of
 	    {{Suite,LastFunc},SavedConfig} ->	% last testcase
@@ -156,11 +170,13 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
     %% testcase info function (these should only survive the
     %% testcase, not the whole suite)
     FuncSpec = group_or_func(Func,Config0),
-    if is_tuple(FuncSpec) ->			% group
-	    ok;
-       true ->
-	    ct_config:delete_default_config(testcase)
-    end,
+    HookFunc1 =
+	if is_tuple(FuncSpec) ->		% group
+	    FuncSpec;
+	   true ->
+		ct_config:delete_default_config(testcase),
+		HookFunc
+	end,
     Initialize = fun() -> 
 			 ct_logs:init_tc(false),
 			 ct_event:notify(#event{name=tc_start,
@@ -184,14 +200,15 @@ init_tc1(Mod,Suite,Func,[Config0]) when is_list(Config0) ->
 		    Initialize(),
 		    {fail,Reason};
 		_ ->
-		    init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config)
+		    init_tc2(Mod,Suite,Func,HookFunc1,
+			     SuiteInfo,MergeResult,Config)
 	    end
     end;
 
-init_tc1(_Mod,_Suite,_Func,Args) ->
+init_tc1(_Mod,_Suite,_Func,_HookFunc,Args) ->
     {ok,Args}.
 
-init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
+init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
     %% timetrap must be handled before require
     MergedInfo = timetrap_first(MergeResult, [], []),
     %% tell logger to use specified style sheet
@@ -238,7 +255,7 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	{ok,PostInitHook,Config1} ->
 	    case get('$test_server_framework_test') of
 		undefined ->
-		    ct_suite_init(Suite, FuncSpec, PostInitHook, Config1);
+		    ct_suite_init(Suite,HookFunc,PostInitHook,Config1);
 		Fun ->
 		    PostInitHookResult = do_post_init_hook(PostInitHook,
 							   Config1),
@@ -251,16 +268,16 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    end
     end.
 
-ct_suite_init(Suite, FuncSpec, PostInitHook, Config) when is_list(Config) ->
-    case ct_hooks:init_tc(Suite, FuncSpec, Config) of
+ct_suite_init(Suite,HookFunc,PostInitHook,Config) when is_list(Config) ->
+    case ct_hooks:init_tc(Suite,HookFunc,Config) of
 	NewConfig when is_list(NewConfig) ->
-	    PostInitHookResult = do_post_init_hook(PostInitHook, NewConfig),
+	    PostInitHookResult = do_post_init_hook(PostInitHook,NewConfig),
 	    {ok, [PostInitHookResult ++ NewConfig]};
 	Else ->
 	    Else
     end.
 
-do_post_init_hook(PostInitHook, Config) ->
+do_post_init_hook(PostInitHook,Config) ->
     lists:flatmap(fun({Tag,Fun}) ->
 			  case lists:keysearch(Tag,1,Config) of
 			      {value,_} ->
@@ -657,9 +674,23 @@ end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
 end_tc(Mod,Func,{Result,[Args]}, Return) ->
     end_tc(Mod,Func,self(),Result,Args,Return).
 
-end_tc(Mod,Func,TCPid,Result,Args,Return) ->
+end_tc(Mod,IPTC={init_per_testcase,_Func},_TCPid,Result,Args,Return) ->
     %% in case Mod == ct_framework, lookup the suite name
     Suite = get_suite_name(Mod, Args),
+    case ct_hooks:end_tc(Suite,IPTC,Args,Result,Return) of
+	    '$ct_no_change' ->
+		ok;
+	    HookResult ->
+		HookResult
+    end;
+
+end_tc(Mod,Func0,TCPid,Result,Args,Return) ->
+    %% in case Mod == ct_framework, lookup the suite name
+    Suite = get_suite_name(Mod, Args),
+    {EPTC,Func} = case Func0 of
+		      {end_per_testcase,F} -> {true,F};
+		      _                    -> {false,Func0}
+		  end,
 
     test_server:timetrap_cancel(),
 
@@ -686,11 +717,15 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     end,
     ct_util:delete_suite_data(last_saved_config),
 
-    FuncSpec = group_or_func(Func,Args),
-
+    {FuncSpec,HookFunc} =
+	if not EPTC ->
+		FS = group_or_func(Func,Args),
+		{FS,FS};
+	   true ->
+		{Func,Func0}
+	end,
     {Result1,FinalNotify} =
-	case ct_hooks:end_tc(
-	       Suite, FuncSpec, Args, Result, Return) of
+	case ct_hooks:end_tc(Suite,HookFunc,Args,Result,Return) of
 	    '$ct_no_change' ->
 		{ok,Result};
 	    HookResult ->

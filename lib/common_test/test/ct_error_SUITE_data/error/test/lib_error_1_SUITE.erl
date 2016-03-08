@@ -152,23 +152,32 @@ no_lines_throw(_) ->
     lib_no_lines:do_throw(),
     ok.
 
-init_tc_error(_) ->
+init_tc_error() ->
     put('$test_server_framework_test',
 	fun(init_tc, _Default) -> lib_no_lines:do_error(), ok;
 	   (_, Default) -> Default
-	end), ok.
+	end), [].
 
-init_tc_exit(_) ->
+init_tc_error(_) ->
+    ok.
+
+init_tc_exit() ->
     put('$test_server_framework_test',
 	fun(init_tc, _Default) -> lib_no_lines:do_exit(), ok;
 	   (_, Default) -> Default
-	end), ok.
+	end), [].
 
-init_tc_throw(_) ->
+init_tc_exit(_) ->
+    ok.
+
+init_tc_throw() ->
     put('$test_server_framework_test',
 	fun(init_tc, _Default) -> lib_no_lines:do_throw(), ok;
 	   (_, Default) -> Default
-	end), ok.
+	end), [].
+
+init_tc_throw(_) ->
+    ok.
 
 end_tc_error(_) ->
     put('$test_server_framework_test',

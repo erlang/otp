@@ -106,6 +106,14 @@ pre_init_per_testcase(TC,Config,State) ->
 				    [{pre_init_per_testcase,true} | Config],
 				    State).
 
+%%! TODO: Verify Config also in post_init and pre_end!
+
+post_init_per_testcase(TC,Config,Return,State) ->
+    empty_cth:post_init_per_testcase(TC,Config,Return,State).
+
+pre_end_per_testcase(TC,Config,State) ->
+    empty_cth:pre_end_per_testcase(TC,Config,State).
+
 post_end_per_testcase(TC,Config,Return,State) ->
     true = ?val(post_init_per_suite, Config),
     true = ?val(pre_init_per_testcase, Config),

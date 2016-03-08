@@ -70,6 +70,14 @@ pre_init_per_testcase(TC,Config,State) ->
     empty_cth:pre_init_per_testcase(TC,Config,State),
     {[{pre_init_per_testcase,?now}|Config],State}.
 
+post_init_per_testcase(TC,Config,Return,State) ->
+    empty_cth:post_init_per_testcase(TC,Config,Return,State),
+    {[{post_init_per_testcase,?now}|Config],State}.
+
+pre_end_per_testcase(TC,Config,State) ->
+    empty_cth:pre_end_per_testcase(TC,Config,State),
+    {[{pre_end_per_testcase,?now}|Config],State}.
+
 post_end_per_testcase(TC,Config,Return,State) ->
     empty_cth:post_end_per_testcase(TC,Config,Return,State),
     {[{post_end_per_testcase,?now}|Config],State}.

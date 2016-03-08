@@ -46,3 +46,4 @@ all() ->
 %% Test cases starts here.
 test_case(Config) when is_list(Config) ->
     ok.
+
