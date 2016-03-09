@@ -87,7 +87,7 @@ negative(Config) when is_list(Config) ->
 
 %% Find test file
 test_file(Config, Name) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     filename:join(DataDir, Name).
 
 %%
@@ -256,7 +256,7 @@ big_literals(doc) ->
 big_literals(Config) when is_list(Config) ->
     %% Note: The literal test cannot be compiler on a pre-R4 Beam emulator,
     %% so we compile it now.
-    ?line DataDir = ?config(data_dir, Config),
+    ?line DataDir = proplists:get_value(data_dir, Config),
     ?line Test = filename:join(DataDir, "literal_test"),
     ?line {ok, Mod, Bin} = compile:file(Test, [binary]),
     ?line {module, Mod} = code:load_binary(Mod, Mod, Bin),

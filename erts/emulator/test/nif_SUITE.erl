@@ -101,7 +101,7 @@ reload(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "nif_mod"),
     ?line {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     ?line {module,nif_mod} = erlang:load_module(nif_mod,Bin),
@@ -137,7 +137,7 @@ upgrade(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "nif_mod"),
     ?line {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     ?line {module,nif_mod} = erlang:load_module(nif_mod,Bin),
@@ -656,7 +656,7 @@ resource_takeover(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
 
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "nif_mod"),
     ?line {ok,nif_mod,ModBin} = compile:file(File, [binary,return_errors]),
     ?line {module,nif_mod} = erlang:load_module(nif_mod,ModBin),
@@ -1036,7 +1036,7 @@ threading(Config) when is_list(Config) ->
     end.
 
 threading_do(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "tester"),
     ?line {ok,tester,ModBin} = compile:file(File, [binary,return_errors]),
     ?line {module,tester} = erlang:load_module(tester,ModBin),
@@ -1330,7 +1330,7 @@ neg(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch erlang:load_nif(badarg, 0)),
     ?line {error,{load_failed,_}} = erlang:load_nif("pink_unicorn", 0),
     
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "nif_mod"),
     ?line {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     ?line {module,nif_mod} = erlang:load_module(nif_mod,Bin),
@@ -1384,7 +1384,7 @@ ensure_lib_loaded(Config) ->
 ensure_lib_loaded(Config, Ver) ->
     ?line case lib_version() of
 	      undefined ->
-		  ?line Path = ?config(data_dir, Config),    
+		  ?line Path = proplists:get_value(data_dir, Config),
 		  ?line Lib = "nif_SUITE." ++ integer_to_list(Ver),
 		  ?line ok = erlang:load_nif(filename:join(Path,Lib), []);
 	      Ver when is_integer(Ver) ->

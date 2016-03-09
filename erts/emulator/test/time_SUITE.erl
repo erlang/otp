@@ -1042,7 +1042,7 @@ start_node(Config) ->
     start_node(Config, "").
 
 start_node(Config, Args) ->
-    TestCase = ?config(testcase, Config),
+    TestCase = proplists:get_value(testcase, Config),
     PA = filename:dirname(code:which(?MODULE)),
     ESTime = erlang:monotonic_time(1) + erlang:time_offset(1),
     Unique = erlang:unique_integer([positive]),

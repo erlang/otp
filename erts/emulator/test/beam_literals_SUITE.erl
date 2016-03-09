@@ -428,7 +428,7 @@ fconv_2(F) when is_float(F) ->
     6.0 + F.
 
 literal_case_expression(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    ?line DataDir = proplists:get_value(data_dir, Config),
     ?line Src = filename:join(DataDir, "literal_case_expression"),
     ?line {ok,literal_case_expression=Mod,Code} =
 	compile:file(Src, [from_asm,binary]),

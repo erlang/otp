@@ -82,7 +82,7 @@ drv_case(Config, CaseName, Command, TimeTrap) when is_list(Config),
 
 run_drv_case(Config, CaseName, Command, TimeTrap) ->
     ct:timetrap({seconds, TimeTrap}),
-    ?line DataDir = ?config(data_dir,Config),
+    ?line DataDir = proplists:get_value(data_dir,Config),
     case erl_ddll:load_driver(DataDir, CaseName) of
 	ok -> ok;
 	{error, Error} ->

@@ -1175,7 +1175,7 @@ dirty_scheduler_exit_test(Config) ->
     {ok, Node} = start_node(Config, "+SDio 1"),
     [ok] = mcall(Node,
                  [fun() ->
-                          Path = ?config(data_dir, Config),
+                          Path = proplists:get_value(data_dir, Config),
                           Lib = atom_to_list(?MODULE),
                           ok = erlang:load_nif(filename:join(Path,Lib), []),
                           ok = test_dirty_scheduler_exit()
@@ -1802,7 +1802,7 @@ restore_erl_rel_flags(OldValue) ->
 ok(too_slow, _Config) ->
     {comment, "Too slow system to do any actual testing..."};
 ok(_Res, Config) ->
-    ?config(ok_res, Config).
+    proplists:get_value(ok_res, Config).
 
 chk_result(too_slow,
 	   _LWorkers,
@@ -2227,7 +2227,7 @@ start_node(Config, Args) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
-			++ atom_to_list(?config(testcase, Config))
+			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"

@@ -392,7 +392,7 @@ ring_loop(RelayTo) ->
 %% API
 
 echo(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:load_driver(Path, echo_drv),
     Pid = spawn_link(?MODULE, port_echo_start, []),
     Pid ! {self(), get_ports},

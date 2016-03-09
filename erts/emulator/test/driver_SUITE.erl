@@ -181,7 +181,7 @@ end_per_group(_GroupName, Config) ->
 
 outputv_errors(doc) -> "Test sending bad types to port with an outputv-capable driver.";
 outputv_errors(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, outputv_drv),
 
@@ -720,7 +720,7 @@ driver_unloaded(Config) when is_list(Config) ->
     ?line Die = make_ref(),
     ?line Loader = spawn(fun () ->
 				 erl_ddll:start(),
-				 ok = load_driver(?config(data_dir,
+				 ok = load_driver(proplists:get_value(data_dir,
 								   Config),
 							   Drv),
 				 User ! Loaded,
@@ -755,7 +755,7 @@ io_ready_exit(Config) when is_list(Config) ->
     ?line receive dgawd_handler_started -> ok end,
     ?line Drv = io_ready_exit_drv,
     ?line erl_ddll:start(),
-    ?line ok = load_driver(?config(data_dir, Config), Drv),
+    ?line ok = load_driver(proplists:get_value(data_dir, Config), Drv),
     ?line Port = open_port({spawn, Drv}, []),
     ?line case erlang:port_control(Port, 0, "") of
 	      "ok" ->
@@ -909,7 +909,7 @@ chkio_test_init(Config) when is_list(Config) ->
     ?line case catch lists:keysearch(name, 1, ChkIo) of
 	      {value, {name, erts_poll}} ->
 		  ?line io:format("Before test: ~p~n", [ChkIo]),
-		  ?line Path = ?config(data_dir, Config),
+		  ?line Path = proplists:get_value(data_dir, Config),
 		  ?line erl_ddll:start(),
 		  ?line ok = load_driver(Path, 'chkio_drv'),
 		  ?line process_flag(trap_exit, true),
@@ -1386,7 +1386,7 @@ ioq_exit_test(Config, TestNo) ->
     ?line Drv = ioq_exit_drv,
     ?line try
 	      begin
-		  ?line case load_driver(?config(data_dir, Config),
+		  ?line case load_driver(proplists:get_value(data_dir, Config),
 						  Drv) of
 			    ok -> ?line ok;
 			    {error, permanent} -> ?line ok;
@@ -1468,8 +1468,8 @@ ioq_exit_event_async(Config) when is_list(Config) ->
 
 
 vsn_mismatch_test(Config, LoadResult) ->
-    ?line Path = ?config(data_dir, Config),
-    ?line DrvName = ?config(testcase, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
+    ?line DrvName = proplists:get_value(testcase, Config),
     ?line LoadResult = load_driver(Path, DrvName),
     ?line case LoadResult of
 	      ok ->
@@ -1529,7 +1529,7 @@ peek_non_existing_queue(Config) when is_list(Config) ->
     ?line Drv = peek_non_existing_queue_drv,
     ?line try
 	      begin
-		  ?line case load_driver(?config(data_dir, Config),
+		  ?line case load_driver(proplists:get_value(data_dir, Config),
 						  Drv) of
 			    ok -> ?line ok;
 			    {error, permanent} -> ?line ok;
@@ -1581,7 +1581,7 @@ otp_6879(suite) ->
 otp_6879(Config) when is_list(Config) ->
     ?line Drv = 'otp_6879_drv',
     ?line Parent = self(),
-    ?line ok = load_driver(?config(data_dir, Config), Drv),
+    ?line ok = load_driver(proplists:get_value(data_dir, Config), Drv),
     ?line Procs = lists:map(
 		    fun (No) ->
 			    spawn_link(
@@ -1647,7 +1647,7 @@ run_caller_test(Config, Outputv) ->
 					"false"),
 			output
 		end,
-    ?line ok = load_driver(?config(data_dir, Config), Drv),
+    ?line ok = load_driver(proplists:get_value(data_dir, Config), Drv),
     ?line Port = open_port({spawn, Drv}, []),
     ?line true = is_port(Port),
     ?line chk_caller(Port, start, self()),
@@ -1736,7 +1736,7 @@ smp_select(Config) when is_list(Config) ->
     
 smp_select0(Config) ->
     ?line DrvName = 'chkio_drv',
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ?line ok = load_driver(Path, DrvName),    
     Master = self(),
@@ -1795,7 +1795,7 @@ driver_select_use(Config) when is_list(Config) ->
     
 driver_select_use0(Config) ->
     ?line DrvName = 'chkio_drv',
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ?line ok = load_driver(Path, DrvName),    
     ?line Port = open_port({spawn, DrvName}, []),
@@ -1823,7 +1823,7 @@ thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
 	    ?line {skipped, "driver_alloc() using too low single block threshold"};
 	{true, _MsegAllocInfo, SBCT} ->
 	    ?line DrvName = 'thr_alloc_drv',
-	    ?line Path = ?config(data_dir, Config),
+	    ?line Path = proplists:get_value(data_dir, Config),
 	    ?line erl_ddll:start(),
 	    ?line ok = load_driver(Path, DrvName),   
 	    ?line Port = open_port({spawn, DrvName}, []),
@@ -1908,7 +1908,7 @@ thread_mseg_alloc_cache_clean_test(Port, N, CCI, Size) ->
     ?line thread_mseg_alloc_cache_clean_test(Port, N-1, CCI, Size).
 
 otp_9302(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, otp_9302_drv),
     ?line Port = open_port({spawn, otp_9302_drv}, []),
@@ -1950,7 +1950,7 @@ thr_free_drv(Config) when is_list(Config) ->
     end.
 
 thr_free_drv_do(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, thr_free_drv),
     ?line MemBefore = driver_alloc_size(),
@@ -1982,7 +1982,7 @@ thr_free_drv_control(Port, N) ->
     end.
 	    
 async_blast(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, async_blast_drv),
     ?line SchedOnln = erlang:system_info(schedulers_online),
@@ -2045,7 +2045,7 @@ thr_msg_blast(Config) when is_list(Config) ->
 	false ->
 	    {skipped, "Non-SMP emulator; nothing to test..."};
 	true ->
-	    Path = ?config(data_dir, Config),
+	    Path = proplists:get_value(data_dir, Config),
 	    erl_ddll:start(),
 	    ok = load_driver(Path, thr_msg_blast_drv),
 	    MemBefore = driver_alloc_size(),
@@ -2124,7 +2124,7 @@ consume_timeslice(Config) when is_list(Config) ->
     %% the port instead.
     %%
 
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ok = load_driver(Path, consume_timeslice_drv),
     Port = open_port({spawn, consume_timeslice_drv}, [{parallelism, false}]),
@@ -2518,7 +2518,7 @@ erl_millisecs(MonotonicTime) ->
 
 %% Start/stop drivers.
 start_driver(Config, Name, Binary) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
 
     %% Load the driver
@@ -2566,7 +2566,7 @@ start_node(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
-			++ atom_to_list(?config(testcase, Config))
+			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"

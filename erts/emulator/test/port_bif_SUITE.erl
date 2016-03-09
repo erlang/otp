@@ -76,7 +76,7 @@ do_command(P, Data) ->
 
 %% port_command/2: badarg 1st arg
 command_e_1(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -98,7 +98,7 @@ do_command_e_1(Program) ->
 
 %% port_command/2: badarg 2nd arg
 command_e_2(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -120,7 +120,7 @@ do_command_e_2(Program) ->
 
 %% port_command/2: Posix signals trapped
 command_e_3(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -139,7 +139,7 @@ command_e_3(Config) when is_list(Config) ->
 
 %% port_command/2: Posix exit signals not trapped
 command_e_4(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -236,7 +236,7 @@ do_port_info_os_pid() ->
     ok.
 
 port_info_race(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
     Top = self(),
     P1 = open_port({spawn,Program}, [{packet,1}]),
@@ -428,7 +428,7 @@ echo(P, Size) ->
     Packet = erlang:port_control(P, $e, [unaligned_sub_bin(Bin)]).
 
 load_control_drv(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ok = load_driver(DataDir, "control_drv").
 

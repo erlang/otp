@@ -46,7 +46,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
 end_per_testcase(_Func, Config) ->
-    SConf = ?config(save_config, Config),
+    SConf = proplists:get_value(save_config, Config),
     Pids  = proplists:get_value(purge_pids, SConf),
 
     case check_old_code(?model) of

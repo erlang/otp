@@ -610,7 +610,7 @@ trace_pid(Pid, On, Flags0) ->
     Res.
 
 start_tracer(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, echo_drv),
     Self = self(),
     put(tracer, fun_spawn(fun() -> tracer(Self) end)),

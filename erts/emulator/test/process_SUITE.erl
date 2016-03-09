@@ -118,7 +118,7 @@ init_per_suite(Config) ->
     [{started_apps, A}|Config].
 
 end_per_suite(Config) ->
-    As = ?config(started_apps, Config),
+    As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
@@ -2495,7 +2495,7 @@ start_node(Config, Args) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
+			      ++ atom_to_list(proplists:get_value(testcase, Config))
 			      ++ "-"
 			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"

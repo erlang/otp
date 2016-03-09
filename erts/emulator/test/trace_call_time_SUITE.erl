@@ -548,7 +548,7 @@ collect_all_info([]) -> [].
 %% Local helpers
 
 load_nif(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
 
 

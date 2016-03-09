@@ -326,7 +326,7 @@ ordering(Config) when is_list(Config) ->
 
     %% Create a port and ref.
 
-    ?line Path = ?config(priv_dir, Config),
+    ?line Path = proplists:get_value(priv_dir, Config),
     ?line AFile = filename:join(Path, "vanilla_file"),
     ?line P = open_port(AFile, [out]),
     ?line R = make_ref(),
@@ -400,7 +400,7 @@ fun_to_port(Config) when is_list(Config) ->
     ok.
 
 fun_to_port(Config, IoList) ->
-    Path = ?config(priv_dir, Config),
+    Path = proplists:get_value(priv_dir, Config),
     AFile = filename:join(Path, "vanilla_file"),
     Port = open_port(AFile, [out]),
     case catch port_command(Port, IoList) of

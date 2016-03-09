@@ -81,12 +81,12 @@ fpe(Config) when is_list(Config) ->
 -define(ERTS_FP_THREAD_TEST, 1).
 
 fp_drv(Config) when is_list(Config) ->
-    fp_drv_test(?ERTS_FP_CONTROL_TEST, ?config(data_dir, Config)).
+    fp_drv_test(?ERTS_FP_CONTROL_TEST, proplists:get_value(data_dir, Config)).
 
 fp_drv_thread(Config) when is_list(Config) ->
     %% Run in a separate node since it used to crash the emulator...
     ?line Parent = self(),
-    ?line DrvDir = ?config(data_dir, Config),
+    ?line DrvDir = proplists:get_value(data_dir, Config),
     ?line {ok,Node} = start_node(Config),
     ?line Tester = spawn_link(Node,
 			      fun () ->
@@ -278,7 +278,7 @@ start_node(Config) when is_list(Config) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
+			      ++ atom_to_list(proplists:get_value(testcase, Config))
 			      ++ "-"
 			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"

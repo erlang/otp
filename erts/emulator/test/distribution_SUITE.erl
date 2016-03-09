@@ -729,7 +729,7 @@ stop_dist(doc) ->
 stop_dist(Config) when is_list(Config) ->
     ?line Str = os:cmd(atom_to_list(lib:progname())
 		       ++ " -noshell -pa "
-		       ++ ?config(data_dir, Config)
+		       ++ proplists:get_value(data_dir, Config)
 		       ++ " -s run"),
     %% The "true" may be followed by an error report, so ignore anything that
     %% follows it.
@@ -1950,7 +1950,7 @@ start_node(Name, Args, Rel) when is_atom(Name), is_list(Rel) ->
 start_node(Config, Args, Rel) when is_list(Config), is_list(Rel) ->
     Name = list_to_atom((atom_to_list(?MODULE)
 			 ++ "-"
-			 ++ atom_to_list(?config(testcase, Config))
+			 ++ atom_to_list(proplists:get_value(testcase, Config))
 			 ++ "-"
 			 ++ integer_to_list(erlang:system_time(seconds))
 			 ++ "-"

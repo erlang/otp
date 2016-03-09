@@ -90,7 +90,7 @@ file_keys(Dir,Num,FdList,FnList) ->
 async_dist(doc) ->
     "Check that the distribution of files over async threads is fair";
 async_dist(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
     Dir = filename:dirname(code:which(?MODULE)),
     AsyncSizes = [7,10,100,255,256,64,63,65],
@@ -132,7 +132,7 @@ async_dist(Config) when is_list(Config) ->
 
 iter_max_files(suite) -> [];
 iter_max_files(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
     N = 10,
     %% Run on a different node in order to set the max ports

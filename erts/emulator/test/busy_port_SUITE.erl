@@ -375,7 +375,7 @@ hs_test(Config, HardBusy) when is_list(Config) ->
 			false -> 'soft_busy_drv'
 		    end,
     ?line erl_ddll:start(),
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     case erl_ddll:load_driver(Path, DrvName) of
 	ok -> ok;
 	{error, Error} ->
@@ -525,7 +525,7 @@ scheduling_delay_busy(Config) ->
 
     Validation = [{seq,10,lists:seq(1,50)}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 scheduling_delay_busy_nosuspend(Config) ->
 
@@ -544,7 +544,7 @@ scheduling_delay_busy_nosuspend(Config) ->
 
     Validation = [{eq,10,nosuspend},{seq,20,[1,2]}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 scheduling_busy_link(Config) ->
     
@@ -567,7 +567,7 @@ scheduling_busy_link(Config) ->
     Validation = [{seq,10,[1]},
 		  {seq,20,[{'EXIT',noproc}]}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 process_init(DrvName,Owner) ->
     process_flag(trap_exit,true),
@@ -862,7 +862,7 @@ fun_spawn(Fun, Args) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 load_busy_driver(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    ?line DataDir = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
     case erl_ddll:load_driver(DataDir, "busy_drv") of
 	ok -> ok;

@@ -21,7 +21,7 @@ all() ->
     [permanent_busy_test].
 
 permanent_busy_test(Config) ->
-    ExePath = filename:join(?config(data_dir, Config), "cport"),
+    ExePath = filename:join(proplists:get_value(data_dir, Config), "cport"),
     Self = self(),
     spawn_link(
       fun() ->

@@ -157,7 +157,7 @@ term_type(Config) when is_list(Config) ->
 
 df(Config) when is_list(Config) ->
     P0 = pps(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
 
     AllLoaded = [M || {M,_} <- code:all_loaded()],

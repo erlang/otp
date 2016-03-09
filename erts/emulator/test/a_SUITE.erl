@@ -43,7 +43,7 @@ long_timers(doc) ->
 long_timers(suite) ->
     [];
 long_timers(Config) when is_list(Config) ->
-    Dir = ?config(data_dir, Config),
+    Dir = proplists:get_value(data_dir, Config),
     ?line long_timers_test:start(Dir),
     ?line {comment,
 	   "Testcase started! This test will run in parallel with the "

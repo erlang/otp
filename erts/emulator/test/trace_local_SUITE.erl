@@ -738,8 +738,8 @@ info_test() ->
     ok.
 
 delete_test(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line Data = ?config(data_dir, Config),
+    ?line Priv = proplists:get_value(priv_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "trace_local_dummy"),
     ?line {ok,trace_local_dummy} = c:c(File, [{outdir,Priv}]),
     ?line code:purge(trace_local_dummy),

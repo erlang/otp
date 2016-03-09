@@ -366,7 +366,7 @@ upgrade_do(V1, V2, TraceLocalVersion) ->
     ok.
 
 compile_version(Module, Version, Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, atom_to_list(Module)),
     {ok,Module,Bin} = compile:file(File, [{d,'VERSION',Version},
 					    binary,report]),

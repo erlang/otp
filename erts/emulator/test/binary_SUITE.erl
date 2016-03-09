@@ -697,7 +697,7 @@ corrupter(_Bin, _) ->
 
 more_bad_terms(suite) -> [];
 more_bad_terms(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line BadFile = filename:join(Data, "bad_binary"),
     ?line ok = io:format("File: ~s\n", [BadFile]),
     ?line case file:read_file(BadFile) of
@@ -999,7 +999,7 @@ ordering(Config) when is_list(Config) ->
     ?line true = B1 > fun() -> 1 end,
     ?line true = B1 > fun erlang:send/2,
 
-    ?line Path = ?config(priv_dir, Config),
+    ?line Path = proplists:get_value(priv_dir, Config),
     ?line AFile = filename:join(Path, "vanilla_file"),
     ?line Port = open_port(AFile, [out]),
     ?line true = B1 > Port,
@@ -1332,7 +1332,7 @@ robustness(Config) when is_list(Config) ->
 %% OTP-8180: Test several terms that have been known to crash the emulator.
 %% (Thanks to Scott Lystig Fritchie.)
 otp_8180(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line Wc = filename:join(Data, "zzz.*"),
     Files = filelib:wildcard(Wc),
     [run_otp_8180(F) || F <- Files],

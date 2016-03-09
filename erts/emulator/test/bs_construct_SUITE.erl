@@ -787,7 +787,7 @@ bs_add(Config) when is_list(Config) ->
 	 return],
 
     %% Write assembly file and assemble it.
-    ?line PrivDir = ?config(priv_dir, Config),
+    ?line PrivDir = proplists:get_value(priv_dir, Config),
     ?line RootName = filename:join(PrivDir, atom_to_list(Mod)),
     ?line AsmFile = RootName ++ ".S",
     ?line {ok,Fd} = file:open(AsmFile, [write]),

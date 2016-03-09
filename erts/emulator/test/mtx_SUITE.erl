@@ -78,7 +78,7 @@ all() ->
      hammer_sched_freqread_tryrwlock].
 
 init_per_suite(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Lib = filename:join([DataDir, atom_to_list(?MODULE)]),
     case {erlang:load_nif(Lib, none),erlang:system_info(threads)} of
 	{{error,_},false} ->

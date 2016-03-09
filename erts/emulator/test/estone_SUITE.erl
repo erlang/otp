@@ -78,7 +78,7 @@ estone(suite) ->
 estone(doc) ->
     ["EStone Test"];
 estone(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
+    ?line DataDir = proplists:get_value(data_dir,Config),
     ?line Mhz=get_cpu_speed(os:type(),DataDir),
     ?line L = ?MODULE:macro(?MODULE:micros(),DataDir),
     ?line {Total, Stones} = sum_micros(L, 0, 0),
@@ -87,7 +87,7 @@ estone(Config) when is_list(Config) ->
 	   integer_to_list(Stones) ++ " ESTONES"}.
 
 estone_bench(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     L = ?MODULE:macro(?MODULE:micros(),DataDir),
     [ct_event:notify(
        #event{name = benchmark_data, 

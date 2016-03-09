@@ -89,7 +89,7 @@ versions(Config) when is_list(Config) ->
     ok.
 
 compile_version(Version, Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "versions"),
     {ok,versions,Bin} = compile:file(File, [{d,'VERSION',Version},
 					    binary,report]),
@@ -114,7 +114,7 @@ check_version(Pid) ->
     end.
 
 new_binary_types(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Bin} = compile:file(File, [binary]),
     ?line {module,my_code_test} = erlang:load_module(my_code_test,
@@ -138,8 +138,8 @@ new_binary_types(Config) when is_list(Config) ->
     ok.
 
 t_check_process_code(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line Data = ?config(data_dir, Config),
+    ?line Priv = proplists:get_value(priv_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line Code = filename:join(Priv, "my_code_test"),
 
@@ -250,8 +250,8 @@ t_check_process_code_ets(Config) when is_list(Config) ->
     end.
 
 do_check_process_code_ets(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line Data = ?config(data_dir, Config),
+    ?line Priv = proplists:get_value(priv_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
 
     ?line erlang:purge_module(my_code_test),
@@ -303,7 +303,7 @@ fun_refc(F) ->
 
 %% Test the erlang:check_old_code/1 BIF.
 t_check_old_code(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
 
     ?line erlang:purge_module(my_code_test),
@@ -334,7 +334,7 @@ external_fun(Config) when is_list(Config) ->
     ?line {'EXIT',{undef,_}} = (catch ExtFun(answer)),
     ?line false = erlang:function_exported(another_code_test, x, 1),
     ?line false = lists:member(another_code_test, erlang:loaded()),
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "another_code_test"),
     ?line {ok,another_code_test,Code} = compile:file(File, [binary,report]),
     ?line {module,another_code_test} = erlang:load_module(another_code_test, Code),
@@ -342,7 +342,7 @@ external_fun(Config) when is_list(Config) ->
     ok.
 
 get_chunk(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
 
@@ -367,7 +367,7 @@ get_chunk_ok(Chunk, Code) ->
     end.
 
 module_md5(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
 
@@ -393,7 +393,7 @@ make_stub(Config) when is_list(Config) ->
     catch erlang:purge_module(my_code_test),
     MD5 = erlang:md5(<<>>),
 
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
     ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
 
@@ -428,7 +428,7 @@ make_stub_many_funs(Config) when is_list(Config) ->
     catch erlang:purge_module(many_funs),
     MD5 = erlang:md5(<<>>),
 
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "many_funs"),
     ?line {ok,many_funs,Code} = compile:file(File, [binary]),
 
@@ -451,7 +451,7 @@ make_stub_many_funs(Config) when is_list(Config) ->
     ok.
 
 constant_pools(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "literals"),
     ?line {ok,literals,Code} = compile:file(File, [report,binary]),
     ?line {module,literals} = erlang:load_module(literals,
@@ -530,7 +530,7 @@ constant_refc_binaries(Config) when is_list(Config) ->
     io:format("Binary data (bytes) before test: ~p\n", [Bef]),
 
     %% Compile the the literals module.
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
 
@@ -652,7 +652,7 @@ wait_for_memory_deallocations() ->
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
 %% to a module in a process. (Thanks to Richard Carlsson.)
 false_dependency(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
+    ?line Data = proplists:get_value(data_dir, Config),
     ?line File = filename:join(Data, "cpbugx"),
     ?line {ok,cpbugx,Code} = compile:file(File, [binary,report]),
 
@@ -731,7 +731,7 @@ coverage(Config) when is_list(Config) ->
     ok.
 
 fun_confusion(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Src = filename:join(Data, "fun_confusion"),
     Mod = fun_confusion,
 
@@ -757,7 +757,7 @@ compile_load(Mod, Src, Ver) ->
 
 t_copy_literals(Config) when is_list(Config) ->
     %% Compile the the literals module.
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "literals"),
     {ok,literals,Code} = compile:file(File, [report,binary]),
     {module,literals} = erlang:load_module(literals, Code),

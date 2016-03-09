@@ -507,7 +507,7 @@ system_monitor_long_schedule(suite) ->
 system_monitor_long_schedule(doc) ->
     ["Tests erlang:system_monitor(Pid, [{long_schedule,Time}])"];
 system_monitor_long_schedule(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     case (catch load_driver(Path, slow_drv)) of
 	ok ->

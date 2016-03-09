@@ -69,12 +69,12 @@ init_per_testcase(_Case, Config) ->
 
 end_per_testcase(_Case, Config) ->
     erlang:system_flag(multi_scheduling, unblock),
-    Prio=?config(prio, Config),
+    Prio=proplists:get_value(prio, Config),
     process_flag(priority, Prio),
     ok.
 
 ok(Config) when is_list(Config) ->
-    case ?config(multi_scheduling, Config) of
+    case proplists:get_value(multi_scheduling, Config) of
 	blocked ->
 	    {comment,
 	     "Multi-scheduling blocked during test. This testcase was not "

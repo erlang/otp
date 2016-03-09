@@ -363,7 +363,7 @@ input_only(Config) when is_list(Config) ->
 
 output_only(Config) when is_list(Config) ->
     ct:timetrap({seconds, 100}),
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
 
     %% First we test that the port program gets the data
     Filename = filename:join(Dir, "output_only_stream"),
@@ -504,8 +504,8 @@ make_dying_port(Config) when is_list(Config) ->
 port_program_with_path(suite) -> [];
 port_program_with_path(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     
     %% Create a copy of the port test program in a directory not
     %% included in PATH (i.e. in priv_dir), with the name 'my_port_test.exe'.
@@ -545,7 +545,7 @@ port_program_with_path(Config) when is_list(Config) ->
 %% This used to fail on Windows.
 open_input_file_port(suite) -> [];
 open_input_file_port(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     
     %% Create a file with the file driver and read it back using
     %% open_port/2.
@@ -566,7 +566,7 @@ open_input_file_port(Config) when is_list(Config) ->
 open_output_file_port(suite) -> [];
 open_output_file_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Create a file with open_port/2 and read it back with
     %% the file driver.
@@ -841,7 +841,7 @@ env(doc) ->
     ["Test that the 'env' option works"];
 env(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     Temp = filename:join(Priv, "env_fun.bin"),
 
     PluppVal = "dirty monkey",
@@ -975,7 +975,7 @@ cd(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
 
     Program = atom_to_list(lib:progname()),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     TestDir = filename:join(DataDir, "dir"),
     Cmd = Program ++ " -pz " ++ DataDir ++
         " -noshell -s port_test pwd -s erlang halt",
@@ -1064,7 +1064,7 @@ otp_3906(Config, OSName) ->
     case lists:keysearch('CC', 1, Variables) of
 	{value,{'CC', CC}} ->
 	    SuiteDir = filename:dirname(code:which(?MODULE)),
-	    PrivDir = ?config(priv_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 	    Prog = otp_3906_make_prog(CC, PrivDir),
 	    {ok, Node} = test_server:start_node(otp_3906,
 						slave,
@@ -1330,7 +1330,7 @@ spawn_driver(suite) ->
 spawn_driver(doc) ->
     ["Test spawning a driver specifically"];
 spawn_driver(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
     Port ! {self(), {command, "Hello port!"}},
@@ -1365,7 +1365,7 @@ parallelism_option(suite) ->
 parallelism_option(doc) ->
     ["Test parallelism option of open_port"];
 parallelism_option(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line ok = load_driver(Path, "echo_drv"),
     ?line Port = erlang:open_port({spawn_driver, "echo_drv"},
 				  [{parallelism, true}]),
@@ -1400,7 +1400,7 @@ spawn_executable(suite) ->
 spawn_executable(doc) ->
     ["Test spawning an executable specifically"];
 spawn_executable(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     EchoArgs1 = filename:join([DataDir,"echo_args"]),
     ExactFile1 = filename:nativename(os:find_executable(EchoArgs1)),
     [ExactFile1] = run_echo_args(DataDir,[]),
@@ -1427,8 +1427,8 @@ spawn_executable(Config) when is_list(Config) ->
     [ExactFile1,"hello world","dlrow olleh"] =
 	run_echo_args_2(unicode:characters_to_binary("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\"")),
 
-    PrivDir = ?config(priv_dir, Config),
-    SpaceDir =filename:join([PrivDir,"With Spaces"]),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SpaceDir = filename:join([PrivDir,"With Spaces"]),
     file:make_dir(SpaceDir),
     Executable = filename:basename(ExactFile1),
     file:copy(ExactFile1,filename:join([SpaceDir,Executable])),
@@ -1640,7 +1640,7 @@ mix_up_ports(suite) ->
 mix_up_ports(doc) ->
     ["Test that the emulator does not mix up ports when the port table wraps"];
 mix_up_ports(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn, "echo_drv"}, []),
     Port ! {self(), {command, "Hello port!"}},
@@ -1686,7 +1686,7 @@ otp_5112(doc) ->
     ["Test that link to connected process is taken away when port calls",
      "driver_exit() also when the port index has wrapped"];
 otp_5112(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     Port = otp_5112_get_wrapped_port(),
     io:format("Max ports: ~p~n",[max_ports()]),
@@ -1732,7 +1732,7 @@ otp_5119(suite) ->
 otp_5119(doc) ->
     ["Test that port index is not unnecessarily wrapped"];
 otp_5119(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     PI1 = port_ix(otp_5119_fill_empty_port_tab([])),
     Port2 = erlang:open_port({spawn, "exit_drv"}, []),
@@ -1776,7 +1776,7 @@ port_ix(Port) when is_port(Port) ->
 otp_6224(doc) -> ["Check that port command failure doesn't crash the emulator"];
 otp_6224(suite) -> [];
 otp_6224(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "failure_drv"),
     Go = make_ref(),
     Failer = spawn(fun () ->
@@ -2223,13 +2223,13 @@ fun_spawn(Fun, Args) ->
     spawn_link(erlang, apply, [Fun, Args]).
 
 port_test(Config) when is_list(Config) ->
-    filename:join(?config(data_dir, Config), "port_test").
+    filename:join(proplists:get_value(data_dir, Config), "port_test").
 
 
 ports(doc) -> "Test that erlang:ports/0 returns a consistent snapshot of ports";
 ports(suite) -> [];
 ports(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
 
     receive after 1000 -> ok end, % Wait for other ports to stabilize
@@ -2339,7 +2339,7 @@ close_deaf_port(doc) -> ["Send data to port program that does not read it, then 
 close_deaf_port(suite) -> [];
 close_deaf_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     DeadPort = os:find_executable("dead_port", DataDir),
     Port = open_port({spawn,DeadPort++" 60"},[]),
     erlang:port_command(Port,"Hello, can you hear me!?!?"),
@@ -2368,7 +2368,7 @@ close_deaf_port_1(N, Cmd) ->
 %% Hammer from multiple processes a while
 %% and then abrubtly close the port (OTP-12208).
 port_setget_data(Config) when is_list(Config) ->
-    ok = load_driver(?config(data_dir, Config), "echo_drv"),
+    ok = load_driver(proplists:get_value(data_dir, Config), "echo_drv"),
     Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
 
     NSched = erlang:system_info(schedulers_online),

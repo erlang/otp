@@ -182,8 +182,8 @@ drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     end.
 
 run_drv_case(Config, Mode) ->
-    DataDir = ?config(data_dir,Config),
-    CaseName = ?config(testcase,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    CaseName = proplists:get_value(testcase,Config),
     File = filename:join(DataDir, CaseName),
     {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
     {module,CaseName} = erlang:load_module(CaseName,Bin),
@@ -341,7 +341,7 @@ handle_result(_State, Result0) ->
     end.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    case ?config(debug,Config) of
+    case proplists:get_value(debug,Config) of
 	true -> {ok, node()};
 	_ -> start_node_1(Config, Opts)
     end.
@@ -350,7 +350,7 @@ start_node_1(Config, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
-			++ atom_to_list(?config(testcase, Config))
+			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"

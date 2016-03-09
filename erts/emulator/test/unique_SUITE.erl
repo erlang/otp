@@ -372,7 +372,7 @@ start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     ?line B = erlang:unique_integer([positive]),
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
+			      ++ atom_to_list(proplists:get_value(testcase, Config))
 			      ++ "-"
 			      ++ integer_to_list(A)
 			      ++ "-"

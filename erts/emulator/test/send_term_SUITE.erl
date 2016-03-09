@@ -65,7 +65,7 @@ basic(Config) when is_list(Config) ->
     ?line {Self,Child} = receive_any(),
 
     %% ERL_DRV_EXT2TERM
-    ?line ExpectExt2Term = expected_ext2term_drv(?config(data_dir, Config)),
+    ?line ExpectExt2Term = expected_ext2term_drv(proplists:get_value(data_dir, Config)),
     ?line ExpectExt2Term = term(P, 5),
 
     %% ERL_DRV_INT, ERL_DRV_UINT
@@ -180,7 +180,7 @@ chk_temp_alloc() ->
 
 %% Start/stop drivers.
 start_driver(Config, Name) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ok = load_driver(Path, Name),
     open_port({spawn, Name}, []).

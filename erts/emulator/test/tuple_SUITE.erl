@@ -64,7 +64,7 @@ init_per_suite(Config) ->
     [{started_apps, A}|Config].
 
 end_per_suite(Config) ->
-    As = ?config(started_apps, Config),
+    As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
     Config.
 

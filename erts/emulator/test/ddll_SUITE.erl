@@ -76,7 +76,7 @@ unload_on_process_exit(suite) ->
 unload_on_process_exit(doc) ->
     ["Check that the driver is unloaded on process exit"];
 unload_on_process_exit(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line false = lists:member("echo_drv",element(2,erl_ddll:loaded_drivers())),
     Parent = self(),
     ?line Pid = spawn(fun() ->
@@ -108,7 +108,7 @@ delayed_unload_with_ports(suite) ->
 delayed_unload_with_ports(doc) ->
     ["Check that the driver is unloaded when the last port is closed"];
 delayed_unload_with_ports(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:try_load(Path, echo_drv, []),
     ?line erl_ddll:try_load(Path, echo_drv, []),
     ?line Port = open_port({spawn, echo_drv}, [eof]),
@@ -131,7 +131,7 @@ unload_due_to_process_exit(suite) ->
 unload_due_to_process_exit(doc) ->
     ["Check that the driver with ports is unloaded on process exit"];
 unload_due_to_process_exit(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
 		       Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
@@ -163,7 +163,7 @@ no_unload_due_to_process_exit(suite) ->
 no_unload_due_to_process_exit(doc) ->
     ["Check that a driver with driver loaded in another process is not unloaded on process exit"];
 no_unload_due_to_process_exit(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
 		       Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
@@ -198,7 +198,7 @@ no_unload_due_to_process_exit_2(suite) ->
 no_unload_due_to_process_exit_2(doc) ->
     ["Check that a driver with open ports in another process is not unloaded on process exit"];
 no_unload_due_to_process_exit_2(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
 		       Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
@@ -233,7 +233,7 @@ unload_reload_thingie(suite) ->
 unload_reload_thingie(doc) ->
     ["Check delayed unload and reload"];
 unload_reload_thingie(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
     ?line F3 = fun() -> 
@@ -276,7 +276,7 @@ unload_reload_thingie_2(suite) ->
 unload_reload_thingie_2(doc) ->
     ["Check delayed unload and reload"];
 unload_reload_thingie_2(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
     ?line F3 = fun() -> 
@@ -318,7 +318,7 @@ unload_reload_thingie_3(suite) ->
 unload_reload_thingie_3(doc) ->
     ["Check delayed unload and reload failure"];
 unload_reload_thingie_3(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line {ok, loaded} = erl_ddll:try_load(Path, echo_drv, []),
     ?line F3 = fun() -> 
@@ -360,7 +360,7 @@ unload_reload_thingie_3(Config) when is_list(Config) ->
 reload_pending(suite) -> [];
 reload_pending(doc) -> ["Reload a driver that is pending on a user"];
 reload_pending(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
 		       Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
@@ -410,8 +410,8 @@ reload_pending(Config) when is_list(Config) ->
 load_fail_init(suite) -> [];
 load_fail_init(doc) -> ["Tests failure in the init in driver struct."];
 load_fail_init(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
-    ?line PathFailing = ?config(priv_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
+    ?line PathFailing = proplists:get_value(priv_dir, Config),
     ?line [_|_] = AllFailInits = filelib:wildcard("echo_drv_fail_init.*",Path),
     ?line lists:foreach(fun(Name) ->
 				Src = filename:join([Path,Name]),
@@ -436,8 +436,8 @@ load_fail_init(Config) when is_list(Config) ->
 reload_pending_fail_init(suite) -> [];
 reload_pending_fail_init(doc) -> ["Reload a driver that is pending but init fails"];
 reload_pending_fail_init(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
-    ?line PathFailing = ?config(priv_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
+    ?line PathFailing = proplists:get_value(priv_dir, Config),
     ?line [_|_] = AllFailInits = filelib:wildcard("echo_drv_fail_init.*",Path),
     ?line lists:foreach(fun(Name) ->
 				Src = filename:join([Path,Name]),
@@ -496,7 +496,7 @@ reload_pending_kill(doc) -> ["Reload a driver with kill_ports option "
 			     "that is pending on a user"];
 reload_pending_kill(Config) when is_list(Config) ->
     ?line OldFlag = process_flag(trap_exit,true),
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line F3 = fun() -> 
 		       Parent ! erl_ddll:monitor(driver,{echo_drv,unloaded}), 
@@ -599,7 +599,7 @@ forced_port_killing(suite) ->
 forced_port_killing(doc) ->
     ["Check kill_ports option to try_unload "];
 forced_port_killing(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line OldFlag=process_flag(trap_exit,true),
     ?line Parent = self(),
     ?line F3 = fun() -> 
@@ -633,7 +633,7 @@ no_trap_exit_and_kill_ports(suite) ->
 no_trap_exit_and_kill_ports(doc) ->
     ["Check delayed unload and reload with no trap_exit"];
 no_trap_exit_and_kill_ports(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line Parent = self(),
     ?line OldFlag=process_flag(trap_exit,true),
     ?line F3 = fun() -> 
@@ -672,7 +672,7 @@ monitor_demonitor(suite) ->
 monitor_demonitor(doc) ->
     ["Check monitor and demonitor of drivers"];
 monitor_demonitor(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:try_load(Path, echo_drv, []),
     ?line Ref = erl_ddll:monitor(driver,{echo_drv,unloaded}),
     ?line Self = self(),
@@ -688,7 +688,7 @@ monitor_demonitor_load(suite) ->
 monitor_demonitor_load(doc) ->
     ["Check monitor/demonitor of driver loading"];
 monitor_demonitor_load(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line {ok,loaded} = erl_ddll:try_load(Path, echo_drv, []),
     ?line Port = open_port({spawn, echo_drv}, [eof]),
     ?line Ref = erl_ddll:monitor(driver,{echo_drv,loaded}),
@@ -717,7 +717,7 @@ new_interface(suite) ->
 new_interface(doc) ->
     ["Test the new load/unload/reload interface"];
 new_interface(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     % Typical scenario
     ?line ok = erl_ddll:load(Path, echo_drv),
     ?line Port = open_port({spawn, echo_drv}, [eof]),
@@ -777,7 +777,7 @@ new_interface(Config) when is_list(Config) ->
 
 
 ddll_test(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     %?line {error,{already_started,ErlDdllPid}} = erl_ddll:start(),
     %?line ErlDdllPid = whereis(ddll_server),
@@ -811,7 +811,7 @@ ddll_test(Config) when is_list(Config) ->
 %% Tests errors having to do with bad drivers.
 
 errors(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     ?line {ok, L1} = erl_ddll:loaded_drivers(),
 
@@ -839,7 +839,7 @@ reference_count(doc) ->
      "reaches zero, and that they cannot be unloaded while ",
      "they are still referenced."];
 reference_count(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
     %% to it).
@@ -881,7 +881,7 @@ kill_port(doc) ->
     ["Test that a port that uses a driver is killed when the ",
      "process that loaded the driver dies."];
 kill_port(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
     %% to it).
@@ -916,7 +916,7 @@ dont_kill_port(doc) ->
     ["Test that a port that uses a driver is not killed when the ",
      "process that loaded the driver dies and it's nicely opened."];
 dont_kill_port(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     %% Spawn a process that loads the driver (and holds a reference
     %% to it).
@@ -954,7 +954,7 @@ dont_kill_port(Config) when is_list(Config) ->
 properties(doc) -> ["Test that a process that loaded a driver ",
 		    "is the only process that can unload it."];
 properties(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
 
     % Let another process load the echo driver.
     Pid=spawn_link(?MODULE, echo_loader, [Path, self()]),
@@ -980,7 +980,7 @@ properties(Config) when is_list(Config) ->
 
 load_and_unload(doc) -> ["Load two drivers and unload them in load order."];
 load_and_unload(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line {ok, Loaded_drivers1} = erl_ddll:loaded_drivers(),
     ?line ok = erl_ddll:load_driver(Path, echo_drv),
     ?line ok = erl_ddll:load_driver(Path, dummy_drv),
@@ -998,7 +998,7 @@ lock_driver(suite) ->
 lock_driver(doc) ->
     ["Check multiple calls to driver_lock_driver"];
 lock_driver(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
+    ?line Path = proplists:get_value(data_dir, Config),
     ?line {ok, _} = erl_ddll:try_load(Path, lock_drv, []),
     ?line Port1 = open_port({spawn, lock_drv}, [eof]),
     ?line Port2 = open_port({spawn, lock_drv}, [eof]),

@@ -95,7 +95,7 @@ apply_last_bif(Config) when is_list(Config) ->
 %% Test three high register numbers in a put_list instruction
 %% (to test whether packing works properly).
 packed_registers(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Mod = packed_regs,
     Name = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
 

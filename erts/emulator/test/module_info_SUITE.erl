@@ -72,7 +72,7 @@ functions(Config) when is_list(Config) ->
 
 %% Test that deleted modules cause badarg
 deleted(Config) when is_list(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "module_info_test"),
     {ok,module_info_test,Code} = compile:file(File, [binary]),
     {module,module_info_test} = erlang:load_module(module_info_test, Code),

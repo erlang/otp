@@ -33,7 +33,7 @@ load_nif_lib(Config, Ver) ->
     load_nif_lib(Config, Ver, []).
 
 load_nif_lib(Config, Ver, LoadInfo) ->
-    ?line Path = ?config(data_dir, Config),    
+    ?line Path = proplists:get_value(data_dir, Config),
     erlang:load_nif(filename:join(Path,libname(Ver)), LoadInfo).
 
 libname(no_init) -> libname(3);
