@@ -113,6 +113,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+-define(UNIQ_NODE_NAME,
+  list_to_atom(?MODULE_STRING ++ "__" ++
+               atom_to_list(?FUNCTION_NAME) ++ "_" ++
+	       integer_to_list(erlang:unique_integer([positive])))).
+
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
 default_options(Config) when is_list(Config) ->
@@ -189,7 +194,7 @@ default_options(Config) when is_list(Config) ->
 
 do_delay_on_other_node(XArgs, Function) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_default_options_slave,slave,
+    {ok,Node} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                        [{args,"-pa " ++ Dir ++ " " ++ XArgs}]),
     Res = rpc:call(Node,erlang,apply,[Function,[]]),
     test_server:stop_node(Node),
@@ -2476,7 +2481,7 @@ get_max_diff(Max) ->
 	    
 setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(test_default_options_slave,slave,
+    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
     Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2}]),
@@ -2519,7 +2524,7 @@ setup_closed_ao() ->
     
 setup_timeout_sink(Timeout, AutoClose) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(test_default_options_slave,slave,
+    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
     Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
@@ -2562,7 +2567,7 @@ setup_timeout_sink(Timeout, AutoClose) ->
 
 setup_active_timeout_sink(Timeout, AutoClose) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(test_default_options_slave,slave,
+    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
     Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
     {ok, L} = gen_tcp:listen(0, [binary,{active,false},{packet,0},{nodelay, true},{keepalive, true},
