@@ -68,7 +68,8 @@ MODULES= \
 	ct_telnet_SUITE \
 	erl2html2_SUITE \
 	test_server_SUITE \
-	test_server_test_lib
+	test_server_test_lib \
+	ct_release_test_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= test_server_test_lib.hrl

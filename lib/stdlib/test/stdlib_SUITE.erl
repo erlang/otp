@@ -31,10 +31,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test, appup_test, assert_test, {group,upgrade}].
-
-groups() -> 
-    [{upgrade,[minor_upgrade,major_upgrade]}].
+    [app_test, appup_test, assert_test].
 
 init_per_suite(Config) ->
     Config.
@@ -42,13 +39,9 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_group(upgrade, Config) ->
-    ct_release_test:init(Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(upgrade, Config) ->
-    ct_release_test:cleanup(Config);
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -163,29 +156,6 @@ check_appup([Vsn|Vsns],Instrs,Expected) ->
     end;
 check_appup([],_,_) ->
     ok.
-
-
-minor_upgrade(Config) ->
-    ct_release_test:upgrade(stdlib,minor,{?MODULE,[]},Config).
-
-major_upgrade(Config) ->
-    ct_release_test:upgrade(stdlib,major,{?MODULE,[]},Config).
-
-%% Version numbers are checked by ct_release_test, so there is nothing
-%% more to check here...
-upgrade_init(CtData,State) ->
-    {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData,stdlib),
-    case ct_release_test:get_appup(CtData,stdlib) of
-	{ok,{FromVsn,ToVsn,[restart_new_emulator],[restart_new_emulator]}} ->
-	    io:format("Upgrade/downgrade ~p <--> ~p",[FromVsn,ToVsn]);
-	{error,{vsn_not_found,_}} when FromVsn==ToVsn ->
-	    io:format("No upgrade test for stdlib, same version")
-    end,
-    State.
-upgrade_upgraded(_CtData,State) ->
-    State.
-upgrade_downgraded(_CtData,State) ->
-    State.
 
 
 -include_lib("stdlib/include/assert.hrl").
