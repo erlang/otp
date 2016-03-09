@@ -2265,12 +2265,14 @@ io_lib_width_too_small(_Config) ->
 %% Test that the time for a huge message queue is not
 %% significantly slower than with an empty message queue.
 io_with_huge_message_queue(Config) when is_list(Config) ->
-    case test_server:is_native(gen) of
-	true ->
+    case {test_server:is_native(gen),test_server:is_cover()} of
+	{true,_} ->
 	    {skip,
 	     "gen is native - huge message queue optimization "
 	     "is not implemented"};
-	false ->
+	{_,true} ->
+	    {skip,"Running under cover"};
+	{false,false} ->
 	    do_io_with_huge_message_queue(Config)
     end.
 
@@ -2278,25 +2280,41 @@ do_io_with_huge_message_queue(Config) ->
     PrivDir = ?privdir(Config),
     File = filename:join(PrivDir, "slask"),
     {ok, F1} = file:open(File, [write]),
-
-    {Time,ok} = timer:tc(fun() -> writes(1000, F1) end),
+    Test = fun(Times) ->
+		   {Time,ok} = timer:tc(fun() -> writes(Times, F1) end),
+		   Time
+	   end,
+    {Times,EmptyTime} = calibrate(100, Test),
 
     [self() ! {msg,N} || N <- lists:seq(1, 500000)],
     erlang:garbage_collect(),
-    {NewTime,ok} = timer:tc(fun() -> writes(1000, F1) end),
+    FullTime = Test(Times),
     file:close(F1),
-    io:format("Time for empty message queue: ~p", [Time]),
-    io:format("Time for huge message queue: ~p", [NewTime]),
+    file:delete(File),
+    io:format("Number of writes: ~p", [Times]),
+    io:format("Time for empty message queue: ~p", [EmptyTime]),
+    io:format("Time for huge message queue: ~p", [FullTime]),
 
-    IsCover = test_server:is_cover(),
-    case (NewTime+1) / (Time+1) of
-	Q when Q < 10; IsCover ->
+    case (FullTime+1) / (EmptyTime+1) of
+	Q when Q < 10 ->
 	    ok;
 	Q ->
 	    io:format("Q = ~p", [Q]),
 	    ?t:fail()
     end,
     ok.
+
+%% Make sure that the time is not too short. That could cause the
+%% test case to fail.
+calibrate(N, Test) when N =< 100000 ->
+    case Test(N) of
+	Time when Time < 50000 ->
+	    calibrate(10*N, Test);
+	Time ->
+	    {N,Time}
+    end;
+calibrate(N, _) ->
+    N.
 
 writes(0, _) -> ok;
 writes(N, F1) ->
