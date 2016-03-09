@@ -661,52 +661,70 @@
 
     <func>
       <name>log(Format) -&gt; ok</name>
-      <fsummary>Equivalent to log(default, 50, Format, []).</fsummary>
+      <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
-          <seealso marker="#log-4"><c>ct:log(default, 50, Format, [])</c></seealso>.</p>
+          <seealso marker="#log-5"><c>ct:log(default, 50, Format, [], [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>log(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs, []).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | Args</v>
+        <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="log-2"/>
-        <p>Equivalent to <seealso marker="#log-4"><c>ct:log(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>log(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs, Opts).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | Args</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="log-3"/>
-        <p>Equivalent to <seealso marker="#log-4"><c>ct:log(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>log(Category, Importance, Format, Args) -&gt; ok</name>
+      <name>log(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to log(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="log-4"/>
+        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the log file.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
-        <v>Args = list()</v>
+        <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = no_css | esc_chars</v>
       </type>
-      <desc><marker id="log-4"/>
+      <desc><marker id="log-5"/>
         <p>Prints from a test case to the log file.</p>
 
         <p>This function is meant for printing a string directly from a
@@ -714,11 +732,15 @@
 
         <p>Default <c>Category</c> is <c>default</c>,
           default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
-          and default value for <c>Args</c> is <c>[]</c>.</p>
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
-        <p>For details on <c>Category</c> and <c>Importance</c>, see section
-          <seealso marker="write_test_chapter#logging">Logging - Categories
-          and Verbosity Levels</seealso> in the User's Guide.</p>
+        <p>For details on <c>Category</c>, <c>Importance</c> and the <c>no_css</c>
+	option, see section <seealso marker="write_test_chapter#logging">
+	Logging - Categories and Verbosity Levels</seealso> in the User's Guide.</p>
+
+	<p>Common Test will not escape special HTML characters (&lt;, &gt; and &amp;)
+	   in the text printed with this function, unless the <c>esc_chars</c>
+	   option is used.</p>
       </desc>
     </func>
 
@@ -769,40 +791,40 @@
     <func>
       <name>pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | Args</v>
+        <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-2"/>
         <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+          Importance, Format, FormatArgs)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | Args</v>
+        <v>X3 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-3"/>
         <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+          Importance, Format, FormatArgs)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, Args) -&gt; ok</name>
+      <name>pal(Category, Importance, Format, FormatArgs) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
-        <v>Args = list()</v>
+        <v>FormatArgs = list()</v>
       </type>
       <desc><marker id="pal-4"/>
         <p>Prints and logs from a test case.</p>
@@ -812,11 +834,15 @@
 
         <p>Default <c>Category</c> is <c>default</c>,
           default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
-          and default value for <c>Args</c> is <c>[]</c>.</p>
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
         <p>For details on <c>Category</c> and <c>Importance</c>, see section
           <seealso marker="write_test_chapter#logging">Logging - Categories
           and Verbosity Levels</seealso> in the User's Guide.</p>
+
+	<p>Note that special characters in the text (&lt;, &gt; and &amp;) will
+	   be escaped by Common Test before the text is printed to the log
+	   file.</p>
       </desc>
     </func>
 
@@ -854,40 +880,40 @@
     <func>
       <name>print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | Args</v>
+        <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-2"/>
         <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+          Importance, Format, FormatArgs)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        Args).</fsummary>
+        FormatArgs).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | Args</v>
+        <v>X3 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-3"/>
         <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, Args)</c></seealso>.</p>
+          Importance, Format, FormatArgs)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, Args) -&gt; ok</name>
+      <name>print(Category, Importance, Format, FormatArgs) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
-        <v>Args = list()</v>
+        <v>FormatArgs = list()</v>
       </type>
       <desc><marker id="print-4"/>
         <p>Prints from a test case to the console.</p>
@@ -897,7 +923,7 @@
 
         <p>Default <c>Category</c> is <c>default</c>,
           default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
-          and default value for <c>Args</c> is <c>[]</c>.</p>
+          and default value for <c>FormatArgs</c> is <c>[]</c>.</p>
 
         <p>For details on <c>Category</c> and <c>Importance</c>, see section
           <seealso marker="write_test_chapter#logging">Logging - Categories
