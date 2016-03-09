@@ -1133,9 +1133,8 @@ mult_lib_roots(Config) when is_list(Config) ->
 	?t:start_node(mult_lib_roots, slave,
 		      [{args,"-env ERL_LIBS "++ErlLibs}]),
 
-    TSPath = filename:dirname(code:which(test_server)),
     Path0 = rpc:call(Node, code, get_path, []),
-    [TSPath,"."|Path1] = Path0,
+    ["."|Path1] = Path0,
     [Kernel|Path2] = Path1,
     [Stdlib|Path3] = Path2,
     mult_lib_verify_lib(Kernel, "kernel"),
@@ -1179,16 +1178,19 @@ mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
     {ok,Node} =
-	?t:start_node(mult_lib_roots, slave,
-		      [{args,"-env ERL_LIBS "}]),
-
+	?t:start_node(bad_erl_libs, slave, []),
+    Code = rpc:call(Node,code,get_path,[]),
     ?t:stop_node(Node),
 
     {ok,Node2} =
-	?t:start_node(mult_lib_roots, slave,
+	?t:start_node(bad_erl_libs, slave,
 		      [{args,"-env ERL_LIBS /no/such/dir"}]),
-
+    Code2 = rpc:call(Node,code,get_path,[]),
     ?t:stop_node(Node2),
+
+    %% Test that code path is not affected by the faulty ERL_LIBS
+    Code == Code2,
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
