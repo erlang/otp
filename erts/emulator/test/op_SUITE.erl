@@ -257,7 +257,7 @@ run_test_module(Cases, GuardsOk) ->
 
     %% Compile, load, and run the generated module.
 
-    Native = case ?t:is_native(?MODULE) of
+    Native = case test_server:is_native(?MODULE) of
 		 true -> [native];
 		 false -> []
 	     end,

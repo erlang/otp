@@ -1038,7 +1038,7 @@ start_node(Name) ->
 
 start_node(Name, Args) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Res = ?t:start_node(Name, slave, [{args,  Args ++ " -pa " ++ Pa}]),
+    ?line Res = test_server:start_node(Name, slave, [{args,  Args ++ " -pa " ++ Pa}]),
     ?line {ok, Node} = Res,
     ?line rpc:call(Node, erts_debug, set_internal_state,
 		   [available_internal_state, true]),
@@ -1046,7 +1046,7 @@ start_node(Name, Args) ->
     
 
 stop_node(Node) ->
-    ?line ?t:stop_node(Node).
+    ?line test_server:stop_node(Node).
 
 -define(COOKIE, '').
 -define(DOP_LINK,		1).

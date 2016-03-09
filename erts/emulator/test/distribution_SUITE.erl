@@ -1070,7 +1070,7 @@ atom_roundtrip(Config) when is_list(Config) ->
     ?line ok.
 
 atom_roundtrip_r15b(Config) when is_list(Config) ->
-    case ?t:is_release_available("r15b") of
+    case test_server:is_release_available("r15b") of
 	true ->
 	    ?line AtomData = atom_data(),
 	    ?line verify_atom_data(AtomData),

@@ -448,7 +448,7 @@ microsecs({Mega_Secs, Secs, Microsecs}) ->
 %% calls to erlang:localtime().
 
 now_update(Config) when is_list(Config) ->
-    case ?t:is_debug() of
+    case test_server:is_debug() of
 	false -> ?line now_update1(10);
 	true -> {skip,"Unreliable in DEBUG build"}
     end.

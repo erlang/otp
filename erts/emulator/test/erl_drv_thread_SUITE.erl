@@ -71,7 +71,7 @@ drv_case(Config, CaseName, Command, TimeTrap) when is_list(Config),
 						   is_atom(CaseName),
 						   is_list(Command),
 						   is_integer(TimeTrap) ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
 	    ?line run_drv_case(Config, CaseName, Command, TimeTrap);
 	SkipOs ->

@@ -706,7 +706,7 @@ timer_refc(Config) when is_list(Config) ->
 otp_4715(doc) -> [];
 otp_4715(suite) -> [];
 otp_4715(Config) when is_list(Config) ->
-    case ?t:is_release_available("r9b") of
+    case test_server:is_release_available("r9b") of
 	true -> otp_4715_1(Config);
 	false -> {skip,"No R9B found"}
     end.
@@ -717,10 +717,10 @@ otp_4715_1(Config) ->
 	    ?line run_otp_4715(Config);
 	_ ->
 	    ?line Pa = filename:dirname(code:which(?MODULE)),
-	    ?line ?t:run_on_shielded_node(fun () ->
-						  run_otp_4715(Config)
-					  end,
-					  "+R9 -pa " ++ Pa)
+            ?line test_server:run_on_shielded_node(fun () ->
+                                                           run_otp_4715(Config)
+                                                   end,
+                                                   "+R9 -pa " ++ Pa)
     end.
 
 run_otp_4715(Config) when is_list(Config) ->
@@ -741,7 +741,7 @@ pid_wrap(Config) when is_list(Config) -> ?line pp_wrap(pid).
 port_wrap(doc) -> [];
 port_wrap(suite) -> [];
 port_wrap(Config) when is_list(Config) ->
-    ?line case ?t:os_type() of
+    ?line case test_server:os_type() of
 	      {unix, _} ->
 		  ?line pp_wrap(port);
 	      _ ->

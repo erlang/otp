@@ -669,7 +669,7 @@ start_slave() ->
     ?line Name = atom_to_list(?MODULE)
 	++ "-" ++ integer_to_list(erlang:system_time(seconds))
 	++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
-    {ok, Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
+    {ok, Node} = test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
     Node.
 
 stop_slave(Node) ->

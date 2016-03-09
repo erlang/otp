@@ -542,7 +542,7 @@ start_node(Config, Envs) when is_list(Config) ->
                         ++ integer_to_list(erlang:system_time(seconds))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, peer, [{args, "-pa "++Pa}, {env, Envs}]).
+    test_server:start_node(Name, peer, [{args, "-pa "++Pa}, {env, Envs}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).

@@ -507,10 +507,10 @@ start_node(Config) ->
 			++ "-" ++ integer_to_list(erlang:system_time(seconds))
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 have_pending_exit() ->
     have_pending_exit(self()).

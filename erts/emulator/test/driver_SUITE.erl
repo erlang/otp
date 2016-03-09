@@ -518,7 +518,7 @@ queue_echo(doc) ->
     ["1) Queue up data in a driver that uses the full driver_queue API to do this."
      "2) Get the data back, a random amount at a time."];
 queue_echo(Config) when is_list(Config) ->
-    case ?t:is_native(?MODULE) of
+    case test_server:is_native(?MODULE) of
 	true -> exit(crashes_native_code);
 	false -> queue_echo_1(Config)
     end.
@@ -2571,10 +2571,10 @@ start_node(Config) when is_list(Config) ->
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 wait_deallocations() ->
     try

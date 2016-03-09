@@ -37,12 +37,12 @@ sort_on_old_node(List) when is_list(List) ->
 				  ++ integer_to_list(X)
 				  ++ integer_to_list(Y)
 				  ++ integer_to_list(Z)),
-    ?line {ok, Node} = ?t:start_node(NodeName,
+    ?line {ok, Node} = test_server:start_node(NodeName,
 				     peer,
 				     [{args, " -pa " ++ Pa},
 				      {erl, [{release, OldVersion++"b_patched"}]}]),
     ?line Ref = make_ref(),
     ?line spawn_link(Node, ?MODULE, sorter, [self(), Ref, List]),
     ?line SortedPids = receive {Ref, SP} -> SP end,
-    ?line true = ?t:stop_node(Node),
+    ?line true = test_server:stop_node(Node),
     ?line SortedPids.

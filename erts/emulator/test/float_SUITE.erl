@@ -283,10 +283,10 @@ start_node(Config) when is_list(Config) ->
 			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"
 			      ++ integer_to_list(erlang:unique_integer([positive]))),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa}]).
+    ?line test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 %% Test that operations that might hide infinite intermediate results

@@ -377,7 +377,7 @@ start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
 			      ++ integer_to_list(A)
 			      ++ "-"
 			      ++ integer_to_list(B)),
-    ?line ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    ?line test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).

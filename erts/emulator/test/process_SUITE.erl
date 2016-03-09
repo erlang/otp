@@ -2500,10 +2500,10 @@ start_node(Config, Args) when is_list(Config) ->
 			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"
 			      ++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of

@@ -1811,7 +1811,7 @@ exit_status_multi_scheduling_block(doc) -> [];
 exit_status_multi_scheduling_block(suite) -> [];
 exit_status_multi_scheduling_block(Config) when is_list(Config) ->
     Repeat = 3,
-    case ?t:os_type() of
+    case test_server:os_type() of
 	      {unix, _} ->
                   ct:timetrap({minutes, 2*Repeat}),
 		  SleepSecs = 6,

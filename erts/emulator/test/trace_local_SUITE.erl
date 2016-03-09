@@ -900,12 +900,12 @@ concurrency(_Config) ->
 	      _ <- lists:seq(1, 2*N)],
     OnAndOff = fun() -> concurrency_on_and_off() end,
     Ps1 = [spawn_monitor(OnAndOff)|Ps0],
-    ?t:sleep(1000),
+    timer:sleep(1000),
 
     %% Now spawn off N more processes that turn on off and off
     %% a local trace pattern.
     Ps = [spawn_monitor(OnAndOff) || _ <- lists:seq(1, N)] ++ Ps1,
-    ?t:sleep(1000),
+    timer:sleep(1000),
 
     %% Clean up.
     [exit(Pid, kill) || {Pid,_} <- Ps],

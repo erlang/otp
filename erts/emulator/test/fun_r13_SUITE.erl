@@ -34,7 +34,7 @@ all() ->
     [dist_old_release].
 
 dist_old_release(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> do_dist_old(Config);
 	false -> {skip,"No R12B found"}
     end.
@@ -42,7 +42,7 @@ dist_old_release(Config) when is_list(Config) ->
 do_dist_old(Config) when is_list(Config) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
     Name = fun_dist_r12,
-    ?line {ok,Node} = ?t:start_node(Name, peer,
+    ?line {ok,Node} = test_server:start_node(Name, peer,
 				    [{args,"-pa "++Pa},
 				     {erl,[{release,"r12b"}]}]),
 
@@ -67,6 +67,7 @@ do_dist_old(Config) when is_list(Config) ->
 	      Other ->
 		  ?line ct:fail({bad_message,Other})
 	  end,
+    true = test_server:stop_node(Node),
     ok.
 
 cons(H, T) ->

@@ -107,7 +107,7 @@ wall_clock_update1(N) when N > 0 ->
 
     ?line Wc_Diff = T2_wc_time - T1_wc_time,
     ?line io:format("Wall clock diff = ~p; should be  = 1000..1040~n", [Wc_Diff]),
-    case ?t:is_debug() of
+    case test_server:is_debug() of
 	false ->
 	    ?line true = Wc_Diff =< 1040;
 	true ->
@@ -142,7 +142,7 @@ runtime_update(doc) ->
 	"updated difference after running a process that takes all CPU "
 	" power of the Erlang process for a second.";
 runtime_update(Config) when is_list(Config) ->
-    case ?t:is_cover() of
+    case test_server:is_cover() of
 	false ->
 	    ?line process_flag(priority, high),
 	    do_runtime_update(10);

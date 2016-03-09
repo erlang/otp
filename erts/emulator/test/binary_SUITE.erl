@@ -1515,7 +1515,7 @@ cmp_old_impl(Config) when is_list(Config) ->
 	false ->
 	    {skipped, "No "++Rel++" available"};
 	true ->
-	    {ok, Node} = ?t:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
+	    {ok, Node} = test_server:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
 				       peer,
 				       [{args, " -setcookie "++Cookie},
 					{erl, [{release, Rel}]}]),
@@ -1557,7 +1557,7 @@ cmp_old_impl(Config) when is_list(Config) ->
 	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000000)))]}),
 	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000000)))]}),
 
-	    ?t:stop_node(Node),
+	    test_server:stop_node(Node),
 
 	    ok
     end.

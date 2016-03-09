@@ -156,8 +156,8 @@ start_node(Config, Args) when is_list(Config) ->
 	      ++ "-"
 	      ++ integer_to_list(erlang:unique_integer([positive]))),
     Opts = [{args, "-pa "++Pa++" "++Args}],
-    ?t:start_node(Name, slave, Opts).
+    test_server:start_node(Name, slave, Opts).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 

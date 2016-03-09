@@ -99,7 +99,7 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{unix, _} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
@@ -162,7 +162,7 @@ drv_case(Config) ->
     drv_case(Config, one_shot, "").
 
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
 	    ?line {ok, Node} = start_node(Config, NodeOpts),
 	    ?line Self = self(),
@@ -355,11 +355,11 @@ start_node_1(Config, Opts) ->
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 free_memory() ->
     %% Free memory in MB.

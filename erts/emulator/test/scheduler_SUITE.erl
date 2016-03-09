@@ -876,7 +876,7 @@ get_affinity_mask(_Port, _Status, Affinity) ->
     Affinity.
 
 get_affinity_mask() ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{unix, linux} ->
 	    case catch open_port({spawn, "taskset -p " ++ os:getpid()},
 				 [exit_status]) of
@@ -2232,10 +2232,10 @@ start_node(Config, Args) when is_list(Config) ->
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+    ?line test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 enable_internal_state() ->
