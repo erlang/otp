@@ -1565,6 +1565,8 @@ answer(Pkt,
        Req) ->
     a(Pkt, SvcName, ModX, AE, Req).
 
+-spec a(_, _, _) -> no_return().  %% silence dialyzer
+
 a(#diameter_packet{errors = Es}
   = Pkt,
   SvcName,

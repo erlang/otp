@@ -137,16 +137,16 @@
          peer = false :: match(boolean() | pid())}).
                       %% true at accepted, pid() at okay/reopen
 
-%% Record representing an Peer State Machine processes implemented by
+%% Record representing a Peer State Machine processes implemented by
 %% diameter_peer_fsm.
 -record(peer,
-        {pid   :: pid(),
-         apps  :: [{0..16#FFFFFFFF, diameter:app_alias()}]  %% {Id, Alias}
-                | [diameter:app_alias()],  %% remote
-         caps  :: #diameter_caps{},
-         started = diameter_lib:now(),  %% at process start or sharing
-         watchdog :: pid()        %% key into watchdogT
-                   | undefined}). %% undefined if remote
+        {pid  :: pid(),
+         apps :: match([{0..16#FFFFFFFF, diameter:app_alias()}] %% {Id, Alias}
+                       | [diameter:app_alias()]),               %% remote
+         caps :: match(#diameter_caps{}),
+         started = diameter_lib:now(),     %% at process start or sharing
+         watchdog :: match(pid()           %% key into watchdogT
+                           | undefined)}). %% undefined if remote
 
 %% ---------------------------------------------------------------------------
 %% # start/1
@@ -583,8 +583,7 @@ init_peers({PeerT, _, _} = T, F)
               PeerT);
 
 %% Populate #peer{} table given a shared peers dict.
-init_peers({PeerT, _, _}, SDict)
-  when is_integer(SDict) ->
+init_peers({PeerT, _, _}, SDict) ->
     dict:fold(fun(P, As, N) ->
                       ets:update_element(PeerT, P, {#peer.apps, As}),
                       N+1
