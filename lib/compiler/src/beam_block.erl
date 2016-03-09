@@ -58,6 +58,13 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
+blockify([{get_map_elements,F,S,{list,Gets}}|Is0], Acc) ->
+    %% A get_map_elements instruction is only safe at the beginning of
+    %% a block because of the failure label.
+    {Ss,Ds} = beam_utils:split_even(Gets),
+    I = {set,Ds,[S|Ss],{get_map_elements,F}},
+    {Block,Is} = collect_block(Is0, [I]),
+    blockify(Is, [{block,Block}|Acc]);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -101,9 +108,6 @@ collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
-collect({get_map_elements,F,S,{list,Gets}}) ->
-    {Ss,Ds} = beam_utils:split_even(Gets),
-    {set,Ds,[S|Ss],{get_map_elements,F}};
 collect({'catch'=Op,R,L}) ->
     {set,[R],[],{try_catch,Op,L}};
 collect({'try'=Op,R,L}) ->
