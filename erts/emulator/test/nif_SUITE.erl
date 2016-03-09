@@ -1714,7 +1714,9 @@ tmpmem() ->
 	false -> undefined;
 	MemInfo ->
 	    MSBCS = lists:foldl(
-		      fun ({instance, _, L}, Acc) ->
+		      fun ({instance, 0, _}, Acc) ->
+			      Acc; % Ignore instance 0
+			  ({instance, _, L}, Acc) ->
 			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
 			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
 			      [MBCS,SBCS | Acc]
