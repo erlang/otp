@@ -432,10 +432,16 @@ tc_log(Category,Importance,Format,Args,Opts) ->
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
 tc_log(Category,Importance,Printer,Format,Args,Opts) ->
-    cast({log,sync,self(),group_leader(),Category,Importance,
-	  [{hd,div_header(Category,Printer),[]},
-	   {Format,Args},
-	   {ft,div_footer(),[]}],
+    Data = 
+	case lists:member(no_css, Opts) of
+	    true ->
+		[{Format,Args}];
+	    false ->
+		[{hd,div_header(Category,Printer),[]},
+		 {Format,Args},
+		 {ft,div_footer(),[]}]
+	end,
+    cast({log,sync,self(),group_leader(),Category,Importance,Data,
 	  lists:member(esc_chars, Opts)}),
     ok.
 
