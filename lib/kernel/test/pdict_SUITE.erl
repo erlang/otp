@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(pdict_SUITE).
-%% NB: The ?line macro cannot be used when testing the dictionary.
 
 
 -include_lib("common_test/include/ct.hrl").

@@ -120,7 +120,7 @@ file_utc(Config) when is_list(Config) ->
     file_utc().
 
 
-% a small gen_event
+%% a small gen_event
 
 init([Pid]) ->
     {ok, Pid}.
@@ -224,7 +224,7 @@ warnings_errors() ->
     stop_node(Node),
     ok.
 
-% RB...
+%% RB...
 
 quote(String) ->
     case os:type() of
@@ -271,7 +271,7 @@ findstrc(String,File) ->
             0
     end.
 
-% Doesn't count empty lines
+%% Doesn't count empty lines
 lines(File) ->
     length(
       string:tokens(
@@ -279,7 +279,7 @@ lines(File) ->
 	  element(2,file:read_file(File))),
 	"\n")).
 
-%directories anf filenames
+%% Directories and filenames
 ld() ->
     Config = get(elw_config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -303,7 +303,7 @@ nice_stop_node(Name) ->
 	{nodedown,Name} -> ok
     end.
 
-%clean out rd() before each report test in order to get only one file...
+%% Clean out rd() before each report test in order to get only one file...
 clean_rd() ->
     {ok,L} = file:list_dir(rd()),
     lists:foreach(fun(F) ->
@@ -340,10 +340,10 @@ one_rb_findstr(Param,String) ->
     rb:stop_log(),
     findstr(String,lf()).
 
-% Tests
+%% Tests
 rb_basic() ->
     clean_rd(),
-    % Behold, the magic parameters to activate rb logging...
+    %% Behold, the magic parameters to activate rb logging...
     Node = start_node(nn(),"-boot start_sasl -sasl error_logger_mf_dir "++
                       quote(rd())++" error_logger_mf_maxbytes 5000 "
                       "error_logger_mf_maxfiles 5"),
@@ -501,9 +501,7 @@ rb_utc() ->
 file_utc() ->
     file:delete(lf()),
     SS="-stdlib utc_log true -kernel error_logger "++ oquote("{file,"++iquote(lf())++"}"),
-    %erlang:display(SS),
     Node = start_node(nn(),SS),
-    %erlang:display(rpc:call(Node,application,get_env,[kernel,error_logger])),
     Self = self(),
     GL = group_leader(),
     fake_gl(Node,error_msg,"~p~n",[Self]),

@@ -80,7 +80,7 @@ spawn1(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn
+    %% spawn
     ?line P = spawn(fun() -> Parent ! {self(), fetch_proc_vals(self())} end),
     ?line receive
 	      {P, PV} ->
@@ -96,7 +96,7 @@ spawn2(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn(Node,
 		    fun() -> Parent ! {self(), fetch_proc_vals(self())} end),
     ?line receive
@@ -116,7 +116,7 @@ spawn3(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn(?MODULE,
 		    run_fun,
 		    [fun() ->
@@ -136,7 +136,7 @@ spawn4(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn(Node,
 		    ?MODULE,
 		    run_fun,
@@ -160,7 +160,7 @@ spawn_link1(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn_link(fun() -> Parent ! {self(), fetch_proc_vals(self())} end),
     ?line receive
 	      {P, PV} ->
@@ -176,7 +176,7 @@ spawn_link2(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn_link(Node,
 			 fun() -> Parent ! {self(), fetch_proc_vals(self())} end),
     ?line receive
@@ -195,7 +195,7 @@ spawn_link3(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn_link(?MODULE,
 			 run_fun,
 			 [fun() ->
@@ -215,7 +215,7 @@ spawn_link4(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
 
-    % spawn_link
+    %% spawn_link
     ?line P = spawn_link(Node,
 			 ?MODULE,
 			 run_fun,
@@ -352,7 +352,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line ThisNode = node(),
     ?line {ok, Node} = start_node(spawn_remote_failure),
 
-    % unknown nodes
+    %% unknown nodes
     io:format("Testing unknown nodes~n", []),
     ?line CrashPid1 = (catch spawn_opt('unknown@node',
 				       erlang,
@@ -408,7 +408,7 @@ spawn_failures(Config) when is_list(Config) ->
 	    ok
     end,
 
-    % bad node
+    %% bad node
     io:format("Testing bad nodes~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("Node",erlang,nodes,[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("Node",
@@ -426,7 +426,7 @@ spawn_failures(Config) when is_list(Config) ->
 						       erlang:nodes()
 					       end)),
 
-    % bad module
+    %% bad module
     io:format("Testing bad modules~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,"erlang",nodes,[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt("erlang",nodes,[],[])),
@@ -435,7 +435,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch spawn(Node,"erlang",nodes,[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn("erlang",nodes,[])),
 
-    % bad function
+    %% bad function
     io:format("Testing bad functions~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,"nodes",[],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,not_a_fun,[])),
@@ -451,7 +451,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch spawn(not_a_fun)),
 
 
-    % bad argument
+    %% bad argument
     io:format("Testing bad arguments~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,nodes,[a|b],[])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,nodes,[a|b],[])),
@@ -460,7 +460,7 @@ spawn_failures(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch spawn(Node,erlang,nodes,[a|b])),
     ?line {'EXIT', {badarg, _}} = (catch spawn(erlang,nodes,[a|b])),
 
-    % bad option
+    %% bad option
     io:format("Testing bad options~n", []),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(Node,erlang,nodes,[],[a|b])),
     ?line {'EXIT', {badarg, _}} = (catch spawn_opt(erlang,nodes,[],[a|b])),
@@ -493,7 +493,7 @@ decode_packet_delim(Config) when is_list(Config) ->
         erlang:decode_packet(line, <<"abc",0,"efg",0>>, [{line_delimiter, 0}]),
     {more, undefined} = erlang:decode_packet(line, <<"abc",0,"efg",0>>, []).
 
-% This testcase should probably be moved somewhere else
+%% This testcase should probably be moved somewhere else
 
 %% Test that memory allocation command line options affecting the
 %% wilderness of the heap are interpreted correct by the emulator.

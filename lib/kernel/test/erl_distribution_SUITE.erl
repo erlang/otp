@@ -19,7 +19,6 @@
 %%
 -module(erl_distribution_SUITE).
 
-%-define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -295,7 +294,7 @@ tick_change(Config) when is_list(Config) ->
 	      _                 -> ct:fail(DefaultTT)
 	  end,
 
-    % In case other nodes are connected
+    %% In case other nodes are connected
     case nodes(connected) of
 	[] -> ?line net_kernel:set_net_ticktime(10, 0);
 	_ ->  ?line rpc:multicall(nodes([this, connected]), net_kernel,
@@ -333,7 +332,7 @@ tick_change(Config) when is_list(Config) ->
     ?line stop_node(B),
     ?line stop_node(C),
 
-    % In case other nodes are connected
+    %% In case other nodes are connected
     case nodes(connected) of
 	[] -> ?line net_kernel:set_net_ticktime(DefaultTT, 0);
 	_ ->  ?line rpc:multicall(nodes([this, connected]), net_kernel,
@@ -386,7 +385,7 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
 			     end
 		     end),
 
-    % In case other nodes than these are connected
+    %% In case other nodes than these are connected
     case nodes(connected) -- [B, C, D] of
 	[] -> ?line ok;
 	OtherNodes -> ?line rpc:multicall(OtherNodes, net_kernel,
@@ -467,7 +466,7 @@ hidden_node(Config) when is_list(Config) ->
     ?line {ok, V} = start_node(visible_node, VArgs),
     VMN = start_monitor_nodes_proc(V),
     ?line {ok, H} = start_node(hidden_node, HArgs),
-    % Connect visible_node -> hidden_node
+    %% Connect visible_node -> hidden_node
     connect_nodes(V, H),
     test_nodes(V, H),
     stop_node(H),
@@ -477,7 +476,7 @@ hidden_node(Config) when is_list(Config) ->
     ?line {ok, H} = start_node(hidden_node, HArgs),
     HMN = start_monitor_nodes_proc(H),
     ?line {ok, V} = start_node(visible_node, VArgs),
-    % Connect hidden_node -> visible_node
+    %% Connect hidden_node -> visible_node
     connect_nodes(H, V),
     test_nodes(V, H),
     stop_node(V),
@@ -487,21 +486,21 @@ hidden_node(Config) when is_list(Config) ->
     ok.
 
 connect_nodes(A, B) ->
-    % Check that they haven't already connected.
+    %% Check that they haven't already connected.
     ?line false = lists:member(A, rpc:call(B, erlang, nodes, [connected])),
     ?line false = lists:member(B, rpc:call(A, erlang, nodes, [connected])),
-    % Connect them.
+    %% Connect them.
     ?line pong = rpc:call(A, net_adm, ping, [B]).
     
 
 test_nodes(V, H) ->
-    % No nodes should be visible on hidden_node
+    %% No nodes should be visible on hidden_node
     ?line [] = rpc:call(H, erlang, nodes, []),
-    % visible_node should be hidden on hidden_node
+    %% visible_node should be hidden on hidden_node
     ?line true = lists:member(V, rpc:call(H, erlang, nodes, [hidden])),
-    % hidden_node node shouldn't be visible on visible_node
+    %% hidden_node node shouldn't be visible on visible_node
     ?line false = lists:member(H, rpc:call(V, erlang, nodes, [])),
-    % hidden_node should be hidden on visible_node
+    %% hidden_node should be hidden on visible_node
     ?line true = lists:member(H, rpc:call(V, erlang, nodes, [hidden])).
 
 mn_loop(MNs) ->
@@ -711,7 +710,6 @@ monitor_nodes_node_type(Config) when is_list(Config) ->
     ?line ok = net_kernel:monitor_nodes(true),
     ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}]),
     ?line Names = get_numbered_nodenames(9, node),
-%    io:format("Names: ~p~n", [Names]),
     ?line [NN1, NN2, NN3, NN4, NN5, NN6, NN7, NN8, NN9] = Names,
 
     ?line {ok, N1} = start_node(NN1),
@@ -790,7 +788,6 @@ monitor_nodes_misc(Config) when is_list(Config) ->
     ?line ok = net_kernel:monitor_nodes(true, [{node_type, all}, nodedown_reason]),
     ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
     ?line Names = get_numbered_nodenames(3, node),
-%    io:format("Names: ~p~n", [Names]),
     ?line [NN1, NN2, NN3] = Names,
 
     ?line {ok, N1} = start_node(NN1),
@@ -879,7 +876,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify the monitor_nodes order expected
     ?line TestMonNodeState = monitor_node_state(),
-    %io:format("~p~n", [TestMonNodeState]),
+    %% io:format("~p~n", [TestMonNodeState]),
     ?line TestMonNodeState = 
 	MonNodeState
 	++ case TestType of
@@ -899,11 +896,11 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     ?line RemotePid = spawn(Node,
 		fun () ->
 			receive after 1500 -> ok end,
-			% infinit loop of msgs
-			% we want an endless stream of messages and the kill
-			% the node mercilessly.
-			% We then want to ensure that the nodedown message arrives
-			% last ... without garbage after it.
+			%% infinit loop of msgs
+			%% we want an endless stream of messages and the kill
+			%% the node mercilessly.
+			%% We then want to ensure that the nodedown message arrives
+			%% last ... without garbage after it.
 			_ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
 			receive {Me, kill_it} -> ok end, 
 			halt()
@@ -917,7 +914,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     ?line no_msgs(500),
     ?line {nodeup, Node} = receive Msg1 -> Msg1 end,
     ?line {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
-    % msg stream has begun, kill the node
+    %% msg stream has begun, kill the node
     ?line RemotePid ! {self(), kill_it},
 
     %% Verify that '{nodedown, Node}' comes after the last '{NodeMsg, N}'
@@ -1182,26 +1179,12 @@ start_node(Name, Param, Rel) when is_list(Rel) ->
 start_node(Name, Param) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args, NewParam}]).
-%    M = list_to_atom(from($@, atom_to_list(node()))),
-%    slave:start_link(M, Name, Param).
 
 start_node(Name) ->
     start_node(Name, "").
 
 stop_node(Node) ->
     test_server:stop_node(Node).
-%    erlang:monitor_node(Node, true),
-%    rpc:cast(Node, init, stop, []),
-%    receive
-%	{nodedown, Node} ->
-%	    ok
-%    after 10000 ->
-%	    ct:fail({stop_node, Node})
-%    end.
-
-% from(H, [H | T]) -> T;
-% from(H, [_ | T]) -> from(H, T);
-% from(H, []) -> [].
 
 get_nodenames(N, T) ->
     get_nodenames(N, T, []).

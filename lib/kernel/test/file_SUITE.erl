@@ -518,11 +518,11 @@ read_write_file(Config) when is_list(Config) ->
     ?line {error, enoent} = ?FILE_MODULE:read_file(""),
     ?line {error, enoent} = ?FILE_MODULE:read_file(''),
 
-    % Try writing to a bad filename
+    %% Try writing to a bad filename
     ?line {error, enoent} = 
 	?FILE_MODULE:write_file("",term_to_binary(NullTerm)),
 
-    % Try writing something else than a binary
+    %% Try writing something else than a binary
     ?line {error, badarg} = ?FILE_MODULE:write_file(Name,{1,2,3}),
     ?line {error, badarg} = ?FILE_MODULE:write_file(Name,self()),
 
@@ -550,9 +550,9 @@ make_del_dir(Config) when is_list(Config) ->
     ?line {error, eexist} = ?FILE_MODULE:make_dir(NewDir),
     ?line ok = ?FILE_MODULE:del_dir(NewDir),
     ?line {error, enoent} = ?FILE_MODULE:del_dir(NewDir),
-    % Make sure we are not in a directory directly under test_server
-    % as that would result in eacces errors when trying to delete '..',
-    % because there are processes having that directory as current.
+    %% Make sure we are not in a directory directly under test_server
+    %% as that would result in eacces errors when trying to delete '..',
+    %% because there are processes having that directory as current.
     ?line ok = ?FILE_MODULE:make_dir(NewDir),
     ?line {ok,CurrentDir} = file:get_cwd(),
     case {os:type(), length(NewDir) >= 260 } of
@@ -1917,26 +1917,26 @@ allocate(Config) when is_list(Config) ->
     ok.
 
 allocate_and_assert(Fd, Offset, Length) ->
-    % Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
-    % any other negative side effect. We can't really asssert against a
-    % specific return value, because support for file space pre-allocation
-    % depends on the OS, OS version and underlying filesystem.
-    %
-    % The Linux kernel added support for fallocate() in version 2.6.23,
-    % which currently works only for the ext4, ocfs2, xfs and btrfs file
-    % systems. posix_fallocate() is available in glibc as of version
-    % 2.1.94, but it was buggy until glibc version 2.7.
-    %
-    % Mac OS X, as of version 10.3, supports the fcntl operation F_PREALLOCATE.
-    %
-    % Solaris supports posix_fallocate() but only for the UFS file system
-    % apparently (not supported for ZFS).
-    %
-    % FreeBSD 9.0 is the first FreeBSD release supporting posix_fallocate().
-    %
-    % For Windows there's apparently no way to pre-allocate file space, at
-    % least with same semantics as posix_fallocate(), fallocate() and
-    % fcntl F_PREALLOCATE.
+    %% Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
+    %% any other negative side effect. We can't really asssert against a
+    %% specific return value, because support for file space pre-allocation
+    %% depends on the OS, OS version and underlying filesystem.
+    %%
+    %% The Linux kernel added support for fallocate() in version 2.6.23,
+    %% which currently works only for the ext4, ocfs2, xfs and btrfs file
+    %% systems. posix_fallocate() is available in glibc as of version
+    %% 2.1.94, but it was buggy until glibc version 2.7.
+    %%
+    %% Mac OS X, as of version 10.3, supports the fcntl operation F_PREALLOCATE.
+    %%
+    %% Solaris supports posix_fallocate() but only for the UFS file system
+    %% apparently (not supported for ZFS).
+    %%
+    %% FreeBSD 9.0 is the first FreeBSD release supporting posix_fallocate().
+    %%
+    %% For Windows there's apparently no way to pre-allocate file space, at
+    %% least with same semantics as posix_fallocate(), fallocate() and
+    %% fcntl F_PREALLOCATE.
     Result = ?FILE_MODULE:allocate(Fd, Offset, Length),
     case os:type() of
         {win32, _} ->
@@ -2543,9 +2543,9 @@ compress_async_crash(Config) when is_list(Config) ->
     ?line ok = ?FILE_MODULE:write(Fd, ExpectedData),
     ?line ok = ?FILE_MODULE:close(Fd),
 
-    % Test that when using async thread pool, the emulator doesn't crash
-    % when the efile port driver is stopped while a compressed file operation
-    % is in progress (being carried by an async thread).
+    %% Test that when using async thread pool, the emulator doesn't crash
+    %% when the efile port driver is stopped while a compressed file operation
+    %% is in progress (being carried by an async thread).
     ?line ok = compress_async_crash_loop(10000, Path, ExpectedData),
     ?line ok = ?FILE_MODULE:delete(Path),
     ok.

@@ -213,11 +213,11 @@ read_write_file(Config) when is_list(Config) ->
     ?line {error, enoent} = ?PRIM_FILE:read_file(Name2),
     ?line {error, enoent} = ?PRIM_FILE:read_file(""),
 
-    % Try writing to a bad filename
+    %% Try writing to a bad filename
     ?line {error, enoent} = 
 	?PRIM_FILE:write_file("",term_to_binary(NullTerm)),
 
-    % Try writing something else than a binary
+    %% Try writing something else than a binary
     ?line {error, badarg} = ?PRIM_FILE:write_file(Name,{1,2,3}),
     ?line {error, badarg} = ?PRIM_FILE:write_file(Name,self()),
 
@@ -256,9 +256,9 @@ make_del_dir(Config, Handle, Suffix) ->
     ?line ok = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
 
-    % Make sure we are not in a directory directly under test_server
-    % as that would result in eacces errors when trying to delete '..',
-    % because there are processes having that directory as current.
+    %% Make sure we are not in a directory directly under test_server
+    %% as that would result in eacces errors when trying to delete '..',
+    %% because there are processes having that directory as current.
     ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
     ?line {ok, CurrentDir} = ?PRIM_FILE_call(get_cwd, Handle, []),
     case {os:type(), length(NewDir) >= 260 } of
@@ -1023,8 +1023,8 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 	    Time <- [ 0,1,-1,100,-100,1000,-1000,10000,-10000 ]
 	]),
 
-    % REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
-    % Determine time_t on os:type()?
+    %% REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
+    %% Determine time_t on os:type()?
     lists:foreach(fun
 	    ({FI, Opts}) ->
 		ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
@@ -1294,26 +1294,26 @@ allocate(Config) when is_list(Config) ->
     ok.
 
 allocate_and_assert(Fd, Offset, Length) ->
-    % Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
-    % any other negative side effect. We can't really asssert against a
-    % specific return value, because support for file space pre-allocation
-    % depends on the OS, OS version and underlying filesystem.
-    %
-    % The Linux kernel added support for fallocate() in version 2.6.23,
-    % which currently works only for the ext4, ocfs2, xfs and btrfs file
-    % systems. posix_fallocate() is available in glibc as of version
-    % 2.1.94, but it was buggy until glibc version 2.7.
-    %
-    % Mac OS X, as of version 10.3, supports the fcntl operation F_PREALLOCATE.
-    %
-    % Solaris supports posix_fallocate() but only for the UFS file system
-    % apparently (not supported for ZFS).
-    %
-    % FreeBSD 9.0 is the first FreeBSD release supporting posix_fallocate().
-    %
-    % For Windows there's apparently no way to pre-allocate file space, at
-    % least with similar API/semantics as posix_fallocate(), fallocate() or
-    % fcntl F_PREALLOCATE.
+    %% Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
+    %% any other negative side effect. We can't really asssert against a
+    %% specific return value, because support for file space pre-allocation
+    %% depends on the OS, OS version and underlying filesystem.
+    %%
+    %% The Linux kernel added support for fallocate() in version 2.6.23,
+    %% which currently works only for the ext4, ocfs2, xfs and btrfs file
+    %% systems. posix_fallocate() is available in glibc as of version
+    %% 2.1.94, but it was buggy until glibc version 2.7.
+    %%
+    %% Mac OS X, as of version 10.3, supports the fcntl operation F_PREALLOCATE.
+    %%
+    %% Solaris supports posix_fallocate() but only for the UFS file system
+    %% apparently (not supported for ZFS).
+    %%
+    %% FreeBSD 9.0 is the first FreeBSD release supporting posix_fallocate().
+    %%
+    %% For Windows there's apparently no way to pre-allocate file space, at
+    %% least with similar API/semantics as posix_fallocate(), fallocate() or
+    %% fcntl F_PREALLOCATE.
     Result = ?PRIM_FILE:allocate(Fd, Offset, Length),
     case os:type() of
         {win32, _} ->

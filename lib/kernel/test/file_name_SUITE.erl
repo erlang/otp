@@ -252,7 +252,6 @@ check_normal(Mod) ->
 	?line make_normal_dir(Mod),
 	?line {ok, L0} = Mod:list_dir("."),
 	?line L1 = lists:sort(L0),
-	%erlang:display(L1),
 	?line L1 = lists:sort(list(normal_dir())),
 	?line {ok,D2} = Mod:get_cwd(),
 	?line true = is_list(D2),
@@ -366,7 +365,7 @@ check_icky(Mod) ->
  	?line {ok,BeginAt} = Mod:get_cwd(),
         ?line rm_r2(Mod,"åäö_dir"),
 	{OS,_} = os:type(),
-	% Check that treat_icky really converts to the same as the OS
+	%% Check that treat_icky really converts to the same as the OS
 	case UniMode of
 	    true ->
 		?line chk_cre_dir(Mod,[{directory,"åäö_dir",[]}]),
@@ -577,7 +576,6 @@ rm_rf(Mod,Dir) ->
     end.
 
 rm_r(Mod,Dir) ->
-    %erlang:display({rm_r,Dir}),
     case  Mod:read_link_info(Dir) of
 	{ok, #file_info{type = directory}} ->
 	    {ok,#file_info{type = directory}} =  Mod:read_file_info(Dir),
@@ -595,7 +593,7 @@ rm_r(Mod,Dir) ->
     end.
 %% For icky test, allow binaries sometimes
 rm_r2(Mod,Dir) ->
-    %erlang:display({rm_r2,Dir}),
+    %% erlang:display({rm_r2,Dir}),
     case  Mod:read_link_info(Dir) of
 	{ok, #file_info{type = directory}} ->
 	    {ok,#file_info{type = directory}} =  Mod:read_file_info(Dir),
@@ -615,7 +613,7 @@ rm_r2(Mod,Dir) ->
 chk_cre_dir(_,[]) ->
     ok;
 chk_cre_dir(Mod,[{regular,Name,Content}|T]) ->
-    %io:format("~p~n",[Name]),
+    %% io:format("~p~n",[Name]),
     ok = Mod:write_file(Name,Content),
     chk_cre_dir(Mod,T);
 chk_cre_dir(Mod,[{link,Name,Target}|T]) ->
@@ -626,9 +624,9 @@ chk_cre_dir(Mod,[{symlink,Name,Target}|T]) ->
     chk_cre_dir(Mod,T);
 chk_cre_dir(Mod,[{directory,Name,Content}|T]) ->
     ok = Mod:make_dir(Name),
-    %io:format("Content = ~p~n",[Content]),
+    %% io:format("Content = ~p~n",[Content]),
     Content2 = [{Ty,filename:join(Name,N),case Ty of link -> filename:join(Name,C); _ -> C end} || {Ty,N,C} <- Content ],
-    %io:format("Content2 = ~p~n",[Content2]),
+    %% io:format("Content2 = ~p~n",[Content2]),
     chk_cre_dir(Mod,Content2),
     chk_cre_dir(Mod,T).
  
@@ -769,7 +767,7 @@ treat_icky(Bin) ->
 	    Bin
     end.
 
-% Handle windows having absolute soft link targets.
+%% Handle windows having absolute soft link targets.
 fixlink({ok,Link}) ->
     case os:type() of
 	{win32,_} ->
@@ -812,7 +810,7 @@ get_data(FN,List) ->
 convlist(L) ->
     convlist(file:native_name_encoding(),L).
 convlist(latin1,[Bin|T]) when is_binary(Bin) ->
-    %erlang:display('Convert...'),
+    %% erlang:display('Convert...'),
     [binary_to_list(Bin)| convlist(latin1,T)];
 convlist(Any,[H|T]) ->
     [H|convlist(Any,T)];

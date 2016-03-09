@@ -265,9 +265,9 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
 		      ?line exit(Else2)
 	      end,
     ?line nok = recv_status(SocketA),
-    % Now we are expected to close A
+    %% Now we are expected to close A
     ?line gen_tcp:close(SocketA),
-    % But still Socket B will continue
+    %% But still Socket B will continue
     ?line {normal,Node,5} = recv_name(SocketB),  % See 1)
     ?line send_status(SocketB, ok_simultaneous),
     ?line MyChallengeB = gen_challenge(),
@@ -277,7 +277,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
     ?line send_challenge_ack(SocketB, DigestB),
     ?line inet:setopts(SocketB, [{active, false},
 			  {packet, 4}]),    
-    % This should be the ping message.
+    %% This should be the ping message.
     ?line {Header, Message} = recv_message(SocketB),
     ?line io:format("Received header ~p, data ~p.~n",
 	      [Header, Message]),

@@ -27,12 +27,11 @@
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
 	 match_set_seq_token/1, gc_seq_token/1]).
 
-% internal exports
+%% internal exports
 -export([simple_tracer/2, one_time_receiver/0, one_time_receiver/1,
 	 start_tracer/0, stop_tracer/1, 
 	 do_match_set_seq_token/1, do_gc_seq_token/1, countdown_start/2]).
 
-						%-define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
 
 -define(TIMESTAMP_MODES, [no_timestamp,
@@ -461,7 +460,7 @@ match_set_seq_token(Config) when is_list(Config) ->
     %%
     %% All the timeout stuff is here to get decent accuracy of the error
     %% return value, instead of just 'timeout'.
-    %
+    %%
     ?line {ok, Sandbox} = start_node(seq_trace_other, []),
     ?line true = rpc:call(Sandbox, code, add_patha, 
 			  [filename:dirname(code:which(?MODULE))]),
@@ -606,7 +605,7 @@ gc_seq_token(Config) when is_list(Config) ->
     %%
     %% All the timeout stuff is here to get decent accuracy of the error
     %% return value, instead of just 'timeout'.
-    %
+    %%
     ?line {ok, Sandbox} = start_node(seq_trace_other, []),
     ?line true = rpc:call(Sandbox, code, add_patha, 
 			  [filename:dirname(code:which(?MODULE))]),

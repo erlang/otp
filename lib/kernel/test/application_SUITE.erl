@@ -125,14 +125,14 @@ failover(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config_fo(NodeNames)),
     WithSyncTime = config_fun(config_fo(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_config(Ncp3, WithSyncTime, Conf),
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    % Start app1 and make sure cp1 starts it
+    %% Start app1 and make sure cp1 starts it
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
@@ -142,12 +142,12 @@ failover(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     ok = get_start_type(#st{normal = 3}),
 
-    % Stop cp1 and make sure cp2 starts app1
+    %% Stop cp1 and make sure cp2 starts app1
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
     ok = get_start_type(#st{normal = 3}),
 
-    % Restart cp1 and make sure it restarts app1
+    %% Restart cp1 and make sure it restarts app1
     {ok, Cp1_2} = start_node_config(Ncp1, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp1_2, application, load, [app1()]),
@@ -156,8 +156,8 @@ failover(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app1, Cp2)),
     ok = get_start_type(#st{takeover = 3}),
 
-    % Test [{cp1, cp2}, cp3]
-    % Start app_sp and make sure cp2 starts it (cp1 has more apps started)
+    %% Test [{cp1, cp2}, cp3]
+    %% Start app_sp and make sure cp2 starts it (cp1 has more apps started)
     {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, load, [app_sp()]),
     {[ok,ok,ok],[]} = 
@@ -167,17 +167,17 @@ failover(Conf) when is_list(Conf) ->
     false = is_started(app_sp, Cp3),
     ok = get_start_type(#st{normal = 3}),
 	
-    % Stop cp2 and make sure cp1 starts app_sp
+    %% Stop cp2 and make sure cp1 starts app_sp
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app_sp, Cp1_2)),
     ok = get_start_type(#st{failover = 3}),
 	
-    % Stop cp1 and make sure cp3 starts app_sp
+    %% Stop cp1 and make sure cp3 starts app_sp
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app_sp, Cp3)),
     ok = get_start_type(#st{normal = 3, failover = 3}),
 
-    % Restart cp2 and make sure it restarts app_sp
+    %% Restart cp2 and make sure it restarts app_sp
     {ok, Cp2_2} = start_node_config(Ncp2, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp2_2, application, load, [app_sp()]),
@@ -186,7 +186,7 @@ failover(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app_sp, Cp3)),
     ok = get_start_type(#st{takeover = 3}),
 
-    % Restart cp1 and make sure it doesn't restart app_sp
+    %% Restart cp1 and make sure it doesn't restart app_sp
     {ok, Cp1_3} = start_node_config(Ncp1, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp1_3, application, load, [app_sp()]),
@@ -195,7 +195,7 @@ failover(Conf) when is_list(Conf) ->
     false = is_started(app_sp, Cp1_3),
     true = is_started(app_sp, Cp2_2),
 
-    % Force takeover to cp1
+    %% Force takeover to cp1
     ok = rpc:call(Cp1_3, application, takeover, [app_sp, permanent]),
     ?UNTIL(is_started(app_sp, Cp1_3)),
     ?UNTIL(not is_started(app_sp, Cp2_2)),
@@ -229,14 +229,14 @@ failover_comp(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config(NodeNames)),
     WithSyncTime = config_fun(config(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_config(Ncp3, WithSyncTime, Conf),
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    % Start app1 and make sure cp1 starts it
+    %% Start app1 and make sure cp1 starts it
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
@@ -246,12 +246,12 @@ failover_comp(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     ok = get_start_type(#st{normal = 3}),
 
-    % Stop cp1 and make sure cp2 starts app1
+    %% Stop cp1 and make sure cp2 starts app1
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
     ok = get_start_type(#st{normal = 3}),
 
-    % Restart cp1 and make sure it restarts app1
+    %% Restart cp1 and make sure it restarts app1
     {ok, Cp1_2} = start_node_config(Ncp1, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp1_2, application, load, [app1()]),
@@ -261,8 +261,8 @@ failover_comp(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app1, Cp2)),
     ok = get_start_type(#st{takeover = 3}),
 
-    % Test [{cp1, cp2}, cp3]
-    % Start app3 and make sure cp2 starts it (cp1 has more apps started)
+    %% Test [{cp1, cp2}, cp3]
+    %% Start app3 and make sure cp2 starts it (cp1 has more apps started)
     {[ok,ok,ok],[]} =
         rpc:multicall([Cp1_2, Cp2, Cp3], application, load, [app3()]),
     ?UNTIL(is_loaded(app3, [Cp1_2, Cp2, Cp3])),
@@ -273,17 +273,17 @@ failover_comp(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp3),
     ok = get_start_type(#st{normal = 3}),
 	
-    % Stop cp2 and make sure cp1 starts app3
+    %% Stop cp2 and make sure cp1 starts app3
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app3, Cp1_2)),
     ok = get_start_type(#st{normal = 3}),
 	
-    % Stop cp1 and make sure cp3 starts app3
+    %% Stop cp1 and make sure cp3 starts app3
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app3, Cp3)),
     ok = get_start_type(#st{normal = 6}),
 
-    % Restart cp2 and make sure it restarts app3
+    %% Restart cp2 and make sure it restarts app3
     {ok, Cp2_2} = start_node_config(Ncp2, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp2_2, application, load, [app3()]),
@@ -293,7 +293,7 @@ failover_comp(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app3, Cp3)),
     ok = get_start_type(#st{takeover = 3}),
 
-    % Restart cp1 and make sure it doesn't restart app3
+    %% Restart cp1 and make sure it doesn't restart app3
     {ok, Cp1_3} = start_node_config(Ncp1, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp1_3, application, load, [app3()]),
@@ -303,7 +303,7 @@ failover_comp(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp1_3),
     true = is_started(app3, Cp2_2),
 
-    % Force takeover to cp1
+    %% Force takeover to cp1
     ok = rpc:call(Cp1_3, application, takeover, [app3, permanent]),
     ?UNTIL(is_started(app3, Cp1_3)),
     ?UNTIL(not is_started(app3, Cp2_2)),
@@ -332,14 +332,14 @@ permissions(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config2(NodeNames)),
     WithSyncTime = config_fun(config2(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_config(Ncp3, WithSyncTime, Conf),
     Cps = [Cp1, Cp2, Cp3],
     wait_for_ready_net(),
 
-    % Start app1 and make sure cp1 starts it
+    %% Start app1 and make sure cp1 starts it
     {[ok,ok,ok],[]} =
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
@@ -348,24 +348,24 @@ permissions(Conf) when is_list(Conf) ->
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
 
-    % Unpermit app1 on cp1, make sure cp2 starts it
+    %% Unpermit app1 on cp1, make sure cp2 starts it
     ok = rpc:call(Cp1, application, permit, [app1, false]),
     false = is_started(app1, Cp1),
     true = is_started(app1, Cp2),
 
-    % Unpermit app1 on cp2, make sure cp3 starts it
+    %% Unpermit app1 on cp2, make sure cp3 starts it
     ok = rpc:call(Cp2, application, permit, [app1, false]),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     true = is_started(app1, Cp3),
 
-    % Permit cp2 again
+    %% Permit cp2 again
     ok = rpc:call(Cp2, application, permit, [app1, true]),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp3),
     true = is_started(app1, Cp2),
 
-    % Start app3, make sure noone starts it
+    %% Start app3, make sure noone starts it
     {[ok,ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app3()]),
     ?UNTIL(is_loaded(app3, Cps)),
@@ -376,22 +376,22 @@ permissions(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    % Permit app3 on Cp3
+    %% Permit app3 on Cp3
     ok = rpc:call(Cp3, application, permit, [app3, true]),
     true = is_started(app3, Cp3),
 
-    % Permit app3 on Cp2, make sure it starts it
+    %% Permit app3 on Cp2, make sure it starts it
     ok = rpc:call(Cp2, application, permit, [app3, true]),
     true = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    % Permit app3 on Cp1, make sure it doesn't start it
+    %% Permit app3 on Cp1, make sure it doesn't start it
     ok = rpc:call(Cp1, application, permit, [app3, true]),
     false = is_started(app3, Cp1),
     true = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    % Stop Cp2, make sure Cp1 starts app3
+    %% Stop Cp2, make sure Cp1 starts app3
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app3, Cp1)),
 
@@ -409,7 +409,7 @@ load(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config3(NodeNames)),
     WithSyncTime = config_fun(config3(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_config(Ncp3, WithSyncTime, Conf),
@@ -425,7 +425,7 @@ load(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Load app1 with different specs and make sure we get an error
+    %% Load app1 with different specs and make sure we get an error
     {[{error,_},{error,_}],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1(), d1(NodeNames)]),
     {error, _} = rpc:call(Cp3, application, load, [app1(), d2(NodeNames)]),
@@ -444,7 +444,7 @@ load_use_cache(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config3(NodeNames)),
     WithSyncTime = config_fun(config3(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_with_cache(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_with_cache(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_with_cache(Ncp3, WithSyncTime, Conf),
@@ -459,7 +459,7 @@ load_use_cache(Conf) when is_list(Conf) ->
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
 
-    % Load app1 with different specs and make sure we get an error
+    %% Load app1 with different specs and make sure we get an error
     {[{error,_},{error,_}],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1(), d1(NodeNames)]),
     {error, _} = rpc:call(Cp3, application, load, [app1(), d2(NodeNames)]),
@@ -543,7 +543,7 @@ script_start(Conf) when is_list(Conf) ->
     yes = global:register_name(st_type, StPid),
 
 
-    % Create the .app files and the boot script
+    %% Create the .app files and the boot script
     ok = create_app(),
     {{KernelVer,StdlibVer}, _} = create_script("latest"),
     case is_real_system(KernelVer, StdlibVer) of
@@ -558,7 +558,7 @@ script_start(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config_fo(NodeNames)),
     WithSyncTime = config_fun(config_fo(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_boot_config(Ncp1, NoSyncTime, Conf, latest),
     {ok, Cp2} = start_node_boot_config(Ncp2, NoSyncTime, Conf, latest),
     {ok, Cp3} = start_node_boot_config(Ncp3, WithSyncTime, Conf, latest),
@@ -570,16 +570,16 @@ script_start(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     ok = get_start_type(#st{normal = 9}),
 
-    % Stop cp1 and make sure cp2 starts app1, app2 normally (no
-    % start_phases defined) and app_sp as failover (start_phases
-    % defined)
+    %% Stop cp1 and make sure cp2 starts app1, app2 normally (no
+    %% start_phases defined) and app_sp as failover (start_phases
+    %% defined)
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
     ?UNTIL(is_started(app2, Cp2)),
     ?UNTIL(is_started(app_sp, Cp2)),
     ok = get_start_type(#st{normal = 6, failover = 3}),
 	
-    % Restart cp1, Cp1 takesover app1 and app2
+    %% Restart cp1, Cp1 takesover app1 and app2
     {ok, Cp1_2} = start_node_boot_config(Ncp1, NoSyncTime, Conf, latest),
     global:sync(),
     ?UNTIL(is_started(app1, Cp1_2)),
@@ -590,20 +590,20 @@ script_start(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app2, Cp2)),
     ok = get_start_type(#st{takeover = 6}),
 	
-    % Stop cp2 and make sure cp1 starts app_sp.
+    %% Stop cp2 and make sure cp1 starts app_sp.
     false = is_started(app_sp, Cp1_2),
     stop_node_nice(Cp2),
     ?UNTIL(is_started(app_sp, Cp1_2)),
     ok = get_start_type(#st{failover = 3}),
 	
-    % Stop cp1 and make sure cp3 starts app1, app2 and app_sp
+    %% Stop cp1 and make sure cp3 starts app1, app2 and app_sp
     stop_node_nice(Cp1_2),
     ?UNTIL(is_started(app_sp, Cp3)),
     ?UNTIL(is_started(app1, Cp3)),
     ?UNTIL(is_started(app2, Cp3)),
     ok = get_start_type(#st{normal = 6, failover = 3}),
 	
-    % Restart cp2 and make sure it takesover app1, app2 and app_sp
+    %% Restart cp2 and make sure it takesover app1, app2 and app_sp
     {ok, Cp2_2} = start_node_boot_config(Ncp2, NoSyncTime, Conf, latest),
     global:sync(),
     ?UNTIL(is_started(app_sp, Cp2_2)),
@@ -614,7 +614,7 @@ script_start(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app2, Cp3)),
     ok = get_start_type(#st{takeover = 9}),
 
-    % Restart cp1 and make sure it takesover app1, app2
+    %% Restart cp1 and make sure it takesover app1, app2
     {ok, Cp1_3} = start_node_boot_config(Ncp1, NoSyncTime, Conf, latest),
     global:sync(),
     ?UNTIL(is_started(app1, Cp1_3)),
@@ -625,7 +625,7 @@ script_start(Conf) when is_list(Conf) ->
     ?UNTIL(not is_started(app2, Cp2_2)),
     ok = get_start_type(#st{takeover = 6}),
 
-    % Force takeover to cp1
+    %% Force takeover to cp1
     ok = rpc:call(Cp1_3, application, takeover, [app_sp, permanent]),
     ?UNTIL(is_started(app_sp, Cp1_3)),
     ?UNTIL(not is_started(app_sp, Cp2_2)),
@@ -654,7 +654,7 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     %% This configuration does not start dist_ac.
     Config = write_config_file(fun config_perm/1, Conf),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     [Ncp1, Ncp2, Ncp3] = node_names([cp1, cp2, cp3], Conf),
     {ok, Cp1} = start_node(Ncp1, Config),
     {ok, Cp2} = start_node(Ncp2, Config),
@@ -677,14 +677,14 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    %Permit a not started application
+    %% Permit a not started application
     ok = rpc:call(Cp1, application, permit, [app3, true]),
     ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    %Permit a not loaded application
+    %% Permit a not loaded application
     {error,{not_loaded,app_notloaded}} = 
 	rpc:call(Cp1, application, permit, [app_notloaded, true]),
     ct:sleep(1000),
@@ -692,14 +692,14 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     false = is_started(app_notloaded, Cp2),
     false = is_started(app_notloaded, Cp3),
 
-    %Unpermit a not started application
+    %% Unpermit a not started application
     ok = rpc:call(Cp1, application, permit, [app3, false]),
     ct:sleep(1000),
     false = is_started(app3, Cp1),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    %Unpermit a not loaded application
+    %% Unpermit a not loaded application
     {error,{not_loaded,app_notloaded}} = 
 	rpc:call(Cp1, application, permit, [app_notloaded, false]),
     ct:sleep(1000),
@@ -707,64 +707,64 @@ permit_false_start_local(Conf) when is_list(Conf) ->
     false = is_started(app_notloaded, Cp2),
     false = is_started(app_notloaded, Cp3),
 
-    % Permit app1 on CP1 and make sure it is started
+    %% Permit app1 on CP1 and make sure it is started
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Permit it again
+    %% Permit it again
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ct:sleep(1000),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Permit app2 on CP1 and make sure it is started
+    %% Permit app2 on CP1 and make sure it is started
     ok = rpc:call(Cp1, application, permit, [app2, true]),
     ?UNTIL(is_started(app2, Cp1)),
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
 
-    % Permit app1 on CP2 and make sure it is started
+    %% Permit app1 on CP2 and make sure it is started
     ok = rpc:call(Cp2, application, permit, [app1, true]),
     ?UNTIL(is_started(app1, Cp2)),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp3),
 
-    % Unpermit app1 on CP1 and make sure it is stopped
+    %% Unpermit app1 on CP1 and make sure it is stopped
     ok = rpc:call(Cp1, application, permit, [app1, false]),
     ?UNTIL(false =:= is_started(app1, Cp1)),
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Unpermit it agin
+    %% Unpermit it agin
     ok = rpc:call(Cp1, application, permit, [app1, false]),
     ct:sleep(1000),
     false = is_started(app1, Cp1),
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Permit app1 on CP1 and make sure it is started
+    %% Permit app1 on CP1 and make sure it is started
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ?UNTIL(is_started(app1, Cp1)),
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Unpermit app1 on CP1 and make sure it is stopped
+    %% Unpermit app1 on CP1 and make sure it is stopped
     ok = rpc:call(Cp1, application, permit, [app1, false]),
     ?UNTIL(false =:= is_started(app1, Cp1)),
     true = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Unpermit app1 on CP2 and make sure it is stopped
+    %% Unpermit app1 on CP2 and make sure it is stopped
     ok = rpc:call(Cp2, application, permit, [app1, false]),
     ct:sleep(1000),
     ?UNTIL(false =:= is_started(app1, Cp2)),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp3),
 
-    % Unpermit app2 on CP1 and make sure it is stopped
+    %% Unpermit app2 on CP1 and make sure it is stopped
     ok = rpc:call(Cp1, application, permit, [app2, false]),
     ?UNTIL(false =:= is_started(app2, Cp2)),
     false = is_started(app2, Cp1),
@@ -783,7 +783,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config_perm2(NodeNames)),
     WithSyncTime = config_fun(config_perm2(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, NoSyncTime, Conf),
     {ok, Cp3} = start_node_config(Ncp3, WithSyncTime, Conf),
@@ -803,14 +803,14 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    %Permit a not started application
+    %% Permit a not started application
     ok = rpc:call(Cp1, application, permit, [app2, true]),
     ct:sleep(1000),
     false = is_started(app2, Cp1),
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
 
-    %Permit a not loaded application
+    %% Permit a not loaded application
     {error,{not_loaded,app3}} = 
 	rpc:call(Cp1, application, permit, [app3, true]),
     ct:sleep(1000),
@@ -818,7 +818,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    %Unpermit a not started application
+    %% Unpermit a not started application
     ok = rpc:call(Cp1, application, permit, [app2, false]),
     {[ok,ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2, Cp3], application, start, [app2, permanent]),
@@ -827,7 +827,7 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
 
-    %Unpermit a not loaded application
+    %% Unpermit a not loaded application
     {error,{not_loaded,app3}} = 
 	rpc:call(Cp1, application, permit, [app3, false]),
     {[ok,ok,ok],[]} = 
@@ -840,37 +840,37 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    % Permit app1 on CP1 and make sure it is started
+    %% Permit app1 on CP1 and make sure it is started
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Permit it again
+    %% Permit it again
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Permit app2 on CP1 and make sure it is started
+    %% Permit app2 on CP1 and make sure it is started
     ok = rpc:call(Cp1, application, permit, [app2, true]),
     ?UNTIL(is_started(app2, Cp1)),
     false = is_started(app2, Cp2),
     false = is_started(app2, Cp3),
 
-    % Permit app1 on CP2 and make sure it is not started
+    %% Permit app1 on CP2 and make sure it is not started
     ok = rpc:call(Cp2, application, permit, [app1, true]),
     ct:sleep(1000),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
     false = is_started(app1, Cp3),
 
-    % Crash CP1 and make sure app1, but not app2, is started on CP2
+    %% Crash CP1 and make sure app1, but not app2, is started on CP2
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
     false = is_started(app2, Cp2),
 
-    % Restart CP1 again, check nothing is running on it
+    %% Restart CP1 again, check nothing is running on it
     {ok, Cp1_2} = start_node_config(Ncp1, NoSyncTime, Conf),
     global:sync(),
     ok = rpc:call(Cp1_2, application, load, [app1()]),
@@ -885,19 +885,19 @@ permit_false_start_dist(Conf) when is_list(Conf) ->
     false = is_started(app1, Cp1_2),
     false = is_started(app2, Cp1_2),
 
-    % Permit app3 on CP3 and make sure it is started
+    %% Permit app3 on CP3 and make sure it is started
     ok = rpc:call(Cp3, application, permit, [app3, true]),
     ?UNTIL(is_started(app3, Cp3)),
     false = is_started(app3, Cp1_2),
     false = is_started(app3, Cp2),
 
-    % Permit app3 on CP1 and make sure it is moved there from CP3
+    %% Permit app3 on CP1 and make sure it is moved there from CP3
     ok = rpc:call(Cp1_2, application, permit, [app3, true]),
     ?UNTIL(is_started(app3, Cp1_2)),
     false = is_started(app3, Cp2),
     false = is_started(app3, Cp3),
 
-    % Unpermit app3 on CP3 and CP1 and make sure it is stopped
+    %% Unpermit app3 on CP3 and CP1 and make sure it is stopped
     ok = rpc:call(Cp3, application, permit, [app3, false]),
     ok = rpc:call(Cp1_2, application, permit, [app3, false]),
     ?UNTIL(false =:= is_started(app3, Cp1_2)),
@@ -916,18 +916,18 @@ nodedown_start(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config4(NodeNames)),
     WithSyncTime = config_fun(config4(NodeNames)),
 
-    % Test [cp1, cp2]
+    %% Test [cp1, cp2]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, WithSyncTime, Conf),
     wait_for_ready_net(),
 
-    % Start app1 and make sure cp1 starts it
+    %% Start app1 and make sure cp1 starts it
     {[ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
     _ = rpc:cast(Cp2, application, start, [app1, permanent]),
     ct:sleep(1000),
 
-    % Crash CP1 and make sure app1 is started on CP2
+    %% Crash CP1 and make sure app1 is started on CP2
     stop_node_nice(Cp1),
     ?UNTIL(is_started(app1, Cp2)),
     
@@ -1066,13 +1066,13 @@ otp_2078(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config4(NodeNames)),
     WithSyncTime = config_fun(config4(NodeNames)),
 
-    % Test [cp1, cp2]
+    %% Test [cp1, cp2]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, WithSyncTime, Conf),
     Cps = [Cp1, Cp2],
     wait_for_ready_net(),
 
-    % Start app1 and make sure cp1 starts it
+    %% Start app1 and make sure cp1 starts it
     {[ok,ok],[]} = 
         rpc:multicall(Cps, application, load, [app1()]),
     ?UNTIL(is_loaded(app1, Cps)),
@@ -1080,8 +1080,8 @@ otp_2078(Conf) when is_list(Conf) ->
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
 
-    % Start app1 on cp2; make sure it works (the bug was that this start
-    % returned error)
+    %% Start app1 on cp2; make sure it works (the bug was that this start
+    %% returned error)
     ok = rpc:call(Cp2, application, start, [app1, permanent]),
     true = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
@@ -1096,7 +1096,7 @@ otp_2012(Conf) when is_list(Conf) ->
     CcPid = spawn_link(?MODULE, conf_change, []),
     yes = global:register_name(conf_change, CcPid),
 
-    % Write a .app file
+    %% Write a .app file
     {ok, Fd} = file:open("app1.app", [write]),
     w_app1(Fd),
     file:close(Fd),
@@ -1104,7 +1104,7 @@ otp_2012(Conf) when is_list(Conf) ->
     w_app1(Fd2),
     file:close(Fd2),
 
-    % Start app1 
+    %% Start app1
     ok = application:load(app1()),
     ok = application:start(app1, permanent),
 
@@ -1115,7 +1115,7 @@ otp_2012(Conf) when is_list(Conf) ->
     ok = application_controller:config_change(EnvBefore),
     ok = get_conf_change([{[], [{new1, hi}, {new2, moi}], []}]),
     
-    % Start app2
+    %% Start app2
     ok = application:load(app2()),
     ok = application:start(app2, permanent),
 
@@ -1167,7 +1167,7 @@ otp_2718(Conf) when is_list(Conf) ->
 %%-----------------------------------------------------------------
 %% Test of two processes simultanously starting the same application.
 otp_2973(Conf) when is_list(Conf) ->
-    % Write a .app file
+    %% Write a .app file
     {ok, Fd} = file:open("app0.app", [write]),
     w_app(Fd, app0()),
     file:close(Fd),
@@ -1209,7 +1209,7 @@ otp_2973(Conf) when is_list(Conf) ->
     end,
 
 
-    % Write a .app file
+    %% Write a .app file
     {ok, Fda} = file:open("app_start_error.app", [write]),
     w_app_start_error(Fda),
     file:close(Fda),
@@ -1259,26 +1259,26 @@ otp_3184(Conf) when is_list(Conf) ->
     NoSyncTime = config_fun_fast(config3184(NodeNames)),
     WithSyncTime = config_fun(config3184(NodeNames)),
 
-    % Test [cp1, cp2]
+    %% Test [cp1, cp2]
     {ok, Cp1} = start_node_config(Ncp1, NoSyncTime, Conf),
     {ok, Cp2} = start_node_config(Ncp2, WithSyncTime, Conf),
     wait_for_ready_net(),
 
-    % Start app1 and make sure it is not started
+    %% Start app1 and make sure it is not started
     {[ok,ok],[]} = 
         rpc:multicall([Cp1, Cp2], application, load, [app1()]),
     ct:sleep(3000),
     false = is_started(app1, Cp1),
     false = is_started(app1, Cp2),
 
-    % Start app1 on cp1
+    %% Start app1 on cp1
     ok = rpc:call(Cp1, application, permit, [app1, true]),
     ok = rpc:call(Cp1, application, start, [app1, permanent]),
     ok = rpc:call(Cp2, application, start, [app1, permanent]),
     ?UNTIL(is_started(app1, Cp1)),
     false = is_started(app1, Cp2),
     
-    % Check that the application is marked as running in application_controller
+    %% Check that the application is marked as running in application_controller
     X = rpc:call(Cp1, application_controller, info, []),
     {value, {running, Xrunning}} = lists:keysearch(running, 1, X),
     {value, Xapp1} = lists:keysearch(app1, 1, Xrunning),
@@ -1299,7 +1299,7 @@ otp_3184(Conf) when is_list(Conf) ->
 %%-----------------------------------------------------------------
 %% crash the node if permanent appl has illegal env parameter values.
 otp_3002(Conf) when is_list(Conf) ->
-    % Create the boot script
+    %% Create the boot script
     {{KernelVer,StdlibVer}, {LatestDir, LatestName}} =
 	create_script_3002("script_3002"),
     ct:pal(?HI_VERBOSITY, "LatestDir = ~p~n", [LatestDir]),
@@ -1331,7 +1331,7 @@ otp_3002(Conf) when is_list(Conf) ->
 
 %% Check that application stop don't cause dist_ac crash.
 otp_4066(Conf) when is_list(Conf) ->
-    % Write config files
+    %% Write config files
     [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     Host = from($@, atom_to_list(node())),
     Cp1 = list_to_atom(Ncp1 ++ "@" ++ Host),
@@ -1344,7 +1344,7 @@ otp_4066(Conf) when is_list(Conf) ->
     write_config(FdC, config_4066(AllNodes, 5000, [App1Nodes])),
     file:close(FdC),
 
-    % Write the app1.app file
+    %% Write the app1.app file
     {ok, FdA12} = file:open(filename:join(Dir, "app1.app"), [write]),
     w_app1(FdA12),
     file:close(FdA12),
@@ -1362,7 +1362,7 @@ otp_4066(Conf) when is_list(Conf) ->
     io:format("--- App1 started at Cp1 ---~n", []),
     print_dac_state(AllNodes),
 
-    % Cp2 previously crashed on this stop
+    %% Cp2 previously crashed on this stop
     ok = rpc:call(Cp1, application, stop, [app1]),
     wait_until_stopped(app1, [Cp1]),
     io:format("--- App1 stopped at Cp1 ---~n", []),
@@ -1583,7 +1583,7 @@ get_key(Conf) when is_list(Conf) ->
     NodeNames = [Ncp1, _Ncp2, _Ncp3] = node_names([cp1, cp2, cp3], Conf),
     WithSyncTime = config_fun(config_inc(NodeNames)),
 
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_config(Ncp1, WithSyncTime, Conf),
 
     ok = rpc:call(Cp1, application, load, [appinc(), d3(NodeNames)]),
@@ -1793,16 +1793,12 @@ distr_changed_tc2(Conf) when is_list(Conf) ->
     stop_node_nice(Cp1),   
     ct:sleep(10000),
 
-%    _DcInfo1 = rpc:call(Cp1, dist_ac, info, []),
     _DcInfo2 = rpc:call(Cp2, dist_ac, info, []),
     _DcInfo3 = rpc:call(Cp3, dist_ac, info, []),
 
-%    DcWa1 = which_applications(Cp1),
     DcWa2 = which_applications(Cp2),
     DcWa3 = which_applications(Cp3),
     
-%    Wa1 = lists:foldl(fun({A1, _N1, _V1}, AccIn) -> [A1 | AccIn] end,
-%			    [], DcWa1),
     Wa2 = lists:foldl(fun({A2, _N2, _V2}, AccIn) -> [A2 | AccIn] end,
 			    [], DcWa2),
     Wa3 = lists:foldl(fun({A3, _N3, _V3}, AccIn) -> [A3 | AccIn] end,
@@ -2532,7 +2528,7 @@ is_started(Name, Node) ->
 	false -> false
     end.
 
-% Waits until application Name is started on at least one node.
+%% Waits until application Name is started on at least one node.
 wait_until_started(Name, Nodes) ->
     case lists:member(true,
 		      lists:map(fun (N) ->
@@ -2546,7 +2542,7 @@ wait_until_started(Name, Nodes) ->
 	    wait_until_started(Name, Nodes)
     end.
 
-% Waits until application Name is stopped on all nodes.
+%% Waits until application Name is stopped on all nodes.
 wait_until_stopped(Name, Nodes) ->
     case lists:member(true,
 		      lists:map(fun (N) ->
@@ -2834,7 +2830,7 @@ create_script_3002(ScriptName) ->
 
 distr_changed_prep(Conf) when is_list(Conf) ->
 
-    % Write .app files
+    %% Write .app files
     {ok, Fd1} = file:open("app1.app", [write]),
     w_app1(Fd1),
     file:close(Fd1),
@@ -2855,7 +2851,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     file:close(Fd6),
 
 
-    % Create the .app files and the boot script
+    %% Create the .app files and the boot script
     {{KernelVer,StdlibVer}, _} = create_script_dc("dc"),
 
     case is_real_system(KernelVer, StdlibVer) of
@@ -2877,7 +2873,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     file:close(Fd_dc2),
     Config2 = filename:join(Dir, "sys2"),
     
-    % Test [cp1, cp2, cp3]
+    %% Test [cp1, cp2, cp3]
     {ok, Cp1} = start_node_boot_config(Ncp1, NoSyncTime, Conf, dc),
     {ok, Cp2} = start_node_boot_config(Ncp2, NoSyncTime, Conf, dc),
     {ok, Cp3} = start_node_boot_config(Ncp3, WithSyncTime, Conf, dc),

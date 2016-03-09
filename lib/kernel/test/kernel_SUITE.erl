@@ -24,12 +24,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([app_test/1, appup_test/1]).
 
 suite() ->
@@ -60,9 +60,9 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
+%%
+%% Test cases starts here.
+%%
 %% Tests the applications consistency.
 app_test(Config) when is_list(Config) ->
     ok=test_server:app_test(kernel),

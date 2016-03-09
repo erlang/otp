@@ -101,11 +101,11 @@ otp_8653(Config) when is_list(Config) ->
 
     ?line wait_for_ready_net(Config),
 
-    % make b and c connected, partitioned from node() and a
+    %% make b and c connected, partitioned from node() and a
     ?line rpc_cast(B, ?MODULE, part2, [Config, node(), A, C]),
     ?line ?UNTIL(is_ready_partition(Config)),
 
-    % Connect to the other partition.
+    %% Connect to the other partition.
     ?line pong = net_adm:ping(B),
     timer:sleep(100),
     ?line pong = net_adm:ping(C),
@@ -155,18 +155,18 @@ otp_8259(Config) when is_list(Config) ->
     G = pg2_otp_8259,
     Name = otp_8259_a_global_name,
 
-    % start different processes in both partitions
+    %% start different processes in both partitions
     ?line {Pid, yes} = rpc:call(A, ?MODULE, start_proc, [Name]),
 
     ?line ok = pg2:create(G),
     ?line ok = pg2:join(G, Pid),
 
-    % make b and c connected, partitioned from node() and a
+    %% make b and c connected, partitioned from node() and a
     ?line rpc_cast(B, ?MODULE, part1, [Config, node(), A, C, Name]),
     ?line ?UNTIL(is_ready_partition(Config)),
 
-    % Connect to the other partition.
-    % The resolver on node b will be called.
+    %% Connect to the other partition.
+    %% The resolver on node b will be called.
     ?line pong = net_adm:ping(B),
     timer:sleep(100),
     ?line pong = net_adm:ping(C),

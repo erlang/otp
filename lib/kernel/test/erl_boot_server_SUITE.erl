@@ -118,8 +118,8 @@ stop(Config) when is_list(Config) ->
 
     %% Start a boot server and kill it.  Make sure that any helper processes
     %% dies.
-    % Make sure the inet_gethost_native server is already started,
-    % otherwise it will make this test fail:
+    %% Make sure the inet_gethost_native server is already started,
+    %% otherwise it will make this test fail:
     ?line inet:getaddr(localhost, inet),
     ?line Before = processes(),
     ?line {ok, Pid} = erl_boot_server:start([Host1]),

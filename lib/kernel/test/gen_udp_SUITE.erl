@@ -17,15 +17,16 @@
 %% 
 %% %CopyrightEnd%
 %%
-%
-% test the behavior of gen_udp. Testing udp is really a very unfunny task,
-% because udp is not deterministic.
-%
+
+%%
+%% Test the behavior of gen_udp. Testing udp is really a very unfunny task,
+%% because udp is not deterministic.
+%%
 -module(gen_udp_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
 
-% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
+%% XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -550,9 +551,10 @@ active_n(Config) when is_list(Config) ->
     ok = gen_udp:close(S1),
     ok.
 
-%
-% Utils
-%
+%%
+%% Utils
+%%
+
 start_node(Name) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]).

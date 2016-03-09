@@ -21,8 +21,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%-compile(export_all).
-
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 controlling_process/1, controlling_process_self/1,
@@ -43,7 +41,7 @@
 	 busy_send/1, busy_disconnect_passive/1, busy_disconnect_active/1,
 	 fill_sendq/1, partial_recv_and_close/1, 
 	 partial_recv_and_close_2/1,partial_recv_and_close_3/1,so_priority/1,
-	 % Accept tests
+	 %% Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
 	 accept_timeouts_in_order3/1,accept_timeouts_in_order4/1,
@@ -535,8 +533,8 @@ otp_3924_1(MaxDelay) ->
     {ok, Node} = start_node(otp_3924),
     DataLen = 100*1024,
     Data = otp_3924_data(DataLen),
-    % Repeat the test a couple of times to prevent the test from passing
-    % by chance.
+    %% Repeat the test a couple of times to prevent the test from passing
+    %% by chance.
     repeat(10, fun(N) ->
                        ok = otp_3924(MaxDelay, Node, Data, DataLen, N)
                end),
@@ -743,8 +741,8 @@ all_equal(Rule, [Rule | T]) ->
     all_equal(Rule, T);
 all_equal(_, [_ | _]) ->
     ct:sleep(?RECOVER_SLEEP), % Wait a while and *hope* that we'll
-                                    % recover so other tests won't be
-                                    % affected.
+                                    %% recover so other tests won't be
+                                    %% affected.
     ct:fail(max_socket_mismatch);
 all_equal(_Rule, []) ->
     ok.
@@ -1871,10 +1869,6 @@ priority_server({Parent,Ref}) ->
 test_prio_fail() ->
     {ok,L} = gen_tcp:listen(0, [{active,false}]),
     {error,_} = inet:setopts(L,[{priority,1000}]),
-%   This error could only happen in linux kernels earlier than 2.6.24.4
-%   Privilege check is now disabled and IP_TOS can never fail (only silently
-%   be masked).
-%   {error,_} = inet:setopts(L,[{tos,6 bsl 5}]),
     gen_tcp:close(L),
     ok.
 
@@ -2405,7 +2399,6 @@ mad_sender(S) ->
 flush() ->
     receive
 	_X ->
-	    %erlang:display(_X),
 	    flush()
     after 0 ->
 	    ok
@@ -2425,7 +2418,6 @@ send_timeout_active(Config) when is_list(Config) ->
                                  {tcp, _Sock, _Data} ->
                                      inet:setopts(A, [{active, once}]),
                                      Res = gen_tcp:send(A,lists:duplicate(1000, $a)),
-                                     %erlang:display(Res),
                                      Res;
                                  Err ->
                                      io:format("sock closed: ~p~n", [Err]),

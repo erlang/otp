@@ -151,8 +151,8 @@ echo_test_1(SockOpts, EchoFun, Config0) ->
 		      [{type, {cdr, little}}|Config]),
     ?line case lists:keymember(packet_size, 1, SockOpts) of
 	      false ->
-		  % This is cheating, we should test that packet_size
-		  % also works for line and http.
+		  %% This is cheating, we should test that packet_size
+		  %% also works for line and http.
 		  echo_packet([{packet, line}|SockOpts], EchoFun, Config),
 		  echo_packet([{packet, http}|SockOpts], EchoFun, Config),
 		  echo_packet([{packet, http_bin}|SockOpts], EchoFun, Config);

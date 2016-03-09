@@ -131,7 +131,7 @@ set_path(Config) when is_list(Config) ->
 
 get_path(Config) when is_list(Config) ->
     P = code:get_path(),
-    % test that all directories are strings (lists).
+    %% test that all directories are strings (lists).
     [] = lists:filter(fun
 	    (Dir) when is_list(Dir) -> false;
 	    (_) -> true
@@ -383,7 +383,7 @@ purge_many_exits_do(PurgeF) ->
 					  end)}
 			 end,
 			 lists:seq(1, 1000)),
-    % Give them time to start...
+    %% Give them time to start...
     receive after 1000 -> ok end,
     true = code:delete(code_b_test),
     lists:foreach(fun ({Pid1, Pid2}) ->
@@ -509,11 +509,9 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     CompOpts = [binary, report] ++ Target ++ Version,
 
     Src = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
-    %io:format("compile:file(~p,~p)\n", [Src, CompOpts]),
     {ok,Mod,Code} = compile:file(Src, CompOpts),
     ObjFile = filename:basename(Src,".erl") ++ ".beam",
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
-    %IsNative = code:is_module_native(Mod),
     ok.
 
 dir_req(Config) when is_list(Config) ->
@@ -1292,31 +1290,44 @@ create_big_boot(Config) ->
     ok = file:set_cwd(OldDir),
     {filename:join(LatestDir, LatestName),Apps}.
 
-% The following apps cannot be loaded
-% hipe .app references (or can reference) files that have no
-% corresponding beam file (if hipe is not enabled)
+%% The following apps cannot be loaded.
+%% hipe .app references (or can reference) files that have no
+%% corresponding beam file (if hipe is not enabled).
 filter_app("hipe",_) -> false;
-% Dialyzer and typer depends on hipe
+
+%% Dialyzer and typer depends on hipe
 filter_app("dialyzer",_) -> false;
 filter_app("typer",_) -> false;
-% Orber requires explicit configuration
+
+%% Orber requires explicit configuration
 filter_app("orber",_) -> false;
-% cos* depends on orber
+
+%% cos* depends on orber
 filter_app("cos"++_,_) -> false;
-% ic has a mod instruction in the app file but no corresponding start function
+
+%% ic has a mod instruction in the app file but no corresponding start
+%% function
 filter_app("ic",_) -> false;
-% Netconf has some dependency that I really do not understand (maybe like orber)
+
+%% Netconf has some dependency that I really do not understand (maybe
+%% like orber)
 filter_app("netconf",_) -> false;
-% Safe has the same kind of error in the .app file as ic
+
+%% Safe has the same kind of error in the .app file as ic
 filter_app("safe",_) -> false;
-% Comte cannot be started in the "usual" way
+
+%% Comte cannot be started in the "usual" way
 filter_app("comte",_) -> false;
-% OS_mon does not find it's port program when running cerl
+
+%% OS_mon does not find its port program when running cerl
 filter_app("os_mon",true) -> false;
-% erts is not a "real" app either =/
+
+%% erts is not a "real" app either =/
 filter_app("erts",_) -> false;
-% Other apps should be OK.
+
+%% Other apps should be OK.
 filter_app(_,_) -> true.
+
 create_big_script(Config,Local) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Name = filename:join(PrivDir,"full_script_test"),

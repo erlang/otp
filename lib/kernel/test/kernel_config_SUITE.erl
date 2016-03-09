@@ -66,7 +66,7 @@ from(_, []) -> [].
 %% erl -sname XXX where XX not in [cp1, cp2]
 %%-----------------------------------------------------------------
 sync(Conf) when is_list(Conf) ->
-    % Write a config file
+    %% Write a config file
     Dir = proplists:get_value(priv_dir,Conf),
     {ok, Fd} = file:open(Dir ++ "sys.config", [write]),
     config(Fd),

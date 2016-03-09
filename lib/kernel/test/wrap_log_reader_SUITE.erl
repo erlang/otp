@@ -20,7 +20,7 @@
 
 -module(wrap_log_reader_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).

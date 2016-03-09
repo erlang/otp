@@ -65,7 +65,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%-define(DEBUG,1).
+%%-define(DEBUG,1).
 -ifdef(DEBUG).
 -define(dbg(Data),erlang:display(Data)).
 -else.
@@ -97,7 +97,7 @@ get_columns_and_rows(Config) when is_list(Config) ->
 			 [],
 			 "stty rows 40; stty columns 90; ");
 	new ->
-	    % New shell tests
+	    %% New shell tests
 	    ?dbg(new_shell),
 	    ?line rtnode([{putline,""},
 			  {putline, "2."},
@@ -558,7 +558,7 @@ create_tempdir(Dir,X) when X > $z ->
 				   [Dir++[$z]])),
     {error, Estr};
 create_tempdir(Dir0, Ch) ->
-    % Expect fairly standard unix.
+    %% Expect fairly standard unix.
     Dir = Dir0++[Ch],
     case file:make_dir(Dir) of
 	{error, eexist} ->

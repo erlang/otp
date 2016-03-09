@@ -342,8 +342,8 @@ do_large_raw(Config,Binary) when is_list(Config) ->
 	true ->
 	    ?line {Sock1,Sock2} = create_socketpair([{linger,{true,10}}],
 					       [{linger,{false,0}}]),
-	    ?line LargeSize = 1024, % Solaris can take up to 1024*9, 
-				    % linux 1024*63... 
+	    ?line LargeSize = 1024,  % Solaris can take up to 1024*9,
+						% linux 1024*63...
 	    ?line TooLargeSize = 1024*64,
 	    ?line {ok,[{raw,Proto,Linger,Linger1}]} = 
 		inet:getopts(Sock1,[{raw,Proto,Linger,
@@ -822,7 +822,7 @@ make_check_fun(Type,Element) ->
 	    NewAcc
      end.
 
-% {OptionName,Value1,Value2,Mandatory,Changeable}
+%% {OptionName,Value1,Value2,Mandatory,Changeable}
 all_listen_options() ->
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 

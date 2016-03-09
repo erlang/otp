@@ -19,7 +19,7 @@
 %%
 -module(disk_log_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -745,7 +745,7 @@ wrap_ext_1(Conf) when is_list(Conf) ->
 				   {file, File}]),
     x2simple_log(File ++ ".1", a),
     ?line ok = disk_log:close(a),
-%    del(File, 4),
+%%    del(File, 4),
     ?line {ok, a} = disk_log:open([{name,a}, {type,wrap}, {size,{8000, 4}},
 				   {format,external},
 				   {file, File}]),
@@ -997,7 +997,7 @@ xx() ->
 			     {format,internal}, {file, File}]),
     W = xwr(a, 400),
     disk_log:close(a),
-%    file:delete(File),
+%%    file:delete(File),
     W.
 
 %% old: 6150
@@ -1174,7 +1174,7 @@ head_func(Conf) when is_list(Conf) ->
     disk_log:close(a),
     del(File, 4),
 
-    % invalid header function
+    %% invalid header function
     ?line {error, {invalid_header, {_, {term}}}} = 
 	disk_log:open([{name, n}, {file, File}, {type, halt},
 		       {format, external},
@@ -1545,7 +1545,7 @@ block_blocked(Conf) when is_list(Conf) ->
     ?line B = mk_bytes(60),
     Halt = join(Dir, "halt.LOG"),
 
-    % External logs.
+    %% External logs.
     ?line file:delete(Halt), % cleanup
     ?line {ok, halt} = disk_log:open([{name, halt}, {type, halt}, 
 				      {format, external}, {file, Halt}]),
@@ -1583,7 +1583,7 @@ block_blocked(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(halt),
     ?line file:delete(Halt),
 
-    % Internal logs.
+    %% Internal logs.
     ?line File = filename:join(Dir, "n.LOG"),
     ?line No = 4,
     ?line del(File, No), % cleanup
@@ -1815,7 +1815,7 @@ open_overwrite(Conf) when is_list(Conf) ->
     ?line No = 4,
     ?line del(File, No), % cleanup
 
-    % read write
+    %% read write
     ?line First = "n.LOG.1",
     ?line make_file(Dir, First, 8),
 
@@ -1837,7 +1837,7 @@ open_overwrite(Conf) when is_list(Conf) ->
     ?line {error, {not_a_log_file, _}} = 
 	disk_log:open([{name, n}, {file, File}, {type, wrap}, 
 		       {format, internal}, {size, {100, No}}]),
-    % read only
+    %% read only
     ?line make_file(Dir, First, 6),
 
     ?line {error, {not_a_log_file, _}} = 
@@ -2059,7 +2059,7 @@ close_race(Conf) when is_list(Conf) ->
     ?line Error1 = {error, no_such_log} = disk_log:close(n),
     ?line "There is no disk" ++ _ = format_error(Error1),
 
-    % Pid1 blocks, Pid2 closes without being suspended.
+    %% Pid1 blocks, Pid2 closes without being suspended.
     ?line Pid1 = spawn_link(?MODULE, lserv, [n]),
     ?line Pid2 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = sync_do(Pid1, {open, File}),
@@ -2073,7 +2073,7 @@ close_race(Conf) when is_list(Conf) ->
     ?line sync_do(Pid2, terminate),
     ?line {error, no_such_log} = disk_log:info(n),
 
-    % Pid3 blocks, Pid3 closes. Pid4 should still be ablo to use log.
+    %% Pid3 blocks, Pid3 closes. Pid4 should still be ablo to use log.
     ?line Pid3 = spawn_link(?MODULE, lserv, [n]),
     ?line Pid4 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = sync_do(Pid3, {open, File}),
@@ -2085,7 +2085,7 @@ close_race(Conf) when is_list(Conf) ->
     ?line sync_do(Pid4, terminate),
     ?line {error, no_such_log} = disk_log:info(n),
 
-    % Pid5 blocks, Pid5 terminates. Pid6 should still be ablo to use log.
+    %% Pid5 blocks, Pid5 terminates. Pid6 should still be ablo to use log.
     ?line Pid5 = spawn_link(?MODULE, lserv, [n]),
     ?line Pid6 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = sync_do(Pid5, {open, File}),
@@ -2141,7 +2141,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line {error, no_such_log} = disk_log:info(n),
     ?line true = (P0 == pps()),    
 
-    % Blocking owner terminates.
+    %% Blocking owner terminates.
     ?line Pid5 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {linkto, none},{size, {100,No}},
@@ -2158,7 +2158,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line {error, no_such_log} = disk_log:info(n),
     ?line true = (P0 == pps()),    
 
-    % Blocking user terminates.
+    %% Blocking user terminates.
     ?line Pid6 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {size, {100,No}}, {format, external}]),
@@ -2178,7 +2178,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line {error, no_such_log} = disk_log:info(n),
     ?line true = (P0 == pps()),    
 
-    % Blocking owner terminates.
+    %% Blocking owner terminates.
     ?line Pid7 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {linkto, none},
@@ -2211,7 +2211,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line {error, no_such_log} = disk_log:info(n),
     ?line true = (P0 == pps()),    
 
-    % Blocking user closes.
+    %% Blocking user closes.
     ?line Pid10 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {size, {100,No}}, {format, external}]),
@@ -2229,7 +2229,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line {error, no_such_log} = disk_log:info(n),
     ?line true = (P0 == pps()),    
 
-    % Blocking user unblocks and closes.
+    %% Blocking user unblocks and closes.
     ?line Pid11 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {size, {100,No}}, {format, external}]),
@@ -2248,7 +2248,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line sync_do(Pid11, terminate),
     ?line true = (P0 == pps()),    
 
-    % Blocking owner closes.
+    %% Blocking owner closes.
     ?line Pid12 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {linkto, none},
@@ -2267,7 +2267,7 @@ close_block(Conf) when is_list(Conf) ->
     ?line sync_do(Pid12, terminate),
     ?line true = (P0 == pps()),    
 
-    % Blocking owner unblocks and closes.
+    %% Blocking owner unblocks and closes.
     ?line Pid13 = spawn_link(?MODULE, lserv, [n]),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {linkto, none},
@@ -2463,7 +2463,7 @@ lserv(Log) ->
 
 %% Error while repairing.
 error_repair(Conf) when is_list(Conf) ->
-    % not all error situations are covered by this test
+    %% not all error situations are covered by this test
 
     DataDir = ?datadir(Conf),
     PrivDir = ?privdir(Conf),
@@ -2473,7 +2473,7 @@ error_repair(Conf) when is_list(Conf) ->
     ?line file:delete(File),
     ?line del(File, No),	% cleanup
 
-    % kurt.LOG is not closed and has four logged items, one is recovered
+    %% kurt.LOG is not closed and has four logged items, one is recovered
     ?line copy_wrap_log("kurt.LOG", "n.LOG", No, DataDir, PrivDir),
     ?line {repaired,n,{recovered,1},{badbytes,0}} =
 	disk_log:open([{name, n}, {file, File}, {type, wrap}, {size,{40,No}}]),
@@ -2482,7 +2482,7 @@ error_repair(Conf) when is_list(Conf) ->
     ?line 4 = no_items(n),
     ?line ok = disk_log:close(n),
     
-    % temporary repair file cannot be created
+    %% temporary repair file cannot be created
     ?line copy_wrap_log("kurt.LOG", "n.LOG", No, DataDir, PrivDir),
     ?line Dir = File ++ ".4" ++ ".TMP",
     ?line ok = file:make_dir(Dir),
@@ -2598,13 +2598,13 @@ error_log(Conf) when is_list(Conf) ->
     ?line LDir = File ++ ".2",
 
     ?line Q = qlen(),
-    % dummy just to get all processes "above" disk_log going
+    %% dummy just to get all processes "above" disk_log going
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
     ?line ok = disk_log:close(n),
     ?line del(File, No),
 
-    % inc_wrap_file fails, the external log is not terminated
+    %% inc_wrap_file fails, the external log is not terminated
     ?line P0 = pps(),
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
@@ -2614,14 +2614,14 @@ error_log(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(n),
     ?line del(File, No),
 
-    % inc_wrap_file fails, the internal log is not terminated, ./File.2/ exists
+    %% inc_wrap_file fails, the internal log is not terminated, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, internal},{size, {100, No}}]),
     ?line {error, {file_error, _, _}} = disk_log:inc_wrap_file(n),
     ?line ok = disk_log:close(n),
     ?line del(File, No),
 
-    % truncate fails, the log is terminated, ./File.2/ exists
+    %% truncate fails, the log is terminated, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
     ?line {error, {file_error, _, _}} = disk_log:truncate(n),
@@ -2629,7 +2629,7 @@ error_log(Conf) when is_list(Conf) ->
     ?line del(File, No),
 
     %% OTP-4880.
-    % reopen (rename) fails, the log is terminated, ./File.2/ exists
+    %% reopen (rename) fails, the log is terminated, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, halt},
 				   {format, external},{size, 100000}]),
     ?line {error, {file_error, _, eisdir}} = disk_log:reopen(n, LDir),
@@ -2648,14 +2648,14 @@ error_log(Conf) when is_list(Conf) ->
     ?line del(File2, No),
     ?line del(File, No),
 
-    % log, external wrap log, ./File.2/ exists
+    %% log, external wrap log, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, external},{size, {100, No}}]),
     ?line {error, {file_error, _, _}} = disk_log:blog_terms(n, [B,B,B]),
     ?line ok = disk_log:close(n),
     ?line del(File, No),
 
-    % log, internal wrap log, ./File.2/ exists
+    %% log, internal wrap log, ./File.2/ exists
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, internal},{size, {100, No}}]),
     ?line {error, {file_error, _, _}} = disk_log:log_terms(n, [B,B,B]),
@@ -2664,7 +2664,7 @@ error_log(Conf) when is_list(Conf) ->
 
     ?line ok = file:del_dir(LDir),
 
-    % can't remove file when changing size
+    %% can't remove file when changing size
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {format, internal},{size, {100, No}}]),
     ?line ok = disk_log:log_terms(n, [B,B,B,B]),
@@ -3005,7 +3005,7 @@ truncate(Conf) when is_list(Conf) ->
 
     ?line Q = qlen(),
     Halt = join(Dir, "halt.LOG"),
-    % Halt logs.
+    %% Halt logs.
 
     ?line file:delete(Halt), % cleanup
     ?line {ok, halt} = disk_log:open([{name, halt}, {type, halt}, {file, Halt},
@@ -3862,20 +3862,20 @@ change_size_truncate(Conf) when is_list(Conf) ->
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
 
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
     ?line 3 = curf(bert),
     ?line ok = disk_log:change_size(bert,{100,1}),
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
-    % One item expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% One item expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
 
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
@@ -3905,30 +3905,30 @@ change_size_truncate(Conf) when is_list(Conf) ->
     ?line 1 = curf(bert),
     ?line ok = disk_log:change_size(bert,{100,No+1}),    
 
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
 
     ?line ok = disk_log:blog(bert, B),
     ?line rec(1, {disk_log, node(), bert, {wrap, 1}}),
 
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
 
     ?line 2 = curf(bert),
     ?line ok = disk_log:change_size(bert,{100,1}),    
 
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
 
     ?line ok = disk_log:close(bert),
     
-    % State: .siz is 1, current file is 2, index file size is 3...
+    %% State: .siz is 1, current file is 2, index file size is 3...
 
     ?line {ok, bert} = disk_log:open([{name,bert}, {file, File}, 
 				      {type,wrap}, {notify, true}]),
     
-    % Three items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Three items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
     
     ?line 2 = curf(bert),
     ?line ok = disk_log:blog(bert, B),
@@ -3938,8 +3938,8 @@ change_size_truncate(Conf) when is_list(Conf) ->
     ?line {ok, bert} = disk_log:open([{name,bert}, {file, File}, 
 				      {type,wrap}, {notify, true}]),
     
-    % Two items expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% Two items expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
     
     ?line 1 = curf(bert),
     ?line ok = disk_log:blog(bert, B),
@@ -3947,8 +3947,8 @@ change_size_truncate(Conf) when is_list(Conf) ->
     %% reported one lost item.
     ?line rec(1, {disk_log, node(), bert, {wrap, 0}}),
 
-    % One item expected.
-    % disk_log_1:print_index_file("bert.LOG.idx"),
+    %% One item expected.
+    %% disk_log_1:print_index_file("bert.LOG.idx"),
     ?line ok = disk_log:close(bert),
 
     ?line del(File, No),
@@ -3965,7 +3965,7 @@ change_attribute(Conf) when is_list(Conf) ->
 
     ?line Q = qlen(),
 
-    % test change_notify
+    %% test change_notify
     ?line {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
 				   {size, {100,No}}]),
     ?line {ok, n} = disk_log:open([{name, n}]), % ignored...
@@ -3984,7 +3984,7 @@ change_attribute(Conf) when is_list(Conf) ->
     ?line 0 = users(n),
     ?line 1 = length(owners(n)),
 
-    % test change_header
+    %% test change_header
     ?line {error, {badarg, head}} = disk_log:change_header(n, none),
     ?line {error, {badarg, head}} = 
 	disk_log:change_header(n, {head_func, {1,2,3}}),
@@ -4103,7 +4103,7 @@ dist_open(Conf) when is_list(Conf) ->
     ?line del(File1, No),
     ?line file:delete(File),
 
-    % open an invalid log file, and see how error are handled
+    %% open an invalid log file, and see how error are handled
     ?line First = "n.LOG.1",
     ?line make_file(PrivDir, First, 8),
 
@@ -4113,7 +4113,7 @@ dist_open(Conf) when is_list(Conf) ->
     ?line del(File, No),
     ?line file:delete(File),
 
-    % open a wrap on one other node (not on this node)
+    %% open a wrap on one other node (not on this node)
     ?line {[_],[]} = disk_log:open([{name, n}, {file, File},
 				    {type, wrap}, {size, {50, No}},
 				    {distributed, [Node]}]),
@@ -4146,11 +4146,11 @@ dist_error_open(Conf) when is_list(Conf) ->
     ?line {ok, Node} = start_node(disk_log, "-pa " ++ PA),
     ?line wait_for_ready_net(),
 
-    % open non-distributed on this node:
+    %% open non-distributed on this node:
     ?line {ok,n} = disk_log:open([{name, n}, {file, File},
 				  {type, wrap}, {size, {50, No}}]),
 
-    % trying to open distributed on this node (error):
+    %% trying to open distributed on this node (error):
     ?line {[],[Error1={ENode,{error,{node_already_open,n}}}]} = 
 	disk_log:open([{name, n}, {file, File},
 		       {type, wrap}, {size, {50, No}},
@@ -4161,12 +4161,12 @@ dist_error_open(Conf) when is_list(Conf) ->
                      format_error(Error1)),
     ?line ok = disk_log:lclose(n),
 
-    % open distributed on this node:
+    %% open distributed on this node:
     ?line {[_],[]} = disk_log:open([{name, n}, {file, File},
 				    {type, wrap}, {size, {50, No}},
 				    {distributed, [node()]}]),
     
-    % trying to open non-distributed on this node (error):
+    %% trying to open non-distributed on this node (error):
     ?line {_,{node_already_open,n}} = 
 	disk_log:open([{name, n}, {file, File},
 		       {type, wrap}, {size, {50, No}}]),
@@ -4198,12 +4198,12 @@ dist_notify(Conf) when is_list(Conf) ->
     ?line {ok, Node} = start_node(disk_log, "-pa " ++ PA),
     ?line wait_for_ready_net(),
 
-    % opening distributed on this node:
+    %% opening distributed on this node:
     ?line {[_],[]} = disk_log:open([{name, n}, {file, File}, {notify, false},
 				    {type, wrap}, {size, {50, No}},
 				    {distributed, [node()]}]),
 
-    % opening distributed on other node:
+    %% opening distributed on other node:
     ?line {[_],[]} = disk_log:open([{name, n}, {file, File1}, 
 				    {notify, true}, {linkto, self()},
 				    {type, wrap}, {size, {50, No}},
@@ -4582,7 +4582,7 @@ dist_open2_2(Conf, Delay) ->
         end,
     %% And {priority, ...} probably has no effect either.
     ?line Pid1 = spawn_opt(F, [{priority, low}]),
-    % timer:sleep(1), % no guarantee that Pid1 will return {repaired, ...}
+    %% timer:sleep(1), % no guarantee that Pid1 will return {repaired, ...}
     ?line Pid2 = spawn_opt(F, [{priority, low}]),
     ?line {error, no_such_log} = 
         disk_log:log(Log, term), % maybe repairing now
@@ -4862,7 +4862,7 @@ copy_wrap_log(FromName, ToName, N, FromDir, ToDir) ->
 -define(BUFSIZE, 8192).
 
 copy_file(Src, Dest) ->
-    % io:format("copying from ~p to ~p~n", [Src, Dest]),
+    %% io:format("copying from ~p to ~p~n", [Src, Dest]),
     {ok, InFd} = file:open(Src, [raw, binary, read]),
     {ok, OutFd} = file:open(Dest, [raw, binary, write]),
     ok = copy_file1(InFd, OutFd),
@@ -4992,9 +4992,9 @@ start_node(Name, Param) ->
 stop_node(Node) ->
     test_server:stop_node(Node).
 
-%from(H, [H | T]) -> T;
-%from(H, [_ | T]) -> from(H, T);
-%from(_H, []) -> [].
+%% from(H, [H | T]) -> T;
+%% from(H, [_ | T]) -> from(H, T);
+%% from(_H, []) -> [].
 
 
 %%-----------------------------------------------------------------
