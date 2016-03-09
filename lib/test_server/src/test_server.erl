@@ -740,14 +740,10 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 			    try apply(Mod,end_per_testcase,[Func,EndConf]) of
 				_ -> ok
 			    catch
-				_:Why ->
+				_:Error ->
 				    timer:sleep(1),
-				    GLMsg = {printout,12,
-					     "WARNING! "
-					     "~w:end_per_testcase(~w, ~p)"
-					     " crashed!\n\tReason: ~p\n",
-					     [Mod,Func,Conf,Why]},
-				    group_leader() ! GLMsg					
+				    print_end_conf_result(Mod,Func,Conf,
+							  "crashed",Error)
 			    end,
 			    Supervisor ! {self(),end_conf}
 		    end,
@@ -756,10 +752,7 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 		    {Pid,end_conf} ->
 			Starter ! {self(),{call_end_conf,Data,ok}};
 		    {'EXIT',Pid,Reason} ->
-			group_leader() ! {printout,12,
-					  "WARNING! ~w:end_per_testcase(~w, ~p)"
-					  " failed!\n\tReason: ~p\n",
-					  [Mod,Func,Conf,Reason]},
+			print_end_conf_result(Mod,Func,Conf,"failed",Reason),
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
 		    {'EXIT',_OtherPid,Reason} ->
 			%% Probably the parent - not much to do about that
@@ -767,6 +760,23 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 		end
 	end,
     spawn_link(EndConfProc).
+
+print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("WARNING! "
+			      "~w:end_per_testcase(~w, ~tp)"
+			      " ~s!\n\tReason: ~tp\n",
+			      [Mod,Func,Conf,Cause,Error]);		    
+	   (minor) ->
+		ErrorStr = test_server_ctrl:escape_chars(Error),
+		io_lib:format("WARNING! "
+			      "~w:end_per_testcase(~w, ~tp)"
+			      " ~s!\n\tReason: ~ts\n",
+			      [Mod,Func,Conf,Cause,ErrorStr])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
+
 
 spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 	      Why,Loc,SendTo) ->
@@ -1303,7 +1313,7 @@ do_init_per_testcase(Mod, Args) ->
 		Bad ->
 		    group_leader() ! {printout,12,
 				      "ERROR! init_per_testcase has returned "
-				      "bad elements in Config: ~p\n",[Bad]},
+				      "bad elements in Config: ~tp\n",[Bad]},
 		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 	    end;
 	{fail,_Reason}=Res ->
@@ -1321,24 +1331,32 @@ do_init_per_testcase(Mod, Args) ->
 	throw:Other ->
 	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase thrown!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc, Other]},
+	    print_init_conf_result(Line,"thrown",Other),
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
 	_:Reason0 ->
 	    Stk = erlang:get_stacktrace(),
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase crashed!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc,Reason]},
+	    print_init_conf_result(Line,"crashed",Reason),
 	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
     end.
+
+print_init_conf_result(Line,Cause,Reason) ->
+    FormattedLoc = test_server_sup:format_loc(Line),
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("ERROR! init_per_testcase ~s!\n"
+				      "\tLocation: ~p\n\tReason: ~tp\n",
+				      [Cause,Line,Reason]);
+	   (minor) ->
+		ReasonStr = test_server_ctrl:escape_chars(Reason),
+		io_lib:format("ERROR! init_per_testcase ~s!\n"
+			      "\tLocation: ~ts\n\tReason: ~ts\n",
+			      [Cause,FormattedLoc,ReasonStr])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
+
 
 end_per_testcase(Mod, Func, Conf) ->
     case erlang:function_exported(Mod,end_per_testcase,2) of
@@ -1374,12 +1392,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
-	    group_leader() ! {printout,12,
-			      "WARNING: ~w thrown!\n"
-			      "Reason: ~p\n"
-			      "Line: ~ts\n",
-			      [EndFunc, Other,
-			       test_server_sup:format_loc(get_loc())]},
+	    print_end_tc_warning(EndFunc,Other,"thrown",get_loc()),
 	    {failed,{Mod,end_per_testcase,Other}};
 	  Class:Reason ->
 	    Stk = erlang:get_stacktrace(),
@@ -1396,14 +1409,24 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w crashed!"
 				  "</font>\n",[Comment0,EndFunc])),
-	    group_leader() ! {printout,12,
-			      "WARNING: ~w crashed!\n"
-			      "Reason: ~p\n"
-			      "Line: ~ts\n",
-			      [EndFunc, Reason,
-			       test_server_sup:format_loc(get_loc())]},
+	    print_end_tc_warning(EndFunc,Reason,"crashed",get_loc()),
 	    {failed,{Mod,end_per_testcase,Why}}
     end.
+
+print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
+    FormattedLoc = test_server_sup:format_loc(Loc),
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("WARNING: ~w ~s!\n"
+			      "Reason: ~tp\nLine: ~p\n",
+			      [EndFunc,Cause,Reason,Loc]);
+	   (minor) ->
+		ReasonStr = test_server_ctrl:escape_chars(Reason),
+		io_lib:format("WARNING: ~w ~s!\n"
+			      "Reason: ~ts\nLine: ~ts\n",
+			      [EndFunc,Cause,ReasonStr,FormattedLoc])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
 
 get_loc() ->
     get(test_server_loc).

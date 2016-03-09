@@ -485,6 +485,8 @@ loop(Mode,TestData,StartDir) ->
 	{'EXIT',Pid,Reason} ->
 	    case ets:lookup(?conn_table,Pid) of
 		[#conn{address=A,callback=CB}] ->
+		    ErrorStr = io_lib:format("~tp", [Reason]),
+		    ErrorHtml = ct_logs:escape_chars(ErrorStr),
 		    %% A connection crashed - remove the connection but don't die
 		    ct_logs:tc_log_async(ct_error_notify,
 					 ?MAX_IMPORTANCE,
@@ -492,8 +494,8 @@ loop(Mode,TestData,StartDir) ->
 					 "Connection process died: "
 					 "Pid: ~w, Address: ~p, "
 					 "Callback: ~w\n"
-					 "Reason: ~p\n\n",
-					 [Pid,A,CB,Reason]),
+					 "Reason: ~ts\n\n",
+					 [Pid,A,CB,ErrorHtml]),
 		    catch CB:close(Pid),
 		    %% in case CB:close failed to do this:
 		    unregister_connection(Pid),
