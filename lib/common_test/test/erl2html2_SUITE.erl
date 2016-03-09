@@ -31,7 +31,7 @@
 	 "<html>\n",
 	 "<head><title>Module ", Src, "</title>\n",
 	 "<meta http-equiv=\"cache-control\" ",
-	 "content=\"no-cache\">\n",
+	 "content=\"no-cache\"></meta>\n",
 	 "</head>\n",
 	 "<body bgcolor=\"white\" text=\"black\" ",
 	 "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"]).

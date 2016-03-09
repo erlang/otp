@@ -77,7 +77,7 @@
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([do_test_cases/4]).
 -export([do_spec/2, do_spec_list/2]).
--export([xhtml/2]).
+-export([xhtml/2, escape_chars/1]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3747,7 +3747,10 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
        true ->
 	    ok
     end,
-    print(minor, "Config value:\n\n    ~tp\n", [Args2Print]),
+
+    print(minor,
+	  escape_chars(io_lib:format("Config value:\n\n    ~tp\n", [Args2Print])),
+	  []),
     print(minor, "Current directory is ~tp\n", [Cwd]),
 
     GrNameStr =	case GrName of
@@ -3762,7 +3765,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	  "<td>" ++ Col0 ++ "~w" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~ts" ++ Col1 ++ "</td>"
 	  "<td><a href=\"~ts\">~w</a></td>"
-	  "<td><a href=\"~ts#top\"><</a> <a href=\"~ts#end\">></a></td>",
+	  "<td><a href=\"~ts#top\">&lt;</a> <a href=\"~ts#end\">&gt;</a></td>",
 	  [num2str(Num),fw_name(Mod),GrNameStr,EncMinorBase,Func,
 	   EncMinorBase,EncMinorBase]),
 
@@ -3939,7 +3942,7 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
-    ReasonStr = reason_to_string(Reason1),
+    ReasonStr = escape_chars(reason_to_string(Reason1)),
     ReasonStr1 = lists:flatten([string:strip(S,left) ||
 				S <- string:tokens(ReasonStr,[$\n])]),
     ReasonStr2 =
@@ -4011,7 +4014,10 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 	  [Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
-    print(minor, "=== Reason: {testcase_aborted,~p}", [Reason]),
+    print(minor,
+	  escape_chars(io_lib:format("=== Reason: {testcase_aborted,~p}",
+				     [Reason])),
+	  []),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
@@ -4024,7 +4030,7 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
     TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
 			       true -> "~w"
 			    end, [Time]),
-    ErrorReason = lists:flatten(io_lib:format("~p", [Reason])),
+    ErrorReason = escape_chars(lists:flatten(io_lib:format("~p", [Reason]))),
     ErrorReason1 = lists:flatten([string:strip(S,left) ||
 				  S <- string:tokens(ErrorReason,[$\n])]),
     ErrorReason2 =
@@ -4047,7 +4053,9 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	  [TimeStr,Comment]),
     print(minor, "=== Location: ~w", [unknown]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== Reason: " ++ FStr, [FormattedReason]),
+    print(minor,
+	  escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason])),
+	  []),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
@@ -4081,7 +4089,8 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
     FormatLoc = test_server_sup:format_loc(LocMin),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "=== Reason: " ++ FStr, [FormattedReason]),
+    print(minor, "=== Reason: " ++
+	      escape_chars(io_lib:format(FStr, [FormattedReason])), []),
     failed;
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
@@ -4110,11 +4119,36 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 	  "<td><font color=\"green\">Ok</font></td>"
 	  "~ts</tr>\n",
 	  [Time,Comment]),
-    print(minor, "=== Returned value: ~p", [RetVal]),
+    print(minor,
+	  escape_chars(io_lib:format("=== Returned value: ~tp", [RetVal])),
+	  []),
     ok.
 
 %%--------------------------------------------------------------------
 %% various help functions
+escape_chars(Term) when not is_list(Term), not is_binary(Term) ->
+    esc_chars_in_list(io_lib:format("~tp", [Term]));
+escape_chars(List = [Term | _]) when not is_list(Term), not is_integer(Term) ->
+    esc_chars_in_list(io_lib:format("~tp", [List]));
+escape_chars(List) ->
+    esc_chars_in_list(List).
+
+esc_chars_in_list([Bin | Io]) when is_binary(Bin) ->
+    [Bin | esc_chars_in_list(Io)];
+esc_chars_in_list([List | Io]) when is_list(List) ->
+    [esc_chars_in_list(List) | esc_chars_in_list(Io)];
+esc_chars_in_list([$< | Io]) ->
+    ["&lt;" | esc_chars_in_list(Io)];
+esc_chars_in_list([$> | Io]) ->
+    ["&gt;" | esc_chars_in_list(Io)];
+esc_chars_in_list([$& | Io]) ->
+    ["&amp;" | esc_chars_in_list(Io)];
+esc_chars_in_list([Char | Io]) when is_integer(Char) ->
+    [Char | esc_chars_in_list(Io)];
+esc_chars_in_list([]) ->
+    [];
+esc_chars_in_list(Bin) ->
+    Bin.
 
 get_fw_mod(Mod) ->
     case get(test_server_framework) of
@@ -5570,8 +5604,9 @@ html_header(Title) ->
      "<html>\n"
      "<head>\n"
      "<title>", Title, "</title>\n"
-     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n"
-     "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n"
+     "<meta http-equiv=\"cache-control\" content=\"no-cache\"></meta>\n"
+     "<meta http-equiv=\"content-type\" content=\"text/html; "
+            "charset=utf-8\"></meta>\n"
      "</head>\n"
      "<body bgcolor=\"white\" text=\"black\" "
      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"].

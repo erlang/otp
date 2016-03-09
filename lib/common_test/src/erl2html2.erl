@@ -44,7 +44,7 @@ convert(File, Dest, InclPath) ->
 	      "<html>\n"
               "<head>\n"
               "<meta http-equiv=\"Content-Type\" content=\"text/html;"
-                 "charset=",html_encoding(Encoding),"\"/>\n"
+                 "charset=",html_encoding(Encoding),"\"/></meta>\n"
               "<title>", to_raw_list(File,Encoding), "</title>\n"
               "</head>\n\n"
 	      "<body bgcolor=\"white\" text=\"black\""
