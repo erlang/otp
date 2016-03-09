@@ -237,10 +237,11 @@
 
      <list type="bulleted">
        <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>end_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>end_per_suite</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-1"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-1"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-1"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-1"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
      </list>
 
         <p>
@@ -280,10 +281,11 @@
       <p>In a CTH, behavior can be hooked in after the following functions:</p>
       <list type="bulleted">
        <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>end_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>end_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_suite-1"><c>end_per_suite</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-1"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-1"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-1"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-1"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
      </list>
 
      <p>
@@ -393,6 +395,8 @@
  -export([post_end_per_group/4]).
 
  -export([pre_init_per_testcase/3]).
+ -export([post_init_per_testcase/4]).
+ -export([pre_end_per_testcase/3]).
  -export([post_end_per_testcase/4]).
 
  -export([on_tc_fail/3]).
@@ -438,7 +442,7 @@
  post_init_per_group(Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called after each end_per_group. 
+ %% @doc Called before each end_per_group. 
  pre_end_per_group(Group,Config,State) ->
      {Config, State}.
 
@@ -446,11 +450,19 @@
  post_end_per_group(Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before each test case.
+ %% @doc Called before each init_per_testcase.
  pre_init_per_testcase(TC,Config,State) ->
      {Config, State#state{ ts = now(), total = State#state.suite_total + 1 } }.
 
- %% @doc Called after each test case.
+ %% Called after each init_per_testcase (immediately before the test case).
+ post_init_per_testcase(TC,Config,Return,State) ->
+     {Return, State}
+
+%% @doc Called before each end_per_testcase (immediately after the test case).
+ pre_end_per_testcase(TC,Config,State) ->
+     {Config, State}.
+
+ %% @doc Called after each end_per_testcase.
  post_end_per_testcase(TC,Config,Return,State) ->
      TCInfo = {testcase, TC, Return, timer:now_diff(now(), State#state.ts)},
      {Return, State#state{ ts = undefined, tcs = [TCInfo | State#state.tcs] } }.
