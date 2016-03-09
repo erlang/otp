@@ -64,7 +64,7 @@ apply_last(Config) when is_list(Config) ->
 		ct:fail("applied/2 timed out.")
 	end,
     Pid ! die,
-    ?t:format("Size: ~p~n", [Size]),
+    io:format("Size: ~p~n", [Size]),
     if
 	Size < 700 ->
 	    ok;

@@ -60,14 +60,14 @@ schedulers_alive(Config) when is_list(Config) ->
     ?line NoSchedulers = erlang:system_info(schedulers),
     UsedScheds =
 	try
-	    ?line ?t:format("Number of schedulers configured: ~p~n", [NoSchedulers]),
+	    ?line io:format("Number of schedulers configured: ~p~n", [NoSchedulers]),
 	    ?line case erlang:system_info(multi_scheduling) of
 		      blocked ->
 			  ?line ct:fail(multi_scheduling_blocked);
 		      disabled ->
 			  ?line ok;
 		      enabled ->
-			  ?t:format("Testing blocking process exit~n"),
+			  io:format("Testing blocking process exit~n"),
 			  BF = fun () ->
 				       blocked = erlang:system_flag(multi_scheduling,
 								    block),
@@ -86,7 +86,7 @@ schedulers_alive(Config) when is_list(Config) ->
 			  ?line [] = erlang:system_info(multi_scheduling_blockers),
 			  ?line ok
 		  end,
-	    ?t:format("Testing blocked~n"),
+	    io:format("Testing blocked~n"),
 	    ?line erlang:system_flag(multi_scheduling, block),
 	    ?line case erlang:system_info(multi_scheduling) of
 		      enabled ->
@@ -120,7 +120,7 @@ schedulers_alive(Config) when is_list(Config) ->
 	    %% node_and_dist_references will use emulator interal thread blocking...
 	    erts_debug:get_internal_state(node_and_dist_references), 
 	    erts_debug:set_internal_state(available_internal_state, false),
-	    ?t:format("Testing not blocked~n"),
+	    io:format("Testing not blocked~n"),
 	    ?line Ps2 = lists:map(
 			  fun (_) ->
 				  spawn_link(fun () ->
@@ -170,7 +170,7 @@ wait_on_used_scheduler({SIDs, SIDsLen} = State) ->
 		true ->
 		    wait_on_used_scheduler(State);
 		false ->
-		    ?t:format("Scheduler ~p used~n", [SID]),
+		    io:format("Scheduler ~p used~n", [SID]),
 		    {[SID|SIDs], SIDsLen+1}
 	    end
     end.

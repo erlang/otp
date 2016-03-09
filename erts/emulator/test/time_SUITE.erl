@@ -465,8 +465,7 @@ now_update1(N) when N > 0 ->
 
     ?line Linear_Diff = (T2_linear-T1_linear)*1000000,
     ?line Now_Diff = T2_now-T1_now,
-    test_server:format("Localtime diff = ~p; now() diff = ~p",
-		       [Linear_Diff, Now_Diff]),
+    io:format("Localtime diff = ~p; now() diff = ~p", [Linear_Diff, Now_Diff]),
     ?line case abs(Linear_Diff - Now_Diff) of
 	      Abs_Delta when Abs_Delta =< 40000 -> ok;
 	      _ -> now_update1(N-1)
@@ -729,7 +728,7 @@ check_time_offset_res_conv(Mon, Res) ->
 		    ct:fail({time_unit_conversion_inconsistency,
 			     TO, TORes, TORes2});
 		{_NewTO, true} ->
-		    ?t:format("time_offset changed", []),
+		    io:format("time_offset changed", []),
 		    check_time_offset_res_conv(Mon, Res)
 	    end
     end.
@@ -872,13 +871,13 @@ do_check_erlang_timestamp(Done, Mon, TO) ->
 	    check_erlang_timestamp(Done, Mon, NewTO);
 	false ->
 	    io:format("TsMin=~p TsTime=~p TsMax=~p~n", [TsMin, TsTime, TsMax]),
-	    ?t:format("Detected inconsistency; "
+	    io:format("Detected inconsistency; "
 		      "checking for time_offset change...", []),
 	    case check_time_offset_change(Mon, TO, 1000) of
 		{TO, false} ->
 		    ct:fail(timestamp_inconsistency);
 		{NewTO, true} ->
-		    ?t:format("time_offset changed", []),
+		    io:format("time_offset changed", []),
 		    check_erlang_timestamp(Done, Mon, NewTO)
 	    end
     end.

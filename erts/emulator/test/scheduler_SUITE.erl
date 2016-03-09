@@ -526,7 +526,7 @@ bindings(Node, BindType) ->
 		     end),
     receive
 	{Ref, Res} ->
-	    ?t:format("~p: ~p~n", [BindType, Res]),
+	    io:format("~p: ~p~n", [BindType, Res]),
 	    unlink(Pid),
 	    Res
     end.
@@ -564,7 +564,7 @@ scheduler_bind_types(Config) when is_list(Config) ->
     ?line ok.
 
 scheduler_bind_types_test(Config, Topology, CmdLine, TermLetter) ->
-    ?line ?t:format("Testing (~p): ~p~n", [TermLetter, Topology]),
+    ?line io:format("Testing (~p): ~p~n", [TermLetter, Topology]),
     ?line {ok, Node0} = start_node(Config),
     ?line _ = rpc:call(Node0, erlang, system_flag, [cpu_topology, Topology]),
     ?line cmp(Topology, rpc:call(Node0, erlang, system_info, [cpu_topology])),
@@ -766,7 +766,7 @@ cpu_topology(Config) when is_list(Config) ->
     ?line ok.
 
 cpu_topology_test(Config, Topology, Cmd) ->
-    ?line ?t:format("Testing~n ~p~n ~p~n", [Topology, Cmd]),
+    ?line io:format("Testing~n ~p~n ~p~n", [Topology, Cmd]),
     ?line cpu_topology_bif_test(Config, Topology),
     ?line cpu_topology_cmdline_test(Config, Topology, Cmd),
     ?line ok.
@@ -791,7 +791,7 @@ cpu_topology_cmdline_test(Config, Topology, Cmd) ->
 update_cpu_info(Config) when is_list(Config) ->
     ?line OldOnline = erlang:system_info(schedulers_online),
     ?line OldAff = get_affinity_mask(),
-    ?line ?t:format("START - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+    ?line io:format("START - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
 		    [OldAff, OldOnline, erlang:system_info(scheduler_bindings)]),
     ?line case {erlang:system_info(logical_processors_available), OldAff} of
 	      {Avail, _} when Avail == unknown; OldAff == unknown ->
@@ -816,7 +816,7 @@ update_cpu_info(Config) when is_list(Config) ->
 					{Onln0, Onln1} ->
 					    ?line Onln1 = erlang:system_info(schedulers_online),
 					    ?line receive after 500 -> ok end,
-					    ?line ?t:format("TEST - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+					    ?line io:format("TEST - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
 							    [Aff, Onln1, erlang:system_info(scheduler_bindings)]),
 					    ?line unchanged = adjust_schedulers_online(),
 					    ?line ok;
@@ -829,7 +829,7 @@ update_cpu_info(Config) when is_list(Config) ->
 		      adjust_schedulers_online(),
 		      erlang:system_flag(schedulers_online, OldOnline),
 		      receive after 500 -> ok end,
-		      ?t:format("END - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+		      io:format("END - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
 				[get_affinity_mask(),
 				 erlang:system_info(schedulers_online),
 				 erlang:system_info(scheduler_bindings)])
@@ -1007,7 +1007,7 @@ sbt_cmd(Config) when is_list(Config) ->
     end.
 
 sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
-    ?line ?t:format("Testing +sbt ~s (~p)~n", [ClBt, Bt]),
+    ?line io:format("Testing +sbt ~s (~p)~n", [ClBt, Bt]),
     ?line LPS = integer_to_list(LP),
     ?line Cmd = CpuTCmd++" +sbt "++ClBt++" +S"++LPS++":"++LPS,
     ?line {ok, Node} = start_node(Config, Cmd),
@@ -1019,7 +1019,7 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
 			erlang,
 			system_info,
 			[scheduler_bindings]),
-    ?line ?t:format("scheduler bindings: ~p~n", [SB]),
+    ?line io:format("scheduler bindings: ~p~n", [SB]),
     ?line BS = case {Bt, erlang:system_info(logical_processors_available)} of
 		   {unbound, _} -> 0;
 		   {_, Int} when is_integer(Int) -> Int;
@@ -1333,7 +1333,7 @@ scheduler_suspend_test(Config, Schedulers) ->
     ?line [SState] = mcall(Node, [fun () ->
 					  erlang:system_info(schedulers_state)
 				  end]),
-    ?line ?t:format("SState=~p~n", [SState]),
+    ?line io:format("SState=~p~n", [SState]),
     ?line {Sched, SchedOnln, _SchedAvail} = SState,
     ?line true = is_integer(Sched),
     ?line [ok] = mcall(Node, [fun () -> sst0_loop(300) end]),
@@ -1824,7 +1824,7 @@ chk_result([{low, L, Lmin, _Lmax},
 	   LNShouldWork,
 	   HShouldWork,
 	   MShouldWork) ->
-    ?line ?t:format("~p~n", [Res]),
+    ?line io:format("~p~n", [Res]),
     ?line Relax = relax_limits(),
     case {L, N} of
 	{0, 0} ->
@@ -1842,7 +1842,7 @@ chk_result([{low, L, Lmin, _Lmax},
 	    ?line Ratio = Lavg/Navg,
 	    ?line LminRatio = Lmin/Lavg,
 	    ?line NminRatio = Nmin/Navg,
-	    ?line ?t:format("low min ratio=~p~n"
+	    ?line io:format("low min ratio=~p~n"
 			    "normal min ratio=~p~n"
 			    "low avg=~p~n"
 			    "normal avg=~p~n"
@@ -1907,7 +1907,7 @@ snd(Msg, [P|Ps]) ->
 relax_limits() ->
     case strange_system_scale() of
 	Scale when Scale > 1 ->
-	    ?t:format("Relaxing limits~n", []),
+	    io:format("Relaxing limits~n", []),
 	    true;
 	_ ->
 	    false
@@ -2247,7 +2247,7 @@ enable_internal_state() ->
 cmp(X, X) ->
     ok;
 cmp(X, Y) ->
-    ?t:format("cmp failed:~n X=~p~n Y=~p~n", [X,Y]),
+    io:format("cmp failed:~n X=~p~n Y=~p~n", [X,Y]),
     cmp_aux(X, Y).
 
 

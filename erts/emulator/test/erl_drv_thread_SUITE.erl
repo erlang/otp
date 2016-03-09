@@ -103,7 +103,7 @@ run_drv_case(Config, CaseName, Command, TimeTrap) ->
 receive_drv_result(Port, CaseName) ->
     ?line receive
 	      {print, Port, CaseName, Str} ->
-		  ?line ?t:format("~s", [Str]),
+		  ?line io:format("~s", [Str]),
 		  ?line receive_drv_result(Port, CaseName);
 	      {'EXIT', Port, Error} ->
 		  ?line ct:fail(Error);

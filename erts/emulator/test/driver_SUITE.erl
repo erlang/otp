@@ -763,10 +763,10 @@ io_ready_exit(Config) when is_list(Config) ->
 		      {'EXIT', Port, Reason} ->
 			  ?line case Reason of
 				    ready_output_driver_failure ->
-					?t:format("Exited in output_ready()~n"),
+					io:format("Exited in output_ready()~n"),
 					?line ok;
 				    ready_input_driver_failure ->
-					?t:format("Exited in input_ready()~n"),
+					io:format("Exited in input_ready()~n"),
 					?line ok;
 				    Error -> ?line ct:fail(Error)
 				end
@@ -908,7 +908,7 @@ chkio_test_init(Config) when is_list(Config) ->
     ?line ChkIo = get_stable_check_io_info(),
     ?line case catch lists:keysearch(name, 1, ChkIo) of
 	      {value, {name, erts_poll}} ->
-		  ?line ?t:format("Before test: ~p~n", [ChkIo]),
+		  ?line io:format("Before test: ~p~n", [ChkIo]),
 		  ?line Path = ?config(data_dir, Config),
 		  ?line erl_ddll:start(),
 		  ?line ok = load_driver(Path, 'chkio_drv'),
@@ -925,7 +925,7 @@ chkio_test_fini({chkio_test_result, Res, Before}) ->
     ?line ok = erl_ddll:unload_driver('chkio_drv'),
     ?line ok = erl_ddll:stop(),
     ?line After = get_stable_check_io_info(),
-    ?line ?t:format("After test: ~p~n", [After]),
+    ?line io:format("After test: ~p~n", [After]),
     ?line verify_chkio_state(Before, After),
     ?line Res.
 
@@ -972,12 +972,12 @@ chkio_test({erts_poll_info, Before},
 		  ?line During = erlang:system_info(check_io),
 		  ?line erlang:display(During),
 		  ?line 0 = element(1, erts_debug:get_internal_state(check_io_debug)),
-		  ?line ?t:format("During test: ~p~n", [During]),
+		  ?line io:format("During test: ~p~n", [During]),
 		  ?line chk_chkio_port(Port),
 		  ?line case erlang:port_control(Port, ?CHKIO_STOP, "") of
 			    Res when is_list(Res) ->
 				?line chk_chkio_port(Port),
-				?line ?t:format("~s", [Res]),
+				?line io:format("~s", [Res]),
 				?line close_chkio_port(Port),
 				?line Res,
 				?line case Res of
@@ -1119,8 +1119,8 @@ driver_system_info_test(Config, Name) ->
     ?line ok.
 
 check_driver_system_info_result(Result) ->
-    ?line ?t:format("All names: ~p~n", [?EXPECTED_SYSTEM_INFO_NAMES]),
-    ?line ?t:format("Result: ~p~n", [Result]),
+    ?line io:format("All names: ~p~n", [?EXPECTED_SYSTEM_INFO_NAMES]),
+    ?line io:format("Result: ~p~n", [Result]),
     ?line {[], Ns, DDVSN} = chk_sis(lists:map(fun (Str) ->
 						      string:tokens(Str, "=")
 					      end,
@@ -1828,9 +1828,9 @@ thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
 	    ?line ok = load_driver(Path, DrvName),   
 	    ?line Port = open_port({spawn, DrvName}, []),
 	    ?line CCI = 1000,
-	    ?line ?t:format("CCI = ~p~n", [CCI]),
+	    ?line io:format("CCI = ~p~n", [CCI]),
 	    ?line CCC = mseg_alloc_ccc(),
-	    ?line ?t:format("CCC = ~p~n", [CCC]),
+	    ?line io:format("CCC = ~p~n", [CCC]),
 	    ?line thread_mseg_alloc_cache_clean_test(Port,
 						     10,
 						     CCI,
@@ -1903,7 +1903,7 @@ thread_mseg_alloc_cache_clean_test(Port, N, CCI, Size) ->
     ?line "ok" = erlang:port_control(Port, 0, integer_to_list(Size)),
     ?line receive after CCI+500 -> ok end,
     ?line CCC = mseg_alloc_ccc(),
-    ?line ?t:format("CCC = ~p~n", [CCC]),
+    ?line io:format("CCC = ~p~n", [CCC]),
     ?line true = CCC > OCCC,
     ?line thread_mseg_alloc_cache_clean_test(Port, N-1, CCI, Size).
 
@@ -2086,7 +2086,7 @@ thr_msg_blast(Config) when is_list(Config) ->
 	    false ->
 		case erlang:system_info(lock_checking) of
 		    true ->
-			?t:format("~p:~p: Ignore bad sched count due to "
+			io:format("~p:~p: Ignore bad sched count due to "
 				  "lock checking~n",
 				  [?MODULE,?LINE]);
 		    false ->
@@ -2338,7 +2338,7 @@ count_pp_sched_stop(Ps) ->
     PNs = lists:map(fun (P) -> {P, 0} end, Ps),
     receive {trace_delivered, all, Td} -> ok end,
     Res = count_proc_sched(Ps, PNs),
-    ?t:format("Scheduling counts: ~p~n", [Res]),
+    io:format("Scheduling counts: ~p~n", [Res]),
     erlang:display({scheduling_counts, Res}),
     Res.
 

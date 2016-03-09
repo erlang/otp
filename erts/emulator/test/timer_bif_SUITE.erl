@@ -362,7 +362,7 @@ evil_timers(Config) when is_list(Config) ->
     ?line RefList = [make_ref(), make_ref(), make_ref()],
     ?line BigList = [111111111111, 22222222222222, 333333333333333333],
     ?line Msg = {BinList,[FunList,{RefList,ExtList,PidList,PortList,BigList}]},
-    %% ?line ?t:format("Msg=~p~n",[Msg]),
+    %% ?line io:format("Msg=~p~n",[Msg]),
 
     ?line Prio = process_flag(priority, max),
     %%

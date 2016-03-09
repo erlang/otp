@@ -411,12 +411,12 @@ node_table_gc(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, 0),
     ?line PreKnown = nodes(known),
-    ?line ?t:format("PreKnown = ~p~n", [PreKnown]),
+    ?line io:format("PreKnown = ~p~n", [PreKnown]),
     ?line make_node_garbage(0, 200000, 1000, []),
     ?line PostKnown = nodes(known),
     ?line PostAreas = erlang:system_info(allocated_areas),
-    ?line ?t:format("PostKnown = ~p~n", [PostKnown]),
-    ?line ?t:format("PostAreas = ~p~n", [PostAreas]),
+    ?line io:format("PostKnown = ~p~n", [PostKnown]),
+    ?line io:format("PostAreas = ~p~n", [PostAreas]),
     ?line true = length(PostKnown) =< length(PreKnown),
     ?line nc_refc_check(node()),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
@@ -761,17 +761,17 @@ set_next_id(port, N) ->
 pp_wrap(What) ->
     ?line N = set_high_pp_next(What),
     ?line Cre = N + 100,
-    ?line ?t:format("no creations = ~p~n", [Cre]),
+    ?line io:format("no creations = ~p~n", [Cre]),
     ?line PreCre = get_next_id(What),
-    ?line ?t:format("pre creations = ~p~n", [PreCre]),
+    ?line io:format("pre creations = ~p~n", [PreCre]),
     ?line true = is_integer(PreCre),
     ?line do_pp_creations(What, Cre),
     ?line PostCre = get_next_id(What),
-    ?line ?t:format("post creations = ~p~n", [PostCre]),
+    ?line io:format("post creations = ~p~n", [PostCre]),
     ?line true = is_integer(PostCre),
     ?line true = PreCre > PostCre,
     ?line Now = set_next_id(What, ?MAX_PIDS_PORTS div 2),
-    ?line ?t:format("reset to = ~p~n", [Now]),
+    ?line io:format("reset to = ~p~n", [Now]),
     ?line true = is_integer(Now),
     ?line ok.
 
@@ -903,7 +903,7 @@ chk_max_proc_line() ->
 	      {proc_line_length, PLL, End} ->
 		  ?line PC = erlang:system_info(process_count),
 		  ?line LP = length(processes()),
-		  ?line ?t:format("proc line length = ~p; "
+		  ?line io:format("proc line length = ~p; "
 				  "process count = ~p; "
 				  "length processes = ~p~n",
 				  [PLL, PC, LP]),
@@ -936,7 +936,7 @@ node_container_refc_check(Node) when is_atom(Node) ->
 nc_refc_check(Node) when is_atom(Node) ->
     Ref = make_ref(),
     Self = self(),
-    ?t:format("Starting reference count check of node ~w~n", [Node]),
+    io:format("Starting reference count check of node ~w~n", [Node]),
     spawn_link(Node,
 	       fun () ->
 		       {{node_references, NodeRefs},
@@ -952,10 +952,10 @@ nc_refc_check(Node) when is_atom(Node) ->
 	       end),
     receive
 	{Ref, ErrorMsg, failed} ->
-	    ?t:format("~s~n", [ErrorMsg]),
+	    io:format("~s~n", [ErrorMsg]),
 	    ct:fail(reference_count_check_failed);
 	{Ref, succeded} ->
-	    ?t:format("Reference count check of node ~w succeded!~n", [Node]),
+	    io:format("Reference count check of node ~w succeded!~n", [Node]),
 	    ok
     end.
 
@@ -1034,7 +1034,7 @@ get_node_references({NodeName, Creation} = Node) when is_atom(NodeName),
 			NodeRefs,
 			DistRefs,
 			fun (ErrMsg) ->
-				?t:format("~s", [ErrMsg]),
+				io:format("~s", [ErrMsg]),
 				ct:fail(reference_count_check_failed)
 			end),
     find_references(Node, NodeRefs).
@@ -1046,7 +1046,7 @@ get_dist_references(NodeName) when is_atom(NodeName) ->
 			NodeRefs,
 			DistRefs,
 			fun (ErrMsg) ->
-				?line ?t:format("~s", [ErrMsg]),
+				?line io:format("~s", [ErrMsg]),
 				?line ct:fail(reference_count_check_failed)
 			end),
     ?line find_references(NodeName, DistRefs).

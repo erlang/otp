@@ -309,7 +309,7 @@ eq_cmp(A,B) ->
     eq_cmp_do({A,B},{A,B}).
 
 eq_cmp_do(A,B) ->
-    %%?t:format("compare ~p and ~p\n",[A,B]),
+    %%io:format("compare ~p and ~p\n",[A,B]),
     Eq = (A =:= B),
     ?line Eq = is_identical(A,B),
     ?line Cmp = if

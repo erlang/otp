@@ -315,7 +315,7 @@ repeat_while_loop(Fun, TRef, I) ->
 flush_log() ->
     receive
 	{print, Str} ->
-	    ?t:format("~s", [Str]),
+	    io:format("~s", [Str]),
 	    flush_log()
     after 0 ->
 	    ok

@@ -462,12 +462,12 @@ do_busy_test(Node, Fun) ->
     receive after 100 -> ok end,
     Pinfo = process_info(P, [status, current_function]),
     unmake_busy(Busy),
-    ?t:format("~p : ~p~n", [P, Pinfo]),
+    io:format("~p : ~p~n", [P, Pinfo]),
     case Pinfo of
 	undefined ->
 	    receive
 		{'DOWN', M, process, P, Reason} ->
-		    ?t:format("~p died with exit reason ~p~n", [P, Reason])
+		    io:format("~p died with exit reason ~p~n", [P, Reason])
 	    end,
 	    ct:fail(premature_death);
 	_ ->
@@ -477,7 +477,7 @@ do_busy_test(Node, Fun) ->
 	     {current_function, {erlang, bif_return_trap, _}}] = Pinfo,
 	    receive
 		{'DOWN', M, process, P, Reason} ->
-		    ?t:format("~p died with exit reason ~p~n", [P, Reason]),
+		    io:format("~p died with exit reason ~p~n", [P, Reason]),
 		    normal = Reason
 	    end
     end.
@@ -2071,7 +2071,7 @@ node_monitor(Master) ->
 				  Master ! {nodeup, node(), Node}
 			  end,
 			  Nodes0),
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Nodes0]),
+	    io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Nodes0]),
 	    node_monitor_loop(Master);
 	false ->
 	    net_kernel:monitor_nodes(false, Opts),
@@ -2092,7 +2092,7 @@ node_monitor_loop(Master) ->
     receive
 	{nodeup, Node, _InfoList} = Msg ->
 	    Master ! {nodeup, node(), Node},
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
+	    io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
 	    node_monitor_loop(Master);
 	{nodedown, Node, InfoList} = Msg ->
 	    Reason = case lists:keysearch(nodedown_reason, 1, InfoList) of
@@ -2100,7 +2100,7 @@ node_monitor_loop(Master) ->
 			 _ -> undefined
 		     end,
 	    Master ! {nodedown, node(), Node, Reason},
-	    ?t:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
+	    io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
 	    node_monitor_loop(Master)
     end.
 

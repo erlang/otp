@@ -106,8 +106,7 @@ wall_clock_update1(N) when N > 0 ->
     ?line {T2_wc_time, Wc_Diff} = statistics(wall_clock),
 
     ?line Wc_Diff = T2_wc_time - T1_wc_time,
-    ?line test_server:format("Wall clock diff = ~p; should be  = 1000..1040~n",
-			     [Wc_Diff]),
+    ?line io:format("Wall clock diff = ~p; should be  = 1000..1040~n", [Wc_Diff]),
     case ?t:is_debug() of
 	false ->
 	    ?line true = Wc_Diff =< 1040;
@@ -159,8 +158,7 @@ do_runtime_update(N) ->
     receive after 1000 -> ok end,
     ?line {T2,Diff} = statistics(runtime),
     ?line true = is_integer(T1+T2+Diff0+Diff),
-    ?line test_server:format("T1 = ~p, T2 = ~p, Diff = ~p, T2-T1 = ~p",
-			     [T1,T2,Diff,T2-T1]),
+    ?line io:format("T1 = ~p, T2 = ~p, Diff = ~p, T2-T1 = ~p", [T1,T2,Diff,T2-T1]),
     ?line if
 	      T2 - T1 =:= Diff, 900 =< Diff, Diff =< 1500 -> ok;
 	      true -> do_runtime_update(N-1)

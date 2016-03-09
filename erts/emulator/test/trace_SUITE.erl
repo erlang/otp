@@ -847,7 +847,7 @@ mutual_suspend(Config) when is_list(Config) ->
 		 end,
     ?line P1S = process_info(P1, status),
     ?line P2S = process_info(P2, status),
-    ?line ?t:format("P1S=~p P2S=~p", [P1S, P2S]),
+    ?line io:format("P1S=~p P2S=~p", [P1S, P2S]),
     ?line false = {status, suspended} == P1S,
     ?line false = {status, suspended} == P2S,
     ?line unlink(P1), exit(P1, bang),
@@ -1067,7 +1067,7 @@ suspend_until_system_limit(P, N, M) ->
 		  suspend_until_system_limit(P, N+1, NewM);
 	      {'EXIT', R} when R == system_limit;
 			       element(1, R) == system_limit ->
-		  ?line ?t:format("system limit at ~p~n", [N]),
+		  ?line io:format("system limit at ~p~n", [N]),
 		  ?line resume_from_system_limit(P, N, 0);
 	      Error ->
 		  ?line ct:fail(Error)
@@ -1193,7 +1193,7 @@ suspend_opts(Config) when is_list(Config) ->
     ?line erlang:resume_process(Tok),
     ?line erlang:resume_process(Tok),
     ?line 1 = suspend_count(Tok),
-    ?line ?t:format("Main suspends: ~p~n"
+    ?line io:format("Main suspends: ~p~n"
 		    "Main async: ~p~n"
 		    "Double async: ~p~n"
 		    "Async once: ~p~n"
@@ -1517,7 +1517,7 @@ issue_non_empty_runq_warning(DeadLine, RQLen) ->
 	    end,
 	    [],
 	    processes()),
-    ?t:format("WARNING: Unexpected runnable processes in system (waited ~p sec).~n"
+    io:format("WARNING: Unexpected runnable processes in system (waited ~p sec).~n"
 	      "         Run queue length: ~p~n"
 	      "         Self: ~p~n"
 	      "         Processes info: ~p~n",

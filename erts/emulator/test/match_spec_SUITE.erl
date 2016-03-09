@@ -989,13 +989,13 @@ collect(P, TMs) ->
 collect([]) ->
     receive
 	M ->
-	    ?t:format("Got unexpected: ~p~n", [M]),
+	    io:format("Got unexpected: ~p~n", [M]),
 	    flush({got_unexpected,M})
     after 17 ->
 	    ok
     end;
 collect([TM | TMs]) ->
-    ?t:format(        "Expecting:      ~p~n", [TM]),
+    io:format(        "Expecting:      ~p~n", [TM]),
     receive
 	M0 ->
 	    M = case element(1, M0) of
@@ -1008,20 +1008,20 @@ collect([TM | TMs]) ->
 		true ->
 		    case (catch TM(M)) of
 			true ->
-			    ?t:format("Got:            ~p~n", [M]),
+			    io:format("Got:            ~p~n", [M]),
 			    collect(TMs);
 			_ ->
-			    ?t:format("Got unexpected: ~p~n", [M]),
+			    io:format("Got unexpected: ~p~n", [M]),
 			    flush({got_unexpected,M})
 		    end;
 
 		false ->
 		    case M of
 			TM ->
-			    ?t:format("Got:            ~p~n", [M]),
+			    io:format("Got:            ~p~n", [M]),
 			    collect(TMs);
 			_ ->
-			    ?t:format("Got unexpected: ~p~n", [M]),
+			    io:format("Got unexpected: ~p~n", [M]),
 			    flush({got_unexpected,M})
 		    end
 	    end
@@ -1030,7 +1030,7 @@ collect([TM | TMs]) ->
 flush(Reason) ->
     receive
 	M ->
-	    ?t:format("In queue:       ~p~n", [M]),
+	    io:format("In queue:       ~p~n", [M]),
 	    flush(Reason)
     after 17 ->
 	    ct:fail(Reason)

@@ -1112,22 +1112,22 @@ otp_3906(Config, OSName) ->
 otp_3906_list_defunct(EmPid, OSName) ->
     % Guess ps switches to use and what to grep for (could be improved)
     {Switches, Zombie} = case OSName of
-			     BSD when BSD == darwin;
-				      BSD == openbsd;
-				      BSD == netbsd;
-				      BSD == freebsd ->
-				 {"-ajx", "Z"};
-			     _ ->
-				 {"-ef", "[dD]efunct"}
-			 end,
-    test_server:format("Emulator pid: ~s~n"
-		       "Listing of zombie processes:~n"
-		       "~s~n",
-		       [EmPid,
-			otp_3906_htmlize(os:cmd("ps "
-						++ Switches
-						++ " | grep "
-						++ Zombie))]).
+                             BSD when BSD == darwin;
+                                      BSD == openbsd;
+                                      BSD == netbsd;
+                                      BSD == freebsd ->
+                                 {"-ajx", "Z"};
+                             _ ->
+                                 {"-ef", "[dD]efunct"}
+                         end,
+    io:format("Emulator pid: ~s~n"
+              "Listing of zombie processes:~n"
+              "~s~n",
+              [EmPid,
+               otp_3906_htmlize(os:cmd("ps "
+                                       ++ Switches
+                                       ++ " | grep "
+                                       ++ Zombie))]).
 
 otp_3906_htmlize([]) ->
     [];
@@ -1689,15 +1689,15 @@ otp_5112(Config) when is_list(Config) ->
     Path = ?config(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
     Port = otp_5112_get_wrapped_port(),
-    ?t:format("Max ports: ~p~n",[max_ports()]),
-    ?t:format("Port: ~p~n",[Port]),
+    io:format("Max ports: ~p~n",[max_ports()]),
+    io:format("Port: ~p~n",[Port]),
     {links, Links1} = process_info(self(),links),
-    ?t:format("Links1: ~p~n",[Links1]),
+    io:format("Links1: ~p~n",[Links1]),
     true = lists:member(Port, Links1),
     Port ! {self(), {command, ""}},
     ?line wait_until(fun () -> lists:member(Port, erlang:ports()) == false end),
     {links, Links2} = process_info(self(),links),
-    ?t:format("Links2: ~p~n",[Links2]),
+    io:format("Links2: ~p~n",[Links2]),
     false = lists:member(Port, Links2), %% This used to fail
     ok.
 
@@ -1705,13 +1705,13 @@ otp_5112_get_wrapped_port() ->
     P1 = erlang:open_port({spawn, "exit_drv"}, []),
     case port_ix(P1) < max_ports() of
 	      true ->
-		  ?t:format("Need to wrap port index (~p)~n", [P1]),
+		  io:format("Need to wrap port index (~p)~n", [P1]),
 		  otp_5112_wrap_port_ix([P1]),
 		  P2 = erlang:open_port({spawn, "exit_drv"}, []),
 		  false = port_ix(P2) < max_ports(),
 		  P2;
 	      false ->
-		  ?t:format("Port index already wrapped (~p)~n", [P1]),
+		  io:format("Port index already wrapped (~p)~n", [P1]),
 		  P1
 	  end.
 
@@ -1745,9 +1745,9 @@ otp_5119(Config) when is_list(Config) ->
 		port_ix(erlang:open_port({spawn, "exit_drv"}, []))}
     end,
     MaxPorts = max_ports(),
-    ?t:format("PortIx1 = ~p ~p~n", [PI1, PortIx1]),
-    ?t:format("PortIx2 = ~p ~p~n", [PI2, PortIx2]),
-    ?t:format("MaxPorts = ~p~n", [MaxPorts]),
+    io:format("PortIx1 = ~p ~p~n", [PI1, PortIx1]),
+    io:format("PortIx2 = ~p ~p~n", [PI2, PortIx2]),
+    io:format("MaxPorts = ~p~n", [MaxPorts]),
     true = PortIx2 > PortIx1,
     true = PortIx2 =< PortIx1 + MaxPorts,
     ok.
@@ -1838,7 +1838,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     %% 
     NoSchedsOnln = erlang:system_info(schedulers_online),
     Parent = self(),
-    ?t:format("SleepSecs = ~p~n", [SleepSecs]),
+    io:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
     Start = erlang:monotonic_time(micro_seconds),
     NoProcs = case NoSchedsOnln of
@@ -1851,7 +1851,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 			       TNPorts when TNPorts < ?EXIT_STATUS_MSB_MAX_PORTS -> 20;
 			       _ -> ?EXIT_STATUS_MSB_MAX_PORTS div NoProcs
 			   end,
-    ?t:format("NoProcs = ~p~nNoPortsPerProc = ~p~n",
+    io:format("NoProcs = ~p~nNoPortsPerProc = ~p~n",
 		    [NoProcs, NoPortsPerProc]),
     ProcFun
 	= fun () ->
@@ -1915,12 +1915,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
                      end,
                      Procs),
     StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
-    ?t:format("StartedTime = ~p~n", [StartedTime]),
+    io:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
     erlang:system_flag(multi_scheduling, block),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
     DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
-    ?t:format("DoneTime = ~p~n", [DoneTime]),
+    io:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),
     erlang:system_flag(multi_scheduling, unblock),

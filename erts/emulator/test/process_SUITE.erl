@@ -1536,7 +1536,7 @@ print_processes_bif_info(#ptab_list_bif_info{min_start_reds = MinStartReds,
 					     term_procs_max_reds = TPMaxReds,
 					     conses_per_red = ConsesPerRed,
 					     debug_level = DbgLvl}) ->
-    ?t:format("processes/0 bif info on node ~p:~n"
+    io:format("processes/0 bif info on node ~p:~n"
 	      "Min start reductions = ~p~n"
 	      "Process table chunks = ~p~n"
 	      "Process table chunks size = ~p~n"
@@ -1577,7 +1577,7 @@ processes_unexpected_result(CorrectProcs, Procs) ->
 		status,
 		priority],
     MissingProcs = CorrectProcs -- Procs,
-    ?t:format("Missing processes: ~p",
+    io:format("Missing processes: ~p",
 	      [lists:map(fun (Pid) ->
 				 [{pid, Pid}
 				  | case process_info(Pid, ProcInfo) of
@@ -1587,7 +1587,7 @@ processes_unexpected_result(CorrectProcs, Procs) ->
 			 end,
 			 MissingProcs)]),
     SuperfluousProcs = Procs -- CorrectProcs,
-    ?t:format("Superfluous processes: ~p",
+    io:format("Superfluous processes: ~p",
 	      [lists:map(fun (Pid) ->
 				 [{pid, Pid}
 				  | case process_info(Pid, ProcInfo) of
@@ -1701,7 +1701,7 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 	DoIt = make_ref(),
 	GetGoing = make_ref(),
 	{NoTestProcs, TestProcs} = spawn_initial_hangarounds(Cleaner),
-	?t:format("Testing with ~p processes~n", [NoTestProcs]),
+	io:format("Testing with ~p processes~n", [NoTestProcs]),
 	SpawnHangAround = fun () ->
 		spawn(?MODULE, hangaround, [Cleaner, new_hangaround])
 	end,
@@ -1743,7 +1743,7 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 	Procs = lists:sort(Procs0),
 	CorrectProcs = lists:sort(CorrectProcs0),
 	LengthCorrectProcs = length(CorrectProcs),
-	?t:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
+	io:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
 	true = LengthCorrectProcs > NoTestProcs,
 	case CorrectProcs =:= Procs of
 	    true ->
@@ -1764,12 +1764,12 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 
 
 do_processes_bif_die_test(false, _Processes) ->
-    ?t:format("Skipping test killing process executing processes/0~n",[]),
+    io:format("Skipping test killing process executing processes/0~n",[]),
     ok;
 do_processes_bif_die_test(true, Processes) ->
     do_processes_bif_die_test(5, Processes);
 do_processes_bif_die_test(N, Processes) ->
-    ?t:format("Doing test killing process executing processes/0~n",[]),
+    io:format("Doing test killing process executing processes/0~n",[]),
     try
 	Tester = self(),
 	Oooh_Nooooooo = make_ref(),
@@ -1819,8 +1819,8 @@ do_processes_bif_die_test(N, Processes) ->
 	ok
     catch
 	throw:{kill_in_trap, R} when N > 0 ->
-	    ?t:format("Failed to kill in trap: ~p~n", [R]),
-	    ?t:format("Trying again~n", []),
+	    io:format("Failed to kill in trap: ~p~n", [R]),
+	    io:format("Trying again~n", []),
 	    do_processes_bif_die_test(N-1, Processes)
     end.
 	    
@@ -1850,7 +1850,7 @@ wait_until_system_recover(Tmr) ->
 	    receive
 		{timeout, Tmr, _} ->
 		    Comment = "WARNING: Test processes still hanging around!",
-		    ?t:format("~s~n", [Comment]),
+		    io:format("~s~n", [Comment]),
 		    put(processes_bif_testcase_comment, Comment),
 		    lists:foreach(
 		      fun (P) when P == self() ->
@@ -1858,7 +1858,7 @@ wait_until_system_recover(Tmr) ->
 			  (P) ->
 			      case process_info(P, initial_call) of
 				  {initial_call,{?MODULE, _, _} = MFA} ->
-				      ?t:format("~p ~p~n", [P, MFA]);
+				      io:format("~p ~p~n", [P, MFA]);
 				  {initial_call,{_, _, _}} ->
 				      ok;
 				  undefined ->
@@ -2228,7 +2228,7 @@ do_otp_7738_test(Type) ->
 		  ok
 	  after 2000 ->
 		  I = process_info(R, [status, message_queue_len]),
-		  ?t:format("~p~n", [I]),
+		  io:format("~p~n", [I]),
 		  ct:fail(no_progress)
 	  end,
     ok.

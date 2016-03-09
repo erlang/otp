@@ -91,7 +91,7 @@ native_atomics(Config) when is_list(Config) ->
     NA64Key = "64-bit native atomics",
     DWNAKey = "Double word native atomics",
     EthreadInfo = erlang:system_info(ethread_info),
-    ?t:format("~p~n", [EthreadInfo]),
+    io:format("~p~n", [EthreadInfo]),
     {value,{NA32Key, NA32, _}} = lists:keysearch(NA32Key, 1, EthreadInfo),
     {value,{NA64Key, NA64, _}} = lists:keysearch(NA64Key, 1, EthreadInfo),
     {value,{DWNAKey, DWNA, _}} = lists:keysearch(DWNAKey, 1, EthreadInfo),
@@ -129,7 +129,7 @@ chk_boot(Config, Args, Fun) ->
     true = os:putenv("ERL_ZFLAGS", Args),
     Success = make_ref(),
     Parent = self(),
-    ?t:format("--- Testing ~s~n", [Args]),
+    io:format("--- Testing ~s~n", [Args]),
     {ok, Node} = start_node(Config),
     Pid = spawn_link(Node, fun () ->
 				   Fun(),
@@ -139,7 +139,7 @@ chk_boot(Config, Args, Fun) ->
 	{Pid, Success} ->
 	    Node = node(Pid),
 	    stop_node(Node),
-	    ?t:format("--- Success!~n", []),
+	    io:format("--- Success!~n", []),
 	    ok
     end.
 

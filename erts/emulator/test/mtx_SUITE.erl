@@ -115,7 +115,7 @@ long_rwlock(Config) when is_list(Config) ->
     {_, RunTime} = statistics(runtime),
     %% A very short run time is expected, since
     %% threads in the test mostly wait
-    ?t:format("RunTime=~p~n", [RunTime]),
+    io:format("RunTime=~p~n", [RunTime]),
     ?line true = RunTime < 400,
     ?line RunTimeStr = "Run-time during test was "++integer_to_list(RunTime)++" ms.",
     case LLRes of
@@ -209,7 +209,7 @@ hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked
 				       false -> WaitLocked*250
 				   end))
 			     div handicap()),
-	    ?t:format("NoLockOps=~p~n", [NoLockOps]),
+	    io:format("NoLockOps=~p~n", [NoLockOps]),
 	    Sleep = case Blocking of
 			true -> NoLockOps;
 			false -> NoLockOps div 10
@@ -274,7 +274,7 @@ hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked
 		{false, _} -> ok;
 		_ ->
 		    {_, RunTime} = statistics(runtime),
-		    ?t:format("RunTime=~p~n", [RunTime]),
+		    io:format("RunTime=~p~n", [RunTime]),
 		    ?line true = RunTime < 700,
 		    {comment,
 		     "Run-time during test was "
@@ -332,9 +332,9 @@ hammer_ets_rwlock(Config) when is_list(Config) ->
 		       3 -> {2000, 50};
 		       _ -> {200, 50}
 		   end,
-    ?t:format("Procs=~p~nOps=~p~n", [Procs, Ops]),
+    io:format("Procs=~p~nOps=~p~n", [Procs, Ops]),
     lists:foreach(fun (XOpts) ->
-			  ?t:format("Running with extra opts: ~p", [XOpts]),
+			  io:format("Running with extra opts: ~p", [XOpts]),
 			  hammer_ets_rwlock_test(XOpts, true, 2, Ops,
 						 Procs, false)
 		  end,

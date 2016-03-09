@@ -92,7 +92,7 @@ check_procs(N) ->
 check_pc(E) ->
     ?line P = length(processes()),
     ?line SI = erlang:system_info(process_count),
-    ?line ?t:format("E=~p; P=~p; SI=~p~n", [E, P, SI]),
+    ?line io:format("E=~p; P=~p; SI=~p~n", [E, P, SI]),
     ?line E = P,
     ?line P = SI.
 

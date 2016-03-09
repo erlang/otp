@@ -507,7 +507,7 @@ otp_7946(Config) when is_list(Config) ->
 					 end),
     ?line receive
 	      {'DOWN', LMon, process, Linker, Reason} ->
-		  ?line ?t:format("Reason=~p~n", [Reason]),
+		  ?line io:format("Reason=~p~n", [Reason]),
 		  ?line Reason = noconnection
 	  end.
 
@@ -603,7 +603,7 @@ suspend_on_busy_test(Node, Doing, Fun) ->
 		       receive after 100 -> ok end,
 		       Info = process_info(Tester, [status, current_function]),
 		       unmake_busy(Busy),
-		       ?t:format("~p doing ~s: ~p~n", [Tester, Doing, Info]),
+		       io:format("~p doing ~s: ~p~n", [Tester, Doing, Info]),
 		       Tester ! {Done, Info}
 	       end),
     receive DoIt -> ok end,
