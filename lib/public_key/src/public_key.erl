@@ -134,7 +134,8 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
             {params, DssParams} = der_decode('DSAParams', Params),
             {der_decode(KeyType, Key0), DssParams};
         'ECPoint' ->
-            der_decode(KeyType, Key0)
+	    ECCParams = der_decode('EcpkParameters', Params),
+            {#'ECPoint'{point = Key0}, ECCParams}
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
@@ -180,6 +181,13 @@ pem_entry_encode('SubjectPublicKeyInfo',
     ParamDer = der_encode('DSAParams', {params, Params}),
     Spki = {'SubjectPublicKeyInfo',
             {'AlgorithmIdentifier', ?'id-dsa', ParamDer}, KeyDer},
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
+pem_entry_encode('SubjectPublicKeyInfo',
+		 {#'ECPoint'{point = Key}, ECParam}) when is_binary(Key)->
+    Params = der_encode('EcpkParameters',ECParam),
+    Spki = {'SubjectPublicKeyInfo',
+	    {'AlgorithmIdentifier', ?'id-ecPublicKey', Params},
+	    Key},
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
