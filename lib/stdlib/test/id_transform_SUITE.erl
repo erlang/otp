@@ -29,11 +29,12 @@
 -export([check/2,check2/1,g/0,f/1,t/1,t1/1,t2/1,t3/1,t4/1,
 	 t5/1,apa/1,new_fun/0]).
 
-						% Serves as test...
+%% Serves as test...
 -hej(hopp).
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [id_transform].
@@ -54,7 +55,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-id_transform(doc) -> "Test erl_id_trans.";
+%% Test erl_id_trans.
 id_transform(Config) when is_list(Config) ->
     File = filename:join([code:lib_dir(stdlib),"examples",
 			"erl_id_trans.erl"]),
@@ -62,10 +63,8 @@ id_transform(Config) when is_list(Config) ->
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
     case test_server:purify_is_running() of
 	false ->
-	    Dog = ct:timetrap(?t:hours(1)),
-	    Res = run_in_test_suite(),
-	    ?t:timetrap_cancel(Dog),
-	    Res;
+	    ct:timetrap({hours,1}),
+	    run_in_test_suite();
 	true ->
 	    {skip,"Valgrind (too slow)"}
     end.
@@ -139,9 +138,9 @@ do_trans_1(File, Tree0) ->
 	    {failed,{File,{transform,{unknown,Else}}}}
     end.
 
-% From here on there's only fake code to serve as test cases 
-% for the id_transform.
-% They need to be exported.
+%% From here on there's only fake code to serve as test cases
+%% for the id_transform.
+%% They need to be exported.
 
 check(X,_Y) when X ->   
     true;
@@ -192,7 +191,7 @@ f(X) ->
 	    nok
     end.
 
-% Stolen from erl_lint_SUITE.erl
+%% Stolen from erl_lint_SUITE.erl
 -record(apa, {}).
 
 t(A) when atom(A) ->

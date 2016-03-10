@@ -37,7 +37,7 @@ handle_event(delete_event, _Parent) ->
     remove_handler;
 handle_event(do_crash, _State) ->
     erlang:error({badmatch,4});
-%Inverse of dummy_h
+%%Inverse of dummy_h
 handle_event(hibernate, Parent) ->
     {ok,Parent};
 handle_event(wakeup, Parent) ->

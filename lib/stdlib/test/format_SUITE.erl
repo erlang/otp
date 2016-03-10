@@ -27,18 +27,15 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [hang_1].
@@ -59,11 +56,8 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-hang_1(doc) ->
-    ["Bad args can hang (OTP-2400)"];
-hang_1(suite) ->
-    [];
+%% OTP-2400. Bad args can hang.
 hang_1(Config) when is_list(Config) ->
-    ?line _ = (catch io:format(a, "", [])),
-    ?line _ = (catch io:format({}, "", [])),
+    _ = (catch io:format(a, "", [])),
+    _ = (catch io:format({}, "", [])),
     ok.

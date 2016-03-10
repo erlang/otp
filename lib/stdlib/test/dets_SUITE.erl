@@ -19,7 +19,7 @@
 %%
 -module(dets_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -30,8 +30,8 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(privdir(Conf), ?config(priv_dir, Conf)).
--define(datadir(Conf), ?config(data_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
+-define(datadir(Conf), proplists:get_value(data_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -83,15 +83,14 @@
 -define(CLOSED_PROPERLY,1).
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(15)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog=?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,15}}].
 
 all() -> 
     [
@@ -130,10 +129,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-newly_started(doc) ->
-    ["OTP-3621"];
-newly_started(suite) -> 
-    [];
+%% OTP-3621
 newly_started(Config) when is_list(Config) ->
     true = is_alive(),
     {ok, Node} = test_server:start_node(slave1, slave, []),
@@ -141,17 +137,11 @@ newly_started(Config) when is_list(Config) ->
     test_server:stop_node(Node),
     ok.
 
-basic_v8(doc) ->
-    ["Basic test case."];
-basic_v8(suite) -> 
-    [];
+%% Basic test case.
 basic_v8(Config) when is_list(Config) ->
     basic(Config, 8).
 
-basic_v9(doc) ->
-    ["Basic test case."];
-basic_v9(suite) -> 
-    [];
+%% Basic test case.
 basic_v9(Config) when is_list(Config) ->
     basic(Config, 9).
 
@@ -184,17 +174,9 @@ basic(Config, Version) ->
     ok.
     
 
-open_v8(doc) ->
-    [];
-open_v8(suite) -> 
-    [];
 open_v8(Config) when is_list(Config) ->
     open(Config, 8).
 
-open_v9(doc) ->
-    [];
-open_v9(suite) -> 
-    [];
 open_v9(Config) when is_list(Config) ->
     open(Config, 9).
 
@@ -283,17 +265,11 @@ bad(_Tab, _Item) ->
     ?format("Can't find item ~p in ~p ~n", [_Item, _Tab]),
     exit(badtab).
 
-sets_v8(doc) ->
-    ["Performs traversal and match testing on set type dets tables."];
-sets_v8(suite) ->
-    [];
+%% Perform traversal and match testing on set type dets tables.
 sets_v8(Config) when is_list(Config) ->
     sets(Config, 8).
 
-sets_v9(doc) ->
-    ["Performs traversal and match testing on set type dets tables."];
-sets_v9(suite) ->
-    [];
+%% Perform traversal and match testing on set type dets tables.
 sets_v9(Config) when is_list(Config) ->
     sets(Config, 9).
 
@@ -325,17 +301,11 @@ sets(Config, Version) ->
     check_pps(P0),
     ok.
 
-bags_v8(doc) ->
-    ["Performs traversal and match testing on bag type dets tables."];
-bags_v8(suite) ->
-    [];
+%% Perform traversal and match testing on bag type dets tables.
 bags_v8(Config) when is_list(Config) ->
     bags(Config, 8).
 
-bags_v9(doc) ->
-    ["Performs traversal and match testing on bag type dets tables."];
-bags_v9(suite) ->
-    [];
+%% Perform traversal and match testing on bag type dets tables.
 bags_v9(Config) when is_list(Config) ->
     bags(Config, 9).
 
@@ -365,17 +335,11 @@ bags(Config, Version) ->
     ok.
 
 
-duplicate_bags_v8(doc) ->
-   ["Performs traversal and match testing on duplicate_bag type dets tables."];
-duplicate_bags_v8(suite) ->
-    [];
+%% Perform traversal and match testing on duplicate_bag type dets tables.
 duplicate_bags_v8(Config) when is_list(Config) ->
     duplicate_bags(Config, 8).
 
-duplicate_bags_v9(doc) ->
-   ["Performs traversal and match testing on duplicate_bag type dets tables."];
-duplicate_bags_v9(suite) ->
-    [];
+%% Perform traversal and match testing on duplicate_bag type dets tables.
 duplicate_bags_v9(Config) when is_list(Config) ->
     duplicate_bags(Config, 9).
 
@@ -405,17 +369,9 @@ duplicate_bags(Config, Version) when is_list(Config) ->
     ok.
 
 
-access_v8(doc) ->
-    [];
-access_v8(suite) ->
-    [];
 access_v8(Config) when is_list(Config) ->
     access(Config, 8).
 
-access_v9(doc) ->
-    [];
-access_v9(suite) ->
-    [];
 access_v9(Config) when is_list(Config) ->
     access(Config, 9).
 
@@ -448,10 +404,7 @@ access(Config, Version) ->
     ok.
 
 
-dirty_mark(doc) ->
-    ["Test that the table is not marked dirty if not written"];
-dirty_mark(suite) ->
-    [];
+%% Test that the table is not marked dirty if not written.
 dirty_mark(Config) when is_list(Config) ->
     true = is_alive(),
     Tab = dets_dirty_mark_test,
@@ -500,10 +453,7 @@ dirty_mark(Config) when is_list(Config) ->
     check_pps(P0),
     ok.
 
-dirty_mark2(doc) ->
-    ["Test that the table is flushed when auto_save is in effect"];
-dirty_mark2(suite) ->
-    [];
+%% Test that the table is flushed when auto_save is in effect.
 dirty_mark2(Config) when is_list(Config) ->
     true = is_alive(),
     Tab = dets_dirty_mark2_test,
@@ -571,17 +521,11 @@ dets_dirty_loop() ->
     end.
 
 
-bag_next_v8(suite) ->
-    [];
-bag_next_v8(doc) ->
-    ["Check that bags and next work as expected."];
+%% Check that bags and next work as expected.
 bag_next_v8(Config) when is_list(Config) ->
     bag_next(Config, 8).
 
-bag_next_v9(suite) ->
-    [];
-bag_next_v9(doc) ->
-    ["Check that bags and next work as expected."];
+%% Check that bags and next work as expected.
 bag_next_v9(Config) when is_list(Config) ->
     Tab = dets_bag_next_test,
     FName = filename(Tab, Config),
@@ -634,17 +578,9 @@ bag_next(Config, Version) ->
     check_pps(P0),
     ok.
 
-oldbugs_v8(doc) ->
-    [];
-oldbugs_v8(suite) ->
-    [];
 oldbugs_v8(Config) when is_list(Config) ->
     oldbugs(Config, 8).
 
-oldbugs_v9(doc) ->
-    [];
-oldbugs_v9(suite) ->
-    [];
 oldbugs_v9(Config) when is_list(Config) ->
     oldbugs(Config, 9).
 
@@ -662,9 +598,7 @@ oldbugs(Config, Version) ->
     check_pps(P0),
     ok.
 
-unsafe_assumptions(suite) -> [];
-unsafe_assumptions(doc) ->
-    "Tests that shrinking an object and then expanding it works.";
+%% Test that shrinking an object and then expanding it works.
 unsafe_assumptions(Config) when is_list(Config) ->
     FName = filename(dets_suite_unsafe_assumptions_test, Config),
     file:delete(FName),
@@ -693,17 +627,13 @@ unsafe_assumptions(Config) when is_list(Config) ->
     check_pps(P0),
     ok.
 
-truncated_segment_array_v8(suite) -> [];
-truncated_segment_array_v8(doc) ->
-    "Tests that a file where the segment array has been truncated "
-    "is possible to repair.";
+%% Test that a file where the segment array has been truncated
+%% is possible to repair.
 truncated_segment_array_v8(Config) when is_list(Config) ->
     trunc_seg_array(Config, 8).
 
-truncated_segment_array_v9(suite) -> [];
-truncated_segment_array_v9(doc) ->
-    "Tests that a file where the segment array has been truncated "
-    "is possible to repair.";
+%% Test that a file where the segment array has been truncated
+%% is possible to repair.
 truncated_segment_array_v9(Config) when is_list(Config) ->
     trunc_seg_array(Config, 9).
 
@@ -729,17 +659,11 @@ trunc_seg_array(Config, V) ->
     check_pps(P0),
     ok.
 
-open_file_v8(doc) ->
-    ["open_file/1 test case."];
-open_file_v8(suite) -> 
-    [];
+%% Test open_file/1.
 open_file_v8(Config) when is_list(Config) ->
     open_1(Config, 8).
 
-open_file_v9(doc) ->
-    ["open_file/1 test case."];
-open_file_v9(suite) -> 
-    [];
+%% Test open_file/1.
 open_file_v9(Config) when is_list(Config) ->
     T = open_v9,
     Fname = filename(T, Config),
@@ -797,17 +721,11 @@ open_1(Config, V) ->
     check_pps(P0),
     ok.
 
-init_table_v8(doc) ->
-    ["initialize_table/2 and from_ets/2 test case."];
-init_table_v8(suite) -> 
-    [];
+%% Test initialize_table/2 and from_ets/2.
 init_table_v8(Config) when is_list(Config) ->
     init_table(Config, 8).
 
-init_table_v9(doc) ->
-    ["initialize_table/2 and from_ets/2 test case."];
-init_table_v9(suite) -> 
-    [];
+%% Test initialize_table/2 and from_ets/2.
 init_table_v9(Config) when is_list(Config) ->
     %% Objects are returned in "time order".
     T = init_table_v9,
@@ -1270,17 +1188,11 @@ items(I, N, C, L) when I =:= N; C =:= 0 ->
 items(I, N, C, L) ->
     items(I+1, N, C-1, [{I, item(I)} | L]).
 
-repair_v8(doc) ->
-    ["open_file and repair."];
-repair_v8(suite) -> 
-    [];
+%% Test open_file and repair.
 repair_v8(Config) when is_list(Config) ->
     repair(Config, 8).
 
-repair_v9(doc) ->
-    ["open_file and repair."];
-repair_v9(suite) -> 
-    [];
+%% Test open_file and repair.
 repair_v9(Config) when is_list(Config) ->
     %% Convert from format 9 to format 8.
     T = convert_98,
@@ -1617,11 +1529,9 @@ repair(Config, V) ->
     check_pps(P0),
     ok.
 
-hash_v8b_v8c(doc) ->
-    ["Test the use of different hashing algorithms in v8b and v8c of the "
-     "Dets file format."];
-hash_v8b_v8c(suite) ->
-    [];
+
+%% Test the use of different hashing algorithms in v8b and v8c of the
+%% Dets file format.
 hash_v8b_v8c(Config) when is_list(Config) ->
     Source =
 	filename:join(?datadir(Config), "dets_test_v8b.dets"),
@@ -1696,10 +1606,7 @@ hash_v8b_v8c(Config) when is_list(Config) ->
     check_pps(P0),
     {comment, Mess}.
 
-phash(doc) ->
-    ["Test version 9(b) with erlang:phash/2 as hash function."];
-phash(suite) ->
-    [];
+%% Test version 9(b) with erlang:phash/2 as hash function.
 phash(Config) when is_list(Config) ->
     T = phash,
     Phash_v9bS = filename:join(?datadir(Config), "version_9b_phash.dat"),
@@ -1757,17 +1664,11 @@ phash(Config) when is_list(Config) ->
     file:delete(Fname),
     ok.
 
-fold_v8(doc) ->
-    ["foldl, foldr, to_ets"];
-fold_v8(suite) ->
-    [];
+%% Test foldl, foldr, to_ets.
 fold_v8(Config) when is_list(Config) ->
     fold(Config, 8).
 
-fold_v9(doc) ->
-    ["foldl, foldr, to_ets"];
-fold_v9(suite) ->
-    [];
+%% Test foldl, foldr, to_ets.
 fold_v9(Config) when is_list(Config) ->
     fold(Config, 9).
 
@@ -1836,17 +1737,11 @@ fold(Config, Version) ->
     check_pps(P0),
     ok.
 
-fixtable_v8(doc) ->
-    ["Add objects to a fixed table."];
-fixtable_v8(suite) ->
-    [];
+%% Add objects to a fixed table.
 fixtable_v8(Config) when is_list(Config) ->
     fixtable(Config, 8).
 
-fixtable_v9(doc) ->
-    ["Add objects to a fixed table."];
-fixtable_v9(suite) ->
-    [];
+%% Add objects to a fixed table.
 fixtable_v9(Config) when is_list(Config) ->
     fixtable(Config, 9).
 
@@ -1936,17 +1831,11 @@ fixtable(Config, Version) when is_list(Config) ->
     check_pps(P0),
     ok.
 
-match_v8(doc) ->
-    ["Matching objects of a fixed table."];
-match_v8(suite) ->
-    [];
+%% Matching objects of a fixed table.
 match_v8(Config) when is_list(Config) ->
     match(Config, 8).
 
-match_v9(doc) ->
-    ["Matching objects of a fixed table."];
-match_v9(suite) ->
-    [];
+%% Matching objects of a fixed table.
 match_v9(Config) when is_list(Config) ->
     match(Config, 9).
 
@@ -2118,17 +2007,11 @@ match(Config, Version) ->
     check_pps(P0),
     ok.
 
-select_v8(doc) ->
-    ["Selecting objects of a fixed table."];
-select_v8(suite) ->
-    [];
+%% Selecting objects of a fixed table.
 select_v8(Config) when is_list(Config) ->
     select(Config, 8).
 
-select_v9(doc) ->
-    ["Selecting objects of a fixed table."];
-select_v9(suite) ->
-    [];
+%% Selecting objects of a fixed table.
 select_v9(Config) when is_list(Config) ->
     select(Config, 9).
 
@@ -2232,10 +2115,7 @@ select(Config, Version) ->
     check_pps(P0),
     ok.
 
-update_counter(doc) ->
-    ["Test update_counter/1."];
-update_counter(suite) ->
-    [];
+%% Test update_counter/1.
 update_counter(Config) when is_list(Config) ->
     T = update_counter,
     Fname = filename(select, Config),
@@ -2269,10 +2149,7 @@ update_counter(Config) when is_list(Config) ->
 
     ok.
 
-badarg(doc) ->
-    ["Call some functions with bad arguments."];
-badarg(suite) ->
-    [];
+%% Call some functions with bad arguments.
 badarg(Config) when is_list(Config) ->
     T = badarg,
     Fname = filename(select, Config),
@@ -2281,7 +2158,6 @@ badarg(Config) when is_list(Config) ->
 
     Args = [{file,Fname},{keypos,3}],
     {ok, _} = dets:open_file(T, [{type,set} | Args]),
-    % dets:verbose(),
 
     %% badargs are tested in match, select and fixtable too.
 
@@ -2404,17 +2280,11 @@ badarg(Config) when is_list(Config) ->
     check_pps(P0),
     ok.
 
-cache_sets_v8(doc) ->
-    ["Test the write cache for sets."];
-cache_sets_v8(suite) ->
-    [];
+%% Test the write cache for sets.
 cache_sets_v8(Config) when is_list(Config) ->
     cache_sets(Config, 8).
 
-cache_sets_v9(doc) ->
-    ["Test the write cache for sets."];
-cache_sets_v9(suite) ->
-    [];
+%% Test the write cache for sets.
 cache_sets_v9(Config) when is_list(Config) ->
     cache_sets(Config, 9).
 
@@ -2548,7 +2418,7 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({sets,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({sets,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -2559,17 +2429,11 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
     check_pps(P0),
     ok.
     
-cache_bags_v8(doc) ->
-    ["Test the write cache for bags."];
-cache_bags_v8(suite) ->
-    [];
+%% Test the write cache for bags.
 cache_bags_v8(Config) when is_list(Config) ->
     cache_bags(Config, 8).
 
-cache_bags_v9(doc) ->
-    ["Test the write cache for bags."];
-cache_bags_v9(suite) ->
-    [];
+%% Test the write cache for bags.
 cache_bags_v9(Config) when is_list(Config) ->
     cache_bags(Config, 9).
 
@@ -2712,7 +2576,7 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({bags,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({bags,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -2741,17 +2605,11 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     check_pps(P0),
     ok.
     
-cache_duplicate_bags_v8(doc) ->
-    ["Test the write cache for duplicate bags."];
-cache_duplicate_bags_v8(suite) ->
-    [];
+%% Test the write cache for duplicate bags.
 cache_duplicate_bags_v8(Config) when is_list(Config) ->
     cache_duplicate_bags(Config, 8).
 
-cache_duplicate_bags_v9(doc) ->
-    ["Test the write cache for duplicate bags."];
-cache_duplicate_bags_v9(suite) ->
-    [];
+%% Test the write cache for duplicate bags.
 cache_duplicate_bags_v9(Config) when is_list(Config) ->
     cache_duplicate_bags(Config, 9).
 
@@ -2870,7 +2728,7 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
 		{[],[]} ->  ok;
 		{X,Y} ->
 		    NoBad = length(X) + length(Y),
-		    test_server:fail({dup_bags,DelayedWrite,Extra,Sz,NoBad})
+		    ct:fail({dup_bags,DelayedWrite,Extra,Sz,NoBad})
 	    end;
 	true ->
 	    ok
@@ -2936,10 +2794,7 @@ symdiff(L1, L2) ->
 	sofs:symmetric_partition(sofs:set(L1), sofs:set(L2)),
     {sofs:to_external(X), sofs:to_external(Y)}.
 
-otp_4208(doc) ->
-    ["Read only table and traversal caused crash."];
-otp_4208(suite) ->
-    [];
+%% Test read-only tables and traversal caused crashes.
 otp_4208(Config) when is_list(Config) ->
     Tab = otp_4208,
     FName = filename(Tab, Config),
@@ -2958,10 +2813,7 @@ otp_4208(Config) when is_list(Config) ->
     
     ok.
 
-otp_4989(doc) ->
-    ["Read only table and growth."];
-otp_4989(suite) ->
-    [];
+%% Test read-only tables and growth.
 otp_4989(Config) when is_list(Config) ->
     Tab = otp_4989,
     FName = filename(Tab, Config),
@@ -2989,10 +2841,7 @@ ets_init(Tab, N) ->
     ets:insert(Tab, {N,N}),
     ets_init(Tab, N - 1).
 
-otp_8898(doc) ->
-    ["OTP-8898. Truncated Dets file."];
-otp_8898(suite) ->
-    [];
+%% OTP-8898. Truncated Dets file.
 otp_8898(Config) when is_list(Config) ->
     Tab = otp_8898,
     FName = filename(Tab, Config),
@@ -3012,10 +2861,7 @@ otp_8898(Config) when is_list(Config) ->
 
     ok.
 
-otp_8899(doc) ->
-    ["OTP-8899. Several clients. Updated Head was ignored."];
-otp_8899(suite) ->
-    [];
+%% OTP-8899. Several clients. Updated Head was ignored.
 otp_8899(Config) when is_list(Config) ->
     Tab = many_clients,
     FName = filename(Tab, Config),
@@ -3040,10 +2886,7 @@ otp_8899(Config) when is_list(Config) ->
 
     ok.
 
-many_clients(doc) ->
-    ["Several clients accessing a table simultaneously."];
-many_clients(suite) ->
-    [];
+%% Test several clients accessing a table simultaneously.
 many_clients(Config) when is_list(Config) ->
     Tab = many_clients,
     FName = filename(Tab, Config),
@@ -3229,10 +3072,7 @@ eval([{info,Tag,Expected} | L], Tab) ->
 eval(Else, _Tab) ->
     {error, {bad_request,Else}}.
 
-otp_4906(doc) ->
-    ["More than 128k keys caused crash."];
-otp_4906(suite) ->
-    [];
+%% More than 128k keys caused crash.
 otp_4906(Config) when is_list(Config) ->
     N = 256*512 + 400,
     Tab = otp_4906,
@@ -3276,10 +3116,7 @@ ins_small(T, I, N) ->
     ok = dets:insert(T, {I}),
     ins_small(T, I+1, N).
 
-otp_5402(doc) ->
-    ["Unwritable ramfile caused krasch."];
-otp_5402(suite) ->
-    [];
+%% Unwritable ramfile caused crash.
 otp_5402(Config) when is_list(Config) ->
     Tab = otp_5402,
     File = filename:join(["cannot", "write", "this", "file"]),
@@ -3306,10 +3143,7 @@ otp_5402(Config) when is_list(Config) ->
     {error,{file_error,_,_}} = dets:close(T),
     ok.
 
-simultaneous_open(doc) ->
-    ["Several clients open and close tables simultaneously."];
-simultaneous_open(suite) ->
-    [];
+%% Several clients open and close tables simultaneously.
 simultaneous_open(Config) ->
     Tab = sim_open,
     File = filename(Tab, Config),
@@ -3528,10 +3362,7 @@ create_opened_log(File) ->
     crash(File, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
     ok.
 
-insert_new(doc) ->
-    ["OTP-5075. insert_new/2"];
-insert_new(suite) ->
-    [];
+%% OTP-5075. insert_new/2
 insert_new(Config) ->
     Tab = insert_new,
     File = filename(Tab, Config),
@@ -3559,10 +3390,7 @@ insert_new(Config) ->
     file:delete(File),
     ok.
     
-repair_continuation(doc) ->
-    ["OTP-5126. repair_continuation/2"];
-repair_continuation(suite) ->
-    [];
+%% OTP-5126. repair_continuation/2
 repair_continuation(Config) ->
     Tab = repair_continuation_table,
     Fname = filename(repair_cont, Config),
@@ -3585,10 +3413,7 @@ repair_continuation(Config) ->
     file:delete(Fname),
     ok.
 
-otp_5487(doc) ->
-    ["OTP-5487. Growth of read-only table (again)."];
-otp_5487(suite) ->
-    [];
+%% OTP-5487. Growth of read-only table (again).
 otp_5487(Config) ->
     otp_5487(Config, 9),
     otp_5487(Config, 8),
@@ -3611,10 +3436,7 @@ otp_5487(Config, Version) ->
     ets:delete(Ets),
     file:delete(Fname).
 
-otp_6206(doc) ->
-    ["OTP-6206. Badly formed free lists."];
-otp_6206(suite) ->
-    [];
+%% OTP-6206. Badly formed free lists.
 otp_6206(Config) ->
     Tab = otp_6206,
     File = filename(Tab, Config),
@@ -3633,10 +3455,7 @@ otp_6206(Config) ->
     file:delete(File),
     ok.
 
-otp_6359(doc) ->
-    ["OTP-6359. select and match never return the empty list."];
-otp_6359(suite) ->
-    [];
+%% OTP-6359. select and match never return the empty list.
 otp_6359(Config) ->
     Tab = otp_6359,
     File = filename(Tab, Config),
@@ -3649,10 +3468,7 @@ otp_6359(Config) ->
     file:delete(File),
     ok.
 
-otp_4738(doc) ->
-    ["OTP-4738. ==/2 and =:=/2."];
-otp_4738(suite) ->
-    [];
+%% OTP-4738. ==/2 and =:=/2.
 otp_4738(Config) ->
     %% Version 8 has not been corrected.
     %% (The constant -12857447 is for version 9 only.)
@@ -3804,10 +3620,7 @@ otp_4738_set(Version, Config) ->
     file:delete(File),
     ok.
 
-otp_7146(doc) ->
-    ["OTP-7146. Bugfix: missing test when re-hashing."];
-otp_7146(suite) ->
-    [];
+%% OTP-7146. Bugfix: missing test when re-hashing.
 otp_7146(Config) ->
     Tab = otp_7146,
     File = filename(Tab, Config),
@@ -3830,10 +3643,7 @@ write_dets(Tab, N, Max) ->
     ok = dets:insert(Tab,{ N, {entry,N}}),
     write_dets(Tab, N+1, Max).
 
-otp_8070(doc) ->
-    ["OTP-8070. Duplicated objects with insert_new() and duplicate_bag."];
-otp_8070(suite) ->
-    [];
+%% OTP-8070. Duplicated objects with insert_new() and duplicate_bag.
 otp_8070(Config) when is_list(Config) ->
     Tab = otp_8070,
     File = filename(Tab, Config),
@@ -3846,10 +3656,7 @@ otp_8070(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_8856(doc) ->
-    ["OTP-8856. insert_new() bug."];
-otp_8856(suite) ->
-    [];
+%% OTP-8856. insert_new() bug.
 otp_8856(Config) when is_list(Config) ->
     Tab = otp_8856,
     File = filename(Tab, Config),
@@ -3871,10 +3678,7 @@ otp_8856(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_8903(doc) ->
-    ["OTP-8903. bchunk/match/select bug."];
-otp_8903(suite) ->
-    [];
+%% OTP-8903. bchunk/match/select bug.
 otp_8903(Config) when is_list(Config) ->
     Tab = otp_8903,
     File = filename(Tab, Config),
@@ -3894,10 +3698,7 @@ otp_8903(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_8923(doc) ->
-    ["OTP-8923. rehash due to lookup after initialization."];
-otp_8923(suite) ->
-    [];
+%% OTP-8923. rehash due to lookup after initialization.
 otp_8923(Config) when is_list(Config) ->
     Tab = otp_8923,
     File = filename(Tab, Config),
@@ -3927,10 +3728,7 @@ otp_8923(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_9282(doc) ->
-    ["OTP-9282. The name of a table can be an arbitrary term"];
-otp_9282(suite) ->
-    [];
+%% OTP-9282. The name of a table can be an arbitrary term.
 otp_9282(Config) when is_list(Config) ->
     some_calls(make_ref(), Config),
     some_calls({a,typical,name}, Config),
@@ -3950,10 +3748,7 @@ some_calls(Tab, Config) ->
     file:delete(File).
 
 
-otp_11245(doc) ->
-    ["OTP-11245. Tables remained fixed after traversal"];
-otp_11245(suite) ->
-    [];
+%% OTP-11245. Tables remained fixed after traversal.
 otp_11245(Config) when is_list(Config) ->
     Tab = otp_11245,
     File = filename(Tab, Config),
@@ -3972,10 +3767,7 @@ otp_11245(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
-otp_11709(doc) ->
-    ["OTP-11709. Bugfixes."];
-otp_11709(suite) ->
-    [];
+%% OTP-11709. Bugfixes.
 otp_11709(Config) when is_list(Config) ->
     Short = <<"foo">>,
     Long = <<"a sufficiently long text">>,
@@ -4014,8 +3806,7 @@ otp_11709(Config) when is_list(Config) ->
     _ = file:delete(File),
     ok.
 
-otp_13229(doc) ->
-    ["OTP-13229. open_file() exits with badarg when given binary file name."];
+%% OTP-13229. open_file() exits with badarg when given binary file name.
 otp_13229(_Config) ->
     F = <<"binfile.tab">>,
     try dets:open_file(name, [{file, F}]) of
@@ -4026,8 +3817,7 @@ otp_13229(_Config) ->
             ok
     end.
 
-otp_13260(doc) ->
-    ["OTP-13260. Race when opening a table."];
+%% OTP-13260. Race when opening a table.
 otp_13260(Config) ->
     [ok] = lists:usort([otp_13260_1(Config) || _ <- lists:seq(1, 3)]),
     ok.
@@ -4490,7 +4280,7 @@ check_pps({Ports0,Procs0} = P0) ->
 			    show("New port", PortsDiff),
 			    show("Old proc", Procs0 -- Procs1),
 			    show("New proc", ProcsDiff),
-			    ?t:fail()
+			    ct:fail(failed)
 		    end
 	    end
     end.

@@ -25,9 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
-
-% Test server specific exports
+%% Test server specific exports
 -export([all/0]).
 -export([suite/0]).
 -export([init_per_suite/1]).
@@ -39,14 +37,15 @@
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_with_2/1,t_without_2/1]).
 
-%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
-%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
-% silly broken hipe
+%%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+%%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
+%% silly broken hipe
 -define(badmap(V,F,_Args), {'EXIT', {{badmap,V}, [{maps,F,_,_}|_]}}).
 -define(badarg(F,_Args), {'EXIT', {badarg, [{maps,F,_,_}|_]}}).
 
 suite() ->
-    [{ct_hooks, [ts_install_cth]}].
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [t_get_3,t_filter_2,
@@ -60,12 +59,9 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 t_get_3(Config) when is_list(Config) ->
