@@ -591,7 +591,7 @@ log(X1,X2,X3,X4) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%      Opts = [Opt]
-%%%      Opt = esc_chars
+%%%      Opt = esc_chars | no_css
 %%%
 %%% @doc Printout from a test case to the log file. 
 %%%

@@ -105,52 +105,62 @@ terminate(_,#state{logs=Logs}) ->
 %%% Writing reports
 write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
     case get_log(Info,GL,State) of
-	{silent,_} ->
+	{silent,_,_} ->
 	    ok;
-	{LogType,Fd} ->
-	    io:format(Fd,"~n~ts",[format_data(ConnMod,LogType,Data)])
+	{LogType,Dest,Fd} ->
+	    Str = if LogType == html, Dest == gl -> ["$tc_html","~n~ts"];
+		     true                        -> "~n~ts"
+		  end,
+	    io:format(Fd,Str,[format_data(ConnMod,LogType,Data)])
     end;
 
 write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
     case get_log(Info,GL,State) of
-	{silent,_} ->
+	{silent,_,_} ->
 	    ok;
-	{LogType,Fd} ->
+	{LogType,Dest,Fd} ->
 	    case format_data(ConnMod,LogType,Data) of
 		[] when Info#conn_log.action==send; Info#conn_log.action==recv ->
 		    ok;
 		FormattedData ->
-		    io:format(Fd,"~n~ts~ts~ts",[format_head(ConnMod,LogType,Time),
-						format_title(LogType,Info),
-						FormattedData])
+		    Str = if LogType == html, Dest == gl ->
+				  ["$tc_html","~n~ts~ts~ts"];
+			     true ->
+				  "~n~ts~ts~ts"
+			  end,
+		    io:format(Fd,Str,[format_head(ConnMod,LogType,Time),
+				      format_title(LogType,Info),
+				      FormattedData])
 	    end
     end.
 
 write_error(Time,#conn_log{module=ConnMod}=Info,Report,GL,State) ->
     case get_log(Info,GL,State) of
-	{LogType,_} when LogType==html; LogType==silent ->
+	{LogType,_,_} when LogType==html; LogType==silent ->
 	    %% The error will anyway be written in the html log by the
 	    %% sasl error handler, so don't write it again.
 	    ok;
-	{LogType,Fd} ->
-	    io:format(Fd,"~n~ts~ts~ts",
-		      [format_head(ConnMod,LogType,Time," ERROR"),
-		       format_title(LogType,Info),
-		       format_error(LogType,Report)])
+	{LogType,Dest,Fd} ->
+	    Str = if LogType == html, Dest == gl -> ["$tc_html","~n~ts~ts~ts"];
+		     true                        -> "~n~ts~ts~ts"
+		  end,
+	    io:format(Fd,Str,[format_head(ConnMod,LogType,Time," ERROR"),
+			      format_title(LogType,Info),
+			      format_error(LogType,Report)])
     end.
 
 get_log(Info,GL,State) ->
     case proplists:get_value(GL,State#state.logs) of
 	undefined ->
-	    {html,State#state.default_gl};
+	    {html,gl,State#state.default_gl};
 	ConnLogs ->
 	    case proplists:get_value(Info#conn_log.module,ConnLogs) of
 		{html,_} ->
-		    {html,GL};
+		    {html,gl,GL};
 		{LogType,Fds} ->
-		    {LogType,get_fd(Info,Fds)};
+		    {LogType,file,get_fd(Info,Fds)};
 		undefined ->
-		    {html,GL}
+		    {html,gl,GL}
 	    end
     end.
 

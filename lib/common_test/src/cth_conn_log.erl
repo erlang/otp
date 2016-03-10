@@ -132,7 +132,7 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
 				 [S,ct_logs:uri(L),filename:basename(L)])
 			       || {S,L} <- Ls] ++
 			      "</table>",
-			  io:format(Str,[]),
+			  ct:log(Str,[],[no_css]),
 			  {ConnMod,{LogType,Ls}};
 		      _ ->
 			  {ConnMod,{LogType,[]}}

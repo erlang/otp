@@ -1228,8 +1228,8 @@ log_events(TC, Events, EvLogDir, Opts) ->
     file:close(Dev),
     FullLogFile = join_abs_dirs(proplists:get_value(net_dir, Opts),
 				LogFile),
-    io:format("Events written to logfile: <a href=\"file://~s\">~s</a>~n",
-	      [FullLogFile,FullLogFile]),
+    ct:log("Events written to logfile: <a href=\"file://~s\">~s</a>~n",
+	   [FullLogFile,FullLogFile],[no_css]),
     io:format(user, "Events written to logfile: ~p~n", [LogFile]).
 
 log_events1(Evs, Dev, "") ->
