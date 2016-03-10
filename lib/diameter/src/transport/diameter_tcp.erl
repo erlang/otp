@@ -599,14 +599,8 @@ transition({E, Sock, _Reason} = T, #transport{socket = Sock,
     ?ERROR({T,S});
 
 %% Outgoing message.
-transition({diameter, {send, Bin}}, #transport{socket = Sock,
-                                               module = M}) ->
-    case send(M, Sock, Bin) of
-        ok ->
-            ok;
-        {error, Reason} ->
-            {stop, {send, Reason}}
-    end;
+transition({diameter, {send, Bin}}, S) ->
+    send(Bin, S);
 
 %% Request to close the transport connection.
 transition({diameter, {close, Pid}}, #transport{parent = Pid,
@@ -817,6 +811,17 @@ accept(Mod, LSock) ->
 connect(Mod, Host, Port, Opts) ->
     Mod:connect(Host, Port, Opts).
 
+%% send/2
+
+send(Bin, #transport{socket = Sock,
+                     module = M}) ->
+    case send(M, Sock, Bin) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            x({send, Reason})
+    end.
+
 %% send/3
 
 send(gen_tcp, Sock, Bin) ->
@@ -900,6 +905,17 @@ throttle(discard, #transport{throttled = Msg} = S)
 throttle({discard = T, F}, #transport{throttled = Msg} = S)
   when is_binary(Msg) ->
     throttle(T, S#transport{throttle_cb = F});
+
+%% Callback to accept a received message says to answer it with the
+%% supplied binary.
+throttle(Bin, #transport{throttled = Msg} = S)
+  when is_binary(Bin), is_binary(Msg) ->
+    send(Bin, S),
+    throttle(S#transport{throttled = true});
+
+throttle({Bin, F}, #transport{throttled = Msg} = S)
+  when is_binary(Bin), is_binary(Msg) ->
+    throttle(Bin, S#transport{throttle_cb = F});
 
 %% Callback says to ask again in the specified number of milliseconds.
 throttle({timeout, Tmo}, #transport{} = S) ->
