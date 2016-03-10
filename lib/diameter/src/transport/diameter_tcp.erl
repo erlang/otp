@@ -892,6 +892,15 @@ throttle({NPid, F}, #transport{throttled = Msg} = S)
   when is_pid(NPid), is_binary(Msg) ->
     throttle(NPid, S#transport{throttle_cb = F});
 
+%% Callback to accept a received message says to discard it.
+throttle(discard, #transport{throttled = Msg} = S)
+  when is_binary(Msg) ->
+    throttle(S#transport{throttled = true});
+
+throttle({discard = T, F}, #transport{throttled = Msg} = S)
+  when is_binary(Msg) ->
+    throttle(T, S#transport{throttle_cb = F});
+
 %% Callback says to ask again in the specified number of milliseconds.
 throttle({timeout, Tmo}, #transport{} = S) ->
     erlang:send_after(Tmo, self(), throttle),
