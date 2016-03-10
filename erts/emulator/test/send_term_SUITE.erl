@@ -20,7 +20,7 @@
 
 -module(send_term_SUITE).
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, basic/1]).
 
 -export([generate_external_terms_files/1]).
 
