@@ -148,7 +148,7 @@
 
     <p>SNMP traps, inform, and report messages are handled by the user
       callback module. For details, see the
-      <seealso marker="snmp"><c>SNMP</c></seealso> application.</p>
+      <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
 
     <p>It is recommended to use the <c>.hrl</c> files created by the
       Erlang/OTP MIB compiler to define the Object Identifiers (OIDs).
@@ -160,8 +160,7 @@
 
     <p>Furthermore, values can be set for <c>SNMP</c> application configuration
       parameters, <c>config</c>, <c>server</c>, <c>net_if</c>, and so on (for
-      a list of valid parameters and types, see the User's Guide for
-      the <seealso marker="snmp"><c>SNMP</c></seealso> application). This is
+      a list of valid parameters and types, see the  <seealso marker="snmp:users_guide"><c>User's Guide for the SNMP application</c></seealso>). This is
       done by defining a configuration data variable on the following form:</p>
 
     <pre>
@@ -236,7 +235,7 @@
       <item><marker id="type-varsandvals"/> </item>
     </taglist>
     <p>These data types are described in the documentation for
-      the <seealso marker="snmp"><c>SNMP</c></seealso> application.</p>
+      the <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
   </section>
 
   <funcs>
