@@ -62,9 +62,6 @@ all() ->
 not_run(Config) when is_list(Config) ->
     {skipped, "Native Code"}.
 
-test_1(doc) ->
-    [""];
-test_1(suite) -> [];
 test_1(Config) when is_list(Config) ->
     ?line tr(fun() -> ?MODULE:f1(a) end,
 	     {?MODULE, f1, 1},
@@ -155,9 +152,6 @@ test_1(Config) when is_list(Config) ->
 
     ok.
 
-test_2(doc) ->
-    [""];
-test_2(suite) -> [];
 test_2(Config) when is_list(Config) ->
     ?line tr(fun() -> ?MODULE:f2(a, a) end,
 	     {?MODULE, f2, 2},
@@ -166,9 +160,7 @@ test_2(Config) when is_list(Config) ->
 	      {return_from, {?MODULE, f2, 2}, {a, a}}]),
     ok.
 
-test_3(doc) ->
-    ["Test the enable_trace/2 and caller/0 PAM instructions"];
-test_3(suite) -> [];
+%% Test the enable_trace/2 and caller/0 PAM instructions
 test_3(Config) when is_list(Config) ->
     ?line Fun1 = fun() -> 
 		   register(fnoppelklopfer,self()),
@@ -189,7 +181,6 @@ test_3(Config) when is_list(Config) ->
     ?line collect(P1, [{trace, P1, call, {?MODULE, f2, [a, b]}, [true]}]),
     ?line ok.
 
-otp_9422(doc) -> [];
 otp_9422(Config) when is_list(Config) ->
     Laps = 10000,
     ?line Fun1 = fun() -> otp_9422_tracee() end,
@@ -235,11 +226,9 @@ bad_match_spec_bin(Config) when is_list(Config) ->
 
 
 
-trace_control_word(doc) ->
-    ["Test the erlang:system_info(trace_control_word) and ",
-     "erlang:system_flag(trace_control_word, Value) BIFs, ", 
-     "as well as the get_tcw/0 and set_tcw/1 PAM instructions"];
-trace_control_word(suite) -> [];
+%% Test the erlang:system_info(trace_control_word) and
+%% erlang:system_flag(trace_control_word, Value) BIFs,
+%% as well as the get_tcw/0 and set_tcw/1 PAM instructions
 trace_control_word(Config) when is_list(Config) ->
     ?line 32 = Bits = tcw_bits(),
     ?line High = 1 bsl (Bits - 1),
@@ -305,11 +294,8 @@ tcw_bits(Save, Prev, Bits) ->
 	  end.
 
 
-
-silent(doc) ->
-    ["Test the erlang:trace(_, _, [silent]) flag ",
-     "as well as the silent/0 PAM instruction"];
-silent(suite) -> [];
+%% Test the erlang:trace(_, _, [silent]) flag
+%% as well as the silent/0 PAM instruction
 silent(Config) when is_list(Config) ->
     %% Global call trace
     ?line tr(fun() -> 
@@ -371,9 +357,7 @@ silent(Config) when is_list(Config) ->
 	      {call, {?MODULE, f1, [d]}, d} ]),
     ok.
 
-silent_no_ms(doc) ->
-    ["Test the erlang:trace(_, _, [silent]) flag without match specs"];
-silent_no_ms(suite) -> [];
+%% Test the erlang:trace(_, _, [silent]) flag without match specs
 silent_no_ms(Config) when is_list(Config) ->
     %% Global call trace
     %%
@@ -479,17 +463,14 @@ silent_no_ms(Config) when is_list(Config) ->
 			 {trace,Tracee,return_to,{?MODULE,f3,2}}]
 	    end).
 
-silent_test(doc) ->
-    ["Test that match_spec_test does not activate silent"];
+%% Test that match_spec_test does not activate silent
 silent_test(_Config) ->
     {flags,[]} = erlang:trace_info(self(),flags),
     erlang:match_spec_test([],[{'_',[],[{silent,true}]}],trace),
     {flags,[]} = erlang:trace_info(self(),flags).
 
 
-ms_trace2(doc) ->
-    ["Test the match spec functions {trace/2}"];
-ms_trace2(suite) -> [];
+%% Test the match spec functions {trace/2}
 ms_trace2(Config) when is_list(Config) ->
     Tracer = self(),
     %% Meta trace init
@@ -563,9 +544,7 @@ ms_trace2(Config) when is_list(Config) ->
 
 
 
-ms_trace3(doc) ->
-    ["Test the match spec functions {trace/3}"];
-ms_trace3(suite) -> [];
+%% Test the match spec functions {trace/3}
 ms_trace3(Config) when is_list(Config) ->
     TraceeName = 'match_spec_SUITE:ms_trace3',
     Tracer = self(),
@@ -673,9 +652,7 @@ ms_trace3(Config) when is_list(Config) ->
 
 
 
-destructive_in_test_bif(doc) ->
-    ["Test that destructive operations in test bif does not really happen"];
-destructive_in_test_bif(suite) -> [];
+%% Test that destructive operations in test bif does not really happen
 destructive_in_test_bif(Config) when is_list(Config) ->
     ?line {ok,OldToken,_,_} = erlang:match_spec_test
 				([],
@@ -697,9 +674,7 @@ destructive_in_test_bif(Config) when is_list(Config) ->
 			       ([],[{'_',[],[{message,{get_tcw}}]}],trace),
     ok.
 
-boxed_and_small(doc) ->
-    ["Test that the comparision between boxed and small does not crash emulator"];
-boxed_and_small(suite) -> [];
+%% Test that the comparision between boxed and small does not crash emulator
 boxed_and_small(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(match_spec_suite_other),
     ?line ok = rpc:call(Node,?MODULE,do_boxed_and_small,[]),
@@ -713,9 +688,7 @@ do_boxed_and_small() ->
     {ok, false, _, _} = erlang:match_spec_test({0,3},[{{make_ref(),'_'},[],['$_']}],table),
     ok.
 
-faulty_seq_trace(doc) ->
-    ["Test that faulty seq_trace_call does not crash emulator"];
-faulty_seq_trace(suite) -> [];
+%% Test that faulty seq_trace_call does not crash emulator
 faulty_seq_trace(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(match_spec_suite_other),
     ?line ok = rpc:call(Node,?MODULE,do_faulty_seq_trace,[]),
@@ -734,10 +707,7 @@ errchk(Pat) ->
 	    ct:fail({noerror, Other})
     end.
 
-unary_minus(suite) ->
-    [];
-unary_minus(doc) ->
-    ["Checks that unary minus works"];
+%% Checks that unary minus works
 unary_minus(Config) when is_list(Config) ->
     ?line {ok,true,[],[]} = erlang:match_spec_test
 			      (5,
@@ -764,10 +734,8 @@ unary_minus(Config) when is_list(Config) ->
 				 [true]}],
 			       table),
     ok.
-unary_plus(suite) ->
-    [];
-unary_plus(doc) ->
-    ["Checks that unary plus works"];
+
+%% Checks that unary plus works
 unary_plus(Config) when is_list(Config) ->
     ?line {ok,true,[],[]} = erlang:match_spec_test
 			      (5,
@@ -798,10 +766,7 @@ unary_plus(Config) when is_list(Config) ->
 
     
 
-guard_exceptions(suite) ->
-    [];
-guard_exceptions(doc) ->
-    ["Checks that exceptions in guards are handled correctly"];
+%% Checks that exceptions in guards are handled correctly
 guard_exceptions(Config) when is_list(Config) ->
     ?line {ok,false,[],[]} = erlang:match_spec_test
 			       (5,
@@ -862,10 +827,7 @@ guard_exceptions(Config) when is_list(Config) ->
 
     ok.
 
-fpe(suite) ->
-    [];
-fpe(doc) ->
-    ["Checks floating point exceptions in match-specs"];
+%% Checks floating point exceptions in match-specs
 fpe(Config) when is_list(Config) ->
     MS = [{{'$1'},[],[{'/','$1',0}]}],
     case catch (['EXIT','EXIT'] = 
@@ -874,6 +836,7 @@ fpe(Config) when is_list(Config) ->
 	_ -> ok 
     end.
 
+%% Test maps in match-specs
 maps(Config) when is_list(Config) ->
     {ok,#{},[],[]} = erlang:match_spec_test(#{}, [{'_',[],['$_']}], table),
     {ok,#{},[],[]} = erlang:match_spec_test(#{}, [{#{},[],['$_']}], table),

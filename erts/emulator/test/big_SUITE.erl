@@ -75,7 +75,7 @@ eq_math(Config) when is_list(Config) ->
     test(TestFile).
 
 
-borders(doc) -> "Tests border cases between small/big.";
+%% Tests border cases between small/big.
 borders(Config) when is_list(Config) ->
     TestFile = test_file(Config, "borders.dat"),
     test(TestFile).
@@ -251,8 +251,7 @@ t_div(Config) when is_list(Config) ->
 init(ReplyTo, Fun, _Filler) ->
     ReplyTo ! {result, Fun()}.
 
-big_literals(doc) ->
-    "Tests that big-number literals work correctly.";
+%% Tests that big-number literals work correctly.
 big_literals(Config) when is_list(Config) ->
     %% Note: The literal test cannot be compiler on a pre-R4 Beam emulator,
     %% so we compile it now.
@@ -264,8 +263,7 @@ big_literals(Config) when is_list(Config) ->
     ok.
 
 
-big_float_1(doc) ->
-    ["OTP-2436, part 1"];
+%% OTP-2436, part 1
 big_float_1(Config) when is_list(Config) ->
     %% F is a number very close to a maximum float.
     ?line F = id(1.7e308),
@@ -289,8 +287,7 @@ big_float_1(Config) when is_list(Config) ->
     ?line true = (F =< I*I),
     ok.
 
-big_float_2(doc) ->
-    ["OTP-2436, part 2"];
+%% "OTP-2436, part 2
 big_float_2(Config) when is_list(Config) ->
     ?line F = id(1.7e308),
     ?line I = trunc(F),
@@ -299,8 +296,7 @@ big_float_2(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch 4/(2*I)),
     ok.
 
-shift_limit_1(doc) ->
-    ["OTP-3256"];
+%% OTP-3256
 shift_limit_1(Config) when is_list(Config) ->
     ?line case catch (id(1) bsl 100000000) of
 	      {'EXIT', {system_limit, _}} ->
@@ -360,10 +356,7 @@ toobig() ->
     <<ANr:ASize>> = A, % should fail
     ANr band ANr.
 
-otp_6692(suite) ->
-    [];
-otp_6692(doc) ->
-    ["Tests for DIV/REM bug reported in OTP-6692"];
+%% Tests for DIV/REM bug reported in OTP-6692
 otp_6692(Config) when is_list(Config)->
     ?line loop1(1,1000).
 

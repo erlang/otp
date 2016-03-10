@@ -73,10 +73,7 @@ init_per_testcase(_,Config) ->
 end_per_testcase(_,_Config) ->
     ok.
 
-dont_break_reductions(suite) ->
-    [];
-dont_break_reductions(doc) ->
-    ["Check that save_calls dont break reduction-based scheduling"];
+%% Check that save_calls dont break reduction-based scheduling
 dont_break_reductions(Config) when is_list(Config) ->
     ?line RPS1 = reds_per_sched(0),
     ?line RPS2 = reds_per_sched(20),
@@ -125,7 +122,7 @@ trace_handler(Acc,Parent,Client) ->
 	    ok
     end.
 
-save_calls_1(doc) -> "Test call saving.";
+%% Test call saving.
 save_calls_1(Config) when is_list(Config) ->
     case test_server:is_native(?MODULE) of
 	true -> {skipped,"Native code"};

@@ -85,8 +85,7 @@ end_per_testcase(_Func, _Config) ->
     P2 = code:purge(nif_mod),
     io:format("fin purged=~p, deleted=~p and then purged=~p\n",[P1,Del,P2]).
 
-basic(doc) -> ["Basic smoke test of load_nif and a simple NIF call"];
-basic(suite) -> [];
+%% Basic smoke test of load_nif and a simple NIF call
 basic(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     ?line true = (lib_version() =/= undefined),
@@ -95,8 +94,7 @@ basic(Config) when is_list(Config) ->
     ?line true = lists:member(?MODULE, erlang:system_info(taints)),
     ok.
 
-reload(doc) -> ["Test reload callback in nif lib"];
-reload(suite) -> [];  
+%% Test reload callback in nif lib
 reload(Config) when is_list(Config) ->    
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -131,8 +129,7 @@ reload(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
-upgrade(doc) -> ["Test upgrade callback in nif lib"];
-upgrade(suite) -> [];  
+%% Test upgrade callback in nif lib
 upgrade(Config) when is_list(Config) ->    
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -222,8 +219,7 @@ upgrade(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
-heap_frag(doc) -> ["Test NIF building heap fragments"];
-heap_frag(suite) -> [];  
+%% Test NIF building heap fragments
 heap_frag(Config) when is_list(Config) ->    
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -240,8 +236,7 @@ heap_frag_do(N, Max) ->
     L = list_seq(N),
     heap_frag_do(((N*5) div 4) + 1, Max).
 
-types(doc) -> ["Type tests"];
-types(suite) -> [];
+%% Type tests
 types(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -325,8 +320,7 @@ eq_cmp_do(A,B) ->
     ok. 
 
 
-many_args(doc) -> ["Test NIF with many arguments"];
-many_args(suite) -> [];
+%% Test NIF with many arguments
 many_args(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ?line ensure_lib_loaded(Config ,1),
@@ -335,8 +329,7 @@ many_args(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
-binaries(doc) -> ["Test NIF binary handling."];
-binaries(suite) -> [];
+%% Test NIF binary handling.
 binaries(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ?line ensure_lib_loaded(Config, 1),
@@ -398,8 +391,7 @@ test_make_sub_bin(Bin) ->
     ?line <<>> = make_sub_bin(Bin, Size, 0),
     ok.
     
-get_string(doc) -> ["Test enif_get_string"];
-get_string(suite) -> [];
+%% Test enif_get_string
 get_string(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line {7, <<"hejsan",0,_:3/binary>>} = string_to_bin("hejsan",10),
@@ -413,8 +405,7 @@ get_string(Config) when is_list(Config) ->
     ?line {0, <<>>} = string_to_bin("",0),
     ok.
 
-get_atom(doc) -> ["Test enif_get_atom"];
-get_atom(suite) -> [];
+%% Test enif_get_atom
 get_atom(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line {7, <<"hejsan",0,_:3/binary>>} = atom_to_bin(hejsan,10),
@@ -426,8 +417,7 @@ get_atom(Config) when is_list(Config) ->
     ?line {0, <<>>} = atom_to_bin('',0),
     ok.
 
-maps(doc) -> ["Test NIF maps handling."];
-maps(suite) -> [];
+%% Test NIF maps handling.
 maps(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     Pairs = [{adam, "bert"}] ++
@@ -474,8 +464,7 @@ maps(Config) when is_list(Config) ->
 
     ok.
  
-api_macros(doc) -> ["Test macros enif_make_list<N> and enif_make_tuple<N>"];
-api_macros(suite) -> [];
+%% Test macros enif_make_list<N> and enif_make_tuple<N>
 api_macros(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     Expected = {[lists:seq(1,N) || N <- lists:seq(1,9)],
@@ -484,8 +473,7 @@ api_macros(Config) when is_list(Config) ->
     ?line Expected = macros(list_to_tuple(lists:seq(1,9))),
     ok.
 
-from_array(doc) -> ["enif_make_[tuple|list]_from_array"];
-from_array(suite) -> [];
+%% enif_make_[tuple|list]_from_array
 from_array(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     lists:foreach(fun(Tpl) ->
@@ -495,8 +483,7 @@ from_array(Config) when is_list(Config) ->
 		  [{}, {1,2,3}, {[4,5],[],{},{6,7}}, {{}}, {[]}]),
     ok.
 
-iolist_as_binary(doc) -> ["enif_inspect_iolist_as_binary"];
-iolist_as_binary(suite) -> [];
+%% enif_inspect_iolist_as_binary
 iolist_as_binary(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     TmpMem = tmpmem(),
@@ -514,8 +501,7 @@ iolist_as_binary(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
-resource(doc) -> ["Test memory managed objects, aka 'resources'"];
-resource(suite) -> [];
+%% Test memory managed objects, aka 'resources'
 resource(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line Type = get_resource_type(0),
@@ -616,8 +602,7 @@ resource_neg_do(TypeA) ->
     ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
     ok.
 
-resource_binary(doc) -> ["Test enif_make_resource_binary"];
-resource_binary(suite) -> [];
+%% Test enif_make_resource_binary
 resource_binary(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line {Ptr,Bin} = resource_binary_do(),
@@ -650,8 +635,7 @@ resource_binary_do() ->
 -define(RT_CREATE,1).
 -define(RT_TAKEOVER,2).
 
-resource_takeover(doc) -> ["Test resource takeover by module reload and upgrade"];
-resource_takeover(suite) -> [];  
+%% Test resource takeover by module reload and upgrade
 resource_takeover(Config) when is_list(Config) ->    
     TmpMem = tmpmem(),
     ensure_lib_loaded(Config),
@@ -1028,7 +1012,7 @@ resource_holder(Pid,Reply,List) ->
     resource_holder(List).
 
 
-threading(doc) -> ["Test the threading API functions (reuse tests from driver API)"];
+%% Test the threading API functions (reuse tests from driver API)
 threading(Config) when is_list(Config) ->
     case erlang:system_info(threads) of
     	true -> threading_do(Config);
@@ -1050,7 +1034,7 @@ threading_do(Config) ->
     ?line ok = tester:load_nif_lib(Config, "tsd"),
     ?line ok = tester:run().
 
-send(doc) -> ["Test NIF message sending"];
+%% Test NIF message sending
 send(Config) when is_list(Config) ->    
     ensure_lib_loaded(Config),
 
@@ -1075,14 +1059,14 @@ send(Config) when is_list(Config) ->
     {ok,0} = send_list_seq(7, DeadPid),
     ok.
 
-send2(doc) -> ["More NIF message sending"];
+%% More NIF message sending
 send2(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
 
     send2_do1(fun send_blob_dbg/2),
     ok.
 
-send_threaded(doc) -> ["Send msg from user thread"];
+%% Send msg from user thread
 send_threaded(Config) when is_list(Config) ->
     case erlang:system_info(smp_support) of
 	true ->
@@ -1168,7 +1152,7 @@ forwarder(To, N) ->
 other_term() ->
     {fun(X,Y) -> X*Y end, make_ref()}.
 
-send3(doc) -> ["Message sending stress test"];
+%% Message sending stress test
 send3(Config) when is_list(Config) ->
     %% Let a number of processes send random message blobs between each other
     %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
@@ -1324,7 +1308,7 @@ send3_new_state(State, Blob) ->
         _ -> State  % Don't store blob
     end.
 
-neg(doc) -> ["Negative testing of load_nif"];
+%% Negative testing of load_nif
 neg(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
     ?line {'EXIT',{badarg,_}} = (catch erlang:load_nif(badarg, 0)),
@@ -1339,7 +1323,7 @@ neg(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ?line ok.
 
-is_checks(doc) -> ["Test all enif_is functions"];
+%% Test all enif_is functions
 is_checks(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
@@ -1374,7 +1358,7 @@ is_checks(Config) when is_list(Config) ->
             ?line ok
     end.
 
-get_length(doc) -> ["Test all enif_get_length functions"];
+%% Test all enif_get_length functions
 get_length(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list, [1,2|3]).
@@ -1415,7 +1399,7 @@ reverse_list_test(Config) ->
     ?line RevList = reverse_list(List),
     ?line badarg = reverse_list(foo).
 
-otp_9668(doc) -> ["Memory leak of tmp-buffer when inspecting iolist or unaligned binary in unbound environment"];
+%% Memory leak of tmp-buffer when inspecting iolist or unaligned binary in unbound environment
 otp_9668(Config) ->
     ensure_lib_loaded(Config, 1),
     TmpMem = tmpmem(),
@@ -1428,7 +1412,7 @@ otp_9668(Config) ->
     ?line verify_tmpmem(TmpMem),
     ok.
 
-otp_9828(doc) -> ["Copy of writable binary"];
+%% Copy of writable binary
 otp_9828(Config) ->
     ensure_lib_loaded(Config, 1),
 

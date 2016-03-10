@@ -33,10 +33,7 @@ all() ->
     [t_md5, t_md5_update, error, unaligned_context,
      random_lists, misc_errors].
 
-misc_errors(doc) ->
-    ["Test crc32, adler32 and md5 error cases not covered by other tests"];
-misc_errors(suite) ->
-    [];
+%% Test crc32, adler32 and md5 error cases not covered by other tests"
 misc_errors(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     ?line 1 = erlang:adler32([]),
@@ -108,11 +105,7 @@ collect_workers([{L,{Pid,Ref}}|T]) ->
 	    exit({error_at_line,L,Other})
     end.
 
-random_lists(doc) ->
-    ["Test crc32, adler32 and md5 on a number of pseudo-randomly generated "
-     "lists."];
-random_lists(suite) ->
-    [];
+%% Test crc32, adler32 and md5 on a number of pseudo-randomly generated lists.
 random_lists(Config) when is_list(Config) ->
     ct:timetrap({minutes, 5}),
     ?line Num = erlang:system_info(schedulers_online),
@@ -216,11 +209,7 @@ random_lists(Config) when is_list(Config) ->
     ?line run_in_para(Wlist1,Num),
     ok.
 
-%%
-%%
-t_md5(doc) ->
-    ["Generate MD5 message digests and check the result. Examples are "
-     "from RFC-1321."];
+%% Generate MD5 message digests and check the result. Examples are from RFC-1321.
 t_md5(Config) when is_list(Config) ->
     ?line t_md5_test("", "d41d8cd98f00b204e9800998ecf8427e"),
     ?line t_md5_test("a", "0cc175b9c0f1b6a831c399e269772661"),
@@ -238,11 +227,8 @@ t_md5(Config) when is_list(Config) ->
 	    "57edf4a22be3c955ac49da2e2107b67a"),
     ok.
 
-%%
-%%
-t_md5_update(doc) ->
-    ["Generate MD5 message using md5_init, md5_update, and md5_final, and"
-     "check the result. Examples are from RFC-1321."];
+%% Generate MD5 message using md5_init, md5_update, and md5_final, and
+%% check the result. Examples are from RFC-1321.
 t_md5_update(Config) when is_list(Config) ->
     ?line t_md5_update_1(fun(Str) -> Str end),
     ?line t_md5_update_1(fun(Str) -> list_to_binary(Str) end),

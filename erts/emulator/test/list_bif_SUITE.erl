@@ -35,10 +35,7 @@ all() ->
     [hd_test, tl_test, t_length, t_list_to_pid,
      t_list_to_float, t_list_to_integer].
 
-t_list_to_integer(suite) ->
-    [];
-t_list_to_integer(doc) ->
-    ["tests list_to_integer and string:to_integer"];
+%% Tests list_to_integer and string:to_integer
 t_list_to_integer(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch list_to_integer("12373281903728109372810937209817320981321ABC")),
     ?line 12373281903728109372810937209817320981321 = (catch list_to_integer("12373281903728109372810937209817320981321")),

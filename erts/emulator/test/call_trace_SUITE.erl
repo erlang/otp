@@ -78,9 +78,7 @@ hipe(Config) when is_list(Config) ->
     ?line AllFuncs = erlang:trace_pattern({'_','_','_'}, false),
     ok.
 
-process_specs(doc) ->
-    "Tests 'all', 'new', and 'existing' for specifying processes.";
-process_specs(suite) -> [];
+%% Tests 'all', 'new', and 'existing' for specifying processes.
 process_specs(Config) when is_list(Config) ->
     ?line Tracer = start_tracer(),
     ?line {flags,[call]} = trace_info(self(), flags),
@@ -268,8 +266,8 @@ foo(X, Y) -> X+Y.
 %% This test case was written to verify that we do not change
 %% any behaviour with the introduction of "block-free" upgrade in R16.
 %% In short: Do not refer to this test case as an authority of how it must work.
-upgrade(doc) ->
-    "Test tracing on module being upgraded";
+
+%% Test tracing on module being upgraded
 upgrade(Config) when is_list(Config) ->
     V1 = compile_version(my_upgrade_test, 1, Config),
     V2 = compile_version(my_upgrade_test, 2, Config),
@@ -470,8 +468,7 @@ flag_test_cpu_timestamp(Test) ->
 	error:badarg -> ok
     end.
 
-errors(doc) -> "Test bad arguments for trace/3 and trace_pattern/3.";
-errors(suite) -> [];
+%% Test bad arguments for trace/3 and trace_pattern/3.
 errors(Config) when is_list(Config) ->
     ?line expect_badarg_pid(aaa, true, []),
     ?line expect_badarg_pid({pid,dum}, false, []),
@@ -505,8 +502,7 @@ expect_badarg_func(MFA, Pattern) ->
 	    ct:fail({unexpected,Other})
     end.
 
-pam(doc) -> "Basic test of PAM.";
-pam(suite) -> [];
+%% Basic test of PAM.
 pam(Config) when is_list(Config) ->
     ?line start_tracer(),
     ?line Self = self(),
@@ -737,8 +733,7 @@ exception_trace() ->
     ?line {save,me} = X,
     ok.
 
-on_load(doc) -> "Test the on_load argument for trace_pattern/3.";
-on_load(suite) -> [];
+%% Test the on_load argument for trace_pattern/3.
 on_load(Config) when is_list(Config) ->
     ?line 0 = erlang:trace_pattern(on_load, []),
     ?line {traced,global} = erlang:trace_info(on_load, traced),
@@ -764,8 +759,7 @@ on_load(Config) when is_list(Config) ->
 
 
 
-deep_exception(doc) -> "Test the new exception trace.";
-deep_exception(suite) -> [];
+%% Test the new exception trace.
 deep_exception(Config) when is_list(Config) ->
     deep_exception().
 
@@ -1049,8 +1043,7 @@ deep_expect_N(_Self, 0, exception_from, R) ->
 
 
 
-exception_nocatch(doc) -> "Test the new exception trace.";
-exception_nocatch(suite) -> [];
+%% Test the new exception trace.
 exception_nocatch(Config) when is_list(Config) ->
     exception_nocatch().
 

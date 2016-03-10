@@ -89,8 +89,7 @@ groups() ->
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_control, bad_dist_ext_connection_id]}].
 
-ping(doc) ->
-    ["Tests pinging a node in different ways."];
+%% Tests pinging a node in different ways.
 ping(Config) when is_list(Config) ->
     Times = 1024,
 
@@ -250,13 +249,10 @@ receiver(Terms, Size) ->
 
 
 
-local_send_big(doc) ->
-    ["Sends several big message to an non-registered process on ",
-     "the local node."];
+%% Sends several big message to an non-registered process on the local node.
 local_send_big(Config) when is_list(Config) ->
-    Data0=local_send_big(doc)++
-	["Tests sending small and big messages to a non-existing ",
-        "local registered process."],
+    Data0= ["Tests sending small and big messages to a non-existing ",
+            "local registered process."],
     Data1=[Data0,[Data0, Data0, [Data0], Data0],Data0],
     Data2=Data0++lists:flatten(Data1)++
 	list_to_binary(lists:flatten(Data1)),
@@ -264,21 +260,18 @@ local_send_big(Config) when is_list(Config) ->
     ?line test_server:do_times(4096, Func),
     ok.
 
-local_send_small(doc) ->
-    ["Sends a small message to an non-registered process on the ",
-     "local node."];
+%% Sends a small message to an non-registered process on the local node.
 local_send_small(Config) when is_list(Config) ->
     Data={some_stupid, "arbitrary", 'Data'},
     Func=fun() -> Data= {unregistered_name, node()} ! Data end,
     ?line test_server:do_times(4096, Func),
     ok.
 
-local_send_legal(doc) ->
-    ["Sends data to a registered process on the local node, ",
-     "as if it was on another node."];
+%% Sends data to a registered process on the local node, as if it was on another node.
 local_send_legal(Config) when is_list(Config) ->
     Times=16384,
-    Data={local_send_legal(doc), local_send_legal(doc)},
+    Txt = "Some Not so random Data",
+    Data={[Txt,Txt,Txt], [Txt,Txt,Txt]},
     Pid=spawn(?MODULE,receiver2, [0, 0]) ,
     ?line true=register(registered_process, Pid),
 
@@ -306,7 +299,7 @@ receiver2(Num, TotSize) ->
 	    receiver2(Num+1, TotSize+size(Stuff))
     end.
 
-link_to_busy(doc) -> "Test that link/1 to a busy distribution port works.";
+%% Test that link/1 to a busy distribution port works.
 link_to_busy(Config) when is_list(Config) ->
     ct:timetrap({seconds, 60}),
     ?line {ok, Node} = start_node(link_to_busy),
@@ -352,7 +345,7 @@ applied_linker(Pid) ->
 tail_applied_linker(Pid) ->
     apply(erlang, link, [Pid]).
     
-exit_to_busy(doc) -> "Test that exit/2 to a busy distribution port works.";
+%% Test that exit/2 to a busy distribution port works.
 exit_to_busy(Config) when is_list(Config) ->
     ct:timetrap({seconds, 60}),
     ?line {ok, Node} = start_node(exit_to_busy),
@@ -509,9 +502,8 @@ sink1() ->
 	_Any -> sink1()
     end.
 
-lost_exit(doc) ->
-    "Test that EXIT and DOWN messages send to another node are not lost if "
-	"the distribution port is busy.";
+%% Test that EXIT and DOWN messages send to another node are not lost if
+%% the distribution port is busy.
 lost_exit(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(lost_exit),
 
@@ -575,9 +567,8 @@ dummy_waiter() ->
 	    ok
     end.
 
-link_to_dead(doc) ->
-    ["Test that linking to a dead remote process gives an EXIT message ",
-     "AND that the link is teared down."];
+%% Test that linking to a dead remote process gives an EXIT message
+%% AND that the link is teared down.
 link_to_dead(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line {ok, Node} = start_node(link_to_dead),
@@ -611,9 +602,8 @@ link_to_dead(Config) when is_list(Config) ->
 dead_process() ->
     erlang:error(die).
 
-link_to_dead_new_node(doc) ->
-    ["Test that linking to a pid on node that has gone and restarted gives ",
-     "the correct EXIT message (OTP-2304)."];
+%% Test that linking to a pid on node that has gone and restarted gives
+%% the correct EXIT message (OTP-2304).
 link_to_dead_new_node(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
 
@@ -647,8 +637,7 @@ link_to_dead_new_node(Config) when is_list(Config) ->
 	  end,
     ok.
 
-applied_monitor_node(doc) ->
-    "Test that monitor_node/2 works when applied.";
+%% Test that monitor_node/2 works when applied.
 applied_monitor_node(Config) when is_list(Config) ->
     ?line NonExisting = list_to_atom("__non_existing__@" ++ hostname()),
 
@@ -668,9 +657,8 @@ applied_monitor_node(Config) when is_list(Config) ->
 tail_apply(M, F, A) ->
     apply(M, F, A).
 
-ref_port_roundtrip(doc) ->
-    "Test that sending a port or reference to another node and back again "
-	"doesn't correct them in any way.";
+%% Test that sending a port or reference to another node and back again
+%% doesn't correct them in any way.
 ref_port_roundtrip(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Port = open_port({spawn, efile}, []),
@@ -697,9 +685,8 @@ ref_port_roundtrip(Config) when is_list(Config) ->
 roundtrip(Term) ->
     exit(Term).
 
-nil_roundtrip(doc) ->
-    "Test that the smallest external term [] aka NIL can be sent to "
-	"another node node and back again.";
+%% Test that the smallest external term [] aka NIL can be sent to
+%% another node node and back again.
 nil_roundtrip(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line {ok, Node} = start_node(nil_roundtrip),
@@ -724,8 +711,7 @@ bounce(Dest) ->
 show_term(Term) ->
     binary_to_list(term_to_binary(Term)).
 
-stop_dist(doc) ->
-    ["Tests behaviour after net_kernel:stop (OTP-2586)."];
+%% Tests behaviour after net_kernel:stop (OTP-2586).
 stop_dist(Config) when is_list(Config) ->
     ?line Str = os:cmd(atom_to_list(lib:progname())
 		       ++ " -noshell -pa "
@@ -741,20 +727,14 @@ stop_dist(Config) when is_list(Config) ->
     ok.
 
 
-trap_bif_1(doc) ->
-    [""];
 trap_bif_1(Config) when is_list(Config) ->
     ?line {true} = tr1(),
     ok.
 
-trap_bif_2(doc) ->
-    [""];
 trap_bif_2(Config) when is_list(Config) ->
     ?line {true} = tr2(),
     ok.
 
-trap_bif_3(doc) ->
-    [""];
 trap_bif_3(Config) when is_list(Config) ->
     ?line {hoo} = tr3(),
     ok.
@@ -792,7 +772,8 @@ tr3() ->
 % * n2 gets pang when pinging n1
 % * n2 forces connection by using net_kernel:connect_node (ovverrides)
 % * n2 gets pong when pinging n1.
-dist_auto_connect_once(doc) -> "Test the dist_auto_connect once kernel parameter";
+
+%% Test the dist_auto_connect once kernel parameter
 dist_auto_connect_once(Config) when is_list(Config) ->
     ?line Sock = start_relay_node(dist_auto_connect_relay_node,[]),
     ?line NN = inet_rpc_nodename(Sock),
@@ -964,10 +945,6 @@ dist_auto_connect_relay(Parent) ->
     dist_auto_connect_relay(Parent).
 
 
-dist_parallel_send(doc) ->
-    [];
-dist_parallel_send(suite) ->
-    [];
 dist_parallel_send(Config) when is_list(Config) ->
     ?line {ok, RNode} = start_node(dist_parallel_receiver),
     ?line {ok, SNode} = start_node(dist_parallel_sender),
@@ -1383,11 +1360,7 @@ start_link(Offender,P) ->
     io:format("Ref is ~p~n",[Ref]),
     ok.
 
-bad_dist_structure(suite) ->
-    [];
-bad_dist_structure(doc) ->
-    ["Test dist messages with valid structure (binary to term ok) but malformed"
-     "control content"];
+%% Test dist messages with valid structure (binary to term ok) but malformed control content
 bad_dist_structure(Config) when is_list(Config) ->
     ct:timetrap({seconds, 15}),
 

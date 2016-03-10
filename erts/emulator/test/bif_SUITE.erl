@@ -45,10 +45,7 @@ all() ->
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      min_max, erlang_halt, is_builtin].
 
-display(suite) ->
-    [];
-display(doc) ->
-    ["Uses erlang:display to test that erts_printf does not do deep recursion"];
+%% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(display_huge_term,peer,
@@ -351,10 +348,6 @@ t_list_to_existing_atom(Config) when is_list(Config) ->
     ?line UnlikelyAtom = list_to_existing_atom(UnlikelyStr),
     ok.
 
-os_env(doc) ->
-    [];
-os_env(suite) ->
-    [];
 os_env(Config) when is_list(Config) ->
     ?line EnvVar1 = "MjhgvFDrresdCghN mnjkUYg vfrD",
     ?line false = os:getenv(EnvVar1),
@@ -383,8 +376,7 @@ os_env_long(Min, Max, Value) ->
     true = os:unsetenv(EnvVar),
     ?line os_env_long(Min+1, Max, Value).
 
-otp_7526(doc) ->    
-    ["Test that string:to_integer does not Halloc in wrong order."];
+%% Test that string:to_integer does not Halloc in wrong order.
 otp_7526(Config) when is_list(Config) ->
     ok = test_7526(256).
 

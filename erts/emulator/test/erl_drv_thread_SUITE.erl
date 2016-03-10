@@ -39,16 +39,10 @@ all() ->
 %% Testcases                                                              %%
 %%                                                                        %%
 
-basic(suite) -> [];
-basic(doc) ->   [];
 basic(Cfg) -> ?line drv_case(Cfg, basic).
 
-rwlock(suite) -> [];
-rwlock(doc) ->   [];
 rwlock(Cfg) -> ?line drv_case(Cfg, rwlock).
 
-tsd(suite) -> [];
-tsd(doc) ->   [];
 tsd(Cfg) -> ?line drv_case(Cfg, tsd).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

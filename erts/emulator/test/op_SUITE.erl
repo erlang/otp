@@ -43,7 +43,7 @@ bsl_bsr(Config) when is_list(Config) ->
     ?line run_test_module(Cases, false),
     {comment,integer_to_list(length(Cases)) ++ " cases"}.
 
-logical(doc) -> "Test the logical operators and internal BIFs.";
+%% Test the logical operators and internal BIFs.
 logical(Config) when is_list(Config) ->
     Vs0 = [true,false,bad],
     Vs = [unvalue(V) || V <- Vs0],
@@ -51,13 +51,13 @@ logical(Config) when is_list(Config) ->
     ?line run_test_module(Cases, false),
     {comment,integer_to_list(length(Cases)) ++ " cases"}.
 
-t_not(doc) -> "Test the not operator and internal BIFs.";
+%% Test the not operator and internal BIFs.
 t_not(Config) when is_list(Config) ->
     ?line Cases = [{'not',unvalue(V)} || V <- [true,false,42,bad]],
     ?line run_test_module(Cases, false),
     {comment,integer_to_list(length(Cases)) ++ " cases"}.
 
-relop_simple(doc) -> "Test that simlpe relations between relation operators hold.";
+%% Test that simlpe relations between relation operators hold.
 relop_simple(Config) when is_list(Config) ->
     Big1 = 19738924729729787487784874,
     Big2 = 38374938373887374983978484,
@@ -207,7 +207,7 @@ purify_list([H|T], Acc) -> purify_list(T, [H|Acc]);
 purify_list(Other, Acc) -> [Other|Acc].
     
 
-relop(doc) -> "Test the relational operators and internal BIFs on literals.";
+%% Test the relational operators and internal BIFs on literals.
 relop(Config) when is_list(Config) ->
     Big1 = -38374938373887374983978484,
     Big2 = 19738924729729787487784874,
@@ -218,8 +218,7 @@ relop(Config) when is_list(Config) ->
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     ?line binop(Ops, Vs).
 
-complex_relop(doc) ->
-    "Test the relational operators and internal BIFs on lists and tuples.";
+%% Test the relational operators and internal BIFs on lists and tuples.
 complex_relop(Config) when is_list(Config) ->
     Big = 99678557475484872464269855544643333,
     Float = float(Big),

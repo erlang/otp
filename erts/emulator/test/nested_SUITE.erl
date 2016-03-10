@@ -68,8 +68,7 @@ case_in_after(Config) when is_list(Config) ->
 	end,
     ok.
 
-catch_in_catch(doc) -> "Test a catch within a catch in the same function.";
-catch_in_catch(suite) -> [];
+%% Test a catch within a catch in the same function.
 catch_in_catch(Config) when is_list(Config) ->
     ?line {outer, inner_exit} = catcher(),
     ok.
@@ -88,8 +87,7 @@ catcher() ->
 	    {outer, Res2}
     end.
 
-bif_in_bif(doc) -> "Test a BIF call within a BIF call.";
-bif_in_bif(suite) -> [];
+%% Test a BIF call within a BIF call.
 bif_in_bif(Config) when is_list(Config) ->
     Self = self(),
     put(pid, Self),

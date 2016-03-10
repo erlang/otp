@@ -54,40 +54,22 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %% Testcases                                                              %%
 %%                                                                        %%
 
-basic(suite) -> [];
-basic(doc) ->   [];
 basic(Cfg) -> ?line drv_case(Cfg).
 
-coalesce(suite) -> [];
-coalesce(doc) ->   [];
 coalesce(Cfg) -> ?line drv_case(Cfg).
 
-threads(suite) -> [];
-threads(doc) ->   [];
 threads(Cfg) -> ?line drv_case(Cfg).
 
-realloc_copy(suite) -> [];
-realloc_copy(doc) ->   [];
 realloc_copy(Cfg) -> ?line drv_case(Cfg).
 
-bucket_index(suite) -> [];
-bucket_index(doc) ->   [];
 bucket_index(Cfg) -> ?line drv_case(Cfg).
 
-bucket_mask(suite) -> [];
-bucket_mask(doc) ->   [];
 bucket_mask(Cfg) -> ?line drv_case(Cfg).
 
-rbtree(suite) -> [];
-rbtree(doc) ->   [];
 rbtree(Cfg) -> ?line drv_case(Cfg).
 
-mseg_clear_cache(suite) -> [];
-mseg_clear_cache(doc) ->   [];
 mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
 
-cpool(suite) -> [];
-cpool(doc) ->   [];
 cpool(Cfg) -> ?line drv_case(Cfg).
 
 migration(Cfg) ->

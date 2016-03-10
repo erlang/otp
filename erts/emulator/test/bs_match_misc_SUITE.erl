@@ -39,7 +39,7 @@ all() ->
      otp_7198, unordered_bindings, float_middle_endian].
 
 
-bound_var(doc) -> "Test matching of bound variables.";
+%% Test matching of bound variables.
 bound_var(Config) when is_list(Config) ->
     ?line ok = bound_var(42, 13, <<42,13>>),
     ?line nope = bound_var(42, 13, <<42,255>>),
@@ -49,7 +49,7 @@ bound_var(Config) when is_list(Config) ->
 bound_var(A, B, <<A:8,B:8>>) -> ok;
 bound_var(_, _, _) -> nope.
 
-bound_tail(doc) -> "Test matching of a bound tail.";
+%% Test matching of a bound tail.
 bound_tail(Config) when is_list(Config) ->
     ?line ok = bound_tail(<<>>, <<13,14>>),
     ?line ok = bound_tail(<<2,3>>, <<1,1,2,3>>),

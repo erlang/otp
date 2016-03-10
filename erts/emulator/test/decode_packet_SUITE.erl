@@ -48,8 +48,6 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 end_per_testcase(_Func, _Config) ->
     ok.
 
-basic(doc) -> [];
-basic(suite) -> [];
 basic(Config) when is_list(Config) ->
     ?line Packet = <<101,22,203,54,175>>,
     ?line Rest = <<123,34,0,250>>,
@@ -213,8 +211,6 @@ pack_ssl(Content, Major, Minor, Body) ->
     {Res, {ssl_tls,[],C,{Major,Minor}, Data}}.
 
 
-packet_size(doc) -> [];
-packet_size(suite) -> [];
 packet_size(Config) when is_list(Config) ->
     ?line Packet = <<101,22,203,54,175>>,
     ?line Rest = <<123,34,0,250>>,
@@ -264,8 +260,6 @@ packet_size(Config) when is_list(Config) ->
     ok.
 
 
-neg(doc) -> [];
-neg(suite) -> [];
 neg(Config) when is_list(Config) ->
     ?line Bin = <<"dummy">>,
     Fun = fun()->dummy end,
@@ -294,8 +288,6 @@ neg(Config) when is_list(Config) ->
     ok.
 
 
-http(doc) -> [];
-http(suite) -> [];
 http(Config) when is_list(Config) ->
     ?line <<"foo">> = http_do(http_request("foo")),
     ?line <<" bar">> = http_do(http_request(" bar")),
@@ -472,8 +464,6 @@ http_uri_variants() ->
      {"something_else", "something_else", <<"something_else">>}].
 
 
-line(doc) -> [];
-line(suite) -> [];
 line(Config) when is_list(Config) ->
     Text = <<"POST /invalid/url HTTP/1.1\r\n"
 	    "Connection: close\r\n"
@@ -524,8 +514,6 @@ find_in_binary(Byte, Bin) ->
 	P -> P
     end.    
 
-ssl(doc) -> [];
-ssl(suite) -> [];
 ssl(Config) when is_list(Config) ->
     Major = 34,
     Minor = 17,
@@ -541,7 +529,7 @@ ssl(Config) when is_list(Config) ->
     F(v2hello),
     ok.
 
-otp_8536(doc) -> ["Corrupt sub-binary-strings from httph_bin"];
+%% Corrupt sub-binary-strings from httph_bin
 otp_8536(Config) when is_list(Config) ->
     lists:foreach(fun otp_8536_do/1, lists:seq(1,50)),
     ok.
@@ -570,8 +558,7 @@ decode_pkt(Type,Bin,Opts) ->
     %%io:format(" -> ~p\n",[Res]),
     Res.
 
-otp_9389(doc) -> ["Verify line_length works correctly for HTTP headers"];
-otp_9389(suite) -> [];
+%% Verify line_length works correctly for HTTP headers
 otp_9389(Config) when is_list(Config) ->
     Opts = [{packet_size, 16384}, {line_length, 3000}],
     Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
@@ -590,8 +577,7 @@ otp_9389(Config) when is_list(Config) ->
         erlang:decode_packet(httph, Rest3, Opts),
     ok.
 
-otp_9389_line(doc) -> ["Verify packet_size works correctly for line mode"];
-otp_9389_line(suite) -> [];
+%% Verify packet_size works correctly for line mode
 otp_9389_line(Config) when is_list(Config) ->
     Opts = [{packet_size, 20}],
     Line1 = <<"0123456789012345678\n">>,

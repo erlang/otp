@@ -48,10 +48,7 @@ groups() ->
 %% OTP-7178, list_to_float on very small numbers should give 0.0
 %% instead of exception, i.e. ignore underflow.
 %%
-otp_7178(suite) ->
-    [];
-otp_7178(doc) ->
-    ["test that list_to_float on very small numbers give 0.0"];
+%% test that list_to_float on very small numbers give 0.0
 otp_7178(Config) when is_list(Config) ->
     ?line X = list_to_float("1.0e-325"),
     ?line true = (X < 0.00000001) and (X > -0.00000001),

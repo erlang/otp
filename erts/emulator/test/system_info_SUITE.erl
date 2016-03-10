@@ -50,8 +50,6 @@ all() ->
 %%% The test cases -------------------------------------------------------------
 %%%
 
-process_count(doc) -> [];
-process_count(suite) -> [];
 process_count(Config) when is_list(Config) ->
     case catch erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
@@ -115,13 +113,9 @@ stop_procs(PMs) ->
 		  end, PMs).
 
 
-system_version(doc) -> [];
-system_version(suite) -> [];
 system_version(Config) when is_list(Config) ->
     ?line {comment, erlang:system_info(system_version)}.
 
-misc_smoke_tests(doc) -> [];
-misc_smoke_tests(suite) -> [];
 misc_smoke_tests(Config) when is_list(Config) ->
     ?line true = is_binary(erlang:system_info(info)),
     ?line true = is_binary(erlang:system_info(procs)),
@@ -132,8 +126,6 @@ misc_smoke_tests(Config) when is_list(Config) ->
     ?line ok.
     
 
-heap_size(doc) -> [];
-heap_size(suite) -> [];
 heap_size(Config) when is_list(Config) ->
    ?line {min_bin_vheap_size, VHmin} = erlang:system_info(min_bin_vheap_size),
    ?line {min_heap_size, Hmin} =  erlang:system_info(min_heap_size),
@@ -142,10 +134,7 @@ heap_size(Config) when is_list(Config) ->
    ?line Hmin  = proplists:get_value(min_heap_size, GCinf),
    ok.
 
-wordsize(suite) ->
-    [];
-wordsize(doc) ->
-    ["Tests the various wordsize variants"];
+%% Tests the various wordsize variants
 wordsize(Config) when is_list(Config) ->
     ?line A = erlang:system_info(wordsize),
     ?line true = is_integer(A),
@@ -161,7 +150,7 @@ wordsize(Config) when is_list(Config) ->
 	    exit({unexpected_wordsizes,Other})
     end.
 
-memory(doc) -> ["Verify that erlang:memory/0 and memory results in crashdump produce are similar"];
+%% Verify that erlang:memory/0 and memory results in crashdump produce are similar
 memory(Config) when is_list(Config) ->
     %%
     %% Verify that erlang:memory/0 and memory results in
@@ -501,9 +490,7 @@ mapn(_Fun, 0) ->
 mapn(Fun, N) ->
     [Fun(N) | mapn(Fun, N-1)].
 
-ets_limit(doc) ->
-    "Verify system_info(ets_limit) reflects max ETS table settings.";
-ets_limit(suite) -> [];
+%% Verify system_info(ets_limit) reflects max ETS table settings.
 ets_limit(Config0) when is_list(Config0) ->
     Config = [{testcase,ets_limit}|Config0],
     true = is_integer(get_ets_limit(Config)),

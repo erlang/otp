@@ -105,10 +105,8 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%
 %% Test case: term_to_binary_to_term_eq
 %%
-term_to_binary_to_term_eq(doc) ->
-    ["Tests that node container terms that are converted to external format "
-     "and back stay equal to themselves."];
-term_to_binary_to_term_eq(suite) -> [];
+%% Tests that node container terms that are converted to external format
+%% and back stay equal to themselves.
 term_to_binary_to_term_eq(Config) when is_list(Config) ->
     ?line ThisNode = {node(), erlang:system_info(creation)},
     % Get local node containers
@@ -151,10 +149,7 @@ term_to_binary_to_term_eq(Config) when is_list(Config) ->
 %%
 %% Test case: round_trip_eq
 %%
-round_trip_eq(doc) ->
-    ["Tests that node containers that are sent beteen nodes stay equal to "
-     "themselves."];
-round_trip_eq(suite) -> [];
+%% Tests that node containers that are sent beteen nodes stay equal to themselves.
 round_trip_eq(Config) when is_list(Config) ->
     ?line ThisNode = {node(), erlang:system_info(creation)},
     ?line NodeFirstName = get_nodefirstname(),
@@ -206,10 +201,7 @@ round_trip_eq(Config) when is_list(Config) ->
 %%
 %% Test case: cmp
 %%
-cmp(doc) ->
-    ["Tests that Erlang term comparison works as it should on node "
-     "containers."];
-cmp(suite) -> [];
+%% Tests that Erlang term comparison works as it should on node containers.
 cmp(Config) when is_list(Config) ->
 
     %% Inter type comparison ---------------------------------------------------
@@ -373,8 +365,7 @@ cmp(Config) when is_list(Config) ->
 %%
 %% Test case: ref_eq
 %%
-ref_eq(doc) -> ["Test that one word refs \"works\"."];
-ref_eq(suite) -> [];
+%% Test that one word refs works
 ref_eq(Config) when is_list(Config) ->
     ?line ThisNode = {node(), erlang:system_info(creation)},
     ?line AnotherNode = {get_nodename(),2},
@@ -404,9 +395,7 @@ ref_eq(Config) when is_list(Config) ->
 %%
 %% Test case: node_table_gc
 %%
-node_table_gc(doc) ->
-    ["Tests that node tables are garbage collected."];
-node_table_gc(suite) -> [];
+%% Tests that node tables are garbage collected.
 node_table_gc(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, 0),
@@ -474,10 +463,8 @@ make_faked_pid_list(Start, No, Creation, Acc) ->
 %%
 %% Test case: dist_link_refc
 %%
-dist_link_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for distributed links"];
-dist_link_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for distributed links
 dist_link_refc(Config) when is_list(Config) ->
     ?line NodeFirstName = get_nodefirstname(),
     ?line ?line {ok, Node} = start_node(NodeFirstName),
@@ -511,10 +498,8 @@ dist_link_refc(Config) when is_list(Config) ->
 %%
 %% Test case: dist_monitor_refc
 %%
-dist_monitor_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for distributed monitors"];
-dist_monitor_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for distributed monitors
 dist_monitor_refc(Config) when is_list(Config) ->
     ?line NodeFirstName = get_nodefirstname(),
     ?line {ok, Node} = start_node(NodeFirstName),
@@ -566,10 +551,8 @@ dist_monitor_refc(Config) when is_list(Config) ->
 %%
 %% Test case: node_controller_refc
 %%
-node_controller_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for entities controlling a connections."];
-node_controller_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for entities controlling a connections.
 node_controller_refc(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, 0),
@@ -606,10 +589,8 @@ node_controller_refc(Config) when is_list(Config) ->
 %%
 %% Test case: ets_refc
 %%
-ets_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for data stored in ets tables."];
-ets_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for data stored in ets tables.
 ets_refc(Config) when is_list(Config) ->
     ?line RNode = {get_nodename(), 1},
     ?line RPid = mk_pid(RNode, 4711, 2),
@@ -639,10 +620,8 @@ ets_refc(Config) when is_list(Config) ->
 %%
 %% Test case: match_spec_refc
 %%
-match_spec_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for data stored in match specifications."];
-match_spec_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for data stored in match specifications.
 match_spec_refc(Config) when is_list(Config) ->
     ?line RNode = {get_nodename(), 1},
     ?line RPid = mk_pid(RNode, 4711, 2),
@@ -676,10 +655,8 @@ do_match_spec_test(RNode, RPid, RPort, RRef) ->
 %%
 %% Test case: ets_refc
 %%
-timer_refc(doc) ->
-    ["Tests that external reference counts are incremented and decremented "
-     "as they should for data stored in bif timers."];
-timer_refc(suite) -> [];
+%% Tests that external reference counts are incremented and decremented
+%% as they should for data stored in bif timers.
 timer_refc(Config) when is_list(Config) ->
     ?line RNode = {get_nodename(), 1},
     ?line RPid = mk_pid(RNode, 4711, 2),
@@ -703,8 +680,6 @@ timer_refc(Config) when is_list(Config) ->
     ?line nc_refc_check(node()),
     ?line ok.
 
-otp_4715(doc) -> [];
-otp_4715(suite) -> [];
 otp_4715(Config) when is_list(Config) ->
     case test_server:is_release_available("r9b") of
 	true -> otp_4715_1(Config);
@@ -734,12 +709,8 @@ run_otp_4715(Config) when is_list(Config) ->
     ?line R9Sorted = old_mod:sort_on_old_node(PidList),
     ?line R9Sorted = lists:sort(PidList).
 
-pid_wrap(doc) -> [];
-pid_wrap(suite) -> [];
 pid_wrap(Config) when is_list(Config) -> ?line pp_wrap(pid).
 
-port_wrap(doc) -> [];
-port_wrap(suite) -> [];
 port_wrap(Config) when is_list(Config) ->
     ?line case test_server:os_type() of
 	      {unix, _} ->
@@ -810,8 +781,6 @@ do_pp_creations(port, N) when is_integer(N) ->
     ?line "hej" = os:cmd("echo hej") -- "\n",
     ?line do_pp_creations(port, N - 1).
 
-bad_nc(doc) -> [];
-bad_nc(suite) -> [];
 bad_nc(Config) when is_list(Config) ->
     % Make sure emulator don't crash on bad node containers...
     ?line MaxPidNum = (1 bsl 15) - 1,
@@ -851,8 +820,6 @@ bad_nc(Config) when is_list(Config) ->
 
 -define(NO_PIDS, 1000000).
 
-unique_pid(doc) -> [];
-unique_pid(suite) -> [];
 unique_pid(Config) when is_list(Config) ->
     case catch erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
@@ -869,8 +836,6 @@ mkpidlist(0, Ps) -> Ps;
 mkpidlist(N, Ps) -> mkpidlist(N-1, [spawn(fun () -> ok end)|Ps]).
 
 
-iter_max_procs(doc) -> [];
-iter_max_procs(suite) -> [];
 iter_max_procs(Config) when is_list(Config) ->
     ?line NoMoreTests = make_ref(),
     ?line erlang:send_after(10000, self(), NoMoreTests),

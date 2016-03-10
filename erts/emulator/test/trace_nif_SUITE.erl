@@ -64,18 +64,18 @@ end_per_group(_GroupName, Config) ->
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-trace_nif(doc) -> "Test tracing NIFs.";
+%% Test tracing NIFs.
 trace_nif(Config) when is_list(Config) ->
     load_nif(Config),
     
     do_trace_nif([]).
 
-trace_nif_local(doc) -> "Test tracing NIFs with local flag.";
+%% Test tracing NIFs with local flag.
 trace_nif_local(Config) when is_list(Config) ->
     load_nif(Config),
     do_trace_nif([local]).
 
-trace_nif_meta(doc) -> "Test tracing NIFs with meta flag.";
+%% Test tracing NIFs with meta flag.
 trace_nif_meta(Config) when is_list(Config) ->
     load_nif(Config),
     ?line Pid=spawn_link(?MODULE, nif_process, []),
@@ -143,13 +143,12 @@ do_trace_nif(Flags) ->
     ?line exit(Pid, die),
     ok.
 
-trace_nif_timestamp(doc) -> "Test tracing NIFs with timestamps.";
+%% Test tracing NIFs with timestamps.
 trace_nif_timestamp(Config) when is_list(Config) ->
     load_nif(Config),
     do_trace_nif_timestamp([]).
 
-trace_nif_timestamp_local(doc) -> 
-    "Test tracing NIFs with timestamps and local flag.";
+%% Test tracing NIFs with timestamps and local flag.
 trace_nif_timestamp_local(Config) when is_list(Config) ->
     load_nif(Config),
     do_trace_nif_timestamp([local]).
@@ -191,8 +190,7 @@ do_trace_nif_timestamp(Flags) ->
     ?line exit(Pid, die),
     ok.
 
-trace_nif_return(doc) -> 
-    "Test tracing NIF's with return/return_to trace.";
+%% Test tracing NIF's with return/return_to trace.
 trace_nif_return(Config) when is_list(Config) ->
     load_nif(Config),
 

@@ -71,7 +71,7 @@ all() ->
      auto_cancel_yielding].
 
 
-start_timer_1(doc) -> ["Basic start_timer/3 functionality"];
+%% Basic start_timer/3 functionality
 start_timer_1(Config) when is_list(Config) ->
     Ref1 = erlang:start_timer(1000, self(), plopp),
     ok   = get(1100, {timeout, Ref1, plopp}),
@@ -91,14 +91,14 @@ start_timer_1(Config) when is_list(Config) ->
     no_message = get(900, {timeout, Ref3, plopp}),
     ok.
 
-send_after_1(doc) -> ["Basic send_after/3 functionality"];
+%% Basic send_after/3 functionality
 send_after_1(Config) when is_list(Config) ->
     ?line Ref3 = erlang:send_after(1000, self(), plipp),
     ?line ok = get(1500, plipp),
     ?line false = erlang:read_timer(Ref3),
     ok.
 
-start_timer_big(doc) -> ["Big timeouts for start_timer/3"];
+%% Big timeouts for start_timer/3
 start_timer_big(Config) when is_list(Config) ->
     ?line Big = 1 bsl 31,
     ?line R = erlang:start_timer(Big, self(), hej),
@@ -112,7 +112,7 @@ start_timer_big(Config) when is_list(Config) ->
 	  end,
     ok.
 
-send_after_big(doc) -> ["Big timeouts for send_after/3"];
+%% Big timeouts for send_after/3
 send_after_big(Config) when is_list(Config) ->
     ?line Big = 1 bsl 31,
     ?line R = erlang:send_after(Big, self(), hej),
@@ -126,7 +126,7 @@ send_after_big(Config) when is_list(Config) ->
 	  end,
     ok.
 
-send_after_2(doc) -> ["send_after/3: messages in the right order, kind version"];
+%% send_after/3: messages in the right order, kind version
 send_after_2(Config) when is_list(Config) ->
     ?line _ = erlang:send_after(5000, self(), last),
     ?line _ = erlang:send_after(0, self(), a0),
@@ -138,7 +138,7 @@ send_after_2(Config) when is_list(Config) ->
     ?line [a0,a1,a2,a3,a4,a5,last] = collect(last),
     ok.
 
-send_after_3(doc) -> ["send_after/3: messages in the right order, worse than send_after_2"];
+%% send_after/3: messages in the right order, worse than send_after_2
 send_after_3(Config) when is_list(Config) ->
     _ = erlang:send_after(100, self(), b1),
     _ = erlang:send_after(101, self(), b2),
@@ -155,13 +155,13 @@ send_after_3(Config) when is_list(Config) ->
 
     ok.
 
-cancel_timer_1(doc) -> ["Check trivial cancel_timer/1 behaviour"];
+%% Check trivial cancel_timer/1 behaviour
 cancel_timer_1(Config) when is_list(Config) ->
     ?line false = erlang:cancel_timer(make_ref()),
 
     ok.
 
-start_timer_e(doc) -> ["Error cases for start_timer/3"];
+%% Error cases for start_timer/3
 start_timer_e(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:start_timer(-4, self(), hej)),
     ?line {'EXIT', _} = (catch erlang:start_timer(1 bsl 64,
@@ -178,8 +178,7 @@ start_timer_e(Config) when is_list(Config) ->
 
     ok.
 
-send_after_e(doc) -> ["Error cases for send_after/3"];
-send_after_e(suite) -> [];
+%% Error cases for send_after/3
 send_after_e(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:send_after(-4, self(), hej)),
     ?line {'EXIT', _} = (catch erlang:send_after(1 bsl 64,
@@ -194,16 +193,14 @@ send_after_e(Config) when is_list(Config) ->
     ?line stop_slave(Node),
     ok.
 
-cancel_timer_e(doc) -> ["Error cases for cancel_timer/1"];
-cancel_timer_e(suite) -> [];
+%% Error cases for cancel_timer/1
 cancel_timer_e(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:cancel_timer(1)),
     ?line {'EXIT', _} = (catch erlang:cancel_timer(self())),
     ?line {'EXIT', _} = (catch erlang:cancel_timer(a)),
     ok.
 
-read_timer_trivial(doc) -> ["Trivial and error test cases for read_timer/1."];
-read_timer_trivial(suite) -> [];
+%% Trivial and error test cases for read_timer/1.
 read_timer_trivial(Config) when is_list(Config) ->
     ?line false = erlang:read_timer(make_ref()),
     ?line {'EXIT', _} = (catch erlang:read_timer(42)),
@@ -212,8 +209,7 @@ read_timer_trivial(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch erlang:read_timer(ab)),
     ok.
 
-read_timer(doc) -> ["Test that read_timer/1 seems to return the correct values."];
-read_timer(suite) -> [];
+%% Test that read_timer/1 seems to return the correct values.
 read_timer(Config) when is_list(Config) ->
     process_flag(scheduler, 1),
     Big = 1 bsl 31,
@@ -237,8 +233,7 @@ read_timer(Config) when is_list(Config) ->
     process_flag(scheduler, 0),
     ok.
 
-read_timer_async(doc) -> ["Test that read_timer/1 seems to return the correct values."];
-read_timer_async(suite) -> [];
+%% Test that read_timer/1 seems to return the correct values.
 read_timer_async(Config) when is_list(Config) ->
     process_flag(scheduler, 1),
     Big = 1 bsl 33,
@@ -269,8 +264,6 @@ read_timer_async(Config) when is_list(Config) ->
     process_flag(scheduler, 0),
     ok.
 
-cleanup(doc) -> [];
-cleanup(suite) -> [];
 cleanup(Config) when is_list(Config) ->
     ?line Mem = mem(),
     %% Timer on dead process
@@ -320,8 +313,6 @@ cleanup(Config) when is_list(Config) ->
     ?line ok.
 
 
-evil_timers(doc) -> [];
-evil_timers(suite) -> [];
 evil_timers(Config) when is_list(Config) ->
     %% Create a composite term consisting of at least:
     %% * externals (remote pids, ports, and refs)
@@ -458,8 +449,6 @@ evil_recv_timeouts(TOs, N, M) ->
 		  ?line evil_recv_timeouts(TOs, N, M)
 	  end.
 
-registered_process(doc) -> [];
-registered_process(suite) -> [];
 registered_process(Config) when is_list(Config) ->
     ?line Mem = mem(),
     %% Cancel

@@ -104,8 +104,8 @@ receive_trace(Config) when is_list(Config) ->
     ?line receive_nothing(),
     ok.
 
-self_send(doc) -> ["Test that traces are generated for messages sent ",
-		    "and received to/from self()."];
+%% Test that traces are generated for messages sent
+%% and received to/from self().
 self_send(Config) when is_list(Config) ->
     ?line Fun =
 	fun(Self, Parent) -> receive
@@ -392,8 +392,7 @@ set_on_first_spawn(Config) when is_list(Config) ->
     ok.
 
 
-system_monitor_args(doc) ->
-    ["Tests arguments to erlang:system_monitor/0-2)"];
+%% Tests arguments to erlang:system_monitor/0,1,2
 system_monitor_args(Config) when is_list(Config) ->
     ?line Self = self(),
     %%
@@ -455,8 +454,7 @@ system_monitor_args(Config) when is_list(Config) ->
     ok.
 
 
-more_system_monitor_args(doc) ->
-    ["Tests arguments to erlang:system_monitor/0-2)"];
+%% Tests arguments to erlang:system_monitor/0,1,2
 more_system_monitor_args(Config) when is_list(Config) ->
     ?line try_l(64000),
     ?line try_l(16#7ffffff),
@@ -502,10 +500,7 @@ start_monitor() ->
     erlang:yield(), % Need to be rescheduled for the trace to take
     ok.
 
-system_monitor_long_schedule(suite) ->
-    [];
-system_monitor_long_schedule(doc) ->
-    ["Tests erlang:system_monitor(Pid, [{long_schedule,Time}])"];
+%% Tests erlang:system_monitor(Pid, [{long_schedule,Time}])
 system_monitor_long_schedule(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
@@ -541,10 +536,7 @@ do_system_monitor_long_schedule() ->
 
 -define(LONG_GC_SLEEP, 670).
 
-system_monitor_long_gc_1(suite) ->
-    [];
-system_monitor_long_gc_1(doc) ->
-    ["Tests erlang:system_monitor(Pid, [{long_gc,Time}])"];
+%% Tests erlang:system_monitor(Pid, [{long_gc,Time}])
 system_monitor_long_gc_1(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     try 
@@ -566,10 +558,7 @@ system_monitor_long_gc_1(Config) when is_list(Config) ->
 	erts_debug:set_internal_state(available_internal_state, false)	
     end.
 
-system_monitor_long_gc_2(suite) ->
-    [];
-system_monitor_long_gc_2(doc) ->
-    ["Tests erlang:system_monitor(Pid, [{long_gc,Time}])"];
+%% Tests erlang:system_monitor(Pid, [{long_gc,Time}])
 system_monitor_long_gc_2(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     try
@@ -659,10 +648,7 @@ long_gc_check(Pid, Time, Result) ->
 	    Result
     end.
 
-system_monitor_large_heap_1(suite) ->
-    [];
-system_monitor_large_heap_1(doc) ->
-    ["Tests erlang:system_monitor(Pid, [{large_heap,Size}])"];
+%% Tests erlang:system_monitor(Pid, [{large_heap,Size}])
 system_monitor_large_heap_1(Config) when is_list(Config) ->
     ?line LoadFun =
 	fun (Size) -> 
@@ -673,10 +659,7 @@ system_monitor_large_heap_1(Config) when is_list(Config) ->
 	end,
     ?line large_heap(LoadFun, false).
 
-system_monitor_large_heap_2(suite) ->
-    [];
-system_monitor_large_heap_2(doc) ->
-    ["Tests erlang:system_monitor(Pid, [{large_heap,Size}])"];
+%% Tests erlang:system_monitor(Pid, [{large_heap,Size}])
 system_monitor_large_heap_2(Config) when is_list(Config) ->
     ?line Parent = self(),
     ?line LoadFun =
@@ -787,7 +770,7 @@ spawn_children(Parent, Number, Result) ->
 	    spawn_children(Parent, Number-1, [Child|Result])
     end.
 
-suspend(doc) -> "Test erlang:suspend/1 and erlang:resume/1.";
+%% Test erlang:suspend/1 and erlang:resume/1.
 suspend(Config) when is_list(Config) ->
     ct:timetrap({minutes,2}),
     ?line Worker = fun_spawn(fun worker/0),
@@ -815,10 +798,6 @@ do_suspend(Pid, N) ->
 
 
 
-mutual_suspend(doc) ->
-    [];
-mutual_suspend(suite) ->
-    [];
 mutual_suspend(Config) when is_list(Config) ->
     ?line TimeoutSecs = 5*60,
     ct:timetrap({seconds, TimeoutSecs}),
@@ -866,10 +845,6 @@ do_mutual_suspend(Pid, N) ->
     ?line true = erlang:resume_process(Pid),
     ?line do_mutual_suspend(Pid, N-1).		
 
-suspend_exit(doc) ->
-    [];
-suspend_exit(suite) ->
-    [];
 suspend_exit(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     rand:seed(exsplus, {4711,17,4711}),
@@ -923,10 +898,6 @@ suspend_exit_work(N) ->
 chk_suspended(P, Bool, Line) ->
     {Bool, Line} = {({status, suspended} == process_info(P, status)), Line}.
 
-suspender_exit(doc) ->
-    [];
-suspender_exit(suite) ->
-    [];
 suspender_exit(Config) when is_list(Config) ->
     ct:timetrap({minutes, 3}),
     ?line P1 = spawn_link(fun () -> receive after infinity -> ok end end),
@@ -1033,10 +1004,6 @@ suspender_exit(Config) when is_list(Config) ->
     ?line exit(P1, bong),
     ?line ok.
 			 
-suspend_system_limit(doc) ->			 
-    [];
-suspend_system_limit(suite) ->
-    [];
 suspend_system_limit(Config) when is_list(Config) ->
     case os:getenv("ERL_EXTREME_TESTING") of
 	"true" ->
@@ -1094,10 +1061,6 @@ resume_from_system_limit(P, N, M) ->
 		    synced = 0,
 		    async_once = 0}).
 
-suspend_opts(doc) ->
-    [];
-suspend_opts(suite) ->
-    [];
 suspend_opts(Config) when is_list(Config) ->
     ct:timetrap({minutes, 3}),
     ?line Self = self(),
@@ -1245,7 +1208,7 @@ repeat_acc(Fun, N, M, Acc) ->
 %% Tests that waiting process can be suspended
 %% (bug in R2D and earlier; see OTP-1488).
 
-suspend_waiting(doc) -> "Test that a waiting process can be suspended.";
+%% Test that a waiting process can be suspended.
 suspend_waiting(Config) when is_list(Config) ->
     ?line Process = fun_spawn(fun process/0),
     ?line receive after 1 -> ok end,
@@ -1254,8 +1217,7 @@ suspend_waiting(Config) when is_list(Config) ->
     ok.
 
 
-new_clear(doc) ->
-    "Test that erlang:trace(new, true, ...) is cleared when tracer dies.";
+%% Test that erlang:trace(new, true, ...) is cleared when tracer dies.
 new_clear(Config) when is_list(Config) ->
     ?line Tracer = spawn(fun receiver/0),
     ?line 0 = erlang:trace(new, true, [send, {tracer, Tracer}]),
@@ -1272,8 +1234,7 @@ new_clear(Config) when is_list(Config) ->
 
 
 
-existing_clear(doc) ->
-    "Test that erlang:trace(all, false, ...) works without tracer.";
+%% Test that erlang:trace(all, false, ...) works without tracer.
 existing_clear(Config) when is_list(Config) ->
     ?line Self = self(),
 
@@ -1289,8 +1250,7 @@ existing_clear(Config) when is_list(Config) ->
     ?line M = N + 1, % Since trace could not be enabled on the tracer.
     ok.
 
-bad_flag(doc) -> "Test that an invalid flag cause badarg";
-bad_flag(suite) -> [];
+%% Test that an invalid flag cause badarg
 bad_flag(Config) when is_list(Config) ->
     %% A bad flag could deadlock the SMP emulator in erts-5.5
     ?line {'EXIT', {badarg, _}} = (catch erlang:trace(new,
@@ -1298,8 +1258,7 @@ bad_flag(Config) when is_list(Config) ->
 						      [not_a_valid_flag])),
     ?line ok.
 
-trace_delivered(doc) -> "Test erlang:trace_delivered/1";
-trace_delivered(suite) -> [];
+%% Test erlang:trace_delivered/1
 trace_delivered(Config) when is_list(Config) ->
     ct:timetrap({minutes, 1}),
     ?line TokLoops = 10000,

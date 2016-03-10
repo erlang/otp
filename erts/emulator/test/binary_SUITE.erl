@@ -129,7 +129,6 @@ copy_server(Parent) ->
 %% Tests list_to_binary/1, binary_to_list/1 and size/1,
 %% using flat lists.
 
-conversions(suite) -> [];
 conversions(Config) when is_list(Config) ->
     ?line test_bin([]),
     ?line test_bin([1]),
@@ -258,7 +257,6 @@ test_deep_bitstr(List) ->
     Bin = list_to_bitstring(List),
     {Bin,bitstring_to_list(Bin)}.
 
-bad_list_to_binary(suite) -> [];
 bad_list_to_binary(Config) when is_list(Config) ->
     ?line test_bad_bin(atom),
     ?line test_bad_bin(42),
@@ -305,7 +303,7 @@ test_bad_bin(List) ->
     {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)),
     {'EXIT',{badarg,_}} = (catch iolist_size(List)).
 
-bad_binary_to_list(doc) -> "Tries binary_to_list/1,3 with bad arguments.";
+%% Tries binary_to_list/1,3 with bad arguments.
 bad_binary_to_list(Config) when is_list(Config) ->
     ?line bad_bin_to_list(fun(X) -> X * 42 end),
 
@@ -327,7 +325,6 @@ bad_bin_to_list(Bin, First, Last) ->
     
 %% Tries to split a binary at all possible positions.
 
-t_split_binary(suite) -> [];
 t_split_binary(Config) when is_list(Config) ->
     ?line L = lists:seq(0, ?heap_binary_size-5), %Heap binary.
     ?line B = list_to_binary(L),
@@ -368,8 +365,7 @@ split(L, B, Pos) when Pos > 0 ->
 split(_L, _B, 0) ->
     ok.
 
-bad_split(doc) -> "Tries split_binary/2 with bad arguments.";
-bad_split(suite) -> [];
+%% Tries split_binary/2 with bad arguments.
 bad_split(Config) when is_list(Config) ->
     GoodBin = list_to_binary([1,2,3]),
     ?line bad_split(GoodBin, -1),
@@ -383,7 +379,7 @@ bad_split(Config) when is_list(Config) ->
 bad_split(Bin, Pos) ->
     {'EXIT',{badarg,_}} = (catch split_binary(Bin, Pos)).
 
-t_hash(doc) -> "Test hash/2 with different type of binaries.";
+%% Test hash/2 with different type of binaries.
 t_hash(Config) when is_list(Config) ->
     test_hash([]),
     test_hash([253]),
@@ -408,8 +404,7 @@ test_hash_1(Bin, Sbin, Unaligned, Hash) when is_function(Hash, 2) ->
 	    ct:fail("Different hash values: ~p, ~p, ~p\n", [H1,H2,H3])
     end.
 
-bad_size(doc) -> "Try bad arguments to size/1.";
-bad_size(suite) -> [];
+%% Try bad arguments to size/1.
 bad_size(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch size(fun(X) -> X + 33 end)),
     ok.
@@ -580,8 +575,7 @@ build_iolist(N0, Base) ->
     end.
 
 
-bad_binary_to_term_2(doc) -> "OTP-4053.";
-bad_binary_to_term_2(suite) -> [];
+%% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->
     ?line {ok, N} = test_server:start_node(plopp, slave, []),
     ?line R = rpc:call(N, erlang, binary_to_term, [<<131,111,255,255,255,0>>]),
@@ -594,7 +588,7 @@ bad_binary_to_term_2(Config) when is_list(Config) ->
     ?line test_server:stop_node(N),
     ok.
 
-bad_binary_to_term(doc) -> "Try bad input to binary_to_term/1.";
+%% Try bad input to binary_to_term/1.
 bad_binary_to_term(Config) when is_list(Config) ->
     ?line bad_bin_to_term(an_atom),
     ?line bad_bin_to_term({an,tuple}),
@@ -615,7 +609,7 @@ bad_bin_to_term(BadBin) ->
 bad_bin_to_term(BadBin,Opts) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
-safe_binary_to_term2(doc) -> "Test safety options for binary_to_term/2";
+%% Test safety options for binary_to_term/2
 safe_binary_to_term2(Config) when is_list(Config) ->
     ?line bad_bin_to_term(<<131,100,0,14,"undefined_atom">>, [safe]),
     ?line bad_bin_to_term(<<131,100,0,14,"other_bad_atom">>, [safe]),
@@ -631,7 +625,6 @@ safe_binary_to_term2(Config) when is_list(Config) ->
 
 %% Tests bad input to binary_to_term/1.
 
-bad_terms(suite) -> [];
 bad_terms(Config) when is_list(Config) ->
     ?line test_terms(fun corrupter/1),
     {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,0,11,22,33>>)),
@@ -695,7 +688,6 @@ corrupter(Bin, Pos) when Pos >= 0 ->
 corrupter(_Bin, _) ->
     ok.
 
-more_bad_terms(suite) -> [];
 more_bad_terms(Config) when is_list(Config) ->
     ?line Data = proplists:get_value(data_dir, Config),
     ?line BadFile = filename:join(Data, "bad_binary"),
@@ -934,8 +926,7 @@ otp_6817_try_bin(Bin) ->
     %% Will crash if the bug is present.
     erlang:garbage_collect().
 
-otp_8117(doc) -> "Some bugs in binary_to_term when 32-bit integers are negative.";
-otp_8117(suite) -> [];
+%% Some bugs in binary_to_term when 32-bit integers are negative.
 otp_8117(Config) when is_list(Config) ->
     [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',named_fun,list,tuple],
 				   N <- lists:seq(0,31)],
@@ -959,8 +950,7 @@ otp_8117_do(tuple,Neg) ->
     ?line bad_bin_to_term(<<131,104,2,105,Neg:32,97,11,97,12,97,13,97,14>>).
     
 
-ordering(doc) -> "Tests ordering of binaries.";
-ordering(suite) -> [];
+%% Tests ordering of binaries.
 ordering(Config) when is_list(Config) ->
     B1 = list_to_binary([7,8,9]),
     B2 = make_sub_binary([1,2,3,4]),

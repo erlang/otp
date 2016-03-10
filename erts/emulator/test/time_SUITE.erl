@@ -103,10 +103,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-local_to_univ_utc(suite) ->
-    [];
-local_to_univ_utc(doc) ->
-    ["Test that DST = true on timezones without DST is ignored"];
+%% Test that DST = true on timezones without DST is ignored
 local_to_univ_utc(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
@@ -315,10 +312,7 @@ effective_timezone1(_) ->
 %% Test (the bif) os:timestamp/0, which is something quite like, but not
 %% similar to erlang:now...
 
-timestamp(suite) ->
-    [];
-timestamp(doc) ->
-    ["Test that os:timestamp works."];
+%% Test that os:timestamp works.
 timestamp(Config) when is_list(Config) ->
     try
 	repeating_timestamp_check(100000)

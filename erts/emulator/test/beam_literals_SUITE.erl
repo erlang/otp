@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-putting(doc) -> "Test creating lists and tuples containing big number literals.";
+%% Test creating lists and tuples containing big number literals.
 putting(Config) when is_list(Config) ->
     -773973888575883407313908 = chksum(putting1(8987697898797)).
 
@@ -64,15 +64,14 @@ putting1(X) ->
      [X|349873987387373],
      [329878349873|-387394729872], -773973937933873929749873}.
 
-matching_bigs(doc) -> "Test matching of a few big number literals (in Beam,"
-		      "select_val/3 will NOT be used).";
+%% Test matching of a few big number literals (in Beam select_val/3 will NOT be used).
 matching_bigs(Config) when is_list(Config) ->
     a = matching1(3972907842873739),
     b = matching1(-389789298378939783333333333333333333784),
     other = matching1(3141699999999999999999999999999999999),
     other = matching1(42).
 
-matching_smalls(doc) -> "Test matching small numbers (both positive and negative).";
+%% Test matching small numbers (both positive and negative).
 matching_smalls(Config) when is_list(Config) ->
     ?line a = m_small(-42),
     ?line b = m_small(0),
@@ -90,9 +89,8 @@ m_small(-13) -> d;
 m_small(337848) -> e;
 m_small(_) -> other.
 
-matching_smalls_jt(doc) ->
-    "Test matching small numbers (both positive and negative). "
-	"Make sure that a jump table is used.";
+%% Test matching small numbers (both positive and negative).
+%% Make sure that a jump table is used.
 matching_smalls_jt(Config) when is_list(Config) ->
     ?line a = m_small_jt(-2),
     ?line b = m_small_jt(-1),
@@ -117,8 +115,7 @@ matching1(-389789298378939783333333333333333333784) -> b;
 matching1(_) -> other.
 
 
-matching_more_bigs(doc) -> "Test matching of a big number literals (in Beam,"
-		      "a select_val/3 instruction will be used).";
+%% Test matching of a big number literals (in Beam, a select_val/3 instruction will be used)
 matching_more_bigs(Config) when is_list(Config) ->
     a = matching2(-999766349740978337),
     b = matching2(9734097866575478),
@@ -137,8 +134,7 @@ matching2(13987294872948990) -> d;
 matching2(777723896192459245) -> e;
 matching2(_) -> other.
 
-matching_bigs_and_smalls(doc) -> "Test matching of a mix of big numbers and literals.";
-matching_bigs_and_smalls(suite) -> [];
+%% Test matching of a mix of big numbers and literals.
 matching_bigs_and_smalls(Config) when is_list(Config) ->
     a = matching3(38472928723987239873873),
     b = matching3(0),
@@ -159,7 +155,7 @@ matching3(42) -> e;
 matching3(-4533) -> f;
 matching3(_) -> other.
 
-badmatch(doc) -> "Test literal badmatches with big number and floats.";
+%% Test literal badmatches with big number and floats.
 badmatch(Config) when is_list(Config) ->
     %% We are satisfied if we can load this module and run it.
     Big = id(32984798729847892498297824872982972978239874),
@@ -210,8 +206,7 @@ try_case_clause_big() ->
 	    error
     end.
 
-receiving(doc) -> "Test receive with a big number literal (more than 27 bits, "
-		      "less than 32 bits).";
+%% Test receive with a big number literal (more than 27 bits, less than 32 bits).
 receiving(Config) when is_list(Config) ->
     Self = self(),
     spawn(fun() -> Self ! here_is_a_message end),
@@ -222,7 +217,7 @@ receiving(Config) when is_list(Config) ->
 		 timeout
 	 end.
 
-literal_type_tests(doc) -> "Test type tests on literal values.";
+%% Test type tests on literal values.
 literal_type_tests(Config) when is_list(Config) ->
     %% Generate an Erlang module with all different type of type tests.
     ?line Tests = make_test([{T, L} || T <- type_tests(), L <- literals()]),

@@ -239,8 +239,7 @@ gc() ->
     gc1().
 gc1() -> ok.
 
-t_check_process_code_ets(doc) ->
-    "Test check_process_code/2 in combination with a fun obtained from an ets table.";
+%% Test check_process_code/2 in combination with a fun obtained from an ets table.
 t_check_process_code_ets(Config) when is_list(Config) ->
     case test_server:is_native(?MODULE) of
 	true ->

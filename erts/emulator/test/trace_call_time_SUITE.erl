@@ -94,10 +94,7 @@ all() ->
 not_run(Config) when is_list(Config) ->
     {skipped,"Native code"}.
 
-basic(suite) ->
-    [];
-basic(doc) ->
-    ["Tests basic call count trace"];
+%% Tests basic call time trace
 basic(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 1000,
@@ -123,10 +120,7 @@ basic(Config) when is_list(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-on_and_off(suite) ->
-    [];
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off"];
+%% "Tests turning trace parameters on and off
 on_and_off(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 100,
@@ -164,10 +158,7 @@ on_and_off(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-info(suite) ->
-    [];
-info(doc) ->
-    ["Tests the trace_info BIF"];
+%% Tests the trace_info BIF
 info(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     %%
@@ -188,10 +179,7 @@ info(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pause_and_restart(suite) ->
-    [];
-pause_and_restart(doc) ->
-    ["Tests pausing and restarting call time counters"];
+%% Tests pausing and restarting call time counters
 pause_and_restart(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 100,
@@ -216,10 +204,7 @@ pause_and_restart(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-scheduling(suite) ->
-    [];
-scheduling(doc) ->
-    ["Tests in/out scheduling of call time counters"];
+%% Tests in/out scheduling of call time counters
 scheduling(Config) when is_list(Config) ->
     ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M  = 1000000,
@@ -252,10 +237,7 @@ scheduling(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-combo(suite) ->
-    [];
-combo(doc) ->
-    ["Tests combining local call trace and meta trace with call time trace"];
+%% "Tests combining local call trace and meta trace with call time trace
 combo(Config) when is_list(Config) ->
     ?line Self = self(),
     ?line Nbc = 3,
@@ -366,10 +348,7 @@ combo(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-bif(suite) ->
-    [];
-bif(doc) ->
-    ["Tests tracing of bifs"];
+%% Tests tracing of bifs
 bif(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 1000000,
@@ -398,10 +377,7 @@ bif(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-nif(suite) ->
-    [];
-nif(doc) ->
-    ["Tests tracing of nifs"];
+%% Tests tracing of nifs
 nif(Config) when is_list(Config) ->
     load_nif(Config),
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
@@ -424,10 +400,7 @@ nif(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-called_function(suite) ->
-    [];
-called_function(doc) ->
-    ["Tests combining nested function calls and that the time accumulates to the right function"];
+%% Tests combining nested function calls and that the time accumulates to the right function
 called_function(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 2100,

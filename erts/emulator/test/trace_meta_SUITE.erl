@@ -94,55 +94,35 @@ end.
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-basic(suite) ->
-    [];
-basic(doc) ->
-    ["Tests basic meta trace"];
+%% Tests basic meta trace
 basic(Config) when is_list(Config) ->
     basic_test().
 
-return(suite) ->
-    [];
-return(doc) ->
-    ["Tests return trace"];
+%% Tests return trace
 return(Config) when is_list(Config) ->
     return_test().
  
-on_and_off(suite) ->
-    [];
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off"];
+%% Tests turning trace parameters on and off
 on_and_off(Config) when is_list(Config) ->
     on_and_off_test().
  
-stack_grow(doc) ->
-    ["Tests the stack growth during return traces"];
+%% Tests the stack growth during return traces
 stack_grow(Config) when is_list(Config) ->
     stack_grow_test().
  
-info(doc) ->
-    ["Tests the trace_info BIF"];
+%% Tests the trace_info BIF
 info(Config) when is_list(Config) ->
     info_test().
  
-tracer(suite) ->
-    [];
-tracer(doc) ->
-    ["Tests stopping and changing tracer process"];
+%% Tests stopping and changing tracer process
 tracer(Config) when is_list(Config) ->
     tracer_test().
 
-combo(suite) ->
-    [];
-combo(doc) ->
-    ["Tests combining local call trace with meta trace"];
+%% Tests combining local call trace with meta trace
 combo(Config) when is_list(Config) ->
     combo_test().
 
-nosilent(suite) ->
-    [];
-nosilent(doc) ->
-    ["Tests that meta trace is not silenced by the silent process flag"];
+%% Tests that meta trace is not silenced by the silent process flag
 nosilent(Config) when is_list(Config) ->
     nosilent_test().
 

@@ -45,9 +45,7 @@ all() ->
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa].
 
-bad_apply(doc) ->
-    "Test that the correct EXIT code is returned for all types of bad funs.";
-bad_apply(suite) -> [];
+%% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->
     ?line bad_apply_fc(42, [0]),
     ?line bad_apply_fc(xx, [1]),
@@ -85,9 +83,7 @@ bad_apply_badarg(Fun, Args) ->
 	    ct:fail({bad_result, Other})
     end.
 
-bad_fun_call(doc) ->
-    "Try directly calling bad funs.";
-bad_fun_call(suite) -> [];
+%% Try directly calling bad funs.
 bad_fun_call(Config) when is_list(Config) ->
     ?line bad_call_fc(42),
     ?line bad_call_fc(xx),
@@ -259,7 +255,7 @@ copy_term(Term) ->
 make_fun(X) ->
     fun() -> X end.
 	    
-ordering(doc) -> "Tests ordering of funs.";
+%% Tests ordering of funs.
 ordering(Config) when is_list(Config) ->
     F1 = make_fun(1, 2),
     F1_copy = copy_term(F1),
@@ -386,8 +382,7 @@ ordering(Config) when is_list(Config) ->
 make_fun(X, Y) ->
     fun(A) -> A*X+Y end.
 
-fun_to_port(doc) -> "Try sending funs to ports (should fail).";
-fun_to_port(suite) -> [];
+%% Try sending funs to ports (should fail).
 fun_to_port(Config) when is_list(Config) ->
     ?line fun_to_port(Config, xxx),
     ?line fun_to_port(Config, fun() -> 42 end),
@@ -417,8 +412,7 @@ build_io_list(N) ->
 	1 -> [7,L|L]
     end.
 
-t_hash(doc) -> "Test the hash/2 BIF on funs.";
-t_hash(suite) -> [];
+%% Test the hash/2 BIF on funs.
 t_hash(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
@@ -445,8 +439,7 @@ t_hash(Config) when is_list(Config) ->
 hash(Term) ->
     erlang:hash(Term, 16#7ffffff).
 
-t_phash(doc) -> "Test the phash/2 BIF on funs.";
-t_phash(suite) -> [];
+%% Test the phash/2 BIF on funs.
 t_phash(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
@@ -474,8 +467,7 @@ t_phash(Config) when is_list(Config) ->
 phash(Term) ->
     erlang:phash(Term, 16#7ffffff).
 
-t_phash2(doc) -> "Test the phash2/2 BIF on funs.";
-t_phash2(suite) -> [];
+%% Test the phash2/2 BIF on funs.
 t_phash2(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
@@ -506,8 +498,7 @@ phash2(Term) ->
 make_fun(X, Y, Z) ->
     fun() -> {X,Y,Z} end.
 
-md5(doc) -> "Test that MD5 bifs reject funs properly.";
-md5(suite) -> [];
+%% Test that MD5 bifs reject funs properly.
 md5(Config) when is_list(Config) ->
     _ = size(erlang:md5_init()),
 

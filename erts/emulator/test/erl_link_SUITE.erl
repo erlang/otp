@@ -104,8 +104,7 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 
-links(doc) -> ["Tests node local links"];
-links(suite) -> [];
+%% Tests node local links
 links(Config) when is_list(Config) ->
     ?line common_link_test(node(), node()),
     ?line true = link(self()),
@@ -113,8 +112,7 @@ links(Config) when is_list(Config) ->
     ?line true = unlink(self()),
     ?line ok.
 
-dist_links(doc) -> ["Tests distributed links"];
-dist_links(suite) -> [];
+%% Tests distributed links
 dist_links(Config) when is_list(Config) ->
     ?line [NodeName] = get_names(1, dist_link),
     ?line {ok, Node} = start_node(NodeName),
@@ -175,8 +173,7 @@ common_link_test(NodeA, NodeB) ->
     ?line check_unlink(TP3, TP2),
     ?line ok.
 
-monitor_nodes(doc) -> ["Tests monitor of nodes"];
-monitor_nodes(suite) -> [];
+%% Tests monitor of nodes
 monitor_nodes(Config) when is_list(Config) ->
     ?line [An, Bn, Cn, Dn] = get_names(4, dist_link),
     ?line {ok, A} = start_node(An),
@@ -230,8 +227,7 @@ monitor_nodes(Config) when is_list(Config) ->
     ?line ok.
     
 
-process_monitors(doc) -> ["Tests node local process monitors"];
-process_monitors(suite) -> [];
+%% Tests node local process monitors
 process_monitors(Config) when is_list(Config) ->
     ?line common_process_monitors(node(), node()),
     ?line Mon1 = erlang:monitor(process,self()),
@@ -251,8 +247,7 @@ process_monitors(Config) when is_list(Config) ->
 		  ?line ok
 	  end.
 
-dist_process_monitors(doc) -> ["Tests distributed process monitors"];
-dist_process_monitors(suite) -> [];
+%% Tests distributed process monitors
 dist_process_monitors(Config) when is_list(Config) -> 
     ?line [Name] = get_names(1,dist_process_monitors),
     ?line {ok, Node} = start_node(Name),
@@ -328,10 +323,8 @@ run_common_process_monitors(TP1, TP2) ->
     ?line ok.
     
 
-busy_dist_port_monitor(doc) -> ["Tests distributed monitor/2, demonitor/1, "
-				"and 'DOWN' message over busy distribution "
-				"port"];
-busy_dist_port_monitor(suite) -> [];
+%% Tests distributed monitor/2, demonitor/1, and 'DOWN' message
+%% over busy distribution port
 busy_dist_port_monitor(Config) when is_list(Config) ->
 
     ?line Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of
@@ -373,9 +366,8 @@ busy_dist_port_monitor(Config) when is_list(Config) ->
     ?line stop_busy_dist_port_tracer(Tracer),
     ?line ok.
 
-busy_dist_port_link(doc) -> ["Tests distributed link/1, unlink/1, and 'EXIT'",
-			     " message over busy distribution port"];
-busy_dist_port_link(suite) -> [];
+%% Tests distributed link/1, unlink/1, and 'EXIT'
+%% message over busy distribution port
 busy_dist_port_link(Config) when is_list(Config) ->
     ?line Tracer = case os:getenv("TRACE_BUSY_DIST_PORT") of
 		       "true" -> start_busy_dist_port_tracer();
@@ -421,13 +413,9 @@ busy_dist_port_link(Config) when is_list(Config) ->
     ?line ok.
 
 
-otp_5772_link(doc) -> [];
-otp_5772_link(suite) -> [];
 otp_5772_link(Config) when is_list(Config) ->
     ?line otp_5772_link_test(node()).
 
-otp_5772_dist_link(doc) -> [];
-otp_5772_dist_link(suite) -> [];
 otp_5772_dist_link(Config) when is_list(Config) ->
     ?line [An] = get_names(1, otp_5772_dist_link),
     ?line {ok, A} = start_node(An),
@@ -457,13 +445,9 @@ otp_5772_link_test(Node) ->
     ?line process_flag(priority, Prio),
     ?line ok.
 
-otp_5772_monitor(doc) -> [];
-otp_5772_monitor(suite) -> [];
 otp_5772_monitor(Config) when is_list(Config) ->
     ?line otp_5772_monitor_test(node()).
 
-otp_5772_dist_monitor(doc) -> [];
-otp_5772_dist_monitor(suite) -> [];
 otp_5772_dist_monitor(Config) when is_list(Config) ->
     ?line [An] = get_names(1, otp_5772_dist_monitor),
     ?line {ok, A} = start_node(An),

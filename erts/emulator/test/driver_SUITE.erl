@@ -179,7 +179,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-outputv_errors(doc) -> "Test sending bad types to port with an outputv-capable driver.";
+%% Test sending bad types to port with an outputv-capable driver.
 outputv_errors(Config) when is_list(Config) ->
     ?line Path = proplists:get_value(data_dir, Config),
     ?line erl_ddll:start(),
@@ -262,7 +262,7 @@ build_iolist(N0, Base) ->
 	    [47,L,L|Seq]
     end.
 
-outputv_echo(doc) -> ["Test echoing data with a driver that supports outputv."];
+%% Test echoing data with a driver that supports outputv.
 outputv_echo(Config) when is_list(Config) ->
     ct:timetrap({minutes, 10}),
     Name = 'outputv_drv',
@@ -375,7 +375,7 @@ compare(Got, Expected) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-timer_measure(doc) -> ["Check that timers time out in good time."];
+%% Check that timers time out in good time.
 timer_measure(Config) when is_list(Config) ->
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
@@ -405,7 +405,7 @@ try_timeouts(Port, Timeout) ->
 	    ?line ct:fail("driver failed to timeout")
     end.
 
-timer_cancel(doc) -> ["Try cancelling timers set in a driver."];
+%% Try cancelling timers set in a driver.
 timer_cancel(Config) when is_list(Config) ->
     Name = 'timer_drv',
     ?line Port = start_driver(Config, Name, false),
@@ -514,9 +514,8 @@ try_change_timer(Port, Timeout) ->
 %% 		Queue test suites
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-queue_echo(doc) ->
-    ["1) Queue up data in a driver that uses the full driver_queue API to do this."
-     "2) Get the data back, a random amount at a time."];
+%% 1) Queue up data in a driver that uses the full driver_queue API to do this.
+%% 2) Get the data back, a random amount at a time.
 queue_echo(Config) when is_list(Config) ->
     case test_server:is_native(?MODULE) of
 	true -> exit(crashes_native_code);
@@ -708,10 +707,6 @@ read_head(Port, Size) ->
     erlang:port_control(Port, ?READ_HEAD, <<Size:32>>).
 
 
-driver_unloaded(doc) ->
-    [];
-driver_unloaded(suite) ->
-    [];
 driver_unloaded(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Drv = timer_drv,
@@ -736,8 +731,6 @@ driver_unloaded(Config) when is_list(Config) ->
 	  end.
 					 
 
-io_ready_exit(doc) -> [];
-io_ready_exit(suite) -> [];
 io_ready_exit(Config) when is_list(Config) ->
     ?line OTE = process_flag(trap_exit, true),
     ?line Test = self(),
@@ -796,8 +789,6 @@ io_ready_exit(Config) when is_list(Config) ->
 -define(CHKIO_SMP_SELECT, 7).
 -define(CHKIO_DRV_USE, 8).
 
-use_fallback_pollset(doc) -> [];
-use_fallback_pollset(suite) -> [];
 use_fallback_pollset(Config) when is_list(Config) ->
     FlbkFun = fun () ->
 		      ChkIoDuring = erlang:system_info(check_io),
@@ -837,29 +828,21 @@ use_fallback_pollset(Config) when is_list(Config) ->
 	      _ -> ?line OkRes
 	  end.
 
-bad_fd_in_pollset(doc) -> [];
-bad_fd_in_pollset(suite) -> [];
 bad_fd_in_pollset(Config) when is_list(Config) ->
     ?line chkio_test_fini(chkio_test(chkio_test_init(Config),
 				     ?CHKIO_BAD_FD_IN_POLLSET,
 				     fun () -> ?line sleep(1000) end)).
 
-driver_event(doc) -> [];
-driver_event(suite) -> [];
 driver_event(Config) when is_list(Config) ->
     ?line chkio_test_fini(chkio_test(chkio_test_init(Config),
 				     ?CHKIO_DRIVER_EVENT,
 				     fun () -> ?line sleep(1000) end)).
 
-fd_change(doc) -> [];
-fd_change(suite) -> [];
 fd_change(Config) when is_list(Config) ->
     ?line chkio_test_fini(chkio_test(chkio_test_init(Config),
 				     ?CHKIO_FD_CHANGE,
 				     fun () -> ?line sleep(1000) end)).
 
-steal_control(doc) -> [];
-steal_control(suite) -> [];
 steal_control(Config) when is_list(Config) ->
     ?line chkio_test_fini(case chkio_test_init(Config) of
 			      {erts_poll_info, _} = Hndl ->
@@ -1038,11 +1021,9 @@ get_stable_check_io_info() ->
 	    get_stable_check_io_info()
     end.
 
-otp_6602(doc) -> ["Missed port lock when stealing control of fd from a "
-		  "driver that didn't use the same lock. The lock checker "
-		  "used to trigger on this and dump core."];
-otp_6602(suite) ->
-    [];
+%% Missed port lock when stealing control of fd from a
+%% driver that didn't use the same lock. The lock checker
+%% used to trigger on this and dump core.
 otp_6602(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(Config),
     ?line Done = make_ref(),
@@ -1084,24 +1065,12 @@ otp_6602(Config) when is_list(Config) ->
 
 -define(EXPECTED_SYSTEM_INFO_NAMES, ?EXPECTED_SYSTEM_INFO_NAMES4).
 
-'driver_system_info_base_ver'(doc) ->
-    [];
-'driver_system_info_base_ver'(suite) ->
-    [];
 'driver_system_info_base_ver'(Config) when is_list(Config) ->
     ?line driver_system_info_test(Config, sys_info_base_drv).
 
-'driver_system_info_prev_ver'(doc) ->
-    [];
-'driver_system_info_prev_ver'(suite) ->
-    [];
 'driver_system_info_prev_ver'(Config) when is_list(Config) ->
     ?line driver_system_info_test(Config, sys_info_prev_drv).
 
-driver_system_info_current_ver(doc) ->    
-    [];
-driver_system_info_current_ver(suite) ->
-    [];
 driver_system_info_current_ver(Config) when is_list(Config) ->
     ?line driver_system_info_test(Config, sys_info_curr_drv).
 
@@ -1205,10 +1174,7 @@ check_si_res(Unexpected) ->
 -define(MON_OP_MONITOR_ME_LATER,4).
 -define(MON_OP_DO_DELAYED_MONITOR,5).
 
-driver_monitor(suite) ->
-    [];
-driver_monitor(doc) ->    
-    ["Test monitoring of processes from drivers"];
+%% Test monitoring of processes from drivers
 driver_monitor(Config) when is_list(Config) ->
     ?line Name = monitor_drv,
     ?line Port = start_driver(Config, Name, false),
@@ -1421,48 +1387,30 @@ ioq_exit_test(Config, TestNo) ->
 	      erl_ddll:unload_driver(Drv)
 	  end.
 
-ioq_exit_ready_input(doc) -> [];
-ioq_exit_ready_input(suite) -> [];
 ioq_exit_ready_input(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_INPUT).
 
-ioq_exit_ready_output(doc) -> [];
-ioq_exit_ready_output(suite) -> [];
 ioq_exit_ready_output(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_OUTPUT).
 
-ioq_exit_timeout(doc) -> [];
-ioq_exit_timeout(suite) -> [];
 ioq_exit_timeout(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_TIMEOUT).
 
-ioq_exit_ready_async(doc) -> [];
-ioq_exit_ready_async(suite) -> [];
 ioq_exit_ready_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_ASYNC).
 
-ioq_exit_event(doc) -> [];
-ioq_exit_event(suite) -> [];
 ioq_exit_event(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_EVENT).
 
-ioq_exit_ready_input_async(doc) -> [];
-ioq_exit_ready_input_async(suite) -> [];
 ioq_exit_ready_input_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_INPUT_ASYNC).
 
-ioq_exit_ready_output_async(doc) -> [];
-ioq_exit_ready_output_async(suite) -> [];
 ioq_exit_ready_output_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_READY_OUTPUT_ASYNC).
 
-ioq_exit_timeout_async(doc) -> [];
-ioq_exit_timeout_async(suite) -> [];
 ioq_exit_timeout_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_TIMEOUT_ASYNC).
 
-ioq_exit_event_async(doc) -> [];
-ioq_exit_event_async(suite) -> [];
 ioq_exit_event_async(Config) when is_list(Config) ->
     ioq_exit_test(Config, ?IOQ_EXIT_EVENT_ASYNC).
 
@@ -1481,33 +1429,21 @@ vsn_mismatch_test(Config, LoadResult) ->
 		  ?line ok
 	  end.
 
-zero_extended_marker_garb_drv(doc) -> [];
-zero_extended_marker_garb_drv(suite) -> [];
 zero_extended_marker_garb_drv(Config) when is_list(Config) ->
     vsn_mismatch_test(Config, {error, driver_incorrect_version}).
 
-invalid_extended_marker_drv(doc) -> [];
-invalid_extended_marker_drv(suite) -> [];
 invalid_extended_marker_drv(Config) when is_list(Config) ->
     vsn_mismatch_test(Config, {error, driver_incorrect_version}).
 
-larger_major_vsn_drv(doc) -> [];
-larger_major_vsn_drv(suite) -> [];
 larger_major_vsn_drv(Config) when is_list(Config) ->
     vsn_mismatch_test(Config, {error, driver_incorrect_version}).
 
-larger_minor_vsn_drv(doc) -> [];
-larger_minor_vsn_drv(suite) -> [];
 larger_minor_vsn_drv(Config) when is_list(Config) ->
     vsn_mismatch_test(Config, {error, driver_incorrect_version}).
 
-smaller_major_vsn_drv(doc) -> [];
-smaller_major_vsn_drv(suite) -> [];
 smaller_major_vsn_drv(Config) when is_list(Config) ->
     vsn_mismatch_test(Config, {error, driver_incorrect_version}).
 
-smaller_minor_vsn_drv(doc) -> [];
-smaller_minor_vsn_drv(suite) -> [];
 smaller_minor_vsn_drv(Config) when is_list(Config) ->
     DrvVsnStr = erlang:system_info(driver_version),
     case drv_vsn_str2tup(DrvVsnStr) of
@@ -1522,8 +1458,6 @@ smaller_minor_vsn_drv(Config) when is_list(Config) ->
 -define(PEEK_NONXQ_TEST, 0).
 -define(PEEK_NONXQ_WAIT, 1).
 
-peek_non_existing_queue(doc) -> [];
-peek_non_existing_queue(suite) -> [];
 peek_non_existing_queue(Config) when is_list(Config) ->
     ?line OTE = process_flag(trap_exit, true),
     ?line Drv = peek_non_existing_queue_drv,
@@ -1574,10 +1508,6 @@ peek_non_existing_queue(Config) when is_list(Config) ->
 	      erl_ddll:unload_driver(Drv)
 	  end.    
 
-otp_6879(doc) ->
-    [];
-otp_6879(suite) ->
-    [];
 otp_6879(Config) when is_list(Config) ->
     ?line Drv = 'otp_6879_drv',
     ?line Parent = self(),
@@ -1627,10 +1557,6 @@ otp_6879_call(Port, Data, N) ->
 	BadData -> {mismatch, Data, BadData}
     end.
 
-caller(doc) ->
-    [];
-caller(suite) ->
-    [];
 caller(Config) when is_list(Config) ->
     ?line run_caller_test(Config, false),
     ?line run_caller_test(Config, true).
@@ -1681,10 +1607,7 @@ chk_caller(Port, Callback, ExpectedCaller) ->
 	    ExpectedCaller = Caller
     end.
 
-many_events(suite) ->
-    [];
-many_events(doc) ->
-    ["Check that many simultaneously signalled events work (win32)"];
+%% Check that many simultaneously signalled events work (win32)
 many_events(Config) when is_list(Config) ->
     ?line Name = 'many_events_drv',
     ?line Port = start_driver(Config, Name, false),
@@ -1704,10 +1627,6 @@ many_events(Config) when is_list(Config) ->
     ?line ok.
 	     
 
-missing_callbacks(doc) ->
-    [];
-missing_callbacks(suite) ->
-    [];
 missing_callbacks(Config) when is_list(Config) ->
     ?line Name = 'missing_callback_drv',
     ?line Port = start_driver(Config, Name, false),
@@ -1724,10 +1643,7 @@ missing_callbacks(Config) when is_list(Config) ->
     ?line stop_driver(Port, Name),
     ?line ok.
 
-smp_select(doc) ->
-    ["Test concurrent calls to driver_select."];
-smp_select(suite) ->
-    [];
+%% Test concurrent calls to driver_select.
 smp_select(Config) when is_list(Config) -> 
     case os:type() of
 	{win32,_} -> {skipped, "Test not implemented for this OS"};
@@ -1783,10 +1699,7 @@ smp_select_wait(Pids, TimeoutMsg) ->
     end.
 
 
-driver_select_use(doc) ->
-    ["Test driver_select() with new ERL_DRV_USE flag."];
-driver_select_use(suite) ->
-    [];
+%% Test driver_select() with new ERL_DRV_USE flag.
 driver_select_use(Config) when is_list(Config) -> 
     case os:type() of
 	{win32,_} -> {skipped, "Test not implemented for this OS"};

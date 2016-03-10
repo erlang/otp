@@ -62,7 +62,6 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.
 
-io_to_busy(suite) -> [];
 io_to_busy(Config) when is_list(Config) ->
     ct:timetrap({seconds, 30}),
 
@@ -114,7 +113,6 @@ forget(_) ->
 %% Test the interaction of busy ports and message sending.
 %% This used to cause the wrong message to be received.
 
-message_order(suite) -> {req, dynamic_loading};
 message_order(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
 
@@ -146,8 +144,6 @@ send_to_busy_1(Parent) ->
     end.
 
 %% Test the bif send/3
-send_3(suite) -> {req,dynamic_loading};
-send_3(doc) -> ["Test the BIF send/3"];
 send_3(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     %%
@@ -165,8 +161,6 @@ send_3(Config) when is_list(Config) ->
     ok.
 
 %% Test the erlang:system_monitor(Pid, [busy_port])
-system_monitor(suite) -> {req,dynamic_loading};
-system_monitor(doc) -> ["Test erlang:system_monitor({Pid,[busy_port]})."];
 system_monitor(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     ?line Self = self(),
@@ -222,7 +216,6 @@ rec(Tag) ->
 %%
 %% tests that the suspended process is killed if the port is killed.
 
-no_trap_exit(suite) -> [];
 no_trap_exit(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     ?line process_flag(trap_exit, true),
@@ -246,7 +239,6 @@ no_trap_exit(Config) when is_list(Config) ->
 %% The same scenario as above, but the port has been explicitly
 %% unlinked from the process.
 
-no_trap_exit_unlinked(suite) -> [];
 no_trap_exit_unlinked(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     ?line process_flag(trap_exit, true),
@@ -291,7 +283,6 @@ no_trap_exit_process(ResultTo, Link, Config) ->
 %% tests that the suspended process is scheduled runnable and
 %% receives an 'EXIT' message if the port is killed.
 
-trap_exit(suite) -> [];
 trap_exit(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     ?line Pid = fun_spawn(fun busy_port_exit_process/2, [self(), Config]),
@@ -332,7 +323,6 @@ busy_port_exit_process(ResultTo, Config) ->
 %% This should work even if some of the processes have terminated
 %% in the meantime.
 
-multiple_writers(suite) -> [];
 multiple_writers(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
     ?line start_busy_driver(Config),

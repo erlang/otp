@@ -243,9 +243,8 @@ slow_writes(Config) when is_list(Config) ->
     ping(Config, [10], 2, "-s2", []),
     ok.
 
-bad_packet(doc) ->
-    ["Test that we get {'EXIT', Port, einval} if we try to send a bigger "
-     "packet than the packet header allows."];
+%% Test that we get {'EXIT', Port, einval} if we try to send a bigger
+%% packet than the packet header allows.
 bad_packet(Config) when is_list(Config) ->
     PortTest = port_test(Config),
     process_flag(trap_exit, true),
@@ -454,7 +453,6 @@ wait_for(Pids) ->
 %% Tests starting port programs that terminate by themselves.
 %% This used to cause problems on Windows.
 
-dying_port(suite) -> [];
 dying_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     process_flag(trap_exit, true),
@@ -501,7 +499,6 @@ make_dying_port(Config) when is_list(Config) ->
 %%
 %% This testcase works on Unix, but is not very useful.
 
-port_program_with_path(suite) -> [];
 port_program_with_path(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     DataDir = proplists:get_value(data_dir, Config),
@@ -543,7 +540,6 @@ port_program_with_path(Config) when is_list(Config) ->
 
 %% Tests that files can be read using open_port(Filename, [in]).
 %% This used to fail on Windows.
-open_input_file_port(suite) -> [];
 open_input_file_port(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     
@@ -563,7 +559,6 @@ open_input_file_port(Config) when is_list(Config) ->
     ok.
 
 %% Tests that files can be written using open_port(Filename, [out]).
-open_output_file_port(suite) -> [];
 open_output_file_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -584,7 +579,6 @@ open_output_file_port(Config) when is_list(Config) ->
     ok.
 
 %% Tests that all appropriate fd's have been closed in the port program
-count_fds(suite) -> [];
 count_fds(Config) when is_list(Config) ->
     case os:type() of
         {unix, _} ->
@@ -620,7 +614,6 @@ count_fds(Config) when is_list(Config) ->
 %% that we get the same number of ports every time.
 %%
 
-iter_max_ports(suite) -> [];
 iter_max_ports(Config) when is_list(Config) ->
     %% The child_setup program might dump core if we get out of memory.
     %% This is hard to do anything about and is harmless. We run this test
@@ -716,7 +709,6 @@ open_ports(Name, Settings) ->
 
 %% Tests that exit(Port, Term) works (has been known to crash the emulator).
 
-t_exit(suite) -> [];
 t_exit(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = fun_spawn(fun suicide_port/1, [Config]),
@@ -733,13 +725,9 @@ suicide_port(Config) when is_list(Config) ->
     receive after infinity -> ok end.
 
 
-tps_16_bytes(doc) -> "";
-tps_16_bytes(suite) -> [];
 tps_16_bytes(Config) when is_list(Config) ->
     tps(16, Config).
 
-tps_1K(doc) -> "";
-tps_1K(suite) -> [];
 tps_1K(Config) when is_list(Config) ->
     tps(1024, Config).
 
@@ -807,11 +795,7 @@ line(Config) when is_list(Config) ->
     bad_argument(Config, [{packet, 5}, {line, 5}]),
     ok.
 
-%%% Redirection of stderr test
-stderr_to_stdout(suite) ->
-    [];
-stderr_to_stdout(doc) ->
-    "Test that redirection of standard error to standard output works.";
+%% Test that redirection of standard error to standard output works.
 stderr_to_stdout(Config) when is_list(Config) ->
     ct:timetrap({minutes, 1}),
     %% See that it works
@@ -835,10 +819,8 @@ bad_argument(Config, ArgList) ->
 %% 'env' option
 %% (Can perhaps be made smaller by calling the other utility functions
 %% in this module.)
-env(suite) ->
-    [];
-env(doc) ->
-    ["Test that the 'env' option works"];
+%%
+%% Test that the 'env' option works
 env(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
     Priv = proplists:get_value(priv_dir, Config),
@@ -967,10 +949,8 @@ huge_env(Config) when is_list(Config) ->
 %% 'cd' option
 %% (Can perhaps be made smaller by calling the other utility functions
 %% in this module.)
-cd(suite) ->
-    [];
-cd(doc) ->
-    ["Test that the 'cd' option works"];
+%%
+%% Test that the 'cd' option works
 cd(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
 
@@ -1036,11 +1016,8 @@ tolower(C) when C >= $A, C =< $Z ->
 tolower(C) ->
     C.
 
-otp_3906(suite) ->
-    [];
-otp_3906(doc) ->
-    ["Tests that child process deaths are managed correctly when there are "
-     " a large amount of concurrently dying children. See ticket OTP-3906."];
+%% Tests that child process deaths are managed correctly when there are
+%%  a large amount of concurrently dying children. See ticket OTP-3906.
 otp_3906(Config)  when is_list(Config) ->
     case os:type() of
 	{unix, OSName} ->
@@ -1239,8 +1216,6 @@ otp_3906_forker(N, Parent, Ref, Sup, Prog) ->
     end.
 
 
-otp_4389(suite) -> [];
-otp_4389(doc) -> [];
 otp_4389(Config)  when is_list(Config) ->
     case os:type() of
 	{unix, _} ->
@@ -1314,10 +1289,8 @@ get_true_cmd() ->
  	  end.
 
 %% 'exit_status' option
-exit_status(suite) ->
-    [];
-exit_status(doc) ->
-    ["Test that the 'exit_status' option works"];
+%%
+%% Test that the 'exit_status' option works
 exit_status(Config)  when is_list(Config) ->
     ct:timetrap({minutes, 1}),
     port_expect(Config,
@@ -1325,10 +1298,7 @@ exit_status(Config)  when is_list(Config) ->
                 1, "", [exit_status]),
     ok.
 
-spawn_driver(suite) ->
-    [];
-spawn_driver(doc) ->
-    ["Test spawning a driver specifically"];
+%% Test spawning a driver specifically
 spawn_driver(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
@@ -1360,10 +1330,7 @@ spawn_driver(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
     ok.
 
-parallelism_option(suite) ->
-    [];
-parallelism_option(doc) ->
-    ["Test parallelism option of open_port"];
+%% Test parallelism option of open_port
 parallelism_option(Config) when is_list(Config) ->
     ?line Path = proplists:get_value(data_dir, Config),
     ?line ok = load_driver(Path, "echo_drv"),
@@ -1395,10 +1362,7 @@ parallelism_option(Config) when is_list(Config) ->
     ?line receive {Port2, closed} -> ok end,
     ok.
 
-spawn_executable(suite) ->
-    [];
-spawn_executable(doc) ->
-    ["Test spawning an executable specifically"];
+%% Test spawning an executable specifically
 spawn_executable(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     EchoArgs1 = filename:join([DataDir,"echo_args"]),
@@ -1635,10 +1599,7 @@ collect_data(Port) ->
 parse_echo_args_output(Data) ->
     [lists:last(string:tokens(S,"|")) || S <- string:tokens(Data,"\r\n")].
 
-mix_up_ports(suite) ->
-    [];
-mix_up_ports(doc) ->
-    ["Test that the emulator does not mix up ports when the port table wraps"];
+%% Test that the emulator does not mix up ports when the port table wraps
 mix_up_ports(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "echo_drv"),
@@ -1680,11 +1641,8 @@ loop(Start, Stop, Fun) when is_function(Fun) ->
     loop(Fun(Start), Stop, Fun).
 
 
-otp_5112(suite) ->
-    [];
-otp_5112(doc) ->
-    ["Test that link to connected process is taken away when port calls",
-     "driver_exit() also when the port index has wrapped"];
+%% Test that link to connected process is taken away when port calls
+%% driver_exit() also when the port index has wrapped
 otp_5112(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
@@ -1727,10 +1685,7 @@ otp_5112_wrap_port_ix(Ports) ->
 	  end.
 
 
-otp_5119(suite) ->
-    [];
-otp_5119(doc) ->
-    ["Test that port index is not unnecessarily wrapped"];
+%% Test that port index is not unnecessarily wrapped
 otp_5119(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
@@ -1773,8 +1728,7 @@ port_ix(Port) when is_port(Port) ->
     list_to_integer(PortIxStr).
 
 
-otp_6224(doc) -> ["Check that port command failure doesn't crash the emulator"];
-otp_6224(suite) -> [];
+%% Check that port command failure doesn't crash the emulator
 otp_6224(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "failure_drv"),
@@ -1807,8 +1761,6 @@ otp_6224_loop() ->
 -define(EXIT_STATUS_MSB_MAX_PROCS, 64).
 -define(EXIT_STATUS_MSB_MAX_PORTS, 300).
 
-exit_status_multi_scheduling_block(doc) -> [];
-exit_status_multi_scheduling_block(suite) -> [];
 exit_status_multi_scheduling_block(Config) when is_list(Config) ->
     Repeat = 3,
     case test_server:os_type() of
@@ -2225,9 +2177,7 @@ fun_spawn(Fun, Args) ->
 port_test(Config) when is_list(Config) ->
     filename:join(proplists:get_value(data_dir, Config), "port_test").
 
-
-ports(doc) -> "Test that erlang:ports/0 returns a consistent snapshot of ports";
-ports(suite) -> [];
+%% Test that erlang:ports/0 returns a consistent snapshot of ports
 ports(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     ok = load_driver(Path, "exit_drv"),
@@ -2334,9 +2284,8 @@ load_driver(Dir, Driver) ->
     end.
 
 
-close_deaf_port(doc) -> ["Send data to port program that does not read it, then close port."
-			 "Primary targeting Windows to test threaded_handle_closer in sys.c"];
-close_deaf_port(suite) -> [];
+%% Send data to port program that does not read it, then close port.
+%% Primary targeting Windows to test threaded_handle_closer in sys.c
 close_deaf_port(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     DataDir = proplists:get_value(data_dir, Config),

@@ -71,9 +71,8 @@ frequent_process() ->
 		?line frequent_process()
 	end.
 
-receive_after(doc) ->
-    "Test that 'receive after' works (doesn't hang). "
-    "The test takes 10 seconds to complete.";
+%%  Test that 'receive after' works (doesn't hang).
+%%  The test takes 10 seconds to complete.
 receive_after(Config) when is_list(Config) ->
     ?line receive_after1(5000).
 
@@ -137,7 +136,7 @@ receive_after_errors(Config) when is_list(Config) ->
 try_after(Timeout) ->
     {'EXIT',{timeout_value,_}} = (catch receive after Timeout -> ok end).
 
-receive_var_zero(doc) -> "Test 'after Z', when Z == 0.";
+%% Test 'after Z', when Z == 0.
 receive_var_zero(Config) when is_list(Config) ->
     self() ! x,
     self() ! y,
@@ -177,9 +176,8 @@ receive_zero(Config) when is_list(Config) ->
 	    ct:fail({bad_message,Other})
     end.
 
-multi_timeout(doc) ->
-    "Test for catching invalid assertion in erl_message.c (in queue_message)."
-    "This failed (dumped core) with debug-compiled emulator.";
+%% Test for catching invalid assertion in erl_message.c (in queue_message)
+%% This failed (dumped core) with debug-compiled emulator.
 multi_timeout(Config) when is_list(Config) ->
     ?line P = spawn(?MODULE, timeout_g, []),
     ?line P ! a,

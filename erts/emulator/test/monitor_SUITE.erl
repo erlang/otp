@@ -46,17 +46,14 @@ groups() ->
     [{remove_monitor, [],
       [local_remove_monitor, remote_remove_monitor]}].
 
-case_1(doc) ->
-    "A monitors B, B kills A and then exits (yielded core dump)";
-case_1(suite) -> [];
+%% A monitors B, B kills A and then exits (yielded core dump)
 case_1(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line spawn_link(?MODULE, g0, []),
     ?line receive _ -> ok end,
     ok.
 
-case_1a(doc) ->
-    "A monitors B, B kills A and then exits (yielded core dump)";
+%% A monitors B, B kills A and then exits (yielded core dump)
 case_1a(Config) when is_list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line spawn_link(?MODULE, g1, []),
@@ -82,8 +79,7 @@ g(Parent) ->
     ?line ok.
 
 
-case_2(doc) ->
-    "A monitors B, B demonitors A (yielded core dump)";
+%% A monitors B, B demonitors A (yielded core dump)
 case_2(Config) when is_list(Config) ->
     ?line B = spawn(?MODULE, y2, [self()]),
     ?line R = erlang:monitor(process, B),
@@ -96,8 +92,7 @@ case_2(Config) when is_list(Config) ->
     ?line expect_down(R, B, normal),
     ok.
 
-case_2a(doc) ->
-    "A monitors B, B demonitors A (yielded core dump)";
+%% A monitors B, B demonitors A (yielded core dump)
 case_2a(Config) when is_list(Config) ->
     ?line {B,R} = spawn_monitor(?MODULE, y2, [self()]),
     ?line B ! R,
@@ -140,9 +135,6 @@ expect_no_msg() ->
 
 %%% Error cases for monitor/2
 
-mon_e_1(doc) ->
-    "Error cases for monitor/2";
-mon_e_1(suite) -> [];
 mon_e_1(Config) when is_list(Config) ->
     ?line {ok, N} = test_server:start_node(hej, slave, []),
     ?line mon_error(plutt, self()),
@@ -171,9 +163,6 @@ mon_error(Type, Item) ->
 
 %%% Error cases for demonitor/1
 
-demon_e_1(doc) ->
-    "Error cases for demonitor/1";
-demon_e_1(suite) -> [];
 demon_e_1(Config) when is_list(Config) ->
     ?line {ok, N} = test_server:start_node(hej, slave, []),
     ?line demon_error(plutt, badarg),
@@ -211,9 +200,6 @@ demon_error(Ref, Reason) ->
 
 %%% No-op cases for demonitor/1
 
-demon_1(doc) ->
-    "demonitor/1";
-demon_1(suite) -> [];
 demon_1(Config) when is_list(Config) ->
     ?line true = erlang:demonitor(make_ref()),
     ok.
@@ -221,9 +207,6 @@ demon_1(Config) when is_list(Config) ->
 
 %%% Cases for demonitor/1
 
-demon_2(doc) ->
-    "Cases for demonitor/1";
-demon_2(suite) -> [];
 demon_2(Config) when is_list(Config) ->
     ?line R1 = erlang:monitor(process, self()),
     ?line true = erlang:demonitor(R1),
@@ -257,9 +240,7 @@ demon_2(Config) when is_list(Config) ->
 
     ok.
 
-demon_3(doc) ->
-    "Distributed case for demonitor/1 (OTP-3499)";
-demon_3(suite) -> [];
+%% Distributed case for demonitor/1 (OTP-3499)
 demon_3(Config) when is_list(Config) ->
     ?line {ok, N} = test_server:start_node(hej, slave, []),
 
@@ -281,8 +262,6 @@ demon_3(Config) when is_list(Config) ->
 
     ok.
 
-demonitor_flush(suite) -> [];
-demonitor_flush(doc) -> [];
 demonitor_flush(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), flush)),
     ?line {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), [flus])),
@@ -385,9 +364,6 @@ start_remove_monitor_group(Node) ->
 				      
 %%% Cases for monitor/2
 
-mon_1(doc) ->
-    "Cases for monitor/2";
-mon_1(suite) -> [];
 mon_1(Config) when is_list(Config) ->
     %% Normal case
     ?line P2 = spawn(timer, sleep, [1]),
@@ -431,9 +407,7 @@ mon_1(Config) when is_list(Config) ->
 
     ok.
 
-mon_2(doc) ->
-    "Distributed cases for monitor/2";
-mon_2(suite) -> [];
+%% Distributed cases for monitor/2
 mon_2(Config) when is_list(Config) ->
     ?line {ok, N1} = test_server:start_node(hej1, slave, []),
 
@@ -503,9 +477,6 @@ mon_2(Config) when is_list(Config) ->
 
 %%% Large exit reason. Crashed first attempt to release R5B.
 
-large_exit(doc) ->
-    "Large exit reason";
-large_exit(suite) -> [];
 large_exit(Config) when is_list(Config) ->
     ?line f(100),
     ok.
@@ -544,10 +515,6 @@ large_exit_sub(S) ->
 %%% by using erlang:process_info(self(), monitors)
 %%% and      erlang:process_info(self(), monitored_by)
 
-list_cleanup(doc) ->
-    "Testing of monitor link list cleanup by using " ++
-    "erlang:process_info/2";
-list_cleanup(suite) -> [];
 list_cleanup(Config) when is_list(Config) ->
     ?line P0 = self(),
     ?line M  = node(),
@@ -641,8 +608,6 @@ list_cleanup(Config) when is_list(Config) ->
     
 %%% Mixed internal and external monitors
 
-mixer(doc) ->
-    "Test mixing of internal and external monitors.";
 mixer(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     NN = [j0,j1,j2],
@@ -726,9 +691,8 @@ mixer(Config) when is_list(Config) ->
     [test_server:stop_node(K) || K <- NL0],
     ok.
 
-named_down(doc) -> ["Test that DOWN message for a named monitor isn't"
-		    " delivered until name has been unregistered"];
-named_down(suite) -> [];
+%% Test that DOWN message for a named monitor isn't
+%%  delivered until name has been unregistered
 named_down(Config) when is_list(Config) ->
     ?line Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-named_down-"
@@ -772,8 +736,6 @@ named_down(Config) when is_list(Config) ->
     ?line process_flag(priority,Prio),
     ok.
 
-otp_5827(doc) -> [];
-otp_5827(suite) -> [];
 otp_5827(Config) when is_list(Config) ->
     %% Make a pid with the same nodename but with another creation
     ?line [CreEnd | RPTail]

@@ -329,8 +329,6 @@ bar() ->
 %% No heap
 %%
 
-no_heap(doc) -> [];
-no_heap(suite) -> [];
 no_heap(Config) when is_list(Config) ->
     ?line H = spawn_link(fun () -> clean_dict(), no_heap_loop() end),
     ?line lists:foreach(fun (_) ->
@@ -359,8 +357,6 @@ clean_dict() ->
 %% Wake up and then immediatly bif trap with a lengthy computation.
 %%
 
-wake_up_and_bif_trap(doc) -> [];
-wake_up_and_bif_trap(suite) -> [];
 wake_up_and_bif_trap(Config) when is_list(Config) ->
     ?line Self = self(),
     ?line Pid = spawn_link(fun() -> erlang:hibernate(?MODULE, characters_to_list_trap, [Self]) end),

@@ -108,38 +108,23 @@ end_per_group(_GroupName, Config) ->
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-basic(suite) ->
-    [];
-basic(doc) ->
-    ["Tests basic call count trace"];
+%% Tests basic call count trace
 basic(Config) when is_list(Config) ->
     basic_test().
 
-on_and_off(suite) ->
-    [];
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off"];
+%% Tests turning trace parameters on and off
 on_and_off(Config) when is_list(Config) ->
     on_and_off_test().
  
-info(suite) ->
-    [];
-info(doc) ->
-    ["Tests the trace_info BIF"];
+%% Tests the trace_info BIF
 info(Config) when is_list(Config) ->
     info_test().
  
-pause_and_restart(suite) ->
-    [];
-pause_and_restart(doc) ->
-    ["Tests pausing and restarting call counters"];
+%% Tests pausing and restarting call counters
 pause_and_restart(Config) when is_list(Config) ->
     pause_and_restart_test().
  
-combo(suite) ->
-    [];
-combo(doc) ->
-    ["Tests combining local call trace and meta trace with call count trace"];
+%% Tests combining local call trace and meta trace with call count trace
 combo(Config) when is_list(Config) ->
     combo_test().
 

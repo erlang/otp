@@ -37,7 +37,7 @@ all() ->
      type_tests, guard_bif_binary_part].
 
 
-bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
+%% Test that a bad arithmetic operation in a guard works correctly.
 bad_arith(Config) when is_list(Config) ->
     ?line 5 = bad_arith1(2, 3),
     ?line 10 = bad_arith1(1, infinity),
@@ -49,7 +49,7 @@ bad_arith1(T1, T2) when T1+T2 < 10 ->
 bad_arith1(_, _) ->
     10.
 
-bad_tuple(doc) -> "Test that bad arguments to element/2 are handled correctly.";
+%% Test that bad arguments to element/2 are handled correctly.
 bad_tuple(Config) when is_list(Config) ->
     ?line error = bad_tuple1(a),
     ?line error = bad_tuple1({a, b}),
@@ -64,7 +64,6 @@ bad_tuple1(T) when element(3, T) == y ->
 bad_tuple1(_) ->
     error.
 
-test_heap_guards(doc) -> "";
 test_heap_guards(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
     
@@ -149,8 +148,7 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-guard_bif_binary_part(doc) ->
-    ["Test the binary_part/2,3 guard BIF's extensively"];
+%% Test the binary_part/2,3 guard BIF's extensively
 guard_bif_binary_part(Config) when is_list(Config) ->
     %% Overflow tests that need to be unoptimized
     ?line badarg =
@@ -307,7 +305,7 @@ bptest(_,_,_) ->
     error.
 
 
-guard_bifs(doc) -> "Test all guard bifs with nasty (but legal arguments).";
+%% Test all guard bifs with nasty (but legal arguments).
 guard_bifs(Config) when is_list(Config) ->
     ?line Big = -237849247829874297658726487367328971246284736473821617265433,
     ?line Float = 387924.874,
@@ -437,7 +435,7 @@ guard_bif('node/0', X, Y) when node() == Y ->
 guard_bif('node/1', X, Y) when node(X) == Y ->
     {'node/1', X, Y}.
 
-type_tests(doc) -> "Test the type tests.";
+%% Test the type tests.
 type_tests(Config) when is_list(Config) ->
     ?line Types = all_types(),
     ?line Tests = type_test_desc(),

@@ -84,8 +84,6 @@ ok(Config) when is_list(Config) ->
 
 %% Run equal number of low and normal prio processes.
 
-equal(suite) -> [];
-equal(doc) -> [];
 equal(Config) when is_list(Config) ->
     ?line Self = self(),
 
@@ -125,8 +123,6 @@ equal(Config) when is_list(Config) ->
 
 %% Run many low and few normal prio processes.
 
-many_low(suite) -> [];
-many_low(doc) -> [];
 many_low(Config) when is_list(Config) ->
     ?line Self = self(),
     Normal = {normal,1},
@@ -156,8 +152,6 @@ many_low(Config) when is_list(Config) ->
 
 %% Run few low and many normal prio processes.
 
-few_low(suite) -> [];
-few_low(doc) -> [];
 few_low(Config) when is_list(Config) ->
     ?line Self = self(),
     Normal = {normal,1000},
@@ -188,8 +182,6 @@ few_low(Config) when is_list(Config) ->
 %% Run max prio processes and verify they get at least as much 
 %% runtime as high, normal and low.
 
-max(suite) -> [];
-max(doc) -> [];
 max(Config) when is_list(Config) ->
     max = process_flag(priority, max),		% should already be max (init_per_tc)
     ?line Self = self(),
@@ -259,8 +251,6 @@ max(Config) when is_list(Config) ->
 %% Run high prio processes and verify they get at least as much 
 %% runtime as normal and low.
 
-high(suite) -> [];
-high(doc) -> [];
 high(Config) when is_list(Config) ->
     max = process_flag(priority, max),		% should already be max (init_per_tc)
     ?line Self = self(),

@@ -73,10 +73,7 @@ groups() ->
     [{estone_bench, [{repeat,50}],[estone_bench]}].
 
 
-estone(suite) ->
-    [];
-estone(doc) ->
-    ["EStone Test"];
+%% EStone Test
 estone(Config) when is_list(Config) ->
     ?line DataDir = proplists:get_value(data_dir,Config),
     ?line Mhz=get_cpu_speed(os:type(),DataDir),

@@ -50,7 +50,7 @@ all() ->
      fake_schedule_after_getting_unlinked, gc,
      default_tracer, tracer_port_crash].
 
-call_trace(doc) -> "Test sending call trace messages to a port.";
+%% Test sending call trace messages to a port.
 call_trace(Config) when is_list(Config) ->
     case test_server:is_native(?MODULE) orelse
 	test_server:is_native(lists) of
@@ -102,7 +102,7 @@ bs_sum_c(<<H:4,T/bits>>, Acc) -> bs_sum_c(T, H+Acc);
 bs_sum_c(<<>>, Acc) -> Acc.
 
 
-return_trace(doc) -> "Test the new return trace.";
+%% Test the new return trace.
 return_trace(Config) when is_list(Config) ->
     case test_server:is_native(?MODULE) orelse
 	test_server:is_native(lists) of
@@ -137,7 +137,7 @@ return_trace(Config) when is_list(Config) ->
 	    ok
     end.
 
-send(doc) -> "Test sending send trace messages to a port.";
+%% Test sending send trace messages to a port.
 send(Config) when is_list(Config) ->
     ?line Tracer = start_tracer(Config),
     Self = self(),
@@ -176,7 +176,7 @@ send(Config) when is_list(Config) ->
     receive good_bye -> ok end,
     ok.
 
-receive_trace(doc) -> "Test sending receive traces to a port.";
+%% Test sending receive traces to a port.
 receive_trace(Config) when is_list(Config) ->
     ?line start_tracer(Config),
     ?line Receiver = fun_spawn(fun receiver/0),
@@ -191,7 +191,7 @@ receive_trace(Config) when is_list(Config) ->
     ?line expect({trace_ts,Receiver,'receive',Huge,ts}),
     ok.
 
-process_events(doc) -> "Tests a few process events (like getting linked).";
+%% Tests a few process events (like getting linked).
 process_events(Config) when is_list(Config) ->
     ?line start_tracer(Config),
     Self = self(),
@@ -216,7 +216,7 @@ process_events(Config) when is_list(Config) ->
 
     ok.
 
-schedule(doc) -> "Test sending scheduling events to a port.";
+%% Test sending scheduling events to a port.
 schedule(Config) when is_list(Config) ->
     ?line start_tracer(Config),
     ?line Receiver = fun_spawn(fun receiver/0),
@@ -244,7 +244,7 @@ run_fake_sched_test(Fun, Config) when is_function(Fun), is_list(Config) ->
 		  ?line Fun(Config)
 	  end.
 
-fake_schedule(doc) -> "Tests time compensating fake out/in scheduling.";
+%% Tests time compensating fake out/in scheduling.
 fake_schedule(Config) when is_list(Config) ->
     ?line run_fake_sched_test(fun fake_schedule_test/1, Config).
 
@@ -306,8 +306,7 @@ fake_schedule_test(Config) when is_list(Config) ->
     %%
     ok.
 
-fake_schedule_after_register(doc) -> 
-    "Tests fake out/in scheduling contents.";
+%% Tests fake out/in scheduling contents.
 fake_schedule_after_register(Config) when is_list(Config) ->
     ?line run_fake_sched_test(fun fake_schedule_after_register_test/1, Config).
 
@@ -334,8 +333,7 @@ fake_schedule_after_register_test(Config) when is_list(Config) ->
     %%
     ok.
 
-fake_schedule_after_getting_linked(doc) -> 
-    "Tests fake out/in scheduling contents.";
+%% Tests fake out/in scheduling contents.
 fake_schedule_after_getting_linked(Config) when is_list(Config) ->
     ?line run_fake_sched_test(fun fake_schedule_after_getting_linked_test/1,
 			      Config).
@@ -363,8 +361,7 @@ fake_schedule_after_getting_linked_test(Config) when is_list(Config) ->
     %%
     ok.
 
-fake_schedule_after_getting_unlinked(doc) -> 
-    "Tests fake out/in scheduling contents.";
+%% Tests fake out/in scheduling contents.
 fake_schedule_after_getting_unlinked(Config) when is_list(Config) ->
     ?line run_fake_sched_test(fun fake_schedule_after_getting_unlinked_test/1,
 			      Config).
@@ -393,7 +390,7 @@ fake_schedule_after_getting_unlinked_test(Config) when is_list(Config) ->
     %%
     ok.
 
-gc(doc) -> "Test sending garbage collection events to a port.";
+%% Test sending garbage collection events to a port.
 gc(Config) when is_list(Config) ->
     ?line start_tracer(Config),
     ?line Garber = fun_spawn(fun garber/0, [{min_heap_size, 5000}]),
@@ -412,8 +409,7 @@ gc(Config) when is_list(Config) ->
 
     ok.
 
-default_tracer(doc) ->
-    "Test a port as default tracer.";
+%% Test a port as default tracer.
 default_tracer(Config) when is_list(Config) ->
     ?line Tracer = start_tracer(Config),
     ?line TracerMonitor = erlang:monitor(process, Tracer),

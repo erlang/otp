@@ -659,10 +659,6 @@ chk_pi_order([],[]) ->
 chk_pi_order([{Arg, _}| Values], [Arg|Args]) ->
     chk_pi_order(Values, Args).
 
-process_info_2_list(doc) ->
-    [];
-process_info_2_list(suite) ->
-    [];
 process_info_2_list(Config) when is_list(Config) ->
     Proc = spawn(fun () -> receive after infinity -> ok end end),
     register(process_SUITE_process_info_2_list1, self()),
@@ -695,10 +691,6 @@ process_info_2_list(Config) when is_list(Config) ->
     lists:foreach(fun ({backtrace, _}) -> ok end, V3),
     ok.
     
-process_info_lock_reschedule(doc) ->
-    [];
-process_info_lock_reschedule(suite) ->
-    [];
 process_info_lock_reschedule(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
@@ -740,10 +732,6 @@ pi_loop(Name, Pid, N) ->
     {registered_name, Name} = process_info(Pid, registered_name),
     pi_loop(Name, Pid, N-1).
 
-process_info_lock_reschedule2(doc) ->
-    [];
-process_info_lock_reschedule2(suite) ->
-    [];
 process_info_lock_reschedule2(Config) when is_list(Config) ->
     Parent = self(),
     Fun = fun () ->
@@ -799,10 +787,6 @@ do_pi_msg_len(PT, AT) ->
     lists:map(fun (_) -> ok end, [a,b,c,d]),
     {message_queue_len, _} = process_info(element(2,PT), element(2,AT)).
     
-process_info_lock_reschedule3(doc) ->
-    [];
-process_info_lock_reschedule3(suite) ->
-    [];
 process_info_lock_reschedule3(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
@@ -1067,8 +1051,7 @@ make_unaligned_sub_binary(Bin0) ->
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
 
-yield(doc) ->
-    "Tests erlang:yield/1.";
+%% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
     case catch erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
@@ -1146,8 +1129,6 @@ schedcnt(stop, {Ref, Pid}) when is_reference(Ref), is_pid(Pid) ->
 	    Cnt
     end.
 
-yield2(doc) -> [];
-yield2(suite) -> [];
 yield2(Config) when is_list(Config) ->
     Me = self(),
     Go = make_ref(),
@@ -1239,8 +1220,6 @@ fail_register(Name, Process) ->
     {'EXIT',{badarg,_}} = (catch Name ! anything_goes),
     ok.
 
-garbage_collect(doc) -> [];
-garbage_collect(suite) -> [];
 garbage_collect(Config) when is_list(Config) ->
     Prio = process_flag(priority, high),
     true = erlang:garbage_collect(),
@@ -1279,10 +1258,7 @@ garbage_collect(Config) when is_list(Config) ->
     process_flag(priority, Prio),
     ok.
 
-process_info_messages(doc) ->
-    ["This used to cause the nofrag emulator to dump core"];
-process_info_messages(suite) ->
-    [];
+%% This used to cause the nofrag emulator to dump core
 process_info_messages(Config) when is_list(Config) ->
     process_info_messages_test(),
     ok.
@@ -1340,10 +1316,6 @@ process_info_messages_test() ->
 chk_badarg(Fun) ->
     try Fun(), exit(no_badarg) catch error:badarg -> ok end.
 
-process_flag_badarg(doc) ->
-    [];
-process_flag_badarg(suite) ->
-    [];
 process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(gurka, banan) end),
     chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
@@ -1361,8 +1333,6 @@ process_flag_badarg(Config) when is_list(Config) ->
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
-otp_6237(doc) -> [];
-otp_6237(suite) -> [];
 otp_6237(Config) when is_list(Config) ->
     Slctrs = lists:map(fun (_) ->
 		spawn_link(fun () ->
@@ -1429,10 +1399,6 @@ otp_6237_select_loop() ->
 			     conses_per_red,
 			     debug_level}).
 
-processes_large_tab(doc) ->
-    [];
-processes_large_tab(suite) ->
-    [];
 processes_large_tab(Config) when is_list(Config) ->
     sys_mem_cond_run(2048, fun () -> processes_large_tab_test(Config) end).
 
@@ -1483,10 +1449,6 @@ processes_large_tab_test(Config) ->
     stop_node(LargeNode),
     chk_processes_bif_test_res(Res).
 
-processes_default_tab(doc) ->
-    [];
-processes_default_tab(suite) ->
-    [];
 processes_default_tab(Config) when is_list(Config) ->
     sys_mem_cond_run(1024, fun () -> processes_default_tab_test(Config) end).
 
@@ -1496,10 +1458,6 @@ processes_default_tab_test(Config) ->
     stop_node(DefaultNode),
     chk_processes_bif_test_res(Res).
 
-processes_small_tab(doc) ->
-    [];
-processes_small_tab(suite) ->
-    [];
 processes_small_tab(Config) when is_list(Config) ->
     {ok, SmallNode} = start_node(Config, "+P 1024"),
     Res    = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
@@ -1508,10 +1466,6 @@ processes_small_tab(Config) when is_list(Config) ->
     true = PBInfo#ptab_list_bif_info.tab_chunks < 10,
     chk_processes_bif_test_res(Res).
 
-processes_this_tab(doc) ->
-    [];
-processes_this_tab(suite) ->
-    [];
 processes_this_tab(Config) when is_list(Config) ->
     Mem = case {erlang:system_info(build_type),
                 erlang:system_info(allocator)} of
@@ -1874,10 +1828,6 @@ wait_until_system_recover(Tmr) ->
     receive {timeout, Tmr, _} -> ok after 0 -> ok end,
     ok.
 
-processes_last_call_trap(doc) ->
-    [];
-processes_last_call_trap(suite) ->
-    [];
 processes_last_call_trap(Config) when is_list(Config) ->
     enable_internal_state(),
     Processes = fun () -> processes() end,
@@ -1900,10 +1850,6 @@ processes_last_call_trap(Config) when is_list(Config) ->
 my_processes() ->
     processes().
 
-processes_apply_trap(doc) ->
-    [];
-processes_apply_trap(suite) ->
-    [];
 processes_apply_trap(Config) when is_list(Config) ->
     enable_internal_state(),
     PBInfo = erts_debug:get_internal_state(processes_bif_info),
@@ -1918,10 +1864,6 @@ processes_apply_trap(Config) when is_list(Config) ->
 		apply(erlang, processes, [])
 	end, lists:seq(1,100)).
 
-processes_gc_trap(doc) ->
-    [];
-processes_gc_trap(suite) ->
-    [];
 processes_gc_trap(Config) when is_list(Config) ->
     Tester = self(),
     enable_internal_state(),
@@ -1960,10 +1902,6 @@ processes_gc_trap(Config) when is_list(Config) ->
     exit(Suspendee, bang),
     ok.
 
-process_flag_heap_size(doc) ->
-    [];
-process_flag_heap_size(suite) ->
-    [];
 process_flag_heap_size(Config) when is_list(Config) ->
     HSize  = 2586,   % must be gc fib+ number
     VHSize = 318187, % must be gc fib+ number
@@ -1975,10 +1913,6 @@ process_flag_heap_size(Config) when is_list(Config) ->
     VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
     ok.
 
-spawn_opt_heap_size(doc) ->
-    [];
-spawn_opt_heap_size(suite) ->
-    [];
 spawn_opt_heap_size(Config) when is_list(Config) ->
     HSize  = 987,   % must be gc fib+ number
     VHSize = 46422, % must be gc fib+ number
@@ -1989,10 +1923,6 @@ spawn_opt_heap_size(Config) when is_list(Config) ->
     Pid ! stop,
     ok.
 
-processes_term_proc_list(doc) ->
-    [];
-processes_term_proc_list(suite) ->
-    [];
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),
     as_expected = processes_term_proc_list_test(false),
@@ -2142,24 +2072,12 @@ processes_term_proc_list_test(MustChk) ->
     as_expected.
 
 
-otp_7738_waiting(doc) ->
-    [];
-otp_7738_waiting(suite) ->
-    [];
 otp_7738_waiting(Config) when is_list(Config) ->
     otp_7738_test(waiting).
 
-otp_7738_suspended(doc) ->
-    [];
-otp_7738_suspended(suite) ->
-    [];
 otp_7738_suspended(Config) when is_list(Config) ->
     otp_7738_test(suspended).
 
-otp_7738_resume(doc) ->
-    [];
-otp_7738_resume(suite) ->
-    [];
 otp_7738_resume(Config) when is_list(Config) ->
     otp_7738_test(resume).
 

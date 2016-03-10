@@ -87,8 +87,7 @@ file_keys(Dir,Num,FdList,FnList) ->
 	    end
     end.
 
-async_dist(doc) ->
-    "Check that the distribution of files over async threads is fair";
+%% Check that the distribution of files over async threads is fair
 async_dist(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
@@ -130,7 +129,6 @@ async_dist(Config) when is_list(Config) ->
 %% that we get the same number of files every time.
 %%
 
-iter_max_files(suite) -> [];
 iter_max_files(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),

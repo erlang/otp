@@ -45,10 +45,6 @@ all() ->
 %% No specification clause needed for an init function in a conf case!!!
 
 %% Test switching system_profiling on and off.
-system_profile_on_and_off(suite) ->
-    [];
-system_profile_on_and_off(doc) ->
-    ["Tests switching system_profiling on and off."];
 system_profile_on_and_off(Config) when is_list(Config) ->
     Pid = start_profiler_process(),
     
@@ -77,12 +73,7 @@ system_profile_on_and_off(Config) when is_list(Config) ->
     exit(Pid,kill),
     ok.
 
-%% Test runnable_procs
-
-runnable_procs(suite) ->
-    [];
-runnable_procs(doc) ->
-    ["Tests system_profiling with runnable_procs."];
+%% Tests system_profiling with runnable_procs.
 runnable_procs(Config) when is_list(Config) ->
     lists:foreach(fun (TsType) ->
 			  Arg = case TsType of
@@ -119,10 +110,7 @@ do_runnable_procs({TsType, TsTypeFlag}) ->
     exit(Pid,kill),
     ok.
 
-runnable_ports(suite) ->
-    [];
-runnable_ports(doc) ->
-    ["Tests system_profiling with runnable_port."];
+%% Tests system_profiling with runnable_port.
 runnable_ports(Config) when is_list(Config) ->
     lists:foreach(fun (TsType) ->
 			  Arg = case TsType of
@@ -155,10 +143,7 @@ do_runnable_ports({TsType, TsTypeFlag}, Config) ->
     exit(Pid,kill),
     ok.
 
-scheduler(suite) ->
-    [];
-scheduler(doc) ->
-    ["Tests system_profiling with scheduler."];
+%% Tests system_profiling with scheduler.
 scheduler(Config) when is_list(Config) ->
     case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
 	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
@@ -180,11 +165,7 @@ scheduler(Config) when is_list(Config) ->
 			   strict_monotonic_timestamp])
     end.
 
-% the profiler pid should not be profiled
-dont_profile_profiler(suite) ->
-    [];
-dont_profile_profiler(doc) ->
-    ["Ensure system profiler process is not profiled."];
+%% Ensure system profiler process is not profiled.
 dont_profile_profiler(Config) when is_list(Config) ->
     Pid = start_profiler_process(),
 

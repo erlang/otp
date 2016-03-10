@@ -79,9 +79,8 @@ all() ->
      pending_exit_process_info_2, pending_exit_group_leader,
      exit_before_pending_exit].
 
-xm_sig_order(doc) -> ["Test that exit signals and messages are received "
-		      "in correct order"];
-xm_sig_order(suite) -> [];
+
+%% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
     ?line LNode = node(),
     ?line repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
@@ -114,13 +113,9 @@ xm_sig_order_proc() ->
     end,
     xm_sig_order_proc().
 
-pending_exit_unlink_process(doc) -> [];
-pending_exit_unlink_process(suite) -> [];
 pending_exit_unlink_process(Config) when is_list(Config) ->
     ?line pending_exit_test(self(), unlink).
 
-pending_exit_unlink_dist_process(doc) -> [];
-pending_exit_unlink_dist_process(suite) -> [];
 pending_exit_unlink_dist_process(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(Config),
     ?line From = spawn(Node, fun () -> receive after infinity -> ok end end),
@@ -128,28 +123,18 @@ pending_exit_unlink_dist_process(Config) when is_list(Config) ->
     ?line stop_node(Node),
     ?line Res.
 
-pending_exit_unlink_port(doc) -> [];
-pending_exit_unlink_port(suite) -> [];
 pending_exit_unlink_port(Config) when is_list(Config) ->
     ?line pending_exit_test(hd(erlang:ports()), unlink).
 
-pending_exit_trap_exit(doc) -> [];
-pending_exit_trap_exit(suite) -> [];
 pending_exit_trap_exit(Config) when is_list(Config) ->
     ?line pending_exit_test(self(), trap_exit).
 
-pending_exit_receive(doc) -> [];
-pending_exit_receive(suite) -> [];
 pending_exit_receive(Config) when is_list(Config) ->
     ?line pending_exit_test(self(), 'receive').
 
-pending_exit_exit(doc) -> [];
-pending_exit_exit(suite) -> [];
 pending_exit_exit(Config) when is_list(Config) ->
     ?line pending_exit_test(self(), exit).
 
-pending_exit_gc(doc) -> [];
-pending_exit_gc(suite) -> [];
 pending_exit_gc(Config) when is_list(Config) ->
     ?line pending_exit_test(self(), gc).
 
@@ -225,8 +210,6 @@ pending_exit_test(From, Type) ->
 
 
 
-exit_before_pending_exit(doc) -> [];
-exit_before_pending_exit(suite) -> [];
 exit_before_pending_exit(Config) when is_list(Config) ->
     %% This is a testcase testcase very specific to the smp
     %% implementation as it is of the time of writing.

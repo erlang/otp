@@ -50,8 +50,7 @@ all() ->
 %%% The test cases -------------------------------------------------------------
 %%%
 
-schedulers_alive(doc) -> ["Tests that all schedulers are actually used"];
-schedulers_alive(suite) -> [];
+%% Tests that all schedulers are actually used
 schedulers_alive(Config) when is_list(Config) ->
     ?line Master = self(),
     ?line NoSchedulersOnline = erlang:system_flag(
@@ -189,23 +188,13 @@ verify_all_schedulers_used({UsedSIDs, UsedSIDsLen} = State, NoSchedulers) ->
 		  ?line verify_all_schedulers_used(NewState, NoSchedulers)
 	  end.
 
-node_container_refc_check(doc) -> [];
-node_container_refc_check(suite) -> [];
 node_container_refc_check(Config) when is_list(Config) ->
     ?line node_container_SUITE:node_container_refc_check(node()),
     ?line ok.
 
-long_timers(doc) ->
-    [];
-long_timers(suite) ->
-    [];
 long_timers(Config) when is_list(Config) ->
     ?line ok = long_timers_test:check_result().
 
-pollset_size(doc) ->
-    [];
-pollset_size(suite) ->
-    [];
 pollset_size(Config) when is_list(Config) ->
     ?line Name = pollset_size_testcase_initial_state_holder,
     ?line Mon = erlang:monitor(process, Name),
@@ -251,10 +240,6 @@ pollset_size(Config) when is_list(Config) ->
 			 ++ integer_to_list(FinSize)}
 	  end.
 
-check_io_debug(doc) ->
-    [];
-check_io_debug(suite) ->
-    [];
 check_io_debug(Config) when is_list(Config) ->
     ?line case lists:keysearch(name, 1, erlang:system_info(check_io)) of
 	      {value, {name, erts_poll}} -> ?line check_io_debug_test();

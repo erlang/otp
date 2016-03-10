@@ -34,9 +34,9 @@ all() ->
     [grow_heap, grow_stack, grow_stack_heap].
 
 
-grow_heap(doc) -> ["Produce a growing list of elements, ",
-		   "for X calls, then drop one item per call",
-		   "until the list is empty."];
+%% Produce a growing list of elements,
+%% for X calls, then drop one item per call
+%% until the list is empty.
 grow_heap(Config) when is_list(Config) ->
     ct:timetrap({minutes, 40}),
     ok  = grow_heap1(256),
@@ -68,8 +68,8 @@ grow_heap1([_|List], MaxLen, CurLen, down) ->
 
 
 
-grow_stack(doc) -> ["Increase and decrease stack size, and ",
-		    "drop off some garbage from time to time."];
+%% Increase and decrease stack size, and
+%% drop off some garbage from time to time.
 grow_stack(Config) when is_list(Config) ->
     ct:timetrap({minutes, 80}),
     show_heap("before:"),
@@ -91,9 +91,8 @@ grow_stack1(Recs, CurRecs) ->
 
 
 %% Let's see how BEAM handles this one...
-grow_stack_heap(doc) -> ["While growing the heap, bounces the size ",
-			 "of the stack, and while reducing the heap",
-			 "bounces the stack usage."];
+%% While growing the heap, bounces the size of the
+%% stack, and while reducing the heap, bounces the stack usage.
 grow_stack_heap(Config) when is_list(Config) ->
     ct:timetrap({minutes, 40}),
     grow_stack_heap1(16),

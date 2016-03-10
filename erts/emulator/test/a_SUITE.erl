@@ -38,10 +38,6 @@ suite() ->
 all() -> 
     [long_timers, pollset_size].
 
-long_timers(doc) ->
-    [];
-long_timers(suite) ->
-    [];
 long_timers(Config) when is_list(Config) ->
     Dir = proplists:get_value(data_dir, Config),
     ?line long_timers_test:start(Dir),
@@ -49,10 +45,6 @@ long_timers(Config) when is_list(Config) ->
 	   "Testcase started! This test will run in parallel with the "
 	   "erts testsuite and ends in the z_SUITE:long_timers testcase."}.
 
-pollset_size(doc) ->
-    [];
-pollset_size(suite) ->
-    [];
 pollset_size(Config) when is_list(Config) ->
     %% Ensure inet_gethost_native port program started, in order to
     %% allow other suites to use it...

@@ -34,7 +34,7 @@ suite() ->
 all() -> 
     [wrap_1].
 
-wrap_1(doc) -> "Check that refs don't wrap around easily.";
+%% Check that refs don't wrap around easily.
 wrap_1(Config) when is_list(Config) ->
     ?line spawn_link(?MODULE, loop_ref, [self()]),
     ?line receive

@@ -61,8 +61,7 @@ end_per_group(_GroupName, Config) ->
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-trace_on_and_off(doc) -> 
-    "Tests switching tracing on and off.";
+%% Tests switching tracing on and off.
 trace_on_and_off(Config) when is_list(Config) ->
     ?line Pid = spawn(?MODULE, bif_process, []),
     ?line Self = self(),
@@ -79,11 +78,11 @@ trace_on_and_off(Config) when is_list(Config) ->
     ?line exit(Pid,kill),
     ok.
 
-trace_bif(doc) -> "Test tracing BIFs.";
+%% Test tracing BIFs.
 trace_bif(Config) when is_list(Config) ->
     do_trace_bif([]).
 
-trace_bif_local(doc) -> "Test tracing BIFs with local flag.";
+%% Test tracing BIFs with local flag.
 trace_bif_local(Config) when is_list(Config) ->
     do_trace_bif([local]).
 
@@ -110,7 +109,7 @@ do_trace_bif(Flags) ->
     ?line exit(Pid, die),
     ok.
 
-trace_bif_timestamp(doc) -> "Test tracing BIFs with timestamps.";
+%% Test tracing BIFs with timestamps.
 trace_bif_timestamp(Config) when is_list(Config) ->
     do_trace_bif_timestamp([], timestamp, [timestamp]),
     do_trace_bif_timestamp([], timestamp,
@@ -123,8 +122,7 @@ trace_bif_timestamp(Config) when is_list(Config) ->
 			   [monotonic_timestamp, strict_monotonic_timestamp]),
     do_trace_bif_timestamp([], monotonic_timestamp, [monotonic_timestamp]).
     
-trace_bif_timestamp_local(doc) -> 
-    "Test tracing BIFs with timestamps and local flag.";
+%% Test tracing BIFs with timestamps and local flag.
 trace_bif_timestamp_local(Config) when is_list(Config) ->
     do_trace_bif_timestamp([local], timestamp, [timestamp]),
     do_trace_bif_timestamp([local], timestamp,
@@ -182,8 +180,7 @@ do_trace_bif_timestamp(Flags, TsType, TsFlags) ->
     exit(Pid, die),
     ok.
 
-trace_bif_return(doc) -> 
-    "Test tracing BIF's with return/return_to trace.";
+%% Test tracing BIF's with return/return_to trace.
 trace_bif_return(Config) when is_list(Config) ->
     do_trace_bif_return(timestamp, [timestamp]),
     do_trace_bif_return(timestamp,
@@ -347,7 +344,7 @@ bif_process() ->
     
 
 
-trace_info_old_code(doc) -> "trace_info on deleted module (OTP-5057).";
+%% trace_info on deleted module (OTP-5057).
 trace_info_old_code(Config) when is_list(Config) ->
     ?line MFA = {M,F,0} = {test,foo,0},
     ?line Fname = atom_to_list(M)++".erl",

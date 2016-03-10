@@ -101,120 +101,97 @@ all() ->
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-basic(doc) ->
-    ["Tests basic local call-trace"];
+%% Tests basic local call-trace
 basic(Config) when is_list(Config) ->
     basic_test().
 
-bit_syntax(doc) ->
-    "OTP-7399: Make sure that code that uses the optimized bit syntax matching "
-	"can be traced without crashing the emulator.";
+%% OTP-7399: Make sure that code that uses the optimized bit syntax matching
+%% can be traced without crashing the emulator.
 bit_syntax(Config) when is_list(Config) ->
     bit_syntax_test().
 
-return(doc) ->
-    ["Tests the different types of return trace"];
+%% Tests the different types of return trace
 return(Config) when is_list(Config) ->
     return_test().
  
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off, "
-     "both for trace and trace_pattern"];
+%% Tests turning trace parameters on and off,
+%% both for trace and trace_pattern
 on_and_off(Config) when is_list(Config) ->
     on_and_off_test().
  
-stack_grow(doc) ->
-    ["Tests the stack growth during return traces"];
+%% Tests the stack growth during return traces
 stack_grow(Config) when is_list(Config) ->
     stack_grow_test().
  
-info(doc) ->
-    ["Tests the trace_info BIF"];
+%% Tests the trace_info BIF
 info(Config) when is_list(Config) ->
     info_test().
  
-delete(doc) ->
-    ["Tests putting trace on deleted modules"];
+%% Tests putting trace on deleted modules
 delete(Config) when is_list(Config) ->
     delete_test(Config).
 
-exception(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception(Config) when is_list(Config) ->
     exception_test([]).
 
-exception_apply(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_apply(Config) when is_list(Config) ->
     exception_test([apply]).
 
-exception_function(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_function(Config) when is_list(Config) ->
     exception_test([function]).
 
-exception_apply_function(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_apply_function(Config) when is_list(Config) ->
     exception_test([apply,function]).
 
-exception_nocatch(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_nocatch(Config) when is_list(Config) ->
     exception_test([nocatch]).
 
-exception_nocatch_apply(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_nocatch_apply(Config) when is_list(Config) ->
     exception_test([nocatch,apply]).
 
-exception_nocatch_function(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_nocatch_function(Config) when is_list(Config) ->
     exception_test([nocatch,function]).
 
-exception_nocatch_apply_function(doc) ->
-    ["Tests exception_trace"];
+%% Tests exception_trace
 exception_nocatch_apply_function(Config) when is_list(Config) ->
     exception_test([nocatch,apply,function]).
 
-exception_meta(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta(Config) when is_list(Config) ->
     exception_test([meta]).
 
-exception_meta_apply(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_apply(Config) when is_list(Config) ->
     exception_test([meta,apply]).
 
-exception_meta_function(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_function(Config) when is_list(Config) ->
     exception_test([meta,function]).
 
-exception_meta_apply_function(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_apply_function(Config) when is_list(Config) ->
     exception_test([meta,apply,function]).
 
-exception_meta_nocatch(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_nocatch(Config) when is_list(Config) ->
     exception_test([meta,nocatch]).
 
-exception_meta_nocatch_apply(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_nocatch_apply(Config) when is_list(Config) ->
     exception_test([meta,nocatch,apply]).
 
-exception_meta_nocatch_function(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_nocatch_function(Config) when is_list(Config) ->
     exception_test([meta,nocatch,function]).
 
-exception_meta_nocatch_apply_function(doc) ->
-    ["Tests meta exception_trace"];
+%% Tests meta exception_trace
 exception_meta_nocatch_apply_function(Config) when is_list(Config) ->
     exception_test([meta,nocatch,apply,function]).
 

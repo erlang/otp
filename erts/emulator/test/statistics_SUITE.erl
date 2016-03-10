@@ -78,9 +78,8 @@ end_per_group(_GroupName, Config) ->
 
 %%% Testing statistics(wall_clock).
 
-wall_clock_zero_diff(doc) ->
-    "Tests that the 'Wall clock since last call' element of the result "
-    "is zero when statistics(runtime) is called twice in succession.";
+%% Tests that the 'Wall clock since last call' element of the result
+%% is zero when statistics(runtime) is called twice in succession.
 wall_clock_zero_diff(Config) when is_list(Config) ->
     wall_clock_zero_diff1(16).
 
@@ -93,10 +92,9 @@ wall_clock_zero_diff1(N) when N > 0 ->
 wall_clock_zero_diff1(0) ->
     ct:fail("Difference never zero.").
 
-wall_clock_update(doc) ->
-    "Test that the time differences returned by two calls to "
-    "statistics(wall_clock) are compatible, and are within a small number "
-    "of ms of the amount of real time we waited for.";
+%% Test that the time differences returned by two calls to
+%% statistics(wall_clock) are compatible, and are within a small number
+%% of ms of the amount of real time we waited for.
 wall_clock_update(Config) when is_list(Config) ->
     wall_clock_update1(6).
 
@@ -122,9 +120,8 @@ wall_clock_update1(0) ->
 %%% Test statistics(runtime).
 
 
-runtime_zero_diff(doc) ->
-    "Tests that the difference between the times returned from two consectuitive "
-	"calls to statistics(runtime) is zero.";
+%% Tests that the difference between the times returned from two consectuitive
+%% calls to statistics(runtime) is zero.
 runtime_zero_diff(Config) when is_list(Config) ->
     ?line runtime_zero_diff1(16).
 
@@ -137,10 +134,9 @@ runtime_zero_diff1(N) when N > 0 ->
 runtime_zero_diff1(0) ->
     ct:fail("statistics(runtime) never returned zero difference").
 
-runtime_update(doc) ->
-    "Test that the statistics(runtime) returns a substanstially "
-	"updated difference after running a process that takes all CPU "
-	" power of the Erlang process for a second.";
+%% Test that the statistics(runtime) returns a substanstially
+%% updated difference after running a process that takes all CPU
+%% power of the Erlang process for a second.
 runtime_update(Config) when is_list(Config) ->
     case test_server:is_cover() of
 	false ->
@@ -167,10 +163,9 @@ do_runtime_update(N) ->
 cpu_heavy() ->
     cpu_heavy().
 
-runtime_diff(doc) ->
-    "Test that the difference between two consecutive absolute runtimes is "
-    "equal to the last relative runtime. The loop runs a lot of times since "
-    "the bug which this test case tests for showed up only rarely.";
+%% Test that the difference between two consecutive absolute runtimes is
+%% equal to the last relative runtime. The loop runs a lot of times since
+%% the bug which this test case tests for showed up only rarely.
 runtime_diff(Config) when is_list(Config) ->
     runtime_diff1(1000).
 
@@ -196,10 +191,9 @@ do_much(N) ->
     do_much(N-1).
 
 
-reductions(doc) ->
-    "Test that statistics(reductions) is callable, and that "
-	"Total_Reductions and Reductions_Since_Last_Call make sense. "
-	"(This to fail on pre-R3A version of JAM.";
+%% Test that statistics(reductions) is callable, and that
+%% Total_Reductions and Reductions_Since_Last_Call make sense.
+%% This to fail on pre-R3A version of JAM.
 reductions(Config) when is_list(Config) ->
     {Reductions, _} = statistics(reductions),
 
@@ -227,8 +221,7 @@ build_some_garbage() ->
     %% a garbage collection in the scheduler.
     processes().
 
-reductions_big(doc) ->
-    "Test that the number of reductions can be returned as a big number.";
+%% Test that the number of reductions can be returned as a big number.
 reductions_big(Config) when is_list(Config) ->
     ?line reductions_big_loop(),
     ok.
@@ -246,9 +239,8 @@ reductions_big_loop() ->
 %%% Tests of statistics(run_queue).
 
 
-run_queue_one(doc) ->
-    "Tests that statistics(run_queue) returns 1 if we start a "
-    "CPU-bound process.";
+%% Tests that statistics(run_queue) returns 1 if we start a
+%% CPU-bound process.
 run_queue_one(Config) when is_list(Config) ->
     ?line MS = erlang:system_flag(multi_scheduling, block),
     ?line run_queue_one_test(Config),
@@ -294,8 +286,7 @@ hog_iter(0, Mon) ->
 
 %%% Tests of statistics(scheduler_wall_time).
 
-scheduler_wall_time(doc) ->
-    "Tests that statistics(scheduler_wall_time) works as intended";
+%% Tests that statistics(scheduler_wall_time) works as intended
 scheduler_wall_time(Config) when is_list(Config) ->
     %% Should return undefined if system_flag is not turned on yet
     undefined = statistics(scheduler_wall_time),
@@ -360,9 +351,8 @@ load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
 load_percentage([], []) -> [].
 
 
-garbage_collection(doc) ->
-    "Tests that statistics(garbage_collection) is callable. "
-    "It is not clear how to test anything more.";
+%% Tests that statistics(garbage_collection) is callable.
+%% It is not clear how to test anything more.
 garbage_collection(Config) when is_list(Config) ->
     ?line Bin = list_to_binary(lists:duplicate(19999, 42)),
     ?line case statistics(garbage_collection) of
@@ -387,16 +377,14 @@ garbage_collection_1(Gcs0, Bin) ->
 	    end
     end.
 
-io(doc) ->
-    "Tests that statistics(io) is callable. "
-    "This could be improved to test something more.";
+%% Tests that statistics(io) is callable.
+%% This could be improved to test something more.
 io(Config) when is_list(Config) ->
     ?line case statistics(io) of
 	      {{input,In},{output,Out}} when is_integer(In), is_integer(Out) -> ok
 	  end.
 
-badarg(doc) ->
-    "Tests that some illegal arguments to statistics fails.";
+%% Tests that some illegal arguments to statistics fails.
 badarg(Config) when is_list(Config) ->
     ?line case catch statistics(1) of
 	      {'EXIT', {badarg, _}} -> ok
@@ -465,8 +453,7 @@ run_queues_lengths_active_tasks(Config) ->
 
     ok.
 
-msacc(doc) ->
-    "Tests that statistics(microstate_statistics) works.";
+%% Tests that statistics(microstate_statistics) works.
 msacc(Config) ->
 
     %% Test if crypto nif is available
