@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When calling <c>garbage_collect/[1,2]</c> or
+	    <c>check_process_code/[2,3]</c> from a process with a
+	    higher priority than the priority of the process operated
+	    on, the run queues could end up in an inconsistent state.
+	    This bug has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13298 Aux Id: OTP-11388 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
