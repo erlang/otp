@@ -1192,15 +1192,5 @@ add_work(WorkList, []) ->
 
 -spec match(var_map(), var_map()) -> boolean().
 
-match(Tree1, Tree2) ->
-  match_1(maps:to_list(Tree1), Tree2) andalso
-    match_1(maps:to_list(Tree2), Tree1).
-
-match_1([{Key, Val}|Left], Tree2) ->
-  case Tree2 of
-    #{Key :=  Val} ->
-      match_1(Left, Tree2);
-    #{} -> false
-  end;
-match_1([], _) ->
-  true.
+match(Tree1, Tree2) when is_map(Tree1), is_map(Tree2) ->
+  Tree1 =:= Tree2.
