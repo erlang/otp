@@ -240,7 +240,7 @@
       <tag><c>simple_xml() = {xml_tag(), xml_attributes(), xml_content()} | {xml_tag(), xml_content()} | xml_tag()</c></tag>
       <item><marker id="type-simple_xml"/>
         <p>This type is further described in application
-          <seealso marker="xmerl"><c>xmerl</c></seealso>.</p></item>
+          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p></item>
 
       <tag><c>stream_data() = {description, string()} | {replaySupport, string()} | {replayLogCreationTime, string()} | {replayLogAgedTime, string()}</c></tag>
       <item><marker id="type-stream_data"/>

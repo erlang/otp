@@ -296,7 +296,7 @@
           the configuration data for <c>KeyOrName</c>. The extra options
           override any existing options with the same key in the
           configuration data. For details on valid SSH options, see
-          application <seealso marker="ssh"><c>SSH</c></seealso>.</p>
+          application <seealso marker="ssh:index"><c>SSH</c></seealso>.</p>
       </desc>
     </func>
 
@@ -976,7 +976,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
           receive the server response.</p>
 
         <p>For details on argument <c>End</c>, see
-          <seealso marker="receive_response-4"><c>ct_ssh:receive_response/4</c></seealso>.</p>
+          <seealso marker="#receive_response-4"><c>ct_ssh:receive_response/4</c></seealso>.</p>
       </desc>
     </func>
 
