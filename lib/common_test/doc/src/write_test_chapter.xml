@@ -953,11 +953,11 @@
     <p><c>Common Test</c> provides the following three main functions for 
     printing strings:</p>
     <list type="bulleted">
-      <item><c>ct:log(Category, Importance, Format, Args)</c></item>
-      <item><c>ct:print(Category, Importance, Format, Args)</c></item>
-      <item><c>ct:pal(Category, Importance, Format, Args)</c></item>
+      <item><c>ct:log(Category, Importance, Format, FormatArgs, Opts)</c></item>
+      <item><c>ct:print(Category, Importance, Format, FormatArgs)</c></item>
+      <item><c>ct:pal(Category, Importance, Format, FormatArgs)</c></item>
     </list>
-    <p>The <seealso marker="ct#log-1"><c>log/1,2,3,4</c></seealso> function 
+    <p>The <seealso marker="ct#log-1"><c>log/1,2,3,4,5</c></seealso> function 
     prints a string to the test case log file. 
     The <seealso marker="ct#print-1"><c>print/1,2,3,4</c></seealso> function 
     prints the string to screen.
@@ -1031,14 +1031,26 @@
  4. Categorized info, importance = 25
  6. Categorized error, importance = 99</pre>
 
+    <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
+    always passed on to the <c>stdlib</c> function <c>io:format/3</c> (For details,
+    see the <seealso marker="stdlib:io"><c>stdlib:io</c></seealso> manual page).</p>
+
+    <p><c>ct:pal/4</c> and <c>ct:log/5</c> add headers to strings being printed to the
+    log file. The strings are also wrapped in div tags with a CSS class
+    attribute, so that stylesheet formatting can be applied. To disable this feature for
+    a printout (i.e. to get a result similar to using <c>io:format/2</c>),
+    call <c>ct:log/5</c> with the <c>no_css</c> option.</p>
+
     <p>How categories can be mapped to CSS tags is documented in section
     <seealso marker="run_test_chapter#html_stylesheet">HTML Style Sheets</seealso>
     in section Running Tests and Analyzing Results.</p>
-
-    <p>The arguments <c>Format</c> and <c>Args</c> in <c>ct:log/print/pal</c> are
-    always passed on to function <c>stdlib:io:format/3</c> (For details, see the 
-    <seealso marker="stdlib:io"><c>stdlib:io</c></seealso> manual page).</p>
     
+    <p>Common Test will escape special HTML characters (&lt;, &gt; and &amp;) in printouts
+    to the log file made with <c>ct:pal/4</c> and <c>io:format/2</c>. In order to print
+    strings with HTML tags to the log, use the <c>ct:log/5</c> function. The character escaping
+    feature is per default disabled for <c>ct:log/5</c>, but can be enabled with the
+    <c>esc_chars</c> option.</p>
+
     <p>For more information about log files, see section
     <seealso marker="run_test_chapter#log_files">Log Files</seealso> 
     in section Running Tests and Analyzing Results.</p>
