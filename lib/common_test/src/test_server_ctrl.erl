@@ -1825,13 +1825,14 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
 	    case {filelib:is_file(filename:join(LogDir, SrcListing)),
 		  lists:member(no_src, get(test_server_logopts))} of
 		{true,false} ->
-		    print(Lev, Info ++ "<a href=\"~ts#~ts\">~w:~w/~w</a> "
-			  "(click for source code)\n",
+		    print(Lev, ["$tc_html",
+				Info ++ "<a href=\"~ts#~ts\">~w:~w/~w</a> "
+				"(click for source code)\n"],
 			  [uri_encode(SrcListing),
 			   uri_encode(atom_to_list(Func)++"-1",utf8),
 			   Mod,Func,Arity]);
 		_ ->
-		    print(Lev, Info ++ "~w:~w/~w\n", [Mod,Func,Arity])
+		    print(Lev, ["$tc_html",Info ++ "~w:~w/~w\n"], [Mod,Func,Arity])
 	    end
     end,
 
@@ -4361,6 +4362,10 @@ print(Detail, Format) ->
 
 print(Detail, Format, Args) ->
     print(Detail, Format, Args, internal).
+
+print(Detail, ["$tc_html",Format], Args, Printer) ->
+    Msg = io_lib:format(Format, Args),
+    print_or_buffer(Detail, ["$tc_html",Msg], Printer);
 
 print(Detail, Format, Args, Printer) ->
     Msg = io_lib:format(Format, Args),

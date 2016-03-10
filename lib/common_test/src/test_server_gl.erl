@@ -37,7 +37,8 @@
 	     reject_io :: boolean(),	       %Reject I/O requests...
 	     permit_io,			       %... and exceptions
 	     auto_nl=true :: boolean(),	       %Automatically add NL
-	     levels			       %{Stdout,Major,Minor}
+	     levels,			       %{Stdout,Major,Minor}
+	     escape_chars=true		       %Switch escaping HTML on/off
 	    }).
 
 %% start_link()
@@ -137,7 +138,8 @@ init([]) ->
 	    reject_io=false,
 	    permit_io=gb_sets:empty(),
 	    auto_nl=true,
-	    levels={1,19,10}
+	    levels={1,19,10},
+	    escape_chars=true
 	   }}.
 
 req(GL, Req) ->
@@ -193,10 +195,11 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 			#st{capture=CapturePid} ->
 			    CapturePid ! {captured,Data}
 		    end,
-		    if EscapeHtml ->			    
+		    case EscapeHtml andalso St#st.escape_chars of
+			true ->
 			    output(minor, test_server_ctrl:escape_chars(Data),
 				   From, From, St);
-		       not EscapeHtml ->
+			false ->
 			    output(minor, Data, From, From, St)
 		    end
 	    end,
@@ -218,7 +221,11 @@ handle_info({printout,Detail,Fun}, St) when is_function(Fun)->
     {noreply,St};
 handle_info({printout,Detail,Format,Args}, St) ->
     Str = io_lib:format(Format, Args),
-    output(Detail, Str, internal, none, St),
+    if not St#st.escape_chars ->
+	    output(Detail, ["$tc_html",Str], internal, none, St);
+       true ->
+	    output(Detail, Str, internal, none, St)
+    end,
     {noreply,St};
 handle_info(Msg, #st{tc_supervisor=Pid}=St) when is_pid(Pid) ->
     %% The process overseeing the testcase process also used to be
