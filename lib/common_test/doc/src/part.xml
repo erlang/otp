@@ -31,40 +31,9 @@
   </header>
   
   <description>
-      <p><em>Common Test</em> is a portable application for automated 
-      testing. It is suitable for black-box testing of target
-      systems of any type (i.e. not necessarily implemented in Erlang),
-      as well as for white-box testing of Erlang/OTP programs.
-      Black-box testing is performed via standard O&amp;M 
-      interfaces (such as SNMP, HTTP, Corba, Telnet, etc) and,
-      if required, via user specific interfaces (often called test 
-      ports). White-box testing of Erlang/OTP programs is easily
-      accomplished by calling the target API functions directly
-      from the test case functions. Common Test also integrates 
-      usage of the OTP cover tool for code coverage analysis of 
-      Erlang/OTP programs.</p>
-      
-      <p>Common Test executes test suite programs automatically,
-      without operator interaction. Test progress and results is
-      printed to logs on HTML format, easily browsed with a standard
-      web browser. Common Test also sends notifications about progress
-      and results via an OTP event manager to event handlers plugged
-      in to the system. This way users can integrate their own
-      programs for e.g. logging, database storing or supervision with
-      Common Test.</p>
-
-      <p>Common Test provides libraries that contain useful support 
-      functions to fill various testing needs and requirements. 
-      There is for example support for flexible test declarations 
-      by means of so called test specifications. There is also support 
-      for central configuration and control of multiple 
-      independent test sessions (towards different target systems)
-      running in parallel.</p>
-
-      <p>Common Test is implemented as a framework based on the OTP Test 
-      Server application.</p>
   </description>
 
+  <xi:include href="introduction.xml"/>
   <xi:include href="basics_chapter.xml"/>
   <xi:include href="getting_started_chapter.xml"/>
   <xi:include href="install_chapter.xml"/>

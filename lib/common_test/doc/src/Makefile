@@ -36,26 +36,24 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 
-# REMEMBER: links to HTML files for these modules in ref_man.xml
-CT_MODULES = \
-	ct \
-	ct_master \
-	ct_cover \
-	ct_telnet \
-	ct_ftp \
-	ct_ssh \
-	ct_rpc \
-	ct_snmp \
-	unix_telnet \
-	ct_slave \
-	ct_property_test \
-	ct_netconfc
-
 CT_XML_FILES = $(CT_MODULES:=.xml)
 
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF1_FILES = ct_run.xml
-XML_REF3_FILES = $(CT_XML_FILES) ct_hooks.xml
+# REMEMBER: links to HTML files for these modules in ref_man.xml
+XML_REF3_FILES = ct.xml \
+	ct_master.xml \
+	ct_cover.xml \
+	ct_telnet.xml \
+	ct_ftp.xml \
+	ct_ssh.xml \
+	ct_rpc.xml \
+	ct_snmp.xml \
+	unix_telnet.xml \
+	ct_slave.xml \
+	ct_property_test.xml \
+	ct_netconfc.xml \
+	ct_hooks.xml
 XML_REF6_FILES = common_test_app.xml
 
 XML_PART_FILES = part.xml 
@@ -80,8 +78,6 @@ XML_CHAPTER_FILES = \
 	notes.xml \
 	notes_history.xml 
 
-MAKE_EDOC = make_edoc
-
 BOOK_FILES = book.xml
 
 GIF_FILES = \
@@ -92,7 +88,7 @@ GIF_FILES = \
 INSTALL_NOTES = ../../notes.html
 
 XML_FILES=$(XML_APPLICATION_FILES) $(XML_REF1_FILES)  $(XML_REF3_FILES) $(XML_REF6_FILES) \
-	$(XML_PART_FILES) $(XML_CHAPTER_FILES) $(XML_REF_FILES) $(BOOK_FILES)
+	$(XML_PART_FILES) $(XML_CHAPTER_FILES) $(BOOK_FILES)
 
 # ----------------------------------------------------
 
@@ -119,18 +115,10 @@ DVIPS_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-CT_SRC_DIR = $(ERL_TOP)/../internal_tools/common_test/src
-
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
 docs: pdf html man
-
-$(CT_XML_FILES): %.xml: ../../src/%.erl
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -preprocess true -i $(XMERL_DIR)/include \
-		-i ../../../test_server/include -i  ../../include \
-		-i ../../../../erts/lib/kernel/include -i ../../../../lib/kernel/include \
-		-i ../../../../erts/lib/snmp/include -i ../../../../lib/snmp/include ../../src/$(@:%.xml=%.erl)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -146,7 +134,6 @@ man: $(MAN6_FILES) $(MAN3_FILES) $(MAN1_FILES)
 debug opt: 
 
 clean clean_docs:
-	rm -f $(CT_XML_FILES)
 	rm -rf $(HTMLDIR)/*
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
