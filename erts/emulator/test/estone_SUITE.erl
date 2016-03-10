@@ -75,13 +75,12 @@ groups() ->
 
 %% EStone Test
 estone(Config) when is_list(Config) ->
-    ?line DataDir = proplists:get_value(data_dir,Config),
-    ?line Mhz=get_cpu_speed(os:type(),DataDir),
-    ?line L = ?MODULE:macro(?MODULE:micros(),DataDir),
-    ?line {Total, Stones} = sum_micros(L, 0, 0),
-    ?line pp(Mhz,Total,Stones,L),
-    ?line {comment,Mhz ++ " MHz, " ++ 
-	   integer_to_list(Stones) ++ " ESTONES"}.
+    DataDir = proplists:get_value(data_dir,Config),
+    Mhz=get_cpu_speed(os:type(),DataDir),
+    L = ?MODULE:macro(?MODULE:micros(),DataDir),
+    {Total, Stones} = sum_micros(L, 0, 0),
+    pp(Mhz,Total,Stones,L),
+    {comment,Mhz ++ " MHz, " ++ integer_to_list(Stones) ++ " ESTONES"}.
 
 estone_bench(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
@@ -1109,4 +1108,3 @@ wait_for_pids([P|Tail]) ->
 
 send_procs([P|Tail], Msg) -> P ! Msg, send_procs(Tail, Msg);
 send_procs([], _) -> ok.
-			     

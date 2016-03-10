@@ -54,23 +54,23 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %% Testcases                                                              %%
 %%                                                                        %%
 
-basic(Cfg) -> ?line drv_case(Cfg).
+basic(Cfg) -> drv_case(Cfg).
 
-coalesce(Cfg) -> ?line drv_case(Cfg).
+coalesce(Cfg) -> drv_case(Cfg).
 
-threads(Cfg) -> ?line drv_case(Cfg).
+threads(Cfg) -> drv_case(Cfg).
 
-realloc_copy(Cfg) -> ?line drv_case(Cfg).
+realloc_copy(Cfg) -> drv_case(Cfg).
 
-bucket_index(Cfg) -> ?line drv_case(Cfg).
+bucket_index(Cfg) -> drv_case(Cfg).
 
-bucket_mask(Cfg) -> ?line drv_case(Cfg).
+bucket_mask(Cfg) -> drv_case(Cfg).
 
-rbtree(Cfg) -> ?line drv_case(Cfg).
+rbtree(Cfg) -> drv_case(Cfg).
 
-mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
+mseg_clear_cache(Cfg) -> drv_case(Cfg).
 
-cpool(Cfg) -> ?line drv_case(Cfg).
+cpool(Cfg) -> drv_case(Cfg).
 
 migration(Cfg) ->
     case erlang:system_info(smp_support) of
@@ -86,7 +86,7 @@ erts_mmap(Config) when is_list(Config) ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
 	{SkipOs,_} ->
-	    ?line {skipped,
+	    {skipped,
 		   lists:flatten(["Not run on "
 				  | io_lib:format("~p",[SkipOs])])}
     end.
@@ -146,19 +146,19 @@ drv_case(Config) ->
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     case test_server:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
-	    ?line {ok, Node} = start_node(Config, NodeOpts),
-	    ?line Self = self(),
-	    ?line Ref = make_ref(),
-	    ?line spawn_link(Node,
+	    {ok, Node} = start_node(Config, NodeOpts),
+	    Self = self(),
+	    Ref = make_ref(),
+	    spawn_link(Node,
 			     fun () ->
 				     Res = run_drv_case(Config, Mode),
 				     Self ! {Ref, Res}
 			     end),
-	    ?line Result = receive {Ref, Rslt} -> Rslt end,
-	    ?line stop_node(Node),
-	    ?line Result;
+	    Result = receive {Ref, Rslt} -> Rslt end,
+	    stop_node(Node),
+	    Result;
 	SkipOs ->
-	    ?line {skipped,
+	    {skipped,
 		   lists:flatten(["Not run on "
 				  | io_lib:format("~p",[SkipOs])])}
     end.
@@ -225,7 +225,6 @@ print_stats(migration) ->
 
     io:format("Number of blocks  : ~p\n", [Btot]),
     io:format("Number of carriers: ~p\n", [Ctot]);
-
 print_stats(_) -> ok.
 
 tuple_add(T1, T2) ->
@@ -313,11 +312,11 @@ handle_result(_State, Result0) ->
 	{failed, Comment} ->
 	    ct:fail(Comment);
 	{skipped, Comment} ->
-	    ?line {skipped, Comment};
+	    {skipped, Comment};
 	{succeeded, ""} ->
-	    ?line succeeded;
+	    succeeded;
 	{succeeded, Comment} ->
-	    ?line {comment, Comment};
+	    {comment, Comment};
 	continue ->
 	    continue
     end.

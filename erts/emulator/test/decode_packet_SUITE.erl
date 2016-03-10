@@ -25,8 +25,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,
-	 init_per_testcase/2,end_per_testcase/2,
-	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
+         init_per_testcase/2,end_per_testcase/2,
+         basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
          otp_9389/1, otp_9389_line/1]).
 
 suite() ->
@@ -49,40 +49,40 @@ end_per_testcase(_Func, _Config) ->
     ok.
 
 basic(Config) when is_list(Config) ->
-    ?line Packet = <<101,22,203,54,175>>,
-    ?line Rest = <<123,34,0,250>>,
-    ?line Bin = <<Packet/binary,Rest/binary>>,
-    ?line {ok, Bin, <<>>} = decode_pkt(raw,Bin),
+    Packet = <<101,22,203,54,175>>,
+    Rest = <<123,34,0,250>>,
+    Bin = <<Packet/binary,Rest/binary>>,
+    {ok, Bin, <<>>} = decode_pkt(raw,Bin),
 
-    ?line {more, 5+1} = decode_pkt(1,<<5,1,2,3,4>>),
-    ?line {more, 5+2} = decode_pkt(2,<<0,5,1,2,3,4>>),
-    ?line {more, 5+4} = decode_pkt(4,<<0,0,0,5,1,2,3,4>>),
+    {more, 5+1} = decode_pkt(1,<<5,1,2,3,4>>),
+    {more, 5+2} = decode_pkt(2,<<0,5,1,2,3,4>>),
+    {more, 5+4} = decode_pkt(4,<<0,0,0,5,1,2,3,4>>),
 
-    ?line {more, undefined} = decode_pkt(1,<<>>),
-    ?line {more, undefined} = decode_pkt(2,<<0>>),
-    ?line {more, undefined} = decode_pkt(4,<<0,0,0>>),
+    {more, undefined} = decode_pkt(1,<<>>),
+    {more, undefined} = decode_pkt(2,<<0>>),
+    {more, undefined} = decode_pkt(4,<<0,0,0>>),
 
     Types = [1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
 
     %% Run tests for different header types and bit offsets.
 
     lists:foreach(fun({Type,Bits})->basic_pack(Type,Packet,Rest,Bits), 
-				    more_length(Type,Packet,Bits) end,
-		  [{T,B} || T<-Types, B<-lists:seq(0,32)]),
+                                    more_length(Type,Packet,Bits) end,
+                  [{T,B} || T<-Types, B<-lists:seq(0,32)]),
     ok.
 
 basic_pack(Type,Body,Rest,BitOffs) ->
-    ?line {Bin,Unpacked,_} = pack(Type,Body,Rest,BitOffs),
-    ?line {ok, Unpacked, Rest} = decode_pkt(Type,Bin),
+    {Bin,Unpacked,_} = pack(Type,Body,Rest,BitOffs),
+    {ok, Unpacked, Rest} = decode_pkt(Type,Bin),
     case Rest of
-	<<>> -> ok;
-	_ -> 
-	    ?line <<_:1,NRest/bits>> = Rest,
-	    basic_pack(Type,Body,NRest,BitOffs)
+        <<>> -> ok;
+        _ -> 
+            <<_:1,NRest/bits>> = Rest,
+            basic_pack(Type,Body,NRest,BitOffs)
     end.
 
 more_length(Type,Body,BitOffs) ->
-    ?line {Bin,_,_} = pack(Type,Body,<<>>,BitOffs),
+    {Bin,_,_} = pack(Type,Body,<<>>,BitOffs),
     HdrSize = byte_size(Bin) - byte_size(Body),
     more_length_do(Type,HdrSize,Bin,byte_size(Bin)).
 
@@ -91,17 +91,17 @@ more_length_do(_,_,_,0) ->
 more_length_do(Type,HdrSize,Bin,Size) ->
     TrySize = (Size*3) div 4,
     NSize = if TrySize < HdrSize -> Size - 1;
-	       true -> TrySize
-	    end,
+               true -> TrySize
+            end,
     {B1,_} = split_binary(Bin,NSize),
-    ?line {more, Length} = decode_pkt(Type,B1),
+    {more, Length} = decode_pkt(Type,B1),
     case Length of
-	L when L=:=byte_size(Bin) -> ok;
-	undefined when NSize<HdrSize -> ok
+        L when L=:=byte_size(Bin) -> ok;
+        undefined when NSize<HdrSize -> ok
     end,
     more_length_do(Type,HdrSize,Bin,NSize).
 
-   
+
 
 pack(Type,Packet,Rest) ->
     {Bin,Unpacked} = pack(Type,Packet),
@@ -133,28 +133,28 @@ pack(4,Bin) ->
     {<<Psz:32,Bin/binary>>, Bin};
 pack(asn1,Bin) ->
     Ident = case rand:uniform(3) of
-		1 -> <<17>>;
-		2 -> <<16#1f,16#81,17>>;
-		3 -> <<16#1f,16#81,16#80,16#80,17>>
-	    end,
+                1 -> <<17>>;
+                2 -> <<16#1f,16#81,17>>;
+                3 -> <<16#1f,16#81,16#80,16#80,17>>
+            end,
     Psz = byte_size(Bin),
     Length = case rand:uniform(4) of
-		 1 when Psz < 128 -> 
-		     <<Psz:8>>;
-		 R when R=<2 andalso Psz < 16#10000 ->
-		     <<16#82,Psz:16>>;
-		 R when R=<3 andalso Psz < 16#1000000 -> 
-		     <<16#83,Psz:24>>;
-		 _ when Psz < 16#100000000 ->
-		     <<16#84,Psz:32>>
-	     end,
+                 1 when Psz < 128 -> 
+                     <<Psz:8>>;
+                 R when R=<2 andalso Psz < 16#10000 ->
+                     <<16#82,Psz:16>>;
+                 R when R=<3 andalso Psz < 16#1000000 -> 
+                     <<16#83,Psz:24>>;
+                 _ when Psz < 16#100000000 ->
+                     <<16#84,Psz:32>>
+             end,
     Res = <<Ident/binary,Length/binary,Bin/binary>>,
     {Res,Res};
 pack(sunrm,Bin) ->
     Psz = byte_size(Bin),
     Res = if Psz < 16#80000000 ->
-		  <<Psz:32,Bin/binary>>
-    end,
+                 <<Psz:32,Bin/binary>>
+          end,
     {Res,Res};
 pack(cdr,Bin) ->
     GIOP = <<"GIOP">>,
@@ -163,9 +163,9 @@ pack(cdr,Bin) ->
     MType = rand:uniform(256) - 1,
     Psz = byte_size(Bin),
     Res = case rand:uniform(2) of
-	      1 -> <<GIOP/binary,Major:8,Minor:8,0:8,MType:8,Psz:32/big,Bin/binary>>;
-	      2 -> <<GIOP/binary,Major:8,Minor:8,1:8,MType:8,Psz:32/little,Bin/binary>>
-	  end,
+              1 -> <<GIOP/binary,Major:8,Minor:8,0:8,MType:8,Psz:32/big,Bin/binary>>;
+              2 -> <<GIOP/binary,Major:8,Minor:8,1:8,MType:8,Psz:32/little,Bin/binary>>
+          end,
     {Res,Res};
 pack(fcgi,Bin) ->
     Ver = 1,
@@ -175,10 +175,10 @@ pack(fcgi,Bin) ->
     Psz = byte_size(Bin),
     Reserv = rand:uniform(256) - 1,
     Padd = case PaddSz of
-	       0 -> <<>>;
-	       _ -> list_to_binary([rand:uniform(256)-1
-				    || _<- lists:seq(1,PaddSz)])
-	   end,
+               0 -> <<>>;
+               _ -> list_to_binary([rand:uniform(256)-1
+                                    || _<- lists:seq(1,PaddSz)])
+           end,
     Res = <<Ver:8,Type:8,Id:16,Psz:16/big,PaddSz:8,Reserv:8,Bin/binary>>,
     {<<Res/binary,Padd/binary>>, Res};
 pack(tpkt,Bin) ->
@@ -189,149 +189,149 @@ pack(tpkt,Bin) ->
     {Res, Res};
 pack(ssl_tls,Bin) ->
     Content = case (rand:uniform(256) - 1) of
-		  C when C<128 -> C;
-		  _ -> v2hello
-	      end,
+                  C when C<128 -> C;
+                  _ -> v2hello
+              end,
     Major = rand:uniform(256) - 1,
     Minor = rand:uniform(256) - 1,
     pack_ssl(Content,Major,Minor,Bin).
 
 pack_ssl(Content, Major, Minor, Body) ->
     case Content of
-	v2hello ->
-	    Size = byte_size(Body),
-	    Res = <<1:1,(Size+3):15, 1:8, Major:8, Minor:8, Body/binary>>,
-	    C = 22,
-	    Data = <<1:8, (Size+2):24, Major:8, Minor:8, Body/binary>>;
-	C when is_integer(C) ->
-	    Size = byte_size(Body),
-	    Res = <<Content:8, Major:8, Minor:8, Size:16, Body/binary>>,
-	    Data = Body			    
+        v2hello ->
+            Size = byte_size(Body),
+            Res = <<1:1,(Size+3):15, 1:8, Major:8, Minor:8, Body/binary>>,
+            C = 22,
+            Data = <<1:8, (Size+2):24, Major:8, Minor:8, Body/binary>>;
+        C when is_integer(C) ->
+            Size = byte_size(Body),
+            Res = <<Content:8, Major:8, Minor:8, Size:16, Body/binary>>,
+            Data = Body			    
     end,
     {Res, {ssl_tls,[],C,{Major,Minor}, Data}}.
 
 
 packet_size(Config) when is_list(Config) ->
-    ?line Packet = <<101,22,203,54,175>>,
-    ?line Rest = <<123,34,0,250>>,
+    Packet = <<101,22,203,54,175>>,
+    Rest = <<123,34,0,250>>,
 
     F = fun({Type,Max})->
-		?line {Bin,Unpacked} = pack(Type,Packet,Rest),
-		?line case decode_pkt(Type,Bin,[{packet_size,Max}]) of
-			  {ok,Unpacked,Rest} when Max=:=0; Max>=byte_size(Packet) ->
-			      ok;
-			  {error,_} when Max<byte_size(Packet), Max=/=0 ->
-			      ok;
-			  {error,_} when Type=:=fcgi, Max=/=0 ->
-			      %% packet includes random amount of padding
-			      ok
-		      end
-	end,
-    ?line lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
-				     D<-lists:seq(0, byte_size(Packet)*2)]),
+                {Bin,Unpacked} = pack(Type,Packet,Rest),
+                case decode_pkt(Type,Bin,[{packet_size,Max}]) of
+                    {ok,Unpacked,Rest} when Max=:=0; Max>=byte_size(Packet) ->
+                        ok;
+                    {error,_} when Max<byte_size(Packet), Max=/=0 ->
+                        ok;
+                    {error,_} when Type=:=fcgi, Max=/=0 ->
+                        %% packet includes random amount of padding
+                        ok
+                end
+        end,
+    lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+                               D<-lists:seq(0, byte_size(Packet)*2)]),
 
     %% Test OTP-8102, "negative" 4-byte sizes.
     lists:foreach(fun(Size) -> 
-			  ?line {error,_} = decode_pkt(4,<<Size:32,Packet/binary>>)
-		  end, 
-		  lists:seq(-10,-1)),
+                          {error,_} = decode_pkt(4,<<Size:32,Packet/binary>>)
+                  end, 
+                  lists:seq(-10,-1)),
 
     %% Test OTP-9389, long HTTP header lines.
     Opts = [{packet_size, 128}],
     Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
                           string:chars($Y, 64), "\r\n\r\n"]),
     <<Pkt1:50/binary, Pkt2/binary>> = Pkt,
-    ?line {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
-        erlang:decode_packet(http, Pkt1, Opts),
-    ?line {ok, {http_header,_,'Host',_,"localhost"}, Rest2} =
-        erlang:decode_packet(httph, Rest1, Opts),
-    ?line {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
-    ?line {ok, {http_header,_,"Link",_,_}, _} =
-        erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
+    {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
+    erlang:decode_packet(http, Pkt1, Opts),
+    {ok, {http_header,_,'Host',_,"localhost"}, Rest2} =
+    erlang:decode_packet(httph, Rest1, Opts),
+    {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
+    {ok, {http_header,_,"Link",_,_}, _} =
+    erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
 
     Pkt3 = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
                            string:chars($Y, 129), "\r\n\r\n"]),
-    ?line {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest3} =
-        erlang:decode_packet(http, Pkt3, Opts),
-    ?line {ok, {http_header,_,'Host',_,"localhost"}, Rest4} =
-        erlang:decode_packet(httph, Rest3, Opts),
-    ?line {error, invalid} = erlang:decode_packet(httph, Rest4, Opts),
+    {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest3} =
+    erlang:decode_packet(http, Pkt3, Opts),
+    {ok, {http_header,_,'Host',_,"localhost"}, Rest4} =
+    erlang:decode_packet(httph, Rest3, Opts),
+    {error, invalid} = erlang:decode_packet(httph, Rest4, Opts),
 
     ok.
 
 
 neg(Config) when is_list(Config) ->
-    ?line Bin = <<"dummy">>,
+    Bin = <<"dummy">>,
     Fun = fun()->dummy end,
-    
+
     BadargF = fun(T,B,Opts)-> {'EXIT',{badarg,_}} = (catch decode_pkt(T,B,Opts)) end,
 
     %% Invalid Type args
     lists:foreach(fun(T)-> BadargF(T,Bin,[]) end, 
-		  [3,-1,5,2.0,{2},unknown,[],"line",Bin,Fun,self()]),
+                  [3,-1,5,2.0,{2},unknown,[],"line",Bin,Fun,self()]),
 
     %% Invalid Bin args
     lists:foreach(fun(B)-> BadargF(0,B,[]) end, 
-		  [3,2.0,unknown,[],"Bin",[Bin],{Bin},Fun,self()]),
+                  [3,2.0,unknown,[],"Bin",[Bin],{Bin},Fun,self()]),
 
     %% Invalid options
     InvOpts = [2,false,self(),Bin,"Options",Fun,
-	       packet_size,{packet_size},{packet_size,0,false},
-	       {packet_size,-1},{packet_size,100.0},{packet_size,false},
-	       {line_length,-1},{line_length,100.0},{line_length,false}],
+               packet_size,{packet_size},{packet_size,0,false},
+               {packet_size,-1},{packet_size,100.0},{packet_size,false},
+               {line_length,-1},{line_length,100.0},{line_length,false}],
 
     lists:foreach(fun(Opt)-> BadargF(0,Bin,Opt),
-			     BadargF(0,Bin,[Opt]),
-			     BadargF(0,Bin,[Opt,{packet_size,1000}]),
-			     BadargF(0,Bin,[{packet_size,1000},Opt]) end,
-		  InvOpts),
+                             BadargF(0,Bin,[Opt]),
+                             BadargF(0,Bin,[Opt,{packet_size,1000}]),
+                             BadargF(0,Bin,[{packet_size,1000},Opt]) end,
+                  InvOpts),
     ok.
 
 
 http(Config) when is_list(Config) ->
-    ?line <<"foo">> = http_do(http_request("foo")),
-    ?line <<" bar">> = http_do(http_request(" bar")),
-    ?line <<"Hello!">> = http_do(http_response("Hello!")),
+    <<"foo">> = http_do(http_request("foo")),
+    <<" bar">> = http_do(http_request(" bar")),
+    <<"Hello!">> = http_do(http_response("Hello!")),
 
     %% Test all known header atoms
     Val = "dummy value",
     ValB = list_to_binary(Val),
     Rest = <<"Rest">>,    
     HdrF = fun(Str,N) ->  
-		   ?line StrA = list_to_atom(Str),
-		   ?line StrB = list_to_binary(Str),
-		   ?line Bin = <<StrB/binary,": ",ValB/binary,"\r\n",Rest/binary>>,
-		   ?line {ok, {http_header,N,StrA,undefined,Val}, Rest} = decode_pkt(httph,Bin),
-		   ?line {ok, {http_header,N,StrA,undefined,ValB}, Rest} = decode_pkt(httph_bin,Bin),
-		   ?line N + 1
-	   end,
-    ?line lists:foldl(HdrF, 1, http_hdr_strings()),
+                   StrA = list_to_atom(Str),
+                   StrB = list_to_binary(Str),
+                   Bin = <<StrB/binary,": ",ValB/binary,"\r\n",Rest/binary>>,
+                   {ok, {http_header,N,StrA,undefined,Val}, Rest} = decode_pkt(httph,Bin),
+                   {ok, {http_header,N,StrA,undefined,ValB}, Rest} = decode_pkt(httph_bin,Bin),
+                   N + 1
+           end,
+    lists:foldl(HdrF, 1, http_hdr_strings()),
 
     %% Test all known method atoms
     MethF = fun(Meth) ->  
-		    ?line MethA = list_to_atom(Meth),
-		    ?line MethB = list_to_binary(Meth),
-		    ?line Bin = <<MethB/binary," /invalid/url HTTP/1.0\r\n",Rest/binary>>,
-		    ?line {ok, {http_request,MethA,{abs_path,"/invalid/url"},{1,0}},
-			   Rest} = decode_pkt(http,Bin),
-		    ?line {ok, {http_request,MethA,{abs_path,<<"/invalid/url">>},{1,0}},
-			   Rest} = decode_pkt(http_bin,Bin)
-	    end,
-    ?line lists:foreach(MethF, http_meth_strings()),
+                    MethA = list_to_atom(Meth),
+                    MethB = list_to_binary(Meth),
+                    Bin = <<MethB/binary," /invalid/url HTTP/1.0\r\n",Rest/binary>>,
+                    {ok, {http_request,MethA,{abs_path,"/invalid/url"},{1,0}},
+                     Rest} = decode_pkt(http,Bin),
+                    {ok, {http_request,MethA,{abs_path,<<"/invalid/url">>},{1,0}},
+                     Rest} = decode_pkt(http_bin,Bin)
+            end,
+    lists:foreach(MethF, http_meth_strings()),
 
     %% Test all uri variants    
     UriF = fun({Str,ResL,ResB}) -> 
-		   Bin = <<"GET ",(list_to_binary(Str))/binary," HTTP/1.1\r\n",Rest/binary>>,
-		   {ok, {http_request, 'GET', ResL, {1,1}}, Rest} = decode_pkt(http,Bin),
-		   {ok, {http_request, 'GET', ResB, {1,1}}, Rest} = decode_pkt(http_bin,Bin) 
-	   end,
+                   Bin = <<"GET ",(list_to_binary(Str))/binary," HTTP/1.1\r\n",Rest/binary>>,
+                   {ok, {http_request, 'GET', ResL, {1,1}}, Rest} = decode_pkt(http,Bin),
+                   {ok, {http_request, 'GET', ResB, {1,1}}, Rest} = decode_pkt(http_bin,Bin) 
+           end,
     lists:foreach(UriF, http_uri_variants()),
 
     %% Response with empty phrase
-    ?line {ok,{http_response,{1,1},200,[]},<<>>} = decode_pkt(http, <<"HTTP/1.1 200\r\n">>, []),
-    ?line {ok,{http_response,{1,1},200,<<>>},<<>>} = decode_pkt(http_bin, <<"HTTP/1.1 200\r\n">>, []),
+    {ok,{http_response,{1,1},200,[]},<<>>} = decode_pkt(http, <<"HTTP/1.1 200\r\n">>, []),
+    {ok,{http_response,{1,1},200,<<>>},<<>>} = decode_pkt(http_bin, <<"HTTP/1.1 200\r\n">>, []),
     ok.
-	     
+
 http_with_bin(http) ->
     http_bin;
 http_with_bin(httph) ->
@@ -342,8 +342,8 @@ http_do(Tup) ->
 http_do({Bin, []}, _) ->
     Bin;
 http_do({Bin,[{_Line,PL,PB}|Tail]}, Type) ->
-    ?line {ok, PL, Rest} = decode_pkt(Type,Bin),
-    ?line {ok, PB, Rest} = decode_pkt(http_with_bin(Type),Bin),
+    {ok, PL, Rest} = decode_pkt(Type,Bin),
+    {ok, PB, Rest} = decode_pkt(http_with_bin(Type),Bin),
 
     %% Same tests again but as SubBin
     PreLen = rand:uniform(64),
@@ -353,77 +353,77 @@ http_do({Bin,[{_Line,PL,PB}|Tail]}, Type) ->
     Orig = <<Prefix:PreLen, Bin/bits, Suffix:SufLen>>,
     BinLen = bit_size(Bin),
     <<_:PreLen, SubBin:BinLen/bits, _/bits>> = Orig, % Make SubBin
-    ?line SubBin = Bin, % just to make sure
+    SubBin = Bin, % just to make sure
 
-    ?line {ok, PL, Rest} = decode_pkt(Type,SubBin),
-    ?line {ok, PB, Rest} = decode_pkt(http_with_bin(Type),SubBin),
+    {ok, PL, Rest} = decode_pkt(Type,SubBin),
+    {ok, PB, Rest} = decode_pkt(http_with_bin(Type),SubBin),
     http_do({Rest, Tail}, httph).
 
 http_request(Msg) ->
     QnA = [{"POST /invalid/url HTTP/1.1\r\n",
-	  {http_request, 'POST', {abs_path,  "/invalid/url"  }, {1,1}},
-	  {http_request, 'POST', {abs_path,<<"/invalid/url">>}, {1,1}}},
-	 {"Connection: close\r\n",
-	  {http_header,2,'Connection',undefined,  "close"},
-	  {http_header,2,'Connection',undefined,<<"close">>}},	 
-	 {"Host\t : localhost:8000\r\n", % white space before :
-	  {http_header,14,'Host',undefined,  "localhost:8000"},
-	  {http_header,14,'Host',undefined,<<"localhost:8000">>}},
-	 {"User-Agent: perl post\r\n",
-	  {http_header,24,'User-Agent',undefined,  "perl post"},
-	  {http_header,24,'User-Agent',undefined,<<"perl post">>}},
-	 {"Content-Length: 4\r\n",
-	  {http_header,38,'Content-Length',undefined,  "4"},
-	  {http_header,38,'Content-Length',undefined,<<"4">>}},
-	 {"Content-Type: text/xml; charset=utf-8\r\n",
-	  {http_header,42,'Content-Type',undefined,  "text/xml; charset=utf-8"},
-	  {http_header,42,'Content-Type',undefined,<<"text/xml; charset=utf-8">>}},
-	 {"Other-Field: with some text\r\n",
-	  {http_header,0,  "Other-Field"  ,undefined,  "with some text"},
-	  {http_header,0,<<"Other-Field">>,undefined,<<"with some text">>}},
-	 {"Make-sure-a-LONG-HEaDer-fIeLd-is-fORMATTED-NicelY: with some text\r\n",
-	  {http_header,0,  "Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely"  ,undefined,  "with some text"},
-	  {http_header,0,<<"Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely">>,undefined,<<"with some text">>}},
-	 {"Multi-Line: Once upon a time in a land far far away,\r\n"
-	  " there lived a princess imprisoned in the highest tower\r\n"
-	  " of the most haunted castle.\r\n",
-	  {http_header,0,  "Multi-Line"  ,undefined,  "Once upon a time in a land far far away,\r\n there lived a princess imprisoned in the highest tower\r\n of the most haunted castle."},
-	  {http_header,0,<<"Multi-Line">>,undefined,<<"Once upon a time in a land far far away,\r\n there lived a princess imprisoned in the highest tower\r\n of the most haunted castle.">>}},
-	 {"\r\n",
-	  http_eoh,
-	  http_eoh}],
+            {http_request, 'POST', {abs_path,  "/invalid/url"  }, {1,1}},
+            {http_request, 'POST', {abs_path,<<"/invalid/url">>}, {1,1}}},
+           {"Connection: close\r\n",
+            {http_header,2,'Connection',undefined,  "close"},
+            {http_header,2,'Connection',undefined,<<"close">>}},	 
+           {"Host\t : localhost:8000\r\n", % white space before :
+            {http_header,14,'Host',undefined,  "localhost:8000"},
+            {http_header,14,'Host',undefined,<<"localhost:8000">>}},
+           {"User-Agent: perl post\r\n",
+            {http_header,24,'User-Agent',undefined,  "perl post"},
+            {http_header,24,'User-Agent',undefined,<<"perl post">>}},
+           {"Content-Length: 4\r\n",
+            {http_header,38,'Content-Length',undefined,  "4"},
+            {http_header,38,'Content-Length',undefined,<<"4">>}},
+           {"Content-Type: text/xml; charset=utf-8\r\n",
+            {http_header,42,'Content-Type',undefined,  "text/xml; charset=utf-8"},
+            {http_header,42,'Content-Type',undefined,<<"text/xml; charset=utf-8">>}},
+           {"Other-Field: with some text\r\n",
+            {http_header,0,  "Other-Field"  ,undefined,  "with some text"},
+            {http_header,0,<<"Other-Field">>,undefined,<<"with some text">>}},
+           {"Make-sure-a-LONG-HEaDer-fIeLd-is-fORMATTED-NicelY: with some text\r\n",
+            {http_header,0,  "Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely"  ,undefined,  "with some text"},
+            {http_header,0,<<"Make-Sure-A-Long-Header-Field-Is-Formatted-Nicely">>,undefined,<<"with some text">>}},
+           {"Multi-Line: Once upon a time in a land far far away,\r\n"
+            " there lived a princess imprisoned in the highest tower\r\n"
+            " of the most haunted castle.\r\n",
+            {http_header,0,  "Multi-Line"  ,undefined,  "Once upon a time in a land far far away,\r\n there lived a princess imprisoned in the highest tower\r\n of the most haunted castle."},
+            {http_header,0,<<"Multi-Line">>,undefined,<<"Once upon a time in a land far far away,\r\n there lived a princess imprisoned in the highest tower\r\n of the most haunted castle.">>}},
+           {"\r\n",
+            http_eoh,
+            http_eoh}],
     Bin = lists:foldl(fun({Line,_,_},Acc) -> LineBin = list_to_binary(Line), 
-					     <<Acc/binary,LineBin/binary>> end,
-		      <<"">>, QnA),
+                                             <<Acc/binary,LineBin/binary>> end,
+                      <<"">>, QnA),
     MsgBin = list_to_binary(Msg),
     {<<Bin/binary,MsgBin/binary>>, QnA}.
 
 
 http_response(Msg) ->
     QnA = [{"HTTP/1.0 404 Object Not Found\r\n",
-	    {http_response, {1,0}, 404,   "Object Not Found"},
-	    {http_response, {1,0}, 404, <<"Object Not Found">>}},
-	   {"Server: inets/4.7.16\r\n",
-	    {http_header, 30, 'Server', undefined,   "inets/4.7.16"},
-	    {http_header, 30, 'Server', undefined, <<"inets/4.7.16">>}},
-	   {"Date: Fri, 04 Jul 2008 17:16:22 GMT\r\n",
-	    {http_header, 3, 'Date', undefined,   "Fri, 04 Jul 2008 17:16:22 GMT"},
-	    {http_header, 3, 'Date', undefined, <<"Fri, 04 Jul 2008 17:16:22 GMT">>}},
-	   {"Content-Type: text/html\r\n",
-	    {http_header, 42, 'Content-Type', undefined,   "text/html"},
-	    {http_header, 42, 'Content-Type', undefined, <<"text/html">>}},
-	   {"Content-Length: 207\r\n",
-	    {http_header, 38, 'Content-Length', undefined,   "207"},
-	    {http_header, 38, 'Content-Length', undefined, <<"207">>}},
-	   {"\r\n",
-	    http_eoh,
-	    http_eoh}],
+            {http_response, {1,0}, 404,   "Object Not Found"},
+            {http_response, {1,0}, 404, <<"Object Not Found">>}},
+           {"Server: inets/4.7.16\r\n",
+            {http_header, 30, 'Server', undefined,   "inets/4.7.16"},
+            {http_header, 30, 'Server', undefined, <<"inets/4.7.16">>}},
+           {"Date: Fri, 04 Jul 2008 17:16:22 GMT\r\n",
+            {http_header, 3, 'Date', undefined,   "Fri, 04 Jul 2008 17:16:22 GMT"},
+            {http_header, 3, 'Date', undefined, <<"Fri, 04 Jul 2008 17:16:22 GMT">>}},
+           {"Content-Type: text/html\r\n",
+            {http_header, 42, 'Content-Type', undefined,   "text/html"},
+            {http_header, 42, 'Content-Type', undefined, <<"text/html">>}},
+           {"Content-Length: 207\r\n",
+            {http_header, 38, 'Content-Length', undefined,   "207"},
+            {http_header, 38, 'Content-Length', undefined, <<"207">>}},
+           {"\r\n",
+            http_eoh,
+            http_eoh}],
 
 
 
     Bin = lists:foldl(fun({Line,_,_},Acc) -> LineBin = list_to_binary(Line), 
-					     <<Acc/binary,LineBin/binary>> end,
-		      <<"">>, QnA),
+                                             <<Acc/binary,LineBin/binary>> end,
+                      <<"">>, QnA),
     MsgBin = list_to_binary(Msg),
     {<<Bin/binary,MsgBin/binary>>, QnA}.
 
@@ -466,52 +466,52 @@ http_uri_variants() ->
 
 line(Config) when is_list(Config) ->
     Text = <<"POST /invalid/url HTTP/1.1\r\n"
-	    "Connection: close\r\n"
-	    "Host\t : localhost:8000\r\n"
-	    "User-Agent: perl post\r\n"
-	    "Content-Length: 4\r\n"
-	    "Content-Type: text/xml; charset=utf-8\r\n"
-	    "Other-Field: with some text\r\n"
-	    "Multi-Line: Once upon a time in a land far far away,\r\n"
-	    " there lived a princess imprisoned in the highest tower\r\n"
-	    " of the most haunted castle.\r\n"
-	    "\r\nThe residue">>,
+             "Connection: close\r\n"
+             "Host\t : localhost:8000\r\n"
+             "User-Agent: perl post\r\n"
+             "Content-Length: 4\r\n"
+             "Content-Type: text/xml; charset=utf-8\r\n"
+             "Other-Field: with some text\r\n"
+             "Multi-Line: Once upon a time in a land far far away,\r\n"
+             " there lived a princess imprisoned in the highest tower\r\n"
+             " of the most haunted castle.\r\n"
+             "\r\nThe residue">>,
 
     lists:foreach(fun(MaxLen) -> line_do(Text,MaxLen) end,
-		  [0,7,19,29,37]),
+                  [0,7,19,29,37]),
     ok.
 
 line_do(Bin,MaxLen) ->
     Res = decode_pkt(line,Bin,[{line_length,MaxLen}]),
     MyRes = decode_line(Bin,MaxLen),
-    ?line MyRes = Res,
+    MyRes = Res,
     case Res of
-	{ok,_,Rest} ->
-	    line_do(Rest,MaxLen);
-	{more,undefined} ->
-	    ok
+        {ok,_,Rest} ->
+            line_do(Rest,MaxLen);
+        {more,undefined} ->
+            ok
     end.
-    
+
 % Emulates decode_packet(line,Bin,[{line_length,MaxLen}])
 decode_line(Bin,MaxLen) ->
-    ?line case find_in_binary($\n,Bin) of
-	notfound when MaxLen>0 andalso byte_size(Bin) >= MaxLen ->
-	    {LineB,Rest} = split_binary(Bin,MaxLen),
-	    {ok,LineB,Rest};
-	notfound ->
-	    {more,undefined};
-	Pos when MaxLen>0 andalso Pos > MaxLen ->
-	    {LineB,Rest} = split_binary(Bin,MaxLen),
-	    {ok,LineB,Rest};
-	Pos ->
-	    {LineB,Rest} = split_binary(Bin,Pos),
-	    {ok,LineB,Rest}
+    case find_in_binary($\n,Bin) of
+        notfound when MaxLen>0 andalso byte_size(Bin) >= MaxLen ->
+            {LineB,Rest} = split_binary(Bin,MaxLen),
+            {ok,LineB,Rest};
+        notfound ->
+            {more,undefined};
+        Pos when MaxLen>0 andalso Pos > MaxLen ->
+            {LineB,Rest} = split_binary(Bin,MaxLen),
+            {ok,LineB,Rest};
+        Pos ->
+            {LineB,Rest} = split_binary(Bin,Pos),
+            {ok,LineB,Rest}
     end.
 
 find_in_binary(Byte, Bin) ->
     case string:chr(binary_to_list(Bin),Byte) of
-	0 -> notfound;	    
-	P -> P
+        0 -> notfound;	    
+        P -> P
     end.    
 
 ssl(Config) when is_list(Config) ->
@@ -521,10 +521,10 @@ ssl(Config) when is_list(Config) ->
     Rest = <<23,123,203,12,234>>,
 
     F = fun(Content) ->
-		{Packet,Unpacked} = pack_ssl(Content, Major, Minor, Body),
-		Bin = <<Packet/binary,Rest/binary>>,
-		?line {ok, Unpacked, Rest} = decode_pkt(ssl_tls, Bin)
-	end,    
+                {Packet,Unpacked} = pack_ssl(Content, Major, Minor, Body),
+                Bin = <<Packet/binary,Rest/binary>>,
+                {ok, Unpacked, Rest} = decode_pkt(ssl_tls, Bin)
+        end,    
     F(25),
     F(v2hello),
     ok.
@@ -542,7 +542,7 @@ otp_8536_do(N) ->
     Bin = <<Hdr/binary, ": ", Data/binary, "\r\n\r\n">>,
 
     io:format("Bin='~p'\n",[Bin]),
-    ?line {ok,{http_header,0,Hdr2,undefined,Data2},<<"\r\n">>} = decode_pkt(httph_bin, Bin,  []),
+    {ok,{http_header,0,Hdr2,undefined,Data2},<<"\r\n">>} = decode_pkt(httph_bin, Bin,  []),
 
     %% Do something to trash the C-stack, how about another decode_packet:
     decode_pkt(httph_bin,<<Letters/binary, ": ", Data/binary, "\r\n\r\n">>, []),
@@ -566,15 +566,15 @@ otp_9389(Config) when is_list(Config) ->
                           "\r\nContent-Length: 0\r\n\r\n"]),
     <<Pkt1:5000/binary, Pkt2/binary>> = Pkt,
     {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
-        erlang:decode_packet(http, Pkt1, Opts),
+    erlang:decode_packet(http, Pkt1, Opts),
     {ok, {http_header,_,'Host',_,"localhost"}, Rest2} =
-        erlang:decode_packet(httph, Rest1, Opts),
+    erlang:decode_packet(httph, Rest1, Opts),
     {more, undefined} = erlang:decode_packet(httph, Rest2, Opts),
     {ok, {http_header,_,"Link",_,Link}, Rest3} =
-        erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
+    erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
     true = (length(Link) > 8000),
     {ok, {http_header,_,'Content-Length',_,"0"}, <<"\r\n">>} =
-        erlang:decode_packet(httph, Rest3, Opts),
+    erlang:decode_packet(httph, Rest3, Opts),
     ok.
 
 %% Verify packet_size works correctly for line mode
@@ -584,7 +584,7 @@ otp_9389_line(Config) when is_list(Config) ->
     Line2 = <<"0123456789\n">>,
     Line3 = <<"01234567890123456789\n">>,
     Pkt = list_to_binary([Line1, Line2, Line3]),
-    ?line {ok, Line1, Rest1} = erlang:decode_packet(line, Pkt, Opts),
-    ?line {ok, Line2, Rest2} = erlang:decode_packet(line, Rest1, Opts),
-    ?line {error, invalid} = erlang:decode_packet(line, Rest2, Opts),
+    {ok, Line1, Rest1} = erlang:decode_packet(line, Pkt, Opts),
+    {ok, Line2, Rest2} = erlang:decode_packet(line, Rest1, Opts),
+    {error, invalid} = erlang:decode_packet(line, Rest2, Opts),
     ok.

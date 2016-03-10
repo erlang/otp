@@ -62,37 +62,37 @@ process_count(Config) when is_list(Config) ->
     end.
 
 process_count_test() ->
-    ?line OldPrio = process_flag(priority, max),
-    ?line check_procs(10),
-    ?line check_procs(11234),
-    ?line check_procs(57),
-    ?line check_procs(1030),
-    ?line check_procs(687),
-    ?line check_procs(7923),
-    ?line check_procs(5302),
-    ?line check_procs(12456),
-    ?line check_procs(14),
-    ?line check_procs(1125),
-    ?line check_procs(236),
-    ?line check_procs(125),
-    ?line check_procs(2346),
-    ?line process_flag(priority, OldPrio),
-    ?line ok.
+    OldPrio = process_flag(priority, max),
+    check_procs(10),
+    check_procs(11234),
+    check_procs(57),
+    check_procs(1030),
+    check_procs(687),
+    check_procs(7923),
+    check_procs(5302),
+    check_procs(12456),
+    check_procs(14),
+    check_procs(1125),
+    check_procs(236),
+    check_procs(125),
+    check_procs(2346),
+    process_flag(priority, OldPrio),
+    ok.
     
 
 check_procs(N) ->
-    ?line CP = length(processes()),
-    ?line Procs = start_procs(N),
-    ?line check_pc(CP+N),
-    ?line stop_procs(Procs),
-    ?line check_pc(CP).
+    CP = length(processes()),
+    Procs = start_procs(N),
+    check_pc(CP+N),
+    stop_procs(Procs),
+    check_pc(CP).
 
 check_pc(E) ->
-    ?line P = length(processes()),
-    ?line SI = erlang:system_info(process_count),
-    ?line io:format("E=~p; P=~p; SI=~p~n", [E, P, SI]),
-    ?line E = P,
-    ?line P = SI.
+    P = length(processes()),
+    SI = erlang:system_info(process_count),
+    io:format("E=~p; P=~p; SI=~p~n", [E, P, SI]),
+    E = P,
+    P = SI.
 
 start_procs(N) ->
     lists:map(fun (_) ->
@@ -114,33 +114,33 @@ stop_procs(PMs) ->
 
 
 system_version(Config) when is_list(Config) ->
-    ?line {comment, erlang:system_info(system_version)}.
+    {comment, erlang:system_info(system_version)}.
 
 misc_smoke_tests(Config) when is_list(Config) ->
-    ?line true = is_binary(erlang:system_info(info)),
-    ?line true = is_binary(erlang:system_info(procs)),
-    ?line true = is_binary(erlang:system_info(loaded)),
-    ?line true = is_binary(erlang:system_info(dist)),
-    ?line ok = try erlang:system_info({cpu_topology,erts_get_cpu_topology_error_case}), fail catch error:badarg -> ok end,
+    true = is_binary(erlang:system_info(info)),
+    true = is_binary(erlang:system_info(procs)),
+    true = is_binary(erlang:system_info(loaded)),
+    true = is_binary(erlang:system_info(dist)),
+    ok = try erlang:system_info({cpu_topology,erts_get_cpu_topology_error_case}), fail catch error:badarg -> ok end,
     true = lists:member(erlang:system_info(tolerant_timeofday), [enabled, disabled]),
-    ?line ok.
+    ok.
     
 
 heap_size(Config) when is_list(Config) ->
-   ?line {min_bin_vheap_size, VHmin} = erlang:system_info(min_bin_vheap_size),
-   ?line {min_heap_size, Hmin} =  erlang:system_info(min_heap_size),
-   ?line GCinf =  erlang:system_info(garbage_collection),
-   ?line VHmin = proplists:get_value(min_bin_vheap_size, GCinf),
-   ?line Hmin  = proplists:get_value(min_heap_size, GCinf),
+   {min_bin_vheap_size, VHmin} = erlang:system_info(min_bin_vheap_size),
+   {min_heap_size, Hmin} =  erlang:system_info(min_heap_size),
+   GCinf =  erlang:system_info(garbage_collection),
+   VHmin = proplists:get_value(min_bin_vheap_size, GCinf),
+   Hmin  = proplists:get_value(min_heap_size, GCinf),
    ok.
 
 %% Tests the various wordsize variants
 wordsize(Config) when is_list(Config) ->
-    ?line A = erlang:system_info(wordsize),
-    ?line true = is_integer(A),
-    ?line A = erlang:system_info({wordsize,internal}),
-    ?line B = erlang:system_info({wordsize,external}),
-    ?line true = A =< B,
+    A = erlang:system_info(wordsize),
+    true = is_integer(A),
+    A = erlang:system_info({wordsize,internal}),
+    B = erlang:system_info({wordsize,external}),
+    true = A =< B,
     case {B,A} of
 	{4,4} ->
 	    {comment, "True 32-bit emulator"};
@@ -205,8 +205,7 @@ memory_test(_Config) ->
 						      end)
 					end,
 					1000 div erlang:system_info(schedulers_online))
-			   end,
-			   []),
+			   end, []),
     cmp_memory(MWs, "spawn procs"),
 
     Ps = lists:flatten(DPs),
@@ -214,14 +213,12 @@ memory_test(_Config) ->
     mem_workers_call(MWs, 
 		     fun () ->
 			     lists:foreach(fun (P) -> link(P) end, Ps)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "link procs"),
     mem_workers_call(MWs,
 		     fun () ->
 			     lists:foreach(fun (P) -> unlink(P) end, Ps)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "unlink procs"),
 
     mem_workers_call(MWs, 
@@ -238,8 +235,7 @@ memory_test(_Config) ->
 				       true = is_reference(Tmr),
 				       put('BIF_TMRS', [Tmr|Tmrs])
 			       end, Ps)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "start BIF timer procs"),
 
     mem_workers_call(MWs, 
@@ -250,8 +246,7 @@ memory_test(_Config) ->
 					   end, get('BIF_TMRS')),
 			     put('BIF_TMRS', undefined),
 			     garbage_collect()
-		     end,
-		     []),
+		     end, []),
     erts_debug:set_internal_state(wait, deallocations),
     cmp_memory(MWs, "cancel BIF timer procs"),
 
@@ -260,8 +255,7 @@ memory_test(_Config) ->
 				   lists:map(fun (P) ->
 						     monitor(process, P)
 					     end, Ps)
-			   end,
-			   []),
+			   end, []),
     cmp_memory(MWs, "monitor procs"),
     Ms = lists:flatten(DMs),
     mem_workers_call(MWs,
@@ -269,8 +263,7 @@ memory_test(_Config) ->
 			     lists:foreach(fun (M) ->
 						   demonitor(M)
 					   end, Ms)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "demonitor procs"),
 
     mem_workers_call(MWs,
@@ -278,8 +271,7 @@ memory_test(_Config) ->
 			     lists:foreach(fun (P) ->
 						   P ! {a, "message", make_ref()}
 					   end, Ps)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "message procs"),
 
     mem_workers_call(MWs,
@@ -302,8 +294,7 @@ memory_test(_Config) ->
 		     fun () ->
 			     put(binary_data,
 				 mapn(fun (_) -> list_to_binary(lists:duplicate(256,$?)) end, 100))
-		     end,
-		     []),
+		     end, []),
 
     cmp_memory(MWs, "store binary data"),
 
@@ -311,8 +302,7 @@ memory_test(_Config) ->
 		     fun () ->
 			     put(binary_data, false),
 			     garbage_collect()
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "release binary data"),
 
     mem_workers_call(MWs,
@@ -320,8 +310,7 @@ memory_test(_Config) ->
 			     list_to_atom("an ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
 			     list_to_atom("another ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
 			     list_to_atom("yet another ugly atom "++integer_to_list(erlang:system_info(scheduler_id)))
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "new atoms"),
 
 
@@ -332,16 +321,14 @@ memory_test(_Config) ->
 			     ets:insert(T, {banan, lists:seq(1,1024)}),
 			     ets:insert(T, {appelsin, make_ref()}),
 			     put(ets_id, T)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "store ets data"),
 
     mem_workers_call(MWs,
 		     fun () ->
 			     ets:delete(get(ets_id)),
 			     put(ets_id, false)
-		     end,
-		     []),
+		     end, []),
     cmp_memory(MWs, "remove ets data"),
 
     lists:foreach(fun (MW) ->
@@ -351,8 +338,7 @@ memory_test(_Config) ->
 			  receive
 			      {'DOWN', Mon, _, _, _} -> ok
 			  end
-		  end,
-		  MWs),
+		  end, MWs),
     ok.
 
 mem_worker() ->
@@ -367,22 +353,19 @@ mem_worker() ->
 
 mem_workers_call(MWs, Fun, Args) ->
     lists:foreach(fun (MW) ->
-			  MW ! {call, self(), Fun, Args}
-		  end,
-		  MWs),
+                          MW ! {call, self(), Fun, Args}
+                  end, MWs),
     lists:map(fun (MW) ->
-		      receive
-			  {reply, MW, Res} ->
-			      Res
-		      end
-	      end,
-	      MWs).
+                      receive
+                          {reply, MW, Res} ->
+                              Res
+                      end
+              end, MWs).
 
 mem_workers_cast(MWs, Fun, Args) ->
     lists:foreach(fun (MW) ->
 			  MW ! {cast, self(), Fun, Args}
-		  end,
-		  MWs).
+		  end, MWs).
 
 spawn_mem_workers() ->
     spawn_mem_workers(erlang:system_info(schedulers_online)).
@@ -393,7 +376,6 @@ spawn_mem_workers(N) ->
     [spawn_opt(fun () -> mem_worker() end,
 	       [{scheduler, N rem erlang:system_info(schedulers_online) + 1},
 		link]) | spawn_mem_workers(N-1)].
-
 
 
 mem_get(X, Mem) ->
@@ -463,25 +445,25 @@ cmp_memory(MWs, Str) ->
 	      "crash dump memory = ~p~n",
 	      [Str, EM, EDM]),
 
-    ?line check_sane_memory(EM),
-    ?line check_sane_memory(EDM),
+    check_sane_memory(EM),
+    check_sane_memory(EDM),
 
     %% We expect these to always give us exactly the same result
 
-    ?line cmp_memory(atom, EM, EDM, 1),
-    ?line cmp_memory(atom_used, EM, EDM, 1),
-    ?line cmp_memory(binary, EM, EDM, 1),
-    ?line cmp_memory(code, EM, EDM, 1),
-    ?line cmp_memory(ets, EM, EDM, 1),
+    cmp_memory(atom, EM, EDM, 1),
+    cmp_memory(atom_used, EM, EDM, 1),
+    cmp_memory(binary, EM, EDM, 1),
+    cmp_memory(code, EM, EDM, 1),
+    cmp_memory(ets, EM, EDM, 1),
 
     %% Total, processes, processes_used, and system will seldom
     %% give us exactly the same result since the two readings
     %% aren't taken atomically.
 
-    ?line cmp_memory(total, EM, EDM, 1.05),
-    ?line cmp_memory(processes, EM, EDM, 1.05),
-    ?line cmp_memory(processes_used, EM, EDM, 1.05),
-    ?line cmp_memory(system, EM, EDM, 1.05),
+    cmp_memory(total, EM, EDM, 1.05),
+    cmp_memory(processes, EM, EDM, 1.05),
+    cmp_memory(processes_used, EM, EDM, 1.05),
+    cmp_memory(system, EM, EDM, 1.05),
 
     ok.
     

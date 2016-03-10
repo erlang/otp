@@ -36,13 +36,13 @@ all() ->
 
 %% Check that refs don't wrap around easily.
 wrap_1(Config) when is_list(Config) ->
-    ?line spawn_link(?MODULE, loop_ref, [self()]),
-    ?line receive
-	      done ->
-		  ct:fail(wrapfast)
-	  after 30000 ->
-		  ok
-	  end,
+    spawn_link(?MODULE, loop_ref, [self()]),
+    receive
+        done ->
+            ct:fail(wrapfast)
+    after 30000 ->
+              ok
+    end,
     ok.
 
 loop_ref(Parent) ->

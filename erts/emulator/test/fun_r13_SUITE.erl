@@ -22,7 +22,7 @@
 -compile(r13).
 
 -export([all/0, suite/0,
-	 dist_old_release/1]).
+         dist_old_release/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -35,38 +35,38 @@ all() ->
 
 dist_old_release(Config) when is_list(Config) ->
     case test_server:is_release_available("r12b") of
-	true -> do_dist_old(Config);
-	false -> {skip,"No R12B found"}
+        true -> do_dist_old(Config);
+        false -> {skip,"No R12B found"}
     end.
 
 do_dist_old(Config) when is_list(Config) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
+    Pa = filename:dirname(code:which(?MODULE)),
     Name = fun_dist_r12,
-    ?line {ok,Node} = test_server:start_node(Name, peer,
-				    [{args,"-pa "++Pa},
-				     {erl,[{release,"r12b"}]}]),
+    {ok,Node} = test_server:start_node(Name, peer,
+                                       [{args,"-pa "++Pa},
+                                        {erl,[{release,"r12b"}]}]),
 
-    ?line Pid = spawn_link(Node,
-			   fun() ->
-				   receive
-				       Fun when is_function(Fun) ->
-					   R12BFun = fun(H) -> cons(H, [b,c]) end,
-					   Fun(Fun, R12BFun)
-				   end
-			   end),
+    Pid = spawn_link(Node,
+                     fun() ->
+                             receive
+                                 Fun when is_function(Fun) ->
+                                     R12BFun = fun(H) -> cons(H, [b,c]) end,
+                                     Fun(Fun, R12BFun)
+                             end
+                     end),
     Self = self(),
     Fun = fun(F, R12BFun) ->
-		  {pid,Self} = erlang:fun_info(F, pid),
-		  {module,?MODULE} = erlang:fun_info(F, module),
-		  Self ! {ok,F,R12BFun}
-	  end,
-    ?line Pid ! Fun,
-    ?line receive
-	      {ok,Fun,R12BFun} ->
-		  ?line [a,b,c] = R12BFun(a);
-	      Other ->
-		  ?line ct:fail({bad_message,Other})
-	  end,
+                  {pid,Self} = erlang:fun_info(F, pid),
+                  {module,?MODULE} = erlang:fun_info(F, module),
+                  Self ! {ok,F,R12BFun}
+          end,
+    Pid ! Fun,
+    receive
+        {ok,Fun,R12BFun} ->
+            [a,b,c] = R12BFun(a);
+        Other ->
+            ct:fail({bad_message,Other})
+    end,
     true = test_server:stop_node(Node),
     ok.
 

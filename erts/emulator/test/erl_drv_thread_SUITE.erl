@@ -39,11 +39,11 @@ all() ->
 %% Testcases                                                              %%
 %%                                                                        %%
 
-basic(Cfg) -> ?line drv_case(Cfg, basic).
+basic(Cfg) -> drv_case(Cfg, basic).
 
-rwlock(Cfg) -> ?line drv_case(Cfg, rwlock).
+rwlock(Cfg) -> drv_case(Cfg, rwlock).
 
-tsd(Cfg) -> ?line drv_case(Cfg, tsd).
+tsd(Cfg) -> drv_case(Cfg, tsd).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                        %%
@@ -59,56 +59,54 @@ drv_case(Config, CaseName, Command) when is_list(Command) ->
     drv_case(Config, CaseName, Command, ?DEFAULT_TIMETRAP_SECS).
 
 drv_case(Config, CaseName, TimeTrap, Command) when is_list(Command),
-						   is_integer(TimeTrap) ->
+                                                   is_integer(TimeTrap) ->
     drv_case(Config, CaseName, Command, TimeTrap);
 drv_case(Config, CaseName, Command, TimeTrap) when is_list(Config),
-						   is_atom(CaseName),
-						   is_list(Command),
-						   is_integer(TimeTrap) ->
+                                                   is_atom(CaseName),
+                                                   is_list(Command),
+                                                   is_integer(TimeTrap) ->
     case test_server:os_type() of
-	{Family, _} when Family == unix; Family == win32 ->
-	    ?line run_drv_case(Config, CaseName, Command, TimeTrap);
-	SkipOs ->
-	    ?line {skipped,
-		   lists:flatten(["Not run on "
-				  | io_lib:format("~p",[SkipOs])])}
+        {Family, _} when Family == unix; Family == win32 ->
+            run_drv_case(Config, CaseName, Command, TimeTrap);
+        SkipOs ->
+            {skipped, lists:flatten(["Not run on " | io_lib:format("~p",[SkipOs])])}
     end.
 
 run_drv_case(Config, CaseName, Command, TimeTrap) ->
     ct:timetrap({seconds, TimeTrap}),
-    ?line DataDir = proplists:get_value(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     case erl_ddll:load_driver(DataDir, CaseName) of
-	ok -> ok;
-	{error, Error} ->
+        ok -> ok;
+        {error, Error} ->
             ct:fail(erl_ddll:format_error(Error))
     end,
-    ?line Port = open_port({spawn, atom_to_list(CaseName)}, []),
-    ?line true = is_port(Port),
-    ?line Port ! {self(), {command, Command}},
-    ?line Result = receive_drv_result(Port, CaseName),
-    ?line Port ! {self(), close},
-    ?line receive 
-	      {Port, closed} ->
-		  ok
-	  end,
-    ?line ok = erl_ddll:unload_driver(CaseName),
-    ?line Result.
+    Port = open_port({spawn, atom_to_list(CaseName)}, []),
+    true = is_port(Port),
+    Port ! {self(), {command, Command}},
+    Result = receive_drv_result(Port, CaseName),
+    Port ! {self(), close},
+    receive 
+        {Port, closed} ->
+            ok
+    end,
+    ok = erl_ddll:unload_driver(CaseName),
+    Result.
 
 receive_drv_result(Port, CaseName) ->
-    ?line receive
-	      {print, Port, CaseName, Str} ->
-		  ?line io:format("~s", [Str]),
-		  ?line receive_drv_result(Port, CaseName);
-	      {'EXIT', Port, Error} ->
-		  ?line ct:fail(Error);
-	      {'EXIT', error, Error} ->
-		  ?line ct:fail(Error);
-	      {failed, Port, CaseName, Comment} ->
-		  ?line ct:fail(Comment);
-	      {skipped, Port, CaseName, Comment} ->
-		  ?line {skipped, Comment};
-	      {succeeded, Port, CaseName, ""} ->
-		  ?line succeeded;
-	      {succeeded, Port, CaseName, Comment} ->
-		  ?line {comment, Comment}
-	  end.
+    receive
+        {print, Port, CaseName, Str} ->
+            io:format("~s", [Str]),
+            receive_drv_result(Port, CaseName);
+        {'EXIT', Port, Error} ->
+            ct:fail(Error);
+        {'EXIT', error, Error} ->
+            ct:fail(Error);
+        {failed, Port, CaseName, Comment} ->
+            ct:fail(Comment);
+        {skipped, Port, CaseName, Comment} ->
+            {skipped, Comment};
+        {succeeded, Port, CaseName, ""} ->
+            succeeded;
+        {succeeded, Port, CaseName, Comment} ->
+            {comment, Comment}
+    end.

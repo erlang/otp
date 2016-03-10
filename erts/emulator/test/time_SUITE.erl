@@ -108,24 +108,24 @@ local_to_univ_utc(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
 	    %% TZ variable has a meaning
-	    ?line {ok, Node} =
+	    {ok, Node} =
 		test_server:start_node(local_univ_utc,peer,
 				       [{args, "-env TZ UTC"}]),
-	    ?line {{2008,8,1},{0,0,0}} =
+	    {{2008,8,1},{0,0,0}} =
 		rpc:call(Node,
 			 erlang,localtime_to_universaltime,
 			 [{{2008, 8, 1}, {0, 0, 0}},
 			  false]),
-	    ?line {{2008,8,1},{0,0,0}} =
+	    {{2008,8,1},{0,0,0}} =
 		rpc:call(Node,
 			 erlang,localtime_to_universaltime,
 			 [{{2008, 8, 1}, {0, 0, 0}},
 			  true]),
-	    ?line [{{2008,8,1},{0,0,0}}] =
+	    [{{2008,8,1},{0,0,0}}] =
 		rpc:call(Node,
 			 calendar,local_time_to_universal_time_dst,
 			 [{{2008, 8, 1}, {0, 0, 0}}]),
-	    ?line test_server:stop_node(Node),
+	    test_server:stop_node(Node),
 	    ok;
 	_ ->
 	    {skip,"Only valid on Unix"}
@@ -135,24 +135,24 @@ local_to_univ_utc(Config) when is_list(Config) ->
 %% Tests conversion from univeral to local time.
 
 univ_to_local(Config) when is_list(Config) ->
-    ?line test_univ_to_local(test_data()).
+    test_univ_to_local(test_data()).
 
 test_univ_to_local([{Utc, Local}|Rest]) ->
-    ?line io:format("Testing ~p => ~p~n", [Local, Utc]),
-    ?line Local = erlang:universaltime_to_localtime(Utc),
-    ?line test_univ_to_local(Rest);
+    io:format("Testing ~p => ~p~n", [Local, Utc]),
+    Local = erlang:universaltime_to_localtime(Utc),
+    test_univ_to_local(Rest);
 test_univ_to_local([]) ->
     ok.
 
 %% Tests conversion from local to universal time.
 
 local_to_univ(Config) when is_list(Config) ->
-    ?line test_local_to_univ(test_data()).
+    test_local_to_univ(test_data()).
 
 test_local_to_univ([{Utc, Local}|Rest]) ->
-    ?line io:format("Testing ~p => ~p~n", [Utc, Local]),
-    ?line Utc = erlang:localtime_to_universaltime(Local),
-    ?line test_local_to_univ(Rest);
+    io:format("Testing ~p => ~p~n", [Utc, Local]),
+    Utc = erlang:localtime_to_universaltime(Local),
+    test_local_to_univ(Rest);
 test_local_to_univ([]) ->
     ok.
 
@@ -160,11 +160,11 @@ test_local_to_univ([]) ->
 %% generate a badarg.
 
 bad_univ_to_local(Config) when is_list(Config) ->
-    ?line bad_test_univ_to_local(bad_dates()).
+    bad_test_univ_to_local(bad_dates()).
 
 bad_test_univ_to_local([Utc|Rest]) ->
-    ?line io:format("Testing ~p~n", [Utc]),
-    ?line case catch erlang:universaltime_to_localtime(Utc) of
+    io:format("Testing ~p~n", [Utc]),
+    case catch erlang:universaltime_to_localtime(Utc) of
 	      {'EXIT', {badarg, _}} -> bad_test_univ_to_local(Rest)
 	  end;
 bad_test_univ_to_local([]) ->
@@ -174,11 +174,11 @@ bad_test_univ_to_local([]) ->
 %% generate a badarg.
 
 bad_local_to_univ(Config) when is_list(Config) ->
-    ?line bad_test_local_to_univ(bad_dates()).
+    bad_test_local_to_univ(bad_dates()).
 
 bad_test_local_to_univ([Local|Rest]) ->
-    ?line io:format("Testing ~p~n", [Local]),
-    ?line case catch erlang:localtime_to_universaltime(Local) of
+    io:format("Testing ~p~n", [Local]),
+    case catch erlang:localtime_to_universaltime(Local) of
 	      {'EXIT', {badarg, _}} -> bad_test_local_to_univ(Rest)
 	  end;
 bad_test_local_to_univ([]) ->
@@ -224,13 +224,13 @@ consistency(Config) when is_list(Config) ->
     %%	        Daylight-saving calculations are incorrect from the last
     %%		Sunday of March and October to the end of the month.
 
-    ?line ok = compare_date_time_and_localtime(16),
-    ?line ok = compare_local_and_universal(16).
+    ok = compare_date_time_and_localtime(16),
+    ok = compare_local_and_universal(16).
 
 compare_date_time_and_localtime(Times) when Times > 0 ->
-    ?line {Year, Mon, Day} = date(),
-    ?line {Hour, Min, Sec} = time(),
-    ?line case erlang:localtime() of
+    {Year, Mon, Day} = date(),
+    {Hour, Min, Sec} = time(),
+    case erlang:localtime() of
 	{{Year, Mon, Day}, {Hour, Min, Sec}} -> ok;
 	_ -> compare_date_time_and_localtime(Times-1)
     end;
@@ -395,22 +395,22 @@ repeating_timestamp_check(N) ->
 %% times (in microseconds).
 
 now_unique(Config) when is_list(Config) ->
-    ?line now_unique(1000, now(), []),
-    ?line fast_now_unique(100000, now()).
+    now_unique(1000, now(), []),
+    fast_now_unique(100000, now()).
 
 now_unique(N, Previous, Result) when N > 0 ->
-    ?line case now() of
+    case now() of
 	      Previous ->
 		  ct:fail("now/0 returned the same value twice");
 	      New ->
 		  now_unique(N-1, New, [New|Result])
 	  end;
 now_unique(0, _, [Then|Rest]) ->
-    ?line now_calc_increment(Rest, microsecs(Then), []).
+    now_calc_increment(Rest, microsecs(Then), []).
 
 now_calc_increment([Then|Rest], Previous, _Result) ->
-    ?line This = microsecs(Then),
-    ?line now_calc_increment(Rest, This, [Previous-This]);
+    This = microsecs(Then),
+    now_calc_increment(Rest, This, [Previous-This]);
 now_calc_increment([], _, Differences) ->
     {comment, "Median increment: " ++ integer_to_list(median(Differences))}.
 
@@ -418,15 +418,15 @@ fast_now_unique(0, _) -> ok;
 fast_now_unique(N, Then) ->
     case now() of
 	Then ->
-	    ?line ct:fail("now/0 returned the same value twice");
+	    ct:fail("now/0 returned the same value twice");
 	Now ->
 	    fast_now_unique(N-1, Now)
     end.
 
 median(Unsorted_List) ->
-    ?line Length = length(Unsorted_List),
-    ?line List = lists:sort(Unsorted_List),
-    ?line case Length rem 2 of
+    Length = length(Unsorted_List),
+    List = lists:sort(Unsorted_List),
+    case Length rem 2 of
 	0 ->					% Even length.
 	    [A, B] = lists:nthtail((Length div 2)-1, List),
 	    (A+B)/2;
@@ -443,24 +443,24 @@ microsecs({Mega_Secs, Secs, Microsecs}) ->
 
 now_update(Config) when is_list(Config) ->
     case test_server:is_debug() of
-	false -> ?line now_update1(10);
+	false -> now_update1(10);
 	true -> {skip,"Unreliable in DEBUG build"}
     end.
 
 
 now_update1(N) when N > 0 ->
-    ?line T1_linear = linear_time(erlang:localtime()),
-    ?line T1_now = microsecs(now()),
+    T1_linear = linear_time(erlang:localtime()),
+    T1_now = microsecs(now()),
 
-    ?line receive after 1008 -> ok end,
+    receive after 1008 -> ok end,
 
-    ?line T2_linear = linear_time(erlang:localtime()),
-    ?line T2_now = microsecs(now()),
+    T2_linear = linear_time(erlang:localtime()),
+    T2_now = microsecs(now()),
 
-    ?line Linear_Diff = (T2_linear-T1_linear)*1000000,
-    ?line Now_Diff = T2_now-T1_now,
+    Linear_Diff = (T2_linear-T1_linear)*1000000,
+    Now_Diff = T2_now-T1_now,
     io:format("Localtime diff = ~p; now() diff = ~p", [Linear_Diff, Now_Diff]),
-    ?line case abs(Linear_Diff - Now_Diff) of
+    case abs(Linear_Diff - Now_Diff) of
 	      Abs_Delta when Abs_Delta =< 40000 -> ok;
 	      _ -> now_update1(N-1)
 	  end;
@@ -772,15 +772,15 @@ chk_random_values(FR, TR) ->
     Values = lists:map(fun (_) -> rand:uniform(1 bsl 65) - (1 bsl 64) end,
 		       lists:seq(1, 100000)),
     CheckFun = fun (V) ->
-		       CV = erlang:convert_time_unit(V, FR, TR),
-		       case {(FR*CV) div TR =< V,
-			     (FR*(CV+1)) div TR >= V} of
-			   {true, true} ->
-			       ok;
-			   Failure ->
-			       ct:fail({Failure, CV, V, FR, TR})
-		       end
-	       end,
+                       CV = erlang:convert_time_unit(V, FR, TR),
+                       case {(FR*CV) div TR =< V,
+                             (FR*(CV+1)) div TR >= V} of
+                           {true, true} ->
+                               ok;
+                           Failure ->
+                               ct:fail({Failure, CV, V, FR, TR})
+                       end
+               end,
     lists:foreach(CheckFun, Values).
 		       
 
@@ -802,28 +802,28 @@ chk_values_per_value(FromRes, ToRes, Value, EndValue,
 		     MinFromValuesPerToValue, MaxFromValuesPerToValue,
 		     ToValue, FromValueCount) ->
     case erlang:convert_time_unit(Value, FromRes, ToRes) of
-	ToValue ->
-	    chk_values_per_value(FromRes, ToRes,
-				 Value+1, EndValue,
-				 MinFromValuesPerToValue,
-				 MaxFromValuesPerToValue,
-				 ToValue, FromValueCount+1);
-	NewToValue ->
-	    case ((MinFromValuesPerToValue =< FromValueCount)
-		  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
-		false ->
-		    ct:fail({MinFromValuesPerToValue,
-			     FromValueCount,
-			     MaxFromValuesPerToValue});
-		true ->
-%		    io:format("~p -> ~p [~p]~n",
-%			      [Value, NewToValue, FromValueCount]),
-		    chk_values_per_value(FromRes, ToRes,
-					 Value+1, EndValue,
-					 MinFromValuesPerToValue,
-					 MaxFromValuesPerToValue,
-					 NewToValue, 1)
-	    end
+        ToValue ->
+            chk_values_per_value(FromRes, ToRes,
+                                 Value+1, EndValue,
+                                 MinFromValuesPerToValue,
+                                 MaxFromValuesPerToValue,
+                                 ToValue, FromValueCount+1);
+        NewToValue ->
+            case ((MinFromValuesPerToValue =< FromValueCount)
+                  andalso (FromValueCount =< MaxFromValuesPerToValue)) of
+                false ->
+                    ct:fail({MinFromValuesPerToValue,
+                             FromValueCount,
+                             MaxFromValuesPerToValue});
+                true ->
+                    %		    io:format("~p -> ~p [~p]~n",
+                    %			      [Value, NewToValue, FromValueCount]),
+                    chk_values_per_value(FromRes, ToRes,
+                                         Value+1, EndValue,
+                                         MinFromValuesPerToValue,
+                                         MaxFromValuesPerToValue,
+                                         NewToValue, 1)
+            end
     end.
 
 erlang_timestamp(Config) when is_list(Config) ->
@@ -836,11 +836,11 @@ erlang_timestamp(Config) when is_list(Config) ->
 
 check_erlang_timestamp(Done, Mon, TO) ->
     receive
-	{timeout, Done, timeout} ->
-	    erlang:demonitor(Mon, [flush]),
-	    ok
+        {timeout, Done, timeout} ->
+            erlang:demonitor(Mon, [flush]),
+            ok
     after 0 ->
-	    do_check_erlang_timestamp(Done, Mon, TO)
+              do_check_erlang_timestamp(Done, Mon, TO)
     end.
 
 do_check_erlang_timestamp(Done, Mon, TO) ->
@@ -912,13 +912,13 @@ test_data() ->
 	    _ ->
 		{?timezone,?dst_timezone}
 	end,
-    ?line test_data(nondst_dates(), TZ) ++
+    test_data(nondst_dates(), TZ) ++
 	test_data(dst_dates(), DSTTZ) ++
 	crossover_test_data(crossover_dates(), TZ).    
 
 
 %% test_data1() ->
-%%     ?line test_data(nondst_dates(), ?timezone) ++
+%%     test_data(nondst_dates(), ?timezone) ++
 %% 	test_data(dst_dates(), ?dst_timezone) ++
 %% 	crossover_test_data(crossover_dates(), ?timezone).
 
@@ -926,16 +926,16 @@ crossover_test_data([{Year, Month, Day}|Rest], TimeZone) when TimeZone > 0 ->
     Hour = 23,
     Min = 35,
     Sec = 55,
-    ?line Utc = {{Year, Month, Day}, {Hour, Min, Sec}},
-    ?line Local = {{Year, Month, Day+1}, {Hour+TimeZone-24, Min, Sec}},
-    ?line [{Utc, Local}|crossover_test_data(Rest, TimeZone)];
+    Utc = {{Year, Month, Day}, {Hour, Min, Sec}},
+    Local = {{Year, Month, Day+1}, {Hour+TimeZone-24, Min, Sec}},
+    [{Utc, Local}|crossover_test_data(Rest, TimeZone)];
 crossover_test_data([{Year, Month, Day}|Rest], TimeZone) when TimeZone < 0 ->
     Hour = 0,
     Min = 23,
     Sec = 12,
-    ?line Utc = {{Year, Month, Day}, {Hour, Min, Sec}},
-    ?line Local = {{Year, Month, Day-1}, {Hour+TimeZone+24, Min, Sec}},
-    ?line [{Utc, Local}|crossover_test_data(Rest, TimeZone)];
+    Utc = {{Year, Month, Day}, {Hour, Min, Sec}},
+    Local = {{Year, Month, Day-1}, {Hour+TimeZone+24, Min, Sec}},
+    [{Utc, Local}|crossover_test_data(Rest, TimeZone)];
 crossover_test_data([], _) ->
     [].
 
@@ -943,9 +943,9 @@ test_data([Date|Rest], TimeZone) ->
     Hour = 12,
     Min = 45,
     Sec = 7,
-    ?line Utc = {Date, {Hour, Min, Sec}},
-    ?line Local = {Date, {Hour+TimeZone, Min, Sec}},
-    ?line [{Utc, Local}|test_data(Rest, TimeZone)];
+    Utc = {Date, {Hour, Min, Sec}},
+    Local = {Date, {Hour+TimeZone, Min, Sec}},
+    [{Utc, Local}|test_data(Rest, TimeZone)];
 test_data([], _) ->
     [].
     

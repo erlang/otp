@@ -90,7 +90,7 @@ erl_bif_types_2(List) ->
 	[_|_] ->
 	    io:put_chars("Bifs with bad arity\n"),
 	    io:format("~p\n", [BadArity]),
-	    ?line ct:fail({length(BadArity),bad_arity})
+	    ct:fail({length(BadArity),bad_arity})
     end.
 
 erl_bif_types_3(List) ->
@@ -114,7 +114,7 @@ erl_bif_types_3(List) ->
 	    io:put_chars("Bifs with failing calls to erlang_bif_types:type/3 "
 			 "(or with bogus return values):\n"),
 	    io:format("~p\n", [BadSmokeTest]),
-	    ?line ct:fail({length(BadSmokeTest),bad_smoke_test})
+	    ct:fail({length(BadSmokeTest),bad_smoke_test})
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
@@ -332,32 +332,32 @@ check_stub({_,F,A}, B) ->
     end.
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
-    ?line all = list_to_existing_atom("all"),
-    ?line ?MODULE = list_to_existing_atom(?MODULE_STRING),
-    ?line UnlikelyStr = "dsfj923874390867er869fds9864y97jhg3973qerueoru",
+    all = list_to_existing_atom("all"),
+    ?MODULE = list_to_existing_atom(?MODULE_STRING),
+    UnlikelyStr = "dsfj923874390867er869fds9864y97jhg3973qerueoru",
     try
-	?line list_to_existing_atom(UnlikelyStr),
-	?line ct:fail(atom_exists)
+	list_to_existing_atom(UnlikelyStr),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
     %% The compiler has become smarter! We need the call to id/1 in
     %% the next line.
-    ?line UnlikelyAtom = list_to_atom(id(UnlikelyStr)),
-    ?line UnlikelyAtom = list_to_existing_atom(UnlikelyStr),
+    UnlikelyAtom = list_to_atom(id(UnlikelyStr)),
+    UnlikelyAtom = list_to_existing_atom(UnlikelyStr),
     ok.
 
 os_env(Config) when is_list(Config) ->
-    ?line EnvVar1 = "MjhgvFDrresdCghN mnjkUYg vfrD",
-    ?line false = os:getenv(EnvVar1),
-    ?line true = os:putenv(EnvVar1, "mors"),
-    ?line "mors" = os:getenv(EnvVar1),
-    ?line true = os:putenv(EnvVar1, ""),
-    ?line case os:getenv(EnvVar1) of
-	      "" -> ?line ok;
-	      false -> ?line ok;
-	      BadVal -> ?line ct:fail(BadVal)
+    EnvVar1 = "MjhgvFDrresdCghN mnjkUYg vfrD",
+    false = os:getenv(EnvVar1),
+    true = os:putenv(EnvVar1, "mors"),
+    "mors" = os:getenv(EnvVar1),
+    true = os:putenv(EnvVar1, ""),
+    case os:getenv(EnvVar1) of
+	      "" -> ok;
+	      false -> ok;
+	      BadVal -> ct:fail(BadVal)
 	  end,
     true = os:putenv(EnvVar1, "mors"),
     true = os:unsetenv(EnvVar1),
@@ -365,16 +365,16 @@ os_env(Config) when is_list(Config) ->
     true = os:unsetenv(EnvVar1), % unset unset variable
     %% os:putenv, os:getenv and os:unsetenv currently use a temp
     %% buffer of size 1024 for storing key+value
-    ?line os_env_long(1010, 1030, "hej hopp").
+    os_env_long(1010, 1030, "hej hopp").
     
 os_env_long(Min, Max, _Value) when Min > Max ->
-    ?line ok;
+    ok;
 os_env_long(Min, Max, Value) ->
-    ?line EnvVar = lists:duplicate(Min, $X),
-    ?line true = os:putenv(EnvVar, Value),
-    ?line Value = os:getenv(EnvVar),
+    EnvVar = lists:duplicate(Min, $X),
+    true = os:putenv(EnvVar, Value),
+    Value = os:getenv(EnvVar),
     true = os:unsetenv(EnvVar),
-    ?line os_env_long(Min+1, Max, Value).
+    os_env_long(Min+1, Max, Value).
 
 %% Test that string:to_integer does not Halloc in wrong order.
 otp_7526(Config) when is_list(Config) ->
@@ -391,15 +391,15 @@ do_test_7526(N,M) ->
     {Self, Ref} = {self(), make_ref()},
     T = erlang:make_tuple(M,0),
     spawn_opt(fun()->
-		      L = iterate_7526(N, []),
-		      BadList = [X || X <- L, X =/= 9223372036854775808],
-		      BadLen = length(BadList),
-		      M = length(tuple_to_list(T)),
-		      %%io:format("~b bad conversions: ~p~n", [BadLen, BadList]),
-		      Self ! {done, Ref, BadLen}
-	      end,
-	      [link,{fullsweep_after,0}]),
-	receive {done, Ref, Len} -> Len end.
+                      L = iterate_7526(N, []),
+                      BadList = [X || X <- L, X =/= 9223372036854775808],
+                      BadLen = length(BadList),
+                      M = length(tuple_to_list(T)),
+                      %%io:format("~b bad conversions: ~p~n", [BadLen, BadList]),
+                      Self ! {done, Ref, BadLen}
+              end,
+              [link,{fullsweep_after,0}]),
+    receive {done, Ref, Len} -> Len end.
 
 
 test_7526(0) ->
@@ -423,57 +423,53 @@ binary_to_atom(Config) when is_list(Config) ->
     LongBin = list_to_binary(Long),
 
     %% latin1
-    ?line '' = test_binary_to_atom(<<>>, latin1),
-    ?line '\377' = test_binary_to_atom(<<255>>, latin1),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, latin1),
-    ?line LongAtom = test_binary_to_atom(LongBin, latin1),
+    '' = test_binary_to_atom(<<>>, latin1),
+    '\377' = test_binary_to_atom(<<255>>, latin1),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, latin1),
+    LongAtom = test_binary_to_atom(LongBin, latin1),
 
     %% utf8
-    ?line '' = test_binary_to_atom(<<>>, utf8),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
-    ?line [] = [C || C <- lists:seq(128, 255),
+    '' = test_binary_to_atom(<<>>, utf8),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
+    [] = [C || C <- lists:seq(128, 255),
 		     begin
 			 list_to_atom([C]) =/=
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
 
     %% badarg failures.
-    ?line fail_binary_to_atom(atom),
-    ?line fail_binary_to_atom(42),
-    ?line fail_binary_to_atom({a,b,c}),
-    ?line fail_binary_to_atom([1,2,3]),
-    ?line fail_binary_to_atom([]),
-    ?line fail_binary_to_atom(42.0),
-    ?line fail_binary_to_atom(self()),
-    ?line fail_binary_to_atom(make_ref()),
-    ?line fail_binary_to_atom(<<0:7>>),
-    ?line fail_binary_to_atom(<<42:13>>),
-    ?line ?BADARG(binary_to_atom(id(<<>>), blurf)),
-    ?line ?BADARG(binary_to_atom(id(<<>>), [])),
+    fail_binary_to_atom(atom),
+    fail_binary_to_atom(42),
+    fail_binary_to_atom({a,b,c}),
+    fail_binary_to_atom([1,2,3]),
+    fail_binary_to_atom([]),
+    fail_binary_to_atom(42.0),
+    fail_binary_to_atom(self()),
+    fail_binary_to_atom(make_ref()),
+    fail_binary_to_atom(<<0:7>>),
+    fail_binary_to_atom(<<42:13>>),
+    ?BADARG(binary_to_atom(id(<<>>), blurf)),
+    ?BADARG(binary_to_atom(id(<<>>), [])),
 
     %% Bad UTF8 sequences.
-    ?line ?BADARG(binary_to_atom(id(<<255>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(256, 16#D7FF)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#E000, 16#FFFD)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#10000, 16#8FFFF)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#90000, 16#10FFFF)],
+    ?BADARG(binary_to_atom(id(<<255>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(256, 16#D7FF)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#E000, 16#FFFD)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#10000, 16#8FFFF)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#90000, 16#10FFFF)],
 
     %% system_limit failures.
-    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, utf8)),
     ok.
 
 test_binary_to_atom(Bin0, Encoding) ->
@@ -486,49 +482,49 @@ test_binary_to_atom(Bin0, Encoding) ->
 
 fail_binary_to_atom(Bin) ->
     try
-	binary_to_atom(Bin, latin1)
+        binary_to_atom(Bin, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_atom(Bin, utf8)
+        binary_to_atom(Bin, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_existing_atom(Bin, latin1)
+        binary_to_existing_atom(Bin, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_existing_atom(Bin, utf8)
+        binary_to_existing_atom(Bin, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end.
 	
 
 binary_to_existing_atom(Config) when is_list(Config) ->
-    ?line UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
+    UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
     try
-	?line binary_to_existing_atom(UnlikelyBin, latin1),
-	?line ct:fail(atom_exists)
+	binary_to_existing_atom(UnlikelyBin, latin1),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
     try
-	?line binary_to_existing_atom(UnlikelyBin, utf8),
-	?line ct:fail(atom_exists)
+	binary_to_existing_atom(UnlikelyBin, utf8),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
-    ?line UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
-    ?line UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
+    UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
+    UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
     ok.
 
 
@@ -541,32 +537,32 @@ atom_to_binary(Config) when is_list(Config) ->
     LongBin = list_to_binary(Long),
 
     %% latin1
-    ?line <<>> = atom_to_binary('', latin1),
-    ?line <<"abc">> = atom_to_binary(abc, latin1),
-    ?line <<127>> = atom_to_binary('\177', latin1),
-    ?line HalfLongBin = atom_to_binary(HalfLongAtom, latin1),
-    ?line LongBin = atom_to_binary(LongAtom, latin1),
+    <<>> = atom_to_binary('', latin1),
+    <<"abc">> = atom_to_binary(abc, latin1),
+    <<127>> = atom_to_binary('\177', latin1),
+    HalfLongBin = atom_to_binary(HalfLongAtom, latin1),
+    LongBin = atom_to_binary(LongAtom, latin1),
 
     %% utf8.
-    ?line <<>> = atom_to_binary('', utf8),
-    ?line <<>> = atom_to_binary('', unicode),
-    ?line <<127>> = atom_to_binary('\177', utf8),
-    ?line <<"abcdef">> = atom_to_binary(abcdef, utf8),
-    ?line HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
-    ?line LongAtomBin = atom_to_binary(LongAtom, utf8),
-    ?line verify_long_atom_bin(LongAtomBin, 0),
+    <<>> = atom_to_binary('', utf8),
+    <<>> = atom_to_binary('', unicode),
+    <<127>> = atom_to_binary('\177', utf8),
+    <<"abcdef">> = atom_to_binary(abcdef, utf8),
+    HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
+    LongAtomBin = atom_to_binary(LongAtom, utf8),
+    verify_long_atom_bin(LongAtomBin, 0),
 
     %% Failing cases.
-    ?line fail_atom_to_binary(<<1>>),
-    ?line fail_atom_to_binary(42),
-    ?line fail_atom_to_binary({a,b,c}),
-    ?line fail_atom_to_binary([1,2,3]),
-    ?line fail_atom_to_binary([]),
-    ?line fail_atom_to_binary(42.0),
-    ?line fail_atom_to_binary(self()),
-    ?line fail_atom_to_binary(make_ref()),
-    ?line ?BADARG(atom_to_binary(id(a), blurf)),
-    ?line ?BADARG(atom_to_binary(id(b), [])),
+    fail_atom_to_binary(<<1>>),
+    fail_atom_to_binary(42),
+    fail_atom_to_binary({a,b,c}),
+    fail_atom_to_binary([1,2,3]),
+    fail_atom_to_binary([]),
+    fail_atom_to_binary(42.0),
+    fail_atom_to_binary(self()),
+    fail_atom_to_binary(make_ref()),
+    ?BADARG(atom_to_binary(id(a), blurf)),
+    ?BADARG(atom_to_binary(id(b), [])),
     ok.
 
 verify_long_atom_bin(<<I/utf8,T/binary>>, I) ->
@@ -575,43 +571,42 @@ verify_long_atom_bin(<<>>, 255) -> ok.
 
 fail_atom_to_binary(Term) ->
     try
-	atom_to_binary(Term, latin1)
+        atom_to_binary(Term, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	atom_to_binary(Term, utf8)
+        atom_to_binary(Term, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end.
 
 min_max(Config) when is_list(Config) ->	
-    ?line a = erlang:min(id(a), a),
-    ?line a = erlang:min(id(a), b),
-    ?line a = erlang:min(id(b), a),
-    ?line b = erlang:min(id(b), b),
-    ?line a = erlang:max(id(a), a),
-    ?line b = erlang:max(id(a), b),
-    ?line b = erlang:max(id(b), a),
-    ?line b = erlang:max(id(b), b),
+    a = erlang:min(id(a), a),
+    a = erlang:min(id(a), b),
+    a = erlang:min(id(b), a),
+    b = erlang:min(id(b), b),
+    a = erlang:max(id(a), a),
+    b = erlang:max(id(a), b),
+    b = erlang:max(id(b), a),
+    b = erlang:max(id(b), b),
 
-    ?line 42.0 = erlang:min(42.0, 42),
-    ?line 42.0 = erlang:max(42.0, 42),
+    42.0 = erlang:min(42.0, 42),
+    42.0 = erlang:max(42.0, 42),
     %% And now (R14) they are also autoimported!
-    ?line a = min(id(a), a),
-    ?line a = min(id(a), b),
-    ?line a = min(id(b), a),
-    ?line b = min(id(b), b),
-    ?line a = max(id(a), a),
-    ?line b = max(id(a), b),
-    ?line b = max(id(b), a),
-    ?line b = max(id(b), b),
+    a = min(id(a), a),
+    a = min(id(a), b),
+    a = min(id(b), a),
+    b = min(id(b), b),
+    a = max(id(a), a),
+    b = max(id(a), b),
+    b = max(id(b), a),
+    b = max(id(b), b),
 
-    ?line 42.0 = min(42.0, 42),
-    ?line 42.0 = max(42.0, 42),
-
+    42.0 = min(42.0, 42),
+    42.0 = max(42.0, 42),
     ok.
 
 

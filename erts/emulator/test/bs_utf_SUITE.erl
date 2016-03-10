@@ -28,7 +28,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
+-define(FAIL(Expr), fail_check(catch Expr, ??Expr, [])).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -40,8 +40,8 @@ all() ->
      utf32_illegal_sequences, bad_construction].
 
 utf8_roundtrip(Config) when is_list(Config) ->
-    ?line utf8_roundtrip(0, 16#D7FF),
-    ?line utf8_roundtrip(16#E000, 16#10FFFF),
+    utf8_roundtrip(0, 16#D7FF),
+    utf8_roundtrip(16#E000, 16#10FFFF),
     ok.
 
 utf8_roundtrip(First, Last) when First =< Last ->
@@ -59,10 +59,9 @@ utf16_roundtrip(Config) when is_list(Config) ->
     Big = fun utf16_big_roundtrip/1,
     Little = fun utf16_little_roundtrip/1,
     PidRefs = [spawn_monitor(fun() ->
-				     do_utf16_roundtrip(Fun)
-			     end) || Fun <- [Big,Little]],
-    [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
-	{Pid,Ref} <- PidRefs],
+                                     do_utf16_roundtrip(Fun)
+                             end) || Fun <- [Big,Little]],
+    [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end || {Pid,Ref} <- PidRefs],
     ok.
 
 do_utf16_roundtrip(Fun) ->
@@ -130,20 +129,20 @@ utf32_little_roundtrip(Char) ->
     ok.
 
 utf8_illegal_sequences(Config) when is_list(Config) ->
-    ?line fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
 
     %% Illegal first character.
-    ?line [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
+    [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
 
     %% Short sequences.
-    ?line short_sequences(16#80, 16#10FFFF),
+    short_sequences(16#80, 16#10FFFF),
 
     %% Overlong sequences. (Using more bytes than necessary
     %% is not allowed.)
-    ?line overlong(0, 127, 2),
-    ?line overlong(128, 16#7FF, 3),
-    ?line overlong(16#800, 16#FFFF, 4),
+    overlong(0, 127, 2),
+    overlong(128, 16#7FF, 3),
+    overlong(16#800, 16#FFFF, 4),
     ok.
 
 fail_range(Char, End) when Char =< End ->
@@ -163,9 +162,9 @@ short_sequences(Char, End) ->
 short_sequences_1(Char, Step, End) when Char =< End ->
     CharEnd = lists:min([Char+Step-1,End]),
     [spawn_monitor(fun() ->
-			   io:format("~p - ~p\n", [Char,CharEnd]),
-			   do_short_sequences(Char, CharEnd)
-		   end)|short_sequences_1(Char+Step, Step, End)];
+                           io:format("~p - ~p\n", [Char,CharEnd]),
+                           do_short_sequences(Char, CharEnd)
+                   end)|short_sequences_1(Char+Step, Step, End)];
 short_sequences_1(_, _, _) -> [].
 
 do_short_sequences(Char, End) when Char =< End ->
@@ -222,11 +221,11 @@ fail_1(_) -> ok.
 
 
 utf16_illegal_sequences(Config) when is_list(Config) ->
-    ?line utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line utf16_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    utf16_fail_range(16#D800, 16#DFFF),	          %Reserved for UTF-16.
 
-    ?line lonely_hi_surrogate(16#D800, 16#DFFF),
-    ?line leading_lo_surrogate(16#DC00, 16#DFFF),
+    lonely_hi_surrogate(16#D800, 16#DFFF),
+    leading_lo_surrogate(16#DC00, 16#DFFF),
     
     ok.
 
@@ -270,20 +269,20 @@ leading_lo_surrogate(HiSurr, LoSurr, End) when LoSurr =< End ->
 leading_lo_surrogate(_, _, _) -> ok.
 
 utf32_illegal_sequences(Config) when is_list(Config) ->
-    ?line utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf32_fail_range(-100, -1),
+    utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    utf32_fail_range(-100, -1),
     ok.
 
 utf32_fail_range(Char, End) when Char =< End ->
     {'EXIT',_} = (catch <<Char/big-utf32>>),
     {'EXIT',_} = (catch <<Char/little-utf32>>),
     case {<<Char:32>>,<<Char:32/little>>} of
-	{<<Unexpected/utf32>>,_} ->
-	    ?line ct:fail(Unexpected);
-	{_,<<Unexpected/little-utf32>>} ->
-	    ?line ct:fail(Unexpected);
-	{_,_} -> ok
+        {<<Unexpected/utf32>>,_} ->
+            ct:fail(Unexpected);
+        {_,<<Unexpected/little-utf32>>} ->
+            ct:fail(Unexpected);
+        {_,_} -> ok
     end,
     utf32_fail_range(Char+1, End);
 utf32_fail_range(_, _) -> ok.
@@ -382,4 +381,3 @@ evaluate(Str, Vars) ->
     end.
 
 id(I) -> I.
-    

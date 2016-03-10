@@ -116,8 +116,8 @@ long_rwlock(Config) when is_list(Config) ->
     %% A very short run time is expected, since
     %% threads in the test mostly wait
     io:format("RunTime=~p~n", [RunTime]),
-    ?line true = RunTime < 400,
-    ?line RunTimeStr = "Run-time during test was "++integer_to_list(RunTime)++" ms.",
+    true = RunTime < 400,
+    RunTimeStr = "Run-time during test was "++integer_to_list(RunTime)++" ms.",
     case LLRes of
 	ok ->
 	    {comment, RunTimeStr};
@@ -187,100 +187,100 @@ hammer_sched_long_freqread_tryrwlock_check(Config) when is_list(Config) ->
 
 hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked) ->
     case create_rwlock(FreqRead, LockCheck) of
-	enotsup ->
-	    {skipped, "Not supported."};
-	RWLock ->
-	    Onln = erlang:system_info(schedulers_online),
-	    NWPs = case Onln div 3 of
-		       1 -> case Onln < 4 of
-				true -> 1;
-				false -> 2
-			    end;
-		       X -> X
-		   end,
-	    NRPs = Onln - NWPs,
-	    NoLockOps = ((((50000000 div Onln)
-			       div case {Blocking, WaitLocked} of
-				       {false, 0} -> 1;
-				       _ -> 10
-				   end)
-			      div (case WaitLocked == 0 of
-				       true -> 1;
-				       false -> WaitLocked*250
-				   end))
-			     div handicap()),
-	    io:format("NoLockOps=~p~n", [NoLockOps]),
-	    Sleep = case Blocking of
-			true -> NoLockOps;
-			false -> NoLockOps div 10
-		    end,
-	    WPs = lists:map(
-		    fun (Sched) ->
-			    spawn_opt(
-			      fun () ->
-				      io:format("Writer on scheduler ~p.~n",
-						[Sched]),
-				      Sched = erlang:system_info(scheduler_id),
-				      receive go -> gone end,
-				      hammer_sched_rwlock_proc(RWLock,
-							       Blocking,
-							       true,
-							       WaitLocked,
-							       WaitUnlocked,
-							       NoLockOps,
-							       Sleep),
-				      Sched = erlang:system_info(scheduler_id)
-			      end,
-			      [link, {scheduler, Sched}])
-		    end,
-		    lists:seq(1, NWPs)),
-	    RPs = lists:map(
-		    fun (Sched) ->
-			    spawn_opt(
-			      fun () ->
-				      io:format("Reader on scheduler ~p.~n",
-						[Sched]),
-				      Sched = erlang:system_info(scheduler_id),
-				      receive go -> gone end,
-				      hammer_sched_rwlock_proc(RWLock,
-							       Blocking,
-							       false,
-							       WaitLocked,
-							       WaitUnlocked,
-							       NoLockOps,
-							       Sleep),
-				      Sched = erlang:system_info(scheduler_id)
-			      end,
-			      [link, {scheduler, Sched}])
-		    end,
-		    lists:seq(NWPs + 1, NWPs + NRPs)),
-	    Procs = WPs ++ RPs,
-	    case {Blocking, WaitLocked} of
-		{_, 0} -> ok;
-		{false, _} -> ok;
-		_ -> statistics(runtime)
-	    end,
-	    lists:foreach(fun (P) -> P ! go end, Procs),
-	    lists:foreach(fun (P) ->
-				  M = erlang:monitor(process, P),
-				  receive
-				      {'DOWN', M, process, P, _} ->
-					  ok
-				  end
-			  end,
-			  Procs),
-	    case {Blocking, WaitLocked} of
-		{_, 0} -> ok;
-		{false, _} -> ok;
-		_ ->
-		    {_, RunTime} = statistics(runtime),
-		    io:format("RunTime=~p~n", [RunTime]),
-		    ?line true = RunTime < 700,
-		    {comment,
-		     "Run-time during test was "
-		     ++ integer_to_list(RunTime)
-		     ++ " ms."}
-	    end
+        enotsup ->
+            {skipped, "Not supported."};
+        RWLock ->
+            Onln = erlang:system_info(schedulers_online),
+            NWPs = case Onln div 3 of
+                       1 -> case Onln < 4 of
+                                true -> 1;
+                                false -> 2
+                            end;
+                       X -> X
+                   end,
+            NRPs = Onln - NWPs,
+            NoLockOps = ((((50000000 div Onln)
+                           div case {Blocking, WaitLocked} of
+                                   {false, 0} -> 1;
+                                   _ -> 10
+                               end)
+                          div (case WaitLocked == 0 of
+                                   true -> 1;
+                                   false -> WaitLocked*250
+                               end))
+                         div handicap()),
+            io:format("NoLockOps=~p~n", [NoLockOps]),
+            Sleep = case Blocking of
+                        true -> NoLockOps;
+                        false -> NoLockOps div 10
+                    end,
+            WPs = lists:map(
+                    fun (Sched) ->
+                            spawn_opt(
+                              fun () ->
+                                      io:format("Writer on scheduler ~p.~n",
+                                                [Sched]),
+                                      Sched = erlang:system_info(scheduler_id),
+                                      receive go -> gone end,
+                                      hammer_sched_rwlock_proc(RWLock,
+                                                               Blocking,
+                                                               true,
+                                                               WaitLocked,
+                                                               WaitUnlocked,
+                                                               NoLockOps,
+                                                               Sleep),
+                                      Sched = erlang:system_info(scheduler_id)
+                              end,
+                              [link, {scheduler, Sched}])
+                    end,
+                    lists:seq(1, NWPs)),
+            RPs = lists:map(
+                    fun (Sched) ->
+                            spawn_opt(
+                              fun () ->
+                                      io:format("Reader on scheduler ~p.~n",
+                                                [Sched]),
+                                      Sched = erlang:system_info(scheduler_id),
+                                      receive go -> gone end,
+                                      hammer_sched_rwlock_proc(RWLock,
+                                                               Blocking,
+                                                               false,
+                                                               WaitLocked,
+                                                               WaitUnlocked,
+                                                               NoLockOps,
+                                                               Sleep),
+                                      Sched = erlang:system_info(scheduler_id)
+                              end,
+                              [link, {scheduler, Sched}])
+                    end,
+                    lists:seq(NWPs + 1, NWPs + NRPs)),
+            Procs = WPs ++ RPs,
+            case {Blocking, WaitLocked} of
+                {_, 0} -> ok;
+                {false, _} -> ok;
+                _ -> statistics(runtime)
+            end,
+            lists:foreach(fun (P) -> P ! go end, Procs),
+            lists:foreach(fun (P) ->
+                                  M = erlang:monitor(process, P),
+                                  receive
+                                      {'DOWN', M, process, P, _} ->
+                                          ok
+                                  end
+                          end,
+                          Procs),
+            case {Blocking, WaitLocked} of
+                {_, 0} -> ok;
+                {false, _} -> ok;
+                _ ->
+                    {_, RunTime} = statistics(runtime),
+                    io:format("RunTime=~p~n", [RunTime]),
+                    true = RunTime < 700,
+                    {comment,
+                     "Run-time during test was "
+                     ++ integer_to_list(RunTime)
+                     ++ " ms."}
+            end
     end.
 
 hammer_sched_rwlock_proc(_RWLock,
@@ -397,65 +397,65 @@ hammer_ets_rwlock_init(_T, _N) ->
 hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
     receive after 100 -> ok end,
     {TP, TM} = spawn_monitor(
-		 fun () ->
-			 _L = repeat_list(
-				fun () ->
-					Caller = self(),
-					T = fun () ->
-						    Parent = self(),
-						    hammer_ets_rwlock_put_data(),
-						    T=ets:new(x, [public | XOpts]),
-						    hammer_ets_rwlock_init(T, 0),
-						    Ps0 = repeat_list(
-							    fun () ->
-								    spawn_link(
-								      fun () ->
-									      hammer_ets_rwlock_put_data(),
-									      receive go -> ok end,
-									      hammer_ets_rwlock_ops(T, UW, N, C, C, N),
-									      Parent ! {done, self()},
-									      receive after infinity -> ok end
-								      end)
-							    end,
-							    NP - case SC of
-								     false -> 0;
-								     _ -> 1
-								 end),
-						    Ps = case SC of
-							     false -> Ps0;
-							     _ -> [spawn_link(fun () ->
-										      hammer_ets_rwlock_put_data(),
-										      receive go -> ok end,
-										      hammer_ets_rwlock_ops(T, UW, N, SC, SC, N),
-										      Parent ! {done, self()},
-										      receive after infinity -> ok end
-									      end) | Ps0]
-							 end,
-						    Start = erlang:monotonic_time(),
-						    lists:foreach(fun (P) -> P ! go end, Ps),
-						    lists:foreach(fun (P) -> receive {done, P} -> ok end end, Ps),
-						    Stop = erlang:monotonic_time(),
-						    lists:foreach(fun (P) ->
-									  unlink(P),
-									  exit(P, bang),
-									  M = erlang:monitor(process, P),
-									  receive
-									      {'DOWN', M, process, P, _} -> ok
-									  end
-								  end, Ps),
-						    Res = (Stop-Start)/erlang:convert_time_unit(1,seconds,native),
-						    Caller ! {?MODULE, self(), Res}
-					    end,
-					TP = spawn_link(T),
-					receive
-					    {?MODULE, TP, Res} ->
-						Res
-					end
-				end,
-				?HAMMER_ETS_RWLOCK_REPEAT_TIMES)
-		 end),
+                 fun () ->
+                         _L = repeat_list(
+                                fun () ->
+                                        Caller = self(),
+                                        T = fun () ->
+                                                    Parent = self(),
+                                                    hammer_ets_rwlock_put_data(),
+                                                    T=ets:new(x, [public | XOpts]),
+                                                    hammer_ets_rwlock_init(T, 0),
+                                                    Ps0 = repeat_list(
+                                                            fun () ->
+                                                                    spawn_link(
+                                                                      fun () ->
+                                                                              hammer_ets_rwlock_put_data(),
+                                                                              receive go -> ok end,
+                                                                              hammer_ets_rwlock_ops(T, UW, N, C, C, N),
+                                                                              Parent ! {done, self()},
+                                                                              receive after infinity -> ok end
+                                                                      end)
+                                                            end,
+                                                            NP - case SC of
+                                                                     false -> 0;
+                                                                     _ -> 1
+                                                                 end),
+                                                    Ps = case SC of
+                                                             false -> Ps0;
+                                                             _ -> [spawn_link(fun () ->
+                                                                                      hammer_ets_rwlock_put_data(),
+                                                                                      receive go -> ok end,
+                                                                                      hammer_ets_rwlock_ops(T, UW, N, SC, SC, N),
+                                                                                      Parent ! {done, self()},
+                                                                                      receive after infinity -> ok end
+                                                                              end) | Ps0]
+                                                         end,
+                                                    Start = erlang:monotonic_time(),
+                                                    lists:foreach(fun (P) -> P ! go end, Ps),
+                                                    lists:foreach(fun (P) -> receive {done, P} -> ok end end, Ps),
+                                                    Stop = erlang:monotonic_time(),
+                                                    lists:foreach(fun (P) ->
+                                                                          unlink(P),
+                                                                          exit(P, bang),
+                                                                          M = erlang:monitor(process, P),
+                                                                          receive
+                                                                              {'DOWN', M, process, P, _} -> ok
+                                                                          end
+                                                                  end, Ps),
+                                                    Res = (Stop-Start)/erlang:convert_time_unit(1,seconds,native),
+                                                    Caller ! {?MODULE, self(), Res}
+                                            end,
+                                        TP = spawn_link(T),
+                                        receive
+                                            {?MODULE, TP, Res} ->
+                                                Res
+                                        end
+                                end,
+                                ?HAMMER_ETS_RWLOCK_REPEAT_TIMES)
+                 end),
     receive
-	{'DOWN', TM, process, TP, _} -> ok
+        {'DOWN', TM, process, TP, _} -> ok
     end.
 
 repeat_list(Fun, N) ->
@@ -469,18 +469,17 @@ repeat_list(Fun, N, Acc) ->
 
 handicap() ->
     X0 = case catch (erlang:system_info(logical_processors_available) >=
-			 erlang:system_info(schedulers_online)) of
-	     true -> 1;
-	     _ -> 2
-	 end,
+                     erlang:system_info(schedulers_online)) of
+             true -> 1;
+             _ -> 2
+         end,
     case erlang:system_info(build_type) of
-	opt ->
-	    X0;
-	ReallySlow when ReallySlow == debug;
-			ReallySlow == valgrind;
-			ReallySlow == purify ->
-	    X0*3;
-	_Slow ->
-	    X0*2
+        opt ->
+            X0;
+        ReallySlow when ReallySlow == debug;
+                        ReallySlow == valgrind;
+                        ReallySlow == purify ->
+            X0*3;
+        _Slow ->
+            X0*2
     end.
-		

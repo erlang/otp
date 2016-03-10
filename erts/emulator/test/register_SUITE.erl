@@ -56,25 +56,20 @@ otp_8099(Config) when is_list(Config) ->
 otp_8099_test(0) ->
     ok;
 otp_8099_test(N) ->
-    ?line P = spawn(fun () -> otp_8099_proc() end),
-    ?line case catch register(?OTP_8099_NAME, P) of
+    P = spawn(fun () -> otp_8099_proc() end),
+    case catch register(?OTP_8099_NAME, P) of
 	      true ->
-		  ?line ok;
+		  ok;
 	      _ ->
-		  ?line OP = whereis(?OTP_8099_NAME),
-		  ?line (catch unregister(?OTP_8099_NAME)),
-		  ?line (catch exit(OP, kill)),
-		  ?line true = (catch register(?OTP_8099_NAME, P))
+		  OP = whereis(?OTP_8099_NAME),
+		  (catch unregister(?OTP_8099_NAME)),
+		  (catch exit(OP, kill)),
+		  true = (catch register(?OTP_8099_NAME, P))
 	  end,
-    ?line P = whereis(?OTP_8099_NAME),
-    ?line exit(P, kill),
-    ?line otp_8099_test(N-1).
+    P = whereis(?OTP_8099_NAME),
+    exit(P, kill),
+    otp_8099_test(N-1).
 
 otp_8099_proc() ->
     receive _ -> ok end,
     otp_8099_proc().
-
-%%
-%% Utils
-%%
-

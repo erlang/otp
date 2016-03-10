@@ -21,7 +21,7 @@
 -module(nested_SUITE).
 
 -export([all/0, suite/0,
-	 case_in_case/1, case_in_after/1, catch_in_catch/1, bif_in_bif/1]).
+         case_in_case/1, case_in_after/1, catch_in_catch/1, bif_in_bif/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,55 +36,55 @@ all() ->
 
 case_in_case(suite) -> [];
 case_in_case(Config) when is_list(Config) ->
-    ?line done = search_any([a], [{a, 1}]),
-    ?line done = search_any([x], [{a, 1}]),
+    done = search_any([a], [{a, 1}]),
+    done = search_any([x], [{a, 1}]),
     ok.
 
 search_any([Key|Rest], List) ->
-    ?line case case lists:keysearch(Key, 1, List) of
-		   {value, _} -> 
-		       true;
-		   _ ->
-		       false
-	       end of
-	      true ->
-		  ok;
-	      false ->
-		  error;
-	      Other ->
-		  ct:fail({other_result, Other})
-	  end,
-    ?line search_any(Rest, List);
+    case case lists:keysearch(Key, 1, List) of
+             {value, _} -> 
+                 true;
+             _ ->
+                 false
+         end of
+        true ->
+            ok;
+        false ->
+            error;
+        Other ->
+            ct:fail({other_result, Other})
+    end,
+    search_any(Rest, List);
 search_any([], _) ->
     done.
 
 case_in_after(suite) -> [];
 case_in_after(Config) when is_list(Config) ->
     receive
-	after case {x, y, z} of
-		  {x, y, z} -> 0
-	      end ->
-		ok
-	end,
+    after case {x, y, z} of
+              {x, y, z} -> 0
+          end ->
+              ok
+    end,
     ok.
 
 %% Test a catch within a catch in the same function.
 catch_in_catch(Config) when is_list(Config) ->
-    ?line {outer, inner_exit} = catcher(),
+    {outer, inner_exit} = catcher(),
     ok.
 
 catcher() ->
     case (catch 
-	  case (catch ?MODULE:non_existing()) of    % bogus function
-	      {'EXIT', _} ->
-		  inner_exit;
-	      Res1 ->
-		  {inner, Res1}
-	  end) of
-	{'EXIT', _} ->
-	    outer_exit;
-	Res2 ->
-	    {outer, Res2}
+          case (catch ?MODULE:non_existing()) of    % bogus function
+              {'EXIT', _} ->
+                  inner_exit;
+              Res1 ->
+                  {inner, Res1}
+          end) of
+        {'EXIT', _} ->
+            outer_exit;
+        Res2 ->
+            {outer, Res2}
     end.
 
 %% Test a BIF call within a BIF call.

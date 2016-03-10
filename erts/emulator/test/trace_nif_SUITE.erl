@@ -22,8 +22,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([trace_nif/1,
 	 trace_nif_timestamp/1,
 	 trace_nif_local/1,
@@ -45,29 +44,13 @@ all() ->
 	     trace_nif_return]
     end.
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
 %% Test tracing NIFs.
 trace_nif(Config) when is_list(Config) ->
     load_nif(Config),
-    
+
     do_trace_nif([]).
 
 %% Test tracing NIFs with local flag.
@@ -78,69 +61,69 @@ trace_nif_local(Config) when is_list(Config) ->
 %% Test tracing NIFs with meta flag.
 trace_nif_meta(Config) when is_list(Config) ->
     load_nif(Config),
-    ?line Pid=spawn_link(?MODULE, nif_process, []),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, [], [meta]),
-    
-    ?line Pid ! {apply_nif, nif, []},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
-    
-    ?line Pid ! {apply_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, ["Arg1"]}}),
-    
-    ?line Pid ! {call_nif, nif, []},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, []}}),
-    
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, ["Arg1"]}}),
+    Pid=spawn_link(?MODULE, nif_process, []),
+    erlang:trace_pattern({?MODULE,nif,'_'}, [], [meta]),
+
+    Pid ! {apply_nif, nif, []},
+    receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
+
+    Pid ! {apply_nif, nif, ["Arg1"]},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, ["Arg1"]}}),
+
+    Pid ! {call_nif, nif, []},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, []}}),
+
+    Pid ! {call_nif, nif, ["Arg1"]},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, ["Arg1"]}}),
     ok.
 do_trace_nif(Flags) ->
-    ?line Pid = spawn(?MODULE, nif_process, []),
-    ?line 1 = erlang:trace(Pid, true, [call]),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
-    ?line Pid ! {apply_nif, nif, []},
-    ?line receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
-    ?line Pid ! {apply_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg({trace,Pid,call,{?MODULE,nif, ["Arg1"]}}),
+    Pid = spawn(?MODULE, nif_process, []),
+    1 = erlang:trace(Pid, true, [call]),
+    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+    Pid ! {apply_nif, nif, []},
+    receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
+    Pid ! {apply_nif, nif, ["Arg1"]},
+    receive_trace_msg({trace,Pid,call,{?MODULE,nif, ["Arg1"]}}),
 
-    ?line Pid ! {call_nif, nif, []},
-    ?line receive_trace_msg({trace, Pid, call, {?MODULE,nif, []}}),
+    Pid ! {call_nif, nif, []},
+    receive_trace_msg({trace, Pid, call, {?MODULE,nif, []}}),
 
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg({trace, Pid, call, {?MODULE,nif, ["Arg1"]}}),
+    Pid ! {call_nif, nif, ["Arg1"]},
+    receive_trace_msg({trace, Pid, call, {?MODULE,nif, ["Arg1"]}}),
 
-    
+
     %% Switch off
-    ?line 1 = erlang:trace(Pid, false, [call]),
+    1 = erlang:trace(Pid, false, [call]),
 
-    ?line Pid ! {apply_nif, nif, []},
+    Pid ! {apply_nif, nif, []},
     receive_nothing(),
-    ?line Pid ! {apply_nif, nif, ["Arg1"]},
+    Pid ! {apply_nif, nif, ["Arg1"]},
     receive_nothing(),
-    ?line Pid ! {call_nif, nif, []},
+    Pid ! {call_nif, nif, []},
     receive_nothing(),
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
+    Pid ! {call_nif, nif, ["Arg1"]},
     receive_nothing(),
 
     %% Switch on again
-    ?line 1 = erlang:trace(Pid, true, [call]),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
-    ?line Pid ! {apply_nif, nif, []},
-    ?line receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
-    ?line Pid ! {apply_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg({trace,Pid,call,{?MODULE,nif, ["Arg1"]}}),
+    1 = erlang:trace(Pid, true, [call]),
+    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+    Pid ! {apply_nif, nif, []},
+    receive_trace_msg({trace,Pid,call,{?MODULE,nif, []}}),
+    Pid ! {apply_nif, nif, ["Arg1"]},
+    receive_trace_msg({trace,Pid,call,{?MODULE,nif, ["Arg1"]}}),
 
-    ?line Pid ! {call_nif, nif, []},
-    ?line receive_trace_msg({trace, Pid, call, {?MODULE,nif, []}}),
+    Pid ! {call_nif, nif, []},
+    receive_trace_msg({trace, Pid, call, {?MODULE,nif, []}}),
 
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg({trace, Pid, call, {?MODULE,nif, ["Arg1"]}}),
-    
-    ?line 1 = erlang:trace(Pid, false, [call]),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, false, Flags),
-    ?line exit(Pid, die),
+    Pid ! {call_nif, nif, ["Arg1"]},
+    receive_trace_msg({trace, Pid, call, {?MODULE,nif, ["Arg1"]}}),
+
+    1 = erlang:trace(Pid, false, [call]),
+    erlang:trace_pattern({?MODULE,nif,'_'}, false, Flags),
+    exit(Pid, die),
     ok.
 
 %% Test tracing NIFs with timestamps.
@@ -154,65 +137,65 @@ trace_nif_timestamp_local(Config) when is_list(Config) ->
     do_trace_nif_timestamp([local]).
 
 do_trace_nif_timestamp(Flags) ->
-    ?line Pid=spawn(?MODULE, nif_process, []),
-    ?line 1 = erlang:trace(Pid, true, [call,timestamp]),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
-    
-    ?line Pid ! {apply_nif, nif, []},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
-    
-    ?line Pid ! {apply_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, ["Arg1"]}}),
-    
-    ?line Pid ! {call_nif, nif, []},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, []}}),
-    
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, ["Arg1"]}}),
-    
+    Pid=spawn(?MODULE, nif_process, []),
+    1 = erlang:trace(Pid, true, [call,timestamp]),
+    erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
+
+    Pid ! {apply_nif, nif, []},
+    receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
+
+    Pid ! {apply_nif, nif, ["Arg1"]},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, ["Arg1"]}}),
+
+    Pid ! {call_nif, nif, []},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, []}}),
+
+    Pid ! {call_nif, nif, ["Arg1"]},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, ["Arg1"]}}),
+
     %% We should be able to turn off the timestamp.
-    ?line 1 = erlang:trace(Pid, false, [timestamp]),
-    
-    ?line Pid ! {call_nif, nif, []},
-    ?line receive_trace_msg({trace,Pid,call,
- 			     {?MODULE,nif, []}}),
-    
-    ?line Pid ! {apply_nif, nif, ["tjoho"]},
-    ?line receive_trace_msg({trace,Pid,call,
- 			     {?MODULE,nif, ["tjoho"]}}),
-    
-    ?line 1 = erlang:trace(Pid, false, [call]),
-    ?line erlang:trace_pattern({erlang,'_','_'}, false, Flags),
-    
-    ?line exit(Pid, die),
+    1 = erlang:trace(Pid, false, [timestamp]),
+
+    Pid ! {call_nif, nif, []},
+    receive_trace_msg({trace,Pid,call,
+                       {?MODULE,nif, []}}),
+
+    Pid ! {apply_nif, nif, ["tjoho"]},
+    receive_trace_msg({trace,Pid,call,
+                       {?MODULE,nif, ["tjoho"]}}),
+
+    1 = erlang:trace(Pid, false, [call]),
+    erlang:trace_pattern({erlang,'_','_'}, false, Flags),
+
+    exit(Pid, die),
     ok.
 
 %% Test tracing NIF's with return/return_to trace.
 trace_nif_return(Config) when is_list(Config) ->
     load_nif(Config),
 
-    ?line Pid=spawn(?MODULE, nif_process, []),
-    ?line 1 = erlang:trace(Pid, true, [call,timestamp,return_to]),
-    ?line erlang:trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}], 
- 			       [local]),
+    Pid=spawn(?MODULE, nif_process, []),
+    1 = erlang:trace(Pid, true, [call,timestamp,return_to]),
+    erlang:trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}], 
+                         [local]),
 
-    ?line Pid ! {apply_nif, nif, []},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
-    ?line receive_trace_msg_ts_return_from({trace_ts,Pid,return_from,
- 					    {?MODULE,nif,0}}),
-    ?line receive_trace_msg_ts_return_to({trace_ts,Pid,return_to, 
- 					  {?MODULE, nif_process,0}}),
-        
-    ?line Pid ! {call_nif, nif, ["Arg1"]},
-    ?line receive_trace_msg_ts({trace_ts,Pid,call,
-				{?MODULE,nif, ["Arg1"]}}),
-    ?line receive_trace_msg_ts_return_from({trace_ts,Pid,return_from,
-					    {?MODULE,nif,1}}),
-    ?line receive_trace_msg_ts_return_to({trace_ts,Pid,return_to, 
- 					  {?MODULE, nif_process,0}}),
+    Pid ! {apply_nif, nif, []},
+    receive_trace_msg_ts({trace_ts,Pid,call,{?MODULE,nif,[]}}),
+    receive_trace_msg_ts_return_from({trace_ts,Pid,return_from,
+                                      {?MODULE,nif,0}}),
+    receive_trace_msg_ts_return_to({trace_ts,Pid,return_to, 
+                                    {?MODULE, nif_process,0}}),
+
+    Pid ! {call_nif, nif, ["Arg1"]},
+    receive_trace_msg_ts({trace_ts,Pid,call,
+                          {?MODULE,nif, ["Arg1"]}}),
+    receive_trace_msg_ts_return_from({trace_ts,Pid,return_from,
+                                      {?MODULE,nif,1}}),
+    receive_trace_msg_ts_return_to({trace_ts,Pid,return_to, 
+                                    {?MODULE, nif_process,0}}),
     ok.
 
 
@@ -227,7 +210,7 @@ receive_trace_msg(Mess) ->
     end.
 
 receive_nothing() ->
-    ?line timeout = receive M -> M after 100 -> timeout end.
+    timeout = receive M -> M after 100 -> timeout end.
 
 receive_trace_msg_ts({trace_ts, Pid, call, {M,F,A}}) ->
     receive
@@ -264,27 +247,27 @@ receive_trace_msg_ts_return_to({trace_ts, Pid, return_to, {M,F,A}}) ->
 
 nif_process() ->
     receive
-	{apply_nif, Name, Args} ->
-	    ?line {ok,Args} = apply(?MODULE, Name, Args);
+        {apply_nif, Name, Args} ->
+            {ok,Args} = apply(?MODULE, Name, Args);
 
-	{call_nif, Name, []} ->
-	    ?line {ok, []} = ?MODULE:Name();
-	
-	{call_nif, Name, [A1]} ->
-	    ?line {ok, [A1]} = ?MODULE:Name(A1);
-	
-	{call_nif, Name, [A1,A2]} ->
-	    ?line {ok,[A1,A2]} = ?MODULE:Name(A1,A2);
-	
-	{call_nif, Name, [A1,A2,A3]} ->
-	    ?line {ok,[A1,A2,A3]} = ?MODULE:Name(A1,A2,A3)    
+        {call_nif, Name, []} ->
+            {ok, []} = ?MODULE:Name();
+
+        {call_nif, Name, [A1]} ->
+            {ok, [A1]} = ?MODULE:Name(A1);
+
+        {call_nif, Name, [A1,A2]} ->
+            {ok,[A1,A2]} = ?MODULE:Name(A1,A2);
+
+        {call_nif, Name, [A1,A2,A3]} ->
+            {ok,[A1,A2,A3]} = ?MODULE:Name(A1,A2,A3)    
     end,
     nif_process().    
 
 load_nif(Config) ->    
-    ?line Path = proplists:get_value(data_dir, Config),
-    
-    ?line ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
+    Path = proplists:get_value(data_dir, Config),
+
+    ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
 
 
 nif() ->
@@ -292,4 +275,3 @@ nif() ->
 
 nif(A1) ->
     {"Stub1",[A1]}. %exit(["nif/1 stub called",A1]).
-

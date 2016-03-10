@@ -99,7 +99,7 @@ test(File) ->
     test(File, [node()]).
 
 test(File, Nodes) ->
-    ?line {ok,Fd} = file:open(File, [read]),
+    {ok,Fd} = file:open(File, [read]),
     Res = test(File, Fd, Nodes),
     file:close(Fd),
     case Res of
@@ -136,7 +136,7 @@ multi_match(Ns, Expr) ->
     multi_match(Ns, Expr, []).
 
 multi_match([Node|Ns], Expr, Rs) ->
-    ?line X = rpc:call(Node, big_SUITE, eval, [Expr]),
+    X = rpc:call(Node, big_SUITE, eval, [Expr]),
     if X == 0 -> multi_match(Ns, Expr, Rs);
        true -> multi_match(Ns, Expr, [{Node,X}|Rs])
     end;
@@ -228,10 +228,10 @@ lcm(Q, R) ->
 %% Test case t_div cut in from R2D test suite.
 
 t_div(Config) when is_list(Config) ->
-    ?line 'try'(fun() -> 98765432101234 div 98765432101235 end, 0),
+    'try'(fun() -> 98765432101234 div 98765432101235 end, 0),
 
     % Big remainder, small quotient.
-    ?line 'try'(fun() -> 339254531512 div 68719476736 end, 4),
+    'try'(fun() -> 339254531512 div 68719476736 end, 4),
     ok.
 
 'try'(Fun, Result) ->
@@ -255,50 +255,50 @@ init(ReplyTo, Fun, _Filler) ->
 big_literals(Config) when is_list(Config) ->
     %% Note: The literal test cannot be compiler on a pre-R4 Beam emulator,
     %% so we compile it now.
-    ?line DataDir = proplists:get_value(data_dir, Config),
-    ?line Test = filename:join(DataDir, "literal_test"),
-    ?line {ok, Mod, Bin} = compile:file(Test, [binary]),
-    ?line {module, Mod} = code:load_binary(Mod, Mod, Bin),
-    ?line ok = Mod:t(),
+    DataDir = proplists:get_value(data_dir, Config),
+    Test = filename:join(DataDir, "literal_test"),
+    {ok, Mod, Bin} = compile:file(Test, [binary]),
+    {module, Mod} = code:load_binary(Mod, Mod, Bin),
+    ok = Mod:t(),
     ok.
 
 
 %% OTP-2436, part 1
 big_float_1(Config) when is_list(Config) ->
     %% F is a number very close to a maximum float.
-    ?line F = id(1.7e308),
-    ?line I = trunc(F),
-    ?line true = (I == F),
-    ?line false = (I /= F),
-    ?line true = (I > F/2),
-    ?line false = (I =< F/2),
-    ?line true = (I*2 >= F),
-    ?line false = (I*2 < F),
-    ?line true = (I*I > F),
-    ?line false = (I*I =< F),
+    F = id(1.7e308),
+    I = trunc(F),
+    true = (I == F),
+    false = (I /= F),
+    true = (I > F/2),
+    false = (I =< F/2),
+    true = (I*2 >= F),
+    false = (I*2 < F),
+    true = (I*I > F),
+    false = (I*I =< F),
 
-    ?line true = (F == I),
-    ?line false = (F /= I),
-    ?line false = (F/2 > I),
-    ?line true = (F/2 =< I),
-    ?line false = (F >= I*2),
-    ?line true = (F < I*2),
-    ?line false = (F > I*I),
-    ?line true = (F =< I*I),
+    true = (F == I),
+    false = (F /= I),
+    false = (F/2 > I),
+    true = (F/2 =< I),
+    false = (F >= I*2),
+    true = (F < I*2),
+    false = (F > I*I),
+    true = (F =< I*I),
     ok.
 
 %% "OTP-2436, part 2
 big_float_2(Config) when is_list(Config) ->
-    ?line F = id(1.7e308),
-    ?line I = trunc(F),
-    ?line {'EXIT', _} = (catch 1/(2*I)),
-    ?line _Ignore = 2/I,
-    ?line {'EXIT', _} = (catch 4/(2*I)),
+    F = id(1.7e308),
+    I = trunc(F),
+    {'EXIT', _} = (catch 1/(2*I)),
+    _Ignore = 2/I,
+    {'EXIT', _} = (catch 4/(2*I)),
     ok.
 
 %% OTP-3256
 shift_limit_1(Config) when is_list(Config) ->
-    ?line case catch (id(1) bsl 100000000) of
+    case catch (id(1) bsl 100000000) of
 	      {'EXIT', {system_limit, _}} ->
 		  ok
 	  end,
@@ -327,16 +327,16 @@ powmod(A, B, C) ->
     end.
 
 system_limit(Config) when is_list(Config) ->
-    ?line Maxbig = maxbig(),
-    ?line {'EXIT',{system_limit,_}} = (catch Maxbig+1),
-    ?line {'EXIT',{system_limit,_}} = (catch -Maxbig-1),
-    ?line {'EXIT',{system_limit,_}} = (catch 2*Maxbig),
-    ?line {'EXIT',{system_limit,_}} = (catch bnot Maxbig),
-    ?line {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bnot'), [Maxbig])),
-    ?line {'EXIT',{system_limit,_}} = (catch Maxbig bsl 2),
-    ?line {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
-    ?line {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
-    ?line {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
+    Maxbig = maxbig(),
+    {'EXIT',{system_limit,_}} = (catch Maxbig+1),
+    {'EXIT',{system_limit,_}} = (catch -Maxbig-1),
+    {'EXIT',{system_limit,_}} = (catch 2*Maxbig),
+    {'EXIT',{system_limit,_}} = (catch bnot Maxbig),
+    {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bnot'), [Maxbig])),
+    {'EXIT',{system_limit,_}} = (catch Maxbig bsl 2),
+    {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
+    {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
+    {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
     ok.
 
 maxbig() ->
@@ -347,7 +347,7 @@ maxbig() ->
 id(I) -> I.
 
 toobig(Config) when is_list(Config) ->
-    ?line {'EXIT',{{badmatch,_},_}} = (catch toobig()),
+    {'EXIT',{{badmatch,_},_}} = (catch toobig()),
     ok.
 
 toobig() ->
@@ -358,7 +358,7 @@ toobig() ->
 
 %% Tests for DIV/REM bug reported in OTP-6692
 otp_6692(Config) when is_list(Config)->
-    ?line loop1(1,1000).
+    loop1(1,1000).
 
 fact(N) ->
      fact(N,1).
