@@ -17,73 +17,70 @@
 %% %CopyrightEnd%
 %%
 -module(map_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	init_per_group/2,end_per_group/2
-    ]).
+-export([all/0, suite/0]).
+-compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
--export([
-	t_build_and_match_literals/1, t_build_and_match_literals_large/1,
-	t_update_literals/1, t_update_literals_large/1,
-        t_match_and_update_literals/1, t_match_and_update_literals_large/1,
-	t_update_map_expressions/1,
-	t_update_assoc/1, t_update_assoc_large/1,
-        t_update_exact/1, t_update_exact_large/1,
-	t_guard_bifs/1,
-        t_guard_sequence/1, t_guard_sequence_large/1,
-        t_guard_update/1, t_guard_update_large/1,
-	t_guard_receive/1, t_guard_receive_large/1,
-        t_guard_fun/1,
-        t_update_deep/1,
-	t_list_comprehension/1,
-	t_map_sort_literals/1,
-	t_map_equal/1,
-	t_map_compare/1,
-	t_map_size/1,
-	t_is_map/1,
+-export([t_build_and_match_literals/1, t_build_and_match_literals_large/1,
+         t_update_literals/1, t_update_literals_large/1,
+         t_match_and_update_literals/1, t_match_and_update_literals_large/1,
+         t_update_map_expressions/1,
+         t_update_assoc/1, t_update_assoc_large/1,
+         t_update_exact/1, t_update_exact_large/1,
+         t_guard_bifs/1,
+         t_guard_sequence/1, t_guard_sequence_large/1,
+         t_guard_update/1, t_guard_update_large/1,
+         t_guard_receive/1, t_guard_receive_large/1,
+         t_guard_fun/1,
+         t_update_deep/1,
+         t_list_comprehension/1,
+         t_map_sort_literals/1,
+         t_map_equal/1,
+         t_map_compare/1,
+         t_map_size/1,
+         t_is_map/1,
 
-	%% Specific Map BIFs
-	t_bif_map_get/1,
-	t_bif_map_find/1,
-	t_bif_map_is_key/1,
-	t_bif_map_keys/1,
-	t_bif_map_merge/1,
-	t_bif_map_new/1,
-	t_bif_map_put/1,
-	t_bif_map_remove/1,
-	t_bif_map_update/1,
-	t_bif_map_values/1,
-	t_bif_map_to_list/1,
-	t_bif_map_from_list/1,
+         %% Specific Map BIFs
+         t_bif_map_get/1,
+         t_bif_map_find/1,
+         t_bif_map_is_key/1,
+         t_bif_map_keys/1,
+         t_bif_map_merge/1,
+         t_bif_map_new/1,
+         t_bif_map_put/1,
+         t_bif_map_remove/1,
+         t_bif_map_update/1,
+         t_bif_map_values/1,
+         t_bif_map_to_list/1,
+         t_bif_map_from_list/1,
 
-	%% erlang
-	t_erlang_hash/1,
-	t_map_encode_decode/1,
-	t_gc_rare_map_overflow/1,
+         %% erlang
+         t_erlang_hash/1,
+         t_map_encode_decode/1,
+         t_gc_rare_map_overflow/1,
 
-	%% non specific BIF related
-	t_bif_build_and_check/1,
-	t_bif_merge_and_check/1,
+         %% non specific BIF related
+         t_bif_build_and_check/1,
+         t_bif_merge_and_check/1,
 
-	%% maps module not bifs
-	t_maps_fold/1,
-	t_maps_map/1,
-	t_maps_size/1,
-	t_maps_without/1,
+         %% maps module not bifs
+         t_maps_fold/1,
+         t_maps_map/1,
+         t_maps_size/1,
+         t_maps_without/1,
 
-	%% misc
-	t_hashmap_balance/1,
-        t_erts_internal_order/1,
-        t_erts_internal_hash/1,
-	t_pdict/1,
-	t_ets/1,
-	t_dets/1,
-	t_tracing/1,
+         %% misc
+         t_hashmap_balance/1,
+         t_erts_internal_order/1,
+         t_erts_internal_hash/1,
+         t_pdict/1,
+         t_ets/1,
+         t_dets/1,
+         t_tracing/1,
 
-	%% instruction-level tests
-	t_has_map_fields/1,
-	y_regs/1,
-	badmap_17/1
-    ]).
+         %% instruction-level tests
+         t_has_map_fields/1,
+         y_regs/1,
+         badmap_17/1]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -96,65 +93,55 @@
 
 suite() -> [].
 
-all() -> [
-	t_build_and_match_literals, t_build_and_match_literals_large,
-	t_update_literals, t_update_literals_large,
-        t_match_and_update_literals, t_match_and_update_literals_large,
-	t_update_map_expressions,
-	t_update_assoc, t_update_assoc_large,
-        t_update_exact, t_update_exact_large,
-	t_guard_bifs,
-        t_guard_sequence, t_guard_sequence_large,
-        t_guard_update, t_guard_update_large,
-	t_guard_receive, t_guard_receive_large,
-        t_guard_fun, t_list_comprehension,
-        t_update_deep,
-	t_map_equal, t_map_compare,
-	t_map_sort_literals,
+all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
+          t_update_literals, t_update_literals_large,
+          t_match_and_update_literals, t_match_and_update_literals_large,
+          t_update_map_expressions,
+          t_update_assoc, t_update_assoc_large,
+          t_update_exact, t_update_exact_large,
+          t_guard_bifs,
+          t_guard_sequence, t_guard_sequence_large,
+          t_guard_update, t_guard_update_large,
+          t_guard_receive, t_guard_receive_large,
+          t_guard_fun, t_list_comprehension,
+          t_update_deep,
+          t_map_equal, t_map_compare,
+          t_map_sort_literals,
 
-	%% Specific Map BIFs
-	t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
-	t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
-	t_bif_map_put,
-	t_bif_map_remove, t_bif_map_update,
-	t_bif_map_values,
-	t_bif_map_to_list, t_bif_map_from_list,
+          %% Specific Map BIFs
+          t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
+          t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
+          t_bif_map_put,
+          t_bif_map_remove, t_bif_map_update,
+          t_bif_map_values,
+          t_bif_map_to_list, t_bif_map_from_list,
 
-	%% erlang
-	t_erlang_hash, t_map_encode_decode,
-	t_gc_rare_map_overflow,
-	t_map_size, t_is_map,
+          %% erlang
+          t_erlang_hash, t_map_encode_decode,
+          t_gc_rare_map_overflow,
+          t_map_size, t_is_map,
 
-	%% non specific BIF related
-	t_bif_build_and_check,
-	t_bif_merge_and_check,
+          %% non specific BIF related
+          t_bif_build_and_check,
+          t_bif_merge_and_check,
 
-	%% maps module
-	t_maps_fold, t_maps_map,
-	t_maps_size, t_maps_without,
+          %% maps module
+          t_maps_fold, t_maps_map,
+          t_maps_size, t_maps_without,
 
 
-        %% Other functions
-	t_hashmap_balance,
-        t_erts_internal_order,
-        t_erts_internal_hash,
-	t_pdict,
-	t_ets,
-	t_tracing,
+          %% Other functions
+          t_hashmap_balance,
+          t_erts_internal_order,
+          t_erts_internal_hash,
+          t_pdict,
+          t_ets,
+          t_tracing,
 
-	%% instruction-level tests
-	t_has_map_fields,
-	y_regs,
-	badmap_17
-    ].
-
-groups() -> [].
-
-init_per_suite(Config) -> Config.
-end_per_suite(_Config) -> ok.
-
-init_per_group(_GroupName, Config) -> Config.
-end_per_group(_GroupName, Config) -> Config.
+          %% instruction-level tests
+          t_has_map_fields,
+          y_regs,
+          badmap_17].
 
 %% tests
 
@@ -1707,7 +1694,6 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 				{K1,K2} = term_gen_recursive(Leafs, Flags,
 							     Depth+1),
 				{V1,V2} = term_gen_recursive(Leafs, Flags, Depth+1),
-				%%ok = check_keys(K1,K2, 0),
 				{maps:put(K1,V1, Acc1), maps:put(K2,V2, Acc2)}
 			end,
 			{maps:new(), maps:new()},
@@ -1735,26 +1721,6 @@ term_gen_recursive(Leafs, Flags, Depth) ->
 	    end
     end.
 
-check_keys(K1, K2, _) when K1 =:= K2 ->
-    case erlang:phash3(K1) =:= erlang:phash3(K2) of
-	true -> ok;
-	false ->
-	    io:format("Same keys with different hash values !!!\nK1 = ~p\nK2 = ~p\n", [K1,K2]),
-	    error
-    end;
-check_keys(K1, K2, 0) ->
-    case {erlang:phash3(K1), erlang:phash3(K2)} of
-	{H,H} -> check_keys(K1, K2, 1);
-	{_,_} -> ok
-    end;
-check_keys(K1, K2, L) when L < 10 ->
-    case {erlang:phash3([L|K1]), erlang:phash3([L|K2])} of
-	{H,H} -> check_keys(K1, K2, L+1);
-	{_,_} -> ok
-    end;
-check_keys(K1, K2, L) ->
-    io:format("Same hash value at level ~p !!!\nK1 = ~p\nK2 = ~p\n", [L,K1,K2]),
-    error.
 
 %% BIFs
 t_bif_map_get(Config) when is_list(Config) ->
@@ -2993,7 +2959,7 @@ id(I) -> I.
 %% OTP-13146
 %% Provoke major GC with a lot of "fat" maps on external format in msg queue
 %% causing heap fragments to be allocated.
-t_gc_rare_map_overflow(Config) ->
+t_gc_rare_map_overflow(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(gc_rare_map_overflow, slave, [{args, "-pa \""++Pa++"\""}]),
     erts_debug:set_internal_state(available_internal_state, true),
@@ -3013,7 +2979,7 @@ t_gc_rare_map_overflow(Config) ->
 	unlink(Echo),
 
 	%% Test fatmap in exit signal
-	Exiter = spawn_link(Node, fun Loop() -> receive {From,Msg} ->
+	Exiter = spawn_link(Node, fun Loop() -> receive {_From,Msg} ->
 							"not_a_map" = Msg  % badmatch!
 						end,
 						Loop()
@@ -3031,7 +2997,7 @@ t_gc_rare_map_overflow(Config) ->
 
 t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
     Master = self(),
-    true = receive M -> false after 0 -> true end,   % assert empty msg queue
+    true = receive _M -> false after 0 -> true end,   % assert empty msg queue
     Echo ! {Master, token},
     repeat(1000, fun(_) -> Echo ! {Master, FatMap} end, void),
 
