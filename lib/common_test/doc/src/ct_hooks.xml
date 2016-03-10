@@ -293,6 +293,63 @@
     </func>
 
     <func>
+      <name>Module:post_init_per_testcase(TestcaseName, Config, Return, CTHState) -&gt; Result</name>
+      <fsummary>Called after init_per_testcase.</fsummary>
+      <type>
+        <v>TestcaseName = atom()</v>
+        <v>Config = [{Key,Value}]</v>
+        <v>Return = NewReturn = Config | SkipOrFail | term()</v>
+        <v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
+        <v>CTHState = NewCTHState = term()</v>
+        <v>Result = {NewReturn, NewCTHState}</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>	
+        <p>OPTIONAL</p>
+
+        <p>This function is called after
+          <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso>
+          if it exists. It behaves the same way as
+          <seealso marker="ct_hooks#Module:post_init_per_suite-4"><c>post_init_per_suite</c></seealso>,
+          but for function
+          <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso>
+          instead.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>Module:pre_end_per_testcase(TestcaseName, InitData, CTHState) -&gt; Result</name>
+      <fsummary>Called before end_per_testcase.</fsummary>
+      <type>
+        <v>TestcaseName = atom()</v>
+        <v>InitData = Config</v>
+        <v>Config = NewConfig = [{Key,Value}]</v>
+        <v>CTHState = NewCTHState = term()</v>
+        <v>Result = {NewConfig, NewCTHState}</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>	
+        <p>OPTIONAL</p>
+
+        <p>This function is called before
+          <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
+          if it exists. It behaves the same way as
+          <seealso marker="ct_hooks#Module:pre_end_per_suite-3"><c>pre_end_per_suite</c></seealso>,
+          but for function
+          <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
+          instead.</p>
+
+        <p>This function can not change the result of the test case by returning skip or fail
+	tuples, but it may insert items in <c>Config</c> that can be read in
+	<c>end_per_testcase/2</c> or in <c>post_end_per_testcase/4</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>Module:post_end_per_testcase(TestcaseName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_testcase.</fsummary>
       <type>
@@ -312,7 +369,7 @@
         <p>This function is called after
           <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
           if it exists. It behaves the same way as
-          <seealso marker="ct_hooks#Module:post_init_per_suite-4"><c>post_init_per_suite</c></seealso>,
+          <seealso marker="ct_hooks#Module:post_end_per_suite-4"><c>post_end_per_suite</c></seealso>,
           but for function
           <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
           instead.</p>
