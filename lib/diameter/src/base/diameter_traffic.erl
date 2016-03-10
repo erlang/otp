@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,6 @@
 -export([make_recvdata/1,
          peer_up/1,
          peer_down/1,
-         failover/1,
          pending/1]).
 
 %% towards ?MODULE
@@ -1825,7 +1824,7 @@ store_request(T, TPid) ->
     ets:member(?REQUEST_TABLE, TPid)
         orelse begin
                    {_Seqs, _Req, TRef} = T,
-                   (self() ! {failover, TRef})  %% failover/1 may have missed
+                   self() ! {failover, TRef}  %% failover/1 may have missed
                end.
 
 %% lookup_request/2
@@ -1875,7 +1874,7 @@ failover(TPid)
 %% notifications are sent here: store_request/2 sends the notification
 %% in that case.
 
-%% Failover as a consequence of request_peer_down/1: inform the
+%% Failover as a consequence of peer_down/1: inform the
 %% request process.
 failover({_, Req, TRef}) ->
     #request{handler = Pid,
