@@ -237,10 +237,10 @@
 
      <list type="bulleted">
        <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_group-1"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_testcase-1"><c>init_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_testcase-1"><c>end_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_group-1"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
        <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
      </list>
 
@@ -281,10 +281,10 @@
       <p>In a CTH, behavior can be hooked in after the following functions:</p>
       <list type="bulleted">
        <item><seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_group-1"><c>init_per_group</c></seealso></item>
-       <item><seealso marker="common_test#Module:init_per_testcase-1"><c>init_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_testcase-1"><c>end_per_testcase</c></seealso></item>
-       <item><seealso marker="common_test#Module:end_per_group-1"><c>end_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso></item>
+       <item><seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso></item>
+       <item><seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso></item>
        <item><seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite</c></seealso></item>
      </list>
 

@@ -1022,7 +1022,7 @@ bad_erl_libs(Config) when is_list(Config) ->
     ?t:stop_node(Node2),
 
     %% Test that code path is not affected by the faulty ERL_LIBS
-    Code == Code2,
+    Code = Code2,
 
     ok.
 
