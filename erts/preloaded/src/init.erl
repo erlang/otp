@@ -297,9 +297,9 @@ crash(String, List) ->
 -spec boot_loop(pid(), state()) -> no_return().
 boot_loop(BootPid, State) ->
     receive
-	{BootPid,loaded,ModLoaded} ->
-	    Loaded = State#state.loaded,
-	    boot_loop(BootPid,State#state{loaded = [ModLoaded|Loaded]});
+	{BootPid,loaded,NewlyLoaded} ->
+	    Loaded = NewlyLoaded ++ State#state.loaded,
+	    boot_loop(BootPid, State#state{loaded = Loaded});
 	{BootPid,started,KernelPid} ->
 	    boot_loop(BootPid, new_kernelpid(KernelPid, BootPid, State));
 	{BootPid,progress,started} ->
@@ -338,12 +338,25 @@ boot_loop(BootPid, State) ->
     end.
 
 ensure_loaded(Module, Loaded) ->
+    case erlang:module_loaded(Module) of
+	true ->
+	    {{module, Module}, Loaded};
+	false ->
+	    do_ensure_loaded(Module, Loaded)
+    end.
+
+do_ensure_loaded(Module, Loaded) ->
     File = atom_to_list(Module) ++ objfile_extension(),
-    case catch load_mod(Module,File) of
-	{ok, FullName} ->
-	    {{module, Module}, [{Module, FullName}|Loaded]};
-	Res ->
-	    {Res, Loaded}
+    case erl_prim_loader:get_file(File) of
+	{ok,BinCode,FullName} ->
+	    case do_load_module(Module, BinCode) of
+		ok ->
+		    {{module, Module}, [{Module, FullName}|Loaded]};
+		error ->
+		    {error, [{Module, FullName}|Loaded]}
+	    end;
+	Error ->
+	    {Error, Loaded}
     end.
 
 %% Tell subscribed processes the system has started.
@@ -842,13 +855,6 @@ eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
 	     _ -> Es0#es{prim_load=false}
 	 end,
     eval_script(T, Es);
-eval_script([{primLoad,[Mod]}|T], #es{prim_load=true}=Es) ->
-    %% Common special case (loading of error_handler). Nothing
-    %% to gain by parallel loading.
-    File = atom_to_list(Mod) ++ objfile_extension(),
-    {ok,Full} = load_mod(Mod, File),
-    init ! {self(),loaded,{Mod,Full}}, % Tell init about loaded module
-    eval_script(T, Es);
 eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad}=Es)
   when is_list(Mods) ->
     case PrimLoad of
@@ -873,13 +879,43 @@ eval_script([], #es{}) ->
 eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
-load_modules([Mod|Mods], Init) ->
-    File = atom_to_list(Mod) ++ objfile_extension(),
-    {ok,Full} = load_mod(Mod,File),
-    Init ! {self(),loaded,{Mod,Full}},	%Tell init about loaded module
-    load_modules(Mods, Init);
-load_modules([], _) ->
+load_modules(Mods0, Init) ->
+    Mods = [M || M <- Mods0, not erlang:module_loaded(M)],
+    F = prepare_loading_fun(),
+    case erl_prim_loader:get_modules(Mods, F) of
+	{ok,{Prep0,[]}} ->
+	    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
+	    ok = erlang:finish_loading(Prep),
+	    Loaded = [{Mod,Full} || {Mod,{_,_,Full}} <- Prep0],
+	    Init ! {self(),loaded,Loaded},
+	    Beams = [{M,Beam,Full} || {M,{on_load,Beam,Full}} <- Prep0],
+	    load_rest(Beams, Init);
+	{ok,{_,[_|_]=Errors}} ->
+	    Ms = [M || {M,_} <- Errors],
+	    exit({load_failed,Ms})
+    end.
+
+load_rest([{Mod,Beam,Full}|T], Init) ->
+    do_load_module(Mod, Beam),
+    Init ! {self(),loaded,[{Mod,Full}]},
+    load_rest(T, Init);
+load_rest([], _) ->
     ok.
+
+prepare_loading_fun() ->
+    fun(Mod, FullName, Beam) ->
+	    case erlang:prepare_loading(Mod, Beam) of
+		Prepared when is_binary(Prepared) ->
+		    case erlang:has_prepared_code_on_load(Prepared) of
+			true ->
+			    {ok,{on_load,Beam,FullName}};
+			false ->
+			    {ok,{prepared,Prepared,FullName}}
+		    end;
+		{error,_}=Error ->
+		    Error
+	    end
+    end.
 
 make_path(Pa, Pz, Path, Vars) ->
     append([Pa,append([fix_path(Path,Vars),Pz])]).
@@ -1033,35 +1069,17 @@ start_it([_|_]=MFA) ->
 	[M,F|Args] -> M:F(Args)	% Args is a list
     end.
 
-%%
-%% Fetch a module and load it into the system.
-%%
-load_mod(Mod, File) ->
-    case erlang:module_loaded(Mod) of
-	false ->
-	    case erl_prim_loader:get_file(File) of
-		{ok,BinCode,FullName} ->
-		    load_mod_code(Mod, BinCode, FullName);
-		_ ->
-		    exit({'cannot load',Mod,get_file})
-	    end;
-	_ -> % Already loaded.
-	    {ok,File}
-    end.
+%% Load a module.
 
-load_mod_code(Mod, BinCode, FullName) ->
-    case erlang:module_loaded(Mod) of
-	false ->
-	    case erlang:load_module(Mod, BinCode) of
-		{module,Mod} -> {ok,FullName};
-		{error,on_load} ->
-		    ?ON_LOAD_HANDLER ! {loaded,Mod},
-		    {ok,FullName};
-		Other ->
-		    exit({'cannot load',Mod,Other})
-	    end;
-	_ -> % Already loaded.
-	    {ok,FullName}
+do_load_module(Mod, BinCode) ->
+    case erlang:load_module(Mod, BinCode) of
+	{module,Mod} ->
+	    ok;
+	{error,on_load} ->
+	    ?ON_LOAD_HANDLER ! {loaded,Mod},
+	    ok;
+	_ ->
+	    error
     end.
 
 %% --------------------------------------------------------
