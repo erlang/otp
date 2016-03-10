@@ -137,6 +137,7 @@ api_tests() ->
      shutdown_both,
      shutdown_error,
      hibernate,
+     hibernate_right_away,
      listen_socket,
      ssl_accept_timeout,
      ssl_recv_timeout,
@@ -2771,6 +2772,43 @@ hibernate(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+hibernate_right_away() ->
+    [{doc,"Check that an SSL connection that is configured to hibernate "
+    "after 0 or 1 milliseconds hibernates as soon as possible and not "
+    "crashes"}].
+
+hibernate_right_away(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    StartServerOpts = [{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                    {options, ServerOpts}],
+    StartClientOpts = [return_socket,
+                    {node, ClientNode},
+                    {host, Hostname},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+
+    Server1 = ssl_test_lib:start_server(StartServerOpts),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    {Client1, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1),
+
+    Server2 = ssl_test_lib:start_server(StartServerOpts),
+    Port2 = ssl_test_lib:inet_port(Server2),
+    {Client2, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client2).
 
 %%--------------------------------------------------------------------
 listen_socket() ->

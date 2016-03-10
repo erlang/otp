@@ -202,7 +202,7 @@ hello(Hello = #client_hello{client_version = ClientVersion,
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State)
     end;
-hello(Hello,
+hello(Hello = #server_hello{},
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
 	     role = client,
