@@ -1091,7 +1091,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLGS_GET_USR_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 #define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
-    (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+    (((PSFLGS) >> ERTS_PSFLGS_PRQ_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 
 /* The sequential tracing token is a tuple of size 5:
  *
