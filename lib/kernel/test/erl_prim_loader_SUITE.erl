@@ -112,6 +112,12 @@ get_file(Config) when is_list(Config) ->
     ok.
 
 get_modules(_Config) ->
+    case test_server:is_cover() of
+	false -> do_get_modules();
+	true -> {skip,"Cover"}
+    end.
+
+do_get_modules() ->
     MsGood = lists:sort([lists,gen_server,gb_trees,code_server]),
     Ms = [certainly_not_existing|MsGood],
     SuccExp = [begin
@@ -120,6 +126,9 @@ get_modules(_Config) ->
 		   {M,{F,erlang:md5(Code)}}
 	       end || M <- MsGood],
     FailExp = [{certainly_not_existing,enoent}],
+
+    io:format("SuccExp = ~p\n", [SuccExp]),
+    io:format("FailExp = ~p\n", [FailExp]),
 
     Path = code:get_path(),
     Process = fun(_, F, Code) -> {ok,{F,erlang:md5(Code)}} end,
