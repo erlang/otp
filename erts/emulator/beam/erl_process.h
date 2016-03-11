@@ -79,10 +79,8 @@ struct ErtsNodesMonitor_;
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
 
 #define ERTS_MAX_NO_OF_SCHEDULERS 1024
-#ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 #define ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
-#endif
 
 #define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
 
@@ -246,7 +244,9 @@ extern int erts_sched_thread_suggested_stack_size;
 
 typedef enum {
     ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED,
+    ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED,
     ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED,
+    ERTS_SCHDLR_SSPND_YIELD_DONE_NMSCHED_BLOCKED,
     ERTS_SCHDLR_SSPND_DONE,
     ERTS_SCHDLR_SSPND_YIELD_RESTART,
     ERTS_SCHDLR_SSPND_YIELD_DONE,
@@ -1339,6 +1339,8 @@ extern int erts_system_profile_ts_type;
 #define F_OFF_HEAP_MSGQ_CHNG (1 << 14) /* Off heap msg queue changing */
 #define F_ABANDONED_HEAP_USE (1 << 15) /* Have usage of abandoned heap */
 #define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
+#define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
+#define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1533,6 +1535,7 @@ int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c 
 void erts_destroy_nif_export(void *); /* see erl_nif.c */
 
 ErtsProcList *erts_proclist_create(Process *);
+ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
@@ -1718,28 +1721,21 @@ void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);
 #endif
-#ifdef DEBUG
-void erts_dbg_multi_scheduling_return_trap(Process *, Eterm);
-#endif
-int erts_get_max_no_executing_schedulers(void);
 #if defined(ERTS_SMP) || defined(ERTS_DIRTY_SCHEDULERS)
-ErtsSchedSuspendResult
-erts_schedulers_state(Uint *, Uint *, Uint *, Uint *, Uint *, Uint *, int);
+void
+erts_schedulers_state(Uint *, Uint *, Uint *, Uint *, Uint *, Uint *, Uint *, Uint *);
 #endif
 #ifdef ERTS_SMP
 ErtsSchedSuspendResult
 erts_set_schedulers_online(Process *p,
 			   ErtsProcLocks plocks,
 			   Sint new_no,
-			   Sint *old_no
-#ifdef ERTS_DIRTY_SCHEDULERS
-			   , int dirty_only
-#endif
-			   );
+			   Sint *old_no,
+			   int dirty_only);
 ErtsSchedSuspendResult
-erts_block_multi_scheduling(Process *, ErtsProcLocks, int, int);
+erts_block_multi_scheduling(Process *, ErtsProcLocks, int, int, int);
 int erts_is_multi_scheduling_blocked(void);
-Eterm erts_multi_scheduling_blockers(Process *);
+Eterm erts_multi_scheduling_blockers(Process *, int);
 void erts_start_schedulers(void);
 void erts_alloc_notify_delayed_dealloc(int);
 void erts_alloc_ensure_handle_delayed_dealloc_call(int);

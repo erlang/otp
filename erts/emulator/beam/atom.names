@@ -125,7 +125,9 @@ atom binary_longest_suffix_trap
 atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
+atom block_normal
 atom blocked
+atom blocked_normal
 atom bm
 atom bnot
 atom bor
@@ -190,7 +192,9 @@ atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_cpu
 atom dirty_cpu_schedulers_online
+atom dirty_io
 atom disable_trace
 atom disabled
 atom display_items
@@ -305,6 +309,7 @@ atom index
 atom infinity
 atom info
 atom info_msg
+atom init
 atom initial_call
 atom input
 atom internal
@@ -612,6 +617,7 @@ atom use_stdio
 atom used
 atom utf8
 atom unblock
+atom unblock_normal
 atom uniq
 atom unless_suspending
 atom unloaded

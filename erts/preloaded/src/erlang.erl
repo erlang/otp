@@ -2300,8 +2300,8 @@ subtract(_,_) ->
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
                         (multi_scheduling, BlockState) -> OldBlockState when
-      BlockState :: block | unblock,
-      OldBlockState :: block | unblock | enabled;
+      BlockState :: block | unblock | block_normal | unblock_normal,
+      OldBlockState :: blocked | disabled | enabled;
                         (scheduler_bind_type, How) -> OldBindType when
       How :: scheduler_bind_type() | default_bind,
       OldBindType :: scheduler_bind_type();
@@ -2446,14 +2446,15 @@ tuple_to_list(_Tuple) ->
           logical_processors_available |
           logical_processors_online) -> unknown | pos_integer();
          (machine) -> string();
+         (message_queue_data) -> message_queue_data();
          (min_heap_size) -> {min_heap_size, MinHeapSize :: pos_integer()};
          (min_bin_vheap_size) -> {min_bin_vheap_size,
                                   MinBinVHeapSize :: pos_integer()};
          (modified_timing_level) -> integer() | undefined;
-         (multi_scheduling) -> disabled | blocked | enabled;
+         (multi_scheduling) -> disabled | blocked | blocked_normal | enabled;
          (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();
-         (message_queue_data) -> message_queue_data();
+         (normal_multi_scheduling_blockers) -> [Pid :: pid()];
          (otp_release) -> string();
          (os_monotonic_time_source) -> [{atom(),term()}];
          (os_system_time_source) -> [{atom(),term()}];
