@@ -2475,7 +2475,7 @@ setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    Host = get_hostname(node()),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2}]),
     Fun = fun(F) ->
                   receive
@@ -2518,7 +2518,7 @@ setup_timeout_sink(Timeout, AutoClose) ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    Host = get_hostname(node()),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
 				 {send_timeout,Timeout},
 				 {send_timeout_close,AutoClose}]),
@@ -2561,7 +2561,7 @@ setup_active_timeout_sink(Timeout, AutoClose) ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    Host = get_hostname(node()),
     {ok, L} = gen_tcp:listen(0, [binary,{active,false},{packet,0},{nodelay, true},{keepalive, true},
 				 {send_timeout,Timeout},
 				 {send_timeout_close,AutoClose}]),
@@ -3016,3 +3016,7 @@ oct_aloop(S,X,Times) ->
     end.
 
 ok({ok,V}) -> V.
+
+get_hostname(Name) ->
+    "@"++Host = lists:dropwhile(fun(C) -> C =/= $@ end, atom_to_list(Name)),
+    Host.
