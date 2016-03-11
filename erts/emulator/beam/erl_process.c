@@ -3435,7 +3435,8 @@ wake_scheduler(ErtsRunQueue *rq)
      * so all code *should* handle this without having
      * the lock on the run queue.
      */
-    ERTS_SMP_LC_ASSERT(!erts_smp_lc_runq_is_locked(rq));
+    ERTS_SMP_LC_ASSERT(!erts_smp_lc_runq_is_locked(rq)
+		       || ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
 
     ssi = rq->scheduler->ssi;
 
