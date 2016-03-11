@@ -26,7 +26,9 @@
 %% Callback from error_handler.
 -export(['$handle_undefined_function'/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
     [undefined_function_handler].

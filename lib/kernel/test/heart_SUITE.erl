@@ -38,30 +38,29 @@
 -define(DEFAULT_TIMEOUT_SECS, 120).
 
 init_per_testcase(_Func, Config) ->
-    Dog=test_server:timetrap(test_server:seconds(?DEFAULT_TIMEOUT_SECS)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     Nodes = nodes(),
     lists:foreach(fun(X) ->
 		NNam = list_to_atom(hd(string:tokens(atom_to_list(X),"@"))),
 		case NNam of
 		    heart_test ->
-			?t:format(1, "WARNING: Killed ~p~n", [X]),
+			ct:pal(?HI_VERBOSITY, "WARNING: Killed ~p~n", [X]),
 			rpc:cast(X, erlang, halt, []);
 		    _ ->
 			ok
 		end
-	end, Nodes),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+	end, Nodes).
 
 %%-----------------------------------------------------------------
 %% Test suite for heart.
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> [
 	start, restart, reboot,
@@ -97,7 +96,7 @@ end_per_suite(Config) when is_list(Config) ->
 start_check(Type, Name) ->
     start_check(Type, Name, []).
 start_check(Type, Name, Envs) ->
-    Args = case ?t:os_type() of
+    Args = case test_server:os_type() of
 	{win32,_} ->
 	    "+t50000 -heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
 	_ ->
@@ -107,32 +106,30 @@ start_check(Type, Name, Envs) ->
 	loose ->
 	    loose_node:start(Name, Args, ?DEFAULT_TIMEOUT_SECS);
 	_ ->
-	    ?t:start_node(Name, Type, [{args, Args}])
+	    test_server:start_node(Name, Type, [{args, Args}])
     end,
     erlang:monitor_node(Node, true),
     case rpc:call(Node, erlang, whereis, [heart]) of
 	Pid when is_pid(Pid) ->
 	    ok;
 	_ ->
-	    test_server:fail(heart_not_started)
+	    ct:fail(heart_not_started)
     end,
     {ok, Node}.
 
-start(doc) -> [];
-start(suite) -> {req, [{time, 10}]};
 start(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
     rpc:call(Node, init, reboot, []),
     receive
 	{nodedown, Node} -> ok
-    after 2000 -> test_server:fail(node_not_closed)
+    after 2000 -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;
 	_ -> 
-	    test_server:fail(node_rebooted)
+	    ct:fail(node_rebooted)
     end,
     test_server:stop_node(Node).
 
@@ -145,14 +142,6 @@ start(Config) when is_list(Config) ->
 %% restart
 %% Purpose:
 %%   Check that a node is up and running after a init:restart/0
-restart(doc) -> [];
-restart(suite) -> 
-   case ?t:os_type() of
-	{Fam, _} when Fam == unix; Fam == win32 ->
-	    {req, [{time,10}]};
-	_ ->
-	    {skip, "Only run on unix and win32"}
-    end;
 restart(Config) when is_list(Config) ->
     {ok, Node} = start_check(loose, heart_test),
     rpc:call(Node, init, restart, []),
@@ -160,17 +149,15 @@ restart(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     node_check_up_down(Node, 2000),
     loose_node:stop(Node).
 
 %% reboot
 %% Purpose:
 %%   Check that a node is up and running after a init:reboot/0
-reboot(doc) -> [];
-reboot(suite) -> {req, [{time, 10}]};
 reboot(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
 
@@ -182,9 +169,9 @@ reboot(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     node_check_up_down(Node, 2000),
     ok.
 
@@ -196,7 +183,6 @@ reboot(Config) when is_list(Config) ->
 %% May currently dump core in beam debug build due to lock-order violation
 %% This should be removed when a non-lockad information retriever is implemented
 %% for crash dumps
-node_start_immediately_after_crash(suite) -> {req, [{time, 10}]};
 node_start_immediately_after_crash(Config) when is_list(Config) ->
     Config2 = ignore_cores:setup(?MODULE, node_start_immediately_after_crash, Config, true),
     try
@@ -229,13 +215,13 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
     T0 = now(),
 
     receive {nodedown, Node} ->
-	    test_server:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
+	    io:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
 	    ok
     %% timeout is very liberal here. nodedown is received in about 1 s. on linux (palantir)
     %% and in about 10 s. on solaris (carcharoth)
-    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
+    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(3000),
+    timer:sleep(3000),
     node_check_up_down(Node, 2000),
     loose_node:stop(Node).
 
@@ -248,7 +234,6 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
 %% May currently dump core in beam debug build due to lock-order violation
 %% This should be removed when a non-lockad information retriever is implemented
 %% for crash dumps
-node_start_soon_after_crash(suite) -> {req, [{time, 10}]};
 node_start_soon_after_crash(Config) when is_list(Config) ->
     Config2 = ignore_cores:setup(?MODULE, node_start_soon_after_crash, Config, true),
     try
@@ -278,9 +263,9 @@ node_start_soon_after_crash_test(Config) when is_list(Config) ->
     rpc:cast(Node, Mod, do, []),
 
     receive {nodedown, Node} -> ok
-    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
+    after (15000*test_server:timetrap_scale_factor()) -> ct:fail(node_not_closed)
     end,
-    test_server:sleep(20000),
+    timer:sleep(20000),
     node_check_up_down(Node, 15000),
     loose_node:stop(Node).
 
@@ -293,14 +278,13 @@ node_check_up_down(Node, Tmo) ->
 	    receive
 		{nodedown, Node} -> ok
 	    after Tmo ->
-		    test_server:fail(node_not_closed2)
+		    ct:fail(node_not_closed2)
 	    end;
 	_ ->
-	    test_server:fail(node_not_rebooted)
+	    ct:fail(node_not_rebooted)
     end.
 
 %% Only tests bad command, correct behaviour is tested in reboot/1.
-set_cmd(suite) -> [];
 set_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
     Cmd = wrong_atom,
@@ -314,7 +298,6 @@ set_cmd(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
-clear_cmd(suite) -> {req,[{time,15}]};
 clear_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
     ok = rpc:call(Node, heart, set_cmd,
@@ -325,14 +308,14 @@ clear_cmd(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pong ->
 	    erlang:monitor_node(Node, true);
 	_ ->
-	    test_server:fail(node_not_rebooted)
+	    ct:fail(node_not_rebooted)
     end,
     ok = rpc:call(Node, heart, set_cmd,
 			["erl -noshell -heart " ++ name(Node) ++ "&"]),
@@ -342,18 +325,17 @@ clear_cmd(Config) when is_list(Config) ->
 	{nodedown, Node} ->
 	    ok
     after 2000 ->
-	    test_server:fail(node_not_closed)
+	    ct:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    timer:sleep(5000),
     case net_adm:ping(Node) of
 	pang ->
 	    ok;
 	_ ->
-	    test_server:fail(node_rebooted)
+	    ct:fail(node_rebooted)
     end,
     ok.
 
-get_cmd(suite) -> [];
 get_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
     Cmd = "test",
@@ -391,7 +373,7 @@ callback_api(Config) when is_list(Config) ->
     {ok, {M2,F2}} = rpc:call(Node, heart, get_callback, []),
     ok = rpc:call(Node, heart, set_callback, [M2,F3]),
     receive {nodedown, Node} -> ok
-    after 5000 -> test_server:fail(node_not_killed)
+    after 5000 -> ct:fail(node_not_killed)
     end,
     stop_node(Node),
     ok.
@@ -425,15 +407,13 @@ options_api(Config) when is_list(Config) ->
     ok.
 
 
-dont_drop(suite) -> 
 %%% Removed as it may crash epmd/distribution in colourful
 %%% ways. While we ARE finding out WHY, it would
 %%% be nice for others to be able to run the kernel test suite
-%%% without "exploding machines", so thats why I removed it for now.
-    [];
-dont_drop(doc) ->
-    ["Tests that the heart command does not get dropped when ",
-     "set just before halt on very high I/O load."];
+%%% without "exploding machines", so that's why I removed it for now.
+
+%% Tests that the heart command does not get dropped when
+%% set just before halt on very high I/O load..
 dont_drop(Config) when is_list(Config) ->
     %%% Have to do it some times to make it happen...
     [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok] = do_dont_drop(Config,10),
@@ -455,7 +435,7 @@ do_dont_drop(Config,N) ->
     Env = [{"HEART_COMMAND", FirstCmd}],
     Func = "start_heart_stress",
     Arg = NN3 ++ "@" ++ Host ++ " " ++
-	filename:join(?config(data_dir, Config), "simple_echo"),
+	filename:join(proplists:get_value(data_dir, Config), "simple_echo"),
     start_node_run(Name,Env,Func,Arg),
     case wait_for_any_of(list_to_atom(NN2 ++ "@" ++ Host),
 	    list_to_atom(NN3 ++ "@" ++ Host)) of
@@ -488,11 +468,8 @@ wait_for_any_of(N1,N2,Times) ->
     end.
 
 
-kill_pid(suite) ->
-    [];
-kill_pid(doc) ->
-    ["Tests that heart kills the old erlang node before executing ",
-     "heart command."];
+%% Tests that heart kills the old erlang node before executing
+%% heart command.
 kill_pid(Config) when is_list(Config) ->
     ok = do_kill_pid(Config).
 

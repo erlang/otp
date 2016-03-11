@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(pdict_SUITE).
-%% NB: The ?line macro cannot be used when testing the dictionary.
 
 
 -include_lib("common_test/include/ct.hrl").
@@ -38,14 +37,14 @@
 -export([other_process/2]).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [simple, complicated, heavy, simple_all_keys, info,
@@ -67,10 +66,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-simple(doc) ->
-    ["Tests simple functionality in process dictionary."];
-simple(suite) ->
-    [];
+%% Tests simple functionality in process dictionary.
 simple(Config) when is_list(Config) ->
     XX = get(),
     ok = match_keys(XX),
@@ -111,7 +107,7 @@ complicated(Config) when is_list(Config) ->
     Previous = get(),
     ok = match_keys(Previous),
     Previous = erase(),
-    N = case ?t:is_debug() of
+    N = case test_server:is_debug() of
 	    false -> 500000;
 	    true -> 5000
 	end,
@@ -145,10 +141,7 @@ comp_4([{{key,_}=K,{value,_}=Val}|T]) ->
     comp_4(T);
 comp_4([]) -> ok.
 
-heavy(doc) ->
-    ["Tests heavy usage of the process dictionary"];
-heavy(suite) ->
-    [];
+%% Tests heavy usage of the process dictionary.
 heavy(Config) when is_list(Config) ->
     XX = get(),
     erase(),
@@ -158,7 +151,7 @@ heavy(Config) when is_list(Config) ->
     ?M([],get()),
     time(5000),
     ?M([],get()),
-    case {os:type(),?t:is_debug()} of
+    case {os:type(),test_server:is_debug()} of
 	{_,true} -> ok;	    
 	_ ->
 	    time(50000),
@@ -187,10 +180,7 @@ simple_all_keys_del_loop([K|Ks]) ->
     ok = match_keys(get()),
     simple_all_keys_del_loop(Ks).
 
-info(doc) ->
-    ["Tests process_info(Pid, dictionary)"];
-info(suite) ->
-    [];
+%% Tests process_info(Pid, dictionary).
 info(Config) when is_list(Config) ->
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],

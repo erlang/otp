@@ -42,7 +42,9 @@
 
 -define(RUN_NAMED, "run-named").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
@@ -77,8 +79,8 @@ zone_dir(TC) ->
     end.
 
 init_per_testcase(Func, Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
 	    Lookup = inet_db:res_option(lookup),
@@ -88,29 +90,27 @@ init_per_testcase(Func, Config) ->
 		    inet_db:ins_alt_ns(IP, Port);
 		_ -> ok
 	    end,
-	    Dog = test_server:timetrap(test_server:seconds(20)),
-	    [{nameserver,NsSpec},{res_lookup,Lookup},{watchdog,Dog}|Config]
+	    [{nameserver,NsSpec},{res_lookup,Lookup}|Config]
     catch
 	SkipReason ->
 	    {skip,SkipReason}
     end.
 
 end_per_testcase(_Func, Config) ->
-    test_server:timetrap_cancel(?config(watchdog, Config)),
-    inet_db:set_lookup(?config(res_lookup, Config)),
-    NsSpec = ?config(nameserver, Config),
+    inet_db:set_lookup(proplists:get_value(res_lookup, Config)),
+    NsSpec = proplists:get_value(nameserver, Config),
     case NsSpec of
 	{_,{IP,Port},_} ->
 	    inet_db:del_alt_ns(IP, Port);
 	_ -> ok
     end,
-    ns_end(NsSpec, ?config(priv_dir, Config)).
+    ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
 
 ns(Config) ->
-    {_ZoneDir,NS,_P} = ?config(nameserver, Config),
+    {_ZoneDir,NS,_P} = proplists:get_value(nameserver, Config),
     NS.
 
 ns_init(ZoneDir, PrivDir, DataDir) ->
@@ -277,8 +277,7 @@ proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-basic(doc) ->
-    ["Lookup an A record with different API functions"];
+%% Lookup an A record with different API functions.
 basic(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",
@@ -340,8 +339,7 @@ basic(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-resolve(doc) ->
-    ["Lookup different records using resolve/2..4"];
+%% Lookup different records using resolve/2..4.
 resolve(Config) when is_list(Config) ->
     Class = in,
     NS = ns(Config),
@@ -471,8 +469,7 @@ check_msg(Class, Type, Msg, AnList, NsList) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-edns0(doc) ->
-    ["Test EDNS and truncation"];
+%% Test EDNS and truncation.
 edns0(Config) when is_list(Config) ->
     NS = ns(Config),
     Domain = "otptest",
@@ -533,10 +530,7 @@ inet_res_filter(Anlist, Class, Type) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-txt_record(suite) ->
-    [];
-txt_record(doc) ->
-    ["Tests TXT records"];
+%% Tests TXT records.
 txt_record(Config) when is_list(Config) ->
     D1 = "cslab.ericsson.net",
     D2 = "mail1.cslab.ericsson.net",
@@ -555,10 +549,7 @@ txt_record(Config) when is_list(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files_monitor(suite) ->
-    [];
-files_monitor(doc) ->
-    ["Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them"];
+%% Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them.
 files_monitor(Config) when is_list(Config) ->
     Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
@@ -573,7 +564,7 @@ files_monitor(Config) when is_list(Config) ->
     end.
 
 do_files_monitor(Config) ->
-    Dir = ?config(priv_dir, Config),
+    Dir = proplists:get_value(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
     io:format("Hostname = ~p.~n", [Hostname]),
     FQDN =
@@ -647,8 +638,7 @@ do_files_monitor(Config) ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-last_ms_answer(doc) ->
-    ["Answer just when timeout is triggered (OTP-9221)"];
+%% Answer just when timeout is triggered (OTP-9221).
 last_ms_answer(Config) when is_list(Config) ->
     NS = ns(Config),
     Name = "ns.otptest",

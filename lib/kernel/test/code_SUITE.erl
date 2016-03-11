@@ -46,7 +46,9 @@
 
 -export([compile_load/4]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
@@ -92,34 +94,28 @@ init_per_testcase(big_boot_embedded, Config) ->
 	    {skip, "Needs crypto!"}
     end;
 init_per_testcase(_Func, Config) ->
-    Dog=?t:timetrap(?t:minutes(5)),
-    P=code:get_path(),
-    P=code:get_path(),
-    [{watchdog, Dog}, {code_path, P}|Config].
+    P = code:get_path(),
+    [{code_path, P}|Config].
 
 end_per_testcase(TC, Config) when TC == mult_lib_roots;
 				  TC == big_boot_embedded ->
     {ok, HostName} = inet:gethostname(),
     NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
-    ?t:stop_node(NodeName),
+    test_server:stop_node(NodeName),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
 
 end_per_testcase(Config) ->
     code:purge(code_b_test),
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    P=?config(code_path, Config),
+    P=proplists:get_value(code_path, Config),
     true=code:set_path(P),
     P=code:get_path(),
     ok.
 
-set_path(suite) -> [];
-set_path(doc) -> [];
 set_path(Config) when is_list(Config) ->
     P = code:get_path(),
-    NonExDir = filename:join(?config(priv_dir, Config), ?t:temp_name("hej")),
+    NonExDir = filename:join(proplists:get_value(priv_dir, Config), test_server:temp_name("hej")),
     {'EXIT',_} = (catch code:set_path({a})),
     {error, bad_directory} = (catch code:set_path([{a}])),
     {error, bad_directory} = code:set_path(NonExDir),
@@ -133,19 +129,15 @@ set_path(Config) when is_list(Config) ->
     [LibDir] = code:get_path(),
     ok.
 
-get_path(suite) -> [];
-get_path(doc) -> [];
 get_path(Config) when is_list(Config) ->
     P = code:get_path(),
-    % test that all directories are strings (lists).
+    %% test that all directories are strings (lists).
     [] = lists:filter(fun
 	    (Dir) when is_list(Dir) -> false;
 	    (_) -> true
 	end, P),
     ok.
 
-add_path(suite) -> [];
-add_path(doc) -> [];
 add_path(Config) when is_list(Config) ->
     P = code:get_path(),
     {'EXIT',_} = (catch code:add_path({})),
@@ -166,8 +158,6 @@ add_path(Config) when is_list(Config) ->
     code:set_path(P),
     ok.
 
-add_paths(suite) -> [];
-add_paths(doc) -> [];
 add_paths(Config) when is_list(Config) ->
     P = code:get_path(),
     ok = code:add_paths([{}]),
@@ -213,8 +203,6 @@ add_paths(Config) when is_list(Config) ->
     code:set_path(P),
     ok.
 
-del_path(suite) -> [];
-del_path(doc) -> [];
 del_path(Config) when is_list(Config) ->
     P = code:get_path(),
     try
@@ -224,18 +212,18 @@ del_path(Config) when is_list(Config) ->
     end.
 
 del_path_1(P) ->
-    test_server:format("Initial code:get_path()=~p~n",[P]),
+    io:format("Initial code:get_path()=~p~n",[P]),
     {'EXIT',_} = (catch code:del_path(3)),
     false = code:del_path(my_dummy_name),
     false = code:del_path("/kdlk/my_dummy_dir"),
     Dir = filename:join([code:lib_dir(kernel),"ebin"]),
-    test_server:format("kernel dir: ~p~n",[Dir]),
+    io:format("kernel dir: ~p~n",[Dir]),
 
     true = code:del_path(kernel),
     NewP = code:get_path(),
-    test_server:format("Path after removing 'kernel':~p~n",[NewP]),
+    io:format("Path after removing 'kernel':~p~n",[NewP]),
     ReferenceP = lists:delete(Dir,P),
-    test_server:format("Reference path:~p~n",[ReferenceP]),
+    io:format("Reference path:~p~n",[ReferenceP]),
     NewP = ReferenceP, % check that dir is deleted
     code:set_path(P),
 
@@ -249,10 +237,8 @@ del_path_1(P) ->
     NewP1 = lists:delete(Dir,P), % check that dir is deleted
     ok.
 
-replace_path(suite) -> [];
-replace_path(doc) -> [];
 replace_path(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     P = code:get_path(),
     {'EXIT',_} = (catch code:replace_path(3,"")),
     {error, bad_name} = code:replace_path(dummy_name,""),
@@ -287,10 +273,9 @@ replace_path(Config) when is_list(Config) ->
 
     ok.
 
-dir_disappeared(suite) -> [];
-dir_disappeared(doc) -> ["OTP-3977"];
+%% OTP-3977.
 dir_disappeared(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "temp"),
     ok = file:make_dir(Dir),
     true = code:add_path(Dir),
@@ -298,8 +283,6 @@ dir_disappeared(Config) when is_list(Config) ->
     non_existing = code:which(bubbelskrammel),
     ok.
 
-load_file(suite) -> [];
-load_file(doc) -> [];
 load_file(Config) when is_list(Config) ->
     {error, nofile} = code:load_file(duuuumy_mod),
     {error, badfile} = code:load_file(code_a_test),
@@ -314,8 +297,6 @@ load_file(Config) when is_list(Config) ->
 test_dir() ->
     filename:dirname(code:which(?MODULE)).
 
-load_abs(suite) -> [];
-load_abs(doc) -> [];
 load_abs(Config) when is_list(Config) ->
     TestDir = test_dir(),
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
@@ -328,8 +309,6 @@ load_abs(Config) when is_list(Config) ->
     code:unstick_dir(TestDir),
     ok.
 
-ensure_loaded(suite) -> [];
-ensure_loaded(doc) -> [];
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
@@ -346,8 +325,6 @@ ensure_loaded(Config) when is_list(Config) ->
 	    ok
     end.
 
-delete(suite) -> [];
-delete(doc) -> [];
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -364,8 +341,6 @@ delete(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     ok.
 
-purge(suite) -> [];
-purge(doc) -> [];
 purge(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -408,7 +383,7 @@ purge_many_exits_do(PurgeF) ->
 					  end)}
 			 end,
 			 lists:seq(1, 1000)),
-    % Give them time to start...
+    %% Give them time to start...
     receive after 1000 -> ok end,
     true = code:delete(code_b_test),
     lists:foreach(fun ({Pid1, Pid2}) ->
@@ -428,8 +403,6 @@ purge_many_exits_do(PurgeF) ->
 		  end, TPids).
 
 
-soft_purge(suite) -> [];
-soft_purge(doc) -> [];
 soft_purge(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
@@ -446,8 +419,6 @@ soft_purge(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFlag),
     ok.
 
-is_loaded(suite) -> [];
-is_loaded(doc) -> [];
 is_loaded(Config) when is_list(Config) ->
     code:purge(code_b_test),
     code:delete(code_b_test),
@@ -461,10 +432,8 @@ is_loaded(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
-all_loaded(suite) -> [];
-all_loaded(doc) -> [];
 all_loaded(Config) when is_list(Config) ->
-    case ?t:is_cover() of
+    case test_server:is_cover() of
 	true -> {skip,"Cover is running"};
 	false -> all_loaded_1()
     end.
@@ -492,8 +461,6 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
-load_binary(suite) -> [];
-load_binary(doc) -> [];
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -510,7 +477,7 @@ load_binary(Config) when is_list(Config) ->
     ok.
 
 upgrade(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     %%T = [beam, hipe],
     T = [beam],
@@ -542,15 +509,11 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     CompOpts = [binary, report] ++ Target ++ Version,
 
     Src = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
-    %io:format("compile:file(~p,~p)\n", [Src, CompOpts]),
     {ok,Mod,Code} = compile:file(Src, CompOpts),
     ObjFile = filename:basename(Src,".erl") ++ ".beam",
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
-    %IsNative = code:is_module_native(Mod),
     ok.
 
-dir_req(suite) -> [];
-dir_req(doc) -> [];
 dir_req(Config) when is_list(Config) ->
     {ok,[[Root0]]} = init:get_argument(root),
     Root = filename:join([Root0]),	% Normalised form.
@@ -565,8 +528,6 @@ dir_req(Config) when is_list(Config) ->
     {error, bad_name} = code:priv_dir(duuumy),
     ok.
 
-object_code(suite) -> [];
-object_code(doc) -> [];
 object_code(Config) when is_list(Config) ->
     TestDir = test_dir(),
     P = code:get_path(),
@@ -587,22 +548,20 @@ object_code(Config) when is_list(Config) ->
     P=code:get_path(),
     ok.
 
-set_path_file(suite) -> [];
-set_path_file(doc) -> ["Test that set_path does not accept ",
-		       "files as pathnames (known previous bug)"];
+%% Test that set_path does not accept
+%% files as pathnames (known previous bug)
 set_path_file(Config) when is_list(Config) ->
-    File=filename:join(?config(priv_dir, Config), "testfil"),
+    File=filename:join(proplists:get_value(priv_dir, Config), "testfil"),
     ok=file:write_file(File, list_to_binary("lite data")),
     {error, bad_directory}=code:set_path([File]).
 
-sticky_dir(suite) -> [];
-sticky_dir(doc) -> ["Test that a module with the same name as a module in ",
-		    "a sticky directory cannot be loaded."];
+%% Test that a module with the same name as a module in
+%% a sticky directory cannot be loaded.
 sticky_dir(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
+    {ok,Node} = test_server:start_node(sticky_dir, slave, [{args,"-pa "++Pa}]),
     Mods = [code,lists,erlang,init],
-    OutDir = filename:join(?config(priv_dir, Config), sticky_dir),
+    OutDir = filename:join(proplists:get_value(priv_dir, Config), sticky_dir),
     _ = file:make_dir(OutDir),
     Ret = rpc:call(Node, erlang, apply,
 		   [fun sticky_compiler/2,[Mods,OutDir]]),
@@ -611,9 +570,9 @@ sticky_dir(Config) when is_list(Config) ->
 	    ok;
 	Other ->
 	    io:format("~p\n", [Other]),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 sticky_compiler(Files, PrivDir) ->
@@ -638,34 +597,31 @@ do_sticky_compile(Mod, Dir) ->
 	    ok
     end.
 
-pa_pz_option(suite) -> [];
-pa_pz_option(doc) -> ["Test that the -pa and -pz options work as expected"];
+%% Test that the -pa and -pz options work as expected.
 pa_pz_option(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config),
+    DDir = proplists:get_value(data_dir,Config),
     PaDir = filename:join(DDir,"pa"),
     PzDir = filename:join(DDir,"pz"),
-    {ok, Node}=?t:start_node(pa_pz1, slave,
+    {ok, Node}=test_server:start_node(pa_pz1, slave,
 	[{args,
 		"-pa " ++ PaDir
 		++ " -pz " ++ PzDir}]),
     Ret=rpc:call(Node, code, get_path, []),
     [PaDir|Paths] = Ret,
     [PzDir|_] = lists:reverse(Paths),
-    ?t:stop_node(Node),
-    {ok, Node2}=?t:start_node(pa_pz2, slave,
+    test_server:stop_node(Node),
+    {ok, Node2}=test_server:start_node(pa_pz2, slave,
 	[{args,
 		"-mode embedded " ++ "-pa "
 		++ PaDir ++ " -pz " ++ PzDir}]),
     Ret2=rpc:call(Node2, code, get_path, []),
     [PaDir|Paths2] = Ret2,
     [PzDir|_] = lists:reverse(Paths2),
-    ?t:stop_node(Node2).
+    test_server:stop_node(Node2).
 
-add_del_path(suite) ->
-    [];
-add_del_path(doc) -> ["add_path, del_path should not cause priv_dir(App) to fail"];
+%% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config),
+    DDir = proplists:get_value(data_dir,Config),
     Dir1 = filename:join(DDir,"dummy_app-1.0/ebin"),
     Dir2 = filename:join(DDir,"dummy_app-2.0/ebin"),
     code:add_patha(Dir1),
@@ -679,17 +635,17 @@ add_del_path(Config) when is_list(Config) ->
 
 
 clash(Config) when is_list(Config) ->
-    DDir = ?config(data_dir,Config)++"clash/",
+    DDir = proplists:get_value(data_dir,Config)++"clash/",
     P = code:get_path(),
 
     %% test non-clashing entries
 
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"zork-0.8/ebin"),
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [OKMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [OKMsg|_] = ct:capture_get(),
     true = lists:prefix("** Found 0 name clashes", OKMsg),
     true = code:set_path(P),
 
@@ -697,17 +653,17 @@ clash(Config) when is_list(Config) ->
 
     true = code:add_path(DDir++"foobar-0.1/ebin"),
     true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [ClashMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [ClashMsg|_] = ct:capture_get(),
     {match, [" hides "]} = re:run(ClashMsg, "\\*\\* .*( hides ).*",
 					[{capture,all_but_first,list}]),
     true = code:set_path(P),
 
     %% test "Bad path can't read"
 
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     TmpEzFile = Priv++"foobar-0.tmp.ez",
     {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
     true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
@@ -719,20 +675,17 @@ clash(Config) when is_list(Config) ->
 	 _ ->
     	    ok = file:delete(TmpEzFile)
     end,
-    test_server:capture_start(),
+    ct:capture_start(),
     ok = code:clash(),
-    test_server:capture_stop(),
-    [BadPathMsg|_] = test_server:capture_get(),
+    ct:capture_stop(),
+    [BadPathMsg|_] = ct:capture_get(),
     true = lists:prefix("** Bad path can't read", BadPathMsg),
     true = code:set_path(P),
     file:delete(TmpEzFile++".moved"), %% Only effect on windows
     ok.
 
-ext_mod_dep(suite) ->
-    [];
-ext_mod_dep(doc) ->
-    ["Every module that the code_server uses should be preloaded, "
-     "this test case verifies that"];
+%% Every module that the code_server uses should be preloaded,
+%% this test case verifies that.
 ext_mod_dep(Config) when is_list(Config) ->
     xref:start(s),
     xref:set_default(s, [{verbose,false},{warnings,false},
@@ -748,7 +701,7 @@ ext_mod_dep(Config) when is_list(Config) ->
     	    xref:stop(s),
 	    case Else of
 		ok -> ok;
-		_ -> test_server:fail(Else)
+		_ -> ct:fail(Else)
 	    end
     end.
 
@@ -877,14 +830,14 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 %% check_funs(This = {M,_,_}, Path) ->
 %%     case catch atom_to_list(M) of
 %% 	[$h,$i,$p,$e | _] ->
-%% 	    test_server:format("hipe_module_ignored(~p, ~p)~n", [This, Path]),
+%% 	    io:format("hipe_module_ignored(~p, ~p)~n", [This, Path]),
 %% 	    0;
 %% 	_ ->
-%% 	    test_server:format("not_verified(~p, ~p)~n", [This, Path]),
+%% 	    io:format("not_verified(~p, ~p)~n", [This, Path]),
 %% 	    1
 %%     end;
 check_funs(This, Path) ->
-    test_server:format("not_verified(~p, ~p)~n", [This, Path]),
+    io:format("not_verified(~p, ~p)~n", [This, Path]),
     1.
 
 my_usort(List) ->
@@ -909,10 +862,7 @@ where_is_file(Config) when is_list(Config) ->
     non_existing = code:where_is_file("kernel"), % no such file
     ok.
 
-purge_stacktrace(suite) ->
-    [];
-purge_stacktrace(doc) ->
-    ["Test that stacktrace is deleted when purging a referred module"];
+%% Test that stacktrace is deleted when purging a referred module.
 purge_stacktrace(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
@@ -953,7 +903,7 @@ purge_stacktrace(Config) when is_list(Config) ->
     ok.
 
 mult_lib_roots(Config) when is_list(Config) ->
-    DataDir = filename:join(?config(data_dir, Config), "mult_lib_roots"),
+    DataDir = filename:join(proplists:get_value(data_dir, Config), "mult_lib_roots"),
     mult_lib_compile(DataDir, "my_dummy_app-b/ebin/lists"),
     mult_lib_compile(DataDir,
 			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
@@ -963,7 +913,7 @@ mult_lib_roots(Config) when is_list(Config) ->
 	filename:join(DataDir, "second_root"),
 
     {ok,Node} =
-	?t:start_node(mult_lib_roots, slave,
+	test_server:start_node(mult_lib_roots, slave,
 		      [{args,"-env ERL_LIBS "++ErlLibs}]),
 
     Path0 = rpc:call(Node, code, get_path, []),
@@ -1011,15 +961,15 @@ mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
     {ok,Node} =
-	?t:start_node(bad_erl_libs, slave, []),
+	test_server:start_node(bad_erl_libs, slave, []),
     Code = rpc:call(Node,code,get_path,[]),
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
 
     {ok,Node2} =
-	?t:start_node(bad_erl_libs, slave,
-		      [{args,"-env ERL_LIBS /no/such/dir"}]),
+	test_server:start_node(bad_erl_libs, slave,
+			       [{args,"-env ERL_LIBS /no/such/dir"}]),
     Code2 = rpc:call(Node,code,get_path,[]),
-    ?t:stop_node(Node2),
+    test_server:stop_node(Node2),
 
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
@@ -1038,8 +988,8 @@ code_archive2(Config) when is_list(Config) ->
 
 do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     %% Copy the orig files to priv_dir
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     App = code_archive_dict,
     VsnBase = atom_to_list(App) ++ "-1.0",
     Base =
@@ -1074,7 +1024,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
 
     %% Set up ERL_LIBS and start a slave node.
     {ok, Node} =
-	?t:start_node(code_archive, slave,
+	test_server:start_node(code_archive, slave,
 		      [{args,"-env ERL_LIBS " ++ RootDir}]),
     CodePath = rpc:call(Node, code, get_path, []),
     AppEbin = filename:join([Archive, Base, "ebin"]),
@@ -1105,7 +1055,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     error =  rpc:call(Node, App, find, [Tab, Key]),
     ok =  rpc:call(Node, App, erase, [Tab]),
 
-    ?t:stop_node(Node),
+    test_server:stop_node(Node),
     ok.
 
 compile_app(TopDir, AppName) ->
@@ -1131,15 +1081,12 @@ compile_files([File | Files], SrcDir, OutDir) ->
 compile_files([], _, _) ->
     ok.
 
-big_boot_embedded(suite) ->
-    [];
-big_boot_embedded(doc) ->
-    ["Test that a boot file with (almost) all of OTP can be used to start an"
-     " embeddedd system."];
+%% Test that a boot file with (almost) all of OTP can be used to start an
+%% embeddedd system.
 big_boot_embedded(Config) when is_list(Config) ->
     {BootArg,AppsInBoot} = create_big_boot(Config),
     {ok, Node} =
-	?t:start_node(big_boot_embedded, slave,
+	test_server:start_node(big_boot_embedded, slave,
 		      [{args,"-boot "++BootArg++" -mode embedded"}]),
     RemoteNodeApps =
 	[ {X,Y} || {X,_,Y} <-
@@ -1150,7 +1097,7 @@ big_boot_embedded(Config) when is_list(Config) ->
 on_load(Config) when is_list(Config) ->
     Master = on_load_test_case_process,
 
-    Data = filename:join([?config(data_dir, Config),"on_load"]),
+    Data = filename:join([proplists:get_value(data_dir, Config),"on_load"]),
     ok = file:set_cwd(Data),
     up_to_date = make:all([{d,'MASTER',Master}]),
 
@@ -1194,7 +1141,7 @@ on_load(Config) when is_list(Config) ->
     on_load_wait_for_all(Refs),
     receive
 	Any ->
-	    ?t:fail({unexpected,Any})
+	    ct:fail({unexpected,Any})
     after 10 ->
 	    ok
     end.
@@ -1262,7 +1209,7 @@ on_load_embedded(Config) when is_list(Config) ->
     end.
 
 on_load_embedded_1(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     %% Link the on_load_app application into the lib directory.
     LibRoot = code:lib_dir(),
@@ -1317,7 +1264,7 @@ create_boot(Config, Options) ->
     filename:join(LatestDir, LatestName).
 
 create_script(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = PrivDir ++ "on_load_test",
     Apps = application_controller:which_applications(),
     {value,{_,_,KernelVer}} = lists:keysearch(kernel, 1, Apps),
@@ -1344,33 +1291,46 @@ create_big_boot(Config) ->
     ok = file:set_cwd(OldDir),
     {filename:join(LatestDir, LatestName),Apps}.
 
-% The following apps cannot be loaded
-% hipe .app references (or can reference) files that have no
-% corresponding beam file (if hipe is not enabled)
+%% The following apps cannot be loaded.
+%% hipe .app references (or can reference) files that have no
+%% corresponding beam file (if hipe is not enabled).
 filter_app("hipe",_) -> false;
-% Dialyzer and typer depends on hipe
+
+%% Dialyzer and typer depends on hipe
 filter_app("dialyzer",_) -> false;
 filter_app("typer",_) -> false;
-% Orber requires explicit configuration
+
+%% Orber requires explicit configuration
 filter_app("orber",_) -> false;
-% cos* depends on orber
+
+%% cos* depends on orber
 filter_app("cos"++_,_) -> false;
-% ic has a mod instruction in the app file but no corresponding start function
+
+%% ic has a mod instruction in the app file but no corresponding start
+%% function
 filter_app("ic",_) -> false;
-% Netconf has some dependency that I really do not understand (maybe like orber)
+
+%% Netconf has some dependency that I really do not understand (maybe
+%% like orber)
 filter_app("netconf",_) -> false;
-% Safe has the same kind of error in the .app file as ic
+
+%% Safe has the same kind of error in the .app file as ic
 filter_app("safe",_) -> false;
-% Comte cannot be started in the "usual" way
+
+%% Comte cannot be started in the "usual" way
 filter_app("comte",_) -> false;
-% OS_mon does not find it's port program when running cerl
+
+%% OS_mon does not find its port program when running cerl
 filter_app("os_mon",true) -> false;
-% erts is not a "real" app either =/
+
+%% erts is not a "real" app either =/
 filter_app("erts",_) -> false;
-% Other apps should be OK.
+
+%% Other apps should be OK.
 filter_app(_,_) -> true.
+
 create_big_script(Config,Local) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Name = filename:join(PrivDir,"full_script_test"),
     InitialApplications=application:loaded_applications(),
     %% Applications left loaded by the application suite, unload them!
@@ -1404,7 +1364,7 @@ on_load_errors(Config) when is_list(Config) ->
     Master = on_load_error_test_case_process,
     register(Master, self()),
 
-    Data = filename:join([?config(data_dir, Config),"on_load_errors"]),
+    Data = filename:join([proplists:get_value(data_dir, Config),"on_load_errors"]),
     ok = file:set_cwd(Data),
     up_to_date = make:all([{d,'MASTER',Master}]),
 
@@ -1430,7 +1390,7 @@ on_load_errors(Config) when is_list(Config) ->
     %% There should be no more messages.
     receive
 	Unexpected ->
-	    ?t:fail({unexpected,Unexpected})
+	    ct:fail({unexpected,Unexpected})
     after 10 ->
 	    ok
     end,
@@ -1459,8 +1419,7 @@ do_on_load_error(ReturnValue) ->
 	    {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
 
-native_early_modules(suite) -> [];
-native_early_modules(doc) -> ["Test that the native code of early loaded modules is loaded"];
+%% Test that the native code of early loaded modules is loaded.
 native_early_modules(Config) when is_list(Config) ->
     case erlang:system_info(hipe_architecture) of
 	undefined ->
@@ -1488,8 +1447,7 @@ native_early_modules_1(Architecture) ->
             ok
     end.
 
-get_mode(suite) -> [];
-get_mode(doc) -> ["Test that the mode of the code server is properly retrieved"];
+%% Test that the mode of the code server is properly retrieved.
 get_mode(Config) when is_list(Config) ->
     interactive = code:get_mode().
 
@@ -1519,7 +1477,7 @@ terminate(_Reason, State) ->
 %%%
 
 start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, slave, [{args, Param}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
