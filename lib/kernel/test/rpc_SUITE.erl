@@ -350,34 +350,30 @@ called_node_dies(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
 
     node_rep(
-      fun (Tag, Call, Args) ->
-	      {Tag,{badrpc,nodedown}} =
-		  {Tag,apply(rpc, Call, Args)}
+      fun (Call, Args) ->
+	      {badrpc,nodedown} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_1",
       PA, ?MODULE, suicide, [erlang,halt,[]]),
 
     node_rep(
-      fun (Tag, Call, Args) ->
-	      {Tag,{badrpc,nodedown}} =
-		  {Tag,apply(rpc, Call, Args)}
+      fun (Call, Args) ->
+	      {badrpc,nodedown} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_2",
       PA, ?MODULE, suicide, [init,stop,[]]),
 
     node_rep(
-      fun (Tag, Call, Args=[_|_]) ->
-	      {Tag,{'EXIT',{killed,_}}} =
-		  {Tag,catch {noexit,apply(rpc, Call, Args)}}
+      fun (Call, Args=[_|_]) ->
+	      {badrpc,{'EXIT',{killed,_}}} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_3",
       PA, ?MODULE, suicide, [erlang,exit,[rex,kill]]),
 
     node_rep(
-      fun (_Tag, block_call, _Args) ->
+      fun (block_call, _Args) ->
 	      %% Cannot block call rpc - will hang
 	      ok;
-	  (Tag, Call, Args=[_|_]) ->
-		    {Tag,{'EXIT',{normal,_}}} = 
-			{Tag,catch {noexit,apply(rpc, Call, Args)}}
-	    end, "rpc_SUITE_called_node_dies_4", 
+	  (Call, Args=[_|_]) ->
+	      {badrpc,{'EXIT',{normal,_}}} = apply(rpc, Call, Args)
+      end, "rpc_SUITE_called_node_dies_4",
       PA, ?MODULE, suicide, [rpc,stop,[]]),
 
     ok.
@@ -392,7 +388,7 @@ node_rep_call(Tag, Call, Args, Fun, Name0, PA) ->
     Name = list_to_atom(Name0 ++ "_" ++ atom_to_list(Tag)),
     {ok, N} = test_server:start_node(Name, slave,
 				     [{args, "-pa " ++ PA}]),
-    Fun(Tag, Call, [N|Args]),
+    Fun(Call, [N|Args]),
     catch test_server:stop_node(N),
     ok.
 
