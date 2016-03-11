@@ -43,12 +43,10 @@ modules() ->
 %% Should return all functions exported from this module. (local)
 all_exported() ->
     All = add_arity(modules()),
-    lists:sort([{all,0},{suite,0},{groups,0},
-		{init_per_suite,1},{end_per_suite,1},
-		{init_per_group,2},{end_per_group,2},
-		{init_per_testcase,2},{end_per_testcase,2},
-		{module_info,0},{module_info,1},{native_proj,1},
-		{native_filter,1}|All]).
+    lists:sort([{all,0},{suite,0},
+                {module_info,0},{module_info,1},
+                {native_proj,1},
+                {native_filter,1}|All]).
 
 %% Should return all functions in this module. (local)
 all_functions() ->
