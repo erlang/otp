@@ -8,6 +8,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	andor_SUITE \
 	apply_SUITE \
+	beam_block_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
@@ -44,6 +45,7 @@ MODULES= \
 NO_OPT= \
 	andor \
 	apply \
+	beam_block \
 	beam_except \
 	beam_reorder \
 	beam_type \
@@ -67,6 +69,7 @@ NO_OPT= \
 INLINE= \
 	andor \
 	apply \
+	beam_block \
 	beam_utils \
 	bs_bincomp \
 	bs_bit_binaries \
