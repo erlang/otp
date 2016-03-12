@@ -99,7 +99,7 @@ write_suite(Suite) ->
 write_header(#suite{suitename = SuiteName, outputfile = OutputFile,
 		    testcases = TestCases}) ->
     Exports = format_export(TestCases),
-    TimeLimit = 3,	%% with 1 or 2 it fails on some slow machines...
+    TimeLimit = 6,	%% with 1, 2, or 3 it fails on some slow machines...
     io:format(OutputFile,
 	      "%% ATTENTION!\n"
 	      "%% This is an automatically generated file. Do not edit.\n\n"
@@ -167,6 +167,10 @@ run(TestCase, Dir, _OutDir) ->
     ok = TestCase:test(),
     HiPEOpts = try TestCase:hipe_options() catch error:undef -> [] end,
     {ok, TestCase} = hipe:c(TestCase, HiPEOpts),
+    ok = TestCase:test(),
+    {ok, TestCase} = hipe:c(TestCase, [o1|HiPEOpts]),
+    ok = TestCase:test(),
+    {ok, TestCase} = hipe:c(TestCase, [o0|HiPEOpts]),
     ok = TestCase:test(),
     ToLLVM = try TestCase:to_llvm() catch error:undef -> true end,
     case ToLLVM andalso hipe:llvm_support_available() of

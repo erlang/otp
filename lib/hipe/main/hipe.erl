@@ -1382,8 +1382,15 @@ opt_keys() ->
 
 %% Definitions:
 
+o0_opts(_TargetArch) ->
+  [concurrent_comp, {regalloc,linear_scan}].
+
 o1_opts(TargetArch) ->
-  Common = [inline_fp, pmatch, peephole],
+  Common = [inline_fp, pmatch, peephole,
+	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
+	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
+	    spillmin_color, use_indexing, remove_comments,
+	    binary_opt, {regalloc,coalescing} | o0_opts(TargetArch)],
   case TargetArch of
     ultrasparc ->
       Common;
@@ -1402,11 +1409,8 @@ o1_opts(TargetArch) ->
   end.
 
 o2_opts(TargetArch) ->
-  Common = [icode_ssa_const_prop, icode_ssa_copy_prop, % icode_ssa_struct_reuse,
-	    icode_type, icode_inline_bifs, icode_call_elim, rtl_lcm,
-	    rtl_ssa, rtl_ssa_const_prop,
-	    spillmin_color, use_indexing, remove_comments,
-	    concurrent_comp, binary_opt | o1_opts(TargetArch)],
+  Common = [icode_type, icode_call_elim, % icode_ssa_struct_reuse,
+	    rtl_lcm | (o1_opts(TargetArch) -- [rtl_ssapre])],
   case TargetArch of
     T when T =:= amd64 orelse T =:= ppc64 -> % 64-bit targets
       [icode_range | Common];
@@ -1416,7 +1420,7 @@ o2_opts(TargetArch) ->
 
 o3_opts(TargetArch) ->
   %% no point checking for target architecture since this is checked in 'o1'
-  [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)].
+  [icode_range | o2_opts(TargetArch)].
 
 %% Note that in general, the normal form for options should be positive.
 %% This is a good programming convention, so that tests in the code say
