@@ -110,7 +110,7 @@
          parent  :: pid(),          %% of process that started us
          module  :: module(),       %% gen_tcp-like module
          frag = <<>> :: frag(),     %% message fragment
-         ssl     :: boolean() | [term()],       %% ssl options
+         ssl     :: [term()] | boolean(),       %% ssl options, ssl or not
          timeout :: infinity | 0..16#FFFFFFFF,  %% fragment timeout
          tref = false  :: false | reference(),  %% fragment timer reference
          flush = false :: boolean(),            %% flush fragment at timeout?
@@ -544,30 +544,13 @@ t(T,S) ->
 
 %% transition/2
 
-%% Initial incoming message when we might need to upgrade to TLS:
-%% don't receive another message until we know.
-transition({tcp, Sock, Bin}, #transport{socket = Sock,
-                                        parent = Pid,
-                                        frag = Head,
-                                        ssl = Opts}
-                             = S)
-  when is_list(Opts) ->
-    case rcv(Head, Bin) of
-        {Msg, B} ->
-            diameter_peer:recv(Pid, Msg),
-            S#transport{frag = B};
-        Frag ->
-            setopts(S),
-            start_fragment_timer(S#transport{frag = Frag})
-    end;
-
 %% Incoming message.
 transition({P, Sock, Bin}, #transport{socket = Sock,
                                       ssl = B,
                                       throttled = T}
                            = S)
-  when P == tcp, not B;
-       P == ssl, B ->
+  when P == ssl, true == B;
+       P == tcp ->
     false = T,  %% assert
     recv(Bin, S);
 
@@ -579,6 +562,7 @@ transition(throttle, #transport{throttled = B} = S) ->
 %% Capabilties exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
                                             = S) ->
+    true = is_boolean(B),  %% assert
     #transport{}
         = NS
         = tls_handshake(Type, B, S),
@@ -667,8 +651,7 @@ tls(accept, Sock, Opts) ->
 %% Reassemble fragmented messages and extract multiple message sent
 %% using Nagle.
 
-%% Receive packets until a full message is received, then check
-%% whether to keep receiving.
+%% Receive packets until a full message is received,
 recv(Bin, #transport{frag = Head, throttled = false} = S) ->
     case rcv(Head, Bin) of
         {Msg, B} ->
@@ -681,8 +664,11 @@ recv(Bin, #transport{frag = Head, throttled = false} = S) ->
 
 %% recv/1
 
-recv(S) ->
-    recv(<<>>, S).
+recv(#transport{throttled = false} = S) ->
+    recv(<<>>, S);
+
+recv(#transport{} = S) ->
+    S.
 
 %% rcv/2
 
@@ -855,20 +841,25 @@ setopts(M, Sock) ->
 
 %% throttle/1
 
+%% Still collecting packets for a complete message: keep receiving.
 throttle(#transport{throttled = false} = S) ->
     recv(S);
 
-throttle(#transport{throttle_cb = F, throttled = B} = S) ->
-    Res = cb(F, B),
+%% Decide whether to receive another, or whether to accept a message
+%% that's been received.
+throttle(#transport{throttle_cb = F, throttled = T} = S) ->
+    Res = cb(F, T),
 
     try throttle(Res, S) of
-        #transport{} = NS ->
-            throttle(defrag(NS))
+        #transport{ssl = SB} = NS when is_boolean(SB) ->
+            throttle(defrag(NS));
+        #transport{throttled = Msg} = NS when is_binary(Msg) ->
+            %% Initial incoming message when we might need to upgrade
+            %% to TLS: wait for reception of a tls tuple.
+            defrag(NS)
     catch
-        #transport{throttled = false} = NS ->
-            recv(NS);
         #transport{} = NS ->
-            NS
+            recv(NS)
     end.
 
 %% cb/2
