@@ -25,10 +25,13 @@
 -define(HIPE_X86_RA_FINALISE,	hipe_amd64_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_amd64_registers).
 -define(HIPE_X86_X87,		hipe_amd64_x87).
+-define(HIPE_X86_SSE2,		hipe_amd64_sse2).
+-define(IF_HAS_SSE2(Expr),	Expr).
 -else.
 -define(HIPE_X86_RA_FINALISE,	hipe_x86_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_x86_registers).
 -define(HIPE_X86_X87,		hipe_x86_x87).
+-define(IF_HAS_SSE2(Expr),).
 -endif.
 
 -module(?HIPE_X86_RA_FINALISE).
@@ -41,7 +44,17 @@ finalise(Defun, TempMap, FpMap, Options) ->
     true ->
       ?HIPE_X86_X87:map(Defun1);
     _ ->
-      Defun1
+      case
+	proplists:get_bool(inline_fp, Options)
+	and (proplists:get_value(regalloc, Options) =:= linear_scan)
+      of
+	%% Ugly, but required to avoid Dialyzer complaints about "Unknown
+	%% function" hipe_x86_sse2:map/1
+	?IF_HAS_SSE2(true ->
+			?HIPE_X86_SSE2:map(Defun1);)
+	false ->
+	  Defun1
+      end
   end.
 
 %%%

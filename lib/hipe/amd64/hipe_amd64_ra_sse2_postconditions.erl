@@ -21,7 +21,7 @@
 
 -module(hipe_amd64_ra_sse2_postconditions).
 
--export([check_and_rewrite/2]).
+-export([check_and_rewrite/2, check_and_rewrite/3]).
 
 -include("../x86/hipe_x86.hrl").
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -30,39 +30,43 @@
 
 
 check_and_rewrite(AMD64Defun, Coloring) ->
+  check_and_rewrite(AMD64Defun, Coloring, 'normal').
+
+check_and_rewrite(AMD64Defun, Coloring, Strategy) ->
   %%io:format("Converting\n"),
   TempMap = hipe_temp_map:cols2tuple(Coloring,hipe_amd64_specific_sse2),
   %%io:format("Rewriting\n"),
   #defun{code=Code0} = AMD64Defun,
-  {Code1, DidSpill} = do_insns(Code0, TempMap, [], false),
+  {Code1, DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
   {AMD64Defun#defun{code=Code1, var_range={0, hipe_gensym:get_var(x86)}}, 
    DidSpill}.
 
-do_insns([I|Insns], TempMap, Accum, DidSpill0) ->
-  {NewIs, DidSpill1} = do_insn(I, TempMap),
-  do_insns(Insns, TempMap, lists:reverse(NewIs, Accum), DidSpill0 or DidSpill1);
-do_insns([], _TempMap, Accum, DidSpill) ->
+do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
+  {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),
+  do_insns(Insns, TempMap, Strategy, lists:reverse(NewIs, Accum),
+	   DidSpill0 or DidSpill1);
+do_insns([], _TempMap, _Strategy, Accum, DidSpill) ->
   {lists:reverse(Accum), DidSpill}.
 
-do_insn(I, TempMap) ->	% Insn -> {Insn list, DidSpill}
+do_insn(I, TempMap, Strategy) ->	% Insn -> {Insn list, DidSpill}
   case I of
     #fmove{} ->
-      do_fmove(I, TempMap);
+      do_fmove(I, TempMap, Strategy);
     #fp_unop{} ->
-      do_fp_unop(I, TempMap);
+      do_fp_unop(I, TempMap, Strategy);
     #fp_binop{} ->
-      do_fp_binop(I, TempMap);
+      do_fp_binop(I, TempMap, Strategy);
     _ ->
       %% All non sse2 ops
       {[I], false}
   end.
 
 %%% Fix an fp_binop.
-do_fp_binop(I, TempMap) ->
+do_fp_binop(I, TempMap, Strategy) ->
   #fp_binop{src=Src,dst=Dst} = I,
   case is_mem_opnd(Dst, TempMap) of
     true ->
-      Tmp = clone(Dst),
+      Tmp = clone(Dst, Strategy),
       {[#fmove{src=Dst, dst=Tmp},
 	I#fp_binop{src=Src,dst=Tmp},
 	#fmove{src=Tmp,dst=Dst}],
@@ -71,11 +75,11 @@ do_fp_binop(I, TempMap) ->
       {[I], false}
   end.
 
-do_fp_unop(I, TempMap) ->
+do_fp_unop(I, TempMap, Strategy) ->
   #fp_unop{arg=Arg} = I,
   case is_mem_opnd(Arg, TempMap) of
     true ->
-      Tmp = clone(Arg),
+      Tmp = clone(Arg, Strategy),
       {[#fmove{src=Arg, dst=Tmp},
 	I#fp_unop{arg=Tmp},
 	#fmove{src=Tmp,dst=Arg}],
@@ -85,7 +89,7 @@ do_fp_unop(I, TempMap) ->
   end.
 
 %%% Fix an fmove op.
-do_fmove(I, TempMap) ->
+do_fmove(I, TempMap, Strategy) ->
   #fmove{src=Src,dst=Dst} = I,
   case
     (is_mem_opnd(Src, TempMap) andalso is_mem_opnd(Dst, TempMap))
@@ -93,7 +97,7 @@ do_fmove(I, TempMap) ->
     orelse ((not is_float_temp(Src)) andalso is_mem_opnd(Dst, TempMap))
   of
     true ->
-      Tmp = spill_temp(double),
+      Tmp = spill_temp(double, Strategy),
       {[#fmove{src=Src, dst=Tmp},I#fmove{src=Tmp,dst=Dst}],
        true};
     false ->
@@ -177,15 +181,21 @@ is_mem_opnd(Opnd, TempMap) ->
 
 %%% Make Reg a clone of Dst (attach Dst's type to Reg).
 
-clone(Dst) ->
+clone(Dst, Strategy) ->
   Type =
     case Dst of
       #x86_mem{} -> hipe_x86:mem_type(Dst);
       #x86_temp{} -> hipe_x86:temp_type(Dst)
     end,
-  spill_temp(Type).
+  spill_temp(Type, Strategy).
 
-spill_temp(Type) ->
+spill_temp(Type, 'normal') ->
+  hipe_x86:mk_new_temp(Type);
+spill_temp(double, 'linearscan') ->
+  hipe_x86:mk_temp(hipe_amd64_specific_sse2:temp0(), double);
+spill_temp(Type, 'linearscan') when Type =:= tagged; Type =/= untagged ->
+  %% We can make a new temp here since we have yet to allocate registers for
+  %% these types
   hipe_x86:mk_new_temp(Type).
 
 %%% Make a certain reg into a clone of Dst

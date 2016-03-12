@@ -75,25 +75,35 @@ ra(Defun, SpillIndex, Options, RegAllocMod) ->
 
 -ifdef(HIPE_AMD64).
 ra_fp(Defun, Options) ->
-  case proplists:get_bool(inline_fp, Options) and
-       (proplists:get_value(regalloc, Options) =/= naive) of
-    true ->
-      case proplists:get_bool(x87, Options) of
-	true ->
-	  hipe_amd64_ra_x87_ls:ra(Defun, Options);
-	false ->
-	  hipe_regalloc_loop:ra_fp(Defun, Options,
-				   hipe_coalescing_regalloc,
-				   hipe_amd64_specific_sse2)
-      end;
-    false ->
-      {Defun,[],0}
+  Regalloc0 = proplists:get_value(regalloc, Options),
+  {Regalloc, TargetMod} =
+    case proplists:get_bool(inline_fp, Options) and (Regalloc0 =/= naive) of
+      false -> {naive, undefined};
+      true ->
+	case proplists:get_bool(x87, Options) of
+	  true ->  {linear_scan, hipe_amd64_specific_x87};
+	  false -> {Regalloc0,   hipe_amd64_specific_sse2}
+	end
+    end,
+  case Regalloc of
+    coalescing  -> ra_fp(Defun, Options, hipe_coalescing_regalloc, TargetMod);
+    optimistic  -> ra_fp(Defun, Options, hipe_optimistic_regalloc, TargetMod);
+    graph_color -> ra_fp(Defun, Options, hipe_graph_coloring_regalloc,
+			 TargetMod);
+    linear_scan -> hipe_amd64_ra_ls:ra_fp(Defun, Options, TargetMod);
+    naive -> {Defun,[],0};
+    _ ->
+      exit({unknown_regalloc_compiler_option,
+	    proplists:get_value(regalloc,Options)})
   end.
+
+ra_fp(Defun, Options, RegAllocMod, TargetMod) ->
+  hipe_regalloc_loop:ra_fp(Defun, Options, RegAllocMod, TargetMod).
 -else.
 ra_fp(Defun, Options) ->
   case proplists:get_bool(inline_fp, Options) of
     true ->
-      hipe_x86_ra_x87_ls:ra(Defun, Options);
+      hipe_x86_ra_ls:ra_fp(Defun, Options, hipe_x86_specific_x87);
     false ->
       {Defun,[],0}
   end.

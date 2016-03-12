@@ -32,7 +32,7 @@
 -endif.
 
 -module(?HIPE_X86_SPECIFIC_X87).
--export([allocatable/0,
+-export([allocatable/1,
 	 is_precoloured/1,
 	 %% var_range/1,
 	 %% def_use/1,
@@ -58,7 +58,14 @@
 	 physical_name/1,
 	 breadthorder/1,
 	 postorder/1,
- 	 reverse_postorder/1]).
+	 reverse_postorder/1]).
+
+%% callbacks for hipe_x86_ra_ls
+-export([check_and_rewrite/3]).
+
+%% Rewrite happens in hipe_x86_ra_finalise:finalise/4
+check_and_rewrite(Defun, _Coloring, 'linearscan') ->
+  {Defun, false}.
 
 breadthorder(CFG) ->
   hipe_x86_cfg:breadthorder(CFG).
@@ -103,7 +110,7 @@ liveout(BB_in_out_liveness,Label) ->
 
 %% Registers stuff
 
-allocatable() ->
+allocatable('linearscan') ->
   ?HIPE_X86_REGISTERS:allocatable_x87().
 
 is_precoloured(Reg) ->

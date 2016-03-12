@@ -42,7 +42,9 @@
          reg_nr/1,
 	 non_alloc/1,
 	 allocatable/0,
-         physical_name/1,
+	 allocatable/1,
+	 temp0/0,
+	 physical_name/1,
 	 all_precoloured/0,
 	 new_spill_index/1,	%% used by hipe_ls_regalloc
 	 var_range/1,
@@ -52,7 +54,8 @@
 
 %% callbacks for hipe_regalloc_loop
 -export([defun_to_cfg/1,
-	 check_and_rewrite/2]).
+	 check_and_rewrite/2,
+	 check_and_rewrite/3]).
 
 %%----------------------------------------------------------------------------
 
@@ -66,6 +69,10 @@ defun_to_cfg(Defun) ->
 check_and_rewrite(Defun, Coloring) ->
   hipe_amd64_ra_sse2_postconditions:check_and_rewrite(Defun, Coloring).
 
+check_and_rewrite(Defun, Coloring, Strategy) ->
+  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(
+    Defun, Coloring, Strategy).
+
 reverse_postorder(CFG) ->
   hipe_x86_cfg:reverse_postorder(CFG).
 
@@ -75,8 +82,8 @@ breadthorder(CFG) ->
 postorder(CFG) ->
   hipe_x86_cfg:postorder(CFG).
 
-is_global(_Reg) ->
-  false.
+is_global(Reg) ->
+  hipe_amd64_registers:sse2_temp0() =:= Reg.
  
 is_fixed(_Reg) ->
   false.
@@ -109,7 +116,16 @@ liveout(BB_in_out_liveness, Label) ->
 %% Registers stuff
 
 allocatable() ->
-  hipe_amd64_registers:allocatable_sse2().
+  allocatable('normal').
+
+allocatable('normal') ->
+  hipe_amd64_registers:allocatable_sse2();
+allocatable('linearscan') ->
+  hipe_amd64_registers:allocatable_sse2() --
+    [hipe_amd64_registers:sse2_temp0()].
+
+temp0() ->
+  hipe_amd64_registers:sse2_temp0().
 
 all_precoloured() ->
   allocatable().
