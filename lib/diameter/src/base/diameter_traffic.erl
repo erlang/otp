@@ -233,12 +233,7 @@ pending(TPids) ->
 %% becoming a bottleneck.
 
 receive_message(TPid, {Pkt, NPid}, Dict0, RecvData) ->
-    NPid ! {diameter, case incoming(TPid, Pkt, Dict0, RecvData) of
-                          Pid when is_pid(Pid) ->
-                              {request, Pid};
-                          _ ->
-                              discard
-                      end};
+    NPid ! {diameter, incoming(TPid, Pkt, Dict0, RecvData)};
 
 receive_message(TPid, Pkt, Dict0, RecvData) ->
     incoming(TPid, Pkt, Dict0, RecvData).
@@ -260,16 +255,17 @@ incoming(TPid, Pkt, Dict0, RecvData)
 %% Incoming request ...
 recv(true, false, TPid, Pkt, Dict0, T) ->
     try
-        spawn_request(TPid, Pkt, Dict0, T)
+        {request, spawn_request(TPid, Pkt, Dict0, T)}
     catch
         error: system_limit = E ->  %% discard
             ?LOG(error, E),
-            {error, E}
+            discard
     end;
 
 %% ... answer to known request ...
 recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
-    Pid ! {answer, Ref, Req, Dict0, Pkt};
+    Pid ! {answer, Ref, Req, Dict0, Pkt},
+    {answer, Pid};
 
 %% Note that failover could have happened prior to this message being
 %% received and triggering failback. That is, both a failover message
@@ -284,7 +280,7 @@ recv(false, #request{ref = Ref, handler = Pid} = Req, _, Pkt, Dict0, _) ->
 recv(false, false, TPid, Pkt, _, _) ->
     ?LOG(discarded, Pkt#diameter_packet.header),
     incr(TPid, {{unknown, 0}, recv, discarded}),
-    ok.
+    discard.
 
 %% spawn_request/4
 
