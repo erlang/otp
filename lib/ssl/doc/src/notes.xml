@@ -28,6 +28,124 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure there is only one poller validator at a time
+	    for validating the session cache.</p>
+          <p>
+	    Own Id: OTP-13185</p>
+        </item>
+        <item>
+          <p>
+	    A timing related issue could cause ssl to hang,
+	    especially happened with newer versions of OpenSSL in
+	    combination with ECC ciphers.</p>
+          <p>
+	    Own Id: OTP-13253</p>
+        </item>
+        <item>
+          <p>
+	    Work around a race condition in the TLS distribution
+	    start.</p>
+          <p>
+	    Own Id: OTP-13268</p>
+        </item>
+        <item>
+          <p>
+	    Big handshake messages are now correctly fragmented in
+	    the TLS record layer.</p>
+          <p>
+	    Own Id: OTP-13306</p>
+        </item>
+        <item>
+          <p>
+	    Improve portability of ECC tests in Crypto and SSL for
+	    "exotic" OpenSSL versions.</p>
+          <p>
+	    Own Id: OTP-13311</p>
+        </item>
+        <item>
+          <p>
+	    Certificate extensions marked as critical are ignored
+	    when using verify_none</p>
+          <p>
+	    Own Id: OTP-13377</p>
+        </item>
+        <item>
+          <p>
+	    If a certificate doesn't contain a CRL Distribution
+	    Points extension, and the relevant CRL is not in the
+	    cache, and the <c>crl_check</c> option is not set to
+	    <c>best_effort</c> , the revocation check should fail.</p>
+          <p>
+	    Own Id: OTP-13378</p>
+        </item>
+        <item>
+          <p>
+	    Enable TLS distribution over IPv6</p>
+          <p>
+	    Own Id: OTP-13391</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve error reporting for TLS distribution</p>
+          <p>
+	    Own Id: OTP-13219</p>
+        </item>
+        <item>
+          <p>
+	    Include options from connect, listen and accept in
+	    <c>connection_information/1,2</c></p>
+          <p>
+	    Own Id: OTP-13232</p>
+        </item>
+        <item>
+          <p>
+	    Allow adding extra options for outgoing TLS distribution
+	    connections, as supported for plain TCP connections.</p>
+          <p>
+	    Own Id: OTP-13285</p>
+        </item>
+        <item>
+          <p>
+	    Use loopback as server option in TLS-distribution module</p>
+          <p>
+	    Own Id: OTP-13300</p>
+        </item>
+        <item>
+          <p>
+	    Verify certificate signature against original certificate
+	    binary.</p>
+          <p>
+	    This avoids bugs due to encoding errors when re-encoding
+	    a decode certificate. As there exists several decode step
+	    and using of different ASN.1 specification this is a risk
+	    worth avoiding.</p>
+          <p>
+	    Own Id: OTP-13334</p>
+        </item>
+        <item>
+          <p>
+	    Use <c>application:ensure_all_started/2</c> instead of
+	    hard-coding dependencies</p>
+          <p>
+	    Own Id: OTP-13363</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

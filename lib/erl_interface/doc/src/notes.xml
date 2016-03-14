@@ -31,6 +31,36 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Erl_Interface build error on Debian/Hurd and
+	    Debian/kFreeBSD. (Thanks to Sergei Golovan)</p>
+          <p>
+	    Own Id: OTP-13328</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    EPMD supports both IPv4 and IPv6</p>
+          <p>
+	    Also affects oldest supported windows version.</p>
+          <p>
+	    Own Id: OTP-13364</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.8.1</title>
 
     <section><title>Improvements and New Features</title>

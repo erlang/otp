@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Documentation correction of <c>ssh_sftp:position/4</c></p>
+          <p>
+	    Thanks to Rabbe Fogelholm.</p>
+          <p>
+	    Own Id: OTP-13305 Aux Id: ERL-87 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,93 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix evaluation in matching of bound map key variables in
+	    the interpreter.</p>
+          <p>
+	    Prior to this patch, the following code would not
+	    evaluate: <c>X = key,(fun(#{X := value}) -&gt; true
+	    end)(#{X => value})</c></p>
+          <p>
+	    Own Id: OTP-13218</p>
+        </item>
+        <item>
+	    <p> Fix <c>erl_eval</c> not using non-local function
+	    handler. </p>
+          <p>
+	    Own Id: OTP-13228 Aux Id: ERL-32 </p>
+        </item>
+        <item>
+	    <p> The Erlang Code Linter no longer crashes if there is
+	    a <c>-deprecated()</c> attribute but no <c>-module()</c>
+	    declaration. </p>
+          <p>
+	    Own Id: OTP-13230 Aux Id: ERL-62 </p>
+        </item>
+        <item>
+          <p>
+	    The timestamp in the result returned by <c>dets:info(Tab,
+	    safe_fixed)</c> was unintentionally broken as a result of
+	    the time API rewrites in OTP 18.0. This has now been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-13239 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+	    <p>A rare race condition in <c>beam_lib</c> when using
+	    encrypted abstract format has been eliminated.</p>
+          <p>
+	    Own Id: OTP-13278</p>
+        </item>
+        <item>
+          <p>
+	    Improved maps:with/2 and maps:without/2 algorithms</p>
+          <p>
+	    The new implementation speeds up the execution
+	    significantly for all sizes of input.</p>
+          <p>
+	    Own Id: OTP-13376</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Time warp safety improvements.</p>
+          <p>
+	    Introduced the options <c>monotonic_timestamp</c>, and
+	    <c>strict_monotonic_timestamp</c> to the trace,
+	    sequential trace, and system profile functionality. This
+	    since the already existing <c>timestamp</c> option is not
+	    time warp safe.</p>
+          <p>
+	    Introduced the option <c>safe_fixed_monotonic_time</c> to
+	    <c>ets:info/2</c> and <c>dets:info/2</c>. This since the
+	    already existing <c>safe_fixed</c> option is not time
+	    warp safe.</p>
+          <p>
+	    Own Id: OTP-13222 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    In the shell Ctrl+W (delete word) will no longer consider
+	    "." as being part of a word.</p>
+          <p>
+	    Own Id: OTP-13281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

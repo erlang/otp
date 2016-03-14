@@ -31,6 +31,100 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>code:load_abs([10100])</c> would bring down the
+	    entire runtime system and create a crash dump. Corrected
+	    to generate an error exception in the calling
+	    process.</p>
+	    <p>Also corrected specs for code loading functions and
+	    added more information in the documentation about the
+	    error reasons returned by code-loading functions.</p>
+          <p>
+	    Own Id: OTP-9375</p>
+        </item>
+        <item>
+          <p>
+	    <seealso
+	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seealso>
+	    was not <seealso
+	    marker="erts:time_correction#Time_Warp_Safe_Code">time
+	    warp safe</seealso>. This since it used the same time as
+	    returned by <seealso
+	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seealso>
+	    when calculating timeout. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13254 Aux Id: OTP-11997, OTP-13222 </p>
+        </item>
+        <item>
+	    <p> Correct the contract for <c>inet:getifaddrs/1</c>.
+	    </p>
+          <p>
+	    Own Id: OTP-13335 Aux Id: ERL-95 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Time warp safety improvements.</p>
+          <p>
+	    Introduced the options <c>monotonic_timestamp</c>, and
+	    <c>strict_monotonic_timestamp</c> to the trace,
+	    sequential trace, and system profile functionality. This
+	    since the already existing <c>timestamp</c> option is not
+	    time warp safe.</p>
+          <p>
+	    Introduced the option <c>safe_fixed_monotonic_time</c> to
+	    <c>ets:info/2</c> and <c>dets:info/2</c>. This since the
+	    already existing <c>safe_fixed</c> option is not time
+	    warp safe.</p>
+          <p>
+	    Own Id: OTP-13222 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Add validation callback for heart</p>
+          <p>
+	    The erlang heart process may now have a validation
+	    callback installed. The validation callback will be
+	    executed, if present, before any heartbeat to heart port
+	    program. If the validation fails, or stalls, no heartbeat
+	    will be sent and the node will go down.</p>
+          <p>
+	    With the option <c>'check_schedulers'</c> heart executes
+	    a responsiveness check of the schedulers before a
+	    heartbeat is sent to the port program. If the
+	    responsiveness check fails, the heartbeat will not be
+	    performed (as intended).</p>
+          <p>
+	    Own Id: OTP-13250</p>
+        </item>
+        <item>
+          <p>
+	    Clarify documentation of <c>net_kernel:allow/1</c></p>
+          <p>
+	    Own Id: OTP-13299</p>
+        </item>
+        <item>
+          <p>
+	    EPMD supports both IPv4 and IPv6</p>
+          <p>
+	    Also affects oldest supported windows version.</p>
+          <p>
+	    Own Id: OTP-13364</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 4.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Webtool
     application.</p>
 
+<section><title>WebTool 0.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove dependency to inets <c>mod_include</c> in
+	    configuration.</p>
+          <p>
+	    Own Id: OTP-13406</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>WebTool 0.9</title>
 
     <section><title>Improvements and New Features</title>

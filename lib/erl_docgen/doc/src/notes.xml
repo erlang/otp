@@ -31,7 +31,22 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.4.1</title>
+  <section><title>Erl_Docgen 0.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correctly generate anno tags for maps keys</p>
+          <p>
+	    Own Id: OTP-12955</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.4.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

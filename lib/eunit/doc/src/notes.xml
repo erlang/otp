@@ -33,6 +33,20 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Suppress Dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-12862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
