@@ -348,65 +348,49 @@ suicide(Mod, Func, Args) ->
 
 called_node_dies(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
-    %%
+
     node_rep(
-      fun (Tag, Call, Args) ->
-	      {Tag,{badrpc,nodedown}} =
-		  {Tag,apply(rpc, Call, Args)}
+      fun (Call, Args) ->
+	      {badrpc,nodedown} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_1",
       PA, ?MODULE, suicide, [erlang,halt,[]]),
+
     node_rep(
-      fun (Tag, Call, Args) ->
-	      {Tag,{badrpc,nodedown}} =
-		  {Tag,apply(rpc, Call, Args)}
+      fun (Call, Args) ->
+	      {badrpc,nodedown} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_2",
       PA, ?MODULE, suicide, [init,stop,[]]),
+
     node_rep(
-      fun (Tag, Call, Args=[_|_]) ->
-	      {Tag,{'EXIT',{killed,_}}} =
-		  {Tag,catch {noexit,apply(rpc, Call, Args)}}
+      fun (Call, Args=[_|_]) ->
+	      {badrpc,{'EXIT',{killed,_}}} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_3",
       PA, ?MODULE, suicide, [erlang,exit,[rex,kill]]),
+
     node_rep(
-      fun %% Cannot block call rpc - will hang
-	  (_Tag, block_call, _Args) -> ok;
-	  (Tag, Call, Args=[_|_]) ->
-		    {Tag,{'EXIT',{normal,_}}} = 
-			{Tag,catch {noexit,apply(rpc, Call, Args)}}
-	    end, "rpc_SUITE_called_node_dies_4", 
+      fun (block_call, _Args) ->
+	      %% Cannot block call rpc - will hang
+	      ok;
+	  (Call, Args=[_|_]) ->
+	      {badrpc,{'EXIT',{normal,_}}} = apply(rpc, Call, Args)
+      end, "rpc_SUITE_called_node_dies_4",
       PA, ?MODULE, suicide, [rpc,stop,[]]),
-    %%
+
     ok.
 
 node_rep(Fun, Name, PA, M, F, A) ->
-    {ok, Na} = test_server:start_node(list_to_atom(Name++"_a"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(a, call, [Na, M, F, A]),
-    catch test_server:stop_node(Na),
-    {ok, Nb} = test_server:start_node(list_to_atom(Name++"_b"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(b, call, [Nb, M, F, A, infinity]),
-    catch test_server:stop_node(Nb),
-    {ok, Nc} = test_server:start_node(list_to_atom(Name++"_c"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(c, call, [Nc, M, F, A, infinity]),
-    catch test_server:stop_node(Nc),
-    %%
-    {ok, Nd} = test_server:start_node(list_to_atom(Name++"_d"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(d, block_call, [Nd, M, F, A]),
-    catch test_server:stop_node(Nd),
-    {ok, Ne} = test_server:start_node(list_to_atom(Name++"_e"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(e, block_call, [Ne, M, F, A, infinity]),
-    catch test_server:stop_node(Ne),
-    {ok, Nf} = test_server:start_node(list_to_atom(Name++"_f"), slave,
-				      [{args, "-pa " ++ PA}]),
-    Fun(f, block_call, [Nf, M, F, A, infinity]),
-    catch test_server:stop_node(Nf),
+    node_rep_call(a, call, [M,F,A], Fun, Name, PA),
+    node_rep_call(b, call, [M,F,A,infinity], Fun, Name, PA),
+    node_rep_call(c, block_call, [M,F,A], Fun, Name, PA),
+    node_rep_call(d, block_call, [M,F,A,infinity], Fun, Name, PA).
+
+node_rep_call(Tag, Call, Args, Fun, Name0, PA) ->
+    Name = list_to_atom(Name0 ++ "_" ++ atom_to_list(Tag)),
+    {ok, N} = test_server:start_node(Name, slave,
+				     [{args, "-pa " ++ PA}]),
+    Fun(Call, [N|Args]),
+    catch test_server:stop_node(N),
     ok.
-
-
 
 %% OTP-3766.
 called_throws(Config) when is_list(Config) ->

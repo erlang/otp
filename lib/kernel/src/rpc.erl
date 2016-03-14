@@ -357,8 +357,12 @@ do_call(Node, Request, Timeout) ->
 rpc_check_t({'EXIT', {timeout,_}}) -> {badrpc, timeout};
 rpc_check_t(X) -> rpc_check(X).
 	    
-rpc_check({'EXIT', {{nodedown,_},_}}) -> {badrpc, nodedown};
-rpc_check({'EXIT', X}) -> exit(X);
+rpc_check({'EXIT', {{nodedown,_},_}}) ->
+    {badrpc, nodedown};
+rpc_check({'EXIT', _}=Exit) ->
+    %% Should only happen if the rex process on the other node
+    %% died.
+    {badrpc, Exit};
 rpc_check(X) -> X.
 
 
