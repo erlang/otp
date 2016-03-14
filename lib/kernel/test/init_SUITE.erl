@@ -249,7 +249,8 @@ boot_var(Config) when is_list(Config) ->
 	    {ok, Node} =
 		start_node(init_test,
 			   "-boot " ++ BootScript ++
-			       " -boot_var TEST_VAR " ++ TEST_VAR),
+			       " -boot_var TEST_VAR \"" ++
+			       TEST_VAR ++ "\""),
 	    stop_node(Node),
 	    Res = ok;
 	_ ->
