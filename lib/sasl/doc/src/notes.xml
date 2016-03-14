@@ -31,6 +31,48 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    During upgrade, the release_handler collects a list of
+	    supervisor pids in order to list all processes in the
+	    supervisor tree. If one of the supervisors (legitimately)
+	    exits before release_handler can examine it, then
+	    <c>sys:get_status/1</c> would earlier be called with a
+	    dead pid, causing a <c>'noproc'</c> error. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-13291</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The module <c>overload</c> is deprecated and will be
+	    removed in OTP 19.</p>
+          <p>
+	    Own Id: OTP-13057</p>
+        </item>
+        <item>
+          <p>
+	    Improve implementation of supervisor child count, making
+	    it faster and more accurate for dynamic processes of a
+	    <c>simple_one_for_one</c> supervisor.</p>
+          <p>
+	    Own Id: OTP-13290</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.6.1</title>
 
     <section><title>Improvements and New Features</title>

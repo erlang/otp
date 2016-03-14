@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed commands with multiple binaries, such as
+	    <c>wxImage:new/4</c>. Added
+	    <c>wxWindow:SetDoubleBuffered/1</c>,
+	    <c>wxWindow:isDoubleBuffered/1</c>,
+	    <c>wxWindow:setTransparent/2</c> and
+	    <c>wxWindow:canSetTransparent/1</c>. Fixed timing issues.</p>
+          <p>
+	    Own Id: OTP-13404</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.6</title>
 
     <section><title>Improvements and New Features</title>

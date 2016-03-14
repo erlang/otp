@@ -33,6 +33,91 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    This update fixes the problem with generic printouts in
+	    the html log file not having special characters escaped.
+	    Printouts made with <c>io:format/2</c> and
+	    <c>ct:pal/2</c> will now get special characters escaped
+	    automatically. Common Test will not attempt to escape
+	    characters printed with <c>ct:log/2</c> since it is
+	    assumed that the user may want to print html tagged data
+	    using this function. A new function, <c>ct:log/5</c>, has
+	    been added, which offers optional escaping of characters.
+	    The latter function may also be used to print text to the
+	    log without headers and CSS class wrapping (analogue to
+	    <c>io:format/2</c>).</p>
+          <p>
+	    Own Id: OTP-13003 Aux Id: seq13005 </p>
+        </item>
+        <item>
+          <p>
+	    Commit 4cf832f1ad163f5b25dd8a6f2d314c169c23c82f
+	    erroneously removed logging of open and close of netconf
+	    connections. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-13386</p>
+        </item>
+        <item>
+          <p>
+	    The directory to which nodes started with
+	    <c>test_server:start_node/3</c> writes their
+	    erl_crash.dump is changed. The crashdumps were earlier
+	    written to the directory of test_server.beam, but in
+	    later versions of Microsoft Windows this is no longer
+	    writable (even for administrators). The framework
+	    (common_test) log directory is now used instead.</p>
+          <p>
+	    Own Id: OTP-13388</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This update makes it possible to specify multiple
+	    instances of the same group or test case in one test
+	    specification term in order to repeat execution. Example:
+	    <c>{groups, "./", my_SUITE, [my_group, my_group], {cases,
+	    all}}, or {cases, "./", my_SUITE, [my_tc, my_tc,
+	    my_tc]}.</c></p>
+          <p>
+	    Own Id: OTP-13241 Aux Id: seq12979 </p>
+        </item>
+        <item>
+          <p>
+	    Two new CT hook functions have been added:
+	    <c>post_init_per_testcase/4</c> and
+	    <c>pre_end_per_testcase/3</c>. With these hook functions,
+	    it is possible to perform arbitrary actions (including
+	    modifications of test execution, test state and results)
+	    immediately before and after the execution of the test
+	    case.</p>
+          <p>
+	    Own Id: OTP-13242 Aux Id: seq12991 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct_netconfc</c> was earlier very restrictive as to
+	    which SSH options the user could set. This is now
+	    changed, and any SSH option is now allowed. The netconf
+	    client will simply pass on any option, which it does not
+	    recognize, to SSH.</p>
+          <p>
+	    Own Id: OTP-13338 Aux Id: seq13053,seq13069 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

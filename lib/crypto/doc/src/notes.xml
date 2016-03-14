@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 3.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug for <c>aes_ecb</c> block crypto when data is
+	    larger than 16 bytes.</p>
+          <p>
+	    Own Id: OTP-13249</p>
+        </item>
+        <item>
+          <p>
+	    Improve portability of ECC tests in Crypto and SSL for
+	    "exotic" OpenSSL versions.</p>
+          <p>
+	    Own Id: OTP-13311</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 3.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

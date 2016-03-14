@@ -31,6 +31,37 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ELDAP did not send an <c>'unBind'</c> request before
+	    closing the connection.</p>
+          <p>
+	    Own Id: OTP-13327</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handles the <c>referral</c> result code from LDAP
+	    servers. Adds the return value <c>{ok,
+	    {referral,UrlList}}</c> to some functions. See the Eldap
+	    reference manual for details.</p>
+          <p>
+	    Own Id: OTP-12272</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2</title>
 
     <section><title>Improvements and New Features</title>

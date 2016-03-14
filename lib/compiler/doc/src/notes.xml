@@ -32,6 +32,55 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 6.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An complicated guard expression in a function call could
+	    crash the compiler. (Thanks to Thomas Arts for reporting
+	    this bug.)</p>
+          <p>
+	    Own Id: OTP-13208</p>
+        </item>
+        <item>
+	    <p>Constructing a map in a guard in a catch could crash
+	    the compiler. (Thanks to Thomas Arts for reporting this
+	    bug.)</p>
+          <p>
+	    Own Id: OTP-13223</p>
+        </item>
+        <item>
+	    <p>Updating a fun as if it were a map would cause the
+	    compiler to crash. (Thanks to Thomas Arts for reporting
+	    this bug.)</p>
+          <p>
+	    Own Id: OTP-13231</p>
+        </item>
+        <item>
+          <p>
+	    Fix pretty printing of Core Maps</p>
+          <p>
+	    Literal maps could cause Dialyzer to crash when pretty
+	    printing the results.</p>
+          <p>
+	    Own Id: OTP-13238</p>
+        </item>
+        <item>
+          <p>
+	    A complex combination of bit syntax matching operations
+	    would cause an internal consistency check failure during
+	    compilation. (Thanks to Jose Valim for reporting this
+	    bug.)</p>
+          <p>
+	    Own Id: OTP-13309</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 6.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

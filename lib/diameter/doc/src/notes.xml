@@ -43,6 +43,38 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make peer handling more efficient.</p>
+          <p>
+	    Inefficient lookup and manipulation of peer lists could
+	    result in poor performance when many outgoing requests
+	    were sent simultaneously, or when many peers connected
+	    simultaneously. Filtering peer lists on realm/host is now
+	    also more efficient in many cases.</p>
+          <p>
+	    Own Id: OTP-13164</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of shared peer connections in watchdog state
+	    SUSPECT.</p>
+          <p>
+	    A peer connection shared from a remote node was regarded
+	    as being up for the lifetime of the connection, ignoring
+	    watchdog transitions into state SUSPECT.</p>
+          <p>
+	    Own Id: OTP-13342</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.11.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

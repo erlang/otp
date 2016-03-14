@@ -32,6 +32,33 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Assign correct names to list arguments. </p>
+          <p>
+	    Own Id: OTP-13234 Aux Id: ERL-63 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Unless the <c>sort_functions</c> option is <c>true</c>,
+	    <c>edoc_layout</c> does not sort functions.</p>
+          <p>
+	    Own Id: OTP-13302</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.17</title>
 
     <section><title>Improvements and New Features</title>

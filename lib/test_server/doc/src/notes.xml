@@ -33,6 +33,27 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new CT hook functions have been added:
+	    <c>post_init_per_testcase/4</c> and
+	    <c>pre_end_per_testcase/3</c>. With these hook functions,
+	    it is possible to perform arbitrary actions (including
+	    modifications of test execution, test state and results)
+	    immediately before and after the execution of the test
+	    case.</p>
+          <p>
+	    Own Id: OTP-13242 Aux Id: seq12991 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
