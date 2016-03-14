@@ -34,7 +34,8 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
-	 native_early_modules/1, get_mode/1]).
+	 native_early_modules/1, get_mode/1,
+	 normalized_paths/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
@@ -61,7 +62,7 @@ all() ->
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
-     big_boot_embedded, native_early_modules, get_mode].
+     big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
 groups() ->
     [].
@@ -1450,6 +1451,22 @@ native_early_modules_1(Architecture) ->
 %% Test that the mode of the code server is properly retrieved.
 get_mode(Config) when is_list(Config) ->
     interactive = code:get_mode().
+
+%% Make sure that the paths for all loaded modules have been normalized.
+normalized_paths(_Config) ->
+    do_normalized_paths(erlang:loaded()).
+
+do_normalized_paths([M|Ms]) ->
+    case code:which(M) of
+	Special when is_atom(Special) ->
+	    do_normalized_paths(Ms);
+	File when is_list(File) ->
+	    File = filename:join([File]),
+	    do_normalized_paths(Ms)
+    end;
+do_normalized_paths([]) ->
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% error_logger handler.

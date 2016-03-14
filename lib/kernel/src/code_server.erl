@@ -67,7 +67,9 @@ init(Ref, Parent, [Root,Mode]) ->
 		    %% Pre-loaded modules are always sticky.
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
 	    end, erlang:pre_loaded()),
-    ets:insert(Db, init:fetch_loaded()),
+    Loaded0 = init:fetch_loaded(),
+    Loaded = [{M,filename:join([P])} || {M,P} <- Loaded0], %Normalize.
+    ets:insert(Db, Loaded),
 
     IPath =
 	case Mode of
