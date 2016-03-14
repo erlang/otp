@@ -527,6 +527,7 @@ huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 30}),
     16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     garbage_collect(),
     {Shift,Return} = case free_mem() of
