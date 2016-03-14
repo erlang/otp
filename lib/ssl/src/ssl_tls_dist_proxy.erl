@@ -130,8 +130,8 @@ handle_call({listen, Driver, Name}, _From, State) ->
 
 handle_call({accept, _Driver, Listen}, {From, _}, State = #state{listen={_, World}}) ->
     Self = self(),
-    ErtsPid = spawn_link(fun() -> accept_loop(Self, erts, Listen, From) end),
-    WorldPid = spawn_link(fun() -> accept_loop(Self, world, World, Listen) end),
+    ErtsPid = spawn_link(fun() -> erts_accept_loop(Self, Listen, From) end),
+    WorldPid = spawn_link(fun() -> world_accept_loop(Self, World, Listen) end),
     {reply, ErtsPid, State#state{accept_loop={ErtsPid, WorldPid}}};
 
 handle_call({connect, Driver, Ip, Port}, {From, _}, State) ->
@@ -182,11 +182,11 @@ get_tcp_address(Socket) ->
 	{error, _} = Error -> Error
     end.
 
-accept_loop(Proxy, erts = Type, Listen, Extra) ->
+erts_accept_loop(Proxy, Listen, NetKernelPid) ->
     process_flag(priority, max),
     case gen_tcp:accept(Listen) of
 	{ok, Socket} ->
-	    Extra ! {accept,self(),Socket,inet,proxy},
+	    NetKernelPid ! {accept,self(),Socket,inet,proxy},
 	    receive 
 		{_Kernel, controller, Pid} ->
 		    inet:setopts(Socket, [nodelay()]),
@@ -204,9 +204,9 @@ accept_loop(Proxy, erts = Type, Listen, Extra) ->
 	Error ->
 	    exit(Error)
     end,
-    accept_loop(Proxy, Type, Listen, Extra);
+    erts_accept_loop(Proxy, Listen, NetKernelPid).
 
-accept_loop(Proxy, world = Type, Listen, Extra) ->
+world_accept_loop(Proxy, Listen, ErtsListen) ->
     process_flag(priority, max),
     case gen_tcp:accept(Listen) of
 	{ok, Socket} ->
@@ -216,7 +216,7 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
 		{ok, SslSocket} ->
 		    PairHandler =
 			spawn_link(fun() ->
-					   setup_connection(SslSocket, Extra)
+					   setup_connection(SslSocket, ErtsListen)
 				   end),
 		    ok = ssl:controlling_process(SslSocket, PairHandler),
 		    flush_old_controller(PairHandler, SslSocket);
@@ -231,7 +231,7 @@ accept_loop(Proxy, world = Type, Listen, Extra) ->
 	Error ->
 	    exit(Error)
     end,
-    accept_loop(Proxy, Type, Listen, Extra).
+    world_accept_loop(Proxy, Listen, ErtsListen).
 
 wait_for_code_server() ->
     %% This is an ugly hack.  Upgrading a socket to TLS requires the
