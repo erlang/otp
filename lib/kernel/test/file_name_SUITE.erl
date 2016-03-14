@@ -139,7 +139,12 @@ home_dir(Config) when is_list(Config) ->
 	    test_server:stop_node(Node),
 	    ok
 	after
-	    os:putenv(SaveOldName,SaveOldValue),
+	    case SaveOldValue of
+		false ->
+		    os:unsetenv(SaveOldName);
+		_ ->
+		    os:putenv(SaveOldName,SaveOldValue)
+	    end,
 	    rm_rf(prim_file,NewHome)
 	end
     catch
