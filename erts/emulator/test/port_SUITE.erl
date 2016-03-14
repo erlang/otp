@@ -74,7 +74,7 @@
 %%
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0, groups/0,
          init_per_testcase/2, end_per_testcase/2,
          init_per_suite/1, end_per_suite/1,
          stream_small/1, stream_big/1,
@@ -128,12 +128,6 @@ groups() ->
      {options, [], [t_binary, eof, input_only, output_only]},
      {multiple_packets, [], [mul_basic, mul_slow_writes]},
      {tps, [], [tps_16_bytes, tps_1K]}].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
@@ -914,6 +908,7 @@ try_bad_env(Env) ->
 
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 30}),
     Vars = case os:type() of
                {win32,_} -> 500;
                _ ->
