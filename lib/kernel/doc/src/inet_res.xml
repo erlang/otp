@@ -44,7 +44,7 @@
     <p>This DNS client can resolve DNS records even if it
       is not used for normal name resolving in the node.</p>
     <p>This is not a full-fledged resolver. It is just a
-      DNS client that relies on asking trusted recursive nameservers.</p>
+      DNS client that relies on asking trusted recursive name servers.</p>
   </description>
 
   <section>
@@ -56,20 +56,20 @@
       When EDNS is enabled (resolver option
       <c>edns</c> is set to the EDNS version i.e <c>0</c>
       instead of <c>false</c>), resolver option
-      <c>udp_payload_size</c> sets the limit. If a nameserver
+      <c>udp_payload_size</c> sets the limit. If a name server
       replies with the TC bit set (truncation), indicating
       the answer is incomplete, the query is retried
-      to that nameserver using TCP. The resolver option
+      to that name server using TCP. The resolver option
       <c>udp_payload_size</c> also sets the advertised
       size for the max allowed reply size, if EDNS is
-      enabled, otherwise the nameserver uses the limit
+      enabled, otherwise the name server uses the limit
       512 byte. If the reply is larger it gets truncated,
       forcing a TCP re-query.</p>
     <p>For UDP queries, the resolver options <c>timeout</c>
       and <c>retry</c> control retransmission.
-      Each nameserver in the <c>nameservers</c> list is
+      Each name server in the <c>nameservers</c> list is
       tried with a timeout of <c>timeout</c> / <c>retry</c>.
-      Then all nameservers are tried again doubling the
+      Then all name servers are tried again doubling the
       timeout, for a total of <c>retry</c> times.</p>
     <p>For queries that not use the <c>search</c> list,
       if the query to all <c>nameservers</c> results in
@@ -111,7 +111,7 @@
     <datatype>
       <name name="dns_msg"/>
       <desc>
-        <p>This is the start of a hiearchy of opaque data structures
+        <p>This is the start of a hierarchy of opaque data structures
           that can be examined with access functions in inet_dns that
           return lists of {Field,Value} tuples. The arity 2 functions
           just return the value for a given field.</p>
@@ -293,7 +293,7 @@ any of these data structures into a {Field,Value} list.</p>
         </p><p>
           <c><anno>Opts</anno></c> override the corresponding resolver options.
           If the option <c>nameservers</c> is given, it is
-          also assumed that it is the complete list of nameserves,
+          also assumed that it is the complete list of name servers,
           so the resolver option <c>alt_nameserves</c> is ignored.
           Of course, if that option is also given to this function,
           it is used.
@@ -345,7 +345,7 @@ any of these data structures into a {Field,Value} list.</p>
   <section>
     <title>Legacy Functions</title>
     <p>These have been deprecated due to the annoying double
-      meaning of the nameservers/timeout argument, and
+      meaning of the name servers/timeout argument, and
       because they had no decent place for a resolver options list.</p>
   </section>
 

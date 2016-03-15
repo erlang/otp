@@ -80,7 +80,7 @@
       <name>assoc_id()</name>
       <desc>
         <p><marker id="type-assoc_id"/>
-	  An opaque term returned in for example #sctp_paddr_change{}
+	  An opaque term returned in for example <c>#sctp_paddr_change{}</c>
           that identifies an association for an SCTP socket. The term
           is opaque except for the special value <c>0</c> that has a
           meaning such as "the whole endpoint" or "all future associations".
@@ -232,7 +232,7 @@
 	<p>The fundamental difference between this API
 	and <c>connect/*</c> is that the return value is that of the
 	underlying OS connect(2) system call. If <c>ok</c> is returned
-	then the result of the association establishement is received
+	then the result of the association establishment is received
 	by the calling process as
 	an <seealso marker="#record-sctp_assoc_change">
 	    #sctp_assoc_change{}</seealso>
@@ -729,7 +729,7 @@
           <c>adaptation_ind</c> as the Adaptation Indication parameter for
           establishing new associations. See
           <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC2960</url> and
-          <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets API Extenstions for SCTP</url> for more details.</p>
+          <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets API Extensions for SCTP</url> for more details.</p>
       </item>
       <tag><c>{sctp_peer_addr_params, #sctp_paddrparams{}}</c></tag>
       <item>

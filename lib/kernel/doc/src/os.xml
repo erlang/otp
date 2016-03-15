@@ -204,7 +204,7 @@ format_utc_timestamp() ->
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
 29 Apr 2009  9:55:30.051711
 </pre>
-       <p>OS system time can also be retreived by
+       <p>OS system time can also be retrieved by
 	<seealso marker="#system_time/0"><c>os:system_time/0</c></seealso>,
 	and <seealso marker="#system_time/1"><c>os:system_time/1</c></seealso>.</p>
       </desc>

@@ -323,7 +323,7 @@
     </func>
     <func>
       <name name="pmap" arity="3"/>
-      <fsummary>Parallell evaluation of mapping a function over a list </fsummary>
+      <fsummary>Parallel evaluation of mapping a function over a list </fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, [<anno>Elem</anno>|<anno>ExtraArgs</anno>])</c>,
           for every element <c><anno>Elem</anno></c> in <c><anno>List1</anno></c>, in parallel.

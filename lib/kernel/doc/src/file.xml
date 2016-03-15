@@ -1754,9 +1754,9 @@
 	  which comfortably fits in the systems memory. Default is 20 MB.</item>
 	  <tag><c>use_threads</c></tag>
           <item>Instruct the emulator to use the async thread pool for the
-	  sendfile system call. This could be usefull if the OS you are running
+	  sendfile system call. This could be useful if the OS you are running
 	  on does not properly support non-blocking sendfile calls. Do note that
-	  using async threads potentially makes your system volnerable to slow
+	  using async threads potentially makes your system vulnerable to slow
 	  client attacks. If set to true and no async threads are available,
 	  the sendfile call will return <c>{error,einval}</c>.
 	  Introduced in Erlang/OTP 17.0. Default is false.</item>

@@ -381,8 +381,8 @@ do_recv(Sock, Bs) ->
       socket. The start/2 function takes the number of worker
       processes as well as a port number to listen for incoming
       connections on. If <c>LPort</c> is specified as <c>0</c>, an
-      ephemeral portnumber is used, why the start function returns
-      the actual portnumber allocated:</p>
+      ephemeral port number is used, why the start function returns
+      the actual port number allocated:</p>
     <code type="none">
 start(Num,LPort) ->
     case gen_tcp:listen(LPort,[{active, false},{packet,2}]) of
@@ -479,7 +479,7 @@ loop(Sock) ->
             end
     end.    </code>
     <p>Usually it would suffice to detect timeouts on receive, as most
-      protocols include some sort of acknowledgment from the server,
+      protocols include some sort of acknowledgement from the server,
       but if the protocol is strictly one way, the <c>send_timeout</c>
       option comes in handy!</p>
   </section>

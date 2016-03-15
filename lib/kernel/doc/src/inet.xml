@@ -287,7 +287,7 @@ fe80::204:acff:fe17:bf38
           correspond to the second, third and fourth/fifth parameters to the
           <c>getsockopt</c> call in the C socket API. The value stored
           in the buffer is returned as a binary <c>ValueBin</c>
-          where all values are coded in the native endianess.</p>
+          where all values are coded in the native endianness.</p>
         <p>Asking for and inspecting raw socket options require low
           level information about the current operating system and TCP
           stack.</p>
@@ -377,7 +377,7 @@ fe80::204:acff:fe17:bf38
     </func>
     <func>
       <name name="ntoa" arity="1" />
-      <fsummary>Convert IPv6 / IPV4 adress to ascii</fsummary>
+      <fsummary>Convert IPv6 / IPV4 address to ASCII</fsummary>
       <desc>
 	<p>Parses an <seealso marker="#type-ip_address">ip_address()</seealso> and returns an IPv4 or IPv6 address string.</p>
       </desc>
@@ -410,7 +410,7 @@ fe80::204:acff:fe17:bf38
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an <seealso marker="#type-ip6_address">ip6_address()</seealso>.
-	Does <em>not</em> accept IPv4 adresses.</p>
+	Does <em>not</em> accept IPv4 addresses.</p>
       </desc>
     </func>
     <func>
@@ -753,7 +753,7 @@ fe80::204:acff:fe17:bf38
 	      is ignored and getting this option with
 	      <seealso marker="#getopts/2">getopts/2</seealso>
 	      returns no value i.e the returned list will not contain an
-	      <c>{ipv6_v6only,_}</c> tuple. On Windows the option acually
+	      <c>{ipv6_v6only,_}</c> tuple. On Windows the option actually
 	      does not exist, but it is emulated as being a
 	      read-only option with the value <c>true</c>.
 	    </p>
@@ -1104,7 +1104,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp
           and the actual option value specified as a binary. This
           corresponds to the second, third and fourth argument to the
           <c>setsockopt</c> call in the C socket API. The option value
-          needs to be coded in the native endianess of the platform and,
+          needs to be coded in the native endianness of the platform and,
           if a structure is required, needs to follow the struct
           alignment conventions on the specific platform.</p>
         <p>Using raw socket options require detailed knowledge about
