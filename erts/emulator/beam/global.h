@@ -1493,7 +1493,9 @@ enum erts_pam_run_flags {
     ERTS_PAM_CONTIGUOUS_TUPLE=4,
     ERTS_PAM_IGNORE_TRACE_SILENT=8
 };
-extern Eterm erts_match_set_run(Process *p, Binary *mpsp, 
+extern Eterm erts_match_set_run(Process *p,
+                                Process *self,
+                                Binary *mpsp,
 				Eterm *args, int num_args,
 				enum erts_pam_run_flags in_flags,
 				Uint32 *return_flags);

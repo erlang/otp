@@ -94,6 +94,26 @@ receive_trace(Config) when is_list(Config) ->
     {trace, Receiver, 'receive', Hello2} = receive_first_trace(),
     receive_nothing(),
 
+    %% Test 'receive' with matchspec
+    F1 = fun ({Pat, IsMatching}) ->
+		 set_trace_pattern('receive', Pat, []),
+		 Receiver ! Hello,
+		 case IsMatching of
+		     true ->
+			 {trace, Receiver, 'receive', Hello} = receive_first_trace();
+		     false ->
+			 ok
+		 end,
+		 receive_nothing()
+	 end,
+    lists:foreach(F1, [{no, true},
+		       {[{[undefined,"Unexpected"],[],[]}], false},
+		       {[{['_','_'],[],[]}], true},
+		       {[{['$1','_'],[{is_integer,'$1'}],[]}], false},
+		       {[{['_','$1'],[{is_tuple,'$1'}],[]}], true},
+		       {false, false},
+		       {true, true}]),
+
     %% Another process should not be able to trace Receiver.
     Intruder = fun_spawn(fun() -> erlang:trace(Receiver, true, ['receive']) end),
     {'EXIT', Intruder, {badarg, _}} = receive_first(),

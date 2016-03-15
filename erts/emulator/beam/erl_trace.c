@@ -238,7 +238,6 @@ write_timestamp(ErtsTraceTimeStamp *tsp, Eterm **hpp)
 }
 
 #ifdef ERTS_SMP
-#define PATCH_TS_SIZE(p) patch_ts_size(TFLGS_TS_TYPE(p))
 
 static ERTS_INLINE Uint
 patch_ts_size(int ts_type)
@@ -258,7 +257,7 @@ patch_ts_size(int ts_type)
 	return 0;
     }
 }
-#endif
+#endif /* ERTS_SMP */
 
 /*
  * Write a timestamp. The timestamp MUST be the last
@@ -826,7 +825,8 @@ trace_send(Process *p, Eterm to, Eterm msg)
 	Uint32 return_flags;
 	args[0] = to;
 	args[1] = msg;
-	pam_result = erts_match_set_run(p, te->match_spec, args, 2,
+	pam_result = erts_match_set_run(p, p,
+                                        te->match_spec, args, 2,
 					ERTS_PAM_TMP_RESULT, &return_flags);
 	if (is_non_value(pam_result)
 	    || pam_result == am_false
@@ -859,14 +859,43 @@ trace_send(Process *p, Eterm to, Eterm msg)
  * or   {trace, Pid, receive, Msg}
  */
 void
-trace_receive(Process *c_p, Eterm msg)
+trace_receive(Process *c_p,
+              Process* receiver,
+              Eterm msg, ErtsTracingEvent* te)
 {
     ErtsTracerNif *tnif = NULL;
-    if (is_tracer_enabled(NULL, 0, &c_p->common, &tnif,
-                TRACE_FUN_E_RECEIVE, am_receive))
-        send_to_tracer_nif(NULL, &c_p->common, c_p->common.id,
+    Eterm pam_result;
+
+    if (!te) {
+        te = &erts_receive_tracing[erts_active_bp_ix()];
+        if (!te->on)
+            return;
+    }
+
+    if (te->match_spec) {
+        Eterm args[2];
+        Uint32 return_flags;
+        args[0] = am_undefined; /* ToDo: from who? */
+        args[1] = msg;
+        pam_result = erts_match_set_run(c_p, receiver,
+                                        te->match_spec, args, 2,
+                                        ERTS_PAM_TMP_RESULT, &return_flags);
+        if (is_non_value(pam_result)
+            || pam_result == am_false
+            || (ERTS_TRACE_FLAGS(receiver) & F_TRACE_SILENT)) {
+            erts_match_set_release_result(c_p);
+            return;
+        }
+    } else
+        pam_result = am_true;
+
+    if (is_tracer_enabled(NULL, 0, &receiver->common, &tnif,
+                          TRACE_FUN_E_RECEIVE, am_receive)) {
+        send_to_tracer_nif(NULL, &receiver->common, receiver->common.id,
                            tnif, TRACE_FUN_T_RECEIVE,
-                           am_receive, msg, THE_NON_VALUE, am_true);
+                           am_receive, msg, THE_NON_VALUE, pam_result);
+    }
+    erts_match_set_release_result(c_p);
 }
 
 int
@@ -1226,7 +1255,8 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
            may remove it, and we still want to generate a trace message */
         erts_tracer_update(&pre_ms_tracer, *tracer);
         tracer = &pre_ms_tracer;
-        pam_result = erts_match_set_run(p, match_spec, args, arity,
+        pam_result = erts_match_set_run(p, p,
+                                        match_spec, args, arity,
                                         ERTS_PAM_TMP_RESULT, &return_flags);
         if (is_non_value(pam_result)) {
             erts_match_set_release_result(p);

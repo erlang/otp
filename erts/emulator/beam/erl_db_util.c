@@ -1202,14 +1202,16 @@ done:
     return ret;
 }
     
-Eterm erts_match_set_run(Process *p, Binary *mpsp, 
+Eterm erts_match_set_run(Process *c_p,
+                         Process *self,
+                         Binary *mpsp,
 			 Eterm *args, int num_args,
 			 enum erts_pam_run_flags in_flags,
 			 Uint32 *return_flags) 
 {
     Eterm ret;
 
-    ret = db_prog_match(p, mpsp, NIL, args, num_args,
+    ret = db_prog_match(c_p, self, mpsp, NIL, args, num_args,
 			in_flags, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
@@ -1234,7 +1236,8 @@ static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
 {
     Eterm ret;
 
-    ret = db_prog_match(p, mpsp, args, NULL, num_args,
+    ret = db_prog_match(p, p,
+                        mpsp, args, NULL, num_args,
 			ERTS_PAM_COPY_RESULT,
 			return_flags);
 #if defined(HARDDEBUG)
@@ -1730,7 +1733,9 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 ** the parameter 'arity' is only used if 'term' is actually an array,
 ** i.e. 'DCOMP_TRACE' was specified 
 */
-Eterm db_prog_match(Process *c_p, Binary *bprog,
+Eterm db_prog_match(Process *c_p,
+                    Process *self,
+                    Binary *bprog,
 		    Eterm term,
 		    Eterm *termp,
 		    int arity,
@@ -1746,7 +1751,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
-    Uint n = 0; /* To avoid warning. */
+    Uint n;
     int i;
     unsigned do_catch;
     ErtsMatchPseudoProcess *mpsp;
@@ -1763,6 +1768,8 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     Uint *stack_fence;
     Uint save_op;
 #endif /* DMC_DEBUG */
+
+    ERTS_UNDEF(n,0);
 
     mpsp = get_match_pseudo_process(c_p, prog->heap_size);
     psp = &mpsp->process;
@@ -2233,7 +2240,7 @@ restart:
 	    pc += n;
 	    break;
 	case matchSelf:
-	    *esp++ = c_p->common.id;
+	    *esp++ = self->common.id;
 	    break;
 	case matchWaste:
 	    --esp;
@@ -2243,6 +2250,7 @@ restart:
 	    break;
 	case matchProcessDump: {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
+            ASSERT(c_p == self);
 	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p);
 	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str,
 				dsbufp->str_len);
@@ -2261,14 +2269,16 @@ restart:
 	    *return_flags |= MATCH_SET_EXCEPTION_TRACE;
 	    *esp++ = am_true;
 	    break;
-	case matchIsSeqTrace:
+        case matchIsSeqTrace:
+            ASSERT(c_p == self);
             if (have_seqtrace(SEQ_TRACE_TOKEN(c_p)))
 		*esp++ = am_true;
 	    else
 		*esp++ = am_false;
 	    break;
 	case matchSetSeqToken:
-	    t = erts_seq_trace(c_p, esp[-1], esp[-2], 0);
+            ASSERT(c_p == self);
+            t = erts_seq_trace(c_p, esp[-1], esp[-2], 0);
 	    if (is_non_value(t)) {
 		esp[-2] = FAIL_TERM;
 	    } else {
@@ -2276,7 +2286,8 @@ restart:
 	    }
 	    --esp;
 	    break;
-	case matchSetSeqTokenFake:
+        case matchSetSeqTokenFake:
+            ASSERT(c_p == self);
 	    t = seq_trace_fake(c_p, esp[-1]);
 	    if (is_non_value(t)) {
 		esp[-2] = FAIL_TERM;
@@ -2285,7 +2296,8 @@ restart:
 	    }
 	    --esp;
 	    break;
-	case matchGetSeqToken:
+        case matchGetSeqToken:
+            ASSERT(c_p == self);
             if (have_no_seqtrace(SEQ_TRACE_TOKEN(c_p)))
 		*esp++ = NIL;
 	    else {
@@ -2309,7 +2321,8 @@ restart:
 		ASSERT(is_immed(ehp[5]));
 	    } 
 	    break;
-	case matchEnableTrace:
+        case matchEnableTrace:
+            ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
                 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), 0, n);
@@ -2319,7 +2332,8 @@ restart:
 		esp[-1] = FAIL_TERM;
 	    }
 	    break;
-	case matchEnableTrace2:
+        case matchEnableTrace2:
+            ASSERT(c_p == self);
 	    n = erts_trace_flag2bit((--esp)[-1]);
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
@@ -2334,7 +2348,8 @@ restart:
 		}
 	    }
 	    break;
-	case matchDisableTrace:
+        case matchDisableTrace:
+            ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
                 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), n, 0);
@@ -2344,7 +2359,8 @@ restart:
 		esp[-1] = FAIL_TERM;
 	    }
 	    break;
-	case matchDisableTrace2:
+        case matchDisableTrace2:
+            ASSERT(c_p == self);
 	    n = erts_trace_flag2bit((--esp)[-1]);
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
@@ -2359,7 +2375,8 @@ restart:
 		}
 	    }
 	    break;
- 	case matchCaller:
+        case matchCaller:
+            ASSERT(c_p == self);
 	    if (!(c_p->cp) || !(cp = find_function_from_pc(c_p->cp))) {
  		*esp++ = am_undefined;
  	    } else {
@@ -2371,7 +2388,8 @@ restart:
 		ehp[3] = make_small((Uint) cp[2]);
 	    }
 	    break;
-	case matchSilent:
+        case matchSilent:
+            ASSERT(c_p == self);
 	    --esp;
 	    if (in_flags & ERTS_PAM_IGNORE_TRACE_SILENT)
 	      break;
@@ -2386,7 +2404,8 @@ restart:
 		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    break;
-	case matchTrace2:
+        case matchTrace2:
+            ASSERT(c_p == self);
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
@@ -2418,7 +2437,8 @@ restart:
                 ERTS_TRACER_CLEAR(&tracer);
 	    }
 	    break;
-	case matchTrace3:
+        case matchTrace3:
+            ASSERT(c_p == self);
 	    {
 		/*    disable         enable                                */
 		Uint  d_flags  = 0,   e_flags  = 0;  /* process trace flags */
@@ -5080,7 +5100,8 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    }
 	    save_cp = p->cp;
 	    p->cp = NULL;
-	    res = erts_match_set_run(p, mps, arr, n,
+	    res = erts_match_set_run(p, p,
+                      mps, arr, n,
 		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
 		      &ret_flags);
 	    p->cp = save_cp;
@@ -5163,7 +5184,8 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 	obj = db_alloc_tmp_uncompressed(tb, obj);
     }
 
-    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), NULL, 0,
+    res = db_prog_match(c_p, c_p,
+                        bprog, make_tuple(obj->tpl), NULL, 0,
 			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
