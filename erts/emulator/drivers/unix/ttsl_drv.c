@@ -264,14 +264,12 @@ static int ttysl_init(void)
 	DEBUGLOG(("ttysl_init: Debuglog = %s(0x%ld)\n",dl,(long) debuglog));
     }
 #endif
-    DEBUGLOG(("ttysl_init: ttysl_port = %d\n", ttysl_port));
     return 0;
 }
 
 static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 {
 #ifndef HAVE_TERMCAP
-    DEBUGLOG(("ttysl_start: failure - no TERMCAP configured!\n"));
     return ERL_DRV_ERROR_GENERAL;
 #else
     char *s, *t, *l;
