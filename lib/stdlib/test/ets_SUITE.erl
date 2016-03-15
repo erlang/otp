@@ -2497,9 +2497,10 @@ rename_unnamed_do(Opts) ->
 
 %% Rename a table with many fixations, and at the same time delete it.
 evil_rename(Config) when is_list(Config) ->
-    evil_rename_1(old_hash, new_hash, [public,named_table]),
     EtsMem = etsmem(),
+    evil_rename_1(old_hash, new_hash, [public,named_table]),
     evil_rename_1(old_tree, new_tree, [public,ordered_set,named_table]),
+    wait_for_test_procs(true),
     verify_etsmem(EtsMem).
 
 evil_rename_1(Old, New, Flags) ->
@@ -2540,7 +2541,8 @@ crazy_fixtable_wait(N, Dracula) ->
 crazy_fixtable_1(0, _) ->
     ok;
 crazy_fixtable_1(N, Fun) ->
-    spawn_link(Fun),
+    %%FIXME my_spawn_link(Fun),
+    my_spawn_link(Fun),
     crazy_fixtable_1(N-1, Fun).
 
 evil_creater_destroyer() ->
@@ -5752,10 +5754,11 @@ spawn_logger(Procs, FailedMemchecks) ->
 				  after 0 ->
 					  case Kill of
 					      true -> exit(Proc, kill);
-					      _ -> ok
+					      _ ->
+						  erlang:display({"Waiting for 'DOWN' from", Proc,
+								  process_info(Proc),
+								  pid_status(Proc)})
 					  end,
-					  erlang:display({"Waiting for 'DOWN' from", Proc,
-							  process_info(Proc), pid_status(Proc)}),
 					  receive
 					      {'DOWN', Mon, _, _, _} ->
 						  ok
