@@ -467,7 +467,7 @@ int
 efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync data. */
 {
-#ifdef HAVE_FDATASYNC
+#if defined(HAVE_FDATASYNC) && !defined(__DARWIN__)
     return check_error(fdatasync(fd), errInfo);
 #else
     return efile_fsync(errInfo, fd);
