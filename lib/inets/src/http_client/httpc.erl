@@ -555,7 +555,7 @@ handle_request(Method, Url,
 
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
-			       address       = {Host, Port},
+			       address       = {host_address(Host, BracketedHost), Port},
 			       path          = MaybeEscPath,
 			       pquery        = MaybeEscQuery,
 			       method        = Method,
@@ -1267,3 +1267,7 @@ child_name(Pid, [_ | Children]) ->
 %% d(_, _, _) ->
 %%     ok.
 
+host_address(Host, false) ->
+    Host;
+host_address(Host, true) ->
+    string:strip(string:strip(Host, right, $]), left, $[).
