@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright (C) 2004-2014 Richard Carlsson, Mickaël Rémond
+%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
