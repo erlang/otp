@@ -1374,14 +1374,16 @@ get_length(Config) when is_list(Config) ->
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).
 ensure_lib_loaded(Config, Ver) ->
+    Path = ?config(data_dir, Config),
     case lib_version() of
-	      undefined ->
-		  Path = proplists:get_value(data_dir, Config),
-		  Lib = "nif_SUITE." ++ integer_to_list(Ver),
-		  ok = erlang:load_nif(filename:join(Path,Lib), []);
-	      Ver when is_integer(Ver) ->
-		  ok
-	  end.
+        undefined ->
+            Lib = "nif_SUITE." ++ integer_to_list(Ver),
+            ok = erlang:load_nif(filename:join(Path,Lib), []);
+        Ver when is_integer(Ver) ->
+            ok
+    end,
+    erl_ddll:try_load(Path, echo_drv, []),
+    ok.
 
 make_atom(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
@@ -1957,7 +1959,7 @@ nif_is_process_alive(Config) ->
 nif_is_port_alive(Config) ->
     ensure_lib_loaded(Config),
 
-    Port = open_port({spawn,"/bin/sh -s unix:cmd"},[stderr_to_stdout,eof]),
+    Port = open_port({spawn,echo_drv},[eof]),
     true = is_port_alive_nif(Port),
     port_close(Port),
     false = is_port_alive_nif(Port).
@@ -1991,13 +1993,13 @@ nif_binary_to_term(Config) ->
 nif_port_command(Config) ->
     ensure_lib_loaded(Config),
 
-    Port = open_port({spawn,"/bin/sh -s unix:cmd"},[stderr_to_stdout,eof]),
-    true = port_command_nif(Port, "echo hello\n"),
+    Port = open_port({spawn,echo_drv},[eof]),
+    true = port_command_nif(Port, "hello\n"),
     receive {Port,{data,"hello\n"}} -> ok
     after 1000 -> ct:fail(timeout) end,
 
     RefcBin = lists:flatten([lists:duplicate(100, "hello"),"\n"]),
-    true = port_command_nif(Port, iolist_to_binary(["echo ",RefcBin])),
+    true = port_command_nif(Port, iolist_to_binary(RefcBin)),
     receive {Port,{data,RefcBin}} -> ok
     after 1000 -> ct:fail(timeout) end,
 
@@ -2006,14 +2008,14 @@ nif_port_command(Config) ->
     {'EXIT', {badarg, _}} = (catch port_command_nif(Port, [ok])),
 
     IoList = [lists:duplicate(100,<<"hello">>),"\n"],
-    true = port_command_nif(Port, ["echo ",IoList]),
+    true = port_command_nif(Port, [IoList]),
     FlatIoList = binary_to_list(iolist_to_binary(IoList)),
     receive {Port,{data,FlatIoList}} -> ok
     after 1000 -> ct:fail(timeout) end,
 
     port_close(Port),
 
-    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, "echo hello\n")),
+    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, "hello\n")),
 
     ok.
 
