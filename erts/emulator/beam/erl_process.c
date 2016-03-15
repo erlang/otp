@@ -2211,8 +2211,7 @@ setup_thr_debug_wait_completed(void *vproc)
     if (debug_wait_completed_flags & ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS) {
 	erts_alloc_fix_alloc_shrink(awdp->sched_id, 0);
 	wait_flags |= (ERTS_SSI_AUX_WORK_DD
-		       | ERTS_SSI_AUX_WORK_DD_THR_PRGR
-		       | ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
+		       | ERTS_SSI_AUX_WORK_DD_THR_PRGR);
 #ifdef ERTS_SMP
 	aux_work_flags |= ERTS_SSI_AUX_WORK_DD;
 #endif
@@ -2220,8 +2219,7 @@ setup_thr_debug_wait_completed(void *vproc)
 
     if (debug_wait_completed_flags & ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS) {
 	wait_flags |= (ERTS_SSI_AUX_WORK_CNCLD_TMRS
-		       | ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR
-		       | ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
+		       | ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR);
 #ifdef ERTS_SMP
 	if (awdp->esdp && !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp))
 	    aux_work_flags |= ERTS_SSI_AUX_WORK_CNCLD_TMRS;
@@ -2235,26 +2233,42 @@ setup_thr_debug_wait_completed(void *vproc)
     awdp->debug.wait_completed.arg = vproc;
 }
 
-static void
-prep_setup_thr_debug_wait_completed(void *vproc)
+struct debug_lop {
+    ErtsThrPrgrLaterOp lop;
+    Process *proc;
+};
+
+static void later_thr_debug_wait_completed(void *vlop)
 {
+    struct debug_lop *lop = vlop;
     erts_aint32_t count = (erts_aint32_t) erts_no_schedulers;
 #ifdef ERTS_SMP
     count += 1; /* aux thread */
 #endif
     if (erts_atomic32_dec_read_mb(&debug_wait_completed_count) == count) {
-	/* scheduler threads */
-	erts_schedule_multi_misc_aux_work(0,
-					  erts_no_schedulers,
-					  setup_thr_debug_wait_completed,
-					  vproc);
+        /* scheduler threads */
+        erts_schedule_multi_misc_aux_work(0,
+                                          erts_no_schedulers,
+                                          setup_thr_debug_wait_completed,
+                                          lop->proc);
 #ifdef ERTS_SMP
-	/* aux_thread */
-	erts_schedule_misc_aux_work(0,
-				    setup_thr_debug_wait_completed,
-				    vproc);
+        /* aux_thread */
+        erts_schedule_misc_aux_work(0,
+                                    setup_thr_debug_wait_completed,
+                                    lop->proc);
 #endif
     }
+    erts_free(ERTS_ALC_T_DEBUG, lop);
+}
+
+
+static void
+init_thr_debug_wait_completed(void *vproc)
+{
+    struct debug_lop* lop = erts_alloc(ERTS_ALC_T_DEBUG,
+                                       sizeof(struct debug_lop));
+    lop->proc = vproc;
+    erts_schedule_thr_prgr_later_op(later_thr_debug_wait_completed, lop, &lop->lop);
 }
 
 
@@ -2264,7 +2278,7 @@ erts_debug_wait_completed(Process *c_p, int flags)
     /* Only one process at a time can do this */
     erts_aint32_t count = (erts_aint32_t) (2*erts_no_schedulers);
 #ifdef ERTS_SMP
-    count += 2; /* aux thread */
+    count += 1; /* aux thread */
 #endif
     if (0 == erts_atomic32_cmpxchg_mb(&debug_wait_completed_count,
 				      count,
@@ -2272,17 +2286,12 @@ erts_debug_wait_completed(Process *c_p, int flags)
 	debug_wait_completed_flags = flags;
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	erts_proc_inc_refc(c_p);
-	/* scheduler threads */
+
+        /* First flush later-ops on all scheduler threads */
 	erts_schedule_multi_misc_aux_work(0,
 					  erts_no_schedulers,
-					  prep_setup_thr_debug_wait_completed,
+					  init_thr_debug_wait_completed,
 					  (void *) c_p);
-#ifdef ERTS_SMP
-	/* aux_thread */
-	erts_schedule_misc_aux_work(0,
-				    prep_setup_thr_debug_wait_completed,
-				    (void *) c_p);
-#endif
 	return 1;
     }
     return 0;
