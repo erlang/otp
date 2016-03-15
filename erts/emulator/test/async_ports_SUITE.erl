@@ -1,8 +1,10 @@
 -module(async_ports_SUITE).
 
--include_lib("common_test/include/ct.hrl").
+-export([all/0, suite/0]).
+-export([permanent_busy_test/1]).
+-export([run_loop/5]).
 
--compile(export_all).
+-include_lib("common_test/include/ct.hrl").
 
 -define(PACKET_SIZE, (10 * 1024 * 8)).
 -define(CPORT_DELAY, 100).
@@ -11,17 +13,15 @@
 -define(TEST_PROCS_COUNT, 2).
 -define(TC_TIMETRAP_SECONDS, 10).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, ?TC_TIMETRAP_SECONDS}}].
 
 all() ->
-    [
-     permanent_busy_test
-    ].
+    [permanent_busy_test].
 
 permanent_busy_test(Config) ->
-    ct:timetrap({seconds, ?TC_TIMETRAP_SECONDS}),
-    ExePath = filename:join(?config(data_dir, Config), "cport"),
-
+    ExePath = filename:join(proplists:get_value(data_dir, Config), "cport"),
     Self = self(),
     spawn_link(
       fun() ->
@@ -29,17 +29,16 @@ permanent_busy_test(Config) ->
 
               Port = open_port(ExePath),
               
-              Testers =
-                  lists:map(
-                    fun(_) ->
-                            erlang:spawn_link(?MODULE, run_loop,
-                                              [Self,
-                                               Port,
-                                               Block,
-                                               ?TEST_LOOPS_COUNT,
-                                               0])
-                    end,
-                    lists:seq(1, ?TEST_PROCS_COUNT)),
+              Testers = lists:map(
+                          fun(_) ->
+                                  spawn_link(?MODULE, run_loop,
+                                             [Self,
+                                              Port,
+                                              Block,
+                                              ?TEST_LOOPS_COUNT,
+                                              0])
+                          end,
+                          lists:seq(1, ?TEST_PROCS_COUNT)),
               Self ! {test_info, Port, Testers},
               endless_flush(Port)
       end),

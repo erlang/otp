@@ -19,8 +19,7 @@
 
 -module(alloc_SUITE).
 -author('rickard.green@uab.ericsson.se').
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([basic/1,
 	 coalesce/1,
@@ -34,42 +33,20 @@
 	 cpool/1,
 	 migration/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -include_lib("common_test/include/ct.hrl").
 
--define(DEFAULT_TIMETRAP_SECS, 240).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
      bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-
 init_per_testcase(Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
-    [{watchdog, Dog}, {testcase, Case}, {debug,false} | Config].
+    [{testcase, Case},{debug,false}|Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -77,41 +54,23 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %% Testcases                                                              %%
 %%                                                                        %%
 
-basic(suite) -> [];
-basic(doc) ->   [];
-basic(Cfg) -> ?line drv_case(Cfg).
+basic(Cfg) -> drv_case(Cfg).
 
-coalesce(suite) -> [];
-coalesce(doc) ->   [];
-coalesce(Cfg) -> ?line drv_case(Cfg).
+coalesce(Cfg) -> drv_case(Cfg).
 
-threads(suite) -> [];
-threads(doc) ->   [];
-threads(Cfg) -> ?line drv_case(Cfg).
+threads(Cfg) -> drv_case(Cfg).
 
-realloc_copy(suite) -> [];
-realloc_copy(doc) ->   [];
-realloc_copy(Cfg) -> ?line drv_case(Cfg).
+realloc_copy(Cfg) -> drv_case(Cfg).
 
-bucket_index(suite) -> [];
-bucket_index(doc) ->   [];
-bucket_index(Cfg) -> ?line drv_case(Cfg).
+bucket_index(Cfg) -> drv_case(Cfg).
 
-bucket_mask(suite) -> [];
-bucket_mask(doc) ->   [];
-bucket_mask(Cfg) -> ?line drv_case(Cfg).
+bucket_mask(Cfg) -> drv_case(Cfg).
 
-rbtree(suite) -> [];
-rbtree(doc) ->   [];
-rbtree(Cfg) -> ?line drv_case(Cfg).
+rbtree(Cfg) -> drv_case(Cfg).
 
-mseg_clear_cache(suite) -> [];
-mseg_clear_cache(doc) ->   [];
-mseg_clear_cache(Cfg) -> ?line drv_case(Cfg).
+mseg_clear_cache(Cfg) -> drv_case(Cfg).
 
-cpool(suite) -> [];
-cpool(doc) ->   [];
-cpool(Cfg) -> ?line drv_case(Cfg).
+cpool(Cfg) -> drv_case(Cfg).
 
 migration(Cfg) ->
     case erlang:system_info(smp_support) of
@@ -122,12 +81,12 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{unix, _} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
 	{SkipOs,_} ->
-	    ?line {skipped,
+	    {skipped,
 		   lists:flatten(["Not run on "
 				  | io_lib:format("~p",[SkipOs])])}
     end.
@@ -185,28 +144,28 @@ drv_case(Config) ->
     drv_case(Config, one_shot, "").
 
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{Family, _} when Family == unix; Family == win32 ->
-	    ?line {ok, Node} = start_node(Config, NodeOpts),
-	    ?line Self = self(),
-	    ?line Ref = make_ref(),
-	    ?line spawn_link(Node,
+	    {ok, Node} = start_node(Config, NodeOpts),
+	    Self = self(),
+	    Ref = make_ref(),
+	    spawn_link(Node,
 			     fun () ->
 				     Res = run_drv_case(Config, Mode),
 				     Self ! {Ref, Res}
 			     end),
-	    ?line Result = receive {Ref, Rslt} -> Rslt end,
-	    ?line stop_node(Node),
-	    ?line Result;
+	    Result = receive {Ref, Rslt} -> Rslt end,
+	    stop_node(Node),
+	    Result;
 	SkipOs ->
-	    ?line {skipped,
+	    {skipped,
 		   lists:flatten(["Not run on "
 				  | io_lib:format("~p",[SkipOs])])}
     end.
 
 run_drv_case(Config, Mode) ->
-    DataDir = ?config(data_dir,Config),
-    CaseName = ?config(testcase,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    CaseName = proplists:get_value(testcase,Config),
     File = filename:join(DataDir, CaseName),
     {ok,CaseName,Bin} = compile:file(File, [binary,return_errors]),
     {module,CaseName} = erlang:load_module(CaseName,Bin),
@@ -266,7 +225,6 @@ print_stats(migration) ->
 
     io:format("Number of blocks  : ~p\n", [Btot]),
     io:format("Number of carriers: ~p\n", [Ctot]);
-
 print_stats(_) -> ok.
 
 tuple_add(T1, T2) ->
@@ -338,7 +296,7 @@ repeat_while_loop(Fun, TRef, I) ->
 flush_log() ->
     receive
 	{print, Str} ->
-	    ?t:format("~s", [Str]),
+	    io:format("~s", [Str]),
 	    flush_log()
     after 0 ->
 	    ok
@@ -348,23 +306,23 @@ handle_result(_State, Result0) ->
     flush_log(),
     case Result0 of
 	{'EXIT', Error} ->
-	    ?line ?t:fail(Error);
+	    ct:fail(Error);
 	{'EXIT', error, Error} ->
-	    ?line ?t:fail(Error);
+	    ct:fail(Error);
 	{failed, Comment} ->
-	    ?line ?t:fail(Comment);
+	    ct:fail(Comment);
 	{skipped, Comment} ->
-	    ?line {skipped, Comment};
+	    {skipped, Comment};
 	{succeeded, ""} ->
-	    ?line succeeded;
+	    succeeded;
 	{succeeded, Comment} ->
-	    ?line {comment, Comment};
+	    {comment, Comment};
 	continue ->
 	    continue
     end.
 
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    case ?config(debug,Config) of
+    case proplists:get_value(debug,Config) of
 	true -> {ok, node()};
 	_ -> start_node_1(Config, Opts)
     end.
@@ -373,16 +331,16 @@ start_node_1(Config, Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
-			++ atom_to_list(?config(testcase, Config))
+			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 free_memory() ->
     %% Free memory in MB.
@@ -401,6 +359,6 @@ free_memory() ->
 	TotFree div (1024*1024)
     catch
 	error : undef ->
-	    ?t:fail({"os_mon not built"})
+	    ct:fail({"os_mon not built"})
     end.
 

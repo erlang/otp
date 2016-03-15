@@ -70,86 +70,43 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	 test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
-         test_hash_zero/1,
-	 end_per_testcase/2,init_per_testcase/2]).
-init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog}|Config].
- 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-suite() -> [{ct_hooks,[ts_install_cth]}].
+         test_hash_zero/1]).
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [test_basic, test_cmp, test_range, test_spread,
      test_phash2, otp_5292, bit_level_binaries, otp_7127,
-     test_hash_zero
-    ].
+     test_hash_zero].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-test_basic(suite) ->
-    [];
-test_basic(doc) ->
-    ["Tests basic functionality of erlang:phash and that the "
-     "hashes has not changed (neither hash nor phash)"];
+%% Tests basic functionality of erlang:phash and that the
+%% hashes has not changed (neither hash nor phash)
 test_basic(Config) when is_list(Config) ->
     basic_test().
 
 
-test_cmp(suite) ->
-    [];
-test_cmp(doc) ->
-    ["Compares integer hashes made by erlang:phash with those of a reference "
-     "implementation"];
+%% Compares integer hashes made by erlang:phash with those of a reference implementation
 test_cmp(Config) when is_list(Config) ->
     cmp_test(10000).
 
-test_range(suite) ->
-    [];
-test_range(doc) ->
-    ["Tests ranges on erlang:phash from 1 to 2^32"];
+%% Tests ranges on erlang:phash from 1 to 2^32
 test_range(Config) when is_list(Config) ->
     range_test().
 
-test_spread(suite) ->
-    [];
-test_spread(doc) ->
-    ["Tests that the hashes are spread ok"];
+%% Tests that the hashes are spread ok
 test_spread(Config) when is_list(Config) ->
     spread_test(10).
 
-test_phash2(suite) ->
-    [];
-test_phash2(doc) ->
-    ["Tests phash2"];
+%% Tests phash2
 test_phash2(Config) when is_list(Config) ->
     phash2_test().
 
-otp_5292(suite) ->
-    [];
-otp_5292(doc) ->
-    ["Tests hash, phash and phash2 regarding integers."];
+%% Tests hash, phash and phash2 regarding integers.
 otp_5292(Config) when is_list(Config) ->
     otp_5292_test().
 
@@ -157,10 +114,7 @@ otp_5292(Config) when is_list(Config) ->
 bit_level_binaries(Config) when is_list(Config) ->
     bit_level_binaries_do().
 
-otp_7127(suite) ->
-    [];
-otp_7127(doc) ->
-    ["Tests phash2/1."];
+%% Tests phash2/1.
 otp_7127(Config) when is_list(Config) ->
     otp_7127_test().
 

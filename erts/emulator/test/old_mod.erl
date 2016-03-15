@@ -30,19 +30,19 @@ sorter(Receiver, Ref, List) ->
 
 sort_on_old_node(List) when is_list(List) ->
     OldVersion = "r10",
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {X, Y, Z} = now(),
-    ?line NodeName = list_to_atom(OldVersion 
-				  ++ "_"
-				  ++ integer_to_list(X)
-				  ++ integer_to_list(Y)
-				  ++ integer_to_list(Z)),
-    ?line {ok, Node} = ?t:start_node(NodeName,
-				     peer,
-				     [{args, " -pa " ++ Pa},
-				      {erl, [{release, OldVersion++"b_patched"}]}]),
-    ?line Ref = make_ref(),
-    ?line spawn_link(Node, ?MODULE, sorter, [self(), Ref, List]),
-    ?line SortedPids = receive {Ref, SP} -> SP end,
-    ?line true = ?t:stop_node(Node),
-    ?line SortedPids.
+    Pa = filename:dirname(code:which(?MODULE)),
+    {X, Y, Z} = now(),
+    NodeName = list_to_atom(OldVersion 
+                            ++ "_"
+                            ++ integer_to_list(X)
+                            ++ integer_to_list(Y)
+                            ++ integer_to_list(Z)),
+    {ok, Node} = test_server:start_node(NodeName,
+                                        peer,
+                                        [{args, " -pa " ++ Pa},
+                                         {erl, [{release, OldVersion++"b_patched"}]}]),
+    Ref = make_ref(),
+    spawn_link(Node, ?MODULE, sorter, [self(), Ref, List]),
+    SortedPids = receive {Ref, SP} -> SP end,
+    true = test_server:stop_node(Node),
+    SortedPids.

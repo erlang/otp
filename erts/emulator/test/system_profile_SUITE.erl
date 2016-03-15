@@ -23,61 +23,28 @@
 
 -module(system_profile_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	system_profile_on_and_off/1,
-	runnable_procs/1,
-	runnable_ports/1,
+	runnable_procs/1, runnable_ports/1,
 	dont_profile_profiler/1,
-	scheduler/1
-        ]).
-
--export([init_per_testcase/2, end_per_testcase/2]).
+	scheduler/1]).
 
 -export([profiler_process/1, ring_loop/1, port_echo_start/0, 
 	 list_load/0, run_load/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
-
-init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [system_profile_on_and_off, runnable_procs,
      runnable_ports, scheduler, dont_profile_profiler].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 %% No specification clause needed for an init function in a conf case!!!
 
 %% Test switching system_profiling on and off.
-system_profile_on_and_off(suite) ->
-    [];
-system_profile_on_and_off(doc) ->
-    ["Tests switching system_profiling on and off."];
 system_profile_on_and_off(Config) when is_list(Config) ->
     Pid = start_profiler_process(),
     
@@ -106,12 +73,7 @@ system_profile_on_and_off(Config) when is_list(Config) ->
     exit(Pid,kill),
     ok.
 
-%% Test runnable_procs
-
-runnable_procs(suite) ->
-    [];
-runnable_procs(doc) ->
-    ["Tests system_profiling with runnable_procs."];
+%% Tests system_profiling with runnable_procs.
 runnable_procs(Config) when is_list(Config) ->
     lists:foreach(fun (TsType) ->
 			  Arg = case TsType of
@@ -148,10 +110,7 @@ do_runnable_procs({TsType, TsTypeFlag}) ->
     exit(Pid,kill),
     ok.
 
-runnable_ports(suite) ->
-    [];
-runnable_ports(doc) ->
-    ["Tests system_profiling with runnable_port."];
+%% Tests system_profiling with runnable_port.
 runnable_ports(Config) when is_list(Config) ->
     lists:foreach(fun (TsType) ->
 			  Arg = case TsType of
@@ -184,10 +143,7 @@ do_runnable_ports({TsType, TsTypeFlag}, Config) ->
     exit(Pid,kill),
     ok.
 
-scheduler(suite) ->
-    [];
-scheduler(doc) ->
-    ["Tests system_profiling with scheduler."];
+%% Tests system_profiling with scheduler.
 scheduler(Config) when is_list(Config) ->
     case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
 	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
@@ -209,11 +165,7 @@ scheduler(Config) when is_list(Config) ->
 			   strict_monotonic_timestamp])
     end.
 
-% the profiler pid should not be profiled
-dont_profile_profiler(suite) ->
-    [];
-dont_profile_profiler(doc) ->
-    ["Ensure system profiler process is not profiled."];
+%% Ensure system profiler process is not profiled.
 dont_profile_profiler(Config) when is_list(Config) ->
     Pid = start_profiler_process(),
 
@@ -421,7 +373,7 @@ ring_loop(RelayTo) ->
 %% API
 
 echo(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     erl_ddll:load_driver(Path, echo_drv),
     Pid = spawn_link(?MODULE, port_echo_start, []),
     Pid ! {self(), get_ports},
@@ -481,7 +433,7 @@ check_ts(no_timestamp, Ts) ->
 	no_timestamp = Ts
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(timestamp, Ts) ->
@@ -492,7 +444,7 @@ check_ts(timestamp, Ts) ->
 	true = is_integer(Us)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(monotonic_timestamp, Ts) ->
@@ -500,7 +452,7 @@ check_ts(monotonic_timestamp, Ts) ->
 	true = is_integer(Ts)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok;
 check_ts(strict_monotonic_timestamp, Ts) ->
@@ -510,7 +462,7 @@ check_ts(strict_monotonic_timestamp, Ts) ->
 	true = is_integer(UMI)
     catch
 	_ : _ ->
-	    ?t:fail({unexpected_timestamp, Ts})
+	    ct:fail({unexpected_timestamp, Ts})
     end,
     ok.
 

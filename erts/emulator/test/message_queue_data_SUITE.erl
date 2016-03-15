@@ -20,45 +20,19 @@
 
 -module(message_queue_data_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0]).
 -export([basic/1, process_info_messages/1]).
 
 -export([basic_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(2)),
-    [{watchdog, Dog}, {testcase, Case}|Config].
-
-end_per_testcase(_, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [basic, process_info_messages].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-%%    erts_debug:set_internal_state(available_internal_state, true),
-    Config.
-
-end_per_suite(_Config) ->
-%%    erts_debug:set_internal_state(available_internal_state, false),
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 %%
 %%
@@ -228,12 +202,12 @@ start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
-			++ atom_to_list(?config(testcase, Config))
+			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
 			++ integer_to_list(erlang:system_time(seconds))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
