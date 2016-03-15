@@ -1509,8 +1509,9 @@ type_preop_prec('#') -> {700,800}.
                         | abstract_type().
 
 -spec map_anno(Fun, Abstr) -> NewAbstr when
-      Fun :: fun((Anno) -> Anno),
+      Fun :: fun((Anno) -> NewAnno),
       Anno :: erl_anno:anno(),
+      NewAnno :: erl_anno:anno(),
       Abstr :: erl_parse_tree(),
       NewAbstr :: erl_parse_tree().
 
@@ -1534,8 +1535,9 @@ fold_anno(F0, Acc0, Abstr) ->
     NewAcc.
 
 -spec mapfold_anno(Fun, Acc0, Abstr) -> {NewAbstr, Acc1} when
-      Fun :: fun((Anno, AccIn) -> {Anno, AccOut}),
+      Fun :: fun((Anno, AccIn) -> {NewAnno, AccOut}),
       Anno :: erl_anno:anno(),
+      NewAnno :: erl_anno:anno(),
       Acc0 :: term(),
       Acc1 :: term(),
       AccIn :: term(),

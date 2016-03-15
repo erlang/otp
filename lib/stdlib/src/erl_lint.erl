@@ -99,7 +99,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                module='',                       %Module
                behaviour=[],                    %Behaviour
                exports=gb_sets:empty()	:: gb_sets:set(fa()),%Exports
-               imports=[] :: [fa()],            %Imports, an orddict()
+               imports=[] :: orddict:orddict(fa(), module()),%Imports
                compile=[],                      %Compile flags
                records=dict:new()               %Record definitions
                    :: dict:dict(atom(), {line(),Fields :: term()}),
