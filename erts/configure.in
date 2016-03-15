@@ -476,9 +476,6 @@ case $host_os in
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
 	;;
-    darwin*)
-        CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE"
-        ;;
     *)
 	;;
 esac
