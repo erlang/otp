@@ -39,7 +39,23 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.13.2</title>
+  <section><title>Mnesia 4.13.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid deadlock possibility in
+	    <c>mnesia:del_table_copy/2</c></p>
+          <p>
+	    Own Id: OTP-13284</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

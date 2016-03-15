@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover:compile_beam/1</c> and
+	    <c>cover:compile_beam_directory/1,2</c> crashed when
+	    trying to compile a beam file without a <c>'file'</c>
+	    attribute. This has been corrected and an error is
+	    returned instead.</p>
+          <p>
+	    Thanks to Louis-Philippe Gauthier for reporting this bug.</p>
+          <p>
+	    Own Id: OTP-13200</p>
+        </item>
+        <item>
+	    <p>Fix a bit string comprehension bug in Cover. </p>
+          <p>
+	    Own Id: OTP-13277 Aux Id: PR 856 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

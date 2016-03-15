@@ -34,7 +34,21 @@
   </header>
 
 
-  <section><title>Orber 3.8</title>
+  <section><title>Orber 3.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Suppress Dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-12862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.8</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -35,6 +35,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An encapsulated PEM header shall be followed by a blank
+	    line</p>
+          <p>
+	    Own Id: OTP-13381 Aux Id: seq13070 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.1</title>
 
     <section><title>Improvements and New Features</title>

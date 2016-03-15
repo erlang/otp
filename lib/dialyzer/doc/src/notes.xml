@@ -32,6 +32,65 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Dialyzer no longer asserts that files and directories
+	    to be removed from a PLT exist. </p>
+          <p>
+	    Own Id: OTP-13103 Aux Id: ERL-40 </p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-13237</p>
+        </item>
+        <item>
+          <p>
+	    Fix pretty printing of Core Maps</p>
+          <p>
+	    Literal maps could cause Dialyzer to crash when pretty
+	    printing the results.</p>
+          <p>
+	    Own Id: OTP-13238</p>
+        </item>
+        <item>
+          <p>
+	    If a behavior module contains an non-exported function
+	    with the same name as one of the behavior's callbacks,
+	    the callback info was inadvertently deleted from the PLT
+	    as the <c>dialyzer_plt:delete_list/2</c> function was
+	    cleaning up the callback table.</p>
+          <p>
+	    Own Id: OTP-13287</p>
+        </item>
+        <item>
+	    <p> Correct the contract for <c>erlang:byte_size/1</c>
+	    </p> <p> Correct the handling of comparison operators for
+	    map and bit string operands. </p>
+          <p>
+	    Own Id: OTP-13312</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer recognizes calls to <c>M:F/A</c> where <c>M</c>,
+	    <c>F</c>, and <c>A</c> are all literals.</p>
+          <p>
+	    Own Id: OTP-13217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
