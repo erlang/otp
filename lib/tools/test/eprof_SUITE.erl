@@ -98,9 +98,6 @@ basic(Config) when is_list(Config) ->
 
     %% error case
 
-    error     = eprof:profile([Pid], fun() -> eprof_test:go(10) end),
-    Pid       = whereis(eprof),
-    error     = eprof:profile([Pid], fun() -> eprof_test:go(10) end),
     A         = spawn(fun() -> receive _ -> ok end end),
     profiling = eprof:profile([A]),
     true      = exit(A, kill_it),
