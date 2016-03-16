@@ -129,7 +129,7 @@ bs2ss(L) ->
 get_status() ->
     request(get_status).
 
--spec fetch_loaded() -> [atom()].
+-spec fetch_loaded() -> [{module(),file:filename()}].
 fetch_loaded() ->
     request(fetch_loaded).
 
