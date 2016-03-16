@@ -499,18 +499,8 @@ static int mask_fpe(void)
 #define mc_pc(mc)	((mc)->gregs[REG_RIP])
 #elif defined(__linux__) && defined(__i386__)
 #define mc_pc(mc)	((mc)->gregs[REG_EIP])
-#elif defined(__DARWIN__) && defined(__i386__)
-#ifdef DARWIN_MODERN_MCONTEXT
-#define mc_pc(mc)	((mc)->__ss.__eip)
-#else
-#define mc_pc(mc)	((mc)->ss.eip)
-#endif
-#elif defined(__DARWIN__) && defined(__x86_64__)
-#ifdef DARWIN_MODERN_MCONTEXT
-#define mc_pc(mc)	((mc)->__ss.__rip)
-#else
-#define mc_pc(mc)	((mc)->ss.rip)
-#endif
+#elif defined(__DARWIN__)
+# error "Floating-point exceptions not supported on MacOS X"
 #elif defined(__FreeBSD__) && defined(__x86_64__)
 #define mc_pc(mc)	((mc)->mc_rip)
 #elif defined(__FreeBSD__) && defined(__i386__)
@@ -575,17 +565,7 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     regs[PT_FPSCR] = 0x80|0x40|0x10;	/* VE, OE, ZE; not UE or XE */
 #endif
 #elif defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__))
-#ifdef DARWIN_MODERN_MCONTEXT
-    mcontext_t mc = uc->uc_mcontext;
-    pc = mc_pc(mc);
-    mc->__fs.__fpu_mxcsr = 0x1F80;
-    *(unsigned short *)&mc->__fs.__fpu_fsw &= ~0xFF;
-#else
-    mcontext_t mc = uc->uc_mcontext;
-    pc = mc_pc(mc);
-    mc->fs.fpu_mxcsr = 0x1F80;
-    *(unsigned short *)&mc->fs.fpu_fsw &= ~0xFF;
-#endif /* DARWIN_MODERN_MCONTEXT */
+# error "Floating-point exceptions not supported on MacOS X"
 #elif defined(__DARWIN__) && defined(__ppc__)
     mcontext_t mc = uc->uc_mcontext;
     pc = mc->ss.srr0;

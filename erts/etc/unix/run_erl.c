@@ -42,9 +42,14 @@
 #  include "config.h"
 #endif
 #ifdef HAVE_WORKING_POSIX_OPENPT
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 600 
-#endif
+#  ifndef _XOPEN_SOURCE
+     /* On OS X, we must leave _XOPEN_SOURCE undefined in order for
+      * the prototype of vsyslog() to be included.
+      */
+#    ifndef __APPLE__
+#      define _XOPEN_SOURCE 600
+#    endif
+#  endif
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
