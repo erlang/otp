@@ -138,10 +138,10 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #endif
 
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0)
-#ifndef __llvm__
-#  define ERTS_WRITE_UNLIKELY(X) X __attribute__ ((section ("ERTS_LOW_WRITE") ))
-#else
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
 #  define ERTS_WRITE_UNLIKELY(X) X __attribute__ ((section ("__DATA,ERTS_LOW_WRITE") ))
+#else
+#  define ERTS_WRITE_UNLIKELY(X) X __attribute__ ((section ("ERTS_LOW_WRITE") ))
 #endif
 #else
 #  define ERTS_WRITE_UNLIKELY(X) X
