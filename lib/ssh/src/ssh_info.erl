@@ -25,15 +25,10 @@
 
 -module(ssh_info).
 
--compile(export_all).
-
-string() ->
-    Pid = spawn(fun init/0),
-    print(Pid),
-    Pid ! {get,self()},
-    receive
-	{result,R} -> R
-    end.
+-export([print/0,
+	 print/1,
+	 string/0
+	]).
 
 print() ->
     print(user).
@@ -51,23 +46,20 @@ print(D) ->
 	    underline(D, "Server part", $=),
 	    print_servers(D),
 	    io__nl(D),
-	    %% case os:type() of
-	    %% 	{unix,_} ->
-	    %% 	    io__nl(),
-	    %% 	    underline("Linux part", $=),
-	    %% 	    underline("Listening"),
-	    %% 	    catch io__format(os:cmd("netstat -tpln")),
-	    %% 	    io__nl(),
-	    %% 	    underline("Other"),
-	    %% 	    catch io__format(os:cmd("netstat -tpn"));
-	    %% 	_ -> ok
-	    %% end,
 	    underline(D, "Supervisors", $=),
 	    walk_sups(D, ssh_sup),
 	    io__nl(D)
     catch
 	_:_ ->
 	    io__format(D,"Ssh not found~n",[])
+    end.
+
+string() ->
+    Pid = spawn(fun init/0),
+    print(Pid),
+    Pid ! {get,self()},
+    receive
+	{result,R} -> R
     end.
 
 %%%================================================================
@@ -118,7 +110,7 @@ print_system_sup(D, {Ref,Pid,supervisor,[ssh_subsystem_sup]}) when is_reference(
 								   is_pid(Pid) ->
     PrintChannels =  fun(X) -> print_channels(D,X) end,
     lists:foreach(PrintChannels, supervisor:which_children(Pid));
-print_system_sup(D, {{ssh_acceptor_sup,LocalHost,LocalPort,Profile}, Pid, supervisor, [ssh_acceptor_sup]}) when is_pid(Pid) ->
+print_system_sup(D, {{ssh_acceptor_sup,_LocalHost,_LocalPort,_Profile}, Pid, supervisor, [ssh_acceptor_sup]}) when is_pid(Pid) ->
     io__format(D, ?INDENT?INDENT"[Acceptor Pid ~p]~n",[Pid]).
 
 
@@ -191,9 +183,6 @@ children(Pid) ->
     end.
 
 %%%================================================================
-underline(D, Str) ->
-    underline(D, Str, $-).
-
 underline(D, Str, LineChar) ->
     Len = lists:flatlength(Str),
     io__format(D, '~s~n',[Str]),
@@ -210,12 +199,6 @@ datetime() ->
 
 fmt_host_port({{A,B,C,D},Port}) -> io_lib:format('~p.~p.~p.~p:~p',[A,B,C,D,Port]);
 fmt_host_port({Host,Port}) -> io_lib:format('~s:~p',[Host,Port]).
-
-
-
-nyi(D) ->
-    io__format(D,'Not yet implemented~n',[]),
-    nyi.
 
 %%%################################################################
 
