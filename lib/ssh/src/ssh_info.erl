@@ -27,7 +27,8 @@
 
 -export([print/0,
 	 print/1,
-	 string/0
+	 string/0,
+	 collect_pids/0
 	]).
 
 print() ->
@@ -219,3 +220,59 @@ loop(Acc) ->
 	    Who ! {result,lists:flatten(lists:reverse(Acc))}
     end.
 	
+%%%################################################################
+collect_pids() -> collect_pids(ssh_sup).
+
+collect_pids(P) -> 
+    Collector = pcollect_pids(P, spawn(fun init_collector/0)),
+    Collector ! {get_values,self()},
+    receive
+	{values,Values} ->
+	    Values
+    end.
+
+%%%----------------    
+pcollect_pids(undefined, Collector) ->
+    Collector;
+
+pcollect_pids(A, Collector) when is_atom(A) ->
+    pcollect_pids(whereis(A), Collector);
+
+pcollect_pids(Pid, Collector) when is_pid(Pid) ->
+    Collector ! {expect,Pid},
+    spawn(fun() ->
+		  lists:foreach(
+		    fun(P2) ->
+			    pcollect_pids(P2,Collector)
+		    end, children(Pid)),
+		  Collector ! {value,Pid,Pid}
+	  end),
+    Collector;
+
+pcollect_pids({_,Pid,supervisor,_}, Collector) when is_pid(Pid) ->
+    pcollect_pids(Pid, Collector);
+
+pcollect_pids({_,Pid,worker,_}, Collector) when is_pid(Pid) ->
+    Collector ! {value,Pid,Pid},
+    Collector;
+
+pcollect_pids(_, Collector) ->
+    Collector.
+
+%%%----------------    
+init_collector() ->
+    loop_collector([],[]).
+
+loop_collector(Expects, Values) ->
+    receive
+	{expect, Ref} ->
+	    loop_collector([Ref|Expects], Values);
+	{value, Ref, Val} ->
+	    loop_collector(Expects--[Ref], [Val|Values]);
+	{get_values, From} when Expects==[] ->
+%%				Values=/=[] ->
+	    From ! {values,Values}
+    end.
+
+    
+
