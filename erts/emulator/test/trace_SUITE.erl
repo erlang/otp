@@ -119,10 +119,26 @@ receive_trace(Config) when is_list(Config) ->
     {'EXIT', Intruder, {badarg, _}} = receive_first(),
 
     %% Untrace the process; we should not receive anything.
-    1 = erlang:trace(Receiver, false, ['receive']),
-    Receiver ! {hello, there},
-    Receiver ! any_garbage,
-    receive_nothing(),
+    ?line 1 = erlang:trace(Receiver, false, ['receive']),
+    ?line Receiver ! {hello, there},
+    ?line Receiver ! any_garbage,
+    ?line receive_nothing(),
+
+    %% Verify restrictions in matchspec for 'receive'
+    F2 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang:trace_pattern('receive', Pat, [])) end,
+    lists:foreach(F2, [[{['_','_'],[],[{message, {process_dump}}]}],
+		       [{['_','_'],[{is_seq_trace}],[]}],
+		       [{['_','_'],[],[{set_seq_token,label,4711}]}],
+		       [{['_','_'],[],[{get_seq_token}]}],
+		       [{['_','_'],[],[{enable_trace,call}]}],
+		       [{['_','_'],[],[{enable_trace,self(),call}]}],
+		       [{['_','_'],[],[{disable_trace,call}]}],
+		       [{['_','_'],[],[{disable_trace,self(),call}]}],
+		       [{['_','_'],[],[{trace,[call],[]}]}],
+		       [{['_','_'],[],[{trace,self(),[],[call]}]}],
+		       [{['_','_'],[],[{caller}]}],
+		       [{['_','_'],[],[{silent,true}]}]]),
+
     ok.
 
 %% Tests that receive of a message always happens before a call with
@@ -409,6 +425,7 @@ send_trace(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch erlang:trace_pattern(send, true, [call_time])),
     {'EXIT',{badarg,_}} = (catch erlang:trace_pattern(send, restart, [])),
     {'EXIT',{badarg,_}} = (catch erlang:trace_pattern(send, pause, [])),
+    {'EXIT',{badarg,_}} = (catch erlang:trace_pattern(send, [{['_','_'],[],[{caller}]}], [])),
 
     %% Done.
     ok.

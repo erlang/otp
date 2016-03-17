@@ -156,11 +156,14 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     } else if (Pattern == am_pause) {
 	match_prog_set = NULL;
 	on = ERTS_BREAK_PAUSE;
-    } else if ((match_prog_set = erts_match_set_compile(p, Pattern)) != NULL) {
-	MatchSetRef(match_prog_set);
-	on = 1;
-    } else{
-	goto error;
+    } else {
+	match_prog_set = erts_match_set_compile(p, Pattern, MFA);
+	if (match_prog_set) {
+	    MatchSetRef(match_prog_set);
+	    on = 1;
+	} else{
+	    goto error;
+	}
     }
     
     is_global = 0;

@@ -123,6 +123,9 @@ do {									\
 
 #define TermWords(t) (((t) / (sizeof(UWord)/sizeof(Eterm))) + !!((t) % (sizeof(UWord)/sizeof(Eterm))))
 
+#define add_dmc_err(EINFO, STR, VAR, TERM, SEV) \
+       vadd_dmc_err(EINFO, SEV, VAR, STR, TERM)
+
 
 static ERTS_INLINE Process *
 get_proc(Process *cp, Uint32 cp_locks, Eterm id, Uint32 id_locks)
@@ -889,11 +892,7 @@ void db_match_dis(Binary *prog);
 #define TRACE /* Nothing */
 #define FENCE_PATTERN_SIZE 0
 #endif
-static void add_dmc_err(DMCErrInfo *err_info, 
-			   char *str,
-			   int variable,
-			   Eterm term,
-			   DMCErrorSeverity severity);
+static void vadd_dmc_err(DMCErrInfo*, DMCErrorSeverity, int var, const char *str, ...);
 
 static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity);
 
@@ -989,12 +988,16 @@ Eterm erts_match_set_get_source(Binary *mpsp)
 }
 
 /* This one is for the tracing */
-Binary *erts_match_set_compile(Process *p, Eterm matchexpr) {
+Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA) {
     Binary *bin;
     Uint sz;
     Eterm *hp;
+    Uint flags = DCOMP_TRACE;
+
+    if (is_tuple(MFA)) flags |= DCOMP_CALL_TRACE;
+    if (MFA != am_receive) flags |= DCOMP_ALLOW_TRACE_OPS;
     
-    bin = db_match_set_compile(p, matchexpr, DCOMP_TRACE);
+    bin = db_match_set_compile(p, matchexpr, flags);
     if (bin != NULL) {
 	MatchProg *prog = Binary2MatchProg(bin);
 	sz = size_object(matchexpr);
@@ -1124,8 +1127,8 @@ Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
     int i;
 
     if (!is_list(matchexpr)) {
-	add_dmc_err(err_info, "Match programs are not in a list.", 
-		    -1, 0UL, dmcError);
+	add_dmc_err(err_info, "Match programs are not in a list.",
+                    -1, 0UL, dmcError);
 	goto done;
     }
     num_heads = 0;
@@ -1133,9 +1136,8 @@ Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
 	++num_heads;
 
     if (l != NIL)  { /* proper list... */
-	add_dmc_err(err_info, "Match programs are not in a proper "
-		    "list.", 
-		    -1, 0UL, dmcError);
+	add_dmc_err(err_info, "Match programs are not in a proper list.",
+                     -1, 0UL, dmcError);
 	goto done;
     }
 
@@ -3260,20 +3262,20 @@ int erts_db_is_compiled_ms(Eterm term)
 ** Utility to add an error
 */
 
-static void add_dmc_err(DMCErrInfo *err_info, 
-			char *str,
-			int variable,
-			Eterm term,
-			DMCErrorSeverity severity)
+static void vadd_dmc_err(DMCErrInfo *err_info,
+                         DMCErrorSeverity severity,
+                         int variable,
+                         const char *str,
+                         ...)
 {
+    DMCError *e;
+    va_list args;
+    va_start(args, str);
+
+
     /* Linked in in reverse order, to ease the formatting */
-    DMCError *e = erts_alloc(ERTS_ALC_T_DB_DMC_ERROR, sizeof(DMCError));
-    if (term != 0UL) {
-	erts_snprintf(e->error_string, DMC_ERR_STR_LEN, str, term);
-    } else {
-	strncpy(e->error_string, str, DMC_ERR_STR_LEN);
-	e->error_string[DMC_ERR_STR_LEN] ='\0';
-    }
+    e = erts_alloc(ERTS_ALC_T_DB_DMC_ERROR, sizeof(DMCError));
+    erts_vsnprintf(e->error_string, DMC_ERR_STR_LEN, str, args);
     e->variable = variable;
     e->severity = severity;
     e->next = err_info->first;
@@ -3283,8 +3285,11 @@ static void add_dmc_err(DMCErrInfo *err_info,
     err_info->first = e;
     if (severity >= dmcError)
 	err_info->error_added = 1;
+
+    va_end(args);
 }
     
+
 /*
 ** Handle one term in the match expression (not the guard) 
 */
@@ -3483,24 +3488,21 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 	    context->stack_need = context->stack_used;
 }
 
-#define RETURN_ERROR_X(String, X, Y, ContextP, ConstantF)        \
-do {                                                            \
-if ((ContextP)->err_info != NULL) {				\
-    (ConstantF) = 0;						\
-    add_dmc_err((ContextP)->err_info, String, X, Y, dmcError);  \
-    return retOk;						\
-} else 								\
-  return retFail;                                                \
-} while(0)
+#define RETURN_ERROR_X(VAR, ContextP, ConstantF, String, ARG)            \
+    (((ContextP)->err_info != NULL)				         \
+     ? ((ConstantF) = 0,						 \
+        vadd_dmc_err((ContextP)->err_info, dmcError, VAR, String, ARG),  \
+        retOk)						                 \
+     : retFail)
 
 #define RETURN_ERROR(String, ContextP, ConstantF) \
-     RETURN_ERROR_X(String, -1, 0UL, ContextP, ConstantF)
+     return RETURN_ERROR_X(-1, ContextP, ConstantF, String, 0)
 
 #define RETURN_VAR_ERROR(String, N, ContextP, ConstantF) \
-     RETURN_ERROR_X(String, N, 0UL, ContextP, ConstantF)
+     return RETURN_ERROR_X(N, ContextP, ConstantF, String, 0)
 
 #define RETURN_TERM_ERROR(String, T, ContextP, ConstantF) \
-     RETURN_ERROR_X(String, -1, T, ContextP, ConstantF)
+     return RETURN_ERROR_X(-1, ContextP, ConstantF, String, T)
 
 #define WARNING(String, ContextP) \
 add_dmc_err((ContextP)->err_info, String, -1, 0UL, dmcWarning)
@@ -3766,7 +3768,7 @@ static DMCRet dmc_variable(DMCContext *context,
     Uint n = db_is_variable(t);
 
     if (n >= heap->vars_used || !heap->vars[n].is_bound) {
-	RETURN_VAR_ERROR("Variable $%d is unbound.", n, context, *constant);
+	RETURN_VAR_ERROR("Variable $%%d is unbound.", n, context, *constant);
     }
 
     dmc_add_pushv_variant(context, heap, text, n);
@@ -4098,7 +4100,30 @@ static DMCRet dmc_exception_trace(DMCContext *context,
     return retOk;
 }
 
-
+static int check_trace(const char* op,
+                       DMCContext *context,
+                       int *constant,
+                       int need_cflags,
+                       int allow_in_guard,
+                       DMCRet* retp)
+{
+    if (!(context->cflags & DCOMP_TRACE)) {
+	*retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
+                               "used in wrong dialect.", op);
+        return 0;
+    }
+    if ((context->cflags & need_cflags) != need_cflags) {
+        *retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
+                               "not allow for this trace event.", op);
+        return 0;
+    }
+    if (context->is_guard && !allow_in_guard) {
+        *retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
+                               "called in guard context.", op);
+        return 0;
+    }
+    return 1;
+}
 
 static DMCRet dmc_is_seq_trace(DMCContext *context,
 			       DMCHeap *heap,
@@ -4108,12 +4133,11 @@ static DMCRet dmc_is_seq_trace(DMCContext *context,
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
+    DMCRet ret;
     
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'is_seq_trace' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
+    if (!check_trace("is_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 1, &ret))
+        return ret;
+
     if (a != 1) {
 	RETURN_TERM_ERROR("Special form 'is_seq_trace' called with "
 			  "arguments in %T.", t, context, *constant);
@@ -4137,16 +4161,8 @@ static DMCRet dmc_set_seq_token(DMCContext *context,
     DMCRet ret;
     int c;
     
-
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'set_seq_token' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'set_seq_token' called in "
-		     "guard context.", context, *constant);
-    }
+    if (!check_trace("set_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
 
     if (a != 3) {
 	RETURN_TERM_ERROR("Special form 'set_seq_token' called with wrong "
@@ -4183,16 +4199,11 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
+    DMCRet ret;
 
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'get_seq_token' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'get_seq_token' called in "
-		     "guard context.", context, *constant);
-    }
+    if (!check_trace("get_seq_token", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
+
     if (a != 1) {
 	RETURN_TERM_ERROR("Special form 'get_seq_token' called with "
 			  "arguments in %T.", t, context, 
@@ -4256,16 +4267,10 @@ static DMCRet dmc_process_dump(DMCContext *context,
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
-    
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'process_dump' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'process_dump' called in "
-		     "guard context.", context, *constant);
-    }
+    DMCRet ret;
+
+    if (!check_trace("process_dump", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
 
     if (a != 1) {
 	RETURN_TERM_ERROR("Special form 'process_dump' called with "
@@ -4289,17 +4294,8 @@ static DMCRet dmc_enable_trace(DMCContext *context,
     DMCRet ret;
     int c;
     
-
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'enable_trace' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'enable_trace' called in guard context.",
-		     context, 
-		     *constant);
-    }
+    if (!check_trace("enable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
 
     switch (a) {
     case 2:
@@ -4348,18 +4344,9 @@ static DMCRet dmc_disable_trace(DMCContext *context,
     Uint a = arityval(*p);
     DMCRet ret;
     int c;
-    
 
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'disable_trace' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'disable_trace' called in guard context.",
-		     context, 
-		     *constant);
-    }
+    if (!check_trace("disable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
 
     switch (a) {
     case 2:
@@ -4409,17 +4396,8 @@ static DMCRet dmc_trace(DMCContext *context,
     DMCRet ret;
     int c;
     
-
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'trace' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
-	RETURN_ERROR("Special form 'trace' called in guard context.",
-		     context, 
-		     *constant);
-    }
+    if (!check_trace("trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
 
     switch (a) {
     case 3:
@@ -4480,16 +4458,11 @@ static DMCRet dmc_caller(DMCContext *context,
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
+    DMCRet ret;
      
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'caller' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
- 	RETURN_ERROR("Special form 'caller' called in "
- 		     "guard context.", context, *constant);
-    }
+    if (!check_trace("caller", context, constant,
+                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+        return ret;
   
     if (a != 1) {
  	RETURN_TERM_ERROR("Special form 'caller' called with "
@@ -4515,15 +4488,8 @@ static DMCRet dmc_silent(DMCContext *context,
     DMCRet ret;
     int c;
      
-    if (!(context->cflags & DCOMP_TRACE)) {
-	RETURN_ERROR("Special form 'silent' used in wrong dialect.",
-		     context, 
-		     *constant);
-    }
-    if (context->is_guard) {
- 	RETURN_ERROR("Special form 'silent' called in "
- 		     "guard context.", context, *constant);
-    }
+    if (!check_trace("silent", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+        return ret;
   
     if (a != 2) {
 	RETURN_TERM_ERROR("Special form 'silent' called with wrong "
@@ -5063,11 +5029,14 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	return THE_NON_VALUE;
     }
     if (trace) {
-	lint_res = db_match_set_lint(p, spec, DCOMP_TRACE | DCOMP_FAKE_DESTRUCTIVE);
-	mps = db_match_set_compile(p, spec, DCOMP_TRACE | DCOMP_FAKE_DESTRUCTIVE);
+        const Uint cflags = (DCOMP_TRACE | DCOMP_FAKE_DESTRUCTIVE |
+                             DCOMP_CALL_TRACE | DCOMP_ALLOW_TRACE_OPS);
+	lint_res = db_match_set_lint(p, spec, cflags);
+	mps = db_match_set_compile(p, spec, cflags);
     } else {
-	lint_res = db_match_set_lint(p, spec, DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
-	mps = db_match_set_compile(p, spec, DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
+        const Uint cflags = (DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
+	lint_res = db_match_set_lint(p, spec, cflags);
+	mps = db_match_set_compile(p, spec, cflags);
     }
 
     if (mps == NULL) {

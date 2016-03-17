@@ -1483,7 +1483,7 @@ do {								\
 
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)
 
-extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr);
+extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA);
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
 

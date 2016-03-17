@@ -425,6 +425,11 @@ typedef struct dmc_err_info {
 #define DCOMP_FAKE_DESTRUCTIVE ((Uint) 8) /* When this is active, no setting of
 					     trace control words or seq_trace tokens will be done. */
 
+/* Allow lock seizing operations on the tracee and 3rd party processes */
+#define DCOMP_ALLOW_TRACE_OPS ((Uint) 0x10)
+
+/* This is call trace */
+#define DCOMP_CALL_TRACE ((Uint) 0x20)
 
 Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Eterm *body, int num_matches, 
