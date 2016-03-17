@@ -92,11 +92,12 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
 }
 
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
-{    
+{
     env->hp = hp;
-    if (env->heap_frag == NULL) {       
+    if (env->heap_frag == NULL) {
 	ASSERT(HEAP_LIMIT(env->proc) == env->hp_end);
-	HEAP_TOP(env->proc) = env->hp;	
+        ASSERT(env->hp + need > env->hp_end);
+	HEAP_TOP(env->proc) = env->hp;
     }
     else {
 	env->heap_frag->used_size = hp - env->heap_frag->mem;
@@ -3165,13 +3166,37 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
                            || erts_smp_thr_progress_is_blocking());
 #endif
     if (p) {
+        /* This is almost a normal nif call like in beam_emu,
+           except that any heap fragment created in the nif will be
+           discarded without checking if anything in it is live.
+           This is because we cannot do a GC here as we don't know
+           the number of live registers that have to be preserved.
+           This means that any heap part of the returned term may
+           not be used outside this function. */
         struct enif_environment_t env;
+        ErlHeapFragment *orig_hf = MBUF(p);
+        ErlOffHeap orig_oh = MSO(p);
         ASSERT(is_internal_pid(p->common.id));
+        MBUF(p) = NULL;
+        clear_offheap(&MSO(p));
+
         erts_pre_nif(&env, p, mod, tracee);
         nif_result = (*fun->fptr)(&env, argc, argv);
         if (env.exception_thrown)
             nif_result = THE_NON_VALUE;
         erts_post_nif(&env);
+
+        /* Free any offheap and heap fragments created in nif */
+        if (MSO(p).first) {
+            erts_cleanup_offheap(&MSO(p));
+            clear_offheap(&MSO(p));
+        }
+        if (MBUF(p))
+            free_message_buffer(MBUF(p));
+
+        /* restore original heap fragment list */
+        MBUF(p) = orig_hf;
+        MSO(p) = orig_oh;
     } else {
         /* Nif call was done without a process context,
            so we create a phony one. */

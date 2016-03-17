@@ -3346,7 +3346,7 @@ do {						\
  OpCase(normal_exit): {
      SWAPOUT;
      c_p->freason = EXC_NORMAL;
-     c_p->arity = 0;		/* In case this process will ever be garbed again. */
+     c_p->arity = 0;		/* In case this process will never be garbed again. */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_do_exit_process(c_p, am_normal);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
