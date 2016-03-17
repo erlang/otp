@@ -38,11 +38,11 @@
 -export([finalise/4]).
 -include("../x86/hipe_x86.hrl").
 
-finalise(Defun, TempMap, FpMap, Options) ->
-  Defun1 = finalise_ra(Defun, TempMap, FpMap, Options),
+finalise(CFG0, TempMap, FpMap, Options) ->
+  CFG1 = finalise_ra(CFG0, TempMap, FpMap, Options),
   case proplists:get_bool(x87, Options) of
     true ->
-      ?HIPE_X86_X87:map(Defun1);
+      ?HIPE_X86_X87:map(CFG1);
     _ ->
       case
 	proplists:get_bool(inline_fp, Options)
@@ -51,9 +51,9 @@ finalise(Defun, TempMap, FpMap, Options) ->
 	%% Ugly, but required to avoid Dialyzer complaints about "Unknown
 	%% function" hipe_x86_sse2:map/1
 	?IF_HAS_SSE2(true ->
-			?HIPE_X86_SSE2:map(Defun1);)
+			?HIPE_X86_SSE2:map(CFG1);)
 	false ->
-	  Defun1
+	  CFG1
       end
   end.
 
@@ -63,15 +63,16 @@ finalise(Defun, TempMap, FpMap, Options) ->
 %%% but I just want this to work now)
 %%%
 
-finalise_ra(Defun, [], [], _Options) ->
-  Defun;
-finalise_ra(Defun, TempMap, FpMap, Options) ->
-  Code = hipe_x86:defun_code(Defun),
-  {_, SpillLimit} = hipe_x86:defun_var_range(Defun),
+finalise_ra(CFG, [], [], _Options) ->
+  CFG;
+finalise_ra(CFG, TempMap, FpMap, Options) ->
+  {_, SpillLimit} = hipe_gensym:var_range(x86),
   Map = mk_ra_map(TempMap, SpillLimit),
   FpMap0 = mk_ra_map_fp(FpMap, SpillLimit, Options),
-  NewCode = ra_code(Code, Map, FpMap0),
-  Defun#defun{code=NewCode}.
+  hipe_x86_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FpMap0) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap)).
 
 ra_code(Code, Map, FpMap) ->
   [ra_insn(I, Map, FpMap) || I <- Code].

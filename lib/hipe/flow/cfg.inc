@@ -32,6 +32,8 @@
 %%  bb(CFG, Label) - returns the basic block named 'Label' from the CFG.
 %%  bb_add(CFG, Label, NewBB) - makes NewBB the basic block associated
 %%       with Label.
+%%  map_bbs(Fun, CFG) - map over all code without changing control flow.
+%%  fold_bbs(Fun, Acc, CFG) - fold over the basic blocks in a CFG.
 %%  succ(Map, Label) - returns a list of successors of basic block 'Label'.
 %%  pred(Map, Label) - returns the predecessors of basic block 'Label'.
 %%  fallthrough(CFG, Label) - returns fall-through successor of basic 
@@ -307,11 +309,7 @@ redirect_phis([I|Rest], OldPred, NewPred, Acc) ->
 %% @doc  Adds a new basic block to a CFG (or updates an existing block).
 bb_add(CFG, Label, NewBB) ->
   %% Asserting that the NewBB is a legal basic block
-  Last = hipe_bb:last(NewBB),
-  case is_branch(Last) of
-    true  -> ok;
-    false -> throw({?MODULE, {"Basic block ends without branch", Last}})
-  end,
+  Last = assert_bb(NewBB),
   %% The order of the elements from branch_successors/1 is
   %% significant. It determines the basic block order when the CFG is
   %% converted to linear form. That order may have been tuned for
@@ -338,6 +336,48 @@ bb_add(CFG, Label, NewBB) ->
 		    end,
 		    HT2, OldSucc -- Succ),
   CFG#cfg{table = HT3}.
+
+-ifdef(MAP_FOLD_NEEDED).
+-spec map_bbs(fun((cfg_lbl(), hipe_bb:bb()) -> hipe_bb:bb()), cfg()) -> cfg().
+%% @doc  Map over the code in a CFG without changing any control flow.
+map_bbs(Fun, CFG = #cfg{table=HT0}) ->
+    HT = gb_trees:map(
+	   fun(Lbl, {OldBB, OldSucc, OldPred}) ->
+		   NewBB = Fun(Lbl, OldBB),
+		   %% Assert preconditions
+		   NewLast = assert_bb(NewBB),
+		   OldSucc = remove_duplicates(branch_successors(NewLast)),
+		   {NewBB, OldSucc, OldPred}
+	   end, HT0),
+    CFG#cfg{table=HT}.
+
+-spec fold_bbs(fun((cfg_lbl(), hipe_bb:bb(), Acc) -> Acc), Acc, cfg()) -> Acc.
+%% @doc  Fold over the basic blocks in a CFG in unspecified order.
+fold_bbs(Fun, InitAcc, #cfg{table=HT}) ->
+    gb_trees_fold(fun(Lbl, {BB, _, _}, Acc) -> Fun(Lbl, BB, Acc) end,
+		  InitAcc, HT).
+
+gb_trees_fold(Fun, InitAcc, Tree) ->
+    gb_trees_fold_1(Fun, InitAcc, gb_trees:iterator(Tree)).
+
+gb_trees_fold_1(Fun, InitAcc, Iter0) ->
+    case gb_trees:next(Iter0) of
+	none -> InitAcc;
+	{Key, Value, Iter} ->
+	    gb_trees_fold_1(Fun, Fun(Key, Value, InitAcc), Iter)
+    end.
+-endif. % MAP_FOLD_NEEDED
+
+assert_bb(BB) ->
+    assert_bb_is(hipe_bb:code(BB)).
+
+assert_bb_is([Last]) ->
+    true = is_branch(Last),
+    Last;
+assert_bb_is([I|Is]) ->
+    false = is_branch(I),
+    false = is_label(I),
+    assert_bb_is(Is).
 
 remove_pred(HT, FromL, PredL) ->
   case gb_trees:lookup(FromL, HT) of

@@ -63,15 +63,15 @@
 
 %%----------------------------------------------------------------------------
 
-defun_to_cfg(Defun) ->
-  hipe_x86_cfg:init(Defun).
+defun_to_cfg(AlreadyACFG) ->
+  AlreadyACFG.
 
-check_and_rewrite(Defun, Coloring) ->
-  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(Defun, Coloring).
+check_and_rewrite(CFG, Coloring) ->
+  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(CFG, Coloring).
 
-check_and_rewrite(Defun, Coloring, Strategy) ->
+check_and_rewrite(CFG, Coloring, Strategy) ->
   hipe_amd64_ra_sse2_postconditions:check_and_rewrite(
-    Defun, Coloring, Strategy).
+    CFG, Coloring, Strategy).
 
 reverse_postorder(CFG) ->
   hipe_x86_cfg:reverse_postorder(CFG).

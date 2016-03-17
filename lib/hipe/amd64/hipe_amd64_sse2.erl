@@ -30,9 +30,12 @@
 
 %%----------------------------------------------------------------------
 
-map(Defun = #defun{code=Code0}) ->
-  Code1 = do_insns(Code0, []),
-  Defun#defun{code=Code1}.
+map(CFG) ->
+  hipe_x86_cfg:map_bbs(fun do_bb/2, CFG).
+
+do_bb(_Lbl, BB) ->
+  Code = do_insns(hipe_bb:code(BB), []),
+  hipe_bb:code_update(BB, Code).
 
 do_insns([I|Insns], Accum) ->
   NewIs = do_insn(I),

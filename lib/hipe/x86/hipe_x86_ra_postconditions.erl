@@ -40,14 +40,18 @@
 -include("../main/hipe.hrl").
 -define(count_temp(T), ?cons_counter(counter_mfa_mem_temps, T)).
 
-check_and_rewrite(Defun, Coloring, Strategy) ->
+check_and_rewrite(CFG, Coloring, Strategy) ->
   %% io:format("Converting\n"),
   TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC),
   %% io:format("Rewriting\n"),
-  #defun{code=Code0} = Defun,
-  {Code1, DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  {Defun#defun{code=Code1,var_range={0,hipe_gensym:get_var(x86)}},
-   DidSpill}.
+  do_bbs(hipe_x86_cfg:labels(CFG), TempMap, Strategy, CFG, false).
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_x86_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_x86_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),

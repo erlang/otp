@@ -29,17 +29,21 @@
 -define(count_temp(T), ?cons_counter(counter_mfa_mem_temps, T)).
 
 
-check_and_rewrite(AMD64Defun, Coloring) ->
-  check_and_rewrite(AMD64Defun, Coloring, 'normal').
+check_and_rewrite(AMD64CFG, Coloring) ->
+  check_and_rewrite(AMD64CFG, Coloring, 'normal').
 
-check_and_rewrite(AMD64Defun, Coloring, Strategy) ->
+check_and_rewrite(AMD64CFG, Coloring, Strategy) ->
   %%io:format("Converting\n"),
   TempMap = hipe_temp_map:cols2tuple(Coloring,hipe_amd64_specific_sse2),
   %%io:format("Rewriting\n"),
-  #defun{code=Code0} = AMD64Defun,
-  {Code1, DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  {AMD64Defun#defun{code=Code1, var_range={0, hipe_gensym:get_var(x86)}}, 
-   DidSpill}.
+  do_bbs(hipe_x86_cfg:labels(AMD64CFG), TempMap, Strategy, AMD64CFG, false).
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_x86_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_x86_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),
@@ -110,74 +114,27 @@ is_float_temp(#x86_mem{}) -> false.
 %%% Check if an operand denotes a memory cell (mem or pseudo).
 
 is_mem_opnd(Opnd, TempMap) ->
-  R =
-    case Opnd of
-      #x86_mem{} -> true;
-      #x86_temp{type=double} ->
-	Reg = hipe_x86:temp_reg(Opnd),
-	case hipe_x86:temp_is_allocatable(Opnd) of
-	  true -> 
-	    case tuple_size(TempMap) > Reg of 
-	      true ->
-		case 
-		  hipe_temp_map:is_spilled(Reg, TempMap) of
-		  true ->
-		    ?count_temp(Reg),
-		    true;
-		  false -> false
-		end;
-	      _ -> false
-	    end;
-	  false -> true
-	end;
-      _ -> false
-    end,
-  %% io:format("Op ~w mem: ~w\n",[Opnd,R]),
-  R.
-
-%%% Check if an operand is a spilled Temp.
-
-%%src_is_spilled(Src, TempMap) ->
-%%  case hipe_x86:is_temp(Src) of
-%%    true ->
-%%      Reg = hipe_x86:temp_reg(Src),
-%%      case hipe_x86:temp_is_allocatable(Src) of
-%%	true -> 
-%%	  case tuple_size(TempMap) > Reg of 
-%%	    true ->
-%%	      case hipe_temp_map:is_spilled(Reg, TempMap) of
-%%		true ->
-%%		  ?count_temp(Reg),
-%%		  true;
-%%		false ->
-%%		  false
-%%	      end;
-%%	    false ->
-%%	      false
-%%	  end;
-%%	false -> true
-%%      end;
-%%    false -> false
-%%  end.
-
-%% is_spilled(Temp, TempMap) ->
-%%   case hipe_x86:temp_is_allocatable(Temp) of
-%%     true ->
-%%       Reg = hipe_x86:temp_reg(Temp),
-%%       case tuple_size(TempMap) > Reg of 
-%%  	true ->
-%%  	  case hipe_temp_map:is_spilled(Reg, TempMap) of
-%%  	    true ->
-%%  	      ?count_temp(Reg),
-%%  	      true;
-%%  	    false ->
-%%  	      false
-%%  	  end;
-%%  	false ->
-%%  	  false
-%%       end;
-%%     false -> true
-%%   end.
+  case Opnd of
+    #x86_mem{} -> true;
+    #x86_temp{type=double} ->
+      Reg = hipe_x86:temp_reg(Opnd),
+      case hipe_x86:temp_is_allocatable(Opnd) of
+	true -> 
+	  case tuple_size(TempMap) > Reg of 
+	    true ->
+	      case 
+		hipe_temp_map:is_spilled(Reg, TempMap) of
+		true ->
+		  ?count_temp(Reg),
+		  true;
+		false -> false
+	      end;
+	    _ -> false
+	  end;
+	false -> true
+      end;
+    _ -> false
+  end.
 
 %%% Make Reg a clone of Dst (attach Dst's type to Reg).
 

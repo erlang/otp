@@ -64,8 +64,8 @@
 -export([check_and_rewrite/3]).
 
 %% Rewrite happens in hipe_x86_ra_finalise:finalise/4
-check_and_rewrite(Defun, _Coloring, 'linearscan') ->
-  {Defun, false}.
+check_and_rewrite(CFG, _Coloring, 'linearscan') ->
+  {CFG, false}.
 
 breadthorder(CFG) ->
   hipe_x86_cfg:breadthorder(CFG).
