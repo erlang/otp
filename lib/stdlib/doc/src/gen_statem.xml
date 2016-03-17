@@ -253,23 +253,23 @@ init([]) ->
 
 %%% State functions
 
-off({call,Caller}, push, Data) ->
+off({call,From}, push, Data) ->
     %% Go to 'on', increment count and reply
     %% that the resulting status is 'on'
-    {next_state,on,Data+1,[{reply,Caller,on}]};
+    {next_state,on,Data+1,[{reply,From,on}]};
 off(EventType, EventContent, Data) ->
     handle_event(EventType, EventContent, Data).
 
-on({call,Caller}, push, Data) ->
+on({call,From}, push, Data) ->
     %% Go to 'off' and reply that the resulting status is 'off'
-    {next_state,off,Data,[{reply,Caller,off}]};
+    {next_state,off,Data,[{reply,From,off}]};
 on(EventType, EventContent, Data) ->
     handle_event(EventType, EventContent, Data).
 
 %% Handle events common to all states
-handle_event({call,Caller}, get_count, Data) ->
+handle_event({call,From}, get_count, Data) ->
     %% Reply with the current count
-    {keep_state,Data,[{reply,Caller,Data}]};
+    {keep_state,Data,[{reply,From,Data}]};
 handle_event(_, _, Data) ->
     %% Ignore all other events
     {keep_state,Data}.
@@ -315,18 +315,18 @@ init([]) ->
 
 %%% Event handling
 
-handle_event({call,Caller}, push, off, Data) ->
+handle_event({call,From}, push, off, Data) ->
     %% Go to 'on', increment count and reply
     %% that the resulting status is 'on'
-    {next_state,on,Data+1,[{reply,Caller,on}]};
-handle_event({call,Caller}, push, on, Data) ->
+    {next_state,on,Data+1,[{reply,From,on}]};
+handle_event({call,From}, push, on, Data) ->
     %% Go to 'off' and reply that the resulting status is 'off'
-    {next_state,off,Data,[{reply,Caller,off}]};
+    {next_state,off,Data,[{reply,From,off}]};
 %%
 %% Event handling common to all states
-handle_event({call,Caller}, get_count, State, Data) ->
+handle_event({call,From}, get_count, State, Data) ->
     %% Reply with the current count
-    {next_state,State,Data,[{reply,Caller,Data}]};
+    {next_state,State,Data,[{reply,From,Data}]};
 handle_event(_, _, State, Data) ->
     %% Ignore all other events
     {next_state,State,Data}.
@@ -429,12 +429,12 @@ handle_event(_, _, State, Data) ->
     </datatype>
 
     <datatype>
-      <name name="caller" />
+      <name name="from" />
       <desc>
 	<p>
 	  Destination to use when replying through for example the
 	  <seealso marker="#type-action">
-	    action() {reply,Caller,Reply}
+	    action() {reply,From,Reply}
 	  </seealso>
 	  to a process that has called the <c>gen_statem</c> server using
 	  <seealso marker="#call/2">call/2</seealso>.
@@ -483,7 +483,7 @@ handle_event(_, _, State, Data) ->
       <desc>
 	<p>
 	  External events are of 3 different type:
-	  <c>{call,<anno>Caller</anno>}</c>, <c>cast</c> or <c>info</c>.
+	  <c>{call,<anno>From</anno>}</c>, <c>cast</c> or <c>info</c>.
 	  <seealso marker="#call/2">Calls</seealso>
 	  (synchronous) and
 	  <seealso marker="#cast/2">casts</seealso>
@@ -739,9 +739,9 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  Reply to a caller waiting for a reply in
 	  <seealso marker="#call/2"><c>call/2</c></seealso>.
-          <c><anno>Caller</anno></c> must be the term from the
+          <c><anno>From</anno></c> must be the term from the
 	  <seealso marker="#type-event_type">
-	    <c>{call,<anno>Caller</anno>}</c>
+	    <c>{call,<anno>From</anno>}</c>
 	  </seealso>
 	  argument to the
 	  <seealso marker="#state_function">state function</seealso>.
@@ -1029,14 +1029,14 @@ handle_event(_, _, State, Data) ->
 	  The <c>gen_statem</c> will call the
 	  <seealso marker="#state_function">state function</seealso> with
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
-	  <c>{call,Caller}</c> and event content
+	  <c>{call,From}</c> and event content
 	  <c><anno>Request</anno></c>.
 	</p>
 	<p>
 	  A <c><anno>Reply</anno></c> is generated when a
 	  <seealso marker="#state_function">state function</seealso>
 	  returns with
-	  <c>{reply,Caller,<anno>Reply</anno>}</c> as one
+	  <c>{reply,From,<anno>Reply</anno>}</c> as one
 	  <seealso marker="#type-action"><c>action()</c></seealso>,
 	  and that <c><anno>Reply</anno></c> becomes the return value
 	  of this function.
@@ -1100,13 +1100,13 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#state_function">state function</seealso>.
 	</p>
         <p>
-	  <c><anno>Caller</anno></c> must be the term from the
+	  <c><anno>From</anno></c> must be the term from the
 	  <seealso marker="#type-event_type">
-	    <c>{call,<anno>Caller</anno>}</c>
+	    <c>{call,<anno>From</anno>}</c>
 	  </seealso>
 	  argument to the
 	  <seealso marker="#state_function">state function</seealso>.
-	  <c><anno>Caller</anno></c> and <c><anno>Reply</anno></c>
+	  <c><anno>From</anno></c> and <c><anno>Reply</anno></c>
 	  can also be specified using a
 	  <seealso marker="#type-reply_action">
 	    <c>reply_action()</c>
@@ -1340,15 +1340,15 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  If <c>EventType</c> is
-	  <seealso marker="#type-event_type"><c>{call,Caller}</c></seealso>
+	  <seealso marker="#type-event_type"><c>{call,From}</c></seealso>
 	  the caller is waiting for a reply.  The reply can be sent
 	  from this or from any other
 	  <seealso marker="#state_function">state function</seealso>
-	  by returning with <c>{reply,Caller,Reply}</c> in
+	  by returning with <c>{reply,From,Reply}</c> in
 	  <seealso marker="#type-action">Actions</seealso>, in
 	  <seealso marker="#type-reply_action">Replies</seealso>
 	  or by calling
-	  <seealso marker="#reply/2"><c>reply(Caller, Reply)</c></seealso>.
+	  <seealso marker="#reply/2"><c>reply(From, Reply)</c></seealso>.
 	</p>
 	<p>
 	  If this function returns with a next state that

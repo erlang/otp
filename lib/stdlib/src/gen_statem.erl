@@ -59,7 +59,7 @@
 %%% Interface functions.
 %%%==========================================================================
 
--type caller() ::
+-type from() ::
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
 
 -type state() ::
@@ -71,7 +71,7 @@
 -type data() :: term().
 
 -type event_type() ::
-	{'call',Caller :: caller()} | 'cast' |
+	{'call',From :: from()} | 'cast' |
 	'info' | 'timeout' | 'internal'.
 
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
@@ -125,7 +125,7 @@
 	 EventContent :: term()}.
 -type reply_action() ::
 	{'reply', % Reply to a caller
-	 Caller :: caller(), Reply :: term()}.
+	 From :: from(), Reply :: term()}.
 
 -type state_function_result() ::
 	{'next_state', % {next_state,NextStateName,NewData,[]}
@@ -253,13 +253,13 @@ callback_mode(CallbackMode) ->
 	    false
     end.
 %%
-caller({Pid,_}) when is_pid(Pid) ->
+from({Pid,_}) when is_pid(Pid) ->
     true;
-caller(_) ->
+from(_) ->
     false.
 %%
-event_type({call,Caller}) ->
-    caller(Caller);
+event_type({call,From}) ->
+    from(From);
 event_type(Type) ->
     case Type of
 	cast ->
@@ -378,7 +378,7 @@ cast(ServerRef, Msg) when is_pid(ServerRef) ->
     send(ServerRef, wrap_cast(Msg)).
 
 %% Call a state machine (synchronous; a reply is expected) that
-%% arrives with type {call,Caller}
+%% arrives with type {call,From}
 -spec call(ServerRef :: server_ref(), Request :: term()) -> Reply :: term().
 call(ServerRef, Request) ->
     call(ServerRef, Request, infinity).
@@ -437,12 +437,12 @@ call(ServerRef, Request, Timeout) ->
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.
-reply({reply,Caller,Reply}) ->
-    reply(Caller, Reply);
+reply({reply,From,Reply}) ->
+    reply(From, Reply);
 reply(Replies) when is_list(Replies) ->
     replies(Replies).
 %%
--spec reply(Caller :: caller(), Reply :: term()) -> ok.
+-spec reply(From :: from(), Reply :: term()) -> ok.
 reply({To,Tag}, Reply) when is_pid(To) ->
     Msg = {Tag,Reply},
     try To ! Msg of
@@ -509,8 +509,8 @@ enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
 wrap_cast(Event) ->
     {'$gen_cast',Event}.
 
-replies([{reply,Caller,Reply}|Replies]) ->
-    reply(Caller, Reply),
+replies([{reply,From,Reply}|Replies]) ->
+    reply(From, Reply),
     replies(Replies);
 replies([]) ->
     ok.
@@ -782,8 +782,8 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    end,
 		    Event =
 			case Msg of
-			    {'$gen_call',Caller,Request} ->
-				{{call,Caller},Request};
+			    {'$gen_call',From,Request} ->
+				{{call,From},Request};
 			    {'$gen_cast',E} ->
 				{cast,E};
 			    _ ->
@@ -983,10 +983,10 @@ loop_event_actions(
 	    ?TERMINATE(
 	       error, {bad_action,Action}, Debug, S, [Event|Events]);
 	%% Actual actions
-	{reply,Caller,Reply} ->
-	    case caller(Caller) of
+	{reply,From,Reply} ->
+	    case from(From) of
 		true ->
-		    NewDebug = do_reply(Debug, S, Caller, Reply),
+		    NewDebug = do_reply(Debug, S, From, Reply),
 		    loop_event_actions(
 		      Parent, NewDebug, S, Events, Event,
 		      State, NextState, NewData, Actions,
@@ -1101,17 +1101,17 @@ do_reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
 do_reply_then_terminate(
   Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
     case R of
-	{reply,{_To,_Tag}=Caller,Reply} ->
-	    NewDebug = do_reply(Debug, S, Caller, Reply),
+	{reply,{_To,_Tag}=From,Reply} ->
+	    NewDebug = do_reply(Debug, S, From, Reply),
 	    do_reply_then_terminate(
 	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
 	_ ->
 	    [error,{bad_action,R},?STACKTRACE(),Debug]
     end.
 
-do_reply(Debug, S, Caller, Reply) ->
-    reply(Caller, Reply),
-    sys_debug(Debug, S, {out,Reply,Caller}).
+do_reply(Debug, S, From, Reply) ->
+    reply(From, Reply),
+    sys_debug(Debug, S, {out,Reply,From}).
 
 
 terminate(
