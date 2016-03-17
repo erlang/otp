@@ -1068,24 +1068,43 @@ basedir_darwin(Type) ->
 %% user_cache   %LOCALAPPDATA%[/$author]/$appname[/$version]/Cache
 %% user_log     %LOCALAPPDATA%[/$author]/$appname[/$version]/Logs
 
+-define(basedir_windows_user_data,   "Local").
+-define(basedir_windows_user_config, "Roaming").
+-define(basedir_windows_user_cache,  "Local").    %% Cache is added later
+-define(basedir_windows_user_log,    "Local").    %% Logs is added later
+
 basedir_windows(Type) ->
     %% If LOCALAPPDATA is not defined we are likely on an
     %% XP machine. Use APPDATA instead.
-    AppData = basedir_windows_appdata(),
-    case Type of
-        user_data   -> getenv("LOCALAPPDATA", AppData);
-        user_config -> AppData;
-        user_cache  -> getenv("LOCALAPPDATA", AppData);
-        user_log    -> getenv("LOCALAPPDATA", AppData);
-        site_data   -> [];
-        site_config -> []
+    case basedir_windows_appdata() of
+        noappdata ->
+            %% No AppData is set
+            %% Probably running MSYS
+            case Type of
+                user_data   -> basedir_join_home(?basedir_windows_user_data);
+                user_config -> basedir_join_home(?basedir_windows_user_config);
+                user_cache  -> basedir_join_home(?basedir_windows_user_cache);
+                user_log    -> basedir_join_home(?basedir_windows_user_log);
+                site_data   -> [];
+                site_config -> []
+            end;
+        {ok, AppData} ->
+            case Type of
+                user_data   -> getenv("LOCALAPPDATA", AppData);
+                user_config -> AppData;
+                user_cache  -> getenv("LOCALAPPDATA", AppData);
+                user_log    -> getenv("LOCALAPPDATA", AppData);
+                site_data   -> [];
+                site_config -> []
+            end
     end.
 
 basedir_windows_appdata() ->
     case os:getenv("APPDATA") of
         Invalid when Invalid =:= false orelse Invalid =:= [] ->
-            erlang:error(noappdata);
-        Val   -> Val
+            noappdata;
+        Val ->
+            {ok, Val}
     end.
 
 %% basedir aux
