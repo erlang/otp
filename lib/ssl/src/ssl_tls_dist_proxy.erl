@@ -109,34 +109,27 @@ init([]) ->
     {ok, #state{}}.
 
 handle_call({listen, Driver, Name}, _From, State) ->
-    case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}, {ip, loopback}]) of
-	{ok, Socket} ->
-	    {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}, {reuseaddr, true},
-                                     Driver:family()]),
-	    {ok, TcpAddress} = get_tcp_address(Socket),
-	    {ok, WorldTcpAddress} = get_tcp_address(World),
-	    {_,Port} = WorldTcpAddress#net_address.address,
-	    ErlEpmd = net_kernel:epmd_module(),
-	    case ErlEpmd:register_node(Name, Port, Driver) of
-		{ok, Creation} ->
-		    {reply, {ok, {Socket, TcpAddress, Creation}},
-		     State#state{listen={Socket, World}}};
-		{error, _} = Error ->
-		    {reply, Error, State}
-	    end;
-	Error ->
+    {ok, World} = do_listen([{active, false}, binary, {packet,?PPRE}, {reuseaddr, true},
+			     Driver:family()]),
+    {ok, WorldTcpAddress} = get_tcp_address(World),
+    {_,Port} = WorldTcpAddress#net_address.address,
+    ErlEpmd = net_kernel:epmd_module(),
+    case ErlEpmd:register_node(Name, Port, Driver) of
+	{ok, Creation} ->
+	    {reply, {ok, {World, WorldTcpAddress, Creation}},
+	     State#state{listen=World}};
+	{error, _} = Error ->
 	    {reply, Error, State}
     end;
 
-handle_call({accept, _Driver, Listen}, {From, _}, State = #state{listen={_, World}}) ->
+handle_call({accept, _Driver, Listen}, {From, _}, State) ->
     Self = self(),
-    ErtsPid = spawn_link(fun() -> erts_accept_loop(Self, Listen, From) end),
-    WorldPid = spawn_link(fun() -> world_accept_loop(Self, World, Listen) end),
-    {reply, ErtsPid, State#state{accept_loop={ErtsPid, WorldPid}}};
+    WorldPid = spawn_link(fun() -> world_accept_loop(Self, Listen, From) end),
+    {reply, WorldPid, State#state{accept_loop=WorldPid}};
 
 handle_call({connect, Driver, Ip, Port}, {From, _}, State) ->
     Me = self(),
-    Pid = spawn_link(fun() -> setup_proxy(Driver, Ip, Port, Me) end),
+    Pid = spawn_link(fun() -> connect_and_setup_proxy(Driver, Ip, Port, Me) end),
     receive 
 	{Pid, go_ahead, LPort} -> 
 	    Res = {ok, Socket} = try_connect(LPort),
@@ -182,19 +175,41 @@ get_tcp_address(Socket) ->
 	{error, _} = Error -> Error
     end.
 
-erts_accept_loop(Proxy, Listen, NetKernelPid) ->
+world_accept_loop(Proxy, Listen, NetKernelPid) ->
     process_flag(priority, max),
     case gen_tcp:accept(Listen) of
-	{ok, Socket} ->
-	    NetKernelPid ! {accept,self(),Socket,inet,proxy},
-	    receive 
-		{_Kernel, controller, Pid} ->
-		    inet:setopts(Socket, [nodelay()]),
-		    ok = gen_tcp:controlling_process(Socket, Pid),
-		    flush_old_controller(Pid, Socket),
-		    Pid ! {self(), controller};
-		{_Kernel, unsupported_protocol} ->
-		    exit(unsupported_protocol)
+	{ok, PreSslSocket} ->
+	    Opts = get_ssl_options(server),
+	    wait_for_code_server(),
+	    case ssl:ssl_accept(PreSslSocket, Opts) of
+		{ok, SslSocket} ->
+		    Me = self(),
+		    PairHandler = spawn_link(fun() -> setup_proxy(SslSocket, Me) end),
+		    receive
+			{PairHandler, go_ahead, LPort} ->
+			    ok = ssl:controlling_process(SslSocket, PairHandler),
+			    flush_old_controller(PairHandler, SslSocket),
+			    {ok, Socket} = try_connect(LPort),
+			    NetKernelPid ! {accept,self(),Socket,inet,proxy},
+			    receive
+				{_Kernel, controller, Pid} ->
+				    inet:setopts(Socket, [nodelay()]),
+				    ok = gen_tcp:controlling_process(Socket, Pid),
+				    flush_old_controller(Pid, Socket),
+				    Pid ! {self(), controller};
+				{_Kernel, unsupported_protocol} ->
+				    exit(unsupported_protocol)
+			    end;
+			{PairHandler, Error} ->
+			    exit({setup_proxy_error, Error})
+		    end;
+		{error, {options, _}} = Error ->
+		    %% Bad options: that's probably our fault.  Let's log that.
+		    error_logger:error_msg("Cannot accept TLS distribution connection: ~s~n",
+					   [ssl:format_error(Error)]),
+		    gen_tcp:close(PreSslSocket);
+		_ ->
+		    gen_tcp:close(PreSslSocket)
 	    end;
 	{error, closed} ->
 	    %% The listening socket is closed: the proxy process is
@@ -204,34 +219,7 @@ erts_accept_loop(Proxy, Listen, NetKernelPid) ->
 	Error ->
 	    exit(Error)
     end,
-    erts_accept_loop(Proxy, Listen, NetKernelPid).
-
-world_accept_loop(Proxy, Listen, ErtsListen) ->
-    process_flag(priority, max),
-    case gen_tcp:accept(Listen) of
-	{ok, Socket} ->
-	    Opts = get_ssl_options(server),
-	    wait_for_code_server(),
-	    case ssl:ssl_accept(Socket, Opts) of
-		{ok, SslSocket} ->
-		    PairHandler =
-			spawn_link(fun() ->
-					   setup_connection(SslSocket, ErtsListen)
-				   end),
-		    ok = ssl:controlling_process(SslSocket, PairHandler),
-		    flush_old_controller(PairHandler, SslSocket);
-		{error, {options, _}} = Error ->
-		    %% Bad options: that's probably our fault.  Let's log that.
-		    error_logger:error_msg("Cannot accept TLS distribution connection: ~s~n",
-					   [ssl:format_error(Error)]),
-		    gen_tcp:close(Socket);
-		_ ->
-		    gen_tcp:close(Socket)
-	    end;
-	Error ->
-	    exit(Error)
-    end,
-    world_accept_loop(Proxy, Listen, ErtsListen).
+    world_accept_loop(Proxy, Listen, NetKernelPid).
 
 wait_for_code_server() ->
     %% This is an ugly hack.  Upgrading a socket to TLS requires the
@@ -270,22 +258,13 @@ try_connect(Port) ->
 	    try_connect(Port)
     end.
 
-setup_proxy(Driver, Ip, Port, Parent) ->
+connect_and_setup_proxy(Driver, Ip, Port, Parent) ->
     process_flag(trap_exit, true),
     Opts = connect_options(get_ssl_options(client)),
     case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}, nodelay(),
                                 Driver:family()] ++ Opts) of
 	{ok, World} ->
-	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, loopback}, binary, {packet,?PPRE}]),
-	    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
-	    Parent ! {self(), go_ahead, LPort},
-	    case gen_tcp:accept(ErtsL) of
-		{ok, Erts} ->
-		    %% gen_tcp:close(ErtsL),
-		    loop_conn_setup(World, Erts);
-		Err ->
-		    Parent ! {self(), Err}
-	    end;
+	    setup_proxy(World, Parent);
 	{error, {options, _}} = Err ->
 	    %% Bad options: that's probably our fault.  Let's log that.
 	    error_logger:error_msg("Cannot open TLS distribution connection: ~s~n",
@@ -295,6 +274,19 @@ setup_proxy(Driver, Ip, Port, Parent) ->
 	    Parent ! {self(), Err}
     end.
 
+-spec setup_proxy(ssl:sslsocket(), pid()) -> _.
+setup_proxy(World, Parent) ->
+    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, loopback}, binary, {packet,?PPRE}]),
+    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
+    Parent ! {self(), go_ahead, LPort},
+    case gen_tcp:accept(ErtsL) of
+	{ok, Erts} ->
+	    %% gen_tcp:close(ErtsL),
+	    ssl:setopts(World, [{active,true}, {packet,?PPRE}, nodelay()]),
+	    loop_conn_setup(World, Erts);
+	Err ->
+	    Parent ! {self(), Err}
+    end.
 
 %% we may not always want the nodelay behaviour
 %% %% for performance reasons
@@ -310,14 +302,6 @@ nodelay() ->
   _ ->
       {nodelay, true}
     end.
-
-setup_connection(World, ErtsListen) ->
-    process_flag(trap_exit, true),
-    {ok, TcpAddress} = get_tcp_address(ErtsListen),
-    {_Addr,Port} = TcpAddress#net_address.address,
-    {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,?PPRE}, nodelay()]),
-    ssl:setopts(World, [{active,true}, {packet,?PPRE}, nodelay()]),
-    loop_conn_setup(World, Erts).
 
 loop_conn_setup(World, Erts) ->
     receive 
