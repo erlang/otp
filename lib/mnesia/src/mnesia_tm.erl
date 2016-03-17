@@ -1692,13 +1692,10 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    ?eval_debug_fun({?MODULE, commit_participant, undo_prepare},
 					    [{tid, Tid}]);
 
-			{'EXIT', _, _} ->
+			{'EXIT', _MnesiaTM, Reason} ->
+			    reply(Coord, {do_abort, Tid, self(), {bad_commit,Reason}}),
 			    mnesia_recover:log_decision(D#decision{outcome = aborted}),
-			    ?eval_debug_fun({?MODULE, commit_participant, exit_log_abort},
-					    [{tid, Tid}]),
-			    mnesia_schema:undo_prepare_commit(Tid, C0),
-			    ?eval_debug_fun({?MODULE, commit_participant, exit_undo_prepare},
-					    [{tid, Tid}]);
+			    mnesia_schema:undo_prepare_commit(Tid, C0);
 
 			Msg ->
 			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
@@ -2210,8 +2207,6 @@ reconfigure_coordinators(N, [{Tid, [Store | _]} | Coordinators]) ->
 		true ->
 		    send_mnesia_down(Tid, Store, N)
 	    end;
-	aborted ->
-	    ignore; % avoid spurious mnesia_down messages
 	_ ->
 	    %% Tell the coordinator about the mnesia_down
 	    send_mnesia_down(Tid, Store, N)
