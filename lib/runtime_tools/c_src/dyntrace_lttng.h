@@ -41,6 +41,9 @@
 #define LTTNG5(Name, Arg1, Arg2, Arg3, Arg4, Arg5) \
     tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
 
+#define LTTNG_ENABLED(Name) \
+    tracepoint_enabled(com_ericsson_dyntrace, Name)
+
 #define LTTNG_BUFFER_SZ      (256)
 #define LTTNG_PROC_BUFFER_SZ (16)
 #define LTTNG_PORT_BUFFER_SZ (20)
