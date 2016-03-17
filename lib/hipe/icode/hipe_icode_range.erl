@@ -84,7 +84,7 @@
 
 -record(state, {info_map = #{}			:: info(),
 		cfg				:: cfg(),
-		liveness = gb_trees:empty()	:: gb_trees:tree(),
+		liveness			:: hipe_icode_ssa:liveness(),
 		ret_type			:: range(),
 		lookup_fun			:: call_fun(),
 		result_action			:: final_fun()}).

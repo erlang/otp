@@ -100,7 +100,7 @@
 
 -record(state, {info_map  = gb_trees:empty() :: gb_trees:tree(),
 		cfg                          :: cfg(),
-		liveness  = gb_trees:empty() :: gb_trees:tree(),
+		liveness                     :: hipe_icode_ssa:liveness(),
 		arg_types                    :: [erl_types:erl_type()],
 		ret_type  = [t_none()]       :: [erl_types:erl_type()],
 		lookupfun                    :: call_fun(),
