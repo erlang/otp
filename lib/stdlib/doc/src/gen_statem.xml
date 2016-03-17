@@ -35,10 +35,10 @@
       A behaviour module for implementing a state machine.
       Two callback modes are supported.  One for a finite state
       machine like <seealso marker="gen_fsm">gen_fsm</seealso>
-      that require the state to be an atom and use that state as
+      that requires the state to be an atom and use that state as
       the name of the callback function for a particular state,
-      and one without restriction on the state that use the same
-      callback function for all states.
+      and one without restriction on the state data type
+      that uses the same callback function for all states.
     </p>
     <p>
       A generic state machine process (<c>gen_statem</c>) implemented
@@ -96,7 +96,7 @@ erlang:'!'            -----> Module:StateName/3
     <p>
       When
       <seealso marker="#type-callback_mode">callback_mode</seealso>
-      is <c>state_functions</c> the state has to be an atom and
+      is <c>state_functions</c>, the state has to be an atom and
       is used as the state function name.  See
       <seealso marker="#Module:StateName/3">
         <c>Module:StateName/3</c>
@@ -127,8 +127,8 @@ erlang:'!'            -----> Module:StateName/3
       <seealso marker="#state_function">state function</seealso>
       in that order.  The state function can postpone an event
       so it is not retried in the current state.
-      After a state change all enqueued events (including postponed)
-      are again presented to the state function.
+      After a state change all enqueued events (including postponed ones)
+      are presented again to the state function.
     </p>
     <p>
       The <c>gen_statem</c> event queue model is sufficient
@@ -177,8 +177,10 @@ erlang:'!'            -----> Module:StateName/3
     </p>
     <p>
       Note that a <c>gen_statem</c> does not trap exit signals
-      automatically, this must be explicitly initiated by
-      the callback module.
+      automatically, this must be explicitly initiated in
+      the callback module (by calling
+      <seealso marker="erts:erlang#process_flag/2">
+	<c>process_flag(trap_exit, true)</c></seealso>.
     </p>
     <p>
       Unless otherwise stated, all functions in this module fail if
@@ -293,6 +295,42 @@ ok
      in function  gen:do_for_proc/2 (gen.erl, line 261)
      in call from gen_statem:call/3 (gen_statem.erl, line 386)
     </pre>
+
+    <p>
+      And just to compare styles here is the same example using
+      <seealso marker="#type-callback_mode">
+	<c>callback_mode</c>
+      </seealso>
+      <c>state_functions</c>, or rather here is code to replace
+      from the <c>init/1</c> function of the <c>pushbutton</c>
+      example module above:
+    </p>
+    <code type="erl">
+init([]) ->
+    %% Set the callback mode and initial state + data.
+    %% Data is used only as a counter.
+    State = off, Data = 0,
+    {handle_event_function,State,Data}.
+
+
+%%% Event handling
+
+handle_event({call,Caller}, push, off, Data) ->
+    %% Go to 'on', increment count and reply
+    %% that the resulting status is 'on'
+    {next_state,on,Data+1,[{reply,Caller,on}]};
+handle_event({call,Caller}, push, on, Data) ->
+    %% Go to 'off' and reply that the resulting status is 'off'
+    {next_state,off,Data,[{reply,Caller,off}]};
+%%
+%% Event handling common to all states
+handle_event({call,Caller}, get_count, State, Data) ->
+    %% Reply with the current count
+    {next_state,State,Data,[{reply,Caller,Data}]};
+handle_event(_, _, State, Data) ->
+    %% Ignore all other events
+    {next_state,State,Data}.
+    </code>
   </section>
 
   <datatypes>
@@ -564,8 +602,8 @@ ok
       <desc>
 	<p>
 	  If <c>true</c> postpone the current event and retry
-	  it when the state changes that is:
-	  <c>NextState =/= State</c>.
+	  it when the state changes
+	  (<c>NextState =/= State</c>).
 	</p>
       </desc>
     </datatype>
@@ -778,14 +816,18 @@ ok
 	    The <c>gen_statem</c> will keep the current state, or
 	    do a state transition to the current state if you like,
 	    set <c><anno>NewData</anno></c>
-	    and execute all <c><anno>Actions</anno></c>
+	    and execute all <c><anno>Actions</anno></c>.
+	    This is the same as
+	    <c>{next_state,CurrentState,<anno>NewData</anno>,<anno>Actions</anno>}</c>.
 	  </item>
 	  <tag><c>keep_state_and_data</c></tag>
 	  <item>
 	    The <c>gen_statem</c> will keep the current state or
 	    do a state transition to the current state if you like,
 	    keep the current server data,
-	    and execute all <c><anno>Actions</anno></c>
+	    and execute all <c><anno>Actions</anno></c>.
+	    This is the same as
+	    <c>{next_state,CurrentState,CurrentData,<anno>Actions</anno>}</c>.
 	  </item>
 	</taglist>
 	<p>
