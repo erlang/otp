@@ -28,7 +28,7 @@
 
 -module(hipe_ig).
 
--export([build/2, 
+-export([build/3,
 	 nodes_are_adjacent/3,
 	 node_spill_cost/2,
 	 node_adj_list/2,
@@ -368,10 +368,9 @@ initial_ig(NumTemps, Target) ->
 %%   An interference graph for the given CFG.
 %%----------------------------------------------------------------------
 
--spec build(#cfg{}, atom()) -> #igraph{}.
+-spec build(#cfg{}, Liveness::_, atom()) -> #igraph{}.
 
-build(CFG, Target) ->
-  BBs_in_out_liveness = Target:analyze(CFG),
+build(CFG, BBs_in_out_liveness, Target) ->
   Labels = Target:labels(CFG),
   %% How many temporaries exist?
   NumTemps = Target:number_of_temporaries(CFG),

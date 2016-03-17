@@ -78,7 +78,7 @@
 %%
 %% Returns:
 %%   Coloring    -- A coloring for specified CFG
-%%   SpillIndex0 -- A new spill index
+%%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 -ifdef(COMPARE_ITERATED_OPTIMISTIC).
 regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
@@ -86,8 +86,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  IG_O = hipe_ig:build(CFG, Target),
-  IG = hipe_ig:build(CFG, Target),
+  Liveness = Target:analyze(CFG),
+  IG_O = hipe_ig:build(CFG, Liveness, Target),
+  IG = hipe_ig:build(CFG, Liveness, Target),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
   ?debug_msg("IG:\n",[]),
   ?print_adjacent(IG),
@@ -199,9 +200,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("Nodes:~w\nNodes2:~w\nNo_temporaries:~w\n",[Node_sets,Node_sets2,No_temporaries]),
 
   ?debug_msg("Build mapping _N ~w\n",[Node_sets2]),
-  Coloring = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
+  {Coloring,SpillIndex2} =
+    build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
   ?debug_msg("Coloring ~p\n",[Coloring]),
-  SortedColoring = { sort_stack(element(1, Coloring)), element(2, Coloring)},
+  SortedColoring = {sort_stack(Coloring), SpillIndex2},
   ?debug_msg("SortedColoring ~p\n",[SortedColoring]),
   %%Coloring.
   ?debug_msg("----------------------Assign colors _O\n",[]),
@@ -217,14 +219,15 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   SortedColoring_O = {sort_stack(element(1, Coloring_O)), element(2, Coloring_O)},
   ?debug_msg("SortedColoring_O ~p\n",[SortedColoring_O]),
   sanity_compare(SortedColoring_O, SortedColoring),
-  Coloring.
+  {Coloring,SpillIndex2,Liveness}.
 -else.
 regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("optimistic ~w\n",[Target]),
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  IG = hipe_ig:build(CFG, Target),
+  Liveness = Target:analyze(CFG),
+  IG = hipe_ig:build(CFG, Liveness, Target),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
   ?debug_msg("IG:\n",[]),
   ?print_adjacent(IG),
@@ -316,9 +319,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("Nodes:~w\nNodes2:~w\nNo_temporaries:~w\n",[Node_sets,Node_sets2,No_temporaries]),
 
   ?debug_msg("Build mapping _N ~w\n",[Node_sets2]),
-  Coloring = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
+  {Coloring, SpillIndex2} = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
   ?debug_msg("Coloring ~p\n",[Coloring]),
-  Coloring.
+  {Coloring,SpillIndex2,Liveness}.
 -endif.
 
 %%----------------------------------------------------------------------

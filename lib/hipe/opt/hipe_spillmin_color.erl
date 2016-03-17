@@ -41,7 +41,7 @@
 
 -module(hipe_spillmin_color).
 
--export([stackalloc/6]).
+-export([stackalloc/7]).
 
 %%-ifndef(DO_ASSERT).
 %%-define(DO_ASSERT, true).
@@ -66,13 +66,13 @@
 %%  where Location is {spill,M}.
 %% {spill,M} denotes the Mth spilled node
 
--spec stackalloc(#cfg{}, [_], non_neg_integer(),
+-spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
 		 comp_options(), module(), hipe_temp_map()) ->
                                 {hipe_spill_map(), non_neg_integer()}.
 
-stackalloc(CFG, _StackSlots, SpillIndex, _Options, Target, TempMap) ->
+stackalloc(CFG, Live, _StackSlots, SpillIndex, _Options, Target, TempMap) ->
   ?report2("building IG~n", []),
-  {IG, NumNodes} = build_ig(CFG, Target, TempMap),
+  {IG, NumNodes} = build_ig(CFG, Live, Target, TempMap),
   {Cols, MaxColors} = 
     color_heuristic(IG, 0, NumNodes, NumNodes, NumNodes, Target, 1),
   SortedCols = lists:sort(Cols),
@@ -167,8 +167,8 @@ remap_temp_map0(Cols, [_Y|Ys], SpillIndex) ->
 %% Returns {Interference_graph, Number_Of_Nodes}
 %%
 
-build_ig(CFG, Target, TempMap) ->
-  try build_ig0(CFG, Target, TempMap)
+build_ig(CFG, Live, Target, TempMap) ->
+  try build_ig0(CFG, Live, Target, TempMap)
   catch error:Rsn -> exit({regalloc, build_ig, Rsn})
   end.
 
@@ -185,8 +185,7 @@ setup_ets0([X|Xs], Table, N) ->
   ets:insert(Table, {X, N}),
   setup_ets0(Xs, Table, N+1).
 
-build_ig0(CFG, Target, TempMap) ->
-  Live = Target:analyze(CFG),
+build_ig0(CFG, Live, Target, TempMap) ->
   TempMapping = map_spilled_temporaries(TempMap),
   TempMappingTable = setup_ets(TempMapping),
   NumSpilled = length(TempMapping),

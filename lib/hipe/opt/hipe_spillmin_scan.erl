@@ -60,7 +60,7 @@
 
 -module(hipe_spillmin_scan).
 
--export([stackalloc/6]).
+-export([stackalloc/7]).
 
 %%-define(DEBUG, 1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -85,15 +85,12 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec stackalloc(#cfg{}, [_], non_neg_integer(),
+-spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
 		 comp_options(), module(), hipe_temp_map()) ->
                                 {hipe_spill_map(), non_neg_integer()}.
 
-stackalloc(CFG, StackSlots, SpillIndex, Options, Target, TempMap) ->
+stackalloc(CFG, Liveness, StackSlots, SpillIndex, Options, Target, TempMap) ->
   ?debug_msg("LinearScan: ~w\n", [erlang:statistics(runtime)]),
-  %% Step 1: Calculate liveness (Call external implementation.)
-  Liveness = liveness(CFG, Target),
-  ?debug_msg("liveness (done)~w\n", [erlang:statistics(runtime)]),
   USIntervals = calculate_intervals(CFG, Liveness, Options,
 				    Target, TempMap),
   %% ?debug_msg("intervals (done) ~w\n", [erlang:statistics(runtime)]),
@@ -537,9 +534,6 @@ extend_interval(Pos, {Beginning, End})
 %% Interface to external functions.
 %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-liveness(CFG, Target) ->
-  Target:analyze(CFG).
 
 bb(CFG, L, Target) ->
   Target:bb(CFG, L).

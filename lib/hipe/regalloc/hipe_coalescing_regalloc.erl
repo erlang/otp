@@ -51,13 +51,14 @@
 %%
 %% Returns:
 %%   Coloring    -- A coloring for specified CFG
-%%   SpillIndex0 -- A new spill index
+%%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 
 regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   %% Build interference graph
   ?debug_msg("Build IG\n", []),
-  IG = hipe_ig:build(CFG, Target),
+  Liveness = Target:analyze(CFG),
+  IG = hipe_ig:build(CFG, Liveness, Target),
   %% io:format("IG: ~p\n", [IG]),
 
   ?debug_msg("Init\n", []),
@@ -94,9 +95,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   %% io:format("color0:~w\nColor1:~w\nNodes:~w\nNodes2:~w\nNum_Temps:~w\n",[Color0,Color1,Node_sets,Node_sets2,Num_Temps]),
 
   ?debug_msg("Build mapping ~p\n", [Node_sets2]),
-  Coloring = build_namelist(Node_sets2, SpillIndex, Alias0, Color1),
+  {Coloring, SpillIndex2} =
+    build_namelist(Node_sets2, SpillIndex, Alias0, Color1),
   ?debug_msg("Coloring ~p\n", [Coloring]),
-  Coloring.
+  {Coloring, SpillIndex2, Liveness}.
 
 %%----------------------------------------------------------------------
 %% Function:    do_coloring

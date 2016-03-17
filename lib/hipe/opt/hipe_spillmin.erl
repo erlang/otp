@@ -49,7 +49,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_spillmin).
--export([stackalloc/6, mapmerge/2]).
+-export([stackalloc/6, stackalloc/7, mapmerge/2]).
 
 %%-define(DEBUG, 1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -69,16 +69,24 @@
 
 -spec stackalloc(#cfg{}, [_], non_neg_integer(),
 		 comp_options(), module(), hipe_temp_map()) ->
-                                {hipe_spill_map(), non_neg_integer()}.
+		    {hipe_spill_map(), non_neg_integer()}.
  
 stackalloc(CFG, StackSlots, SpillIndex, Options, Target, TempMap) ->
+  Liveness = Target:analyze(CFG),
+  stackalloc(CFG, Liveness, StackSlots, SpillIndex, Options, Target, TempMap).
+
+-spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
+		 comp_options(), module(), hipe_temp_map()) ->
+		    {hipe_spill_map(), non_neg_integer()}.
+
+stackalloc(CFG, Liveness, StackSlots, SpillIndex, Options, Target, TempMap) ->
   case proplists:get_bool(spillmin_color, Options) of
     false ->
-      ?option_time(hipe_spillmin_scan:stackalloc(CFG, StackSlots, SpillIndex,
+      ?option_time(hipe_spillmin_scan:stackalloc(CFG, Liveness, StackSlots, SpillIndex,
 						 Options, Target, TempMap),
 		   "Spill minimize, linear scan", Options);
     true ->
-      ?option_time(hipe_spillmin_color:stackalloc(CFG, StackSlots, SpillIndex,
+      ?option_time(hipe_spillmin_color:stackalloc(CFG, Liveness, StackSlots, SpillIndex,
 						  Options, Target, TempMap),
 		   "Spill minimize, graph coloring", Options)
   end.

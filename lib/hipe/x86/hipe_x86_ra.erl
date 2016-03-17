@@ -49,7 +49,11 @@ code_size(CFG) ->
 
 ra(CFG0, Options) ->
   %% hipe_x86_cfg:pp(CFG0),
-  {CFG1, Coloring_fp, SpillIndex} = ra_fp(CFG0, Options),
+  {CFG1, Coloring_fp, SpillIndex, Liveness} =
+    case ra_fp(CFG0, Options) of
+      {G, C, I} -> {G, C, I, undefined};
+      {_,_,_,_}=T -> T
+    end,
   %% hipe_x86_cfg:pp(CFG1),
   ?start_ra_instrumentation(Options,
 			    code_size(CFG1),
@@ -63,7 +67,7 @@ ra(CFG0, Options) ->
 	graph_color ->
 	  ra(CFG1, SpillIndex, Options, hipe_graph_coloring_regalloc);
 	linear_scan ->
-	  ?HIPE_X86_RA_LS:ra(CFG1, SpillIndex, Options);
+	  ?HIPE_X86_RA_LS:ra(CFG1, Liveness, SpillIndex, Options);
 	naive ->
 	  ?HIPE_X86_RA_NAIVE:ra(CFG1, Coloring_fp, Options);
         _ ->
