@@ -555,8 +555,9 @@ transition({P, Sock, Bin}, #transport{socket = Sock,
     recv(Bin, S);
 
 %% Make a new throttling callback after a timeout.
-transition(throttle, #transport{throttled = B} = S) ->
-    true = false /= B,  %% assert
+transition(throttle, #transport{throttled = false}) ->
+    ok;
+transition(throttle, S) ->
     throttle(S);
 
 %% Capabilties exchange has decided on whether or not to run over TLS.
