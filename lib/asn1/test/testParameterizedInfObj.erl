@@ -97,7 +97,7 @@ roundtrip(T, V) ->
 
 ranap(_Erule) ->    
     PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
-    ?line Val2 = 
+    Val2 =
 	#'InitiatingMessage'{procedureCode=1,
 			     criticality=ignore,
 			     value=#'Iu-ReleaseCommand'{protocolIEs=PIEVal2,

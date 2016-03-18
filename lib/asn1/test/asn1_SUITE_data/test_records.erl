@@ -45,19 +45,19 @@ check_record_names({initiatingMessage,
 					 transactionID = _TransactionID,
 					 value = Value}}) ->
     
-    ?line ok = check_record_ProcedureID(ProcedureID),
-    ?line ok = check_record_Value(Value).
+    ok = check_record_ProcedureID(ProcedureID),
+    ok = check_record_Value(Value).
 
 check_record_ProcedureID(#'ProcedureID'{}) ->
     ok;
 check_record_ProcedureID(_) -> false.
 
 check_record_Value(#'ResourceStatusIndication'{protocolIEs = ProtocolIEs}) ->
-    ?line ok = check_record_ProtocolIEs(ProtocolIEs);
+    ok = check_record_ProtocolIEs(ProtocolIEs);
 check_record_Value(_) -> false.
 
 check_record_ProtocolIEs([#'ProtocolIE-Field'{value =IndicationType}|_]) ->
-    ?line ok = check_record_NFResourceStatusInd(IndicationType);
+    ok = check_record_NFResourceStatusInd(IndicationType);
 check_record_ProtocolIEs(_) -> false.
 
 check_record_NFResourceStatusInd({'no-Failure',#'No-Failure-ResourceStatusInd'{'local-Cell-InformationList'=[LCIPF]}}) ->
@@ -65,13 +65,13 @@ check_record_NFResourceStatusInd({'no-Failure',#'No-Failure-ResourceStatusInd'{'
 check_record_NFResourceStatusInd(_) -> false.
 
 'check_record_NFResourceStatusInd_ProtocolIE-Field'(#'ProtocolIE-Field'{value=LCI}) ->
-    ?line ok = check_record_LCInfoResourceStatusInd(LCI);
+    ok = check_record_LCInfoResourceStatusInd(LCI);
 'check_record_NFResourceStatusInd_ProtocolIE-Field'(_) -> false.
 
 check_record_LCInfoResourceStatusInd(#'Local-Cell-InformationItem-ResourceStatusInd'{commonChannelsCapacityConsumptionLaw=[CCCCL],dedicatedChannelsCapacityConsumptionLaw=[DCCCL],'iE-Extensions' = [LCIRE]}) ->
-    ?line ok = check_record_CCCCL(CCCCL),
-    ?line ok = check_record_DCCCL(DCCCL),
-    ?line ok = check_record_LCIRE(LCIRE).
+    ok = check_record_CCCCL(CCCCL),
+    ok = check_record_DCCCL(DCCCL),
+    ok = check_record_LCIRE(LCIRE).
 
 check_record_CCCCL(#'CommonChannelsCapacityConsumptionLaw_SEQOF'{}) -> 
     ok;
