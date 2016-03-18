@@ -2188,6 +2188,7 @@ erl_start(int argc, char **argv)
 	init_break_handler();
     if (replace_intr)
 	erts_replace_intr();
+    sys_init_suspend_handler();
 #endif
 
     boot_argc = argc - i;  /* Number of arguments to init */
