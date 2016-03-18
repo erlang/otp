@@ -36,9 +36,12 @@
 %%------------------------------------------------------------------------
 
 -type hipe_array() :: integer(). % declare this in hipe.hrl or builtin?
+-type hipe_vector(E) :: {} | {E} | {E, E} | {E, E, E} | tuple().
 
 -type label()      :: non_neg_integer().
 -type address()    :: non_neg_integer().
+
+-type parents()    :: {hipe_vector(_ :: integer()), hipe_segment_trees:tree()}.
 
 %%------------------------------------------------------------------------
 
@@ -168,9 +171,11 @@ mk_long(N) ->
 %%% - Since the graph is traversed from child to parent nodes in
 %%%   Step 3, the edges are represented by a vector PARENTS[0..n-1]
 %%%   such that PARENTS[j] = { i | i is a parent of j }.
-%%% - An explicit PARENTS graph would have size O(n^2). Instead we
-%%%   compute PARENTS[j] from the SDI vector when needed. This
-%%%   reduces memory overheads, and may reduce time overheads too.
+%%% - An explicit PARENTS graph would have size O(n^2). Instead, we
+%%%   observe that (i is a parent of j) iff (j \in range(i)), where
+%%%   range(i) is a constant function. We can thus precompute all the
+%%%   ranges i and insert them into a data structure built for such
+%%%   queries. In this case, we use a segment tree.
 
 -spec mk_span(non_neg_integer(), tuple()) -> hipe_array().
 mk_span(N, SDIS) ->
@@ -188,7 +193,19 @@ initSPAN(SdiNr, N, SDIS, SPAN) ->
       initSPAN(SdiNr+1, N, SDIS, SPAN)
   end.
 
-mk_parents(N, SDIS) -> {N,SDIS}.
+-spec mk_parents(non_neg_integer(), tuple()) -> parents().
+mk_parents(N, SDIS) ->
+  Ranges = parents_generate_ranges(N-1, SDIS, []),
+  hipe_segment_trees:build(Ranges).
+
+parents_generate_ranges(-1, _SDIS, Acc) -> Acc;
+parents_generate_ranges(SdiNr, SDIS, Acc) ->
+  #sdi_data{prevSdi=PrevSdi} = vector_sub(SDIS, SdiNr),
+  {LO,HI} =	% inclusive
+    if SdiNr =< PrevSdi -> {SdiNr+1, PrevSdi};	% forwards
+       true -> {PrevSdi+1, SdiNr-1}		% backwards
+    end,
+  parents_generate_ranges(SdiNr-1, SDIS, [{LO,HI}|Acc]).
 
 %%% "After the structure is built we process it as follows.
 %%% For any node i whose listed span exceeds the architectural
@@ -209,7 +226,7 @@ mk_parents(N, SDIS) -> {N,SDIS}.
 %%%   and PARENTS are no longer useful.
 
 -spec update_long(non_neg_integer(), tuple(), hipe_array(),
-		  {non_neg_integer(),tuple()},hipe_array()) -> 'ok'.
+		  parents(),hipe_array()) -> 'ok'.
 update_long(N, SDIS, SPAN, PARENTS, LONG) ->
   WKL = initWKL(N-1, SDIS, SPAN, []),
   processWKL(WKL, SDIS, SPAN, PARENTS, LONG).
@@ -225,14 +242,14 @@ initWKL(SdiNr, SDIS, SPAN, WKL) ->
   end.
 
 -spec processWKL([non_neg_integer()], tuple(), hipe_array(),
-		 {non_neg_integer(), tuple()}, hipe_array()) -> 'ok'.
+		 parents(), hipe_array()) -> 'ok'.
 processWKL([], _SDIS, _SPAN, _PARENTS, _LONG) -> ok;
 processWKL([Child|WKL], SDIS, SPAN, PARENTS, LONG) ->
   WKL2 = updateChild(Child, WKL, SDIS, SPAN, PARENTS, LONG),
   processWKL(WKL2, SDIS, SPAN, PARENTS, LONG).
 
 -spec updateChild(non_neg_integer(), [non_neg_integer()], tuple(), hipe_array(),
-		  {non_neg_integer(),tuple()}, hipe_array()) -> [non_neg_integer()].
+		  parents(), hipe_array()) -> [non_neg_integer()].
 updateChild(Child, WKL, SDIS, SPAN, PARENTS, LONG) ->
   case array_sub(SPAN, Child) of
     0 -> WKL;						% removed
@@ -245,26 +262,9 @@ updateChild(Child, WKL, SDIS, SPAN, PARENTS, LONG) ->
       updateParents(PS, Child, Incr, SDIS, SPAN, WKL)
   end.
 
--spec parentsOfChild({non_neg_integer(),tuple()},
-		     non_neg_integer()) -> [non_neg_integer()].
-parentsOfChild({N,SDIS}, Child) ->
-  parentsOfChild(N-1, SDIS, Child, []).
-
--spec parentsOfChild(integer(), tuple(), non_neg_integer(),
-		     [non_neg_integer()]) -> [non_neg_integer()].
-parentsOfChild(-1, _SDIS, _Child, PS) -> PS;
-parentsOfChild(SdiNr, SDIS, Child, PS) ->
-  SdiData = vector_sub(SDIS, SdiNr),
-  #sdi_data{prevSdi=PrevSdi} = SdiData,
-  {LO,HI} =	% inclusive
-    if SdiNr =< PrevSdi -> {SdiNr+1, PrevSdi};	% forwards
-       true -> {PrevSdi+1, SdiNr-1}		% backwards
-    end,
-  NewPS =
-    if LO =< Child, Child =< HI -> [SdiNr | PS];
-       true -> PS
-    end,
-  parentsOfChild(SdiNr-1, SDIS, Child, NewPS).
+-spec parentsOfChild(parents(), non_neg_integer()) -> [non_neg_integer()].
+parentsOfChild(IntervalTree, Child) ->
+  hipe_segment_trees:intersect(Child, IntervalTree).
 
 -spec updateParents([non_neg_integer()], non_neg_integer(),
 		    byte(), tuple(), hipe_array(),
@@ -361,9 +361,11 @@ applyIncr([{Label,LabelData}|List], INCREMENT, LabelMap) ->
 %%% Currently implemented as tuples.
 %%% Used for the 'SDIS' and 'PARENTS' vectors.
 
--spec vector_from_list([#sdi_data{}]) -> tuple().
+-spec vector_from_list([E]) -> hipe_vector(E).
 vector_from_list(Values) -> list_to_tuple(Values).
 
+-compile({inline, vector_sub/2}).
+-spec vector_sub(hipe_vector(E), non_neg_integer()) -> V when V :: E.
 vector_sub(Vec, I) -> element(I+1, Vec).
 
 %%% ADT for mutable integer arrays, indexed from 0 to N-1.
@@ -373,8 +375,10 @@ vector_sub(Vec, I) -> element(I+1, Vec).
 -spec mk_array_of_zeros(non_neg_integer()) -> hipe_array().
 mk_array_of_zeros(N) -> hipe_bifs:array(N, 0).
 
+-compile({inline, array_update/3}).
 -spec array_update(hipe_array(), non_neg_integer(), integer()) -> hipe_array().
 array_update(A, I, V) -> hipe_bifs:array_update(A, I, V).
 
+-compile({inline, array_sub/2}).
 -spec array_sub(hipe_array(), non_neg_integer()) -> integer().
 array_sub(A, I) -> hipe_bifs:array_sub(A, I).
