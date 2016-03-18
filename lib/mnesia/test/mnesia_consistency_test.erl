@@ -565,6 +565,7 @@ consistency_after_fallback_3_disc_only(Config) when is_list(Config) ->
     consistency_after_fallback(disc_only_copies, 3, Config).
 
 consistency_after_fallback(ReplicaType, NodeConfig, Config) ->
+    put(mnesia_test_verbose, true),
     %%?verbose("Starting consistency_after_fallback2 at ~p~n", [self()]),
     Delay = 5,
     Nodes = ?acquire_nodes(NodeConfig, [{tc_timeout, timer:minutes(10)} | Config]),
@@ -594,10 +595,11 @@ consistency_after_fallback(ReplicaType, NodeConfig, Config) ->
     ?match(ok, mnesia_tpcb:verify_tabs()),
     
     %% Stop and then start mnesia and check table consistency
-    %%?verbose("Restarting Mnesia~n", []),
+    ?verbose("Kill Mnesia~n", []),
     mnesia_test_lib:kill_mnesia(Nodes),
+    ?verbose("Start Mnesia~n", []),
     mnesia_test_lib:start_mnesia(Nodes,[account,branch,teller,history]),
-    
+    ?verbose("Verify tabs~n", []),
     ?match(ok, mnesia_tpcb:verify_tabs()),
     if 
 	ReplicaType == ram_copies ->
