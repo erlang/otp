@@ -298,7 +298,12 @@ tracer(port, Port) when is_port(Port) ->
     start(fun() -> Port end);
 
 tracer(process, {Handler,HandlerData}) ->
-    start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+tracer(module, Fun) when is_function(Fun) ->
+    start(Fun);
+tracer(module, {Module, State}) ->
+    start(fun() -> {Module, State} end).
 
 
 remote_tracer(port, Fun) when is_function(Fun) ->
@@ -308,7 +313,13 @@ remote_tracer(port, Port) when is_port(Port) ->
     remote_start(fun() -> Port end);
 
 remote_tracer(process, {Handler,HandlerData}) ->
-    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+remote_tracer(module, Fun) when is_function(Fun) ->
+    remote_start(Fun);
+remote_tracer(module, {Module, State}) ->
+    remote_start(fun() -> {Module, State} end).
+
 
 remote_start(StartTracer) ->
     case (catch StartTracer()) of
@@ -543,9 +554,8 @@ c(M, F, A, Flags) ->
 	{error,Reason} -> {error,Reason};
 	Flags1 ->
 	    tracer(),
-	    {ok, Tracer} = get_tracer(),
 	    S = self(),
-	    Pid = spawn(fun() -> c(S, M, F, A, [{tracer, Tracer} | Flags1]) end),
+	    Pid = spawn(fun() -> c(S, M, F, A, [get_tracer_flag() | Flags1]) end),
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
@@ -660,6 +670,9 @@ loop({C,T}=SurviveLinks, Table) ->
 			    reply(From, {error, Reason});
 			Tracer when is_pid(Tracer); is_port(Tracer) ->
 			    put(node(),{self(),Tracer}),
+			    reply(From, {ok,self()});
+                        {Module, _State} = Tracer when is_atom(Module) ->
+                            put(node(),{self(),Tracer}),
 			    reply(From, {ok,self()})
 		    end;
 		{_Relay,_Tracer} ->
@@ -709,6 +722,9 @@ loop({C,T}=SurviveLinks, Table) ->
 		    loop(SurviveLinks, Table);
 		{_LocalRelay,Tracer} when is_port(Tracer) -> 
 		    reply(From, {error, cant_trace_remote_pid_to_local_port}),
+		    loop(SurviveLinks, Table);
+		{_LocalRelay,Tracer} when is_tuple(Tracer) -> 
+		    reply(From, {error, cant_trace_remote_pid_to_local_module}),
 		    loop(SurviveLinks, Table);
 	        {_LocalRelay,Tracer} when is_pid(Tracer) ->
 		    case (catch relay(Node, Tracer)) of
@@ -879,9 +895,9 @@ trac(Proc, How, Flags) ->
 	    end
     end.
 
-trac(Node, {_Relay, Tracer}, AtomPid, How, Flags) ->
+trac(Node, {_Replay, Tracer}, AtomPid, How, Flags) ->
     case rpc:call(Node, ?MODULE, erlang_trace,
-		  [AtomPid, How, [{tracer, Tracer} | Flags]]) of
+		  [AtomPid, How, [get_tracer_flag(Tracer) | Flags]]) of
 	N when is_integer(N) ->
 	    {matched, Node, N};
 	{badrpc,Reason} ->
@@ -1439,6 +1455,13 @@ get_tracer() ->
     req({get_tracer,node()}).
 get_tracer(Node) ->
     req({get_tracer,Node}).
+get_tracer_flag() ->
+    {ok, Tracer} = get_tracer(),
+    get_tracer_flag(Tracer).
+get_tracer_flag({Module,State}) ->
+    {tracer, Module, State};
+get_tracer_flag(Port = Pid) when is_port(Port); is_pid(Pid)->
+    {tracer, Pid = Port}.
 
 save_pattern([]) ->
     0;
