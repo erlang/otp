@@ -1,4 +1,6 @@
+#ifndef __WIN32__
 #include <unistd.h>
+#endif
 #include "erl_nif.h"
 
 static int
@@ -15,7 +17,11 @@ static ERL_NIF_TERM
 dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
+#ifdef __WIN32__
+    Sleep(3000);
+#else
     sleep(3);
+#endif
 #endif
     return enif_make_atom(env, "ok");
 }
