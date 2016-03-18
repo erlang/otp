@@ -34,7 +34,9 @@
 %% Suite definition
 %%------------------------------------------------------------------------------
 
-suite() -> [{ct_hooks, [ts_install_cth]}].
+suite() ->
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap,{minutes,60}}].
 
 all() ->
     [{group, compile},
@@ -197,12 +199,7 @@ init_per_testcase(Func, Config) ->
     CaseDir = filename:join(?config(priv_dir, Config), Func),
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
-
-    Dog = case Func of
-              testRfcs -> ct:timetrap({minutes, 90});
-              _        -> ct:timetrap({minutes, 60})
-          end,
-    [{case_dir, CaseDir}, {watchdog, Dog}|Config].
+    [{case_dir, CaseDir}|Config].
 
 end_per_testcase(_Func, Config) ->
     code:del_path(?config(case_dir, Config)).
@@ -992,6 +989,9 @@ testS1AP(Config, Rule, Opts) ->
 	ber ->
 	    ok
     end.
+
+testRfcs() ->
+    [{timetrap,{minutes,90}}].
 
 testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
 testRfcs(Config, Rule, Opts) ->
