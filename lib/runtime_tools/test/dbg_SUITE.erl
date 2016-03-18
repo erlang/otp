@@ -26,10 +26,12 @@
 	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
 	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
 	 with_seq_trace/1, dead_suspend/1, local_trace/1,
-	 saved_patterns/1, tracer_exit_on_stop/1]).
+	 saved_patterns/1, tracer_exit_on_stop/1,
+         erl_tracer/1, distributed_erl_tracer/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
+-export([enabled/3, trace/6, load_nif/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -define(default_timeout, ?t:minutes(1)).
@@ -48,7 +50,8 @@ all() ->
     [big, tiny, simple, message, distributed, port, ip_port,
      file_port, file_port2, file_port_schedfix, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
-     local_trace, saved_patterns, tracer_exit_on_stop].
+     local_trace, saved_patterns, tracer_exit_on_stop,
+     erl_tracer, distributed_erl_tracer].
 
 groups() -> 
     [].
@@ -804,6 +807,78 @@ spawn_once_handler(Event, {Pid, Fun}) ->
 	    Pid ! Event,
 	    {Pid, done}
     end.
+
+%% Test that erl_tracer modules work correctly
+erl_tracer(Config) ->
+    stop(),
+
+    ok = load_nif(Config),
+
+    Self = self(),
+    {ok, _} = dbg:tracer(module, {?MODULE, Self}),
+    {ok, {?MODULE, Self}} = dbg:get_tracer(),
+    {ok, _} = dbg:p(self(), [c, timestamp]),
+    {ok, _} = dbg:tp(?MODULE, dummy, []),
+    ok = ?MODULE:dummy(),
+    [{Self, call, Self, Self, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+    ok.
+
+%% Test that distributed erl_tracer modules work
+distributed_erl_tracer(Config) ->
+    stop(),
+
+    S = self(),
+
+    ok = load_nif(Config),
+
+    LNode = node(),
+    RNode = start_slave(),
+    true = rpc:call(RNode, code, add_patha, [filename:join(proplists:get_value(data_dir, Config), "..")]),
+    ok = rpc:call(RNode, ?MODULE, load_nif, [Config]),
+
+    NifProxy = fun() ->
+                       register(nif_proxy, self()),
+                       receive M -> S ! M end
+               end,
+
+    LNifProxy = spawn_link(LNode, NifProxy),
+    RNifProxy = spawn_link(RNode, NifProxy),
+
+    TracerFun = fun() -> {?MODULE, whereis(nif_proxy)} end,
+
+    {ok, _} = dbg:tracer(LNode, module, TracerFun),
+    {ok, _} = dbg:tracer(RNode, module, TracerFun),
+
+    {ok, [{matched, _, _}, {matched, _, _}]} = dbg:p(all,c),
+    {ok, [_, _]} = dbg:tp(?MODULE, dummy, []),
+
+    {ok, {?MODULE, LNifProxy}} = dbg:get_tracer(LNode),
+    {ok, {?MODULE, RNifProxy}} = dbg:get_tracer(RNode),
+
+    LCall = spawn_link(LNode, fun() -> ?MODULE:dummy() end),
+    [{LCall, call, LNifProxy, LCall, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+
+    RCall = spawn_link(RNode, fun() -> ?MODULE:dummy() end),
+    [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+
+
+    ok.
+
+load_nif(Config) ->
+    SoFile = atom_to_list(?MODULE),
+    DataDir = proplists:get_value(data_dir, Config),
+    case erlang:load_nif(filename:join(DataDir, SoFile) , 0) of
+        {error, {reload, _}} ->
+            ok;
+        ok ->
+            ok
+    end.
+
+enabled(_, _, _) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace(_, _, _, _, _, _) ->
+    erlang:nif_error(nif_not_loaded).
 
 %%
 %% Support functions
