@@ -1125,7 +1125,8 @@ transform_flags(Bad,_Acc) -> {error,{bad_flags,Bad}}.
 all() ->
     [send,'receive',call,procs,ports,garbage_collection,running,
      set_on_spawn,set_on_first_spawn,set_on_link,set_on_first_link,
-     timestamp,arity,return_to,silent,running_procs,running_ports].
+     timestamp,monotonic_timestamp,strict_monotonic_timestamp,
+     arity,return_to,silent,running_procs,running_ports].
 
 display_info([Node|Nodes]) ->
     io:format("~nNode ~w:~n",[Node]),
