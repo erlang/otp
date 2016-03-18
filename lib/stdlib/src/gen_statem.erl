@@ -86,7 +86,7 @@
 	%% If 'true' hibernate the server instead of going into receive
 	boolean().
 -type event_timeout() ::
-	%% Generate a ('timeout', Msg, ...) event after Time
+	%% Generate a ('timeout', EventContent, ...) event after Time
 	%% unless some other event is delivered
 	Time :: timeout().
 
@@ -113,7 +113,7 @@
 	%%
 	(Timeout :: event_timeout()) | % {timeout,Timeout}
 	{'timeout', % Set the event timeout option
-	 Time :: event_timeout(), Msg :: term()} |
+	 Time :: event_timeout(), EventContent :: term()} |
 	%%
 	reply_action() |
 	%%
@@ -1054,17 +1054,17 @@ loop_event_actions(
 	    undefined ->
 		%% No state timeout has been requested
 		{Q3,undefined};
-	    {timeout,Time,Msg} ->
+	    {timeout,Time,EventContent} ->
 		%% A state timeout has been requested
 		case Q3 of
 		    [] when Time =:= 0 ->
 			%% Immediate timeout - simulate it
 			%% so we do not get the timeout message
 			%% after any received event
-			{[{timeout,Msg}],undefined};
+			{[{timeout,EventContent}],undefined};
 		    [] ->
 			%% Actually start a timer
-			{Q3,erlang:start_timer(Time, self(), Msg)};
+			{Q3,erlang:start_timer(Time, self(), EventContent)};
 		    _ ->
 			%% Do not start a timer since any queued
 			%% event cancels the state timer so we pretend

@@ -127,8 +127,7 @@ erlang:'!'            -----> Module:StateName/3
       <seealso marker="#state_function">state function</seealso>
       in that order.  The state function can postpone an event
       so it is not retried in the current state.
-      After a state change all enqueued events (including postponed ones)
-      are presented again to the state function.
+      After a state change the queue restarts with the postponed events.
     </p>
     <p>
       The <c>gen_statem</c> event queue model is sufficient
@@ -157,10 +156,10 @@ erlang:'!'            -----> Module:StateName/3
       state handling functions that you often would have to
       resort to in for example <seealso marker="gen_fsm">gen_fsm</seealso>
       to force processing an inserted event before others.
-      If you for example in <c>gen_statem</c> postpone an event
-      in one state and then call some other state function of yours,
-      you have not changed states and hence the postponed event
-      will not be retried, which is logical but might be confusing.
+      A warning, though: if you in <c>gen_statem</c> for example
+      postpone an event in one state and then call some other state function of yours,
+      you have not changed states and hence the postponed event will not be retried,
+      which is logical but might be confusing.
     </p>
     <p>
       See the type
@@ -302,8 +301,8 @@ ok
 	<c>callback_mode</c>
       </seealso>
       <c>state_functions</c>, or rather here is code to replace
-      from the <c>init/1</c> function of the <c>pushbutton</c>
-      example module above:
+      from the <c>init/1</c> function of the <c>pushbutton.erl</c>
+      example file above:
     </p>
     <code type="erl">
 init([]) ->
@@ -364,8 +363,8 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>It can be:</p>
 	<taglist>
-	  <tag><c>pid()</c></tag>
-	  <tag><c>LocalName</c></tag>
+	  <tag><c>pid()</c><br />
+	  <c>LocalName</c></tag>
 	  <item>The <c>gen_statem</c> is locally registered.</item>
 	  <tag><c>Name, Node</c></tag>
 	  <item>
@@ -489,13 +488,10 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#cast/2">casts</seealso>
 	  originate from the corresponding API functions.
 	  For calls the event contain whom to reply to.
-	  Type <c>info</c> originates from
-	  regular process messages sent
-	  to the <c>gen_statem</c>.
-	  It is also possible for the state machine
-	  implementation to insert events to itself,
-	  in particular of types
-	  <c>timeout</c> and <c>internal</c>.
+	  Type <c>info</c> originates from regular process messages sent
+	  to the <c>gen_statem</c>. It is also possible for the state machine
+	  implementation to generate events of types
+	  <c>timeout</c> and <c>internal</c> to itself.
 	</p>
       </desc>
     </datatype>
@@ -559,7 +555,7 @@ handle_event(_, _, State, Data) ->
             is reset to start with the oldest postponed.
 	  </item>
 	  <item>
-	    All events inserted with
+	    All events stored with
 	    <seealso marker="#type-action">
 	      <c>action() next_event</c>
 	    </seealso>
@@ -634,14 +630,21 @@ handle_event(_, _, State, Data) ->
 	  event arrives in which case this timeout is cancelled.
 	  Note that a retried or inserted event
 	  counts just like a new in this respect.
-	  If the value is <c>infinity</c> no timer is started.
-	  If it is <c>0</c> the timeout event
-	  is immediately enqueued as the newest received
-	  (unless there are retried or inserted events to process
-	  since then the timeout is cancelled).
-	  Also note that it is not possible nor needed
-	  to cancel this timeout since it is cancelled automatically
-	  by any other event.
+	</p>
+	<p>
+	  If the value is <c>infinity</c> no timer is started since
+	  it will never trigger anyway.
+	</p>
+	<p>
+	  If the value is <c>0</c> the timeout event is immediately enqueued
+	  unless there already are enqueued events since then the
+	  timeout is immediately cancelled.
+	  This is a feature ensuring that a timeout <c>0</c> event
+	  will be processed before any not yet received external event.
+	</p>
+	<p>
+	  Note that it is not possible nor needed to cancel this timeout
+	  since it is cancelled automatically by any other event.
 	</p>
       </desc>
     </datatype>
@@ -658,16 +661,19 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  Actions are executed in the containing list order.
-	  The order matters for some actions such as <c>next_event</c>
-	  and <c>reply_action()</c>.
 	</p>
 	<p>
 	  Actions that set
 	  <seealso marker="#type-transition_option">
 	    transition options
 	  </seealso>
-	  overrides any previous of the same kind,
+	  overrides any previous of the same type,
 	  so the last in the containing list wins.
+	  For example the last
+	  <seealso marker="#type-event_timeout">
+	    <c>event_timeout()</c>
+	  </seealso>
+	  overrides any other <c>event_timeout()</c> in the list.
 	</p>
 	<taglist>
 	  <tag><c>postpone</c></tag>
@@ -693,7 +699,7 @@ handle_event(_, _, State, Data) ->
 	  </item>
 	  <tag><c>Timeout</c></tag>
 	  <item>
-	    Short for <c>{timeout,Timeout}</c> that is
+	    Short for <c>{timeout,Timeout,Timeout}</c> that is
 	    the timeout message is the timeout time.
 	    This form exists to make the
 	    <seealso marker="#state_function">state function</seealso>
@@ -708,27 +714,33 @@ handle_event(_, _, State, Data) ->
 	    <seealso marker="#type-transition_option">
 	      <c>transition_option() event_timeout()</c>
 	    </seealso>
-	    to <c><anno>Time</anno></c> with the
-	    <c>EventContent</c> as <c><anno>Msg</anno></c>.
+	    to <c><anno>Time</anno></c> with <c><anno>EventContent</anno></c>.
 	  </item>
 	  <tag><c>reply_action()</c></tag>
 	  <item>Reply to a caller.</item>
 	  <tag><c>next_event</c></tag>
 	  <item>
-	    Insert the given <c><anno>EventType</anno></c>
-	    and <c><anno>EventContent</anno></c> as the next to process.
-	    This will bypass any events in the process mailbox as well
-	    as any other queued events.
-	    All <c>next_event</c> actions
-	    in the containing list are buffered and inserted
-	    after the actions have been done
-	    so that the first in the list will be the first to process.
-	    An event of type
-	    <seealso marker="#type-event_type">
-	      <c>internal</c>
-	    </seealso>
-	    should be used when you want to reliably distinguish
-	    an event inserted this way from any external event.
+	      Store the given <c><anno>EventType</anno></c>
+	      and <c><anno>EventContent</anno></c> for insertion after all
+	      actions have been executed.
+	  </item>
+	  <item>
+	    <p>
+	      The stored events are inserted in the queue as the next to process
+	      before any already queued events.  The order of these stored events
+	      is preserved so the first <c>next_event</c> in the containing list
+	      will become the first to process.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      An event of type
+	      <seealso marker="#type-event_type">
+		<c>internal</c>
+	      </seealso>
+	      should be used when you want to reliably distinguish
+	      an event inserted this way from any external event.
+	    </p>
 	  </item>
 	</taglist>
       </desc>
@@ -1047,17 +1059,17 @@ handle_event(_, _, State, Data) ->
 	  or the atom <c>infinity</c> to wait indefinitely,
 	  which is the default.  If no reply is received within
 	  the specified time, the function call fails.
-	  <note>
-	    <p>
-	      To avoid getting a late reply in the caller's
-	      inbox this function spawns a proxy process that
-	      does the call.  A late reply gets delivered to the
-	      dead proxy process hence gets discarded.  This is
-	      less efficient than using
-	      <c><anno>Timeout</anno> =:= infinity</c>.
-	    </p>
-	  </note>
 	</p>
+	<note>
+	  <p>
+	    To avoid getting a late reply in the caller's
+	    inbox this function spawns a proxy process that
+	    does the call.  A late reply gets delivered to the
+	    dead proxy process hence gets discarded.  This is
+	    less efficient than using
+	    <c><anno>Timeout</anno> =:= infinity</c>.
+	  </p>
+	</note>
         <p>
 	  The call may fail for example if the <c>gen_statem</c> dies
 	  before or during this function call.
@@ -1218,7 +1230,7 @@ handle_event(_, _, State, Data) ->
     <title>CALLBACK FUNCTIONS</title>
     <p>
       The following functions should be exported from a
-      <c><c>gen_statem</c></c> callback module.
+      <c>gen_statem</c> callback module.
     </p>
   </section>
   <funcs>
