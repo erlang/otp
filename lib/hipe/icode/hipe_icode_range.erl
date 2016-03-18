@@ -187,17 +187,16 @@ safe_analyse(CFG, Data={MFA,_,_,_}) ->
 rewrite_blocks(State) ->
   CFG = state__cfg(State),
   Start = hipe_icode_cfg:start_label(CFG),
-  rewrite_blocks([Start], State, [Start]).
+  rewrite_blocks([Start], State, set_from_list([Start])).
 
--spec rewrite_blocks([label()], state(), [label()]) -> state().
+-spec rewrite_blocks([label()], state(), set(label())) -> state().
 
 rewrite_blocks([Next|Rest], State, Visited) ->
   Info = state__info_in(State, Next),
   {NewState, NewLabels} = analyse_block(Next, Info, State, true),
-  NewLabelsSet = ordsets:from_list(NewLabels),
-  RealNew = ordsets:subtract(NewLabelsSet, Visited),
-  NewVisited = ordsets:union([RealNew, Visited, [Next]]),
-  NewWork = ordsets:union([RealNew, Rest]),
+  RealNew = not_visited(NewLabels, Visited),
+  NewVisited = set_union(set_from_list(RealNew), Visited),
+  NewWork = RealNew ++ Rest,
   rewrite_blocks(NewWork, NewState, NewVisited);
 rewrite_blocks([], State, _) ->
   State.
@@ -1959,3 +1958,21 @@ next_down_limit(X) when is_integer(X), X > -16#8000000 -> -16#8000000;
 next_down_limit(X) when is_integer(X), X > -16#80000000 -> -16#80000000;
 next_down_limit(X) when is_integer(X), X > -16#800000000000000 -> -16#800000000000000;
 next_down_limit(_X) -> neg_inf.
+
+%%--------------------------------------------------------------------
+%% Sets
+
+-type set(E) :: #{E => []}.
+
+set_from_list([]) -> #{};
+set_from_list(L) ->
+  maps:from_list([{E, []} || E <- L]).
+
+not_visited([], _) -> [];
+not_visited([E|T], M) ->
+  case M of
+    #{E := []} -> not_visited(T, M);
+    _ -> [E|not_visited(T, M)]
+  end.
+
+set_union(A, B) -> maps:merge(A, B).
