@@ -26,8 +26,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 compile(Config, Options) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     NewOptions = [{i, DataDir}, {i, CaseDir}|Options],
 
     asn1_test_lib:compile_all(["SSL-PKIX", "PKIXAttributeCertificate"],
@@ -44,8 +44,8 @@ compile(Config, Options) ->
                               Config, NewOptions).
 
 compile_combined(Config, ber=Rule) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Options = [{i, CaseDir}, {i, DataDir}, Rule,
                der, compact_bit_string, asn1config],
     ok = remove_db_files_combined(CaseDir),

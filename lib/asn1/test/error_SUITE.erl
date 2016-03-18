@@ -929,8 +929,8 @@ values(Config) ->
 
 run({Mod,Spec}, Config) ->
     Base = atom_to_list(Mod) ++ ".asn1",
-    File = filename:join(?config(priv_dir, Config), Base),
-    Include0 = filename:dirname(?config(data_dir, Config)),
+    File = filename:join(proplists:get_value(priv_dir, Config), Base),
+    Include0 = filename:dirname(proplists:get_value(data_dir, Config)),
     Include = filename:join(filename:dirname(Include0), "asn1_SUITE_data"),
     ok = file:write_file(File, Spec),
     asn1ct:compile(File, [{i, Include}]).

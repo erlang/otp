@@ -67,7 +67,7 @@ test(Config) ->
     ok.
 
 test_megaco(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Files = filelib:wildcard(filename:join([DataDir,megacomessages,"*.val"])),
     Mod = 'MEDIA-GATEWAY-CONTROL',
     lists:foreach(fun(File) ->

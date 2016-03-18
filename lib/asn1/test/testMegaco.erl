@@ -32,13 +32,13 @@ compile(Config, Erule, Options) ->
 
 main(no_module,_) -> ok;
 main('OLD-MEDIA-GATEWAY-CONTROL',Config) ->
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage',
                             [{i, CaseDir}]),
     asn1_test_lib:roundtrip('OLD-MEDIA-GATEWAY-CONTROL', 'MegacoMessage', Msg),
     ok;
 main('MEDIA-GATEWAY-CONTROL'=Mod, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Files = filelib:wildcard(filename:join([DataDir,megacomessages,"*.val"])),
     lists:foreach(fun(File) ->
 			  {ok,Bin} = file:read_file(File),

@@ -285,8 +285,8 @@ compare(_,_) ->
     false.
 
 check_record_names(Msg,Config) ->
-    DataDir = ?config(data_dir,Config),
-    CaseDir = ?config(case_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    CaseDir = proplists:get_value(case_dir,Config),
     {ok, test_records} = compile:file(filename:join([DataDir, "test_records"]),
                                       [{i, CaseDir}]),
     ok = test_records:'check_record_names_OTP-5812'(Msg).

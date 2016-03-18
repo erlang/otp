@@ -24,7 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 test(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
 
     Der = read_pem(filename:join([DataDir,modified_x420,"p7_signed_data.pem"])),
     {ok,{_,_,SignedData}} = 'PKCS7':decode( 'ContentInfo', Der),

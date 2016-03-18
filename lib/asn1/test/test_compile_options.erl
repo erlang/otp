@@ -39,16 +39,16 @@ wrong_path(Config) ->
     end.
 
 comp(Parent,Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
     Err=asn1ct:compile(DataDir++"NoImport",[{i,OutDir},{i,filename:join([DataDir,"subdir"])},{outdir,OutDir}]),
     Parent!Err.
 
 %% OTP-5701
 
 path(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
     {ok,CWD} = file:get_cwd(),
     file:set_cwd(filename:join([DataDir,subdir])),
 
@@ -67,8 +67,8 @@ path(Config) ->
 ticket_6143(Config) -> asn1_test_lib:compile("AA1", Config, []).
 
 noobj(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
     
     code:purge('P-Record'),
     file:delete(filename:join([OutDir,'P-Record.erl'])),
@@ -112,8 +112,8 @@ noobj(Config) ->
     file:delete(filename:join([OutDir,'p_record.beam'])).
 
 verbose(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
     Asn1File = filename:join([DataDir,"Comment.asn"]),
 
     %% Test verbose compile
@@ -152,8 +152,8 @@ outfiles_remove(OutDir) ->
 		  outfiles1()).
 
 record_name_prefix(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    OutDir = proplists:get_value(priv_dir,Config),
     ok = b_SeqIn(DataDir,OutDir),
     ok = a_SeqIn(DataDir,OutDir).
 
