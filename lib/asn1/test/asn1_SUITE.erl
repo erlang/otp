@@ -1172,12 +1172,10 @@ testTimer_uper(Config) ->
     testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
-testComment(suite) -> [];
 testComment(Config) ->
     asn1_test_lib:compile("Comment", Config, []),
     asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
-testName2Number(suite) -> [];
 testName2Number(Config) ->
     N2NOptions = [{n2n,Type} || Type <- ['CauseMisc', 'CauseProtocol',
                                          'CauseRadioNetwork',
