@@ -37,6 +37,11 @@
 
 -define(DEFAULT_TIMEOUT_SECS, 120).
 
+-define(UNIQ_NODE_NAME,
+  list_to_atom(?MODULE_STRING ++ "__" ++
+               atom_to_list(?FUNCTION_NAME) ++ "_" ++
+	       integer_to_list(erlang:unique_integer([positive])))).
+
 init_per_testcase(_Func, Config) ->
     Config.
 
@@ -118,7 +123,7 @@ start_check(Type, Name, Envs) ->
     {ok, Node}.
 
 start(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     rpc:call(Node, init, reboot, []),
     receive
 	{nodedown, Node} -> ok
@@ -143,7 +148,7 @@ start(Config) when is_list(Config) ->
 %% Purpose:
 %%   Check that a node is up and running after a init:restart/0
 restart(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, heart_test),
+    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME),
     rpc:call(Node, init, restart, []),
     receive
 	{nodedown, Node} ->
@@ -159,7 +164,7 @@ restart(Config) when is_list(Config) ->
 %% Purpose:
 %%   Check that a node is up and running after a init:reboot/0
 reboot(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
 
     ok = rpc:call(Node, heart, set_cmd,
 			[atom_to_list(lib:progname()) ++ 
@@ -193,7 +198,8 @@ node_start_immediately_after_crash(Config) when is_list(Config) ->
  
 
 node_start_immediately_after_crash_test(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, heart_test_imm, [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
+    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME,
+			     [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
 	[atom_to_list(lib:progname()) ++
@@ -243,7 +249,8 @@ node_start_soon_after_crash(Config) when is_list(Config) ->
     end.
  
 node_start_soon_after_crash_test(Config) when is_list(Config) ->
-    {ok, Node} = start_check(loose, heart_test_soon, [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
+    {ok, Node} = start_check(loose, ?UNIQ_NODE_NAME,
+			     [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
 	[atom_to_list(lib:progname()) ++
@@ -286,7 +293,7 @@ node_check_up_down(Node, Tmo) ->
 
 %% Only tests bad command, correct behaviour is tested in reboot/1.
 set_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     Cmd = wrong_atom,
     {error, {bad_cmd, Cmd}} = rpc:call(Node, heart, set_cmd, [Cmd]),
     Cmd1 = lists:duplicate(2047, $a),
@@ -299,7 +306,7 @@ set_cmd(Config) when is_list(Config) ->
     ok.
 
 clear_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     ok = rpc:call(Node, heart, set_cmd,
 			[atom_to_list(lib:progname()) ++
 			 " -noshell -heart " ++ name(Node) ++ "&"]),
@@ -337,7 +344,7 @@ clear_cmd(Config) when is_list(Config) ->
     ok.
 
 get_cmd(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     Cmd = "test",
     ok  = rpc:call(Node, heart, set_cmd, [Cmd]),
     {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
@@ -345,7 +352,7 @@ get_cmd(Config) when is_list(Config) ->
     ok.
 
 callback_api(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     none = rpc:call(Node, heart, get_callback, []),
     M0 = self(),
     F0 = ok,
@@ -379,7 +386,7 @@ callback_api(Config) when is_list(Config) ->
     ok.
 
 options_api(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test),
+    {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     none = rpc:call(Node, heart, get_options, []),
     M0 = self(),
     F0 = ok,
@@ -474,7 +481,7 @@ kill_pid(Config) when is_list(Config) ->
     ok = do_kill_pid(Config).
 
 do_kill_pid(_Config) ->
-    Name = heart_test,
+    Name = ?UNIQ_NODE_NAME,
     Env = [{"HEART_COMMAND", "nickeNyfikenFarEttJobb"}],
     {ok,Node} = start_node_run(Name,Env,suicide_by_heart,[]),
     ok = wait_for_node(Node,15),
