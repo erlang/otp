@@ -73,8 +73,8 @@
 -type final_fun() :: fun((mfa(), [range()]) -> 'ok').
 -type data() :: {mfa(), args_fun(), call_fun(), final_fun()}.
 -type label() :: non_neg_integer().
--type info() :: gb_trees:tree().
--type work_list() :: {[label()], [label()], sets:set()}.
+-type info() :: map().
+-type work_list() :: {[label()], [label()], set(label())}.
 -type variable() :: #icode_variable{}.
 -type annotated_variable() :: #icode_variable{}.
 -type argument() :: #icode_const{} | variable().
@@ -82,9 +82,8 @@
 -type instr_split_info()  :: {icode_instr(), [{label(),info()}]}.
 -type last_instr_return() :: {instr_split_info(), range()}.
 
--record(state, {info_map = gb_trees:empty()	:: info(), 
-		counter  = dict:new()		:: dict:dict(),
-		cfg				:: cfg(), 
+-record(state, {info_map = #{}			:: info(),
+		cfg				:: cfg(),
 		liveness = gb_trees:empty()	:: gb_trees:tree(),
 		ret_type			:: range(),
 		lookup_fun			:: call_fun(),
@@ -1660,8 +1659,8 @@ state__init(Cfg, {MFA, ArgsFun, CallFun, FinalFun}) ->
     false ->
       NewParams = lists:zipwith(fun update_info/2, Params, Ranges),
       NewCfg = hipe_icode_cfg:params_update(Cfg, NewParams),
-      Info = enter_defines(NewParams, gb_trees:empty()),
-      InfoMap = gb_trees:insert({Start, in}, Info, gb_trees:empty()),
+      Info = enter_defines(NewParams, #{}),
+      InfoMap = #{{Start, in} => Info},
       #state{info_map=InfoMap, cfg=NewCfg, liveness=Liveness,
 	     ret_type=none_type(),
 	     lookup_fun=CallFun, result_action=FinalFun}
@@ -1699,7 +1698,7 @@ state__info_in(S, Label) ->
   state__info(S, {Label, in}).
 
 state__info(#state{info_map=IM}, Key) ->
-  gb_trees:get(Key, IM).
+  maps:get(Key, IM).
 
 state__update_info(State, LabelInfo, Rewrite) ->
   update_info(LabelInfo, State, [], Rewrite).
@@ -1720,60 +1719,58 @@ update_info([], State, LabelAcc, _Rewrite) ->
 
 state__info_in_update(S=#state{info_map=IM,liveness=Liveness}, Label, Info) ->
   LabelIn = {Label, in},
-  case gb_trees:lookup(LabelIn, IM) of
-    none -> 
+  case IM of
+    #{LabelIn := OldInfo} ->
+      OldVars = maps:keys(OldInfo),
+      case join_info_in(OldVars, OldInfo, Info) of
+	fixpoint ->
+	  fixpoint;
+	NewInfo ->
+	  S#state{info_map=IM#{LabelIn := NewInfo}}
+      end;
+    _ ->
       LiveIn = hipe_icode_ssa:ssa_liveness__livein(Liveness, Label),
       NamesLiveIn = [hipe_icode:var_name(Var) || Var <- LiveIn,
 						 hipe_icode:is_var(Var)],
-      OldInfo = gb_trees:empty(),
+      OldInfo = #{},
       case join_info_in(NamesLiveIn, OldInfo, Info) of
 	fixpoint -> 
-	  S#state{info_map=gb_trees:insert(LabelIn, OldInfo, IM)};
+	  S#state{info_map=IM#{LabelIn => OldInfo}};
 	NewInfo ->
-	  S#state{info_map=gb_trees:enter(LabelIn, NewInfo, IM)}
-      end;
-    {value, OldInfo} ->
-      OldVars = gb_trees:keys(OldInfo),
-      case join_info_in(OldVars, OldInfo, Info) of
-	fixpoint -> 
-	  fixpoint;
-	NewInfo ->
-	  S#state{info_map=gb_trees:update(LabelIn, NewInfo, IM)}
+	  S#state{info_map=IM#{LabelIn => NewInfo}}
       end
   end.
 
 join_info_in(Vars, OldInfo, NewInfo) ->
-  case join_info_in(Vars, OldInfo, NewInfo, gb_trees:empty(), false) of
+  case join_info_in(Vars, OldInfo, NewInfo, #{}, false) of
     {Res, true} -> Res;
     {_, false} -> fixpoint
   end.
   
 join_info_in([Var|Left], Info1, Info2, Acc, Changed) ->
-  Type1 = gb_trees:lookup(Var, Info1),
-  Type2 = gb_trees:lookup(Var, Info2),
-  case {Type1, Type2} of
-    {none, none} ->
-      NewTree = gb_trees:insert(Var, none_type(), Acc),
-      join_info_in(Left, Info1, Info2, NewTree, true);
-    {none, {value, Val}} ->
-      NewTree = gb_trees:insert(Var, Val, Acc),
-      join_info_in(Left, Info1, Info2, NewTree, true);
-    {{value, Val}, none} ->
-      NewTree = gb_trees:insert(Var, Val, Acc),
+  case {Info1, Info2} of
+    {#{Var := Val}, #{Var := Val}} ->
+      NewTree = Acc#{Var => Val},
       join_info_in(Left, Info1, Info2, NewTree, Changed);
-    {{value, Val}, {value, Val}} ->
-      NewTree = gb_trees:insert(Var, Val, Acc),
-      join_info_in(Left, Info1, Info2, NewTree, Changed);
-    {{value, Val1}, {value, Val2}} ->
-      {NewChanged, NewVal} = 
+    {#{Var := Val1}, #{Var := Val2}} ->
+      {NewChanged, NewVal} =
 	case sup(Val1, Val2) of
 	  Val1 ->
 	    {Changed, Val1};
 	  Val ->
 	    {true, Val}
 	end,
-      NewTree = gb_trees:insert(Var, NewVal, Acc),
-      join_info_in(Left, Info1, Info2, NewTree, NewChanged)
+      NewTree = Acc#{Var => NewVal},
+      join_info_in(Left, Info1, Info2, NewTree, NewChanged);
+    {_, #{Var := Val}} ->
+      NewTree = Acc#{Var => Val},
+      join_info_in(Left, Info1, Info2, NewTree, true);
+    {#{Var := Val}, _} ->
+      NewTree = Acc#{Var => Val},
+      join_info_in(Left, Info1, Info2, NewTree, Changed);
+    {_, _} ->
+      NewTree = Acc#{Var => none_type()},
+      join_info_in(Left, Info1, Info2, NewTree, true)
   end;
 join_info_in([], _Info1, _Info2, Acc, NewChanged) ->
   {Acc, NewChanged}.
@@ -1785,7 +1782,7 @@ enter_defines([], Info) -> Info.
 enter_define({PossibleVar, Range = #range{}}, Info) ->
   case hipe_icode:is_var(PossibleVar) of
     true -> 
-      gb_trees:enter(hipe_icode:var_name(PossibleVar), Range, Info);
+      Info#{hipe_icode:var_name(PossibleVar) => Range};
     false ->
       Info
   end;
@@ -1794,7 +1791,7 @@ enter_define(PossibleVar, Info) ->
     true -> 
       case hipe_icode:variable_annotation(PossibleVar) of
 	{range_anno, #ann{range=Range}, _} ->
-	   gb_trees:enter(hipe_icode:var_name(PossibleVar), Range, Info);
+	   Info#{hipe_icode:var_name(PossibleVar) => Range};
 	_ ->
 	  Info
       end;
@@ -1809,11 +1806,10 @@ enter_vals(Ins, Info) ->
 lookup(PossibleVar, Info) ->
   case hipe_icode:is_var(PossibleVar) of
     true -> 
-      case gb_trees:lookup(hipe_icode:var_name(PossibleVar), Info) of
-	none ->
-	  none_type();
-	{value, Val} ->
-	  Val
+      PossibleVarName = hipe_icode:var_name(PossibleVar),
+      case Info of
+	#{PossibleVarName := Val} -> Val;
+	_ -> none_type()
       end;
     false ->
       none_type()
@@ -1827,10 +1823,10 @@ lookup(PossibleVar, Info) ->
 init_work(State) ->
   %% Labels = hipe_icode_cfg:reverse_postorder(state__cfg(State)),
   Labels = [hipe_icode_cfg:start_label(state__cfg(State))],
-  {Labels, [], sets:from_list(Labels)}.
+  {Labels, [], set_from_list(Labels)}.
 
 get_work({[Label|Left], List, Set}) ->
-  NewWork = {Left, List, sets:del_element(Label, Set)},
+  NewWork = {Left, List, maps:remove(Label, Set)},
   {Label, NewWork};
 get_work({[], [], _Set}) ->
   fixpoint;
@@ -1838,12 +1834,12 @@ get_work({[], List, Set}) ->
   get_work({lists:reverse(List), [], Set}).
 
 add_work(Work = {List1, List2, Set}, [Label|Left]) ->
-  case sets:is_element(Label, Set) of
-    true ->
+  case Set of
+    #{Label := _} ->
       add_work(Work, Left);
-    false ->
+    _ ->
       %% io:format("Adding work: ~w\n", [Label]),
-      add_work({List1, [Label|List2], sets:add_element(Label, Set)}, Left)
+      add_work({List1, [Label|List2], Set#{Label => []}}, Left)
   end;
 add_work(Work, []) ->
   Work.
