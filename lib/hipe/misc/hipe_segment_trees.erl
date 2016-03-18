@@ -17,19 +17,16 @@
 %%%
 %%% %CopyrightEnd%
 %%%
-%%% Segment trees.
+%%% Segment trees, with a delete operation.
 %%%
 %%% Keys are the (0-based) indices into the list passed to build/1.
 %%%
 %%% Range bounds are inclusive.
 %%%
-%%% TODO: Change the shape of the tree to a perfect binary tree, and pack it as
-%%% an implicit data structure into tuples (like a binary heap would be) for
-%%% improved efficiency.
 
 -module(hipe_segment_trees).
 
--export([build/1, intersect/2]).
+-export([build/1, intersect/2, delete/4]).
 
 -record(segment_tree, {
 	  lo            :: integer(),
@@ -75,9 +72,7 @@ empty_tree_from_endpoints(Endpoints) ->
 
 leaves([Endpoint]) -> [?POINT_LEAF(Endpoint)];
 leaves([A | [B|_] = Tail]) ->
-    %% We could omit the range leaf if it's empty, but we want to pack this data
-    %% structure into an array (tuple) eventually, and then we *really* want
-    %% every other leaf to be a range
+    %% We omit the range leaf if it's empty
     case A<B-1 of
 	true  -> [?POINT_LEAF(A),?RANGE_LEAF(A+1,B-1) | leaves(Tail)];
 	false -> [?POINT_LEAF(A) | leaves(Tail)]
@@ -121,7 +116,7 @@ insert_interval(I, {_Lo,_Hi}, _NLo, _NHi, Leaf) -> [I|Leaf].
 
 intervals_intersect(ALo, AHi, BLo, BHi) ->
     (ALo =< AHi) andalso (BLo =< BHi) %% both nonempty
-	andalso (BLo =< AHi) andalso (ALo =< BHi).
+	andalso nonempty_intervals_intersect(ALo, AHi, BLo, BHi).
 
 %% Purely optional optimisation
 squash_empty_subtrees(?NODE(Left0, Right0, Mid, Segs)) ->
@@ -148,3 +143,39 @@ intersect_1(Point, ?NODE(Left, Right, Mid, Segs), Acc0) ->
     Child = if Point =< Mid -> Left; true -> Right end,
     intersect_1(Point, Child, Segs ++ Acc0);
 intersect_1(_, LeafSegs, Acc) -> LeafSegs ++ Acc.
+
+%% @doc Deletes the interval {Lo, Hi}, which had index Index in the list passed
+%%      to build/1.
+-spec delete(non_neg_integer(), integer(), integer(), tree()) -> tree().
+delete(_, _, _, nil) -> nil;
+delete(_, Lo, Hi, Tree) when Lo > Hi -> Tree;
+delete(_, Lo, Hi, Tree = #segment_tree{lo=TLo, hi=THi})
+  when Hi < TLo; Lo > THi -> Tree;
+delete(Index, Lo, Hi, Tree = #segment_tree{lo=TLo, hi=THi, root=Root0})
+  when is_integer(Lo), is_integer(Hi) ->
+    Root = delete_1(Index, Lo, Hi, TLo, THi, Root0),
+    Tree#segment_tree{root=Root}.
+
+delete_1(I, Lo, Hi, NLo, NHi, ?NODE(Left0, Right0, Mid, Segments)) ->
+    if Lo =< NLo, NHi =< Hi ->
+	    ?NODE(Left0, Right0, Mid, delete_2(Segments, I));
+       true ->
+	    Left = case nonempty_intervals_intersect(Lo, Hi, NLo, Mid) of
+		       true -> delete_1(I, Lo, Hi, NLo, Mid, Left0);
+		       false -> Left0
+		   end,
+	    Right = case nonempty_intervals_intersect(Lo, Hi, Mid+1, NHi) of
+			true -> delete_1(I, Lo, Hi, Mid+1, NHi, Right0);
+			false -> Right0
+		   end,
+	    %% We could do build_squash_node here, is it worth it?
+	    ?NODE(Left, Right, Mid, Segments)
+    end;
+delete_1(I, _Lo, _Hi, _NLo, _NHi, Leaf) -> delete_2(Leaf, I).
+
+delete_2([I|Segs], I) -> Segs;
+delete_2([S|Segs], I) -> [S|delete_2(Segs,I)].
+
+-compile({inline,nonempty_intervals_intersect/4}).
+nonempty_intervals_intersect(ALo, AHi, BLo, BHi) ->
+    (BLo =< AHi) andalso (ALo =< BHi).

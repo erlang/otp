@@ -195,17 +195,27 @@ initSPAN(SdiNr, N, SDIS, SPAN) ->
 
 -spec mk_parents(non_neg_integer(), tuple()) -> parents().
 mk_parents(N, SDIS) ->
-  Ranges = parents_generate_ranges(N-1, SDIS, []),
-  hipe_segment_trees:build(Ranges).
+  PrevSDIS = vector_from_list(select_prev_sdis(N-1, SDIS, [])),
+  Ranges = parents_generate_ranges(N-1, PrevSDIS, []),
+  {PrevSDIS, hipe_segment_trees:build(Ranges)}.
 
-parents_generate_ranges(-1, _SDIS, Acc) -> Acc;
-parents_generate_ranges(SdiNr, SDIS, Acc) ->
+select_prev_sdis(-1, _SDIS, Acc) -> Acc;
+select_prev_sdis(SdiNr, SDIS, Acc) ->
   #sdi_data{prevSdi=PrevSdi} = vector_sub(SDIS, SdiNr),
-  {LO,HI} =	% inclusive
-    if SdiNr =< PrevSdi -> {SdiNr+1, PrevSdi};	% forwards
-       true -> {PrevSdi+1, SdiNr-1}		% backwards
-    end,
-  parents_generate_ranges(SdiNr-1, SDIS, [{LO,HI}|Acc]).
+  select_prev_sdis(SdiNr-1, SDIS, [PrevSdi|Acc]).
+
+parents_generate_ranges(-1, _PrevSDIS, Acc) -> Acc;
+parents_generate_ranges(SdiNr, PrevSDIS, Acc) ->
+  %% inclusive
+  {LO,HI} = parents_generate_range(SdiNr, PrevSDIS),
+  parents_generate_ranges(SdiNr-1, PrevSDIS, [{LO,HI}|Acc]).
+
+-compile({inline, parents_generate_range/2}).
+parents_generate_range(SdiNr, PrevSDIS) ->
+  PrevSdi = vector_sub(PrevSDIS, SdiNr),
+  if SdiNr =< PrevSdi -> {SdiNr+1, PrevSdi};	% forwards
+     true -> {PrevSdi+1, SdiNr-1}		% backwards
+  end.
 
 %%% "After the structure is built we process it as follows.
 %%% For any node i whose listed span exceeds the architectural
@@ -244,27 +254,30 @@ initWKL(SdiNr, SDIS, SPAN, WKL) ->
 -spec processWKL([non_neg_integer()], tuple(), hipe_array(),
 		 parents(), hipe_array()) -> 'ok'.
 processWKL([], _SDIS, _SPAN, _PARENTS, _LONG) -> ok;
-processWKL([Child|WKL], SDIS, SPAN, PARENTS, LONG) ->
-  WKL2 = updateChild(Child, WKL, SDIS, SPAN, PARENTS, LONG),
+processWKL([Child|WKL], SDIS, SPAN, PARENTS0, LONG) ->
+  {WKL2, PARENTS} =
+    case array_sub(SPAN, Child) of
+      0 -> {WKL, PARENTS0};				% removed
+      _ ->
+	SdiData = vector_sub(SDIS, Child),
+	Incr = sdiLongIncr(SdiData),
+	array_update(LONG, Child, Incr),
+	array_update(SPAN, Child, 0),			% remove child
+	PARENTS1 = deleteParent(PARENTS0, Child),
+	PS = parentsOfChild(PARENTS1, Child),
+	{updateParents(PS, Child, Incr, SDIS, SPAN, WKL), PARENTS1}
+    end,
   processWKL(WKL2, SDIS, SPAN, PARENTS, LONG).
 
--spec updateChild(non_neg_integer(), [non_neg_integer()], tuple(), hipe_array(),
-		  parents(), hipe_array()) -> [non_neg_integer()].
-updateChild(Child, WKL, SDIS, SPAN, PARENTS, LONG) ->
-  case array_sub(SPAN, Child) of
-    0 -> WKL;						% removed
-    _ ->
-      SdiData = vector_sub(SDIS, Child),
-      Incr = sdiLongIncr(SdiData),
-      array_update(LONG, Child, Incr),
-      array_update(SPAN, Child, 0),			% remove child
-      PS = parentsOfChild(PARENTS, Child),
-      updateParents(PS, Child, Incr, SDIS, SPAN, WKL)
-  end.
-
 -spec parentsOfChild(parents(), non_neg_integer()) -> [non_neg_integer()].
-parentsOfChild(IntervalTree, Child) ->
-  hipe_segment_trees:intersect(Child, IntervalTree).
+parentsOfChild({_PrevSDIS, SegTree}, Child) ->
+  hipe_segment_trees:intersect(Child, SegTree).
+
+-spec deleteParent(parents(), non_neg_integer()) -> parents().
+deleteParent({PrevSDIS, SegTree0}, Parent) ->
+  {LO,HI} = parents_generate_range(Parent, PrevSDIS),
+  SegTree = hipe_segment_trees:delete(Parent, LO, HI, SegTree0),
+  {PrevSDIS, SegTree}.
 
 -spec updateParents([non_neg_integer()], non_neg_integer(),
 		    byte(), tuple(), hipe_array(),
@@ -297,10 +310,12 @@ updateWKL(SdiNr, SDIS, SdiSpan, WKL) ->
     false -> [SdiNr|WKL]
   end.
 
+-compile({inline, sdiSpanIsShort/2}). %% Only called once
 -spec sdiSpanIsShort(#sdi_data{}, integer()) -> boolean().
 sdiSpanIsShort(#sdi_data{si = #sdi_info{lb = LB, ub = UB}}, SdiSpan) ->
   SdiSpan >= LB andalso SdiSpan =< UB.
 
+-compile({inline, sdiLongIncr/1}). %% Only called once
 -spec sdiLongIncr(#sdi_data{}) -> byte().
 sdiLongIncr(#sdi_data{si = #sdi_info{incr = Incr}}) -> Incr.
 
