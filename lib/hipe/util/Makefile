@@ -113,4 +113,3 @@ release_docs_spec:
 
 
 $(EBIN)/hipe_timing.beam: ../main/hipe.hrl
-$(EBIN)/hipe_vectors.beam: hipe_vectors.hrl
