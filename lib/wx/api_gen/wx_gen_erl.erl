@@ -1089,7 +1089,7 @@ gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
     w("~n%% Hardcoded Records~n", []),
     w("-record(wxMouseState, {x :: integer(), y :: integer(),~n"
-      "          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, ~n"
+      "          leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), ~n"
       "          controlDown :: boolean(), shiftDown :: boolean(),~n"
       "          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()~n"
       "        }).~n", []),
