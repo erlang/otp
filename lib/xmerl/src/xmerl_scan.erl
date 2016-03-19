@@ -269,9 +269,10 @@ cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     S#xmerl_scanner{fun_states = FS1}.
 
 
-%% @spec file(Filename::string()) -> {xmlElement(),Rest}
-%%   Rest = list()
 %% @equiv file(Filename, [])
+-spec file(Filename) -> {document(),Rest} when
+      Filename :: string(),
+      Rest :: list().
 file(F) ->
     file(F, []).
 
@@ -311,9 +312,10 @@ int_file_decl(F, Options,_ExtCharset) ->
 	    Error
     end.
 
-%% @spec string(Text::list()) -> {xmlElement(),Rest}
-%%   Rest = list()
 %% @equiv string(Test, [])
+-spec string(Text) -> {document(),Rest} when
+      Text :: list(),
+      Rest :: list().
 string(Str) ->
     string(Str, []).
 

@@ -161,7 +161,12 @@
 -type error_index() :: integer().
 -type varbinds() :: [varbind()].
 -type varbind() :: term().
--type value_type() :: o | i | u | g | s | b | ip | op | c32 | c64 | tt.
+-type value_type() :: o  %% 'OBJECT IDENTIFIER'
+                    | i  %% 'INTEGER'
+                    | u  %% 'Unsigned32'
+                    | g  %% 'Unsigned32'
+                    | s  %% 'OCTET STRING'
+                    | b | ip | op | c32 | c64 | tt.
 -type vars_and_vals() :: [var_and_val()].
 -type value() :: term().
 -type var_and_val() :: {oid(), value_type(), value()} | {oid(), value()}.
@@ -200,8 +205,10 @@
 %%%=========================================================================
 
 %%%-----------------------------------------------------------------
-%%% @spec start(Config, MgrAgentConfName) -> ok
 %%% @equiv start(Config, MgrAgentConfName, undefined)
+-spec start(Config, MgrAgentConfName) -> ok when
+      Config :: [{Key :: atom(), Value :: term()}],
+      MgrAgentConfName :: atom().
 start(Config, MgrAgentConfName) ->
     start(Config, MgrAgentConfName, undefined).
 
@@ -219,7 +226,7 @@ start(Config, MgrAgentConfName) ->
 %%% with (and possibly override) default values set by <code>ct_snmp</code>.
 %%% @end
 -spec start(Config, MgrAgentConfName, SnmpAppConfName) -> ok when
-      Config :: agent_config(),
+      Config :: [{Key :: atom(), Value :: term()}],
       MgrAgentConfName :: atom(),
       SnmpAppConfName :: atom().
 start(Config, MgrAgentConfName, SnmpAppConfName) ->
@@ -243,7 +250,7 @@ start(Config, MgrAgentConfName, SnmpAppConfName) ->
 
 %%% @doc Stops the snmp manager and/or agent removes all files created.
 -spec stop(Config) -> ok when
-      Config :: agent_config().
+      Config :: [{Key :: atom(), Value :: term()}].
 stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
     application:stop(snmp),
@@ -281,7 +288,7 @@ get_next_values(Agent, Oids, MgrAgentConfName) ->
       Agent :: agent_name(),
       VarsAndVals :: vars_and_vals(),
       MgrAgentConfName :: atom(),
-      Config :: agent_config().
+      Config :: [{Key :: atom(), Value :: term()}].
 set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
@@ -305,7 +312,7 @@ set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
 %%% side-effects.
 %%% @end
 -spec set_info(Config) -> [{Agent, OldVarsAndVals, NewVarsAndVals}] when
-      Config :: agent_config(),
+      Config :: [{Key :: atom(), Value :: term()}],
       Agent :: agent_name(),
       OldVarsAndVals :: vars_and_vals(),
       NewVarsAndVals :: vars_and_vals().

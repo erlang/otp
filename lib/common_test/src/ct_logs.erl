@@ -83,18 +83,17 @@
 		    tests = []}).
 
 %%%-----------------------------------------------------------------
-%%% @spec init(Mode, Verbosity) -> Result
-%%%   Mode = normal | interactive
-%%%   Result = {StartTime,LogDir}
-%%%   StartTime = term()
-%%%   LogDir = string()
-%%%
 %%% @doc Initiate the logging mechanism (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_util.erl when testing is
 %%% started. A new directory named ct_run.&lt;timestamp&gt; is created
 %%% and all logs are stored under this directory.</p>
 %%%
+-spec init(Mode, Verbosity) -> {StartTime, LogDir} when
+      Mode :: normal | interactive,
+      Verbosity :: [proplists:property()],
+      StartTime :: term(),
+      LogDir :: string().
 init(Mode, Verbosity) ->
     Self = self(),
     Pid = spawn_link(fun() -> logger(Self, Mode, Verbosity) end),
@@ -128,10 +127,11 @@ datestr_from_dirname([]) ->
     "".
 
 %%%-----------------------------------------------------------------
-%%% @spec close(Info, StartDir) -> ok
-%%%
 %%% @doc Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
+-spec close(Info, StartDir) -> ok when
+      Info :: term(),
+      StartDir :: file:name().
 close(Info, StartDir) ->
     %% close executes on the ct_util process, not on the logger process
     %% so we need to use a local copy of the log cache data
@@ -202,22 +202,30 @@ close(Info, StartDir) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec set_stylesheet(TC,SSFile) -> ok
+-spec set_stylesheet(TC, SSFile) -> ok when
+      TC :: atom(),
+      SSFile :: file:name().
 set_stylesheet(TC, SSFile) ->
     cast({set_stylesheet,TC,SSFile}).
 
 %%%-----------------------------------------------------------------
-%%% @spec clear_stylesheet(TC) -> ok
+-spec clear_stylesheet(TC) -> ok when
+      TC :: atom().
 clear_stylesheet(TC) ->
     cast({clear_stylesheet,TC}).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_log_dir() -> {ok,Dir} | {error,Reason}
+-spec get_log_dir() -> {ok,Dir} | {error,Reason} when
+      Dir :: file:name(),
+      Reason :: any().
 get_log_dir() ->
     get_log_dir(false).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_log_dir(ReturnAbsName) -> {ok,Dir} | {error,Reason}
+-spec get_log_dir(ReturnAbsName) -> {ok,Dir} | {error,Reason} when
+      ReturnAbsName :: boolean(),
+      Dir :: file:name(),
+      Reason :: any().
 get_log_dir(ReturnAbsName) ->
     case call({get_log_dir,ReturnAbsName}) of
 	{error,does_not_exist} when ReturnAbsName == true ->
@@ -262,50 +270,49 @@ cast(Msg) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec init_tc(RefreshLog) -> ok
-%%%
 %%% @doc Test case initiation (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:init_tc/3</p>
+-spec init_tc(RefreshLog) -> ok when
+      RefreshLog :: boolean().
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
     io:format(["$tc_html",xhtml("", "<br />")]),
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec end_tc(TCPid) -> ok
-%%%
 %%% @doc Test case clean up (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:end_tc/3</p>
+-spec end_tc(TCPid) -> ok when
+      TCPid :: pid().
 end_tc(TCPid) ->
     %% use call here so that the TC process will wait and receive
     %% possible exit signals from ct_logs before end_tc returns ok 
     call({end_tc,TCPid}).
 
 %%%-----------------------------------------------------------------
-%%% @spec register_groupleader(Pid,GroupLeader) -> ok
-%%%
 %%% @doc To enable logging to a group leader (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:report/2</p>
+-spec register_groupleader(Pid, GroupLeader) -> ok when
+      Pid :: pid(),
+      GroupLeader :: atom().
 register_groupleader(Pid,GroupLeader) ->
     call({register_groupleader,Pid,GroupLeader}),
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec unregister_groupleader(Pid) -> ok
-%%%
 %%% @doc To disable logging to a group leader (tool-internal use only).
 %%%
 %%% <p>This function is called by ct_framework:report/2</p>
+-spec unregister_groupleader(Pid) -> ok when
+      Pid :: pid().
 unregister_groupleader(Pid) ->
     call({unregister_groupleader,Pid}),
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec log(Heading,Format,Args) -> ok
-%%%
 %%% @doc Log internal activity (tool-internal use only).
 %%%
 %%% <p>This function writes an entry to the currently active log,
@@ -314,6 +321,10 @@ unregister_groupleader(Pid) ->
 %%% <p><code>Heading</code> is a short string indicating what type of
 %%% activity it is. <code>Format</code> and <code>Args</code> is the
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
+-spec log(Heading, Format, Args) -> ok when
+      Heading :: string(),
+      Format :: string(),
+      Args :: list().
 log(Heading,Format,Args) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 	  [{hd,int_header(),[log_timestamp(?now),Heading]},
@@ -323,8 +334,6 @@ log(Heading,Format,Args) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec start_log(Heading) -> ok
-%%% 
 %%% @doc Starts the logging of an activity (tool-internal use only).
 %%%
 %%% <p>This function must be used in combination with
@@ -337,18 +346,21 @@ log(Heading,Format,Args) ->
 %%% @see log/3
 %%% @see cont_log/2
 %%% @see end_log/0
+-spec start_log(Heading) -> ok when
+      Heading :: string().
 start_log(Heading) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 	  [{hd,int_header(),[log_timestamp(?now),Heading]}],false}),
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec cont_log(Format,Args) -> ok
-%%% 
 %%% @doc Adds information about an activity (tool-internal use only).
 %%%
 %%% @see start_log/1
 %%% @see end_log/0
+-spec cont_log(Format, Args) -> ok when
+      Format :: string(),
+      Args :: list().
 cont_log([],[]) ->
     ok;
 cont_log(Format,Args) ->
@@ -358,12 +370,11 @@ cont_log(Format,Args) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec end_log() -> ok
-%%% 
 %%% @doc Ends the logging of an activity (tool-internal use only).
 %%%
 %%% @see start_log/1
 %%% @see cont_log/2
+-spec end_log() -> ok.
 end_log() ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 	  [{ft,int_footer(), []}],false}),
@@ -371,15 +382,14 @@ end_log() ->
     
 
 %%%-----------------------------------------------------------------
-%%% @spec add_external_logs(Logs) -> ok
-%%%      Logs = [Log]
-%%%      Log = string()
-%%%
 %%% @doc Print a link to each given <code>Log</code> in the test case
 %%% log.
 %%%
 %%% <p>The given <code>Logs</code> must exist in the priv dir of the
 %%% calling test suite.</p>
+-spec add_external_logs(Logs) -> ok when
+      Logs :: [Log],
+      Log :: string().
 add_external_logs(Logs) ->
     start_log("External Logs"),
     [cont_log("<a href=\"~ts\">~ts</a>\n",
@@ -387,50 +397,60 @@ add_external_logs(Logs) ->
     end_log().
 
 %%%-----------------------------------------------------------------
-%%% @spec add_link(Heading,File,Type) -> ok
-%%%      Heading = string()
-%%%      File = string()
-%%%      Type = string()
-%%%
 %%% @doc Print a link to a given file stored in the priv_dir of the
 %%% calling test suite.
+-spec add_link(Heading, File, Type) -> ok when
+      Heading :: string(),
+      File :: file:name(),
+      Type :: string().
 add_link(Heading,File,Type) ->
     log(Heading,"<a href=\"~ts\" type=~p>~ts</a>\n",
 	[uri(filename:join("log_private",File)),Type,File]).
 
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Format,Args) -> ok
-%%% @equiv tc_log(Category,?STD_IMPORTANCE,Format,Args)
+%%% @equiv tc_log(Category, ?STD_IMPORTANCE, Format, Args)
+-spec tc_log(Category, Format, Args) -> ok when
+      Category :: atom(),
+      Format :: string(),
+      Args :: list().
 tc_log(Category,Format,Args) ->
     tc_log(Category,?STD_IMPORTANCE,"User",Format,Args,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Importance,Format,Args) -> ok
 %%% @equiv tc_log(Category,Importance,"User",Format,Args)
+-spec tc_log(Category, Importance, Format, Args) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Format :: string(),
+      Args :: list().
 tc_log(Category,Importance,Format,Args) ->
     tc_log(Category,Importance,"User",Format,Args,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Importance,Format,Args) -> ok
 %%% @equiv tc_log(Category,Importance,"User",Format,Args)
+-spec tc_log(Category, Importance, Format, Args, Opts) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Format :: string(),
+      Args :: list(),
+      Opts :: [atom()].
 tc_log(Category,Importance,Format,Args,Opts) ->
     tc_log(Category,Importance,"User",Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Importance,Printer,Format,Args,Opts) -> ok
-%%%      Category = atom()
-%%%      Importance = integer()
-%%%      Printer = string()
-%%%      Format = string()
-%%%      Args = list()
-%%%      Opts = list()
-%%%
 %%% @doc Printout from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
+-spec tc_log(Category, Importance, Printer, Format, Args, Opts) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Printer :: string(),
+      Format :: string(),
+      Args :: list(),
+      Opts :: [atom()].
 tc_log(Category,Importance,Printer,Format,Args,Opts) ->
     Data = 
 	case lists:member(no_css, Opts) of
@@ -446,19 +466,15 @@ tc_log(Category,Importance,Printer,Format,Args,Opts) ->
     ok.
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log_async(Category,Format,Args) -> ok
 %%% @equiv tc_log_async(Category,?STD_IMPORTANCE,"User",Format,Args)
+-spec tc_log_async(Category, Format, Args) -> ok when
+      Category :: atom(),
+      Format :: string(),
+      Args :: list().
 tc_log_async(Category,Format,Args) ->
     tc_log_async(Category,?STD_IMPORTANCE,"User",Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log_async(Category,Importance,Format,Args) -> ok
-%%%      Category = atom()
-%%%      Importance = integer()
-%%%      Printer = string()
-%%%      Format = string()
-%%%      Args = list()
-%%%
 %%% @doc Internal use only.
 %%%
 %%% <p>This function is used to perform asynchronous printouts
@@ -466,6 +482,12 @@ tc_log_async(Category,Format,Args) ->
 %%% to avoid deadlocks when e.g. the hook that handles SASL printouts
 %%% prints to the test case log file at the same time test server
 %%% asks ct_logs for an html wrapper.</p>
+-spec tc_log_async(Category, Importance, Printer, Format, Args) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Printer :: string(),
+      Format :: string(),
+      Args :: list().
 tc_log_async(Category,Importance,Printer,Format,Args) ->
     cast({log,async,self(),group_leader(),Category,Importance,
 	  [{hd,div_header(Category,Printer),[]},
@@ -473,23 +495,26 @@ tc_log_async(Category,Importance,Printer,Format,Args) ->
 	   {ft,div_footer(),[]}],
 	  true}),
     ok.
+
 %%%-----------------------------------------------------------------
-%%% @spec tc_print(Category,Format,Args)
 %%% @equiv tc_print(Category,?STD_IMPORTANCE,Format,Args)
+-spec tc_print(Category, Format, Args) -> ok when
+      Category :: atom(),
+      Format :: string(),
+      Args :: list().
 tc_print(Category,Format,Args) ->
     tc_print(Category,?STD_IMPORTANCE,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_print(Category,Importance,Format,Args) -> ok
-%%%      Category = atom()
-%%%      Importance = integer()
-%%%      Format = string()
-%%%      Args = list()
-%%%
 %%% @doc Console printout from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when printing
 %%% stuff from a testcase on the user console.</p>
+-spec tc_print(Category, Importance, Format, Args) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Format :: string(),
+      Args :: list().
 tc_print(Category,Importance,Format,Args) ->
     VLvl = case ct_util:get_verbosity(Category) of
 	       undefined -> 
@@ -520,23 +545,25 @@ get_heading(Category) ->
     
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_pal(Category,Format,Args) -> ok
 %%% @equiv tc_pal(Category,?STD_IMPORTANCE,Format,Args) -> ok
+-spec tc_pal(Category, Format, Args) -> ok when
+      Category :: atom(),
+      Format :: string(),
+      Args :: list().
 tc_pal(Category,Format,Args) ->
     tc_pal(Category,?STD_IMPORTANCE,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_pal(Category,Importance,Format,Args) -> ok
-%%%      Category = atom()
-%%%      Importance = integer()
-%%%      Format = string()
-%%%      Args = list()
-%%%
 %%% @doc Print and log from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase. The info is written both in the
 %%% log and on the console.</p>
+-spec tc_pal(Category, Importance, Format, Args) -> ok when
+      Category :: atom(),
+      Importance :: integer(),
+      Format :: string(),
+      Args :: list().
 tc_pal(Category,Importance,Format,Args) ->
     tc_print(Category,Importance,Format,Args),
     cast({log,sync,self(),group_leader(),Category,Importance,
@@ -548,15 +575,14 @@ tc_pal(Category,Importance,Format,Args) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec ct_log(Category,Format,Args) -> ok
-%%%      Category = atom()
-%%%      Format = string()
-%%%      Args = list()
-%%%
 %%% @doc Print to the ct framework log
 %%%
 %%% <p>This function is called by internal ct functions to
 %%% force logging to the ct framework log</p>
+-spec ct_log(Category, Format, Args) -> ok when
+      Category :: atom(),
+      Format :: string(),
+      Args :: list().
 ct_log(Category,Format,Args) ->
     cast({ct_log,[{hd,div_header(Category),[]},
 		  {Format,Args},
@@ -2879,13 +2905,12 @@ rm_files([]) ->
     ok.    
 
 %%%-----------------------------------------------------------------
-%%% @spec simulate() -> pid()
-%%%
 %%% @doc Simulate the logger process.
 %%%
 %%% <p>Simulate the logger process - for use when testing code using
 %%% ct_logs logging mechanism without using the ct
 %%% environment. (E.g. when testing code with ts)</p>
+-spec simulate() -> pid().
 simulate() ->
     cast(stop),
     S = self(),
@@ -2912,11 +2937,11 @@ simulate_logger_loop() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec notify_and_lock_file(Files) -> ok
-%%%
 %%% @doc
 %%%
-notify_and_lock_file(File) ->    
+-spec notify_and_lock_file(File) -> ok when
+      File :: file:name().
+notify_and_lock_file(File) ->
     case ct_event:is_alive() of
 	true ->
 	    ct_event:sync_notify(#event{name=start_write_file,
@@ -2927,11 +2952,11 @@ notify_and_lock_file(File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec notify_and_unlock_file(Files) -> ok
-%%%
 %%% @doc
 %%%
-notify_and_unlock_file(File) ->    
+-spec notify_and_unlock_file(File) -> ok when
+      File :: file:name().
+notify_and_unlock_file(File) ->
     case ct_event:is_alive() of
 	true ->
 	    ct_event:sync_notify(#event{name=finished_write_file,
@@ -2942,10 +2967,10 @@ notify_and_unlock_file(File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_run_dirs(Dir) -> [string()] | false
-%%%
 %%% @doc
 %%%
+-spec get_run_dirs(Dir) -> [string()] | false when
+      Dir :: file:name().
 get_run_dirs(Dir) ->
     case filelib:wildcard(filename:join(Dir, "run.[1-2]*")) of
 	[] ->
@@ -2955,10 +2980,13 @@ get_run_dirs(Dir) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec xhtml(HTML, XHTML) -> HTML | XHTML
-%%%
 %%% @doc
 %%%
+-spec xhtml(HTML, XHTML) -> Result when
+      HTML :: FunOrIOList,
+      XHTML :: FunOrIOList,
+      FunOrIOList :: fun(() -> Result) | Result,
+      Result :: iolist().
 xhtml(HTML, XHTML) when is_function(HTML),
 			is_function(XHTML) ->
     case get(basic_html) of
@@ -2972,10 +3000,9 @@ xhtml(HTML, XHTML) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec odd_or_even() -> "odd" | "even"
-%%%
 %%% @doc
 %%%
+-spec odd_or_even() -> nonempty_string().
 odd_or_even() ->
     case get(odd_or_even) of
 	even ->
@@ -2987,10 +3014,9 @@ odd_or_even() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec basic_html() -> true | false
-%%%
 %%% @doc
 %%%
+-spec basic_html() -> boolean().
 basic_html() ->
     case application:get_env(common_test, basic_html) of
 	{ok,true} ->
@@ -3000,10 +3026,11 @@ basic_html() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec locate_priv_file(FileName) -> PrivFile
-%%%
 %%% @doc
 %%%
+-spec locate_priv_file(FileName) -> PrivFile when
+      FileName :: file:name(),
+      PrivFile :: file:name().
 locate_priv_file(FileName) ->
     {ok,CWD} = file:get_cwd(),
     PrivFileInCwd = filename:join(CWD, FileName),
@@ -3032,13 +3059,14 @@ locate_priv_file(FileName) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec make_relative(AbsDir, Cwd) -> RelDir
-%%%
 %%% @doc Return directory path to File (last element of AbsDir), which
 %%%      is the path relative to Cwd. Examples when Cwd == "/ldisk/test/logs":
 %%%      make_relative("/ldisk/test/logs/run/trace.log") -> "run/trace.log"
 %%%      make_relative("/ldisk/test/trace.log") -> "../trace.log"
 %%%      make_relative("/ldisk/test/logs/trace.log") -> "trace.log"
+-spec make_relative(AbsDir) -> RelDir when
+      AbsDir :: file:name(),
+      RelDir :: file:name().
 make_relative(AbsDir) ->
     {ok,Cwd} = file:get_cwd(),
     make_relative(AbsDir, Cwd).
@@ -3062,14 +3090,32 @@ make_relative1(DirTs, CwdTs) ->
     Ups ++ DirTs.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding)
-%%%           -> {Mode,Header,Footer}
-%%%
 %%% @doc
 %%%
+-spec get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding)
+                         -> {Mode,Header,Footer} when
+      TestName :: string() | any(),
+      PrintLabel :: boolean(),
+      Cwd :: file:filename(),
+      TableCols :: non_neg_integer() | undefined,
+      Encoding :: atom(),
+      Mode :: basic_html | xhtml,
+      Header :: iolist(),
+      Footer :: iolist().
 get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
     get_ts_html_wrapper(TestName, undefined, PrintLabel, Cwd, TableCols, Encoding).
 
+-spec get_ts_html_wrapper(TestName, LogDir, PrintLabel, Cwd, TableCols, Encoding)
+                         -> {Mode,Header,Footer} when
+      TestName :: string() | any(),
+      LogDir :: file:name() | undefined,
+      PrintLabel :: boolean(),
+      Cwd :: file:filename(),
+      TableCols :: non_neg_integer() | undefined,
+      Encoding :: atom(),
+      Mode :: basic_html | xhtml,
+      Header :: iolist(),
+      Footer :: iolist().
 get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);

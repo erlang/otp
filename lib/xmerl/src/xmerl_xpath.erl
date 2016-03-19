@@ -105,14 +105,20 @@
 
 
 
-
-%% @spec string(Str, Doc) -> [nodeEntity()] | Scalar
 %% @equiv string(Str, Doc, [])
+-spec string(Str, Doc) -> [nodeEntity()] | Scalar when
+      Str     :: xPathString(),
+      Doc     :: nodeEntity(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc) ->
     string(Str, Doc, []).
 
-%% @spec string(Str, Doc, Options) -> [nodeEntity()] | Scalar
 %% @equiv string(Str, Doc, [], Doc, Options)
+-spec string(Str, Doc, Options) -> [nodeEntity()] | Scalar when
+      Str     :: xPathString(),
+      Doc     :: nodeEntity(),
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 

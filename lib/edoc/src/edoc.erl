@@ -55,25 +55,30 @@
 	 read_comments/1, read_comments/2,
 	 read_source/1, read_source/2]).
 
--export_type([module/0]).
+-export_type([edoc_module/0]).
 
 -compile({no_auto_import,[error/1]}).
 
 -include("edoc.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 
--opaque edoc_module() :: term().
+%% The EDoc documentation data for a module,
+%% expressed as an XML document in {@link //xmerl. XMerL} format. See
+%% the file <a href="../priv/edoc.dtd">`edoc.dtd'</a> for details.
+-opaque edoc_module() :: #xmlElement{}.
+
 -type filename() :: file:filename().
 -type proplist() :: [term()].
 
-%% @spec (Name::filename()) -> ok
 %% @equiv file(Name, [])
 %% @deprecated See {@link file/2} for details.
 
+-spec file(Name) -> ok when
+      Name :: filename().
+
 file(Name) ->
     file(Name, []).
-
-%% @spec file(filename(), proplist()) -> ok
 
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
@@ -113,6 +118,10 @@ file(Name) ->
 
 %% NEW-OPTIONS: source_suffix, file_suffix, dir
 %% INHERIT-OPTIONS: read/2
+
+-spec file(Name, Options) -> ok when
+      Name :: filename(),
+      Options :: proplist().
 
 file(Name, Options) ->
     Text = read(Name, Options),
@@ -747,10 +756,6 @@ check_forms(Fs, Name) ->
 	  end,
     lists:foreach(Fun, Fs).
 
-
-%% The EDoc documentation data for a module,
-%% expressed as an XML document in {@link //xmerl. XMerL} format. See
-%% the file <a href="../priv/edoc.dtd">`edoc.dtd'</a> for details.
 
 %% @equiv get_doc(File, [])
 

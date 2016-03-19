@@ -190,8 +190,11 @@
 %% @see unix_telnet
 
 %%%-----------------------------------------------------------------
-%%% @spec open(Name) -> {ok,Handle} | {error,Reason}
 %%% @equiv open(Name, telnet)
+-spec open(Name) -> {ok,Handle} | {error,Reason} when
+      Name :: ct:target_name(),
+      Handle :: handle(),
+      Reason :: term().
 open(Name) ->
     open(Name,telnet).
 
@@ -213,9 +216,16 @@ open(Name,ConnType) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec open(KeyOrName, ConnType, TargetMod) ->
-%%%                   {ok,Handle} | {error,Reason}
 %%% @equiv open(KeyOrName, ConnType, TargetMod, [])
+-spec open(KeyOrName, ConnType, TargetMod) ->
+                  {ok,Handle} | {error,Reason} when
+      KeyOrName :: Key | Name,
+      Key :: atom(),
+      Name :: ct:target_name(),
+      ConnType :: connection_type(),
+      TargetMod :: atom(),
+      Handle :: handle(),
+      Reason :: term().
 open(KeyOrName,ConnType,TargetMod) ->
     open(KeyOrName,ConnType,TargetMod,KeyOrName).
 
@@ -316,8 +326,12 @@ close(Connection) ->
 %%%=================================================================
 %%% Test suite interface
 %%%-----------------------------------------------------------------
-%%% @spec cmd(Connection, Cmd) -> {ok,Data} | {error,Reason}
 %%% @equiv cmd(Connection, Cmd, [])
+-spec cmd(Connection, Cmd) -> {ok,Data} | {error,Reason} when
+      Connection :: connection(),
+      Cmd :: string(),
+      Data :: [string()],
+      Reason :: term().
 cmd(Connection,Cmd) ->
     cmd(Connection,Cmd,[]).
 %%%-----------------------------------------------------------------
@@ -366,8 +380,13 @@ check_cmd_opts(Opts) ->
     check_send_opts(Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec cmdf(Connection, CmdFormat, Args) -> {ok,Data} | {error,Reason}
 %%% @equiv cmdf(Connection, CmdFormat, Args, [])
+-spec cmdf(Connection, CmdFormat, Args) -> {ok,Data} | {error,Reason} when
+      Connection :: connection(),
+      CmdFormat :: string(),
+      Args :: list(),
+      Data :: [string()],
+      Reason :: term().
 cmdf(Connection,CmdFormat,Args) ->
     cmdf(Connection,CmdFormat,Args,[]).
 %%%-----------------------------------------------------------------
@@ -412,8 +431,11 @@ get_data(Connection) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec send(Connection, Cmd) -> ok | {error,Reason}
 %%% @equiv send(Connection, Cmd, [])
+-spec send(Connection, Cmd) -> ok | {error,Reason} when
+      Connection :: connection(),
+      Cmd :: string(),
+      Reason :: term().
 send(Connection,Cmd) ->
     send(Connection,Cmd,[]).
 
@@ -457,8 +479,12 @@ check_send_opts([]) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec sendf(Connection, CmdFormat, Args) -> ok | {error,Reason}
 %%% @equiv sendf(Connection, CmdFormat, Args, [])
+-spec sendf(Connection, CmdFormat, Args) -> ok | {error,Reason} when
+      Connection :: connection(),
+      CmdFormat :: string(),
+      Args :: list(),
+      Reason :: term().
 sendf(Connection,CmdFormat,Args) when is_list(Args) ->
     sendf(Connection,CmdFormat,Args,[]).
 
@@ -478,8 +504,20 @@ sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     send(Connection,Cmd,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec expect(Connection, Patterns) -> term()
 %%% @equiv expect(Connections, Patterns, [])
+-spec expect(Connection, Patterns) -> {ok,Match} |
+                                      {ok,MatchList,HaltReason} |
+                                      {error,Reason} when
+      Connection :: connection(),
+      Patterns :: Pattern | [Pattern],
+      Pattern :: string() | {Tag,string()} | prompt | {prompt,Prompt},
+      Prompt :: string(),
+      Tag :: term(),
+      MatchList :: [Match],
+      Match :: RxMatch | {Tag,RxMatch} | {prompt,Prompt},
+      RxMatch :: [string()],
+      HaltReason :: done | Match,
+      Reason :: timeout | {prompt,Prompt}.
 expect(Connection,Patterns) ->
     expect(Connection,Patterns,[]).
 

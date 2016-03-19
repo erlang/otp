@@ -43,13 +43,6 @@
 %%% API
 
 %%%-----------------------------------------------------------------
-%%% @spec put(KeyOrName,LocalFile,RemoteFile) -> ok | {error,Reason}
-%%%      KeyOrName = Key | Name
-%%%      Key = atom()
-%%%      Name = ct:target_name()
-%%%      LocalFile = string()
-%%%      RemoteFile = string()
-%%%
 %%% @doc Open a ftp connection and send a file to the remote host.
 %%%
 %%% <p><code>LocalFile</code> and <code>RemoteFile</code> must be
@@ -68,18 +61,18 @@
 %%%        {username,Username},
 %%%        {password,Password}]}.</pre>
 %%% @see ct:require/2
+-spec put(KeyOrName, LocalFile, RemoteFile) -> ok | {error,Reason} when
+      KeyOrName :: Key | Name,
+      Key :: atom(),
+      Name :: ct:target_name(),
+      LocalFile :: file:name(),
+      RemoteFile :: file:name(),
+      Reason :: term().
 put(KeyOrName,LocalFile,RemoteFile) ->
     Fun = fun(Ftp) -> send(Ftp,LocalFile,RemoteFile) end,
     open_and_do(KeyOrName,Fun).
 
 %%%-----------------------------------------------------------------
-%%% @spec get(KeyOrName,RemoteFile,LocalFile) -> ok | {error,Reason}
-%%%      KeyOrName = Key | Name
-%%%      Key = atom()
-%%%      Name = ct:target_name()
-%%%      RemoteFile = string()
-%%%      LocalFile = string()
-%%%
 %%% @doc Open a ftp connection and fetch a file from the remote host.
 %%%
 %%% <p><code>RemoteFile</code> and <code>LocalFile</code> must be
@@ -88,18 +81,19 @@ put(KeyOrName,LocalFile,RemoteFile) ->
 %%% <p>The config file must be as for put/3.</p>
 %%% @see put/3
 %%% @see ct:require/2
+-spec get(KeyOrName,RemoteFile,LocalFile) -> ok | {error,Reason} when
+      KeyOrName :: Key | Name,
+      Key :: atom(),
+      Name :: ct:target_name(),
+      RemoteFile :: file:name(),
+      LocalFile :: file:name(),
+      Reason :: term().
 get(KeyOrName,RemoteFile,LocalFile) ->
     Fun = fun(Ftp) -> recv(Ftp,RemoteFile,LocalFile) end,
     open_and_do(KeyOrName,Fun).
 
 
 %%%-----------------------------------------------------------------
-%%% @spec open(KeyOrName) -> {ok,Handle} | {error,Reason}
-%%%      KeyOrName = Key | Name
-%%%      Key = atom()
-%%%      Name = ct:target_name()
-%%%      Handle = handle()
-%%% 
 %%% @doc Open an FTP connection to the specified node.
 %%% <p>You can open one connection for a particular <code>Name</code> and
 %%% use the same name as reference for all subsequent operations. If you
@@ -112,6 +106,12 @@ get(KeyOrName,RemoteFile,LocalFile) ->
 %%% <p>See <c>ct:require/2</c> for how to create a new <c>Name</c></p>
 %%%
 %%% @see ct:require/2
+-spec open(KeyOrName) -> {ok,Handle} | {error,Reason} when
+      KeyOrName :: Key | Name,
+      Key :: atom(),
+      Name :: ct:target_name(),
+      Handle :: handle(),
+      Reason :: term().
 open(KeyOrName) ->
     case ct_util:get_key_from_name(KeyOrName) of
 	{ok,node} ->
@@ -154,11 +154,13 @@ open(KeyOrName,Username,Password) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec send(Connection,LocalFile) -> ok | {error,Reason}
-%%%
 %%% @doc Send a file over FTP.
 %%% <p>The file will get the same name on the remote host.</p>
 %%% @see send/3
+-spec send(Connection, LocalFile) -> ok | {error,Reason} when
+      Connection :: connection(),
+      LocalFile :: file:name(),
+      Reason :: term().
 send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
@@ -169,8 +171,8 @@ send(Connection,LocalFile) ->
 %%% @end
 -spec send(Connection, LocalFile, RemoteFile) -> ok | {error,Reason} when
       Connection :: connection(),
-      LocalFile :: string(),
-      RemoteFile :: string(),
+      LocalFile :: file:name(),
+      RemoteFile :: file:name(),
       Reason :: term().
 send(Connection,LocalFile,RemoteFile) ->
     case get_handle(Connection) of
@@ -181,11 +183,13 @@ send(Connection,LocalFile,RemoteFile) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec recv(Connection,RemoteFile) -> ok | {error,Reason}
-%%%
 %%% @doc Fetch a file over FTP.
 %%% <p>The file will get the same name on the local host.</p>
 %%% @see recv/3
+-spec recv(Connection, RemoteFile) -> ok | {error,Reason} when
+      Connection :: connection(),
+      RemoteFile :: file:name(),
+      Reason :: term().
 recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
@@ -196,8 +200,8 @@ recv(Connection,RemoteFile) ->
 %%% @end
 -spec recv(Connection, RemoteFile, LocalFile) -> ok | {error,Reason} when
       Connection :: connection(),
-      RemoteFile :: string(),
-      LocalFile :: string(),
+      RemoteFile :: file:name(),
+      LocalFile :: file:name(),
       Reason :: term().
 recv(Connection,RemoteFile,LocalFile) ->
     case get_handle(Connection) of
@@ -211,7 +215,7 @@ recv(Connection,RemoteFile,LocalFile) ->
 %%% @doc Change directory on remote host.
 -spec cd(Connection, Dir) -> ok | {error,Reason} when
       Connection :: connection(),
-      Dir :: string(),
+      Dir :: file:name(),
       Reason :: term().
 cd(Connection,Dir) ->
     case get_handle(Connection) of
@@ -225,8 +229,8 @@ cd(Connection,Dir) ->
 %%% @doc List the directory Dir.
 -spec ls(Connection, Dir) -> {ok,Listing} | {error,Reason} when
       Connection :: connection(),
-      Dir :: string(),
-      Listing :: string(),
+      Dir :: file:name(),
+      Listing :: file:name(),
       Reason :: term().
 ls(Connection,Dir) ->
     case get_handle(Connection) of
@@ -249,12 +253,12 @@ type(Connection,Type) ->
 	Error ->
 	    Error
     end.
-    
+
 %%%-----------------------------------------------------------------
 %%% @doc Delete a file on remote host
 -spec delete(Connection, File) -> ok | {error,Reason} when
       Connection :: connection(),
-      File :: string(),
+      File :: file:name(),
       Reason :: term().
 delete(Connection,File) ->
     case get_handle(Connection) of

@@ -672,12 +672,14 @@ try_subdir(Dir, Subdir) ->
 	false -> Dir
     end.
 
-%% @spec (Text::deep_string(), Dir::filename(),
-%%        Name::filename()) -> ok
-%%
 %% @doc Write the given `Text' to the file named by `Name' in directory
 %% `Dir'. If the target directory does not exist, it will be created.
 %% @private
+
+-spec write_file(Text, Dir, Name) -> ok when
+      Text :: iolist(),
+      Dir :: filename(),
+      Name :: filename().
 
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, [{encoding,latin1}]).
@@ -926,9 +928,11 @@ add_new(K, V, D) ->
 	    dict:store(K, V, D)
     end.
 
-%% @spec (Options::proplist()) -> edoc_env()
 %% @equiv get_doc_env([], [], Opts)
 %% @private
+
+-spec get_doc_env(Options) -> edoc_env() when
+      Options :: proplist().
 
 get_doc_env(Opts) ->
     get_doc_env([], [], Opts).

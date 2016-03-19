@@ -164,8 +164,8 @@
       done by defining a configuration data variable on the following form:</p>
 
     <pre>
- {snmp_app, [{manager, [snmp_app_manager_params()]},
-             {agent, [snmp_app_agent_params()]}]}.</pre>
+ {snmp_app, [{manager, [SNMPAppManagerParams :: term()]},
+             {agent, [SNMPAppAgentParams :: term()]}]}.</pre>
 
     <p>A name for the data must be allocated in the suite using
       <c>require</c> (see the example above). Pass this name as argument

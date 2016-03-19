@@ -294,8 +294,12 @@ session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
 %%%-----------------------------------------------------------------
-%%% @spec exec(SSH,Command) -> {ok,Data} | {error,Reason}
 %%% @equiv exec(SSH,Command,DefaultTimeout)
+-spec exec(SSH, Command) -> {ok,Data} | {error,Reason} when
+      SSH :: connection(),
+      Command :: string(),
+      Data :: list(),
+      Reason :: term().
 exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
