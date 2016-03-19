@@ -153,7 +153,7 @@ restart(Config) when is_list(Config) ->
     receive
 	{nodedown, Node} ->
 	    ok
-    after 2000 ->
+    after 5000 ->
 	    ct:fail(node_not_closed)
     end,
     timer:sleep(5000),
