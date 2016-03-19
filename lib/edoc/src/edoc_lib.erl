@@ -35,6 +35,8 @@
 	 uri_get/1, run_doclet/2, run_layout/2,
 	 simplify_path/1, timestr/1, datestr/1, read_encoding/2]).
 
+-export_type([edoc_env/0]).
+
 -import(edoc_report, [report/2, warning/2]).
 
 -include("edoc.hrl").
@@ -42,6 +44,9 @@
 
 -define(FILE_BASE, "/").
 
+-opaque edoc_env() :: #env{}.
+-type filename() :: file:filename().
+-type proplist() :: proplists:property().
 
 %% ---------------------------------------------------------------------
 %% List and string utilities
@@ -304,10 +309,6 @@ parse_expr(S, L) ->
 %% content in e.g.
 %% <a href="overview-summary.html#mtag-author">`@author'</a> tags.
 %% @private
-
-%% % @type info() = #info{name  = string(),
-%% %                      email = string(),
-%% %                      uri   = string()}
 
 -record(info, {name = ""  :: string(),
 	       email = "" :: string(),
@@ -671,8 +672,8 @@ try_subdir(Dir, Subdir) ->
 	false -> Dir
     end.
 
-%% @spec (Text::deep_string(), Dir::edoc:filename(),
-%%        Name::edoc:filename()) -> ok
+%% @spec (Text::deep_string(), Dir::filename(),
+%%        Name::filename()) -> ok
 %%
 %% @doc Write the given `Text' to the file named by `Name' in directory
 %% `Dir'. If the target directory does not exist, it will be created.
@@ -704,9 +705,11 @@ write_info_file(App, Modules, Dir) ->
     S = ["%% encoding: UTF-8\n" | S0],
     write_file(S, Dir, ?INFO_FILE, [{encoding,unicode}]).
 
-%% @spec (Name::edoc:filename()) -> {ok, string()} | {error, Reason}
-%%
 %% @doc Reads text from the file named by `Name'.
+
+-spec read_file(Name) -> {ok, string()} | {error, Reason} when
+      Name :: filename(),
+      Reason :: atom().
 
 read_file(File) ->
     case file:read_file(File) of
@@ -930,13 +933,7 @@ add_new(K, V, D) ->
 get_doc_env(Opts) ->
     get_doc_env([], [], Opts).
 
-%% @spec (App, Modules, Options::proplist()) -> edoc_env()
-%%     App = [] | atom()
-%%     Modules = [atom()]
-%%     proplist() = [term()]
-%%
-%% @type proplist() = proplists:property().
-%% @type edoc_env(). Environment information needed by EDoc for
+%% Environment information needed by EDoc for
 %% generating references. The data representation is not documented.
 %%
 %% @doc Creates an environment data structure used by parts of EDoc for
@@ -949,6 +946,11 @@ get_doc_env(Opts) ->
 %% NEW-OPTIONS: file_suffix, app_default
 %% INHERIT-OPTIONS: get_doc_links/4
 %% DEFER-OPTIONS: edoc:run/2
+
+-spec get_doc_env(App, Modules, Options) -> edoc_env() when
+      App :: [] | atom(),
+      Modules :: [atom()],
+      Options :: proplist().
 
 get_doc_env(App, Modules, Opts) ->
     Suffix = proplists:get_value(file_suffix, Opts,
