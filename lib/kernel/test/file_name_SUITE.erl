@@ -190,9 +190,7 @@ normal(Config) when is_list(Config) ->
     try
 	Priv = proplists:get_value(priv_dir, Config),
 	file:set_cwd(Priv),
-	put(file_module,prim_file),
 	ok = check_normal(prim_file),
-	put(file_module,file),
 	ok = check_normal(file),
 	%% If all is good, delete dir again (avoid hanging dir on windows)
 	rm_rf(file,"normal_dir"),
@@ -212,9 +210,7 @@ icky(Config) when is_list(Config) ->
 	    try
 		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
-		put(file_module,prim_file),
 		ok = check_icky(prim_file),
-		put(file_module,file),
 		ok = check_icky(file),
 		%% If all is good, delete dir again (avoid hanging dir on windows)
 		rm_rf(file,"icky_dir"),
@@ -233,12 +229,10 @@ very_icky(Config) when is_list(Config) ->
 	    try
 		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
-		put(file_module,prim_file),
 		case check_very_icky(prim_file) of
 		    need_unicode_mode ->
 			{skipped,"VM needs to be started in Unicode filename mode"};
 		    ok ->
-			put(file_module,file),
 			ok = check_very_icky(file),
 			%% If all is good, delete dir again
 			%% (avoid hanging dir on windows)
