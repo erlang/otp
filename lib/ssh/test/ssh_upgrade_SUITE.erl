@@ -39,7 +39,7 @@
 %%% CommonTest callbacks
 %%% 
 suite() ->
-    [{timetrap,{minutes,2}}].
+    [{timetrap,{seconds,180}}].
 
 all() -> 
     [

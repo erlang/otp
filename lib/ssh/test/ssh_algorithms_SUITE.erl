@@ -36,7 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,10}}].
+     {timetrap,{seconds,40}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -191,6 +191,9 @@ simple_exec_groups_no_match_too_large(Config) ->
 
 %%--------------------------------------------------------------------
 %% Testing all default groups
+
+simple_exec_groups() -> [{timetrap,{seconds,90}}].
+
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
@@ -217,6 +220,9 @@ interpolate(Is) ->
 
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
+
+sshc_simple_exec() -> [{timetrap,{seconds,90}}].
+
 sshc_simple_exec(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
