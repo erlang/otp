@@ -233,11 +233,19 @@ sshc_simple_exec(Config) ->
     ct:log("~p",[Cmd]),
     SshPort = open_port({spawn, Cmd}, [binary]),
     Expect = <<"2\n">>,
+    rcv_expected(SshPort, Expect).
+
+
+rcv_expected(SshPort, Expect) ->
     receive
 	{SshPort, {data,Expect}} ->
 	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
 	    catch port_close(SshPort),
-	    ok
+	    ok;
+	Other ->
+	    ct:log("Got UNEXPECTED ~p",[Expect]),
+	    rcv_expected(SshPort, Expect)
+
     after ?TIMEOUT ->
 	    ct:fail("Did not receive answer")
     end.
