@@ -522,7 +522,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   ?debug("RetWithoutLocal: ~s\n", [erl_types:t_to_string(RetWithoutLocal)]),
   ?debug("BifRet: ~s\n", [erl_types:t_to_string(BifRange(NewArgTypes))]),
   ?debug("SigRange: ~s\n", [erl_types:t_to_string(SigRange)]),
-  ?debug("ContrRet: ~s\n", [erl_types:t_to_string(CRange(NewArgTypes))]),
+  ?debug("ContrRet: ~s\n", [erl_types:t_to_string(ContrRet)]),
   ?debug("LocalRet: ~s\n", [erl_types:t_to_string(LocalRet)]),
 
   State1 =
@@ -3071,7 +3071,10 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
         false ->
           WarningInfo = {get_file(Ann), get_line(Ann), State#state.curr_fun},
           Warn = {Tag, WarningInfo, Msg},
-          ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)]),
+          case Tag of
+            ?WARN_CONTRACT_RANGE -> ok;
+            _ -> ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)])
+          end,
           State#state{warnings = [Warn|Warnings]}
       end
   end.
