@@ -24,15 +24,13 @@
 -include_lib("common_test/include/ct.hrl").
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
--export([
-	 all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 compare_tuple/1,
-	 compare_list/1,
-	 compare_string/1,
-	 compare_list_string/1,
-	 compare_nc_ext/1
-	]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+         init_per_group/2,end_per_group/2,
+         compare_tuple/1,
+         compare_list/1,
+         compare_string/1,
+         compare_list_string/1,
+         compare_nc_ext/1]).
 
 -import(runner, [get_term/1]).
 
@@ -61,37 +59,34 @@ end_per_group(_GroupName, Config) ->
 compare_tuple(suite) -> [];
 compare_tuple(doc) -> [];
 compare_tuple(Config) when is_list(Config) ->
-    ?line P = runner:start(?compare_tuple),
-    ?line runner:recv_eot(P),
+    P = runner:start(?compare_tuple),
+    runner:recv_eot(P),
     ok.
 
 compare_list(suite) -> [];
 compare_list(doc) -> [];
 compare_list(Config) when is_list(Config) ->
-    ?line P = runner:start(?compare_list),
-    ?line runner:recv_eot(P),
+    P = runner:start(?compare_list),
+    runner:recv_eot(P),
     ok.
 
 compare_string(suite) -> [];
 compare_string(doc) -> [];
 compare_string(Config) when is_list(Config) ->
-    ?line P = runner:start(?compare_string),
-    ?line runner:recv_eot(P),
+    P = runner:start(?compare_string),
+    runner:recv_eot(P),
     ok.
 
 compare_list_string(suite) -> [];
 compare_list_string(doc) -> [];
 compare_list_string(Config) when is_list(Config) ->
-    ?line P = runner:start(?compare_list_string),
-    ?line runner:recv_eot(P),
+    P = runner:start(?compare_list_string),
+    runner:recv_eot(P),
     ok.
 
 compare_nc_ext(suite) -> [];
 compare_nc_ext(doc) -> [];
 compare_nc_ext(Config) when is_list(Config) ->
-    ?line P = runner:start(?compare_nc_ext),
-    ?line runner:recv_eot(P),
+    P = runner:start(?compare_nc_ext),
+    runner:recv_eot(P),
     ok.
-
-
-
