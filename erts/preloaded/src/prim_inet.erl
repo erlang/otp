@@ -70,6 +70,8 @@ open(Protocol, Family, Type) ->
 open(Protocol, Family, Type, Opts) ->
     open(Protocol, Family, Type, Opts, ?INET_REQ_OPEN, []).
 
+%% FDOPEN(tcp|udp|sctp, inet|inet6|local, stream|dgram|seqpacket, integer())
+
 fdopen(Protocol, Family, Type, Fd) when is_integer(Fd) ->
     fdopen(Protocol, Family, Type, Fd, true).
 
@@ -104,8 +106,9 @@ open(Protocol, Family, Type, Opts, Req, Data) ->
 	error:system_limit -> {error, system_limit}
     end.
 
-enc_family(inet) -> ?INET_AF_INET;
-enc_family(inet6) -> ?INET_AF_INET6.
+enc_family(inet)  -> ?INET_AF_INET;
+enc_family(inet6) -> ?INET_AF_INET6;
+enc_family(local) -> ?INET_AF_LOCAL.
 
 enc_type(stream) -> ?INET_TYPE_STREAM;
 enc_type(dgram) -> ?INET_TYPE_DGRAM;
@@ -1619,6 +1622,8 @@ enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 4 ->
     [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
 enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 8 ->
     [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
+enc_value_2(addr, {File,0}) when is_list(File) ->
+    [?INET_AF_LOCAL,0,0,length(File)|File];
 enc_value_2(ether, [_,_,_,_,_,_]=Xs) -> Xs;
 enc_value_2(sockaddr, any) ->
     [?INET_AF_ANY];
@@ -1628,6 +1633,8 @@ enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 4 ->
     [?INET_AF_INET|ip4_to_bytes(IP)];
 enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 8 ->
     [?INET_AF_INET6|ip6_to_bytes(IP)];
+enc_value_2(sockaddr, File) when is_list(File) ->
+    [?INET_AF_LOCAL,0,0,length(File)|File];
 enc_value_2(linkaddr, Linkaddr) ->
     [?int16(length(Linkaddr)),Linkaddr];
 enc_value_2(sctp_assoc_id, Val) -> ?int32(Val);
@@ -2265,8 +2272,10 @@ get_addrs([F,P1,P0|Addr]) ->
     {IP,Addrs} = get_ip(F, Addr),
     [{IP,?u16(P1, P0)}|get_addrs(Addrs)].
 
-get_ip(?INET_AF_INET, Addr)  -> get_ip4(Addr);
-get_ip(?INET_AF_INET6, Addr) -> get_ip6(Addr).
+get_ip(?INET_AF_INET,  Addr) -> get_ip4(Addr);
+get_ip(?INET_AF_INET6, Addr) -> get_ip6(Addr);
+get_ip(?INET_AF_LOCAL, [0])  -> {[], []};
+get_ip(?INET_AF_LOCAL, [N | Addr]) -> lists:split(N, Addr).
 
 get_ip4([A,B,C,D | T]) -> {{A,B,C,D},T}.
 

@@ -40,7 +40,7 @@
 
 -export([i/0, i/1, i/2]).
 
--export([getll/1, getfd/1, open/8, fdopen/6]).
+-export([getll/1, getfd/1, open/8, fdopen/6, getfamily/1]).
 
 -export([tcp_controlling_process/2, udp_controlling_process/2,
 	 tcp_close/1, udp_close/1]).
@@ -133,7 +133,7 @@
 		 'running' | 'multicast' | 'loopback']} |
       {'hwaddr', ether_address()}.
 
--type address_family() :: 'inet' | 'inet6'.
+-type address_family() :: 'inet' | 'inet6' | 'local'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 -type stat_option() :: 
@@ -711,6 +711,7 @@ con_opt([Opt | Opts], #connect_opts{} = R, As) ->
 	{tcp_module,_}  -> con_opt(Opts, R, As);
 	inet        -> con_opt(Opts, R, As);
 	inet6       -> con_opt(Opts, R, As);
+	local       -> con_opt(Opts, R#connect_opts { family = local }, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -783,6 +784,7 @@ list_opt([Opt | Opts], #listen_opts{} = R, As) ->
 	{tcp_module,_}  -> list_opt(Opts, R, As);
 	inet         -> list_opt(Opts, R, As);
 	inet6        -> list_opt(Opts, R, As);
+	local        -> list_opt(Opts, R#listen_opts { family = local }, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -839,8 +841,9 @@ udp_opt([Opt | Opts], #udp_opts{} = R, As) ->
 	binary      ->  udp_add(mode, binary, R, Opts, As);
 	list        ->  udp_add(mode, list, R, Opts, As);
 	{udp_module,_} -> udp_opt(Opts, R, As);
-	inet        -> udp_opt(Opts, R, As);
-	inet6       -> udp_opt(Opts, R, As);
+	inet        ->  udp_opt(Opts, R, As);
+	inet6       ->  udp_opt(Opts, R, As);
+	local       ->  udp_opt(Opts, R#udp_opts { family = local }, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -1318,7 +1321,7 @@ fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
     Bound = Port == 0 andalso IsAnyAddr,
     case prim_inet:fdopen(Protocol, Family, Type, Fd, Bound) of
 	{ok, S} ->
-	    case prim_inet:setopts(S, Opts) of
+	    case prim_inet:setopts(S, Opts -- [local]) of
 		ok ->
                     case if
                              Bound ->
@@ -1343,6 +1346,13 @@ fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
 		    prim_inet:close(S), Error
 	    end;
 	Error -> Error
+    end.
+
+-spec getfamily(list()) -> atom().
+getfamily(Options) when is_list(Options) ->
+    case lists:member(local, Options) of
+    true  -> local;
+    false -> inet
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

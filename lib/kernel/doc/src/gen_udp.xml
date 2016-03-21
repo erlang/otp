@@ -101,6 +101,13 @@
             <p>Set up the socket for IPv4.</p>
           </item>
 
+		  <tag><c>local</c></tag>
+		  <item>
+            <p>Set up the socket for local address family. This option is only
+               valid together with <c>{fd, integer()}</c> when the file descriptor
+               is of local address family (e.g. a Unix Domain Socket)</p>
+          </item>
+
 		  <tag><c>{udp_module, module()}</c></tag>
 		  <item> <p>
 				  Override which callback module is used. Defaults to

@@ -58,6 +58,9 @@
 #ifdef HAVE_NETPACKET_PACKET_H
 #include <netpacket/packet.h>
 #endif
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
@@ -747,6 +750,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_AF_INET6       2
 #define INET_AF_ANY         3 /* INADDR_ANY or IN6ADDR_ANY_INIT */
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
+#define INET_AF_LOCAL       5
 
 /* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
@@ -1032,19 +1036,29 @@ typedef union {
 #ifdef HAVE_IN6
     struct sockaddr_in6 sai6;
 #endif
+#ifdef HAVE_SYS_UN_H
+    struct sockaddr_un sal;
+#endif
 } inet_address;
 
 
 /* for AF_INET & AF_INET6 */
 #define inet_address_port(x) ((x)->sai.sin_port)
 
-#if defined(HAVE_IN6) && defined(AF_INET6)
-#define addrlen(family) \
-   ((family == AF_INET) ? sizeof(struct in_addr) : \
-    ((family == AF_INET6) ? sizeof(struct in6_addr) : 0))
+#ifdef HAVE_SYS_UN_H
+#define localaddrlen(family, data) \
+    ((family == AF_LOCAL) ? *(unsigned char*)(data) : 0)
 #else
-#define addrlen(family) \
-   ((family == AF_INET) ? sizeof(struct in_addr) : 0)
+    0
+#endif
+
+#if defined(HAVE_IN6) && defined(AF_INET6)
+#define addrlen(family, data) \
+   ((family == AF_INET) ? sizeof(struct in_addr) : \
+    ((family == AF_INET6) ? sizeof(struct in6_addr) : localaddrlen(family, data)))
+#else
+#define addrlen(family, data) \
+   ((family == AF_INET) ? sizeof(struct in_addr) : localaddrlen(family, data))
 #endif
 
 typedef struct _multi_timer_data {
@@ -1726,6 +1740,12 @@ static int load_ip_address(ErlDrvTermData* spec, int i, int family, char* buf)
 	}
 	spec[i++] = ERL_DRV_TUPLE;
 	spec[i++] = 8;
+    }
+#endif
+#ifdef HAVE_SYS_UN_H
+    else if (family == AF_LOCAL) {
+	int len = *(unsigned char*)buf++;
+	i = LOAD_STRING(spec, i, buf, len);
     }
 #endif
     else {
@@ -3573,10 +3593,11 @@ static int tcp_error_message(tcp_descriptor* desc, int err)
 #ifdef HAVE_UDP
 /* 
 ** active mode message:
-**        {udp,  S, IP, Port, [H1,...Hsz | Data]} or
-**	  {sctp, S, IP, Port, {[AncilData],  Event_or_Data}}
+**    {udp,  S, IP, Port, [H1,...Hsz | Data]} or
+**    {sctp, S, IP, Port, {[AncilData],  Event_or_Data}}
 ** where
 ** 	  [H1,...,HSz] are msg headers (without IP/Port, UDP only),
+**    [AddrLen, H2,...,HSz] are msg headers for UDP AF_LOCAL only
 **	  Data  : List() | Binary()
 */
 static int packet_binary_message
@@ -3586,6 +3607,7 @@ static int packet_binary_message
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     int i = 0;
     int alen;
+    char* data = bin->orig_bytes+offs;
 
     DEBUGF(("packet_binary_message(%ld): len = %d\r\n",
 	   (long)desc->port, len));
@@ -3596,10 +3618,15 @@ static int packet_binary_message
 #   endif
     i = LOAD_PORT(spec, i, desc->dport);   		      /* S	  */
     
-    alen = addrlen(desc->sfamily);
-    i = load_ip_address(spec, i, desc->sfamily, bin->orig_bytes+offs+3);
-    i = load_ip_port(spec, i, bin->orig_bytes+offs+1);	      /* IP, Port */
+    alen = addrlen(desc->sfamily, data+3);
+    i = load_ip_address(spec, i, desc->sfamily, data+3);
+    i = load_ip_port(spec, i, data+1);	      		      /* IP, Port */
     
+#   ifdef HAVE_SYS_UN_H
+    /* AF_LOCAL addresses have a prefix byte containing address length */
+    if (desc->sfamily == AF_LOCAL)
+	alen++;
+#   endif
     offs += (alen + 3);
     len  -= (alen + 3);
 
@@ -4152,6 +4179,16 @@ static char* inet_set_address(int family, inet_address* dst,
 	return src + 2+16;
     }
 #endif
+#ifdef HAVE_SYS_UN_H
+    else if ((family == AF_LOCAL) && (*len >= 3+sizeof(struct sockaddr_un))) {
+	int n = *((unsigned char*)src+2);
+	dst->sal.sun_family  = family;
+	sys_memcpy(dst->sal.sun_path, src+3, n);
+	dst->sal.sun_path[n-1] = '\0';
+	*len = n;
+	return src + 3 + n;
+    }
+#endif
     return NULL;
 }
 
@@ -4160,7 +4197,7 @@ static char* inet_set_address(int family, inet_address* dst,
 ** or from argument if source data specifies constant address.
 ** 
 ** src = [TAG,P1,P0]           when TAG = INET_AF_ANY  | INET_AF_LOOPBACK
-** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6
+** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6 | INET_AF_LOCAL
 */
 static char *inet_set_faddress(int family, inet_address* dst,
 			       char *src, ErlDrvSizeT* len) {
@@ -4177,6 +4214,21 @@ static char *inet_set_faddress(int family, inet_address* dst,
     case INET_AF_INET6:
 	family = AF_INET6;
 	break;
+#   endif
+#   ifdef HAVE_SYS_UN_H
+    case INET_AF_LOCAL: {
+	int n;
+	if (*len || *len < 3) return NULL;
+	family = AF_LOCAL;
+	/* Next two bytes are the length of the local path (< 256) */
+	src++;
+	n = *(unsigned char*)src++;
+	if (n+3 > *len) return NULL;
+	dst->sal.sun_family = family;
+	sys_memcpy(dst->sal.sun_path, src, n);
+	*len = n;
+	break;
+    }
 #   endif
     case INET_AF_ANY:
     case INET_AF_LOOPBACK: {
@@ -4241,7 +4293,6 @@ static char *inet_set_faddress(int family, inet_address* dst,
     return inet_set_address(family, dst, src, len);
 }
 
-
 /* Get a inaddr structure
 ** src = inaddr structure
 ** *len is the lenght of structure
@@ -4274,7 +4325,52 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
 	return 0;
     }
 #endif
+#ifdef HAVE_SYS_UN_H
+    else if ((family == AF_LOCAL) && *len > 0) {
+	int n = *len - 4;
+	dst[0] = INET_AF_LOCAL;
+	put_int16(0, dst+1);
+	if (n == 0 || n >= sizeof(src->sal.sun_path)) {
+	    *(dst+3) = 0;
+	    *len = 3+1;
+        } else {
+	    *(dst+3) = n;
+	    sys_memcpy(dst+4, src->sal.sun_path, n);
+	    *len = 3+1+n;
+	}
+	return 0;
+    }
+#endif
     return -1;
+}
+
+static int inet_family_get_address(inet_descriptor* desc, char* dst, inet_address* src, unsigned int* len)
+{
+#ifdef HAVE_SYS_UN_H
+    if (desc->sfamily == AF_LOCAL) {
+	int n = *len - 4;
+	dst[0] = INET_AF_LOCAL;
+	put_int16(0, dst+1);
+	if (n <= 0 || n >= sizeof(src->sal.sun_path)) {
+	    if (desc->name_ptr) {
+		char* p = desc->name_ptr->sal.sun_path;
+		n = strlen(p);
+                *(dst+3) = n;
+                sys_memcpy(dst+4, p, n);
+		*len = 3+1+n;
+	    } else {
+		*(dst+3) = 0;
+		*len = 3+1;
+	    }
+        } else {
+	    *(dst+3) = n;
+	    sys_memcpy(dst+4, src->sal.sun_path, n);
+	    *len = 3+1+n;
+	}
+	return 0;
+    }
+#endif
+    return inet_get_address(dst, src, len);
 }
 
 /* Same as the above, but take family from the address structure,
@@ -4306,6 +4402,19 @@ static int inet_address_to_erlang(char *dst, inet_address **src) {
 	}
 	(*src) = (inet_address *) (&(*src)->sai6 + 1);
 	return 1 + 2 + 16;
+#endif
+#ifdef HAVE_SYS_UN_H
+    case AF_LOCAL: {
+	int n = strlen((*src)->sal.sun_path);
+	if (dst) {
+	    dst[0] = INET_AF_LOCAL;
+	    put_int16(0, dst+1);
+	    *(dst+3) = n;
+            sys_memcpy(dst+1+2+1, (*src)->sal.sun_path, n);
+	}
+	(*src) = (inet_address *) (&(*src)->sal + 1);
+	return 1+2+1+n;
+    }
 #endif
     default:
 	return -1;
@@ -4402,7 +4511,8 @@ static void desc_close_read(inet_descriptor* desc)
 static int erl_inet_close(inet_descriptor* desc)
 {
     free_subscribers(&desc->empty_out_q_subs);
-    if ((desc->prebound == 0) && (desc->state & INET_F_OPEN)) {
+    if ((desc->prebound == 0 || desc->sfamily == AF_LOCAL) &&
+        (desc->state & INET_F_OPEN)) {
 	desc_close(desc);
 	desc->state = INET_STATE_CLOSED;
     } else if (desc->prebound && (desc->s != INVALID_SOCKET)) {
@@ -4582,6 +4692,13 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
             return ctl_error(sock_errno(), rbuf, rsize);
         if (name.sa.sa_family != domain)
             return ctl_error(EINVAL, rbuf, rsize);
+#ifdef HAVE_SYS_UN_H
+        if (domain == AF_LOCAL) {
+            sys_memcpy(&desc->name_addr, &name, sizeof(desc->name_addr));
+            if (desc->name_ptr == NULL)
+               desc->name_ptr = &desc->name_addr;
+        }
+#endif
     }
 #ifdef __OSE__        
     /* for fdopen duplicating the sd will allow to uniquely identify
@@ -8571,6 +8688,11 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    put_int32(INET_AF_INET6, &tbuf[0]);
 	}
 #endif
+#ifdef HAVE_SYS_UN_H
+	else if (desc->sfamily == AF_LOCAL) {
+	    put_int32(INET_AF_LOCAL, &tbuf[0]);
+	}
+#endif
 	else
 	    return ctl_error(EINVAL, rbuf, rsize);
 
@@ -9256,6 +9378,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
 	    break;
 #endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL:
+	    domain = AF_LOCAL;
+	    break;
+#endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
@@ -9280,6 +9407,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 #else
 	case INET_AF_INET6:
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL:
+	    domain = AF_LOCAL;
 	    break;
 #endif
 	default:
@@ -11344,6 +11476,9 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
 	    break;
 #endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL: af = AF_LOCAL; break;
+#endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
@@ -11955,7 +12090,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
-	    inet_get_address(abuf, &other, &len);
+	    inet_family_get_address(desc, abuf, &other, &len);
 	    /* Copy formatted address to the buffer allocated; "len" is the
 	       actual length which must be <= than the original reserved.
 	       This means that the addr + data in the buffer are contiguous,

@@ -29,6 +29,7 @@
 -define(INET_AF_INET6,        2).
 -define(INET_AF_ANY,          3). % Fake for ANY in any address family
 -define(INET_AF_LOOPBACK,     4). % Fake for LOOPBACK in any address family
+-define(INET_AF_LOCAL,        5). % For Unix Domain address family
 
 %% type codes to open and gettype - INET_REQ_GETTYPE
 -define(INET_TYPE_STREAM,     1).
@@ -378,7 +379,8 @@
 	{ 
 	  ifaddr = any,     %% bind to interface address
 	  port   = 0,       %% bind to port (default is dynamic port)
-	  fd      = -1,     %% fd >= 0 => already bound
+	  fd     = -1,      %% fd >= 0 => already bound
+	  family = inet,    %% address family
 	  opts   = []       %% [{active,true}] added in inet:connect_options
 	 }).
 
@@ -388,6 +390,7 @@
 	  port   = 0,                %% bind to port (default is dynamic port)
 	  backlog = ?LISTEN_BACKLOG, %% backlog
 	  fd      = -1,              %% %% fd >= 0 => already bound
+	  family = inet,             %% address family
 	  opts   = []                %% [{active,true}] added in 
 	                             %% inet:listen_options
 	 }).
@@ -397,6 +400,7 @@
 	  ifaddr = any,
 	  port   = 0,
 	  fd     = -1,
+	  family = inet,
 	  opts   = [{active,true}]
 	 }).
 
