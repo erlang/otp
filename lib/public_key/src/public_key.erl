@@ -53,6 +53,7 @@
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
 	 pkix_dist_points/1,
+	 pkix_match_dist_point/2,
 	 pkix_crl_verify/2,
 	 pkix_crl_issuer/1
 	]).
@@ -522,6 +523,38 @@ pkix_dist_points(OtpCert) ->
 			[DistPoint | Acc0]
 		end, 
 		[], Value).
+
+%%--------------------------------------------------------------------
+-spec pkix_match_dist_point(der_encoded() | #'CertificateList'{},
+			    #'DistributionPoint'{}) -> boolean().
+%% Description: Check whether the given distribution point matches
+%% the "issuing distribution point" of the CRL.
+%%--------------------------------------------------------------------
+pkix_match_dist_point(CRL, DistPoint) when is_binary(CRL) ->
+    pkix_match_dist_point(der_decode('CertificateList', CRL), DistPoint);
+pkix_match_dist_point(#'CertificateList'{},
+		      #'DistributionPoint'{distributionPoint = asn1_NOVALUE}) ->
+    %% No distribution point name specified - that's considered a match.
+    true;
+pkix_match_dist_point(#'CertificateList'{
+			 tbsCertList =
+			     #'TBSCertList'{
+				crlExtensions = Extensions}},
+		      #'DistributionPoint'{
+			 distributionPoint = {fullName, DPs}}) ->
+    case pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint', Extensions) of
+	undefined ->
+	    %% If the CRL doesn't have an IDP extension, it
+	    %% automatically qualifies.
+	    true;
+	#'Extension'{extnValue = IDPValue} ->
+	    %% If the CRL does have an IDP extension, it must match
+	    %% the given DistributionPoint to be considered a match.
+	    IDPEncoded = der_decode('IssuingDistributionPoint', IDPValue),
+	    #'IssuingDistributionPoint'{distributionPoint = {fullName, IDPs}} =
+		pubkey_cert_records:transform(IDPEncoded, decode),
+	    pubkey_crl:match_one(IDPs, DPs)
+    end.
 
 %%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
