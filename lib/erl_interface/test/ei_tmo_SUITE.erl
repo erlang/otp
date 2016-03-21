@@ -109,7 +109,7 @@ ei_send_tmo(suite) ->
 ei_send_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
-    VxSim = ?config(vxsim, Config),
+    VxSim = proplists:get_value(vxsim, Config),
     register(ei_send_tmo_1,self()),
     do_one_send(Config,self(),c_node_send_tmo_1),
     do_one_send(Config,ei_send_tmo_1,c_node_send_tmo_2),
@@ -211,7 +211,7 @@ ei_connect_tmo(suite) ->
 ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
-    VxSim = ?config(vxsim, Config),
+    VxSim = proplists:get_value(vxsim, Config),
     DummyNode = make_and_check_dummy(),
     P = runner:start(?connect_tmo),
     runner:send_term(P,{c_nod_connect_tmo_1,

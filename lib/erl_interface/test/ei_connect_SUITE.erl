@@ -102,7 +102,7 @@ ei_reg_send(Config) when is_list(Config) ->
     ok.
 
 ei_threaded_send(Config) when is_list(Config) ->
-    Einode = filename:join(?config(data_dir, Config), "einode"),
+    Einode = filename:join(proplists:get_value(data_dir, Config), "einode"),
     N = 15,
     Host = atom_to_list(node()),
     TestServerPid = self(),

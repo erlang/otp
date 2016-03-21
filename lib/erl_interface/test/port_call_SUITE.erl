@@ -60,7 +60,7 @@ basic(Config) when is_list(Config) ->
     end.
 
 do_basic(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
 
     erl_ddll:start(),
 

@@ -75,7 +75,7 @@ ei_accept(Config) when is_list(Config) ->
     ok.
 
 ei_threaded_accept(Config) when is_list(Config) ->
-    Einode = filename:join(?config(data_dir, Config), "eiaccnode"),
+    Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
     N = 1, % 3,
     Host = atom_to_list(node()),
     Port = 6767,

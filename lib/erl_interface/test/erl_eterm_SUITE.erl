@@ -162,9 +162,9 @@ round_trip_conversion(Config) when is_list(Config) ->
 
 decode_terms(suite) -> [];
 decode_terms(Config) when is_list(Config) ->
-    Dummy1 = list_to_atom(filename:join(?config(priv_dir, Config),
+    Dummy1 = list_to_atom(filename:join(proplists:get_value(priv_dir, Config),
                                         dummy_file1)),
-    Dummy2 = list_to_atom(filename:join(?config(priv_dir, Config),
+    Dummy2 = list_to_atom(filename:join(proplists:get_value(priv_dir, Config),
                                         dummy_file2)),
     Port1 = open_port(Dummy1, [out]),
     Port2 = open_port(Dummy2, [out]),
@@ -1023,7 +1023,7 @@ call_erl_function(Port, Term) ->
     end.
 
 print_term(Config) when is_list(Config) ->
-    filename:join(?config(data_dir, Config), "print_term").
+    filename:join(proplists:get_value(data_dir, Config), "print_term").
 
 
 
@@ -1035,7 +1035,7 @@ print_term(Config) when is_list(Config) ->
 cnode_1(suite) -> [];
 cnode_1(doc) -> "Tests involving cnode: sends a long ref from a cnode to us";
 cnode_1(Config) when is_list(Config) ->
-    Cnode = filename:join(?config(data_dir, Config), "cnode"),
+    Cnode = filename:join(proplists:get_value(data_dir, Config), "cnode"),
     register(mip, self()),
     spawn_link(?MODULE, start_cnode, [Cnode]),
     Ref1 = get_ref(),
