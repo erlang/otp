@@ -25,13 +25,13 @@
 -include_lib("common_test/include/ct.hrl").
 
 main() ->
-    ?line ok = test(isd),
-    ?line ok = test(isd2),
-    ?line ok = test(dsd),
-    ?line ok = test(ul_res),
-    ?line ok = test(prim),
-    ?line ok = test(seqofseq),
-    ?line ok = test('InsertSubscriberDataArg'). % OTP-4232
+    ok = test(isd),
+    ok = test(isd2),
+    ok = test(dsd),
+    ok = test(ul_res),
+    ok = test(prim),
+    ok = test(seqofseq),
+    ok = test('InsertSubscriberDataArg'). % OTP-4232
 
 test(isd)->
     EncPdu = <<48,128,129,7,145,148,113,50,1,0,241,131,1,0,176,128,5,0,

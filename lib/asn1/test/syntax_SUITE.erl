@@ -305,7 +305,7 @@ run(List, File, Config) ->
 
 run(List, File0, Config, Module) ->
     Base = File0 ++ ".asn1",
-    File = filename:join(?config(priv_dir, Config), Base),
+    File = filename:join(proplists:get_value(priv_dir, Config), Base),
     case run_1(List, Base, File, Module, 0) of
 	0 -> ok;
 	Errors -> ?t:fail(Errors)

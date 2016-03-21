@@ -42,14 +42,10 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_suite(suite) -> [];
-init_per_suite(doc) -> [];
 init_per_suite(Config) when is_list(Config) ->
     Config.
     
 
-end_per_suite(suite) -> [];
-end_per_suite(doc) -> [];
 end_per_suite(Config) when is_list(Config) ->
     Config.
 

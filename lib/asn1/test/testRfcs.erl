@@ -27,11 +27,11 @@
 
 compile(Config, Erules, Options0) ->
     Options = [no_ok_wrapper|Options0],
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Specs0 = filelib:wildcard("*.asn1", filename:join(DataDir, rfcs)),
     Specs = [filename:join(rfcs, Spec) || Spec <- Specs0],
     122 = length(Specs),
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     asn1_test_lib:compile_all(Specs, Config, [Erules,{i,CaseDir}|Options]).
 
 test() ->

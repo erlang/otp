@@ -27,29 +27,29 @@
 go(all) ->
     {Time_S_s,Time_S_e,Time_S_c}=go(10000,'PartialDecSeq'),
     {Time_MGC_s,Time_MGC_e,Time_MGC_c}=go(10000,'MEDIA-GATEWAY-CONTROL'),
-    ?line do_comment({Time_S_s,Time_MGC_s},
+    do_comment({Time_S_s,Time_MGC_s},
 		     {Time_S_e,Time_MGC_e},
 		     {Time_S_c,Time_MGC_c}).
 
 go(N,Mod) ->
     {Type,Val} = val(Mod),
     {ok,B} = Mod:encode(Type, Val),
-    ?line go(Mod,B,N).
+    go(Mod,B,N).
 
 go(Mod,Bin,N) ->
-    ?line FsS = get_selective_funcs(Mod),
-    ?line FsE = get_exclusive_funcs(Mod),
-    ?line io:format("~nSize of value for module ~p: ~p bytes.~n~n",[Mod,size(Bin)]),
-    ?line Time_s=go1(selective,Mod,FsS,Bin,N,0),
-    ?line Time_e=go1(exclusive,Mod,FsE,Bin,N,0),
-    ?line Time_c=go1(common,Mod,[decode],Bin,N,0),
-    ?line {Time_s/length(FsS),Time_e/length(FsE),Time_c}.
+    FsS = get_selective_funcs(Mod),
+    FsE = get_exclusive_funcs(Mod),
+    io:format("~nSize of value for module ~p: ~p bytes.~n~n",[Mod,size(Bin)]),
+    Time_s=go1(selective,Mod,FsS,Bin,N,0),
+    Time_e=go1(exclusive,Mod,FsE,Bin,N,0),
+    Time_c=go1(common,Mod,[decode],Bin,N,0),
+    {Time_s/length(FsS),Time_e/length(FsE),Time_c}.
 
 go1(_,_,[],_,_,AccTime) ->
-    ?line AccTime;
+    AccTime;
 %% go1 for common decode
 go1(common,Mod,_,Bin,N,_) ->
-    ?line TT=get_top_type(Mod),
+    TT=get_top_type(Mod),
     {Time,Result} = timer:tc(fun() -> loop1(Mod, decode, TT, Bin, N) end),
     case Result of
 	{ok,_R1} ->

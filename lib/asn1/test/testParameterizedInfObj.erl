@@ -97,7 +97,7 @@ roundtrip(T, V) ->
 
 ranap(_Erule) ->    
     PIEVal2 = [{'ProtocolIE-Field',4,ignore,{radioNetwork,'rab-pre-empted'}}],
-    ?line Val2 = 
+    Val2 =
 	#'InitiatingMessage'{procedureCode=1,
 			     criticality=ignore,
 			     value=#'Iu-ReleaseCommand'{protocolIEs=PIEVal2,
@@ -121,8 +121,8 @@ param2(Config, Erule) ->
 		       {'ProtocolIE-Field',101,true}]}),
 
     %% Now remove the data after the extension mark in the object set.
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Asn1SrcBase = "Param2.asn1",
     Asn1SrcFile0 = filename:join(DataDir, Asn1SrcBase),
     {ok,Src0} = file:read_file(Asn1SrcFile0),
