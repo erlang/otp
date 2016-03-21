@@ -24,42 +24,19 @@
 -include_lib("common_test/include/ct.hrl").
 -include("erl_connect_SUITE_data/erl_connect_test_cases.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2,
-         init_per_testcase/2,end_per_testcase/2,
-         erl_send/1,erl_reg_send/1, erl_send_cookie_file/1]).
+-export([all/0, suite/0,
+         erl_send/1, erl_reg_send/1,
+         erl_send_cookie_file/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 30}}].
 
 all() -> 
     [erl_send, erl_reg_send, erl_send_cookie_file].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(0.25)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 erl_send(Config) when is_list(Config) ->
     P = runner:start(?interpret),

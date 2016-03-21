@@ -24,9 +24,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include("erl_global_SUITE_data/erl_global_test_cases.hrl").
 
--export([all/0,suite/0,init_per_suite/1,end_per_suite/1,
-         init_per_testcase/2,end_per_testcase/2,
-         erl_global_registration/1, erl_global_whereis/1, erl_global_names/1]).
+-export([all/0,suite/0,
+         erl_global_registration/1,
+         erl_global_whereis/1, erl_global_names/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
@@ -35,22 +35,10 @@
 all() ->
     [erl_global_registration, erl_global_whereis, erl_global_names].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 30}}].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(0.25)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 erl_global_registration(Config) when is_list(Config) ->
     P = runner:start(?interpret),

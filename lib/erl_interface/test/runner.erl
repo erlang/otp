@@ -25,7 +25,7 @@
 	 start/1, send_term/2, finish/1, send_eot/1, recv_eot/1,
 	 get_term/1, get_term/2]).
 
--define(default_timeout, test_server:seconds(5)).
+-define(default_timeout, 5000).
 
 %% Executes a test case in a C program.
 %%

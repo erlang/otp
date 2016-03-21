@@ -32,30 +32,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, basic/1]).
+-export([all/0, suite/0, basic/1]).
+
 % Private exports
 -include_lib("common_test/include/ct.hrl").
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {seconds, 10}}].
 
 all() -> 
     [basic].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 basic(suite) -> [];
@@ -73,7 +60,6 @@ basic(Config) when is_list(Config) ->
     end.
 
 do_basic(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
     Path = ?config(data_dir, Config),
 
     erl_ddll:start(),
@@ -105,8 +91,6 @@ do_basic(Config) ->
 
     {error, {already_started, _}} = erl_ddll:start(),
     ok = erl_ddll:stop(),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 load_port_call_driver(Path) ->
