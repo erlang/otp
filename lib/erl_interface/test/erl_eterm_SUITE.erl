@@ -34,8 +34,7 @@
 %%% 5. Miscellanous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
          build_terms/1, round_trip_conversion/1,
          decode_terms/1, decode_float/1,
          t_erl_mk_int/1, t_erl_mk_list/1,
@@ -76,7 +75,8 @@
 %% This test suite controls the running of the C language functions
 %% in eterm_test.c and print_term.c.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [build_terms, round_trip_conversion, decode_terms,
@@ -92,22 +92,6 @@ all() ->
      t_erl_iolist_to_binary, t_erl_iolist_to_string,
      erl_print_term, print_string, t_erl_free_compound,
      high_chaparal, broken_data, cnode_1].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

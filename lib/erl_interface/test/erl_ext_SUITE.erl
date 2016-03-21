@@ -24,8 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-         init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
          compare_tuple/1,
          compare_list/1,
          compare_string/1,
@@ -34,26 +33,12 @@
 
 -import(runner, [get_term/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [compare_tuple, compare_list, compare_string,
      compare_list_string, compare_nc_ext].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 compare_tuple(Config) when is_list(Config) ->

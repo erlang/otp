@@ -24,8 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("erl_match_SUITE_data/match_test_cases.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-         init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
          atoms/1, lists/1, tuples/1, references/1, pids/1, ports/1,
          bind/1, integers/1, floats/1, binaries/1, strings/1]).
 
@@ -34,26 +33,12 @@
 
 %% This test suite tests the erl_match() function.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [atoms, lists, tuples, references, pids, ports, bind,
      integers, floats, binaries, strings].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 atoms(Config) when is_list(Config) ->

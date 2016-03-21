@@ -24,20 +24,15 @@
 -include_lib("common_test/include/ct.hrl").
 -include("ei_decode_SUITE_data/ei_decode_test_cases.hrl").
 
--export(
-   [
-    all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-    init_per_group/2,end_per_group/2, init_per_testcase/2,
-    end_per_testcase/2,
-    test_ei_decode_long/1,
-    test_ei_decode_ulong/1,
-    test_ei_decode_longlong/1,
-    test_ei_decode_ulonglong/1,
-    test_ei_decode_char/1,
-    test_ei_decode_nonoptimal/1,
-    test_ei_decode_misc/1,
-    test_ei_decode_utf8_atom/1
-   ]).
+-export([all/0, suite/0,
+         test_ei_decode_long/1,
+         test_ei_decode_ulong/1,
+         test_ei_decode_longlong/1,
+         test_ei_decode_ulonglong/1,
+         test_ei_decode_char/1,
+         test_ei_decode_nonoptimal/1,
+         test_ei_decode_misc/1,
+         test_ei_decode_utf8_atom/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -46,27 +41,6 @@ all() ->
      test_ei_decode_longlong, test_ei_decode_ulonglong,
      test_ei_decode_char, test_ei_decode_nonoptimal,
      test_ei_decode_misc, test_ei_decode_utf8_atom].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-init_per_testcase(_TC, Config) ->
-    Config.
-
-end_per_testcase(_RC, Config) ->
-    Config.
 
 %% ---------------------------------------------------------------------------
 
