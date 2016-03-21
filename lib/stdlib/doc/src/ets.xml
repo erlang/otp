@@ -1621,6 +1621,8 @@ true</pre>
           if the match_spec does not match the object <c><anno>Tuple</anno></c>.</p>
         <p>This is a useful debugging and test tool, especially when
           writing complicated <c>ets:select/2</c> calls.</p>
+        <p>See also: <seealso marker="erts:erlang#match_spec_test/3">
+          erlang:match_spec_test/3</seealso>.</p>
       </desc>
     </func>
     <func>

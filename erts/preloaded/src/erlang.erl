@@ -1163,10 +1163,10 @@ map_size(_Map) ->
     erlang:nif_error(undefined).
 
 %% match_spec_test/3
--spec erlang:match_spec_test(P1, P2, P3) -> TestResult when
-      P1 :: [term()] | tuple(),
-      P2 :: term(),
-      P3 :: table | trace,
+-spec erlang:match_spec_test(MatchAgainst, MatchSpec, Type) -> TestResult when
+      MatchAgainst :: [term()] | tuple(),
+      MatchSpec :: term(),
+      Type :: table | trace,
       TestResult :: {ok, term(), [return_trace], [ {error | warning, string()} ]} | {error, [ {error | warning, string()} ]}.
 match_spec_test(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
