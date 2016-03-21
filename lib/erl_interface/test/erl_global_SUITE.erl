@@ -124,7 +124,7 @@ get_send_result(P) ->
         {term,{0, 0}} -> ok;
         {term,{-1, Errno}} -> {error,Errno};
         {term,{_,_}}->
-            ?t:fail(bad_return_value)
+            ct:fail(bad_return_value)
     end.
 
 send_command(P, Name, Args) ->

@@ -937,6 +937,7 @@ collect_line(Port, Result) ->
             end
     after 5000 ->
               test_server:fail("No response from C program")
+              ct:fail("No response from C program")
     end.
 
 collect_line1([$\r|Rest], Result) ->
@@ -987,9 +988,9 @@ cnode_1(Config) when is_list(Config) ->
     io:format("Ref1 ~p~n", [Ref1]),
     check_ref(Ref1),
     Ref2 = make_ref(),
-    receive
-        Pid -> Pid
-    end,
+    Pid = receive
+              Msg -> Msg %% pid
+          end,
     Fun1 = fun(X) -> {Pid, X} end,	% sneak in a fun test here
     %Fun1 = {wait_with_funs, new_dist_format},
     Term = {Ref2, Fun1, {1,2,3,4,5,6,7,8,9,10}},
@@ -1003,18 +1004,18 @@ cnode_1(Config) when is_list(Config) ->
                     {Ref22,_,_} = Term2,
                     check_ref(Ref22);
                 X ->
-                    test_server:fail({receive1,X})
+                    ct:fail({receive1,X})
             end
     after 5000 ->
-              test_server:fail(receive1)
+              ct:fail(receive1)
     end,
     receive
         Pid ->
             ok;
         Y ->
-            test_server:fail({receive1,Y})
+            ct:fail({receive1,Y})
     after 5000 ->
-              test_server:fail(receive2)
+              ct:fail(receive2)
     end,
     io:format("ref = ~p~n", [Ref1]),
     check_ref(Ref1),
@@ -1023,11 +1024,11 @@ cnode_1(Config) when is_list(Config) ->
 check_ref(Ref) ->
     case bin_ext_type(Ref) of
         101 ->
-            test_server:fail(oldref);
+            ct:fail(oldref);
         114 ->
             ok;
         Type ->
-            test_server:fail({type, Type})
+            ct:fail({type, Type})
     end.
 
 bin_ext_type(T) ->
@@ -1039,7 +1040,7 @@ get_ref() ->
         X when is_reference(X) ->
             X
     after 5000 ->
-              test_server:fail({cnode, timeout})
+              ct:fail({cnode, timeout})
     end.
 
 start_cnode(Cnode) ->

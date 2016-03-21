@@ -108,7 +108,7 @@ send_rec_einode(N, TestServerPid) ->
     Self= self(),
     case waitfornode(FirstPart,20) of
         true -> ok;
-        false -> test_server:fail({never_published,EINode})
+        false -> ct:fail({never_published,EINode})
     end,
     {any, EINode} ! Self,
     receive
@@ -117,7 +117,7 @@ send_rec_einode(N, TestServerPid) ->
             TestServerPid ! N,
             X
     after 10000 ->
-              test_server:fail(EINode)
+              ct:fail(EINode)
     end.
 
 start_einode(Einode, N, Host, Port) ->

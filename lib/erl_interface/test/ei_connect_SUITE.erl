@@ -126,7 +126,7 @@ rec_einode(N, TestServerPid) ->
             TestServerPid ! N,
             X
     after 10000 ->
-              test_server:fail(Regname)
+              ct:fail(Regname)
     end.
 
 start_einode(Einode, N, Host) ->
@@ -215,7 +215,7 @@ get_send_result(P) ->
         {term,{-1,Errno}} -> {error,Errno};
         {term,{Res,Errno}}->
             io:format("Return value: ~p\nerl_errno: ~p", [Res,Errno]),
-            ?t:fail(bad_return_value)
+            ct:fail(bad_return_value)
     end.
 
 send_command(P, Name, Args) ->
