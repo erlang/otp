@@ -16,11 +16,11 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"2.7",
+{"2.8",
  %% Up from - max one major revision back
- [{<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-18.*
-  {<<"2\\.[0-4](\\.[0-9]+)*">>,[restart_new_emulator]}], % 17.0-17.5
+ [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},       % OTP-19.*
+  {<<"2\\.[5-8](\\.[0-9]+)*">>,[restart_new_emulator]}],  % OTP-18.*
  %% Down to - max one major revision back
- [{<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]},  % OTP-18.*
-  {<<"2\\.[0-4](\\.[0-9]+)*">>,[restart_new_emulator]}]  % 17.0-17.5
+ [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},      % OTP-19.*
+  {<<"2\\.[5-8](\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-18.*
 }.

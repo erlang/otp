@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "4.1.1"},
+  {vsn, "4.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -116,6 +116,6 @@
   {applications, []},
   {env, [{error_logger, tty}]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-7.3", "stdlib-2.6", "sasl-2.6"]}
+  {runtime_dependencies, ["erts-8.0", "stdlib-2.6", "sasl-2.6"]}
  ]
 }.
