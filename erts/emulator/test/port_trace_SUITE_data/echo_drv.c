@@ -217,8 +217,8 @@ static ErlDrvSSizeT echo_drv_control(ErlDrvData drv_data,
 				     char *buf, ErlDrvSizeT len,
 				     char **rbuf, ErlDrvSizeT rlen)
 {
-    memcpy(*rbuf, buf+command, len-command);
-    return len-command;
+    memcpy(*rbuf, buf+1, len-1);
+    return len-1;
 }
 
 static void echo_drv_timeout(ErlDrvData drv_data)

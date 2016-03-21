@@ -283,7 +283,7 @@ receive_trace_msg_ts_return_to({trace_ts, Pid, return_to, {M,F,A}}, PrevTs, TsTy
     end.
 
 make_ts(timestamp) ->
-    erlang:now();
+    erlang:timestamp();
 make_ts(monotonic_timestamp) ->
     erlang:monotonic_time(nano_seconds);
 make_ts(strict_monotonic_timestamp) ->
@@ -296,7 +296,7 @@ check_ts(timestamp, PrevTs, Ts) ->
     true = is_integer(Ms),
     true = is_integer(S),
     true = is_integer(Us),
-    true = PrevTs < Ts,
+    true = PrevTs =< Ts,
     Ts;
 check_ts(monotonic_timestamp, PrevTs, Ts) ->
     true = is_integer(Ts),

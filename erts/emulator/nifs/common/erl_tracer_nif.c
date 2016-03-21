@@ -212,7 +212,14 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 env, ERL_NIF_UNIQUE_MONOTONIC);
             ts = enif_make_tuple2(env, enif_make_int64(env, mon), unique);
         } else if (enif_is_identical(value, atom_timestamp)) {
-            ts = enif_now_time(env);
+            ErlNifTime mon = enif_monotonic_time(ERL_NIF_USEC);
+            ErlNifTime offset = enif_time_offset(ERL_NIF_USEC);
+            ErlNifTime timestamp = mon + offset;
+            ts = enif_make_tuple3(
+                env,
+                enif_make_int64(env, timestamp / 1000000000000ll),
+                enif_make_int64(env, (timestamp / 1000000ll) % 1000000ll),
+                enif_make_int64(env, timestamp % 1000000ll));
         } else if (enif_is_identical(value, atom_cpu_timestamp)) {
             ts = enif_cpu_time(env);
         } else {
