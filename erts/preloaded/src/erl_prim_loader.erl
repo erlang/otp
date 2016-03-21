@@ -56,7 +56,7 @@
 -export([purge_archive_cache/0]).
 
 %% Used by init and the code server.
--export([get_modules/3]).
+-export([get_modules/2,get_modules/3]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -239,6 +239,13 @@ set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
 purge_archive_cache() ->
     request(purge_archive_cache).
 
+-spec get_modules([module()],
+		  fun((atom(), string(), binary()) ->
+			     {'ok',any()} | {'error',any()})) ->
+			 {'ok',{[any()],[any()]}}.
+
+get_modules(Modules, Fun) ->
+    request({get_modules,{Modules,Fun}}).
 
 -spec get_modules([module()],
 		  fun((atom(), string(), binary()) ->
@@ -338,6 +345,8 @@ handle_request(Req, Paths, St0) ->
 	    {{ok,Paths},St0};
 	{get_file,File} ->
 	    handle_get_file(St0, Paths, File);
+	{get_modules,{Modules,Fun}} ->
+	    handle_get_modules(St0, Modules, Fun, Paths);
 	{get_modules,{Modules,Fun,ModPaths}} ->
 	    handle_get_modules(St0, Modules, Fun, ModPaths);
 	{list_dir,Dir} ->

@@ -1681,6 +1681,7 @@ help(_) ->
 %%   Compile entry point for erl_compile.
 
 compile(File0, _OutFile, Options) ->
+    pre_load(),
     File = shorten_filename(File0),
     case file(File, make_erl_options(Options)) of
 	{ok,_Mod} -> ok;
@@ -1745,3 +1746,46 @@ make_erl_options(Opts) ->
 	end,
     Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
 	        [{i, Dir} || Dir <- Includes]] ++ Specific.
+
+pre_load() ->
+    L = [beam_a,
+	 beam_asm,
+	 beam_block,
+	 beam_bool,
+	 beam_bs,
+	 beam_bsm,
+	 beam_clean,
+	 beam_dead,
+	 beam_dict,
+	 beam_except,
+	 beam_flatten,
+	 beam_jump,
+	 beam_opcodes,
+	 beam_peep,
+	 beam_receive,
+	 beam_reorder,
+	 beam_split,
+	 beam_trim,
+	 beam_type,
+	 beam_utils,
+	 beam_validator,
+	 beam_z,
+	 cerl,
+	 cerl_clauses,
+	 cerl_sets,
+	 cerl_trees,
+	 core_lib,
+	 epp,
+	 erl_bifs,
+	 erl_expand_records,
+	 erl_lint,
+	 erl_parse,
+	 erl_scan,
+	 sys_core_dsetel,
+	 sys_core_fold,
+	 sys_pre_expand,
+	 v3_codegen,
+	 v3_core,
+	 v3_kernel,
+	 v3_life],
+    code:ensure_modules_loaded(L).
