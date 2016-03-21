@@ -2613,6 +2613,48 @@ os_prompt% </pre>
     </func>
 
     <func>
+      <name name="match_spec_test" arity="3"/>
+      <fsummary>Test that a match specification works</fsummary>
+      <desc>
+        <p>
+          This function is a utility to test a match_spec used in calls to
+          <seealso marker="stdlib:ets#select/2">ets:select/2</seealso> and
+          <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.
+          The function both tests MatchSpec for "syntactic" correctness and
+          runs the match_spec against the object. If the match_spec contains
+          errors, the tuple {error, Errors} is returned where Errors is a list
+          of natural language descriptions of what was wrong with the match_spec.
+        </p>
+        <p>
+          If the <c><anno>Type</anno></c> is <c>table</c> the object to match
+          against should be a tuple. The function then returns
+          {ok,Result,[],Warnings} where Result is what would have been the
+          result in a real ets:select/2 call or false if the match_spec does
+          not match the object tuple.
+        </p>
+
+        <p>
+          If <c><anno>Type</anno></c> is <c>trace</c> the object to match
+          against should be a list. The function returns
+          {ok, Result, Flags, Warnings} where Result is <c>true</c> if a trace
+          message should be emitted, <c>false</c> if a trace message should not
+          be emitted or the message term to be appended to the trace message.
+          Flags is a list containing all the trace flags that will be enabled,
+          at the moment this is only <c>return_trace</c>.
+        </p>
+
+        <p>
+          This is a useful debugging and test tool, especially when writing complicated
+          match specifications.
+        </p>
+        <p>
+          See also
+          <seealso marker="stdlib:ets#test_ms/2">ets:test_ms/2</seealso>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name name="max" arity="2"/>
       <fsummary>Returns the largest of two terms.</fsummary>
       <desc>
