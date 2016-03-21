@@ -119,7 +119,6 @@ end_per_group(_GroupName, Config) ->
 %% This test asks the C function to construct all data types in
 %% a list and verifies that the result is as expected.
 
-build_terms(suite) -> [];
 build_terms(Config) when is_list(Config) ->
     P = runner:start(?build_terms),
     {term, Term} = get_term(P),
@@ -152,7 +151,6 @@ build_terms(Config) when is_list(Config) ->
 
 %% This test is run entirely in C code.
 
-round_trip_conversion(suite) -> [];
 round_trip_conversion(Config) when is_list(Config) ->
     runner:test(?round_trip_conversion),
     ok.
@@ -160,7 +158,6 @@ round_trip_conversion(Config) when is_list(Config) ->
 %% This test sends a list of all data types to the C code function,
 %% which decodes it and verifies it.
 
-decode_terms(suite) -> [];
 decode_terms(Config) when is_list(Config) ->
     Dummy1 = list_to_atom(filename:join(proplists:get_value(priv_dir, Config),
                                         dummy_file1)),
@@ -183,7 +180,6 @@ decode_terms(Config) when is_list(Config) ->
 
 %% Decodes the floating point number 3.1415.
 
-decode_float(suite) -> [];
 decode_float(Config) when is_list(Config) ->
     P = runner:start(?decode_float),
     runner:send_term(P, 3.1415),
@@ -192,7 +188,6 @@ decode_float(Config) when is_list(Config) ->
 
 %% Tests the erl_free_compound() function.
 
-t_erl_free_compound(suite) -> [];
 t_erl_free_compound(Config) when is_list(Config) ->
     runner:test(?t_erl_free_compound),
     ok.
@@ -206,7 +201,6 @@ t_erl_free_compound(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_list() function.
 
-t_erl_mk_list(suite) -> [];
 t_erl_mk_list(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_list),
 
@@ -221,7 +215,6 @@ t_erl_mk_list(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_int() function.
 
-t_erl_mk_int(suite) -> [];
 t_erl_mk_int(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_int),
 
@@ -277,7 +270,6 @@ t_erl_mk_int(Config) when is_list(Config) ->
 
 %% Basic test of erl_copy_term().
 
-basic_copy(suite) -> [];
 basic_copy(Config) when is_list(Config) ->
     runner:test(?basic_copy),
     ok.
@@ -285,7 +277,6 @@ basic_copy(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_tuple() function.
 
-t_erl_mk_tuple(suite) -> [];
 t_erl_mk_tuple(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_tuple),
 
@@ -299,7 +290,6 @@ t_erl_mk_tuple(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_atom() function.
 
-t_erl_mk_atom(suite) -> [];
 t_erl_mk_atom(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_atom),
 
@@ -320,7 +310,6 @@ t_erl_mk_atom(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_binary() function.
 
-t_erl_mk_binary(suite) -> [];
 t_erl_mk_binary(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_binary),
 
@@ -333,7 +322,6 @@ t_erl_mk_binary(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_empty_list() function.
 
-t_erl_mk_empty_list(suite) -> [];
 t_erl_mk_empty_list(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_empty_list),
 
@@ -345,7 +333,6 @@ t_erl_mk_empty_list(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_float() function.
 
-t_erl_mk_float(suite) -> [];
 t_erl_mk_float(Config) when is_list(Config) ->
     case os:type() of 
         vxworks ->
@@ -361,7 +348,6 @@ t_erl_mk_float(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_pid() function.
 
-t_erl_mk_pid(suite) -> [];
 t_erl_mk_pid(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_pid),
 
@@ -371,7 +357,6 @@ t_erl_mk_pid(Config) when is_list(Config) ->
     runner:recv_eot(P),
     ok.
 
-t_erl_mk_xpid(suite) -> [];
 t_erl_mk_xpid(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_xpid),
 
@@ -384,7 +369,6 @@ t_erl_mk_xpid(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_port() function.
 
-t_erl_mk_port(suite) -> [];
 t_erl_mk_port(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_port),
 
@@ -394,7 +378,6 @@ t_erl_mk_port(Config) when is_list(Config) ->
     runner:recv_eot(P),
     ok.
 
-t_erl_mk_xport(suite) -> [];
 t_erl_mk_xport(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_xport),
 
@@ -407,7 +390,6 @@ t_erl_mk_xport(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_ref() function.
 
-t_erl_mk_ref(suite) -> [];
 t_erl_mk_ref(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_ref),
 
@@ -417,7 +399,6 @@ t_erl_mk_ref(Config) when is_list(Config) ->
     runner:recv_eot(P),
     ok.
 
-t_erl_mk_long_ref(suite) -> [];
 t_erl_mk_long_ref(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_long_ref),
 
@@ -431,7 +412,6 @@ t_erl_mk_long_ref(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_string() function.
 
-t_erl_mk_string(suite) -> [];
 t_erl_mk_string(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_string),
 
@@ -452,7 +432,6 @@ t_erl_mk_string(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_estring() function.
 
-t_erl_mk_estring(suite) -> [];
 t_erl_mk_estring(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_estring),
 
@@ -473,7 +452,6 @@ t_erl_mk_estring(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_uint() function.
 
-t_erl_mk_uint(suite) -> [];
 t_erl_mk_uint(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_uint),
 
@@ -490,7 +468,6 @@ t_erl_mk_uint(Config) when is_list(Config) ->
 
 %% This tests the erl_mk_var() function.
 
-t_erl_mk_var(suite) -> [];
 t_erl_mk_var(Config) when is_list(Config) ->
     P = runner:start(?t_erl_mk_var),
 
@@ -508,7 +485,6 @@ t_erl_mk_var(Config) when is_list(Config) ->
 
 %% This tests the erl_cons() function.
 
-t_erl_cons(suite) -> [];
 t_erl_cons(Config) when is_list(Config) ->
     P = runner:start(?t_erl_cons),
 
@@ -529,7 +505,6 @@ t_erl_cons(Config) when is_list(Config) ->
 
 %% Tests the erl_length() function.
 
-t_erl_length(suite) -> [];
 t_erl_length(Config) when is_list(Config) ->
     P = runner:start(?t_erl_length),
 
@@ -553,7 +528,6 @@ erl_length(Port, List) ->
 
 %% Tests the erl_hd() function.
 
-t_erl_hd(suite) -> [];
 t_erl_hd(Config) when is_list(Config) ->
     P = runner:start(?t_erl_hd),
 
@@ -578,7 +552,6 @@ erl_hd(Port, List) ->
 
 %% Tests the erl_tail() function.
 
-t_erl_tl(suite) -> [];
 t_erl_tl(Config) when is_list(Config) ->
     P = runner:start(?t_erl_tl),
 
@@ -603,14 +576,12 @@ erl_tl(Port, List) ->
 
 %% Tests the type checking macros (done in the C program).
 
-type_checks(suite) -> [];
 type_checks(Config) when is_list(Config) ->
     runner:test(?type_checks),
     ok.
 
 %% Tests the extractor macros (done in the C program).
 
-extractor_macros(suite) -> [];
 extractor_macros(Config) when is_list(Config) ->
     runner:test(?extractor_macros),
     ok.
@@ -618,7 +589,6 @@ extractor_macros(Config) when is_list(Config) ->
 
 %% This tests the erl_size() function.
 
-t_erl_size(suite) -> [];
 t_erl_size(Config) when is_list(Config) ->
     P = runner:start(?t_erl_size),
 
@@ -634,7 +604,6 @@ t_erl_size(Config) when is_list(Config) ->
 
 %% This tests the erl_var_content() function.
 
-t_erl_var_content(suite) -> [];
 t_erl_var_content(Config) when is_list(Config) ->
     P = runner:start(?t_erl_var_content),
 
@@ -650,7 +619,6 @@ t_erl_var_content(Config) when is_list(Config) ->
 
 %% This tests the erl_element() function.
 
-t_erl_element(suite) -> [];
 t_erl_element(Config) when is_list(Config) ->
     P = runner:start(?t_erl_element),
 
@@ -677,7 +645,6 @@ t_erl_element(Config) when is_list(Config) ->
 
 %% Tests the erl_iolist_length() function.
 
-t_erl_iolist_length(suite) -> [];
 t_erl_iolist_length(Config) when is_list(Config) ->
     P = runner:start(?t_erl_iolist_length),
 
@@ -745,7 +712,6 @@ erl_iolist_length(Port, List) ->
 
 %% Tests the erl_iolist_to_binary() function.
 
-t_erl_iolist_to_binary(suite) -> [];
 t_erl_iolist_to_binary(Config) when is_list(Config) ->
     P = runner:start(?t_erl_iolist_to_binary),
 
@@ -817,7 +783,6 @@ iolist_to_list(Port, Term) ->
 
 %% Tests the erl_iolist_to_string() function.
 
-t_erl_iolist_to_string(suite) -> [];
 t_erl_iolist_to_string(Config) when is_list(Config) ->
     P = runner:start(?t_erl_iolist_to_string),
 
@@ -900,8 +865,7 @@ iolist_to_string(Port, Term) ->
 %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-erl_print_term(suite) -> [];
-erl_print_term(doc) -> "Tests the erl_print_term() function";
+%% Tests the erl_print_term() function
 erl_print_term(Config) when is_list(Config) ->
     PrintTerm = print_term(Config),
     P = open_port({spawn, PrintTerm}, [stream]),
@@ -946,8 +910,7 @@ split_pid([$.|Rest], Cur, Result) ->
 split_pid([$>], Cur, Result) ->
     list_to_tuple(Result++[Cur]).
 
-print_string(suite) -> [];
-print_string(doc) -> "Test printing a string with erl_print_term()";
+%% Test printing a string with erl_print_term()
 print_string(Config) when is_list(Config) ->
     PrintTerm = print_term(Config),
     P = open_port({spawn, PrintTerm}, [stream]),
@@ -999,7 +962,6 @@ collect_line1([C|Rest], Result) ->
 
 %% Test case submitted by Per Lundgren, ERV.
 
-high_chaparal(suite) -> [];
 high_chaparal(Config) when is_list(Config) ->
     P = runner:start(?high_chaparal),
     {term, [hello, world]} = get_term(P),
@@ -1007,7 +969,6 @@ high_chaparal(Config) when is_list(Config) ->
     ok.
 
 %% OTP-7448
-broken_data(suite) -> [];
 broken_data(Config) when is_list(Config) ->
     P = runner:start(?broken_data),
     runner:recv_eot(P),
@@ -1032,8 +993,8 @@ print_term(Config) when is_list(Config) ->
 %%% back, without having been mutated into short form. We must take
 %%% care then to check the actual returned ref, and not the original
 %%% one, which is equal to it.
-cnode_1(suite) -> [];
-cnode_1(doc) -> "Tests involving cnode: sends a long ref from a cnode to us";
+
+%% Tests involving cnode: sends a long ref from a cnode to us
 cnode_1(Config) when is_list(Config) ->
     Cnode = filename:join(proplists:get_value(data_dir, Config), "cnode"),
     register(mip, self()),

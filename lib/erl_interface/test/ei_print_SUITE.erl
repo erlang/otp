@@ -56,7 +56,6 @@ end_per_group(_GroupName, Config) ->
 
 %% Tests formatting various atoms.
 
-atoms(suite) -> [];
 atoms(Config) when is_list(Config) ->
     P = runner:start(?atoms),
 
@@ -95,7 +94,6 @@ atoms(Config) when is_list(Config) ->
 
 %% Tests formatting various tuples
 
-tuples(suite) -> [];
 tuples(Config) when is_list(Config) ->
     P = runner:start(?tuples),
 
@@ -117,7 +115,6 @@ tuples(Config) when is_list(Config) ->
 
 %% Tests formatting various lists
 
-lists(suite) -> [];
 lists(Config) when is_list(Config) ->
     P = runner:start(?lists),
 
@@ -143,7 +140,6 @@ lists(Config) when is_list(Config) ->
     runner:recv_eot(P),
     ok.
 
-strings(suite) -> [];
 strings(Config) when is_list(Config) ->
     P = runner:start(?strings),
 

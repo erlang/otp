@@ -72,7 +72,6 @@ end_per_group(_GroupName, Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_long(suite) -> [];
 test_ei_encode_long(Config) when is_list(Config) ->
     P = runner:start(?test_ei_encode_long),
 
@@ -95,7 +94,6 @@ test_ei_encode_long(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_ulong(suite) -> [];
 test_ei_encode_ulong(Config) when is_list(Config) ->
     P = runner:start(?test_ei_encode_ulong),
 
@@ -116,7 +114,6 @@ test_ei_encode_ulong(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_longlong(suite) -> [];
 test_ei_encode_longlong(Config) when is_list(Config) ->
     case os:type() of
         vxworks ->
@@ -148,7 +145,6 @@ test_ei_encode_longlong(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_ulonglong(suite) -> [];
 test_ei_encode_ulonglong(Config) when is_list(Config) ->
     case os:type() of
         vxworks ->
@@ -179,7 +175,6 @@ test_ei_encode_ulonglong(Config) when is_list(Config) ->
 %% it is unsigned.
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 
-test_ei_encode_char(suite) -> [];
 test_ei_encode_char(Config) when is_list(Config) ->
     P = runner:start(?test_ei_encode_char),
 
@@ -193,7 +188,6 @@ test_ei_encode_char(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_misc(suite) -> [];
 test_ei_encode_misc(Config) when is_list(Config) ->
     P = runner:start(?test_ei_encode_misc),
 
@@ -240,7 +234,6 @@ test_ei_encode_misc(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_encode_fails(suite) -> [];
 test_ei_encode_fails(Config) when is_list(Config) ->
     P = runner:start(?test_ei_encode_fails),
 

@@ -56,7 +56,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-atoms(suite) -> [];
 atoms(Config) when is_list(Config) ->
     P = start_matcher(Config),
 
@@ -73,7 +72,6 @@ atoms(Config) when is_list(Config) ->
     runner:finish(P),
     ok.
 
-lists(suite) -> [];
 lists(Config) when is_list(Config) ->
     P = start_matcher(Config),
     eq(P, [], []),
@@ -100,7 +98,6 @@ lists(Config) when is_list(Config) ->
     runner:finish(P),
     ok.
 
-tuples(suite) -> [];
 tuples(Config) when is_list(Config) ->
     P = start_matcher(Config),
 
@@ -128,7 +125,6 @@ tuples(Config) when is_list(Config) ->
     ok.
 
 
-references(suite) -> [];
 references(Config) when is_list(Config) ->
     P = start_matcher(Config),
     Ref1 = make_ref(),
@@ -143,7 +139,6 @@ references(Config) when is_list(Config) ->
     ok.
 
 
-pids(suite) -> [];
 pids(Config) when is_list(Config) ->
     P = start_matcher(Config),
     Pid1 = c:pid(0,1,2),
@@ -158,7 +153,6 @@ pids(Config) when is_list(Config) ->
     ok.
 
 
-ports(suite) -> [];
 ports(Config) when is_list(Config) ->
     case os:type() of
         vxworks ->
@@ -175,7 +169,6 @@ ports(Config) when is_list(Config) ->
             ok
     end.
 
-integers(suite) -> [];
 integers(Config) when is_list(Config) ->
     P = start_matcher(Config),
     I1 = 123,
@@ -194,7 +187,6 @@ integers(Config) when is_list(Config) ->
 
 
 
-floats(suite) -> [];
 floats(Config) when is_list(Config) ->
     P = start_matcher(Config),
     F1 = 3.1414,
@@ -217,7 +209,6 @@ floats(Config) when is_list(Config) ->
 
 
 
-binaries(suite) -> [];
 binaries(Config) when is_list(Config) ->
     P = start_matcher(Config),
     Bin1 = term_to_binary({kalle, 146015, {kungsgatan, 23}}),
@@ -235,7 +226,6 @@ binaries(Config) when is_list(Config) ->
     ok.
 
 
-strings(suite) -> [];
 strings(Config) when is_list(Config) ->
     P = start_matcher(Config),
 
@@ -251,7 +241,6 @@ strings(Config) when is_list(Config) ->
     ok.
 
 
-bind(suite) -> [];
 bind(Config) when is_list(Config) ->
     P = start_bind(Config),
     S = "[X,Y,Z]",

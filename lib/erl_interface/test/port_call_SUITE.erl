@@ -45,7 +45,6 @@ all() ->
     [basic].
 
 
-basic(suite) -> [];
 basic(Config) when is_list(Config) ->
     case os:type() of
         {unix, linux} ->

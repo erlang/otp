@@ -56,36 +56,26 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-compare_tuple(suite) -> [];
-compare_tuple(doc) -> [];
 compare_tuple(Config) when is_list(Config) ->
     P = runner:start(?compare_tuple),
     runner:recv_eot(P),
     ok.
 
-compare_list(suite) -> [];
-compare_list(doc) -> [];
 compare_list(Config) when is_list(Config) ->
     P = runner:start(?compare_list),
     runner:recv_eot(P),
     ok.
 
-compare_string(suite) -> [];
-compare_string(doc) -> [];
 compare_string(Config) when is_list(Config) ->
     P = runner:start(?compare_string),
     runner:recv_eot(P),
     ok.
 
-compare_list_string(suite) -> [];
-compare_list_string(doc) -> [];
 compare_list_string(Config) when is_list(Config) ->
     P = runner:start(?compare_list_string),
     runner:recv_eot(P),
     ok.
 
-compare_nc_ext(suite) -> [];
-compare_nc_ext(doc) -> [];
 compare_nc_ext(Config) when is_list(Config) ->
     P = runner:start(?compare_nc_ext),
     runner:recv_eot(P),

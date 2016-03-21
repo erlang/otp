@@ -76,7 +76,6 @@ end_per_testcase(_RC, Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_long(suite) -> [];
 test_ei_decode_long(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_long),
     send_integers(P),
@@ -86,7 +85,6 @@ test_ei_decode_long(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_ulong(suite) -> [];
 test_ei_decode_ulong(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_ulong),
     send_integers(P),
@@ -100,7 +98,6 @@ test_ei_decode_ulong(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_longlong(suite) -> [];
 test_ei_decode_longlong(Config) when is_list(Config) ->
     case os:type() of
         vxworks ->
@@ -115,7 +112,6 @@ test_ei_decode_longlong(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_ulonglong(suite) -> [];
 test_ei_decode_ulonglong(Config) when is_list(Config) ->
     case os:type() of
         vxworks ->
@@ -133,7 +129,6 @@ test_ei_decode_ulonglong(Config) when is_list(Config) ->
 %% it is unsigned.
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 
-test_ei_decode_char(suite) -> [];
 test_ei_decode_char(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_char),
 
@@ -149,7 +144,6 @@ test_ei_decode_char(Config) when is_list(Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_nonoptimal(suite) -> [];
 test_ei_decode_nonoptimal(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_nonoptimal),
 
@@ -199,7 +193,6 @@ send_non_optimal_neg(P) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_misc(suite) -> [];
 test_ei_decode_misc(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_misc),
 

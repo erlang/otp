@@ -60,7 +60,6 @@ end_per_group(_GroupName, Config) ->
 
 %% ######################################################################## %%
 
-test_ei_decode_encode(suite) -> [];
 test_ei_decode_encode(Config) when is_list(Config) ->
     P = runner:start(?test_ei_decode_encode),
 

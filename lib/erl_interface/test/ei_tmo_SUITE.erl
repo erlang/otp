@@ -52,10 +52,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-framework_check(doc) ->
-    ["Check the framework."];
-framework_check(suite) ->
-    [];
+%% Check the framework.
 framework_check(Config) when is_list(Config) ->
     %%dbg:tracer(),
     %%dbg:p(self()),
@@ -66,10 +63,7 @@ framework_check(Config) when is_list(Config) ->
     ok.
 
 
-ei_recv_tmo(doc) ->
-    ["Check recv with timeouts."];
-ei_recv_tmo(suite) ->
-    [];
+%% Check recv with timeouts.
 ei_recv_tmo(Config) when is_list(Config) ->
     do_one_recv(Config,c_node_recv_tmo_1),
     do_one_recv_failure(Config,c_node_recv_tmo_2),
@@ -102,10 +96,7 @@ do_one_recv_failure(Config,CNode) ->
     runner:recv_eot(P1).
 
 
-ei_send_tmo(doc) ->
-    ["Check send with timeouts."];
-ei_send_tmo(suite) ->
-    [];
+%% Check send with timeouts.
 ei_send_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
@@ -204,10 +195,7 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     ok.
 
 
-ei_connect_tmo(doc) ->
-    ["Check accept with timeouts."];
-ei_connect_tmo(suite) ->
-    [];
+%% Check accept with timeouts.
 ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
@@ -274,10 +262,7 @@ ei_connect_tmo(Config) when is_list(Config) ->
     ok.
 
 
-ei_accept_tmo(doc) ->
-    ["Check accept with timeouts."];
-ei_accept_tmo(suite) ->
-    [];
+%% Check accept with timeouts.
 ei_accept_tmo(Config) when is_list(Config) ->
     %%dbg:tracer(),
     %%dbg:p(self()),
