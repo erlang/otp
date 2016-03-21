@@ -1221,6 +1221,9 @@ on_load_embedded_1(Config) ->
     case file:make_symlink(OnLoadApp, LinkName) of
 	{error,enotsup} ->
 	    throw({skip,"Support for symlinks required"});
+	{error,eperm} ->
+	    %% On Windows, we may not have permissions to create symlinks.
+	    throw({skip,"Support for symlinks required"});
 	ok -> ok
     end,
 
