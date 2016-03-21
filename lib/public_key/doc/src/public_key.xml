@@ -728,6 +728,23 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
  </func>
    
   <func>
+    <name>pkix_match_dist_point(CRL, DistPoint) -> boolean()</name>
+    <fsummary>Checks whether the given distribution point matches the
+    Issuing Distribution Point of the CRL.</fsummary>
+
+    <type>
+      <v>CRL = der_encoded() | #'CertificateList'{} </v>
+      <v>DistPoint = #'DistributionPoint'{}</v>
+    </type>
+    <desc>
+      <p>Checks whether the given distribution point matches the
+      Issuing Distribution Point of the CRL, as described in RFC 5280.
+      If the CRL doesn't have an Issuing Distribution Point extension,
+      the distribution point always matches.</p>
+    </desc>
+  </func>
+
+  <func>
     <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encoded()</name>
     <fsummary>Signs certificate.</fsummary>
     <type>
