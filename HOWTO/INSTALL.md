@@ -356,8 +356,6 @@ Some of the available `configure` options are:
     depending on operating system and hardware platform. Note that by
     enabling this you might get a seemingly working system that sometimes
     fail on floating point operations.
-*   `--enable-darwin-universal` - Build universal binaries on darwin i386.
-*   `--enable-darwin-64bit` - Build 64-bit binaries on darwin
 *   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
