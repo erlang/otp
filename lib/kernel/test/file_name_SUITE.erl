@@ -248,10 +248,12 @@ very_icky(Config) when is_list(Config) ->
 check_normal(Mod) -> 
     {ok,Dir} = Mod:get_cwd(),
     try
-	make_normal_dir(Mod),
+	NormalDir = make_normal_dir(Mod, "normal_dir"),
+	io:format("Normaldir = ~p\n", [NormalDir]),
+	L1 = lists:sort(list(NormalDir)),
 	{ok, L0} = Mod:list_dir("."),
+	io:format("L0 = ~p\n", [L0]),
 	L1 = lists:sort(L0),
-	L1 = lists:sort(list(normal_dir())),
 	{ok,D2} = Mod:get_cwd(),
 	true = is_list(D2),
 	case Mod:altname("fil1") of
@@ -261,45 +263,45 @@ check_normal(Mod) ->
 		ok
 	end,
 	[ true = is_list(El) || El <- L1],
-	Syms = [ {S,Targ,list_to_binary(get_data(Targ,normal_dir()))}
-		 || {T,S,Targ} <- normal_dir(), T =:= symlink ],
+	Syms = [ {S,Targ,list_to_binary(get_data(Targ, NormalDir))}
+		 || {T,S,Targ} <- NormalDir, T =:= symlink ],
 	[ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
 	[ {ok, Targ} = fixlink(Mod:read_link(SymL)) || {SymL,Targ,_} <- Syms ],
-	chk_cre_dir(Mod,[{directory,"temp_dir",normal_dir()}]),
+
 	{ok,BeginAt} = Mod:get_cwd(),
 	true = is_list(BeginAt),
+	TempDir = "temp_dir",
+	make_normal_dir(Mod, TempDir),
 	{error,enoent} = Mod:set_cwd("tmp_dir"),
-	ok = Mod:set_cwd("temp_dir"),
 	{ok, NowAt} = Mod:get_cwd(),
 	true = BeginAt =/= NowAt,
 	ok = Mod:set_cwd(".."),
 	{ok,BeginAt} = Mod:get_cwd(),
-	rm_r(Mod,"temp_dir"),
+	rm_r(Mod, TempDir),
 	true = is_list(Dir),
 	[ true = is_list(FN) || FN <- L0 ],
-	case has_links() of
-	    true ->
-		ok = Mod:make_link("fil1","nisse"),
+	case Mod:make_link("fil1","nisse") of
+	    ok ->
 		{ok, <<"fil1">>} = Mod:read_file("nisse"),
 		{ok, #file_info{type = regular}} = Mod:read_link_info("nisse"),
 		ok = Mod:delete("nisse"),
 		{ok, <<"fil1">>} = Mod:read_file("fil1"),
 		{error,enoent} = Mod:read_file("nisse"),
 		{error,enoent} = Mod:read_link_info("nisse");
-	    false ->
+	    {error,enotsup} ->
 		ok
 	end,
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read]),
 	      {ok, Content} = Mod:read(FD,1024),
 	      ok = file:close(FD)
-	  end || {regular,Name,Content} <- normal_dir() ],
+	  end || {regular,Name,Content} <- NormalDir ],
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary(Content),
 	      {ok, BC} = Mod:read(FD,1024),
 	      ok = file:close(FD)
-	  end || {regular,Name,Content} <- normal_dir() ],
+	  end || {regular,Name,Content} <- NormalDir ],
 	Mod:rename("fil1","tmp_fil1"),
 	{ok, <<"fil1">>} = Mod:read_file("tmp_fil1"),
 	{error,enoent} = Mod:read_file("fil1"),
@@ -332,11 +334,11 @@ check_icky(Mod) ->
     try
 	true=(length("åäö") =:= 3),
 	UniMode = file:native_name_encoding() =/= latin1,
-	make_icky_dir(Mod),
+	IckyDir = make_icky_dir(Mod, "icky_dir"),
  	{ok, L0} = Mod:list_dir_all("."),
 	L1 = lists:sort(L0),
-	io:format("~p~n~p~n~n",[L1,lists:sort(list(icky_dir()))]),
-	L1 = lists:sort(convlist(list(icky_dir()))),
+	io:format("~p~n~p~n~n",[L1,lists:sort(list(IckyDir))]),
+	L1 = lists:sort(convlist(list(IckyDir))),
 	{ok,D2} = Mod:get_cwd(),
 	true = is_list(D2),
 	%% Altname only on windows, and there are no non native filenames there
@@ -347,16 +349,16 @@ check_icky(Mod) ->
 	%% 		ok
 	%% 	end,
 	[ true = ((is_list(El) or (UniMode and is_binary(El))))  || El <- L1],
-	Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,icky_dir()))}
- 		 || {T,S,Targ} <- icky_dir(), T =:= symlink ],
+	Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,IckyDir))}
+		 || {T,S,Targ} <- IckyDir, T =:= symlink ],
 	[ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
  	[ {ok, Targ} = fixlink(Mod:read_link_all(SymL)) ||
 	    {SymL,Targ,_} <- Syms ],
-        chk_cre_dir(Mod,[{directory,"åäö_dir",icky_dir()}]),
+
 	{ok,BeginAt} = Mod:get_cwd(),
 	true = is_list(BeginAt),
+        _ = make_icky_dir(Mod, "åäö_dir"),
         {error,enoent} = Mod:set_cwd("åä_dir"),
-	ok = Mod:set_cwd("åäö_dir"),
 	{ok, NowAt} = Mod:get_cwd(),
 	true = is_list(NowAt),
 	true = BeginAt =/= NowAt,
@@ -364,10 +366,11 @@ check_icky(Mod) ->
 	{ok,BeginAt} = Mod:get_cwd(),
         rm_r2(Mod,"åäö_dir"),
 	{OS,_} = os:type(),
+
 	%% Check that treat_icky really converts to the same as the OS
 	case UniMode of
 	    true ->
-		chk_cre_dir(Mod,[{directory,"åäö_dir",[]}]),
+		ok = Mod:make_dir("åäö_dir"),
 		ok = Mod:set_cwd("åäö_dir"),
 		ok = Mod:write_file(<<"ååå">>,<<"hello">>),
 		Treated = treat_icky(<<"ååå">>),
@@ -380,17 +383,17 @@ check_icky(Mod) ->
 		ok
 	end,
 
-        chk_cre_dir(Mod,[{directory,treat_icky(<<"åäö_dir">>),icky_dir()}]),
+	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir">>)),
 	if 
 	    UniMode and (OS =/= win32) ->
 		{error,enoent} = Mod:set_cwd("åäö_dir");
 	    true ->
 		ok
 	end,
+	ok = Mod:set_cwd(".."),
 	{ok,BeginAt} = Mod:get_cwd(),
-	case has_links() of
-	    true ->
-		ok = Mod:make_link("fil1","nisseö"),
+	case Mod:make_link("fil1", "nisseö") of
+	    ok ->
 		{ok, <<"fil1">>} = Mod:read_file("nisseö"),
 		{ok, #file_info{type = regular}} = Mod:read_link_info("nisseö"),
 		ok = Mod:delete("nisseö"),
@@ -403,20 +406,20 @@ check_icky(Mod) ->
 		{error,enoent} = Mod:read_link_info("nisseö"),
 		{error,enoent} = Mod:read_file(treat_icky(<<"nisseö">>)),
 		{error,enoent} = Mod:read_link_info(treat_icky(<<"nisseö">>));
-	    false ->
+	    {error,enotsup} ->
 		ok
 	end,
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read]),
 	      {ok, Content} = Mod:read(FD,1024),
 	      ok = file:close(FD)
- 	  end || {regular,Name,Content} <- icky_dir() ],
+	  end || {regular,Name,Content} <- IckyDir ],
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary([Content]),
 	      {ok, BC} = Mod:read(FD,1024),
 	      ok = file:close(FD)
- 	  end || {regular,Name,Content} <- icky_dir() ],
+	  end || {regular,Name,Content} <- IckyDir ],
         Mod:rename("åäö2","åäö_fil1"),
         {ok, <<"åäö2">>} = Mod:read_file("åäö_fil1"),
         {error,enoent} = Mod:read_file("åäö2"),
@@ -470,33 +473,33 @@ check_very_icky(Mod) ->
 	    true ->
 		ok
 	end,
-	make_very_icky_dir(Mod),
- 	{ok, L0} = Mod:list_dir_all("."),
-	L1 = lists:sort(L0),
-	L1 = lists:sort(convlist(list(very_icky_dir()))),
+	VeryIckyDir = make_very_icky_dir(Mod, "very_icky_dir"),
+	Expected = lists:sort(convlist(list(VeryIckyDir))),
+	{ok, Actual} = Mod:list_dir_all("."),
+	Expected = lists:sort(Actual),
 	{ok,D2} = Mod:get_cwd(),
 	true = is_list(D2),
-	[ true = ((is_list(El) or is_binary(El)))  || El <- L1],
-	Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,very_icky_dir()))}
- 		 || {T,S,Targ} <- very_icky_dir(), T =:= symlink ],
+	[ true = ((is_list(El) or is_binary(El)))  || El <- Expected],
+	Syms = [{S,conv(Targ),list_to_binary(get_data(Targ, VeryIckyDir))}
+		|| {symlink,S,Targ} <- VeryIckyDir],
 	[ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
 	[ {ok, Targ} = fixlink(Mod:read_link_all(SymL)) ||
 	    {SymL,Targ,_} <- Syms ],
-	chk_cre_dir(Mod,[{directory,[1088,1079,1091]++"_dir",very_icky_dir()}]),
+
 	{ok,BeginAt} = Mod:get_cwd(),
+	OtherDir = [1088,1079,1091] ++ "_dir",
 	true = is_list(BeginAt),
+	make_very_icky_dir(Mod, OtherDir),
         {error,enoent} = Mod:set_cwd("åä_dir"),
-	ok = Mod:set_cwd([1088,1079,1091]++"_dir"),
 	{ok, NowAt} = Mod:get_cwd(),
 	true = is_list(NowAt),
 	true = BeginAt =/= NowAt,
 	ok = Mod:set_cwd(".."),
 	{ok,BeginAt} = Mod:get_cwd(),
-	rm_r2(Mod,[1088,1079,1091]++"_dir"),
+	rm_r2(Mod, OtherDir),
 
-	case has_links() of
-	    true ->
-		ok = Mod:make_link("fil1","nisse"++[1088,1079,1091]),
+	case Mod:make_link("fil1","nisse"++[1088,1079,1091]) of
+	    ok ->
 		{ok, <<"fil1">>} =
 		    Mod:read_file("nisse"++[1088,1079,1091]),
 		{ok, #file_info{type = regular}} =
@@ -512,20 +515,20 @@ check_very_icky(Mod) ->
 		{error,enoent} = Mod:read_link_info("nisse"++[1088,1079,1091]),
 		{error,enoent} = Mod:read_file(<<"nisseö">>),
 		{error,enoent} = Mod:read_link_info(<<"nisseö">>);
-	    false ->
+	    {error,enotsup} ->
 		ok
 	end,
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read]),
 	      {ok, Content} = Mod:read(FD,1024),
 	      ok = file:close(FD)
- 	  end || {regular,Name,Content} <- very_icky_dir() ],
+	  end || {regular,Name,Content} <- VeryIckyDir ],
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary([Content]),
 	      {ok, BC} = Mod:read(FD,1024),
 	      ok = file:close(FD)
- 	  end || {regular,Name,Content} <- very_icky_dir() ],
+	  end || {regular,Name,Content} <- VeryIckyDir ],
 	Mod:rename([956,965,963,954,959,49],
 		   [956,965,963,954,959]++"_fil1"),
         {ok, <<"åäö2">>} = Mod:read_file([956,965,963,954,959]++"_fil1"),
@@ -609,90 +612,35 @@ rm_r2(Mod,Dir) ->
 	{ok, #file_info{type = symlink}} ->
 	    ok = Mod:delete(Dir)
     end.
-chk_cre_dir(_,[]) ->
-    ok;
-chk_cre_dir(Mod,[{regular,Name,Content}|T]) ->
-    %% io:format("~p~n",[Name]),
-    ok = Mod:write_file(Name,Content),
-    chk_cre_dir(Mod,T);
-chk_cre_dir(Mod,[{link,Name,Target}|T]) ->
-    ok = Mod:make_link(Target,Name),
-    chk_cre_dir(Mod,T);
-chk_cre_dir(Mod,[{symlink,Name,Target}|T]) ->
-    ok = Mod:make_symlink(Target,Name),
-    chk_cre_dir(Mod,T);
-chk_cre_dir(Mod,[{directory,Name,Content}|T]) ->
-    ok = Mod:make_dir(Name),
-    %% io:format("Content = ~p~n",[Content]),
-    Content2 = [{Ty,filename:join(Name,N),case Ty of link -> filename:join(Name,C); _ -> C end} || {Ty,N,C} <- Content ],
-    %% io:format("Content2 = ~p~n",[Content2]),
-    chk_cre_dir(Mod,Content2),
-    chk_cre_dir(Mod,T).
 
-has_links() ->   
-    case os:type() of
-	{win32,_} ->
-	    case os:version() of
-		{N,NN,_} when (N > 5) andalso (NN >= 1) ->
-		    true;
-		_ ->
-		    false
-	    end;
-	_ ->
-	    true
-    end.
+make_normal_dir(Mod, DirName) ->
+    Dir = [{regular,"fil1","fil1"},
+	   {regular,"fil2","fil2"},
+	   {hardlink,"fil3","fil2"},
+	   {symlink,"fil4","fil2"},
+	   {directory,"subdir",
+	    [{regular,"subfil1","subfil1"}]}],
+    rm_rf(Mod, DirName),
+    Mod:make_dir(DirName),
+    Mod:set_cwd(DirName),
+    make_dir_contents(Dir, Mod).
 
-make_normal_dir(Mod) ->
-    rm_rf(Mod,"normal_dir"),
-    Mod:make_dir("normal_dir"),
-    Mod:set_cwd("normal_dir"),
-    Mod:write_file("fil1","fil1"),
-    Mod:write_file("fil2","fil2"),
-    case has_links() of
-	true ->
-	    Mod:make_link("fil2","fil3"),
-	    Mod:make_symlink("fil2","fil4");
-	_ ->
-	    ok
-    end,
-    Mod:make_dir("subdir"),
-    Mod:write_file(filename:join("subdir","subfil1"),"subfil1"),
-    ok.
-
-normal_dir() ->
-    [{regular,"fil1","fil1"},
-     {regular,"fil2","fil2"}] ++
-	case has_links() of
-	    true ->
-		[{regular,"fil3","fil2"},
-		 {symlink,"fil4","fil2"}];
-	    false ->
-		[]
-	end ++
-	[{directory,"subdir",
-	  [{regular,"subfil1","subfil1"}]}].
-
-make_icky_dir(Mod) ->
-    rm_rf(Mod,"icky_dir"),
-    Icky=icky_dir(),
-    chk_cre_dir(Mod,[{directory,"icky_dir",linkify([],Icky)}]),
-    Mod:set_cwd("icky_dir"),
-    ok.
-
-linkify(_Passed,[]) ->
-    [];
-linkify(Passed,[{regular,Name,Content}|T]) ->
-    Regulars = [ {N,C} || {regular,N,C} <- Passed, N =/= Name ],
-    case lists:keysearch(Content,2,Regulars) of
-	{value, {Linkto, Content}} ->
-	    [{link,Name,Linkto} | linkify(Passed,T)];
-	_ ->
-	    [{regular,Name,Content} | linkify([{regular,Name,Content}|Passed],T)]
-    end;
-linkify(Passed,[{directory, Name, Content}|T]) ->
-    [{directory,Name, linkify(Content,Content)}|linkify(Passed,T)];
-linkify(Passed,[H|T]) ->
-    [H|linkify([H|Passed],T)].
+make_icky_dir(Mod, IckyDirName) ->
+    Icky = [{regular,"fil1","fil1"},
+	    {regular,"åäö2","åäö2"},
+	    {hardlink,"åäö3","åäö2"},
+	    {symlink,"åäö4","åäö2"},
+	    {regular,treat_icky(<<"åäö5">>),"åäö5"},
+	    {symlink,treat_icky(<<"åäö6">>),treat_icky(<<"åäö5">>)},
+	    {directory,treat_icky(<<"åäösubdir2">>),
+	     [{regular,treat_icky(<<"åäösubfil2">>),"åäösubfil12"},
+	      {regular,"åäösubfil3","åäösubfil13"}]},
+	    {directory,"åäösubdir",
+	     [{regular,"åäösubfil1","åäösubfil1"}]}],
+    rm_rf(Mod, IckyDirName),
+    ok = Mod:make_dir(IckyDirName),
+    ok = Mod:set_cwd(IckyDirName),
+    make_dir_contents(Icky, Mod).
 
 hopeless_darwin() ->
     case {os:type(),os:version()} of
@@ -702,58 +650,24 @@ hopeless_darwin() ->
 	    false
     end.
 
-icky_dir() ->
-    [{regular,"fil1","fil1"},
-     {regular,"åäö2","åäö2"}] ++
-	case has_links() of
-	    true ->
-		[{regular,"åäö3","åäö2"},
-		 {symlink,"åäö4","åäö2"}];
-	    false ->
-		[]
-	end ++
-	[{regular,treat_icky(<<"åäö5">>),"åäö5"}] ++
-	case has_links() of
-	    true ->
-		[{symlink,treat_icky(<<"åäö6">>),treat_icky(<<"åäö5">>)}];
-	    false ->
-		[]
-	end ++
-	[{directory,treat_icky(<<"åäösubdir2">>),
-	  [{regular,treat_icky(<<"åäösubfil2">>),"åäösubfil12"},
-	   {regular,"åäösubfil3","åäösubfil13"}]},
-	 {directory,"åäösubdir",
-	  [{regular,"åäösubfil1","åäösubfil1"}]}].
-
-make_very_icky_dir(Mod) ->
-    rm_rf(Mod,"very_icky_dir"),
-    Icky=very_icky_dir(),
-    chk_cre_dir(Mod,[{directory,"very_icky_dir",linkify([],Icky)}]),
-    Mod:set_cwd("very_icky_dir"),
-    ok.
-
-very_icky_dir() ->
-    [{regular,"fil1","fil1"},
-     {regular,[956,965,963,954,959,49],"åäö2"}] ++
-	case has_links() of
-	    true ->
-		[{regular,[956,965,963,954,959,50],"åäö2"},
-		 {symlink,[956,965,963,954,959,51],[956,965,963,954,959,49]}];
-	    false ->
-		[]
-	end ++
-	[{regular,treat_icky(<<"åäö5">>),"åäö5"}] ++
-	case has_links() of
-	    true ->
-		[{symlink,treat_icky(<<"åäö6">>),treat_icky(<<"åäö5">>)}];
-	    false -> 
-		[]
-	end ++
-	[{directory,treat_icky(<<"åäösubdir2">>),
-	  [{regular,treat_icky(<<"åäösubfil2">>),"åäösubfil12"},
-	   {regular,"åäösubfil3","åäösubfil13"}]},
-	 {directory,[956,965,963,954,959]++"subdir1",
-	  [{regular,[956,965,963,954,959]++"subfil1","åäösubfil1"}]}].
+make_very_icky_dir(Mod, DirName) ->
+    Desc = [{regular,"fil1","fil1"},
+	    {regular,[956,965,963,954,959,49],"åäö2"},
+	    {hardlink,[956,965,963,954,959,50],
+	     [956,965,963,954,959,49],
+	     "åäö2"},
+	    {symlink,[956,965,963,954,959,51],[956,965,963,954,959,49]},
+	    {regular,treat_icky(<<"åäö5">>),"åäö5"},
+	    {symlink,treat_icky(<<"åäö6">>),treat_icky(<<"åäö5">>)},
+	    {directory,treat_icky(<<"åäösubdir2">>),
+	     [{regular,treat_icky(<<"åäösubfil2">>),"åäösubfil12"},
+	      {regular,"åäösubfil3","åäösubfil13"}]},
+	    {directory,[956,965,963,954,959]++"subdir1",
+	     [{regular,[956,965,963,954,959]++"subfil1","åäösubfil1"}]}],
+    rm_rf(Mod, DirName),
+    ok = Mod:make_dir(DirName),
+    ok = Mod:set_cwd(DirName),
+    make_dir_contents(Desc, Mod).
 
 %% Some OS'es simply do not allow non UTF8 filenames
 treat_icky(Bin) ->
@@ -824,6 +738,48 @@ conv(L) ->
 	true ->
 	    L
     end.
+
+
+make_dir_contents([{regular,Name,Contents}=H|T], Mod) ->
+    ok = Mod:write_file(Name, Contents),
+    [H|make_dir_contents(T, Mod)];
+make_dir_contents([{hardlink,Target,Name}|T], Mod) ->
+    case Mod:make_link(Name, Target) of
+	ok ->
+	    [{regular,Target,Name}|make_dir_contents(T, Mod)];
+	{error,enotsup} ->
+	    make_dir_contents(T, Mod)
+    end;
+make_dir_contents([{hardlink,Target,Name,Contents}|T], Mod) ->
+    case Mod:make_link(Name, Target) of
+	ok ->
+	    [{regular,Target,Contents}|make_dir_contents(T, Mod)];
+	{error,enotsup} ->
+	    make_dir_contents(T, Mod)
+    end;
+make_dir_contents([{symlink,Target,Name}=H|T], Mod) ->
+    case Mod:make_symlink(Name, Target) of
+	ok ->
+	    [H|make_dir_contents(T, Mod)];
+	{error,enotsup} ->
+	    make_dir_contents(T, Mod);
+	{error,eperm} ->
+	    make_dir_contents(T, Mod)
+    end;
+make_dir_contents([{directory,Dir,C0}|T], Mod) ->
+    ok = Mod:make_dir(Dir),
+    C1 = [case Op of
+	      Link when Link =:= hardlink; Link =:= symlink ->
+		  {Op,filename:join(Dir, Name0),filename:join(Dir, Extra)};
+	      _ ->
+		  {Op,filename:join(Dir, Name0),Extra}
+	  end || {Op,Name0,Extra} <- C0],
+    C2 = make_dir_contents(C1, Mod),
+    C = [{Op,filename:basename(Name0),Extra} ||
+	    {Op,Name0,Extra} <- C2],
+    [{directory,Dir,C}|make_dir_contents(T, Mod)];
+make_dir_contents([], _Mod) ->
+    [].
 
 
 rand_comp_decomp(Max) ->
