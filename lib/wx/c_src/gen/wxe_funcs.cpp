@@ -15631,14 +15631,18 @@ case wxListCtrl_GetViewRect: { // wxListCtrl::GetViewRect
  break;
 }
 case wxListCtrl_HitTest: { // wxListCtrl::HitTest
+ int flags;
+ long pSubItem;
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
  int * pointX = (int *) bp; bp += 4;
  int * pointY = (int *) bp; bp += 4;
  wxPoint point = wxPoint(*pointX,*pointY);
- int * flags = (int *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
- long Result = This->HitTest(point,*flags);
+ long Result = This->HitTest(point,flags,&pSubItem);
  rt.addInt(Result);
+ rt.addInt(flags);
+ rt.addInt(pSubItem);
+ rt.addTupleCount(3);
  break;
 }
 case wxListCtrl_InsertColumn_2: { // wxListCtrl::InsertColumn
