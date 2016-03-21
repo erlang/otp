@@ -176,18 +176,18 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     %% before this happens is returned in Iters. The timeout value for get_term/2
     %% must be large enough so there's time for the select() to time out and
     %% the test program to return the error tuple (below).
-    Res0 =
-    if VxSim == false ->
-           {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
-           Res;
-       true ->   % relax the test for vxsim
-           case runner:get_term(P3, 20000) of
-               {term,{Res,ETO,Iters,ETO}} ->
-                   Res;
-               {term,{Res,_,Iters,ETO}} -> % EIO?
-                   Res
-           end
-    end,
+
+    Res0 = if VxSim == false ->
+                  {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
+                  Res;
+              true ->   % relax the test for vxsim
+                  case runner:get_term(P3, 20000) of
+                      {term,{Res,ETO,Iters,ETO}} ->
+                          Res;
+                      {term,{Res,_,Iters,_ETO}} -> % EIO?
+                          Res
+                  end
+           end,
     runner:recv_eot(P3),
     true = ((Res0 < 0) and (Iters > 0)),
     gen_tcp:close(SocketB),
@@ -251,10 +251,9 @@ ei_connect_tmo(Config) when is_list(Config) ->
     send_status(SocketB, ok),
     MyChallengeB = gen_challenge(),
     send_challenge(SocketB, OurName, MyChallengeB, 5),
-    HisChallengeB = recv_challenge_reply(
-                      SocketB,
-                      MyChallengeB,
-                      Cookie),
+    _HisChallengeB = recv_challenge_reply(SocketB,
+                                          MyChallengeB,
+                                          Cookie),
     {term,{-1,ETimedout,ETimedout}} = runner:get_term(P3, 10000),
     runner:recv_eot(P3),
     gen_tcp:close(SocketB),
@@ -294,9 +293,9 @@ ei_accept_tmo(Config) when is_list(Config) ->
                                      {packet,2}]),
     send_name(SocketA,OurName,5),
     ok = recv_status(SocketA),
-    {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
-    OurChallengeA = gen_challenge(),
-    OurDigestA = gen_digest(HisChallengeA, erlang:get_cookie()),
+    {hidden,_Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    _OurChallengeA = gen_challenge(),
+    _OurDigestA = gen_digest(HisChallengeA, erlang:get_cookie()),
     %% Dont do the last two steps of the connection setup...
     %% send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
     %% ok = recv_challenge_ack(SocketA, OurChallengeA, erlang:get_cookie()),
@@ -372,7 +371,7 @@ make_and_check_dummy() ->
 %% This is no proper random number, but that is not really important in 
 %% this test
 gen_challenge() ->
-    {_,_,N} = erlang:now(), 
+    {_,_,N} = os:timestamp(),
     N.
 
 %% Generate a message digest from Challenge number and Cookie	
@@ -405,7 +404,7 @@ recv_status(Socket) ->
 send_challenge(Socket, Node, Challenge, Version) ->
     send_challenge(Socket, Node, Challenge, Version, ?COMPULSORY_DFLAGS).
 send_challenge(Socket, Node, Challenge, Version, Flags) ->
-    {ok, {{Ip1,Ip2,Ip3,Ip4}, _}} = inet:sockname(Socket),
+    {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
     ?to_port(Socket, [$n,?int16(Version),?int32(Flags),
                       ?int32(Challenge), atom_to_list(Node)]).
 
@@ -427,8 +426,8 @@ recv_challenge(Socket) ->
             ?shutdown(no_node)
     end.
 
-send_challenge_reply(Socket, Challenge, Digest) ->
-    ?to_port(Socket, [$r,?int32(Challenge),Digest]).
+%send_challenge_reply(Socket, Challenge, Digest) ->
+%    ?to_port(Socket, [$r,?int32(Challenge),Digest]).
 
 recv_challenge_reply(Socket, ChallengeA, Cookie) ->
     case gen_tcp:recv(Socket, 0) of
@@ -447,18 +446,18 @@ recv_challenge_reply(Socket, ChallengeA, Cookie) ->
 send_challenge_ack(Socket, Digest) ->
     ?to_port(Socket, [$a,Digest]).
 
-recv_challenge_ack(Socket, ChallengeB, CookieA) ->
-    case gen_tcp:recv(Socket, 0) of
-        {ok,[$a | SumB]} when length(SumB) == 16 ->
-            SumA = gen_digest(ChallengeB, CookieA),
-            if SumB == SumA ->
-                   ok;
-               true ->
-                   ?shutdown(bad_challenge_ack)
-            end;
-        _ ->
-            ?shutdown(bad_challenge_ack)
-    end.
+%recv_challenge_ack(Socket, ChallengeB, CookieA) ->
+%    case gen_tcp:recv(Socket, 0) of
+%        {ok,[$a | SumB]} when length(SumB) == 16 ->
+%            SumA = gen_digest(ChallengeB, CookieA),
+%            if SumB == SumA ->
+%                   ok;
+%               true ->
+%                   ?shutdown(bad_challenge_ack)
+%            end;
+%        _ ->
+%            ?shutdown(bad_challenge_ack)
+%    end.
 
 send_name(Socket, MyNode0, Version) ->
     send_name(Socket, MyNode0, Version, ?COMPULSORY_DFLAGS).
@@ -495,11 +494,10 @@ get_name(Data) ->
 %%
 %% tell_name is for old handshake
 %%
-tell_name(Socket, MyNode0, Version) ->
-    MyNode = atom_to_list(MyNode0),
-    {ok, {{Ip1,Ip2,Ip3,Ip4}, _}} = inet:sockname(Socket),
-    ?to_port(Socket, [$h,?int16(Version),Ip1,Ip2,Ip3,Ip4] ++ 
-             MyNode).
+%tell_name(Socket, MyNode0, Version) ->
+%    MyNode = atom_to_list(MyNode0),
+%    {ok, {{Ip1,Ip2,Ip3,Ip4}, _}} = inet:sockname(Socket),
+%    ?to_port(Socket, [$h,?int16(Version),Ip1,Ip2,Ip3,Ip4] ++ MyNode).
 
 %%
 %% The communication with EPMD follows
@@ -559,7 +557,7 @@ wait_for_reg_reply(Socket, SoFar) ->
 register(NodeName, ListenSocket, VLow, VHigh) ->
     {ok,{_,TcpPort}} = inet:sockname(ListenSocket),
     case do_register_node(NodeName, TcpPort, VLow, VHigh) of
-        {alive, Socket, Creation} ->
+        {alive, Socket, _Creation} ->
             Socket;
         Other ->
             exit(Other)
@@ -580,68 +578,9 @@ split(Atom) ->
     {A,B} = split(atom_to_list(Atom),[]),
     {list_to_atom(A),list_to_atom(B)}.
 
-%% Build a simple distribution message
-build_message(Cookie) ->
-    [$?,term_to_binary({6,self(),Cookie,rex}),term_to_binary(plupp)].
-
-%% Build a distribution message that will make rex answer
-build_rex_message(Cookie,OurName) ->
-    [$?,term_to_binary({6,self(),Cookie,rex}),
-     term_to_binary({'$gen_cast',
-                     {cast,
-                      rpc,
-                      cast,
-                      [OurName, hello, world, []],
-                      self()} })].
-
-%% Receive a distribution message    
-recv_message(Socket) ->
-    case gen_tcp:recv(Socket, 0) of
-        {ok,Data} ->
-            B0 = list_to_binary(Data),
-            {_,B1} = erlang:split_binary(B0,1),
-            Header = erlang:binary_to_term(B1),
-            Siz = size(term_to_binary(Header)),
-            {_,B2} = erlang:split_binary(B1,Siz),
-            Message = case (catch erlang:binary_to_term(B2)) of
-                          {'EXIT', _} ->
-                              could_not_digest_message;
-                          Other ->
-                              Other
-                      end,
-            {Header, Message};
-        Res ->
-            exit({no_message,Res})
-    end. 
-
 %% Build a nodename
 join(Name,Host) ->
     list_to_atom(atom_to_list(Name) ++ "@" ++ atom_to_list(Host)).
-
-%% start/stop slave.
-start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
-
-stop_node(Node) ->
-    ?t:stop_node(Node).
-
-
-get_nodenames(N, T) ->
-    get_nodenames(N, T, []).
-
-get_nodenames(0, _, Acc) ->
-    Acc;
-get_nodenames(N, T, Acc) ->
-    {A, B, C} = now(),
-    get_nodenames(N-1, T, [list_to_atom(atom_to_list(?MODULE)
-                                        ++ "-"
-                                        ++ atom_to_list(T)
-                                        ++ "-"
-                                        ++ integer_to_list(A)
-                                        ++ "-"
-                                        ++ integer_to_list(B)
-                                        ++ "-"
-                                        ++ integer_to_list(C)) | Acc]).
 
 get_epmd_port() ->
     case init:get_argument(epmd_port) of

@@ -126,10 +126,8 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    %%?t:format("Testing: ~p~n", [Term]),
     P ! {self(), {command, term_to_binary(Term)}},
     {_B,Term} = get_buf_and_term(P).
-
 
 
 get_buf_and_term(P) ->
@@ -163,29 +161,6 @@ get_binary(P) ->
             % For strange reasons <<131>> show up as <>....
             %	    io:format("~w\n",[B]),
             B;
-        Other ->
-            Other
-    end.
-
-%%
-
-% We use our own get_term()
-
-get_term(P) ->
-    case runner:get_term(P) of
-        {bytes,[131]} ->
-            io:format("(got single magic, no content)\n",[]),
-            '$$magic$$';
-        {bytes,[131,L]} ->
-            B = list_to_binary(L),
-            T = binary_to_term(B),
-            io:format("~w\n~w\n(got magic)\n",[L,T]),
-            T;
-        {bytes,L} ->
-            B = list_to_binary([131,L]),
-            T = binary_to_term(B),
-            io:format("~w\n~w\n(got no magic)\n",[L,T]),
-            T;
         Other ->
             Other
     end.
