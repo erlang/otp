@@ -25,7 +25,11 @@
 
 -module(ssh_info).
 
--compile(export_all).
+-export([print/0,
+	 print/1,
+	 string/0,
+	 collect_pids/0
+	]).
 
 print() ->
     print(user).
@@ -34,55 +38,54 @@ print(D) ->
     try supervisor:which_children(ssh_sup)
     of
 	_ ->
-	    io:nl(D),
+	    io__nl(D),
 	    print_general(D),
-	    io:nl(D),
+	    io__nl(D),
 	    underline(D, "Client part", $=),
 	    print_clients(D),
-	    io:nl(D),
+	    io__nl(D),
 	    underline(D, "Server part", $=),
 	    print_servers(D),
-	    io:nl(D),
-	    %% case os:type() of
-	    %% 	{unix,_} ->
-	    %% 	    io:nl(),
-	    %% 	    underline("Linux part", $=),
-	    %% 	    underline("Listening"),
-	    %% 	    catch io:format(os:cmd("netstat -tpln")),
-	    %% 	    io:nl(),
-	    %% 	    underline("Other"),
-	    %% 	    catch io:format(os:cmd("netstat -tpn"));
-	    %% 	_ -> ok
-	    %% end,
+	    io__nl(D),
 	    underline(D, "Supervisors", $=),
 	    walk_sups(D, ssh_sup),
-	    io:nl(D)
+	    io__nl(D)
     catch
 	_:_ ->
-	    io:format(D,"Ssh not found~n",[])
+	    io__format(D,"Ssh not found~n",[])
+    end.
+
+string() ->
+    Pid = spawn(fun init/0),
+    print(Pid),
+    Pid ! {get,self()},
+    receive
+	{result,R} -> R
     end.
 
 %%%================================================================
 print_general(D) ->
     {_Name, Slogan, Ver} = lists:keyfind(ssh,1,application:which_applications()),
     underline(D, io_lib:format("~s  ~s", [Slogan, Ver]), $=),
-    io:format(D, 'This printout is generated ~s. ~n',[datetime()]).
+    io__format(D, 'This printout is generated ~s. ~n',[datetime()]).
 
 %%%================================================================
+-define(INDENT, "    ").
+
 print_clients(D) ->
     PrintClient = fun(X) -> print_client(D,X) end,
     try
 	lists:foreach(PrintClient, supervisor:which_children(sshc_sup))
     catch
 	C:E ->
-	    io:format(D, '***FAILED: ~p:~p~n',[C,E])
+	    io__format(D, '***FAILED: ~p:~p~n',[C,E])
     end.
 
 print_client(D, {undefined,Pid,supervisor,[ssh_connection_handler]}) ->
     {{Local,Remote},_Str} = ssh_connection_handler:get_print_info(Pid),
-    io:format(D, "    Local=~s  Remote=~s  ConnectionRef=~p~n",[fmt_host_port(Local),fmt_host_port(Remote),Pid]);
+    io__format(D, ?INDENT"Local: ~s  Remote: ~s  ConnectionRef = ~p~n",[fmt_host_port(Local),fmt_host_port(Remote),Pid]);
 print_client(D, Other) ->
-    io:format(D, "    [[Other 1: ~p]]~n",[Other]).
+    io__format(D, "    [[Other 1: ~p]]~n",[Other]).
 
 
 %%%================================================================
@@ -92,51 +95,56 @@ print_servers(D) ->
 	lists:foreach(PrintServer, supervisor:which_children(sshd_sup))
     catch
 	C:E ->
-	    io:format(D, '***FAILED: ~p:~p~n',[C,E])
+	    io__format(D, '***FAILED: ~p:~p~n',[C,E])
     end.
 
-print_server(D, {{server,ssh_system_sup,LocalHost,LocalPort},Pid,supervisor,[ssh_system_sup]}) when is_pid(Pid) ->
-    io:format(D, 'Local=~s (~p children)~n',[fmt_host_port({LocalHost,LocalPort}),
-					     ssh_acceptor:number_of_connections(Pid)]),
+
+print_server(D, {{server,ssh_system_sup,LocalHost,LocalPort,Profile},Pid,supervisor,[ssh_system_sup]}) when is_pid(Pid) ->
+    io__format(D, ?INDENT"Listen: ~s (~p children) Profile ~p~n",[fmt_host_port({LocalHost,LocalPort}),
+								  ssh_acceptor:number_of_connections(Pid),
+								  Profile]),
     PrintSystemSup = fun(X) -> print_system_sup(D,X) end,
-    lists:foreach(PrintSystemSup, supervisor:which_children(Pid));
-print_server(D, Other) ->
-    io:format(D, "    [[Other 2: ~p]]~n",[Other]).
-    
+    lists:foreach(PrintSystemSup, supervisor:which_children(Pid)).
+
+
 print_system_sup(D, {Ref,Pid,supervisor,[ssh_subsystem_sup]}) when is_reference(Ref),
-								is_pid(Pid) ->
+								   is_pid(Pid) ->
     PrintChannels =  fun(X) -> print_channels(D,X) end,
     lists:foreach(PrintChannels, supervisor:which_children(Pid));
-print_system_sup(D, {{ssh_acceptor_sup,LocalHost,LocalPort}, Pid,supervisor, [ssh_acceptor_sup]}) when is_pid(Pid) ->
-    io:format(D, "    [Acceptor for ~s]~n",[fmt_host_port({LocalHost,LocalPort})]);
-print_system_sup(D, Other) -> 
-    io:format(D, "    [[Other 3: ~p]]~n",[Other]).
+print_system_sup(D, {{ssh_acceptor_sup,_LocalHost,_LocalPort,_Profile}, Pid, supervisor, [ssh_acceptor_sup]}) when is_pid(Pid) ->
+    io__format(D, ?INDENT?INDENT"[Acceptor Pid ~p]~n",[Pid]).
+
 
 print_channels(D, {{server,ssh_channel_sup,_,_},Pid,supervisor,[ssh_channel_sup]}) when is_pid(Pid) ->
-    PrintChannel =  fun(X) -> print_channel(D,X) end,
-    lists:foreach(PrintChannel, supervisor:which_children(Pid));
-print_channels(D, Other) -> 
-    io:format(D, "    [[Other 4: ~p]]~n",[Other]).
+    Children =  supervisor:which_children(Pid),
+    ChannelPids = [P || {R,P,worker,[ssh_channel]} <- Children,
+			is_pid(P),
+			is_reference(R)],
+    case ChannelPids of
+	[] -> io__format(D, ?INDENT?INDENT"No channels~n",[]);
+	[Ch1Pid|_] ->
+	    {{ConnManager,_}, _Str} = ssh_channel:get_print_info(Ch1Pid),
+	    {{_,Remote},_} = ssh_connection_handler:get_print_info(ConnManager),
+	    io__format(D, ?INDENT?INDENT"Remote: ~s ConnectionRef = ~p~n",[fmt_host_port(Remote),ConnManager]),
+	    lists:foreach(fun(P) -> print_ch(D,P) end, ChannelPids)
+    end;
+print_channels(_D, {{server,ssh_connection_sup,_,_},Pid,supervisor,[ssh_connection_sup]}) when is_pid(Pid) ->
+    ok. % The supervisor of the connections socket owning process
 
-
-print_channel(D, {Ref,Pid,worker,[ssh_channel]}) when is_reference(Ref), 
-						      is_pid(Pid)  ->
+print_ch(D, Pid) -> 
     {{ConnManager,ChannelID}, Str} = ssh_channel:get_print_info(Pid),
-    {{Local,Remote},StrM} = ssh_connection_handler:get_print_info(ConnManager),
-    io:format(D, '    ch ~p: ~s ~s',[ChannelID, StrM, Str]),
-    io:format(D, "    Local=~s Remote=~s~n",[fmt_host_port(Local),fmt_host_port(Remote)]);
-print_channel(D, Other) -> 
-    io:format(D, "    [[Other 5: ~p]]~n",[Other]).
-	      
+    {_LocalRemote,StrM} = ssh_connection_handler:get_print_info(ConnManager),
+    io__format(D, ?INDENT?INDENT?INDENT"ch ~p: ~s ~s~n",[ChannelID, StrM, Str]).
+    
 %%%================================================================
 -define(inc(N), (N+4)).
 
 walk_sups(D, StartPid) ->
-    io:format(D, "Start at ~p, ~s.~n",[StartPid,dead_or_alive(StartPid)]),
+    io__format(D, "Start at ~p, ~s.~n",[StartPid,dead_or_alive(StartPid)]),
     walk_sups(D, children(StartPid), _Indent=?inc(0)).
 
 walk_sups(D, [H={_,Pid,_,_}|T], Indent) ->
-    indent(D, Indent), io:format(D, '~200p  ~p is ~s~n',[H,Pid,dead_or_alive(Pid)]),
+    indent(D, Indent), io__format(D, '~200p  ~p is ~s~n',[H,Pid,dead_or_alive(Pid)]),
     case H of
 	{_,_,supervisor,[ssh_connection_handler]} -> ok;
 	{_,Pid,supervisor,_} -> walk_sups(D, children(Pid), ?inc(Indent));
@@ -159,7 +167,7 @@ dead_or_alive(Pid) when is_pid(Pid) ->
 	_ -> "alive"
     end.
 
-indent(D, I) -> io:format(D,'~*c',[I,$ ]). 
+indent(D, I) -> io__format(D,'~*c',[I,$ ]). 
 
 children(Pid) ->
     Parent = self(),
@@ -176,16 +184,13 @@ children(Pid) ->
     end.
 
 %%%================================================================
-underline(D, Str) ->
-    underline(D, Str, $-).
-
 underline(D, Str, LineChar) ->
     Len = lists:flatlength(Str),
-    io:format(D, '~s~n',[Str]),
+    io__format(D, '~s~n',[Str]),
     line(D,Len,LineChar).
 
 line(D, Len, Char) ->
-    io:format(D, '~*c~n', [Len,Char]).
+    io__format(D, '~*c~n', [Len,Char]).
 	    
 
 datetime() ->
@@ -196,8 +201,78 @@ datetime() ->
 fmt_host_port({{A,B,C,D},Port}) -> io_lib:format('~p.~p.~p.~p:~p',[A,B,C,D,Port]);
 fmt_host_port({Host,Port}) -> io_lib:format('~s:~p',[Host,Port]).
 
+%%%################################################################
+
+io__nl(D) when is_atom(D) -> io:nl(D);
+io__nl(P) when is_pid(P) -> P ! {string,io_lib:nl()}.
+
+io__format(D, Fmt, Args) when is_atom(D) -> io:format(D, Fmt, Args);
+io__format(P, Fmt, Args) when is_pid(P) -> P ! {string,io_lib:format(Fmt, Args)}.
 
 
-nyi(D) ->
-    io:format(D,'Not yet implemented~n',[]),
-    nyi.
+init() -> loop([]).
+
+loop(Acc) ->
+    receive
+	{string,Str} ->
+	    loop([Str|Acc]);
+	{get,Who} ->
+	    Who ! {result,lists:flatten(lists:reverse(Acc))}
+    end.
+	
+%%%################################################################
+collect_pids() -> collect_pids(ssh_sup).
+
+collect_pids(P) -> 
+    Collector = pcollect_pids(P, spawn(fun init_collector/0)),
+    Collector ! {get_values,self()},
+    receive
+	{values,Values} ->
+	    Values
+    end.
+
+%%%----------------    
+pcollect_pids(undefined, Collector) ->
+    Collector;
+
+pcollect_pids(A, Collector) when is_atom(A) ->
+    pcollect_pids(whereis(A), Collector);
+
+pcollect_pids(Pid, Collector) when is_pid(Pid) ->
+    Collector ! {expect,Pid},
+    spawn(fun() ->
+		  lists:foreach(
+		    fun(P2) ->
+			    pcollect_pids(P2,Collector)
+		    end, children(Pid)),
+		  Collector ! {value,Pid,Pid}
+	  end),
+    Collector;
+
+pcollect_pids({_,Pid,supervisor,_}, Collector) when is_pid(Pid) ->
+    pcollect_pids(Pid, Collector);
+
+pcollect_pids({_,Pid,worker,_}, Collector) when is_pid(Pid) ->
+    Collector ! {value,Pid,Pid},
+    Collector;
+
+pcollect_pids(_, Collector) ->
+    Collector.
+
+%%%----------------    
+init_collector() ->
+    loop_collector([],[]).
+
+loop_collector(Expects, Values) ->
+    receive
+	{expect, Ref} ->
+	    loop_collector([Ref|Expects], Values);
+	{value, Ref, Val} ->
+	    loop_collector(Expects--[Ref], [Val|Values]);
+	{get_values, From} when Expects==[] ->
+%%				Values=/=[] ->
+	    From ! {values,Values}
+    end.
+
+    
+
