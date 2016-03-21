@@ -343,6 +343,8 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +endif
 
+type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
+
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
