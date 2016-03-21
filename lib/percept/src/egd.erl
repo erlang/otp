@@ -134,7 +134,8 @@ line(Image, P1, P2, Color) ->
 -spec color(ValueOrName) -> color() when
       ValueOrName :: Value | Name,
       Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()},
-      Name :: black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua.
+      Name :: black | silver | gray | white | maroon | red | purple | fuchia
+            | green | lime | olive | yellow | navy | blue | teal | aqua.
 
 color(Color) ->
     egd_primitives:color(Color).
@@ -255,7 +256,7 @@ arc(Image, P1, P2, D, Color) ->
 
 -spec save(Binary, Filename) -> ok when
       Binary :: binary(),
-      Filename :: string().
+      Filename :: file:name_all().
 
 save(Binary, Filename) when is_binary(Binary) ->
     file:write_file(Filename, Binary),
