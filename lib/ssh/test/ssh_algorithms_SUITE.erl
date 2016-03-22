@@ -28,7 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 50000).
+-define(TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -192,7 +192,7 @@ simple_exec_groups_no_match_too_large(Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{seconds,90}}].
+simple_exec_groups() -> [{timetrap,{seconds,180}}].
 
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
@@ -221,8 +221,6 @@ interpolate(Is) ->
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
 
-sshc_simple_exec() -> [{timetrap,{seconds,90}}].
-
 sshc_simple_exec(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
@@ -243,10 +241,11 @@ rcv_expected(SshPort, Expect) ->
 	    catch port_close(SshPort),
 	    ok;
 	Other ->
-	    ct:log("Got UNEXPECTED ~p",[Expect]),
+	    ct:log("Got UNEXPECTED ~p",[Other]),
 	    rcv_expected(SshPort, Expect)
 
     after ?TIMEOUT ->
+	    catch port_close(SshPort),
 	    ct:fail("Did not receive answer")
     end.
 
