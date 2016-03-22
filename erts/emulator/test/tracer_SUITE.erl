@@ -143,9 +143,10 @@ unload(_Config) ->
 %% segfaults when reloading the current nifs.
 reload(_Config) ->
 
-    Tracer = spawn_link(fun F() -> receive _M -> F() end end),
-    Tracee = spawn_link(fun F() -> ?MODULE:all(), F() end),
-
+    Tracer = spawn_opt(fun F() -> receive _M -> F() end end,
+                       [{message_queue_data, off_heap}]),
+    erlang:link(Tracer),
+    Tracee = spawn_link(fun reload_loop/0),
 
     [begin
          Ref = make_ref(),
@@ -170,6 +171,10 @@ reload(_Config) ->
      end || _ <- lists:seq(1,15)],
 
     ok.
+
+reload_loop() ->
+    ?MODULE:all(),
+    reload_loop().
 
 invalid_tracers(_Config) ->
     FailTrace = fun(A) ->
