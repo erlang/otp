@@ -48,7 +48,7 @@
       <item><p><c>true | false</c></p></item>
 
       <tag><c>option() =</c></tag>
-      <item><p><c>socketoption() | ssloption() | transportoption()</c></p>
+      <item><p><c>socketoption() | ssl_option() | transport_option()</c></p>
       </item>
 
       <tag><c>socketoption() =</c></tag>
@@ -60,7 +60,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><marker id="type-ssloption"/><c>ssloption() =</c></tag>
+      <tag><marker id="type-ssloption"/><c>ssl_option() =</c></tag>
       <item>
 	<p><c>{verify, verify_type()}</c></p>
 	<p><c>| {verify_fun, {fun(), term()}}</c></p>
@@ -85,11 +85,11 @@
 	[binary()]} | {client | server, [binary()], binary()}}</c></p>
 	<p><c>| {log_alert, boolean()}</c></p>
 	<p><c>| {server_name_indication, hostname() | disable}</c></p>
-	<p><c>| {sni_hosts, [{hostname(), ssloptions()}]}</c></p>
+	<p><c>| {sni_hosts, [{hostname(), [ssl_option()]}]}</c></p>
 	<p><c>| {sni_fun, SNIfun::fun()}</c></p>
       </item>
       
-      <tag><c>transportoption() =</c></tag>
+      <tag><c>transport_option() =</c></tag>
       <item><p><c>{cb_info, {CallbackModule::atom(), DataTag::atom(),
 
       ClosedTag::atom(), ErrTag:atom()}}</c></p>
@@ -168,7 +168,7 @@
       | srp_4096 | srp_6144 | srp_8192</c></p></item>
 
       <tag><c>SNIfun::fun()</c></tag>
-      <item><p><c>= fun(ServerName :: string()) -> ssloptions()</c></p></item>
+      <item><p><c>= fun(ServerName :: string()) -> [ssl_option()]</c></p></item>
 
     </taglist>
   </section>
@@ -617,7 +617,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       selection. If set to <c>false</c> (the default), use the client
       preference.</p></item>
 
-      <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
+      <tag><c>{sni_hosts, [{hostname(), [ssl_option()]}]}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client
       matching a host listed in the <c>sni_hosts</c> option, the specific options for
       that host will override previously specified options.
@@ -626,11 +626,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client,
-      the given function will be called to retrieve <c>ssloptions()</c> for the indicated server.
-      These options will be merged into predefined <c>ssloptions()</c>.
+      the given function will be called to retrieve <c>[ssl_option()]</c> for the indicated server.
+      These options will be merged into predefined <c>[ssl_option()]</c>.
 
       The function should be defined as:
-        <c>fun(ServerName :: string()) -> ssloptions()</c>
+        <c>fun(ServerName :: string()) -> [ssl_option()]</c>
       and can be specified as a fun or as named <c>fun module:function/1</c>
 
       The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
@@ -710,7 +710,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	equivalent, connected socket to an SSL socket.</fsummary>
       <type>
 	<v>Socket = socket()</v>
-	<v>SslOptions = [ssloption()]</v>
+	<v>SslOptions = [ssl_option()]</v>
 	<v>Timeout = integer() | infinity</v>
 	<v>SslSocket = sslsocket()</v>
 	<v>Reason = term()</v>
@@ -1023,7 +1023,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
-	<v>SslOptions = ssloptions()</v>
+	<v>SslOptions = [ssl_option()]</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>
