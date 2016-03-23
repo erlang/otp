@@ -330,8 +330,6 @@ zip:create("mnesia-4.4.7.ez",
 	<item><p>If successful</p></item>
         <tag><c>{error, bad_directory}</c></tag>
 	<item><p>If any <c><anno>Dir</anno></c> is not a directory name</p></item>
-	<tag><c>{error, bad_path}</c></tag>
-	<item><p>If the argument is invalid</p></item>
 	</taglist>
       </desc>
     </func>
