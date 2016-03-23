@@ -908,7 +908,7 @@ try_bad_env(Env) ->
 
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({minutes, 2}),
     Vars = case os:type() of
                {win32,_} -> 500;
                _ ->
