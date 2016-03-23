@@ -100,7 +100,7 @@ setup_graph_drawing(Panels) ->
     IsWindows = element(1, os:type()) =:= win32,
     IgnoreCB = {callback, fun(_,_) -> ok end},
     Do = fun(#win{panel=Panel}) ->
-		 wxWindow:setBackgroundColour(Panel, ?wxWHITE),
+		 wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
 		 wxPanel:connect(Panel, paint, [callback]),
 		 IsWindows andalso
 		     wxPanel:connect(Panel, erase_background, [IgnoreCB])

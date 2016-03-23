@@ -250,7 +250,6 @@ sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
 
 create_mem_info(Parent) ->
     Panel = wxPanel:new(Parent),
-    wxWindow:setBackgroundColour(Panel, {255,255,255}),
     Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
     Grid = wxListCtrl:new(Panel, [{style, Style}]),
     Li = wxListItem:new(),
