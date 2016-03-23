@@ -358,7 +358,7 @@ receive_response(SSH, ChannelId) ->
       SSH :: connection(),
       ChannelId :: integer(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Data :: list(),
       Reason :: term();
                       (SSH, ChannelId, Timeout) -> {ok,Data} | {error,Reason} when
@@ -402,7 +402,7 @@ receive_response(SSH, ChannelId, Timeout) when is_integer(Timeout) ->
       SSH :: connection(),
       ChannelId :: integer(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Timeout :: integer(),
       Data :: list(),
       Reason :: term().
@@ -468,7 +468,7 @@ send_and_receive(SSH, ChannelId, Data) ->
       SSH :: connection(),
       ChannelId :: integer(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Data :: list(),
       Reason :: term();
                       (SSH, ChannelId, Data, Timeout) ->
@@ -503,7 +503,7 @@ send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
       SSH :: connection(),
       ChannelId :: integer(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Timeout :: integer(),
       Data :: list(),
       Reason :: term();
@@ -521,7 +521,7 @@ send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
       ChannelId :: integer(),
       Type :: integer(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Data :: list(),
       Reason :: term().
 %%%-----------------------------------------------------------------
@@ -551,7 +551,7 @@ send_and_receive(SSH, ChannelId, Type, Data, End) when is_function(End) ->
       Type :: integer(),
       Data :: list(),
       End :: Fun | close | timeout,
-      Fun :: fun((ssh_connection:ssh_event_msg()) -> boolean()),
+      Fun :: fun((binary()) -> boolean()),
       Timeout :: integer(),
       Reason :: term().
 send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
