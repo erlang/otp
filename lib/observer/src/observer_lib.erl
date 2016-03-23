@@ -122,7 +122,7 @@ display_yes_no_dialog(Str) ->
 %% display_info(Parent, [{Title, [{Label, Info}]}]) -> {Panel, Sizer, InfoFieldsToUpdate}
 display_info(Frame, Info) ->
     Panel = wxPanel:new(Frame),
-    wxWindow:setBackgroundColour(Panel, {255,255,255}),
+    wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:addSpacer(Sizer, 5),
     Add = fun(BoxInfo) ->
@@ -380,16 +380,16 @@ add_box(Panel, OuterBox, Cursor, Title, Proportion, {Format, List}) ->
     ScrollSizer  = wxBoxSizer:new(?wxVERTICAL),
     wxScrolledWindow:setSizer(Scroll, ScrollSizer),
     BC = wxWindow:getBackgroundColour(Panel),
-    wxWindow:setBackgroundColour(Scroll,BC),
+    wxWindow:setBackgroundStyle(Scroll, ?wxBG_STYLE_SYSTEM),
     add_entries(Format, List, Scroll, ScrollSizer, BC, Cursor),
     wxSizer:add(Box,Scroll,[{proportion,1},{flag,?wxEXPAND}]),
     wxSizer:add(OuterBox,Box,[{proportion,Proportion},{flag,?wxEXPAND}]),
     {Scroll,ScrollSizer,length(List)}.
 
-add_entries(click, List, Scroll, ScrollSizer, BC, Cursor) ->
+add_entries(click, List, Scroll, ScrollSizer, _BC, Cursor) ->
     Add = fun(Link) ->
 		  TC = link_entry(Scroll, Link, Cursor),
-		  wxWindow:setBackgroundColour(TC,BC),
+                  wxWindow:setBackgroundStyle(TC, ?wxBG_STYLE_SYSTEM),
 		  wxSizer:add(ScrollSizer,TC,[{flag,?wxEXPAND}])
 	  end,
     [Add(Link) || Link <- List];
