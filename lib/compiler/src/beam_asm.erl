@@ -225,10 +225,14 @@ flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
 build_attributes(Opts, SourceFile, Attr, MD5) ->
+    Misc0 = case SourceFile of
+		[] -> [];
+		[_|_] -> [{source,SourceFile}]
+	    end,
     Misc = case member(slim, Opts) of
 	       false ->
 		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
-		   [{time,{Y,Mo,D,H,Mi,S}},{source,SourceFile}];
+		   [{time,{Y,Mo,D,H,Mi,S}}|Misc0];
 	       true -> []
 	   end,
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
