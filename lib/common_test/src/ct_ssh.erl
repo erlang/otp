@@ -609,7 +609,7 @@ read_file(SSH, File) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec read_file(SSH, Server, File) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       File :: string(),
       Reason :: term().
 read_file(SSH, Server, File) ->
@@ -628,7 +628,7 @@ write_file(SSH, File, Iolist) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec write_file(SSH, Server, File, Data) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       File :: string(),
       Data :: iolist(),
       Reason :: term().
@@ -647,7 +647,7 @@ list_dir(SSH, Path) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec list_dir(SSH, Server, Path) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Path :: string(),
       Reason :: term().
 list_dir(SSH, Server, Path) ->
@@ -666,7 +666,7 @@ open(SSH, File, Mode) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec open(SSH, Server, File, Mode) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       File :: string(),
       Mode :: [read | write | creat | trunc | append | binary],
       Reason :: term().
@@ -685,7 +685,7 @@ opendir(SSH, Path) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec opendir(SSH, Server, Path) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Path :: string(),
       Reason :: term().
 opendir(SSH, Server, Path) ->
@@ -703,7 +703,7 @@ close(SSH, Handle) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec close(SSH, Server, Handle) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Reason :: term().
 close(SSH, Server, Handle) ->
@@ -722,7 +722,7 @@ read(SSH, Handle, Len) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec read(SSH, Server, Handle, Len) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Len :: integer(),
       Reason :: term().
@@ -743,7 +743,7 @@ pread(SSH, Handle, Position, Length) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec pread(SSH, Server, Handle, Position, Length) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Position :: integer(),
       Length :: integer(),
@@ -764,7 +764,7 @@ aread(SSH, Handle, Len) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec aread(SSH, Server, Handle, Len) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Len :: integer(),
       Reason :: term().
@@ -785,7 +785,7 @@ apread(SSH, Handle, Position, Length) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec apread(SSH, Server, Handle, Position, Length) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Position :: integer(),
       Length :: integer(),
@@ -806,7 +806,7 @@ write(SSH, Handle, Data) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec write(SSH, Server, Handle, Data) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Data :: iolist(),
       Reason :: term().
@@ -827,7 +827,7 @@ pwrite(SSH, Handle, Position, Data) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec pwrite(SSH, Server, Handle, Position, Data) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Position :: integer(),
       Data :: iolist(),
@@ -848,7 +848,7 @@ awrite(SSH, Handle, Data) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec awrite(SSH, Server, Handle, Data) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Data :: iolist(),
       Reason :: term().
@@ -869,7 +869,7 @@ apwrite(SSH, Handle, Position, Data) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec apwrite(SSH, Server, Handle, Position, Data) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Position :: integer(),
       Data :: iolist(),
@@ -891,7 +891,7 @@ position(SSH, Handle, Location) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec position(SSH, Server, Handle, Location) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Location :: Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof,
       Offset :: integer(),
@@ -911,7 +911,7 @@ read_file_info(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec read_file_info(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 read_file_info(SSH, Server, Name) ->
@@ -929,7 +929,7 @@ get_file_info(SSH, Handle) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec get_file_info(SSH, Server, Handle) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Handle :: term(),
       Reason :: term().
 get_file_info(SSH, Server, Handle) ->
@@ -947,7 +947,7 @@ read_link_info(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec read_link_info(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 read_link_info(SSH, Server, Name) ->
@@ -966,7 +966,7 @@ write_file_info(SSH, Name, Info) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec write_file_info(SSH, Server, Name, Info) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Info :: file:file_info(),
       Reason :: term().
@@ -985,7 +985,7 @@ read_link(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec read_link(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 read_link(SSH, Server, Name) ->
@@ -1004,7 +1004,7 @@ make_symlink(SSH, Name, Target) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec make_symlink(SSH, Server, Name, Target) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Target :: string(),
       Reason :: term().
@@ -1024,7 +1024,7 @@ rename(SSH, OldName, NewName) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec rename(SSH, Server, OldName, NewName) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       OldName :: string(),
       NewName :: string(),
       Reason :: term().
@@ -1043,7 +1043,7 @@ delete(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec delete(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 delete(SSH, Server, Name) ->
@@ -1061,7 +1061,7 @@ make_dir(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec make_dir(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 make_dir(SSH, Server, Name) ->
@@ -1079,7 +1079,7 @@ del_dir(SSH, Name) ->
 %%% @doc For info and other types, see ssh_sftp(3).
 -spec del_dir(SSH, Server, Name) -> ssh_sftp_return() | {error,Reason} when
       SSH :: connection(),
-      Server :: atom(),
+      Server :: pid(),
       Name :: string(),
       Reason :: term().
 del_dir(SSH, Server, Name) ->
