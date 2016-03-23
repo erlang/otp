@@ -4096,7 +4096,7 @@ connection_information_result(Socket) ->
     {ok, Info = [_ | _]} = ssl:connection_information(Socket),
     case  length(Info) > 3 of
 	true -> 
-	    %% Atleast one ssloption() is set
+	    %% Atleast one ssl_option() is set
 	    ct:log("Info ~p", [Info]),
 	    ok;
 	false ->
