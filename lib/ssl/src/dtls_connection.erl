@@ -21,7 +21,7 @@
 
 %% Internal application API
 
--behaviour(gen_fsm).
+-behaviour(gen_statem).
 
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
@@ -514,7 +514,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   renegotiation = {false, first},
 	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
 	   start_or_recv_from = undefined,
-	   send_queue = queue:new(),
 	   protocol_cb = ?MODULE
 	  }.
 read_application_data(_,State) ->

@@ -720,21 +720,27 @@ clear_pem_cache(Config) when is_list(Config) ->
     State = ssl_test_lib:state(Prop),
     [_,FilRefDb |_] = element(6, State),
     {Server, Client} = basic_verify_test_no_close(Config),
-    2 = ets:info(FilRefDb, size), 
+    CountReferencedFiles = fun({_,-1}, Acc) ->
+				   Acc;
+			      ({_, N}, Acc) ->
+				   N + Acc
+			   end,
+    
+    2 = ets:foldl(CountReferencedFiles, 0, FilRefDb), 
     ssl:clear_pem_cache(),
     _ = sys:get_status(whereis(ssl_manager)),
     {Server1, Client1} = basic_verify_test_no_close(Config),
-    4 = ets:info(FilRefDb, size), 
+    4 =  ets:foldl(CountReferencedFiles, 0, FilRefDb), 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
-    ct:sleep(5000),
+    ct:sleep(2000),
     _ = sys:get_status(whereis(ssl_manager)),
-    2 = ets:info(FilRefDb, size),
+    2 =  ets:foldl(CountReferencedFiles, 0, FilRefDb), 
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1),
-    ct:sleep(5000),
+    ct:sleep(2000),
     _ = sys:get_status(whereis(ssl_manager)),
-    0 = ets:info(FilRefDb, size).
+    0 =  ets:foldl(CountReferencedFiles, 0, FilRefDb).
 
 %%--------------------------------------------------------------------
 
@@ -2565,6 +2571,13 @@ der_input(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     DHParamFile = filename:join(DataDir, "dHParam.pem"),
 
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    [CADb | _] = element(6, State),
+
+    Size = ets:info(CADb, size),
+
     SeverVerifyOpts = ?config(server_verification_opts, Config),
     {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
 								       SeverVerifyOpts]),
@@ -2592,13 +2605,8 @@ der_input(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    Size = ets:info(CADb, size).
 
-    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
-    [_, _,_, _, Prop] = StatusInfo,
-    State = ssl_test_lib:state(Prop),
-    [CADb | _] = element(6, State),
-    [] = ets:tab2list(CADb).
-    
 %%--------------------------------------------------------------------
 der_input_opts(Opts) ->
     Certfile = proplists:get_value(certfile, Opts),
@@ -3060,6 +3068,7 @@ hibernate(Config) ->
     {current_function, _} =
         process_info(Pid, current_function),
 
+    ssl_test_lib:check_result(Server, ok, Client, ok),
     timer:sleep(1100),
 
     {current_function, {erlang, hibernate, 3}} =
@@ -3093,15 +3102,29 @@ hibernate_right_away(Config) ->
 
     Server1 = ssl_test_lib:start_server(StartServerOpts),
     Port1 = ssl_test_lib:inet_port(Server1),
-    {Client1, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+    {Client1, #sslsocket{pid = Pid1}} = ssl_test_lib:start_client(StartClientOpts ++
                     [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid1, current_function),
+
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1),
 
     Server2 = ssl_test_lib:start_server(StartServerOpts),
     Port2 = ssl_test_lib:inet_port(Server2),
-    {Client2, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+    {Client2, #sslsocket{pid = Pid2}} = ssl_test_lib:start_client(StartClientOpts ++
                     [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server2, ok, Client2, ok),
+
+    ct:sleep(100), %% Schedule out
+
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid2, current_function),
+
     ssl_test_lib:close(Server2),
     ssl_test_lib:close(Client2).
 
