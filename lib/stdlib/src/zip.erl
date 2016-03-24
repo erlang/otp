@@ -825,21 +825,19 @@ add_cwd(CWD, F) -> filename:join(CWD, F).
 %% remove ".." components from the path to protect from directory traversal
 protect_from_traversal("") -> "";
 protect_from_traversal(F) ->
-	SafeName = filename:join(lists:filter(fun(E) -> E =/= ".." end, filename:split(F))),
+	SafeName = filename:join([E || E <- filename:split(F), E =/= ".."]),
 	%% filename:split/1 removes trailing separators so we append them here if needed
 	maybe_append_slash(F, SafeName, os:type()).
 
 maybe_append_slash(F, SafeName, {win32, _}) ->
-	IsDirectory = [lists:last(F)] == "\\",
-	if
-		IsDirectory -> SafeName ++ "\\";
-		true -> SafeName
+	case lists:suffix("\\", F) of
+		true -> SafeName ++ "\\";
+		false -> SafeName
 	end;
 maybe_append_slash(F, SafeName, _) ->
-	IsDirectory = [lists:last(F)] == "/",
-	if
-		IsDirectory -> SafeName ++ "/";
-		true -> SafeName
+	case lists:suffix("/", F) of
+		true -> SafeName ++ "/";
+		false -> SafeName
 	end.
 
 %% already compressed data should be stored as is in archive,
