@@ -185,7 +185,7 @@ struct _erl_drv_port {
     int control_flags;		 /* Flags for port_control()  */
     ErlDrvPDL port_data_lock;
 
-    ErtsPrtSD *psd;		 /* Port specific data */
+    erts_smp_atomic_t psd;	 /* Port specific data */
     int reds; /* Only used while executing driver callbacks */
 
     struct {
@@ -252,22 +252,51 @@ ERTS_GLB_INLINE void *erts_prtsd_set(Port *p, int ix, void *new);
 ERTS_GLB_INLINE void *
 erts_prtsd_get(Port *prt, int ix)
 {
-    return prt->psd ? prt->psd->data[ix] : NULL;
+    ErtsPrtSD *psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+    if (!psd)
+	return NULL;
+    ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+    return psd->data[ix];
 }
 
 ERTS_GLB_INLINE void *
 erts_prtsd_set(Port *prt, int ix, void *data)
 {
-    if (prt->psd) {
-	void *old = prt->psd->data[ix];
-	prt->psd->data[ix] = data;
+    ErtsPrtSD *psd, *new_psd;
+    void *old;
+    int i;
+
+    psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+
+    if (psd) {
+#ifdef ERTS_SMP
+#ifdef ETHR_ORDERED_READ_DEPEND
+	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+#else
+	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreStore);
+#endif
+#endif
+	old = psd->data[ix];
+	psd->data[ix] = data;
 	return old;
     }
-    else {
-	prt->psd = erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
-	prt->psd->data[ix] = data;
+
+    if (!data)
 	return NULL;
-    }
+
+    new_psd = erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
+    for (i = 0; i < ERTS_PRTSD_SIZE; i++)
+	new_psd->data[i] = NULL;
+    psd = (ErtsPrtSD *) erts_smp_atomic_cmpxchg_mb(&prt->psd,
+						   (erts_aint_t) new_psd,
+						   (erts_aint_t) NULL);
+    if (psd)
+	erts_free(ERTS_ALC_T_PRTSD, new_psd);
+    else
+	psd = new_psd;
+    old = psd->data[ix];
+    psd->data[ix] = data;
+    return old;
 }
 
 #endif

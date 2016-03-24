@@ -103,7 +103,7 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
     size += p->arity * sizeof(p->arg_reg[0]);
   }
 
-  if (p->psd)
+  if (erts_smp_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
     size += sizeof(ErtsPSD);
 
   scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);

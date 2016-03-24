@@ -397,7 +397,7 @@ static Port *create_port(char *name,
     prt->common.u.alive.reg = NULL;
     ERTS_PTMR_INIT(prt);
     erts_port_task_handle_init(&prt->timeout_task);
-    prt->psd = NULL;
+    erts_smp_atomic_init_nob(&prt->psd, (erts_aint_t) NULL);
     prt->async_open_port = NULL;
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
@@ -3520,6 +3520,7 @@ terminate_port(Port *prt)
     Eterm connected_id = NIL /* Initialize to silence compiler */;
     erts_driver_t *drv;
     erts_aint32_t state;
+    ErtsPrtSD *psd;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
@@ -3573,8 +3574,9 @@ terminate_port(Port *prt)
 
     erts_cleanup_port_data(prt);
 
-    if (prt->psd)
-	erts_free(ERTS_ALC_T_PRTSD, prt->psd);
+    psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+    if (psd)
+	erts_free(ERTS_ALC_T_PRTSD, psd);
 
     ASSERT(prt->dist_entry == NULL);
 

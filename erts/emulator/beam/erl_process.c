@@ -687,45 +687,36 @@ erts_pre_init_process(void)
 	= "DEBUG_WAIT_COMPLETED";
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
- {
-     int ix;
 
-     erts_psd_required_locks[ERTS_PSD_ERROR_HANDLER].get_locks
-	 = ERTS_PSD_ERROR_HANDLER_BUF_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_ERROR_HANDLER].set_locks
-	 = ERTS_PSD_ERROR_HANDLER_BUF_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_ERROR_HANDLER].get_locks
+	= ERTS_PSD_ERROR_HANDLER_BUF_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_ERROR_HANDLER].set_locks
+	= ERTS_PSD_ERROR_HANDLER_BUF_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_SAVED_CALLS_BUF].get_locks
-	 = ERTS_PSD_SAVED_CALLS_BUF_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_SAVED_CALLS_BUF].set_locks
-	 = ERTS_PSD_SAVED_CALLS_BUF_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_SAVED_CALLS_BUF].get_locks
+	= ERTS_PSD_SAVED_CALLS_BUF_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_SAVED_CALLS_BUF].set_locks
+	= ERTS_PSD_SAVED_CALLS_BUF_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_SCHED_ID].get_locks
-	 = ERTS_PSD_SCHED_ID_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_SCHED_ID].set_locks
-	 = ERTS_PSD_SCHED_ID_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_SCHED_ID].get_locks
+	= ERTS_PSD_SCHED_ID_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_SCHED_ID].set_locks
+	= ERTS_PSD_SCHED_ID_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].get_locks
-	 = ERTS_PSD_CALL_TIME_BP_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
-	 = ERTS_PSD_CALL_TIME_BP_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].get_locks
+	= ERTS_PSD_CALL_TIME_BP_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
+	= ERTS_PSD_CALL_TIME_BP_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].get_locks
-	 = ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
-	 = ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].get_locks
+	= ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
+	= ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS;
 
-     erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].get_locks
-	 = ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS;
-     erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].set_locks
-	 = ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS;
-
-     /* Check that we have locks for all entries */
-     for (ix = 0; ix < ERTS_PSD_SIZE; ix++) {
-	 ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].get_locks);
-	 ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].set_locks);
-     }
- }
+    erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].get_locks
+	= ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_NIF_TRAP_EXPORT].set_locks
+	= ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS;
 #endif
 }
 
@@ -1314,46 +1305,25 @@ erts_proclist_destroy(ErtsProcList *plp)
 }
 
 void *
-erts_psd_set_init(Process *p, ErtsProcLocks plocks, int ix, void *data)
+erts_psd_set_init(Process *p, int ix, void *data)
 {
     void *old;
-    ErtsProcLocks xplocks;
-    int refc = 0;
-    ErtsPSD *psd = erts_alloc(ERTS_ALC_T_PSD, sizeof(ErtsPSD));
+    ErtsPSD *psd, *new_psd;
     int i;
+
+    new_psd = erts_alloc(ERTS_ALC_T_PSD, sizeof(ErtsPSD));
     for (i = 0; i < ERTS_PSD_SIZE; i++)
-	psd->data[i] = NULL;
+	new_psd->data[i] = NULL;
 
-    ERTS_SMP_LC_ASSERT(plocks);
-    ERTS_SMP_LC_ASSERT(plocks == erts_proc_lc_my_proc_locks(p));
-
-    xplocks = ERTS_PROC_LOCKS_ALL;
-    xplocks &= ~plocks;
-    if (xplocks && erts_smp_proc_trylock(p, xplocks) == EBUSY) {
-	if (xplocks & ERTS_PROC_LOCK_MAIN) {
-	    erts_proc_inc_refc(p);
-	    erts_smp_proc_unlock(p, plocks);
-	    erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL);
-	    refc = 1;
-	}
-	else {
-	    if (plocks & ERTS_PROC_LOCKS_ALL_MINOR)
-		erts_smp_proc_unlock(p, plocks & ERTS_PROC_LOCKS_ALL_MINOR);
-	    erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
-	}
-    }
-    if (!p->psd)
-	p->psd = psd;
-    if (xplocks)
-	erts_smp_proc_unlock(p, xplocks);
-    if (refc)
-	erts_proc_dec_refc(p);
-    ASSERT(p->psd);
-    if (p->psd != psd)
-	erts_free(ERTS_ALC_T_PSD, psd);
-    old = p->psd->data[ix];
-    p->psd->data[ix] = data;
-    ERTS_SMP_LC_ASSERT(plocks == erts_proc_lc_my_proc_locks(p));
+    psd = (ErtsPSD *) erts_smp_atomic_cmpxchg_mb(&p->psd,
+						 (erts_aint_t) new_psd,
+						 (erts_aint_t) NULL);
+    if (psd)
+	erts_free(ERTS_ALC_T_PSD, new_psd);
+    else
+	psd = new_psd;
+    old = psd->data[ix];
+    psd->data[ix] = data;
     return old;
 }
 
@@ -9798,10 +9768,7 @@ Process *schedule(Process *p, int calls)
 
 	if (erts_sched_stat.enabled) {
 	    int prio;
-	    UWord old = ERTS_PROC_SCHED_ID(p,
-					  (ERTS_PROC_LOCK_MAIN
-					   | ERTS_PROC_LOCK_STATUS),
-					  (UWord) esdp->no);
+	    UWord old = ERTS_PROC_SCHED_ID(p, (UWord) esdp->no);
 	    int migrated = old && old != esdp->no;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -10465,7 +10432,7 @@ save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio)
 	qs->q[PRIORITY_NORMAL] = NULL;
 	qs->q[PRIORITY_LOW] = NULL;
 	qs->q[prio] = st;
-	(void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, ERTS_PROC_LOCK_MAIN, qs);
+	(void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, qs);
     }
     else {
 	if (!qs->q[prio]) {
@@ -10612,7 +10579,7 @@ erts_set_gc_state(Process *c_p, int enable)
 
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
 
-    (void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+    (void) ERTS_PROC_SET_DELAYED_GC_TASK_QS(c_p, NULL);
 
     if (dgc_tsk_qs)
 	proc_sys_task_queues_free(dgc_tsk_qs);
@@ -11098,7 +11065,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->mbuf = NULL;
     p->msg_frag = NULL;
     p->mbuf_sz = 0;
-    p->psd = NULL;
+    erts_smp_atomic_init_nob(&p->psd, (erts_aint_t) NULL);
     p->dictionary = NULL;
     p->seq_trace_lastcnt = 0;
     p->seq_trace_clock = 0;
@@ -11267,7 +11234,7 @@ void erts_init_empty_process(Process *p)
     p->mbuf = NULL;
     p->msg_frag = NULL;
     p->mbuf_sz = 0;
-    p->psd = NULL;
+    erts_smp_atomic_init_nob(&p->psd, (erts_aint_t) NULL);
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LINKS(p) = NULL;         /* List of links */
     p->nodes_monitors = NULL;
@@ -11437,14 +11404,17 @@ static void
 delete_process(Process* p)
 {
     Eterm *heap;
+    ErtsPSD *psd;
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
                            HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
 
     /* Cleanup psd */
 
-    if (p->psd)
-	erts_free(ERTS_ALC_T_PSD, p->psd);
+    psd = (ErtsPSD *) erts_smp_atomic_read_nob(&p->psd);
+
+    if (psd)
+	erts_free(ERTS_ALC_T_PSD, psd);
 
     /* Clean binaries and funs */
     erts_cleanup_offheap(&p->off_heap);
@@ -12523,9 +12493,9 @@ erts_continue_exit_process(Process *p)
     }
     
     dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
-    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, ERTS_PROC_LOCKS_ALL, NULL);
-    pbt = ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCKS_ALL, NULL);
-    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, ERTS_PROC_LOCKS_ALL, NULL);
+    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+    pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 #ifdef BM_COUNTERS

@@ -974,7 +974,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     if (pbt == 0) {
 	/* First call of process to instrumented function */
 	pbt = Alloc(sizeof(process_breakpoint_time_t));
-	(void) ERTS_PROC_SET_CALL_TIME(c_p, ERTS_PROC_LOCK_MAIN, pbt);
+	(void) ERTS_PROC_SET_CALL_TIME(c_p, pbt);
     } else {
 	ASSERT(pbt->pc);
 	/* add time to previous code */
@@ -1598,9 +1598,7 @@ bp_time_unref(BpDataTime* bdt)
 			h_p = erts_pid2proc(NULL, 0, item->pid,
 					    ERTS_PROC_LOCK_MAIN);
 			if (h_p) {
-			    pbt = ERTS_PROC_SET_CALL_TIME(h_p,
-							  ERTS_PROC_LOCK_MAIN,
-							  NULL);
+			    pbt = ERTS_PROC_SET_CALL_TIME(h_p, NULL);
 			    if (pbt) {
 				Free(pbt);
 			    }

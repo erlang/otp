@@ -818,8 +818,8 @@ typedef struct {
 #define ERTS_PSD_ERROR_HANDLER_BUF_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_ERROR_HANDLER_BUF_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
-#define ERTS_PSD_SAVED_CALLS_BUF_GET_LOCKS ERTS_PROC_LOCK_MAIN
-#define ERTS_PSD_SAVED_CALLS_BUF_SET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_SAVED_CALLS_BUF_GET_LOCKS ((ErtsProcLocks) 0)
+#define ERTS_PSD_SAVED_CALLS_BUF_SET_LOCKS ((ErtsProcLocks) 0)
 
 #define ERTS_PSD_SCHED_ID_GET_LOCKS ERTS_PROC_LOCK_STATUS
 #define ERTS_PSD_SCHED_ID_SET_LOCKS ERTS_PROC_LOCK_STATUS
@@ -830,8 +830,8 @@ typedef struct {
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
-#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
-#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ((ErtsProcLocks) 0)
+#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ((ErtsProcLocks) 0)
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -1026,7 +1026,7 @@ struct process {
     ErlHeapFragment* live_hf_end;
     ErtsMessage *msg_frag;	/* Pointer to message fragment list */
     Uint mbuf_sz;		/* Total size of heap fragments and message fragments */
-    ErtsPSD *psd;		/* Rarely used process specific data */
+    erts_smp_atomic_t psd;		/* Rarely used process specific data */
 
     Uint64 bin_vheap_sz;	/* Virtual heap block size for binaries */
     Uint64 bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
@@ -1903,18 +1903,19 @@ do {									\
 #define ERTS_SMP_LC_CHK_RUNQ_LOCK(RQ, L)
 #endif
 
-void *erts_psd_set_init(Process *p, ErtsProcLocks plocks, int ix, void *data);
+void *erts_psd_set_init(Process *p, int ix, void *data);
 
 ERTS_GLB_INLINE void *
 erts_psd_get(Process *p, int ix);
 ERTS_GLB_INLINE void *
-erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *new);
+erts_psd_set(Process *p, int ix, void *new);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void *
 erts_psd_get(Process *p, int ix)
 {
+    ErtsPSD *psd;
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].get_locks)
@@ -1925,17 +1926,19 @@ erts_psd_get(Process *p, int ix)
 			   || erts_thr_progress_is_blocking());
     }
 #endif
+
+    psd = (ErtsPSD *) erts_smp_atomic_read_nob(&p->psd);
     ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
-    return p->psd ? p->psd->data[ix] : NULL;
+    if (!psd)
+	return NULL;
+    ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+    return psd->data[ix];
 }
 
-
-/*
- * NOTE: erts_psd_set() might release and reacquire locks on 'p'.
- */
 ERTS_GLB_INLINE void *
-erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
+erts_psd_set(Process *p, int ix, void *data)
 {
+    ErtsPSD *psd;
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
     if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].set_locks)
@@ -1946,50 +1949,56 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 			   || erts_thr_progress_is_blocking());
     }
 #endif
+    psd = (ErtsPSD *) erts_smp_atomic_read_nob(&p->psd);
     ASSERT(0 <= ix && ix < ERTS_PSD_SIZE);
-    if (p->psd) {
-	void *old = p->psd->data[ix];
-	p->psd->data[ix] = data;
+    if (psd) {
+	void *old;
+#ifdef ERTS_SMP
+#ifdef ETHR_ORDERED_READ_DEPEND
+	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+#else
+	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreStore);
+#endif
+#endif
+	old = psd->data[ix];
+	psd->data[ix] = data;
 	return old;
     }
-    else {
-	if (!data)
-	    return NULL;
-	else
-	    return erts_psd_set_init(p, plocks, ix, data);
-    }
+
+    if (!data)
+	return NULL;
+
+    return erts_psd_set_init(p, ix, data);
 }
 
 #endif
 
-#define ERTS_PROC_SCHED_ID(P, L, ID) \
-  ((UWord) erts_psd_set((P), (L), ERTS_PSD_SCHED_ID, (void *) (ID)))
+#define ERTS_PROC_SCHED_ID(P, ID) \
+  ((UWord) erts_psd_set((P), ERTS_PSD_SCHED_ID, (void *) (ID)))
 
 #define ERTS_PROC_GET_SAVED_CALLS_BUF(P) \
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SAVED_CALLS_BUF))
-#define ERTS_PROC_SET_SAVED_CALLS_BUF(P, L, SCB) \
-  ((struct saved_calls *) erts_psd_set((P), (L), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
+#define ERTS_PROC_SET_SAVED_CALLS_BUF(P, SCB) \
+  ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
 
 #define ERTS_PROC_GET_CALL_TIME(P) \
   ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
-#define ERTS_PROC_SET_CALL_TIME(P, L, PBT) \
-  ((process_breakpoint_time_t *) erts_psd_set((P), (L), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+#define ERTS_PROC_SET_CALL_TIME(P, PBT) \
+  ((process_breakpoint_time_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
 
 #define ERTS_PROC_GET_DELAYED_GC_TASK_QS(P) \
     ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
-#define ERTS_PROC_SET_DELAYED_GC_TASK_QS(P, L, PBT) \
-    ((ErtsProcSysTaskQs *) erts_psd_set((P), (L), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
+#define ERTS_PROC_SET_DELAYED_GC_TASK_QS(P, PBT) \
+    ((ErtsProcSysTaskQs *) erts_psd_set((P), ERTS_PSD_DELAYED_GC_TASK_QS, (void *) (PBT)))
 
 #define ERTS_PROC_GET_NIF_TRAP_EXPORT(P) \
     erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT)
-#define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, L, NTE) \
-    erts_psd_set((P), (L), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
+#define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, NTE) \
+    erts_psd_set((P), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
 
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
-ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p,
-						  ErtsProcLocks plocks,
-						  Eterm handler);
+ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Eterm
@@ -2005,13 +2014,13 @@ erts_proc_get_error_handler(Process *p)
 }
 
 ERTS_GLB_INLINE Eterm
-erts_proc_set_error_handler(Process *p, ErtsProcLocks plocks, Eterm handler)
+erts_proc_set_error_handler(Process *p, Eterm handler)
 {
     void *old_val;
     void *new_val;
     ASSERT(is_atom(handler));
     new_val = (handler == am_error_handler) ? NULL : (void *) (UWord) handler;
-    old_val = erts_psd_set(p, plocks, ERTS_PSD_ERROR_HANDLER, new_val);
+    old_val = erts_psd_set(p, ERTS_PSD_ERROR_HANDLER, new_val);
     if (!old_val)
 	return am_error_handler;
     else {
