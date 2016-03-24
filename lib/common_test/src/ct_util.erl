@@ -91,8 +91,10 @@ start() ->
 %%% <code>ct_util_server</code>.</p>
 %%%
 %%% @see ct
--spec start(Mode) -> pid() when
-      Mode :: normal | interactive.
+-spec start(ModeOrLogDir) -> pid() when
+      ModeOrLogDir :: Mode | LogDir,
+      Mode :: normal | interactive,
+      LogDir :: file:name().
 start(LogDir) when is_list(LogDir) ->
     start(normal, LogDir, ?default_verbosity);
 start(Mode) ->
