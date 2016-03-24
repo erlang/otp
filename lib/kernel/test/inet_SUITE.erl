@@ -1118,9 +1118,13 @@ simple_netns(Config) when is_list(Config) ->
 	    jog_netns_opt(L),
 	    ok = gen_tcp:close(L),
 	    %%
-	    {ok,S} = gen_sctp:open(),
-	    jog_netns_opt(S),
-	    ok = gen_sctp:close(S);
+	    case gen_sctp:open() of
+		{ok,S} ->
+		    jog_netns_opt(S),
+		    ok = gen_sctp:close(S);
+		{error,eprotonosupport} ->
+		    ok
+	    end;
 	{error,einval} ->
 	    {skip,"setns() not supported"}
     end.
