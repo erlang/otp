@@ -1328,13 +1328,23 @@ save_core_code(St) ->
 
 beam_asm(#compile{ifile=File,code=Code0,
 		  abstract_code=Abst,mod_options=Opts0}=St) ->
-    Source = filename:absname(File),
+    Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
     case beam_asm:module(Code0, Abst, Source, Opts2) of
 	{ok,Code} -> {ok,St#compile{code=Code,abstract_code=[]}}
+    end.
+
+paranoid_absname(""=File) ->
+    File;
+paranoid_absname(File) ->
+    case file:get_cwd() of
+	{ok,Cwd} ->
+	    filename:absname(File, Cwd);
+	_ ->
+	    File
     end.
 
 test_native(#compile{options=Opts}) ->

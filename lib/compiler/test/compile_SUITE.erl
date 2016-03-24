@@ -127,13 +127,39 @@ forms_2(Config) when is_list(Config) ->
     Src = "/foo/bar",
     AbsSrc = filename:absname(Src),
     Anno = erl_anno:new(1),
-    {ok,simple,Binary} = compile:forms([{attribute,Anno,module,simple}],
-				       [binary,{source,Src}]),
-    code:load_binary(simple, Src, Binary),
-    Info = simple:module_info(compile),
+    SimpleCode = [{attribute,Anno,module,simple}],
+    {ok,simple,Bin1} = compile:forms(SimpleCode, [binary,{source,Src}]),
 
-    %% Test that the proper source is returned.
-    AbsSrc = proplists:get_value(source, Info),
+    %% Load and test that the proper source is returned.
+    AbsSrc = forms_load_code(simple, Src, Bin1),
+
+    %% Work in a deleted directory.
+    PrivDir = proplists:get_value(priv_dir, Config),
+    WorkDir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(WorkDir),
+    ok = file:set_cwd(WorkDir),
+    case os:type() of
+	{unix,_} -> os:cmd("rm -rf " ++ WorkDir);
+	_ -> ok
+    end,
+    {ok,simple,Bin2} = compile:forms(SimpleCode),
+    undefined = forms_load_code(simple, "ignore", Bin2),
+
+    {ok,simple,Bin3} = compile:forms(SimpleCode, [{source,Src},report]),
+    case forms_load_code(simple, "ignore", Bin3) of
+	Src ->					%Unix.
+	    ok;
+	AbsSrc ->				%Windows.
+	    ok
+    end,
+
+    ok.
+
+
+forms_load_code(Mod, Src, Bin) ->
+    {module,Mod} = code:load_binary(Mod, Src, Bin),
+    Info = Mod:module_info(compile),
+    SourceOption = proplists:get_value(source, Info),
 
     %% Ensure that the options are not polluted with 'source'.
     [] = proplists:get_value(options, Info),
@@ -141,7 +167,9 @@ forms_2(Config) when is_list(Config) ->
     %% Cleanup.
     true = code:delete(simple),
     false = code:purge(simple),
-    ok.
+
+    SourceOption.
+
 
 module_mismatch(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
