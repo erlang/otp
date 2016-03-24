@@ -75,7 +75,7 @@
 	  renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
 	  start_or_recv_from   :: term(),
 	  timer                :: undefined | reference(), % start_or_recive_timer
-	  send_queue           :: queue:queue(),
+	  %%send_queue           :: queue:queue(),
 	  terminated = false                          ::boolean(),
 	  allow_renegotiate = true                    ::boolean(),
           expecting_next_protocol_negotiation = false ::boolean(),
@@ -83,7 +83,8 @@
           negotiated_protocol = undefined             :: undefined | binary(),
 	  client_ecc,          % {Curves, PointFmt}
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
-	  sni_hostname = undefined
+	  sni_hostname = undefined,
+	  downgrade
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
