@@ -232,7 +232,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 
 -spec file(File, Context, Env, Options) -> {ok, Tags} | {error, Reason} when
       File :: filename(),
-      Context :: overview,
+      Context :: module | footer | function | overview | single,
       Env :: edoc_lib:edoc_env(),
       Options :: proplist(),
       Tags :: [term()],
@@ -264,7 +264,7 @@ file(File, Context, Env, Opts) ->
 
 -spec text(Text, Context, Env, Options) -> Tags when
       Text :: string(),
-      Context :: overview | atom(),
+      Context :: module | footer | function | overview | single,
       Env :: edoc_lib:edoc_env(),
       Options :: proplist(),
       Tags :: [term()].
@@ -273,7 +273,7 @@ text(Text, Context, Env, Opts) ->
     text(Text, Context, Env, Opts, "").
 
 text(Text, Context, Env, Opts, Where) ->
-    Env1 = add_macro_defs(file_macros(Context, Env), Opts, Env),
+    Env1 = add_macro_defs(file_macros(Env), Opts, Env),
     Cs = edoc_lib:lines(Text),
     Ts0 = edoc_tags:scan_lines(Cs, 1),
     Tags = sets:from_list(edoc_tags:tag_names()),
@@ -633,7 +633,7 @@ module_macros(Env) ->
 
 %% Macros for reading auxiliary edoc-files
 
-file_macros(_Context, Env) ->
+file_macros(Env) ->
     edoc_macros:std_macros(Env).
 
 %% @doc Extracts what will be documentation of Erlang types.
