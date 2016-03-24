@@ -822,6 +822,26 @@ add_cwd(_CWD, {_Name, _} = F) -> F;
 add_cwd("", F) -> F;
 add_cwd(CWD, F) -> filename:join(CWD, F).
 
+%% remove ".." components from the path to protect from directory traversal
+protect_from_traversal("") -> "";
+protect_from_traversal(F) ->
+	SafeName = filename:join(lists:filter(fun(E) -> E =/= ".." end, filename:split(F))),
+	%% filename:split/1 removes trailing separators so we append them here if needed
+	maybe_append_slash(F, SafeName, os:type()).
+
+maybe_append_slash(F, SafeName, {win32, _}) ->
+	IsDirectory = [lists:last(F)] == "\\",
+	if
+		IsDirectory -> SafeName ++ "\\";
+		true -> SafeName
+	end;
+maybe_append_slash(F, SafeName, _) ->
+	IsDirectory = [lists:last(F)] == "/",
+	if
+		IsDirectory -> SafeName ++ "/";
+		true -> SafeName
+	end.
+
 %% already compressed data should be stored as is in archive,
 %% a simple name-match is used to check for this
 %% files smaller than 10 bytes are also stored, not compressed
@@ -1433,23 +1453,24 @@ get_z_file(In0, Z, Input, Output, OpO, FB, CWD, {ZipFile,Extra}) ->
 			       end,
 	    {BFileN, In3} = Input({read, FileNameLen + ExtraLen}, In1),
 	    {FileName, _} = get_file_name_extra(FileNameLen, ExtraLen, BFileN),
-	    FileName1 = add_cwd(CWD, FileName),
-	    case lists:last(FileName) of
+			SafeFileName = protect_from_traversal(FileName),
+	    SafeFileName1 = add_cwd(CWD, SafeFileName),
+	    case lists:last(SafeFileName) of
 		$/ ->
 		    %% perhaps this should always be done?
-		    Output({ensure_dir,FileName1},[]),
+		    Output({ensure_dir,SafeFileName1},[]),
 		    {dir, In3};
 		_ ->
 		    %% FileInfo = local_file_header_to_file_info(LH)
 		    %%{Out, In4, CRC, UncompSize} =
 		    {Out, In4, CRC, _UncompSize} =
-			get_z_data(CompMethod, In3, FileName1,
+			get_z_data(CompMethod, In3, SafeFileName1,
 				   CompSize, Input, Output, OpO, Z),
 		    In5 = skip_z_data_descriptor(GPFlag, Input, In4),
 		    %% TODO This should be fixed some day:
 		    %% In5 = Input({set_file_info, FileName, FileInfo#file_info{size=UncompSize}}, In4),
-		    FB(FileName),
-		    CRC =:= CRC32 orelse throw({bad_crc, FileName}),
+		    FB(SafeFileName),
+		    CRC =:= CRC32 orelse throw({bad_crc, SafeFileName}),
 		    {file, Out, In5}
 	    end;
 	_ ->
