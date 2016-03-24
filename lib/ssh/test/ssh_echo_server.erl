@@ -31,6 +31,7 @@
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 
 init([N]) ->
+    ct:pal("Echo server: ~p",[self()]),
     {ok, #state{n = N}}.
 
 handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
