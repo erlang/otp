@@ -214,9 +214,8 @@ update_info2([], []) -> ok.
 update_scroll_boxes({_, _, 0}, {_, []}) -> ok;
 update_scroll_boxes({Win, Sizer, _}, {Type, List}) ->
     [wxSizerItem:deleteWindows(Child) ||  Child <- wxSizer:getChildren(Sizer)],
-    BC = wxWindow:getBackgroundColour(Win),
     Cursor = wxCursor:new(?wxCURSOR_HAND),
-    add_entries(Type, List, Win, Sizer, BC, Cursor),
+    add_entries(Type, List, Win, Sizer, Cursor),
     wxCursor:destroy(Cursor),
     wxSizer:recalcSizes(Sizer),
     wxWindow:refresh(Win),
@@ -379,21 +378,20 @@ add_box(Panel, OuterBox, Cursor, Title, Proportion, {Format, List}) ->
     wxScrolledWindow:setScrollbars(Scroll,1,1,0,0),
     ScrollSizer  = wxBoxSizer:new(?wxVERTICAL),
     wxScrolledWindow:setSizer(Scroll, ScrollSizer),
-    BC = wxWindow:getBackgroundColour(Panel),
     wxWindow:setBackgroundStyle(Scroll, ?wxBG_STYLE_SYSTEM),
-    add_entries(Format, List, Scroll, ScrollSizer, BC, Cursor),
+    add_entries(Format, List, Scroll, ScrollSizer, Cursor),
     wxSizer:add(Box,Scroll,[{proportion,1},{flag,?wxEXPAND}]),
     wxSizer:add(OuterBox,Box,[{proportion,Proportion},{flag,?wxEXPAND}]),
     {Scroll,ScrollSizer,length(List)}.
 
-add_entries(click, List, Scroll, ScrollSizer, _BC, Cursor) ->
+add_entries(click, List, Scroll, ScrollSizer, Cursor) ->
     Add = fun(Link) ->
 		  TC = link_entry(Scroll, Link, Cursor),
                   wxWindow:setBackgroundStyle(TC, ?wxBG_STYLE_SYSTEM),
 		  wxSizer:add(ScrollSizer,TC,[{flag,?wxEXPAND}])
 	  end,
     [Add(Link) || Link <- List];
-add_entries(plain, List, Scroll, ScrollSizer, _, _) ->
+add_entries(plain, List, Scroll, ScrollSizer, _) ->
     Add = fun(String) ->
 		  TC = wxTextCtrl:new(Scroll, ?wxID_ANY,
 				      [{style,?SINGLE_LINE_STYLE},
