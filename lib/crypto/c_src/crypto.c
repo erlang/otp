@@ -314,7 +314,7 @@ static ErlNifFunc nif_funcs[] = {
 
     {"rand_seed_nif", 1, rand_seed_nif},
 
-    {"aes_gcm_encrypt", 4, aes_gcm_encrypt},
+    {"aes_gcm_encrypt", 5, aes_gcm_encrypt},
     {"aes_gcm_decrypt", 5, aes_gcm_decrypt},
 
     {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
@@ -1629,6 +1629,7 @@ static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     EVP_CIPHER_CTX ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
+    unsigned int tag_len;
     unsigned char *outp, *tagp;
     ERL_NIF_TERM out, out_tag;
     int len;
@@ -1637,7 +1638,8 @@ static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	|| (key.size != 16 && key.size != 24 && key.size != 32)
 	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_get_uint(env, argv[4], &tag_len) || tag_len < 1 || tag_len > 16) {
 	return enif_make_badarg(env);
     }
 
@@ -1669,9 +1671,9 @@ static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     if (EVP_EncryptFinal_ex(&ctx, outp+len, &len) != 1)
         goto out_err;
 
-    tagp = enif_make_new_binary(env, EVP_GCM_TLS_TAG_LEN, &out_tag);
+    tagp = enif_make_new_binary(env, tag_len, &out_tag);
 
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, EVP_GCM_TLS_TAG_LEN, tagp) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, tag_len, tagp) != 1)
         goto out_err;
 
     EVP_CIPHER_CTX_cleanup(&ctx);
@@ -1704,7 +1706,7 @@ static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
 	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != EVP_GCM_TLS_TAG_LEN) {
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
 	return enif_make_badarg(env);
     }
 
@@ -1730,7 +1732,7 @@ static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     if (EVP_DecryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
         goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, EVP_GCM_TLS_TAG_LEN, tag.data) != 1)
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, tag.size, tag.data) != 1)
         goto out_err;
     if (EVP_DecryptFinal_ex(&ctx, outp+len, &len) != 1)
         goto out_err;
