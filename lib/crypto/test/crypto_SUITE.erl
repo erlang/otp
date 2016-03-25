@@ -462,6 +462,21 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
 	    ok;
 	Other1 ->
 	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+    end;
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen}) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) of
+	{CipherText, TruncatedCipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, TruncatedCipherTag}}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
     end.
 
 do_sign_verify({Type, Hash, Public, Private, Msg}) ->
@@ -1938,7 +1953,36 @@ aes_gcm() ->
 		 "eeb2b22aafde6419a058ab4f6f746bf4"
 		 "0fc0c3b780f244452da3ebf1c5d82cde"
 		 "a2418997200ef82e44ae7e3f"),
-      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")}                    %% CipherTag
+      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")},                   %% CipherTag
+
+     %% Test Case 0 for TagLength = 1
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("58"),                                                  %% CipherTag
+      1},                                                                %% TagLength
+
+     %% Test Case 18 for TagLength = 1
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("5a8def2f0c9e53f1f75d7853659e2a20"                      %% CipherText
+		 "eeb2b22aafde6419a058ab4f6f746bf4"
+		 "0fc0c3b780f244452da3ebf1c5d82cde"
+		 "a2418997200ef82e44ae7e3f"),
+      hexstr2bin("a4"),                                                  %% CipherTag
+      1}                                                                 %% TagLength
     ].
 
 %% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
