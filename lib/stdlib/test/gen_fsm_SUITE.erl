@@ -971,7 +971,7 @@ init(stop) ->
 init(stop_shutdown) ->
     {stop, shutdown};
 init(sleep) ->
-    ct:sleep(1000),
+    timer:sleep(1000),
     {ok, idle, data};
 init({timeout, T}) ->
     {ok, idle, state, T};
@@ -1004,7 +1004,7 @@ idle(_, Data) ->
 idle({connect, _Pid}, _From, Data) ->
     {reply, accept, wfor_conf, Data};
 idle({delayed_answer, T}, _From, Data) ->
-    ct:sleep(T),
+    timer:sleep(T),
     {reply, delayed, idle, Data};
 idle(badreturn, _From, _Data) ->
     badreturn;
