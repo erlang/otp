@@ -829,6 +829,15 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 						 ver_term));
 }
 
+static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
+{
+    ERL_NIF_TERM reason;
+    if (enif_has_pending_exception(env, &reason))
+	return reason; /* dummy return value ignored */
+    else
+	return enif_make_badarg(env);
+}
+
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */
     struct digest_type_t *digp = NULL;
@@ -2904,8 +2913,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
     EC_POINT *point = NULL;
 
     /* {Field, Prime, Point, Order, CoFactor} = Curve */
-    if (enif_is_tuple(env, curve_arg)
-	&& enif_get_tuple(env,curve_arg,&c_arity,&curve)
+    if (enif_get_tuple(env,curve_arg,&c_arity,&curve)
 	&& c_arity == 5
 	&& get_bn_from_bin(env, curve[3], &bn_order)
 	&& (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
@@ -2942,9 +2950,11 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	    /* create the EC_GROUP structure */
 	    group = EC_GROUP_new_curve_GFp(p, a, b, NULL);
 
-#if !defined(OPENSSL_NO_EC2M)
-
 	} else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
+#if defined(OPENSSL_NO_EC2M)
+	    enif_raise_exception(env, atom_notsup);
+	    goto out_err;
+#else
 	    /* {characteristic_two_field, M, Basis} */
 
 	    int b_arity = -1;
@@ -3221,7 +3231,7 @@ static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 badarg:
     if (key)
 	EC_KEY_free(key);
-    return enif_make_badarg(env);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
@@ -3272,7 +3282,7 @@ static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 badarg:
     if (key)
 	EC_KEY_free(key);
-    return enif_make_badarg(env);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
@@ -3314,7 +3324,7 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 badarg:
     if (key)
 	EC_KEY_free(key);
-    return enif_make_badarg(env);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
@@ -3339,7 +3349,7 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
     EC_KEY *other_ecdh = NULL;
 
     if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
-	return enif_make_badarg(env);
+	return make_badarg_maybe(env);
 
     group    = EC_GROUP_dup(EC_KEY_get0_group(key));
     priv_key = EC_KEY_get0_private_key(key);
