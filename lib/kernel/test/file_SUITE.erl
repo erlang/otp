@@ -83,7 +83,7 @@
 -export([unicode/1]).
 -export([altname/1]).
 
--export([large_file/0, large_file/1, large_write/1]).
+-export([large_file/0, large_file/1, large_write/0, large_write/1]).
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
@@ -3662,6 +3662,9 @@ do_large_file(Name) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+large_write() ->
+    [{timetrap,{minutes,20}}].
 
 large_write(Config) when is_list(Config) ->
     run_large_file_test(Config,
