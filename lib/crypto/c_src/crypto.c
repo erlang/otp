@@ -378,86 +378,96 @@ struct hmac_context
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
 
 struct digest_type_t {
-    const char* type_str;
-    const EVP_MD* (*md_func)(void); /* NULL if notsup */
-    ERL_NIF_TERM type_atom;
+    union {
+	const char*  str;        /* before init, NULL for end-of-table */
+	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
+    }type;
+    union {
+	const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
+	const EVP_MD* p;               /* after init, NULL if notsup */
+    }md;
 };
 
 struct digest_type_t digest_types[] =
 {
-    {"md4", &EVP_md4},
-    {"md5", &EVP_md5},
-    {"ripemd160", &EVP_ripemd160},
-    {"sha", &EVP_sha1},
-    {"sha224",
+    {{"md4"}, {&EVP_md4}},
+    {{"md5"}, {&EVP_md5}},
+    {{"ripemd160"}, {&EVP_ripemd160}},
+    {{"sha"}, {&EVP_sha1}},
+    {{"sha224"},
 #ifdef HAVE_SHA224
-     &EVP_sha224
+     {&EVP_sha224}
 #else
-     NULL
+     {NULL}
 #endif
     },
-    {"sha256",
+    {{"sha256"},
 #ifdef HAVE_SHA256
-     &EVP_sha256
+     {&EVP_sha256}
 #else
-     NULL
+     {NULL}
 #endif
     },
-    {"sha384",
+    {{"sha384"},
 #ifdef HAVE_SHA384
-     &EVP_sha384
+     {&EVP_sha384}
 #else
-     NULL
+     {NULL}
 #endif
     },
-    {"sha512",
+    {{"sha512"},
 #ifdef HAVE_SHA512
-     &EVP_sha512
+     {&EVP_sha512}
 #else
-     NULL
+     {NULL}
 #endif
     },
-    {NULL}
+    {{NULL}}
 };
 
 static struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
 
 struct cipher_type_t {
-    const char* type_str;
-    const EVP_CIPHER* (*cipher_func)(void); /* NULL if notsup */
+    union {
+	const char* str;    /* before init */
+	ERL_NIF_TERM atom;  /* after init */
+    }type;
+    union {
+	const EVP_CIPHER* (*funcp)(void); /* before init, NULL if notsup */
+	const EVP_CIPHER* p;              /* after init, NULL if notsup */
+    }cipher;
     const size_t key_len;      /* != 0 to also match on key_len */
-    ERL_NIF_TERM type_atom;
 };
 
 struct cipher_type_t cipher_types[] =
 {
-    {"rc2_cbc", &EVP_rc2_cbc},
-    {"des_cbc", &EVP_des_cbc},
-    {"des_cfb", &EVP_des_cfb8},
-    {"des_ecb", &EVP_des_ecb},
-    {"des_ede3_cbc", &EVP_des_ede3_cbc},
-    {"des_ede3_cbf",
+    {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+    {{"des_cbc"}, {&EVP_des_cbc}},
+    {{"des_cfb"}, {&EVP_des_cfb8}},
+    {{"des_ecb"}, {&EVP_des_ecb}},
+    {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}},
+    {{"des_ede3_cbf"},
 #ifdef HAVE_DES_ede3_cfb_encrypt
-     &EVP_des_ede3_cfb8
+     {&EVP_des_ede3_cfb8}
 #else
-     NULL
+     {NULL}
 #endif
     },
-    {"blowfish_cbc", &EVP_bf_cbc},
-    {"blowfish_cfb64", &EVP_bf_cfb64},
-    {"blowfish_ofb64", &EVP_bf_ofb},
-    {"blowfish_ecb", &EVP_bf_ecb},
-    {"aes_cbc", &EVP_aes_128_cbc, 16},
-    {"aes_cbc", &EVP_aes_192_cbc, 24},
-    {"aes_cbc", &EVP_aes_256_cbc, 32},
-    {"aes_cbc128", &EVP_aes_128_cbc},
-    {"aes_cbc256", &EVP_aes_256_cbc},
-    {"aes_cfb8", &EVP_aes_128_cfb8},
-    {"aes_cfb128", &EVP_aes_128_cfb128},
-    {"aes_ecb", &EVP_aes_128_ecb, 16},
-    {"aes_ecb", &EVP_aes_192_ecb, 24},
-    {"aes_ecb", &EVP_aes_256_ecb, 32},
-    {NULL}
+    {{"blowfish_cbc"}, {&EVP_bf_cbc}},
+    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}},
+    {{"blowfish_ofb64"}, {&EVP_bf_ofb}},
+    {{"blowfish_ecb"}, {&EVP_bf_ecb}},
+    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16},
+    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24},
+    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32},
+    {{"aes_cbc128"}, {&EVP_aes_128_cbc}},
+    {{"aes_cbc256"}, {&EVP_aes_256_cbc}},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}},
+    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16},
+    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24},
+    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32},
+    {{NULL}}
 };
 
 static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
@@ -851,11 +861,11 @@ static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
 
-    md = digp->md_func();
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
     if (!EVP_Digest(data.data, data.size,
@@ -881,12 +891,12 @@ static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    if (!digp->md.p) {
 	return atom_notsup;
     }
 
     ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(EVP_MD_CTX));
-    if (!EVP_DigestInit(ctx, digp->md_func())) {
+    if (!EVP_DigestInit(ctx, digp->md.p)) {
         enif_release_resource(ctx);
         return atom_notsup;
     }
@@ -955,11 +965,11 @@ static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    if (!digp->md.p) {
 	return atom_notsup;
     }
 
-    switch (EVP_MD_type(digp->md_func()))
+    switch (EVP_MD_type(digp->md.p))
     {
     case NID_md4:
         ctx_size = MD4_CTX_LEN;
@@ -1029,11 +1039,11 @@ static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
         return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    if (!digp->md.p) {
 	return atom_notsup;
     }
 
-    switch (EVP_MD_type(digp->md_func()))
+    switch (EVP_MD_type(digp->md.p))
     {
     case NID_md4:
         ctx_size   = MD4_CTX_LEN;
@@ -1111,11 +1121,11 @@ static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         !enif_inspect_binary(env, tuple[1], &ctx)) {
         return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
 
-    md = digp->md_func();
 
     switch (EVP_MD_type(md))
     {
@@ -1195,8 +1205,8 @@ static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return enif_make_badarg(env);
     }
 
-    if (!digp->md_func ||
-        !HMAC(digp->md_func(),
+    if (!digp->md.p ||
+        !HMAC(digp->md.p,
               key.data, key.size,
               data.data, data.size,
               buff, &size)) {
@@ -1238,7 +1248,7 @@ static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         !enif_inspect_iolist_as_binary(env, argv[1], &key)) {
         return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    if (!digp->md.p) {
         return atom_notsup;
     }
 
@@ -1248,12 +1258,12 @@ static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #if OPENSSL_VERSION_NUMBER >= 0x1000000fL
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init(&obj->ctx, key.data, key.size, digp->md_func())) {
+    if (!HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p)) {
         enif_release_resource(obj);
         return atom_notsup;
     }
 #else
-    HMAC_Init(&obj->ctx, key.data, key.size, digp->md_func());
+    HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p);
 #endif
 
     ret = enif_make_resource(env, obj);
@@ -1332,7 +1342,8 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         || !enif_inspect_iolist_as_binary(env, argv[argc - 2], &text)) {
         return enif_make_badarg(env);
     }
-    if (!cipherp->cipher_func) {
+    cipher = cipherp->cipher.p;
+    if (!cipher) {
         return enif_raise_exception(env, atom_notsup);
     }
 
@@ -1344,7 +1355,6 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return aes_cfb_8_crypt(env, argc-1, argv+1);
     }
 
-    cipher = cipherp->cipher_func();
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
 #ifdef HAVE_ECB_IVEC_BUG
@@ -2119,27 +2129,31 @@ static void init_digest_types(ErlNifEnv* env)
 {
     struct digest_type_t* p = digest_types;
 
-    for (p = digest_types; p->type_str; p++) {
-	p->type_atom = enif_make_atom(env, p->type_str);
+    for (p = digest_types; p->type.str; p++) {
+	p->type.atom = enif_make_atom(env, p->type.str);
+	if (p->md.funcp)
+	    p->md.p = p->md.funcp();
     }
-
+    p->type.atom = atom_false;  /* end marker */
 }
 
 static void init_cipher_types(ErlNifEnv* env)
 {
     struct cipher_type_t* p = cipher_types;
 
-    for (p = cipher_types; p->type_str; p++) {
-	p->type_atom = enif_make_atom(env, p->type_str);
+    for (p = cipher_types; p->type.str; p++) {
+	p->type.atom = enif_make_atom(env, p->type.str);
+	if (p->cipher.funcp)
+	    p->cipher.p = p->cipher.funcp();
     }
-
+    p->type.atom = atom_false; /* end marker */
 }
 
 static struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
 {
     struct digest_type_t* p = NULL;
-    for (p = digest_types; p->type_str; p++) {
-	if (type == p->type_atom) {
+    for (p = digest_types; p->type.atom != atom_false; p++) {
+	if (type == p->type.atom) {
 	    return p;
 	}
     }
@@ -2149,8 +2163,8 @@ static struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
 static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
 {
     struct cipher_type_t* p = NULL;
-    for (p = cipher_types; p->type_str; p++) {
-	if (type == p->type_atom && (!p->key_len || key_len == p->key_len)) {
+    for (p = cipher_types; p->type.atom != atom_false; p++) {
+	if (type == p->type.atom && (!p->key_len || key_len == p->key_len)) {
 	    return p;
 	}
     }
@@ -2175,12 +2189,12 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
 
     rsa = RSA_new();
-    md  = digp->md_func();
 
     if (!enif_inspect_binary(env, argv[1], &digest_bin)
         || digest_bin.size != EVP_MD_size(md)
@@ -2338,10 +2352,10 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
-    md = digp->md_func();
 
     if (!enif_inspect_binary(env,argv[1],&digest_bin)
         || digest_bin.size != EVP_MD_size(md)) {
@@ -3251,10 +3265,10 @@ static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
-    md  = digp->md_func();
     len = EVP_MD_size(md);
 
     if (!enif_inspect_binary(env,argv[1],&digest_bin)
@@ -3302,10 +3316,10 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->md_func) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
-    md  = digp->md_func();
     len = EVP_MD_size(md);
 
     if (!enif_inspect_binary(env, argv[1], &digest_bin)
