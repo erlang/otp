@@ -104,8 +104,7 @@
 		 ram_copies = [],
 		 disc_copies = [],
 		 disc_only_copies = [],
-                 external_copies = [],
-		 snmp = [],
+		 ext = [],
 		 schema_ops = []
 		}).
 

@@ -229,11 +229,11 @@ insert_rec(Rec, InPlace, InitBy, LogV) when is_record(Rec, commit) ->
     D = Rec#commit.decision,
     case mnesia_recover:wait_for_decision(D, InitBy) of
 	{Tid, committed} ->
-	    do_insert_rec(Tid, Rec, InPlace, InitBy, LogV);
+	    do_insert_rec(Tid, mnesia_tm:new_cr_format(Rec), InPlace, InitBy, LogV);
 	{Tid, aborted} ->
 	    case InitBy of
 		startup ->
-		    mnesia_schema:undo_prepare_commit(Tid, Rec);
+		    mnesia_schema:undo_prepare_commit(Tid, mnesia_tm:new_cr_format(Rec));
 		_ ->
 		    ok
 	    end
@@ -288,10 +288,15 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	    ignore
     end.
 
-commit_ext(#commit{external_copies = C}) ->
-    lists:foldl(fun({Ext, Op}, D) ->
-			orddict:append(Ext, Op, D)
-		end, orddict:new(), C).
+commit_ext(#commit{ext = []}) -> [];
+commit_ext(#commit{ext = Ext}) ->
+    case lists:keyfind(ext_copies, 1, Ext) of
+	{_, C} ->
+	    lists:foldl(fun({Ext0, Op}, D) ->
+				orddict:append(Ext0, Op, D)
+			end, orddict:new(), C);
+	false -> []
+    end.
 
 update(_Tid, [], _DumperMode) ->
     dumped;
