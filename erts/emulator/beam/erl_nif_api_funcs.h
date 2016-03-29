@@ -163,6 +163,15 @@ ERL_NIF_API_FUNC_DECL(int,enif_getenv,(const char* key, char* value, size_t* val
 ERL_NIF_API_FUNC_DECL(ErlNifTime, enif_monotonic_time, (ErlNifTimeUnit));
 ERL_NIF_API_FUNC_DECL(ErlNifTime, enif_time_offset, (ErlNifTimeUnit));
 ERL_NIF_API_FUNC_DECL(ErlNifTime, enif_convert_time_unit, (ErlNifTime, ErlNifTimeUnit, ErlNifTimeUnit));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_now_time, (ErlNifEnv *env));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_cpu_time, (ErlNifEnv *env));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_unique_integer, (ErlNifEnv *env, ErlNifUniqueInteger properties));
+ERL_NIF_API_FUNC_DECL(int, enif_is_process_alive, (ErlNifEnv *env, ErlNifPid *pid));
+ERL_NIF_API_FUNC_DECL(int, enif_is_port_alive, (ErlNifEnv *env, ErlNifPort *port_id));
+ERL_NIF_API_FUNC_DECL(int, enif_get_local_port, (ErlNifEnv* env, ERL_NIF_TERM, ErlNifPort* port_id));
+ERL_NIF_API_FUNC_DECL(int, enif_term_to_binary, (ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin));
+ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsigned char* data, size_t sz, ERL_NIF_TERM *term, unsigned int opts));
+ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -318,6 +327,15 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_monotonic_time ERL_NIF_API_FUNC_MACRO(enif_monotonic_time)
 #  define enif_time_offset ERL_NIF_API_FUNC_MACRO(enif_time_offset)
 #  define enif_convert_time_unit ERL_NIF_API_FUNC_MACRO(enif_convert_time_unit)
+#  define enif_now_time ERL_NIF_API_FUNC_MACRO(enif_now_time)
+#  define enif_cpu_time ERL_NIF_API_FUNC_MACRO(enif_cpu_time)
+#  define enif_make_unique_integer ERL_NIF_API_FUNC_MACRO(enif_make_unique_integer)
+#  define enif_is_process_alive ERL_NIF_API_FUNC_MACRO(enif_is_process_alive)
+#  define enif_is_port_alive ERL_NIF_API_FUNC_MACRO(enif_is_port_alive)
+#  define enif_get_local_port ERL_NIF_API_FUNC_MACRO(enif_get_local_port)
+#  define enif_term_to_binary ERL_NIF_API_FUNC_MACRO(enif_term_to_binary)
+#  define enif_binary_to_term ERL_NIF_API_FUNC_MACRO(enif_binary_to_term)
+#  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

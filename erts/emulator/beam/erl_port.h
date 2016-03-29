@@ -978,6 +978,8 @@ ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
 
+int erts_port_output_async(Port *, Eterm, Eterm);
+
 /*
  * Signals from ports to ports. Used by sys drivers.
  */

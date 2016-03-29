@@ -30,6 +30,7 @@ static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
 static ERL_NIF_TERM atom_false;
+static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_self;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_join;
@@ -138,6 +139,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 						    msgenv_dtor,
 						    ERL_NIF_RT_CREATE, NULL);
     atom_false = enif_make_atom(env,"false");
+    atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
     atom_ok = enif_make_atom(env,"ok");
     atom_join = enif_make_atom(env,"join");
@@ -1978,6 +1980,123 @@ static ERL_NIF_TERM convert_time_unit(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return enif_make_int64(env, enif_convert_time_unit(val, from, to));
 }
 
+static ERL_NIF_TERM now_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_now_time(env);
+}
+
+static ERL_NIF_TERM cpu_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_cpu_time(env);
+}
+
+static ERL_NIF_TERM unique_integer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM atom_pos = enif_make_atom(env,"positive"),
+        atom_mon = enif_make_atom(env,"monotonic");
+    ERL_NIF_TERM opts = argv[0], opt;
+    ErlNifUniqueInteger properties = 0;
+
+    while (!enif_is_empty_list(env, opts)) {
+	if (!enif_get_list_cell(env, opts, &opt, &opts))
+            return enif_make_badarg(env);
+
+        if (enif_compare(opt, atom_pos) == 0)
+            properties |= ERL_NIF_UNIQUE_POSITIVE;
+        if (enif_compare(opt, atom_mon) == 0)
+            properties |= ERL_NIF_UNIQUE_MONOTONIC;
+    }
+
+    return enif_make_unique_integer(env, properties);
+}
+
+static ERL_NIF_TERM is_process_alive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid pid;
+    if (!enif_get_local_pid(env, argv[0], &pid))
+        return enif_make_badarg(env);
+    if (enif_is_process_alive(env, &pid))
+        return atom_true;
+    return atom_false;
+}
+
+static ERL_NIF_TERM is_port_alive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPort port;
+    if (!enif_get_local_port(env, argv[0], &port))
+        return enif_make_badarg(env);
+    if (enif_is_port_alive(env, &port))
+        return atom_true;
+    return atom_false;
+}
+
+static ERL_NIF_TERM term_to_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary bin;
+    ErlNifPid pid;
+    ErlNifEnv *msg_env = env;
+    ERL_NIF_TERM term;
+
+    if (enif_get_local_pid(env, argv[1], &pid))
+        msg_env = enif_alloc_env();
+
+    if (!enif_term_to_binary(msg_env, argv[0], &bin))
+        return enif_make_badarg(env);
+
+    term = enif_make_binary(msg_env, &bin);
+
+    if (msg_env != env) {
+        enif_send(env, &pid, msg_env, term);
+        enif_free_env(msg_env);
+        return atom_true;
+    } else {
+        return term;
+    }
+}
+
+static ERL_NIF_TERM binary_to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary bin;
+    ERL_NIF_TERM term, ret_term;
+    ErlNifPid pid;
+    ErlNifEnv *msg_env = env;
+    unsigned int opts;
+    ErlNifUInt64 ret;
+
+    if (enif_get_local_pid(env, argv[1], &pid))
+        msg_env = enif_alloc_env();
+
+    if (!enif_inspect_binary(env, argv[0], &bin)
+	|| !enif_get_uint(env, argv[2], &opts))
+        return enif_make_badarg(env);
+
+    ret = enif_binary_to_term(msg_env, bin.data, bin.size, &term,
+			      (ErlNifBinaryToTerm)opts);
+    if (!ret)
+	return atom_false;
+
+    ret_term = enif_make_uint64(env, ret);
+    if (msg_env != env) {
+        enif_send(env, &pid, msg_env, term);
+        enif_free_env(msg_env);
+        return ret_term;
+    } else {
+        return enif_make_tuple2(env, ret_term, term);
+    }
+}
+
+static ERL_NIF_TERM port_command(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPort port;
+
+    if (!enif_get_local_port(env, argv[0], &port))
+        return enif_make_badarg(env);
+
+    if (!enif_port_command(env, &port, NULL, argv[1]))
+        return enif_make_badarg(env);
+    return atom_true;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -2050,8 +2169,15 @@ static ErlNifFunc nif_funcs[] =
     {"sorted_list_from_maps_nif", 1, sorted_list_from_maps_nif},
     {"monotonic_time", 1, monotonic_time},
     {"time_offset", 1, time_offset},
-    {"convert_time_unit", 3, convert_time_unit}
+    {"convert_time_unit", 3, convert_time_unit},
+    {"now_time", 0, now_time},
+    {"cpu_time", 0, cpu_time},
+    {"unique_integer_nif", 1, unique_integer},
+    {"is_process_alive_nif", 1, is_process_alive},
+    {"is_port_alive_nif", 1, is_port_alive},
+    {"term_to_binary_nif", 2, term_to_binary},
+    {"binary_to_term_nif", 3, binary_to_term},
+    {"port_command_nif", 2, port_command}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
-

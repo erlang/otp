@@ -180,10 +180,9 @@ p2p_sig_data_to_task(ErtsProc2PortSigData *sigdp)
     return ptp;
 }
 
-ErtsProc2PortSigData *
-erts_port_task_alloc_p2p_sig_data(void)
+static ERTS_INLINE ErtsProc2PortSigData *
+p2p_sig_data_init(ErtsPortTask *ptp)
 {
-    ErtsPortTask *ptp = port_task_alloc();
 
     ptp->type = ERTS_PORT_TASK_PROC_SIG;
     ptp->u.alive.flags = ERTS_PT_FLG_SIG_DEP;
@@ -192,6 +191,31 @@ erts_port_task_alloc_p2p_sig_data(void)
     ASSERT(ptp == p2p_sig_data_to_task(&ptp->u.alive.td.psig.data));
 
     return &ptp->u.alive.td.psig.data;
+}
+
+ErtsProc2PortSigData *
+erts_port_task_alloc_p2p_sig_data(void)
+{
+    ErtsPortTask *ptp = port_task_alloc();
+
+    return p2p_sig_data_init(ptp);
+}
+
+ErtsProc2PortSigData *
+erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr)
+{
+    ErtsPortTask *ptp = erts_alloc(ERTS_ALC_T_PORT_TASK,
+                                   sizeof(ErtsPortTask) + extra);
+
+    *extra_ptr = ptp+1;
+
+    return p2p_sig_data_init(ptp);
+}
+
+void
+erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp)
+{
+    schedule_port_task_free(p2p_sig_data_to_task(sigdp));
 }
 
 static ERTS_INLINE Eterm

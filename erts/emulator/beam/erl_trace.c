@@ -176,7 +176,7 @@ take_timestamp(ErtsTraceTimeStamp *tsp, int ts_type)
 	    hsz += 3; /* 2-tuple */
 	    raw_unique = erts_raw_get_unique_monotonic_integer();
 	    tsp->u.monotonic.raw_unique = raw_unique;
-	    hsz += erts_raw_unique_monotonic_integer_heap_size(raw_unique);
+	    hsz += erts_raw_unique_monotonic_integer_heap_size(raw_unique, 0);
 	}
 	return hsz;
     }
@@ -216,8 +216,7 @@ write_timestamp(ErtsTraceTimeStamp *tsp, Eterm **hpp)
 	    return emtime;
 
 	raw = tsp->u.monotonic.raw_unique;
-	unique = erts_raw_make_unique_monotonic_integer_value(hpp,
-							      raw);
+	unique = erts_raw_make_unique_monotonic_integer_value(hpp, raw, 0);
 	res = TUPLE2(*hpp, emtime, unique);
 	*hpp += 3;
 	return res;

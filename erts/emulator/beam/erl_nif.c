@@ -209,6 +209,7 @@ static void flush_env(ErlNifEnv* env)
 */
 static void cache_env(ErlNifEnv* env)
 {
+    env->heap_frag = MBUF(env->proc);
     if (env->heap_frag == NULL) {
 	ASSERT(env->hp_end == HEAP_LIMIT(env->proc));
 	ASSERT(env->hp <= HEAP_TOP(env->proc));
@@ -216,10 +217,6 @@ static void cache_env(ErlNifEnv* env)
 	env->hp = HEAP_TOP(env->proc);
     }
     else {
-	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);       
-	env->heap_frag = MBUF(env->proc);
-	ASSERT(env->heap_frag != NULL);
 	env->hp = env->heap_frag->mem + env->heap_frag->used_size;
 	env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
     }
@@ -375,6 +372,29 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     return 1;
 }
 
+int
+enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
+                  ErlNifEnv *msg_env, ERL_NIF_TERM msg)
+{
+
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    int scheduler = esdp ? esdp->no : 0;
+    Port *prt;
+
+    if (scheduler == 0 || !env)
+        return 0;
+
+    prt = erts_port_lookup(to_port->port_id,
+                           (erts_port_synchronous_ops
+                            ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+                            : ERTS_PORT_SFLGS_INVALID_LOOKUP));
+
+    if (!prt)
+        return 0;
+
+    return erts_port_output_async(prt, env->proc->common.id, msg);
+}
+
 ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;
@@ -404,12 +424,28 @@ static int is_offheap(const ErlOffHeap* oh)
 
 ErlNifPid* enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)
 {
+    if (caller_env->proc->common.id == ERTS_INVALID_PID)
+        return NULL;
     pid->pid = caller_env->proc->common.id;
     return pid;
 }
+
 int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)
 {
-    return is_internal_pid(term) ? (pid->pid=term, 1) : 0;
+    if (is_internal_pid(term)) {
+        pid->pid=term;
+        return 1;
+    }
+    return 0;
+}
+
+int enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port)
+{
+    if (is_internal_port(term)) {
+        port->port_id=term;
+        return 1;
+    }
+    return 0;
 }
 
 int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -620,6 +656,68 @@ unsigned char* enif_make_new_binary(ErlNifEnv* env, size_t size,
     *termp = new_binary(env->proc, NULL, size);
     cache_env(env);
     return binary_bytes(*termp);
+}
+
+int enif_term_to_binary(ErlNifEnv *dst_env, ERL_NIF_TERM term,
+                        ErlNifBinary *bin)
+{
+    Sint size;
+    byte *bp;
+    Binary* refbin;
+
+    size = erts_encode_ext_size(term);
+    if (!enif_alloc_binary(size, bin))
+        return 0;
+
+    refbin = bin->ref_bin;
+
+    bp = bin->data;
+
+    erts_encode_ext(term, &bp);
+
+    bin->size = bp - bin->data;
+    refbin->orig_size = bin->size;
+
+    ASSERT(bin->data + bin->size == bp);
+
+    return 1;
+}
+
+size_t enif_binary_to_term(ErlNifEnv *dst_env,
+                           const unsigned char* data,
+                           size_t data_sz,
+                           ERL_NIF_TERM *term,
+                           ErlNifBinaryToTerm opts)
+{
+    Sint size;
+    ErtsHeapFactory factory;
+    byte *bp = (byte*) data;
+
+    ERTS_CT_ASSERT(ERL_NIF_BIN2TERM_SAFE == ERTS_DIST_EXT_BTT_SAFE);
+
+    if (opts & ~ERL_NIF_BIN2TERM_SAFE) {
+        return 0;
+    }
+    if ((size = erts_decode_ext_size(bp, data_sz)) < 0)
+        return 0;
+
+    if (size > 0) {
+        flush_env(dst_env);
+        erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
+    } else {
+        erts_factory_dummy_init(&factory);
+    }
+
+    *term = erts_decode_ext(&factory, &bp, (Uint32)opts);
+
+    if (is_non_value(*term)) {
+        return 0;
+    }
+    erts_factory_close(&factory);
+    cache_env(dst_env);
+
+    ASSERT(bp > data);
+    return bp - data;
 }
 
 int enif_is_identical(Eterm lhs, Eterm rhs)
@@ -1158,6 +1256,103 @@ int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list
     return 1;
 }
 
+int enif_is_process_alive(ErlNifEnv* env, ErlNifPid *proc)
+{
+    ErtsProcLocks rp_locks = 0; /* We don't need any locks,
+                                   just to check if it is alive */
+    Eterm target = proc->pid;
+    Process* rp;
+    Process* c_p;
+    int scheduler = erts_get_scheduler_id() != 0;
+
+    if (env != NULL) {
+	c_p = env->proc;
+	if (target == c_p->common.id) {
+            /* We are alive! */
+	    return 1;
+	}
+    }
+    else {
+#ifdef ERTS_SMP
+	c_p = NULL;
+#else
+	erts_exit(ERTS_ABORT_EXIT,"enif_is_process_alive: "
+                  "env==NULL on non-SMP VM");
+#endif
+    }
+
+    rp = (scheduler
+	  ? erts_proc_lookup(target)
+	  : erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			      target, rp_locks, ERTS_P2P_FLG_INC_REFC));
+    if (rp == NULL) {
+        ASSERT(env == NULL || target != c_p->common.id);
+	return 0;
+    } else {
+        if (!scheduler)
+            erts_proc_dec_refc(rp);
+        return 1;
+    }
+}
+
+int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
+{
+    /* only allowed if called from scheduler */
+    if (erts_get_scheduler_id() == 0)
+        erts_exit(ERTS_ABORT_EXIT,"enif_is_port_alive: called from non-scheduler");
+
+    return erts_port_lookup(
+        port->port_id,
+        (erts_port_synchronous_ops
+         ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+         : ERTS_PORT_SFLGS_INVALID_LOOKUP)) != NULL;
+}
+
+ERL_NIF_TERM
+enif_now_time(ErlNifEnv *env)
+{
+    Uint mega, sec, micro;
+    Eterm *hp;
+    get_now(&mega, &sec, &micro);
+    hp = alloc_heap(env, 4);
+    return TUPLE3(hp, make_small(mega), make_small(sec), make_small(micro));
+}
+
+ERL_NIF_TERM
+enif_cpu_time(ErlNifEnv *env)
+{
+#ifdef HAVE_ERTS_NOW_CPU
+    Uint mega, sec, micro;
+    Eterm *hp;
+    erts_get_now_cpu(&mega, &sec, &micro);
+    hp = alloc_heap(env, 4);
+    return TUPLE3(hp, make_small(mega), make_small(sec), make_small(micro));
+#else
+    return enif_make_badarg(env);
+#endif
+}
+
+ERL_NIF_TERM
+enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)
+{
+    int monotonic = properties & ERL_NIF_UNIQUE_MONOTONIC;
+    int positive = properties & ERL_NIF_UNIQUE_POSITIVE;
+    Eterm *hp;
+    Uint hsz;
+
+    if (monotonic) {
+        Sint64 raw_unique = erts_raw_get_unique_monotonic_integer();
+        hsz = erts_raw_unique_monotonic_integer_heap_size(raw_unique, positive);
+        hp = alloc_heap(env, hsz);
+        return erts_raw_make_unique_monotonic_integer_value(&hp, raw_unique, positive);
+    } else {
+        Uint64 raw_unique[ERTS_UNIQUE_INT_RAW_VALUES];
+        erts_raw_get_unique_integer(raw_unique);
+        hsz = erts_raw_unique_integer_heap_size(raw_unique, positive);
+        hp = alloc_heap(env, hsz);
+        return erts_raw_make_unique_integer(&hp, raw_unique, positive);
+    }
+}
 
 ErlNifMutex* enif_mutex_create(char *name) { return erl_drv_mutex_create(name); }
 void enif_mutex_destroy(ErlNifMutex *mtx) {  erl_drv_mutex_destroy(mtx); }

@@ -150,7 +150,12 @@ typedef enum
 typedef struct
 {
     ERL_NIF_TERM pid;  /* internal, may change */
-}ErlNifPid;
+} ErlNifPid;
+
+typedef struct
+{
+    ERL_NIF_TERM port_id;  /* internal, may change */
+}ErlNifPort;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -196,6 +201,15 @@ typedef enum {
     ERL_NIF_MAP_ITERATOR_HEAD = ERL_NIF_MAP_ITERATOR_FIRST,
     ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
 } ErlNifMapIteratorEntry;
+
+typedef enum {
+    ERL_NIF_UNIQUE_POSITIVE = (1 << 0),
+    ERL_NIF_UNIQUE_MONOTONIC = (1 << 1)
+} ErlNifUniqueInteger;
+
+typedef enum {
+    ERL_NIF_BIN2TERM_SAFE = 0x20000000
+} ErlNifBinaryToTerm;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS

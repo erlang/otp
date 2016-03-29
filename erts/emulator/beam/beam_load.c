@@ -1548,7 +1548,7 @@ read_literal_table(LoaderState* stp)
             erts_factory_heap_frag_init(&factory,
 					new_literal_fragment(heap_size));
 	    factory.alloc_type = ERTS_ALC_T_PREPARED_CODE;
-            val = erts_decode_ext(&factory, &p);
+            val = erts_decode_ext(&factory, &p, 0);
 
             if (is_non_value(val)) {
                 LoadError1(stp, "literal %d: bad external format", i);
@@ -1559,7 +1559,7 @@ read_literal_table(LoaderState* stp)
         }
         else {
             erts_factory_dummy_init(&factory);
-            val = erts_decode_ext(&factory, &p);
+            val = erts_decode_ext(&factory, &p, 0);
             if (is_non_value(val)) {
                 LoadError1(stp, "literal %d: bad external format", i);
             }
@@ -5719,7 +5719,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     if (ext != NULL) {
 	ErtsHeapFactory factory;
 	erts_factory_proc_prealloc_init(&factory, p, code_hdr->attr_size_on_heap);
-	result = erts_decode_ext(&factory, &ext);
+	result = erts_decode_ext(&factory, &ext, 0);
 	if (is_value(result)) {
 	    erts_factory_close(&factory);
 	}
@@ -5742,7 +5742,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     if (ext != NULL) {
 	ErtsHeapFactory factory;
 	erts_factory_proc_prealloc_init(&factory, p, code_hdr->compile_size_on_heap);
-	result = erts_decode_ext(&factory, &ext);
+	result = erts_decode_ext(&factory, &ext, 0);
 	if (is_value(result)) {
 	    erts_factory_close(&factory);
 	}
