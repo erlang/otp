@@ -3079,6 +3079,8 @@ erl_bin_write(buf, sz, max)
   }
 }
 
+#endif /* DEBUG */
+
 void
 erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {   
@@ -3094,7 +3096,6 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     DebugBreak();
 }
 
-#endif /* DEBUG */
 	    
 static void
 check_supported_os_version(void)
