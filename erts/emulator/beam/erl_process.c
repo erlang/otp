@@ -9333,8 +9333,6 @@ Process *schedule(Process *p, int calls)
     } else {
     sched_out_proc:
 
-	ASSERT(!(p->flags & F_DELAY_GC));
-
 #ifdef ERTS_SMP
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 	esdp = p->scheduler_data;
@@ -9895,15 +9893,24 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	if (state & ERTS_PSFLG_RUNNING_SYS) {
-	    reds -= execute_sys_tasks(p, &state, reds);
-	    if (reds <= 0
+	    /*
+	     * GC is normally never delayed when a process
+	     * is scheduled out, but might be when executing
+	     * hand written beam assembly in
+	     * prim_eval:'receive'. If GC is delayed we are
+	     * not allowed to execute system tasks.
+	     */
+	    if (!(p->flags & F_DELAY_GC)) {
+		reds -= execute_sys_tasks(p, &state, reds);
+		if (reds <= 0
 #ifdef ERTS_DIRTY_SCHEDULERS
-		|| ERTS_SCHEDULER_IS_DIRTY(esdp)
-		|| (state & ERTS_PSFLGS_DIRTY_WORK)
+		    || ERTS_SCHEDULER_IS_DIRTY(esdp)
+		    || (state & ERTS_PSFLGS_DIRTY_WORK)
 #endif
-		) {
-		p->fcalls = reds;
-		goto sched_out_proc;
+		    ) {
+		    p->fcalls = reds;
+		    goto sched_out_proc;
+		}
 	    }
 
 	    ASSERT(state & ERTS_PSFLG_RUNNING_SYS);
@@ -9933,7 +9940,7 @@ Process *schedule(Process *p, int calls)
 	}
 
 	if (ERTS_IS_GC_DESIRED(p)) {
-	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & F_DISABLE_GC)) {
+	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
 		reds -= erts_garbage_collect_nobump(p, 0, p->arg_reg, p->arity);
 		if (reds <= 0) {
 		    p->fcalls = reds;
