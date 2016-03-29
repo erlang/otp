@@ -1653,7 +1653,7 @@ allocate_nif_sched_data(Process* proc, int argc)
 	ep->exp.addressv[i] = &ep->exp.code[3];
     }
     ep->exp.code[3] = (BeamInstr) em_call_nif;
-    (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ERTS_PROC_LOCK_MAIN, ep);
+    (void) ERTS_PROC_SET_NIF_TRAP_EXPORT(proc, ep);
     return ep;
 }
 

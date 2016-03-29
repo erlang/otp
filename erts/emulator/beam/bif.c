@@ -1567,7 +1567,7 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
 	   scb->n = 0;
        }
 
-       scb = ERTS_PROC_SET_SAVED_CALLS_BUF(rp, ERTS_PROC_LOCK_MAIN, scb);
+       scb = ERTS_PROC_SET_SAVED_CALLS_BUF(rp, scb);
 
        if (!scb)
 	   old_value = make_small(0);
@@ -1595,9 +1595,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
       if (is_not_atom(BIF_ARG_2)) {
 	 goto error;
       }
-      old_value = erts_proc_set_error_handler(BIF_P,
-					      ERTS_PROC_LOCK_MAIN,
-					      BIF_ARG_2);
+      old_value = erts_proc_set_error_handler(BIF_P, BIF_ARG_2);
       BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_priority) {
