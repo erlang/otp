@@ -776,7 +776,7 @@ define etp-pid-1
   if ($etp_pid_1 & 0xF) == 0x3
     if (etp_arch_bits == 64)
       if (etp_big_endian)
-      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
+      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 35) & 0x0fffffff)
       else
         set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 4) & 0x0fffffff)
       end
