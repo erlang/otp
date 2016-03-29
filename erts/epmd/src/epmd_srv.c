@@ -452,9 +452,11 @@ void run(EpmdVars *g)
   num_sockets = bound;
 #ifdef HAVE_SYSTEMD_DAEMON
     }
-    sd_notifyf(0, "READY=1\n"
-                  "STATUS=Processing port mapping requests...\n"
-                  "MAINPID=%lu", (unsigned long) getpid());
+    if (g->is_systemd) {
+      sd_notifyf(0, "READY=1\n"
+                    "STATUS=Processing port mapping requests...\n"
+                    "MAINPID=%lu", (unsigned long) getpid());
+    }
 #endif /* HAVE_SYSTEMD_DAEMON */
 
   dbg_tty_printf(g,2,"entering the main select() loop");

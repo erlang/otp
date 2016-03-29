@@ -592,8 +592,10 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
       free(g->argv);
   }
 #ifdef HAVE_SYSTEMD_DAEMON
-  sd_notifyf(0, "STATUS=Exited.\n"
-                "ERRNO=%i", exitval);
+  if (g->is_systemd){
+    sd_notifyf(0, "STATUS=Exited.\n"
+               "ERRNO=%i", exitval);
+  }
 #endif /* HAVE_SYSTEMD_DAEMON */
   exit(exitval);
 }
