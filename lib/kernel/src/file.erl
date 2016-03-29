@@ -1227,7 +1227,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 %% Send data using sendfile
 %%
 
--define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
+%% 1 MB, Windows seems to behave badly if it is much larger then this
+-define(MAX_CHUNK_SIZE, (1 bsl 20)).
 
 -spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
