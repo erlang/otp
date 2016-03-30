@@ -48,7 +48,12 @@ init_per_suite(Config) ->
 	{error,Reason} when Reason=/={already_loaded,crypto} ->
 	    {skip, Reason};
 	_ ->
-	    ct_test_support:init_per_suite(Config)
+	    case application:load(ssh) of
+		{error,Reason} when Reason=/={already_loaded,ssh} ->
+		    {skip, Reason};
+		_ ->
+		    ct_test_support:init_per_suite(Config)
+	    end
     end.
 
 end_per_suite(Config) ->
