@@ -823,12 +823,13 @@ static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
             if (sz == 0) {
                 driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
                               ERL_DRV_WRITE,0);
-                if (ttysl_terminate)
+                if (ttysl_terminate) {
                     /* flush has been called, which means we should terminate
                        when queue is empty. This will not send any exit
                        message */
                     DEBUGLOG(("ttysl_to_tty: ttysl_terminate normal\n"));
                     driver_failure_atom(ttysl_port, "normal");
+		}
                 break;
             }
         }
