@@ -107,7 +107,8 @@
 	 call/2, call/3,
 	 cast/2,
 	 reply/2,
-	 get_pid/1
+	 get_pid/1,
+	 set_pid/2
 	]).
 
 %% -export([behaviour_info/1]).
@@ -305,6 +306,11 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
 %% @doc Get the pid of the object handle.
 get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
     Pid.
+
+%% @spec (Ref::wxObject(), pid()) -> wxObject()
+%% @doc Sets the controlling process of the object handle.
+set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
+    R#wx_ref{state=Pid}.
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
