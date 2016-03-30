@@ -26,7 +26,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
 
 all() ->
     case os:find_executable("ssh") of
@@ -48,13 +49,10 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) ->
     stop_node(Case),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) ->
     stop_node(Case),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 stop_node(Case) ->
@@ -63,6 +61,8 @@ stop_node(Case) ->
     rpc:call(Node,erlang,halt,[]).
 
 
+init_per_suite() ->
+    [{timetrap,2*?default_timeout}]. % making dsa files can be slow
 init_per_suite(Config) ->
     case ssh:start() of
 	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->

@@ -123,6 +123,8 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
+init_per_suite() ->
+    [{timetrap,2*?default_timeout}]. % making dsa files can be slow
 init_per_suite(Config) ->
     case catch ssh:start() of
 	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
