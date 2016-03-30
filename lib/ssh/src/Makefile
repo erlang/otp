@@ -54,6 +54,7 @@ MODULES= \
 	ssh_connection_sup \
 	ssh_connection \
 	ssh_connection_handler \
+	ssh_dbg \
 	ssh_shell \
 	ssh_system_sup \
 	ssh_subsystem_sup \
