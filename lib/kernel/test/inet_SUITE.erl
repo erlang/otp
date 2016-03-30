@@ -1138,24 +1138,28 @@ jog_netns_opt(S) ->
     ok.
 
 
+%% Smoke test netns support.
 simple_netns_open(Config) when is_list(Config) ->
+    %% Note: {error,enoent} will be returned if the run-time executable
+    %%       has support for netns, but /proc/self/ns/net is missing.
     case gen_udp:open(0, [binary,{netns,"/"},inet]) of
 	{ok,U} ->
 	    ok = gen_udp:close(U);
-	{error,E1} when E1 =:= einval; E1 =:= eperm ->
+	{error,E1} when E1 =:= einval; E1 =:= eperm; E1 =:= enoent ->
 	    ok
     end,
     case gen_tcp:listen(0, [binary,{netns,"/"},inet]) of
 	{ok,T} ->
 	    ok = gen_tcp:close(T);
-	{error,E2} when E2 =:= einval; E2 =:= eperm ->
+	{error,E2} when E2 =:= einval; E2 =:= eperm; E2 =:= enoent ->
 	    ok
     end,
     try gen_sctp:open(0, [binary,{netns,"/"},inet]) of
 	{ok,S} ->
 	    ok = gen_sctp:close(S);
 	{error,E3}
-	  when E3 =:= einval; E3 =:= eperm; E3 =:= eprotonosupport ->
+	  when E3 =:= einval; E3 =:= eperm;
+	       E3 =:= enoent; E3 =:= eprotonosupport ->
 	    ok
     catch
 	error:badarg ->
