@@ -1031,7 +1031,7 @@ conv_return(I, Map, Data) ->
   {I2, Map0, Data}.
 
 conv_store(I, Map, Data) ->
-  {Base1, Map0} = conv_dst(hipe_rtl:store_base(I), Map),
+  {Base1, Map0} = conv_src(hipe_rtl:store_base(I), Map),
   {Src, Map1} = conv_src(hipe_rtl:store_src(I), Map0),
   {Base2, Map2} = conv_src(hipe_rtl:store_offset(I), Map1),
   StoreSize = hipe_rtl:store_size(I),
@@ -1056,13 +1056,28 @@ mk_store(Src, Base1, Base2, StoreSize) ->
   end.
 
 mk_store2(Src, Base1, Base2, StOp) ->
-  case hipe_ppc:is_temp(Base2) of
+  case hipe_ppc:is_temp(Base1) of
     true ->
-      mk_store_rr(Src, Base1, Base2, StOp);
+      case hipe_ppc:is_temp(Base2) of
+	true ->
+	  mk_store_rr(Src, Base1, Base2, StOp);
+	_ ->
+	  mk_store_ri(Src, Base1, Base2, StOp)
+      end;
     _ ->
-      mk_store_ri(Src, Base1, Base2, StOp)
+      case hipe_ppc:is_temp(Base2) of
+	true ->
+	  mk_store_ri(Src, Base2, Base1, StOp);
+	_ ->
+	  mk_store_ii(Src, Base1, Base2, StOp)
+      end
   end.
-  
+
+mk_store_ii(Src, Base, Disp, StOp) ->
+  Tmp = new_untagged_temp(),
+  mk_li(Tmp, Base,
+	mk_store_ri(Src, Tmp, Disp, StOp)).
+
 mk_store_ri(Src, Base, Disp, StOp) ->
   hipe_ppc:mk_store(StOp, Src, Disp, Base, 'new', []).
 
