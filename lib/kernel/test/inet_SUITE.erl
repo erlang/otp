@@ -1075,6 +1075,10 @@ check_ifopts(
   #ifopts{addrs=Addrs}=Ifopts) ->
     check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask,Broadaddr}|Addrs]});
 check_ifopts(
+  [{addr,Addr},{netmask,Netmask},{dstaddr,_}|Opts],
+  #ifopts{addrs=Addrs}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask}|Addrs]});
+check_ifopts(
   [{addr,Addr},{netmask,Netmask}|Opts],
   #ifopts{addrs=Addrs}=Ifopts) ->
     check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask}|Addrs]});
