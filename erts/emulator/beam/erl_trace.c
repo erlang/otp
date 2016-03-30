@@ -20,6 +20,19 @@
 
 /*
  * Support functions for tracing.
+ *
+ * Ideas for future speed improvements in tracing framework:
+ *  * Move ErtsTracerNif into ErtsTracer
+ *     + Removes need for locking
+ *     + Removes hash lookup overhead
+ *     + Use a refc on the ErtsTracerNif to know when it can
+ *       be freed. We don't want to allocate a separate
+ *       ErtsTracerNif for each module used.
+ *  * Optimize GenericBp for cache locality by reusing equivalent
+ *    GenericBp and GenericBpData in multiple tracer points.
+ *     + Possibly we want to use specialized instructions for different
+ *       types of trace so that the knowledge of which struct is used
+ *       can be in the instruction.
  */
 
 #ifdef HAVE_CONFIG_H
