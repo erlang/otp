@@ -1086,7 +1086,9 @@ file_write_read_file_info_opts(Handle, Name, Mtime, Opts) ->
     {ok, FI} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
     FI2 = FI#file_info{ mtime = Mtime },
     ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI2, Opts]),
-    {ok, FI2} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    {ok, FI3} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    io:format("Expecting mtime = ~p, got ~p~n", [FI2#file_info.mtime, FI3#file_info.mtime]),
+    FI2 = FI3,
     ok.
 
 
