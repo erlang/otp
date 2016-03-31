@@ -246,7 +246,7 @@ check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
 check_childspecs(X) -> {error, {badarg, X}}.
 
 %%%-----------------------------------------------------------------
-%%% Called by timer:apply_after from restart/2
+%%% Called by restart/2
 -spec try_again_restart(SupRef, Child) -> ok when
       SupRef :: sup_ref(),
       Child :: child_id() | pid().
@@ -571,8 +571,8 @@ count_child(#child{pid = Pid, child_type = supervisor},
     end.
 
 
-%%% If a restart attempt failed, this message is sent via
-%%% timer:apply_after(0,...) in order to give gen_server the chance to
+%%% If a restart attempt failed, this message is cast
+%%% from restart/2 in order to give gen_server the chance to
 %%% check it's inbox before trying again.
 -spec handle_cast({try_again_restart, child_id() | pid()}, state()) ->
 			 {'noreply', state()} | {stop, shutdown, state()}.
@@ -790,16 +790,10 @@ restart(Child, State) ->
 		    Id = if ?is_simple(State) -> Child#child.pid;
 			    true -> Child#child.name
 			 end,
-		    {ok, _TRef} = timer:apply_after(0,
-                                                    ?MODULE,
-                                                    try_again_restart,
-                                                    [self(),Id]),
+		    ok = try_again_restart(self(), Id),
 		    {ok,NState2};
 		{try_again, NState2, #child{name=ChName}} ->
-		    {ok, _TRef} = timer:apply_after(0,
-						    ?MODULE,
-						    try_again_restart,
-						    [self(),ChName]),
+		    ok = try_again_restart(self(), ChName),
 		    {ok,NState2};
 		Other ->
 		    Other
