@@ -35,6 +35,9 @@
 -type filename() :: file:filename().
 -type proplist() :: proplists:property().
 -type syntaxTree() :: erl_syntax:syntaxTree().
+-type edoc_env() :: edoc_lib:edoc_env().
+-type edoc_module() :: edoc:edoc_module().
+-type comment() :: edoc:comment().
 
 %% @doc Like {@link source/5}, but reads the syntax tree and the
 %% comments from the specified file.
@@ -43,11 +46,11 @@
 %% @see edoc:read_source/2
 %% @see source/4
 
--spec source(File, Env, Options) -> {ModuleName, edoc:edoc_module()} when
+-spec source(File, Env, Options) -> {ModuleName, edoc_module()} when
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: [term()],
-      ModuleName :: atom().
+      ModuleName :: module().
 
 source(File, Env, Opts) ->
     Forms = edoc:read_source(File, Opts),
@@ -64,13 +67,13 @@ source(File, Env, Opts) ->
 %% @see source/4
 %% @see //syntax_tools/erl_recomment
 
--spec source(Forms, Comments, File, Env, Options) -> {ModuleName, edoc:edoc_module()} when
+-spec source(Forms, Comments, File, Env, Options) -> {ModuleName, edoc_module()} when
       Forms :: syntaxTree() | [syntaxTree()],
-      Comments :: [edoc:comment()],
+      Comments :: [comment()],
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
-      ModuleName :: atom().
+      ModuleName :: module().
 
 source(Forms, Comments, File, Env, Opts) when is_list(Forms) ->
     Forms1 = erl_syntax:form_list(Forms),
@@ -102,12 +105,12 @@ source(Forms, Comments, File, Env, Opts) ->
 %% INHERIT-OPTIONS: add_macro_defs/3
 %% INHERIT-OPTIONS: edoc_data:module/4
 
--spec source(Forms, File, Env, Options) -> {ModuleName, edoc:edoc_module()} when
+-spec source(Forms, File, Env, Options) -> {ModuleName, edoc_module()} when
       Forms :: syntaxTree() | [syntaxTree()],
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
-      ModuleName :: atom().
+      ModuleName :: module().
 
 source(Forms, File, Env, Opts) when is_list(Forms) ->
     source(erl_syntax:form_list(Forms), File, Env, Opts);
@@ -140,7 +143,7 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
 
 -spec header(File, Env, Options) -> {ok, Tags} | {error, Reason} when
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
       Tags :: [term()],
       Reason :: term().
@@ -160,9 +163,9 @@ header(File, Env, Opts) ->
 
 -spec header(Forms, Comments, File, Env, Options) -> {ok, Tags} | {error, Reason} when
       Forms :: syntaxTree() | [syntaxTree()],
-      Comments :: [edoc:comment()],
+      Comments :: [comment()],
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
       Tags :: [term()],
       Reason :: term().
@@ -186,7 +189,7 @@ header(Forms, Comments, File, Env, Opts) ->
 -spec header(Forms, File, Env, Options) -> {ok, Tags} | {error, Reason} when
       Forms :: syntaxTree() | [syntaxTree()],
       File :: filename(),
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
       Tags :: [term()],
       Reason :: term().
@@ -233,7 +236,7 @@ add_macro_defs(Defs0, Opts, Env) ->
 -spec file(File, Context, Env, Options) -> {ok, Tags} | {error, Reason} when
       File :: filename(),
       Context :: module | footer | function | overview | single,
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
       Tags :: [term()],
       Reason :: term().
@@ -265,7 +268,7 @@ file(File, Context, Env, Opts) ->
 -spec text(Text, Context, Env, Options) -> Tags when
       Text :: string(),
       Context :: module | footer | function | overview | single,
-      Env :: edoc_lib:edoc_env(),
+      Env :: edoc_env(),
       Options :: proplist(),
       Tags :: [term()].
 
