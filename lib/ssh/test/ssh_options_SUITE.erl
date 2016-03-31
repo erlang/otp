@@ -1123,27 +1123,42 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    %% This is expected
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
-		    receive after 250 -> ok end, % sleep so the supervisor has time to count down. Not nice...
-		    try Connect(Host,Port)
-		    of
-			_ConnectionRef1 ->
-			    %% Step 3 ok: could set up one more connection after killing one
-			    %% Thats good.
-			    ssh:stop_daemon(Pid),
-			    ok
-		    catch
-			error:{badmatch,{error,"Connection closed"}} ->
-			    %% Bad indeed. Could not set up one more connection even after killing
-			    %% one existing. Very bad.
-			    ssh:stop_daemon(Pid),
-			    {fail,"Does not decrease # active sessions"}
-		    end
+		    try_to_connect(Connect, Host, Port, Pid)
 	    end
     catch
 	error:{badmatch,{error,"Connection closed"}} ->
 	    ssh:stop_daemon(Pid),
 	    {fail,"Too few connections accepted"}
     end.
+
+
+try_to_connect(Connect, Host, Port, Pid) ->
+    {ok,Tref} = timer:send_after(3000, timeout_no_connection), % give the supervisors some time...
+    try_to_connect(Connect, Host, Port, Pid, Tref, 1). % will take max 3300 ms after 11 tries
+
+try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
+     try Connect(Host,Port)
+     of
+	 _ConnectionRef1 ->
+	     %% Step 3 ok: could set up one more connection after killing one
+	     %% Thats good.
+	     timer:cancel(Tref),
+	     ssh:stop_daemon(Pid),
+	     receive % flush. 
+		 timeout_no_connection -> ok
+	     after 0 -> ok
+	     end
+     catch
+	 error:{badmatch,{error,"Connection closed"}} ->
+	     %% Could not set up one more connection. Try again until timeout.
+	     receive
+		 timeout_no_connection ->
+		     ssh:stop_daemon(Pid),
+		     {fail,"Does not decrease # active sessions"}
+	     after N*50 -> % retry after this time
+		     try_to_connect(Connect, Host, Port, Pid, Tref, N+1)
+	     end
+     end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
