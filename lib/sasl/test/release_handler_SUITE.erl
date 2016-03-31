@@ -1361,7 +1361,7 @@ upgrade_supervisor(Conf) when is_list(Conf) ->
     ASupBeam2 = rpc:call(Node, code, which, [a_sup]),
 
     %% Check that the restart strategy and child spec is updated
-    {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}]]} =
+    {status, _, {module, _}, [_, _, _, _, [_,_,{data,[{"State",State}]}|_]]} =
 	rpc:call(Node,sys,get_status,[a_sup]),
     {state,_,RestartStrategy,[Child],_,_,_,_,_,_,_} = State,
     one_for_all = RestartStrategy, % changed from one_for_one
