@@ -871,14 +871,23 @@ trace_receive(Process* receiver,
         if (!te->on)
             return;
     }
+    else ASSERT(te->on);
 
     if (te->match_spec) {
-        Eterm args[2];
+        Eterm args[3];
         Uint32 return_flags;
-        args[0] = from;
-        args[1] = msg;
+        if (is_pid(from)) {
+            args[0] = pid_node_name(from);
+            args[1] = from;
+        }
+        else {
+            ASSERT(is_atom(from));
+            args[0] = from;  /* node name or other atom (e.g 'system') */
+            args[1] = am_undefined;
+        }
+        args[2] = msg;
         pam_result = erts_match_set_run(NULL, receiver,
-                                        te->match_spec, args, 2,
+                                        te->match_spec, args, 3,
                                         ERTS_PAM_TMP_RESULT, &return_flags);
         if (is_non_value(pam_result)
             || pam_result == am_false

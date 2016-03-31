@@ -82,7 +82,6 @@ cpu_timestamp(Config) when is_list(Config) ->
 
 receive_trace(Config) when is_list(Config) ->
     Receiver = fun_spawn(fun receiver/0),
-    process_flag(trap_exit, true),
 
     %% Trace the process; make sure that we receive the trace messages.
     1 = erlang:trace(Receiver, true, ['receive']),
@@ -107,18 +106,19 @@ receive_trace(Config) when is_list(Config) ->
 		 receive_nothing()
 	 end,
     From = self(),
+    Node = node(),
     lists:foreach(F1, [{no, true},
-		       {[{[undefined,"Unexpected"],[],[]}], false},
-		       {[{[From,'_'],[],[]}], true},
-		       {[{['$1','_'],[{'=/=','$1',From}],[]}], false},
-		       {[{['_','$1'],[{is_tuple,'$1'}],[]}], true},
+		       {[{[Node, undefined,"Unexpected"],[],[]}], false},
+		       {[{[Node, From,'_'],[],[]}], true},
+		       {[{[Node, '$1','_'],[{'=/=','$1',From}],[]}], false},
+		       {[{['$1', '_','_'],[{'=:=','$1',Node}],[]}], true},
 		       {false, false},
 		       {true, true}]),
 
     %% Remote messages
     OtherName = atom_to_list(?MODULE)++"_receive_trace",
     {ok, OtherNode} = start_node(OtherName),
-    RemoteProc = spawn(OtherNode, ?MODULE, process, [self()]),
+    RemoteProc = spawn_link(OtherNode, ?MODULE, process, [self()]),
     io:format("RemoteProc = ~p ~n", [RemoteProc]),
 
     RemoteProc ! {send_please, Receiver, Hello},
@@ -139,10 +139,13 @@ receive_trace(Config) when is_list(Config) ->
 		 receive_nothing()
 	 end,
     F2(Receiver, {no, true}),
-    F2(Receiver, {[{[undefined,"Unexpected"],[],[]}], false}),
-    F2(Receiver, {[{[RemoteProc,'_'],[],[]}], true}),
-    F2(Receiver, {[{['$1','_'], [{'=/=',{node,'$1'},{node}}], []}], true}),
-    F2(Receiver, {[{['_','$1'], [{is_tuple,'$1'}], []}], true}),
+    F2(Receiver, {[{[OtherNode, undefined,"Unexpected"],[],[]}], false}),
+    F2(Receiver, {[{[OtherNode, RemoteProc,'_'],[],[]},
+		   {[OtherNode, undefined,'_'],[],[]}], true}),
+    F2(Receiver, {[{[OtherNode, '$1','_'],
+		    [{'orelse',{'=:=','$1',undefined},{'=/=',{node,'$1'},{node}}}],
+		    []}], true}),
+    F2(Receiver, {[{['$1', '_','_'], [{'=:=','$1',OtherNode}], []}], true}),
     F2(Receiver, {false, false}),
     F2(Receiver, {true, true}),
 
@@ -151,25 +154,30 @@ receive_trace(Config) when is_list(Config) ->
     register(Name, Receiver),
     NN = {Name, node()},
     F2(NN, {no, true}),
-    F2(NN, {[{[undefined,"Unexpected"],[],[]}], false}),
-    F2(NN, {[{[RemoteProc,'_'],[],[]}], true}),
-    F2(NN, {[{['$1','_'], [{'=/=',{node,'$1'},{node}}], []}], true}),
-    F2(NN, {[{['_','$1'], [{is_tuple,'$1'}], []}], true}),
+    F2(NN, {[{[OtherNode, undefined,"Unexpected"],[],[]}], false}),
+    F2(NN, {[{[OtherNode, RemoteProc,'_'],[],[]},
+	     {[OtherNode, undefined,'_'],[],[]}], true}),
+    F2(NN, {[{[OtherNode, '$1','_'],
+	      [{'orelse',{'=:=','$1',undefined},{'=/=',{node,'$1'},{node}}}],
+	      []}], true}),
+    F2(NN, {[{['$1', '_','_'], [{'==','$1',OtherNode}], []}], true}),
     F2(NN, {false, false}),
     F2(NN, {true, true}),
 
+    unlink(RemoteProc),
     true = stop_node(OtherNode),
 
     %% Timeout
     Receiver ! {set_timeout, 10},
     {trace, Receiver, 'receive', {set_timeout, 10}} = receive_first_trace(),
     {trace, Receiver, 'receive', timeout} = receive_first_trace(),
-    erlang:trace_pattern('receive', [{[clock_service,timeout], [], []}], []),
+    erlang:trace_pattern('receive', [{[clock_service,undefined,timeout], [], []}], []),
     Receiver ! {set_timeout, 7},
     {trace, Receiver, 'receive', timeout} = receive_first_trace(),
     erlang:trace_pattern('receive', true, []),
 
     %% Another process should not be able to trace Receiver.
+    process_flag(trap_exit, true),
     Intruder = fun_spawn(fun() -> erlang:trace(Receiver, true, ['receive']) end),
     {'EXIT', Intruder, {badarg, _}} = receive_first(),
 
@@ -181,18 +189,19 @@ receive_trace(Config) when is_list(Config) ->
 
     %% Verify restrictions in matchspec for 'receive'
     F3 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang:trace_pattern('receive', Pat, [])) end,
-    F3([{['_','_'],[],[{message, {process_dump}}]}]),
-    F3([{['_','_'],[{is_seq_trace}],[]}]),
-    F3([{['_','_'],[],[{set_seq_token,label,4711}]}]),
-    F3([{['_','_'],[],[{get_seq_token}]}]),
-    F3([{['_','_'],[],[{enable_trace,call}]}]),
-    F3([{['_','_'],[],[{enable_trace,self(),call}]}]),
-    F3([{['_','_'],[],[{disable_trace,call}]}]),
-    F3([{['_','_'],[],[{disable_trace,self(),call}]}]),
-    F3([{['_','_'],[],[{trace,[call],[]}]}]),
-    F3([{['_','_'],[],[{trace,self(),[],[call]}]}]),
-    F3([{['_','_'],[],[{caller}]}]),
-    F3([{['_','_'],[],[{silent,true}]}]),
+    WC = ['_','_','_'],
+    F3([{WC,[],[{message, {process_dump}}]}]),
+    F3([{WC,[{is_seq_trace}],[]}]),
+    F3([{WC,[],[{set_seq_token,label,4711}]}]),
+    F3([{WC,[],[{get_seq_token}]}]),
+    F3([{WC,[],[{enable_trace,call}]}]),
+    F3([{WC,[],[{enable_trace,self(),call}]}]),
+    F3([{WC,[],[{disable_trace,call}]}]),
+    F3([{WC,[],[{disable_trace,self(),call}]}]),
+    F3([{WC,[],[{trace,[call],[]}]}]),
+    F3([{WC,[],[{trace,self(),[],[call]}]}]),
+    F3([{WC,[],[{caller}]}]),
+    F3([{WC,[],[{silent,true}]}]),
 
     ok.
 
