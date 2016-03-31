@@ -149,7 +149,8 @@
 -else.
 -define(assertEqual(Expect, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Expect),
             case (Expr) of
                 __X -> ok;
                 __V -> erlang:error({assertEqual,
@@ -159,7 +160,7 @@
                                       {expected, __X},
                                       {value, __V}]})
             end
-          end)(Expect))
+          end)())
         end).
 -endif.
 
@@ -169,7 +170,8 @@
 -else.
 -define(assertNotEqual(Unexpected, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Unexpected),
             case (Expr) of
                 __X -> erlang:error({assertNotEqual,
                                      [{module, ?MODULE},
@@ -178,7 +180,7 @@
                                       {value, __X}]});
                 _ -> ok
             end
-          end)(Unexpected))
+          end)())
         end).
 -endif.
 
