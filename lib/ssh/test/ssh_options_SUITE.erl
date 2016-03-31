@@ -51,9 +51,7 @@
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
-	 ssh_connect_nonegtimeout_connected_parallel/0, 
 	 ssh_connect_nonegtimeout_connected_parallel/1,
-	 ssh_connect_nonegtimeout_connected_sequential/0,
 	 ssh_connect_nonegtimeout_connected_sequential/1,
 	 ssh_connect_timeout/1, connect/4,
 	 ssh_daemon_minimal_remote_max_packet_size_option/1, 
@@ -82,7 +80,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,30}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -982,16 +980,10 @@ ssh_connect_negtimeout(Config, Parallel) ->
 
 %%--------------------------------------------------------------------
 %%% Test that ssh connection does not timeout if the connection is established (parallel)
-
-ssh_connect_nonegtimeout_connected_parallel() -> [{timetrap,{seconds,90}}].
-
 ssh_connect_nonegtimeout_connected_parallel(Config) ->
     ssh_connect_nonegtimeout_connected(Config, true).
 
 %%% Test that ssh connection does not timeout if the connection is established (non-parallel)
-
-ssh_connect_nonegtimeout_connected_sequential() -> [{timetrap,{seconds,90}}].
-
 ssh_connect_nonegtimeout_connected_sequential(Config) ->
     ssh_connect_nonegtimeout_connected(Config, false).
 
@@ -1000,7 +992,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-    NegTimeOut = 20000,				% ms
+    NegTimeOut = 2000,				% ms
     ct:log("Parallel: ~p",[Parallel]),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
