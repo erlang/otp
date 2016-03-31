@@ -47,18 +47,6 @@ obsolete(Module, Name, Arity) ->
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
-obsolete_1(erl_internal, builtins, 0) ->
-    {deprecated, {erl_internal, bif, 2}};
-
-obsolete_1(erl_eval, seq, 2) ->
-    {deprecated, {erl_eval, exprs, 2}};
-obsolete_1(erl_eval, seq, 3) ->
-    {deprecated, {erl_eval, exprs, 3}};
-obsolete_1(erl_eval, arg_list, 2) ->
-    {deprecated, {erl_eval, expr_list, 2}};
-obsolete_1(erl_eval, arg_list, 3) ->
-    {deprecated, {erl_eval, expr_list, 3}};
-
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
 
