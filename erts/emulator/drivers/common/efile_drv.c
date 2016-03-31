@@ -2900,12 +2900,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + FILENAME_BYTELEN(buf + 9*4) + FILENAME_CHARSIZE);
 	    
-	    d->info.mode       = get_int32(buf +  0 * 4);
-	    d->info.uid        = get_int32(buf +  1 * 4);
-	    d->info.gid        = get_int32(buf +  2 * 4);
-	    d->info.accessTime = (time_t)((Sint64)get_int64(buf +  3 * 4));
-	    d->info.modifyTime = (time_t)((Sint64)get_int64(buf +  5 * 4));
-	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
+	    d->info.mode       = get_int32(buf + 0 * 4);
+	    d->info.uid        = get_int32(buf + 1 * 4);
+	    d->info.gid        = get_int32(buf + 2 * 4);
+	    d->info.accessTime = get_int64(buf + 3 * 4);
+	    d->info.modifyTime = get_int64(buf + 5 * 4);
+	    d->info.cTime      = get_int64(buf + 7 * 4);
 
 	    FILENAME_COPY(d->b, buf + 9*4);
 #ifdef USE_VM_PROBES
