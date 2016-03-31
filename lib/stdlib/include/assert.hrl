@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright (C) 2004-2014 Richard Carlsson, Mickaël Rémond
+%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,7 +149,8 @@
 -else.
 -define(assertEqual(Expect, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Expect),
             case (Expr) of
                 __X -> ok;
                 __V -> erlang:error({assertEqual,
@@ -159,7 +160,7 @@
                                       {expected, __X},
                                       {value, __V}]})
             end
-          end)(Expect))
+          end)())
         end).
 -endif.
 
@@ -169,7 +170,8 @@
 -else.
 -define(assertNotEqual(Unexpected, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Unexpected),
             case (Expr) of
                 __X -> erlang:error({assertNotEqual,
                                      [{module, ?MODULE},
@@ -178,7 +180,7 @@
                                       {value, __X}]});
                 _ -> ok
             end
-          end)(Unexpected))
+          end)())
         end).
 -endif.
 
