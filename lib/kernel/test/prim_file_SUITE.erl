@@ -1070,8 +1070,9 @@ file_write_read_file_info_opts(Config) when is_list(Config) ->
 
     ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, local}]),
     ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, universal}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
+    %% will not work on platforms with unsigned time_t
+    %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
+    %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
     ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, posix}]),
