@@ -2735,6 +2735,13 @@ same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
 }
 
 static int
+is_killed_apply(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
+{
+    return Reg.type == TAG_x && Live.type == TAG_u &&
+	Live.val+2 <= Reg.val;
+}
+
+static int
 is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
 {
     return Reg.type == TAG_x && Live.type == TAG_u &&
