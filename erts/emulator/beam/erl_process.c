@@ -9293,16 +9293,17 @@ Process *schedule(Process *p, int calls)
 				      | ERTS_PSFLG_PENDING_EXIT
 				      | ERTS_PSFLG_ACTIVE_SYS))
 			    == ERTS_PSFLG_SUSPENDED)) {
-			if (state & ERTS_PSFLG_FREE) {
+			if (proxy_p) {
+			    free_proxy_proc(proxy_p);
+			    proxy_p = NULL;
+			}
+			else if (state & ERTS_PSFLG_FREE) {
+			    /* free and not queued by proxy */
 #ifdef ERTS_SMP
 			    erts_smp_proc_dec_refc(p);
 #else
 			    erts_free_proc(p);
 #endif
-			}
-			if (proxy_p) {
-			    free_proxy_proc(proxy_p);
-			    proxy_p = NULL;
 			}
 			goto pick_next_process;
 		    }
