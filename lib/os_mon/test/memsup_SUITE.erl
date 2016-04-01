@@ -76,9 +76,9 @@ api(Config) when is_list(Config) ->
                                                  is_integer(PidBytes) ->
             ok;
         {0, 0, _WorstPid} ->
-            ?t:fail(first_data_collection_failed);
+            ct:fail(first_data_collection_failed);
         _ ->
-            ?t:fail({bad_return, RegMemData})
+            ct:fail({bad_return, RegMemData})
     end,
 
     %% get_system_memory_data()
@@ -195,7 +195,7 @@ alarm1(_Config, SysUsage) ->
         false when not SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, SysThreshold})
+            ct:fail({sys_alarm, SysUsage, SysThreshold})
     end,
 
     %% Lower/raise the threshold to clear/set the alarm
@@ -222,7 +222,7 @@ alarm1(_Config, SysUsage) ->
         false when SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, NewSysThreshold})
+            ct:fail({sys_alarm, SysUsage, NewSysThreshold})
     end,
 
     %% Reset the threshold to set/clear the alarm again
@@ -235,7 +235,7 @@ alarm1(_Config, SysUsage) ->
         false when not SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, SysThreshold})
+            ct:fail({sys_alarm, SysUsage, SysThreshold})
     end,
 
     %% Check memory usage
@@ -255,9 +255,9 @@ alarm1(_Config, SysUsage) ->
         false when not ProcP ->
             ok;
         {true, BadPid1} when ProcP ->
-            ?t:fail({proc_alarm, WorstPid, BadPid1});
+            ct:fail({proc_alarm, WorstPid, BadPid1});
         _ ->
-            ?t:fail({proc_alarm, PidUsage, ProcThreshold})
+            ct:fail({proc_alarm, PidUsage, ProcThreshold})
     end,
 
     %% Lower/raise the threshold to clear/set the alarm
@@ -274,9 +274,9 @@ alarm1(_Config, SysUsage) ->
         false when ProcP ->
             ok;
         {true, BadPid2} when not ProcP ->
-            test_server:fail({proc_alarm, WorstPid, BadPid2});
+            ct:fail({proc_alarm, WorstPid, BadPid2});
         _ ->
-            ?t:fail({proc_alarm, PidUsage, ProcThreshold})
+            ct:fail({proc_alarm, PidUsage, ProcThreshold})
     end,
 
     %% Reset the threshold to clear/set the alarm
@@ -289,9 +289,9 @@ alarm1(_Config, SysUsage) ->
         false when not ProcP ->
             ok;
         {true, BadPid3} when ProcP ->
-            test_server:fail({proc_alarm, WorstPid, BadPid3});
+            ct:fail({proc_alarm, WorstPid, BadPid3});
         _ ->
-            ?t:fail({proc_alarm, PidUsage, ProcThreshold})
+            ct:fail({proc_alarm, PidUsage, ProcThreshold})
     end,
 
     %% Reset memory check interval
@@ -346,7 +346,7 @@ alarm2(_Config, _SysUsage) ->
         false when not SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, SysThreshold})
+            ct:fail({sys_alarm, SysUsage, SysThreshold})
     end,
 
     %% Lower/raise the threshold to clear/set the alarm
@@ -373,7 +373,7 @@ alarm2(_Config, _SysUsage) ->
         false when SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, NewSysThreshold})
+            ct:fail({sys_alarm, SysUsage, NewSysThreshold})
     end,
 
     %% Reset the threshold to set/clear the alarm again
@@ -386,7 +386,7 @@ alarm2(_Config, _SysUsage) ->
         false when not SysP ->
             ok;
         _ ->
-            ?t:fail({sys_alarm, SysUsage, SysThreshold})
+            ct:fail({sys_alarm, SysUsage, SysThreshold})
     end,
 
     %% Reset memsup_system_only and restart memsup
@@ -433,7 +433,7 @@ process(Config) when is_list(Config) ->
         {_, _, {WorsePid, _MoreBytes}} ->
             ok;
         {_, _, BadWorst} ->
-            ?t:fail({worst_pid, BadWorst})
+            ct:fail({worst_pid, BadWorst})
     end,
 
     %% Reset memory check interval
@@ -577,9 +577,9 @@ timeout(Config) when is_list(Config) ->
             ok;
         {Mref, Res} ->
             erlang:demonitor(Mref),
-            ?t:fail({unexpected_result, Res});
+            ct:fail({unexpected_result, Res});
         {'DOWN', Mref, _, _, _} ->
-            ?t:fail(no_result)
+            ct:fail(no_result)
     end,
 
     %% Reset memory check interval and memsup_helper timeout
@@ -614,10 +614,10 @@ port(Config) when is_list(Config) ->
                         {'DOWN', MonRef, _, _, {port_died, _Reason}} ->
                             ok;
                         {'DOWN', MonRef, _, _, Reason} ->
-                            ?t:fail({unexpected_exit_reason, Reason})
+                            ct:fail({unexpected_exit_reason, Reason})
                     after
                         3000 ->
-                            ?t:fail(still_alive)
+                            ct:fail(still_alive)
                     end,
 
                     %% Give os_mon_sup time to restart memsup
@@ -689,8 +689,7 @@ otp_5910(Config) when is_list(Config) ->
                           case alarm_set(AlarmId) of
                               {true, _} -> ok;
                               false ->
-                                  ?t:fail({alarm_not_set,
-                                           AlarmId})
+                                  ct:fail({alarm_not_set, AlarmId})
                           end
                   end,
                   Alarms),
@@ -716,7 +715,7 @@ otp_5910(Config) when is_list(Config) ->
         {0, 0} ->
             ok;
         _ ->
-            ?t:fail({bad_number_of_alarms, SetAlarms, MemUsage})
+            ct:fail({bad_number_of_alarms, SetAlarms, MemUsage})
     end,
 
     %% Stop OS_Mon and make sure all memsup alarms are cleared
@@ -726,7 +725,7 @@ otp_5910(Config) when is_list(Config) ->
                           case alarm_set(AlarmId) of
                               false -> ok;
                               {true, _} ->
-                                  ?t:fail({alarm_is_set, AlarmId})
+                                  ct:fail({alarm_is_set, AlarmId})
                           end
                   end,
                   Alarms),

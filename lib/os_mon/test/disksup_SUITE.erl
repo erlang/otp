@@ -148,7 +148,7 @@ alarm(Config) when is_list(Config) ->
 	    true;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms, Threshold1, Data1, Alarms1})
+	    ct:fail({bad_alarms, Threshold1, Data1, Alarms1})
     end,
 
     %% Try to find a disk with space usage below Threshold1,
@@ -173,7 +173,7 @@ alarm(Config) when is_list(Config) ->
 			  true;
 		      true ->
 			  dump_info(),
-			  ?t:fail({bad_alarms, Threshold2, Data2, Alarms2})
+			  ct:fail({bad_alarms, Threshold2, Data2, Alarms2})
 		  end;
 	      false ->
 		  ignore
@@ -201,7 +201,7 @@ alarm(Config) when is_list(Config) ->
 			  ok;
 		      true ->
 			  dump_info(),
-			  ?t:fail({bad_alarms, Threshold3, Data3, Alarms3})
+			  ct:fail({bad_alarms, Threshold3, Data3, Alarms3})
 		  end;
 	      100 ->
 		  ignore
@@ -279,10 +279,10 @@ port(Config) when is_list(Config) ->
 			{'DOWN', MonRef, _, _, {port_died, _Reason}} ->
 			    ok;
 			{'DOWN', MonRef, _, _, Reason} ->
-			    ?t:fail({unexpected_exit_reason, Reason})
+			    ct:fail({unexpected_exit_reason, Reason})
 		    after
 			3000 ->
-			    ?t:fail({still_alive, Str})
+			    ct:fail({still_alive, Str})
 		    end,
 
 		    %% Give os_mon_sup time to restart disksup
@@ -351,12 +351,12 @@ otp_5910(Config) when is_list(Config) ->
     Alarms = get_alarms(),
     if
 	Over==0 ->
-	    ?t:fail({threshold_too_low, Data2, Threshold});
+	    ct:fail({threshold_too_low, Data2, Threshold});
 	Over==length(Alarms) ->
 	    ok;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms, Threshold, Data2, Alarms})
+	    ct:fail({bad_alarms, Threshold, Data2, Alarms})
     end,
 
     %% Kill disksup
@@ -371,7 +371,7 @@ otp_5910(Config) when is_list(Config) ->
 	length(Alarms2)==length(Alarms) -> ok;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
+	    ct:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
     end,
 
     %% Stop OS_Mon and make sure all disksup alarms are cleared
@@ -380,7 +380,7 @@ otp_5910(Config) when is_list(Config) ->
     Alarms3 = get_alarms(),
     case get_alarms() of
 	[] -> ok;
-	_  -> ?t:fail({alarms_not_cleared, Alarms3})
+	_  -> ct:fail({alarms_not_cleared, Alarms3})
     end,
 
     %% Reset threshold and restart OS_Mon

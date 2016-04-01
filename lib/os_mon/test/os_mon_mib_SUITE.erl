@@ -177,7 +177,7 @@ otp_6351(Config) when is_list(Config) ->
         is_tuple(Res), element(1, Res)==loadTable ->
             ok;
         true ->
-            ?t:fail(Res)
+            ct:fail(Res)
     end,
     rpc:call(Node,application,stop,[os_mon]),
     stop_node(Node),
@@ -195,7 +195,7 @@ get_mem_sys_mark(Config) when is_list(Config) ->
         {value, SysMark} when is_integer(SysMark) ->
             ok;
         _ ->
-            test_server:fail(sys_mark_value_not_integer)
+            ct:fail(sys_mark_value_not_integer)
     end.
 %%---------------------------------------------------------------------
 get_mem_proc_mark(doc) ->
@@ -208,7 +208,7 @@ get_mem_proc_mark(Config) when is_list(Config) ->
         {value, ProcMark} when is_integer(ProcMark) ->
             ok;
         _ ->
-            test_server:fail(proc_mark_value_not_integer)
+            ct:fail(proc_mark_value_not_integer)
     end.
 %%---------------------------------------------------------------------
 get_disk_threshold(doc) ->
@@ -221,7 +221,7 @@ get_disk_threshold(Config) when is_list(Config) ->
         {value, ProcMark} when is_integer(ProcMark) ->
             ok;
         _ ->
-            test_server:fail(disk_threshold_value_not_integer)
+            ct:fail(disk_threshold_value_not_integer)
     end.
 %%---------------------------------------------------------------------
 
@@ -271,7 +271,7 @@ get_load_table(Config) when is_list(Config) ->
         10 ->
             ok;
         _ ->
-            test_server:fail(value_not_integer)
+            ct:fail(value_not_integer)
     end,
 
     [{noValue,noSuchInstance}, {noValue,noSuchInstance},
@@ -311,7 +311,7 @@ sys_tot_mem(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(sys_tot_mem_value_not_integer)
+            ct:fail(sys_tot_mem_value_not_integer)
     end.
 
 sys_used_mem(doc) ->
@@ -327,7 +327,7 @@ sys_used_mem(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(sys_used_mem_value_not_integer)
+            ct:fail(sys_used_mem_value_not_integer)
     end.
 
 large_erl_process(doc) ->
@@ -359,7 +359,7 @@ large_erl_process_mem(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(erl_pid_mem_value_not_integer)
+            ct:fail(erl_pid_mem_value_not_integer)
     end.
 
 cpu_load(doc) ->
@@ -376,7 +376,7 @@ cpu_load(Config) when is_list(Config) ->
         Load when is_integer(Load) ->
             ok;
         _ ->
-            test_server:fail(cpu_load_value_not_integer)
+            ct:fail(cpu_load_value_not_integer)
     end.
 
 cpu_load5(doc) ->
@@ -393,7 +393,7 @@ cpu_load5(Config) when is_list(Config) ->
         Load when is_integer(Load) ->
             ok;
         _ ->
-            test_server:fail(cpu_load5_value_not_integer)
+            ct:fail(cpu_load5_value_not_integer)
     end.
 
 cpu_load15(doc) ->
@@ -410,7 +410,7 @@ cpu_load15(Config) when is_list(Config) ->
         Load when is_integer(Load) ->
             ok;
         _ ->
-            test_server:fail(cpu_load15_value_not_integer)
+            ct:fail(cpu_load15_value_not_integer)
     end.
 
 os_wordsize(doc) ->
@@ -427,7 +427,7 @@ os_wordsize(Config) when is_list(Config) ->
         Wordsize when is_integer(Wordsize) ->
             ok;
         _ ->
-            test_server:fail(os_wordsize_value_not_integer)
+            ct:fail(os_wordsize_value_not_integer)
     end.
 
 sys_tot_mem64(doc) ->
@@ -444,7 +444,7 @@ sys_tot_mem64(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(sys_tot_mem_value_not_integer)
+            ct:fail(sys_tot_mem_value_not_integer)
     end.
 
 sys_used_mem64(doc) ->
@@ -460,7 +460,7 @@ sys_used_mem64(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(sys_used_mem_value_not_integer)
+            ct:fail(sys_used_mem_value_not_integer)
     end.
 
 large_erl_process_mem64(doc) ->
@@ -479,7 +479,7 @@ large_erl_process_mem64(Config) when is_list(Config) ->
         Mem when is_integer(Mem) ->
             ok;
         _ ->
-            test_server:fail(erl_pid_mem_value_not_integer)
+            ct:fail(erl_pid_mem_value_not_integer)
     end.
 %%---------------------------------------------------------------------
 get_disk_table(doc) ->
@@ -501,7 +501,7 @@ get_disk_table(Config) when is_list(Config) ->
                 true ->
                     ok;
                 false ->
-                    test_server:fail(value_not_a_string)
+                    ct:fail(value_not_a_string)
             end,
 
             Values = os_mon_mib:disk_table(get, [1,1],
@@ -521,7 +521,7 @@ get_disk_table(Config) when is_list(Config) ->
                 3 ->
                     ok;
                 _ ->
-                    test_server:fail(value_not_integer)
+                    ct:fail(value_not_integer)
             end
     end,
 
@@ -548,7 +548,7 @@ disk_descr(Config) when is_list(Config) ->
         Descr when is_list(Descr) ->
             ok;
         _ ->
-            test_server:fail(disk_descr_value_not_a_string)
+            ct:fail(disk_descr_value_not_a_string)
     end.
 
 disk_kbytes(doc) ->
@@ -562,7 +562,7 @@ disk_kbytes(Config) when is_list(Config) ->
         Kbytes when is_integer(Kbytes) ->
             ok;
         _ ->
-            test_server:fail(disk_kbytes_value_not_integer)
+            ct:fail(disk_kbytes_value_not_integer)
     end.
 
 
@@ -577,7 +577,7 @@ disk_capacity(Config) when is_list(Config) ->
         Capacity when is_integer(Capacity) ->
             ok;
         _ ->
-            test_server:fail(disk_capacity_value_not_integer)
+            ct:fail(disk_capacity_value_not_integer)
     end.
 
 %%---------------------------------------------------------------------

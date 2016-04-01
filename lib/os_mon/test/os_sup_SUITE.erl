@@ -90,7 +90,7 @@ message(Config) when is_list(Config) ->
         {result, true} ->
             ok;
         {result, Rec} ->
-            ?t:fail({no_message, Rec})
+            ct:fail({no_message, Rec})
     end,
 
     ok.
@@ -131,10 +131,10 @@ port(Config) when is_list(Config) ->
                         {'DOWN', MonRef, _, _, {port_died, _Reason}} ->
                             ok;
                         {'DOWN', MonRef, _, _, Reason} ->
-                            ?t:fail({unexpected_exit_reason, Reason})
+                            ct:fail({unexpected_exit_reason, Reason})
                     after
                         3000 ->
-                            ?t:fail(still_alive)
+                            ct:fail(still_alive)
                     end,
 
                     %% Give os_mon_sup time to restart os_sup

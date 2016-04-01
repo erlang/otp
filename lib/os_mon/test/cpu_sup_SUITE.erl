@@ -222,7 +222,7 @@ port(Config) when is_list(Config) ->
                     %% cpu_sup should not terminate
                     receive
                         {'DOWN', MonRef, _, _, Reason} ->
-                            ?t:fail({unexpected_exit_reason, Reason})
+                            ct:fail({unexpected_exit_reason, Reason})
                     after 3000 ->
                               ok
                     end,
