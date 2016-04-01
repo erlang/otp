@@ -4813,31 +4813,25 @@ transform_engine(LoaderState* st)
     Uint op;
     int ap;			/* Current argument. */
     Uint* restart;		/* Where to restart if current match fails. */
-    GenOpArg def_vars[TE_MAX_VARS]; /* Default buffer for variables. */
-    GenOpArg* var = def_vars;
-    int num_vars = 0;
+    GenOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
+    GenOpArg* rest_args = NULL;
+    int num_rest_args = 0;
     int i;			/* General index. */
     Uint mask;
     GenOp* instr;
+    GenOp* first = st->genop;
+    GenOp* keep = NULL;
     Uint* pc;
-    int rval;
     static Uint restart_fail[1] = {TOP_fail};
 
-    ASSERT(gen_opc[st->genop->op].transform != -1);
-    pc = op_transform + gen_opc[st->genop->op].transform;
-    restart = pc;
+    ASSERT(gen_opc[first->op].transform != -1);
+    restart = op_transform + gen_opc[first->op].transform;
 
  restart:
-    if (var != def_vars) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) var);
-	var = def_vars;
-    }
     ASSERT(restart != NULL);
     pc = restart;
     ASSERT(*pc < NUM_TOPS);	/* Valid instruction? */
-    instr = st->genop;
-
-#define RETURN(r) rval = (r); goto do_return;
+    instr = first;
 
 #ifdef DEBUG
     restart = NULL;
@@ -4855,7 +4849,7 @@ transform_engine(LoaderState* st)
 		 * We'll need at least one more instruction to decide whether
 		 * this combination matches or not.
 		 */
-		RETURN(TE_SHORT_WINDOW);
+		return TE_SHORT_WINDOW;
 	    }
 	    if (*pc++ != instr->op)
 		goto restart;
@@ -5017,19 +5011,9 @@ transform_engine(LoaderState* st)
 #if defined(TOP_rest_args)
 	case TOP_rest_args:
 	    {
-		int n = *pc++;
 		int formal_arity = gen_opc[instr->op].arity;
-		int j = formal_arity;
-
-		num_vars = n + (instr->arity - formal_arity);
-		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-				 num_vars * sizeof(GenOpArg));
-		for (i = 0; i < n; i++) {
-		    var[i] = def_vars[i];
-		}
-		while (i < num_vars) {
-		    var[i++] = instr->a[j++];
-		}
+		num_rest_args = instr->arity - formal_arity;
+		rest_args = instr->a + formal_arity;
 	    }
 	    break;
 #endif
@@ -5038,16 +5022,8 @@ transform_engine(LoaderState* st)
 	    break;
 	case TOP_commit:
 	    instr = instr->next; /* The next_instr was optimized away. */
-
-	    /*
-	     * The left-hand side of this transformation matched.
-	     * Delete all matched instructions.
-	     */
-	    while (st->genop != instr) {
-		GenOp* next = st->genop->next;
-		FREE_GENOP(st, st->genop);
-		st->genop = next;
-	    }
+	    keep = instr;
+	    st->genop = instr;
 #ifdef DEBUG
 	    instr = 0;
 #endif
@@ -5077,22 +5053,19 @@ transform_engine(LoaderState* st)
 		    lastp = &((*lastp)->next);
 		}
 		 
-		instr = instr->next; /* The next_instr was optimized away. */
-
-		/*
-		 * The left-hand side of this transformation matched.
-		 * Delete all matched instructions.
-		 */
-		while (st->genop != instr) {
-		    GenOp* next = st->genop->next;
-		    FREE_GENOP(st, st->genop);
-		    st->genop = next;
-		}
-		*lastp = st->genop;
+		keep = instr->next; /* The next_instr was optimized away. */
+		*lastp = keep;
 		st->genop = new_instr;
 	    }
-	    RETURN(TE_OK);
+	    /* FALLTHROUGH */
 #endif
+	case TOP_end:
+	    while (first != keep) {
+		GenOp* next = first->next;
+		FREE_GENOP(st, first);
+		first = next;
+	    }
+	    return TE_OK;
 	case TOP_new_instr:
 	    /*
 	     * Note that the instructions are generated in reverse order.
@@ -5123,14 +5096,10 @@ transform_engine(LoaderState* st)
 #if defined(TOP_store_rest_args)
 	case TOP_store_rest_args:
 	    {
-		int n = *pc++;
-		int num_extra = num_vars - n;
-
-		ASSERT(n <= num_vars);
-		GENOP_ARITY(instr, instr->arity+num_extra);
+		GENOP_ARITY(instr, instr->arity+num_rest_args);
 		memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
-		memcpy(instr->a+ap, var+n, num_extra*sizeof(GenOpArg));
-		ap += num_extra;
+		memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(GenOpArg));
+		ap += num_rest_args;
 	    }
 	    break;
 #endif
@@ -5142,21 +5111,12 @@ transform_engine(LoaderState* st)
 	case TOP_try_me_else_fail:
 	    restart = restart_fail;
 	    break;
-	case TOP_end:
-	    RETURN(TE_OK);
 	case TOP_fail:
-	    RETURN(TE_FAIL);
+	    return TE_FAIL;
 	default:
 	    ASSERT(0);
 	}
     }
-#undef RETURN
-
- do_return:
-    if (var != def_vars) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) var);
-    }
-    return rval;
 }
 
 static void

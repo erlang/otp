@@ -1504,8 +1504,6 @@ sub tr_gen_from {
     my($var_num) = 0;
     my(@code);
     my($min_window) = 0;
-    my(@fix_rest_args);
-    my(@fix_pred_funcs);
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
     my %var_used = %$used_ref;
@@ -1530,8 +1528,17 @@ sub tr_gen_from {
 	    my $var;
 	    my(@args);
 
-	    push(@fix_pred_funcs, scalar(@code));
-	    push(@code, [$name, @ops]);
+	    foreach $var (@ops) {
+		error($where, "variable '$var' unbound")
+		    unless defined $var{$var};
+		if ($var_type{$var} eq 'scalar') {
+		    push(@args, "var[$var{$var}]");
+		} else {
+		    push(@args, "rest_args");
+		}
+	    }
+	    my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
+	    push(@code, make_op("$name()", 'pred', $pi));
 	    next;
 	}
 
@@ -1595,12 +1602,16 @@ sub tr_gen_from {
 		    $may_fail = 1;
 		    push(@code, &make_op($var, 'is_same_var', $var{$var}));
 		} elsif ($type eq '*') {
-		    #
-		    # Reserve a hole for a 'rest_args' instruction.
-		    #
+		    foreach my $type (values %var_type) {
+			error("only one use of a '*' variable is " .
+			      "allowed on the left hand side of " .
+			      "a transformation")
+			    if $type eq 'array';
+		    }
 		    $ignored_var = '';
-		    push(@fix_rest_args, scalar(@code));
-		    push(@code, $var);
+		    $var{$var} = 'unnumbered';
+		    $var_type{$var} = 'array';
+		    push(@code, make_op($var, 'rest_args'));
 		} elsif ($var_used{$var}) {
 		    $ignored_var = '';
 		    $var_type{$var} = 'scalar';
@@ -1628,38 +1639,6 @@ sub tr_gen_from {
     # Insert the commit operation.
     #
     push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
-
-    #
-    # If there is an rest_args instruction, we must insert its correct
-    # variable number (higher than any other).
-    #
-    my $index;
-    &error("only one use of a '*' variable is allowed on the left hand side of a transformation")
-	if @fix_rest_args > 1;
-    foreach $index (@fix_rest_args) {
-	my $var = $code[$index];
-	$var{$var} = $var_num++;
-	$var_type{$var} = 'array';
-	splice(@code, $index, 1, &make_op($var, 'rest_args', $var{$var}));
-    }
-
-    foreach $index (@fix_pred_funcs) {
-	my($name, @ops) = @{$code[$index]};
-	my(@args);
-	my $var;
-
-	foreach $var (@ops) {
-	    &error($where, "variable '$var' unbound")
-		unless defined $var{$var};
-	    if ($var_type{$var} eq 'scalar') {
-		push(@args, "var[$var{$var}]");
-	    } else {
-		push(@args, "var+$var{$var}");
-	    }
-	}
-	my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
-	splice(@code, $index, 1, make_op("$name()", 'pred', $pi));
-    }
 
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
@@ -1697,7 +1676,7 @@ sub tr_gen_to {
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
 		} else {
-		    push(@args, "var+$var{$var}");
+		    push(@args, "rest_args");
 		}
 	    }
 	    pop(@code);	# Get rid of 'commit' instruction
@@ -1725,7 +1704,7 @@ sub tr_gen_to {
 	    my($var, $type, $type_val) = @$op;
 
 	    if ($type eq '*') {
-		push(@code, make_op($var, 'store_rest_args', $var{$var}));
+		push(@code, make_op($var, 'store_rest_args'));
 	    } elsif ($var ne '') {
 		&error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
