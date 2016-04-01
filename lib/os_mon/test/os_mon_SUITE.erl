@@ -36,10 +36,7 @@ all() ->
         _OS -> [app_file, appup_file]
     end.
 
-app_file(suite) ->
-    [];
-app_file(doc) ->
-    ["Testing .app file"];
+%% Testing .app file
 app_file(Config) when is_list(Config) ->
     ok = test_server:app_test(os_mon),
     ok.
@@ -47,10 +44,7 @@ app_file(Config) when is_list(Config) ->
 appup_file(Config) when is_list(Config) ->
     ok = test_server:appup_test(os_mon).
 
-config(suite) ->
-    [];
-config(doc) ->
-    ["Test OS_Mon configuration"];
+%% Test OS_Mon configuration
 config(Config) when is_list(Config) ->
 
     IsReg = fun(Name) -> is_pid(whereis(Name)) end,

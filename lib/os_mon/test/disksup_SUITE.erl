@@ -66,8 +66,7 @@ all() ->
 	_OS -> [unavailable]
     end.
 
-api(suite) -> [];
-api(doc) -> ["Test of API functions"];
+%% Test of API functions
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
@@ -96,8 +95,7 @@ api(Config) when is_list(Config) ->
 
     ok.
 
-config(suite) -> [];
-config(doc) -> ["Test configuration"];
+%% Test configuration
 config(Config) when is_list(Config) ->
 
     %% Change configuration parameters and make sure change is reflected
@@ -133,8 +131,8 @@ config(Config) when is_list(Config) ->
 %% changes too much during its course, or if there are timing problems
 %% with the alarm_handler receiving the alarms too late
 %%----------------------------------------------------------------------
-alarm(suite) -> [];
-alarm(doc) -> ["Test that alarms are set and cleared"];
+
+%% Test that alarms are set and cleared
 alarm(Config) when is_list(Config) ->
 
     %% Find out how many disks exceed the threshold
@@ -257,9 +255,7 @@ until(Fun, [H|T]) ->
     end;
 until(_Fun, []) -> false.
 
-port(suite) -> [];
-port(doc) ->
-    ["Test that disksup handles a terminating port program"];
+%% Test that disksup handles a terminating port program
 port(Config) when is_list(Config) ->
     Str = os:cmd("ps -ef | grep '[d]isksup'"),
     case io_lib:fread("~s ~s", Str) of
@@ -300,15 +296,12 @@ port(Config) when is_list(Config) ->
 	    {skip, {os_pid_not_found, Str}}
     end.
 
-terminate(suite) -> [];
 terminate(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, false),
     ok = supervisor:terminate_child(os_mon_sup, disksup),
     ok.
 
-unavailable(suite) -> [];
-unavailable(doc) ->
-    ["Test correct behaviour when service is unavailable"];
+%% Test correct behaviour when service is unavailable
 unavailable(Config) when is_list(Config) ->
 
     %% Make sure all API functions return their dummy values
@@ -319,18 +312,14 @@ unavailable(Config) when is_list(Config) ->
     ok = disksup:set_almost_full_threshold(0.9),
     ok.
 
-restart(suite) ->
-    [];
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, true),
     ok = application:set_env(os_mon, disksup_posix_only, false),
     {ok, _Pid} = supervisor:restart_child(os_mon_sup, disksup),
     ok.
 
-otp_5910(suite) -> [];
-otp_5910(doc) ->
-    ["Test that alarms are cleared if disksup crashes or "
-     "if OS_Mon is stopped"];
+%% Test that alarms are cleared if disksup crashes or
+%% if OS_Mon is stopped
 otp_5910(Config) when is_list(Config) ->
 
     %% Make sure disksup sets at least one alarm
@@ -389,8 +378,7 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
-posix_only(suite) -> [];
-posix_only(doc) -> ["Test disksup_posix_only option"];
+%% Test disksup_posix_only option
 posix_only(Config) when is_list(Config) ->
     %% Set option and restart disksup
     ok = application:set_env(os_mon, disksup_posix_only, true),

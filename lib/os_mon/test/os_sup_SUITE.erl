@@ -66,10 +66,7 @@ all() ->
     end.
 
 
-message(suite) ->
-    [];
-message(doc) ->
-    ["Test OS message handling"];
+%% Test OS message handling
 message(Config) when is_list(Config) ->
 
     %% Fake an OS message
@@ -95,10 +92,7 @@ message(Config) when is_list(Config) ->
 
     ok.
 
-config(suite) ->
-    [];
-config(doc) ->
-    ["Test configuration"];
+%% Test configuration
 config(Config) when is_list(Config) ->
 
     %% os_sup_enable==true and os_sup_own/os_sup_syslogconf cannot
@@ -110,10 +104,7 @@ config(Config) when is_list(Config) ->
 
     ok.
 
-port(suite) ->
-    [];
-port(doc) ->
-    ["Test that os_sup handles a terminating port program"];
+%% Test that os_sup handles a terminating port program
 port(Config) when is_list(Config) ->
     Str = os:cmd("ps -e | grep '[f]errule'"),
     case io_lib:fread("~s", Str) of

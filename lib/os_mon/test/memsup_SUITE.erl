@@ -61,10 +61,7 @@ all() ->
     All ++ Bugs.
 
 
-api(suite) ->
-    [];
-api(doc) ->
-    ["Test of API functions"];
+%% Test of API functions
 api(Config) when is_list(Config) ->
 
     %% get_memory_data()
@@ -154,10 +151,8 @@ api(Config) when is_list(Config) ->
 %% NOTE: The test case is a bit weak as it will fail if the memory
 %% usage changes too much during its course.
 %%----------------------------------------------------------------------
-alarm1(suite) ->
-    [];
-alarm1(doc) ->
-    ["Test alarms when memsup_system_only==false"];
+
+%% Test alarms when memsup_system_only==false
 alarm1(Config) when is_list(Config) ->
 
     %% If system memory usage is too high, the testcase cannot
@@ -298,10 +293,7 @@ alarm1(_Config, SysUsage) ->
     ok = memsup:set_check_interval(1),
     ok.
 
-alarm2(suite) ->
-    [];
-alarm2(doc) ->
-    ["Test alarms when memsup_system_only==true"];
+%% Test alarms when memsup_system_only==true
 alarm2(Config) when is_list(Config) ->
 
     %% If system memory usage is too high, the testcase cannot
@@ -406,10 +398,7 @@ alarm_set(Alarm, [_|T]) ->
 alarm_set(_Alarm, []) ->
     false.
 
-process(suite) ->
-    [];
-process(doc) ->
-    ["Make sure memsup discovers a process grown very large"];
+%% Make sure memsup discovers a process grown very large
 process(Config) when is_list(Config) ->
 
     %% Set a long memory check interval, we will force memory checks
@@ -452,10 +441,7 @@ new_hog_1(List) ->
         _Any -> exit(List)
     end.
 
-config(suite) ->
-    [];
-config(doc) ->
-    ["Test configuration"];
+%% Test configuration
 config(Config) when is_list(Config) ->
 
     %% Change configuration parameters and make sure change is reflected
@@ -504,10 +490,7 @@ config(Config) when is_list(Config) ->
 
     ok.
 
-unavailable(suite) ->
-    [];
-unavailable(doc) ->
-    ["Test correct behaviour when service is unavailable"];
+%% Test correct behaviour when service is unavailable
 unavailable(Config) when is_list(Config) ->
 
     %% Close memsup
@@ -536,10 +519,7 @@ unavailable(Config) when is_list(Config) ->
 
     ok.
 
-timeout(suite) ->
-    [];
-timeout(doc) ->
-    ["Test stability of memsup when data collection times out"];
+%% Test stability of memsup when data collection times out
 timeout(Config) when is_list(Config) ->
 
     %% Set a long memory check interval and memsup_helper timeout,
@@ -591,10 +571,7 @@ timeout(Config) when is_list(Config) ->
 
     ok.
 
-port(suite) ->
-    [];
-port(doc) ->
-    ["Test that memsup handles a terminating port program"];
+%% Test that memsup handles a terminating port program
 port(Config) when is_list(Config) ->
     Str = os:cmd("ps -e | grep '[m]emsup'"),
     case io_lib:fread("~s", Str) of
@@ -636,10 +613,7 @@ port(Config) when is_list(Config) ->
             {skip, {os_pid_not_found, Str}}
     end.
 
-otp_5910(suite) ->
-    [];
-otp_5910(doc) ->
-    ["Test that alarms are cleared and not set twice"];
+%% Test that alarms are cleared and not set twice
 otp_5910(Config) when is_list(Config) ->
     Alarms =
     [system_memory_high_watermark, process_memory_high_watermark],

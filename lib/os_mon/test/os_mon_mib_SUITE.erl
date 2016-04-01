@@ -138,19 +138,15 @@ end_per_suite(Config) ->
 %%---------------------------------------------------------------------
 %% Test cases
 %%---------------------------------------------------------------------
-load_unload(doc) ->
-    ["Test to unload and the reload the OTP.mib "];
-load_unload(suite) -> [];
+    
+%% Test to unload and the reload the OTP.mib
 load_unload(Config) when is_list(Config) ->
     os_mon_mib:unload(snmp_master_agent),
     os_mon_mib:load(snmp_master_agent),
     ok.
 %%---------------------------------------------------------------------
 
-update_load_table(doc) ->
-    ["check os_mon_mib:update_load_table error handling"];
-update_load_table(suite) ->
-    [];
+%% check os_mon_mib:update_load_table error handling
 update_load_table(Config) when is_list(Config) ->
     Node = start_node(),
     ok = rpc:call(Node,application,start,[sasl]),
@@ -161,10 +157,7 @@ update_load_table(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
-otp_6351(doc) ->
-    ["like update_load_table, when memsup_system_only==true"];
-otp_6351(suite) ->
-    [];
+%% like update_load_table, when memsup_system_only==true
 otp_6351(Config) when is_list(Config) ->
     Node = start_node(),
     ok = rpc:call(Node,application,start,[sasl]),
@@ -185,11 +178,8 @@ otp_6351(Config) when is_list(Config) ->
 
 
 %%---------------------------------------------------------------------
-get_mem_sys_mark(doc) ->
-    ["Simulates a get call to test the instrumentation function "
-     "for the loadMemorySystemWatermark variable."];
-get_mem_sys_mark(suite) ->
-    [];
+%% Simulates a get call to test the instrumentation function
+%% for the loadMemorySystemWatermark variable.
 get_mem_sys_mark(Config) when is_list(Config) ->
     case  os_mon_mib:mem_sys_mark(get) of
         {value, SysMark} when is_integer(SysMark) ->
@@ -198,11 +188,8 @@ get_mem_sys_mark(Config) when is_list(Config) ->
             ct:fail(sys_mark_value_not_integer)
     end.
 %%---------------------------------------------------------------------
-get_mem_proc_mark(doc) ->
-    ["Simulates a get call to test the instrumentation function "
-     "for the loadMemoryErlProcWatermark variable."];
-get_mem_proc_mark(suite) ->
-    [];
+%% Simulates a get call to test the instrumentation function
+%% for the loadMemoryErlProcWatermark variable.
 get_mem_proc_mark(Config) when is_list(Config) ->
     case os_mon_mib:mem_proc_mark(get) of
         {value, ProcMark} when is_integer(ProcMark) ->
@@ -211,11 +198,8 @@ get_mem_proc_mark(Config) when is_list(Config) ->
             ct:fail(proc_mark_value_not_integer)
     end.
 %%---------------------------------------------------------------------
-get_disk_threshold(doc) ->
-    ["Simulates a get call to test the instrumentation function "
-     "for the diskAlmostFullThreshold variable."];
-get_disk_threshold(suite) ->
-    [];
+%% Simulates a get call to test the instrumentation function
+%% for the diskAlmostFullThreshold variable.
 get_disk_threshold(Config) when is_list(Config) ->
     case os_mon_mib:disk_threshold(get) of
         {value, ProcMark} when is_integer(ProcMark) ->
@@ -231,11 +215,8 @@ get_disk_threshold(Config) when is_list(Config) ->
 %%% instrumentation functions directly as done in most test cases in
 %%% this test suite
 
-get_load_table(doc) ->
-    ["Simulates get calls to test the instrumentation function "
-     "for the loadTable"];
-get_load_table(suite) ->
-    [];
+%% Simulates get calls to test the instrumentation function
+%% for the loadTable
 get_load_table(Config) when is_list(Config) ->
 
     NodeStr = atom_to_list(node()),
@@ -297,10 +278,6 @@ get_load_table(Config) when is_list(Config) ->
     ok.
 %%---------------------------------------------------------------------
 
-sys_tot_mem(doc) ->
-    [];
-sys_tot_mem(suite) ->
-    [];
 sys_tot_mem(Config) when is_list(Config) ->
     [{[?loadSystemTotalMemory, Len | NodeStr], Mem}] =
     os_mon_mib:load_table(get_next, [], [?loadSystemTotalMemory]),
@@ -314,9 +291,6 @@ sys_tot_mem(Config) when is_list(Config) ->
             ct:fail(sys_tot_mem_value_not_integer)
     end.
 
-sys_used_mem(doc) ->
-    [];
-sys_used_mem(suite) -> [];
 sys_used_mem(Config) when is_list(Config) ->
     [{[?loadSystemUsedMemory, Len | NodeStr], Mem}] =
     os_mon_mib:load_table(get_next,[], [?loadSystemUsedMemory]),
@@ -330,10 +304,6 @@ sys_used_mem(Config) when is_list(Config) ->
             ct:fail(sys_used_mem_value_not_integer)
     end.
 
-large_erl_process(doc) ->
-    [];
-large_erl_process(suite) ->
-    [];
 large_erl_process(Config) when is_list(Config) ->
     {_, _, {Pid, _}} = memsup:get_memory_data(),
     PidStr = lists:flatten(io_lib:format("~w", [Pid])),
@@ -343,10 +313,6 @@ large_erl_process(Config) when is_list(Config) ->
     true = lists:member(list_to_atom(NodeStr), [node() | nodes()]),
     ok.
 
-large_erl_process_mem(doc) ->
-    [];
-large_erl_process_mem(suite) ->
-    [];
 large_erl_process_mem(Config) when is_list(Config) ->
 
     [{[?loadLargestErlProcessUsedMemory, Len | NodeStr], Mem}] =
@@ -362,10 +328,6 @@ large_erl_process_mem(Config) when is_list(Config) ->
             ct:fail(erl_pid_mem_value_not_integer)
     end.
 
-cpu_load(doc) ->
-    [];
-cpu_load(suite) ->
-    [];
 cpu_load(Config) when is_list(Config) ->
     [{[?loadCpuLoad, Len | NodeStr], Load}] =
     os_mon_mib:load_table(get_next,[], [?loadCpuLoad]),
@@ -379,10 +341,6 @@ cpu_load(Config) when is_list(Config) ->
             ct:fail(cpu_load_value_not_integer)
     end.
 
-cpu_load5(doc) ->
-    [];
-cpu_load5(suite) ->
-    [];
 cpu_load5(Config) when is_list(Config) ->
     [{[?loadCpuLoad5, Len | NodeStr], Load}] =
     os_mon_mib:load_table(get_next,[], [?loadCpuLoad5]),
@@ -396,10 +354,6 @@ cpu_load5(Config) when is_list(Config) ->
             ct:fail(cpu_load5_value_not_integer)
     end.
 
-cpu_load15(doc) ->
-    [];
-cpu_load15(suite) ->
-    [];
 cpu_load15(Config) when is_list(Config) ->
     [{[?loadCpuLoad15, Len | NodeStr], Load}] =
     os_mon_mib:load_table(get_next,[], [?loadCpuLoad15]),
@@ -413,10 +367,6 @@ cpu_load15(Config) when is_list(Config) ->
             ct:fail(cpu_load15_value_not_integer)
     end.
 
-os_wordsize(doc) ->
-    [];
-os_wordsize(suite) ->
-    [];
 os_wordsize(Config) when is_list(Config) ->
     [{[?loadOsWordsize, Len | NodeStr], Wordsize}] =
     os_mon_mib:load_table(get_next,[], [?loadOsWordsize]),
@@ -430,10 +380,6 @@ os_wordsize(Config) when is_list(Config) ->
             ct:fail(os_wordsize_value_not_integer)
     end.
 
-sys_tot_mem64(doc) ->
-    [];
-sys_tot_mem64(suite) ->
-    [];
 sys_tot_mem64(Config) when is_list(Config) ->
     [{[?loadSystemTotalMemory64, Len | NodeStr], Mem}] =
     os_mon_mib:load_table(get_next, [], [?loadSystemTotalMemory64]),
@@ -447,9 +393,6 @@ sys_tot_mem64(Config) when is_list(Config) ->
             ct:fail(sys_tot_mem_value_not_integer)
     end.
 
-sys_used_mem64(doc) ->
-    [];
-sys_used_mem64(suite) -> [];
 sys_used_mem64(Config) when is_list(Config) ->
     [{[?loadSystemUsedMemory64, Len | NodeStr], Mem}] =
     os_mon_mib:load_table(get_next,[], [?loadSystemUsedMemory64]),
@@ -463,10 +406,6 @@ sys_used_mem64(Config) when is_list(Config) ->
             ct:fail(sys_used_mem_value_not_integer)
     end.
 
-large_erl_process_mem64(doc) ->
-    [];
-large_erl_process_mem64(suite) ->
-    [];
 large_erl_process_mem64(Config) when is_list(Config) ->
 
     [{[?loadLargestErlProcessUsedMemory64, Len | NodeStr], Mem}] =
@@ -482,11 +421,8 @@ large_erl_process_mem64(Config) when is_list(Config) ->
             ct:fail(erl_pid_mem_value_not_integer)
     end.
 %%---------------------------------------------------------------------
-get_disk_table(doc) ->
-    ["Simulates get calls to test the instrumentation function "
-     "for the diskTable."];
-get_disk_table(suite) ->
-    [];
+%% Simulates get calls to test the instrumentation function
+%% for the diskTable.
 get_disk_table(Config) when is_list(Config) ->
 
     DiskData = disksup:get_disk_data(),
@@ -536,10 +472,6 @@ get_disk_table(Config) when is_list(Config) ->
 
 %%---------------------------------------------------------------------
 
-disk_descr(doc) ->
-    [];
-disk_descr(suite) ->
-    [];
 disk_descr(Config) when is_list(Config) ->
     [{[?diskDescr, 1,1], Descr}] =
     os_mon_mib:disk_table(get_next, [], [?diskDescr]),
@@ -551,9 +483,6 @@ disk_descr(Config) when is_list(Config) ->
             ct:fail(disk_descr_value_not_a_string)
     end.
 
-disk_kbytes(doc) ->
-    [];
-disk_kbytes(suite) -> [];
 disk_kbytes(Config) when is_list(Config) ->
     [{[?diskKBytes, 1,1], Kbytes}] =
     os_mon_mib:disk_table(get_next,[], [?diskKBytes]),
@@ -566,9 +495,6 @@ disk_kbytes(Config) when is_list(Config) ->
     end.
 
 
-disk_capacity(doc) ->
-    [];
-disk_capacity(suite) -> [];
 disk_capacity(Config) when is_list(Config) ->
     [{[?diskCapacity, 1,1], Capacity}] =
     os_mon_mib:disk_table(get_next,[], [?diskCapacity]),
@@ -581,10 +507,8 @@ disk_capacity(Config) when is_list(Config) ->
     end.
 
 %%---------------------------------------------------------------------
-real_snmp_request(doc) ->
-    ["Starts an snmp manager and sends a real snmp-request. i.e. "
-     "sends a udp message on the correct format."];
-real_snmp_request(suite) -> [];
+%% Starts an snmp manager and sends a real snmp-request. i.e.
+%% sends a udp message on the correct format.
 real_snmp_request(Config) when is_list(Config) ->
     NodStr = atom_to_list(node()),
     Len = length(NodStr),
@@ -602,11 +526,8 @@ real_snmp_request(Config) when is_list(Config) ->
                   s, "<0.101.0>", Config),
     ok.
 
-otp_7441(doc) ->
-    ["Starts an snmp manager and requests total memory. Was previously
-     integer32 which was errornous on 64 bit machines."];
-otp_7441(suite) ->
-    [];
+%% Starts an snmp manager and requests total memory. Was previously
+%% integer32 which was errornous on 64 bit machines.
 otp_7441(Config) when is_list(Config) ->
     NodStr = atom_to_list(node()),
     Len = length(NodStr),

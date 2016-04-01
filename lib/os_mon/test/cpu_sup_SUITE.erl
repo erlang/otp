@@ -67,10 +67,7 @@ all() ->
         _OS -> [unavailable]
     end.
 
-load_api(suite) ->
-    [];
-load_api(doc) ->
-    ["Test of load API functions"];
+%% Test of load API functions
 load_api(Config) when is_list(Config) ->
 
     %% nprocs()
@@ -96,10 +93,7 @@ load_api(Config) when is_list(Config) ->
 
     ok.
 
-util_api(suite) ->
-    [];
-util_api(doc) ->
-    ["Test of utilization API functions"];
+%% Test of utilization API functions
 util_api(Config) when is_list(Config) ->
     %% Some useful funs when testing util/1
     BusyP = fun({user, _Share}) -> true;
@@ -156,10 +150,7 @@ util_api(Config) when is_list(Config) ->
 
 -define(SPIN_TIME, 1000).
 
-util_values(suite) ->
-    [];
-util_values(doc) ->
-    ["Test utilization values"];
+%% Test utilization values
 util_values(Config) when is_list(Config) ->
 
     Tester = self(),
@@ -204,10 +195,7 @@ util_values(Config) when is_list(Config) ->
 % Outdated
 % The portprogram is now restarted if killed, and not by os_mon...
 
-port(suite) ->
-    [];
-port(doc) ->
-    ["Test that cpu_sup handles a terminating port program"];
+%% Test that cpu_sup handles a terminating port program
 port(Config) when is_list(Config) ->
     case cpu_sup_os_pid() of
         {ok, PidStr} ->
@@ -243,17 +231,12 @@ port(Config) when is_list(Config) ->
             {skip, os_pid_not_found }
     end.
 
-terminate(suite) ->
-    [];
 terminate(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_cpu_sup, false),
     _ = supervisor:terminate_child(os_mon_sup, cpu_sup),
     ok.
 
-unavailable(suite) ->
-    [];
-unavailable(doc) ->
-    ["Test correct behaviour when service is unavailable"];
+%% Test correct behaviour when service is unavailable
 unavailable(Config) when is_list(Config) ->
 
     %% Make sure all API functions return their dummy values
@@ -269,8 +252,6 @@ unavailable(Config) when is_list(Config) ->
 
     ok.
 
-restart(suite) ->
-    [];
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_cpu_sup, true),
     {ok, _Pid} = supervisor:restart_child(os_mon_sup, cpu_sup),
