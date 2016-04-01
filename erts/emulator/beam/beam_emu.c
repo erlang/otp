@@ -2166,7 +2166,7 @@ void process_main(void)
 
      PreFetch(0, next);
      if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-	 trace_receive(c_p, c_p, am_timeout, NULL);
+	 trace_receive(c_p, am_clock_service, am_timeout, NULL);
      }
      if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
 	 save_calls(c_p, &exp_timeout);

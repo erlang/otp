@@ -252,9 +252,10 @@ erts_realloc_shrink_message(ErtsMessage *mp, Uint sz, Eterm *brefs, Uint brefs_s
 
 void
 erts_queue_dist_message(Process *rcvr,
-			ErtsProcLocks *rcvr_locks,
+			ErtsProcLocks rcvr_locks,
 			ErtsDistExternal *dist_ext,
-			Eterm token)
+			Eterm token,
+                        Eterm from)
 {
     ErtsMessage* mp;
 #ifdef USE_VM_PROBES
@@ -266,7 +267,7 @@ erts_queue_dist_message(Process *rcvr,
     erts_aint_t state;
 #endif
 
-    ERTS_SMP_LC_ASSERT(*rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
+    ERTS_SMP_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
 
     mp = erts_alloc_message(0, NULL);
     mp->data.dist_ext = dist_ext;
@@ -281,10 +282,10 @@ erts_queue_dist_message(Process *rcvr,
 	ERL_MESSAGE_TOKEN(mp) = token;
 
 #ifdef ERTS_SMP
-    if (!(*rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
+    if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
 	if (erts_smp_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
-	    if (*rcvr_locks & ERTS_PROC_LOCK_STATUS) {
+	    if (rcvr_locks & ERTS_PROC_LOCK_STATUS) {
 		erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_STATUS);
 		need_locks |= ERTS_PROC_LOCK_STATUS;
 	    }
@@ -294,7 +295,7 @@ erts_queue_dist_message(Process *rcvr,
 
     state = erts_smp_atomic32_read_acqb(&rcvr->state);
     if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
-	if (!(*rcvr_locks & ERTS_PROC_LOCK_MSGQ))
+	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 	/* Drop message if receiver is exiting or has a pending exit ... */
 	erts_cleanup_messages(mp);
@@ -302,10 +303,13 @@ erts_queue_dist_message(Process *rcvr,
     else
 #endif
     if (IS_TRACED_FL(rcvr, F_TRACE_RECEIVE)) {
+        if (from == am_Empty)
+            from = dist_ext->dep->sysname;
+
 	/* Ahh... need to decode it in order to trace it... */
-	if (!(*rcvr_locks & ERTS_PROC_LOCK_MSGQ))
+	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
-	if (!erts_decode_dist_message(rcvr, *rcvr_locks, mp, 0))
+	if (!erts_decode_dist_message(rcvr, rcvr_locks, mp, 0))
 	    erts_free_message(mp);
 	else {
 	    Eterm msg = ERL_MESSAGE_TERM(mp);
@@ -325,7 +329,7 @@ erts_queue_dist_message(Process *rcvr,
 			tok_label, tok_lastcnt, tok_serial);
 	    }
 #endif
-	    erts_queue_message(rcvr, rcvr_locks, mp, msg);
+	    erts_queue_message(rcvr, rcvr_locks, mp, msg, from);
 	}
     }
     else {
@@ -352,12 +356,12 @@ erts_queue_dist_message(Process *rcvr,
 
 	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
 
-	if (!(*rcvr_locks & ERTS_PROC_LOCK_MSGQ))
+	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
 	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
 	erts_proc_notify_new_message(rcvr,
 #ifdef ERTS_SMP
-				     *rcvr_locks
+				     rcvr_locks
 #else
 				     0
 #endif
@@ -367,13 +371,13 @@ erts_queue_dist_message(Process *rcvr,
 
 /* Add messages last in message queue */
 static Sint
-queue_messages(Process *c_p,
-               Process* receiver,
+queue_messages(Process* receiver,
                erts_aint32_t *receiver_state,
                ErtsProcLocks receiver_locks,
                ErtsMessage* first,
                ErtsMessage** last,
-               Uint len)
+               Uint len,
+               Eterm from)
 {
     ErtsTracingEvent* te;
     Sint res;
@@ -475,7 +479,7 @@ queue_messages(Process *c_p,
         }
 #endif
         while (msg) {
-            trace_receive(c_p, receiver, ERL_MESSAGE_TERM(msg), te);
+            trace_receive(receiver, from, ERL_MESSAGE_TERM(msg), te);
             msg = msg->next;
         }
 
@@ -494,31 +498,31 @@ queue_messages(Process *c_p,
 }
 
 static Sint
-queue_message(Process *c_p,
-              Process* receiver,
+queue_message(Process* receiver,
               erts_aint32_t *receiver_state,
-              ErtsProcLocks *receiver_locks,
-              ErtsMessage* mp, Eterm msg)
+              ErtsProcLocks receiver_locks,
+              ErtsMessage* mp, Eterm msg, Eterm from)
 {
     ERL_MESSAGE_TERM(mp) = msg;
-    return queue_messages(c_p, receiver, receiver_state, *receiver_locks,
-                          mp, &mp->next, 1 );
+    return queue_messages(receiver, receiver_state, receiver_locks,
+                          mp, &mp->next, 1, from);
 }
 
 Sint
-erts_queue_message(Process* receiver, ErtsProcLocks *receiver_locks,
-                   ErtsMessage* mp, Eterm msg)
+erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
+                   ErtsMessage* mp, Eterm msg, Eterm from)
 {
-    return queue_message(NULL, receiver, NULL, receiver_locks, mp, msg);
+    return queue_message(receiver, NULL, receiver_locks, mp, msg, from);
 }
 
 
 Sint
-erts_queue_messages(Process* receiver, ErtsProcLocks *receiver_locks,
-                    ErtsMessage* first, ErtsMessage** last, Uint len)
+erts_queue_messages(Process* receiver, ErtsProcLocks receiver_locks,
+                    ErtsMessage* first, ErtsMessage** last, Uint len,
+                    Eterm from)
 {
-    return queue_messages(NULL, receiver, NULL, *receiver_locks,
-                          first, last, len);
+    return queue_messages(receiver, NULL, receiver_locks,
+                          first, last, len, from);
 }
 
 void
@@ -835,11 +839,11 @@ erts_send_message(Process* sender,
 #ifdef USE_VM_PROBES
     ERL_MESSAGE_DT_UTAG(mp) = utag;
 #endif
-    res = queue_message(sender,
-			receiver,
+    res = queue_message(receiver,
 			&receiver_state,
-			receiver_locks,
-			mp, message);
+			*receiver_locks,
+			mp, message,
+                        sender->common.id);
 
     BM_SWAP_TIMER(send,system);
     
@@ -896,7 +900,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	seq_trace_output(token, save, SEQ_TRACE_SEND, to->common.id, NULL);
 	temptoken = copy_struct(token, sz_token, &hp, ohp);
         ERL_MESSAGE_TOKEN(mp) = temptoken;
-	erts_queue_message(to, to_locksp, mp, save);
+	erts_queue_message(to, *to_locksp, mp, save, am_system);
     } else {
 	sz_from = IS_CONST(from) ? 0 : size_object(from);
 #ifdef SHCOPY_SEND
@@ -918,7 +922,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 		     ? from
 		     : copy_struct(from, sz_from, &hp, ohp));
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
-	erts_queue_message(to, to_locksp, mp, save);
+	erts_queue_message(to, *to_locksp, mp, save, am_system);
     }
 }
 

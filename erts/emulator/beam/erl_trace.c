@@ -738,7 +738,7 @@ profile_send(Eterm from, Eterm message) {
 	else
 	    msg = copy_struct(message, sz, &hp, &mp->hfrag.off_heap);
 
-        erts_queue_message(profile_p, NULL, mp, msg);
+        erts_queue_message(profile_p, 0, mp, msg, from);
     }
 }
 
@@ -859,8 +859,8 @@ trace_send(Process *p, Eterm to, Eterm msg)
  * or   {trace, Pid, receive, Msg}
  */
 void
-trace_receive(Process *c_p,
-              Process* receiver,
+trace_receive(Process* receiver,
+              Eterm from,
               Eterm msg, ErtsTracingEvent* te)
 {
     ErtsTracerNif *tnif = NULL;
@@ -875,15 +875,15 @@ trace_receive(Process *c_p,
     if (te->match_spec) {
         Eterm args[2];
         Uint32 return_flags;
-        args[0] = am_undefined; /* ToDo: from who? */
+        args[0] = from;
         args[1] = msg;
-        pam_result = erts_match_set_run(c_p, receiver,
+        pam_result = erts_match_set_run(NULL, receiver,
                                         te->match_spec, args, 2,
                                         ERTS_PAM_TMP_RESULT, &return_flags);
         if (is_non_value(pam_result)
             || pam_result == am_false
             || (ERTS_TRACE_FLAGS(receiver) & F_TRACE_SILENT)) {
-            erts_match_set_release_result(c_p);
+            erts_match_set_release_result(NULL);
             return;
         }
     } else
@@ -895,7 +895,7 @@ trace_receive(Process *c_p,
                            tnif, TRACE_FUN_T_RECEIVE,
                            am_receive, msg, THE_NON_VALUE, pam_result);
     }
-    erts_match_set_release_result(c_p);
+    erts_match_set_release_result(NULL);
 }
 
 int
@@ -1483,7 +1483,7 @@ monitor_long_schedule_proc(Process *p, BeamInstr *in_fp, BeamInstr *out_fp, Uint
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(monitor_p, NULL, mp, msg);
+	erts_queue_message(monitor_p, 0, mp, msg, am_system);
     }
 #endif
 }
@@ -1548,7 +1548,7 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(monitor_p, NULL, mp, msg);
+	erts_queue_message(monitor_p, 0, mp, msg, am_system);
     }
 #endif
 }
@@ -1623,7 +1623,7 @@ monitor_long_gc(Process *p, Uint time) {
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(monitor_p, NULL, mp, msg);
+	erts_queue_message(monitor_p, 0, mp, msg, am_system);
     }
 #endif
 }
@@ -1698,7 +1698,7 @@ monitor_large_heap(Process *p) {
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(monitor_p, NULL, mp, msg);
+	erts_queue_message(monitor_p, 0, mp, msg, am_system);
     }
 #endif
 }
@@ -1730,7 +1730,7 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(monitor_p, NULL, mp, msg);
+	erts_queue_message(monitor_p, 0, mp, msg, am_system);
     }
 #endif
 
@@ -2514,7 +2514,7 @@ sys_msg_dispatcher_func(void *unused)
 		queue_proc_msg:
 		    mp = erts_alloc_message(0, NULL);
 		    mp->data.heap_frag = smqp->bp;
-		    erts_queue_message(proc,&proc_locks,mp,smqp->msg);
+		    erts_queue_message(proc,proc_locks,mp,smqp->msg,am_system);
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "delivered\n");
 #endif

@@ -100,7 +100,7 @@ void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 #endif
 
 void trace_send(Process*, Eterm, Eterm);
-void trace_receive(Process*, Process*, Eterm, ErtsTracingEvent*);
+void trace_receive(Process*, Eterm, Eterm, ErtsTracingEvent*);
 Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec,
                        Eterm* args, int local, ErtsTracer *tracer);
 void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval,

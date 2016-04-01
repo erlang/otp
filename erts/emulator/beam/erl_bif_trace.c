@@ -2344,7 +2344,7 @@ reply_trace_delivered_all(void *vtdarp)
 #ifdef ERTS_SMP
         erts_send_sys_msg_proc(rp->common.id, rp->common.id, msg, bp);
 #else
-        erts_queue_message(rp, &rp_locks, mp, msg);
+        erts_queue_message(rp, rp_locks, mp, msg, am_system);
 #endif
 
 	erts_free(ERTS_ALC_T_MISC_AUX_WORK, vtdarp);

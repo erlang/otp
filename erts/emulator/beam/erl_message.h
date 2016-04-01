@@ -295,10 +295,10 @@ ErlHeapFragment* new_message_buffer(Uint);
 ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
-void erts_queue_dist_message(Process*, ErtsProcLocks*, ErtsDistExternal *, Eterm);
-Sint erts_queue_message(Process*, ErtsProcLocks*,ErtsMessage*, Eterm);
-Sint erts_queue_messages(Process*, ErtsProcLocks*,
-                         ErtsMessage*, ErtsMessage**, Uint);
+void erts_queue_dist_message(Process*, ErtsProcLocks, ErtsDistExternal *, Eterm, Eterm);
+Sint erts_queue_message(Process*, ErtsProcLocks,ErtsMessage*, Eterm, Eterm);
+Sint erts_queue_messages(Process*, ErtsProcLocks,
+                         ErtsMessage*, ErtsMessage**, Uint, Eterm);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
 Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);

@@ -106,13 +106,68 @@ receive_trace(Config) when is_list(Config) ->
 		 end,
 		 receive_nothing()
 	 end,
+    From = self(),
     lists:foreach(F1, [{no, true},
 		       {[{[undefined,"Unexpected"],[],[]}], false},
-		       {[{['_','_'],[],[]}], true},
-		       {[{['$1','_'],[{is_integer,'$1'}],[]}], false},
+		       {[{[From,'_'],[],[]}], true},
+		       {[{['$1','_'],[{'=/=','$1',From}],[]}], false},
 		       {[{['_','$1'],[{is_tuple,'$1'}],[]}], true},
 		       {false, false},
 		       {true, true}]),
+
+    %% Remote messages
+    OtherName = atom_to_list(?MODULE)++"_receive_trace",
+    {ok, OtherNode} = start_node(OtherName),
+    RemoteProc = spawn(OtherNode, ?MODULE, process, [self()]),
+    io:format("RemoteProc = ~p ~n", [RemoteProc]),
+
+    RemoteProc ! {send_please, Receiver, Hello},
+    {trace, Receiver, 'receive', Hello} = receive_first_trace(),
+    RemoteProc ! {send_please, Receiver, 99},
+    {trace, Receiver, 'receive', 99} = receive_first_trace(),
+
+    %% Remote with matchspec
+    F2 = fun (To, {Pat, IsMatching}) ->
+		 set_trace_pattern('receive', Pat, []),
+		 RemoteProc ! {send_please, To, Hello},
+		 case IsMatching of
+		     true ->
+			 {trace, Receiver, 'receive', Hello} = receive_first_trace();
+		     false ->
+			 ok
+		 end,
+		 receive_nothing()
+	 end,
+    F2(Receiver, {no, true}),
+    F2(Receiver, {[{[undefined,"Unexpected"],[],[]}], false}),
+    F2(Receiver, {[{[RemoteProc,'_'],[],[]}], true}),
+    F2(Receiver, {[{['$1','_'], [{'=/=',{node,'$1'},{node}}], []}], true}),
+    F2(Receiver, {[{['_','$1'], [{is_tuple,'$1'}], []}], true}),
+    F2(Receiver, {false, false}),
+    F2(Receiver, {true, true}),
+
+    %% Remote to named with matchspec
+    Name = trace_SUITE_receiver,
+    register(Name, Receiver),
+    NN = {Name, node()},
+    F2(NN, {no, true}),
+    F2(NN, {[{[undefined,"Unexpected"],[],[]}], false}),
+    F2(NN, {[{[RemoteProc,'_'],[],[]}], true}),
+    F2(NN, {[{['$1','_'], [{'=/=',{node,'$1'},{node}}], []}], true}),
+    F2(NN, {[{['_','$1'], [{is_tuple,'$1'}], []}], true}),
+    F2(NN, {false, false}),
+    F2(NN, {true, true}),
+
+    true = stop_node(OtherNode),
+
+    %% Timeout
+    Receiver ! {set_timeout, 10},
+    {trace, Receiver, 'receive', {set_timeout, 10}} = receive_first_trace(),
+    {trace, Receiver, 'receive', timeout} = receive_first_trace(),
+    erlang:trace_pattern('receive', [{[clock_service,timeout], [], []}], []),
+    Receiver ! {set_timeout, 7},
+    {trace, Receiver, 'receive', timeout} = receive_first_trace(),
+    erlang:trace_pattern('receive', true, []),
 
     %% Another process should not be able to trace Receiver.
     Intruder = fun_spawn(fun() -> erlang:trace(Receiver, true, ['receive']) end),
@@ -125,19 +180,19 @@ receive_trace(Config) when is_list(Config) ->
     ?line receive_nothing(),
 
     %% Verify restrictions in matchspec for 'receive'
-    F2 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang:trace_pattern('receive', Pat, [])) end,
-    lists:foreach(F2, [[{['_','_'],[],[{message, {process_dump}}]}],
-		       [{['_','_'],[{is_seq_trace}],[]}],
-		       [{['_','_'],[],[{set_seq_token,label,4711}]}],
-		       [{['_','_'],[],[{get_seq_token}]}],
-		       [{['_','_'],[],[{enable_trace,call}]}],
-		       [{['_','_'],[],[{enable_trace,self(),call}]}],
-		       [{['_','_'],[],[{disable_trace,call}]}],
-		       [{['_','_'],[],[{disable_trace,self(),call}]}],
-		       [{['_','_'],[],[{trace,[call],[]}]}],
-		       [{['_','_'],[],[{trace,self(),[],[call]}]}],
-		       [{['_','_'],[],[{caller}]}],
-		       [{['_','_'],[],[{silent,true}]}]]),
+    F3 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang:trace_pattern('receive', Pat, [])) end,
+    F3([{['_','_'],[],[{message, {process_dump}}]}]),
+    F3([{['_','_'],[{is_seq_trace}],[]}]),
+    F3([{['_','_'],[],[{set_seq_token,label,4711}]}]),
+    F3([{['_','_'],[],[{get_seq_token}]}]),
+    F3([{['_','_'],[],[{enable_trace,call}]}]),
+    F3([{['_','_'],[],[{enable_trace,self(),call}]}]),
+    F3([{['_','_'],[],[{disable_trace,call}]}]),
+    F3([{['_','_'],[],[{disable_trace,self(),call}]}]),
+    F3([{['_','_'],[],[{trace,[call],[]}]}]),
+    F3([{['_','_'],[],[{trace,self(),[],[call]}]}]),
+    F3([{['_','_'],[],[{caller}]}]),
+    F3([{['_','_'],[],[{silent,true}]}]),
 
     ok.
 
@@ -568,6 +623,7 @@ dist_procs_trace(Config) when is_list(Config) ->
     Proc2 ! {unlink_please, Proc1},
     {trace, Proc1, getting_unlinked, Proc2} = receive_first_trace(),
     receive_nothing(),
+
     %%
     %% exit (with registered name, due to link)
     Name = list_to_atom(OtherName),
@@ -1649,9 +1705,14 @@ sender() ->
 %% Just consumes messages from its message queue.
 
 receiver() ->
-    receive
-        _Any -> receiver()
-    end.
+    receiver(infinity).
+
+receiver(Timeout) ->
+    receiver(receive
+		 {set_timeout, NewTimeout} -> NewTimeout;
+		 _Any -> Timeout
+	     after Timeout -> infinity  %% reset
+	     end).
 
 %% Works as long as it receives CPU time.  Will always be RUNNABLE.
 

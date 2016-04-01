@@ -1139,7 +1139,7 @@ reply_sched_wall_time(void *vswtrp)
 	hpp = &hp;
     }
 
-    erts_queue_message(rp, &rp_locks, mp, msg);
+    erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (swtrp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -1218,7 +1218,7 @@ reply_system_check(void *vscrp)
     hpp = &hp;
     msg = STORE_NC(hpp, ohp, scrp->ref);
 
-    erts_queue_message(rp, &rp_locks, mp, msg);
+    erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (scrp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -10010,7 +10010,7 @@ notify_sys_task_executed(Process *c_p, ErtsProcSysTask *st, Eterm st_result)
 	ASSERT(hp_start + hsz == hp);
 #endif
 
-	erts_queue_message(rp, &rp_locks, mp, msg);
+	erts_queue_message(rp, rp_locks, mp, msg, c_p->common.id);
 
 	if (c_p == rp)
 	    rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -11744,7 +11744,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 	mp = erts_alloc_message_heap(to, to_locksp, term_size, &hp, &ohp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
 #endif
-	erts_queue_message(to, to_locksp, mp, mess);
+	erts_queue_message(to, *to_locksp, mp, mess, am_system);
     } else {
 	Eterm temp_token;
 	Uint sz_token;
@@ -11765,7 +11765,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->common.id, to);
 	temp_token = copy_struct(token, sz_token, &hp, ohp);
         ERL_MESSAGE_TOKEN(mp) = temp_token;
-	erts_queue_message(to, to_locksp, mp, mess);
+	erts_queue_message(to, *to_locksp, mp, mess, am_system);
     }
 }
 

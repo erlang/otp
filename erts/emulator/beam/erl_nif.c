@@ -366,7 +366,7 @@ int erts_flush_trace_messages(Process *c_p, ErtsProcLocks c_p_locks)
             rp_locks = 0;
             if (rp->common.id == c_p->common.id)
                 rp_locks = c_p_locks;
-            erts_queue_messages(rp, &rp_locks, first, last, len);
+            erts_queue_messages(rp, rp_locks, first, last, len, c_p->common.id);
             if (rp->common.id == c_p->common.id)
                 rp_locks &= ~c_p_locks;
             if (rp_locks)
@@ -405,7 +405,10 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
           ErlNifEnv* msg_env, ERL_NIF_TERM msg)
 {
     struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
-    ErtsProcLocks rp_locks = 0, lc_locks = 0, c_p_locks = ERTS_PROC_LOCK_MAIN;
+    ErtsProcLocks rp_locks = 0;
+#ifdef ERTS_SMP
+    ErtsProcLocks lc_locks = 0;
+#endif
     Process* rp;
     Process* c_p;
     ErtsMessage *mp;
@@ -417,7 +420,7 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (env != NULL) {
 	c_p = env->proc;
 	if (receiver == c_p->common.id) {
-	    rp_locks = c_p_locks;
+	    rp_locks = ERTS_PROC_LOCK_MAIN;
 	    flush_me = 1;
 	}
     }
@@ -470,14 +473,8 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
         if (c_p && IS_TRACED_FL(c_p, F_TRACE_SEND))
             trace_send(c_p, receiver, msg);
-
-#ifndef ERTS_SMP
     }
-#endif
-
-        erts_queue_message(rp, &rp_locks, mp, msg);
 #ifdef ERTS_SMP
-    }
     else {
         /* This clause is taken when the nif is called in the context
            of a traced process. We do not know which locks we have
@@ -502,8 +499,6 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 #ifdef ERTS_ENABLE_LOCK_CHECK
         lc_locks = erts_proc_lc_my_proc_locks(rp);
         rp_locks |= lc_locks;
-        if (receiver == c_p->common.id)
-            c_p_locks |= lc_locks;
 #endif
         if (ERTS_FORCE_ENIF_SEND_DELAY() || msgq ||
             rp_locks & ERTS_PROC_LOCK_MSGQ ||
@@ -532,19 +527,25 @@ enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
                 msgq->last = &mp->next;
                 erts_smp_proc_unlock(t_p, ERTS_PROC_LOCK_TRACE);
             }
+            goto done;
         } else {
             erts_smp_proc_unlock(t_p, ERTS_PROC_LOCK_TRACE);
             rp_locks &= ~ERTS_PROC_LOCK_TRACE;
             rp_locks |= ERTS_PROC_LOCK_MSGQ;
-            erts_queue_message(rp, &rp_locks, mp, msg);
         }
     }
-#endif
+#endif /* ERTS_SMP */
 
+    erts_queue_message(rp, rp_locks, mp, msg,
+                       c_p ? c_p->common.id : am_undefined);
+
+#ifdef ERTS_SMP
+done:
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp_locks & ~lc_locks)
 	erts_smp_proc_unlock(rp, rp_locks & ~lc_locks);
+#endif
     if (!scheduler)
 	erts_proc_dec_refc(rp);
     if (flush_me) {
