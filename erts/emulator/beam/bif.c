@@ -1566,14 +1566,17 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	*       true. For more info, see implementation of
 	*       erts_send_exit_signal().
 	*/
+       erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_XSIG_SEND);
        if (trap_exit)
 	   state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
 						 ERTS_PSFLG_TRAP_EXIT);
        else
 	   state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
 						  ~ERTS_PSFLG_TRAP_EXIT);
+       erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_XSIG_SEND);
+
 #ifdef ERTS_SMP
-       if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
+       if (state & ERTS_PSFLG_PENDING_EXIT) {
 	   erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
 	   ERTS_BIF_EXITED(BIF_P);
        }
