@@ -315,8 +315,10 @@ unavailable(Config) when is_list(Config) ->
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, true),
     ok = application:set_env(os_mon, disksup_posix_only, false),
-    {ok, _Pid} = supervisor:restart_child(os_mon_sup, disksup),
-    ok.
+    case supervisor:restart_child(os_mon_sup, disksup) of
+        {ok, _Pid} -> ok;
+        {error, running} -> ok
+    end.
 
 %% Test that alarms are cleared if disksup crashes or
 %% if OS_Mon is stopped
