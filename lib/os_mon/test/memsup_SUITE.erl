@@ -21,7 +21,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -29,9 +29,6 @@
 -export([api/1, alarm1/1, alarm2/1, process/1]).
 -export([config/1, timeout/1, unavailable/1, port/1]).
 -export([otp_5910/1]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -42,15 +39,14 @@ end_per_suite(Config) when is_list(Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     Config.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+end_per_testcase(_Case, _Config) ->
+    ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     All = case test_server:os_type() of
@@ -63,15 +59,6 @@ all() ->
           end,
     Bugs = [otp_5910],
     All ++ Bugs.
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 api(suite) ->
@@ -96,24 +83,23 @@ api(Config) when is_list(Config) ->
 
     %% get_system_memory_data()
     ExtMemData = memsup:get_system_memory_data(),
-    Tags = [	total_memory,
-                free_memory,
-                system_total_memory,
-                largest_free,
-                number_of_free,
-                free_swap,
-                total_swap,
-                cached_memory,
-                buffered_memory,
-                shared_memory],
+    Tags = [total_memory,
+            free_memory,
+            system_total_memory,
+            largest_free,
+            number_of_free,
+            free_swap,
+            total_swap,
+            cached_memory,
+            buffered_memory,
+            shared_memory],
 
     true = lists:all(fun({Tag,Value}) when is_atom(Tag),
                                            is_integer(Value) ->
                              lists:member(Tag, Tags);
                         (_) ->
                              false
-                     end,
-                     ExtMemData),
+                     end, ExtMemData),
 
     %% get_os_wordsize()
     ok = case memsup:get_os_wordsize() of
@@ -180,7 +166,7 @@ alarm1(Config) when is_list(Config) ->
     io:format("alarm1: Total: ~p, Alloc: ~p~n", [Total, Alloc]),
     SysUsage = Alloc/Total,
     if
-        SysUsage>0.99 ->
+        SysUsage > 0.99 ->
             {skip, sys_mem_too_high};
         true ->
             alarm1(Config, SysUsage)

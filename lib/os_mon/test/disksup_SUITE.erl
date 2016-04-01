@@ -21,7 +21,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -31,9 +31,6 @@
 -export([terminate/1, unavailable/1, restart/1]).
 -export([otp_5910/1]).
 -export([posix_only/1]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -47,19 +44,18 @@ init_per_testcase(unavailable, Config) ->
     terminate(Config),
     init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
+    Config.
 
 end_per_testcase(TC, Config) when TC =:= unavailable;
                                   TC =:= posix_only ->
     restart(Config),
     end_per_testcase(dummy, Config);
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     Bugs = [otp_5910],
@@ -69,16 +65,6 @@ all() ->
 	{win32, _OSname} -> Always;
 	_OS -> [unavailable]
     end.
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 api(suite) -> [];
 api(doc) -> ["Test of API functions"];

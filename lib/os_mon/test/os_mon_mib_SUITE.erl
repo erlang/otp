@@ -35,9 +35,8 @@
 -include_lib("snmp/include/snmp_types.hrl").
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
-         init_per_suite/1, end_per_suite/1,
-         init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1]).
 
 
 % Test cases must be exported.
@@ -53,7 +52,6 @@
          large_erl_process_mem64/1, disk_descr/1, disk_kbytes/1,
          disk_capacity/1]).
 
--export([]).
 -export([otp_6351/1, otp_7441/1]).
 
 -define(TRAP_UDP, 5000).
@@ -65,17 +63,11 @@
 -define(MGR_PORT, 5001).
 
 %%---------------------------------------------------------------------
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:minutes(6)),
-    [{watchdog, Dog}|Config].
 
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    Config.
-
-suite() -> [{ct_hooks,[ts_install_cth]},
-            {require, snmp_mgr_agent, snmp}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,6}},
+     {require, snmp_mgr_agent, snmp}].
 
 all() -> 
     [load_unload, get_mem_sys_mark, get_mem_proc_mark,
@@ -93,12 +85,6 @@ groups() ->
        large_erl_process_mem64]},
      {get_next_disk_table, [],
       [disk_descr, disk_kbytes, disk_capacity]}].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 %%---------------------------------------------------------------------
@@ -196,8 +182,6 @@ otp_6351(Config) when is_list(Config) ->
     rpc:call(Node,application,stop,[os_mon]),
     stop_node(Node),
     ok.
-
-
 
 
 %%---------------------------------------------------------------------

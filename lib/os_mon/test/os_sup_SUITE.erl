@@ -21,16 +21,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
 -export([message/1]).
 -export([config/1, port/1]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
 
 -define(TAG, test_tag).
 -define(MFA, {?MODULE, test_mfa, [?TAG]}).
@@ -55,16 +51,9 @@ end_per_suite(Config) when is_list(Config) ->
     exit(whereis(message_receptor), done),
     Config.
 
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     case test_server:os_type() of
@@ -75,15 +64,6 @@ all() ->
                                 [OS]),
             {skip, lists:flatten(Str)}
     end.
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 message(suite) ->
