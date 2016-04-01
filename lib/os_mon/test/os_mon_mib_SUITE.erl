@@ -116,7 +116,7 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ConfDir = filename:join(PrivDir,"conf"),
     DbDir = filename:join(PrivDir,"db"),
     MgrDir = filename:join(PrivDir, "mgr"),
