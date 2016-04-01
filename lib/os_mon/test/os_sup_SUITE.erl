@@ -39,20 +39,20 @@
 
 init_per_suite(Config) when is_list(Config) ->
     spawn(fun() -> message_receptor() end),
-    ?line application:load(os_mon),
-    ?line ok = application:set_env(os_mon, start_os_sup, true),
-    ?line ok = application:set_env(os_mon, os_sup_mfa, ?MFA),
-    ?line ok = application:set_env(os_mon, os_sup_enable, false),
-    ?line ok = application:start(os_mon),
+    application:load(os_mon),
+    ok = application:set_env(os_mon, start_os_sup, true),
+    ok = application:set_env(os_mon, os_sup_mfa, ?MFA),
+    ok = application:set_env(os_mon, os_sup_enable, false),
+    ok = application:start(os_mon),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
-    ?line application:stop(os_mon),
-    ?line ok = application:set_env(os_mon, start_os_sup, false),
+    application:stop(os_mon),
+    ok = application:set_env(os_mon, start_os_sup, false),
     MFA = {os_sup, error_report, [std_error]},
-    ?line ok = application:set_env(os_mon, os_sup_mfa, MFA),
-    ?line ok = application:set_env(os_mon, os_sup_enable, true),
-    ?line exit(whereis(message_receptor), done),
+    ok = application:set_env(os_mon, os_sup_mfa, MFA),
+    ok = application:set_env(os_mon, os_sup_enable, true),
+    exit(whereis(message_receptor), done),
     Config.
 
 init_per_testcase(_Case, Config) ->
@@ -68,12 +68,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case test_server:os_type() of
-	{unix, sunos} -> [message, config, port];
-	{win32, _OSname} -> [message];
-	OS ->
-	    Str = io_lib:format("os_sup not available for ~p",
-				[OS]),
-	    {skip, lists:flatten(Str)}
+        {unix, sunos} -> [message, config, port];
+        {win32, _OSname} -> [message];
+        OS ->
+            Str = io_lib:format("os_sup not available for ~p",
+                                [OS]),
+            {skip, lists:flatten(Str)}
     end.
 
 groups() -> 
@@ -94,23 +94,23 @@ message(Config) when is_list(Config) ->
 
     %% Fake an OS message
     Data = "10H11386278426HSystem4HTest5HError5HTesto",
-    ?line os_sup_server ! {faked_port, {data, Data}},
+    os_sup_server ! {faked_port, {data, Data}},
 
     %% Check with message_receptor that it has been received
     ?t:sleep(?t:seconds(1)),
     Msg =
-	case ?t:os_type() of
-	    {unix, sunos} ->
-		{?TAG, Data};
-	    {win32, _} ->
-		{?TAG,{{1138,627842,0},"System","Test","Error","Testo"}}
-	end,
-    ?line message_receptor ! {check, self(), Msg},
+    case ?t:os_type() of
+        {unix, sunos} ->
+            {?TAG, Data};
+        {win32, _} ->
+            {?TAG,{{1138,627842,0},"System","Test","Error","Testo"}}
+    end,
+    message_receptor ! {check, self(), Msg},
     receive
-	{result, true} ->
-	    ok;
-	{result, Rec} ->
-	    ?t:fail({no_message, Rec})
+        {result, true} ->
+            ok;
+        {result, Rec} ->
+            ?t:fail({no_message, Rec})
     end,
 
     ok.
@@ -135,40 +135,40 @@ port(suite) ->
 port(doc) ->
     ["Test that os_sup handles a terminating port program"];
 port(Config) when is_list(Config) ->
-    ?line Str = os:cmd("ps -e | grep '[f]errule'"),
+    Str = os:cmd("ps -e | grep '[f]errule'"),
     case io_lib:fread("~s", Str) of
-	 {ok, [Pid], _Rest} ->
+        {ok, [Pid], _Rest} ->
 
-	    %% Monitor os_sup_server
-	    ?line MonRef = erlang:monitor(process, os_sup_server),
+            %% Monitor os_sup_server
+            MonRef = erlang:monitor(process, os_sup_server),
 
-	    %% Kill the port program
-	    case os:cmd("kill -9 " ++ Pid) of
-		[] ->
+            %% Kill the port program
+            case os:cmd("kill -9 " ++ Pid) of
+                [] ->
 
-		    %% os_sup_server should now terminate
-		    receive
-			{'DOWN', MonRef, _, _, {port_died, _Reason}} ->
-			    ok;
-			{'DOWN', MonRef, _, _, Reason} ->
-			    ?line ?t:fail({unexpected_exit_reason, Reason})
-		    after
-			3000 ->
-			    ?line ?t:fail(still_alive)
-		    end,
+                    %% os_sup_server should now terminate
+                    receive
+                        {'DOWN', MonRef, _, _, {port_died, _Reason}} ->
+                            ok;
+                        {'DOWN', MonRef, _, _, Reason} ->
+                            ?t:fail({unexpected_exit_reason, Reason})
+                    after
+                        3000 ->
+                            ?t:fail(still_alive)
+                    end,
 
-		    %% Give os_mon_sup time to restart os_sup
-		    ?t:sleep(?t:seconds(3)),
-		    ?line true = is_pid(whereis(os_sup_server)),
+                    %% Give os_mon_sup time to restart os_sup
+                    ?t:sleep(?t:seconds(3)),
+                    true = is_pid(whereis(os_sup_server)),
 
-		    ok;
+                    ok;
 
-		Line ->
-		    erlang:demonitor(MonRef),
-		    {skip, {not_killed, Line}}
-	    end;
-	_ ->
-	    {skip, {os_pid_not_found}}
+                Line ->
+                    erlang:demonitor(MonRef),
+                    {skip, {not_killed, Line}}
+            end;
+        _ ->
+            {skip, {os_pid_not_found}}
     end.
 
 %%----------------------------------------------------------------------
@@ -184,18 +184,18 @@ message_receptor() ->
 
 message_receptor(Received) ->
     receive
-	%% Check if a certain message has been received
-	{check, From, Msg} ->
-	    case lists:member(Msg, Received) of
-		true ->
-		    From ! {result, true},
-		    message_receptor(lists:delete(Msg, Received));
-		false ->
-		    From ! {result, Received},
-		    message_receptor(Received)
-	    end;
+        %% Check if a certain message has been received
+        {check, From, Msg} ->
+            case lists:member(Msg, Received) of
+                true ->
+                    From ! {result, true},
+                    message_receptor(lists:delete(Msg, Received));
+                false ->
+                    From ! {result, Received},
+                    message_receptor(Received)
+            end;
 
-	%% Save all other messages
-	Msg ->
-	    message_receptor([Msg|Received])
+        %% Save all other messages
+        Msg ->
+            message_receptor([Msg|Received])
     end.
