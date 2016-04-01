@@ -191,7 +191,7 @@ util_values(Config) when is_list(Config) ->
 
     Utils = [{high1,HighUtil1}, {low1,LowUtil1},
              {high2,HighUtil2}, {low2,LowUtil2}],
-    ?t:format("Utils: ~p~n", [Utils]),
+    io:format("Utils: ~p~n", [Utils]),
 
     false = LowUtil1 > HighUtil1,
     false = LowUtil1 > HighUtil2,
