@@ -228,7 +228,7 @@ port(Config) when is_list(Config) ->
                     end,
 
                     %% Give cpu_sup time to restart cpu_sup port
-                    ?t:sleep(?t:seconds(3)),
+                    ct:sleep({seconds, 3}),
                     N2 = cpu_sup:nprocs(),
                     true = N2>0,
 

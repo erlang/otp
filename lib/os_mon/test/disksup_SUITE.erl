@@ -286,7 +286,7 @@ port(Config) when is_list(Config) ->
 		    end,
 
 		    %% Give os_mon_sup time to restart disksup
-		    ?t:sleep(?t:seconds(3)),
+		    ct:sleep({seconds,3}),
 		    [{_Disk2,Kbyte2,_Cap2}|_] = disksup:get_disk_data(),
 		    true = Kbyte2>0,
 
@@ -364,7 +364,7 @@ otp_5910(Config) when is_list(Config) ->
 
     %% Wait a little to make sure disksup has been restarted,
     %% then make sure the alarms are set once, but not twice
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     Data3   = disksup:get_disk_data(),
     Alarms2 = get_alarms(),
     if
@@ -376,7 +376,7 @@ otp_5910(Config) when is_list(Config) ->
 
     %% Stop OS_Mon and make sure all disksup alarms are cleared
     ok = application:stop(os_mon),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     Alarms3 = get_alarms(),
     case get_alarms() of
 	[] -> ok;

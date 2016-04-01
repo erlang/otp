@@ -215,7 +215,7 @@ alarm1(_Config, SysUsage) ->
     ok = force_collection(),
 
     %% Make sure the alarm is cleared/set
-    ?t:sleep(?t:seconds(5)),
+    ct:sleep({seconds,5}),
     case alarm_set(system_memory_high_watermark) of
         {true, []} when not SysP ->
             ok;
@@ -228,7 +228,7 @@ alarm1(_Config, SysUsage) ->
     %% Reset the threshold to set/clear the alarm again
     ok = memsup:set_sysmem_high_watermark(SysThreshold),
     ok = force_collection(),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     case alarm_set(system_memory_high_watermark) of
         {true, []} when SysP ->
             ok;
@@ -267,7 +267,7 @@ alarm1(_Config, SysUsage) ->
                        end,
     ok = memsup:set_procmem_high_watermark(NewProcThreshold),
     ok = force_collection(),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     case alarm_set(process_memory_high_watermark) of
         {true, WorstPid} when not ProcP ->
             ok;
@@ -282,7 +282,7 @@ alarm1(_Config, SysUsage) ->
     %% Reset the threshold to clear/set the alarm
     ok = memsup:set_procmem_high_watermark(ProcThreshold),
     ok = force_collection(),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     case alarm_set(process_memory_high_watermark) of
         {true, WorstPid} when ProcP ->
             ok;
@@ -366,7 +366,7 @@ alarm2(_Config, _SysUsage) ->
     ok = force_collection(),
 
     %% Make sure the alarm is cleared/set
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     case alarm_set(system_memory_high_watermark) of
         {true, []} when not SysP ->
             ok;
@@ -379,7 +379,7 @@ alarm2(_Config, _SysUsage) ->
     %% Reset the threshold to set/clear the alarm again
     ok = memsup:set_sysmem_high_watermark(SysThreshold),
     ok = force_collection(),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     case alarm_set(system_memory_high_watermark) of
         {true, []} when SysP ->
             ok;
@@ -423,7 +423,7 @@ process(Config) when is_list(Config) ->
 
     %% Start a new process larger than Worst
     WorsePid = spawn(fun() -> new_hog(Bytes) end),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
 
     %% Initiate and wait for a new data collection
     ok = force_collection(),
@@ -621,7 +621,7 @@ port(Config) when is_list(Config) ->
                     end,
 
                     %% Give os_mon_sup time to restart memsup
-                    ?t:sleep(?t:seconds(3)),
+                    ct:sleep({seconds,3}),
                     {Total2,_Alloc2,_Worst2} =
                     memsup:get_memory_data(),
                     true = Total2>0,
@@ -684,7 +684,7 @@ otp_5910(Config) when is_list(Config) ->
             ok = memsup:set_procmem_high_watermark(0.5 *ProcUsage)
     end,
     ok = force_collection(),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     lists:foreach(fun(AlarmId) ->
                           case alarm_set(AlarmId) of
                               {true, _} -> ok;
@@ -700,7 +700,7 @@ otp_5910(Config) when is_list(Config) ->
     exit(whereis(memsup), faked_memsup_crash),
     %% Wait a little to make sure memsup has been restarted,
     %% then make sure the alarms are set once, but not twice
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     MemUsage = memsup:get_memory_data(),
     SetAlarms = alarm_handler:get_alarms(),
     case lists:foldl(fun(system_memory_high_watermark, {S, P}) ->
@@ -720,7 +720,7 @@ otp_5910(Config) when is_list(Config) ->
 
     %% Stop OS_Mon and make sure all memsup alarms are cleared
     ok = application:stop(os_mon),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     lists:foreach(fun(AlarmId) ->
                           case alarm_set(AlarmId) of
                               false -> ok;

@@ -77,7 +77,7 @@ message(Config) when is_list(Config) ->
     os_sup_server ! {faked_port, {data, Data}},
 
     %% Check with message_receptor that it has been received
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     Msg =
     case ?t:os_type() of
         {unix, sunos} ->
@@ -138,7 +138,7 @@ port(Config) when is_list(Config) ->
                     end,
 
                     %% Give os_mon_sup time to restart os_sup
-                    ?t:sleep(?t:seconds(3)),
+                    ct:sleep({seconds,3}),
                     true = is_pid(whereis(os_sup_server)),
 
                     ok;
