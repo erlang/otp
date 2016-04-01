@@ -2028,11 +2028,7 @@ load_code(LoaderState* stp)
 	ASSERT(arity == last_op->arity);
 
     do_transform:
-	if (stp->genop == NULL) {
-	    last_op_next = NULL;
-	    goto get_next_instr;
-	}
-
+	ASSERT(stp->genop != NULL);
 	if (gen_opc[stp->genop->op].transform != -1) {
 	    int need;
 	    tmp_op = stp->genop;
@@ -2045,23 +2041,32 @@ load_code(LoaderState* stp)
 	    }
 	    switch (transform_engine(stp)) {
 	    case TE_FAIL:
-		last_op_next = NULL;
-		last_op = NULL;
+		/*
+		 * No transformation found. stp->genop != NULL and
+		 * last_op_next is still valid. Go ahead and load
+		 * the instruction.
+		 */
 		break;
 	    case TE_OK:
+		/*
+		 * Some transformation was applied. last_op_next is
+		 * no longer valid and stp->genop may be NULL.
+		 * Try to transform again.
+		 */
+		if (stp->genop == NULL) {
+		    last_op_next = &stp->genop;
+		    goto get_next_instr;
+		}
 		last_op_next = NULL;
-		last_op = NULL;
 		goto do_transform;
 	    case TE_SHORT_WINDOW:
-		last_op_next = NULL;
-		last_op = NULL;
+		/*
+		 * No transformation applied. stp->genop != NULL and
+		 * last_op_next is still valid. Fetch a new instruction
+		 * before trying the transformation again.
+		 */
 		goto get_next_instr;
 	    }
-	}
-
-	if (stp->genop == NULL) {
-	    last_op_next = NULL;
-	    goto get_next_instr;
 	}
 
 	/*
@@ -2584,7 +2589,10 @@ load_code(LoaderState* stp)
 	{
 	    GenOp* next = stp->genop->next;
 	    FREE_GENOP(stp, stp->genop);
-	    stp->genop = next;
+	    if ((stp->genop = next) == NULL) {
+		last_op_next = &stp->genop;
+		goto get_next_instr;
+	    }
 	    goto do_transform;
 	}
     }
