@@ -9701,11 +9701,13 @@ Process *schedule(Process *p, int calls)
 				      | ERTS_PSFLG_ACTIVE_SYS
 				      | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
 			    == ERTS_PSFLG_SUSPENDED)) {
-			if (state & ERTS_PSFLG_FREE)
-			    erts_proc_dec_refc(p);
 			if (proxy_p) {
 			    free_proxy_proc(proxy_p);
 			    proxy_p = NULL;
+			}
+			else if (state & ERTS_PSFLG_FREE) {
+			    /* free and not queued by proxy */
+			    erts_proc_dec_refc(p);
 			}
 			goto pick_next_process;
 		    }
