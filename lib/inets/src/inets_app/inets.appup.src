@@ -18,10 +18,12 @@
 %% %CopyrightEnd%
 {"%VSN%",
  [
+  {<<"6.2">>, [{load_module, httpc, soft_purge, soft_purge, []}]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ],
  [
+  {<<"6.2">>, [{load_module, httpc, soft_purge, soft_purge, []}]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ]
