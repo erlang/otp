@@ -196,13 +196,13 @@ erts_maps_get(Eterm key, Eterm map)
 		    return &vs[i];
 		}
 	    }
-	}
-
-	for (i = 0; i < n; i++) {
-	    if (EQ(ks[i], key)) {
-		return &vs[i];
-	    }
-	}
+	} else {
+            for (i = 0; i < n; i++) {
+                if (EQ(ks[i], key)) {
+                    return &vs[i];
+                }
+            }
+        }
 	return NULL;
     }
     ASSERT(is_hashmap(map));
