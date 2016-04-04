@@ -727,6 +727,11 @@ pinfo(Pid) ->
 -spec pinfo(Pid, Item) -> {Item, Info} | undefined | [] when
       Pid :: pid(),
       Item :: atom(),
+      Info :: term();
+           (Pid, ItemList) -> [{Item, Info}] | undefined | [] when
+      Pid :: pid(),
+      Item :: atom(),
+      ItemList :: [Item],
       Info :: term().
 
 pinfo(Pid, Item) when node(Pid) =:= node() ->

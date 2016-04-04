@@ -325,7 +325,8 @@
     </func>
 
     <func>
-      <name name="pinfo" arity="2"/>
+      <name name="pinfo" arity="2" clause_i="1"/>
+      <name name="pinfo" arity="2" clause_i="2"/>
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
