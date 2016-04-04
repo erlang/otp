@@ -911,7 +911,6 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify that '{nodeup, Node}' comes before '{NodeMsg, 1}' (the message
     %% bringing up the connection).
-    no_msgs(500),
     {nodeup, Node} = receive Msg1 -> Msg1 end,
     {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
     %% msg stream has begun, kill the node
