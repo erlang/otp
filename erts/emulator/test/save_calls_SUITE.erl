@@ -114,7 +114,7 @@ save_calls_1(Config) when is_list(Config) ->
 save_calls_1() ->
     erlang:process_flag(self(), save_calls, 0),
     {last_calls, false} = process_info(self(), last_calls),
-
+    
     erlang:process_flag(self(), save_calls, 10),
     {last_calls, _L1} = process_info(self(), last_calls),
     ?MODULE:do_bipp(),
@@ -132,11 +132,22 @@ save_calls_1() ->
         X ->
             ct:fail({l21, X})
     end,
-
+    
     erlang:process_flag(self(), save_calls, 10),
     {last_calls, L3} = process_info(self(), last_calls),
+    true = (L3 /= false),
     L31 = lists:filter(fun is_local_function/1, L3),
     [] = L31,
+    erlang:process_flag(self(), save_calls, 0),
+
+    %% Also check that it works on another process ...
+    Pid = spawn(fun () -> receive after infinity -> ok end end),
+    erlang:process_flag(Pid, save_calls, 10),
+    {last_calls, L4} = process_info(Pid, last_calls),
+    true = (L4 /= false),
+    L41 = lists:filter(fun is_local_function/1, L4),
+    [] = L41,
+    exit(Pid,kill),
     ok.
 
 do_bipp() ->

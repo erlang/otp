@@ -32,6 +32,71 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>process_info(Pid, last_calls)</c> did not work for
+	    <c>Pid /= self()</c>.</p>
+          <p>
+	    Own Id: OTP-13418</p>
+        </item>
+        <item>
+          <p>
+	    Make sure to create a crash dump when running out of
+	    memory. This was accidentally removed in the erts-7.3
+	    release.</p>
+          <p>
+	    Own Id: OTP-13419</p>
+        </item>
+        <item>
+          <p>
+	    Schedulers could be woken by a premature timeout on
+	    Linux. This premature wakeup was however harmless.</p>
+          <p>
+	    Own Id: OTP-13420</p>
+        </item>
+        <item>
+          <p>
+	    A process communicating with a port via one of the
+	    <c>erlang:port_*</c> BIFs could potentially end up in an
+	    inconsistent state if the port terminated during the
+	    communication. When this occurred the process could later
+	    block in a <c>receive</c> even though it had messages
+	    matching in its message queue.</p>
+          <p>
+	    This bug was introduced in erts version 5.10 (OTP R16A).</p>
+          <p>
+	    Own Id: OTP-13424 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    The reference count of a process structure could under
+	    rare circumstances be erroneously managed. When this
+	    happened invalid memory accesses occurred.</p>
+          <p>
+	    Own Id: OTP-13446</p>
+        </item>
+        <item>
+          <p>
+	    Fix race between <c>process_flag(trap_exit,true)</c> and
+	    a received exit signal.</p>
+          <p>
+	    A process could terminate due to exit signal even though
+	    <c>process_flag(trap_exit,true)</c> had returned. A very
+	    specific timing between call to <c>process_flag/2</c> and
+	    exit signal from another scheduler was required for this
+	    to happen.</p>
+          <p>
+	    Own Id: OTP-13452</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

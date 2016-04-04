@@ -1480,7 +1480,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_last_calls: {
-	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(BIF_P);
+	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(rp);
 	if (!scb) {
 	    hp = HAlloc(BIF_P, 3);
 	    res = am_false;
