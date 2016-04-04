@@ -1025,17 +1025,15 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 
     %% REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
     %% Determine time_t on os:type()?
-    lists:foreach(fun
-		      ({FI, Opts}) ->
+    lists:foreach(fun ({FI, Opts}) ->
 			 ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
-		 end, [
-			{#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} ||
+		 end, [ {#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} ||
 			  Opts <- [[{time, universal}],[{time, local}]],
 			  Time <- [
 				   {{1970,1,1},{0,0,0}},
 				   {{1970,1,1},{0,0,1}},
-				   {{1969,12,31},{23,59,59}},
-				   {{1908,2,3},{23,59,59}},
+			%	   {{1969,12,31},{23,59,59}},
+			%	   {{1908,2,3},{23,59,59}},
 				   {{2012,2,3},{23,59,59}},
 				   {{2037,2,3},{23,59,59}},
 				   erlang:localtime()
