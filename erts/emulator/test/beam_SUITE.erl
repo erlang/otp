@@ -24,9 +24,9 @@
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
 	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1,
-	 select_val/1]).
+	 select_val/1, swap_temp_apply/1]).
 
--export([applied/2]).
+-export([applied/2,swap_temp_applied/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -34,7 +34,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
-     buildo_mucho, heap_sizes, big_lists, select_val].
+     buildo_mucho, heap_sizes, big_lists, select_val,
+     swap_temp_apply].
 
 groups() -> 
     [].
@@ -346,3 +347,41 @@ do_select_val(X) ->
 	Int when is_integer(Int) ->
 	    integer
     end.
+
+swap_temp_apply(_Config) ->
+    {swap_temp_applied,42} = do_swap_temp_apply(41),
+    not_an_integer = do_swap_temp_apply(not_an_integer),
+    ok.
+
+do_swap_temp_apply(Msg) ->
+    case swap_temp_apply_function(Msg) of
+	undefined -> Msg;
+	Type ->
+	    %% The following sequence:
+	    %%   move {x,0} {x,2}
+	    %%   move {y,0} {x,0}
+	    %%   move {x,2} {y,0}
+	    %%   apply 1
+	    %%
+	    %% Would be incorrectly transformed to:
+	    %%   swap {x,0} {y,0}
+	    %%   apply 1
+	    %%
+	    %% ({x,1} is the module, {x,2} the function to be applied).
+	    %%
+	    %% If the instructions are to be transformed, the correct
+	    %% transformation is:
+	    %%
+	    %%   swap_temp {x,0} {y,0} {x,2}
+	    %%   apply 1
+	    Fields = ?MODULE:Type(Msg),
+	    {Type,Fields}
+    end.
+
+swap_temp_apply_function(Int) when is_integer(Int) ->
+    swap_temp_applied;
+swap_temp_apply_function(_) ->
+    undefined.
+
+swap_temp_applied(Int) ->
+    Int+1.

@@ -303,7 +303,7 @@ move_window5 x x x x x y
 # Swap registers.
 move R1=x Tmp=x | move R2=xy R1 | move Tmp R2 => swap_temp R1 R2 Tmp
 
-swap_temp R1 R2 Tmp | line Loc | apply Live | is_killed(Tmp, Live) => \
+swap_temp R1 R2 Tmp | line Loc | apply Live | is_killed_apply(Tmp, Live) => \
   swap R1 R2 | line Loc | apply Live
 
 swap_temp R1 R2 Tmp | line Loc | call Live Addr | is_killed(Tmp, Live) => \
