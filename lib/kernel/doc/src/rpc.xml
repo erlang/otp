@@ -347,26 +347,6 @@
     </func>
 
     <func>
-      <name name="safe_multi_server_call" arity="2"/>
-      <name name="safe_multi_server_call" arity="3"/>
-      <fsummary>Interact with the servers on a number of nodes
-        (deprecated).</fsummary>
-      <desc>
-        <warning>
-          <p>Deprecated. Use
-          <seealso marker="#multi_server_call/2"><c>multi_server_call/2,3</c></seealso>
-          instead.</p>
-        </warning>
-        <p>In Erlang/OTP R6B and earlier releases,
-          <c>multi_server_call/2,3</c> could not handle the case
-          where the remote node exists, but there is no server called
-          <c><anno>Name</anno></c>. Instead, this function had to be used. In
-          Erlang/OTP R7B and later releases, however, the functions are
-          equivalent, except that this function is slightly slower.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="sbcast" arity="2"/>
       <fsummary>Broadcast a message synchronously to a registered process on
         all nodes.</fsummary>

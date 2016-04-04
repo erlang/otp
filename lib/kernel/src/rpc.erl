@@ -52,10 +52,6 @@
 	 parallel_eval/1,
 	 pmap/3, pinfo/1, pinfo/2]).
 
-%% Deprecated calls.
--deprecated([{safe_multi_server_call,2},{safe_multi_server_call,3}]).
--export([safe_multi_server_call/2,safe_multi_server_call/3]).
-
 %% gen_server exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
@@ -590,27 +586,6 @@ multi_server_call(Nodes, Name, Msg)
   when is_list(Nodes), is_atom(Name) ->
     Monitors = send_nodes(Nodes, Name, Msg, []),
     rec_nodes(Name, Monitors).
-
-%% Deprecated functions. Were only needed when communicating with R6 nodes.
-
--spec safe_multi_server_call(Name, Msg) -> {Replies, BadNodes} when
-      Name :: atom(),
-      Msg :: term(),
-      Replies :: [Reply :: term()],
-      BadNodes :: [node()].
-
-safe_multi_server_call(Name, Msg) ->
-    multi_server_call(Name, Msg).
-
--spec safe_multi_server_call(Nodes, Name, Msg) -> {Replies, BadNodes} when
-      Nodes :: [node()],
-      Name :: atom(),
-      Msg :: term(),
-      Replies :: [Reply :: term()],
-      BadNodes :: [node()].
-
-safe_multi_server_call(Nodes, Name, Msg) ->
-    multi_server_call(Nodes, Name, Msg).
 
 
 rec_nodes(Name, Nodes) -> 

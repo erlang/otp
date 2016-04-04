@@ -58,10 +58,6 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
-obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
-    {deprecated, {rpc, multi_server_call, A}};
-
-
 %% *** CRYPTO add in R16B01 ***
 
 obsolete_1(crypto, md4, 1) ->
@@ -541,8 +537,12 @@ obsolete_1(random, _, _) ->
 obsolete_1(code, rehash, 0) ->
     {deprecated, "deprecated because the code path cache feature has been removed"};
 
+%% Removed in OTP 19.
+
 obsolete_1(overload, _, _) ->
     {removed, "removed in OTP 19"};
+obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
+    {removed, {rpc, multi_server_call, A}};
 
 obsolete_1(_, _, _) ->
     no.
