@@ -391,6 +391,12 @@ abnormal1(Config) when is_list(Config) ->
     delayed = gen_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
     {'EXIT',{timeout,_}} =
 	(catch gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
+    receive
+	Msg ->
+	    %% Ignore the delayed answer from the server.
+	    io:format("Delayed message: ~p", [Msg])
+    end,
+
     [] = get_messages(),
     ok.
 
@@ -971,7 +977,7 @@ init(stop) ->
 init(stop_shutdown) ->
     {stop, shutdown};
 init(sleep) ->
-    ct:sleep(1000),
+    timer:sleep(1000),
     {ok, idle, data};
 init({timeout, T}) ->
     {ok, idle, state, T};
@@ -1004,7 +1010,7 @@ idle(_, Data) ->
 idle({connect, _Pid}, _From, Data) ->
     {reply, accept, wfor_conf, Data};
 idle({delayed_answer, T}, _From, Data) ->
-    ct:sleep(T),
+    timer:sleep(T),
     {reply, delayed, idle, Data};
 idle(badreturn, _From, _Data) ->
     badreturn;

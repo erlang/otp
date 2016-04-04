@@ -2320,70 +2320,82 @@ active_once_closed(Config) when is_list(Config) ->
    
 %% Test the send_timeout socket option.
 send_timeout(Config) when is_list(Config) ->
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
+					[{args,"-pa " ++ Dir}]),
+
     %% Basic
-    BasicFun =
-	fun(AutoClose) ->
-	     {Loop,A,RNode} = setup_timeout_sink(1000, AutoClose),
-	     {error,timeout} =
-		 Loop(fun() ->
-			      Res = gen_tcp:send(A,<<1:10000>>),
-			      %%erlang:display(Res),
-			      Res
-		      end),
-	     %% Check that the socket is not busy/closed...
-	     Error = after_send_timeout(AutoClose),
-	     {error,Error} = gen_tcp:send(A,<<"Hej">>),
-	     test_server:stop_node(RNode)
-	end,
-    BasicFun(false),
-    BasicFun(true),
-    %% Check timeout length
+    send_timeout_basic(false, RNode),
+    send_timeout_basic(true, RNode),
+
+    BinData = <<1:10000>>,
+
+    %% Check timeout length.
     Self = self(),
     Pid = spawn(fun() ->
-                        {Loop,A,RNode} = setup_timeout_sink(1000, true),
-                        {error,timeout} = Loop(fun() ->
-                                     Res = gen_tcp:send(A,<<1:10000>>),
-                                     %%erlang:display(Res),
-                                     Self ! Res,
-                                     Res
-                             end),
-                        test_server:stop_node(RNode)
+                        A = setup_timeout_sink(RNode, 1000, true),
+			Send = fun() ->
+				       Res = gen_tcp:send(A, BinData),
+				       Self ! Res,
+				       Res
+			       end,
+			{error,timeout} = timeout_sink_loop(Send)
 	      end),
     Diff = get_max_diff(),
     io:format("Max time for send: ~p~n",[Diff]),
     true = (Diff > 500) and (Diff < 1500),
-    %% Let test_server slave die...
+
+    %% Wait for the process to die.
     Mon = erlang:monitor(process, Pid),
     receive {'DOWN',Mon,process,Pid,_} -> ok end,
+
     %% Check that parallell writers do not hang forever
-    ParaFun =
-	fun(AutoClose) ->
-		{Loop,A,RNode} = setup_timeout_sink(1000, AutoClose),
-		SenderFun = fun() ->
-				    {error,Error} =
-					Loop(fun() ->
-						     gen_tcp:send(A, <<1:10000>>)
-					     end),
-				    Self ! {error,Error}
-			    end,
-		spawn_link(SenderFun),
-		spawn_link(SenderFun),
-                receive
-                    {error,timeout} -> ok
-                after 10000 ->
-                          exit(timeout)
-                end,
-		NextErr = after_send_timeout(AutoClose),
-                receive
-                    {error,NextErr} -> ok
-                after 10000 ->
-                          exit(timeout)
-                end,
-		{error,NextErr} = gen_tcp:send(A,<<"Hej">>),
-		test_server:stop_node(RNode)
-	end,
-    ParaFun(false),
-    ParaFun(true),
+    send_timeout_para(false, RNode),
+    send_timeout_para(true, RNode),
+
+    test_server:stop_node(RNode),
+
+    ok.
+
+send_timeout_basic(AutoClose, RNode) ->
+    BinData = <<1:10000>>,
+
+    A = setup_timeout_sink(RNode, 1000, AutoClose),
+    Send = fun() -> gen_tcp:send(A, BinData) end,
+    {error,timeout} = timeout_sink_loop(Send),
+
+    %% Check that the socket is not busy/closed...
+    Error = after_send_timeout(AutoClose),
+    {error,Error} = gen_tcp:send(A, <<"Hej">>),
+    ok.
+
+send_timeout_para(AutoClose, RNode) ->
+    BinData = <<1:10000>>,
+
+    A = setup_timeout_sink(RNode, 1000, AutoClose),
+    Self = self(),
+    SenderFun = fun() ->
+			Send = fun() -> gen_tcp:send(A, BinData) end,
+			{error,Error} = timeout_sink_loop(Send),
+			Self ! {error,Error}
+		end,
+    spawn_link(SenderFun),
+    spawn_link(SenderFun),
+
+    receive
+	{error,timeout} -> ok
+    after 10000 ->
+	    exit(timeout)
+    end,
+
+    NextErr = after_send_timeout(AutoClose),
+    receive
+	{error,NextErr} -> ok
+    after 10000 ->
+	    exit(timeout)
+    end,
+
+    {error,NextErr} = gen_tcp:send(A, <<"Hej">>),
     ok.
 
 mad_sender(S) ->
@@ -2406,31 +2418,33 @@ flush() ->
 
 %% Test the send_timeout socket option for active sockets.
 send_timeout_active(Config) when is_list(Config) ->
-    %% Basic
-    BasicFun = 
-	fun(AutoClose) ->
-		{Loop,A,RNode,C} = setup_active_timeout_sink(1, AutoClose),
-		inet:setopts(A, [{active, once}]),
-		Mad = spawn_link(RNode,fun() -> mad_sender(C) end),
-		{error,timeout} =
-                Loop(fun() ->
-                             receive
-                                 {tcp, _Sock, _Data} ->
-                                     inet:setopts(A, [{active, once}]),
-                                     Res = gen_tcp:send(A,lists:duplicate(1000, $a)),
-                                     Res;
-                                 Err ->
-                                     io:format("sock closed: ~p~n", [Err]),
-                                     Err
-                             end
-                     end),
-                unlink(Mad),
-		exit(Mad,kill),
-		test_server:stop_node(RNode)
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,RNode} = test_server:start_node(?UNIQ_NODE_NAME, slave,
+					[{args,"-pa " ++ Dir}]),
+    do_send_timeout_active(false, RNode),
+    do_send_timeout_active(true, RNode),
+    test_server:stop_node(RNode),
+    ok.
+
+do_send_timeout_active(AutoClose, RNode) ->
+    {A,C} = setup_active_timeout_sink(RNode, 1, AutoClose),
+    inet:setopts(A, [{active, once}]),
+    Mad = spawn_link(RNode, fun() -> mad_sender(C) end),
+    ListData = lists:duplicate(1000, $a),
+    F = fun() ->
+		receive
+		    {tcp, _Sock, _Data} ->
+			inet:setopts(A, [{active, once}]),
+			Res = gen_tcp:send(A, ListData),
+			Res;
+		    Err ->
+			io:format("sock closed: ~p~n", [Err]),
+			Err
+		end
 	end,
-    BasicFun(false),
-    flush(),
-    BasicFun(true),
+    {error,timeout} = timeout_sink_loop(F),
+    unlink(Mad),
+    exit(Mad, kill),
     flush(),
     ok.
 
@@ -2475,7 +2489,7 @@ setup_closed_ao() ->
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
                                     [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    Host = get_hostname(node()),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2}]),
     Fun = fun(F) ->
                   receive
@@ -2514,11 +2528,8 @@ setup_closed_ao() ->
     test_server:stop_node(R),
     {Loop,A}.
     
-setup_timeout_sink(Timeout, AutoClose) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                    [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+setup_timeout_sink(RNode, Timeout, AutoClose) ->
+    Host = get_hostname(node()),
     {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
 				 {send_timeout,Timeout},
 				 {send_timeout_close,AutoClose}]),
@@ -2529,7 +2540,7 @@ setup_timeout_sink(Timeout, AutoClose) ->
 		      die -> ok
 		  end
 	  end,
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    Pid =  rpc:call(RNode, erlang, spawn, [fun() -> Fun(Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
 		     Pid ! {self(), Fu},
@@ -2543,36 +2554,23 @@ setup_timeout_sink(Timeout, AutoClose) ->
     {ok,A} = gen_tcp:accept(L),
     gen_tcp:send(A,"Hello"),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    Loop2 = fun(_,_,0) ->
-		    {failure, timeout};
-	       (L2,F2,N) ->
-		    Ret = F2(),
-		    io:format("~p~n",[Ret]),
-		    case Ret of
-			ok -> receive after 1 -> ok end,
-			      L2(L2,F2,N-1);
-			Other -> Other
-		    end
-	    end,
-    Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
-    {Loop,A,R}.
+    A.
 
-setup_active_timeout_sink(Timeout, AutoClose) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(?UNIQ_NODE_NAME, slave,
-                                    [{args,"-pa " ++ Dir}]),
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
-    {ok, L} = gen_tcp:listen(0, [binary,{active,false},{packet,0},{nodelay, true},{keepalive, true},
-				 {send_timeout,Timeout},
-				 {send_timeout_close,AutoClose}]),
+setup_active_timeout_sink(RNode, Timeout, AutoClose) ->
+    Host = get_hostname(node()),
+    ListenOpts =  [binary,{active,false},{packet,0},
+		   {nodelay,true},{keepalive,true},
+		   {send_timeout,Timeout},{send_timeout_close,AutoClose}],
+    {ok, L} = gen_tcp:listen(0, ListenOpts),
     Fun = fun(F) ->
 		  receive
 		      {From,X} when is_function(X) ->
-			  From ! {self(),X()}, F(F);
+			  From ! {self(),X()},
+			  F(F);
 		      die -> ok
 		  end
 	  end,
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    Pid = rpc:call(RNode, erlang, spawn, [fun() -> Fun(Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
 		     Pid ! {self(), Fu},
@@ -2580,26 +2578,22 @@ setup_active_timeout_sink(Timeout, AutoClose) ->
 		     end
 	     end,
     {ok, C} = Remote(fun() ->
-			     gen_tcp:connect(Host,Port,
-					     [{active,false}])
+			     gen_tcp:connect(Host, Port, [{active,false}])
 		     end),
     {ok,A} = gen_tcp:accept(L),
-    gen_tcp:send(A,"Hello"),
-    {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    Loop2 = fun(_,_,0) ->
-		    {failure, timeout};
-	       (L2,F2,N) ->
-		    Ret = F2(),
-		    io:format("~p~n",[Ret]),
-		    case Ret of
-			ok -> receive after 1 -> ok end,
-			      L2(L2,F2,N-1);
-			Other -> Other
-		    end
-	    end,
-    Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
-    {Loop,A,R,C}.
+    gen_tcp:send(A, "Hello"),
+    {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C, 0) end),
+    {A,C}.
 
+timeout_sink_loop(Action) ->
+    Ret = Action(),
+    case Ret of
+	ok ->
+	    receive after 1 -> ok end,
+	    timeout_sink_loop(Action);
+	Other ->
+	    Other
+    end.
      
 has_superfluous_schedulers() ->
     case {erlang:system_info(schedulers),
@@ -3016,3 +3010,7 @@ oct_aloop(S,X,Times) ->
     end.
 
 ok({ok,V}) -> V.
+
+get_hostname(Name) ->
+    "@"++Host = lists:dropwhile(fun(C) -> C =/= $@ end, atom_to_list(Name)),
+    Host.

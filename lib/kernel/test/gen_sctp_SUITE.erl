@@ -29,7 +29,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export(
-   [basic/1,
+   [skip_old_solaris/1,
+    basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
     open_multihoming_ipv4_socket/1,
@@ -46,20 +47,28 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    [basic, api_open_close, api_listen, api_connect_init,
-     api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     open_multihoming_ipv4_socket,
-     open_unihoming_ipv6_socket,
-     open_multihoming_ipv6_socket,
-     open_multihoming_ipv4_and_ipv6_socket, active_n,
-     basic_stream, xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, peeloff_active_n, buffers,
-     names_unihoming_ipv4, names_unihoming_ipv6,
-     names_multihoming_ipv4, names_multihoming_ipv6].
+all() ->
+    G = case is_old_solaris() of
+	    true -> old_solaris;
+	    false -> extensive
+	end,
+    [{group,smoke},
+     {group,G}].
 
 groups() -> 
-    [].
+    [{smoke,[],[basic,basic_stream]},
+     {old_solaris,[],[skip_old_solaris]},
+     {extensive,[],
+      [api_open_close, api_listen, api_connect_init,
+       api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
+       open_multihoming_ipv4_socket,
+       open_unihoming_ipv6_socket,
+       open_multihoming_ipv6_socket,
+       open_multihoming_ipv4_and_ipv6_socket, active_n,
+       xfer_stream_min, peeloff_active_once,
+       peeloff_active_true, peeloff_active_n, buffers,
+       names_unihoming_ipv4, names_unihoming_ipv6,
+       names_multihoming_ipv4, names_multihoming_ipv6]}].
 
 init_per_suite(_Config) ->
     case gen_sctp:open() of
@@ -91,7 +100,11 @@ end_per_testcase(_Func, _Config) ->
 
 -define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).
 
+is_old_solaris() ->
+    os:type() =:= {unix,sunos} andalso os:version() < {5,12,0}.
 
+skip_old_solaris(_Config) ->
+    {skip,"Unreliable test cases and/or implementation on old Solaris"}.
 
 %% Hello world.
 basic(Config) when is_list(Config) ->
