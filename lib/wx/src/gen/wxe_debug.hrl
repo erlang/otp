@@ -1544,7 +1544,7 @@ wxdebug_table() ->
  {1695, {wxListCtrl, getTextColour, 0}},
  {1696, {wxListCtrl, getTopItem, 0}},
  {1697, {wxListCtrl, getViewRect, 0}},
- {1698, {wxListCtrl, hitTest, 2}},
+ {1698, {wxListCtrl, hitTest, 3}},
  {1699, {wxListCtrl, insertColumn_2, 2}},
  {1700, {wxListCtrl, insertColumn_3, 3}},
  {1701, {wxListCtrl, insertItem_1, 1}},
