@@ -167,8 +167,10 @@ temp_is_precoloured(#ppc_temp{reg=Reg,type=Type}) ->
     _ -> hipe_ppc_registers:is_precoloured_gpr(Reg)
   end.
 
-mk_simm16(Value) -> #ppc_simm16{value=Value}.
-mk_uimm16(Value) -> #ppc_uimm16{value=Value}.
+mk_simm16(Value) when Value >= -(1 bsl 15), Value < (1 bsl 15) ->
+  #ppc_simm16{value=Value}.
+mk_uimm16(Value) when Value >= 0, Value < (1 bsl 16) ->
+  #ppc_uimm16{value=Value}.
 
 mk_mfa(M, F, A) -> #ppc_mfa{m=M, f=F, a=A}.
 
@@ -240,7 +242,11 @@ mk_li(Dst, Value, Tail) ->   % Dst can be R0
      Value =< 16#7FFFFFFF ->
       mk_li32(Dst, R0, Value, Tail);
      true ->
-      Highest = (Value bsr 48),              % Value@highest
+      Highest = case (Value bsr 48) of       % Value@highest
+		  TopBitSet when TopBitSet >= (1 bsl 15) ->
+		    TopBitSet - (1 bsl 16);  % encoder needs it to be negative
+		  FitsSimm16 -> FitsSimm16
+		end,
       Higher = (Value bsr 32) band 16#FFFF,  % Value@higher
       High = (Value bsr 16) band 16#FFFF,    % Value@h
       Low = Value band 16#FFFF,              % Value@l

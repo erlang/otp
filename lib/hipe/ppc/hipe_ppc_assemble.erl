@@ -248,6 +248,7 @@ do_load(I) ->
     case LdOp of
       'ld' -> do_disp_ds(Disp);
       'ldu' -> do_disp_ds(Disp);
+      'lwa' -> do_disp_ds(Disp);
       _ -> do_disp(Disp)
     end,
   NewBase = do_reg(Base),
