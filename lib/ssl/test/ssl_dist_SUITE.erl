@@ -806,11 +806,13 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ NameSw ++ " " ++ Name ++ " "
 	++ "-pa " ++ Pa ++ " "
 	++ "-run application start crypto -run application start public_key "
+	++ "-eval 'net_kernel:verbose(1)' "
 	++ "-run " ++ atom_to_list(?MODULE) ++ " cnct2tstsrvr "
 	++ host_name() ++ " "
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+	++ "-kernel error_logger '{file,\"" ++ Pwd ++ "/error_log." ++ Name ++ "\"}' "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
 %%
