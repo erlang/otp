@@ -2253,25 +2253,32 @@ static void
 reply_trace_delivered_all(void *vtdarp)
 {
     ErtsTraceDeliveredAll *tdarp = (ErtsTraceDeliveredAll *) vtdarp;
-    ErtsProcLocks rp_locks = 0;
 
     if (erts_smp_atomic32_dec_read_nob(&tdarp->refc) == 0) {
+        Eterm ref_copy, msg;
         Process *rp = tdarp->proc;
         Eterm *hp = NULL;
-        ErlOffHeap *ohp = NULL;
-        ErtsMessage *mp = NULL;
-        Eterm ref_copy, msg;
-
+        ErlOffHeap *ohp;
+#ifdef ERTS_SMP
+        ErlHeapFragment *bp;
+        bp = new_message_buffer(4 + NC_HEAP_SIZE(tdarp->ref));
+        hp = &bp->mem[0];
+        ohp = &bp->off_heap;
+#else
+        ErtsProcLocks rp_locks = 0;
+        ErtsMessage *mp;
         mp = erts_alloc_message_heap(
             rp, &rp_locks, 4 + NC_HEAP_SIZE(tdarp->ref), &hp, &ohp);
+#endif
 
         ref_copy = STORE_NC(&hp, ohp, tdarp->ref);
         msg = TUPLE3(hp, am_trace_delivered, tdarp->target, ref_copy);
 
+#ifdef ERTS_SMP
+        erts_send_sys_msg_proc(rp->common.id, rp->common.id, msg, bp);
+#else
         erts_queue_message(rp, &rp_locks, mp, msg);
-
-        if (rp_locks)
-            erts_smp_proc_unlock(rp, rp_locks);
+#endif
 
 	erts_free(ERTS_ALC_T_MISC_AUX_WORK, vtdarp);
         erts_proc_dec_refc(rp);
