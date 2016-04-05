@@ -195,6 +195,11 @@ accept_loop(Proxy, erts = Type, Listen, Extra) ->
 		{_Kernel, unsupported_protocol} ->
 		    exit(unsupported_protocol)
 	    end;
+	{error, closed} ->
+	    %% The listening socket is closed: the proxy process is
+	    %% shutting down.  Exit normally, to avoid generating a
+	    %% spurious error report.
+	    exit(normal);
 	Error ->
 	    exit(Error)
     end,
