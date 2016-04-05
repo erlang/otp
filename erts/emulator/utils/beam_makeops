@@ -1718,6 +1718,7 @@ sub tr_gen_to {
     push(@code, make_op('', 'end'))
 	unless is_instr($code[$#code], 'call_end');
 
+    tr_maybe_keep(\@code);
     tr_maybe_rename(\@code);
 
     #
@@ -1743,6 +1744,46 @@ sub tr_gen_to {
     }
     unshift(@code, make_op($comment));
     push(@{$gen_transform{$key}}, @code),
+}
+
+sub tr_maybe_keep {
+    my($ref) = @_;
+    my @last_instr;
+    my $pos;
+    my $reused_instr;
+
+    for (my $i = 0; $i < @$ref; $i++) {
+	my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+	if ($op eq 'next_instr') {
+	    @last_instr = ($args[0]);
+	} elsif ($op eq 'set_var_next_arg') {
+	    push @last_instr, $args[0];
+	} elsif ($op eq 'next_arg') {
+	    push @last_instr, 'ignored';
+	} elsif ($op eq 'new_instr') {
+	    unless (defined $pos) {
+		# 'new_instr' immediately after 'commit'.
+		$reused_instr = $args[0];
+		return unless shift(@last_instr) == $reused_instr;
+		$pos = $i - 1;
+	    } else {
+		# Second 'new_instr' after 'commit'. The instructions
+		# from $pos up to and including $i - 1 rebuilds the
+		# existing instruction exactly.
+		my $name = $gen_opname[$reused_instr];
+		my $arity = $gen_arity[$reused_instr];
+		my $reuse = make_op("$name/$arity", 'keep');
+		splice @$ref, $pos, $i-$pos, ($reuse);
+		return;
+	    }
+	} elsif ($op eq 'store_var_next_arg') {
+	    return unless shift(@last_instr) eq $args[0];
+	} elsif (defined $pos) {
+	    return;
+	}
+    }
 }
 
 sub tr_maybe_rename {

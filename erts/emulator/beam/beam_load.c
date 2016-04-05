@@ -5028,7 +5028,16 @@ transform_engine(LoaderState* st)
 	    instr = 0;
 #endif
 	    break;
-
+#if defined(TOP_keep)
+	case TOP_keep:
+	    /* Keep the current instruction unchanged. */
+	    keep = instr;
+	    st->genop = instr;
+#ifdef DEBUG
+	    instr = 0;
+#endif
+	    break;
+#endif
 #if defined(TOP_call_end)
 	case TOP_call_end:
 	    {
