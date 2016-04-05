@@ -87,6 +87,7 @@ void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 					    Eterm,
 					    ErlHeapFragment *));
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
+void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 #endif
 
 void trace_send(Process*, Eterm, Eterm);

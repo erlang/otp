@@ -84,6 +84,7 @@ enum ErtsSysMsgType {
     SYS_MSG_TYPE_UNDEFINED,
     SYS_MSG_TYPE_SYSMON,
     SYS_MSG_TYPE_ERRLGR,
+    SYS_MSG_TYPE_PROC_MSG,
     SYS_MSG_TYPE_SYSPROF
 };
 
@@ -2149,6 +2150,13 @@ erts_queue_error_logger_message(Eterm from, Eterm msg, ErlHeapFragment *bp)
     enqueue_sys_msg(SYS_MSG_TYPE_ERRLGR, from, am_error_logger, msg, bp);
 }
 
+void
+erts_send_sys_msg_proc(Eterm from, Eterm to, Eterm msg, ErlHeapFragment *bp)
+{
+    ASSERT(is_internal_pid(to));
+    enqueue_sys_msg(SYS_MSG_TYPE_PROC_MSG, from, to, msg, bp);
+}
+
 #ifdef DEBUG_PRINTOUTS
 static void
 print_msg_type(ErtsSysMsgQ *smqp)
@@ -2163,6 +2171,9 @@ print_msg_type(ErtsSysMsgQ *smqp)
     case SYS_MSG_TYPE_ERRLGR:
 	erts_fprintf(stderr, "ERRLGR ");
 	break;
+    case SYS_MSG_TYPE_PROC_MSG:
+       erts_fprintf(stderr, "PROC_MSG ");
+       break;
     default:
 	erts_fprintf(stderr, "??? ");
 	break;
@@ -2233,6 +2244,8 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 		     no_elgger, tag, CAR(list_val(tp[3])));
 	break;
     }
+    case SYS_MSG_TYPE_PROC_MSG:
+        break;
     default:
 	ASSERT(0);
     }
@@ -2350,6 +2363,9 @@ sys_msg_dispatcher_func(void *unused)
 	    print_msg_type(smqp);
 #endif
 	    switch (smqp->type) {
+            case SYS_MSG_TYPE_PROC_MSG:
+                receiver = smqp->to;
+                break;
 	    case SYS_MSG_TYPE_SYSMON:
 		receiver = erts_get_system_monitor();
 		if (smqp->from == receiver) {
