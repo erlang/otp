@@ -298,9 +298,7 @@ default_signature_algs({3, 3} = Version) ->
 	       %% SHA
 	       {sha, ecdsa},
 	       {sha, rsa},
-	       {sha, dsa},
-	       %% MD5
-	       {md5, rsa}],
+	       {sha, dsa}],
     signature_algs(Version, Default);
 default_signature_algs(_) ->
     undefined.

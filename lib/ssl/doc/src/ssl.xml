@@ -548,13 +548,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
 {sha, ecdsa},
 {sha, rsa},
 {sha, dsa},
-%% MD5
-{md5, rsa}
 ]</code>
 	
 	The algorithms should be in the preferred order.
 	Selected signature algorithm can restrict which hash functions
-	that may be selected.
+	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
 	</p>
 	</item>
       </taglist>
