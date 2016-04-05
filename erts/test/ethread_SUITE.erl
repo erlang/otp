@@ -238,62 +238,62 @@ end_per_testcase(_Case, Config) ->
 -define(PID_MARKER, $E,$T,$H,$R,$-,$T,$E,$S,$T,$-,$P,$I,$D).
 
 port_prog_killer(EProc, OSProc) when is_pid(EProc), is_list(OSProc) ->
-    ?line process_flag(trap_exit, true),
-    ?line Ref = erlang:monitor(process, EProc),
-    ?line receive
-	      {'DOWN', Ref, _, _, Reason} when is_tuple(Reason),
-					       element(1, Reason)
-					       == timetrap_timeout ->
-		  ?line Cmd = "kill -9 " ++ OSProc,
-		  ?line ?t:format("Test case timed out. "
-				  "Trying to kill port program.~n"
-				  "  Executing: ~p~n", [Cmd]),
-		  ?line case os:cmd(Cmd) of
-			    [] ->
-				ok;
-			    OsCmdRes ->
-				?line ?t:format("             ~s", [OsCmdRes])
-			end;
-	      {'DOWN', Ref, _, _, _} ->
-		  %% OSProc is assumed to have terminated by itself
-		  ?line ok 
-	  end.
+    process_flag(trap_exit, true),
+    Ref = erlang:monitor(process, EProc),
+    receive
+        {'DOWN', Ref, _, _, Reason} when is_tuple(Reason),
+                                         element(1, Reason)
+                                         == timetrap_timeout ->
+            Cmd = "kill -9 " ++ OSProc,
+            ?t:format("Test case timed out. "
+                      "Trying to kill port program.~n"
+                      "  Executing: ~p~n", [Cmd]),
+            case os:cmd(Cmd) of
+                [] ->
+                    ok;
+                OsCmdRes ->
+                    ?t:format("             ~s", [OsCmdRes])
+            end;
+        %% OSProc is assumed to have terminated by itself
+        {'DOWN', Ref, _, _, _} ->
+            ok
+    end.
 
 get_line(_Port, eol, Data) ->
-    ?line Data;
+    Data;
 get_line(Port, noeol, Data) ->
-    ?line receive
+    receive
 	      {Port, {data, {Flag, NextData}}} ->
-		  ?line get_line(Port, Flag, Data ++ NextData);
+		  get_line(Port, Flag, Data ++ NextData);
 	      {Port, eof} ->
-		  ?line ?t:fail(port_prog_unexpectedly_closed)
+		  ?t:fail(port_prog_unexpectedly_closed)
 	  end.
 
 read_case_data(Port, TestCase) ->
-    ?line receive
-	      {Port, {data, {eol, [?SUCCESS_MARKER]}}} ->
-		  ?line ok;
-	      {Port, {data, {Flag, [?SUCCESS_MARKER | CommentStart]}}} ->
-		  ?line {comment, get_line(Port, Flag, CommentStart)};
-	      {Port, {data, {Flag, [?SKIPPED_MARKER | CommentStart]}}} ->
-		  ?line {skipped, get_line(Port, Flag, CommentStart)};
-	      {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
-		  ?line ?t:fail(get_line(Port, Flag, ReasonStart));
-	      {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
-		  ?line ?t:format("Port program pid: ~s~n", [PidStr]),
-		  ?line CaseProc = self(),
-		  ?line _ = list_to_integer(PidStr), % Sanity check
-		  spawn_opt(fun () ->
-				    port_prog_killer(CaseProc, PidStr)
-			    end,
-			    [{priority, max}, link]),
-		  read_case_data(Port, TestCase);
-	      {Port, {data, {Flag, LineStart}}} ->
-		  ?line ?t:format("~s~n", [get_line(Port, Flag, LineStart)]),
-		  read_case_data(Port, TestCase);
-	      {Port, eof} ->
-		  ?line ?t:fail(port_prog_unexpectedly_closed)
-	  end.
+    receive
+        {Port, {data, {eol, [?SUCCESS_MARKER]}}} ->
+            ok;
+        {Port, {data, {Flag, [?SUCCESS_MARKER | CommentStart]}}} ->
+            {comment, get_line(Port, Flag, CommentStart)};
+        {Port, {data, {Flag, [?SKIPPED_MARKER | CommentStart]}}} ->
+            {skipped, get_line(Port, Flag, CommentStart)};
+        {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
+            ?t:fail(get_line(Port, Flag, ReasonStart));
+        {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
+            ?t:format("Port program pid: ~s~n", [PidStr]),
+            CaseProc = self(),
+            _ = list_to_integer(PidStr), % Sanity check
+            spawn_opt(fun () ->
+                              port_prog_killer(CaseProc, PidStr)
+                      end,
+                      [{priority, max}, link]),
+            read_case_data(Port, TestCase);
+        {Port, {data, {Flag, LineStart}}} ->
+            ?t:format("~s~n", [get_line(Port, Flag, LineStart)]),
+            read_case_data(Port, TestCase);
+        {Port, eof} ->
+            ?t:fail(port_prog_unexpectedly_closed)
+    end.
 
 run_case(Config, Test, TestArgs) ->
     run_case(Config, Test, TestArgs, fun (_Port) -> ok end).
@@ -307,17 +307,13 @@ run_case(Config, Test, TestArgs, Fun) ->
 					eof,
 					{line, 1024}]) of
 	Port when is_port(Port) ->
-	    ?line Fun(Port),
-	    ?line CaseResult = read_case_data(Port, Test),
-	    ?line receive
+	    Fun(Port),
+	    CaseResult = read_case_data(Port, Test),
+	    receive
 		      {Port, eof} ->
-			  ?line ok
+			  ok
 		  end,
-	    ?line CaseResult;
+	    CaseResult;
 	Error ->
-	    ?line ?t:fail({open_port_failed, Error})
+	    ?t:fail({open_port_failed, Error})
     end.
-	    
-
-
-
