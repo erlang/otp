@@ -28,50 +28,32 @@
 -module(erl_print_SUITE).
 -author('rickard.s.green@ericsson.com').
 
-
-%-define(line_trace, 1).
-
--define(DEFAULT_TIMEOUT, ?t:minutes(10)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-         init_per_group/2,end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([erlang_display/1, integer/1, float/1,
          string/1, character/1, snprintf/1, quote/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
-    test_cases().
+    [erlang_display, integer, float, string, character,
+     snprintf, quote].
 
-groups() -> 
-    [].
+init_per_testcase(Case, Config) ->
+    [{testcase, Case}|Config].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %%
 %%
 %% Test cases
 %%
 %%
-
-test_cases() -> 
-    [erlang_display, integer, float, string, character,
-     snprintf, quote].
 
 erlang_display(doc) -> [];
 erlang_display(suite) -> [];
@@ -243,15 +225,6 @@ ref_numbers_xstr([N | Ns]) ->
 default_testcase_impl(doc) -> [];
 default_testcase_impl(suite) -> [];
 default_testcase_impl(Config) when is_list(Config) -> run_case(Config).
-
-init_per_testcase(Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{testcase, Case}, {watchdog, Dog} |Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
 
 -define(TESTPROG, "erl_print_tests").
 -define(FAILED_MARKER, $E,$P,$-,$T,$E,$S,$T,$-,$F,$A,$I,$L,$U,$R,$E).

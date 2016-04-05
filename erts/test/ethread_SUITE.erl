@@ -28,13 +28,7 @@
 -module(ethread_SUITE).
 -author('rickard.s.green@ericsson.com').
 
-%-define(line_trace, 1).
-
--define(DEFAULT_TIMEOUT, ?t:minutes(10)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([create_join_thread/1,
 	 equal_tids/1,
@@ -53,7 +47,11 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-tests() ->
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
+
+all() ->
     [create_join_thread,
      equal_tids,
      mutex,
@@ -69,25 +67,18 @@ tests() ->
      atomic,
      dw_atomic_massage].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+init_per_testcase(Case, Config) ->
+    case inet:gethostname() of
+	{ok,"fenris"} when Case == max_threads ->
+	    %% Cannot use os:type+os:version as not all
+	    %% solaris10 machines are buggy.
+	    {skip, "This machine is buggy"};
+	_Else ->
+            Config
+    end.
 
-all() -> 
-    tests().
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 %%
 %%
@@ -214,22 +205,6 @@ dw_atomic_massage(Config) ->
 %% Auxiliary functions
 %%
 %%
-
-init_per_testcase(Case, Config) ->
-    case inet:gethostname() of
-	{ok,"fenris"} when Case == max_threads ->
-	    %% Cannot use os:type+os:version as not all
-	    %% solaris10 machines are buggy.
-	    {skip, "This machine is buggy"};
-	_Else ->
-	    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-	    [{watchdog, Dog}|Config]
-    end.
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
 
 -define(TESTPROG, "ethread_tests").
 -define(FAILED_MARKER, $E,$T,$H,$R,$-,$T,$E,$S,$T,$-,$F,$A,$I,$L,$U,$R,$E).

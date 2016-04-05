@@ -20,42 +20,18 @@
 
 -module(run_erl_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
-	 basic/1,heavy/1,heavier/1,defunct/1]).
+-export([all/0, suite/0]).
+-export([basic/1,heavy/1,heavier/1,defunct/1]).
 -export([ping_me_back/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [basic, heavy, heavier, defunct].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 basic(Config) when is_list(Config) ->
@@ -103,12 +79,12 @@ heavy_1(Config) ->
     end,
 
     case count_new_lines(ToErl, 0) of
-	      Nls when Nls > 30000 ->
-		  ok;
-	      Nls ->
-		  io:format("new_lines: ~p\n", [Nls]),
-		  ?t:fail()
-	  end.
+        Nls when Nls > 30000 ->
+            ok;
+        Nls ->
+            io:format("new_lines: ~p\n", [Nls]),
+            ?t:fail()
+    end.
     
 
 ping_me_back([Node]) when is_atom(Node) ->

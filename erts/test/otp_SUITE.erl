@@ -20,7 +20,7 @@
 
 -module(otp_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
          init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
          obsolete_but_not_deprecated/1,call_to_deprecated/1,
@@ -31,7 +31,9 @@
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [undefined_functions, deprecated_not_in_obsolete,
@@ -40,18 +42,7 @@ all() ->
      erl_file_encoding, xml_file_encoding,
      runtime_dependencies].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 init_per_suite(Config) ->
-    Dog = test_server:timetrap(?t:minutes(10)),
     Root = code:root_dir(),
     Server = daily_xref,
     xref:start(Server),
@@ -69,8 +60,6 @@ init_per_suite(Config) ->
         _ ->
             ok
     end,
-
-    ?t:timetrap_cancel(Dog),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->

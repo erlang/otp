@@ -28,11 +28,9 @@
 %%%-------------------------------------------------------------------
 -module(install_SUITE).
 
-%-define(line_trace, 1).
-
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
-	 init_per_suite/1, end_per_suite/1,
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([bin_default/1,
 	 bin_default_dirty/1,
@@ -49,7 +47,6 @@
 	 bin_dirname_fail/1,
 	 bin_no_use_dirname_fail/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(1)).
 -define(JOIN(A,B,C), filename:join(A, B, C)).
 
 -include_lib("common_test/include/ct.hrl").
@@ -77,19 +74,12 @@ dont_need_symlink_cases() ->
      bin_unreasonable_path, 'bin white space',
      bin_no_srcfile].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     dont_need_symlink_cases() ++ need_symlink_cases().
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 %%
@@ -586,17 +576,12 @@ init_per_testcase_aux(false, OsType, Case, Config) ->
 	true -> {skip, "Cannot create symbolic links"}
     end;
 init_per_testcase_aux(true, _OsType, Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog},
-     {testcase, Case},
+    [{testcase, Case},
      {test_dir, make_dirs(?config(priv_dir, Config), atom_to_list(Case))}
      | Config].
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
-
 
 make_dirs(Root, Suffix) ->
     do_make_dirs(Root, string:tokens(Suffix, [$/])).

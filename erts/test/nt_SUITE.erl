@@ -23,18 +23,19 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2,init_per_testcase/2,
-         end_per_testcase/2,nt/1,handle_eventlog/2,
+-export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2,
+         nt/1,handle_eventlog/2,
          middleman/1,service_basic/1, service_env/1, user_env/1, synced/1,
          service_prio/1,
          logout/1, debug/1, restart/1, restart_always/1,stopaction/1,
          shutdown_io/0,do_shutdown_io/0]).
--define(TEST_TIMEOUT, ?t:seconds(180)).
 
 -define(TEST_SERVICES, [1,2,3,4,5,6,7,8,9,10,11]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     case os:type() of
@@ -45,33 +46,13 @@ all() ->
         _ -> [nt]
     end.
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(?TEST_TIMEOUT),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     lists:foreach(fun(X) -> 
                           catch remove_service("test_service_" ++ integer_to_list(X))
-                  end,
-                  ?TEST_SERVICES),
-    Dog = ?config(watchdog, Config),
-    catch test_server:timetrap_cancel(Dog),
+                  end, ?TEST_SERVICES),
     ok.    
 
 erlsrv() ->
@@ -91,7 +72,6 @@ recv_prog_output(Port) ->
                     []
             end
     end.
-
 
 %%% X == parameters to erlsrv
 %%% returns command output without stderr
