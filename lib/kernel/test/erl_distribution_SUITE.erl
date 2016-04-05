@@ -634,7 +634,7 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     stop_node(N4),
     true = net_kernel:disconnect(N2),
     TickTime = net_kernel:get_net_ticktime(),
-    SleepTime = TickTime + (TickTime div 4),
+    SleepTime = TickTime + (TickTime div 2),
     spawn(N3, fun () ->
 		      block_emu(SleepTime*1000),
 		      halt()
