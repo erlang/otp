@@ -32,15 +32,8 @@
 
 -define(TIMEOUT, 50000).
 
-connect(Options) ->
-    connect(hostname(), inet_port(), Options).
-
 connect(Port, Options) when is_integer(Port) ->
-    connect(hostname(), Port, Options);
-connect(any, Options) ->
-    connect(hostname(), inet_port(), Options);
-connect(Host, Options) ->
-    connect(Host, inet_port(), Options).
+    connect(hostname(), Port, Options).
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
