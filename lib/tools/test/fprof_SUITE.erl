@@ -83,11 +83,11 @@ stack_seq(Config) when is_list(Config) ->
     Succ = fun (X) -> X + 1 end,
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     R0 = fprof:apply(fun seq/3, [Start, Stop, Succ], [{file, TraceFile}]),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     R = seq(Start, Stop, Succ),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     ok = fprof:profile(file, TraceFile),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -110,8 +110,8 @@ stack_seq(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc2 = ts_sub(TS2, TS1),
+    Acc1 = TS1 - TS0,
+    Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc1, Acc2]),
     {comment, io_lib:format("~p times slower", [Acc1/Acc2])}.
 
@@ -132,13 +132,13 @@ tail_seq(Config) when is_list(Config) ->
     Succ = fun (X) -> X + 1 end,
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     R = seq_r(Start, Stop, Succ),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     %%
     R1 = fprof:apply(fun seq_r/3, [Start, Stop, Succ],
                      [{file, TraceFile}]),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     ok = fprof:profile([{file,TraceFile}]),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -161,8 +161,8 @@ tail_seq(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc2 = ts_sub(TS2, TS1),
+    Acc1 = TS1 - TS0,
+    Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
     {comment, io_lib:format("~p times slower", [Acc2/Acc1])}.
 
@@ -188,15 +188,15 @@ do_create_file_slow(Config) ->
                              ?MODULE_STRING"_create_file_slow.data"),
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     ok = create_file_slow(DataFile, 1024),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     %%
     ok = file:delete(DataFile),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     ok = fprof:apply(?MODULE, create_file_slow, [DataFile, 1024],
                      [{file, TraceFile}]),
-    TS3 = erlang:now(),
+    TS3 = erlang:monotonic_time(),
     ok = fprof:profile(file, TraceFile),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -219,8 +219,8 @@ do_create_file_slow(Config) ->
     file:delete(DataFile),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc3 = ts_sub(TS3, TS2),
+    Acc1 = TS1 - TS0,
+    Acc3 = TS3 - TS2,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
     {comment, io_lib:format("~p times slower", [Acc3/Acc1])}.
 
@@ -243,14 +243,14 @@ spawn_simple(Config) when is_list(Config) ->
     Succ = fun (X) -> X + 1 end,
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     {{_, R1}, {_, R2}} = spawn_simple_test(Start, Stop, Succ),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     %%
     ok = fprof:trace(start, TraceFile),
     {{P1, R3}, {P2, R4}} = spawn_simple_test(Start, Stop, Succ),
     ok = fprof:trace(stop),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     ok = fprof:profile(file, TraceFile),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -294,8 +294,8 @@ spawn_simple(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc2 = ts_sub(TS2, TS1),
+    Acc1 = TS1 - TS0,
+    Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
     {comment, io_lib:format("~p times slower", [Acc2/Acc1])}.
 
@@ -336,14 +336,14 @@ imm_tail_seq(Config) when is_list(Config) ->
     ok = fprof:stop(kill),
     catch eprof:stop(),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     R0 = seq_r(Start, Stop, Succ),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     %%
     profiling = eprof:start_profiling([self()]),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     R2 = seq_r(Start, Stop, Succ),
-    TS3 = erlang:now(),
+    TS3 = erlang:monotonic_time(),
     profiling_stopped = eprof:stop_profiling(),
     R2 = R0,
     %%
@@ -352,9 +352,9 @@ imm_tail_seq(Config) when is_list(Config) ->
     %%
     {ok, Tracer} = fprof:profile(start),
     ok = fprof:trace([start, {tracer, Tracer}]),
-    TS4 = erlang:now(),
+    TS4 = erlang:monotonic_time(),
     R4 = seq_r(Start, Stop, Succ),
-    TS5 = erlang:now(),
+    TS5 = erlang:monotonic_time(),
     ok = fprof:trace(stop),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -373,9 +373,9 @@ imm_tail_seq(Config) when is_list(Config) ->
     %%
     ets:delete(T),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc3 = ts_sub(TS3, TS2),
-    Acc5 = ts_sub(TS5, TS4),
+    Acc1 = TS1 - TS0,
+    Acc3 = TS3 - TS2,
+    Acc5 = TS5 - TS4,
     io:format("~p (plain), ~p (eprof), ~p (fprof), ~p (cpu)~n",
               [Acc1/1000, Acc3/1000, Acc5/1000, Acc/1000]),
     {comment, io_lib:format("~p/~p (fprof/eprof) times slower", 
@@ -396,16 +396,16 @@ imm_create_file_slow(Config) when is_list(Config) ->
                                  ?MODULE_STRING"_imm_create_file_slow.analysis"),
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     ok = create_file_slow(DataFile, 1024),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     ok = file:delete(DataFile),
     %%
     {ok, Tracer} = fprof:profile(start),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     ok = fprof:apply(?MODULE, create_file_slow, [DataFile, 1024],
                      [{tracer, Tracer}, continue]),
-    TS3 = erlang:now(),
+    TS3 = erlang:monotonic_time(),
     ok = fprof:profile(stop),
     ok = fprof:analyse(),
     ok = fprof:analyse(dest, AnalysisFile),
@@ -425,8 +425,8 @@ imm_create_file_slow(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(DataFile),
     file:delete(AnalysisFile),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc3 = ts_sub(TS3, TS2),
+    Acc1 = TS1 - TS0,
+    Acc3 = TS3 - TS2,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
     {comment, io_lib:format("~p times slower", [Acc3/Acc1])}.
 
@@ -448,14 +448,14 @@ imm_compile(Config) when is_list(Config) ->
     catch eprof:stop(),
     %%
     {ok, foo, _} = compile:file(SourceFile, [binary]),
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     {ok, foo, _} = compile:file(SourceFile, [binary]),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     %%
     profiling = eprof:start_profiling([self()]),
-    TS2 = erlang:now(),
+    TS2 = erlang:monotonic_time(),
     {ok, foo, _} = compile:file(SourceFile, [binary]),
-    TS3 = erlang:now(),
+    TS3 = erlang:monotonic_time(),
     profiling_stopped = eprof:stop_profiling(),
     %%
     eprof:analyze(),
@@ -463,9 +463,9 @@ imm_compile(Config) when is_list(Config) ->
     %%
     {ok, Tracer} = fprof:profile(start),
     ok = fprof:trace([start, {tracer, Tracer}]),
-    TS4 = erlang:now(),
+    TS4 = erlang:monotonic_time(),
     {ok, foo, _} = compile:file(SourceFile, [binary]),
-    TS5 = erlang:now(),
+    TS5 = erlang:monotonic_time(),
     ok = fprof:trace(stop),
     %%
     io:format("Analysing...~n"),
@@ -474,9 +474,9 @@ imm_compile(Config) when is_list(Config) ->
     %%
     {ok, [T, P]} = parse(AnalysisFile),
     io:format("~p~n", [P]),
-    Acc1 = ts_sub(TS1, TS0),
-    Acc3 = ts_sub(TS3, TS2),
-    Acc5 = ts_sub(TS5, TS4),
+    Acc1 = TS1 - TS0,
+    Acc3 = TS3 - TS2,
+    Acc5 = TS5 - TS4,
     io:format("Verifying...~n"),
     ok = verify(T, P),
     case P of
@@ -508,11 +508,11 @@ cpu_create_file_slow(Config) when is_list(Config) ->
     filename:join(PrivDir, ?MODULE_STRING"_cpu_create_file_slow.data"),
     ok = fprof:stop(kill),
     %%
-    TS0 = erlang:now(),
+    TS0 = erlang:monotonic_time(),
     Result = (catch fprof:apply(?MODULE, create_file_slow,
                                 [DataFile, 1024],
                                 [{file, TraceFile}, cpu_time])),
-    TS1 = erlang:now(),
+    TS1 = erlang:monotonic_time(),
     TestResult =
     case Result of
         ok ->
@@ -538,7 +538,7 @@ cpu_create_file_slow(Config) when is_list(Config) ->
             file:delete(DataFile),
             file:delete(TraceFile),
             file:delete(AnalysisFile),
-            Acc1 = ts_sub(TS1, TS0),
+            Acc1 = TS1 - TS0,
             io:format("cpu_ts:~w, fprof:~w~n", [Acc, Acc1]),
             {comment, io_lib:format("~p% cpu utilization",
                                     [100*Acc/Acc1])};

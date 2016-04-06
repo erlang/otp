@@ -670,10 +670,10 @@ has_prefix(_, _) ->
 strip(Str) -> string:strip(Str).
 
 mk_nodename(Config) ->
-    {A, B, C} = now(),
+    Us = erlang:monotonic_time(),
     atom_to_list(?MODULE)
     ++ "-" ++ atom_to_list(?config(testcase, Config))
-    ++ "-" ++ integer_to_list(A*1000000000000 + B*1000000 + C).
+    ++ integer_to_list(Us).
 
 start_node(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),

@@ -106,9 +106,8 @@ all() ->
     ok.
 
 start_slave(Args) ->
-    {A, B, C} = now(),
-    MicroSecs = A*1000000000000 + B*1000000 + C,
-    Name = "instr_" ++ integer_to_list(MicroSecs),
+    MicroSecs = erlang:monotonic_time(),
+    Name = "instr" ++ integer_to_list(MicroSecs),
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = ?t:start_node(list_to_atom(Name),
 				     slave,
