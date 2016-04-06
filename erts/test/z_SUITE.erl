@@ -324,7 +324,7 @@ core_file_search(#core_search_conf{search_dir = Base,
 	    case {RunByTS, ICores, FCores} of
 		{true, [], []} -> ok;
 		{true, _, []} -> {comment, Res};
-		{true, _, _} -> ?t:fail(Res);
+		{true, _, _} -> ct:fail(Res);
 		_ -> Res
 	    end
     end.

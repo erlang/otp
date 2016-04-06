@@ -249,7 +249,7 @@ num_d_options() ->
 erlc() ->
     case os:find_executable("erlc") of
         false ->
-            test_server:fail("Can't find erlc");
+            ct:fail("Can't find erlc");
         Erlc ->
             "\"" ++ Erlc ++ "\""
     end.
@@ -359,13 +359,13 @@ match_messages([Msg|Rest1], [Regexp|Rest2]) ->
         nomatch ->
             io:format("Not matching: ~s\n", [Msg]),
             io:format("Regexp      : ~s\n", [Regexp]),
-            test_server:fail(message_mismatch)
+            ct:fail(message_mismatch)
     end,
     match_messages(Rest1, Rest2);
 match_messages([], [Expect|Rest]) ->
-    test_server:fail({too_few_messages, [Expect|Rest]});
+    ct:fail({too_few_messages, [Expect|Rest]});
 match_messages([Msg|Rest], []) ->
-    test_server:fail({too_many_messages, [Msg|Rest]});
+    ct:fail({too_many_messages, [Msg|Rest]});
 match_messages([], []) ->
     ok.
 
@@ -422,5 +422,4 @@ run_command(Dir, {unix, _}, Cmd) ->
       "  *) echo '_ERROR_';;\n",
       "esac\n"]};
 run_command(_Dir, Other, _Cmd) ->
-    M = io_lib:format("Don't know how to test exit code for ~p", [Other]),
-    test_server:fail(lists:flatten(M)).
+    ct:fail("Don't know how to test exit code for ~p", [Other]).

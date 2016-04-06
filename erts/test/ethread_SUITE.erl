@@ -241,7 +241,7 @@ get_line(Port, noeol, Data) ->
 	      {Port, {data, {Flag, NextData}}} ->
 		  get_line(Port, Flag, Data ++ NextData);
 	      {Port, eof} ->
-		  ?t:fail(port_prog_unexpectedly_closed)
+		  ct:fail(port_prog_unexpectedly_closed)
 	  end.
 
 read_case_data(Port, TestCase) ->
@@ -253,7 +253,7 @@ read_case_data(Port, TestCase) ->
         {Port, {data, {Flag, [?SKIPPED_MARKER | CommentStart]}}} ->
             {skipped, get_line(Port, Flag, CommentStart)};
         {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
-            ?t:fail(get_line(Port, Flag, ReasonStart));
+            ct:fail(get_line(Port, Flag, ReasonStart));
         {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
             ?t:format("Port program pid: ~s~n", [PidStr]),
             CaseProc = self(),
@@ -267,7 +267,7 @@ read_case_data(Port, TestCase) ->
             ?t:format("~s~n", [get_line(Port, Flag, LineStart)]),
             read_case_data(Port, TestCase);
         {Port, eof} ->
-            ?t:fail(port_prog_unexpectedly_closed)
+            ct:fail(port_prog_unexpectedly_closed)
     end.
 
 run_case(Config, Test, TestArgs) ->
@@ -284,11 +284,11 @@ run_case(Config, Test, TestArgs, Fun) ->
 	Port when is_port(Port) ->
 	    Fun(Port),
 	    CaseResult = read_case_data(Port, Test),
-	    receive
-		      {Port, eof} ->
-			  ok
-		  end,
+            receive
+                {Port, eof} ->
+                    ok
+            end,
 	    CaseResult;
 	Error ->
-	    ?t:fail({open_port_failed, Error})
+	    ct:fail({open_port_failed, Error})
     end.

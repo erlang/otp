@@ -546,7 +546,7 @@ expect(X, Y) ->
     ?t:format("expected: ~p~n", [X]),
     ?t:format("got     : ~p~n", [Y]),
     ?t:format("-----------------------------------------------~n", []),
-    ?t:fail({X,Y}).
+    ct:fail({X,Y}).
     
 init_per_suite(Config) ->
     PD = proplists:get_value(priv_dir, Config),

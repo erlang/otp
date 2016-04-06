@@ -50,7 +50,7 @@ basic_1(Config) ->
 	{nodedown,Node} ->
 	    io:format("Down: ~p\n", [Node])
     after 10000 ->
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
 
     ok.
@@ -75,15 +75,14 @@ heavy_1(Config) ->
 	{nodedown,Node} ->
 	    io:format("Down: ~p\n", [Node])
     after 10000 ->
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
 
     case count_new_lines(ToErl, 0) of
         Nls when Nls > 30000 ->
             ok;
         Nls ->
-            io:format("new_lines: ~p\n", [Nls]),
-            ?t:fail()
+            ct:fail("new_lines: ~p\n", [Nls])
     end.
     
 
@@ -153,7 +152,7 @@ heavier_1(Config) ->
 	    io:format("Down: ~p\n", [Node])
     after 10000 ->
 	    c:flush(),
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
 
     ok.
@@ -180,9 +179,7 @@ receive_all_2(Iter, {NumChars,Pattern}, Line0, ToErl, MaxLen) ->
 		    %%io:format("Recv: ~p\n", [S]),
 		    receive_all_2(Iter, {NumChars,Pattern}, Line++S, ToErl, MaxLen)		    
 	    after 10000 ->
-		    io:format("Timeout waiting for\n~p\ngot\n~p\n",
-			      [Pattern, Line]),
-		    ?t:fail()
+		    ct:fail("Timeout waiting for\n~p\ngot\n~p\n", [Pattern, Line])
 	    end
     end.
 
@@ -256,9 +253,8 @@ do_run_erl(Config, Case) ->
 	{nodeup,Node} ->
 	    io:format("Up: ~p\n", [Node]);
 	Other ->
-	    io:format("Unexpected: ~p\n", [Other]),
-	    ?t:fail()
+	    ct:fail("Unexpected: ~p\n", [Other])
     after 10000 ->
-	    ?t:fail()
+	    ct:fail(timeout)
     end,
     {Node,Pipe}.

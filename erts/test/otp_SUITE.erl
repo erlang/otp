@@ -100,7 +100,7 @@ undefined_functions(Config) when is_list(Config) ->
                                        format_mfa(MFA2)])
                     end, Undef),
             close_log(Fd),
-            ?t:fail({length(Undef),undefined_functions_in_otp})
+            ct:fail({length(Undef),undefined_functions_in_otp})
     end.
 
 hipe_filter(Undef) ->
@@ -240,7 +240,7 @@ deprecated_not_in_obsolete(Config) when is_list(Config) ->
             Fd = open_log(Config, "deprecated_not_obsolete"),
             print_mfas(Fd, Server, L),
             close_log(Fd),
-            ?t:fail({length(L),deprecated_but_not_obsolete})
+            ct:fail({length(L),deprecated_but_not_obsolete})
     end.
 
 obsolete_but_not_deprecated(Config) when is_list(Config) ->
@@ -264,7 +264,7 @@ obsolete_but_not_deprecated(Config) when is_list(Config) ->
             Fd = open_log(Config, "obsolete_not_deprecated"),
             print_mfas(Fd, Server, L),
             close_log(Fd),
-            ?t:fail({length(L),obsolete_but_not_deprecated})
+            ct:fail({length(L),obsolete_but_not_deprecated})
     end.
 
 call_to_deprecated(Config) when is_list(Config) ->
@@ -340,7 +340,7 @@ not_recommended_calls(Config, Apps0, MFA) ->
                     {comment, Mess}
             end;
         _ ->
-            ?t:fail({length(CallsToMFA),calls_to_size_1})
+            ct:fail({length(CallsToMFA),calls_to_size_1})
     end.
 
 is_present_application(Name, Server) ->
@@ -374,7 +374,7 @@ erl_file_encoding(_Config) ->
         [_|_] ->
             io:put_chars("Files with \"coding:\":\n"),
             [io:put_chars(F) || F <- Fs],
-            ?t:fail()
+            ct:fail(failed)
     end.
 
 filter_use_latin1_coding(F, MP) ->
@@ -394,7 +394,7 @@ xml_file_encoding(_Config) ->
         [_|_] ->
             io:put_chars("Encoding should be \"utf-8\" or \"UTF-8\":\n"),
             [io:put_chars(F) || F <- Fs],
-            ?t:fail()
+            ct:fail(failed)
     end.
 
 xml_files() ->
