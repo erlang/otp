@@ -1350,9 +1350,7 @@ bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
-bs_put_utf16 Fail Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
-
-i_bs_put_utf16 j I s
+bs_put_utf16 j I s
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src

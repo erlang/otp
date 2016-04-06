@@ -4102,7 +4102,7 @@ do {						\
      StoreBifResult(1, result);
  }
 
- OpCase(i_bs_put_utf16_jIs): {
+ OpCase(bs_put_utf16_jIs): {
      Eterm arg;
 
      GetArg1(2, arg);
