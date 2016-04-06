@@ -86,52 +86,31 @@ end_per_testcase(_Case, _Config) ->
 %%
 %%
 
-create_join_thread(doc) ->
-    ["Tests ethr_thr_create and ethr_thr_join."];
-create_join_thread(suite) ->
-    [];
+%% Tests ethr_thr_create and ethr_thr_join.
 create_join_thread(Config) ->
     run_case(Config, "create_join_thread", "").
 
-equal_tids(doc) ->
-    ["Tests ethr_equal_tids."];
-equal_tids(suite) ->
-    [];
+%% Tests ethr_equal_tids.
 equal_tids(Config) ->
     run_case(Config, "equal_tids", "").
 
-mutex(doc) ->
-    ["Tests mutexes."];
-mutex(suite) ->
-    [];
+%% Tests mutexes.
 mutex(Config) ->
     run_case(Config, "mutex", "").
 
-try_lock_mutex(doc) ->
-    ["Tests try lock on mutex."];
-try_lock_mutex(suite) ->
-    [];
+%% Tests try lock on mutex.
 try_lock_mutex(Config) ->
     run_case(Config, "try_lock_mutex", "").
 
-cond_wait(doc) ->
-    ["Tests ethr_cond_wait with ethr_cond_signal and ethr_cond_broadcast."];
-cond_wait(suite) ->
-    [];
+%% Tests ethr_cond_wait with ethr_cond_signal and ethr_cond_broadcast.
 cond_wait(Config) ->
     run_case(Config, "cond_wait", "").
 
-broadcast(doc) ->
-    ["Tests that a ethr_cond_broadcast really wakes up all waiting threads"];
-broadcast(suite) ->
-    [];
+%% Tests that a ethr_cond_broadcast really wakes up all waiting threads
 broadcast(Config) ->
     run_case(Config, "broadcast", "").
 
-detached_thread(doc) ->
-    ["Tests detached threads."];
-detached_thread(suite) ->
-    [];
+%% Tests detached threads.
 detached_thread(Config) ->
     case {os:type(), os:version()} of
 	{{unix,darwin}, {9, _, _}} ->
@@ -143,10 +122,7 @@ detached_thread(Config) ->
 	    run_case(Config, "detached_thread", "")
     end.
 
-max_threads(doc) ->
-    ["Tests maximum number of threads."];
-max_threads(suite) ->
-    [];
+%% Tests maximum number of threads.
 max_threads(Config) ->
     case {os:type(), os:version()} of
 	{{unix,darwin}, {9, _, _}} ->
@@ -158,45 +134,27 @@ max_threads(Config) ->
 	    run_case(Config, "max_threads", "")
     end.
 
-tsd(doc) ->
-    ["Tests thread specific data."];
-tsd(suite) ->
-    [];
+%% Tests thread specific data.
 tsd(Config) ->
     run_case(Config, "tsd", "").
 
-spinlock(doc) ->
-    ["Tests spinlocks."];
-spinlock(suite) ->
-    [];
+%% Tests spinlocks.
 spinlock(Config) ->
     run_case(Config, "spinlock", "").
 
-rwspinlock(doc) ->
-    ["Tests rwspinlocks."];
-rwspinlock(suite) ->
-    [];
+%% Tests rwspinlocks.
 rwspinlock(Config) ->
     run_case(Config, "rwspinlock", "").
 
-rwmutex(doc) ->
-    ["Tests rwmutexes."];
-rwmutex(suite) ->
-    [];
+%% Tests rwmutexes.
 rwmutex(Config) ->
     run_case(Config, "rwmutex", "").
 
-atomic(doc) ->
-    ["Tests atomics."];
-atomic(suite) ->
-    [];
+%% Tests atomics.
 atomic(Config) ->
     run_case(Config, "atomic", "").
 
-dw_atomic_massage(doc) ->
-    ["Massage double word atomics"];
-dw_atomic_massage(suite) ->
-    [];
+%% Massage double word atomics
 dw_atomic_massage(Config) ->
     run_case(Config, "dw_atomic_massage", "").
 

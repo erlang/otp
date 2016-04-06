@@ -45,11 +45,6 @@ suite() ->
 all() -> 
     [core_files].
 
-
-core_files(doc) ->
-    [];
-core_files(suite) ->
-    [];
 core_files(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->

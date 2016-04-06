@@ -123,9 +123,7 @@ make_full_name(Name) ->
 
 %%% The following tests are only run on NT:
 
-service_basic(doc) ->
-    ["Check some basic (cosmetic) service parameters"];
-service_basic(suite) -> [];
+%% Check some basic (cosmetic) service parameters
 service_basic(Config) when is_list(Config) ->
     Name = "test_service_20",
     IntName = Name++"_internal",
@@ -160,10 +158,8 @@ service_basic(Config) when is_list(Config) ->
     remove_service(NewName),
     ok.
 
-service_env(doc) ->
-    ["Check that service name and executable is in the environment of the " ++ 
-     "erlang process created by erlsrv."];
-service_env(suite) -> [];
+%% Check that service name and executable is in the environment of the
+%% erlang process created by erlsrv.
 service_env(Config) when is_list(Config) ->
     Name = "test_service_2",
     Service = [{servicename,Name},
@@ -183,10 +179,9 @@ service_env(Config) when is_list(Config) ->
                          "\""))),
     remove_service(Name),
     ok.
-user_env(doc) ->
-    ["Check that the user defined environment is ADDED to the service's"++
-     " normal dito."];
-user_env(suite) -> [];
+
+%% Check that the user defined environment is ADDED to the service's
+%% normal dito.
 user_env(Config) when is_list(Config) ->
     Name = "test_service_3",
     Service = [{servicename,Name},{env,[{"HUBBA","BUBBA"}]},
@@ -199,10 +194,9 @@ user_env(Config) when is_list(Config) ->
     "BUBBA" = rpc:call(make_full_name(Name),os,getenv,["HUBBA"]),
     remove_service(Name),
     ok.
-synced(doc) -> 
-    ["Check that services are stopped and started syncronous and that"++
-     " failed stopactions kill the erlang machine anyway."];
-synced(suite) -> [];
+
+%% Check that services are stopped and started syncronous and that
+%% failed stopactions kill the erlang machine anyway.
 synced(Config) when is_list(Config) ->
     Name0 = "test_service_4",
     Service0 = [{servicename,Name0},
@@ -232,10 +226,9 @@ synced(Config) when is_list(Config) ->
               calendar:universal_time()) - T2,
     true = Diff2 > 30,
     ok.
-service_prio(doc) ->
-    ["Check that a service with higher prio create port programs with "
-     "higher prio."]; 
-service_prio(suite) -> [];
+
+%% Check that a service with higher prio create port programs with
+%% higher prio.
 service_prio(Config) when is_list(Config) ->
     Name = "test_service_6",
     Service = [{servicename,Name},{prio,"high"},
@@ -255,16 +248,14 @@ service_prio(Config) when is_list(Config) ->
     %% started at the same time...
     {value, {"heart.exe",_,"high"}} = lists:keysearch("heart.exe",1,Diff),
     ok.
-logout(doc) -> 
-    ["Check that logout does not kill services"];
-logout(suite) -> [];
+
+%% Check that logout does not kill services
 logout(Config) when is_list(Config) ->
     {comment, "Have to be run manually by registering a service with " ++
      "heart, logout and log in again and then examine that the heart " ++
      "process id is not changed."}.
-debug(doc) ->
-    ["Check the debug options to erlsrv."];
-debug(suite) -> [];
+
+%% Check the debug options to erlsrv.
 debug(Config) when is_list(Config) ->
     Name0 = "test_service_7",
 
@@ -311,9 +302,7 @@ debug(Config) when is_list(Config) ->
     file:delete(NF),
     ok.
 
-restart(doc) ->
-    ["Check the restart options to erlsrv"];
-restart(suite) -> [];
+%% Check the restart options to erlsrv
 restart(Config) when is_list(Config) ->
     Name = "test_service_9",
     Service = [{servicename,Name},
@@ -333,9 +322,7 @@ restart(Config) when is_list(Config) ->
     remove_service(Name),
     ok.
 
-restart_always(doc) ->
-    ["Check the restart options to erlsrv"];
-restart_always(suite) -> [];
+%% Check the restart options to erlsrv
 restart_always(Config) when is_list(Config) ->
     Name = "test_service_10",
     Service = [{servicename,Name},
@@ -353,9 +340,8 @@ restart_always(Config) when is_list(Config) ->
     true = wait_for_node(Name),
     remove_service(Name),
     ok.
-stopaction(doc) ->
-    ["Check that stopaction does not hang output while shutting down"];
-stopaction(suite) -> [];
+
+%% Check that stopaction does not hang output while shutting down
 stopaction(Config) when is_list(Config) ->
     Name = "test_service_11",
     %% Icky, I prepend the first element in the codepath, cause
@@ -380,10 +366,6 @@ stopaction(Config) when is_list(Config) ->
 %%% This test is run on all platforms, but just gives a comment on 
 %%% other platforms than NT.
 
-nt(doc) ->
-    ["Run NT specific tests."];
-nt(suite) ->
-    [];
 nt(Config) when is_list(Config) ->
     case os:type() of
         {win32,nt} ->

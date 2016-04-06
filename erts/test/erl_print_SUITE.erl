@@ -55,8 +55,6 @@ end_per_testcase(_Case, _Config) ->
 %%
 %%
 
-erlang_display(doc) -> [];
-erlang_display(suite) -> [];
 erlang_display(Config) when is_list(Config) ->
     put(erlang_display_test, ok),
     OAIS = erts_debug:set_internal_state(available_internal_state, true),
@@ -222,8 +220,6 @@ ref_numbers_xstr([N | Ns]) ->
 %%
 %%
 
-default_testcase_impl(doc) -> [];
-default_testcase_impl(suite) -> [];
 default_testcase_impl(Config) when is_list(Config) -> run_case(Config).
 
 -define(TESTPROG, "erl_print_tests").

@@ -53,11 +53,8 @@ all() ->
     [args_file, evil_args_file, env, args_file_env,
      otp_7461, otp_8209, zdbbl_dist_buf_busy_limit].
 
-otp_8209(doc) ->
-    ["Test that plain first argument does not "
-     "destroy -home switch [OTP-8209]"];
-otp_8209(suite) ->
-    [];
+%% Test that plain first argument does not
+%% destroy -home switch [OTP-8209]
 otp_8209(Config) when is_list(Config) ->
     {ok,[[PName]]} = init:get_argument(progname),
     SNameS = "erlexec_test_01",
@@ -101,8 +98,6 @@ loop_ping(Node,N) ->
 	    pong
     end.
 
-args_file(doc) -> [];
-args_file(suite) -> [];
 args_file(Config) when is_list(Config) ->
     AFN1 = privfile("1", Config),
     AFN2 = privfile("2", Config),
@@ -175,8 +170,6 @@ args_file(Config) when is_list(Config) ->
 			  Extra),
     ok.
 
-evil_args_file(doc) -> [];
-evil_args_file(suite) -> [];
 evil_args_file(Config) when is_list(Config) ->
     Lim = 300,
     FNums = lists:seq(1, Lim),
@@ -214,8 +207,6 @@ evil_args_file(Config) when is_list(Config) ->
 		      
 			  
 
-env(doc) -> [];
-env(suite) -> [];
 env(Config) when is_list(Config) ->
     os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
     CmdLine = "+#200 -MiscArg2 -extra +XtraArg3 +XtraArg4",
@@ -230,8 +221,6 @@ env(Config) when is_list(Config) ->
 		      Extra),
     ok.
 
-args_file_env(doc) -> [];
-args_file_env(suite) -> [];
 args_file_env(Config) when is_list(Config) ->
     AFN1 = privfile("1", Config),
     AFN2 = privfile("2", Config),
@@ -254,8 +243,6 @@ args_file_env(Config) when is_list(Config) ->
     ok.
 
 %% Make sure "erl -detached" survives when parent process group gets killed
-otp_7461(doc) -> [];
-otp_7461(suite) -> [];
 otp_7461(Config) when is_list(Config) ->   
     case os:type() of
     	{unix,_} ->
@@ -328,10 +315,7 @@ otp_7461_remote([halt, Pid]) ->
     io:format("halt order from ~p to node ~p\n",[Pid,node()]),
     halt().
 
-zdbbl_dist_buf_busy_limit(doc) ->    
-    ["Check +zdbbl flag"];
-zdbbl_dist_buf_busy_limit(suite) ->
-    [];
+%% Check +zdbbl flag
 zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     LimKB = 1122233,
     LimB = LimKB*1024,
