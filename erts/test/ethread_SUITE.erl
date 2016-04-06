@@ -220,14 +220,14 @@ port_prog_killer(EProc, OSProc) when is_pid(EProc), is_list(OSProc) ->
                                          element(1, Reason)
                                          == timetrap_timeout ->
             Cmd = "kill -9 " ++ OSProc,
-            ?t:format("Test case timed out. "
+            io:format("Test case timed out. "
                       "Trying to kill port program.~n"
                       "  Executing: ~p~n", [Cmd]),
             case os:cmd(Cmd) of
                 [] ->
                     ok;
                 OsCmdRes ->
-                    ?t:format("             ~s", [OsCmdRes])
+                    io:format("             ~s", [OsCmdRes])
             end;
         %% OSProc is assumed to have terminated by itself
         {'DOWN', Ref, _, _, _} ->
@@ -255,7 +255,7 @@ read_case_data(Port, TestCase) ->
         {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
             ct:fail(get_line(Port, Flag, ReasonStart));
         {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
-            ?t:format("Port program pid: ~s~n", [PidStr]),
+            io:format("Port program pid: ~s~n", [PidStr]),
             CaseProc = self(),
             _ = list_to_integer(PidStr), % Sanity check
             spawn_opt(fun () ->
@@ -264,7 +264,7 @@ read_case_data(Port, TestCase) ->
                       [{priority, max}, link]),
             read_case_data(Port, TestCase);
         {Port, {data, {Flag, LineStart}}} ->
-            ?t:format("~s~n", [get_line(Port, Flag, LineStart)]),
+            io:format("~s~n", [get_line(Port, Flag, LineStart)]),
             read_case_data(Port, TestCase);
         {Port, eof} ->
             ct:fail(port_prog_unexpectedly_closed)

@@ -539,13 +539,13 @@ bin_no_srcfile(Config) when is_list(Config) ->
 %%
 
 expect(X, X) ->
-    ?t:format("result: ~p~n", [X]),
-    ?t:format("-----------------------------------------------~n", []),
+    io:format("result: ~p~n", [X]),
+    io:format("-----------------------------------------------~n", []),
     ok;
 expect(X, Y) ->
-    ?t:format("expected: ~p~n", [X]),
-    ?t:format("got     : ~p~n", [Y]),
-    ?t:format("-----------------------------------------------~n", []),
+    io:format("expected: ~p~n", [X]),
+    io:format("got     : ~p~n", [Y]),
+    io:format("-----------------------------------------------~n", []),
     ct:fail({X,Y}).
     
 init_per_suite(Config) ->
@@ -690,7 +690,7 @@ install_bin3(Config,
 	++ "\" --exec-prefix \"" ++ EXEC_PREFIX
 	++ "\" --test-file \"" ++ ResFile ++ "\" erl erlc",
 
-    ?t:format("CMD_PRFX        = \"~s\"~n"
+    io:format("CMD_PRFX        = \"~s\"~n"
 	      "LN_S            = \"~s\"~n" 
 	      "BINDIR_SYMLINKS = \"~s\"~n"
 	      "exec_prefix     = \"~s\"~n"
@@ -701,9 +701,9 @@ install_bin3(Config,
 	      [CMD_PRFX, LN_S, BINDIR_SYMLINKS, EXEC_PREFIX, BINDIR,
 	       ERLANG_BINDIR, EXTRA_PREFIX, DESTDIR]),
 
-    ?t:format("$ ~s~n", [Cmd]),
+    io:format("$ ~s~n", [Cmd]),
     CmdOutput = os:cmd(Cmd),
-    ?t:format("~s~n", [CmdOutput]),    
+    io:format("~s~n", [CmdOutput]),
     ChkRes(case file:consult(ResFile) of
 	       {ok, [Res]} -> Res;
 	       Err -> exit({result, Err})
