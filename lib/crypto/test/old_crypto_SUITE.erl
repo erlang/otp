@@ -187,7 +187,9 @@ ldd_program() ->
 		    case os:find_executable("otool") of
 			false -> none;
 			Otool -> Otool ++ " -L"
-		    end
+		    end;
+		_ ->
+		    none
 	    end;
  	Ldd when is_list(Ldd) -> Ldd
     end.
