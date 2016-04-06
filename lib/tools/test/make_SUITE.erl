@@ -186,7 +186,7 @@ otp_6057_a(Config) when is_list(Config) ->
     case ensure_exists([Test1, Test2, Test3]) of
         ok -> ok;
         Missing ->
-            ?t:fail({"missing beam file", Missing})
+            ct:fail({"missing beam file", Missing})
     end,
 
     %% Check creation date of test1.beam and make sure it is not
@@ -201,7 +201,7 @@ otp_6057_a(Config) when is_list(Config) ->
     case FileInfo2#file_info.mtime of
         Date1 -> ok;
         _Date2 ->
-            ?t:fail({"recompiled beam file", Test1++".beam"})
+            ct:fail({"recompiled beam file", Test1++".beam"})
     end,
 
     %% Remove the beam files
@@ -238,7 +238,7 @@ otp_6057_b(Config) when is_list(Config) ->
     case ensure_exists([Test3]) of
         ok -> ok;
         Missing ->
-            ?t:fail({"missing beam file", Missing})
+            ct:fail({"missing beam file", Missing})
     end,
 
     %% Remove the beam file
@@ -277,7 +277,7 @@ otp_6057_c(Config) when is_list(Config) ->
     case ensure_exists([Test1, Test2]) of
         ok -> ok;
         Missing ->
-            ?t:fail({"missing beam file", Missing})
+            ct:fail({"missing beam file", Missing})
     end,
 
     %% Remove the beam files
@@ -309,6 +309,6 @@ ensure_no_messages(N) ->
     after 0 ->
               case N of
                   0 -> ok;
-                  N -> ?t:fail()
+                  N -> ct:fail(failed)
               end
     end.

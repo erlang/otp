@@ -512,7 +512,7 @@ run_emem_on_casefile(Config) ->
     File = filename:join([?config(data_dir, Config), CaseName ++ ".gz"]),
     case check_file(File) of
         not_found ->
-            ?t:fail({error, {filenotfound, File}});
+            ct:fail({error, {filenotfound, File}});
         _ ->
             ok
     end,
@@ -621,12 +621,12 @@ start_emem(Config) when is_list(Config) ->
     case open_port({spawn, Emem ++ " -t -n -o -i 1"},
                    Cd ++ [{line, 1024}, eof]) of
         Port when is_port(Port) -> {ok, read_emu_flag(Port), Port};
-        Error -> ?t:fail(Error)
+        Error -> ct:fail(Error)
     end.
 
 read_emu_flag(Port) ->
     Line = case get_emem_line(Port) of
-               eof -> ?t:fail(unexpected_end_of_file);
+               eof -> ct:fail(unexpected_end_of_file);
                L -> L
            end,
     case has_prefix("> Emulator command line argument:", Line) of

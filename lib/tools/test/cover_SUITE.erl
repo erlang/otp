@@ -1029,21 +1029,21 @@ otp_6115(Config) when is_list(Config) ->
         Beam when is_list(Beam) ->
             ok;
         Other ->
-            ?t:fail({"f1 is not reloaded", Other})
+            ct:fail({"f1 is not reloaded", Other})
     end,
     case process_info(Pid1) of
         undefined ->
             ok;
         _PI1 ->
             RefToOldP1 = erlang:check_process_code(Pid1, f1),
-            ?t:fail({"Pid1 still alive", RefToOldP1})
+            ct:fail({"Pid1 still alive", RefToOldP1})
     end,
     case process_info(Pid2) of
         undefined ->
             ok;
         _PI2 ->
             RefToOldP2 = erlang:check_process_code(Pid1, f2),
-            ?t:fail({"Pid2 still alive", RefToOldP2})
+            ct:fail({"Pid2 still alive", RefToOldP2})
     end,
 
     file:set_cwd(CWD),

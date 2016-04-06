@@ -546,12 +546,12 @@ cpu_create_file_slow(Config) when is_list(Config) ->
             case {os:type(), os:version()} of
                 {{unix, sunos}, {Major, Minor, _}}
                   when Major >= 5, Minor >= 7 ->
-                    test_server:fail(Result);
+                    ct:fail(Result);
                 _ ->
                     {skipped, "not_supported"}
             end;
         _ ->
-            test_server:fail(Result)
+            ct:fail(Result)
     end,
     TestResult.
 
@@ -1137,7 +1137,7 @@ compare([],Rest) ->
                 [] -> ok;
                 _ -> io:format("\nMissing in simulator results:\n~p\n",[Error])
             end,
-            ?t:fail({error,mismatch_between_simulator_and_fprof})
+            ct:fail({error,mismatch_between_simulator_and_fprof})
     end.
 
 remove_undefined([{{_Pid,undefined},_,_}|Rest],Result) ->

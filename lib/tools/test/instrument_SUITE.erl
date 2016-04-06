@@ -56,7 +56,7 @@ all() ->
                             end, 0, AL),
             N =< S3;
         Other ->
-            ?t:fail(Other)
+            ct:fail(Other)
     end,
     lists:foldl(
       fun ({TDescr,Addr,Size,Proc}, MinAddr) ->
@@ -72,7 +72,7 @@ all() ->
                   undefined ->
                       ok;
                   BadProc ->
-                      ?t:fail({badproc, BadProc})
+                      ct:fail({badproc, BadProc})
               end,
               NextMinAddr = Addr+Size,
               true = NextMinAddr =< High,
