@@ -2736,13 +2736,6 @@ mixed_types(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 }
 
 static int
-same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
-{
-    return Target.type = TAG_f && Label.type == TAG_u &&
-	Target.val == Label.val;
-}
-
-static int
 is_killed_apply(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
 {
     return Reg.type == TAG_x && Live.type == TAG_u &&
