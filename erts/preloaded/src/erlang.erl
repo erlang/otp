@@ -2381,7 +2381,7 @@ tl(_List) ->
       [{[term()] | '_' ,[term()],[term()]}].
 
 -spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
-      MFA :: trace_pattern_mfa(),
+      MFA :: trace_pattern_mfa() | send | 'receive',
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
                  | restart
@@ -2403,7 +2403,13 @@ trace_pattern(MFA, MatchSpec) ->
       call_count |
       call_time.
 
--spec erlang:trace_pattern(MFA, MatchSpec, FlagList) -> non_neg_integer() when
+-spec erlang:trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean();
+			  ('receive', MatchSpec, []) -> non_neg_integer() when
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean();
+			  (MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
