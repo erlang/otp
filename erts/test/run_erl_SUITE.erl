@@ -217,10 +217,10 @@ defunct_1(Config) ->
     end.
 
 defunct_2(Config, Perl) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     RunErlTest = filename:join(Data, "run_erl_test.pl"),
     Defuncter = filename:join(Data, "defuncter.pl"),
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(Priv, "defunct"),
     ok = file:make_dir(LogDir),
     Pipe = LogDir ++ "/",
@@ -236,7 +236,7 @@ defunct_2(Config, Perl) ->
 %%% Utilities.
 
 do_run_erl(Config, Case) ->
-    Priv = ?config(priv_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(Priv, Case),
     ok = file:make_dir(LogDir),
     Pipe = LogDir ++ "/",

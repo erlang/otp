@@ -63,12 +63,12 @@ init_per_suite(Config) ->
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     catch xref:stop(Server),
     Config.
 
 undefined_functions(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
 
     %% Exclude calls from generated modules in the SSL application.
     ExcludeFrom = "SSL-PKIX|PKIX.*|ssl_pkix_oid",
@@ -222,7 +222,7 @@ diameter_filter(Undef) ->
            end, Undef).
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     {ok,DeprecatedFunctions} = xref:q(Server, "DF"),
 
     L = foldl(fun({M,F,A}=MFA, Acc) ->
@@ -244,7 +244,7 @@ deprecated_not_in_obsolete(Config) when is_list(Config) ->
     end.
 
 obsolete_but_not_deprecated(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     {ok,NotDeprecated} = xref:q(Server, "X - DF"),
 
     L = foldl(fun({M,F,A}=MFA, Acc) ->
@@ -268,7 +268,7 @@ obsolete_but_not_deprecated(Config) when is_list(Config) ->
     end.
 
 call_to_deprecated(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     {ok,DeprecatedCalls} = xref:q(Server, "strict(E || DF)"),
     foreach(fun ({MFA1,MFA2}) ->
                     io:format("~s calls deprecated ~s",
@@ -291,7 +291,7 @@ call_to_now_0(Config) when is_list(Config) ->
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
 
     Apps = [App || App <- Apps0, is_present_application(App, Server)],
 
@@ -351,7 +351,7 @@ is_present_application(Name, Server) ->
     end.
 
 strong_components(Config) when is_list(Config) ->
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     {ok,Cs} = xref:q(Server, "components AE"),
     io:format("\n\nStrong components:\n\n~p\n", [Cs]),
     ok.
@@ -433,7 +433,7 @@ runtime_dependencies(Config) ->
     %% Verify that (at least) OTP application runtime dependencies found
     %% by xref are listed in the runtime_dependencies field of the .app file
     %% of each application.
-    Server = ?config(xref_server, Config),
+    Server = proplists:get_value(xref_server, Config),
     {ok, AE} = xref:q(Server, "AE"),
     SAE = lists:keysort(1, AE),
     put(ignored_failures, []),
@@ -532,7 +532,7 @@ format_mfa(Server, MFA) ->
     AppPrefix ++ MFAString.
 
 open_log(Config, Name) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     RunDir = filename:dirname(filename:dirname(PrivDir)),
     Path = filename:join(RunDir, "system_"++Name++".log"),
     {ok,Fd} = file:open(Path, [write]),

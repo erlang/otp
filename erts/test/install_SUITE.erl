@@ -249,7 +249,7 @@ bin_unreasonable_path(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_unreachable_absolute(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/lib/erlang/usr/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -290,7 +290,7 @@ bin_unreachable_absolute(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_unreachable_relative(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     make_dirs(TDir, "/opt/local/bin"),
     make_dirs(TDir, "/usr/local/lib/erlang/bin"),
@@ -331,7 +331,7 @@ bin_unreachable_relative(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_ok_symlink(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/usr/local/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -371,7 +371,7 @@ bin_ok_symlink(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_same_dir(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/usr/local/bin"),
     make_dirs(TDir, "/usr/local/lib"),
     ok = file:make_symlink("..", join([TDir, "/usr/local/lib/erlang"])),
@@ -443,7 +443,7 @@ bin_dirname_fail(Config) when is_list(Config) ->
     Be = Bs,
     EBs = "/opt/lib/erlang/otp/bin",
     EBe = EBs,
-    CMDPRFX = "PATH=\""++?config(data_dir,Config)++":"++os:getenv("PATH")++"\"",
+    CMDPRFX = "PATH=\""++proplists:get_value(data_dir,Config)++":"++os:getenv("PATH")++"\"",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
@@ -476,7 +476,7 @@ bin_no_use_dirname_fail(Config) when is_list(Config) ->
     EBs = "/opt/lib/erlang/otp/bin",
     EBe = EBs,
     RP = "../lib/erlang/otp/bin",
-    CMDPRFX = "PATH=\""++?config(data_dir,Config)++":"++os:getenv("PATH")++"\"",
+    CMDPRFX = "PATH=\""++proplists:get_value(data_dir,Config)++":"++os:getenv("PATH")++"\"",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
@@ -503,7 +503,7 @@ bin_no_use_dirname_fail(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_no_srcfile(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -549,7 +549,7 @@ expect(X, Y) ->
     ?t:fail({X,Y}).
     
 init_per_suite(Config) ->
-    PD = ?config(priv_dir, Config),
+    PD = proplists:get_value(priv_dir, Config),
     SymLinks = case ?t:os_type() of
 		   {win32, _} -> false;
 		   _ ->
@@ -566,7 +566,7 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(Case, Config) ->
-    init_per_testcase_aux(?config(symlinks,Config),?t:os_type(),Case,Config).
+    init_per_testcase_aux(proplists:get_value(symlinks,Config),?t:os_type(),Case,Config).
 
 init_per_testcase_aux(_, {win32, _}, _Case, _Config) ->
     {skip, "Not on windows"};
@@ -577,7 +577,7 @@ init_per_testcase_aux(false, OsType, Case, Config) ->
     end;
 init_per_testcase_aux(true, _OsType, Case, Config) ->
     [{testcase, Case},
-     {test_dir, make_dirs(?config(priv_dir, Config), atom_to_list(Case))}
+     {test_dir, make_dirs(proplists:get_value(priv_dir, Config), atom_to_list(Case))}
      | Config].
 
 end_per_testcase(_Case, _Config) ->
@@ -601,9 +601,9 @@ install_bin(Config, #inst{mkdirs = MkDirs,
 			  exec_prefix = EXEC_PREFIX,
 			  bindir = BINDIR,
 			  erlang_bindir = ERLANG_BINDIR} = Inst, ChkRes) ->
-    PDir = ?config(priv_dir, Config),
-    TDir = ?config(test_dir, Config),
-    TD = atom_to_list(?config(testcase, Config)),
+    PDir = proplists:get_value(priv_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
+    TD = atom_to_list(proplists:get_value(testcase, Config)),
     case MkDirs of
 	false -> ok;
 	true ->
@@ -626,7 +626,7 @@ install_bin(Config, #inst{mkdirs = MkDirs,
 			   bindir = join([TDir, BINDIR]),
 			   erlang_bindir = join([TDir, ERLANG_BINDIR])},
 		 ChkRes),
-    case ?config(symlinks, Config) of
+    case proplists:get_value(symlinks, Config) of
 	true -> ok;
 	false -> {comment, "No symlink tests run, since symlinks not working"}
     end.
@@ -649,7 +649,7 @@ install_bin2(Config, Inst, ChkRes) ->
     install_bin3(Config, Inst#inst{symlinks = false,
 				   ln_s = "cp -p",
 				   bindir_symlinks = "absolute"}, ChkRes),
-    case ?config(symlinks, Config) of
+    case proplists:get_value(symlinks, Config) of
 	true ->
 	    install_bin3(Config, Inst#inst{symlinks = true,
 					   ln_s = "ln -s"}, ChkRes),
@@ -675,9 +675,9 @@ install_bin3(Config,
 		       erlang_bindir = ERLANG_BINDIR,
 		       bindir_symlinks = BINDIR_SYMLINKS} = Inst,
 		 ChkRes) ->
-    Test = ?config(testcase, Config),
-    DDir = ?config(data_dir, Config),
-    TDir = ?config(test_dir, Config),
+    Test = proplists:get_value(testcase, Config),
+    DDir = proplists:get_value(data_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     InstallBin = filename:join(DDir, "install_bin"),
     ResFile = filename:join(TDir, atom_to_list(Test) ++ "-result.txt"),
     Cmd = CMD_PRFX ++ " "

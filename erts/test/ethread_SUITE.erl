@@ -274,7 +274,7 @@ run_case(Config, Test, TestArgs) ->
     run_case(Config, Test, TestArgs, fun (_Port) -> ok end).
 
 run_case(Config, Test, TestArgs, Fun) ->
-    TestProg = filename:join([?config(data_dir, Config), ?TESTPROG]),
+    TestProg = filename:join([proplists:get_value(data_dir, Config), ?TESTPROG]),
     Cmd = TestProg ++ " " ++ Test ++ " " ++ TestArgs,
     case catch open_port({spawn, Cmd}, [stream,
 					use_stdio,

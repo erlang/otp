@@ -40,7 +40,7 @@ init_per_testcase(Case, Config) ->
     [{testcase, Case},{erl_flags_env, SavedEnv}|Config].
 
 end_per_testcase(_Case, Config) ->
-    SavedEnv = ?config(erl_flags_env, Config),
+    SavedEnv = proplists:get_value(erl_flags_env, Config),
     restore_env(SavedEnv),
     cleanup_nodes(),
     ok.
@@ -279,7 +279,7 @@ otp_7461(Config) when is_list(Config) ->
 	
 otp_7461_do(Config) ->
     io:format("alive=~p node=~p\n",[is_alive(), node()]),
-    TestProg = filename:join([?config(data_dir, Config), "erlexec_tests"]),
+    TestProg = filename:join([proplists:get_value(data_dir, Config), "erlexec_tests"]),
     {ok, [[ErlProg]]} = init:get_argument(progname),
     Cmd = TestProg ++ " " ++ ErlProg ++
 	" -detached -sname " ++ get_nodename(otp_7461) ++
@@ -383,8 +383,8 @@ restore_env({erl_flags, AFlgs, Flgs, RFlgs, ZFlgs}) ->
     ok.
 
 privfile(Name, Config) ->
-    filename:join([?config(priv_dir, Config),
-		   atom_to_list(?config(testcase, Config)) ++ "." ++ Name]).
+    filename:join([proplists:get_value(priv_dir, Config),
+		   atom_to_list(proplists:get_value(testcase, Config)) ++ "." ++ Name]).
 
 write_file(FileName, Frmt) ->
     write_file(FileName, Frmt, []).

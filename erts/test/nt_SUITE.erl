@@ -512,11 +512,11 @@ get_current_procs(Config) ->
     erl_parse:parse_term(Tok).
 
 nt_info(Config) when is_list(Config) ->
-    "\"" ++ filename:join(?config(data_dir, Config), "nt_info") ++ "\"".
+    "\"" ++ filename:join(proplists:get_value(data_dir, Config), "nt_info") ++ "\"".
 
 
 logdir(Config) ->
-    ?config(priv_dir, Config).
+    proplists:get_value(priv_dir, Config).
 
 look_for_next(Template,L,N) ->
     FN = Template ++ integer_to_list(N),

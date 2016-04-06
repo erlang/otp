@@ -297,8 +297,8 @@ run_case(Config, TestArgs) ->
     run_case(Config, TestArgs, fun (_Port) -> ok end).
 
 run_case(Config, TestArgs, Fun) ->
-    Test = atom_to_list(?config(testcase, Config)),
-    TestProg = filename:join([?config(data_dir, Config),
+    Test = atom_to_list(proplists:get_value(testcase, Config)),
+    TestProg = filename:join([proplists:get_value(data_dir, Config),
                               ?TESTPROG
                               ++ "."
                               ++ atom_to_list(erlang:system_info(threads))]),

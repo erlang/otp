@@ -168,7 +168,7 @@ compile_mib(Config) when is_list(Config) ->
 good_citizen(Config) when is_list(Config) ->
     case os:type() of
         {unix, _} ->
-            PrivDir = ?config(priv_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
             Answer = filename:join(PrivDir, "answer"),
             Script = filename:join(PrivDir, "test_script"),
             Test = filename:join(PrivDir, "test.erl"),
@@ -190,7 +190,7 @@ good_citizen(Config) when is_list(Config) ->
 deep_cwd(Config) when is_list(Config) ->
     case os:type() of
         {unix, _} ->
-            PrivDir = ?config(priv_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
             deep_cwd_1(PrivDir);
         _ ->
             {skip, "Only a problem on Unix"}
@@ -375,8 +375,8 @@ get_cmd(Cfg) ->
     {SrcDir, OutDir, Cmd}.
 
 get_dirs(Cfg) ->
-    DataDir = ?config(data_dir, Cfg),
-    PrivDir = ?config(priv_dir, Cfg),
+    DataDir = proplists:get_value(data_dir, Cfg),
+    PrivDir = proplists:get_value(priv_dir, Cfg),
     SrcDir = filename:join(DataDir, "src"),
     IncDir = filename:join(DataDir, "include"),
     {SrcDir, IncDir, PrivDir}.
@@ -392,7 +392,7 @@ exists(Name) ->
 %% a non-zero exit status.
 
 run_command(Config, Cmd) ->
-    TmpDir = filename:join(?config(priv_dir, Config), "tmp"),
+    TmpDir = filename:join(proplists:get_value(priv_dir, Config), "tmp"),
     file:make_dir(TmpDir),
     {RunFile, Run, Script} = run_command(TmpDir, os:type(), Cmd),
     ok = file:write_file(filename:join(TmpDir, RunFile), unicode:characters_to_binary(Script)),
