@@ -22,47 +22,28 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
--export([init_per_suite/1, end_per_suite/1]).
+-export([all/0, suite/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([
-	t_load/1,
-	t_conflicts/1,
-	t_locations/1,
-	t_swap_keys/1
-    ]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(4)).
-
-init_per_suite(Config) when is_list(Config) ->
-    Config.
-
-end_per_suite(Config) when is_list(Config) ->
-    Config.
+-export([t_load/1,
+         t_conflicts/1,
+         t_locations/1,
+         t_swap_keys/1]).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     catch lcnt:stop(),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
-all() -> [t_load, t_conflicts, t_locations, t_swap_keys].
-
-groups() -> [].
-
-init_per_group(_GroupName, Config) -> Config.
-
-end_per_group(_GroupName, Config) -> Config.
-
+all() ->
+    [t_load, t_conflicts, t_locations, t_swap_keys].
 
 %%----------------------------------------------------------------------
 %% Tests
@@ -169,12 +150,3 @@ t_swap_keys_file([File|Files]) ->
     ok = lcnt:conflicts(),
     ok = lcnt:stop(),
     t_swap_keys_file(Files).
-
-
-%%----------------------------------------------------------------------
-%% Auxiliary tests
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Auxiliary
-%%----------------------------------------------------------------------

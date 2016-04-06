@@ -19,42 +19,17 @@
 %%
 -module(instrument_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2]).
-
+-export([all/0, suite/0]).
 -export(['+Mim true'/1, '+Mis true'/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(10000),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,10}}].
 
 all() -> 
     ['+Mim true', '+Mis true'].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 '+Mim true'(doc) -> ["Check that memory data can be read and processed"];
@@ -78,9 +53,7 @@ end_per_group(_GroupName, Config) ->
         N when is_integer(N) ->
             N = lists:foldl(fun ({_,_,Size,_}, Sum) ->
                                     Size+Sum
-                            end,
-                            0,
-                            AL),
+                            end, 0, AL),
             N =< S3;
         Other ->
             ?t:fail(Other)
@@ -115,8 +88,7 @@ end_per_group(_GroupName, Config) ->
     ASL = lists:map(fun ({_,A,S,_}) -> {A,S} end, AL),
     ASL = lists:map(fun ({_,A,S,_}) -> {A,S} end, DAL),
     instrument:holes(MDS),
-    {comment,
-	   "total status - sum of blocks = " ++ integer_to_list(S1-SumBlocks)}.
+    {comment, "total status - sum of blocks = " ++ integer_to_list(S1-SumBlocks)}.
 
 '+Mis true'(doc) -> ["Check that memory data can be read and processed"];
 '+Mis true'(suite) -> [];

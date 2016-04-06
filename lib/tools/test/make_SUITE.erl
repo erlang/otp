@@ -195,7 +195,7 @@ otp_6057_a(Config) when is_list(Config) ->
     %%  mtime will be the same).
     {ok, FileInfo1} = file:read_file_info(Test1++".beam"),
     Date1 = FileInfo1#file_info.mtime,
-    ?t:sleep(?t:seconds(2)),
+    timer:sleep(2000),
     up_to_date = make:all(),
     {ok, FileInfo2} = file:read_file_info(Test1++".beam"),
     case FileInfo2#file_info.mtime of

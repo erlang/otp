@@ -22,8 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server framework exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0, not_run/1]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -33,13 +32,9 @@
 %% Other exports
 -export([create_file_slow/2]).
 
-
 %% Debug exports
 -export([parse/1, verify/2]).
 -export([spawn_simple_test/3]).
-
-
--define(line_trace,true).
 
 %-define(debug,true).
 -ifdef(debug).
@@ -49,14 +44,14 @@
 -endif.
 
 
-
 %%%---------------------------------------------------------------------
 %%% Test suites
 %%%---------------------------------------------------------------------
 
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,60}}].
 
 all() -> 
     case test_server:is_native(fprof_SUITE) of
@@ -66,21 +61,6 @@ all() ->
              imm_tail_seq, imm_create_file_slow, imm_compile,
              cpu_create_file_slow]
     end.
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 not_run(Config) when is_list(Config) ->
@@ -93,7 +73,6 @@ stack_seq(doc) ->
 stack_seq(suite) ->
     [];
 stack_seq(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(20)),
     PrivDir = ?config(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_stack_seq.trace"),
@@ -131,7 +110,6 @@ stack_seq(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc2 = ts_sub(TS2, TS1),
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc1, Acc2]),
@@ -144,7 +122,6 @@ tail_seq(doc) ->
 tail_seq(suite) ->
     [];
 tail_seq(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(10)),
     PrivDir = ?config(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_tail_seq.trace"),
@@ -184,7 +161,6 @@ tail_seq(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc2 = ts_sub(TS2, TS1),
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
@@ -203,7 +179,6 @@ create_file_slow(Config) ->
     end.
 
 do_create_file_slow(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(40)),
     PrivDir = ?config(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_create_file_slow.trace"),
@@ -244,7 +219,6 @@ do_create_file_slow(Config) ->
     file:delete(DataFile),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc3 = ts_sub(TS3, TS2),
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
@@ -259,7 +233,6 @@ spawn_simple(doc) ->
 spawn_simple(suite) ->
     [];
 spawn_simple(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(30)),
     PrivDir = ?config(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_spawn_simple.trace"),
@@ -321,7 +294,6 @@ spawn_simple(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(TraceFile),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc2 = ts_sub(TS2, TS1),
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
@@ -355,7 +327,6 @@ imm_tail_seq(doc) ->
 imm_tail_seq(suite) ->
     [];
 imm_tail_seq(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(10)),
     PrivDir = ?config(priv_dir, Config),
     AnalysisFile = filename:join(PrivDir,
                                  ?MODULE_STRING"_imm_tail_seq.analysis"),
@@ -402,7 +373,6 @@ imm_tail_seq(Config) when is_list(Config) ->
     %%
     ets:delete(T),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc3 = ts_sub(TS3, TS2),
     Acc5 = ts_sub(TS5, TS4),
@@ -419,7 +389,6 @@ imm_create_file_slow(doc) ->
 imm_create_file_slow(suite) ->
     [];
 imm_create_file_slow(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(60)),
     PrivDir = ?config(priv_dir, Config),
     DataFile = filename:join(PrivDir,
                              ?MODULE_STRING"_imm_create_file_slow.data"),
@@ -456,7 +425,6 @@ imm_create_file_slow(Config) when is_list(Config) ->
     ets:delete(T),
     file:delete(DataFile),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     Acc1 = ts_sub(TS1, TS0),
     Acc3 = ts_sub(TS3, TS2),
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
@@ -470,7 +438,7 @@ imm_compile(doc) ->
 imm_compile(suite) ->
     [];
 imm_compile(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:minutes(20)),
+    ct:timetrap({minutes, 20}),
     DataDir = ?config(data_dir, Config),
     SourceFile = filename:join(DataDir, "foo.erl"),
     PrivDir = ?config(priv_dir, Config),
@@ -519,7 +487,6 @@ imm_compile(Config) when is_list(Config) ->
     %%
     ets:delete(T),
     file:delete(AnalysisFile),
-    ?t:timetrap_cancel(Timetrap),
     io:format("~p (plain), ~p (eprof), ~p (fprof), ~p(cpu)~n",
               [Acc1/1000, Acc3/1000, Acc5/1000, Acc/1000]),
     {comment, io_lib:format("~p/~p (fprof/eprof) times slower", 
@@ -532,7 +499,6 @@ cpu_create_file_slow(doc) ->
 cpu_create_file_slow(suite) ->
     [];
 cpu_create_file_slow(Config) when is_list(Config) ->
-    Timetrap = ?t:timetrap(?t:seconds(40)),
     PrivDir = ?config(priv_dir, Config),
     TraceFile =
     filename:join(PrivDir, ?MODULE_STRING"_cpu_create_file_slow.trace"),
@@ -587,9 +553,7 @@ cpu_create_file_slow(Config) when is_list(Config) ->
         _ ->
             test_server:fail(Result)
     end,
-    ?t:timetrap_cancel(Timetrap),
     TestResult.
-
 
 
 %%%---------------------------------------------------------------------

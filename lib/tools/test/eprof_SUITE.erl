@@ -21,31 +21,15 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	init_per_group/2,end_per_group/2]).
-
+-export([all/0, suite/0]).
 -export([tiny/1,eed/1,basic/1,basic_option/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,60}}].
 
 all() -> 
     [basic, basic_option, tiny, eed].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 basic(suite) -> [];
 basic(Config) when is_list(Config) ->
@@ -184,7 +168,6 @@ tiny(Config) when is_list(Config) ->
     {ok, OldCurDir} = file:get_cwd(),
     Datadir = ?config(data_dir, Config),
     Privdir = ?config(priv_dir, Config),
-    TTrap=?t:timetrap(60*1000),
     % (Trace)Compile to priv_dir and make sure the correct version is loaded.
     {ok,eprof_suite_test} = compile:file(filename:join(Datadir,
 							     "eprof_suite_test"),
@@ -200,7 +183,6 @@ tiny(Config) when is_list(Config) ->
     ok = eprof:analyze(total),
     ok = eprof:log("eprof_SUITE_logfile"),
     stopped = eprof:stop(),
-    ?t:timetrap_cancel(TTrap),
     ok = file:set_cwd(OldCurDir),
     ok.
 
@@ -209,7 +191,7 @@ eed(Config) when is_list(Config) ->
     ensure_eprof_stopped(),
     Datadir = ?config(data_dir, Config),
     Privdir = ?config(priv_dir, Config),
-    TTrap=?t:timetrap(5*60*1000),
+    ct:timetrap({minutes, 5}),
 
     %% (Trace)Compile to priv_dir and make sure the correct version is loaded.
     code:purge(eed),
@@ -236,7 +218,6 @@ eed(Config) when is_list(Config) ->
     ok = eprof:analyze(total),
     ok = eprof:log("eprof_SUITE_logfile"),
     stopped = eprof:stop(),
-    ?t:timetrap_cancel(TTrap),
     try
 	S = lists:flatten(io_lib:format("~p times slower",
 					[10*(T3-T2)/(T2-T1)])),

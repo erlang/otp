@@ -37,24 +37,20 @@
 -define(copydir, ?config(copy_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, init/1, fini/1]).
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1]).
 
--export([
-         addrem/1, convert/1, intergraph/1, lines/1, loops/1,
+-export([addrem/1, convert/1, intergraph/1, lines/1, loops/1,
          no_data/1, modules/1]).
 
--export([
-         add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
+-export([add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
          replace/1, update/1, deprecated/1, trycatch/1,
          fun_mfa/1, fun_mfa_r14/1,
          fun_mfa_vars/1, qlc/1]).
 
--export([
-         analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
+-export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
--export([
-         format_error/1, otp_7423/1, otp_7831/1, otp_10192/1]).
+-export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
 
@@ -62,16 +58,15 @@
                range/1, relation_to_family/1, set/1, to_external/1,
                union/2]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 %% Checks some info counters of a server and some relations that should hold.
 -export([check_count/1, check_state/1]).
 
 -include_lib("kernel/include/file.hrl").
-
 -include_lib("tools/src/xref.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [{group, xref}, {group, files}, {group, analyses},
@@ -89,20 +84,8 @@ groups() ->
       [analyze, basic, md, q, variables, unused_locals]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192]}].
 
-init_per_suite(Config) ->
-    init(Config).
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init(Conf) when is_list(Conf) ->
+init_per_suite(Conf) when is_list(Conf) ->
     DataDir = ?datadir,
     PrivDir = ?privdir,
     CopyDir = fname(PrivDir, "datacopy"),
@@ -112,21 +95,10 @@ init(Conf) when is_list(Conf) ->
     ok = erl_tar:close(Tar),
     ok = erl_tar:extract(TarFile, [compressed]),
     ok = file:delete(TarFile),
-    [{copy_dir, CopyDir} | Conf].
+    [{copy_dir, CopyDir}|Conf].
 
-fini(Conf) when is_list(Conf) ->
-    %% Nothing.
-    Conf.
-
-init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, _Config) ->
-    Dog=?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
+end_per_suite(Conf) when is_list(Conf) ->
     ok.
-
 
 %% Seems a bit short...
 addrem(suite) -> [];

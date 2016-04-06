@@ -23,7 +23,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
@@ -42,20 +43,11 @@ all() ->
             [coverage|NoStartStop++[coverage_analysis]]
     end.
 
-groups() -> 
-    [].
-
 init_per_suite(Config) ->
     [{ct_is_running_cover,whereis(cover_server) =/= undefined}|Config].
 
 end_per_suite(_Config) ->
     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 init_per_testcase(TC, Config) when TC =:= misc; 
                                    TC =:= compile;
@@ -950,16 +942,13 @@ export_import(Config) when is_list(Config) ->
 
 otp_5031(suite) -> [];
 otp_5031(Config) when is_list(Config) ->
-
-    Dog = ?t:timetrap(?t:seconds(10)),
+    ct:timetrap({seconds, 10}),
 
     {ok,N1} = ?t:start_node(cover_SUITE_otp_5031,slave,[]),
     {ok,[N1]} = cover:start(N1),
     {error,not_main_node} = rpc:call(N1,cover,modules,[]),
     cover:stop(),
     ?t:stop_node(N1),
-
-    ?t:timetrap_cancel(Dog),
     ok.
 
 eif(doc) ->
@@ -1846,7 +1835,7 @@ cover_which_nodes(Expected) ->
                                          case cover:which_nodes() of
                                              Expected -> ok;
                                              _ ->
-                                                 ?t:sleep(100),
+                                                 timer:sleep(100),
                                                  Retry()
                                          end
     end),
