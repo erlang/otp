@@ -537,9 +537,9 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     else
 	pInfo->type = FT_OTHER;
 
-    pInfo->accessTime   = statbuf.st_atime;
-    pInfo->modifyTime   = statbuf.st_mtime;
-    pInfo->cTime        = statbuf.st_ctime;
+    pInfo->accessTime   = (Sint64)statbuf.st_atime;
+    pInfo->modifyTime   = (Sint64)statbuf.st_mtime;
+    pInfo->cTime        = (Sint64)statbuf.st_ctime;
 
     pInfo->mode         = statbuf.st_mode;
     pInfo->links        = statbuf.st_nlink;
@@ -578,8 +578,8 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 	}
     }
 
-    tval.actime  = pInfo->accessTime;
-    tval.modtime = pInfo->modifyTime;
+    tval.actime  = (time_t)pInfo->accessTime;
+    tval.modtime = (time_t)pInfo->modifyTime;
 
     return check_error(utime(name, &tval), errInfo);
 }

@@ -1025,17 +1025,15 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 
     %% REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
     %% Determine time_t on os:type()?
-    lists:foreach(fun
-		      ({FI, Opts}) ->
+    lists:foreach(fun ({FI, Opts}) ->
 			 ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
-		 end, [
-			{#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} ||
+		 end, [ {#file_info{ mode=8#400, atime = Time, mtime = Time, ctime = Time}, Opts} ||
 			  Opts <- [[{time, universal}],[{time, local}]],
 			  Time <- [
 				   {{1970,1,1},{0,0,0}},
 				   {{1970,1,1},{0,0,1}},
-				   {{1969,12,31},{23,59,59}},
-				   {{1908,2,3},{23,59,59}},
+			%	   {{1969,12,31},{23,59,59}},
+			%	   {{1908,2,3},{23,59,59}},
 				   {{2012,2,3},{23,59,59}},
 				   {{2037,2,3},{23,59,59}},
 				   erlang:localtime()
@@ -1070,8 +1068,9 @@ file_write_read_file_info_opts(Config) when is_list(Config) ->
 
     ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, local}]),
     ok = file_write_read_file_info_opts(Handle, Name, {{1989, 04, 28}, {19,30,22}}, [{time, universal}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
-    ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
+    %% will not work on platforms with unsigned time_t
+    %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
+    %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
     ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, posix}]),
@@ -1085,7 +1084,9 @@ file_write_read_file_info_opts(Handle, Name, Mtime, Opts) ->
     {ok, FI} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
     FI2 = FI#file_info{ mtime = Mtime },
     ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI2, Opts]),
-    {ok, FI2} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    {ok, FI3} = ?PRIM_FILE_call(read_file_info, Handle, [Name, Opts]),
+    io:format("Expecting mtime = ~p, got ~p~n", [FI2#file_info.mtime, FI3#file_info.mtime]),
+    FI2 = FI3,
     ok.
 
 

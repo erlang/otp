@@ -105,9 +105,9 @@ typedef struct _Efile_info {
     Uint32 inode;		/* Inode number. */
     Uint32 uid;			/* User id of owner. */
     Uint32 gid;			/* Group id of owner. */
-    time_t accessTime;		/* Last time the file was accessed. */
-    time_t modifyTime;		/* Last time the file was modified. */
-    time_t cTime;		/* Creation time (Windows) or last
+    Sint64 accessTime;		/* Last time the file was accessed. */
+    Sint64 modifyTime;		/* Last time the file was modified. */
+    Sint64 cTime;		/* Creation time (Windows) or last
 				 * inode change (Unix).
 				 */
 } Efile_info;
