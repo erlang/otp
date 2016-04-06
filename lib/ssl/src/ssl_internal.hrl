@@ -135,7 +135,8 @@
 	  padding_check = true       :: boolean(),
 	  fallback = false           :: boolean(),
 	  crl_check                  :: boolean() | peer | best_effort, 
-	  crl_cache
+	  crl_cache,
+	  signature_algs
 	  }).
 
 -record(socket_options,
