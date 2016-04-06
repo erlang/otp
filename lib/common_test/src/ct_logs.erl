@@ -882,7 +882,7 @@ create_io_fun(FromPid, CtLogFd, EscChars) ->
 		    {_HdOrFt,S,A} -> {false,S,A};
 		    {S,A}         -> {true,S,A}
 		end,
-	    try io_lib:format(Str,Args) of
+	    try io_lib:format(Str, Args) of
 		IoStr when Escapable, EscChars, IoList == [] ->
 		    escape_chars(IoStr);
 		IoStr when Escapable, EscChars ->
@@ -925,7 +925,12 @@ print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
     if FromPid /= TCGL ->
 	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 	    IoList = lists:foldl(IoFun, [], Content),
-	    io:format(TCGL,["$tc_html","~ts"], [IoList]);
+	    try io:format(TCGL,["$tc_html","~ts"], [IoList]) of
+		ok -> ok
+	    catch
+		_:_ ->
+		    io:format(TCGL,"~ts", [IoList])
+	    end;
        true ->
 	    unexpected_io(FromPid, Category, ?MAX_IMPORTANCE, Content,
 			  CtLogFd, EscChars)
@@ -958,7 +963,10 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 				    _:terminated ->
 					unexpected_io(FromPid, Category,
 						      ?MAX_IMPORTANCE,
-						      Content, CtLogFd, EscChars)
+						      Content, CtLogFd, EscChars);
+				    _:_ ->
+					io:format(TCGL, "~ts",
+						  [lists:foldl(IoFun,[],Content)])
 				end;
 			    false ->
 				unexpected_io(FromPid, Category,
