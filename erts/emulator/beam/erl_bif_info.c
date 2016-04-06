@@ -126,6 +126,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ERTS_FRMPTR
 				     " [frame-pointer]"
 #endif
+#ifdef USE_LTTNG
+				     " [lttng]"
+#endif
 #ifdef USE_DTRACE
 				     " [dtrace]"
 #endif
@@ -2748,6 +2751,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #elif defined(USE_SYSTEMTAP)
 	DECL_AM(systemtap);
 	BIF_RET(AM_systemtap);
+#elif defined(USE_LTTNG)
+	DECL_AM(lttng);
+	BIF_RET(AM_lttng);
 #else
 	BIF_RET(am_none);
 #endif

@@ -766,17 +766,7 @@ erts_send_message(Process* sender,
 		utag = DT_UTAG(sender);
 	    else
 		utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, ohp);
-#ifdef DTRACE_TAG_HARDDEBUG
-	    erts_fprintf(stderr,
-			 "Dtrace -> (%T) Spreading tag (%T) with "
-			 "message %T!\r\n",sender->common.id, utag, message);
-#endif
 	}
-#endif
-        BM_MESSAGE_COPIED(msize);
-        BM_SWAP_TIMER(copy,send);
-
-#ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(message_send)) {
             if (have_seqtrace(stoken)) {
 		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
@@ -787,6 +777,9 @@ erts_send_message(Process* sender,
 		    msize, tok_label, tok_lastcnt, tok_serial);
         }
 #endif
+        BM_MESSAGE_COPIED(msize);
+        BM_SWAP_TIMER(copy,send);
+
     } else {
         Eterm *hp;
 
@@ -822,8 +815,10 @@ erts_send_message(Process* sender,
 	    BM_MESSAGE_COPIED(msz);
 	    BM_SWAP_TIMER(copy,send);
 	}
+#ifdef USE_VM_PROBES
         DTRACE6(message_send, sender_name, receiver_name,
                 msize, tok_label, tok_lastcnt, tok_serial);
+#endif
     }
 
     res = queue_message(sender,

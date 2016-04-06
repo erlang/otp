@@ -70,6 +70,7 @@ MODULES= \
 	hash_SUITE \
 	hibernate_SUITE \
 	list_bif_SUITE \
+	lttng_SUITE \
 	map_SUITE \
 	match_spec_SUITE \
 	module_info_SUITE \
