@@ -27,7 +27,7 @@
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+         init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -71,7 +71,7 @@ app_test(doc) ->
 app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(tools, tolerant).
+    ?t:app_test(tools, tolerant).
 
 %% Test that the .appup file does not contain any `basic' errors
 appup_test(Config) when is_list(Config) ->
