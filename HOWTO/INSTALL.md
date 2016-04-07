@@ -68,7 +68,7 @@ also find the utilities needed for building the documentation.
     Required for building the application `crypto`.
     Further, `ssl` and `ssh` require a working crypto application and
     will also be skipped if OpenSSL is missing. The `public_key`
-    application will available without `crypto`, but the functionality
+    application is available without `crypto`, but the functionality
     will be very limited.
 
     The development package of OpenSSL including the header files are needed as well
