@@ -3360,48 +3360,18 @@ do {						\
      goto do_schedule;
  }
 
- OpCase(raise_ss): {
-     /* This was not done very well in R10-0; then, we passed the tag in
-	the first argument and hoped that the existing c_p->ftrace was
-	still correct. But the ftrace-object already includes the tag
-	(or rather, the freason). Now, we pass the original ftrace in
-	the first argument. We also handle atom tags in the first
-	argument for backwards compatibility.
-     */
-     Eterm raise_val1;
-     Eterm raise_val2;
-     GetArg2(0, raise_val1, raise_val2);
-     c_p->fvalue = raise_val2;
-     if (c_p->freason == EXC_NULL) {
-       /* a safety check for the R10-0 case; should not happen */
-       c_p->ftrace = NIL;
-       c_p->freason = EXC_ERROR;
-     }
-     /* for R10-0 code, keep existing c_p->ftrace and hope it's correct */
-     switch (raise_val1) {
-     case am_throw:
-       c_p->freason = EXC_THROWN & ~EXF_SAVETRACE;
-       break;
-     case am_error:
-       c_p->freason = EXC_ERROR & ~EXF_SAVETRACE;
-       break;
-     case am_exit:
-       c_p->freason = EXC_EXIT & ~EXF_SAVETRACE;
-       break;
-     default:
-       {/* R10-1 and later
-	   XXX note: should do sanity check on given trace if it can be
-	   passed from a user! Currently only expecting generated calls.
-	*/
-	 struct StackTrace *s;
-	 c_p->ftrace = raise_val1;
-	 s = get_trace_from_exc(raise_val1);
-	 if (s == NULL) {
-	   c_p->freason = EXC_ERROR;
-	 } else {
-	   c_p->freason = PRIMARY_EXCEPTION(s->freason);
-	 }
-       }
+ OpCase(i_raise): {
+     Eterm raise_trace = x(2);
+     Eterm raise_value = x(1);
+     struct StackTrace *s;
+
+     c_p->fvalue = raise_value;
+     c_p->ftrace = raise_trace;
+     s = get_trace_from_exc(raise_trace);
+     if (s == NULL) {
+	 c_p->freason = EXC_ERROR;
+     } else {
+	 c_p->freason = PRIMARY_EXCEPTION(s->freason);
      }
      goto find_func_info;
  }
