@@ -32,8 +32,7 @@ all() ->
     ['+Mim true', '+Mis true'].
 
 
-'+Mim true'(doc) -> ["Check that memory data can be read and processed"];
-'+Mim true'(suite) -> [];
+%% Check that memory data can be read and processed
 '+Mim true'(Config) when is_list(Config) ->
     Node = start_slave("+Mim true"),
     MD = rpc:call(Node, instrument, memory_data, []),
@@ -90,8 +89,7 @@ all() ->
     instrument:holes(MDS),
     {comment, "total status - sum of blocks = " ++ integer_to_list(S1-SumBlocks)}.
 
-'+Mis true'(doc) -> ["Check that memory data can be read and processed"];
-'+Mis true'(suite) -> [];
+%% Check that memory data can be read and processed
 '+Mis true'(Config) when is_list(Config) ->
     Node = start_slave("+Mis true"),
     [{total,[{sizes,S1,S2,S3},{blocks,B1,B2,B3}]}]

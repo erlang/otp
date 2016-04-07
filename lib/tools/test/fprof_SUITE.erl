@@ -68,10 +68,7 @@ not_run(Config) when is_list(Config) ->
 
 %%%---------------------------------------------------------------------
 
-stack_seq(doc) ->
-    ["Tests a stack recursive variant of lists:seq/3"];
-stack_seq(suite) ->
-    [];
+%% Tests a stack recursive variant of lists:seq/3
 stack_seq(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
@@ -117,10 +114,7 @@ stack_seq(Config) when is_list(Config) ->
 
 %%%---------------------------------------------------------------------
 
-tail_seq(doc) ->
-    ["Tests a tail recursive variant of lists:seq/3"];
-tail_seq(suite) ->
-    [];
+%% Tests a tail recursive variant of lists:seq/3
 tail_seq(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
@@ -228,10 +222,7 @@ do_create_file_slow(Config) ->
 
 %%%---------------------------------------------------------------------
 
-spawn_simple(doc) ->
-    ["Tests process spawn"];
-spawn_simple(suite) ->
-    [];
+%% Tests process spawn
 spawn_simple(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
@@ -321,11 +312,8 @@ spawn_simple_test(Start, Stop, Succ) ->
 
 %%%---------------------------------------------------------------------
 
-imm_tail_seq(doc) ->
-    ["Tests a tail recursive variant of lists:seq/3 ",
-     "with immediate trace to profile"];
-imm_tail_seq(suite) ->
-    [];
+%% Tests a tail recursive variant of lists:seq/3
+%% with immediate trace to profile
 imm_tail_seq(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     AnalysisFile = filename:join(PrivDir,
@@ -383,11 +371,8 @@ imm_tail_seq(Config) when is_list(Config) ->
 
 %%%---------------------------------------------------------------------
 
-imm_create_file_slow(doc) ->
-    ["Tests a tail recursive variant of lists:seq/3 ",
-     "with immediate trace to profile"];
-imm_create_file_slow(suite) ->
-    [];
+%% Tests a tail recursive variant of lists:seq/3
+%% with immediate trace to profile
 imm_create_file_slow(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(PrivDir,
@@ -432,11 +417,7 @@ imm_create_file_slow(Config) when is_list(Config) ->
 
 %%%---------------------------------------------------------------------
 
-imm_compile(doc) ->
-    ["Tests to compile a small source file ",
-     "with immediate trace to profile"];
-imm_compile(suite) ->
-    [];
+%% Tests to compile a small source file with immediate trace to profile
 imm_compile(Config) when is_list(Config) ->
     ct:timetrap({minutes, 20}),
     DataDir = proplists:get_value(data_dir, Config),
@@ -494,10 +475,7 @@ imm_compile(Config) when is_list(Config) ->
 
 %%%---------------------------------------------------------------------
 
-cpu_create_file_slow(doc) ->
-    ["Tests the create_file_slow benchmark using cpu_time"];
-cpu_create_file_slow(suite) ->
-    [];
+%% Tests the create_file_slow benchmark using cpu_time
 cpu_create_file_slow(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile =

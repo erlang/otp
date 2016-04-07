@@ -122,7 +122,6 @@ coverage_analysis(Config) when is_list(Config) ->
     {ok,Outfile} = cover:analyze_to_file(?MODULE, Outfile, [html]),
     ok.
 
-start(suite) -> [];
 start(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
@@ -132,7 +131,6 @@ start(Config) when is_list(Config) ->
     {ok, Pid} = cover:start(),
     {error, {already_started, Pid}} = cover:start().
 
-compile(suite) -> [];
 compile(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
@@ -215,7 +213,6 @@ simple_crypto_fun(Key) ->
        ({debug_info, des3_cbc, crypt, _}) -> Key
     end.
 
-analyse(suite) -> [];
 analyse(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
@@ -402,7 +399,6 @@ analyse(Config) when is_list(Config) ->
     {error,{not_cover_compiled,g}} = cover:analyse_to_file(g),
     {result,[],[{not_cover_compiled,g}]} = cover:analyse_to_file([g]).
 
-misc(suite) -> [];
 misc(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
@@ -421,7 +417,6 @@ misc(Config) when is_list(Config) ->
     {ok, {a,{0,19}}} = cover:analyse(a, module),
     ok = cover:reset().
 
-stop(suite) -> [];
 stop(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
@@ -438,7 +433,6 @@ stop(Config) when is_list(Config) ->
     remove(files(Files, ".html")),
     remove(files(Files, ".beam")).
 
-distribution(suite) -> [];
 distribution(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
@@ -845,7 +839,6 @@ generate_clauses(C,Func) ->
      generate_clauses(C-1,Func)].
 
 
-export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
@@ -947,7 +940,6 @@ export_import(Config) when is_list(Config) ->
     remove(["f_exported","all_exported"|files(Files, ".beam")]).
 
 
-otp_5031(suite) -> [];
 otp_5031(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
 
@@ -958,10 +950,7 @@ otp_5031(Config) when is_list(Config) ->
     test_server:stop_node(N1),
     ok.
 
-eif(doc) ->
-    ["Test the \'Exclude Included Functions\' functionality"];
-eif(suite) ->
-    [];
+%% Test the \'Exclude Included Functions\' functionality
 eif(Config) when is_list(Config) ->
     ok = file:set_cwd(filename:join(proplists:get_value(data_dir, Config),
                                     "included_functions")),
@@ -975,7 +964,6 @@ eif(Config) when is_list(Config) ->
     {ok, [_, _]} = cover:analyse(cover_inc, line),
     ok.
 
-otp_5305(suite) -> [];
 otp_5305(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
@@ -989,10 +977,8 @@ otp_5305(Config) when is_list(Config) ->
     ok = file:write_file(File, Test),
     {ok, t} = cover:compile(File),
     ok = file:delete(File),
-
     ok.
 
-otp_5418(suite) -> [];
 otp_5418(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
@@ -1003,7 +989,6 @@ otp_5418(Config) when is_list(Config) ->
     {ok, t} = cover:compile(File),
     {ok,{t,{0,0}}} = cover:analyse(t, module),
     ok = file:delete(File),
-
     ok.
 
 otp_6115(Config) when is_list(Config) ->
@@ -1056,9 +1041,7 @@ otp_6115(Config) when is_list(Config) ->
     file:set_cwd(CWD),
     ok.
 
-otp_7095(doc) ->
-    ["andalso/orelse"];
-otp_7095(suite) -> [];
+%% andalso/orelse
 otp_7095(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
@@ -1164,13 +1147,10 @@ otp_7095(Config) when is_list(Config) ->
          {{t,76},0},{{t,78},1},
          {{t,82},2}]} = cover:analyse(t, calls, line),
     ok = file:delete(File),
-
     ok.
 
 
-otp_8270(doc) ->
-    ["OTP-8270. Bug."];
-otp_8270(suite) -> [];
+%% OTP-8270. Bug.
 otp_8270(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
@@ -1226,9 +1206,7 @@ otp_8270(Config) when is_list(Config) ->
     test_server:stop_node(N3),
     ok.
 
-otp_8273(doc) ->
-    ["OTP-8273. Bug."];
-otp_8273(suite) -> [];
+%% OTP-8273. Bug.
 otp_8273(Config) when is_list(Config) ->
     Test = <<"-module(t).
               -export([t/0]).
@@ -1243,21 +1221,16 @@ otp_8273(Config) when is_list(Config) ->
 
     ok.
 
-otp_8340(doc) ->
-    ["OTP-8340. Bug."];
-otp_8340(suite) -> [];
+%% OTP-8340. Bug.
 otp_8340(Config) when is_list(Config) ->
     [{{t,1},1},{{t,2},1},{{t,4},1}] =
     analyse_expr(<<"<< \n"
                    " <<3:2, \n"
                    "   SeqId:62>> \n"
                    "      || SeqId <- [64] >>">>, Config),
-
     ok.
 
-otp_8188(doc) ->
-    ["Clauses on the same line."];
-otp_8188(suite) -> [];
+%% Clauses on the same line.
 otp_8188(Config) when is_list(Config) ->
     %% This example covers the bug report:
     Test = <<"-module(t).
@@ -1602,9 +1575,7 @@ otp_10979_hanging_node(_Config) ->
 
     ok.
 
-compile_beam_opts(doc) ->
-    ["Take compiler options from beam in cover:compile_beam"];
-compile_beam_opts(suite) -> [];
+%% Take compiler options from beam in cover:compile_beam
 compile_beam_opts(Config) when is_list(Config) ->
     {ok, Cwd} = file:get_cwd(),
     ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
@@ -1636,9 +1607,7 @@ compile_beam_opts(Config) when is_list(Config) ->
     ok = file:set_cwd(Cwd),
     ok.
 
-analyse_no_beam(doc) ->
-    ["Don't crash if beam is not available"];
-analyse_no_beam(suite) -> [];
+%% Don't crash if beam is not available
 analyse_no_beam(Config) when is_list(Config) ->
     {ok, Cwd} = file:get_cwd(),
     ok = file:set_cwd(proplists:get_value(data_dir, Config)),
@@ -1718,8 +1687,7 @@ do_scan(Str) ->
     {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
     [ T | do_scan(C) ].
 
-otp_13277(doc) ->
-    ["PR 856. Fix a bc bug."];
+%% PR 856. Fix a bc bug.
 otp_13277(Config) ->
     Test = <<"-module(t).
               -export([t/0]).

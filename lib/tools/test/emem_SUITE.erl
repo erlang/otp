@@ -138,8 +138,6 @@ end_per_suite(Config) when is_list(Config) ->
 %%
 %%
 
-live_node(doc) -> [];
-live_node(suite) -> [];
 live_node(Config) when is_list(Config) ->
     {ok, EmuFlag, Port} = start_emem(Config),
     Nodename = mk_nodename(Config),
@@ -186,8 +184,6 @@ live_node(Config) when is_list(Config) ->
     "17" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'sparc_sunos5.8_32b_emt2.0'(doc) -> [];
-'sparc_sunos5.8_32b_emt2.0'(suite) -> [];
 'sparc_sunos5.8_32b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -204,8 +200,6 @@ live_node(Config) when is_list(Config) ->
     "0" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'pc_win2000_32b_emt2.0'(doc) -> [];
-'pc_win2000_32b_emt2.0'(suite) -> [];
 'pc_win2000_32b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -220,8 +214,6 @@ live_node(Config) when is_list(Config) ->
     "0" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'pc.smp_linux2.2.19pre17_32b_emt2.0'(doc) -> [];
-'pc.smp_linux2.2.19pre17_32b_emt2.0'(suite) -> [];
 'pc.smp_linux2.2.19pre17_32b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -240,8 +232,6 @@ live_node(Config) when is_list(Config) ->
     emem_comment(Config).
 
 
-'powerpc_darwin7.7.0_32b_emt2.0'(doc) -> [];
-'powerpc_darwin7.7.0_32b_emt2.0'(suite) -> [];
 'powerpc_darwin7.7.0_32b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -256,8 +246,6 @@ live_node(Config) when is_list(Config) ->
     "0" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'alpha_osf1v5.1_64b_emt2.0'(doc) -> [];
-'alpha_osf1v5.1_64b_emt2.0'(suite) -> [];
 'alpha_osf1v5.1_64b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -281,8 +269,6 @@ live_node(Config) when is_list(Config) ->
             emem_comment(Config)
     end.
 
-'sparc_sunos5.8_64b_emt2.0'(doc) -> [];
-'sparc_sunos5.8_64b_emt2.0'(suite) -> [];
 'sparc_sunos5.8_64b_emt2.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "test_server" = Res#emem_res.nodename,
@@ -306,8 +292,6 @@ live_node(Config) when is_list(Config) ->
             emem_comment(Config)
     end.
 
-'sparc_sunos5.8_32b_emt1.0'(doc) -> [];
-'sparc_sunos5.8_32b_emt1.0'(suite) -> [];
 'sparc_sunos5.8_32b_emt1.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "" = Res#emem_res.nodename,
@@ -322,8 +306,6 @@ live_node(Config) when is_list(Config) ->
     "0" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'pc_win2000_32b_emt1.0'(doc) -> [];
-'pc_win2000_32b_emt1.0'(suite) -> [];
 'pc_win2000_32b_emt1.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "" = Res#emem_res.nodename,
@@ -339,8 +321,6 @@ live_node(Config) when is_list(Config) ->
     emem_comment(Config).
 
 
-'powerpc_darwin7.7.0_32b_emt1.0'(doc) -> [];
-'powerpc_darwin7.7.0_32b_emt1.0'(suite) -> [];
 'powerpc_darwin7.7.0_32b_emt1.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "" = Res#emem_res.nodename,
@@ -355,8 +335,6 @@ live_node(Config) when is_list(Config) ->
     "0" = Res#emem_res.exit_code,
     emem_comment(Config).
 
-'alpha_osf1v5.1_64b_emt1.0'(doc) -> [];
-'alpha_osf1v5.1_64b_emt1.0'(suite) -> [];
 'alpha_osf1v5.1_64b_emt1.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "" = Res#emem_res.nodename,
@@ -377,8 +355,6 @@ live_node(Config) when is_list(Config) ->
             emem_comment(Config)
     end.
 
-'sparc_sunos5.8_64b_emt1.0'(doc) -> [];
-'sparc_sunos5.8_64b_emt1.0'(suite) -> [];
 'sparc_sunos5.8_64b_emt1.0'(Config) when is_list(Config) ->
     Res = run_emem_on_casefile(Config),
     "" = Res#emem_res.nodename,

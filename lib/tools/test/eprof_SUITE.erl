@@ -31,7 +31,6 @@ suite() ->
 all() -> 
     [basic, basic_option, tiny, eed].
 
-basic(suite) -> [];
 basic(Config) when is_list(Config) ->
 
     %% load eprof_test and change directory
@@ -162,7 +161,6 @@ basic_option_1(Config) ->
     stopped = eprof:stop(),
     ok.
 
-tiny(suite) -> [];
 tiny(Config) when is_list(Config) -> 
     ensure_eprof_stopped(),
     {ok, OldCurDir} = file:get_cwd(),
@@ -186,7 +184,6 @@ tiny(Config) when is_list(Config) ->
     ok = file:set_cwd(OldCurDir),
     ok.
 
-eed(suite) -> [];
 eed(Config) when is_list(Config) ->
     ensure_eprof_stopped(),
     Datadir = proplists:get_value(data_dir, Config),

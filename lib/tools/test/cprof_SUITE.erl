@@ -92,24 +92,15 @@ all() ->
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-basic(suite) ->
-    [];
-basic(doc) ->
-    ["Tests basic profiling"];
+%% Tests basic profiling
 basic(Config) when is_list(Config) ->
     basic_test().
 
-on_load(suite) ->
-    [];
-on_load(doc) ->
-    ["Tests profiling of unloaded module"];
+%% Tests profiling of unloaded module
 on_load(Config) when is_list(Config) ->
     on_load_test(Config).
 
-modules(suite) ->
-    [];
-modules(doc) ->
-    ["Tests profiling of several modules"];
+%% Tests profiling of several modules
 modules(Config) when is_list(Config) ->
     modules_test(Config).
 

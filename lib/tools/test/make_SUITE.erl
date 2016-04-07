@@ -61,7 +61,6 @@ end_per_group(_GroupName, Config) ->
 
 test_files() -> ["test1", "test2", "test3", "test4"].
 
-make_all(suite) -> [];
 make_all(Config) when is_list(Config) ->
     Current = prepare_data_dir(Config),
     up_to_date = make:all(),
@@ -71,7 +70,6 @@ make_all(Config) when is_list(Config) ->
     ensure_no_messages(),
     ok.
 
-make_files(suite) -> [];
 make_files(Config) when is_list(Config) ->
     Current = prepare_data_dir(Config),
 
@@ -163,10 +161,7 @@ otp_6057_init(Config) when is_list(Config) ->
     ensure_no_messages(),
     Config.
 
-otp_6057_a(suite) ->
-    [];
-otp_6057_a(doc) ->
-    ["Test that make:all/0, suite/0 looks for object file in correct place"];
+%% Test that make:all/0, suite/0 looks for object file in correct place
 otp_6057_a(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
 
@@ -214,10 +209,7 @@ otp_6057_a(Config) when is_list(Config) ->
     ensure_no_messages(),
     ok.
 
-otp_6057_b(suite) ->
-    [];
-otp_6057_b(doc) ->
-    ["Test that make:files/1 can handle a file in another directory"];
+%% Test that make:files/1 can handle a file in another directory
 otp_6057_b(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
 
@@ -250,11 +242,8 @@ otp_6057_b(Config) when is_list(Config) ->
     ensure_no_messages(),
     ok.
 
-otp_6057_c(suite) ->
-    [];
-otp_6057_c(doc) ->
-    ["Test that make:files/1 find options in Emakefile if a file is "
-     "given with the .erl extension there"];
+%% Test that make:files/1 find options in Emakefile if a file is
+%% given with the .erl extension there
 otp_6057_c(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
 

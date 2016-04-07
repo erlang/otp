@@ -49,8 +49,7 @@ all() ->
 %% Tests
 %%----------------------------------------------------------------------
 
-t_load(suite) -> [];
-t_load(doc) -> ["Load data from file."];
+%% Load data from file.
 t_load(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
@@ -65,8 +64,7 @@ t_load_file([File|Files]) ->
     ok = lcnt:stop(),
     t_load_file(Files).
 
-t_conflicts(suite) -> [];
-t_conflicts(doc) -> ["API: conflicts"];
+%% API: conflicts
 t_conflicts(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
@@ -99,8 +97,7 @@ test_conflicts_opts([Opt|Opts]) ->
     ok = lcnt:conflicts(Opt),
     test_conflicts_opts(Opts).
 
-t_locations(suite) -> [];
-t_locations(doc) -> ["API: locations"];
+%% API: locations
 t_locations(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
@@ -132,8 +129,7 @@ test_locations_opts([Opt|Opts]) ->
     ok = lcnt:locations(Opt),
     test_locations_opts(Opts).
 
-t_swap_keys(suite) -> [];
-t_swap_keys(doc) -> ["Test interchanging port/process id with class"];
+%% Test interchanging port/process id with class
 t_swap_keys(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),

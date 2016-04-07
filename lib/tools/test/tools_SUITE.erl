@@ -40,10 +40,7 @@ all() ->
 %%% Test cases starts here.
 %%%
 
-app_test(doc) ->
-    ["Test that the .app file does not contain any `basic' errors"];
-app_test(suite) ->
-    [];
+%% Test that the .app file does not contain any `basic' errors
 app_test(Config) when is_list(Config) ->
     test_server:app_test(tools, tolerant).
 

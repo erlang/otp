@@ -101,8 +101,7 @@ end_per_suite(Conf) when is_list(Conf) ->
     ok.
 
 %% Seems a bit short...
-addrem(suite) -> [];
-addrem(doc) -> ["Simple test of removing modules"];
+%% Simple test of removing modules
 addrem(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -151,8 +150,7 @@ addrem(Conf) when is_list(Conf) ->
     _S11 = add_application(S10, AppInfo2),
     ok.
 
-convert(suite) -> [];
-convert(doc) -> ["Coercion of data"];
+%% Coercion of data
 convert(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -314,8 +312,7 @@ convert(Conf) when is_list(Conf) ->
     {ok, _} = eval("(App) r1->r1", [{a1,a2},{a2,a1}], S),
     ok.
 
-intergraph(suite) -> [];
-intergraph(doc) -> ["Inter Call Graph"];
+%% Inter Call Graph
 intergraph(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -446,8 +443,7 @@ intergraph(Conf) when is_list(Conf) ->
 
     ok.
 
-lines(suite) -> [];
-lines(doc) -> ["More test of Inter Call Graph, and regular expressions"];
+%% More test of Inter Call Graph, and regular expressions
 lines(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -565,8 +561,7 @@ lines(Conf) when is_list(Conf) ->
 
     ok.
 
-loops(suite) -> [];
-loops(doc) -> ["More Inter Call Graph, loops and \"unusual\" cases"];
+%% More Inter Call Graph, loops and "unusual" cases
 loops(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -621,8 +616,7 @@ loops(Conf) when is_list(Conf) ->
 
     ok.
 
-no_data(suite) -> [];
-no_data(doc) -> ["Simple tests when there is no data"];
+%% Simple tests when there is no data
 no_data(Conf) when is_list(Conf) ->
     S0 = new(),
     S1 = set_up(S0),
@@ -642,8 +636,7 @@ no_data(Conf) when is_list(Conf) ->
     {ok, _} = eval("R", [r], S5),
     ok.
 
-modules(suite) -> [];
-modules(doc) -> ["Modules mode"];
+%% Modules mode
 modules(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir, "rel2"),
@@ -682,8 +675,7 @@ modules(Conf) when is_list(Conf) ->
     ok.
 
 
-add(suite) -> [];
-add(doc) -> ["Add modules, applications, releases, directories"];
+%% Add modules, applications, releases, directories
 add(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir, "rel2"),
@@ -787,8 +779,7 @@ add(Conf) when is_list(Conf) ->
     end,
     ok.
 
-default(suite) -> [];
-default(doc) -> ["Default values of options"];
+%% Default values of options
 default(Conf) when is_list(Conf) ->
     S = new(),
     {error, _, {invalid_options,[not_an_option]}} =
@@ -807,8 +798,7 @@ default(Conf) when is_list(Conf) ->
     ok = xref_base:delete(S),
     ok.
 
-info(suite) -> [];
-info(doc) -> ["The info functions"];
+%% The info functions
 info(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"rel2"),
@@ -862,8 +852,7 @@ info(Conf) when is_list(Conf) ->
 
     ok.
 
-lib(suite) -> [];
-lib(doc) -> ["Library modules"];
+%% Library modules
 lib(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"lib_test"),
@@ -939,8 +928,7 @@ lib(Conf) when is_list(Conf) ->
     ok = file:delete(fname(Dir, "cp.beam")),
     ok.
 
-read(suite) -> [];
-read(doc) -> ["Data read from the Abstract Code"];
+%% Data read from the Abstract Code
 read(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"read"),
@@ -1209,8 +1197,7 @@ read_expected(Version) ->
 
     {U, OK, OKB}.
 
-read2(suite) -> [];
-read2(doc) -> ["Data read from the Abstract Code (cont)"];
+%% Data read from the Abstract Code (cont)
 read2(Conf) when is_list(Conf) ->
     %% Handles the spawn_opt versions added in R9 (OTP-4180).
     %% Expected augmentations: try/catch, cond.
@@ -1278,8 +1265,7 @@ read2_expected() ->
           {POS1,{FF,FF}}],
     {U, OK}.
 
-remove(suite) -> [];
-remove(doc) -> ["Remove modules, applications, releases"];
+%% Remove modules, applications, releases
 remove(Conf) when is_list(Conf) ->
     S = new(),
     {error, _, {no_such_module, mod}} =
@@ -1291,8 +1277,7 @@ remove(Conf) when is_list(Conf) ->
     ok = xref_base:delete(S),
     ok.
 
-replace(suite) -> [];
-replace(doc) -> ["Replace modules, applications, releases"];
+%% Replace modules, applications, releases
 replace(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"rel2"),
@@ -1365,8 +1350,7 @@ replace(Conf) when is_list(Conf) ->
     ok = file:delete(Ybeam),
     ok.
 
-update(suite) -> [];
-update(doc) -> ["The update() function"];
+%% The update() function
 update(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"update"),
@@ -1403,8 +1387,7 @@ update(Conf) when is_list(Conf) ->
     ok = file:delete(Source),
     ok.
 
-deprecated(suite) -> [];
-deprecated(doc) -> ["OTP-4695: Deprecated functions."];
+%% OTP-4695: Deprecated functions.
 deprecated(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "depr.erl"),
@@ -1590,8 +1573,7 @@ deprecated(Conf) when is_list(Conf) ->
     ok.
 
 
-trycatch(suite) -> [];
-trycatch(doc) -> ["OTP-5152: try/catch, final (?) version."];
+%% OTP-5152: try/catch, final (?) version.
 trycatch(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "trycatch.erl"),
@@ -1638,8 +1620,7 @@ trycatch(Conf) when is_list(Conf) ->
     ok.
 
 
-fun_mfa(suite) -> [];
-fun_mfa(doc) -> ["OTP-5653: fun M:F/A."];
+%% OTP-5653: fun M:F/A.
 fun_mfa(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "fun_mfa.erl"),
@@ -1766,8 +1747,7 @@ fun_mfa_vars(Conf) when is_list(Conf) ->
     ok = file:delete(Beam),
     ok.
 
-qlc(suite) -> [];
-qlc(doc) -> ["OTP-5195: A bug fix when using qlc:q/1,2."];
+%% OTP-5195: A bug fix when using qlc:q/1,2.
 qlc(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "qlc.erl"),
@@ -1808,8 +1788,7 @@ qlc(Conf) when is_list(Conf) ->
 
 
 
-analyze(suite) -> [];
-analyze(doc) -> ["Simple analyses"];
+%% Simple analyses
 analyze(Conf) when is_list(Conf) ->
     S0 = new(),
     {{error, _, {invalid_options,[not_an_option]}}, _} =
@@ -1871,8 +1850,7 @@ analyze(Conf) when is_list(Conf) ->
     ok = file:delete(Ybeam),
     ok.
 
-basic(suite) -> [];
-basic(doc) -> ["Use of operators"];
+%% Use of operators
 basic(Conf) when is_list(Conf) ->
     S0 = new(),
 
@@ -2113,8 +2091,7 @@ basic(Conf) when is_list(Conf) ->
     {ok, _} = eval("# range strict condensation (Mod) E", 1, S),
     ok.
 
-md(suite) -> [];
-md(doc) -> ["The xref:m() and xref:d() functions"];
+%% The xref:m() and xref:d() functions
 md(Conf) when is_list(Conf) ->
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"md"),
@@ -2156,8 +2133,7 @@ md(Conf) when is_list(Conf) ->
     ok = file:delete(Ybeam),
     ok.
 
-q(suite) -> [];
-q(doc) -> ["User queries"];
+%% User queries
 q(Conf) when is_list(Conf) ->
     S0 = new(),
     {ok, _} = eval("'foo", parse_error, S0),
@@ -2168,8 +2144,7 @@ q(Conf) when is_list(Conf) ->
     {ok, _S2} = xref_base:forget(S1, 'TT'),
     ok.
 
-variables(suite) -> [];
-variables(doc) -> ["Setting and getting values of query variables"];
+%% Setting and getting values of query variables
 variables(Conf) when is_list(Conf) ->
     Sa = new(),
     {{error, _, {invalid_options,[not_an_option]}}, _} =
@@ -2268,8 +2243,7 @@ variables(Conf) when is_list(Conf) ->
     ok = file:delete(Beam),
     ok.
 
-unused_locals(suite) -> [];
-unused_locals(doc) -> ["OTP-5071. Too many unused functions."];
+%% OTP-5071. Too many unused functions.
 unused_locals(Conf) when is_list(Conf) ->
     Dir = ?copydir,
 
@@ -2324,8 +2298,7 @@ unused_locals(Conf) when is_list(Conf) ->
     ok.
 
 
-format_error(suite) -> [];
-format_error(doc) -> ["Format error messages"];
+%% Format error messages
 format_error(Conf) when is_list(Conf) ->
     {ok, _Pid} = start(s),
     ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
@@ -2392,8 +2365,7 @@ format_error(Conf) when is_list(Conf) ->
     xref:stop(s),
     ok.
 
-otp_7423(suite) -> [];
-otp_7423(doc) -> ["OTP-7423. Xref scanner bug."];
+%% OTP-7423. Xref scanner bug.
 otp_7423(Conf) when is_list(Conf) ->
     {ok, _Pid} = start(s),
     S = "E | [compiler] : App || [{erlang,
@@ -2403,8 +2375,7 @@ otp_7423(Conf) when is_list(Conf) ->
     xref:stop(s),
     ok.
 
-otp_7831(suite) -> [];
-otp_7831(doc) -> ["OTP-7831. Allow anonymous Xref processes."];
+%% OTP-7831. Allow anonymous Xref processes.
 otp_7831(Conf) when is_list(Conf) ->
     {ok, Pid1} = xref:start([]),
     xref:stop(Pid1),
@@ -2412,9 +2383,7 @@ otp_7831(Conf) when is_list(Conf) ->
     xref:stop(Pid2),
     ok.
 
-otp_10192(suite) -> [];
-otp_10192(doc) ->
-    ["OTP-10192. Allow filenames with character codes greater than 126."];
+%% OTP-10192. Allow filenames with character codes greater than 126.
 otp_10192(Conf) when is_list(Conf) ->
     PrivDir = ?privdir,
     {ok, _Pid} = xref:start(s),
