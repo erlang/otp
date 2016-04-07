@@ -710,7 +710,7 @@ run_otp_4715(Config) when is_list(Config) ->
 pid_wrap(Config) when is_list(Config) -> pp_wrap(pid).
 
 port_wrap(Config) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
         {unix, _} ->
             pp_wrap(port);
         _ ->

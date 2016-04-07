@@ -94,7 +94,7 @@ setup(Suite, Testcase, Config, SetCwd) when is_atom(Suite),
     end,
     ok = file:write_file(filename:join([IgnDir, "ignore_core_files"]), <<>>),
     %% cores are dumped in /cores on MacOS X
-    CoresDir = case {test_server:os_type(), filelib:is_dir("/cores")} of
+    CoresDir = case {os:type(), filelib:is_dir("/cores")} of
 		   {{unix,darwin}, true} ->
 		       filelib:fold_files("/cores",
 					  "^core.*$",

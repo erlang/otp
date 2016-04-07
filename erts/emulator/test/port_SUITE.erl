@@ -1757,7 +1757,7 @@ otp_6224_loop() ->
 
 exit_status_multi_scheduling_block(Config) when is_list(Config) ->
     Repeat = 3,
-    case test_server:os_type() of
+    case os:type() of
         {unix, _} ->
             ct:timetrap({minutes, 2*Repeat}),
             SleepSecs = 6,

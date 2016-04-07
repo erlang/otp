@@ -81,7 +81,7 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
 	{unix, _} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
@@ -144,7 +144,7 @@ drv_case(Config) ->
     drv_case(Config, one_shot, "").
 
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
 	{Family, _} when Family == unix; Family == win32 ->
 	    {ok, Node} = start_node(Config, NodeOpts),
 	    Self = self(),
