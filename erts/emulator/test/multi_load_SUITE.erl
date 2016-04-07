@@ -19,31 +19,15 @@
 %%
 
 -module(multi_load_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
-	 many/1,on_load/1,errors/1]).
+-export([all/0, suite/0, many/1, on_load/1, errors/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [many,on_load,errors].
-
-groups() ->
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 many(_Config) ->
     Ms = make_modules(100, fun many_module/1),
@@ -57,7 +41,6 @@ many(_Config) ->
     io:put_chars("Heavy load\n"
 		 "=========="),
     many_measure(Ms),
-
     ok.
 
 many_module(M) ->
@@ -138,7 +121,6 @@ on_load(_Config) ->
     SingleOnPrep = tl(OnPrep),
     {on_load,[OnLoadMod]} = erlang:finish_loading(SingleOnPrep),
     ok = erlang:call_on_load_function(OnLoadMod),
-
     ok.
 
 on_load_module(M) ->
