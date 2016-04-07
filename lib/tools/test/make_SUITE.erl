@@ -129,8 +129,8 @@ ensure_exists([], _) ->
     ok.
 
 otp_6057_init(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Create the directories PrivDir/otp_6057/src1, /src2 and /ebin
     Src1 = filename:join([PrivDir, otp_6057, src1]),
@@ -168,7 +168,7 @@ otp_6057_a(suite) ->
 otp_6057_a(doc) ->
     ["Test that make:all/0, suite/0 looks for object file in correct place"];
 otp_6057_a(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Go to src1, saving old CWD
     {ok, CWD} = file:get_cwd(),
@@ -219,7 +219,7 @@ otp_6057_b(suite) ->
 otp_6057_b(doc) ->
     ["Test that make:files/1 can handle a file in another directory"];
 otp_6057_b(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Go to src1, saving old CWD
     {ok, CWD} = file:get_cwd(),
@@ -256,7 +256,7 @@ otp_6057_c(doc) ->
     ["Test that make:files/1 find options in Emakefile if a file is "
      "given with the .erl extension there"];
 otp_6057_c(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     %% Go to src1, saving old CWD
     {ok, CWD} = file:get_cwd(),

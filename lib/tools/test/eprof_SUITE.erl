@@ -37,8 +37,8 @@ basic(Config) when is_list(Config) ->
     %% load eprof_test and change directory
 
     {ok, OldCurDir} = file:get_cwd(),
-    Datadir = ?config(data_dir, Config),
-    Privdir = ?config(priv_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
+    Privdir = proplists:get_value(priv_dir, Config),
     {ok,eprof_test} = compile:file(filename:join(Datadir, "eprof_test"),
 					       [trace,{outdir, Privdir}]),
     ok = file:set_cwd(Privdir),
@@ -123,8 +123,8 @@ basic_option_1(Config) ->
     %% load eprof_test and change directory
 
     {ok, OldCurDir} = file:get_cwd(),
-    Datadir = ?config(data_dir, Config),
-    Privdir = ?config(priv_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
+    Privdir = proplists:get_value(priv_dir, Config),
     {ok,eprof_test} = compile:file(filename:join(Datadir, "eprof_test"),
 					       [trace,{outdir, Privdir}]),
     ok = file:set_cwd(Privdir),
@@ -166,8 +166,8 @@ tiny(suite) -> [];
 tiny(Config) when is_list(Config) -> 
     ensure_eprof_stopped(),
     {ok, OldCurDir} = file:get_cwd(),
-    Datadir = ?config(data_dir, Config),
-    Privdir = ?config(priv_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
+    Privdir = proplists:get_value(priv_dir, Config),
     % (Trace)Compile to priv_dir and make sure the correct version is loaded.
     {ok,eprof_suite_test} = compile:file(filename:join(Datadir,
 							     "eprof_suite_test"),
@@ -189,8 +189,8 @@ tiny(Config) when is_list(Config) ->
 eed(suite) -> [];
 eed(Config) when is_list(Config) ->
     ensure_eprof_stopped(),
-    Datadir = ?config(data_dir, Config),
-    Privdir = ?config(priv_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
+    Privdir = proplists:get_value(priv_dir, Config),
     ct:timetrap({minutes, 5}),
 
     %% (Trace)Compile to priv_dir and make sure the correct version is loaded.

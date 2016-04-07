@@ -52,7 +52,7 @@ all() ->
 t_load(suite) -> [];
 t_load(doc) -> ["Load data from file."];
 t_load(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_load_file(Files),
@@ -68,7 +68,7 @@ t_load_file([File|Files]) ->
 t_conflicts(suite) -> [];
 t_conflicts(doc) -> ["API: conflicts"];
 t_conflicts(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_conflicts_file(Files),
@@ -102,7 +102,7 @@ test_conflicts_opts([Opt|Opts]) ->
 t_locations(suite) -> [];
 t_locations(doc) -> ["API: locations"];
 t_locations(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_locations_file(Files),
@@ -135,7 +135,7 @@ test_locations_opts([Opt|Opts]) ->
 t_swap_keys(suite) -> [];
 t_swap_keys(doc) -> ["Test interchanging port/process id with class"];
 t_swap_keys(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_swap_keys_file(Files),

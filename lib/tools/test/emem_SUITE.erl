@@ -97,12 +97,12 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     ok.
 
 maybe_skip(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     case filelib:is_dir(DataDir) of
 	false ->
 	    {skip, "No data directory"};
 	true ->
-	    case ?config(emem, Config) of
+	    case proplists:get_value(emem, Config) of
 		undefined ->
 		    {skip, "emem not found"};
 		_ ->
@@ -500,7 +500,7 @@ emem_comment(Config) when is_list(Config) ->
 
 emem_comment(Config, ExtraComment)
   when is_list(Config), is_list(ExtraComment) ->
-    case {?config(emem_comment, Config), ExtraComment} of
+    case {proplists:get_value(emem_comment, Config), ExtraComment} of
         {"", ""} -> ok;
         {"", XC} -> {comment, XC};
         {EmemC, ""} -> {comment, EmemC};
@@ -508,8 +508,8 @@ emem_comment(Config, ExtraComment)
     end.
 
 run_emem_on_casefile(Config) ->
-    CaseName = atom_to_list(?config(testcase, Config)),
-    File = filename:join([?config(data_dir, Config), CaseName ++ ".gz"]),
+    CaseName = atom_to_list(proplists:get_value(testcase, Config)),
+    File = filename:join([proplists:get_value(data_dir, Config), CaseName ++ ".gz"]),
     case check_file(File) of
         not_found ->
             ct:fail({error, {filenotfound, File}});
@@ -613,7 +613,7 @@ parse_emem_line(Line, Res) ->
     end.
 
 start_emem(Config) when is_list(Config) ->
-    Emem = ?config(emem, Config),
+    Emem = proplists:get_value(emem, Config),
     Cd = case ignore_cores:dir(Config) of
              false -> [];
              Dir -> [{cd, Dir}]
@@ -672,7 +672,7 @@ strip(Str) -> string:strip(Str).
 mk_nodename(Config) ->
     Us = erlang:monotonic_time(),
     atom_to_list(?MODULE)
-    ++ "-" ++ atom_to_list(?config(testcase, Config))
+    ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
     ++ integer_to_list(Us).
 
 start_node(Name, Args) ->

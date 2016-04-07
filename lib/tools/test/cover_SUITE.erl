@@ -79,7 +79,7 @@ coverage(Config) when is_list(Config) ->
     ?MODULE:do_coverage(Config).
 
 do_coverage(Config) ->
-    Outdir = ?config(priv_dir, Config),
+    Outdir = proplists:get_value(priv_dir, Config),
     ExportFile = filename:join(Outdir, "export"),
     ok = cover:export(ExportFile, ?MODULE),
     {error,{already_started,_}} = cover:start(),
@@ -112,7 +112,7 @@ coverage_analysis(Config) when is_list(Config) ->
     io:format("~p\n", [Analysis2]),
     {ok,_Analysis3} = cover:analyze(?MODULE, calls, line),
 
-    Outdir = ?config(priv_dir, Config),
+    Outdir = proplists:get_value(priv_dir, Config),
     Outfile = filename:join(Outdir, ?MODULE),
 
     {ok,Outfile} = cover:analyze_to_file(?MODULE, Outfile),
@@ -124,7 +124,7 @@ coverage_analysis(Config) when is_list(Config) ->
 
 start(suite) -> [];
 start(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     Files = lsfiles(),
     remove(files(Files, ".out")),
@@ -134,7 +134,7 @@ start(Config) when is_list(Config) ->
 
 compile(suite) -> [];
 compile(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     Result1 = cover:compile_directory(),
     SortedResult = lists:sort(Result1),
@@ -180,7 +180,7 @@ compile(Config) when is_list(Config) ->
             ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
             {ok,crypt} = cover:compile_beam("crypt.beam")
     end,
-    Path = filename:join([?config(data_dir, Config), "compile_beam", "v.erl"]),
+    Path = filename:join([proplists:get_value(data_dir, Config), "compile_beam", "v.erl"]),
     {ok,v} = cover:compile_beam(v),
     {source,Path} = lists:keyfind(source, 1, v:module_info(compile)),
     {ok,w} = cover:compile_beam("w.beam"),
@@ -217,7 +217,7 @@ simple_crypto_fun(Key) ->
 
 analyse(suite) -> [];
 analyse(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     done = a:start(5),
 
@@ -404,7 +404,7 @@ analyse(Config) when is_list(Config) ->
 
 misc(suite) -> [];
 misc(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     [a,cc,crypt,d,e,f,v] = lists:sort(cover:modules()),
 
@@ -423,7 +423,7 @@ misc(Config) when is_list(Config) ->
 
 stop(suite) -> [];
 stop(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     cover_compiled = code:which(a),
     {ok,d} = compile:file(d, [{d,'AGE',42}]),
@@ -440,7 +440,7 @@ stop(Config) when is_list(Config) ->
 
 distribution(suite) -> [];
 distribution(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
     {ok,N1} = ?t:start_node(cover_SUITE_distribution1,slave,[]),
@@ -543,7 +543,7 @@ distribution(Config) when is_list(Config) ->
 
 %% Test that a lost node is reconnected
 reconnect(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
     {ok,a} = compile:file(a),
@@ -597,7 +597,7 @@ reconnect(Config) ->
 
 %% Test that a lost node is reconnected - also if it has been dead
 die_and_reconnect(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
     {ok,f} = compile:file(f),
@@ -640,7 +640,7 @@ die_and_reconnect(Config) ->
 %% Test that a stopped node is not marked as lost, i.e. that it is not
 %% reconnected if it is restarted (OTP-10638)
 dont_reconnect_after_stop(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
     {ok,f} = compile:file(f),
@@ -683,7 +683,7 @@ dont_reconnect_after_stop(Config) ->
 %% Test that a node which is stopped while it is marked as lost is not
 %% reconnected if it is restarted (OTP-10638)
 stop_node_after_disconnect(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
     {ok,f} = compile:file(f),
@@ -726,7 +726,7 @@ stop_node_after_disconnect(Config) ->
     ok.
 
 distribution_performance(Config) ->
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     Dir = filename:join(PrivDir,"distribution_performance"),
     AllFiles = filename:join(Dir,"*"),
     ok = filelib:ensure_dir(AllFiles),
@@ -840,7 +840,7 @@ generate_clauses(C,Func) ->
 
 export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
     PortCount = length(erlang:ports()),
 
@@ -956,7 +956,7 @@ eif(doc) ->
 eif(suite) ->
     [];
 eif(Config) when is_list(Config) ->
-    ok = file:set_cwd(filename:join(?config(data_dir, Config),
+    ok = file:set_cwd(filename:join(proplists:get_value(data_dir, Config),
                                     "included_functions")),
     {ok, cover_inc} = compile:file(cover_inc,[debug_info]),
     {ok, cover_inc} = cover:compile_beam(cover_inc),
@@ -970,7 +970,7 @@ eif(Config) when is_list(Config) ->
 
 otp_5305(suite) -> [];
 otp_5305(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
     File = "t.erl",
     Test = <<"-module(t).
@@ -987,7 +987,7 @@ otp_5305(Config) when is_list(Config) ->
 
 otp_5418(suite) -> [];
 otp_5418(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
     File = "t.erl",
     Test = <<"-module(t).
@@ -1001,7 +1001,7 @@ otp_5418(Config) when is_list(Config) ->
 
 otp_6115(Config) when is_list(Config) ->
     {ok, CWD} = file:get_cwd(),
-    Dir = filename:join(?config(data_dir, Config), otp_6115),
+    Dir = filename:join(proplists:get_value(data_dir, Config), otp_6115),
     ok = file:set_cwd(Dir),
     {ok, f1} = compile:file(f1, [debug_info]),
     {ok, f2} = compile:file(f2, [debug_info]),
@@ -1053,7 +1053,7 @@ otp_7095(doc) ->
     ["andalso/orelse"];
 otp_7095(suite) -> [];
 otp_7095(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
 
     File = "t.erl",
     Test = <<"-module(t).
@@ -1165,10 +1165,10 @@ otp_8270(doc) ->
     ["OTP-8270. Bug."];
 otp_8270(suite) -> [];
 otp_8270(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     As = [{args," -pa " ++ PrivDir}],
     {ok,N1} = ?t:start_node(cover_n1,slave,As),
@@ -1601,10 +1601,10 @@ compile_beam_opts(doc) ->
 compile_beam_opts(suite) -> [];
 compile_beam_opts(Config) when is_list(Config) ->
     {ok, Cwd} = file:get_cwd(),
-    ok = file:set_cwd(?config(priv_dir, Config)),
-    IncDir = filename:join(?config(data_dir, Config),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    IncDir = filename:join(proplists:get_value(data_dir, Config),
                            "included_functions"),
-    File = filename:join([?config(data_dir, Config), "otp_11439", "t.erl"]),
+    File = filename:join([proplists:get_value(data_dir, Config), "otp_11439", "t.erl"]),
     %% use all compiler options allowed by cover:filter_options
     %% i and d don't make sense when compiling from beam though
     {ok, t} =
@@ -1635,7 +1635,7 @@ analyse_no_beam(doc) ->
 analyse_no_beam(suite) -> [];
 analyse_no_beam(Config) when is_list(Config) ->
     {ok, Cwd} = file:get_cwd(),
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     code:purge(t),
     code:delete(t),
@@ -1673,7 +1673,7 @@ analyse_no_beam(Config) when is_list(Config) ->
 %% file in this situation. The test below tests that this bug is
 %% corrected.
 line_0(Config) ->
-    ok = file:set_cwd(filename:join(?config(data_dir, Config),
+    ok = file:set_cwd(filename:join(proplists:get_value(data_dir, Config),
                                     "include_eunit_hrl")),
     {ok, cover_inc_eunit} = compile:file(cover_inc_eunit,[debug_info]),
     {ok, cover_inc_eunit} = cover:compile_beam(cover_inc_eunit),
@@ -1689,7 +1689,7 @@ line_0(Config) ->
 %% OTP-13200: Return error instead of crashing when trying to compile
 %% a beam which has no 'file' attribute.
 compile_beam_no_file(Config) ->
-    PrivDir = ?config(priv_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     Dir = filename:join(PrivDir,"compile_beam_no_file"),
     ok = filelib:ensure_dir(filename:join(Dir,"*")),
     code:add_patha(Dir),
@@ -1759,7 +1759,7 @@ analyse_expr(Expr, Config) ->
 
 cc_mod(M, Binary, Config) ->
     {ok, Dir} = file:get_cwd(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     File = atom_to_list(M) ++ ".erl",
     try 
@@ -1771,7 +1771,7 @@ cc_mod(M, Binary, Config) ->
 
 c_mod(M, Binary, Config) ->
     {ok, Dir} = file:get_cwd(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     File = atom_to_list(M) ++ ".erl",
     try 

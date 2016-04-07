@@ -32,9 +32,9 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(datadir, ?config(data_dir, Conf)).
--define(privdir, ?config(priv_dir, Conf)).
--define(copydir, ?config(copy_dir, Conf)).
+-define(datadir, proplists:get_value(data_dir, Conf)).
+-define(privdir, proplists:get_value(priv_dir, Conf)).
+-define(copydir, proplists:get_value(copy_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0, groups/0,
@@ -1687,7 +1687,7 @@ fun_mfa(Conf) when is_list(Conf) ->
 %% Same as the previous test case, except that we use a BEAM file
 %% that was compiled by an R14 compiler to test backward compatibility.
 fun_mfa_r14(Conf) when is_list(Conf) ->
-    Dir = ?config(data_dir, Conf),
+    Dir = proplists:get_value(data_dir, Conf),
     MFile = fname(Dir, "fun_mfa_r14"),
 
     A = fun_mfa_r14,

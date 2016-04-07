@@ -181,8 +181,8 @@ basic_test() ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 on_load_test(Config) ->
-    Priv = ?config(priv_dir, Config),
-    Data = ?config(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "cprof_SUITE_test"),
     Module = cprof_SUITE_test,
     M = 1000,
@@ -238,8 +238,8 @@ on_load_test(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 modules_test(Config) ->
-    Priv = ?config(priv_dir, Config),
-    Data = ?config(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "cprof_SUITE_test"),
     Module = cprof_SUITE_test,
     {ok,Module} = c:c(File, [{outdir,Priv}]),

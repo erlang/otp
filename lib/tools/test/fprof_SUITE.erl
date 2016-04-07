@@ -73,7 +73,7 @@ stack_seq(doc) ->
 stack_seq(suite) ->
     [];
 stack_seq(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_stack_seq.trace"),
     AnalysisFile = filename:join(PrivDir,
@@ -122,7 +122,7 @@ tail_seq(doc) ->
 tail_seq(suite) ->
     [];
 tail_seq(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_tail_seq.trace"),
     AnalysisFile = filename:join(PrivDir,
@@ -179,7 +179,7 @@ create_file_slow(Config) ->
     end.
 
 do_create_file_slow(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_create_file_slow.trace"),
     AnalysisFile = filename:join(PrivDir,
@@ -233,7 +233,7 @@ spawn_simple(doc) ->
 spawn_simple(suite) ->
     [];
 spawn_simple(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile = filename:join(PrivDir,
                               ?MODULE_STRING"_spawn_simple.trace"),
     AnalysisFile = filename:join(PrivDir,
@@ -327,7 +327,7 @@ imm_tail_seq(doc) ->
 imm_tail_seq(suite) ->
     [];
 imm_tail_seq(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     AnalysisFile = filename:join(PrivDir,
                                  ?MODULE_STRING"_imm_tail_seq.analysis"),
     Start = 1,
@@ -389,7 +389,7 @@ imm_create_file_slow(doc) ->
 imm_create_file_slow(suite) ->
     [];
 imm_create_file_slow(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(PrivDir,
                              ?MODULE_STRING"_imm_create_file_slow.data"),
     AnalysisFile = filename:join(PrivDir,
@@ -439,9 +439,9 @@ imm_compile(suite) ->
     [];
 imm_compile(Config) when is_list(Config) ->
     ct:timetrap({minutes, 20}),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     SourceFile = filename:join(DataDir, "foo.erl"),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     AnalysisFile = filename:join(PrivDir,
                                  ?MODULE_STRING"_imm_compile.analysis"),
     ok = fprof:stop(kill),
@@ -499,7 +499,7 @@ cpu_create_file_slow(doc) ->
 cpu_create_file_slow(suite) ->
     [];
 cpu_create_file_slow(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TraceFile =
     filename:join(PrivDir, ?MODULE_STRING"_cpu_create_file_slow.trace"),
     AnalysisFile =
