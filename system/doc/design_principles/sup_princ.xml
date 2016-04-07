@@ -229,7 +229,7 @@ child_spec() = #{id => child_id(),       % mandatory
           is <c>rest_for_one</c> or <c>one_for_all</c> and a sibling
           death causes the temporary process to be terminated).</item>
           <item>A <c>transient</c> child process is restarted only if it
-	  terminates abnormally, that is, with another exit reason than
+	  terminates abnormally, that is, with an exit reason other than
           <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.</item>
         </list>
 	<p>The <c>restart</c> key is optional. If it is not given, the
