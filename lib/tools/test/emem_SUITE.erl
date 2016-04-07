@@ -528,7 +528,7 @@ run_emem_on_casefile(Config) ->
         {Ref, ok} ->
             ok;
         {Ref, SendError} ->
-            ?t:format("Send result: ~p~n", [SendError])
+            io:format("Send result: ~p~n", [SendError])
     end,
     Res.
 
@@ -641,7 +641,7 @@ get_emem_line(Port, Acc) ->
                       [] -> Data;
                       _ -> lists:flatten([Acc|Data])
                   end,
-            ?t:format("~s", [Res]),
+            io:format("~s", [Res]),
             Res;
         {Port, {data, {noeol, Data}}} ->
             get_emem_line(Port, [Acc|Data]);
