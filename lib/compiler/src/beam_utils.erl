@@ -484,6 +484,17 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
+check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
+    case R of
+	Src ->
+	    {used,St0};
+	{x,X} when X < Live ->
+	    {used,St0};
+	{x,_} ->
+	    {killed,St0};
+	{y,_} ->
+	    {unknown,St0}
+    end;
 check_liveness(R, [{test_heap,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
     check_liveness(R, [I|Is], St);
