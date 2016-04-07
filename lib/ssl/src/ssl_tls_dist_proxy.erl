@@ -430,6 +430,11 @@ ssl_options(server, ["server_dhfile", Value|T]) ->
     [{dhfile, Value} | ssl_options(server,T)];
 ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
     [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
+%% "*_check_nodename_fun" is used in inet_tls_dist
+ssl_options(server, ["server_check_nodename_fun", _Value|T]) ->
+    ssl_options(server,T);
+ssl_options(client, ["client_check_nodename_fun", _Value|T]) ->
+    ssl_options(client,T);
 ssl_options(Type, Opts) ->
     error(malformed_ssl_dist_opt, [Type, Opts]).
 
