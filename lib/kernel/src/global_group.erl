@@ -692,7 +692,7 @@ handle_cast({registered_names, User}, S) ->
 handle_cast({registered_names_res, Result, Pid, From}, S) ->
 %    io:format(">>>>> registered_names_res Result ~p~n",[Result]),
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(registered_names),
     NewWait = lists:delete({Pid, From},Wait),
     put(registered_names, NewWait),
@@ -718,7 +718,7 @@ handle_cast({send_res, Result, Name, Msg, Pid, From}, S) ->
 	    ToPid ! Msg
     end,
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(send),
     NewWait = lists:delete({Pid, From, Name, Msg},Wait),
     put(send, NewWait),
@@ -748,7 +748,7 @@ handle_cast({find_name_res, Result, Pid, From}, S) ->
 %    io:format(">>>>> find_name_res Result ~p~n",[Result]),
 %    io:format(">>>>> find_name_res get() ~p~n",[get()]),
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(whereis_name),
     NewWait = lists:delete({Pid, From},Wait),
     put(whereis_name, NewWait),
