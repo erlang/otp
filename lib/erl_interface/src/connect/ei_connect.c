@@ -1342,7 +1342,8 @@ static int send_name_or_challenge(int fd, char *nodename,
                 | DFLAG_NEW_FLOATS
 		| DFLAG_SMALL_ATOM_TAGS
 		| DFLAG_UTF8_ATOMS
-		| DFLAG_MAP_TAG));
+		| DFLAG_MAP_TAG
+		| DFLAG_BIG_CREATION));
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));

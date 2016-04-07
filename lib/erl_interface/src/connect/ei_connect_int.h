@@ -106,6 +106,7 @@ extern int h_errno;
 #define DFLAG_SMALL_ATOM_TAGS     0x4000
 #define DFLAG_UTF8_ATOMS          0x10000
 #define DFLAG_MAP_TAG             0x20000
+#define DFLAG_BIG_CREATION        0x40000
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);
