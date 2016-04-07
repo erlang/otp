@@ -3004,11 +3004,7 @@ port_sig_link(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigd
     if (op == ERTS_PROC2PORT_SIG_EXEC)
 	port_link(prt, state, sigdp->u.link.to);
     else {
-        if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_getting_linked, sigdp->u.link.to);
 	port_link_failure(sigdp->u.link.port, sigdp->u.link.to);
-        if (IS_TRACED_FL(prt, F_TRACE_PORTS))
-            trace_port(prt, am_unlink, sigdp->u.link.to);
     }
     if (sigdp->flags & ERTS_P2P_SIG_DATA_FLG_REPLY)
 	port_sched_op_reply(sigdp->caller, sigdp->ref, am_true);
