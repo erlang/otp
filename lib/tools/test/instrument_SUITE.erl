@@ -53,7 +53,7 @@ all() ->
             N = lists:foldl(fun ({_,_,Size,_}, Sum) ->
                                     Size+Sum
                             end, 0, AL),
-            N =< S3;
+            true = N =< S3;
         Other ->
             ct:fail(Other)
     end,
