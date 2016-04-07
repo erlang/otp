@@ -936,7 +936,6 @@ collect_line(Port, Result) ->
                     collect_line(Port, Chars++Result)
             end
     after 5000 ->
-              test_server:fail("No response from C program")
               ct:fail("No response from C program")
     end.
 
