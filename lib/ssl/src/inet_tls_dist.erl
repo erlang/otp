@@ -94,7 +94,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 			   [Node,Version]),
 		    dist_util:reset_timer(Timer),
 		    case ssl_tls_dist_proxy:connect(Driver, Ip, TcpPort) of
-			{ok, Socket} ->
+			{ok, Socket, _PeerCert} ->
 			    HSData = connect_hs_data(Kernel, Node, MyNode, Socket, 
 						     Timer, Version, Ip, TcpPort, Address,
 						     Type),
@@ -125,7 +125,7 @@ close(Socket) ->
 do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     process_flag(priority, max),
     receive
-	{AcceptPid, controller} ->
+	{AcceptPid, controller, _PeerCert} ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case check_ip(Driver, Socket) of
 		true ->

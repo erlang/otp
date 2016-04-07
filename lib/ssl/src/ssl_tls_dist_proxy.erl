@@ -45,9 +45,11 @@ listen(Driver, Name) ->
 accept(Driver, Listen) ->
     gen_server:call(?MODULE, {accept, Driver, Listen}, infinity).
 
+-spec connect('inet_tcp' | 'inet6_tcp', inet:ip_address(), inet:port_number()) ->
+		     {ok, inet:socket(), PeerCert::public_key:der_encoded() | 'no_peercert'} |
+		     {error, Reason::term()}.
 connect(Driver, Ip, Port) ->
     gen_server:call(?MODULE, {connect, Driver, Ip, Port}, infinity).
-
 
 do_listen(Options) ->
     {First,Last} = case application:get_env(kernel,inet_dist_listen_min) of
@@ -131,13 +133,13 @@ handle_call({connect, Driver, Ip, Port}, {From, _}, State) ->
     Me = self(),
     Pid = spawn_link(fun() -> connect_and_setup_proxy(Driver, Ip, Port, Me) end),
     receive 
-	{Pid, go_ahead, LPort} -> 
-	    Res = {ok, Socket} = try_connect(LPort),
+	{Pid, go_ahead, LPort, PeerCert} ->
+	    {ok, Socket} = try_connect(LPort),
 	    case gen_tcp:controlling_process(Socket, From) of
 		{error, badarg} = Error -> {reply, Error, State};   % From is dead anyway.
 		ok ->
 		    flush_old_controller(From, Socket),
-		    {reply, Res, State}
+		    {reply, {ok, Socket, PeerCert}, State}
 	    end;
 	{Pid, Error} ->
 	    {reply, Error, State}
@@ -186,7 +188,7 @@ world_accept_loop(Proxy, Listen, NetKernelPid) ->
 		    Me = self(),
 		    PairHandler = spawn_link(fun() -> setup_proxy(SslSocket, Me) end),
 		    receive
-			{PairHandler, go_ahead, LPort} ->
+			{PairHandler, go_ahead, LPort, PeerCert} ->
 			    ok = ssl:controlling_process(SslSocket, PairHandler),
 			    flush_old_controller(PairHandler, SslSocket),
 			    {ok, Socket} = try_connect(LPort),
@@ -196,7 +198,7 @@ world_accept_loop(Proxy, Listen, NetKernelPid) ->
 				    inet:setopts(Socket, [nodelay()]),
 				    ok = gen_tcp:controlling_process(Socket, Pid),
 				    flush_old_controller(Pid, Socket),
-				    Pid ! {self(), controller};
+				    Pid ! {self(), controller, PeerCert};
 				{_Kernel, unsupported_protocol} ->
 				    exit(unsupported_protocol)
 			    end;
@@ -276,9 +278,15 @@ connect_and_setup_proxy(Driver, Ip, Port, Parent) ->
 
 -spec setup_proxy(ssl:sslsocket(), pid()) -> _.
 setup_proxy(World, Parent) ->
+    PeerCert = case ssl:peercert(World) of
+		   {ok, Cert} ->
+		       Cert;
+		   {error, no_peercert} ->
+		       no_peercert
+	       end,
     {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, loopback}, binary, {packet,?PPRE}]),
     {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
-    Parent ! {self(), go_ahead, LPort},
+    Parent ! {self(), go_ahead, LPort, PeerCert},
     case gen_tcp:accept(ErtsL) of
 	{ok, Erts} ->
 	    %% gen_tcp:close(ErtsL),
