@@ -1733,7 +1733,7 @@ sched_state([], N, DC, DI) ->
 	{N, DC, DI}
     catch
 	_ : _ ->
-	    ?t:fail({inconsisten_scheduler_state, {N, DC, DI}})
+	    ct:fail({inconsisten_scheduler_state, {N, DC, DI}})
     end;
 sched_state([{normal, _, _, _} = S | Rest], _S, DC, DI) ->
     sched_state(Rest, S, DC, DI);
