@@ -672,20 +672,8 @@ resulting regexp is surrounded by \\_< and \\_>."
       "is_record"
       "is_reference"
       "is_tuple"
-      "atom"
-      "binary"
-      "bitstring"
-      "boolean"
       ;;"float"	; Not included to avoid clashes with the bif float/1
-      "function"
-      "integer"
-      "list"
-      "number"
-      "pid"
-      "port"
-      "record"
-      "reference"
-      "tuple")
+      )
     "Erlang guards"))
 
 (eval-and-compile
