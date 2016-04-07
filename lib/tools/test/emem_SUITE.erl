@@ -63,7 +63,7 @@ suite() ->
      {timetrap,{minutes,5}}].
 
 all() -> 
-    case is_debug_compiled() of
+    case test_server:is_debug() of
         true -> {skip, "Not run when debug compiled"};
         false -> test_cases()
     end.
@@ -678,18 +678,3 @@ mk_nodename(Config) ->
 start_node(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
     ?t:start_node(Name, peer, [{args, Args ++ " -pa " ++ Pa}]).
-
-% stop_node(Node) ->
-%     ?t:stop_node(Node).
-
-is_debug_compiled() -> 
-    is_debug_compiled(erlang:system_info(system_version)).
-
-is_debug_compiled([$d,$e,$b,$u,$g | _]) ->
-    true;
-is_debug_compiled([ _, _, _, _]) ->
-    false;
-is_debug_compiled([]) ->
-    false;
-is_debug_compiled([_|Rest]) ->
-    is_debug_compiled(Rest).
