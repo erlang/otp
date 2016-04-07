@@ -550,23 +550,23 @@ expect(X, Y) ->
     
 init_per_suite(Config) ->
     PD = proplists:get_value(priv_dir, Config),
-    SymLinks = case ?t:os_type() of
-		   {win32, _} -> false;
-		   _ ->
-		       case file:make_symlink("nothing",
-					      filename:join(PD,
-							    "symlink_test")) of
-			   ok -> true;
-			   _ -> false
-		       end
-	       end,
+    SymLinks = case os:type() of
+                   {win32, _} -> false;
+                   _ ->
+                       case file:make_symlink("nothing",
+                                              filename:join(PD, "symlink_test")) of
+                           ok -> true;
+                           _ -> false
+                       end
+               end,
     [{symlinks, SymLinks} | Config].
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(Case, Config) ->
-    init_per_testcase_aux(proplists:get_value(symlinks,Config),?t:os_type(),Case,Config).
+    init_per_testcase_aux(proplists:get_value(symlinks,Config),
+                          os:type(),Case,Config).
 
 init_per_testcase_aux(_, {win32, _}, _Case, _Config) ->
     {skip, "Not on windows"};
