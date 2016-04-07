@@ -109,11 +109,11 @@ start_slave(Args) ->
     MicroSecs = erlang:monotonic_time(),
     Name = "instr" ++ integer_to_list(MicroSecs),
     Pa = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = ?t:start_node(list_to_atom(Name),
-				     slave,
-				     [{args, "-pa " ++ Pa ++ " " ++ Args}]),
+    {ok, Node} = test_server:start_node(list_to_atom(Name),
+                                        slave,
+                                        [{args, "-pa " ++ Pa ++ " " ++ Args}]),
     Node.
 
 
 stop_slave(Node) ->
-    true = ?t:stop_node(Node).
+    true = test_server:stop_node(Node).

@@ -458,7 +458,7 @@ send_loop(Socket, File) ->
     end.
 
 check_emem(Dir, Type) when is_atom(Type) ->
-    ExeSuffix = case ?t:os_type() of
+    ExeSuffix = case os:type() of
                     {win32, _} -> ".exe";
                     _ -> ""
                 end,
@@ -677,4 +677,4 @@ mk_nodename(Config) ->
 
 start_node(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, peer, [{args, Args ++ " -pa " ++ Pa}]).
+    test_server:start_node(Name, peer, [{args, Args ++ " -pa " ++ Pa}]).

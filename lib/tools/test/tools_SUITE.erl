@@ -45,8 +45,8 @@ app_test(doc) ->
 app_test(suite) ->
     [];
 app_test(Config) when is_list(Config) ->
-    ?t:app_test(tools, tolerant).
+    test_server:app_test(tools, tolerant).
 
 %% Test that the .appup file does not contain any `basic' errors
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(tools).
+    ok = test_server:appup_test(tools).

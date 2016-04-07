@@ -443,10 +443,10 @@ distribution(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
-    {ok,N1} = ?t:start_node(cover_SUITE_distribution1,slave,[]),
-    {ok,N2} = ?t:start_node(cover_SUITE_distribution2,slave,[]),
-    {ok,N3} = ?t:start_node(cover_SUITE_distribution3,slave,[]),
-    {ok,N4} = ?t:start_node(cover_SUITE_distribution4,slave,[]),
+    {ok,N1} = test_server:start_node(cover_SUITE_distribution1,slave,[]),
+    {ok,N2} = test_server:start_node(cover_SUITE_distribution2,slave,[]),
+    {ok,N3} = test_server:start_node(cover_SUITE_distribution3,slave,[]),
+    {ok,N4} = test_server:start_node(cover_SUITE_distribution4,slave,[]),
 
     %% Check that an already compiled module is loaded on new nodes
     {ok,f} = cover:compile(f),
@@ -538,8 +538,8 @@ distribution(Config) when is_list(Config) ->
     %% Cleanup
     Files = lsfiles(),
     remove(files(Files, ".beam")),
-    ?t:stop_node(N1),
-    ?t:stop_node(N2).
+    test_server:stop_node(N1),
+    test_server:stop_node(N2).
 
 %% Test that a lost node is reconnected
 reconnect(Config) ->
@@ -550,8 +550,9 @@ reconnect(Config) ->
     {ok,b} = compile:file(b),
     {ok,f} = compile:file(f),
 
-    {ok,N1} = ?t:start_node(cover_SUITE_reconnect,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(cover_SUITE_reconnect,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     {ok,a} = cover:compile(a),
     {ok,f} = cover:compile(f),
     {ok,[N1]} = cover:start(nodes()),
@@ -592,7 +593,7 @@ reconnect(Config) ->
     check_f_calls(2,1),
 
     cover:stop(),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 %% Test that a lost node is reconnected - also if it has been dead
@@ -603,8 +604,9 @@ die_and_reconnect(Config) ->
     {ok,f} = compile:file(f),
 
     NodeName = cover_SUITE_die_and_reconnect,
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     %% {ok,a} = cover:compile(a),
     {ok,f} = cover:compile(f),
     {ok,[N1]} = cover:start(nodes()),
@@ -621,8 +623,9 @@ die_and_reconnect(Config) ->
     check_f_calls(1,0), % only the first call - before the flush
 
     %% Restart the node and check that cover reconnects
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     timer:sleep(100),
     [N1] = cover:which_nodes(), % we are reconnected
     cover_compiled = rpc:call(N1,code,which,[f]),
@@ -634,7 +637,7 @@ die_and_reconnect(Config) ->
     check_f_calls(2,0),
 
     cover:stop(),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 %% Test that a stopped node is not marked as lost, i.e. that it is not
@@ -646,8 +649,9 @@ dont_reconnect_after_stop(Config) ->
     {ok,f} = compile:file(f),
 
     NodeName = cover_SUITE_dont_reconnect_after_stop,
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     {ok,f} = cover:compile(f),
     {ok,[N1]} = cover:start(nodes()),
 
@@ -662,8 +666,9 @@ dont_reconnect_after_stop(Config) ->
     check_f_calls(1,0),
 
     %% Restart the node and check that cover does not reconnect
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     timer:sleep(300),
     cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
@@ -677,7 +682,7 @@ dont_reconnect_after_stop(Config) ->
     check_f_calls(1,0),
 
     cover:stop(),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 %% Test that a node which is stopped while it is marked as lost is not
@@ -689,8 +694,9 @@ stop_node_after_disconnect(Config) ->
     {ok,f} = compile:file(f),
 
     NodeName = cover_SUITE_stop_node_after_disconnect,
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     {ok,f} = cover:compile(f),
     {ok,[N1]} = cover:start(nodes()),
 
@@ -707,8 +713,9 @@ stop_node_after_disconnect(Config) ->
     cover:stop(N1),
 
     %% Restart the node and check that cover does not reconnect
-    {ok,N1} = ?t:start_node(NodeName,peer,
-                            [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,
+                                     [{args," -pa " ++ DataDir},
+                                      {start_cover,false}]),
     timer:sleep(300),
     cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
@@ -722,7 +729,7 @@ stop_node_after_disconnect(Config) ->
     check_f_calls(1,0),
 
     cover:stop(),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 distribution_performance(Config) ->
@@ -736,10 +743,10 @@ distribution_performance(Config) ->
     C = 10,  % and each function of C clauses
     Mods = generate_modules(M,F,C,Dir),
 
-    %    ?t:break(""),
+    %    test_server:break(""),
 
     NodeName = cover_SUITE_distribution_performance,
-    {ok,N1} = ?t:start_node(NodeName,peer,[{start_cover,false}]),
+    {ok,N1} = test_server:start_node(NodeName,peer,[{start_cover,false}]),
     %% CFun = fun() ->
     %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
     %% 	   end,
@@ -773,7 +780,7 @@ distribution_performance(Config) ->
     %% fprof:profile(),
     %% fprof:analyse(dest,[]),
 
-    {SNT2,_} = timer:tc(fun() -> ?t:stop_node(N1) end),
+    {SNT2,_} = timer:tc(fun() -> test_server:stop_node(N1) end),
     erlang:display({stop_node,SNT2}),
 
     code:del_path(Dir),
@@ -849,10 +856,10 @@ export_import(Config) when is_list(Config) ->
     f:f1(),
     %% check that no info is written about where data comes from when no
     %% files are imported
-    ?t:capture_start(),
+    test_server:capture_start(),
     check_f_calls(1,0),
-    [] = ?t:capture_get(),
-    ?t:capture_stop(),
+    [] = test_server:capture_get(),
+    test_server:capture_stop(),
     ok = cover:export("f_exported",f),
     check_f_calls(1,0),
     ok = cover:stop(),
@@ -860,31 +867,31 @@ export_import(Config) when is_list(Config) ->
     %% Check that same data exists after import and that info is written about
     %% data comming from imported file
     ok = cover:import("f_exported"),
-    ?t:capture_start(),
+    test_server:capture_start(),
     check_f_calls(1,0),
-    [Text1] = ?t:capture_get(),
+    [Text1] = test_server:capture_get(),
     "Analysis includes data from imported files"++_ = lists:flatten(Text1),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
 
     %% Export all modules
     {ok,a} = cover:compile(a),
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = cover:export("all_exported"),
-    [] = ?t:capture_get(),
+    [] = test_server:capture_get(),
     %    "Export includes data from imported files"++_ = lists:flatten(Text2),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
     ok = cover:stop(),
     ok = cover:import("all_exported"),
     check_f_calls(1,0),
 
     %% Check that data is reset when module is compiled again, and that
     %% warning is written when data is deleted for imported module.
-    ?t:capture_start(),
+    test_server:capture_start(),
     {ok,f} = cover:compile(f),
     timer:sleep(10), % capture needs some time
-    [Text3] = ?t:capture_get(),
+    [Text3] = test_server:capture_get(),
     "WARNING: Deleting data for module f imported from" ++ _ = lists:flatten(Text3),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
     check_f_calls(0,0),
 
     %% Check that data is summed up when first compiled and then imported
@@ -894,41 +901,41 @@ export_import(Config) when is_list(Config) ->
     f:f1(),
     f:f2(),
     ok = cover:import("f_exported"),
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = cover:import("all_exported"),
-    [Text4] = ?t:capture_get(), % a is not loaded again
+    [Text4] = test_server:capture_get(), % a is not loaded again
     "WARNING: Module a already imported from " ++ _ = lists:flatten(Text4),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
     check_f_calls(3,1),
 
     %% Check that warning is written when same file is imported twice,
     %% and that data is not imported again
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = cover:import("all_exported"),
-    [Text5,Text6] = ?t:capture_get(),
+    [Text5,Text6] = test_server:capture_get(),
     "WARNING: Module f already imported from " ++ _ = lists:flatten(Text5),
     "WARNING: Module a already imported from " ++ _ = lists:flatten(Text6),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
     check_f_calls(3,1),
 
     %% Check that reset removes all data and that the file which has been
     %% reset can be imported again with no warning
     cover:reset(f),
     check_f_calls(0,0),
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = cover:import("all_exported"),
-    [Text7] = ?t:capture_get(), % warning only on mod a
+    [Text7] = test_server:capture_get(), % warning only on mod a
     "WARNING: Module a already imported from " ++ _ = lists:flatten(Text7),
-    ?t:capture_stop(),
+    test_server:capture_stop(),
     check_f_calls(1,0),
 
     %% same as above - only reset all
     cover:reset(),
     check_f_calls(0,0),
-    ?t:capture_start(),
+    test_server:capture_start(),
     ok = cover:import("all_exported"),
-    [] = ?t:capture_get(), % no warnings
-    ?t:capture_stop(),
+    [] = test_server:capture_get(), % no warnings
+    test_server:capture_stop(),
     check_f_calls(1,0),
 
     %% Check no raw files are left open
@@ -944,11 +951,11 @@ otp_5031(suite) -> [];
 otp_5031(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
 
-    {ok,N1} = ?t:start_node(cover_SUITE_otp_5031,slave,[]),
+    {ok,N1} = test_server:start_node(cover_SUITE_otp_5031,slave,[]),
     {ok,[N1]} = cover:start(N1),
     {error,not_main_node} = rpc:call(N1,cover,modules,[]),
     cover:stop(),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 eif(doc) ->
@@ -1171,15 +1178,14 @@ otp_8270(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
 
     As = [{args," -pa " ++ PrivDir}],
-    {ok,N1} = ?t:start_node(cover_n1,slave,As),
-    {ok,N2} = ?t:start_node(cover_n2,slave,As),
-    {ok,N3} = ?t:start_node(cover_n3,slave,As),
+    {ok,N1} = test_server:start_node(cover_n1,slave,As),
+    {ok,N2} = test_server:start_node(cover_n2,slave,As),
+    {ok,N3} = test_server:start_node(cover_n3,slave,As),
 
     timer:sleep(500),
     {ok,[_,_,_]} = cover:start(nodes()),
 
-    Test = <<
-             "-module(m).\n"
+    Test = <<"-module(m).\n"
              "-compile(export_all).\n"
              "t() -> t(0).\n"
              "l() ->\n"
@@ -1215,9 +1221,9 @@ otp_8270(Config) when is_list(Config) ->
     {N3,true} = {N3,is_list(N3_info)},
 
     exit(Pid1,kill),
-    ?t:stop_node(N1),
-    ?t:stop_node(N2),
-    ?t:stop_node(N3),
+    test_server:stop_node(N1),
+    test_server:stop_node(N2),
+    test_server:stop_node(N3),
     ok.
 
 otp_8273(doc) ->
