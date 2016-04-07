@@ -2130,7 +2130,7 @@ process_flag(_Flag, _Value) ->
       {message_queue_data, MQD :: message_queue_data()} |
       {priority, Level :: priority_level()} |
       {reductions, Number :: non_neg_integer()} |
-      {registered_name, Atom :: atom()} |
+      {registered_name, [] | (Atom :: atom())} |
       {sequential_trace_token, [] | (SequentialTraceToken :: term())} |
       {stack_size, Size :: non_neg_integer()} |
       {status, Status :: exiting | garbage_collecting | waiting | running | runnable | suspended} |
