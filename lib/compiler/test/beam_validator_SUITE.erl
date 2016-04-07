@@ -312,7 +312,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{move,{x,3},{x,0}},88,{uninitialized_reg,{x,3}}}}] = Errors,
+      {{move,{x,3},{x,0}},87,{uninitialized_reg,{x,3}}}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
