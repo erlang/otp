@@ -81,8 +81,11 @@ many_measure(Ms) ->
 	      "Sequential: ~9w µs\n"
 	      "Parallel:   ~9w µs\n"
 	      "Ratio:      ~9w\n",
-	      [length(Ms),Us1,Us2,round(Us1/Us2)]),
+	      [length(Ms),Us1,Us2,divide(Us1,Us2)]),
     ok.
+
+divide(A,B) when B > 0 -> A div B;
+divide(_,_) -> inf.
 
 many_load_seq(Ms) ->
     [erlang:finish_loading([M]) || M <- Ms],
