@@ -113,7 +113,6 @@ my @if_line;
 #
 my $te_max_vars = 0;		# Max number of variables ever needed.
 my %gen_transform;
-my %min_window;
 my %match_engine_ops;		# All opcodes for the match engine.
 my %gen_transform_offset;
 my @transformations;
@@ -382,7 +381,6 @@ while (<>) {
 	    $gen_arity{$name} = $arity;
 	    $gen_to_spec{"$name/$arity"} = undef;
 	    $num_specific{"$name/$arity"} = 0;
-	    $min_window{"$name/$arity"} = 255;
 	    $obsolete[$op_num] = defined $obsolete;
 	} else {		# Unnumbered generic operation.
 	    push(@unnumbered_generic, [$name, $arity]);
@@ -440,7 +438,6 @@ $num_file_opcodes = @gen_opname;
 	$gen_arity{$name} = $arity;
 	$gen_to_spec{"$name/$arity"} = undef;
 	$num_specific{"$name/$arity"} = 0;
-	$min_window{"$name/$arity"} = 255;
     }
 }
 
@@ -607,7 +604,7 @@ sub emulator_output {
 		$is_transformed{$name,$arity} or
 		error("instruction $key has no specific instruction");
 	    $spec_op = -1 unless defined $spec_op;
-	    &init_item($name, $arity, $spec_op, $num_specific, $tr, $min_window{$key});
+	    &init_item($name, $arity, $spec_op, $num_specific, $tr);
 	}
     }
     print "};\n";
@@ -1405,8 +1402,7 @@ sub tr_gen {
 
     foreach $ref (@g) {
 	my($line, $orig_transform, $from_ref, $to_ref) = @$ref;
-	my $used_ref = used_vars($from_ref, $to_ref);
-	my $so_far = tr_gen_from($line, $used_ref, @$from_ref);
+	my $so_far = tr_gen_from($line, @$from_ref);
 	tr_gen_to($line, $orig_transform, $so_far, @$to_ref);
     }
 
@@ -1457,58 +1453,14 @@ sub tr_gen {
     print "};\n\n";
 }
 
-sub used_vars {
-    my($from_ref,$to_ref) = @_;
-    my %used;
-    my %seen;
-
-    foreach my $ref (@$from_ref) {
-	my($name,$arity,@ops) = @$ref;
-	if ($name =~ /^[.]/) {
-	    foreach my $var (@ops) {
-		$used{$var} = 1;
-	    }
-	} else {
-	    # Any variable that is used at least twice on the
-	    # left-hand side is used. (E.g. "move R R".)
-	    foreach my $op (@ops) {
-		my($var, $type, $type_val) = @$op;
-		next if $var eq '';
-		$used{$var} = 1 if $seen{$var};
-		$seen{$var} = 1;
-	    }
-	}
-    }
-
-    foreach my $ref (@$to_ref) {
-	my($name, $arity, @ops) = @$ref;
-	if ($name =~ /^[.]/) {
-	    foreach my $var (@ops) {
-		$used{$var} = 1;
-	    }
-	} else {
-	    foreach my $op (@ops) {
-		my($var, $type, $type_val) = @$op;
-		next if $var eq '';
-		$used{$var} = 1;
-	    }
-	}
-    }
-    \%used;
-}
-
 sub tr_gen_from {
-    my($line,$used_ref,@tr) = @_;
+    my($line,@tr) = @_;
     my(%var) = ();
     my(%var_type);
     my($var_num) = 0;
     my(@code);
-    my($min_window) = 0;
-    my(@fix_rest_args);
-    my(@fix_pred_funcs);
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
-    my %var_used = %$used_ref;
     my $may_fail = 0;
     my $is_first = 1;
 
@@ -1530,8 +1482,20 @@ sub tr_gen_from {
 	    my $var;
 	    my(@args);
 
-	    push(@fix_pred_funcs, scalar(@code));
-	    push(@code, [$name, @ops]);
+	    foreach $var (@ops) {
+		error($where, "variable '$var' unbound")
+		    unless defined $var{$var};
+		if ($var_type{$var} eq 'scalar') {
+		    push(@args, "var[$var{$var}]");
+		} else {
+		    push(@args, "rest_args");
+		}
+	    }
+	    my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
+	    my $op = make_op("$name()", 'pred', $pi);
+	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
+	    op_slot_usage($op, @slots);
+	    push(@code, $op);
 	    next;
 	}
 
@@ -1544,7 +1508,6 @@ sub tr_gen_from {
 	$opnum = $gen_opnum{$name,$arity};
 
 	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
-	$min_window++;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
 	    my $ignored_var = "$var (ignored)";
@@ -1593,15 +1556,21 @@ sub tr_gen_from {
 		if (defined $var{$var}) {
 		    $ignored_var = '';
 		    $may_fail = 1;
-		    push(@code, &make_op($var, 'is_same_var', $var{$var}));
+		    my $op = make_op($var, 'is_same_var', $var{$var});
+		    op_slot_usage($op, $var{$var});
+		    push(@code, $op);
 		} elsif ($type eq '*') {
-		    #
-		    # Reserve a hole for a 'rest_args' instruction.
-		    #
+		    foreach my $type (values %var_type) {
+			error("only one use of a '*' variable is " .
+			      "allowed on the left hand side of " .
+			      "a transformation")
+			    if $type eq 'array';
+		    }
 		    $ignored_var = '';
-		    push(@fix_rest_args, scalar(@code));
-		    push(@code, $var);
-		} elsif ($var_used{$var}) {
+		    $var{$var} = 'unnumbered';
+		    $var_type{$var} = 'array';
+		    push(@code, make_op($var, 'rest_args'));
+		} else {
 		    $ignored_var = '';
 		    $var_type{$var} = 'scalar';
 		    $var{$var} = $var_num;
@@ -1629,46 +1598,14 @@ sub tr_gen_from {
     #
     push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
-    #
-    # If there is an rest_args instruction, we must insert its correct
-    # variable number (higher than any other).
-    #
-    my $index;
-    &error("only one use of a '*' variable is allowed on the left hand side of a transformation")
-	if @fix_rest_args > 1;
-    foreach $index (@fix_rest_args) {
-	my $var = $code[$index];
-	$var{$var} = $var_num++;
-	$var_type{$var} = 'array';
-	splice(@code, $index, 1, &make_op($var, 'rest_args', $var{$var}));
-    }
-
-    foreach $index (@fix_pred_funcs) {
-	my($name, @ops) = @{$code[$index]};
-	my(@args);
-	my $var;
-
-	foreach $var (@ops) {
-	    &error($where, "variable '$var' unbound")
-		unless defined $var{$var};
-	    if ($var_type{$var} eq 'scalar') {
-		push(@args, "var[$var{$var}]");
-	    } else {
-		push(@args, "var+$var{$var}");
-	    }
-	}
-	my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
-	splice(@code, $index, 1, make_op("$name()", 'pred', $pi));
-    }
-
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
-    [$min_window, \%var, \%var_type, \@code];
+    [\%var, \%var_type, \@code];
 }
 
 sub tr_gen_to {
     my($line, $orig_transform, $so_far, @tr) = @_;
-    my($min_window, $var_ref, $var_type_ref, $code_ref) = @$so_far;
+    my($var_ref, $var_type_ref, $code_ref) = @$so_far;
     my(%var) = %$var_ref;
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
@@ -1697,13 +1634,16 @@ sub tr_gen_to {
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
 		} else {
-		    push(@args, "var+$var{$var}");
+		    push(@args, "rest_args");
 		}
 	    }
 	    pop(@code);	# Get rid of 'commit' instruction
 	    my $index = tr_next_index(\@call_table, \%call_table,
 				      $name, @args);
-	    push(@code, make_op("$name()", 'call_end', $index));
+	    my $op = make_op("$name()", 'call_end', $index);
+	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
+	    op_slot_usage($op, @slots);
+	    push(@code, $op);
 	    last;
 	}
 
@@ -1725,11 +1665,13 @@ sub tr_gen_to {
 	    my($var, $type, $type_val) = @$op;
 
 	    if ($type eq '*') {
-		push(@code, make_op($var, 'store_rest_args', $var{$var}));
+		push(@code, make_op($var, 'store_rest_args'));
 	    } elsif ($var ne '') {
 		&error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
-		push(@code, &make_op($var, 'store_var_next_arg', $var{$var}));
+		my $op = make_op($var, 'store_var_next_arg', $var{$var});
+		op_slot_usage($op, $var{$var});
+		push(@code, $op);
 	    } elsif ($type ne '') {
 		push(@code, &make_op('', 'store_type', "TAG_$type"));
 		if ($type_val) {
@@ -1744,6 +1686,10 @@ sub tr_gen_to {
     push(@code, make_op('', 'end'))
 	unless is_instr($code[$#code], 'call_end');
 
+    tr_maybe_keep(\@code);
+    tr_maybe_rename(\@code);
+    tr_remove_unused(\@code);
+
     #
     # Chain together all codes segments having the same first operation.
     #
@@ -1752,8 +1698,6 @@ sub tr_gen_to {
     my($dummy, $arity);
     ($dummy, $op, $arity) = @$first;
     my($comment) = "\n/*\n * Line $line:\n *   $orig_transform\n */\n\n";
-    $min_window{$key} = $min_window
-	if $min_window{$key} > $min_window;
 
     my $prev_last;
     $prev_last = pop(@{$gen_transform{$key}})
@@ -1771,6 +1715,148 @@ sub tr_gen_to {
     push(@{$gen_transform{$key}}, @code),
 }
 
+sub tr_maybe_keep {
+    my($ref) = @_;
+    my @last_instr;
+    my $pos;
+    my $reused_instr;
+
+    for (my $i = 0; $i < @$ref; $i++) {
+	my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+	if ($op eq 'next_instr') {
+	    @last_instr = ($args[0]);
+	} elsif ($op eq 'set_var_next_arg') {
+	    push @last_instr, $args[0];
+	} elsif ($op eq 'next_arg') {
+	    push @last_instr, 'ignored';
+	} elsif ($op eq 'new_instr') {
+	    unless (defined $pos) {
+		# 'new_instr' immediately after 'commit'.
+		$reused_instr = $args[0];
+		return unless shift(@last_instr) == $reused_instr;
+		$pos = $i - 1;
+	    } else {
+		# Second 'new_instr' after 'commit'. The instructions
+		# from $pos up to and including $i - 1 rebuilds the
+		# existing instruction exactly.
+		my $name = $gen_opname[$reused_instr];
+		my $arity = $gen_arity[$reused_instr];
+		my $reuse = make_op("$name/$arity", 'keep');
+		splice @$ref, $pos, $i-$pos, ($reuse);
+		return;
+	    }
+	} elsif ($op eq 'store_var_next_arg') {
+	    return unless shift(@last_instr) eq $args[0];
+	} elsif (defined $pos) {
+	    return;
+	}
+    }
+}
+
+sub tr_maybe_rename {
+    my($ref) = @_;
+    my $s = 'left';
+    my $a = 0;
+    my $num_args = 0;
+    my $new_instr;
+    my $first;
+    my $i;
+
+    for ($i = 1; $i < @$ref; $i++) {
+	my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+
+	if ($s eq 'left') {
+	    if ($op eq 'set_var_next_arg') {
+		if ($num_args == $a and $args[0] == $a) {
+		    $num_args++;
+		}
+		$a++;
+	    } elsif ($op eq 'next_arg') {
+		$a++;
+	    } elsif ($op eq 'commit') {
+		$a = 0;
+		$first = $i;
+		$s = 'committed';
+	    } elsif ($op eq 'next_instr') {
+		return;
+	    }
+	} elsif ($s eq 'committed') {
+	    if ($op eq 'new_instr') {
+		$new_instr = $args[0];
+		$a = 0;
+		$s = 'right';
+	    } else {
+		return;
+	    }
+	} elsif ($s eq 'right') {
+	    if ($op eq 'store_var_next_arg' && $args[0] == $a) {
+		$a++;
+	    } elsif ($op eq 'end' && $a <= $num_args) {
+		my $name = $gen_opname[$new_instr];
+		my $arity = $gen_arity[$new_instr];
+		my $new_op = make_op("$name/$arity", 'rename', $new_instr);
+		splice @$ref, $first, $i-$first+1, ($new_op);
+		return;
+	    } else {
+		return;
+	    }
+	}
+    }
+}
+
+sub tr_remove_unused {
+    my($ref) = @_;
+    my %used;
+
+    # Collect all used variables.
+    for my $instr (@$ref) {
+	my $uref = $$instr[3];
+	for my $slot (@$uref) {
+	    $used{$slot} = 1;
+	}
+    }
+
+    # Replace 'set_var_next_arg' with 'next_arg' if the variable
+    # is never used.
+    for my $instr (@$ref) {
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+	if ($op eq 'set_var_next_arg') {
+	    my $var = $args[0];
+	    next if $used{$var};
+	    $instr = make_op("$comment (ignored)", 'next_arg');
+	}
+    }
+
+    # Delete a sequence of 'next_arg' instructions when they are
+    # redundant before instructions such as 'commit'.
+    my @opcode;
+    my %ending = (call_end => 1,
+		  commit => 1,
+		  next_instr => 1,
+		  pred => 1,
+		  rename => 1,
+		  keep => 1);
+    for (my $i = 0; $i < @$ref; $i++) {
+	my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($opcode) = @$instr_ref;
+
+	if ($ending{$opcode}) {
+	    my $first = $i;
+	    $first-- while $first > 0 and $opcode[$first-1] eq 'next_arg';
+	    my $n = $i - $first;
+	    splice @$ref, $first, $n;
+	    $i -= $n;
+	}
+	$opcode[$i] = $opcode;
+    }
+}
+
 sub tr_code_len {
     my($sum) = 0;
     my($ref);
@@ -1783,7 +1869,12 @@ sub tr_code_len {
 
 sub make_op {
     my($comment, @op) = @_;
-    [scalar(@op), [@op], $comment];
+    [scalar(@op), [@op], $comment, []];
+}
+
+sub op_slot_usage {
+    my($op_ref, @slots) = @_;
+    $$op_ref[3] = \@slots;
 }
 
 sub is_instr {

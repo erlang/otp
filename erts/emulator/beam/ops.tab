@@ -181,11 +181,6 @@ i_jump_on_val_zero y f I
 i_jump_on_val x f I I
 i_jump_on_val y f I I
 
-jump Target | label Lbl | same_label(Target, Lbl) => label Lbl
-
-is_ne_exact L1 S1 S2 | jump Fail | label L2 | same_label(L1, L2) => \
-  is_eq_exact Fail S1 S2 | label L2
-
 %macro: get_list GetList -pack
 get_list x x x
 get_list x x y
@@ -1355,9 +1350,7 @@ bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
-bs_put_utf16 Fail Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
-
-i_bs_put_utf16 j I s
+bs_put_utf16 j I s
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
@@ -1539,7 +1532,6 @@ gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
 # GCing arithmetic instructions.
 #
 
-gen_plus Fail Live Y=y X=x Dst => i_plus Fail Live X Y Dst
 gen_plus Fail Live S1 S2 Dst => i_plus Fail Live S1 S2 Dst
 
 gen_minus Fail Live S1 S2 Dst => i_minus Fail Live S1 S2 Dst

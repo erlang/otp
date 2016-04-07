@@ -33,7 +33,6 @@ typedef struct gen_op_entry {
    int specific;
    int num_specific;
    int transform;
-   int min_window;
 } GenOpEntry;
 
 extern GenOpEntry gen_opc[];
