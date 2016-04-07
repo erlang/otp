@@ -638,12 +638,21 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 		do {
 		    w = writev(fd, &iov[cnt], b);
 		} while (w < 0 && errno == EINTR);
+		if (w < 0 && errno == EINVAL) {
+		    goto single_write;
+		}
 	    } else
+	    single_write:
 		/* Degenerated io vector - use regular write */
 #endif
 		{
 		    do {
-			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
+			size_t iov_len = iov[cnt].iov_len;
+			size_t limit = 1024*1024*1024; /* 1GB */
+			if (iov_len > limit) {
+			    iov_len = limit;
+			}
+			w = write(fd, iov[cnt].iov_base, iov_len);
 		    } while (w < 0 && errno == EINTR);
 		    ASSERT(w <= iov[cnt].iov_len ||
 			   (w == -1 && errno != EINTR));
