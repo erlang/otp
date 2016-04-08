@@ -46,7 +46,7 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
 
     if (is_nil(A)) {
 	BIF_RET(B);
-    } else if (is_nil(B)) {
+    } else if (is_nil(B) && is_list(A)) {
 	BIF_RET(A);
     }
     i = erts_list_length(A);
