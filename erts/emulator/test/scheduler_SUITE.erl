@@ -876,7 +876,7 @@ get_affinity_mask(_Port, _Status, Affinity) ->
     Affinity.
 
 get_affinity_mask() ->
-    case test_server:os_type() of
+    case os:type() of
 	{unix, linux} ->
 	    case catch open_port({spawn, "taskset -p " ++ os:getpid()},
 				 [exit_status]) of
@@ -1733,7 +1733,7 @@ sched_state([], N, DC, DI) ->
 	{N, DC, DI}
     catch
 	_ : _ ->
-	    ?t:fail({inconsisten_scheduler_state, {N, DC, DI}})
+	    ct:fail({inconsisten_scheduler_state, {N, DC, DI}})
     end;
 sched_state([{normal, _, _, _} = S | Rest], _S, DC, DI) ->
     sched_state(Rest, S, DC, DI);

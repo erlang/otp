@@ -55,21 +55,13 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%                                                                        %%
 
 basic(Cfg) -> drv_case(Cfg).
-
 coalesce(Cfg) -> drv_case(Cfg).
-
 threads(Cfg) -> drv_case(Cfg).
-
 realloc_copy(Cfg) -> drv_case(Cfg).
-
 bucket_index(Cfg) -> drv_case(Cfg).
-
 bucket_mask(Cfg) -> drv_case(Cfg).
-
 rbtree(Cfg) -> drv_case(Cfg).
-
 mseg_clear_cache(Cfg) -> drv_case(Cfg).
-
 cpool(Cfg) -> drv_case(Cfg).
 
 migration(Cfg) ->
@@ -81,7 +73,7 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
 	{unix, _} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
@@ -109,25 +101,26 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     {ok, Node} = start_node(Config, Opts),
     Self = self(),
     Ref = make_ref(),
-    F = fun () ->
-		SI = erlang:system_info({allocator,mseg_alloc}),
-		{erts_mmap,EM} = lists:keyfind(erts_mmap, 1, SI),
-		{supercarrier,SC} = lists:keyfind(supercarrier, 1, EM),
-		{sizes,Sizes} = lists:keyfind(sizes, 1, SC),
-		{free_segs,Segs} = lists:keyfind(free_segs,1,SC),
-		{total,Total} = lists:keyfind(total,1,Sizes),
-		Total = SCS*1024*1024,
+    F = fun() ->
+                SI = erlang:system_info({allocator,mseg_alloc}),
+                {erts_mmap,EM} = lists:keyfind(erts_mmap, 1, SI),
+                {supercarrier,SC} = lists:keyfind(supercarrier, 1, EM),
+                {sizes,Sizes} = lists:keyfind(sizes, 1, SC),
+                {free_segs,Segs} = lists:keyfind(free_segs,1,SC),
+                {total,Total} = lists:keyfind(total,1,Sizes),
+                io:format("Expecting total ~w, got ~w~n", [SCS*1024*1024,Total]),
+                Total = SCS*1024*1024,
 
-		{reserved,Reserved} = lists:keyfind(reserved,1,Segs),
-		true = (Reserved >= SCRFSD),
+                {reserved,Reserved} = lists:keyfind(reserved,1,Segs),
+                true = (Reserved >= SCRFSD),
 
-		case {SCO,lists:keyfind(os,1,EM)} of
-		    {true, false} -> ok;
-		    {false, {os,_}} -> ok
-		end,
+                case {SCO,lists:keyfind(os,1,EM)} of
+                    {true, false} -> ok;
+                    {false, {os,_}} -> ok
+                end,
 
-		Self ! {Ref, ok}
-	end,
+                Self ! {Ref, ok}
+        end,
 
     spawn_link(Node, F),
     Result = receive {Ref, Rslt} -> Rslt end,
@@ -144,7 +137,7 @@ drv_case(Config) ->
     drv_case(Config, one_shot, "").
 
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
 	{Family, _} when Family == unix; Family == win32 ->
 	    {ok, Node} = start_node(Config, NodeOpts),
 	    Self = self(),

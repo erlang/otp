@@ -908,7 +908,7 @@ try_bad_env(Env) ->
 
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({minutes, 2}),
     Vars = case os:type() of
                {win32,_} -> 500;
                _ ->
@@ -1757,7 +1757,7 @@ otp_6224_loop() ->
 
 exit_status_multi_scheduling_block(Config) when is_list(Config) ->
     Repeat = 3,
-    case test_server:os_type() of
+    case os:type() of
         {unix, _} ->
             ct:timetrap({minutes, 2*Repeat}),
             SleepSecs = 6,

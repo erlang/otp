@@ -1034,6 +1034,7 @@ atom_roundtrip(Config) when is_list(Config) ->
 atom_roundtrip_r15b(Config) when is_list(Config) ->
     case test_server:is_release_available("r15b") of
         true ->
+            ct:timetrap({minutes, 6}),
             AtomData = atom_data(),
             verify_atom_data(AtomData),
             {ok, Node} = start_node(Config, [], "r15b"),

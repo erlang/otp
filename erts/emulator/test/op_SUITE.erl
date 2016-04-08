@@ -30,7 +30,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 3}}].
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [bsl_bsr, logical, t_not, relop_simple, relop,
@@ -39,9 +39,16 @@ all() ->
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
     Vs = [unvalue(V) || V <- [-16#8000009-2,-1,0,1,2,73,16#8000000,bad,[]]],
-    Cases = [{Op,X,Y} || Op <- ['bsr','bsl'], X <- Vs, Y <- Vs],
-    run_test_module(Cases, false),
-    {comment,integer_to_list(length(Cases)) ++ " cases"}.
+    %% Try to use less memory by splitting the cases
+
+    Cases1 = [{Op,X,Y} || Op <- ['bsl'], X <- Vs, Y <- Vs],
+    N1 = length(Cases1),
+    run_test_module(Cases1, false),
+
+    Cases2 = [{Op,X,Y} || Op <- ['bsr'], X <- Vs, Y <- Vs],
+    N2 = length(Cases2),
+    run_test_module(Cases2, false),
+    {comment,integer_to_list(N1 + N2) ++ " cases"}.
 
 %% Test the logical operators and internal BIFs.
 logical(Config) when is_list(Config) ->

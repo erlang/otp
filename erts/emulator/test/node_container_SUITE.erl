@@ -28,8 +28,6 @@
 -module(node_container_SUITE).
 -author('rickard.green@uab.ericsson.se').
 
-%-define(line_trace, 1).
-
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
@@ -56,7 +54,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 10}}].
+     {timetrap, {minutes, 12}}].
 
 
 all() -> 
@@ -712,7 +710,7 @@ run_otp_4715(Config) when is_list(Config) ->
 pid_wrap(Config) when is_list(Config) -> pp_wrap(pid).
 
 port_wrap(Config) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
         {unix, _} ->
             pp_wrap(port);
         _ ->
@@ -842,11 +840,10 @@ iter_max_procs(Config) when is_list(Config) ->
     Res = chk_max_proc_line(),
     Res = chk_max_proc_line(),
     done = chk_max_proc_line_until(NoMoreTests, Res),
-    {comment,
-     io_lib:format("max processes = ~p; "
-                   "process line length = ~p",
-                   [element(2, Res), element(1, Res)])}.
-
+    Cmt = io_lib:format("max processes = ~p; "
+                        "process line length = ~p",
+                        [element(2, Res), element(1, Res)]),
+    {comment, lists:flatten(Cmt)}.
 
 max_proc_line(Root, Parent, N) ->
     Me = self(),
