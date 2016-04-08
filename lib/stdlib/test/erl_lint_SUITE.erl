@@ -2703,9 +2703,8 @@ otp_11872(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {error,[{6,erl_lint,{undefined_type,{product,0}}},
-            {8,erl_lint,{undefined_type,{dict,0}}}],
-           [{8,erl_lint,{new_builtin_type,{map,0}}}]} =
+    {errors,[{6,erl_lint,{undefined_type,{product,0}}},
+             {8,erl_lint,{builtin_type,{map,0}}}], []} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3689,7 +3688,7 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {warnings,[{3,erl_lint,{new_builtin_type,{map,0}}}]}}],
+	 {errors,[{3,erl_lint,{builtin_type,{map,0}}}],[]}}],
     [] = run(Config, Ts),
     ok.
 
