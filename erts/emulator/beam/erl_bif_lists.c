@@ -40,32 +40,93 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
     Eterm list;
     Eterm copy;
     Eterm last;
-    size_t need;
-    Eterm* hp;
+    Eterm* hp = NULL;
     Sint i;
 
-    if ((i = erts_list_length(A)) < 0) {
-	BIF_ERROR(p, BADARG);
-    }
-    if (i == 0) {
-	BIF_RET(B);
-    } else if (is_nil(B)) {
-	BIF_RET(A);
+    list = A;
+
+    if (is_nil(list)) {
+        BIF_RET(B);
     }
 
-    need = 2*i;
-    hp = HAlloc(p, need);
-    list = A;
+    if (is_not_list(list)) {
+        BIF_ERROR(p, BADARG);
+    }
+
+    /* optimistic append on heap first */
+
+    if ((i = HeapWordsLeft(p) / 2) < 4) {
+        goto list_tail;
+    }
+
+    hp   = HEAP_TOP(p);
     copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
     list = CDR(list_val(list));
-    hp += 2;
-    i--;
-    while(i--) {
-	Eterm* listp = list_val(list);
-	last = CONS(hp, CAR(listp), make_list(hp+2));
-	list = CDR(listp);
-	hp += 2;
+    hp  += 2;
+    i   -= 2; /* don't use the last 2 words (extra i--;) */
+
+    while(i-- && is_list(list)) {
+        Eterm* listp = list_val(list);
+        last = CONS(hp, CAR(listp), make_list(hp+2));
+        list = CDR(listp);
+        hp += 2;
     }
+
+    /* A is proper and B is NIL return A as-is, don't update HTOP */
+
+    if (is_nil(list) && is_nil(B)) {
+        BIF_RET(A);
+    }
+
+    if (is_nil(list)) {
+        HEAP_TOP(p) = hp;
+        CDR(list_val(last)) = B;
+        BIF_RET(copy);
+    }
+
+list_tail:
+
+    if ((i = erts_list_length(list)) < 0) {
+        BIF_ERROR(p, BADARG);
+    }
+
+    /* remaining list was proper and B is NIL */
+    if (is_nil(B)) {
+        BIF_RET(A);
+    }
+
+    if (hp) {
+        /* Note: fall through case, already written
+         * on the heap.
+         * The last 2 words of the heap is not written yet
+         */
+        Eterm *hp_save = hp;
+        ASSERT(i != 0);
+        HEAP_TOP(p) = hp + 2;
+        if (i == 1) {
+            hp[0] = CAR(list_val(list));
+            hp[1] = B;
+            BIF_RET(copy);
+        }
+        hp   = HAlloc(p, 2*(i - 1));
+        last = CONS(hp_save, CAR(list_val(list)), make_list(hp));
+    } else {
+        hp   = HAlloc(p, 2*i);
+        copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
+        hp  += 2;
+    }
+
+    list = CDR(list_val(list));
+    i--;
+
+    ASSERT(i > -1);
+    while(i--) {
+        Eterm* listp = list_val(list);
+        last = CONS(hp, CAR(listp), make_list(hp+2));
+        list = CDR(listp);
+        hp  += 2;
+    }
+
     CDR(list_val(last)) = B;
     BIF_RET(copy);
 }
