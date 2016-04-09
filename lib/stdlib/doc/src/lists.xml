@@ -262,6 +262,21 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
+      <name name="join" arity="2"/>
+      <fsummary>Insert an element between elements in a list</fsummary>
+      <desc>
+        <p>Inserts <c><anno>Sep</anno></c> between each element in <c><anno>List1</anno></c>. Has no
+          effect on the empty list and on a singleton list. For example:</p>
+        <pre>
+> <input>lists:join(x, [a,b,c]).</input>
+[a,x,b,x,c]
+> <input>lists:join(x, [a]).</input>
+[a]
+> <input>lists:join(x, []).</input>
+[]</pre>
+      </desc>
+    </func>
+    <func>
       <name name="foreach" arity="2"/>
       <fsummary>Apply a function to each element of a list</fsummary>
       <desc>

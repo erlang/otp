@@ -55,6 +55,7 @@
 	 ufunsort_error/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
+	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, hof/1]).
 
@@ -119,7 +120,7 @@ groups() ->
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
-			 filter_partition, suffix, subtract,
+			 filter_partition, suffix, subtract, join,
 			 hof]}
     ].
 
@@ -2411,6 +2412,19 @@ zipwith3(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [b], [])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [a], [], [])),
 
+    ok.
+
+%% Test lists:join/2
+join(Config) when is_list(Config) ->
+    A = [a,b,c],
+    Sep = x,
+    [a,x,b,x,c] = lists:join(Sep, A),
+
+    B = [b],
+    [b] = lists:join(Sep, B),
+
+    C = [],
+    [] = lists:join(Sep, C),
     ok.
 
 %% Test lists:filter/2, lists:partition/2.

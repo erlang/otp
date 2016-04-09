@@ -39,7 +39,8 @@
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
-	 split/2]).
+	 split/2,
+	 join/2]).
 
 %%% BIFs
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
@@ -1438,6 +1439,18 @@ split(N, [H|T], R) ->
     split(N-1, T, [H|R]);
 split(_, [], _) ->
     badarg.
+
+-spec join(Sep, List1) -> List2 when
+      Sep :: T,
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+join(_Sep, []) -> [];
+join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+
+join_prepend(_Sep, []) -> [];
+join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 %%% =================================================================
 %%% Here follows the implementation of the sort functions.
