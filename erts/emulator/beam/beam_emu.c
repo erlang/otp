@@ -702,6 +702,17 @@ void** beam_ops;
     dst[1] = E2;					\
   } while (0)
 
+#define GetTupleElement2Y(Src, Element, D1, D2)		\
+  do {							\
+    Eterm* src;						\
+    Eterm E1, E2;					\
+    src = ADD_BYTE_OFFSET(tuple_val(Src), (Element));	\
+    E1 = src[0];					\
+    E2 = src[1];					\
+    D1 = E1;						\
+    D2 = E2;						\
+  } while (0)
+
 #define GetTupleElement3(Src, Element, Dest)		\
   do {							\
     Eterm* src;						\
