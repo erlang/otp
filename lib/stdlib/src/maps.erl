@@ -28,7 +28,7 @@
 %%% BIFs
 -export([get/2, find/2, from_list/1,
          is_key/2, keys/1, merge/2,
-         new/0, put/3, remove/2,
+         new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
 -spec get(Key,Map) -> Value when
@@ -102,6 +102,13 @@ put(_,_,_) -> erlang:nif_error(undef).
 
 remove(_,_) -> erlang:nif_error(undef).
 
+-spec take(Key,Map1) -> {Value,Map2} | error when
+    Key :: term(),
+    Map1 :: map(),
+    Value :: term(),
+    Map2 :: map().
+
+take(_,_) -> erlang:nif_error(undef).
 
 -spec to_list(Map) -> [{Key,Value}] when
     Map :: map(),

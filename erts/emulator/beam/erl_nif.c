@@ -2443,14 +2443,13 @@ int enif_make_map_remove(ErlNifEnv* env,
 			 Eterm key,
 			 Eterm *map_out)
 {
-    int res;
     if (!is_map(map_in)) {
 	return 0;
     }
     flush_env(env);
-    res = erts_maps_remove(env->proc, key, map_in, map_out);
+    (void) erts_maps_take(env->proc, key, map_in, map_out, NULL);
     cache_env(env);
-    return res;
+    return 1;
 }
 
 int enif_map_iterator_create(ErlNifEnv *env,

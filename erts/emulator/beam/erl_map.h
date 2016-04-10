@@ -82,6 +82,7 @@ struct ErtsEStack_;
 Eterm  erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map);
 int    erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res);
 int    erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res);
+int    erts_maps_take(Process *p, Eterm key, Eterm map, Eterm *res, Eterm *value);
 
 Eterm  erts_hashmap_insert(Process *p, Uint32 hx, Eterm key, Eterm value,
 			   Eterm node, int is_update);
