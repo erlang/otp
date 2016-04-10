@@ -301,6 +301,30 @@ false</code>
 		</func>
 
 		<func>
+			<name name="take" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function removes the <c><anno>Key</anno></c>, if it exists, and its associated value from
+                    <c><anno>Map1</anno></c> and returns a tuple with the removed <c><anno>Value</anno></c> and
+                    the new map <c><anno>Map2</anno></c> without key <c><anno>Key</anno></c>.
+                    If the key does not exist <c>error</c> is returned.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> is not a map.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"a" => "hello", "b" => "world"}.
+#{"a" => "hello", "b" => "world"}
+> maps:take("a",Map).
+{"hello",#{"b" => "world"}}
+> maps:take("does not exist",Map).
+error</code>
+			</desc>
+		</func>
+
+		<func>
 			<name name="size" arity="1"/>
 			<fsummary></fsummary>
 			<desc>
