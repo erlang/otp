@@ -24,6 +24,8 @@
 
 -export([module/2]).
 
+-import(lists, [dropwhile/2]).
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -51,6 +53,16 @@ undo_renames([{call,A,F},return|Is]) ->
     [{call_only,A,F}|undo_renames(Is)];
 undo_renames([{call_ext,A,F},return|Is]) ->
     [{call_ext_only,A,F}|undo_renames(Is)];
+undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
+    %% A minor optimization. Done here because:
+    %%  (1) beam_jump may move or share 'raise' instructions, and that
+    %%      may confuse beam_validator.
+    %%  (2) beam_trim cannot do its optimization if the 'deallocate'
+    %%      instruction after 'raise' has been removed.
+    Is = dropwhile(fun({label,_}) -> false;
+		      (_) -> true
+		   end, Is0),
+    [I|undo_renames(Is)];
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].
