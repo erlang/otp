@@ -61,7 +61,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {timetrap,{seconds,120}}].
 
 all() ->
     [
@@ -90,31 +91,50 @@ pre_post_io(Config) ->
     %%!--------------------------------------------------------------------
 
     spawn(fun() ->
-		  ct:pal("CONTROLLER: Started!", []),
+		  ct:pal("CONTROLLER: Starting test run #1...", []),
 		  %% --- test run 1 ---
-		  ct:sleep(3000),
-		  ct:pal("CONTROLLER: Handle remote events = true", []),
-		  ok = ct_test_support:ct_rpc({cth_log_redirect,
-					       handle_remote_events,
-					       [true]}, Config),
-		  ct:sleep(2000),
-		  ct:pal("CONTROLLER: Proceeding with test run #1!", []),
+		  try_loop(ct_test_support, ct_rpc, [{cth_log_redirect,
+						      handle_remote_events,
+						      [true]}, Config], 3000),
+		  CTLoggerPid1 = ct_test_support:ct_rpc({erlang,whereis,
+							[ct_logs]}, Config),
+		  ct:pal("CONTROLLER: Logger = ~w~nHandle remote events = true",
+			 [CTLoggerPid1]),
+		  ct:sleep(5000),
+		  ct:pal("CONTROLLER: Proceeding with test run #1...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  ct:sleep(6000),
-		  ct:pal("CONTROLLER: Proceeding with shutdown #1!", []),
+		  ct:pal("CONTROLLER: Proceeding with shutdown #1...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
+		  try_loop(fun() ->
+				   false = ct_test_support:ct_rpc({erlang,
+								    is_process_alive,
+								    [CTLoggerPid1]},
+								   Config)
+			   end, 3000),
+		  ct:pal("CONTROLLER: Shutdown #1 complete!", []),
+		  ct:pal("CONTROLLER: Starting test run #2...", []),
 		  %% --- test run 2 ---
-		  ct:sleep(3000),
-		  ct:pal("CONTROLLER: Handle remote events = true", []),
-		  ok = ct_test_support:ct_rpc({cth_log_redirect,
-					       handle_remote_events,
-					       [true]}, Config),
-		  ct:sleep(2000),
-		  ct:pal("CONTROLLER: Proceeding with test run #2!", []),
+		  try_loop(ct_test_support, ct_rpc, [{cth_log_redirect,
+						      handle_remote_events,
+						      [true]}, Config], 3000),
+		  CTLoggerPid2 = ct_test_support:ct_rpc({erlang,whereis,
+							[ct_logs]}, Config),
+		  ct:pal("CONTROLLER: Logger = ~w~nHandle remote events = true",
+			 [CTLoggerPid2]),
+		  ct:sleep(5000),
+		  ct:pal("CONTROLLER: Proceeding with test run #2...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  ct:sleep(6000),
-		  ct:pal("CONTROLLER: Proceeding with shutdown #2!", []),
-		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config)
+		  ct:pal("CONTROLLER: Proceeding with shutdown #2...", []),
+		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
+		  try_loop(fun() ->
+				   false = ct_test_support:ct_rpc({erlang,
+								   is_process_alive,
+								   [CTLoggerPid2]},
+								  Config)
+			   end, 3000),
+		  ct:pal("CONTROLLER: Shutdown #2 complete!", [])
 	  end),
     ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
@@ -157,7 +177,7 @@ pre_post_io(Config) ->
 				      Counters
 			      end, {pre,0,0,0,0}, Ts),
 	      [_|Counters] = tuple_to_list(PrePostIOEntries),
-	      ct:log("Entries in the Pre/Post Test IO Log: ~p", [Counters]),
+	      ct:pal("Entries in the Pre/Post Test IO Log: ~w", [Counters]),
 	      case [C || C <- Counters, C < 2] of
 		  [] ->
 		      ok;
@@ -183,7 +203,7 @@ pre_post_io(Config) ->
 				      [LogN,ErrN+1];
 				 (_, Counters) -> Counters
 			      end, [0,0], Ts),
-	      ct:log("Entries in the Unexpected IO Log: ~p", [UnexpIOEntries]),
+	      ct:log("Entries in the Unexpected IO Log: ~w", [UnexpIOEntries]),
 	      case [N || N <- UnexpIOEntries, N < 2] of
 		  [] ->
 		      ok;
@@ -207,6 +227,38 @@ setup(Test, Config) ->
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
+
+try_loop(_Fun, 0) ->
+    ct:pal("WARNING! Fun never succeeded!", []),
+    gave_up;
+try_loop(Fun, N) ->
+    try Fun() of
+	{error,_} ->
+	    timer:sleep(10),
+	    try_loop(Fun, N-1);
+	Result ->
+	    Result
+    catch
+	_:_What ->
+	    timer:sleep(10),
+	    try_loop(Fun, N-1)
+    end.
+
+try_loop(M, F, _A, 0) ->
+    ct:pal("WARNING! ~w:~w never succeeded!", [M,F]),
+    gave_up;
+try_loop(M, F, A, N) ->
+    try apply(M, F, A) of
+	{error,_} ->
+	    timer:sleep(10),
+	    try_loop(M, F, A, N-1);
+	Result ->
+	    Result
+    catch
+	_:_ ->
+	    timer:sleep(10),
+	    try_loop(M, F, A, N-1)
+    end.
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS

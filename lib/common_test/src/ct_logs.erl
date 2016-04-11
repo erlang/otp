@@ -728,7 +728,6 @@ logger(Parent, Mode, Verbosity) ->
 	   end
      end || {Cat,VLvl} <- Verbosity],
     io:nl(CtLogFd),
-
     logger_loop(#logger_state{parent=Parent,
 			      log_dir=AbsDir,
 			      start_time=Time,
