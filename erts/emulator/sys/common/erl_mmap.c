@@ -299,7 +299,7 @@ struct ErtsMemMapper_ {
     int supercarrier;
     int no_os_mmap;
     /*
-     * Super unaligend area is located above super aligned
+     * Super unaligned area is located above super aligned
      * area. That is, `sa.bot` is beginning of the super
      * carrier, `sua.top` is the end of the super carrier,
      * and sa.top and sua.bot moves towards eachother.

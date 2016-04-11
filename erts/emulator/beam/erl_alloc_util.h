@@ -72,6 +72,7 @@ typedef struct {
     void* (*mseg_alloc)(Allctr_t*, Uint *size_p, Uint flags);
     void* (*mseg_realloc)(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
     void  (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
+    ErtsMemMapper *mseg_mmapper;
 #endif
     void* (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
     void* (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);
@@ -205,9 +206,9 @@ void* erts_alcu_literal_32_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uin
 void  erts_alcu_literal_32_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
 
 # elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-void* erts_alcu_literal_64_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
-void* erts_alcu_literal_64_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
-void  erts_alcu_literal_64_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
+void* erts_alcu_mmapper_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
+void* erts_alcu_mmapper_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+void  erts_alcu_mmapper_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
 # endif
 #endif /* HAVE_ERTS_MSEG */
 
@@ -601,6 +602,7 @@ struct Allctr_t_ {
     void*               (*mseg_alloc)(Allctr_t*, Uint *size_p, Uint flags);
     void*               (*mseg_realloc)(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
     void                (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
+    ErtsMemMapper       *mseg_mmapper;
 #endif
     void*               (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
     void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);

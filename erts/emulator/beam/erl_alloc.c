@@ -329,9 +329,10 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.sys_dealloc  = &erts_alcu_literal_32_sys_dealloc;
 #elif defined(ARCH_64)
 # ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-    ip->init.util.mseg_alloc    = &erts_alcu_literal_64_mseg_alloc;
-    ip->init.util.mseg_realloc  = &erts_alcu_literal_64_mseg_realloc;
-    ip->init.util.mseg_dealloc  = &erts_alcu_literal_64_mseg_dealloc;
+    ip->init.util.mseg_alloc    = &erts_alcu_mmapper_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_mmapper_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_mmapper_mseg_dealloc;
+    ip->init.util.mseg_mmapper  = &erts_literal_mmapper;
 # endif
 #else
 # error Unknown architecture

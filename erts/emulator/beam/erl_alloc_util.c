@@ -898,8 +898,9 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 
 #elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 
+/* Used by literal allocator that has its own mmapper (super carrier) */
 void*
-erts_alcu_literal_64_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void* res;
     UWord size = (UWord) *size_p;
@@ -907,33 +908,33 @@ erts_alcu_literal_64_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
     if (flags & ERTS_MSEG_FLG_2POW)
         mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    res = erts_mmap(&erts_literal_mmapper, mmap_flags, &size);
+    res = erts_mmap(allctr->mseg_mmapper, mmap_flags, &size);
     *size_p = (Uint)size;
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
 
 void*
-erts_alcu_literal_64_mseg_realloc(Allctr_t *allctr, void *seg,
+erts_alcu_mmapper_mseg_realloc(Allctr_t *allctr, void *seg,
                                Uint old_size, Uint *new_size_p)
 {
     void *res;
     UWord new_size = (UWord) *new_size_p;
-    res = erts_mremap(&erts_literal_mmapper, ERTS_MSEG_FLG_NONE, seg, old_size, &new_size);
+    res = erts_mremap(allctr->mseg_mmapper, ERTS_MSEG_FLG_NONE, seg, old_size, &new_size);
     *new_size_p = (Uint) new_size;
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
 
 void
-erts_alcu_literal_64_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
+erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
                                Uint flags)
 {
     Uint32 mmap_flags = ERTS_MMAPFLG_SUPERCARRIER_ONLY;
     if (flags & ERTS_MSEG_FLG_2POW)
         mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    erts_munmap(&erts_literal_mmapper, mmap_flags, seg, (UWord)size);
+    erts_munmap(allctr->mseg_mmapper, mmap_flags, seg, (UWord)size);
     INC_CC(allctr->calls.mseg_dealloc);
 }
 #endif /* ARCH_64 && ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
@@ -6127,6 +6128,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->mseg_alloc   = init->mseg_alloc;
         allctr->mseg_realloc = init->mseg_realloc;
         allctr->mseg_dealloc = init->mseg_dealloc;
+        allctr->mseg_mmapper = init->mseg_mmapper;
     }
     else {
         ASSERT(!init->mseg_realloc && !init->mseg_dealloc);
