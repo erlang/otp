@@ -48,6 +48,7 @@
          t_bif_map_new/1,
          t_bif_map_put/1,
          t_bif_map_remove/1,
+         t_bif_map_take/1, t_bif_map_take_large/1,
          t_bif_map_update/1,
          t_bif_map_values/1,
          t_bif_map_to_list/1,
@@ -112,7 +113,9 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
           t_bif_map_keys, t_bif_map_merge, t_bif_map_new,
           t_bif_map_put,
-          t_bif_map_remove, t_bif_map_update,
+          t_bif_map_remove,
+          t_bif_map_take, t_bif_map_take_large,
+          t_bif_map_update,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
 
@@ -1970,7 +1973,7 @@ t_bif_map_remove(Config) when is_list(Config) ->
     0  = erlang:map_size(maps:remove(some_key, #{})),
 
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
-	4 => number, 18446744073709551629 => wat},
+            4 => number, 18446744073709551629 => wat},
 
     M1 = maps:remove("hi", M0),
     true = is_members([4,18446744073709551629,int,<<"key">>],maps:keys(M1)),
@@ -1999,10 +2002,71 @@ t_bif_map_remove(Config) when is_list(Config) ->
 
     %% error case
     do_badmap(fun(T) ->
-		      {'EXIT',{{badmap,T},[{maps,remove,_,_}|_]}} =
-	(catch maps:remove(a, T))
+		      {'EXIT',{{badmap,T},[{maps,remove,_,_}|_]}} = (catch maps:remove(a, T))
 	      end),
-     ok.
+    ok.
+
+t_bif_map_take(Config) when is_list(Config) ->
+    error = maps:take(some_key, #{}),
+
+    M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
+            4 => number, 18446744073709551629 => wat},
+
+    5 = maps:size(M0),
+    {"hello", M1} = maps:take("hi", M0),
+    true = is_members([4,18446744073709551629,int,<<"key">>],maps:keys(M1)),
+    true = is_members([number,wat,3,<<"value">>],maps:values(M1)),
+    error = maps:take("hi", M1),
+    4 = maps:size(M1),
+
+    {3, M2} = maps:take(int, M1),
+    true = is_members([4,18446744073709551629,<<"key">>],maps:keys(M2)),
+    true = is_members([number,wat,<<"value">>],maps:values(M2)),
+    error = maps:take(int, M2),
+    3 = maps:size(M2),
+
+    {<<"value">>,M3} = maps:take(<<"key">>, M2),
+    true = is_members([4,18446744073709551629],maps:keys(M3)),
+    true = is_members([number,wat],maps:values(M3)),
+    error = maps:take(<<"key">>, M3),
+    2 = maps:size(M3),
+
+    {wat,M4} = maps:take(18446744073709551629, M3),
+    true = is_members([4],maps:keys(M4)),
+    true = is_members([number],maps:values(M4)),
+    error = maps:take(18446744073709551629, M4),
+    1 = maps:size(M4),
+
+    {number,M5} = maps:take(4, M4),
+    [] = maps:keys(M5),
+    [] = maps:values(M5),
+    error = maps:take(4, M5),
+    0 = maps:size(M5),
+
+    {wat,#{ "hi" := "hello", int := 3, 4 := number, <<"key">> := <<"value">>}} = maps:take(18446744073709551629,M0),
+
+    %% error case
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{maps,take,_,_}|_]}} = (catch maps:take(a, T))
+	      end),
+    ok.
+
+t_bif_map_take_large(Config) when is_list(Config) ->
+    KVs = [{{erlang:md5(<<I:64>>),I}, I}|| I <- lists:seq(1,500)],
+    M0 = maps:from_list(KVs),
+    ok = bif_map_take_all(KVs, M0),
+    ok.
+
+bif_map_take_all([], M0) ->
+    0 = maps:size(M0),
+    ok;
+bif_map_take_all([{K,V}|KVs],M0) ->
+    {ok,V} = maps:find(K,M0),
+    {V,M1} = maps:take(K,M0),
+    error  = maps:find(K,M1),
+    error  = maps:take(K,M1),
+    bif_map_take_all(KVs,M1).
+
 
 t_bif_map_update(Config) when is_list(Config) ->
     M0 = #{ "hi" => "hello", int => 3, <<"key">> => <<"value">>,
