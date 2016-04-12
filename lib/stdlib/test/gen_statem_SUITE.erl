@@ -1305,10 +1305,10 @@ terminate(_Reason, _State, _Data) ->
 
 idle(cast, {connect,Pid}, Data) ->
     Pid ! accept,
-    {next_state,wfor_conf,Data};
+    {next_state,wfor_conf,Data,infinity}; % NoOp timeout just to test API
 idle({call,From}, connect, Data) ->
     gen_statem:reply(From, accept),
-    {next_state,wfor_conf,Data};
+    {next_state,wfor_conf,Data,infinity}; % NoOp timeout just to test API
 idle(cast, badreturn, _Data) ->
     badreturn;
 idle({call,_From}, badreturn, _Data) ->
@@ -1343,13 +1343,15 @@ idle(Type, Content, Data) ->
 
 timeout(timeout, idle, {From,Time}) ->
     TRef = erlang:start_timer(Time, self(), ok),
+    {keep_state,{From,TRef},0}; % Immediate timeout 0
+timeout(timeout, 0, {From,TRef}) ->
     {next_state,timeout2,{From,TRef},
      [{timeout,1,should_be_cancelled},
       postpone]}; % Should cancel state timeout
 timeout(_, _, _) ->
     keep_state_and_data.
 
-timeout2(timeout, idle, _) ->
+timeout2(timeout, 0, _) ->
     keep_state_and_data;
 timeout2(timeout, Reason, _) ->
     {stop,Reason};

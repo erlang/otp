@@ -942,46 +942,6 @@ loop_event_actions(
   State, NextState, NewData, [Action|Actions],
   Postpone, Hibernate, Timeout, NextEvents) ->
     case Action of
-	%% Actions that set options
-	postpone ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      true, Hibernate, Timeout, NextEvents);
-	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      NewPostpone, Hibernate, Timeout, NextEvents);
-	{postpone,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
-	hibernate ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      Postpone, true, Timeout, NextEvents);
-	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      Postpone, NewHibernate, Timeout, NextEvents);
-	{hibernate,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
-	{timeout,infinity,_} -> % Clear timer - it will never trigger
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      Postpone, Hibernate, undefined, NextEvents);
-	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
-	    loop_event_actions(
-	      Parent, Debug, S, Events, Event,
-	      State, NextState, NewData, Actions,
-	      Postpone, Hibernate, NewTimeout, NextEvents);
-	{timeout,_,_} ->
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, S, [Event|Events]);
 	%% Actual actions
 	{reply,From,Reply} ->
 	    case from(From) of
@@ -1007,6 +967,57 @@ loop_event_actions(
 		    ?TERMINATE(
 		       error, {bad_action,Action}, Debug, S, [Event|Events])
 	    end;
+	%% Actions that set options
+	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      NewPostpone, Hibernate, Timeout, NextEvents);
+	{postpone,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	postpone ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      true, Hibernate, Timeout, NextEvents);
+	{hibernate,NewHibernate} when is_boolean(NewHibernate) ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, NewHibernate, Timeout, NextEvents);
+	{hibernate,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	hibernate ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, true, Timeout, NextEvents);
+	{timeout,infinity,_} -> % Clear timer - it will never trigger
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, Hibernate, undefined, NextEvents);
+	{timeout,Time,_} = NewTimeout when is_integer(Time), Time >= 0 ->
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, Hibernate, NewTimeout, NextEvents);
+	{timeout,_,_} ->
+	    ?TERMINATE(
+	       error, {bad_action,Action}, Debug, S, [Event|Events]);
+	infinity -> % Clear timer - it will never trigger
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, Hibernate, undefined, NextEvents);
+	Time when is_integer(Time), Time >= 0 ->
+	    NewTimeout = {timeout,Time,Time},
+	    loop_event_actions(
+	      Parent, Debug, S, Events, Event,
+	      State, NextState, NewData, Actions,
+	      Postpone, Hibernate, NewTimeout, NextEvents);
 	_ ->
 	    ?TERMINATE(
 	       error, {bad_action,Action}, Debug, S, [Event|Events])
