@@ -237,8 +237,8 @@ static const struct in6_addr in6addr_loopback =
 #define EPMD_TRUE 1
 
 /* If no activity we let select() return every IDLE_TIMEOUT second
-   A file descriptor that are idle for CLOSE_TIMEOUT seconds and
-   isn't a ALIVE socket is probably hanging and we close it */
+   A file descriptor that has been idle for CLOSE_TIMEOUT seconds and
+   isn't an ALIVE socket has probably hanged and should be closed */
 
 #define IDLE_TIMEOUT 5
 #define CLOSE_TIMEOUT 60
