@@ -61,7 +61,7 @@ void *erts_mmap(ErtsMemMapper*, Uint32 flags, UWord *sizep);
 void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord size);
 void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
 int erts_mmap_in_supercarrier(ErtsMemMapper*, void *ptr);
-void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*);
+void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*, int executable);
 struct erts_mmap_info_struct
 {
     UWord sizes[6];
