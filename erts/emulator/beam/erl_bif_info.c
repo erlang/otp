@@ -22,6 +22,7 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"

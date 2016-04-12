@@ -356,6 +356,12 @@ char* erts_literals_start;
 UWord erts_literals_size;
 #endif
 
+#ifdef ERTS_ALC_A_EXEC
+ErtsMemMapper erts_exec_mmapper;
+#endif
+
+
+
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
     do {									\
 	mm->size.supercarrier.used.total += (SZ);			\
@@ -1351,10 +1357,39 @@ os_unreserve_physical(char *ptr, UWord size)
 }
 
 static void *
-os_mmap_virtual(char *ptr, UWord size)
+os_mmap_virtual(char *ptr, UWord size, int exec)
 {
-    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_VIRTUAL_PROT,
-		     ERTS_MMAP_VIRTUAL_FLAGS, ERTS_MMAP_FD, 0);
+    int flags = ERTS_MMAP_VIRTUAL_FLAGS;
+    void* res;
+
+#ifdef ERTS_ALC_A_EXEC
+    if (exec) {
+        ASSERT(!ptr);
+        /* OTP-19.0: Nice hack below cut-and-pasted from hipe_amd64.c */
+
+#  ifdef MAP_32BIT
+        /* If we got MAP_32BIT (Linux), then use that to ask for low memory */
+        flags |= MAP_32BIT;
+#  else
+        /* FreeBSD doesn't have MAP_32BIT, and it doesn't respect
+           a plain map_hint (returns high mappings even though the
+           hint refers to a free area), so we have to use both map_hint
+           and MAP_FIXED to get addresses below the 2GB boundary.
+           This is even worse than the Linux/ppc64 case.
+           Similarly, Solaris 10 doesn't have MAP_32BIT,
+           and it doesn't respect a plain map_hint. */
+        ptr = (char*)(512*1024*1024); /* 0.5GB */
+
+#    if defined(__FreeBSD__) || defined(__sun__)
+        flags |= MAP_FIXED;
+#    endif
+#  endif /* !MAP_32BIT */
+    }
+#else /* !ERTS_ALC_A_EXEC */
+    ASSERT(!exec);
+#endif
+    res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_VIRTUAL_PROT,
+               flags, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
 	return NULL;
     return res;
@@ -2177,7 +2212,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	ptr = (char *) ERTS_PAGEALIGNED_CEILING(init->virtual_range.start);
 	end = (char *) ERTS_PAGEALIGNED_FLOOR(init->virtual_range.end);
 	sz = end - ptr;
-	start = os_mmap_virtual(ptr, sz);
+	start = os_mmap_virtual(ptr, sz, executable);
 	if (!start || start > ptr || start >= end)
 	    erts_exit(1,
 		     "erts_mmap: Failed to create virtual range for super carrier\n");
@@ -2202,7 +2237,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	sz = ERTS_PAGEALIGNED_CEILING(init->scs);
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
 	if (!init->scrpm) {
-	    start = os_mmap_virtual(NULL, sz);
+	    start = os_mmap_virtual(NULL, sz, executable);
 	    mm->reserve_physical = os_reserve_physical;
 	    mm->unreserve_physical = os_unreserve_physical;
 	    virtual_map = 1;
