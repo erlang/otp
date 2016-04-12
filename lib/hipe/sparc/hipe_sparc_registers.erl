@@ -86,6 +86,8 @@
 -define(I7, 31).
 -define(LAST_PRECOLOURED,31).	% must handle both GRP and FPR ranges
 
+-define(RA, ?O7).
+
 -define(ARG0, ?O1).
 -define(ARG1, ?O2).
 -define(ARG2, ?O3).
@@ -174,7 +176,7 @@ stack_pointer() -> ?STACK_POINTER.
 
 proc_pointer() -> ?PROC_POINTER.
 
-return_address() -> ?O7.
+return_address() -> ?RA.
 
 g0() -> ?G0.
 
@@ -283,7 +285,9 @@ call_clobbered() ->		% does the RA strip the type or not?
   ].
 
 tailcall_clobbered() ->		% tailcall crapola needs one temp
-  [{?TEMP1,tagged},{?TEMP1,untagged}].
+  [{?TEMP1,tagged},{?TEMP1,untagged}
+  ,{?RA,tagged},{?RA,untagged}
+  ].
 
 live_at_return() ->
   [{?HEAP_POINTER,untagged},
