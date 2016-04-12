@@ -625,8 +625,8 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
-    if (modp && modp->curr.code_hdr) {
-	BIF_TRAP_CODE_PTR_0(BIF_P, modp->curr.code_hdr->on_load_function_ptr);
+    if (modp && modp->old.code_hdr) {
+	BIF_TRAP_CODE_PTR_0(BIF_P, modp->old.code_hdr->on_load_function_ptr);
     }
     else {
 	BIF_ERROR(BIF_P, BADARG);
@@ -651,14 +651,14 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
-    if (!modp || !modp->curr.code_hdr) {
+    if (!modp || !modp->old.code_hdr) {
     error:
 	erts_smp_thr_progress_unblock();
         erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (modp->curr.code_hdr->on_load_function_ptr == NULL) {
+    if (modp->old.code_hdr->on_load_function_ptr == NULL) {
 	goto error;
     }
     if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
@@ -667,44 +667,55 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
     if (BIF_ARG_2 == am_true) {
 	int i;
+	struct erl_module_instance t;
+
+	/*
+	 * Swap old and new code.
+	 */
+	t = modp->curr;
+	modp->curr = modp->old;
+	modp->old = t;
 
 	/*
 	 * The on_load function succeded. Fix up export entries.
 	 */
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i,code_ix);
-	    if (ep != NULL &&
-		ep->code[0] == BIF_ARG_1 &&
-		ep->code[4] != 0) {
+	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+		continue;
+	    }
+	    if (ep->code[4] != 0) {
 		ep->addressv[code_ix] = (void *) ep->code[4];
 		ep->code[4] = 0;
+	    } else {
+		if (ep->addressv[code_ix] == ep->code+3 &&
+		    ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		}
+		ep->addressv[code_ix] = ep->code+3;
+		ep->code[3] = (BeamInstr) em_call_error_handler;
 	    }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
 	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
-	BeamInstr* code;
-	BeamInstr* end;
+	int i;
 
 	/*
-	 * The on_load function failed. Remove the loaded code.
-	 * This is an combination of delete and purge. We purge
-	 * the current code; the old code is not touched.
+	 * The on_load function failed. Remove references to the
+	 * code that is about to be purged from the export entries.
 	 */
-	erts_total_code_size -= modp->curr.code_length;
-	code = (BeamInstr*) modp->curr.code_hdr;
-	end = (BeamInstr *) ((char *)code + modp->curr.code_length);
-	erts_cleanup_funs_on_purge(code, end);
-	beam_catches_delmod(modp->curr.catches, code, modp->curr.code_length,
-			    erts_active_code_ix());
-        if (modp->curr.code_hdr->literals_start) {
-            erts_free(ERTS_ALC_T_LITERAL, modp->curr.code_hdr->literals_start);
-        }
-	erts_free(ERTS_ALC_T_CODE, modp->curr.code_hdr);
-	modp->curr.code_hdr = NULL;
-	modp->curr.code_length = 0;
-	modp->curr.catches = BEAM_CATCHES_NIL;
-	erts_remove_from_ranges(code);
+
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i,code_ix);
+	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+		continue;
+	    }
+	    if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		continue;
+	    }
+	    ep->code[4] = 0;
+	}
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);

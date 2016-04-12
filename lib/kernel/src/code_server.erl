@@ -1351,6 +1351,7 @@ finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db) ->
     Res = case Keep of
 	      false ->
 		  _ = finish_on_load_report(Mod, OnLoadRes),
+		  _ = erts_code_purger:purge(Mod),
 		  {error,on_load_failure};
 	      true ->
 		  ets:insert(Db, {Mod,File}),

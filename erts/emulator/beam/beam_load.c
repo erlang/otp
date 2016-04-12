@@ -32,6 +32,7 @@
 #include "bif.h"
 #include "external.h"
 #include "beam_load.h"
+#include "beam_bp.h"
 #include "big.h"
 #include "erl_bits.h"
 #include "beam_catches.h"
@@ -766,7 +767,7 @@ Eterm
 erts_finish_loading(Binary* magic, Process* c_p,
 		    ErtsProcLocks c_p_locks, Eterm* modp)
 {
-    Eterm retval;
+    Eterm retval = NIL;
     LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
     Module* mod_tab_p;
     struct erl_module_instance* inst_p;
@@ -779,16 +780,52 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
-
     /*
      * Make current code for the module old and insert the new code
      * as current.  This will fail if there already exists old code
      * for the module.
      */
 
+    mod_tab_p = erts_put_module(stp->module);
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    retval = beam_make_current_old(c_p, c_p_locks, stp->module);
-    ASSERT(retval == NIL);
+    if (!stp->on_load) {
+	/*
+	 * Normal case -- no -on_load() function.
+	 */
+	retval = beam_make_current_old(c_p, c_p_locks, stp->module);
+	ASSERT(retval == NIL);
+    } else {
+	ErtsCodeIndex code_ix = erts_staging_code_ix();
+	Eterm module = stp->module;
+	int i;
+
+	/*
+	 * There is an -on_load() function. We will keep the current
+	 * code, but we must turn off any tracing.
+	 */
+
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i, code_ix);
+	    if (ep == NULL || ep->code[0] != module) {
+		continue;
+	    }
+	    if (ep->addressv[code_ix] == ep->code+3) {
+		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		} else if (ep->code[3] ==
+			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
+		    erts_clear_export_break(mod_tab_p, ep->code+3);
+		    ep->addressv[code_ix] = (BeamInstr *) ep->code[4];
+		    ep->code[4] = 0;
+		}
+		ASSERT(ep->code[4] == 0);
+	    }
+	}
+	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
+	ASSERT(mod_tab_p->curr.num_traced_exports == 0);
+    }
 
     /*
      * Update module table.
@@ -796,8 +833,11 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     size = stp->loaded_size;
     erts_total_code_size += size;
-    mod_tab_p = erts_put_module(stp->module);
-    inst_p = &mod_tab_p->curr;
+    if (stp->on_load) {
+	inst_p = &mod_tab_p->old;
+    } else {
+	inst_p = &mod_tab_p->curr;
+    }
     inst_p->code_hdr = stp->hdr;
     inst_p->code_length = size;
 
@@ -4757,10 +4797,10 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	    ep->addressv[erts_staging_code_ix()] = address;
 	} else {
 	    /*
-	     * Don't make any of the exported functions
-	     * callable yet.
+	     * on_load: Don't make any of the exported functions
+	     * callable yet. Keep any function in the current
+	     * code callable.
 	     */
-	    ep->addressv[erts_staging_code_ix()] = ep->code+3;
 	    ep->code[4] = (BeamInstr) address;
 	}
     }
