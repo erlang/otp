@@ -110,7 +110,7 @@ stack_seq(Config) when is_list(Config) ->
     Acc1 = TS1 - TS0,
     Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc1, Acc2]),
-    {comment, io_lib:format("~p times slower", [Acc1/Acc2])}.
+    {comment, io_lib:format("~p times slower", [divide(Acc1,Acc2)])}.
 
 %%%---------------------------------------------------------------------
 
@@ -158,7 +158,7 @@ tail_seq(Config) when is_list(Config) ->
     Acc1 = TS1 - TS0,
     Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
-    {comment, io_lib:format("~p times slower", [Acc2/Acc1])}.
+    {comment, io_lib:format("~p times slower", [divide(Acc2,Acc1)])}.
 
 %%%---------------------------------------------------------------------
 
@@ -216,7 +216,7 @@ do_create_file_slow(Config) ->
     Acc1 = TS1 - TS0,
     Acc3 = TS3 - TS2,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
-    {comment, io_lib:format("~p times slower", [Acc3/Acc1])}.
+    {comment, io_lib:format("~p times slower", [divide(Acc3,Acc1)])}.
 
 
 
@@ -288,7 +288,7 @@ spawn_simple(Config) when is_list(Config) ->
     Acc1 = TS1 - TS0,
     Acc2 = TS2 - TS1,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc2, Acc1]),
-    {comment, io_lib:format("~p times slower", [Acc2/Acc1])}.
+    {comment, io_lib:format("~p times slower", [divide(Acc2,Acc1)])}.
 
 
 spawn_simple_test(Start, Stop, Succ) ->
@@ -367,7 +367,7 @@ imm_tail_seq(Config) when is_list(Config) ->
     io:format("~p (plain), ~p (eprof), ~p (fprof), ~p (cpu)~n",
               [Acc1/1000, Acc3/1000, Acc5/1000, Acc/1000]),
     {comment, io_lib:format("~p/~p (fprof/eprof) times slower", 
-                            [Acc5/Acc1, Acc3/Acc1])}.
+                            [divide(Acc5,Acc1), divide(Acc3,Acc1)])}.
 
 %%%---------------------------------------------------------------------
 
@@ -413,7 +413,7 @@ imm_create_file_slow(Config) when is_list(Config) ->
     Acc1 = TS1 - TS0,
     Acc3 = TS3 - TS2,
     io:format("ts:~w, fprof:~w, bare:~w.~n", [Acc, Acc3, Acc1]),
-    {comment, io_lib:format("~p times slower", [Acc3/Acc1])}.
+    {comment, io_lib:format("~p times slower", [divide(Acc3,Acc1)])}.
 
 %%%---------------------------------------------------------------------
 
@@ -471,7 +471,7 @@ imm_compile(Config) when is_list(Config) ->
     io:format("~p (plain), ~p (eprof), ~p (fprof), ~p(cpu)~n",
               [Acc1/1000, Acc3/1000, Acc5/1000, Acc/1000]),
     {comment, io_lib:format("~p/~p (fprof/eprof) times slower", 
-                            [Acc5/Acc1, Acc3/Acc1])}.
+                            [divide(Acc5,Acc1), divide(Acc3,Acc1)])}.
 
 %%%---------------------------------------------------------------------
 
@@ -518,8 +518,7 @@ cpu_create_file_slow(Config) when is_list(Config) ->
             file:delete(AnalysisFile),
             Acc1 = TS1 - TS0,
             io:format("cpu_ts:~w, fprof:~w~n", [Acc, Acc1]),
-            {comment, io_lib:format("~p% cpu utilization",
-                                    [100*Acc/Acc1])};
+            {comment, io_lib:format("~p% cpu utilization", [100*divide(Acc,Acc1)])};
         {'EXIT', not_supported} ->
             case {os:type(), os:version()} of
                 {{unix, sunos}, {Major, Minor, _}}
@@ -1146,3 +1145,6 @@ m1000(undefined) ->
     undefined;
 m1000(X) ->
     round(X*1000).
+
+divide(_,0) -> inf;
+divide(A,B) -> A / B.
