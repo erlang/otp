@@ -48,6 +48,24 @@ define(NR_ARG_REGS,3)dnl admissible values are 0 to 6, inclusive
 `#define TEMP_LR	r8'
 
 /*
+ * Debugging macros
+ *
+ * Keeps track of whether context has been saved in the debug build, allowing us
+ * to detect when the garbage collector is called when it shouldn't.
+ */
+`#ifdef DEBUG
+#  define SET_GC_UNSAFE(SCRATCH)	\
+	mov	SCRATCH, #1;		\
+	str	SCRATCH, [P, #P_GCUNSAFE]
+#  define SET_GC_SAFE(SCRATCH)		\
+	mov	SCRATCH, #0;		\
+	str	SCRATCH, [P, #P_GCUNSAFE]
+#else
+#  define SET_GC_UNSAFE(SCRATCH)
+#  define SET_GC_SAFE(SCRATCH)
+#endif'
+
+/*
  * Context switching macros.
  *
  * RESTORE_CONTEXT and RESTORE_CONTEXT_QUICK do not affect
@@ -59,12 +77,14 @@ define(NR_ARG_REGS,3)dnl admissible values are 0 to 6, inclusive
 `#define RESTORE_CONTEXT_QUICK	\
 	mov	lr, TEMP_LR'
 
-`#define SAVE_CACHED_STATE	\
-	str	HP, [P, #P_HP];	\
-	str	NSP, [P, #P_NSP]'
+`#define SAVE_CACHED_STATE		\
+	str	HP, [P, #P_HP];		\
+	str	NSP, [P, #P_NSP];	\
+	SET_GC_SAFE(HP)'
 
-`#define RESTORE_CACHED_STATE	\
-	ldr	HP, [P, #P_HP];	\
+`#define RESTORE_CACHED_STATE		\
+	SET_GC_UNSAFE(HP);		\
+	ldr	HP, [P, #P_HP];		\
 	ldr	NSP, [P, #P_NSP]'
 
 `#define SAVE_CONTEXT_BIF	\
@@ -75,12 +95,14 @@ define(NR_ARG_REGS,3)dnl admissible values are 0 to 6, inclusive
 	ldr	HP, [P, #P_HP]'
 
 `#define SAVE_CONTEXT_GC	\
+	SET_GC_SAFE(TEMP_LR);	\
 	mov	TEMP_LR, lr;	\
 	str	lr, [P, #P_NRA];	\
 	str	NSP, [P, #P_NSP];	\
 	str	HP, [P, #P_HP]'
 
 `#define RESTORE_CONTEXT_GC	\
+	SET_GC_UNSAFE(HP);	\
 	ldr	HP, [P, #P_HP]'
 
 /*

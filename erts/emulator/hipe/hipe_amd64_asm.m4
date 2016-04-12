@@ -121,6 +121,22 @@ define(NSP,%rsp)dnl
 
 
 /*
+ * Debugging macros
+ *
+ * Keeps track of whether context has been saved in the debug build, allowing us
+ * to detect when the garbage collector is called when it shouldn't.
+ */
+`#ifdef DEBUG
+#  define SET_GC_UNSAFE			\
+	movq	$1, P_GCUNSAFE(P)
+#  define SET_GC_SAFE			\
+	movq	$0, P_GCUNSAFE(P)
+#else
+#  define SET_GC_UNSAFE
+#  define SET_GC_SAFE
+#endif'
+
+/*
  * Context switching macros.
  */
 `#define SWITCH_C_TO_ERLANG_QUICK	\
@@ -133,12 +149,14 @@ define(NSP,%rsp)dnl
 
 `#define SAVE_CACHED_STATE	\
 	SAVE_HP;		\
-	SAVE_FCALLS'
+	SAVE_FCALLS;		\
+	SET_GC_SAFE'
 
 `#define RESTORE_CACHED_STATE	\
 	RESTORE_HP;		\
 	RESTORE_HEAP_LIMIT;	\
-	RESTORE_FCALLS'
+	RESTORE_FCALLS;		\
+	SET_GC_UNSAFE'
 
 `#define SWITCH_C_TO_ERLANG	\
 	RESTORE_CACHED_STATE;	\
