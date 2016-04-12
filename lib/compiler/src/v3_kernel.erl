@@ -401,7 +401,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
-			   args=[M0,F0,make_list(Cargs)]},
+			   args=[M0,F0,cerl:make_list(Cargs)]},
 	    expr(Call, Sub, St1);
 	_ ->
 	    {[M1,F1|Kargs],Ap,St} = atomic_list([M0,F0|Cargs], Sub, St1),
@@ -496,7 +496,7 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
     end.
 
 translate_fc(Args) ->
-    [#c_literal{val=function_clause},make_list(Args)].
+    [#c_literal{val=function_clause},cerl:make_list(Args)].
 
 expr_map(A,Var0,Ces,Sub,St0) ->
     {Var,Mps,St1} = expr(Var0, Sub, St0),
@@ -1987,11 +1987,6 @@ pat_list_vars(Ps) ->
 		  {Used,New} = pat_vars(P),
 		  {union(Used0, Used),union(New0, New)} end,
 	  {[],[]}, Ps).
-
-make_list(Es) ->
-    foldr(fun(E, Acc) ->
- 		  #c_cons{hd=E,tl=Acc}
- 	  end, #c_literal{val=[]}, Es).
 
 %% List of integers in interval [N,M]. Empty list if N > M.
 
