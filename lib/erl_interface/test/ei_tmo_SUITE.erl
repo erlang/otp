@@ -25,11 +25,10 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
--define(dummy_host,test01).
-
 -export([all/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
          framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
+	 ei_connect_tmo/0,
          ei_recv_tmo/1]).
 
 suite() ->
@@ -165,12 +164,12 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     {term, X} = runner:get_term(P3, 10000),
     true = is_integer(X),
     Message = [112,term_to_binary({6,self(),'',test}),
-               term_to_binary({From,10000,
+               term_to_binary({From,50000,
                                {app,["lapp",{sa,["att",du,{slapp,
                                                            sitta}]}]}})],
     gen_tcp:send(SocketB,Message),
 
-    %% At this point the test program starts sending messages (max 10000). Since 
+    %% At this point the test program starts sending messages (max 50000). Since
     %% we're not receiving, eventually the send buffer fills up. Then no more 
     %% sending is possible and select() times out. The number of messages sent
     %% before this happens is returned in Iters. The timeout value for get_term/2
@@ -196,6 +195,8 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
 
 
 %% Check accept with timeouts.
+ei_connect_tmo() -> [{require, test_host_not_reachable}].
+
 ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
@@ -311,12 +312,13 @@ make_node(X) ->
 
 make_and_check_dummy() ->
     % First check that the host has an ip and is *not* reachable
-    case gen_tcp:connect(?dummy_host,23,[{active,false}],5000) of
+    HostNotReachable = ct:get_config(test_host_not_reachable),
+    case gen_tcp:connect(HostNotReachable, 23, [{active,false}],5000) of
         {error,timeout} -> ok;
         {error,ehostunreach} -> ok
     end,
 
-    list_to_atom("dummy@"++atom_to_list(?dummy_host)).
+    list_to_atom("dummy@"++HostNotReachable).
 
 %%
 %% Stolen from the erl_distribution_wb_test in kernel

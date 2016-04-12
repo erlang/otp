@@ -25,6 +25,7 @@
 int ei_encode_port(char *buf, int *index, const erlang_port *p)
 {
   char *s = buf + *index;
+  const char tag = p->creation > 3 ? ERL_NEW_PORT_EXT : ERL_PORT_EXT;
 
   ++(*index); /* skip ERL_PORT_EXT */
   if (ei_encode_atom_len_as(buf, index, p->node, strlen(p->node), ERLANG_UTF8,
@@ -32,16 +33,19 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p)
       return -1;
   }
   if (buf) {
-    put8(s,ERL_PORT_EXT);
+    put8(s, tag);
 
     s = buf + *index;
 
     /* now the integers */
     put32be(s,p->id & 0x0fffffff /* 28 bits */);
-    put8(s,(p->creation & 0x03));
+    if (tag == ERL_PORT_EXT) {
+        put8(s,(p->creation & 0x03));
+    } else {
+        put32be(s, p->creation);
+    }
   }
-  
-  *index += 4 + 1;
+  *index += 4 + (tag == ERL_PORT_EXT ? 1 : 4);
   return 0;
 }
 

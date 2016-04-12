@@ -56,9 +56,9 @@ typedef struct _heapmark {
 } Erl_HeapMark;
 
 
-void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation);
-void erl_mk_pid_helper(ETERM*, unsigned,unsigned, unsigned char);
-ETERM * __erl_mk_reference(ETERM*, const char *, size_t, unsigned int n[], unsigned char);
+void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned int creation);
+void erl_mk_pid_helper(ETERM*, unsigned,unsigned, unsigned int);
+ETERM * __erl_mk_reference(ETERM*, const char *, size_t, unsigned int n[], unsigned int);
 int erl_current_fix_desc(void);
 
 #endif /* _ERL_ETERM_H */

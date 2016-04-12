@@ -46,9 +46,11 @@ public class OtpExternal {
 
     /** The tag used for ports */
     public static final int portTag = 102;
+    public static final int newPortTag = 89;
 
     /** The tag used for PIDs */
     public static final int pidTag = 103;
+    public static final int newPidTag = 88;
 
     /** The tag used for small tuples */
     public static final int smallTupleTag = 104;
@@ -85,6 +87,7 @@ public class OtpExternal {
 
     /** The tag used for new style references */
     public static final int newRefTag = 114;
+    public static final int newerRefTag = 90;
 
     /** The tag used for maps */
     public static final int mapTag = 116;

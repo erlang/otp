@@ -165,7 +165,6 @@ extern int erts_atom_table_size;/* Atom table size */
 extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
 #define ORIG_CREATION 0
-#define INTERNAL_CREATION 255
 
 /* macros for extracting bytes from uint16's */
 

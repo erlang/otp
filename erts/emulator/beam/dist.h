@@ -43,6 +43,7 @@
 #define DFLAG_INTERNAL_TAGS       0x8000
 #define DFLAG_UTF8_ATOMS          0x10000
 #define DFLAG_MAP_TAG             0x20000
+#define DFLAG_BIG_CREATION        0x40000
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -51,7 +52,8 @@
 			       | DFLAG_EXTENDED_PIDS_PORTS	\
 			       | DFLAG_EXPORT_PTR_TAG		\
 			       | DFLAG_BIT_BINARIES             \
-			       | DFLAG_MAP_TAG)
+			       | DFLAG_MAP_TAG                  \
+                               | DFLAG_BIG_CREATION)
 
 /* opcodes used in distribution messages */
 #define DOP_LINK		1

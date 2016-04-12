@@ -255,12 +255,17 @@ do_report(file, line, ok)
  * Erlang side.
  */
 
-void do_fail(char* file, int line, char* reason)
+void do_fail(const char* file, int line, const char* reason, ...)
 {
+    va_list ap;
     char sbuf[2048];
+    char* sp = sbuf;
 
-    sbuf[0] = 'f';
-    sprintf(sbuf+1, "%s, line %d: %s", file, line, reason);
+    *sp++ = 'f';
+    sp += sprintf(sp, "%s, line %d: ", file, line);
+    va_start(ap, reason);
+    sp += vsprintf(sp, reason, ap);
+    va_end(ap);
     reply(sbuf, 1+strlen(sbuf+1));
 }
 

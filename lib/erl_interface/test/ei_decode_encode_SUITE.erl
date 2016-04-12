@@ -89,17 +89,16 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     TXPort = mk_port(ThisNode, 268435455),
     TXRef = mk_ref(ThisNode, [262143, 4294967295, 4294967295]),
 
-    OtherNode = {gurka@sallad, 2},
-    OXPid = mk_pid(OtherNode, 32767, 8191),
-    OXPort = mk_port(OtherNode, 268435455),
-    OXRef = mk_ref(OtherNode, [262143, 4294967295, 4294967295]),
-
     send_rec(P, TXPid),
     send_rec(P, TXPort),
     send_rec(P, TXRef),
-    send_rec(P, OXPid),
-    send_rec(P, OXPort),
-    send_rec(P, OXRef),
+
+    [begin OtherNode = {gurka@sallad, Creation},
+	   send_rec(P, mk_pid(OtherNode, 32767, 8191)),
+	   send_rec(P, mk_port(OtherNode, 268435455)),
+	   send_rec(P, mk_ref(OtherNode, [262143, 4294967295, 4294967295])),
+	   void
+     end || Creation <- [1, 2, 3, 4, 16#adec0ded]],
 
     %% Unicode atoms
     [begin send_rec(P, Atom),
@@ -176,6 +175,9 @@ get_binary(P) ->
 -define(PORT_EXT,            102).
 -define(PID_EXT,             103).
 -define(NEW_REFERENCE_EXT,   114).
+-define(NEW_PID_EXT,         $X).
+-define(NEW_PORT_EXT,        $Y).
+-define(NEWER_REFERENCE_EXT, $Z).
 
 uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
     [(Uint bsr 24) band 16#ff,
@@ -197,42 +199,52 @@ uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
 uint8(Uint) ->
     exit({badarg, uint8, [Uint]}).
 
+pid_tag(Creation) when Creation =< 3 -> ?PID_EXT;
+pid_tag(_Creation) -> ?NEW_PID_EXT.
 
+enc_creation(Creation) when Creation =< 3 -> uint8(Creation);
+enc_creation(Creation) -> uint32_be(Creation).
 
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_pid({NodeNameExt, Creation}, Number, Serial);
 mk_pid({NodeNameExt, Creation}, Number, Serial) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?PID_EXT,
-                                              NodeNameExt,
-                                              uint32_be(Number),
-                                              uint32_be(Serial),
-                                              uint8(Creation)])) of
-        Pid when is_pid(Pid) ->
-            Pid;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
+					      pid_tag(Creation),
+					      NodeNameExt,
+					      uint32_be(Number),
+					      uint32_be(Serial),
+					      enc_creation(Creation)])) of
+	Pid when is_pid(Pid) ->
+	    Pid;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
     end.
+
+port_tag(Creation) when Creation =< 3 -> ?PORT_EXT;
+port_tag(_Creation) -> ?NEW_PORT_EXT.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_port({NodeNameExt, Creation}, Number);
 mk_port({NodeNameExt, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?PORT_EXT,
-                                              NodeNameExt,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
-        Port when is_port(Port) ->
-            Port;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
+					      port_tag(Creation),
+					      NodeNameExt,
+					      uint32_be(Number),
+					      enc_creation(Creation)])) of
+	Port when is_port(Port) ->
+	    Port;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
     end.
+
+ref_tag(Creation) when Creation =< 3 -> ?NEW_REFERENCE_EXT;
+ref_tag(_Creation) -> ?NEWER_REFERENCE_EXT.
 
 mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
                                            is_integer(Creation),
@@ -240,8 +252,9 @@ mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_ref({NodeNameExt, Creation}, Numbers);
 mk_ref({NodeNameExt, Creation}, [Number]) when is_binary(NodeNameExt),
-                                               is_integer(Creation),
-                                               is_integer(Number) ->
+					       is_integer(Creation),
+					       Creation =< 3,
+					       is_integer(Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
                                               ?REFERENCE_EXT,
                                               NodeNameExt,
@@ -258,20 +271,20 @@ mk_ref({NodeNameExt, Creation}, Numbers) when is_binary(NodeNameExt),
                                               is_integer(Creation),
                                               is_list(Numbers) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?NEW_REFERENCE_EXT,
-                                              uint16_be(length(Numbers)),
-                                              NodeNameExt,
-                                              uint8(Creation),
-                                              lists:map(fun (N) ->
-                                                                uint32_be(N)
-                                                        end,
-                                                        Numbers)])) of
-        Ref when is_reference(Ref) ->
-            Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
+					      ref_tag(Creation),
+					      uint16_be(length(Numbers)),
+					      NodeNameExt,
+					      enc_creation(Creation),
+					      lists:map(fun (N) ->
+								uint32_be(N)
+							end,
+							Numbers)])) of
+	Ref when is_reference(Ref) ->
+	    Ref;
+	{'EXIT', {badarg, _}} ->
+	    exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
+	Other ->
+	    exit({unexpected_binary_to_term_result, Other})
     end.
 
 

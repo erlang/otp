@@ -906,9 +906,9 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
 
     if (token != NIL)
 	ctl = TUPLE4(&ctx->ctl_heap[0],
-		     make_small(DOP_SEND_TT), am_Cookie, remote, token);
+		     make_small(DOP_SEND_TT), am_Empty, remote, token);
     else
-	ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_SEND), am_Cookie, remote);
+	ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_SEND), am_Empty, remote);
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -963,10 +963,10 @@ erts_dsig_send_reg_msg(Eterm remote_name, Eterm message,
 
     if (token != NIL)
 	ctl = TUPLE5(&ctx->ctl_heap[0], make_small(DOP_REG_SEND_TT),
-		     sender->common.id, am_Cookie, remote_name, token);
+		     sender->common.id, am_Empty, remote_name, token);
     else
 	ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_REG_SEND),
-		     sender->common.id, am_Cookie, remote_name);
+		     sender->common.id, am_Empty, remote_name);
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,

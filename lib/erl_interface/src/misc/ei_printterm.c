@@ -151,15 +151,18 @@ static int print_term(FILE* fp, ei_x_buff* x,
 	}
 	break;
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
 	if (ei_decode_pid(buf, index, &pid) < 0) goto err;
 	ch_written += xprintf(fp, x, "<%s.%d.%d>", pid.node,
 			      pid.num, pid.serial);
 	break;
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
 	if (ei_decode_port(buf, index, &port) < 0) goto err;
 	ch_written += xprintf(fp, x, "#Port<%d.%d>", port.id, port.creation);
 	break;
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
     case ERL_REFERENCE_EXT:
 	if (ei_decode_ref(buf, index, &ref) < 0) goto err;
 	ch_written += xprintf(fp, x, "#Ref<");
