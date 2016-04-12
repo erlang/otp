@@ -307,9 +307,9 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.name_prefix	= "literal_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LITERAL;
 #ifndef SMALL_MEMORY
-    ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
+    ip->init.util.mmbcs 	= 1024*1024; /* Main carrier size */
 #else
-    ip->init.util.mmbcs 	= 1*1024*1024; /* Main carrier size */
+    ip->init.util.mmbcs 	= 256*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_LITERAL;
     ip->init.util.asbcst	= 0;
