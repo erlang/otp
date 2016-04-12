@@ -479,9 +479,9 @@ static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
-static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-			     Eterm group_leader, Eterm module,
-			     BeamCodeHeader* code, Uint size);
+static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+				  Eterm group_leader, Eterm module,
+				  BeamCodeHeader* code, Uint size);
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -513,7 +513,7 @@ static GenOp* gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 
 static int freeze_code(LoaderState* stp);
 
-static void final_touch(LoaderState* stp);
+static void final_touch(LoaderState* stp, struct erl_module_instance* inst_p);
 static void short_file(int line, LoaderState* stp, unsigned needed);
 static void load_printf(int line, LoaderState* context, char *fmt, ...);
 static int transform_engine(LoaderState* st);
@@ -768,6 +768,9 @@ erts_finish_loading(Binary* magic, Process* c_p,
 {
     Eterm retval;
     LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
+    Module* mod_tab_p;
+    struct erl_module_instance* inst_p;
+    Uint size;
 
     /*
      * No other process may run since we will update the export
@@ -784,11 +787,25 @@ erts_finish_loading(Binary* magic, Process* c_p,
      */
 
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    retval = insert_new_code(c_p, c_p_locks, stp->group_leader, stp->module,
-			     stp->hdr, stp->loaded_size);
-    if (retval != NIL) {
-	goto load_error;
-    }
+    retval = beam_make_current_old(c_p, c_p_locks, stp->module);
+    ASSERT(retval == NIL);
+
+    /*
+     * Update module table.
+     */
+
+    size = stp->loaded_size;
+    erts_total_code_size += size;
+    mod_tab_p = erts_put_module(stp->module);
+    inst_p = &mod_tab_p->curr;
+    inst_p->code_hdr = stp->hdr;
+    inst_p->code_length = size;
+
+    /*
+     * Update ranges (used for finding a function from a PC value).
+     */
+
+    erts_update_ranges((BeamInstr*)inst_p->code_hdr, size);
 
     /*
      * Ready for the final touch: fixing the export table entries for
@@ -796,7 +813,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
      */
     
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    final_touch(stp);
+    final_touch(stp, inst_p);
 
     /*
      * Loading succeded.
@@ -820,7 +837,6 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	retval = am_on_load;
     }
 
- load_error:
     free_loader_state(magic);
     return retval;
 }
@@ -1026,9 +1042,9 @@ loader_state_dtor(Binary* magic)
 }
 
 static Eterm
-insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-		Eterm group_leader, Eterm module, BeamCodeHeader* code_hdr,
-		Uint size)
+stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+		     Eterm group_leader, Eterm module,
+		     BeamCodeHeader* code_hdr, Uint size)
 {
     Module* modp;
     Eterm retval;
@@ -4700,14 +4716,13 @@ freeze_code(LoaderState* stp)
 }
 
 static void
-final_touch(LoaderState* stp)
+final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 {
     int i;
     int on_load = stp->on_load;
     unsigned catches;
     Uint index;
     BeamInstr* codev = stp->codev;
-    Module* modp;
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -4722,8 +4737,7 @@ final_touch(LoaderState* stp)
 	codev[index+2] = make_catch(catches);
 	index = next;
     }
-    modp = erts_put_module(stp->module);
-    modp->curr.catches = catches;
+    inst_p->catches = catches;
 
     /*
      * Export functions.
@@ -6421,7 +6435,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the module in the module table.
      */
 
-    rval = insert_new_code(p, 0, p->group_leader, Mod, code_hdr, code_size);
+    rval = stub_insert_new_code(p, 0, p->group_leader, Mod,
+				code_hdr, code_size);
     if (rval != NIL) {
 	goto error;
     }
