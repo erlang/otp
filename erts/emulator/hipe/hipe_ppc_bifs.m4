@@ -212,8 +212,9 @@ ASYM($1):
  * gc_bif_interface_0(nbif_name, cbif_name)
  * gc_bif_interface_1(nbif_name, cbif_name)
  * gc_bif_interface_2(nbif_name, cbif_name)
+ * gc_bif_interface_3(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 0-2 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  * The BIF may do a GC.
  */
@@ -296,6 +297,39 @@ ASYM($1):
 1:	/* workaround for bc:s small offset operand */
 	b	CSYM(nbif_2_simple_exception)
 	HANDLE_GOT_MBUF(2)
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
+#endif')
+
+define(gc_bif_interface_3,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	GLOBAL(ASYM($1))
+ASYM($1):
+	/* Set up C argument registers. */
+	mr	r3, P
+	NBIF_ARG(r4,3,0)
+	NBIF_ARG(r5,3,1)
+	NBIF_ARG(r6,3,2)
+
+	/* Save caller-save registers and call the C function. */
+	SAVE_CONTEXT_GC
+	STORE	r4, P_ARG0(r3)		/* Store BIF__ARGS in def_arg_reg[] */
+	STORE	r5, P_ARG1(r3)
+	STORE	r6, P_ARG2(r3)
+	addi	r4, r3, P_ARG0
+	CALL_BIF($2)
+	TEST_GOT_MBUF
+
+	/* Restore registers. Check for exception. */
+	CMPI	r3, THE_NON_VALUE
+	RESTORE_CONTEXT_GC
+	beq-	1f
+	NBIF_RET(3)
+1:	/* workaround for bc:s small offset operand */
+	b	CSYM(nbif_3_simple_exception)
+	HANDLE_GOT_MBUF(3)
 	SET_SIZE(ASYM($1))
 	TYPE_FUNCTION(ASYM($1))
 #endif')
