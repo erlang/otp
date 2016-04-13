@@ -55,7 +55,7 @@ init(File) ->
 
 init(File, PrevHandler) ->
     process_flag(trap_exit, true),
-    case file:open(File, [write]) of
+    case file:open(File, [write, {encoding, utf8}]) of
 	{ok,Fd} ->
 	    Depth = get_depth(),
 	    State = #st{fd=Fd,filename=File,prev_handler=PrevHandler,
