@@ -55,6 +55,7 @@ MODULES= \
 	ssh_relay
 
 HRL_FILES_NEEDED_IN_TEST= \
+	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \
 	$(ERL_TOP)/lib/ssh/src/ssh_xfer.hrl
 

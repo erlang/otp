@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_connect.hrl").
+-include("ssh_test_lib.hrl").
 
 -compile(export_all).
 
@@ -691,7 +692,7 @@ max_channels_option(Config) when is_list(Config) ->
     end,
 
     %%%---- Channel 3(3): subsystem "echo_n" (Note that ChannelId2 should be closed now)
-    success = ssh_connection:subsystem(ConnectionRef, ChannelId3, "echo_n", infinity),
+    ?wait_match(success, ssh_connection:subsystem(ConnectionRef, ChannelId3, "echo_n", infinity)),
 
     %%%---- Channel 4(3) !: exec  This should fail
     failure = ssh_connection:exec(ConnectionRef, ChannelId4, "testing2.\n", infinity),
@@ -710,7 +711,7 @@ max_channels_option(Config) when is_list(Config) ->
     end,
 
     %%---- Try that we can open one channel instead of the closed one
-    success = ssh_connection:subsystem(ConnectionRef, ChannelId5, "echo_n", infinity),
+    ?wait_match(success, ssh_connection:subsystem(ConnectionRef, ChannelId5, "echo_n", infinity)),
 
     %%---- But not a fourth one...
     failure = ssh_connection:subsystem(ConnectionRef, ChannelId6, "echo_n", infinity),

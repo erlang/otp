@@ -22,13 +22,15 @@
 -module(ssh_sup_SUITE).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(WAIT_FOR_SHUTDOWN, 500).
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
+
+-define(WAIT_FOR_SHUTDOWN, 500).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -78,29 +80,6 @@ end_per_testcase(sshc_subtree, Config) ->
     ssh:stop();
 end_per_testcase(_, _Config) ->
     ssh:stop().
-
-%%-------------------------------------------------------------------------
-%% Help macro
-%%-------------------------------------------------------------------------
--define(wait_match(Pattern, FunctionCall, Bind),
-	Bind = 
-	    (fun() -> 
-		     F = fun(N, F1) ->
-				 case FunctionCall of
-				     Pattern -> Bind;
-				     _ when N>0 ->
-					 ct:pal("Must sleep ~p ms at ~p:~p",[?WAIT_FOR_SHUTDOWN,?MODULE,?LINE]),
-					 timer:sleep(?WAIT_FOR_SHUTDOWN),
-					 F1(N-1, F1);
-				     Other ->  
-					 ct:fail("Unexpected ~p:~p  ~p",[?MODULE,?LINE,Other])
-				 end
-			 end,
-		     F((5000 div ?WAIT_FOR_SHUTDOWN), F)
-	     end)()
-       ).
-
--define(wait_match(Pattern, FunctionCall), ?wait_match(Pattern, FunctionCall, ok)).
 
 %%-------------------------------------------------------------------------
 %% Test cases 
