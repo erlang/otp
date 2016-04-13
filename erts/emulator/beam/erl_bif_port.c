@@ -953,6 +953,8 @@ static char **convert_args(Eterm l)
     }
 
     n = erts_list_length(l);
+    if (n < 0)
+        return NULL;
     /* We require at least one element in argv[0] + NULL at end */
     pp = erts_alloc(ERTS_ALC_T_TMP, (n + 2) * sizeof(char **));
     pp[i++] = erts_default_arg0;
