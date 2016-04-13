@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,10 @@
 -type name() :: atom().
 -type argspec() :: 'none'                       %No arguments
                  | non_neg_integer().           %Number of arguments
+-type argnames() :: [atom()].
 -type tokens() :: [erl_scan:token()].
+-type predef() :: 'undefined' | {'none', tokens()}.
+-type userdef() :: {argspec(), {argnames(), tokens()}}.
 -type used() :: {name(), argspec()}.
 
 -type function_name_type() :: 'undefined'
@@ -63,7 +66,7 @@
               sstk=[] :: [#epp{}],              %State stack
               path=[] :: [file:name()],         %Include-path
               macs = #{}		        %Macros (don't care locations)
-	            :: #{name() => {argspec(), tokens()}},
+	            :: #{name() => predef() | [userdef()]},
               uses = #{}			%Macro use structure
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
