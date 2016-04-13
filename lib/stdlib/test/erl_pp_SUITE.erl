@@ -50,7 +50,7 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1]).
+          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -79,7 +79,7 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100, otp_11861]}].
+       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014]}].
 
 init_per_suite(Config) ->
     Config.
@@ -902,6 +902,7 @@ maps_syntax(Config) when is_list(Config) ->
           "-compile(export_all).\n"
           "-type t1() :: map().\n"
           "-type t2() :: #{ atom() => integer(), atom() => float() }.\n"
+          "-type t3() :: #{ atom() := integer(), atom() := float() }.\n"
           "-type u() :: #{a => (I :: integer()) | (A :: atom()),\n"
           "               (X :: atom()) | (Y :: atom()) =>\n"
           "                   (I :: integer()) | (A :: atom())}.\n"
@@ -1105,6 +1106,24 @@ otp_11861(Config) when is_list(Config) ->
 
 pf(Form) ->
     lists:flatten(erl_pp:form(Form, none)).
+
+pr_1014(Config) ->
+    ok = pp_forms(<<"-type t() :: #{_ => _}. ">>),
+    ok = pp_forms(<<"-type t() :: #{any() => _}. ">>),
+    ok = pp_forms(<<"-type t() :: #{_ => any()}. ">>),
+    ok = pp_forms(<<"-type t() :: #{any() => any()}. ">>),
+    ok = pp_forms(<<"-type t() :: #{...}. ">>),
+    ok = pp_forms(<<"-type t() :: #{atom() := integer(), ...}. ">>),
+
+    FileName = filename('pr_1014.erl', Config),
+    C = <<"-module pr_1014.\n"
+          "-compile export_all.\n"
+          "-type m() :: #{..., a := integer()}.\n">>,
+    ok = file:write_file(FileName, C),
+    {error,[{_,[{3,erl_parse,["syntax error before: ","','"]}]}],_} =
+        compile:file(FileName, [return]),
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
