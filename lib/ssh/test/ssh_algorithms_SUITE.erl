@@ -231,10 +231,8 @@ sshc_simple_exec(Config) ->
 			" -o StrictHostKeyChecking=no",
 			" ",Host," 1+1."]),
     ct:log("~p",[Cmd]),
-    SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout,
-				       overlapped_io %only affects windows
-				      ]),
-    ssh_test_lib:rcv_expected({data,<<"2\n">>}, SshPort, ?TIMEOUT).
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS

@@ -378,9 +378,8 @@ erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++
 	" " ++ Host ++ " 1+1.",
-    SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
-
-    ssh_test_lib:rcv_expected({data,<<"2\n">>}, SshPort, ?TIMEOUT),
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
