@@ -655,10 +655,6 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     Start = filename:join([InstallDir,bin,start]),
     {ok,Node} = start_node(Start,FromVsn,FromAppsVsns),
 
-    %% Add path to this module, to allow calls to get_appup/2
-    Dir = filename:dirname(code:which(?MODULE)),
-    _ = rpc:call(Node,code,add_pathz,[Dir]),
-
     ct:log("Node started: ~p",[Node]),
     CtData = #ct_data{from = [{A,V,code:lib_dir(A)} || {A,V} <- FromAppsVsns],
 		      to=[{A,V,code:lib_dir(A)} || {A,V} <- ToAppsVsns]},
