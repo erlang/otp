@@ -34,7 +34,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,40}}].
+    [{timetrap,{seconds,20}}].
 
 all() -> 
     case os:find_executable("ssh") of
@@ -353,12 +353,14 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_public_key_dsa() ->
-    [{doc, "Validate using dsa publickey."}].
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
+     {doc, "Validate using dsa publickey."}].
 erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     erlang_server_openssh_client_public_key_X(Config, ssh_dsa).
 
 erlang_server_openssh_client_public_key_rsa() ->
-    [{doc, "Validate using rsa publickey."}].
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
+     {doc, "Validate using rsa publickey."}].
 erlang_server_openssh_client_public_key_rsa(Config) when is_list(Config) ->
     erlang_server_openssh_client_public_key_X(Config, ssh_rsa).
 

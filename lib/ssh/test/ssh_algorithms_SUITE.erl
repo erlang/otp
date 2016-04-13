@@ -192,7 +192,7 @@ simple_exec_groups_no_match_too_large(Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{seconds,180}}].
+simple_exec_groups() -> [{timetrap,{minutes,5}}].
 
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
