@@ -920,10 +920,10 @@ bad_env(Config) when is_list(Config) ->
     ok.
 
 try_bad_env(Env) ->
-    try open_port({spawn,"ls"}, [{env,Env}])
-    catch
-	error:badarg -> ok
-    end.
+    badarg = try open_port({spawn,"ls"}, [{env,Env}])
+	     catch
+		 error:badarg -> badarg
+	     end.
 
 %%  Test bad 'args' options.
 bad_args(Config) when is_list(Config) ->
