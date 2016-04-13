@@ -812,7 +812,7 @@ close_while_waiting_for_chunked_data(Config) ->
     %% Order server to expect a get - then the process above will make
     %% sure the rpc-reply is sent - but only a part of it - then close.
     ?NS:expect('get'),
-    {error,closed} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},2000),
+    {error,closed} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},4000),
     ok.
 
 connection_crash(Config) ->
