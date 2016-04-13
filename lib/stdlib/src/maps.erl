@@ -20,12 +20,12 @@
 
 -module(maps).
 
--export([get/3,filter/2,fold/3, map/2,
-         size/1,
+-export([get/3, filter/2,fold/3,
+         map/2, size/1,
+         update_with/3, update_with/4,
          without/2, with/2]).
 
-
-%%% BIFs
+%% BIFs
 -export([get/2, find/2, from_list/1,
          is_key/2, keys/1, merge/2,
          new/0, put/3, remove/2, take/2,
@@ -134,8 +134,40 @@ update(_,_,_) -> erlang:nif_error(undef).
 
 values(_) -> erlang:nif_error(undef).
 
+%% End of BIFs
 
-%%% End of BIFs
+-spec update_with(Key,Fun,Map1) -> Map2 when
+      Key :: term(),
+      Map1 :: map(),
+      Map2 :: map(),
+      Fun :: fun((Value1 :: term()) -> Value2 :: term()).
+
+update_with(Key,Fun,Map) when is_function(Fun,1), is_map(Map) ->
+    try maps:get(Key,Map) of
+        Val -> maps:update(Key,Fun(Val),Map)
+    catch
+        error:{badkey,_} ->
+            erlang:error({badkey,Key},[Key,Fun,Map])
+    end;
+update_with(Key,Fun,Map) ->
+    erlang:error(error_type(Map),[Key,Fun,Map]).
+
+
+-spec update_with(Key,Fun,Init,Map1) -> Map2 when
+      Key :: term(),
+      Map1 :: Map1,
+      Map2 :: Map2,
+      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
+      Init :: term().
+
+update_with(Key,Fun,Init,Map) when is_function(Fun,1), is_map(Map) ->
+    case maps:find(Key,Map) of
+        {ok,Val} -> maps:update(Key,Fun(Val),Map);
+        error -> maps:put(Key,Init,Map)
+    end;
+update_with(Key,Fun,Init,Map) ->
+    erlang:error(error_type(Map),[Key,Fun,Init,Map]).
+
 
 -spec get(Key, Map, Default) -> Value | Default when
         Key :: term(),
