@@ -1244,9 +1244,9 @@ keyins(X, I, [Y | T]) -> [Y | keyins(X, I, T)];
 keyins(X, _I, []) -> [X].
 
 to_strs([P|Paths]) when is_atom(P) ->
-    [atom_to_list(P)|to_strs(Paths)];
+    [absname(atom_to_list(P))|to_strs(Paths)];
 to_strs([P|Paths]) when is_list(P) ->
-    [P|to_strs(Paths)];
+    [absname(P)|to_strs(Paths)];
 to_strs([_|Paths]) ->
     to_strs(Paths);
 to_strs([]) ->
