@@ -32,7 +32,7 @@ rtl_to_arm(MFA, RTL, Options) ->
   Defun3 = hipe_arm_frame:frame(Defun2),
   %% io:format("~w: after frame\n", [?MODULE]),
   %% hipe_arm_pp:pp(Defun3),
-  Defun4 = hipe_arm_finalise:finalise(Defun3),
+  Defun4 = hipe_arm_finalise:finalise(Defun3, Options),
   %% io:format("~w: after finalise\n", [?MODULE]),
   pp(Defun4, MFA, Options),
   {native, arm, {unprofiled, Defun4}}.
