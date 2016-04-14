@@ -70,8 +70,6 @@
 
 -record(ssh,
 	{
-	  %%state,        %% what it's waiting for
-
 	  role,         %% client | server
 	  peer,         %% string version of peer address 
 
@@ -135,8 +133,8 @@
 	  user,
 	  service,
 	  userauth_quiet_mode,              %  boolean()
-	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
+	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,

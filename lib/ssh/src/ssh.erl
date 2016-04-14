@@ -36,6 +36,11 @@
 	 shell/1, shell/2, shell/3
 	]).
 
+%%% Type exports
+-export_type([connection_ref/0,
+	      channel_id/0
+	     ]).
+
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
 -spec start(permanent | transient | temporary) -> ok | {error, term()}.
