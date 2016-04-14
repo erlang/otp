@@ -194,6 +194,24 @@ reply(TestCase, Result) ->
 %%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
+
+
+rcv_expected(Expect, SshPort, Timeout) ->
+    receive
+	{SshPort, Expect} ->
+	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
+	    catch port_close(SshPort),
+	    ok;
+	Other ->
+	    ct:log("Got UNEXPECTED ~p",[Other]),
+	    rcv_expected(SshPort, Expect, Timeout)
+
+    after Timeout ->
+	    catch port_close(SshPort),
+	    ct:fail("Did not receive answer")
+    end.
+
+
 receive_exec_result(Msg) ->
     ct:log("Expect data! ~p", [Msg]),
     receive

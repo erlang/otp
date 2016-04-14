@@ -380,16 +380,7 @@ erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
 	" " ++ Host ++ " 1+1.",
     SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
 
-    receive
-	{SshPort,{data, <<"2\n">>}} ->
-	    ok
-    after ?TIMEOUT ->
-	    receive
-		X -> ct:fail("Received: ~p",[X])
-	    after 0 ->
-		    ct:fail("Did not receive answer")
-	    end
-    end,
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, SshPort, ?TIMEOUT),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
