@@ -87,6 +87,7 @@
          name1/1,
          t_binary/1, parallell/1, t_exit/1,
          env/1, huge_env/1, bad_env/1, cd/1, exit_status/1,
+	 bad_args/1,
          tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
          otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
          mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
@@ -115,6 +116,7 @@ all() ->
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, huge_env, bad_env, cd,
+     bad_args,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
@@ -901,10 +903,11 @@ bad_env(Config) when is_list(Config) ->
     ok.
 
 try_bad_env(Env) ->
-    try open_port({spawn,"ls"}, [{env,Env}])
-    catch
-        error:badarg -> ok
-    end.
+    badarg = try open_port({spawn,"ls"}, [{env,Env}])
+	     catch
+		 error:badarg -> badarg
+	     end.
+
 
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
@@ -938,6 +941,24 @@ huge_env(Config) when is_list(Config) ->
               %% in the ct log is way to heavy for some test machines.
               ct:fail("Open port failed ~p:~p",[E,R])
     end.
+
+
+%%  Test bad 'args' options.
+bad_args(Config) when is_list(Config) ->
+    try_bad_args({args, [self()]}),
+    try_bad_args({args, ["head" | "tail"]}),
+    try_bad_args({args, ["head", "body" | "tail"]}),
+    try_bad_args({args, [<<"head">>, <<"body">> | <<"tail">>]}),
+    try_bad_args({args, not_a_list}),
+    try_bad_args({args, ["string",<<"binary">>, 1472, "string"]}),
+    try_bad_args({args, ["string",<<"binary">>], "element #3"}),
+    ok.
+
+try_bad_args(Args) ->
+    badarg = try open_port({spawn_executable,"ls"}, [Args])
+	     catch
+		 error:badarg -> badarg
+	     end.
 
 
 
