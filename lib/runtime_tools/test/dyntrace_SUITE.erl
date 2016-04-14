@@ -48,7 +48,9 @@ all() ->
 	dtrace ->
 	    [{group,smoke}];
 	systemtap ->
-	    {skip,"SystemTap tests currently not supported"}
+	    {skip,"SystemTap tests currently not supported"};
+	lttng ->
+	    {skip,"LTTng tests currently not supported"}
     end.
 
 groups() ->
