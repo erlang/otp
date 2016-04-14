@@ -20,9 +20,20 @@
 #ifndef ALLOCATOR_TEST_H__
 #define ALLOCATOR_TEST_H__
 
-typedef ErlDrvUInt Ulong;
+#if SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int Ulong;
+#elif SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long Ulong;
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long Ulong;
+#else
+# error No pointer sized integer type found ???
+#endif
 
-#ifndef __WIN32__
+#ifdef __WIN32__
+typedef Ulong erts_alc_test_Fn(Ulong, Ulong, Ulong, Ulong);
+#  define erts_alc_test ((erts_alc_test_Fn*)WinDynNifCallbacks.erts_alc_test)
+#else
 Ulong erts_alc_test(Ulong, Ulong, Ulong, Ulong);
 #endif
 
@@ -85,6 +96,7 @@ typedef void* erts_cond;
 #define CPOOL_DELETE(A,B)	((Carrier_t *)	ALC_TEST2(0x022, (A), (B)))
 #define CPOOL_IS_EMPTY(A)	((int)		ALC_TEST1(0x023, (A)))
 #define CPOOL_IS_IN_POOL(A,B)	((int)		ALC_TEST2(0x024, (A), (B)))
+#define UMEM2BLK_TEST(P)	((Block_t*)	ALC_TEST1(0x025, (P)))
 
 /* From erl_goodfit_alloc.c */
 #define BKT_IX(A, S)		((Ulong)	ALC_TEST2(0x100, (A), (S)))
@@ -142,5 +154,9 @@ typedef void* erts_cond;
 #define THR_JOIN(T)		((void)		ALC_TEST1(0xf11, (T)))
 #define THR_EXIT(R)		((void)		ALC_TEST1(0xf12, (R)))
 #define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
+#define ALLOC_TEST(S)		((void*)	ALC_TEST1(0xf14, (S)))
+#define FREE_TEST(P)		((void)		ALC_TEST1(0xf15, (P)))
+#define SET_TEST_MBC_USER_HEADER(SZ,CMBC,DMBC) ((int)ALC_TEST3(0xf16, (SZ), (CMBC), (DMBC)))
+#define GET_TEST_MBC_SIZE()     ((int)          ALC_TEST0(0xf17))
 
 #endif

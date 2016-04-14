@@ -118,6 +118,13 @@
     <p>In the following descriptions, all function fails with reason
       <c>badarg</c> if <c>heart</c> is not started.</p>
   </description>
+
+  <datatypes>
+      <datatype>
+          <name name="heart_option"/>
+      </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name name="set_cmd" arity="1"/>
@@ -154,6 +161,62 @@
           the empty string will be returned.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="set_callback" arity="2"/>
+      <fsummary>Set a validation callback</fsummary>
+      <desc>
+          <p> This validation callback will be executed before any heartbeat sent
+              to the port program. For the validation to succeed it needs to return
+              with the value <c>ok</c>.
+        </p>
+        <p> An exception within the callback will be treated as a validation failure. </p>
+        <p> The callback will be removed if the system reboots. </p>
+      </desc>
+    </func>
+    <func>
+      <name name="clear_callback" arity="0"/>
+      <fsummary>Clear the validation callback</fsummary>
+      <desc>
+          <p>Removes the validation callback call before heartbeats.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="get_callback" arity="0"/>
+      <fsummary>Get the validation callback</fsummary>
+      <desc>
+          <p>Get the validation callback. If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
+    <func>
+        <name name="set_options" arity="1"/>
+        <fsummary>Set a list of options</fsummary>
+        <desc>
+            <p> Valid options <c>set_options</c> are: </p>
+            <taglist>
+                <tag><c>check_schedulers</c></tag>
+                <item>
+                    <p>If enabled, a signal will be sent to each scheduler to check its
+                        responsiveness. The system check occurs before any heartbeat sent
+                        to the port program. If any scheduler is not responsive enough the
+                        heart program will not receive its heartbeat and thus eventually terminate the node.
+                    </p>
+                </item>
+            </taglist>
+            <p> Returns with the value <c>ok</c> if the options are valid.</p>
+        </desc>
+    </func>
+    <func>
+      <name name="get_options" arity="0"/>
+      <fsummary>Get the temporary reboot command</fsummary>
+      <desc>
+          <p>Returns <c>{ok, Options}</c> where <c>Options</c> is a list of current options enabled for heart.
+              If the callback is cleared, <c>none</c> will be returned.</p>
+      </desc>
+    </func>
+
+
   </funcs>
 </erlref>
 

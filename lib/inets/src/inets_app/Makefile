@@ -47,7 +47,6 @@ MODULES = \
 	inets_service \
 	inets_app \
 	inets_sup \
-	inets_regexp \
 	inets_trace \
 	inets_lib \
 	inets_time_compat

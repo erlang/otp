@@ -60,6 +60,9 @@ typedef struct process Process;
 #include "erl_mseg.h"
 #include "erl_async.h"
 #include "erl_gc.h"
+#define ERTS_ONLY_INCLUDE_TRACE_FLAGS
+#include "erl_trace.h"
+#undef ERTS_ONLY_INCLUDE_TRACE_FLAGS
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -170,8 +173,10 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 5))
 #define ERTS_RUNQ_FLG_PROTECTED \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
+#define ERTS_RUNQ_FLG_EXEC \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 7)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 8)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -215,6 +220,9 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLGS_SET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_bor_relb(&(RQ)->flags,		\
 					      (erts_aint32_t) (FLGS)))
+#define ERTS_RUNQ_FLGS_SET_NOB(RQ, FLGS)				\
+    ((Uint32) erts_smp_atomic32_read_bor_nob(&(RQ)->flags,		\
+					     (erts_aint32_t) (FLGS)))
 #define ERTS_RUNQ_FLGS_BSET(RQ, MSK, FLGS)				\
     ((Uint32) erts_smp_atomic32_read_bset_relb(&(RQ)->flags,		\
 					       (erts_aint32_t) (MSK),	\
@@ -222,6 +230,9 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_RUNQ_FLGS_UNSET(RQ, FLGS)					\
     ((Uint32) erts_smp_atomic32_read_band_relb(&(RQ)->flags,		\
 					       (erts_aint32_t) ~(FLGS)))
+#define ERTS_RUNQ_FLGS_UNSET_NOB(RQ, FLGS)					\
+    ((Uint32) erts_smp_atomic32_read_band_nob(&(RQ)->flags,		\
+					      (erts_aint32_t) ~(FLGS)))
 #define ERTS_RUNQ_FLGS_GET(RQ)						\
     ((Uint32) erts_smp_atomic32_read_acqb(&(RQ)->flags))
 #define ERTS_RUNQ_FLGS_GET_NOB(RQ)					\
@@ -467,7 +478,7 @@ struct ErtsRunQueue_ {
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
     erts_aint32_t max_len;
-    erts_aint32_t len;
+    erts_smp_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
     int halt_in_progress;
@@ -607,7 +618,7 @@ typedef enum {
 typedef union {
     struct {
 	ErtsDirtySchedulerType type: 1;
-	unsigned num: 31;
+	Uint num: sizeof(Uint)*8 - 1;
     } s;
     Uint no;
 } ErtsDirtySchedId;
@@ -728,7 +739,19 @@ erts_smp_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rq->len);
+
+#ifdef ERTS_SMP
+    if (len == 0)
+	erts_non_empty_runq(rq);
+#endif
+    len++;
+    if (rq->max_len < len)
+	rq->max_len = len;
+    ASSERT(len > 0);
+    erts_smp_atomic32_set_nob(&rq->len, len);
+
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     ASSERT(len >= 0);
     if (len == 0) {
 	ASSERT((erts_smp_atomic32_read_nob(&rq->flags)
@@ -741,15 +764,6 @@ erts_smp_inc_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 	rqi->max_len = len;
 
     erts_smp_atomic32_set_relb(&rqi->len, len);
-
-#ifdef ERTS_SMP
-    if (rq->len == 0)
-	erts_non_empty_runq(rq);
-#endif
-    rq->len++;
-    if (rq->max_len < rq->len)
-	rq->max_len = len;
-    ASSERT(rq->len > 0);
 }
 
 ERTS_GLB_INLINE void
@@ -759,7 +773,12 @@ erts_smp_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rq->len);
+    len--;
+    ASSERT(len >= 0);
+    erts_smp_atomic32_set_nob(&rq->len, len);
+
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     len--;
     ASSERT(len >= 0);
     if (len == 0) {
@@ -770,8 +789,6 @@ erts_smp_dec_runq_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi, int prio)
     }
     erts_smp_atomic32_set_relb(&rqi->len, len);
 
-    rq->len--;
-    ASSERT(rq->len >= 0);
 }
 
 ERTS_GLB_INLINE void
@@ -781,7 +798,7 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    len = erts_smp_atomic32_read_nob(&rqi->len);
+    len = erts_smp_atomic32_read_dirty(&rqi->len);
     ASSERT(rqi->max_len >= len);
     rqi->max_len = len;
 }
@@ -801,12 +818,11 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ERROR_HANDLER			0
 #define ERTS_PSD_SAVED_CALLS_BUF		1
 #define ERTS_PSD_SCHED_ID			2
-#define ERTS_PSD_DIST_ENTRY			3
-#define ERTS_PSD_CALL_TIME_BP			4
-#define ERTS_PSD_DELAYED_GC_TASK_QS		5
-#define ERTS_PSD_NIF_TRAP_EXPORT		6
+#define ERTS_PSD_CALL_TIME_BP			3
+#define ERTS_PSD_DELAYED_GC_TASK_QS		4
+#define ERTS_PSD_NIF_TRAP_EXPORT		5
 
-#define ERTS_PSD_SIZE				7
+#define ERTS_PSD_SIZE				6
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -823,9 +839,6 @@ typedef struct {
 
 #define ERTS_PSD_SCHED_ID_GET_LOCKS ERTS_PROC_LOCK_STATUS
 #define ERTS_PSD_SCHED_ID_SET_LOCKS ERTS_PROC_LOCK_STATUS
-
-#define ERTS_PSD_DIST_ENTRY_GET_LOCKS ERTS_PROC_LOCK_MAIN
-#define ERTS_PSD_DIST_ENTRY_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -1174,7 +1187,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLGS_GET_USR_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 #define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
-    (((PSFLGS) >> ERTS_PSFLGS_USR_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
+    (((PSFLGS) >> ERTS_PSFLGS_PRQ_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 
 /*
  * Static flags that do not change after process creation.
@@ -1282,6 +1295,7 @@ struct erts_system_profile_flags_t {
     unsigned int exclusive : 1;
 };
 extern struct erts_system_profile_flags_t erts_system_profile_flags;
+extern int erts_system_profile_ts_type;
 
 /* process flags */
 #define F_HIBERNATE_SCHED    (1 <<  0) /* Schedule out after hibernate op */
@@ -1297,61 +1311,90 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC */
 
+#define ERTS_TRACE_FLAGS_TS_TYPE_SHIFT			0
+
+#define F_TRACE_FLAG(N)      (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
+
 /* process trace_flags */
-#define F_SENSITIVE          (1 << 0)
-#define F_TRACE_SEND         (1 << 1)   
-#define F_TRACE_RECEIVE      (1 << 2)
-#define F_TRACE_SOS          (1 << 3) /* Set on spawn       */
-#define F_TRACE_SOS1         (1 << 4) /* Set on first spawn */
-#define F_TRACE_SOL          (1 << 5) /* Set on link        */
-#define F_TRACE_SOL1         (1 << 6) /* Set on first link  */
-#define F_TRACE_CALLS        (1 << 7)
-#define F_TIMESTAMP          (1 << 8)
-#define F_TRACE_PROCS        (1 << 9)
-#define F_TRACE_FIRST_CHILD  (1 << 10)
-#define F_TRACE_SCHED        (1 << 11)
-#define F_TRACE_GC           (1 << 12)
-#define F_TRACE_ARITY_ONLY   (1 << 13)
-#define F_TRACE_RETURN_TO    (1 << 14) /* Return_to trace when breakpoint tracing */
-#define F_TRACE_SILENT       (1 << 15) /* No call trace msg suppress */
-#define F_TRACER             (1 << 16) /* May be (has been) tracer */
-#define F_EXCEPTION_TRACE    (1 << 17) /* May have exception trace on stack */
+
+#define F_NOW_TS             (ERTS_TRACE_FLG_NOW_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_STRICT_MON_TS      (ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_MON_TS             (ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP \
+			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define F_SENSITIVE          F_TRACE_FLAG(0)
+#define F_TRACE_SEND         F_TRACE_FLAG(1)
+#define F_TRACE_RECEIVE      F_TRACE_FLAG(2)
+#define F_TRACE_SOS          F_TRACE_FLAG(3) /* Set on spawn       */
+#define F_TRACE_SOS1         F_TRACE_FLAG(4) /* Set on first spawn */
+#define F_TRACE_SOL          F_TRACE_FLAG(5) /* Set on link        */
+#define F_TRACE_SOL1         F_TRACE_FLAG(6) /* Set on first link  */
+#define F_TRACE_CALLS        F_TRACE_FLAG(7)
+#define F_TRACE_PROCS        F_TRACE_FLAG(8)
+#define F_TRACE_FIRST_CHILD  F_TRACE_FLAG(9)
+#define F_TRACE_SCHED        F_TRACE_FLAG(10)
+#define F_TRACE_GC           F_TRACE_FLAG(11)
+#define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
+#define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
+#define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
+#define F_TRACER             F_TRACE_FLAG(15) /* May be (has been) tracer */
+#define F_EXCEPTION_TRACE    F_TRACE_FLAG(16) /* May have exception trace on stack */
 
 /* port trace flags, currently the same as process trace flags */
-#define F_TRACE_SCHED_PORTS  (1 << 18) /* Trace of port scheduling */
-#define F_TRACE_SCHED_PROCS  (1 << 19) /* With virtual scheduling */
-#define F_TRACE_PORTS	     (1 << 20) /* Ports equivalent to F_TRACE_PROCS */
-#define F_TRACE_SCHED_NO     (1 << 21) /* Trace with scheduler id */
-#define F_TRACE_SCHED_EXIT   (1 << 22)
+#define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
+#define F_TRACE_SCHED_PROCS  F_TRACE_FLAG(18) /* With virtual scheduling */
+#define F_TRACE_PORTS	     F_TRACE_FLAG(19) /* Ports equivalent to F_TRACE_PROCS */
+#define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
+#define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
 
-#define F_NUM_FLAGS          23
+#define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
 #ifdef DEBUG
 #  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
 #else
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif
 
+/* F_TIMESTAMP_MASK is a bit-field of all all timestamp types */
+#define F_TIMESTAMP_MASK \
+    (ERTS_TRACE_TS_TYPE_MASK << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
+
 #define TRACEE_FLAGS ( F_TRACE_PROCS | F_TRACE_CALLS \
 		     | F_TRACE_SOS |  F_TRACE_SOS1| F_TRACE_RECEIVE  \
 		     | F_TRACE_SOL | F_TRACE_SOL1 | F_TRACE_SEND \
-		     | F_TRACE_SCHED | F_TIMESTAMP | F_TRACE_GC \
+		     | F_TRACE_SCHED | F_TIMESTAMP_MASK | F_TRACE_GC \
 		     | F_TRACE_ARITY_ONLY | F_TRACE_RETURN_TO \
                      | F_TRACE_SILENT | F_TRACE_SCHED_PROCS | F_TRACE_PORTS \
 		     | F_TRACE_SCHED_PORTS | F_TRACE_SCHED_NO \
 		     | F_TRACE_SCHED_EXIT)
 
 #define ERTS_TRACEE_MODIFIER_FLAGS \
-  (F_TRACE_SILENT | F_TIMESTAMP | F_TRACE_SCHED_NO)
+  (F_TRACE_SILENT | F_TIMESTAMP_MASK | F_TRACE_SCHED_NO)
 #define ERTS_PORT_TRACEE_FLAGS \
   (ERTS_TRACEE_MODIFIER_FLAGS | F_TRACE_PORTS | F_TRACE_SCHED_PORTS)
 #define ERTS_PROC_TRACEE_FLAGS \
   ((TRACEE_FLAGS & ~ERTS_PORT_TRACEE_FLAGS) | ERTS_TRACEE_MODIFIER_FLAGS)
 
+#define SEQ_TRACE_FLAG(N)        (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
+
 /* Sequential trace flags */
+
+/* SEQ_TRACE_TIMESTAMP_MASK is a bit-field */
+#define SEQ_TRACE_TIMESTAMP_MASK \
+    (ERTS_TRACE_TS_TYPE_MASK << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+
 #define SEQ_TRACE_SEND     (1 << 0)
 #define SEQ_TRACE_RECEIVE  (1 << 1)
 #define SEQ_TRACE_PRINT    (1 << 2)
-#define SEQ_TRACE_TIMESTAMP (1 << 3)
+
+#define ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT 3
+
+#define SEQ_TRACE_NOW_TS   (ERTS_TRACE_FLG_NOW_TIMESTAMP \
+			    << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define SEQ_TRACE_STRICT_MON_TS (ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP \
+				 << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
+#define SEQ_TRACE_MON_TS (ERTS_TRACE_FLG_MONOTONIC_TIMESTAMP \
+			  << ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT)
 
 #ifdef USE_VM_PROBES
 #define DT_UTAG_PERMANENT (1 << 0)
@@ -1440,6 +1483,7 @@ void erts_init_scheduling(int, int
 
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_system_check_request(Process *c_p);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
@@ -1682,7 +1726,7 @@ void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
 Eterm erts_process_status(Process *, ErtsProcLocks, Process *, Eterm);
-Uint erts_run_queues_len(Uint *);
+Uint erts_run_queues_len(Uint *, int, int);
 void erts_add_to_runq(Process *);
 Eterm erts_bound_schedulers_term(Process *c_p);
 Eterm erts_get_cpu_topology_term(Process *c_p, Eterm which);
@@ -1886,11 +1930,6 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 
 #define ERTS_PROC_SCHED_ID(P, L, ID) \
   ((UWord) erts_psd_set((P), (L), ERTS_PSD_SCHED_ID, (void *) (ID)))
-
-#define ERTS_PROC_GET_DIST_ENTRY(P) \
-  ((DistEntry *) erts_psd_get((P), ERTS_PSD_DIST_ENTRY))
-#define ERTS_PROC_SET_DIST_ENTRY(P, L, D) \
-  ((DistEntry *) erts_psd_set((P), (L), ERTS_PSD_DIST_ENTRY, (void *) (D)))
 
 #define ERTS_PROC_GET_SAVED_CALLS_BUF(P) \
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SAVED_CALLS_BUF))
@@ -2312,6 +2351,6 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 #endif
 
 
-void erl_halt(int code);
+void erts_halt(int code);
 extern erts_smp_atomic32_t erts_halt_progress;
 extern int erts_halt_code;

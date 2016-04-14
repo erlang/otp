@@ -30,24 +30,44 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {timetrap,{minutes,12}}].
 
-all() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
-groups() -> [].
+all() -> [{group,default_algs},
+	  {group,aes_gcm}
+	 ].
+
+groups() -> [{default_algs, [], tests()},
+	     {aes_gcm,      [], tests()}
+	    ].
+
+tests() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    Config;
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    Config.
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
+
+%%--------------------------------------------------------------------
+init_per_group(aes_gcm, Config) ->
+    case lists:member({client2server,['aes128-gcm@openssh.com']},
+		      ssh_transport:supported_algorithms(cipher)) of
+	true ->
+	    [{preferred_algorithms, [{cipher,[{client2server,['aes128-gcm@openssh.com']},
+					      {server2client,['aes128-gcm@openssh.com']}]}]}
+	     | Config];
+	false ->
+	    {skip, "aes_gcm not supported"}
+    end;
+init_per_group(_, Config) ->
+    [{preferred_algorithms, ssh:default_algorithms()} | Config].
+
+
+end_per_group(_, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
@@ -89,7 +109,9 @@ rekey_limit(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey.data"),
 
-    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
+    Algs = ?config(preferred_algorithms, Config),
+    {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
+							{preferred_algorithms,Algs}]),
 
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, [{rekey_limit, 6000},
 								  {max_random_length_padding,0}]),
@@ -133,7 +155,9 @@ renegotiate1(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate1.data"),
 
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
+    Algs = ?config(preferred_algorithms, Config),
+    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
+							 {preferred_algorithms,Algs}]),
 
     RPort = ssh_test_lib:inet_port(),
     {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
@@ -171,7 +195,9 @@ renegotiate2(Config) ->
     UserDir = ?config(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate2.data"),
 
-    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0}]),
+    Algs = ?config(preferred_algorithms, Config),
+    {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
+							 {preferred_algorithms,Algs}]),
 
     RPort = ssh_test_lib:inet_port(),
     {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),

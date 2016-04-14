@@ -52,7 +52,7 @@ testcase_run(TestCaseState_t *tcs)
     typedef struct linked_block {
 	struct linked_block* next;
     }Linked;
-    Linked* link;
+    Linked* link = NULL;
     Linked* fence_list;
     Linked* pad_list;
     void* tmp;
@@ -183,3 +183,5 @@ testcase_run(TestCaseState_t *tcs)
     tcs->extra = NULL;
 }
 
+ERL_NIF_INIT(bucket_mask, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

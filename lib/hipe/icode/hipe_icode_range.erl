@@ -1202,11 +1202,11 @@ basic_type(#unsafe_update_element{}) -> not_analysed.
 analyse_bs_get_integer(Size, Flags, true) ->
   Signed = Flags band 4,
   if Signed =:= 0 ->
-      Max = 1 bsl Size - 1,
+      Max = inf_add(inf_bsl(1, Size), -1),
       Min = 0;
      true ->
-      Max = 1 bsl (Size-1) - 1,
-      Min = -(1 bsl (Size-1))
+      Max = inf_add(inf_bsl(1, Size-1), -1),
+      Min = inf_inv(inf_bsl(1, Size-1))
   end,
   {Min, Max};
 analyse_bs_get_integer(Size, Flags, false) when is_integer(Size),

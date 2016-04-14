@@ -20,7 +20,7 @@
 #include "testcase_driver.h"
 #include "allocator_test.h"
 
-#define NO_BLOCKS 100000
+int NO_BLOCKS;
 
 #define RIGHT_VISITED (1 << 0)
 #define LEFT_VISITED (1 << 1)
@@ -265,9 +265,10 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
     ASSERT(tcs, curr_blacks == 0);
     ASSERT(tcs, i == -1);
 
+    /*
     testcase_printf(tcs, "Red-Black Tree OK! Max depth = %d; "
 		    "Black depth = %d\n", max_i+1, blacks < 0 ? 0 : blacks);
-
+    */
     return res;
 
 }
@@ -468,6 +469,12 @@ testcase_run(TestCaseState_t *tcs)
     Allctr_t *a;
     rbtree_test_data *td;
 
+    NO_BLOCKS = 100*1000;
+    if (enif_is_identical(tcs->build_type,
+                          enif_make_atom(tcs->curr_env,"valgrind"))) {
+        NO_BLOCKS /= 10;
+    }
+
     /* Best fit... */
 
     testcase_printf(tcs, "Setup...\n");
@@ -577,3 +584,6 @@ testcase_run(TestCaseState_t *tcs)
     testcase_printf(tcs, "aoffcaobf test succeeded!\n");
 
 }
+
+ERL_NIF_INIT(rbtree, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

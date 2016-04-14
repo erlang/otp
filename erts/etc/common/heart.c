@@ -472,10 +472,6 @@ message_loop(erlin_fd, erlout_fd)
 			switch (mp->op) {
 			case HEART_BEAT:
 				timestamp(&last_received);
-#ifdef USE_WATCHDOG
-				/* reset the hardware watchdog timer */
-				wd_reset();
-#endif
 				break;
 			case SHUT_DOWN:
 				return R_SHUT_DOWN;

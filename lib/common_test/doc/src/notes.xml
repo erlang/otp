@@ -33,6 +33,171 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    This update fixes the problem with generic printouts in
+	    the html log file not having special characters escaped.
+	    Printouts made with <c>io:format/2</c> and
+	    <c>ct:pal/2</c> will now get special characters escaped
+	    automatically. Common Test will not attempt to escape
+	    characters printed with <c>ct:log/2</c> since it is
+	    assumed that the user may want to print html tagged data
+	    using this function. A new function, <c>ct:log/5</c>, has
+	    been added, which offers optional escaping of characters.
+	    The latter function may also be used to print text to the
+	    log without headers and CSS class wrapping (analogue to
+	    <c>io:format/2</c>).</p>
+          <p>
+	    Own Id: OTP-13003 Aux Id: seq13005 </p>
+        </item>
+        <item>
+          <p>
+	    Commit 4cf832f1ad163f5b25dd8a6f2d314c169c23c82f
+	    erroneously removed logging of open and close of netconf
+	    connections. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-13386</p>
+        </item>
+        <item>
+          <p>
+	    The directory to which nodes started with
+	    <c>test_server:start_node/3</c> writes their
+	    erl_crash.dump is changed. The crashdumps were earlier
+	    written to the directory of test_server.beam, but in
+	    later versions of Microsoft Windows this is no longer
+	    writable (even for administrators). The framework
+	    (common_test) log directory is now used instead.</p>
+          <p>
+	    Own Id: OTP-13388</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This update makes it possible to specify multiple
+	    instances of the same group or test case in one test
+	    specification term in order to repeat execution. Example:
+	    <c>{groups, "./", my_SUITE, [my_group, my_group], {cases,
+	    all}}, or {cases, "./", my_SUITE, [my_tc, my_tc,
+	    my_tc]}.</c></p>
+          <p>
+	    Own Id: OTP-13241 Aux Id: seq12979 </p>
+        </item>
+        <item>
+          <p>
+	    Two new CT hook functions have been added:
+	    <c>post_init_per_testcase/4</c> and
+	    <c>pre_end_per_testcase/3</c>. With these hook functions,
+	    it is possible to perform arbitrary actions (including
+	    modifications of test execution, test state and results)
+	    immediately before and after the execution of the test
+	    case.</p>
+          <p>
+	    Own Id: OTP-13242 Aux Id: seq12991 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct_netconfc</c> was earlier very restrictive as to
+	    which SSH options the user could set. This is now
+	    changed, and any SSH option is now allowed. The netconf
+	    client will simply pass on any option, which it does not
+	    recognize, to SSH.</p>
+          <p>
+	    Own Id: OTP-13338 Aux Id: seq13053,seq13069 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a ssh package contained more than one netconf end tag,
+	    then the second end tag was never detected in
+	    ct_netconfc:handle_data. Instead it was included in the
+	    XML data given to the xmerl parser, which then failed.
+	    The problem was introduced by OTP-13007, and has now been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-13323</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When data from the netconf server was split into many ssh
+	    packages, the netconf client performed really bad. This
+	    is now improved.</p>
+          <p>
+	    Own Id: OTP-13007</p>
+        </item>
+        <item>
+          <p>
+	    In ct_netconfc, if a timer expired 'at the same time' as
+	    the server sent the rpc-reply, the timeout message might
+	    already be in the client's message queue when the client
+	    removed the timer ref from its 'pending' list. This
+	    caused a crash in the client since the timer ref could no
+	    longer be found when handling the timeout message. This
+	    problem is now fixed by always flushing the timeout
+	    message from the message queue when canceling a timer.</p>
+          <p>
+	    Own Id: OTP-13008</p>
+        </item>
+        <item>
+          <p>
+	    The error logger handler ct_conn_log_h did not respect
+	    the 'silent' option, and tried to print to an undefined
+	    file descriptor. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-13035</p>
+        </item>
+        <item>
+          <p>
+	    If the user would let the test run proceed after test
+	    suite compilation failure, Common Test did not set the
+	    exit status to indicate failure as expected. This has
+	    been corrected. Also, the 'abort_if_missing_suites'
+	    option now makes Common Test abort the test run without
+	    asking the user if compilation fails, even if access to
+	    stdin/stdout exists.</p>
+          <p>
+	    Own Id: OTP-13173 Aux Id: seq12978 </p>
+        </item>
+        <item>
+          <p>
+	    With the Common Test 'create_priv_dir' start option set
+	    to 'auto_per_tc', the name of the priv directory for a
+	    configuration function could clash with the name of the
+	    priv directory for a test case, which would cause Test
+	    Server failure. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-13181</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -760,7 +925,7 @@
 	    configuration function or test specification term), the
 	    affected test cases get the status <c>user_skipped</c>
 	    instead.</p> <p>This update has meant a few changes that
-	    may affect Common Test users in various ways: <list>
+	    may affect Common Test users in various ways:</p> <list>
 	    <item>The test results and statistics will be affected,
 	    which is important to know when running regression tests
 	    and comparing results to previous test runs.</item>
@@ -780,7 +945,7 @@
 	    <c>auto_skipped</c> rather than <c>user_skipped</c> as
 	    before.</item> <item>The event messages that Common Test
 	    generates during test runs have been affected by this
-	    update. For details see OTP-11524.</item> </list> </p>
+	    update. For details see OTP-11524.</item> </list>
           <p>
 	    Own Id: OTP-11305 Aux Id: OTP-11524 </p>
         </item>
@@ -831,7 +996,7 @@
         <item>
 	    <p>The following modifications have been made to the
 	    event messages that Common Test sends during test
-	    execution: <list> <item>For the <c>tc_auto_skip</c>
+	    execution:</p> <list> <item>For the <c>tc_auto_skip</c>
 	    event, the value of the <c>Func</c> element has changed
 	    from <c>end_per_group</c> to
 	    <c>{end_per_group,GroupName}</c>.</item> <item>When
@@ -843,7 +1008,7 @@
 	    configuration name already in use, the <c>tc_done</c>
 	    event now reports the error with a tuple (of size 2)
 	    tagged <c>failed</c> instead of <c>skipped</c>.</item>
-	    </list> Please see the Event Handling chapter in the
+	    </list> <p>Please see the Event Handling chapter in the
 	    Common Test User's Guide for reference. </p>
           <p>
 	    Own Id: OTP-11524 Aux Id: OTP-11305 </p>
@@ -1247,7 +1412,6 @@
         <item>
           <p>
 	    Some bugfixes in <c>ct_snmp:</c></p>
-          <p>
 	    <list> <item> ct_snmp will now use the value of the
 	    'agent_vsns' config variable when setting the 'variables'
 	    parameter to snmp application agent configuration.
@@ -1255,14 +1419,13 @@
 	    supported versions had to be specified twice. </item>
 	    <item> Snmp application failed to write notify.conf since
 	    ct_snmp gave the notify type as a string instead of an
-	    atom. This has been corrected. </item> </list></p>
+	    atom. This has been corrected. </item> </list>
           <p>
 	    Own Id: OTP-10432</p>
         </item>
         <item>
           <p>
 	    Some bugfixes in <c>ct_snmp</c>:</p>
-          <p>
 	    <list> <item> Functions <c>register_users/2</c>,
 	    <c>register_agents/2</c> and <c>register_usm_users/2</c>,
 	    and the corresponding <c>unregister_*/1</c> functions
@@ -1279,7 +1442,7 @@
 	    priv_dir instead of in the configuration dir
 	    (priv_dir/conf). This has been corrected. </item> <item>
 	    Arguments to <c>register_usm_users/2</c> were faulty
-	    documented. This has been corrected. </item> </list></p>
+	    documented. This has been corrected. </item> </list>
           <p>
 	    Own Id: OTP-10434 Aux Id: kunagi-264 [175] </p>
         </item>
@@ -1343,7 +1506,7 @@
         </item>
         <item>
           <p>
-	    Update common test modules to handle unicode <list>
+	    Update common test modules to handle unicode:</p> <list>
 	    <item> Use UTF-8 encoding for all HTML files, except the
 	    HTML version of the test suite generated with
 	    erl2html2:convert, which will have the same encoding as
@@ -1354,7 +1517,7 @@
 	    unicode:characters_to_list and
 	    unicode:characters_to_binary for conversion between
 	    binaries and strings instead of binary_to_list and
-	    list_to_binary. </item> </list></p>
+	    list_to_binary. </item> </list>
           <p>
 	    Own Id: OTP-10783</p>
         </item>
@@ -1395,7 +1558,6 @@
           <p>
 	    The following corrections/changes are done in the
 	    cth_surefire hook:</p>
-          <p>
 	    <list> <item> Earlier there would always be a
 	    'properties' element under the 'testsuites' element. This
 	    would exist even if there were no 'property' element
@@ -1428,7 +1590,7 @@
 	    </item> <item> A new option named 'url_base' is added for
 	    this hook. If this option is used, a new attribute named
 	    'url' will be added to the 'testcase' and 'testsuite'
-	    elements. </item> </list></p>
+	    elements. </item> </list>
           <p>
 	    Own Id: OTP-10589</p>
         </item>

@@ -68,6 +68,7 @@ real_requests()->
      get,
      post,
      post_stream,
+     patch,
      async,
      pipeline,
      persistent_connection,
@@ -255,6 +256,28 @@ post(Config) when is_list(Config) ->
     {ok, {{_,504,_}, [_ | _], []}} =
 	httpc:request(post, {URL, [{"expect","100-continue"}],
 			     "text/plain", "foobar"}, [], []).
+
+%%--------------------------------------------------------------------
+patch() ->
+    [{"Test http patch request against local server. We do in this case "
+     "only care about the client side of the the patch. The server "
+     "script will not actually use the patch data."}].
+patch(Config) when is_list(Config) ->
+    CGI = case test_server:os_type() of
+	      {win32, _} ->
+		  "/cgi-bin/cgi_echo.exe";
+	      _ ->
+		  "/cgi-bin/cgi_echo"
+	  end,
+
+     URL = url(group_name(Config), CGI, Config),
+
+    %% Cgi-script expects the body length to be 100
+    Body = lists:duplicate(100, "1"),
+
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+	httpc:request(patch, {URL, [{"expect","100-continue"}],
+			     "text/plain", Body}, [], []).
 
 %%--------------------------------------------------------------------
 post_stream() ->

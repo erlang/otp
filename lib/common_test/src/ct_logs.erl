@@ -37,15 +37,17 @@
 -export([add_external_logs/1, add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
--export([get_ts_html_wrapper/5]).
+-export([get_ts_html_wrapper/5, escape_chars/1]).
 -export([xhtml/2, locate_priv_file/1, make_relative/1]).
 -export([insert_javascript/1]).
 -export([uri/1]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3, tc_log/4, tc_log/5, tc_log_async/3, tc_log_async/5,
+-export([tc_log/3, tc_log/4, tc_log/5, tc_log/6,
+	 tc_log_async/3, tc_log_async/5,
 	 tc_print/3, tc_print/4,
-	 tc_pal/3, tc_pal/4, ct_log/3, basic_html/0]).
+	 tc_pal/3, tc_pal/4, ct_log/3,
+	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
 -export([simulate/0]).
@@ -267,7 +269,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
-    io:format(xhtml("", "<br />")),
+    io:format(["$tc_html",xhtml("", "<br />")]),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -314,9 +316,10 @@ unregister_groupleader(Pid) ->
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
 log(Heading,Format,Args) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(?now),Heading]},
+	  [{hd,int_header(),[log_timestamp(?now),Heading]},
 	   {Format,Args},
-	   {int_footer(),[]}]}),
+	   {ft,int_footer(),[]}],
+	 true}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -336,7 +339,7 @@ log(Heading,Format,Args) ->
 %%% @see end_log/0
 start_log(Heading) ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_header(),[log_timestamp(?now),Heading]}]}),
+	  [{hd,int_header(),[log_timestamp(?now),Heading]}],false}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -351,7 +354,7 @@ cont_log([],[]) ->
 cont_log(Format,Args) ->
     maybe_log_timestamp(),
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{Format,Args}]}),
+	  [{Format,Args}],true}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -363,7 +366,7 @@ cont_log(Format,Args) ->
 %%% @see cont_log/2
 end_log() ->
     cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-	  [{int_footer(), []}]}),
+	  [{ft,int_footer(), []}],false}),
     ok.
     
 
@@ -400,32 +403,46 @@ add_link(Heading,File,Type) ->
 %%% @spec tc_log(Category,Format,Args) -> ok
 %%% @equiv tc_log(Category,?STD_IMPORTANCE,Format,Args)
 tc_log(Category,Format,Args) ->
-    tc_log(Category,?STD_IMPORTANCE,Format,Args).
+    tc_log(Category,?STD_IMPORTANCE,"User",Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_log(Category,Importance,Format,Args) -> ok
 %%% @equiv tc_log(Category,Importance,"User",Format,Args)
 tc_log(Category,Importance,Format,Args) ->
-    tc_log(Category,Importance,"User",Format,Args).
+    tc_log(Category,Importance,"User",Format,Args,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_log(Category,Importance,Printer,Format,Args) -> ok
+%%% @spec tc_log(Category,Importance,Format,Args) -> ok
+%%% @equiv tc_log(Category,Importance,"User",Format,Args)
+tc_log(Category,Importance,Format,Args,Opts) ->
+    tc_log(Category,Importance,"User",Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_log(Category,Importance,Printer,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Printer = string()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = list()
 %%%
 %%% @doc Printout from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
-tc_log(Category,Importance,Printer,Format,Args) ->
-    cast({log,sync,self(),group_leader(),Category,Importance,
-	  [{div_header(Category,Printer),[]},
-	   {Format,Args},
-	   {div_footer(),[]}]}),
+tc_log(Category,Importance,Printer,Format,Args,Opts) ->
+    Data = 
+	case lists:member(no_css, Opts) of
+	    true ->
+		[{Format,Args}];
+	    false ->
+		[{hd,div_header(Category,Printer),[]},
+		 {Format,Args},
+		 {ft,div_footer(),[]}]
+	end,
+    cast({log,sync,self(),group_leader(),Category,Importance,Data,
+	  lists:member(esc_chars, Opts)}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -451,9 +468,10 @@ tc_log_async(Category,Format,Args) ->
 %%% asks ct_logs for an html wrapper.</p>
 tc_log_async(Category,Importance,Printer,Format,Args) ->
     cast({log,async,self(),group_leader(),Category,Importance,
-	  [{div_header(Category,Printer),[]},
+	  [{hd,div_header(Category,Printer),[]},
 	   {Format,Args},
-	   {div_footer(),[]}]}),
+	   {ft,div_footer(),[]}],
+	  true}),
     ok.
 %%%-----------------------------------------------------------------
 %%% @spec tc_print(Category,Format,Args)
@@ -522,43 +540,45 @@ tc_pal(Category,Format,Args) ->
 tc_pal(Category,Importance,Format,Args) ->
     tc_print(Category,Importance,Format,Args),
     cast({log,sync,self(),group_leader(),Category,Importance,
-	  [{div_header(Category),[]},
+	  [{hd,div_header(Category),[]},
 	   {Format,Args},
-	   {div_footer(),[]}]}),
+	   {ft,div_footer(),[]}],
+	  true}),
     ok.
 
 
 %%%-----------------------------------------------------------------
-%%% @spec ct_pal(Category,Format,Args) -> ok
+%%% @spec ct_log(Category,Format,Args) -> ok
 %%%      Category = atom()
 %%%      Format = string()
 %%%      Args = list()
 %%%
-%%% @doc Print and log to the ct framework log
+%%% @doc Print to the ct framework log
 %%%
 %%% <p>This function is called by internal ct functions to
 %%% force logging to the ct framework log</p>
 ct_log(Category,Format,Args) ->
-    cast({ct_log,[{div_header(Category),[]},
+    cast({ct_log,[{hd,div_header(Category),[]},
 		  {Format,Args},
-		  {div_footer(),[]}]}),
+		  {ft,div_footer(),[]}],
+	  true}),
     ok.
 
 
 %%%=================================================================
 %%% Internal functions
 int_header() ->
-    "<div class=\"ct_internal\"><b>*** CT ~s *** ~ts</b>".
+    "</pre>\n<div class=\"ct_internal\"><pre><b>*** CT ~s *** ~ts</b>".
 int_footer() ->
-    "</div>".
+    "</pre></div>\n<pre>".
 
 div_header(Class) ->
     div_header(Class,"User").
 div_header(Class,Printer) ->
-    "\n<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
-    " " ++ log_timestamp(?now) ++ " ***</b>".
+    "\n</pre>\n<div class=\"" ++ atom_to_list(Class) ++ "\"><pre><b>*** "
+	++ Printer ++ " " ++ log_timestamp(?now) ++ " ***</b>".
 div_footer() ->
-    "</div>".
+    "</pre></div>\n<pre>".
 
 
 maybe_log_timestamp() ->
@@ -568,7 +588,7 @@ maybe_log_timestamp() ->
 	    ok;
 	_ ->
 	    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
-		  [{"<i>~s</i>",[log_timestamp({MS,S,US})]}]})
+		  [{hd,"<i>~s</i>",[log_timestamp({MS,S,US})]}],false})
     end.
 
 log_timestamp({MS,S,US}) ->
@@ -729,7 +749,7 @@ copy_priv_files([], []) ->
 
 logger_loop(State) ->
     receive
-	{log,SyncOrAsync,Pid,GL,Category,Importance,List} ->
+	{log,SyncOrAsync,Pid,GL,Category,Importance,Content,EscChars} ->
 	    VLvl = case Category of
 		       ct_internal ->
 			   ?MAX_VERBOSITY;
@@ -746,15 +766,15 @@ logger_loop(State) ->
 			    case erlang:is_process_alive(TCGL) of
 				true ->
 				    State1 = print_to_log(SyncOrAsync, Pid,
-							  Category,
-							  TCGL, List, State),
+							  Category, TCGL, Content,
+							  EscChars, State),
 				    logger_loop(State1#logger_state{
 						  tc_groupleaders = TCGLs});
 				false ->
 				    %% Group leader is dead, so write to the
 				    %% CtLog or unexpected_io log instead
-				    unexpected_io(Pid,Category,Importance,
-						  List,CtLogFd),
+				    unexpected_io(Pid, Category, Importance,
+						  Content, CtLogFd, EscChars),
 
 				    logger_loop(State)			    
 			    end;
@@ -762,7 +782,8 @@ logger_loop(State) ->
 			    %% If category is ct_internal then write
 			    %% to ct_log, else write to unexpected_io
 			    %% log
-			    unexpected_io(Pid,Category,Importance,List,CtLogFd),
+			    unexpected_io(Pid, Category, Importance, Content,
+					  CtLogFd, EscChars),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;
@@ -818,10 +839,17 @@ logger_loop(State) ->
 	    logger_loop(State);
 	{clear_stylesheet,_} ->
 	    logger_loop(State#logger_state{stylesheet = undefined});
-	{ct_log, List} ->
+	{ct_log,Content,EscChars} ->
+	    Str = lists:map(fun({_HdOrFt,Str,Args}) ->
+				    [io_lib:format(Str,Args),io_lib:nl()];
+			       ({Str,Args}) when EscChars ->
+				    Io = io_lib:format(Str,Args),
+				    [escape_chars(Io),io_lib:nl()];
+			       ({Str,Args}) ->
+				    [io_lib:format(Str,Args),io_lib:nl()]
+			    end, Content),
 	    Fd = State#logger_state.ct_log_fd,
-	    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
-				{Str,Args} <- List],
+	    io:format(Fd, "~ts", [Str]),
 	    logger_loop(State);
 	{'DOWN',Ref,_,_Pid,_} ->
 	    %% there might be print jobs executing in parallel with ct_logs
@@ -843,45 +871,74 @@ logger_loop(State) ->
 	    ok
     end.
 
-create_io_fun(FromPid, CtLogFd) ->
+create_io_fun(FromPid, CtLogFd, EscChars) ->
     %% we have to build one io-list of all strings
     %% before printing, or other io printouts (made in
     %% parallel) may get printed between this header 
     %% and footer
-    fun({Str,Args}, IoList) ->
-	    case catch io_lib:format(Str,Args) of
-		{'EXIT',_Reason} ->
+    fun(FormatData, IoList) ->
+	    {Escapable,Str,Args} =
+		case FormatData of
+		    {_HdOrFt,S,A} -> {false,S,A};
+		    {S,A}         -> {true,S,A}
+		end,
+	    try io_lib:format(Str,Args) of
+		IoStr when Escapable, EscChars, IoList == [] ->
+		    escape_chars(IoStr);
+		IoStr when Escapable, EscChars ->
+		    [IoList,"\n",escape_chars(IoStr)];
+		IoStr when IoList == [] ->
+		    IoStr;
+		IoStr ->
+		    [IoList,"\n",IoStr]
+	    catch
+		_:_Reason ->
 		    io:format(CtLogFd, "Logging fails! Str: ~p, Args: ~p~n",
 			      [Str,Args]),
 		    %% stop the testcase, we need to see the fault
 		    exit(FromPid, {log_printout_error,Str,Args}),
-		    [];
-		IoStr when IoList == [] ->
-		    [IoStr];
-		IoStr ->
-		    [IoList,"\n",IoStr]
+		    []
 	    end
     end.
 
-print_to_log(sync, FromPid, Category, TCGL, List, State) ->
+escape_chars([Bin | Io]) when is_binary(Bin) ->
+    [Bin | escape_chars(Io)];
+escape_chars([List | Io]) when is_list(List) ->
+    [escape_chars(List) | escape_chars(Io)];
+escape_chars([$< | Io]) ->
+    ["&lt;" | escape_chars(Io)];
+escape_chars([$> | Io]) ->
+    ["&gt;" | escape_chars(Io)];
+escape_chars([$& | Io]) ->
+    ["&amp;" | escape_chars(Io)];
+escape_chars([Char | Io]) when is_integer(Char) ->
+    [Char | escape_chars(Io)];
+escape_chars([]) ->
+    [];
+escape_chars(Bin) ->
+    Bin.
+
+print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
     CtLogFd = State#logger_state.ct_log_fd,
     if FromPid /= TCGL ->
-	    IoFun = create_io_fun(FromPid, CtLogFd),
-	    io:format(TCGL,"~ts", [lists:foldl(IoFun, [], List)]);
+	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
+	    IoList = lists:foldl(IoFun, [], Content),
+	    io:format(TCGL,["$tc_html","~ts"], [IoList]);
        true ->
-	    unexpected_io(FromPid,Category,?MAX_IMPORTANCE,List,CtLogFd)
+	    unexpected_io(FromPid, Category, ?MAX_IMPORTANCE, Content,
+			  CtLogFd, EscChars)
     end,
     State;
 
-print_to_log(async, FromPid, Category, TCGL, List, State) ->
+print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
     %% in some situations (exceptions), the printout is made from the
     %% test server IO process and there's no valid group leader to send to
     CtLogFd = State#logger_state.ct_log_fd,
     Printer =
 	if FromPid /= TCGL ->
-		IoFun = create_io_fun(FromPid, CtLogFd),
+		IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 		fun() ->
 			test_server:permit_io(TCGL, self()),
 
@@ -894,25 +951,25 @@ print_to_log(async, FromPid, Category, TCGL, List, State) ->
 
 			case erlang:is_process_alive(TCGL) of
 			    true ->
-				try io:format(TCGL, "~ts",
-					      [lists:foldl(IoFun,[],List)]) of
+				try io:format(TCGL, ["$tc_html","~ts"],
+					      [lists:foldl(IoFun,[],Content)]) of
 				    _ -> ok
 				catch
 				    _:terminated ->
 					unexpected_io(FromPid, Category,
 						      ?MAX_IMPORTANCE,
-						      List, CtLogFd)
+						      Content, CtLogFd, EscChars)
 				end;
 			    false ->
 				unexpected_io(FromPid, Category,
 					      ?MAX_IMPORTANCE,
-					      List, CtLogFd)
+					      Content, CtLogFd, EscChars)
 			end
 		end;
 	   true ->
 		fun() ->
 			unexpected_io(FromPid, Category, ?MAX_IMPORTANCE,
-				      List, CtLogFd)
+				      Content, CtLogFd, EscChars)
 		end
 	end,
     case State#logger_state.async_print_jobs of
@@ -1086,12 +1143,6 @@ print_style(Fd,StyleSheet) ->
 	{error,Reason} ->
 	    print_style_error(Fd,StyleSheet,Reason)  
     end.
-
-%% Simple link version, doesn't work with all browsers unfortunately. :-(
-%% print_style(Fd, StyleSheet) ->
-%%    io:format(Fd,
-%%	      "<link href=~p rel=\"stylesheet\" type=\"text/css\">",
-%%	      [StyleSheet]).
 
 print_style_error(Fd,StyleSheet,Reason) ->
     io:format(Fd,"\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
@@ -1364,11 +1415,11 @@ total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
     [xhtml("<tr valign=top>\n", 
 	   ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
      "<td><b>Total</b></td>\n", Label, TimestampCell,
-     "<td align=right><b>",integer_to_list(Success),"<b></td>\n",
-     "<td align=right><b>",integer_to_list(Fail),"<b></td>\n",
+     "<td align=right><b>",integer_to_list(Success),"</b></td>\n",
+     "<td align=right><b>",integer_to_list(Fail),"</b></td>\n",
      "<td align=right>",integer_to_list(AllSkip),
      " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
-     "<td align=right><b>",integer_to_list(NotBuilt),"<b></td>\n",
+     "<td align=right><b>",integer_to_list(NotBuilt),"</b></td>\n",
      AllInfo, "</tr>\n",
      xhtml("","</tfoot>\n")].
 
@@ -1560,10 +1611,12 @@ header1(Title, SubTitle, TableCols) ->
      "<!-- autogenerated by '"++atom_to_list(?MODULE)++"' -->\n",
      "<head>\n",
      "<title>" ++ Title ++ " " ++ SubTitle ++ "</title>\n",
-     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-     "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
+     "<meta http-equiv=\"cache-control\" content=\"no-cache\"></meta>\n",
+     "<meta http-equiv=\"content-type\" content=\"text/html; "
+            "charset=utf-8\"></meta>\n",
      xhtml("",
-	   ["<link rel=\"stylesheet\" href=\"",uri(CSSFile),"\" type=\"text/css\">\n"]),
+	   ["<link rel=\"stylesheet\" href=\"",uri(CSSFile),
+	    "\" type=\"text/css\"></link>\n"]),
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
 	    "\"></script>\n"]),
@@ -1610,7 +1663,7 @@ footer() ->
       "Copyright &copy; ", year(),
       " <a href=\"http://www.erlang.org\">Open Telecom Platform</a>",
       xhtml("<br>\n", "<br />\n"),
-      "Updated: <!date>", current_time(), "<!/date>",
+      "Updated: <!--date-->", current_time(), "<!--/date-->",
       xhtml("<br>\n", "<br />\n"),
       xhtml("</font></p>\n", "</div>\n"),
       "</center>\n"
@@ -1985,9 +2038,9 @@ interactive_link() ->
 	 "<!-- autogenerated by '"++atom_to_list(?MODULE)++"' -->\n",
 	 "<head>\n",
 	 "<title>Last interactive run</title>\n",
-	 "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	 "<meta http-equiv=\"cache-control\" content=\"no-cache\"></meta>\n",
 	 "<meta http-equiv=\"content-type\" content=\"text/html; "
-	 "charset=utf-8\">\n",
+	        "charset=utf-8\"></meta>\n",
 	 "</head>\n",
 	 "<body>\n",
 	 "Log from last interactive run: <a href=\"",uri(CtLog),"\">",
@@ -2846,8 +2899,12 @@ simulate() ->
 
 simulate_logger_loop() ->
     receive 
-    	{log,_,_,_,_,_,List} ->
-	    S = [[io_lib:format(Str,Args),io_lib:nl()] || {Str,Args} <- List],
+    	{log,_,_,_,_,_,Content,_} ->
+	    S = lists:map(fun({_,Str,Args}) ->
+				  [io_lib:format(Str,Args),io_lib:nl()];
+			     ({Str,Args}) ->
+				  [io_lib:format(Str,Args),io_lib:nl()]
+			  end, Content),
 	    io:format("~ts",[S]),
 	    simulate_logger_loop();
 	stop ->
@@ -3053,15 +3110,15 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 		      "Copyright &copy; ", year(),
 		      " <a href=\"http://www.erlang.org\">",
 		      "Open Telecom Platform</a><br>\n",
-		      "Updated: <!date>", current_time(), "<!/date>",
+		      "Updated: <!--date-->", current_time(), "<!--/date-->",
 		      "<br>\n</font></p>\n"],
 	    {basic_html,
 	     ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	      "<html>\n",
 	      "<head><title>", TestName1, "</title>\n",
-	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+	      "<meta http-equiv=\"cache-control\" content=\"no-cache\"></meta>\n",
 	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=",
-	      html_encoding(Encoding),"\">\n",
+	      html_encoding(Encoding),"\"></meta>\n",
 	      "</head>\n",
 	      "<body", Bgr, " bgcolor=\"white\" text=\"black\" ",
 	      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n",
@@ -3078,7 +3135,7 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 		 "Copyright &copy; ", year(),
 		 " <a href=\"http://www.erlang.org\">",
 		 "Open Telecom Platform</a><br />\n",
-		 "Updated: <!date>", current_time(), "<!/date>",
+		 "Updated: <!--date-->", current_time(), "<!--/date-->",
 		 "<br />\n</div>\n"],
 	    CSSFile =
 		xhtml(fun() -> "" end, 
@@ -3105,9 +3162,11 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 	      "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
 	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
 	      "<head>\n<title>", TestName1, "</title>\n",
-	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-	      "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n",
-	      "<link rel=\"stylesheet\" href=\"", uri(CSSFile), "\" type=\"text/css\">\n",
+	      "<meta http-equiv=\"cache-control\" content=\"no-cache\"></meta>\n",
+	      "<meta http-equiv=\"content-type\" content=\"text/html; ",
+	      "charset=utf-8\"></meta>\n",
+	      "<link rel=\"stylesheet\" href=\"", uri(CSSFile),
+	      "\" type=\"text/css\"></link>\n",
 	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
 	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
 	      TableSorterScript ++ ["</head>\n","<body>\n", LabelStr, "\n"],
@@ -3233,11 +3292,11 @@ html_encoding(latin1) ->
 html_encoding(utf8) ->
     "utf-8".
 
-unexpected_io(Pid,ct_internal,_Importance,List,CtLogFd) ->
-    IoFun = create_io_fun(Pid,CtLogFd),
-    io:format(CtLogFd, "~ts", [lists:foldl(IoFun, [], List)]);
-unexpected_io(Pid,_Category,_Importance,List,CtLogFd) ->
-    IoFun = create_io_fun(Pid,CtLogFd),
-    Data = io_lib:format("~ts", [lists:foldl(IoFun, [], List)]),
+unexpected_io(Pid, ct_internal, _Importance, Content, CtLogFd, EscChars) ->
+    IoFun = create_io_fun(Pid, CtLogFd, EscChars),
+    io:format(CtLogFd, "~ts", [lists:foldl(IoFun, [], Content)]);
+unexpected_io(Pid, _Category, _Importance, Content, CtLogFd, EscChars) ->
+    IoFun = create_io_fun(Pid, CtLogFd, EscChars),
+    Data = io_lib:format("~ts", [lists:foldl(IoFun, [], Content)]),
     test_server_io:print_unexpected(Data),
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -665,7 +665,7 @@ get_file(Text) ->
     Str = wxTextCtrl:getValue(Text),
     Dialog = wxFileDialog:new(Text,
 			      [{message, "Select a file"},
-			       {default_file, Str}]),
+			       {defaultFile, Str}]),
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    Dir = wxFileDialog:getDirectory(Dialog),

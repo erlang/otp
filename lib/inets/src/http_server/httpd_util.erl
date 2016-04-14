@@ -31,7 +31,7 @@
 	 convert_netscapecookie_date/1, enable_debug/1, valid_options/3,
 	 modules_validate/1, module_validate/1, 
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
-	 mime_types_validate/1, custom_date/0]).
+	 mime_types_validate/1, custom_date/0, error_log/2]).
 
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
@@ -420,11 +420,11 @@ flatlength([],L) ->
 %% split_path
 
 split_path(Path) ->
-    case inets_regexp:match(Path,"[\?].*\$") of
+    case re:run(Path,"[\?].*\$", [{capture, first}]) of
 	%% A QUERY_STRING exists!
-	{match,Start,Length} ->
-	    {http_uri:decode(string:substr(Path,1,Start-1)),
-	     string:substr(Path,Start,Length)};
+	{match,[{Start,Length}]} ->
+	    {http_uri:decode(string:substr(Path,1,Start)),
+	     string:substr(Path,Start+1,Length)};
 	%% A possible PATH_INFO exists!
 	nomatch ->
 	    split_path(Path,[])
@@ -522,25 +522,8 @@ remove_ws(Rest) ->
 
 %% split
 
-split(String,RegExp,Limit) ->
-    case inets_regexp:parse(RegExp) of
-	{error,Reason} ->
-	    {error,Reason};
-	{ok,_} ->
-	    {ok,do_split(String,RegExp,Limit)}
-    end.
-
-do_split(String, _RegExp, 1) ->
-    [String];
-
-do_split(String,RegExp,Limit) ->
-    case inets_regexp:first_match(String,RegExp) of 
-	{match,Start,Length} ->
-	    [string:substr(String,1,Start-1)|
-	     do_split(lists:nthtail(Start+Length-1,String),RegExp,Limit-1)];
-	nomatch ->
-	    [String]
-    end.
+split(String,RegExp,N) ->
+    {ok, re:split(String, RegExp, [{parts, N}, {return, list}])}.
 
 %% make_name/2, make_name/3
 %% Prefix  -> string()
@@ -776,3 +759,17 @@ do_enable_debug([{Level,Modules}|Rest])
 	    ok
     end,
     do_enable_debug(Rest).
+
+error_log(ConfigDb, Error) ->
+    error_log(mod_log, ConfigDb, Error),
+    error_log(mod_disk_log, ConfigDb, Error).
+	
+error_log(Mod, ConfigDB, Error) ->
+    Modules = httpd_util:lookup(ConfigDB, modules,
+				[mod_get, mod_head, mod_log]),
+    case lists:member(Mod, Modules) of
+	true ->
+	    Mod:report_error(ConfigDB, Error);
+	_ ->
+	    ok
+    end.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2013</year>
+      <year>2012</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -142,14 +142,14 @@
         <p>If the fragment option is <c>true</c>, the URI fragment is returned as
           part of the parsing result, otherwise it is ignored.</p>
 
-        <p>Scheme validation fun is to be defined as follows:
+        <p>Scheme validation fun is to be defined as follows:</p>
 
-	    <code>
+	<code>
 fun(SchemeStr :: string()) ->
 	valid |	{error, Reason :: term()}.
-	    </code>
+	</code>
 
-        It is called before scheme string gets converted into scheme atom and
+        <p>It is called before scheme string gets converted into scheme atom and
         thus possible atom leak could be prevented</p>
 
         <marker id="encode"></marker>

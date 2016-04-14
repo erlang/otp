@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>The Abstract Format</title>
@@ -35,24 +35,24 @@
   <p></p>
   <p>This document describes the standard representation of parse trees for Erlang
     programs as Erlang terms. This representation is known as the <em>abstract format</em>.
-    Functions dealing with such parse trees are <c><![CDATA[compile:forms/[1,2]]]></c>
+    Functions dealing with such parse trees are <c>compile:forms/[1,2]</c>
     and functions in the modules
-    <c><![CDATA[epp]]></c>,
-    <c><![CDATA[erl_eval]]></c>,
-    <c><![CDATA[erl_lint]]></c>,
-    <c><![CDATA[erl_pp]]></c>,
-    <c><![CDATA[erl_parse]]></c>,
+    <c>epp</c>,
+    <c>erl_eval</c>,
+    <c>erl_lint</c>,
+    <c>erl_pp</c>,
+    <c>erl_parse</c>,
     and
-    <c><![CDATA[io]]></c>.
+    <c>io</c>.
     They are also used as input and output for parse transforms (see the module
-    <c><![CDATA[compile]]></c>).</p>
-  <p>We use the function <c><![CDATA[Rep]]></c> to denote the mapping from an Erlang source
-    construct <c><![CDATA[C]]></c> to its abstract format representation <c><![CDATA[R]]></c>, and write
-    <c><![CDATA[R = Rep(C)]]></c>.
+    <c>compile</c>).</p>
+  <p>We use the function <c>Rep</c> to denote the mapping from an Erlang source
+    construct <c>C</c> to its abstract format representation <c>R</c>, and write
+    <c>R = Rep(C)</c>.
     </p>
-  <p>The word <c><![CDATA[LINE]]></c> below represents an integer, and denotes the
+  <p>The word <c>LINE</c> below represents an integer, and denotes the
     number of the line in the source file where the construction occurred.
-    Several instances of <c><![CDATA[LINE]]></c> in the same construction may denote
+    Several instances of <c>LINE</c> in the same construction may denote
     different lines.</p>
   <p>Since operators are not terms in their own right, when operators are
     mentioned below, the representation of an operator should be taken to
@@ -61,233 +61,116 @@
     </p>
 
   <section>
-    <title>Module declarations and forms</title>
+    <title>Module Declarations and Forms</title>
     <p>A module declaration consists of a sequence of forms that are either
       function declarations or attributes.</p>
     <list type="bulleted">
       <item>If D is a module declaration consisting of the forms
-      <c><![CDATA[F_1]]></c>, ..., <c><![CDATA[F_k]]></c>, then
-       Rep(D) = <c><![CDATA[[Rep(F_1), ..., Rep(F_k)]]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-module(Mod)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,module,Mod}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-behavior(Behavior)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,behavior,Behavior}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-behaviour(Behaviour)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,behaviour,Behaviour}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-export([Fun_1/A_1, ..., Fun_k/A_k])]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-import(Mod,[Fun_1/A_1, ..., Fun_k/A_k])]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,import,{Mod,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-compile(Options)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,compile,Options}]]></c>.</item>
-      <item>If F is an attribute <c><![CDATA[-file(File,Line)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,file,{File,Line}}]]></c>.</item>
-      <item>If F is a record declaration <c><![CDATA[-record(Name,{V_1, ..., V_k})]]></c>, then
-       Rep(F) =
-      <c><![CDATA[{attribute,LINE,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}]]></c>. For Rep(V), see below.</item>
-      <item>If F is a type attribute (i.e. <c><![CDATA[opaque]]></c> or
-       <c><![CDATA[type]]></c>)
-       <c><![CDATA[-Attr Name(A_1, ..., A_k) :: T]]></c> where each
-       <c><![CDATA[A_i]]></c> is a variable, then Rep(F) =
-       <c><![CDATA[{attribute,LINE,Attr,{Name,Rep(T),[Rep(A_1), ..., Rep(A_k)]}}]]></c>.
-       For Rep(T), see below.</item>
-      <item>If F is a type spec (i.e. <c><![CDATA[callback]]></c> or
-       <c><![CDATA[spec]]></c>)
-       <c><![CDATA[-Attr F Tc_1; ...; Tc_k]]></c>,
-       where each <c><![CDATA[Tc_i]]></c> is a fun type clause with an
-       argument sequence of the same length <c><![CDATA[Arity]]></c>, then
-       Rep(F) =
-       <c><![CDATA[{Attr,LINE,{{F,Arity},[Rep(Tc_1), ..., Rep(Tc_k)]}}]]></c>.
-       For Rep(Tc_i), see below.</item>
-      <item>If F is a type spec (i.e. <c><![CDATA[callback]]></c> or
-       <c><![CDATA[spec]]></c>)
-       <c><![CDATA[-Attr Mod:F Tc_1; ...; Tc_k]]></c>,
-       where each <c><![CDATA[Tc_i]]></c> is a fun type clause with an
-       argument sequence of the same length <c><![CDATA[Arity]]></c>, then
-       Rep(F) =
-       <c><![CDATA[{Attr,LINE,{{Mod,F,Arity},[Rep(Tc_1), ..., Rep(Tc_k)]}}]]></c>.
-       For Rep(Tc_i), see below.</item>
-      <item>If F is a wild attribute <c><![CDATA[-A(T)]]></c>, then
-       Rep(F) = <c><![CDATA[{attribute,LINE,A,T}]]></c>.
+      <c>F_1</c>, ..., <c>F_k</c>, then
+       Rep(D) = <c>[Rep(F_1), ..., Rep(F_k)]</c>.</item>
+      <item>If F is an attribute <c>-module(Mod)</c>, then
+       Rep(F) = <c>{attribute,LINE,module,Mod}</c>.</item>
+      <item>If F is an attribute <c>-behavior(Behavior)</c>, then
+       Rep(F) = <c>{attribute,LINE,behavior,Behavior}</c>.</item>
+      <item>If F is an attribute <c>-behaviour(Behaviour)</c>, then
+       Rep(F) = <c>{attribute,LINE,behaviour,Behaviour}</c>.</item>
+      <item>If F is an attribute <c>-export([Fun_1/A_1, ..., Fun_k/A_k])</c>, then
+       Rep(F) = <c>{attribute,LINE,export,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}</c>.</item>
+      <item>If F is an attribute <c>-import(Mod,[Fun_1/A_1, ..., Fun_k/A_k])</c>, then
+       Rep(F) = <c>{attribute,LINE,import,{Mod,[{Fun_1,A_1}, ..., {Fun_k,A_k}]}}</c>.</item>
+      <item>If F is an attribute <c>-export_type([Type_1/A_1, ..., Type_k/A_k])</c>, then
+       Rep(F) = <c>{attribute,LINE,export_type,[{Type_1,A_1}, ..., {Type_k,A_k}]}</c>.</item>
+      <item>If F is an attribute <c>-compile(Options)</c>, then
+       Rep(F) = <c>{attribute,LINE,compile,Options}</c>.</item>
+      <item>If F is an attribute <c>-file(File,Line)</c>, then
+       Rep(F) = <c>{attribute,LINE,file,{File,Line}}</c>.</item>
+      <item>If F is a record declaration
+       <c>-record(Name,{V_1, ..., V_k})</c>, then Rep(F) =
+       <c>{attribute,LINE,record,{Name,[Rep(V_1), ..., Rep(V_k)]}}</c>.
+       For Rep(V), see below.</item>
+      <item>If F is a type declaration
+       <c>-Type Name(V_1, ..., V_k) :: T</c>, where
+       <c>Type</c> is either the atom <c>type</c> or the atom <c>opaque</c>,
+       each <c>V_i</c> is a variable, and <c>T</c> is a type, then Rep(F) =
+       <c>{attribute,LINE,Type,{Name,Rep(T),[Rep(V_1), ..., Rep(V_k)]}}</c>.
+      </item>
+      <item>If F is a function specification
+       <c>-Spec Name Ft_1; ...; Ft_k</c>,
+       where <c>Spec</c> is either the atom <c>spec</c> or the atom
+       <c>callback</c>, and each <c>Ft_i</c> is a possibly constrained
+       function type with an argument sequence of the same length
+       <c>Arity</c>, then Rep(F) =
+       <c>{attribute,Line,Spec,{{Name,Arity},[Rep(Ft_1), ..., Rep(Ft_k)]}}</c>.
+      </item>
+      <item>If F is a function specification
+       <c>-spec Mod:Name Ft_1; ...; Ft_k</c>,
+       where each <c>Ft_i</c> is a possibly constrained
+       function type with an argument sequence of the same length
+       <c>Arity</c>, then Rep(F) =
+       <c>{attribute,Line,spec,{{Mod,Name,Arity},[Rep(Ft_1), ..., Rep(Ft_k)]}}</c>.
+      </item>
+      <item>If F is a wild attribute <c>-A(T)</c>, then
+       Rep(F) = <c>{attribute,LINE,A,T}</c>.
       <br></br></item>
-      <item>If F is a function declaration <c><![CDATA[Name Fc_1 ; ... ; Name Fc_k]]></c>, 
-       where each <c><![CDATA[Fc_i]]></c> is a function clause with a
-       pattern sequence of the same length <c><![CDATA[Arity]]></c>, then
-       Rep(F) = <c><![CDATA[{function,LINE,Name,Arity,[Rep(Fc_1), ...,Rep(Fc_k)]}]]></c>.</item>
+      <item>If F is a function declaration
+       <c>Name Fc_1 ; ... ; Name Fc_k</c>,
+       where each <c>Fc_i</c> is a function clause with a
+       pattern sequence of the same length <c>Arity</c>, then
+       Rep(F) = <c>{function,LINE,Name,Arity,[Rep(Fc_1), ...,Rep(Fc_k)]}</c>.
+      </item>
     </list>
 
     <section>
-      <title>Type clauses</title>
-      <list type="bulleted">
-       <item>If T is a fun type clause
-        <c><![CDATA[(A_1, ..., A_n) -> Ret]]></c>, where each
-        <c><![CDATA[A_i]]></c> and <c><![CDATA[Ret]]></c> are types, then
-        Rep(T) =
-        <c><![CDATA[{type,LINE,'fun',[{type,LINE,product,[Rep(A_1), ..., Rep(A_n)]},Rep(Ret)]}]]></c>.
-        </item>
-       <item>If T is a bounded fun type clause <c><![CDATA[Tc when Tg]]></c>,
-        where <c><![CDATA[Tc]]></c> is an unbounded fun type clause and
-        <c><![CDATA[Tg]]></c> is a type guard sequence, then Rep(T) =
-        <c><![CDATA[{type,LINE,bounded_fun,[Rep(Tc),Rep(Tg)]}]]></c>.</item>
-      </list>
-    </section>
-
-    <section>
-      <title>Type guards</title>
-      <list type="bulleted">
-       <item>If G is a constraint <c><![CDATA[F(A_1, ..., A_k)]]></c>, where
-        <c><![CDATA[F]]></c> is an atom and each <c><![CDATA[A_i]]></c> is a
-        type, then Rep(G) =
-        <c><![CDATA[{type,LINE,constraint,[Rep(F),[Rep(A_1), ..., Rep(A_k)]]}]]></c>.
-        </item>
-       <item>If G is a type definition <c><![CDATA[Name :: Type]]></c>,
-        where <c><![CDATA[Name]]></c> is a variable and
-        <c><![CDATA[Type]]></c> is a type, then Rep(G) =
-        <c><![CDATA[{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(Name),Rep(Type)]]}]]></c>.</item>
-      </list>
-    </section>
-
-    <section>
-      <title>Types</title>
-      <list type="bulleted">
-       <item>If T is a type definition <c><![CDATA[Name :: Type]]></c>,
-        where <c><![CDATA[Name]]></c> is a variable and
-        <c><![CDATA[Type]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{ann_type,LINE,[Rep(Name),Rep(Type)]}]]></c>.</item>
-       <item>If T is a type union <c><![CDATA[A_1 | ... | A_k]]></c>,
-        where each <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,union,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
-       <item>If T is a type range <c><![CDATA[L .. R]]></c>,
-        where <c><![CDATA[L]]></c> and <c><![CDATA[R]]></c> are types, then
-        Rep(T) = <c><![CDATA[{type,LINE,range,[Rep(L), Rep(R)]}]]></c>.</item>
-       <item>If T is a binary operation <c><![CDATA[L Op R]]></c>,
-        where <c><![CDATA[Op]]></c> is an arithmetic or bitwise binary operator
-        and <c><![CDATA[L]]></c> and <c><![CDATA[R]]></c> are types, then
-        Rep(T) = <c><![CDATA[{op,LINE,Op,Rep(L),Rep(R)}]]></c>.</item>
-       <item>If T is <c><![CDATA[Op A]]></c>, where <c><![CDATA[Op]]></c> is an
-        arithmetic or bitwise unary operator and <c><![CDATA[A]]></c> is a
-        type, then Rep(T) = <c><![CDATA[{op,LINE,Op,Rep(A)}]]></c>.</item>
-       <item>If T is a fun type <c><![CDATA[fun()]]></c>, then Rep(T) =
-        <c><![CDATA[{type,LINE,'fun',[]}]]></c>.</item>
-       <item>If T is a variable <c><![CDATA[V]]></c>, then Rep(T) =
-        <c><![CDATA[{var,LINE,A}]]></c>, where <c><![CDATA[A]]></c> is an atom
-        with a printname consisting of the same characters as
-        <c><![CDATA[V]]></c>.</item>
-       <item>If T is an atomic literal L and L is not a string literal, then
-        Rep(T) = Rep(L).</item>
-       <item>If T is a tuple or map type <c><![CDATA[F()]]></c> (i.e.
-        <c><![CDATA[tuple]]></c> or <c><![CDATA[map]]></c>), then Rep(T) =
-        <c><![CDATA[{type,LINE,F,any}]]></c>.</item>
-       <item>If T is a type <c><![CDATA[F(A_1, ..., A_k)]]></c>, where each
-        <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{user_type,LINE,F,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
-       <item>If T is a remote type <c><![CDATA[M:F(A_1, ..., A_k)]]></c>, where
-        each <c><![CDATA[A_i]]></c> is a type and <c><![CDATA[M]]></c> and
-        <c><![CDATA[F]]></c>, then Rep(T) =
-        <c><![CDATA[{remote_type,LINE,[Rep(M),Rep(F),[Rep(A_1), ..., Rep(A_k)]]}]]></c>.
-        </item>
-       <item>If T is the nil type <c><![CDATA[[]]]></c>, then Rep(T) =
-        <c><![CDATA[{type,LINE,nil,[]}]]></c>.</item>
-       <item>If T is a list type <c><![CDATA[[A]]]></c>, where
-        <c><![CDATA[A]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,list,[Rep(A)]}]]></c>.</item>
-       <item>If T is a non-empty list type <c><![CDATA[[A, ...]]]></c>, where
-        <c><![CDATA[A]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,nonempty_list,[Rep(A)]}]]></c>.</item>
-       <item>If T is a map type <c><![CDATA[#{P_1, ..., P_k}]]></c>, where each
-        <c><![CDATA[P_i]]></c> is a map pair type, then Rep(T) =
-        <c><![CDATA[{type,LINE,map,[Rep(P_1), ..., Rep(P_k)]}]]></c>.</item>
-       <item>If T is a map pair type <c><![CDATA[K => V]]></c>, where
-        <c><![CDATA[K]]></c> and <c><![CDATA[V]]></c> are types,
-        then Rep(T) =
-        <c><![CDATA[{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}]]></c>.</item>
-       <item>If T is a tuple type <c><![CDATA[{A_1, ..., A_k}]]></c>, where
-        each <c><![CDATA[A_i]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,tuple,[Rep(A_1), ..., Rep(A_k)]}]]></c>.</item>
-       <item>If T is a record type <c><![CDATA[#Name{}]]></c>, where
-        <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
-        <c><![CDATA[{type,LINE,record,[Rep(Name)]}]]></c>.</item>
-       <item>If T is a record type <c><![CDATA[#Name{F_1, ..., F_k}]]></c>,
-        where <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
-        <c><![CDATA[{type,LINE,record,[Rep(Name),[Rep(F_1), ..., Rep(F_k)]]}]]></c>.
-        </item>
-       <item>If T is a record field type <c><![CDATA[Name :: Type]]></c>,
-        where <c><![CDATA[Name]]></c> is an atom, then Rep(T) =
-        <c><![CDATA[{type,LINE,field_type,[Rep(Name),Rep(Type)]}]]></c>.</item>
-       <item>If T is a record field type <c><![CDATA[<<>>]]></c>, then Rep(T) =
-        <c><![CDATA[{type,LINE,binary,[{integer,LINE,0},{integer,LINE,0}]}]]></c>.
-        </item>
-       <item>If T is a binary type <c><![CDATA[<< _ : B >>]]></c>, where
-        <c><![CDATA[B]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,binary,[Rep(B),{integer,LINE,0}]}]]></c>.</item>
-       <item>If T is a binary type <c><![CDATA[<< _ : _ * U >>]]></c>,
-        where <c><![CDATA[U]]></c> is a type, then Rep(T) =
-        <c><![CDATA[{type,LINE,binary,[{integer,LINE,0},Rep(U)]}]]></c>.</item>
-       <item>If T is a binary type <c><![CDATA[<< _ : B , _ : _ * U >>]]></c>,
-        where <c><![CDATA[B]]></c> and <c><![CDATA[U]]></c> is a type, then
-        Rep(T) =
-        <c><![CDATA[{type,LINE,binary,[Rep(B),Rep(U)]}]]></c>.</item>
-
-       <item>If T is a fun type <c><![CDATA[fun((...) -> Ret)]]></c>, then
-        Rep(T) = <c><![CDATA[{type,LINE,'fun',[{type,LINE,product,[]},Rep(Ret)]}]]></c>.
-        </item>
-       <item>If T is a fun type <c><![CDATA[fun(Tc)]]></c>, where
-        <c><![CDATA[Tc]]></c> is an unbounded fun type clause,
-        then Rep(T) = <c><![CDATA[Rep(Tc)]]></c>.</item>
-      </list>
-    </section>
-
-    <section>
-      <title>Record fields</title>
+      <title>Record Fields</title>
       <p>Each field in a record declaration may have an optional
-        explicit default initializer expression</p>
+        explicit default initializer expression, as well as an
+        optional type.</p>
       <list type="bulleted">
-        <item>If V is <c><![CDATA[A]]></c>, then
-         Rep(V) = <c><![CDATA[{record_field,LINE,Rep(A)}]]></c>.</item>
-        <item>If V is <c><![CDATA[A = E]]></c>, then
-         Rep(V) = <c><![CDATA[{record_field,LINE,Rep(A),Rep(E)}]]></c>.</item>
-        <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
-         an atom and <c><![CDATA[T]]></c> is a type and it does not contain
-         <c><![CDATA[undefined]]></c> syntactically, then Rep(V) =
-         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(undefined | T)}]]></c>.
-         Note that if <![CDATA[T]]> is an annotated type, it will be wrapped in
-         parentheses.</item>
-        <item>If V is <c><![CDATA[A :: T]]></c>, where <c><![CDATA[A]]></c> is
-         an atom and <c><![CDATA[T]]></c> is a type, then Rep(V) =
-         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}]]></c>.
-         </item>
-        <item>If V is <c><![CDATA[A = E :: T]]></c>, where <c><![CDATA[A]]></c>
-         is an atom, <c><![CDATA[E]]></c> is an expression and
-         <c><![CDATA[T]]></c> is a type, then Rep(V) =
-         <c><![CDATA[{typed_record_field,{record_field,LINE,Rep(A),Rep(E)},Rep(T)}]]></c>.
-         </item>
+        <item>If V is <c>A</c>, then
+         Rep(V) = <c>{record_field,LINE,Rep(A)}</c>.</item>
+        <item>If V is <c>A = E</c>,
+	 where <c>E</c> is an expression, then
+         Rep(V) = <c>{record_field,LINE,Rep(A),Rep(E)}</c>.</item>
+        <item>If V is <c>A :: T</c>, where <c>T</c> is a
+          type and it does not contain
+          <c>undefined</c> syntactically, then Rep(V) =
+          <c>{typed_record_field,{record_field,LINE,Rep(A)},Rep(undefined | T)}</c>.
+        </item>
+        <item>If V is <c>A :: T</c>, where <c>T</c> is a type, then Rep(V) =
+          <c>{typed_record_field,{record_field,LINE,Rep(A)},Rep(T)}</c>.
+          </item>
+        <item>If V is <c>A = E :: T</c>, where
+          <c>E</c> is an expression and <c>T</c> is a type, then Rep(V) =
+          <c>{typed_record_field,{record_field,LINE,Rep(A),Rep(E)},Rep(T)}</c>.
+        </item>
       </list>
     </section>
 
     <section>
-      <title>Representation of parse errors and end of file</title>
+      <title>Representation of Parse Errors and End-of-file</title>
       <p>In addition to the representations of forms, the list that represents
-        a module declaration (as returned by functions in <c><![CDATA[erl_parse]]></c> and
-        <c><![CDATA[epp]]></c>) may contain tuples <c><![CDATA[{error,E}]]></c> and <c><![CDATA[{warning,W}]]></c>, denoting
-        syntactically incorrect forms and warnings, and <c><![CDATA[{eof,LINE}]]></c>, denoting an end
-        of stream encountered before a complete form had been parsed.</p>
+        a module declaration (as returned by functions in <c>erl_parse</c> and
+        <c>epp</c>) may contain tuples <c>{error,E}</c> and
+	<c>{warning,W}</c>, denoting syntactically incorrect forms and
+	warnings, and <c>{eof,LINE}</c>, denoting an end-of-stream
+	encountered before a complete form had been parsed.</p>
     </section>
   </section>
 
   <section>
-    <title>Atomic literals</title>
+    <title>Atomic Literals</title>
     <p>There are five kinds of atomic literals, which are represented in the
       same way in patterns, expressions and guards:</p>
     <list type="bulleted">
       <item>If L is an integer or character literal, then
-       Rep(L) = <c><![CDATA[{integer,LINE,L}]]></c>.</item>
+       Rep(L) = <c>{integer,LINE,L}</c>.</item>
       <item>If L is a float literal, then
-       Rep(L) = <c><![CDATA[{float,LINE,L}]]></c>.</item>
+       Rep(L) = <c>{float,LINE,L}</c>.</item>
       <item>If L is a string literal consisting of the characters
-      <c><![CDATA[C_1]]></c>, ..., <c><![CDATA[C_k]]></c>, then
-       Rep(L) = <c><![CDATA[{string,LINE,[C_1, ..., C_k]}]]></c>.</item>
+      <c>C_1</c>, ..., <c>C_k</c>, then
+       Rep(L) = <c>{string,LINE,[C_1, ..., C_k]}</c>.</item>
       <item>If L is an atom literal, then
-       Rep(L) = <c><![CDATA[{atom,LINE,L}]]></c>.</item>
+       Rep(L) = <c>{atom,LINE,L}</c>.</item>
     </list>
     <p>Note that negative integer and float literals do not occur as such; they are
       parsed as an application of the unary negation operator.</p>
@@ -295,47 +178,47 @@
 
   <section>
     <title>Patterns</title>
-    <p>If <c><![CDATA[Ps]]></c> is a sequence of patterns <c><![CDATA[P_1, ..., P_k]]></c>, then
-      Rep(Ps) = <c><![CDATA[[Rep(P_1), ..., Rep(P_k)]]]></c>. Such sequences occur as the
+    <p>If <c>Ps</c> is a sequence of patterns <c>P_1, ..., P_k</c>, then
+      Rep(Ps) = <c>[Rep(P_1), ..., Rep(P_k)]</c>. Such sequences occur as the
       list of arguments to a function or fun.</p>
     <p>Individual patterns are represented as follows:</p>
     <list type="bulleted">
       <item>If P is an atomic literal L, then Rep(P) = Rep(L).</item>
-      <item>If P is a compound pattern <c><![CDATA[P_1 = P_2]]></c>, then
-       Rep(P) = <c><![CDATA[{match,LINE,Rep(P_1),Rep(P_2)}]]></c>.</item>
-      <item>If P is a variable pattern <c><![CDATA[V]]></c>, then
-       Rep(P) = <c><![CDATA[{var,LINE,A}]]></c>,
+      <item>If P is a compound pattern <c>P_1 = P_2</c>, then
+       Rep(P) = <c>{match,LINE,Rep(P_1),Rep(P_2)}</c>.</item>
+      <item>If P is a variable pattern <c>V</c>, then
+       Rep(P) = <c>{var,LINE,A}</c>,
        where A is an atom with a printname consisting of the same characters as
-      <c><![CDATA[V]]></c>.</item>
-      <item>If P is a universal pattern <c><![CDATA[_]]></c>, then
-       Rep(P) = <c><![CDATA[{var,LINE,'_'}]]></c>.</item>
-      <item>If P is a tuple pattern <c><![CDATA[{P_1, ..., P_k}]]></c>, then
-       Rep(P) = <c><![CDATA[{tuple,LINE,[Rep(P_1), ..., Rep(P_k)]}]]></c>.</item>
-      <item>If P is a nil pattern <c><![CDATA[[]]]></c>, then
-       Rep(P) = <c><![CDATA[{nil,LINE}]]></c>.</item>
-      <item>If P is a cons pattern <c><![CDATA[[P_h | P_t]]]></c>, then
-       Rep(P) = <c><![CDATA[{cons,LINE,Rep(P_h),Rep(P_t)}]]></c>.</item>
-      <item>If E is a binary pattern <c><![CDATA[<<P_1:Size_1/TSL_1, ..., P_k:Size_k/TSL_k>>]]></c>, then
-       Rep(E) = <c><![CDATA[{bin,LINE,[{bin_element,LINE,Rep(P_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(P_k),Rep(Size_k),Rep(TSL_k)}]}]]></c>.
+      <c>V</c>.</item>
+      <item>If P is a universal pattern <c>_</c>, then
+       Rep(P) = <c>{var,LINE,'_'}</c>.</item>
+      <item>If P is a tuple pattern <c>{P_1, ..., P_k}</c>, then
+       Rep(P) = <c>{tuple,LINE,[Rep(P_1), ..., Rep(P_k)]}</c>.</item>
+      <item>If P is a nil pattern <c>[]</c>, then
+       Rep(P) = <c>{nil,LINE}</c>.</item>
+      <item>If P is a cons pattern <c>[P_h | P_t]</c>, then
+       Rep(P) = <c>{cons,LINE,Rep(P_h),Rep(P_t)}</c>.</item>
+      <item>If E is a binary pattern <c>&lt;&lt;P_1:Size_1/TSL_1, ..., P_k:Size_k/TSL_k>></c>, then
+       Rep(E) = <c>{bin,LINE,[{bin_element,LINE,Rep(P_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(P_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
        For Rep(TSL), see below.
-       An omitted <c><![CDATA[Size]]></c> is represented by <c><![CDATA[default]]></c>. An omitted <c><![CDATA[TSL]]></c>
-       (type specifier list) is represented by <c><![CDATA[default]]></c>.</item>
-      <item>If P is <c><![CDATA[P_1 Op P_2]]></c>, where <c><![CDATA[Op]]></c> is a binary operator (this
-       is either an occurrence of <c><![CDATA[++]]></c> applied to a literal string or character
+       An omitted <c>Size</c> is represented by <c>default</c>. An omitted <c>TSL</c>
+       (type specifier list) is represented by <c>default</c>.</item>
+      <item>If P is <c>P_1 Op P_2</c>, where <c>Op</c> is a binary operator (this
+       is either an occurrence of <c>++</c> applied to a literal string or character
        list, or an occurrence of an expression that can be evaluated to a number
        at compile time),
-       then Rep(P) = <c><![CDATA[{op,LINE,Op,Rep(P_1),Rep(P_2)}]]></c>.</item>
-      <item>If P is <c><![CDATA[Op P_0]]></c>, where <c><![CDATA[Op]]></c> is a unary operator (this is an
+       then Rep(P) = <c>{op,LINE,Op,Rep(P_1),Rep(P_2)}</c>.</item>
+      <item>If P is <c>Op P_0</c>, where <c>Op</c> is a unary operator (this is an
        occurrence of an expression that can be evaluated to a number at compile
-       time), then Rep(P) = <c><![CDATA[{op,LINE,Op,Rep(P_0)}]]></c>.</item>
-      <item>If P is a record pattern <c><![CDATA[#Name{Field_1=P_1, ..., Field_k=P_k}]]></c>,
+       time), then Rep(P) = <c>{op,LINE,Op,Rep(P_0)}</c>.</item>
+      <item>If P is a record pattern <c>#Name{Field_1=P_1, ..., Field_k=P_k}</c>,
        then Rep(P) =
-      <c><![CDATA[{record,LINE,Name, [{record_field,LINE,Rep(Field_1),Rep(P_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(P_k)}]}]]></c>.</item>
-      <item>If P is <c><![CDATA[#Name.Field]]></c>, then
-       Rep(P) = <c><![CDATA[{record_index,LINE,Name,Rep(Field)}]]></c>.</item>
-      <item>If P is <c><![CDATA[( P_0 )]]></c>, then
-       Rep(P) = <c><![CDATA[Rep(P_0)]]></c>,
-       i.e., patterns cannot be distinguished from their bodies.</item>
+      <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(P_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(P_k)}]}</c>.</item>
+      <item>If P is <c>#Name.Field</c>, then
+       Rep(P) = <c>{record_index,LINE,Name,Rep(Field)}</c>.</item>
+      <item>If P is <c>( P_0 )</c>, then
+       Rep(P) = <c>Rep(P_0)</c>,
+       that is, patterns cannot be distinguished from their bodies.</item>
     </list>
     <p>Note that every pattern has the same source form as some expression, and is
       represented the same way as the corresponding expression.</p>
@@ -343,180 +226,167 @@
 
   <section>
     <title>Expressions</title>
-    <p>A body B is a sequence of expressions <c><![CDATA[E_1, ..., E_k]]></c>, and
-      Rep(B) = <c><![CDATA[[Rep(E_1), ..., Rep(E_k)]]]></c>.</p>
+    <p>A body B is a sequence of expressions <c>E_1, ..., E_k</c>, and
+      Rep(B) = <c>[Rep(E_1), ..., Rep(E_k)]</c>.</p>
     <p>An expression E is one of the following alternatives:</p>
     <list type="bulleted">
-      <item>If P is an atomic literal <c><![CDATA[L]]></c>, then
-       Rep(P) = Rep(L).</item>
-      <item>If E is <c><![CDATA[P = E_0]]></c>, then
-       Rep(E) = <c><![CDATA[{match,LINE,Rep(P),Rep(E_0)}]]></c>.</item>
-      <item>If E is a variable <c><![CDATA[V]]></c>, then
-       Rep(E) = <c><![CDATA[{var,LINE,A}]]></c>,
-       where <c><![CDATA[A]]></c> is an atom with a printname consisting of the same
-       characters as <c><![CDATA[V]]></c>.</item>
-      <item>If E is a tuple skeleton <c><![CDATA[{E_1, ..., E_k}]]></c>, then
-       Rep(E) = <c><![CDATA[{tuple,LINE,[Rep(E_1), ..., Rep(E_k)]}]]></c>.</item>
-      <item>If E is <c><![CDATA[[]]]></c>, then
-       Rep(E) = <c><![CDATA[{nil,LINE}]]></c>.</item>
-      <item>If E is a cons skeleton <c><![CDATA[[E_h | E_t]]]></c>, then
-       Rep(E) = <c><![CDATA[{cons,LINE,Rep(E_h),Rep(E_t)}]]></c>.</item>
-      <item>If E is a binary constructor <c><![CDATA[<<V_1:Size_1/TSL_1, ..., V_k:Size_k/TSL_k>>]]></c>, then
-       Rep(E) = <c><![CDATA[{bin,LINE,[{bin_element,LINE,Rep(V_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(V_k),Rep(Size_k),Rep(TSL_k)}]}]]></c>.
+      <item>If P is an atomic literal <c>L</c>, then Rep(P) = Rep(L).</item>
+      <item>If E is <c>P = E_0</c>, then
+       Rep(E) = <c>{match,LINE,Rep(P),Rep(E_0)}</c>.</item>
+      <item>If E is a variable <c>V</c>, then Rep(E) = <c>{var,LINE,A}</c>,
+       where <c>A</c> is an atom with a printname consisting of the same
+       characters as <c>V</c>.</item>
+      <item>If E is a tuple skeleton <c>{E_1, ..., E_k}</c>, then
+       Rep(E) = <c>{tuple,LINE,[Rep(E_1), ..., Rep(E_k)]}</c>.</item>
+      <item>If E is <c>[]</c>, then
+       Rep(E) = <c>{nil,LINE}</c>.</item>
+      <item>If E is a cons skeleton <c>[E_h | E_t]</c>, then
+       Rep(E) = <c>{cons,LINE,Rep(E_h),Rep(E_t)}</c>.</item>
+      <item>If E is a binary constructor <c>&lt;&lt;V_1:Size_1/TSL_1, ..., V_k:Size_k/TSL_k>></c>, then Rep(E) =
+       <c>{bin,LINE,[{bin_element,LINE,Rep(V_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(V_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
        For Rep(TSL), see below.
-       An omitted <c><![CDATA[Size]]></c> is represented by <c><![CDATA[default]]></c>. An omitted <c><![CDATA[TSL]]></c>
-       (type specifier list) is represented by <c><![CDATA[default]]></c>.</item>
-      <item>If E is <c><![CDATA[E_1 Op E_2]]></c>, where <c><![CDATA[Op]]></c> is a binary operator,
-       then Rep(E) = <c><![CDATA[{op,LINE,Op,Rep(E_1),Rep(E_2)}]]></c>.</item>
-      <item>If E is <c><![CDATA[Op E_0]]></c>, where <c><![CDATA[Op]]></c> is a unary operator, then
-       Rep(E) = <c><![CDATA[{op,LINE,Op,Rep(E_0)}]]></c>.</item>
-      <item>If E is <c><![CDATA[#Name{Field_1=E_1, ..., Field_k=E_k}]]></c>, then
+       An omitted <c>Size</c> is represented by <c>default</c>. An omitted <c>TSL</c>
+       (type specifier list) is represented by <c>default</c>.</item>
+      <item>If E is <c>E_1 Op E_2</c>, where <c>Op</c> is a binary operator,
+       then Rep(E) = <c>{op,LINE,Op,Rep(E_1),Rep(E_2)}</c>.</item>
+      <item>If E is <c>Op E_0</c>, where <c>Op</c> is a unary operator, then
+       Rep(E) = <c>{op,LINE,Op,Rep(E_0)}</c>.</item>
+      <item>If E is <c>#Name{Field_1=E_1, ..., Field_k=E_k}</c>,
+       then Rep(E) =
+      <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</c>.</item>
+      <item>If E is <c>E_0#Name{Field_1=E_1, ..., Field_k=E_k}</c>, then
        Rep(E) =
-      <c><![CDATA[{record,LINE,Name,  [{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}]]></c>.</item>
-      <item>If E is <c><![CDATA[E_0#Name{Field_1=E_1, ..., Field_k=E_k}]]></c>, then
-       Rep(E) =
-      <c><![CDATA[{record,LINE,Rep(E_0),Name,  [{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}]]></c>.</item>
-      <item>If E is <c><![CDATA[#Name.Field]]></c>, then
-       Rep(E) = <c><![CDATA[{record_index,LINE,Name,Rep(Field)}]]></c>.</item>
-      <item>If E is <c><![CDATA[E_0#Name.Field]]></c>, then
-       Rep(E) = <c><![CDATA[{record_field,LINE,Rep(E_0),Name,Rep(Field)}]]></c>.</item>
-      <item>If E is <c><![CDATA[#{W_1, ..., W_k}]]></c> where each
-       <c><![CDATA[W_i]]></c> is a map assoc or exact field, then Rep(E) =
-       <c><![CDATA[{map,LINE,[Rep(W_1), ..., Rep(W_k)]}]]></c>. For Rep(W), see
+      <c>{record,LINE,Rep(E_0),Name,[{record_field,LINE,Rep(Field_1),Rep(E_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(E_k)}]}</c>.</item>
+      <item>If E is <c>#Name.Field</c>, then
+       Rep(E) = <c>{record_index,LINE,Name,Rep(Field)}</c>.</item>
+      <item>If E is <c>E_0#Name.Field</c>, then
+       Rep(E) = <c>{record_field,LINE,Rep(E_0),Name,Rep(Field)}</c>.</item>
+      <item>If E is <c>#{W_1, ..., W_k}</c> where each
+       <c>W_i</c> is a map assoc or exact field, then Rep(E) =
+       <c>{map,LINE,[Rep(W_1), ..., Rep(W_k)]}</c>. For Rep(W), see
        below.</item>
-      <item>If E is <c><![CDATA[E_0#{W_1, ..., W_k}]]></c> where
-       <c><![CDATA[W_i]]></c> is a map assoc or exact field, then Rep(E) =
-       <c><![CDATA[{map,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}]]></c>. For
-       Rep(W), see below.</item>
-      <item>If E is <c><![CDATA[catch E_0]]></c>, then
-       Rep(E) = <c><![CDATA[{'catch',LINE,Rep(E_0)}]]></c>.</item>
-      <item>If E is <c><![CDATA[E_0(E_1, ..., E_k)]]></c>, then
-       Rep(E) = <c><![CDATA[{call,LINE,Rep(E_0),[Rep(E_1), ..., Rep(E_k)]}]]></c>.</item>
-      <item>If E is <c><![CDATA[E_m:E_0(E_1, ..., E_k)]]></c>, then
-       Rep(E) =
-      <c><![CDATA[{call,LINE,{remote,LINE,Rep(E_m),Rep(E_0)},[Rep(E_1), ...,  Rep(E_k)]}]]></c>.</item>
-      <item>If E is a list comprehension <c><![CDATA[[E_0 || W_1, ..., W_k]]]></c>,
-       where each <c><![CDATA[W_i]]></c> is a generator or a filter, then
-       Rep(E) = <c><![CDATA[{lc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}]]></c>. For Rep(W), see
-       below.</item>
-      <item>If E is a binary comprehension <c><![CDATA[<<E_0 || W_1, ..., W_k>>]]></c>,
-       where each <c><![CDATA[W_i]]></c> is a generator or a filter, then
-       Rep(E) = <c><![CDATA[{bc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}]]></c>. For Rep(W), see
-       below.</item>
-      <item>If E is <c><![CDATA[begin B end]]></c>, where <c><![CDATA[B]]></c> is a body, then
-       Rep(E) = <c><![CDATA[{block,LINE,Rep(B)}]]></c>.</item>
-      <item>If E is <c><![CDATA[if Ic_1 ; ... ; Ic_k  end]]></c>,
-       where each <c><![CDATA[Ic_i]]></c> is an if clause then
-       Rep(E) =
-      <c><![CDATA[{'if',LINE,[Rep(Ic_1), ..., Rep(Ic_k)]}]]></c>.</item>
-      <item>If E is <c><![CDATA[case E_0 of Cc_1 ; ... ; Cc_k end]]></c>,
-       where <c><![CDATA[E_0]]></c> is an expression and each <c><![CDATA[Cc_i]]></c> is a
-       case clause then
-       Rep(E) =
-      <c><![CDATA[{'case',LINE,Rep(E_0),[Rep(Cc_1), ..., Rep(Cc_k)]}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B catch Tc_1 ; ... ; Tc_k end]]></c>,
-       where <c><![CDATA[B]]></c> is a body and each <c><![CDATA[Tc_i]]></c> is a catch clause then 
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],[]}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B of Cc_1 ; ... ; Cc_k catch Tc_1 ; ... ; Tc_n end]]></c>,
-       where <c><![CDATA[B]]></c> is a body, 
-       each <c><![CDATA[Cc_i]]></c> is a case clause and 
-       each <c><![CDATA[Tc_j]]></c> is a catch clause then 
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ..., Rep(Tc_n)],[]}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B after A end]]></c>,
-       where <c><![CDATA[B]]></c> and <c><![CDATA[A]]></c> are bodies then
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[],[],Rep(A)}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B of Cc_1 ; ... ; Cc_k after A end]]></c>,
-       where <c><![CDATA[B]]></c> and <c><![CDATA[A]]></c> are a bodies and
-       each <c><![CDATA[Cc_i]]></c> is a case clause then 
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[],Rep(A)}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B catch Tc_1 ; ... ; Tc_k after A end]]></c>,
-       where <c><![CDATA[B]]></c> and <c><![CDATA[A]]></c> are bodies and
-       each <c><![CDATA[Tc_i]]></c> is a catch clause then 
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],Rep(A)}]]></c>.</item>
-      <item>If E is <c><![CDATA[try B of Cc_1 ; ... ; Cc_k  catch Tc_1 ; ... ; Tc_n after A end]]></c>,
-       where <c><![CDATA[B]]></c> and <c><![CDATA[A]]></c> are a bodies, 
-       each <c><![CDATA[Cc_i]]></c> is a case clause and
-       each <c><![CDATA[Tc_j]]></c> is a catch clause then 
-       Rep(E) =
-      <c><![CDATA[{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1),  ..., Rep(Tc_n)],Rep(A)}]]></c>.</item>
-      <item>If E is <c><![CDATA[receive Cc_1 ; ... ; Cc_k end]]></c>,
-       where each <c><![CDATA[Cc_i]]></c> is a case clause then
-       Rep(E) =
-      <c><![CDATA[{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)]}]]></c>.</item>
-      <item>If E is <c><![CDATA[receive Cc_1 ; ... ; Cc_k after E_0 -> B_t end]]></c>,
-       where each <c><![CDATA[Cc_i]]></c> is a case clause, 
-      <c><![CDATA[E_0]]></c> is an expression and <c><![CDATA[B_t]]></c> is a body, then
-       Rep(E) =
-      <c><![CDATA[{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)],Rep(E_0),Rep(B_t)}]]></c>.</item>
-      <item>If E is <c><![CDATA[fun Name / Arity]]></c>, then
-       Rep(E) = <c><![CDATA[{'fun',LINE,{function,Name,Arity}}]]></c>.</item>
-      <item>If E is <c><![CDATA[fun Module:Name/Arity]]></c>, then
-       Rep(E) = <c><![CDATA[{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}]]></c>.
-      (Before the R15 release: Rep(E) = <c><![CDATA[{'fun',LINE,{function,Module,Name,Arity}}]]></c>.)</item>
-      <item>If E is <c><![CDATA[fun Fc_1 ; ... ; Fc_k end]]></c> 
-       where each <c><![CDATA[Fc_i]]></c> is a function clause then Rep(E) =
-      <c><![CDATA[{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}]]></c>.</item>
-      <item>If E is <c><![CDATA[fun Name Fc_1 ; ... ; Name Fc_k end]]></c>
-       where <c><![CDATA[Name]]></c> is a variable and each
-       <c><![CDATA[Fc_i]]></c> is a function clause then Rep(E) =
-       <c><![CDATA[{named_fun,LINE,Name,[Rep(Fc_1), ..., Rep(Fc_k)]}]]></c>.
-       </item>
-      <item>If E is <c><![CDATA[query [E_0 || W_1, ..., W_k] end]]></c>,
-       where each <c><![CDATA[W_i]]></c> is a generator or a filter, then
-       Rep(E) = <c><![CDATA[{'query',LINE,{lc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}}]]></c>.
+      <item>If E is <c>E_0#{W_1, ..., W_k}</c> where
+       <c>W_i</c> is a map assoc or exact field, then Rep(E) =
+       <c>{map,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}</c>.
        For Rep(W), see below.</item>
-      <item>If E is <c><![CDATA[E_0.Field]]></c>, a Mnesia record access
-       inside a query, then
-       Rep(E) = <c><![CDATA[{record_field,LINE,Rep(E_0),Rep(Field)}]]></c>.</item>
-      <item>If E is <c><![CDATA[( E_0 )]]></c>, then
-       Rep(E) = <c><![CDATA[Rep(E_0)]]></c>,
-       i.e., parenthesized expressions cannot be distinguished from their bodies.</item>
+      <item>If E is <c>catch E_0</c>, then
+       Rep(E) = <c>{'catch',LINE,Rep(E_0)}</c>.</item>
+      <item>If E is <c>E_0(E_1, ..., E_k)</c>, then
+       Rep(E) = <c>{call,LINE,Rep(E_0),[Rep(E_1), ..., Rep(E_k)]}</c>.</item>
+      <item>If E is <c>E_m:E_0(E_1, ..., E_k)</c>, then Rep(E) =
+      <c>{call,LINE,{remote,LINE,Rep(E_m),Rep(E_0)},[Rep(E_1), ...,  Rep(E_k)]}</c>.
+      </item>
+      <item>If E is a list comprehension <c>[E_0 || W_1, ..., W_k]</c>,
+       where each <c>W_i</c> is a generator or a filter, then Rep(E) =
+       <c>{lc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}</c>. For Rep(W), see
+       below.</item>
+      <item>If E is a binary comprehension
+       <c>&lt;&lt;E_0 || W_1, ..., W_k>></c>,
+       where each <c>W_i</c> is a generator or a filter, then
+       Rep(E) = <c>{bc,LINE,Rep(E_0),[Rep(W_1), ..., Rep(W_k)]}</c>.
+       For Rep(W), see below.</item>
+      <item>If E is <c>begin B end</c>, where <c>B</c> is a body, then
+       Rep(E) = <c>{block,LINE,Rep(B)}</c>.</item>
+      <item>If E is <c>if Ic_1 ; ... ; Ic_k  end</c>,
+       where each <c>Ic_i</c> is an if clause then Rep(E) =
+      <c>{'if',LINE,[Rep(Ic_1), ..., Rep(Ic_k)]}</c>.</item>
+      <item>If E is <c>case E_0 of Cc_1 ; ... ; Cc_k end</c>,
+       where <c>E_0</c> is an expression and each <c>Cc_i</c> is a
+       case clause then Rep(E) =
+      <c>{'case',LINE,Rep(E_0),[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</item>
+      <item>If E is <c>try B catch Tc_1 ; ... ; Tc_k end</c>,
+       where <c>B</c> is a body and each <c>Tc_i</c> is a catch clause then
+       Rep(E) =
+      <c>{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],[]}</c>.</item>
+      <item>If E is <c>try B of Cc_1 ; ... ; Cc_k catch Tc_1 ; ... ; Tc_n end</c>,
+       where <c>B</c> is a body,
+       each <c>Cc_i</c> is a case clause and
+       each <c>Tc_j</c> is a catch clause then Rep(E) =
+      <c>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1), ..., Rep(Tc_n)],[]}</c>.</item>
+      <item>If E is <c>try B after A end</c>,
+       where <c>B</c> and <c>A</c> are bodies then Rep(E) =
+      <c>{'try',LINE,Rep(B),[],[],Rep(A)}</c>.</item>
+      <item>If E is <c>try B of Cc_1 ; ... ; Cc_k after A end</c>,
+       where <c>B</c> and <c>A</c> are a bodies and
+       each <c>Cc_i</c> is a case clause then Rep(E) =
+      <c>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[],Rep(A)}</c>.</item>
+      <item>If E is <c>try B catch Tc_1 ; ... ; Tc_k after A end</c>,
+       where <c>B</c> and <c>A</c> are bodies and
+       each <c>Tc_i</c> is a catch clause then Rep(E) =
+      <c>{'try',LINE,Rep(B),[],[Rep(Tc_1), ..., Rep(Tc_k)],Rep(A)}</c>.</item>
+      <item>If E is <c>try B of Cc_1 ; ... ; Cc_k  catch Tc_1 ; ... ; Tc_n after A end</c>,
+       where <c>B</c> and <c>A</c> are a bodies,
+       each <c>Cc_i</c> is a case clause and
+       each <c>Tc_j</c> is a catch clause then
+       Rep(E) =
+      <c>{'try',LINE,Rep(B),[Rep(Cc_1), ..., Rep(Cc_k)],[Rep(Tc_1),  ..., Rep(Tc_n)],Rep(A)}</c>.</item>
+      <item>If E is <c>receive Cc_1 ; ... ; Cc_k end</c>,
+       where each <c>Cc_i</c> is a case clause then Rep(E) =
+      <c>{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)]}</c>.</item>
+      <item>If E is <c>receive Cc_1 ; ... ; Cc_k after E_0 -> B_t end</c>,
+       where each <c>Cc_i</c> is a case clause,
+      <c>E_0</c> is an expression and <c>B_t</c> is a body, then Rep(E) =
+      <c>{'receive',LINE,[Rep(Cc_1), ..., Rep(Cc_k)],Rep(E_0),Rep(B_t)}</c>.</item>
+      <item>If E is <c>fun Name / Arity</c>, then
+       Rep(E) = <c>{'fun',LINE,{function,Name,Arity}}</c>.</item>
+      <item>If E is <c>fun Module:Name/Arity</c>, then Rep(E) =
+       <c>{'fun',LINE,{function,Rep(Module),Rep(Name),Rep(Arity)}}</c>.
+       (Before the R15 release: Rep(E) =
+       <c>{'fun',LINE,{function,Module,Name,Arity}}</c>.)</item>
+      <item>If E is <c>fun Fc_1 ; ... ; Fc_k end</c>
+       where each <c>Fc_i</c> is a function clause then Rep(E) =
+      <c>{'fun',LINE,{clauses,[Rep(Fc_1), ..., Rep(Fc_k)]}}</c>.</item>
+      <item>If E is <c>fun Name Fc_1 ; ... ; Name Fc_k end</c>
+       where <c>Name</c> is a variable and each
+       <c>Fc_i</c> is a function clause then Rep(E) =
+       <c>{named_fun,LINE,Name,[Rep(Fc_1), ..., Rep(Fc_k)]}</c>.
+       </item>
+      <item>If E is <c>( E_0 )</c>, then
+       Rep(E) = <c>Rep(E_0)</c>, that is, parenthesized
+       expressions cannot be distinguished from their bodies.</item>
     </list>
 
     <section>
-      <title>Generators and filters</title>
-      <p>When W is a generator or a filter (in the body of a list or binary comprehension), then:</p>
+      <title>Generators and Filters</title>
+      <p>When W is a generator or a filter (in the body of a list or
+       binary comprehension), then:</p>
       <list type="bulleted">
-        <item>If W is a generator <c><![CDATA[P <- E]]></c>, where <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[E]]></c>
-         is an expression, then
-         Rep(W) = <c><![CDATA[{generate,LINE,Rep(P),Rep(E)}]]></c>.</item>
-        <item>If W is a generator <c><![CDATA[P <= E]]></c>, where <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[E]]></c>
-         is an expression, then
-         Rep(W) = <c><![CDATA[{b_generate,LINE,Rep(P),Rep(E)}]]></c>.</item>
-        <item>If W is a filter <c><![CDATA[E]]></c>, which is an expression, then
-         Rep(W) = <c><![CDATA[Rep(E)]]></c>.</item>
+        <item>If W is a generator <c>P &lt;- E</c>, where <c>P</c> is
+	 a pattern and <c>E</c> is an expression, then
+         Rep(W) = <c>{generate,LINE,Rep(P),Rep(E)}</c>.</item>
+        <item>If W is a generator <c>P &lt;= E</c>, where <c>P</c> is
+	 a pattern and <c>E</c> is an expression, then
+         Rep(W) = <c>{b_generate,LINE,Rep(P),Rep(E)}</c>.</item>
+        <item>If W is a filter <c>E</c>, which is an expression, then
+         Rep(W) = <c>Rep(E)</c>.</item>
       </list>
     </section>
 
     <section>
-      <title>Binary element type specifiers</title>
+      <title>Binary Element Type Specifiers</title>
       <p>A type specifier list TSL for a binary element is a sequence of type
-        specifiers <c><![CDATA[TS_1 - ... - TS_k]]></c>.
-        Rep(TSL) = <c><![CDATA[[Rep(TS_1), ..., Rep(TS_k)]]]></c>.</p>
+        specifiers <c>TS_1 - ... - TS_k</c>.
+        Rep(TSL) = <c>[Rep(TS_1), ..., Rep(TS_k)]</c>.</p>
       <p>When TS is a type specifier for a binary element, then:</p>
       <list type="bulleted">
-        <item>If TS is an atom <c><![CDATA[A]]></c>, Rep(TS) = <c><![CDATA[A]]></c>.</item>
-        <item>If TS is a couple <c><![CDATA[A:Value]]></c> where <c><![CDATA[A]]></c> is an atom and <c><![CDATA[Value]]></c>
-         is an integer, Rep(TS) = <c><![CDATA[{A, Value}]]></c>.</item>
+        <item>If TS is an atom <c>A</c>, then Rep(TS) = <c>A</c>.</item>
+        <item>If TS is a couple <c>A:Value</c> where <c>A</c> is an atom
+	 and <c>Value</c> is an integer, then Rep(TS) =
+	 <c>{A,Value}</c>.</item>
       </list>
     </section>
 
     <section>
-      <title>Map assoc and exact fields</title>
+      <title>Map Assoc and Exact Fields</title>
       <p>When W is an assoc or exact field (in the body of a map), then:</p>
       <list type="bulleted">
-        <item>If W is an assoc field <c><![CDATA[K => V]]></c>, where
-         <c><![CDATA[K]]></c> and <c><![CDATA[V]]></c> are both expressions,
-         then Rep(W) = <c><![CDATA[{map_field_assoc,LINE,Rep(K),Rep(V)}]]></c>.
+        <item>If W is an assoc field <c>K => V</c>, where
+         <c>K</c> and <c>V</c> are both expressions,
+         then Rep(W) = <c>{map_field_assoc,LINE,Rep(K),Rep(V)}</c>.
          </item>
-        <item>If W is an exact field <c><![CDATA[K := V]]></c>, where
-         <c><![CDATA[K]]></c> and <c><![CDATA[V]]></c> are both expressions,
-         then Rep(W) = <c><![CDATA[{map_field_exact,LINE,Rep(K),Rep(V)}]]></c>.
+        <item>If W is an exact field <c>K := V</c>, where
+         <c>K</c> and <c>V</c> are both expressions,
+         then Rep(W) = <c>{map_field_exact,LINE,Rep(K),Rep(V)}</c>.
          </item>
       </list>
     </section>
@@ -524,112 +394,220 @@
 
   <section>
     <title>Clauses</title>
-    <p>There are function clauses, if clauses, case clauses 
+    <p>There are function clauses, if clauses, case clauses
       and catch clauses.</p>
-    <p>A clause <c><![CDATA[C]]></c> is one of the following alternatives:</p>
+    <p>A clause <c>C</c> is one of the following alternatives:</p>
     <list type="bulleted">
-      <item>If C is a function clause <c><![CDATA[( Ps ) -> B]]></c> 
-       where <c><![CDATA[Ps]]></c> is a pattern sequence and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,Rep(Ps),[],Rep(B)}]]></c>.</item>
-      <item>If C is a function clause <c><![CDATA[( Ps ) when Gs -> B]]></c> 
-       where <c><![CDATA[Ps]]></c> is a pattern sequence, 
-      <c><![CDATA[Gs]]></c> is a guard sequence and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,Rep(Ps),Rep(Gs),Rep(B)}]]></c>.</item>
-      <item>If C is an if clause <c><![CDATA[Gs -> B]]></c> 
-       where <c><![CDATA[Gs]]></c> is a guard sequence and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[],Rep(Gs),Rep(B)}]]></c>.</item>
-      <item>If C is a case clause <c><![CDATA[P -> B]]></c> 
-       where <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep(P)],[],Rep(B)}]]></c>.</item>
-      <item>If C is a case clause <c><![CDATA[P when Gs -> B]]></c> 
-       where <c><![CDATA[P]]></c> is a pattern, 
-      <c><![CDATA[Gs]]></c> is a guard sequence and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep(P)],Rep(Gs),Rep(B)}]]></c>.</item>
-      <item>If C is a catch clause <c><![CDATA[P -> B]]></c> 
-       where <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}]]></c>.</item>
-      <item>If C is a catch clause <c><![CDATA[X : P -> B]]></c> 
-       where <c><![CDATA[X]]></c> is an atomic literal or a variable pattern, 
-      <c><![CDATA[P]]></c> is a pattern and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep({X,P,_})],[],Rep(B)}]]></c>.</item>
-      <item>If C is a catch clause <c><![CDATA[P when Gs -> B]]></c> 
-       where <c><![CDATA[P]]></c> is a pattern, <c><![CDATA[Gs]]></c> is a guard sequence 
-       and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}]]></c>.</item>
-      <item>If C is a catch clause <c><![CDATA[X : P when Gs -> B]]></c> 
-       where <c><![CDATA[X]]></c> is an atomic literal or a variable pattern, 
-      <c><![CDATA[P]]></c> is a pattern, <c><![CDATA[Gs]]></c> is a guard sequence 
-       and <c><![CDATA[B]]></c> is a body, then 
-       Rep(C) = <c><![CDATA[{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}]]></c>.</item>
+      <item>If C is a function clause <c>( Ps ) -> B</c>
+       where <c>Ps</c> is a pattern sequence and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,Rep(Ps),[],Rep(B)}</c>.</item>
+      <item>If C is a function clause <c>( Ps ) when Gs -> B</c>
+       where <c>Ps</c> is a pattern sequence,
+      <c>Gs</c> is a guard sequence and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,Rep(Ps),Rep(Gs),Rep(B)}</c>.</item>
+      <item>If C is an if clause <c>Gs -> B</c>
+       where <c>Gs</c> is a guard sequence and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[],Rep(Gs),Rep(B)}</c>.</item>
+      <item>If C is a case clause <c>P -> B</c>
+       where <c>P</c> is a pattern and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep(P)],[],Rep(B)}</c>.</item>
+      <item>If C is a case clause <c>P when Gs -> B</c>
+       where <c>P</c> is a pattern,
+      <c>Gs</c> is a guard sequence and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep(P)],Rep(Gs),Rep(B)}</c>.</item>
+      <item>If C is a catch clause <c>P -> B</c>
+       where <c>P</c> is a pattern and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],[],Rep(B)}</c>.</item>
+      <item>If C is a catch clause <c>X : P -> B</c>
+       where <c>X</c> is an atomic literal or a variable pattern,
+      <c>P</c> is a pattern and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],[],Rep(B)}</c>.</item>
+      <item>If C is a catch clause <c>P when Gs -> B</c>
+       where <c>P</c> is a pattern, <c>Gs</c> is a guard sequence
+       and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep({throw,P,_})],Rep(Gs),Rep(B)}</c>.</item>
+      <item>If C is a catch clause <c>X : P when Gs -> B</c>
+       where <c>X</c> is an atomic literal or a variable pattern,
+      <c>P</c> is a pattern, <c>Gs</c> is a guard sequence
+       and <c>B</c> is a body, then
+       Rep(C) = <c>{clause,LINE,[Rep({X,P,_})],Rep(Gs),Rep(B)}</c>.</item>
     </list>
   </section>
 
   <section>
     <title>Guards</title>
-    <p>A guard sequence Gs is a sequence of guards <c><![CDATA[G_1; ...; G_k]]></c>, and
-      Rep(Gs) = <c><![CDATA[[Rep(G_1), ..., Rep(G_k)]]]></c>. If the guard sequence is
-      empty, Rep(Gs) = <c><![CDATA[[]]]></c>.</p>
-    <p>A guard G is a nonempty sequence of guard tests <c><![CDATA[Gt_1, ..., Gt_k]]></c>, and
-      Rep(G) = <c><![CDATA[[Rep(Gt_1), ..., Rep(Gt_k)]]]></c>.</p>
-    <p>A guard test <c><![CDATA[Gt]]></c> is one of the following alternatives:</p>
+    <p>A guard sequence Gs is a sequence of guards <c>G_1; ...; G_k</c>, and
+      Rep(Gs) = <c>[Rep(G_1), ..., Rep(G_k)]</c>. If the guard sequence is
+      empty, Rep(Gs) = <c>[]</c>.</p>
+    <p>A guard G is a nonempty sequence of guard tests
+      <c>Gt_1, ..., Gt_k</c>, and Rep(G) =
+      <c>[Rep(Gt_1), ..., Rep(Gt_k)]</c>.</p>
+    <p>A guard test <c>Gt</c> is one of the following alternatives:</p>
     <list type="bulleted">
       <item>If Gt is an atomic literal L, then Rep(Gt) = Rep(L).</item>
-      <item>If Gt is a variable pattern <c><![CDATA[V]]></c>, then
-       Rep(Gt) = <c><![CDATA[{var,LINE,A}]]></c>,
-       where A is an atom with a printname consisting of the same characters as
-      <c><![CDATA[V]]></c>.</item>
-      <item>If Gt is a tuple skeleton <c><![CDATA[{Gt_1, ..., Gt_k}]]></c>, then
-       Rep(Gt) = <c><![CDATA[{tuple,LINE,[Rep(Gt_1), ..., Rep(Gt_k)]}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[[]]]></c>, then
-       Rep(Gt) = <c><![CDATA[{nil,LINE}]]></c>.</item>
-      <item>If Gt is a cons skeleton <c><![CDATA[[Gt_h | Gt_t]]]></c>, then
-       Rep(Gt) = <c><![CDATA[{cons,LINE,Rep(Gt_h),Rep(Gt_t)}]]></c>.</item>
-      <item>If Gt is a binary constructor <c><![CDATA[<<Gt_1:Size_1/TSL_1, ..., Gt_k:Size_k/TSL_k>>]]></c>, then
-       Rep(Gt) = <c><![CDATA[{bin,LINE,[{bin_element,LINE,Rep(Gt_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(Gt_k),Rep(Size_k),Rep(TSL_k)}]}]]></c>.
+      <item>If Gt is a variable pattern <c>V</c>, then
+       Rep(Gt) = <c>{var,LINE,A}</c>, where A is an atom with
+       a printname consisting of the same characters as <c>V</c>.</item>
+      <item>If Gt is a tuple skeleton <c>{Gt_1, ..., Gt_k}</c>, then
+       Rep(Gt) = <c>{tuple,LINE,[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</item>
+      <item>If Gt is <c>[]</c>, then Rep(Gt) = <c>{nil,LINE}</c>.</item>
+      <item>If Gt is a cons skeleton <c>[Gt_h | Gt_t]</c>, then
+       Rep(Gt) = <c>{cons,LINE,Rep(Gt_h),Rep(Gt_t)}</c>.</item>
+      <item>If Gt is a binary constructor
+       <c>&lt;&lt;Gt_1:Size_1/TSL_1, ..., Gt_k:Size_k/TSL_k>></c>, then
+       Rep(Gt) = <c>{bin,LINE,[{bin_element,LINE,Rep(Gt_1),Rep(Size_1),Rep(TSL_1)}, ..., {bin_element,LINE,Rep(Gt_k),Rep(Size_k),Rep(TSL_k)}]}</c>.
        For Rep(TSL), see above.
-       An omitted <c><![CDATA[Size]]></c> is represented by <c><![CDATA[default]]></c>. An omitted <c><![CDATA[TSL]]></c>
-       (type specifier list) is represented by <c><![CDATA[default]]></c>.</item>
-      <item>If Gt is <c><![CDATA[Gt_1 Op Gt_2]]></c>, where <c><![CDATA[Op]]></c>
-       is a binary operator, then Rep(Gt) = <c><![CDATA[{op,LINE,Op,Rep(Gt_1),Rep(Gt_2)}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[Op Gt_0]]></c>, where <c><![CDATA[Op]]></c> is a unary operator, then
-       Rep(Gt) = <c><![CDATA[{op,LINE,Op,Rep(Gt_0)}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[#Name{Field_1=Gt_1, ..., Field_k=Gt_k}]]></c>, then
+       An omitted <c>Size</c> is represented by <c>default</c>.
+       An omitted <c>TSL</c> (type specifier list) is represented
+       by <c>default</c>.</item>
+      <item>If Gt is <c>Gt_1 Op Gt_2</c>, where <c>Op</c>
+       is a binary operator, then Rep(Gt) =
+       <c>{op,LINE,Op,Rep(Gt_1),Rep(Gt_2)}</c>.</item>
+      <item>If Gt is <c>Op Gt_0</c>, where <c>Op</c> is a unary operator, then
+       Rep(Gt) = <c>{op,LINE,Op,Rep(Gt_0)}</c>.</item>
+      <item>If Gt is <c>#Name{Field_1=Gt_1, ..., Field_k=Gt_k}</c>, then
        Rep(E) =
-      <c><![CDATA[{record,LINE,Name,  [{record_field,LINE,Rep(Field_1),Rep(Gt_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(Gt_k)}]}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[#Name.Field]]></c>, then
-       Rep(Gt) = <c><![CDATA[{record_index,LINE,Name,Rep(Field)}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[Gt_0#Name.Field]]></c>, then
-       Rep(Gt) = <c><![CDATA[{record_field,LINE,Rep(Gt_0),Name,Rep(Field)}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[A(Gt_1, ..., Gt_k)]]></c>, where <c><![CDATA[A]]></c> is an atom, then
-       Rep(Gt) = <c><![CDATA[{call,LINE,Rep(A),[Rep(Gt_1), ..., Rep(Gt_k)]}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[A_m:A(Gt_1, ..., Gt_k)]]></c>, where <c><![CDATA[A_m]]></c> is 
-       the atom <c><![CDATA[erlang]]></c> and <c><![CDATA[A]]></c> is an atom or an operator, then
-       Rep(Gt) = <c><![CDATA[{call,LINE,{remote,LINE,Rep(A_m),Rep(A)},[Rep(Gt_1), ..., Rep(Gt_k)]}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[{A_m,A}(Gt_1, ..., Gt_k)]]></c>, where <c><![CDATA[A_m]]></c> is 
-       the atom <c><![CDATA[erlang]]></c> and <c><![CDATA[A]]></c> is an atom or an operator, then
-       Rep(Gt) = <c><![CDATA[{call,LINE,Rep({A_m,A}),[Rep(Gt_1), ..., Rep(Gt_k)]}]]></c>.</item>
-      <item>If Gt is <c><![CDATA[( Gt_0 )]]></c>, then
-       Rep(Gt) = <c><![CDATA[Rep(Gt_0)]]></c>,
-       i.e., parenthesized guard tests cannot be distinguished from their bodies.</item>
+      <c>{record,LINE,Name,[{record_field,LINE,Rep(Field_1),Rep(Gt_1)}, ..., {record_field,LINE,Rep(Field_k),Rep(Gt_k)}]}</c>.</item>
+      <item>If Gt is <c>#Name.Field</c>, then
+       Rep(Gt) = <c>{record_index,LINE,Name,Rep(Field)}</c>.</item>
+      <item>If Gt is <c>Gt_0#Name.Field</c>, then
+       Rep(Gt) = <c>{record_field,LINE,Rep(Gt_0),Name,Rep(Field)}</c>.</item>
+      <item>If Gt is <c>A(Gt_1, ..., Gt_k)</c>, where <c>A</c> is an atom, then
+       Rep(Gt) = <c>{call,LINE,Rep(A),[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</item>
+      <item>If Gt is <c>A_m:A(Gt_1, ..., Gt_k)</c>, where <c>A_m</c> is
+       the atom <c>erlang</c> and <c>A</c> is an atom or an operator, then
+       Rep(Gt) = <c>{call,LINE,{remote,LINE,Rep(A_m),Rep(A)},[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.</item>
+      <item>If Gt is <c>{A_m,A}(Gt_1, ..., Gt_k)</c>, where <c>A_m</c> is
+       the atom <c>erlang</c> and <c>A</c> is an atom or an operator, then
+       Rep(Gt) = <c>{call,LINE,Rep({A_m,A}),[Rep(Gt_1), ..., Rep(Gt_k)]}</c>.
+      </item>
+      <item>If Gt is <c>( Gt_0 )</c>, then
+       Rep(Gt) = <c>Rep(Gt_0)</c>, that is, parenthesized
+       guard tests cannot be distinguished from their bodies.</item>
     </list>
     <p>Note that every guard test has the same source form as some expression,
       and is represented the same way as the corresponding expression.</p>
   </section>
 
   <section>
-    <title>The abstract format after preprocessing</title>
-    <p>The compilation option <c><![CDATA[debug_info]]></c> can be given to the
-      compiler to have the abstract code stored in 
-      the <c><![CDATA[abstract_code]]></c> chunk in the BEAM file
+    <title>Types</title>
+    <list type="bulleted">
+      <item>If T is an annotated type <c>Anno :: Type</c>,
+       where <c>Anno</c> is a variable and
+       <c>Type</c> is a type, then Rep(T) =
+       <c>{ann_type,LINE,[Rep(Anno),Rep(Type)]}</c>.</item>
+      <item>If T is an atom or integer literal L, then Rep(T) = Rep(L).
+      </item>
+      <item>If T is <c>L Op R</c>,
+       where <c>Op</c> is a binary operator and <c>L</c> and <c>R</c>
+       are types  (this is an occurrence of an expression that can be
+       evaluated to an integer at compile time), then
+       Rep(T) = <c>{op,LINE,Op,Rep(L),Rep(R)}</c>.</item>
+      <item>If T is <c>Op A</c>, where <c>Op</c> is a
+       unary operator and <c>A</c> is a type (this is an occurrence of
+       an expression that can be evaluated to an integer at compile time),
+       then Rep(T) = <c>{op,LINE,Op,Rep(A)}</c>.</item>
+      <item>If T is a bitstring type <c>&lt;&lt;_:M,_:_*N>></c>,
+       where <c>M</c> and <c>N</c> are singleton integer types, then Rep(T) =
+       <c>{type,LINE,binary,[Rep(M),Rep(N)]}</c>.</item>
+      <item>If T is the empty list type <c>[]</c>, then Rep(T) =
+       <c>{type,Line,nil,[]}</c>.</item>
+      <item>If T is a fun type <c>fun()</c>, then Rep(T) =
+       <c>{type,LINE,'fun',[]}</c>.</item>
+      <item>If T is a fun type <c>fun((...) -> B)</c>,
+       where <c>B</c> is a type, then
+       Rep(T) = <c>{type,LINE,'fun',[{type,LINE,any},Rep(B)]}</c>.
+       </item>
+      <item>If T is a fun type <c>fun(Ft)</c>, where
+       <c>Ft</c> is a function type,
+       then Rep(T) = <c>Rep(Ft)</c>.</item>
+      <item>If T is an integer range type <c>L .. H</c>,
+       where <c>L</c> and <c>H</c> are singleton integer types, then
+       Rep(T) = <c>{type,LINE,range,[Rep(L),Rep(H)]}</c>.</item>
+      <item>If T is a map type <c>map()</c>, then Rep(T) =
+       <c>{type,LINE,map,any}</c>.</item>
+      <item>If T is a map type <c>#{P_1, ..., P_k}</c>, where each
+       <c>P_i</c> is a map pair type, then Rep(T) =
+       <c>{type,LINE,map,[Rep(P_1), ..., Rep(P_k)]}</c>.</item>
+      <item>If T is a map pair type <c>K => V</c>, where
+       <c>K</c> and <c>V</c> are types, then Rep(T) =
+       <c>{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}</c>.</item>
+      <item>If T is a predefined (or built-in) type <c>N(A_1, ..., A_k)</c>,
+       where each <c>A_i</c> is a type, then Rep(T) =
+       <c>{type,LINE,N,[Rep(A_1), ..., Rep(A_k)]}</c>.</item>
+      <item>If T is a record type <c>#Name{F_1, ..., F_k}</c>,
+       where each <c>F_i</c> is a record field type, then Rep(T) =
+       <c>{type,LINE,record,[Rep(Name),Rep(F_1), ..., Rep(F_k)]}</c>.
+       </item>
+      <item>If T is a record field type <c>Name :: Type</c>,
+       where <c>Type</c> is a type, then Rep(T) =
+       <c>{type,LINE,field_type,[Rep(Name),Rep(Type)]}</c>.</item>
+      <item>If T is a remote type <c>M:N(A_1, ..., A_k)</c>, where
+       each <c>A_i</c> is a type, then Rep(T) =
+       <c>{remote_type,LINE,[Rep(M),Rep(N),[Rep(A_1), ..., Rep(A_k)]]}</c>.
+       </item>
+      <item>If T is a tuple type <c>tuple()</c>, then Rep(T) =
+       <c>{type,LINE,tuple,any}</c>.</item>
+      <item>If T is a tuple type <c>{A_1, ..., A_k}</c>, where
+       each <c>A_i</c> is a type, then Rep(T) =
+       <c>{type,LINE,tuple,[Rep(A_1), ..., Rep(A_k)]}</c>.</item>
+      <item>If T is a type union <c>T_1 | ... | T_k</c>,
+       where each <c>T_i</c> is a type, then Rep(T) =
+       <c>{type,LINE,union,[Rep(T_1), ..., Rep(T_k)]}</c>.</item>
+      <item>If T is a type variable <c>V</c>, then Rep(T) =
+       <c>{var,LINE,A}</c>, where <c>A</c> is an atom with a printname
+       consisting of the same characters as <c>V</c>. A type variable
+       is any variable except underscore (<c>_</c>).</item>
+      <item>If T is a user-defined type <c>N(A_1, ..., A_k)</c>,
+       where each <c>A_i</c> is a type, then Rep(T) =
+       <c>{user_type,LINE,N,[Rep(A_1), ..., Rep(A_k)]}</c>.</item>
+      <item>If T is <c>( T_0 )</c>, then Rep(T) = <c>Rep(T_0)</c>,
+       that is, parenthesized types cannot be distinguished from their
+       bodies.</item>
+    </list>
+
+    <section>
+      <title>Function Types</title>
+      <list type="bulleted">
+       <item>If Ft is a constrained function type <c>Ft_1 when Fc</c>,
+	where <c>Ft_1</c> is a function type and
+	<c>Fc</c> is a function constraint, then Rep(T) =
+	<c>{type,LINE,bounded_fun,[Rep(Ft_1),Rep(Fc)]}</c>.</item>
+       <item>If Ft is a function type <c>(A_1, ..., A_n) -> B</c>,
+        where each <c>A_i</c> and <c>B</c> are types, then
+	Rep(Ft) = <c>{type,LINE,'fun',[{type,LINE,product,[Rep(A_1),
+	..., Rep(A_n)]},Rep(B)]}</c>.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Function Constraints</title>
+      <p>A function constraint Fc is a nonempty sequence of constraints
+	<c>C_1, ..., C_k</c>, and
+	Rep(Fc) = <c>[Rep(C_1), ..., Rep(C_k)]</c>.</p>
+      <list type="bulleted">
+       <item>If C is a constraint <c>is_subtype(V, T)</c> or <c>V :: T</c>,
+        where <c>V</c> is a type variable and <c>T</c> is a type, then
+        Rep(C) = <c>{type,LINE,constraint,[{atom,LINE,is_subtype},[Rep(V),Rep(T)]]}</c>.
+       </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>The Abstract Format After Preprocessing</title>
+    <p>The compilation option <c>debug_info</c> can be given to the
+      compiler to have the abstract code stored in
+      the <c>abstract_code</c> chunk in the BEAM file
       (for debugging purposes).</p>
-    <p>In OTP R9C and later, the <c><![CDATA[abstract_code]]></c> chunk will
+    <p>In OTP R9C and later, the <c>abstract_code</c> chunk will
       contain</p>
-    <p><c><![CDATA[{raw_abstract_v1,AbstractCode}]]></c></p>
-    <p>where <c><![CDATA[AbstractCode]]></c> is the abstract code as described
+    <p><c>{raw_abstract_v1,AbstractCode}</c></p>
+    <p>where <c>AbstractCode</c> is the abstract code as described
       in this document.</p>
     <p>In releases of OTP prior to R9C, the abstract code after some more
       processing was stored in the BEAM file. The first element of the
-      tuple would be either <c><![CDATA[abstract_v1]]></c> (R7B) or <c><![CDATA[abstract_v2]]></c>
+      tuple would be either <c>abstract_v1</c> (R7B) or <c>abstract_v2</c>
       (R8B).</p>
   </section>
 </chapter>

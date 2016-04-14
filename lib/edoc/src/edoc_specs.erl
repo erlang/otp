@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -270,11 +270,7 @@ parms([], []) ->
 parms([A | As], [D | Ds]) ->
     [param(A, D) | parms(As, Ds)].
 
-param(#t_list{type = Type}, Default) ->
-    param(Type, Default);
 param(#t_paren{type = Type}, Default) ->
-    param(Type, Default);
-param(#t_nonempty_list{type = Type}, Default) ->
     param(Type, Default);
 param(#t_record{name = #t_atom{val = Name}}, _Default) ->
     list_to_atom(capitalize(atom_to_list(Name)));

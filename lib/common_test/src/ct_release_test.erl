@@ -131,7 +131,7 @@
 -include_lib("kernel/include/file.hrl").
 
 %%-----------------------------------------------------------------
--define(testnode, otp_upgrade).
+-define(testnode, 'ct_release_test-upgrade').
 -define(exclude_apps, [hipe, typer, dialyzer]). % never include these apps
 
 %%-----------------------------------------------------------------
@@ -304,7 +304,13 @@ upgrade(Apps,Level,Callback,Config) ->
 	%% Note, we will not reach this if the test fails with a
 	%% timetrap timeout in the test suite! Thus we can have
 	%% hanging nodes...
-	Nodes = nodes(),
+	Nodes = lists:filter(fun(Node) ->
+				     case atom_to_list(Node) of
+					 "ct_release_test-" ++_ -> true;
+					 _ -> false
+				     end
+			     end,
+			     nodes()),
 	[rpc:call(Node,erlang,halt,[]) || Node <- Nodes]
     end.
 
@@ -328,7 +334,14 @@ upgrade(Apps,Level,Callback,Config) ->
 %%     ct_release_test:cleanup(Config).'''
 %%
 cleanup(Config) ->
-    Nodes = [node_name(?testnode)|nodes()],
+    AllNodes = [node_name(?testnode)|nodes()],
+    Nodes = lists:filter(fun(Node) ->
+				 case atom_to_list(Node) of
+				     "ct_release_test-" ++_ -> true;
+				     _ -> false
+				 end
+			 end,
+			 AllNodes),
     [rpc:call(Node,erlang,halt,[]) || Node <- Nodes],
     Config.
 
@@ -455,9 +468,9 @@ get_rels(minor) ->
     {CurrentMajor,Current}.
 
 init_upgrade_test(FromVsn,ToVsn,OldRel) ->
-    OtpRel = list_to_atom("otp-"++FromVsn),
+    Name = list_to_atom("ct_release_test-otp-"++FromVsn),
     ct:log("Starting node to fetch application versions to upgrade from"),
-    {ok,Node} = test_server:start_node(OtpRel,peer,[{erl,[OldRel]}]),
+    {ok,Node} = test_server:start_node(Name,peer,[{erl,[OldRel]}]),
     {Apps,Path} = fetch_all_apps(Node),
     test_server:stop_node(Node),
     {FromVsn,ToVsn,Apps,Path}.
@@ -723,7 +736,7 @@ do_callback(Node,Mod,Func,Args) ->
     ct:log("~p:~p/~w returned: ~p",[Mod,Func,length(Args),R]),
     case R of
 	{badrpc,Error} ->
-	    test_server:fail({test_upgrade_callback,Mod,Func,Args,Error});
+	    throw({fail,{test_upgrade_callback,Mod,Func,Args,Error}});
 	NewState ->
 	    NewState
     end.

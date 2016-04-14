@@ -65,6 +65,7 @@ static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
 static Export *gather_gc_info_res_trap;
+static Export *gather_system_check_res_trap;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -914,7 +915,7 @@ BIF_RETTYPE process_info_1(BIF_ALIST_1)
 	case ERTS_PI_FAIL_TYPE_AWAIT_EXIT:
 	    ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error", __FILE__, __LINE__);
+	    erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error", __FILE__, __LINE__);
 	}
     }
 
@@ -954,7 +955,7 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 	    case ERTS_PI_FAIL_TYPE_AWAIT_EXIT:
 		ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
 	    default:
-		erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error",
+		erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error",
 			 __FILE__, __LINE__);
 	    }
 	}
@@ -1759,7 +1760,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		return res;
 	    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
 	    if (intlist_to_buf(*tp, buf, len) != len)
-		erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+		erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
 	    buf[len] = '\0';
 	    res = erts_instr_dump_memory_map(buf) ? am_true : am_false;
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -1778,7 +1779,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 		    return res;
 		buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
 		if (intlist_to_buf(tp[1], buf, len) != len)
-		    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+		    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
 		buf[len] = '\0';
 		res = erts_instr_dump_stat(buf, 1) ? am_true : am_false;
 		erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3234,6 +3235,39 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	if (is_non_value(res))
 	    BIF_RET(am_undefined);
 	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
+    } else if (BIF_ARG_1 == am_total_active_tasks
+	       || BIF_ARG_1 == am_total_run_queue_lengths) {
+	Uint no = erts_run_queues_len(NULL, 0, BIF_ARG_1 == am_total_active_tasks);
+	if (IS_USMALL(0, no))
+	    res = make_small(no);
+	else {
+	    Eterm *hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+	    res = uint_to_big(no, hp);
+	}
+	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_active_tasks
+	       || BIF_ARG_1 == am_run_queue_lengths) {
+	Eterm res, *hp, **hpp;
+	Uint sz, *szp;
+	int no_qs = erts_no_run_queues;
+	Uint *qszs = erts_alloc(ERTS_ALC_T_TMP,sizeof(Uint)*no_qs*2);
+	(void) erts_run_queues_len(qszs, 0, BIF_ARG_1 == am_active_tasks);
+	sz = 0;
+	szp = &sz;
+	hpp = NULL;
+	while (1) {
+	    int i;
+	    for (i = 0; i < no_qs; i++)
+		qszs[no_qs+i] = erts_bld_uint(hpp, szp, qszs[i]);
+	    res = erts_bld_list(hpp, szp, no_qs, &qszs[no_qs]);
+	    if (hpp) {
+		erts_free(ERTS_ALC_T_TMP, qszs);
+		BIF_RET(res);
+	    }
+	    hp = HAlloc(BIF_P, sz);
+	    szp = NULL;
+	    hpp = &hp;
+	}
     } else if (BIF_ARG_1 == am_context_switches) {
 	Eterm cs = erts_make_integer(erts_get_total_context_switches(), BIF_P);
 	hp = HAlloc(BIF_P, 3);
@@ -3282,7 +3316,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);
     } else if (BIF_ARG_1 ==  am_run_queue) {
-	res = erts_run_queues_len(NULL);
+	res = erts_run_queues_len(NULL, 1, 0);
 	BIF_RET(make_small(res));
     } else if (BIF_ARG_1 == am_wall_clock) {
 	UWord w1, w2;
@@ -3302,7 +3336,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	Uint sz, *szp;
 	int no_qs = erts_no_run_queues;
 	Uint *qszs = erts_alloc(ERTS_ALC_T_TMP,sizeof(Uint)*no_qs*2);
-	(void) erts_run_queues_len(qszs);
+	(void) erts_run_queues_len(qszs, 0, 0);
 	sz = 0;
 	szp = &sz;
 	hpp = NULL;
@@ -3751,6 +3785,18 @@ BIF_RETTYPE erts_internal_is_system_process_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE erts_internal_system_check_1(BIF_ALIST_1)
+{
+    Eterm res;
+    if (ERTS_IS_ATOM_STR("schedulers", BIF_ARG_1)) {
+	res = erts_system_check_request(BIF_P);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_system_check_res_trap, BIF_P, res);
+    }
+
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 static erts_smp_atomic_t hipe_test_reschedule_flag;
 
@@ -3765,7 +3811,7 @@ static void broken_halt_test(Eterm bif_arg_2)
 #if defined(ERTS_HAVE_TRY_CATCH)
     erts_get_scheduler_data()->run_queue = NULL;
 #endif
-    erl_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
+    erts_exit(ERTS_DUMP_EXIT, "%T", bif_arg_2);
 }
 
 
@@ -4012,7 +4058,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_true);
 	}
 	else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
-	    erl_exit(ERTS_ABORT_EXIT, "%T\n", BIF_ARG_2);
+	    erts_exit(ERTS_ABORT_EXIT, "%T\n", BIF_ARG_2);
 	}
 	else if (ERTS_IS_ATOM_STR("kill_dist_connection", BIF_ARG_1)) {
 	    DistEntry *dep = erts_sysname_to_connected_dist_entry(BIF_ARG_2);
@@ -4358,6 +4404,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     gather_io_bytes_trap
 	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
+    gather_system_check_res_trap
+	= erts_export_put(am_erts_internal, am_gather_system_check_result, 1);
     process_info_init();
     os_info_init();
 }

@@ -44,6 +44,9 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() ->
+    [{timetrap,{minutes,3}}].
+
 all() -> 
     [open_close_file, 
      open_close_dir, 
@@ -69,28 +72,21 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case (catch crypto:start()) of
-	ok ->
-	    DataDir = ?config(data_dir, Config),	    
-	    PrivDir = ?config(priv_dir, Config),
-	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-	    %% to make sure we don't use public-key-auth
-	    %% this should be tested by other test suites
-	    UserDir = filename:join(?config(priv_dir, Config), nopubkey), 
-	    file:make_dir(UserDir),  
-	    Config;
-	_ ->
-	    {skip,"Could not start crypto!"}
-    end.
+    DataDir = ?config(data_dir, Config),	    
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    %% to make sure we don't use public-key-auth
+    %% this should be tested by other test suites
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey), 
+    file:make_dir(UserDir),  
+    Config.
 
 end_per_suite(Config) ->
     SysDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(SysDir),
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
 
 %%--------------------------------------------------------------------
 

@@ -102,8 +102,8 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     KeepAliveTimeOut = 1000 * httpd_util:lookup(ConfigDB, keep_alive_timeout, 150),
     
     case http_transport:negotiate(SocketType, Socket, ?HANDSHAKE_TIMEOUT) of
-	{error, _Error} ->
-	    exit(shutdown); %% Can be 'normal'.
+	{error, Error} ->
+	    exit({shutdown, Error}); %% Can be 'normal'.
 	ok ->
 	    continue_init(Manager, ConfigDB, SocketType, Socket, KeepAliveTimeOut)
     end.
@@ -294,7 +294,10 @@ handle_info(Info, #state{mod = ModData} = State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(normal, State) ->
+terminate(Reason, State) when Reason == normal;
+			      Reason == shutdown ->
+    do_terminate(State);
+terminate({shutdown,_}, State) ->
     do_terminate(State);
 terminate(Reason, #state{response_sent = false, mod = ModData} = State) ->
     httpd_response:send_status(ModData, 500, none),
@@ -630,21 +633,10 @@ decrease(N) when is_integer(N) ->
 decrease(N) ->
     N.
 
-error_log(ReasonString, Info) ->
+error_log(ReasonString,  #mod{config_db = ConfigDB}) ->
     Error = lists:flatten(
 	      io_lib:format("Error reading request: ~s", [ReasonString])),
-    error_log(mod_log, Info, Error),
-    error_log(mod_disk_log, Info, Error).
-
-error_log(Mod, #mod{config_db = ConfigDB} = Info, String) ->
-    Modules = httpd_util:lookup(ConfigDB, modules,
-				[mod_get, mod_head, mod_log]),
-    case lists:member(Mod, Modules) of
-	true ->
-	    Mod:error_log(Info, String);
-	_ ->
-	    ok
-    end.
+    httpd_util:error_log(ConfigDB, Error).
 
 
 %%--------------------------------------------------------------------

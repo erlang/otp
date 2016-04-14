@@ -38,6 +38,9 @@
 %%%
 %%% CommonTest callbacks
 %%% 
+suite() ->
+    [{timetrap,{minutes,2}}].
+
 all() -> 
     [
      minor_upgrade,
@@ -45,27 +48,17 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try {crypto:start(), erlang:system_info({wordsize, internal}) == 
-                 	     erlang:system_info({wordsize, external})} of
-	{ok, true} ->
-	    case ct_release_test:init(Config0) of
-		{skip, Reason} ->
-		    {skip, Reason};
-		Config ->
-		    ssh:start(),
-		    Config
-	    end;
-	{ok, false} ->
-	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
+    case ct_release_test:init(Config0) of
+	{skip, Reason} ->
+	    {skip, Reason};
+	Config ->
+	    ssh:start(),
+	    Config
     end.
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
     ssh:stop(),
-    crypto:stop(),
     UserDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(UserDir).
 

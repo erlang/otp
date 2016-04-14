@@ -134,6 +134,7 @@ static ErtsAllocatorState_t binary_alloc_state;
 static ErtsAllocatorState_t ets_alloc_state;
 static ErtsAllocatorState_t driver_alloc_state;
 static ErtsAllocatorState_t fix_alloc_state;
+static ErtsAllocatorState_t test_alloc_state;
 
 typedef struct {
     erts_smp_atomic32_t refc;
@@ -233,6 +234,7 @@ typedef struct {
     struct au_init std_low_alloc;
     struct au_init ll_low_alloc;
 #endif
+    struct au_init test_alloc;
 } erts_alc_hndl_args_init_t;
 
 #define ERTS_AU_INIT__ {0, 0, 1, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
@@ -432,6 +434,33 @@ set_default_fix_alloc_opts(struct au_init *ip,
     ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
 }
 
+static void
+set_default_test_alloc_opts(struct au_init *ip)
+{
+    SET_DEFAULT_ALLOC_OPTS(ip);
+    ip->enable			= 0; /* Disabled by default */
+    ip->thr_spec		= -1 * erts_no_schedulers;
+    ip->atype			= AOFIRSTFIT;
+    ip->init.aoff.flavor        = AOFF_BF;
+    ip->init.util.name_prefix	= "test_";
+    ip->init.util.alloc_no	= ERTS_ALC_A_TEST;
+    ip->init.util.mmbcs 	= 0; /* Main carrier size */
+    ip->init.util.ts 		= ERTS_ALC_MTA_TEST;
+    ip->init.util.acul		= ERTS_ALC_DEFAULT_ACUL;
+
+    /* Use a constant minimal MBC size */
+#if ERTS_SA_MB_CARRIERS
+    ip->init.util.smbcs = ERTS_SACRR_UNIT_SZ;
+    ip->init.util.lmbcs = ERTS_SACRR_UNIT_SZ;
+    ip->init.util.sbct  = ERTS_SACRR_UNIT_SZ;
+#else
+    ip->init.util.smbcs = 1 << 12;
+    ip->init.util.lmbcs = 1 << 12;
+    ip->init.util.sbct  = 1 << 12;
+#endif
+}
+
+
 #ifdef ERTS_SMP
 
 static void
@@ -613,6 +642,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_default_driver_alloc_opts(&init.driver_alloc);
     set_default_fix_alloc_opts(&init.fix_alloc,
 			       fix_type_sizes);
+    set_default_test_alloc_opts(&init.test_alloc);
 
     if (argc && argv)
 	handle_args(argc, argv, &init);
@@ -623,11 +653,11 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0) {
 	    int err = errno;
 	    char *errstr = err ? strerror(err) : "unknown";
-	    erl_exit(-1, "Failed to lock physical memory: %s (%d)\n",
+	    erts_exit(1, "Failed to lock physical memory: %s (%d)\n",
 		     errstr, err);
 	}
 #else
-	erl_exit(-1, "Failed to lock physical memory: Not supported\n");
+	erts_exit(1, "Failed to lock physical memory: Not supported\n");
 #endif
     }
 
@@ -772,16 +802,17 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_au_allocator(ERTS_ALC_A_ETS, &init.ets_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_DRIVER, &init.driver_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_FIXED_SIZE, &init.fix_alloc, ncpu);
+    set_au_allocator(ERTS_ALC_A_TEST, &init.test_alloc, ncpu);
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
 	if (!erts_allctrs[i].alloc)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing alloc function for %s\n", ERTS_ALC_A2AD(i));
 	if (!erts_allctrs[i].realloc)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing realloc function for %s\n", ERTS_ALC_A2AD(i));
 	if (!erts_allctrs[i].free)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Missing free function for %s\n", ERTS_ALC_A2AD(i));
     }
 
@@ -833,6 +864,10 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 		       &init.fix_alloc,
 		       &fix_alloc_state);
 
+    start_au_allocator(ERTS_ALC_A_TEST,
+		       &init.test_alloc,
+		       &test_alloc_state);
+
     erts_mtrace_install_wrapper_functions();
     extra_block_size += erts_instr_init(init.instr.stat, init.instr.map);
 
@@ -855,7 +890,7 @@ erts_alloc_late_init(void)
 static void *
 erts_realloc_fixed_size(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
-    erl_exit(ERTS_ABORT_EXIT,
+    erts_exit(ERTS_ABORT_EXIT,
 	     "Attempt to reallocate a block of the fixed size type %s\n",
 	     ERTS_ALC_T2TD(type));
 }
@@ -977,7 +1012,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 					  * tspec->size)
 				       + ERTS_CACHE_LINE_SIZE - 1));
 	if (!states)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to allocate allocator states for %salloc\n",
 		     init->init.util.name_prefix);
 	tspec->allctr = (Allctr_t **) states;
@@ -1005,7 +1040,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 				   (tot_fix_list_size
 				    + ERTS_CACHE_LINE_SIZE - 1));
 	if (!fix_lists)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to allocate fix lists for %salloc\n",
 		     init->init.util.name_prefix);
 
@@ -1079,7 +1114,7 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 	}
 
 	if (!as)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Failed to start %salloc\n", init->init.util.name_prefix);
 
 	ASSERT(as == (void *) as0);
@@ -1418,6 +1453,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	&init->fix_alloc,
 	&init->sl_alloc,
 	&init->temp_alloc
+	/* test_alloc not affected by +Mea??? or +Mu???  */
     };
     int aui_sz = (int) sizeof(aui)/sizeof(aui[0]);
     char *arg;
@@ -1507,6 +1543,9 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    break;
 		case 'T':
 		    handle_au_arg(&init->temp_alloc, &argv[i][3], argv, &i, 0);
+		    break;
+		case 'Z':
+		    handle_au_arg(&init->test_alloc, &argv[i][3], argv, &i, 0);
 		    break;
 		case 'Y': { /* sys_alloc */
 		    if (has_prefix("tt", param+2)) {
@@ -1870,7 +1909,7 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	case ERTS_ALC_O_FREE:		op_str = "free";	break;
 	default:			op_str = "UNKNOWN";	break;
 	}
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s: %s operation not supported (memory type: \"%s\")\n",
 		 allctr_str, op_str, t_str);
 	break;
@@ -1884,18 +1923,18 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	va_start(argp, n);
 	size = va_arg(argp, Uint);
 	va_end(argp);
-	erl_exit(1,
+	erts_exit(1,
 		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
 		 allctr_str, op, size, t_str);
 	break;
     }
     case ERTS_ALC_E_NOALLCTR:
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "erts_alloc: Unknown allocator type: %d\n",
 		 ERTS_ALC_T2A(ERTS_ALC_N2T(n)));
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "erts_alloc: Unknown error: %d\n", error);
+	erts_exit(ERTS_ABORT_EXIT, "erts_alloc: Unknown error: %d\n", error);
 	break;
     }
 }
@@ -2222,11 +2261,12 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    return am_badarg;
     }
 
-    /* All alloc_util allocators *have* to be enabled */
+    /* All alloc_util allocators *have* to be enabled, except test_alloc */
     
     for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++) {
 	switch (ai) {
 	case ERTS_ALC_A_SYSTEM:
+        case ERTS_ALC_A_TEST:
 	    break;
 	default:
 	    if (!erts_allctrs_info[ai].enabled
@@ -2267,6 +2307,8 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		      * contain any allocated memory.
 		      */
 		    continue;
+                case ERTS_ALC_A_TEST:
+                    continue;
 		case ERTS_ALC_A_EHEAP:
 		    save = &size.processes;
 		    break;
@@ -2675,14 +2717,17 @@ erts_alloc_util_allocators(void *proc)
     /*
      * Currently all allocators except sys_alloc are
      * alloc_util allocators.
+     * Also hide test_alloc which is disabled by default
+     * and only intended for our own testing.
      */
-    sz = ((ERTS_ALC_A_MAX + 1 - ERTS_ALC_A_MIN) - 1)*2;
+    sz = ((ERTS_ALC_A_MAX + 1 - ERTS_ALC_A_MIN) - 2)*2;
     ASSERT(sz > 0);
     hp = HAlloc((Process *) proc, sz);
     res = NIL;
     for (i = ERTS_ALC_A_MAX; i >= ERTS_ALC_A_MIN; i--) {
 	switch (i) {
 	case ERTS_ALC_A_SYSTEM:
+        case ERTS_ALC_A_TEST:
 	    break;
 	default: {
 	    char *alc_str = (char *) ERTS_ALC_A2AD(i);
@@ -3144,7 +3189,7 @@ reply_alloc_info(void *vair)
 					       make_small(0), ainfo);
 		    }
 		    else {
-			erl_exit(ERTS_ABORT_EXIT, "%s:%d: internal error\n",
+			erts_exit(ERTS_ABORT_EXIT, "%s:%d: internal error\n",
 				 __FILE__, __LINE__);
 		    }
 		}
@@ -3381,7 +3426,7 @@ void *safe_realloc(void *ptr, Uint sz)
  * Keep alloc_SUITE_data/allocator_test.h updated if changes are made        *
  * to erts_alc_test()                                                        *
 \*                                                                           */
-#define ERTS_ALC_TEST_ABORT erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
+#define ERTS_ALC_TEST_ABORT erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error\n")
 
 UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 {
@@ -3566,6 +3611,41 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 #else
 	case 0xf13: return (UWord) 0;
 #endif
+	case 0xf14: return (UWord) erts_alloc(ERTS_ALC_T_TEST, (Uint)a1);
+
+	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
+
+	case 0xf16: {
+            Uint extra_hdr_sz = UNIT_CEILING((Uint)a1);
+	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
+	    Uint offset = ts->allctr[0]->mbc_header_size;
+	    void* orig_creating_mbc = ts->allctr[0]->creating_mbc;
+	    void* orig_destroying_mbc = ts->allctr[0]->destroying_mbc;
+	    void* new_creating_mbc = *(void**)a2; /* inout arg */
+	    void* new_destroying_mbc = *(void**)a3; /* inout arg */
+	    int i;
+
+	    for (i=0; i < ts->size; i++) {
+		Allctr_t* ap = ts->allctr[i];
+		if (ap->mbc_header_size != offset
+		    || ap->creating_mbc != orig_creating_mbc
+		    || ap->destroying_mbc != orig_destroying_mbc
+		    || ap->mbc_list.first != NULL)
+		    return -1;
+	    }
+	    for (i=0; i < ts->size; i++) {
+		ts->allctr[i]->mbc_header_size += extra_hdr_sz;
+		ts->allctr[i]->creating_mbc = new_creating_mbc;
+		ts->allctr[i]->destroying_mbc = new_destroying_mbc;
+	    }
+	    *(void**)a2 = orig_creating_mbc;
+	    *(void**)a3 = orig_destroying_mbc;
+	    return offset;
+	}
+	case 0xf17: {
+	    ErtsAllocatorThrSpec_t* ts = &erts_allctr_thr_spec[ERTS_ALC_A_TEST];
+	    return ts->allctr[0]->largest_mbc_size;
+	}
 	default:
 	    break;
 	}
@@ -3808,7 +3888,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
     found_type = GET_TYPE_OF_PATTERN(pre_pattern);
     if (pre_pattern != MK_PATTERN(n)) {
 	if ((FIXED_FENCE_PATTERN_MASK & pre_pattern) != FIXED_FENCE_PATTERN)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at beginning of memory block (p=0x%u) "
 		     "clobbered.\n",
 		     (UWord) ptr);
@@ -3825,12 +3905,12 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	char *op_str;
 
 	if ((FIXED_FENCE_PATTERN_MASK & post_pattern) != FIXED_FENCE_PATTERN)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence at end of memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
 		     (UWord) ptr, (UWord) sz);
 	if (found_type != GET_TYPE_OF_PATTERN(post_pattern))
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "ERROR: Fence around memory block (p=0x%u, sz=%u) "
 		     "clobbered.\n",
 		     (UWord) ptr, (UWord) sz);
@@ -3853,7 +3933,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 	default:			op_str = "???";		break;
 	}
 
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "ERROR: Memory block (p=0x%u, sz=%u) allocated as type \"%s\","
 		 " but %s as type \"%s\".\n",
 		 (UWord) ptr, (UWord) sz, ftype, op_str, otype);

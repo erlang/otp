@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,13 +63,11 @@
 init_target_info() ->
     [$.|Emu] = code:objfile_extension(),
     {_, OTPRel} = init:script_id(),
-    TestServerDir = filename:absname(filename:dirname(code:which(?MODULE))),
     #target_info{os_family=test_server_sup:get_os_family(),
 		 os_type=os:type(),
 		 version=erlang:system_info(version),
 		 system_version=erlang:system_info(system_version),
 		 root_dir=code:root_dir(),
-		 test_server_dir=TestServerDir,
 		 emulator=Emu,
 		 otp_release=OTPRel,
 		 username=test_server_sup:get_username(),
@@ -411,11 +409,9 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     Ref = make_ref(),
     Pid =
 	spawn_link(
-	  fun() ->
-		  run_test_case_eval(Mod, Func, Args, Name, Ref,
-				     RunInit, TimetrapData,
-				     LogOpts, TCCallback)
-	  end),
+          run_test_case_eval_fun(Mod, Func, Args, Name, Ref,
+                                 RunInit, TimetrapData,
+                                 LogOpts, TCCallback)),
     put(test_server_detected_fail, []),
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
 	     status=starting,ret_val=[],comment="",timeout=infinity,
@@ -718,10 +714,10 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 			       Starter ! {self(),{call_end_conf,Data,ok}}
 		       end);
 	true ->
-	    do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal)
+	    do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal)
     end.
 
-do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
+do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
     EndConfProc =
 	fun() ->
 		process_flag(trap_exit,true), % to catch timetraps
@@ -729,16 +725,25 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 		EndConfApply =
 		    fun() ->
 			    timetrap(TVal),
-			    try apply(Mod,end_per_testcase,[Func,Conf]) of
+			    %% We can't handle fails or skips here
+			    %% (neither input nor output). The error can
+			    %% be read from Conf though (tc_status).
+			    EndConf =
+				case do_init_tc_call(Mod,{end_per_testcase,Func},
+						     [Conf],
+						     {TCExitReason,[Conf]}) of
+				    {_,[EPTCInit]} when is_list(EPTCInit) ->
+					EPTCInit;
+				    _ ->
+					Conf
+				end,
+			    try apply(Mod,end_per_testcase,[Func,EndConf]) of
 				_ -> ok
 			    catch
-				_:Why ->
+				_:Error ->
 				    timer:sleep(1),
-				    group_leader() ! {printout,12,
-						      "WARNING! "
-						      "~w:end_per_testcase(~w, ~p)"
-						      " crashed!\n\tReason: ~p\n",
-						      [Mod,Func,Conf,Why]}
+				    print_end_conf_result(Mod,Func,Conf,
+							  "crashed",Error)
 			    end,
 			    Supervisor ! {self(),end_conf}
 		    end,
@@ -747,10 +752,7 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 		    {Pid,end_conf} ->
 			Starter ! {self(),{call_end_conf,Data,ok}};
 		    {'EXIT',Pid,Reason} ->
-			group_leader() ! {printout,12,
-					  "WARNING! ~w:end_per_testcase(~w, ~p)"
-					  " failed!\n\tReason: ~p\n",
-					  [Mod,Func,Conf,Reason]},
+			print_end_conf_result(Mod,Func,Conf,"failed",Reason),
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
 		    {'EXIT',_OtherPid,Reason} ->
 			%% Probably the parent - not much to do about that
@@ -759,28 +761,55 @@ do_call_end_conf(Starter,Mod,Func,Data,Conf,TVal) ->
 	end,
     spawn_link(EndConfProc).
 
-spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,
-	      {timetrap_timeout,TVal}=Why,
-	      Loc,SendTo) ->
+print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("WARNING! "
+			      "~w:end_per_testcase(~w, ~tp)"
+			      " ~s!\n\tReason: ~tp\n",
+			      [Mod,Func,Conf,Cause,Error]);		    
+	   (minor) ->
+		ErrorStr = test_server_ctrl:escape_chars(Error),
+		io_lib:format("WARNING! "
+			      "~w:end_per_testcase(~w, ~tp)"
+			      " ~s!\n\tReason: ~ts\n",
+			      [Mod,Func,Conf,Cause,ErrorStr])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
+
+
+spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
+	      Why,Loc,SendTo) ->
     FwCall =
 	fun() ->
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
-		try do_end_tc_call(Mod,Func, {Pid,Skip,[CurrConf]}, Why) of
+		try begin do_end_tc_call(Mod,IPTC, {Pid,Skip,[CurrConf]}, Why),
+			  do_init_tc_call(Mod,{end_per_testcase,Func},
+					  [CurrConf],{ok,[CurrConf]}),
+			  do_end_tc_call(Mod,{end_per_testcase,Func}, 
+					 {Pid,Skip,[CurrConf]}, Why) end of
 		    _ -> ok
 		catch
 		    _:FwEndTCErr ->
 			exit({fw_notify_done,end_tc,FwEndTCErr})
 		end,
+		Time = case Why of
+			   {timetrap_timeout,TVal} -> TVal/1000;
+			   _                       -> died
+		       end,
+		group_leader() ! {printout,12,
+				  "ERROR! ~w:init_per_testcase(~w, ~p)"
+				  " failed!\n\tReason: ~tp\n",
+				 [Mod,Func,CurrConf,Why]},
 		%% finished, report back
-		SendTo ! {self(),fw_notify_done,
-			  {TVal/1000,Skip,Loc,[],undefined}}
+		SendTo ! {self(),fw_notify_done,{Time,Skip,Loc,[],undefined}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
-	      {timetrap_timeout,TVal}=Why,_Loc,SendTo) ->
+spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
+	      Why,_Loc,SendTo) ->
     FwCall =
 	fun() ->
 		{RetVal,Report} =
@@ -794,24 +823,38 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			    E = {failed,{Mod,end_per_testcase,Why}},
 			    {Result,E}
 		    end,
-		group_leader() ! {printout,12,
-				  "WARNING! ~w:end_per_testcase(~w, ~p)"
-				  " failed!\n\tReason: timetrap timeout"
-				  " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
-		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
-		try do_end_tc_call(Mod,Func,
-					  {Pid,Report,[EndConf]}, Why) of
+		{Time,Warn} =
+		    case Why of
+			{timetrap_timeout,TVal} ->
+			    group_leader() !
+				{printout,12,
+				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 " failed!\n\tReason: timetrap timeout"
+				 " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
+			    W = "<font color=\"red\">"
+				"WARNING: end_per_testcase timed out!</font>",
+			    {TVal/1000,W};
+			_ ->
+			    group_leader() !
+				{printout,12,
+				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 " failed!\n\tReason: ~tp\n",
+				 [Mod,Func,EndConf,Why]},
+			    W = "<font color=\"red\">"
+				"WARNING: end_per_testcase failed!</font>",
+			    {died,W}
+		    end,
+		try do_end_tc_call(Mod,EPTC,{Pid,Report,[EndConf]}, Why) of
 		    _ -> ok
 		catch
 		    _:FwEndTCErr ->
 			exit({fw_notify_done,end_tc,FwEndTCErr})
 		end,
-		Warn = "<font color=\"red\">"
-		       "WARNING: end_per_testcase timed out!</font>",
+		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
 		%% finished, report back (if end_per_testcase fails, a warning
 		%% should be printed as part of the comment)
 		SendTo ! {self(),fw_notify_done,
-			  {TVal/1000,RetVal,FailLoc,[],Warn}}
+			  {Time,RetVal,FailLoc,[],Warn}}
 	end,
     spawn_link(FwCall);
 
@@ -834,10 +877,12 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     spawn_link(FwCall);
 
 spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
-    Func1 = case Func of
-		{_InitOrEndPerTC,F} -> F;
-		F -> F
-	    end,
+    {Func1,EndTCFunc} = case Func of
+			    CF when CF == init_per_suite; CF == end_per_suite;
+				    CF == init_per_group; CF == end_per_group ->
+				{CF,CF};
+			    TC -> {TC,{end_per_testcase,TC}}
+			end,
     FwCall =
 	fun() ->
 		try fw_error_notify(Mod,Func1,[],
@@ -849,8 +894,7 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 			      FwErrorNotifyErr})
 		end,
 		Conf = [{tc_status,{failed,Error}}|CurrConf],
-		try do_end_tc_call(Mod,Func1,
-				   {Pid,Error,[Conf]},Error) of
+		try do_end_tc_call(Mod,EndTCFunc,{Pid,Error,[Conf]},Error) of
 		    _ -> ok
 		catch
 		    _:FwEndTCErr ->
@@ -907,6 +951,16 @@ job_proxy_msgloop() ->
     end,
     job_proxy_msgloop().
 
+-spec run_test_case_eval_fun(_, _, _, _, _, _, _, _, _) ->
+                                    fun(() -> no_return()).
+run_test_case_eval_fun(Mod, Func, Args, Name, Ref, RunInit,
+                       TimetrapData, LogOpts, TCCallback) ->
+    fun () ->
+            run_test_case_eval(Mod, Func, Args, Name, Ref,
+                               RunInit, TimetrapData,
+                               LogOpts, TCCallback)
+    end.
+
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
 
@@ -917,32 +971,38 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
     Where = [{Mod,Func}],
     put(test_server_loc, Where),
 
-    FWInitResult = test_server_sup:framework_call(init_tc,[Mod,Func,Args0],
-						  {ok,Args0}),
+    FWInitFunc = case RunInit of
+		     run_init -> {init_per_testcase,Func};
+		     _        -> Func
+		 end,
+
+    FWInitResult0 = do_init_tc_call(Mod,FWInitFunc,Args0,{ok,Args0}),
+
     set_tc_state(running),
     {{Time,Value},Loc,Opts} =
-	case FWInitResult of
+	case FWInitResult0 of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		NewResult = do_end_tc_call(Mod,Func, {Error,Args0},
+		NewResult = do_end_tc_call(Mod,FWInitFunc, {Error,Args0},
 					   {auto_skip,{failed,Error}}),
 		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
-		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
+		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],		
 		fw_error_notify(Mod, Func, Conf, Reason),
-		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
+		NewResult = do_end_tc_call(Mod,FWInitFunc,
+					   {{error,Reason},[Conf]},
 					   {fail,Reason}),
 		{{0,NewResult},Where,[]};
 	    Skip = {SkipType,_Reason} when SkipType == skip;
 					   SkipType == skipped ->
-		NewResult = do_end_tc_call(Mod,Func,
+		NewResult = do_end_tc_call(Mod,FWInitFunc,
 					   {Skip,Args0}, Skip),
 		{{0,NewResult},Where,[]};
 	    AutoSkip = {auto_skip,_Reason} ->
 		%% special case where a conf case "pretends" to be skipped
 		NewResult =
-		    do_end_tc_call(Mod,Func, {AutoSkip,Args0}, AutoSkip),
+		    do_end_tc_call(Mod,FWInitFunc, {AutoSkip,Args0}, AutoSkip),
 		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -957,31 +1017,41 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 					      SkipType == skipped ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}|hd(Args)],
-		    NewRes = do_end_tc_call(Mod,Func,
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
 					    {Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},
 			    {save_config,SaveCfg}|hd(Args)],
-		    NewRes = do_end_tc_call(Mod,Func, {{skip,Reason},[Conf]},
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
+					    {{skip,Reason},[Conf]},
 					    {skip,Reason}),
 		    {{0,NewRes},Line,[]};
 		FailTC = {fail,Reason} ->       % user fails the testcase
 		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
 		    fw_error_notify(Mod, Func, EndConf, Reason),
-		    NewRes = do_end_tc_call(Mod,Func,
+		    NewRes = do_end_tc_call(Mod,{init_per_testcase,Func},
 					    {{error,Reason},[EndConf]},
 					    FailTC),
 		    {{0,NewRes},[{Mod,Func}],[]};
 		{ok,NewConf} ->
-		    %% call user callback function if defined
-		    NewConf1 =
-			user_callback(TCCallback, Mod, Func, init, NewConf),
-		    %% save current state in controller loop
-		    set_tc_state(tc, NewConf1),
-		    %% execute the test case
-		    {{T,Return},Loc} = {ts_tc(Mod,Func,[NewConf1]), get_loc()},
+		    IPTCEndRes = do_end_tc_call(Mod,{init_per_testcase,Func},
+						{ok,[NewConf]}, NewConf),
+		    {{T,Return},Loc,NewConf1} =
+			if not is_list(IPTCEndRes) ->
+				%% received skip or fail, not config
+				{{0,IPTCEndRes},undefined,NewConf};
+			   true ->
+				%% call user callback function if defined
+				NewConfUC =
+				    user_callback(TCCallback, Mod, Func,
+						  init, IPTCEndRes),
+				%% save current state in controller loop
+				set_tc_state(tc, NewConfUC),
+				%% execute the test case
+				{ts_tc(Mod,Func,[NewConfUC]),get_loc(),NewConfUC}
+			end,
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
@@ -1007,36 +1077,47 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    EndConf1 =
 			user_callback(TCCallback, Mod, Func, 'end', EndConf),
+
+		    %% We can't handle fails or skips here
+		    EndConf2 =
+			case do_init_tc_call(Mod,{end_per_testcase,Func},
+					     [EndConf1],{ok,[EndConf1]}) of
+			    {ok,[EPTCInitRes]} when is_list(EPTCInitRes) ->
+				EPTCInitRes;
+			    _ ->
+				EndConf1
+			end,
+
 		    %% update current state in controller loop
-		    {FWReturn1,TSReturn1,EndConf2} =
-			case end_per_testcase(Mod, Func, EndConf1) of
+		    {FWReturn1,TSReturn1,EndConf3} =
+			case end_per_testcase(Mod, Func, EndConf2) of
 			    SaveCfg1={save_config,_} ->
 				{FWReturn,TSReturn,
 				 [SaveCfg1|lists:keydelete(save_config,1,
-							   EndConf1)]};
+							   EndConf2)]};
 			    {fail,ReasonToFail} ->
 				%% user has failed the testcase
-				fw_error_notify(Mod, Func, EndConf1,
+				fw_error_notify(Mod, Func, EndConf2,
 						ReasonToFail),
 				{{error,ReasonToFail},
 				 {failed,ReasonToFail},
-				 EndConf1};
+				 EndConf2};
 			    {failed,{_,end_per_testcase,_}} = Failure when
 				  FWReturn == ok ->
 				%% unexpected termination in end_per_testcase
 				%% report this as the result to the framework
-				{Failure,TSReturn,EndConf1};
+				{Failure,TSReturn,EndConf2};
 			    _ ->
 				%% test case result should be reported to
 				%% framework no matter the status of
 				%% end_per_testcase
-				{FWReturn,TSReturn,EndConf1}
+				{FWReturn,TSReturn,EndConf2}
 			end,
 		    %% clear current state in controller loop
-		    case do_end_tc_call(Mod,Func,
-					{FWReturn1,[EndConf2]}, TSReturn1) of
+		    case do_end_tc_call(Mod,{end_per_testcase,Func},
+					{FWReturn1,[EndConf3]}, TSReturn1) of
 			{failed,Reason} = NewReturn ->
-			    fw_error_notify(Mod,Func,EndConf2, Reason),
+			    fw_error_notify(Mod,Func,EndConf3, Reason),
 			    {{T,NewReturn},[{Mod,Func}],[]};
 			NewReturn ->
 			    {{T,NewReturn},Loc,[]}
@@ -1062,7 +1143,38 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    {{T,Return2},Loc,Opts}
     end.
 
+do_init_tc_call(Mod, Func, Res, Return) ->
+    test_server_sup:framework_call(init_tc,[Mod,Func,Res],Return).
+
+do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
+     case Return of
+	 {NOk,_} when NOk == auto_skip; NOk == fail;
+		      NOk == skip ; NOk == skipped ->
+	     {_,Args} = Res,
+	     IPTCEndRes =
+		 case do_end_tc_call1(Mod, IPTC, Res, Return) of
+		     IPTCEndConfig when is_list(IPTCEndConfig) ->
+			 IPTCEndConfig;
+		     _ ->
+			 Args
+		 end,
+	     EPTCInitRes =
+		 case do_init_tc_call(Mod,{end_per_testcase,Func},
+				      IPTCEndRes,Return) of
+		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
+			 {Return,EPTCInitConfig};
+		     _ ->
+			 Return
+		 end,
+	     do_end_tc_call1(Mod, {end_per_testcase,Func},
+			     EPTCInitRes, Return);
+	 _Ok ->
+	     do_end_tc_call1(Mod, IPTC, Res, Return)
+     end;
 do_end_tc_call(Mod, Func, Res, Return) ->
+    do_end_tc_call1(Mod, Func, Res, Return).
+
+do_end_tc_call1(Mod, Func, Res, Return) ->
     FwMod = os:getenv("TEST_SERVER_FRAMEWORK"),
     Ref = make_ref(),
     if FwMod == "ct_framework" ; FwMod == "undefined"; FwMod == false ->
@@ -1201,7 +1313,7 @@ do_init_per_testcase(Mod, Args) ->
 		Bad ->
 		    group_leader() ! {printout,12,
 				      "ERROR! init_per_testcase has returned "
-				      "bad elements in Config: ~p\n",[Bad]},
+				      "bad elements in Config: ~tp\n",[Bad]},
 		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 	    end;
 	{fail,_Reason}=Res ->
@@ -1219,24 +1331,32 @@ do_init_per_testcase(Mod, Args) ->
 	throw:Other ->
 	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase thrown!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc, Other]},
+	    print_init_conf_result(Line,"thrown",Other),
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
 	_:Reason0 ->
 	    Stk = erlang:get_stacktrace(),
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(Line),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase crashed!\n"
-			      "\tLocation: ~ts\n\tReason: ~p\n",
-			      [FormattedLoc,Reason]},
+	    print_init_conf_result(Line,"crashed",Reason),
 	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
     end.
+
+print_init_conf_result(Line,Cause,Reason) ->
+    FormattedLoc = test_server_sup:format_loc(Line),
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("ERROR! init_per_testcase ~s!\n"
+				      "\tLocation: ~p\n\tReason: ~tp\n",
+				      [Cause,Line,Reason]);
+	   (minor) ->
+		ReasonStr = test_server_ctrl:escape_chars(Reason),
+		io_lib:format("ERROR! init_per_testcase ~s!\n"
+			      "\tLocation: ~ts\n\tReason: ~ts\n",
+			      [Cause,FormattedLoc,ReasonStr])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
+
 
 end_per_testcase(Mod, Func, Conf) ->
     case erlang:function_exported(Mod,end_per_testcase,2) of
@@ -1272,12 +1392,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
-	    group_leader() ! {printout,12,
-			      "WARNING: ~w thrown!\n"
-			      "Reason: ~p\n"
-			      "Line: ~ts\n",
-			      [EndFunc, Other,
-			       test_server_sup:format_loc(get_loc())]},
+	    print_end_tc_warning(EndFunc,Other,"thrown",get_loc()),
 	    {failed,{Mod,end_per_testcase,Other}};
 	  Class:Reason ->
 	    Stk = erlang:get_stacktrace(),
@@ -1294,14 +1409,24 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w crashed!"
 				  "</font>\n",[Comment0,EndFunc])),
-	    group_leader() ! {printout,12,
-			      "WARNING: ~w crashed!\n"
-			      "Reason: ~p\n"
-			      "Line: ~ts\n",
-			      [EndFunc, Reason,
-			       test_server_sup:format_loc(get_loc())]},
+	    print_end_tc_warning(EndFunc,Reason,"crashed",get_loc()),
 	    {failed,{Mod,end_per_testcase,Why}}
     end.
+
+print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
+    FormattedLoc = test_server_sup:format_loc(Loc),
+    Str2Print =
+	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
+		io_lib:format("WARNING: ~w ~s!\n"
+			      "Reason: ~tp\nLine: ~p\n",
+			      [EndFunc,Cause,Reason,Loc]);
+	   (minor) ->
+		ReasonStr = test_server_ctrl:escape_chars(Reason),
+		io_lib:format("WARNING: ~w ~s!\n"
+			      "Reason: ~ts\nLine: ~ts\n",
+			      [EndFunc,Cause,ReasonStr,FormattedLoc])
+	end,
+    group_leader() ! {printout,12,Str2Print}.
 
 get_loc() ->
     get(test_server_loc).
@@ -2408,15 +2533,7 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 	   end,
     Master = self(),
     Ref = make_ref(),
-    Slave = spawn(Node,
-		  fun () ->
-			  start_job_proxy(),
-			  receive
-			      Ref ->
-				  Master ! {Ref, Fun()}
-			  end,
-			  receive after infinity -> infinity end
-		  end),
+    Slave = spawn(Node, start_job_proxy_fun(Master, Fun)),
     MRef = erlang:monitor(process, Slave),
     Slave ! Ref,
     receive
@@ -2429,6 +2546,17 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 		{'DOWN', MRef, _, _, _} ->
 		    Res
 	    end
+    end.
+
+-spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
+start_job_proxy_fun(Master, Fun) ->
+    fun () ->
+            start_job_proxy(),
+            receive
+                Ref ->
+                    Master ! {Ref, Fun()}
+            end,
+            receive after infinity -> infinity end
     end.
 
 %% Return true if Name or node() is a shielded node

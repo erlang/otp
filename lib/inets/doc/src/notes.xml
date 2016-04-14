@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2014</year>
+      <year>2002</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,125 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.0.3</title>
+  <section><title>Inets 6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The TFTP client/server has been fixed to allow file sizes
+	    larger than 32MB block by allowing the 16 bit block
+	    counter to wrap. Since this is a commonly accepted
+	    behavior we regard it as a bug fix.</p>
+          <p>
+	    Own Id: OTP-13403</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle HTTP PATCH method in client.</p>
+          <p>
+	    Own Id: OTP-13286</p>
+        </item>
+        <item>
+          <p>
+	    Expected termination should not be logged as an
+	    application error.</p>
+          <p>
+	    Own Id: OTP-13389</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    mod_alias now traverses all aliases picking the longest
+	    match and not the first match.</p>
+          <p>
+	    Own Id: OTP-13248</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replace obs-folds with spaces instead of failing</p>
+          <p>
+	    Own Id: OTP-13069</p>
+        </item>
+        <item>
+          <p>
+	    Add validation fun for URI scheme to http_uri API</p>
+          <p>
+	    Own Id: OTP-13071</p>
+        </item>
+        <item>
+          <p>
+	    Handle stream bodies as documented.</p>
+          <p>
+	    Own Id: OTP-13093</p>
+        </item>
+        <item>
+          <p>
+	    Correct error handling of mod_esi generated chunks. Send
+	    warning headers in chunk trailers instead of generating
+	    an unexpected additional 500 request response, when
+	    problems, such as a timeout occurs.</p>
+          <p>
+	    Own Id: OTP-13110</p>
+        </item>
+        <item>
+          <p>
+	    HTTP client terminates gracefully when an invalid chunked
+	    length header is encountered.</p>
+          <p>
+	    Own Id: OTP-13117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add default for SNI (Server Name Indication) when running
+	    https using the inets HTTP-client.</p>
+          <p>
+	    Own Id: OTP-12985</p>
+        </item>
+        <item>
+          <p>
+	    Be forgiving to chunked sizes that have trailing
+	    whitespaces as prior implementation was. Also some legacy
+	    embedded devices does actually have trailing whitespaces
+	    even though this in not according to the spec.</p>
+          <p>
+	    Own Id: OTP-13116</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -1807,23 +1925,21 @@
 
         <item>
 	  <p>[httpd] - Issues with ESI erl_script_timeout. </p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>The <c>erl_script_timeout</c> config option is ducumented
-                  as a number of seconds. But when parsing the config, in the
-                  new format (not a config file), it was handled as if in
-                  number of milliseconds. </p>
-              </item>
-	      <item>
-		<p>When the erl-script-timeout time was exceeded, the server
-                  incorrectly marked the answer as sent, thereby leaving 
-                  client hanging (with an incomplete answer).
-                  This has been changed, so that now the socket will be
-                  closed. </p>
-	      </item>
-	    </list>
-	  </p>
+          <list type="bulleted">
+	    <item>
+	      <p>The <c>erl_script_timeout</c> config option is ducumented
+              as a number of seconds. But when parsing the config, in the
+              new format (not a config file), it was handled as if in
+              number of milliseconds. </p>
+            </item>
+	    <item>
+	      <p>When the erl-script-timeout time was exceeded, the server
+              incorrectly marked the answer as sent, thereby leaving 
+              client hanging (with an incomplete answer).
+              This has been changed, so that now the socket will be
+              closed. </p>
+	    </item>
+	  </list>
 	  <p>Own Id: OTP-8509</p>
         </item>
       </list>
@@ -1899,20 +2015,19 @@
 
         <item>
           <p>[httpc] Several more or less critical fixes:</p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>Initial call between the httpc manager and request 
-                  handler was synchronous. </p>
-		<p>When the manager starts a new request handler, 
-                  this is no longer a synchronous operation. Previously, 
-                  the new request handler made the connection to the 
-                  server and issuing of the first request (the reason 
-                  for starting it) in the gen_server init function. 
-                  If the connection for some reason "took some time", 
-                  the manager hanged, leaving all other activities by 
-                  that manager also hanging. </p>
-              </item>
+          <list type="bulleted">
+	    <item>
+	      <p>Initial call between the httpc manager and request 
+              handler was synchronous. </p>
+	      <p>When the manager starts a new request handler, 
+              this is no longer a synchronous operation. Previously, 
+              the new request handler made the connection to the 
+              server and issuing of the first request (the reason 
+              for starting it) in the gen_server init function. 
+              If the connection for some reason "took some time", 
+              the manager hanged, leaving all other activities by 
+              that manager also hanging. </p>
+            </item>
 <!--
 	      <item>
 	        <p>Copying of data between processes</p>
@@ -1923,8 +2038,7 @@
 	        <p>TBD</p>
 	      </item>
 -->
-	    </list>
-	  </p>
+	  </list>
           <p>As a side-effect of these changes, some modules was also 
             renamed, and a new api module, 
             <seealso marker="httpc">httpc</seealso>, has been introduced

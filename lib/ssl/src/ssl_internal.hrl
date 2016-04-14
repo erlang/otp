@@ -78,6 +78,9 @@
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
 
+-define('24H_in_msec', 86400000).
+-define('24H_in_sec', 86400).
+
 -record(ssl_options, {
 	  protocol    :: tls | dtls,
 	  versions    :: [ssl_record:ssl_version()], %% ssl_record:atom_version() in API

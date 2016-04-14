@@ -37,7 +37,7 @@
   <comsummary>
   <p>Erlang Port Mapper Daemon</p>
   <taglist>
-  <tag><c><![CDATA[epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon] [-relaxed_command_check]]]></c></tag>
+  <tag><c><![CDATA[epmd [-d|-debug] [DbgExtra...] [-address Addresses] [-port No] [-daemon] [-relaxed_command_check]]]></c></tag>
   <item>
   <p>Starts the port mapper daemon</p>
   </item>

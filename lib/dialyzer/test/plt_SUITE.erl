@@ -7,12 +7,14 @@
 -include("dialyzer_test_constants.hrl").
 
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
-         run_plt_check/1, run_succ_typings/1]).
+         local_fun_same_as_callback/1,
+         remove_plt/1, run_plt_check/1, run_succ_typings/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
-all() -> [build_plt, beam_tests, update_plt, run_plt_check, run_succ_typings].
+all() -> [build_plt, beam_tests, update_plt, run_plt_check,
+          remove_plt, run_succ_typings, local_fun_same_as_callback].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -156,6 +158,95 @@ update_plt(Config) ->
         dialyzer:run([{analysis_type, succ_typings},
                       {files, [TestBeam]},
                       {init_plt, Plt}] ++ Opts),
+    ok.
+
+%%% If a behaviour module contains an non-exported function with the same name
+%%% as one of the behaviour's callbacks, the callback info was inadvertently
+%%% deleted from the PLT as the dialyzer_plt:delete_list/2 function was cleaning
+%%% up the callback table. This bug was reported by Brujo Benavides.
+
+local_fun_same_as_callback(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Prog1 =
+      <<"-module(bad_behaviour).
+         -callback bad() -> bad.
+         -export([publicly_bad/0]).
+
+         %% @doc This function is here just to avoid the 'unused' warning for bad/0
+         publicly_bad() -> bad().
+
+         %% @doc This function overlaps with the callback with the same name, and
+         %%      that was an issue for dialyzer since it's a private function.
+         bad() -> bad.">>,
+    {ok, Beam} = compile(Config, Prog1, bad_behaviour, []),
+
+    ErlangBeam = case code:where_is_file("erlang.beam") of
+                     non_existing ->
+                         filename:join([code:root_dir(),
+                                        "erts", "preloaded", "ebin",
+                                        "erlang.beam"]);
+                     EBeam ->
+                         EBeam
+                 end,
+    Plt = filename:join(PrivDir, "plt_bad_behaviour.plt"),
+    Opts = [{check_plt, true}, {from, byte_code}],
+    [] = dialyzer:run([{analysis_type, plt_build},
+                       {files, [Beam, ErlangBeam]},
+                       {output_plt, Plt}] ++ Opts),
+
+    Prog2 =
+        <<"-module(bad_child).
+           -behaviour(bad_behaviour).
+
+           -export([bad/0]).
+
+           %% @doc This function incorreclty implements bad_behaviour.
+           bad() -> not_bad.">>,
+    {ok, TestBeam} = compile(Config, Prog2, bad_child, []),
+
+    [{warn_behaviour, _,
+      {callback_type_mismatch,
+       [bad_behaviour,bad,0,"'not_bad'","'bad'"]}}] =
+        dialyzer:run([{analysis_type, succ_typings},
+                      {files, [TestBeam]},
+                      {init_plt, Plt}] ++ Opts),
+    ok.
+  
+%%% [James Fish:]
+%%% Dialyzer always asserts that files and directories passed in its
+%%% options exist. Therefore it is not possible to remove a beam/module
+%%% from a PLT when the beam file no longer exists. Dialyzer should not to
+%%% check files exist on disk when removing from the PLT.
+remove_plt(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Prog1 = <<"-module(m1).
+               -export([t/0]).
+               t() ->
+                  m2:a(a).">>,
+    {ok, Beam1} = compile(Config, Prog1, m1, []),
+
+    Prog2 = <<"-module(m2).
+               -export([a/1]).
+               a(A) when is_integer(A) -> A.">>,
+    {ok, Beam2} = compile(Config, Prog2, m2, []),
+
+    Plt = filename:join(PrivDir, "remove.plt"),
+    Opts = [{check_plt, true}, {from, byte_code}],
+
+    [{warn_return_no_exit, _, {no_return,[only_normal,t,0]}},
+     {warn_failing_call, _, {call, [m2,a,"('a')",_,_,_,_,_]}}] =
+        dialyzer:run([{analysis_type, plt_build},
+                      {files, [Beam1, Beam2]},
+                      {get_warnings, true},
+                      {output_plt, Plt}] ++ Opts),
+
+    [] = dialyzer:run([{init_plt, Plt},
+                       {files, [Beam2]},
+                       {analysis_type, plt_remove}]),
+
+    [] =  dialyzer:run([{analysis_type, succ_typings},
+                        {files, [Beam1]},
+                        {init_plt, Plt}] ++ Opts),
     ok.
 
 compile(Config, Prog, Module, CompileOpts) ->

@@ -725,7 +725,8 @@ send_any_2(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
                   {'Destination-Host', [?HOST(SN, "unknown.org")]}],
     ?answer_message(?UNABLE_TO_DELIVER)
-        = call(Config, Req, [{filter, {any, [host, realm]}}]).
+        = call(Config, Req, [{filter, {first, [{all, [host, realm]},
+                                               realm]}}]).
 
 %% Send with a conjunctive filter.
 send_all_1(Config) ->

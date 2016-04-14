@@ -26,3 +26,16 @@ class WXDLLIMPEXP_AUI wxAuiPaneInfo
     wxPoint GetFloatingPosition();
     wxSize GetFloatingSize();
 };
+
+class wxToolBar {
+ public:
+    wxToolBarToolBase * AddStretchableSpace();
+    wxToolBarToolBase * InsertStretchableSpace(size_t pos);
+};
+
+
+class wxWindow {
+ public:
+    bool IsDoubleBuffered();
+    void SetDoubleBuffered(bool on);
+};

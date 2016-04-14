@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -206,8 +206,8 @@ io_reply(From, ReplyAs, Reply) ->
 file_request({advise,Offset,Length,Advise},
          #state{handle=Handle}=State) ->
     case ?PRIM_FILE:advise(Handle, Offset, Length, Advise) of
-    {error,_}=Reply ->
-        {stop,normal,Reply,State};
+    {error,Reason}=Reply ->
+        {stop,Reason,Reply,State};
     Reply ->
         {reply,Reply,State}
     end;
@@ -215,62 +215,91 @@ file_request({allocate, Offset, Length},
          #state{handle = Handle} = State) ->
     Reply = ?PRIM_FILE:allocate(Handle, Offset, Length),
     {reply, Reply, State};
-file_request({pread,At,Sz}, 
-	     #state{handle=Handle,buf=Buf,read_mode=ReadMode}=State) ->
-    case position(Handle, At, Buf) of
-	{ok,_Offs} ->
-	    case ?PRIM_FILE:read(Handle, Sz) of
-		{ok,Bin} when ReadMode =:= list ->
-		    std_reply({ok,binary_to_list(Bin)}, State);
-		Reply ->
-		    std_reply(Reply, State)
-	    end;
-	Reply ->
-	    std_reply(Reply, State)
+file_request({pread,At,Sz}, State)
+  when At =:= cur;
+       At =:= {cur,0} ->
+    case get_chars(Sz, latin1, State) of
+	{reply,Reply,NewState}
+	  when is_list(Reply);
+	       is_binary(Reply) ->
+	    {reply,{ok,Reply},NewState};
+	Other ->
+	    Other
     end;
+file_request({pread,At,Sz}, 
+	     #state{handle=Handle,buf=Buf}=State) ->
+    case position(Handle, At, Buf) of
+	{error,_} = Reply ->
+	    {error,Reply,State};
+	_ ->
+	    case get_chars(Sz, latin1, State#state{buf= <<>>}) of
+		{reply,Reply,NewState}
+		  when is_list(Reply);
+		       is_binary(Reply) ->
+		    {reply,{ok,Reply},NewState};
+		Other ->
+		    Other
+	    end
+    end;
+file_request({pwrite,At,Data},
+	     #state{buf= <<>>}=State)
+  when At =:= cur;
+       At =:= {cur,0} ->
+    put_chars(Data, latin1, State);
 file_request({pwrite,At,Data}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, At, Buf) of
-	{ok,_Offs} ->
-	    std_reply(?PRIM_FILE:write(Handle, Data), State);
-	Reply ->
-	    std_reply(Reply, State)
+	{error,_} = Reply ->
+	    {error,Reply,State};
+	_ ->
+	    put_chars(Data, latin1, State)
     end;
 file_request(datasync,
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:datasync(Handle) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	Reply ->
 	    {reply,Reply,State}
     end;
 file_request(sync, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:sync(Handle) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	Reply ->
 	    {reply,Reply,State}
     end;
 file_request(close, 
 	     #state{handle=Handle}=State) ->
-    {stop,normal,?PRIM_FILE:close(Handle),State#state{buf= <<>>}};
+    case ?PRIM_FILE:close(Handle) of
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State#state{buf= <<>>}};
+	Reply ->
+	    {stop,normal,Reply,State#state{buf= <<>>}}
+    end;
 file_request({position,At}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
-    std_reply(position(Handle, At, Buf), State);
+    case position(Handle, At, Buf) of
+	{error,_} = Reply ->
+	    {error,Reply,State};
+	Reply ->
+	    std_reply(Reply, State)
+    end;
 file_request(truncate, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:truncate(Handle) of
-	{error,_Reason}=Reply ->
-	    {stop,normal,Reply,State#state{buf= <<>>}};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State#state{buf= <<>>}};
 	Reply ->
-	    {reply,Reply,State}
+	    std_reply(Reply, State)
     end;
 file_request(Unknown, 
 	     #state{}=State) ->
     Reason = {request, Unknown},
     {error,{error,Reason},State}.
 
+%% Standard reply and clear buffer
 std_reply({error,_}=Reply, State) ->
     {error,Reply,State#state{buf= <<>>}};
 std_reply(Reply, State) ->
@@ -286,8 +315,8 @@ io_request({put_chars, Enc, Chars},
 io_request({put_chars, Enc, Chars}, 
 	   #state{handle=Handle,buf=Buf}=State) ->
     case position(Handle, cur, Buf) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State#state{buf= <<>>}};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,State};
 	_ ->
 	    put_chars(Chars, Enc, State#state{buf= <<>>})
     end;
@@ -368,23 +397,27 @@ io_request_loop([Request|Tail],
 %% I/O request put_chars
 %%
 put_chars(Chars, latin1, #state{handle=Handle, unic=latin1}=State) ->
+    NewState = State#state{buf = <<>>},
     case ?PRIM_FILE:write(Handle, Chars) of
-	{error,_}=Reply ->
-	    {stop,normal,Reply,State};
+	{error,Reason}=Reply ->
+	    {stop,Reason,Reply,NewState};
 	Reply ->
-	    {reply,Reply,State}
+	    {reply,Reply,NewState}
     end;
 put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
+    NewState = State#state{buf = <<>>},
     case unicode:characters_to_binary(Chars,InEncoding,OutEncoding) of
 	Bin when is_binary(Bin) ->
 	    case ?PRIM_FILE:write(Handle, Bin) of
-		{error,_}=Reply ->
-		    {stop,normal,Reply,State};
+		{error,Reason}=Reply ->
+		    {stop,Reason,Reply,NewState};
 		Reply ->
-		    {reply,Reply,State}
+		    {reply,Reply,NewState}
 	    end;
 	{error,_,_} ->
-	    {stop,normal,{error,{no_translation, InEncoding, OutEncoding}},State}
+	    {stop,no_translation,
+	     {error,{no_translation, InEncoding, OutEncoding}},
+	     NewState}
     end.
 
 get_line(S, {<<>>, Cont}, OutEnc,
@@ -884,11 +917,14 @@ cbv({utf32,little},_) ->
 
 %% Compensates ?PRIM_FILE:position/2 for the number of bytes 
 %% we have buffered
-
-position(Handle, cur, Buf) ->
-    position(Handle, {cur, 0}, Buf);
-position(Handle, {cur, Offs}, Buf) when is_binary(Buf) ->
-    ?PRIM_FILE:position(Handle, {cur, Offs-byte_size(Buf)});
-position(Handle, At, _Buf) ->
-    ?PRIM_FILE:position(Handle, At).
-
+position(Handle, At, Buf) ->
+    ?PRIM_FILE:position(
+       Handle,
+       case At of
+	   cur ->
+	       {cur, -byte_size(Buf)};
+	   {cur, Offs} ->
+	       {cur, Offs-byte_size(Buf)};
+	   _ ->
+	       At
+       end).

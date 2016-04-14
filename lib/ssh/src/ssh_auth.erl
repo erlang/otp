@@ -118,11 +118,16 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
+	    Algs0 = proplists:get_value(pref_public_key_algs, Opts, ?SUPPORTED_USER_KEYS),
+	    %% The following line is not strictly correct. The call returns the
+	    %% supported HOST key types while we are interested in USER keys. However,
+	    %% they "happens" to be the same (for now).  This could change....
+	    %% There is no danger as long as the set of user keys is a subset of the set
+	    %% of host keys.
+	    CryptoSupported = ssh_transport:supported_algorithms(public_key),
+	    Algs = [A || A <- Algs0,
+			 lists:member(A, CryptoSupported)],
 
-
-	    Algs = proplists:get_value(public_key, 
-				       proplists:get_value(preferred_algorithms, Opts, []),
-				       ssh_transport:default_algorithms(public_key)),
 	    Prefs = method_preference(Algs),
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 						  userauth_preference = Prefs,
@@ -472,7 +477,7 @@ keyboard_interact_get_responses(_, undefined, Password, _, _, _, _, _,
 				1) when Password =/= undefined ->
     [Password]; %% Password auth implemented with keyboard-interaction and passwd is known
 keyboard_interact_get_responses(_, _, _, _, _, _, _, _, 0)  ->
-    [""];
+    [];
 keyboard_interact_get_responses(false, undefined, undefined, _, _, _, [Prompt|_], Opts, _) ->
     ssh_no_io:read_line(Prompt, Opts); %% Throws error as keyboard interaction is not allowed
 keyboard_interact_get_responses(true, undefined, _,IoCb, Name, Instr, PromptInfos, Opts, _) ->

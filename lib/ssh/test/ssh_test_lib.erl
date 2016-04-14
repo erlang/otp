@@ -120,7 +120,8 @@ std_simple_exec(Host, Port, Config, Opts) ->
 	Other ->
 	    ct:fail(Other)
     end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId).
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+    ssh:close(ConnectionRef).
 
 
 start_shell(Port, IOServer, UserDir) ->
@@ -154,14 +155,12 @@ loop_io_server(TestCase, Buff0) ->
 	 {input, TestCase, Line} ->
 	     loop_io_server(TestCase, Buff0 ++ [Line]);
 	 {io_request, From, ReplyAs, Request} ->
-%%ct:log("~p",[{io_request, From, ReplyAs, Request}]),
 	     {ok, Reply, Buff} = io_request(Request, TestCase, From,
 					    ReplyAs, Buff0),
-%%ct:log("io_request(~p)-->~p",[Request,{ok, Reply, Buff}]),
 	     io_reply(From, ReplyAs, Reply),
 	     loop_io_server(TestCase, Buff);
-	 {'EXIT',_, _} ->
-	     erlang:display('ssh_test_lib:loop_io_server/2 EXIT'),
+	 {'EXIT',_, _} = _Exit ->
+%%	     ct:log("ssh_test_lib:loop_io_server/2 got ~p",[_Exit]),
 	     ok
     after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
@@ -296,7 +295,7 @@ setup_dsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
     
@@ -306,7 +305,7 @@ setup_rsa(DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_rsa_known_host(DataDir, UserDir),
     setup_rsa_auth_keys(DataDir, UserDir).
 
@@ -316,7 +315,7 @@ setup_ecdsa(Size, DataDir, UserDir) ->
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
     file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
-ct:pal("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
+ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_ecdsa_known_host(Size, System, UserDir),
     setup_ecdsa_auth_keys(Size, UserDir, UserDir).
 
@@ -502,7 +501,7 @@ default_algorithms(sshd, Host, Port) ->
 				  {user_interaction, false}]}]))
     catch
 	_C:_E ->
-	    ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+	    ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
 	    []
     end.
 
@@ -522,7 +521,7 @@ default_algorithms(sshc, DaemonOptions) ->
 						    InitialState))
 		       catch
 			   _C:_E ->
-			       ct:pal("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
+			       ct:log("***~p:~p: ~p:~p",[?MODULE,?LINE,_C,_E]),
 			       []
 		       end}
 	  end),
@@ -540,7 +539,6 @@ default_algorithms(sshc, DaemonOptions) ->
     after ?TIMEOUT ->
 	    ct:fail("No server respons 2")
     end.
-
 
 run_fake_ssh({ok,InitialState}) ->
     KexInitPattern =
@@ -582,6 +580,40 @@ run_fake_ssh({ok,InitialState}) ->
      {compression, [{client2server, to_atoms(CompC2S)},
 		    {server2client, to_atoms(CompS2C)}]}].
     
+
+%%%----------------------------------------------------------------
+extract_algos(Spec) ->
+    [{Tag,get_atoms(List)} || {Tag,List} <- Spec].
+
+get_atoms(L) ->
+    lists:usort(
+      [ A || X <- L,
+	     A <- case X of
+		      {_,L1} when is_list(L1) -> L1;
+		      Y when is_atom(Y) -> [Y]
+		  end]).
+
+
+intersection(AlgoSpec1, AlgoSpec2) -> intersect(sort_spec(AlgoSpec1), sort_spec(AlgoSpec2)).
+
+intersect([{Tag,S1}|Ss1], [{Tag,S2}|Ss2]) ->
+    [{Tag,intersect(S1,S2)} | intersect(Ss1,Ss2)];
+intersect(L1=[A1|_], L2=[A2|_]) when is_atom(A1),is_atom(A2) -> 
+    Diff = L1 -- L2,
+    L1 -- Diff;
+intersect(_, _) -> 
+    [].
+
+intersect_bi_dir([{Tag,[{client2server,L1},{server2client,L2}]}|T]) ->
+    [{Tag,intersect(L1,L2)} | intersect_bi_dir(T)];
+intersect_bi_dir([H={_,[A|_]}|T]) when is_atom(A) ->
+    [H | intersect_bi_dir(T)];
+intersect_bi_dir([]) ->
+    [].
+    
+
+sort_spec(L = [{_,_}|_] ) ->  [{Tag,sort_spec(Es)} || {Tag,Es} <- L];
+sort_spec(L) -> lists:usort(L).
 
 %%--------------------------------------------------------------------
 sshc(Tag) -> 
@@ -645,4 +677,16 @@ ssh_supports(Alg, SshDefaultAlg_tag) ->
 		UnSup ->
 		    {false,UnSup}
 	    end
+    end.
+
+%%%----------------------------------------------------------------
+has_inet6_address() ->
+    try 
+	[throw(6) || {ok,L} <- [inet:getifaddrs()],
+		     {_,L1} <- L,
+		     {addr,{_,_,_,_,_,_,_,_}} <- L1]
+    of
+	[] -> false
+    catch
+	throw:6 -> true
     end.

@@ -212,7 +212,7 @@ hello(Hello = #client_hello{client_version = ClientVersion,
 					     client_ecc = {EllipticCurves, EcPointFormats},
 					     negotiated_protocol = Protocol}, ?MODULE)
     end;
-hello(Hello,
+hello(Hello = #server_hello{},
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
 	     role = client,
@@ -763,6 +763,8 @@ handle_tls_handshake(Handle, StateName,
 										      Packets}}},
     case Handle(Packet, FsmReturn) of
 	{next_state, NextStateName, State, _Timeout} ->
+	    handle_tls_handshake(Handle, NextStateName, State);
+	{next_state, NextStateName, State} ->
 	    handle_tls_handshake(Handle, NextStateName, State);
 	{stop, _,_} = Stop ->
 	    Stop

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@
 	  too_many_arguments/1,
 	  basic_errors/1,bin_syntax_errors/1,
           predef/1,
-          maps/1,maps_type/1,otp_11851/1,otp_12195/1
+          maps/1,maps_type/1,otp_11851/1,otp_12195/1, otp_13230/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -94,7 +94,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851, otp_12195].
+     maps, maps_type, otp_11851, otp_12195, otp_13230].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3604,7 +3604,10 @@ bin_syntax_errors(Config) ->
 	      t(<<X/unit:8>>) -> X;
 	      t(<<X:7/float>>) -> X;
 	      t(<< <<_:8>> >>) -> ok;
-	      t(<<(x ! y):8/integer>>) -> ok.
+	      t(<<(x ! y):8/integer>>) -> ok;
+              t(X) ->
+                {<<X/binary-integer>>,<<X/signed-unsigned-integer>>,
+                 <<X/little-big>>,<<X/unit:4-unit:8>>}.
 	    ">>,
 	   [],
 	   {error,[{1,erl_lint,illegal_bitsize},
@@ -3613,7 +3616,12 @@ bin_syntax_errors(Config) ->
 		   {4,erl_lint,{undefined_bittype,bad_type}},
 		   {5,erl_lint,bittype_unit},
 		   {7,erl_lint,illegal_pattern},
-		   {8,erl_lint,illegal_pattern}],
+		   {8,erl_lint,illegal_pattern},
+		   {10,erl_lint,{bittype_mismatch,integer,binary,"type"}},
+		   {10,erl_lint,{bittype_mismatch,unsigned,signed,"sign"}},
+		   {11,erl_lint,{bittype_mismatch,8,4,"unit"}},
+		   {11,erl_lint,{bittype_mismatch,big,little,"endianness"}}
+		  ],
 	    [{6,erl_lint,{bad_bitsize,"float"}}]}}
 	 ],
     [] = run(Config, Ts),
@@ -3869,6 +3877,15 @@ otp_12195(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
+otp_13230(doc) ->
+    "OTP-13230: -deprecated without -module";
+otp_13230(Config) when is_list(Config) ->
+    Abstr = <<"-deprecated([{frutt,0,next_version}]).">>,
+    {errors,[{1,erl_lint,undefined_module},
+             {1,erl_lint,{bad_deprecated,{frutt,0}}}],
+     []} = run_test2(Config, Abstr, []),
+    ok.
+
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
                 case catch run_test(Config, P, Ws) of
@@ -3920,21 +3937,34 @@ run_test2(Conf, Test, Warnings0) ->
     %% is no reason to produce an output file since we are only
     %% interested in the errors and warnings.
 
-    %% Print warnings, call erl_lint:format_error/1.
+    %% Print warnings, call erl_lint:format_error/1. (But note that
+    %% the compiler will ignore failing calls to erl_lint:format_error/1.)
     compile:file(File, [binary,report|Opts]),
 
     case compile:file(File, [binary|Opts]) of
-        {ok, _M, Code, Ws} when is_binary(Code) -> warnings(File, Ws);
-        {error, [{File,Es}], []} -> {errors, Es, []};
-        {error, [{File,Es}], [{File,Ws}]} -> {error, Es, Ws};
-        {error, [{File,Es1},{File,Es2}], []} -> {errors2, Es1, Es2}
+        {ok, _M, Code, Ws} when is_binary(Code) ->
+	    warnings(File, Ws);
+        {error, [{File,Es}], []} ->
+	    {errors, call_format_error(Es), []};
+        {error, [{File,Es}], [{File,Ws}]} ->
+	    {error, call_format_error(Es), call_format_error(Ws)};
+        {error, [{File,Es1},{File,Es2}], []} ->
+	    {errors2, Es1, Es2}
     end.
 
 warnings(File, Ws) ->
     case lists:append([W || {F, W} <- Ws, F =:= File]) of
-        [] -> [];
-        L -> {warnings, L}
+        [] ->
+	    [];
+        L ->
+	    {warnings, call_format_error(L)}
     end.
+
+call_format_error(L) ->
+    %% Smoke test of format_error/1 to make sure that no crashes
+    %% slip through.
+    _ = [Mod:format_error(Term) || {_,Mod,Term} <- L],
+    L.
 
 fail() ->
     io:format("failed~n"),

@@ -594,7 +594,11 @@ cleanup_crash_dumps() ->
     delete_files(Dumps).
 
 crash_dump_dir() ->
-    filename:dirname(code:which(?MODULE)).
+    %% If no framework is known, then we use current working directory
+    %% - in most cases that will be the same as the default log
+    %% directory.
+    {ok,Dir} = test_server_sup:framework_call(get_log_dir,[],file:get_cwd()),
+    Dir.
 
 tar_crash_dumps() ->
     Dir = crash_dump_dir(),

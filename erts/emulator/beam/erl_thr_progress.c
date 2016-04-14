@@ -502,7 +502,7 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 
     if (tpd) {
 	if (!tpd->is_temporary)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "%s:%d:%s(): Double register of thread\n",
 		     __FILE__, __LINE__, __func__);
 	is_blocking = tpd->is_blocking;
@@ -524,7 +524,7 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 #endif
     ASSERT(tpd->id >= 0);
     if (tpd->id >= intrnl->unmanaged.no)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s:%d:%s(): Too many unmanaged registered threads\n",
 		 __FILE__, __LINE__, __func__);
 
@@ -547,7 +547,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 
     if (tpd) {
 	if (!tpd->is_temporary)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "%s:%d:%s(): Double register of thread\n",
 		     __FILE__, __LINE__, __func__);
 	is_blocking = tpd->is_blocking;
@@ -568,7 +568,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 	tpd->id = erts_atomic32_inc_read_nob(&intrnl->misc.data.managed_id);
     ASSERT(tpd->id >= 0);
     if (tpd->id >= intrnl->managed.no)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s:%d:%s(): Too many managed registered threads\n",
 		 __FILE__, __LINE__, __func__);
 
@@ -1033,7 +1033,7 @@ has_reached_wakeup(ErtsThrPrgrVal wakeup)
 	    limit += 1;
 
 	if (!erts_thr_progress_has_passed__(limit, wakeup))
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Invalid wakeup request value found:"
 		     " current=%b64u, wakeup=%b64u, limit=%b64u",
 		     current, wakeup, limit);
@@ -1102,7 +1102,7 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
     ix = erts_atomic32_inc_read_nob(&mwd->len) - 1;
 #if ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE
     if (ix >= intrnl->managed.no)
-	erl_exit(ERTS_ABORT_EXIT, "Internal error: Too many wakeup requests\n");
+	erts_exit(ERTS_ABORT_EXIT, "Internal error: Too many wakeup requests\n");
 #endif
     mwd->id[ix] = tpd->id;
 

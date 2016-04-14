@@ -248,10 +248,13 @@ start_client(openssl, Port, CA, OwnCa, Cert, Key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Cmd = "openssl s_client -verify 2 -port " ++ integer_to_list(Port) ++  ssl_test_lib:version_flag(Version) ++
-	" -cert " ++ Cert ++ " -CAfile " ++ NewCA
-	++ " -key " ++ Key ++ " -host localhost -msg -debug",
-    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    Exe = "openssl",
+    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+	    ssl_test_lib:version_flag(Version),
+	    "-cert", Cert, "-CAfile", NewCA,
+	    "-key", Key, "-host","localhost", "-msg", "-debug"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
 start_client(erlang, Port, CA, _, Cert, Key, Config) ->
@@ -270,10 +273,11 @@ start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
 
     Port = ssl_test_lib:inet_port(node()),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Cmd = "openssl s_server -accept " ++ integer_to_list(Port) ++ ssl_test_lib:version_flag(Version) ++
-	" -verify 2 -cert " ++ Cert ++ " -CAfile " ++ NewCA
-	++ " -key " ++ Key ++ " -msg -debug",
-    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]),
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
+	    "-verify", "2", "-cert", Cert, "-CAfile", NewCA,
+	    "-key", Key, "-msg", "-debug"],
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
     {OpenSslPort, Port};
 start_server(erlang, CA, _, Cert, Key, Config) ->

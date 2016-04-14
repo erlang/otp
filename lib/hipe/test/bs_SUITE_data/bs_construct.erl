@@ -14,6 +14,11 @@ test() ->
   16#10000008 = bit_size(large_bin(1, 2, 3, 4)),
   ok = bad_ones(),
   ok = zero_width(),
+  ok = not_used(),
+  ok = bad_append(),
+  ok = system_limit(),
+  ok = bad_floats(),
+  ok = huge_binaries(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -142,3 +147,159 @@ zero_width() ->
   ok.
 
 id(X) -> X.
+
+%%--------------------------------------------------------------------
+%% Taken from bs_construct_SUITE. The test checks that constructed
+%% binaries that are not used would still give a `badarg' exception.
+%% Problem was that in native code one of them gave `badarith'.
+
+not_used() ->
+    ok = not_used1(3, <<"dum">>),
+    {'EXIT',{badarg,_}} = (catch not_used1(42, "dum_string")),
+    {'EXIT',{badarg,_}} = (catch not_used2(666, -2)),
+    {'EXIT',{badarg,_}} = (catch not_used2(666, "bad_size")), % this one
+    {'EXIT',{badarg,_}} = (catch not_used3(666)),
+    ok.
+
+not_used1(I, BinString) ->
+    <<I:32,BinString/binary>>,
+    ok.
+
+not_used2(I, Sz) ->
+    <<I:Sz>>,
+    ok.
+
+not_used3(I) ->
+    <<I:(-8)>>,
+    ok.
+
+%%--------------------------------------------------------------------
+%% Taken from bs_construct_SUITE.
+
+bad_append() ->
+    do_bad_append(<<127:1>>, fun append_unit_3/1),
+    do_bad_append(<<127:2>>, fun append_unit_3/1),
+    do_bad_append(<<127:17>>, fun append_unit_3/1),
+
+    do_bad_append(<<127:3>>, fun append_unit_4/1),
+    do_bad_append(<<127:5>>, fun append_unit_4/1),
+    do_bad_append(<<127:7>>, fun append_unit_4/1),
+    do_bad_append(<<127:199>>, fun append_unit_4/1),
+
+    do_bad_append(<<127:7>>, fun append_unit_8/1),
+    do_bad_append(<<127:9>>, fun append_unit_8/1),
+
+    do_bad_append(<<0:8>>, fun append_unit_16/1),
+    do_bad_append(<<0:15>>, fun append_unit_16/1),
+    do_bad_append(<<0:17>>, fun append_unit_16/1),
+    ok.
+
+do_bad_append(Bin0, Appender) ->
+    {'EXIT',{badarg,_}} = (catch Appender(Bin0)),
+
+    Bin1 = id(<<0:3,Bin0/bitstring>>),
+    <<_:3,Bin2/bitstring>> = Bin1,
+    {'EXIT',{badarg,_}} = (catch Appender(Bin2)),
+
+    %% Create a writable binary.
+    Empty = id(<<>>),
+    Bin3 = <<Empty/bitstring,Bin0/bitstring>>,
+    {'EXIT',{badarg,_}} = (catch Appender(Bin3)),
+    ok.
+
+append_unit_3(Bin) ->
+    <<Bin/binary-unit:3,0:1>>.
+
+append_unit_4(Bin) ->
+    <<Bin/binary-unit:4,0:1>>.
+
+append_unit_8(Bin) ->
+    <<Bin/binary,0:1>>.
+
+append_unit_16(Bin) ->
+    <<Bin/binary-unit:16,0:1>>.
+
+%%--------------------------------------------------------------------
+%% Taken from bs_construct_SUITE.
+
+system_limit() ->
+    WordSize = erlang:system_info(wordsize),
+    BitsPerWord = WordSize * 8,
+    {'EXIT',{system_limit,_}} =
+	(catch <<0:(id(0)),42:(id(1 bsl BitsPerWord))>>),
+    {'EXIT',{system_limit,_}} =
+	(catch <<42:(id(1 bsl BitsPerWord)),0:(id(0))>>),
+    {'EXIT',{system_limit,_}} =
+	(catch <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
+
+    %% Would fail to load.
+    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 67)>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 64)+1)>>),
+    case WordSize of
+	4 ->
+	    system_limit_32();
+	8 ->
+	    ok
+    end.
+
+system_limit_32() ->
+    {'EXIT',{badarg,_}} = (catch <<42:(-1)>>),
+    {'EXIT',{badarg,_}} = (catch <<42:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<42:(id(-389739873536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
+    {'EXIT',{system_limit,_}} =	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+
+    %% The size would be silently truncated, resulting in a crash.
+    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 32)+1)>>),
+
+    %% Would fail to load.
+    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 43)>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 40)+1)>>),
+    ok.
+
+%%--------------------------------------------------------------------
+
+bad_floats() ->
+  WordSize = erlang:system_info(wordsize),
+  BitsPerWord = WordSize * 8,
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id(33))/float>>),
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id(64 bor 32))/float>>),
+  {'EXIT',{badarg,_}} = (catch <<3.14:(id((1 bsl 28) bor 32))/float>>),
+  {'EXIT',{system_limit,_}} = (catch <<3.14:(id(1 bsl BitsPerWord))/float>>),
+  ok.
+
+%%--------------------------------------------------------------------
+%% A bug in the implementation of binaries compared sizes in bits with sizes in
+%% bytes, causing <<0:(id((1 bsl 31)-1))>> to fail to construct with
+%% 'system_limit'.
+%% <<0:(id((1 bsl 32)-1))>> was succeeding because the comparison was
+%% (incorrectly) signed.
+
+huge_binaries() ->
+  AlmostIllegal = id(<<0:(id((1 bsl 32)-8))>>),
+  case erlang:system_info(wordsize) of
+    4 -> huge_binaries_32(AlmostIllegal);
+    8 -> ok
+  end,
+  garbage_collect(),
+  id(<<0:(id((1 bsl 31)-1))>>),
+  id(<<0:(id((1 bsl 30)-1))>>),
+  garbage_collect(),
+  ok.
+
+huge_binaries_32(AlmostIllegal) ->
+  %% Attempt construction of too large binary using bs_init/1 (which takes the
+  %% number of bytes as an argument, which should be compared to the maximum
+  %% size in bytes).
+  {'EXIT',{system_limit,_}} = (catch <<0:32,AlmostIllegal/binary>>),
+  %% Attempt construction of too large binary using bs_init/1 with a size in
+  %% bytes that has the msb set (and would be negative if it was signed).
+  {'EXIT',{system_limit,_}} =
+    (catch <<0:8, AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary,
+	     AlmostIllegal/binary, AlmostIllegal/binary>>),
+  ok.

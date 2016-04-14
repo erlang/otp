@@ -174,6 +174,8 @@ bif erts_internal:time_unit/0
 
 bif erts_internal:is_system_process/1
 
+bif erts_internal:system_check/1
+
 # inet_db support
 bif erlang:port_set_data/2
 bif erlang:port_get_data/1

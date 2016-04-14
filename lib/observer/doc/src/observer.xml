@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2011</year><year>2013</year>
+      <year>2011</year><year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,24 +34,25 @@
     <file>observer.xml</file>
   </header>
   <module>observer</module>
-  <modulesummary>A GUI tool for observing an erlang system.</modulesummary>
+  <modulesummary>A GUI tool for observing an Erlang system.</modulesummary>
   <description>
-    <p>The observer is gui frontend containing various tools to
-    inspect a system.  It displays system information, application
-    structures, process information, ets or mnesia tables and a frontend
-    for tracing with <seealso marker="ttb">ttb</seealso>.
+    <p>Observer is a graphical tool for observing the characteristics of
+    Erlang systems. The tool Observer displays system information, application
+    supervisor trees, process information, ETS tables, Mnesia tables,
+    and contains a front end for Erlang tracing with module
+    <seealso marker="ttb"><c>ttb</c></seealso>.
     </p>
 
-    <p>See the <seealso marker="observer_ug">user's guide</seealso>
-    for more information about how to get started.</p>
+    <p>For detalis about how to get started, see the 
+    <seealso marker="observer_ug"><c>User's Guide</c></seealso>.</p>
   </description>
   <funcs>
     <func>
       <name>start() -> ok</name>
-      <fsummary>Start the observer gui</fsummary>
+      <fsummary>Start the Observer GUI.</fsummary>
       <desc>
-        <p>This function starts the <c>observer</c> gui.
-	Close the window to stop the application.
+        <p>Starts the Observer GUI.
+	To stop the tool, close the window.
 	</p>
       </desc>
     </func>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2015. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1048,7 +1048,7 @@ typedef union {
 #endif
 
 typedef struct _multi_timer_data {
-    ErlDrvNowData when;
+    ErlDrvTime when;
     ErlDrvTermData caller;
     void (*timeout_function)(ErlDrvData drv_data, ErlDrvTermData caller);
     struct _multi_timer_data *next;
@@ -1574,7 +1574,7 @@ static const struct in6_addr in6addr_loopback =
 #endif /* HAVE_IN6 */
 
 /* XXX: is this a driver interface function ??? */
-void erl_exit(int n, char*, ...);
+void erts_exit(int n, char*, ...);
 
 /*
  * Malloc wrapper,
@@ -1587,7 +1587,7 @@ void erl_exit(int n, char*, ...);
 static void *alloc_wrapper(ErlDrvSizeT size){
     void *ret = driver_alloc(size);
     if(ret == NULL) 
-	erl_exit(1,"Out of virtual memory in malloc (%s)", __FILE__);
+	erts_exit(ERTS_ERROR_EXIT,"Out of virtual memory in malloc (%s)", __FILE__);
     return ret;
 }
 #define ALLOC(X) alloc_wrapper(X)
@@ -1595,7 +1595,7 @@ static void *alloc_wrapper(ErlDrvSizeT size){
 static void *realloc_wrapper(void *current, ErlDrvSizeT size){
     void *ret = driver_realloc(current,size);
     if(ret == NULL) 
-	erl_exit(1,"Out of virtual memory in realloc (%s)", __FILE__);
+	erts_exit(ERTS_ERROR_EXIT,"Out of virtual memory in realloc (%s)", __FILE__);
     return ret;
 }
 #define REALLOC(X,Y) realloc_wrapper(X,Y)
@@ -1856,7 +1856,7 @@ check_double_release(InetDrvBufStk *bs, ErlDrvBinary* buf)
     int i;
     for (i = 0; i < bs->buf.pos; ++i) {
 	if (bs->buf.stk[i] == buf) {
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Multiple buffer release in inet_drv, this "
 		     "is a bug, save the core and send it to "
 		     "support@erlang.ericsson.se!");
@@ -6076,9 +6076,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int arg_sz;
     enum PacketParseType old_htype = desc->htype;
     int old_active = desc->active;
-    int propagate = 0; /* Set to 1 if failure to set this option
-			  should be propagated to erlang (not all 
-			  errors can be propagated for BC reasons) */
+    int propagate; /* Set to 1 if failure to set this option
+		      should be propagated to erlang (not all
+		      errors can be propagated for BC reasons) */
     int res;
 #ifdef HAVE_SCTP
     /* SCTP sockets are treated completely separately: */
@@ -6095,6 +6095,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	arg_ptr = (char*) &ival;
 	arg_sz = sizeof(ival);
 	proto = SOL_SOCKET;
+	propagate = 0;
 
 	switch(opt) {
 	case INET_LOPT_HEADER:
@@ -7116,7 +7117,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
     do {						\
 	ErlDrvSizeT new_need = ((Ptr) - (*dest)) + (Size);	\
 	if (new_need > dest_used) {			\
-	    erl_exit(1,"Internal error in inet_drv, "	\
+	    erts_exit(ERTS_ERROR_EXIT,"Internal error in inet_drv, "	\
 		     "miscalculated buffer size");	\
 	}						\
 	dest_used = new_need;				\
@@ -7493,7 +7494,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
     do {                                                        \
 	int need;                                               \
 	if ((Index) > spec_allocated) {                         \
-	    erl_exit(1,"Internal error in inet_drv, "           \
+	    erts_exit(ERTS_ERROR_EXIT,"Internal error in inet_drv, "           \
 		     "miscalculated buffer size");              \
 	}                                                       \
 	need = (Index) + (N);                                   \
@@ -12143,115 +12144,18 @@ make_noninheritable_handle(SOCKET s)
  * Multi-timers
  */
 
-static void absolute_timeout(unsigned millis, ErlDrvNowData *out)
-{
-    unsigned rest;
-    unsigned long millipart;
-    unsigned long secpart;
-    unsigned long megasecpart;
-    unsigned tmo_secs = (millis / 1000U);
-    unsigned tmo_millis = (millis % 1000);
-    driver_get_now(out);
-    rest = (out->microsecs) % 1000;
-    millipart = ((out->microsecs) / 1000UL);
-    if (rest >= 500) {
-	++millipart;
-    }
-    secpart = out->secs;
-    megasecpart = out->megasecs;
-    millipart += tmo_millis;
-    secpart += (millipart / 1000000UL);
-    millipart %= 1000000UL;
-    secpart += tmo_secs;
-    megasecpart += (secpart / 1000000UL);
-    secpart %= 1000000UL;
-    out->megasecs = megasecpart;
-    out->secs = secpart;
-    out->microsecs = (millipart * 1000UL);
-}
-
-static unsigned relative_timeout(ErlDrvNowData *in) 
-{
-    ErlDrvNowData now;
-    unsigned rest;
-    unsigned long millipart, in_millis, in_secs, in_megasecs;
-
-    driver_get_now(&now);
-
-    in_secs = in->secs;
-    in_megasecs = in->megasecs;
-
-    rest = (now.microsecs) % 1000;
-    millipart = ((now.microsecs) / 1000UL);
-    if (rest >= 500) {
-	++millipart;
-    }
-    in_millis = ((in->microsecs) / 1000UL);
-    if ( in_millis < millipart ) {
-	if (in_secs > 0) {
-	    --in_secs;
-	} else {
-	    in_secs = (1000000UL - 1UL);
-	    if (in_megasecs <= now.megasecs) {
-		return 0;
-	    } else {
-		--in_megasecs;
-	    }
-	}
-	in_millis += 1000UL;
-    }
-    in_millis -= millipart;
-    
-    if (in_secs < now.secs) {
-	if (in_megasecs <= now.megasecs) {
-	    return 0;
-	} else {
-	    --in_megasecs;
-	}
-	in_secs += 1000000;
-    }
-    in_secs -= now.secs;
-    if (in_megasecs < now.megasecs) {
-	return 0;
-    } else {
-	in_megasecs -= now.megasecs;
-    }
-    return (unsigned) ((in_megasecs * 1000000000UL) + 
-		       (in_secs * 1000UL) + 
-		       in_millis);
-}
-
-#ifdef DEBUG
-static int nowcmp(ErlDrvNowData *d1, ErlDrvNowData *d2)
-{
-    /* Assume it's not safe to do signed conversion on megasecs... */
-    if (d1->megasecs < d2->megasecs) {
-	return -1;
-    } else if (d1->megasecs > d2->megasecs) {
-	return 1;
-    } else if (d1->secs != d2->secs) {
-	return ((int) d1->secs) - ((int) d2->secs);
-    } 
-    return ((int) d1->microsecs) - ((int) d2->microsecs);
-}
-#endif
-
 static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 			      ErlDrvData data)
 {
-    unsigned next_timeout;
+    ErlDrvTime next_timeout;
     if (!*first) {
 	ASSERT(0);
 	return;
     }
 #ifdef DEBUG
     {
-	ErlDrvNowData chk;
-	driver_get_now(&chk);
-	chk.microsecs /= 10000UL;
-	chk.microsecs *= 10000UL;
-	chk.microsecs += 10000;
-	ASSERT(nowcmp(&chk,&((*first)->when)) >= 0);
+	ErlDrvTime chk = erl_drv_monotonic_time(ERL_DRV_MSEC);
+	ASSERT(chk >= (*first)->when);
     }
 #endif
     do {
@@ -12263,9 +12167,9 @@ static void fire_multi_timers(MultiTimerData **first, ErlDrvPort port,
 	    return;
 	}
 	(*first)->prev = NULL;
-	next_timeout = relative_timeout(&((*first)->when));
-    } while (next_timeout == 0);
-    driver_set_timer(port,next_timeout);
+	next_timeout = (*first)->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
+    } while (next_timeout <= 0);
+    driver_set_timer(port, (unsigned long) next_timeout);
 }
 
 static void clean_multi_timers(MultiTimerData **first, ErlDrvPort port)
@@ -12288,8 +12192,10 @@ static void remove_multi_timer(MultiTimerData **first, ErlDrvPort port, MultiTim
 	driver_cancel_timer(port);
 	*first = p->next;
 	if (*first) {
-	    unsigned ntmo = relative_timeout(&((*first)->when));
-	    driver_set_timer(port,ntmo);
+	    ErlDrvTime ntmo = (*first)->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
+	    if (ntmo < 0)
+		ntmo = 0;
+	    driver_set_timer(port, (unsigned long) ntmo);
 	}
     }
     if (p->next != NULL) {
@@ -12303,26 +12209,14 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
 				       void (*timeout_fun)(ErlDrvData drv_data, 
 							   ErlDrvTermData caller))
 {
-#define eq_mega(a, b) ((a)->when.megasecs == (b)->when.megasecs)
-#define eq_sec(a, b) ((a)->when.secs == (b)->when.secs)
     MultiTimerData *mtd, *p, *s;
     mtd = ALLOC(sizeof(MultiTimerData));
-    absolute_timeout(timeout, &(mtd->when));
+    mtd->when = erl_drv_monotonic_time(ERL_DRV_MSEC) + ((ErlDrvTime) timeout) + 1;
     mtd->timeout_function = timeout_fun;
     mtd->caller = caller;
     mtd->next = mtd->prev = NULL;
     for(p = *first,s = NULL; p != NULL; s = p, p = p->next) {
-	if (p->when.megasecs >= mtd->when.megasecs) {
-	    break;
-	}
-    }
-    for (; p!= NULL && eq_mega(p, mtd); s = p, p = p->next) {
-	if (p->when.secs >= mtd->when.secs) {
-	    break;
-	}
-    }
-    for (; p!= NULL && eq_mega(p, mtd) && eq_sec(p, mtd); s = p, p = p->next) {
-	if (p->when.microsecs >= mtd->when.microsecs) {
+	if (p->when >= mtd->when) {
 	    break;
 	}
     }
@@ -12352,12 +12246,6 @@ static MultiTimerData *add_multi_timer(MultiTimerData **first, ErlDrvPort port,
     }
     return mtd;
 }
-#undef eq_mega
-#undef eq_sec
-	
-
-
-
 
 /*-----------------------------------------------------------------------------
 

@@ -19,12 +19,20 @@ tuple(X) when is_tuple(X) -> X.
 list() -> list(?r).
 list(X) when is_list(X) -> X.
 
+map() -> map(?r).
+map(X) when is_map(X) -> #{}.
+
+bitstring() -> bitstring(?r).
+bitstring(X) when is_bitstring(X) -> <<0:63>>.
+
 i() -> integer().
 f() -> mfloat().
 n() -> case ?r of 1 -> i(); 2 -> f() end.
 a() -> atom().
 t() -> tuple().
 l() -> list().
+m() -> map().
+b() -> bitstring().
 na() -> case ?r of 1 -> n(); 2 -> a() end.
 at() -> case ?r of 1 -> t(); 2 -> a() end.
 tl() -> case ?r of 1 -> t(); 2 -> l() end.
@@ -53,6 +61,14 @@ test_i_ll_l() -> case i()  < l() of true -> always; false -> never end.
 test_i_le_l() -> case i() =< l() of true -> always; false -> never end.
 test_i_gg_l() -> case i()  > l() of true -> never; false -> always end.
 test_i_ge_l() -> case i() >= l() of true -> never; false -> always end.
+test_i_ll_m() -> case i()  < m() of true -> always; false -> never end.
+test_i_le_m() -> case i() =< m() of true -> always; false -> never end.
+test_i_gg_m() -> case i()  > m() of true -> never; false -> always end.
+test_i_ge_m() -> case i() >= m() of true -> never; false -> always end.
+test_i_ll_b() -> case i()  < b() of true -> always; false -> never end.
+test_i_le_b() -> case i() =< b() of true -> always; false -> never end.
+test_i_gg_b() -> case i()  > b() of true -> never; false -> always end.
+test_i_ge_b() -> case i() >= b() of true -> never; false -> always end.
 
 test_f_ll_i() -> case f()  < i() of true -> maybe; false -> maybe_too end.
 test_f_le_i() -> case f() =< i() of true -> maybe; false -> maybe_too end.
@@ -78,6 +94,14 @@ test_f_ll_l() -> case f()  < l() of true -> always; false -> never end.
 test_f_le_l() -> case f() =< l() of true -> always; false -> never end.
 test_f_gg_l() -> case f()  > l() of true -> never; false -> always end.
 test_f_ge_l() -> case f() >= l() of true -> never; false -> always end.
+test_f_ll_m() -> case f()  < m() of true -> always; false -> never end.
+test_f_le_m() -> case f() =< m() of true -> always; false -> never end.
+test_f_gg_m() -> case f()  > m() of true -> never; false -> always end.
+test_f_ge_m() -> case f() >= m() of true -> never; false -> always end.
+test_f_ll_b() -> case f()  < b() of true -> always; false -> never end.
+test_f_le_b() -> case f() =< b() of true -> always; false -> never end.
+test_f_gg_b() -> case f()  > b() of true -> never; false -> always end.
+test_f_ge_b() -> case f() >= b() of true -> never; false -> always end.
 
 test_n_ll_i() -> case n()  < i() of true -> maybe; false -> maybe_too end.
 test_n_le_i() -> case n() =< i() of true -> maybe; false -> maybe_too end.
@@ -103,6 +127,14 @@ test_n_ll_l() -> case n()  < l() of true -> always; false -> never end.
 test_n_le_l() -> case n() =< l() of true -> always; false -> never end.
 test_n_gg_l() -> case n()  > l() of true -> never; false -> always end.
 test_n_ge_l() -> case n() >= l() of true -> never; false -> always end.
+test_n_ll_m() -> case n()  < m() of true -> always; false -> never end.
+test_n_le_m() -> case n() =< m() of true -> always; false -> never end.
+test_n_gg_m() -> case n()  > m() of true -> never; false -> always end.
+test_n_ge_m() -> case n() >= m() of true -> never; false -> always end.
+test_n_ll_b() -> case n()  < b() of true -> always; false -> never end.
+test_n_le_b() -> case n() =< b() of true -> always; false -> never end.
+test_n_gg_b() -> case n()  > b() of true -> never; false -> always end.
+test_n_ge_b() -> case n() >= b() of true -> never; false -> always end.
 
 test_a_ll_i() -> case a()  < i() of true -> never; false -> always end.
 test_a_le_i() -> case a() =< i() of true -> never; false -> always end.
@@ -128,6 +160,14 @@ test_a_ll_l() -> case a()  < l() of true -> always; false -> never end.
 test_a_le_l() -> case a() =< l() of true -> always; false -> never end.
 test_a_gg_l() -> case a()  > l() of true -> never; false -> always end.
 test_a_ge_l() -> case a() >= l() of true -> never; false -> always end.
+test_a_ll_m() -> case a()  < m() of true -> always; false -> never end.
+test_a_le_m() -> case a() =< m() of true -> always; false -> never end.
+test_a_gg_m() -> case a()  > m() of true -> never; false -> always end.
+test_a_ge_m() -> case a() >= m() of true -> never; false -> always end.
+test_a_ll_b() -> case a()  < b() of true -> always; false -> never end.
+test_a_le_b() -> case a() =< b() of true -> always; false -> never end.
+test_a_gg_b() -> case a()  > b() of true -> never; false -> always end.
+test_a_ge_b() -> case a() >= b() of true -> never; false -> always end.
 
 test_t_ll_i() -> case t()  < i() of true -> never; false -> always end.
 test_t_le_i() -> case t() =< i() of true -> never; false -> always end.
@@ -153,6 +193,14 @@ test_t_ll_l() -> case t()  < l() of true -> always; false -> never end.
 test_t_le_l() -> case t() =< l() of true -> always; false -> never end.
 test_t_gg_l() -> case t()  > l() of true -> never; false -> always end.
 test_t_ge_l() -> case t() >= l() of true -> never; false -> always end.
+test_t_ll_m() -> case t()  < m() of true -> always; false -> never end.
+test_t_le_m() -> case t() =< m() of true -> always; false -> never end.
+test_t_gg_m() -> case t()  > m() of true -> never; false -> always end.
+test_t_ge_m() -> case t() >= m() of true -> never; false -> always end.
+test_t_ll_b() -> case t()  < b() of true -> always; false -> never end.
+test_t_le_b() -> case t() =< b() of true -> always; false -> never end.
+test_t_gg_b() -> case t()  > b() of true -> never; false -> always end.
+test_t_ge_b() -> case t() >= b() of true -> never; false -> always end.
 
 test_l_ll_i() -> case l()  < i() of true -> never; false -> always end.
 test_l_le_i() -> case l() =< i() of true -> never; false -> always end.
@@ -178,6 +226,14 @@ test_l_ll_l() -> case l()  < l() of true -> maybe; false -> maybe_too end.
 test_l_le_l() -> case l() =< l() of true -> maybe; false -> maybe_too end.
 test_l_gg_l() -> case l()  > l() of true -> maybe; false -> maybe_too end.
 test_l_ge_l() -> case l() >= l() of true -> maybe; false -> maybe_too end.
+test_l_ll_m() -> case l()  < m() of true -> never; false -> always end.
+test_l_le_m() -> case l() =< m() of true -> never; false -> always end.
+test_l_gg_m() -> case l()  > m() of true -> always; false -> never end.
+test_l_ge_m() -> case l() >= m() of true -> always; false -> never end.
+test_l_ll_b() -> case l()  < b() of true -> always; false -> never end.
+test_l_le_b() -> case l() =< b() of true -> always; false -> never end.
+test_l_gg_b() -> case l()  > b() of true -> never; false -> always end.
+test_l_ge_b() -> case l() >= b() of true -> never; false -> always end.
 
 test_n_ll_na() -> case n()  < na() of true -> maybe; false -> maybe_too end.
 test_n_le_na() -> case n() =< na() of true -> maybe; false -> maybe_too end.

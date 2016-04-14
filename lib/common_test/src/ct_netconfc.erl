@@ -234,7 +234,6 @@
 %% Internal defines
 %%----------------------------------------------------------------------
 -define(APPLICATION,?MODULE).
--define(VALID_SSH_OPTS,[user, password, user_dir]).
 -define(DEFAULT_STREAM,"NETCONF").
 
 -define(error(ConnName,Report),
@@ -264,6 +263,7 @@
 		session_id,
 		msg_id = 1,
 		hello_status,
+		no_end_tag_buff = <<>>,
 		buff = <<>>,
 		pending = [],    % [#pending]
 		event_receiver}).% pid
@@ -1170,7 +1170,7 @@ handle_msg({Ref,timeout},#state{pending=Pending} = State) ->
 	end,
     %% Halfhearted try to get in correct state, this matches
     %% the implementation before this patch
-    {R,State#state{pending=Pending1, buff= <<>>}}.
+    {R,State#state{pending=Pending1, no_end_tag_buff= <<>>, buff= <<>>}}.
 
 %% @private
 %% Called by ct_util_server to close registered connections before terminate.
@@ -1205,7 +1205,7 @@ call(Client, Msg, Timeout, WaitStop) ->
 		    {error,no_such_client};
 		{error,{process_down,Pid,normal}} when WaitStop ->
 		    %% This will happen when server closes connection
-		    %% before clien received rpc-reply on
+		    %% before client received rpc-reply on
 		    %% close-session.
 		    ok;
 		{error,{process_down,Pid,normal}} ->
@@ -1256,13 +1256,11 @@ check_options([{port,Port}|T], Host, _, #options{} = Options) ->
 check_options([{timeout, Timeout}|T], Host, Port, Options)
   when is_integer(Timeout); Timeout==infinity ->
     check_options(T, Host, Port, Options#options{timeout = Timeout});
-check_options([{X,_}=Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
-    case lists:member(X,?VALID_SSH_OPTS) of
-	true ->
-	    check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]});
-	false ->
-	    {error, {invalid_option, Opt}}
-    end.
+check_options([{timeout, _} = Opt|_T], _Host, _Port, _Options) ->
+    {error, {invalid_option, Opt}};
+check_options([Opt|T], Host, Port, #options{ssh=SshOpts}=Options) ->
+    %% Option verified by ssh
+    check_options(T, Host, Port, Options#options{ssh=[Opt|SshOpts]}).
 
 %%%-----------------------------------------------------------------
 set_request_timer(infinity) ->
@@ -1272,6 +1270,14 @@ set_request_timer(T) ->
     {ok,TRef} = timer:send_after(T,{Ref,timeout}),
     {Ref,TRef}.
 
+%%%-----------------------------------------------------------------
+cancel_request_timer(undefined,undefined) ->
+    ok;
+cancel_request_timer(Ref,TRef) ->
+    _ = timer:cancel(TRef),
+    receive {Ref,timeout} -> ok
+    after 0 -> ok
+    end.
 
 %%%-----------------------------------------------------------------
 client_hello(Options) when is_list(Options) ->
@@ -1364,17 +1370,37 @@ to_xml_doc(Simple) ->
 
 %%%-----------------------------------------------------------------
 %%% Parse and handle received XML data
-handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
+%%% Two buffers are used:
+%%%   * 'no_end_tag_buff' contains data that is checked and does not
+%%%     contain any (part of an) end tag.
+%%%   * 'buff' contains all other saved data - it may or may not
+%%%     include (a part of) an end tag.
+%%% The reason for this is to avoid running binary:split/3 multiple
+%%% times on the same data when it does not contain an end tag. This
+%%% can be a considerable optimation in the case when a lot of data is
+%%% received (e.g. when fetching all data from a node) and the data is
+%%% sent in multiple ssh packages.
+handle_data(NewData,#state{connection=Connection} = State0) ->
     log(Connection,recv,NewData),
-    Data = append_wo_initial_nl(Buff0,NewData),
-    case binary:split(Data,[?END_TAG],[]) of
+    NoEndTag0 = State0#state.no_end_tag_buff,
+    Buff0 = State0#state.buff,
+    Data = <<Buff0/binary, NewData/binary>>,
+    case binary:split(Data,?END_TAG,[]) of
 	[_NoEndTagFound] ->
-	    {noreply, State0#state{buff=Data}};
-	[FirstMsg,Buff1] ->
+	    NoEndTagSize = case byte_size(Data) of
+			       Sz when Sz<5 -> 0;
+			       Sz -> Sz-5
+			   end,
+	    <<NoEndTag1:NoEndTagSize/binary,Buff/binary>> = Data,
+	    NoEndTag = <<NoEndTag0/binary,NoEndTag1/binary>>,
+	    {noreply, State0#state{no_end_tag_buff=NoEndTag, buff=Buff}};
+	[FirstMsg0,Buff1] ->
+	    FirstMsg = remove_initial_nl(<<NoEndTag0/binary,FirstMsg0/binary>>),
 	    SaxArgs = [{event_fun,fun sax_event/3}, {event_state,[]}],
 	    case xmerl_sax_parser:stream(FirstMsg, SaxArgs) of
 		{ok, Simple, _Thrash} ->
-		    case decode(Simple, State0#state{buff=Buff1}) of
+		    case decode(Simple, State0#state{no_end_tag_buff= <<>>,
+						     buff=Buff1}) of
 			{noreply, #state{buff=Buff} = State} when Buff =/= <<>> ->
 			    %% Recurse if we have more data in buffer
 			    handle_data(<<>>, State);
@@ -1386,17 +1412,18 @@ handle_data(NewData,#state{connection=Connection,buff=Buff0} = State0) ->
 			   [{parse_error,Reason},
 			    {buffer, Buff0},
 			    {new_data,NewData}]),
-		    handle_error(Reason, State0#state{buff= <<>>})
+		    handle_error(Reason, State0#state{no_end_tag_buff= <<>>,
+						      buff= <<>>})
 	    end
     end.
 
+
 %% xml does not accept a leading nl and some netconf server add a nl after
 %% each ?END_TAG, ignore them
-append_wo_initial_nl(<<>>,NewData) -> NewData;
-append_wo_initial_nl(<<"\n", Data/binary>>, NewData) ->
-    append_wo_initial_nl(Data, NewData);
-append_wo_initial_nl(Data, NewData) ->
-    <<Data/binary, NewData/binary>>.
+remove_initial_nl(<<"\n", Data/binary>>) ->
+    remove_initial_nl(Data);
+remove_initial_nl(Data) ->
+    Data.
 
 handle_error(Reason, State) ->
     Pending1 = case State#state.pending of
@@ -1404,9 +1431,9 @@ handle_error(Reason, State) ->
 		   Pending ->
 		       %% Assuming the first request gets the
 		       %% first answer
-		       P=#pending{tref=TRef,caller=Caller} =
+		       P=#pending{tref=TRef,ref=Ref,caller=Caller} =
 			   lists:last(Pending),
-		       _ = timer:cancel(TRef),
+		       cancel_request_timer(Ref,TRef),
 		       Reason1 = {failed_to_parse_received_data,Reason},
 		       ct_gen_conn:return(Caller,{error,Reason1}),
 		       lists:delete(P,Pending)
@@ -1492,8 +1519,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 			{error,Reason} ->
 			    {noreply,State#state{hello_status = {error,Reason}}}
 		    end;
-		#pending{tref=TRef,caller=Caller} ->
-		    _ = timer:cancel(TRef),
+		#pending{tref=TRef,ref=Ref,caller=Caller} ->
+		    cancel_request_timer(Ref,TRef),
 		    case decode_hello(E) of
 			{ok,SessionId,Capabilities} ->
 			    ct_gen_conn:return(Caller,ok),
@@ -1519,9 +1546,8 @@ decode({Tag,Attrs,_}=E, #state{connection=Connection,pending=Pending}=State) ->
 	    %% there is just one pending that matches (i.e. has
 	    %% undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
-		[#pending{tref=TRef,
-			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		[#pending{tref=TRef,ref=Ref,caller=Caller}] ->
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1542,8 +1568,8 @@ get_msg_id(Attrs) ->
 
 decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
     case lists:keytake(MsgId,#pending.msg_id,Pending) of
-	{value, #pending{tref=TRef,op=Op,caller=Caller}, Pending1} ->
-	    _ = timer:cancel(TRef),
+	{value, #pending{tref=TRef,ref=Ref,op=Op,caller=Caller}, Pending1} ->
+	    cancel_request_timer(Ref,TRef),
 	    Content = forward_xmlns_attr(Attrs,Content0),
 	    {CallerReply,{ServerReply,State2}} =
 		do_decode_rpc_reply(Op,Content,State#state{pending=Pending1}),
@@ -1555,10 +1581,11 @@ decode_rpc_reply(MsgId,{_,Attrs,Content0}=E,#state{pending=Pending} = State) ->
 	    %% pending that matches (i.e. has undefined msg_id and op)
 	    case [P || P = #pending{msg_id=undefined,op=undefined} <- Pending] of
 		[#pending{tref=TRef,
+			  ref=Ref,
 			  msg_id=undefined,
 			  op=undefined,
 			  caller=Caller}] ->
-		    _ = timer:cancel(TRef),
+		    cancel_request_timer(Ref,TRef),
 		    ct_gen_conn:return(Caller,E),
 		    {noreply,State#state{pending=[]}};
 		_ ->
@@ -1762,9 +1789,14 @@ format_data(How,Data) ->
 do_format_data(raw,Data) ->
     io_lib:format("~n~ts~n",[hide_password(Data)]);
 do_format_data(pretty,Data) ->
-    io_lib:format("~n~ts~n",[indent(Data)]);
+    maybe_io_lib_format(indent(Data));
 do_format_data(html,Data) ->
-    io_lib:format("~n~ts~n",[html_format(Data)]).
+    maybe_io_lib_format(html_format(Data)).
+
+maybe_io_lib_format(<<>>) ->
+    [];
+maybe_io_lib_format(String) ->
+    io_lib:format("~n~ts~n",[String]).
 
 %%%-----------------------------------------------------------------
 %%% Hide password elements from XML data
@@ -1803,13 +1835,21 @@ indent1("<?"++Rest1,Indent1) ->
     Line++indent1(Rest2,Indent2);
 indent1("</"++Rest1,Indent1) ->
     %% Stop tag
-    {Line,Rest2,Indent2} = indent_line1(Rest1,Indent1,[$/,$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line1(Rest1,Indent1,[$/,$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1("<"++Rest1,Indent1) ->
     %% Start- or empty tag
     put(tag,get_tag(Rest1)),
-    {Line,Rest2,Indent2} = indent_line(Rest1,Indent1,[$<]),
-    "\n"++Line++indent1(Rest2,Indent2);
+    case indent_line(Rest1,Indent1,[$<]) of
+	{[],[],_} ->
+	    [];
+	{Line,Rest2,Indent2} ->
+	    "\n"++Line++indent1(Rest2,Indent2)
+    end;
 indent1([H|T],Indent) ->
     [H|indent1(T,Indent)];
 indent1([],_Indent) ->

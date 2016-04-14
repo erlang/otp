@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2014</year>
+      <year>2005</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -61,20 +61,23 @@
 
   <funcs>
      <func>
-      <name>apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, Error}</name>
-      <v>ChannelPid = pid()</v>
-        <v>Handle = term()</v>
-        <v>Position = integer()</v>
-        <v>Len = integer()</v>
-        <v>N = term()</v>
-        <v>Reason = term()</v>
-
-	<desc><p>The <c><![CDATA[apread]]></c> function reads from a specified position,
-	combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
+       <name>apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, Reason}</name>
+       <fsummary>Reads asynchronously from an open file.</fsummary>
+       <type>
+	 <v>ChannelPid = pid()</v>
+         <v>Handle = term()</v>
+         <v>Position = integer()</v>
+         <v>Len = integer()</v>
+         <v>N = term()</v>
+         <v>Reason = term()</v>
+       </type>
+       
+       <desc><p>The <c><![CDATA[apread]]></c> function reads from a specified position,
+       combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
 	<p><seealso marker="#apread-4">ssh_sftp:apread/4</seealso></p> </desc>
-      </func>
-
-      <func>
+     </func>
+     
+     <func>
 	<name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
 	<fsummary>Writes asynchronously to an open file.</fsummary>
 	<type>
@@ -330,7 +333,7 @@
 
     <func>
       <name>position(ChannelPid, Handle, Location) -></name>
-      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, Error}</name>
+      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition} | {error, Reason}</name>
       <fsummary>Sets the file position of a file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -396,7 +399,7 @@
 
     <func>
       <name>pwrite(ChannelPid, Handle, Position, Data) -> ok</name>
-      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Error}</name>
+      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>
@@ -589,7 +592,7 @@
 
     <func>
       <name>write(ChannelPid, Handle, Data) -></name>
-      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
+      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Writes to an open file.</fsummary>
       <type>
         <v>ChannelPid = pid()</v>

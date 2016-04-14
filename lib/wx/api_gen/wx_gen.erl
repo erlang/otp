@@ -705,6 +705,8 @@ parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) ->
     parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]});
 parse_type2(["int"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int});
+parse_type2(["wxByte"|R],Info,Opts,  T) ->
+    parse_type2(R,Info,Opts,T#type{name=int,base=int});
 parse_type2(["char"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name="char",base=int});
 parse_type2([N="size_t"|R], Info, Opts,  T) -> 
@@ -1373,7 +1375,7 @@ extract_enum3([#xmlElement{name=initializer,content=Cs}|_],_Id,[{Name,_}|Acc]) -
     try
 	case Val0 of
 	    ["0x" ++ Val1] ->
-		Val = http_util:hexlist_to_integer(Val1),
+		Val = list_to_integer(Val1, 16),
 		{[{Name, Val}|Acc], Val+1};
 	    ["1", "<<", Shift] ->
 		Val = 1 bsl list_to_integer(Shift),
@@ -1429,7 +1431,7 @@ extract_def([#xmlElement{name=param}|_],Name,_) ->
 extract_def([#xmlElement{name=initializer,content=Cs}|_R],N,Skip) ->
     Val0 = extract_def2(Cs),
     case Val0 of
-	"0x" ++ Val1 -> {N, http_util:hexlist_to_integer(Val1)};
+	"0x" ++ Val1 -> {N, list_to_integer(Val1, 16)};
 	_ ->
 	    try
 		Val = list_to_integer(Val0),
@@ -1451,7 +1453,7 @@ extract_def(_,N,_) ->
     throw(N).
 
 extract_def2([#xmlText{value=Val}|R]) ->
-    strip_comment(string:strip(Val)) ++ extract_def2(R);
+    string:strip(strip_comment(Val)) ++ extract_def2(R);
 extract_def2([#xmlElement{content=Cs}|R]) ->
     extract_def2(Cs) ++ extract_def2(R);
 extract_def2([]) -> [].

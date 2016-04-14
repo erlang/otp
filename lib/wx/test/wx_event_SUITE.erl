@@ -46,8 +46,8 @@ end_per_testcase(Func,Config) ->
 %% SUITE specification
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [connect, disconnect, connect_msg_20, connect_cb_20,
+all() ->
+    [connect, disconnect, disconnect_cb, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
      dialog, char_events, callback_clean
     ].
@@ -162,8 +162,32 @@ disconnect(Config) ->
     ?m([], wx_test_lib:flush()),
 
     wx_test_lib:wx_destroy(Frame, Config).
-    
 
+
+
+disconnect_cb(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+disconnect_cb(Config) ->
+    ?mr(wx_ref, wx:new()),
+    Frame = ?mt(wxFrame, wxFrame:new(wx:null(), 1, "Event Testing")),
+    Panel = ?mt(wxPanel, wxPanel:new(Frame)),
+
+    Tester = self(),
+    CB = fun(#wx{event=#wxSize{},userData=UserD}, SizeEvent) ->
+		 ?mt(wxSizeEvent, SizeEvent),
+		 wxEvtHandler:disconnect(Frame, close_window),
+		 Tester ! {got_size, UserD}
+	 end,
+    ?m(ok, wxFrame:connect(Frame,  close_window)),
+    ?m(ok, wxFrame:connect(Frame,  size)),
+    ?m(ok, wxEvtHandler:connect(Panel, size, [{callback,CB},{userData, panel}])),
+
+    ?m(true, wxFrame:show(Frame)),
+
+    wxWindow:setSize(Panel, {200,100}),
+    get_size_messages(Frame, [frame, panel_cb]),
+    wx_test_lib:flush(),
+
+    wx_test_lib:wx_destroy(Frame, Config).
 
 %% Test that the msg events are forwarded as supposed to 
 connect_msg_20(TestInfo) 

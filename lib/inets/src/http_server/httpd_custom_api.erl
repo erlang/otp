@@ -23,7 +23,8 @@
 -callback response_default_headers() -> 
     [{Key::string(), Value::string()}].
 -callback response_header({Key::string(), Value::string()}) -> 
-    {true, {Key::string(), Value::string()}} | false.
+    {true, {Key::string(), Value::string()}} | false |
+    {true, string()}. %% Used internally to avoid traversing headers twice 
 -callback request_header({Key::string(), Value::string()}) -> 
     {true, {Key::string(), Value::string()}} | false.
 

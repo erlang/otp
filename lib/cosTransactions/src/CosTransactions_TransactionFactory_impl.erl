@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,6 +169,7 @@ create(_Self, _State, _TimeOut) ->
 %% Effect   : 
 %%------------------------------------------------------------
 
+-spec recreate(_, _, _) -> no_return().
 recreate(_Self, _State, #'CosTransactions_PropagationContext'{current = _C}) ->
     corba:raise(#'NO_IMPLEMENT'{completion_status=?COMPLETED_YES}).
 %recreate(Self, State, #'CosTransactions_PropagationContext'{current = C}) ->

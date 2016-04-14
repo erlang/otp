@@ -35,6 +35,9 @@
 -export([port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
+-export([system_check/1,
+         gather_system_check_result/1]).
+
 -export([request_system_task/3]).
 
 -export([check_process_code/2]).
@@ -196,6 +199,23 @@ request_system_task(_Pid, _Prio, _Request) ->
       OptionList :: [Option].
 check_process_code(_Module, _OptionList) ->
     erlang:nif_error(undefined).
+
+-spec system_check(Type) -> 'ok' when
+      Type :: 'schedulers'.
+
+system_check(_Type) ->
+    erlang:nif_error(undefined).
+
+gather_system_check_result(Ref) when is_reference(Ref) ->
+    gather_system_check_result(Ref, erlang:system_info(schedulers)).
+
+gather_system_check_result(_Ref, 0) ->
+    ok;
+gather_system_check_result(Ref, N) ->
+    receive
+        Ref ->
+            gather_system_check_result(Ref, N - 1)
+    end.
 
 %% term compare where integer() < float() = true
 

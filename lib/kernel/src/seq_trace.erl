@@ -23,7 +23,9 @@
 -define(SEQ_TRACE_SEND, 1).       %(1 << 0)
 -define(SEQ_TRACE_RECEIVE, 2).    %(1 << 1)
 -define(SEQ_TRACE_PRINT, 4).      %(1 << 2)
--define(SEQ_TRACE_TIMESTAMP, 8).  %(1 << 3)
+-define(SEQ_TRACE_NOW_TIMESTAMP, 8). %(1 << 3)
+-define(SEQ_TRACE_STRICT_MON_TIMESTAMP, 16). %(1 << 4)
+-define(SEQ_TRACE_MON_TIMESTAMP, 32). %(1 << 5)
 
 -export([set_token/1,
 	 set_token/2,
@@ -37,7 +39,7 @@
 
 %%---------------------------------------------------------------------------
 
--type flag()       :: 'send' | 'receive' | 'print' | 'timestamp'.
+-type flag()       :: 'send' | 'receive' | 'print' | 'timestamp' | 'monotonic_timestamp' | 'strict_monotonic_timestamp'.
 -type component()  :: 'label' | 'serial' | flag().
 -type value()      :: (Integer :: non_neg_integer())
                     | {Previous :: non_neg_integer(),
@@ -135,5 +137,9 @@ decode_flags(Flags) ->
     Print = (Flags band ?SEQ_TRACE_PRINT) > 0,
     Send = (Flags band ?SEQ_TRACE_SEND) > 0,
     Rec = (Flags band ?SEQ_TRACE_RECEIVE) > 0,
-    Ts = (Flags band ?SEQ_TRACE_TIMESTAMP) > 0,
-    [{print,Print},{send,Send},{'receive',Rec},{timestamp,Ts}].
+    NowTs = (Flags band ?SEQ_TRACE_NOW_TIMESTAMP) > 0,
+    StrictMonTs = (Flags band ?SEQ_TRACE_STRICT_MON_TIMESTAMP) > 0,
+    MonTs = (Flags band ?SEQ_TRACE_MON_TIMESTAMP) > 0,
+    [{print,Print},{send,Send},{'receive',Rec},{timestamp,NowTs},
+     {strict_monotonic_timestamp, StrictMonTs},
+     {monotonic_timestamp, MonTs}].

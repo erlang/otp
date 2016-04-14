@@ -42,7 +42,8 @@
 	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
 	 nif_exception/1, call_nif_exception/1,
-	 nif_nan_and_inf/1, nif_atom_too_long/1
+	 nif_nan_and_inf/1, nif_atom_too_long/1,
+	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1
 	]).
 
 -export([many_args_100/100]).
@@ -72,7 +73,8 @@ all() ->
      otp_9828,
      otp_9668, consume_timeslice,
      nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
-     nif_exception, nif_nan_and_inf, nif_atom_too_long
+     nif_exception, nif_nan_and_inf, nif_atom_too_long,
+     nif_monotonic_time, nif_time_offset, nif_convert_time_unit
     ].
 
 groups() -> 
@@ -615,7 +617,6 @@ resource_new_do2(Type) ->
     ?line {PtrA,BinA} = get_resource(Type, ResA),
     ?line {PtrB,BinB} = get_resource(Type, ResB),
     ?line true = (PtrA =/= PtrB),
-    ?line [] = last_resource_dtor_call(),
     %% forget ResA and make it garbage
     {{PtrA,BinA}, {ResB,PtrB,BinB}}.
 
@@ -1713,7 +1714,9 @@ tmpmem() ->
 	false -> undefined;
 	MemInfo ->
 	    MSBCS = lists:foldl(
-		      fun ({instance, _, L}, Acc) ->
+		      fun ({instance, 0, _}, Acc) ->
+			      Acc; % Ignore instance 0
+			  ({instance, _, L}, Acc) ->
 			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
 			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
 			      [MBCS,SBCS | Acc]
@@ -1782,6 +1785,148 @@ nif_raise_exceptions(NifFunc) ->
 				ok
 			end
 		end, ok, ExcTerms).
+
+-define(ERL_NIF_TIME_ERROR, -9223372036854775808).
+-define(TIME_UNITS, [seconds, milli_seconds, micro_seconds, nano_seconds]).
+
+nif_monotonic_time(Config) ->
+    ?ERL_NIF_TIME_ERROR = monotonic_time(invalid_time_unit),
+    mtime_loop(1000000).
+
+mtime_loop(0) ->
+    ok;
+mtime_loop(N) ->
+    chk_mtime(?TIME_UNITS),
+    mtime_loop(N-1).
+
+chk_mtime([]) ->
+    ok;
+chk_mtime([TU|TUs]) ->
+    A = erlang:monotonic_time(TU),
+    B = monotonic_time(TU),
+    C = erlang:monotonic_time(TU),
+    try
+	true = A =< B,
+	true = B =< C
+    catch
+	_ : _ ->
+	    ?t:fail({monotonic_time_missmatch, TU, A, B, C})
+    end,
+    chk_mtime(TUs).
+
+nif_time_offset(Config) ->
+    ?ERL_NIF_TIME_ERROR = time_offset(invalid_time_unit),
+    toffs_loop(1000000).
+
+toffs_loop(0) ->
+    ok;
+toffs_loop(N) ->
+    chk_toffs(?TIME_UNITS),
+    toffs_loop(N-1).
+
+chk_toffs([]) ->
+    ok;
+chk_toffs([TU|TUs]) ->
+    TO = erlang:time_offset(TU),
+    NifTO = time_offset(TU),
+    case TO =:= NifTO of
+	true ->
+	    ok;
+	false ->
+	    case erlang:system_info(time_warp_mode) of
+		no_time_warp ->
+		    ?t:fail({time_offset_mismatch, TU, TO, NifTO});
+		_ ->
+		    %% Most frequent time offset change
+		    %% is currently only every 15:th
+		    %% second so this should currently
+		    %% work...
+		    NTO = erlang:time_offset(TU),
+		    case NifTO =:= NTO of
+			true ->
+			    ok;
+			false ->
+			    ?t:fail({time_offset_mismatch, TU, TO, NifTO, NTO})
+		    end
+	    end
+    end,
+    chk_toffs(TUs).
+
+nif_convert_time_unit(Config) ->
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, seconds, invalid_time_unit),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, seconds),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, invalid_time_unit),
+    lists:foreach(fun (Offset) ->
+			  lists:foreach(fun (Diff) ->
+						chk_ctu(Diff+(Offset*1000*1000*1000))
+					end,
+					[999999999999,
+					 99999999999,
+					 9999999999,
+					 999999999,
+					 99999999,
+					 9999999,
+					 999999,
+					 99999,
+					 999,
+					 99,
+					 9,
+					 1,
+					 11,
+					 101,
+					 1001,
+					 10001,
+					 100001,
+					 1000001,
+					 10000001,
+					 100000001,
+					 1000000001,
+					 100000000001,
+					 1000000000001,
+					 5,
+					 50,
+					 500,
+					 5000,
+					 50000,
+					 500000,
+					 5000000,
+					 50000000,
+					 500000000,
+					 5000000000,
+					 50000000000,
+					 500000000000])
+		  end,
+		  [-4711, -1000, -475, -5, -4, -3, -2, -1, 0,
+		   1, 2, 3, 4, 5, 475, 1000, 4711]),
+    ctu_loop(1000000).
+
+ctu_loop(0) ->
+    ok;
+ctu_loop(N) ->
+    chk_ctu(erlang:monotonic_time(nano_seconds)),
+    ctu_loop(N-1).
+
+chk_ctu(Time) ->
+    chk_ctu(Time, ?TIME_UNITS).
+
+chk_ctu(_Time, []) ->
+    ok;
+chk_ctu(Time, [FromTU|FromTUs]) ->
+    chk_ctu(Time, FromTU, ?TIME_UNITS),
+    chk_ctu(Time, FromTUs).
+
+chk_ctu(_Time, _FromTU, []) ->
+    ok;
+chk_ctu(Time, FromTU, [ToTU|ToTUs]) ->
+    T = erlang:convert_time_unit(Time, nano_seconds, FromTU),
+    TE = erlang:convert_time_unit(T, FromTU, ToTU),
+    TN = convert_time_unit(T, FromTU, ToTU),
+    case TE =:= TN of
+	false ->
+	    ?t:fail({conversion_mismatch, FromTU, T, ToTU, TE, TN});
+	true ->
+	    chk_ctu(Time, FromTU, ToTUs)
+    end.
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -1852,6 +1997,11 @@ make_map_remove_nif(_,_) -> ?nif_stub.
 maps_from_list_nif(_) -> ?nif_stub.
 sorted_list_from_maps_nif(_) -> ?nif_stub.
 
+%% Time
+monotonic_time(_) -> ?nif_stub.
+time_offset(_) -> ?nif_stub.
+convert_time_unit(_,_,_) -> ?nif_stub.
+    
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

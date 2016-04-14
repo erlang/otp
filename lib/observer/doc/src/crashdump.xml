@@ -25,7 +25,7 @@
     </legalnotice>
 
     <title>crashdump_viewer</title>
-    <prepared>Siri hansen</prepared>
+    <prepared>Siri Hansen</prepared>
     <responsible></responsible>
     <docno>1</docno>
     <approved></approved>
@@ -41,32 +41,31 @@
     <p>The Crashdump Viewer is a WxWidgets based tool for browsing Erlang
       crashdumps.</p>
 
-    <p>See the <seealso marker="crashdump_ug">user's guide</seealso>
-    for more information about how to get started with the Crashdump
-    Viewer.</p>
+    <p>For details about how to get started with the Crashdump Viewer, see the
+    <seealso marker="crashdump_ug"><c>User's Guide</c></seealso>.</p>
   </description>
   <funcs>
     <func>
       <name>start() -> ok</name>
       <name>start(File) -> ok</name>
-      <fsummary>Start the crashdump_viewer</fsummary>
+      <fsummary>Start the Crashdump Viewer.</fsummary>
       <type>
         <v>File = string()</v>
-	<d>The file name of the crashdump.</d>
+	<d>The filename of the crashdump.</d>
       </type>
       <desc>
-        <p>This function starts the <c>crashdump_viewer</c> GUI and
-        loads the given crashdump.</p>
+        <p>Starts the Crashdump Viewer GUI and
+        loads the specified crashdump.</p>
 
-	<p>If <c>File</c> is not given, a file dialog will be opened
+	<p>If <c>File</c> is not specified, a file dialog is opened
 	where the crashdump can be selected.</p>
       </desc>
     </func>
     <func>
       <name>stop() -> ok</name>
-      <fsummary>Stop the crashdump_viewer</fsummary>
+      <fsummary>Terminate the Crashdump Viewer.</fsummary>
       <desc>
-        <p>This function stops the <c>crashdump_viewer</c> and closes
+        <p>Terminates the Crashdump Viewer and closes
         all GUI windows.</p>
       </desc>
     </func>

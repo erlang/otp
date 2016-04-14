@@ -40,7 +40,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-    [basic, payload, plain_options, plain_verify_options].
+    [basic, payload, plain_options, plain_verify_options, nodelay_option, 
+     listen_port_options, listen_options, connect_options, use_interface].
 
 groups() ->
     [].
@@ -250,6 +251,173 @@ plain_verify_options(Config) when is_list(Config) ->
     stop_ssl_node(NH1),
     stop_ssl_node(NH2),
     success(Config).
+%%--------------------------------------------------------------------
+nodelay_option() ->
+    [{doc,"Test specifying dist_nodelay option"}].
+nodelay_option(Config) ->
+    try
+	%% The default is 'true', so try setting it to 'false'.
+	application:set_env(kernel, dist_nodelay, false),
+	basic(Config)
+    after
+	application:unset_env(kernel, dist_nodelay)
+    end.
+
+listen_port_options() ->
+    [{doc, "Test specifying listening ports"}].
+listen_port_options(Config) when is_list(Config) ->
+    %% Start a node, and get the port number it's listening on.
+    NH1 = start_ssl_node(Config),
+    Node1 = NH1#node_handle.nodename,
+    Name1 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
+    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+    {Name1, Port1} = lists:keyfind(Name1, 1, NodesPorts),
+    
+    %% Now start a second node, configuring it to use the same port
+    %% number.
+    PortOpt1 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
+        " inet_dist_listen_max " ++ integer_to_list(Port1),
+    
+    try start_ssl_node([{additional_dist_opts, PortOpt1} | Config]) of
+	#node_handle{} ->
+	    %% If the node was able to start, it didn't take the port
+	    %% option into account.
+	    exit(unexpected_success)
+    catch
+	exit:{accept_failed, timeout} ->
+	    %% The node failed to start, as expected.
+	    ok
+    end,
+
+    %% Try again, now specifying a high max port.
+    PortOpt2 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
+        " inet_dist_listen_max 65535",
+    NH2 = start_ssl_node([{additional_dist_opts, PortOpt2} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
+    {ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
+    {Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
+
+    %% The new port should be higher:
+    if Port2 > Port1 ->
+	    ok;
+       true ->
+	    error({port, Port2, not_higher_than, Port1})
+    end,
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+listen_options() ->
+    [{doc, "Test inet_dist_listen_options"}].
+listen_options(Config) when is_list(Config) ->
+    try_setting_priority(fun do_listen_options/2, Config).
+
+do_listen_options(Prio, Config) ->
+    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
+    PriorityString =
+	case os:cmd("echo [{a,1}]") of
+	    "[{a,1}]"++_ ->
+		PriorityString0;
+	    _ ->
+		%% Some shells need quoting of [{}]
+		"'"++PriorityString0++"'"
+	end,
+
+    Options = "-kernel inet_dist_listen_options " ++ PriorityString,
+
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    PrioritiesNode1 =
+	apply_on_ssl_node(NH1, fun get_socket_priorities/0),
+    PrioritiesNode2 =
+	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
+
+    Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
+    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
+    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    [_|_] = Elevated1,
+    [_|_] = Elevated2,
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+connect_options() ->
+    [{doc, "Test inet_dist_connect_options"}].
+connect_options(Config) when is_list(Config) ->
+    try_setting_priority(fun do_connect_options/2, Config).
+
+do_connect_options(Prio, Config) ->
+    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
+    PriorityString =
+	case os:cmd("echo [{a,1}]") of
+	    "[{a,1}]"++_ ->
+		PriorityString0;
+	    _ ->
+		%% Some shells need quoting of [{}]
+		"'"++PriorityString0++"'"
+	end,
+
+    Options = "-kernel inet_dist_connect_options " ++ PriorityString,
+
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node2 = NH2#node_handle.nodename,
+    
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    PrioritiesNode1 =
+	apply_on_ssl_node(NH1, fun get_socket_priorities/0),
+    PrioritiesNode2 =
+	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
+
+    Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
+    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
+    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    %% Node 1 will have a socket with elevated priority.
+    [_|_] = Elevated1,
+    %% Node 2 will not, since it only applies to outbound connections.
+    [] = Elevated2,
+
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
+%%--------------------------------------------------------------------
+use_interface() ->
+    [{doc, "Test inet_dist_use_interface"}].
+use_interface(Config) when is_list(Config) ->
+    %% Force the node to listen only on the loopback interface.
+    IpString = "'{127,0,0,1}'",
+    Options = "-kernel inet_dist_use_interface " ++ IpString,
+
+    %% Start a node, and get the port number it's listening on.
+    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+    Node1 = NH1#node_handle.nodename,
+    Name = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
+    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+    {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
+    
+    %% Now find the socket listening on that port, and check its sockname.
+    Sockets = apply_on_ssl_node(
+		NH1,
+		fun() ->
+			[inet:sockname(P) ||
+			    P <- erlang:ports(),
+			    {ok, Port} =:= (catch inet:port(P))]
+		end),
+    %% And check that it's actually listening on localhost.
+    [{ok,{{127,0,0,1},Port}}] = Sockets,
+
+    stop_ssl_node(NH1),
+    success(Config).
 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
@@ -264,6 +432,30 @@ tstsrvr_format(Fmt, ArgList) ->
 send_to_tstcntrl(Message) ->
     send_to_tstsrvr({message, Message}).
 
+try_setting_priority(TestFun, Config) ->
+    Prio = 1,
+    case gen_udp:open(0, [{priority,Prio}]) of
+	{ok,Socket} ->
+	    case inet:getopts(Socket, [priority]) of
+		{ok,[{priority,Prio}]} ->
+		    ok = gen_udp:close(Socket),
+		    TestFun(Prio, Config);
+		_ ->
+		    ok = gen_udp:close(Socket),
+		    {skip,
+		     "Can not set priority "++integer_to_list(Prio)++
+			 " on socket"}
+	    end;
+	{error,_} ->
+	    {skip, "Can not set priority on socket"}
+    end.
+
+get_socket_priorities() ->
+    [Priority ||
+	{ok,[{priority,Priority}]} <-
+	    [inet:getopts(Port, [priority]) ||
+		Port <- erlang:ports(),
+		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
 
 %%
 %% test_server side api
@@ -346,17 +538,13 @@ host_name() ->
     Host.
 
 mk_node_name(Config) ->
-    {A, B, C} = erlang:now(),
+    N = erlang:unique_integer([positive]),
     Case = ?config(testcase, Config),
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
 	++ "_"
-	++ integer_to_list(A)
-	++ "-"
-	++ integer_to_list(B)
-	++ "-"
-	++ integer_to_list(C).
+	++ integer_to_list(N).
 
 mk_node_cmdline(ListenPort, Name, Args) ->
     Static = "-detached -noinput",
@@ -585,12 +773,10 @@ rand_bin(N) ->
 rand_bin(0, Acc) ->
     Acc;
 rand_bin(N, Acc) ->
-    rand_bin(N-1, [random:uniform(256)-1|Acc]).
+    rand_bin(N-1, [rand:uniform(256)-1|Acc]).
 
 make_randfile(Dir) ->
     {ok, IoDev} = file:open(filename:join([Dir, "RAND"]), [write]),
-    {A, B, C} = erlang:now(),
-    random:seed(A, B, C),
     ok = file:write(IoDev, rand_bin(1024)),
     file:close(IoDev).
 

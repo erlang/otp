@@ -342,7 +342,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
      * times() (CLK_TCK), the resolution is always one millisecond..
      */
     if ((erts_sys_time_data__.r.o.ticks_per_sec = TICKS_PER_SEC()) < 0)
-	erl_exit(ERTS_ABORT_EXIT, "Can't get clock ticks/sec\n");
+	erts_exit(ERTS_ABORT_EXIT, "Can't get clock ticks/sec\n");
     
 #if defined(OS_MONOTONIC_TIME_USING_TIMES)
 #if ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
@@ -450,7 +450,7 @@ posix_clock_gettime(clockid_t id, char *name)
     if (clock_gettime(id, &ts) != 0) {
 	int err = errno;
 	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 name, errstr, err);
     }
@@ -495,13 +495,13 @@ posix_clock_gettime_times(clockid_t mid, char *mname,
     
     if (mres != 0) {
 	char *errstr = merr ? strerror(merr) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 mname, errstr, merr);
     }
     if (sres != 0) {
 	char *errstr = serr ? strerror(serr) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_gettime(%s, _) failed: %s (%d)\n",
 		 sname, errstr, serr);
     }
@@ -674,7 +674,7 @@ mach_clocks_init(void)
     clck_srv_p = &internal_state.r.o.mach.clock.monotonic.srv;
     kret = host_get_clock_service(host, id, clck_srv_p);
     if (kret != KERN_SUCCESS) {
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "host_get_clock_service(_, %s, _) failed\n",
 		 name);
     }
@@ -686,7 +686,7 @@ mach_clocks_init(void)
     clck_srv_p = &internal_state.r.o.mach.clock.wall.srv;
     kret = host_get_clock_service(host, id, clck_srv_p);
     if (kret != KERN_SUCCESS) {
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "host_get_clock_service(_, %s, _) failed\n",
 		 name);
     }
@@ -695,7 +695,7 @@ mach_clocks_init(void)
     if (atexit(mach_clocks_fini) != 0) {
 	int err = errno;
 	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Failed to register mach_clocks_fini() "
 		 "for call at exit: %s (%d)\n",
 		 errstr, err);
@@ -717,7 +717,7 @@ mach_clock_getres(ErtsMachClock *clk)
 				(clock_attr_t) attr,
 				&cnt);
     if (kret != KERN_SUCCESS || cnt != 1) {
-	erl_exit(ERTS_ABORT_EXIT,	
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_get_attributes(%s, _) failed\n",
 		 clk->name);
     }
@@ -735,7 +735,7 @@ mach_clock_get_time(ErtsMachClock *clk)
 
     kret = clock_get_time(clk->srv, &time_spec);
     if (kret != KERN_SUCCESS)
-	erl_exit(ERTS_ABORT_EXIT, "clock_get_time(%s, _) failed\n", clk->name);
+	erts_exit(ERTS_ABORT_EXIT, "clock_get_time(%s, _) failed\n", clk->name);
 
     return ERTS_TimeSpec2Sint64(&time_spec);
 }
@@ -781,11 +781,11 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 			   &sys_time_spec);
 
     if (mkret != KERN_SUCCESS)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_get_time(%s, _) failed\n",
 		 internal_state.r.o.mach.clock.monotonic.name);
     if (skret != KERN_SUCCESS)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "clock_get_time(%s, _) failed\n",
 		 internal_state.r.o.mach.clock.wall.name);
 
@@ -850,7 +850,7 @@ erts_os_system_time(void)
     if (gettimeofday(&tv, NULL) != 0) {
 	int err = errno;
 	char *errstr = err ? strerror(err) : "unknown";
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "gettimeofday(_, NULL) failed: %s (%d)\n",
 		 errstr, err);
     }

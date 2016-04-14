@@ -33,6 +33,21 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Documentation corrections.</p>
+          <p>
+	    Own Id: OTP-12994</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.1.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

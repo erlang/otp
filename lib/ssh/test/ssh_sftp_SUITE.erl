@@ -35,7 +35,9 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
+
 
 all() -> 
     [{group, not_unicode},
@@ -44,21 +46,13 @@ all() ->
 
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case (catch crypto:start()) of
-	ok ->
-	    ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
-		   [file:native_name_encoding(),io:getopts()]),
-	    ssh:start(),
-	    Config;
-	_ ->
-	    {skip,"Could not start crypto!"}
-    end.
-
-end_per_suite(Config) ->
-    ssh:stop(),
-    crypto:stop(),
+    ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+	   [file:native_name_encoding(),io:getopts()]),
+    ssh:start(),
     Config.
+
+end_per_suite(_onfig) ->
+    ssh:stop().
 
 %%--------------------------------------------------------------------
 groups() -> 

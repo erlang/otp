@@ -761,6 +761,7 @@ lazy_test_() ->
 	     lazy_gen(7),
 	     ?_assertMatch(7, get(count))]}.
 
+-dialyzer({no_improper_lists, lazy_gen/1}).
 lazy_gen(N) ->
     {generator,
      fun () ->

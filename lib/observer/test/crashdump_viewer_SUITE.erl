@@ -564,22 +564,11 @@ dump_with_strange_module_name(DataDir,Rel,DumpName) ->
     CD.
 
 dump(Node,DataDir,Rel,DumpName) ->
+    Crashdump = filename:join(DataDir, dump_prefix(Rel)++DumpName),
+    rpc:call(Node,os,putenv,["ERL_CRASH_DUMP",Crashdump]),
     rpc:call(Node,erlang,halt,[DumpName]),
-    Crashdump0 = filename:join(filename:dirname(code:which(?t)),
-			       "erl_crash_dump.n1"),
-    Crashdump1 = filename:join(DataDir, dump_prefix(Rel)++DumpName),
-    ok = rename(Crashdump0,Crashdump1),
-    Crashdump1.
-
-rename(From,To) ->
-    ok = check_complete(From),
-    case file:rename(From,To) of
-	{error,exdev} ->
-	    {ok,_} = file:copy(From,To),
-	    ok = file:delete(From);
-	ok ->
-	    ok
-    end.
+    ok = check_complete(Crashdump),
+    Crashdump.
 
 check_complete(File) ->
     check_complete1(File,10).

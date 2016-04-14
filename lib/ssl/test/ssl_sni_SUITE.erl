@@ -108,8 +108,12 @@ ssl_recv(SSLSocket, CurrentData, ExpectedData) ->
 
 send_and_hostname(SSLSocket) ->
     ssl:send(SSLSocket, "OK"),
-    {ok, [{sni_hostname, Hostname}]} = ssl:connection_information(SSLSocket, [sni_hostname]),
-    Hostname.
+    case  ssl:connection_information(SSLSocket, [sni_hostname]) of
+	{ok, [{sni_hostname, Hostname}]} ->
+	    Hostname;
+	{ok, []} ->
+	    undefined
+    end.
 
 rdnPart([[#'AttributeTypeAndValue'{type=Type, value=Value} | _] | _], Type) -> 
     Value;

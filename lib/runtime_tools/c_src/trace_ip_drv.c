@@ -44,19 +44,8 @@
 #endif
 
 #ifdef DEBUG
-#    ifndef __WIN32__
-         /* erl_exit is not available to dll_drivers on windows. */
-         void erl_exit(int, char *, ...);
-#        define ASSERT(X)                               \
-                    do {				\
-                        if (!(X)) {			\
-                            erl_exit(1,"%s",#X);	\
-                        } 				\
-                    } while(0) 
-#    else 
-#        include <assert.h>
-#        define ASSERT(X) assert(X)
-#    endif
+#    include <assert.h>
+#    define ASSERT(X) assert(X)
 #else 
 #    define ASSERT(X)
 #endif 

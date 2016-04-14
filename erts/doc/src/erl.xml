@@ -382,6 +382,33 @@
           similar to <c><![CDATA[code:add_pathsz/1]]></c>. See
           <seealso marker="kernel:code">code(3)</seealso>.</p>
       </item>
+      <tag><c><![CDATA[-path Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Replaces the path specified in the boot script. See
+          <seealso marker="sasl:script">script(4)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-proto_dist Proto]]></c></tag>
+      <item>
+        <p>Specify a protocol for Erlang distribution.</p>
+	    <taglist>
+	      <tag><c>inet_tcp</c></tag>
+              <item>
+                  <p>TCP over IPv4 (the default)</p>
+              </item>
+	      <tag><c>inet_tls</c></tag>
+              <item>
+                  <p>distribution over TLS/SSL</p>
+              </item>
+	      <tag><c>inet6_tcp</c></tag>
+              <item>
+                  <p>TCP over IPv6</p>
+              </item>
+        </taglist>
+        <p>For example, to start up IPv6 distributed nodes:</p>
+<pre>
+% <input>erl -name test@ipv6node.example.com -proto_dist inet6_tcp</input>
+</pre>
+      </item>
       <tag><c><![CDATA[-remsh Node]]></c></tag>
       <item>
         <p>Starts Erlang with a remote shell connected to <c><![CDATA[Node]]></c>.</p>

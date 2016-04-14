@@ -59,7 +59,7 @@ copy_object(Eterm obj, Process* to)
     res = copy_struct(obj, size, &hp, &to->off_heap);
 #ifdef DEBUG
     if (eq(obj, res) == 0) {
-	erl_exit(ERTS_ABORT_EXIT, "copy not equal to source\n");
+	erts_exit(ERTS_ABORT_EXIT, "copy not equal to source\n");
     }
 #endif
     return res;
@@ -171,7 +171,7 @@ Uint size_object(Eterm obj)
 			    }
 			    break;
 			default:
-			    erl_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+			    erts_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		    }
 		    break;
 		case SUB_BINARY_SUBTAG:
@@ -202,7 +202,7 @@ Uint size_object(Eterm obj)
 		    }
 		    break;
                 case BIN_MATCHSTATE_SUBTAG:
-		    erl_exit(ERTS_ABORT_EXIT,
+		    erts_exit(ERTS_ABORT_EXIT,
 			     "size_object: matchstate term not allowed");
 		default:
 		    sum += thing_arityval(hdr) + 1;
@@ -219,7 +219,7 @@ Uint size_object(Eterm obj)
 	    obj = ESTACK_POP(s);
 	    break;
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "size_object: bad tag for %#x\n", obj);
+	    erts_exit(ERTS_ABORT_EXIT, "size_object: bad tag for %#x\n", obj);
 	}
     }
 }
@@ -272,7 +272,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	goto L_copy_list;
     case TAG_PRIMARY_BOXED: argp = &res; goto L_copy_boxed;
     default:
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
 		 __FILE__, __LINE__,obj);
     }
@@ -331,7 +331,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 	    case TAG_PRIMARY_IMMED1: *tailp = obj; goto L_copy;
 	    case TAG_PRIMARY_BOXED: argp = tailp; goto L_copy_boxed;
 	    default:
-		erl_exit(ERTS_ABORT_EXIT,
+		erts_exit(ERTS_ABORT_EXIT,
 			 "%s, line %d: Internal error in copy_struct: 0x%08x\n",
 			 __FILE__, __LINE__,obj);
 	    }
@@ -512,11 +512,11 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			*argp = make_hashmap_rel(tp, dst_base);
 			break;
 		    default:
-			erl_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+			erts_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		}
 		break;
 	    case BIN_MATCHSTATE_SUBTAG:
-		erl_exit(ERTS_ABORT_EXIT,
+		erts_exit(ERTS_ABORT_EXIT,
 			 "copy_struct: matchstate term not allowed");
 	    default:
 		i = thing_arityval(hdr)+1;
@@ -540,13 +540,13 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 
 #ifdef DEBUG
     if (htop != hbot)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Internal error in copy_struct() when copying %T:"
 		 " htop=%p != hbot=%p (sz=%beu)\n",
 		 org_obj, htop, hbot, org_sz); 
 #else
     if (htop > hbot) {
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Internal error in copy_struct(): htop, hbot overrun\n");
     }
 #endif

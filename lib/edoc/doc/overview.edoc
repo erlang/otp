@@ -755,7 +755,7 @@ following escape sequences may be used: <dl>
 
  === Function specifications ===
 
-<note>Although the syntax described in the following can still be used
+Note that although the syntax described in the following can still be used
 for specifying functions we recommend that Erlang specifications as
 described in <seealso marker="doc/reference_manual:typespec"> Types
 and Function Specification</seealso> should be added to the source
@@ -764,7 +764,6 @@ marker="dialyzer:dialyzer">Dialyzer</seealso>'s can be utilized in the
 process of keeping the documentation consistent and up-to-date.
 Erlang specifications will be used unless there is also a function
 specification (a `@spec' tag followed by a type) with the same name.
-</note>
 
 The following grammar describes the form of the specifications following
 a `@spec' tag. A '`?'' suffix implies that the element is optional.
@@ -973,12 +972,12 @@ contain any annotations at all.
 
  === Type definitions ===
 
-<note>Although the syntax described in the following can still be used
+Note that although the syntax described in the following can still be used
 for specifying types we recommend that Erlang types as described in
 <seealso marker="doc/reference_manual:typespec"> Types and Function
 Specification</seealso> should be added to the source code instead.
 Erlang types will be used unless there is a type alias with the same
-name.</note>
+name.
 
 The following grammar (see above for auxiliary definitions) describes
 the form of the definitions that may follow a `@type' tag:

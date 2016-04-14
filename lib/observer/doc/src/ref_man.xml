@@ -30,10 +30,7 @@
     <file>application.sgml</file>
   </header>
   <description>
-    <p>The <em>Observer</em> application contains tools for tracing
-      and investigation of distributed systems.</p>
-    <br></br>
-  </description>
+     </description>
   <xi:include href="observer_app.xml"/>
   <xi:include href="observer.xml"/>
   <xi:include href="ttb.xml"/>

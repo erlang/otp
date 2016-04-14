@@ -35,7 +35,8 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -90,18 +91,12 @@ init_per_suite(Config) ->
 	    ?MAX_NUM_ALGORITHMS
 	    ]),
     ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    ssh:start(),
-	    [{std_simple_sftp_size,25000} % Sftp transferred data size
-	     | setup_pubkey(Config)];
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    ssh:start(),
+    [{std_simple_sftp_size,25000} % Sftp transferred data size
+     | setup_pubkey(Config)].
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
 
 
 init_per_group(Group, Config) ->
@@ -231,8 +226,11 @@ sshc_simple_exec(Config) ->
 			" ",Host," 1+1."]),
     ct:log("~p",[Cmd]),
     SshPort = open_port({spawn, Cmd}, [binary]),
+    Expect = <<"2\n">>,
     receive
-        {SshPort,{data, <<"2\n">>}} ->
+	{SshPort, {data,Expect}} ->
+	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
+	    catch port_close(SshPort),
 	    ok
     after ?TIMEOUT ->
 	    ct:fail("Did not receive answer")
@@ -273,7 +271,9 @@ sshd_simple_exec(_Config) ->
 					     ConnectionRef, ChannelId1);
 	Other1 ->
 	    ct:fail(Other1)
-    end.
+    end,
+    ssh:close(ConnectionRef).
+
 
 %%%================================================================
 %%%

@@ -201,7 +201,7 @@ RTDeps       [ApplicationVersion] []
       how to compare application versions see
       <seealso marker="doc/system_principles:versions">the
       documentation of versions in the system principles
-      guide</seealso>. Note that that the application version
+      guide</seealso>. Note that the application version
       specifies a source code version. An additional indirect
       requirement is that installed binary application of
       the specified version has been built so that it is

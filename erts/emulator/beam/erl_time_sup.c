@@ -33,6 +33,8 @@
 #include "global.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
+#include "erl_driver.h"
+#include "erl_nif.h"
  
 static erts_smp_mtx_t erts_timeofday_mtx;
 static erts_smp_mtx_t erts_get_time_mtx;
@@ -57,6 +59,7 @@ static int time_sup_initialized = 0;
 #define ERTS_MONOTONIC_TIME_TERA \
     (ERTS_MONOTONIC_TIME_GIGA*ERTS_MONOTONIC_TIME_KILO)
 
+static void init_time_napi(void);
 static void
 schedule_send_time_offset_changed_notifications(ErtsMonotonicTime new_offset);
 
@@ -286,7 +289,7 @@ read_corrected_time(int os_drift_corrected)
 	ci = time_sup.inf.c.parmon.cdata.insts.curr;
     else {
 	if (os_mtime < time_sup.inf.c.parmon.cdata.insts.prev.os_mtime)
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "OS monotonic time stepped backwards\n");
 	ci = time_sup.inf.c.parmon.cdata.insts.prev;
     }
@@ -378,7 +381,7 @@ check_time_correction(void *vesdp)
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
     if (os_mtime < ci.os_mtime)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
 
     erl_mtime = calc_corrected_erl_mtime(os_mtime, &ci, &mdiff,
@@ -795,7 +798,7 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
     erts_smp_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
     if (os_mtime < ci.os_mtime)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
 
     return calc_corrected_erl_mtime(os_mtime, &ci, NULL,
@@ -947,6 +950,8 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 #if !ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
     ErtsMonotonicTime abs_native_offset, native_offset;
 #endif
+
+    init_time_napi();
 
     erts_hl_timer_init();
 
@@ -1747,6 +1752,39 @@ erts_get_monotonic_time(ErtsSchedulerData *esdp)
     return mtime;    
 }
 
+ErtsMonotonicTime
+erts_get_time_offset(void)
+{
+    return get_time_offset();
+}
+
+static ERTS_INLINE void
+make_timestamp_value(Uint* megasec, Uint* sec, Uint* microsec,
+		     ErtsMonotonicTime mtime, ErtsMonotonicTime offset)
+{
+    ErtsMonotonicTime stime, as;
+    Uint ms;
+
+    stime = ERTS_MONOTONIC_TO_USEC(mtime + offset);
+
+    as = stime / ERTS_MONOTONIC_TIME_MEGA;
+    *megasec = ms = (Uint) (stime / ERTS_MONOTONIC_TIME_TERA);
+    *sec = (Uint) (as - (((ErtsMonotonicTime) ms)
+			 * ERTS_MONOTONIC_TIME_MEGA));
+    *microsec = (Uint) (stime - as*ERTS_MONOTONIC_TIME_MEGA);
+
+    ASSERT(((ErtsMonotonicTime) ms)*ERTS_MONOTONIC_TIME_TERA
+	   + ((ErtsMonotonicTime) *sec)*ERTS_MONOTONIC_TIME_MEGA
+	   + *microsec == stime);
+}
+
+void
+erts_make_timestamp_value(Uint* megasec, Uint* sec, Uint* microsec,
+			  ErtsMonotonicTime mtime, ErtsMonotonicTime offset)
+{
+    make_timestamp_value(megasec, sec, microsec, mtime, offset);
+}
+
 void
 get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
@@ -2164,6 +2202,146 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
     return ret;
 }
 
+
+/*
+ * Time Native API (drivers and NIFs)
+ */
+
+#define ERTS_NAPI_TIME_ERROR ((ErtsMonotonicTime) ERTS_NAPI_TIME_ERROR__)
+
+static void
+init_time_napi(void)
+{
+    /* Verify that time native api constants are as expected... */
+
+    ASSERT(sizeof(ErtsMonotonicTime) == sizeof(ErlDrvTime));
+    ASSERT(ERL_DRV_TIME_ERROR == (ErlDrvTime) ERTS_NAPI_TIME_ERROR);
+    ASSERT(ERL_DRV_TIME_ERROR < (ErlDrvTime) 0);
+    ASSERT(ERTS_NAPI_SEC__ == (int) ERL_DRV_SEC);
+    ASSERT(ERTS_NAPI_MSEC__ == (int) ERL_DRV_MSEC);
+    ASSERT(ERTS_NAPI_USEC__ == (int) ERL_DRV_USEC);
+    ASSERT(ERTS_NAPI_NSEC__ == (int) ERL_DRV_NSEC);
+
+    ASSERT(sizeof(ErtsMonotonicTime) == sizeof(ErlNifTime));
+    ASSERT(ERL_NIF_TIME_ERROR == (ErlNifTime) ERTS_NAPI_TIME_ERROR);
+    ASSERT(ERL_NIF_TIME_ERROR < (ErlNifTime) 0);
+    ASSERT(ERTS_NAPI_SEC__ == (int) ERL_NIF_SEC);
+    ASSERT(ERTS_NAPI_MSEC__ == (int) ERL_NIF_MSEC);
+    ASSERT(ERTS_NAPI_USEC__ == (int) ERL_NIF_USEC);
+    ASSERT(ERTS_NAPI_NSEC__ == (int) ERL_NIF_NSEC);
+}
+
+ErtsMonotonicTime
+erts_napi_monotonic_time(int time_unit)
+{
+    ErtsSchedulerData *esdp;
+    ErtsMonotonicTime mtime;
+
+    /* At least for now only allow schedulers to do this... */
+    esdp = erts_get_scheduler_data();
+    if (!esdp)
+	return ERTS_NAPI_TIME_ERROR;
+
+    mtime = time_sup.r.o.get_time();
+    update_last_mtime(esdp, mtime);
+
+    switch (time_unit) {
+    case ERTS_NAPI_SEC__:
+	mtime = ERTS_MONOTONIC_TO_SEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_SEC;
+	break;
+    case ERTS_NAPI_MSEC__:
+	mtime = ERTS_MONOTONIC_TO_MSEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_MSEC;
+	break;
+    case ERTS_NAPI_USEC__:
+	mtime = ERTS_MONOTONIC_TO_USEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_USEC;
+	break;
+    case ERTS_NAPI_NSEC__:
+	mtime = ERTS_MONOTONIC_TO_NSEC(mtime);
+	mtime += ERTS_MONOTONIC_OFFSET_NSEC;
+	break;
+    default:
+	return ERTS_NAPI_TIME_ERROR;
+    }
+
+    return mtime;
+}
+
+ErtsMonotonicTime
+erts_napi_time_offset(int time_unit)
+{
+    ErtsSchedulerData *esdp;
+    ErtsSystemTime offs;
+
+    /* At least for now only allow schedulers to do this... */
+    esdp = erts_get_scheduler_data();
+    if (!esdp)
+	return ERTS_NAPI_TIME_ERROR;
+
+    offs = get_time_offset();
+    switch (time_unit) {
+    case ERTS_NAPI_SEC__:
+	offs = ERTS_MONOTONIC_TO_SEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_SEC;
+	break;
+    case ERTS_NAPI_MSEC__:
+	offs = ERTS_MONOTONIC_TO_MSEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_MSEC;
+	break;
+    case ERTS_NAPI_USEC__:
+	offs = ERTS_MONOTONIC_TO_USEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_USEC;
+	break;
+    case ERTS_NAPI_NSEC__:
+	offs = ERTS_MONOTONIC_TO_NSEC(offs);
+	offs -= ERTS_MONOTONIC_OFFSET_NSEC;
+	break;
+    default:
+	return ERTS_NAPI_TIME_ERROR;
+    }
+    return offs;
+}
+
+ErtsMonotonicTime
+erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
+{
+    ErtsMonotonicTime ffreq, tfreq, denom;
+    /*
+     * Convertion between time units using floor function.
+     *
+     * Note that this needs to work also for negative
+     * values. Ordinary integer division on a negative
+     * value will give ceiling...
+     */
+
+    switch ((int) from) {
+    case ERTS_NAPI_SEC__: ffreq = 1; break;
+    case ERTS_NAPI_MSEC__: ffreq = 1000; break;
+    case ERTS_NAPI_USEC__: ffreq = 1000*1000; break;
+    case ERTS_NAPI_NSEC__: ffreq = 1000*1000*1000; break;
+    default: return ERTS_NAPI_TIME_ERROR;
+    }
+
+    switch ((int) to) {
+    case ERTS_NAPI_SEC__: tfreq = 1; break;
+    case ERTS_NAPI_MSEC__: tfreq = 1000; break;
+    case ERTS_NAPI_USEC__: tfreq = 1000*1000; break;
+    case ERTS_NAPI_NSEC__: tfreq = 1000*1000*1000; break;
+    default: return ERTS_NAPI_TIME_ERROR;
+    }
+
+    if (tfreq >= ffreq)
+	return val * (tfreq / ffreq);
+
+    denom = ffreq / tfreq;
+    if (val >= 0)
+	return val / denom;
+
+    return (val - (denom - 1)) / denom;
+}
+
 /* Built in functions */
 
 BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
@@ -2220,22 +2398,14 @@ BIF_RETTYPE time_offset_1(BIF_ALIST_1)
 BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 {
     Eterm *hp, res;
-    ErtsMonotonicTime stime, mtime, all_sec, offset;
+    ErtsMonotonicTime mtime, offset;
     Uint mega_sec, sec, micro_sec;
 
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
     update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
-    stime = ERTS_MONOTONIC_TO_USEC(mtime + offset);
-    all_sec = stime / ERTS_MONOTONIC_TIME_MEGA;
-    mega_sec = (Uint) (stime / ERTS_MONOTONIC_TIME_TERA);
-    sec = (Uint) (all_sec - (((ErtsMonotonicTime) mega_sec)
-			     * ERTS_MONOTONIC_TIME_MEGA));
-    micro_sec = (Uint) (stime - all_sec*ERTS_MONOTONIC_TIME_MEGA);
 
-    ASSERT(((ErtsMonotonicTime) mega_sec)*ERTS_MONOTONIC_TIME_TERA
-	   + ((ErtsMonotonicTime) sec)*ERTS_MONOTONIC_TIME_MEGA
-	   + micro_sec == stime);
+    make_timestamp_value(&mega_sec, &sec, &micro_sec, mtime, offset);
 
     /*
      * Mega seconds is the only value that potentially

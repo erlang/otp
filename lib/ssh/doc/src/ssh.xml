@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2014</year>
+      <year>2004</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -85,6 +85,15 @@
       <item><p><c>atom()</c> - Name of the Erlang module
       implementing the subsystem using the <c>ssh_channel</c> behavior, see
       <seealso marker="ssh_channel">ssh_channel(3)</seealso></p></item>
+      <tag><c>key_cb() =</c></tag>
+      <item>
+        <p><c>atom() | {atom(), list()}</c></p>
+        <p><c>atom()</c> - Name of the erlang module implementing the behaviours
+        <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> or
+        <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> as the
+        case maybe.</p>
+        <p><c>list()</c> - List of options that can be passed to the callback module.</p>
+      </item>
       <tag><c>channel_init_args() =</c></tag>
       <item><p><c>list()</c></p></item>
 
@@ -197,26 +206,25 @@
 	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
 	    <note>
-	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
-	      option is used. The equivalence of <c>{public_key_alg,'ssh-dss'}</c> is 
-	      <c>{preferred_algorithms, [{public_key,['ssh-dss','ssh-rsa']}]}</c>.</p>
+	      <p>This option will be removed in OTP 20, but is kept for compatibility. It is ignored if
+	      the preferred <c>pref_public_key_algs</c> option is used.</p>
 	    </note>
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the preferred algorithm fails,
-	    the other algorithm is tried. The default is
-	    to try <c><![CDATA['ssh-rsa']]></c> first.</p>
+	    the other algorithm is tried. If <c>{public_key_alg, 'ssh-rsa'}</c> is set, it is translated
+	    to <c>{pref_public_key_algs, ['ssh-rsa','ssh-dss']}</c>.  If it is 
+	    <c>{public_key_alg, 'ssh-dss'}</c>, it is translated
+	    to <c>{pref_public_key_algs, ['ssh-dss','ssh-rsa']}</c>.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
-	    <note>
-	      <p>This option is kept for compatibility. It is ignored if the <c>preferred_algorithms</c>
-	      option is used. The equivalence of <c>{pref_public_key_algs,['ssh-dss']}</c> is 
-	      <c>{preferred_algorithms, [{public_key,['ssh-dss']}]}</c>.</p>
-	    </note>
-            <p>List of public key algorithms to try to use.
-	    <c>'ssh-rsa'</c> and <c>'ssh-dss'</c> are available.
-	    Overrides <c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></p>
+            <p>List of user (client) public key algorithms to try to use.</p>
+	    <p>The default value is 
+	    <c><![CDATA[['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'] ]]></c>
+	    </p>
+	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
@@ -224,6 +232,7 @@
             <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
 	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
 	    </p>
+	    <p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	    <p>Here is an example of this option:</p>
 	<code>
 {preferred_algorithms, 
@@ -234,9 +243,9 @@
   {compression,[none,zlib]}
 }
 </code>
-        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
-algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
-kex is implicit but public_key is set explicitly.</p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
@@ -272,11 +281,13 @@ kex is implicit but public_key is set explicitly.</p>
 	    password, if the password authentication method is
 	    attempted.</p>
           </item>
-	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
+	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
-	    <p>Module implementing the behaviour
-	    <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso>.
-	    Can be used to customize the handling of public keys.
+	    <p>Module implementing the behaviour <seealso
+	    marker="ssh_client_key_api">ssh_client_key_api</seealso>. Can be used to
+	    customize the handling of public keys. If callback options are provided
+	    along with the module name, they are made available to the callback
+	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
 	  <tag><c><![CDATA[{quiet_mode, atom() = boolean()}]]></c></tag>
@@ -407,10 +418,10 @@ kex is implicit but public_key is set explicitly.</p>
 	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
           </item>
 
-	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]>
-	  <br/>where:
-	  <br/>PromptTexts = kb_int_tuple()  | fun(Peer::{IP::tuple(),Port::integer()}, User::string(), Service::string()) ->  kb_int_tuple()
-	  <br/>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
+	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]></c>
+	  <br/><c>where:</c>
+	  <br/><c>PromptTexts = kb_int_tuple()  | fun(Peer::{IP::tuple(),Port::integer()}, User::string(), Service::string()) ->  kb_int_tuple()</c>
+	  <br/><c>kb_int_tuple() = {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}</c>
 	  </tag>
 	  <item>
 	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when using <c>keyboar-interactive</c> authentication. If the fun/3 is used, it is called when the actual authentication occurs and may therefore return dynamic data like time, remote ip etc.</p>
@@ -440,6 +451,7 @@ kex is implicit but public_key is set explicitly.</p>
             <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
 	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
 	    </p>
+	    <p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	    <p>Here is an example of this option:</p>
 	<code>
 {preferred_algorithms, 
@@ -450,9 +462,9 @@ kex is implicit but public_key is set explicitly.</p>
   {compression,[none,zlib]}
 }
 </code>
-        <p>The example specifies different algorithms in the two directions (client2server and server2client), for cipher but specifies the same
-algorithms for mac and compression in both directions. The kex (key exchange) and public key algorithms are set to their default values,
-kex is implicit but public_key is set explicitly.</p>
+        <p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
@@ -504,29 +516,29 @@ kex is implicit but public_key is set explicitly.</p>
 	  <item>
 	    <p>Provides a function for password validation. This could used for calling an external system or if
 	    passwords should be stored as a hash. The fun returns:
-	      <list type="bulleted">
-		<item><c>true</c> if the user and password is valid and</item>
-		<item><c>false</c> otherwise.</item> 
-	      </list>
 	    </p>
+	    <list type="bulleted">
+	      <item><c>true</c> if the user and password is valid and</item>
+	      <item><c>false</c> otherwise.</item> 
+	    </list>
 	    <p>This fun can also be used to make delays in authentication tries for example by calling
 	      <seealso marker="stdlib:timer#sleep/1">timer:sleep/1</seealso>. To facilitate counting of failed tries
 	      the <c>State</c> variable could be used. This state is per connection only. The first time the pwdfun
 	      is called for a connection, the <c>State</c> variable has the value <c>undefined</c>.  
 	      The pwdfun can return - in addition to the values above - a new state
 	      as:
-	      <list type="bulleted">
-		<item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
-		<item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
-	      </list>
 	    </p>
+	    <list type="bulleted">
+	      <item><c>{true,  NewState:any()}</c> if the user and password is valid or</item>
+	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	    </list>
 	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
 	    can be used for this. In addition to the responses above, the following return value is introduced:
+	    </p>
 	    <list type="bulleted">
 	      <item><c>disconnect</c> if the connection should be closed immediately after sending a SSH_MSG_DISCONNECT
 	      message.</item>
 	    </list>
-	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{pwdfun, fun(User::string(), Password::string()) -> boolean()}]]></c></tag>
@@ -607,11 +619,13 @@ kex is implicit but public_key is set explicitly.</p>
 	    </p>
 	  </item>
 
-	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
+	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
-	    <p>Module implementing the behaviour
-	    <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
-	    Can be used to customize the handling of public keys.
+	    <p>Module implementing the behaviour <seealso
+	    marker="ssh_server_key_api">ssh_server_key_api</seealso>. Can be used to
+	    customize the handling of public keys. If callback options are provided
+	    along with the module name, they are made available to the callback
+	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
 	  

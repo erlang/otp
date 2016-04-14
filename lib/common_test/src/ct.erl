@@ -64,7 +64,8 @@
 -export([require/1, require/2,
 	 get_config/1, get_config/2, get_config/3,
 	 reload_config/1,
-	 log/1, log/2, log/3, log/4,
+	 escape_chars/1, escape_chars/2,
+	 log/1, log/2, log/3, log/4, log/5,
 	 print/1, print/2, print/3, print/4,
 	 pal/1, pal/2, pal/3, pal/4,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
@@ -509,44 +510,88 @@ get_testspec_terms(Tags) ->
 
 
 %%%-----------------------------------------------------------------
+%%% @spec escape_chars(IoList1) -> IoList2 | {error,Reason}
+%%%      IoList1 = iolist()
+%%%      IoList2 = iolist()
+%%%
+%%% @doc Escape special characters to be printed in html log
+%%%
+escape_chars(IoList) ->
+    ct_logs:escape_chars(IoList).
+
+%%%-----------------------------------------------------------------
+%%% @spec escape_chars(Format, Args) -> IoList | {error,Reason}
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Escape special characters to be printed in html log
+%%%
+escape_chars(Format, Args) ->
+    try io_lib:format(Format, Args) of
+	IoList ->
+	    ct_logs:escape_chars(IoList)
+    catch
+	_:Reason ->
+	    {error,Reason}
+    end.
+
+%%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
-%%% @equiv log(default,50,Format,[])
+%%% @equiv log(default,50,Format,[],[])
 log(Format) ->
-    log(default,?STD_IMPORTANCE,Format,[]).
+    log(default,?STD_IMPORTANCE,Format,[],[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(X1,X2) -> ok
 %%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv log(Category,Importance,Format,Args)
+%%% @equiv log(Category,Importance,Format,Args,[])
 log(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
 	   is_integer(X1) -> {default,X1,X2,[]};
 	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    log(Category,Importance,Format,Args).
+    log(Category,Importance,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Importance | Format | Args
+%%%      X3 = Format | Args | Opts
+%%% @equiv log(Category,Importance,Format,Args,Opts)
+log(X1,X2,X3) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,[]};
+	   is_integer(X1)              -> {default,X1,X2,X3,[]};
+	   is_list(X1), is_list(X2)    -> {default,?STD_IMPORTANCE,X1,X2,X3}
+	end,
+    log(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec log(X1,X2,X3,X4) -> ok
 %%%      X1 = Category | Importance
 %%%      X2 = Importance | Format
 %%%      X3 = Format | Args
-%%% @equiv log(Category,Importance,Format,Args)
-log(X1,X2,X3) ->
-    {Category,Importance,Format,Args} = 
-	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
-	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
-	   is_integer(X1)              -> {default,X1,X2,X3}
+%%%      X4 = Args | Opts
+%%% @equiv log(Category,Importance,Format,Args,Opts)
+log(X1,X2,X3,X4) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,X4};
+	   is_integer(X1)              -> {default,X1,X2,X3,X4}
 	end,
-    log(Category,Importance,Format,Args).
+    log(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec log(Category,Importance,Format,Args) -> ok
+%%% @spec log(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = esc_chars | no_css
 %%%
 %%% @doc Printout from a test case to the log file. 
 %%%
@@ -558,8 +603,8 @@ log(X1,X2,X3) ->
 %%% and default value for <c>Args</c> is <c>[]</c>.</p>
 %%% <p>Please see the User's Guide for details on <c>Category</c>
 %%% and <c>Importance</c>.</p>
-log(Category,Importance,Format,Args) ->
-    ct_logs:tc_log(Category,Importance,Format,Args).
+log(Category,Importance,Format,Args,Opts) ->
+    ct_logs:tc_log(Category,Importance,Format,Args,Opts).
 
 
 %%%-----------------------------------------------------------------

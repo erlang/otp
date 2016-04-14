@@ -90,7 +90,7 @@ void erts_fp_check_init_error(volatile unsigned long *fpexnp)
     snprintf(buf, sizeof buf, "ERTS_FP_CHECK_INIT at %p: detected unhandled FPE at %p\r\n",
 	     __builtin_return_address(0), (void*)*fpexnp);
     if (write(2, buf, strlen(buf)) <= 0)
-	erl_exit(ERTS_ABORT_EXIT, "%s", buf);
+	erts_exit(ERTS_ABORT_EXIT, "%s", buf);
     *fpexnp = 0;
 #if defined(__i386__) || defined(__x86_64__)
     erts_restore_fpu();

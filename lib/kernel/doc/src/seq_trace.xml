@@ -127,6 +127,35 @@ seq_trace:set_token(OldToken), % activate the trace token again
               enables/disables a timestamp to be generated for each
               traced event. Default is <c>false</c>.</p>
           </item>
+          <tag><c>set_token(strict_monotonic_timestamp, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+            enables/disables a strict monotonic timestamp to be generated
+	    for each traced event. Default is <c>false</c>. Timestamps will
+	    consist of
+	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer. The time-stamp has the same format and value
+	    as produced by <c>{erlang:monotonic_time(nano_seconds),
+	    erlang:unique_integer([monotonic])}</c>.</p>
+          </item>
+          <tag><c>set_token(monotonic_timestamp, <anno>Bool</anno>)</c></tag>
+          <item>
+            <p>A trace token flag (<c>true | false</c>) which
+            enables/disables a strict monotonic timestamp to be generated
+	    for each traced event. Default is <c>false</c>. Timestamps
+	    will use
+	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso>. The time-stamp has the same
+	    format and value as produced by
+	    <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+          </item>
+	  <p>If multiple timestamp flags are passed, <c>timestamp</c> has
+	  precedence over <c>strict_monotonic_timestamp</c> which
+	  in turn has precedence over <c>monotonic_timestamp</c>. All
+	  timestamp flags are remembered, so if two are passed
+	  and the one with highest precedence later is disabled
+	  the other one will become active.</p>
         </taglist>
       </desc>
     </func>

@@ -1794,7 +1794,8 @@ os_prompt% </pre>
 	  </item>
 	</taglist>
         <note><p>On many platforms, the OS supports only status
-        codes 0-255.</p></note>
+        codes 0-255. A too large status code will be truncated by clearing
+	the high bits.</p></note>
 	<p>For integer <c><anno>Status</anno></c>, the Erlang runtime system
           closes all ports and allows async threads to finish their
           operations before exiting. To exit without such flushing, use
@@ -5684,8 +5685,31 @@ true</pre>
 	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="statistics" arity="1" clause_i="1"/>
+      <fsummary>Information about active processes and ports.</fsummary>
+      <desc><marker id="statistics_active_tasks"></marker>
+	<p>
+	  Returns a list where each element represents the amount
+	  of active processes and ports on each run queue and its
+	  associated scheduler. That is, the number of processes and
+	  ports that are ready to run, or are currently running. The
+	  element location in the list corresponds to the scheduler
+	  and its run queue. The first element corresponds to scheduler
+	  number 1 and so on. The information is <em>not</em> gathered
+	  atomically. That is, the result is not necessarily a
+	  consistent snapshot of the state, but instead quite
+	  efficiently gathered. See also,
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>, and
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="2"/>
       <fsummary>Information about context switches.</fsummary>
       <desc>
         <p>Returns the total number of context switches since the
@@ -5694,7 +5718,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="2"/>
+      <name name="statistics" arity="1" clause_i="3"/>
       <fsummary>Information about exact reductions.</fsummary>
       <desc>
         <marker id="statistics_exact_reductions"></marker>
@@ -5708,7 +5732,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="3"/>
+      <name name="statistics" arity="1" clause_i="4"/>
       <fsummary>Information about garbage collection.</fsummary>
       <desc>
         <p>Returns information about garbage collection, for example:</p>
@@ -5720,7 +5744,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="4"/>
+      <name name="statistics" arity="1" clause_i="5"/>
       <fsummary>Information about I/O.</fsummary>
       <desc>
         <p>Returns <c><anno>Input</anno></c>,
@@ -5731,7 +5755,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="5"/>
+      <name name="statistics" arity="1" clause_i="6"/>
       <fsummary>Information about reductions.</fsummary>
       <desc>
         <marker id="statistics_reductions"></marker>
@@ -5749,16 +5773,43 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="6"/>
-      <fsummary>Information about the run-queue.</fsummary>
-      <desc>
-        <p>Returns the total length of run-queues, that is, the number
-          of processes that are ready to run on all available run-queues.</p>
+      <name name="statistics" arity="1" clause_i="7"/>
+      <fsummary>Information about the run-queues.</fsummary>
+      <desc><marker id="statistics_run_queue"></marker>
+        <p>
+	  Returns the total length of the run-queues. That is, the number
+          of processes and ports that are ready to run on all available
+	  run-queues. The information is gathered atomically. That
+	  is, the result is a consistent snapshot of the state, but
+	  this operation is much more expensive compared to
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	  This especially when a large amount of schedulers is used.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="7"/>
+      <name name="statistics" arity="1" clause_i="8"/>
+      <fsummary>Information about the run-queue lengths.</fsummary>
+      <desc><marker id="statistics_run_queue_lengths"></marker>
+	<p>
+	  Returns a list where each element represents the amount
+	  of processes and ports ready to run for each run queue. The
+	  element location in the list corresponds to the run queue
+	  of a scheduler. The first element corresponds to the run
+	  queue of scheduler number 1 and so on. The information is
+	  <em>not</em> gathered atomically. That is, the result is
+	  not necessarily a consistent snapshot of the state, but
+	  instead quite efficiently gathered. See also,
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>,
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>, and
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="9"/>
       <fsummary>Information about runtime.</fsummary>
       <desc>
         <p>Returns information about runtime, in milliseconds.</p>
@@ -5773,7 +5824,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="8"/>
+      <name name="statistics" arity="1" clause_i="10"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
       <marker id="statistics_scheduler_wall_time"></marker>
@@ -5844,7 +5895,44 @@ ok
     </func>
 
     <func>
-      <name name="statistics" arity="1" clause_i="9"/>
+      <name name="statistics" arity="1" clause_i="11"/>
+      <fsummary>Information about active processes and ports.</fsummary>
+      <desc><marker id="statistics_total_active_tasks"></marker>
+	<p>
+	  Returns the total amount of active processes and ports in
+	  the system. That is, the number of processes and ports that
+	  are ready to run, or are currently running. The information
+	  is <em>not</em> gathered atomically. That is, the result
+	  is not necessarily a consistent snapshot of the state, but
+	  instead quite efficiently gathered. See also,
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>, and
+	  <seealso marker="#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="12"/>
+      <fsummary>Information about the run-queue lengths.</fsummary>
+      <desc><marker id="statistics_total_run_queue_lengths"></marker>
+        <p>
+	  Returns the total length of the run-queues. That is, the number
+          of processes and ports that are ready to run on all available
+	  run-queues. The information is <em>not</em> gathered atomically.
+	  That is, the result is not necessarily a consistent snapshot of
+	  the state, but much more efficiently gathered compared to
+	  <seealso marker="#statistics_run_queue"><c>statistics(run_queue)</c></seealso>.
+	  See also,
+	  <seealso marker="#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso>,
+	  <seealso marker="#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>, and
+	  <seealso marker="#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="statistics" arity="1" clause_i="13"/>
       <fsummary>Information about wall clock.</fsummary>
       <desc>
         <p>Returns information about wall clock. <c>wall_clock</c> can
@@ -7652,6 +7740,14 @@ ok
              <c>inactive</c>, and later <c>active</c> when the port
 	     callback returns.</p>
           </item>
+          <tag><c>monotonic_timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will use
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso>. The time-stamp (Ts) has the same
+	    format and value as produced by
+	    <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+          </item>
           <tag><c>runnable_procs</c></tag>
           <item>
           <p>If a process is put into or removed from the run queue, a
@@ -7671,6 +7767,25 @@ ok
           <p>If a scheduler is put to sleep or awoken, a message,
              <c>{profile, scheduler, Id, State, NoScheds, Ts}</c>, is
              sent to <c><anno>ProfilerPid</anno></c>.</p>
+          </item>
+          <tag><c>strict_monotonic_timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will consisting of
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer. The time-stamp (Ts) has the same format and value
+	    as produced by <c>{erlang:monotonic_time(nano_seconds),
+	    erlang:unique_integer([monotonic])}</c>.</p>
+          </item>
+          <tag><c>timestamp</c></tag>
+          <item>
+            <p>Timestamps in profile messages will include a
+            time-stamp (Ts) that has the same form as returned by
+            <c>erlang:now()</c>. This is also the default if no
+	    timestamp flag is given. If <c>cpu_timestamp</c> has
+	    been enabled via <c>erlang:trace/3</c>, this will also
+	    effect the timestamp produced in profiling messages
+	    when <c>timestamp</c> flag is enabled.</p>
           </item>
         </taglist>
         <note><p><c>erlang:system_profile</c> is considered experimental
@@ -8031,13 +8146,36 @@ timestamp() ->
           <tag><c>cpu_timestamp</c></tag>
           <item>
             <p>A global trace flag for the Erlang node that makes all
-              trace time-stamps to be in CPU time, not wall clock time.
+              trace time-stamps using the <c>timestamp</c> flag to be
+	      in CPU time, not wall clock time. That is, <c>cpu_timestamp</c>
+	      will not be used if <c>monotonic_timestamp</c>, or
+	      <c>strict_monotonic_timestamp</c> is enabled.
               Only allowed with <c>PidSpec==all</c>. If the host
               machine OS does not support high-resolution
               CPU time measurements, <c>trace/3</c> exits with
               <c>badarg</c>. Notice that most OS do
               not synchronize this value across cores, so be prepared
               that time might seem to go backwards when using this option.</p>
+          </item>
+          <tag><c>monotonic_timestamp</c></tag>
+          <item>
+            <p>Includes an
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> time-stamp in all trace messages. The
+            time-stamp (Ts) has the same format and value as produced by
+            <c>erlang:monotonic_time(nano_seconds)</c>. This flag overrides
+	    the <c>cpu_timestamp</c> flag.</p>
+          </item>
+          <tag><c>strict_monotonic_timestamp</c></tag>
+          <item>
+            <p>Includes an timestamp consisting of
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seealso> and a monotonically increasing
+	    integer in all trace messages. The time-stamp (Ts) has the
+	    same format and value as produced by
+            <c>{erlang:monotonic_time(nano_seconds),
+	    erlang:unique_integer([monotonic])}</c>. This flag overrides
+	    the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>arity</c></tag>
           <item>
@@ -8085,9 +8223,16 @@ timestamp() ->
 	in the following list. <c>Pid</c> is the process identifier of the
 	traced process in which the traced event has occurred. The
 	third tuple element is the message tag.</p>
-        <p>If flag <c>timestamp</c> is given, the first tuple
-          element is <c>trace_ts</c> instead, and the time-stamp
-          is added last in the message tuple.</p>
+        <p>If flag <c>timestamp</c>, <c>strict_monotonic_timestamp</c>, or
+	<c>monotonic_timestamp</c> is given, the first tuple
+        element is <c>trace_ts</c> instead, and the time-stamp
+        is added as an extra element last in the message tuple. If
+	multiple timestamp flags are passed, <c>timestamp</c> has
+	precedence over <c>strict_monotonic_timestamp</c> which
+	in turn has precedence over <c>monotonic_timestamp</c>. All
+	timestamp flags are remembered, so if two are passed
+	and the one with highest precedence later is disabled
+	the other one will become active.</p>
         <marker id="trace_3_trace_messages"></marker>
         <taglist>
           <tag><c>{trace, Pid, 'receive', Msg}</c></tag>
@@ -8182,14 +8327,14 @@ timestamp() ->
             <p>When <c>Pid</c> is scheduled to run. The process
               runs in function <c>{M, F, Arity}</c>. On some rare
               occasions, the current function cannot be determined,
-              then the last element <c>Arity</c> is <c>0</c>.</p>
+              then the last element is <c>0</c>.</p>
           </item>
           <tag><c>{trace, Pid, out, {M, F, Arity} | 0}</c></tag>
           <item>
             <p>When <c>Pid</c> is scheduled out. The process was
               running in function {M, F, Arity}. On some rare occasions,
               the current function cannot be determined, then the last
-              element <c>Arity</c> is <c>0</c>.</p>
+              element is <c>0</c>.</p>
           </item>
           <tag><c>{trace, Pid, gc_start, Info}</c></tag>
           <item>

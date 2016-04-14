@@ -135,7 +135,6 @@
 -define(_assertThrow(Term, Expr), ?_assertException(throw, Term, Expr)).
 -define(_assertNotException(Class, Term, Expr),
 	?_test(?assertNotException(Class, Term, Expr))).
--define(_assertReceive(Guard, Expr), ?_test(?assertReceive(Guard, Expr))).
 
 %% Macros for running operating system commands. (Note that these
 %% require EUnit to be present at runtime, or at least eunit_lib.)

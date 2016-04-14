@@ -30,6 +30,7 @@
 
 -include("ssh.hrl").
 -include("ssh_xfer.hrl").
+-include("ssh_connect.hrl"). %% For ?DEFAULT_PACKET_SIZE and ?DEFAULT_WINDOW_SIZE
 
 %%--------------------------------------------------------------------
 %% External exports
@@ -47,6 +48,7 @@
 	  file_handler,			% atom() - callback module 
 	  file_state,                   % state for the file callback module
 	  max_files,                    % integer >= 0 max no files sent during READDIR
+	  options,			% from the subsystem declaration
 	  handles			% list of open handles
 	  %% handle is either {<int>, directory, {Path, unread|eof}} or
 	  %% {<int>, file, {Path, IoDevice}}
@@ -121,6 +123,7 @@ init(Options) ->
     MaxLength = proplists:get_value(max_files, Options, 0),
     Vsn = proplists:get_value(sftpd_vsn, Options, 5),
     {ok,  State#state{cwd = CWD, root = Root, max_files = MaxLength,
+		      options = Options,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
 
@@ -164,7 +167,9 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
 %% Description: Handles other messages
 %%--------------------------------------------------------------------
 handle_msg({ssh_channel_up, ChannelId,  ConnectionManager}, 
-	   #state{xf =Xf} = State) ->
+	   #state{xf = Xf,
+		 options = Options} = State) ->
+    maybe_increase_recv_window(ConnectionManager,  ChannelId, Options),
     {ok,  State#state{xf = Xf#ssh_xfer{cm = ConnectionManager,
 				       channel = ChannelId}}}.
 
@@ -934,3 +939,18 @@ rename(Path, Path2, ReqId, State0) ->
     {Status, FS1} = FileMod:rename(Path, Path2, FS0),
     State1 = State0#state{file_state = FS1},
     send_status(Status, ReqId, State1).
+
+
+maybe_increase_recv_window(ConnectionManager, ChannelId, Options) ->
+    WantedRecvWindowSize = 
+	proplists:get_value(recv_window_size, Options, 1000000),
+    NumPkts = WantedRecvWindowSize div ?DEFAULT_PACKET_SIZE,
+    Increment = NumPkts*?DEFAULT_PACKET_SIZE - ?DEFAULT_WINDOW_SIZE,
+
+    if
+	Increment > 0 ->
+	    ssh_connection:adjust_window(ConnectionManager, ChannelId, 
+					 Increment);
+	Increment =< 0 ->
+	    do_nothing
+    end.

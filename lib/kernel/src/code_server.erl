@@ -313,7 +313,7 @@ handle_call(get_path, {_From,_Tag}, S) ->
     {reply,S#state.path,S};
 
 %% Messages to load, delete and purge modules/files.
-handle_call({load_abs,File,Mod}, Caller, S) ->
+handle_call({load_abs,File,Mod}, Caller, S) when is_atom(Mod) ->
     case modp(File) of
 	false ->
 	    {reply,{error,badarg},S};
@@ -1222,15 +1222,10 @@ modp(Atom) when is_atom(Atom) -> true;
 modp(List) when is_list(List) -> int_list(List);
 modp(_)                       -> false.
 
-load_abs(File, Mod0, Caller, St) ->
+load_abs(File, Mod, Caller, St) ->
     Ext = objfile_extension(),
     FileName0 = lists:concat([File, Ext]),
     FileName = absname(FileName0),
-    Mod = if Mod0 =:= [] ->
-		  list_to_atom(filename:basename(FileName0, Ext));
-	     true ->
-		  Mod0
-	  end,
     case erl_prim_loader:get_file(FileName) of
 	{ok,Bin,_} ->
 	    try_load_module(FileName, Mod, Bin, Caller, St);

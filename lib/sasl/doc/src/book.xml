@@ -22,7 +22,7 @@
     
     </legalnotice>
 
-    <title>System Application Support Libraries (SASL)</title>
+    <title>System Architecture Support Libraries (SASL)</title>
     <prepared>OTP Team</prepared>
     <docno></docno>
     <date>1999-04-22</date>
@@ -31,7 +31,7 @@
   </header>
   <insidecover>
   </insidecover>
-  <pagetext>System Application Support Libraries (SASL)</pagetext>
+  <pagetext>System Architecture Support Libraries (SASL)</pagetext>
   <preamble>
     <contents level="2"></contents>
   </preamble>

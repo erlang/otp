@@ -931,7 +931,10 @@ call_crypto_server(Req) ->
     end.
 
 call_crypto_server_1(Req) ->
-    {ok, _} = gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []),
+    case gen_server:start({local,?CRYPTO_KEY_SERVER}, ?MODULE, [], []) of
+	{ok, _} -> ok;
+	{error, {already_started, _}} -> ok
+    end,
     erlang:yield(),
     call_crypto_server(Req).
 

@@ -33,7 +33,33 @@
   <appsummary>The ssl application provides secure communication over
   sockets.</appsummary>
 
-  <description></description>
+  <description>
+    <p>
+      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+    </p>
+    <list type="bulleted">
+      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1, and TLS-1.2.</item>
+      <item>For security reasons SSL-2.0 is not supported.</item>
+      <item>For security reasons SSL-3.0 is no longer supported by default,
+      but can be configured.</item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported,
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Elliptic Curve cipher suites are supported if the Crypto 
+      application supports it and named curves are used.
+      </item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
+      <item>IDEA cipher suites are not supported as they have
+      become deprecated by the latest TLS specification so it is not 
+      motivated to implement them.</item>
+      <item>CRL validation is supported.</item>
+      <item>Policy certificate extensions are not supported.</item>
+      <item>'Server Name Indication' extension client side
+      (RFC 6066, Section 3) is supported.</item>
+    </list>
+   </description>
+
   <section>
     <title>DEPENDENCIES</title>
     <p>The SSL application uses the <c>public_key</c> and
@@ -58,7 +84,7 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c><![CDATA[protocol_version =  <seealso marker="kernel:error_logger">ssl:protocol()</seealso> <optional>]]></c>.</tag>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       protocols currently supported by the SSL application.
@@ -66,17 +92,24 @@
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
-      <item><p>Lifetime of the session data in seconds.</p></item>
+      <item><p>Maximum lifetime of the session data in seconds.</p></item>
 
       <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
       <item><p>Name of the session cache callback module that implements
       the <c>ssl_session_cache_api</c> behavior. Defaults to
-      <c>ssl_session_cache.erl</c>.</p></item>
+      <c>ssl_session_cache</c>.</p></item>
 
       <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
 
       <item><p>List of extra user-defined arguments to the <c>init</c> function
       in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/>
+      <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <item><p>Limits the growth of the clients/servers session cache,
+      if the maximum number of sessions is reached, the current cache entries will
+      be invalidated regardless of their remaining lifetime. Defaults to 1000.
+      </p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
@@ -103,7 +136,10 @@
 
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
-    <p>The SSL application uses the default <seealso marker="kernel:error_logger">OTP error logger</seealso> to log unexpected errors and TLS alerts. The logging of TLS alerts may be turned off with the <c>log_alert</c> option. </p>
+    <p>The SSL application uses the default <seealso
+    marker="kernel:error_logger">OTP error logger</seealso> to log
+    unexpected errors and TLS alerts. The logging of TLS alerts may be
+    turned off with the <c>log_alert</c> option. </p>
   </section>
 
   <section>

@@ -2042,6 +2042,7 @@ static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary key_bin, data_bin;
     AES_KEY aes_key;
     int i;
+    int j;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;    
 
@@ -2064,7 +2065,9 @@ static ERL_NIF_TERM aes_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
-    AES_ecb_encrypt(data_bin.data, ret_ptr, &aes_key, i);
+    for (j = 0; j < data_bin.size; j += 16) {
+	AES_ecb_encrypt(data_bin.data+j, ret_ptr+j, &aes_key, i);
+    }
     CONSUME_REDS(env,data_bin);
     return ret;
 }
@@ -3565,6 +3568,9 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 #endif
 	} else
 	    goto out_err;
+
+        if (!group)
+            goto out_err;
 
 	if (enif_inspect_binary(env, prime[2], &seed)) {
 	    EC_GROUP_set_seed(group, seed.data, seed.size);

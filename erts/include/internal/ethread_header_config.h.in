@@ -166,6 +166,10 @@
 /* Define if you use a gcc that supports the double word cmpxchg instruction */
 #undef ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT
 
+/* Define if gcc wont let you clobber ebx with cmpxchg8b and position
+   independent code */
+#undef ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX
+
 /* Define if you get a register shortage with cmpxchg8b and position independent code */
 #undef ETHR_CMPXCHG8B_REGISTER_SHORTAGE
 

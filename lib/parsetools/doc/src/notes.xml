@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the documentation of the error tuple returned by
+	    Yecc and Leex.</p>
+          <p>
+	    Own Id: OTP-13031</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.1</title>
 
     <section><title>Improvements and New Features</title>

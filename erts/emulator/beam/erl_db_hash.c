@@ -3028,7 +3028,7 @@ void db_check_table_hash(DbTable *tbl)
 	if ((list = BUCKET(tb,j)) != 0) {
 	    while (list != 0) {
 		if (!is_tuple(make_tuple(list->dbterm.tpl))) {
-		    erl_exit(1, "Bad term in slot %d of ets table", j);
+		    erts_exit(ERTS_ERROR_EXIT, "Bad term in slot %d of ets table", j);
 		}
 		list = list->next;
 	    }

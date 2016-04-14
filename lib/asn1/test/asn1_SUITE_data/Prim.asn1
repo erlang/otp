@@ -60,4 +60,11 @@ BEGIN
     e BOOLEAN,
     magic INTEGER
   }
+
+  Longitude ::= INTEGER {
+        oneMicrodegreeEast(10),
+        oneMicrodegreeWest(-10),
+        unavailable(1800000001)
+  } (-1799999999..1800000001)
+
 END

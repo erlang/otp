@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ iter(R, Header, Schema, Fun, Acc, BupItems) ->
 safe_apply(R, write, [_, Items]) when Items =:= [] ->
     R;
 safe_apply(R, What, Args) ->
-    Abort = fun(Re) -> abort_restore(R, What, Args, Re) end,
+    Abort = abort_restore_fun(R, What, Args),
     Mod = R#restore.bup_module,
     try apply(Mod, What, Args) of
 	{ok, Opaque, Items} when What =:= read ->
@@ -126,6 +126,10 @@ safe_apply(R, What, Args) ->
     catch _:Re ->
 	    Abort(Re)
     end.
+
+-spec abort_restore_fun(_, _, _) -> fun((_) -> no_return()).
+abort_restore_fun(R, What, Args) ->
+    fun(Re) -> abort_restore(R, What, Args, Re) end.
 
 abort_restore(R = #restore{bup_module=Mod}, What, Args, Reason) ->
     dbg_out("Restore aborted. ~p:~p~p -> ~p~n",

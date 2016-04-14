@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -27,14 +27,10 @@
     <docno></docno>
     <date>1998-05-12</date>
     <rev>B</rev>
-    <file>part.sgml</file>
+    <file>part.xml</file>
   </header>
-  <description>
-    <p><em>Debugger</em> is a graphical tool which can be used for
-      debugging and testing of Erlang programs. For example, breakpoints
-      can be set, code can be single stepped and variable values can be
-      displayed and changed.</p>
-  </description>
+  <description></description>
+  <xi:include href="introduction.xml"/>
   <xi:include href="debugger_chapter.xml"/>
 </part>
 

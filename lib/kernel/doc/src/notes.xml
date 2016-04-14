@@ -31,6 +31,164 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>code:load_abs([10100])</c> would bring down the
+	    entire runtime system and create a crash dump. Corrected
+	    to generate an error exception in the calling
+	    process.</p>
+	    <p>Also corrected specs for code loading functions and
+	    added more information in the documentation about the
+	    error reasons returned by code-loading functions.</p>
+          <p>
+	    Own Id: OTP-9375</p>
+        </item>
+        <item>
+          <p>
+	    <seealso
+	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seealso>
+	    was not <seealso
+	    marker="erts:time_correction#Time_Warp_Safe_Code">time
+	    warp safe</seealso>. This since it used the same time as
+	    returned by <seealso
+	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seealso>
+	    when calculating timeout. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13254 Aux Id: OTP-11997, OTP-13222 </p>
+        </item>
+        <item>
+	    <p> Correct the contract for <c>inet:getifaddrs/1</c>.
+	    </p>
+          <p>
+	    Own Id: OTP-13335 Aux Id: ERL-95 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Time warp safety improvements.</p>
+          <p>
+	    Introduced the options <c>monotonic_timestamp</c>, and
+	    <c>strict_monotonic_timestamp</c> to the trace,
+	    sequential trace, and system profile functionality. This
+	    since the already existing <c>timestamp</c> option is not
+	    time warp safe.</p>
+          <p>
+	    Introduced the option <c>safe_fixed_monotonic_time</c> to
+	    <c>ets:info/2</c> and <c>dets:info/2</c>. This since the
+	    already existing <c>safe_fixed</c> option is not time
+	    warp safe.</p>
+          <p>
+	    Own Id: OTP-13222 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Add validation callback for heart</p>
+          <p>
+	    The erlang heart process may now have a validation
+	    callback installed. The validation callback will be
+	    executed, if present, before any heartbeat to heart port
+	    program. If the validation fails, or stalls, no heartbeat
+	    will be sent and the node will go down.</p>
+          <p>
+	    With the option <c>'check_schedulers'</c> heart executes
+	    a responsiveness check of the schedulers before a
+	    heartbeat is sent to the port program. If the
+	    responsiveness check fails, the heartbeat will not be
+	    performed (as intended).</p>
+          <p>
+	    Own Id: OTP-13250</p>
+        </item>
+        <item>
+          <p>
+	    Clarify documentation of <c>net_kernel:allow/1</c></p>
+          <p>
+	    Own Id: OTP-13299</p>
+        </item>
+        <item>
+          <p>
+	    EPMD supports both IPv4 and IPv6</p>
+          <p>
+	    Also affects oldest supported windows version.</p>
+          <p>
+	    Own Id: OTP-13364</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Kernel 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Host name lookups though inet_res, the Erlang DNS
+	    resolver, are now done case insensitively according to
+	    RFC 4343. Patch by Holger Weiß.</p>
+          <p>
+	    Own Id: OTP-12836</p>
+        </item>
+        <item>
+          <p>
+	    IPv6 distribution handler has been updated to share code
+	    with IPv4 so that all features are supported in IPv6 as
+	    well. A bug when using an IPv4 address as hostname has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-13040</p>
+        </item>
+        <item>
+          <p>
+	    Caching of host names in the internal DNS resolver
+	    inet_res has been made character case insensitive for
+	    host names according to RFC 4343.</p>
+          <p>
+	    Own Id: OTP-13083</p>
+        </item>
+        <item>
+	    <p>Cooked file mode buffering has been fixed so
+	    file:position/2 now works according to Posix on Posix
+	    systems i.e. when file:position/2 returns an error the
+	    file pointer is unaffected.</p> <p>The Windows system
+	    documentation, however, is unclear on this point so the
+	    documentation of file:position/2 still does not promise
+	    anything.</p> <p>Cooked file mode file:pread/2,3 and
+	    file:pwrite/2,3 have been corrected to honor character
+	    encoding like the combination of file:position/2 and
+	    file:read/2 or file:write/2 already does. This is
+	    probably not very useful since the character
+	    representation on the caller's side is latin1,
+	    period.</p>
+          <p>
+	    Own Id: OTP-13155 Aux Id: PR#646 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add {line_delim, byte()} option to inet:setopts/2 and
+	    decode_packet/3</p>
+          <p>
+	    Own Id: OTP-12837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 4.1</title>
 
     <section><title>Improvements and New Features</title>
@@ -184,6 +342,22 @@
     </section>
 
 </section>
+
+<section><title>Kernel 3.2.0.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The 'raw' socket option could not be used multiple times
+	    in one call to any e.g gen_tcp function because only one
+	    of the occurrences were used. This bug has been fixed,
+	    and also a small bug concerning propagating error codes
+	    from within inet:setopts/2.</p>
+          <p>Own Id: OTP-11482 Aux Id: seq12872 </p>
+          </item>
+        </list>
+      </section>
+    </section>
+
 
 <section><title>Kernel 3.2</title>
 

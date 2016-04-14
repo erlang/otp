@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,10 +51,14 @@
 -define(GLint64,64/native-signed).
 -type vertex() :: {float(), float(), float()}.
 -type enum() :: non_neg_integer().   %% See wx/include/gl.hrl or glu.hrl
--type matrix() :: {float(),float(),float(),float(),
+-type matrix12() :: {float(),float(),float(),float(),
+                   float(),float(),float(),float(),
+                   float(),float(),float(),float()}.
+-type matrix16() :: {float(),float(),float(),float(),
                    float(),float(),float(),float(),
                    float(),float(),float(),float(),
                    float(),float(),float(),float()}.
+-type matrix() :: matrix12() | matrix16().
 -type mem() :: binary() | tuple().   %% Memory block
 
 -export([tesselate/2,build1DMipmapLevels/9,build1DMipmaps/6,build2DMipmapLevels/10,

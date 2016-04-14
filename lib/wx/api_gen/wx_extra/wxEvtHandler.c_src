@@ -42,11 +42,15 @@ case 101: { // wxEvtHandler::Disconnect
 
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   if(eventType > 0) {
+    if(recurse_level > 1) {
+      delayed_delete->Append(Ecmd.Save());
+    } else {
      bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
                                     (wxObjectEventFunction)(wxEventFunction)
                                     &wxeEvtListener::forward,
                                     NULL, Listener);
      rt.addBool(Result);
+    }
   } else {
     rt.addAtom("badarg");
     rt.addAtom("event_type");

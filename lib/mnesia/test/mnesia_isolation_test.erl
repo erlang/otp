@@ -39,7 +39,7 @@ groups() ->
     [{locking, [],
       [no_conflict, simple_queue_conflict,
        advanced_queue_conflict, simple_deadlock_conflict,
-       advanced_deadlock_conflict, lock_burst,
+       advanced_deadlock_conflict, schema_deadlock, lock_burst,
        {group, sticky_locks}, {group, unbound_locking},
        {group, admin_conflict}, nasty]},
      {sticky_locks, [], [basic_sticky_functionality]},
@@ -148,20 +148,32 @@ simple_queue_conflict(Config) when is_list(Config) ->
     fun_loop(Fun, AllSharedLocks, OneExclusiveLocks), 
     ok.
 
-wait_for_lock(Pid, _Nodes, 0) ->
+wait_for_lock(Pid, Nodes, Retry) ->
+    wait_for_lock(Pid, Nodes, Retry, queue).
+
+wait_for_lock(Pid, _Nodes, 0, queue) ->
     Queue = mnesia:system_info(lock_queue),
     ?error("Timeout while waiting for lock on Pid ~p in queue ~p~n", [Pid, Queue]);
-wait_for_lock(Pid, Nodes, N) ->
-    rpc:multicall(Nodes, sys, get_status, [mnesia_locker]), 
-    List = [rpc:call(Node, mnesia, system_info, [lock_queue]) || Node <- Nodes],
+wait_for_lock(Pid, _Nodes, 0, held) ->
+    Held = mnesia:system_info(held_locks),
+    ?error("Timeout while waiting for lock on Pid ~p (held) ~p~n", [Pid, Held]);
+wait_for_lock(Pid, Nodes, N, Where) ->
+    rpc:multicall(Nodes, sys, get_status, [mnesia_locker]),
+    List = case Where of
+	       queue ->
+		   [rpc:call(Node, mnesia, system_info, [lock_queue]) || Node <- Nodes];
+	       held ->
+		   [rpc:call(Node, mnesia, system_info, [held_locks]) || Node <- Nodes]
+           end,
     Q = lists:append(List),
-    check_q(Pid, Q, Nodes, N).
+    check_q(Pid, Q, Nodes, N, Where).
 
-check_q(Pid, [{_Oid, _Op, Pid, _Tid, _WFT} | _Tail], _N, _Count) -> ok;
-check_q(Pid, [_ | Tail], N, Count) -> check_q(Pid, Tail, N, Count);
-check_q(Pid, [], N, Count) ->
-    timer:sleep(500),
-    wait_for_lock(Pid, N, Count - 1).
+check_q(Pid, [{_Oid, _Op, Pid, _Tid, _WFT} | _Tail], _N, _Count, _Where) -> ok;
+check_q(Pid, [{_Oid, _Op, {tid,_,Pid}} | _Tail], _N, _Count, _Where) -> ok;
+check_q(Pid, [_ | Tail], N, Count, Where) -> check_q(Pid, Tail, N, Count, Where);
+check_q(Pid, [], N, Count, Where) ->
+    timer:sleep(200),
+    wait_for_lock(Pid, N, Count - 1, Where).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -269,6 +281,43 @@ advanced_deadlock_conflict(Config) when is_list(Config) ->
     ?match([], mnesia:system_info(held_locks)), 
     ?match([], mnesia:system_info(lock_queue)), 
     ok.
+
+%%  Verify (and regression test) deadlock in del_table_copy(schema, Node)
+schema_deadlock(Config) when is_list(Config) ->
+    Ns = [Node1, Node2] = ?acquire_nodes(2, Config),
+    ?match({atomic, ok}, mnesia:create_table(a, [{disc_copies, Ns}])),
+    ?match({atomic, ok}, mnesia:create_table(b, [{disc_copies, Ns}])),
+
+    Tester = self(),
+
+    Deadlocker = fun() ->
+			 mnesia:write({a,1,1}),  %% grab write lock on A
+			 receive
+			     continue ->
+				 mnesia:write({b,1,1}), %% grab write lock on B
+				 end_trans
+			 end
+		 end,
+
+    ?match(stopped, rpc:call(Node2, mnesia, stop, [])),
+    timer:sleep(500), %% Let Node1 reconfigure
+    sys:get_status(mnesia_monitor),
+
+    DoingTrans = spawn_link(fun() ->  Tester ! {self(),mnesia:transaction(Deadlocker)} end),
+    wait_for_lock(DoingTrans, [Node1], 10, held),
+    %% Will grab write locks on schema, a, and b
+    DoingSchema = spawn_link(fun() -> Tester ! {self(), mnesia:del_table_copy(schema, Node2)} end),
+    timer:sleep(500), %% Let schema trans start, and try to grab locks
+    DoingTrans ! continue,
+
+    ?match(ok, receive {DoingTrans,  {atomic, end_trans}} -> ok after 5000 -> timeout end),
+    ?match(ok, receive {DoingSchema,  {atomic, ok}} -> ok after 5000 -> timeout end),
+
+    sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
+    ok.
+
 
 one_oid(Tab) -> {Tab, 1}.
 other_oid(Tab) -> {Tab, 2}.

@@ -78,7 +78,7 @@
 	 change_table_majority/1,
 	 del_active_replica/2,
 	 wait_for_tables/2,
-	 get_network_copy/2,
+	 get_network_copy/3,
 	 merge_schema/0,
 	 start_remote_sender/4,
 	 schedule_late_disc_load/2
@@ -329,14 +329,14 @@ release_schema_commit_lock() ->
     unlink(whereis(?SERVER_NAME)).
 
 %% Special for preparation of add table copy
-get_network_copy(Tab, Cs) ->
+get_network_copy(Tid, Tab, Cs) ->
 %   We can't let the controller queue this one
 %   because that may cause a deadlock between schema_operations
 %   and initial tableloadings which both takes schema locks.
 %   But we have to get copier_done msgs when the other side
 %   goes down.
     call({add_other, self()}),
-    Reason = {dumper,add_table_copy},
+    Reason = {dumper,{add_table_copy, Tid}},
     Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
     %% I'll need this cause it's linked trough the subscriber
     %% might be solved by using monitor in subscr instead.
@@ -775,7 +775,7 @@ handle_call({net_load, Tab, Cs}, From, State) ->
 	    true ->
 		Worker = #net_load{table = Tab,
 				   opt_reply_to = From,
-				   reason = {dumper,add_table_copy},
+				   reason = {dumper,{add_table_copy, unknown}},
 				   cstruct = Cs
 				  },
 		add_worker(Worker, State);
@@ -1180,11 +1180,11 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 		    Done#loader_done.needs_announce == true,
 		    Done#loader_done.needs_reply == true ->
 			i_have_tab(Tab),
-			%% Should be {dumper,add_table_copy} only
+			%% Should be {dumper,{add_table_copy, _}} only
 			reply(Done#loader_done.reply_to,
 			      Done#loader_done.reply);
 		    Done#loader_done.needs_reply == true ->
-			%% Should be {dumper,add_table_copy} only
+			%% Should be {dumper,{add_table_copy,_}} only
 			reply(Done#loader_done.reply_to,
 			      Done#loader_done.reply);
 		    Done#loader_done.needs_announce == true, Tab == schema ->
@@ -2148,6 +2148,10 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 			reply_to = ReplyTo,
 			reply = {loaded, ok}
 		       },
+    AddTableCopy = case Reason of
+		       {dumper,{add_table_copy,_}} -> true;
+		       _ -> false
+		   end,
     if
 	ReadNode == node() ->
 	    %% Already loaded locally
@@ -2157,7 +2161,7 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 		    Res = mnesia_loader:disc_load_table(Tab, load_local_content),
 		    Done#loader_done{reply = Res, needs_announce = true, needs_sync = true}
 	    end;
-	AccessMode == read_only, Reason /= {dumper,add_table_copy} ->
+	AccessMode == read_only, not AddTableCopy ->
 	    fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
 	true ->
 	    fun() ->

@@ -37,7 +37,8 @@
 	     reject_io :: boolean(),	       %Reject I/O requests...
 	     permit_io,			       %... and exceptions
 	     auto_nl=true :: boolean(),	       %Automatically add NL
-	     levels			       %{Stdout,Major,Minor}
+	     levels,			       %{Stdout,Major,Minor}
+	     escape_chars=true		       %Switch escaping HTML on/off
 	    }).
 
 %% start_link()
@@ -137,7 +138,8 @@ init([]) ->
 	    reject_io=false,
 	    permit_io=gb_sets:empty(),
 	    auto_nl=true,
-	    levels={1,19,10}
+	    levels={1,19,10},
+	    escape_chars=true
 	   }}.
 
 req(GL, Req) ->
@@ -182,7 +184,7 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
     try	io_req(Req, From, St) of
 	passthrough ->
 	    group_leader() ! IoReq;
-	Data ->
+	{EscapeHtml,Data} ->
 	    case is_io_permitted(From, St) of
 		false ->
 		    ok;
@@ -193,7 +195,13 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 			#st{capture=CapturePid} ->
 			    CapturePid ! {captured,Data}
 		    end,
-		    output(minor, Data, From, From, St)
+		    case EscapeHtml andalso St#st.escape_chars of
+			true ->
+			    output(minor, test_server_ctrl:escape_chars(Data),
+				   From, From, St);
+			false ->
+			    output(minor, Data, From, From, St)
+		    end
 	    end,
 	    From ! {io_reply,ReplyAs,ok}
     catch
@@ -204,9 +212,20 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 handle_info({structured_io,ClientPid,{Detail,Str}}, St) ->
     output(Detail, Str, ClientPid, ClientPid, St),
     {noreply,St};
+handle_info({printout,Detail,["$tc_html",Format],Args}, St) ->
+    Str = io_lib:format(Format, Args),
+    output(Detail, ["$tc_html",Str], internal, none, St),
+    {noreply,St};
+handle_info({printout,Detail,Fun}, St) when is_function(Fun)->
+    output(Detail, Fun, internal, none, St),
+    {noreply,St};
 handle_info({printout,Detail,Format,Args}, St) ->
     Str = io_lib:format(Format, Args),
-    output(Detail, Str, internal, none, St),
+    if not St#st.escape_chars ->
+	    output(Detail, ["$tc_html",Str], internal, none, St);
+       true ->
+	    output(Detail, Str, internal, none, St)
+    end,
     {noreply,St};
 handle_info(Msg, #st{tc_supervisor=Pid}=St) when is_pid(Pid) ->
     %% The process overseeing the testcase process also used to be
@@ -231,25 +250,55 @@ do_set_props([{reject_io_reqs,Bool}|Ps], St) ->
     do_set_props(Ps, St#st{reject_io=Bool});
 do_set_props([], St) -> St.
 
-io_req({put_chars,Enc,Bytes}, _, _) when Enc =:= latin1; Enc =:= unicode  ->
-    unicode:characters_to_list(Bytes, Enc);
+io_req({put_chars,Enc,Str}, _, _) when Enc =:= latin1; Enc =:= unicode  ->
+    case Str of
+	["$tc_html",Str0] ->
+	    {false,unicode:characters_to_list(Str0, Enc)};
+	_ ->
+	    {true,unicode:characters_to_list(Str, Enc)}
+    end;
 io_req({put_chars,Encoding,Mod,Func,[Format,Args]}, _, _) ->
-    Str = Mod:Func(Format, Args),
-    unicode:characters_to_list(Str, Encoding);
+    case Format of
+	["$tc_html",Format0] ->
+	    Str = Mod:Func(Format0, Args),
+	    {false,unicode:characters_to_list(Str, Encoding)};
+	_ ->
+	    Str = Mod:Func(Format, Args),
+	    {true,unicode:characters_to_list(Str, Encoding)}
+    end;
 io_req(_, _, _) -> passthrough.
 
-output(Level, Str, Sender, From, St) when is_integer(Level) ->
+output(Level, StrOrFun, Sender, From, St) when is_integer(Level) ->
     case selected_by_level(Level, stdout, St) of
-	true -> output(stdout, Str, Sender, From, St);
-	false -> ok
+	true when hd(StrOrFun) == "$tc_html" ->
+	    output(stdout, tl(StrOrFun), Sender, From, St);
+	true when is_function(StrOrFun) ->
+	    output(stdout, StrOrFun(stdout), Sender, From, St);
+	true ->
+	    output(stdout, StrOrFun, Sender, From, St);
+	false ->
+	    ok
     end,
     case selected_by_level(Level, major, St) of
-	true -> output(major, Str, Sender, From, St);
-	false -> ok
+	true when hd(StrOrFun) == "$tc_html" ->
+	    output(major, tl(StrOrFun), Sender, From, St);
+	true when is_function(StrOrFun) ->
+	    output(major, StrOrFun(major), Sender, From, St);
+	true ->
+	    output(major, StrOrFun, Sender, From, St);
+	false ->
+	    ok
     end,
     case selected_by_level(Level, minor, St) of
-	true -> output(minor, Str, Sender, From, St);
-	false -> ok
+	true when hd(StrOrFun) == "$tc_html" ->
+	    output(minor, tl(StrOrFun), Sender, From, St);
+	true when is_function(StrOrFun) ->
+	    output(minor, StrOrFun(minor), Sender, From, St);
+	true ->
+	    output(minor, test_server_ctrl:escape_chars(StrOrFun),
+		   Sender, From, St);
+	false ->
+	    ok
     end;
 output(stdout, Str, _Sender, From, St) ->
     output_to_file(stdout, Str, From, St);

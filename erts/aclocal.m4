@@ -142,18 +142,18 @@ MIXED_MSYS=no
 
 AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([Cygwin and VC])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	elif test -x /usr/bin/msysinfo; then
+	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="-O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
 		MIXED_MSYS_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
+	elif test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([Cygwin and VC])
+		MIXED_CYGWIN_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
 	else		    
 		AC_MSG_RESULT([undeterminable])
 		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
@@ -2117,63 +2117,159 @@ esac
 
 case "$GCC-$host_cpu" in
   yes-i86pc | yes-i*86 | yes-x86_64 | yes-amd64)
+
+    if test $ac_cv_sizeof_void_p = 4; then
+       dw_cmpxchg="cmpxchg8b"
+    else
+       dw_cmpxchg="cmpxchg16b"
+    fi
+
     gcc_dw_cmpxchg_asm=no
-    AC_MSG_CHECKING([for gcc double word cmpxchg asm support])    
-    AC_TRY_COMPILE([],
+    gcc_pic_dw_cmpxchg_asm=no
+    gcc_cflags_pic=no
+    gcc_cmpxchg8b_pic_no_clobber_ebx=no
+    gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=no
+
+    save_CFLAGS="$CFLAGS"
+
+    # Check if it works out of the box using passed CFLAGS
+    # and with -fPIC added to CFLAGS if the passed CFLAGS
+    # doesn't trigger position independent code
+    pic_cmpxchg=unknown
+    while true; do
+
+        case $pic_cmpxchg in
+	  yes) pic_text="pic ";;
+	  *) pic_text="";;
+	esac
+
+	AC_MSG_CHECKING([for gcc $pic_text$dw_cmpxchg plain asm support])    
+
+	plain_cmpxchg=no
+    	AC_TRY_COMPILE([],
 	[
     char xchgd;
     long new[2], xchg[2], *p;		  
     __asm__ __volatile__(
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	"pushl %%ebx\n\t"
-	"movl %8, %%ebx\n\t"
-#endif
 #if ETHR_SIZEOF_PTR == 4
 	"lock; cmpxchg8b %0\n\t"
 #else
 	"lock; cmpxchg16b %0\n\t"
 #endif
 	"setz %3\n\t"
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	"popl %%ebx\n\t"
-#endif
-	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new[1]),
-#if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
-	  "r"(new[0])
-#else
-	  "b"(new[0])
-#endif
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "b"(new[0])
 	: "cc", "memory");
-
 	],
-	[gcc_dw_cmpxchg_asm=yes])
-    if test $gcc_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+	[plain_cmpxchg=yes])
+
+	AC_MSG_RESULT([$plain_cmpxchg])
+
+	if test $pic_cmpxchg = yes; then
+	   gcc_pic_dw_cmpxchg_asm=$plain_cmpxchg
+	   break
+	fi
+
+	gcc_dw_cmpxchg_asm=$plain_cmpxchg
+
+    	# If not already compiling to position independent
+	# code add -fPIC to CFLAGS and do it again. This
+	# since we want also want to know how to compile
+	# to position independent code since this might
+	# cause problems with the use of the EBX register
+	# as input to the asm on 32-bit x86 and old gcc
+	# compilers (gcc vsn < 5).
+
+    	AC_TRY_COMPILE([],
+	[
+#if !defined(__PIC__) || !__PIC__
+#  error no pic
+#endif
+	],
+	[pic_cmpxchg=yes
+	 gcc_cflags_pic=yes],
+	[pic_cmpxchg=no])
+
+	if test $pic_cmpxchg = yes; then
+	   gcc_pic_dw_cmpxchg_asm=$gcc_dw_cmpxchg_asm
+	   break
+	fi
+
+	CFLAGS="$save_CFLAGS -fPIC"
+	pic_cmpxchg=yes
+
+    done
+
+    if test $gcc_pic_dw_cmpxchg_asm = no && test $ac_cv_sizeof_void_p = 4; then
+
+      AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX workaround])
+
+      # Check if we can work around it by managing the ebx
+      # register explicitly in the asm...
+
       AC_TRY_COMPILE([],
+	[
+    char xchgd;
+    long new[2], xchg[2], *p;		  
+    __asm__ __volatile__(
+	"pushl %%ebx\n\t"
+	"movl %8, %%ebx\n\t"
+	"lock; cmpxchg8b %0\n\t"
+	"setz %3\n\t"
+	"popl %%ebx\n\t"
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=q"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "c"(new[1]), "r"(new[0])
+	: "cc", "memory");
+	],
+	[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes])     
+
+      AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
+
+      if test $gcc_pic_dw_cmpxchg_asm = no; then
+
+      	AC_MSG_CHECKING([for gcc pic cmpxchg8b asm support with EBX and register shortage workarounds])
+        # If no optimization is enabled we sometimes get a
+	# register shortage. Check if we can work around
+	# this...
+
+      	AC_TRY_COMPILE([],
 	  [
       char xchgd;
       long new[2], xchg[2], *p;
-#if !defined(__PIC__) || !__PIC__
-#  error nope
-#endif
       __asm__ __volatile__(
-    	  "pushl %%ebx\n\t"
-	  "movl (%7), %%ebx\n\t"
-	  "movl 4(%7), %%ecx\n\t"
-	  "lock; cmpxchg8b %0\n\t"
-  	  "setz %3\n\t"
-	  "popl %%ebx\n\t"
-	  : "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
-	  : "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "3"(new)
+	"pushl %%ebx\n\t"
+	"movl (%7), %%ebx\n\t"
+	"movl 4(%7), %%ecx\n\t"
+	"lock; cmpxchg8b %0\n\t"
+	"setz %3\n\t"
+	"popl %%ebx\n\t"
+	: "=m"(*p), "=d"(xchg[1]), "=a"(xchg[0]), "=c"(xchgd)
+	: "m"(*p), "1"(xchg[1]), "2"(xchg[0]), "r"(new)
 	: "cc", "memory");
 
 	],
-	[gcc_dw_cmpxchg_asm=yes])
-      if test "$gcc_dw_cmpxchg_asm" = "yes"; then
-        AC_DEFINE(ETHR_CMPXCHG8B_REGISTER_SHORTAGE, 1, [Define if you get a register shortage with cmpxchg8b and position independent code])
+	[gcc_pic_dw_cmpxchg_asm=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx=yes
+	 gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage=yes])
+
+        AC_MSG_RESULT([$gcc_pic_dw_cmpxchg_asm])
       fi
+
+      if test $gcc_cflags_pic = yes; then
+        gcc_dw_cmpxchg_asm=$gcc_pic_dw_cmpxchg_asm
+      fi
+ 
+   fi
+
+    CFLAGS="$save_CFLAGS"
+
+    if test "$gcc_cmpxchg8b_pic_no_clobber_ebx" = "yes"; then
+      AC_DEFINE(ETHR_CMPXCHG8B_PIC_NO_CLOBBER_EBX, 1, [Define if gcc wont let you clobber ebx with cmpxchg8b and position independent code])
     fi
-    AC_MSG_RESULT([$gcc_dw_cmpxchg_asm])
+    if test "$gcc_cmpxchg8b_pic_no_clobber_ebx_register_shortage" = "yes"; then
+      AC_DEFINE(ETHR_CMPXCHG8B_REGISTER_SHORTAGE, 1, [Define if you get a register shortage with cmpxchg8b and position independent code])
+    fi
     if test "$gcc_dw_cmpxchg_asm" = "yes"; then
       AC_DEFINE(ETHR_GCC_HAVE_DW_CMPXCHG_ASM_SUPPORT, 1, [Define if you use a gcc that supports the double word cmpxchg instruction])
     fi;;

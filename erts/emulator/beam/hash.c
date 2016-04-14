@@ -133,7 +133,7 @@ Hash* hash_init(ErtsAlcType_t type, Hash* h, char* name, int size, HashFunctions
     while (h_size_table[ix] != -1 && h_size_table[ix] < size)
 	ix++;
     if (h_size_table[ix] == -1)
-	erl_exit(1, "panic: too large hash table size (%d)\n", size);
+	erts_exit(ERTS_ERROR_EXIT, "panic: too large hash table size (%d)\n", size);
 
     size = h_size_table[ix];
     sz = size*sizeof(HashBucket*);

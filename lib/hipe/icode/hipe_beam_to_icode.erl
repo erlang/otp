@@ -881,6 +881,15 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
 trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
   Dst = mk_var(Res),
   Temp = mk_var(new),
+  {FailLblName, FailCode} =
+    if Lbl =:= 0 ->
+	FailLbl = mk_label(new),
+	{hipe_icode:label_name(FailLbl),
+	 [FailLbl,
+	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
+       true ->
+	{map_label(Lbl), []}
+    end,
   MultIs =
     case {New,Unit} of
       {{integer, NewInt}, _} ->
@@ -890,40 +899,26 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	[hipe_icode:mk_move(Temp, NewVar)];
       _ ->
 	NewVar = mk_var(New),
-	if Lbl =:= 0 ->
-	    [hipe_icode:mk_primop([Temp], '*', 
-				  [NewVar, hipe_icode:mk_const(Unit)])];
-	   true ->
-	    Succ = mk_label(new),
-	    [hipe_icode:mk_primop([Temp], '*', 
-				  [NewVar, hipe_icode:mk_const(Unit)],
-				  hipe_icode:label_name(Succ), map_label(Lbl)),
-	     Succ]
-	end
+	Succ = mk_label(new),
+	[hipe_icode:mk_primop([Temp], '*',
+			      [NewVar, hipe_icode:mk_const(Unit)],
+			      hipe_icode:label_name(Succ), FailLblName),
+	 Succ]
     end,
   Succ2 = mk_label(new),
-  {FailLblName, FailCode} = 
-    if Lbl =:= 0 ->
-	FailLbl = mk_label(new),
-	{hipe_icode:label_name(FailLbl),
-	 [FailLbl,
-	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
-       true ->
-	{map_label(Lbl), []}
-    end,
   IsPos = 
     [hipe_icode:mk_if('>=', [Temp, hipe_icode:mk_const(0)], 
 		      hipe_icode:label_name(Succ2), FailLblName)] ++
-    FailCode ++ [Succ2], 
-  AddI =
+    FailCode ++ [Succ2],
+  AddRhs =
     case Old of
-      {integer,OldInt} ->
-	hipe_icode:mk_primop([Dst], '+', [Temp, hipe_icode:mk_const(OldInt)]);
-      _ ->
-	OldVar = mk_var(Old),
-	hipe_icode:mk_primop([Dst], '+', [Temp, OldVar])
+      {integer,OldInt} -> hipe_icode:mk_const(OldInt);
+      _ -> mk_var(Old)
     end,
-  MultIs ++ IsPos ++ [AddI|trans_fun(Instructions, Env)];
+  Succ3 = mk_label(new),
+  AddI = hipe_icode:mk_primop([Dst], '+', [Temp, AddRhs],
+			      hipe_icode:label_name(Succ3), FailLblName),
+  MultIs ++ IsPos ++ [AddI,Succ3|trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %% Bit syntax instructions added in R12B-5 (Fall 2008)
 %%--------------------------------------------------------------------
@@ -1306,7 +1301,7 @@ trans_bin([{bs_put_binary,{f,Lbl},Size,Unit,{field_flags,Flags},Source}|
   {Name, Args, Env2} =
     case Size of
       {atom,all} -> %% put all bits
-	{{bs_put_binary_all, Flags}, [Src,Base,Offset], Env};
+	{{bs_put_binary_all, Unit, Flags}, [Src,Base,Offset], Env};
       {integer,NoBits} when is_integer(NoBits), NoBits >= 0 ->
 	%% Create a N*Unit bits subbinary
 	{{bs_put_binary, NoBits*Unit, Flags}, [Src,Base,Offset], Env};

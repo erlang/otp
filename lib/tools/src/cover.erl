@@ -1474,7 +1474,7 @@ do_compile_beam(Module,BeamFile0,State) ->
 		    {ok,Module,BeamFile};
 		error ->
 		    {error, BeamFile};
-		{error,Reason} -> % no abstract code
+		{error,Reason} -> % no abstract code or no 'file' attribute
 		    {error, {Reason, BeamFile}}
 	    end;
 	{error,no_beam} ->
@@ -1537,32 +1537,11 @@ do_compile_beam1(Module,Beam,UserOptions) ->
 	    {error,E};
 	{raw_abstract_v1,Code} ->
             Forms0 = epp:interpret_file_attribute(Code),
-	    {Forms,Vars} = transform(Forms0, Module),
-
-	    %% We need to recover the source from the compilation
-	    %% info otherwise the newly compiled module will have
-	    %% source pointing to the current directory
-	    SourceInfo = get_source_info(Module, Beam),
-
-	    %% Compile and load the result
-	    %% It's necessary to check the result of loading since it may
-	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
-	    case code:load_binary(Module, ?TAG, Binary) of
-		{module, Module} ->
-		    
-		    %% Store info about all function clauses in database
-		    InitInfo = lists:reverse(Vars#vars.init_info),
-		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
-		    
-		    %% Store binary code so it can be loaded on remote nodes
-		    ets:insert(?BINARY_TABLE, {Module, Binary}),
-
-		    {ok, Module};
-		
-		_Error ->
-		    do_clear(Module),
-		    error
+	    case find_main_filename(Forms0) of
+		{ok,MainFile} ->
+		    do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile);
+		Error ->
+		    Error
 	    end;
 	{_VSN,_Code} ->
 	    %% Wrong version of abstract code. Just report that there
@@ -1577,6 +1556,35 @@ get_abstract_code(Module, Beam) ->
 	{error,beam_lib,{key_missing_or_invalid,_,_}} ->
 	    encrypted_abstract_code;
 	Error -> Error
+    end.
+
+do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile) ->
+    {Forms,Vars} = transform(Forms0, Module, MainFile),
+
+    %% We need to recover the source from the compilation
+    %% info otherwise the newly compiled module will have
+    %% source pointing to the current directory
+    SourceInfo = get_source_info(Module, Beam),
+
+    %% Compile and load the result
+    %% It's necessary to check the result of loading since it may
+    %% fail, for example if Module resides in a sticky directory
+    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
+    case code:load_binary(Module, ?TAG, Binary) of
+	{module, Module} ->
+
+	    %% Store info about all function clauses in database
+	    InitInfo = lists:reverse(Vars#vars.init_info),
+	    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
+
+	    %% Store binary code so it can be loaded on remote nodes
+	    ets:insert(?BINARY_TABLE, {Module, Binary}),
+
+	    {ok, Module};
+
+	_Error ->
+	    do_clear(Module),
+	    error
     end.
 
 get_source_info(Module, Beam) ->
@@ -1601,8 +1609,7 @@ get_compile_info(Module, Beam) ->
 		[]
     end.
 
-transform(Code, Module) ->
-    MainFile=find_main_filename(Code),
+transform(Code, Module, MainFile) ->
     Vars0 = #vars{module=Module},
     {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     {MungedForms,Vars}.
@@ -1610,9 +1617,12 @@ transform(Code, Module) ->
 %% Helpfunction which returns the first found file-attribute, which can
 %% be interpreted as the name of the main erlang source file.
 find_main_filename([{attribute,_,file,{MainFile,_}}|_]) ->
-    MainFile;
+    {ok,MainFile};
 find_main_filename([_|Rest]) ->
-    find_main_filename(Rest).
+    find_main_filename(Rest);
+find_main_filename([]) ->
+    {error, no_file_attribute}.
+
 
 transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
     Form = expand(Form0),
@@ -1995,7 +2005,7 @@ munge_expr({lc,Line,Expr,Qs}, Vars) ->
     {{lc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({bc,Line,Expr,Qs}, Vars) ->
     {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]} = Expr,
-    Expr2 = {bin,BLine,[{bin_element,EL,?BLOCK1(Val),Sz,TSL}|Es]},
+    Expr2 = {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]},
     {MungedExpr,Vars2} = munge_expr(Expr2, Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Line,MungedExpr,MungedQs}, Vars3};

@@ -43,6 +43,7 @@
 -export(
    [
     register_name/1,
+    register_name_ipv6/1,
     register_names_1/1,
     register_names_2/1,
     register_duplicate_name/1,
@@ -76,7 +77,9 @@
     buffer_overrun_2/1,
     no_nonlocal_register/1,
     no_nonlocal_kill/1,
-    no_live_killing/1
+    no_live_killing/1,
+
+    socket_reset_before_alive2_reply_is_written/1
    ]).
 
 
@@ -111,7 +114,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [register_name, register_names_1, register_names_2,
+    [register_name, register_name_ipv6,
+     register_names_1, register_names_2,
      register_duplicate_name, unicode_name, long_unicode_name,
      get_port_nr, slow_get_port_nr,
      unregister_others_name_1, unregister_others_name_2,
@@ -123,7 +127,8 @@ all() ->
      returns_valid_populated_extra_with_nulls,
      names_stdout,
      {group, buffer_overrun}, no_nonlocal_register,
-     no_nonlocal_kill, no_live_killing].
+     no_nonlocal_kill, no_live_killing,
+     socket_reset_before_alive2_reply_is_written].
 
 groups() -> 
     [{buffer_overrun, [],
@@ -168,6 +173,24 @@ register_name(Config) when is_list(Config) ->
     ?line {ok,Sock} = register_node("foobar"),
     ?line ok = close(Sock),			% Unregister
     ok.
+
+register_name_ipv6(doc) ->
+    ["Register a name over IPv6"];
+register_name_ipv6(suite) ->
+    [];
+register_name_ipv6(Config) when is_list(Config) ->
+    % Test if the host has an IPv6 loopback address
+    Res = gen_tcp:listen(0, [inet6, {ip, {0,0,0,0,0,0,0,1}}]),
+    case Res of
+    {ok,LSock} ->
+	    gen_tcp:close(LSock),
+	    ?line ok = epmdrun(),
+	    ?line {ok,Sock} = register_node6("foobar6"),
+	    ?line ok = close(Sock),         % Unregister
+	    ok;
+    _Error ->
+	    {skip, "Host does not have an IPv6 loopback address"}
+    end.
 
 register_names_1(doc) ->
     ["Register and unregister two nodes"];
@@ -242,13 +265,14 @@ register_node(Name) ->
 register_node(Name,Port) ->
     register_node_v2(Port,$M,0,5,5,Name,"").
 
+register_node6(Name) ->
+    register_node_v2({0,0,0,0,0,0,0,1},?DUMMY_PORT,$M,0,5,5,Name,"").
+
 register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
-    Utf8Name = unicode:characters_to_binary(Name),
-    Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
-	   put16(HVsn), put16(LVsn),
-	   put16(size(Utf8Name)), binary_to_list(Utf8Name),
-	   size16(Extra), Extra],
-    case send_req(Req) of
+    register_node_v2("localhost", Port, NodeType, Prot, HVsn, LVsn, Name, Extra).
+register_node_v2(Addr, Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
+    Req = alive2_req(Port, NodeType, Prot, HVsn, LVsn, Name, Extra),
+    case send_req(Req, Addr) of
 	{ok,Sock} ->
 	    case recv(Sock,4) of
 		{ok, [?EPMD_ALIVE2_RESP,_Res=0,_C0,_C1]} ->
@@ -938,6 +962,42 @@ no_live_killing(Config) when is_list(Config) ->
     ?line close(Sock3),
     ok.
 
+socket_reset_before_alive2_reply_is_written(doc) ->
+    ["Check for regression - don't make zombie from node which "
+     "sends TCP RST at wrong time"];
+socket_reset_before_alive2_reply_is_written(suite) ->
+    [];
+socket_reset_before_alive2_reply_is_written(Config) when is_list(Config) ->
+    %% - delay_write for easier triggering of race condition
+    %% - relaxed_command_check for gracefull shutdown of epmd even if there
+    %%   is stuck node.
+    ?line ok = epmdrun("-delay_write 1 -relaxed_command_check"),
+
+    %% We can't use send_req/1 directly as we want to do inet:setopts/2
+    %% on our socket.
+    ?line {ok, Sock} = connect(),
+
+    %% Issuing close/1 on such socket will result in immediate RST packet.
+    ?line ok = inet:setopts(Sock, [{linger, {true, 0}}]),
+
+    Req = alive2_req(4711, 77, 0, 5, 5, "test", []),
+    ?line ok = send(Sock, [size16(Req), Req]),
+
+    timer:sleep(500), %% Wait for the first 1/2 of delay_write before closing
+    ?line ok = close(Sock),
+
+    timer:sleep(500 + ?SHORT_PAUSE), %% Wait for the other 1/2 of delay_write
+
+    %% Wait another delay_write interval, due to delay doubling in epmd.
+    %% Should be removed when this is issue is fixed there.
+    timer:sleep(1000),
+
+    ?line {ok, SockForNames} = connect_active(),
+
+    %% And there should be no stuck nodes
+    ?line {ok, []} = do_get_names(SockForNames),
+    ?line ok = close(SockForNames),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Terminate all tests with killing epmd.
@@ -1151,7 +1211,9 @@ send_direct(Sock, Bytes) ->
     end.
 
 send_req(Req) ->
-    case connect() of
+    send_req(Req, "localhost").
+send_req(Req, Addr) ->
+    case connect(Addr) of
 	{ok,Sock} ->
 	    case send(Sock, [size16(Req), Req]) of
 		ok ->
@@ -1200,3 +1262,12 @@ flat_count([_|T], N) ->
     flat_count(T, N);
 flat_count([], N) -> N.
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+alive2_req(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
+    Utf8Name = unicode:characters_to_binary(Name),
+    [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
+     put16(HVsn), put16(LVsn),
+     put16(size(Utf8Name)), binary_to_list(Utf8Name),
+     size16(Extra), Extra].

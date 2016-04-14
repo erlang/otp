@@ -18,8 +18,8 @@
      $Id$
 -->
 <!ELEMENT header              (copyright?,legalnotice?,title,shorttitle?,
-                               prepared,responsible?,docno,approved?,
-                               checked?,date,rev,file?) >
+                               prepared?,responsible?,docno?,approved?,
+                               checked?,date?,rev?,file?) >
 
 <!--
 The titlestyle attribute is only defined to make all the book.xml files

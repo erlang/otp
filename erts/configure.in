@@ -468,7 +468,7 @@ case $host_os in
     win32)
 	# The ethread library requires _WIN32_WINNT of at least 0x0403.
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
-	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501 -DWINVER=0x0501"
+	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
 	;;
     darwin*)
         CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE"
@@ -4111,7 +4111,7 @@ AC_ARG_WITH(ssl-rpath,
 AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
                [runtime library path for OpenSSL. Default is "yes", which equates to a
 	       number of standard locations. If "no", then no runtime
-	       library paths wil be used. Anything else should be a
+	       library paths will be used. Anything else should be a
 	       comma separated list of paths.]),
 [
 case X$with_ssl in

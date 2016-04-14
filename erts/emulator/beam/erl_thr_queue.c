@@ -224,7 +224,7 @@ ErtsThrQCleanState_t
 erts_thr_q_destroy(ErtsThrQ_t *q)
 {
     if (!q->q.blk)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Trying to destroy not created thread queue\n");
     return erts_thr_q_finalize(q);
 }
@@ -589,7 +589,7 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 
 #if ERTS_THR_Q_DBG_CHK_DATA
     if (!data)
-	erl_exit(ERTS_ABORT_EXIT, "Missing data in enqueue\n");
+	erts_exit(ERTS_ABORT_EXIT, "Missing data in enqueue\n");
 #endif
 
     ASSERT(!q->q.finalizing);
@@ -771,7 +771,7 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 #if ERTS_THR_Q_DBG_CHK_DATA
     head->data.ptr = NULL;
     if (!res)
-	erl_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
+	erts_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
 #endif
     clean(q,
 	  (q->head.deq_fini.automatic

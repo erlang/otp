@@ -93,7 +93,11 @@ init_tc(Mod, {init_per_group, GroupName, Properties}, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
-init_tc(_Mod, TC, Config) ->
+init_tc(_Mod, {init_per_testcase,TC}, Config) ->
+    call(fun call_generic/3, Config, [pre_init_per_testcase, TC]);
+init_tc(_Mod, {end_per_testcase,TC}, Config) ->
+    call(fun call_generic/3, Config, [pre_end_per_testcase, TC]);
+init_tc(_Mod, TC = error_in_suite, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_testcase, TC]).
 
 %% @doc Called as each test case is completed. This includes all configuration
@@ -126,9 +130,16 @@ end_tc(Mod, {end_per_group, GroupName, Properties}, Config, Result, _Return) ->
 	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
     maybe_stop_locker(Mod, GroupName, Properties),
     Res;
-end_tc(_Mod, TC, Config, Result, _Return) ->
+end_tc(_Mod, {init_per_testcase,TC}, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_init_per_testcase, TC, Config],
+	'$ct_no_change');
+end_tc(_Mod, {end_per_testcase,TC}, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
+	 '$ct_no_change');
+end_tc(_Mod, TC = error_in_suite, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
 	'$ct_no_change').
+
 
 %% Case = TestCase | {TestCase,GroupName}
 on_tc_skip(How, {Suite, Case, Reason}) ->
@@ -244,6 +255,8 @@ remove(_, Else) ->
 
 %% Translate scopes, i.e. init_per_group,group1 -> end_per_group,group1 etc
 scope([pre_init_per_testcase, TC|_]) ->
+    [post_init_per_testcase, TC];
+scope([pre_end_per_testcase, TC|_]) ->
     [post_end_per_testcase, TC];
 scope([pre_init_per_group, GroupName|_]) ->
     [post_end_per_group, GroupName];
@@ -317,7 +330,8 @@ get_hooks() ->
 %% If we are doing a cleanup call i.e. {post,pre}_end_per_*, all priorities
 %% are reversed. Probably want to make this sorting algorithm pluginable
 %% as some point...
-resort(Calls,Hooks,[F|_R]) when F == post_end_per_testcase;
+resort(Calls,Hooks,[F|_R]) when F == pre_end_per_testcase;
+				F == post_end_per_testcase;
 				F == pre_end_per_group;
 				F == post_end_per_group;
 				F == pre_end_per_suite;
@@ -367,10 +381,10 @@ pos(Id,[_|Rest],Num) ->
 
 catch_apply(M,F,A, Default) ->
     try
-	apply(M,F,A)
+	erlang:apply(M,F,A)
     catch _:Reason ->
 	    case erlang:get_stacktrace() of
-            %% Return the default if it was the CTH module which did not have the function.
+		%% Return the default if it was the CTH module which did not have the function.
 		[{M,F,A,_}|_] when Reason == undef ->
 		    Default;
 		Trace ->

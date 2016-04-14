@@ -205,7 +205,7 @@ size(Val) ->
     K :: term().
 
 without(Ks,M) when is_list(Ks), is_map(M) ->
-    maps:from_list([{K,V}||{K,V} <- maps:to_list(M), not lists:member(K, Ks)]);
+    lists:foldl(fun(K, M1) -> ?MODULE:remove(K, M1) end, M, Ks);
 without(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
@@ -216,8 +216,16 @@ without(Ks,M) ->
     Map2 :: map(),
     K :: term().
 
-with(Ks,M) when is_list(Ks), is_map(M) ->
-    maps:from_list([{K,V}||{K,V} <- maps:to_list(M), lists:member(K, Ks)]);
+with(Ks,Map1) when is_list(Ks), is_map(Map1) ->
+    Fun = fun(K, List) ->
+      case ?MODULE:find(K, Map1) of
+          {ok, V} ->
+              [{K, V} | List];
+          error ->
+              List
+      end
+    end,
+    ?MODULE:from_list(lists:foldl(Fun, [], Ks));
 with(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 

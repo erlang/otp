@@ -24,18 +24,28 @@
 -export([childspecs/0, listen/1, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1, is_node_name/1]).
 
+%% Generalized dist API
+-export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
+	 gen_setup/6, gen_select/2]).
+
 -include_lib("kernel/include/net_address.hrl").
 -include_lib("kernel/include/dist.hrl").
 -include_lib("kernel/include/dist_util.hrl").
 
 childspecs() ->
     {ok, [{ssl_dist_sup,{ssl_dist_sup, start_link, []},
-	   permanent, 2000, worker, [ssl_dist_sup]}]}.
+	   permanent, infinity, supervisor, [ssl_dist_sup]}]}.
 
 select(Node) ->
+    gen_select(inet_tcp, Node).
+
+gen_select(Driver, Node) ->
     case split_node(atom_to_list(Node), $@, []) of
-	[_,_Host] -> 
-	    true;
+	[_, Host] ->
+	    case inet:getaddr(Host, Driver:family()) of
+		{ok, _} -> true;
+		_ -> false
+	    end;
 	_ -> 
 	    false
     end.
@@ -46,23 +56,35 @@ is_node_name(_) ->
     false.
 
 listen(Name) ->
-    ssl_tls_dist_proxy:listen(Name).
+    gen_listen(inet_tcp, Name).
+
+gen_listen(Driver, Name) ->
+    ssl_tls_dist_proxy:listen(Driver, Name).
 
 accept(Listen) ->
-    ssl_tls_dist_proxy:accept(Listen).
+    gen_accept(inet_tcp, Listen).
+
+gen_accept(Driver, Listen) ->
+    ssl_tls_dist_proxy:accept(Driver, Listen).
 
 accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
+    gen_accept_connection(inet_tcp, AcceptPid, Socket, MyNode, Allowed, SetupTime).
+
+gen_accept_connection(Driver, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     Kernel = self(),
-    spawn_link(fun() -> do_accept(Kernel, AcceptPid, Socket, 
+    spawn_link(fun() -> do_accept(Driver, Kernel, AcceptPid, Socket,
 				  MyNode, Allowed, SetupTime) end).
 
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
+    gen_setup(inet_tcp, Node, Type, MyNode, LongOrShortNames,SetupTime).
+
+gen_setup(Driver, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     Kernel = self(),
-    spawn_opt(fun() -> do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) end, [link, {priority, max}]).
+    spawn_opt(fun() -> do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) end, [link, {priority, max}]).
 		   
-do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    [Name, Address] = splitnode(Node, LongOrShortNames),
-    case inet:getaddr(Address, inet) of
+do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
+    case inet:getaddr(Address, Driver:family()) of
 	{ok, Ip} ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case erl_epmd:port_please(Name, Ip) of
@@ -70,41 +92,41 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),
 		    dist_util:reset_timer(Timer),
-		    case ssl_tls_dist_proxy:connect(Ip, TcpPort) of
+		    case ssl_tls_dist_proxy:connect(Driver, Ip, TcpPort) of
 			{ok, Socket} ->
 			    HSData = connect_hs_data(Kernel, Node, MyNode, Socket, 
 						     Timer, Version, Ip, TcpPort, Address,
 						     Type),
 			    dist_util:handshake_we_started(HSData);
-			_ ->
+			Other ->
 			    %% Other Node may have closed since 
 			    %% port_please !
 			    ?trace("other node (~p) "
 				   "closed since port_please.~n", 
 				   [Node]),
-			    ?shutdown(Node)
+			    ?shutdown2(Node, {shutdown, {connect_failed, Other}})
 		    end;
-		_ ->
+		Other ->
 		    ?trace("port_please (~p) "
 			   "failed.~n", [Node]),
-		    ?shutdown(Node)
+		    ?shutdown2(Node, {shutdown, {port_please_failed, Other}})
 	    end;
-	_Other ->
+	Other ->
 	    ?trace("inet_getaddr(~p) "
 		   "failed (~p).~n", [Node,Other]),
-	    ?shutdown(Node)
+	    ?shutdown2(Node, {shutdown, {inet_getaddr_failed, Other}})
     end.
 
 close(Socket) ->
     gen_tcp:close(Socket),
     ok.
 
-do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
+do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     process_flag(priority, max),
     receive
 	{AcceptPid, controller} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case check_ip(Socket) of
+	    case check_ip(Driver, Socket) of
 		true ->
 		    HSData = accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed),
 		    dist_util:handshake_other_started(HSData);
@@ -118,12 +140,12 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 %% Do only accept new connection attempts from nodes at our
 %% own LAN, if the check_ip environment parameter is true.
 %% ------------------------------------------------------------
-check_ip(Socket) ->
+check_ip(Driver, Socket) ->
     case application:get_env(check_ip) of
 	{ok, true} ->
 	    case get_ifs(Socket) of
 		{ok, IFs, IP} ->
-		    check_ip(IFs, IP);
+		    check_ip(Driver, IFs, IP);
 		_ ->
 		    ?shutdown(no_node)
 	    end;
@@ -142,37 +164,21 @@ get_ifs(Socket) ->
 	    Error
     end.
 
-check_ip([{OwnIP, _, Netmask}|IFs], PeerIP) ->
-    case {mask(Netmask, PeerIP), mask(Netmask, OwnIP)} of
+check_ip(Driver, [{OwnIP, _, Netmask}|IFs], PeerIP) ->
+    case {Driver:mask(Netmask, PeerIP), Driver:mask(Netmask, OwnIP)} of
 	{M, M} -> true;
 	_      -> check_ip(IFs, PeerIP)
     end;
-check_ip([], PeerIP) ->
+check_ip(_Driver, [], PeerIP) ->
     {false, PeerIP}.
-
-mask({M1,M2,M3,M4}, {IP1,IP2,IP3,IP4}) ->
-    {M1 band IP1,
-     M2 band IP2,
-     M3 band IP3,
-     M4 band IP4};
-
-mask({M1,M2,M3,M4, M5, M6, M7, M8}, {IP1,IP2,IP3,IP4, IP5, IP6, IP7, IP8}) ->
-    {M1 band IP1,
-     M2 band IP2,
-     M3 band IP3,
-     M4 band IP4,
-     M5 band IP5,
-     M6 band IP6,
-     M7 band IP7,
-     M8 band IP8}.
 
 
 %% If Node is illegal terminate the connection setup!!
-splitnode(Node, LongOrShortNames) ->
+splitnode(Driver, Node, LongOrShortNames) ->
     case split_node(atom_to_list(Node), $@, []) of
 	[Name|Tail] when Tail =/= [] ->
 	    Host = lists:append(Tail),
-	    check_node(Name, Node, Host, LongOrShortNames);
+	    check_node(Driver, Name, Node, Host, LongOrShortNames);
 	[_] ->
 	    error_logger:error_msg("** Nodename ~p illegal, no '@' character **~n",
 		      [Node]),
@@ -182,15 +188,20 @@ splitnode(Node, LongOrShortNames) ->
 	    ?shutdown(Node)
     end.
 
-check_node(Name, Node, Host, LongOrShortNames) ->
+check_node(Driver, Name, Node, Host, LongOrShortNames) ->
     case split_node(Host, $., []) of
 	[_] when LongOrShortNames == longnames ->
-	    error_logger:error_msg("** System running to use "
-		      "fully qualified "
-		      "hostnames **~n"
-		      "** Hostname ~s is illegal **~n",
-		      [Host]),
-	    ?shutdown(Node);
+	    case Driver:parse_address(Host) of
+		{ok, _} ->
+		    [Name, Host];
+		_ ->
+		    error_logger:error_msg("** System running to use "
+					   "fully qualified "
+					   "hostnames **~n"
+					   "** Hostname ~s is illegal **~n",
+					   [Host]),
+		    ?shutdown(Node)
+	    end;
 	[_, _ | _] when LongOrShortNames == shortnames ->
 	    error_logger:error_msg("** System NOT running to use fully qualified "
 			      "hostnames **~n"

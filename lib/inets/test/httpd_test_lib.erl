@@ -96,10 +96,10 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
     try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    ok = inets_test_lib:send(SocketType, Socket, RequestStr),
-	    State = case inets_regexp:match(RequestStr, "printenv") of
+	    State = case re:run(RequestStr, "printenv", [{capture, none}]) of
 			nomatch ->
 			    #state{};
-			_ ->
+			match ->
 			    #state{print = true}
 		    end,
 	    
@@ -235,11 +235,17 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 	_ ->
 	    ok
     end,
-    do_validate(http_response:header_list(Headers), Options, N, P),
-    check_body(RequestStr, StatusCode, 
-	       Headers#http_response_h.'content-type',
-	       list_to_integer(Headers#http_response_h.'content-length'),
-	       Body).
+    HList = http_response:header_list(Headers),
+    do_validate(HList, Options, N, P),
+    case lists:keysearch("warning", 1, HList) of
+	{value, _} ->
+	    ok;
+	_ ->
+	    check_body(RequestStr, StatusCode, 
+		       Headers#http_response_h.'content-type',
+		       list_to_integer(Headers#http_response_h.'content-length'),
+		       Body)
+    end.
 
 %--------------------------------------------------------------------
 %% Internal functions
@@ -311,10 +317,10 @@ do_validate(Header, [_Unknown | Rest], N, P) ->
     do_validate(Header, Rest, N, P).
 
 is_expect(RequestStr) ->
-    case inets_regexp:match(RequestStr, "xpect:100-continue") of
-	{match, _, _}->
+    case re:run(RequestStr, "xpect:100-continue", [{capture, none}]) of
+	match->
 	    true;
-	_ ->
+	nomatch ->
 	    false
     end.
 

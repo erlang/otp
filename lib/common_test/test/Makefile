@@ -65,7 +65,8 @@ MODULES= \
 	ct_cover_nomerge_SUITE \
 	ct_groups_search_SUITE \
 	ct_surefire_SUITE \
-	ct_telnet_SUITE
+	ct_telnet_SUITE \
+	ct_release_test_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

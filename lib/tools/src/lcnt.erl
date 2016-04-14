@@ -933,7 +933,6 @@ strings(Strings) -> strings(Strings, []).
 strings([], Out) -> Out;
 strings([{space,  N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string("~~~ws", [N]), [S]));
 strings([{left,   N,      S} | Ss], Out) -> strings(Ss, Out ++ term2string(term2string(" ~~s~~~ws", [N]), [S,""]));
-strings([{format, Format, S} | Ss], Out) -> strings(Ss, Out ++ term2string(Format, [S]));
 strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~ts", [S])).
 
 

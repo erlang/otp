@@ -27,14 +27,11 @@
 
 -export([start/1, start/2]).
 
--export([behaviour_info/1]).
-
-
-behaviour_info(callbacks) ->
-    [{init,1},{handle_begin,3},{handle_end,3},{handle_cancel,3},
-     {terminate,2}];
-behaviour_info(_Other) ->
-    undefined.
+-callback init(_) -> _.
+-callback handle_begin(_, _, _) -> _.
+-callback handle_end(_, _, _) -> _.
+-callback handle_cancel(_, _, _) -> _.
+-callback terminate(_, _) -> _.
 
 
 -record(state, {callback,    % callback module
@@ -50,18 +47,22 @@ start(Callback) ->
 
 start(Callback, Options) ->
     St = #state{callback = Callback},
-    spawn_opt(fun () -> init(St, Options) end,
+    spawn_opt(init_fun(St, Options),
 	      proplists:get_all_values(spawn, Options)).
 
-init(St0, Options) ->
-    St1 = call(init, [Options], St0),
-    St2 = expect([], undefined, St1),
-    Data = [{pass, St2#state.pass},
-	    {fail, St2#state.fail},
-	    {skip, St2#state.skip},
-	    {cancel, St2#state.cancel}],
-    call(terminate, [{ok, Data}, St2#state.state], St2),
-    exit(normal).
+-spec init_fun(_, _) -> fun(() -> no_return()).
+
+init_fun(St0, Options) ->
+    fun () ->
+            St1 = call(init, [Options], St0),
+            St2 = expect([], undefined, St1),
+            Data = [{pass, St2#state.pass},
+                    {fail, St2#state.fail},
+                    {skip, St2#state.skip},
+                    {cancel, St2#state.cancel}],
+            call(terminate, [{ok, Data}, St2#state.state], St2),
+            exit(normal)
+    end.
 
 expect(Id, ParentId, St) ->
     case wait_for(Id, 'begin', ParentId) of

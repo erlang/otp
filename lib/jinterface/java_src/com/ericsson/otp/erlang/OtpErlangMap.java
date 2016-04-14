@@ -19,7 +19,7 @@
  */
 package com.ericsson.otp.erlang;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -37,13 +37,22 @@ public class OtpErlangMap extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -6410770117696198497L;
 
-    private HashMap<OtpErlangObject, OtpErlangObject> map;
+    private OtpMap map;
+
+    private static class OtpMap
+            extends LinkedHashMap<OtpErlangObject, OtpErlangObject> {
+        private static final long serialVersionUID = -2666505810905455082L;
+
+        public OtpMap() {
+            super();
+        }
+    }
 
     /**
      * Create an empty map.
      */
     public OtpErlangMap() {
-        map = new HashMap<OtpErlangObject, OtpErlangObject>();
+        map = new OtpMap();
     }
 
     /**
@@ -93,7 +102,7 @@ public class OtpErlangMap extends OtpErlangObject {
             throw new java.lang.IllegalArgumentException(
                     "Map keys and values must have same arity");
         }
-        map = new HashMap<OtpErlangObject, OtpErlangObject>(vcount);
+        map = new OtpMap();
         OtpErlangObject key, val;
         for (int i = 0; i < vcount; i++) {
             if ((key = keys[kstart + i]) == null) {
@@ -125,7 +134,7 @@ public class OtpErlangMap extends OtpErlangObject {
         final int arity = buf.read_map_head();
 
         if (arity > 0) {
-            map = new HashMap<OtpErlangObject, OtpErlangObject>(arity);
+            map = new OtpMap();
             for (int i = 0; i < arity; i++) {
                 OtpErlangObject key, val;
                 key = buf.read_any();
@@ -133,7 +142,7 @@ public class OtpErlangMap extends OtpErlangObject {
                 put(key, val);
             }
         } else {
-            map = new HashMap<OtpErlangObject, OtpErlangObject>();
+            map = new OtpMap();
         }
     }
 
@@ -350,7 +359,7 @@ public class OtpErlangMap extends OtpErlangObject {
     @SuppressWarnings("unchecked")
     public Object clone() {
         final OtpErlangMap newMap = (OtpErlangMap) super.clone();
-        newMap.map = (HashMap<OtpErlangObject, OtpErlangObject>) map.clone();
+        newMap.map = (OtpMap) map.clone();
         return newMap;
     }
 }

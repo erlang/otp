@@ -36,7 +36,9 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
+
 
 all() -> 
     [close_file, 
@@ -53,29 +55,22 @@ groups() ->
 
 init_per_suite(Config) ->
     catch ssh:stop(),
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
-	    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
-	    c:c(FileAlt),
-	    FileName = filename:join(DataDir, "test.txt"),
-	    {ok, FileInfo} = file:read_file_info(FileName),
-	    ok = file:write_file_info(FileName,
-				      FileInfo#file_info{mode = 8#400}),
-	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-	    Config;
-	_Else ->
-	    {skip,"Could not start ssh!"}
-    end.
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
+    c:c(FileAlt),
+    FileName = filename:join(DataDir, "test.txt"),
+    {ok, FileInfo} = file:read_file_info(FileName),
+    ok = file:write_file_info(FileName,
+			      FileInfo#file_info{mode = 8#400}),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    Config.
 
 end_per_suite(Config) -> 
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     SysDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(SysDir),
-    crypto:stop(),
     ok.
 
 %%--------------------------------------------------------------------

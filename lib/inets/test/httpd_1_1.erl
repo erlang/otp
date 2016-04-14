@@ -24,7 +24,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([host/4, chunked/4, expect/4, range/4, if_test/5, trace/4,
-	 head/4, mod_cgi_chunked_encoding_test/5]).
+	 head/4, mod_cgi_chunked_encoding_test/5, mod_esi_chunk_timeout/4]).
 
 %% -define(all_keys_lower_case,true).
 -ifndef(all_keys_lower_case).
@@ -274,6 +274,15 @@ mod_cgi_chunked_encoding_test(Type, Port, Host, Node, [Request| Rest])->
 				       [{statuscode, 200}]),
     mod_cgi_chunked_encoding_test(Type, Port, Host, Node, Rest).
 
+
+mod_esi_chunk_timeout(Type, Port, Host, Node) ->
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET /cgi-bin/erl/httpd_example/chunk_timeout?input=20000 HTTP/1.1\r\n" 
+				       "Host:"++ Host ++"\r\n"
+				       "\r\n",
+				       [{statuscode, 200},
+					{header, "warning"}]).
+     
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
@@ -361,18 +370,18 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, BodySize)
 
 
 validateMultiPartRangeRequest(Body, ValidBody, Boundary)->
-    case inets_regexp:split(Body,"--"++Boundary++"--") of
+    case re:split(Body,"--"++Boundary++"--", [{return, list}]) of
 	%%Last is the epilogue and must be ignored 
-	{ok,[First | _Last]}->
+	[First | _Last]->
 	    %%First is now the actuall http request body.
-	    case inets_regexp:split(First, "--" ++ Boundary) of
+	    case re:split(First, "--" ++ Boundary, [{return, list}]) of
 		%%Parts is now a list of ranges and the heads for each range
 		%%Gues we try to split out the body
-		{ok,Parts}->
+		Parts->
 		    case lists:flatten(lists:map(fun splitRange/1,Parts)) of
 			ValidBody->
 			    ok;
-		       ParsedBody->
+			ParsedBody->
 			    error = ParsedBody
 		    end
 	    end;
@@ -382,8 +391,8 @@ validateMultiPartRangeRequest(Body, ValidBody, Boundary)->
 
 
 splitRange(Part)->	    
-    case inets_regexp:split(Part, "\r\n\r\n") of
-	{ok,[_, Body]} ->
+    case re:split(Part, "\r\n\r\n", [{return, list}]) of
+	[_, Body] ->
 	    string:substr(Body, 1, length(Body) - 2);
 	_ ->
 	    []
@@ -403,13 +412,13 @@ getRangeSize(Head)->
 	{multiPart, BoundaryString}->
 	    {multiPart, BoundaryString};
 	_X1 ->
-	    case inets_regexp:match(Head, ?CONTENT_RANGE "bytes=.*\r\n") of
-		{match, Start, Lenght} ->
+	    case re:run(Head, ?CONTENT_RANGE "bytes=.*\r\n", [{capture, first}]) of
+		{match, [{Start, Lenght}]} ->
 		    %% Get the range data remove the fieldname and the
 		    %% end of line.
-		    RangeInfo = string:substr(Head, Start + 20, 
-					      Lenght - (20 - 2)),
-		    rangeSize(RangeInfo);
+		    RangeInfo = string:substr(Head, Start + 1 + 20, 
+					      Lenght - (20 +2)),
+		    rangeSize(string:strip(RangeInfo));
 		_X2 ->
 		    error
 	    end
@@ -445,10 +454,10 @@ num(_CharVal, false) ->
     true.
 
 controlMimeType(Head)->
-    case inets_regexp:match(Head,?CONTENT_TYPE "multipart/byteranges.*\r\n") of
-	{match,Start,Length}->
+    case re:run(Head,?CONTENT_TYPE "multipart/byteranges.*\r\n", [{capture, first}]) of
+	{match, [{Start,Length}]}->
 	    FieldNameLen = length(?CONTENT_TYPE "multipart/byteranges"),
-	    case clearBoundary(string:substr(Head, Start + FieldNameLen,
+	    case clearBoundary(string:substr(Head, Start + 1 + FieldNameLen,
 					     Length - (FieldNameLen+2))) of
 		error ->
 		    error;
@@ -462,10 +471,10 @@ controlMimeType(Head)->
     end.
 
 clearBoundary(Boundary)->
-    case inets_regexp:match(Boundary, "boundary=.*\$") of
-	{match, Start1, Length1}->
+    case re:run(Boundary, "boundary=.*\$", [{capture, first}]) of
+	{match, [{Start1, Length1}]}->
 	    BoundLen = length("boundary="),
-	    string:substr(Boundary, Start1 + BoundLen, Length1 - BoundLen);
+	    string:substr(Boundary, Start1 + 1 + BoundLen, Length1 - BoundLen);
 	_ ->
 	    error
     end.
@@ -480,12 +489,12 @@ end_of_header(HeaderPart) ->
     end.
 
 get_body_size(Head) ->
-    case inets_regexp:match(Head,?CONTENT_LENGTH ".*\r\n") of
- 	{match, Start, Length} ->
+    case re:run(Head,?CONTENT_LENGTH ".*\r\n", [{capture, first}]) of
+ 	{match, [{Start, Length}]} ->
  	    %% 15 is length of Content-Length, 
  	    %% 17 Is length of Content-Length and \r\
  	    S = list_to_integer(
- 		  string:strip(string:substr(Head, Start + 15, Length-17))),
+ 		  string:strip(string:substr(Head, Start +1 + 15, Length-17))),
  	    S;
  	_->
  	    0

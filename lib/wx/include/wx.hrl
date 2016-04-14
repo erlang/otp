@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -4085,7 +4085,3 @@
 -define(wxWINDOW_VARIANT_MINI, 2).
 -define(wxWINDOW_VARIANT_LARGE, 3).
 -define(wxWINDOW_VARIANT_MAX, 4).
-% From "xmlres.h": wxXmlResourceFlags
--define(wxXRC_USE_LOCALE, 1).
--define(wxXRC_NO_SUBCLASSING, 2).
--define(wxXRC_NO_RELOADING, 4).

@@ -259,11 +259,11 @@ validate(ExpStatusCode,Socket,Response) ->
     vtrace("validate -> Entry with ~p bytes response",[Sz]),
     Size = trash_the_rest(Socket,Sz),
     close(Socket),
-    case inets_regexp:split(Response," ") of
-	{ok,["HTTP/1.0",ExpStatusCode|_]} ->
+    case re:split(Response," ", [{return, list}]) of
+	["HTTP/1.0",ExpStatusCode|_] ->
 	    vlog("response (~p bytes) was ok",[Size]),
 	    ok;
-	{ok,["HTTP/1.0",StatusCode|_]} -> 
+	["HTTP/1.0",StatusCode|_] -> 
 	    verror("unexpected response status received: ~s => ~s",
 		   [StatusCode,status_to_message(StatusCode)]),
 	    log("unexpected result to GET of '~s': ~s => ~s",

@@ -71,6 +71,7 @@ atom absoluteURI
 atom ac
 atom accessor
 atom active
+atom active_tasks
 atom all
 atom all_but_first
 atom all_names
@@ -268,6 +269,7 @@ atom getenv
 atom gather_gc_info_result
 atom gather_io_bytes
 atom gather_sched_wall_time_result
+atom gather_system_check_result
 atom getting_linked
 atom getting_unlinked
 atom global
@@ -369,6 +371,7 @@ atom monitor
 atom monitor_nodes
 atom monitors
 atom monotonic
+atom monotonic_timestamp
 atom more
 atom multi_scheduling
 atom multiline
@@ -512,6 +515,7 @@ atom return_from
 atom return_to
 atom return_trace
 atom run_queue
+atom run_queue_lengths
 atom runnable
 atom runnable_ports
 atom runnable_procs
@@ -557,6 +561,7 @@ atom static
 atom stderr_to_stdout
 atom stop
 atom stream
+atom strict_monotonic_timestamp
 atom sunrm
 atom suspend
 atom suspended
@@ -579,7 +584,9 @@ atom timeout_value
 atom Times='*'
 atom timestamp
 atom total
+atom total_active_tasks
 atom total_heap_size
+atom total_run_queue_lengths
 atom tpkt
 atom trace trace_ts traced 
 atom trace_control_word

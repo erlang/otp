@@ -26,13 +26,13 @@ bs1(L, B, Pos, Sz1, Sz2) ->
   <<B1:Sz1/binary, B2:Sz2/binary>> = B,
   bs2(L, B, Pos, B1, B2).
 
-bs2(L, B, Pos, B1, B2)->
+bs2(L, B, Pos, B1, B2) ->
   B1 = list_to_binary(lists:sublist(L, 1, Pos)),
   bs3(L, B, Pos, B2).
 
 bs3(L, B, Pos, B2) ->
   B2 = list_to_binary(lists:nthtail(Pos, L)),
-  byte_split(L, B, Pos-1).
+  byte_split(L, B, Pos - 1).
 
 %%--------------------------------------------------------------------
 
@@ -56,14 +56,14 @@ bit_split_binary2(_Action, _Bin, [], _Bef) -> ok.
 
 bit_split_binary3(Action, Bin, List, Bef, Aft) when Bef =< Aft ->
   Action(Bin, List, Bef, (Aft-Bef) div 8 * 8),
-  bit_split_binary3(Action, Bin, List, Bef, Aft-8);
+  bit_split_binary3(Action, Bin, List, Bef, Aft - 8);
 bit_split_binary3(_, _, _, _, _) -> ok.
 
 make_bin_from_list(_List, 0) ->
   mkbin([]);
 make_bin_from_list(List, N) ->
   list_to_binary([make_int(List, 8, 0),
-		  make_bin_from_list(lists:nthtail(8, List), N-8)]).
+		  make_bin_from_list(lists:nthtail(8, List), N - 8)]).
 
 make_int(_List, 0, Acc) -> Acc;
 make_int([H|T], N, Acc) -> make_int(T, N-1, Acc bsl 1 bor H).
@@ -101,5 +101,5 @@ z_split(B, N) ->
     <<_:N/binary>> ->
       [B];
     _ ->
-      z_split(B, N+1)
+      z_split(B, N + 1)
   end.

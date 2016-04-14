@@ -27,21 +27,23 @@
 
 <!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
 <!ELEMENT funcs               (func)+ >
-<!ELEMENT func                (name+,type_desc*,fsummary,type?,desc?) >
+<!ELEMENT func                (name+,fsummary,(type|type_desc)*,desc?) >
 <!-- ELEMENT name is defined in each ref dtd -->
-<!ELEMENT fsummary            (#PCDATA|c|em)* >
+<!ELEMENT fsummary            (#PCDATA|c|i|em|anno)* >
 <!ELEMENT type                (v,d?)* >
 <!ATTLIST type                 variable CDATA #IMPLIED
+                               name CDATA #IMPLIED
                                name_i CDATA #IMPLIED>
-<!ELEMENT v                   (#PCDATA) >
-<!ELEMENT d                   (#PCDATA|c|em)* >
-<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do|anno)* >
+<!ELEMENT v                   (#PCDATA|seealso)* >
+<!ELEMENT d                   (#PCDATA|seealso|c|i|em)* >
+<!ELEMENT desc                (%block;|quote|br|marker|warning|note|dont|do)* >
 <!ELEMENT authors             (aname,email)+ >
 <!ELEMENT aname               (#PCDATA) >
 <!ELEMENT email               (#PCDATA) >
 <!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
-                               warning|note|dont|do)*) >
+                               warning|note|dont|do|section)*) >
 <!ELEMENT datatypes           (datatype)+ >
 <!ELEMENT datatype            (name+,desc?) >
-<!ELEMENT type_desc           (#PCDATA) >
-<!ATTLIST type_desc            variable CDATA #REQUIRED>
+<!ELEMENT type_desc           (#PCDATA|anno|c|seealso)* >
+<!ATTLIST type_desc            variable CDATA #IMPLIED
+                               name CDATA #IMPLIED>

@@ -36,7 +36,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,
 		  [{ct_netconfc,[{log_type,html}, %will be overwritten by config
 				 {hosts,[my_named_connection,netconf1]}]
 		   }]
@@ -72,7 +73,9 @@ all() ->
 	     invalid_opt,
 	     timeout_close_session,
 	     get,
+	     get_a_lot,
 	     timeout_get,
+	     flush_timeout_get,
 	     get_xpath,
 	     get_config,
 	     get_config_xpath,
@@ -96,7 +99,10 @@ all() ->
 	     connection_crash,
 	     get_event_streams,
 	     create_subscription,
-	     receive_event
+	     receive_one_event,
+	     receive_multiple_events,
+	     receive_event_and_rpc,
+	     receive_event_and_rpc_in_chunks
 	    ]
     end.
 
@@ -112,12 +118,9 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     ets:delete_all_objects(ns_tab),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
@@ -329,7 +332,8 @@ invalid_opt(Config) ->
     Opts1 = ?DEFAULT_SSH_OPTS(DataDir) ++ [{timeout,invalidvalue}],
     {error,{invalid_option,{timeout,invalidvalue}}} = ct_netconfc:open(Opts1),
     Opts2 = ?DEFAULT_SSH_OPTS(DataDir) ++ [{some_other_opt,true}],
-    {error,{invalid_option,{some_other_opt,true}}} = ct_netconfc:open(Opts2),
+    {error,{ssh,could_not_connect_to_server,{options,_}}} =
+	ct_netconfc:open(Opts2),
     ok.
 
 timeout_close_session(Config) ->
@@ -351,11 +355,46 @@ get(Config) ->
     ?ok = ct_netconfc:close_session(Client),
     ok.
 
+get_a_lot(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Descr = lists:append(lists:duplicate(1000,"Description of myserver! ")),
+    Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
+				       {description,[],[Descr]}]},
+    Data = lists:duplicate(100,Server),
+    ?NS:expect_reply('get',{fragmented,{data,Data}}),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
 timeout_get(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),
     ?NS:expect('get'),
     {error,timeout} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1000),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+    ok.
+
+%% Test OTP-13008 "ct_netconfc crash when receiving unknown timeout"
+%% If the timer expires "at the same time" as the rpc reply is
+%% received, the timeout message might already be sent when the timer
+%% is cancelled. This test checks that the timeout message is flushed
+%% from the message queue. If it isn't, the client crashes and the
+%% session can not be closed afterwards.
+%% Note that we can only hope that the test case triggers the problem
+%% every now and then, as it is very timing dependent...
+flush_timeout_get(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
+    ?NS:expect_reply('get',{data,Data}),
+    timer:sleep(1000),
+    case ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},1) of
+	{error,timeout} -> ok; % problem not triggered
+	{ok,Data} -> ok % problem possibly triggered
+    end,
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
@@ -929,16 +968,16 @@ create_subscription(Config) ->
 
     ok.
 
-receive_event(Config) ->
+receive_one_event(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,Client} = open_success(DataDir),
     ?NS:expect_reply({'create-subscription',[stream]},ok),
     ?ok = ct_netconfc:create_subscription(Client),
 
-    ?NS:hupp(send_event),
+    ?NS:hupp({send_events,1}),
 
     receive
-	%% Matching ?NS:make_msg(event)
+	%% Matching ?NS:make_msg({event,_})
 	{notification,?NETCONF_NOTIF_NAMESPACE_ATTR,
 	 [{eventTime,[],[_Time]},
 	  {event,[{xmlns,"http://my.namespaces.com/event"}],
@@ -954,6 +993,187 @@ receive_event(Config) ->
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
 
+    ok.
+
+receive_multiple_events(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+    ?NS:expect_reply({'create-subscription',[stream]},ok),
+    ?ok = ct_netconfc:create_subscription(Client),
+
+    ?NS:hupp({send_events,3}),
+
+    receive
+	%% Matching ?NS:make_msg({event,_})
+	{notification,_,_} ->
+	    ok;
+	Other1 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other1})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+    receive
+	%% Matching ?NS:make_msg({event,_})
+	{notification,_,_} ->
+	    ok;
+	Other2 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other2})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+    receive
+	%% Matching ?NS:make_msg({event,_})
+	{notification,_,_} ->
+	    ok;
+	Other3 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other3})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+
+    ok.
+
+receive_event_and_rpc(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+
+    ?NS:expect_reply({'create-subscription',[stream]},ok),
+    ?ok = ct_netconfc:create_subscription(Client),
+
+    %% Construct the data to return from netconf server - one
+    %% rpc-reply and one notification - to be sent in the same ssh
+    %% package.
+    Data = [{servers,[{xmlns,"myns"}],[{server,[],[{name,[],["myserver"]}]}]}],
+    Rpc = {'rpc-reply',?NETCONF_NAMESPACE_ATTR ++ [{'message-id',"2"}],
+	   [{data,Data}]},
+    RpcXml = list_to_binary(xmerl:export_simple_element(Rpc,xmerl_xml)),
+
+    Notification =
+	{notification,?NETCONF_NOTIF_NAMESPACE_ATTR,
+	 [{eventTime,["2012-06-14T14:50:54+02:00"]},
+	  {event,[{xmlns,"http://my.namespaces.com/event"}],
+	   [{severity,["major"]},
+	    {description,["Something terrible happened"]}]}]},
+    NotifXml =
+	list_to_binary(xmerl:export_simple_element(Notification,xmerl_xml)),
+
+    ?NS:expect_reply('get',[RpcXml,NotifXml]),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+
+    receive
+	{notification,_,_} ->
+	    ok;
+	Other1 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other1})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+
+
+    %% Then do the same again, but now send notification first then
+    %% the rpc-reply.
+    Rpc2 = {'rpc-reply',?NETCONF_NAMESPACE_ATTR ++ [{'message-id',"3"}],
+	   [{data,Data}]},
+    RpcXml2 = list_to_binary(xmerl:export_simple_element(Rpc2,xmerl_xml)),
+    ?NS:expect_reply('get',[NotifXml,RpcXml2]),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+
+    receive
+	{notification,_,_} ->
+	    ok;
+	Other2 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other2})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
+
+    ok.
+
+
+receive_event_and_rpc_in_chunks(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+
+    ?NS:expect_reply({'create-subscription',[stream]},ok),
+    ?ok = ct_netconfc:create_subscription(Client),
+
+    %% Construct the data to return from netconf server
+    Data = [{servers,[{xmlns,"myns"}],
+	     [{server,[],[{name,[],["server0"]}]},
+	      {server,[],[{name,[],["server1"]}]},
+	      {server,[],[{name,[],["server2"]}]},
+	      {server,[],[{name,[],["server3"]}]},
+	      {server,[],[{name,[],["server4"]}]},
+	      {server,[],[{name,[],["server5"]}]},
+	      {server,[],[{name,[],["server6"]}]},
+	      {server,[],[{name,[],["server7"]}]},
+	      {server,[],[{name,[],["server8"]}]},
+	      {server,[],[{name,[],["server9"]}]}]
+	    }],
+    Rpc = {'rpc-reply',?NETCONF_NAMESPACE_ATTR ++ [{'message-id',"2"}],
+	   [{data,Data}]},
+    RpcXml = list_to_binary(xmerl:export_simple_element(Rpc,xmerl_xml)),
+
+    Notification =
+	{notification,?NETCONF_NOTIF_NAMESPACE_ATTR,
+	 [{eventTime,["2012-06-14T14:50:54+02:00"]},
+	  {event,[{xmlns,"http://my.namespaces.com/event"}],
+	   [{severity,["major"]},
+	    {description,["Something terrible happened"]}]}]},
+    NotifXml =
+	list_to_binary(xmerl:export_simple_element(Notification,xmerl_xml)),
+
+
+    %% First part contains a notif, but only parts of the end tag
+    Part1 =
+	<<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+	  NotifXml/binary,"\n]]">>,
+
+    %% Second part contains rest of end tag, full rpc-reply and full
+    %% notif except end tag
+    Part2 =
+	<<">]]>\n",RpcXml/binary,"\n",?END_TAG/binary,NotifXml/binary>>,
+
+    %% Third part contains last end tag
+    Part3 = <<"\n",?END_TAG/binary,"\n">>,
+
+    %% Spawn a process which will wait a bit for the client to send
+    %% the request (below), then order the server to the chunks of the
+    %% rpc-reply one by one.
+    spawn(fun() -> ct:sleep(500),?NS:hupp(send,Part1),
+		   ct:sleep(100),?NS:hupp(send,Part2),
+		   ct:sleep(100),?NS:hupp(send,Part3)
+	  end),
+
+    %% Order server to expect a get - then the process above will make
+    %% sure the rpc-reply is sent.
+    ?NS:expect('get'),
+    {ok,Data} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
+
+    receive
+	{notification,_,_} ->
+	    ok;
+	Other1 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other1})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+    receive
+	{notification,_,_} ->
+	    ok;
+	Other2 ->
+	    ct:fail({got_unexpected_while_waiting_for_event, Other2})
+    after 3000 ->
+	    ct:fail(timeout_waiting_for_event)
+    end,
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client),
     ok.
 
 %%%-----------------------------------------------------------------

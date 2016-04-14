@@ -791,7 +791,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	} else {
 	    name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
 	    if (intlist_to_buf(name, name_buf, i) != i)
-		erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
+		erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
 	    name_buf[i] = '\0';
 	}
 	driver = &vanilla_driver;
@@ -1169,7 +1169,7 @@ static Eterm http_bld_uri(struct packet_callback_args* pca,
         return erts_bld_tuple(hpp, szp, 3, am_scheme, s1, s2);
                               
     default:
-        erl_exit(1, "%s, line %d: type=%u\n", __FILE__, __LINE__, uri->type);
+        erts_exit(ERTS_ERROR_EXIT, "%s, line %d: type=%u\n", __FILE__, __LINE__, uri->type);
     }
 }
 

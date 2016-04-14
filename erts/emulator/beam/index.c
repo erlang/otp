@@ -84,7 +84,7 @@ index_put_entry(IndexTable* t, void* tmpl)
 	Uint sz;
 	if (ix >= t->limit) {
 	    /* A core dump is unnecessary */
-	    erl_exit(ERTS_DUMP_EXIT, "no more index entries in %s (max=%d)\n",
+	    erts_exit(ERTS_DUMP_EXIT, "no more index entries in %s (max=%d)\n",
 		     t->htable.name, t->limit);
 	}
 	sz = INDEX_PAGE_SIZE*sizeof(IndexSlot*);
@@ -123,7 +123,7 @@ void erts_index_merge(Hash* src, IndexTable* dst)
 	    ix = dst->entries++;
 	    if (ix >= dst->size) {
 		if (ix >= dst->limit) {
-		    erl_exit(1, "no more index entries in %s (max=%d)\n",
+		    erts_exit(ERTS_ERROR_EXIT, "no more index entries in %s (max=%d)\n",
 			     dst->htable.name, dst->limit);
 		}
 		sz = INDEX_PAGE_SIZE*sizeof(IndexSlot*);

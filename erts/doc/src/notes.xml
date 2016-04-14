@@ -31,8 +31,320 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
-<section><title>Erts 7.1</title>
 
+<section><title>Erts 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The '-path' flag to 'erl' has been documented. This flag
+	    replaces the path specified in the boot script. It has
+	    always existed, but was earlier only documented in SASL
+	    (script).</p>
+          <p>
+	    Own Id: OTP-13060</p>
+        </item>
+        <item>
+          <p>
+	    The <c>call_time</c> tracing functionality internally
+	    used a time based on OS system time in order to measure
+	    call time which could cause erroneous results if OS
+	    system time was changed during tracing.</p>
+          <p>
+	    This functionality now use Erlang monotonic time in order
+	    to measure time. Besides fixing the erroneous results due
+	    to OS system time being used, the results are often also
+	    better since Erlang monotonic time often has better
+	    accuracy and precision.</p>
+          <p>
+	    Own Id: OTP-13216</p>
+        </item>
+        <item>
+          <p>
+	    Fix behaviour of -delay_write command line switch of
+	    epmd, which is used for debugging - in some cases epmd
+	    was sleeping twice the requested amount of time.</p>
+          <p>
+	    Own Id: OTP-13220</p>
+        </item>
+        <item>
+          <p>
+	    Fix race between timeout and exit signal that could cause
+	    a process to ignore the exit signal and continue
+	    execution. Bug exist since OTP 18.0.</p>
+          <p>
+	    Own Id: OTP-13245</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>erlang:halt/1,2</c> for large exit status
+	    values, causing either <c>badarg</c> (on 32-bit) or exit
+	    with a crash dump and/or core dump (on 64-bit). Make
+	    <c>erlang:halt/1,2</c> tolerate any non negative integer
+	    as exit status and truncate high order bits if the OS
+	    does not support it.</p>
+          <p>
+	    Own Id: OTP-13251 Aux Id: ERL-49 </p>
+        </item>
+        <item>
+          <p>
+	    <seealso
+	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seealso>
+	    was not <seealso
+	    marker="erts:time_correction#Time_Warp_Safe_Code">time
+	    warp safe</seealso>. This since it used the same time as
+	    returned by <seealso
+	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seealso>
+	    when calculating timeout. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13254 Aux Id: OTP-11997, OTP-13222 </p>
+        </item>
+        <item>
+          <p>
+	    Fix faulty error handling when writing to a compressed
+	    file.</p>
+          <p>
+	    Own Id: OTP-13270</p>
+        </item>
+        <item>
+          <p>
+	    Fix sendfile usage for large files on FreeBSD</p>
+          <p>
+	    Own Id: OTP-13271</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that could cause
+	    <c>process_info(P,current_location)</c> to crash emulator
+	    for hipe compiled modules.</p>
+          <p>
+	    Own Id: OTP-13282 Aux Id: ERL-79 </p>
+        </item>
+        <item>
+          <p>
+	    Out of memory errors have been changed to cause an exit
+	    instead of abort.</p>
+          <p>
+	    Own Id: OTP-13292</p>
+        </item>
+        <item>
+          <p>
+	    When calling <c>garbage_collect/[1,2]</c> or
+	    <c>check_process_code/[2,3]</c> from a process with a
+	    higher priority than the priority of the process operated
+	    on, the run queues could end up in an inconsistent state.
+	    This bug has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13298 Aux Id: OTP-11388 </p>
+        </item>
+        <item>
+          <p>
+	    A workaround for an issue with older gcc versions (less
+	    than 5) and inline assembly on 32-bit x86 caused an
+	    emulator crash when it had been compiled with a newer gcc
+	    version. An improved <c>configure</c> test, run when
+	    building OTP, now detects whether the workaround should
+	    be used or not.</p>
+          <p>
+	    Own Id: OTP-13326 Aux Id: ERL-80 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Introduced new statistics functionality in order to
+	    more efficiently retrieve information about run able and
+	    active processes and ports. For more information see:</p>
+	    <list> <item><seealso
+	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso></item>
+	    <item><seealso
+	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso></item>
+	    </list>
+          <p>
+	    Own Id: OTP-13201</p>
+        </item>
+        <item>
+          <p>
+	    Time warp safety improvements.</p>
+          <p>
+	    Introduced the options <c>monotonic_timestamp</c>, and
+	    <c>strict_monotonic_timestamp</c> to the trace,
+	    sequential trace, and system profile functionality. This
+	    since the already existing <c>timestamp</c> option is not
+	    time warp safe.</p>
+          <p>
+	    Introduced the option <c>safe_fixed_monotonic_time</c> to
+	    <c>ets:info/2</c> and <c>dets:info/2</c>. This since the
+	    already existing <c>safe_fixed</c> option is not time
+	    warp safe.</p>
+          <p>
+	    Own Id: OTP-13222 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a register race where down nodes goes undetected in
+	    epmd</p>
+          <p>
+	    Own Id: OTP-13301</p>
+        </item>
+        <item>
+          <p>
+	    Improved the gcc inline assembly implementing double word
+	    atomic compare and exchange on x86/x86_64 so that it also
+	    can be used when compiling with clang.</p>
+          <p>
+	    Own Id: OTP-13336</p>
+        </item>
+        <item>
+          <p>
+	    An optimization preventing a long wait for a scheduler
+	    thread looking up information about a process executing
+	    on another scheduler thread had unintentionally been lost
+	    in erts-5.10 (OTP R16A). This optimization has now been
+	    reintroduced.</p>
+          <p>
+	    Own Id: OTP-13365 Aux Id: OTP-9892 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Revert "Fix erroneous splitting of emulator path"</p>
+          <p>
+	    Own Id: OTP-13202</p>
+        </item>
+        <item>
+          <p>
+	    Fix HiPE enabled emulator for FreeBSD.</p>
+          <p>
+	    Own Id: OTP-13204 Aux Id: pr926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory corruption bug caused by disabling
+	    distribution and then re-enable distribution with a node
+	    name that has previously been used by a remote node.</p>
+          <p>
+	    Own Id: OTP-13076 Aux Id: seq12959 </p>
+        </item>
+        <item>
+          <p>
+	    Renamed variables with name bool as Visual Studio 2015
+	    now treats this is a keyword.</p>
+          <p>
+	    Own Id: OTP-13079</p>
+        </item>
+        <item>
+	    <p><c>erl_prim_loader</c> has not supported custom
+	    loaders for several releases. In the documentation for
+	    <c>erl_prim_loader</c>, all references to custom loaders
+	    have now been removed.</p>
+          <p>
+	    Own Id: OTP-13102</p>
+        </item>
+        <item>
+          <p>
+	    Fixed compilation of erts together with libc versions
+	    that do not define __uint32_t.</p>
+          <p>
+	    Own Id: OTP-13105</p>
+        </item>
+        <item>
+          <p>
+	    erl -make now returns non-zero exit codes on failure</p>
+          <p>
+	    Own Id: OTP-13107</p>
+        </item>
+        <item>
+          <p>
+	    Fix crash on init:restart in embedded mode caused by
+	    on_load handler process not being relaunched leading to
+	    load failure for modules such as crypto and asn1rt_nif
+	    that need it to be present for correct NIF loading.</p>
+          <p>
+	    Own Id: OTP-13115</p>
+        </item>
+        <item>
+          <p>
+	    Fix maps decode in erlang:binary_to_term/1</p>
+	    <p>Decoding a term with a large (HAMT) map in an small
+	    (FLAT) map could cause a critical error if the external
+	    format was not produced by beam.</p>
+          <p>
+	    Own Id: OTP-13125</p>
+        </item>
+        <item>
+          <p>
+	    Fix very rare bug in GC when big maps with a lot of hash
+	    collisions from a remote node are waiting in inner
+	    message queue.</p>
+          <p>
+	    Own Id: OTP-13146</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug that could cause a crash dump to become
+	    almost empty.</p>
+          <p>
+	    Own Id: OTP-13150</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Updated the xmllint target to just check the xml
+	    files with real documentation content.<br/> Corrected
+	    some errors and added some missing target in the DTD's.
+	    </p>
+          <p>
+	    Own Id: OTP-13026</p>
+        </item>
+        <item>
+          <p>
+	    Add function enif_getenv to read OS environment variables
+	    in a portable way from NIFs.</p>
+          <p>
+	    Own Id: OTP-13147</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 7.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -980,6 +1292,42 @@
     </section>
 
 </section>
+
+<section><title>Erts 6.4.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug that could cause a crash dump to become
+	    almost empty.</p>
+          <p>
+	    Own Id: OTP-13150</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 6.4.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The 'raw' socket option could not be used multiple times
+	    in one call to any e.g gen_tcp function because only one
+	    of the occurrences were used. This bug has been fixed,
+	    and also a small bug concerning propagating error codes
+	    from within inet:setopts/2.</p>
+          <p>
+	    Own Id: OTP-11482 Aux Id: seq12872 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 
 <section><title>Erts 6.4.1</title>
 

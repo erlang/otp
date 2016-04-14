@@ -35,7 +35,6 @@
 -include("tls_record.hrl").
 -include("tls_handshake.hrl").
 
--define('24H_in_sec', 86400).  
 -define(TIMEOUT, 20000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
@@ -96,6 +95,7 @@ options_tests() ->
     [der_input,
      misc_ssl_options,
      ssl_options_not_proplist,
+     raw_ssl_option,
      socket_options,
      invalid_inet_get_option,
      invalid_inet_get_option_not_list,
@@ -121,6 +121,7 @@ options_tests() ->
 
 api_tests() ->
     [connection_info,
+     connection_information,
      peername,
      peercert,
      peercert_with_client_cert,
@@ -136,6 +137,7 @@ api_tests() ->
      shutdown_both,
      shutdown_error,
      hibernate,
+     hibernate_right_away,
      listen_socket,
      ssl_accept_timeout,
      ssl_recv_timeout,
@@ -331,6 +333,14 @@ init_per_testcase(clear_pem_cache, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 20}),
     Config;
+init_per_testcase(raw_ssl_option, Config) ->
+    ct:timetrap({seconds, 5}),
+    case os:type() of
+        {unix,linux} ->
+            Config;
+        _ ->
+            {skip, "Raw options are platform-specific"}
+    end;
 
 init_per_testcase(_TestCase, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
@@ -450,6 +460,37 @@ connection_info(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+connection_information() ->
+    [{doc,"Test the API function ssl:connection_information/1"}].
+connection_information(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, connection_information_result, []}},
+					{options, ServerOpts}]),
+    
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, connection_information_result, []}},
+			   {options, ClientOpts}]),
+    
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+    
+    ServerMsg = ClientMsg = ok,
+			   
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 protocol_versions() ->
@@ -1154,6 +1195,23 @@ ssl_options_not_proplist(Config) when is_list(Config) ->
     {option_not_a_key_value_tuple, BadOption} =
 	ssl:connect("twitter.com", 443, [binary, {active, false}, 
 					 BadOption]).
+
+%%--------------------------------------------------------------------
+raw_ssl_option() ->
+    [{doc,"Ensure that a single 'raw' option is passed to ssl:listen correctly."}].
+
+raw_ssl_option(Config) when is_list(Config) ->
+    % 'raw' option values are platform-specific; these are the Linux values:
+    IpProtoTcp = 6,
+    % Use TCP_KEEPIDLE, because (e.g.) TCP_MAXSEG can't be read back reliably.
+    TcpKeepIdle = 4,
+    KeepAliveTimeSecs = 55,
+    LOptions = [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}],
+    {ok, LSocket} = ssl:listen(0, LOptions),
+    % Per http://www.erlang.org/doc/man/inet.html#getopts-2, we have to specify
+    % exactly which raw option we want, and the size of the buffer.
+    {ok, [{raw, IpProtoTcp, TcpKeepIdle, <<KeepAliveTimeSecs:32/native>>}]} = ssl:getopts(LSocket, [{raw, IpProtoTcp, TcpKeepIdle, 4}]).
+
 
 %%--------------------------------------------------------------------
 versions() ->
@@ -2898,6 +2956,43 @@ hibernate(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+
+hibernate_right_away() ->
+    [{doc,"Check that an SSL connection that is configured to hibernate "
+    "after 0 or 1 milliseconds hibernates as soon as possible and not "
+    "crashes"}].
+
+hibernate_right_away(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    StartServerOpts = [{node, ServerNode}, {port, 0},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                    {options, ServerOpts}],
+    StartClientOpts = [return_socket,
+                    {node, ClientNode},
+                    {host, Hostname},
+                    {from, self()},
+                    {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+
+    Server1 = ssl_test_lib:start_server(StartServerOpts),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    {Client1, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1),
+
+    Server2 = ssl_test_lib:start_server(StartServerOpts),
+    Port2 = ssl_test_lib:inet_port(Server2),
+    {Client2, #sslsocket{}} = ssl_test_lib:start_client(StartClientOpts ++
+                    [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
+    ssl_test_lib:close(Server2),
+    ssl_test_lib:close(Client2).
+
+%%--------------------------------------------------------------------
 listen_socket() ->
     [{doc,"Check error handling and inet compliance when calling API functions with listen sockets."}].
 
@@ -3926,7 +4021,7 @@ run_suites(Ciphers, Version, Config, Type) ->
     end.
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl:suite_definition(ssl_cipher:openssl_suite(Suite));
+    ssl_cipher:erl_suite_definition(ssl_cipher:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 
@@ -3947,11 +4042,11 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-			   {options,
-			    [{ciphers,[CipherSuite]} |
-			     ClientOpts]}]),
+					{from, self()},
+					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
+					{options,
+					 [{ciphers,[CipherSuite]} |
+					  ClientOpts]}]),
 
     Result = ssl_test_lib:wait_for_result(Server, ok, Client, ok),
 
@@ -3963,6 +4058,17 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 	    [];
 	Error ->
 	    [{ErlangCipherSuite, Error}]
+    end.
+
+connection_information_result(Socket) ->
+    {ok, Info = [_ | _]} = ssl:connection_information(Socket),
+    case  length(Info) > 3 of
+	true -> 
+	    %% Atleast one ssloption() is set
+	    ct:log("Info ~p", [Info]),
+	    ok;
+	false ->
+	    ct:fail(no_ssl_options_returned)
     end.
 
 connection_info_result(Socket) ->
@@ -4090,6 +4196,12 @@ first_rsa_suite([{ecdhe_rsa, _, _} = Suite | _]) ->
 first_rsa_suite([{dhe_rsa, _, _} = Suite| _]) ->
     Suite;
 first_rsa_suite([{rsa, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{ecdhe_rsa, _, _, _} = Suite | _]) ->
+    Suite;
+first_rsa_suite([{dhe_rsa, _, _, _} = Suite| _]) ->
+    Suite;
+first_rsa_suite([{rsa, _, _, _} = Suite| _]) ->
     Suite;
 first_rsa_suite([_ | Rest]) ->
     first_rsa_suite(Rest).

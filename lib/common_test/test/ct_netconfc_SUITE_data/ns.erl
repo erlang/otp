@@ -144,8 +144,8 @@ expect_do_reply(SessionId,Expect,Do,Reply) ->
 %% Hupp the server - i.e. tell it to do something -
 %% e.g. hupp(send_event) will cause send_event(State) to be called on
 %% the session channel process.
-hupp(send_event) ->
-    hupp(send,[make_msg(event)]);
+hupp({send_events,N}) ->
+    hupp(send,[make_msg({event,N})]);
 hupp(kill) ->
     hupp(1,fun hupp_kill/1,[]).
 
@@ -277,6 +277,18 @@ hupp_kill(State = #session{connection = ConnRef}) ->
 send({CM,Ch},Data) ->
     ssh_connection:send(CM, Ch, Data).
 
+%%% Split into many small parts and send to client
+send_frag({CM,Ch},Data) ->
+    Sz = rand:uniform(2000),
+    case Data of
+	<<Chunk:Sz/binary,Rest/binary>> ->
+	    ssh_connection:send(CM, Ch, Chunk),
+	    send_frag({CM,Ch},Rest);
+	Chunk ->
+	    ssh_connection:send(CM, Ch, Chunk)
+    end.
+
+
 %%% Kill ssh connection
 kill({CM,_Ch}) ->
     ssh:close(CM).
@@ -294,7 +306,7 @@ table_trans(Fun,Args) ->
 	    receive
 		{table_trans_done,Result} ->
 		    Result
-	    after 5000 ->
+	    after 20000 ->
 		    exit(table_trans_timeout)
 	    end
     end.
@@ -424,6 +436,9 @@ do(_, undefined) ->
 reply(_,undefined) ->
     ?dbg("no reply~n",[]),
     ok;
+reply(ConnRef,{fragmented,Reply}) ->
+    ?dbg("Reply fragmented: ~p~n",[Reply]),
+    send_frag(ConnRef,make_msg(Reply));
 reply(ConnRef,Reply) ->
     ?dbg("Reply: ~p~n",[Reply]),
     send(ConnRef, make_msg(Reply)).
@@ -431,9 +446,12 @@ reply(ConnRef,Reply) ->
 from_simple(Simple) ->
     unicode_c2b(xmerl:export_simple_element(Simple,xmerl_xml)).
 
-xml(Content) ->
-    <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
-      Content/binary,"\n",?END_TAG/binary>>.
+xml(Content) when is_binary(Content) ->
+    xml([Content]);
+xml(Content) when is_list(Content) ->
+    Msgs = [<<Msg/binary,"\n",?END_TAG/binary>> || Msg <- Content],
+    MsgsBin = list_to_binary(Msgs),
+    <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", MsgsBin/binary>>.
 
 rpc_reply(Content) when is_binary(Content) ->
     MsgId = case erase(msg_id) of
@@ -556,15 +574,17 @@ make_msg({ok,Data}) ->
 make_msg({data,Data}) ->
     xml(rpc_reply(from_simple({data,Data})));
 
-make_msg(event) ->
-    xml(<<"<notification xmlns=\"",?NETCONF_NOTIF_NAMESPACE,"\">"
+make_msg({event,N}) ->
+    Notification = <<"<notification xmlns=\"",?NETCONF_NOTIF_NAMESPACE,"\">"
 	  "<eventTime>2012-06-14T14:50:54+02:00</eventTime>"
 	  "<event xmlns=\"http://my.namespaces.com/event\">"
 	  "<severity>major</severity>"
 	  "<description>Something terrible happened</description>"
 	  "</event>"
-	  "</notification>">>);
-make_msg(Xml) when is_binary(Xml) ->
+	  "</notification>">>,
+    xml(lists:duplicate(N,Notification));
+make_msg(Xml) when is_binary(Xml) orelse
+		   (is_list(Xml) andalso is_binary(hd(Xml))) ->
     xml(Xml);
 make_msg(Simple) when is_tuple(Simple) ->
     xml(from_simple(Simple)).

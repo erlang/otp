@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,10 +53,14 @@
 -type enum() :: non_neg_integer().   %% See wx/include/gl.hrl
 -type clamp() :: float().    %% 0.0..1.0
 -type offset() :: non_neg_integer(). %% Offset in memory block
--type matrix() :: {float(),float(),float(),float(),
+-type matrix12() :: {float(),float(),float(),float(),
+                   float(),float(),float(),float(),
+                   float(),float(),float(),float()}.
+-type matrix16() :: {float(),float(),float(),float(),
                    float(),float(),float(),float(),
                    float(),float(),float(),float(),
                    float(),float(),float(),float()}.
+-type matrix() :: matrix12() | matrix16().
 -type mem() :: binary() | tuple().   %% Memory block
 
 -export([clearIndex/1,clearColor/4,clear/1,indexMask/1,colorMask/4,alphaFunc/2,
@@ -4289,14 +4293,14 @@ lighti(Light,Pname,Param) ->
 
 %% @doc 
 %% See {@link lightf/3}
--spec lightfv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: {float()}.
+-spec lightfv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: tuple().
 lightfv(Light,Pname,Params) ->
   cast(5207, <<Light:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link lightf/3}
--spec lightiv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec lightiv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: tuple().
 lightiv(Light,Pname,Params) ->
   cast(5208, <<Light:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -4460,14 +4464,14 @@ lightModeli(Pname,Param) ->
 
 %% @doc 
 %% See {@link lightModelf/2}
--spec lightModelfv(Pname, Params) -> ok when Pname :: enum(),Params :: {float()}.
+-spec lightModelfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 lightModelfv(Pname,Params) ->
   cast(5213, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link lightModelf/2}
--spec lightModeliv(Pname, Params) -> ok when Pname :: enum(),Params :: {integer()}.
+-spec lightModeliv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 lightModeliv(Pname,Params) ->
   cast(5214, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -4547,14 +4551,14 @@ materiali(Face,Pname,Param) ->
 
 %% @doc 
 %% See {@link materialf/3}
--spec materialfv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: {float()}.
+-spec materialfv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: tuple().
 materialfv(Face,Pname,Params) ->
   cast(5217, <<Face:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link materialf/3}
--spec materialiv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec materialiv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: tuple().
 materialiv(Face,Pname,Params) ->
   cast(5218, <<Face:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -5890,21 +5894,21 @@ texGeni(Coord,Pname,Param) ->
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGendv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: {float()}.
+-spec texGendv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGendv(Coord,Pname,Params) ->
   cast(5246, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,0:32,
       (<< <<C:?GLdouble>> ||C <- tuple_to_list(Params)>>)/binary>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGenfv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: {float()}.
+-spec texGenfv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGenfv(Coord,Pname,Params) ->
   cast(5247, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGeniv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec texGeniv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGeniv(Coord,Pname,Params) ->
   cast(5248, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -6123,14 +6127,14 @@ texEnvi(Target,Pname,Param) ->
 %% replacement. The default value is `?GL_FALSE'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnv.xml">external</a> documentation.
--spec texEnvfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {float()}.
+-spec texEnvfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texEnvfv(Target,Pname,Params) ->
   cast(5254, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texEnvfv/3}
--spec texEnviv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec texEnviv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texEnviv(Target,Pname,Params) ->
   cast(5255, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -6455,14 +6459,14 @@ texParameteri(Target,Pname,Param) ->
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameterfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {float()}.
+-spec texParameterfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterfv(Target,Pname,Params) ->
   cast(5260, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameteriv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec texParameteriv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameteriv(Target,Pname,Params) ->
   cast(5261, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -7609,14 +7613,14 @@ fogi(Pname,Param) ->
 
 %% @doc 
 %% See {@link fogf/2}
--spec fogfv(Pname, Params) -> ok when Pname :: enum(),Params :: {float()}.
+-spec fogfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 fogfv(Pname,Params) ->
   cast(5306, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link fogf/2}
--spec fogiv(Pname, Params) -> ok when Pname :: enum(),Params :: {integer()}.
+-spec fogiv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 fogiv(Pname,Params) ->
   cast(5307, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -8522,24 +8526,24 @@ convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) ->
 %% image were replicated. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionParameter.xml">external</a> documentation.
--spec convolutionParameterf(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {float()}.
+-spec convolutionParameterf(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 convolutionParameterf(Target,Pname,Params) ->
   cast(5339, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @equiv convolutionParameterf(Target,Pname,Params)
--spec convolutionParameterfv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: {float()}}.
+-spec convolutionParameterfv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: tuple()}.
 convolutionParameterfv(Target,Pname,{Params}) ->  convolutionParameterf(Target,Pname,Params).
 
 %% @doc 
 %% See {@link convolutionParameterf/3}
--spec convolutionParameteri(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec convolutionParameteri(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 convolutionParameteri(Target,Pname,Params) ->
   cast(5340, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @equiv convolutionParameteri(Target,Pname,Params)
--spec convolutionParameteriv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: {integer()}}.
+-spec convolutionParameteriv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: tuple()}.
 convolutionParameteriv(Target,Pname,{Params}) ->  convolutionParameteri(Target,Pname,Params).
 
 %% @doc Copy pixels into a one-dimensional convolution filter
@@ -9671,7 +9675,7 @@ pointParameterf(Pname,Param) ->
 
 %% @doc 
 %% See {@link pointParameterf/2}
--spec pointParameterfv(Pname, Params) -> ok when Pname :: enum(),Params :: {float()}.
+-spec pointParameterfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 pointParameterfv(Pname,Params) ->
   cast(5397, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -9684,7 +9688,7 @@ pointParameteri(Pname,Param) ->
 
 %% @doc 
 %% See {@link pointParameterf/2}
--spec pointParameteriv(Pname, Params) -> ok when Pname :: enum(),Params :: {integer()}.
+-spec pointParameteriv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
 pointParameteriv(Pname,Params) ->
   cast(5399, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -11529,7 +11533,7 @@ linkProgram(Program) ->
 %% scanned or parsed at this time; they are simply copied into  the specified shader object.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSource.xml">external</a> documentation.
--spec shaderSource(Shader, String) -> ok when Shader :: integer(),String :: [string()].
+-spec shaderSource(Shader, String) -> ok when Shader :: integer(),String :: iolist().
 shaderSource(Shader,String) ->
  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
   cast(5473, <<Shader:?GLuint,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+0) rem 8)) rem 8)>>).
@@ -12278,7 +12282,7 @@ bindBufferBase(Target,Index,Buffer) ->
 %%  and the buffer mode is `?GL_INTERLEAVED_ATTRIBS'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTransformFeedbackVaryings.xml">external</a> documentation.
--spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> ok when Program :: integer(),Varyings :: [string()],BufferMode :: enum().
+-spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> ok when Program :: integer(),Varyings :: iolist(),BufferMode :: enum().
 transformFeedbackVaryings(Program,Varyings,BufferMode) ->
  VaryingsTemp = list_to_binary([[Str|[0]] || Str <- Varyings ]),
   cast(5536, <<Program:?GLuint,(length(Varyings)):?GLuint,(size(VaryingsTemp)):?GLuint,(VaryingsTemp)/binary,0:((8-((size(VaryingsTemp)+0) rem 8)) rem 8),BufferMode:?GLenum>>).
@@ -12596,7 +12600,7 @@ uniform4uiv(Location,Value) ->
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameterIiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec texParameterIiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIiv(Target,Pname,Params) ->
   cast(5568, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -12604,7 +12608,7 @@ texParameterIiv(Target,Pname,Params) ->
 %% @doc glTexParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameterI.xml">external</a> documentation.
--spec texParameterIuiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer()}.
+-spec texParameterIuiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIuiv(Target,Pname,Params) ->
   cast(5569, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -12651,21 +12655,21 @@ getTexParameterIuiv(Target,Pname) ->
 %%  and the buffer being cleared is defined. However, this is not an error. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBuffer.xml">external</a> documentation.
--spec clearBufferiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: {integer()}.
+-spec clearBufferiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferiv(Buffer,Drawbuffer,Value) ->
   cast(5572, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
--spec clearBufferuiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: {integer()}.
+-spec clearBufferuiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferuiv(Buffer,Drawbuffer,Value) ->
   cast(5573, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
--spec clearBufferfv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: {float()}.
+-spec clearBufferfv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferfv(Buffer,Drawbuffer,Value) ->
   cast(5574, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
@@ -13219,7 +13223,7 @@ createShaderObjectARB(ShaderType) ->
 %% @doc glShaderSourceARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSourceARB.xml">external</a> documentation.
--spec shaderSourceARB(ShaderObj, String) -> ok when ShaderObj :: integer(),String :: [string()].
+-spec shaderSourceARB(ShaderObj, String) -> ok when ShaderObj :: integer(),String :: iolist().
 shaderSourceARB(ShaderObj,String) ->
  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
   cast(5630, <<ShaderObj:?GLhandleARB,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+4) rem 8)) rem 8)>>).
@@ -13927,7 +13931,7 @@ isVertexArray(Array) ->
 %%  If an error occurs, nothing is written to  `UniformIndices' . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformIndices.xml">external</a> documentation.
--spec getUniformIndices(Program, UniformNames) -> [integer()] when Program :: integer(),UniformNames :: [string()].
+-spec getUniformIndices(Program, UniformNames) -> [integer()] when Program :: integer(),UniformNames :: iolist().
 getUniformIndices(Program,UniformNames) ->
  UniformNamesTemp = list_to_binary([[Str|[0]] || Str <- UniformNames ]),
   call(5675, <<Program:?GLuint,(length(UniformNames)):?GLuint,(size(UniformNamesTemp)):?GLuint,(UniformNamesTemp)/binary,0:((8-((size(UniformNamesTemp)+0) rem 8)) rem 8)>>).
@@ -14458,7 +14462,7 @@ deleteNamedStringARB(Name) ->
 %% @doc glCompileShaderIncludeARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderIncludeARB.xml">external</a> documentation.
--spec compileShaderIncludeARB(Shader, Path) -> ok when Shader :: integer(),Path :: [string()].
+-spec compileShaderIncludeARB(Shader, Path) -> ok when Shader :: integer(),Path :: iolist().
 compileShaderIncludeARB(Shader,Path) ->
  PathTemp = list_to_binary([[Str|[0]] || Str <- Path ]),
   cast(5703, <<Shader:?GLuint,(length(Path)):?GLuint,(size(PathTemp)):?GLuint,(PathTemp)/binary,0:((8-((size(PathTemp)+0) rem 8)) rem 8)>>).
@@ -15617,7 +15621,7 @@ activeShaderProgram(Pipeline,Program) ->
 %% @doc glCreateShaderProgramv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShaderProgramv.xml">external</a> documentation.
--spec createShaderProgramv(Type, Strings) -> integer() when Type :: enum(),Strings :: [string()].
+-spec createShaderProgramv(Type, Strings) -> integer() when Type :: enum(),Strings :: iolist().
 createShaderProgramv(Type,Strings) ->
  StringsTemp = list_to_binary([[Str|[0]] || Str <- Strings ]),
   call(5778, <<Type:?GLenum,(length(Strings)):?GLuint,(size(StringsTemp)):?GLuint,(StringsTemp)/binary,0:((8-((size(StringsTemp)+0) rem 8)) rem 8)>>).

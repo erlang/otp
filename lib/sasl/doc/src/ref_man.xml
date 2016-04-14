@@ -30,8 +30,8 @@
     <file>application.xml</file>
   </header>
   <description>
-    <p>The System Architecture Support Libraries application, <em>SASL</em>,
-      provides support for alarm and release handling etc.</p>
+    <p>The <c>SASL</c> application provides support for alarm handling,
+      release handling, and related functions.</p>
   </description>
   <xi:include href="sasl_app.xml"/>
   <xi:include href="alarm_handler.xml"/>

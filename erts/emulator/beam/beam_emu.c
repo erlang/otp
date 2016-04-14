@@ -4069,7 +4069,7 @@ do {								\
 	     tmp_arg1 += Arg1;
 
 	 store_bs_add_result:
-	     if (MY_IS_SSMALL((Sint) tmp_arg1)) {
+	     if (tmp_arg1 <= MAX_SMALL) {
 		 tmp_arg1 = make_small(tmp_arg1);
 	     } else {
 		 /*
@@ -5018,7 +5018,7 @@ do {								\
 #ifdef NO_FPE_SIGNALS
      OpCase(fclearerror):
      OpCase(i_fcheckerror):
-	 erl_exit(1, "fclearerror/i_fcheckerror without fpe signals (beam_emu)");
+	 erts_exit(ERTS_ERROR_EXIT, "fclearerror/i_fcheckerror without fpe signals (beam_emu)");
 #  define ERTS_NO_FPE_CHECK_INIT ERTS_FP_CHECK_INIT
 #  define ERTS_NO_FPE_ERROR ERTS_FP_ERROR
 #else
@@ -5176,7 +5176,7 @@ do {								\
 	 I = handle_error(c_p, I, reg, NULL);
 	 goto post_error_handling;
        default:
-	 erl_exit(1, "hipe_mode_switch: result %u\n", c_p->def_arg_reg[3]);
+	 erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %u\n", c_p->def_arg_reg[3]);
      }
  }
  OpCase(hipe_call_count): {
@@ -5256,7 +5256,7 @@ do {								\
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
-    erl_exit(1, "meta op\n");
+    erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
     /*
      * One-time initialization of Beam emulator.
@@ -5310,7 +5310,7 @@ do {								\
  }
 #ifdef NO_JUMP_TABLE
  default:
-    erl_exit(1, "unexpected op code %d\n",Go);
+    erts_exit(ERTS_ERROR_EXIT, "unexpected op code %d\n",Go);
   }
 #endif
     return;			/* Never executed */
@@ -5355,7 +5355,7 @@ translate_gc_bif(void* gcf)
     } else if (gcf == erts_gc_binary_part_3) {
 	return binary_part_3;
     } else {
-	erl_exit(1, "bad gc bif");
+	erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
     }
 }
 
@@ -5420,7 +5420,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
     Eterm* hp;
     Eterm Value = c_p->fvalue;
     Eterm Args = am_true;
-    c_p->i = pc;    /* In case we call erl_exit(). */
+    c_p->i = pc;    /* In case we call erts_exit(). */
 
     ASSERT(c_p->freason != TRAP); /* Should have been handled earlier. */
 
@@ -5484,7 +5484,7 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf)
 	    c_p->cp = 0;	/* To avoid keeping stale references. */
 	    return new_pc;
 	}
-	if (c_p->catches > 0) erl_exit(1, "Catch not found");
+	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
     }
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
     terminate_proc(c_p, Value);

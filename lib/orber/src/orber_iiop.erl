@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -176,7 +176,7 @@ request({Host, Port, InitObjkey, Index, TaggedProfile, HostData},
             corba:raise(#'COMM_FAILURE'{completion_status=?COMPLETED_NO})
     end.
 
-
+-dialyzer({no_improper_lists, encode_request/1}).
 encode_request(#giop_env{interceptors = false} = Env) ->
     case catch cdr_encode:enc_request(Env) of
 	{'EXCEPTION', Exc} ->

@@ -33,6 +33,56 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Two new CT hook functions have been added:
+	    <c>post_init_per_testcase/4</c> and
+	    <c>pre_end_per_testcase/3</c>. With these hook functions,
+	    it is possible to perform arbitrary actions (including
+	    modifications of test execution, test state and results)
+	    immediately before and after the execution of the test
+	    case.</p>
+          <p>
+	    Own Id: OTP-13242 Aux Id: seq12991 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Test_Server 3.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When generating Makefile from Makefile.src,
+	    ts_lib:get_arg/4 earlier removed all spaces in the
+	    extracted argument. The code was probably meant for
+	    removing leading and trailing spaces only, and is now
+	    corrected to do so.</p>
+          <p>
+	    Own Id: OTP-13015</p>
+        </item>
+        <item>
+          <p>
+	    With the Common Test 'create_priv_dir' start option set
+	    to 'auto_per_tc', the name of the priv directory for a
+	    configuration function could clash with the name of the
+	    priv directory for a test case, which would cause Test
+	    Server failure. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-13181</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

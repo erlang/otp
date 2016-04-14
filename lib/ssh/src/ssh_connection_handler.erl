@@ -433,6 +433,12 @@ key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg,
     send_msg(GexGroup, State),
     {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
 
+key_exchange(#ssh_msg_kex_dh_gex_request_old{} = Msg, 
+	     #state{ssh_params = #ssh{role = server} = Ssh0} = State) ->
+    {ok, GexGroup, Ssh} = ssh_transport:handle_kex_dh_gex_request(Msg, Ssh0),
+    send_msg(GexGroup, State),
+    {next_state, key_exchange_dh_gex_init, next_packet(State#state{ssh_params = Ssh})};
+
 key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
     {ok, KexGexInit, Ssh} = ssh_transport:handle_kex_dh_gex_group(Msg, Ssh0),
@@ -642,10 +648,12 @@ userauth_keyboard_interactive(Msg = #ssh_msg_userauth_failure{},
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{},
 					    #state{ssh_params = #ssh{role = client}} = State) ->
     userauth(Msg, State);
-
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{},
 					    #state{ssh_params = #ssh{role = client}} = State) ->
-    userauth(Msg, State).
+    userauth(Msg, State);
+userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_info_request{},
+					    #state{ssh_params = #ssh{role = client}} = State) ->
+    userauth_keyboard_interactive(Msg, State).
 
 %%--------------------------------------------------------------------
 -spec connected({#ssh_msg_kexinit{}, binary()}, %%| %% #ssh_msg_kexdh_init{},
@@ -731,13 +739,28 @@ handle_event({adjust_window, ChannelId, Bytes}, StateName,
 			#connection{channel_cache = Cache}} = State0) ->
     State =
 	case ssh_channel:cache_lookup(Cache, ChannelId) of
-	    #channel{recv_window_size = WinSize, remote_id = Id} = Channel ->
-		ssh_channel:cache_update(Cache, Channel#channel{recv_window_size =
-					       WinSize + Bytes}),
-		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes),
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     recv_packet_size = PktSize} = Channel
+	      when (WinSize-Bytes) >= 2*PktSize ->
+		%% The peer can send at least two more *full* packet, no hurry.
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_pending = Pending + Bytes}),
+		State0;
+
+	    #channel{recv_window_size = WinSize,
+		     recv_window_pending = Pending,
+		     remote_id = Id} = Channel ->
+		%% Now we have to update the window - we can't receive so many more pkts
+		ssh_channel:cache_update(Cache, 
+					 Channel#channel{recv_window_size =
+							     WinSize + Bytes + Pending,
+							 recv_window_pending = 0}),
+		Msg = ssh_connection:channel_adjust_window_msg(Id, Bytes + Pending),
 		send_replies([{connection_reply, Msg}], State0);
-	undefined ->
-	    State0
+
+	    undefined ->
+		State0
 	end,
     {next_state, StateName, next_packet(State)};
 
@@ -970,57 +993,55 @@ handle_info({Protocol, Socket, Info}, hello,
 		   transport_protocol = Protocol} = State) -> 
     event({info_line, Info}, hello, State);
 
-handle_info({Protocol, Socket, Data}, Statename, 
+handle_info({Protocol, Socket, Data}, StateName, 
 	    #state{socket = Socket,
 		   transport_protocol = Protocol,
-		   ssh_params = #ssh{decrypt_block_size = BlockSize,
-				     recv_mac_size = MacSize} = Ssh0,
-		   decoded_data_buffer = <<>>,
-		   encoded_data_buffer = EncData0} = State0) ->
+		   ssh_params = Ssh0,
+		   decoded_data_buffer = DecData0,
+		   encoded_data_buffer = EncData0,
+		   undecoded_packet_length = RemainingSshPacketLen0} = State0) ->
+    Encoded = <<EncData0/binary, Data/binary>>,
+    try ssh_transport:handle_packet_part(DecData0, Encoded, RemainingSshPacketLen0, Ssh0) 
+    of
+	{get_more, DecBytes, EncDataRest, RemainingSshPacketLen, Ssh1} ->
+	    {next_state, StateName,
+	     next_packet(State0#state{encoded_data_buffer = EncDataRest,
+				      decoded_data_buffer = DecBytes,
+				      undecoded_packet_length = RemainingSshPacketLen,
+				      ssh_params = Ssh1})};
+	{decoded, MsgBytes, EncDataRest, Ssh1} ->
+	    generate_event(MsgBytes, StateName,
+			   State0#state{ssh_params = Ssh1,
+					%% Important to be set for
+					%% next_packet
+%%% FIXME: the following three seem to always be set in generate_event!
+					decoded_data_buffer = <<>>,
+					undecoded_packet_length = undefined,
+					encoded_data_buffer = EncDataRest},
+			   EncDataRest);
+	{bad_mac, Ssh1} ->
+	    DisconnectMsg = 
+		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+					description = "Bad mac",
+					language = ""},
+	    handle_disconnect(DisconnectMsg, State0#state{ssh_params=Ssh1});
 
-    %% Implementations SHOULD decrypt the length after receiving the
-    %% first 8 (or cipher block size, whichever is larger) bytes of a
-    %% packet. (RFC 4253: Section 6 - Binary Packet Protocol)
-    case size(EncData0) + size(Data) >= erlang:max(8, BlockSize) of
-	true ->
-	    {Ssh, SshPacketLen, DecData, EncData} = 
-
-		ssh_transport:decrypt_first_block(<<EncData0/binary, 
-						   Data/binary>>, Ssh0),
-	     case SshPacketLen > ?SSH_MAX_PACKET_SIZE of
- 		true ->
-  		    DisconnectMsg = 
-  			#ssh_msg_disconnect{code = 
-					    ?SSH_DISCONNECT_PROTOCOL_ERROR,
-  					    description = "Bad packet length " 
-					    ++ integer_to_list(SshPacketLen),
-  					    language = "en"},
-  		    handle_disconnect(DisconnectMsg, State0);
-  		false ->
-		    RemainingSshPacketLen = 
-			(SshPacketLen + ?SSH_LENGHT_INDICATOR_SIZE) - 
-			BlockSize + MacSize,
-		    State = State0#state{ssh_params = Ssh},
-		    handle_ssh_packet_data(RemainingSshPacketLen, 
-					   DecData, EncData, Statename,
-					   State)
-	     end;
-	false  ->
-	    {next_state, Statename, 
-	     next_packet(State0#state{encoded_data_buffer = 
-				      <<EncData0/binary, Data/binary>>})}
+	{error, {exceeds_max_size,PacketLen}} ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet length " 
+				    ++ integer_to_list(PacketLen),
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
+    catch
+	_:_ ->
+	    DisconnectMsg = 
+		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				    description = "Bad packet",
+				    language = ""},
+	    handle_disconnect(DisconnectMsg, State0)
     end;
-
-handle_info({Protocol, Socket, Data}, Statename, 
-	    #state{socket = Socket,
-		   transport_protocol = Protocol,
-		   decoded_data_buffer = DecData, 
-		   encoded_data_buffer = EncData,
-		   undecoded_packet_length = Len} = 
-	    State) when is_integer(Len) ->
-    handle_ssh_packet_data(Len, DecData, <<EncData/binary, Data/binary>>, 
-			   Statename, State);
-
+		
 handle_info({CloseTag, _Socket}, _StateName, 
 	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
@@ -1389,43 +1410,53 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	Byte == ?SSH_MSG_CHANNEL_REQUEST;
 	Byte == ?SSH_MSG_CHANNEL_SUCCESS;
 	Byte == ?SSH_MSG_CHANNEL_FAILURE ->
-    ConnectionMsg =  ssh_message:decode(Msg),
-    State1 = generate_event_new_state(State0, EncData),
-    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
-	{{replies, Replies0}, Connection} ->
-	    if StateName == connected ->
-		    Replies = Replies0,
-		    State2  = State1;
-	       true ->
-		    {ConnReplies, Replies} =
-			lists:splitwith(fun not_connected_filter/1, Replies0),
-		    Q = State1#state.event_queue ++ ConnReplies,
-		    State2  = State1#state{ event_queue = Q }
-	    end,
-	    State = send_replies(Replies,  State2#state{connection_state = Connection}),
-	    {next_state, StateName, next_packet(State)};
-	{noreply, Connection} ->
-	    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
-	{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
-	      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    User ! {self(), not_connected, Reason},
-	    {stop, {shutdown, normal},
-	     next_packet(State#state{connection_state = Connection})};
-	{disconnect, _Reason, {{replies, Replies}, Connection}} ->
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
-    catch
-	_:Error ->
-	    {disconnect, _Reason, {{replies, Replies}, Connection}} =
-		ssh_connection:handle_msg(
-		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-					  description = "Internal error",
-				      language = "en"}, Connection0, Role),
-	    State = send_replies(Replies,  State1#state{connection_state = Connection}),
-	    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
-    end;
+    try
+	ssh_message:decode(Msg)
+    of
+	ConnectionMsg ->
+	    State1 = generate_event_new_state(State0, EncData),
+	    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Role) of
+		{{replies, Replies0}, Connection} ->
+		    if StateName == connected ->
+			    Replies = Replies0,
+			    State2  = State1;
+		       true ->
+			    {ConnReplies, Replies} =
+				lists:splitwith(fun not_connected_filter/1, Replies0),
+			    Q = State1#state.event_queue ++ ConnReplies,
+			    State2  = State1#state{ event_queue = Q }
+		    end,
+		    State = send_replies(Replies,  State2#state{connection_state = Connection}),
+		    {next_state, StateName, next_packet(State)};
+		{noreply, Connection} ->
+		    {next_state, StateName, next_packet(State1#state{connection_state = Connection})};
+		{disconnect, {_, Reason}, {{replies, Replies}, Connection}} when
+		      Role == client andalso ((StateName =/= connected) and (not Renegotiation)) ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    User ! {self(), not_connected, Reason},
+		    {stop, {shutdown, normal},
+		     next_packet(State#state{connection_state = Connection})};
+		{disconnect, _Reason, {{replies, Replies}, Connection}} ->
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
+	    catch
+		_:Error ->
+		    {disconnect, _Reason, {{replies, Replies}, Connection}} =
+			ssh_connection:handle_msg(
+			  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+					      description = "Internal error",
+					      language = "en"}, Connection0, Role),
+		    State = send_replies(Replies,  State1#state{connection_state = Connection}),
+		    {stop, {shutdown, Error}, State#state{connection_state = Connection}}
+	    end
 
+    catch
+	_:_ ->
+	    handle_disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				  description = "Bad packet received",
+				  language = ""}, State0)
+    end;
 
 generate_event(Msg, StateName, State0, EncData) ->
     try 
@@ -1630,57 +1661,6 @@ after_new_keys_events({event, Event}, {next_state, StateName, StateData}) ->
 after_new_keys_events({connection_reply, _Data} = Reply, {StateName, State}) ->
     NewState = send_replies([Reply], State),
     {next_state, StateName, NewState}.
-
-handle_ssh_packet_data(RemainingSshPacketLen, DecData, EncData, StateName, 
-		       State) ->
-    EncSize =  size(EncData), 
-    case RemainingSshPacketLen > EncSize of
-	true ->
-	    {next_state, StateName, 
-	     next_packet(State#state{decoded_data_buffer = DecData,
-				     encoded_data_buffer = EncData,
-				     undecoded_packet_length = 
-				     RemainingSshPacketLen})};
-	false ->
-	    handle_ssh_packet(RemainingSshPacketLen, StateName,
-			      State#state{decoded_data_buffer = DecData,
-					  encoded_data_buffer = EncData})
-    
-    end.    
-
-handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
-					    encoded_data_buffer = EncData0,
-					    ssh_params = Ssh0,
-					    transport_protocol = _Protocol,
-					    socket = _Socket} = State0) ->
-    try 
-	{Ssh1, DecData, EncData, Mac} = 
-	    ssh_transport:unpack(EncData0, Length, Ssh0),
-	SshPacket = <<DecData0/binary, DecData/binary>>,
-	case ssh_transport:is_valid_mac(Mac, SshPacket, Ssh1) of
-	    true ->
-		PacketData = ssh_transport:msg_data(SshPacket),
-		{Ssh1, Msg} = ssh_transport:decompress(Ssh1, PacketData),
-		generate_event(Msg, StateName, 
-			       State0#state{ssh_params = Ssh1,
-					    %% Important to be set for
-					    %% next_packet
-					    decoded_data_buffer = <<>>},
-			       EncData);
-	    false ->
-		DisconnectMsg = 
-		    #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-					description = "Bad mac",
-					language = "en"},
-		handle_disconnect(DisconnectMsg, State0)
-	end
-    catch _:_ ->
-	    Disconnect = 
-		#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				    description = "Bad input",
-				    language = "en"},
-	    handle_disconnect(Disconnect, State0) 
-    end.  
 
 
 handle_disconnect(DisconnectMsg, State) ->

@@ -29,10 +29,12 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
--define(SSH_LENGHT_INDICATOR_SIZE, 4).
 -define(REKEY_TIMOUT, 3600000).
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
+
+-define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
+-define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
 -define(FALSE, 0).
 -define(TRUE,  1).

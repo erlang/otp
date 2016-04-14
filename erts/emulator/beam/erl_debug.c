@@ -255,14 +255,14 @@ void erts_check_stack(Process *p)
     Eterm *stack_end = p->htop;
 
     if (p->stop > stack_start)
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "<%lu.%lu.%lu>: Stack underflow\n",
 		 internal_pid_channel_no(p->common.id),
 		 internal_pid_number(p->common.id),
 		 internal_pid_serial(p->common.id));
 
     if (p->stop < stack_end)
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "<%lu.%lu.%lu>: Stack overflow\n",
 		 internal_pid_channel_no(p->common.id),
 		 internal_pid_number(p->common.id),
@@ -287,7 +287,7 @@ void erts_check_stack(Process *p)
 	if (in_mbuf)
 	    continue;
 
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "<%lu.%lu.%lu>: Wild stack pointer\n",
 		 internal_pid_channel_no(p->common.id),
 		 internal_pid_number(p->common.id),
@@ -372,7 +372,7 @@ void erts_check_memory(Process *p, Eterm *start, Eterm *end)
 #ifdef DEBUG
         if (hval == DEBUG_BAD_WORD) {
             print_untagged_memory(start, end);
-            erl_exit(1, "Uninitialized HAlloc'ed memory found @ 0x%0*lx!\n",
+            erts_exit(ERTS_ERROR_EXIT, "Uninitialized HAlloc'ed memory found @ 0x%0*lx!\n",
                      PTR_SIZE,(unsigned long)(pos - 1));
         }
 #endif
@@ -385,7 +385,7 @@ void erts_check_memory(Process *p, Eterm *start, Eterm *end)
         if (verify_eterm(p,hval))
             continue;
 
-        erl_exit(1, "Wild pointer found @ 0x%0*lx!\n",
+        erts_exit(ERTS_ERROR_EXIT, "Wild pointer found @ 0x%0*lx!\n",
                  PTR_SIZE,(unsigned long)(pos - 1));
     }
 }
@@ -395,11 +395,11 @@ void verify_process(Process *p)
 #define VERIFY_AREA(name,ptr,sz) {                                      \
     int n = (sz);							\
     while (n--) if(!verify_eterm(p,*(ptr+n)))				\
-        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->common.id); }
+        erts_exit(ERTS_ERROR_EXIT,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 #define VERIFY_ETERM(name,eterm) {                                      \
     if(!verify_eterm(p,eterm))                                          \
-        erl_exit(1,"Wild pointer found in " name " of %T!\n",p->common.id); }
+        erts_exit(ERTS_ERROR_EXIT,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 
     ErlMessage* mp = p->msg.first;

@@ -38,7 +38,7 @@
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
-void erl_exit(int n, char*, ...);
+void erts_exit(int n, char*, ...);
 void erl_error(char*, va_list);
 void erl_crash_dump(char*, int, char*, ...);
 
@@ -200,7 +200,7 @@ erts_sys_misc_mem_sz(void)
  */
 void sys_tty_reset(int exit_code)
 {
-    if (exit_code > 0)
+    if (exit_code == ERTS_ERROR_EXIT)
 	ConWaitForExit();
     else
 	ConNormalExit();
@@ -3110,13 +3110,13 @@ check_supported_os_version(void)
 	    || int_os_version.dwMajorVersion < major
 	    || (int_os_version.dwMajorVersion == major
 		&& int_os_version.dwMinorVersion < minor))
-	    erl_exit(-1,
+	    erts_exit(1,
 		     "Windows version not supported "
 		     "(min required: winnt %d.%d)\n",
 		     major, minor);
     }
 #else
-    erl_exit(-1,
+    erts_exit(1,
 	     "Windows version not supported "
 	     "(min required: win %d.%d)\n",
 	     nt_major, nt_minor);

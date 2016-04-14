@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,6 +114,7 @@ analyse(Limit) when is_integer(Limit) ->
 analyse(M) when is_atom(M) ->
     analyse(M, 1).
 
+-dialyzer({no_improper_lists, analyse/2}).
 analyse(M, Limit) when is_atom(M), is_integer(Limit) ->
     L0 = [begin
 	      MFA = {M,F,A},

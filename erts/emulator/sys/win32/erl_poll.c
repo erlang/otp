@@ -436,7 +436,7 @@ wakeup_cause(ErtsPollSet ps)
 	break;
     default:
 	res = 0;
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "%s:%d: Internal error: Invalid wakeup_state=%d\n",
 		 __FILE__, __LINE__, (int) wakeup_state);
     }
@@ -576,7 +576,7 @@ static void signal_standby(ErtsPollSet ps)
     --(ps->standby_wait_counter);
     if (ps->standby_wait_counter < 0) {
 	LeaveCriticalSection(&(ps->standby_crit));
-	erl_exit(1,"Standby signalled by more threads than expected");
+	erts_exit(ERTS_ERROR_EXIT,"Standby signalled by more threads than expected");
     }
     if (!(ps->standby_wait_counter)) {
 	SetEvent(ps->standby_wait_event);
@@ -738,7 +738,7 @@ static void *break_waiter(void *param)
 	    erts_mtx_unlock(&break_waiter_lock);
 	    break;
 	default:
-	    erl_exit(1,"Unexpected event in break_waiter");
+	    erts_exit(ERTS_ERROR_EXIT,"Unexpected event in break_waiter");
 	}
     }
 }
@@ -1157,7 +1157,7 @@ int erts_poll_wait(ErtsPollSet ps,
 		   HARDDEBUGF(("Oups!"));
 		   /* Oups, got signalled before we took the lock, can't reset */
 		   if(!is_io_ready(ps)) {
-		       erl_exit(1,"Internal error: "
+		       erts_exit(ERTS_ERROR_EXIT,"Internal error: "
 				"Inconsistent io structures in erl_poll.\n");
 		   }
 		   START_WAITER(ps,w);
@@ -1215,7 +1215,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	    ERTS_SET_BREAK_REQUESTED;
 	    break;
 	case  BREAK_WAITER_GOT_HALT:
-	    erl_exit(0,"");
+	    erts_exit(0,"");
 	    break;
 	default:
 	    break;

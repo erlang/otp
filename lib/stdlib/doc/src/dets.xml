@@ -399,15 +399,40 @@
               kept in RAM.</p>
           </item>
           <item>
-            <p><c>{safe_fixed,</c> SafeFixed<c>}</c>. If the table
-              is fixed, SafeFixed is a tuple <c>{FixedAtTime, [{Pid,RefCount}]}</c>. <c>FixedAtTime</c> is the time when
+            <p><c>{safe_fixed_monotonic_time, SafeFixed}</c>. If the table
+              is fixed, <c>SafeFixed</c> is a tuple <c>{FixedAtTime, [{Pid,RefCount}]}</c>.
+	      <c>FixedAtTime</c> is the time when
               the table was first fixed, and <c>Pid</c> is the pid of
               the process that fixes the table <c>RefCount</c> times.
               There may be any number of processes in the list. If the
               table is not fixed, SafeFixed is the atom <c>false</c>.</p>
+	      <p><c>FixedAtTime</c> will correspond to the result
+	      returned by
+	      <seealso marker="erts:erlang#monotonic_time/0">erlang:monotonic_time/0</seealso>
+	      at the time of fixation. The usage of <c>safe_fixed_monotonic_time</c> is
+	      <seealso marker="erts:time_correction#Time_Warp_Safe_Code">time warp
+	      safe</seealso>.</p>
           </item>
           <item>
-            <p><c>{version, integer()</c>, the version of the format of
+            <p>
+	      <c>{safe_fixed, SafeFixed}</c>. The same as
+	      <c>{safe_fixed_monotonic_time, SafeFixed}</c> with the exception
+	      of the format and value of <c>FixedAtTime</c>.
+	    </p>
+	    <p>
+	      <c>FixedAtTime</c> will correspond to the result returned by
+	      <seealso marker="erts:erlang#timestamp/0">erlang:timestamp/0</seealso>
+	      at the time of fixation. Note that when the system is using
+	      single or multi
+	      <seealso marker="erts:time_correction#Time_Warp_Modes">time warp
+	      modes</seealso> this might produce strange results. This
+	      since the usage of <c>safe_fixed</c> is not
+	      <seealso marker="erts:time_correction#Time_Warp_Safe_Code">time warp
+	      safe</seealso>. Time warp safe code need to use
+	      <c>safe_fixed_monotonic_time</c> instead.</p>
+          </item>
+          <item>
+            <p><c>{version, integer()}</c>, the version of the format of
               the table.</p>
           </item>
         </list>

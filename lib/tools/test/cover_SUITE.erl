@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,43 +19,17 @@
 %%
 -module(cover_SUITE).
 
--export([all/0, init_per_testcase/2, end_per_testcase/2,
-	 suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
-
--export([coverage/1, coverage_analysis/1,
-	 start/1, compile/1, analyse/1, misc/1, stop/1,
-	 distribution/1, reconnect/1, die_and_reconnect/1,
-	 dont_reconnect_after_stop/1, stop_node_after_disconnect/1,
-	 export_import/1,
-	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
-         otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1,
-         otp_10979_hanging_node/1, compile_beam_opts/1, eep37/1,
-         analyse_no_beam/1, line_0/1]).
-
--export([do_coverage/1]).
-
--export([distribution_performance/1]).
+-compile(export_all).
 
 -include_lib("test_server/include/test_server.hrl").
-
-%%----------------------------------------------------------------------
-%% The following directory structure is assumed:
-%%  cwd __________________________________________
-%%  |  \   \   \   \   \     \                    \
-%%  a   b   cc   d   f  d1   compile_beam_____  otp_6115
-%%                      |      \    \  \  \   \    \  \
-%%                      e      crypt v  w  x   d   f1  f2
-%%                                             |
-%%                                             y
-%%----------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
-		   analyse_no_beam, line_0],
+		   analyse_no_beam, line_0, compile_beam_no_file,
+                   otp_13277],
     StartStop = [start, compile, analyse, misc, stop,
 		 distribution, reconnect, die_and_reconnect,
 		 dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -778,8 +752,8 @@ distribution_performance(Config) ->
     %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
     %% 	   end,
     CFun = fun() -> cover:compile_beam(Mods) end,
-    {CT,CA} = timer:tc(CFun),
-%    erlang:display(CA),
+    {CT,_CA} = timer:tc(CFun),
+%    erlang:display(_CA),
     erlang:display({compile,CT}),
 
     {SNT,_} = timer:tc(fun() -> {ok,[N1]} = cover:start(nodes()) end),
@@ -799,7 +773,7 @@ distribution_performance(Config) ->
 
 %    Fun = fun() -> cover:reset() end,
 
-    {AT,A} = timer:tc(Fun),
+    {AT,_A} = timer:tc(Fun),
     erlang:display({analyse,AT}),
 %    erlang:display(lists:sort([X || X={_MFA,N} <- lists:append([L || {ok,L}<-A]), N=/=0])),
 
@@ -1279,7 +1253,7 @@ otp_8340(doc) ->
     ["OTP-8340. Bug."];
 otp_8340(suite) -> [];
 otp_8340(Config) when is_list(Config) ->
-    ?line [{{t,1},1},{{t,2},1},{{t,4},1}] = 
+    ?line [{{t,1},1},{{t,4},1}] =
         analyse_expr(<<"<< \n"
                        " <<3:2, \n"
                        "   SeqId:62>> \n"
@@ -1573,8 +1547,10 @@ comprehension_8188(Cf) ->
                        "    true]. \n" % 2
                        "  two() -> 2">>, Cf), % 1
 
+    %% The template cannot have a counter since it is not allowed to
+    %% be a block.
     ?line [{{t,1},1},
-           {{t,2},2},
+           %% {{t,2},2},
            {{t,3},1},
            {{t,4},1},
            {{t,5},0},
@@ -1584,7 +1560,7 @@ comprehension_8188(Cf) ->
            {{t,13},2},
            {{t,14},2}] = 
         analyse_expr(<<"<< \n" % 1
-                       " << (X*2) >> || \n" % 2
+                       " << (X*2) >> || \n" % 2 (now: 0)
                        "    <<X>> <= << (case two() of\n"
                        "                     2 -> 1;\n" % 1
                        "                     _ -> 2\n" % 0
@@ -1599,7 +1575,7 @@ comprehension_8188(Cf) ->
                        "two() -> 2">>, Cf),
 
     ?line [{{t,1},1},
-           {{t,2},4},
+           %% {{t,2},4},
            {{t,4},1},
            {{t,6},1},
            {{t,7},0},
@@ -1608,7 +1584,7 @@ comprehension_8188(Cf) ->
            {{t,12},4},
            {{t,13},1}] =
         analyse_expr(<<"<< \n" % 1
-                       " << (2)\n" % 4
+                       " << (2)\n" % 4 (now: 0)
                        "     :(8) >> || \n"
                        "    <<X>> <= << 1,\n" % 1
                        "                (case two() of \n"
@@ -1746,6 +1722,49 @@ line_0(Config) ->
     ok.
 
 
+%% OTP-13200: Return error instead of crashing when trying to compile
+%% a beam which has no 'file' attribute.
+compile_beam_no_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Dir = filename:join(PrivDir,"compile_beam_no_file"),
+    ok = filelib:ensure_dir(filename:join(Dir,"*")),
+    code:add_patha(Dir),
+    Str = lists:concat(
+	    ["-module(nofile).\n"
+	     "-compile(export_all).\n"
+	     "foo() -> ok.\n"]),
+    TT = do_scan(Str),
+    Forms = [ begin {ok,Y} = erl_parse:parse_form(X),Y end || X <- TT ],
+    {ok,_,Bin} = compile:forms(Forms,[debug_info]),
+    BeamFile = filename:join(Dir,"nofile.beam"),
+    ok = file:write_file(BeamFile,Bin),
+    {error,{no_file_attribute,BeamFile}} = cover:compile_beam(nofile),
+    [{error,{no_file_attribute,BeamFile}}] = cover:compile_beam_directory(Dir),
+    ok.
+
+do_scan([]) ->
+    [];
+do_scan(Str) ->
+    {done,{ok,T,_},C} = erl_scan:tokens([],Str,0),
+    [ T | do_scan(C) ].
+
+otp_13277(doc) ->
+    ["PR 856. Fix a bc bug."];
+otp_13277(Config) ->
+    Test = <<"-module(t).
+              -export([t/0]).
+
+              pad(A, L) ->
+                  P = << <<\"#\">> || _ <- lists:seq(1, L) >>,
+                  <<A/binary, P/binary>>.
+
+              t() ->
+                  pad(<<\"hi\">>, 2).
+             ">>,
+    ?line File = cc_mod(t, Test, Config),
+    ?line <<"hi##">> = t:t(),
+    ?line ok = file:delete(File),
+    ok.
 
 %%--Auxiliary------------------------------------------------------------
 

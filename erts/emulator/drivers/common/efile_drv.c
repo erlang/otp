@@ -125,8 +125,6 @@
 #include "dtrace-wrapper.h" 
 
 
-void erl_exit(int n, char *fmt, ...);
-
 static ErlDrvSysInfo sys_info;
 
 /* For explanation of this var, see comment for same var in erl_async.c */
@@ -515,20 +513,9 @@ struct t_data
 static void *ef_safe_alloc(Uint s)
 {
     void *p = EF_ALLOC(s);
-    if (!p) erl_exit(1, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
+    if (!p) erts_exit(ERTS_ERROR_EXIT, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
     return p;
 }
-
-#if 0 /* Currently not used */
-
-static void *ef_safe_realloc(void *op, Uint s)
-{
-    void *p = EF_REALLOC(op, s);
-    if (!p) erl_exit(1, "efile drv: Can't reallocate %lu bytes of memory\n", (unsigned long)s);
-    return p;
-}
-
-#endif
 
 /*********************************************************************
  * ErlIOVec manipulation functions.
@@ -1532,10 +1519,10 @@ static void invoke_writev(void *data) {
 		     * with errno.
 		     */
 		    errno = EINVAL; 
-		    if (! (status = 
-			   erts_gzwrite((ErtsGzFile)d->fd,
-					iov[i].iov_base,
-					iov[i].iov_len)) == iov[i].iov_len) {
+		    status = erts_gzwrite((ErtsGzFile)d->fd,
+					  iov[i].iov_base,
+					  iov[i].iov_len) == iov[i].iov_len;
+		    if (! status) {
 			d->errInfo.posix_errno =
 			    d->errInfo.os_errno = errno; /* XXX Correct? */
 			break;
@@ -2581,7 +2568,6 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_CLOSE_ON_PORT_EXIT:
 	  /* See file_stop. However this is never invoked after the port is killed. */
 	  free_data(data);
-	  EF_FREE(desc);
 	  desc = NULL;
 	  /* This is it for this port, so just send dtrace and return, avoid doing anything to the freed data */
 	  DTRACE6(efile_drv_return, sched_i1, sched_i2, sched_utag,

@@ -113,3 +113,5 @@ test_it(TestCaseState_t *tcs, unsigned sbct)
 		    sbct ? sbct_buf : "default");
 }
 
+ERL_NIF_INIT(bucket_index, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

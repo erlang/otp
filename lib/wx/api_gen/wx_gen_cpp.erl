@@ -116,8 +116,13 @@ taylormade_class(#class{name=CName, methods=Ms}) ->
 gen_constructors(#class{name=Class, methods=Ms0}) ->
     Ms = lists:append(Ms0),
     Cs = lists:filter(fun(#method{method_type=MT}) -> MT =:= constructor end, Ms),
-    [gen_constructor(Class, Const) || Const <- Cs].
-
+    [gen_constructor(Class, Const) || Const <- Cs],
+    case need_copy_constr(Class) of
+	true ->
+	    w(" E~s(~s copy) : ~s(copy) {};~n", [Class, Class, Class]);
+	false ->
+	    ignore
+    end.
 gen_constructor(_Class, #method{where=merged_c}) -> ok;
 gen_constructor(_Class, #method{where=erl_no_opt}) -> ok;
 gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
@@ -144,6 +149,14 @@ gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
     end,
     Endif andalso w("#endif~n", []),
     ok.
+
+
+need_copy_constr("wxFont") -> true;
+need_copy_constr("wxIcon") -> true;
+need_copy_constr("wxImage") -> true;
+need_copy_constr("wxBitmap") -> true;
+%%need_copy_constr("wxGraphics" ++ _) -> true;
+need_copy_constr(_) -> false.
 
 gen_type(#type{name=Type, ref={pointer,1}, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " * ";
@@ -805,18 +818,21 @@ return_res1(#type{name=Type,base={comp,_,_},single=array,by_val=true}) ->
     {Type ++ " Result = ", ""};
 return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
     %% Temporary memory leak !!!!!!
-    case Type of
-	"wxImage" ->  ok;
-	"wxFont"  ->  ok;
-	"wxBitmap" -> ok;
-	"wxIcon" ->   ok;
-	"wxGraphics" ++ _ -> ok;
+    case {need_copy_constr(Type),Type} of
+	{true, _}  ->  ok;
+	{_, "wxGraphics" ++ _} -> ok;
 	_ ->
 	    io:format("~s::~s Building return value of temp ~s~n",
 		      [get(current_class),get(current_func),Type])
     end,
-    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
-     ++ "3, memenv);"};
+    case need_copy_constr(Type) of
+	true ->
+	    {Type ++ " * Result = new E" ++ Type ++ "(", "); newPtr((void *) Result,"
+	     ++ "3, memenv);"};
+	false ->
+	    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
+	     ++ "3, memenv);"}
+    end;
 return_res1(#type{base={enum,_Type},single=true,by_val=true}) ->
     {"int Result = " , ""};
 return_res1(#type{name="wxCharBuffer", base={binary,_},single=true,by_val=true}) ->
@@ -1141,6 +1157,7 @@ gen_macros() ->
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),
     w("#include <wx/sysopt.h>~n"),
+    w("#include <wx/overlay.h>~n"),
 
     w("~n~n", []),
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
@@ -1276,6 +1293,11 @@ encode_events(Evs) ->
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
     w("   if(cb->skip) event->Skip();~n"),
+    w("   if(app->recurse_level < 1) {~n"),
+    w("     app->recurse_level++;~n"),
+    w("     app->dispatch_cmds();~n"),
+    w("     app->recurse_level--;~n"),
+    w("   }~n"),
     w(" };~n"),
     w(" return send_res;~n"),
     w(" }~n").

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -909,7 +909,7 @@ run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
 
 run_test(StartOpts) when is_list(StartOpts) ->
-    CTPid = spawn(fun() -> run_test1(StartOpts) end),
+    CTPid = spawn(run_test1_fun(StartOpts)),
     Ref = monitor(process, CTPid),
     receive
 	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
@@ -917,6 +917,11 @@ run_test(StartOpts) when is_list(StartOpts) ->
 	{'DOWN',Ref,process,CTPid,Other} ->
 		    Other
     end.
+
+-spec run_test1_fun(_) -> fun(() -> no_return()).
+
+run_test1_fun(StartOpts) ->
+    fun() -> run_test1(StartOpts) end.
 
 run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
@@ -1369,7 +1374,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 %%% @equiv ct:run_testspec/1
 %%%-----------------------------------------------------------------
 run_testspec(TestSpec) ->
-    CTPid = spawn(fun() -> run_testspec1(TestSpec) end),
+    CTPid = spawn(run_testspec1_fun(TestSpec)),
     Ref = monitor(process, CTPid),
     receive
 	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
@@ -1377,6 +1382,11 @@ run_testspec(TestSpec) ->
 	{'DOWN',Ref,process,CTPid,Other} ->
 		    Other
     end.
+
+-spec run_testspec1_fun(_) -> fun(() -> no_return()).
+
+run_testspec1_fun(TestSpec) ->
+    fun() -> run_testspec1(TestSpec) end.
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
@@ -1771,7 +1781,18 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 		{Tests1,Skip1} ->	    
 		    ReleaseSh = proplists:get_value(release_shell, Args),
 		    ct_util:set_testdata({release_shell,ReleaseSh}),
-		    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts)
+		    TestResult = 
+			possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts),
+		    case TestResult of
+			{Ok,Errors,Skipped} ->
+			    NoOfMakeErrors =
+				lists:foldl(fun({_,BadMods}, X) ->
+						    X + length(BadMods)
+					    end, 0, SuiteMakeErrors),
+			    {Ok,Errors+NoOfMakeErrors,Skipped};
+			ErrorResult ->
+			    ErrorResult
+		    end
 	    catch
 		_:BadFormat ->
 		    {error,BadFormat}
@@ -2034,6 +2055,13 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		     ({skipped,Group,TCs}) ->
 			  [ct_groups:make_conf(TestDir, Suite,
 					       Group, [skipped], TCs)];
+		     ({skipped,TC}) ->
+			  case lists:member(TC, GrsOrCs) of
+			      true ->
+				  [];
+			      false ->
+				  [TC]
+			  end;
 		     ({GrSpec = {GroupName,_},TCs}) ->
 			  Props = [{override,GrSpec}],
 			  [ct_groups:make_conf(TestDir, Suite,
@@ -2073,7 +2101,9 @@ final_skip([], Final) ->
 
 continue([], _) ->
     true;
-continue(_MakeErrors, AbortIfMissingSuites) ->
+continue(_MakeErrors, true) ->
+    false;
+continue(_MakeErrors, _AbortIfMissingSuites) ->
     io:nl(),
     OldGl = group_leader(),
     case set_group_leader_same_as_shell() of
@@ -2101,11 +2131,10 @@ continue(_MakeErrors, AbortIfMissingSuites) ->
 		    true
 	    end;
 	false ->				% no shell process to use
-	    not AbortIfMissingSuites
+	    true
     end.
 
 set_group_leader_same_as_shell() ->
-    %%! Locate the shell process... UGLY!!!
     GS2or3 = fun(P) ->
     		     case process_info(P,initial_call) of
     			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->

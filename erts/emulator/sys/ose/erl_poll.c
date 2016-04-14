@@ -658,7 +658,7 @@ int erts_poll_wait(ErtsPollSet ps,
              break;
           default:
              res = 0;
-             erl_exit(ERTS_ABORT_EXIT,
+             erts_exit(ERTS_ABORT_EXIT,
                       "%s:%d: Internal error: Invalid wakeup_state=%d\n",
                       __FILE__, __LINE__, (int) wakeup_state);
        }

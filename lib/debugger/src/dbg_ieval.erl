@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -560,7 +560,7 @@ get_function(Mod, Name, Args, extern) ->
     end.
 
 db_ref(Mod) ->
-    case get([Mod|db]) of
+    case get(?DB_REF_KEY(Mod)) of
 	undefined ->
 	    case dbg_iserver:call(get(int),
 				  {get_module_db, Mod, get(self)}) of
@@ -572,7 +572,7 @@ db_ref(Mod) ->
 				Node =/= node() -> {Node,ModDb};
 				true -> ModDb
 			    end,
-		    put([Mod|db], DbRef),
+		    put(?DB_REF_KEY(Mod), DbRef),
 		    DbRef
 	    end;
 	DbRef ->

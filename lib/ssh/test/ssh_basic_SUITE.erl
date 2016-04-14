@@ -36,9 +36,15 @@
 	 cli/1,
 	 close/1,
 	 daemon_already_started/1, 
+	 daemon_opt_fd/1,
+	 multi_daemon_opt_fd/1,
 	 double_close/1, 
 	 exec/1,
 	 exec_compressed/1,  
+	 exec_key_differs1/1,
+	 exec_key_differs2/1,
+	 exec_key_differs3/1,
+	 exec_key_differs_fail/1,
 	 idle_time/1,
 	 inet6_option/1,
 	 inet_option/1,
@@ -52,8 +58,10 @@
 	 send/1,
 	 shell/1,
 	 shell_no_unicode/1,
-	 shell_unicode_string/1, 
-	 ssh_info_print/1
+	 shell_unicode_string/1,
+	 ssh_info_print/1,
+	 key_callback/1,
+	 key_callback_options/1
 	]).
 
 %%% Common test callbacks
@@ -70,7 +78,8 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [app_test,
@@ -82,9 +91,13 @@ all() ->
      {group, ecdsa_sha2_nistp521_key},
      {group, dsa_pass_key},
      {group, rsa_pass_key},
+     {group, host_user_key_differs},
+     {group, key_cb},
      {group, internal_error},
      daemon_already_started,
      double_close,
+     daemon_opt_fd,
+     multi_daemon_opt_fd,
      packet_size_zero,
      ssh_info_print
     ].
@@ -95,8 +108,13 @@ groups() ->
      {ecdsa_sha2_nistp256_key, [], basic_tests()},
      {ecdsa_sha2_nistp384_key, [], basic_tests()},
      {ecdsa_sha2_nistp521_key, [], basic_tests()},
+     {host_user_key_differs, [], [exec_key_differs1,
+				  exec_key_differs2,
+				  exec_key_differs3,
+				  exec_key_differs_fail]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
+     {key_cb, [], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]}
     ].
 
@@ -112,16 +130,11 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    case catch crypto:start() of
-	ok ->
-	    Config;
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
+    Config.
+
 end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop().
+    ssh:stop().
+
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
@@ -176,6 +189,26 @@ init_per_group(dsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
     [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+init_per_group(host_user_key_differs, Config) ->
+    Data = ?config(data_dir, Config),
+    Sys = filename:join(?config(priv_dir, Config), system_rsa),
+    SysUsr = filename:join(Sys, user),
+    Usr = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+    file:make_dir(Sys),
+    file:make_dir(SysUsr),
+    file:make_dir(Usr),
+    file:copy(filename:join(Data, "ssh_host_rsa_key"),     filename:join(Sys, "ssh_host_rsa_key")),
+    file:copy(filename:join(Data, "ssh_host_rsa_key.pub"), filename:join(Sys, "ssh_host_rsa_key.pub")),
+    file:copy(filename:join(Data, "id_ecdsa256"),         filename:join(Usr, "id_ecdsa")),
+    file:copy(filename:join(Data, "id_ecdsa256.pub"),     filename:join(Usr, "id_ecdsa.pub")),
+    ssh_test_lib:setup_ecdsa_auth_keys("256", Usr, SysUsr),
+    ssh_test_lib:setup_rsa_known_host(Sys, Usr),
+    Config;
+init_per_group(key_cb, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    Config;
 init_per_group(internal_error, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -243,6 +276,10 @@ end_per_group(rsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
+end_per_group(key_cb, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    Config;
 end_per_group(internal_error, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
@@ -270,6 +307,14 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
     wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
+
+init_per_testcase(inet6_option, Config) ->
+    case ssh_test_lib:has_inet6_address() of
+	true ->
+	    init_per_testcase('__default__', Config);
+	false ->
+	    {skip,"No ipv6 interface address"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -392,6 +437,7 @@ exec(Config) when is_list(Config) ->
 	    ct:fail(Other1)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1),
+    ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -425,6 +471,7 @@ exec_compressed(Config) when is_list(Config) ->
 		    ct:fail(Other)
 	    end,
 	    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid)
     end.
 
@@ -474,14 +521,92 @@ shell(Config) when is_list(Config) ->
     end.
     
 %%--------------------------------------------------------------------
+%%% Test that we could user different types of host pubkey and user pubkey
+exec_key_differs1(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp256']).
+
+exec_key_differs2(Config) -> exec_key_differs(Config, ['ssh-dss','ecdsa-sha2-nistp256']).
+
+exec_key_differs3(Config) -> exec_key_differs(Config, ['ecdsa-sha2-nistp384','ecdsa-sha2-nistp256']).
+
+
+
+exec_key_differs(Config, UserPKAlgs) ->
+    case lists:usort(['ssh-rsa'|UserPKAlgs])
+	-- ssh_transport:supported_algorithms(public_key)
+    of
+	[] ->
+	    process_flag(trap_exit, true),
+	    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
+	    SystemUserDir = filename:join(SystemDir, user),
+	    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+   
+	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+						       {user_dir, SystemUserDir},
+						       {preferred_algorithms,
+							[{public_key,['ssh-rsa']}]}]),
+	    ct:sleep(500),
+
+	    IO = ssh_test_lib:start_io_server(),
+	    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
+					     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+					      {pref_public_key_algs,UserPKAlgs}
+					     ]),
+
+
+	    receive
+		{'EXIT', _, _} ->
+		    ct:fail(no_ssh_connection);  
+		ErlShellStart ->
+		    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
+		    do_shell(IO, Shell)
+	    after 
+		30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+	    end;
+
+	UnsupportedPubKeys ->
+	    {skip, io_lib:format("~p unsupported",[UnsupportedPubKeys])}
+    end.
+    
+%%--------------------------------------------------------------------
+exec_key_differs_fail(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
+    SystemUserDir = filename:join(SystemDir, user),
+    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+   
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {user_dir, SystemUserDir},
+					       {preferred_algorithms,
+						[{public_key,['ssh-rsa']}]}]),
+    ct:sleep(500),
+
+    IO = ssh_test_lib:start_io_server(),
+    ssh_test_lib:start_shell(Port, IO, UserDir,
+			     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+			      {pref_public_key_algs,['ssh-dss']}]),
+    receive
+	{'EXIT', _, _} ->
+	    ok;  
+	ErlShellStart ->
+	    ct:log("Erlang shell start: ~p~n", [ErlShellStart]),
+	    ct:fail(connection_not_rejected)
+    after 
+	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
+    
+%%--------------------------------------------------------------------
 cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-   
+    
+    TmpDir = filename:join(?config(priv_dir,Config), "tmp"),
+    ok = ssh_test_lib:del_dirs(TmpDir),
+    ok = file:make_dir(TmpDir),
+
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {password, "morot"},
-					       {ssh_cli, {ssh_test_cli, [cli]}}, 
+					       {ssh_cli, {ssh_test_cli, [cli,TmpDir]}}, 
 					       {subsystems, []},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
@@ -568,6 +693,56 @@ pass_phrase(Config) when is_list(Config) ->
 					  PhraseArg,
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that we can use key callback
+key_callback(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    NoPubKeyDir = filename:join(UserDir, "nopubkey"),
+    file:make_dir(NoPubKeyDir),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnectOpts = [{silently_accept_hosts, true},
+                   {user_dir, NoPubKeyDir},
+                   {user_interaction, false},
+                   {key_cb, ssh_key_cb}],
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, ConnectOpts),
+
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ssh:stop_daemon(Pid).
+
+
+%%--------------------------------------------------------------------
+%%% Test that we can use key callback with callback options
+key_callback_options(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    NoPubKeyDir = filename:join(UserDir, "nopubkey"),
+    file:make_dir(NoPubKeyDir),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_dsa")),
+
+    ConnectOpts = [{silently_accept_hosts, true},
+                   {user_dir, NoPubKeyDir},
+                   {user_interaction, false},
+                   {key_cb, {ssh_key_cb_options, [{priv_key, PrivKey}]}}],
+
+    ConnectionRef = ssh_test_lib:connect(Host, Port, ConnectOpts),
+
     {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh:stop_daemon(Pid).
 
@@ -705,6 +880,68 @@ double_close(Config) when is_list(Config) ->
     ok = ssh:close(CM).
 
 %%--------------------------------------------------------------------
+daemon_opt_fd(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    {ok,S1} = gen_tcp:listen(0,[]),
+    {ok,Fd1} = prim_inet:getfd(S1),
+    
+    {ok,Pid1} = ssh:daemon(0, [{system_dir, SystemDir},
+			       {fd,Fd1},
+			       {user_dir, UserDir},
+			       {user_passwords, [{"vego", "morot"}]},
+			       {failfun, fun ssh_test_lib:failfun/2}]),
+    
+    {ok,{_Host1,Port1}} = inet:sockname(S1),
+    {ok, C1} = ssh:connect("localhost", Port1, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user, "vego"},
+					  {password, "morot"},
+					  {user_interaction, false}]),
+    exit(C1, {shutdown, normal}),
+    ssh:stop_daemon(Pid1),
+    gen_tcp:close(S1).
+
+
+%%--------------------------------------------------------------------
+multi_daemon_opt_fd(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    Test = 
+	fun() ->
+		{ok,S} = gen_tcp:listen(0,[]),
+		{ok,Fd} = prim_inet:getfd(S),
+
+		{ok,Pid} = ssh:daemon(0, [{system_dir, SystemDir},
+					  {fd,Fd},
+					  {user_dir, UserDir},
+					  {user_passwords, [{"vego", "morot"}]},
+					  {failfun, fun ssh_test_lib:failfun/2}]),
+
+		{ok,{_Host,Port}} = inet:sockname(S),
+		{ok, C} = ssh:connect("localhost", Port, [{silently_accept_hosts, true},
+							  {user_dir, UserDir},
+							  {user, "vego"},
+							  {password, "morot"},
+							  {user_interaction, false}]),
+		{S,Pid,C}
+	end,
+
+    Tests = [Test(),Test(),Test(),Test(),Test(),Test()],
+
+    [begin 
+	 gen_tcp:close(S),
+	 ssh:stop_daemon(Pid),
+	 exit(C, {shutdown, normal})
+     end || {S,Pid,C} <- Tests].
+
+%%--------------------------------------------------------------------
 packet_size_zero(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
@@ -740,7 +977,10 @@ shell_no_unicode(Config) ->
     new_do_shell(?config(io,Config),
 		 [new_prompt,
 		  {type,"io:format(\"hej ~p~n\",[42])."},
-		  {expect,"hej 42"}
+		  {expect,"hej 42"},
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 	      
 %%--------------------------------------------------------------------
@@ -749,7 +989,9 @@ shell_unicode_string(Config) ->
 		 [new_prompt,
 		  {type,"io:format(\"こにちわ~ts~n\",[\"四二\"])."},
 		  {expect,"こにちわ四二"},
-		  {expect,"ok"}
+		  {expect,"ok"},
+		  new_prompt,
+		  {type,"exit()."}
 		 ]).
 
 %%--------------------------------------------------------------------

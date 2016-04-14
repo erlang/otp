@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@
 '_get_def_kind'({ObjType, ObjID}) ?tcheck(ir_Repository, ObjType) ->
     orber_ifr_irobject:'_get_def_kind'({ObjType, ObjID}).
 
+-spec destroy(_) -> no_return().
 destroy({ObjType, ObjID}) ?tcheck(ir_Repository, ObjType) ->
     orber:dbg("[~p] ~p:destroy(~p, ~p);~n"
 	      "Destroying a repository is an error.~n", 

@@ -30,7 +30,7 @@
 <!ELEMENT cite                (id, shortdef, def, resp?) >
 <!ELEMENT id                  (#PCDATA) >
 <!ELEMENT shortdef            (#PCDATA) >
-<!ELEMENT def                 (#PCDATA|c|em)* >
+<!ELEMENT def                 (#PCDATA|c|i|em)* >
 <!ELEMENT resp                (#PCDATA) >
 <!ELEMENT c                   (#PCDATA) >
 <!ELEMENT em                  (#PCDATA|c)* >

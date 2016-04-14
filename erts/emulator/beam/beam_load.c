@@ -6249,6 +6249,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code[MI_LITERALS_END] = 0;
     code[MI_LITERALS_OFF_HEAP] = 0;
     code[MI_ON_LOAD_FUNCTION_PTR] = 0;
+    code[MI_LINE_TABLE] = 0;
     code[MI_MD5_PTR] = 0;
     ci = MI_FUNCTIONS + n + 1;
 

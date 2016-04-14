@@ -20,8 +20,8 @@
 %%
 -module(httpd_response).
 -export([generate_and_send_response/1, send_status/3, send_header/3, 
-	 send_body/3, send_chunk/3, send_final_chunk/2, split_header/2,
-	 is_disable_chunked_send/1, cache_headers/2]).
+	 send_body/3, send_chunk/3, send_final_chunk/2, send_final_chunk/3, 
+	 split_header/2, is_disable_chunked_send/1, cache_headers/2]).
 -export([map_status_code/2]).
 
 -include_lib("inets/src/inets_app/inets_internal.hrl").
@@ -89,8 +89,7 @@ traverse_modules(ModData,[Module|Rest]) ->
 				"~n   Error:       ~p"
 				"~n   Stack trace: ~p",
 				[Module, T, E, ?STACK()])),
-	    report_error(mod_log, ModData#mod.config_db, String),
-	    report_error(mod_disk_log, ModData#mod.config_db, String),
+	    httpd_util:error_log(ModData#mod.config_db, String),
 	    send_status(ModData, 500, none),
 	    done
     end.
@@ -245,7 +244,6 @@ send_chunk(_, <<>>, _) ->
     ok;
 send_chunk(_, [], _) ->
     ok;
-
 send_chunk(#mod{http_version = "HTTP/1.1", 
 		socket_type = Type, socket = Sock}, Response0, false) ->
     Response = http_chunk:encode(Response0),
@@ -254,10 +252,13 @@ send_chunk(#mod{http_version = "HTTP/1.1",
 send_chunk(#mod{socket_type = Type, socket = Sock} = _ModData, Response, _) ->
     httpd_socket:deliver(Type, Sock, Response).
 
+send_final_chunk(Mod, IsDisableChunkedSend) ->
+    send_final_chunk(Mod, [], IsDisableChunkedSend).
+
 send_final_chunk(#mod{http_version = "HTTP/1.1", 
-		      socket_type = Type, socket = Sock}, false) ->
-    httpd_socket:deliver(Type, Sock, http_chunk:encode_last());
-send_final_chunk(#mod{socket_type = Type, socket = Sock}, _) ->
+		      socket_type = Type, socket = Sock}, Trailers, false) ->
+    httpd_socket:deliver(Type, Sock, http_chunk:encode_last(Trailers));
+send_final_chunk(#mod{socket_type = Type, socket = Sock}, _, _) ->
     httpd_socket:close(Type, Sock).
 
 is_disable_chunked_send(Db) ->
@@ -396,16 +397,6 @@ send_response_old(#mod{socket_type = Type,
 
 content_length(Body)->
     integer_to_list(httpd_util:flatlength(Body)).
-
-report_error(Mod, ConfigDB, Error) ->
-    Modules = httpd_util:lookup(ConfigDB, modules,
-				[mod_get, mod_head, mod_log]),
-    case lists:member(Mod, Modules) of
-	true ->
-	    Mod:report_error(ConfigDB, Error);
-	_ ->
-	    ok
-    end.
 
 handle_headers([], NewHeaders) ->
     {ok, NewHeaders};

@@ -1255,7 +1255,7 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 	    return 1;
 
 	default:
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "%s:%d:ptab_list_bif_engine(): Invalid state: %d\n",
 		     __FILE__, __LINE__, (int) ptlbdp->state);
 	}

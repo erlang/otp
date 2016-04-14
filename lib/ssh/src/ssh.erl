@@ -235,10 +235,27 @@ start_daemon(Host, Port, Options, Inet) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions}->
-	    do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    try 
+		do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+	    catch
+		throw:bad_fd -> {error,bad_fd};
+		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+	    end
     end.
     
-do_start_daemon(Host, Port, Options, SocketOptions) ->
+do_start_daemon(Host0, Port0, Options, SocketOptions) ->
+    {Host,Port} = try
+	       case proplists:get_value(fd, SocketOptions) of
+		   undefined ->
+		       {Host0,Port0};
+		   Fd when Port0==0 ->
+		       find_hostport(Fd);
+		   _ ->
+		       {Host0,Port0}
+	       end
+	   catch
+	       _:_ -> throw(bad_fd)
+	   end,
     Profile = proplists:get_value(profile, Options, ?DEFAULT_PROFILE),
     case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
@@ -272,6 +289,15 @@ do_start_daemon(Host, Port, Options, SocketOptions) ->
 	    end
     end.
 
+find_hostport(Fd) ->
+    %% Using internal functions inet:open/8 and inet:close/0.
+    %% Don't try this at home unless you know what you are doing!
+    {ok,S} = inet:open(Fd, {0,0,0,0}, 0, [], tcp, inet, stream, inet_tcp),
+    {ok, HostPort} = inet:sockname(S),
+    ok = inet:close(S),
+    HostPort.
+    
+
 handle_options(Opts) ->
     try handle_option(algs_compatibility(proplists:unfold(Opts)), [], []) of
 	{Inet, Ssh} ->
@@ -282,32 +308,27 @@ handle_options(Opts) ->
     end.
 
 
-algs_compatibility(Os) ->
+algs_compatibility(Os0) ->
     %% Take care of old options 'public_key_alg' and 'pref_public_key_algs'
-    comp_pk(proplists:get_value(preferred_algorithms,Os),
-	    proplists:get_value(pref_public_key_algs,Os),
-	    proplists:get_value(public_key_alg, Os),
-	    [{K,V} || {K,V} <- Os,
-		      K =/= public_key_alg,
-		      K =/= pref_public_key_algs]
-	   ).
-
-comp_pk(undefined, undefined, undefined, Os) -> Os;
-comp_pk( PrefAlgs,         _,         _, Os) when PrefAlgs =/= undefined -> Os;
-
-comp_pk(undefined, undefined,   ssh_dsa, Os) -> comp_pk(undefined, undefined, 'ssh-dss', Os);
-comp_pk(undefined, undefined,   ssh_rsa, Os) -> comp_pk(undefined, undefined, 'ssh-rsa', Os);
-comp_pk(undefined, undefined,        PK, Os) -> 
-    PKs = [PK | ssh_transport:supported_algorithms(public_key)--[PK]],
-    [{preferred_algorithms, [{public_key,PKs}] } | Os];
-
-comp_pk(undefined, PrefPKs, _, Os) when PrefPKs =/= undefined ->
-    PKs = [case PK of
-	       ssh_dsa -> 'ssh-dss';
-	       ssh_rsa -> 'ssh-rsa';
-	       _ -> PK
-	   end || PK <- PrefPKs],
-    [{preferred_algorithms, [{public_key,PKs}]} | Os].
+    case proplists:get_value(public_key_alg, Os0) of
+	undefined -> 
+	    Os0;
+	A when is_atom(A) -> 
+	    %% Skip public_key_alg if pref_public_key_algs is defined:
+	    Os = lists:keydelete(public_key_alg, 1, Os0),
+	    case proplists:get_value(pref_public_key_algs,Os) of
+		undefined when A == 'ssh-rsa' ; A==ssh_rsa ->
+		    [{pref_public_key_algs,['ssh-rsa','ssh-dss']} | Os];
+		undefined when A == 'ssh-dss' ; A==ssh_dsa ->
+		    [{pref_public_key_algs,['ssh-dss','ssh-rsa']} | Os];
+		undefined ->
+		    throw({error, {eoptions, {public_key_alg,A} }});
+		_ -> 
+		    Os
+	    end;
+	V ->
+	    throw({error, {eoptions, {public_key_alg,V} }})
+    end.
 
 
 handle_option([], SocketOptions, SshOptions) ->
@@ -336,8 +357,12 @@ handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{key_cb, {Module, Options}} | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({key_cb, Module}),
+                                        handle_ssh_priv_option({key_cb_private, Options}) |
+                                        SshOptions]);
+handle_option([{key_cb, Module} | Rest], SocketOptions, SshOptions) ->
+    handle_option([{key_cb, {Module, []}} | Rest], SocketOptions, SshOptions);
 handle_option([{keyboard_interact_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 %%Backwards compatibility
@@ -373,6 +398,8 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_method_kb_interactive_data, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{preferred_algorithms,_} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -485,6 +512,13 @@ handle_ssh_option({dh_gex_limits,{Min,I,Max}} = Opt) when is_integer(Min), Min>0
 							  is_integer(Max), Max>=I ->
     %% Client
     Opt;
+handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
+    case handle_user_pref_pubkey_algs(Value, []) of
+	{true, NewOpts} ->
+	    {pref_public_key_algs, NewOpts};
+	_ ->
+	    throw({error, {eoptions, Opt}})
+    end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({max_sessions, Value} = Opt) when is_integer(Value), Value>0 ->
@@ -510,6 +544,9 @@ handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,2) ->
 handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value,4) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
+    Opt;
+handle_ssh_option({key_cb, {CallbackMod, CallbackOptions}} = Opt) when is_atom(CallbackMod),
+                                                                      is_list(CallbackOptions) ->
     Opt;
 handle_ssh_option({keyboard_interact_fun, Value} = Opt) when is_function(Value,3) ->
     Opt;
@@ -576,6 +613,9 @@ handle_ssh_option({profile, Value} = Opt) when is_atom(Value) ->
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
+
+handle_ssh_priv_option({key_cb_private, Value} = Opt) when is_list(Value) ->
+    Opt.
 
 handle_inet_option({active, _} = Opt) ->
     throw({error, {{eoptions, Opt}, "SSH has built in flow control, "
@@ -737,3 +777,16 @@ read_moduli_file(D, I, Acc) ->
 	    end
     end.
 			   
+handle_user_pref_pubkey_algs([], Acc) ->
+    {true, lists:reverse(Acc)};
+handle_user_pref_pubkey_algs([H|T], Acc) ->
+    case lists:member(H, ?SUPPORTED_USER_KEYS) of
+	true ->
+	    handle_user_pref_pubkey_algs(T, [H| Acc]);
+
+	false when H==ssh_dsa -> handle_user_pref_pubkey_algs(T, ['ssh-dss'| Acc]);
+	false when H==ssh_rsa -> handle_user_pref_pubkey_algs(T, ['ssh-rsa'| Acc]);
+
+	false ->
+	    false
+    end.

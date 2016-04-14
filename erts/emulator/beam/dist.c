@@ -1153,7 +1153,6 @@ int erts_net_message(Port *prt,
     Process* rp;
     DeclareTmpHeapNoproc(ctl_default,DIST_CTL_DEFAULT_SIZE);
     Eterm* ctl = ctl_default;
-    ErlOffHeap off_heap;
     ErtsHeapFactory factory;
     Eterm* hp;
     Sint type;
@@ -1168,9 +1167,6 @@ int erts_net_message(Port *prt,
 #endif
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    /* Thanks to Luke Gorrie */
-    off_heap.first = NULL;
-    off_heap.overhead = 0;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1231,15 +1227,15 @@ int erts_net_message(Port *prt,
     }
     hp = ctl;
 
-    erts_factory_static_init(&factory, ctl, ctl_len, &off_heap);
+    erts_factory_tmp_init(&factory, ctl, ctl_len, ERTS_ALC_T_DCTRL_BUF);
     arg = erts_decode_dist_ext(&factory, &ede);
     if (is_non_value(arg)) {
 #ifdef ERTS_DIST_MSG_DBG
-	erts_fprintf(stderr, "DIST MSG DEBUG: erts_dist_ext_size(CTL) failed:\n");
+	erts_fprintf(stderr, "DIST MSG DEBUG: erts_decode_dist_ext(CTL) failed:\n");
 	bw(buf, orig_len);
 #endif
 	PURIFY_MSG("data error");
-	goto data_error;
+	goto decode_error;
     }
     ctl_len = t - buf;
 
@@ -1719,7 +1715,7 @@ int erts_net_message(Port *prt,
 	goto invalid_message;
     }
 
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
@@ -1732,12 +1728,13 @@ int erts_net_message(Port *prt,
 	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
- data_error:
+decode_error:
     PURIFY_MSG("data error");
-    erts_cleanup_offheap(&off_heap);
+    erts_factory_close(&factory);
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
+data_error:
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -1962,7 +1959,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    goto done;
 	}
 	default:
-	    erl_exit(ERTS_ABORT_EXIT, "dsig_send invalid phase (%d)\n", (int)ctx->phase);
+	    erts_exit(ERTS_ABORT_EXIT, "dsig_send invalid phase (%d)\n", (int)ctx->phase);
 	}
     }
 
@@ -1983,7 +1980,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
 		 "(%beu bytes) passed.\n",
 		 size);
@@ -2023,7 +2020,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
 		 "(%beu bytes) passed.\n",
 		 size);
@@ -2576,7 +2573,9 @@ int distribution_info(int to, void *arg)	/* Called by break handler */
     }
 
     for (dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
-	info_dist_entry(to, arg, dep, 0, 0);
+        if (dep != erts_this_dist_entry) {
+            info_dist_entry(to, arg, dep, 0, 0);
+        }
     }
 
     return(0);
@@ -2654,13 +2653,8 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     if (!net_kernel)
 	goto error;
 
-    /* By setting dist_entry==erts_this_dist_entry and DISTRIBUTION on
-       net_kernel do_net_exist will be called when net_kernel
-       is terminated !! */
-    (void) ERTS_PROC_SET_DIST_ENTRY(net_kernel,
-				    ERTS_PROC_LOCK_MAIN,
-				    erts_this_dist_entry);
-    erts_refc_inc(&erts_this_dist_entry->refc, 2);
+    /* By setting F_DISTRIBUTION on net_kernel,
+     * do_net_exist will be called when net_kernel is terminated !! */
     net_kernel->flags |= F_DISTRIBUTION;
 
     if (net_kernel != BIF_P)
@@ -3021,11 +3015,11 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
 
-    ASSERT(erts_no_of_not_connected_dist_entries >= 0);
+    ASSERT(erts_no_of_not_connected_dist_entries > 0);
     ASSERT(erts_no_of_hidden_dist_entries >= 0);
     ASSERT(erts_no_of_visible_dist_entries >= 0);
     if(not_connected)
-      length += erts_no_of_not_connected_dist_entries;
+      length += (erts_no_of_not_connected_dist_entries - 1);
     if(hidden)
       length += erts_no_of_hidden_dist_entries;
     if(visible)
@@ -3047,8 +3041,10 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 #endif
     if(not_connected)
       for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
-	result = CONS(hp, dep->sysname, result);
-	hp += 2;
+          if (dep != erts_this_dist_entry) {
+            result = CONS(hp, dep->sysname, result);
+            hp += 2;
+          }
       }
     if(hidden)
       for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
@@ -3386,7 +3382,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
 		    continue;
 		break;
 	    default:
-		erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
+		erts_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 	    }
 	}
 
@@ -3695,7 +3691,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 		case ERTS_NODES_MON_OPT_TYPES:        type = am_all;     break;
 		case ERTS_NODES_MON_OPT_TYPE_VISIBLE: type = am_visible; break;
 		case ERTS_NODES_MON_OPT_TYPE_HIDDEN:  type = am_hidden;  break;
-		default: erl_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
+		default: erts_exit(ERTS_ABORT_EXIT, "Bad node type found\n");
 		}
 		olist = erts_bld_cons(hpp, szp, 
 				      erts_bld_tuple(hpp, szp, 2,
