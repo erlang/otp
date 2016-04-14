@@ -27,7 +27,7 @@
 	system_profile_on_and_off/1,
 	runnable_procs/1, runnable_ports/1,
 	dont_profile_profiler/1,
-	scheduler/1]).
+	scheduler/1, sane_location/1]).
 
 -export([profiler_process/1, ring_loop/1, port_echo_start/0, 
 	 list_load/0, run_load/2]).
@@ -40,7 +40,8 @@ suite() ->
 
 all() -> 
     [system_profile_on_and_off, runnable_procs,
-     runnable_ports, scheduler, dont_profile_profiler].
+     runnable_ports, scheduler, dont_profile_profiler,
+     sane_location].
 
 %% No specification clause needed for an init function in a conf case!!!
 
@@ -182,6 +183,33 @@ dont_profile_profiler(Config) when is_list(Config) ->
 
     exit(Pid,kill),
     ok.
+
+%% Check sane location (of exits)
+sane_location(Config) when is_list(Config) ->
+    Check = spawn_link(fun() -> flush_sane_location() end),
+    erlang:system_profile(Check, [runnable_procs]),
+    Me = self(),
+    Pids = [spawn_link(fun() -> wat(Me) end) || _ <- lists:seq(1,100)],
+    [receive {Pid,ok} -> ok end || Pid <- Pids],
+    Check ! {Me, done},
+    receive {Check,ok} -> ok end,
+    ok.
+
+wat(Pid) ->
+    Pid ! {self(), ok}.
+
+flush_sane_location() ->
+    receive
+        {profile,_,_,{M,F,A},_} when is_atom(M), is_atom(F),
+                                     is_integer(A) ->
+            flush_sane_location();
+        {profile,_,_,0,_} ->
+            flush_sane_location();
+        {Pid,done} when is_pid(Pid) ->
+            Pid ! {self(), ok};
+        M ->
+            ct:fail({badness,M})
+    end.
 
 
 %%% Check scheduler profiling
