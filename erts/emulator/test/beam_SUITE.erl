@@ -29,6 +29,7 @@
 -export([applied/2,swap_temp_applied/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -93,47 +94,45 @@ applied(Starter, N) ->
 apply_last_bif(Config) when is_list(Config) ->
     apply(erlang, abs, [1]).
 
-%% Test three high register numbers in a put_list instruction
-%% (to test whether packing works properly).
+%% Test whether packing works properly.
 packed_registers(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    Mod = packed_regs,
-    Name = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
+    Mod = ?FUNCTION_NAME,
 
-    %% Generate a module which generates a list of tuples.
-    %% put_list(A) -> [{A, 600}, {A, 999}, ... {A, 0}].
-    Code = gen_packed_regs(600, ["-module("++atom_to_list(Mod)++").\n",
-				       "-export([put_list/1]).\n",
-				       "put_list(A) ->\n["]),
-    ok = file:write_file(Name, Code),
+    %% Generate scrambled sequence.
+    Seq0 = [{erlang:phash2(I),I} || I <- lists:seq(0, 260)],
+    Seq = [I || {_,I} <- lists:sort(Seq0)],
 
-    %% Compile the module.
-    io:format("Compiling: ~s\n", [Name]),
-    CompRc = compile:file(Name, [{outdir, PrivDir}, report]),
-    io:format("Result: ~p\n",[CompRc]),
-    {ok, Mod} = CompRc,
+    %% Generate a test modules that uses get_list/3 instructions
+    %% with high register numbers.
+    S0 = [begin
+	      VarName = list_to_atom("V"++integer_to_list(V)),
+	      {merl:var(VarName),V}
+	  end || V <- Seq],
+    Vars = [V || {V,_} <- S0],
+    NewVars = [begin
+		   VarName = list_to_atom("M"++integer_to_list(V)),
+		   merl:var(VarName)
+	       end || V <- Seq],
+    S = [?Q("_@Var = id(_@Value@)") || {Var,Value} <- S0],
+    Code = ?Q(["-module('@Mod@').\n"
+	       "-export([f/0]).\n"
+	       "f() ->\n"
+	       "_@S,\n"
+	       "_ = id(0),\n"
+	       "L = [_@Vars],\n"
+	       "_ = id(1),\n"
+	       "[_@NewVars] = L,\n"		%Test get_list/3.
+	       "_ = id(2),\n"
+	       "id([_@Vars,_@NewVars]).\n"
+	       "id(I) -> I.\n"]),
+    merl:compile_and_load(Code),
+    CombinedSeq = Seq ++ Seq,
+    CombinedSeq = Mod:f(),
 
-    %% Load it.
-    io:format("Loading...\n",[]),
-    LoadRc = code:load_abs(filename:join(PrivDir, atom_to_list(Mod))),
-    {module,_Module} = LoadRc,
-
-    %% Call it and verify result.
-    Term = {a, b},
-    L = Mod:put_list(Term),
-    verify_packed_regs(L, Term, 600),
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
     ok.
-
-gen_packed_regs(0, Acc) ->
-    [Acc|"{A,0}].\n"];
-gen_packed_regs(N, Acc) ->
-    gen_packed_regs(N-1, [Acc,"{A,",integer_to_list(N)|"},\n"]).
-
-verify_packed_regs([], _, -1) -> ok;
-verify_packed_regs([{Term, N}| T], Term, N) ->
-    verify_packed_regs(T, Term, N-1);
-verify_packed_regs(L, Term, N) ->
-    ct:fail("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]).
 
 buildo_mucho(Config) when is_list(Config) ->
     buildo_mucho_1(),
