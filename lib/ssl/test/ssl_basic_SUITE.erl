@@ -168,6 +168,7 @@ renegotiate_tests() ->
 
 cipher_tests() ->
     [cipher_suites,
+     cipher_suites_mix,
      ciphers_rsa_signed_certs,
      ciphers_rsa_signed_certs_openssl_names,
      ciphers_dsa_signed_certs,
@@ -445,7 +446,7 @@ connection_info(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, connection_info_result, []}},
 			   {options, 
-			    [{ciphers,[{rsa,des_cbc,sha,no_export}]} | 
+			    [{ciphers,[{rsa,des_cbc,sha}]} | 
 			     ClientOpts]}]),
     
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
@@ -910,6 +911,31 @@ cipher_suites(Config) when is_list(Config) ->
     Suites = ssl:cipher_suites(erlang),
     [_|_] =ssl:cipher_suites(openssl).
 
+%%--------------------------------------------------------------------
+cipher_suites_mix() ->
+    [{doc,"Test to have old and new cipher suites at the same time"}].
+
+cipher_suites_mix(Config) when is_list(Config) -> 
+    CipherSuites = [{ecdh_rsa,aes_128_cbc,sha256,sha256}, {rsa,aes_128_cbc,sha}],
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{ciphers, CipherSuites} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 socket_options() ->
     [{doc,"Test API function getopts/2 and setopts/2"}].
