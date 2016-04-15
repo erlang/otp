@@ -1282,9 +1282,10 @@ send3_make_blob() ->
             repeat(N bsr 1,
                    fun(_) -> grow_blob(MsgEnv,other_term(),rand:uniform(1 bsl 20))
                    end, void),
-            case (N band 1) of
+            case (N band 3) of
                 0 -> {term,copy_blob(MsgEnv)};
-                1 -> {msgenv,MsgEnv}
+                1 -> {copy,copy_blob(MsgEnv)};
+                _ -> {msgenv,MsgEnv}
             end
     end.
 
@@ -1297,12 +1298,19 @@ send3_send(Pid, Msg) ->
 send3_send_nif(Pid, {term,Blob}) ->
     %%io:format("~p send term nif\n",[self()]),
     send_term(Pid, {blob, Blob}) =:= 1;
+send3_send_nif(Pid, {copy,Blob}) ->
+    %%io:format("~p send term nif\n",[self()]),
+    send_copy_term(Pid, {blob, Blob}) =:= 1;
 send3_send_nif(Pid, {msgenv,MsgEnv}) ->
     %%io:format("~p send blob nif\n",[self()]),   
     send3_blob(MsgEnv, Pid, blob) =:= 1.
 
 send3_send_bang(Pid, {term,Blob}) ->
     %%io:format("~p send term bang\n",[self()]),   
+    Pid ! {blob, Blob},
+    true;
+send3_send_bang(Pid, {copy,Blob}) ->
+    %%io:format("~p send term bang\n",[self()]),
     Pid ! {blob, Blob},
     true;
 send3_send_bang(Pid, {msgenv,MsgEnv}) ->
@@ -2062,6 +2070,7 @@ send_blob_thread(_,_,_) -> ?nif_stub.
 join_send_thread(_) -> ?nif_stub.
 copy_blob(_) -> ?nif_stub.
 send_term(_,_) -> ?nif_stub.
+send_copy_term(_,_) -> ?nif_stub.
 reverse_list(_) -> ?nif_stub.
 echo_int(_) -> ?nif_stub.
 type_sizes() -> ?nif_stub.
