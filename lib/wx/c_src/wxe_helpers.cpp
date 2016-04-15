@@ -47,8 +47,8 @@ void wxeCommand::Delete()
     if(len > 64)
       driver_free(buffer);
     buffer = NULL;
-    op = -1;
   }
+  op = -1;
 }
 
 /* ****************************************************************************
@@ -226,7 +226,7 @@ unsigned int wxeFifo::Cleanup(unsigned int def)
     // Realloced we need to start from the beginning
     return 0;
   } else {
-    return def;
+    return def < cb_start? def : cb_start;
   }
 }
 

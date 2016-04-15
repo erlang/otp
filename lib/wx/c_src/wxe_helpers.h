@@ -46,7 +46,7 @@ class wxeCommand
     wxeCommand();
     virtual ~wxeCommand(); // Use Delete()
 
-    wxeCommand * Save() { return this; };
+    wxeCommand * Save(int Op) { op = Op; return this; };
     void Delete();
 
     ErlDrvTermData   caller;
