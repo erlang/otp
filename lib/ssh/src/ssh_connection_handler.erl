@@ -39,6 +39,7 @@
 %%% Exports
 %%====================================================================
 
+%%% Start and stop
 -export([start_link/3,
 	 stop/1
 	]).
@@ -54,40 +55,19 @@
 	 info/1, info/2,
 	 connection_info/2,
 	 channel_info/3,
-	 adjust_window/3, close/2, renegotiate/1, renegotiate_data/1,
+	 adjust_window/3, close/2,
 	 disconnect/1, disconnect/2,
 	 get_print_info/1
 	]).
 
-%%% gen_statem callbacks
--export([init/1, handle_event/4, terminate/3, format_status/2, code_change/4]).
+%%% Behaviour callbacks
+-export([handle_event/4, terminate/3, format_status/2, code_change/4]).
 
-%%====================================================================
-%% Process state
-%%====================================================================
--record(state, {
-	  starter,
-	  auth_user,
-	  connection_state,
-	  latest_channel_id = 0,
-	  idle_timer_ref,
-	  transport_protocol,     % ex: tcp
-	  transport_cb,
-	  transport_close_tag,
-	  ssh_params,             %  #ssh{} - from ssh.hrl
-	  socket,                 %  socket()
-	  decoded_data_buffer,    %  binary()
-	  encoded_data_buffer,    %  binary()
-	  undecoded_packet_length, %  integer()
-	  key_exchange_init_msg,  %  #ssh_msg_kexinit{}
-	  last_size_rekey = 0,
-	  event_queue = [],
-	  connection_queue,
-	  address,
-	  port,
-	  opts,
-	  recbuf
-	 }).
+%%% Exports not intended to be used :)
+-export([init_connection_handler/3,	   % proc_lib:spawn needs this
+	 init_ssh_record/3,		   % Export intended for low level protocol test suites
+	 renegotiate/1, renegotiate_data/1 % Export intended for test cases
+	]).
 
 %%====================================================================
 %% Start / stop
@@ -99,7 +79,7 @@
 		) -> {ok, pid()}.
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_link(Role, Socket, Options) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Socket, Options]])}.
+    {ok, proc_lib:spawn_link(?MODULE, init_connection_handler, [Role, Socket, Options])}.
 
 
 %%--------------------------------------------------------------------
@@ -352,53 +332,149 @@ close(ConnectionHandler, ChannelId) ->
     end.
 
 %%====================================================================
-%% gen_statem callbacks
+%% Internal process state
+%%====================================================================
+-record(state, {
+	  starter                 :: pid(),
+	  auth_user               :: string(),
+	  connection_state        :: #connection{},
+	  latest_channel_id = 0   :: non_neg_integer(),
+	  idle_timer_ref          :: infinity | reference(),
+	  transport_protocol      :: atom(),	% ex: tcp
+	  transport_cb            :: atom(),	% ex: gen_tcp
+	  transport_close_tag     :: atom(),	% ex: tcp_closed
+	  ssh_params              :: #ssh{},
+	  socket                  :: inet:socket(),
+	  decoded_data_buffer     :: binary(),
+	  encoded_data_buffer     :: binary(),
+	  undecoded_packet_length :: non_neg_integer(),
+	  key_exchange_init_msg   :: #ssh_msg_kexinit{},
+	  last_size_rekey = 0     :: non_neg_integer(),
+	  event_queue = []        :: list(),
+	  opts                    :: proplists:proplist(),
+	  recbuf                  :: pos_integer()
+	 }).
+
+%%====================================================================
+%% Intitialisation
 %%====================================================================
 %%--------------------------------------------------------------------
-
+-spec init_connection_handler(role(),
+			      inet:socket(),
+			      proplists:proplist()
+			     ) -> no_return().
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-init([Role, Socket, SshOpts]) ->
+init_connection_handler(Role, Socket, Opts) ->
     process_flag(trap_exit, true),
-    {NumVsn, StrVsn} = ssh_transport:versions(Role, SshOpts),
-    {Protocol, Callback, CloseTag} =
-	proplists:get_value(transport, SshOpts, {tcp, gen_tcp, tcp_closed}),
-    Cache = ssh_channel:cache_create(),
-    State = 
-	init_role(Role,
-		  #state{
-		     connection_state = #connection{channel_cache = Cache,
-						    channel_id_seed = 0,
-						    port_bindings = [],
-						    requests = [],
-						    options = SshOpts},
-		     socket = Socket,
-		     decoded_data_buffer = <<>>,
-		     encoded_data_buffer = <<>>,
-		     transport_protocol = Protocol,
-		     transport_cb = Callback,
-		     transport_close_tag = CloseTag,
-		     opts = SshOpts
-		    }),
-		  
-    try init_ssh_record(Role, NumVsn, StrVsn, SshOpts, Socket) of
-	Ssh ->
-	    gen_statem:enter_loop(?MODULE,
-				  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
-				  handle_event_function,
-				  {hello,Role},
-				  State#state{ssh_params = Ssh},
-				  [])
+    S0 = init_process_state(Role, Socket, Opts),
+    try
+	{Protocol, Callback, CloseTag} =
+	    proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
+	S0#state{ssh_params = init_ssh_record(Role, Socket, Opts),
+		 transport_protocol = Protocol,
+		 transport_cb = Callback,
+		 transport_close_tag = CloseTag
+		}
+    of
+	S -> gen_statem:enter_loop(?MODULE,
+				   [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
+				   handle_event_function,
+				   {hello,Role},
+				   S,
+				   [])
     catch
-	_:Error ->
-	    gen_statem:enter_loop(?MODULE,
-				  [],
-				  handle_event_function,
-				  {init_error,Error},
-				  State,
-				  [])
+	_:Error -> init_error(Error, S0)
     end.
 
+
+init_error(Error, S) ->
+    gen_statem:enter_loop(?MODULE, [], handle_event_function, {init_error,Error}, S, []).
+
+
+init_process_state(Role, Socket, Opts) ->
+    S = #state{connection_state =
+		   C = #connection{channel_cache = ssh_channel:cache_create(),
+				   channel_id_seed = 0,
+				   port_bindings = [],
+				   requests = [],
+				   options = Opts},
+	       starter = proplists:get_value(user_pid, Opts),
+	       socket = Socket,
+	       decoded_data_buffer = <<>>,
+	       encoded_data_buffer = <<>>,
+	       opts = Opts
+	      },
+    case Role of
+	client ->
+	    TimerRef = get_idle_time(Opts),
+	    timer:apply_after(?REKEY_TIMOUT, gen_statem, cast, [self(), renegotiate]),
+	    timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
+	    S#state{idle_timer_ref = TimerRef};
+
+	server ->
+	    S#state{connection_state = init_connection(Role, C, Opts)}
+    end.
+
+
+init_connection(server, C = #connection{}, Opts) ->
+    Sups = proplists:get_value(supervisors, Opts),
+    SystemSup = proplists:get_value(system_sup, Sups),
+    SubSystemSup = proplists:get_value(subsystem_sup, Sups),
+    ConnectionSup = proplists:get_value(connection_sup, Sups),
+    Shell = proplists:get_value(shell, Opts),
+    Exec = proplists:get_value(exec, Opts),
+    CliSpec = proplists:get_value(ssh_cli, Opts, {ssh_cli, [Shell]}),
+    C#connection{cli_spec = CliSpec,
+		 exec = Exec,
+		 system_supervisor = SystemSup,
+		 sub_system_supervisor = SubSystemSup,
+		 connection_supervisor = ConnectionSup
+		}.
+
+
+init_ssh_record(Role, Socket, Opts) ->
+    {ok, PeerAddr} = inet:peername(Socket),
+    KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
+    AuthMethods = proplists:get_value(auth_methods, Opts, ?SUPPORTED_AUTH_METHODS),
+    S0 = #ssh{role = Role,
+	      key_cb = KeyCb,
+	      opts = Opts,
+	      userauth_supported_methods = AuthMethods,
+	      available_host_keys = supported_host_keys(Role, KeyCb, Opts),
+	      random_length_padding = proplists:get_value(max_random_length_padding,
+							  Opts,
+							  (#ssh{})#ssh.random_length_padding)
+	   },
+
+    {Vsn, Version} = ssh_transport:versions(Role, Opts),
+    case Role of
+	client ->
+	    PeerName =  proplists:get_value(host, Opts),
+	    S0#ssh{c_vsn = Vsn,
+		   c_version = Version,
+		   io_cb = case proplists:get_value(user_interaction, Opts, true) of
+			       true ->  ssh_io;
+			       false -> ssh_no_io
+			   end,
+		   userauth_quiet_mode = proplists:get_value(quiet_mode, Opts, false),
+		   peer = {PeerName, PeerAddr}
+		  };
+
+	server ->
+	    S0#ssh{s_vsn = Vsn,
+		   s_version = Version,
+		   io_cb = proplists:get_value(io_cb, Opts, ssh_io),
+		   userauth_methods = string:tokens(AuthMethods, ","),
+		   kb_tries_left = 3,
+		   peer = {undefined, PeerAddr}
+		  }
+    end.
+
+
+
+%%====================================================================
+%% gen_statem callbacks
+%%====================================================================
 %%--------------------------------------------------------------------
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -1300,129 +1376,6 @@ start_the_connection_child(UserPid, Role, Socket, Options) ->
     {_, Callback, _} =  proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}),
     socket_control(Socket, Pid, Callback),
     Pid.
-
-
-init_role(client, #state{opts = Opts} = State0) ->
-    Pid = proplists:get_value(user_pid, Opts),
-    TimerRef = get_idle_time(Opts),
-    timer:apply_after(?REKEY_TIMOUT, gen_statem, cast, [self(), renegotiate]),
-    timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast,
-		       [self(), data_size]),
-    State0#state{starter = Pid,
-		 idle_timer_ref = TimerRef};
-
-init_role(server, #state{opts = Opts, connection_state = Connection} = State) ->
-    Sups = proplists:get_value(supervisors, Opts),
-    Pid = proplists:get_value(user_pid, Opts),
-    SystemSup = proplists:get_value(system_sup, Sups),
-    SubSystemSup = proplists:get_value(subsystem_sup, Sups),
-    ConnectionSup = proplists:get_value(connection_sup, Sups),
-    Shell = proplists:get_value(shell, Opts),
-    Exec = proplists:get_value(exec, Opts),
-    CliSpec = proplists:get_value(ssh_cli, Opts, {ssh_cli, [Shell]}),
-    State#state{starter = Pid,
-		connection_state = Connection#connection{
-				     cli_spec = CliSpec,
-				     exec = Exec,
-				     system_supervisor = SystemSup,
-				     sub_system_supervisor = SubSystemSup,
-				     connection_supervisor = ConnectionSup
-				    }}.
-
-
-%% init_ssh_record(client = Role, Vsn, Version, Options, Socket) ->
-%%     IOCb = case proplists:get_value(user_interaction, Options, true) of
-%% 	       true ->
-%% 		   ssh_io;
-%% 	       false ->
-%% 		   ssh_no_io
-%% 	   end,
-
-%%     AuthMethods = proplists:get_value(auth_methods, Options,
-%% 				      ?SUPPORTED_AUTH_METHODS),
-%%     {ok, PeerAddr} = inet:peername(Socket),
-
-%%     PeerName =  proplists:get_value(host, Options),
-%%     KeyCb =  proplists:get_value(key_cb, Options, ssh_file),
-
-%%     #ssh{role = Role,
-%% 	 c_vsn = Vsn,
-%% 	 c_version = Version,
-%% 	 key_cb = KeyCb,
-%% 	 io_cb = IOCb,
-%% 	 userauth_quiet_mode = proplists:get_value(quiet_mode, Options, false),
-%% 	 opts = Options,
-%% 	 userauth_supported_methods = AuthMethods,
-%% 	 peer = {PeerName, PeerAddr},
-%% 	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
-%% 	 random_length_padding = proplists:get_value(max_random_length_padding,
-%% 						     Options,
-%% 						     (#ssh{})#ssh.random_length_padding)
-%% 	};
-
-%% init_ssh_record(server = Role, Vsn, Version, Options, Socket) ->
-%%     AuthMethods = proplists:get_value(auth_methods, Options,
-%% 				      ?SUPPORTED_AUTH_METHODS),
-%%     AuthMethodsAsList = string:tokens(AuthMethods, ","),
-%%     {ok, PeerAddr} = inet:peername(Socket),
-%%     KeyCb =  proplists:get_value(key_cb, Options, ssh_file),
-
-%%     #ssh{role = Role,
-%% 	 s_vsn = Vsn,
-%% 	 s_version = Version,
-%% 	 key_cb = KeyCb,
-%% 	 io_cb = proplists:get_value(io_cb, Options, ssh_io),
-%% 	 opts = Options,
-%% 	 userauth_supported_methods = AuthMethods,
-%% 	 userauth_methods = AuthMethodsAsList,
-%% 	 kb_tries_left = 3,
-%% 	 peer = {undefined, PeerAddr},
-%% 	 available_host_keys = supported_host_keys(Role, KeyCb, Options),
-%% 	 random_length_padding = proplists:get_value(max_random_length_padding,
-%% 						     Options,
-%% 						     (#ssh{})#ssh.random_length_padding)
-%% 	 }.
-
-
-init_ssh_record(Role, Vsn, Version, Options, Socket) ->
-    {ok, PeerAddr} = inet:peername(Socket),
-    KeyCb = proplists:get_value(key_cb, Options, ssh_file),
-    AuthMethods = proplists:get_value(auth_methods, Options, ?SUPPORTED_AUTH_METHODS),
-
-    S0 = #ssh{role = Role,
-	      key_cb = KeyCb,
-	      opts = Options,
-	      userauth_supported_methods = AuthMethods,
-	      available_host_keys = supported_host_keys(Role, KeyCb, Options),
-	      random_length_padding = proplists:get_value(max_random_length_padding,
-							  Options,
-							  (#ssh{})#ssh.random_length_padding)
-	   },
-
-    case Role of
-	client ->
-	    PeerName =  proplists:get_value(host, Options),
-	    S0#ssh{c_vsn = Vsn,
-		   c_version = Version,
-		   io_cb = case proplists:get_value(user_interaction, Options, true) of
-			       true ->  ssh_io;
-			       false -> ssh_no_io
-			   end,
-		   userauth_quiet_mode = proplists:get_value(quiet_mode, Options, false),
-		   peer = {PeerName, PeerAddr}
-		  };
-
-	server ->
-	    S0#ssh{s_vsn = Vsn,
-		   s_version = Version,
-		   io_cb = proplists:get_value(io_cb, Options, ssh_io),
-		   userauth_methods = string:tokens(AuthMethods, ","),
-		   kb_tries_left = 3,
-		   peer = {undefined, PeerAddr}
-		  }
-    end.
-
-
 
 %%--------------------------------------------------------------------
 %% Stopping
