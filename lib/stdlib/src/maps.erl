@@ -31,6 +31,7 @@
          new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
+%% Shadowed by erl_bif_types: maps:get/2
 -spec get(Key,Map) -> Value when
     Key :: term(),
     Map :: map(),
@@ -46,7 +47,7 @@ get(_,_) -> erlang:nif_error(undef).
 
 find(_,_) -> erlang:nif_error(undef).
 
-
+%% Shadowed by erl_bif_types: maps:from_list/1
 -spec from_list(List) -> Map when
     List :: [{Key,Value}],
     Key :: term(),
@@ -56,6 +57,7 @@ find(_,_) -> erlang:nif_error(undef).
 from_list(_) -> erlang:nif_error(undef).
 
 
+%% Shadowed by erl_bif_types: maps:is_key/2
 -spec is_key(Key,Map) -> boolean() when
     Key :: term(),
     Map :: map().
@@ -71,6 +73,7 @@ is_key(_,_) -> erlang:nif_error(undef).
 keys(_) -> erlang:nif_error(undef).
 
 
+%% Shadowed by erl_bif_types: maps:merge/2
 -spec merge(Map1,Map2) -> Map3 when
     Map1 :: map(),
     Map2 :: map(),
@@ -86,6 +89,7 @@ merge(_,_) -> erlang:nif_error(undef).
 new() -> erlang:nif_error(undef).
 
 
+%% Shadowed by erl_bif_types: maps:put/3
 -spec put(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
@@ -110,6 +114,7 @@ remove(_,_) -> erlang:nif_error(undef).
 
 take(_,_) -> erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: maps:to_list/1
 -spec to_list(Map) -> [{Key,Value}] when
     Map :: map(),
     Key :: term(),
@@ -118,6 +123,7 @@ take(_,_) -> erlang:nif_error(undef).
 to_list(_) -> erlang:nif_error(undef).
 
 
+%% Shadowed by erl_bif_types: maps:update/3
 -spec update(Key,Value,Map1) -> Map2 when
     Key :: term(),
     Value :: term(),
