@@ -28,7 +28,7 @@
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
--export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
+-export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
 -export([stream_init/2, stream_init/3, stream_encrypt/2, stream_decrypt/2]).
@@ -39,6 +39,9 @@
 -export([rand_seed/1]).
 
 %% DEPRECATED
+-export([rand_bytes/1]).
+-deprecated({rand_bytes, 1, next_major_release}).
+
 %% Replaced by hash_*
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
@@ -407,8 +410,6 @@ strong_rand_bytes(Bytes) ->
     end.
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
-rand_bytes(_Bytes, _Topmask, _Bottommask) -> ?nif_stub.
-
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->
     case rand_uniform_nif(From,To) of
@@ -546,7 +547,7 @@ generate_key(dh, DHParameters, PrivateKey) ->
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
     Private = case PrivArg of
-		  undefined -> random_bytes(32);
+		  undefined -> strong_rand_bytes(32);
 		  _ -> ensure_int_as_bin(PrivArg)
 	      end,
     host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
@@ -554,7 +555,7 @@ generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
 generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg)
   when is_binary(Generator), is_binary(Prime), is_atom(Version) ->
     Private = case PrivateArg of
-		  undefined -> random_bytes(32);
+		  undefined -> strong_rand_bytes(32);
 		  _ -> PrivateArg
 	      end,
     user_srp_gen_key(Private, Generator, Prime);
@@ -605,16 +606,6 @@ compute_key(ecdh, Others, My, Curve) ->
     ecdh_compute_key_nif(ensure_int_as_bin(Others),
 			 nif_curve_params(Curve),
 			 ensure_int_as_bin(My)).
-
-
-random_bytes(N) ->
-    try strong_rand_bytes(N) of
-	RandBytes ->
-	    RandBytes
-    catch
-	error:low_entropy ->
-	    rand_bytes(N)
-    end.
 
 %%--------------------------------------------------------------------
 %%% On load

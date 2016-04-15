@@ -214,7 +214,6 @@ static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -285,7 +284,6 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
-    {"rand_bytes", 3, rand_bytes_3},
     {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
@@ -1927,27 +1925,7 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes, TopMask, BottomMask) */    
-    unsigned bytes;
-    unsigned char* data;
-    unsigned top_mask, bot_mask;
-    ERL_NIF_TERM ret;
 
-    if (!enif_get_uint(env, argv[0], &bytes)
-	|| !enif_get_uint(env, argv[1], &top_mask)
-	|| !enif_get_uint(env, argv[2], &bot_mask)) {
-	return enif_make_badarg(env);
-    }
-    data = enif_make_new_binary(env, bytes, &ret);
-    RAND_pseudo_bytes(data, bytes);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
-    if (bytes > 0) {
-	data[bytes-1] |= top_mask;
-	data[0] |= bot_mask;
-    }
-    return ret;
-}
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Bytes, TopMask, BottomMask) */    
     unsigned bits;

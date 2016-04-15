@@ -58,7 +58,12 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
-%% *** CRYPTO add in R16B01 ***
+%% *** CRYPTO added in OTP 19 ***
+
+obsolete_1(crypto, rand_bytes, 1) ->
+    {deprecated, {crypto, strong_rand_bytes, 1}};
+
+%% *** CRYPTO added in R16B01 ***
 
 obsolete_1(crypto, md4, 1) ->
     {deprecated, {crypto, hash, 2}};

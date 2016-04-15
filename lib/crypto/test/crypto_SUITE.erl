@@ -269,7 +269,6 @@ rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
-    10 = byte_size(crypto:rand_bytes(10)),
     10 = byte_size(crypto:strong_rand_bytes(10)).
 
 %%--------------------------------------------------------------------
@@ -649,8 +648,8 @@ ipow(A, B, M, Prod)  ->
 do_exor(B) ->
     Z1 = zero_bin(B),
     Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
+    B1 = crypto:strong_rand_bytes(100),
+    B2 = crypto:strong_rand_bytes(100),
     Z2 = zero_bin(B1),
     Z2 = crypto:exor(B1, B1),
     Z2 = crypto:exor(B2, B2),
