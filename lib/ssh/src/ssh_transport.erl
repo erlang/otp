@@ -1039,7 +1039,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		    {bad_mac, Ssh1};
 		true ->
 		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {decoded, DecompressedPayload, NextPacketBytes, Ssh}
+		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end;
 	aead ->
 	    PacketLenBin = DecryptedPfx,
@@ -1049,7 +1049,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		{Ssh1, DecryptedSfx} ->
                     DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
 		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {decoded, DecompressedPayload, NextPacketBytes, Ssh}
+		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end
     end.
     

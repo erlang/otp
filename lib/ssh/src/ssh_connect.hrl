@@ -30,7 +30,7 @@
 -define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
 
 -define(DEFAULT_TIMEOUT, 5000).
--define(MAX_PROTO_VERSION, 255).
+-define(MAX_PROTO_VERSION, 255).      % Max length of the hello string
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
