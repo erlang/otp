@@ -102,8 +102,8 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     Self = self(),
     Ref = make_ref(),
     F = fun() ->
-                SI = erlang:system_info({allocator,mseg_alloc}),
-                {erts_mmap,EM} = lists:keyfind(erts_mmap, 1, SI),
+                SI = erlang:system_info({allocator,erts_mmap}),
+                {default_mmap,EM} = lists:keyfind(default_mmap, 1, SI),
                 {supercarrier,SC} = lists:keyfind(supercarrier, 1, EM),
                 {sizes,Sizes} = lists:keyfind(sizes, 1, SC),
                 {free_segs,Segs} = lists:keyfind(free_segs,1,SC),
