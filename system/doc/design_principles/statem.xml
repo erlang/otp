@@ -90,7 +90,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <pre>
 StateName(EventType, EventContent, Data) ->
     .. code for actions here ...
-    {next_state, StateName', Data'}.</pre>
+    {next_state, NewStateName, NewData}.</pre>
     <p>
       In the mode <c>handle_event_function</c> there is only one
       Erlang function that implements all state transition rules:
@@ -612,7 +612,7 @@ stop() ->
       An example of event postponing comes in later in this chapter.
       See the
       <seealso marker="stdlib:gen_statem#type-action">
-	documentation
+	reference manual
       </seealso>
       for details.  You can for example actually reply to several callers
       and generate multiple next events to handle.
@@ -735,7 +735,8 @@ open(cast, {button,_}, Data) ->
 	<c>erlang:cancel_timer(Tref)</c>.
       </seealso>
       Note that a timeout message can not arrive after this,
-      unless you have postponed it before (why on earth one would do that).
+      unless you have postponed it (see the next section) before,
+      so make sure you do not accidentally postpone such messages.
     </p>
     <p>
       Another way to cancel a timer is to not cancel it,
@@ -838,14 +839,24 @@ do_unlock() ->
       to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
+      A selective receive can not be used from a <c>gen_statem</c>
+      behaviour just as for any <c>gen_*</c> behavior
+      since the receive statement is within the <c>gen_*</c> engine itself.
+      It has to be there because all
+      <seealso marker="stdlib:sys"><c>sys</c></seealso>
+      compatible behaviours must respond to system messages and therefore
+      do that in their engine receive loop,
+      passing non-system messages to the callback module.
+    </p>
+    <p>
       The
       <seealso marker="stdlib:gen_statem#type-action">
 	state transition action
       </seealso>
       <c>postpone</c> is designed to be able to model
-      selective receive.  Selective receive implicitly postpones
+      selective receives.  A selective receive implicitly postpones
       any not received events, but the <c>postpone</c>
-      state transition action explicitly postpones a received event.
+      state transition action explicitly postpones one received event.
     </p>
     <p>
       Other than that both mechanisms have got the same theoretical

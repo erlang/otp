@@ -45,7 +45,7 @@
       using this module will have a standard set of interface functions
       and include functionality for tracing and error reporting.
       It will also fit into an OTP supervision tree. Refer to
-      <seealso marker="doc/design_principles:gen_server_concepts">
+      <seealso marker="doc/design_principles:statem">
         OTP Design Principles
       </seealso>
       for more information.
