@@ -566,8 +566,7 @@ typedef struct {
            <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
 </code>
-            <p>The function prototype of a resource destructor function.
-            A destructor function is not allowed to call any term-making functions.</p>
+            <p>The function prototype of a resource destructor function.</p>
           </item>
           <tag><marker id="ErlNifCharEncoding"/>ErlNifCharEncoding</tag>
            <item>

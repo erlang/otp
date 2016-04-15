@@ -644,6 +644,15 @@ typedef struct preload {
     unsigned char* code;	/* Code pointer */
 } Preload;
 
+/*
+ * ErtsTracer is either NIL, 'true' or [Mod | State]
+ *
+ * If set to NIL, it means no tracer.
+ * If set to 'true' it means the current process' tracer.
+ * If set to [Mod | State], there is a tracer.
+ *  See erts_tracer_update for more details
+ */
+typedef Eterm ErtsTracer;
 
 /*
  * This structure contains options to all built in drivers.

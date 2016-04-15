@@ -2,6 +2,7 @@
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="../specs/specs_erl_prim_loader.xml"/>
   <xi:include href="../specs/specs_erlang.xml"/>
+  <xi:include href="../specs/specs_erl_tracer.xml"/>
   <xi:include href="../specs/specs_init.xml"/>
   <xi:include href="../specs/specs_zlib.xml"/>
 </specs>

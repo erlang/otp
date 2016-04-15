@@ -161,6 +161,7 @@ atom close
 atom closed
 atom code
 atom command
+atom commandv
 atom compact
 atom compat_rel
 atom compile
@@ -197,6 +198,7 @@ atom dirty_cpu_schedulers_online
 atom dirty_io
 atom disable_trace
 atom disabled
+atom discard
 atom display_items
 atom dist
 atom dist_cmd
@@ -231,6 +233,7 @@ atom exception_trace
 atom extended
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_tracer
 atom erlang
 atom ERROR='ERROR'
 atom error_handler
@@ -242,6 +245,9 @@ atom event
 atom exact_reductions
 atom exclusive
 atom exit_status
+atom existing
+atom existing_processes
+atom existing_ports
 atom existing
 atom exiting
 atom exports
@@ -353,6 +359,7 @@ atom match
 atom match_limit
 atom match_limit_recursion
 atom match_spec
+atom match_spec_result
 atom max
 atom maximum
 atom max_tables max_processes
@@ -401,6 +408,8 @@ atom net_kernel_terminated
 atom never_utf
 atom new
 atom new_index
+atom new_processes
+atom new_ports
 atom new_uniq
 atom newline
 atom next
@@ -540,6 +549,7 @@ atom scheme
 atom scientific
 atom scope
 atom seconds
+atom send_to_non_existing_process
 atom sensitive
 atom sequential_tracer
 atom sequential_trace_token
@@ -561,6 +571,7 @@ atom size
 atom sl_alloc
 atom spawn_executable
 atom spawn_driver
+atom spawned
 atom ssl_tls
 atom stack_size
 atom start
@@ -569,6 +580,7 @@ atom static
 atom stderr_to_stdout
 atom stop
 atom stream
+atom strict_monotonic
 atom strict_monotonic_timestamp
 atom sunrm
 atom suspend
@@ -596,8 +608,9 @@ atom total_active_tasks
 atom total_heap_size
 atom total_run_queue_lengths
 atom tpkt
-atom trace trace_ts traced 
+atom trace trace_ts traced
 atom trace_control_word
+atom trace_status
 atom tracer
 atom trap_exit
 atom trim

@@ -257,7 +257,7 @@ static void send_reply(ErtsMsAcc *msacc, ErtsMSAccReq *msaccrp) {
 
     if (msacc->unmanaged) erts_mtx_unlock(&msacc->mtx);
 
-    erts_queue_message(rp, &rp_locks, msgp, msg, NIL);
+    erts_queue_message(rp, &rp_locks, msgp, msg);
 
     if (esdp && msaccrp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;

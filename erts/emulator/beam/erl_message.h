@@ -182,48 +182,64 @@ typedef struct {
     Sint len;            /* queue length */
 } ErlMessageInQueue;
 
+typedef struct erl_trace_message_queue__ {
+    struct erl_trace_message_queue__ *next; /* point to the next receiver */
+    Eterm receiver;
+    ErtsMessage* first;
+    ErtsMessage** last;  /* point to the last next pointer */
+    Sint len;            /* queue length */
+} ErlTraceMessageQueue;
+
 #endif
 
 /* Get "current" message */
 #define PEEK_MESSAGE(p)  (*(p)->msg.save)
 
+#ifdef USE_VM_PROBES
+#define LINK_MESSAGE_DTAG(mp, dt) ERL_MESSAGE_DT_UTAG(mp) = dt
+#else
+#define LINK_MESSAGE_DTAG(mp, dt)
+#endif
 
-/* Add message last in private message queue */
-#define LINK_MESSAGE_PRIVQ(p, mp) do { \
-    *(p)->msg.last = (mp); \
-    (p)->msg.last = &(mp)->next; \
-    (p)->msg.len++; \
-} while (0)
-
+#define LINK_MESSAGE_IMPL(p, first_msg, last_msg, num_msgs, where) do { \
+        *(p)->where.last = (first_msg);                                 \
+        (p)->where.last = (last_msg);                                   \
+        (p)->where.len += (num_msgs);                                   \
+    } while(0)
 
 #ifdef ERTS_SMP
 
-/* Move in message queue to end of private message queue */
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)					\
-do {									\
-    if ((P)->msg_inq.first) {						\
-	*(P)->msg.last = (P)->msg_inq.first;				\
-	(P)->msg.last = (P)->msg_inq.last;				\
-	(P)->msg.len += (P)->msg_inq.len;				\
-	(P)->msg_inq.first = NULL;					\
-	(P)->msg_inq.last = &(P)->msg_inq.first;			\
-	(P)->msg_inq.len = 0;						\
-    }									\
-} while (0)
+/* Add message last in private message queue */
+#define LINK_MESSAGE_PRIVQ(p, first_msg, last_msg, len)                 \
+    do {                                                                \
+        LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg);            \
+    } while (0)
 
-/* Add message last in message queue */
-#define LINK_MESSAGE(p, mp) do { \
-    *(p)->msg_inq.last = (mp); \
-    (p)->msg_inq.last = &(mp)->next; \
-    (p)->msg_inq.len++; \
-} while(0)
+/* Add message last_msg in message queue */
+#define LINK_MESSAGE(p, first_msg, last_msg, len)       \
+    LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg_inq)
+
+#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p)                   \
+    do {                                                \
+        if (p->msg_inq.first) {                         \
+            *p->msg.last = p->msg_inq.first;            \
+            p->msg.last = p->msg_inq.last;              \
+            p->msg.len += p->msg_inq.len;               \
+            p->msg_inq.first = NULL;                    \
+            p->msg_inq.last = &p->msg_inq.first;        \
+            p->msg_inq.len = 0;                         \
+        }                                               \
+    } while (0)
 
 #else
 
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)
+#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p)
 
-/* Add message last in message queue */
-#define LINK_MESSAGE(p, mp) LINK_MESSAGE_PRIVQ((p), (mp))
+/* Add message last_msg in message queue */
+#define LINK_MESSAGE(p, first_msg, last_msg, len)                       \
+    do {                                                                \
+        LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg);            \
+    } while(0)
 
 #endif
 
@@ -259,23 +275,30 @@ do {									\
 	(HEAP_FRAG_P)->off_heap.overhead = 0;				\
     } while (0)
 
+#ifdef USE_VM_PROBES
+#define ERL_MESSAGE_DT_UTAG_INIT(MP) ERL_MESSAGE_DT_UTAG(MP) = NIL
+#else
+#define ERL_MESSAGE_DT_UTAG_INIT(MP) do{ } while (0)
+#endif
+
+#define ERTS_INIT_MESSAGE(MP)                           \
+    do {                                                \
+        (MP)->next = NULL;                              \
+        ERL_MESSAGE_TERM(MP) = THE_NON_VALUE;           \
+        ERL_MESSAGE_TOKEN(MP) = NIL;                    \
+        ERL_MESSAGE_DT_UTAG_INIT(MP);                   \
+        MP->data.attached = NULL;                       \
+    } while (0)
+
 void init_message(void);
 ErlHeapFragment* new_message_buffer(Uint);
 ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks*, ErtsDistExternal *, Eterm);
-#ifdef USE_VM_PROBES
-void erts_queue_message_probe(Process*, ErtsProcLocks*, ErtsMessage*,
-                              Eterm message, Eterm seq_trace_token, Eterm dt_utag);
-#define erts_queue_message(RP,RL,BP,Msg,SEQ) \
-    erts_queue_message_probe((RP),(RL),(BP),(Msg),(SEQ),NIL)
-#else
-void erts_queue_message(Process*, ErtsProcLocks*, ErtsMessage*,
-                        Eterm message, Eterm seq_trace_token);
-#define erts_queue_message_probe(RP,RL,BP,Msg,SEQ,TAG) \
-    erts_queue_message((RP),(RL),(BP),(Msg),(SEQ))
-#endif
+Sint erts_queue_message(Process*, ErtsProcLocks*,ErtsMessage*, Eterm);
+Sint erts_queue_messages(Process*, ErtsProcLocks*,
+                         ErtsMessage*, ErtsMessage**, Uint);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
 Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
@@ -354,9 +377,7 @@ ERTS_GLB_FORCE_INLINE ErtsMessage *erts_alloc_message(Uint sz, Eterm **hpp)
 
     if (sz == 0) {
 	mp = erts_alloc_message_ref();
-	mp->next = NULL;
-	ERL_MESSAGE_TERM(mp) = NIL;
-	mp->data.attached = NULL;
+        ERTS_INIT_MESSAGE(mp);
 	if (hpp)
 	    *hpp = NULL;
 	return mp;
@@ -365,8 +386,7 @@ ERTS_GLB_FORCE_INLINE ErtsMessage *erts_alloc_message(Uint sz, Eterm **hpp)
     mp = erts_alloc(ERTS_ALC_T_MSG,
 		    sizeof(ErtsMessage) + (sz - 1)*sizeof(Eterm));
 
-    mp->next = NULL;
-    ERL_MESSAGE_TERM(mp) = NIL;
+    ERTS_INIT_MESSAGE(mp);
     mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
     ERTS_INIT_HEAP_FRAG(&mp->hfrag, sz, sz);
 

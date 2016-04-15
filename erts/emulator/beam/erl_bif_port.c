@@ -79,6 +79,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
     }
 
     if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
+
         /* Copied from erl_port_task.c */
         port->async_open_port = erts_alloc(ERTS_ALC_T_PRTSD,
                                            sizeof(*port->async_open_port));
@@ -108,6 +109,10 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
 
     erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
     erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port->common.id);
+
+    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS))
+        trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK, BIF_P,
+                   am_link, port->common.id);
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
@@ -339,8 +344,7 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
     if (!prt)
 	BIF_RET(am_badarg);
 
-
-    switch (erts_port_exit(BIF_P, 0, prt, prt->common.id, am_normal, &ref)) {
+    switch (erts_port_exit(BIF_P, 0, prt, BIF_P->common.id, am_normal, &ref)) {
     case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
@@ -373,7 +377,7 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
     ref = NIL;
 #endif
 
-    switch (erts_port_connect(BIF_P, 0, prt, prt->common.id, BIF_ARG_2, &ref)) {
+    switch (erts_port_connect(BIF_P, 0, prt, BIF_P->common.id, BIF_ARG_2, &ref)) {
     case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
@@ -911,7 +915,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_out);
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
     }
     
 
@@ -928,20 +932,21 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
+
+    if (port && IS_TRACED_FL(port, F_TRACE_PORTS))
+        trace_port(port, am_getting_linked, p->common.id);
+
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+
+    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
+    }
 
     if (!port) {
 	DEBUGF(("open_driver returned (%d:%d)\n",
 		err_typep ? *err_typep : 4711,
 		err_nump ? *err_nump : 4711));
-    	if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-            trace_virtual_sched(p, am_in);
-    	}
 	goto do_return;
-    }
-    
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_in);
     }
 
     if (linebuf && port->linebuf == NULL){

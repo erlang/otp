@@ -270,6 +270,9 @@ type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
 type	PROC_SYS_TSK_QS	SHORT_LIVED	PROCESSES	proc_sys_task_queues
 type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 type	IOB_REQ		SHORT_LIVED	SYSTEM		io_bytes_request
+type    TRACER_NIF      LONG_LIVED      SYSTEM          tracer_nif
+type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
+type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

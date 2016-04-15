@@ -1248,7 +1248,7 @@ hlt_bif_timer_timeout(ErtsHLTimer *tmr, Uint32 roflgs)
 	    ErtsMessage *mp = erts_alloc_message(0, NULL);
 	    mp->data.heap_frag = tmr->btm.bp;
 	    erts_queue_message(proc, &proc_locks, mp,
-			       tmr->btm.message, NIL);
+			       tmr->btm.message);
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCKS_MSG_SEND);
 	    queued_message = 1;
 	    proc_locks &= ~ERTS_PROC_LOCKS_MSG_SEND;
@@ -1980,7 +1980,7 @@ access_sched_local_btm(Process *c_p, Eterm pid,
 
 	ERTS_HLT_ASSERT(hp + (async ? 4 : 3) == hp_end);
 
-	erts_queue_message(proc, &proc_locks, mp, msg, NIL);
+	erts_queue_message(proc, &proc_locks, mp, msg);
 
 	if (c_p)
 	    proc_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -2111,7 +2111,7 @@ try_access_sched_remote_btm(ErtsSchedulerData *esdp,
 
 	msg = TUPLE3(hp, tag, tref, res);
 
-	erts_queue_message(c_p, &proc_locks, mp, msg, NIL);
+	erts_queue_message(c_p, &proc_locks, mp, msg);
 
 	proc_locks &= ~ERTS_PROC_LOCK_MAIN;
 	if (proc_locks)

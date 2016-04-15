@@ -179,6 +179,10 @@ stop(Status) -> init ! {stop,{stop,Status}}, ok.
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
+
+    %% Load the tracer nif
+    erl_tracer:on_load(),
+
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     Start = map(fun prepare_run_args/1, Start0),
     boot(Start, Flags, Args).

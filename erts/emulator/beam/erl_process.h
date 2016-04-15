@@ -1041,6 +1041,7 @@ struct process {
 
 #ifdef ERTS_SMP
     ErlMessageInQueue msg_inq;
+    ErlTraceMessageQueue *trace_msg_q;
     ErtsPendExit pending_exit;
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
@@ -1358,7 +1359,6 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_FLAG(N)      (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
 
 /* process trace_flags */
-
 #define F_NOW_TS             (ERTS_TRACE_FLG_NOW_TIMESTAMP \
 			      << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
 #define F_STRICT_MON_TS      (ERTS_TRACE_FLG_STRICT_MONOTONIC_TIMESTAMP \
@@ -1380,8 +1380,7 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
 #define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
 #define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
-#define F_TRACER             F_TRACE_FLAG(15) /* May be (has been) tracer */
-#define F_EXCEPTION_TRACE    F_TRACE_FLAG(16) /* May have exception trace on stack */
+#define F_EXCEPTION_TRACE    F_TRACE_FLAG(15) /* May have exception trace on stack */
 
 /* port trace flags, currently the same as process trace flags */
 #define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
@@ -1410,12 +1409,14 @@ extern int erts_system_profile_ts_type;
 		     | F_TRACE_SCHED_PORTS | F_TRACE_SCHED_NO \
 		     | F_TRACE_SCHED_EXIT)
 
+
 #define ERTS_TRACEE_MODIFIER_FLAGS \
-  (F_TRACE_SILENT | F_TIMESTAMP_MASK | F_TRACE_SCHED_NO)
-#define ERTS_PORT_TRACEE_FLAGS \
-  (ERTS_TRACEE_MODIFIER_FLAGS | F_TRACE_PORTS | F_TRACE_SCHED_PORTS)
+    (F_TRACE_SILENT | F_TIMESTAMP_MASK | F_TRACE_SCHED_NO \
+     | F_TRACE_RECEIVE | F_TRACE_SEND)
+#define ERTS_PORT_TRACEE_FLAGS                                     \
+    (ERTS_TRACEE_MODIFIER_FLAGS | F_TRACE_PORTS | F_TRACE_SCHED_PORTS)
 #define ERTS_PROC_TRACEE_FLAGS \
-  ((TRACEE_FLAGS & ~ERTS_PORT_TRACEE_FLAGS) | ERTS_TRACEE_MODIFIER_FLAGS)
+    ((TRACEE_FLAGS & ~ERTS_PORT_TRACEE_FLAGS) | ERTS_TRACEE_MODIFIER_FLAGS)
 
 #define SEQ_TRACE_FLAG(N)        (1 << (ERTS_TRACE_TS_TYPE_BITS + (N)))
 
@@ -1717,6 +1718,8 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
+void erts_schedule_flush_trace_messages(Eterm pid);
+int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);
@@ -1995,7 +1998,6 @@ erts_psd_set(Process *p, int ix, void *data)
     erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT)
 #define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, NTE) \
     erts_psd_set((P), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
-
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);
@@ -2326,14 +2328,17 @@ erts_alloc_message_heap_state(Process *pp,
 			      ErlOffHeap **ohpp)
 {
     int on_heap;
+    ErtsMessage *mp;
 
     if ((*psp) & ERTS_PSFLG_OFF_HEAP_MSGQ) {
-	ErtsMessage *mp = erts_alloc_message(sz, hpp);
+	mp = erts_alloc_message(sz, hpp);
 	*ohpp = sz == 0 ? NULL : &mp->hfrag.off_heap;
 	return mp;
     }
 
-    return erts_try_alloc_message_on_heap(pp, psp, plp, sz, hpp, ohpp, &on_heap);
+    mp = erts_try_alloc_message_on_heap(pp, psp, plp, sz, hpp, ohpp, &on_heap);
+    ASSERT(pp || !on_heap);
+    return mp;
 }
 
 ERTS_GLB_INLINE ErtsMessage *
@@ -2343,7 +2348,7 @@ erts_alloc_message_heap(Process *pp,
 			Eterm **hpp,
 			ErlOffHeap **ohpp)
 {
-    erts_aint32_t state = erts_smp_atomic32_read_nob(&pp->state);
+    erts_aint32_t state = pp ? erts_smp_atomic32_read_nob(&pp->state) : 0;
     return erts_alloc_message_heap_state(pp, &state, plp, sz, hpp, ohpp);
 }
 

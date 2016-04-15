@@ -43,7 +43,8 @@ PRE_LOADED_ERL_MODULES = \
 	otp_ring0 \
 	erts_code_purger \
 	erlang \
-	erts_internal
+	erts_internal \
+	erl_tracer
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval

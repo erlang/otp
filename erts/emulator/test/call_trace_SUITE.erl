@@ -84,32 +84,46 @@ process_specs(Config) when is_list(Config) ->
     {tracer,Tracer} = trace_info(self(), tracer),
     trace_func({?MODULE,worker_foo,1}, []),
 
-    %% Test the 'new' flag.
+    %% Test the 'new' and 'new_processes' flags.
 
-    {Work1A,Work1B} = start_and_trace(new, [1,2,3], A1B={3,2,1}),
-    {flags,[]} = trace_info(Work1A, flags),
-    {tracer,[]} = trace_info(Work1A, tracer),
-    {tracer,Tracer} = trace_info(Work1B, tracer),
-    {flags,[call]} = trace_info(Work1B, flags),
-    expect({trace,Work1B,call,{?MODULE,worker_foo,[A1B]}}),
-    unlink(Work1B),
-    Mref = erlang:monitor(process, Work1B),
-    exit(Work1B, kill),
-    receive
-        {'DOWN',Mref,_,_,_} -> ok
-    end,
-    undefined = trace_info(Work1B, flags),
-    {flags,[]} = trace_info(new, flags),
-    {tracer,[]} = trace_info(new, tracer),
+    New = fun(Flag) ->
+                  {Work1A,Work1B} = start_and_trace(Flag, [1,2,3], A1B={3,2,1}),
+                  {flags,[]} = trace_info(Work1A, flags),
+                  {tracer,[]} = trace_info(Work1A, tracer),
+                  {tracer,Tracer} = trace_info(Work1B, tracer),
+                  {flags,[call]} = trace_info(Work1B, flags),
+                  expect({trace,Work1B,call,{?MODULE,worker_foo,[A1B]}}),
+                  unlink(Work1B),
+                  Mref = erlang:monitor(process, Work1B),
+                  exit(Work1B, kill),
+                  receive
+                      {'DOWN',Mref,_,_,_} -> ok
+                  end,
+                  undefined = trace_info(Work1B, flags),
+                  {flags,[]} = trace_info(Flag, flags),
+                  {tracer,[]} = trace_info(Flag, tracer)
+          end,
+    New(new),
+    New(new_processes),
 
-    %% Test the 'existing' flag.
-    {Work2A,_Work2B} = start_and_trace(existing, A2A=[5,6,7], [7,6,5]),
-    expect({trace,Work2A,call,{?MODULE,worker_foo,[A2A]}}),
+    %% Test the 'existing' and 'existing_processes' flags.
+    Existing =
+        fun(Flag) ->
+                {Work2A,_Work2B} = start_and_trace(Flag, A2A=[5,6,7], [7,6,5]),
+                expect({trace,Work2A,call,{?MODULE,worker_foo,[A2A]}})
+        end,
+    Existing(existing),
+    Existing(existing_processes),
 
-    %% Test the 'all' flag.
-    {Work3A,Work3B} = start_and_trace(all, A3A=[12,13], A3B=[13,12]),
-    expect({trace,Work3A,call,{?MODULE,worker_foo,[A3A]}}),
-    expect({trace,Work3B,call,{?MODULE,worker_foo,[A3B]}}),
+    %% Test the 'all' and 'processes' flags.
+    All =
+        fun(Flag) ->
+                   {Work3A,Work3B} = start_and_trace(Flag, A3A=[12,13], A3B=[13,12]),
+                   expect({trace,Work3A,call,{?MODULE,worker_foo,[A3A]}}),
+                   expect({trace,Work3B,call,{?MODULE,worker_foo,[A3B]}})
+        end,
+    All(all),
+    All(processes),
 
     ok.
 

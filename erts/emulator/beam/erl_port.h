@@ -944,7 +944,7 @@ erts_schedule_proc2port_signal(Process *,
 			       ErtsPortTaskHandle *,
 			       ErtsProc2PortSigCallback);
 
-int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
+int erts_deliver_port_exit(Port *, Eterm, Eterm, int, int);
 
 /*
  * Port signal flags

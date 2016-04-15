@@ -3346,7 +3346,7 @@ do {						\
  OpCase(normal_exit): {
      SWAPOUT;
      c_p->freason = EXC_NORMAL;
-     c_p->arity = 0;		/* In case this process will ever be garbed again. */
+     c_p->arity = 0;		/* In case this process will never be garbed again. */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_do_exit_process(c_p, am_normal);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
@@ -3460,7 +3460,7 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
-		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
+		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		live_hf_end = c_p->mbuf;
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
@@ -4588,7 +4588,7 @@ do {						\
      
      SWAPOUT;		/* Needed for shared heap */
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-     erts_trace_return(c_p, code, r(0), E+1/*Process tracer*/);
+     erts_trace_return(c_p, code, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      SWAPIN;
      c_p->cp = NULL;
@@ -5228,7 +5228,8 @@ next_catch(Process* c_p, Eterm *reg) {
 	BeamInstr *cpp = c_p->cp;
 	if (cpp == beam_exception_trace) {
 	    erts_trace_exception(c_p, cp_val(ptr[0]),
-				 reg[1], reg[2], ptr+1);
+				 reg[1], reg[2],
+                                 ERTS_TRACER_FROM_ETERM(ptr+1));
 	    /* Skip return_trace parameters */
 	    ptr += 2;
 	} else if (cpp == beam_return_trace) {
@@ -5255,7 +5256,8 @@ next_catch(Process* c_p, Eterm *reg) {
 		}
 		if (cp_val(*prev) == beam_exception_trace) {
 		    erts_trace_exception(c_p, cp_val(ptr[0]),
-					 reg[1], reg[2], ptr+1);
+					 reg[1], reg[2],
+                                         ERTS_TRACER_FROM_ETERM(ptr+1));
 		}
 		/* Skip return_trace parameters */
 		ptr += 2;
@@ -6049,7 +6051,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	    return -1;
 	}
 #else /* ERTS_SMP */
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+        ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 	if (!c_p->msg.len)
 #endif
 	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
