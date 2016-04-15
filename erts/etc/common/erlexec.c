@@ -842,7 +842,6 @@ int main(int argc, char **argv)
 			  if (argv[i][3] != '\0')
 			      goto the_default;
 		      }
-#ifdef ERTS_DIRTY_SCHEDULERS
 		      else if (argv[i][2] == 'D') {
 			  char* type = argv[i]+3;
 			  if (strncmp(type, "cpu", 3) != 0 &&
@@ -854,7 +853,6 @@ int main(int argc, char **argv)
 			      (argv[i][3] == 'i' && argv[i][5] != '\0'))
 			      goto the_default;
 		      }
-#endif
 		      else if (argv[i][2] != '\0')
 			  goto the_default;
 		      if (i+1 >= argc)

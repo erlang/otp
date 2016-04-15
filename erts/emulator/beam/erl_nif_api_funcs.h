@@ -172,20 +172,11 @@ ERL_NIF_API_FUNC_DECL(int, enif_get_local_port, (ErlNifEnv* env, ERL_NIF_TERM, E
 ERL_NIF_API_FUNC_DECL(int, enif_term_to_binary, (ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin));
 ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsigned char* data, size_t sz, ERL_NIF_TERM *term, unsigned int opts));
 ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
+ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
-
-
-/*
- * Conditional EXPERIMENTAL stuff always last.
- * Must be moved up and made unconditional to support binary backward
- * compatibility on Windows.
- */
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
-#endif
 #endif /* ERL_NIF_API_FUNC_DECL */
 
 /*
@@ -336,6 +327,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_term_to_binary ERL_NIF_API_FUNC_MACRO(enif_term_to_binary)
 #  define enif_binary_to_term ERL_NIF_API_FUNC_MACRO(enif_binary_to_term)
 #  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
+#  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
@@ -346,9 +338,6 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
  * Must be moved up and made unconditional to support binary backward
  * compatibility on Windows.
  */
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
-#endif
 #endif  /* ERL_NIF_API_FUNC_MACRO */
 
 

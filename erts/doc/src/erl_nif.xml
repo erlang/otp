@@ -354,10 +354,9 @@ ok
       passing to it a pointer to the dirty NIF to be executed and indicating with the <c>flags</c>
       argument whether it expects the operation to be CPU-bound or I/O-bound.</p>
       <note><p>Dirty NIF support is available only when the emulator is configured with dirty
-      schedulers enabled. This feature is currently disabled by default. To determine whether
-      the dirty NIF API is available, native code can check to see if the C preprocessor macro
-      <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined. Also, if the Erlang runtime was built
-      without threading support, dirty schedulers are disabled. To check at runtime for the presence
+      schedulers enabled. This feature is currently disabled by default. The Erlang runtime
+      without SMP support currently do not support dirty schedulers even when the dirty
+      scheduler support has been enabled. To check at runtime for the presence
       of dirty scheduler threads, code can use the <seealso marker="#enif_system_info"><c>
       enif_system_info()</c></seealso> API function.</p></note>
       </item>
@@ -998,10 +997,6 @@ typedef enum {
           from within a dirty NIF returns true. It returns false when the calling NIF is a regular
           NIF running on a normal scheduler thread, or when the emulator is built without threading
           support.</p>
-          <note><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined.</p></note>
       </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>

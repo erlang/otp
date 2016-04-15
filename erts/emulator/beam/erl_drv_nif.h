@@ -43,12 +43,11 @@ typedef struct {
     int suggested_stack_size;
 } ErlDrvThreadOpts;
 
-#if defined(ERL_DRV_DIRTY_SCHEDULER_SUPPORT) || defined(ERL_NIF_DIRTY_SCHEDULER_SUPPORT)
+
 typedef enum {
-    ERL_DRV_DIRTY_JOB_CPU_BOUND = 1,
-    ERL_DRV_DIRTY_JOB_IO_BOUND  = 2
-} ErlDrvDirtyJobFlags;
-#endif
+    ERL_DIRTY_JOB_CPU_BOUND = 1,
+    ERL_DIRTY_JOB_IO_BOUND  = 2
+} ErlDirtyJobFlags;
 
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR

@@ -7881,11 +7881,13 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
      * (driver version 3.1, NIF version 2.7)
      */
     if (si_size >= ERL_DRV_SYS_INFO_SIZE(dirty_scheduler_support)) {
-#if defined(ERL_NIF_DIRTY_SCHEDULER_SUPPORT) && defined(USE_THREADS)
-	sip->dirty_scheduler_support = 1;
+	sip->dirty_scheduler_support =
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    1
 #else
-	sip->dirty_scheduler_support = 0;
+	    0
 #endif
+	    ;
     }
 
 }

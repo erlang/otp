@@ -28,7 +28,6 @@
 #  include "config.h"
 #endif
 
-#include "erl_native_features_config.h"
 #include "erl_drv_nif.h"
 
 /* Version history:
@@ -167,13 +166,11 @@ typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 typedef enum
 {
-    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DRV_DIRTY_JOB_CPU_BOUND,
-    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DRV_DIRTY_JOB_IO_BOUND
+    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DIRTY_JOB_CPU_BOUND,
+    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DIRTY_JOB_IO_BOUND
 }ErlNifDirtyTaskFlags;
-#endif
 
 typedef struct /* All fields all internal and may change */
 {
@@ -257,11 +254,7 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
 
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#  define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
-#else
-#  define ERL_NIF_ENTRY_OPTIONS 0
-#endif
+#define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
 
 #ifdef __cplusplus
 }
