@@ -859,28 +859,34 @@ void*
 erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void* res;
+    Uint sz = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
                    && !allctr->t && allctr->thread_safe);
 
-    res = erts_alcu_mseg_alloc(allctr, size_p, flags);
-    if (res)
-        set_literal_range(res, *size_p);
+    res = erts_alcu_mseg_alloc(allctr, &sz, flags);
+    if (res) {
+        set_literal_range(res, sz);
+        *size_p = sz;
+    }
     return res;
 }
 
 void*
 erts_alcu_literal_32_mseg_realloc(Allctr_t *allctr, void *seg,
-                               Uint old_size, Uint *new_size_p)
+                                  Uint old_size, Uint *new_size_p)
 {
     void* res;
+    Uint new_sz = ERTS_SUPERALIGNED_CEILING(*new_size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
                    && !allctr->t && allctr->thread_safe);
 
     if (seg && old_size)
         clear_literal_range(seg, old_size);
-    res = erts_alcu_mseg_realloc(allctr, seg, old_size, new_size_p);
-    if (res)
-        set_literal_range(res, *new_size_p);
+    res = erts_alcu_mseg_realloc(allctr, seg, old_size, &new_sz);
+    if (res) {
+        set_literal_range(res, new_sz);
+        *new_size_p = new_sz;
+    }
     return res;
 }
 
@@ -942,9 +948,10 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 #endif /* HAVE_ERTS_MSEG */
 
 void*
-erts_alcu_sys_alloc(Allctr_t *allctr, Uint size, int superalign)
+erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 {
     void *res;
+    const Uint size = *size_p;
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     if (superalign)
 	res = erts_sys_aligned_alloc(ERTS_SACRR_UNIT_SZ, size);
@@ -958,9 +965,10 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint size, int superalign)
 }
 
 void*
-erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign)
+erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign)
 {
     void *res;
+    const Uint size = *size_p;
 
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     if (superalign)
@@ -995,30 +1003,37 @@ erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 #ifdef ARCH_32
 
 void*
-erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint size, int superalign)
+erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 {
     void* res;
+    Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
                    && !allctr->t && allctr->thread_safe);
 
-    res = erts_alcu_sys_alloc(allctr, size, 1);
-    if (res)
+    res = erts_alcu_sys_alloc(allctr, &size, 1);
+    if (res) {
         set_literal_range(res, size);
+        *size_p = size;
+    }
     return res;
 }
 
 void*
-erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign)
+erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint old_size, int superalign)
 {
     void* res;
+    Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
+
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
                    && !allctr->t && allctr->thread_safe);
 
     if (ptr && old_size)
         clear_literal_range(ptr, old_size);
-    res = erts_alcu_sys_realloc(allctr, ptr, size, old_size, 1);
-    if (res)
+    res = erts_alcu_sys_realloc(allctr, ptr, &size, old_size, 1);
+    if (res) {
         set_literal_range(res, size);
+        *size_p = size;
+    }
     return res;
 }
 
@@ -3865,12 +3880,12 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	      ? UNIT_CEILING(bcrr_sz)
 	      : SYS_ALLOC_CARRIER_CEILING(bcrr_sz));
 
-    crr = (Carrier_t *) allctr->sys_alloc(allctr, crr_sz, flags & CFLG_MBC);
+    crr = (Carrier_t *) allctr->sys_alloc(allctr, &crr_sz, flags & CFLG_MBC);
 	
     if (!crr) {
 	if (crr_sz > UNIT_CEILING(bcrr_sz)) {
 	    crr_sz = UNIT_CEILING(bcrr_sz);
-	    crr = (Carrier_t *) allctr->sys_alloc(allctr, crr_sz, flags & CFLG_MBC);
+	    crr = (Carrier_t *) allctr->sys_alloc(allctr, &crr_sz, flags & CFLG_MBC);
 	}
 	if (!crr) {
 #if HAVE_ERTS_MSEG
@@ -4028,7 +4043,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 
 	    new_crr = (Carrier_t *) allctr->sys_realloc(allctr,
 						     (void *) old_crr,
-						     new_crr_sz,
+						     &new_crr_sz,
 						     old_crr_sz,
 						     0);
 	    if (new_crr) {
@@ -4049,7 +4064,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
 		new_crr_sz = UNIT_CEILING(new_crr_sz);
 		new_crr = (Carrier_t *) allctr->sys_realloc(allctr,
 							 (void *) old_crr,
-							 new_crr_sz,
+							 &new_crr_sz,
 							 old_crr_sz,
 							 0);
 		if (new_crr)

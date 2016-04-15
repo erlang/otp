@@ -74,8 +74,8 @@ typedef struct {
     void  (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
     ErtsMemMapper *mseg_mmapper;
 #endif
-    void* (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
-    void* (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);
+    void* (*sys_alloc)(Allctr_t *allctr, Uint *size_p, int superalign);
+    void* (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign);
     void  (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
 } AllctrInit_t;
 
@@ -212,12 +212,12 @@ void  erts_alcu_mmapper_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags
 # endif
 #endif /* HAVE_ERTS_MSEG */
 
-void* erts_alcu_sys_alloc(Allctr_t*, Uint size, int superalign);
-void* erts_alcu_sys_realloc(Allctr_t*, void *ptr, Uint size, Uint old_size, int superalign);
+void* erts_alcu_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
+void* erts_alcu_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);
 void  erts_alcu_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #ifdef ARCH_32
-void* erts_alcu_literal_32_sys_alloc(Allctr_t*, Uint size, int superalign);
-void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint size, Uint old_size, int superalign);
+void* erts_alcu_literal_32_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
+void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);
 void  erts_alcu_literal_32_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #endif
 
@@ -604,8 +604,8 @@ struct Allctr_t_ {
     void                (*mseg_dealloc)(Allctr_t*, void *seg, Uint size, Uint flags);
     ErtsMemMapper       *mseg_mmapper;
 #endif
-    void*               (*sys_alloc)(Allctr_t *allctr, Uint size, int superalign);
-    void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint size, Uint old_size, int superalign);
+    void*               (*sys_alloc)(Allctr_t *allctr, Uint *size_p, int superalign);
+    void*               (*sys_realloc)(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign);
     void                (*sys_dealloc)(Allctr_t *allctr, void *ptr, Uint size, int superalign);
 
     void		(*init_atoms)		(void);
