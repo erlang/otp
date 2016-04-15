@@ -16,13 +16,9 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%%-------------------------------------------------------------------
-%%% File    : wxt.erl
-%%% Author  : Dan Gudmundsson <dan.gudmundsson@ericsson.com>
-%%% Description : Shortcuts for starting test with wx internal test_server
-%%%
-%%% Created :  4 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
-%%%-------------------------------------------------------------------
+%%
+%% Description : Shortcuts for running tests with wx internal test_server
+%%-------------------------------------------------------------------
 -module(wxt).
 -compile(export_all).
 
@@ -40,7 +36,7 @@ t(Mod, TC) when is_atom(Mod), is_atom(TC) ->
     t({Mod,TC}, []);
 t(all, Config) when is_list(Config) ->
     Fs = filelib:wildcard("wx_*_SUITE.erl"),
-    t([list_to_atom(filename:rootname(File)) || File <- Fs], Config);
+    t([list_to_atom(filename:rootname(File)) || File <- Fs, File =/= "wx_app_SUITE.erl"], Config);
 t(Test,Config) when is_list(Config) ->
     Tests = resolve(Test),
     write_test_case(Test),

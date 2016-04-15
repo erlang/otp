@@ -46,7 +46,7 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() ->
     [calendarCtrl, treeCtrl, notebook, staticBoxSizer,

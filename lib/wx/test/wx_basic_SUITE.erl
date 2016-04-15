@@ -45,7 +45,7 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
     [silent_start, create_window, several_apps, wx_api, wx_misc,
@@ -344,13 +344,13 @@ data_types(_Config) ->
     ImgRGB = ?mt(wxImage, wxImage:new(128, 64, Colors)),
     ?m(true, wxImage:ok(ImgRGB)),
     ?m(false, wxImage:hasAlpha(ImgRGB)),
-    ?m(Colors, wxImage:getData(ImgRGB)),
+    ?m(ok, case wxImage:getData(ImgRGB) of Colors -> ok; Other -> Other end),
 
     ImgRGBA = ?mt(wxImage, wxImage:new(128, 64, Colors, Alpha)),
     ?m(true, wxImage:ok(ImgRGBA)),
     ?m(true, wxImage:hasAlpha(ImgRGBA)),
-    ?m(Colors, wxImage:getData(ImgRGBA)),
-    ?m(Alpha, wxImage:getAlpha(ImgRGBA)),
+    ?m(ok, case wxImage:getData(ImgRGBA) of Colors -> ok; Other -> Other end),
+    ?m(ok, case wxImage:getAlpha(ImgRGBA) of Alpha -> ok; Other -> Other end),
 
     wxClientDC:destroy(CDC),
     %%wx_test_lib:wx_destroy(Frame,Config).
