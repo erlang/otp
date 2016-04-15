@@ -3020,6 +3020,7 @@ profile_runnable_proc(Process *p, Eterm status){
     Eterm *hp, msg;
     Eterm where = am_undefined;
     ErlHeapFragment *bp = NULL;
+    int use_current = 1;
 
 #ifndef ERTS_SMP
 #define LOCAL_HEAP_SIZE (4 + 6 + ERTS_TRACE_PATCH_TS_MAX_SIZE)
@@ -3032,12 +3033,19 @@ profile_runnable_proc(Process *p, Eterm status){
     Uint hsz = 4 + 6 + patch_ts_size(erts_system_profile_ts_type)-1;
 #endif
 	
-    if (!p->current) {
-        p->current = find_function_from_pc(p->i);
+    if (ERTS_PROC_IS_EXITING(p)) {
+        use_current = 0;
+        /* could probably set 'where' to 'exiting' here,
+         * though it's not documented as such */
+    } else {
+        if (!p->current) {
+            p->current = find_function_from_pc(p->i);
+        }
+        use_current = p->current != NULL;
     }
 
 #ifdef ERTS_SMP
-    if (!p->current) {
+    if (!use_current) {
 	hsz -= 4;
     }
 
@@ -3045,7 +3053,7 @@ profile_runnable_proc(Process *p, Eterm status){
     hp = bp->mem;
 #endif
 
-    if (p->current) {
+    if (use_current) {
 	where = TUPLE3(hp, p->current[0], p->current[1], make_small(p->current[2])); hp += 4;
     } else {
 	where = make_small(0);
