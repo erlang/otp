@@ -136,7 +136,7 @@ handle_event(EventType, EventContent, State, Data) ->
       it is is wrong, we start all over,
       waiting for a new button sequence.
     </p>
-    <image file="code_lock.gif">
+    <image file="code_lock.png">
       <icaption>Code lock state diagram</icaption>
     </image>
     <p>
@@ -934,7 +934,7 @@ enter(Tag, State, Data) ->
       and some more utilizing the entry actions,
       which deserves a new state diagram:
     </p>
-    <image file="code_lock_2.gif">
+    <image file="code_lock_2.png">
       <icaption>Code lock state diagram revisited</icaption>
     </image>
     <p>
