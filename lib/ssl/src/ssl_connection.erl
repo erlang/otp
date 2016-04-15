@@ -502,7 +502,7 @@ certify(#server_hello_done{},
 	       role = client,
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
-    Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     RSAPremasterSecret = <<?BYTE(Major), ?BYTE(Minor), Rand/binary>>,
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup, RSAPremasterSecret) of
 	#alert{} = Alert ->
@@ -1885,7 +1885,7 @@ handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
     end.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
-    Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.

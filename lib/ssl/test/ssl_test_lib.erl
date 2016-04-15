@@ -349,7 +349,7 @@ wait_for_result(Pid, Msg) ->
 user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
 user_lookup(srp, Username, _UserState) ->
-    Salt = ssl:random_bytes(16),
+    Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
 

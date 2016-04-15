@@ -42,7 +42,7 @@
      renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([random_bytes/1, handle_options/2]).
+-export([handle_options/2]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
 -deprecated({connection_info, 1, next_major_release}).
@@ -579,22 +579,6 @@ format_error(Error) ->
             unexpected_format(Error);
         Other ->
             Other
-    end.
-
-%%--------------------------------------------------------------------
--spec random_bytes(integer()) -> binary().
-
-%%
-%% Description: Generates cryptographically secure random sequence if possible
-%% fallbacks on pseudo random function
-%%--------------------------------------------------------------------
-random_bytes(N) ->
-    try crypto:strong_rand_bytes(N) of
-	RandBytes ->
-	    RandBytes
-    catch
-	error:low_entropy ->
-	    crypto:rand_bytes(N)
     end.
 
 %%%--------------------------------------------------------------

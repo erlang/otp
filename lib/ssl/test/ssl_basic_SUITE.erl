@@ -1555,7 +1555,7 @@ tcp_connect_big(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
-    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
+    Rand = crypto:strong_rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
     Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
 						      {from, self()},
 						      {timeout, 5000},

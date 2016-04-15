@@ -460,7 +460,7 @@ empty_security_params(ConnectionEnd = ?SERVER) ->
 random() ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(
 			calendar:universal_time()) - 62167219200,
-    Random_28_bytes = crypto:rand_bytes(28),
+    Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
 dtls_next_epoch(#connection_state{epoch = undefined}) -> %% SSL/TLS
