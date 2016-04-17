@@ -71,6 +71,14 @@ groups() ->
      {append, [], [append_1, append_2]}].
 
 init_per_suite(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,OldCwd} = file:get_cwd(),
+    try
+	ok = file:set_cwd(DataDir),
+	make:all()
+    after
+	file:set_cwd(OldCwd)
+    end,
     Config.
 
 end_per_suite(_Config) ->
