@@ -284,20 +284,29 @@ interpretable(Config) when is_list(Config) ->
     ?line {error, badarg} = int:interpretable("prejudice.erl"),
 
     %% {error, {app,App}}
-    ?line {error, {app,_}} = int:interpretable(file),
-    ?line {error, {app,_}} = int:interpretable(lists),
-    ?line case int:interpretable(dbg_ieval) of
-	      {error, {app,_}} ->
-		  ok;
-	      {error, badarg} ->
-		  case code:which(dbg_ieval) of
-		      cover_compiled ->
-			  ok;
-		      Other1 ->
-			  ?line ?t:fail({unexpected_result, Other1})
-		  end;
-	      Other2 ->
-		  ?line ?t:fail({unexpected_result, Other2})
-	  end,
-
+    case filename:basename(code:lib_dir(kernel)) of
+	"kernel" ->
+	    %% Development system (not installed). We are allowed
+	    %% to interpret modules in kernel and stdlib
+	    %% (at our own risk).
+	    ok;
+	"kernel-" ++ _ ->
+	    %% Installed system. Certain applications (including
+	    %% kernel and stdlib) cannot be interpreted.
+	    {error, {app,_}} = int:interpretable(file),
+	    {error, {app,_}} = int:interpretable(lists),
+	    case int:interpretable(dbg_ieval) of
+		{error, {app,_}} ->
+		    ok;
+		{error, badarg} ->
+		    case code:which(dbg_ieval) of
+			cover_compiled ->
+			    ok;
+			Other1 ->
+			    ct:fail({unexpected_result, Other1})
+		    end;
+		Other2 ->
+		    ct:fail({unexpected_result, Other2})
+	    end
+    end,
     ok.
