@@ -53,7 +53,7 @@ static void erts_init_fp_exception(void)
 void erts_thread_init_fp_exception(void)
 {
     unsigned long *fpe = erts_alloc(ERTS_ALC_T_FP_EXCEPTION, sizeof(*fpe));
-    *fpe = 0L;
+    *fpe = 0;
     erts_tsd_set(fpe_key, fpe);
 }
 
@@ -102,6 +102,17 @@ void erts_fp_check_init_error(volatile unsigned long *fpexnp)
 #define __DARWIN__ 1
 #endif
 
+/*
+ * Define two processor and possibly OS-specific primitives:
+ *
+ * static void unmask_fpe(void);
+ * -- unmask invalid, overflow, and divide-by-zero exceptions
+ *
+ * static int mask_fpe(void);
+ * -- mask invalid, overflow, and divide-by-zero exceptions
+ * -- return non-zero if the previous state was unmasked
+ */
+
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 
 static void unmask_x87(void)
@@ -113,7 +124,6 @@ static void unmask_x87(void)
     __asm__ __volatile__("fldcw %0" : : "m"(cw));
 }
 
-/* mask x87 FPE, return true if the previous state was unmasked */
 static int mask_x87(void)
 {
     unsigned short cw;
@@ -136,7 +146,6 @@ static void unmask_sse2(void)
     __asm__ __volatile__("ldmxcsr %0" : : "m"(mxcsr));
 }
 
-/* mask SSE2 FPE, return true if the previous state was unmasked */
 static int mask_sse2(void)
 {
     unsigned int mxcsr;
@@ -257,21 +266,19 @@ static int cpu_has_sse2(void)
 }
 #endif /* !__x86_64__ */
 
-static void unmask_fpe(void)
+static void unmask_fpe_internal(void)
 {
-    __asm__ __volatile__("fnclex");
     unmask_x87();
     if (cpu_has_sse2())
 	unmask_sse2();
 }
 
-static void unmask_fpe_conditional(int unmasked)
+static void unmask_fpe(void)
 {
-    if (unmasked)
-	unmask_fpe();
+    __asm__ __volatile__("fnclex");
+    unmask_fpe_internal();
 }
 
-/* mask x86 FPE, return true if the previous state was unmasked */
 static int mask_fpe(void)
 {
     int unmasked;
@@ -285,9 +292,7 @@ static int mask_fpe(void)
 void erts_restore_fpu(void)
 {
     __asm__ __volatile__("fninit");
-    unmask_x87();
-    if (cpu_has_sse2())
-	unmask_sse2();
+    unmask_fpe_internal();
 }
 
 #elif defined(__sparc__) && defined(__linux__)
@@ -310,13 +315,6 @@ static void unmask_fpe(void)
     __asm__ __volatile__(LDX " %0, %%fsr" : : "m"(fsr));
 }
 
-static void unmask_fpe_conditional(int unmasked)
-{
-    if (unmasked)
-	unmask_fpe();
-}
-
-/* mask SPARC FPE, return true if the previous state was unmasked */
 static int mask_fpe(void)
 {
     unsigned long fsr;
@@ -431,13 +429,6 @@ static void unmask_fpe(void)
     set_fpscr(0x80|0x40|0x10);	/* VE, OE, ZE; not UE or XE */
 }
 
-static void unmask_fpe_conditional(int unmasked)
-{
-    if (unmasked)
-	unmask_fpe();
-}
-
-/* mask PowerPC FPE, return true if the previous state was unmasked */
 static int mask_fpe(void)
 {
     int unmasked;
@@ -447,20 +438,13 @@ static int mask_fpe(void)
     return unmasked;
 }
 
-#else
+#else /* !(x86 || (sparc && linux) || (powerpc && (linux || darwin))) */
 
 static void unmask_fpe(void)
 {
     fpsetmask(FP_X_INV | FP_X_OFL | FP_X_DZ);
 }
 
-static void unmask_fpe_conditional(int unmasked)
-{
-    if (unmasked)
-	unmask_fpe();
-}
-
-/* mask IEEE FPE, return true if previous state was unmasked */
 static int mask_fpe(void)
 {
     const fp_except unmasked_mask = FP_X_INV | FP_X_OFL | FP_X_DZ;
@@ -471,6 +455,16 @@ static int mask_fpe(void)
 }
 
 #endif
+
+/*
+ * Define a processor and OS-specific SIGFPE handler.
+ *
+ * The effect of receiving a SIGFPE should be:
+ * 1. Update the processor context:
+ *    a) on x86: mask FP exceptions, do not skip faulting instruction
+ *    b) on SPARC and PowerPC: unmask FP exceptions, skip faulting instruction
+ * 2. call set_current_fp_exception with the PC of the faulting instruction
+ */
 
 #if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__x86_64__) || defined(__i386__))) || ((defined(__NetBSD__) || defined(__OpenBSD__)) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
 
@@ -530,8 +524,7 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     ucontext_t *uc = puc;
     unsigned long pc;
 
-#if defined(__linux__)
-#if defined(__x86_64__)
+#if defined(__linux__) && defined(__x86_64__)
     mcontext_t *mc = &uc->uc_mcontext;
     fpregset_t fpstate = mc->fpregs;
     pc = mc_pc(mc);
@@ -543,26 +536,26 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
        set encoding makes that a poor solution here. */
     fpstate->mxcsr = 0x1F80;
     fpstate->swd &= ~0xFF;
-#elif defined(__i386__)
+#elif defined(__linux__) && defined(__i386__)
     mcontext_t *mc = &uc->uc_mcontext;
     fpregset_t fpstate = mc->fpregs;
     pc = mc_pc(mc);
     if ((fpstate->status >> 16) == X86_FXSR_MAGIC)
 	((struct _fpstate*)fpstate)->mxcsr = 0x1F80;
     fpstate->sw &= ~0xFF;
-#elif defined(__sparc__) && defined(__arch64__)
+#elif defined(__linux__) && defined(__sparc__) && defined(__arch64__)
     /* on SPARC the 3rd parameter points to a sigcontext not a ucontext */
     struct sigcontext *sc = (struct sigcontext*)puc;
     pc = sc->sigc_regs.tpc;
     sc->sigc_regs.tpc = sc->sigc_regs.tnpc;
     sc->sigc_regs.tnpc += 4;
-#elif defined(__sparc__)
+#elif defined(__linux__) && defined(__sparc__)
     /* on SPARC the 3rd parameter points to a sigcontext not a ucontext */
     struct sigcontext *sc = (struct sigcontext*)puc;
     pc = sc->si_regs.pc;
     sc->si_regs.pc = sc->si_regs.npc;
     sc->si_regs.npc = (unsigned long)sc->si_regs.npc + 4;
-#elif defined(__powerpc__)
+#elif defined(__linux__) && defined(__powerpc__)
 #if defined(__powerpc64__)
     mcontext_t *mc = &uc->uc_mcontext;
     unsigned long *regs = &mc->gp_regs[0];
@@ -573,7 +566,6 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     pc = regs[PT_NIP];
     regs[PT_NIP] += 4;
     regs[PT_FPSCR] = 0x80|0x40|0x10;	/* VE, OE, ZE; not UE or XE */
-#endif
 #elif defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__))
 #ifdef DARWIN_MODERN_MCONTEXT
     mcontext_t mc = uc->uc_mcontext;
@@ -641,7 +633,7 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
 #endif
 #if 0
     {
-	char buf[64];
+	char buf[128];
 	snprintf(buf, sizeof buf, "%s: FPE at %p\r\n", __FUNCTION__, (void*)pc);
 	write(2, buf, strlen(buf));
     }
@@ -726,7 +718,8 @@ int erts_sys_block_fpe(void)
 
 void erts_sys_unblock_fpe(int unmasked)
 {
-    unmask_fpe_conditional(unmasked);
+    if (unmasked)
+	unmask_fpe();
 }
 #endif
 
