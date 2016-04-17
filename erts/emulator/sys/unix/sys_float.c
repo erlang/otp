@@ -818,11 +818,6 @@ sys_chars_to_double(char* buf, double* fp)
 int
 matherr(struct exception *exc)
 {
-#if !defined(NO_FPE_SIGNALS)
-    volatile unsigned long *fpexnp = erts_get_current_fp_exception();
-    if (fpexnp != NULL)
-	*fpexnp = (unsigned long)__builtin_return_address(0);
-#endif
     return 1;
 }
 

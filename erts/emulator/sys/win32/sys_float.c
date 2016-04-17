@@ -139,8 +139,7 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 int
 matherr(struct _exception *exc)
 {
-    erl_fp_exception = 1;
-    DEBUGF(("FP exception (matherr) (0x%x) (%d)\n", exc->type, erl_fp_exception));
+    DEBUGF(("FP exception (matherr) (0x%x)\n", exc->type));
     return 1;
 }
 
