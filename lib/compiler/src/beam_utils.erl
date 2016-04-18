@@ -484,6 +484,17 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
+check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
+    case R of
+	Src ->
+	    {used,St0};
+	{x,X} when X < Live ->
+	    {used,St0};
+	{x,_} ->
+	    {killed,St0};
+	{y,_} ->
+	    {unknown,St0}
+    end;
 check_liveness(R, [{test_heap,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
     check_liveness(R, [I|Is], St);
@@ -570,9 +581,9 @@ check_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
 		false -> check_killed_block(R, Is)
 	    end
     end;
-check_killed_block(R, [{'%live',Live,_}|Is]) ->
+check_killed_block(R, [{'%live',_,Regs}|Is]) ->
     case R of
-	{x,X} when X >= Live -> killed;
+	{x,X} when (Regs bsr X) band 1 =:= 0 -> killed;
 	_ -> check_killed_block(R, Is)
     end;
 check_killed_block(_, []) -> transparent.
