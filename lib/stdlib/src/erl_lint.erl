@@ -2714,8 +2714,6 @@ check_type(Types, St) ->
 
 check_type({ann_type, _L, [_Var, Type]}, SeenVars, St) ->
     check_type(Type, SeenVars, St);
-check_type({paren_type, _L, [Type]}, SeenVars, St) ->
-    check_type(Type, SeenVars, St);
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, St0) ->
     St = deprecated_type(L, Mod, Name, Args, St0),
@@ -2755,10 +2753,8 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
-check_type({type, L, map, any}, SeenVars, St) ->
-    %% To get usage right while map/0 is a newly_introduced_builtin_type.
-    St1 = used_type({map, 0}, L, St),
-    {SeenVars, St1};
+check_type({type, _L, map, any}, SeenVars, St) ->
+    {SeenVars, St};
 check_type({type, _L, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
 			check_type(Pair, AccSeenVars, AccSt)
@@ -2866,7 +2862,6 @@ used_type(TypePair, L, #lint{usage = Usage, file = File} = St) ->
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
 
-is_newly_introduced_builtin_type({map, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
