@@ -71,6 +71,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       Since <c>A</c> and <c>S'</c> depend only on
       <c>S</c> and <c>E</c> the kind of state machine described
       here is a Mealy Machine.
+      (See for example the corresponding Wikipedia article)
     </p>
     <p>
       Like most <c>gen_</c> behaviours, <c>gen_statem</c> keeps
@@ -81,9 +82,19 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       a state machine implemented with this behaviour Turing complete.
       But it feels mostly like an Event Driven Mealy Machine.
     </p>
+  </section>
+
+<!-- =================================================================== -->
+
+  <section>
+    <marker id="callback_modes" />
+    <title>Callback Modes</title>
     <p>
       The <c>gen_statem</c> behaviour supports two different
-      callback modes.  In the mode <c>state_functions</c>,
+      <seealso marker="stdlib:gen_statem#type-action">
+	callback modes.
+      </seealso>
+      In the mode <c>state_functions</c>,
       the state transition rules are written as a number of Erlang
       functions, which conform to the following convention:
     </p>
@@ -109,6 +120,64 @@ handle_event(EventType, EventContent, State, Data) ->
       execute state transition actions on the machine engine itself
       and send replies.
     </p>
+
+    <section>
+      <title>Choosing Callback Mode</title>
+      <p>
+	The two
+	<seealso marker="stdlib:gen_statem#type-action">
+	  callback modes
+	</seealso>
+	gives different possibilities
+	and restrictions, but one goal remains:
+	you want to handle all possible combinations of
+	events and states.
+      </p>
+      <p>
+	You can for example do this by focusing on one state at the time
+	and for every state ensure that all events are handled,
+	or the other way around focus on one event at the time
+	and ensure that it is handled in every state,
+	or mix these strategies.
+      </p>
+      <p>
+	With <c>state_functions</c> you are restricted to use
+	atom only states, and the <c>gen_statem</c> engine dispatches
+	on state name for you.  This encourages the callback module
+	to gather the implementation of all event actions particular
+	to one state in the same place in the code
+	hence focus on one state at the time.
+      </p>
+      <p>
+	This mode fits well when you have a regular state diagram
+	like the ones in this chapter that describes all events and actions
+	belonging to a state visually around that state,
+	and each state has its unique name.
+      </p>
+      <p>
+	With <c>handle_event_function</c> you are free to mix strategies
+	as you like because all events and states
+	are handled in the the same callback function.
+      </p>
+      <p>
+	This mode works equally well when you want to focus on
+	one event at the time or when you want to focus on
+	one state at the time, but the <c>handle_event/4</c> function
+	quickly grows too large to handle without introducing dispatching.
+      </p>
+      <p>
+	The mode enables the use of non-atom states for example
+	complex states or even hiearchical states.
+	If, for example, a state diagram is largely alike
+	for the client and for the server side of a protocol;
+	then you can have a state <c>{StateName,server}</c> or
+	<c>{StateName,client}</c> and since you do the dispatching
+	yourself you make <c>StateName</c> decide where in the code
+	to handle most events in the state.
+	The second element of the tuple	is then used to select
+	whether to handle special client side or server side events.
+      </p>
+    </section>
   </section>
 
 <!-- =================================================================== -->
@@ -773,6 +842,20 @@ open(cast, {button,_}, Data) ->
     {keep_state,Data,[postpone]};
 ...
     ]]></code>
+    <p>
+      The fact that a postponed event is only retried after a state change
+      translates into a requirement on the event and state space:
+      if you have a choice between storing a state data item
+      in the <c>State</c> or in the <c>Data</c>;
+      should a change in the item value affect which events that
+      are handled, then this item ought to be part of the state.
+    </p>
+    <p>
+      What you want to avoid is that you maybe much later decide
+      to postpone an event in one state and by misfortune it is never retried
+      because the code only changes the <c>Data</c> but not the <c>State</c>.
+    </p>
+
     <section>
       <title>Fuzzy State Diagrams</title>
       <p>
@@ -788,6 +871,7 @@ open(cast, {button,_}, Data) ->
 	as in postpone it.
       </p>
     </section>
+
     <section>
       <title>Selective Receive</title>
       <p>
@@ -956,6 +1040,7 @@ enter(Tag, State, Data) ->
       Nor does it show that the <c>code_length/0</c> call shall be
       handled in every state.
     </p>
+
     <section>
       <title>Callback Mode: state_functions</title>
       <p>
@@ -1029,6 +1114,7 @@ code_change(_Vsn, State, Data, _Extra) ->
     {ok,State,Data}.
       ]]></code>
     </section>
+
     <section>
       <title>Callback Mode: handle_event_function</title>
       <p>
@@ -1059,7 +1145,7 @@ handle_event(
   #{code := Code, remaining := Remaining} = Data) ->
     case Remaining of
         [Digit] -> % Complete
-            enter(next_state, open, Data, []);
+            enter(next_state, open, Data);
         [Digit|Rest] -> % Incomplete
             {keep_state,Data#{remaining := Rest}};
         [_|_] -> % Wrong
@@ -1072,7 +1158,7 @@ handle_event(internal, enter, open, Data) ->
     do_unlock(),
     {keep_state,Data#{timer => Tref}};
 handle_event(info, {timeout,Tref,lock}, open, #{timer := Tref} = Data) ->
-    enter(next_state, locked, Data, []);
+    enter(next_state, locked, Data);
 handle_event(cast, {button,_}, open, _) ->
     {keep_state_and_data,[postpone]};
 %%
@@ -1086,8 +1172,161 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
     <p>
       Note that postponing buttons from the <c>locked</c> state
       to the <c>open</c> state feels like the wrong thing to do
-      for a code lock, but it illustrates event postponing.
+      for a code lock, but it at least illustrates event postponing.
     </p>
+  </section>
+
+<!-- =================================================================== -->
+
+  <section>
+    <title>Complex State</title>
+    <p>
+      The
+      <seealso marker="stdlib:gen_statem#type-action">
+	callback mode
+      </seealso>
+      <c>handle_event_function</c>
+      enables using a non-atom state as described in
+      <seealso marker="#callback_modes">
+	Callback Modes,
+      </seealso>
+      for example a complex state term like a tuple.
+    </p>
+    <p>
+      One reason to use this is when you have
+      a state item that affects the event handling
+      in particular when combining that with postponing events.
+      Let us complicate the previous example
+      by introducing a configurable lock button
+      (this is the state item in question)
+      that in the <c>open</c> state immediately locks the door,
+      and an API function <c>set_lock_button/1</c> to set the lock button.
+    </p>
+    <p>
+      Suppose now that we call <c>set_lock_button</c>
+      while the door is open,
+      and have already postponed a button event
+      that up until now was not the lock button;
+      the sensible thing might be to say that
+      the button was pressed too early so it should
+      not be recognized as the lock button,
+      but then it might be surprising that a button event
+      that now is the lock button event arrives (as retried postponed)
+      immediately after the state transits to <c>locked</c>.
+    </p>
+    <p>
+      So let us make the <c>button/1</c> function synchronous
+      by using <c>gen_statem:call</c>,
+      and still postpone its events in the <c>open</c> state.
+      Then a call to <c>button/1</c> during the <c>open</c>
+      state will not return until the state transits to <c>locked</c>
+      since it is there the event is handled and the reply is sent.
+    </p>
+    <p>
+      If now one process calls <c>set_lock_button/1</c>
+      to change the lock button while some other process
+      hangs in <c>button/1</c> with the new lock button
+      it could be expected that the hanging lock button call
+      immediately takes effect and locks the lock.
+      Therefore we make the current lock button a part of the state
+      so when we change the lock button the state will change
+      and all postponed events will be retried.
+    </p>
+    <p>
+      We define the state as <c>{StateName,LockButton}</c>
+      where <c>StateName</c> is as before
+      and <c>LockButton</c> is the current lock button:
+    </p>
+      <code type="erl"><![CDATA[
+-module(code_lock).
+-behaviour(gen_statem).
+-define(NAME, code_lock_3).
+
+-export([start_link/2,stop/0]).
+-export([button/1,code_length/0,set_lock_button/1]).
+-export([init/1,terminate/3,code_change/4]).
+-export([handle_event/4]).
+
+start_link(Code, LockButton) ->
+    gen_statem:start_link(
+        {local,?NAME}, ?MODULE, {Code,LockButton}, []).
+stop() ->
+    gen_statem:stop(?NAME).
+
+button(Digit) ->
+    gen_statem:call(?NAME, {button,Digit}).
+code_length() ->
+    gen_statem:call(?NAME, code_length).
+set_lock_button(LockButton) ->
+    gen_statem:call(?NAME, {set_lock_button,LockButton}).
+
+init({Code,LockButton}) ->
+    process_flag(trap_exit, true),
+    Data = #{code => Code},
+    enter(handle_event_function, {locked,LockButton}, Data, []).
+
+%% State: locked
+handle_event(internal, enter, {locked,_}, #{code := Code} = Data) ->
+    do_lock(),
+    {keep_state,Data#{remaining => Code}};
+handle_event(
+  {call,From}, {button,Digit}, {locked,LockButton},
+  #{code := Code, remaining := Remaining} = Data) ->
+    case Remaining of
+        [Digit] -> % Complete
+            enter(next_state, {open,LockButton}, Data, [{reply,From,ok}]);
+        [Digit|Rest] -> % Incomplete
+            {keep_state,Data#{remaining := Rest},[{reply,From,ok}]};
+        [_|_] -> % Wrong
+            {keep_state,Data#{remaining := Code},[{reply,From,ok}]}
+    end;
+%%
+%% State: open
+handle_event(internal, enter, {open,_}, Data) ->
+    Tref = erlang:start_timer(10000, self(), lock),
+    do_unlock(),
+    {keep_state,Data#{timer => Tref}};
+handle_event(
+  info, {timeout,Tref,lock}, {open,LockButton},
+  #{timer := Tref} = Data) ->
+    enter(next_state, {locked,LockButton}, Data, []);
+handle_event(
+  {call,From}, {button,LockButton}, {open,LockButton},
+  #{timer := Tref} = Data) ->
+    erlang:cancel_timer(Tref),
+    enter(next_state, {locked,LockButton}, Data, [{reply,From,locked}]);
+handle_event({call,_}, {button,_}, {open,_}, _) ->
+    {keep_state_and_data,[postpone]};
+%%
+%% Any state
+handle_event(
+  {call,From}, {set_lock_button,NewLockButton}, {StateName,OldLockButton},
+  Data) ->
+    {next_state,{StateName,NewLockButton},Data,
+     [{reply,From,OldLockButton}]};
+handle_event({call,From}, code_length, _State, #{code := Code}) ->
+    {keep_state_and_data,[{reply,From,length(Code)}]}.
+
+enter(Tag, State, Data, Actions) ->
+    {Tag,State,Data,[{next_event,internal,enter}|Actions]}.
+
+do_lock() ->
+    io:format("Locked~n", []).
+do_unlock() ->
+    io:format("Open~n", []).
+
+terminate(_Reason, State, _Data) ->
+    State =/= locked andalso do_lock(),
+    ok.
+code_change(_Vsn, State, Data, _Extra) ->
+    {ok,State,Data}.
+      ]]></code>
+      <p>
+	It may be an ill-fitting model for a physical code lock
+	that the <c>button/1</c> call might hang until the lock
+	is locked.  But for an API in general it is really not
+	that strange.
+      </p>
   </section>
 
 </chapter>
