@@ -73,7 +73,7 @@ erts_debug(Config) when is_list(Config) ->
     ok.
 
 no_abstract_code(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Simple = filename:join(PrivDir, "simple"),
     ?line Source = Simple ++ ".erl",
     ?line BeamFile = Simple ++ ".beam",
@@ -100,7 +100,7 @@ encrypted_debug_info(Config) when is_list(Config) ->
     end.
 
 encrypted_debug_info_1(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ?line Simple = filename:join(PrivDir, "simple"),
     ?line Source = Simple ++ ".erl",
     ?line BeamFile = Simple ++ ".beam",

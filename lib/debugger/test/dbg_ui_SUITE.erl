@@ -104,7 +104,7 @@ dbg_ui (_Config) ->
 
 check(Case, Config) ->
 
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line ResultFileName =  filename:join([DataDir, "manual_results.erl"]),
     case file:consult(ResultFileName) of
 	{ok, Results} ->

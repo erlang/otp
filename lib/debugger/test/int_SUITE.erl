@@ -36,7 +36,7 @@ init_per_testcase(interpretable, Config) ->
 init_per_testcase(_Case, Config) ->
 
     %% Interpret some existing and non-existing modules
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line {module, lists1} = int:i(filename:join([DataDir,lists1])),
     ?line {module, guards} = int:i(filename:join([DataDir,guards])),
 
@@ -92,7 +92,7 @@ interpret(Config) when is_list(Config) ->
     ?line int:n(int:interpreted()),
 
     %% Interpret some existing and non-existing modules
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line {module, lists1} = int:i(filename:join([DataDir,lists1])),
     ?line {module, ordsets1} = int:i(filename:join([DataDir,ordsets1])),
     ?line error = int:i(non_existent_module),
@@ -240,14 +240,14 @@ interpretable(Config) when is_list(Config) ->
     end,
 
     %% true
-    ?line DataDir = filename:dirname(?config(data_dir, Config)),
+    DataDir = filename:dirname(proplists:get_value(data_dir, Config)),
     ?line true = code:add_patha(DataDir),
     ?line true = int:interpretable(lists1),
     ?line true = int:interpretable(filename:join([DataDir,lists1])),
     ?line true = code:del_path(DataDir),
 
     %% true (from source)
-    PrivDir = filename:join(?config(priv_dir, Config), ""),
+    PrivDir = filename:join(proplists:get_value(priv_dir, Config), ""),
     {ok, _} = file:copy(filename:join([DataDir,"lists1.beam"]),
 			      filename:join([PrivDir,"lists1.beam"])),
     true = code:add_patha(PrivDir),

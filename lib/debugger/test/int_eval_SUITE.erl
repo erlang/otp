@@ -64,7 +64,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line {module,?IM} = int:i(filename:join(DataDir, ?IM)),
     ?line ok = io:format("Interpreted modules: ~p",[int:interpreted()]),
     Config.
@@ -300,7 +300,7 @@ maps(Config) when is_list(Config) ->
 
 
 do_eval(Config, Mod) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line ok = file:set_cwd(DataDir),
 
     ?line {ok,Mod} = compile:file(Mod, [report,debug_info]),

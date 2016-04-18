@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     ?line Mod = ordsets1,
     ?line {module,Mod} = int:i(filename:join(DataDir, Mod)),
     ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
