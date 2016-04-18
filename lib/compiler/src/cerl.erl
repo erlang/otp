@@ -134,7 +134,7 @@
 	 ann_c_map_pattern/2,
 	 map_pair_op/1,map_pair_key/1,map_pair_val/1,
 	 update_c_map_pair/4,
-	 c_map_pair/2,
+	 c_map_pair/2, c_map_pair_exact/2,
 	 ann_c_map_pair/4
      ]).
 
@@ -1687,6 +1687,11 @@ map_pair_op(#c_map_pair{op=Op}) -> Op.
 
 c_map_pair(Key,Val) ->
     #c_map_pair{op=#c_literal{val=assoc},key=Key,val=Val}.
+
+-spec c_map_pair_exact(cerl(), cerl()) -> c_map_pair().
+
+c_map_pair_exact(Key,Val) ->
+    #c_map_pair{op=#c_literal{val=exact},key=Key,val=Val}.
 
 -spec ann_c_map_pair([term()], cerl(), cerl(), cerl()) ->
         c_map_pair().

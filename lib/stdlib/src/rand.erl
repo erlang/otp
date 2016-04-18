@@ -44,11 +44,11 @@
 %% This depends on the algorithm handler function
 -type alg_seed() :: exs64_state() | exsplus_state() | exs1024_state().
 %% This is the algorithm handler function within this module
--type alg_handler() :: #{type      => alg(),
-			 max       => integer(),
-			 next      => fun(),
-			 uniform   => fun(),
-			 uniform_n => fun()}.
+-type alg_handler() :: #{type      := alg(),
+			 max       := integer(),
+			 next      := fun(),
+			 uniform   := fun(),
+			 uniform_n := fun()}.
 
 %% Internal state
 -opaque state() :: {alg_handler(), alg_seed()}.

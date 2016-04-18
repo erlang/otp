@@ -32,18 +32,18 @@
 
 -type msacc_data() :: [msacc_data_thread()].
 
--type msacc_data_thread() :: #{ '$type' => msacc_data,
-                                type => msacc_type(), id => msacc_id(),
-                                counters => msacc_data_counters() }.
+-type msacc_data_thread() :: #{ '$type' := msacc_data,
+                                type := msacc_type(), id := msacc_id(),
+                                counters := msacc_data_counters() }.
 -type msacc_data_counters() :: #{ msacc_state() => non_neg_integer()}.
 
 -type msacc_stats() :: [msacc_stats_thread()].
--type msacc_stats_thread() :: #{ '$type' => msacc_stats,
-                                 type => msacc_type(), id => msacc_id(),
-                                 system => float(),
-                                 counters => msacc_stats_counters()}.
--type msacc_stats_counters() :: #{ msacc_state() => #{ thread => float(),
-                                                       system => float()}}.
+-type msacc_stats_thread() :: #{ '$type' := msacc_stats,
+                                 type := msacc_type(), id := msacc_id(),
+                                 system := float(),
+                                 counters := msacc_stats_counters()}.
+-type msacc_stats_counters() :: #{ msacc_state() => #{ thread := float(),
+                                                       system := float()}}.
 
 
 -type msacc_type() :: scheduler | aux | async.
