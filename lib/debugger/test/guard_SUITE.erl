@@ -187,9 +187,9 @@ try_fun(Iter, Fun, Args, Result, Filler) ->
 	    ?line try_fun(Iter-1, Fun, Args, Result, [0|Filler]);
 	{'EXIT',Pid,{result,Other}} ->
 	    ?line io:format("Expected ~p; got ~p~n", [Result,Other]),
-	    ?line test_server:fail();
+	    ct:fail(failed);
 	Other ->
-	    ?line test_server:fail({unexpected_message,Other})
+	    ct:fail({unexpected_message,Other})
     end.
 
 init(_ReplyTo, Fun, Args, Filler) ->
@@ -291,7 +291,7 @@ try_gbif(Id, X, Y) ->
 	Other ->
 	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
 				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+	    ct:fail(failed)
     end.
 
 try_fail_gbif(Id, X, Y) ->
@@ -301,7 +301,7 @@ try_fail_gbif(Id, X, Y) ->
 	Other ->
 	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
 				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+	    ct:fail(failed)
     end.
 
 guard_bif('abs/1', X, Y) when abs(X) == Y ->
@@ -345,7 +345,7 @@ type_tests(Config) when list(Config) ->
 	      {Errors, Violations} ->
 		  io:format("~p sub test(s) failed, ~p violation(s)",
 			    [Errors, Violations]),
-		  ?line test_server:fail()
+		  ct:fail(failed)
 	  end.
 
 type_tests([{Test, AllowedTypes}| T], AllTypes) ->
@@ -371,7 +371,7 @@ type_tests(Test, [Type|T], Allowed) ->
 			 [{?MODULE,type_test,[Test,Value],_}|_]}} ->
 		    ok;
 		{'EXIT',Other} ->
-		    ?line test_server:fail({unexpected_error_reason,Other});
+		    ct:fail({unexpected_error_reason,Other});
 		tuple when function(Value) ->
 		    io:format("Standard violation: Test ~p(~p) should fail",
 			      [Test, Value]),
@@ -1658,11 +1658,11 @@ bptest(_,_,_) ->
 
 -define(FAILING(C),
 	if
-	    C -> ?t:fail(should_fail);
+	    C -> ct:fail(should_fail);
 	    true -> ok
 	end,
 	if
-	    true, C -> ?t:fail(should_fail);
+	    true, C -> ct:fail(should_fail);
 	    true -> ok
 	end).
 
@@ -1687,7 +1687,7 @@ check(F, Result) ->
 	Other ->
 	    io:format("Expected: ~p\n", [Result]),
 	    io:format("     Got: ~p\n", [Other]),
-	    test_server:fail()
+	    ct:fail(failed)
     end.
 
 fc({'EXIT',{function_clause,_}}) -> ok.

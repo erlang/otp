@@ -100,7 +100,7 @@ bad_apply_fc(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 bad_apply_badarg(Fun, Args) ->
@@ -112,7 +112,7 @@ bad_apply_badarg(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result, Other})
+	    ct:fail({bad_result, Other})
     end.
 
 bad_fun_call(doc) ->
@@ -139,7 +139,7 @@ bad_call_fc(Fun) ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 %% Call and apply valid external funs with wrong number of arguments.
@@ -159,7 +159,7 @@ badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ct:fail({bad_result,Res})
     end,
 
     %% Apply.
@@ -172,7 +172,7 @@ badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ct:fail({bad_result,Res2})
     end,
     ok.
 
@@ -193,7 +193,7 @@ ext_badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
 	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ct:fail({bad_result,Res})
     end,
 
     %% Apply.
@@ -206,7 +206,7 @@ ext_badarity(Config) when is_list(Config) ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
 	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ct:fail({bad_result,Res2})
     end,
     ok.
 
@@ -228,12 +228,12 @@ otp_6061(Config) when is_list(Config) ->
 	working ->
 	    ?line ok;
 	not_working ->
-	    ?line ?t:fail(not_working);
+	    ct:fail(not_working);
 	{'EXIT', Pid, Reason} ->
-	    ?line ?t:fail({crash, Reason})
+	    ct:fail({crash, Reason})
     after
 	5000 ->
-	    ?line ?t:fail(timeout)
+	    ct:fail(timeout)
     end,
 
     ?line process_flag(trap_exit, OrigFlag),

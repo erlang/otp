@@ -163,7 +163,7 @@ more_dynamic(Config) when is_list(Config) ->
 			      io:format("Bin = ~p,", [Bin]),
 			      io:format("SkipBef = ~p, N = ~p", [SkipBef,N]),
 			      io:format("Expected ~p, got ~p", [Int,Other]),
-			      ?t:fail()
+			      ct:fail(failed)
 		      end
 	      end,
     ?line more_dynamic1(Signed, funny_binary(43)),

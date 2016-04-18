@@ -2335,7 +2335,7 @@ t_build_and_match_empty_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_val(Config) when is_list(Config) ->
@@ -2353,7 +2353,7 @@ t_build_and_match_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_nil(Config) when is_list(Config) ->

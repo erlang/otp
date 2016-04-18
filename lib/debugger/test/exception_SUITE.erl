@@ -147,7 +147,7 @@ pending_catched(First, Second, Expected) ->
 	{'EXIT', Reason} ->
 	    pending(Reason, bad_guy, [First, Second], Expected);
 	Other ->
-	    test_server:fail({not_exit, Other})
+	    ct:fail({not_exit, Other})
     end.
 
 pending_exit_message(Args, Expected) ->
@@ -159,9 +159,9 @@ pending_exit_message(Args, Expected) ->
 	{'EXIT', Pid, Reason} ->
 	    pending(Reason, bad_guy, Args, Expected);
 	Other ->
-	    test_server:fail({unexpected_message, Other})
+	    ct:fail({unexpected_message, Other})
     after 10000 ->
-	    test_server:fail(timeout)
+	    ct:fail(timeout)
     end,
     process_flag(trap_exit, false).
 
@@ -177,7 +177,7 @@ pending({Code,[{?MODULE,Func,Arity,_}|_]}, Func, Args, Code)
   when length(Args) == Arity ->
     ok;
 pending(Reason, _Function, _Args, _Code) ->
-    test_server:fail({bad_exit_reason,Reason}).
+    ct:fail({bad_exit_reason,Reason}).
 
 %% Test that doing arithmetics on [] gives a badarith EXIT and not a crash.
 

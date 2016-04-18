@@ -308,7 +308,7 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
 check(V1, V0) ->
     if V1 /= V0 ->
 	    io:fwrite("error: ~w.\n", [V1]),
-	    ?t:fail();
+	    ct:fail(failed);
        true ->
 	    io:fwrite("ok: ~w.\n", [V1])
     end.

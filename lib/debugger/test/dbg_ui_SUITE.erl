@@ -144,7 +144,7 @@ check(Case, Config) ->
 		   pass ->
 		       ?line ok;
 		   fail ->
-		       ?line test_server:fail("Manual test failed");
+		       ct:fail("Manual test failed");
 		   unknown ->
 		       ?line {skipped, "Manual test result unknown"};
 

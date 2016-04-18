@@ -204,7 +204,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, binary_to_list(C_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end,
     if
 	E_bin == Bin ->
@@ -212,7 +212,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, binary_to_list(E_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end;
 one_test({C_bin, E_bin, Str, Result}) ->
     io:format("  ~s ~p~n", [Str, C_bin]),
@@ -233,7 +233,7 @@ one_test({C_bin, E_bin, Str, Result}) ->
 		    io:format("ERROR: Compiled not equal to interpreted:"
 			      "~n ~p, ~p.~n",
 			      [binary_to_list(C_bin), binary_to_list(E_bin)]),
-		    test_server:fail(comp);
+		    ct:fail(comp);
 		0 ->
 		    ok;
 		%% For situations where the final bits may not matter, like
@@ -268,14 +268,14 @@ fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of
 	Res ->
 	    io:format("Interpreted result: ~p", [Res]),
-	    ?t:fail(did_not_fail_in_intepreted_code)
+	    ct:fail(did_not_fail_in_intepreted_code)
     catch
 	error:badarg ->
 	    ok
     end;
 fail_check(Res, _, _) ->
     io:format("Compiled result: ~p", [Res]),
-    ?t:fail(did_not_fail_in_compiled_code).
+    ct:fail(did_not_fail_in_compiled_code).
 
 %%% Simple working cases
 test1(suite) -> [];
@@ -627,7 +627,7 @@ copy_writable_binary_1(_) ->
 	{Pid,Bin0,Bin0} -> ok;
 	Other ->
 	    io:format("Unexpected message: ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ok.
 
@@ -655,7 +655,7 @@ dynamic(Config) when is_list(Config) ->
 	 {'DOWN',Ref,process,Pid,normal} ->
 	     ok;
 	 {'DOWN',Ref,process,Pid,Exit} ->
-	     ?t:fail({Pid,Exit})
+	     ct:fail({Pid,Exit})
      end || {Pid,Ref} <- Ps],
     ok.
 

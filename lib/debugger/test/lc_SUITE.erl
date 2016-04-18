@@ -167,7 +167,7 @@ no_gen_verify(Res, A, B) ->
 	ShouldBe -> ok;
 	_ ->
 	    io:format("A = ~p; B = ~p; Expected = ~p, actual = ~p", [A,B,ShouldBe,Res]),
-	    ?t:fail()
+	    ct:fail(failed)
     end.
 
 no_gen_eval(Fun, Res) ->

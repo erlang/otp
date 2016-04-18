@@ -409,9 +409,9 @@ x0_2(_, Bin) ->
 x0_3(_, Bin) ->
     case Bin of
 	<<_:72,7:8,_/binary>> ->
-	    ?line ?t:fail();
+	    ct:fail(failed);
 	<<_:64,0:16,_/binary>> ->
-	    ?line ?t:fail();
+	    ct:fail(failed);
 	<<_:64,42:16,123456:32,_/binary>> ->
 	    ok
     end.
@@ -525,7 +525,7 @@ do_otp_7198(FillerSize) ->
 	    ok;
 	{'DOWN',Ref,process,Pid,Reason} ->
 	    io:format("unexpected: ~p", [Reason]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end.
 
 do_otp_7198_test(_) ->

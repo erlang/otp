@@ -118,8 +118,8 @@ update_foo_barf(#foo{}=R, A, _B, C, D, E) ->
     R#barf{a=A,b=A,c=C,d=D,e=E}.
 
 
--define(TrueGuard(Expr), if Expr -> ok; true -> ?t:fail() end).
--define(FalseGuard(Expr), if Expr -> ?t:fail(); true -> ok end).
+-define(TrueGuard(Expr), if Expr -> ok; true -> ct:fail(failed) end).
+-define(FalseGuard(Expr), if Expr -> ct:fail(failed); true -> ok end).
 
 record_test(Config) when is_list(Config) ->
     ?line true = is_record(#foo{}, foo),
@@ -259,7 +259,7 @@ once(Test, Record) ->
 	1 -> ok;
 	N ->
 	    io:format("Evaluated ~w times\n", [N]),
-	    ?t:fail()
+	    ct:fail(failed)
     end,
     Result.
 

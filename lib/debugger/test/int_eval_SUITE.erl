@@ -119,9 +119,9 @@ catch_and_throw(Config) when is_list(Config) ->
     ?line Pid1 = spawn_link(fun() -> exit(?IM:catch_a_ball()) end),
     receive
 	{'EXIT',Pid1,ok} -> ok;
-	{'EXIT',Pid1,Bad1} -> ?line ?t:fail({bad_message,Bad1})
+	{'EXIT',Pid1,Bad1} -> ct:fail({bad_message,Bad1})
     after 5000 ->
-	    ?line ?t:fail(timeout)
+	    ct:fail(timeout)
     end,
 
 
@@ -130,9 +130,9 @@ catch_and_throw(Config) when is_list(Config) ->
     ?line Pid2 = spawn_link(fun() -> ?IM:throw_a_ball() end),
     receive
 	{'EXIT',Pid2,{{nocatch,{a,ball}},[_|_]}} -> ok;
-	{'EXIT',Pid2,Bad2} -> ?line ?t:fail({bad_message,Bad2})
+	{'EXIT',Pid2,Bad2} -> ct:fail({bad_message,Bad2})
     after 5000 ->
-	    ?line ?t:fail(timeout)
+	    ct:fail(timeout)
     end,
 
     ?line ok = ?IM:more_catch(fun(_) -> ?IM:exit_me() end),
@@ -261,9 +261,9 @@ interpreted_exit(Config) when is_list(Config) ->
 	      {'EXIT',Pid,Reason} ->
 		  ok;
 	      {'EXIT',Pid,BadReason} ->
-		  ?line ?t:fail({bad_message,BadReason})
+		  ct:fail({bad_message,BadReason})
 	  after 10000 ->
-		  ?line ?t:fail(timeout)
+		  ct:fail(timeout)
 	  end,
     ok.
 
