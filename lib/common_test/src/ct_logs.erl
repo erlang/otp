@@ -793,7 +793,7 @@ logger_loop(State) ->
 	    %% make sure no IO for this test case from the
 	    %% CT logger gets rejected
 	    test_server:permit_io(GL, self()),
-	    print_style(GL, State#logger_state.stylesheet),
+	    print_style(GL,GL,State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
 	    if not RefreshLog ->
@@ -1106,26 +1106,27 @@ open_ctlog(MiscIoName) ->
 	      "View I/O logged after the test run</a></li>\n</ul>\n",
 	      [MiscIoName,MiscIoName]),
 
-    print_style(Fd,undefined),
+    print_style(Fd,group_leader(),undefined),
     io:format(Fd, 
 	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
 		    "<br />\n<h4>PROGRESS LOG</h4>\n<pre>\n"), []),
     Fd.
 
-print_style(Fd,undefined) ->
+print_style(Fd,GL,undefined) ->
     case basic_html() of
 	true ->
-	    io:format(Fd,
-		      "<style>\n"
-		      "div.ct_internal { background:lightgrey; color:black; }\n"
-		      "div.default     { background:lightgreen; color:black; }\n"
-		      "</style>\n",
-		      []);
+	    Style = "<style>\n
+		div.ct_internal { background:lightgrey; color:black; }\n
+		div.default     { background:lightgreen; color:black; }\n
+		</style>\n",
+	    if Fd == GL -> io:format(["$tc_html",Style], []);
+	       true     -> io:format(Fd, Style, [])
+	    end;
 	_ ->
 	    ok
     end;
 
-print_style(Fd,StyleSheet) ->
+print_style(Fd,GL,StyleSheet) ->
     case file:read_file(StyleSheet) of
 	{ok,Bin} ->
 	    Str = b2s(Bin,encoding(StyleSheet)),
@@ -1138,23 +1139,30 @@ print_style(Fd,StyleSheet) ->
 		       N1 -> N1
 		   end,
 	    if (Pos0 == 0) and (Pos1 /= 0) ->
-		    print_style_error(Fd,StyleSheet,missing_style_start_tag);
+		    print_style_error(Fd,GL,StyleSheet,missing_style_start_tag);
 	       (Pos0 /= 0) and (Pos1 == 0) ->
-		    print_style_error(Fd,StyleSheet,missing_style_end_tag);
+		    print_style_error(Fd,GL,StyleSheet,missing_style_end_tag);
 	       Pos0 /= 0 ->
 		    Style = string:sub_string(Str,Pos0,Pos1+7),
-		    io:format(Fd,"~ts\n",[Style]);
+		    if Fd == GL -> io:format(Fd,["$tc_html","~ts\n"],[Style]);
+		       true     -> io:format(Fd,"~ts\n",[Style])
+		    end;
 	       Pos0 == 0 ->
-		    io:format(Fd,"<style>~ts</style>\n",[Str])
+		    if Fd == GL -> io:format(Fd,["$tc_html","<style>\n~ts</style>\n"],[Str]);
+		       true     -> io:format(Fd,"<style>\n~ts</style>\n",[Str])
+		    end
 	    end;
 	{error,Reason} ->
-	    print_style_error(Fd,StyleSheet,Reason)  
+	    print_style_error(Fd,GL,StyleSheet,Reason)  
     end.
 
-print_style_error(Fd,StyleSheet,Reason) ->
-    io:format(Fd,"\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
-	      [StyleSheet,Reason]),
-    print_style(Fd,undefined).    
+print_style_error(Fd,GL,StyleSheet,Reason) ->
+    IO = io_lib:format("\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
+		       [StyleSheet,Reason]),
+    if Fd == GL -> io:format(Fd,["$tc_html",IO],[]);
+       true     -> io:format(Fd,IO,[])
+    end,
+    print_style(Fd,GL,undefined).    
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
