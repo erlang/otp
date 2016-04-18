@@ -48,7 +48,7 @@ $pack_shift[4] = ['0', 'BEAM_LOOSE_SHIFT', # Only for 64 bit wordsize
 		  '(3*BEAM_LOOSE_SHIFT)'];
 
 $pack_mask[2]  = ['BEAM_LOOSE_MASK', $WHOLE_WORD];
-$pack_mask[3]  = ['BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK', $WHOLE_WORD];
+$pack_mask[3]  = ['BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK'];
 $pack_mask[4]  = ['BEAM_LOOSE_MASK', # Only for 64 bit wordsize
 		  'BEAM_LOOSE_MASK',
 		  'BEAM_LOOSE_MASK',
@@ -251,6 +251,7 @@ $args_per_word[5] = 3;
 $args_per_word[6] = 3;
 
 if ($wordsize == 64) {
+    $pack_mask[3] = ['BEAM_TIGHT_MASK', 'BEAM_TIGHT_MASK', $WHOLE_WORD];
     $args_per_word[4] = 4;
 }
 
@@ -624,19 +625,25 @@ sub emulator_output {
     print "#define NUM_SPECIFIC_OPS ", scalar(@op_to_name), "\n";
     print "#define SCRATCH_X_REG 1023\n";
     print "\n";
-    print "#ifdef ARCH_64\n";
-    print "#  define BEAM_WIDE_MASK 0xFFFFUL\n";
-    print "#  define BEAM_LOOSE_MASK 0xFFFFUL\n";
-    print "#  define BEAM_TIGHT_MASK 0xFFFFUL\n";
-    print "#  define BEAM_WIDE_SHIFT 32\n";
-    print "#  define BEAM_LOOSE_SHIFT 16\n";
-    print "#  define BEAM_TIGHT_SHIFT 16\n";
-    print "#else\n";
-    print "#  define BEAM_LOOSE_MASK 0xFFF\n";
-    print "#  define BEAM_TIGHT_MASK 0xFFC\n";
-    print "#  define BEAM_LOOSE_SHIFT 16\n";
-    print "#  define BEAM_TIGHT_SHIFT 10\n";
-    print "#endif\n";
+    if ($wordsize == 32) {
+	print "#if defined(ARCH_64)\n";
+	print qq[  #error "32-bit architecture assumed, but ARCH_64 is defined"\n];
+	print "#endif\n";
+	print "#define BEAM_LOOSE_MASK 0xFFF\n";
+	print "#define BEAM_TIGHT_MASK 0xFFC\n";
+	print "#define BEAM_LOOSE_SHIFT 16\n";
+	print "#define BEAM_TIGHT_SHIFT 10\n";
+    } elsif ($wordsize == 64) {
+	print "#if !defined(ARCH_64)\n";
+	print qq[  #error "64-bit architecture assumed, but ARCH_64 not defined"\n];
+	print "#endif\n";
+	print "#define BEAM_WIDE_MASK 0xFFFFUL\n";
+	print "#define BEAM_LOOSE_MASK 0xFFFFUL\n";
+	print "#define BEAM_TIGHT_MASK 0xFFFFUL\n";
+	print "#define BEAM_WIDE_SHIFT 32\n";
+	print "#define BEAM_LOOSE_SHIFT 16\n";
+	print "#define BEAM_TIGHT_SHIFT 16\n";
+    }
     print "\n";
 
     #

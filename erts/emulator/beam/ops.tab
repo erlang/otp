@@ -229,6 +229,9 @@ i_get_tuple_element y P y
 %macro: i_get_tuple_element2 GetTupleElement2 -pack
 i_get_tuple_element2 x P x
 
+%macro: i_get_tuple_element2y GetTupleElement2Y -pack
+i_get_tuple_element2y x P y y
+
 %macro: i_get_tuple_element3 GetTupleElement3 -pack
 i_get_tuple_element3 x P x
 
@@ -648,6 +651,9 @@ get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    succ(P1, P2) | succ(D1, D2) => i_get_tuple_element2 Reg P1 D1
+
+get_tuple_element Reg=x P1 D1=y | get_tuple_element Reg=x P2 D2=y | \
+   succ(P1, P2) => i_get_tuple_element2y Reg P1 D1 D2
 
 get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
 
