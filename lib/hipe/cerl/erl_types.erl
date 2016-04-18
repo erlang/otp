@@ -1821,8 +1821,8 @@ map_pairwise_merge_foldr(F, AccIn, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
 %% cases, at the cost of the creation of more tuples:
 mapmerge_otherv(K, ODefK, ODefV) ->
   case t_inf(K, ODefK) of
-    ?none -> ?none;
-    K     -> ODefV
+    ?none      -> ?none;
+    _KOrOpaque -> ODefV
   end.
 
 -spec t_map_put({erl_type(), erl_type()}, erl_type()) -> erl_type().
