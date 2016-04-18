@@ -44,13 +44,29 @@
 %% instance, the tests need to be performed on a separate node (or
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,120}}].
+
+all() ->
+    [
+     pre_post_io
+    ].
+
 init_per_suite(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CTH = filename:join(DataDir, "cth_ctrl.erl"),
-    ct:pal("Compiling ~p: ~p",
-	   [CTH,compile:file(CTH,[{outdir,DataDir},debug_info])]),
-    ct_test_support:init_per_suite([{path_dirs,[DataDir]},
-				    {start_sasl,true} | Config]).
+    TTInfo = {_T,{_Scaled,ScaleVal}} = ct:get_timetrap_info(),
+    ct:pal("Timetrap info = ~w", [TTInfo]),
+    if ScaleVal > 1 ->
+	    {skip,"Skip on systems running e.g. cover or debug!"};
+       ScaleVal =< 1 ->
+	    DataDir = ?config(data_dir, Config),
+	    CTH = filename:join(DataDir, "cth_ctrl.erl"),
+	    ct:pal("Compiling ~p: ~p",
+		   [CTH,compile:file(CTH,[{outdir,DataDir},
+					  debug_info])]),
+	    ct_test_support:init_per_suite([{path_dirs,[DataDir]},
+					    {start_sasl,true} | Config])
+    end.
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -60,14 +76,6 @@ init_per_testcase(TestCase, Config) ->
 
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
-
-suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{seconds,120}}].
-
-all() ->
-    [
-     pre_post_io
-    ].
 
 %%--------------------------------------------------------------------
 %% TEST CASES

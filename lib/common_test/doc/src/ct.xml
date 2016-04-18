@@ -601,18 +601,21 @@
     </func>
 
     <func>
-      <name>get_timetrap_info() -&gt; {Time, Scale}</name>
+      <name>get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
       <fsummary>Reads information about the timetrap set for the current
         test case.</fsummary>
       <type>
         <v>Time = integer() | infinity</v>
-        <v>Scale = true | false</v>
+        <v>Scaling = true | false</v>
+        <v>ScaleVal = integer()</v>
       </type>
      <desc><marker id="get_timetrap_info-0"/>
         <p>Reads information about the timetrap set for the current test
-          case. <c>Scale</c> indicates if <c>Common Test</c> will attempt
+          case. <c>Scaling</c> indicates if <c>Common Test</c> will attempt
           to compensate timetraps automatically for runtime delays
-          introduced by, for example, tools like cover.</p>
+          introduced by, for example, tools like cover. <c>ScaleVal</c> is
+	  the value of the current scaling multipler (always 1 if scaling is
+	  disabled). Note the <c>Time</c> is not the scaled result.</p>
       </desc>
     </func>
 

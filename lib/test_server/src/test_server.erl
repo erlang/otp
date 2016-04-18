@@ -2165,10 +2165,19 @@ get_timetrap_info(TCPid, SendToServer) ->
 	Timers ->
 	    case [Info || {Handle,Pid,Info} <- Timers, 
 			  Pid == TCPid, Handle /= infinity] of
-		[I|_] ->
-		    I;
+		[{TVal,true}|_] ->
+		    {TVal,{true,test_server:timetrap_scale_factor()}};
+		[{TVal,false}|_] ->
+		    {TVal,{false,1}};
 		[] when SendToServer == true ->
-		    tc_supervisor_req({get_timetrap_info,TCPid});
+		    case tc_supervisor_req({get_timetrap_info,TCPid}) of
+			{TVal,true} ->
+			    {TVal,{true,test_server:timetrap_scale_factor()}};
+			{TVal,false} ->
+			    {TVal,{false,1}};
+			Error ->
+			    Error
+		    end;
 		[] ->
 		    undefined
 	    end
