@@ -873,8 +873,15 @@ refold_pattern(Pat) ->
   case cerl:is_literal(Pat) andalso find_map(cerl:concrete(Pat)) of
     true ->
       Tree = refold_concrete_pat(cerl:concrete(Pat)),
-      [{label, Label}] = cerl:get_ann(Tree),
-      cerl:set_ann(Tree, [{label, Label}|cerl:get_ann(Pat)]);
+      PatAnn = cerl:get_ann(Pat),
+      case proplists:is_defined(label, PatAnn) of
+	%% Literals are not normally annotated with a label, but can be if, for
+	%% example, they were created by cerl:fold_literal/1.
+	true -> cerl:set_ann(Tree, PatAnn);
+	false ->
+	  [{label, Label}] = cerl:get_ann(Tree),
+	  cerl:set_ann(Tree, [{label, Label}|PatAnn])
+      end;
     false -> Pat
   end.
 
