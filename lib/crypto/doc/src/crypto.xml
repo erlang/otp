@@ -203,6 +203,7 @@
     <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <name>block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
@@ -210,6 +211,7 @@
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+        <v>TagLength = 1..16</v>
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
